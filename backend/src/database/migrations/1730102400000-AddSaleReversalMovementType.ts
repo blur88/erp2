@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddSaleReversalMovementType1730102400000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -23,6 +23,8 @@ export class AddSaleReversalMovementType1730102400000 implements MigrationInterf
     // Note: PostgreSQL doesn't support removing enum values directly
     // This would require recreating the enum type and updating all references
     // For production, it's safer to leave the enum value in place
-    console.warn('Cannot remove enum value in PostgreSQL. Manual intervention required if rollback is needed.');
+    console.warn(
+      "Cannot remove enum value in PostgreSQL. Manual intervention required if rollback is needed.",
+    );
   }
 }

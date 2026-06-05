@@ -3,22 +3,22 @@ import {
   NotFoundException,
   Logger,
   InternalServerErrorException,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
-import { CompanySettings } from '../../database/entities/company-settings.entity';
-import { RegionalSettings } from '../../database/entities/regional-settings.entity';
-import { DocumentNumberSetting } from '../../database/entities/document-number-settings.entity';
-import { SalesOrder } from '../../database/entities/sales-order.entity';
-import { Payment } from '../../database/entities/payment.entity';
-import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
-import { GoodsReceivedNote } from '../../database/entities/goods-received-note.entity';
-import { VendorPayment } from '../../database/entities/vendor-payment.entity';
-import { StockAdjustment } from '../../database/entities/stock-adjustment.entity';
-import { JournalEntry } from '../../database/entities/journal-entry.entity';
-import { Expense } from '../../database/entities/expense.entity';
-import { Settlement } from '../../database/entities/settlement.entity';
-import { OwnerEquityTransaction } from '../../database/entities/owner-equity-transaction.entity';
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { DataSource, Repository } from "typeorm";
+import { CompanySettings } from "../../database/entities/company-settings.entity";
+import { RegionalSettings } from "../../database/entities/regional-settings.entity";
+import { DocumentNumberSetting } from "../../database/entities/document-number-settings.entity";
+import { SalesOrder } from "../../database/entities/sales-order.entity";
+import { Payment } from "../../database/entities/payment.entity";
+import { PurchaseOrder } from "../../database/entities/purchase-order.entity";
+import { GoodsReceivedNote } from "../../database/entities/goods-received-note.entity";
+import { VendorPayment } from "../../database/entities/vendor-payment.entity";
+import { StockAdjustment } from "../../database/entities/stock-adjustment.entity";
+import { JournalEntry } from "../../database/entities/journal-entry.entity";
+import { Expense } from "../../database/entities/expense.entity";
+import { Settlement } from "../../database/entities/settlement.entity";
+import { OwnerEquityTransaction } from "../../database/entities/owner-equity-transaction.entity";
 import {
   UpdateCompanySettingsDto,
   CompanySettingsResponseDto,
@@ -26,10 +26,10 @@ import {
   RegionalSettingsResponseDto,
   UpdateDocumentNumberSettingsDto,
   DocumentNumberSettingsResponseDto,
-} from './dto';
-import { plainToInstance } from 'class-transformer';
-import * as fs from 'fs';
-import * as path from 'path';
+} from "./dto";
+import { plainToInstance } from "class-transformer";
+import * as fs from "fs";
+import * as path from "path";
 
 /**
  * Settings Service
@@ -90,7 +90,9 @@ export class SettingsService {
         `Failed to get company settings: ${error.message}`,
         error.stack,
       );
-      throw new InternalServerErrorException('Failed to retrieve company settings');
+      throw new InternalServerErrorException(
+        "Failed to retrieve company settings",
+      );
     }
   }
 
@@ -99,7 +101,7 @@ export class SettingsService {
    */
   async updateCompanySettings(
     updateDto: UpdateCompanySettingsDto,
-    updatedBy = 'system',
+    updatedBy = "system",
   ): Promise<CompanySettingsResponseDto> {
     try {
       let settings = await this.companySettingsRepository.findOne({
@@ -119,9 +121,7 @@ export class SettingsService {
 
       const savedSettings = await this.companySettingsRepository.save(settings);
 
-      this.logger.log(
-        `Company settings updated by ${updatedBy}`,
-      );
+      this.logger.log(`Company settings updated by ${updatedBy}`);
 
       return this.mapToResponseDto(savedSettings);
     } catch (error) {
@@ -129,7 +129,9 @@ export class SettingsService {
         `Failed to update company settings: ${error.message}`,
         error.stack,
       );
-      throw new InternalServerErrorException('Failed to update company settings');
+      throw new InternalServerErrorException(
+        "Failed to update company settings",
+      );
     }
   }
 
@@ -138,7 +140,7 @@ export class SettingsService {
    */
   async updateLogoUrl(
     logoUrl: string,
-    updatedBy = 'system',
+    updatedBy = "system",
   ): Promise<CompanySettingsResponseDto> {
     try {
       let settings = await this.companySettingsRepository.findOne({
@@ -146,7 +148,7 @@ export class SettingsService {
       });
 
       if (!settings) {
-        throw new NotFoundException('Company settings not found');
+        throw new NotFoundException("Company settings not found");
       }
 
       // Delete old logo file if it exists
@@ -157,9 +159,7 @@ export class SettingsService {
       settings.logoUrl = logoUrl;
       const savedSettings = await this.companySettingsRepository.save(settings);
 
-      this.logger.log(
-        `Company logo updated by ${updatedBy}`,
-      );
+      this.logger.log(`Company logo updated by ${updatedBy}`);
 
       return this.mapToResponseDto(savedSettings);
     } catch (error) {
@@ -175,7 +175,7 @@ export class SettingsService {
    * Delete company logo
    */
   async deleteLogoUrl(
-    updatedBy = 'system',
+    updatedBy = "system",
   ): Promise<CompanySettingsResponseDto> {
     try {
       let settings = await this.companySettingsRepository.findOne({
@@ -183,7 +183,7 @@ export class SettingsService {
       });
 
       if (!settings) {
-        throw new NotFoundException('Company settings not found');
+        throw new NotFoundException("Company settings not found");
       }
 
       // Delete the logo file if it exists
@@ -194,9 +194,7 @@ export class SettingsService {
       settings.logoUrl = null;
       const savedSettings = await this.companySettingsRepository.save(settings);
 
-      this.logger.log(
-        `Company logo deleted by ${updatedBy}`,
-      );
+      this.logger.log(`Company logo deleted by ${updatedBy}`);
 
       return this.mapToResponseDto(savedSettings);
     } catch (error) {
@@ -213,22 +211,23 @@ export class SettingsService {
    */
   private async createDefaultSettings(): Promise<CompanySettings> {
     const defaultSettings = this.companySettingsRepository.create({
-      name: 'Your Company Name',
-      address: '123 Main Street',
-      city: 'City',
-      state: '',
-      postalCode: '',
-      country: 'Country',
-      phone: '',
-      email: '',
-      website: '',
-      miscInfo: '',
+      name: "Your Company Name",
+      address: "123 Main Street",
+      city: "City",
+      state: "",
+      postalCode: "",
+      country: "Country",
+      phone: "",
+      email: "",
+      website: "",
+      miscInfo: "",
       logoUrl: null,
       isActive: true,
     });
 
-    const savedSettings = await this.companySettingsRepository.save(defaultSettings);
-    this.logger.log('Default company settings created');
+    const savedSettings =
+      await this.companySettingsRepository.save(defaultSettings);
+    this.logger.log("Default company settings created");
 
     return savedSettings;
   }
@@ -240,7 +239,7 @@ export class SettingsService {
     try {
       // Extract the file path from the URL
       // logoUrl format: /uploads/logos/logo-123456789.png
-      const filePath = path.join(process.cwd(), logoUrl.replace(/^\//, ''));
+      const filePath = path.join(process.cwd(), logoUrl.replace(/^\//, ""));
 
       // Check if file exists before attempting to delete
       if (fs.existsSync(filePath)) {
@@ -261,7 +260,9 @@ export class SettingsService {
   /**
    * Map entity to response DTO
    */
-  private mapToResponseDto(settings: CompanySettings): CompanySettingsResponseDto {
+  private mapToResponseDto(
+    settings: CompanySettings,
+  ): CompanySettingsResponseDto {
     return plainToInstance(CompanySettingsResponseDto, settings, {
       excludeExtraneousValues: true,
     });
@@ -287,7 +288,9 @@ export class SettingsService {
         `Failed to get price and costing settings: ${error.message}`,
         error.stack,
       );
-      throw new InternalServerErrorException('Failed to retrieve price and costing settings');
+      throw new InternalServerErrorException(
+        "Failed to retrieve price and costing settings",
+      );
     }
   }
 
@@ -296,7 +299,7 @@ export class SettingsService {
    */
   async updateRegionalSettings(
     updateDto: UpdateRegionalSettingsDto,
-    updatedBy = 'system',
+    updatedBy = "system",
   ): Promise<RegionalSettingsResponseDto> {
     try {
       let settings = await this.regionalSettingsRepository.findOne({
@@ -314,11 +317,10 @@ export class SettingsService {
         Object.assign(settings, updateDto);
       }
 
-      const savedSettings = await this.regionalSettingsRepository.save(settings);
+      const savedSettings =
+        await this.regionalSettingsRepository.save(settings);
 
-      this.logger.log(
-        `Price and costing settings updated by ${updatedBy}`,
-      );
+      this.logger.log(`Price and costing settings updated by ${updatedBy}`);
 
       return this.mapToRegionalSettingsResponseDto(savedSettings);
     } catch (error) {
@@ -326,7 +328,9 @@ export class SettingsService {
         `Failed to update price and costing settings: ${error.message}`,
         error.stack,
       );
-      throw new InternalServerErrorException('Failed to update price and costing settings');
+      throw new InternalServerErrorException(
+        "Failed to update price and costing settings",
+      );
     }
   }
 
@@ -335,13 +339,14 @@ export class SettingsService {
    */
   private async createDefaultRegionalSettings(): Promise<RegionalSettings> {
     const defaultSettings = this.regionalSettingsRepository.create({
-      currency: 'USD',
-      costingMethod: 'AVERAGE',
+      currency: "USD",
+      costingMethod: "AVERAGE",
       isActive: true,
     });
 
-    const savedSettings = await this.regionalSettingsRepository.save(defaultSettings);
-    this.logger.log('Default price and costing settings created');
+    const savedSettings =
+      await this.regionalSettingsRepository.save(defaultSettings);
+    this.logger.log("Default price and costing settings created");
 
     return savedSettings;
   }
@@ -349,7 +354,9 @@ export class SettingsService {
   /**
    * Map entity to price costing response DTO
    */
-  private mapToRegionalSettingsResponseDto(settings: RegionalSettings): RegionalSettingsResponseDto {
+  private mapToRegionalSettingsResponseDto(
+    settings: RegionalSettings,
+  ): RegionalSettingsResponseDto {
     return plainToInstance(RegionalSettingsResponseDto, settings, {
       excludeExtraneousValues: true,
     });
@@ -364,13 +371,13 @@ export class SettingsService {
         where: { isActive: true },
       });
 
-      return settings?.currency || 'USD';
+      return settings?.currency || "USD";
     } catch (error) {
       this.logger.error(
         `Failed to get default currency: ${error.message}`,
         error.stack,
       );
-      return 'USD';
+      return "USD";
     }
   }
 
@@ -380,20 +387,25 @@ export class SettingsService {
   async getDocumentNumberSettings(): Promise<DocumentNumberSettingsResponseDto> {
     try {
       let rows = await this.documentNumberSettingRepository.find({
-        order: { documentName: 'ASC' },
+        order: { documentName: "ASC" },
       });
 
       if (!rows.length) {
         await this.createDefaultDocumentNumberSettings();
         rows = await this.documentNumberSettingRepository.find({
-          order: { documentName: 'ASC' },
+          order: { documentName: "ASC" },
         });
       }
 
       return { configurations: rows };
     } catch (error) {
-      this.logger.error(`Failed to get document number settings: ${error.message}`, error.stack);
-      throw new InternalServerErrorException('Failed to retrieve document number settings');
+      this.logger.error(
+        `Failed to get document number settings: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        "Failed to retrieve document number settings",
+      );
     }
   }
 
@@ -402,7 +414,7 @@ export class SettingsService {
    */
   async updateDocumentNumberSettings(
     updateDto: UpdateDocumentNumberSettingsDto,
-    updatedBy = 'system',
+    updatedBy = "system",
   ): Promise<DocumentNumberSettingsResponseDto> {
     try {
       for (const cfg of updateDto.configurations) {
@@ -414,8 +426,13 @@ export class SettingsService {
       this.logger.log(`Document number settings updated by ${updatedBy}`);
       return this.getDocumentNumberSettings();
     } catch (error) {
-      this.logger.error(`Failed to update document number settings: ${error.message}`, error.stack);
-      throw new InternalServerErrorException('Failed to update document number settings');
+      this.logger.error(
+        `Failed to update document number settings: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        "Failed to update document number settings",
+      );
     }
   }
 
@@ -430,7 +447,9 @@ export class SettingsService {
       );
 
       if (!rows.length) {
-        throw new NotFoundException(`Document number config for '${documentName}' not found`);
+        throw new NotFoundException(
+          `Document number config for '${documentName}' not found`,
+        );
       }
 
       const row = rows[0];
@@ -441,8 +460,8 @@ export class SettingsService {
         row.lastResetYear = currentYY;
       }
 
-      const yy = String(currentYY).padStart(2, '0');
-      const seq = String(row.nextNumber).padStart(row.paddingDigits, '0');
+      const yy = String(currentYY).padStart(2, "0");
+      const seq = String(row.nextNumber).padStart(row.paddingDigits, "0");
       const documentNumber = `${row.prefix}-${yy}-${seq}`;
 
       await manager.query(
@@ -463,15 +482,15 @@ export class SettingsService {
         where: { documentName },
       });
 
-      if (!row) return 'N/A';
+      if (!row) return "N/A";
 
       const currentYY = new Date().getFullYear() % 100;
       const nextNum = row.lastResetYear !== currentYY ? 1 : row.nextNumber;
-      const yy = String(currentYY).padStart(2, '0');
-      const seq = String(nextNum).padStart(row.paddingDigits, '0');
+      const yy = String(currentYY).padStart(2, "0");
+      const seq = String(nextNum).padStart(row.paddingDigits, "0");
       return `${row.prefix}-${yy}-${seq}`;
     } catch {
-      return 'N/A';
+      return "N/A";
     }
   }
 
@@ -481,16 +500,16 @@ export class SettingsService {
   private async createDefaultDocumentNumberSettings(): Promise<void> {
     const currentYY = new Date().getFullYear() % 100;
     const defaults = [
-      { documentName: 'Sales Orders', prefix: 'SO' },
-      { documentName: 'Payments', prefix: 'PAY' },
-      { documentName: 'Purchase Orders', prefix: 'PO' },
-      { documentName: 'Goods Received', prefix: 'GRN' },
-      { documentName: 'Vendor Payments', prefix: 'VP' },
-      { documentName: 'Stock Adjustment', prefix: 'SA' },
-      { documentName: 'Journal Entries', prefix: 'JE' },
-      { documentName: 'Expenses', prefix: 'EXP' },
-      { documentName: 'Settlements', prefix: 'STL' },
-      { documentName: 'Owner Equity', prefix: 'EQ' },
+      { documentName: "Sales Orders", prefix: "SO" },
+      { documentName: "Payments", prefix: "PAY" },
+      { documentName: "Purchase Orders", prefix: "PO" },
+      { documentName: "Goods Received", prefix: "GRN" },
+      { documentName: "Vendor Payments", prefix: "VP" },
+      { documentName: "Stock Adjustment", prefix: "SA" },
+      { documentName: "Journal Entries", prefix: "JE" },
+      { documentName: "Expenses", prefix: "EXP" },
+      { documentName: "Settlements", prefix: "STL" },
+      { documentName: "Owner Equity", prefix: "EQ" },
     ];
 
     for (const d of defaults) {
@@ -508,7 +527,7 @@ export class SettingsService {
         );
       }
     }
-    this.logger.log('Default document number settings created');
+    this.logger.log("Default document number settings created");
   }
 
   /**
@@ -524,154 +543,181 @@ export class SettingsService {
       }
 
       const currentYY = new Date().getFullYear() % 100;
-      const pattern = (prefix: string) => `${prefix}-${String(currentYY).padStart(2, '0')}-%`;
+      const pattern = (prefix: string) =>
+        `${prefix}-${String(currentYY).padStart(2, "0")}-%`;
 
       for (const row of rows) {
         let maxNumber = 0;
         try {
           switch (row.documentName) {
-            case 'Sales Orders': {
+            case "Sales Orders": {
               const r = await this.salesOrderRepository
-                .createQueryBuilder('so')
-                .select('so.orderNumber')
-                .where('so.orderNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('so.orderNumber', 'DESC')
+                .createQueryBuilder("so")
+                .select("so.orderNumber")
+                .where("so.orderNumber LIKE :p", { p: pattern(row.prefix) })
+                .orderBy("so.orderNumber", "DESC")
                 .limit(1)
                 .getOne();
-              if (r?.orderNumber) maxNumber = parseInt(r.orderNumber.split('-')[2], 10) || 0;
+              if (r?.orderNumber)
+                maxNumber = parseInt(r.orderNumber.split("-")[2], 10) || 0;
               break;
             }
-            case 'Payments': {
+            case "Payments": {
               const r = await this.paymentRepository
-                .createQueryBuilder('pay')
-                .select('pay.paymentNumber')
-                .where('pay.paymentNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('pay.paymentNumber', 'DESC')
+                .createQueryBuilder("pay")
+                .select("pay.paymentNumber")
+                .where("pay.paymentNumber LIKE :p", { p: pattern(row.prefix) })
+                .orderBy("pay.paymentNumber", "DESC")
                 .limit(1)
                 .getOne();
-              if (r?.paymentNumber) maxNumber = parseInt(r.paymentNumber.split('-')[2], 10) || 0;
+              if (r?.paymentNumber)
+                maxNumber = parseInt(r.paymentNumber.split("-")[2], 10) || 0;
               break;
             }
-            case 'Purchase Orders': {
+            case "Purchase Orders": {
               const r = await this.purchaseOrderRepository
-                .createQueryBuilder('po')
-                .select('po.orderNumber')
-                .where('po.orderNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('po.orderNumber', 'DESC')
+                .createQueryBuilder("po")
+                .select("po.orderNumber")
+                .where("po.orderNumber LIKE :p", { p: pattern(row.prefix) })
+                .orderBy("po.orderNumber", "DESC")
                 .limit(1)
                 .getOne();
-              if (r?.orderNumber) maxNumber = parseInt(r.orderNumber.split('-')[2], 10) || 0;
+              if (r?.orderNumber)
+                maxNumber = parseInt(r.orderNumber.split("-")[2], 10) || 0;
               break;
             }
-            case 'Goods Received': {
+            case "Goods Received": {
               const r = await this.goodsReceivedNoteRepository
-                .createQueryBuilder('grn')
-                .select('grn.grnNumber')
-                .where('grn.grnNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('grn.grnNumber', 'DESC')
+                .createQueryBuilder("grn")
+                .select("grn.grnNumber")
+                .where("grn.grnNumber LIKE :p", { p: pattern(row.prefix) })
+                .orderBy("grn.grnNumber", "DESC")
                 .limit(1)
                 .getOne();
-              if (r?.grnNumber) maxNumber = parseInt(r.grnNumber.split('-')[2], 10) || 0;
+              if (r?.grnNumber)
+                maxNumber = parseInt(r.grnNumber.split("-")[2], 10) || 0;
 
               const legacy = await this.goodsReceivedNoteRepository
-                .createQueryBuilder('grn')
-                .select('grn.grnNumber')
+                .createQueryBuilder("grn")
+                .select("grn.grnNumber")
                 .where("grn.grnNumber ~ '^GRN-\\\\d+$'")
-                .orderBy('grn.grnNumber', 'DESC')
+                .orderBy("grn.grnNumber", "DESC")
                 .limit(1)
                 .getOne();
               if (legacy?.grnNumber) {
-                const legacyNum = parseInt(legacy.grnNumber.split('-')[1], 10) || 0;
+                const legacyNum =
+                  parseInt(legacy.grnNumber.split("-")[1], 10) || 0;
                 maxNumber = Math.max(maxNumber, legacyNum);
               }
               break;
             }
-            case 'Vendor Payments': {
+            case "Vendor Payments": {
               const r = await this.vendorPaymentRepository
-                .createQueryBuilder('vp')
-                .select('vp.paymentNumber')
-                .where('vp.paymentNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('vp.paymentNumber', 'DESC')
+                .createQueryBuilder("vp")
+                .select("vp.paymentNumber")
+                .where("vp.paymentNumber LIKE :p", { p: pattern(row.prefix) })
+                .orderBy("vp.paymentNumber", "DESC")
                 .limit(1)
                 .getOne();
-              if (r?.paymentNumber) maxNumber = parseInt(r.paymentNumber.split('-')[2], 10) || 0;
+              if (r?.paymentNumber)
+                maxNumber = parseInt(r.paymentNumber.split("-")[2], 10) || 0;
               break;
             }
-            case 'Stock Adjustment': {
+            case "Stock Adjustment": {
               const r = await this.stockAdjustmentRepository
-                .createQueryBuilder('sa')
-                .select('sa.adjustmentNumber')
-                .where('sa.adjustmentNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('sa.adjustmentNumber', 'DESC')
+                .createQueryBuilder("sa")
+                .select("sa.adjustmentNumber")
+                .where("sa.adjustmentNumber LIKE :p", {
+                  p: pattern(row.prefix),
+                })
+                .orderBy("sa.adjustmentNumber", "DESC")
                 .limit(1)
                 .getOne();
               if (r?.adjustmentNumber) {
-                maxNumber = parseInt(r.adjustmentNumber.split('-')[2], 10) || 0;
+                maxNumber = parseInt(r.adjustmentNumber.split("-")[2], 10) || 0;
               }
               break;
             }
-            case 'Journal Entries': {
+            case "Journal Entries": {
               const r = await this.journalEntryRepository
-                .createQueryBuilder('je')
-                .select('je.referenceNumber')
-                .where('je.referenceNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('je.referenceNumber', 'DESC')
+                .createQueryBuilder("je")
+                .select("je.referenceNumber")
+                .where("je.referenceNumber LIKE :p", { p: pattern(row.prefix) })
+                .orderBy("je.referenceNumber", "DESC")
                 .limit(1)
                 .getOne();
-              if (r?.referenceNumber) maxNumber = parseInt(r.referenceNumber.split('-')[2], 10) || 0;
+              if (r?.referenceNumber)
+                maxNumber = parseInt(r.referenceNumber.split("-")[2], 10) || 0;
               break;
             }
-            case 'Expenses': {
+            case "Expenses": {
               const r = await this.expenseRepository
-                .createQueryBuilder('exp')
-                .select('exp.referenceNumber')
-                .where('exp.referenceNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('exp.referenceNumber', 'DESC')
+                .createQueryBuilder("exp")
+                .select("exp.referenceNumber")
+                .where("exp.referenceNumber LIKE :p", {
+                  p: pattern(row.prefix),
+                })
+                .orderBy("exp.referenceNumber", "DESC")
                 .limit(1)
                 .getOne();
-              if (r?.referenceNumber) maxNumber = parseInt(r.referenceNumber.split('-')[2], 10) || 0;
+              if (r?.referenceNumber)
+                maxNumber = parseInt(r.referenceNumber.split("-")[2], 10) || 0;
               break;
             }
-            case 'Settlements': {
+            case "Settlements": {
               const r = await this.settlementRepository
-                .createQueryBuilder('stl')
-                .select('stl.settlementNumber')
-                .where('stl.settlementNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('stl.settlementNumber', 'DESC')
+                .createQueryBuilder("stl")
+                .select("stl.settlementNumber")
+                .where("stl.settlementNumber LIKE :p", {
+                  p: pattern(row.prefix),
+                })
+                .orderBy("stl.settlementNumber", "DESC")
                 .limit(1)
                 .getOne();
-              if (r?.settlementNumber) maxNumber = parseInt(r.settlementNumber.split('-')[2], 10) || 0;
+              if (r?.settlementNumber)
+                maxNumber = parseInt(r.settlementNumber.split("-")[2], 10) || 0;
               break;
             }
-            case 'Owner Equity': {
+            case "Owner Equity": {
               const r = await this.ownerEquityRepository
-                .createQueryBuilder('eq')
-                .select('eq.referenceNumber')
-                .where('eq.referenceNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('eq.referenceNumber', 'DESC')
+                .createQueryBuilder("eq")
+                .select("eq.referenceNumber")
+                .where("eq.referenceNumber LIKE :p", { p: pattern(row.prefix) })
+                .orderBy("eq.referenceNumber", "DESC")
                 .limit(1)
                 .getOne();
-              if (r?.referenceNumber) maxNumber = parseInt(r.referenceNumber.split('-')[2], 10) || 0;
+              if (r?.referenceNumber)
+                maxNumber = parseInt(r.referenceNumber.split("-")[2], 10) || 0;
               break;
             }
             default:
-              this.logger.warn(`Unknown document type in sync: ${row.documentName}`);
+              this.logger.warn(
+                `Unknown document type in sync: ${row.documentName}`,
+              );
           }
 
           await this.documentNumberSettingRepository.update(
             { documentName: row.documentName },
             { nextNumber: maxNumber + 1, lastResetYear: currentYY },
           );
-          this.logger.log(`${row.documentName}: synced nextNumber to ${maxNumber + 1}`);
+          this.logger.log(
+            `${row.documentName}: synced nextNumber to ${maxNumber + 1}`,
+          );
         } catch (err) {
-          this.logger.error(`Failed to sync ${row.documentName}: ${err.message}`, err.stack);
+          this.logger.error(
+            `Failed to sync ${row.documentName}: ${err.message}`,
+            err.stack,
+          );
         }
       }
 
-      this.logger.log('Document number settings synchronized with database');
+      this.logger.log("Document number settings synchronized with database");
     } catch (error) {
-      this.logger.error(`Failed to sync document numbers: ${error.message}`, error.stack);
-      throw new InternalServerErrorException('Failed to sync document numbers');
+      this.logger.error(
+        `Failed to sync document numbers: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException("Failed to sync document numbers");
     }
   }
 }

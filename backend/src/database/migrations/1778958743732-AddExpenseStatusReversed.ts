@@ -1,10 +1,12 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddExpenseStatusReversed1778958743732 implements MigrationInterface {
-  name = 'AddExpenseStatusReversed1778958743732';
+  name = "AddExpenseStatusReversed1778958743732";
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TYPE "public"."expenses_status_enum" ADD VALUE 'reversed'`);
+    await queryRunner.query(
+      `ALTER TYPE "public"."expenses_status_enum" ADD VALUE 'reversed'`,
+    );
   }
 
   public async down(_queryRunner: QueryRunner): Promise<void> {

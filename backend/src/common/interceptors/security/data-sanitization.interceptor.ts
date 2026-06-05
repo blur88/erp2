@@ -1,8 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Response } from 'express';
-import { BaseLoggingInterceptor } from '../core/base-logging.interceptor';
-import { DataSanitizerService } from '../utils/sanitizer.service';
-import { BusinessContextMapperService } from '../utils/context-mapper.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { Response } from "express";
+import { BaseLoggingInterceptor } from "../core/base-logging.interceptor";
+import { DataSanitizerService } from "../utils/sanitizer.service";
+import { BusinessContextMapperService } from "../utils/context-mapper.service";
 
 @Injectable()
 export class DataSanitizationInterceptor extends BaseLoggingInterceptor {
@@ -20,7 +20,9 @@ export class DataSanitizationInterceptor extends BaseLoggingInterceptor {
 
     // Log sanitized request body for debugging (in development only)
     if (requestInfo.body && Object.keys(requestInfo.body).length > 0) {
-      const sanitizedBody = this.sanitizer.sanitizeRequestBody(requestInfo.body);
+      const sanitizedBody = this.sanitizer.sanitizeRequestBody(
+        requestInfo.body,
+      );
       this.logger.debug(`Request Body: ${JSON.stringify(sanitizedBody)}`);
     }
   }
@@ -35,13 +37,11 @@ export class DataSanitizationInterceptor extends BaseLoggingInterceptor {
 
     // Log sanitized response body for debugging (in development only)
     if (
-      process.env.NODE_ENV === 'development' &&
+      process.env.NODE_ENV === "development" &&
       this.contextMapper.shouldLogResponseBody(requestInfo.url)
     ) {
       const sanitizedBody = this.sanitizer.sanitizeResponseBody(body);
-      this.logger.debug(
-        `Response Body: ${JSON.stringify(sanitizedBody)}`,
-      );
+      this.logger.debug(`Response Body: ${JSON.stringify(sanitizedBody)}`);
     }
   }
 }

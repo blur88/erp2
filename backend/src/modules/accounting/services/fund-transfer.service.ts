@@ -3,25 +3,25 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Not, Repository } from 'typeorm';
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { IsNull, Not, Repository } from "typeorm";
 import {
   FundTransfer,
   FundTransferStatus,
-} from '../../../database/entities/fund-transfer.entity';
-import { ChartOfAccount } from '../../../database/entities/chart-of-account.entity';
-import { AccountingService } from './accounting.service';
-import { FiscalPeriodService } from './fiscal-period.service';
-import { SettingsService } from '../../settings/settings.service';
-import { AuditLogService } from '../../audit-logs/services';
+} from "../../../database/entities/fund-transfer.entity";
+import { ChartOfAccount } from "../../../database/entities/chart-of-account.entity";
+import { AccountingService } from "./accounting.service";
+import { FiscalPeriodService } from "./fiscal-period.service";
+import { SettingsService } from "../../settings/settings.service";
+import { AuditLogService } from "../../audit-logs/services";
 import {
   CreateFundTransferDto,
   UpdateFundTransferDto,
   FundTransferListResponseDto,
   FundTransferResponseDto,
   QueryFundTransfersDto,
-} from '../dto/fund-transfer.dto';
+} from "../dto/fund-transfer.dto";
 
 @Injectable()
 export class FundTransferService {
@@ -45,7 +45,7 @@ export class FundTransferService {
   ): Promise<FundTransferResponseDto> {
     if (dto.sourceAccountId === dto.destinationAccountId) {
       throw new BadRequestException(
-        'Source and destination accounts must be different',
+        "Source and destination accounts must be different",
       );
     }
 
@@ -82,7 +82,9 @@ export class FundTransferService {
     }
 
     if (dto.amount <= 0) {
-      throw new BadRequestException('Transfer amount must be greater than zero');
+      throw new BadRequestException(
+        "Transfer amount must be greater than zero",
+      );
     }
 
     const periodValidation = await this.fiscalPeriodService.validatePeriod({
@@ -94,9 +96,8 @@ export class FundTransferService {
       );
     }
 
-    const referenceNumber = await this.settingsService.generateDocumentNumber(
-      'Fund Transfers',
-    );
+    const referenceNumber =
+      await this.settingsService.generateDocumentNumber("Fund Transfers");
 
     const transfer = this.transferRepository.create({
       referenceNumber,
@@ -113,8 +114,8 @@ export class FundTransferService {
     const saved = await this.transferRepository.save(transfer);
 
     await this.auditLogService.log(
-      'CREATE',
-      'FundTransfer',
+      "CREATE",
+      "FundTransfer",
       `Created fund transfer: ${referenceNumber}`,
       { entityId: saved.id, userId, username },
     );
@@ -135,7 +136,10 @@ export class FundTransferService {
     if (!transfer || transfer.deletedAt) {
       throw new NotFoundException(`Fund transfer '${id}' not found`);
     }
-    if (transfer.status !== FundTransferStatus.DRAFT && transfer.status !== FundTransferStatus.REVERSED) {
+    if (
+      transfer.status !== FundTransferStatus.DRAFT &&
+      transfer.status !== FundTransferStatus.REVERSED
+    ) {
       throw new BadRequestException(
         `Fund transfer '${transfer.referenceNumber}' must be in DRAFT or REVERSED status to post`,
       );
@@ -152,8 +156,8 @@ export class FundTransferService {
     await this.transferRepository.save(transfer);
 
     await this.auditLogService.log(
-      'POST',
-      'FundTransfer',
+      "POST",
+      "FundTransfer",
       `Posted fund transfer: ${transfer.referenceNumber}`,
       { entityId: id, userId, username },
     );
@@ -177,14 +181,18 @@ export class FundTransferService {
       );
     }
 
-    await this.accountingService.reverseSourceEntries('fund_transfer', id, userId);
+    await this.accountingService.reverseSourceEntries(
+      "fund_transfer",
+      id,
+      userId,
+    );
 
     transfer.status = FundTransferStatus.REVERSED;
     await this.transferRepository.save(transfer);
 
     await this.auditLogService.log(
-      'UNPOST',
-      'FundTransfer',
+      "UNPOST",
+      "FundTransfer",
       `Unposted fund transfer: ${transfer.referenceNumber}`,
       { entityId: id, userId, username },
     );
@@ -204,7 +212,7 @@ export class FundTransferService {
       throw new NotFoundException(`Fund transfer '${id}' not found`);
     }
     if (transfer.status === FundTransferStatus.POSTED) {
-      throw new BadRequestException('Cannot update a posted fund transfer');
+      throw new BadRequestException("Cannot update a posted fund transfer");
     }
 
     if (dto.sourceAccountId) {
@@ -246,13 +254,15 @@ export class FundTransferService {
       (dto.destinationAccountId ?? transfer.destinationAccountId)
     ) {
       throw new BadRequestException(
-        'Source and destination accounts must be different',
+        "Source and destination accounts must be different",
       );
     }
 
     if (dto.amount !== undefined) {
       if (dto.amount <= 0) {
-        throw new BadRequestException('Transfer amount must be greater than zero');
+        throw new BadRequestException(
+          "Transfer amount must be greater than zero",
+        );
       }
       transfer.amount = dto.amount;
     }
@@ -277,8 +287,8 @@ export class FundTransferService {
     await this.transferRepository.save(transfer);
 
     await this.auditLogService.log(
-      'UPDATE',
-      'FundTransfer',
+      "UPDATE",
+      "FundTransfer",
       `Updated fund transfer: ${transfer.referenceNumber}`,
       { entityId: id, userId, username },
     );
@@ -286,24 +296,20 @@ export class FundTransferService {
     return this.findOne(id);
   }
 
-  async remove(
-    id: string,
-    userId: string,
-    username?: string,
-  ): Promise<void> {
+  async remove(id: string, userId: string, username?: string): Promise<void> {
     const transfer = await this.transferRepository.findOne({ where: { id } });
     if (!transfer || transfer.deletedAt) {
       throw new NotFoundException(`Fund transfer '${id}' not found`);
     }
     if (transfer.status === FundTransferStatus.POSTED) {
-      throw new BadRequestException('Cannot delete a posted fund transfer');
+      throw new BadRequestException("Cannot delete a posted fund transfer");
     }
 
     await this.transferRepository.softDelete(id);
 
     await this.auditLogService.log(
-      'DELETE',
-      'FundTransfer',
+      "DELETE",
+      "FundTransfer",
       `Deleted fund transfer: ${transfer.referenceNumber}`,
       { entityId: id, userId, username },
     );
@@ -313,8 +319,12 @@ export class FundTransferService {
     const records = await this.transferRepository.find({
       withDeleted: true,
       where: { deletedAt: Not(IsNull()) },
-      relations: { sourceAccount: true, destinationAccount: true, journalEntry: true },
-      order: { deletedAt: 'DESC' },
+      relations: {
+        sourceAccount: true,
+        destinationAccount: true,
+        journalEntry: true,
+      },
+      order: { deletedAt: "DESC" },
     });
     return records.map((r) => this.toResponseDto(r));
   }
@@ -332,14 +342,14 @@ export class FundTransferService {
       throw new NotFoundException(`Fund transfer '${id}' not found`);
     }
     if (!transfer.deletedAt) {
-      throw new BadRequestException('Fund transfer is not deleted');
+      throw new BadRequestException("Fund transfer is not deleted");
     }
 
     await this.transferRepository.restore(id);
 
     await this.auditLogService.log(
-      'RESTORE',
-      'FundTransfer',
+      "RESTORE",
+      "FundTransfer",
       `Restored fund transfer: ${transfer.referenceNumber}`,
       { entityId: id, userId, username },
     );
@@ -361,21 +371,23 @@ export class FundTransferService {
     }
     if (!transfer.deletedAt) {
       throw new BadRequestException(
-        'Fund transfer must be soft-deleted before permanent deletion',
+        "Fund transfer must be soft-deleted before permanent deletion",
       );
     }
 
     await this.transferRepository.delete(id);
 
     await this.auditLogService.log(
-      'DELETE',
-      'FundTransfer',
+      "DELETE",
+      "FundTransfer",
       `Permanently deleted fund transfer: ${transfer.referenceNumber}`,
       { entityId: id, userId, username },
     );
   }
 
-  async findAll(query: QueryFundTransfersDto): Promise<FundTransferListResponseDto> {
+  async findAll(
+    query: QueryFundTransfersDto,
+  ): Promise<FundTransferListResponseDto> {
     const {
       page = 1,
       limit = 20,
@@ -385,42 +397,53 @@ export class FundTransferService {
       destinationAccountId,
       status,
       search,
-      sortBy = 'transferDate',
-      sortOrder = 'DESC',
+      sortBy = "transferDate",
+      sortOrder = "DESC",
     } = query;
 
     const qb = this.transferRepository
-      .createQueryBuilder('transfer')
-      .leftJoinAndSelect('transfer.sourceAccount', 'sourceAccount')
-      .leftJoinAndSelect('transfer.destinationAccount', 'destinationAccount')
-      .leftJoinAndSelect('transfer.journalEntry', 'journalEntry')
-      .where('transfer.deletedAt IS NULL');
+      .createQueryBuilder("transfer")
+      .leftJoinAndSelect("transfer.sourceAccount", "sourceAccount")
+      .leftJoinAndSelect("transfer.destinationAccount", "destinationAccount")
+      .leftJoinAndSelect("transfer.journalEntry", "journalEntry")
+      .where("transfer.deletedAt IS NULL");
 
     if (startDate) {
-      qb.andWhere('transfer.transferDate >= :startDate', { startDate });
+      qb.andWhere("transfer.transferDate >= :startDate", { startDate });
     }
     if (endDate) {
-      qb.andWhere('transfer.transferDate <= :endDate', { endDate });
+      qb.andWhere("transfer.transferDate <= :endDate", { endDate });
     }
     if (sourceAccountId) {
-      qb.andWhere('transfer.sourceAccountId = :sourceAccountId', { sourceAccountId });
+      qb.andWhere("transfer.sourceAccountId = :sourceAccountId", {
+        sourceAccountId,
+      });
     }
     if (destinationAccountId) {
-      qb.andWhere('transfer.destinationAccountId = :destinationAccountId', { destinationAccountId });
+      qb.andWhere("transfer.destinationAccountId = :destinationAccountId", {
+        destinationAccountId,
+      });
     }
     if (status) {
-      qb.andWhere('transfer.status = :status', { status });
+      qb.andWhere("transfer.status = :status", { status });
     }
     if (search) {
       qb.andWhere(
-        '(transfer.referenceNumber ILIKE :search OR transfer.description ILIKE :search)',
+        "(transfer.referenceNumber ILIKE :search OR transfer.description ILIKE :search)",
         { search: `%${search}%` },
       );
     }
 
-    const validSortFields = ['transferDate', 'referenceNumber', 'amount', 'createdAt'];
-    const safeSortField = validSortFields.includes(sortBy) ? sortBy : 'transferDate';
-    const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const validSortFields = [
+      "transferDate",
+      "referenceNumber",
+      "amount",
+      "createdAt",
+    ];
+    const safeSortField = validSortFields.includes(sortBy)
+      ? sortBy
+      : "transferDate";
+    const safeSortOrder = sortOrder?.toUpperCase() === "ASC" ? "ASC" : "DESC";
 
     qb.orderBy(`transfer.${safeSortField}`, safeSortOrder)
       .skip((page - 1) * limit)
@@ -437,7 +460,11 @@ export class FundTransferService {
   async findOne(id: string): Promise<FundTransferResponseDto> {
     const transfer = await this.transferRepository.findOne({
       where: { id },
-      relations: { sourceAccount: true, destinationAccount: true, journalEntry: { lines: { account: true } } },
+      relations: {
+        sourceAccount: true,
+        destinationAccount: true,
+        journalEntry: { lines: { account: true } },
+      },
     });
 
     if (!transfer || transfer.deletedAt) {
@@ -449,11 +476,16 @@ export class FundTransferService {
 
   private buildAccountSummary(
     account: ChartOfAccount | undefined,
-    relationName: 'sourceAccount' | 'destinationAccount',
+    relationName: "sourceAccount" | "destinationAccount",
     transfer: FundTransfer,
-  ): FundTransferResponseDto['sourceAccount'] {
+  ): FundTransferResponseDto["sourceAccount"] {
     if (account) {
-      return { id: account.id, code: account.code, name: account.name, type: account.type };
+      return {
+        id: account.id,
+        code: account.code,
+        name: account.name,
+        type: account.type,
+      };
     }
 
     this.logger.warn(
@@ -461,11 +493,11 @@ export class FundTransferService {
     );
 
     const fallbackId =
-      relationName === 'sourceAccount'
+      relationName === "sourceAccount"
         ? transfer.sourceAccountId
         : transfer.destinationAccountId;
 
-    return { id: fallbackId ?? '', code: '', name: '', type: '' };
+    return { id: fallbackId ?? "", code: "", name: "", type: "" };
   }
 
   private toResponseDto(transfer: FundTransfer): FundTransferResponseDto {
@@ -478,16 +510,24 @@ export class FundTransferService {
       status: transfer.status,
       fiscalPeriodId: transfer.fiscalPeriodId,
       journalEntryId: transfer.journalEntryId ?? null,
-      sourceAccount: this.buildAccountSummary(transfer.sourceAccount, 'sourceAccount', transfer),
-      destinationAccount: this.buildAccountSummary(transfer.destinationAccount, 'destinationAccount', transfer),
+      sourceAccount: this.buildAccountSummary(
+        transfer.sourceAccount,
+        "sourceAccount",
+        transfer,
+      ),
+      destinationAccount: this.buildAccountSummary(
+        transfer.destinationAccount,
+        "destinationAccount",
+        transfer,
+      ),
       journalEntry: transfer.journalEntry
         ? {
             id: transfer.journalEntry.id,
             referenceNumber: transfer.journalEntry.referenceNumber,
             status: transfer.journalEntry.status,
             lines: transfer.journalEntry.lines?.map((line) => ({
-              accountCode: line.account?.code ?? '',
-              accountName: line.account?.name ?? '',
+              accountCode: line.account?.code ?? "",
+              accountName: line.account?.name ?? "",
               debitAmount: Number(line.debitAmount),
               creditAmount: Number(line.creditAmount),
               memo: line.memo,

@@ -1,6 +1,6 @@
-import { SettingsService } from './settings.service';
+import { SettingsService } from "./settings.service";
 
-describe('SettingsService', () => {
+describe("SettingsService", () => {
   const createQueryBuilderMock = (result: unknown) => ({
     select: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
@@ -9,17 +9,22 @@ describe('SettingsService', () => {
     getOne: jest.fn().mockResolvedValue(result),
   });
 
-  it('syncDocumentNumbersWithDatabase uses the larger of current-year and legacy GRN sequences', async () => {
+  it("syncDocumentNumbersWithDatabase uses the larger of current-year and legacy GRN sequences", async () => {
     const documentNumberSettingRepository = {
-      find: jest.fn().mockResolvedValue([
-        { documentName: 'Goods Received', prefix: 'GRN' },
-      ]),
+      find: jest
+        .fn()
+        .mockResolvedValue([{ documentName: "Goods Received", prefix: "GRN" }]),
       update: jest.fn().mockResolvedValue(undefined),
     };
-    const currentYearQueryBuilder = createQueryBuilderMock({ grnNumber: 'GRN-26-007' });
-    const legacyQueryBuilder = createQueryBuilderMock({ grnNumber: 'GRN-123456' });
+    const currentYearQueryBuilder = createQueryBuilderMock({
+      grnNumber: "GRN-26-007",
+    });
+    const legacyQueryBuilder = createQueryBuilderMock({
+      grnNumber: "GRN-123456",
+    });
     const goodsReceivedNoteRepository = {
-      createQueryBuilder: jest.fn()
+      createQueryBuilder: jest
+        .fn()
         .mockReturnValueOnce(currentYearQueryBuilder)
         .mockReturnValueOnce(legacyQueryBuilder),
     };
@@ -31,8 +36,8 @@ describe('SettingsService', () => {
       {} as any,
       {} as any,
       {} as any,
-      {} as any,
       goodsReceivedNoteRepository as any,
+      {} as any,
       {} as any,
       {} as any,
       {} as any,
@@ -44,12 +49,14 @@ describe('SettingsService', () => {
     await service.syncDocumentNumbersWithDatabase();
 
     expect(currentYearQueryBuilder.where).toHaveBeenCalledWith(
-      'grn.grnNumber LIKE :p',
-      { p: 'GRN-26-%' },
+      "grn.grnNumber LIKE :p",
+      { p: "GRN-26-%" },
     );
-    expect(legacyQueryBuilder.where).toHaveBeenCalledWith("grn.grnNumber ~ '^GRN-\\\\d+$'");
+    expect(legacyQueryBuilder.where).toHaveBeenCalledWith(
+      "grn.grnNumber ~ '^GRN-\\\\d+$'",
+    );
     expect(documentNumberSettingRepository.update).toHaveBeenCalledWith(
-      { documentName: 'Goods Received' },
+      { documentName: "Goods Received" },
       { nextNumber: 123457, lastResetYear: 26 },
     );
   });

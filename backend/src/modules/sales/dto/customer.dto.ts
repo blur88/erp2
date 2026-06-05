@@ -6,16 +6,16 @@ import {
   IsEnum,
   MaxLength,
   Matches,
-} from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { CustomerType } from '../../../database/entities/customer.entity';
-import { BaseContactDto } from '../../../common/dto/base-contact.dto';
-import { BaseQueryDto } from '../../../common/dto/base-query.dto';
+} from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Transform } from "class-transformer";
+import { CustomerType } from "../../../database/entities/customer.entity";
+import { BaseContactDto } from "../../../common/dto/base-contact.dto";
+import { BaseQueryDto } from "../../../common/dto/base-query.dto";
 
 export class CreateCustomerDto extends BaseContactDto {
   @ApiProperty({
-    description: 'Customer type (individual/business)',
+    description: "Customer type (individual/business)",
     enum: CustomerType,
     example: CustomerType.BUSINESS,
   })
@@ -23,26 +23,25 @@ export class CreateCustomerDto extends BaseContactDto {
   type: CustomerType;
 
   @ApiProperty({
-    description: 'Customer name or business name',
+    description: "Customer name or business name",
     maxLength: 200,
-    example: 'Acme Corporation',
+    example: "Acme Corporation",
   })
   @IsString()
   @MaxLength(200)
   name: string;
 
   @ApiPropertyOptional({
-    description: 'Price list ID for this customer',
-    example: 'uuid-string',
+    description: "Price list ID for this customer",
+    example: "uuid-string",
   })
   @IsOptional()
   @IsString()
   priceListId?: string;
 
-
   @ApiPropertyOptional({
-    description: 'Internal notes about the customer',
-    example: 'VIP customer, requires special handling',
+    description: "Internal notes about the customer",
+    example: "VIP customer, requires special handling",
   })
   @IsOptional()
   @IsString()
@@ -51,9 +50,9 @@ export class CreateCustomerDto extends BaseContactDto {
 
 export class UpdateCustomerDto {
   @ApiPropertyOptional({
-    description: 'Customer name or business name',
+    description: "Customer name or business name",
     maxLength: 200,
-    example: 'Acme Corporation Ltd.',
+    example: "Acme Corporation Ltd.",
   })
   @IsOptional()
   @IsString()
@@ -61,20 +60,21 @@ export class UpdateCustomerDto {
   name?: string;
 
   @ApiPropertyOptional({
-    description: 'Primary phone number',
-    example: '+1234567890',
+    description: "Primary phone number",
+    example: "+1234567890",
   })
   @IsOptional()
   @IsString()
   @MaxLength(20)
   @Matches(/^[\+]?[\d\s\-\(\)]+$/, {
-    message: 'Phone number must contain only digits, spaces, hyphens, parentheses, and an optional plus sign'
+    message:
+      "Phone number must contain only digits, spaces, hyphens, parentheses, and an optional plus sign",
   })
   phone?: string;
 
   @ApiPropertyOptional({
-    description: 'Email address',
-    example: 'contact@acme.com',
+    description: "Email address",
+    example: "contact@acme.com",
   })
   @IsOptional()
   @IsEmail()
@@ -82,8 +82,8 @@ export class UpdateCustomerDto {
   email?: string;
 
   @ApiPropertyOptional({
-    description: 'Billing street address line 1',
-    example: '123 Main Street',
+    description: "Billing street address line 1",
+    example: "123 Main Street",
   })
   @IsOptional()
   @IsString()
@@ -91,8 +91,8 @@ export class UpdateCustomerDto {
   billingStreetAddress?: string;
 
   @ApiPropertyOptional({
-    description: 'Billing street address line 2',
-    example: 'Suite 100',
+    description: "Billing street address line 2",
+    example: "Suite 100",
   })
   @IsOptional()
   @IsString()
@@ -100,8 +100,8 @@ export class UpdateCustomerDto {
   billingStreetAddress2?: string;
 
   @ApiPropertyOptional({
-    description: 'Billing city',
-    example: 'New York',
+    description: "Billing city",
+    example: "New York",
   })
   @IsOptional()
   @IsString()
@@ -109,8 +109,8 @@ export class UpdateCustomerDto {
   billingCity?: string;
 
   @ApiPropertyOptional({
-    description: 'Billing state or province',
-    example: 'NY',
+    description: "Billing state or province",
+    example: "NY",
   })
   @IsOptional()
   @IsString()
@@ -118,8 +118,8 @@ export class UpdateCustomerDto {
   billingState?: string;
 
   @ApiPropertyOptional({
-    description: 'Billing postal or ZIP code',
-    example: '10001',
+    description: "Billing postal or ZIP code",
+    example: "10001",
   })
   @IsOptional()
   @IsString()
@@ -127,8 +127,8 @@ export class UpdateCustomerDto {
   billingPostalCode?: string;
 
   @ApiPropertyOptional({
-    description: 'Billing country',
-    example: 'United States',
+    description: "Billing country",
+    example: "United States",
   })
   @IsOptional()
   @IsString()
@@ -136,8 +136,8 @@ export class UpdateCustomerDto {
   billingCountry?: string;
 
   @ApiPropertyOptional({
-    description: 'Shipping street address line 1',
-    example: '456 Warehouse Ave',
+    description: "Shipping street address line 1",
+    example: "456 Warehouse Ave",
   })
   @IsOptional()
   @IsString()
@@ -145,8 +145,8 @@ export class UpdateCustomerDto {
   shippingStreetAddress?: string;
 
   @ApiPropertyOptional({
-    description: 'Shipping street address line 2',
-    example: 'Dock B',
+    description: "Shipping street address line 2",
+    example: "Dock B",
   })
   @IsOptional()
   @IsString()
@@ -154,8 +154,8 @@ export class UpdateCustomerDto {
   shippingStreetAddress2?: string;
 
   @ApiPropertyOptional({
-    description: 'Shipping city',
-    example: 'Brooklyn',
+    description: "Shipping city",
+    example: "Brooklyn",
   })
   @IsOptional()
   @IsString()
@@ -163,8 +163,8 @@ export class UpdateCustomerDto {
   shippingCity?: string;
 
   @ApiPropertyOptional({
-    description: 'Shipping state or province',
-    example: 'NY',
+    description: "Shipping state or province",
+    example: "NY",
   })
   @IsOptional()
   @IsString()
@@ -172,8 +172,8 @@ export class UpdateCustomerDto {
   shippingState?: string;
 
   @ApiPropertyOptional({
-    description: 'Shipping postal or ZIP code',
-    example: '11201',
+    description: "Shipping postal or ZIP code",
+    example: "11201",
   })
   @IsOptional()
   @IsString()
@@ -181,8 +181,8 @@ export class UpdateCustomerDto {
   shippingPostalCode?: string;
 
   @ApiPropertyOptional({
-    description: 'Shipping country',
-    example: 'United States',
+    description: "Shipping country",
+    example: "United States",
   })
   @IsOptional()
   @IsString()
@@ -190,7 +190,7 @@ export class UpdateCustomerDto {
   shippingCountry?: string;
 
   @ApiPropertyOptional({
-    description: 'Whether the customer is active',
+    description: "Whether the customer is active",
     example: true,
   })
   @IsOptional()
@@ -198,16 +198,16 @@ export class UpdateCustomerDto {
   isActive?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Price list ID for this customer',
-    example: 'uuid-string',
+    description: "Price list ID for this customer",
+    example: "uuid-string",
   })
   @IsOptional()
   @IsString()
   priceListId?: string;
 
   @ApiPropertyOptional({
-    description: 'Internal notes about the customer',
-    example: 'Customer upgraded to premium tier',
+    description: "Internal notes about the customer",
+    example: "Customer upgraded to premium tier",
   })
   @IsOptional()
   @IsString()
@@ -216,7 +216,7 @@ export class UpdateCustomerDto {
 
 export class QueryCustomersDto extends BaseQueryDto {
   @ApiPropertyOptional({
-    description: 'Filter by customer type',
+    description: "Filter by customer type",
     enum: CustomerType,
     example: CustomerType.BUSINESS,
   })
@@ -225,77 +225,85 @@ export class QueryCustomersDto extends BaseQueryDto {
   type?: CustomerType;
 
   @ApiPropertyOptional({
-    description: 'Filter by price list ID',
-    example: 'uuid-string',
+    description: "Filter by price list ID",
+    example: "uuid-string",
   })
   @IsOptional()
   @IsString()
   priceListId?: string;
-
 }
 
 export class CustomerResponseDto {
-  @ApiProperty({ example: 'uuid-string' })
+  @ApiProperty({ example: "uuid-string" })
   id: string;
 
-  @ApiProperty({ example: 'acme-corporation' })
+  @ApiProperty({ example: "acme-corporation" })
   slug: string;
 
   @ApiProperty({ enum: CustomerType, example: CustomerType.BUSINESS })
   type: CustomerType;
 
-  @ApiProperty({ example: 'Acme Corporation' })
+  @ApiProperty({ example: "Acme Corporation" })
   name: string;
 
-  @ApiProperty({ example: '+1234567890', nullable: true })
+  @ApiProperty({ example: "+1234567890", nullable: true })
   phone?: string;
 
-  @ApiProperty({ example: 'contact@acme.com', nullable: true })
+  @ApiProperty({ example: "contact@acme.com", nullable: true })
   email?: string;
 
-  @ApiProperty({ example: '123 Main Street', nullable: true })
+  @ApiProperty({ example: "123 Main Street", nullable: true })
   billingStreetAddress?: string;
 
-  @ApiProperty({ example: 'Suite 100', nullable: true })
+  @ApiProperty({ example: "Suite 100", nullable: true })
   billingStreetAddress2?: string;
 
-  @ApiProperty({ example: 'New York', nullable: true })
+  @ApiProperty({ example: "New York", nullable: true })
   billingCity?: string;
 
-  @ApiProperty({ example: 'NY', nullable: true })
+  @ApiProperty({ example: "NY", nullable: true })
   billingState?: string;
 
-  @ApiProperty({ example: '10001', nullable: true })
+  @ApiProperty({ example: "10001", nullable: true })
   billingPostalCode?: string;
 
-  @ApiProperty({ example: 'United States', nullable: true })
+  @ApiProperty({ example: "United States", nullable: true })
   billingCountry?: string;
 
-  @ApiProperty({ example: '456 Warehouse Ave', nullable: true })
+  @ApiProperty({ example: "456 Warehouse Ave", nullable: true })
   shippingStreetAddress?: string;
 
-  @ApiProperty({ example: 'Dock B', nullable: true })
+  @ApiProperty({ example: "Dock B", nullable: true })
   shippingStreetAddress2?: string;
 
-  @ApiProperty({ example: 'Brooklyn', nullable: true })
+  @ApiProperty({ example: "Brooklyn", nullable: true })
   shippingCity?: string;
 
-  @ApiProperty({ example: 'NY', nullable: true })
+  @ApiProperty({ example: "NY", nullable: true })
   shippingState?: string;
 
-  @ApiProperty({ example: '11201', nullable: true })
+  @ApiProperty({ example: "11201", nullable: true })
   shippingPostalCode?: string;
 
-  @ApiProperty({ example: 'United States', nullable: true })
+  @ApiProperty({ example: "United States", nullable: true })
   shippingCountry?: string;
 
   @ApiProperty({ example: true })
   isActive: boolean;
 
-  @ApiProperty({ example: 'uuid-string', nullable: true })
+  @ApiProperty({ example: "uuid-string", nullable: true })
   priceListId?: string;
 
-  @ApiProperty({ example: { id: 'uuid', name: 'Retail', code: 'RETAIL', isDefault: true, isActive: true }, nullable: true })
+  @ApiProperty({
+    example: {
+      id: "uuid",
+      name: "Retail",
+      code: "RETAIL",
+      isDefault: true,
+      isActive: true,
+    },
+    nullable: true,
+  })
   priceList?: {
     id: string;
     name: string;
@@ -304,45 +312,47 @@ export class CustomerResponseDto {
     isActive: boolean;
   };
 
-  @ApiProperty({ example: 50000.00 })
+  @ApiProperty({ example: 50000.0 })
   totalSales: number;
 
   @ApiProperty({ example: 25 })
   totalOrders: number;
 
-  @ApiProperty({ example: '2023-12-01T00:00:00Z', nullable: true })
+  @ApiProperty({ example: "2023-12-01T00:00:00Z", nullable: true })
   lastPurchaseDate?: Date;
 
-  @ApiProperty({ example: '2023-01-15T00:00:00Z', nullable: true })
+  @ApiProperty({ example: "2023-01-15T00:00:00Z", nullable: true })
   firstPurchaseDate?: Date;
 
-  @ApiProperty({ example: 'VIP customer, requires special handling', nullable: true })
+  @ApiProperty({
+    example: "VIP customer, requires special handling",
+    nullable: true,
+  })
   notes?: string;
 
-  @ApiProperty({ example: '2023-01-01T00:00:00Z' })
+  @ApiProperty({ example: "2023-01-01T00:00:00Z" })
   createdAt: Date;
 
-  @ApiProperty({ example: '2023-12-01T00:00:00Z' })
+  @ApiProperty({ example: "2023-12-01T00:00:00Z" })
   updatedAt: Date;
 
-  @ApiProperty({ example: '2023-12-15T00:00:00Z', nullable: true })
+  @ApiProperty({ example: "2023-12-15T00:00:00Z", nullable: true })
   deletedAt?: Date;
 
   // Computed properties
-  @ApiProperty({ example: 2000.00 })
+  @ApiProperty({ example: 2000.0 })
   averageOrderValue: number;
 }
 
 export class CustomerSummaryDto {
-  @ApiProperty({ example: 'uuid-string' })
+  @ApiProperty({ example: "uuid-string" })
   id: string;
 
-  @ApiProperty({ example: 'Acme Corporation' })
+  @ApiProperty({ example: "Acme Corporation" })
   name: string;
 
-  @ApiProperty({ example: '+1234567890', nullable: true })
+  @ApiProperty({ example: "+1234567890", nullable: true })
   phone?: string;
-
 }
 
 /**

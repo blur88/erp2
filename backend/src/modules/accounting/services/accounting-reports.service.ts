@@ -3,22 +3,20 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, In } from "typeorm";
 import {
   ChartOfAccount,
   AccountType,
-} from '../../../database/entities/chart-of-account.entity';
+} from "../../../database/entities/chart-of-account.entity";
 import {
   JournalEntry,
   JournalEntryStatus,
-} from '../../../database/entities/journal-entry.entity';
-import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
-import {
-  AccountingReportsQueryHelper,
-} from './accounting-reports.query-helper';
-import { AccountingExcelExportService } from './accounting-reports.excel-export.service';
+} from "../../../database/entities/journal-entry.entity";
+import { JournalEntryLine } from "../../../database/entities/journal-entry-line.entity";
+import { AccountingReportsQueryHelper } from "./accounting-reports.query-helper";
+import { AccountingExcelExportService } from "./accounting-reports.excel-export.service";
 
 /**
  * Interface for account with balance information
@@ -193,7 +191,9 @@ export class AccountingReportsService {
     accountId: string,
     asOfDate: Date = new Date(),
   ): Promise<number> {
-    this.logger.log(`Calculating balance for account ${accountId} as of ${asOfDate.toISOString()}`);
+    this.logger.log(
+      `Calculating balance for account ${accountId} as of ${asOfDate.toISOString()}`,
+    );
 
     // Fetch the account to determine its type
     const account = await this.accountRepository.findOne({
@@ -201,28 +201,34 @@ export class AccountingReportsService {
     });
 
     if (!account) {
-      throw new NotFoundException(`Account with ID '${accountId}' not found or inactive`);
+      throw new NotFoundException(
+        `Account with ID '${accountId}' not found or inactive`,
+      );
     }
 
     // Query journal entry lines for this account up to the specified date
     // Only include POSTED journal entries
     const result = await this.journalEntryLineRepository
-      .createQueryBuilder('jel')
-      .leftJoin('jel.journalEntry', 'je')
-      .select('SUM(jel.debitAmount)', 'totalDebit')
-      .addSelect('SUM(jel.creditAmount)', 'totalCredit')
-      .where('jel.accountId = :accountId', { accountId })
-      .andWhere('je.entryDate <= :asOfDate', { asOfDate })
-      .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
+      .createQueryBuilder("jel")
+      .leftJoin("jel.journalEntry", "je")
+      .select("SUM(jel.debitAmount)", "totalDebit")
+      .addSelect("SUM(jel.creditAmount)", "totalCredit")
+      .where("jel.accountId = :accountId", { accountId })
+      .andWhere("je.entryDate <= :asOfDate", { asOfDate })
+      .andWhere("je.status IN (:...statuses)", {
+        statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
+      })
       .getRawMany();
 
     // Extract totals (default to 0 if no transactions)
-    const totalDebit = result.length > 0 && result[0].totalDebit
-      ? parseFloat(result[0].totalDebit)
-      : 0;
-    const totalCredit = result.length > 0 && result[0].totalCredit
-      ? parseFloat(result[0].totalCredit)
-      : 0;
+    const totalDebit =
+      result.length > 0 && result[0].totalDebit
+        ? parseFloat(result[0].totalDebit)
+        : 0;
+    const totalCredit =
+      result.length > 0 && result[0].totalCredit
+        ? parseFloat(result[0].totalCredit)
+        : 0;
 
     // Calculate balance based on account type using proper accounting rules
     const balance = this.queryHelper.calculateBalanceByAccountType(
@@ -254,7 +260,9 @@ export class AccountingReportsService {
       return {};
     }
 
-    this.logger.log(`Calculating balances for ${accountIds.length} accounts as of ${asOfDate.toISOString()}`);
+    this.logger.log(
+      `Calculating balances for ${accountIds.length} accounts as of ${asOfDate.toISOString()}`,
+    );
 
     // Fetch all accounts to determine their types
     const accounts = await this.accountRepository.find({
@@ -263,14 +271,14 @@ export class AccountingReportsService {
 
     // Create a map of account ID to account type for quick lookup
     const accountTypeMap = new Map<string, AccountType>();
-    accounts.forEach(account => {
+    accounts.forEach((account) => {
       accountTypeMap.set(account.id, account.type);
     });
 
     // Query journal entry lines for all accounts in a single query
     const totalsMap = await this.queryHelper.queryTransactionTotals(
       accountIds,
-      { type: 'asOf', date: asOfDate },
+      { type: "asOf", date: asOfDate },
       [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
     );
 
@@ -278,16 +286,18 @@ export class AccountingReportsService {
     const balances: Record<string, number> = {};
 
     // Initialize all accounts with 0 balance
-    accountIds.forEach(accountId => {
+    accountIds.forEach((accountId) => {
       balances[accountId] = 0;
     });
 
     // Update balances for accounts with transactions
-    accountIds.forEach(accountId => {
+    accountIds.forEach((accountId) => {
       const accountType = accountTypeMap.get(accountId);
 
       if (!accountType) {
-        this.logger.warn(`Account type not found for account ${accountId}, skipping`);
+        this.logger.warn(
+          `Account type not found for account ${accountId}, skipping`,
+        );
         return;
       }
 
@@ -303,7 +313,9 @@ export class AccountingReportsService {
       );
     });
 
-    this.logger.log(`Calculated balances for ${Object.keys(balances).length} accounts`);
+    this.logger.log(
+      `Calculated balances for ${Object.keys(balances).length} accounts`,
+    );
 
     return balances;
   }
@@ -314,27 +326,29 @@ export class AccountingReportsService {
    * @param accountTypes - Array of account types to filter by
    * @returns Array of accounts matching the specified types
    */
-  async getAccountsByType(accountTypes: AccountType[]): Promise<ChartOfAccount[]> {
+  async getAccountsByType(
+    accountTypes: AccountType[],
+  ): Promise<ChartOfAccount[]> {
     if (!accountTypes || accountTypes.length === 0) {
       return [];
     }
 
-    this.logger.log(`Fetching accounts by types: ${accountTypes.join(', ')}`);
+    this.logger.log(`Fetching accounts by types: ${accountTypes.join(", ")}`);
 
     // If single type, use simple find
     if (accountTypes.length === 1) {
       return this.accountRepository.find({
         where: { type: accountTypes[0], isActive: true },
-        order: { code: 'ASC' },
+        order: { code: "ASC" },
       });
     }
 
     // For multiple types, use query builder with IN clause
     const accounts = await this.accountRepository
-      .createQueryBuilder('account')
-      .where('account.type IN (:...types)', { types: accountTypes })
-      .andWhere('account.isActive = :isActive', { isActive: true })
-      .orderBy('account.code', 'ASC')
+      .createQueryBuilder("account")
+      .where("account.type IN (:...types)", { types: accountTypes })
+      .andWhere("account.isActive = :isActive", { isActive: true })
+      .orderBy("account.code", "ASC")
       .getMany();
 
     this.logger.log(`Found ${accounts.length} accounts matching types`);
@@ -354,7 +368,9 @@ export class AccountingReportsService {
     accountTypes: AccountType[],
     asOfDate: Date = new Date(),
   ): Promise<AccountWithBalance[]> {
-    this.logger.log(`Fetching accounts with balances for types: ${accountTypes.join(', ')}`);
+    this.logger.log(
+      `Fetching accounts with balances for types: ${accountTypes.join(", ")}`,
+    );
 
     // Get accounts matching the specified types
     const accounts = await this.getAccountsByType(accountTypes);
@@ -364,18 +380,22 @@ export class AccountingReportsService {
     }
 
     // Get account IDs
-    const accountIds = accounts.map(account => account.id);
+    const accountIds = accounts.map((account) => account.id);
 
     // Calculate balances for all accounts in batch
     const balances = await this.calculateAccountBalances(accountIds, asOfDate);
 
     // Combine accounts with their balances
-    const accountsWithBalances: AccountWithBalance[] = accounts.map(account => ({
-      account,
-      balance: balances[account.id] || 0,
-    }));
+    const accountsWithBalances: AccountWithBalance[] = accounts.map(
+      (account) => ({
+        account,
+        balance: balances[account.id] || 0,
+      }),
+    );
 
-    this.logger.log(`Returning ${accountsWithBalances.length} accounts with balances`);
+    this.logger.log(
+      `Returning ${accountsWithBalances.length} accounts with balances`,
+    );
 
     return accountsWithBalances;
   }
@@ -402,7 +422,9 @@ export class AccountingReportsService {
     const now = new Date();
     now.setHours(23, 59, 59, 999); // Allow today
     if (asOfDate > now) {
-      throw new BadRequestException('Trial Balance cannot be generated for future dates');
+      throw new BadRequestException(
+        "Trial Balance cannot be generated for future dates",
+      );
     }
 
     this.logger.log(
@@ -410,18 +432,18 @@ export class AccountingReportsService {
     );
 
     // Fetch all accounts (filtered by active status if needed)
-    const queryBuilder = this.accountRepository.createQueryBuilder('account');
+    const queryBuilder = this.accountRepository.createQueryBuilder("account");
 
     if (!includeInactive) {
-      queryBuilder.andWhere('account.isActive = :isActive', { isActive: true });
+      queryBuilder.andWhere("account.isActive = :isActive", { isActive: true });
     }
 
     const accounts = await queryBuilder
-      .orderBy('account.code', 'ASC')
+      .orderBy("account.code", "ASC")
       .getMany();
 
     if (accounts.length === 0) {
-      this.logger.warn('No accounts found for trial balance');
+      this.logger.warn("No accounts found for trial balance");
       return {
         accounts: [],
         totalDebit: 0,
@@ -431,12 +453,12 @@ export class AccountingReportsService {
     }
 
     // Get account IDs for batch query
-    const accountIds = accounts.map(account => account.id);
+    const accountIds = accounts.map((account) => account.id);
 
     // Query journal entry lines for all accounts in a single batch query
     const totalsMap = await this.queryHelper.queryTransactionTotals(
       accountIds,
-      { type: 'asOf', date: asOfDate },
+      { type: "asOf", date: asOfDate },
       [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
     );
 
@@ -444,37 +466,39 @@ export class AccountingReportsService {
     let grandTotalDebit = 0;
     let grandTotalCredit = 0;
 
-    const trialBalanceAccounts: TrialBalanceAccount[] = accounts.map(account => {
-      const transactions = totalsMap.get(account.id) || {
-        totalDebit: 0,
-        totalCredit: 0,
-      };
+    const trialBalanceAccounts: TrialBalanceAccount[] = accounts.map(
+      (account) => {
+        const transactions = totalsMap.get(account.id) || {
+          totalDebit: 0,
+          totalCredit: 0,
+        };
 
-      // Calculate net debit or credit for this account
-      const netDebit = transactions.totalDebit - transactions.totalCredit;
-      const netCredit = transactions.totalCredit - transactions.totalDebit;
+        // Calculate net debit or credit for this account
+        const netDebit = transactions.totalDebit - transactions.totalCredit;
+        const netCredit = transactions.totalCredit - transactions.totalDebit;
 
-      // Determine which column to show (debit or credit, never both)
-      let debit = 0;
-      let credit = 0;
+        // Determine which column to show (debit or credit, never both)
+        let debit = 0;
+        let credit = 0;
 
-      if (netDebit > 0) {
-        debit = this.queryHelper.roundTo2Decimals(netDebit);
-        grandTotalDebit += debit;
-      } else if (netCredit > 0) {
-        credit = this.queryHelper.roundTo2Decimals(netCredit);
-        grandTotalCredit += credit;
-      }
-      // If netDebit === netCredit (zero balance), both remain 0
+        if (netDebit > 0) {
+          debit = this.queryHelper.roundTo2Decimals(netDebit);
+          grandTotalDebit += debit;
+        } else if (netCredit > 0) {
+          credit = this.queryHelper.roundTo2Decimals(netCredit);
+          grandTotalCredit += credit;
+        }
+        // If netDebit === netCredit (zero balance), both remain 0
 
-      return {
-        accountCode: account.code,
-        accountName: account.name,
-        accountType: account.type,
-        debit,
-        credit,
-      };
-    });
+        return {
+          accountCode: account.code,
+          accountName: account.name,
+          accountType: account.type,
+          debit,
+          credit,
+        };
+      },
+    );
 
     // Round grand totals to 2 decimals
     grandTotalDebit = this.queryHelper.roundTo2Decimals(grandTotalDebit);
@@ -485,8 +509,8 @@ export class AccountingReportsService {
 
     this.logger.log(
       `Trial balance generated: ${trialBalanceAccounts.length} accounts, ` +
-      `Total Debit=${grandTotalDebit}, Total Credit=${grandTotalCredit}, ` +
-      `Balanced=${isBalanced}`,
+        `Total Debit=${grandTotalDebit}, Total Credit=${grandTotalCredit}, ` +
+        `Balanced=${isBalanced}`,
     );
 
     return {
@@ -524,7 +548,9 @@ export class AccountingReportsService {
     const now = new Date();
     now.setHours(23, 59, 59, 999); // Allow today
     if (asOfDate > now) {
-      throw new BadRequestException('Balance Sheet cannot be generated for future dates');
+      throw new BadRequestException(
+        "Balance Sheet cannot be generated for future dates",
+      );
     }
 
     this.logger.log(
@@ -532,32 +558,32 @@ export class AccountingReportsService {
     );
 
     // Fetch all accounts for balance sheet (ASSET, LIABILITY, EQUITY only)
-    const queryBuilder = this.accountRepository.createQueryBuilder('account');
+    const queryBuilder = this.accountRepository.createQueryBuilder("account");
 
-    queryBuilder.where('account.type IN (:...types)', {
+    queryBuilder.where("account.type IN (:...types)", {
       types: [AccountType.ASSET, AccountType.LIABILITY, AccountType.EQUITY],
     });
 
     if (!includeInactive) {
-      queryBuilder.andWhere('account.isActive = :isActive', { isActive: true });
+      queryBuilder.andWhere("account.isActive = :isActive", { isActive: true });
     }
 
     const accounts = await queryBuilder
-      .orderBy('account.code', 'ASC')
+      .orderBy("account.code", "ASC")
       .getMany();
 
     if (accounts.length === 0) {
-      this.logger.warn('No accounts found for balance sheet');
+      this.logger.warn("No accounts found for balance sheet");
       return this.createEmptyBalanceSheet();
     }
 
     // Get account IDs for batch query
-    const accountIds = accounts.map(account => account.id);
+    const accountIds = accounts.map((account) => account.id);
 
     // Query journal entry lines for all accounts in a single batch query
     const totalsMap = await this.queryHelper.queryTransactionTotals(
       accountIds,
-      { type: 'asOf', date: asOfDate },
+      { type: "asOf", date: asOfDate },
       [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
     );
 
@@ -569,7 +595,7 @@ export class AccountingReportsService {
     const equityAccounts: AccountBalance[] = [];
 
     // Process each account and classify by type and code
-    accounts.forEach(account => {
+    accounts.forEach((account) => {
       const transactions = totalsMap.get(account.id) || {
         totalDebit: 0,
         totalCredit: 0,
@@ -658,15 +684,15 @@ export class AccountingReportsService {
 
     this.logger.log(
       `Balance sheet generated: Assets=${totalAssets}, ` +
-      `Liabilities=${totalLiabilities}, Equity=${totalEquity} ` +
-      `(Accounts=${equityAccountsTotal}, Net Income=${netIncome}), ` +
-      `Balanced=${isBalanced}`,
+        `Liabilities=${totalLiabilities}, Equity=${totalEquity} ` +
+        `(Accounts=${equityAccountsTotal}, Net Income=${netIncome}), ` +
+        `Balanced=${isBalanced}`,
     );
 
     if (!isBalanced) {
       this.logger.warn(
         `Balance sheet is UNBALANCED! ` +
-        `Assets (${totalAssets}) != Liabilities + Equity (${totalLiabilitiesAndEquity})`,
+          `Assets (${totalAssets}) != Liabilities + Equity (${totalLiabilitiesAndEquity})`,
       );
     }
 
@@ -720,14 +746,16 @@ export class AccountingReportsService {
   ): Promise<GeneralLedgerResponse> {
     // Validate date range
     if (startDate > endDate) {
-      throw new BadRequestException('Start date must be before or equal to end date');
+      throw new BadRequestException(
+        "Start date must be before or equal to end date",
+      );
     }
 
     // Validate end date is not in future
     const now = new Date();
     now.setHours(23, 59, 59, 999); // Allow today
     if (endDate > now) {
-      throw new BadRequestException('End date cannot be in the future');
+      throw new BadRequestException("End date cannot be in the future");
     }
 
     this.logger.log(
@@ -740,13 +768,15 @@ export class AccountingReportsService {
     });
 
     if (!account) {
-      throw new NotFoundException(`Account with ID '${accountId}' not found or inactive`);
+      throw new NotFoundException(
+        `Account with ID '${accountId}' not found or inactive`,
+      );
     }
 
     // Calculate opening balance (balance before startDate)
     const openingTotalsMap = await this.queryHelper.queryTransactionTotals(
       [accountId],
-      { type: 'before', date: startDate },
+      { type: "before", date: startDate },
       [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
     );
     const { totalDebit: openingDebit, totalCredit: openingCredit } =
@@ -758,63 +788,70 @@ export class AccountingReportsService {
       openingCredit,
     );
 
-    this.logger.log(`Opening balance for account ${account.code}: ${openingBalance}`);
+    this.logger.log(
+      `Opening balance for account ${account.code}: ${openingBalance}`,
+    );
 
     // Query all transactions for the account within the date range
     const transactionData = await this.journalEntryLineRepository
-      .createQueryBuilder('jel')
-      .leftJoin('jel.journalEntry', 'je')
-      .select('je.entryDate', 'entryDate')
-      .addSelect('je.referenceNumber', 'referenceNumber')
-      .addSelect('je.description', 'description')
-      .addSelect('jel.debitAmount', 'debitAmount')
-      .addSelect('jel.creditAmount', 'creditAmount')
-      .where('jel.accountId = :accountId', { accountId })
-      .andWhere('je.entryDate >= :startDate', { startDate })
-      .andWhere('je.entryDate <= :endDate', { endDate })
-      .andWhere('je.status IN (:...statuses)', { statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED] })
-      .orderBy('je.entryDate', 'ASC')
-      .addOrderBy('je.referenceNumber', 'ASC')
+      .createQueryBuilder("jel")
+      .leftJoin("jel.journalEntry", "je")
+      .select("je.entryDate", "entryDate")
+      .addSelect("je.referenceNumber", "referenceNumber")
+      .addSelect("je.description", "description")
+      .addSelect("jel.debitAmount", "debitAmount")
+      .addSelect("jel.creditAmount", "creditAmount")
+      .where("jel.accountId = :accountId", { accountId })
+      .andWhere("je.entryDate >= :startDate", { startDate })
+      .andWhere("je.entryDate <= :endDate", { endDate })
+      .andWhere("je.status IN (:...statuses)", {
+        statuses: [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
+      })
+      .orderBy("je.entryDate", "ASC")
+      .addOrderBy("je.referenceNumber", "ASC")
       .getRawMany();
 
     // Build transactions array with running balance
     let runningBalance = openingBalance;
-    const transactions: GeneralLedgerTransaction[] = transactionData.map(row => {
-      const debit = parseFloat(row.debitAmount || '0');
-      const credit = parseFloat(row.creditAmount || '0');
+    const transactions: GeneralLedgerTransaction[] = transactionData.map(
+      (row) => {
+        const debit = parseFloat(row.debitAmount || "0");
+        const credit = parseFloat(row.creditAmount || "0");
 
-      // Calculate running balance based on account type
-      if (
-        account.type === AccountType.ASSET ||
-        account.type === AccountType.EXPENSE
-      ) {
-        // For ASSET and EXPENSE: balance increases with debit, decreases with credit
-        runningBalance += debit - credit;
-      } else {
-        // For LIABILITY, EQUITY, and REVENUE: balance increases with credit, decreases with debit
-        runningBalance += credit - debit;
-      }
+        // Calculate running balance based on account type
+        if (
+          account.type === AccountType.ASSET ||
+          account.type === AccountType.EXPENSE
+        ) {
+          // For ASSET and EXPENSE: balance increases with debit, decreases with credit
+          runningBalance += debit - credit;
+        } else {
+          // For LIABILITY, EQUITY, and REVENUE: balance increases with credit, decreases with debit
+          runningBalance += credit - debit;
+        }
 
-      runningBalance = this.queryHelper.roundTo2Decimals(runningBalance);
+        runningBalance = this.queryHelper.roundTo2Decimals(runningBalance);
 
-      return {
-        date: row.entryDate,
-        entryNumber: row.referenceNumber,
-        description: row.description,
-        debit: this.queryHelper.roundTo2Decimals(debit),
-        credit: this.queryHelper.roundTo2Decimals(credit),
-        balance: runningBalance,
-      };
-    });
+        return {
+          date: row.entryDate,
+          entryNumber: row.referenceNumber,
+          description: row.description,
+          debit: this.queryHelper.roundTo2Decimals(debit),
+          credit: this.queryHelper.roundTo2Decimals(credit),
+          balance: runningBalance,
+        };
+      },
+    );
 
     // Closing balance should match final running balance
-    const closingBalance = transactions.length > 0
-      ? transactions[transactions.length - 1].balance
-      : openingBalance;
+    const closingBalance =
+      transactions.length > 0
+        ? transactions[transactions.length - 1].balance
+        : openingBalance;
 
     this.logger.log(
       `General ledger generated for account ${account.code}: ` +
-      `Opening=${openingBalance}, Transactions=${transactions.length}, Closing=${closingBalance}`,
+        `Opening=${openingBalance}, Transactions=${transactions.length}, Closing=${closingBalance}`,
     );
 
     return {
@@ -858,19 +895,21 @@ export class AccountingReportsService {
   ): Promise<AccountActivityResponse> {
     // Validate date range
     if (startDate > endDate) {
-      throw new BadRequestException('Start date must be before or equal to end date');
+      throw new BadRequestException(
+        "Start date must be before or equal to end date",
+      );
     }
 
     // Validate end date is not in future
     const now = new Date();
     now.setHours(23, 59, 59, 999); // Allow today
     if (endDate > now) {
-      throw new BadRequestException('End date cannot be in the future');
+      throw new BadRequestException("End date cannot be in the future");
     }
 
     this.logger.log(
       `Generating account activity for account ${accountId} from ${startDate.toISOString()} to ${endDate.toISOString()}` +
-      (statusFilter ? `, status filter: ${statusFilter}` : ''),
+        (statusFilter ? `, status filter: ${statusFilter}` : ""),
     );
 
     // Fetch the account to determine its type and validate existence
@@ -879,14 +918,16 @@ export class AccountingReportsService {
     });
 
     if (!account) {
-      throw new NotFoundException(`Account with ID '${accountId}' not found or inactive`);
+      throw new NotFoundException(
+        `Account with ID '${accountId}' not found or inactive`,
+      );
     }
 
     // Calculate opening balance (balance before startDate)
     // IMPORTANT: Opening balance only includes POSTED entries for accuracy
     const openingTotalsMap = await this.queryHelper.queryTransactionTotals(
       [accountId],
-      { type: 'before', date: startDate },
+      { type: "before", date: startDate },
       [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
     );
     const { totalDebit: openingDebit, totalCredit: openingCredit } =
@@ -898,76 +939,81 @@ export class AccountingReportsService {
       openingCredit,
     );
 
-    this.logger.log(`Opening balance for account ${account.code}: ${openingBalance}`);
+    this.logger.log(
+      `Opening balance for account ${account.code}: ${openingBalance}`,
+    );
 
     // Query all transactions for the account within the date range
     // KEY DIFFERENCE: Include ALL statuses (DRAFT, POSTED, REVERSED), not just POSTED
     const queryBuilder = this.journalEntryLineRepository
-      .createQueryBuilder('jel')
-      .leftJoin('jel.journalEntry', 'je')
-      .select('je.entryDate', 'entryDate')
-      .addSelect('je.referenceNumber', 'referenceNumber')
-      .addSelect('je.description', 'description')
-      .addSelect('je.status', 'status') // Include status
-      .addSelect('je.sourceType', 'sourceType') // Include reference type
-      .addSelect('je.sourceId', 'sourceId') // Include reference ID
-      .addSelect('jel.debitAmount', 'debitAmount')
-      .addSelect('jel.creditAmount', 'creditAmount')
-      .where('jel.accountId = :accountId', { accountId })
-      .andWhere('je.entryDate >= :startDate', { startDate })
-      .andWhere('je.entryDate <= :endDate', { endDate });
+      .createQueryBuilder("jel")
+      .leftJoin("jel.journalEntry", "je")
+      .select("je.entryDate", "entryDate")
+      .addSelect("je.referenceNumber", "referenceNumber")
+      .addSelect("je.description", "description")
+      .addSelect("je.status", "status") // Include status
+      .addSelect("je.sourceType", "sourceType") // Include reference type
+      .addSelect("je.sourceId", "sourceId") // Include reference ID
+      .addSelect("jel.debitAmount", "debitAmount")
+      .addSelect("jel.creditAmount", "creditAmount")
+      .where("jel.accountId = :accountId", { accountId })
+      .andWhere("je.entryDate >= :startDate", { startDate })
+      .andWhere("je.entryDate <= :endDate", { endDate });
 
     // Apply optional status filter
     if (statusFilter) {
-      queryBuilder.andWhere('je.status = :statusFilter', { statusFilter });
+      queryBuilder.andWhere("je.status = :statusFilter", { statusFilter });
     }
 
     const transactionData = await queryBuilder
-      .orderBy('je.entryDate', 'ASC')
-      .addOrderBy('je.referenceNumber', 'ASC')
+      .orderBy("je.entryDate", "ASC")
+      .addOrderBy("je.referenceNumber", "ASC")
       .getRawMany();
 
     // Build activity array with running balance
     let runningBalance = openingBalance;
-    const activity: AccountActivityTransaction[] = transactionData.map(row => {
-      const debit = parseFloat(row.debitAmount || '0');
-      const credit = parseFloat(row.creditAmount || '0');
+    const activity: AccountActivityTransaction[] = transactionData.map(
+      (row) => {
+        const debit = parseFloat(row.debitAmount || "0");
+        const credit = parseFloat(row.creditAmount || "0");
 
-      // Calculate running balance based on account type
-      if (
-        account.type === AccountType.ASSET ||
-        account.type === AccountType.EXPENSE
-      ) {
-        // For ASSET and EXPENSE: balance increases with debit, decreases with credit
-        runningBalance += debit - credit;
-      } else {
-        // For LIABILITY, EQUITY, and REVENUE: balance increases with credit, decreases with debit
-        runningBalance += credit - debit;
-      }
+        // Calculate running balance based on account type
+        if (
+          account.type === AccountType.ASSET ||
+          account.type === AccountType.EXPENSE
+        ) {
+          // For ASSET and EXPENSE: balance increases with debit, decreases with credit
+          runningBalance += debit - credit;
+        } else {
+          // For LIABILITY, EQUITY, and REVENUE: balance increases with credit, decreases with debit
+          runningBalance += credit - debit;
+        }
 
-      runningBalance = this.queryHelper.roundTo2Decimals(runningBalance);
+        runningBalance = this.queryHelper.roundTo2Decimals(runningBalance);
 
-      return {
-        date: row.entryDate,
-        entryNumber: row.referenceNumber,
-        description: row.description,
-        referenceType: row.sourceType || undefined, // Include reference metadata
-        referenceId: row.sourceId || undefined, // Include reference metadata
-        status: row.status, // Include status for filtering in frontend
-        debit: this.queryHelper.roundTo2Decimals(debit),
-        credit: this.queryHelper.roundTo2Decimals(credit),
-        balance: runningBalance,
-      };
-    });
+        return {
+          date: row.entryDate,
+          entryNumber: row.referenceNumber,
+          description: row.description,
+          referenceType: row.sourceType || undefined, // Include reference metadata
+          referenceId: row.sourceId || undefined, // Include reference metadata
+          status: row.status, // Include status for filtering in frontend
+          debit: this.queryHelper.roundTo2Decimals(debit),
+          credit: this.queryHelper.roundTo2Decimals(credit),
+          balance: runningBalance,
+        };
+      },
+    );
 
     // Closing balance should match final running balance
-    const closingBalance = activity.length > 0
-      ? activity[activity.length - 1].balance
-      : openingBalance;
+    const closingBalance =
+      activity.length > 0
+        ? activity[activity.length - 1].balance
+        : openingBalance;
 
     this.logger.log(
       `Account activity generated for account ${account.code}: ` +
-      `Opening=${openingBalance}, Transactions=${activity.length}, Closing=${closingBalance}`,
+        `Opening=${openingBalance}, Transactions=${activity.length}, Closing=${closingBalance}`,
     );
 
     return {
@@ -987,36 +1033,37 @@ export class AccountingReportsService {
     asOfDate: Date,
     includeInactive: boolean,
   ): Promise<number> {
-    const incomeQueryBuilder = this.accountRepository.createQueryBuilder('account');
-    incomeQueryBuilder.where('account.type IN (:...types)', {
+    const incomeQueryBuilder =
+      this.accountRepository.createQueryBuilder("account");
+    incomeQueryBuilder.where("account.type IN (:...types)", {
       types: [AccountType.REVENUE, AccountType.EXPENSE],
     });
 
     if (!includeInactive) {
-      incomeQueryBuilder.andWhere('account.isActive = :isActive', {
+      incomeQueryBuilder.andWhere("account.isActive = :isActive", {
         isActive: true,
       });
     }
 
     const incomeAccounts = await incomeQueryBuilder
-      .orderBy('account.code', 'ASC')
+      .orderBy("account.code", "ASC")
       .getMany();
 
     if (incomeAccounts.length === 0) {
       return 0;
     }
 
-    const incomeAccountIds = incomeAccounts.map(account => account.id);
+    const incomeAccountIds = incomeAccounts.map((account) => account.id);
     const totalsMap = await this.queryHelper.queryTransactionTotals(
       incomeAccountIds,
-      { type: 'asOf', date: asOfDate },
+      { type: "asOf", date: asOfDate },
       [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
     );
 
     let totalRevenue = 0;
     let totalExpenses = 0;
 
-    incomeAccounts.forEach(account => {
+    incomeAccounts.forEach((account) => {
       const { totalDebit, totalCredit } = totalsMap.get(account.id) || {
         totalDebit: 0,
         totalCredit: 0,
@@ -1066,14 +1113,16 @@ export class AccountingReportsService {
   ): Promise<ProfitAndLossResponse> {
     // Validate date range
     if (startDate > endDate) {
-      throw new BadRequestException('Start date must be before or equal to end date');
+      throw new BadRequestException(
+        "Start date must be before or equal to end date",
+      );
     }
 
     // Validate end date is not in future
     const now = new Date();
     now.setHours(23, 59, 59, 999); // Allow today
     if (endDate > now) {
-      throw new BadRequestException('End date cannot be in the future');
+      throw new BadRequestException("End date cannot be in the future");
     }
 
     this.logger.log(
@@ -1081,32 +1130,32 @@ export class AccountingReportsService {
     );
 
     // Fetch all income statement accounts (REVENUE and EXPENSE only)
-    const queryBuilder = this.accountRepository.createQueryBuilder('account');
+    const queryBuilder = this.accountRepository.createQueryBuilder("account");
 
-    queryBuilder.where('account.type IN (:...types)', {
+    queryBuilder.where("account.type IN (:...types)", {
       types: [AccountType.REVENUE, AccountType.EXPENSE],
     });
 
     if (!includeInactive) {
-      queryBuilder.andWhere('account.isActive = :isActive', { isActive: true });
+      queryBuilder.andWhere("account.isActive = :isActive", { isActive: true });
     }
 
     const accounts = await queryBuilder
-      .orderBy('account.code', 'ASC')
+      .orderBy("account.code", "ASC")
       .getMany();
 
     if (accounts.length === 0) {
-      this.logger.warn('No income statement accounts found for P&L');
+      this.logger.warn("No income statement accounts found for P&L");
       return this.createEmptyProfitAndLoss();
     }
 
     // Get account IDs for batch query
-    const accountIds = accounts.map(account => account.id);
+    const accountIds = accounts.map((account) => account.id);
 
     // Query journal entry lines for the date range
     const totalsMap = await this.queryHelper.queryTransactionTotals(
       accountIds,
-      { type: 'range', startDate, endDate },
+      { type: "range", startDate, endDate },
       [JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED],
     );
 
@@ -1116,7 +1165,7 @@ export class AccountingReportsService {
     const expenseAccounts: AccountBalance[] = [];
 
     // Process each account and classify by type and code
-    accounts.forEach(account => {
+    accounts.forEach((account) => {
       const transactions = totalsMap.get(account.id) || {
         totalDebit: 0,
         totalCredit: 0,
@@ -1159,17 +1208,21 @@ export class AccountingReportsService {
       cogsAccounts.reduce((sum, acc) => sum + acc.balance, 0),
     );
 
-    const grossProfit = this.queryHelper.roundTo2Decimals(totalRevenue - totalCOGS);
+    const grossProfit = this.queryHelper.roundTo2Decimals(
+      totalRevenue - totalCOGS,
+    );
 
     const totalExpenses = this.queryHelper.roundTo2Decimals(
       expenseAccounts.reduce((sum, acc) => sum + acc.balance, 0),
     );
 
-    const netIncome = this.queryHelper.roundTo2Decimals(grossProfit - totalExpenses);
+    const netIncome = this.queryHelper.roundTo2Decimals(
+      grossProfit - totalExpenses,
+    );
 
     this.logger.log(
       `P&L generated: Revenue=${totalRevenue}, COGS=${totalCOGS}, ` +
-      `Gross Profit=${grossProfit}, Expenses=${totalExpenses}, Net Income=${netIncome}`,
+        `Gross Profit=${grossProfit}, Expenses=${totalExpenses}, Net Income=${netIncome}`,
     );
 
     return {
@@ -1199,7 +1252,7 @@ export class AccountingReportsService {
    */
   async exportTrialBalanceToExcel(
     data: TrialBalanceResponse,
-    filename: string = 'trial-balance',
+    filename: string = "trial-balance",
   ): Promise<Buffer> {
     return this.excelExportService.exportTrialBalanceToExcel(data, filename);
   }
@@ -1213,7 +1266,7 @@ export class AccountingReportsService {
    */
   async exportBalanceSheetToExcel(
     data: BalanceSheetResponse,
-    filename: string = 'balance-sheet',
+    filename: string = "balance-sheet",
   ): Promise<Buffer> {
     return this.excelExportService.exportBalanceSheetToExcel(data, filename);
   }
@@ -1227,7 +1280,7 @@ export class AccountingReportsService {
    */
   async exportProfitAndLossToExcel(
     data: ProfitAndLossResponse,
-    filename: string = 'profit-and-loss',
+    filename: string = "profit-and-loss",
   ): Promise<Buffer> {
     return this.excelExportService.exportProfitAndLossToExcel(data, filename);
   }
@@ -1241,7 +1294,7 @@ export class AccountingReportsService {
    */
   async exportGeneralLedgerToExcel(
     data: GeneralLedgerResponse,
-    filename: string = 'general-ledger',
+    filename: string = "general-ledger",
   ): Promise<Buffer> {
     return this.excelExportService.exportGeneralLedgerToExcel(data, filename);
   }
@@ -1255,7 +1308,7 @@ export class AccountingReportsService {
    */
   async exportAccountActivityToExcel(
     data: AccountActivityResponse,
-    filename: string = 'account-activity',
+    filename: string = "account-activity",
   ): Promise<Buffer> {
     return this.excelExportService.exportAccountActivityToExcel(data, filename);
   }
@@ -1309,5 +1362,4 @@ export class AccountingReportsService {
       isBalanced: true,
     };
   }
-
 }

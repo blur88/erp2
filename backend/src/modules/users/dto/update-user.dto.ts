@@ -1,30 +1,26 @@
-import { ApiProperty, PartialType, OmitType } from '@nestjs/swagger';
-import {
-  IsEnum,
-  IsOptional,
-  IsBoolean,
-} from 'class-validator';
-import { CreateUserDto } from './create-user.dto';
-import { UserStatus } from '../../../database/entities/user.entity';
+import { ApiProperty, PartialType, OmitType } from "@nestjs/swagger";
+import { IsEnum, IsOptional, IsBoolean } from "class-validator";
+import { CreateUserDto } from "./create-user.dto";
+import { UserStatus } from "../../../database/entities/user.entity";
 
 /**
  * Update user DTO - excludes password which should be changed separately
  */
 export class UpdateUserDto extends PartialType(
-  OmitType(CreateUserDto, ['password'] as const)
+  OmitType(CreateUserDto, ["password"] as const),
 ) {
   @ApiProperty({
-    description: 'User account status',
+    description: "User account status",
     enum: UserStatus,
     example: UserStatus.ACTIVE,
     required: false,
   })
   @IsOptional()
-  @IsEnum(UserStatus, { message: 'Please provide a valid user status' })
+  @IsEnum(UserStatus, { message: "Please provide a valid user status" })
   status?: UserStatus;
 
   @ApiProperty({
-    description: 'Whether the user account is active',
+    description: "Whether the user account is active",
     example: true,
     required: false,
   })
@@ -38,7 +34,7 @@ export class UpdateUserDto extends PartialType(
  */
 export class AdminUpdateUserDto extends UpdateUserDto {
   @ApiProperty({
-    description: 'Reset failed login attempts counter',
+    description: "Reset failed login attempts counter",
     example: false,
     required: false,
   })
@@ -47,7 +43,7 @@ export class AdminUpdateUserDto extends UpdateUserDto {
   resetFailedAttempts?: boolean;
 
   @ApiProperty({
-    description: 'Unlock user account',
+    description: "Unlock user account",
     example: false,
     required: false,
   })

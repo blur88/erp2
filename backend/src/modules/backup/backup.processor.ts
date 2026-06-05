@@ -1,8 +1,8 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
-import { Job } from 'bullmq';
-import { BackupService } from './backup.service';
-import { CreateBackupDto } from './dto/create-backup.dto';
+import { Processor, WorkerHost } from "@nestjs/bullmq";
+import { Logger } from "@nestjs/common";
+import { Job } from "bullmq";
+import { BackupService } from "./backup.service";
+import { CreateBackupDto } from "./dto/create-backup.dto";
 
 export interface BackupJobData {
   scheduleId?: string;
@@ -13,7 +13,7 @@ export interface CleanupJobData {
   retentionDays: number;
 }
 
-@Processor('backup-queue')
+@Processor("backup-queue")
 export class BackupProcessor extends WorkerHost {
   private readonly logger = new Logger(BackupProcessor.name);
 
@@ -23,11 +23,11 @@ export class BackupProcessor extends WorkerHost {
 
   async process(job: Job): Promise<any> {
     switch (job.name) {
-      case 'create-backup':
+      case "create-backup":
         return this.handleBackupJob(job as Job<BackupJobData>);
-      case 'cleanup-old-backups':
+      case "cleanup-old-backups":
         return this.handleCleanupJob(job as Job<CleanupJobData>);
-      case 'cleanup-with-settings':
+      case "cleanup-with-settings":
         return this.handleCleanupWithSettingsJob(job);
       default:
         this.logger.warn(`Unknown job name: ${job.name}`);
@@ -82,7 +82,8 @@ export class BackupProcessor extends WorkerHost {
     this.logger.log(`Processing cleanup with settings job ${job.id}`);
 
     try {
-      const deletedCount = await this.backupService.cleanupBackupsWithSettings();
+      const deletedCount =
+        await this.backupService.cleanupBackupsWithSettings();
 
       this.logger.log(
         `Cleanup with settings job ${job.id} completed: ${deletedCount} backups deleted`,

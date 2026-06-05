@@ -15,79 +15,95 @@ import {
   IsUUID,
   ValidateNested,
   ArrayMinSize,
-} from 'class-validator';
-import { Type, Transform } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { BaseQueryDto } from '../../../common/dto/base-query.dto';
+} from "class-validator";
+import { Type, Transform } from "class-transformer";
+import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
+import { BaseQueryDto } from "../../../common/dto/base-query.dto";
 
 export class CreatePurchaseOrderItemDto {
-  @ApiProperty({ description: 'Product ID from catalog' })
+  @ApiProperty({ description: "Product ID from catalog" })
   @IsUUID()
   productId: string;
 
-  @ApiProperty({ description: 'Quantity ordered' })
+  @ApiProperty({ description: "Quantity ordered" })
   @Transform(({ value }) => parseFloat(value))
   @IsNumber()
   @Min(0.0001)
   quantity: number;
 
-  @ApiProperty({ description: 'Unit price' })
+  @ApiProperty({ description: "Unit price" })
   @Transform(({ value }) => parseFloat(value))
   @IsNumber()
   @Min(0)
   unitPrice: number;
 
-  @ApiPropertyOptional({ description: 'Discount type: percentage or fixed_amount', default: 'percentage' })
+  @ApiPropertyOptional({
+    description: "Discount type: percentage or fixed_amount",
+    default: "percentage",
+  })
   @IsOptional()
-  @IsEnum(['percentage', 'fixed_amount'])
-  discountType?: 'percentage' | 'fixed_amount';
+  @IsEnum(["percentage", "fixed_amount"])
+  discountType?: "percentage" | "fixed_amount";
 
-  @ApiPropertyOptional({ description: 'Discount percentage (used when discountType is percentage)', default: 0 })
+  @ApiPropertyOptional({
+    description: "Discount percentage (used when discountType is percentage)",
+    default: 0,
+  })
   @IsOptional()
-  @Transform(({ value }) => value == null ? 0 : parseFloat(value))
+  @Transform(({ value }) => (value == null ? 0 : parseFloat(value)))
   @IsNumber()
   @Min(0)
   @Max(100)
   discountPercent?: number;
 
-  @ApiPropertyOptional({ description: 'Discount amount per unit (used when discountType is fixed_amount)', default: 0 })
+  @ApiPropertyOptional({
+    description:
+      "Discount amount per unit (used when discountType is fixed_amount)",
+    default: 0,
+  })
   @IsOptional()
-  @Transform(({ value }) => value == null ? 0 : parseFloat(value))
+  @Transform(({ value }) => (value == null ? 0 : parseFloat(value)))
   @IsNumber()
   @Min(0)
   discountAmount?: number;
 }
 
 export class CreatePurchaseOrderDto {
-  @ApiProperty({ description: 'Supplier ID' })
+  @ApiProperty({ description: "Supplier ID" })
   @IsUUID()
   supplierId: string;
 
-  @ApiProperty({ description: 'Order date' })
+  @ApiProperty({ description: "Order date" })
   @IsDateString()
   orderDate: string;
 
-  @ApiPropertyOptional({ description: 'Discount percentage for entire order', default: 0 })
+  @ApiPropertyOptional({
+    description: "Discount percentage for entire order",
+    default: 0,
+  })
   @IsOptional()
-  @Transform(({ value }) => value == null ? 0 : parseFloat(value))
+  @Transform(({ value }) => (value == null ? 0 : parseFloat(value)))
   @IsNumber()
   @Min(0)
   @Max(100)
   discountPercent?: number;
 
-  @ApiPropertyOptional({ description: 'Shipping/freight charges', default: 0 })
+  @ApiPropertyOptional({ description: "Shipping/freight charges", default: 0 })
   @IsOptional()
-  @Transform(({ value }) => value == null ? 0 : parseFloat(value))
+  @Transform(({ value }) => (value == null ? 0 : parseFloat(value)))
   @IsNumber()
   @Min(0)
   shippingAmount?: number;
 
-  @ApiPropertyOptional({ description: 'Special instructions or notes' })
+  @ApiPropertyOptional({ description: "Special instructions or notes" })
   @IsOptional()
   @IsString()
   notes?: string;
 
-  @ApiProperty({ description: 'Order items', type: [CreatePurchaseOrderItemDto] })
+  @ApiProperty({
+    description: "Order items",
+    type: [CreatePurchaseOrderItemDto],
+  })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
@@ -95,95 +111,107 @@ export class CreatePurchaseOrderDto {
   items: CreatePurchaseOrderItemDto[];
 }
 
-export class UpdatePurchaseOrderDto extends PartialType(CreatePurchaseOrderDto) {}
+export class UpdatePurchaseOrderDto extends PartialType(
+  CreatePurchaseOrderDto,
+) {}
 
 export class PurchaseOrderQueryDto extends BaseQueryDto {
-  @ApiPropertyOptional({ description: 'Filter by supplier ID' })
+  @ApiPropertyOptional({ description: "Filter by supplier ID" })
   @IsOptional()
   @IsUUID()
   supplierId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter from order date' })
+  @ApiPropertyOptional({ description: "Filter from order date" })
   @IsOptional()
   @IsDateString()
   orderDateFrom?: string;
 
-  @ApiPropertyOptional({ description: 'Filter to order date' })
+  @ApiPropertyOptional({ description: "Filter to order date" })
   @IsOptional()
   @IsDateString()
   orderDateTo?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by GRN status', enum: ['draft', 'received'] })
+  @ApiPropertyOptional({
+    description: "Filter by GRN status",
+    enum: ["draft", "received"],
+  })
   @IsOptional()
-  @IsEnum(['draft', 'received'])
-  status?: 'draft' | 'received';
+  @IsEnum(["draft", "received"])
+  status?: "draft" | "received";
 
-  @ApiPropertyOptional({ description: 'Filter by payment status', enum: ['unpaid', 'partial', 'paid', 'overpaid'] })
+  @ApiPropertyOptional({
+    description: "Filter by payment status",
+    enum: ["unpaid", "partial", "paid", "overpaid"],
+  })
   @IsOptional()
-  @IsEnum(['unpaid', 'partial', 'paid', 'overpaid'])
-  paymentStatus?: 'unpaid' | 'partial' | 'paid' | 'overpaid';
+  @IsEnum(["unpaid", "partial", "paid", "overpaid"])
+  paymentStatus?: "unpaid" | "partial" | "paid" | "overpaid";
 
-  @ApiPropertyOptional({ description: 'Sort by field', default: 'orderDate' })
+  @ApiPropertyOptional({ description: "Sort by field", default: "orderDate" })
   @IsOptional()
   @IsString()
-  sortBy?: string = 'orderDate';
+  sortBy?: string = "orderDate";
 
-  @ApiPropertyOptional({ description: 'Sort order', enum: ['ASC', 'DESC'], default: 'DESC' })
+  @ApiPropertyOptional({
+    description: "Sort order",
+    enum: ["ASC", "DESC"],
+    default: "DESC",
+  })
   @IsOptional()
   @IsString()
-  sortOrder?: 'ASC' | 'DESC' = 'DESC';
+  sortOrder?: "ASC" | "DESC" = "DESC";
 }
 
 export class PurchaseOrderItemResponseDto {
-  @ApiProperty({ description: 'Item ID' })
+  @ApiProperty({ description: "Item ID" })
   id: string;
 
-  @ApiProperty({ description: 'Product information' })
+  @ApiProperty({ description: "Product information" })
   product?: {
     id: string;
     sku: string;
     name: string;
   };
 
-  @ApiProperty({ description: 'Item description' })
+  @ApiProperty({ description: "Item description" })
   description: string;
 
-  @ApiProperty({ description: 'Quantity ordered' })
+  @ApiProperty({ description: "Quantity ordered" })
   quantity: number;
 
-  @ApiProperty({ description: 'Unit price' })
+  @ApiProperty({ description: "Unit price" })
   unitPrice: number;
 
-  @ApiProperty({ description: 'Discount percentage' })
+  @ApiProperty({ description: "Discount percentage" })
   discountPercent: number;
 
-  @ApiProperty({ description: 'Discount amount' })
+  @ApiProperty({ description: "Discount amount" })
   discountAmount: number;
 
-  @ApiProperty({ description: 'Total amount for this line' })
+  @ApiProperty({ description: "Total amount for this line" })
   totalAmount: number;
 
-  @ApiProperty({ description: 'Quantity received so far' })
+  @ApiProperty({ description: "Quantity received so far" })
   receivedQuantity: number;
 
-  @ApiProperty({ description: 'Quantity rejected (deprecated - always 0)' })
+  @ApiProperty({ description: "Quantity rejected (deprecated - always 0)" })
   rejectedQuantity: number;
 
-  @ApiProperty({ description: 'Is item fully received' })
+  @ApiProperty({ description: "Is item fully received" })
   isFullyReceived: boolean;
 
-  @ApiProperty({ description: 'Item status' })
+  @ApiProperty({ description: "Item status" })
   status: string;
 }
 
 export class PurchaseOrderResponseDto {
-  @ApiProperty({ description: 'Purchase order ID' })
+  @ApiProperty({ description: "Purchase order ID" })
   id: string;
 
-  @ApiProperty({ description: 'Order number' })
+  @ApiProperty({ description: "Order number" })
   orderNumber: string;
 
-  @ApiProperty({ description: 'Supplier information' })
+  @ApiProperty({ description: "Supplier information" })
   supplier?: {
     id: string;
     supplierCode: string;
@@ -198,43 +226,48 @@ export class PurchaseOrderResponseDto {
     country?: string;
   };
 
-  @ApiProperty({ description: 'Order date' })
+  @ApiProperty({ description: "Order date" })
   orderDate: Date;
 
-  @ApiProperty({ description: 'Subtotal amount' })
+  @ApiProperty({ description: "Subtotal amount" })
   subtotal: number;
 
-  @ApiProperty({ description: 'Discount percentage' })
+  @ApiProperty({ description: "Discount percentage" })
   discountPercent: number;
 
-  @ApiProperty({ description: 'Discount amount' })
+  @ApiProperty({ description: "Discount amount" })
   discountAmount: number;
 
-  @ApiProperty({ description: 'Shipping amount' })
+  @ApiProperty({ description: "Shipping amount" })
   shippingAmount: number;
 
-  @ApiProperty({ description: 'Total amount' })
+  @ApiProperty({ description: "Total amount" })
   totalAmount: number;
 
-  @ApiProperty({ description: 'Total amount paid' })
+  @ApiProperty({ description: "Total amount paid" })
   paidAmount: number;
 
-  @ApiProperty({ description: 'Notes' })
+  @ApiProperty({ description: "Notes" })
   notes?: string;
 
-  @ApiProperty({ description: 'Is fully received' })
+  @ApiProperty({ description: "Is fully received" })
   isFullyReceived: boolean;
 
-  @ApiProperty({ description: 'Total received quantity' })
+  @ApiProperty({ description: "Total received quantity" })
   totalReceivedQuantity: number;
 
-  @ApiProperty({ description: 'Total ordered quantity' })
+  @ApiProperty({ description: "Total ordered quantity" })
   totalOrderedQuantity: number;
 
-  @ApiProperty({ description: 'Order items', type: [PurchaseOrderItemResponseDto] })
+  @ApiProperty({
+    description: "Order items",
+    type: [PurchaseOrderItemResponseDto],
+  })
   items: PurchaseOrderItemResponseDto[];
 
-  @ApiPropertyOptional({ description: 'Goods Received Notes associated with this order' })
+  @ApiPropertyOptional({
+    description: "Goods Received Notes associated with this order",
+  })
   goodsReceivedNotes?: Array<{
     id: string;
     grnNumber: string;
@@ -242,7 +275,9 @@ export class PurchaseOrderResponseDto {
     receiptDate: Date;
   }>;
 
-  @ApiPropertyOptional({ description: 'Vendor Payments associated with this order' })
+  @ApiPropertyOptional({
+    description: "Vendor Payments associated with this order",
+  })
   vendorPayments?: Array<{
     id: string;
     paymentNumber: string;
@@ -252,32 +287,34 @@ export class PurchaseOrderResponseDto {
     status: string;
   }>;
 
-  @ApiProperty({ description: 'Created date' })
+  @ApiProperty({ description: "Created date" })
   createdAt: Date;
 
-  @ApiProperty({ description: 'Updated date' })
+  @ApiProperty({ description: "Updated date" })
   updatedAt: Date;
 
-  @ApiPropertyOptional({ description: 'Deleted date (for soft-deleted records)' })
+  @ApiPropertyOptional({
+    description: "Deleted date (for soft-deleted records)",
+  })
   deletedAt?: Date;
 }
 
 class ApprovePurchaseOrderDto {
-  @ApiPropertyOptional({ description: 'Approval comments' })
+  @ApiPropertyOptional({ description: "Approval comments" })
   @IsOptional()
   @IsString()
   comments?: string;
 }
 
 class AcknowledgePurchaseOrderDto {
-  @ApiPropertyOptional({ description: 'Supplier acknowledgment notes' })
+  @ApiPropertyOptional({ description: "Supplier acknowledgment notes" })
   @IsOptional()
   @IsString()
   notes?: string;
 }
 
 class CancelPurchaseOrderDto {
-  @ApiProperty({ description: 'Reason for cancellation' })
+  @ApiProperty({ description: "Reason for cancellation" })
   @IsString()
   @MinLength(5)
   @MaxLength(500)
@@ -285,72 +322,78 @@ class CancelPurchaseOrderDto {
 }
 
 export class PurchaseOrderListResponseDto {
-  @ApiProperty({ description: 'List of purchase orders', type: [PurchaseOrderResponseDto] })
+  @ApiProperty({
+    description: "List of purchase orders",
+    type: [PurchaseOrderResponseDto],
+  })
   orders: PurchaseOrderResponseDto[];
 
-  @ApiProperty({ description: 'Total count' })
+  @ApiProperty({ description: "Total count" })
   total: number;
 
-  @ApiProperty({ description: 'Current page' })
+  @ApiProperty({ description: "Current page" })
   page: number;
 
-  @ApiProperty({ description: 'Items per page' })
+  @ApiProperty({ description: "Items per page" })
   limit: number;
 
-  @ApiProperty({ description: 'Total pages' })
+  @ApiProperty({ description: "Total pages" })
   totalPages: number;
 
-  @ApiProperty({ description: 'Has next page' })
+  @ApiProperty({ description: "Has next page" })
   hasNext: boolean;
 
-  @ApiProperty({ description: 'Has previous page' })
+  @ApiProperty({ description: "Has previous page" })
   hasPrev: boolean;
 }
 
 class PurchaseOrderAnalyticsDto {
-  @ApiPropertyOptional({ description: 'Start date for analytics' })
+  @ApiPropertyOptional({ description: "Start date for analytics" })
   @IsOptional()
   @IsDateString()
   startDate?: string;
 
-  @ApiPropertyOptional({ description: 'End date for analytics' })
+  @ApiPropertyOptional({ description: "End date for analytics" })
   @IsOptional()
   @IsDateString()
   endDate?: string;
 
-  @ApiPropertyOptional({ description: 'Supplier IDs to include', type: [String] })
+  @ApiPropertyOptional({
+    description: "Supplier IDs to include",
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @IsUUID(4, { each: true })
   supplierIds?: string[];
 
-  @ApiPropertyOptional({ description: 'Include department breakdown' })
+  @ApiPropertyOptional({ description: "Include department breakdown" })
   @IsOptional()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) => value === "true")
   @IsBoolean()
   includeDepartments?: boolean;
 
-  @ApiPropertyOptional({ description: 'Include product category breakdown' })
+  @ApiPropertyOptional({ description: "Include product category breakdown" })
   @IsOptional()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) => value === "true")
   @IsBoolean()
   includeCategories?: boolean;
 }
 
 export class PurchaseOrderSummaryDto {
-  @ApiProperty({ description: 'Total orders count' })
+  @ApiProperty({ description: "Total orders count" })
   totalOrders: number;
 
-  @ApiProperty({ description: 'Total purchase amount' })
+  @ApiProperty({ description: "Total purchase amount" })
   totalAmount: number;
 
-  @ApiProperty({ description: 'Average order value' })
+  @ApiProperty({ description: "Average order value" })
   averageOrderValue: number;
 
-  @ApiProperty({ description: 'Overdue orders count' })
+  @ApiProperty({ description: "Overdue orders count" })
   overdueOrders: number;
 
-  @ApiProperty({ description: 'Top suppliers by volume' })
+  @ApiProperty({ description: "Top suppliers by volume" })
   topSuppliers: Array<{
     supplierId: string;
     companyName: string;

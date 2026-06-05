@@ -1,15 +1,22 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException, HttpException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, Like, In, Between } from 'typeorm';
-import { BaseCrudService } from '../../../common/services/base-crud.service';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+  HttpException,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, FindOptionsWhere, Like, In, Between } from "typeorm";
+import { BaseCrudService } from "../../../common/services/base-crud.service";
 import {
   PurchaseOrder,
   PurchaseOrderItem,
   Supplier,
   Product,
   GoodsReceivedNote,
-  VendorPayment
-} from '../../../database/entities';
+  VendorPayment,
+} from "../../../database/entities";
 import {
   CreatePurchaseOrderDto,
   UpdatePurchaseOrderDto,
@@ -17,9 +24,9 @@ import {
   PurchaseOrderResponseDto,
   PurchaseOrderListResponseDto,
   PurchaseOrderSummaryDto,
-} from '../dto';
-import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
-import { canSearchPurchaseOrders } from '../../search/search.permissions';
+} from "../dto";
+import { GlobalSearchResultDto } from "../../search/dto/global-search-result.dto";
+import { canSearchPurchaseOrders } from "../../search/search.permissions";
 import {
   SEARCH_CANDIDATE_LIMIT,
   SCORE_EXACT_CODE,
@@ -28,19 +35,19 @@ import {
   SCORE_FUZZY,
   BOOST_TRANSACTION,
   BOOST_EXACT_MATCH,
-} from '../../search/search.constants';
-import { SupplierService } from './supplier.service';
-import { GoodsReceivedNoteService } from './goods-received-note.service';
-import { VendorPaymentService } from './vendor-payment.service';
-import { GrnStatus } from '../../../database/entities/goods-received-note.entity';
-import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
-import { StockMovementService } from '../../inventory/services/stock-movement.service';
-import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
-import { StockMovementType } from '../../../database/entities/stock-movement.entity';
-import { SettingsService } from '../../settings/settings.service';
-import { AuditLogService } from '../../audit-logs/services';
-import { AccountingService } from '../../accounting/services/accounting.service';
-import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
+} from "../../search/search.constants";
+import { SupplierService } from "./supplier.service";
+import { GoodsReceivedNoteService } from "./goods-received-note.service";
+import { VendorPaymentService } from "./vendor-payment.service";
+import { GrnStatus } from "../../../database/entities/goods-received-note.entity";
+import { BaseCostCalculatorService } from "../../inventory/services/base-cost-calculator.service";
+import { StockMovementService } from "../../inventory/services/stock-movement.service";
+import { CreateStockMovementDto } from "../../inventory/dto/stock.dto";
+import { StockMovementType } from "../../../database/entities/stock-movement.entity";
+import { SettingsService } from "../../settings/settings.service";
+import { AuditLogService } from "../../audit-logs/services";
+import { AccountingService } from "../../accounting/services/accounting.service";
+import { PurchaseOrderLifecycleService } from "./purchase-order-lifecycle.service";
 
 @Injectable()
 export class PurchaseOrderService extends BaseCrudService<
@@ -78,10 +85,12 @@ export class PurchaseOrderService extends BaseCrudService<
   }
 
   getEntityType(): string {
-    return 'PurchaseOrder';
+    return "PurchaseOrder";
   }
 
-  buildWhereClause(query: PurchaseOrderQueryDto): FindOptionsWhere<PurchaseOrder> {
+  buildWhereClause(
+    query: PurchaseOrderQueryDto,
+  ): FindOptionsWhere<PurchaseOrder> {
     const where: FindOptionsWhere<PurchaseOrder> = {};
 
     if (query.supplierId) where.supplierId = query.supplierId;
@@ -91,43 +100,49 @@ export class PurchaseOrderService extends BaseCrudService<
 
   protected applyQueryBuilder(qb: any, query: PurchaseOrderQueryDto): any {
     qb = qb
-      .leftJoinAndSelect('po.supplier', 'supplier')
-      .leftJoinAndSelect('po.items', 'items')
-      .leftJoinAndSelect('items.product', 'product')
-      .leftJoinAndSelect('po.goodsReceivedNotes', 'grns')
-      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments');
+      .leftJoinAndSelect("po.supplier", "supplier")
+      .leftJoinAndSelect("po.items", "items")
+      .leftJoinAndSelect("items.product", "product")
+      .leftJoinAndSelect("po.goodsReceivedNotes", "grns")
+      .leftJoinAndSelect("po.vendorPayments", "vendorPayments");
 
     if (query.supplierId) {
-      qb = qb.andWhere('po.supplierId = :supplierId', { supplierId: query.supplierId });
+      qb = qb.andWhere("po.supplierId = :supplierId", {
+        supplierId: query.supplierId,
+      });
     }
     if (query.orderDateFrom) {
-      qb = qb.andWhere('po.orderDate >= :orderDateFrom', {
+      qb = qb.andWhere("po.orderDate >= :orderDateFrom", {
         orderDateFrom: new Date(query.orderDateFrom),
       });
     }
     if (query.orderDateTo) {
-      qb = qb.andWhere('po.orderDate <= :orderDateTo', {
+      qb = qb.andWhere("po.orderDate <= :orderDateTo", {
         orderDateTo: new Date(query.orderDateTo),
       });
     }
 
     switch (query.paymentStatus) {
-      case 'unpaid':
-        qb = qb.andWhere('(po.paidAmount = 0 OR po.paidAmount IS NULL)');
+      case "unpaid":
+        qb = qb.andWhere("(po.paidAmount = 0 OR po.paidAmount IS NULL)");
         break;
-      case 'partial':
-        qb = qb.andWhere('po.paidAmount > 0 AND po.paidAmount < po.totalAmount');
+      case "partial":
+        qb = qb.andWhere(
+          "po.paidAmount > 0 AND po.paidAmount < po.totalAmount",
+        );
         break;
-      case 'paid':
-        qb = qb.andWhere('po.paidAmount >= po.totalAmount AND po.paidAmount > 0');
+      case "paid":
+        qb = qb.andWhere(
+          "po.paidAmount >= po.totalAmount AND po.paidAmount > 0",
+        );
         break;
-      case 'overpaid':
-        qb = qb.andWhere('po.paidAmount > po.totalAmount');
+      case "overpaid":
+        qb = qb.andWhere("po.paidAmount > po.totalAmount");
         break;
     }
 
     if (query.status) {
-      qb = qb.andWhere('grns.status = :grnStatus', { grnStatus: query.status });
+      qb = qb.andWhere("grns.status = :grnStatus", { grnStatus: query.status });
     }
 
     return qb;
@@ -135,27 +150,37 @@ export class PurchaseOrderService extends BaseCrudService<
 
   protected applySearch(qb: any, search: string, _alias: string): any {
     return qb.andWhere(
-      '(po.orderNumber ILIKE :search OR supplier.companyName ILIKE :search OR po.notes ILIKE :search)',
+      "(po.orderNumber ILIKE :search OR supplier.companyName ILIKE :search OR po.notes ILIKE :search)",
       { search: `%${search}%` },
     );
   }
 
   protected get allowedSortFields(): string[] {
-    return ['orderNumber', 'orderDate', 'status', 'priority', 'totalAmount', 'createdAt', 'deletedAt'];
+    return [
+      "orderNumber",
+      "orderDate",
+      "status",
+      "priority",
+      "totalAmount",
+      "createdAt",
+      "deletedAt",
+    ];
   }
 
   private buildPurchaseOrderListQuery(
     query: PurchaseOrderQueryDto,
     options: { includeDeleted: boolean },
   ) {
-    let queryBuilder = this.purchaseOrderRepository.createQueryBuilder('po');
+    let queryBuilder = this.purchaseOrderRepository.createQueryBuilder("po");
 
     if (options.includeDeleted) {
-      queryBuilder = queryBuilder.withDeleted().where('po.deletedAt IS NOT NULL');
+      queryBuilder = queryBuilder
+        .withDeleted()
+        .where("po.deletedAt IS NOT NULL");
     }
 
     if (query.search) {
-      queryBuilder = this.applySearch(queryBuilder, query.search, 'po');
+      queryBuilder = this.applySearch(queryBuilder, query.search, "po");
     }
 
     return this.applyQueryBuilder(queryBuilder, query);
@@ -164,18 +189,18 @@ export class PurchaseOrderService extends BaseCrudService<
   private applyListOrdering(
     queryBuilder: any,
     query: PurchaseOrderQueryDto,
-    defaultSortField: 'orderDate' | 'deletedAt',
+    defaultSortField: "orderDate" | "deletedAt",
     options: { addSecondaryOrderNumber: boolean },
   ) {
-    const sortField = this.allowedSortFields.includes(query.sortBy ?? '')
+    const sortField = this.allowedSortFields.includes(query.sortBy ?? "")
       ? query.sortBy!
       : defaultSortField;
-    const sortOrder = query.sortOrder ?? 'DESC';
+    const sortOrder = query.sortOrder ?? "DESC";
 
     queryBuilder.orderBy(`po.${sortField}`, sortOrder);
 
-    if (options.addSecondaryOrderNumber && sortField !== 'orderNumber') {
-      queryBuilder.addOrderBy('po.orderNumber', 'DESC');
+    if (options.addSecondaryOrderNumber && sortField !== "orderNumber") {
+      queryBuilder.addOrderBy("po.orderNumber", "DESC");
     }
   }
 
@@ -186,7 +211,8 @@ export class PurchaseOrderService extends BaseCrudService<
   private async generateSequentialOrderNumber(): Promise<string> {
     // Use document number settings to generate order number
     try {
-      const orderNumber = await this.settingsService.generateDocumentNumber('Purchase Orders');
+      const orderNumber =
+        await this.settingsService.generateDocumentNumber("Purchase Orders");
       this.logger.log(`Generated purchase order number: ${orderNumber}`);
       return orderNumber;
     } catch (error) {
@@ -209,7 +235,7 @@ export class PurchaseOrderService extends BaseCrudService<
       }
 
       const nextNumber = maxNumber + 1;
-      const fallbackNumber = `PO-${nextNumber.toString().padStart(6, '0')}`;
+      const fallbackNumber = `PO-${nextNumber.toString().padStart(6, "0")}`;
       this.logger.log(`Fallback purchase order number: ${fallbackNumber}`);
       return fallbackNumber;
     }
@@ -223,7 +249,9 @@ export class PurchaseOrderService extends BaseCrudService<
     userId?: string,
     username?: string,
   ): Promise<PurchaseOrderResponseDto> {
-    this.logger.log(`Creating purchase order for supplier: ${createPurchaseOrderDto.supplierId}`);
+    this.logger.log(
+      `Creating purchase order for supplier: ${createPurchaseOrderDto.supplierId}`,
+    );
 
     // Validate supplier exists and is active
     const supplier = await this.supplierRepository.findOne({
@@ -231,11 +259,13 @@ export class PurchaseOrderService extends BaseCrudService<
     });
 
     if (!supplier) {
-      throw new NotFoundException('Supplier not found');
+      throw new NotFoundException("Supplier not found");
     }
 
     if (!supplier.isActive) {
-      throw new BadRequestException('Cannot create purchase order for inactive supplier');
+      throw new BadRequestException(
+        "Cannot create purchase order for inactive supplier",
+      );
     }
 
     try {
@@ -261,44 +291,53 @@ export class PurchaseOrderService extends BaseCrudService<
         });
 
         if (!product) {
-          throw new BadRequestException(`Product with ID ${itemDto.productId} not found`);
+          throw new BadRequestException(
+            `Product with ID ${itemDto.productId} not found`,
+          );
         }
 
         const item = this.purchaseOrderItemRepository.create({
           productId: itemDto.productId,
           quantity: itemDto.quantity,
           unitCost: itemDto.unitPrice,
-          discountType: itemDto.discountType || 'percentage',
+          discountType: itemDto.discountType || "percentage",
           discountPercent: itemDto.discountPercent || 0,
           discountAmount: itemDto.discountAmount || 0,
-          status: 'pending' as any,
+          status: "pending" as any,
           receivedQuantity: 0,
           lineNumber: lineNum,
         });
 
-        this.logger.debug(`Created item with lineNumber: ${item.lineNumber}, lineNum variable: ${lineNum}`);
+        this.logger.debug(
+          `Created item with lineNumber: ${item.lineNumber}, lineNum variable: ${lineNum}`,
+        );
 
         // Calculate totals manually to get the amount before saving
         // Discount is applied to unit price first, then multiplied by quantity
         let unitDiscount = 0;
-        if (item.discountType === 'percentage') {
-          unitDiscount = item.discountPercent > 0
-            ? (Number(item.unitCost) * Number(item.discountPercent)) / 100
-            : 0;
-        } else if (item.discountType === 'fixed_amount') {
+        if (item.discountType === "percentage") {
+          unitDiscount =
+            item.discountPercent > 0
+              ? (Number(item.unitCost) * Number(item.discountPercent)) / 100
+              : 0;
+        } else if (item.discountType === "fixed_amount") {
           unitDiscount = Number(item.discountAmount) || 0;
         }
         const discountedUnitPrice = Number(item.unitCost) - unitDiscount;
         const totalAmount = discountedUnitPrice * Number(item.quantity);
 
-        this.logger.debug(`After manual calculation, lineNumber: ${item.lineNumber}, totalAmount: ${totalAmount}`);
+        this.logger.debug(
+          `After manual calculation, lineNumber: ${item.lineNumber}, totalAmount: ${totalAmount}`,
+        );
 
         orderItems.push(item);
         subtotal += totalAmount;
         lineNum++;
       }
 
-      this.logger.debug(`Total items created: ${orderItems.length}, checking lineNumbers: ${orderItems.map(i => i.lineNumber).join(', ')}`);
+      this.logger.debug(
+        `Total items created: ${orderItems.length}, checking lineNumbers: ${orderItems.map((i) => i.lineNumber).join(", ")}`,
+      );
 
       // Set purchase order totals
       purchaseOrder.subtotal = subtotal;
@@ -312,22 +351,25 @@ export class PurchaseOrderService extends BaseCrudService<
       // Check supplier credit limit
       const canPurchase = await this.supplierService.canPurchase(
         supplier.id,
-        Number(purchaseOrder.totalAmount)
+        Number(purchaseOrder.totalAmount),
       );
 
       if (!canPurchase) {
-        throw new BadRequestException('Purchase amount exceeds supplier credit limit');
+        throw new BadRequestException(
+          "Purchase amount exceeds supplier credit limit",
+        );
       }
 
       // Save purchase order with items (cascade will save items automatically)
-      const savedPurchaseOrder = await this.purchaseOrderRepository.save(purchaseOrder);
+      const savedPurchaseOrder =
+        await this.purchaseOrderRepository.save(purchaseOrder);
 
       // Update supplier metrics if this is a new order
       const isFirstOrder = supplier.totalOrders === 0;
       await this.supplierService.updatePurchaseMetrics(
         supplier.id,
         Number(savedPurchaseOrder.totalAmount),
-        isFirstOrder
+        isFirstOrder,
       );
 
       // Auto-create GRN in draft status
@@ -335,46 +377,62 @@ export class PurchaseOrderService extends BaseCrudService<
 
       // Log audit trail for create
       await this.auditLogService.log(
-        'CREATE',
-        'PurchaseOrder',
+        "CREATE",
+        "PurchaseOrder",
         `Created purchase order: ${savedPurchaseOrder.orderNumber}`,
         {
           entityId: savedPurchaseOrder.id,
-          userId: userId || 'system',
+          userId: userId || "system",
           username,
           newValues: {
             orderNumber: savedPurchaseOrder.orderNumber,
             supplierId: supplier.id,
             totalAmount: savedPurchaseOrder.totalAmount,
           },
-        }
+        },
       );
 
-      this.logger.log(`Purchase order created successfully: ${savedPurchaseOrder.orderNumber}`);
+      this.logger.log(
+        `Purchase order created successfully: ${savedPurchaseOrder.orderNumber}`,
+      );
       return await this.findOne(savedPurchaseOrder.id);
     } catch (error) {
-      this.logger.error(`Error creating purchase order: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error creating purchase order: ${error.message}`,
+        error.stack,
+      );
 
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
 
-      throw new BadRequestException('Failed to create purchase order');
+      throw new BadRequestException("Failed to create purchase order");
     }
   }
 
   /**
    * Get all purchase orders with filtering and pagination
    */
-  async findAll(query: PurchaseOrderQueryDto): Promise<PurchaseOrderListResponseDto> {
-    this.logger.log(`Finding purchase orders with query: ${JSON.stringify(query)}`);
+  async findAll(
+    query: PurchaseOrderQueryDto,
+  ): Promise<PurchaseOrderListResponseDto> {
+    this.logger.log(
+      `Finding purchase orders with query: ${JSON.stringify(query)}`,
+    );
 
     const page = query.page || 1;
     const limit = query.limit;
     const skip = limit ? (page - 1) * limit : 0;
-    const queryBuilder = this.buildPurchaseOrderListQuery(query, { includeDeleted: false });
+    const queryBuilder = this.buildPurchaseOrderListQuery(query, {
+      includeDeleted: false,
+    });
 
-    this.applyListOrdering(queryBuilder, query, 'orderDate', { addSecondaryOrderNumber: true });
+    this.applyListOrdering(queryBuilder, query, "orderDate", {
+      addSecondaryOrderNumber: true,
+    });
 
     const total = await queryBuilder.getCount();
 
@@ -383,7 +441,9 @@ export class PurchaseOrderService extends BaseCrudService<
     }
 
     const purchaseOrders = await queryBuilder.getMany();
-    const orderDtos = purchaseOrders.map(order => this.mapToResponseDto(order));
+    const orderDtos = purchaseOrders.map((order) =>
+      this.mapToResponseDto(order),
+    );
 
     return {
       orders: orderDtos,
@@ -396,18 +456,24 @@ export class PurchaseOrderService extends BaseCrudService<
     };
   }
 
-  async searchGlobal(query: string, user: any): Promise<GlobalSearchResultDto[]> {
+  async searchGlobal(
+    query: string,
+    user: any,
+  ): Promise<GlobalSearchResultDto[]> {
     if (!canSearchPurchaseOrders(user.role)) return [];
 
     const trimmed = query.trim();
     const q = trimmed.toLowerCase();
     const orders = await this.purchaseOrderRepository
-      .createQueryBuilder('order')
-      .leftJoinAndSelect('order.supplier', 'supplier')
-      .where('order.deletedAt IS NULL')
-      .andWhere('(order.orderNumber ILIKE :q OR supplier.companyName ILIKE :q)', {
-        q: `%${trimmed}%`,
-      })
+      .createQueryBuilder("order")
+      .leftJoinAndSelect("order.supplier", "supplier")
+      .where("order.deletedAt IS NULL")
+      .andWhere(
+        "(order.orderNumber ILIKE :q OR supplier.companyName ILIKE :q)",
+        {
+          q: `%${trimmed}%`,
+        },
+      )
       .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
@@ -416,13 +482,13 @@ export class PurchaseOrderService extends BaseCrudService<
     }
 
     const fuzzyOrders = await this.purchaseOrderRepository
-      .createQueryBuilder('order')
-      .addSelect('similarity(order.orderNumber, :q)', 'sim')
-      .leftJoinAndSelect('order.supplier', 'supplier')
-      .where('order.deletedAt IS NULL')
-      .andWhere('similarity(order.orderNumber, :q) > 0.3')
-      .orderBy('sim', 'DESC')
-      .setParameter('q', trimmed)
+      .createQueryBuilder("order")
+      .addSelect("similarity(order.orderNumber, :q)", "sim")
+      .leftJoinAndSelect("order.supplier", "supplier")
+      .where("order.deletedAt IS NULL")
+      .andWhere("similarity(order.orderNumber, :q) > 0.3")
+      .orderBy("sim", "DESC")
+      .setParameter("q", trimmed)
       .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
@@ -434,7 +500,7 @@ export class PurchaseOrderService extends BaseCrudService<
     q: string,
     fuzzy: boolean,
   ): GlobalSearchResultDto {
-    const orderNumber = order.orderNumber?.toLowerCase() ?? '';
+    const orderNumber = order.orderNumber?.toLowerCase() ?? "";
     const baseScore = fuzzy
       ? SCORE_FUZZY
       : orderNumber === q
@@ -444,10 +510,10 @@ export class PurchaseOrderService extends BaseCrudService<
           : SCORE_CONTAINS;
 
     return {
-      type: 'transaction',
+      type: "transaction",
       id: order.id,
       label: order.orderNumber,
-      description: order.supplier?.companyName ?? '',
+      description: order.supplier?.companyName ?? "",
       route: `/purchasing/orders/${order.id}/edit`,
       score:
         baseScore +
@@ -463,13 +529,13 @@ export class PurchaseOrderService extends BaseCrudService<
     this.logger.log(`Finding purchase order by ID: ${id}`);
 
     const purchaseOrder = await this.purchaseOrderRepository
-      .createQueryBuilder('po')
-      .leftJoinAndSelect('po.supplier', 'supplier')
-      .leftJoinAndSelect('po.items', 'items')
-      .leftJoinAndSelect('items.product', 'product')
-      .leftJoinAndSelect('po.goodsReceivedNotes', 'grns')
-      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments')
-      .where('po.id = :id', { id })
+      .createQueryBuilder("po")
+      .leftJoinAndSelect("po.supplier", "supplier")
+      .leftJoinAndSelect("po.items", "items")
+      .leftJoinAndSelect("items.product", "product")
+      .leftJoinAndSelect("po.goodsReceivedNotes", "grns")
+      .leftJoinAndSelect("po.vendorPayments", "vendorPayments")
+      .where("po.id = :id", { id })
       .getOne();
 
     if (!purchaseOrder) {
@@ -479,15 +545,17 @@ export class PurchaseOrderService extends BaseCrudService<
     return this.mapToResponseDto(purchaseOrder);
   }
 
-  async findByOrderNumber(orderNumber: string): Promise<PurchaseOrderResponseDto> {
+  async findByOrderNumber(
+    orderNumber: string,
+  ): Promise<PurchaseOrderResponseDto> {
     const purchaseOrder = await this.purchaseOrderRepository
-      .createQueryBuilder('po')
-      .leftJoinAndSelect('po.supplier', 'supplier')
-      .leftJoinAndSelect('po.items', 'items')
-      .leftJoinAndSelect('items.product', 'product')
-      .leftJoinAndSelect('po.goodsReceivedNotes', 'grns')
-      .leftJoinAndSelect('po.vendorPayments', 'vendorPayments')
-      .where('po.orderNumber = :orderNumber', { orderNumber })
+      .createQueryBuilder("po")
+      .leftJoinAndSelect("po.supplier", "supplier")
+      .leftJoinAndSelect("po.items", "items")
+      .leftJoinAndSelect("items.product", "product")
+      .leftJoinAndSelect("po.goodsReceivedNotes", "grns")
+      .leftJoinAndSelect("po.vendorPayments", "vendorPayments")
+      .where("po.orderNumber = :orderNumber", { orderNumber })
       .getOne();
 
     if (!purchaseOrder) {
@@ -524,15 +592,18 @@ export class PurchaseOrderService extends BaseCrudService<
     // Check if order can be modified
     try {
       // Track if orderDate is being changed
-      const orderDateChanged = updatePurchaseOrderDto.orderDate &&
-        new Date(updatePurchaseOrderDto.orderDate).getTime() !== new Date(purchaseOrder.orderDate).getTime();
+      const orderDateChanged =
+        updatePurchaseOrderDto.orderDate &&
+        new Date(updatePurchaseOrderDto.orderDate).getTime() !==
+          new Date(purchaseOrder.orderDate).getTime();
 
       // Update basic fields (exclude items as they're handled separately)
       const { items: _, ...updateFields } = updatePurchaseOrderDto;
       Object.assign(purchaseOrder, {
         ...updateFields,
-        orderDate: updatePurchaseOrderDto.orderDate ?
-          new Date(updatePurchaseOrderDto.orderDate) : purchaseOrder.orderDate,
+        orderDate: updatePurchaseOrderDto.orderDate
+          ? new Date(updatePurchaseOrderDto.orderDate)
+          : purchaseOrder.orderDate,
       });
 
       // Update items if provided
@@ -555,7 +626,9 @@ export class PurchaseOrderService extends BaseCrudService<
           }
 
           if (!product) {
-            throw new BadRequestException(`Product with ID ${itemDto.productId} not found`);
+            throw new BadRequestException(
+              `Product with ID ${itemDto.productId} not found`,
+            );
           }
 
           const item = new PurchaseOrderItem();
@@ -563,23 +636,26 @@ export class PurchaseOrderService extends BaseCrudService<
           item.productId = itemDto.productId;
           item.quantity = itemDto.quantity;
           item.unitCost = itemDto.unitPrice;
-          item.discountType = itemDto.discountType || 'percentage';
+          item.discountType = itemDto.discountType || "percentage";
           item.discountPercent = itemDto.discountPercent || 0;
           item.discountAmount = itemDto.discountAmount || 0;
-          item.status = 'pending' as any;
+          item.status = "pending" as any;
           item.receivedQuantity = 0;
           item.lineNumber = lineNum;
 
-          this.logger.debug(`Item before push - lineNumber: ${item.lineNumber}, productId: ${item.productId}, quantity: ${item.quantity}`);
+          this.logger.debug(
+            `Item before push - lineNumber: ${item.lineNumber}, productId: ${item.productId}, quantity: ${item.quantity}`,
+          );
 
           // Calculate totals manually to get the amount before saving
           // Discount is applied to unit price first, then multiplied by quantity
           let unitDiscount = 0;
-          if (item.discountType === 'percentage') {
-            unitDiscount = item.discountPercent > 0
-              ? (Number(item.unitCost) * Number(item.discountPercent)) / 100
-              : 0;
-          } else if (item.discountType === 'fixed_amount') {
+          if (item.discountType === "percentage") {
+            unitDiscount =
+              item.discountPercent > 0
+                ? (Number(item.unitCost) * Number(item.discountPercent)) / 100
+                : 0;
+          } else if (item.discountType === "fixed_amount") {
             unitDiscount = Number(item.discountAmount) || 0;
           }
           const discountedUnitPrice = Number(item.unitCost) - unitDiscount;
@@ -590,14 +666,19 @@ export class PurchaseOrderService extends BaseCrudService<
           lineNum++;
         }
 
-        this.logger.debug(`About to save ${orderItems.length} items. LineNumbers: ${orderItems.map(i => `${i.lineNumber}`).join(', ')}`);
+        this.logger.debug(
+          `About to save ${orderItems.length} items. LineNumbers: ${orderItems.map((i) => `${i.lineNumber}`).join(", ")}`,
+        );
 
         try {
-          const savedItems = await this.purchaseOrderItemRepository.save(orderItems);
+          const savedItems =
+            await this.purchaseOrderItemRepository.save(orderItems);
           this.logger.debug(`Saved ${savedItems.length} items successfully`);
         } catch (saveError) {
           this.logger.error(`Failed to save items: ${saveError.message}`);
-          this.logger.debug(`Item details before save attempt: ${JSON.stringify(orderItems.map(i => ({ lineNumber: i.lineNumber, productId: i.productId, quantity: i.quantity })))}`);
+          this.logger.debug(
+            `Item details before save attempt: ${JSON.stringify(orderItems.map((i) => ({ lineNumber: i.lineNumber, productId: i.productId, quantity: i.quantity })))}`,
+          );
           throw saveError;
         }
 
@@ -607,7 +688,8 @@ export class PurchaseOrderService extends BaseCrudService<
         purchaseOrder.calculateTotals();
       }
 
-      const updatedPurchaseOrder = await this.purchaseOrderRepository.save(purchaseOrder);
+      const updatedPurchaseOrder =
+        await this.purchaseOrderRepository.save(purchaseOrder);
 
       // Sync GRN if it exists and is in draft status
       if (updatePurchaseOrderDto.items) {
@@ -620,30 +702,38 @@ export class PurchaseOrderService extends BaseCrudService<
 
       // Sync GRN date if PO order date changed
       if (orderDateChanged) {
-        await this.syncGrnDate(updatedPurchaseOrder.id, new Date(updatePurchaseOrderDto.orderDate));
+        await this.syncGrnDate(
+          updatedPurchaseOrder.id,
+          new Date(updatePurchaseOrderDto.orderDate),
+        );
       }
 
       // Log audit trail for update
       await this.auditLogService.log(
-        'UPDATE',
-        'PurchaseOrder',
+        "UPDATE",
+        "PurchaseOrder",
         `Updated purchase order: ${updatedPurchaseOrder.orderNumber}`,
         {
           entityId: updatedPurchaseOrder.id,
-          userId: userId || 'system',
+          userId: userId || "system",
           username,
           newValues: {
             orderNumber: updatedPurchaseOrder.orderNumber,
             totalAmount: updatedPurchaseOrder.totalAmount,
           },
-        }
+        },
       );
 
-      this.logger.log(`Purchase order updated successfully: ${updatedPurchaseOrder.orderNumber}`);
+      this.logger.log(
+        `Purchase order updated successfully: ${updatedPurchaseOrder.orderNumber}`,
+      );
       return await this.findOne(updatedPurchaseOrder.id);
     } catch (error) {
-      this.logger.error(`Error updating purchase order: ${error.message}`, error.stack);
-      throw new BadRequestException('Failed to update purchase order');
+      this.logger.error(
+        `Error updating purchase order: ${error.message}`,
+        error.stack,
+      );
+      throw new BadRequestException("Failed to update purchase order");
     }
   }
 
@@ -651,53 +741,49 @@ export class PurchaseOrderService extends BaseCrudService<
    * Get purchase order summary
    */
   async getSummary(): Promise<PurchaseOrderSummaryDto> {
-    this.logger.log('Getting purchase order summary');
+    this.logger.log("Getting purchase order summary");
 
     try {
-      const [
-        totalOrders,
-        totalAmount,
-        overdueOrders,
-        topSuppliers,
-      ] = await Promise.all([
-        // Total orders count
-        this.purchaseOrderRepository.count(),
+      const [totalOrders, totalAmount, overdueOrders, topSuppliers] =
+        await Promise.all([
+          // Total orders count
+          this.purchaseOrderRepository.count(),
 
-        // Total amount
-        this.purchaseOrderRepository
-          .createQueryBuilder('po')
-          .select('SUM(po.totalAmount)', 'total')
-          .getRawOne()
-          .then(result => parseFloat(result.total) || 0),
+          // Total amount
+          this.purchaseOrderRepository
+            .createQueryBuilder("po")
+            .select("SUM(po.totalAmount)", "total")
+            .getRawOne()
+            .then((result) => parseFloat(result.total) || 0),
 
-        // Overdue orders
-        this.purchaseOrderRepository
-          .createQueryBuilder('po')
-          .where('1=0') // Always returns 0 since expectedDeliveryDate field was removed
-          .getCount(),
+          // Overdue orders
+          this.purchaseOrderRepository
+            .createQueryBuilder("po")
+            .where("1=0") // Always returns 0 since expectedDeliveryDate field was removed
+            .getCount(),
 
-        // Top suppliers by volume
-        this.purchaseOrderRepository
-          .createQueryBuilder('po')
-          .leftJoinAndSelect('po.supplier', 'supplier')
-          .select('supplier.id', 'supplierId')
-          .addSelect('supplier.companyName', 'companyName')
-          .addSelect('COUNT(*)', 'orderCount')
-          .addSelect('SUM(po.totalAmount)', 'totalAmount')
-          .groupBy('supplier.id')
-          .addGroupBy('supplier.companyName')
-          .orderBy('SUM(po.totalAmount)', 'DESC')
-          .limit(5)
-          .getRawMany()
-          .then(results =>
-            results.map(row => ({
-              supplierId: row.supplierId,
-              companyName: row.companyName,
-              orderCount: parseInt(row.orderCount),
-              totalAmount: parseFloat(row.totalAmount),
-            }))
-          ),
-      ]);
+          // Top suppliers by volume
+          this.purchaseOrderRepository
+            .createQueryBuilder("po")
+            .leftJoinAndSelect("po.supplier", "supplier")
+            .select("supplier.id", "supplierId")
+            .addSelect("supplier.companyName", "companyName")
+            .addSelect("COUNT(*)", "orderCount")
+            .addSelect("SUM(po.totalAmount)", "totalAmount")
+            .groupBy("supplier.id")
+            .addGroupBy("supplier.companyName")
+            .orderBy("SUM(po.totalAmount)", "DESC")
+            .limit(5)
+            .getRawMany()
+            .then((results) =>
+              results.map((row) => ({
+                supplierId: row.supplierId,
+                companyName: row.companyName,
+                orderCount: parseInt(row.orderCount),
+                totalAmount: parseFloat(row.totalAmount),
+              })),
+            ),
+        ]);
 
       const averageOrderValue = totalOrders > 0 ? totalAmount / totalOrders : 0;
 
@@ -709,31 +795,40 @@ export class PurchaseOrderService extends BaseCrudService<
         topSuppliers,
       };
     } catch (error) {
-      this.logger.error(`Error getting purchase order summary: ${error.message}`, error.stack);
-      throw new BadRequestException('Failed to get purchase order summary');
+      this.logger.error(
+        `Error getting purchase order summary: ${error.message}`,
+        error.stack,
+      );
+      throw new BadRequestException("Failed to get purchase order summary");
     }
   }
 
   /**
    * Get deleted purchase orders
    */
-  async findDeleted(query: PurchaseOrderQueryDto): Promise<PurchaseOrderListResponseDto> {
-    this.logger.log('Getting deleted purchase orders');
+  async findDeleted(
+    query: PurchaseOrderQueryDto,
+  ): Promise<PurchaseOrderListResponseDto> {
+    this.logger.log("Getting deleted purchase orders");
 
     const page = query.page || 1;
     const limit = query.limit || 20;
     const skip = (page - 1) * limit;
 
-    const queryBuilder = this.buildPurchaseOrderListQuery(query, { includeDeleted: true });
+    const queryBuilder = this.buildPurchaseOrderListQuery(query, {
+      includeDeleted: true,
+    });
     const total = await queryBuilder.getCount();
 
-    this.applyListOrdering(queryBuilder, query, 'deletedAt', { addSecondaryOrderNumber: false });
+    this.applyListOrdering(queryBuilder, query, "deletedAt", {
+      addSecondaryOrderNumber: false,
+    });
     queryBuilder.skip(skip).take(limit);
 
     const purchaseOrders = await queryBuilder.getMany();
 
     return {
-      orders: purchaseOrders.map(po => this.mapToResponseDto(po)),
+      orders: purchaseOrders.map((po) => this.mapToResponseDto(po)),
       total,
       page,
       limit,
@@ -746,7 +841,11 @@ export class PurchaseOrderService extends BaseCrudService<
   /**
    * Restore a deleted purchase order and its associated GRN (sets deletedAt to null for both)
    */
-  async restore(id: string, userId?: string, username?: string): Promise<PurchaseOrderResponseDto> {
+  async restore(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Restoring purchase order: ${id}`);
 
     // Check if the order exists in deleted records
@@ -757,11 +856,11 @@ export class PurchaseOrderService extends BaseCrudService<
     });
 
     if (!purchaseOrder) {
-      throw new NotFoundException('Purchase order not found');
+      throw new NotFoundException("Purchase order not found");
     }
 
     if (!purchaseOrder.deletedAt) {
-      throw new BadRequestException('Purchase order is not deleted');
+      throw new BadRequestException("Purchase order is not deleted");
     }
 
     // Find and restore associated GRN (set deletedAt to null)
@@ -775,13 +874,13 @@ export class PurchaseOrderService extends BaseCrudService<
         .createQueryBuilder()
         .update()
         .set({ deletedAt: null })
-        .where('id = :id', { id: grn.id })
+        .where("id = :id", { id: grn.id })
         .execute();
 
       // Log audit trail for automatic GRN restoration
       await this.auditLogService.log(
-        'RESTORE',
-        'GoodsReceivedNote',
+        "RESTORE",
+        "GoodsReceivedNote",
         `Restored GRN: ${grn.grnNumber} (auto-restored with PO)`,
         {
           entityId: grn.id,
@@ -792,10 +891,12 @@ export class PurchaseOrderService extends BaseCrudService<
             purchaseOrderId: grn.purchaseOrderId,
             status: grn.status,
           },
-        }
+        },
       );
 
-      this.logger.log(`Associated GRN ${grn.grnNumber} restored (deletedAt set to null)`);
+      this.logger.log(
+        `Associated GRN ${grn.grnNumber} restored (deletedAt set to null)`,
+      );
     }
 
     // Restore PO (set deletedAt to null)
@@ -803,7 +904,7 @@ export class PurchaseOrderService extends BaseCrudService<
       .createQueryBuilder()
       .update()
       .set({ deletedAt: null })
-      .where('id = :id', { id })
+      .where("id = :id", { id })
       .execute();
 
     // Fetch the restored order
@@ -814,8 +915,8 @@ export class PurchaseOrderService extends BaseCrudService<
 
     // Log audit trail for PO restoration
     await this.auditLogService.log(
-      'RESTORE',
-      'PurchaseOrder',
+      "RESTORE",
+      "PurchaseOrder",
       `Restored purchase order: ${purchaseOrder.orderNumber}`,
       {
         entityId: id,
@@ -825,10 +926,12 @@ export class PurchaseOrderService extends BaseCrudService<
           orderNumber: purchaseOrder.orderNumber,
           totalAmount: purchaseOrder.totalAmount,
         },
-      }
+      },
     );
 
-    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} restored successfully (deletedAt set to null)`);
+    this.logger.log(
+      `Purchase order ${purchaseOrder.orderNumber} restored successfully (deletedAt set to null)`,
+    );
     return this.mapToResponseDto(restoredOrder);
   }
 
@@ -850,19 +953,27 @@ export class PurchaseOrderService extends BaseCrudService<
         await this.restore(orderId, userId, username);
         successCount++;
       } catch (error) {
-        this.logger.error(`Failed to restore purchase order ${orderId}: ${error.message}`);
+        this.logger.error(
+          `Failed to restore purchase order ${orderId}: ${error.message}`,
+        );
         failedIds.push(orderId);
       }
     }
 
-    this.logger.log(`Bulk restore completed: ${successCount} restored, ${failedIds.length} failed`);
+    this.logger.log(
+      `Bulk restore completed: ${successCount} restored, ${failedIds.length} failed`,
+    );
     return { restoredCount: successCount, failedIds };
   }
 
   /**
    * Permanently delete a purchase order and its associated GRN
    */
-  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
+  async permanentDelete(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<void> {
     this.logger.log(`Permanently deleting purchase order: ${id}`);
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
@@ -871,20 +982,22 @@ export class PurchaseOrderService extends BaseCrudService<
     });
 
     if (!purchaseOrder) {
-      throw new NotFoundException('Purchase order not found');
+      throw new NotFoundException("Purchase order not found");
     }
 
     await this.purchaseOrderLifecycleService.assertPermanentDeleteAllowed(id);
 
     // Delete associated stock movements
     try {
-      const stockMovementResult = await this.stockMovementService.deleteByReference(
-        'purchase_order',
-        id
+      const stockMovementResult =
+        await this.stockMovementService.deleteByReference("purchase_order", id);
+      this.logger.log(
+        `Deleted ${stockMovementResult.deletedCount} stock movements for purchase order ${purchaseOrder.orderNumber}`,
       );
-      this.logger.log(`Deleted ${stockMovementResult.deletedCount} stock movements for purchase order ${purchaseOrder.orderNumber}`);
     } catch (error) {
-      this.logger.error(`Failed to delete stock movements for purchase order ${purchaseOrder.orderNumber}: ${error.message}`);
+      this.logger.error(
+        `Failed to delete stock movements for purchase order ${purchaseOrder.orderNumber}: ${error.message}`,
+      );
       // Don't throw error - purchase order deletion should still succeed
     }
 
@@ -897,12 +1010,12 @@ export class PurchaseOrderService extends BaseCrudService<
 
     for (const payment of vendorPayments) {
       await this.auditLogService.log(
-        'PERMANENT_DELETE',
-        'VendorPayment',
+        "PERMANENT_DELETE",
+        "VendorPayment",
         `Permanently deleted vendor payment: ${payment.paymentNumber} (auto-deleted with PO)`,
         {
           entityId: payment.id,
-          userId: userId || 'system',
+          userId: userId || "system",
           username,
           oldValues: {
             paymentNumber: payment.paymentNumber,
@@ -910,13 +1023,15 @@ export class PurchaseOrderService extends BaseCrudService<
             status: payment.status,
             paymentMethodId: payment.paymentMethodId,
           },
-        }
+        },
       );
     }
 
     if (vendorPayments.length > 0) {
       await this.vendorPaymentRepository.remove(vendorPayments);
-      this.logger.log(`Permanently deleted ${vendorPayments.length} vendor payment(s) for purchase order ${purchaseOrder.orderNumber}`);
+      this.logger.log(
+        `Permanently deleted ${vendorPayments.length} vendor payment(s) for purchase order ${purchaseOrder.orderNumber}`,
+      );
     }
 
     // Find and permanently delete associated GRN (including soft-deleted)
@@ -928,19 +1043,19 @@ export class PurchaseOrderService extends BaseCrudService<
     if (grn) {
       // Log audit trail for GRN permanent delete
       await this.auditLogService.log(
-        'PERMANENT_DELETE',
-        'GoodsReceivedNote',
+        "PERMANENT_DELETE",
+        "GoodsReceivedNote",
         `Permanently deleted GRN: ${grn.grnNumber} (auto-deleted with PO)`,
         {
           entityId: grn.id,
-          userId: userId || 'system',
+          userId: userId || "system",
           username,
           oldValues: {
             grnNumber: grn.grnNumber,
             purchaseOrderId: grn.purchaseOrderId,
             status: grn.status,
           },
-        }
+        },
       );
 
       await this.grnRepository.remove(grn);
@@ -949,12 +1064,12 @@ export class PurchaseOrderService extends BaseCrudService<
 
     // Log audit trail for PO permanent delete
     await this.auditLogService.log(
-      'PERMANENT_DELETE',
-      'PurchaseOrder',
+      "PERMANENT_DELETE",
+      "PurchaseOrder",
       `Permanently deleted purchase order: ${purchaseOrder.orderNumber}`,
       {
         entityId: id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         oldValues: {
           orderNumber: purchaseOrder.orderNumber,
@@ -962,13 +1077,15 @@ export class PurchaseOrderService extends BaseCrudService<
           totalAmount: purchaseOrder.totalAmount,
           isFullyReceived: purchaseOrder.isFullyReceived,
         },
-      }
+      },
     );
 
     // Hard delete - remove from database completely
     await this.purchaseOrderRepository.remove(purchaseOrder);
 
-    this.logger.log(`Permanently deleted purchase order: ${purchaseOrder.orderNumber}`);
+    this.logger.log(
+      `Permanently deleted purchase order: ${purchaseOrder.orderNumber}`,
+    );
   }
 
   /**
@@ -979,22 +1096,28 @@ export class PurchaseOrderService extends BaseCrudService<
     userId?: string,
     username?: string,
   ): Promise<{ deletedCount: number; failedIds: string[] }> {
-    this.logger.log(`Bulk permanently deleting ${orderIds.length} purchase orders`);
+    this.logger.log(
+      `Bulk permanently deleting ${orderIds.length} purchase orders`,
+    );
 
     const failedIds: string[] = [];
     let successCount = 0;
 
     for (const orderId of orderIds) {
       try {
-        await this.permanentDelete(orderId, userId || 'system', username);
+        await this.permanentDelete(orderId, userId || "system", username);
         successCount++;
       } catch (error) {
-        this.logger.error(`Failed to permanently delete purchase order ${orderId}: ${error.message}`);
+        this.logger.error(
+          `Failed to permanently delete purchase order ${orderId}: ${error.message}`,
+        );
         failedIds.push(orderId);
       }
     }
 
-    this.logger.log(`Bulk permanent delete completed: ${successCount} deleted, ${failedIds.length} failed`);
+    this.logger.log(
+      `Bulk permanent delete completed: ${successCount} deleted, ${failedIds.length} failed`,
+    );
     return { deletedCount: successCount, failedIds };
   }
 
@@ -1025,7 +1148,9 @@ export class PurchaseOrderService extends BaseCrudService<
 
       // Only sync if GRN is in DRAFT status
       if (grn.status !== GrnStatus.DRAFT) {
-        this.logger.debug(`GRN ${grn.grnNumber} is in ${grn.status} status, skipping sync`);
+        this.logger.debug(
+          `GRN ${grn.grnNumber} is in ${grn.status} status, skipping sync`,
+        );
         return;
       }
 
@@ -1040,7 +1165,9 @@ export class PurchaseOrderService extends BaseCrudService<
         return;
       }
 
-      this.logger.log(`Syncing GRN ${grn.grnNumber} with updated PO ${fullPO.orderNumber}`);
+      this.logger.log(
+        `Syncing GRN ${grn.grnNumber} with updated PO ${fullPO.orderNumber}`,
+      );
 
       // Remove existing GRN items (since PO items were updated)
       if (grn.items && grn.items.length > 0) {
@@ -1063,7 +1190,9 @@ export class PurchaseOrderService extends BaseCrudService<
         };
 
         grnItems.push(grnItem);
-        this.logger.debug(`Created GRN item for product: ${poItem.product.name}, ordered: ${grnItem.orderedQuantity}`);
+        this.logger.debug(
+          `Created GRN item for product: ${poItem.product.name}, ordered: ${grnItem.orderedQuantity}`,
+        );
       }
 
       this.logger.debug(`Saving ${grnItems.length} new GRN items`);
@@ -1078,16 +1207,23 @@ export class PurchaseOrderService extends BaseCrudService<
       });
 
       if (updatedGrn) {
-        this.logger.debug(`Reloaded GRN has ${updatedGrn.items?.length || 0} items`);
+        this.logger.debug(
+          `Reloaded GRN has ${updatedGrn.items?.length || 0} items`,
+        );
         // Update GRN totals with fresh data
         updatedGrn.calculateTotals();
         await this.grnRepository.save(updatedGrn);
-        this.logger.log(`GRN ${grn.grnNumber} synced successfully with ${grnItems.length} items`);
+        this.logger.log(
+          `GRN ${grn.grnNumber} synced successfully with ${grnItems.length} items`,
+        );
       } else {
         this.logger.warn(`Failed to reload GRN ${grn.id} after sync`);
       }
     } catch (error) {
-      this.logger.error(`Error syncing draft GRN: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error syncing draft GRN: ${error.message}`,
+        error.stack,
+      );
       // Don't throw - GRN sync failure shouldn't block PO update
     }
   }
@@ -1107,23 +1243,33 @@ export class PurchaseOrderService extends BaseCrudService<
       });
 
       if (!fullPO) {
-        this.logger.warn(`PO ${purchaseOrderId} not found during GRN header sync`);
+        this.logger.warn(
+          `PO ${purchaseOrderId} not found during GRN header sync`,
+        );
         return;
       }
 
       grn.supplierId = fullPO.supplierId;
 
       await this.grnRepository.save(grn);
-      this.logger.log(`GRN ${grn.grnNumber} header synced from PO ${fullPO.orderNumber}`);
+      this.logger.log(
+        `GRN ${grn.grnNumber} header synced from PO ${fullPO.orderNumber}`,
+      );
     } catch (error) {
-      this.logger.error(`Error syncing draft GRN header: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error syncing draft GRN header: ${error.message}`,
+        error.stack,
+      );
     }
   }
 
   /**
    * Sync GRN receivedDate with PO orderDate when PO date is changed
    */
-  private async syncGrnDate(purchaseOrderId: string, newOrderDate: Date): Promise<void> {
+  private async syncGrnDate(
+    purchaseOrderId: string,
+    newOrderDate: Date,
+  ): Promise<void> {
     try {
       // Find GRN associated with this PO
       const grn = await this.grnRepository.findOne({
@@ -1139,9 +1285,14 @@ export class PurchaseOrderService extends BaseCrudService<
       grn.receivedDate = newOrderDate;
       await this.grnRepository.save(grn);
 
-      this.logger.log(`GRN ${grn.grnNumber} date synced to ${newOrderDate.toISOString()}`);
+      this.logger.log(
+        `GRN ${grn.grnNumber} date synced to ${newOrderDate.toISOString()}`,
+      );
     } catch (error) {
-      this.logger.error(`Error syncing GRN date: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error syncing GRN date: ${error.message}`,
+        error.stack,
+      );
       // Don't throw - GRN date sync failure shouldn't block PO update
     }
   }
@@ -1155,7 +1306,8 @@ export class PurchaseOrderService extends BaseCrudService<
     username?: string,
   ): Promise<void> {
     try {
-      const grnNumber = await this.settingsService.generateDocumentNumber('Goods Received');
+      const grnNumber =
+        await this.settingsService.generateDocumentNumber("Goods Received");
 
       // Fetch full PO with relations for GRN creation
       const fullPO = await this.purchaseOrderRepository.findOne({
@@ -1164,7 +1316,7 @@ export class PurchaseOrderService extends BaseCrudService<
       });
 
       if (!fullPO) {
-        throw new NotFoundException('Purchase order not found');
+        throw new NotFoundException("Purchase order not found");
       }
 
       // Create GRN with draft status
@@ -1182,19 +1334,19 @@ export class PurchaseOrderService extends BaseCrudService<
       // Log audit trail for GRN creation immediately after successful save
       // Do this BEFORE creating items to ensure logging happens even if item creation fails
       await this.auditLogService.log(
-        'CREATE',
-        'GoodsReceivedNote',
+        "CREATE",
+        "GoodsReceivedNote",
         `Created GRN: ${savedGrn.grnNumber}`,
         {
           entityId: savedGrn.id,
-          userId: userId || 'system',
+          userId: userId || "system",
           username,
           newValues: {
             grnNumber: savedGrn.grnNumber,
             purchaseOrderId: savedGrn.purchaseOrderId,
             status: savedGrn.status,
           },
-        }
+        },
       );
 
       // Create GRN items using relational table
@@ -1224,19 +1376,30 @@ export class PurchaseOrderService extends BaseCrudService<
       savedGrn.calculateTotals();
       await this.grnRepository.save(savedGrn);
 
-      this.logger.log(`Draft GRN ${grnNumber} created for PO ${fullPO.orderNumber} with ${grnItems.length} items`);
+      this.logger.log(
+        `Draft GRN ${grnNumber} created for PO ${fullPO.orderNumber} with ${grnItems.length} items`,
+      );
     } catch (error) {
-      this.logger.error(`Error creating draft GRN: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error creating draft GRN: ${error.message}`,
+        error.stack,
+      );
       // Log detailed error but don't throw - GRN creation failure shouldn't block PO creation
       // However, we should clean up the partial GRN if it was created
-      this.logger.warn(`Draft GRN creation failed for PO ${purchaseOrder.orderNumber}. User will need to manually create or receive GRN.`);
+      this.logger.warn(
+        `Draft GRN creation failed for PO ${purchaseOrder.orderNumber}. User will need to manually create or receive GRN.`,
+      );
     }
   }
 
   /**
    * Receive goods - change GRN status to received and update product quantities
    */
-  async receiveGoods(id: string, userId?: string, username?: string): Promise<PurchaseOrderResponseDto> {
+  async receiveGoods(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Receiving goods for purchase order: ${id}`);
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
@@ -1245,7 +1408,7 @@ export class PurchaseOrderService extends BaseCrudService<
     });
 
     if (!purchaseOrder) {
-      throw new NotFoundException('Purchase order not found');
+      throw new NotFoundException("Purchase order not found");
     }
 
     // Find the GRN linked to this PO with relational items
@@ -1255,25 +1418,32 @@ export class PurchaseOrderService extends BaseCrudService<
     });
 
     if (!grn) {
-      throw new NotFoundException('Goods Received Note not found for this purchase order');
+      throw new NotFoundException(
+        "Goods Received Note not found for this purchase order",
+      );
     }
 
     if (grn.status !== GrnStatus.DRAFT) {
-      throw new BadRequestException('GRN must be in draft status to receive goods');
+      throw new BadRequestException(
+        "GRN must be in draft status to receive goods",
+      );
     }
 
     try {
       // Update GRN items to set received quantities
       if (grn.items && grn.items.length > 0) {
-        await this.grnService.updateGrnItems(grn.id, grn.items.map(item => ({
-          id: item.id,
-          grnId: item.grnId,
-          lineNumber: item.lineNumber,
-          productId: item.productId,
-          orderedQuantity: Number(item.orderedQuantity),
-          receivedQuantity: Number(item.orderedQuantity), // Set received = ordered
-          purchaseOrderItemId: item.purchaseOrderItemId,
-        })));
+        await this.grnService.updateGrnItems(
+          grn.id,
+          grn.items.map((item) => ({
+            id: item.id,
+            grnId: item.grnId,
+            lineNumber: item.lineNumber,
+            productId: item.productId,
+            orderedQuantity: Number(item.orderedQuantity),
+            receivedQuantity: Number(item.orderedQuantity), // Set received = ordered
+            purchaseOrderItemId: item.purchaseOrderItemId,
+          })),
+        );
       }
 
       // Reload GRN with fresh items from database
@@ -1283,7 +1453,7 @@ export class PurchaseOrderService extends BaseCrudService<
       });
 
       if (!updatedGrn) {
-        throw new NotFoundException('GRN not found after updating items');
+        throw new NotFoundException("GRN not found after updating items");
       }
 
       // Update GRN status and recalculate totals with fresh data
@@ -1304,14 +1474,14 @@ export class PurchaseOrderService extends BaseCrudService<
             movementType: StockMovementType.PURCHASE_RECEIPT,
             quantity: Number(item.quantity),
             reason: `Purchase order received: ${purchaseOrder.orderNumber}`,
-            referenceType: 'purchase_order',
+            referenceType: "purchase_order",
             referenceId: purchaseOrder.id,
             unitValue: Number(item.unitCost),
           };
 
           await this.stockMovementService.create(createMovementDto);
           this.logger.log(
-            `Stock movement created for product ${item.productId}: +${item.quantity} units from PO ${purchaseOrder.orderNumber}`
+            `Stock movement created for product ${item.productId}: +${item.quantity} units from PO ${purchaseOrder.orderNumber}`,
           );
         }
 
@@ -1327,15 +1497,26 @@ export class PurchaseOrderService extends BaseCrudService<
       try {
         const fullGrn = await this.grnRepository.findOne({
           where: { id: updatedGrn.id },
-          relations: { supplier: true, purchaseOrder: true, items: { product: true, purchaseOrderItem: true } },
+          relations: {
+            supplier: true,
+            purchaseOrder: true,
+            items: { product: true, purchaseOrderItem: true },
+          },
         });
 
         if (fullGrn) {
-          await this.accountingService.postGoodsReceivedEntry(fullGrn, userId || 'system', username);
-          this.logger.log(`Posted accounting entry for GRN ${fullGrn.grnNumber}`);
+          await this.accountingService.postGoodsReceivedEntry(
+            fullGrn,
+            userId || "system",
+            username,
+          );
+          this.logger.log(
+            `Posted accounting entry for GRN ${fullGrn.grnNumber}`,
+          );
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
         const errorStack = error instanceof Error ? error.stack : undefined;
         this.logger.error(
           `Failed to post accounting entry for PO ${purchaseOrder.orderNumber} receipt: ${errorMessage}`,
@@ -1349,27 +1530,30 @@ export class PurchaseOrderService extends BaseCrudService<
 
       // Log audit trail for receiving goods
       await this.auditLogService.log(
-        'UPDATE',
-        'PurchaseOrder',
+        "UPDATE",
+        "PurchaseOrder",
         `Received goods for PO: ${purchaseOrder.orderNumber}`,
         {
           entityId: id,
-          userId: userId || 'system',
+          userId: userId || "system",
           username,
           newValues: {
             orderNumber: purchaseOrder.orderNumber,
-            status: 'received',
+            status: "received",
             grnStatus: GrnStatus.RECEIVED,
           },
-        }
+        },
       );
 
-      this.logger.log(`Goods received successfully for PO ${purchaseOrder.orderNumber}`);
+      this.logger.log(
+        `Goods received successfully for PO ${purchaseOrder.orderNumber}`,
+      );
       return await this.findOne(id);
     } catch (error) {
       this.logger.error(`Error receiving goods: ${error.message}`, error.stack);
       if (error instanceof HttpException) throw error;
-      const message = error instanceof Error ? error.message : 'Failed to receive goods';
+      const message =
+        error instanceof Error ? error.message : "Failed to receive goods";
       throw new BadRequestException(message);
     }
   }
@@ -1377,7 +1561,11 @@ export class PurchaseOrderService extends BaseCrudService<
   /**
    * Return goods - change GRN status to return and revert product quantities
    */
-  async returnGoods(id: string, userId?: string, username?: string): Promise<PurchaseOrderResponseDto> {
+  async returnGoods(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Returning goods for purchase order: ${id}`);
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
@@ -1386,7 +1574,7 @@ export class PurchaseOrderService extends BaseCrudService<
     });
 
     if (!purchaseOrder) {
-      throw new NotFoundException('Purchase order not found');
+      throw new NotFoundException("Purchase order not found");
     }
 
     // Find the GRN linked to this PO with relational items
@@ -1396,11 +1584,15 @@ export class PurchaseOrderService extends BaseCrudService<
     });
 
     if (!grn) {
-      throw new NotFoundException('Goods Received Note not found for this purchase order');
+      throw new NotFoundException(
+        "Goods Received Note not found for this purchase order",
+      );
     }
 
     if (grn.status !== GrnStatus.RECEIVED) {
-      throw new BadRequestException('GRN must be in received status to return goods');
+      throw new BadRequestException(
+        "GRN must be in received status to return goods",
+      );
     }
 
     try {
@@ -1410,15 +1602,18 @@ export class PurchaseOrderService extends BaseCrudService<
 
       // Reset GRN items received quantities to 0
       if (grn.items && grn.items.length > 0) {
-        await this.grnService.updateGrnItems(grn.id, grn.items.map(item => ({
-          id: item.id,
-          grnId: item.grnId,
-          lineNumber: item.lineNumber,
-          productId: item.productId,
-          orderedQuantity: Number(item.orderedQuantity),
-          receivedQuantity: 0, // Reset to 0 (return)
-          purchaseOrderItemId: item.purchaseOrderItemId,
-        })));
+        await this.grnService.updateGrnItems(
+          grn.id,
+          grn.items.map((item) => ({
+            id: item.id,
+            grnId: item.grnId,
+            lineNumber: item.lineNumber,
+            productId: item.productId,
+            orderedQuantity: Number(item.orderedQuantity),
+            receivedQuantity: 0, // Reset to 0 (return)
+            purchaseOrderItemId: item.purchaseOrderItemId,
+          })),
+        );
       }
 
       // Reload GRN with fresh items from database
@@ -1428,7 +1623,7 @@ export class PurchaseOrderService extends BaseCrudService<
       });
 
       if (!updatedGrn) {
-        throw new NotFoundException('GRN not found after updating items');
+        throw new NotFoundException("GRN not found after updating items");
       }
 
       // Update GRN status back to draft and recalculate totals with fresh data
@@ -1438,24 +1633,35 @@ export class PurchaseOrderService extends BaseCrudService<
 
       // Delete stock movement records created during goods receipt
       try {
-        const stockMovementResult = await this.stockMovementService.deleteByReference(
-          'purchase_order',
-          purchaseOrder.id
-        );
+        const stockMovementResult =
+          await this.stockMovementService.deleteByReference(
+            "purchase_order",
+            purchaseOrder.id,
+          );
         this.logger.log(
-          `Deleted ${stockMovementResult.deletedCount} stock movements for purchase order ${purchaseOrder.orderNumber} return`
+          `Deleted ${stockMovementResult.deletedCount} stock movements for purchase order ${purchaseOrder.orderNumber} return`,
         );
       } catch (error) {
-        this.logger.error(`Failed to delete stock movements for purchase order ${purchaseOrder.orderNumber}: ${error.message}`);
+        this.logger.error(
+          `Failed to delete stock movements for purchase order ${purchaseOrder.orderNumber}: ${error.message}`,
+        );
         // Don't throw error - return should still succeed
       }
 
       // Reverse GRN journal entry (DR Inventory Asset / CR Accounts Payable)
       try {
-        await this.accountingService.reverseSourceEntries('goods_received_note', grn.id, 'system');
-        this.logger.log(`Reversed GRN accounting entry for PO ${purchaseOrder.orderNumber}`);
+        await this.accountingService.reverseSourceEntries(
+          "goods_received_note",
+          grn.id,
+          "system",
+        );
+        this.logger.log(
+          `Reversed GRN accounting entry for PO ${purchaseOrder.orderNumber}`,
+        );
       } catch (error) {
-        this.logger.error(`Failed to reverse GRN accounting entry for PO ${purchaseOrder.orderNumber}: ${error.message}`);
+        this.logger.error(
+          `Failed to reverse GRN accounting entry for PO ${purchaseOrder.orderNumber}: ${error.message}`,
+        );
         // Non-fatal - return still succeeds
       }
 
@@ -1471,27 +1677,30 @@ export class PurchaseOrderService extends BaseCrudService<
 
       // Log audit trail for returning goods
       await this.auditLogService.log(
-        'UPDATE',
-        'PurchaseOrder',
+        "UPDATE",
+        "PurchaseOrder",
         `Returned goods for PO: ${purchaseOrder.orderNumber}`,
         {
           entityId: id,
-          userId: userId || 'system',
+          userId: userId || "system",
           username,
           newValues: {
             orderNumber: purchaseOrder.orderNumber,
-            status: 'draft',
+            status: "draft",
             grnStatus: GrnStatus.DRAFT,
           },
-        }
+        },
       );
 
-      this.logger.log(`Goods returned successfully for PO ${purchaseOrder.orderNumber}`);
+      this.logger.log(
+        `Goods returned successfully for PO ${purchaseOrder.orderNumber}`,
+      );
       return await this.findOne(id);
     } catch (error) {
       this.logger.error(`Error returning goods: ${error.message}`, error.stack);
       if (error instanceof HttpException) throw error;
-      const message = error instanceof Error ? error.message : 'Failed to return goods';
+      const message =
+        error instanceof Error ? error.message : "Failed to return goods";
       throw new BadRequestException(message);
     }
   }
@@ -1499,7 +1708,10 @@ export class PurchaseOrderService extends BaseCrudService<
   /**
    * Record payment for purchase order with specified amount
    */
-  async recordPayment(id: string, amount: number): Promise<PurchaseOrderResponseDto> {
+  async recordPayment(
+    id: string,
+    amount: number,
+  ): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Recording payment of ${amount} for purchase order: ${id}`);
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
@@ -1508,7 +1720,7 @@ export class PurchaseOrderService extends BaseCrudService<
     });
 
     if (!purchaseOrder) {
-      throw new NotFoundException('Purchase order not found');
+      throw new NotFoundException("Purchase order not found");
     }
 
     // Calculate the amount to add as a new vendor payment
@@ -1516,7 +1728,9 @@ export class PurchaseOrderService extends BaseCrudService<
     const paymentAmount = amount - currentPaidAmount;
 
     if (paymentAmount <= 0) {
-      throw new BadRequestException('Payment amount must be greater than current paid amount');
+      throw new BadRequestException(
+        "Payment amount must be greater than current paid amount",
+      );
     }
 
     // Create vendor payment using the vendor payment service to ensure audit logging
@@ -1524,19 +1738,23 @@ export class PurchaseOrderService extends BaseCrudService<
       supplierId: purchaseOrder.supplierId,
       purchaseOrderId: id,
       amount: paymentAmount,
-      paymentDate: new Date().toISOString().split('T')[0], // Format as YYYY-MM-DD
+      paymentDate: new Date().toISOString().split("T")[0], // Format as YYYY-MM-DD
       paymentMethodId: undefined,
-      status: 'completed',
-      notes: 'Payment recorded via system',
+      status: "completed",
+      notes: "Payment recorded via system",
     });
 
-    this.logger.log(`Vendor payment ${vendorPayment.paymentNumber} created for purchase order ${purchaseOrder.orderNumber}`);
+    this.logger.log(
+      `Vendor payment ${vendorPayment.paymentNumber} created for purchase order ${purchaseOrder.orderNumber}`,
+    );
 
     // Update the paidAmount field
     purchaseOrder.paidAmount = amount;
     await this.purchaseOrderRepository.save(purchaseOrder);
 
-    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} paid amount updated to ${amount}, vendor payment ${vendorPayment.paymentNumber} created for ${paymentAmount}`);
+    this.logger.log(
+      `Purchase order ${purchaseOrder.orderNumber} paid amount updated to ${amount}, vendor payment ${vendorPayment.paymentNumber} created for ${paymentAmount}`,
+    );
 
     // Return updated order
     return this.findOne(id);
@@ -1550,7 +1768,9 @@ export class PurchaseOrderService extends BaseCrudService<
     id: string,
     payments: { paymentMethodId: string; amount: number; reference?: string }[],
   ): Promise<PurchaseOrderResponseDto> {
-    this.logger.log(`Recording ${payments.length} payment lines for purchase order: ${id}`);
+    this.logger.log(
+      `Recording ${payments.length} payment lines for purchase order: ${id}`,
+    );
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
       where: { id },
@@ -1558,11 +1778,11 @@ export class PurchaseOrderService extends BaseCrudService<
     });
 
     if (!purchaseOrder) {
-      throw new NotFoundException('Purchase order not found');
+      throw new NotFoundException("Purchase order not found");
     }
 
     if (!payments || payments.length === 0) {
-      throw new BadRequestException('At least one payment line is required');
+      throw new BadRequestException("At least one payment line is required");
     }
 
     const totalNewPayment = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -1571,7 +1791,7 @@ export class PurchaseOrderService extends BaseCrudService<
     const previousPayment = await this.vendorPaymentRepository.findOne({
       where: { purchaseOrderId: id },
       withDeleted: true,
-      order: { deletedAt: 'DESC' } as any,
+      order: { deletedAt: "DESC" } as any,
     });
 
     if (previousPayment?.deletedAt) {
@@ -1594,8 +1814,13 @@ export class PurchaseOrderService extends BaseCrudService<
       });
 
       // Re-post accounting entry for restored payment.
-      const fullPayment = await this.vendorPaymentService.findOne(restoredPayment.id);
-      await this.accountingService.postVendorPaymentEntry(fullPayment, 'system');
+      const fullPayment = await this.vendorPaymentService.findOne(
+        restoredPayment.id,
+      );
+      await this.accountingService.postVendorPaymentEntry(
+        fullPayment,
+        "system",
+      );
 
       // Create additional vendor payments for remaining lines.
       for (const line of payments.slice(1)) {
@@ -1603,16 +1828,18 @@ export class PurchaseOrderService extends BaseCrudService<
           supplierId: purchaseOrder.supplierId,
           purchaseOrderId: id,
           amount: line.amount,
-          paymentDate: new Date().toISOString().split('T')[0],
+          paymentDate: new Date().toISOString().split("T")[0],
           paymentMethodId: line.paymentMethodId,
-          status: 'completed',
+          status: "completed",
           notes: line.reference || undefined,
         });
       }
 
       purchaseOrder.paidAmount = totalNewPayment;
       await this.purchaseOrderRepository.save(purchaseOrder);
-      this.logger.log(`Restored vendor payment ${restoredPayment.paymentNumber} for PO ${purchaseOrder.orderNumber}`);
+      this.logger.log(
+        `Restored vendor payment ${restoredPayment.paymentNumber} for PO ${purchaseOrder.orderNumber}`,
+      );
       return this.findOne(id);
     }
 
@@ -1622,19 +1849,22 @@ export class PurchaseOrderService extends BaseCrudService<
         supplierId: purchaseOrder.supplierId,
         purchaseOrderId: id,
         amount: line.amount,
-        paymentDate: new Date().toISOString().split('T')[0],
+        paymentDate: new Date().toISOString().split("T")[0],
         paymentMethodId: line.paymentMethodId,
-        status: 'completed',
+        status: "completed",
         notes: line.reference || undefined,
       });
     }
 
     // Update paidAmount on the order (use Number() to avoid string concatenation with decimal columns)
-    const newPaidAmount = Number(purchaseOrder.paidAmount || 0) + totalNewPayment;
+    const newPaidAmount =
+      Number(purchaseOrder.paidAmount || 0) + totalNewPayment;
     purchaseOrder.paidAmount = newPaidAmount;
     await this.purchaseOrderRepository.save(purchaseOrder);
 
-    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} paid amount updated to ${newPaidAmount}`);
+    this.logger.log(
+      `Purchase order ${purchaseOrder.orderNumber} paid amount updated to ${newPaidAmount}`,
+    );
 
     return this.findOne(id);
   }
@@ -1642,7 +1872,9 @@ export class PurchaseOrderService extends BaseCrudService<
   /**
    * Mark purchase order as paid by creating a vendor payment
    */
-  async markAsPaid(id: string): Promise<{ order: PurchaseOrderResponseDto; payment: VendorPayment }> {
+  async markAsPaid(
+    id: string,
+  ): Promise<{ order: PurchaseOrderResponseDto; payment: VendorPayment }> {
     this.logger.log(`Marking purchase order as paid: ${id}`);
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
@@ -1651,13 +1883,14 @@ export class PurchaseOrderService extends BaseCrudService<
     });
 
     if (!purchaseOrder) {
-      throw new NotFoundException('Purchase order not found');
+      throw new NotFoundException("Purchase order not found");
     }
 
     // Check if payment already exists
-    const existingPayment = await this.vendorPaymentService.findByPurchaseOrder(id);
+    const existingPayment =
+      await this.vendorPaymentService.findByPurchaseOrder(id);
     if (existingPayment) {
-      throw new BadRequestException('Purchase order is already paid');
+      throw new BadRequestException("Purchase order is already paid");
     }
 
     // Create vendor payment
@@ -1666,7 +1899,9 @@ export class PurchaseOrderService extends BaseCrudService<
     // Get updated order with payment status
     const updatedOrder = await this.findOne(id);
 
-    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} marked as paid with payment ${payment.paymentNumber}`);
+    this.logger.log(
+      `Purchase order ${purchaseOrder.orderNumber} marked as paid with payment ${payment.paymentNumber}`,
+    );
     return { order: updatedOrder, payment };
   }
 
@@ -1681,7 +1916,7 @@ export class PurchaseOrderService extends BaseCrudService<
     });
 
     if (!purchaseOrder) {
-      throw new NotFoundException('Purchase order not found');
+      throw new NotFoundException("Purchase order not found");
     }
 
     // Check if PO has received goods - must return before unpaying
@@ -1691,22 +1926,29 @@ export class PurchaseOrderService extends BaseCrudService<
 
     if (grn && grn.status === GrnStatus.RECEIVED) {
       throw new BadRequestException(
-        'Cannot unpay purchase order with received goods. Please return goods first.'
+        "Cannot unpay purchase order with received goods. Please return goods first.",
       );
     }
 
     // Find all existing payments
-    const existingPayments = await this.vendorPaymentService.findAllByPurchaseOrder(id);
+    const existingPayments =
+      await this.vendorPaymentService.findAllByPurchaseOrder(id);
     if (!existingPayments || existingPayments.length === 0) {
-      throw new NotFoundException('No payment found for this purchase order');
+      throw new NotFoundException("No payment found for this purchase order");
     }
 
     // Reverse accounting entries and soft-delete each vendor payment
     for (const payment of existingPayments) {
       try {
-        await this.accountingService.reverseSourceEntries('vendor_payment', payment.id, 'system');
+        await this.accountingService.reverseSourceEntries(
+          "vendor_payment",
+          payment.id,
+          "system",
+        );
       } catch (error) {
-        this.logger.error(`Failed to reverse accounting for vendor payment ${payment.id}: ${error.message}`);
+        this.logger.error(
+          `Failed to reverse accounting for vendor payment ${payment.id}: ${error.message}`,
+        );
       }
       await this.vendorPaymentService.softDeleteForUnpay(payment.id);
     }
@@ -1718,14 +1960,18 @@ export class PurchaseOrderService extends BaseCrudService<
     // Get updated order
     const updatedOrder = await this.findOne(id);
 
-    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} marked as unpaid - payment deleted`);
+    this.logger.log(
+      `Purchase order ${purchaseOrder.orderNumber} marked as unpaid - payment deleted`,
+    );
     return updatedOrder;
   }
 
   /**
    * Get payment status of a purchase order
    */
-  async getPaymentStatus(id: string): Promise<{ isPaid: boolean; payment?: any }> {
+  async getPaymentStatus(
+    id: string,
+  ): Promise<{ isPaid: boolean; payment?: any }> {
     this.logger.log(`Checking payment status for purchase order: ${id}`);
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
@@ -1733,43 +1979,49 @@ export class PurchaseOrderService extends BaseCrudService<
     });
 
     if (!purchaseOrder) {
-      throw new NotFoundException('Purchase order not found');
+      throw new NotFoundException("Purchase order not found");
     }
 
     const payment = await this.vendorPaymentService.findByPurchaseOrder(id);
 
     return {
       isPaid: !!payment,
-      payment: payment ? {
-        id: payment.id,
-        paymentNumber: payment.paymentNumber,
-        amount: Number(payment.amount),
-        paymentDate: payment.paymentDate,
-        paymentMethodId: payment.paymentMethodId,
-        status: payment.status,
-      } : undefined,
+      payment: payment
+        ? {
+            id: payment.id,
+            paymentNumber: payment.paymentNumber,
+            amount: Number(payment.amount),
+            paymentDate: payment.paymentDate,
+            paymentMethodId: payment.paymentMethodId,
+            status: payment.status,
+          }
+        : undefined,
     };
   }
 
   /**
    * Map purchase order entity to response DTO
    */
-  private mapToResponseDto(purchaseOrder: PurchaseOrder): PurchaseOrderResponseDto {
+  private mapToResponseDto(
+    purchaseOrder: PurchaseOrder,
+  ): PurchaseOrderResponseDto {
     return {
       id: purchaseOrder.id,
       orderNumber: purchaseOrder.orderNumber,
-      supplier: purchaseOrder.supplier ? {
-        id: purchaseOrder.supplier.id,
-        supplierCode: purchaseOrder.supplier.id.slice(0, 8).toUpperCase(),
-        companyName: purchaseOrder.supplier.companyName,
-        contactPerson: purchaseOrder.supplier.contactPerson,
-        phone: purchaseOrder.supplier.phone,
-        address: purchaseOrder.supplier.billingStreetAddress,
-        city: purchaseOrder.supplier.billingCity,
-        state: purchaseOrder.supplier.billingState,
-        postalCode: purchaseOrder.supplier.billingPostalCode,
-        country: purchaseOrder.supplier.billingCountry,
-      } : undefined,
+      supplier: purchaseOrder.supplier
+        ? {
+            id: purchaseOrder.supplier.id,
+            supplierCode: purchaseOrder.supplier.id.slice(0, 8).toUpperCase(),
+            companyName: purchaseOrder.supplier.companyName,
+            contactPerson: purchaseOrder.supplier.contactPerson,
+            phone: purchaseOrder.supplier.phone,
+            address: purchaseOrder.supplier.billingStreetAddress,
+            city: purchaseOrder.supplier.billingCity,
+            state: purchaseOrder.supplier.billingState,
+            postalCode: purchaseOrder.supplier.billingPostalCode,
+            country: purchaseOrder.supplier.billingCountry,
+          }
+        : undefined,
       orderDate: purchaseOrder.orderDate,
       subtotal: Number(purchaseOrder.subtotal),
       discountPercent: Number(purchaseOrder.discountPercent),
@@ -1781,40 +2033,47 @@ export class PurchaseOrderService extends BaseCrudService<
       isFullyReceived: purchaseOrder.isFullyReceived(),
       totalReceivedQuantity: purchaseOrder.getTotalReceivedQuantity(),
       totalOrderedQuantity: purchaseOrder.getTotalOrderedQuantity(),
-      items: purchaseOrder.items?.map(item => ({
-        id: item.id,
-        product: item.product ? {
-          id: item.product.id,
-          sku: item.product.barcode || item.product.id.substring(0, 8).toUpperCase(),
-          name: item.product.name,
-        } : undefined,
-        description: item.product?.name || 'Unknown Product',
-        quantity: Number(item.quantity),
-        unitPrice: Number(item.unitCost),
-        discountPercent: Number(item.discountPercent),
-        discountAmount: Number(item.discountAmount),
-        taxPercent: 0,
-        taxAmount: 0,
-        totalAmount: Number(item.totalAmount),
-        receivedQuantity: Number(item.receivedQuantity),
-        rejectedQuantity: 0,
-        isFullyReceived: item.isFullyReceived,
-        status: item.status,
-      })) || [],
-      goodsReceivedNotes: purchaseOrder.goodsReceivedNotes?.map(grn => ({
-        id: grn.id,
-        grnNumber: grn.grnNumber,
-        status: grn.status,
-        receiptDate: grn.receivedDate,
-      })) || [],
-      vendorPayments: purchaseOrder.vendorPayments?.map(payment => ({
-        id: payment.id,
-        paymentNumber: payment.paymentNumber,
-        amount: Number(payment.amount),
-        paymentDate: payment.paymentDate,
-        paymentMethodId: payment.paymentMethodId,
-        status: payment.status,
-      })) || [],
+      items:
+        purchaseOrder.items?.map((item) => ({
+          id: item.id,
+          product: item.product
+            ? {
+                id: item.product.id,
+                sku:
+                  item.product.barcode ||
+                  item.product.id.substring(0, 8).toUpperCase(),
+                name: item.product.name,
+              }
+            : undefined,
+          description: item.product?.name || "Unknown Product",
+          quantity: Number(item.quantity),
+          unitPrice: Number(item.unitCost),
+          discountPercent: Number(item.discountPercent),
+          discountAmount: Number(item.discountAmount),
+          taxPercent: 0,
+          taxAmount: 0,
+          totalAmount: Number(item.totalAmount),
+          receivedQuantity: Number(item.receivedQuantity),
+          rejectedQuantity: 0,
+          isFullyReceived: item.isFullyReceived,
+          status: item.status,
+        })) || [],
+      goodsReceivedNotes:
+        purchaseOrder.goodsReceivedNotes?.map((grn) => ({
+          id: grn.id,
+          grnNumber: grn.grnNumber,
+          status: grn.status,
+          receiptDate: grn.receivedDate,
+        })) || [],
+      vendorPayments:
+        purchaseOrder.vendorPayments?.map((payment) => ({
+          id: payment.id,
+          paymentNumber: payment.paymentNumber,
+          amount: Number(payment.amount),
+          paymentDate: payment.paymentDate,
+          paymentMethodId: payment.paymentMethodId,
+          status: payment.status,
+        })) || [],
       createdAt: purchaseOrder.createdAt,
       updatedAt: purchaseOrder.updatedAt,
       deletedAt: purchaseOrder.deletedAt,
@@ -1836,16 +2095,20 @@ export class PurchaseOrderService extends BaseCrudService<
     const poShipping = Number(po.shippingAmount || 0);
 
     this.logger.log(
-      `PO ${po.orderNumber}: Subtotal RM ${poSubtotal.toFixed(2)}, Shipping RM ${poShipping.toFixed(2)}`
+      `PO ${po.orderNumber}: Subtotal RM ${poSubtotal.toFixed(2)}, Shipping RM ${poShipping.toFixed(2)}`,
     );
 
     // Process each GRN item
     for (const grnItem of grn.items) {
       // Find corresponding PO item to get unit cost
-      const poItem = po.items?.find(item => item.id === grnItem.purchaseOrderItemId);
+      const poItem = po.items?.find(
+        (item) => item.id === grnItem.purchaseOrderItemId,
+      );
 
       if (!poItem) {
-        this.logger.warn(`PO item not found for GRN item ${grnItem.id}, skipping base cost update`);
+        this.logger.warn(
+          `PO item not found for GRN item ${grnItem.id}, skipping base cost update`,
+        );
         continue;
       }
 
@@ -1861,7 +2124,7 @@ export class PurchaseOrderService extends BaseCrudService<
       );
 
       this.logger.log(
-        `Product ${grnItem.productId}: ${receivedQty} units @ RM ${unitCost.toFixed(4)} + RM ${shippingPerUnit.toFixed(4)} shipping`
+        `Product ${grnItem.productId}: ${receivedQty} units @ RM ${unitCost.toFixed(4)} + RM ${shippingPerUnit.toFixed(4)} shipping`,
       );
 
       // Add stock to cost history and recalculate base cost
@@ -1890,18 +2153,22 @@ export class PurchaseOrderService extends BaseCrudService<
       const receivedQty = Number(grnItem.receivedQuantity);
 
       if (receivedQty === 0) {
-        this.logger.debug(`GRN item ${grnItem.id} has no received quantity, skipping`);
+        this.logger.debug(
+          `GRN item ${grnItem.id} has no received quantity, skipping`,
+        );
         continue;
       }
 
       this.logger.log(
-        `Removing ${receivedQty} units from cost history for product ${grnItem.productId}`
+        `Removing ${receivedQty} units from cost history for product ${grnItem.productId}`,
       );
 
       // Remove stock from cost history and recalculate base cost
       await this.baseCostCalculator.removeStock(grnItem.productId, grn.id);
     }
 
-    this.logger.log(`Base costs reversed successfully for GRN ${grn.grnNumber}`);
+    this.logger.log(
+      `Base costs reversed successfully for GRN ${grn.grnNumber}`,
+    );
   }
 }

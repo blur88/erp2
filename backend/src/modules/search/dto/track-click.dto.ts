@@ -7,8 +7,8 @@ import {
   Max,
   MaxLength,
   Min,
-} from 'class-validator';
-import { SearchResultType } from '../search-result-type.enum';
+} from "class-validator";
+import { SearchResultType } from "../search-result-type.enum";
 
 export class TrackClickDto {
   @IsOptional()

@@ -6,7 +6,7 @@ import {
   JoinColumn,
   BeforeInsert,
   BeforeUpdate,
-} from 'typeorm';
+} from "typeorm";
 import {
   IsString,
   IsOptional,
@@ -16,42 +16,42 @@ import {
   Min,
   IsInt,
   IsDate,
-} from 'class-validator';
-import { BaseEntity } from './base.entity';
-import { PurchaseOrder } from './purchase-order.entity';
-import { Product } from './product.entity';
+} from "class-validator";
+import { BaseEntity } from "./base.entity";
+import { PurchaseOrder } from "./purchase-order.entity";
+import { Product } from "./product.entity";
 
 export enum PurchaseOrderItemStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  ORDERED = 'ordered',
-  PARTIALLY_RECEIVED = 'partially_received',
-  RECEIVED = 'received',
-  CANCELLED = 'cancelled',
+  PENDING = "pending",
+  APPROVED = "approved",
+  ORDERED = "ordered",
+  PARTIALLY_RECEIVED = "partially_received",
+  RECEIVED = "received",
+  CANCELLED = "cancelled",
 }
 
 /**
  * Purchase Order Item entity for individual line items in purchase orders
  * Tracks detailed product information and pricing at time of order
  */
-@Entity('purchase_order_items')
-@Index(['purchaseOrderId'])
-@Index(['productId'])
-@Index(['status'])
+@Entity("purchase_order_items")
+@Index(["purchaseOrderId"])
+@Index(["productId"])
+@Index(["status"])
 export class PurchaseOrderItem extends BaseEntity {
   @Column({
-    type: 'int',
-    comment: 'Line item sequence number within the order',
+    type: "int",
+    comment: "Line item sequence number within the order",
   })
   @IsInt()
   @Min(1)
   lineNumber: number;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: PurchaseOrderItemStatus,
     default: PurchaseOrderItemStatus.PENDING,
-    comment: 'Item status',
+    comment: "Item status",
   })
   @IsEnum(PurchaseOrderItemStatus)
   status: PurchaseOrderItemStatus;
@@ -64,75 +64,76 @@ export class PurchaseOrderItem extends BaseEntity {
 
   // Quantity and Pricing
   @Column({
-    type: 'decimal',
+    type: "decimal",
     precision: 15,
     scale: 4,
-    comment: 'Ordered quantity',
+    comment: "Ordered quantity",
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: "0,4" })
   @Min(0)
   quantity: number;
 
   @Column({
-    type: 'decimal',
+    type: "decimal",
     precision: 15,
     scale: 4,
     default: 0,
-    comment: 'Received quantity so far',
+    comment: "Received quantity so far",
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: "0,4" })
   @Min(0)
   receivedQuantity: number;
 
   @Column({
-    type: 'decimal',
+    type: "decimal",
     precision: 15,
     scale: 4,
-    comment: 'Unit cost price',
+    comment: "Unit cost price",
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: "0,4" })
   @Min(0)
   unitCost: number;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 20,
-    default: 'percentage',
-    comment: 'Discount type: percentage or fixed_amount',
+    default: "percentage",
+    comment: "Discount type: percentage or fixed_amount",
   })
   @IsString()
-  discountType: 'percentage' | 'fixed_amount' = 'percentage';
+  discountType: "percentage" | "fixed_amount" = "percentage";
 
   @Column({
-    type: 'decimal',
+    type: "decimal",
     precision: 5,
     scale: 2,
     default: 0,
-    comment: 'Line item discount percentage',
+    comment: "Line item discount percentage",
   })
-  @IsDecimal({ decimal_digits: '0,2' })
+  @IsDecimal({ decimal_digits: "0,2" })
   @Min(0)
   discountPercent: number;
 
   @Column({
-    type: 'decimal',
+    type: "decimal",
     precision: 15,
     scale: 4,
     default: 0,
-    comment: 'Line item discount amount (total for all units or per-unit based on discountType)',
+    comment:
+      "Line item discount amount (total for all units or per-unit based on discountType)",
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: "0,4" })
   @Min(0)
   discountAmount: number;
 
   @Column({
-    type: 'decimal',
+    type: "decimal",
     precision: 15,
     scale: 4,
     default: 0,
-    comment: 'Line item total amount (after discount)',
+    comment: "Line item total amount (after discount)",
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: "0,4" })
   @Min(0)
   totalAmount: number;
 
@@ -141,32 +142,32 @@ export class PurchaseOrderItem extends BaseEntity {
 
   // Quality Information removed - quality acceptance now tracked via receivedQuantity only
 
-  
   // Foreign Keys
   @Column({
-    type: 'uuid',
-    comment: 'Purchase order ID',
+    type: "uuid",
+    comment: "Purchase order ID",
   })
   purchaseOrderId: string;
 
   @Column({
-    type: 'uuid',
-    comment: 'Product ID',
+    type: "uuid",
+    comment: "Product ID",
   })
   productId: string;
 
   // Relationships
   @ManyToOne(() => PurchaseOrder, (purchaseOrder) => purchaseOrder.items, {
-    onDelete: 'CASCADE',
+    onDelete: "CASCADE",
   })
-  @JoinColumn({ name: 'purchaseOrderId' })
+  @JoinColumn({ name: "purchaseOrderId" })
   purchaseOrder: PurchaseOrder;
 
-  @ManyToOne(() => Product, { // Removed back-reference to avoid circular relation issues
-    onDelete: 'RESTRICT',
+  @ManyToOne(() => Product, {
+    // Removed back-reference to avoid circular relation issues
+    onDelete: "RESTRICT",
     eager: false, // Disabled eager loading to prevent automatic relation resolution
   })
-  @JoinColumn({ name: 'productId' })
+  @JoinColumn({ name: "productId" })
   product: Product;
 
   // Computed properties
@@ -186,13 +187,11 @@ export class PurchaseOrderItem extends BaseEntity {
     return Number(this.quantity) * Number(this.unitCost);
   }
 
-  
-  
   // Delivery performance tracking moved to purchase order level
   // Individual item delivery performance is no longer tracked
-  get deliveryPerformance(): 'on_time' | 'late' | 'early' | 'pending' {
+  get deliveryPerformance(): "on_time" | "late" | "early" | "pending" {
     // Always return pending since item-level delivery tracking is removed
-    return 'pending';
+    return "pending";
   }
 
   // Hooks
@@ -201,45 +200,46 @@ export class PurchaseOrderItem extends BaseEntity {
   calculateTotals() {
     // Ensure discountType has a default
     if (!this.discountType) {
-      this.discountType = 'percentage';
+      this.discountType = "percentage";
     }
 
     let unitDiscount = 0;
     let totalDiscountAmount = 0;
 
-    console.log('[calculateTotals] discountType:', this.discountType);
-    console.log('[calculateTotals] discountAmount:', this.discountAmount);
-    console.log('[calculateTotals] discountPercent:', this.discountPercent);
-    console.log('[calculateTotals] unitCost:', this.unitCost);
-    console.log('[calculateTotals] quantity:', this.quantity);
+    console.log("[calculateTotals] discountType:", this.discountType);
+    console.log("[calculateTotals] discountAmount:", this.discountAmount);
+    console.log("[calculateTotals] discountPercent:", this.discountPercent);
+    console.log("[calculateTotals] unitCost:", this.unitCost);
+    console.log("[calculateTotals] quantity:", this.quantity);
 
-    if (this.discountType === 'percentage') {
+    if (this.discountType === "percentage") {
       // Percentage discount: apply to unit price
-      unitDiscount = this.discountPercent > 0
-        ? (Number(this.unitCost) * Number(this.discountPercent)) / 100
-        : 0;
+      unitDiscount =
+        this.discountPercent > 0
+          ? (Number(this.unitCost) * Number(this.discountPercent)) / 100
+          : 0;
       totalDiscountAmount = unitDiscount * Number(this.quantity);
-    } else if (this.discountType === 'fixed_amount') {
+    } else if (this.discountType === "fixed_amount") {
       // Fixed amount discount: discountAmount is per unit
       unitDiscount = Number(this.discountAmount) || 0;
       totalDiscountAmount = unitDiscount * Number(this.quantity);
     }
 
-    console.log('[calculateTotals] unitDiscount:', unitDiscount);
-    console.log('[calculateTotals] totalDiscountAmount:', totalDiscountAmount);
+    console.log("[calculateTotals] unitDiscount:", unitDiscount);
+    console.log("[calculateTotals] totalDiscountAmount:", totalDiscountAmount);
 
     // Discounted unit price
     const discountedUnitPrice = Number(this.unitCost) - unitDiscount;
 
     // Store total discount amount
-    if (this.discountType === 'percentage') {
+    if (this.discountType === "percentage") {
       this.discountAmount = totalDiscountAmount;
     }
 
     // Calculate total amount: discounted unit price × quantity
     this.totalAmount = discountedUnitPrice * Number(this.quantity);
 
-    console.log('[calculateTotals] totalAmount:', this.totalAmount);
+    console.log("[calculateTotals] totalAmount:", this.totalAmount);
   }
 
   @BeforeInsert()
@@ -278,13 +278,11 @@ export class PurchaseOrderItem extends BaseEntity {
     }
   }
 
-  
-  
   // Static method to create from product
   static fromProduct(
     product: Product,
     quantity: number,
-    unitCost?: number
+    unitCost?: number,
   ): Partial<PurchaseOrderItem> {
     return {
       productId: product.id,

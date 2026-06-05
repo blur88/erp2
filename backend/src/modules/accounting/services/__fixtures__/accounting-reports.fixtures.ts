@@ -1,39 +1,39 @@
-import { AccountType } from '../../../../database/entities/chart-of-account.entity';
+import { AccountType } from "../../../../database/entities/chart-of-account.entity";
 
 export const ACCOUNT_IDS = {
-  cash: '123e4567-e89b-12d3-a456-426614174000',
-  ap: '223e4567-e89b-12d3-a456-426614174001',
-  revenue: '423e4567-e89b-12d3-a456-426614174003',
+  cash: "123e4567-e89b-12d3-a456-426614174000",
+  ap: "223e4567-e89b-12d3-a456-426614174001",
+  revenue: "423e4567-e89b-12d3-a456-426614174003",
 };
 
 export const CASH_ACCOUNT = {
   id: ACCOUNT_IDS.cash,
-  code: '1000',
-  name: 'Cash',
+  code: "1000",
+  name: "Cash",
   type: AccountType.ASSET,
   isActive: true,
-  createdAt: new Date('2026-01-01'),
-  updatedAt: new Date('2026-01-01'),
+  createdAt: new Date("2026-01-01"),
+  updatedAt: new Date("2026-01-01"),
 };
 
 export const AP_ACCOUNT = {
   id: ACCOUNT_IDS.ap,
-  code: '2000',
-  name: 'Accounts Payable',
+  code: "2000",
+  name: "Accounts Payable",
   type: AccountType.LIABILITY,
   isActive: true,
-  createdAt: new Date('2026-01-01'),
-  updatedAt: new Date('2026-01-01'),
+  createdAt: new Date("2026-01-01"),
+  updatedAt: new Date("2026-01-01"),
 };
 
 export const REVENUE_ACCOUNT = {
   id: ACCOUNT_IDS.revenue,
-  code: '4000',
-  name: 'Sales Revenue',
+  code: "4000",
+  name: "Sales Revenue",
   type: AccountType.REVENUE,
   isActive: true,
-  createdAt: new Date('2026-01-01'),
-  updatedAt: new Date('2026-01-01'),
+  createdAt: new Date("2026-01-01"),
+  updatedAt: new Date("2026-01-01"),
 };
 
 export function createMockQueryBuilder() {
@@ -92,18 +92,18 @@ export function createMockExcelExportService() {
   return {
     exportTrialBalanceToExcel: jest
       .fn()
-      .mockResolvedValue(Buffer.from('trial-balance')),
+      .mockResolvedValue(Buffer.from("trial-balance")),
     exportBalanceSheetToExcel: jest
       .fn()
-      .mockResolvedValue(Buffer.from('balance-sheet')),
+      .mockResolvedValue(Buffer.from("balance-sheet")),
     exportProfitAndLossToExcel: jest
       .fn()
-      .mockResolvedValue(Buffer.from('profit-and-loss')),
+      .mockResolvedValue(Buffer.from("profit-and-loss")),
     exportGeneralLedgerToExcel: jest
       .fn()
-      .mockResolvedValue(Buffer.from('general-ledger')),
+      .mockResolvedValue(Buffer.from("general-ledger")),
     exportAccountActivityToExcel: jest
       .fn()
-      .mockResolvedValue(Buffer.from('account-activity')),
+      .mockResolvedValue(Buffer.from("account-activity")),
   };
 }

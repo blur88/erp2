@@ -6,9 +6,9 @@ import {
   IsDateString,
   IsUUID,
   Min,
-} from 'class-validator';
-import { Type } from 'class-transformer';
-import { FundTransferStatus } from '../../../database/entities/fund-transfer.entity';
+} from "class-validator";
+import { Type } from "class-transformer";
+import { FundTransferStatus } from "../../../database/entities/fund-transfer.entity";
 
 export class CreateFundTransferDto {
   @IsUUID()

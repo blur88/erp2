@@ -1,84 +1,77 @@
-import {
-  Entity,
-  Column,
-  Index,
-  ManyToOne,
-  JoinColumn,
-  Unique,
-} from 'typeorm';
+import { Entity, Column, Index, ManyToOne, JoinColumn, Unique } from "typeorm";
 import {
   IsUUID,
   IsNumber,
   IsBoolean,
   IsOptional,
   IsDate,
-} from 'class-validator';
-import { BaseEntity } from './base.entity';
-import { PriceList } from './price-list.entity';
-import { Product } from './product.entity';
+} from "class-validator";
+import { BaseEntity } from "./base.entity";
+import { PriceList } from "./price-list.entity";
+import { Product } from "./product.entity";
 
 /**
  * PriceListItem Entity
  * Product-specific prices per price list (replaces Product.pricingTiers JSONB)
  */
-@Entity('price_list_items')
-@Index(['priceListId'])
-@Index(['productId'])
-@Unique(['priceListId', 'productId'])
+@Entity("price_list_items")
+@Index(["priceListId"])
+@Index(["productId"])
+@Unique(["priceListId", "productId"])
 export class PriceListItem extends BaseEntity {
-  @Column({ type: 'uuid' })
+  @Column({ type: "uuid" })
   @IsUUID()
   priceListId: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: "uuid" })
   @IsUUID()
   productId: string;
 
-  @Column({ type: 'decimal', precision: 12, scale: 4 })
+  @Column({ type: "decimal", precision: 12, scale: 4 })
   @IsNumber()
   price: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 4, nullable: true })
+  @Column({ type: "decimal", precision: 12, scale: 4, nullable: true })
   @IsNumber()
   @IsOptional()
   costBasis: number;
 
-  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  @Column({ type: "decimal", precision: 5, scale: 2, nullable: true })
   @IsNumber()
   @IsOptional()
   marginPercent: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 4, nullable: true })
+  @Column({ type: "decimal", precision: 12, scale: 4, nullable: true })
   @IsNumber()
   @IsOptional()
   minimumPrice: number;
 
-  @Column({ type: 'boolean', default: true })
+  @Column({ type: "boolean", default: true })
   @IsBoolean()
   @IsOptional()
   declare isActive: boolean;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: "timestamp", nullable: true })
   @IsDate()
   @IsOptional()
   effectiveFrom: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: "timestamp", nullable: true })
   @IsDate()
   @IsOptional()
   effectiveTo: Date;
 
   // Relationships
   @ManyToOne(() => PriceList, (priceList) => priceList.items, {
-    onDelete: 'CASCADE',
+    onDelete: "CASCADE",
   })
-  @JoinColumn({ name: 'priceListId' })
+  @JoinColumn({ name: "priceListId" })
   priceList: PriceList;
 
   @ManyToOne(() => Product, (product) => product.priceListItems, {
-    onDelete: 'CASCADE',
+    onDelete: "CASCADE",
   })
-  @JoinColumn({ name: 'productId' })
+  @JoinColumn({ name: "productId" })
   product: Product;
 
   constructor() {

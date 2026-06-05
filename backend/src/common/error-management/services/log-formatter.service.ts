@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { Request } from 'express';
-import { ErrorSanitizerService } from './error-sanitizer.service';
+import { Injectable } from "@nestjs/common";
+import { Request } from "express";
+import { ErrorSanitizerService } from "./error-sanitizer.service";
 
 export interface LogContext {
   requestId?: string;
@@ -15,7 +15,11 @@ export interface ErrorLogData extends LogContext {
   status?: number;
   error?: string;
   message?: string;
-  type: 'SecurityError' | 'UnexpectedError' | 'ApplicationError' | 'DatabaseError';
+  type:
+    | "SecurityError"
+    | "UnexpectedError"
+    | "ApplicationError"
+    | "DatabaseError";
 }
 
 @Injectable()
@@ -28,15 +32,22 @@ export class LogFormatterService {
       method: request.method,
       path: this.errorSanitizer.sanitizePath(request.url),
       timestamp: new Date().toISOString(),
-      userAgent: this.errorSanitizer.sanitizeUserAgent(request.get('User-Agent')),
+      userAgent: this.errorSanitizer.sanitizeUserAgent(
+        request.get("User-Agent"),
+      ),
       ip: this.errorSanitizer.sanitizeIP(request.ip),
     };
   }
 
-  formatSecurityError(status: number, error: string, request: Request, requestId?: string): ErrorLogData {
+  formatSecurityError(
+    status: number,
+    error: string,
+    request: Request,
+    requestId?: string,
+  ): ErrorLogData {
     return {
       ...this.createLogContext(request, requestId),
-      type: 'SecurityError',
+      type: "SecurityError",
       status,
       error: this.errorSanitizer.sanitizeErrorMessage(error),
     };
@@ -45,8 +56,8 @@ export class LogFormatterService {
   formatUnexpectedError(request: Request, requestId: string): ErrorLogData {
     return {
       ...this.createLogContext(request, requestId),
-      type: 'UnexpectedError',
-      error: 'UnexpectedError',
+      type: "UnexpectedError",
+      error: "UnexpectedError",
     };
   }
 
@@ -58,12 +69,14 @@ export class LogFormatterService {
     isProduction = false,
   ): ErrorLogData {
     const sanitizedMessage =
-      typeof message === 'string' ? this.errorSanitizer.sanitizeErrorMessage(message) : '[OBJECT_MESSAGE]';
+      typeof message === "string"
+        ? this.errorSanitizer.sanitizeErrorMessage(message)
+        : "[OBJECT_MESSAGE]";
     return {
       ...this.createLogContext(request, requestId),
-      type: 'ApplicationError',
+      type: "ApplicationError",
       status,
-      message: isProduction ? '[SANITIZED]' : sanitizedMessage,
+      message: isProduction ? "[SANITIZED]" : sanitizedMessage,
     };
   }
 

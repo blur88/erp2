@@ -1,10 +1,10 @@
-import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { MulterModule } from '@nestjs/platform-express';
+import { Module } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { MulterModule } from "@nestjs/platform-express";
 
-import { PrintSettingsService } from './print-settings.service';
-import { PrintSettingsController } from './print-settings.controller';
-import { PrintSettings } from '../../database/entities/print-settings.entity';
+import { PrintSettingsService } from "./print-settings.service";
+import { PrintSettingsController } from "./print-settings.controller";
+import { PrintSettings } from "../../database/entities/print-settings.entity";
 
 /**
  * Print Settings Module
@@ -17,14 +17,11 @@ import { PrintSettings } from '../../database/entities/print-settings.entity';
 
     // Multer for file upload
     MulterModule.register({
-      dest: './uploads/logos',
+      dest: "./uploads/logos",
     }),
   ],
   controllers: [PrintSettingsController],
   providers: [PrintSettingsService],
-  exports: [
-    PrintSettingsService,
-    TypeOrmModule,
-  ],
+  exports: [PrintSettingsService, TypeOrmModule],
 })
 export class PrintSettingsModule {}

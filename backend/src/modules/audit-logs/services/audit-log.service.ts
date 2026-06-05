@@ -1,8 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, Like } from 'typeorm';
-import { AuditLog } from '@/database/entities/audit-log.entity';
-import { CreateAuditLogDto, QueryAuditLogsDto } from '../dto';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, Between, Like } from "typeorm";
+import { AuditLog } from "@/database/entities/audit-log.entity";
+import { CreateAuditLogDto, QueryAuditLogsDto } from "../dto";
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -31,7 +31,10 @@ export class AuditLogService {
       const auditLog = this.auditLogRepository.create(createDto);
       return await this.auditLogRepository.save(auditLog);
     } catch (error) {
-      this.logger.error(`Failed to create audit log: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to create audit log: ${error.message}`,
+        error.stack,
+      );
       // Don't throw error - audit logging should not break application flow
       return null;
     }
@@ -57,7 +60,7 @@ export class AuditLogService {
   ): Promise<void> {
     try {
       await this.create({
-        userId: options?.userId || 'system',
+        userId: options?.userId || "system",
         username: options?.username,
         action,
         entityType,
@@ -77,7 +80,9 @@ export class AuditLogService {
   /**
    * Find all audit logs with filtering and pagination
    */
-  async findAll(query: QueryAuditLogsDto): Promise<PaginatedResponse<AuditLog>> {
+  async findAll(
+    query: QueryAuditLogsDto,
+  ): Promise<PaginatedResponse<AuditLog>> {
     const {
       page = 1,
       limit = 20,
@@ -90,8 +95,8 @@ export class AuditLogService {
       ipAddress,
       startDate,
       endDate,
-      sortBy = 'createdAt',
-      sortOrder = 'DESC',
+      sortBy = "createdAt",
+      sortOrder = "DESC",
     } = query;
 
     const skip = (page - 1) * limit;
@@ -157,7 +162,10 @@ export class AuditLogService {
   /**
    * Find audit logs for a specific entity
    */
-  async findByEntity(entityType: string, entityId: string): Promise<AuditLog[]> {
+  async findByEntity(
+    entityType: string,
+    entityId: string,
+  ): Promise<AuditLog[]> {
     return this.auditLogRepository.find({
       where: {
         entityType,
@@ -165,7 +173,7 @@ export class AuditLogService {
         isActive: true,
       },
       order: {
-        createdAt: 'DESC',
+        createdAt: "DESC",
       },
     });
   }
@@ -180,7 +188,7 @@ export class AuditLogService {
         isActive: true,
       },
       order: {
-        createdAt: 'DESC',
+        createdAt: "DESC",
       },
       take: limit,
     });
@@ -191,11 +199,11 @@ export class AuditLogService {
    */
   async getStatistics(startDate?: Date, endDate?: Date): Promise<any> {
     const query = this.auditLogRepository
-      .createQueryBuilder('audit')
-      .where('audit.isActive = :isActive', { isActive: true });
+      .createQueryBuilder("audit")
+      .where("audit.isActive = :isActive", { isActive: true });
 
     if (startDate && endDate) {
-      query.andWhere('audit.createdAt BETWEEN :startDate AND :endDate', {
+      query.andWhere("audit.createdAt BETWEEN :startDate AND :endDate", {
         startDate,
         endDate,
       });
@@ -205,28 +213,28 @@ export class AuditLogService {
       // Count by action
       query
         .clone()
-        .select('audit.action', 'action')
-        .addSelect('COUNT(*)', 'count')
-        .groupBy('audit.action')
+        .select("audit.action", "action")
+        .addSelect("COUNT(*)", "count")
+        .groupBy("audit.action")
         .getRawMany(),
 
       // Count by entity type
       query
         .clone()
-        .select('audit.entityType', 'entityType')
-        .addSelect('COUNT(*)', 'count')
-        .groupBy('audit.entityType')
+        .select("audit.entityType", "entityType")
+        .addSelect("COUNT(*)", "count")
+        .groupBy("audit.entityType")
         .getRawMany(),
 
       // Count by user
       query
         .clone()
-        .select('audit.userId', 'userId')
-        .addSelect('audit.username', 'username')
-        .addSelect('COUNT(*)', 'count')
-        .groupBy('audit.userId')
-        .addGroupBy('audit.username')
-        .orderBy('count', 'DESC')
+        .select("audit.userId", "userId")
+        .addSelect("audit.username", "username")
+        .addSelect("COUNT(*)", "count")
+        .groupBy("audit.userId")
+        .addGroupBy("audit.username")
+        .orderBy("count", "DESC")
         .limit(10)
         .getRawMany(),
 
@@ -252,7 +260,7 @@ export class AuditLogService {
     const result = await this.auditLogRepository
       .createQueryBuilder()
       .softDelete()
-      .where('createdAt < :cutoffDate', { cutoffDate })
+      .where("createdAt < :cutoffDate", { cutoffDate })
       .execute();
 
     return result.affected || 0;

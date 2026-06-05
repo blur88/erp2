@@ -1,9 +1,4 @@
-import {
-  Entity,
-  Column,
-  Index,
-  OneToMany,
-} from 'typeorm';
+import { Entity, Column, Index, OneToMany } from "typeorm";
 import {
   IsString,
   IsOptional,
@@ -13,57 +8,57 @@ import {
   Min,
   IsInt,
   IsEmail,
-} from 'class-validator';
-import { BaseEntity } from './base.entity';
-import { PurchaseOrder } from './purchase-order.entity';
-import { GoodsReceivedNote } from './goods-received-note.entity';
+} from "class-validator";
+import { BaseEntity } from "./base.entity";
+import { PurchaseOrder } from "./purchase-order.entity";
+import { GoodsReceivedNote } from "./goods-received-note.entity";
 
 export enum SupplierType {
-  LOCAL = 'local',
-  INTERNATIONAL = 'international',
+  LOCAL = "local",
+  INTERNATIONAL = "international",
 }
 
 /**
  * Supplier entity for purchasing management
  * Simplified supplier information
  */
-@Entity('suppliers')
-@Index(['phone'])
-@Index(['type'])
-@Index(['isActive'])
+@Entity("suppliers")
+@Index(["phone"])
+@Index(["type"])
+@Index(["isActive"])
 export class Supplier extends BaseEntity {
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: SupplierType,
     default: SupplierType.LOCAL,
-    comment: 'Supplier type (local/international)',
+    comment: "Supplier type (local/international)",
   })
   @IsEnum(SupplierType)
   type: SupplierType;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 200,
-    comment: 'Supplier company name',
+    comment: "Supplier company name",
   })
   @IsString()
   @MaxLength(200)
   companyName: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 255,
     nullable: true,
-    comment: 'URL-friendly identifier derived from companyName',
+    comment: "URL-friendly identifier derived from companyName",
   })
   @Index({ unique: true })
   slug: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 200,
     nullable: true,
-    comment: 'Contact person name',
+    comment: "Contact person name",
   })
   @IsOptional()
   @IsString()
@@ -71,10 +66,10 @@ export class Supplier extends BaseEntity {
   contactPerson?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 20,
     nullable: true,
-    comment: 'Primary phone number',
+    comment: "Primary phone number",
   })
   @IsOptional()
   @IsString()
@@ -82,10 +77,10 @@ export class Supplier extends BaseEntity {
   phone?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 255,
     nullable: true,
-    comment: 'Email address',
+    comment: "Email address",
   })
   @IsOptional()
   @IsEmail()
@@ -93,10 +88,10 @@ export class Supplier extends BaseEntity {
   email?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 255,
     nullable: true,
-    comment: 'Billing street address line 1',
+    comment: "Billing street address line 1",
   })
   @IsOptional()
   @IsString()
@@ -104,10 +99,10 @@ export class Supplier extends BaseEntity {
   billingStreetAddress?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 255,
     nullable: true,
-    comment: 'Billing street address line 2',
+    comment: "Billing street address line 2",
   })
   @IsOptional()
   @IsString()
@@ -115,10 +110,10 @@ export class Supplier extends BaseEntity {
   billingStreetAddress2?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 100,
     nullable: true,
-    comment: 'Billing city',
+    comment: "Billing city",
   })
   @IsOptional()
   @IsString()
@@ -126,10 +121,10 @@ export class Supplier extends BaseEntity {
   billingCity?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 100,
     nullable: true,
-    comment: 'Billing state or province',
+    comment: "Billing state or province",
   })
   @IsOptional()
   @IsString()
@@ -137,10 +132,10 @@ export class Supplier extends BaseEntity {
   billingState?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 20,
     nullable: true,
-    comment: 'Billing postal or ZIP code',
+    comment: "Billing postal or ZIP code",
   })
   @IsOptional()
   @IsString()
@@ -148,10 +143,10 @@ export class Supplier extends BaseEntity {
   billingPostalCode?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 100,
     nullable: true,
-    comment: 'Billing country',
+    comment: "Billing country",
   })
   @IsOptional()
   @IsString()
@@ -159,10 +154,10 @@ export class Supplier extends BaseEntity {
   billingCountry?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 255,
     nullable: true,
-    comment: 'Shipping street address line 1',
+    comment: "Shipping street address line 1",
   })
   @IsOptional()
   @IsString()
@@ -170,10 +165,10 @@ export class Supplier extends BaseEntity {
   shippingStreetAddress?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 255,
     nullable: true,
-    comment: 'Shipping street address line 2',
+    comment: "Shipping street address line 2",
   })
   @IsOptional()
   @IsString()
@@ -181,10 +176,10 @@ export class Supplier extends BaseEntity {
   shippingStreetAddress2?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 100,
     nullable: true,
-    comment: 'Shipping city',
+    comment: "Shipping city",
   })
   @IsOptional()
   @IsString()
@@ -192,10 +187,10 @@ export class Supplier extends BaseEntity {
   shippingCity?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 100,
     nullable: true,
-    comment: 'Shipping state or province',
+    comment: "Shipping state or province",
   })
   @IsOptional()
   @IsString()
@@ -203,10 +198,10 @@ export class Supplier extends BaseEntity {
   shippingState?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 20,
     nullable: true,
-    comment: 'Shipping postal or ZIP code',
+    comment: "Shipping postal or ZIP code",
   })
   @IsOptional()
   @IsString()
@@ -214,10 +209,10 @@ export class Supplier extends BaseEntity {
   shippingPostalCode?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 100,
     nullable: true,
-    comment: 'Shipping country',
+    comment: "Shipping country",
   })
   @IsOptional()
   @IsString()
@@ -226,45 +221,45 @@ export class Supplier extends BaseEntity {
 
   // Supplier Metrics
   @Column({
-    type: 'decimal',
+    type: "decimal",
     precision: 15,
     scale: 4,
     default: 0,
-    comment: 'Total purchase amount from this supplier',
+    comment: "Total purchase amount from this supplier",
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: "0,4" })
   @Min(0)
   totalPurchases: number;
 
   @Column({
-    type: 'int',
+    type: "int",
     default: 0,
-    comment: 'Total number of purchase orders',
+    comment: "Total number of purchase orders",
   })
   @IsInt()
   @Min(0)
   totalOrders: number;
 
   @Column({
-    type: 'timestamptz',
+    type: "timestamptz",
     nullable: true,
-    comment: 'Date of last purchase',
+    comment: "Date of last purchase",
   })
   @IsOptional()
   lastPurchaseDate?: Date;
 
   @Column({
-    type: 'timestamptz',
+    type: "timestamptz",
     nullable: true,
-    comment: 'Date of first purchase',
+    comment: "Date of first purchase",
   })
   @IsOptional()
   firstPurchaseDate?: Date;
 
   @Column({
-    type: 'text',
+    type: "text",
     nullable: true,
-    comment: 'Internal notes about the supplier',
+    comment: "Internal notes about the supplier",
   })
   @IsOptional()
   @IsString()
@@ -282,11 +277,16 @@ export class Supplier extends BaseEntity {
   goodsReceivedNotes: GoodsReceivedNote[];
 
   get averageOrderValue(): number {
-    return this.totalOrders > 0 ? Number(this.totalPurchases) / this.totalOrders : 0;
+    return this.totalOrders > 0
+      ? Number(this.totalPurchases) / this.totalOrders
+      : 0;
   }
 
   // Helper methods
-  updatePurchaseMetrics(orderAmount: number, isFirstOrder: boolean = false): void {
+  updatePurchaseMetrics(
+    orderAmount: number,
+    isFirstOrder: boolean = false,
+  ): void {
     this.totalPurchases = Number(this.totalPurchases) + Number(orderAmount);
     this.totalOrders += 1;
     this.lastPurchaseDate = new Date();

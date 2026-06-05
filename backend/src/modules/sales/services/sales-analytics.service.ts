@@ -1,11 +1,29 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { addDays, addMonths, addWeeks, addYears, differenceInCalendarDays, format, getISOWeek, getISOWeekYear, subDays, subMonths, subYears } from 'date-fns';
-import { Repository, Between } from 'typeorm';
-import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
-import { Payment, PaymentStatus } from '../../../database/entities/payment.entity';
-import { Customer } from '../../../database/entities/customer.entity';
-import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import {
+  addDays,
+  addMonths,
+  addWeeks,
+  addYears,
+  differenceInCalendarDays,
+  format,
+  getISOWeek,
+  getISOWeekYear,
+  subDays,
+  subMonths,
+  subYears,
+} from "date-fns";
+import { Repository, Between } from "typeorm";
+import {
+  SalesOrder,
+  SalesOrderStatus,
+} from "../../../database/entities/sales-order.entity";
+import {
+  Payment,
+  PaymentStatus,
+} from "../../../database/entities/payment.entity";
+import { Customer } from "../../../database/entities/customer.entity";
+import { SalesOrderItem } from "../../../database/entities/sales-order-item.entity";
 import {
   SalesAnalyticsQueryDto,
   SalesAnalyticsResponseDto,
@@ -23,10 +41,10 @@ import {
   RevenueDataDto,
   GroupByPeriod,
   SalesAnalyticsPeriodBlockDto,
-} from '../dto/sales-analytics.dto';
-import { SalesAnalyticsReportService } from './sales-analytics-report.service';
-import { SettingsService } from '../../settings/settings.service';
-import { resolveDateRange } from '@/common/utils/date-range.util';
+} from "../dto/sales-analytics.dto";
+import { SalesAnalyticsReportService } from "./sales-analytics-report.service";
+import { SettingsService } from "../../settings/settings.service";
+import { resolveDateRange } from "@/common/utils/date-range.util";
 
 @Injectable()
 export class SalesAnalyticsService {
@@ -43,9 +61,16 @@ export class SalesAnalyticsService {
     private readonly settingsService: SettingsService,
   ) {}
 
-  async getSalesAnalytics(query: SalesAnalyticsQueryDto): Promise<SalesAnalyticsResponseDto> {
+  async getSalesAnalytics(
+    query: SalesAnalyticsQueryDto,
+  ): Promise<SalesAnalyticsResponseDto> {
     const { timezone } = await this.settingsService.getRegionalSettings();
-    const { startDate, endDate } = resolveDateRange(timezone, query.dateRange, query.startDate, query.endDate);
+    const { startDate, endDate } = resolveDateRange(
+      timezone,
+      query.dateRange,
+      query.startDate,
+      query.endDate,
+    );
     const groupBy = query.groupBy ?? GroupByPeriod.MONTH;
     const comparePeriod = query.compareWith
       ? this.computeComparePeriod(startDate, endDate, query.compareWith)
@@ -68,8 +93,15 @@ export class SalesAnalyticsService {
     let comparison: SalesAnalyticsPeriodBlockDto | undefined;
     if (comparePeriod) {
       const [compareMetrics, comparePeriodData] = await Promise.all([
-        this.calculateSalesMetrics(comparePeriod.compareStart, comparePeriod.compareEnd),
-        this.getPeriodData(comparePeriod.compareStart, comparePeriod.compareEnd, groupBy),
+        this.calculateSalesMetrics(
+          comparePeriod.compareStart,
+          comparePeriod.compareEnd,
+        ),
+        this.getPeriodData(
+          comparePeriod.compareStart,
+          comparePeriod.compareEnd,
+          groupBy,
+        ),
       ]);
 
       comparison = {
@@ -88,51 +120,76 @@ export class SalesAnalyticsService {
     };
   }
 
-  async getSalesPipeline(query: SalesPipelineQueryDto): Promise<SalesPipelineResponseDto> {
+  async getSalesPipeline(
+    query: SalesPipelineQueryDto,
+  ): Promise<SalesPipelineResponseDto> {
     const { timezone } = await this.settingsService.getRegionalSettings();
-    const { startDate, endDate } = resolveDateRange(timezone, query.dateRange, query.startDate, query.endDate);
+    const { startDate, endDate } = resolveDateRange(
+      timezone,
+      query.dateRange,
+      query.startDate,
+      query.endDate,
+    );
 
     let queryBuilder = this.salesOrderRepository
-      .createQueryBuilder('order')
-      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+      .createQueryBuilder("order")
+      .where("order.orderDate BETWEEN :startDate AND :endDate", {
+        startDate,
+        endDate,
+      });
 
     if (query.customerId) {
-      queryBuilder = queryBuilder.andWhere('order.customerId = :customerId', { customerId: query.customerId });
+      queryBuilder = queryBuilder.andWhere("order.customerId = :customerId", {
+        customerId: query.customerId,
+      });
     }
 
     if (query.salesRepId) {
-      queryBuilder = queryBuilder.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
+      queryBuilder = queryBuilder.andWhere(
+        "order.createdByUserId = :salesRepId",
+        { salesRepId: query.salesRepId },
+      );
     }
 
     // Get pipeline data (status column removed, so we show fulfillment status instead)
     const stagesData = await queryBuilder
       .select([
-        'order.isFulfilled',
-        'COUNT(*) as orderCount',
-        'COALESCE(SUM(order.totalAmount), 0) as totalValue',
-        'COALESCE(AVG(order.totalAmount), 0) as averageValue',
+        "order.isFulfilled",
+        "COUNT(*) as orderCount",
+        "COALESCE(SUM(order.totalAmount), 0) as totalValue",
+        "COALESCE(AVG(order.totalAmount), 0) as averageValue",
       ])
-      .groupBy('order.isFulfilled')
+      .groupBy("order.isFulfilled")
       .getRawMany();
 
-    const totalOrders = stagesData.reduce((sum, stage) => sum + parseInt(stage.orderCount), 0);
-    const totalValue = stagesData.reduce((sum, stage) => sum + parseFloat(stage.totalValue), 0);
+    const totalOrders = stagesData.reduce(
+      (sum, stage) => sum + parseInt(stage.orderCount),
+      0,
+    );
+    const totalValue = stagesData.reduce(
+      (sum, stage) => sum + parseFloat(stage.totalValue),
+      0,
+    );
 
-    const stages: PipelineStageDto[] = stagesData.map(stage => ({
-      status: stage.order_isFulfilled ? 'fulfilled' : 'pending',
-      statusLabel: stage.order_isFulfilled ? 'Fulfilled' : 'Pending Fulfillment',
+    const stages: PipelineStageDto[] = stagesData.map((stage) => ({
+      status: stage.order_isFulfilled ? "fulfilled" : "pending",
+      statusLabel: stage.order_isFulfilled
+        ? "Fulfilled"
+        : "Pending Fulfillment",
       orderCount: parseInt(stage.orderCount),
       totalValue: parseFloat(stage.totalValue),
       averageValue: parseFloat(stage.averageValue),
-      percentage: totalOrders > 0 ? (parseInt(stage.orderCount) / totalOrders) * 100 : 0,
+      percentage:
+        totalOrders > 0 ? (parseInt(stage.orderCount) / totalOrders) * 100 : 0,
     }));
 
     // Calculate conversion rate (fulfilled orders / total orders)
     const fulfilledOrders = stagesData
-      .filter(stage => stage.order_isFulfilled === true)
+      .filter((stage) => stage.order_isFulfilled === true)
       .reduce((sum, stage) => sum + parseInt(stage.orderCount), 0);
 
-    const conversionRate = totalOrders > 0 ? (fulfilledOrders / totalOrders) * 100 : 0;
+    const conversionRate =
+      totalOrders > 0 ? (fulfilledOrders / totalOrders) * 100 : 0;
 
     return {
       stages,
@@ -145,27 +202,37 @@ export class SalesAnalyticsService {
     };
   }
 
-  async getCustomerAnalytics(query: CustomerAnalyticsQueryDto): Promise<CustomerMetricsDto> {
+  async getCustomerAnalytics(
+    query: CustomerAnalyticsQueryDto,
+  ): Promise<CustomerMetricsDto> {
     if (!query.customerId) {
-      throw new Error('Customer ID is required');
+      throw new Error("Customer ID is required");
     }
 
     const { timezone } = await this.settingsService.getRegionalSettings();
-    const { startDate, endDate } = resolveDateRange(timezone, query.dateRange, query.startDate, query.endDate);
+    const { startDate, endDate } = resolveDateRange(
+      timezone,
+      query.dateRange,
+      query.startDate,
+      query.endDate,
+    );
 
     const customer = await this.customerRepository.findOne({
       where: { id: query.customerId },
     });
 
     if (!customer) {
-      throw new Error('Customer not found');
+      throw new Error("Customer not found");
     }
 
     // Get customer orders within period
     const ordersQuery = this.salesOrderRepository
-      .createQueryBuilder('order')
-      .where('order.customerId = :customerId', { customerId: query.customerId })
-      .andWhere('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+      .createQueryBuilder("order")
+      .where("order.customerId = :customerId", { customerId: query.customerId })
+      .andWhere("order.orderDate BETWEEN :startDate AND :endDate", {
+        startDate,
+        endDate,
+      });
 
     const orderStats = await ordersQuery
       .select([
@@ -178,7 +245,10 @@ export class SalesAnalyticsService {
       .getRawOne();
 
     const daysSinceLastOrder = customer.lastPurchaseDate
-      ? Math.floor((Date.now() - customer.lastPurchaseDate.getTime()) / (1000 * 60 * 60 * 24))
+      ? Math.floor(
+          (Date.now() - customer.lastPurchaseDate.getTime()) /
+            (1000 * 60 * 60 * 24),
+        )
       : 0;
 
     // Calculate payment score based on payment history (default 30 days, removed invoice-based computation)
@@ -186,7 +256,10 @@ export class SalesAnalyticsService {
     const standardPaymentTerms = 30; // Default payment terms
     let paymentScore = 100;
     if (avgPaymentDays > standardPaymentTerms) {
-      paymentScore = Math.max(0, 100 - ((avgPaymentDays - standardPaymentTerms) * 2));
+      paymentScore = Math.max(
+        0,
+        100 - (avgPaymentDays - standardPaymentTerms) * 2,
+      );
     }
 
     return {
@@ -202,13 +275,24 @@ export class SalesAnalyticsService {
     };
   }
 
-  async getRevenueReport(query: RevenueReportQueryDto): Promise<RevenueReportResponseDto> {
+  async getRevenueReport(
+    query: RevenueReportQueryDto,
+  ): Promise<RevenueReportResponseDto> {
     const { timezone } = await this.settingsService.getRegionalSettings();
-    const { startDate, endDate } = resolveDateRange(timezone, query.period, query.startDate, query.endDate);
-    const groupBy = query.groupBy || 'month';
+    const { startDate, endDate } = resolveDateRange(
+      timezone,
+      query.period,
+      query.startDate,
+      query.endDate,
+    );
+    const groupBy = query.groupBy || "month";
 
     // Get current period data
-    const currentPeriodData = await this.getRevenueDataByPeriod(startDate, endDate, groupBy);
+    const currentPeriodData = await this.getRevenueDataByPeriod(
+      startDate,
+      endDate,
+      groupBy,
+    );
 
     let previousPeriodData: RevenueDataDto[] = [];
     let previousPeriodTotals = { totalRevenue: 0, totalOrders: 0 };
@@ -218,7 +302,11 @@ export class SalesAnalyticsService {
       const previousStartDate = new Date(startDate.getTime() - periodDuration);
       const previousEndDate = new Date(startDate.getTime() - 1);
 
-      previousPeriodData = await this.getRevenueDataByPeriod(previousStartDate, previousEndDate, groupBy);
+      previousPeriodData = await this.getRevenueDataByPeriod(
+        previousStartDate,
+        previousEndDate,
+        groupBy,
+      );
 
       const previousStats = previousPeriodData.reduce(
         (acc, item) => ({
@@ -249,23 +337,28 @@ export class SalesAnalyticsService {
       return {
         ...current,
         previousPeriodRevenue: previous?.revenue,
-        growthPercentage: previous?.revenue 
-          ? ((current.revenue - previous.revenue) / previous.revenue) * 100 
+        growthPercentage: previous?.revenue
+          ? ((current.revenue - previous.revenue) / previous.revenue) * 100
           : undefined,
       };
     });
 
-    const growthPercentage = previousPeriodTotals.totalRevenue > 0
-      ? ((currentPeriodTotals.totalRevenue - previousPeriodTotals.totalRevenue) / previousPeriodTotals.totalRevenue) * 100
-      : 0;
+    const growthPercentage =
+      previousPeriodTotals.totalRevenue > 0
+        ? ((currentPeriodTotals.totalRevenue -
+            previousPeriodTotals.totalRevenue) /
+            previousPeriodTotals.totalRevenue) *
+          100
+        : 0;
 
     return {
       data: dataWithComparison,
       totalRevenue: currentPeriodTotals.totalRevenue,
       totalOrders: currentPeriodTotals.totalOrders,
-      averageOrderValue: currentPeriodTotals.totalOrders > 0 
-        ? currentPeriodTotals.totalRevenue / currentPeriodTotals.totalOrders 
-        : 0,
+      averageOrderValue:
+        currentPeriodTotals.totalOrders > 0
+          ? currentPeriodTotals.totalRevenue / currentPeriodTotals.totalOrders
+          : 0,
       previousPeriodRevenue: previousPeriodTotals.totalRevenue,
       growthPercentage,
       periodStart: startDate,
@@ -283,16 +376,26 @@ export class SalesAnalyticsService {
     const endOfDay = new Date(today.setHours(23, 59, 59, 999));
 
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+    const endOfMonth = new Date(
+      today.getFullYear(),
+      today.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
 
     const startOfYear = new Date(today.getFullYear(), 0, 1);
     const endOfYear = new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999);
 
-    const [todayMetrics, thisMonthMetrics, thisYearMetrics] = await Promise.all([
-      this.calculateSalesMetrics(startOfDay, endOfDay),
-      this.calculateSalesMetrics(startOfMonth, endOfMonth),
-      this.calculateSalesMetrics(startOfYear, endOfYear),
-    ]);
+    const [todayMetrics, thisMonthMetrics, thisYearMetrics] = await Promise.all(
+      [
+        this.calculateSalesMetrics(startOfDay, endOfDay),
+        this.calculateSalesMetrics(startOfMonth, endOfMonth),
+        this.calculateSalesMetrics(startOfYear, endOfYear),
+      ],
+    );
 
     return {
       today: todayMetrics,
@@ -309,67 +412,91 @@ export class SalesAnalyticsService {
     query?: SalesAnalyticsQueryDto,
   ): Promise<SalesMetricsDto> {
     let orderQuery = this.salesOrderRepository
-      .createQueryBuilder('order')
-      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+      .createQueryBuilder("order")
+      .where("order.orderDate BETWEEN :startDate AND :endDate", {
+        startDate,
+        endDate,
+      });
 
     if (query?.customerId) {
-      orderQuery = orderQuery.andWhere('order.customerId = :customerId', { customerId: query.customerId });
-    }
-
-    if (query?.salesRepId) {
-      orderQuery = orderQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
-    }
-
-    if (query?.fulfillmentStatus !== undefined) {
-      orderQuery = orderQuery.andWhere('order.isFulfilled = :isFulfilled', {
-        isFulfilled: query.fulfillmentStatus === 'fulfilled',
+      orderQuery = orderQuery.andWhere("order.customerId = :customerId", {
+        customerId: query.customerId,
       });
     }
 
-    const [orderStats, fulfilledStats, customerStats, paymentStats] = await Promise.all([
-      // Order statistics (status column removed, using fulfillment status)
-      orderQuery
-        .select([
-          'COALESCE(SUM(order.totalAmount), 0) as "totalRevenue"',
-          'COUNT(*) as "totalOrders"',
-          'COALESCE(AVG(order.totalAmount), 0) as "averageOrderValue"',
-          'COUNT(CASE WHEN order.isFulfilled = true THEN 1 END) as "completedOrders"',
-          'COUNT(CASE WHEN order.isFulfilled = false THEN 1 END) as "confirmedOrders"',
-          '0 as "draftOrders"',
-        ])
-        .getRawOne(),
+    if (query?.salesRepId) {
+      orderQuery = orderQuery.andWhere("order.createdByUserId = :salesRepId", {
+        salesRepId: query.salesRepId,
+      });
+    }
 
-      // Fulfilled order statistics (replaces old invoice-based revenue)
-      this.salesOrderRepository
-        .createQueryBuilder('order')
-        .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
-        .andWhere('order.status = :status', { status: SalesOrderStatus.FULFILLED })
-        .select([
-          'COALESCE(SUM(order.totalAmount + order.shippingAmount), 0) as "paidInvoicesAmount"',
-          'COALESCE(SUM(CASE WHEN order.status = :status2 THEN order.balanceDue ELSE 0 END), 0) as "pendingInvoicesAmount"',
-          '0 as "overdueInvoicesAmount"',
-        ])
-        .setParameter('status2', SalesOrderStatus.FULFILLED)
-        .getRawOne(),
+    if (query?.fulfillmentStatus !== undefined) {
+      orderQuery = orderQuery.andWhere("order.isFulfilled = :isFulfilled", {
+        isFulfilled: query.fulfillmentStatus === "fulfilled",
+      });
+    }
 
-      // New customers in period
-      this.customerRepository
-        .createQueryBuilder('customer')
-        .where('customer.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
-        .getCount(),
+    const [orderStats, fulfilledStats, customerStats, paymentStats] =
+      await Promise.all([
+        // Order statistics (status column removed, using fulfillment status)
+        orderQuery
+          .select([
+            'COALESCE(SUM(order.totalAmount), 0) as "totalRevenue"',
+            'COUNT(*) as "totalOrders"',
+            'COALESCE(AVG(order.totalAmount), 0) as "averageOrderValue"',
+            'COUNT(CASE WHEN order.isFulfilled = true THEN 1 END) as "completedOrders"',
+            'COUNT(CASE WHEN order.isFulfilled = false THEN 1 END) as "confirmedOrders"',
+            '0 as "draftOrders"',
+          ])
+          .getRawOne(),
 
-      // Payment statistics for conversion rate
-      this.paymentRepository
-        .createQueryBuilder('payment')
-        .where('payment.paymentDate BETWEEN :startDate AND :endDate', { startDate, endDate })
-        .andWhere('payment.status = :completed', { completed: PaymentStatus.COMPLETED })
-        .getCount(),
-    ]);
+        // Fulfilled order statistics (replaces old invoice-based revenue)
+        this.salesOrderRepository
+          .createQueryBuilder("order")
+          .where("order.orderDate BETWEEN :startDate AND :endDate", {
+            startDate,
+            endDate,
+          })
+          .andWhere("order.status = :status", {
+            status: SalesOrderStatus.FULFILLED,
+          })
+          .select([
+            'COALESCE(SUM(order.totalAmount + order.shippingAmount), 0) as "paidInvoicesAmount"',
+            'COALESCE(SUM(CASE WHEN order.status = :status2 THEN order.balanceDue ELSE 0 END), 0) as "pendingInvoicesAmount"',
+            '0 as "overdueInvoicesAmount"',
+          ])
+          .setParameter("status2", SalesOrderStatus.FULFILLED)
+          .getRawOne(),
+
+        // New customers in period
+        this.customerRepository
+          .createQueryBuilder("customer")
+          .where("customer.createdAt BETWEEN :startDate AND :endDate", {
+            startDate,
+            endDate,
+          })
+          .getCount(),
+
+        // Payment statistics for conversion rate
+        this.paymentRepository
+          .createQueryBuilder("payment")
+          .where("payment.paymentDate BETWEEN :startDate AND :endDate", {
+            startDate,
+            endDate,
+          })
+          .andWhere("payment.status = :completed", {
+            completed: PaymentStatus.COMPLETED,
+          })
+          .getCount(),
+      ]);
 
     // Calculate conversion rate based on completed orders vs total orders
-    const conversionRate = parseInt(orderStats.totalOrders) > 0
-      ? (parseInt(orderStats.completedOrders) / parseInt(orderStats.totalOrders)) * 100
-      : 0;
+    const conversionRate =
+      parseInt(orderStats.totalOrders) > 0
+        ? (parseInt(orderStats.completedOrders) /
+            parseInt(orderStats.totalOrders)) *
+          100
+        : 0;
 
     return {
       totalRevenue: parseFloat(orderStats.totalRevenue) || 0,
@@ -378,8 +505,10 @@ export class SalesAnalyticsService {
       averageOrderValue: parseFloat(orderStats.averageOrderValue) || 0,
       conversionRate,
       paidInvoicesAmount: parseFloat(fulfilledStats.paidInvoicesAmount) || 0,
-      pendingInvoicesAmount: parseFloat(fulfilledStats.pendingInvoicesAmount) || 0,
-      overdueInvoicesAmount: parseFloat(fulfilledStats.overdueInvoicesAmount) || 0,
+      pendingInvoicesAmount:
+        parseFloat(fulfilledStats.pendingInvoicesAmount) || 0,
+      overdueInvoicesAmount:
+        parseFloat(fulfilledStats.overdueInvoicesAmount) || 0,
       completedOrders: parseInt(orderStats.completedOrders) || 0,
       confirmedOrders: parseInt(orderStats.confirmedOrders) || 0,
       draftOrders: parseInt(orderStats.draftOrders) || 0,
@@ -396,72 +525,85 @@ export class SalesAnalyticsService {
     let dateInterval: string;
 
     switch (groupBy) {
-      case 'day':
-        dateFormat = 'YYYY-MM-DD';
-        dateInterval = '1 day';
+      case "day":
+        dateFormat = "YYYY-MM-DD";
+        dateInterval = "1 day";
         break;
-      case 'week':
-        dateFormat = 'IYYY-IW';
-        dateInterval = '1 week';
+      case "week":
+        dateFormat = "IYYY-IW";
+        dateInterval = "1 week";
         break;
-      case 'quarter':
+      case "quarter":
         dateFormat = 'YYYY-"Q"Q';
-        dateInterval = '3 months';
+        dateInterval = "3 months";
         break;
-      case 'year':
-        dateFormat = 'YYYY';
-        dateInterval = '1 year';
+      case "year":
+        dateFormat = "YYYY";
+        dateInterval = "1 year";
         break;
       default: // month
-        dateFormat = 'YYYY-MM';
-        dateInterval = '1 month';
+        dateFormat = "YYYY-MM";
+        dateInterval = "1 month";
         break;
     }
 
     let periodQuery = this.salesOrderRepository
-      .createQueryBuilder('order')
-      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+      .createQueryBuilder("order")
+      .where("order.orderDate BETWEEN :startDate AND :endDate", {
+        startDate,
+        endDate,
+      });
 
     if (query?.fulfillmentStatus !== undefined) {
-      periodQuery = periodQuery.andWhere('order.isFulfilled = :isFulfilled', {
-        isFulfilled: query.fulfillmentStatus === 'fulfilled',
+      periodQuery = periodQuery.andWhere("order.isFulfilled = :isFulfilled", {
+        isFulfilled: query.fulfillmentStatus === "fulfilled",
       });
     }
 
     if (query?.customerId) {
-      periodQuery = periodQuery.andWhere('order.customerId = :customerId', { customerId: query.customerId });
+      periodQuery = periodQuery.andWhere("order.customerId = :customerId", {
+        customerId: query.customerId,
+      });
     }
 
     if (query?.salesRepId) {
-      periodQuery = periodQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
+      periodQuery = periodQuery.andWhere(
+        "order.createdByUserId = :salesRepId",
+        { salesRepId: query.salesRepId },
+      );
     }
 
     const data = await periodQuery
       .select([
         `TO_CHAR(order.orderDate, '${dateFormat}') as period`,
-        'COUNT(*) as orders',
-        'COALESCE(SUM(order.totalAmount), 0) as revenue',
+        "COUNT(*) as orders",
+        "COALESCE(SUM(order.totalAmount), 0) as revenue",
         'COALESCE(AVG(order.totalAmount), 0) as "averageOrderValue"',
       ])
       .groupBy(`TO_CHAR(order.orderDate, '${dateFormat}')`)
-      .orderBy(`TO_CHAR(order.orderDate, '${dateFormat}')`, 'ASC')
+      .orderBy(`TO_CHAR(order.orderDate, '${dateFormat}')`, "ASC")
       .getRawMany();
 
     // Also get new customers for each period
     const customerData = await this.customerRepository
-      .createQueryBuilder('customer')
-      .where('customer.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .createQueryBuilder("customer")
+      .where("customer.createdAt BETWEEN :startDate AND :endDate", {
+        startDate,
+        endDate,
+      })
       .select([
         `TO_CHAR(customer.createdAt, '${dateFormat}') as period`,
         'COUNT(*) as "newCustomers"',
       ])
       .groupBy(`TO_CHAR(customer.createdAt, '${dateFormat}')`)
-      .orderBy(`TO_CHAR(customer.createdAt, '${dateFormat}')`, 'ASC')
+      .orderBy(`TO_CHAR(customer.createdAt, '${dateFormat}')`, "ASC")
       .getRawMany();
 
-    const customerMap = new Map(customerData.map(item => [item.period, parseInt(item.newCustomers)]));
+    const customerMap = new Map(
+      customerData.map((item) => [item.period, parseInt(item.newCustomers)]),
+    );
 
-    const mapped = data.map(item => ({
+    const mapped = data.map((item) => ({
       period: item.period,
       revenue: parseFloat(item.revenue) || 0,
       orders: parseInt(item.orders) || 0,
@@ -479,18 +621,27 @@ export class SalesAnalyticsService {
     query?: SalesAnalyticsQueryDto,
   ): Promise<TopCustomerDto[]> {
     let topCustomersQuery = this.salesOrderRepository
-      .createQueryBuilder('order')
-      .leftJoin('order.customer', 'customer')
-      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+      .createQueryBuilder("order")
+      .leftJoin("order.customer", "customer")
+      .where("order.orderDate BETWEEN :startDate AND :endDate", {
+        startDate,
+        endDate,
+      });
 
     if (query?.fulfillmentStatus !== undefined) {
-      topCustomersQuery = topCustomersQuery.andWhere('order.isFulfilled = :isFulfilled', {
-        isFulfilled: query.fulfillmentStatus === 'fulfilled',
-      });
+      topCustomersQuery = topCustomersQuery.andWhere(
+        "order.isFulfilled = :isFulfilled",
+        {
+          isFulfilled: query.fulfillmentStatus === "fulfilled",
+        },
+      );
     }
 
     if (query?.salesRepId) {
-      topCustomersQuery = topCustomersQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
+      topCustomersQuery = topCustomersQuery.andWhere(
+        "order.createdByUserId = :salesRepId",
+        { salesRepId: query.salesRepId },
+      );
     }
 
     const data = await topCustomersQuery
@@ -503,14 +654,14 @@ export class SalesAnalyticsService {
         'COALESCE(AVG(order.totalAmount), 0) as "averageOrderValue"',
         'MAX(order.orderDate) as "lastOrderDate"',
       ])
-      .groupBy('customer.id')
-      .addGroupBy('customer.name')
-      .addGroupBy('customer.phone')
-      .orderBy('"totalRevenue"', 'DESC')
+      .groupBy("customer.id")
+      .addGroupBy("customer.name")
+      .addGroupBy("customer.phone")
+      .orderBy('"totalRevenue"', "DESC")
       .limit(limit)
       .getRawMany();
 
-    return data.map(item => ({
+    return data.map((item) => ({
       customerId: item.customerId,
       customerName: item.customerName,
       customerEmail: item.customerEmail,
@@ -528,23 +679,35 @@ export class SalesAnalyticsService {
     query?: SalesAnalyticsQueryDto,
   ): Promise<TopProductDto[]> {
     let topProductsQuery = this.salesOrderItemRepository
-      .createQueryBuilder('item')
-      .leftJoin('item.product', 'product')
-      .leftJoin('item.salesOrder', 'order')
-      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+      .createQueryBuilder("item")
+      .leftJoin("item.product", "product")
+      .leftJoin("item.salesOrder", "order")
+      .where("order.orderDate BETWEEN :startDate AND :endDate", {
+        startDate,
+        endDate,
+      });
 
     if (query?.fulfillmentStatus !== undefined) {
-      topProductsQuery = topProductsQuery.andWhere('order.isFulfilled = :isFulfilled', {
-        isFulfilled: query.fulfillmentStatus === 'fulfilled',
-      });
+      topProductsQuery = topProductsQuery.andWhere(
+        "order.isFulfilled = :isFulfilled",
+        {
+          isFulfilled: query.fulfillmentStatus === "fulfilled",
+        },
+      );
     }
 
     if (query?.customerId) {
-      topProductsQuery = topProductsQuery.andWhere('order.customerId = :customerId', { customerId: query.customerId });
+      topProductsQuery = topProductsQuery.andWhere(
+        "order.customerId = :customerId",
+        { customerId: query.customerId },
+      );
     }
 
     if (query?.salesRepId) {
-      topProductsQuery = topProductsQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
+      topProductsQuery = topProductsQuery.andWhere(
+        "order.createdByUserId = :salesRepId",
+        { salesRepId: query.salesRepId },
+      );
     }
 
     const data = await topProductsQuery
@@ -557,14 +720,14 @@ export class SalesAnalyticsService {
         'COALESCE(AVG(item.unitPrice), 0) as "averagePrice"',
         'COUNT(DISTINCT order.id) as "orderCount"',
       ])
-      .groupBy('product.id')
-      .addGroupBy('product.barcode')
-      .addGroupBy('product.name')
-      .orderBy('"quantitySold"', 'DESC')
+      .groupBy("product.id")
+      .addGroupBy("product.barcode")
+      .addGroupBy("product.name")
+      .orderBy('"quantitySold"', "DESC")
       .limit(limit)
       .getRawMany();
 
-    return data.map(item => ({
+    return data.map((item) => ({
       productId: item.productId,
       productSku: item.productSku,
       productName: item.productName,
@@ -583,32 +746,37 @@ export class SalesAnalyticsService {
     let dateFormat: string;
 
     switch (groupBy) {
-      case 'day':
-        dateFormat = 'YYYY-MM-DD';
+      case "day":
+        dateFormat = "YYYY-MM-DD";
         break;
-      case 'week':
-        dateFormat = 'IYYY-IW';
+      case "week":
+        dateFormat = "IYYY-IW";
         break;
       default: // month
-        dateFormat = 'YYYY-MM';
+        dateFormat = "YYYY-MM";
         break;
     }
 
     const data = await this.salesOrderRepository
-      .createQueryBuilder('order')
-      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate })
-      .andWhere('order.status = :status', { status: SalesOrderStatus.FULFILLED })
+      .createQueryBuilder("order")
+      .where("order.orderDate BETWEEN :startDate AND :endDate", {
+        startDate,
+        endDate,
+      })
+      .andWhere("order.status = :status", {
+        status: SalesOrderStatus.FULFILLED,
+      })
       .select([
         `TO_CHAR(order.orderDate, '${dateFormat}') as period`,
-        'COALESCE(SUM(order.totalAmount + order.shippingAmount), 0) as revenue',
-        'COUNT(*) as orders',
+        "COALESCE(SUM(order.totalAmount + order.shippingAmount), 0) as revenue",
+        "COUNT(*) as orders",
         'COALESCE(AVG(order.totalAmount + order.shippingAmount), 0) as "averageOrderValue"',
       ])
       .groupBy(`TO_CHAR(order.orderDate, '${dateFormat}')`)
-      .orderBy(`TO_CHAR(order.orderDate, '${dateFormat}')`, 'ASC')
+      .orderBy(`TO_CHAR(order.orderDate, '${dateFormat}')`, "ASC")
       .getRawMany();
 
-    return data.map(item => ({
+    return data.map((item) => ({
       period: item.period,
       revenue: parseFloat(item.revenue) || 0,
       orders: parseInt(item.orders) || 0,
@@ -622,7 +790,7 @@ export class SalesAnalyticsService {
     endDate: Date,
     groupBy: string,
   ): PeriodMetricDto[] {
-    const dataMap = new Map(data.map(item => [item.period, item]));
+    const dataMap = new Map(data.map((item) => [item.period, item]));
     const labels: string[] = [];
     let cursor = new Date(startDate);
 
@@ -630,29 +798,29 @@ export class SalesAnalyticsService {
       let label: string;
 
       switch (groupBy) {
-        case 'day':
-          label = format(cursor, 'yyyy-MM-dd');
+        case "day":
+          label = format(cursor, "yyyy-MM-dd");
           cursor = addDays(cursor, 1);
           break;
-        case 'week': {
+        case "week": {
           const isoYear = getISOWeekYear(cursor);
-          const isoWeek = String(getISOWeek(cursor)).padStart(2, '0');
+          const isoWeek = String(getISOWeek(cursor)).padStart(2, "0");
           label = `${isoYear}-${isoWeek}`;
           cursor = addWeeks(cursor, 1);
           break;
         }
-        case 'quarter': {
+        case "quarter": {
           const q = Math.floor(cursor.getMonth() / 3) + 1;
           label = `${cursor.getFullYear()}-Q${q}`;
           cursor = addMonths(cursor, 3);
           break;
         }
-        case 'year':
+        case "year":
           label = String(cursor.getFullYear());
           cursor = addYears(cursor, 1);
           break;
         default:
-          label = format(cursor, 'yyyy-MM');
+          label = format(cursor, "yyyy-MM");
           cursor = addMonths(cursor, 1);
           break;
       }
@@ -660,30 +828,31 @@ export class SalesAnalyticsService {
       labels.push(label);
     }
 
-    return labels.map(label =>
-      dataMap.get(label) ?? {
-        period: label,
-        revenue: 0,
-        orders: 0,
-        newCustomers: 0,
-        averageOrderValue: 0,
-      },
+    return labels.map(
+      (label) =>
+        dataMap.get(label) ?? {
+          period: label,
+          revenue: 0,
+          orders: 0,
+          newCustomers: 0,
+          averageOrderValue: 0,
+        },
     );
   }
 
   private computeComparePeriod(
     start: Date,
     end: Date,
-    compareWith: 'previous_period' | 'last_month' | 'last_year',
+    compareWith: "previous_period" | "last_month" | "last_year",
   ): { compareStart: Date; compareEnd: Date } {
-    if (compareWith === 'previous_period') {
+    if (compareWith === "previous_period") {
       const dayCount = differenceInCalendarDays(end, start) + 1;
       const compareEnd = subDays(start, 1);
       const compareStart = subDays(compareEnd, dayCount - 1);
       return { compareStart, compareEnd };
     }
 
-    if (compareWith === 'last_month') {
+    if (compareWith === "last_month") {
       return {
         compareStart: subMonths(start, 1),
         compareEnd: subMonths(end, 1),

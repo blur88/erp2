@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty } from "@nestjs/swagger";
 import {
   IsOptional,
   IsEnum,
@@ -8,16 +8,16 @@ import {
   Min,
   Max,
   IsIn,
-} from 'class-validator';
-import { Transform, Type } from 'class-transformer';
-import { UserRole, UserStatus } from '../../../database/entities/user.entity';
+} from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { UserRole, UserStatus } from "../../../database/entities/user.entity";
 
 /**
  * Query parameters for filtering and searching users
  */
 export class QueryUsersDto {
   @ApiProperty({
-    description: 'Page number for pagination',
+    description: "Page number for pagination",
     example: 1,
     minimum: 1,
     required: false,
@@ -29,7 +29,7 @@ export class QueryUsersDto {
   page?: number = 1;
 
   @ApiProperty({
-    description: 'Number of records per page',
+    description: "Number of records per page",
     example: 20,
     minimum: 1,
     maximum: 100,
@@ -43,8 +43,8 @@ export class QueryUsersDto {
   limit?: number = 20;
 
   @ApiProperty({
-    description: 'Search term for username, email, first name, or last name',
-    example: 'john',
+    description: "Search term for username, email, first name, or last name",
+    example: "john",
     required: false,
   })
   @IsOptional()
@@ -53,7 +53,7 @@ export class QueryUsersDto {
   search?: string;
 
   @ApiProperty({
-    description: 'Filter by user role',
+    description: "Filter by user role",
     enum: UserRole,
     required: false,
   })
@@ -62,7 +62,7 @@ export class QueryUsersDto {
   role?: UserRole;
 
   @ApiProperty({
-    description: 'Filter by user status',
+    description: "Filter by user status",
     enum: UserStatus,
     required: false,
   })
@@ -71,52 +71,72 @@ export class QueryUsersDto {
   status?: UserStatus;
 
   @ApiProperty({
-    description: 'Filter by active status',
+    description: "Filter by active status",
     example: true,
     required: false,
   })
   @IsOptional()
   @Transform(({ value }) => {
-    if (value === 'true') return true;
-    if (value === 'false') return false;
+    if (value === "true") return true;
+    if (value === "false") return false;
     return value;
   })
   @IsBoolean()
   isActive?: boolean;
 
   @ApiProperty({
-    description: 'Filter by locked accounts',
+    description: "Filter by locked accounts",
     example: false,
     required: false,
   })
   @IsOptional()
   @Transform(({ value }) => {
-    if (value === 'true') return true;
-    if (value === 'false') return false;
+    if (value === "true") return true;
+    if (value === "false") return false;
     return value;
   })
   @IsBoolean()
   isLocked?: boolean;
 
   @ApiProperty({
-    description: 'Sort field',
-    example: 'createdAt',
-    enum: ['username', 'email', 'firstName', 'lastName', 'role', 'status', 'lastLoginAt', 'createdAt', 'updatedAt'],
+    description: "Sort field",
+    example: "createdAt",
+    enum: [
+      "username",
+      "email",
+      "firstName",
+      "lastName",
+      "role",
+      "status",
+      "lastLoginAt",
+      "createdAt",
+      "updatedAt",
+    ],
     required: false,
   })
   @IsOptional()
   @IsString()
-  @IsIn(['username', 'email', 'firstName', 'lastName', 'role', 'status', 'lastLoginAt', 'createdAt', 'updatedAt'])
-  sortBy?: string = 'createdAt';
+  @IsIn([
+    "username",
+    "email",
+    "firstName",
+    "lastName",
+    "role",
+    "status",
+    "lastLoginAt",
+    "createdAt",
+    "updatedAt",
+  ])
+  sortBy?: string = "createdAt";
 
   @ApiProperty({
-    description: 'Sort order',
-    example: 'DESC',
-    enum: ['ASC', 'DESC'],
+    description: "Sort order",
+    example: "DESC",
+    enum: ["ASC", "DESC"],
     required: false,
   })
   @IsOptional()
   @IsString()
-  @IsIn(['ASC', 'DESC'])
-  sortOrder?: 'ASC' | 'DESC' = 'DESC';
+  @IsIn(["ASC", "DESC"])
+  sortOrder?: "ASC" | "DESC" = "DESC";
 }

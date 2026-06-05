@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class RemoveUnusedCustomerFields1733107200000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {

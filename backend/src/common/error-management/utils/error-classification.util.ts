@@ -1,5 +1,5 @@
-import { HttpException, HttpStatus } from '@nestjs/common';
-import { QueryFailedError } from 'typeorm';
+import { HttpException, HttpStatus } from "@nestjs/common";
+import { QueryFailedError } from "typeorm";
 
 const SECURITY_STATUSES = new Set([
   HttpStatus.UNAUTHORIZED,
@@ -8,12 +8,12 @@ const SECURITY_STATUSES = new Set([
 ]);
 
 const SECURITY_KEYWORDS = new Set([
-  'unauthorized',
-  'forbidden',
-  'jwt',
-  'token',
-  'authentication',
-  'authorization',
+  "unauthorized",
+  "forbidden",
+  "jwt",
+  "token",
+  "authentication",
+  "authorization",
 ]);
 
 export function isSecurityError(status: number, error: string): boolean {
@@ -21,7 +21,9 @@ export function isSecurityError(status: number, error: string): boolean {
     return true;
   }
   const lowerError = error.toLowerCase();
-  return Array.from(SECURITY_KEYWORDS).some(keyword => lowerError.includes(keyword));
+  return Array.from(SECURITY_KEYWORDS).some((keyword) =>
+    lowerError.includes(keyword),
+  );
 }
 
 export function shouldLogBadRequest(exception: unknown): boolean {
@@ -30,9 +32,9 @@ export function shouldLogBadRequest(exception: unknown): boolean {
   }
   if (exception instanceof HttpException) {
     const response = exception.getResponse();
-    const message = typeof response === 'object' ? JSON.stringify(response) : response;
+    const message =
+      typeof response === "object" ? JSON.stringify(response) : response;
     return isSecurityError(HttpStatus.BAD_REQUEST, message.toString());
   }
   return false;
 }
-

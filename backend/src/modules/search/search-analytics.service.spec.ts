@@ -1,10 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { SearchAnalyticsService } from './search-analytics.service';
-import { SearchQuery } from '../../database/entities/search-query.entity';
-import { SearchClick } from '../../database/entities/search-click.entity';
+import { Test, TestingModule } from "@nestjs/testing";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { SearchAnalyticsService } from "./search-analytics.service";
+import { SearchQuery } from "../../database/entities/search-query.entity";
+import { SearchClick } from "../../database/entities/search-click.entity";
 
-describe('SearchAnalyticsService', () => {
+describe("SearchAnalyticsService", () => {
   let service: SearchAnalyticsService;
   let queryRepo: { save: jest.Mock };
   let clickRepo: { save: jest.Mock };
@@ -24,16 +24,16 @@ describe('SearchAnalyticsService', () => {
     service = module.get(SearchAnalyticsService);
   });
 
-  describe('logQuery()', () => {
+  describe("logQuery()", () => {
     const params = {
-      id: '550e8400-e29b-41d4-a716-446655440000',
-      query: 'acme',
-      userId: 'user-uuid',
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      query: "acme",
+      userId: "user-uuid",
       resultCount: 5,
       executionTimeMs: 42,
     };
 
-    it('calls queryRepo.save with correct data', async () => {
+    it("calls queryRepo.save with correct data", async () => {
       service.logQuery(params);
       await new Promise((resolve) => setImmediate(resolve));
 
@@ -48,25 +48,25 @@ describe('SearchAnalyticsService', () => {
       );
     });
 
-    it('does not throw when repo.save rejects', async () => {
-      queryRepo.save.mockRejectedValueOnce(new Error('db error'));
+    it("does not throw when repo.save rejects", async () => {
+      queryRepo.save.mockRejectedValueOnce(new Error("db error"));
 
       expect(() => service.logQuery(params)).not.toThrow();
       await new Promise((resolve) => setImmediate(resolve));
     });
   });
 
-  describe('logClick()', () => {
+  describe("logClick()", () => {
     const params = {
-      searchQueryId: '550e8400-e29b-41d4-a716-446655440000',
-      query: 'acme',
-      resultType: 'customer',
-      resultId: 'cust-uuid',
-      resultLabel: 'Acme Corp',
+      searchQueryId: "550e8400-e29b-41d4-a716-446655440000",
+      query: "acme",
+      resultType: "customer",
+      resultId: "cust-uuid",
+      resultLabel: "Acme Corp",
       position: 1,
     };
 
-    it('calls clickRepo.save with correct data', async () => {
+    it("calls clickRepo.save with correct data", async () => {
       service.logClick(params);
       await new Promise((resolve) => setImmediate(resolve));
 
@@ -82,14 +82,14 @@ describe('SearchAnalyticsService', () => {
       );
     });
 
-    it('does not throw when repo.save rejects', async () => {
-      clickRepo.save.mockRejectedValueOnce(new Error('db error'));
+    it("does not throw when repo.save rejects", async () => {
+      clickRepo.save.mockRejectedValueOnce(new Error("db error"));
 
       expect(() => service.logClick(params)).not.toThrow();
       await new Promise((resolve) => setImmediate(resolve));
     });
 
-    it('accepts undefined searchQueryId', async () => {
+    it("accepts undefined searchQueryId", async () => {
       const paramsNoId = { ...params, searchQueryId: undefined };
 
       expect(() => service.logClick(paramsNoId)).not.toThrow();

@@ -3,21 +3,21 @@ import {
   NotFoundException,
   ConflictException,
   Logger,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, Not, Repository } from 'typeorm';
-import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
-import { AccountMapping } from '../../../database/entities/account-mapping.entity';
-import { ChartOfAccount } from '../../../database/entities/chart-of-account.entity';
-import { Payment } from '../../../database/entities/payment.entity';
-import { Settlement } from '../../../database/entities/settlement.entity';
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { In, IsNull, Not, Repository } from "typeorm";
+import { PaymentMethodEntity } from "../../../database/entities/payment-method.entity";
+import { AccountMapping } from "../../../database/entities/account-mapping.entity";
+import { ChartOfAccount } from "../../../database/entities/chart-of-account.entity";
+import { Payment } from "../../../database/entities/payment.entity";
+import { Settlement } from "../../../database/entities/settlement.entity";
 import {
   CreatePaymentMethodDto,
   UpdatePaymentMethodDto,
   QueryPaymentMethodsDto,
   PaymentMethodResponseDto,
   PaymentMethodListResponseDto,
-} from '../dto/payment-method.dto';
+} from "../dto/payment-method.dto";
 
 @Injectable()
 export class PaymentMethodService {
@@ -36,21 +36,25 @@ export class PaymentMethodService {
     private readonly settlementRepository: Repository<Settlement>,
   ) {}
 
-  async findAll(query: QueryPaymentMethodsDto): Promise<PaymentMethodListResponseDto> {
+  async findAll(
+    query: QueryPaymentMethodsDto,
+  ): Promise<PaymentMethodListResponseDto> {
     const { page = 1, limit = 50, isActive, requiresSettlement } = query;
 
     const qb = this.paymentMethodRepository
-      .createQueryBuilder('pm')
-      .where('pm.deletedAt IS NULL');
+      .createQueryBuilder("pm")
+      .where("pm.deletedAt IS NULL");
 
     if (isActive !== undefined) {
-      qb.andWhere('pm.isActive = :isActive', { isActive });
+      qb.andWhere("pm.isActive = :isActive", { isActive });
     }
     if (requiresSettlement !== undefined) {
-      qb.andWhere('pm.requiresSettlement = :requiresSettlement', { requiresSettlement });
+      qb.andWhere("pm.requiresSettlement = :requiresSettlement", {
+        requiresSettlement,
+      });
     }
 
-    qb.orderBy('pm.sortOrder', 'ASC').addOrderBy('pm.name', 'ASC');
+    qb.orderBy("pm.sortOrder", "ASC").addOrderBy("pm.name", "ASC");
     qb.skip((page - 1) * limit).take(limit);
 
     const [data, total] = await qb.getManyAndCount();
@@ -91,7 +95,9 @@ export class PaymentMethodService {
 
     const existing = await this.findByCode(code);
     if (existing) {
-      throw new ConflictException(`Payment method with code "${code}" already exists`);
+      throw new ConflictException(
+        `Payment method with code "${code}" already exists`,
+      );
     }
 
     const pm = this.paymentMethodRepository.create({
@@ -107,7 +113,10 @@ export class PaymentMethodService {
     return this.toResponseDto(saved);
   }
 
-  async update(id: string, dto: UpdatePaymentMethodDto): Promise<PaymentMethodResponseDto> {
+  async update(
+    id: string,
+    dto: UpdatePaymentMethodDto,
+  ): Promise<PaymentMethodResponseDto> {
     const pm = await this.paymentMethodRepository.findOne({ where: { id } });
     if (!pm || pm.deletedAt) {
       throw new NotFoundException(`Payment method ${id} not found`);
@@ -119,7 +128,9 @@ export class PaymentMethodService {
       if (dto.code !== pm.code) {
         const existing = await this.findByCode(dto.code);
         if (existing && existing.id !== id) {
-          throw new ConflictException(`Payment method with code "${dto.code}" already exists`);
+          throw new ConflictException(
+            `Payment method with code "${dto.code}" already exists`,
+          );
         }
       }
     }
@@ -145,7 +156,7 @@ export class PaymentMethodService {
       where: {
         deletedAt: Not(IsNull()),
       },
-      order: { sortOrder: 'ASC', name: 'ASC' },
+      order: { sortOrder: "ASC", name: "ASC" },
     });
 
     return methods.map((pm) => this.toResponseDto(pm));
@@ -215,7 +226,9 @@ export class PaymentMethodService {
       .where('"paymentMethodId" = :id AND "deletedAt" IS NOT NULL', { id })
       .execute();
 
-    await this.accountMappingRepository.delete({ mappingType: In(mappingKeys) });
+    await this.accountMappingRepository.delete({
+      mappingType: In(mappingKeys),
+    });
     await this.paymentMethodRepository.delete(id);
   }
 
@@ -250,7 +263,7 @@ export class PaymentMethodService {
 
       if (!existingSettlement) {
         const bankAccount = await this.accountRepository.findOne({
-          where: { code: '1100', isActive: true },
+          where: { code: "1100", isActive: true },
         });
 
         if (!bankAccount) {
@@ -270,9 +283,11 @@ export class PaymentMethodService {
 
     if (pm.useForPurchases !== false) {
       const vendorKey = `vendor_payment_${pm.code.toLowerCase()}`;
-      const existingVendorMapping = await this.accountMappingRepository.findOne({
-        where: { mappingType: vendorKey },
-      });
+      const existingVendorMapping = await this.accountMappingRepository.findOne(
+        {
+          where: { mappingType: vendorKey },
+        },
+      );
 
       if (!existingVendorMapping) {
         const account = await this.findMatchingAccount(pm);
@@ -322,7 +337,10 @@ export class PaymentMethodService {
       const descriptionUpdates: Array<[string, string]> = [
         [`payment_${code}`, `${newPm.name} payment received account`],
         [`vendor_payment_${code}`, `${newPm.name} vendor payment account`],
-        [`payment_${code}_settlement`, `${newPm.name} settlement to bank account`],
+        [
+          `payment_${code}_settlement`,
+          `${newPm.name} settlement to bank account`,
+        ],
       ];
 
       for (const [key, description] of descriptionUpdates) {
@@ -344,7 +362,7 @@ export class PaymentMethodService {
       });
       if (!existing) {
         const bankAccount = await this.accountRepository.findOne({
-          where: { code: '1100', isActive: true },
+          where: { code: "1100", isActive: true },
         });
         if (!bankAccount) {
           this.logger.warn(
@@ -361,7 +379,9 @@ export class PaymentMethodService {
       }
     } else if (!newPm.requiresSettlement && oldPm.requiresSettlement) {
       const settlementKey = `payment_${code}_settlement`;
-      await this.accountMappingRepository.delete({ mappingType: settlementKey });
+      await this.accountMappingRepository.delete({
+        mappingType: settlementKey,
+      });
     }
 
     if (newPm.useForPurchases && !oldPm.useForPurchases) {
@@ -396,15 +416,17 @@ export class PaymentMethodService {
     }
   }
 
-  private async findMatchingAccount(pm: PaymentMethodEntity): Promise<ChartOfAccount | null> {
+  private async findMatchingAccount(
+    pm: PaymentMethodEntity,
+  ): Promise<ChartOfAccount | null> {
     const accountCodeMap: Record<string, string> = {
-      CASH: '1000',
-      BANK: '1100',
-      TNG: '1120',
-      CC: '1130',
-      ATOME: '1140',
-      SHOPEE: '1150',
-      TIKTOK: '1160',
+      CASH: "1000",
+      BANK: "1100",
+      TNG: "1120",
+      CC: "1130",
+      ATOME: "1140",
+      SHOPEE: "1150",
+      TIKTOK: "1160",
     };
 
     const accountCode = accountCodeMap[pm.code];
@@ -417,7 +439,9 @@ export class PaymentMethodService {
     });
   }
 
-  async getActiveList(forPurchases?: boolean): Promise<PaymentMethodResponseDto[]> {
+  async getActiveList(
+    forPurchases?: boolean,
+  ): Promise<PaymentMethodResponseDto[]> {
     const where: any = { isActive: true };
     if (forPurchases === true) {
       where.useForPurchases = true;
@@ -425,7 +449,7 @@ export class PaymentMethodService {
 
     const methods = await this.paymentMethodRepository.find({
       where,
-      order: { sortOrder: 'ASC', name: 'ASC' },
+      order: { sortOrder: "ASC", name: "ASC" },
     });
 
     return methods

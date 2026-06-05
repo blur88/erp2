@@ -3,25 +3,25 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
 import {
   OwnerEquityTransaction,
   OwnerEquityTransactionStatus,
   OwnerEquityTransactionType,
-} from '../../../database/entities/owner-equity-transaction.entity';
-import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
-import { AccountingService } from './accounting.service';
-import { SettingsService } from '../../settings/settings.service';
+} from "../../../database/entities/owner-equity-transaction.entity";
+import { PaymentMethodEntity } from "../../../database/entities/payment-method.entity";
+import { AccountingService } from "./accounting.service";
+import { SettingsService } from "../../settings/settings.service";
 import {
   CreateOwnerEquityDto,
   UpdateOwnerEquityDto,
   QueryOwnerEquityDto,
   OwnerEquityResponseDto,
   OwnerEquityListResponseDto,
-} from '../dto/owner-equity.dto';
-import { AuditLogService } from '../../audit-logs/services';
+} from "../dto/owner-equity.dto";
+import { AuditLogService } from "../../audit-logs/services";
 
 @Injectable()
 export class OwnerEquityService {
@@ -37,7 +37,9 @@ export class OwnerEquityService {
     private readonly auditLogService: AuditLogService,
   ) {}
 
-  async findAll(query: QueryOwnerEquityDto): Promise<OwnerEquityListResponseDto> {
+  async findAll(
+    query: QueryOwnerEquityDto,
+  ): Promise<OwnerEquityListResponseDto> {
     const {
       page: rawPage = 1,
       limit: rawLimit = 20,
@@ -45,50 +47,62 @@ export class OwnerEquityService {
       status,
       startDate,
       endDate,
-      sortBy = 'referenceNumber',
-      sortOrder = 'DESC',
+      sortBy = "referenceNumber",
+      sortOrder = "DESC",
     } = query;
     const parsedPage = Number(rawPage);
     const parsedLimit = Number(rawLimit);
-    const page = Number.isFinite(parsedPage) && parsedPage > 0 ? Math.floor(parsedPage) : 1;
+    const page =
+      Number.isFinite(parsedPage) && parsedPage > 0
+        ? Math.floor(parsedPage)
+        : 1;
     const limit =
-      Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(Math.floor(parsedLimit), 500) : 20;
+      Number.isFinite(parsedLimit) && parsedLimit > 0
+        ? Math.min(Math.floor(parsedLimit), 500)
+        : 20;
     const validTypes = Object.values(OwnerEquityTransactionType);
     const validStatuses = Object.values(OwnerEquityTransactionStatus);
 
     const qb = this.ownerEquityRepository
-      .createQueryBuilder('oet')
+      .createQueryBuilder("oet")
       .withDeleted()
-      .leftJoinAndSelect('oet.paymentMethod', 'paymentMethod')
-      .where('oet.deletedAt IS NULL');
+      .leftJoinAndSelect("oet.paymentMethod", "paymentMethod")
+      .where("oet.deletedAt IS NULL");
 
     if (type && validTypes.includes(type)) {
-      qb.andWhere('oet.type = :type', { type });
+      qb.andWhere("oet.type = :type", { type });
     }
 
-    if (status && validStatuses.includes(status as OwnerEquityTransactionStatus)) {
-      qb.andWhere('oet.status = :status', { status });
+    if (
+      status &&
+      validStatuses.includes(status as OwnerEquityTransactionStatus)
+    ) {
+      qb.andWhere("oet.status = :status", { status });
     }
 
     if (startDate) {
-      qb.andWhere('oet.transactionDate >= :startDate', { startDate });
+      qb.andWhere("oet.transactionDate >= :startDate", { startDate });
     }
 
     if (endDate) {
-      qb.andWhere('oet.transactionDate <= :endDate', { endDate });
+      qb.andWhere("oet.transactionDate <= :endDate", { endDate });
     }
 
     const allowedSortFields = [
-      'transactionDate',
-      'createdAt',
-      'amount',
-      'type',
-      'referenceNumber',
+      "transactionDate",
+      "createdAt",
+      "amount",
+      "type",
+      "referenceNumber",
     ];
-    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'referenceNumber';
-    const safeSortOrder = sortOrder === 'ASC' ? 'ASC' : 'DESC';
+    const safeSortBy = allowedSortFields.includes(sortBy)
+      ? sortBy
+      : "referenceNumber";
+    const safeSortOrder = sortOrder === "ASC" ? "ASC" : "DESC";
 
-    qb.orderBy(`oet.${safeSortBy}`, safeSortOrder).skip((page - 1) * limit).take(limit);
+    qb.orderBy(`oet.${safeSortBy}`, safeSortOrder)
+      .skip((page - 1) * limit)
+      .take(limit);
 
     const [rows, total] = await qb.getManyAndCount();
 
@@ -127,10 +141,13 @@ export class OwnerEquityService {
     });
 
     if (!paymentMethod || paymentMethod.deletedAt) {
-      throw new NotFoundException(`Payment method ${dto.paymentMethodId} not found`);
+      throw new NotFoundException(
+        `Payment method ${dto.paymentMethodId} not found`,
+      );
     }
 
-    const referenceNumber = await this.settingsService.generateDocumentNumber('Owner Equity');
+    const referenceNumber =
+      await this.settingsService.generateDocumentNumber("Owner Equity");
 
     const transaction = this.ownerEquityRepository.create({
       referenceNumber,
@@ -144,10 +161,10 @@ export class OwnerEquityService {
 
     const saved = await this.ownerEquityRepository.save(transaction);
     await this.auditLogService.log(
-      'CREATE',
-      'OwnerEquity',
+      "CREATE",
+      "OwnerEquity",
       `Created owner equity transaction: ${saved.referenceNumber}`,
-      { entityId: saved.id, userId: userId ?? 'system', username },
+      { entityId: saved.id, userId: userId ?? "system", username },
     );
     return this.findOne(saved.id);
   }
@@ -167,7 +184,7 @@ export class OwnerEquityService {
     }
 
     if (transaction.status !== OwnerEquityTransactionStatus.DRAFT) {
-      throw new BadRequestException('Cannot update a non-draft transaction');
+      throw new BadRequestException("Cannot update a non-draft transaction");
     }
 
     if (dto.paymentMethodId) {
@@ -175,22 +192,26 @@ export class OwnerEquityService {
         where: { id: dto.paymentMethodId, isActive: true },
       });
       if (!paymentMethod || paymentMethod.deletedAt) {
-        throw new NotFoundException(`Payment method ${dto.paymentMethodId} not found`);
+        throw new NotFoundException(
+          `Payment method ${dto.paymentMethodId} not found`,
+        );
       }
     }
 
-    if (dto.transactionDate) transaction.transactionDate = new Date(dto.transactionDate);
+    if (dto.transactionDate)
+      transaction.transactionDate = new Date(dto.transactionDate);
     if (dto.type) transaction.type = dto.type;
     if (dto.amount !== undefined) transaction.amount = dto.amount;
     if (dto.paymentMethodId) transaction.paymentMethodId = dto.paymentMethodId;
-    if (dto.description !== undefined) transaction.description = dto.description;
+    if (dto.description !== undefined)
+      transaction.description = dto.description;
 
     await this.ownerEquityRepository.save(transaction);
     await this.auditLogService.log(
-      'UPDATE',
-      'OwnerEquity',
+      "UPDATE",
+      "OwnerEquity",
       `Updated owner equity transaction: ${transaction.referenceNumber}`,
-      { entityId: id, userId: userId ?? 'system', username },
+      { entityId: id, userId: userId ?? "system", username },
     );
     return this.findOne(id);
   }
@@ -205,15 +226,15 @@ export class OwnerEquityService {
     }
 
     if (transaction.status !== OwnerEquityTransactionStatus.DRAFT) {
-      throw new BadRequestException('Cannot delete a non-draft transaction');
+      throw new BadRequestException("Cannot delete a non-draft transaction");
     }
 
     await this.ownerEquityRepository.softDelete(id);
     await this.auditLogService.log(
-      'DELETE',
-      'OwnerEquity',
+      "DELETE",
+      "OwnerEquity",
       `Deleted owner equity transaction: ${transaction.referenceNumber}`,
-      { entityId: id, userId: userId ?? 'system', username },
+      { entityId: id, userId: userId ?? "system", username },
     );
   }
 
@@ -233,23 +254,23 @@ export class OwnerEquityService {
     }
 
     if (transaction.status !== OwnerEquityTransactionStatus.DRAFT) {
-      throw new BadRequestException('Only draft transactions can be posted');
+      throw new BadRequestException("Only draft transactions can be posted");
     }
 
     try {
       const journalEntry = await this.accountingService.postOwnerEquityEntry(
         transaction,
-        userId ?? 'system',
+        userId ?? "system",
         username,
       );
       transaction.status = OwnerEquityTransactionStatus.POSTED;
       transaction.journalEntryId = journalEntry.id;
       await this.ownerEquityRepository.save(transaction);
       await this.auditLogService.log(
-        'POST',
-        'OwnerEquity',
+        "POST",
+        "OwnerEquity",
         `Posted owner equity transaction: ${transaction.referenceNumber}`,
-        { entityId: id, userId: userId ?? 'system', username },
+        { entityId: id, userId: userId ?? "system", username },
       );
     } catch (error) {
       this.logger.error(
@@ -277,29 +298,31 @@ export class OwnerEquityService {
     }
 
     if (transaction.status !== OwnerEquityTransactionStatus.POSTED) {
-      throw new BadRequestException('Transaction is not posted');
+      throw new BadRequestException("Transaction is not posted");
     }
 
     await this.accountingService.reverseSourceEntries(
-      'owner_equity_transaction',
+      "owner_equity_transaction",
       id,
-      userId ?? 'system',
+      userId ?? "system",
     );
 
     transaction.status = OwnerEquityTransactionStatus.REVERSED;
     await this.ownerEquityRepository.save(transaction);
 
     await this.auditLogService.log(
-      'REVERSE',
-      'OwnerEquity',
+      "REVERSE",
+      "OwnerEquity",
       `Reversed owner equity transaction: ${transaction.referenceNumber}`,
-      { entityId: id, userId: userId ?? 'system', username },
+      { entityId: id, userId: userId ?? "system", username },
     );
 
     return this.findOne(id);
   }
 
-  private toResponseDto(transaction: OwnerEquityTransaction): OwnerEquityResponseDto {
+  private toResponseDto(
+    transaction: OwnerEquityTransaction,
+  ): OwnerEquityResponseDto {
     return {
       id: transaction.id,
       referenceNumber: transaction.referenceNumber,

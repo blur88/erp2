@@ -1,15 +1,15 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { BackupSchedule } from '@database/entities/backup-schedule.entity';
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, LessThan } from "typeorm";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
+import { Cron, CronExpression } from "@nestjs/schedule";
+import { BackupSchedule } from "@database/entities/backup-schedule.entity";
 import {
   CreateBackupScheduleDto,
   UpdateBackupScheduleDto,
-} from './dto/backup-schedule.dto';
-import { BackupService } from './backup.service';
+} from "./dto/backup-schedule.dto";
+import { BackupService } from "./backup.service";
 
 @Injectable()
 export class BackupSchedulerService {
@@ -18,7 +18,7 @@ export class BackupSchedulerService {
   constructor(
     @InjectRepository(BackupSchedule)
     private readonly scheduleRepository: Repository<BackupSchedule>,
-    @InjectQueue('backup-queue') private readonly backupQueue: Queue,
+    @InjectQueue("backup-queue") private readonly backupQueue: Queue,
     private readonly backupService: BackupService,
   ) {}
 
@@ -47,7 +47,7 @@ export class BackupSchedulerService {
 
   async findAll(): Promise<BackupSchedule[]> {
     return this.scheduleRepository.find({
-      order: { createdAt: 'DESC' },
+      order: { createdAt: "DESC" },
     });
   }
 
@@ -104,7 +104,7 @@ export class BackupSchedulerService {
     await this.scheduleRepository.save(schedule);
 
     this.logger.log(
-      `${enabled ? 'Enabled' : 'Disabled'} backup schedule: ${schedule.name}`,
+      `${enabled ? "Enabled" : "Disabled"} backup schedule: ${schedule.name}`,
     );
     return schedule;
   }
@@ -112,13 +112,13 @@ export class BackupSchedulerService {
   async triggerSchedule(id: string): Promise<void> {
     const schedule = await this.findOne(id);
 
-    await this.backupQueue.add('create-backup', {
+    await this.backupQueue.add("create-backup", {
       scheduleId: schedule.id,
       backupDto: {
-        backupType: 'scheduled',
+        backupType: "scheduled",
         databases: schedule.databases,
         includeSettings: schedule.includeSettings,
-        createdBy: 'scheduler',
+        createdBy: "scheduler",
         description: `Scheduled backup: ${schedule.name}`,
       },
     });
@@ -147,14 +147,14 @@ export class BackupSchedulerService {
       schedule.cronExpression || this.buildCronExpression(schedule);
 
     await this.backupQueue.add(
-      'create-backup',
+      "create-backup",
       {
         scheduleId: schedule.id,
         backupDto: {
-          backupType: 'scheduled',
+          backupType: "scheduled",
           databases: schedule.databases,
           includeSettings: schedule.includeSettings,
-          createdBy: 'scheduler',
+          createdBy: "scheduler",
           description: `Scheduled backup: ${schedule.name}`,
         },
       },
@@ -177,7 +177,7 @@ export class BackupSchedulerService {
     const cronExpression =
       schedule.cronExpression || this.buildCronExpression(schedule);
 
-    await this.backupQueue.removeRepeatable('create-backup', {
+    await this.backupQueue.removeRepeatable("create-backup", {
       pattern: cronExpression,
       jobId: `schedule-${schedule.id}`,
     });
@@ -186,20 +186,20 @@ export class BackupSchedulerService {
   }
 
   private buildCronExpression(schedule: BackupSchedule): string {
-    const [hour, minute] = schedule.time.split(':');
+    const [hour, minute] = schedule.time.split(":");
 
     switch (schedule.frequency) {
-      case 'hourly':
+      case "hourly":
         return `${minute} * * * *`; // Every hour at specified minute
 
-      case 'daily':
+      case "daily":
         return `${minute} ${hour} * * *`; // Every day at specified time
 
-      case 'weekly':
+      case "weekly":
         const dayOfWeek = schedule.dayOfWeek ?? 0;
         return `${minute} ${hour} * * ${dayOfWeek}`; // Specific day of week
 
-      case 'monthly':
+      case "monthly":
         const dayOfMonth = schedule.dayOfMonth ?? 1;
         return `${minute} ${hour} ${dayOfMonth} * *`; // Specific day of month
 
@@ -212,7 +212,7 @@ export class BackupSchedulerService {
     schedule: CreateBackupScheduleDto | BackupSchedule,
   ): Date {
     const now = new Date();
-    const [hour, minute] = schedule.time.split(':').map(Number);
+    const [hour, minute] = schedule.time.split(":").map(Number);
 
     const next = new Date(now);
     next.setHours(hour, minute, 0, 0);
@@ -220,16 +220,16 @@ export class BackupSchedulerService {
     // If the time has already passed today, move to next occurrence
     if (next <= now) {
       switch (schedule.frequency) {
-        case 'hourly':
+        case "hourly":
           next.setHours(next.getHours() + 1);
           break;
-        case 'daily':
+        case "daily":
           next.setDate(next.getDate() + 1);
           break;
-        case 'weekly':
+        case "weekly":
           next.setDate(next.getDate() + 7);
           break;
-        case 'monthly':
+        case "monthly":
           next.setMonth(next.getMonth() + 1);
           break;
       }
@@ -253,18 +253,23 @@ export class BackupSchedulerService {
 
       // Check if current time matches the configured cleanup time
       const now = new Date();
-      const [cleanupHour, cleanupMinute] = settings.cleanupTime.split(':').map(Number);
+      const [cleanupHour, cleanupMinute] = settings.cleanupTime
+        .split(":")
+        .map(Number);
 
       // Run cleanup if we're within the cleanup hour
       if (now.getHours() === cleanupHour) {
-        this.logger.log('Running scheduled backup cleanup job');
+        this.logger.log("Running scheduled backup cleanup job");
 
-        await this.backupQueue.add('cleanup-with-settings', {});
+        await this.backupQueue.add("cleanup-with-settings", {});
 
-        this.logger.log('Backup cleanup job added to queue');
+        this.logger.log("Backup cleanup job added to queue");
       }
     } catch (error) {
-      this.logger.error(`Failed to schedule cleanup job: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to schedule cleanup job: ${error.message}`,
+        error.stack,
+      );
     }
   }
 }

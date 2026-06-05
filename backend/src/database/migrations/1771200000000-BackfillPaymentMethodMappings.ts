@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class BackfillPaymentMethodMappings1771200000000 implements MigrationInterface {
-  name = 'BackfillPaymentMethodMappings1771200000000';
+  name = "BackfillPaymentMethodMappings1771200000000";
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Backfill primary payment mappings for seeded/default methods.

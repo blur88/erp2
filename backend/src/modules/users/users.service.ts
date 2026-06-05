@@ -5,11 +5,21 @@ import {
   BadRequestException,
   Logger,
   ForbiddenException,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder, Like, ILike, LessThanOrEqual } from 'typeorm';
-import * as bcrypt from 'bcrypt';
-import { User, UserRole, UserStatus } from '../../database/entities/user.entity';
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import {
+  Repository,
+  SelectQueryBuilder,
+  Like,
+  ILike,
+  LessThanOrEqual,
+} from "typeorm";
+import * as bcrypt from "bcrypt";
+import {
+  User,
+  UserRole,
+  UserStatus,
+} from "../../database/entities/user.entity";
 import {
   CreateUserDto,
   UpdateUserDto,
@@ -17,7 +27,7 @@ import {
   UserResponseDto,
   PaginatedUsersResponseDto,
   QueryUsersDto,
-} from './dto';
+} from "./dto";
 
 /**
  * Users Service
@@ -37,7 +47,7 @@ export class UsersService {
    */
   async create(
     createUserDto: CreateUserDto,
-    createdBy = 'system',
+    createdBy = "system",
   ): Promise<UserResponseDto> {
     try {
       // Check if username already exists
@@ -50,10 +60,10 @@ export class UsersService {
 
       if (existingUser) {
         if (existingUser.username === createUserDto.username) {
-          throw new ConflictException('Username already exists');
+          throw new ConflictException("Username already exists");
         }
         if (existingUser.email === createUserDto.email) {
-          throw new ConflictException('Email already exists');
+          throw new ConflictException("Email already exists");
         }
       }
 
@@ -71,9 +81,7 @@ export class UsersService {
 
       const savedUser = await this.userRepository.save(user);
 
-      this.logger.log(
-        `User created: ${savedUser.username} by ${createdBy}`,
-      );
+      this.logger.log(`User created: ${savedUser.username} by ${createdBy}`);
 
       return this.mapToResponseDto(savedUser);
     } catch (error) {
@@ -87,10 +95,20 @@ export class UsersService {
    */
   async findAll(
     queryDto: QueryUsersDto,
-    requestingUser = 'system',
+    requestingUser = "system",
   ): Promise<PaginatedUsersResponseDto> {
     try {
-      const { page, limit, search, role, status, isActive, isLocked, sortBy, sortOrder } = queryDto;
+      const {
+        page,
+        limit,
+        search,
+        role,
+        status,
+        isActive,
+        isLocked,
+        sortBy,
+        sortOrder,
+      } = queryDto;
 
       // Lazy self-heal: clear locks that have expired by the app clock so stale
       // lockedUntil timestamps don't linger or show as "locked" in the list.
@@ -108,44 +126,49 @@ export class UsersService {
             { lockedUntil: null, failedLoginAttempts: 0 },
           );
         } catch (err) {
-          this.logger.warn(`Failed to self-heal expired locks during findAll: ${err}`);
+          this.logger.warn(
+            `Failed to self-heal expired locks during findAll: ${err}`,
+          );
         }
       }
 
       // Build query
-      const queryBuilder = this.createQueryBuilder('user');
+      const queryBuilder = this.createQueryBuilder("user");
 
       // Apply filters
       if (search) {
         queryBuilder.andWhere(
-          '(LOWER(user.username) LIKE LOWER(:search) OR ' +
-          'LOWER(user.email) LIKE LOWER(:search) OR ' +
-          'LOWER(user.firstName) LIKE LOWER(:search) OR ' +
-          'LOWER(user.lastName) LIKE LOWER(:search))',
+          "(LOWER(user.username) LIKE LOWER(:search) OR " +
+            "LOWER(user.email) LIKE LOWER(:search) OR " +
+            "LOWER(user.firstName) LIKE LOWER(:search) OR " +
+            "LOWER(user.lastName) LIKE LOWER(:search))",
           { search: `%${search}%` },
         );
       }
 
       if (role) {
-        queryBuilder.andWhere('user.role = :role', { role });
+        queryBuilder.andWhere("user.role = :role", { role });
       }
 
       if (status) {
-        queryBuilder.andWhere('user.status = :status', { status });
+        queryBuilder.andWhere("user.status = :status", { status });
       }
 
-      if (typeof isActive === 'boolean') {
-        queryBuilder.andWhere('user.isActive = :isActive', { isActive });
+      if (typeof isActive === "boolean") {
+        queryBuilder.andWhere("user.isActive = :isActive", { isActive });
       }
 
-      if (typeof isLocked === 'boolean') {
+      if (typeof isLocked === "boolean") {
         // :now is intentionally the Node app clock (new Date()), NOT SQL NOW().
         // Lockout decisions must use one clock so a skewed Postgres container
         // clock can't disagree with the login path. See issue #710.
         if (isLocked) {
-          queryBuilder.andWhere('user.lockedUntil > :now', { now: new Date() });
+          queryBuilder.andWhere("user.lockedUntil > :now", { now: new Date() });
         } else {
-          queryBuilder.andWhere('(user.lockedUntil IS NULL OR user.lockedUntil <= :now)', { now: new Date() });
+          queryBuilder.andWhere(
+            "(user.lockedUntil IS NULL OR user.lockedUntil <= :now)",
+            { now: new Date() },
+          );
         }
       }
 
@@ -162,7 +185,7 @@ export class UsersService {
       // Execute query
       const [users, total] = await queryBuilder.getManyAndCount();
 
-      const mappedUsers = users.map(user => this.mapToResponseDto(user));
+      const mappedUsers = users.map((user) => this.mapToResponseDto(user));
 
       const totalPages = Math.ceil(total / limit);
 
@@ -190,7 +213,7 @@ export class UsersService {
    */
   async findOne(
     id: string,
-    requestingUser = 'system',
+    requestingUser = "system",
   ): Promise<UserResponseDto> {
     try {
       const user = await this.userRepository.findOne({
@@ -198,13 +221,15 @@ export class UsersService {
       });
 
       if (!user) {
-        throw new NotFoundException('User not found');
+        throw new NotFoundException("User not found");
       }
 
       // Check if user can view this profile - disabled since auth is removed
       // this.validateUserAccess(user, requestingUser);
 
-      this.logger.log(`User profile retrieved: ${user.username} by ${requestingUser}`);
+      this.logger.log(
+        `User profile retrieved: ${user.username} by ${requestingUser}`,
+      );
 
       return this.mapToResponseDto(user);
     } catch (error) {
@@ -219,7 +244,7 @@ export class UsersService {
   async update(
     id: string,
     updateUserDto: UpdateUserDto,
-    requestingUser = 'system',
+    requestingUser = "system",
   ): Promise<UserResponseDto> {
     try {
       const user = await this.userRepository.findOne({
@@ -227,7 +252,7 @@ export class UsersService {
       });
 
       if (!user) {
-        throw new NotFoundException('User not found');
+        throw new NotFoundException("User not found");
       }
 
       // Check permissions - disabled since auth is removed
@@ -237,17 +262,19 @@ export class UsersService {
       if (updateUserDto.username || updateUserDto.email) {
         const duplicateUser = await this.userRepository.findOne({
           where: [
-            ...(updateUserDto.username ? [{ username: updateUserDto.username }] : []),
+            ...(updateUserDto.username
+              ? [{ username: updateUserDto.username }]
+              : []),
             ...(updateUserDto.email ? [{ email: updateUserDto.email }] : []),
           ],
         });
 
         if (duplicateUser && duplicateUser.id !== id) {
           if (duplicateUser.username === updateUserDto.username) {
-            throw new ConflictException('Username already exists');
+            throw new ConflictException("Username already exists");
           }
           if (duplicateUser.email === updateUserDto.email) {
-            throw new ConflictException('Email already exists');
+            throw new ConflictException("Email already exists");
           }
         }
       }
@@ -258,7 +285,7 @@ export class UsersService {
       // Handle admin-specific updates
       if (this.isAdminUpdate(updateUserDto)) {
         const adminUpdate = updateUserDto as AdminUpdateUserDto;
-        
+
         if (adminUpdate.resetFailedAttempts) {
           user.failedLoginAttempts = 0;
         }
@@ -287,7 +314,7 @@ export class UsersService {
    */
   async remove(
     id: string,
-    requestingUser = 'system',
+    requestingUser = "system",
   ): Promise<{ message: string; deletedAt: Date }> {
     try {
       const user = await this.userRepository.findOne({
@@ -295,7 +322,7 @@ export class UsersService {
       });
 
       if (!user) {
-        throw new NotFoundException('User not found');
+        throw new NotFoundException("User not found");
       }
 
       // Prevent self-deletion - disabled since auth is removed
@@ -318,7 +345,7 @@ export class UsersService {
       );
 
       return {
-        message: 'User successfully deactivated',
+        message: "User successfully deactivated",
         deletedAt: new Date(),
       };
     } catch (error) {
@@ -330,7 +357,7 @@ export class UsersService {
   /**
    * Get user statistics
    */
-  async getStatistics(requestingUser = 'system') {
+  async getStatistics(requestingUser = "system") {
     try {
       // Permission check disabled since auth is removed
       // if (requestingUser.role !== UserRole.ADMIN && requestingUser.role !== UserRole.MANAGER) {
@@ -347,15 +374,17 @@ export class UsersService {
         staffUsers,
       ] = await Promise.all([
         this.userRepository.count(),
-        this.userRepository.count({ where: { isActive: true, status: UserStatus.ACTIVE } }),
+        this.userRepository.count({
+          where: { isActive: true, status: UserStatus.ACTIVE },
+        }),
         this.userRepository.count({ where: { isActive: false } }),
         // Clock-correct via the Node app clock (:now = new Date()), consistent
         // with findAll and the login path (see issue #710). No self-heal write
         // here: this is a read-only stats endpoint and the count already
         // excludes expired locks.
         this.userRepository
-          .createQueryBuilder('user')
-          .where('user.lockedUntil > :now', { now: new Date() })
+          .createQueryBuilder("user")
+          .where("user.lockedUntil > :now", { now: new Date() })
           .getCount(),
         this.userRepository.count({ where: { role: UserRole.ADMIN } }),
         this.userRepository.count({ where: { role: UserRole.MANAGER } }),
@@ -378,14 +407,18 @@ export class UsersService {
           manager: managerUsers,
           staff: staffUsers,
         },
-        activePercentage: totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0,
+        activePercentage:
+          totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0,
       };
 
       this.logger.log(`User statistics retrieved by ${requestingUser}`);
 
       return statistics;
     } catch (error) {
-      this.logger.error(`Statistics retrieval failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `Statistics retrieval failed: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -411,12 +444,14 @@ export class UsersService {
 
     // Managers can see all users except other admins
     if (requestingUserRole === UserRole.MANAGER) {
-      queryBuilder.andWhere('user.role != :adminRole', { adminRole: UserRole.ADMIN });
+      queryBuilder.andWhere("user.role != :adminRole", {
+        adminRole: UserRole.ADMIN,
+      });
       return;
     }
 
     // Staff can only see other staff members (not admins or managers)
-    queryBuilder.andWhere('user.role NOT IN (:...restrictedRoles)', {
+    queryBuilder.andWhere("user.role NOT IN (:...restrictedRoles)", {
       restrictedRoles: [UserRole.ADMIN, UserRole.MANAGER],
     });
   }
@@ -436,7 +471,10 @@ export class UsersService {
     }
 
     // Managers can access non-admin profiles
-    if (requestingUser.role === UserRole.MANAGER && targetUser.role !== UserRole.ADMIN) {
+    if (
+      requestingUser.role === UserRole.MANAGER &&
+      targetUser.role !== UserRole.ADMIN
+    ) {
       return;
     }
 
@@ -444,9 +482,12 @@ export class UsersService {
     if (
       requestingUser.role !== UserRole.ADMIN &&
       requestingUser.role !== UserRole.MANAGER &&
-      (targetUser.role === UserRole.ADMIN || targetUser.role === UserRole.MANAGER)
+      (targetUser.role === UserRole.ADMIN ||
+        targetUser.role === UserRole.MANAGER)
     ) {
-      throw new ForbiddenException('Insufficient permissions to access this profile');
+      throw new ForbiddenException(
+        "Insufficient permissions to access this profile",
+      );
     }
   }
 
@@ -462,7 +503,9 @@ export class UsersService {
     if (targetUser.id === requestingUser.userId) {
       // Users can only update their own basic info, not role or status
       if (updateDto.role || updateDto.status || updateDto.isActive) {
-        throw new ForbiddenException('Cannot modify role, status, or active state of your own account');
+        throw new ForbiddenException(
+          "Cannot modify role, status, or active state of your own account",
+        );
       }
       return;
     }
@@ -473,24 +516,32 @@ export class UsersService {
     }
 
     // Managers can update non-admin users (limited)
-    if (requestingUser.role === UserRole.MANAGER && targetUser.role !== UserRole.ADMIN) {
+    if (
+      requestingUser.role === UserRole.MANAGER &&
+      targetUser.role !== UserRole.ADMIN
+    ) {
       // Managers cannot promote users to admin
       if (updateDto.role === UserRole.ADMIN) {
-        throw new ForbiddenException('Cannot assign admin role');
+        throw new ForbiddenException("Cannot assign admin role");
       }
       return;
     }
 
-    throw new ForbiddenException('Insufficient permissions to update this user');
+    throw new ForbiddenException(
+      "Insufficient permissions to update this user",
+    );
   }
 
   /**
    * Validate role assignment permissions
    */
-  private validateRoleAssignment(assignerRole: UserRole, targetRole: UserRole): void {
+  private validateRoleAssignment(
+    assignerRole: UserRole,
+    targetRole: UserRole,
+  ): void {
     // Only admins can assign admin role
     if (targetRole === UserRole.ADMIN && assignerRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('Only administrators can assign admin role');
+      throw new ForbiddenException("Only administrators can assign admin role");
     }
 
     // Only admins and managers can assign manager role
@@ -499,7 +550,9 @@ export class UsersService {
       assignerRole !== UserRole.ADMIN &&
       assignerRole !== UserRole.MANAGER
     ) {
-      throw new ForbiddenException('Only administrators and managers can assign manager role');
+      throw new ForbiddenException(
+        "Only administrators and managers can assign manager role",
+      );
     }
   }
 

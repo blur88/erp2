@@ -4,19 +4,17 @@ import {
   ExecutionContext,
   CallHandler,
   Logger,
-} from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { tap, catchError } from 'rxjs/operators';
-import { Request, Response } from 'express';
-import { BusinessContextMapperService } from '../utils/context-mapper.service';
+} from "@nestjs/common";
+import { Observable } from "rxjs";
+import { tap, catchError } from "rxjs/operators";
+import { Request, Response } from "express";
+import { BusinessContextMapperService } from "../utils/context-mapper.service";
 
 @Injectable()
 export class BaseLoggingInterceptor implements NestInterceptor {
   protected readonly logger = new Logger(BaseLoggingInterceptor.name);
 
-  constructor(
-    protected readonly contextMapper: BusinessContextMapperService,
-  ) {}
+  constructor(protected readonly contextMapper: BusinessContextMapperService) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest<Request>();
@@ -43,8 +41,8 @@ export class BaseLoggingInterceptor implements NestInterceptor {
       url,
       ip,
       body,
-      userAgent: headers['user-agent'] || '',
-      contentLength: headers['content-length'] || '0',
+      userAgent: headers["user-agent"] || "",
+      contentLength: headers["content-length"] || "0",
       businessContext,
       timestamp: new Date().toISOString(),
     };

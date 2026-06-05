@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class SetTimezoneToAsiaKualaLumpur1732750000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -6,7 +6,9 @@ export class SetTimezoneToAsiaKualaLumpur1732750000000 implements MigrationInter
     await queryRunner.query(`SET TIME ZONE 'Asia/Kuala_Lumpur'`);
 
     // Set default timezone for the database (persistent across sessions)
-    await queryRunner.query(`ALTER DATABASE erp_db SET timezone TO 'Asia/Kuala_Lumpur'`);
+    await queryRunner.query(
+      `ALTER DATABASE erp_db SET timezone TO 'Asia/Kuala_Lumpur'`,
+    );
 
     // Add comment to document timezone setting
     await queryRunner.query(`

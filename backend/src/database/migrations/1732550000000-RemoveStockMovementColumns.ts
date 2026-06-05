@@ -1,12 +1,16 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class RemoveStockMovementColumns1732550000000 implements MigrationInterface {
-  name = 'RemoveStockMovementColumns1732550000000';
+  name = "RemoveStockMovementColumns1732550000000";
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Drop indexes first
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_stock_movements_status"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_stock_movements_movedByUserId"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_stock_movements_status"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_stock_movements_movedByUserId"`,
+    );
 
     // Drop foreign key constraint for movedByUserId
     await queryRunner.query(`
@@ -15,13 +19,27 @@ export class RemoveStockMovementColumns1732550000000 implements MigrationInterfa
     `);
 
     // Drop columns
-    await queryRunner.query(`ALTER TABLE "stock_movements" DROP COLUMN IF EXISTS "status"`);
-    await queryRunner.query(`ALTER TABLE "stock_movements" DROP COLUMN IF EXISTS "locationCode"`);
-    await queryRunner.query(`ALTER TABLE "stock_movements" DROP COLUMN IF EXISTS "binLocation"`);
-    await queryRunner.query(`ALTER TABLE "stock_movements" DROP COLUMN IF EXISTS "batchNumber"`);
-    await queryRunner.query(`ALTER TABLE "stock_movements" DROP COLUMN IF EXISTS "expiryDate"`);
-    await queryRunner.query(`ALTER TABLE "stock_movements" DROP COLUMN IF EXISTS "metadata"`);
-    await queryRunner.query(`ALTER TABLE "stock_movements" DROP COLUMN IF EXISTS "movedByUserId"`);
+    await queryRunner.query(
+      `ALTER TABLE "stock_movements" DROP COLUMN IF EXISTS "status"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "stock_movements" DROP COLUMN IF EXISTS "locationCode"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "stock_movements" DROP COLUMN IF EXISTS "binLocation"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "stock_movements" DROP COLUMN IF EXISTS "batchNumber"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "stock_movements" DROP COLUMN IF EXISTS "expiryDate"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "stock_movements" DROP COLUMN IF EXISTS "metadata"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "stock_movements" DROP COLUMN IF EXISTS "movedByUserId"`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -71,7 +89,11 @@ export class RemoveStockMovementColumns1732550000000 implements MigrationInterfa
     `);
 
     // Re-add indexes
-    await queryRunner.query(`CREATE INDEX "IDX_stock_movements_status" ON "stock_movements" ("status")`);
-    await queryRunner.query(`CREATE INDEX "IDX_stock_movements_movedByUserId" ON "stock_movements" ("movedByUserId")`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_stock_movements_status" ON "stock_movements" ("status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_stock_movements_movedByUserId" ON "stock_movements" ("movedByUserId")`,
+    );
   }
 }

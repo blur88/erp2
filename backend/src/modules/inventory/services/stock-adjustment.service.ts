@@ -5,17 +5,17 @@ import {
   Logger,
   Inject,
   forwardRef,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
-import { BaseCrudService } from '../../../common/services/base-crud.service';
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { DataSource, In, Repository } from "typeorm";
+import { BaseCrudService } from "../../../common/services/base-crud.service";
 import {
   StockAdjustment,
   StockAdjustmentItem,
   StockAdjustmentStatus,
-} from '../../../database/entities/stock-adjustment.entity';
-import { Product } from '../../../database/entities/product.entity';
-import { User } from '../../../database/entities/user.entity';
+} from "../../../database/entities/stock-adjustment.entity";
+import { Product } from "../../../database/entities/product.entity";
+import { User } from "../../../database/entities/user.entity";
 import {
   CreateStockAdjustmentDto,
   UpdateStockAdjustmentDto,
@@ -23,12 +23,12 @@ import {
   StockAdjustmentResponseDto,
   StockAdjustmentListResponseDto,
   StockAdjustmentItemResponseDto,
-} from '../dto/stock-adjustment.dto';
-import { StockMovementService } from './stock-movement.service';
-import { StockMovementType } from '../../../database/entities/stock-movement.entity';
-import { SettingsService } from '../../settings/settings.service';
-import { AuditLogService } from '../../audit-logs/services';
-import { AccountingService } from '@modules/accounting/services/accounting.service';
+} from "../dto/stock-adjustment.dto";
+import { StockMovementService } from "./stock-movement.service";
+import { StockMovementType } from "../../../database/entities/stock-movement.entity";
+import { SettingsService } from "../../settings/settings.service";
+import { AuditLogService } from "../../audit-logs/services";
+import { AccountingService } from "@modules/accounting/services/accounting.service";
 
 @Injectable()
 export class StockAdjustmentService extends BaseCrudService<
@@ -59,7 +59,7 @@ export class StockAdjustmentService extends BaseCrudService<
   }
 
   getEntityType(): string {
-    return 'StockAdjustment';
+    return "StockAdjustment";
   }
 
   buildWhereClause(query: QueryStockAdjustmentsDto) {
@@ -72,7 +72,7 @@ export class StockAdjustmentService extends BaseCrudService<
 
   protected async afterDelete(adjustment: StockAdjustment): Promise<void> {
     if (adjustment.status !== StockAdjustmentStatus.DRAFT) {
-      throw new BadRequestException('Only draft adjustments can be deleted');
+      throw new BadRequestException("Only draft adjustments can be deleted");
     }
   }
 
@@ -82,27 +82,31 @@ export class StockAdjustmentService extends BaseCrudService<
   private async generateSANumber(): Promise<string> {
     // Use document number settings to generate SA number
     try {
-      const saNumber = await this.settingsService.generateDocumentNumber('Stock Adjustment');
+      const saNumber =
+        await this.settingsService.generateDocumentNumber("Stock Adjustment");
       this.logger.log(`Generated stock adjustment number: ${saNumber}`);
       return saNumber;
     } catch (error) {
       this.logger.error(`Error generating SA number: ${error.message}`);
       // Fallback to legacy method
       const result = await this.stockAdjustmentRepository
-        .createQueryBuilder('adjustment')
-        .select('adjustment.adjustmentNumber', 'adjustmentNumber')
-        .where('adjustment.adjustmentNumber LIKE :pattern', { pattern: 'SA-%' })
-        .orderBy('adjustment.adjustmentNumber', 'DESC')
+        .createQueryBuilder("adjustment")
+        .select("adjustment.adjustmentNumber", "adjustmentNumber")
+        .where("adjustment.adjustmentNumber LIKE :pattern", { pattern: "SA-%" })
+        .orderBy("adjustment.adjustmentNumber", "DESC")
         .limit(1)
         .getRawOne();
 
       let nextNumber = 1;
       if (result?.adjustmentNumber) {
-        const currentNumber = parseInt(result.adjustmentNumber.replace('SA-', ''), 10);
+        const currentNumber = parseInt(
+          result.adjustmentNumber.replace("SA-", ""),
+          10,
+        );
         nextNumber = currentNumber + 1;
       }
 
-      const fallbackNumber = `SA-${String(nextNumber).padStart(6, '0')}`;
+      const fallbackNumber = `SA-${String(nextNumber).padStart(6, "0")}`;
       this.logger.log(`Fallback stock adjustment number: ${fallbackNumber}`);
       return fallbackNumber;
     }
@@ -116,18 +120,24 @@ export class StockAdjustmentService extends BaseCrudService<
     userId?: string,
     username?: string,
   ): Promise<StockAdjustmentResponseDto> {
-    this.logger.log(`Creating stock adjustment with ${createDto.items.length} items`);
+    this.logger.log(
+      `Creating stock adjustment with ${createDto.items.length} items`,
+    );
 
     // Validate items
     if (!createDto.items || createDto.items.length === 0) {
-      throw new BadRequestException('Stock adjustment must have at least one item');
+      throw new BadRequestException(
+        "Stock adjustment must have at least one item",
+      );
     }
 
     // Verify all products exist
-    const productIds = createDto.items.map(item => item.productId);
-    const products = await this.productRepository.findBy({ id: In(productIds) });
+    const productIds = createDto.items.map((item) => item.productId);
+    const products = await this.productRepository.findBy({
+      id: In(productIds),
+    });
     if (products.length !== productIds.length) {
-      throw new BadRequestException('One or more products not found');
+      throw new BadRequestException("One or more products not found");
     }
 
     // Generate SA number
@@ -138,7 +148,7 @@ export class StockAdjustmentService extends BaseCrudService<
     const items: StockAdjustmentItem[] = [];
 
     for (const itemDto of createDto.items) {
-      const product = products.find(p => p.id === itemDto.productId);
+      const product = products.find((p) => p.id === itemDto.productId);
       if (!product) continue;
 
       const unitCost = itemDto.unitCost ?? Number(product.baseCost);
@@ -170,16 +180,18 @@ export class StockAdjustmentService extends BaseCrudService<
     });
 
     const saved = await this.stockAdjustmentRepository.save(adjustment);
-    this.logger.log(`Stock adjustment ${adjustmentNumber} created successfully`);
+    this.logger.log(
+      `Stock adjustment ${adjustmentNumber} created successfully`,
+    );
 
     // Log audit trail for create
     await this.auditLogService.log(
-      'CREATE',
-      'StockAdjustment',
+      "CREATE",
+      "StockAdjustment",
       `Created stock adjustment: ${adjustmentNumber} (${items.length} items, RM ${totalValue.toFixed(2)})`,
       {
         entityId: saved.id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         newValues: {
           adjustmentNumber,
@@ -187,7 +199,7 @@ export class StockAdjustmentService extends BaseCrudService<
           totalValue,
           status: StockAdjustmentStatus.DRAFT,
         },
-      }
+      },
     );
 
     return this.findOne(saved.id);
@@ -202,47 +214,62 @@ export class StockAdjustmentService extends BaseCrudService<
       fromDate,
       toDate,
       search,
-      sortBy = 'adjustmentNumber',
-      sortOrder = 'ASC',
+      sortBy = "adjustmentNumber",
+      sortOrder = "ASC",
     } = query;
 
     const queryBuilder = this.stockAdjustmentRepository
-      .createQueryBuilder('adjustment')
-      .where('adjustment.deletedAt IS NULL');
+      .createQueryBuilder("adjustment")
+      .where("adjustment.deletedAt IS NULL");
 
     // Apply filters
     if (status) {
-      queryBuilder.andWhere('adjustment.status = :status', { status });
+      queryBuilder.andWhere("adjustment.status = :status", { status });
     }
 
     if (fromDate && toDate) {
-      queryBuilder.andWhere('adjustment.adjustmentDate BETWEEN :fromDate AND :toDate', {
-        fromDate,
-        toDate,
-      });
+      queryBuilder.andWhere(
+        "adjustment.adjustmentDate BETWEEN :fromDate AND :toDate",
+        {
+          fromDate,
+          toDate,
+        },
+      );
     } else if (fromDate) {
-      queryBuilder.andWhere('adjustment.adjustmentDate >= :fromDate', { fromDate });
+      queryBuilder.andWhere("adjustment.adjustmentDate >= :fromDate", {
+        fromDate,
+      });
     } else if (toDate) {
-      queryBuilder.andWhere('adjustment.adjustmentDate <= :toDate', { toDate });
+      queryBuilder.andWhere("adjustment.adjustmentDate <= :toDate", { toDate });
     }
 
     if (search) {
       queryBuilder.andWhere(
-        '(adjustment.adjustmentNumber ILIKE :search OR adjustment.notes ILIKE :search)',
+        "(adjustment.adjustmentNumber ILIKE :search OR adjustment.notes ILIKE :search)",
         { search: `%${search}%` },
       );
     }
 
     // Apply sorting
-    const validSortFields = ['adjustmentDate', 'adjustmentNumber', 'totalValue', 'itemCount'];
-    const sortField = validSortFields.includes(sortBy) ? sortBy : 'adjustmentDate';
-    const normalizedSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+    const validSortFields = [
+      "adjustmentDate",
+      "adjustmentNumber",
+      "totalValue",
+      "itemCount",
+    ];
+    const sortField = validSortFields.includes(sortBy)
+      ? sortBy
+      : "adjustmentDate";
+    const normalizedSortOrder =
+      sortOrder?.toUpperCase() === "DESC" ? "DESC" : "ASC";
     queryBuilder.orderBy(`adjustment.${sortField}`, normalizedSortOrder);
-    queryBuilder.addOrderBy('adjustment.createdAt', normalizedSortOrder);
+    queryBuilder.addOrderBy("adjustment.createdAt", normalizedSortOrder);
 
     const [adjustments, total] = await queryBuilder.getManyAndCount();
 
-    const data = adjustments.map(adjustment => this.toListResponseDto(adjustment));
+    const data = adjustments.map((adjustment) =>
+      this.toListResponseDto(adjustment),
+    );
 
     return {
       data,
@@ -268,20 +295,26 @@ export class StockAdjustmentService extends BaseCrudService<
 
     // If the adjustment is soft-deleted, throw appropriate error
     if (adjustment.deletedAt) {
-      throw new NotFoundException(`Stock adjustment with ID '${id}' has been deleted`);
+      throw new NotFoundException(
+        `Stock adjustment with ID '${id}' has been deleted`,
+      );
     }
 
     return this.toResponseDto(adjustment);
   }
 
-  async findByAdjustmentNumber(adjustmentNumber: string): Promise<StockAdjustmentResponseDto> {
+  async findByAdjustmentNumber(
+    adjustmentNumber: string,
+  ): Promise<StockAdjustmentResponseDto> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { adjustmentNumber },
       relations: { items: { product: true } },
     });
 
     if (!adjustment) {
-      throw new NotFoundException(`Stock adjustment '${adjustmentNumber}' not found`);
+      throw new NotFoundException(
+        `Stock adjustment '${adjustmentNumber}' not found`,
+      );
     }
 
     return this.toResponseDto(adjustment);
@@ -306,7 +339,7 @@ export class StockAdjustmentService extends BaseCrudService<
     }
 
     if (!adjustment.isEditable()) {
-      throw new BadRequestException('Only draft adjustments can be edited');
+      throw new BadRequestException("Only draft adjustments can be edited");
     }
 
     // Update basic fields
@@ -325,10 +358,12 @@ export class StockAdjustmentService extends BaseCrudService<
       });
 
       // Verify all products exist
-      const productIds = updateDto.items.map(item => item.productId);
-      const products = await this.productRepository.findBy({ id: In(productIds) });
+      const productIds = updateDto.items.map((item) => item.productId);
+      const products = await this.productRepository.findBy({
+        id: In(productIds),
+      });
       if (products.length !== productIds.length) {
-        throw new BadRequestException('One or more products not found');
+        throw new BadRequestException("One or more products not found");
       }
 
       // Create new items
@@ -336,7 +371,7 @@ export class StockAdjustmentService extends BaseCrudService<
       const items: StockAdjustmentItem[] = [];
 
       for (const itemDto of updateDto.items) {
-        const product = products.find(p => p.id === itemDto.productId);
+        const product = products.find((p) => p.id === itemDto.productId);
         if (!product) continue;
 
         const unitCost = itemDto.unitCost ?? Number(product.baseCost);
@@ -363,23 +398,25 @@ export class StockAdjustmentService extends BaseCrudService<
     }
 
     const saved = await this.stockAdjustmentRepository.save(adjustment);
-    this.logger.log(`Stock adjustment ${saved.adjustmentNumber} updated successfully`);
+    this.logger.log(
+      `Stock adjustment ${saved.adjustmentNumber} updated successfully`,
+    );
 
     // Log audit trail for update
     await this.auditLogService.log(
-      'UPDATE',
-      'StockAdjustment',
+      "UPDATE",
+      "StockAdjustment",
       `Updated stock adjustment: ${saved.adjustmentNumber}`,
       {
         entityId: id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         newValues: {
           adjustmentNumber: saved.adjustmentNumber,
           itemCount: saved.itemCount,
           totalValue: saved.totalValue,
         },
-      }
+      },
     );
 
     return this.findOne(saved.id);
@@ -388,7 +425,11 @@ export class StockAdjustmentService extends BaseCrudService<
   /**
    * Complete a stock adjustment (post to stock movements)
    */
-  async complete(id: string, userId?: string, username?: string): Promise<StockAdjustmentResponseDto> {
+  async complete(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<StockAdjustmentResponseDto> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
       relations: { items: { product: true } },
@@ -399,11 +440,11 @@ export class StockAdjustmentService extends BaseCrudService<
     }
 
     if (!adjustment.canComplete()) {
-      throw new BadRequestException('Only draft adjustments can be completed');
+      throw new BadRequestException("Only draft adjustments can be completed");
     }
 
     if (!adjustment.items || adjustment.items.length === 0) {
-      throw new BadRequestException('Cannot complete adjustment with no items');
+      throw new BadRequestException("Cannot complete adjustment with no items");
     }
 
     // Use transaction to ensure atomicity
@@ -416,22 +457,21 @@ export class StockAdjustmentService extends BaseCrudService<
       for (const item of adjustment.items) {
         if (item.difference === 0) continue;
 
-        const movementType = item.difference > 0
-          ? StockMovementType.ADJUSTMENT_INCREASE
-          : StockMovementType.ADJUSTMENT_DECREASE;
+        const movementType =
+          item.difference > 0
+            ? StockMovementType.ADJUSTMENT_INCREASE
+            : StockMovementType.ADJUSTMENT_DECREASE;
 
-        await this.stockMovementService.create(
-          {
-            productId: item.productId,
-            movementType,
-            quantity: item.difference,
-            unitValue: item.unitCost,
-            referenceType: 'stock_adjustment',
-            referenceId: adjustment.id,
-            reason: `Stock Adjustment ${adjustment.adjustmentNumber}`,
-            notes: item.notes || adjustment.notes,
-          },
-        );
+        await this.stockMovementService.create({
+          productId: item.productId,
+          movementType,
+          quantity: item.difference,
+          unitValue: item.unitCost,
+          referenceType: "stock_adjustment",
+          referenceId: adjustment.id,
+          reason: `Stock Adjustment ${adjustment.adjustmentNumber}`,
+          notes: item.notes || adjustment.notes,
+        });
       }
 
       // Update adjustment status
@@ -440,23 +480,28 @@ export class StockAdjustmentService extends BaseCrudService<
 
       // Log audit trail for complete
       await this.auditLogService.log(
-        'UPDATE',
-        'StockAdjustment',
+        "UPDATE",
+        "StockAdjustment",
         `Completed stock adjustment: ${adjustment.adjustmentNumber}`,
         {
           entityId: adjustment.id,
-          userId: userId || 'system',
+          userId: userId || "system",
           username,
           oldValues: { status: StockAdjustmentStatus.DRAFT },
           newValues: { status: StockAdjustmentStatus.COMPLETED },
-        }
+        },
       );
 
       await queryRunner.commitTransaction();
-      this.logger.log(`Stock adjustment ${adjustment.adjustmentNumber} completed successfully`);
+      this.logger.log(
+        `Stock adjustment ${adjustment.adjustmentNumber} completed successfully`,
+      );
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      this.logger.error(`Failed to complete stock adjustment: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to complete stock adjustment: ${error.message}`,
+        error.stack,
+      );
       throw error;
     } finally {
       await queryRunner.release();
@@ -467,10 +512,12 @@ export class StockAdjustmentService extends BaseCrudService<
       const fullAdjustment = await this.findOne(id); // Get adjustment with relations
       await this.accountingService.postStockAdjustmentEntry(
         fullAdjustment as any,
-        userId || 'system',
+        userId || "system",
         username,
       );
-      this.logger.log(`Posted accounting entry for stock adjustment ${adjustment.adjustmentNumber}`);
+      this.logger.log(
+        `Posted accounting entry for stock adjustment ${adjustment.adjustmentNumber}`,
+      );
     } catch (error) {
       this.logger.error(
         `Failed to post accounting entry for stock adjustment ${id}: ${error.message}`,
@@ -481,7 +528,6 @@ export class StockAdjustmentService extends BaseCrudService<
 
     return this.findOne(id);
   }
-
 
   /**
    * Uncomplete/revert a completed stock adjustment back to draft
@@ -498,11 +544,13 @@ export class StockAdjustmentService extends BaseCrudService<
     }
 
     if (adjustment.status !== StockAdjustmentStatus.COMPLETED) {
-      throw new BadRequestException('Only completed adjustments can be reverted to draft');
+      throw new BadRequestException(
+        "Only completed adjustments can be reverted to draft",
+      );
     }
 
     if (!adjustment.items || adjustment.items.length === 0) {
-      throw new BadRequestException('Cannot revert adjustment with no items');
+      throw new BadRequestException("Cannot revert adjustment with no items");
     }
 
     // Use transaction to ensure atomicity
@@ -516,25 +564,24 @@ export class StockAdjustmentService extends BaseCrudService<
         if (item.difference === 0) continue;
 
         // Reverse the movement type
-        const movementType = item.difference > 0
-          ? StockMovementType.ADJUSTMENT_DECREASE
-          : StockMovementType.ADJUSTMENT_INCREASE;
+        const movementType =
+          item.difference > 0
+            ? StockMovementType.ADJUSTMENT_DECREASE
+            : StockMovementType.ADJUSTMENT_INCREASE;
 
         // Reverse the quantity (negative becomes positive, positive becomes negative)
         const reverseQuantity = -item.difference;
 
-        await this.stockMovementService.create(
-          {
-            productId: item.productId,
-            movementType,
-            quantity: reverseQuantity,
-            unitValue: item.unitCost,
-            referenceType: 'stock_adjustment',
-            referenceId: adjustment.id,
-            reason: `Revert Stock Adjustment ${adjustment.adjustmentNumber}`,
-            notes: `Reverting adjustment back to draft: ${item.notes || adjustment.notes || ''}`,
-          },
-        );
+        await this.stockMovementService.create({
+          productId: item.productId,
+          movementType,
+          quantity: reverseQuantity,
+          unitValue: item.unitCost,
+          referenceType: "stock_adjustment",
+          referenceId: adjustment.id,
+          reason: `Revert Stock Adjustment ${adjustment.adjustmentNumber}`,
+          notes: `Reverting adjustment back to draft: ${item.notes || adjustment.notes || ""}`,
+        });
       }
 
       // Update adjustment status back to draft
@@ -542,10 +589,15 @@ export class StockAdjustmentService extends BaseCrudService<
       await queryRunner.manager.save(adjustment);
 
       await queryRunner.commitTransaction();
-      this.logger.log(`Stock adjustment ${adjustment.adjustmentNumber} reverted to draft successfully`);
+      this.logger.log(
+        `Stock adjustment ${adjustment.adjustmentNumber} reverted to draft successfully`,
+      );
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      this.logger.error(`Failed to revert stock adjustment: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to revert stock adjustment: ${error.message}`,
+        error.stack,
+      );
       throw error;
     } finally {
       await queryRunner.release();
@@ -561,33 +613,37 @@ export class StockAdjustmentService extends BaseCrudService<
    * Find all deleted stock adjustments (no pagination)
    */
   async findDeleted(query: QueryStockAdjustmentsDto = {}): Promise<any> {
-    const {
-      search,
-      sortBy = 'deletedAt',
-      sortOrder = 'DESC',
-    } = query;
+    const { search, sortBy = "deletedAt", sortOrder = "DESC" } = query;
 
     let queryBuilder = this.stockAdjustmentRepository
-      .createQueryBuilder('adjustment')
+      .createQueryBuilder("adjustment")
       .withDeleted() // Include soft-deleted records
-      .where('adjustment.deletedAt IS NOT NULL'); // Only get soft-deleted adjustments
+      .where("adjustment.deletedAt IS NOT NULL"); // Only get soft-deleted adjustments
 
     if (search) {
       queryBuilder = queryBuilder.andWhere(
-        '(adjustment.adjustmentNumber ILIKE :search OR adjustment.notes ILIKE :search)',
+        "(adjustment.adjustmentNumber ILIKE :search OR adjustment.notes ILIKE :search)",
         { search: `%${search}%` },
       );
     }
 
     // Apply sorting
-    const validSortFields = ['deletedAt', 'adjustmentDate', 'adjustmentNumber', 'totalValue'];
-    const sortField = validSortFields.includes(sortBy) ? sortBy : 'deletedAt';
-    const normalizedSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+    const validSortFields = [
+      "deletedAt",
+      "adjustmentDate",
+      "adjustmentNumber",
+      "totalValue",
+    ];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : "deletedAt";
+    const normalizedSortOrder =
+      sortOrder?.toUpperCase() === "DESC" ? "DESC" : "ASC";
     queryBuilder.orderBy(`adjustment.${sortField}`, normalizedSortOrder);
 
     const [adjustments, total] = await queryBuilder.getManyAndCount();
 
-    const data = adjustments.map(adjustment => this.toListResponseDto(adjustment));
+    const data = adjustments.map((adjustment) =>
+      this.toListResponseDto(adjustment),
+    );
 
     return {
       data,
@@ -600,7 +656,11 @@ export class StockAdjustmentService extends BaseCrudService<
   /**
    * Restore a soft-deleted stock adjustment
    */
-  async restore(id: string, userId?: string, username?: string): Promise<StockAdjustmentResponseDto> {
+  async restore(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<StockAdjustmentResponseDto> {
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
       withDeleted: true, // Include soft-deleted records
@@ -612,20 +672,22 @@ export class StockAdjustmentService extends BaseCrudService<
     }
 
     if (!adjustment.deletedAt) {
-      throw new BadRequestException('Stock adjustment is not deleted');
+      throw new BadRequestException("Stock adjustment is not deleted");
     }
 
     // Restore the adjustment
     await this.stockAdjustmentRepository.restore(id);
 
     await this.auditLogService.log(
-      'RESTORE',
-      'StockAdjustment',
+      "RESTORE",
+      "StockAdjustment",
       `Restored stock adjustment: ${adjustment.adjustmentNumber}`,
-      { entityId: id, userId: userId || 'system', username }
+      { entityId: id, userId: userId || "system", username },
     );
 
-    this.logger.log(`Stock adjustment ${adjustment.adjustmentNumber} restored successfully`);
+    this.logger.log(
+      `Stock adjustment ${adjustment.adjustmentNumber} restored successfully`,
+    );
 
     return this.findOne(id);
   }
@@ -633,7 +695,11 @@ export class StockAdjustmentService extends BaseCrudService<
   /**
    * Permanently delete a stock adjustment (hard delete from database)
    */
-  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
+  async permanentDelete(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<void> {
     // Find the adjustment (including soft-deleted ones)
     const adjustment = await this.stockAdjustmentRepository.findOne({
       where: { id },
@@ -646,36 +712,43 @@ export class StockAdjustmentService extends BaseCrudService<
     }
 
     if (!adjustment.deletedAt) {
-      throw new BadRequestException('Stock adjustment must be soft-deleted first');
+      throw new BadRequestException(
+        "Stock adjustment must be soft-deleted first",
+      );
     }
 
     // Delete associated stock movements
     try {
-      const stockMovementResult = await this.stockMovementService.deleteByReference(
-        'stock_adjustment',
-        id
+      const stockMovementResult =
+        await this.stockMovementService.deleteByReference(
+          "stock_adjustment",
+          id,
+        );
+      this.logger.log(
+        `Deleted ${stockMovementResult.deletedCount} stock movements for stock adjustment ${adjustment.adjustmentNumber}`,
       );
-      this.logger.log(`Deleted ${stockMovementResult.deletedCount} stock movements for stock adjustment ${adjustment.adjustmentNumber}`);
     } catch (error) {
-      this.logger.error(`Failed to delete stock movements for stock adjustment ${adjustment.adjustmentNumber}: ${error.message}`);
+      this.logger.error(
+        `Failed to delete stock movements for stock adjustment ${adjustment.adjustmentNumber}: ${error.message}`,
+      );
       // Don't throw error - stock adjustment deletion should still succeed
     }
 
     // Hard delete all adjustment items first
     if (adjustment.items && adjustment.items.length > 0) {
       await this.stockAdjustmentItemRepository.delete(
-        adjustment.items.map(item => item.id)
+        adjustment.items.map((item) => item.id),
       );
     }
 
     // Log audit trail for permanent delete
     await this.auditLogService.log(
-      'PERMANENT_DELETE',
-      'StockAdjustment',
+      "PERMANENT_DELETE",
+      "StockAdjustment",
       `Permanently deleted stock adjustment: ${adjustment.adjustmentNumber}`,
       {
         entityId: id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         oldValues: {
           adjustmentNumber: adjustment.adjustmentNumber,
@@ -683,13 +756,15 @@ export class StockAdjustmentService extends BaseCrudService<
           totalValue: adjustment.totalValue,
           status: adjustment.status,
         },
-      }
+      },
     );
 
     // Hard delete the adjustment
     await this.stockAdjustmentRepository.delete(id);
 
-    this.logger.log(`Stock adjustment ${adjustment.adjustmentNumber} permanently deleted`);
+    this.logger.log(
+      `Stock adjustment ${adjustment.adjustmentNumber} permanently deleted`,
+    );
   }
 
   /**
@@ -708,7 +783,9 @@ export class StockAdjustmentService extends BaseCrudService<
         await this.permanentDelete(id, userId, username);
         successCount++;
       } catch (error) {
-        this.logger.error(`Failed to permanently delete stock adjustment ${id}: ${error.message}`);
+        this.logger.error(
+          `Failed to permanently delete stock adjustment ${id}: ${error.message}`,
+        );
         failedIds.push(id);
       }
     }
@@ -719,7 +796,9 @@ export class StockAdjustmentService extends BaseCrudService<
   /**
    * Convert adjustment to list response DTO
    */
-  private toListResponseDto(adjustment: StockAdjustment): StockAdjustmentListResponseDto {
+  private toListResponseDto(
+    adjustment: StockAdjustment,
+  ): StockAdjustmentListResponseDto {
     return {
       id: adjustment.id,
       adjustmentNumber: adjustment.adjustmentNumber,
@@ -735,7 +814,9 @@ export class StockAdjustmentService extends BaseCrudService<
   /**
    * Convert adjustment to full response DTO
    */
-  private toResponseDto(adjustment: StockAdjustment): StockAdjustmentResponseDto {
+  private toResponseDto(
+    adjustment: StockAdjustment,
+  ): StockAdjustmentResponseDto {
     return {
       id: adjustment.id,
       adjustmentNumber: adjustment.adjustmentNumber,
@@ -744,7 +825,9 @@ export class StockAdjustmentService extends BaseCrudService<
       notes: adjustment.notes,
       itemCount: adjustment.itemCount,
       totalValue: Number(adjustment.totalValue),
-      items: adjustment.items ? adjustment.items.map(item => this.toItemResponseDto(item)) : [],
+      items: adjustment.items
+        ? adjustment.items.map((item) => this.toItemResponseDto(item))
+        : [],
       isEditable: adjustment.isEditable(),
       canComplete: adjustment.canComplete(),
       createdAt: adjustment.createdAt,
@@ -755,7 +838,9 @@ export class StockAdjustmentService extends BaseCrudService<
   /**
    * Convert item to response DTO
    */
-  private toItemResponseDto(item: StockAdjustmentItem): StockAdjustmentItemResponseDto {
+  private toItemResponseDto(
+    item: StockAdjustmentItem,
+  ): StockAdjustmentItemResponseDto {
     return {
       id: item.id,
       product: {

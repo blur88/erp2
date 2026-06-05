@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class LinkPricingSettingsToModules1764480000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -45,13 +45,9 @@ export class LinkPricingSettingsToModules1764480000000 implements MigrationInter
     `);
 
     // 5. Drop old priceLevel column and its index
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "IDX_customers_priceLevel"`,
-    );
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_customers_priceLevel"`);
 
-    await queryRunner.query(
-      `ALTER TABLE "customers" DROP COLUMN "priceLevel"`,
-    );
+    await queryRunner.query(`ALTER TABLE "customers" DROP COLUMN "priceLevel"`);
 
     // 6. Create index on new pricingScheme column
     await queryRunner.query(

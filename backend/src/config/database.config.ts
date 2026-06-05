@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { TypeOrmOptionsFactory, TypeOrmModuleOptions } from '@nestjs/typeorm';
-import { ConfigService } from '@nestjs/config';
-import { createDatabaseConfig } from './database-config.factory';
+import { Injectable } from "@nestjs/common";
+import { TypeOrmOptionsFactory, TypeOrmModuleOptions } from "@nestjs/typeorm";
+import { ConfigService } from "@nestjs/config";
+import { createDatabaseConfig } from "./database-config.factory";
 
 @Injectable()
 export class DatabaseConfig implements TypeOrmOptionsFactory {
@@ -12,13 +12,15 @@ export class DatabaseConfig implements TypeOrmOptionsFactory {
       return createDatabaseConfig(this.configService, false);
     } catch (error) {
       // Security: Log error internally without exposing sensitive details
-      console.error('Database configuration failed - check environment variables and security settings');
-      
+      console.error(
+        "Database configuration failed - check environment variables and security settings",
+      );
+
       // Re-throw with generic message to prevent information disclosure
-      throw new Error('Database configuration error - check server logs');
+      throw new Error("Database configuration error - check server logs");
     }
   }
 }
 
 // Export DataSource for CLI tools - moved to separate module
-export { default } from './cli-datasource';
+export { default } from "./cli-datasource";

@@ -1,10 +1,10 @@
-import { HttpException, HttpStatus } from '@nestjs/common';
-import { QueryFailedError } from 'typeorm';
-import { HttpExceptionFilter } from './http-exception.filter';
-import { ErrorClassifierService } from './services/error-classifier.service';
-import { ErrorLoggerService } from './services/error-logger.service';
-import { ErrorSanitizerService } from './services/error-sanitizer.service';
-import { IdGeneratorService } from './services/id-generator.service';
+import { HttpException, HttpStatus } from "@nestjs/common";
+import { QueryFailedError } from "typeorm";
+import { HttpExceptionFilter } from "./http-exception.filter";
+import { ErrorClassifierService } from "./services/error-classifier.service";
+import { ErrorLoggerService } from "./services/error-logger.service";
+import { ErrorSanitizerService } from "./services/error-sanitizer.service";
+import { IdGeneratorService } from "./services/id-generator.service";
 
 const mockResponse = () => {
   const res: any = {};
@@ -14,10 +14,10 @@ const mockResponse = () => {
 };
 
 const mockRequest = () => ({
-  url: '/api/test',
-  method: 'GET',
-  ip: '127.0.0.1',
-  get: jest.fn().mockReturnValue('TestAgent/1.0'),
+  url: "/api/test",
+  method: "GET",
+  ip: "127.0.0.1",
+  get: jest.fn().mockReturnValue("TestAgent/1.0"),
 });
 
 const mockHost = (req: any, res: any) => ({
@@ -27,7 +27,7 @@ const mockHost = (req: any, res: any) => ({
   }),
 });
 
-describe('HttpExceptionFilter', () => {
+describe("HttpExceptionFilter", () => {
   let filter: HttpExceptionFilter;
   let errorLogger: jest.Mocked<ErrorLoggerService>;
   let errorClassifier: ErrorClassifierService;
@@ -35,8 +35,10 @@ describe('HttpExceptionFilter', () => {
   let idGenerator: IdGeneratorService;
 
   beforeEach(() => {
-    const configService = { get: jest.fn().mockReturnValue('test') } as any;
-    const securityDetector = { isSecurityRelated: jest.fn().mockReturnValue(false) } as any;
+    const configService = { get: jest.fn().mockReturnValue("test") } as any;
+    const securityDetector = {
+      isSecurityRelated: jest.fn().mockReturnValue(false),
+    } as any;
     errorLogger = {
       logUnexpectedError: jest.fn(),
       logSecurityError: jest.fn(),
@@ -57,21 +59,23 @@ describe('HttpExceptionFilter', () => {
     );
   });
 
-  it('handles HttpException and returns correct status', () => {
-    const exception = new HttpException('Not Found', HttpStatus.NOT_FOUND);
+  it("handles HttpException and returns correct status", () => {
+    const exception = new HttpException("Not Found", HttpStatus.NOT_FOUND);
     const res = mockResponse();
     const req = mockRequest();
 
     filter.catch(exception, mockHost(req, res) as any);
 
     expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 404, error: 'HttpException' }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ statusCode: 404, error: "HttpException" }),
+    );
   });
 
-  it('handles QueryFailedError and returns 400 with DB error code', () => {
+  it("handles QueryFailedError and returns 400 with DB error code", () => {
     const exception = Object.create(QueryFailedError.prototype);
-    exception.message = 'duplicate key value violates unique constraint';
-    exception.query = 'INSERT INTO users';
+    exception.message = "duplicate key value violates unique constraint";
+    exception.query = "INSERT INTO users";
     exception.parameters = [];
 
     const res = mockResponse();
@@ -81,12 +85,12 @@ describe('HttpExceptionFilter', () => {
 
     expect(res.status).toHaveBeenCalledWith(400);
     const body = res.json.mock.calls[0][0];
-    expect(body.code).toBe('DB_001');
+    expect(body.code).toBe("DB_001");
     expect(body.requestId).toBeTruthy();
   });
 
-  it('handles unexpected errors and returns 500', () => {
-    const exception = new Error('something broke');
+  it("handles unexpected errors and returns 500", () => {
+    const exception = new Error("something broke");
     const res = mockResponse();
     const req = mockRequest();
 
@@ -96,10 +100,11 @@ describe('HttpExceptionFilter', () => {
     expect(errorLogger.logUnexpectedError).toHaveBeenCalled();
   });
 
-  it('handles unrecognised QueryFailedError and returns generic message, not raw DB text', () => {
+  it("handles unrecognised QueryFailedError and returns generic message, not raw DB text", () => {
     const exception = Object.create(QueryFailedError.prototype);
-    exception.message = 'some obscure storage engine error with internal details';
-    exception.query = 'INSERT INTO orders';
+    exception.message =
+      "some obscure storage engine error with internal details";
+    exception.query = "INSERT INTO orders";
     exception.parameters = [];
 
     const res = mockResponse();
@@ -109,15 +114,19 @@ describe('HttpExceptionFilter', () => {
 
     expect(res.status).toHaveBeenCalledWith(400);
     const body = res.json.mock.calls[0][0];
-    expect(body.code).toBe('DB_999');
-    expect(body.message).not.toContain('storage engine');
-    expect(body.message).not.toContain('internal details');
+    expect(body.code).toBe("DB_999");
+    expect(body.message).not.toContain("storage engine");
+    expect(body.message).not.toContain("internal details");
     expect(body.message).toMatch(/error occurred|try again/i);
   });
 
-  it('returns production-specific message for unexpected errors when NODE_ENV is production', () => {
-    const configService = { get: jest.fn().mockReturnValue('production') } as any;
-    const securityDetector = { isSecurityRelated: jest.fn().mockReturnValue(false) } as any;
+  it("returns production-specific message for unexpected errors when NODE_ENV is production", () => {
+    const configService = {
+      get: jest.fn().mockReturnValue("production"),
+    } as any;
+    const securityDetector = {
+      isSecurityRelated: jest.fn().mockReturnValue(false),
+    } as any;
     const productionFilter = new HttpExceptionFilter(
       configService,
       securityDetector,
@@ -127,20 +136,20 @@ describe('HttpExceptionFilter', () => {
       idGenerator,
     );
 
-    const exception = new Error('something broke');
+    const exception = new Error("something broke");
     const res = mockResponse();
     const req = mockRequest();
 
     productionFilter.catch(exception, mockHost(req, res) as any);
 
     const body = res.json.mock.calls[0][0];
-    expect(body.message).toContain('contact support');
+    expect(body.message).toContain("contact support");
   });
 
-  it('does not call logApplicationError for QueryFailedError (already logged via logDatabaseError)', () => {
+  it("does not call logApplicationError for QueryFailedError (already logged via logDatabaseError)", () => {
     const exception = Object.create(QueryFailedError.prototype);
-    exception.message = 'duplicate key value violates unique constraint';
-    exception.query = 'INSERT INTO users';
+    exception.message = "duplicate key value violates unique constraint";
+    exception.query = "INSERT INTO users";
     exception.parameters = [];
 
     const res = mockResponse();
@@ -152,9 +161,11 @@ describe('HttpExceptionFilter', () => {
     expect(errorLogger.logApplicationError).not.toHaveBeenCalled();
   });
 
-  it('calls logSecurityError when error is security-related', () => {
-    const configService = { get: jest.fn().mockReturnValue('test') } as any;
-    const securityDetector = { isSecurityRelated: jest.fn().mockReturnValue(true) } as any;
+  it("calls logSecurityError when error is security-related", () => {
+    const configService = { get: jest.fn().mockReturnValue("test") } as any;
+    const securityDetector = {
+      isSecurityRelated: jest.fn().mockReturnValue(true),
+    } as any;
     const localFilter = new HttpExceptionFilter(
       configService,
       securityDetector,
@@ -164,7 +175,10 @@ describe('HttpExceptionFilter', () => {
       idGenerator,
     );
 
-    const exception = new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    const exception = new HttpException(
+      "Unauthorized",
+      HttpStatus.UNAUTHORIZED,
+    );
     const res = mockResponse();
     const req = mockRequest();
 

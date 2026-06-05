@@ -1,9 +1,9 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, IsBoolean, IsEnum } from 'class-validator';
-import { Type } from 'class-transformer';
+import { ApiProperty } from "@nestjs/swagger";
+import { IsOptional, IsString, IsBoolean, IsEnum } from "class-validator";
+import { Type } from "class-transformer";
 
 export class QueryPriceListsDto {
-  @ApiProperty({ required: false, example: 'RETAIL' })
+  @ApiProperty({ required: false, example: "RETAIL" })
   @IsString()
   @IsOptional()
   search?: string;

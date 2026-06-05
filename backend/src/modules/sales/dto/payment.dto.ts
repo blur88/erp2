@@ -8,48 +8,48 @@ import {
   IsDate,
   MaxLength,
   IsInt,
-} from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+} from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Transform, Type } from "class-transformer";
 import {
   PaymentStatus,
   SettlementStatusEnum,
-} from '../../../database/entities/payment.entity';
+} from "../../../database/entities/payment.entity";
 
 export class CreatePaymentDto {
   @ApiProperty({
-    description: 'Customer ID',
-    example: 'uuid-string',
+    description: "Customer ID",
+    example: "uuid-string",
   })
   @IsUUID()
   customerId: string;
 
   @ApiPropertyOptional({
-    description: 'Sales order ID (optional for advance payments)',
-    example: 'uuid-string',
+    description: "Sales order ID (optional for advance payments)",
+    example: "uuid-string",
   })
   @IsOptional()
   @IsUUID()
   salesOrderId?: string;
 
   @ApiProperty({
-    description: 'Payment method ID',
-    example: 'uuid-string',
+    description: "Payment method ID",
+    example: "uuid-string",
   })
   @IsUUID()
   paymentMethodId: string;
 
   @ApiProperty({
-    description: 'Payment date',
-    example: '2023-12-01',
+    description: "Payment date",
+    example: "2023-12-01",
   })
   @IsDate()
   @Transform(({ value }) => new Date(value))
   paymentDate: Date;
 
   @ApiProperty({
-    description: 'Payment amount',
-    example: 1500.50,
+    description: "Payment amount",
+    example: 1500.5,
   })
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0.01)
@@ -57,8 +57,8 @@ export class CreatePaymentDto {
   amount: number;
 
   @ApiPropertyOptional({
-    description: 'Payment notes or description',
-    example: 'Payment for invoice INV-2023-001',
+    description: "Payment notes or description",
+    example: "Payment for invoice INV-2023-001",
   })
   @IsOptional()
   @IsString()
@@ -67,8 +67,8 @@ export class CreatePaymentDto {
 
 export class UpdatePaymentDto {
   @ApiPropertyOptional({
-    description: 'Payment notes or description',
-    example: 'Payment confirmed by bank',
+    description: "Payment notes or description",
+    example: "Payment confirmed by bank",
   })
   @IsOptional()
   @IsString()
@@ -77,76 +77,76 @@ export class UpdatePaymentDto {
 
 export class QueryPaymentsDto {
   @ApiPropertyOptional({
-    description: 'Filter by customer ID',
-    example: 'uuid-string',
+    description: "Filter by customer ID",
+    example: "uuid-string",
   })
   @IsOptional()
   @IsUUID()
   customerId?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter by sales order ID',
-    example: 'uuid-string',
+    description: "Filter by sales order ID",
+    example: "uuid-string",
   })
   @IsOptional()
   @IsUUID()
   salesOrderId?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter payments from date',
-    example: '2023-01-01',
+    description: "Filter payments from date",
+    example: "2023-01-01",
   })
   @IsOptional()
   @IsDate()
-  @Transform(({ value }) => value ? new Date(value) : undefined)
+  @Transform(({ value }) => (value ? new Date(value) : undefined))
   fromDate?: Date;
 
   @ApiPropertyOptional({
-    description: 'Filter payments to date',
-    example: '2023-12-31',
+    description: "Filter payments to date",
+    example: "2023-12-31",
   })
   @IsOptional()
   @IsDate()
-  @Transform(({ value }) => value ? new Date(value) : undefined)
+  @Transform(({ value }) => (value ? new Date(value) : undefined))
   toDate?: Date;
 
   @ApiPropertyOptional({
-    description: 'Filter by payment status',
+    description: "Filter by payment status",
     enum: PaymentStatus,
-    example: 'completed',
+    example: "completed",
   })
   @IsOptional()
   @IsEnum(PaymentStatus)
   status?: PaymentStatus;
 
   @ApiPropertyOptional({
-    description: 'Search by payment number or customer name',
-    example: 'PAY-000001',
+    description: "Search by payment number or customer name",
+    example: "PAY-000001",
   })
   @IsOptional()
   @IsString()
   search?: string;
 
   @ApiPropertyOptional({
-    description: 'Sort field',
-    example: 'paymentDate',
+    description: "Sort field",
+    example: "paymentDate",
   })
   @IsOptional()
   @IsString()
   sortBy?: string;
 
   @ApiPropertyOptional({
-    description: 'Sort order',
-    enum: ['ASC', 'DESC'],
-    example: 'DESC',
+    description: "Sort order",
+    enum: ["ASC", "DESC"],
+    example: "DESC",
   })
   @IsOptional()
   @Transform(({ value }) => value?.toUpperCase())
-  @IsEnum(['ASC', 'DESC'])
-  sortOrder?: 'ASC' | 'DESC';
+  @IsEnum(["ASC", "DESC"])
+  sortOrder?: "ASC" | "DESC";
 
   @ApiPropertyOptional({
-    description: 'Page number',
+    description: "Page number",
     example: 1,
   })
   @IsOptional()
@@ -156,7 +156,7 @@ export class QueryPaymentsDto {
   page?: number;
 
   @ApiPropertyOptional({
-    description: 'Items per page',
+    description: "Items per page",
     example: 20,
   })
   @IsOptional()
@@ -167,28 +167,31 @@ export class QueryPaymentsDto {
 }
 
 export class PaymentResponseDto {
-  @ApiProperty({ example: 'uuid-string' })
+  @ApiProperty({ example: "uuid-string" })
   id: string;
 
-  @ApiProperty({ example: 'PAY-ABC123' })
+  @ApiProperty({ example: "PAY-ABC123" })
   paymentNumber: string;
 
   @ApiProperty({ enum: PaymentStatus, example: PaymentStatus.COMPLETED })
   status: PaymentStatus;
 
-  @ApiProperty({ example: 'uuid-string' })
+  @ApiProperty({ example: "uuid-string" })
   paymentMethodId: string;
 
-  @ApiProperty({ enum: SettlementStatusEnum, example: SettlementStatusEnum.NOT_APPLICABLE })
+  @ApiProperty({
+    enum: SettlementStatusEnum,
+    example: SettlementStatusEnum.NOT_APPLICABLE,
+  })
   settlementStatus: SettlementStatusEnum;
 
-  @ApiProperty({ example: 'uuid-string', nullable: true })
+  @ApiProperty({ example: "uuid-string", nullable: true })
   settlementId?: string;
 
   @ApiProperty({
     type: () => Object,
     nullable: true,
-    example: { id: 'uuid-string', code: 'CASH', name: 'Cash' },
+    example: { id: "uuid-string", code: "CASH", name: "Cash" },
   })
   paymentMethodEntity?: {
     id: string;
@@ -196,29 +199,28 @@ export class PaymentResponseDto {
     name: string;
   };
 
-  @ApiProperty({ example: '2023-12-01T00:00:00Z' })
+  @ApiProperty({ example: "2023-12-01T00:00:00Z" })
   paymentDate: Date;
 
-  @ApiProperty({ example: 1500.50 })
+  @ApiProperty({ example: 1500.5 })
   amount: number;
 
-  @ApiProperty({ example: 'Payment for invoice INV-2023-001', nullable: true })
+  @ApiProperty({ example: "Payment for invoice INV-2023-001", nullable: true })
   notes?: string;
 
-  @ApiProperty({ example: 'uuid-string' })
+  @ApiProperty({ example: "uuid-string" })
   customerId: string;
 
-  @ApiProperty({ example: 'uuid-string', nullable: true })
+  @ApiProperty({ example: "uuid-string", nullable: true })
   salesOrderId?: string;
 
-
-  @ApiProperty({ example: '2023-12-01T00:00:00Z' })
+  @ApiProperty({ example: "2023-12-01T00:00:00Z" })
   createdAt: Date;
 
-  @ApiProperty({ example: '2023-12-01T00:00:00Z' })
+  @ApiProperty({ example: "2023-12-01T00:00:00Z" })
   updatedAt: Date;
 
-  @ApiProperty({ example: '2024-01-01T00:00:00Z', nullable: true })
+  @ApiProperty({ example: "2024-01-01T00:00:00Z", nullable: true })
   deletedAt?: Date;
 
   // Computed properties
@@ -226,7 +228,7 @@ export class PaymentResponseDto {
   isCompleted: boolean;
 
   // Relationship data
-  @ApiProperty({ example: 'John Doe' })
+  @ApiProperty({ example: "John Doe" })
   customerName: string;
 
   @ApiProperty({ type: () => Object, nullable: true })
@@ -265,39 +267,39 @@ export class PaymentResponseDto {
     };
   };
 
-  @ApiProperty({ example: 'uuid-string', nullable: true })
+  @ApiProperty({ example: "uuid-string", nullable: true })
   relatedSalesOrderId?: string;
 
-  @ApiProperty({ example: 'SO-2023-001', nullable: true })
+  @ApiProperty({ example: "SO-2023-001", nullable: true })
   relatedSalesOrderNumber?: string;
 }
 
 export class ProcessPaymentDto {
   @ApiProperty({
-    description: 'Customer ID',
-    example: 'uuid-string',
+    description: "Customer ID",
+    example: "uuid-string",
   })
   @IsUUID()
   customerId: string;
 
   @ApiPropertyOptional({
-    description: 'Sales order ID (optional for advance payments)',
-    example: 'uuid-string',
+    description: "Sales order ID (optional for advance payments)",
+    example: "uuid-string",
   })
   @IsOptional()
   @IsUUID()
   salesOrderId?: string;
 
   @ApiProperty({
-    description: 'Payment method ID',
-    example: 'uuid-string',
+    description: "Payment method ID",
+    example: "uuid-string",
   })
   @IsUUID()
   paymentMethodId: string;
 
   @ApiProperty({
-    description: 'Payment amount',
-    example: 1500.50,
+    description: "Payment amount",
+    example: 1500.5,
   })
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0.01)
@@ -305,8 +307,8 @@ export class ProcessPaymentDto {
   amount: number;
 
   @ApiPropertyOptional({
-    description: 'Payment notes or description',
-    example: 'Payment for invoice INV-2023-001',
+    description: "Payment notes or description",
+    example: "Payment for invoice INV-2023-001",
   })
   @IsOptional()
   @IsString()
@@ -315,14 +317,14 @@ export class ProcessPaymentDto {
 
 export class AllocationDto {
   @ApiProperty({
-    description: 'Sales order ID to allocate payment to',
-    example: 'uuid-string',
+    description: "Sales order ID to allocate payment to",
+    example: "uuid-string",
   })
   @IsUUID()
   salesOrderId: string;
 
   @ApiProperty({
-    description: 'Amount to allocate to this sales order',
+    description: "Amount to allocate to this sales order",
     example: 750.25,
   })
   @IsNumber({ maxDecimalPlaces: 4 })
@@ -333,18 +335,18 @@ export class AllocationDto {
 
 export class AllocatePaymentDto {
   @ApiProperty({
-    description: 'Payment ID to allocate',
-    example: 'uuid-string',
+    description: "Payment ID to allocate",
+    example: "uuid-string",
   })
   @IsUUID()
   paymentId: string;
 
   @ApiProperty({
-    description: 'Sales order allocations',
+    description: "Sales order allocations",
     type: [AllocationDto],
     example: [
-      { salesOrderId: 'uuid-1', amount: 750.25 },
-      { salesOrderId: 'uuid-2', amount: 750.25 },
+      { salesOrderId: "uuid-1", amount: 750.25 },
+      { salesOrderId: "uuid-2", amount: 750.25 },
     ],
   })
   @Type(() => AllocationDto)
@@ -352,19 +354,19 @@ export class AllocatePaymentDto {
 }
 
 export class PaymentSummaryDto {
-  @ApiProperty({ example: 'uuid-string' })
+  @ApiProperty({ example: "uuid-string" })
   id: string;
 
-  @ApiProperty({ example: 'PAY-ABC123' })
+  @ApiProperty({ example: "PAY-ABC123" })
   paymentNumber: string;
 
-  @ApiProperty({ example: '2023-12-01T00:00:00Z' })
+  @ApiProperty({ example: "2023-12-01T00:00:00Z" })
   paymentDate: Date;
 
-  @ApiProperty({ example: 1500.50 })
+  @ApiProperty({ example: 1500.5 })
   amount: number;
 
-  @ApiProperty({ example: 'uuid-string' })
+  @ApiProperty({ example: "uuid-string" })
   paymentMethodId: string;
 
   @ApiProperty({ enum: PaymentStatus, example: PaymentStatus.COMPLETED })
@@ -373,15 +375,15 @@ export class PaymentSummaryDto {
 
 export class RefundPaymentDto {
   @ApiProperty({
-    description: 'Payment ID to refund',
-    example: 'uuid-string',
+    description: "Payment ID to refund",
+    example: "uuid-string",
   })
   @IsUUID()
   paymentId: string;
 
   @ApiProperty({
-    description: 'Refund amount',
-    example: 1500.50,
+    description: "Refund amount",
+    example: 1500.5,
   })
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0.01)
@@ -389,8 +391,8 @@ export class RefundPaymentDto {
   amount: number;
 
   @ApiPropertyOptional({
-    description: 'Reason for refund',
-    example: 'Customer requested refund',
+    description: "Reason for refund",
+    example: "Customer requested refund",
   })
   @IsOptional()
   @IsString()

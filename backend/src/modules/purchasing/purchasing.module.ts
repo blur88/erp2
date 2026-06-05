@@ -1,5 +1,5 @@
-import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { Module } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
 
 // Entities
 import {
@@ -12,15 +12,15 @@ import {
   PaymentMethodEntity,
   Product,
   User,
-} from '../../database/entities';
+} from "../../database/entities";
 
 // Services
-import { SupplierService } from './services/supplier.service';
-import { PurchaseOrderService } from './services/purchase-order.service';
-import { PurchaseOrderLifecycleService } from './services/purchase-order-lifecycle.service';
-import { GoodsReceivedNoteService } from './services/goods-received-note.service';
-import { VendorPaymentService } from './services/vendor-payment.service';
-import { PurchasingAnalyticsService } from './services/purchasing-analytics.service';
+import { SupplierService } from "./services/supplier.service";
+import { PurchaseOrderService } from "./services/purchase-order.service";
+import { PurchaseOrderLifecycleService } from "./services/purchase-order-lifecycle.service";
+import { GoodsReceivedNoteService } from "./services/goods-received-note.service";
+import { VendorPaymentService } from "./services/vendor-payment.service";
+import { PurchasingAnalyticsService } from "./services/purchasing-analytics.service";
 
 // Controllers
 import {
@@ -29,13 +29,13 @@ import {
   GoodsReceivedNoteController,
   VendorPaymentController,
   PurchasingAnalyticsController,
-} from './controllers';
+} from "./controllers";
 
 // Import InventoryModule for BaseCostCalculatorService
-import { InventoryModule } from '../inventory/inventory.module';
-import { SettingsModule } from '../settings/settings.module';
-import { AccountingModule } from '../accounting/accounting.module';
-import { ExportModule } from '../../common/export.module';
+import { InventoryModule } from "../inventory/inventory.module";
+import { SettingsModule } from "../settings/settings.module";
+import { AccountingModule } from "../accounting/accounting.module";
+import { ExportModule } from "../../common/export.module";
 
 @Module({
   imports: [

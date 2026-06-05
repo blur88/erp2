@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Logger } from "@nestjs/common";
 
 export interface ThreatDetectionLog {
   threats: string;
@@ -36,7 +36,7 @@ export interface SuspiciousContentTypeLog {
  * Centralized logging for security-related events
  */
 export class SecurityLogger {
-  private readonly logger = new Logger('SecurityMonitor');
+  private readonly logger = new Logger("SecurityMonitor");
 
   logThreatDetection(data: ThreatDetectionLog): void {
     this.logger.warn(`Critical security threat detected in ${data.context}:`, {
@@ -50,7 +50,7 @@ export class SecurityLogger {
   }
 
   logHeaderInjection(data: HeaderInjectionLog): void {
-    this.logger.warn('Header injection attempt detected:', {
+    this.logger.warn("Header injection attempt detected:", {
       header: data.header,
       value: data.value,
       ip: data.ip,
@@ -59,7 +59,7 @@ export class SecurityLogger {
   }
 
   logExcessiveHeaderLength(data: ExcessiveHeaderLengthLog): void {
-    this.logger.warn('Excessively long header detected:', {
+    this.logger.warn("Excessively long header detected:", {
       header: data.header,
       length: data.length,
       ip: data.ip,
@@ -68,7 +68,7 @@ export class SecurityLogger {
   }
 
   logSuspiciousContentType(data: SuspiciousContentTypeLog): void {
-    this.logger.warn('Suspicious Content-Type detected:', {
+    this.logger.warn("Suspicious Content-Type detected:", {
       contentType: data.contentType,
       method: data.method,
       path: data.path,

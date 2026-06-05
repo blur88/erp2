@@ -1,8 +1,6 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class AddPgTrgmAndTrigramIndexes1773400000000
-  implements MigrationInterface
-{
+export class AddPgTrgmAndTrigramIndexes1773400000000 implements MigrationInterface {
   async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
 
@@ -61,13 +59,29 @@ export class AddPgTrgmAndTrigramIndexes1773400000000
     await queryRunner.query(`DROP INDEX IF EXISTS idx_products_barcode_trgm`);
     await queryRunner.query(`DROP INDEX IF EXISTS idx_customers_name_trgm`);
     await queryRunner.query(`DROP INDEX IF EXISTS idx_customers_phone_trgm`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_sales_orders_ordernumber_trgm`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_purchase_orders_ordernumber_trgm`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_suppliers_companyname_trgm`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_invoices_invoicenumber_trgm`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_payments_paymentnumber_trgm`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_vendor_payments_paymentnumber_trgm`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_vendor_payments_referencenumber_trgm`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_journal_entries_referencenumber_trgm`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS idx_sales_orders_ordernumber_trgm`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS idx_purchase_orders_ordernumber_trgm`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS idx_suppliers_companyname_trgm`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS idx_invoices_invoicenumber_trgm`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS idx_payments_paymentnumber_trgm`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS idx_vendor_payments_paymentnumber_trgm`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS idx_vendor_payments_referencenumber_trgm`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS idx_journal_entries_referencenumber_trgm`,
+    );
   }
 }

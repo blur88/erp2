@@ -17,11 +17,11 @@ import { MigrationInterface, QueryRunner } from "typeorm";
  * The migration file serves as documentation and for applying to other environments.
  */
 export class CreatePriceListTables1768231502083 implements MigrationInterface {
-    name = 'CreatePriceListTables1768231502083'
+  name = "CreatePriceListTables1768231502083";
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        // Create price_lists table
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    // Create price_lists table
+    await queryRunner.query(`
             CREATE TABLE "price_lists" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -40,13 +40,19 @@ export class CreatePriceListTables1768231502083 implements MigrationInterface {
             )
         `);
 
-        // Create indexes for price_lists
-        await queryRunner.query(`CREATE INDEX "IDX_price_lists_code" ON "price_lists" ("code")`);
-        await queryRunner.query(`CREATE INDEX "IDX_price_lists_isActive" ON "price_lists" ("isActive")`);
-        await queryRunner.query(`CREATE INDEX "IDX_price_lists_isDefault" ON "price_lists" ("isDefault")`);
+    // Create indexes for price_lists
+    await queryRunner.query(
+      `CREATE INDEX "IDX_price_lists_code" ON "price_lists" ("code")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_price_lists_isActive" ON "price_lists" ("isActive")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_price_lists_isDefault" ON "price_lists" ("isDefault")`,
+    );
 
-        // Create price_list_items table
-        await queryRunner.query(`
+    // Create price_list_items table
+    await queryRunner.query(`
             CREATE TABLE "price_list_items" (
                 "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
                 "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -66,73 +72,90 @@ export class CreatePriceListTables1768231502083 implements MigrationInterface {
             )
         `);
 
-        // Create indexes for price_list_items
-        await queryRunner.query(`CREATE INDEX "IDX_price_list_items_priceListId" ON "price_list_items" ("priceListId")`);
-        await queryRunner.query(`CREATE INDEX "IDX_price_list_items_productId" ON "price_list_items" ("productId")`);
+    // Create indexes for price_list_items
+    await queryRunner.query(
+      `CREATE INDEX "IDX_price_list_items_priceListId" ON "price_list_items" ("priceListId")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_price_list_items_productId" ON "price_list_items" ("productId")`,
+    );
 
-        // Add foreign keys for price_list_items
-        await queryRunner.query(`
+    // Add foreign keys for price_list_items
+    await queryRunner.query(`
             ALTER TABLE "price_list_items"
             ADD CONSTRAINT "FK_price_list_items_priceListId"
             FOREIGN KEY ("priceListId") REFERENCES "price_lists"("id")
             ON DELETE CASCADE
         `);
-        await queryRunner.query(`
+    await queryRunner.query(`
             ALTER TABLE "price_list_items"
             ADD CONSTRAINT "FK_price_list_items_productId"
             FOREIGN KEY ("productId") REFERENCES "products"("id")
             ON DELETE CASCADE
         `);
 
-        // Add priceListId column to customers table (nullable for backward compatibility)
-        await queryRunner.query(`ALTER TABLE "customers" ADD "priceListId" uuid`);
-        await queryRunner.query(`CREATE INDEX "IDX_customers_priceListId" ON "customers" ("priceListId")`);
-        await queryRunner.query(`
+    // Add priceListId column to customers table (nullable for backward compatibility)
+    await queryRunner.query(`ALTER TABLE "customers" ADD "priceListId" uuid`);
+    await queryRunner.query(
+      `CREATE INDEX "IDX_customers_priceListId" ON "customers" ("priceListId")`,
+    );
+    await queryRunner.query(`
             ALTER TABLE "customers"
             ADD CONSTRAINT "FK_customers_priceListId"
             FOREIGN KEY ("priceListId") REFERENCES "price_lists"("id")
             ON DELETE SET NULL
         `);
 
-        // Update comments on deprecated fields
-        await queryRunner.query(`
+    // Update comments on deprecated fields
+    await queryRunner.query(`
             COMMENT ON COLUMN "products"."pricingTiers" IS
             'DEPRECATED: Dynamic pricing tiers from settings - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }. Use PriceListItem relationship instead.'
         `);
-        await queryRunner.query(`
+    await queryRunner.query(`
             COMMENT ON COLUMN "customers"."pricingScheme" IS
             'DEPRECATED: Default pricing scheme name for this customer. Use priceListId instead.'
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        // Remove foreign key from customers
-        await queryRunner.query(`ALTER TABLE "customers" DROP CONSTRAINT "FK_customers_priceListId"`);
-        await queryRunner.query(`DROP INDEX "IDX_customers_priceListId"`);
-        await queryRunner.query(`ALTER TABLE "customers" DROP COLUMN "priceListId"`);
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    // Remove foreign key from customers
+    await queryRunner.query(
+      `ALTER TABLE "customers" DROP CONSTRAINT "FK_customers_priceListId"`,
+    );
+    await queryRunner.query(`DROP INDEX "IDX_customers_priceListId"`);
+    await queryRunner.query(
+      `ALTER TABLE "customers" DROP COLUMN "priceListId"`,
+    );
 
-        // Remove foreign keys from price_list_items
-        await queryRunner.query(`ALTER TABLE "price_list_items" DROP CONSTRAINT "FK_price_list_items_productId"`);
-        await queryRunner.query(`ALTER TABLE "price_list_items" DROP CONSTRAINT "FK_price_list_items_priceListId"`);
+    // Remove foreign keys from price_list_items
+    await queryRunner.query(
+      `ALTER TABLE "price_list_items" DROP CONSTRAINT "FK_price_list_items_productId"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "price_list_items" DROP CONSTRAINT "FK_price_list_items_priceListId"`,
+    );
 
-        // Drop indexes for price_list_items
-        await queryRunner.query(`DROP INDEX "IDX_price_list_items_productId"`);
-        await queryRunner.query(`DROP INDEX "IDX_price_list_items_priceListId"`);
+    // Drop indexes for price_list_items
+    await queryRunner.query(`DROP INDEX "IDX_price_list_items_productId"`);
+    await queryRunner.query(`DROP INDEX "IDX_price_list_items_priceListId"`);
 
-        // Drop price_list_items table
-        await queryRunner.query(`DROP TABLE "price_list_items"`);
+    // Drop price_list_items table
+    await queryRunner.query(`DROP TABLE "price_list_items"`);
 
-        // Drop indexes for price_lists
-        await queryRunner.query(`DROP INDEX "IDX_price_lists_isDefault"`);
-        await queryRunner.query(`DROP INDEX "IDX_price_lists_isActive"`);
-        await queryRunner.query(`DROP INDEX "IDX_price_lists_code"`);
+    // Drop indexes for price_lists
+    await queryRunner.query(`DROP INDEX "IDX_price_lists_isDefault"`);
+    await queryRunner.query(`DROP INDEX "IDX_price_lists_isActive"`);
+    await queryRunner.query(`DROP INDEX "IDX_price_lists_code"`);
 
-        // Drop price_lists table
-        await queryRunner.query(`DROP TABLE "price_lists"`);
+    // Drop price_lists table
+    await queryRunner.query(`DROP TABLE "price_lists"`);
 
-        // Remove comments on deprecated fields
-        await queryRunner.query(`COMMENT ON COLUMN "products"."pricingTiers" IS 'Dynamic pricing tiers from settings - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }'`);
-        await queryRunner.query(`COMMENT ON COLUMN "customers"."pricingScheme" IS 'Default pricing scheme name for this customer'`);
-    }
-
+    // Remove comments on deprecated fields
+    await queryRunner.query(
+      `COMMENT ON COLUMN "products"."pricingTiers" IS 'Dynamic pricing tiers from settings - { "Retail": 100.00, "Wholesale": 80.00, "VIP": 75.00 }'`,
+    );
+    await queryRunner.query(
+      `COMMENT ON COLUMN "customers"."pricingScheme" IS 'Default pricing scheme name for this customer'`,
+    );
+  }
 }

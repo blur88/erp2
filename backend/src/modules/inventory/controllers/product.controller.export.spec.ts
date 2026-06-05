@@ -1,17 +1,17 @@
-import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
-import request from 'supertest';
-import { ExportService } from '../../../common/services/export.service';
-import { PricingService } from '../services/pricing.service';
-import { ProductService } from '../services/product.service';
-import { ProductController } from './product.controller';
+import { INestApplication } from "@nestjs/common";
+import { Test, TestingModule } from "@nestjs/testing";
+import request from "supertest";
+import { ExportService } from "../../../common/services/export.service";
+import { PricingService } from "../services/pricing.service";
+import { ProductService } from "../services/product.service";
+import { ProductController } from "./product.controller";
 
 const mockProductService = {
   findAll: jest.fn().mockResolvedValue({
     data: [
       {
-        sku: 'P001',
-        name: 'Widget',
+        sku: "P001",
+        name: "Widget",
         costPrice: 5,
         sellingPrice: 10,
         currentStock: 100,
@@ -25,10 +25,10 @@ const mockProductService = {
 const mockPricingService = {};
 
 const mockExportService = {
-  exportFlat: jest.fn().mockResolvedValue(Buffer.from('fake-excel')),
+  exportFlat: jest.fn().mockResolvedValue(Buffer.from("fake-excel")),
 };
 
-describe('ProductController /export', () => {
+describe("ProductController /export", () => {
   let app: INestApplication;
 
   beforeEach(async () => {
@@ -47,12 +47,14 @@ describe('ProductController /export', () => {
 
   afterEach(() => app.close());
 
-  it('GET /inventory/products/export returns 200 with xlsx content-type', async () => {
-    const res = await request(app.getHttpServer()).get('/inventory/products/export');
+  it("GET /inventory/products/export returns 200 with xlsx content-type", async () => {
+    const res = await request(app.getHttpServer()).get(
+      "/inventory/products/export",
+    );
 
     expect(res.status).toBe(200);
-    expect(res.headers['content-type']).toContain(
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    expect(res.headers["content-type"]).toContain(
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
   });
 });

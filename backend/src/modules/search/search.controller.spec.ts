@@ -1,10 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { SearchController } from './search.controller';
-import { SearchService } from './search.service';
-import { SearchAnalyticsService } from './search-analytics.service';
-import { SearchResultType } from './search-result-type.enum';
+import { Test, TestingModule } from "@nestjs/testing";
+import { SearchController } from "./search.controller";
+import { SearchService } from "./search.service";
+import { SearchAnalyticsService } from "./search-analytics.service";
+import { SearchResultType } from "./search-result-type.enum";
 
-describe('SearchController', () => {
+describe("SearchController", () => {
   let controller: SearchController;
   let analyticsService: { logClick: jest.Mock };
 
@@ -18,8 +18,8 @@ describe('SearchController', () => {
           provide: SearchService,
           useValue: {
             search: jest.fn().mockResolvedValue({
-              query: '',
-              searchQueryId: 'sq-id',
+              query: "",
+              searchQueryId: "sq-id",
               results: [],
             }),
           },
@@ -34,24 +34,27 @@ describe('SearchController', () => {
     controller = module.get(SearchController);
   });
 
-  it('POST /search/click calls logClick and returns undefined', async () => {
+  it("POST /search/click calls logClick and returns undefined", async () => {
     const dto = {
-      query: 'acme',
+      query: "acme",
       resultType: SearchResultType.CUSTOMER,
-      resultId: 'cust-1',
-      resultLabel: 'Acme Corp',
+      resultId: "cust-1",
+      resultLabel: "Acme Corp",
       position: 1,
     };
 
-    const result = await controller.trackClick(dto as any, {
-      user: { userId: 'u1' },
-    } as any);
+    const result = await controller.trackClick(
+      dto as any,
+      {
+        user: { userId: "u1" },
+      } as any,
+    );
 
     expect(analyticsService.logClick).toHaveBeenCalledWith(
       expect.objectContaining({
-        query: 'acme',
+        query: "acme",
         resultType: SearchResultType.CUSTOMER,
-        resultId: 'cust-1',
+        resultId: "cust-1",
         position: 1,
       }),
     );

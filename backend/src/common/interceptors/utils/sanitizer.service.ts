@@ -1,27 +1,27 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 
 @Injectable()
 export class DataSanitizerService {
   private readonly genericSensitiveFields = [
-    'password',
-    'currentPassword',
-    'newPassword',
-    'confirmPassword',
-    'token',
-    'refreshToken',
-    'accessToken',
-    'secret',
-    'key',
-    'apiKey',
-    'authorization',
+    "password",
+    "currentPassword",
+    "newPassword",
+    "confirmPassword",
+    "token",
+    "refreshToken",
+    "accessToken",
+    "secret",
+    "key",
+    "apiKey",
+    "authorization",
   ];
 
   private readonly erpSensitiveFields = [
-    'cost',
-    'wholesalePrice',
-    'taxRate',
-    'margin',
-    'discount',
+    "cost",
+    "wholesalePrice",
+    "taxRate",
+    "margin",
+    "discount",
   ];
 
   sanitizeRequestBody(body: any): any {
@@ -38,8 +38,8 @@ export class DataSanitizerService {
     if (sanitized?.tokens) {
       sanitized.tokens = {
         ...sanitized.tokens,
-        accessToken: '[REDACTED]',
-        refreshToken: '[REDACTED]',
+        accessToken: "[REDACTED]",
+        refreshToken: "[REDACTED]",
       };
     }
 
@@ -47,12 +47,12 @@ export class DataSanitizerService {
   }
 
   private sanitizeObject(obj: any, sensitiveFields: string[]): any {
-    if (!obj || typeof obj !== 'object') return obj;
+    if (!obj || typeof obj !== "object") return obj;
 
     const sanitized = { ...obj };
     sensitiveFields.forEach((field) => {
       if (sanitized[field]) {
-        sanitized[field] = '[REDACTED]';
+        sanitized[field] = "[REDACTED]";
       }
     });
 

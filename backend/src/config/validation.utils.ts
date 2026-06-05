@@ -12,17 +12,17 @@
  * @returns Validated integer value
  */
 export function validateAndParseInt(
-  value: string | undefined, 
-  defaultValue: string, 
-  min: number, 
-  max: number, 
-  fieldName: string
+  value: string | undefined,
+  defaultValue: string,
+  min: number,
+  max: number,
+  fieldName: string,
 ): number {
   const parsed = parseInt(value || defaultValue, 10);
-  
+
   if (isNaN(parsed) || parsed < min || parsed > max) {
     throw new Error(`Invalid ${fieldName}: must be between ${min} and ${max}`);
   }
-  
+
   return parsed;
 }

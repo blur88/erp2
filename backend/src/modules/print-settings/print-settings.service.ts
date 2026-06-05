@@ -1,9 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { PrintSettings } from '../../database/entities/print-settings.entity';
-import { UpdatePrintSettingsDto } from './dto/update-print-settings.dto';
-import { PrintSettingsResponseDto } from './dto/print-settings-response.dto';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { PrintSettings } from "../../database/entities/print-settings.entity";
+import { UpdatePrintSettingsDto } from "./dto/update-print-settings.dto";
+import { PrintSettingsResponseDto } from "./dto/print-settings-response.dto";
 
 @Injectable()
 export class PrintSettingsService {
@@ -18,35 +18,35 @@ export class PrintSettingsService {
   async getSettings(): Promise<PrintSettingsResponseDto> {
     let settings = await this.printSettingsRepository.findOne({
       where: {},
-      order: { createdAt: 'ASC' },
+      order: { createdAt: "ASC" },
     });
 
     // Create default settings if none exist
     if (!settings) {
       settings = this.printSettingsRepository.create({
-        companyName: '',
-        address: '',
-        city: '',
-        state: '',
-        postalCode: '',
-        country: '',
-        phone: '',
-        email: '',
-        website: '',
-        miscInfo: '',
-        salesPerPageFooter: '',
-        salesEndOfDocFooter: '',
-        purchasingPerPageFooter: '',
-        purchasingEndOfDocFooter: '',
-        inventoryPerPageFooter: '',
-        inventoryEndOfDocFooter: '',
-        reportPerPageFooter: '',
-        reportEndOfDocFooter: '',
-        salesOrderTemplate: this.getDefaultTemplate('Sales Order'),
-        paymentReceiptTemplate: this.getDefaultTemplate('Payment Receipt'),
-        purchaseOrderTemplate: this.getDefaultTemplate('Purchase Order'),
-        grnTemplate: this.getDefaultTemplate('Goods Received Note'),
-        vendorPaymentTemplate: this.getDefaultTemplate('Vendor Payment'),
+        companyName: "",
+        address: "",
+        city: "",
+        state: "",
+        postalCode: "",
+        country: "",
+        phone: "",
+        email: "",
+        website: "",
+        miscInfo: "",
+        salesPerPageFooter: "",
+        salesEndOfDocFooter: "",
+        purchasingPerPageFooter: "",
+        purchasingEndOfDocFooter: "",
+        inventoryPerPageFooter: "",
+        inventoryEndOfDocFooter: "",
+        reportPerPageFooter: "",
+        reportEndOfDocFooter: "",
+        salesOrderTemplate: this.getDefaultTemplate("Sales Order"),
+        paymentReceiptTemplate: this.getDefaultTemplate("Payment Receipt"),
+        purchaseOrderTemplate: this.getDefaultTemplate("Purchase Order"),
+        grnTemplate: this.getDefaultTemplate("Goods Received Note"),
+        vendorPaymentTemplate: this.getDefaultTemplate("Vendor Payment"),
       });
       settings = await this.printSettingsRepository.save(settings);
     }
@@ -62,7 +62,7 @@ export class PrintSettingsService {
   ): Promise<PrintSettingsResponseDto> {
     let settings = await this.printSettingsRepository.findOne({
       where: {},
-      order: { createdAt: 'ASC' },
+      order: { createdAt: "ASC" },
     });
 
     if (!settings) {
@@ -82,23 +82,25 @@ export class PrintSettingsService {
   /**
    * Import settings from company settings
    */
-  async importFromCompanySettings(companySettings: any): Promise<PrintSettingsResponseDto> {
+  async importFromCompanySettings(
+    companySettings: any,
+  ): Promise<PrintSettingsResponseDto> {
     let settings = await this.printSettingsRepository.findOne({
       where: {},
-      order: { createdAt: 'ASC' },
+      order: { createdAt: "ASC" },
     });
 
     const importData = {
-      companyName: companySettings.name || '',
-      address: companySettings.address || '',
-      city: companySettings.city || '',
-      state: companySettings.state || '',
-      postalCode: companySettings.postalCode || '',
-      country: companySettings.country || '',
-      phone: companySettings.phone || '',
-      email: companySettings.email || '',
-      website: companySettings.website || '',
-      miscInfo: companySettings.miscInfo || '',
+      companyName: companySettings.name || "",
+      address: companySettings.address || "",
+      city: companySettings.city || "",
+      state: companySettings.state || "",
+      postalCode: companySettings.postalCode || "",
+      country: companySettings.country || "",
+      phone: companySettings.phone || "",
+      email: companySettings.email || "",
+      website: companySettings.website || "",
+      miscInfo: companySettings.miscInfo || "",
       logoUrl: companySettings.logoUrl || null,
     };
 
@@ -130,7 +132,7 @@ export class PrintSettingsService {
       showTotal: true,
       showNotes: true,
       fontSize: 12,
-      fontFamily: 'Arial',
+      fontFamily: "Arial",
       margins: {
         top: 20,
         right: 20,

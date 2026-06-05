@@ -5,21 +5,21 @@ import {
   Logger,
   Inject,
   forwardRef,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
 import {
   Repository,
   FindManyOptions,
   SelectQueryBuilder,
   Between,
   EntityManager,
-} from 'typeorm';
+} from "typeorm";
 import {
   StockMovement,
   StockMovementType,
-} from '../../../database/entities/stock-movement.entity';
-import { Product } from '../../../database/entities/product.entity';
-import { repoFor } from '../../../common/db/tx-helpers';
+} from "../../../database/entities/stock-movement.entity";
+import { Product } from "../../../database/entities/product.entity";
+import { repoFor } from "../../../common/db/tx-helpers";
 import {
   CreateStockMovementDto,
   QueryStockMovementsDto,
@@ -29,8 +29,8 @@ import {
   LowStockAlertDto,
   CreateBulkStockAdjustmentDto,
   BulkStockAdjustmentResponseDto,
-} from '../dto/stock.dto';
-import { ProductService } from './product.service';
+} from "../dto/stock.dto";
+import { ProductService } from "./product.service";
 
 @Injectable()
 export class StockMovementService {
@@ -44,7 +44,6 @@ export class StockMovementService {
     @Inject(forwardRef(() => ProductService))
     private readonly productService: ProductService,
   ) {}
-
 
   /**
    * Create a stock movement and update product stock
@@ -83,7 +82,9 @@ export class StockMovementService {
     const newBalance = previousBalance + Number(createMovementDto.quantity);
 
     // DEBUG: Log stock values to trace the bug
-    console.log(`🔍 [stockMovementService.create] Product ${createMovementDto.productId}:`);
+    console.log(
+      `🔍 [stockMovementService.create] Product ${createMovementDto.productId}:`,
+    );
     console.log(`  Current stock in DB: ${previousBalance}`);
     console.log(`  Quantity change: ${createMovementDto.quantity}`);
     console.log(`  New balance will be: ${newBalance}`);
@@ -91,7 +92,7 @@ export class StockMovementService {
     // Validate new balance is not negative
     if (newBalance < 0) {
       throw new BadRequestException(
-        'Stock movement would result in negative stock quantity',
+        "Stock movement would result in negative stock quantity",
       );
     }
 
@@ -102,7 +103,8 @@ export class StockMovementService {
       newBalance,
     });
 
-    const savedMovement = await this.stockMovementRepository.save(stockMovement);
+    const savedMovement =
+      await this.stockMovementRepository.save(stockMovement);
 
     // Update product stock quantity
     await this.productService.updateStockQuantity(
@@ -138,65 +140,71 @@ export class StockMovementService {
       referenceType,
       referenceId,
       search,
-      sortBy = 'movementDate',
-      sortOrder = 'DESC',
+      sortBy = "movementDate",
+      sortOrder = "DESC",
     } = query;
 
     const queryBuilder = this.stockMovementRepository
-      .createQueryBuilder('movement')
-      .leftJoinAndSelect('movement.product', 'product')
-      .leftJoinAndSelect('product.category', 'category')
-      .where('movement.deletedAt IS NULL');
+      .createQueryBuilder("movement")
+      .leftJoinAndSelect("movement.product", "product")
+      .leftJoinAndSelect("product.category", "category")
+      .where("movement.deletedAt IS NULL");
 
     // Apply filters
     if (productId) {
-      queryBuilder.andWhere('movement.productId = :productId', { productId });
+      queryBuilder.andWhere("movement.productId = :productId", { productId });
     }
 
     if (movementType) {
-      queryBuilder.andWhere('movement.movementType = :movementType', {
+      queryBuilder.andWhere("movement.movementType = :movementType", {
         movementType,
       });
     }
 
     if (fromDate && toDate) {
-      queryBuilder.andWhere('movement.movementDate BETWEEN :fromDate AND :toDate', {
-        fromDate,
-        toDate,
-      });
+      queryBuilder.andWhere(
+        "movement.movementDate BETWEEN :fromDate AND :toDate",
+        {
+          fromDate,
+          toDate,
+        },
+      );
     } else if (fromDate) {
-      queryBuilder.andWhere('movement.movementDate >= :fromDate', { fromDate });
+      queryBuilder.andWhere("movement.movementDate >= :fromDate", { fromDate });
     } else if (toDate) {
-      queryBuilder.andWhere('movement.movementDate <= :toDate', { toDate });
+      queryBuilder.andWhere("movement.movementDate <= :toDate", { toDate });
     }
 
     if (referenceType) {
-      queryBuilder.andWhere('movement.referenceType = :referenceType', {
+      queryBuilder.andWhere("movement.referenceType = :referenceType", {
         referenceType,
       });
     }
 
     if (referenceId) {
-      queryBuilder.andWhere('movement.referenceId = :referenceId', {
+      queryBuilder.andWhere("movement.referenceId = :referenceId", {
         referenceId,
       });
     }
 
     if (search) {
       queryBuilder.andWhere(
-        '(product.name ILIKE :search OR product.barcode ILIKE :search OR movement.reason ILIKE :search)',
+        "(product.name ILIKE :search OR product.barcode ILIKE :search OR movement.reason ILIKE :search)",
         { search: `%${search}%` },
       );
     }
 
     // Apply sorting
-    const validSortFields = ['movementDate', 'quantity', 'totalValue'];
-    const sortField = validSortFields.includes(sortBy) ? sortBy : 'movementDate';
+    const validSortFields = ["movementDate", "quantity", "totalValue"];
+    const sortField = validSortFields.includes(sortBy)
+      ? sortBy
+      : "movementDate";
     // Normalize sort order to uppercase for TypeORM
-    const normalizedSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+    const normalizedSortOrder =
+      sortOrder?.toUpperCase() === "DESC" ? "DESC" : "ASC";
     queryBuilder.orderBy(`movement.${sortField}`, normalizedSortOrder);
     // Add secondary sort by createdAt to ensure consistent ordering when primary field has duplicates
-    queryBuilder.addOrderBy('movement.createdAt', normalizedSortOrder);
+    queryBuilder.addOrderBy("movement.createdAt", normalizedSortOrder);
 
     // Apply pagination
     const offset = (page - 1) * limit;
@@ -204,7 +212,7 @@ export class StockMovementService {
 
     const [movements, total] = await queryBuilder.getManyAndCount();
 
-    const data = movements.map(movement => this.toResponseDto(movement));
+    const data = movements.map((movement) => this.toResponseDto(movement));
 
     return {
       data,
@@ -256,7 +264,8 @@ export class StockMovementService {
 
     // Create reversal movement
     const reversalMovement = movement.reverse(reason);
-    const savedReversal = await this.stockMovementRepository.save(reversalMovement);
+    const savedReversal =
+      await this.stockMovementRepository.save(reversalMovement);
 
     // Update product stock
     await this.productService.updateStockQuantity(
@@ -267,7 +276,9 @@ export class StockMovementService {
 
     // Audit logging removed with authentication system
 
-    this.logger.log(`Stock movement reversed successfully: ${savedReversal.id}`);
+    this.logger.log(
+      `Stock movement reversed successfully: ${savedReversal.id}`,
+    );
     return this.toResponseDto(savedReversal);
   }
 
@@ -285,8 +296,8 @@ export class StockMovementService {
       movementType: StockMovementType.INITIAL_STOCK,
       quantity,
       unitValue: unitCost,
-      reason: 'Initial stock entry',
-      referenceType: 'initial_stock',
+      reason: "Initial stock entry",
+      referenceType: "initial_stock",
     };
 
     return this.create(createMovementDto, userId);
@@ -351,18 +362,23 @@ export class StockMovementService {
 
     // Base query for movements within date range
     const movementsQuery = this.stockMovementRepository
-      .createQueryBuilder('movement')
-      .where('movement.productId = :productId', { productId });
+      .createQueryBuilder("movement")
+      .where("movement.productId = :productId", { productId });
 
     if (fromDate && toDate) {
-      movementsQuery.andWhere('movement.movementDate BETWEEN :fromDate AND :toDate', {
-        fromDate,
-        toDate,
-      });
+      movementsQuery.andWhere(
+        "movement.movementDate BETWEEN :fromDate AND :toDate",
+        {
+          fromDate,
+          toDate,
+        },
+      );
     } else if (fromDate) {
-      movementsQuery.andWhere('movement.movementDate >= :fromDate', { fromDate });
+      movementsQuery.andWhere("movement.movementDate >= :fromDate", {
+        fromDate,
+      });
     } else if (toDate) {
-      movementsQuery.andWhere('movement.movementDate <= :toDate', { toDate });
+      movementsQuery.andWhere("movement.movementDate <= :toDate", { toDate });
     }
 
     const movements = await movementsQuery.getMany();
@@ -372,7 +388,7 @@ export class StockMovementService {
     let totalOutward = 0;
     let lastMovementDate: Date | undefined;
 
-    movements.forEach(movement => {
+    movements.forEach((movement) => {
       if (movement.isInward) {
         totalInward += Math.abs(Number(movement.quantity));
       } else if (movement.isOutward) {
@@ -383,7 +399,6 @@ export class StockMovementService {
         lastMovementDate = movement.movementDate;
       }
     });
-
 
     return {
       productId: product.id,
@@ -405,25 +420,28 @@ export class StockMovementService {
    */
   async getLowStockAlerts(): Promise<LowStockAlertDto[]> {
     const lowStockProducts = await this.productRepository
-      .createQueryBuilder('product')
-      .leftJoinAndSelect('product.category', 'category')
-      .leftJoin('product.stockMovements', 'movements')
-      .where('product.stockQuantity <= product.reorderLevel')
-      .andWhere('product.isActive = true')
-      .andWhere('product.reorderLevel > 0')
+      .createQueryBuilder("product")
+      .leftJoinAndSelect("product.category", "category")
+      .leftJoin("product.stockMovements", "movements")
+      .where("product.stockQuantity <= product.reorderLevel")
+      .andWhere("product.isActive = true")
+      .andWhere("product.reorderLevel > 0")
       .select([
-        'product.id',
-        'product.sku',
-        'product.name',
-        'product.stockQuantity',
-        '0',
-        'product.reorderLevel',
-        'product.optimalStockLevel',
-        'category.name',
-        'MAX(movements.movementDate) as lastMovementDate',
+        "product.id",
+        "product.sku",
+        "product.name",
+        "product.stockQuantity",
+        "0",
+        "product.reorderLevel",
+        "product.optimalStockLevel",
+        "category.name",
+        "MAX(movements.movementDate) as lastMovementDate",
       ])
-      .groupBy('product.id, category.id')
-      .orderBy('(product.stockQuantity / NULLIF(product.reorderLevel, 0))', 'ASC')
+      .groupBy("product.id, category.id")
+      .orderBy(
+        "(product.stockQuantity / NULLIF(product.reorderLevel, 0))",
+        "ASC",
+      )
       .getRawMany();
 
     const alerts: LowStockAlertDto[] = [];
@@ -434,10 +452,12 @@ export class StockMovementService {
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
       const recentOutwardMovements = await this.stockMovementRepository
-        .createQueryBuilder('movement')
-        .where('movement.productId = :productId', { productId: product.product_id })
-        .andWhere('movement.movementDate >= :date', { date: thirtyDaysAgo })
-        .andWhere('movement.quantity < 0') // Outward movements
+        .createQueryBuilder("movement")
+        .where("movement.productId = :productId", {
+          productId: product.product_id,
+        })
+        .andWhere("movement.movementDate >= :date", { date: thirtyDaysAgo })
+        .andWhere("movement.quantity < 0") // Outward movements
         .getMany();
 
       const totalUsage = recentOutwardMovements.reduce(
@@ -448,20 +468,21 @@ export class StockMovementService {
 
       // Calculate estimated days until out of stock
       const currentStock = Number(product.product_stockQuantity);
-      const estimatedDaysUntilOutOfStock = averageDailyUsage > 0 
-        ? Math.floor(currentStock / averageDailyUsage) 
-        : 999;
+      const estimatedDaysUntilOutOfStock =
+        averageDailyUsage > 0
+          ? Math.floor(currentStock / averageDailyUsage)
+          : 999;
 
       // Determine alert severity
-      let alertSeverity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'LOW';
+      let alertSeverity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" = "LOW";
       const stockRatio = currentStock / Number(product.product_reorderLevel);
 
       if (currentStock <= 0) {
-        alertSeverity = 'CRITICAL';
+        alertSeverity = "CRITICAL";
       } else if (stockRatio <= 0.25) {
-        alertSeverity = 'HIGH';
+        alertSeverity = "HIGH";
       } else if (stockRatio <= 0.5) {
-        alertSeverity = 'MEDIUM';
+        alertSeverity = "MEDIUM";
       }
 
       // Calculate days since last restock
@@ -480,13 +501,16 @@ export class StockMovementService {
         name: product.product_name,
         currentStock,
         reorderLevel: Number(product.product_reorderLevel),
-        recommendedOrderQuantity: Number(product.product_optimalStockLevel) - currentStock,
+        recommendedOrderQuantity:
+          Number(product.product_optimalStockLevel) - currentStock,
         daysSinceLastRestock,
         averageDailyUsage,
         estimatedDaysUntilOutOfStock,
         alertSeverity,
         categoryName: product.category_name,
-        lastMovementDate: product.lastMovementDate ? new Date(product.lastMovementDate) : undefined,
+        lastMovementDate: product.lastMovementDate
+          ? new Date(product.lastMovementDate)
+          : undefined,
       });
     }
 
@@ -514,7 +538,7 @@ export class StockMovementService {
         id: movement.product.id,
         sku: movement.product.barcode,
         name: movement.product.name,
-        unit: 'pcs',
+        unit: "pcs",
       },
       isInward: movement.isInward,
       isOutward: movement.isOutward,
@@ -531,7 +555,9 @@ export class StockMovementService {
     createBulkDto: CreateBulkStockAdjustmentDto,
     userId?: string,
   ): Promise<BulkStockAdjustmentResponseDto> {
-    this.logger.log(`Creating bulk stock adjustment with ${createBulkDto.items.length} items`);
+    this.logger.log(
+      `Creating bulk stock adjustment with ${createBulkDto.items.length} items`,
+    );
 
     const movementIds: string[] = [];
 
@@ -555,9 +581,10 @@ export class StockMovementService {
       }
 
       // Determine movement type based on difference
-      const movementType = item.difference > 0
-        ? StockMovementType.ADJUSTMENT_INCREASE
-        : StockMovementType.ADJUSTMENT_DECREASE;
+      const movementType =
+        item.difference > 0
+          ? StockMovementType.ADJUSTMENT_INCREASE
+          : StockMovementType.ADJUSTMENT_DECREASE;
 
       // Calculate balances
       const previousBalance = Number(product.stockQuantity);
@@ -578,11 +605,12 @@ export class StockMovementService {
         previousBalance,
         newBalance,
         movementDate: createBulkDto.adjustmentDate,
-        reason: 'Stock Adjustment',
+        reason: "Stock Adjustment",
         notes: createBulkDto.notes || undefined,
       });
 
-      const savedMovement = await this.stockMovementRepository.save(stockMovement);
+      const savedMovement =
+        await this.stockMovementRepository.save(stockMovement);
       movementIds.push(savedMovement.id);
 
       // Update product stock quantity
@@ -593,11 +621,13 @@ export class StockMovementService {
       );
 
       this.logger.log(
-        `Stock adjustment for ${product.name}: ${previousBalance} → ${newBalance} (${item.difference > 0 ? '+' : ''}${item.difference})`,
+        `Stock adjustment for ${product.name}: ${previousBalance} → ${newBalance} (${item.difference > 0 ? "+" : ""}${item.difference})`,
       );
     }
 
-    this.logger.log(`Bulk stock adjustment created successfully with ${movementIds.length} movements`);
+    this.logger.log(
+      `Bulk stock adjustment created successfully with ${movementIds.length} movements`,
+    );
 
     return {
       itemsAdjusted: movementIds.length,
@@ -615,7 +645,11 @@ export class StockMovementService {
     productId: string,
     manager?: EntityManager,
   ): Promise<void> {
-    const stockMovementRepo = repoFor(manager, StockMovement, this.stockMovementRepository);
+    const stockMovementRepo = repoFor(
+      manager,
+      StockMovement,
+      this.stockMovementRepository,
+    );
     const productRepo = repoFor(manager, Product, this.productRepository);
 
     this.logger.log(`Recalculating balances for product ${productId}`);
@@ -624,13 +658,15 @@ export class StockMovementService {
     const movements = await stockMovementRepo.find({
       where: { productId },
       order: {
-        movementDate: 'ASC',
-        createdAt: 'ASC',
+        movementDate: "ASC",
+        createdAt: "ASC",
       },
     });
 
     if (movements.length === 0) {
-      this.logger.log(`No movements found for product ${productId}, nothing to recalculate`);
+      this.logger.log(
+        `No movements found for product ${productId}, nothing to recalculate`,
+      );
       return;
     }
 
@@ -640,7 +676,9 @@ export class StockMovementService {
     });
 
     if (!product) {
-      this.logger.warn(`Product ${productId} not found, cannot recalculate balances`);
+      this.logger.warn(
+        `Product ${productId} not found, cannot recalculate balances`,
+      );
       return;
     }
 
@@ -653,7 +691,7 @@ export class StockMovementService {
     let runningBalance = Number(product.stockQuantity) - totalMovement;
 
     this.logger.log(
-      `Product ${productId}: Current stock = ${product.stockQuantity}, Total movement = ${totalMovement}, Starting balance = ${runningBalance}`
+      `Product ${productId}: Current stock = ${product.stockQuantity}, Total movement = ${totalMovement}, Starting balance = ${runningBalance}`,
     );
 
     // Update each movement with recalculated balances
@@ -672,7 +710,7 @@ export class StockMovementService {
         await stockMovementRepo.save(movement);
 
         this.logger.log(
-          `Updated movement ${movement.id}: ${previousBalance} + (${quantity}) = ${newBalance}`
+          `Updated movement ${movement.id}: ${previousBalance} + (${quantity}) = ${newBalance}`,
         );
       }
 
@@ -692,10 +730,16 @@ export class StockMovementService {
     referenceId: string,
     manager?: EntityManager,
   ): Promise<{ deletedCount: number }> {
-    const stockMovementRepo = repoFor(manager, StockMovement, this.stockMovementRepository);
+    const stockMovementRepo = repoFor(
+      manager,
+      StockMovement,
+      this.stockMovementRepository,
+    );
     const productRepo = repoFor(manager, Product, this.productRepository);
 
-    this.logger.log(`Deleting stock movements for ${referenceType}: ${referenceId}`);
+    this.logger.log(
+      `Deleting stock movements for ${referenceType}: ${referenceId}`,
+    );
 
     // First, fetch all movements to revert their quantities
     const movements = await stockMovementRepo.find({
@@ -707,7 +751,9 @@ export class StockMovementService {
     });
 
     if (movements.length === 0) {
-      this.logger.log(`No stock movements found for ${referenceType}: ${referenceId}`);
+      this.logger.log(
+        `No stock movements found for ${referenceType}: ${referenceId}`,
+      );
       return { deletedCount: 0 };
     }
 
@@ -722,10 +768,13 @@ export class StockMovementService {
       affectedProductIds.add(productId);
       const currentAdjustment = productUpdates.get(productId) || 0;
       // Reverse the movement by negating the quantity
-      productUpdates.set(productId, currentAdjustment - Number(movement.quantity));
+      productUpdates.set(
+        productId,
+        currentAdjustment - Number(movement.quantity),
+      );
 
       this.logger.log(
-        `Will revert ${movement.quantity} units for product ${productId} (movement ${movement.id})`
+        `Will revert ${movement.quantity} units for product ${productId} (movement ${movement.id})`,
       );
     }
 
@@ -740,12 +789,12 @@ export class StockMovementService {
         const newStock = oldStock + adjustment;
 
         this.logger.log(
-          `Reverting stock for product ${productId}: ${oldStock} + (${adjustment}) = ${newStock}`
+          `Reverting stock for product ${productId}: ${oldStock} + (${adjustment}) = ${newStock}`,
         );
 
         if (newStock < 0) {
           this.logger.warn(
-            `Warning: Reverting stock for product ${productId} would result in negative stock (${newStock}). Setting to 0.`
+            `Warning: Reverting stock for product ${productId} would result in negative stock (${newStock}). Setting to 0.`,
           );
           product.stockQuantity = 0;
         } else {
@@ -754,7 +803,9 @@ export class StockMovementService {
 
         await productRepo.save(product);
       } else {
-        this.logger.warn(`Product ${productId} not found, skipping stock reversion`);
+        this.logger.warn(
+          `Product ${productId} not found, skipping stock reversion`,
+        );
       }
     }
 
@@ -762,14 +813,14 @@ export class StockMovementService {
     const result = await stockMovementRepo
       .createQueryBuilder()
       .delete()
-      .from('stock_movements')
-      .where('referenceType = :referenceType', { referenceType })
-      .andWhere('referenceId = :referenceId', { referenceId })
+      .from("stock_movements")
+      .where("referenceType = :referenceType", { referenceType })
+      .andWhere("referenceId = :referenceId", { referenceId })
       .execute();
 
     const deletedCount = Number(result.affected) || 0;
     this.logger.log(
-      `Deleted ${deletedCount} stock movements and reverted quantities for ${productUpdates.size} products (${referenceType}: ${referenceId})`
+      `Deleted ${deletedCount} stock movements and reverted quantities for ${productUpdates.size} products (${referenceType}: ${referenceId})`,
     );
 
     // Recalculate balances for all affected products
@@ -791,7 +842,9 @@ export class StockMovementService {
       return { deletedCount: 0 };
     }
 
-    this.logger.log(`Deleting stock movements for ${references.length} references`);
+    this.logger.log(
+      `Deleting stock movements for ${references.length} references`,
+    );
 
     let totalDeletedCount = 0;
     const affectedProductIds = new Set<string>();
@@ -812,17 +865,19 @@ export class StockMovementService {
 
       // Delete the movements
       const result = await this.stockMovementRepository
-        .createQueryBuilder('movement')
+        .createQueryBuilder("movement")
         .delete()
-        .where('movement.referenceType = :referenceType', { referenceType })
-        .andWhere('movement.referenceId = :referenceId', { referenceId })
+        .where("movement.referenceType = :referenceType", { referenceType })
+        .andWhere("movement.referenceId = :referenceId", { referenceId })
         .execute();
 
       const deletedCount = Number(result.affected) || 0;
       totalDeletedCount += deletedCount;
     }
 
-    this.logger.log(`Deleted ${totalDeletedCount} stock movements across ${references.length} references`);
+    this.logger.log(
+      `Deleted ${totalDeletedCount} stock movements across ${references.length} references`,
+    );
 
     // Recalculate balances for all affected products
     for (const productId of affectedProductIds) {

@@ -1,6 +1,6 @@
-import { ConfigService } from '@nestjs/config';
-import { DataSource } from 'typeorm';
-import { createDatabaseConfig } from './database-config.factory';
+import { ConfigService } from "@nestjs/config";
+import { DataSource } from "typeorm";
+import { createDatabaseConfig } from "./database-config.factory";
 
 /**
  * CLI DataSource configuration with security validation
@@ -15,7 +15,7 @@ let connectionSource: DataSource;
 try {
   connectionSource = new DataSource(createDatabaseConfig(config, true));
 } catch (error) {
-  console.error('CLI database configuration failed:', error.message);
+  console.error("CLI database configuration failed:", error.message);
   // For CLI operations, we need to fail fast if configuration is invalid
   process.exit(1);
 }

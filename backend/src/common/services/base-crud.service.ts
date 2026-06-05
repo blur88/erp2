@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { FindOptionsWhere, Repository, SelectQueryBuilder } from 'typeorm';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { FindOptionsWhere, Repository, SelectQueryBuilder } from "typeorm";
 
-import { BaseEntity } from '../../database/entities/base.entity';
-import { AuditLogService } from '../../modules/audit-logs/services';
+import { BaseEntity } from "../../database/entities/base.entity";
+import { AuditLogService } from "../../modules/audit-logs/services";
 
 export interface BulkOperationError {
   id: string;
@@ -18,7 +18,7 @@ export abstract class BaseCrudService<
     search?: string;
     isActive?: boolean;
     sortBy?: string;
-    sortOrder?: 'ASC' | 'DESC';
+    sortOrder?: "ASC" | "DESC";
   },
 > {
   constructor(
@@ -37,7 +37,11 @@ export abstract class BaseCrudService<
     return queryBuilder;
   }
 
-  protected async afterCreate(_entity: T, _userId: string, _username?: string): Promise<void> {}
+  protected async afterCreate(
+    _entity: T,
+    _userId: string,
+    _username?: string,
+  ): Promise<void> {}
 
   protected async afterUpdate(
     _before: T,
@@ -46,7 +50,11 @@ export abstract class BaseCrudService<
     _username?: string,
   ): Promise<void> {}
 
-  protected async afterDelete(_entity: T, _userId: string, _username?: string): Promise<void> {}
+  protected async afterDelete(
+    _entity: T,
+    _userId: string,
+    _username?: string,
+  ): Promise<void> {}
 
   /**
    * Allowlist of sort field names accepted by findAll.
@@ -54,7 +62,7 @@ export abstract class BaseCrudService<
    * This prevents SQL column-name injection via the sortBy query parameter.
    */
   protected get allowedSortFields(): string[] {
-    return ['createdAt', 'updatedAt'];
+    return ["createdAt", "updatedAt"];
   }
 
   /**
@@ -76,17 +84,24 @@ export abstract class BaseCrudService<
   }
 
   async findAll(query: QueryDto): Promise<any> {
-    const { search, sortOrder = 'ASC', page, limit } = query as QueryDto & { page?: number; limit?: number };
-    const sortBy = this.allowedSortFields.includes(query.sortBy ?? '')
+    const {
+      search,
+      sortOrder = "ASC",
+      page,
+      limit,
+    } = query as QueryDto & { page?: number; limit?: number };
+    const sortBy = this.allowedSortFields.includes(query.sortBy ?? "")
       ? query.sortBy!
-      : 'createdAt';
+      : "createdAt";
     const where = this.buildWhereClause(query);
     const alias = this.getEntityType().toLowerCase();
 
     let queryBuilder = this.repository.createQueryBuilder(alias);
 
     Object.entries(where).forEach(([key, value]) => {
-      queryBuilder = queryBuilder.andWhere(`${alias}.${key} = :${key}`, { [key]: value });
+      queryBuilder = queryBuilder.andWhere(`${alias}.${key} = :${key}`, {
+        [key]: value,
+      });
     });
 
     if (search) {
@@ -105,7 +120,9 @@ export abstract class BaseCrudService<
     return {
       data: entities,
       total,
-      ...(page && limit ? { meta: { page, limit, totalPages: Math.ceil(total / limit) } } : {}),
+      ...(page && limit
+        ? { meta: { page, limit, totalPages: Math.ceil(total / limit) } }
+        : {}),
     };
   }
 
@@ -136,18 +153,24 @@ export abstract class BaseCrudService<
     });
 
     if (!entity) {
-      throw new NotFoundException(`${this.getEntityType()} with id ${id} not found`);
+      throw new NotFoundException(
+        `${this.getEntityType()} with id ${id} not found`,
+      );
     }
 
     return entity;
   }
 
-  async create(dto: CreateDto, userId: string, username?: string): Promise<any> {
+  async create(
+    dto: CreateDto,
+    userId: string,
+    username?: string,
+  ): Promise<any> {
     const entity = this.repository.create(dto as never) as unknown as T;
     const savedEntity = (await this.repository.save(entity)) as T;
 
     await this.auditLogService.log(
-      'CREATE',
+      "CREATE",
       this.getEntityType(),
       `Created ${this.getEntityType()} ${savedEntity.id}`,
       {
@@ -163,7 +186,12 @@ export abstract class BaseCrudService<
     return savedEntity;
   }
 
-  async update(id: string, dto: UpdateDto, userId: string, username?: string): Promise<any> {
+  async update(
+    id: string,
+    dto: UpdateDto,
+    userId: string,
+    username?: string,
+  ): Promise<any> {
     const fetched = await this.findOne(id);
     const before = { ...fetched } as T; // immutable snapshot for afterUpdate and audit
 
@@ -171,7 +199,7 @@ export abstract class BaseCrudService<
     const savedEntity = (await this.repository.save(fetched)) as T;
 
     await this.auditLogService.log(
-      'UPDATE',
+      "UPDATE",
       this.getEntityType(),
       `Updated ${this.getEntityType()} ${id}`,
       {
@@ -188,14 +216,18 @@ export abstract class BaseCrudService<
     return savedEntity;
   }
 
-  async softDelete(id: string, userId: string, username?: string): Promise<void> {
+  async softDelete(
+    id: string,
+    userId: string,
+    username?: string,
+  ): Promise<void> {
     const entity = await this.findOne(id);
 
     await this.afterDelete(entity, userId, username);
     await this.repository.softDelete(id);
 
     await this.auditLogService.log(
-      'DELETE',
+      "DELETE",
       this.getEntityType(),
       `Deleted ${this.getEntityType()} ${id}`,
       {
@@ -214,7 +246,9 @@ export abstract class BaseCrudService<
     });
 
     if (!entity) {
-      throw new NotFoundException(`${this.getEntityType()} with id ${id} not found`);
+      throw new NotFoundException(
+        `${this.getEntityType()} with id ${id} not found`,
+      );
     }
 
     await this.repository.restore(id);
@@ -223,11 +257,13 @@ export abstract class BaseCrudService<
     });
 
     if (!restoredEntity) {
-      throw new NotFoundException(`${this.getEntityType()} with id ${id} not found`);
+      throw new NotFoundException(
+        `${this.getEntityType()} with id ${id} not found`,
+      );
     }
 
     await this.auditLogService.log(
-      'RESTORE',
+      "RESTORE",
       this.getEntityType(),
       `Restored ${this.getEntityType()} ${id}`,
       {
@@ -240,7 +276,11 @@ export abstract class BaseCrudService<
     return restoredEntity;
   }
 
-  async bulkRestore(ids: string[], userId: string, username?: string): Promise<any> {
+  async bulkRestore(
+    ids: string[],
+    userId: string,
+    username?: string,
+  ): Promise<any> {
     let successCount = 0;
     const failedItems: BulkOperationError[] = [];
 
@@ -251,7 +291,7 @@ export abstract class BaseCrudService<
       } catch (error) {
         failedItems.push({
           id,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : "Unknown error",
         });
       }
     }
@@ -262,20 +302,26 @@ export abstract class BaseCrudService<
     };
   }
 
-  async permanentDelete(id: string, userId: string, username?: string): Promise<void> {
+  async permanentDelete(
+    id: string,
+    userId: string,
+    username?: string,
+  ): Promise<void> {
     const entity = await this.repository.findOne({
       where: { id } as FindOptionsWhere<T>,
       withDeleted: true,
     });
 
     if (!entity) {
-      throw new NotFoundException(`${this.getEntityType()} with id ${id} not found`);
+      throw new NotFoundException(
+        `${this.getEntityType()} with id ${id} not found`,
+      );
     }
 
     await this.repository.delete(id);
 
     await this.auditLogService.log(
-      'PERMANENT_DELETE',
+      "PERMANENT_DELETE",
       this.getEntityType(),
       `Permanently deleted ${this.getEntityType()} ${id}`,
       {
@@ -286,7 +332,11 @@ export abstract class BaseCrudService<
     );
   }
 
-  async bulkPermanentDelete(ids: string[], userId: string, username?: string): Promise<any> {
+  async bulkPermanentDelete(
+    ids: string[],
+    userId: string,
+    username?: string,
+  ): Promise<any> {
     let successCount = 0;
     const failedItems: BulkOperationError[] = [];
 
@@ -297,7 +347,7 @@ export abstract class BaseCrudService<
       } catch (error) {
         failedItems.push({
           id,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : "Unknown error",
         });
       }
     }

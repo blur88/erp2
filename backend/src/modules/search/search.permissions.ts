@@ -1,4 +1,4 @@
-import { UserRole } from '../../database/entities/user.entity';
+import { UserRole } from "../../database/entities/user.entity";
 
 export const ALL_ROLES: UserRole[] = [
   UserRole.ADMIN,
@@ -26,10 +26,7 @@ export const INVENTORY_ROLES: UserRole[] = [
   UserRole.INVENTORY_STAFF,
 ];
 
-export const FINANCE_ROLES: UserRole[] = [
-  UserRole.ADMIN,
-  UserRole.MANAGER,
-];
+export const FINANCE_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.MANAGER];
 
 export const ADMIN_ONLY: UserRole[] = [UserRole.ADMIN];
 

@@ -6,9 +6,9 @@ import {
   IsDateString,
   IsUUID,
   Min,
-} from 'class-validator';
-import { Type } from 'class-transformer';
-import { OwnerEquityTransactionType } from '../../../database/entities/owner-equity-transaction.entity';
+} from "class-validator";
+import { Type } from "class-transformer";
+import { OwnerEquityTransactionType } from "../../../database/entities/owner-equity-transaction.entity";
 
 export class CreateOwnerEquityDto {
   @IsDateString()

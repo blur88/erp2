@@ -1,18 +1,22 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { validate } from 'class-validator';
-import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
-import { StockAdjustmentService } from './stock-adjustment.service';
-import { StockAdjustment, StockAdjustmentItem, StockAdjustmentStatus } from '../../../database/entities/stock-adjustment.entity';
-import { Product } from '../../../database/entities/product.entity';
-import { User } from '../../../database/entities/user.entity';
-import { StockMovementService } from './stock-movement.service';
-import { SettingsService } from '../../settings/settings.service';
-import { AuditLogService } from '../../audit-logs/services';
-import { AccountingService } from '../../accounting/services/accounting.service';
-import { StockAdjustmentItemDto } from '../dto/stock-adjustment.dto';
+import { Test, TestingModule } from "@nestjs/testing";
+import { validate } from "class-validator";
+import { getRepositoryToken, getDataSourceToken } from "@nestjs/typeorm";
+import { Repository, DataSource } from "typeorm";
+import { StockAdjustmentService } from "./stock-adjustment.service";
+import {
+  StockAdjustment,
+  StockAdjustmentItem,
+  StockAdjustmentStatus,
+} from "../../../database/entities/stock-adjustment.entity";
+import { Product } from "../../../database/entities/product.entity";
+import { User } from "../../../database/entities/user.entity";
+import { StockMovementService } from "./stock-movement.service";
+import { SettingsService } from "../../settings/settings.service";
+import { AuditLogService } from "../../audit-logs/services";
+import { AccountingService } from "../../accounting/services/accounting.service";
+import { StockAdjustmentItemDto } from "../dto/stock-adjustment.dto";
 
-describe('StockAdjustmentService', () => {
+describe("StockAdjustmentService", () => {
   let service: StockAdjustmentService;
   let stockAdjustmentRepository: jest.Mocked<Repository<StockAdjustment>>;
   let accountingService: jest.Mocked<AccountingService>;
@@ -20,10 +24,12 @@ describe('StockAdjustmentService', () => {
   let auditLogService: jest.Mocked<AuditLogService>;
   let dataSource: jest.Mocked<DataSource>;
 
-  const createMockStockAdjustment = (status: StockAdjustmentStatus = StockAdjustmentStatus.DRAFT): Partial<StockAdjustment> => ({
-    id: '123e4567-e89b-12d3-a456-426614174000',
-    adjustmentNumber: 'SA-000001',
-    adjustmentDate: new Date('2026-02-06'),
+  const createMockStockAdjustment = (
+    status: StockAdjustmentStatus = StockAdjustmentStatus.DRAFT,
+  ): Partial<StockAdjustment> => ({
+    id: "123e4567-e89b-12d3-a456-426614174000",
+    adjustmentNumber: "SA-000001",
+    adjustmentDate: new Date("2026-02-06"),
     status,
     itemCount: 2,
     totalValue: 150,
@@ -31,38 +37,38 @@ describe('StockAdjustmentService', () => {
     updatedAt: new Date(),
     items: [
       {
-        id: 'item-1',
-        productId: 'product-1',
+        id: "item-1",
+        productId: "product-1",
         oldQuantity: 100,
         newQuantity: 110,
         difference: 10,
         unitCost: 10,
         totalValue: 100,
         product: {
-          id: 'product-1',
-          name: 'Test Product 1',
+          id: "product-1",
+          name: "Test Product 1",
           baseCost: 10,
         } as Product,
       } as StockAdjustmentItem,
       {
-        id: 'item-2',
-        productId: 'product-2',
+        id: "item-2",
+        productId: "product-2",
         oldQuantity: 50,
         newQuantity: 45,
         difference: -5,
         unitCost: 10,
         totalValue: 50,
         product: {
-          id: 'product-2',
-          name: 'Test Product 2',
+          id: "product-2",
+          name: "Test Product 2",
           baseCost: 10,
         } as Product,
       } as StockAdjustmentItem,
     ],
-    isEditable: function() {
+    isEditable: function () {
       return this.status === StockAdjustmentStatus.DRAFT;
     },
-    canComplete: function() {
+    canComplete: function () {
       return this.status === StockAdjustmentStatus.DRAFT;
     },
   });
@@ -149,16 +155,18 @@ describe('StockAdjustmentService', () => {
     auditLogService = module.get(AuditLogService);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
-  describe('complete', () => {
-    it('should post accounting entry successfully', async () => {
+  describe("complete", () => {
+    it("should post accounting entry successfully", async () => {
       // Arrange
       const mockAdjustment = createMockStockAdjustment();
       const adjustmentId = mockAdjustment.id;
-      const completedAdjustment = createMockStockAdjustment(StockAdjustmentStatus.COMPLETED);
+      const completedAdjustment = createMockStockAdjustment(
+        StockAdjustmentStatus.COMPLETED,
+      );
 
       // First call returns draft, subsequent calls return completed
       let callCount = 0;
@@ -174,8 +182,8 @@ describe('StockAdjustmentService', () => {
       auditLogService.log.mockResolvedValue(undefined);
 
       accountingService.postStockAdjustmentEntry.mockResolvedValue({
-        id: 'journal-1',
-        referenceNumber: 'JE-000001',
+        id: "journal-1",
+        referenceNumber: "JE-000001",
       } as any);
 
       // Act
@@ -187,18 +195,20 @@ describe('StockAdjustmentService', () => {
           id: adjustmentId,
           adjustmentNumber: mockAdjustment.adjustmentNumber,
         }),
-        'system',
+        "system",
         undefined,
       );
       expect(result).toBeDefined();
       expect(stockMovementService.create).toHaveBeenCalled();
     });
 
-    it('should continue when accounting post fails', async () => {
+    it("should continue when accounting post fails", async () => {
       // Arrange
       const mockAdjustment = createMockStockAdjustment();
       const adjustmentId = mockAdjustment.id;
-      const completedAdjustment = createMockStockAdjustment(StockAdjustmentStatus.COMPLETED);
+      const completedAdjustment = createMockStockAdjustment(
+        StockAdjustmentStatus.COMPLETED,
+      );
 
       // First call returns draft, subsequent calls return completed
       let callCount = 0;
@@ -214,7 +224,7 @@ describe('StockAdjustmentService', () => {
       auditLogService.log.mockResolvedValue(undefined);
 
       accountingService.postStockAdjustmentEntry.mockRejectedValue(
-        new Error('Account mappings not configured'),
+        new Error("Account mappings not configured"),
       );
 
       // Act
@@ -227,11 +237,13 @@ describe('StockAdjustmentService', () => {
       // Should not throw error despite accounting failure
     });
 
-    it('should load adjustment with relations before posting', async () => {
+    it("should load adjustment with relations before posting", async () => {
       // Arrange
       const mockAdjustment = createMockStockAdjustment();
       const adjustmentId = mockAdjustment.id;
-      const completedAdjustment = createMockStockAdjustment(StockAdjustmentStatus.COMPLETED);
+      const completedAdjustment = createMockStockAdjustment(
+        StockAdjustmentStatus.COMPLETED,
+      );
 
       // First call returns draft, second call should load with relations
       let callCount = 0;
@@ -252,8 +264,8 @@ describe('StockAdjustmentService', () => {
       auditLogService.log.mockResolvedValue(undefined);
 
       accountingService.postStockAdjustmentEntry.mockResolvedValue({
-        id: 'journal-1',
-        referenceNumber: 'JE-000001',
+        id: "journal-1",
+        referenceNumber: "JE-000001",
       } as any);
 
       // Act
@@ -269,7 +281,7 @@ describe('StockAdjustmentService', () => {
         expect.objectContaining({
           items: expect.any(Array),
         }),
-        'system',
+        "system",
         undefined,
       );
       expect(result).toBeDefined();
@@ -277,10 +289,10 @@ describe('StockAdjustmentService', () => {
   });
 });
 
-describe('StockAdjustmentItemDto', () => {
-  it('allows negative oldQuantity because it is the current stock snapshot', async () => {
+describe("StockAdjustmentItemDto", () => {
+  it("allows negative oldQuantity because it is the current stock snapshot", async () => {
     const dto = new StockAdjustmentItemDto();
-    dto.productId = '123e4567-e89b-42d3-a456-426614174000';
+    dto.productId = "123e4567-e89b-42d3-a456-426614174000";
     dto.oldQuantity = -5;
     dto.newQuantity = 10;
     dto.difference = 15;
@@ -288,15 +300,15 @@ describe('StockAdjustmentItemDto', () => {
     await expect(validate(dto)).resolves.toHaveLength(0);
   });
 
-  it('rejects negative newQuantity because target stock must be non-negative', async () => {
+  it("rejects negative newQuantity because target stock must be non-negative", async () => {
     const dto = new StockAdjustmentItemDto();
-    dto.productId = '123e4567-e89b-42d3-a456-426614174000';
+    dto.productId = "123e4567-e89b-42d3-a456-426614174000";
     dto.oldQuantity = -5;
     dto.newQuantity = -1;
     dto.difference = 4;
 
     const errors = await validate(dto);
     expect(errors.length).toBeGreaterThan(0);
-    expect(errors.some(e => e.property === 'newQuantity')).toBe(true);
+    expect(errors.some((e) => e.property === "newQuantity")).toBe(true);
   });
 });

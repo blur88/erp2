@@ -1,4 +1,4 @@
-import { ConfigService } from '@nestjs/config';
+import { ConfigService } from "@nestjs/config";
 
 export interface SecurityConfig {
   helmet: {
@@ -46,11 +46,16 @@ export class SecurityConfigBuilder {
    * Build security configuration based on environment
    */
   build(): SecurityConfig {
-    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
-    const allowedOrigins = this.configService.get<string>('ALLOWED_ORIGINS', frontendUrl)
-      .split(',')
-      .map(origin => origin.trim());
+    const isProduction =
+      this.configService.get<string>("NODE_ENV") === "production";
+    const frontendUrl = this.configService.get<string>(
+      "FRONTEND_URL",
+      "http://localhost:3000",
+    );
+    const allowedOrigins = this.configService
+      .get<string>("ALLOWED_ORIGINS", frontendUrl)
+      .split(",")
+      .map((origin) => origin.trim());
 
     return {
       helmet: this.buildHelmetConfig(isProduction, allowedOrigins),
@@ -66,7 +71,7 @@ export class SecurityConfigBuilder {
           styleSrc: [
             "'self'",
             "'unsafe-inline'", // Required for some CSS frameworks
-            'https://fonts.googleapis.com',
+            "https://fonts.googleapis.com",
           ],
           scriptSrc: [
             "'self'",
@@ -75,8 +80,8 @@ export class SecurityConfigBuilder {
           ],
           imgSrc: [
             "'self'",
-            'data:', // Allow data URLs for images
-            'https:', // Allow HTTPS images
+            "data:", // Allow data URLs for images
+            "https:", // Allow HTTPS images
           ],
           connectSrc: [
             "'self'",
@@ -85,8 +90,8 @@ export class SecurityConfigBuilder {
           ],
           fontSrc: [
             "'self'",
-            'https://fonts.gstatic.com',
-            'data:', // Allow data URLs for fonts
+            "https://fonts.gstatic.com",
+            "data:", // Allow data URLs for fonts
           ],
           objectSrc: ["'none'"], // Disable object/embed/applet
           mediaSrc: ["'self'"],
@@ -99,7 +104,7 @@ export class SecurityConfigBuilder {
         preload: isProduction,
       },
       frameguard: {
-        action: 'deny', // Prevent framing
+        action: "deny", // Prevent framing
       },
       noSniff: true, // Prevent MIME type sniffing
       xssFilter: true, // Enable XSS filtering
@@ -109,15 +114,15 @@ export class SecurityConfigBuilder {
   private buildCorsConfig(isProduction: boolean, allowedOrigins: string[]) {
     return {
       origin: isProduction ? allowedOrigins : true, // Allow all origins in development
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
       allowedHeaders: [
-        'Accept',
-        'Accept-Language',
-        'Content-Language',
-        'Content-Type',
-        'Authorization',
-        'X-Requested-With',
-        'Range',
+        "Accept",
+        "Accept-Language",
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Range",
       ],
       credentials: true, // Allow cookies and auth headers
       maxAge: 86400, // Preflight cache for 24 hours

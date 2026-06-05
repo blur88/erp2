@@ -5,7 +5,7 @@ import {
   OneToMany,
   ManyToOne,
   JoinColumn,
-} from 'typeorm';
+} from "typeorm";
 import {
   IsString,
   IsBoolean,
@@ -17,64 +17,64 @@ import {
   Min,
   Matches,
   IsNotEmpty,
-} from 'class-validator';
-import { BaseEntity } from './base.entity';
-import { SalesOrder } from './sales-order.entity';
-import { Payment } from './payment.entity';
-import { PriceList } from './price-list.entity';
+} from "class-validator";
+import { BaseEntity } from "./base.entity";
+import { SalesOrder } from "./sales-order.entity";
+import { Payment } from "./payment.entity";
+import { PriceList } from "./price-list.entity";
 
 export enum CustomerType {
-  INDIVIDUAL = 'individual',
-  BUSINESS = 'business',
+  INDIVIDUAL = "individual",
+  BUSINESS = "business",
 }
-
 
 /**
  * Customer entity for sales management
  * Supports both individual and business customers
  * Includes credit management and pricing level assignment
  */
-@Entity('customers')
-@Index(['phone'])
-@Index(['type'])
-@Index(['priceListId'])
-@Index(['isActive'])
+@Entity("customers")
+@Index(["phone"])
+@Index(["type"])
+@Index(["priceListId"])
+@Index(["isActive"])
 export class Customer extends BaseEntity {
-
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: CustomerType,
     default: CustomerType.INDIVIDUAL,
-    comment: 'Customer type (individual/business)',
+    comment: "Customer type (individual/business)",
   })
   @IsEnum(CustomerType)
   type: CustomerType;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 200,
-    comment: 'Customer name or business name',
+    comment: "Customer name or business name",
   })
   @IsString()
   @IsNotEmpty()
   @MaxLength(200)
-  @Matches(/^[A-Za-z0-9\s\-\.,'&]+$/, { message: 'Name contains invalid characters' })
+  @Matches(/^[A-Za-z0-9\s\-\.,'&]+$/, {
+    message: "Name contains invalid characters",
+  })
   name: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 255,
     nullable: true,
-    comment: 'URL-friendly identifier derived from name',
+    comment: "URL-friendly identifier derived from name",
   })
   @Index({ unique: true })
   slug: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 20,
     nullable: true,
-    comment: 'Primary phone number',
+    comment: "Primary phone number",
   })
   @IsOptional()
   @IsString()
@@ -83,10 +83,10 @@ export class Customer extends BaseEntity {
 
   // Email
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 255,
     nullable: true,
-    comment: 'Email address',
+    comment: "Email address",
   })
   @IsOptional()
   @IsEmail()
@@ -95,10 +95,10 @@ export class Customer extends BaseEntity {
 
   // Billing Address
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 255,
     nullable: true,
-    comment: 'Billing street address line 1',
+    comment: "Billing street address line 1",
   })
   @IsOptional()
   @IsString()
@@ -106,10 +106,10 @@ export class Customer extends BaseEntity {
   billingStreetAddress?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 255,
     nullable: true,
-    comment: 'Billing street address line 2',
+    comment: "Billing street address line 2",
   })
   @IsOptional()
   @IsString()
@@ -117,10 +117,10 @@ export class Customer extends BaseEntity {
   billingStreetAddress2?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 100,
     nullable: true,
-    comment: 'Billing city',
+    comment: "Billing city",
   })
   @IsOptional()
   @IsString()
@@ -128,10 +128,10 @@ export class Customer extends BaseEntity {
   billingCity?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 100,
     nullable: true,
-    comment: 'Billing state or province',
+    comment: "Billing state or province",
   })
   @IsOptional()
   @IsString()
@@ -139,10 +139,10 @@ export class Customer extends BaseEntity {
   billingState?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 20,
     nullable: true,
-    comment: 'Billing postal or ZIP code',
+    comment: "Billing postal or ZIP code",
   })
   @IsOptional()
   @IsString()
@@ -150,10 +150,10 @@ export class Customer extends BaseEntity {
   billingPostalCode?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 100,
     nullable: true,
-    comment: 'Billing country',
+    comment: "Billing country",
   })
   @IsOptional()
   @IsString()
@@ -162,10 +162,10 @@ export class Customer extends BaseEntity {
 
   // Shipping Address
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 255,
     nullable: true,
-    comment: 'Shipping street address line 1',
+    comment: "Shipping street address line 1",
   })
   @IsOptional()
   @IsString()
@@ -173,10 +173,10 @@ export class Customer extends BaseEntity {
   shippingStreetAddress?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 255,
     nullable: true,
-    comment: 'Shipping street address line 2',
+    comment: "Shipping street address line 2",
   })
   @IsOptional()
   @IsString()
@@ -184,10 +184,10 @@ export class Customer extends BaseEntity {
   shippingStreetAddress2?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 100,
     nullable: true,
-    comment: 'Shipping city',
+    comment: "Shipping city",
   })
   @IsOptional()
   @IsString()
@@ -195,10 +195,10 @@ export class Customer extends BaseEntity {
   shippingCity?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 100,
     nullable: true,
-    comment: 'Shipping state or province',
+    comment: "Shipping state or province",
   })
   @IsOptional()
   @IsString()
@@ -206,10 +206,10 @@ export class Customer extends BaseEntity {
   shippingState?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 20,
     nullable: true,
-    comment: 'Shipping postal or ZIP code',
+    comment: "Shipping postal or ZIP code",
   })
   @IsOptional()
   @IsString()
@@ -217,10 +217,10 @@ export class Customer extends BaseEntity {
   shippingPostalCode?: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 100,
     nullable: true,
-    comment: 'Shipping country',
+    comment: "Shipping country",
   })
   @IsOptional()
   @IsString()
@@ -230,70 +230,69 @@ export class Customer extends BaseEntity {
   // Business Information
 
   @Column({
-    type: 'boolean',
+    type: "boolean",
     default: true,
-    comment: 'Whether the customer is active',
+    comment: "Whether the customer is active",
   })
   @IsBoolean()
   declare isActive: boolean;
 
   // Normalized price list relationship
   @Column({
-    type: 'uuid',
+    type: "uuid",
     nullable: true,
-    comment: 'Foreign key to price_lists table',
+    comment: "Foreign key to price_lists table",
   })
   @IsOptional()
   priceListId?: string;
 
   @ManyToOne(() => PriceList, (priceList) => priceList.customers, {
     nullable: true,
-    onDelete: 'SET NULL',
+    onDelete: "SET NULL",
   })
-  @JoinColumn({ name: 'priceListId' })
+  @JoinColumn({ name: "priceListId" })
   priceList?: PriceList;
-
 
   // Customer Metrics
   @Column({
-    type: 'decimal',
+    type: "decimal",
     precision: 15,
     scale: 4,
     default: 0,
-    comment: 'Total sales amount to this customer',
+    comment: "Total sales amount to this customer",
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: "0,4" })
   @Min(0)
   totalSales: number;
 
   @Column({
-    type: 'int',
+    type: "int",
     default: 0,
-    comment: 'Total number of orders',
+    comment: "Total number of orders",
   })
   totalOrders: number;
 
   @Column({
-    type: 'timestamptz',
+    type: "timestamptz",
     nullable: true,
-    comment: 'Date of last purchase',
+    comment: "Date of last purchase",
   })
   @IsOptional()
   lastPurchaseDate?: Date;
 
   @Column({
-    type: 'timestamptz',
+    type: "timestamptz",
     nullable: true,
-    comment: 'Date of first purchase',
+    comment: "Date of first purchase",
   })
   @IsOptional()
   firstPurchaseDate?: Date;
 
   // Additional Information
   @Column({
-    type: 'text',
+    type: "text",
     nullable: true,
-    comment: 'Internal notes about the customer',
+    comment: "Internal notes about the customer",
   })
   @IsOptional()
   @IsString()
@@ -312,7 +311,9 @@ export class Customer extends BaseEntity {
 
   // Computed properties
   get averageOrderValue(): number {
-    return this.totalOrders > 0 ? Number(this.totalSales) / this.totalOrders : 0;
+    return this.totalOrders > 0
+      ? Number(this.totalSales) / this.totalOrders
+      : 0;
   }
 
   /**
@@ -322,13 +323,13 @@ export class Customer extends BaseEntity {
    */
   updateSalesMetrics(orderAmount: number, isFirstOrder: boolean = false): void {
     if (orderAmount < 0) {
-      throw new Error('Order amount cannot be negative');
+      throw new Error("Order amount cannot be negative");
     }
-    
+
     this.totalSales = Number(this.totalSales) + Number(orderAmount);
     this.totalOrders += 1;
     this.lastPurchaseDate = new Date();
-    
+
     if (isFirstOrder || !this.firstPurchaseDate) {
       this.firstPurchaseDate = new Date();
     }

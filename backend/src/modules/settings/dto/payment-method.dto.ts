@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from "@nestjs/swagger";
 import {
   IsString,
   IsBoolean,
@@ -8,37 +8,45 @@ import {
   Min,
   Max,
   IsNumber,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+} from "class-validator";
+import { Type } from "class-transformer";
 
 export class CreatePaymentMethodDto {
-  @ApiProperty({ description: 'Unique code', example: 'TNG' })
+  @ApiProperty({ description: "Unique code", example: "TNG" })
   @IsString()
   @MaxLength(20)
   code: string;
 
-  @ApiProperty({ description: 'Display name', example: 'Touch n Go' })
+  @ApiProperty({ description: "Display name", example: "Touch n Go" })
   @IsString()
   @MaxLength(100)
   name: string;
 
-  @ApiProperty({ description: 'Whether this method requires third-party settlement', default: false })
+  @ApiProperty({
+    description: "Whether this method requires third-party settlement",
+    default: false,
+  })
   @IsBoolean()
   requiresSettlement: boolean;
 
-  @ApiPropertyOptional({ description: 'Whether this method is used for purchase orders', default: true })
+  @ApiPropertyOptional({
+    description: "Whether this method is used for purchase orders",
+    default: true,
+  })
   @IsOptional()
   @IsBoolean()
   useForPurchases?: boolean;
 
-  @ApiPropertyOptional({ description: 'Display order', default: 0 })
+  @ApiPropertyOptional({ description: "Display order", default: 0 })
   @IsOptional()
   @IsInt()
   sortOrder?: number;
 }
 
-export class UpdatePaymentMethodDto extends PartialType(CreatePaymentMethodDto) {
-  @ApiPropertyOptional({ description: 'Whether the method is active' })
+export class UpdatePaymentMethodDto extends PartialType(
+  CreatePaymentMethodDto,
+) {
+  @ApiPropertyOptional({ description: "Whether the method is active" })
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
@@ -60,19 +68,19 @@ export class QueryPaymentMethodsDto {
   @Max(500)
   limit?: number = 50;
 
-  @ApiPropertyOptional({ description: 'Filter by active status' })
+  @ApiPropertyOptional({ description: "Filter by active status" })
   @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional({ description: 'Filter by requiresSettlement' })
+  @ApiPropertyOptional({ description: "Filter by requiresSettlement" })
   @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()
   requiresSettlement?: boolean;
 
-  @ApiPropertyOptional({ description: 'Filter by useForPurchases' })
+  @ApiPropertyOptional({ description: "Filter by useForPurchases" })
   @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()

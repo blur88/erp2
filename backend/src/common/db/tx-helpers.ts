@@ -1,11 +1,11 @@
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException } from "@nestjs/common";
 import {
   EntityManager,
   EntityTarget,
   FindOptionsRelations,
   ObjectLiteral,
   Repository,
-} from 'typeorm';
+} from "typeorm";
 
 /**
  * Select the repository to use for an entity: the transaction manager's repo
@@ -49,10 +49,12 @@ export async function lockRowForUpdate<T extends ObjectLiteral>(
   // Step 1: lock the bare row FOR UPDATE (no join, so the lock is valid).
   const locked = await repo.findOne({
     where: { id } as any,
-    lock: { mode: 'pessimistic_write' },
+    lock: { mode: "pessimistic_write" },
   });
   if (!locked) {
-    throw new NotFoundException(options?.notFoundMessage ?? 'Resource not found');
+    throw new NotFoundException(
+      options?.notFoundMessage ?? "Resource not found",
+    );
   }
 
   // Step 2: hydrate relations in a separate (unlocked) read within the same

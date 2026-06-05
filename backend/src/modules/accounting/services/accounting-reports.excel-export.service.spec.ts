@@ -1,15 +1,15 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { AccountingExcelExportService } from './accounting-reports.excel-export.service';
-import { SettingsService } from '../../settings/settings.service';
+import { Test, TestingModule } from "@nestjs/testing";
+import { AccountingExcelExportService } from "./accounting-reports.excel-export.service";
+import { SettingsService } from "../../settings/settings.service";
 import {
   AccountActivityResponse,
   BalanceSheetResponse,
   GeneralLedgerResponse,
   ProfitAndLossResponse,
   TrialBalanceResponse,
-} from './accounting-reports.service';
+} from "./accounting-reports.service";
 
-describe('AccountingExcelExportService', () => {
+describe("AccountingExcelExportService", () => {
   let service: AccountingExcelExportService;
 
   beforeEach(async () => {
@@ -19,7 +19,9 @@ describe('AccountingExcelExportService', () => {
         {
           provide: SettingsService,
           useValue: {
-            getCompanySettings: jest.fn().mockResolvedValue({ name: 'Test Co' }),
+            getCompanySettings: jest
+              .fn()
+              .mockResolvedValue({ name: "Test Co" }),
           },
         },
       ],
@@ -30,17 +32,17 @@ describe('AccountingExcelExportService', () => {
     );
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
-  it('exportTrialBalanceToExcel returns a non-empty Buffer', async () => {
+  it("exportTrialBalanceToExcel returns a non-empty Buffer", async () => {
     const data: TrialBalanceResponse = {
       accounts: [
         {
-          accountCode: '1000',
-          accountName: 'Cash',
-          accountType: 'ASSET',
+          accountCode: "1000",
+          accountName: "Cash",
+          accountType: "ASSET",
           debit: 1000,
           credit: 0,
         },
@@ -56,9 +58,15 @@ describe('AccountingExcelExportService', () => {
     expect(result.length).toBeGreaterThan(0);
   });
 
-  it('exportBalanceSheetToExcel returns a non-empty Buffer', async () => {
+  it("exportBalanceSheetToExcel returns a non-empty Buffer", async () => {
     const data: BalanceSheetResponse = {
-      assets: { current: [], fixed: [], totalCurrent: 0, totalFixed: 0, total: 0 },
+      assets: {
+        current: [],
+        fixed: [],
+        totalCurrent: 0,
+        totalFixed: 0,
+        total: 0,
+      },
       liabilities: {
         current: [],
         longTerm: [],
@@ -76,7 +84,7 @@ describe('AccountingExcelExportService', () => {
     expect(result.length).toBeGreaterThan(0);
   });
 
-  it('exportProfitAndLossToExcel returns a non-empty Buffer', async () => {
+  it("exportProfitAndLossToExcel returns a non-empty Buffer", async () => {
     const data: ProfitAndLossResponse = {
       revenue: { accounts: [], total: 0 },
       costOfGoodsSold: { accounts: [], total: 0 },
@@ -91,9 +99,9 @@ describe('AccountingExcelExportService', () => {
     expect(result.length).toBeGreaterThan(0);
   });
 
-  it('exportGeneralLedgerToExcel returns a non-empty Buffer', async () => {
+  it("exportGeneralLedgerToExcel returns a non-empty Buffer", async () => {
     const data: GeneralLedgerResponse = {
-      account: { id: '1', code: '1000', name: 'Cash', type: 'ASSET' },
+      account: { id: "1", code: "1000", name: "Cash", type: "ASSET" },
       openingBalance: 0,
       transactions: [],
       closingBalance: 0,
@@ -105,9 +113,9 @@ describe('AccountingExcelExportService', () => {
     expect(result.length).toBeGreaterThan(0);
   });
 
-  it('exportAccountActivityToExcel returns a non-empty Buffer', async () => {
+  it("exportAccountActivityToExcel returns a non-empty Buffer", async () => {
     const data: AccountActivityResponse = {
-      account: { id: '1', code: '1000', name: 'Cash', type: 'ASSET' },
+      account: { id: "1", code: "1000", name: "Cash", type: "ASSET" },
       openingBalance: 0,
       activity: [],
       closingBalance: 0,

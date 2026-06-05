@@ -1,8 +1,8 @@
-import { DiscountType } from '../../../database/entities/sales-order-item.entity';
-import { SalesOrder } from '../../../database/entities/sales-order.entity';
-import { SalesOrderPayment } from '../../../database/entities/sales-order-payment.entity';
-import { CustomerPrintDto } from '../dto/customer.dto';
-import { SalesOrderResponseDto } from '../dto/sales-order.dto';
+import { DiscountType } from "../../../database/entities/sales-order-item.entity";
+import { SalesOrder } from "../../../database/entities/sales-order.entity";
+import { SalesOrderPayment } from "../../../database/entities/sales-order-payment.entity";
+import { CustomerPrintDto } from "../dto/customer.dto";
+import { SalesOrderResponseDto } from "../dto/sales-order.dto";
 
 export function mapSalesOrderToResponseDto(
   order: SalesOrder,
@@ -18,7 +18,10 @@ export function mapSalesOrderToResponseDto(
     shippingAmount: Number(order.shippingAmount || 0),
     totalAmount: Number(order.totalAmount),
     paidAmount: Number(order.paidAmount || 0),
-    balanceDue: Number(order.balanceDue ?? (Number(order.totalAmount) - Number(order.paidAmount || 0))),
+    balanceDue: Number(
+      order.balanceDue ??
+        Number(order.totalAmount) - Number(order.paidAmount || 0),
+    ),
     notes: order.notes,
     customerId: order.customerId,
     customer: order.customer

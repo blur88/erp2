@@ -7,8 +7,8 @@ import {
   Inject,
   forwardRef,
   StreamableFile,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
 import {
   Repository,
   UpdateResult,
@@ -16,16 +16,22 @@ import {
   IsNull,
   FindOptionsWhere,
   Not,
-} from 'typeorm';
-import { BaseCrudService } from '../../../common/services/base-crud.service';
-import { Product, ProductType } from '../../../database/entities/product.entity';
-import { Category } from '../../../database/entities/category.entity';
-import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
-import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
-import { StockMovement, StockMovementType } from '../../../database/entities/stock-movement.entity';
-import { StockAdjustmentItem } from '../../../database/entities/stock-adjustment.entity';
-import { GoodsReceivedNoteItem } from '../../../database/entities/goods-received-note-item.entity';
-import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
+} from "typeorm";
+import { BaseCrudService } from "../../../common/services/base-crud.service";
+import {
+  Product,
+  ProductType,
+} from "../../../database/entities/product.entity";
+import { Category } from "../../../database/entities/category.entity";
+import { SalesOrderItem } from "../../../database/entities/sales-order-item.entity";
+import { PurchaseOrderItem } from "../../../database/entities/purchase-order-item.entity";
+import {
+  StockMovement,
+  StockMovementType,
+} from "../../../database/entities/stock-movement.entity";
+import { StockAdjustmentItem } from "../../../database/entities/stock-adjustment.entity";
+import { GoodsReceivedNoteItem } from "../../../database/entities/goods-received-note-item.entity";
+import { PurchaseCostHistory } from "../../../database/entities/purchase-cost-history.entity";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -36,9 +42,9 @@ import {
   ProductStockSummaryDto,
   ProductImportDto,
   ProductImportResultDto,
-} from '../dto/product.dto';
-import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
-import { canSearchProducts } from '../../search/search.permissions';
+} from "../dto/product.dto";
+import { GlobalSearchResultDto } from "../../search/dto/global-search-result.dto";
+import { canSearchProducts } from "../../search/search.permissions";
 import {
   SEARCH_CANDIDATE_LIMIT,
   SCORE_EXACT_CODE,
@@ -49,14 +55,18 @@ import {
   SCORE_FUZZY,
   BOOST_PRODUCT,
   BOOST_EXACT_MATCH,
-} from '../../search/search.constants';
-import { CategoryService } from './category.service';
-import { StockMovementService } from './stock-movement.service';
-import { BaseCostCalculatorService } from './base-cost-calculator.service';
-import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
-import { SettingsService } from '../../settings/settings.service';
-import { AuditLogService } from '../../audit-logs/services';
-import { generateBaseSlug } from '../../../common/utils/slug.util';
+} from "../../search/search.constants";
+import { CategoryService } from "./category.service";
+import { StockMovementService } from "./stock-movement.service";
+import { BaseCostCalculatorService } from "./base-cost-calculator.service";
+import {
+  ValidationUtil,
+  BulkOperationUtil,
+  BulkOperationResponse,
+} from "../../../common/utils/validation.util";
+import { SettingsService } from "../../settings/settings.service";
+import { AuditLogService } from "../../audit-logs/services";
+import { generateBaseSlug } from "../../../common/utils/slug.util";
 
 @Injectable()
 export class ProductService extends BaseCrudService<
@@ -98,7 +108,7 @@ export class ProductService extends BaseCrudService<
   }
 
   getEntityType(): string {
-    return 'Product';
+    return "Product";
   }
 
   buildWhereClause(query: QueryProductsDto): FindOptionsWhere<Product> {
@@ -113,63 +123,79 @@ export class ProductService extends BaseCrudService<
 
   protected applyQueryBuilder(qb: any, query: QueryProductsDto): any {
     qb = qb
-      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect("product.category", "category")
       .leftJoinAndSelect(
-        'product.priceListItems',
-        'priceListItems',
-        'priceListItems.isActive = :isActiveItem',
+        "product.priceListItems",
+        "priceListItems",
+        "priceListItems.isActive = :isActiveItem",
         { isActiveItem: true },
       )
       .leftJoinAndSelect(
-        'priceListItems.priceList',
-        'priceList',
-        'priceList.isActive = :isActiveList AND priceList.deletedAt IS NULL',
+        "priceListItems.priceList",
+        "priceList",
+        "priceList.isActive = :isActiveList AND priceList.deletedAt IS NULL",
         { isActiveList: true },
       );
 
     if (query.categoryId) {
-      qb = qb.andWhere('product.categoryId = :categoryId', { categoryId: query.categoryId });
+      qb = qb.andWhere("product.categoryId = :categoryId", {
+        categoryId: query.categoryId,
+      });
     }
     if (query.type) {
-      qb = qb.andWhere('product.type = :type', { type: query.type });
+      qb = qb.andWhere("product.type = :type", { type: query.type });
     }
     if (query.isActive !== undefined) {
-      qb = qb.andWhere('product.isActive = :isActive', { isActive: query.isActive });
+      qb = qb.andWhere("product.isActive = :isActive", {
+        isActive: query.isActive,
+      });
     }
     if (query.outOfStock) {
-      qb = qb.andWhere('product.stockQuantity <= 0');
+      qb = qb.andWhere("product.stockQuantity <= 0");
     }
     if (query.minStock !== undefined) {
-      qb = qb.andWhere('product.stockQuantity >= :minStock', { minStock: query.minStock });
+      qb = qb.andWhere("product.stockQuantity >= :minStock", {
+        minStock: query.minStock,
+      });
     }
     if (query.maxStock !== undefined) {
-      qb = qb.andWhere('product.stockQuantity <= :maxStock', { maxStock: query.maxStock });
+      qb = qb.andWhere("product.stockQuantity <= :maxStock", {
+        maxStock: query.maxStock,
+      });
     }
 
     return qb;
   }
 
   protected applySearch(qb: any, search: string, _alias: string): any {
-    return qb.andWhere('(product.name ILIKE :search OR product.barcode ILIKE :search)', {
-      search: `%${search}%`,
-    });
+    return qb.andWhere(
+      "(product.name ILIKE :search OR product.barcode ILIKE :search)",
+      {
+        search: `%${search}%`,
+      },
+    );
   }
 
   protected get allowedSortFields(): string[] {
-    return ['name', 'barcode', 'createdAt', 'stockQuantity', 'deletedAt'];
+    return ["name", "barcode", "createdAt", "stockQuantity", "deletedAt"];
   }
 
-  private buildProductListQuery(query: QueryProductsDto, options: { includeDeleted: boolean }) {
-    let queryBuilder = this.productRepository.createQueryBuilder('product');
+  private buildProductListQuery(
+    query: QueryProductsDto,
+    options: { includeDeleted: boolean },
+  ) {
+    let queryBuilder = this.productRepository.createQueryBuilder("product");
 
     if (options.includeDeleted) {
-      queryBuilder = queryBuilder.withDeleted().where('product.deletedAt IS NOT NULL');
+      queryBuilder = queryBuilder
+        .withDeleted()
+        .where("product.deletedAt IS NOT NULL");
     } else {
-      queryBuilder = queryBuilder.where('product.deletedAt IS NULL');
+      queryBuilder = queryBuilder.where("product.deletedAt IS NULL");
     }
 
     if (query.search) {
-      queryBuilder = this.applySearch(queryBuilder, query.search, 'product');
+      queryBuilder = this.applySearch(queryBuilder, query.search, "product");
     }
 
     return this.applyQueryBuilder(queryBuilder, query);
@@ -178,16 +204,16 @@ export class ProductService extends BaseCrudService<
   private applyProductOrdering(
     queryBuilder: any,
     query: QueryProductsDto,
-    defaultSortField: 'name' | 'deletedAt',
+    defaultSortField: "name" | "deletedAt",
   ) {
-    const sortField = this.allowedSortFields.includes(query.sortBy ?? '')
+    const sortField = this.allowedSortFields.includes(query.sortBy ?? "")
       ? query.sortBy!
       : defaultSortField;
-    const sortOrder = query.sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const sortOrder = query.sortOrder?.toUpperCase() === "ASC" ? "ASC" : "DESC";
 
-    if (sortField === 'name') {
-      queryBuilder.addSelect('UPPER(product.name)', 'name_upper');
-      queryBuilder.orderBy('name_upper', sortOrder);
+    if (sortField === "name") {
+      queryBuilder.addSelect("UPPER(product.name)", "name_upper");
+      queryBuilder.orderBy("name_upper", sortOrder);
       return;
     }
 
@@ -196,16 +222,16 @@ export class ProductService extends BaseCrudService<
 
   protected async afterDelete(entity: Product): Promise<void> {
     const activeSalesOrderItemCount = await this.salesOrderItemRepository
-      .createQueryBuilder('item')
-      .leftJoin('item.salesOrder', 'order')
-      .where('item.productId = :productId', { productId: entity.id })
-      .andWhere('order.status = :status', { status: 'DRAFT' })
+      .createQueryBuilder("item")
+      .leftJoin("item.salesOrder", "order")
+      .where("item.productId = :productId", { productId: entity.id })
+      .andWhere("order.status = :status", { status: "DRAFT" })
       .getCount();
 
     if (activeSalesOrderItemCount > 0) {
       throw new ConflictException(
         `Cannot delete '${entity.name}' - product is in ${activeSalesOrderItemCount} pending sales order(s). ` +
-        `Please fulfill or cancel those orders first.`,
+          `Please fulfill or cancel those orders first.`,
       );
     }
   }
@@ -218,12 +244,16 @@ export class ProductService extends BaseCrudService<
     userId?: string,
     username?: string,
   ): Promise<ProductResponseDto> {
-    this.logger.log(`Creating product with barcode: ${createProductDto.barcode}`);
+    this.logger.log(
+      `Creating product with barcode: ${createProductDto.barcode}`,
+    );
 
     // Check if product name already exists (case-insensitive, including soft-deleted products)
     const existingProductByName = await this.productRepository
-      .createQueryBuilder('product')
-      .where('LOWER(product.name) = LOWER(:name)', { name: createProductDto.name.trim() })
+      .createQueryBuilder("product")
+      .where("LOWER(product.name) = LOWER(:name)", {
+        name: createProductDto.name.trim(),
+      })
       .withDeleted()
       .getOne();
 
@@ -231,18 +261,22 @@ export class ProductService extends BaseCrudService<
       if (existingProductByName.deletedAt) {
         throw new ConflictException(
           `Product with name '${createProductDto.name}' was previously deleted but cannot be reused. ` +
-          `Please choose a different name or restore the deleted product.`
+            `Please choose a different name or restore the deleted product.`,
         );
       } else {
-        throw new ConflictException(`Product with name '${createProductDto.name}' already exists`);
+        throw new ConflictException(
+          `Product with name '${createProductDto.name}' already exists`,
+        );
       }
     }
 
     // Check if barcode already exists (case-insensitive, including soft-deleted products)
     if (createProductDto.barcode) {
       const existingProduct = await this.productRepository
-        .createQueryBuilder('product')
-        .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: createProductDto.barcode.trim() })
+        .createQueryBuilder("product")
+        .where("LOWER(product.barcode) = LOWER(:barcode)", {
+          barcode: createProductDto.barcode.trim(),
+        })
         .withDeleted()
         .getOne();
 
@@ -250,10 +284,12 @@ export class ProductService extends BaseCrudService<
         if (existingProduct.deletedAt) {
           throw new ConflictException(
             `Product with barcode '${createProductDto.barcode}' was previously deleted but cannot be reused. ` +
-            `Please choose a different barcode.`
+              `Please choose a different barcode.`,
           );
         } else {
-          throw new ConflictException(`Product with barcode '${createProductDto.barcode}' already exists`);
+          throw new ConflictException(
+            `Product with barcode '${createProductDto.barcode}' already exists`,
+          );
         }
       }
     }
@@ -264,7 +300,9 @@ export class ProductService extends BaseCrudService<
     });
 
     if (!category) {
-      throw new NotFoundException(`Category with ID '${createProductDto.categoryId}' not found or inactive`);
+      throw new NotFoundException(
+        `Category with ID '${createProductDto.categoryId}' not found or inactive`,
+      );
     }
 
     // Validate pricing logic
@@ -298,19 +336,27 @@ export class ProductService extends BaseCrudService<
             userId,
           );
         } catch (error) {
-          this.logger.warn(`Failed to create initial stock movement: ${error.message}`);
+          this.logger.warn(
+            `Failed to create initial stock movement: ${error.message}`,
+          );
         }
       } else {
-        await this.productRepository.update(savedProduct.id, { stockQuantity: createProductDto.stockQuantity });
+        await this.productRepository.update(savedProduct.id, {
+          stockQuantity: createProductDto.stockQuantity,
+        });
         savedProduct.stockQuantity = createProductDto.stockQuantity;
       }
     }
 
     // Create initial cost history for products with stock
-    if (createProductDto.stockQuantity && createProductDto.stockQuantity > 0 && createProductDto.baseCost) {
+    if (
+      createProductDto.stockQuantity &&
+      createProductDto.stockQuantity > 0 &&
+      createProductDto.baseCost
+    ) {
       try {
         this.logger.log(
-          `Creating initial cost history for product ${savedProduct.id}: ${createProductDto.stockQuantity} units @ RM ${createProductDto.baseCost}`
+          `Creating initial cost history for product ${savedProduct.id}: ${createProductDto.stockQuantity} units @ RM ${createProductDto.baseCost}`,
         );
 
         await this.baseCostCalculator.addStock(
@@ -322,20 +368,24 @@ export class ProductService extends BaseCrudService<
           new Date(), // Current date as received date
         );
 
-        this.logger.log(`Initial cost history created for product ${savedProduct.id}`);
+        this.logger.log(
+          `Initial cost history created for product ${savedProduct.id}`,
+        );
       } catch (error) {
-        this.logger.warn(`Failed to create initial cost history: ${error.message}`);
+        this.logger.warn(
+          `Failed to create initial cost history: ${error.message}`,
+        );
       }
     }
 
     // Log audit trail
     await this.auditLogService.log(
-      'CREATE',
-      'Product',
+      "CREATE",
+      "Product",
       `Created product: ${savedProduct.name} (${savedProduct.barcode})`,
       {
         entityId: savedProduct.id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         newValues: {
           name: savedProduct.name,
@@ -343,7 +393,7 @@ export class ProductService extends BaseCrudService<
           baseCost: savedProduct.baseCost,
           stockQuantity: savedProduct.stockQuantity,
         },
-      }
+      },
     );
 
     this.logger.log(`Product created successfully with ID: ${savedProduct.id}`);
@@ -354,11 +404,13 @@ export class ProductService extends BaseCrudService<
    * Find all products with filtering and sorting
    */
   async findAll(query: QueryProductsDto): Promise<ProductListResponseDto> {
-    const queryBuilder = this.buildProductListQuery(query, { includeDeleted: false });
-    this.applyProductOrdering(queryBuilder, query, 'name');
+    const queryBuilder = this.buildProductListQuery(query, {
+      includeDeleted: false,
+    });
+    this.applyProductOrdering(queryBuilder, query, "name");
     const [products, total] = await queryBuilder.getManyAndCount();
 
-    const data = products.map(product => this.toResponseDto(product));
+    const data = products.map((product) => this.toResponseDto(product));
 
     return {
       data,
@@ -366,15 +418,18 @@ export class ProductService extends BaseCrudService<
     };
   }
 
-  async searchGlobal(query: string, user: any): Promise<GlobalSearchResultDto[]> {
+  async searchGlobal(
+    query: string,
+    user: any,
+  ): Promise<GlobalSearchResultDto[]> {
     if (!canSearchProducts(user.role)) return [];
 
     const trimmed = query.trim();
     const q = trimmed.toLowerCase();
     const products = await this.productRepository
-      .createQueryBuilder('product')
-      .where('product.deletedAt IS NULL')
-      .andWhere('(product.name ILIKE :q OR product.barcode ILIKE :q)', {
+      .createQueryBuilder("product")
+      .where("product.deletedAt IS NULL")
+      .andWhere("(product.name ILIKE :q OR product.barcode ILIKE :q)", {
         q: `%${trimmed}%`,
       })
       .take(SEARCH_CANDIDATE_LIMIT)
@@ -385,17 +440,17 @@ export class ProductService extends BaseCrudService<
     }
 
     const fuzzyProducts = await this.productRepository
-      .createQueryBuilder('product')
+      .createQueryBuilder("product")
       .addSelect(
-        'GREATEST(similarity(product.name, :q), similarity(product.barcode, :q))',
-        'sim',
+        "GREATEST(similarity(product.name, :q), similarity(product.barcode, :q))",
+        "sim",
       )
-      .where('product.deletedAt IS NULL')
+      .where("product.deletedAt IS NULL")
       .andWhere(
-        '(similarity(product.name, :q) > 0.3 OR similarity(product.barcode, :q) > 0.3)',
+        "(similarity(product.name, :q) > 0.3 OR similarity(product.barcode, :q) > 0.3)",
       )
-      .orderBy('sim', 'DESC')
-      .setParameter('q', trimmed)
+      .orderBy("sim", "DESC")
+      .setParameter("q", trimmed)
       .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
@@ -407,8 +462,8 @@ export class ProductService extends BaseCrudService<
     q: string,
     fuzzy: boolean,
   ): GlobalSearchResultDto {
-    const name = product.name?.toLowerCase() ?? '';
-    const barcode = product.barcode?.toLowerCase() ?? '';
+    const name = product.name?.toLowerCase() ?? "";
+    const barcode = product.barcode?.toLowerCase() ?? "";
     const baseScore = fuzzy
       ? SCORE_FUZZY
       : barcode && barcode === q
@@ -422,7 +477,7 @@ export class ProductService extends BaseCrudService<
               : SCORE_CONTAINS;
 
     return {
-      type: 'product',
+      type: "product",
       id: product.id,
       label: product.name,
       description: product.barcode,
@@ -469,7 +524,9 @@ export class ProductService extends BaseCrudService<
     });
 
     if (!product) {
-      throw new NotFoundException(`Product with barcode '${barcode}' not found`);
+      throw new NotFoundException(
+        `Product with barcode '${barcode}' not found`,
+      );
     }
 
     return this.toResponseDto(product);
@@ -511,7 +568,9 @@ export class ProductService extends BaseCrudService<
       barcode?: string;
     };
   }> {
-    this.logger.log(`Checking duplicate for name: "${params.name}", barcode: "${params.barcode}"`);
+    this.logger.log(
+      `Checking duplicate for name: "${params.name}", barcode: "${params.barcode}"`,
+    );
 
     const result = {
       nameExists: false,
@@ -523,12 +582,16 @@ export class ProductService extends BaseCrudService<
     // Check name duplicate
     if (params.name && params.name.trim()) {
       const nameQuery = this.productRepository
-        .createQueryBuilder('product')
-        .where('LOWER(product.name) = LOWER(:name)', { name: params.name.trim() })
+        .createQueryBuilder("product")
+        .where("LOWER(product.name) = LOWER(:name)", {
+          name: params.name.trim(),
+        })
         .withDeleted();
 
       if (params.excludeId) {
-        nameQuery.andWhere('product.id != :excludeId', { excludeId: params.excludeId });
+        nameQuery.andWhere("product.id != :excludeId", {
+          excludeId: params.excludeId,
+        });
       }
 
       const existingByName = await nameQuery.getOne();
@@ -547,12 +610,16 @@ export class ProductService extends BaseCrudService<
     // Check barcode duplicate
     if (params.barcode && params.barcode.trim()) {
       const barcodeQuery = this.productRepository
-        .createQueryBuilder('product')
-        .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: params.barcode.trim() })
+        .createQueryBuilder("product")
+        .where("LOWER(product.barcode) = LOWER(:barcode)", {
+          barcode: params.barcode.trim(),
+        })
         .withDeleted();
 
       if (params.excludeId) {
-        barcodeQuery.andWhere('product.id != :excludeId', { excludeId: params.excludeId });
+        barcodeQuery.andWhere("product.id != :excludeId", {
+          excludeId: params.excludeId,
+        });
       }
 
       const existingByBarcode = await barcodeQuery.getOne();
@@ -575,13 +642,17 @@ export class ProductService extends BaseCrudService<
    * Find all soft-deleted products
    */
   async findDeleted(query: QueryProductsDto): Promise<ProductListResponseDto> {
-    this.logger.log('Fetching deleted products with filters:', query);
+    this.logger.log("Fetching deleted products with filters:", query);
 
-    const queryBuilder = this.buildProductListQuery(query, { includeDeleted: true });
-    this.applyProductOrdering(queryBuilder, query, 'deletedAt');
+    const queryBuilder = this.buildProductListQuery(query, {
+      includeDeleted: true,
+    });
+    this.applyProductOrdering(queryBuilder, query, "deletedAt");
     const [deletedProducts, total] = await queryBuilder.getManyAndCount();
 
-    const productDtos = deletedProducts.map(product => this.toResponseDto(product));
+    const productDtos = deletedProducts.map((product) =>
+      this.toResponseDto(product),
+    );
 
     return {
       data: productDtos,
@@ -592,7 +663,11 @@ export class ProductService extends BaseCrudService<
   /**
    * Restore a soft-deleted product
    */
-  async restore(id: string, userId?: string, username?: string): Promise<ProductResponseDto> {
+  async restore(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<ProductResponseDto> {
     this.logger.log(`Restoring product with ID: ${id}`);
 
     const product = await this.productRepository.findOne({
@@ -602,21 +677,23 @@ export class ProductService extends BaseCrudService<
     });
 
     // Use standardized validation
-    ValidationUtil.validateForRestore(product, 'Product', id);
+    ValidationUtil.validateForRestore(product, "Product", id);
 
     // Check if barcode is still unique (case-insensitive, another product might have been created with the same barcode)
     if (product.barcode) {
       const existingProduct = await this.productRepository
-        .createQueryBuilder('product')
-        .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: product.barcode })
-        .andWhere('product.id != :id', { id: product.id })
+        .createQueryBuilder("product")
+        .where("LOWER(product.barcode) = LOWER(:barcode)", {
+          barcode: product.barcode,
+        })
+        .andWhere("product.id != :id", { id: product.id })
         .getOne();
 
       ValidationUtil.validateUniquenessForRestore(
         existingProduct,
-        'barcode',
+        "barcode",
         product.barcode,
-        'Product'
+        "Product",
       );
     }
 
@@ -631,12 +708,12 @@ export class ProductService extends BaseCrudService<
 
     // Log audit trail for restore
     await this.auditLogService.log(
-      'RESTORE',
-      'Product',
+      "RESTORE",
+      "Product",
       `Restored product: ${restoredProduct.name} (${restoredProduct.barcode})`,
       {
         entityId: restoredProduct.id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         newValues: {
           name: restoredProduct.name,
@@ -644,7 +721,7 @@ export class ProductService extends BaseCrudService<
           baseCost: restoredProduct.baseCost,
           stockQuantity: restoredProduct.stockQuantity,
         },
-      }
+      },
     );
 
     return this.toResponseDto(restoredProduct!);
@@ -661,7 +738,7 @@ export class ProductService extends BaseCrudService<
     this.logger.log(`Bulk restoring ${productIds.length} products`);
 
     if (!productIds || productIds.length === 0) {
-      return BulkOperationUtil.createResponse('restored', 'product', 0, []);
+      return BulkOperationUtil.createResponse("restored", "product", 0, []);
     }
 
     const failedItems = [];
@@ -679,13 +756,13 @@ export class ProductService extends BaseCrudService<
 
         // Use standardized validation
         try {
-          ValidationUtil.validateForRestore(product, 'Product', id);
+          ValidationUtil.validateForRestore(product, "Product", id);
         } catch (error) {
           BulkOperationUtil.addFailure(
             failedItems,
             id,
             error.message,
-            'VALIDATION_ERROR'
+            "VALIDATION_ERROR",
           );
           continue;
         }
@@ -693,9 +770,11 @@ export class ProductService extends BaseCrudService<
         // Check if barcode is still unique (case-insensitive)
         if (product.barcode) {
           const existingProduct = await this.productRepository
-            .createQueryBuilder('product')
-            .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: product.barcode })
-            .andWhere('product.id != :id', { id: product.id })
+            .createQueryBuilder("product")
+            .where("LOWER(product.barcode) = LOWER(:barcode)", {
+              barcode: product.barcode,
+            })
+            .andWhere("product.id != :id", { id: product.id })
             .getOne();
 
           if (existingProduct) {
@@ -703,7 +782,7 @@ export class ProductService extends BaseCrudService<
               failedItems,
               id,
               `Barcode '${product.barcode}' is now used by another active product`,
-              'BARCODE_CONFLICT'
+              "BARCODE_CONFLICT",
             );
             continue;
           }
@@ -713,10 +792,10 @@ export class ProductService extends BaseCrudService<
         await this.productRepository.restore(id);
 
         await this.auditLogService.log(
-          'RESTORE',
-          'Product',
+          "RESTORE",
+          "Product",
           `Restored product: ${product.name} (${product.barcode})`,
-          { entityId: id, userId: userId || 'system', username }
+          { entityId: id, userId: userId || "system", username },
         );
 
         successCount++;
@@ -727,18 +806,27 @@ export class ProductService extends BaseCrudService<
           failedItems,
           id,
           error.message,
-          'UNEXPECTED_ERROR'
+          "UNEXPECTED_ERROR",
         );
       }
     }
 
-    return BulkOperationUtil.createResponse('restored', 'product', successCount, failedItems);
+    return BulkOperationUtil.createResponse(
+      "restored",
+      "product",
+      successCount,
+      failedItems,
+    );
   }
 
   /**
    * Permanently delete a product from database
    */
-  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
+  async permanentDelete(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<void> {
     this.logger.log(`Permanently deleting product with ID: ${id}`);
 
     // Find the product (including soft-deleted ones)
@@ -748,30 +836,30 @@ export class ProductService extends BaseCrudService<
     });
 
     // Use standardized validation
-    ValidationUtil.validateForPermanentDelete(product, 'Product', id);
+    ValidationUtil.validateForPermanentDelete(product, "Product", id);
 
     // Check for dependencies before permanent deletion
     const dependencies = await this.checkProductDependencies(id);
 
     if (dependencies.hasDependencies) {
       const dependencyList = dependencies.dependencies
-        .map(dep => `${dep.count} ${dep.type}`)
-        .join(', ');
+        .map((dep) => `${dep.count} ${dep.type}`)
+        .join(", ");
 
       throw new ConflictException(
         `Cannot permanently delete '${product.name}' - product has dependent records: ${dependencyList}. ` +
-        `These records must be removed first before permanent deletion.`
+          `These records must be removed first before permanent deletion.`,
       );
     }
 
     // Log audit trail for permanent delete
     await this.auditLogService.log(
-      'PERMANENT_DELETE',
-      'Product',
+      "PERMANENT_DELETE",
+      "Product",
       `Permanently deleted product: ${product.name} (${product.barcode})`,
       {
         entityId: id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         oldValues: {
           name: product.name,
@@ -779,13 +867,16 @@ export class ProductService extends BaseCrudService<
           baseCost: product.baseCost,
           stockQuantity: product.stockQuantity,
         },
-      }
+      },
     );
 
     // Delete initial_stock movement before hard delete — stock_movements FK is RESTRICT so the DB
     // will reject the product delete if this row remains. purchase_cost_history has CASCADE so
     // the DB removes it automatically; no explicit delete needed there.
-    await this.stockMovementRepository.delete({ productId: id, movementType: StockMovementType.INITIAL_STOCK });
+    await this.stockMovementRepository.delete({
+      productId: id,
+      movementType: StockMovementType.INITIAL_STOCK,
+    });
 
     // Hard delete the product from database
     await this.productRepository.delete(id);
@@ -804,7 +895,12 @@ export class ProductService extends BaseCrudService<
     this.logger.log(`Bulk permanently deleting ${productIds.length} products`);
 
     if (!productIds || productIds.length === 0) {
-      return BulkOperationUtil.createResponse('permanently deleted', 'product', 0, []);
+      return BulkOperationUtil.createResponse(
+        "permanently deleted",
+        "product",
+        0,
+        [],
+      );
     }
 
     const failedItems = [];
@@ -821,13 +917,13 @@ export class ProductService extends BaseCrudService<
 
         // Use standardized validation
         try {
-          ValidationUtil.validateForPermanentDelete(product, 'Product', id);
+          ValidationUtil.validateForPermanentDelete(product, "Product", id);
         } catch (error) {
           BulkOperationUtil.addFailure(
             failedItems,
             id,
             error.message,
-            'VALIDATION_ERROR'
+            "VALIDATION_ERROR",
           );
           continue;
         }
@@ -837,44 +933,59 @@ export class ProductService extends BaseCrudService<
 
         if (dependencies.hasDependencies) {
           const dependencyList = dependencies.dependencies
-            .map(dep => `${dep.count} ${dep.type}`)
-            .join(', ');
+            .map((dep) => `${dep.count} ${dep.type}`)
+            .join(", ");
 
           BulkOperationUtil.addFailure(
             failedItems,
             id,
             `Product '${product.name}' has dependent records: ${dependencyList}`,
-            'DEPENDENCY_ERROR'
+            "DEPENDENCY_ERROR",
           );
           continue;
         }
 
         // Hard delete the product from database
         await this.auditLogService.log(
-          'PERMANENT_DELETE',
-          'Product',
+          "PERMANENT_DELETE",
+          "Product",
           `Permanently deleted product: ${product.name} (${product.barcode})`,
-          { entityId: id, userId: userId || 'system', username, oldValues: { name: product.name, barcode: product.barcode } }
+          {
+            entityId: id,
+            userId: userId || "system",
+            username,
+            oldValues: { name: product.name, barcode: product.barcode },
+          },
         );
         // Delete initial_stock movement before hard delete — stock_movements FK is RESTRICT.
         // purchase_cost_history has CASCADE so the DB removes it automatically.
-        await this.stockMovementRepository.delete({ productId: id, movementType: StockMovementType.INITIAL_STOCK });
+        await this.stockMovementRepository.delete({
+          productId: id,
+          movementType: StockMovementType.INITIAL_STOCK,
+        });
         await this.productRepository.delete(id);
 
         successCount++;
         this.logger.log(`Product permanently deleted: ${id}`);
       } catch (error) {
-        this.logger.error(`Failed to permanently delete product ${id}: ${error.message}`);
+        this.logger.error(
+          `Failed to permanently delete product ${id}: ${error.message}`,
+        );
         BulkOperationUtil.addFailure(
           failedItems,
           id,
           error.message,
-          'UNEXPECTED_ERROR'
+          "UNEXPECTED_ERROR",
         );
       }
     }
 
-    return BulkOperationUtil.createResponse('permanently deleted', 'product', successCount, failedItems);
+    return BulkOperationUtil.createResponse(
+      "permanently deleted",
+      "product",
+      successCount,
+      failedItems,
+    );
   }
 
   /**
@@ -898,11 +1009,16 @@ export class ProductService extends BaseCrudService<
     }
 
     // Check for name conflicts if name is being changed (case-insensitive)
-    if (updateProductDto.name && updateProductDto.name.toLowerCase() !== product.name.toLowerCase()) {
+    if (
+      updateProductDto.name &&
+      updateProductDto.name.toLowerCase() !== product.name.toLowerCase()
+    ) {
       const existingProductByName = await this.productRepository
-        .createQueryBuilder('product')
-        .where('LOWER(product.name) = LOWER(:name)', { name: updateProductDto.name.trim() })
-        .andWhere('product.id != :id', { id: product.id })
+        .createQueryBuilder("product")
+        .where("LOWER(product.name) = LOWER(:name)", {
+          name: updateProductDto.name.trim(),
+        })
+        .andWhere("product.id != :id", { id: product.id })
         .withDeleted()
         .getOne();
 
@@ -910,20 +1026,27 @@ export class ProductService extends BaseCrudService<
         if (existingProductByName.deletedAt) {
           throw new ConflictException(
             `Product with name '${updateProductDto.name}' was previously deleted but cannot be reused. ` +
-            `Please choose a different name or restore the deleted product.`
+              `Please choose a different name or restore the deleted product.`,
           );
         } else {
-          throw new ConflictException(`Product with name '${updateProductDto.name}' already exists`);
+          throw new ConflictException(
+            `Product with name '${updateProductDto.name}' already exists`,
+          );
         }
       }
     }
 
     // Check for barcode conflicts if barcode is being changed (case-insensitive)
-    if (updateProductDto.barcode && updateProductDto.barcode.toLowerCase() !== product.barcode?.toLowerCase()) {
+    if (
+      updateProductDto.barcode &&
+      updateProductDto.barcode.toLowerCase() !== product.barcode?.toLowerCase()
+    ) {
       const existingProduct = await this.productRepository
-        .createQueryBuilder('product')
-        .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: updateProductDto.barcode.trim() })
-        .andWhere('product.id != :id', { id: product.id })
+        .createQueryBuilder("product")
+        .where("LOWER(product.barcode) = LOWER(:barcode)", {
+          barcode: updateProductDto.barcode.trim(),
+        })
+        .andWhere("product.id != :id", { id: product.id })
         .withDeleted()
         .getOne();
 
@@ -931,38 +1054,53 @@ export class ProductService extends BaseCrudService<
         if (existingProduct.deletedAt) {
           throw new ConflictException(
             `Product with barcode '${updateProductDto.barcode}' was previously deleted but cannot be reused. ` +
-            `Please choose a different barcode or restore the deleted product.`
+              `Please choose a different barcode or restore the deleted product.`,
           );
         } else {
-          throw new ConflictException(`Product with barcode '${updateProductDto.barcode}' already exists`);
+          throw new ConflictException(
+            `Product with barcode '${updateProductDto.barcode}' already exists`,
+          );
         }
       }
     }
 
     // Validate category if being changed
-    if (updateProductDto.categoryId && updateProductDto.categoryId !== product.categoryId) {
+    if (
+      updateProductDto.categoryId &&
+      updateProductDto.categoryId !== product.categoryId
+    ) {
       const category = await this.categoryRepository.findOne({
         where: { id: updateProductDto.categoryId, isActive: true },
       });
 
       if (!category) {
-        throw new NotFoundException(`Category with ID '${updateProductDto.categoryId}' not found or inactive`);
+        throw new NotFoundException(
+          `Category with ID '${updateProductDto.categoryId}' not found or inactive`,
+        );
       }
     }
 
     // Transform DTO fields to match entity fields FIRST
     const updateData: any = { ...updateProductDto };
-    const nameChanged = updateProductDto.name !== undefined && updateProductDto.name !== product.name;
+    const nameChanged =
+      updateProductDto.name !== undefined &&
+      updateProductDto.name !== product.name;
     if (nameChanged) {
-      updateData.slug = await this.generateUniqueSlug(updateProductDto.name!, id);
+      updateData.slug = await this.generateUniqueSlug(
+        updateProductDto.name!,
+        id,
+      );
     }
 
     // stockQuantity is handled directly in the DTO
 
     // Update pricingTiers - prioritize direct pricingTiers if provided
-    if (updateData.pricingTiers && Object.keys(updateData.pricingTiers).length > 0) {
+    if (
+      updateData.pricingTiers &&
+      Object.keys(updateData.pricingTiers).length > 0
+    ) {
       // Direct pricingTiers provided (from new UI) - use as-is
-      this.logger.log('Using directly provided pricingTiers from DTO');
+      this.logger.log("Using directly provided pricingTiers from DTO");
     }
 
     // Validate pricing if any pricing changes
@@ -972,7 +1110,7 @@ export class ProductService extends BaseCrudService<
 
     // Track changes for audit (use transformed data)
     const changes: Record<string, { from: any; to: any }> = {};
-    Object.keys(updateData).forEach(key => {
+    Object.keys(updateData).forEach((key) => {
       if (updateData[key] !== product[key]) {
         changes[key] = { from: product[key], to: updateData[key] };
       }
@@ -985,8 +1123,8 @@ export class ProductService extends BaseCrudService<
 
     // Use direct update with ID string for better control over what gets updated
     await this.productRepository.update(
-      id,  // Use the ID parameter directly, not product.id
-      updateData
+      id, // Use the ID parameter directly, not product.id
+      updateData,
     );
 
     // Reload the product with category relation to ensure fresh data
@@ -998,20 +1136,20 @@ export class ProductService extends BaseCrudService<
     // Log audit trail for update
     if (Object.keys(changes).length > 0) {
       await this.auditLogService.log(
-        'UPDATE',
-        'Product',
+        "UPDATE",
+        "Product",
         `Updated product: ${productWithCategory.name} (${productWithCategory.barcode})`,
         {
           entityId: productWithCategory.id,
-          userId: userId || 'system',
+          userId: userId || "system",
           username,
           oldValues: Object.fromEntries(
-            Object.entries(changes).map(([key, val]) => [key, val.from])
+            Object.entries(changes).map(([key, val]) => [key, val.from]),
           ),
           newValues: Object.fromEntries(
-            Object.entries(changes).map(([key, val]) => [key, val.to])
+            Object.entries(changes).map(([key, val]) => [key, val.to]),
           ),
-        }
+        },
       );
     }
 
@@ -1030,47 +1168,63 @@ export class ProductService extends BaseCrudService<
 
     // Check sales order items
     const salesOrderItemCount = await this.salesOrderItemRepository.count({
-      where: { productId }
+      where: { productId },
     });
     if (salesOrderItemCount > 0) {
-      dependencies.push({ type: 'sales order items', count: salesOrderItemCount });
+      dependencies.push({
+        type: "sales order items",
+        count: salesOrderItemCount,
+      });
     }
 
     // Check purchase order items
-    const purchaseOrderItemCount = await this.purchaseOrderItemRepository.count({
-      where: { productId }
-    });
+    const purchaseOrderItemCount = await this.purchaseOrderItemRepository.count(
+      {
+        where: { productId },
+      },
+    );
     if (purchaseOrderItemCount > 0) {
-      dependencies.push({ type: 'purchase order items', count: purchaseOrderItemCount });
+      dependencies.push({
+        type: "purchase order items",
+        count: purchaseOrderItemCount,
+      });
     }
 
     // Check stock movements — exclude system-generated initial_stock entries
     const stockMovementCount = await this.stockMovementRepository.count({
-      where: { productId, movementType: Not(StockMovementType.INITIAL_STOCK) }
+      where: { productId, movementType: Not(StockMovementType.INITIAL_STOCK) },
     });
     if (stockMovementCount > 0) {
-      dependencies.push({ type: 'stock movements', count: stockMovementCount });
+      dependencies.push({ type: "stock movements", count: stockMovementCount });
     }
 
     // Check stock adjustment items
-    const stockAdjustmentItemCount = await this.stockAdjustmentItemRepository.count({
-      where: { productId }
-    });
+    const stockAdjustmentItemCount =
+      await this.stockAdjustmentItemRepository.count({
+        where: { productId },
+      });
     if (stockAdjustmentItemCount > 0) {
-      dependencies.push({ type: 'stock adjustment items', count: stockAdjustmentItemCount });
+      dependencies.push({
+        type: "stock adjustment items",
+        count: stockAdjustmentItemCount,
+      });
     }
 
     // Check goods received note items
-    const goodsReceivedNoteItemCount = await this.goodsReceivedNoteItemRepository.count({
-      where: { productId }
-    });
+    const goodsReceivedNoteItemCount =
+      await this.goodsReceivedNoteItemRepository.count({
+        where: { productId },
+      });
     if (goodsReceivedNoteItemCount > 0) {
-      dependencies.push({ type: 'goods received note items', count: goodsReceivedNoteItemCount });
+      dependencies.push({
+        type: "goods received note items",
+        count: goodsReceivedNoteItemCount,
+      });
     }
 
     return {
       hasDependencies: dependencies.length > 0,
-      dependencies
+      dependencies,
     };
   }
 
@@ -1084,7 +1238,7 @@ export class ProductService extends BaseCrudService<
    */
   async remove(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Deleting product with ID: ${id}`);
-    await this.softDelete(id, userId || 'system', username);
+    await this.softDelete(id, userId || "system", username);
     this.logger.log(`Product soft-deleted successfully: ${id}`);
   }
 
@@ -1092,22 +1246,28 @@ export class ProductService extends BaseCrudService<
    * Bulk update product prices
    */
   async bulkUpdatePrices(bulkUpdateDto: BulkUpdatePricesDto): Promise<void> {
-    this.logger.log(`Bulk updating prices for ${bulkUpdateDto.products.length} products`);
+    this.logger.log(
+      `Bulk updating prices for ${bulkUpdateDto.products.length} products`,
+    );
 
-    const productIds = bulkUpdateDto.products.map(p => p.productId);
-    const products = await this.productRepository.findBy({ id: In(productIds) });
+    const productIds = bulkUpdateDto.products.map((p) => p.productId);
+    const products = await this.productRepository.findBy({
+      id: In(productIds),
+    });
 
     if (products.length !== productIds.length) {
-      const foundIds = products.map(p => p.id);
-      const missingIds = productIds.filter(id => !foundIds.includes(id));
-      throw new NotFoundException(`Products not found: ${missingIds.join(', ')}`);
+      const foundIds = products.map((p) => p.id);
+      const missingIds = productIds.filter((id) => !foundIds.includes(id));
+      throw new NotFoundException(
+        `Products not found: ${missingIds.join(", ")}`,
+      );
     }
 
     const updates: Promise<UpdateResult>[] = [];
     // Audit promises removed with authentication system
 
     for (const priceUpdate of bulkUpdateDto.products) {
-      const product = products.find(p => p.id === priceUpdate.productId)!;
+      const product = products.find((p) => p.id === priceUpdate.productId)!;
       const updateData: Partial<Product> = {};
 
       // Track price changes
@@ -1116,9 +1276,15 @@ export class ProductService extends BaseCrudService<
       // NOTE: pricingTiers removed in Phase 8 - pricing now managed via Price Lists
       // Only baseCost is directly on Product entity now
 
-      if (priceUpdate.baseCost !== undefined && priceUpdate.baseCost !== product.baseCost) {
+      if (
+        priceUpdate.baseCost !== undefined &&
+        priceUpdate.baseCost !== product.baseCost
+      ) {
         updateData.baseCost = priceUpdate.baseCost;
-        priceChanges.baseCost = { from: Number(product.baseCost), to: priceUpdate.baseCost };
+        priceChanges.baseCost = {
+          from: Number(product.baseCost),
+          to: priceUpdate.baseCost,
+        };
       }
 
       if (Object.keys(updateData).length > 0) {
@@ -1126,7 +1292,7 @@ export class ProductService extends BaseCrudService<
         this.validatePricing({ ...product, ...updateData } as any);
 
         updates.push(
-          this.productRepository.update(priceUpdate.productId, updateData)
+          this.productRepository.update(priceUpdate.productId, updateData),
         );
 
         // Audit logging removed with authentication system
@@ -1135,50 +1301,61 @@ export class ProductService extends BaseCrudService<
 
     await Promise.all(updates);
 
-    this.logger.log(`Bulk price update completed for ${updates.length} products`);
+    this.logger.log(
+      `Bulk price update completed for ${updates.length} products`,
+    );
   }
 
   /**
    * Get stock summary for products
    */
-  async getStockSummary(filters?: Partial<QueryProductsDto>): Promise<ProductStockSummaryDto[]> {
-    const { lowStockThreshold } = await this.settingsService.getRegionalSettings();
+  async getStockSummary(
+    filters?: Partial<QueryProductsDto>,
+  ): Promise<ProductStockSummaryDto[]> {
+    const { lowStockThreshold } =
+      await this.settingsService.getRegionalSettings();
     const queryBuilder = this.productRepository
-      .createQueryBuilder('product')
-      .leftJoinAndSelect('product.category', 'category')
-      .leftJoin('product.stockMovements', 'movements')
+      .createQueryBuilder("product")
+      .leftJoinAndSelect("product.category", "category")
+      .leftJoin("product.stockMovements", "movements")
       .select([
-        'product.id',
-        'product.barcode',
-        'product.name',
-        'product.stockQuantity',
-        'category.name',
-        'MAX(movements.movementDate) as lastMovementDate',
+        "product.id",
+        "product.barcode",
+        "product.name",
+        "product.stockQuantity",
+        "category.name",
+        "MAX(movements.movementDate) as lastMovementDate",
       ])
-      .groupBy('product.id, category.id');
+      .groupBy("product.id, category.id");
 
     // Apply filters if provided
     if (filters?.categoryId) {
-      queryBuilder.andWhere('product.categoryId = :categoryId', { categoryId: filters.categoryId });
+      queryBuilder.andWhere("product.categoryId = :categoryId", {
+        categoryId: filters.categoryId,
+      });
     }
 
     if (filters?.lowStock) {
-      queryBuilder.andWhere('product.stockQuantity <= :lowStockThreshold', { lowStockThreshold });
+      queryBuilder.andWhere("product.stockQuantity <= :lowStockThreshold", {
+        lowStockThreshold,
+      });
     }
 
     if (filters?.outOfStock) {
-      queryBuilder.andWhere('product.stockQuantity <= 0');
+      queryBuilder.andWhere("product.stockQuantity <= 0");
     }
 
     if (filters?.isActive !== undefined) {
-      queryBuilder.andWhere('product.isActive = :isActive', { isActive: filters.isActive });
+      queryBuilder.andWhere("product.isActive = :isActive", {
+        isActive: filters.isActive,
+      });
     }
 
-    queryBuilder.orderBy('product.name', 'ASC');
+    queryBuilder.orderBy("product.name", "ASC");
 
     const results = await queryBuilder.getRawMany();
 
-    return results.map(result => ({
+    return results.map((result) => ({
       id: result.product_id,
       barcode: result.product_barcode,
       name: result.product_name,
@@ -1186,11 +1363,18 @@ export class ProductService extends BaseCrudService<
       availableQuantity: Number(result.product_stockQuantity),
       reservedQuantity: 0, // Simplified model doesn't track reserved stock
       reorderLevel: lowStockThreshold,
-      stockStatus: Number(result.product_stockQuantity) <= 0 ? 'out_of_stock' : Number(result.product_stockQuantity) <= lowStockThreshold ? 'low_stock' : 'in_stock',
+      stockStatus:
+        Number(result.product_stockQuantity) <= 0
+          ? "out_of_stock"
+          : Number(result.product_stockQuantity) <= lowStockThreshold
+            ? "low_stock"
+            : "in_stock",
       isLowStock: Number(result.product_stockQuantity) <= lowStockThreshold,
       isOutOfStock: Number(result.product_stockQuantity) <= 0,
       categoryName: result.category_name,
-      lastMovementDate: result.lastMovementDate ? new Date(result.lastMovementDate) : undefined,
+      lastMovementDate: result.lastMovementDate
+        ? new Date(result.lastMovementDate)
+        : undefined,
     }));
   }
 
@@ -1212,8 +1396,10 @@ export class ProductService extends BaseCrudService<
    * Reserve stock for a product
    */
   async reserveStock(productId: string, quantity: number): Promise<boolean> {
-    const product = await this.productRepository.findOne({ where: { id: productId } });
-    
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+    });
+
     if (!product) {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
@@ -1223,16 +1409,21 @@ export class ProductService extends BaseCrudService<
       await this.productRepository.save(product);
       return true;
     }
-    
+
     return false;
   }
 
   /**
    * Release reserved stock for a product
    */
-  async releaseReservedStock(productId: string, quantity: number): Promise<void> {
-    const product = await this.productRepository.findOne({ where: { id: productId } });
-    
+  async releaseReservedStock(
+    productId: string,
+    quantity: number,
+  ): Promise<void> {
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+    });
+
     if (!product) {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
@@ -1244,20 +1435,26 @@ export class ProductService extends BaseCrudService<
   /**
    * Update stock quantity for a product (internal use by stock movement service)
    */
-  async updateStockQuantity(productId: string, newQuantity: number, _userId?: string): Promise<void> {
-    const product = await this.productRepository.findOne({ where: { id: productId } });
-    
+  async updateStockQuantity(
+    productId: string,
+    newQuantity: number,
+    _userId?: string,
+  ): Promise<void> {
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+    });
+
     if (!product) {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
 
     const previousQuantity = product.stockQuantity;
     product.stockQuantity = newQuantity;
-    
+
     await this.productRepository.save(product);
 
     this.logger.log(
-      `Stock quantity updated for product ${productId}: ${previousQuantity} -> ${newQuantity}`
+      `Stock quantity updated for product ${productId}: ${previousQuantity} -> ${newQuantity}`,
     );
   }
 
@@ -1271,30 +1468,35 @@ export class ProductService extends BaseCrudService<
     lowStockCount: number;
     outOfStockCount: number;
     recentMovements: number;
-    categoryBreakdown: Array<{ category: string; count: number; value: number }>;
+    categoryBreakdown: Array<{
+      category: string;
+      count: number;
+      value: number;
+    }>;
     stockHealthMetrics: {
       inStockPercentage: number;
       outOfStockPercentage: number;
       averageValue: number;
     };
   }> {
-    this.logger.log('Fetching dashboard statistics');
-    const { lowStockThreshold } = await this.settingsService.getRegionalSettings();
+    this.logger.log("Fetching dashboard statistics");
+    const { lowStockThreshold } =
+      await this.settingsService.getRegionalSettings();
 
     // Get total products count
     const totalProducts = await this.productRepository.count({
-      where: { deletedAt: IsNull() }
+      where: { deletedAt: IsNull() },
     });
 
     // Get total categories count
     const totalCategories = await this.categoryRepository.count({
-      where: { isActive: true }
+      where: { isActive: true },
     });
 
     // Get all active products with category info for calculations
     const products = await this.productRepository.find({
       relations: { category: true },
-      where: { deletedAt: IsNull() }
+      where: { deletedAt: IsNull() },
     });
 
     // Calculate comprehensive statistics
@@ -1303,7 +1505,7 @@ export class ProductService extends BaseCrudService<
     let outOfStockCount = 0;
     const categoryMap = new Map<string, { count: number; value: number }>();
 
-    products.forEach(product => {
+    products.forEach((product) => {
       const stock = Number(product.stockQuantity) || 0;
       // Use baseCost for inventory valuation (standard accounting practice)
       const cost = Number(product.baseCost) || 0;
@@ -1319,7 +1521,7 @@ export class ProductService extends BaseCrudService<
       }
 
       // Category breakdown
-      const categoryName = product.category?.name || 'Uncategorized';
+      const categoryName = product.category?.name || "Uncategorized";
       const existing = categoryMap.get(categoryName) || { count: 0, value: 0 };
       existing.count += 1;
       existing.value += stock * cost;
@@ -1335,15 +1537,21 @@ export class ProductService extends BaseCrudService<
     // Calculate stock health metrics (only in-stock vs out-of-stock)
     const inStockCount = totalProducts - outOfStockCount;
     const stockHealthMetrics = {
-      inStockPercentage: totalProducts > 0 ? Math.round((inStockCount / totalProducts) * 100) : 0,
-      outOfStockPercentage: totalProducts > 0 ? Math.round((outOfStockCount / totalProducts) * 100) : 0,
+      inStockPercentage:
+        totalProducts > 0
+          ? Math.round((inStockCount / totalProducts) * 100)
+          : 0,
+      outOfStockPercentage:
+        totalProducts > 0
+          ? Math.round((outOfStockCount / totalProducts) * 100)
+          : 0,
       averageValue: totalProducts > 0 ? inventoryValue / totalProducts : 0,
     };
 
     // Get recent movements count (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
+
     let recentMovements = 0;
     try {
       // Try to get recent movements count from stock movement service
@@ -1354,7 +1562,10 @@ export class ProductService extends BaseCrudService<
       });
       recentMovements = movementsQuery.meta?.total || 0;
     } catch (error) {
-      this.logger.warn('Could not fetch recent movements count:', error.message);
+      this.logger.warn(
+        "Could not fetch recent movements count:",
+        error.message,
+      );
       recentMovements = 0;
     }
 
@@ -1369,21 +1580,23 @@ export class ProductService extends BaseCrudService<
       stockHealthMetrics,
     };
 
-    this.logger.log('Dashboard statistics calculated successfully');
+    this.logger.log("Dashboard statistics calculated successfully");
     return stats;
   }
 
   /**
    * Get product prices from all price lists
    */
-  async getProductPrices(productId: string): Promise<Array<{
-    priceListId: string;
-    priceListCode: string;
-    priceListName: string;
-    price: number;
-    costBasis: number | null;
-    margin: number | null;
-  }>> {
+  async getProductPrices(productId: string): Promise<
+    Array<{
+      priceListId: string;
+      priceListCode: string;
+      priceListName: string;
+      price: number;
+      costBasis: number | null;
+      margin: number | null;
+    }>
+  > {
     const product = await this.productRepository.findOne({
       where: { id: productId },
       relations: { priceListItems: { priceList: true } },
@@ -1397,7 +1610,7 @@ export class ProductService extends BaseCrudService<
       return [];
     }
 
-    return product.priceListItems.map(item => ({
+    return product.priceListItems.map((item) => ({
       priceListId: item.priceListId,
       priceListCode: item.priceList.code,
       priceListName: item.priceList.name,
@@ -1424,26 +1637,31 @@ export class ProductService extends BaseCrudService<
       stockQuantity: Number(product.stockQuantity),
       notes: product.notes,
       categoryId: product.categoryId,
-      category: product.category ? {
-        id: product.category.id,
-        name: product.category.name,
-        fullPath: product.category.fullPath,
-      } : null,
-      priceListItems: product.priceListItems?.map(item => ({
-        id: item.id,
-        priceListId: item.priceListId,
-        productId: item.productId,
-        price: Number(item.price),
-        costBasis: item.costBasis ? Number(item.costBasis) : null,
-        marginPercent: item.marginPercent ? Number(item.marginPercent) : null,
-        priceList: item.priceList ? {
-          id: item.priceList.id,
-          code: item.priceList.code,
-          name: item.priceList.name,
-          isDefault: item.priceList.isDefault,
-          isActive: item.priceList.isActive,
-        } : undefined,
-      })) || [],
+      category: product.category
+        ? {
+            id: product.category.id,
+            name: product.category.name,
+            fullPath: product.category.fullPath,
+          }
+        : null,
+      priceListItems:
+        product.priceListItems?.map((item) => ({
+          id: item.id,
+          priceListId: item.priceListId,
+          productId: item.productId,
+          price: Number(item.price),
+          costBasis: item.costBasis ? Number(item.costBasis) : null,
+          marginPercent: item.marginPercent ? Number(item.marginPercent) : null,
+          priceList: item.priceList
+            ? {
+                id: item.priceList.id,
+                code: item.priceList.code,
+                name: item.priceList.name,
+                isDefault: item.priceList.isDefault,
+                isActive: item.priceList.isActive,
+              }
+            : undefined,
+        })) || [],
       isOutOfStock: product.isOutOfStock,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
@@ -1451,7 +1669,10 @@ export class ProductService extends BaseCrudService<
     } as any;
   }
 
-  private async generateUniqueSlug(name: string, excludeId?: string): Promise<string> {
+  private async generateUniqueSlug(
+    name: string,
+    excludeId?: string,
+  ): Promise<string> {
     const base = generateBaseSlug(name);
     let slug = base;
     let counter = 1;
@@ -1478,8 +1699,8 @@ export class ProductService extends BaseCrudService<
    * Check if the update contains pricing changes
    */
   private hasPricingChanges(_updateDto: UpdateProductDto): boolean {
-    return ['baseCost', 'pricingTiers'].some(
-      field => _updateDto.hasOwnProperty(field)
+    return ["baseCost", "pricingTiers"].some((field) =>
+      _updateDto.hasOwnProperty(field),
     );
   }
 
@@ -1491,10 +1712,12 @@ export class ProductService extends BaseCrudService<
     importDto: ProductImportDto,
   ): Promise<ProductImportResultDto> {
     if (!file) {
-      throw new BadRequestException('No file provided');
+      throw new BadRequestException("No file provided");
     }
 
-    this.logger.log(`Starting product import from ${importDto.format} file: ${file.originalname}`);
+    this.logger.log(
+      `Starting product import from ${importDto.format} file: ${file.originalname}`,
+    );
 
     const result: ProductImportResultDto = {
       totalRows: 0,
@@ -1513,14 +1736,16 @@ export class ProductService extends BaseCrudService<
       result.totalRows = rows.length;
 
       if (rows.length === 0) {
-        throw new BadRequestException('No data rows found in file');
+        throw new BadRequestException("No data rows found in file");
       }
 
       // Get all categories for mapping
       const categories = await this.categoryRepository.find({
         where: { isActive: true },
       });
-      const categoryMap = new Map(categories.map(cat => [cat.name.toLowerCase(), cat.id]));
+      const categoryMap = new Map(
+        categories.map((cat) => [cat.name.toLowerCase(), cat.id]),
+      );
 
       // Process each row
       for (let i = 0; i < rows.length; i++) {
@@ -1529,20 +1754,32 @@ export class ProductService extends BaseCrudService<
 
         try {
           // Validate and process the row
-          const productData = await this.validateAndProcessRow(row, rowNumber, categoryMap, result);
-          
+          const productData = await this.validateAndProcessRow(
+            row,
+            rowNumber,
+            categoryMap,
+            result,
+          );
+
           if (!productData) {
             result.skippedCount++;
             continue;
           }
 
           // Check for duplicates
-          const existingProduct = await this.findDuplicateProduct(productData.name, productData.barcode);
-          
+          const existingProduct = await this.findDuplicateProduct(
+            productData.name,
+            productData.barcode,
+          );
+
           if (existingProduct) {
             if (importDto.updateExisting) {
               // Update existing product
-              await this.update(existingProduct.id, productData as UpdateProductDto, 'system');
+              await this.update(
+                existingProduct.id,
+                productData as UpdateProductDto,
+                "system",
+              );
               result.updatedCount++;
               result.importedProductIds.push(existingProduct.id);
               result.warnings.push({
@@ -1561,14 +1798,17 @@ export class ProductService extends BaseCrudService<
               result.failureCount++;
               result.errors.push({
                 row: rowNumber,
-                field: 'name/barcode',
+                field: "name/barcode",
                 message: `Product already exists: ${productData.name}`,
                 value: productData.name,
               });
             }
           } else {
             // Create new product
-            const createdProduct = await this.create(productData as CreateProductDto, 'system');
+            const createdProduct = await this.create(
+              productData as CreateProductDto,
+              "system",
+            );
             result.successCount++;
             result.importedProductIds.push(createdProduct.id);
           }
@@ -1576,107 +1816,111 @@ export class ProductService extends BaseCrudService<
           result.failureCount++;
           result.errors.push({
             row: rowNumber,
-            field: 'general',
-            message: error.message || 'Unknown error occurred',
-            value: row.name || 'Unknown product',
+            field: "general",
+            message: error.message || "Unknown error occurred",
+            value: row.name || "Unknown product",
           });
           this.logger.error(`Error processing row ${rowNumber}:`, error);
         }
       }
 
-      this.logger.log(`Import completed: ${result.successCount} created, ${result.updatedCount} updated, ${result.failureCount} failed, ${result.skippedCount} skipped`);
+      this.logger.log(
+        `Import completed: ${result.successCount} created, ${result.updatedCount} updated, ${result.failureCount} failed, ${result.skippedCount} skipped`,
+      );
       return result;
-
     } catch (error) {
-      this.logger.error('Import failed:', error);
+      this.logger.error("Import failed:", error);
       throw new BadRequestException(`Import failed: ${error.message}`);
     }
   }
 
   /**
-   * Generate CSV template for product import 
+   * Generate CSV template for product import
    */
   async generateImportTemplate(): Promise<StreamableFile> {
     const csvHeaders = [
-      'name*',
-      'description',
-      'barcode',
-      'type*',
-      'categoryName*',
-      'baseCost*',
-      'retailPrice',
-      'wholesalePrice',
-      'specialPrice',
-      'stockQuantity',
-      'notes',
-      'isActive',
+      "name*",
+      "description",
+      "barcode",
+      "type*",
+      "categoryName*",
+      "baseCost*",
+      "retailPrice",
+      "wholesalePrice",
+      "specialPrice",
+      "stockQuantity",
+      "notes",
+      "isActive",
     ];
 
     const sampleData1 = [
-      'Sample Product',
-      'Sample product description',
-      '123456789',
-      'Stocked Product',
-      'test1',
-      '10.00',
-      '15.00',
-      '12.00',
-      '13.50',
-      '100',
-      'Internal notes',
-      'true',
+      "Sample Product",
+      "Sample product description",
+      "123456789",
+      "Stocked Product",
+      "test1",
+      "10.00",
+      "15.00",
+      "12.00",
+      "13.50",
+      "100",
+      "Internal notes",
+      "true",
     ];
 
     const sampleData2 = [
-      'Business Laptop',
-      'High-performance laptop for business use',
-      'LAPTOP001',
-      'Stocked Product',
-      'test2',
-      '800.00',
-      '1200.00',
-      '1000.00',
-      '1100.00',
-      '25',
-      'Premium business laptop',
-      'true',
+      "Business Laptop",
+      "High-performance laptop for business use",
+      "LAPTOP001",
+      "Stocked Product",
+      "test2",
+      "800.00",
+      "1200.00",
+      "1000.00",
+      "1100.00",
+      "25",
+      "Premium business laptop",
+      "true",
     ];
 
     const sampleData3 = [
-      'IT Consulting Service',
-      'Professional IT consulting and support services',
-      'CONSULT001',
-      'Service',
-      'test3',
-      '80.00',
-      '120.00',
-      '100.00',
-      '110.00',
-      '0',
-      'Hourly rate for IT support',
-      'true',
+      "IT Consulting Service",
+      "Professional IT consulting and support services",
+      "CONSULT001",
+      "Service",
+      "test3",
+      "80.00",
+      "120.00",
+      "100.00",
+      "110.00",
+      "0",
+      "Hourly rate for IT support",
+      "true",
     ];
 
     const csvContent = [
-      csvHeaders.join(','),
-      sampleData1.map(field => `"${field}"`).join(','),
-      sampleData2.map(field => `"${field}"`).join(','),
-      sampleData3.map(field => `"${field}"`).join(','),
-    ].join('\n');
+      csvHeaders.join(","),
+      sampleData1.map((field) => `"${field}"`).join(","),
+      sampleData2.map((field) => `"${field}"`).join(","),
+      sampleData3.map((field) => `"${field}"`).join(","),
+    ].join("\n");
 
-    const buffer = Buffer.from(csvContent, 'utf-8');
+    const buffer = Buffer.from(csvContent, "utf-8");
     return new StreamableFile(buffer);
   }
 
   /**
    * Parse import file based on format
    */
-  private async parseImportFile(file: Express.Multer.File, format: string): Promise<any[]> {
-    const fileContent = file.buffer.toString('utf-8');
-    
-    if (format === 'csv') {
+  private async parseImportFile(
+    file: Express.Multer.File,
+    format: string,
+  ): Promise<any[]> {
+    const fileContent = file.buffer.toString("utf-8");
+
+    if (format === "csv") {
       return this.parseCsvContent(fileContent);
-    } else if (format === 'excel') {
+    } else if (format === "excel") {
       // For now, treat Excel files as CSV (would need xlsx library for proper Excel support)
       return this.parseCsvContent(fileContent);
     } else {
@@ -1688,14 +1932,16 @@ export class ProductService extends BaseCrudService<
    * Parse CSV content
    */
   private parseCsvContent(content: string): any[] {
-    if (typeof content !== 'string') {
-      throw new BadRequestException('CSV content must be a string');
+    if (typeof content !== "string") {
+      throw new BadRequestException("CSV content must be a string");
     }
 
-    const lines = content.split('\n').filter(line => line.trim());
+    const lines = content.split("\n").filter((line) => line.trim());
 
     if (lines.length < 2) {
-      throw new BadRequestException('File must contain at least a header row and one data row');
+      throw new BadRequestException(
+        "File must contain at least a header row and one data row",
+      );
     }
 
     const dataRowCount = lines.length - 1;
@@ -1707,14 +1953,20 @@ export class ProductService extends BaseCrudService<
 
     // Parse header
     const headerLine = lines[0];
-    const headers = this.parseCsvLine(headerLine).map(h => h.toLowerCase().replace(/\*/g, ''));
+    const headers = this.parseCsvLine(headerLine).map((h) =>
+      h.toLowerCase().replace(/\*/g, ""),
+    );
 
     // Validate required headers
-    const requiredHeaders = ['name', 'type', 'categoryname', 'basecost'];
-    const missingHeaders = requiredHeaders.filter(req => !headers.includes(req));
+    const requiredHeaders = ["name", "type", "categoryname", "basecost"];
+    const missingHeaders = requiredHeaders.filter(
+      (req) => !headers.includes(req),
+    );
 
     if (missingHeaders.length > 0) {
-      throw new BadRequestException(`Missing required headers: ${missingHeaders.join(', ')}`);
+      throw new BadRequestException(
+        `Missing required headers: ${missingHeaders.join(", ")}`,
+      );
     }
 
     // Parse data rows
@@ -1727,7 +1979,7 @@ export class ProductService extends BaseCrudService<
       const rowData: any = {};
 
       headers.forEach((header, index) => {
-        rowData[header] = values[index] || '';
+        rowData[header] = values[index] || "";
       });
 
       rows.push(rowData);
@@ -1740,8 +1992,8 @@ export class ProductService extends BaseCrudService<
    * Parse a single CSV line handling quoted values
    */
   private parseCsvLine(line: string): string[] {
-    if (typeof line !== 'string') {
-      throw new BadRequestException('CSV line must be a string');
+    if (typeof line !== "string") {
+      throw new BadRequestException("CSV line must be a string");
     }
 
     if (line.length > this.MAX_CSV_LINE_LENGTH) {
@@ -1751,19 +2003,23 @@ export class ProductService extends BaseCrudService<
     }
 
     const values = [];
-    let currentValue = '';
+    let currentValue = "";
     let inQuotes = false;
 
     for (let i = 0; i < line.length; i++) {
       const char = line[i];
 
-      if (char === '"' && (i === 0 || line[i - 1] === ',')) {
+      if (char === '"' && (i === 0 || line[i - 1] === ",")) {
         inQuotes = true;
-      } else if (char === '"' && inQuotes && (i === line.length - 1 || line[i + 1] === ',')) {
+      } else if (
+        char === '"' &&
+        inQuotes &&
+        (i === line.length - 1 || line[i + 1] === ",")
+      ) {
         inQuotes = false;
-      } else if (char === ',' && !inQuotes) {
+      } else if (char === "," && !inQuotes) {
         values.push(currentValue.trim());
-        currentValue = '';
+        currentValue = "";
       } else {
         currentValue += char;
       }
@@ -1791,7 +2047,7 @@ export class ProductService extends BaseCrudService<
     };
 
     for (const [field, value] of Object.entries(requiredFields)) {
-      if (!value || value.toString().trim() === '') {
+      if (!value || value.toString().trim() === "") {
         result.errors.push({
           row: rowNumber,
           field,
@@ -1805,11 +2061,11 @@ export class ProductService extends BaseCrudService<
     // Map category name to ID
     const categoryName = row.categoryname.toLowerCase();
     const categoryId = categoryMap.get(categoryName);
-    
+
     if (!categoryId) {
       result.errors.push({
         row: rowNumber,
-        field: 'categoryName',
+        field: "categoryName",
         message: `Category '${row.categoryname}' not found`,
         value: row.categoryname,
       });
@@ -1819,10 +2075,10 @@ export class ProductService extends BaseCrudService<
     // Validate product type and map to enum values
     const normalizeProductType = (type: string): ProductType | null => {
       const lowerType = type.toLowerCase().trim();
-      if (lowerType === 'goods' || lowerType === 'stocked product') {
+      if (lowerType === "goods" || lowerType === "stocked product") {
         return ProductType.GOODS;
       }
-      if (lowerType === 'service') {
+      if (lowerType === "service") {
         return ProductType.SERVICE;
       }
       return null;
@@ -1832,7 +2088,7 @@ export class ProductService extends BaseCrudService<
     if (!normalizedType) {
       result.errors.push({
         row: rowNumber,
-        field: 'type',
+        field: "type",
         message: `Invalid product type. Must be 'Stocked Product' or 'Service'`,
         value: row.type,
       });
@@ -1841,7 +2097,7 @@ export class ProductService extends BaseCrudService<
 
     // Parse numeric values
     const parseNumber = (value: string, field: string): number | undefined => {
-      if (!value || value.trim() === '') return undefined;
+      if (!value || value.trim() === "") return undefined;
       const parsed = parseFloat(value);
       if (isNaN(parsed) || parsed < 0) {
         result.errors.push({
@@ -1855,7 +2111,7 @@ export class ProductService extends BaseCrudService<
       return parsed;
     };
 
-    const baseCost = parseNumber(row.basecost, 'baseCost');
+    const baseCost = parseNumber(row.basecost, "baseCost");
     if (baseCost === undefined) return null;
 
     // Build product data (pricing is now managed via Price Lists, not product fields)
@@ -1866,9 +2122,13 @@ export class ProductService extends BaseCrudService<
       type: normalizedType,
       categoryId,
       baseCost,
-      stockQuantity: parseNumber(row.stockquantity, 'stockQuantity') || 0,
+      stockQuantity: parseNumber(row.stockquantity, "stockQuantity") || 0,
       notes: row.notes?.trim() || undefined,
-      isActive: row.isactive === 'true' || row.isactive === true || row.isactive === '1' || true
+      isActive:
+        row.isactive === "true" ||
+        row.isactive === true ||
+        row.isactive === "1" ||
+        true,
     };
 
     return productData;
@@ -1877,7 +2137,10 @@ export class ProductService extends BaseCrudService<
   /**
    * Find duplicate product by name or barcode
    */
-  private async findDuplicateProduct(name: string, barcode?: string): Promise<Product | null> {
+  private async findDuplicateProduct(
+    name: string,
+    barcode?: string,
+  ): Promise<Product | null> {
     const whereConditions: any[] = [{ name }];
 
     if (barcode && barcode.trim()) {
@@ -1896,47 +2159,49 @@ export class ProductService extends BaseCrudService<
   async getOrderHistory(
     productId: string,
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
   ): Promise<any> {
     this.logger.log(`Getting order history for product ${productId}`);
 
     // Verify product exists
     const product = await this.findOne(productId);
     if (!product) {
-      throw new NotFoundException('Product not found');
+      throw new NotFoundException("Product not found");
     }
 
     // Fetch ALL sales order items (no pagination yet - will paginate after combining)
     const salesOrderItems = await this.salesOrderItemRepository
-      .createQueryBuilder('item')
-      .leftJoinAndSelect('item.salesOrder', 'salesOrder')
-      .leftJoinAndSelect('salesOrder.customer', 'customer')
-      .where('item.productId = :productId', { productId })
+      .createQueryBuilder("item")
+      .leftJoinAndSelect("item.salesOrder", "salesOrder")
+      .leftJoinAndSelect("salesOrder.customer", "customer")
+      .where("item.productId = :productId", { productId })
       .getMany();
 
     // Fetch ALL purchase order items with payment information (no pagination yet)
     const purchaseOrderItems = await this.purchaseOrderItemRepository
-      .createQueryBuilder('item')
-      .leftJoinAndSelect('item.purchaseOrder', 'purchaseOrder')
-      .leftJoinAndSelect('purchaseOrder.supplier', 'supplier')
-      .leftJoinAndSelect('purchaseOrder.vendorPayments', 'vendorPayments')
-      .leftJoinAndSelect('purchaseOrder.items', 'poItems')
-      .where('item.productId = :productId', { productId })
+      .createQueryBuilder("item")
+      .leftJoinAndSelect("item.purchaseOrder", "purchaseOrder")
+      .leftJoinAndSelect("purchaseOrder.supplier", "supplier")
+      .leftJoinAndSelect("purchaseOrder.vendorPayments", "vendorPayments")
+      .leftJoinAndSelect("purchaseOrder.items", "poItems")
+      .where("item.productId = :productId", { productId })
       .getMany();
 
     // Transform sales order items (filter out items without order data)
     const salesOrders = salesOrderItems
-      .filter(item => item.salesOrder) // Only process items with loaded order
-      .map(item => {
+      .filter((item) => item.salesOrder) // Only process items with loaded order
+      .map((item) => {
         return {
           id: item.id,
-          type: 'sales_order',
+          type: "sales_order",
           orderNumber: item.salesOrder.orderNumber,
-          customerOrVendor: item.salesOrder.customer?.name || 'Unknown',
+          customerOrVendor: item.salesOrder.customer?.name || "Unknown",
           date: item.salesOrder.orderDate,
           updatedAt: item.salesOrder.updatedAt, // Add updatedAt for sorting
-          paymentStatus: item.salesOrder.paymentStatus?.toLowerCase() || 'pending',
-          fulfillmentStatus: item.salesOrder.status === 'FULFILLED' ? 'fulfilled' : 'pending',
+          paymentStatus:
+            item.salesOrder.paymentStatus?.toLowerCase() || "pending",
+          fulfillmentStatus:
+            item.salesOrder.status === "FULFILLED" ? "fulfilled" : "pending",
           quantity: Number(item.quantity),
           subTotal: Number(item.totalAmount),
         };
@@ -1944,34 +2209,37 @@ export class ProductService extends BaseCrudService<
 
     // Transform purchase order items (filter out items without order data)
     const purchaseOrders = purchaseOrderItems
-      .filter(item => item.purchaseOrder) // Only process items with loaded order
-      .map(item => {
+      .filter((item) => item.purchaseOrder) // Only process items with loaded order
+      .map((item) => {
         // Calculate payment status from vendor payments
         const vendorPayments = item.purchaseOrder.vendorPayments || [];
         const totalPaid = vendorPayments
-          .filter(payment => payment.status === 'completed')
+          .filter((payment) => payment.status === "completed")
           .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
         const totalAmount = Number(item.purchaseOrder.totalAmount || 0);
 
-        let paymentStatus = 'pending';
+        let paymentStatus = "pending";
         if (totalPaid >= totalAmount && totalAmount > 0) {
-          paymentStatus = 'paid';
+          paymentStatus = "paid";
         } else if (totalPaid > 0) {
-          paymentStatus = 'partial';
+          paymentStatus = "partial";
         }
 
         // Check if fully received using the entity method
-        const isFullyReceived = item.purchaseOrder.isFullyReceived ? item.purchaseOrder.isFullyReceived() : false;
+        const isFullyReceived = item.purchaseOrder.isFullyReceived
+          ? item.purchaseOrder.isFullyReceived()
+          : false;
 
         return {
           id: item.id,
-          type: 'purchase_order',
+          type: "purchase_order",
           orderNumber: item.purchaseOrder.orderNumber,
-          customerOrVendor: item.purchaseOrder.supplier?.companyName || 'Unknown',
+          customerOrVendor:
+            item.purchaseOrder.supplier?.companyName || "Unknown",
           date: item.purchaseOrder.orderDate,
           updatedAt: item.purchaseOrder.updatedAt, // Add updatedAt for sorting
           paymentStatus,
-          receivedStatus: isFullyReceived ? 'received' : 'pending',
+          receivedStatus: isFullyReceived ? "received" : "pending",
           quantity: Number(item.quantity),
           subTotal: Number(item.totalAmount),
         };
@@ -1979,7 +2247,8 @@ export class ProductService extends BaseCrudService<
 
     // Combine and sort by updatedAt (most recently updated first)
     const combinedOrders = [...salesOrders, ...purchaseOrders].sort(
-      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     );
 
     // Get total count

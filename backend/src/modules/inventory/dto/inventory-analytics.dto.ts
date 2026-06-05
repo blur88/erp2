@@ -1,7 +1,7 @@
-import { IsOptional, IsEnum, IsIn, IsDate, IsUUID } from 'class-validator';
-import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { DateRange, GroupByPeriod } from '@/common/dto/analytics.dto';
+import { IsOptional, IsEnum, IsIn, IsDate, IsUUID } from "class-validator";
+import { ApiPropertyOptional, ApiProperty } from "@nestjs/swagger";
+import { Transform } from "class-transformer";
+import { DateRange, GroupByPeriod } from "@/common/dto/analytics.dto";
 
 export { DateRange, GroupByPeriod };
 
@@ -11,42 +11,42 @@ export class InventoryAnalyticsQueryDto {
   @IsEnum(DateRange)
   dateRange?: DateRange;
 
-  @ApiPropertyOptional({ example: '2026-01-01' })
+  @ApiPropertyOptional({ example: "2026-01-01" })
   @IsOptional()
   @IsDate()
   @Transform(({ value }) => (value ? new Date(value) : value))
   startDate?: Date;
 
-  @ApiPropertyOptional({ example: '2026-03-31' })
+  @ApiPropertyOptional({ example: "2026-03-31" })
   @IsOptional()
   @IsDate()
   @Transform(({ value }) => (value ? new Date(value) : value))
   endDate?: Date;
 
-  @ApiPropertyOptional({ enum: ['previous_period', 'last_month', 'last_year'] })
+  @ApiPropertyOptional({ enum: ["previous_period", "last_month", "last_year"] })
   @IsOptional()
-  @IsIn(['previous_period', 'last_month', 'last_year'])
-  compareWith?: 'previous_period' | 'last_month' | 'last_year';
+  @IsIn(["previous_period", "last_month", "last_year"])
+  compareWith?: "previous_period" | "last_month" | "last_year";
 
   @ApiPropertyOptional({ enum: GroupByPeriod, example: GroupByPeriod.DAY })
   @IsOptional()
   @IsEnum(GroupByPeriod)
   groupBy?: GroupByPeriod;
 
-  @ApiPropertyOptional({ description: 'Filter by category ID' })
+  @ApiPropertyOptional({ description: "Filter by category ID" })
   @IsOptional()
   @IsUUID()
   categoryId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by supplier ID' })
+  @ApiPropertyOptional({ description: "Filter by supplier ID" })
   @IsOptional()
   @IsUUID()
   supplierId?: string;
 
-  @ApiPropertyOptional({ enum: ['in_stock', 'low_stock', 'out_of_stock'] })
+  @ApiPropertyOptional({ enum: ["in_stock", "low_stock", "out_of_stock"] })
   @IsOptional()
-  @IsIn(['in_stock', 'low_stock', 'out_of_stock'])
-  stockStatus?: 'in_stock' | 'low_stock' | 'out_of_stock';
+  @IsIn(["in_stock", "low_stock", "out_of_stock"])
+  stockStatus?: "in_stock" | "low_stock" | "out_of_stock";
 }
 
 export class InventoryMetricsDto {
@@ -73,7 +73,7 @@ export class InventoryMetricsDto {
 }
 
 export class InventoryPeriodDataDto {
-  @ApiProperty({ example: '2026-03-01' })
+  @ApiProperty({ example: "2026-03-01" })
   period!: string;
 
   @ApiProperty({ example: 45 })
@@ -90,44 +90,44 @@ export class InventoryPeriodBlockDto {
   @ApiProperty({ type: [InventoryPeriodDataDto] })
   periodData!: InventoryPeriodDataDto[];
 
-  @ApiProperty({ example: '2026-03-01' })
+  @ApiProperty({ example: "2026-03-01" })
   periodStart!: string;
 
-  @ApiProperty({ example: '2026-03-31' })
+  @ApiProperty({ example: "2026-03-31" })
   periodEnd!: string;
 }
 
 export class LowStockAlertDto {
-  @ApiProperty({ example: 'uuid' })
+  @ApiProperty({ example: "uuid" })
   productId!: string;
 
-  @ApiProperty({ example: 'Widget A' })
+  @ApiProperty({ example: "Widget A" })
   productName!: string;
 
-  @ApiProperty({ example: 'Electronics' })
+  @ApiProperty({ example: "Electronics" })
   categoryName!: string;
 
   @ApiProperty({ example: 3 })
   stockQuantity!: number;
 
-  @ApiProperty({ enum: ['low_stock', 'out_of_stock'] })
-  status!: 'low_stock' | 'out_of_stock';
+  @ApiProperty({ enum: ["low_stock", "out_of_stock"] })
+  status!: "low_stock" | "out_of_stock";
 }
 
 export class RecentMovementDto {
-  @ApiProperty({ example: '2026-03-15' })
+  @ApiProperty({ example: "2026-03-15" })
   movementDate!: string;
 
-  @ApiProperty({ example: 'Widget A' })
+  @ApiProperty({ example: "Widget A" })
   productName!: string;
 
-  @ApiProperty({ example: 'purchase_receipt' })
+  @ApiProperty({ example: "purchase_receipt" })
   movementType!: string;
 
   @ApiProperty({ example: 50 })
   quantity!: number;
 
-  @ApiProperty({ example: 'PO-0042' })
+  @ApiProperty({ example: "PO-0042" })
   referenceNumber!: string;
 }
 

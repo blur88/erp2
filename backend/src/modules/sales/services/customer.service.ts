@@ -3,21 +3,21 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere } from 'typeorm';
-import { BaseCrudService } from '../../../common/services/base-crud.service';
-import { Customer } from '../../../database/entities/customer.entity';
-import { SalesOrder } from '../../../database/entities/sales-order.entity';
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, FindOptionsWhere } from "typeorm";
+import { BaseCrudService } from "../../../common/services/base-crud.service";
+import { Customer } from "../../../database/entities/customer.entity";
+import { SalesOrder } from "../../../database/entities/sales-order.entity";
 import {
   CreateCustomerDto,
   UpdateCustomerDto,
   QueryCustomersDto,
   CustomerResponseDto,
   CustomerSummaryDto,
-} from '../dto/customer.dto';
-import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
-import { canSearchCustomers } from '../../search/search.permissions';
+} from "../dto/customer.dto";
+import { GlobalSearchResultDto } from "../../search/dto/global-search-result.dto";
+import { canSearchCustomers } from "../../search/search.permissions";
 import {
   SEARCH_CANDIDATE_LIMIT,
   SCORE_EXACT_CODE,
@@ -28,11 +28,18 @@ import {
   SCORE_FUZZY,
   BOOST_CUSTOMER,
   BOOST_EXACT_MATCH,
-} from '../../search/search.constants';
-import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
-import { TransactionManager, Transactional } from '../../../common/utils/transaction.util';
-import { AuditLogService } from '../../audit-logs/services';
-import { generateBaseSlug } from '../../../common/utils/slug.util';
+} from "../../search/search.constants";
+import {
+  ValidationUtil,
+  BulkOperationUtil,
+  BulkOperationResponse,
+} from "../../../common/utils/validation.util";
+import {
+  TransactionManager,
+  Transactional,
+} from "../../../common/utils/transaction.util";
+import { AuditLogService } from "../../audit-logs/services";
+import { generateBaseSlug } from "../../../common/utils/slug.util";
 
 @Injectable()
 export class CustomerService extends BaseCrudService<
@@ -53,41 +60,48 @@ export class CustomerService extends BaseCrudService<
   }
 
   getEntityType(): string {
-    return 'Customer';
+    return "Customer";
   }
 
   buildWhereClause(query: QueryCustomersDto): FindOptionsWhere<Customer> {
     const where: FindOptionsWhere<Customer> = {};
 
-    if (query.type !== undefined && query.type !== null) where.type = query.type;
+    if (query.type !== undefined && query.type !== null)
+      where.type = query.type;
     if (query.isActive !== undefined) where.isActive = query.isActive;
 
     return where;
   }
 
   protected applyQueryBuilder(qb: any, query: QueryCustomersDto): any {
-    qb = qb.leftJoinAndSelect('customer.priceList', 'priceList');
+    qb = qb.leftJoinAndSelect("customer.priceList", "priceList");
 
     if (query.priceListId) {
-      qb = qb.andWhere('customer.priceListId = :priceListId', { priceListId: query.priceListId });
+      qb = qb.andWhere("customer.priceListId = :priceListId", {
+        priceListId: query.priceListId,
+      });
     }
 
     return qb;
   }
 
   protected async afterDelete(entity: Customer): Promise<void> {
-    const activeOrderCount = await this.salesOrderRepository.count({ where: { customerId: entity.id } });
+    const activeOrderCount = await this.salesOrderRepository.count({
+      where: { customerId: entity.id },
+    });
 
     if (activeOrderCount > 0) {
       throw new BadRequestException({
-        message: `Cannot delete customer '${entity.name}' because they have ${activeOrderCount} order${activeOrderCount === 1 ? '' : 's'}.`,
-        error: 'DELETION_PREVENTED_BY_DEPENDENCIES',
+        message: `Cannot delete customer '${entity.name}' because they have ${activeOrderCount} order${activeOrderCount === 1 ? "" : "s"}.`,
+        error: "DELETION_PREVENTED_BY_DEPENDENCIES",
         customerName: entity.name,
         customerId: entity.id,
         dependencies: {
           orders: activeOrderCount,
         },
-        suggestions: [`Complete or cancel the ${activeOrderCount} pending order${activeOrderCount === 1 ? '' : 's'} first`],
+        suggestions: [
+          `Complete or cancel the ${activeOrderCount} pending order${activeOrderCount === 1 ? "" : "s"} first`,
+        ],
         details: `Customer '${entity.name}' (${entity.id}) cannot be deleted due to existing business relationships. This is a safety measure to preserve data integrity.`,
       });
     }
@@ -113,12 +127,12 @@ export class CustomerService extends BaseCrudService<
 
     // Log audit trail
     await this.auditLogService.log(
-      'CREATE',
-      'Customer',
-      `Created customer: ${savedCustomer.name} (${savedCustomer.phone || 'no phone'})`,
+      "CREATE",
+      "Customer",
+      `Created customer: ${savedCustomer.name} (${savedCustomer.phone || "no phone"})`,
       {
         entityId: savedCustomer.id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         newValues: {
           name: savedCustomer.name,
@@ -126,7 +140,7 @@ export class CustomerService extends BaseCrudService<
           type: savedCustomer.type,
           priceListId: savedCustomer.priceListId,
         },
-      }
+      },
     );
 
     return this.mapToResponseDto(savedCustomer);
@@ -138,8 +152,8 @@ export class CustomerService extends BaseCrudService<
       type,
       priceListId,
       isActive,
-      sortBy = 'name',
-      sortOrder = 'ASC',
+      sortBy = "name",
+      sortOrder = "ASC",
       page,
       limit,
     } = query;
@@ -150,10 +164,10 @@ export class CustomerService extends BaseCrudService<
     // pricingScheme removed in Phase 8 - use priceListId instead
     if (isActive !== undefined) where.isActive = isActive;
 
-
     // Use query builder for case-insensitive sorting
-    let queryBuilder = this.customerRepository.createQueryBuilder('customer')
-      .leftJoinAndSelect('customer.priceList', 'priceList');
+    let queryBuilder = this.customerRepository
+      .createQueryBuilder("customer")
+      .leftJoinAndSelect("customer.priceList", "priceList");
 
     // Apply base where conditions
     Object.entries(where).forEach(([key, value]) => {
@@ -161,20 +175,22 @@ export class CustomerService extends BaseCrudService<
     });
 
     if (priceListId) {
-      queryBuilder.andWhere('customer.priceListId = :priceListId', { priceListId });
+      queryBuilder.andWhere("customer.priceListId = :priceListId", {
+        priceListId,
+      });
     }
 
     // Apply search conditions
     if (search) {
       queryBuilder.andWhere(
-        '(customer.name ILIKE :search OR customer.phone ILIKE :search)',
-        { search: `%${search}%` }
+        "(customer.name ILIKE :search OR customer.phone ILIKE :search)",
+        { search: `%${search}%` },
       );
     }
 
     // Apply sorting - use COLLATE for case-insensitive name sorting
-    if (sortBy === 'name') {
-      queryBuilder.orderBy('customer.name', sortOrder, 'NULLS LAST');
+    if (sortBy === "name") {
+      queryBuilder.orderBy("customer.name", sortOrder, "NULLS LAST");
     } else {
       queryBuilder.orderBy(`customer.${sortBy}`, sortOrder);
     }
@@ -188,7 +204,7 @@ export class CustomerService extends BaseCrudService<
     const [customers, total] = await queryBuilder.getManyAndCount();
 
     return {
-      data: customers.map(customer => this.mapToResponseDto(customer)),
+      data: customers.map((customer) => this.mapToResponseDto(customer)),
       meta: {
         total,
         ...(shouldPaginate && { page, limit }),
@@ -196,19 +212,21 @@ export class CustomerService extends BaseCrudService<
     };
   }
 
-  async searchGlobal(query: string, user: any): Promise<GlobalSearchResultDto[]> {
+  async searchGlobal(
+    query: string,
+    user: any,
+  ): Promise<GlobalSearchResultDto[]> {
     if (!canSearchCustomers(user.role)) return [];
 
     const trimmed = query.trim();
     const q = trimmed.toLowerCase();
 
     const customers = await this.customerRepository
-      .createQueryBuilder('customer')
-      .where('customer.deletedAt IS NULL')
-      .andWhere(
-        '(customer.name ILIKE :q OR customer.phone ILIKE :q)',
-        { q: `%${trimmed}%` },
-      )
+      .createQueryBuilder("customer")
+      .where("customer.deletedAt IS NULL")
+      .andWhere("(customer.name ILIKE :q OR customer.phone ILIKE :q)", {
+        q: `%${trimmed}%`,
+      })
       .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
@@ -217,17 +235,17 @@ export class CustomerService extends BaseCrudService<
     }
 
     const fuzzyResults = await this.customerRepository
-      .createQueryBuilder('customer')
+      .createQueryBuilder("customer")
       .addSelect(
-        'GREATEST(similarity(customer.name, :q), similarity(customer.phone, :q))',
-        'sim',
+        "GREATEST(similarity(customer.name, :q), similarity(customer.phone, :q))",
+        "sim",
       )
-      .where('customer.deletedAt IS NULL')
+      .where("customer.deletedAt IS NULL")
       .andWhere(
-        '(similarity(customer.name, :q) > 0.3 OR similarity(customer.phone, :q) > 0.3)',
+        "(similarity(customer.name, :q) > 0.3 OR similarity(customer.phone, :q) > 0.3)",
       )
-      .orderBy('sim', 'DESC')
-      .setParameter('q', trimmed)
+      .orderBy("sim", "DESC")
+      .setParameter("q", trimmed)
       .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
@@ -239,8 +257,8 @@ export class CustomerService extends BaseCrudService<
     q: string,
     fuzzy: boolean,
   ): GlobalSearchResultDto {
-    const name = customer.name?.toLowerCase() ?? '';
-    const phone = customer.phone?.toLowerCase() ?? '';
+    const name = customer.name?.toLowerCase() ?? "";
+    const phone = customer.phone?.toLowerCase() ?? "";
     const baseScore = fuzzy
       ? SCORE_FUZZY
       : phone && phone === q
@@ -254,7 +272,7 @@ export class CustomerService extends BaseCrudService<
               : SCORE_CONTAINS;
 
     return {
-      type: 'customer',
+      type: "customer",
       id: customer.id,
       label: customer.name,
       description: customer.phone ?? undefined,
@@ -269,28 +287,24 @@ export class CustomerService extends BaseCrudService<
   }
 
   async findDeleted(query: QueryCustomersDto) {
-    const {
-      search,
-      sortBy = 'name',
-      sortOrder = 'ASC',
-    } = query;
+    const { search, sortBy = "name", sortOrder = "ASC" } = query;
 
     const queryBuilder = this.customerRepository
-      .createQueryBuilder('customer')
-      .where('customer.deletedAt IS NOT NULL')
+      .createQueryBuilder("customer")
+      .where("customer.deletedAt IS NOT NULL")
       .withDeleted(); // Include soft-deleted records
 
     // Add search conditions
     if (search) {
       queryBuilder.andWhere(
-        '(customer.name ILIKE :search OR customer.phone ILIKE :search)',
-        { search: `%${search}%` }
+        "(customer.name ILIKE :search OR customer.phone ILIKE :search)",
+        { search: `%${search}%` },
       );
     }
 
     // Add case-insensitive ordering for name field, regular ordering for others
-    if (sortBy === 'name') {
-      queryBuilder.orderBy('UPPER(customer.name)', sortOrder);
+    if (sortBy === "name") {
+      queryBuilder.orderBy("UPPER(customer.name)", sortOrder);
     } else {
       queryBuilder.orderBy(`customer.${sortBy}`, sortOrder);
     }
@@ -298,7 +312,7 @@ export class CustomerService extends BaseCrudService<
     const customers = await queryBuilder.getMany();
 
     return {
-      data: customers.map(customer => this.mapToResponseDto(customer)),
+      data: customers.map((customer) => this.mapToResponseDto(customer)),
       total: customers.length,
     };
   }
@@ -306,11 +320,11 @@ export class CustomerService extends BaseCrudService<
   async findSummaries(): Promise<CustomerSummaryDto[]> {
     const customers = await this.customerRepository.find({
       where: { isActive: true },
-      order: { name: 'ASC' },
+      order: { name: "ASC" },
       select: { id: true, name: true, phone: true },
     });
 
-    return customers.map(customer => ({
+    return customers.map((customer) => ({
       id: customer.id,
       name: customer.name,
       phone: customer.phone,
@@ -320,10 +334,10 @@ export class CustomerService extends BaseCrudService<
   async findById(id: string): Promise<CustomerResponseDto> {
     const customer = await this.customerRepository.findOne({
       where: { id },
-      relations: { priceList: true }
+      relations: { priceList: true },
     });
     if (!customer) {
-      throw new NotFoundException('Customer not found');
+      throw new NotFoundException("Customer not found");
     }
     return this.mapToResponseDto(customer);
   }
@@ -333,11 +347,11 @@ export class CustomerService extends BaseCrudService<
       where: { slug },
       relations: { priceList: true },
     });
-    if (!customer) throw new NotFoundException(`Customer with slug '${slug}' not found`);
+    if (!customer)
+      throw new NotFoundException(`Customer with slug '${slug}' not found`);
     return this.mapToResponseDto(customer);
   }
 
-  
   async update(
     id: string,
     updateCustomerDto: UpdateCustomerDto,
@@ -346,7 +360,7 @@ export class CustomerService extends BaseCrudService<
   ): Promise<CustomerResponseDto> {
     const customer = await this.customerRepository.findOne({ where: { id } });
     if (!customer) {
-      throw new NotFoundException('Customer not found');
+      throw new NotFoundException("Customer not found");
     }
 
     // Store old values for audit
@@ -362,7 +376,9 @@ export class CustomerService extends BaseCrudService<
       await this.validatePhoneUniqueness(updateCustomerDto.phone, id);
     }
 
-    const nameChanged = updateCustomerDto.name !== undefined && updateCustomerDto.name !== customer.name;
+    const nameChanged =
+      updateCustomerDto.name !== undefined &&
+      updateCustomerDto.name !== customer.name;
     Object.assign(customer, updateCustomerDto);
     if (nameChanged) {
       customer.slug = await this.generateUniqueSlug(customer.name, id);
@@ -371,12 +387,12 @@ export class CustomerService extends BaseCrudService<
 
     // Log audit trail
     await this.auditLogService.log(
-      'UPDATE',
-      'Customer',
+      "UPDATE",
+      "Customer",
       `Updated customer: ${savedCustomer.name}`,
       {
         entityId: savedCustomer.id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         oldValues,
         newValues: {
@@ -385,39 +401,43 @@ export class CustomerService extends BaseCrudService<
           type: savedCustomer.type,
           priceListId: savedCustomer.priceListId,
         },
-      }
+      },
     );
 
     return this.mapToResponseDto(savedCustomer);
   }
 
-  async restore(id: string, userId?: string, username?: string): Promise<CustomerResponseDto> {
+  async restore(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<CustomerResponseDto> {
     // Find the customer first to validate
     const customer = await this.customerRepository.findOne({
       where: { id },
-      withDeleted: true
+      withDeleted: true,
     });
 
     // Use standardized validation
-    ValidationUtil.validateForRestore(customer, 'Customer', id);
+    ValidationUtil.validateForRestore(customer, "Customer", id);
 
     // Restore the customer
     await this.customerRepository.restore(id);
 
     // Log audit trail
     await this.auditLogService.log(
-      'RESTORE',
-      'Customer',
+      "RESTORE",
+      "Customer",
       `Restored customer: ${customer.name}`,
       {
         entityId: id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         newValues: {
           name: customer.name,
           phone: customer.phone,
         },
-      }
+      },
     );
 
     return this.mapToResponseDto(customer);
@@ -425,21 +445,18 @@ export class CustomerService extends BaseCrudService<
 
   // Credit management methods removed - fields don't exist in current entity
 
-
-
-
   async getSalesHistory(customerId: string) {
     await this.findCustomerEntity(customerId); // Verify customer exists
 
     const orders = await this.salesOrderRepository.find({
       where: { customerId },
-      order: { orderDate: 'DESC' },
+      order: { orderDate: "DESC" },
       relations: { items: true },
     });
 
     return {
       customerId,
-      orders: orders.map(order => ({
+      orders: orders.map((order) => ({
         id: order.id,
         orderNumber: order.orderNumber,
         orderDate: order.orderDate,
@@ -456,16 +473,16 @@ export class CustomerService extends BaseCrudService<
 
     // Get order statistics
     const orderStats = await this.salesOrderRepository
-      .createQueryBuilder('order')
-      .where('order.customerId = :customerId', { customerId })
-      .andWhere('order.deletedAt IS NULL')
-      .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: true })
+      .createQueryBuilder("order")
+      .where("order.customerId = :customerId", { customerId })
+      .andWhere("order.deletedAt IS NULL")
+      .andWhere("order.isFulfilled = :isFulfilled", { isFulfilled: true })
       .select([
-        'COUNT(*) as totalorders',
-        'COALESCE(AVG(order.totalAmount), 0) as averageordervalue',
-        'COALESCE(SUM(order.totalAmount), 0) as totalsales',
-        'MIN(order.orderDate) as firstorderdate',
-        'MAX(order.orderDate) as lastorderdate',
+        "COUNT(*) as totalorders",
+        "COALESCE(AVG(order.totalAmount), 0) as averageordervalue",
+        "COALESCE(SUM(order.totalAmount), 0) as totalsales",
+        "MIN(order.orderDate) as firstorderdate",
+        "MAX(order.orderDate) as lastorderdate",
       ])
       .getRawOne();
 
@@ -504,7 +521,7 @@ export class CustomerService extends BaseCrudService<
     username?: string,
   ): Promise<BulkOperationResponse> {
     if (!customerIds || customerIds.length === 0) {
-      return BulkOperationUtil.createResponse('restored', 'customer', 0, []);
+      return BulkOperationUtil.createResponse("restored", "customer", 0, []);
     }
 
     const failedItems = [];
@@ -520,31 +537,31 @@ export class CustomerService extends BaseCrudService<
 
         // Use standardized validation
         try {
-          ValidationUtil.validateForRestore(customer, 'Customer', customerId);
+          ValidationUtil.validateForRestore(customer, "Customer", customerId);
         } catch (error) {
           BulkOperationUtil.addFailure(
             failedItems,
             customerId,
             error.message,
-            'VALIDATION_ERROR'
+            "VALIDATION_ERROR",
           );
           continue;
         }
 
         await this.customerRepository.restore(customerId);
         await this.auditLogService.log(
-          'RESTORE',
-          'Customer',
+          "RESTORE",
+          "Customer",
           `Restored customer: ${customer.name}`,
           {
             entityId: customerId,
-            userId: userId || 'system',
+            userId: userId || "system",
             username,
             newValues: {
               name: customer.name,
               phone: customer.phone,
             },
-          }
+          },
         );
         successCount++;
       } catch (error) {
@@ -552,12 +569,17 @@ export class CustomerService extends BaseCrudService<
           failedItems,
           customerId,
           error.message,
-          'UNEXPECTED_ERROR'
+          "UNEXPECTED_ERROR",
         );
       }
     }
 
-    return BulkOperationUtil.createResponse('restored', 'customer', successCount, failedItems);
+    return BulkOperationUtil.createResponse(
+      "restored",
+      "customer",
+      successCount,
+      failedItems,
+    );
   }
 
   async bulkPermanentDelete(
@@ -566,7 +588,12 @@ export class CustomerService extends BaseCrudService<
     username?: string,
   ): Promise<BulkOperationResponse> {
     if (!customerIds || customerIds.length === 0) {
-      return BulkOperationUtil.createResponse('permanently deleted', 'customer', 0, []);
+      return BulkOperationUtil.createResponse(
+        "permanently deleted",
+        "customer",
+        0,
+        [],
+      );
     }
 
     const failedItems = [];
@@ -582,13 +609,17 @@ export class CustomerService extends BaseCrudService<
 
         // Use standardized validation
         try {
-          ValidationUtil.validateForPermanentDelete(customer, 'Customer', customerId);
+          ValidationUtil.validateForPermanentDelete(
+            customer,
+            "Customer",
+            customerId,
+          );
         } catch (error) {
           BulkOperationUtil.addFailure(
             failedItems,
             customerId,
             error.message,
-            'VALIDATION_ERROR'
+            "VALIDATION_ERROR",
           );
           continue;
         }
@@ -604,14 +635,14 @@ export class CustomerService extends BaseCrudService<
           BulkOperationUtil.addFailure(
             failedItems,
             customerId,
-            `Cannot permanently delete customer '${customer.name}' (${customer.id}) due to ${orderCount} active order${orderCount > 1 ? 's' : ''}. Complete all business transactions first.`,
-            'DEPENDENCY_ERROR',
+            `Cannot permanently delete customer '${customer.name}' (${customer.id}) due to ${orderCount} active order${orderCount > 1 ? "s" : ""}. Complete all business transactions first.`,
+            "DEPENDENCY_ERROR",
             {
               customerName: customer.name,
               dependencies: {
                 orders: orderCount,
               },
-            }
+            },
           );
           continue;
         }
@@ -623,19 +654,19 @@ export class CustomerService extends BaseCrudService<
           this.salesOrderRepository
             .createQueryBuilder()
             .delete()
-            .where('customerId = :customerId', { customerId })
-            .andWhere('deletedAt IS NOT NULL')
+            .where("customerId = :customerId", { customerId })
+            .andWhere("deletedAt IS NOT NULL")
             .execute(),
         ]);
 
         // Log audit trail for permanent delete
         await this.auditLogService.log(
-          'PERMANENT_DELETE',
-          'Customer',
+          "PERMANENT_DELETE",
+          "Customer",
           `Permanently deleted customer: ${customer.name}`,
           {
             entityId: customerId,
-            userId: userId || 'system',
+            userId: userId || "system",
             username,
             oldValues: {
               name: customer.name,
@@ -643,7 +674,7 @@ export class CustomerService extends BaseCrudService<
               type: customer.type,
               priceListId: customer.priceListId,
             },
-          }
+          },
         );
 
         // Perform hard delete
@@ -654,26 +685,46 @@ export class CustomerService extends BaseCrudService<
           failedItems,
           customerId,
           error.message,
-          'UNEXPECTED_ERROR'
+          "UNEXPECTED_ERROR",
         );
       }
     }
 
-    return BulkOperationUtil.createResponse('permanently deleted', 'customer', successCount, failedItems);
+    return BulkOperationUtil.createResponse(
+      "permanently deleted",
+      "customer",
+      successCount,
+      failedItems,
+    );
   }
 
-  @Transactional('Customer permanent deletion with financial integrity validation')
-  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
+  @Transactional(
+    "Customer permanent deletion with financial integrity validation",
+  )
+  async permanentDelete(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<void> {
     // Verify customer exists and is soft-deleted
     console.log(`Looking for customer with ID: ${id}`);
     const customer = await this.customerRepository.findOne({
       where: { id },
       withDeleted: true,
     });
-    console.log(`Found customer:`, customer ? { id: customer.id, name: customer.name, deletedAt: customer.deletedAt } : 'null');
+    console.log(
+      `Found customer:`,
+      customer
+        ? {
+            id: customer.id,
+            name: customer.name,
+            deletedAt: customer.deletedAt,
+          }
+        : "null",
+    );
 
     // Use standardized validation
-    ValidationUtil.validateForPermanentDelete(customer, 'Customer', id);
+    ValidationUtil.validateForPermanentDelete(customer, "Customer", id);
 
     // Check for active references with comprehensive dependency checking
     // Only check for non-soft-deleted records since soft-deleted records can coexist
@@ -685,16 +736,16 @@ export class CustomerService extends BaseCrudService<
     if (orderCount > 0) {
       const errorResponse = {
         message: `Cannot permanently delete customer '${customer.name}' due to active business relationships`,
-        error: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES',
+        error: "PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES",
         customerName: customer.name,
         customerId: customer.id,
         dependencies: {
           orders: orderCount,
         },
-        details: `Customer '${customer.name}' (${customer.id}) has ${orderCount} active order${orderCount > 1 ? 's' : ''}. Permanent deletion is blocked to preserve financial audit trails and data integrity.`,
+        details: `Customer '${customer.name}' (${customer.id}) has ${orderCount} active order${orderCount > 1 ? "s" : ""}. Permanent deletion is blocked to preserve financial audit trails and data integrity.`,
         suggestions: [
-          'Complete and archive all pending orders first',
-          'Consider using soft delete instead if you need to hide the customer',
+          "Complete and archive all pending orders first",
+          "Consider using soft delete instead if you need to hide the customer",
         ],
       };
 
@@ -706,19 +757,29 @@ export class CustomerService extends BaseCrudService<
     // Temporarily skip financial consistency check for soft-deleted customers
     // TODO: Fix TransactionManager to properly handle soft-deleted customers
     try {
-      const consistencyCheck = await this.transactionManager.validateFinancialConsistency(id);
+      const consistencyCheck =
+        await this.transactionManager.validateFinancialConsistency(id);
       if (!consistencyCheck.isValid) {
         // Only fail if the customer was not found due to other reasons
-        if (consistencyCheck.discrepancies.some(d => d.includes('Customer not found'))) {
-          console.log('Skipping financial consistency check for soft-deleted customer');
+        if (
+          consistencyCheck.discrepancies.some((d) =>
+            d.includes("Customer not found"),
+          )
+        ) {
+          console.log(
+            "Skipping financial consistency check for soft-deleted customer",
+          );
         } else {
           throw new BadRequestException(
-            `Customer financial data inconsistency detected: ${consistencyCheck.discrepancies.join(', ')}`
+            `Customer financial data inconsistency detected: ${consistencyCheck.discrepancies.join(", ")}`,
           );
         }
       }
     } catch (error) {
-      console.log('Error in financial consistency check, proceeding with deletion:', error.message);
+      console.log(
+        "Error in financial consistency check, proceeding with deletion:",
+        error.message,
+      );
     }
 
     // Before deleting customer, permanently delete any soft-deleted related records
@@ -728,19 +789,19 @@ export class CustomerService extends BaseCrudService<
       this.salesOrderRepository
         .createQueryBuilder()
         .delete()
-        .where('customerId = :customerId', { customerId: id })
-        .andWhere('deletedAt IS NOT NULL')
+        .where("customerId = :customerId", { customerId: id })
+        .andWhere("deletedAt IS NOT NULL")
         .execute(),
     ]);
 
     // Log audit trail for permanent delete
     await this.auditLogService.log(
-      'PERMANENT_DELETE',
-      'Customer',
+      "PERMANENT_DELETE",
+      "Customer",
       `Permanently deleted customer: ${customer.name}`,
       {
         entityId: id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         oldValues: {
           name: customer.name,
@@ -748,7 +809,7 @@ export class CustomerService extends BaseCrudService<
           type: customer.type,
           priceListId: customer.priceListId,
         },
-      }
+      },
     );
 
     // Perform hard delete
@@ -759,10 +820,14 @@ export class CustomerService extends BaseCrudService<
    * Validate and correct customer financial totals
    * Use for data integrity maintenance
    */
-  async validateCustomerFinancials(customerId: string): Promise<{ isValid: boolean; discrepancies: string[] }> {
-    const customer = await this.customerRepository.findOne({ where: { id: customerId } });
+  async validateCustomerFinancials(
+    customerId: string,
+  ): Promise<{ isValid: boolean; discrepancies: string[] }> {
+    const customer = await this.customerRepository.findOne({
+      where: { id: customerId },
+    });
     if (!customer) {
-      throw new NotFoundException('Customer not found');
+      throw new NotFoundException("Customer not found");
     }
 
     return this.transactionManager.validateFinancialConsistency(customerId);
@@ -772,17 +837,23 @@ export class CustomerService extends BaseCrudService<
    * Correct customer financial totals based on actual sales data
    * Use when data inconsistencies are detected
    */
-  @Transactional('Customer financial totals correction')
-  async correctCustomerFinancials(customerId: string): Promise<CustomerResponseDto> {
-    const customer = await this.customerRepository.findOne({ where: { id: customerId } });
+  @Transactional("Customer financial totals correction")
+  async correctCustomerFinancials(
+    customerId: string,
+  ): Promise<CustomerResponseDto> {
+    const customer = await this.customerRepository.findOne({
+      where: { id: customerId },
+    });
     if (!customer) {
-      throw new NotFoundException('Customer not found');
+      throw new NotFoundException("Customer not found");
     }
 
     await this.transactionManager.correctCustomerTotals(customerId);
 
     // Return updated customer
-    const updatedCustomer = await this.customerRepository.findOne({ where: { id: customerId } });
+    const updatedCustomer = await this.customerRepository.findOne({
+      where: { id: customerId },
+    });
     return this.mapToResponseDto(updatedCustomer);
   }
 
@@ -790,8 +861,11 @@ export class CustomerService extends BaseCrudService<
    * Recalculate all customer totals from actual sales order data
    * This method fixes discrepancies in customer financial metrics
    */
-  async recalculateAllCustomerTotals(): Promise<{ updated: number; message: string }> {
-    console.log('🔄 Starting recalculation of all customer totals...');
+  async recalculateAllCustomerTotals(): Promise<{
+    updated: number;
+    message: string;
+  }> {
+    console.log("🔄 Starting recalculation of all customer totals...");
 
     // Get all customers (including inactive — inactive customers may still have fulfilled orders)
     const customers = await this.customerRepository.find();
@@ -801,15 +875,15 @@ export class CustomerService extends BaseCrudService<
     for (const customer of customers) {
       // Calculate actual totals from sales orders
       const orderStats = await this.salesOrderRepository
-        .createQueryBuilder('order')
-        .where('order.customerId = :customerId', { customerId: customer.id })
-        .andWhere('order.deletedAt IS NULL')
-        .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: true })
+        .createQueryBuilder("order")
+        .where("order.customerId = :customerId", { customerId: customer.id })
+        .andWhere("order.deletedAt IS NULL")
+        .andWhere("order.isFulfilled = :isFulfilled", { isFulfilled: true })
         .select([
-          'COUNT(*) as totalorders',
-          'COALESCE(SUM(order.totalAmount), 0) as totalsales',
-          'MIN(order.orderDate) as firstorderdate',
-          'MAX(order.orderDate) as lastorderdate',
+          "COUNT(*) as totalorders",
+          "COALESCE(SUM(order.totalAmount), 0) as totalsales",
+          "MIN(order.orderDate) as firstorderdate",
+          "MAX(order.orderDate) as lastorderdate",
         ])
         .getRawOne();
 
@@ -825,8 +899,12 @@ export class CustomerService extends BaseCrudService<
 
       if (hasDiscrepancy) {
         console.log(`📊 Updating customer ${customer.name}:`);
-        console.log(`   Before: ${customer.totalOrders} orders, $${customer.totalSales} sales`);
-        console.log(`   After:  ${actualTotalOrders} orders, $${actualTotalSales} sales`);
+        console.log(
+          `   Before: ${customer.totalOrders} orders, $${customer.totalSales} sales`,
+        );
+        console.log(
+          `   After:  ${actualTotalOrders} orders, $${actualTotalSales} sales`,
+        );
 
         // Update customer metrics
         customer.totalOrders = actualTotalOrders;
@@ -849,22 +927,27 @@ export class CustomerService extends BaseCrudService<
    * Update customer metrics for a specific customer based on their sales orders
    */
   async updateCustomerMetrics(customerId: string): Promise<void> {
-    const customer = await this.customerRepository.findOne({ where: { id: customerId }, withDeleted: true });
+    const customer = await this.customerRepository.findOne({
+      where: { id: customerId },
+      withDeleted: true,
+    });
     if (!customer) {
-      throw new NotFoundException(`Customer not found for metric update (customerId: ${customerId}) — possible orphaned order`);
+      throw new NotFoundException(
+        `Customer not found for metric update (customerId: ${customerId}) — possible orphaned order`,
+      );
     }
 
     // Calculate actual totals from sales orders
     const orderStats = await this.salesOrderRepository
-      .createQueryBuilder('order')
-      .where('order.customerId = :customerId', { customerId })
-      .andWhere('order.deletedAt IS NULL')
-      .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: true })
+      .createQueryBuilder("order")
+      .where("order.customerId = :customerId", { customerId })
+      .andWhere("order.deletedAt IS NULL")
+      .andWhere("order.isFulfilled = :isFulfilled", { isFulfilled: true })
       .select([
-        'COUNT(*) as totalorders',
-        'COALESCE(SUM(order.totalAmount), 0) as totalsales',
-        'MIN(order.orderDate) as firstorderdate',
-        'MAX(order.orderDate) as lastorderdate',
+        "COUNT(*) as totalorders",
+        "COALESCE(SUM(order.totalAmount), 0) as totalsales",
+        "MIN(order.orderDate) as firstorderdate",
+        "MAX(order.orderDate) as lastorderdate",
       ])
       .getRawOne();
 
@@ -878,9 +961,12 @@ export class CustomerService extends BaseCrudService<
 
   // Internal helper methods
 
-  private async validatePhoneUniqueness(phone: string, excludeId?: string): Promise<void> {
+  private async validatePhoneUniqueness(
+    phone: string,
+    excludeId?: string,
+  ): Promise<void> {
     // Normalize phone number by removing common formatting characters
-    const normalizedPhone = phone.replace(/[\s\-\(\)\+]/g, '');
+    const normalizedPhone = phone.replace(/[\s\-\(\)\+]/g, "");
 
     if (!normalizedPhone) {
       return; // Skip validation for empty phone numbers
@@ -888,28 +974,31 @@ export class CustomerService extends BaseCrudService<
 
     // Get ALL customers (including soft-deleted) to check phone duplicates
     const queryBuilder = this.customerRepository
-      .createQueryBuilder('customer')
+      .createQueryBuilder("customer")
       .withDeleted() // Include soft-deleted records
-      .where('customer.phone IS NOT NULL')
-      .andWhere('customer.phone != :empty', { empty: '' });
+      .where("customer.phone IS NOT NULL")
+      .andWhere("customer.phone != :empty", { empty: "" });
 
     // Exclude current customer when updating
     if (excludeId) {
-      queryBuilder.andWhere('customer.id != :excludeId', { excludeId });
+      queryBuilder.andWhere("customer.id != :excludeId", { excludeId });
     }
 
     const existingCustomers = await queryBuilder.getMany();
 
     // Check for normalized phone number matches
-    const duplicateCustomer = existingCustomers.find(customer => {
+    const duplicateCustomer = existingCustomers.find((customer) => {
       if (!customer.phone) return false;
-      const existingNormalizedPhone = customer.phone.replace(/[\s\-\(\)\+]/g, '');
+      const existingNormalizedPhone = customer.phone.replace(
+        /[\s\-\(\)\+]/g,
+        "",
+      );
       return existingNormalizedPhone === normalizedPhone;
     });
 
     if (duplicateCustomer) {
       throw new ConflictException(
-        `A customer with phone number "${phone}" already exists (Customer: ${duplicateCustomer.name})`
+        `A customer with phone number "${phone}" already exists (Customer: ${duplicateCustomer.name})`,
       );
     }
   }
@@ -917,15 +1006,18 @@ export class CustomerService extends BaseCrudService<
   private async findCustomerEntity(id: string): Promise<Customer> {
     const customer = await this.customerRepository.findOne({
       where: { id },
-      relations: { priceList: true }
+      relations: { priceList: true },
     });
     if (!customer) {
-      throw new NotFoundException('Customer not found');
+      throw new NotFoundException("Customer not found");
     }
     return customer;
   }
 
-  private async generateUniqueSlug(name: string, excludeId?: string): Promise<string> {
+  private async generateUniqueSlug(
+    name: string,
+    excludeId?: string,
+  ): Promise<string> {
     const base = generateBaseSlug(name);
     let slug = base;
     let counter = 1;
@@ -960,13 +1052,15 @@ export class CustomerService extends BaseCrudService<
       shippingCountry: customer.shippingCountry,
       isActive: customer.isActive,
       priceListId: customer.priceListId,
-      priceList: customer.priceList ? {
-        id: customer.priceList.id,
-        name: customer.priceList.name,
-        code: customer.priceList.code,
-        isDefault: customer.priceList.isDefault,
-        isActive: customer.priceList.isActive,
-      } : undefined,
+      priceList: customer.priceList
+        ? {
+            id: customer.priceList.id,
+            name: customer.priceList.name,
+            code: customer.priceList.code,
+            isDefault: customer.priceList.isDefault,
+            isActive: customer.priceList.isActive,
+          }
+        : undefined,
       totalSales: Number(customer.totalSales),
       totalOrders: customer.totalOrders,
       lastPurchaseDate: customer.lastPurchaseDate,

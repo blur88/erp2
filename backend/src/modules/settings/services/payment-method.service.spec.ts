@@ -1,15 +1,18 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { NotFoundException, ConflictException } from '@nestjs/common';
-import { PaymentMethodService } from './payment-method.service';
-import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
-import { AccountMapping } from '../../../database/entities/account-mapping.entity';
-import { ChartOfAccount, AccountType } from '../../../database/entities/chart-of-account.entity';
-import { Payment } from '../../../database/entities/payment.entity';
-import { Settlement } from '../../../database/entities/settlement.entity';
+import { Test, TestingModule } from "@nestjs/testing";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { NotFoundException, ConflictException } from "@nestjs/common";
+import { PaymentMethodService } from "./payment-method.service";
+import { PaymentMethodEntity } from "../../../database/entities/payment-method.entity";
+import { AccountMapping } from "../../../database/entities/account-mapping.entity";
+import {
+  ChartOfAccount,
+  AccountType,
+} from "../../../database/entities/chart-of-account.entity";
+import { Payment } from "../../../database/entities/payment.entity";
+import { Settlement } from "../../../database/entities/settlement.entity";
 
-describe('PaymentMethodService', () => {
+describe("PaymentMethodService", () => {
   let service: PaymentMethodService;
   let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
   let accountMappingRepository: jest.Mocked<Repository<AccountMapping>>;
@@ -75,41 +78,49 @@ describe('PaymentMethodService', () => {
     }).compile();
 
     service = module.get<PaymentMethodService>(PaymentMethodService);
-    paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
+    paymentMethodRepository = module.get(
+      getRepositoryToken(PaymentMethodEntity),
+    );
     accountMappingRepository = module.get(getRepositoryToken(AccountMapping));
     accountRepository = module.get(getRepositoryToken(ChartOfAccount));
     paymentRepository = module.get(getRepositoryToken(Payment));
     settlementRepository = module.get(getRepositoryToken(Settlement));
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
-  it('findOne should throw NotFoundException when item is missing', async () => {
+  it("findOne should throw NotFoundException when item is missing", async () => {
     paymentMethodRepository.findOne.mockResolvedValue(null);
 
-    await expect(service.findOne('missing-id')).rejects.toThrow(NotFoundException);
+    await expect(service.findOne("missing-id")).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
-  it('create should reject duplicate code', async () => {
+  it("create should reject duplicate code", async () => {
     paymentMethodRepository.findOne.mockResolvedValue({
-      id: '1',
-      code: 'TNG',
+      id: "1",
+      code: "TNG",
       deletedAt: null,
     } as any);
 
     await expect(
-      service.create({ code: 'TNG', name: 'Touch n Go', requiresSettlement: true }),
+      service.create({
+        code: "TNG",
+        name: "Touch n Go",
+        requiresSettlement: true,
+      }),
     ).rejects.toThrow(ConflictException);
   });
 
-  it('getActiveList should return active methods sorted by repository order', async () => {
+  it("getActiveList should return active methods sorted by repository order", async () => {
     paymentMethodRepository.find.mockResolvedValue([
       {
-        id: '1',
-        code: 'CASH',
-        name: 'Cash',
+        id: "1",
+        code: "CASH",
+        name: "Cash",
         requiresSettlement: false,
         sortOrder: 1,
         isActive: true,
@@ -122,28 +133,30 @@ describe('PaymentMethodService', () => {
     const result = await service.getActiveList();
 
     expect(result).toHaveLength(1);
-    expect(result[0].code).toBe('CASH');
+    expect(result[0].code).toBe("CASH");
   });
 
-  it('remove should throw NotFoundException when method is missing', async () => {
+  it("remove should throw NotFoundException when method is missing", async () => {
     paymentMethodRepository.findOne.mockResolvedValue(null);
 
-    await expect(service.remove('missing-id')).rejects.toThrow(NotFoundException);
+    await expect(service.remove("missing-id")).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
-  it('create should create account mappings when matching account exists', async () => {
+  it("create should create account mappings when matching account exists", async () => {
     paymentMethodRepository.findOne.mockResolvedValueOnce(null);
     paymentMethodRepository.create.mockReturnValue({
-      code: 'CASH',
-      name: 'Cash',
+      code: "CASH",
+      name: "Cash",
       requiresSettlement: false,
       sortOrder: 1,
       isActive: true,
     } as PaymentMethodEntity);
     paymentMethodRepository.save.mockResolvedValue({
-      id: 'pm-1',
-      code: 'CASH',
-      name: 'Cash',
+      id: "pm-1",
+      code: "CASH",
+      name: "Cash",
       requiresSettlement: false,
       sortOrder: 1,
       isActive: true,
@@ -153,27 +166,39 @@ describe('PaymentMethodService', () => {
 
     accountMappingRepository.findOne.mockResolvedValue(null);
     accountRepository.findOne.mockResolvedValue({
-      id: 'acct-1',
-      code: '1000',
-      name: 'Cash',
+      id: "acct-1",
+      code: "1000",
+      name: "Cash",
       type: AccountType.ASSET,
     } as any);
-    accountMappingRepository.create.mockImplementation((data: any) => data as any);
+    accountMappingRepository.create.mockImplementation(
+      (data: any) => data as any,
+    );
     accountMappingRepository.save.mockResolvedValue({} as any);
 
-    await service.create({ code: 'cash', name: 'Cash', requiresSettlement: false });
+    await service.create({
+      code: "cash",
+      name: "Cash",
+      requiresSettlement: false,
+    });
 
     expect(accountMappingRepository.save).toHaveBeenCalled();
   });
 
-  it('should NOT create vendor_payment mapping when useForPurchases is false', async () => {
+  it("should NOT create vendor_payment mapping when useForPurchases is false", async () => {
     const dto = {
-      code: 'TESTPM',
-      name: 'Test PM',
+      code: "TESTPM",
+      name: "Test PM",
       requiresSettlement: false,
       useForPurchases: false,
     };
-    const savedPm = { id: 'pm-1', ...dto, sortOrder: 0, isActive: true, deletedAt: null };
+    const savedPm = {
+      id: "pm-1",
+      ...dto,
+      sortOrder: 0,
+      isActive: true,
+      deletedAt: null,
+    };
 
     paymentMethodRepository.findOne.mockResolvedValueOnce(null);
     paymentMethodRepository.create.mockReturnValue(savedPm as any);
@@ -186,16 +211,16 @@ describe('PaymentMethodService', () => {
     await service.create(dto as any);
 
     expect(accountMappingRepository.findOne).not.toHaveBeenCalledWith({
-      where: { mappingType: 'vendor_payment_testpm' },
+      where: { mappingType: "vendor_payment_testpm" },
     });
   });
 
-  it('getDeletedList should return soft-deleted payment methods', async () => {
+  it("getDeletedList should return soft-deleted payment methods", async () => {
     paymentMethodRepository.find.mockResolvedValue([
       {
-        id: 'pm-deleted',
-        code: 'TNG',
-        name: 'Touch n Go',
+        id: "pm-deleted",
+        code: "TNG",
+        name: "Touch n Go",
         requiresSettlement: true,
         sortOrder: 3,
         isActive: false,
@@ -208,14 +233,14 @@ describe('PaymentMethodService', () => {
     const result = await service.getDeletedList();
 
     expect(result).toHaveLength(1);
-    expect(result[0].code).toBe('TNG');
+    expect(result[0].code).toBe("TNG");
   });
 
-  it('restore should restore a soft-deleted payment method', async () => {
+  it("restore should restore a soft-deleted payment method", async () => {
     paymentMethodRepository.findOne.mockResolvedValue({
-      id: 'pm-deleted',
-      code: 'TNG',
-      name: 'Touch n Go',
+      id: "pm-deleted",
+      code: "TNG",
+      name: "Touch n Go",
       requiresSettlement: true,
       sortOrder: 3,
       isActive: false,
@@ -226,31 +251,33 @@ describe('PaymentMethodService', () => {
 
     paymentMethodRepository.restore.mockResolvedValue({} as any);
 
-    await service.restore('pm-deleted');
+    await service.restore("pm-deleted");
 
-    expect(paymentMethodRepository.restore).toHaveBeenCalledWith('pm-deleted');
+    expect(paymentMethodRepository.restore).toHaveBeenCalledWith("pm-deleted");
   });
 
-  it('permanentDelete should throw ConflictException when payment method has payments', async () => {
+  it("permanentDelete should throw ConflictException when payment method has payments", async () => {
     paymentMethodRepository.findOne.mockResolvedValue({
-      id: 'pm-1',
-      code: 'SHOPEE',
-      name: 'Shopee',
+      id: "pm-1",
+      code: "SHOPEE",
+      name: "Shopee",
       requiresSettlement: true,
       deletedAt: new Date(),
     } as any);
     paymentRepository.count.mockResolvedValue(2);
     settlementRepository.count.mockResolvedValue(0);
 
-    await expect(service.permanentDelete('pm-1')).rejects.toThrow(ConflictException);
+    await expect(service.permanentDelete("pm-1")).rejects.toThrow(
+      ConflictException,
+    );
     expect(paymentMethodRepository.delete).not.toHaveBeenCalled();
   });
 
-  it('permanentDelete should delete soft-deleted method when no references exist', async () => {
+  it("permanentDelete should delete soft-deleted method when no references exist", async () => {
     paymentMethodRepository.findOne.mockResolvedValue({
-      id: 'pm-1',
-      code: 'SHOPEE',
-      name: 'Shopee',
+      id: "pm-1",
+      code: "SHOPEE",
+      name: "Shopee",
       requiresSettlement: true,
       deletedAt: new Date(),
     } as any);
@@ -259,18 +286,18 @@ describe('PaymentMethodService', () => {
     accountMappingRepository.delete.mockResolvedValue({} as any);
     paymentMethodRepository.delete.mockResolvedValue({} as any);
 
-    await service.permanentDelete('pm-1');
+    await service.permanentDelete("pm-1");
 
     expect(accountMappingRepository.delete).toHaveBeenCalled();
-    expect(paymentMethodRepository.delete).toHaveBeenCalledWith('pm-1');
+    expect(paymentMethodRepository.delete).toHaveBeenCalledWith("pm-1");
   });
 
-  it('should deactivate vendor_payment mapping when useForPurchases toggled OFF', async () => {
-    const id = 'pm-1';
+  it("should deactivate vendor_payment mapping when useForPurchases toggled OFF", async () => {
+    const id = "pm-1";
     const oldPm: any = {
       id,
-      code: 'BANK',
-      name: 'Bank',
+      code: "BANK",
+      name: "Bank",
       requiresSettlement: false,
       useForPurchases: true,
       deletedAt: null,
@@ -280,10 +307,18 @@ describe('PaymentMethodService', () => {
     const dto = { useForPurchases: false };
 
     paymentMethodRepository.findOne.mockResolvedValue(oldPm);
-    paymentMethodRepository.save.mockResolvedValue({ ...oldPm, useForPurchases: false });
+    paymentMethodRepository.save.mockResolvedValue({
+      ...oldPm,
+      useForPurchases: false,
+    });
 
-    const existingVendorMapping = { mappingType: 'vendor_payment_bank', isActive: true };
-    accountMappingRepository.findOne.mockResolvedValue(existingVendorMapping as any);
+    const existingVendorMapping = {
+      mappingType: "vendor_payment_bank",
+      isActive: true,
+    };
+    accountMappingRepository.findOne.mockResolvedValue(
+      existingVendorMapping as any,
+    );
     accountMappingRepository.save.mockResolvedValue({
       ...existingVendorMapping,
       isActive: false,
@@ -293,17 +328,18 @@ describe('PaymentMethodService', () => {
 
     const savedCalls = accountMappingRepository.save.mock.calls;
     const deactivated = savedCalls.some(
-      ([arg]: any) => arg.mappingType === 'vendor_payment_bank' && arg.isActive === false,
+      ([arg]: any) =>
+        arg.mappingType === "vendor_payment_bank" && arg.isActive === false,
     );
     expect(deactivated).toBe(true);
   });
 
-  it('should reactivate vendor_payment mapping when useForPurchases toggled ON', async () => {
-    const id = 'pm-1';
+  it("should reactivate vendor_payment mapping when useForPurchases toggled ON", async () => {
+    const id = "pm-1";
     const oldPm: any = {
       id,
-      code: 'BANK',
-      name: 'Bank',
+      code: "BANK",
+      name: "Bank",
       requiresSettlement: false,
       useForPurchases: false,
       deletedAt: null,
@@ -313,10 +349,18 @@ describe('PaymentMethodService', () => {
     const dto = { useForPurchases: true };
 
     paymentMethodRepository.findOne.mockResolvedValue(oldPm);
-    paymentMethodRepository.save.mockResolvedValue({ ...oldPm, useForPurchases: true });
+    paymentMethodRepository.save.mockResolvedValue({
+      ...oldPm,
+      useForPurchases: true,
+    });
 
-    const existingVendorMapping = { mappingType: 'vendor_payment_bank', isActive: false };
-    accountMappingRepository.findOne.mockResolvedValue(existingVendorMapping as any);
+    const existingVendorMapping = {
+      mappingType: "vendor_payment_bank",
+      isActive: false,
+    };
+    accountMappingRepository.findOne.mockResolvedValue(
+      existingVendorMapping as any,
+    );
     accountMappingRepository.save.mockResolvedValue({
       ...existingVendorMapping,
       isActive: true,
@@ -326,7 +370,8 @@ describe('PaymentMethodService', () => {
 
     const savedCalls = accountMappingRepository.save.mock.calls;
     const reactivated = savedCalls.some(
-      ([arg]: any) => arg.mappingType === 'vendor_payment_bank' && arg.isActive === true,
+      ([arg]: any) =>
+        arg.mappingType === "vendor_payment_bank" && arg.isActive === true,
     );
     expect(reactivated).toBe(true);
   });

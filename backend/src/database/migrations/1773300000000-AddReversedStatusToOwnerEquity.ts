@@ -1,9 +1,7 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class AddReversedStatusToOwnerEquity1773300000000
-  implements MigrationInterface
-{
-  name = 'AddReversedStatusToOwnerEquity1773300000000';
+export class AddReversedStatusToOwnerEquity1773300000000 implements MigrationInterface {
+  name = "AddReversedStatusToOwnerEquity1773300000000";
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

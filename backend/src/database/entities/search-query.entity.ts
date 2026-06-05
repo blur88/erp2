@@ -1,25 +1,31 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryColumn,
+} from "typeorm";
 
-@Entity('search_queries')
-@Index(['userId'])
-@Index(['resultCount', 'createdAt'])
+@Entity("search_queries")
+@Index(["userId"])
+@Index(["resultCount", "createdAt"])
 export class SearchQuery {
-  @PrimaryColumn('uuid')
+  @PrimaryColumn("uuid")
   id: string;
 
-  @Column({ type: 'varchar', length: 500 })
+  @Column({ type: "varchar", length: 500 })
   query: string;
 
-  @Column({ type: 'uuid', name: 'user_id' })
+  @Column({ type: "uuid", name: "user_id" })
   userId: string;
 
-  @Column({ type: 'int', name: 'result_count' })
+  @Column({ type: "int", name: "result_count" })
   resultCount: number;
 
-  @Column({ type: 'int', name: 'execution_time_ms' })
+  @Column({ type: "int", name: "execution_time_ms" })
   executionTimeMs: number;
 
-  @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
+  @CreateDateColumn({ type: "timestamptz", name: "created_at" })
   @Index()
   createdAt: Date;
 }

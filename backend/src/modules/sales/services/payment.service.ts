@@ -1,18 +1,22 @@
-import { AuditLogService } from '../../audit-logs/services';
+import { AuditLogService } from "../../audit-logs/services";
 import {
   Injectable,
   NotFoundException,
   ConflictException,
   BadRequestException,
   Logger,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, Between } from 'typeorm';
-import { BaseCrudService } from '../../../common/services/base-crud.service';
-import { Payment, PaymentStatus, SettlementStatusEnum } from '../../../database/entities/payment.entity';
-import { Customer } from '../../../database/entities/customer.entity';
-import { SalesOrder } from '../../../database/entities/sales-order.entity';
-import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, FindOptionsWhere, Between } from "typeorm";
+import { BaseCrudService } from "../../../common/services/base-crud.service";
+import {
+  Payment,
+  PaymentStatus,
+  SettlementStatusEnum,
+} from "../../../database/entities/payment.entity";
+import { Customer } from "../../../database/entities/customer.entity";
+import { SalesOrder } from "../../../database/entities/sales-order.entity";
+import { PaymentMethodEntity } from "../../../database/entities/payment-method.entity";
 import {
   CreatePaymentDto,
   UpdatePaymentDto,
@@ -21,11 +25,11 @@ import {
   ProcessPaymentDto,
   AllocatePaymentDto,
   PaymentSummaryDto,
-} from '../dto/payment.dto';
-import { CustomerPrintDto } from '../dto/customer.dto';
-import { AccountingService } from '@modules/accounting/services/accounting.service';
-import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
-import { canSearchCustomerPayments } from '../../search/search.permissions';
+} from "../dto/payment.dto";
+import { CustomerPrintDto } from "../dto/customer.dto";
+import { AccountingService } from "@modules/accounting/services/accounting.service";
+import { GlobalSearchResultDto } from "../../search/dto/global-search-result.dto";
+import { canSearchCustomerPayments } from "../../search/search.permissions";
 import {
   SEARCH_CANDIDATE_LIMIT,
   SCORE_EXACT_CODE,
@@ -34,10 +38,10 @@ import {
   SCORE_FUZZY,
   BOOST_CUSTOMER_PAYMENT,
   BOOST_EXACT_MATCH,
-} from '../../search/search.constants';
-import { JwtPayload } from '../../auth/strategies/jwt.strategy';
-import { UserRole } from '../../../database/entities/user.entity';
-import { SettingsService } from '../../settings/settings.service';
+} from "../../search/search.constants";
+import { JwtPayload } from "../../auth/strategies/jwt.strategy";
+import { UserRole } from "../../../database/entities/user.entity";
+import { SettingsService } from "../../settings/settings.service";
 
 @Injectable()
 export class PaymentService extends BaseCrudService<
@@ -65,7 +69,7 @@ export class PaymentService extends BaseCrudService<
   }
 
   getEntityType(): string {
-    return 'Payment';
+    return "Payment";
   }
 
   buildWhereClause(query: QueryPaymentsDto): FindOptionsWhere<Payment> {
@@ -76,7 +80,7 @@ export class PaymentService extends BaseCrudService<
     if (query.salesOrderId) where.salesOrderId = query.salesOrderId;
     if (query.fromDate || query.toDate) {
       where.paymentDate = Between(
-        query.fromDate || new Date('1900-01-01'),
+        query.fromDate || new Date("1900-01-01"),
         query.toDate || new Date(),
       );
     }
@@ -94,17 +98,18 @@ export class PaymentService extends BaseCrudService<
       where: { id: createPaymentDto.customerId },
     });
     if (!customer) {
-      throw new NotFoundException('Customer not found');
+      throw new NotFoundException("Customer not found");
     }
 
     const paymentMethod = await this.paymentMethodRepository.findOne({
       where: { id: createPaymentDto.paymentMethodId, isActive: true },
     });
     if (!paymentMethod || paymentMethod.deletedAt) {
-      throw new NotFoundException('Payment method not found');
+      throw new NotFoundException("Payment method not found");
     }
 
-    const paymentNumber = await this.settingsService.generateDocumentNumber('Payments');
+    const paymentNumber =
+      await this.settingsService.generateDocumentNumber("Payments");
 
     // Create payment
     const payment = this.paymentRepository.create({
@@ -126,12 +131,12 @@ export class PaymentService extends BaseCrudService<
 
     // Log audit trail for create
     await this.auditLogService.log(
-      'CREATE',
-      'Payment',
+      "CREATE",
+      "Payment",
       `Created payment: ${savedPayment.amount} for ${customer.name}`,
       {
         entityId: savedPayment.id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         newValues: {
           amount: savedPayment.amount,
@@ -139,7 +144,7 @@ export class PaymentService extends BaseCrudService<
           settlementStatus: savedPayment.settlementStatus,
           status: savedPayment.status,
         },
-      }
+      },
     );
 
     // Auto-post to accounting (don't fail payment on error)
@@ -147,10 +152,12 @@ export class PaymentService extends BaseCrudService<
       const fullPayment = await this.findPaymentWithRelations(savedPayment.id);
       await this.accountingService.postCustomerPaymentEntry(
         fullPayment,
-        userId || 'system',
+        userId || "system",
         username,
       );
-      this.logger.log(`Posted accounting entry for payment ${fullPayment.paymentNumber}`);
+      this.logger.log(
+        `Posted accounting entry for payment ${fullPayment.paymentNumber}`,
+      );
     } catch (error) {
       this.logger.error(
         `Failed to post accounting entry for payment ${savedPayment.id}: ${error.message}`,
@@ -159,7 +166,9 @@ export class PaymentService extends BaseCrudService<
       // Continue - don't fail the payment creation
     }
 
-    return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
+    return this.mapToResponseDto(
+      await this.findPaymentWithRelations(savedPayment.id),
+    );
   }
 
   async findAll(query: QueryPaymentsDto) {
@@ -169,8 +178,8 @@ export class PaymentService extends BaseCrudService<
       fromDate,
       toDate,
       search,
-      sortBy = 'paymentDate',
-      sortOrder = 'DESC',
+      sortBy = "paymentDate",
+      sortOrder = "DESC",
       status,
     } = query;
 
@@ -182,34 +191,34 @@ export class PaymentService extends BaseCrudService<
 
     if (fromDate || toDate) {
       where.paymentDate = Between(
-        fromDate || new Date('1900-01-01'),
+        fromDate || new Date("1900-01-01"),
         toDate || new Date(),
       );
     }
 
     // Use QueryBuilder for better control over nested relations
     const queryBuilder = this.paymentRepository
-      .createQueryBuilder('payment')
-      .leftJoinAndSelect('payment.customer', 'customer')
-      .leftJoinAndSelect('payment.salesOrder', 'salesOrder')
-      .leftJoinAndSelect('salesOrder.customer', 'salesOrderCustomer')
-      .leftJoinAndSelect('salesOrder.items', 'items')
-      .leftJoinAndSelect('items.product', 'product')
-      .leftJoinAndSelect('payment.paymentMethodEntity', 'paymentMethodEntity')
+      .createQueryBuilder("payment")
+      .leftJoinAndSelect("payment.customer", "customer")
+      .leftJoinAndSelect("payment.salesOrder", "salesOrder")
+      .leftJoinAndSelect("salesOrder.customer", "salesOrderCustomer")
+      .leftJoinAndSelect("salesOrder.items", "items")
+      .leftJoinAndSelect("items.product", "product")
+      .leftJoinAndSelect("payment.paymentMethodEntity", "paymentMethodEntity")
       .where(where)
       .orderBy(`payment.${sortBy}`, sortOrder);
 
     if (search) {
       queryBuilder.andWhere(
-        '(payment.paymentNumber ILIKE :search OR customer.name ILIKE :search)',
-        { search: `%${search}%` }
+        "(payment.paymentNumber ILIKE :search OR customer.name ILIKE :search)",
+        { search: `%${search}%` },
       );
     }
 
     const [payments, total] = await queryBuilder.getManyAndCount();
 
     return {
-      data: payments.map(payment => this.mapToResponseDto(payment)),
+      data: payments.map((payment) => this.mapToResponseDto(payment)),
       meta: {
         total,
       },
@@ -234,24 +243,28 @@ export class PaymentService extends BaseCrudService<
 
     // Log audit trail for update
     await this.auditLogService.log(
-      'UPDATE',
-      'Payment',
-      `Updated payment for ${payment.customer?.name || 'customer'}`,
+      "UPDATE",
+      "Payment",
+      `Updated payment for ${payment.customer?.name || "customer"}`,
       {
         entityId: id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         newValues: {
           amount: savedPayment.amount,
           status: savedPayment.status,
         },
-      }
+      },
     );
 
-    return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
+    return this.mapToResponseDto(
+      await this.findPaymentWithRelations(savedPayment.id),
+    );
   }
 
-  async processPayment(processPaymentDto: ProcessPaymentDto): Promise<PaymentResponseDto> {
+  async processPayment(
+    processPaymentDto: ProcessPaymentDto,
+  ): Promise<PaymentResponseDto> {
     return this.create({
       customerId: processPaymentDto.customerId,
       salesOrderId: processPaymentDto.salesOrderId,
@@ -262,11 +275,15 @@ export class PaymentService extends BaseCrudService<
     });
   }
 
-  async allocatePayment(allocationDto: AllocatePaymentDto): Promise<PaymentResponseDto> {
-    const payment = await this.findPaymentWithRelations(allocationDto.paymentId);
+  async allocatePayment(
+    allocationDto: AllocatePaymentDto,
+  ): Promise<PaymentResponseDto> {
+    const payment = await this.findPaymentWithRelations(
+      allocationDto.paymentId,
+    );
 
     if (payment.status !== PaymentStatus.COMPLETED) {
-      throw new BadRequestException('Only completed payments can be allocated');
+      throw new BadRequestException("Only completed payments can be allocated");
     }
 
     const totalAllocationAmount = allocationDto.allocations.reduce(
@@ -275,7 +292,9 @@ export class PaymentService extends BaseCrudService<
     );
 
     if (totalAllocationAmount > Number(payment.amount)) {
-      throw new BadRequestException('Total allocation amount exceeds payment amount');
+      throw new BadRequestException(
+        "Total allocation amount exceeds payment amount",
+      );
     }
 
     // Process each allocation
@@ -285,17 +304,22 @@ export class PaymentService extends BaseCrudService<
       });
 
       if (!salesOrder) {
-        throw new NotFoundException(`Sales order ${allocation.salesOrderId} not found`);
+        throw new NotFoundException(
+          `Sales order ${allocation.salesOrderId} not found`,
+        );
       }
 
       if (salesOrder.customerId !== payment.customerId) {
-        throw new BadRequestException('Sales order does not belong to the payment customer');
+        throw new BadRequestException(
+          "Sales order does not belong to the payment customer",
+        );
       }
 
       // Update sales order paid amount and balance
       const allocatedAmount = Number(allocation.amount);
       salesOrder.paidAmount = Number(salesOrder.paidAmount) + allocatedAmount;
-      salesOrder.balanceDue = Number(salesOrder.totalAmount) - Number(salesOrder.paidAmount);
+      salesOrder.balanceDue =
+        Number(salesOrder.totalAmount) - Number(salesOrder.paidAmount);
       await this.salesOrderRepository.save(salesOrder);
     }
 
@@ -303,16 +327,20 @@ export class PaymentService extends BaseCrudService<
     payment.salesOrderId = allocationDto.allocations[0]?.salesOrderId; // Primary allocation
     await this.paymentRepository.save(payment);
 
-    return this.mapToResponseDto(await this.findPaymentWithRelations(payment.id));
+    return this.mapToResponseDto(
+      await this.findPaymentWithRelations(payment.id),
+    );
   }
 
-  async getPaymentsByCustomer(customerId: string): Promise<PaymentSummaryDto[]> {
+  async getPaymentsByCustomer(
+    customerId: string,
+  ): Promise<PaymentSummaryDto[]> {
     const payments = await this.paymentRepository.find({
       where: { customerId },
-      order: { paymentDate: 'DESC' },
+      order: { paymentDate: "DESC" },
     });
 
-    return payments.map(payment => ({
+    return payments.map((payment) => ({
       id: payment.id,
       paymentNumber: payment.paymentNumber,
       paymentDate: payment.paymentDate,
@@ -322,13 +350,15 @@ export class PaymentService extends BaseCrudService<
     }));
   }
 
-  async getPaymentsBySalesOrder(salesOrderId: string): Promise<PaymentSummaryDto[]> {
+  async getPaymentsBySalesOrder(
+    salesOrderId: string,
+  ): Promise<PaymentSummaryDto[]> {
     const payments = await this.paymentRepository.find({
       where: { salesOrderId },
-      order: { paymentDate: 'DESC' },
+      order: { paymentDate: "DESC" },
     });
 
-    return payments.map(payment => ({
+    return payments.map((payment) => ({
       id: payment.id,
       paymentNumber: payment.paymentNumber,
       paymentDate: payment.paymentDate,
@@ -338,25 +368,32 @@ export class PaymentService extends BaseCrudService<
     }));
   }
 
-  async getPaymentStatistics(customerId?: string, fromDate?: Date, toDate?: Date) {
-    const queryBuilder = this.paymentRepository.createQueryBuilder('payment');
+  async getPaymentStatistics(
+    customerId?: string,
+    fromDate?: Date,
+    toDate?: Date,
+  ) {
+    const queryBuilder = this.paymentRepository.createQueryBuilder("payment");
 
     if (customerId) {
-      queryBuilder.where('payment.customerId = :customerId', { customerId });
+      queryBuilder.where("payment.customerId = :customerId", { customerId });
     }
 
     if (fromDate || toDate) {
-      queryBuilder.andWhere('payment.paymentDate BETWEEN :fromDate AND :toDate', {
-        fromDate: fromDate || new Date('1900-01-01'),
-        toDate: toDate || new Date(),
-      });
+      queryBuilder.andWhere(
+        "payment.paymentDate BETWEEN :fromDate AND :toDate",
+        {
+          fromDate: fromDate || new Date("1900-01-01"),
+          toDate: toDate || new Date(),
+        },
+      );
     }
 
     const stats = await queryBuilder
       .select([
-        'COUNT(*) as totalPayments',
-        'COALESCE(SUM(payment.amount), 0) as completedAmount',
-        'COALESCE(AVG(payment.amount), 0) as averagePaymentAmount',
+        "COUNT(*) as totalPayments",
+        "COALESCE(SUM(payment.amount), 0) as completedAmount",
+        "COALESCE(AVG(payment.amount), 0) as averagePaymentAmount",
       ])
       .getRawOne();
 
@@ -374,11 +411,15 @@ export class PaymentService extends BaseCrudService<
     return payments.reduce((sum, p) => sum + Number(p.amount), 0);
   }
 
-  async complete(id: string, userId?: string, username?: string): Promise<PaymentResponseDto> {
+  async complete(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<PaymentResponseDto> {
     const payment = await this.findPaymentWithRelations(id);
 
     if (payment.status === PaymentStatus.COMPLETED) {
-      throw new ConflictException('Payment is already completed');
+      throw new ConflictException("Payment is already completed");
     }
 
     payment.status = PaymentStatus.COMPLETED;
@@ -389,98 +430,132 @@ export class PaymentService extends BaseCrudService<
 
     // Log audit trail
     await this.auditLogService.log(
-      'UPDATE',
-      'Payment',
+      "UPDATE",
+      "Payment",
       `Completed payment ${payment.paymentNumber}`,
       {
         entityId: id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         newValues: { status: PaymentStatus.COMPLETED },
-      }
+      },
     );
 
-    return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
+    return this.mapToResponseDto(
+      await this.findPaymentWithRelations(savedPayment.id),
+    );
   }
 
-  async fail(id: string, reason?: string, userId?: string, username?: string): Promise<PaymentResponseDto> {
+  async fail(
+    id: string,
+    reason?: string,
+    userId?: string,
+    username?: string,
+  ): Promise<PaymentResponseDto> {
     const payment = await this.findPaymentWithRelations(id);
 
     if (payment.status === PaymentStatus.COMPLETED) {
-      throw new BadRequestException('Cannot mark a completed payment as failed');
+      throw new BadRequestException(
+        "Cannot mark a completed payment as failed",
+      );
     }
 
     payment.status = PaymentStatus.FAILED;
     if (reason) {
-      payment.notes = payment.notes ? `${payment.notes}\nFailed reason: ${reason}` : `Failed reason: ${reason}`;
+      payment.notes = payment.notes
+        ? `${payment.notes}\nFailed reason: ${reason}`
+        : `Failed reason: ${reason}`;
     }
 
     const savedPayment = await this.paymentRepository.save(payment);
 
     // Log audit trail
     await this.auditLogService.log(
-      'UPDATE',
-      'Payment',
+      "UPDATE",
+      "Payment",
       `Marked payment ${payment.paymentNumber} as failed`,
       {
         entityId: id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         newValues: { status: PaymentStatus.FAILED, reason },
-      }
+      },
     );
 
-    return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
+    return this.mapToResponseDto(
+      await this.findPaymentWithRelations(savedPayment.id),
+    );
   }
 
-  async cancel(id: string, reason?: string, userId?: string, username?: string): Promise<PaymentResponseDto> {
+  async cancel(
+    id: string,
+    reason?: string,
+    userId?: string,
+    username?: string,
+  ): Promise<PaymentResponseDto> {
     const payment = await this.findPaymentWithRelations(id);
 
     if (payment.status === PaymentStatus.COMPLETED) {
-      throw new BadRequestException('Cannot cancel a completed payment. Use refund instead.');
+      throw new BadRequestException(
+        "Cannot cancel a completed payment. Use refund instead.",
+      );
     }
 
     payment.status = PaymentStatus.CANCELLED;
     if (reason) {
-      payment.notes = payment.notes ? `${payment.notes}\nCancelled reason: ${reason}` : `Cancelled reason: ${reason}`;
+      payment.notes = payment.notes
+        ? `${payment.notes}\nCancelled reason: ${reason}`
+        : `Cancelled reason: ${reason}`;
     }
 
     const savedPayment = await this.paymentRepository.save(payment);
 
     // Log audit trail
     await this.auditLogService.log(
-      'UPDATE',
-      'Payment',
+      "UPDATE",
+      "Payment",
       `Cancelled payment ${payment.paymentNumber}`,
       {
         entityId: id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         newValues: { status: PaymentStatus.CANCELLED, reason },
-      }
+      },
     );
 
-    return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
+    return this.mapToResponseDto(
+      await this.findPaymentWithRelations(savedPayment.id),
+    );
   }
 
-  async refund(refundDto: {
-    paymentId: string;
-    amount: number;
-    reason?: string;
-  }, userId?: string, username?: string): Promise<PaymentResponseDto> {
-    const originalPayment = await this.findPaymentWithRelations(refundDto.paymentId);
+  async refund(
+    refundDto: {
+      paymentId: string;
+      amount: number;
+      reason?: string;
+    },
+    userId?: string,
+    username?: string,
+  ): Promise<PaymentResponseDto> {
+    const originalPayment = await this.findPaymentWithRelations(
+      refundDto.paymentId,
+    );
 
     if (originalPayment.status !== PaymentStatus.COMPLETED) {
-      throw new BadRequestException('Can only refund completed payments');
+      throw new BadRequestException("Can only refund completed payments");
     }
 
     if (refundDto.amount > Number(originalPayment.amount)) {
-      throw new BadRequestException('Refund amount cannot exceed original payment amount');
+      throw new BadRequestException(
+        "Refund amount cannot exceed original payment amount",
+      );
     }
 
-    const refundMethodCode = originalPayment.paymentMethodEntity?.code || 'CASH';
+    const refundMethodCode =
+      originalPayment.paymentMethodEntity?.code || "CASH";
 
-    const refundNumber = await this.settingsService.generateDocumentNumber('Payments');
+    const refundNumber =
+      await this.settingsService.generateDocumentNumber("Payments");
 
     // Create a refund payment record (negative amount)
     const refundPayment = this.paymentRepository.create({
@@ -492,7 +567,9 @@ export class PaymentService extends BaseCrudService<
       status: PaymentStatus.REFUNDED,
       paymentMethodId: originalPayment.paymentMethodId,
       settlementStatus: originalPayment.settlementStatus,
-      notes: refundDto.reason ? `Refund: ${refundDto.reason}` : `Refund of ${originalPayment.paymentNumber}`,
+      notes: refundDto.reason
+        ? `Refund: ${refundDto.reason}`
+        : `Refund of ${originalPayment.paymentNumber}`,
     });
 
     const savedRefund = await this.paymentRepository.save(refundPayment);
@@ -502,7 +579,11 @@ export class PaymentService extends BaseCrudService<
     await this.paymentRepository.save(originalPayment);
 
     try {
-      await this.accountingService.reverseSourceEntries('payment', originalPayment.id, userId || 'system');
+      await this.accountingService.reverseSourceEntries(
+        "payment",
+        originalPayment.id,
+        userId || "system",
+      );
     } catch (err) {
       this.logger.error(
         `Failed to post refund accounting entry for payment ${originalPayment.id}: ${err.message}`,
@@ -512,12 +593,12 @@ export class PaymentService extends BaseCrudService<
 
     // Log audit trail
     await this.auditLogService.log(
-      'CREATE',
-      'Payment',
+      "CREATE",
+      "Payment",
       `Created refund for payment ${originalPayment.paymentNumber}`,
       {
         entityId: savedRefund.id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         newValues: {
           amount: savedRefund.amount,
@@ -525,10 +606,12 @@ export class PaymentService extends BaseCrudService<
           originalPaymentId: originalPayment.id,
           refundMethodCode,
         },
-      }
+      },
     );
 
-    return this.mapToResponseDto(await this.findPaymentWithRelations(savedRefund.id));
+    return this.mapToResponseDto(
+      await this.findPaymentWithRelations(savedRefund.id),
+    );
   }
 
   // Private helper methods
@@ -536,11 +619,15 @@ export class PaymentService extends BaseCrudService<
   private async findPaymentWithRelations(id: string): Promise<Payment> {
     const payment = await this.paymentRepository.findOne({
       where: { id },
-      relations: { customer: true, salesOrder: { items: { product: true } }, paymentMethodEntity: true },
+      relations: {
+        customer: true,
+        salesOrder: { items: { product: true } },
+        paymentMethodEntity: true,
+      },
     });
 
     if (!payment) {
-      throw new NotFoundException('Payment not found');
+      throw new NotFoundException("Payment not found");
     }
 
     return payment;
@@ -555,28 +642,37 @@ export class PaymentService extends BaseCrudService<
     // Update sales order if payment is allocated to specific order
     if (payment.salesOrder) {
       const allocatedAmount = Number(payment.amount);
-      payment.salesOrder.paidAmount = Number(payment.salesOrder.paidAmount) + allocatedAmount;
-      payment.salesOrder.balanceDue = Number(payment.salesOrder.totalAmount) - Number(payment.salesOrder.paidAmount);
+      payment.salesOrder.paidAmount =
+        Number(payment.salesOrder.paidAmount) + allocatedAmount;
+      payment.salesOrder.balanceDue =
+        Number(payment.salesOrder.totalAmount) -
+        Number(payment.salesOrder.paidAmount);
       await this.salesOrderRepository.save(payment.salesOrder);
     }
   }
 
-  private async updateCustomerBalance(customer: Customer, _payment: Payment): Promise<void> {
+  private async updateCustomerBalance(
+    customer: Customer,
+    _payment: Payment,
+  ): Promise<void> {
     // Note: Customer balance tracking removed - updateBalance method doesn't exist
     // This method is kept for backward compatibility but no longer updates balance
     await this.customerRepository.save(customer);
   }
 
-  async searchGlobal(query: string, user: JwtPayload): Promise<GlobalSearchResultDto[]> {
+  async searchGlobal(
+    query: string,
+    user: JwtPayload,
+  ): Promise<GlobalSearchResultDto[]> {
     if (!canSearchCustomerPayments(user.role as UserRole)) return [];
 
     const trimmed = query.trim();
     const q = trimmed.toLowerCase();
 
     const results = await this.paymentRepository
-      .createQueryBuilder('payment')
-      .where('payment.deletedAt IS NULL')
-      .andWhere('payment.paymentNumber ILIKE :q', { q: `%${trimmed}%` })
+      .createQueryBuilder("payment")
+      .where("payment.deletedAt IS NULL")
+      .andWhere("payment.paymentNumber ILIKE :q", { q: `%${trimmed}%` })
       .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
@@ -585,20 +681,24 @@ export class PaymentService extends BaseCrudService<
     }
 
     const fuzzyResults = await this.paymentRepository
-      .createQueryBuilder('payment')
-      .addSelect('similarity(payment.paymentNumber, :q)', 'sim')
-      .where('payment.deletedAt IS NULL')
-      .andWhere('similarity(payment.paymentNumber, :q) > 0.3')
-      .orderBy('sim', 'DESC')
-      .setParameter('q', trimmed)
+      .createQueryBuilder("payment")
+      .addSelect("similarity(payment.paymentNumber, :q)", "sim")
+      .where("payment.deletedAt IS NULL")
+      .andWhere("similarity(payment.paymentNumber, :q) > 0.3")
+      .orderBy("sim", "DESC")
+      .setParameter("q", trimmed)
       .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
     return fuzzyResults.map((p) => this.mapPayment(p, q, true));
   }
 
-  private mapPayment(p: Payment, q: string, fuzzy: boolean): GlobalSearchResultDto {
-    const num = p.paymentNumber?.toLowerCase() ?? '';
+  private mapPayment(
+    p: Payment,
+    q: string,
+    fuzzy: boolean,
+  ): GlobalSearchResultDto {
+    const num = p.paymentNumber?.toLowerCase() ?? "";
     const baseScore = fuzzy
       ? SCORE_FUZZY
       : num === q
@@ -608,7 +708,7 @@ export class PaymentService extends BaseCrudService<
           : SCORE_CONTAINS;
 
     return {
-      type: 'customer_payment',
+      type: "customer_payment",
       id: p.id,
       label: p.paymentNumber,
       description: undefined,
@@ -624,34 +724,39 @@ export class PaymentService extends BaseCrudService<
     const {
       search,
       customerId,
-      sortBy = 'deletedAt',
-      sortOrder = 'DESC',
+      sortBy = "deletedAt",
+      sortOrder = "DESC",
     } = query;
 
     let queryBuilder = this.paymentRepository
-      .createQueryBuilder('payment')
+      .createQueryBuilder("payment")
       .withDeleted() // Include soft-deleted records
-      .leftJoinAndSelect('payment.customer', 'customer')
-      .leftJoinAndSelect('payment.paymentMethodEntity', 'paymentMethodEntity')
-      .where('payment.deletedAt IS NOT NULL'); // Only get soft-deleted payments
+      .leftJoinAndSelect("payment.customer", "customer")
+      .leftJoinAndSelect("payment.paymentMethodEntity", "paymentMethodEntity")
+      .where("payment.deletedAt IS NOT NULL"); // Only get soft-deleted payments
 
     if (customerId) {
-      queryBuilder = queryBuilder.andWhere('payment.customerId = :customerId', { customerId });
+      queryBuilder = queryBuilder.andWhere("payment.customerId = :customerId", {
+        customerId,
+      });
     }
 
     if (search) {
       queryBuilder = queryBuilder.andWhere(
-        '(payment.paymentNumber ILIKE :search OR customer.name ILIKE :search)',
-        { search: `%${search}%` }
+        "(payment.paymentNumber ILIKE :search OR customer.name ILIKE :search)",
+        { search: `%${search}%` },
       );
     }
 
     // Add sorting
-    queryBuilder = queryBuilder.orderBy(`payment.${sortBy}`, sortOrder as 'ASC' | 'DESC');
+    queryBuilder = queryBuilder.orderBy(
+      `payment.${sortBy}`,
+      sortOrder as "ASC" | "DESC",
+    );
 
     const [payments, total] = await queryBuilder.getManyAndCount();
 
-    const data = payments.map(payment => this.mapToResponseDto(payment));
+    const data = payments.map((payment) => this.mapToResponseDto(payment));
 
     return {
       data,
@@ -661,7 +766,11 @@ export class PaymentService extends BaseCrudService<
     };
   }
 
-  async restore(id: string, userId?: string, username?: string): Promise<PaymentResponseDto> {
+  async restore(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<PaymentResponseDto> {
     const payment = await this.paymentRepository.findOne({
       where: { id },
       withDeleted: true, // Include soft-deleted records
@@ -673,26 +782,28 @@ export class PaymentService extends BaseCrudService<
     }
 
     if (!payment.deletedAt) {
-      throw new ConflictException(`Payment ${payment.paymentNumber} is not deleted`);
+      throw new ConflictException(
+        `Payment ${payment.paymentNumber} is not deleted`,
+      );
     }
 
     // Restore the payment
     await this.paymentRepository.restore(id);
 
     await this.auditLogService.log(
-      'RESTORE',
-      'Payment',
+      "RESTORE",
+      "Payment",
       `Restored payment: ${payment.paymentNumber}`,
       {
         entityId: id,
-        userId: userId || 'system',
+        userId: userId || "system",
         username,
         newValues: {
           paymentNumber: payment.paymentNumber,
           amount: payment.amount,
           status: payment.status,
         },
-      }
+      },
     );
 
     // Return the restored payment
@@ -752,39 +863,57 @@ export class PaymentService extends BaseCrudService<
       updatedAt: payment.updatedAt,
       deletedAt: payment.deletedAt,
       isCompleted: payment.isCompleted,
-      customerName: payment.customer?.name || 'Unknown Customer',
-      customer: payment.customer ? {
-        id: payment.customer.id,
-        name: payment.customer.name,
-        phone: payment.customer.phone,
-      } : undefined,
-      salesOrder: payment.salesOrder ? {
-        id: payment.salesOrder.id,
-        orderNumber: payment.salesOrder.orderNumber,
-        totalAmount: Number(payment.salesOrder.totalAmount),
-        shippingAmount: Number(payment.salesOrder.shippingAmount),
-        items: payment.salesOrder.items?.map(item => ({
-          id: item.id,
-          quantity: item.quantity,
-          unitPrice: Number(item.unitPrice),
-          discount: Number(item.discountAmount),
-          totalAmount: Number(item.totalAmount),
-          product: item.product ? {
-            id: item.product.id,
-            name: item.product.name,
-          } : undefined,
-        })),
-        customer: payment.salesOrder.customer || payment.customer ? ({
-          id: (payment.salesOrder.customer || payment.customer).id,
-          name: (payment.salesOrder.customer || payment.customer).name,
-          phone: (payment.salesOrder.customer || payment.customer).phone,
-          streetAddress: (payment.salesOrder.customer || payment.customer).billingStreetAddress,
-          city: (payment.salesOrder.customer || payment.customer).billingCity,
-          state: (payment.salesOrder.customer || payment.customer).billingState,
-          postalCode: (payment.salesOrder.customer || payment.customer).billingPostalCode,
-          country: (payment.salesOrder.customer || payment.customer).billingCountry,
-        } satisfies CustomerPrintDto) : undefined,
-      } : undefined,
+      customerName: payment.customer?.name || "Unknown Customer",
+      customer: payment.customer
+        ? {
+            id: payment.customer.id,
+            name: payment.customer.name,
+            phone: payment.customer.phone,
+          }
+        : undefined,
+      salesOrder: payment.salesOrder
+        ? {
+            id: payment.salesOrder.id,
+            orderNumber: payment.salesOrder.orderNumber,
+            totalAmount: Number(payment.salesOrder.totalAmount),
+            shippingAmount: Number(payment.salesOrder.shippingAmount),
+            items: payment.salesOrder.items?.map((item) => ({
+              id: item.id,
+              quantity: item.quantity,
+              unitPrice: Number(item.unitPrice),
+              discount: Number(item.discountAmount),
+              totalAmount: Number(item.totalAmount),
+              product: item.product
+                ? {
+                    id: item.product.id,
+                    name: item.product.name,
+                  }
+                : undefined,
+            })),
+            customer:
+              payment.salesOrder.customer || payment.customer
+                ? ({
+                    id: (payment.salesOrder.customer || payment.customer).id,
+                    name: (payment.salesOrder.customer || payment.customer)
+                      .name,
+                    phone: (payment.salesOrder.customer || payment.customer)
+                      .phone,
+                    streetAddress: (
+                      payment.salesOrder.customer || payment.customer
+                    ).billingStreetAddress,
+                    city: (payment.salesOrder.customer || payment.customer)
+                      .billingCity,
+                    state: (payment.salesOrder.customer || payment.customer)
+                      .billingState,
+                    postalCode: (
+                      payment.salesOrder.customer || payment.customer
+                    ).billingPostalCode,
+                    country: (payment.salesOrder.customer || payment.customer)
+                      .billingCountry,
+                  } satisfies CustomerPrintDto)
+                : undefined,
+          }
+        : undefined,
       relatedSalesOrderId: payment.salesOrder?.id,
       relatedSalesOrderNumber: payment.salesOrder?.orderNumber,
     };

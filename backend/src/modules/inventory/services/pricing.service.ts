@@ -3,14 +3,14 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
-import { Product, PriceList, PriceListItem } from '../../../database/entities';
-import { Category } from '../../../database/entities/category.entity';
-import { Customer } from '../../../database/entities/customer.entity';
-import { BulkUpdatePricesDto, ProductPriceUpdateDto } from '../dto/product.dto';
-import { SettingsService } from '../../settings/settings.service';
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, In } from "typeorm";
+import { Product, PriceList, PriceListItem } from "../../../database/entities";
+import { Category } from "../../../database/entities/category.entity";
+import { Customer } from "../../../database/entities/customer.entity";
+import { BulkUpdatePricesDto, ProductPriceUpdateDto } from "../dto/product.dto";
+import { SettingsService } from "../../settings/settings.service";
 
 export interface PriceCalculationOptions {
   customerType?: string; // Dynamic price type from settings (e.g., 'Retail', 'Wholesale', 'VIP')
@@ -47,20 +47,20 @@ export interface MarginAnalysis {
   competitorPricing?: {
     averageRetailPrice: number;
     averageWholesalePrice: number;
-    pricePosition: 'below' | 'competitive' | 'above';
+    pricePosition: "below" | "competitive" | "above";
   };
 }
 
 interface PricingRule {
   id: string;
   name: string;
-  type: 'category' | 'customer' | 'quantity' | 'product';
+  type: "category" | "customer" | "quantity" | "product";
   categoryIds?: string[];
   customerIds?: string[];
   productIds?: string[];
   minQuantity?: number;
   maxQuantity?: number;
-  discountType: 'percentage' | 'fixed';
+  discountType: "percentage" | "fixed";
   discountValue: number;
   startDate?: Date;
   endDate?: Date;
@@ -105,7 +105,7 @@ export class PricingService {
     }
 
     // Determine base price type and price list
-    let priceType = 'Retail'; // Default to Retail
+    let priceType = "Retail"; // Default to Retail
     let basePrice = 0;
     let priceListId: string | null = null;
 
@@ -120,7 +120,9 @@ export class PricingService {
         if (customer.priceList && customer.priceList.isActive) {
           priceListId = customer.priceList.id;
           priceType = customer.priceList.name;
-          this.logger.log(`Using price list: ${priceType} for customer ${options.customerId}`);
+          this.logger.log(
+            `Using price list: ${priceType} for customer ${options.customerId}`,
+          );
         }
       }
     } else if (options.customerType) {
@@ -137,7 +139,9 @@ export class PricingService {
         basePrice = Number(priceListItem.price);
         this.logger.log(`Found price ${basePrice} from price list item`);
       } else {
-        this.logger.warn(`No price found in price list ${priceListId} for product ${productId}`);
+        this.logger.warn(
+          `No price found in price list ${priceListId} for product ${productId}`,
+        );
         // Fallback to baseCost
         basePrice = Number(product.baseCost || 0);
         this.logger.log(`Using baseCost as fallback: ${basePrice}`);
@@ -150,7 +154,10 @@ export class PricingService {
 
     // Apply quantity-based pricing adjustments
     if (options.quantity && options.quantity > 1) {
-      const quantityDiscount = this.calculateQuantityDiscount(options.quantity, basePrice);
+      const quantityDiscount = this.calculateQuantityDiscount(
+        options.quantity,
+        basePrice,
+      );
       if (quantityDiscount > 0) {
         basePrice -= quantityDiscount;
       }
@@ -168,10 +175,13 @@ export class PricingService {
 
     // Apply category-based discounts
     if (options.includeDiscounts !== false) {
-      const categoryDiscount = await this.calculateCategoryDiscount(product.category.id, basePrice);
+      const categoryDiscount = await this.calculateCategoryDiscount(
+        product.category.id,
+        basePrice,
+      );
       if (categoryDiscount.amount > 0) {
         appliedDiscounts.push({
-          type: 'category',
+          type: "category",
           description: `Category discount: ${product.category.name}`,
           amount: categoryDiscount.amount,
           percentage: categoryDiscount.percentage,
@@ -181,11 +191,14 @@ export class PricingService {
 
       // Apply customer-specific discounts
       if (options.customerId) {
-        const customerDiscount = await this.calculateCustomerDiscount(options.customerId, basePrice);
+        const customerDiscount = await this.calculateCustomerDiscount(
+          options.customerId,
+          basePrice,
+        );
         if (customerDiscount.amount > 0) {
           appliedDiscounts.push({
-            type: 'customer',
-            description: 'Customer-specific discount',
+            type: "customer",
+            description: "Customer-specific discount",
             amount: customerDiscount.amount,
             percentage: customerDiscount.percentage,
           });
@@ -202,7 +215,7 @@ export class PricingService {
         );
         if (promotionDiscount.amount > 0) {
           appliedDiscounts.push({
-            type: 'promotion',
+            type: "promotion",
             description: `Promotion: ${options.promotionCode}`,
             amount: promotionDiscount.amount,
             percentage: promotionDiscount.percentage,
@@ -213,7 +226,8 @@ export class PricingService {
     }
 
     const finalPrice = Math.max(0, basePrice - totalDiscountAmount);
-    const discountPercentage = basePrice > 0 ? (totalDiscountAmount / basePrice) * 100 : 0;
+    const discountPercentage =
+      basePrice > 0 ? (totalDiscountAmount / basePrice) * 100 : 0;
 
     return {
       basePrice,
@@ -239,7 +253,9 @@ export class PricingService {
         const priceBreakdown = await this.calculatePrice(productId, options);
         priceMap.set(productId, priceBreakdown);
       } catch (error) {
-        this.logger.error(`Failed to calculate price for product ${productId}: ${error.message}`);
+        this.logger.error(
+          `Failed to calculate price for product ${productId}: ${error.message}`,
+        );
       }
     }
 
@@ -270,31 +286,38 @@ export class PricingService {
       const priceListName = item.priceList?.name.toLowerCase();
       const price = Number(item.price);
 
-      if (priceListName?.includes('retail')) {
+      if (priceListName?.includes("retail")) {
         retailPrice = price;
-      } else if (priceListName?.includes('wholesale')) {
+      } else if (priceListName?.includes("wholesale")) {
         wholesalePrice = price;
-      } else if (priceListName?.includes('special')) {
+      } else if (priceListName?.includes("special")) {
         specialPrice = price;
       }
     }
 
     // Calculate margins
     const retailMarginAmount = retailPrice - baseCost;
-    const retailMarginPercentage = retailPrice > 0 ? (retailMarginAmount / retailPrice) * 100 : 0;
+    const retailMarginPercentage =
+      retailPrice > 0 ? (retailMarginAmount / retailPrice) * 100 : 0;
 
     const wholesaleMarginAmount = wholesalePrice - baseCost;
-    const wholesaleMarginPercentage = wholesalePrice > 0 ? (wholesaleMarginAmount / wholesalePrice) * 100 : 0;
+    const wholesaleMarginPercentage =
+      wholesalePrice > 0 ? (wholesaleMarginAmount / wholesalePrice) * 100 : 0;
 
     const specialMarginAmount = specialPrice - baseCost;
-    const specialMarginPercentage = specialPrice > 0 ? (specialMarginAmount / specialPrice) * 100 : 0;
+    const specialMarginPercentage =
+      specialPrice > 0 ? (specialMarginAmount / specialPrice) * 100 : 0;
 
     // Calculate recommended prices (targeting 30% and 20% margins)
     const recommendedRetailPrice = baseCost / 0.7; // 30% margin
     const recommendedWholesalePrice = baseCost / 0.8; // 20% margin
 
     // Analyze competitor pricing (mock implementation)
-    const competitorPricing = await this.analyzeCompetitorPricing(productId, retailPrice, wholesalePrice);
+    const competitorPricing = await this.analyzeCompetitorPricing(
+      productId,
+      retailPrice,
+      wholesalePrice,
+    );
 
     return {
       retailMarginAmount,
@@ -330,35 +353,41 @@ export class PricingService {
     // This method is deprecated - prices should now be updated via PriceListsService
     // Update baseCost only if provided
     if (priceUpdate.baseCost !== undefined) {
-      await this.productRepository.update(productId, { baseCost: priceUpdate.baseCost });
+      await this.productRepository.update(productId, {
+        baseCost: priceUpdate.baseCost,
+      });
       this.logger.log(`Updated baseCost for product ${productId}`);
     }
 
-    this.logger.warn(`updatePricesWithValidation is deprecated. Please use PriceListsService.bulkUpdatePrices() instead.`);
+    this.logger.warn(
+      `updatePricesWithValidation is deprecated. Please use PriceListsService.bulkUpdatePrices() instead.`,
+    );
   }
 
   /**
    * Generate pricing recommendations for a category
    */
-  async generateCategoryPricingRecommendations(categoryId: string): Promise<Array<{
-    productId: string;
-    productName: string;
-    currentPricing: {
-      retail: number;
-      wholesale: number;
-      special: number;
-    };
-    recommendedPricing: {
-      retail: number;
-      wholesale: number;
-      special: number;
-    };
-    marginAnalysis: {
-      currentRetailMargin: number;
-      recommendedRetailMargin: number;
-      competitivePosition: string;
-    };
-  }>> {
+  async generateCategoryPricingRecommendations(categoryId: string): Promise<
+    Array<{
+      productId: string;
+      productName: string;
+      currentPricing: {
+        retail: number;
+        wholesale: number;
+        special: number;
+      };
+      recommendedPricing: {
+        retail: number;
+        wholesale: number;
+        special: number;
+      };
+      marginAnalysis: {
+        currentRetailMargin: number;
+        recommendedRetailMargin: number;
+        competitivePosition: string;
+      };
+    }>
+  > {
     const products = await this.productRepository.find({
       where: { categoryId, isActive: true },
       relations: { priceListItems: { priceList: true } },
@@ -378,11 +407,11 @@ export class PricingService {
         const priceListName = item.priceList?.name.toLowerCase();
         const price = Number(item.price);
 
-        if (priceListName?.includes('retail')) {
+        if (priceListName?.includes("retail")) {
           currentRetail = price;
-        } else if (priceListName?.includes('wholesale')) {
+        } else if (priceListName?.includes("wholesale")) {
           currentWholesale = price;
-        } else if (priceListName?.includes('special')) {
+        } else if (priceListName?.includes("special")) {
           currentSpecial = price;
         }
       }
@@ -403,13 +432,16 @@ export class PricingService {
         marginAnalysis: {
           currentRetailMargin: marginAnalysis.retailMarginPercentage,
           recommendedRetailMargin: 30,
-          competitivePosition: marginAnalysis.competitorPricing?.pricePosition || 'unknown',
+          competitivePosition:
+            marginAnalysis.competitorPricing?.pricePosition || "unknown",
         },
       });
     }
 
-    return recommendations.sort((a, b) =>
-      a.marginAnalysis.currentRetailMargin - b.marginAnalysis.currentRetailMargin
+    return recommendations.sort(
+      (a, b) =>
+        a.marginAnalysis.currentRetailMargin -
+        b.marginAnalysis.currentRetailMargin,
     );
   }
 
@@ -443,9 +475,9 @@ export class PricingService {
       const priceListName = item.priceList?.name.toLowerCase();
       const price = Number(item.price);
 
-      if (priceListName?.includes('retail')) {
+      if (priceListName?.includes("retail")) {
         originalRetailPrice = price;
-      } else if (priceListName?.includes('wholesale')) {
+      } else if (priceListName?.includes("wholesale")) {
         originalWholesalePrice = price;
       }
     }
@@ -460,13 +492,15 @@ export class PricingService {
     const seasonalFactor = this.calculateSeasonalFactor(product);
 
     // Combine factors (weighted average)
-    const finalAdjustment = (demandFactor * 0.4) + (inventoryFactor * 0.4) + (seasonalFactor * 0.2);
+    const finalAdjustment =
+      demandFactor * 0.4 + inventoryFactor * 0.4 + seasonalFactor * 0.2;
 
     // Apply adjustment (cap at ±20%)
     const cappedAdjustment = Math.max(-0.2, Math.min(0.2, finalAdjustment));
 
     const adjustedRetailPrice = originalRetailPrice * (1 + cappedAdjustment);
-    const adjustedWholesalePrice = originalWholesalePrice * (1 + cappedAdjustment);
+    const adjustedWholesalePrice =
+      originalWholesalePrice * (1 + cappedAdjustment);
 
     return {
       originalPrices: {
@@ -486,18 +520,20 @@ export class PricingService {
     };
   }
 
-
   /**
    * Calculate quantity-based discount
    */
-  private calculateQuantityDiscount(quantity: number, basePrice: number): number {
+  private calculateQuantityDiscount(
+    quantity: number,
+    basePrice: number,
+  ): number {
     // Simple quantity discount tiers
     let discountPercentage = 0;
-    
+
     if (quantity >= 100) {
       discountPercentage = 0.15; // 15% for 100+
     } else if (quantity >= 50) {
-      discountPercentage = 0.10; // 10% for 50+
+      discountPercentage = 0.1; // 10% for 50+
     } else if (quantity >= 20) {
       discountPercentage = 0.05; // 5% for 20+
     }
@@ -535,10 +571,10 @@ export class PricingService {
 
     // Implementation based on customer price list
     let discountPercentage = 0;
-    const priceListName = customer.priceList.name?.toLowerCase() || '';
-    if (priceListName.includes('special')) {
+    const priceListName = customer.priceList.name?.toLowerCase() || "";
+    if (priceListName.includes("special")) {
       discountPercentage = 0.1; // 10% special price discount
-    } else if (priceListName.includes('wholesale')) {
+    } else if (priceListName.includes("wholesale")) {
       discountPercentage = 0.05; // 5% wholesale discount
     }
 
@@ -562,7 +598,10 @@ export class PricingService {
   /**
    * Calculate margin percentage
    */
-  private calculateMarginPercentage(cost: number, sellingPrice: number): number {
+  private calculateMarginPercentage(
+    cost: number,
+    sellingPrice: number,
+  ): number {
     if (sellingPrice <= 0) return -100;
     return ((sellingPrice - cost) / sellingPrice) * 100;
   }
@@ -577,19 +616,19 @@ export class PricingService {
   ): Promise<{
     averageRetailPrice: number;
     averageWholesalePrice: number;
-    pricePosition: 'below' | 'competitive' | 'above';
+    pricePosition: "below" | "competitive" | "above";
   }> {
     // Mock competitor analysis
     const mockAverageRetail = retailPrice * (0.9 + Math.random() * 0.2);
     const mockAverageWholesale = wholesalePrice * (0.9 + Math.random() * 0.2);
 
-    let pricePosition: 'below' | 'competitive' | 'above' = 'competitive';
+    let pricePosition: "below" | "competitive" | "above" = "competitive";
     const retailDifference = retailPrice - mockAverageRetail;
 
     if (retailDifference < -mockAverageRetail * 0.05) {
-      pricePosition = 'below';
+      pricePosition = "below";
     } else if (retailDifference > mockAverageRetail * 0.05) {
-      pricePosition = 'above';
+      pricePosition = "above";
     }
 
     return {
@@ -605,7 +644,7 @@ export class PricingService {
   private async calculateDemandFactor(productId: string): Promise<number> {
     // Mock implementation - would analyze sales trends
     // Returns value between -0.5 and 0.5
-    return (Math.random() - 0.5);
+    return Math.random() - 0.5;
   }
 
   /**
@@ -613,7 +652,7 @@ export class PricingService {
    */
   private calculateInventoryFactor(product: Product): number {
     const stockRatio = Number(product.stockQuantity) / Math.max(100, 1); // Use default optimal level of 100
-    
+
     if (stockRatio < 0.2) {
       return 0.3; // Low stock, increase price
     } else if (stockRatio < 0.5) {
@@ -623,7 +662,7 @@ export class PricingService {
     } else if (stockRatio > 1.5) {
       return -0.1; // High stock, slight decrease
     }
-    
+
     return 0; // Optimal stock level, no adjustment
   }
 
@@ -633,14 +672,16 @@ export class PricingService {
   private calculateSeasonalFactor(product: Product): number {
     // Mock seasonal adjustment based on current month
     const month = new Date().getMonth();
-    
+
     // Simple seasonal pattern (would be category-specific in reality)
-    if (month >= 10 || month <= 1) { // Nov-Jan (holiday season)
+    if (month >= 10 || month <= 1) {
+      // Nov-Jan (holiday season)
       return 0.1; // 10% increase
-    } else if (month >= 6 && month <= 8) { // Jul-Sep (summer)
+    } else if (month >= 6 && month <= 8) {
+      // Jul-Sep (summer)
       return -0.05; // 5% decrease
     }
-    
+
     return 0; // No seasonal adjustment
   }
 }

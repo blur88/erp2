@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Response } from 'express';
-import { BaseLoggingInterceptor } from '../core/base-logging.interceptor';
-import { BusinessContextMapperService } from '../utils/context-mapper.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { Response } from "express";
+import { BaseLoggingInterceptor } from "../core/base-logging.interceptor";
+import { BusinessContextMapperService } from "../utils/context-mapper.service";
 
 @Injectable()
 export class PerformanceInterceptor extends BaseLoggingInterceptor {

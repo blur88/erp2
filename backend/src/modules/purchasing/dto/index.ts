@@ -1,21 +1,21 @@
 /**
  * DTO exports for Purchasing Module
- * 
+ *
  * This file exports all DTOs used in the purchasing module
  * for easy importing throughout the application.
  */
 
 // Supplier DTOs
-export * from './supplier.dto';
+export * from "./supplier.dto";
 
 // Purchase Order DTOs
-export * from './purchase-order.dto';
+export * from "./purchase-order.dto";
 
 // Goods Received Note DTOs
-export * from './goods-received-note.dto';
+export * from "./goods-received-note.dto";
 
 // Vendor Payment DTOs
-export * from './vendor-payment.dto';
+export * from "./vendor-payment.dto";
 
 // Common response types
 export interface PaginatedResponse<T> {
@@ -100,21 +100,21 @@ interface VendorPerformanceDto {
     lastOrderDate: Date;
   };
   trends: {
-    orderVolumeTrend: 'increasing' | 'decreasing' | 'stable';
-    performanceTrend: 'improving' | 'declining' | 'stable';
-    costTrend: 'increasing' | 'decreasing' | 'stable';
+    orderVolumeTrend: "increasing" | "decreasing" | "stable";
+    performanceTrend: "improving" | "declining" | "stable";
+    costTrend: "increasing" | "decreasing" | "stable";
   };
   issues: Array<{
-    type: 'delivery' | 'quality' | 'pricing' | 'communication';
+    type: "delivery" | "quality" | "pricing" | "communication";
     description: string;
-    impact: 'low' | 'medium' | 'high';
+    impact: "low" | "medium" | "high";
     occurrenceCount: number;
   }>;
 }
 
 // Approval workflow DTOs
 interface ApprovalWorkflowDto {
-  entityType: 'purchase_order' | 'purchase_requisition' | 'supplier_invoice';
+  entityType: "purchase_order" | "purchase_requisition" | "supplier_invoice";
   entityId: string;
   currentLevel: number;
   requiredLevels: number;
@@ -124,7 +124,7 @@ interface ApprovalWorkflowDto {
     userName: string;
     approvalDate?: Date;
     comments?: string;
-    action?: 'approved' | 'rejected' | 'pending';
+    action?: "approved" | "rejected" | "pending";
   }>;
   canApprove: boolean;
   isFullyApproved: boolean;
@@ -132,12 +132,17 @@ interface ApprovalWorkflowDto {
 
 // Notification DTOs
 interface PurchaseNotificationDto {
-  type: 'approval_required' | 'overdue' | 'quality_issue' | 'invoice_mismatch' | 'budget_exceeded';
+  type:
+    | "approval_required"
+    | "overdue"
+    | "quality_issue"
+    | "invoice_mismatch"
+    | "budget_exceeded";
   title: string;
   message: string;
   entityType: string;
   entityId: string;
-  priority: 'low' | 'medium' | 'high' | 'critical';
+  priority: "low" | "medium" | "high" | "critical";
   recipients: string[];
   data?: Record<string, any>;
 }
@@ -174,7 +179,11 @@ interface BudgetCheckResponseDto {
 
 // Report DTOs
 interface PurchaseReportDto {
-  reportType: 'spend_analysis' | 'vendor_performance' | 'purchase_trends' | 'budget_utilization';
+  reportType:
+    | "spend_analysis"
+    | "vendor_performance"
+    | "purchase_trends"
+    | "budget_utilization";
   parameters: {
     startDate: Date;
     endDate: Date;
@@ -182,12 +191,12 @@ interface PurchaseReportDto {
     departments?: string[];
     categories?: string[];
     includeCharts?: boolean;
-    format?: 'json' | 'pdf' | 'excel';
+    format?: "json" | "pdf" | "excel";
   };
 }
 
 interface ExportOptionsDto {
-  format: 'csv' | 'excel' | 'pdf';
+  format: "csv" | "excel" | "pdf";
   fields?: string[];
   filters?: Record<string, any>;
   includeHeaders?: boolean;

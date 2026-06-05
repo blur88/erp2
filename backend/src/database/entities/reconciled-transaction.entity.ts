@@ -1,63 +1,58 @@
-import {
-  Entity,
-  Column,
-  Index,
-  ManyToOne,
-  JoinColumn,
-} from 'typeorm';
-import {
-  IsBoolean,
-  IsUUID,
-} from 'class-validator';
-import { BaseEntity } from './base.entity';
-import { BankReconciliation } from './bank-reconciliation.entity';
-import { JournalEntryLine } from './journal-entry-line.entity';
+import { Entity, Column, Index, ManyToOne, JoinColumn } from "typeorm";
+import { IsBoolean, IsUUID } from "class-validator";
+import { BaseEntity } from "./base.entity";
+import { BankReconciliation } from "./bank-reconciliation.entity";
+import { JournalEntryLine } from "./journal-entry-line.entity";
 
 /**
  * Reconciled Transaction entity for tracking which transactions have been reconciled
  * Skeleton entity for Phase 4 implementation
  * Links journal entry lines to bank reconciliation records
  */
-@Entity('reconciled_transactions')
-@Index(['reconciliationId'])
-@Index(['journalEntryLineId'])
-@Index(['cleared'])
+@Entity("reconciled_transactions")
+@Index(["reconciliationId"])
+@Index(["journalEntryLineId"])
+@Index(["cleared"])
 export class ReconciledTransaction extends BaseEntity {
   @Column({
-    type: 'uuid',
-    comment: 'Bank reconciliation ID',
+    type: "uuid",
+    comment: "Bank reconciliation ID",
   })
   @IsUUID()
   reconciliationId: string;
 
   @Column({
-    type: 'uuid',
-    comment: 'Journal entry line ID being reconciled',
+    type: "uuid",
+    comment: "Journal entry line ID being reconciled",
   })
   @IsUUID()
   journalEntryLineId: string;
 
   @Column({
-    type: 'boolean',
+    type: "boolean",
     default: false,
-    comment: 'Whether the transaction has cleared the bank',
+    comment: "Whether the transaction has cleared the bank",
   })
   @IsBoolean()
   cleared: boolean;
 
   // Relationships
-  @ManyToOne(() => BankReconciliation, (reconciliation) => reconciliation.reconciledTransactions, {
-    onDelete: 'CASCADE',
-    eager: false,
-  })
-  @JoinColumn({ name: 'reconciliationId' })
+  @ManyToOne(
+    () => BankReconciliation,
+    (reconciliation) => reconciliation.reconciledTransactions,
+    {
+      onDelete: "CASCADE",
+      eager: false,
+    },
+  )
+  @JoinColumn({ name: "reconciliationId" })
   reconciliation: BankReconciliation;
 
   @ManyToOne(() => JournalEntryLine, (line) => line.reconciledTransactions, {
-    onDelete: 'RESTRICT',
+    onDelete: "RESTRICT",
     eager: false,
   })
-  @JoinColumn({ name: 'journalEntryLineId' })
+  @JoinColumn({ name: "journalEntryLineId" })
   journalEntryLine: JournalEntryLine;
 
   // Helper methods

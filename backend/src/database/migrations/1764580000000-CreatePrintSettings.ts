@@ -1,170 +1,170 @@
-import { MigrationInterface, QueryRunner, Table } from 'typeorm';
+import { MigrationInterface, QueryRunner, Table } from "typeorm";
 
 export class CreatePrintSettings1764580000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.createTable(
       new Table({
-        name: 'print_settings',
+        name: "print_settings",
         columns: [
           {
-            name: 'id',
-            type: 'uuid',
+            name: "id",
+            type: "uuid",
             isPrimary: true,
-            generationStrategy: 'uuid',
-            default: 'uuid_generate_v4()',
+            generationStrategy: "uuid",
+            default: "uuid_generate_v4()",
           },
           // Common Header Settings
           {
-            name: 'logoUrl',
-            type: 'varchar',
-            length: '500',
+            name: "logoUrl",
+            type: "varchar",
+            length: "500",
             isNullable: true,
           },
           {
-            name: 'companyName',
-            type: 'varchar',
-            length: '255',
+            name: "companyName",
+            type: "varchar",
+            length: "255",
             isNullable: true,
           },
           {
-            name: 'address',
-            type: 'text',
+            name: "address",
+            type: "text",
             isNullable: true,
           },
           {
-            name: 'phone',
-            type: 'varchar',
-            length: '50',
+            name: "phone",
+            type: "varchar",
+            length: "50",
             isNullable: true,
           },
           {
-            name: 'email',
-            type: 'varchar',
-            length: '255',
+            name: "email",
+            type: "varchar",
+            length: "255",
             isNullable: true,
           },
           {
-            name: 'website',
-            type: 'varchar',
-            length: '255',
+            name: "website",
+            type: "varchar",
+            length: "255",
             isNullable: true,
           },
           {
-            name: 'miscInfo',
-            type: 'text',
+            name: "miscInfo",
+            type: "text",
             isNullable: true,
           },
           // Sales Document Footer
           {
-            name: 'salesPerPageFooter',
-            type: 'text',
+            name: "salesPerPageFooter",
+            type: "text",
             isNullable: true,
           },
           {
-            name: 'salesEndOfDocFooter',
-            type: 'text',
+            name: "salesEndOfDocFooter",
+            type: "text",
             isNullable: true,
           },
           // Purchasing Document Footer
           {
-            name: 'purchasingPerPageFooter',
-            type: 'text',
+            name: "purchasingPerPageFooter",
+            type: "text",
             isNullable: true,
           },
           {
-            name: 'purchasingEndOfDocFooter',
-            type: 'text',
+            name: "purchasingEndOfDocFooter",
+            type: "text",
             isNullable: true,
           },
           // Inventory Document Footer
           {
-            name: 'inventoryPerPageFooter',
-            type: 'text',
+            name: "inventoryPerPageFooter",
+            type: "text",
             isNullable: true,
           },
           {
-            name: 'inventoryEndOfDocFooter',
-            type: 'text',
+            name: "inventoryEndOfDocFooter",
+            type: "text",
             isNullable: true,
           },
           // Report Document Footer
           {
-            name: 'reportPerPageFooter',
-            type: 'text',
+            name: "reportPerPageFooter",
+            type: "text",
             isNullable: true,
           },
           {
-            name: 'reportEndOfDocFooter',
-            type: 'text',
+            name: "reportEndOfDocFooter",
+            type: "text",
             isNullable: true,
           },
           // Template Settings (JSONB for flexible configuration)
           {
-            name: 'salesOrderTemplate',
-            type: 'jsonb',
+            name: "salesOrderTemplate",
+            type: "jsonb",
             isNullable: true,
           },
           {
-            name: 'invoiceTemplate',
-            type: 'jsonb',
+            name: "invoiceTemplate",
+            type: "jsonb",
             isNullable: true,
           },
           {
-            name: 'paymentReceiptTemplate',
-            type: 'jsonb',
+            name: "paymentReceiptTemplate",
+            type: "jsonb",
             isNullable: true,
           },
           {
-            name: 'purchaseOrderTemplate',
-            type: 'jsonb',
+            name: "purchaseOrderTemplate",
+            type: "jsonb",
             isNullable: true,
           },
           {
-            name: 'grnTemplate',
-            type: 'jsonb',
+            name: "grnTemplate",
+            type: "jsonb",
             isNullable: true,
           },
           {
-            name: 'vendorPaymentTemplate',
-            type: 'jsonb',
+            name: "vendorPaymentTemplate",
+            type: "jsonb",
             isNullable: true,
           },
           // Audit fields
           {
-            name: 'isActive',
-            type: 'boolean',
+            name: "isActive",
+            type: "boolean",
             default: true,
             isNullable: false,
           },
           {
-            name: 'createdBy',
-            type: 'varchar',
-            length: '255',
+            name: "createdBy",
+            type: "varchar",
+            length: "255",
             default: "'system'",
             isNullable: false,
           },
           {
-            name: 'updatedBy',
-            type: 'varchar',
-            length: '255',
+            name: "updatedBy",
+            type: "varchar",
+            length: "255",
             default: "'system'",
             isNullable: false,
           },
           {
-            name: 'createdAt',
-            type: 'timestamptz',
-            default: 'CURRENT_TIMESTAMP',
+            name: "createdAt",
+            type: "timestamptz",
+            default: "CURRENT_TIMESTAMP",
             isNullable: false,
           },
           {
-            name: 'updatedAt',
-            type: 'timestamptz',
-            default: 'CURRENT_TIMESTAMP',
+            name: "updatedAt",
+            type: "timestamptz",
+            default: "CURRENT_TIMESTAMP",
             isNullable: false,
           },
           {
-            name: 'deletedAt',
-            type: 'timestamptz',
+            name: "deletedAt",
+            type: "timestamptz",
             isNullable: true,
           },
         ],
@@ -179,6 +179,6 @@ export class CreatePrintSettings1764580000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.dropTable('print_settings');
+    await queryRunner.dropTable("print_settings");
   }
 }

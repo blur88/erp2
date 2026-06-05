@@ -1,9 +1,7 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class AddSalesOrderStatusPaymentStatusAndPayments1779600000000
-  implements MigrationInterface
-{
-  name = 'AddSalesOrderStatusPaymentStatusAndPayments1779600000000';
+export class AddSalesOrderStatusPaymentStatusAndPayments1779600000000 implements MigrationInterface {
+  name = "AddSalesOrderStatusPaymentStatusAndPayments1779600000000";
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
@@ -42,8 +40,12 @@ export class AddSalesOrderStatusPaymentStatusAndPayments1779600000000
       SET "subtotal" = GREATEST(0, "totalAmount" - COALESCE("shippingAmount", 0))
     `);
 
-    await queryRunner.query(`ALTER TABLE "sales_orders" ALTER COLUMN "status" SET NOT NULL`);
-    await queryRunner.query(`ALTER TABLE "sales_orders" ALTER COLUMN "paymentStatus" SET NOT NULL`);
+    await queryRunner.query(
+      `ALTER TABLE "sales_orders" ALTER COLUMN "status" SET NOT NULL`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "sales_orders" ALTER COLUMN "paymentStatus" SET NOT NULL`,
+    );
 
     await queryRunner.query(
       `CREATE INDEX IF NOT EXISTS "IDX_sales_orders_status" ON "sales_orders" ("status")`,
@@ -52,9 +54,15 @@ export class AddSalesOrderStatusPaymentStatusAndPayments1779600000000
       `CREATE INDEX IF NOT EXISTS "IDX_sales_orders_paymentStatus" ON "sales_orders" ("paymentStatus")`,
     );
 
-    await queryRunner.query(`ALTER TABLE "sales_orders" DROP COLUMN IF EXISTS "isFulfilled"`);
-    await queryRunner.query(`ALTER TABLE "sales_orders" DROP COLUMN IF EXISTS "fulfilledDate"`);
-    await queryRunner.query(`ALTER TABLE "sales_orders" DROP COLUMN IF EXISTS "paidAmount"`);
+    await queryRunner.query(
+      `ALTER TABLE "sales_orders" DROP COLUMN IF EXISTS "isFulfilled"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "sales_orders" DROP COLUMN IF EXISTS "fulfilledDate"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "sales_orders" DROP COLUMN IF EXISTS "paidAmount"`,
+    );
 
     await queryRunner.query(`
       CREATE TABLE "sales_order_payments" (
@@ -85,10 +93,18 @@ export class AddSalesOrderStatusPaymentStatusAndPayments1779600000000
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE IF EXISTS "sales_order_payments"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_sales_orders_status"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_sales_orders_paymentStatus"`);
-    await queryRunner.query(`ALTER TABLE "sales_orders" DROP COLUMN IF EXISTS "status"`);
-    await queryRunner.query(`ALTER TABLE "sales_orders" DROP COLUMN IF EXISTS "paymentStatus"`);
-    await queryRunner.query(`ALTER TABLE "sales_orders" DROP COLUMN IF EXISTS "subtotal"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_sales_orders_paymentStatus"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "sales_orders" DROP COLUMN IF EXISTS "status"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "sales_orders" DROP COLUMN IF EXISTS "paymentStatus"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "sales_orders" DROP COLUMN IF EXISTS "subtotal"`,
+    );
     await queryRunner.query(
       `ALTER TABLE "sales_orders" ADD COLUMN IF NOT EXISTS "isFulfilled" boolean NOT NULL DEFAULT false`,
     );

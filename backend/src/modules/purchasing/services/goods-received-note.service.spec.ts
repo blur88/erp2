@@ -1,8 +1,8 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Logger } from '@nestjs/common';
-import { GoodsReceivedNoteService } from './goods-received-note.service';
+import { Test, TestingModule } from "@nestjs/testing";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Logger } from "@nestjs/common";
+import { GoodsReceivedNoteService } from "./goods-received-note.service";
 import {
   GoodsReceivedNote,
   GoodsReceivedNoteItem,
@@ -10,16 +10,16 @@ import {
   PurchaseOrderItem,
   Supplier,
   Product,
-} from '../../../database/entities';
-import { GrnStatus } from '../../../database/entities/goods-received-note.entity';
-import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
-import { StockMovementService } from '../../inventory/services/stock-movement.service';
-import { SettingsService } from '../../settings/settings.service';
-import { AuditLogService } from '../../audit-logs/services';
-import { AccountingService } from '../../accounting/services/accounting.service';
-import { CreateGoodsReceivedNoteDto } from '../dto/goods-received-note.dto';
+} from "../../../database/entities";
+import { GrnStatus } from "../../../database/entities/goods-received-note.entity";
+import { BaseCostCalculatorService } from "../../inventory/services/base-cost-calculator.service";
+import { StockMovementService } from "../../inventory/services/stock-movement.service";
+import { SettingsService } from "../../settings/settings.service";
+import { AuditLogService } from "../../audit-logs/services";
+import { AccountingService } from "../../accounting/services/accounting.service";
+import { CreateGoodsReceivedNoteDto } from "../dto/goods-received-note.dto";
 
-describe('GoodsReceivedNoteService', () => {
+describe("GoodsReceivedNoteService", () => {
   let service: GoodsReceivedNoteService;
   let grnRepository: jest.Mocked<Repository<GoodsReceivedNote>>;
   let grnItemRepository: jest.Mocked<Repository<GoodsReceivedNoteItem>>;
@@ -31,20 +31,20 @@ describe('GoodsReceivedNoteService', () => {
   let baseCostCalculator: jest.Mocked<BaseCostCalculatorService>;
 
   const mockPurchaseOrder: Partial<PurchaseOrder> = {
-    id: 'po-123',
-    orderNumber: 'PO-000001',
+    id: "po-123",
+    orderNumber: "PO-000001",
     supplier: {
-      id: 'supplier-123',
-      companyName: 'Test Supplier',
+      id: "supplier-123",
+      companyName: "Test Supplier",
     } as Supplier,
     items: [
       {
-        id: 'po-item-1',
+        id: "po-item-1",
         quantity: 10,
         unitCost: 100,
         product: {
-          id: 'product-1',
-          name: 'Test Product',
+          id: "product-1",
+          name: "Test Product",
           baseCost: 90,
         } as Product,
       } as PurchaseOrderItem,
@@ -54,19 +54,19 @@ describe('GoodsReceivedNoteService', () => {
   };
 
   const mockGrn: Partial<GoodsReceivedNote> = {
-    id: 'grn-123',
-    grnNumber: 'GRN-000001',
-    purchaseOrderId: 'po-123',
-    supplierId: 'supplier-123',
-    receivedDate: new Date('2024-01-15'),
+    id: "grn-123",
+    grnNumber: "GRN-000001",
+    purchaseOrderId: "po-123",
+    supplierId: "supplier-123",
+    receivedDate: new Date("2024-01-15"),
     status: GrnStatus.RECEIVED,
     items: [
       {
-        id: 'grn-item-1',
-        productId: 'product-1',
+        id: "grn-item-1",
+        productId: "product-1",
         orderedQuantity: 10,
         receivedQuantity: 10,
-        purchaseOrderItemId: 'po-item-1',
+        purchaseOrderItemId: "po-item-1",
       } as GoodsReceivedNoteItem,
     ],
     calculateTotals: jest.fn(),
@@ -153,28 +153,32 @@ describe('GoodsReceivedNoteService', () => {
     baseCostCalculator = module.get(BaseCostCalculatorService);
 
     // Suppress logger output during tests
-    jest.spyOn(Logger.prototype, 'log').mockImplementation();
-    jest.spyOn(Logger.prototype, 'error').mockImplementation();
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    jest.spyOn(Logger.prototype, "log").mockImplementation();
+    jest.spyOn(Logger.prototype, "error").mockImplementation();
+    jest.spyOn(Logger.prototype, "warn").mockImplementation();
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('create', () => {
+  describe("create", () => {
     const createDto: CreateGoodsReceivedNoteDto = {
-      purchaseOrderId: 'po-123',
-      receivedDate: '2024-01-15',
+      purchaseOrderId: "po-123",
+      receivedDate: "2024-01-15",
     };
 
     beforeEach(() => {
-      purchaseOrderRepository.findOne.mockResolvedValue(mockPurchaseOrder as PurchaseOrder);
+      purchaseOrderRepository.findOne.mockResolvedValue(
+        mockPurchaseOrder as PurchaseOrder,
+      );
       grnRepository.findOne.mockResolvedValue(null); // No existing GRN
-      settingsService.generateDocumentNumber.mockResolvedValue('GRN-000001');
+      settingsService.generateDocumentNumber.mockResolvedValue("GRN-000001");
       grnRepository.create.mockReturnValue(mockGrn as GoodsReceivedNote);
       grnRepository.save.mockResolvedValue(mockGrn as GoodsReceivedNote);
-      grnItemRepository.create.mockImplementation((item) => item as GoodsReceivedNoteItem);
+      grnItemRepository.create.mockImplementation(
+        (item) => item as GoodsReceivedNoteItem,
+      );
       grnItemRepository.save.mockResolvedValue([mockGrn.items![0]] as any);
       stockMovementService.create.mockResolvedValue({} as any);
       baseCostCalculator.calculateShippingByValue.mockReturnValue(5);
@@ -182,7 +186,7 @@ describe('GoodsReceivedNoteService', () => {
       auditLogService.log.mockResolvedValue(undefined);
     });
 
-    it('should post accounting entry successfully', async () => {
+    it("should post accounting entry successfully", async () => {
       // Mock findOne to return GRN with all relations for accounting
       const fullGrn = {
         ...mockGrn,
@@ -202,7 +206,7 @@ describe('GoodsReceivedNoteService', () => {
       // Verify accounting service was called with correct parameters
       expect(accountingService.postGoodsReceivedEntry).toHaveBeenCalledWith(
         fullGrn,
-        'system',
+        "system",
         undefined,
       );
 
@@ -213,7 +217,7 @@ describe('GoodsReceivedNoteService', () => {
       expect(grnRepository.save).toHaveBeenCalled();
     });
 
-    it('should continue when accounting post fails', async () => {
+    it("should continue when accounting post fails", async () => {
       // Mock findOne to return GRN with all relations for accounting
       const fullGrn = {
         ...mockGrn,
@@ -227,29 +231,31 @@ describe('GoodsReceivedNoteService', () => {
         .mockResolvedValueOnce(fullGrn); // Final findOne for return
 
       // Mock accounting service to throw error
-      const accountingError = new Error('Account mapping not configured');
-      accountingService.postGoodsReceivedEntry.mockRejectedValue(accountingError);
+      const accountingError = new Error("Account mapping not configured");
+      accountingService.postGoodsReceivedEntry.mockRejectedValue(
+        accountingError,
+      );
 
       // Should not throw error - GRN creation should continue
       await expect(service.create(createDto)).resolves.toBeDefined();
 
       // Verify error was logged
       expect(Logger.prototype.error).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to post accounting entry'),
+        expect.stringContaining("Failed to post accounting entry"),
         expect.any(String),
       );
 
       // Verify GRN was still created successfully
       expect(grnRepository.save).toHaveBeenCalled();
       expect(auditLogService.log).toHaveBeenCalledWith(
-        'CREATE',
-        'GoodsReceivedNote',
-        expect.stringContaining('Created GRN'),
+        "CREATE",
+        "GoodsReceivedNote",
+        expect.stringContaining("Created GRN"),
         expect.any(Object),
       );
     });
 
-    it('should load GRN with relations before posting', async () => {
+    it("should load GRN with relations before posting", async () => {
       // Mock findOne to return GRN with all relations
       const fullGrn = {
         ...mockGrn,
@@ -269,7 +275,11 @@ describe('GoodsReceivedNoteService', () => {
       // Verify findOne was called with correct relations for accounting
       expect(grnRepository.findOne).toHaveBeenCalledWith({
         where: { id: mockGrn.id },
-        relations: { supplier: true, purchaseOrder: true, items: { product: true, purchaseOrderItem: true } },
+        relations: {
+          supplier: true,
+          purchaseOrder: true,
+          items: { product: true, purchaseOrderItem: true },
+        },
       });
 
       // Verify the full GRN with relations was passed to accounting service
@@ -279,12 +289,12 @@ describe('GoodsReceivedNoteService', () => {
           supplier: mockPurchaseOrder.supplier,
           purchaseOrder: mockPurchaseOrder,
         }),
-        'system',
+        "system",
         undefined,
       );
     });
 
-    it('should handle accounting post when GRN not found after creation', async () => {
+    it("should handle accounting post when GRN not found after creation", async () => {
       const fullGrn = {
         ...mockGrn,
         supplier: mockPurchaseOrder.supplier,
@@ -306,7 +316,7 @@ describe('GoodsReceivedNoteService', () => {
       expect(grnRepository.save).toHaveBeenCalled();
     });
 
-    it('should create GRN with stock movements and base cost updates', async () => {
+    it("should create GRN with stock movements and base cost updates", async () => {
       const fullGrn = {
         ...mockGrn,
         supplier: mockPurchaseOrder.supplier,
@@ -325,8 +335,8 @@ describe('GoodsReceivedNoteService', () => {
       // Verify stock movement was created
       expect(stockMovementService.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          productId: 'product-1',
-          movementType: 'purchase_receipt',
+          productId: "product-1",
+          movementType: "purchase_receipt",
           quantity: 10,
           unitValue: 100,
         }),
@@ -334,7 +344,7 @@ describe('GoodsReceivedNoteService', () => {
 
       // Verify base cost was updated
       expect(baseCostCalculator.addStock).toHaveBeenCalledWith(
-        'product-1',
+        "product-1",
         mockGrn.id,
         10,
         100,
@@ -344,12 +354,12 @@ describe('GoodsReceivedNoteService', () => {
 
       // Verify audit log was created
       expect(auditLogService.log).toHaveBeenCalledWith(
-        'CREATE',
-        'GoodsReceivedNote',
-        'Created GRN: GRN-000001',
+        "CREATE",
+        "GoodsReceivedNote",
+        "Created GRN: GRN-000001",
         expect.objectContaining({
           entityId: mockGrn.id,
-          userId: 'system',
+          userId: "system",
         }),
       );
 
@@ -357,7 +367,7 @@ describe('GoodsReceivedNoteService', () => {
       expect(accountingService.postGoodsReceivedEntry).toHaveBeenCalled();
     });
 
-    it('should use the document number returned by settingsService', async () => {
+    it("should use the document number returned by settingsService", async () => {
       const fullGrn = {
         ...mockGrn,
         supplier: mockPurchaseOrder.supplier,
@@ -369,29 +379,36 @@ describe('GoodsReceivedNoteService', () => {
         .mockResolvedValueOnce(fullGrn)
         .mockResolvedValueOnce(fullGrn);
 
-      settingsService.generateDocumentNumber.mockResolvedValue('GRN-26-007');
-      grnRepository.create.mockReturnValue({ ...mockGrn, grnNumber: 'GRN-26-007' } as GoodsReceivedNote);
+      settingsService.generateDocumentNumber.mockResolvedValue("GRN-26-007");
+      grnRepository.create.mockReturnValue({
+        ...mockGrn,
+        grnNumber: "GRN-26-007",
+      } as GoodsReceivedNote);
 
       await service.create(createDto);
 
-      expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith('Goods Received');
+      expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith(
+        "Goods Received",
+      );
       expect(grnRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ grnNumber: 'GRN-26-007' }),
+        expect.objectContaining({ grnNumber: "GRN-26-007" }),
       );
     });
 
-    it('should throw BadRequestException when settingsService.generateDocumentNumber fails', async () => {
+    it("should throw BadRequestException when settingsService.generateDocumentNumber fails", async () => {
       grnRepository.findOne.mockResolvedValueOnce(null);
       settingsService.generateDocumentNumber.mockRejectedValue(
         new Error("Document number config for 'Goods Received' not found"),
       );
 
-      await expect(service.create(createDto)).rejects.toThrow('Failed to create goods received note');
+      await expect(service.create(createDto)).rejects.toThrow(
+        "Failed to create goods received note",
+      );
       expect(grnRepository.save).not.toHaveBeenCalled();
     });
   });
 
-  describe('findAll', () => {
+  describe("findAll", () => {
     const mockQueryBuilder = {
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
@@ -404,56 +421,64 @@ describe('GoodsReceivedNoteService', () => {
       grnRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder as any);
     });
 
-    it('applies supplierId WHERE clause when supplierId is provided', async () => {
-      await service.findAll({ supplierId: 'supplier-123' } as any);
+    it("applies supplierId WHERE clause when supplierId is provided", async () => {
+      await service.findAll({ supplierId: "supplier-123" } as any);
 
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'grn.supplierId = :supplierId',
-        { supplierId: 'supplier-123' },
+        "grn.supplierId = :supplierId",
+        { supplierId: "supplier-123" },
       );
     });
 
-    it('applies status WHERE clause when status is provided', async () => {
+    it("applies status WHERE clause when status is provided", async () => {
       await service.findAll({ status: GrnStatus.RECEIVED } as any);
 
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'grn.status = :status',
+        "grn.status = :status",
         { status: GrnStatus.RECEIVED },
       );
     });
 
-    it('does not apply supplierId or status clauses when neither is provided', async () => {
+    it("does not apply supplierId or status clauses when neither is provided", async () => {
       await service.findAll({} as any);
 
-      const calls = mockQueryBuilder.andWhere.mock.calls.map(([clause]) => clause as string);
-      expect(calls.some((clause) => clause.includes('supplierId'))).toBe(false);
-      expect(calls.some((clause) => clause.includes('status'))).toBe(false);
+      const calls = mockQueryBuilder.andWhere.mock.calls.map(
+        ([clause]) => clause as string,
+      );
+      expect(calls.some((clause) => clause.includes("supplierId"))).toBe(false);
+      expect(calls.some((clause) => clause.includes("status"))).toBe(false);
     });
 
-    it('applies receivedDateFrom WHERE clause when provided', async () => {
-      await service.findAll({ receivedDateFrom: '2025-01-01' } as any);
+    it("applies receivedDateFrom WHERE clause when provided", async () => {
+      await service.findAll({ receivedDateFrom: "2025-01-01" } as any);
 
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'grn.receivedDate >= :receivedDateFrom',
-        { receivedDateFrom: '2025-01-01' },
+        "grn.receivedDate >= :receivedDateFrom",
+        { receivedDateFrom: "2025-01-01" },
       );
     });
 
-    it('applies receivedDateTo WHERE clause when provided', async () => {
-      await service.findAll({ receivedDateTo: '2025-01-31' } as any);
+    it("applies receivedDateTo WHERE clause when provided", async () => {
+      await service.findAll({ receivedDateTo: "2025-01-31" } as any);
 
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'grn.receivedDate <= :receivedDateTo',
-        { receivedDateTo: '2025-01-31' },
+        "grn.receivedDate <= :receivedDateTo",
+        { receivedDateTo: "2025-01-31" },
       );
     });
 
-    it('does not apply date clauses when neither is provided', async () => {
+    it("does not apply date clauses when neither is provided", async () => {
       await service.findAll({} as any);
 
-      const calls = mockQueryBuilder.andWhere.mock.calls.map(([clause]) => clause as string);
-      expect(calls.some((clause) => clause.includes('receivedDateFrom'))).toBe(false);
-      expect(calls.some((clause) => clause.includes('receivedDateTo'))).toBe(false);
+      const calls = mockQueryBuilder.andWhere.mock.calls.map(
+        ([clause]) => clause as string,
+      );
+      expect(calls.some((clause) => clause.includes("receivedDateFrom"))).toBe(
+        false,
+      );
+      expect(calls.some((clause) => clause.includes("receivedDateTo"))).toBe(
+        false,
+      );
     });
   });
 });

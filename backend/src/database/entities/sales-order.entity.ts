@@ -5,7 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
-} from 'typeorm';
+} from "typeorm";
 import {
   IsString,
   IsOptional,
@@ -14,50 +14,50 @@ import {
   IsDecimal,
   Min,
   IsDate,
-} from 'class-validator';
-import { BaseEntity } from './base.entity';
-import { Customer } from './customer.entity';
-import { SalesOrderItem } from './sales-order-item.entity';
-import { SalesOrderPayment } from './sales-order-payment.entity';
-import { Payment } from './payment.entity';
+} from "class-validator";
+import { BaseEntity } from "./base.entity";
+import { Customer } from "./customer.entity";
+import { SalesOrderItem } from "./sales-order-item.entity";
+import { SalesOrderPayment } from "./sales-order-payment.entity";
+import { Payment } from "./payment.entity";
 
 export enum SalesOrderStatus {
-  DRAFT = 'DRAFT',
-  READY = 'READY',
-  FULFILLED = 'FULFILLED',
-  CANCELLED = 'CANCELLED',
+  DRAFT = "DRAFT",
+  READY = "READY",
+  FULFILLED = "FULFILLED",
+  CANCELLED = "CANCELLED",
 }
 
 export enum SalesOrderPaymentStatus {
-  UNPAID = 'UNPAID',
-  PARTIAL = 'PARTIAL',
-  PAID = 'PAID',
-  OVERPAID = 'OVERPAID',
+  UNPAID = "UNPAID",
+  PARTIAL = "PARTIAL",
+  PAID = "PAID",
+  OVERPAID = "OVERPAID",
 }
 
-@Entity('sales_orders')
-@Index(['orderNumber'], { unique: true })
-@Index(['customerId'])
-@Index(['orderDate'])
-@Index(['status'])
-@Index(['paymentStatus'])
+@Entity("sales_orders")
+@Index(["orderNumber"], { unique: true })
+@Index(["customerId"])
+@Index(["orderDate"])
+@Index(["status"])
+@Index(["paymentStatus"])
 export class SalesOrder extends BaseEntity {
-  @Column({ type: 'varchar', length: 30, unique: true })
+  @Column({ type: "varchar", length: 30, unique: true })
   @IsString()
   @MaxLength(30)
   orderNumber: string;
 
-  @Column({ type: 'date' })
+  @Column({ type: "date" })
   @IsDate()
   orderDate: Date;
 
-  @Column({ type: 'varchar', length: 10, default: 'USD' })
+  @Column({ type: "varchar", length: 10, default: "USD" })
   @IsString()
   @MaxLength(10)
   currency: string;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: SalesOrderStatus,
     default: SalesOrderStatus.DRAFT,
   })
@@ -65,56 +65,56 @@ export class SalesOrder extends BaseEntity {
   status: SalesOrderStatus;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: SalesOrderPaymentStatus,
     default: SalesOrderPaymentStatus.UNPAID,
   })
   @IsEnum(SalesOrderPaymentStatus)
   paymentStatus: SalesOrderPaymentStatus;
 
-  @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @Column({ type: "decimal", precision: 15, scale: 4, default: 0 })
+  @IsDecimal({ decimal_digits: "0,4" })
   @Min(0)
   subtotal: number;
 
-  @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @Column({ type: "decimal", precision: 15, scale: 4, default: 0 })
+  @IsDecimal({ decimal_digits: "0,4" })
   @Min(0)
   shippingAmount: number;
 
-  @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @Column({ type: "decimal", precision: 15, scale: 4, default: 0 })
+  @IsDecimal({ decimal_digits: "0,4" })
   @Min(0)
   totalAmount: number;
 
-  @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
+  @Column({ type: "decimal", precision: 15, scale: 4, default: 0 })
   @Min(0)
   paidAmount: number;
 
   // = totalAmount - paidAmount; negative value means the order is overpaid (surplus). No @Min(0).
-  @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
+  @Column({ type: "decimal", precision: 15, scale: 4, default: 0 })
   balanceDue: number;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   @IsOptional()
   @IsString()
   notes?: string;
 
   @Column({
-    type: 'timestamp',
+    type: "timestamp",
     nullable: true,
-    comment: 'Actual fulfillment timestamp (set when status -> FULFILLED)',
+    comment: "Actual fulfillment timestamp (set when status -> FULFILLED)",
   })
   fulfilledAt?: Date;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: "uuid" })
   customerId: string;
 
   @ManyToOne(() => Customer, (customer) => customer.salesOrders, {
-    onDelete: 'RESTRICT',
+    onDelete: "RESTRICT",
     eager: false,
   })
-  @JoinColumn({ name: 'customerId' })
+  @JoinColumn({ name: "customerId" })
   customer: Customer;
 
   @OneToMany(() => SalesOrderItem, (item) => item.salesOrder, {
@@ -142,7 +142,9 @@ export class SalesOrder extends BaseEntity {
 
   /** @deprecated Approximation only — returns updatedAt when fulfilled. Kept for accounting.service compatibility. */
   get fulfilledDate(): Date | undefined {
-    return this.status === SalesOrderStatus.FULFILLED ? this.updatedAt : undefined;
+    return this.status === SalesOrderStatus.FULFILLED
+      ? this.updatedAt
+      : undefined;
   }
 
   /** @deprecated Use `paymentStatus === PAID || paymentStatus === OVERPAID` instead. */

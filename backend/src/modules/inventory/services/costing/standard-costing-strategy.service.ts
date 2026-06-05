@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { IBaseCostingStrategy } from './base-costing-strategy.interface';
-import { PurchaseCostHistory } from '../../../../database/entities/purchase-cost-history.entity';
+import { Injectable, Logger } from "@nestjs/common";
+import { IBaseCostingStrategy } from "./base-costing-strategy.interface";
+import { PurchaseCostHistory } from "../../../../database/entities/purchase-cost-history.entity";
 
 /**
  * Standard Costing Strategy
@@ -17,7 +17,7 @@ export class StandardCostingStrategy implements IBaseCostingStrategy {
   private readonly logger = new Logger(StandardCostingStrategy.name);
 
   getMethodName(): string {
-    return 'STANDARD';
+    return "STANDARD";
   }
 
   async calculateBaseCost(
@@ -61,7 +61,8 @@ export class StandardCostingStrategy implements IBaseCostingStrategy {
 
     // Sort by received date (oldest first)
     const sortedBatches = [...batches].sort(
-      (a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime(),
+      (a, b) =>
+        new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime(),
     );
 
     for (const batch of sortedBatches) {

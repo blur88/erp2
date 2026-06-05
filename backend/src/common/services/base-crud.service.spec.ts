@@ -1,11 +1,11 @@
-import { NotFoundException } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { FindOptionsWhere, Repository } from 'typeorm';
+import { NotFoundException } from "@nestjs/common";
+import { Test, TestingModule } from "@nestjs/testing";
+import { getRepositoryToken } from "@nestjs/typeorm";
+import { FindOptionsWhere, Repository } from "typeorm";
 
-import { BaseEntity } from '../../database/entities/base.entity';
-import { AuditLogService } from '../../modules/audit-logs/services';
-import { BaseCrudService } from './base-crud.service';
+import { BaseEntity } from "../../database/entities/base.entity";
+import { AuditLogService } from "../../modules/audit-logs/services";
+import { BaseCrudService } from "./base-crud.service";
 
 class TestEntity extends BaseEntity {
   name: string;
@@ -15,7 +15,7 @@ class TestQueryDto {
   search?: string;
   isActive?: boolean;
   sortBy?: string;
-  sortOrder?: 'ASC' | 'DESC';
+  sortOrder?: "ASC" | "DESC";
 }
 
 class TestCreateDto {
@@ -37,7 +37,7 @@ class TestCrudService extends BaseCrudService<
   }
 
   getEntityType(): string {
-    return 'TestEntity';
+    return "TestEntity";
   }
 
   buildWhereClause(query: TestQueryDto): FindOptionsWhere<TestEntity> {
@@ -51,14 +51,14 @@ class TestCrudService extends BaseCrudService<
   }
 }
 
-describe('BaseCrudService', () => {
+describe("BaseCrudService", () => {
   let service: TestCrudService;
   let repo: jest.Mocked<Repository<TestEntity>>;
   let auditLogService: jest.Mocked<AuditLogService>;
 
   const mockEntity: TestEntity = {
-    id: 'uuid-1',
-    name: 'Test',
+    id: "uuid-1",
+    name: "Test",
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -101,8 +101,10 @@ describe('BaseCrudService', () => {
         },
         {
           provide: TestCrudService,
-          useFactory: (repository: Repository<TestEntity>, auditLog: AuditLogService) =>
-            new TestCrudService(repository, auditLog),
+          useFactory: (
+            repository: Repository<TestEntity>,
+            auditLog: AuditLogService,
+          ) => new TestCrudService(repository, auditLog),
           inject: [getRepositoryToken(TestEntity), AuditLogService],
         },
       ],
@@ -113,70 +115,79 @@ describe('BaseCrudService', () => {
     auditLogService = module.get(AuditLogService);
   });
 
-  it('findOne throws NotFoundException when entity missing', async () => {
+  it("findOne throws NotFoundException when entity missing", async () => {
     (repo.findOne as jest.Mock).mockResolvedValue(null);
 
-    await expect(service.findOne('missing-id')).rejects.toThrow(NotFoundException);
+    await expect(service.findOne("missing-id")).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
-  it('findOne returns entity when found', async () => {
+  it("findOne returns entity when found", async () => {
     (repo.findOne as jest.Mock).mockResolvedValue(mockEntity);
 
-    const result = await service.findOne('uuid-1');
+    const result = await service.findOne("uuid-1");
 
     expect(result).toBe(mockEntity);
   });
 
-  it('softDelete calls repo.softDelete and logs audit', async () => {
+  it("softDelete calls repo.softDelete and logs audit", async () => {
     (repo.findOne as jest.Mock).mockResolvedValue(mockEntity);
     (repo.softDelete as jest.Mock).mockResolvedValue(undefined);
 
-    await service.softDelete('uuid-1', 'user-1', 'admin');
+    await service.softDelete("uuid-1", "user-1", "admin");
 
-    expect(repo.softDelete).toHaveBeenCalledWith('uuid-1');
+    expect(repo.softDelete).toHaveBeenCalledWith("uuid-1");
     expect(auditLogService.log).toHaveBeenCalledWith(
-      'DELETE',
-      'TestEntity',
+      "DELETE",
+      "TestEntity",
       expect.any(String),
       expect.objectContaining({
-        entityId: 'uuid-1',
-        userId: 'user-1',
-        username: 'admin',
+        entityId: "uuid-1",
+        userId: "user-1",
+        username: "admin",
       }),
     );
   });
 
-  it('restore calls repo.restore and logs audit', async () => {
+  it("restore calls repo.restore and logs audit", async () => {
     (repo.findOne as jest.Mock).mockResolvedValueOnce(mockEntity);
     (repo.restore as jest.Mock).mockResolvedValue(undefined);
-    (repo.findOne as jest.Mock).mockResolvedValueOnce({ ...mockEntity, isActive: true });
+    (repo.findOne as jest.Mock).mockResolvedValueOnce({
+      ...mockEntity,
+      isActive: true,
+    });
 
-    await service.restore('uuid-1', 'user-1', 'admin');
+    await service.restore("uuid-1", "user-1", "admin");
 
-    expect(repo.restore).toHaveBeenCalledWith('uuid-1');
+    expect(repo.restore).toHaveBeenCalledWith("uuid-1");
     expect(auditLogService.log).toHaveBeenCalledWith(
-      'RESTORE',
-      'TestEntity',
+      "RESTORE",
+      "TestEntity",
       expect.any(String),
-      expect.objectContaining({ entityId: 'uuid-1' }),
+      expect.objectContaining({ entityId: "uuid-1" }),
     );
   });
 
-  it('bulkRestore returns successCount and failedItems', async () => {
+  it("bulkRestore returns successCount and failedItems", async () => {
     (repo.findOne as jest.Mock)
       .mockResolvedValueOnce(mockEntity)
       .mockResolvedValueOnce({ ...mockEntity, isActive: true })
       .mockResolvedValueOnce(null);
     (repo.restore as jest.Mock).mockResolvedValue(undefined);
 
-    const result = await service.bulkRestore(['uuid-1', 'uuid-missing'], 'user-1', 'admin');
+    const result = await service.bulkRestore(
+      ["uuid-1", "uuid-missing"],
+      "user-1",
+      "admin",
+    );
 
     expect(result.successCount).toBe(1);
     expect(result.failedItems).toHaveLength(1);
-    expect(result.failedItems[0].id).toBe('uuid-missing');
+    expect(result.failedItems[0].id).toBe("uuid-missing");
   });
 
-  it('findDeleted calls applyQueryBuilder so joins are applied to deleted queries', async () => {
+  it("findDeleted calls applyQueryBuilder so joins are applied to deleted queries", async () => {
     class JoinedCrudService extends BaseCrudService<
       TestEntity,
       TestCreateDto,
@@ -184,7 +195,7 @@ describe('BaseCrudService', () => {
       TestQueryDto
     > {
       getEntityType() {
-        return 'TestEntity';
+        return "TestEntity";
       }
 
       buildWhereClause() {
@@ -192,7 +203,7 @@ describe('BaseCrudService', () => {
       }
 
       protected applyQueryBuilder(qb: any, _query: TestQueryDto) {
-        return qb.leftJoinAndSelect('testentity.related', 'related');
+        return qb.leftJoinAndSelect("testentity.related", "related");
       }
     }
 
@@ -205,68 +216,71 @@ describe('BaseCrudService', () => {
 
     await joinedService.findDeleted({});
 
-    expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('testentity.related', 'related');
-  });
-
-  it('permanentDelete calls repo.delete and logs audit', async () => {
-    (repo.findOne as jest.Mock).mockResolvedValue(mockEntity);
-    (repo.delete as jest.Mock).mockResolvedValue(undefined);
-
-    await service.permanentDelete('uuid-1', 'user-1', 'admin');
-
-    expect(repo.delete).toHaveBeenCalledWith('uuid-1');
-    expect(auditLogService.log).toHaveBeenCalledWith(
-      'PERMANENT_DELETE',
-      'TestEntity',
-      expect.any(String),
-      expect.objectContaining({ entityId: 'uuid-1' }),
+    expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
+      "testentity.related",
+      "related",
     );
   });
 
-  it('create saves entity and logs CREATE audit', async () => {
-    const dto: TestCreateDto = { name: 'New Entity' };
-    const saved = { ...mockEntity, name: 'New Entity' };
+  it("permanentDelete calls repo.delete and logs audit", async () => {
+    (repo.findOne as jest.Mock).mockResolvedValue(mockEntity);
+    (repo.delete as jest.Mock).mockResolvedValue(undefined);
+
+    await service.permanentDelete("uuid-1", "user-1", "admin");
+
+    expect(repo.delete).toHaveBeenCalledWith("uuid-1");
+    expect(auditLogService.log).toHaveBeenCalledWith(
+      "PERMANENT_DELETE",
+      "TestEntity",
+      expect.any(String),
+      expect.objectContaining({ entityId: "uuid-1" }),
+    );
+  });
+
+  it("create saves entity and logs CREATE audit", async () => {
+    const dto: TestCreateDto = { name: "New Entity" };
+    const saved = { ...mockEntity, name: "New Entity" };
     (repo.create as jest.Mock).mockReturnValue(saved);
     (repo.save as jest.Mock).mockResolvedValue(saved);
 
-    const result = await service.create(dto, 'user-1', 'admin');
+    const result = await service.create(dto, "user-1", "admin");
 
     expect(repo.create).toHaveBeenCalledWith(dto);
     expect(repo.save).toHaveBeenCalledWith(saved);
     expect(auditLogService.log).toHaveBeenCalledWith(
-      'CREATE',
-      'TestEntity',
+      "CREATE",
+      "TestEntity",
       expect.any(String),
       expect.objectContaining({
         entityId: saved.id,
-        userId: 'user-1',
-        username: 'admin',
+        userId: "user-1",
+        username: "admin",
         newValues: dto,
       }),
     );
     expect(result).toBe(saved);
   });
 
-  it('update captures immutable before-snapshot for afterUpdate', async () => {
-    const dto: TestUpdateDto = { name: 'Updated Name' };
-    const original = { ...mockEntity, name: 'Original Name' };
-    const saved = { ...mockEntity, name: 'Updated Name' };
+  it("update captures immutable before-snapshot for afterUpdate", async () => {
+    const dto: TestUpdateDto = { name: "Updated Name" };
+    const original = { ...mockEntity, name: "Original Name" };
+    const saved = { ...mockEntity, name: "Updated Name" };
 
     (repo.findOne as jest.Mock).mockResolvedValue(original);
     (repo.save as jest.Mock).mockResolvedValue(saved);
 
-    const afterUpdateSpy = jest.spyOn(service as any, 'afterUpdate');
+    const afterUpdateSpy = jest.spyOn(service as any, "afterUpdate");
 
-    await service.update('uuid-1', dto, 'user-1', 'admin');
+    await service.update("uuid-1", dto, "user-1", "admin");
 
     // The before argument passed to afterUpdate must still show 'Original Name',
     // not 'Updated Name' — verifying the snapshot is immutable.
     const [before, after] = afterUpdateSpy.mock.calls[0];
-    expect((before as TestEntity).name).toBe('Original Name');
-    expect((after as TestEntity).name).toBe('Updated Name');
+    expect((before as TestEntity).name).toBe("Original Name");
+    expect((after as TestEntity).name).toBe("Updated Name");
   });
 
-  it('findAll returns data and total via getManyAndCount', async () => {
+  it("findAll returns data and total via getManyAndCount", async () => {
     const qb = makeQb([mockEntity], 1);
     (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
 
@@ -277,7 +291,7 @@ describe('BaseCrudService', () => {
     expect(result.total).toBe(1);
   });
 
-  it('findAll applies pagination when page and limit provided', async () => {
+  it("findAll applies pagination when page and limit provided", async () => {
     const qb = makeQb([mockEntity], 1);
     (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
 
@@ -287,53 +301,58 @@ describe('BaseCrudService', () => {
     expect(qb.take).toHaveBeenCalledWith(10);
   });
 
-  it('findAll does not call applySearch when no search term', async () => {
+  it("findAll does not call applySearch when no search term", async () => {
     const qb = makeQb([mockEntity], 1);
     (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
-    const applySearchSpy = jest.spyOn(service as any, 'applySearch');
+    const applySearchSpy = jest.spyOn(service as any, "applySearch");
 
     await service.findAll({});
 
     expect(applySearchSpy).not.toHaveBeenCalled();
   });
 
-  it('findAll calls applySearch when search term provided', async () => {
+  it("findAll calls applySearch when search term provided", async () => {
     const qb = makeQb([mockEntity], 1);
     (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
-    const applySearchSpy = jest.spyOn(service as any, 'applySearch').mockReturnValue(qb);
+    const applySearchSpy = jest
+      .spyOn(service as any, "applySearch")
+      .mockReturnValue(qb);
 
-    await service.findAll({ search: 'test' });
+    await service.findAll({ search: "test" });
 
-    expect(applySearchSpy).toHaveBeenCalledWith(qb, 'test', 'testentity');
+    expect(applySearchSpy).toHaveBeenCalledWith(qb, "test", "testentity");
   });
 
-  it('findAll falls back to createdAt when sortBy is not in allowedSortFields', async () => {
+  it("findAll falls back to createdAt when sortBy is not in allowedSortFields", async () => {
     const qb = makeQb([mockEntity], 1);
     (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
 
-    await service.findAll({ sortBy: 'injected; DROP TABLE--', sortOrder: 'ASC' });
+    await service.findAll({
+      sortBy: "injected; DROP TABLE--",
+      sortOrder: "ASC",
+    });
 
-    expect(qb.orderBy).toHaveBeenCalledWith('testentity.createdAt', 'ASC');
+    expect(qb.orderBy).toHaveBeenCalledWith("testentity.createdAt", "ASC");
   });
 
-  it('update logs UPDATE audit with oldValues and newValues', async () => {
-    const dto: TestUpdateDto = { name: 'Updated Name' };
-    const original = { ...mockEntity, name: 'Original Name' };
-    const saved = { ...mockEntity, name: 'Updated Name' };
+  it("update logs UPDATE audit with oldValues and newValues", async () => {
+    const dto: TestUpdateDto = { name: "Updated Name" };
+    const original = { ...mockEntity, name: "Original Name" };
+    const saved = { ...mockEntity, name: "Updated Name" };
 
     (repo.findOne as jest.Mock).mockResolvedValue(original);
     (repo.save as jest.Mock).mockResolvedValue(saved);
 
-    await service.update('uuid-1', dto, 'user-1', 'admin');
+    await service.update("uuid-1", dto, "user-1", "admin");
 
     expect(auditLogService.log).toHaveBeenCalledWith(
-      'UPDATE',
-      'TestEntity',
+      "UPDATE",
+      "TestEntity",
       expect.any(String),
       expect.objectContaining({
-        entityId: 'uuid-1',
-        userId: 'user-1',
-        username: 'admin',
+        entityId: "uuid-1",
+        userId: "user-1",
+        username: "admin",
         newValues: dto,
       }),
     );

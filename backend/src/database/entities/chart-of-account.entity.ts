@@ -5,39 +5,39 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
-} from 'typeorm';
+} from "typeorm";
 import {
   IsString,
   IsEnum,
   IsOptional,
   IsBoolean,
   MaxLength,
-} from 'class-validator';
-import { BaseEntity } from './base.entity';
-import { JournalEntryLine } from './journal-entry-line.entity';
-import { AccountMapping } from './account-mapping.entity';
-import { BankReconciliation } from './bank-reconciliation.entity';
+} from "class-validator";
+import { BaseEntity } from "./base.entity";
+import { JournalEntryLine } from "./journal-entry-line.entity";
+import { AccountMapping } from "./account-mapping.entity";
+import { BankReconciliation } from "./bank-reconciliation.entity";
 
 export enum AccountType {
-  ASSET = 'ASSET',
-  LIABILITY = 'LIABILITY',
-  EQUITY = 'EQUITY',
-  REVENUE = 'REVENUE',
-  EXPENSE = 'EXPENSE',
+  ASSET = "ASSET",
+  LIABILITY = "LIABILITY",
+  EQUITY = "EQUITY",
+  REVENUE = "REVENUE",
+  EXPENSE = "EXPENSE",
 }
 
 /**
  * Chart of Account entity for managing general ledger accounts
  * Supports hierarchical account structure (parent/child relationships)
  */
-@Entity('chart_of_accounts')
-@Index(['code'], { unique: true })
-@Index(['type'])
-@Index(['parentId'])
-@Index(['isActive'])
+@Entity("chart_of_accounts")
+@Index(["code"], { unique: true })
+@Index(["type"])
+@Index(["parentId"])
+@Index(["isActive"])
 export class ChartOfAccount extends BaseEntity {
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 50,
     unique: true,
     comment: 'Unique account code (e.g., "1000", "4000")',
@@ -47,7 +47,7 @@ export class ChartOfAccount extends BaseEntity {
   code: string;
 
   @Column({
-    type: 'varchar',
+    type: "varchar",
     length: 255,
     comment: 'Account name (e.g., "Cash", "Sales Revenue")',
   })
@@ -56,43 +56,44 @@ export class ChartOfAccount extends BaseEntity {
   name: string;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: AccountType,
-    comment: 'Account type (ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE)',
+    comment: "Account type (ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE)",
   })
   @IsEnum(AccountType)
   type: AccountType;
 
   @Column({
-    type: 'uuid',
+    type: "uuid",
     nullable: true,
-    comment: 'Parent account ID for hierarchical accounts',
+    comment: "Parent account ID for hierarchical accounts",
   })
   @IsOptional()
   parentId?: string;
 
   @Column({
-    type: 'boolean',
+    type: "boolean",
     default: true,
-    comment: 'Whether the account is active',
+    comment: "Whether the account is active",
   })
   @IsBoolean()
   declare isActive: boolean;
 
   @Column({
-    type: 'boolean',
+    type: "boolean",
     default: false,
-    comment: 'Marks account as eligible for fund transfers (cash/bank accounts)',
+    comment:
+      "Marks account as eligible for fund transfers (cash/bank accounts)",
   })
   @IsBoolean()
   isCashEquivalent: boolean;
 
   // Relationships
   @ManyToOne(() => ChartOfAccount, (account) => account.children, {
-    onDelete: 'SET NULL',
+    onDelete: "SET NULL",
     nullable: true,
   })
-  @JoinColumn({ name: 'parentId' })
+  @JoinColumn({ name: "parentId" })
   parent?: ChartOfAccount;
 
   @OneToMany(() => ChartOfAccount, (account) => account.parent, {
@@ -110,9 +111,13 @@ export class ChartOfAccount extends BaseEntity {
   })
   accountMappings: AccountMapping[];
 
-  @OneToMany(() => BankReconciliation, (reconciliation) => reconciliation.account, {
-    cascade: false,
-  })
+  @OneToMany(
+    () => BankReconciliation,
+    (reconciliation) => reconciliation.account,
+    {
+      cascade: false,
+    },
+  )
   bankReconciliations: BankReconciliation[];
 
   // Computed properties
