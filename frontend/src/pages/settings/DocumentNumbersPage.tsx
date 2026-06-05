@@ -25,7 +25,7 @@ import {
 } from '@/store/api/settingsApi'
 
 const MODULE_GROUPS: Record<string, string[]> = {
-  Sales: ['Sales Orders', 'Invoices', 'Payments'],
+  Sales: ['Sales Orders', 'Payments'],
   Purchasing: ['Purchase Orders', 'Goods Received', 'Vendor Payments'],
   Inventory: ['Stock Adjustment'],
   Accounting: ['Journal Entries', 'Expenses', 'Settlements', 'Owner Equity', 'Fund Transfers'],

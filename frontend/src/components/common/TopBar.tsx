@@ -116,7 +116,6 @@ const NAVIGABLE_PATHS = new Set([
   '/inventory/stock-adjustments',
   '/sales/customers',
   '/sales/orders',
-  '/sales/invoices',
   '/sales/payments',
   '/purchasing/suppliers',
   '/purchasing/orders',

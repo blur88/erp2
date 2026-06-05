@@ -31,12 +31,6 @@ const templates = [
     icon: <DocumentIcon sx={{ fontSize: 40, color: 'primary.main' }} />,
   },
   {
-    id: 'invoice',
-    title: 'Invoice',
-    description: 'Standard template for invoices',
-    icon: <DocumentIcon sx={{ fontSize: 40, color: 'success.main' }} />,
-  },
-  {
     id: 'paymentReceipt',
     title: 'Payment Receipt',
     description: 'Standard template for payment receipts',

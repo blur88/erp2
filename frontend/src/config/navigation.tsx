@@ -8,7 +8,6 @@ import { default as CategoryIcon } from '@mui/icons-material/Category'
 import { default as ProductIcon } from '@mui/icons-material/ShoppingCart'
 import { default as CustomersIcon } from '@mui/icons-material/People'
 import { default as OrdersIcon } from '@mui/icons-material/Receipt'
-import { default as InvoiceIcon } from '@mui/icons-material/ReceiptLong'
 import { default as PaymentsIcon } from '@mui/icons-material/Payment'
 import { default as SuppliersIcon } from '@mui/icons-material/Business'
 import { default as GRNIcon } from '@mui/icons-material/LocalShipping'
@@ -154,13 +153,6 @@ export const menuSections: MenuSection[] = [
             title: 'Sales Orders',
             icon: <OrdersIcon />,
             path: '/sales/orders',
-            roles: SALES_ROLES,
-          },
-          {
-            id: 'invoices',
-            title: 'Invoices',
-            icon: <InvoiceIcon />,
-            path: '/sales/invoices',
             roles: SALES_ROLES,
           },
           {

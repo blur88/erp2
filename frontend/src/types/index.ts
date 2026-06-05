@@ -240,15 +240,6 @@ export interface SalesOrder {
   total?: number;
   discount?: number;
   deliveryDate?: Date;
-  // Invoice information
-  invoices?: {
-    id: string;
-    invoiceNumber: string;
-    status: string;
-    invoiceDate: Date;
-    totalAmount: number;
-    paidAmount: number;
-  }[];
   payments?: {
     id: string;
     paymentNumber: string;

@@ -1,5 +1,4 @@
 import { Box, CircularProgress, Tab, Tabs, Typography } from '@mui/material'
-import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import PaymentIcon from '@mui/icons-material/Payment'
 import PersonIcon from '@mui/icons-material/Person'
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
@@ -11,7 +10,6 @@ import PageHeader from '@/components/common/PageHeader'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetCustomerBySlugQuery } from '@/store/api/salesApi'
 
-import CustomerInvoicesTab from './components/CustomerInvoicesTab'
 import CustomerOrdersTab from './components/CustomerOrdersTab'
 import CustomerOverviewTab from './components/CustomerOverviewTab'
 import CustomerPaymentsTab from './components/CustomerPaymentsTab'
@@ -90,7 +88,6 @@ export default function CustomerProfilePage() {
         >
           <Tab icon={<PersonIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Overview" sx={{ minHeight: 36 }} />
           <Tab icon={<ShoppingCartIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Orders" sx={{ minHeight: 36 }} />
-          <Tab icon={<AccountBalanceIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Invoices" sx={{ minHeight: 36 }} />
           <Tab icon={<PaymentIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Payments" sx={{ minHeight: 36 }} />
         </Tabs>
       </Box>
@@ -102,9 +99,6 @@ export default function CustomerProfilePage() {
         <CustomerOrdersTab customerId={customer.id} />
       </TabPanel>
       <TabPanel value={tabValue} index={2}>
-        <CustomerInvoicesTab customerId={customer.id} />
-      </TabPanel>
-      <TabPanel value={tabValue} index={3}>
         <CustomerPaymentsTab customerId={customer.id} />
       </TabPanel>
     </Box>
