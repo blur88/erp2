@@ -16,7 +16,6 @@ import {
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { Customer } from './customer.entity';
-import { Invoice } from './invoice.entity';
 import { SalesOrder } from './sales-order.entity';
 import { PaymentMethodEntity } from './payment-method.entity';
 import { Settlement } from './settlement.entity';
@@ -43,7 +42,6 @@ export enum SettlementStatusEnum {
 @Entity('payments')
 @Index(['paymentNumber'], { unique: true })
 @Index(['customerId'])
-@Index(['invoiceId'])
 @Index(['salesOrderId'])
 @Index(['status'])
 @Index(['paymentDate'])
@@ -133,14 +131,6 @@ export class Payment extends BaseEntity {
   @Column({
     type: 'uuid',
     nullable: true,
-    comment: 'Related invoice ID',
-  })
-  @IsOptional()
-  invoiceId?: string;
-
-  @Column({
-    type: 'uuid',
-    nullable: true,
     comment: 'Related sales order ID',
   })
   @IsOptional()
@@ -154,14 +144,6 @@ export class Payment extends BaseEntity {
   })
   @JoinColumn({ name: 'customerId' })
   customer: Customer;
-
-  @ManyToOne(() => Invoice, (invoice) => invoice.payments, {
-    onDelete: 'SET NULL',
-    nullable: true,
-    eager: true,
-  })
-  @JoinColumn({ name: 'invoiceId' })
-  invoice?: Invoice;
 
   @ManyToOne(() => SalesOrder, (salesOrder) => salesOrder.payments, {
     onDelete: 'RESTRICT',

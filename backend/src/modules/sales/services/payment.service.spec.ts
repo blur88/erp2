@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { PaymentService } from './payment.service';
 import { Payment, PaymentStatus } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
-import { Invoice } from '../../../database/entities/invoice.entity';
+import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
@@ -16,7 +16,7 @@ describe('PaymentService', () => {
   let service: PaymentService;
   let paymentRepository: jest.Mocked<Repository<Payment>>;
   let customerRepository: jest.Mocked<Repository<Customer>>;
-  let invoiceRepository: jest.Mocked<Repository<Invoice>>;
+  let salesOrderRepository: jest.Mocked<Repository<SalesOrder>>;
   let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
   let accountingService: jest.Mocked<AccountingService>;
   let auditLogService: jest.Mocked<AuditLogService>;
@@ -49,6 +49,7 @@ describe('PaymentService', () => {
           provide: getRepositoryToken(Payment),
           useValue: {
             findOne: jest.fn(),
+            find: jest.fn(),
             save: jest.fn(),
             create: jest.fn(),
             createQueryBuilder: jest.fn(),
@@ -62,10 +63,11 @@ describe('PaymentService', () => {
           },
         },
         {
-          provide: getRepositoryToken(Invoice),
+          provide: getRepositoryToken(SalesOrder),
           useValue: {
             findOne: jest.fn(),
             save: jest.fn(),
+            find: jest.fn(),
           },
         },
         {
@@ -99,7 +101,7 @@ describe('PaymentService', () => {
     service = module.get<PaymentService>(PaymentService);
     paymentRepository = module.get(getRepositoryToken(Payment));
     customerRepository = module.get(getRepositoryToken(Customer));
-    invoiceRepository = module.get(getRepositoryToken(Invoice));
+    salesOrderRepository = module.get(getRepositoryToken(SalesOrder));
     paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     accountingService = module.get(AccountingService);
     auditLogService = module.get(AuditLogService);
@@ -260,7 +262,7 @@ describe('PaymentService', () => {
       // Verify findOne was called to get payment with relations before accounting post
       expect(paymentRepository.findOne).toHaveBeenCalledWith({
         where: { id: mockPayment.id },
-        relations: { customer: true, invoice: { salesOrder: true, items: { product: true } }, paymentMethodEntity: true },
+        relations: { customer: true, salesOrder: { items: { product: true } }, paymentMethodEntity: true },
       });
 
       // Verify the accounting service received the payment with customer relation
@@ -317,6 +319,28 @@ describe('PaymentService', () => {
     });
   });
 
+  describe('getPaidTotalForSalesOrder', () => {
+    it('should return sum of completed payment amounts for a sales order', async () => {
+      const mockPayments = [
+        { id: 'p1', amount: 200, status: PaymentStatus.COMPLETED, salesOrderId: 'so-1' },
+        { id: 'p2', amount: 300, status: PaymentStatus.COMPLETED, salesOrderId: 'so-1' },
+      ];
+      jest.spyOn(paymentRepository, 'find').mockResolvedValue(mockPayments as any);
+
+      const total = await service.getPaidTotalForSalesOrder('so-1');
+
+      expect(total).toBe(500);
+    });
+
+    it('should return 0 when no completed payments exist', async () => {
+      jest.spyOn(paymentRepository, 'find').mockResolvedValue([]);
+
+      const total = await service.getPaidTotalForSalesOrder('so-1');
+
+      expect(total).toBe(0);
+    });
+  });
+
   describe('refund', () => {
     const createOriginalPayment = () => ({
       id: 'pay-123',
@@ -324,10 +348,9 @@ describe('PaymentService', () => {
       amount: 500,
       status: PaymentStatus.COMPLETED,
       customerId: 'cust-123',
-      invoiceId: 'inv-123',
+      salesOrderId: 'so-123',
       paymentMethodId: 'pm-cash',
       paymentMethodEntity: { id: 'pm-cash', code: 'CASH' },
-      invoice: { id: 'inv-123', addPayment: jest.fn(), paidAmount: 500 },
       customer: { id: 'cust-123', name: 'Test Customer' },
       settlementStatus: 'NOT_APPLICABLE',
     });
@@ -336,7 +359,6 @@ describe('PaymentService', () => {
       paymentRepository.create.mockImplementation((dto: any) => dto);
       paymentRepository.findOne.mockImplementation(() => Promise.resolve(createOriginalPayment() as any));
       auditLogService.log.mockResolvedValue(undefined);
-      invoiceRepository.save.mockResolvedValue({} as any);
     });
 
     it('should call reverseSourceEntries when refund method is same as original', async () => {

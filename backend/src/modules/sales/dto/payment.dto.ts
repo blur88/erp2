@@ -25,12 +25,12 @@ export class CreatePaymentDto {
   customerId: string;
 
   @ApiPropertyOptional({
-    description: 'Invoice ID (optional for advance payments)',
+    description: 'Sales order ID (optional for advance payments)',
     example: 'uuid-string',
   })
   @IsOptional()
   @IsUUID()
-  invoiceId?: string;
+  salesOrderId?: string;
 
   @ApiProperty({
     description: 'Payment method ID',
@@ -85,12 +85,12 @@ export class QueryPaymentsDto {
   customerId?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter by invoice ID',
+    description: 'Filter by sales order ID',
     example: 'uuid-string',
   })
   @IsOptional()
   @IsUUID()
-  invoiceId?: string;
+  salesOrderId?: string;
 
   @ApiPropertyOptional({
     description: 'Filter payments from date',
@@ -209,9 +209,9 @@ export class PaymentResponseDto {
   customerId: string;
 
   @ApiProperty({ example: 'uuid-string', nullable: true })
-  invoiceId?: string;
+  salesOrderId?: string;
 
-  
+
   @ApiProperty({ example: '2023-12-01T00:00:00Z' })
   createdAt: Date;
 
@@ -237,9 +237,9 @@ export class PaymentResponseDto {
   };
 
   @ApiProperty({ type: () => Object, nullable: true })
-  invoice?: {
+  salesOrder?: {
     id: string;
-    invoiceNumber: string;
+    orderNumber: string;
     totalAmount: number;
     shippingAmount: number;
     items?: Array<{
@@ -266,16 +266,10 @@ export class PaymentResponseDto {
   };
 
   @ApiProperty({ example: 'uuid-string', nullable: true })
-  relatedInvoiceId?: string;
-
-  @ApiProperty({ example: 'INV-2023-001', nullable: true })
-  relatedInvoiceNumber?: string;
-
-  @ApiProperty({ example: 'uuid-string', nullable: true })
-  relatedOrderId?: string;
+  relatedSalesOrderId?: string;
 
   @ApiProperty({ example: 'SO-2023-001', nullable: true })
-  relatedOrderNumber?: string;
+  relatedSalesOrderNumber?: string;
 }
 
 export class ProcessPaymentDto {
@@ -287,12 +281,12 @@ export class ProcessPaymentDto {
   customerId: string;
 
   @ApiPropertyOptional({
-    description: 'Invoice ID (optional for advance payments)',
+    description: 'Sales order ID (optional for advance payments)',
     example: 'uuid-string',
   })
   @IsOptional()
   @IsUUID()
-  invoiceId?: string;
+  salesOrderId?: string;
 
   @ApiProperty({
     description: 'Payment method ID',
@@ -321,14 +315,14 @@ export class ProcessPaymentDto {
 
 export class AllocationDto {
   @ApiProperty({
-    description: 'Invoice ID to allocate payment to',
+    description: 'Sales order ID to allocate payment to',
     example: 'uuid-string',
   })
   @IsUUID()
-  invoiceId: string;
+  salesOrderId: string;
 
   @ApiProperty({
-    description: 'Amount to allocate to this invoice',
+    description: 'Amount to allocate to this sales order',
     example: 750.25,
   })
   @IsNumber({ maxDecimalPlaces: 4 })
@@ -346,11 +340,11 @@ export class AllocatePaymentDto {
   paymentId: string;
 
   @ApiProperty({
-    description: 'Invoice allocations',
+    description: 'Sales order allocations',
     type: [AllocationDto],
     example: [
-      { invoiceId: 'uuid-1', amount: 750.25 },
-      { invoiceId: 'uuid-2', amount: 750.25 },
+      { salesOrderId: 'uuid-1', amount: 750.25 },
+      { salesOrderId: 'uuid-2', amount: 750.25 },
     ],
   })
   @Type(() => AllocationDto)

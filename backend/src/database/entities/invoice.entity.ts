@@ -19,7 +19,6 @@ import {
 import { BaseEntity } from './base.entity';
 import { Customer } from './customer.entity';
 import { SalesOrder } from './sales-order.entity';
-import { Payment } from './payment.entity';
 import { InvoiceItem } from './invoice-item.entity';
 
 export enum InvoiceStatus {
@@ -161,11 +160,6 @@ export class Invoice extends BaseEntity {
   })
   @JoinColumn({ name: 'salesOrderId' })
   salesOrder?: SalesOrder;
-
-  @OneToMany(() => Payment, (payment) => payment.invoice, {
-    cascade: false,
-  })
-  payments: Payment[];
 
   @OneToMany(() => InvoiceItem, (item) => item.invoice, {
     cascade: true,

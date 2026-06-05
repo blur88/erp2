@@ -218,18 +218,18 @@ export class PaymentController {
     return this.paymentService.getPaymentsByCustomer(customerId);
   }
 
-  @Get('invoice/:invoiceId')
-  @ApiOperation({ summary: 'Get payments by invoice' })
-  @ApiParam({ name: 'invoiceId', description: 'Invoice ID', type: 'string' })
+  @Get('sales-order/:salesOrderId')
+  @ApiOperation({ summary: 'Get payments by sales order' })
+  @ApiParam({ name: 'salesOrderId', description: 'Sales order ID', type: 'string' })
   @ApiResponse({
     status: 200,
-    description: 'Invoice payments retrieved successfully',
+    description: 'Sales order payments retrieved successfully',
     type: [PaymentSummaryDto],
   })
-  async getPaymentsByInvoice(
-    @Param('invoiceId', ParseUUIDPipe) invoiceId: string,
+  async getPaymentsBySalesOrder(
+    @Param('salesOrderId', ParseUUIDPipe) salesOrderId: string,
   ): Promise<PaymentSummaryDto[]> {
-    return this.paymentService.getPaymentsByInvoice(invoiceId);
+    return this.paymentService.getPaymentsBySalesOrder(salesOrderId);
   }
 
   @Get('statistics/summary')

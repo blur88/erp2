@@ -11,7 +11,7 @@ import { Repository, FindOptionsWhere, Between } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { Payment, PaymentStatus, SettlementStatusEnum } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
-import { Invoice, InvoiceStatus } from '../../../database/entities/invoice.entity';
+import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import {
   CreatePaymentDto,
@@ -53,10 +53,10 @@ export class PaymentService extends BaseCrudService<
     private readonly paymentRepository: Repository<Payment>,
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
-    @InjectRepository(Invoice)
-    private readonly invoiceRepository: Repository<Invoice>,
     @InjectRepository(PaymentMethodEntity)
     private readonly paymentMethodRepository: Repository<PaymentMethodEntity>,
+    @InjectRepository(SalesOrder)
+    private readonly salesOrderRepository: Repository<SalesOrder>,
     auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
     private readonly settingsService: SettingsService,
@@ -73,7 +73,7 @@ export class PaymentService extends BaseCrudService<
 
     if (query.customerId) where.customerId = query.customerId;
     if (query.status) where.status = query.status as PaymentStatus;
-    if (query.invoiceId) where.invoiceId = query.invoiceId;
+    if (query.salesOrderId) where.salesOrderId = query.salesOrderId;
     if (query.fromDate || query.toDate) {
       where.paymentDate = Between(
         query.fromDate || new Date('1900-01-01'),
@@ -97,20 +97,6 @@ export class PaymentService extends BaseCrudService<
       throw new NotFoundException('Customer not found');
     }
 
-    // Verify invoice exists if specified
-    let invoice: Invoice | null = null;
-    if (createPaymentDto.invoiceId) {
-      invoice = await this.invoiceRepository.findOne({
-        where: { id: createPaymentDto.invoiceId },
-      });
-      if (!invoice) {
-        throw new NotFoundException('Invoice not found');
-      }
-      if (invoice.customerId !== createPaymentDto.customerId) {
-        throw new BadRequestException('Invoice does not belong to the specified customer');
-      }
-    }
-
     const paymentMethod = await this.paymentMethodRepository.findOne({
       where: { id: createPaymentDto.paymentMethodId, isActive: true },
     });
@@ -132,11 +118,6 @@ export class PaymentService extends BaseCrudService<
     });
 
     const savedPayment = await this.paymentRepository.save(payment);
-
-    // Update invoice if payment is allocated to specific invoice
-    if (invoice && savedPayment.status === PaymentStatus.COMPLETED) {
-      await this.allocatePaymentToInvoice(savedPayment, invoice);
-    }
 
     // Update customer balance for completed payments
     if (savedPayment.status === PaymentStatus.COMPLETED) {
@@ -184,7 +165,7 @@ export class PaymentService extends BaseCrudService<
   async findAll(query: QueryPaymentsDto) {
     const {
       customerId,
-      invoiceId,
+      salesOrderId,
       fromDate,
       toDate,
       search,
@@ -197,7 +178,7 @@ export class PaymentService extends BaseCrudService<
 
     if (customerId) where.customerId = customerId;
     if (status) where.status = status as PaymentStatus;
-    if (invoiceId) where.invoiceId = invoiceId;
+    if (salesOrderId) where.salesOrderId = salesOrderId;
 
     if (fromDate || toDate) {
       where.paymentDate = Between(
@@ -210,10 +191,9 @@ export class PaymentService extends BaseCrudService<
     const queryBuilder = this.paymentRepository
       .createQueryBuilder('payment')
       .leftJoinAndSelect('payment.customer', 'customer')
-      .leftJoinAndSelect('payment.invoice', 'invoice')
-      .leftJoinAndSelect('invoice.customer', 'invoiceCustomer')
-      .leftJoinAndSelect('invoice.salesOrder', 'salesOrder')
-      .leftJoinAndSelect('invoice.items', 'items')
+      .leftJoinAndSelect('payment.salesOrder', 'salesOrder')
+      .leftJoinAndSelect('salesOrder.customer', 'salesOrderCustomer')
+      .leftJoinAndSelect('salesOrder.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
       .leftJoinAndSelect('payment.paymentMethodEntity', 'paymentMethodEntity')
       .where(where)
@@ -274,7 +254,7 @@ export class PaymentService extends BaseCrudService<
   async processPayment(processPaymentDto: ProcessPaymentDto): Promise<PaymentResponseDto> {
     return this.create({
       customerId: processPaymentDto.customerId,
-      invoiceId: processPaymentDto.invoiceId,
+      salesOrderId: processPaymentDto.salesOrderId,
       paymentMethodId: processPaymentDto.paymentMethodId,
       paymentDate: new Date(),
       amount: processPaymentDto.amount,
@@ -300,25 +280,27 @@ export class PaymentService extends BaseCrudService<
 
     // Process each allocation
     for (const allocation of allocationDto.allocations) {
-      const invoice = await this.invoiceRepository.findOne({
-        where: { id: allocation.invoiceId },
+      const salesOrder = await this.salesOrderRepository.findOne({
+        where: { id: allocation.salesOrderId },
       });
 
-      if (!invoice) {
-        throw new NotFoundException(`Invoice ${allocation.invoiceId} not found`);
+      if (!salesOrder) {
+        throw new NotFoundException(`Sales order ${allocation.salesOrderId} not found`);
       }
 
-      if (invoice.customerId !== payment.customerId) {
-        throw new BadRequestException('Invoice does not belong to the payment customer');
+      if (salesOrder.customerId !== payment.customerId) {
+        throw new BadRequestException('Sales order does not belong to the payment customer');
       }
 
-      // Allocate payment to invoice
-      invoice.addPayment(allocation.amount);
-      await this.invoiceRepository.save(invoice);
+      // Update sales order paid amount and balance
+      const allocatedAmount = Number(allocation.amount);
+      salesOrder.paidAmount = Number(salesOrder.paidAmount) + allocatedAmount;
+      salesOrder.balanceDue = Number(salesOrder.totalAmount) - Number(salesOrder.paidAmount);
+      await this.salesOrderRepository.save(salesOrder);
     }
 
     // Update payment to indicate it has been allocated
-    payment.invoiceId = allocationDto.allocations[0]?.invoiceId; // Primary allocation
+    payment.salesOrderId = allocationDto.allocations[0]?.salesOrderId; // Primary allocation
     await this.paymentRepository.save(payment);
 
     return this.mapToResponseDto(await this.findPaymentWithRelations(payment.id));
@@ -340,9 +322,9 @@ export class PaymentService extends BaseCrudService<
     }));
   }
 
-  async getPaymentsByInvoice(invoiceId: string): Promise<PaymentSummaryDto[]> {
+  async getPaymentsBySalesOrder(salesOrderId: string): Promise<PaymentSummaryDto[]> {
     const payments = await this.paymentRepository.find({
-      where: { invoiceId },
+      where: { salesOrderId },
       order: { paymentDate: 'DESC' },
     });
 
@@ -383,6 +365,13 @@ export class PaymentService extends BaseCrudService<
       completedAmount: parseFloat(stats.completedAmount) || 0,
       averagePaymentAmount: parseFloat(stats.averagePaymentAmount) || 0,
     };
+  }
+
+  async getPaidTotalForSalesOrder(salesOrderId: string): Promise<number> {
+    const payments = await this.paymentRepository.find({
+      where: { salesOrderId, status: PaymentStatus.COMPLETED },
+    });
+    return payments.reduce((sum, p) => sum + Number(p.amount), 0);
   }
 
   async complete(id: string, userId?: string, username?: string): Promise<PaymentResponseDto> {
@@ -496,7 +485,7 @@ export class PaymentService extends BaseCrudService<
     // Create a refund payment record (negative amount)
     const refundPayment = this.paymentRepository.create({
       customerId: originalPayment.customerId,
-      invoiceId: originalPayment.invoiceId,
+      salesOrderId: originalPayment.salesOrderId,
       paymentDate: new Date(),
       amount: -refundDto.amount,
       paymentNumber: refundNumber,
@@ -511,12 +500,6 @@ export class PaymentService extends BaseCrudService<
     // Update original payment status
     originalPayment.status = PaymentStatus.REFUNDED;
     await this.paymentRepository.save(originalPayment);
-
-    // Update invoice if applicable
-    if (originalPayment.invoice) {
-      originalPayment.invoice.addPayment(-refundDto.amount);
-      await this.invoiceRepository.save(originalPayment.invoice);
-    }
 
     try {
       await this.accountingService.reverseSourceEntries('payment', originalPayment.id, userId || 'system');
@@ -553,7 +536,7 @@ export class PaymentService extends BaseCrudService<
   private async findPaymentWithRelations(id: string): Promise<Payment> {
     const payment = await this.paymentRepository.findOne({
       where: { id },
-      relations: { customer: true, invoice: { salesOrder: true, items: { product: true } }, paymentMethodEntity: true },
+      relations: { customer: true, salesOrder: { items: { product: true } }, paymentMethodEntity: true },
     });
 
     if (!payment) {
@@ -569,9 +552,12 @@ export class PaymentService extends BaseCrudService<
       await this.updateCustomerBalance(payment.customer, payment);
     }
 
-    // Update invoice if payment is allocated to specific invoice
-    if (payment.invoice) {
-      await this.updateInvoiceFromPayment(payment.invoice, payment);
+    // Update sales order if payment is allocated to specific order
+    if (payment.salesOrder) {
+      const allocatedAmount = Number(payment.amount);
+      payment.salesOrder.paidAmount = Number(payment.salesOrder.paidAmount) + allocatedAmount;
+      payment.salesOrder.balanceDue = Number(payment.salesOrder.totalAmount) - Number(payment.salesOrder.paidAmount);
+      await this.salesOrderRepository.save(payment.salesOrder);
     }
   }
 
@@ -579,16 +565,6 @@ export class PaymentService extends BaseCrudService<
     // Note: Customer balance tracking removed - updateBalance method doesn't exist
     // This method is kept for backward compatibility but no longer updates balance
     await this.customerRepository.save(customer);
-  }
-
-  private async allocatePaymentToInvoice(payment: Payment, invoice: Invoice): Promise<void> {
-    invoice.addPayment(Number(payment.amount));
-    await this.invoiceRepository.save(invoice);
-  }
-
-  private async updateInvoiceFromPayment(invoice: Invoice, payment: Payment): Promise<void> {
-    invoice.addPayment(Number(payment.amount));
-    await this.invoiceRepository.save(invoice);
   }
 
   async searchGlobal(query: string, user: JwtPayload): Promise<GlobalSearchResultDto[]> {
@@ -656,7 +632,6 @@ export class PaymentService extends BaseCrudService<
       .createQueryBuilder('payment')
       .withDeleted() // Include soft-deleted records
       .leftJoinAndSelect('payment.customer', 'customer')
-      .leftJoinAndSelect('payment.invoice', 'invoice')
       .leftJoinAndSelect('payment.paymentMethodEntity', 'paymentMethodEntity')
       .where('payment.deletedAt IS NOT NULL'); // Only get soft-deleted payments
 
@@ -690,7 +665,7 @@ export class PaymentService extends BaseCrudService<
     const payment = await this.paymentRepository.findOne({
       where: { id },
       withDeleted: true, // Include soft-deleted records
-      relations: { customer: true, invoice: true },
+      relations: { customer: true },
     });
 
     if (!payment) {
@@ -723,7 +698,7 @@ export class PaymentService extends BaseCrudService<
     // Return the restored payment
     const restoredPayment = await this.paymentRepository.findOne({
       where: { id },
-      relations: { customer: true, invoice: true },
+      relations: { customer: true },
     });
 
     return this.mapToResponseDto(restoredPayment);
@@ -754,10 +729,6 @@ export class PaymentService extends BaseCrudService<
   }
 
   private mapToResponseDto(payment: Payment): PaymentResponseDto {
-    // Extract order info - check both nested salesOrder and direct properties
-    const relatedOrderId = payment.invoice?.salesOrder?.id || (payment.invoice as any)?.salesOrderId;
-    const relatedOrderNumber = payment.invoice?.salesOrder?.orderNumber;
-
     return {
       id: payment.id,
       paymentNumber: payment.paymentNumber,
@@ -776,7 +747,7 @@ export class PaymentService extends BaseCrudService<
       amount: Number(payment.amount),
       notes: payment.notes,
       customerId: payment.customerId,
-      invoiceId: payment.invoiceId,
+      salesOrderId: payment.salesOrderId,
       createdAt: payment.createdAt,
       updatedAt: payment.updatedAt,
       deletedAt: payment.deletedAt,
@@ -787,37 +758,35 @@ export class PaymentService extends BaseCrudService<
         name: payment.customer.name,
         phone: payment.customer.phone,
       } : undefined,
-      invoice: payment.invoice ? {
-        id: payment.invoice.id,
-        invoiceNumber: payment.invoice.invoiceNumber,
-        totalAmount: Number(payment.invoice.totalAmount),
-        shippingAmount: Number(payment.invoice.shippingAmount),
-        items: payment.invoice.items?.map(item => ({
+      salesOrder: payment.salesOrder ? {
+        id: payment.salesOrder.id,
+        orderNumber: payment.salesOrder.orderNumber,
+        totalAmount: Number(payment.salesOrder.totalAmount),
+        shippingAmount: Number(payment.salesOrder.shippingAmount),
+        items: payment.salesOrder.items?.map(item => ({
           id: item.id,
           quantity: item.quantity,
           unitPrice: Number(item.unitPrice),
-          discount: Number(item.discount),
+          discount: Number(item.discountAmount),
           totalAmount: Number(item.totalAmount),
           product: item.product ? {
             id: item.product.id,
             name: item.product.name,
           } : undefined,
         })),
-        customer: payment.invoice.customer || payment.customer ? ({
-          id: (payment.invoice.customer || payment.customer).id,
-          name: (payment.invoice.customer || payment.customer).name,
-          phone: (payment.invoice.customer || payment.customer).phone,
-          streetAddress: (payment.invoice.customer || payment.customer).billingStreetAddress,
-          city: (payment.invoice.customer || payment.customer).billingCity,
-          state: (payment.invoice.customer || payment.customer).billingState,
-          postalCode: (payment.invoice.customer || payment.customer).billingPostalCode,
-          country: (payment.invoice.customer || payment.customer).billingCountry,
+        customer: payment.salesOrder.customer || payment.customer ? ({
+          id: (payment.salesOrder.customer || payment.customer).id,
+          name: (payment.salesOrder.customer || payment.customer).name,
+          phone: (payment.salesOrder.customer || payment.customer).phone,
+          streetAddress: (payment.salesOrder.customer || payment.customer).billingStreetAddress,
+          city: (payment.salesOrder.customer || payment.customer).billingCity,
+          state: (payment.salesOrder.customer || payment.customer).billingState,
+          postalCode: (payment.salesOrder.customer || payment.customer).billingPostalCode,
+          country: (payment.salesOrder.customer || payment.customer).billingCountry,
         } satisfies CustomerPrintDto) : undefined,
       } : undefined,
-      relatedInvoiceId: payment.invoice?.id,
-      relatedInvoiceNumber: payment.invoice?.invoiceNumber,
-      relatedOrderId: relatedOrderId,
-      relatedOrderNumber: relatedOrderNumber,
+      relatedSalesOrderId: payment.salesOrder?.id,
+      relatedSalesOrderNumber: payment.salesOrder?.orderNumber,
     };
   }
 }
