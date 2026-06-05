@@ -1,8 +1,8 @@
 // backend/src/modules/purchasing/dto/purchasing-analytics.dto.ts
-import { IsOptional, IsEnum, IsIn, IsDate, IsUUID } from "class-validator";
-import { ApiPropertyOptional, ApiProperty } from "@nestjs/swagger";
-import { Transform } from "class-transformer";
-import { DateRange, GroupByPeriod } from "@/common/dto/analytics.dto";
+import { IsOptional, IsEnum, IsIn, IsDate, IsUUID } from 'class-validator';
+import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import { DateRange, GroupByPeriod } from '@/common/dto/analytics.dto';
 
 export { DateRange, GroupByPeriod };
 
@@ -12,42 +12,42 @@ export class PurchasingAnalyticsQueryDto {
   @IsEnum(DateRange)
   dateRange?: DateRange;
 
-  @ApiPropertyOptional({ example: "2026-01-01" })
+  @ApiPropertyOptional({ example: '2026-01-01' })
   @IsOptional()
   @IsDate()
   @Transform(({ value }) => (value ? new Date(value) : value))
   startDate?: Date;
 
-  @ApiPropertyOptional({ example: "2026-03-31" })
+  @ApiPropertyOptional({ example: '2026-03-31' })
   @IsOptional()
   @IsDate()
   @Transform(({ value }) => (value ? new Date(value) : value))
   endDate?: Date;
 
-  @ApiPropertyOptional({ enum: ["previous_period", "last_month", "last_year"] })
+  @ApiPropertyOptional({ enum: ['previous_period', 'last_month', 'last_year'] })
   @IsOptional()
-  @IsIn(["previous_period", "last_month", "last_year"])
-  compareWith?: "previous_period" | "last_month" | "last_year";
+  @IsIn(['previous_period', 'last_month', 'last_year'])
+  compareWith?: 'previous_period' | 'last_month' | 'last_year';
 
   @ApiPropertyOptional({ enum: GroupByPeriod, example: GroupByPeriod.MONTH })
   @IsOptional()
   @IsEnum(GroupByPeriod)
   groupBy?: GroupByPeriod;
 
-  @ApiPropertyOptional({ description: "Filter by supplier ID" })
+  @ApiPropertyOptional({ description: 'Filter by supplier ID' })
   @IsOptional()
   @IsUUID()
   supplierId?: string;
 
-  @ApiPropertyOptional({ enum: ["received", "pending"] })
+  @ApiPropertyOptional({ enum: ['received', 'pending'] })
   @IsOptional()
-  @IsIn(["received", "pending"])
-  status?: "received" | "pending";
+  @IsIn(['received', 'pending'])
+  status?: 'received' | 'pending';
 
-  @ApiPropertyOptional({ enum: ["unpaid", "partial", "paid", "overpaid"] })
+  @ApiPropertyOptional({ enum: ['unpaid', 'partial', 'paid', 'overpaid'] })
   @IsOptional()
-  @IsIn(["unpaid", "partial", "paid", "overpaid"])
-  paymentStatus?: "unpaid" | "partial" | "paid" | "overpaid";
+  @IsIn(['unpaid', 'partial', 'paid', 'overpaid'])
+  paymentStatus?: 'unpaid' | 'partial' | 'paid' | 'overpaid';
 }
 
 export class PurchasingMetricsDto {
@@ -65,7 +65,7 @@ export class PurchasingMetricsDto {
 }
 
 export class PurchasingPeriodDataDto {
-  @ApiProperty({ example: "2026-03" })
+  @ApiProperty({ example: '2026-03' })
   period!: string;
 
   @ApiProperty({ example: 12000 })
@@ -82,18 +82,18 @@ export class PurchasingPeriodBlockDto {
   @ApiProperty({ type: [PurchasingPeriodDataDto] })
   periodData!: PurchasingPeriodDataDto[];
 
-  @ApiProperty({ example: "2026-03-01" })
+  @ApiProperty({ example: '2026-03-01' })
   periodStart!: string;
 
-  @ApiProperty({ example: "2026-03-31" })
+  @ApiProperty({ example: '2026-03-31' })
   periodEnd!: string;
 }
 
 export class TopSupplierDto {
-  @ApiProperty({ example: "uuid" })
+  @ApiProperty({ example: 'uuid' })
   supplierId!: string;
 
-  @ApiProperty({ example: "Acme Supplies" })
+  @ApiProperty({ example: 'Acme Supplies' })
   supplierName!: string;
 
   @ApiProperty({ example: 15000 })
@@ -104,20 +104,20 @@ export class TopSupplierDto {
 }
 
 export class RecentPurchaseOrderDto {
-  @ApiProperty({ example: "PO-0001" })
+  @ApiProperty({ example: 'PO-0001' })
   orderNumber!: string;
 
-  @ApiProperty({ example: "2026-03-15" })
+  @ApiProperty({ example: '2026-03-15' })
   orderDate!: string;
 
-  @ApiProperty({ example: "Acme Supplies" })
+  @ApiProperty({ example: 'Acme Supplies' })
   supplierName!: string;
 
   @ApiProperty({ example: 3500 })
   totalAmount!: number;
 
-  @ApiProperty({ example: "pending" })
-  status!: "received" | "pending";
+  @ApiProperty({ example: 'pending' })
+  status!: 'received' | 'pending';
 }
 
 export class PurchasingAnalyticsResponseDto {

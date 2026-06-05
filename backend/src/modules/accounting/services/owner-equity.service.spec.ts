@@ -1,19 +1,19 @@
-import { Test, TestingModule } from "@nestjs/testing";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { Repository } from "typeorm";
-import { OwnerEquityService } from "./owner-equity.service";
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { Repository } from 'typeorm';
+import { OwnerEquityService } from './owner-equity.service';
 import {
   OwnerEquityTransaction,
   OwnerEquityTransactionStatus,
   OwnerEquityTransactionType,
-} from "../../../database/entities/owner-equity-transaction.entity";
-import { PaymentMethodEntity } from "../../../database/entities/payment-method.entity";
-import { AccountingService } from "./accounting.service";
-import { SettingsService } from "../../settings/settings.service";
-import { AuditLogService } from "../../audit-logs/services";
+} from '../../../database/entities/owner-equity-transaction.entity';
+import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
+import { AccountingService } from './accounting.service';
+import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
-describe("OwnerEquityService", () => {
+describe('OwnerEquityService', () => {
   let service: OwnerEquityService;
   let ownerEquityRepository: jest.Mocked<Repository<OwnerEquityTransaction>>;
   let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
@@ -75,35 +75,31 @@ describe("OwnerEquityService", () => {
     }).compile();
 
     service = module.get<OwnerEquityService>(OwnerEquityService);
-    ownerEquityRepository = module.get(
-      getRepositoryToken(OwnerEquityTransaction),
-    );
-    paymentMethodRepository = module.get(
-      getRepositoryToken(PaymentMethodEntity),
-    );
+    ownerEquityRepository = module.get(getRepositoryToken(OwnerEquityTransaction));
+    paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     accountingService = module.get(AccountingService);
     settingsService = module.get(SettingsService);
     auditLogService = module.get(AuditLogService);
 
-    settingsService.generateDocumentNumber.mockResolvedValue("EQ-26-001");
+    settingsService.generateDocumentNumber.mockResolvedValue('EQ-26-001');
 
     jest.clearAllMocks();
   });
 
-  it("should be defined", () => {
+  it('should be defined', () => {
     expect(service).toBeDefined();
   });
 
-  it("findAll returns paginated results", async () => {
+  it('findAll returns paginated results', async () => {
     const tx = {
-      id: "tx-1",
-      referenceNumber: "EQ-1",
-      transactionDate: new Date("2026-02-01"),
+      id: 'tx-1',
+      referenceNumber: 'EQ-1',
+      transactionDate: new Date('2026-02-01'),
       type: OwnerEquityTransactionType.CAPITAL_INJECTION,
       amount: 100,
-      paymentMethodId: "pm-1",
+      paymentMethodId: 'pm-1',
       status: OwnerEquityTransactionStatus.DRAFT,
-      paymentMethod: { id: "pm-1", code: "CASH", name: "Cash" },
+      paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' },
       createdAt: new Date(),
       updatedAt: new Date(),
     } as any;
@@ -116,303 +112,280 @@ describe("OwnerEquityService", () => {
     expect(mockQueryBuilder.withDeleted).toHaveBeenCalled();
   });
 
-  it("findAll ignores invalid query filters and sanitizes pagination", async () => {
+  it('findAll ignores invalid query filters and sanitizes pagination', async () => {
     mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
 
     await service.findAll({
-      page: "1" as any,
-      limit: "100" as any,
-      type: "invalid_type" as any,
-      status: "invalid_status",
+      page: '1' as any,
+      limit: '100' as any,
+      type: 'invalid_type' as any,
+      status: 'invalid_status',
     });
 
-    expect(mockQueryBuilder.andWhere).not.toHaveBeenCalledWith(
-      "oet.type = :type",
-      {
-        type: "invalid_type",
-      },
-    );
-    expect(mockQueryBuilder.andWhere).not.toHaveBeenCalledWith(
-      "oet.status = :status",
-      {
-        status: "invalid_status",
-      },
-    );
+    expect(mockQueryBuilder.andWhere).not.toHaveBeenCalledWith('oet.type = :type', {
+      type: 'invalid_type',
+    });
+    expect(mockQueryBuilder.andWhere).not.toHaveBeenCalledWith('oet.status = :status', {
+      status: 'invalid_status',
+    });
     expect(mockQueryBuilder.skip).toHaveBeenCalledWith(0);
     expect(mockQueryBuilder.take).toHaveBeenCalledWith(100);
   });
 
-  it("findOne returns a single transaction", async () => {
+  it('findOne returns a single transaction', async () => {
     ownerEquityRepository.findOne.mockResolvedValue({
-      id: "tx-1",
-      referenceNumber: "EQ-1",
-      transactionDate: new Date("2026-02-01"),
+      id: 'tx-1',
+      referenceNumber: 'EQ-1',
+      transactionDate: new Date('2026-02-01'),
       type: OwnerEquityTransactionType.CAPITAL_INJECTION,
       amount: 100,
-      paymentMethodId: "pm-1",
+      paymentMethodId: 'pm-1',
       status: OwnerEquityTransactionStatus.DRAFT,
-      paymentMethod: { id: "pm-1", code: "CASH", name: "Cash" },
+      paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' },
       createdAt: new Date(),
       updatedAt: new Date(),
     } as any);
 
-    const result = await service.findOne("tx-1");
-    expect(result.id).toBe("tx-1");
+    const result = await service.findOne('tx-1');
+    expect(result.id).toBe('tx-1');
     expect(ownerEquityRepository.findOne).toHaveBeenCalledWith({
-      where: { id: "tx-1" },
+      where: { id: 'tx-1' },
       relations: { paymentMethod: true },
       withDeleted: true,
     });
   });
 
-  it("findOne throws NotFoundException for missing id", async () => {
+  it('findOne throws NotFoundException for missing id', async () => {
     ownerEquityRepository.findOne.mockResolvedValue(null);
-    await expect(service.findOne("missing")).rejects.toThrow(NotFoundException);
+    await expect(service.findOne('missing')).rejects.toThrow(NotFoundException);
   });
 
-  it("create creates a draft transaction", async () => {
+  it('create creates a draft transaction', async () => {
     paymentMethodRepository.findOne.mockResolvedValue({
-      id: "pm-1",
+      id: 'pm-1',
       isActive: true,
     } as any);
 
     ownerEquityRepository.create.mockReturnValue({
-      id: "tx-1",
-      referenceNumber: "EQ-26-001",
-      transactionDate: new Date("2026-02-01"),
+      id: 'tx-1',
+      referenceNumber: 'EQ-26-001',
+      transactionDate: new Date('2026-02-01'),
       type: OwnerEquityTransactionType.CAPITAL_INJECTION,
       amount: 100,
-      paymentMethodId: "pm-1",
+      paymentMethodId: 'pm-1',
       status: OwnerEquityTransactionStatus.DRAFT,
     } as any);
 
-    ownerEquityRepository.save.mockResolvedValue({ id: "tx-1" } as any);
+    ownerEquityRepository.save.mockResolvedValue({ id: 'tx-1' } as any);
     ownerEquityRepository.findOne.mockResolvedValue({
-      id: "tx-1",
-      referenceNumber: "EQ-1",
-      transactionDate: new Date("2026-02-01"),
+      id: 'tx-1',
+      referenceNumber: 'EQ-1',
+      transactionDate: new Date('2026-02-01'),
       type: OwnerEquityTransactionType.CAPITAL_INJECTION,
       amount: 100,
-      paymentMethodId: "pm-1",
+      paymentMethodId: 'pm-1',
       status: OwnerEquityTransactionStatus.DRAFT,
-      paymentMethod: { id: "pm-1", code: "CASH", name: "Cash" },
+      paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' },
       createdAt: new Date(),
       updatedAt: new Date(),
     } as any);
 
     const result = await service.create({
-      transactionDate: "2026-02-01",
+      transactionDate: '2026-02-01',
       type: OwnerEquityTransactionType.CAPITAL_INJECTION,
       amount: 100,
-      paymentMethodId: "pm-1",
+      paymentMethodId: 'pm-1',
     });
 
-    expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith(
-      "Owner Equity",
-    );
+    expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith('Owner Equity');
     expect(result.status).toBe(OwnerEquityTransactionStatus.DRAFT);
   });
 
-  it("create throws NotFoundException for invalid payment method", async () => {
+  it('create throws NotFoundException for invalid payment method', async () => {
     paymentMethodRepository.findOne.mockResolvedValue(null);
 
     await expect(
       service.create({
-        transactionDate: "2026-02-01",
+        transactionDate: '2026-02-01',
         type: OwnerEquityTransactionType.CAPITAL_INJECTION,
         amount: 100,
-        paymentMethodId: "pm-x",
+        paymentMethodId: 'pm-x',
       }),
     ).rejects.toThrow(NotFoundException);
   });
 
-  it("update updates a draft transaction", async () => {
+  it('update updates a draft transaction', async () => {
     ownerEquityRepository.findOne.mockResolvedValueOnce({
-      id: "tx-1",
+      id: 'tx-1',
       status: OwnerEquityTransactionStatus.DRAFT,
-      paymentMethodId: "pm-1",
+      paymentMethodId: 'pm-1',
     } as any);
     ownerEquityRepository.save.mockResolvedValue({} as any);
     ownerEquityRepository.findOne.mockResolvedValueOnce({
-      id: "tx-1",
-      referenceNumber: "EQ-1",
-      transactionDate: new Date("2026-02-02"),
+      id: 'tx-1',
+      referenceNumber: 'EQ-1',
+      transactionDate: new Date('2026-02-02'),
       type: OwnerEquityTransactionType.OWNER_DRAWING,
       amount: 125,
-      paymentMethodId: "pm-1",
+      paymentMethodId: 'pm-1',
       status: OwnerEquityTransactionStatus.DRAFT,
-      paymentMethod: { id: "pm-1", code: "CASH", name: "Cash" },
+      paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' },
       createdAt: new Date(),
       updatedAt: new Date(),
     } as any);
 
-    const result = await service.update("tx-1", {
+    const result = await service.update('tx-1', {
       amount: 125,
       type: OwnerEquityTransactionType.OWNER_DRAWING,
-      transactionDate: "2026-02-02",
+      transactionDate: '2026-02-02',
     });
 
     expect(result.amount).toBe(125);
     expect(result.type).toBe(OwnerEquityTransactionType.OWNER_DRAWING);
   });
 
-  it("update throws BadRequestException for posted transaction", async () => {
+  it('update throws BadRequestException for posted transaction', async () => {
     ownerEquityRepository.findOne.mockResolvedValue({
-      id: "tx-1",
+      id: 'tx-1',
       status: OwnerEquityTransactionStatus.POSTED,
     } as any);
 
-    await expect(service.update("tx-1", { amount: 90 })).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(service.update('tx-1', { amount: 90 })).rejects.toThrow(BadRequestException);
   });
 
-  it("update throws BadRequestException for reversed transaction", async () => {
+  it('update throws BadRequestException for reversed transaction', async () => {
     ownerEquityRepository.findOne.mockResolvedValue({
-      id: "tx-1",
-      status: "reversed" as OwnerEquityTransactionStatus,
+      id: 'tx-1',
+      status: 'reversed' as OwnerEquityTransactionStatus,
       deletedAt: null,
     } as any);
 
-    await expect(service.update("tx-1", { amount: 90 })).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(service.update('tx-1', { amount: 90 })).rejects.toThrow(BadRequestException);
   });
 
-  it("remove soft-deletes a draft transaction", async () => {
+  it('remove soft-deletes a draft transaction', async () => {
     ownerEquityRepository.findOne.mockResolvedValue({
-      id: "tx-1",
+      id: 'tx-1',
       status: OwnerEquityTransactionStatus.DRAFT,
     } as any);
 
-    await service.remove("tx-1");
-    expect(ownerEquityRepository.softDelete).toHaveBeenCalledWith("tx-1");
+    await service.remove('tx-1');
+    expect(ownerEquityRepository.softDelete).toHaveBeenCalledWith('tx-1');
   });
 
-  it("remove throws BadRequestException for posted transaction", async () => {
+  it('remove throws BadRequestException for posted transaction', async () => {
     ownerEquityRepository.findOne.mockResolvedValue({
-      id: "tx-1",
+      id: 'tx-1',
       status: OwnerEquityTransactionStatus.POSTED,
     } as any);
 
-    await expect(service.remove("tx-1")).rejects.toThrow(BadRequestException);
+    await expect(service.remove('tx-1')).rejects.toThrow(BadRequestException);
   });
 
-  it("remove throws BadRequestException for reversed transaction", async () => {
+  it('remove throws BadRequestException for reversed transaction', async () => {
     ownerEquityRepository.findOne.mockResolvedValue({
-      id: "tx-1",
-      status: "reversed" as OwnerEquityTransactionStatus,
+      id: 'tx-1',
+      status: 'reversed' as OwnerEquityTransactionStatus,
       deletedAt: null,
     } as any);
 
-    await expect(service.remove("tx-1")).rejects.toThrow(BadRequestException);
+    await expect(service.remove('tx-1')).rejects.toThrow(BadRequestException);
   });
 
-  it("post calls accountingService.postOwnerEquityEntry and updates status to POSTED", async () => {
+  it('post calls accountingService.postOwnerEquityEntry and updates status to POSTED', async () => {
     ownerEquityRepository.findOne.mockResolvedValueOnce({
-      id: "tx-1",
-      referenceNumber: "EQ-1",
+      id: 'tx-1',
+      referenceNumber: 'EQ-1',
       type: OwnerEquityTransactionType.CAPITAL_INJECTION,
       amount: 100,
-      transactionDate: new Date("2026-02-01"),
-      paymentMethodId: "pm-1",
+      transactionDate: new Date('2026-02-01'),
+      paymentMethodId: 'pm-1',
       status: OwnerEquityTransactionStatus.DRAFT,
-      paymentMethod: { code: "CASH", name: "Cash" },
+      paymentMethod: { code: 'CASH', name: 'Cash' },
     } as any);
 
-    accountingService.postOwnerEquityEntry.mockResolvedValue({
-      id: "je-1",
-    } as any);
+    accountingService.postOwnerEquityEntry.mockResolvedValue({ id: 'je-1' } as any);
     ownerEquityRepository.save.mockResolvedValue({} as any);
     ownerEquityRepository.findOne.mockResolvedValueOnce({
-      id: "tx-1",
-      referenceNumber: "EQ-1",
-      transactionDate: new Date("2026-02-01"),
+      id: 'tx-1',
+      referenceNumber: 'EQ-1',
+      transactionDate: new Date('2026-02-01'),
       type: OwnerEquityTransactionType.CAPITAL_INJECTION,
       amount: 100,
-      paymentMethodId: "pm-1",
+      paymentMethodId: 'pm-1',
       status: OwnerEquityTransactionStatus.POSTED,
-      journalEntryId: "je-1",
-      paymentMethod: { id: "pm-1", code: "CASH", name: "Cash" },
+      journalEntryId: 'je-1',
+      paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' },
       createdAt: new Date(),
       updatedAt: new Date(),
     } as any);
 
-    const result = await service.post("tx-1");
+    const result = await service.post('tx-1');
 
     expect(accountingService.postOwnerEquityEntry).toHaveBeenCalled();
     expect(result.status).toBe(OwnerEquityTransactionStatus.POSTED);
-    expect(result.journalEntryId).toBe("je-1");
+    expect(result.journalEntryId).toBe('je-1');
     expect(ownerEquityRepository.findOne).toHaveBeenCalledWith({
-      where: { id: "tx-1" },
+      where: { id: 'tx-1' },
       relations: { paymentMethod: true },
       withDeleted: true,
     });
   });
 
-  it("post throws BadRequestException if already posted", async () => {
+  it('post throws BadRequestException if already posted', async () => {
     ownerEquityRepository.findOne.mockResolvedValue({
-      id: "tx-1",
+      id: 'tx-1',
       status: OwnerEquityTransactionStatus.POSTED,
     } as any);
 
-    await expect(service.post("tx-1")).rejects.toThrow(BadRequestException);
+    await expect(service.post('tx-1')).rejects.toThrow(BadRequestException);
   });
 
-  it("post throws BadRequestException for reversed transaction", async () => {
+  it('post throws BadRequestException for reversed transaction', async () => {
     ownerEquityRepository.findOne.mockResolvedValue({
-      id: "tx-1",
-      status: "reversed" as OwnerEquityTransactionStatus,
+      id: 'tx-1',
+      status: 'reversed' as OwnerEquityTransactionStatus,
       deletedAt: null,
     } as any);
 
-    await expect(service.post("tx-1")).rejects.toThrow(BadRequestException);
+    await expect(service.post('tx-1')).rejects.toThrow(BadRequestException);
   });
 
-  describe("reverse", () => {
+  describe('reverse', () => {
     const postedTransaction = {
-      id: "oe-1",
-      referenceNumber: "OE-001",
+      id: 'oe-1',
+      referenceNumber: 'OE-001',
       status: OwnerEquityTransactionStatus.POSTED,
       deletedAt: null,
-      paymentMethod: { id: "pm-1", code: "CASH", name: "Cash" },
+      paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' },
     } as any;
 
-    it("throws NotFoundException when transaction is not found", async () => {
+    it('throws NotFoundException when transaction is not found', async () => {
       ownerEquityRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.reverse("oe-1", "user-1")).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.reverse('oe-1', 'user-1')).rejects.toThrow(NotFoundException);
     });
 
-    it("throws BadRequestException when status is DRAFT", async () => {
+    it('throws BadRequestException when status is DRAFT', async () => {
       ownerEquityRepository.findOne.mockResolvedValue({
         ...postedTransaction,
         status: OwnerEquityTransactionStatus.DRAFT,
       });
 
-      await expect(service.reverse("oe-1", "user-1")).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.reverse('oe-1', 'user-1')).rejects.toThrow(BadRequestException);
     });
 
-    it("throws BadRequestException when status is already REVERSED", async () => {
+    it('throws BadRequestException when status is already REVERSED', async () => {
       ownerEquityRepository.findOne.mockResolvedValue({
         ...postedTransaction,
-        status: "reversed" as OwnerEquityTransactionStatus,
+        status: 'reversed' as OwnerEquityTransactionStatus,
       });
 
-      await expect(service.reverse("oe-1", "user-1")).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.reverse('oe-1', 'user-1')).rejects.toThrow(BadRequestException);
     });
 
-    it("calls reverseSourceEntries with correct sourceType and id", async () => {
-      const reversedTx = {
-        ...postedTransaction,
-        status: "reversed" as OwnerEquityTransactionStatus,
-      };
+    it('calls reverseSourceEntries with correct sourceType and id', async () => {
+      const reversedTx = { ...postedTransaction, status: 'reversed' as OwnerEquityTransactionStatus };
 
       ownerEquityRepository.findOne
         .mockResolvedValueOnce({ ...postedTransaction })
@@ -420,21 +393,18 @@ describe("OwnerEquityService", () => {
       accountingService.reverseSourceEntries.mockResolvedValue(undefined);
       ownerEquityRepository.save.mockResolvedValue(reversedTx);
 
-      await service.reverse("oe-1", "user-1");
+      await service.reverse('oe-1', 'user-1');
 
       expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith(
-        "owner_equity_transaction",
-        "oe-1",
-        "user-1",
+        'owner_equity_transaction',
+        'oe-1',
+        'user-1',
       );
     });
 
-    it("sets status to REVERSED and saves", async () => {
+    it('sets status to REVERSED and saves', async () => {
       const tx = { ...postedTransaction };
-      const reversedTx = {
-        ...tx,
-        status: "reversed" as OwnerEquityTransactionStatus,
-      };
+      const reversedTx = { ...tx, status: 'reversed' as OwnerEquityTransactionStatus };
 
       ownerEquityRepository.findOne
         .mockResolvedValueOnce(tx)
@@ -442,18 +412,15 @@ describe("OwnerEquityService", () => {
       accountingService.reverseSourceEntries.mockResolvedValue(undefined);
       ownerEquityRepository.save.mockResolvedValue(reversedTx);
 
-      await service.reverse("oe-1", "user-1");
+      await service.reverse('oe-1', 'user-1');
 
       expect(ownerEquityRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ status: "reversed" }),
+        expect.objectContaining({ status: 'reversed' }),
       );
     });
 
-    it("calls auditLogService with REVERSE action", async () => {
-      const reversedTx = {
-        ...postedTransaction,
-        status: "reversed" as OwnerEquityTransactionStatus,
-      };
+    it('calls auditLogService with REVERSE action', async () => {
+      const reversedTx = { ...postedTransaction, status: 'reversed' as OwnerEquityTransactionStatus };
 
       ownerEquityRepository.findOne
         .mockResolvedValueOnce({ ...postedTransaction })
@@ -461,26 +428,24 @@ describe("OwnerEquityService", () => {
       accountingService.reverseSourceEntries.mockResolvedValue(undefined);
       ownerEquityRepository.save.mockResolvedValue(reversedTx);
 
-      await service.reverse("oe-1", "user-1", "admin");
+      await service.reverse('oe-1', 'user-1', 'admin');
 
       expect(auditLogService.log).toHaveBeenCalledWith(
-        "REVERSE",
-        "OwnerEquity",
-        expect.stringContaining("OE-001"),
-        expect.objectContaining({ userId: "user-1", username: "admin" }),
+        'REVERSE',
+        'OwnerEquity',
+        expect.stringContaining('OE-001'),
+        expect.objectContaining({ userId: 'user-1', username: 'admin' }),
       );
     });
 
-    it("propagates error from reverseSourceEntries without updating status", async () => {
+    it('propagates error from reverseSourceEntries without updating status', async () => {
       const tx = { ...postedTransaction };
       ownerEquityRepository.findOne.mockResolvedValue(tx);
       accountingService.reverseSourceEntries.mockRejectedValue(
-        new BadRequestException("No open fiscal period"),
+        new BadRequestException('No open fiscal period'),
       );
 
-      await expect(service.reverse("oe-1", "user-1")).rejects.toThrow(
-        "No open fiscal period",
-      );
+      await expect(service.reverse('oe-1', 'user-1')).rejects.toThrow('No open fiscal period');
       expect(ownerEquityRepository.save).not.toHaveBeenCalled();
     });
   });

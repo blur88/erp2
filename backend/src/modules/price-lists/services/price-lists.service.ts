@@ -1,19 +1,8 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  ConflictException,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, IsNull } from "typeorm";
-import { PriceList, PriceListItem } from "@/database/entities";
-import {
-  CreatePriceListDto,
-  UpdatePriceListDto,
-  QueryPriceListsDto,
-  BulkUpdatePricesDto,
-  ApplyPercentageAdjustmentDto,
-} from "../dto";
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, IsNull } from 'typeorm';
+import { PriceList, PriceListItem } from '@/database/entities';
+import { CreatePriceListDto, UpdatePriceListDto, QueryPriceListsDto, BulkUpdatePricesDto, ApplyPercentageAdjustmentDto } from '../dto';
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -37,40 +26,37 @@ export class PriceListsService {
   /**
    * Find all price lists with pagination and filtering
    */
-  async findAll(
-    query: QueryPriceListsDto,
-  ): Promise<PaginatedResponse<PriceList>> {
+  async findAll(query: QueryPriceListsDto): Promise<PaginatedResponse<PriceList>> {
     const { search, isActive, isDefault, page = 1, limit = 10 } = query;
 
-    const queryBuilder =
-      this.priceListRepository.createQueryBuilder("priceList");
+    const queryBuilder = this.priceListRepository.createQueryBuilder('priceList');
 
     // Apply filters
     if (search) {
       queryBuilder.andWhere(
-        "(priceList.code ILIKE :search OR priceList.name ILIKE :search)",
-        { search: `%${search}%` },
+        '(priceList.code ILIKE :search OR priceList.name ILIKE :search)',
+        { search: `%${search}%` }
       );
     }
 
     if (isActive !== undefined) {
-      queryBuilder.andWhere("priceList.isActive = :isActive", { isActive });
+      queryBuilder.andWhere('priceList.isActive = :isActive', { isActive });
     }
 
     if (isDefault !== undefined) {
-      queryBuilder.andWhere("priceList.isDefault = :isDefault", { isDefault });
+      queryBuilder.andWhere('priceList.isDefault = :isDefault', { isDefault });
     }
 
     // Soft delete filter
-    queryBuilder.andWhere("priceList.deletedAt IS NULL");
+    queryBuilder.andWhere('priceList.deletedAt IS NULL');
 
     // Pagination
     const skip = (page - 1) * limit;
     queryBuilder.skip(skip).take(limit);
 
     // Order by
-    queryBuilder.orderBy("priceList.isDefault", "DESC");
-    queryBuilder.addOrderBy("priceList.code", "ASC");
+    queryBuilder.orderBy('priceList.isDefault', 'DESC');
+    queryBuilder.addOrderBy('priceList.code', 'ASC');
 
     const [data, total] = await queryBuilder.getManyAndCount();
 
@@ -129,16 +115,14 @@ export class PriceListsService {
     });
 
     if (existing) {
-      throw new ConflictException(
-        `Price list with code ${createDto.code} already exists`,
-      );
+      throw new ConflictException(`Price list with code ${createDto.code} already exists`);
     }
 
     // If this is set as default, unset other defaults
     if (createDto.isDefault) {
       await this.priceListRepository.update(
         { isDefault: true },
-        { isDefault: false },
+        { isDefault: false }
       );
     }
 
@@ -162,9 +146,7 @@ export class PriceListsService {
       });
 
       if (existing) {
-        throw new ConflictException(
-          `Price list with code ${updateDto.code} already exists`,
-        );
+        throw new ConflictException(`Price list with code ${updateDto.code} already exists`);
       }
     }
 
@@ -172,7 +154,7 @@ export class PriceListsService {
     if (updateDto.isDefault && !priceList.isDefault) {
       await this.priceListRepository.update(
         { isDefault: true },
-        { isDefault: false },
+        { isDefault: false }
       );
     }
 
@@ -188,7 +170,7 @@ export class PriceListsService {
     const priceList = await this.findOne(id, false);
 
     if (priceList.isDefault) {
-      throw new BadRequestException("Cannot delete the default price list");
+      throw new BadRequestException('Cannot delete the default price list');
     }
 
     await this.priceListRepository.softDelete(id);
@@ -203,7 +185,7 @@ export class PriceListsService {
     // Unset other defaults
     await this.priceListRepository.update(
       { isDefault: true },
-      { isDefault: false },
+      { isDefault: false }
     );
 
     // Set this as default
@@ -219,19 +201,19 @@ export class PriceListsService {
     const now = new Date();
 
     return this.priceListRepository
-      .createQueryBuilder("priceList")
-      .where("priceList.isActive = :isActive", { isActive: true })
-      .andWhere("priceList.deletedAt IS NULL")
+      .createQueryBuilder('priceList')
+      .where('priceList.isActive = :isActive', { isActive: true })
+      .andWhere('priceList.deletedAt IS NULL')
       .andWhere(
-        "(priceList.effectiveFrom IS NULL OR priceList.effectiveFrom <= :now)",
-        { now },
+        '(priceList.effectiveFrom IS NULL OR priceList.effectiveFrom <= :now)',
+        { now }
       )
       .andWhere(
-        "(priceList.effectiveTo IS NULL OR priceList.effectiveTo >= :now)",
-        { now },
+        '(priceList.effectiveTo IS NULL OR priceList.effectiveTo >= :now)',
+        { now }
       )
-      .orderBy("priceList.isDefault", "DESC")
-      .addOrderBy("priceList.code", "ASC")
+      .orderBy('priceList.isDefault', 'DESC')
+      .addOrderBy('priceList.code', 'ASC')
       .getMany();
   }
 
@@ -245,7 +227,7 @@ export class PriceListsService {
     });
 
     if (!priceList) {
-      throw new NotFoundException("No default price list found");
+      throw new NotFoundException('No default price list found');
     }
 
     return priceList;
@@ -256,7 +238,7 @@ export class PriceListsService {
    */
   async bulkUpdatePrices(
     priceListId: string,
-    bulkUpdateDto: BulkUpdatePricesDto,
+    bulkUpdateDto: BulkUpdatePricesDto
   ): Promise<PriceListItem[]> {
     // Verify price list exists
     await this.findOne(priceListId, false);
@@ -280,10 +262,8 @@ export class PriceListsService {
       } else {
         // Update existing item
         priceListItem.price = item.price;
-        if (item.costBasis !== undefined)
-          priceListItem.costBasis = item.costBasis;
-        if (item.margin !== undefined)
-          priceListItem.marginPercent = item.margin;
+        if (item.costBasis !== undefined) priceListItem.costBasis = item.costBasis;
+        if (item.margin !== undefined) priceListItem.marginPercent = item.margin;
       }
 
       updatedItems.push(await this.priceListItemRepository.save(priceListItem));
@@ -298,7 +278,7 @@ export class PriceListsService {
   async copyPriceList(
     sourceId: string,
     newCode: string,
-    newName: string,
+    newName: string
   ): Promise<PriceList> {
     const sourcePriceList = await this.findOne(sourceId, true);
 
@@ -308,9 +288,7 @@ export class PriceListsService {
     });
 
     if (existing) {
-      throw new ConflictException(
-        `Price list with code ${newCode} already exists`,
-      );
+      throw new ConflictException(`Price list with code ${newCode} already exists`);
     }
 
     // Create new price list
@@ -326,14 +304,14 @@ export class PriceListsService {
 
     // Copy items
     if (sourcePriceList.items && sourcePriceList.items.length > 0) {
-      const newItems = sourcePriceList.items.map((item) =>
+      const newItems = sourcePriceList.items.map(item =>
         this.priceListItemRepository.create({
           priceListId: savedPriceList.id,
           productId: item.productId,
           price: item.price,
           costBasis: item.costBasis,
           marginPercent: item.marginPercent,
-        }),
+        })
       );
 
       await this.priceListItemRepository.save(newItems);
@@ -347,7 +325,7 @@ export class PriceListsService {
    */
   async applyPercentageAdjustment(
     priceListId: string,
-    adjustmentDto: ApplyPercentageAdjustmentDto,
+    adjustmentDto: ApplyPercentageAdjustmentDto
   ): Promise<PriceListItem[]> {
     await this.findOne(priceListId, false);
 
@@ -356,11 +334,11 @@ export class PriceListsService {
     });
 
     if (items.length === 0) {
-      throw new BadRequestException("No items found in this price list");
+      throw new BadRequestException('No items found in this price list');
     }
 
     const { percentage, roundToWhole = false } = adjustmentDto;
-    const multiplier = 1 + percentage / 100;
+    const multiplier = 1 + (percentage / 100);
 
     const updatedItems: PriceListItem[] = [];
 
@@ -387,10 +365,7 @@ export class PriceListsService {
   /**
    * Get price for a specific product in a price list
    */
-  async getPriceForProduct(
-    priceListId: string,
-    productId: string,
-  ): Promise<number | null> {
+  async getPriceForProduct(priceListId: string, productId: string): Promise<number | null> {
     const item = await this.priceListItemRepository.findOne({
       where: { priceListId, productId },
     });
@@ -405,7 +380,7 @@ export class PriceListsService {
     return this.priceListItemRepository.find({
       where: { priceListId },
       relations: { product: true },
-      order: { product: { name: "ASC" } },
+      order: { product: { name: 'ASC' } },
     });
   }
 
@@ -416,7 +391,7 @@ export class PriceListsService {
     return this.priceListItemRepository.find({
       where: { productId },
       relations: { priceList: true },
-      order: { priceList: { code: "ASC" } },
+      order: { priceList: { code: 'ASC' } },
     });
   }
 }

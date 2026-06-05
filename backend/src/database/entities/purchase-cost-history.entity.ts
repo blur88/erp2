@@ -1,96 +1,107 @@
-import { Entity, Column, Index, ManyToOne, JoinColumn } from "typeorm";
-import { IsDecimal, Min, IsDate, IsUUID } from "class-validator";
-import { BaseEntity } from "./base.entity";
-import { Product } from "./product.entity";
+import {
+  Entity,
+  Column,
+  Index,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import {
+  IsDecimal,
+  Min,
+  IsDate,
+  IsUUID,
+} from 'class-validator';
+import { BaseEntity } from './base.entity';
+import { Product } from './product.entity';
 
 /**
  * Purchase Cost History entity
  * Tracks cost and remaining quantity for each purchase batch
  * Used for stock-based weighted average base cost calculation
  */
-@Entity("purchase_cost_history")
-@Index(["productId", "remainingQuantity"])
-@Index(["productId", "receivedDate"])
+@Entity('purchase_cost_history')
+@Index(['productId', 'remainingQuantity'])
+@Index(['productId', 'receivedDate'])
 export class PurchaseCostHistory extends BaseEntity {
   @Column({
-    type: "uuid",
-    comment: "Product ID",
+    type: 'uuid',
+    comment: 'Product ID',
   })
   @IsUUID(4)
   productId: string;
 
   @Column({
-    type: "uuid",
+    type: 'uuid',
     nullable: true,
-    comment: "GRN ID or special UUID for opening balance",
+    comment: 'GRN ID or special UUID for opening balance',
   })
   @IsUUID(4)
   grnId?: string;
 
   @Column({
-    type: "decimal",
+    type: 'decimal',
     precision: 15,
     scale: 4,
-    comment: "Purchase unit cost (excluding shipping)",
+    comment: 'Purchase unit cost (excluding shipping)',
   })
-  @IsDecimal({ decimal_digits: "0,4" })
+  @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
   unitCost: number;
 
   @Column({
-    type: "decimal",
+    type: 'decimal',
     precision: 15,
     scale: 4,
     default: 0,
-    comment: "Allocated shipping cost per unit (BY VALUE)",
+    comment: 'Allocated shipping cost per unit (BY VALUE)',
   })
-  @IsDecimal({ decimal_digits: "0,4" })
+  @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
   shippingPerUnit: number;
 
   @Column({
-    type: "decimal",
+    type: 'decimal',
     precision: 15,
     scale: 4,
-    comment: "Total landed cost per unit (unitCost + shippingPerUnit)",
+    comment: 'Total landed cost per unit (unitCost + shippingPerUnit)',
   })
-  @IsDecimal({ decimal_digits: "0,4" })
+  @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
   landedCost: number;
 
   @Column({
-    type: "decimal",
+    type: 'decimal',
     precision: 15,
     scale: 4,
-    comment: "Original quantity received",
+    comment: 'Original quantity received',
   })
-  @IsDecimal({ decimal_digits: "0,4" })
+  @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
   receivedQuantity: number;
 
   @Column({
-    type: "decimal",
+    type: 'decimal',
     precision: 15,
     scale: 4,
-    comment: "Current quantity remaining in stock (for weighted average)",
+    comment: 'Current quantity remaining in stock (for weighted average)',
   })
-  @IsDecimal({ decimal_digits: "0,4" })
+  @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
   remainingQuantity: number;
 
   @Column({
-    type: "timestamp",
-    comment: "Date goods were received",
+    type: 'timestamp',
+    comment: 'Date goods were received',
   })
   @IsDate()
   receivedDate: Date;
 
   // Relationships
   @ManyToOne(() => Product, {
-    onDelete: "CASCADE",
+    onDelete: 'CASCADE',
     eager: false,
   })
-  @JoinColumn({ name: "productId" })
+  @JoinColumn({ name: 'productId' })
   product: Product;
 
   // Computed properties

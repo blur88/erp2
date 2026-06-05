@@ -1,12 +1,6 @@
-import {
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-  UnauthorizedException,
-} from "@nestjs/common";
-import { Reflector } from "@nestjs/core";
-import { UserRole } from "@/database/entities/user.entity";
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { UserRole } from '@/database/entities/user.entity';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -14,10 +8,10 @@ export class RolesGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Get required roles from @Roles decorator
-    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
-      "roles",
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>('roles', [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     // If no roles are specified, allow access
     if (!requiredRoles || requiredRoles.length === 0) {
@@ -28,9 +22,7 @@ export class RolesGuard implements CanActivate {
     const { user } = context.switchToHttp().getRequest();
 
     if (!user) {
-      throw new UnauthorizedException(
-        "You must be logged in to access this resource",
-      );
+      throw new UnauthorizedException('You must be logged in to access this resource');
     }
 
     // Admin has access to all resources
@@ -43,7 +35,7 @@ export class RolesGuard implements CanActivate {
 
     if (!hasRole) {
       throw new ForbiddenException(
-        "You do not have permission to access this resource",
+        'You do not have permission to access this resource',
       );
     }
 

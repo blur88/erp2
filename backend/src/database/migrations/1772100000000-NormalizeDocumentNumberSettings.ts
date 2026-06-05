@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class NormalizeDocumentNumberSettings1772100000000 implements MigrationInterface {
-  name = "NormalizeDocumentNumberSettings1772100000000";
+  name = 'NormalizeDocumentNumberSettings1772100000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE IF EXISTS "document_number_settings"`);
@@ -25,17 +25,17 @@ export class NormalizeDocumentNumberSettings1772100000000 implements MigrationIn
 
     const currentYear = new Date().getFullYear() % 100;
     const defaults = [
-      { name: "Sales Orders", prefix: "SO" },
-      { name: "Invoices", prefix: "INV" },
-      { name: "Payments", prefix: "PAY" },
-      { name: "Purchase Orders", prefix: "PO" },
-      { name: "Goods Received", prefix: "GRN" },
-      { name: "Vendor Payments", prefix: "VP" },
-      { name: "Stock Adjustment", prefix: "SA" },
-      { name: "Journal Entries", prefix: "JE" },
-      { name: "Expenses", prefix: "EXP" },
-      { name: "Settlements", prefix: "STL" },
-      { name: "Owner Equity", prefix: "EQ" },
+      { name: 'Sales Orders',     prefix: 'SO'  },
+      { name: 'Invoices',         prefix: 'INV' },
+      { name: 'Payments',         prefix: 'PAY' },
+      { name: 'Purchase Orders',  prefix: 'PO'  },
+      { name: 'Goods Received',   prefix: 'GRN' },
+      { name: 'Vendor Payments',  prefix: 'VP'  },
+      { name: 'Stock Adjustment', prefix: 'SA'  },
+      { name: 'Journal Entries',  prefix: 'JE'  },
+      { name: 'Expenses',         prefix: 'EXP' },
+      { name: 'Settlements',      prefix: 'STL' },
+      { name: 'Owner Equity',     prefix: 'EQ'  },
     ];
 
     for (const row of defaults) {

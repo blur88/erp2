@@ -1,51 +1,41 @@
-import {
-  BadRequestException,
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-  NotFoundException,
-  OnModuleDestroy,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, LessThan } from "typeorm";
-import { ConfigService } from "@nestjs/config";
-import Redis from "ioredis";
-import { spawn, SpawnOptions } from "child_process";
-import * as fs from "fs/promises";
-import * as path from "path";
-import * as os from "os";
-import * as crypto from "crypto";
-import { BackupLog } from "@database/entities/backup-log.entity";
-import { BackupRetentionSettings } from "@database/entities/backup-settings.entity";
-import { CompanySettings } from "@database/entities/company-settings.entity";
-import { RegionalSettings } from "@database/entities/regional-settings.entity";
-import { DocumentNumberSetting } from "@database/entities/document-number-settings.entity";
-import { PrintSettings } from "@database/entities/print-settings.entity";
-import { CreateBackupDto, BackupDatabase } from "./dto/create-backup.dto";
-import { BackupMetadata } from "./interfaces/backup-metadata.interface";
-import {
-  UpdateBackupSettingsDto,
-  BackupSettingsResponseDto,
-} from "./dto/backup-settings.dto";
-import { plainToInstance } from "class-transformer";
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException, OnModuleDestroy } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, LessThan } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
+import Redis from 'ioredis';
+import { spawn, SpawnOptions } from 'child_process';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import * as os from 'os';
+import * as crypto from 'crypto';
+import { BackupLog } from '@database/entities/backup-log.entity';
+import { BackupRetentionSettings } from '@database/entities/backup-settings.entity';
+import { CompanySettings } from '@database/entities/company-settings.entity';
+import { RegionalSettings } from '@database/entities/regional-settings.entity';
+import { DocumentNumberSetting } from '@database/entities/document-number-settings.entity';
+import { PrintSettings } from '@database/entities/print-settings.entity';
+import { CreateBackupDto, BackupDatabase } from './dto/create-backup.dto';
+import { BackupMetadata } from './interfaces/backup-metadata.interface';
+import { UpdateBackupSettingsDto, BackupSettingsResponseDto } from './dto/backup-settings.dto';
+import { plainToInstance } from 'class-transformer';
 
-type ArchiverInstance = import("archiver").Archiver;
+type ArchiverInstance = import('archiver').Archiver;
 type TarArchiveConstructor = new (
-  options?: import("archiver").ArchiverOptions,
+  options?: import('archiver').ArchiverOptions,
 ) => ArchiverInstance;
 type ArchiverModule = { TarArchive: TarArchiveConstructor };
 
 const importArchiver = new Function(
-  "specifier",
-  "return import(specifier)",
+  'specifier',
+  'return import(specifier)',
 ) as (specifier: string) => Promise<ArchiverModule>;
 
 async function loadArchiver(): Promise<ArchiverModule> {
   try {
-    return await importArchiver("archiver");
+    return await importArchiver('archiver');
   } catch (error) {
     if (process.env.JEST_WORKER_ID) {
-      return require("archiver") as ArchiverModule;
+      return require('archiver') as ArchiverModule;
     }
     throw error;
   }
@@ -73,15 +63,15 @@ export class BackupService implements OnModuleDestroy {
     private readonly configService: ConfigService,
   ) {
     this.backupDir = this.configService.get<string>(
-      "BACKUP_DIRECTORY",
-      "/app/backups",
+      'BACKUP_DIRECTORY',
+      '/app/backups',
     );
 
     // Initialize Redis client
     this.redis = new Redis({
-      host: this.configService.get<string>("REDIS_HOST", "redis"),
-      port: parseInt(this.configService.get<string>("REDIS_PORT", "6379")),
-      password: this.configService.get<string>("REDIS_PASSWORD"),
+      host: this.configService.get<string>('REDIS_HOST', 'redis'),
+      port: parseInt(this.configService.get<string>('REDIS_PORT', '6379')),
+      password: this.configService.get<string>('REDIS_PASSWORD'),
       maxRetriesPerRequest: 3,
     });
   }
@@ -101,13 +91,13 @@ export class BackupService implements OnModuleDestroy {
   ): Promise<{ stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
       const child = spawn(command, args, options);
-      let stdout = "";
-      let stderr = "";
+      let stdout = '';
+      let stderr = '';
 
-      child.stdout?.on("data", (data) => (stdout += data));
-      child.stderr?.on("data", (data) => (stderr += data));
+      child.stdout?.on('data', (data) => (stdout += data));
+      child.stderr?.on('data', (data) => (stderr += data));
 
-      child.on("close", (code, signal) => {
+      child.on('close', (code, signal) => {
         if (code === 0) {
           resolve({ stdout, stderr });
         } else if (signal) {
@@ -117,7 +107,7 @@ export class BackupService implements OnModuleDestroy {
         }
       });
 
-      child.on("error", (err) => {
+      child.on('error', (err) => {
         reject(err);
       });
     });
@@ -126,20 +116,19 @@ export class BackupService implements OnModuleDestroy {
   async createBackup(createBackupDto: CreateBackupDto): Promise<BackupLog> {
     // Use shorter timestamp format: YYYYMMDD_HHMMSS
     const now = new Date();
-    const timestamp = now
-      .toISOString()
-      .replace(/[-:]/g, "")
-      .replace(/T/, "_")
+    const timestamp = now.toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/T/, '_')
       .substring(0, 15); // YYYYMMDD_HHMMSS
     const filename = `backup_${timestamp}.tar.gz`;
-    const filepath = path.join(this.backupDir, "archives", filename);
+    const filepath = path.join(this.backupDir, 'archives', filename);
 
     // Create backup log entry
     const backupLog = this.backupLogRepository.create({
       filename,
       filepath,
       backupType: createBackupDto.backupType,
-      status: "in_progress",
+      status: 'in_progress',
       databases: createBackupDto.databases,
       createdBy: createBackupDto.createdBy,
       startedAt: new Date(),
@@ -160,7 +149,7 @@ export class BackupService implements OnModuleDestroy {
       // Create backup directories
       await this.ensureBackupDirectories();
 
-      const tempDir = path.join(this.backupDir, "temp", timestamp);
+      const tempDir = path.join(this.backupDir, 'temp', timestamp);
       await fs.mkdir(tempDir, { recursive: true });
 
       const metadata: BackupMetadata = {
@@ -169,7 +158,7 @@ export class BackupService implements OnModuleDestroy {
 
       // Backup PostgreSQL
       if (createBackupDto.databases.includes(BackupDatabase.POSTGRESQL)) {
-        this.logger.log("Starting PostgreSQL backup...");
+        this.logger.log('Starting PostgreSQL backup...');
         const pgFile = await this.backupPostgreSQL(tempDir, timestamp);
         metadata.pgVersion = await this.getPostgreSQLVersion();
         metadata.tables = await this.getPostgreSQLTables();
@@ -178,34 +167,34 @@ export class BackupService implements OnModuleDestroy {
 
       // Backup Redis
       if (createBackupDto.databases.includes(BackupDatabase.REDIS)) {
-        this.logger.log("Starting Redis backup...");
+        this.logger.log('Starting Redis backup...');
         await this.backupRedis(tempDir, timestamp);
         metadata.redisVersion = await this.getRedisVersion();
-        this.logger.log("Redis backup completed");
+        this.logger.log('Redis backup completed');
       }
 
       // Backup settings
       if (createBackupDto.includeSettings) {
-        this.logger.log("Starting settings backup...");
+        this.logger.log('Starting settings backup...');
         await this.backupSettings(tempDir, timestamp);
-        this.logger.log("Settings backup completed");
+        this.logger.log('Settings backup completed');
       }
 
       // Create metadata file
       await fs.writeFile(
-        path.join(tempDir, "metadata.json"),
+        path.join(tempDir, 'metadata.json'),
         JSON.stringify(metadata, null, 2),
-        "utf-8",
+        'utf-8',
       );
 
       // Create archive
-      this.logger.log("Creating compressed archive...");
+      this.logger.log('Creating compressed archive...');
       const archivePath = await this.createArchive(tempDir, filepath);
       const stats = await fs.stat(archivePath);
       const checksum = await this.calculateChecksum(archivePath);
 
       // Update backup log
-      backupLog.status = "completed";
+      backupLog.status = 'completed';
       backupLog.completedAt = new Date();
       backupLog.size = stats.size;
       backupLog.metadata = {
@@ -226,7 +215,7 @@ export class BackupService implements OnModuleDestroy {
     } catch (error) {
       this.logger.error(`Backup failed: ${error.message}`, error.stack);
 
-      backupLog.status = "failed";
+      backupLog.status = 'failed';
       backupLog.completedAt = new Date();
       backupLog.error = error.message;
 
@@ -238,12 +227,12 @@ export class BackupService implements OnModuleDestroy {
 
   private async ensureBackupDirectories(): Promise<void> {
     const dirs = [
-      path.join(this.backupDir, "postgresql"),
-      path.join(this.backupDir, "redis"),
-      path.join(this.backupDir, "settings"),
-      path.join(this.backupDir, "archives"),
-      path.join(this.backupDir, "temp"),
-      path.join(this.backupDir, "uploads"),
+      path.join(this.backupDir, 'postgresql'),
+      path.join(this.backupDir, 'redis'),
+      path.join(this.backupDir, 'settings'),
+      path.join(this.backupDir, 'archives'),
+      path.join(this.backupDir, 'temp'),
+      path.join(this.backupDir, 'uploads'),
     ];
 
     for (const dir of dirs) {
@@ -258,40 +247,30 @@ export class BackupService implements OnModuleDestroy {
     const filename = `erp_db_${timestamp}.sql`;
     const filepath = path.join(tempDir, filename);
 
-    const host = this.configService.get<string>("DB_HOST", "postgres");
-    const port = this.configService.get<string>("DB_PORT", "5432");
-    const database = this.configService.get<string>("DB_DATABASE", "erp_db");
-    const username = this.configService.get<string>("DB_USERNAME", "erp_user");
-    const password = this.configService.get<string>("DB_PASSWORD", "");
+    const host = this.configService.get<string>('DB_HOST', 'postgres');
+    const port = this.configService.get<string>('DB_PORT', '5432');
+    const database = this.configService.get<string>('DB_DATABASE', 'erp_db');
+    const username = this.configService.get<string>('DB_USERNAME', 'erp_user');
+    const password = this.configService.get<string>('DB_PASSWORD', '');
 
     const env = {
       ...process.env,
       PGPASSWORD: password,
     };
 
-    await this.spawnAsync(
-      "pg_dump",
-      [
-        "-h",
-        host,
-        "-p",
-        port,
-        "-U",
-        username,
-        "-d",
-        database,
-        "-F",
-        "p",
-        "--clean",
-        "--if-exists",
-        "-f",
-        filepath,
-      ],
-      { env },
-    );
+    await this.spawnAsync('pg_dump', [
+      '-h', host,
+      '-p', port,
+      '-U', username,
+      '-d', database,
+      '-F', 'p',
+      '--clean',
+      '--if-exists',
+      '-f', filepath,
+    ], { env });
 
     // Compress the SQL file
-    await this.spawnAsync("gzip", [filepath]);
+    await this.spawnAsync('gzip', [filepath]);
 
     return `${filename}.gz`;
   }
@@ -306,9 +285,9 @@ export class BackupService implements OnModuleDestroy {
     const filename = `redis_backup_${timestamp}.json`;
     const filepath = path.join(tempDir, filename);
 
-    this.logger.log("Starting Redis backup via JSON export...");
+    this.logger.log('Starting Redis backup via JSON export...');
 
-    const keys = await this.redis.keys("*");
+    const keys = await this.redis.keys('*');
     const backup: Record<string, any> = {};
 
     this.logger.log(`Found ${keys.length} Redis keys to backup`);
@@ -324,25 +303,25 @@ export class BackupService implements OnModuleDestroy {
       };
 
       switch (type) {
-        case "string":
+        case 'string':
           backup[key].value = await this.redis.get(key);
           break;
-        case "hash":
+        case 'hash':
           backup[key].value = await this.redis.hgetall(key);
           break;
-        case "list":
+        case 'list':
           backup[key].value = await this.redis.lrange(key, 0, -1);
           break;
-        case "set":
+        case 'set':
           backup[key].value = await this.redis.smembers(key);
           break;
-        case "zset":
-          const zsetData = await this.redis.zrange(key, 0, -1, "WITHSCORES");
+        case 'zset':
+          const zsetData = await this.redis.zrange(key, 0, -1, 'WITHSCORES');
           // Convert from [member, score, member, score] to [score, member, score, member] for ZADD
           const zaddFormat = [];
           for (let i = 0; i < zsetData.length; i += 2) {
             zaddFormat.push(zsetData[i + 1]); // score
-            zaddFormat.push(zsetData[i]); // member
+            zaddFormat.push(zsetData[i]);     // member
           }
           backup[key].value = zaddFormat;
           break;
@@ -351,9 +330,7 @@ export class BackupService implements OnModuleDestroy {
 
     await fs.writeFile(filepath, JSON.stringify(backup, null, 2));
 
-    this.logger.log(
-      `Redis backup completed: ${keys.length} keys exported to ${filename}`,
-    );
+    this.logger.log(`Redis backup completed: ${keys.length} keys exported to ${filename}`);
 
     return filename;
   }
@@ -365,17 +342,13 @@ export class BackupService implements OnModuleDestroy {
     const filename = `settings_${timestamp}.json`;
     const filepath = path.join(tempDir, filename);
 
-    const [
-      companySettings,
-      regionalSettings,
-      documentNumberSettings,
-      printSettings,
-    ] = await Promise.all([
-      this.getCompanySettings(),
-      this.getRegionalSettings(),
-      this.getDocumentNumberSettings(),
-      this.getPrintSettings(),
-    ]);
+    const [companySettings, regionalSettings, documentNumberSettings, printSettings] =
+      await Promise.all([
+        this.getCompanySettings(),
+        this.getRegionalSettings(),
+        this.getDocumentNumberSettings(),
+        this.getPrintSettings(),
+      ]);
 
     const settings = {
       companySettings,
@@ -397,17 +370,17 @@ export class BackupService implements OnModuleDestroy {
     const { TarArchive } = await loadArchiver();
 
     return new Promise((resolve, reject) => {
-      const output = require("fs").createWriteStream(outputPath);
+      const output = require('fs').createWriteStream(outputPath);
       const archive = new TarArchive({
         gzip: true,
         gzipOptions: { level: 9 },
       });
 
-      output.on("close", () => {
+      output.on('close', () => {
         resolve(outputPath);
       });
 
-      archive.on("error", (err) => {
+      archive.on('error', (err) => {
         reject(err);
       });
 
@@ -420,52 +393,40 @@ export class BackupService implements OnModuleDestroy {
 
   private async calculateChecksum(filepath: string): Promise<string> {
     const fileBuffer = await fs.readFile(filepath);
-    const hashSum = crypto.createHash("sha256");
+    const hashSum = crypto.createHash('sha256');
     hashSum.update(fileBuffer);
-    return hashSum.digest("hex");
+    return hashSum.digest('hex');
   }
 
   private async getPostgreSQLVersion(): Promise<string> {
     try {
-      const { stdout } = await this.spawnAsync("psql", ["--version"]);
+      const { stdout } = await this.spawnAsync('psql', ['--version']);
       return stdout.trim();
     } catch (error) {
-      return "unknown";
+      return 'unknown';
     }
   }
 
   private async getPostgreSQLTables(): Promise<string[]> {
     try {
-      const host = this.configService.get<string>("DB_HOST", "postgres");
-      const port = this.configService.get<string>("DB_PORT", "5432");
-      const database = this.configService.get<string>("DB_DATABASE", "erp_db");
-      const username = this.configService.get<string>(
-        "DB_USERNAME",
-        "erp_user",
-      );
-      const password = this.configService.get<string>("DB_PASSWORD", "");
+      const host = this.configService.get<string>('DB_HOST', 'postgres');
+      const port = this.configService.get<string>('DB_PORT', '5432');
+      const database = this.configService.get<string>('DB_DATABASE', 'erp_db');
+      const username = this.configService.get<string>('DB_USERNAME', 'erp_user');
+      const password = this.configService.get<string>('DB_PASSWORD', '');
 
       const env = { ...process.env, PGPASSWORD: password };
 
-      const { stdout } = await this.spawnAsync(
-        "psql",
-        [
-          "-h",
-          host,
-          "-p",
-          port,
-          "-U",
-          username,
-          "-d",
-          database,
-          "-t",
-          "-c",
-          "SELECT tablename FROM pg_tables WHERE schemaname='public'",
-        ],
-        { env },
-      );
+      const { stdout } = await this.spawnAsync('psql', [
+        '-h', host,
+        '-p', port,
+        '-U', username,
+        '-d', database,
+        '-t',
+        '-c', "SELECT tablename FROM pg_tables WHERE schemaname='public'",
+      ], { env });
       return stdout
-        .split("\n")
+        .split('\n')
         .map((line) => line.trim())
         .filter((line) => line.length > 0);
     } catch (error) {
@@ -475,11 +436,11 @@ export class BackupService implements OnModuleDestroy {
 
   private async getRedisVersion(): Promise<string> {
     try {
-      const info = await this.redis.info("server");
+      const info = await this.redis.info('server');
       const match = info.match(/redis_version:([\d.]+)/);
-      return match ? match[1] : "unknown";
+      return match ? match[1] : 'unknown';
     } catch (error) {
-      return "unknown";
+      return 'unknown';
     }
   }
 
@@ -510,7 +471,7 @@ export class BackupService implements OnModuleDestroy {
   private async getPrintSettings(): Promise<any> {
     const settings = await this.printSettingsRepository.findOne({
       where: {},
-      order: { createdAt: "ASC" },
+      order: { createdAt: 'ASC' },
     });
 
     if (!settings) {
@@ -565,7 +526,7 @@ export class BackupService implements OnModuleDestroy {
 
   private async getDocumentNumberSettings(): Promise<any> {
     const configurations = await this.documentNumberSettingRepository.find({
-      order: { documentName: "ASC" },
+      order: { documentName: 'ASC' },
     });
 
     if (!configurations.length) {
@@ -578,16 +539,16 @@ export class BackupService implements OnModuleDestroy {
   }
 
   private formatBytes(bytes: number): string {
-    if (bytes === 0) return "0 Bytes";
+    if (bytes === 0) return '0 Bytes';
     const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   }
 
   async findAll(): Promise<BackupLog[]> {
     return this.backupLogRepository.find({
-      order: { createdAt: "DESC" },
+      order: { createdAt: 'DESC' },
     });
   }
 
@@ -618,76 +579,65 @@ export class BackupService implements OnModuleDestroy {
     return backup.filepath;
   }
 
-  async restoreBackup(
-    id: string,
-    restoredBy: string = "system",
-  ): Promise<BackupLog> {
+  async restoreBackup(id: string, restoredBy: string = 'system'): Promise<BackupLog> {
     const backup = await this.findOne(id);
 
-    if (backup.status !== "completed") {
-      throw new Error("Cannot restore from incomplete backup");
+    if (backup.status !== 'completed') {
+      throw new Error('Cannot restore from incomplete backup');
     }
 
     this.logger.log(`Starting restore from backup: ${backup.filename}`);
 
-    const restoreDir = path.join(
-      this.backupDir,
-      "temp",
-      `restore_${Date.now()}`,
-    );
+    const restoreDir = path.join(this.backupDir, 'temp', `restore_${Date.now()}`);
 
     try {
       // Verify backup integrity
-      this.logger.log("Verifying backup integrity...");
+      this.logger.log('Verifying backup integrity...');
       await this.verifyBackupIntegrity(backup);
 
       // Extract archive
-      this.logger.log("Extracting backup archive...");
+      this.logger.log('Extracting backup archive...');
       await this.extractArchive(backup.filepath, restoreDir);
 
       // Read metadata
-      const metadataPath = path.join(restoreDir, "metadata.json");
-      const metadataContent = await fs.readFile(metadataPath, "utf-8");
+      const metadataPath = path.join(restoreDir, 'metadata.json');
+      const metadataContent = await fs.readFile(metadataPath, 'utf-8');
       const metadata: BackupMetadata = JSON.parse(metadataContent);
 
       // IMPORTANT: Save all current backup logs BEFORE restoring PostgreSQL
       // because restore will overwrite the backup_logs table
       let allCurrentBackups: BackupLog[] = [];
-      if (backup.databases.includes("postgresql")) {
-        this.logger.log(
-          "Saving current backup records before PostgreSQL restore...",
-        );
+      if (backup.databases.includes('postgresql')) {
+        this.logger.log('Saving current backup records before PostgreSQL restore...');
         allCurrentBackups = await this.backupLogRepository.find();
         this.logger.log(`Saved ${allCurrentBackups.length} backup records`);
       }
 
       // Restore databases in order
-      if (backup.databases.includes("postgresql")) {
-        this.logger.log("Restoring PostgreSQL database...");
+      if (backup.databases.includes('postgresql')) {
+        this.logger.log('Restoring PostgreSQL database...');
         await this.restorePostgreSQL(restoreDir);
       }
 
-      if (backup.databases.includes("redis")) {
-        this.logger.log("Restoring Redis database...");
+      if (backup.databases.includes('redis')) {
+        this.logger.log('Restoring Redis database...');
         await this.restoreRedis(restoreDir);
       }
 
       // Restore settings
       if (metadata.settingsIncluded) {
-        this.logger.log("Restoring system settings...");
+        this.logger.log('Restoring system settings...');
         await this.restoreSettings(restoreDir);
       }
 
       // Cleanup temp directory
       await fs.rm(restoreDir, { recursive: true, force: true });
 
-      this.logger.log(
-        `Restore completed successfully from: ${backup.filename}`,
-      );
+      this.logger.log(`Restore completed successfully from: ${backup.filename}`);
 
       // Restore all backup records that existed before the restore
       if (allCurrentBackups.length > 0) {
-        this.logger.log("Restoring backup records after PostgreSQL restore...");
+        this.logger.log('Restoring backup records after PostgreSQL restore...');
 
         for (const backupRecord of allCurrentBackups) {
           try {
@@ -754,21 +704,16 @@ export class BackupService implements OnModuleDestroy {
     if (backup.metadata?.checksum) {
       const currentChecksum = await this.calculateChecksum(backup.filepath);
       if (currentChecksum !== backup.metadata.checksum) {
-        throw new Error(
-          "Backup file integrity check failed - checksum mismatch",
-        );
+        throw new Error('Backup file integrity check failed - checksum mismatch');
       }
-      this.logger.log("Backup integrity verified successfully");
+      this.logger.log('Backup integrity verified successfully');
     }
   }
 
-  private async extractArchive(
-    archivePath: string,
-    destDir: string,
-  ): Promise<void> {
+  private async extractArchive(archivePath: string, destDir: string): Promise<void> {
     await fs.mkdir(destDir, { recursive: true });
 
-    await this.spawnAsync("tar", ["-xzf", archivePath, "-C", destDir]);
+    await this.spawnAsync('tar', ['-xzf', archivePath, '-C', destDir]);
 
     this.logger.log(`Archive extracted to: ${destDir}`);
   }
@@ -776,29 +721,27 @@ export class BackupService implements OnModuleDestroy {
   private async restorePostgreSQL(restoreDir: string): Promise<void> {
     // Find the PostgreSQL dump file
     const files = await fs.readdir(restoreDir);
-    const sqlFile = files.find((f) => f.endsWith(".sql.gz"));
+    const sqlFile = files.find((f) => f.endsWith('.sql.gz'));
 
     if (!sqlFile) {
-      this.logger.warn(
-        "No PostgreSQL dump file found, skipping PostgreSQL restore",
-      );
+      this.logger.warn('No PostgreSQL dump file found, skipping PostgreSQL restore');
       return;
     }
 
     const sqlPath = path.join(restoreDir, sqlFile);
 
     // Decompress the SQL file
-    await this.spawnAsync("gunzip", [sqlPath]);
-    const decompressedPath = sqlPath.replace(".gz", "");
+    await this.spawnAsync('gunzip', [sqlPath]);
+    const decompressedPath = sqlPath.replace('.gz', '');
 
-    const host = this.configService.get<string>("DB_HOST", "postgres");
-    const port = this.configService.get<string>("DB_PORT", "5432");
-    const database = this.configService.get<string>("DB_DATABASE", "erp_db");
-    const username = this.configService.get<string>("DB_USERNAME", "erp_user");
-    const password = this.configService.get<string>("DB_PASSWORD", "");
+    const host = this.configService.get<string>('DB_HOST', 'postgres');
+    const port = this.configService.get<string>('DB_PORT', '5432');
+    const database = this.configService.get<string>('DB_DATABASE', 'erp_db');
+    const username = this.configService.get<string>('DB_USERNAME', 'erp_user');
+    const password = this.configService.get<string>('DB_PASSWORD', '');
 
     // Use full path to psql to avoid Alpine Linux wrapper script issues
-    const psqlPath = "/usr/bin/psql";
+    const psqlPath = '/usr/bin/psql';
     const env = {
       ...process.env,
       PGPASSWORD: password,
@@ -806,66 +749,46 @@ export class BackupService implements OnModuleDestroy {
 
     // Drop existing connections to the database
     try {
-      await this.spawnAsync(
-        psqlPath,
-        [
-          "-h",
-          host,
-          "-p",
-          port,
-          "-U",
-          username,
-          "-d",
-          "postgres",
-          "-c",
-          `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${database}' AND pid <> pg_backend_pid();`,
-        ],
-        { env },
-      );
+      await this.spawnAsync(psqlPath, [
+        '-h', host,
+        '-p', port,
+        '-U', username,
+        '-d', 'postgres',
+        '-c', `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${database}' AND pid <> pg_backend_pid();`,
+      ], { env });
     } catch (error) {
-      this.logger.warn("Failed to drop existing connections, continuing...");
+      this.logger.warn('Failed to drop existing connections, continuing...');
     }
 
     // Restore the database
-    await this.spawnAsync(
-      psqlPath,
-      [
-        "-h",
-        host,
-        "-p",
-        port,
-        "-U",
-        username,
-        "-d",
-        database,
-        "-f",
-        decompressedPath,
-      ],
-      { env },
-    );
+    await this.spawnAsync(psqlPath, [
+      '-h', host,
+      '-p', port,
+      '-U', username,
+      '-d', database,
+      '-f', decompressedPath,
+    ], { env });
 
-    this.logger.log("PostgreSQL restore completed");
+    this.logger.log('PostgreSQL restore completed');
   }
 
   private async restoreRedis(restoreDir: string): Promise<void> {
     // Find the Redis JSON backup file (supports both old and new formats)
     const files = await fs.readdir(restoreDir);
     const redisJsonFile = files.find(
-      (f) =>
-        (f.startsWith("redis_backup_") || f.startsWith("redis_settings_")) &&
-        f.endsWith(".json"),
+      (f) => (f.startsWith('redis_backup_') || f.startsWith('redis_settings_')) && f.endsWith('.json')
     );
 
     if (!redisJsonFile) {
-      this.logger.warn("No Redis backup file found, skipping Redis restore");
+      this.logger.warn('No Redis backup file found, skipping Redis restore');
       return;
     }
 
     const redisJsonPath = path.join(restoreDir, redisJsonFile);
-    const backupContent = await fs.readFile(redisJsonPath, "utf-8");
+    const backupContent = await fs.readFile(redisJsonPath, 'utf-8');
     const backup = JSON.parse(backupContent);
 
-    this.logger.log("Starting Redis restore...");
+    this.logger.log('Starting Redis restore...');
 
     // Clear existing Redis data
     await this.redis.flushall();
@@ -875,34 +798,33 @@ export class BackupService implements OnModuleDestroy {
     // Restore all keys
     for (const [key, data] of Object.entries(backup)) {
       // Handle new format with type/ttl/value structure
-      const keyData =
-        typeof data === "object" && data !== null && "type" in data
-          ? (data as any)
-          : { type: null, ttl: null, value: data };
+      const keyData = typeof data === 'object' && data !== null && 'type' in data
+        ? data as any
+        : { type: null, ttl: null, value: data };
 
       const { type, ttl, value } = keyData;
 
       try {
         switch (type) {
-          case "string":
+          case 'string':
             await this.redis.set(key, value);
             break;
-          case "hash":
-            if (value && typeof value === "object") {
+          case 'hash':
+            if (value && typeof value === 'object') {
               await this.redis.hmset(key, value);
             }
             break;
-          case "list":
+          case 'list':
             if (Array.isArray(value) && value.length > 0) {
               await this.redis.rpush(key, ...value);
             }
             break;
-          case "set":
+          case 'set':
             if (Array.isArray(value) && value.length > 0) {
               await this.redis.sadd(key, ...value);
             }
             break;
-          case "zset":
+          case 'zset':
             if (Array.isArray(value) && value.length > 0) {
               // value is array like [member1, score1, member2, score2, ...]
               await this.redis.zadd(key, ...value);
@@ -910,11 +832,11 @@ export class BackupService implements OnModuleDestroy {
             break;
           default:
             // Fallback for old format or unknown types
-            if (typeof value === "string") {
+            if (typeof value === 'string') {
               await this.redis.set(key, value);
             } else if (Array.isArray(value)) {
               await this.redis.rpush(key, ...value);
-            } else if (typeof value === "object") {
+            } else if (typeof value === 'object') {
               await this.redis.hmset(key, value);
             }
         }
@@ -926,9 +848,7 @@ export class BackupService implements OnModuleDestroy {
 
         restoredCount++;
       } catch (error) {
-        this.logger.error(
-          `Failed to restore Redis key '${key}': ${error.message}`,
-        );
+        this.logger.error(`Failed to restore Redis key '${key}': ${error.message}`);
       }
     }
 
@@ -937,28 +857,24 @@ export class BackupService implements OnModuleDestroy {
 
   private async restoreSettings(restoreDir: string): Promise<void> {
     const files = await fs.readdir(restoreDir);
-    const settingsFile = files.find(
-      (f) => f.startsWith("settings_") && f.endsWith(".json"),
-    );
+    const settingsFile = files.find((f) => f.startsWith('settings_') && f.endsWith('.json'));
 
     if (!settingsFile) {
-      this.logger.warn("No settings file found, skipping settings restore");
+      this.logger.warn('No settings file found, skipping settings restore');
       return;
     }
 
     const settingsPath = path.join(restoreDir, settingsFile);
-    const settingsContent = await fs.readFile(settingsPath, "utf-8");
+    const settingsContent = await fs.readFile(settingsPath, 'utf-8');
     const settings = JSON.parse(settingsContent);
 
     // Restore each settings type independently - failures are non-fatal
     await this.restoreCompanySettings(settings.companySettings);
-    await this.restoreRegionalSettings(
-      settings.regionalSettings ?? settings.priceCostingSettings,
-    );
+    await this.restoreRegionalSettings(settings.regionalSettings ?? settings.priceCostingSettings);
     await this.restoreDocumentNumberSettings(settings.documentNumberSettings);
     await this.restorePrintSettingsData(settings.printSettings);
 
-    this.logger.log("Settings restore completed");
+    this.logger.log('Settings restore completed');
   }
 
   private async restoreCompanySettings(data: any): Promise<void> {
@@ -966,22 +882,17 @@ export class BackupService implements OnModuleDestroy {
 
     try {
       const { logoUrl: _logo, ...safeData } = data;
-      const existing = await this.companySettingsRepository.findOne({
-        where: { isActive: true },
-      });
+      const existing = await this.companySettingsRepository.findOne({ where: { isActive: true } });
 
       if (existing) {
         Object.assign(existing, safeData);
         await this.companySettingsRepository.save(existing);
       } else {
-        const created = this.companySettingsRepository.create({
-          ...safeData,
-          isActive: true,
-        });
+        const created = this.companySettingsRepository.create({ ...safeData, isActive: true });
         await this.companySettingsRepository.save(created);
       }
 
-      this.logger.log("Company settings restored");
+      this.logger.log('Company settings restored');
     } catch (error) {
       this.logger.warn(`Failed to restore company settings: ${error.message}`);
     }
@@ -991,22 +902,17 @@ export class BackupService implements OnModuleDestroy {
     if (!data || Object.keys(data).length === 0) return;
 
     try {
-      const existing = await this.regionalSettingsRepository.findOne({
-        where: { isActive: true },
-      });
+      const existing = await this.regionalSettingsRepository.findOne({ where: { isActive: true } });
 
       if (existing) {
         Object.assign(existing, data);
         await this.regionalSettingsRepository.save(existing);
       } else {
-        const created = this.regionalSettingsRepository.create({
-          ...data,
-          isActive: true,
-        });
+        const created = this.regionalSettingsRepository.create({ ...data, isActive: true });
         await this.regionalSettingsRepository.save(created);
       }
 
-      this.logger.log("Regional settings restored");
+      this.logger.log('Regional settings restored');
     } catch (error) {
       this.logger.warn(`Failed to restore regional settings: ${error.message}`);
     }
@@ -1016,9 +922,7 @@ export class BackupService implements OnModuleDestroy {
     if (!data || Object.keys(data).length === 0) return;
 
     try {
-      const configurations = Array.isArray(data.configurations)
-        ? data.configurations
-        : [];
+      const configurations = Array.isArray(data.configurations) ? data.configurations : [];
       const currentYY = new Date().getFullYear() % 100;
 
       for (const config of configurations) {
@@ -1043,11 +947,9 @@ export class BackupService implements OnModuleDestroy {
         }
       }
 
-      this.logger.log("Document number settings restored");
+      this.logger.log('Document number settings restored');
     } catch (error) {
-      this.logger.warn(
-        `Failed to restore document number settings: ${error.message}`,
-      );
+      this.logger.warn(`Failed to restore document number settings: ${error.message}`);
     }
   }
 
@@ -1058,7 +960,7 @@ export class BackupService implements OnModuleDestroy {
       const { logoUrl: _logo, ...safeData } = data;
       const existing = await this.printSettingsRepository.findOne({
         where: {},
-        order: { createdAt: "ASC" },
+        order: { createdAt: 'ASC' },
       });
 
       if (existing) {
@@ -1069,7 +971,7 @@ export class BackupService implements OnModuleDestroy {
         await this.printSettingsRepository.save(created);
       }
 
-      this.logger.log("Print settings restored");
+      this.logger.log('Print settings restored');
     } catch (error) {
       this.logger.warn(`Failed to restore print settings: ${error.message}`);
     }
@@ -1086,7 +988,7 @@ export class BackupService implements OnModuleDestroy {
     // Find old completed backups
     const oldBackups = await this.backupLogRepository.find({
       where: {
-        status: "completed",
+        status: 'completed',
         createdAt: LessThan(cutoffDate) as any,
       },
     });
@@ -1111,20 +1013,20 @@ export class BackupService implements OnModuleDestroy {
   async processUploadedBackup(file: Express.Multer.File): Promise<BackupLog> {
     this.logger.log(`Processing uploaded backup: ${file.originalname}`);
 
-    const uploadsDir = path.resolve(this.backupDir, "uploads");
+    const uploadsDir = path.resolve(this.backupDir, 'uploads');
     const uploadPath = path.resolve(file.path);
     if (!uploadPath.startsWith(`${uploadsDir}${path.sep}`)) {
-      throw new BadRequestException("Invalid upload path detected");
+      throw new BadRequestException('Invalid upload path detected');
     }
 
     const originalFilename = path.basename(file.originalname);
-    const archivesDir = path.resolve(this.backupDir, "archives");
-    const ext = originalFilename.endsWith(".tar.gz") ? ".tar.gz" : ".tgz";
+    const archivesDir = path.resolve(this.backupDir, 'archives');
+    const ext = originalFilename.endsWith('.tar.gz') ? '.tar.gz' : '.tgz';
     const archiveFilename = `uploaded_backup_${Date.now()}_${crypto.randomUUID()}${ext}`;
     const archivePath = path.resolve(archivesDir, archiveFilename);
 
     if (!archivePath.startsWith(`${archivesDir}${path.sep}`)) {
-      throw new BadRequestException("Invalid backup path detected");
+      throw new BadRequestException('Invalid backup path detected');
     }
 
     try {
@@ -1135,22 +1037,20 @@ export class BackupService implements OnModuleDestroy {
       await fs.rename(uploadPath, archivePath);
 
       // Extract and verify the backup to read metadata
-      const tempDir = path.join(this.backupDir, "temp", `verify_${Date.now()}`);
+      const tempDir = path.join(this.backupDir, 'temp', `verify_${Date.now()}`);
       await this.extractArchive(archivePath, tempDir);
 
       // Read metadata
-      const metadataPath = path.join(tempDir, "metadata.json");
+      const metadataPath = path.join(tempDir, 'metadata.json');
       let metadata: BackupMetadata;
 
       try {
-        const metadataContent = await fs.readFile(metadataPath, "utf-8");
+        const metadataContent = await fs.readFile(metadataPath, 'utf-8');
         metadata = JSON.parse(metadataContent);
       } catch (error) {
-        this.logger.warn(
-          "Could not read metadata from backup file, using defaults",
-        );
+        this.logger.warn('Could not read metadata from backup file, using defaults');
         metadata = {
-          description: "Uploaded backup",
+          description: 'Uploaded backup',
           settingsIncluded: false,
         } as any;
       }
@@ -1163,11 +1063,11 @@ export class BackupService implements OnModuleDestroy {
       const files = await fs.readdir(tempDir);
       const databases: string[] = [];
 
-      if (files.some((f) => f.endsWith(".sql.gz"))) {
-        databases.push("postgresql");
+      if (files.some((f) => f.endsWith('.sql.gz'))) {
+        databases.push('postgresql');
       }
-      if (files.some((f) => f.startsWith("redis_"))) {
-        databases.push("redis");
+      if (files.some((f) => f.startsWith('redis_'))) {
+        databases.push('redis');
       }
 
       // Cleanup temp directory
@@ -1177,10 +1077,10 @@ export class BackupService implements OnModuleDestroy {
       const backupLog = this.backupLogRepository.create({
         filename: archiveFilename,
         filepath: archivePath,
-        backupType: "manual",
-        status: "completed",
+        backupType: 'manual',
+        status: 'completed',
         databases,
-        createdBy: "uploaded",
+        createdBy: 'uploaded',
         startedAt: new Date(),
         completedAt: new Date(),
         size: stats.size,
@@ -1200,18 +1100,13 @@ export class BackupService implements OnModuleDestroy {
 
       return backupLog;
     } catch (error) {
-      this.logger.error(
-        `Failed to process uploaded backup: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to process uploaded backup: ${error.message}`, error.stack);
 
       // Cleanup on error
       try {
         await fs.unlink(archivePath);
       } catch (cleanupError) {
-        this.logger.warn(
-          `Failed to cleanup uploaded file: ${cleanupError.message}`,
-        );
+        this.logger.warn(`Failed to cleanup uploaded file: ${cleanupError.message}`);
       }
 
       throw error;
@@ -1238,9 +1133,7 @@ export class BackupService implements OnModuleDestroy {
         `Failed to get backup settings: ${error.message}`,
         error.stack,
       );
-      throw new InternalServerErrorException(
-        "Failed to retrieve backup settings",
-      );
+      throw new InternalServerErrorException('Failed to retrieve backup settings');
     }
   }
 
@@ -1249,7 +1142,7 @@ export class BackupService implements OnModuleDestroy {
    */
   async updateBackupSettings(
     updateDto: UpdateBackupSettingsDto,
-    updatedBy = "system",
+    updatedBy = 'system',
   ): Promise<BackupSettingsResponseDto> {
     try {
       let settings = await this.backupSettingsRepository.findOne({
@@ -1277,9 +1170,7 @@ export class BackupService implements OnModuleDestroy {
         `Failed to update backup settings: ${error.message}`,
         error.stack,
       );
-      throw new InternalServerErrorException(
-        "Failed to update backup settings",
-      );
+      throw new InternalServerErrorException('Failed to update backup settings');
     }
   }
 
@@ -1290,15 +1181,14 @@ export class BackupService implements OnModuleDestroy {
     const defaultSettings = this.backupSettingsRepository.create({
       retentionDays: 30,
       autoCleanupEnabled: true,
-      cleanupTime: "02:00",
+      cleanupTime: '02:00',
       maximumBackupsToKeep: null,
       maximumTotalSize: null,
       isActive: true,
     });
 
-    const savedSettings =
-      await this.backupSettingsRepository.save(defaultSettings);
-    this.logger.log("Default backup settings created");
+    const savedSettings = await this.backupSettingsRepository.save(defaultSettings);
+    this.logger.log('Default backup settings created');
 
     return savedSettings;
   }
@@ -1322,27 +1212,25 @@ export class BackupService implements OnModuleDestroy {
       const settings = await this.getBackupSettings();
 
       if (!settings.autoCleanupEnabled) {
-        this.logger.log("Auto cleanup is disabled, skipping cleanup");
+        this.logger.log('Auto cleanup is disabled, skipping cleanup');
         return 0;
       }
 
       // Get all backups (completed, failed, or stuck in_progress) ordered by creation date (oldest first)
       // We include all statuses because stuck/failed backups should also be cleaned up
       const allBackups = await this.backupLogRepository.find({
-        order: { createdAt: "ASC" },
+        order: { createdAt: 'ASC' },
       });
 
       let deletedCount = 0;
       const now = new Date();
       const retentionCutoff = new Date();
-      retentionCutoff.setDate(
-        retentionCutoff.getDate() - settings.retentionDays,
-      );
+      retentionCutoff.setDate(retentionCutoff.getDate() - settings.retentionDays);
 
       this.logger.log(
         `Running cleanup with settings: retentionDays=${settings.retentionDays}, ` +
-          `maximumBackupsToKeep=${settings.maximumBackupsToKeep}, ` +
-          `maximumTotalSize=${settings.maximumTotalSize}`,
+        `maximumBackupsToKeep=${settings.maximumBackupsToKeep}, ` +
+        `maximumTotalSize=${settings.maximumTotalSize}`,
       );
 
       // Calculate total size
@@ -1363,10 +1251,7 @@ export class BackupService implements OnModuleDestroy {
       }
 
       // Delete backups exceeding maximum count
-      if (
-        settings.maximumBackupsToKeep &&
-        backupsToKeep.length > settings.maximumBackupsToKeep
-      ) {
+      if (settings.maximumBackupsToKeep && backupsToKeep.length > settings.maximumBackupsToKeep) {
         const excess = backupsToKeep.length - settings.maximumBackupsToKeep;
         // Add oldest backups to delete list
         backupsToDelete.push(...backupsToKeep.slice(0, excess));
@@ -1393,9 +1278,7 @@ export class BackupService implements OnModuleDestroy {
           await this.remove(backup.id);
           deletedCount++;
         } catch (error) {
-          this.logger.warn(
-            `Failed to delete backup ${backup.id}: ${error.message}`,
-          );
+          this.logger.warn(`Failed to delete backup ${backup.id}: ${error.message}`);
         }
       }
 
@@ -1405,10 +1288,7 @@ export class BackupService implements OnModuleDestroy {
 
       return deletedCount;
     } catch (error) {
-      this.logger.error(
-        `Cleanup with settings failed: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Cleanup with settings failed: ${error.message}`, error.stack);
       throw error;
     }
   }

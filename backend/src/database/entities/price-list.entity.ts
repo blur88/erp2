@@ -1,58 +1,63 @@
-import { Entity, Column, Index, OneToMany } from "typeorm";
+import {
+  Entity,
+  Column,
+  Index,
+  OneToMany,
+} from 'typeorm';
 import {
   IsString,
   IsBoolean,
   IsOptional,
   IsDate,
   IsNumber,
-} from "class-validator";
-import { BaseEntity } from "./base.entity";
-import { PriceListItem } from "./price-list-item.entity";
-import { Customer } from "./customer.entity";
+} from 'class-validator';
+import { BaseEntity } from './base.entity';
+import { PriceListItem } from './price-list-item.entity';
+import { Customer } from './customer.entity';
 
 /**
  * PriceList Entity
  * Master table for pricing schemes (replaces JSONB customerPricingSchemes)
  */
-@Entity("price_lists")
-@Index(["code"])
-@Index(["isActive"])
-@Index(["isDefault"])
+@Entity('price_lists')
+@Index(['code'])
+@Index(['isActive'])
+@Index(['isDefault'])
 export class PriceList extends BaseEntity {
-  @Column({ type: "varchar", length: 50, unique: true })
+  @Column({ type: 'varchar', length: 50, unique: true })
   @IsString()
   code: string;
 
-  @Column({ type: "varchar", length: 100 })
+  @Column({ type: 'varchar', length: 100 })
   @IsString()
   name: string;
 
-  @Column({ type: "text", nullable: true })
+  @Column({ type: 'text', nullable: true })
   @IsString()
   @IsOptional()
   description: string;
 
-  @Column({ type: "boolean", default: false })
+  @Column({ type: 'boolean', default: false })
   @IsBoolean()
   @IsOptional()
   isDefault: boolean;
 
-  @Column({ type: "boolean", default: true })
+  @Column({ type: 'boolean', default: true })
   @IsBoolean()
   @IsOptional()
   declare isActive: boolean;
 
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   @IsDate()
   @IsOptional()
   effectiveFrom: Date;
 
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   @IsDate()
   @IsOptional()
   effectiveTo: Date;
 
-  @Column({ type: "int", default: 0 })
+  @Column({ type: 'int', default: 0 })
   @IsNumber()
   @IsOptional()
   priority: number;

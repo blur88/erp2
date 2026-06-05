@@ -1,9 +1,9 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { IsNull, Repository } from "typeorm";
-import { Product } from "../../../database/entities/product.entity";
-import { BaseCostCalculatorService } from "./base-cost-calculator.service";
-import { CostingStrategyFactory } from "./costing/costing-strategy-factory.service";
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { IsNull, Repository } from 'typeorm';
+import { Product } from '../../../database/entities/product.entity';
+import { BaseCostCalculatorService } from './base-cost-calculator.service';
+import { CostingStrategyFactory } from './costing/costing-strategy-factory.service';
 
 /**
  * Service to recalculate all product costs when costing method changes
@@ -38,12 +38,9 @@ export class CostingRecalculationService {
     }>;
   }> {
     const startTime = Date.now();
-    const costingMethod =
-      await this.costingStrategyFactory.getCurrentCostingMethod();
+    const costingMethod = await this.costingStrategyFactory.getCurrentCostingMethod();
 
-    this.logger.log(
-      `Starting cost recalculation for all products using ${costingMethod} method`,
-    );
+    this.logger.log(`Starting cost recalculation for all products using ${costingMethod} method`);
 
     // Get all active products
     const products = await this.productRepository.find({
@@ -65,9 +62,7 @@ export class CostingRecalculationService {
     for (const product of products) {
       try {
         const oldCost = Number(product.baseCost || 0);
-        const newCost = await this.baseCostCalculator.updateProductBaseCost(
-          product.id,
-        );
+        const newCost = await this.baseCostCalculator.updateProductBaseCost(product.id);
 
         results.push({
           productId: product.id,
@@ -80,7 +75,7 @@ export class CostingRecalculationService {
         updated++;
 
         this.logger.debug(
-          `Updated ${product.name}: RM ${oldCost.toFixed(4)} → RM ${newCost.toFixed(4)}`,
+          `Updated ${product.name}: RM ${oldCost.toFixed(4)} → RM ${newCost.toFixed(4)}`
         );
       } catch (error) {
         this.logger.error(
@@ -104,7 +99,7 @@ export class CostingRecalculationService {
     const duration = Date.now() - startTime;
 
     this.logger.log(
-      `Cost recalculation completed in ${duration}ms: ${updated} updated, ${errors} errors using ${costingMethod} method`,
+      `Cost recalculation completed in ${duration}ms: ${updated} updated, ${errors} errors using ${costingMethod} method`
     );
 
     return {
@@ -134,14 +129,12 @@ export class CostingRecalculationService {
       throw new Error(`Product ${productId} not found`);
     }
 
-    const costingMethod =
-      await this.costingStrategyFactory.getCurrentCostingMethod();
+    const costingMethod = await this.costingStrategyFactory.getCurrentCostingMethod();
     const oldCost = Number(product.baseCost || 0);
-    const newCost =
-      await this.baseCostCalculator.updateProductBaseCost(productId);
+    const newCost = await this.baseCostCalculator.updateProductBaseCost(productId);
 
     this.logger.log(
-      `Recalculated cost for ${product.name} using ${costingMethod}: RM ${oldCost.toFixed(4)} → RM ${newCost.toFixed(4)}`,
+      `Recalculated cost for ${product.name} using ${costingMethod}: RM ${oldCost.toFixed(4)} → RM ${newCost.toFixed(4)}`
     );
 
     return {

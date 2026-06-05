@@ -1,43 +1,43 @@
-import React from 'react'
-import { Box, CircularProgress } from '@mui/material'
-import BasePrintTemplate from './BasePrintTemplate'
-import { useGetPrintSettingsQuery } from '@/store/api/printSettingsApi'
-import { useCurrency } from '@/hooks/useCurrency'
-import { formatDate } from '@/utils/formatters'
+import React from 'react';
+import { Box, CircularProgress } from '@mui/material';
+import BasePrintTemplate from './BasePrintTemplate';
+import { useGetPrintSettingsQuery } from '@/store/api/printSettingsApi';
+import { useCurrency } from '@/hooks/useCurrency';
+import { formatDate } from '@/utils/formatters';
 
 interface InvoicePrintProps {
   salesOrder: {
-    orderNumber: string
-    fulfilledAt: string
-    subtotalAmount: number
-    shippingAmount: number
-    totalAmount: number
-    customerName?: string
+    orderNumber: string;
+    fulfilledAt: string;
+    subtotalAmount: number;
+    shippingAmount: number;
+    totalAmount: number;
+    customerName?: string;
     items?: Array<{
-      name: string
-      quantity: number
-      unitPrice: number
-      total: number
-    }>
-  }
-  paidTotal: number
+      name: string;
+      quantity: number;
+      unitPrice: number;
+      total: number;
+    }>;
+  };
+  paidTotal: number;
 }
 
 const InvoicePrint: React.FC<InvoicePrintProps> = ({ salesOrder, paidTotal }) => {
-  const { currency } = useCurrency()
-  const { data: printSettings, isLoading } = useGetPrintSettingsQuery()
+  const { currency } = useCurrency();
+  const { data: printSettings, isLoading } = useGetPrintSettingsQuery();
 
   const items = (salesOrder.items || []).map((item) => ({
     description: item.name,
     quantity: item.quantity,
     unitPrice: item.unitPrice,
     amount: item.total,
-  }))
+  }));
 
-  const subtotal = salesOrder.subtotalAmount
-  const shipping = salesOrder.shippingAmount || 0
-  const total = salesOrder.totalAmount
-  const balanceDue = total - paidTotal
+  const subtotal = salesOrder.subtotalAmount;
+  const shipping = salesOrder.shippingAmount || 0;
+  const total = salesOrder.totalAmount;
+  const balanceDue = total - paidTotal;
 
   const totals = {
     subtotal,
@@ -45,7 +45,7 @@ const InvoicePrint: React.FC<InvoicePrintProps> = ({ salesOrder, paidTotal }) =>
     total,
     paid: paidTotal,
     balance: balanceDue,
-  }
+  };
 
   const recipient = {
     name: salesOrder.customerName || '',
@@ -55,14 +55,14 @@ const InvoicePrint: React.FC<InvoicePrintProps> = ({ salesOrder, paidTotal }) =>
     postalCode: '',
     country: '',
     phone: '',
-  }
+  };
 
   if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
         <CircularProgress />
       </Box>
-    )
+    );
   }
 
   return (
@@ -80,7 +80,7 @@ const InvoicePrint: React.FC<InvoicePrintProps> = ({ salesOrder, paidTotal }) =>
       showPricing={true}
       currency={currency}
     />
-  )
-}
+  );
+};
 
-export default InvoicePrint
+export default InvoicePrint;

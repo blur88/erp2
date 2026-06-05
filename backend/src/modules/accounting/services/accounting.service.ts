@@ -1,41 +1,33 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-  Logger,
-} from "@nestjs/common";
-import { EntityManager } from "typeorm";
-import { JournalEntryService } from "./journal-entry.service";
-import { AccountMappingService } from "./account-mapping.service";
-import { FiscalPeriodService } from "./fiscal-period.service";
-import { MappingType } from "../../../database/entities/account-mapping.entity";
-import {
-  JournalEntry,
-  JournalEntryStatus,
-} from "../../../database/entities/journal-entry.entity";
-import { SalesOrder } from "../../../database/entities/sales-order.entity";
-import { SalesOrderItem } from "../../../database/entities/sales-order-item.entity";
-import { Payment } from "../../../database/entities/payment.entity";
-import { PaymentMethodEntity } from "../../../database/entities/payment-method.entity";
-import { GoodsReceivedNote } from "../../../database/entities/goods-received-note.entity";
-import { GoodsReceivedNoteItem } from "../../../database/entities/goods-received-note-item.entity";
-import { VendorPayment } from "../../../database/entities/vendor-payment.entity";
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { EntityManager } from 'typeorm';
+import { JournalEntryService } from './journal-entry.service';
+import { AccountMappingService } from './account-mapping.service';
+import { FiscalPeriodService } from './fiscal-period.service';
+import { MappingType } from '../../../database/entities/account-mapping.entity';
+import { JournalEntry, JournalEntryStatus } from '../../../database/entities/journal-entry.entity';
+import { SalesOrder } from '../../../database/entities/sales-order.entity';
+import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
+import { Payment } from '../../../database/entities/payment.entity';
+import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
+import { GoodsReceivedNote } from '../../../database/entities/goods-received-note.entity';
+import { GoodsReceivedNoteItem } from '../../../database/entities/goods-received-note-item.entity';
+import { VendorPayment } from '../../../database/entities/vendor-payment.entity';
 import {
   StockAdjustment,
   StockAdjustmentItem,
-} from "../../../database/entities/stock-adjustment.entity";
-import { Settlement } from "../../../database/entities/settlement.entity";
+} from '../../../database/entities/stock-adjustment.entity';
+import { Settlement } from '../../../database/entities/settlement.entity';
 import {
   OwnerEquityTransaction,
   OwnerEquityTransactionType,
-} from "../../../database/entities/owner-equity-transaction.entity";
-import { Expense } from "../../../database/entities/expense.entity";
+} from '../../../database/entities/owner-equity-transaction.entity';
+import { Expense } from '../../../database/entities/expense.entity';
 import {
   CreateJournalEntryDto,
   CreateJournalEntryLineDto,
   PostOpeningBalancesDto,
-} from "../dto/journal-entry.dto";
-import { AuditLogService } from "../../audit-logs/services";
+} from '../dto/journal-entry.dto';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class AccountingService {
@@ -62,13 +54,11 @@ export class AccountingService {
 
     // Guard: skip if an active (POSTED or DRAFT) entry already exists for this source
     const existingEntries = await this.journalEntryService.findBySource(
-      "sales_order",
+      'sales_order',
       salesOrder.id,
     );
     const activeEntry = existingEntries.find(
-      (e) =>
-        e.status === JournalEntryStatus.POSTED ||
-        e.status === JournalEntryStatus.DRAFT,
+      (e) => e.status === JournalEntryStatus.POSTED || e.status === JournalEntryStatus.DRAFT,
     );
     if (activeEntry) {
       this.logger.warn(
@@ -81,18 +71,10 @@ export class AccountingService {
     const mappings = await this.accountMappingService.getMappings();
 
     // Validate required mappings exist
-    this.validateMapping(mappings, MappingType.SALES_REVENUE, "Sales Revenue");
-    this.validateMapping(mappings, MappingType.SALES_AR, "Accounts Receivable");
-    this.validateMapping(
-      mappings,
-      MappingType.SALES_COGS,
-      "Cost of Goods Sold",
-    );
-    this.validateMapping(
-      mappings,
-      MappingType.SALES_INVENTORY,
-      "Inventory Asset",
-    );
+    this.validateMapping(mappings, MappingType.SALES_REVENUE, 'Sales Revenue');
+    this.validateMapping(mappings, MappingType.SALES_AR, 'Accounts Receivable');
+    this.validateMapping(mappings, MappingType.SALES_COGS, 'Cost of Goods Sold');
+    this.validateMapping(mappings, MappingType.SALES_INVENTORY, 'Inventory Asset');
 
     // Validate period is open
     await this.validatePeriodOpen(salesOrder.fulfilledDate);
@@ -103,9 +85,7 @@ export class AccountingService {
     });
 
     if (!periodValidation.period) {
-      throw new BadRequestException(
-        `No fiscal period found for date ${salesOrder.fulfilledDate}`,
-      );
+      throw new BadRequestException(`No fiscal period found for date ${salesOrder.fulfilledDate}`);
     }
 
     // Guard: items relation must be loaded — without it revenue and COGS are both wrong
@@ -123,8 +103,7 @@ export class AccountingService {
       (sum, item) => sum + Number(item.totalAmount ?? 0),
       0,
     );
-    const revenueAmount =
-      itemsSubtotal + Number(salesOrder.shippingAmount ?? 0);
+    const revenueAmount = itemsSubtotal + Number(salesOrder.shippingAmount ?? 0);
 
     // Build BOTH entry DTOs up front so all business-rule validation (mappings,
     // period, amounts) happens before anything is persisted. Post COGS first so
@@ -138,20 +117,20 @@ export class AccountingService {
             entryDate: new Date(salesOrder.fulfilledDate),
             description: `${baseDescription} (Cost of Goods Sold)`,
             fiscalPeriodId: periodValidation.period.id,
-            sourceType: "sales_order",
+            sourceType: 'sales_order',
             sourceId: salesOrder.id,
             lines: [
               {
                 accountId: mappings[MappingType.SALES_COGS],
                 debitAmount: cogsAmount,
                 creditAmount: 0,
-                memo: "Cost of goods sold",
+                memo: 'Cost of goods sold',
               },
               {
                 accountId: mappings[MappingType.SALES_INVENTORY],
                 debitAmount: 0,
                 creditAmount: cogsAmount,
-                memo: "Inventory reduction",
+                memo: 'Inventory reduction',
               },
             ],
           }
@@ -161,20 +140,20 @@ export class AccountingService {
       entryDate: new Date(salesOrder.fulfilledDate),
       description: `${baseDescription} (Revenue)`,
       fiscalPeriodId: periodValidation.period.id,
-      sourceType: "sales_order",
+      sourceType: 'sales_order',
       sourceId: salesOrder.id,
       lines: [
         {
           accountId: mappings[MappingType.SALES_AR],
           debitAmount: revenueAmount,
           creditAmount: 0,
-          memo: "Amount receivable from customer",
+          memo: 'Amount receivable from customer',
         },
         {
           accountId: mappings[MappingType.SALES_REVENUE],
           debitAmount: 0,
           creditAmount: revenueAmount,
-          memo: "Sales revenue recognition",
+          memo: 'Sales revenue recognition',
         },
       ],
     };
@@ -183,48 +162,37 @@ export class AccountingService {
 
     // Post COGS entry first (when there is a cost to record)
     if (cogsEntryDto) {
-      const cogsEntry = await this.journalEntryService.create(
-        cogsEntryDto,
-        userId,
-      );
+      const cogsEntry = await this.journalEntryService.create(cogsEntryDto, userId);
       await this.journalEntryService.postEntry(cogsEntry.id, userId);
       await this.auditLogService.log(
-        "AUTO_POST",
-        "JournalEntry",
+        'AUTO_POST',
+        'JournalEntry',
         `Auto-posted sales order COGS journal entry for order: ${salesOrder.orderNumber}`,
         {
           entityId: cogsEntry.id,
-          userId: userId ?? "system",
+          userId: userId ?? 'system',
           username,
-          metadata: { sourceType: "sales_order", sourceId: salesOrder.id },
+          metadata: { sourceType: 'sales_order', sourceId: salesOrder.id },
         },
       );
     }
 
     // Post revenue entry
-    const revenueEntry = await this.journalEntryService.create(
-      revenueEntryDto,
-      userId,
-    );
-    const postedRevenueEntry = await this.journalEntryService.postEntry(
-      revenueEntry.id,
-      userId,
-    );
+    const revenueEntry = await this.journalEntryService.create(revenueEntryDto, userId);
+    const postedRevenueEntry = await this.journalEntryService.postEntry(revenueEntry.id, userId);
     await this.auditLogService.log(
-      "AUTO_POST",
-      "JournalEntry",
+      'AUTO_POST',
+      'JournalEntry',
       `Auto-posted sales order revenue journal entry for order: ${salesOrder.orderNumber}`,
       {
         entityId: revenueEntry.id,
-        userId: userId ?? "system",
+        userId: userId ?? 'system',
         username,
-        metadata: { sourceType: "sales_order", sourceId: salesOrder.id },
+        metadata: { sourceType: 'sales_order', sourceId: salesOrder.id },
       },
     );
 
-    this.logger.log(
-      `Sales order entries posted successfully for order: ${salesOrder.orderNumber}`,
-    );
+    this.logger.log(`Sales order entries posted successfully for order: ${salesOrder.orderNumber}`);
 
     return postedRevenueEntry as any;
   }
@@ -238,27 +206,17 @@ export class AccountingService {
     userId: string,
     username?: string,
   ): Promise<JournalEntry> {
-    this.logger.log(
-      `Posting customer payment entry for ${payment.paymentNumber}`,
-    );
+    this.logger.log(`Posting customer payment entry for ${payment.paymentNumber}`);
 
     // Get account mappings
     const mappings = await this.accountMappingService.getMappings();
 
     // Validate required mappings exist
-    const paymentMethodCode = payment.paymentMethodEntity?.code || "CASH";
+    const paymentMethodCode = payment.paymentMethodEntity?.code || 'CASH';
     const debitMappingKey = `payment_${paymentMethodCode.toLowerCase()}`;
 
-    this.validateMappingByKey(
-      mappings,
-      debitMappingKey,
-      `payment method "${paymentMethodCode}"`,
-    );
-    this.validateMapping(
-      mappings,
-      MappingType.PAYMENT_AR,
-      "Accounts Receivable",
-    );
+    this.validateMappingByKey(mappings, debitMappingKey, `payment method "${paymentMethodCode}"`);
+    this.validateMapping(mappings, MappingType.PAYMENT_AR, 'Accounts Receivable');
 
     // Validate period is open
     await this.validatePeriodOpen(payment.paymentDate);
@@ -269,9 +227,7 @@ export class AccountingService {
     });
 
     if (!periodValidation.period) {
-      throw new BadRequestException(
-        `No fiscal period found for date ${payment.paymentDate}`,
-      );
+      throw new BadRequestException(`No fiscal period found for date ${payment.paymentDate}`);
     }
 
     // Build journal entry lines
@@ -281,14 +237,14 @@ export class AccountingService {
         accountId: mappings[debitMappingKey],
         debitAmount: Number(payment.amount),
         creditAmount: 0,
-        memo: "Cash received",
+        memo: 'Cash received',
       },
       // CR Accounts Receivable
       {
         accountId: mappings[MappingType.PAYMENT_AR],
         debitAmount: 0,
         creditAmount: Number(payment.amount),
-        memo: "Accounts receivable reduction",
+        memo: 'Accounts receivable reduction',
       },
     ];
 
@@ -297,32 +253,27 @@ export class AccountingService {
       entryDate: new Date(payment.paymentDate),
       description: `Payment ${payment.paymentNumber} from ${payment.customer.name}`,
       fiscalPeriodId: periodValidation.period.id,
-      sourceType: "payment",
+      sourceType: 'payment',
       sourceId: payment.id,
       lines,
     };
 
     // Create and post the entry
     const entry = await this.journalEntryService.create(entryDto, userId);
-    const postedEntry = await this.journalEntryService.postEntry(
-      entry.id,
-      userId,
-    );
+    const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
     await this.auditLogService.log(
-      "AUTO_POST",
-      "JournalEntry",
+      'AUTO_POST',
+      'JournalEntry',
       `Auto-posted customer payment journal entry: ${payment.paymentNumber}`,
       {
         entityId: entry.id,
-        userId: userId ?? "system",
+        userId: userId ?? 'system',
         username,
-        metadata: { sourceType: "payment", sourceId: payment.id },
+        metadata: { sourceType: 'payment', sourceId: payment.id },
       },
     );
 
-    this.logger.log(
-      `Payment entry posted successfully: ${postedEntry.referenceNumber}`,
-    );
+    this.logger.log(`Payment entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
 
@@ -337,20 +288,14 @@ export class AccountingService {
     userId: string,
     username?: string,
   ): Promise<JournalEntry> {
-    this.logger.log(
-      `Posting settlement entry for ${settlement.settlementNumber}`,
-    );
+    this.logger.log(`Posting settlement entry for ${settlement.settlementNumber}`);
 
     const mappings = await this.accountMappingService.getMappings();
 
     const paymentMappingKey = `payment_${paymentMethod.code.toLowerCase()}`;
     const settlementMappingKey = `payment_${paymentMethod.code.toLowerCase()}_settlement`;
 
-    this.validateMappingByKey(
-      mappings,
-      paymentMappingKey,
-      `${paymentMethod.name} payment account`,
-    );
+    this.validateMappingByKey(mappings, paymentMappingKey, `${paymentMethod.name} payment account`);
     this.validateMappingByKey(
       mappings,
       settlementMappingKey,
@@ -363,9 +308,7 @@ export class AccountingService {
     });
 
     if (!periodValidation.period) {
-      throw new BadRequestException(
-        `No fiscal period found for date ${settlement.settlementDate}`,
-      );
+      throw new BadRequestException(`No fiscal period found for date ${settlement.settlementDate}`);
     }
 
     const lines: CreateJournalEntryLineDto[] = [
@@ -388,31 +331,26 @@ export class AccountingService {
         entryDate: new Date(settlement.settlementDate),
         description: `Settlement ${settlement.settlementNumber} - ${paymentMethod.name}`,
         fiscalPeriodId: periodValidation.period.id,
-        sourceType: "settlement",
+        sourceType: 'settlement',
         sourceId: settlement.id,
         lines,
       },
       userId,
     );
 
-    const postedEntry = await this.journalEntryService.postEntry(
-      entry.id,
-      userId,
-    );
+    const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
     await this.auditLogService.log(
-      "AUTO_POST",
-      "JournalEntry",
+      'AUTO_POST',
+      'JournalEntry',
       `Auto-posted settlement journal entry: ${settlement.settlementNumber}`,
       {
         entityId: entry.id,
-        userId: userId ?? "system",
+        userId: userId ?? 'system',
         username,
-        metadata: { sourceType: "settlement", sourceId: settlement.id },
+        metadata: { sourceType: 'settlement', sourceId: settlement.id },
       },
     );
-    this.logger.log(
-      `Settlement entry posted successfully: ${postedEntry.referenceNumber}`,
-    );
+    this.logger.log(`Settlement entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
 
@@ -431,12 +369,8 @@ export class AccountingService {
     const mappings = await this.accountMappingService.getMappings();
 
     // Validate required mappings exist
-    this.validateMapping(
-      mappings,
-      MappingType.PURCHASE_INVENTORY,
-      "Inventory Asset",
-    );
-    this.validateMapping(mappings, MappingType.PURCHASE_AP, "Accounts Payable");
+    this.validateMapping(mappings, MappingType.PURCHASE_INVENTORY, 'Inventory Asset');
+    this.validateMapping(mappings, MappingType.PURCHASE_AP, 'Accounts Payable');
 
     // Validate period is open
     await this.validatePeriodOpen(grn.receivedDate);
@@ -447,9 +381,7 @@ export class AccountingService {
     });
 
     if (!periodValidation.period) {
-      throw new BadRequestException(
-        `No fiscal period found for date ${grn.receivedDate}`,
-      );
+      throw new BadRequestException(`No fiscal period found for date ${grn.receivedDate}`);
     }
 
     // Calculate total from GRN items
@@ -462,14 +394,14 @@ export class AccountingService {
         accountId: mappings[MappingType.PURCHASE_INVENTORY],
         debitAmount: totalAmount,
         creditAmount: 0,
-        memo: "Inventory received",
+        memo: 'Inventory received',
       },
       // CR Accounts Payable
       {
         accountId: mappings[MappingType.PURCHASE_AP],
         debitAmount: 0,
         creditAmount: totalAmount,
-        memo: "Amount payable to supplier",
+        memo: 'Amount payable to supplier',
       },
     ];
 
@@ -478,32 +410,27 @@ export class AccountingService {
       entryDate: new Date(grn.receivedDate),
       description: `GRN ${grn.grnNumber} from ${grn.supplier.companyName}`,
       fiscalPeriodId: periodValidation.period.id,
-      sourceType: "goods_received_note",
+      sourceType: 'goods_received_note',
       sourceId: grn.id,
       lines,
     };
 
     // Create and post the entry
     const entry = await this.journalEntryService.create(entryDto, userId);
-    const postedEntry = await this.journalEntryService.postEntry(
-      entry.id,
-      userId,
-    );
+    const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
     await this.auditLogService.log(
-      "AUTO_POST",
-      "JournalEntry",
+      'AUTO_POST',
+      'JournalEntry',
       `Auto-posted goods received journal entry: ${grn.grnNumber}`,
       {
         entityId: entry.id,
-        userId: userId ?? "system",
+        userId: userId ?? 'system',
         username,
-        metadata: { sourceType: "goods_received_note", sourceId: grn.id },
+        metadata: { sourceType: 'goods_received_note', sourceId: grn.id },
       },
     );
 
-    this.logger.log(
-      `Goods received entry posted successfully: ${postedEntry.referenceNumber}`,
-    );
+    this.logger.log(`Goods received entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
 
@@ -516,20 +443,14 @@ export class AccountingService {
     userId: string,
     username?: string,
   ): Promise<JournalEntry> {
-    this.logger.log(
-      `Posting vendor payment entry for ${vendorPayment.paymentNumber}`,
-    );
+    this.logger.log(`Posting vendor payment entry for ${vendorPayment.paymentNumber}`);
 
     // Get account mappings
     const mappings = await this.accountMappingService.getMappings();
 
     // Validate required mappings exist
-    this.validateMapping(
-      mappings,
-      MappingType.VENDOR_PAYMENT_AP,
-      "Accounts Payable",
-    );
-    const paymentMethodCode = vendorPayment.paymentMethodEntity?.code || "CASH";
+    this.validateMapping(mappings, MappingType.VENDOR_PAYMENT_AP, 'Accounts Payable');
+    const paymentMethodCode = vendorPayment.paymentMethodEntity?.code || 'CASH';
     const creditMappingKey = `vendor_payment_${paymentMethodCode.toLowerCase()}`;
     this.validateMappingByKey(
       mappings,
@@ -546,9 +467,7 @@ export class AccountingService {
     });
 
     if (!periodValidation.period) {
-      throw new BadRequestException(
-        `No fiscal period found for date ${vendorPayment.paymentDate}`,
-      );
+      throw new BadRequestException(`No fiscal period found for date ${vendorPayment.paymentDate}`);
     }
 
     // Build journal entry lines
@@ -558,14 +477,14 @@ export class AccountingService {
         accountId: mappings[MappingType.VENDOR_PAYMENT_AP],
         debitAmount: Number(vendorPayment.amount),
         creditAmount: 0,
-        memo: "Accounts payable reduction",
+        memo: 'Accounts payable reduction',
       },
       // CR Cash in Hand
       {
         accountId: mappings[creditMappingKey],
         debitAmount: 0,
         creditAmount: Number(vendorPayment.amount),
-        memo: "Cash paid",
+        memo: 'Cash paid',
       },
     ];
 
@@ -574,32 +493,27 @@ export class AccountingService {
       entryDate: new Date(vendorPayment.paymentDate),
       description: `Vendor Payment ${vendorPayment.paymentNumber} to ${vendorPayment.supplier.companyName}`,
       fiscalPeriodId: periodValidation.period.id,
-      sourceType: "vendor_payment",
+      sourceType: 'vendor_payment',
       sourceId: vendorPayment.id,
       lines,
     };
 
     // Create and post the entry
     const entry = await this.journalEntryService.create(entryDto, userId);
-    const postedEntry = await this.journalEntryService.postEntry(
-      entry.id,
-      userId,
-    );
+    const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
     await this.auditLogService.log(
-      "AUTO_POST",
-      "JournalEntry",
+      'AUTO_POST',
+      'JournalEntry',
       `Auto-posted vendor payment journal entry: ${vendorPayment.paymentNumber}`,
       {
         entityId: entry.id,
-        userId: userId ?? "system",
+        userId: userId ?? 'system',
         username,
-        metadata: { sourceType: "vendor_payment", sourceId: vendorPayment.id },
+        metadata: { sourceType: 'vendor_payment', sourceId: vendorPayment.id },
       },
     );
 
-    this.logger.log(
-      `Vendor payment entry posted successfully: ${postedEntry.referenceNumber}`,
-    );
+    this.logger.log(`Vendor payment entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
 
@@ -612,28 +526,22 @@ export class AccountingService {
     userId: string,
     username?: string,
   ): Promise<JournalEntry> {
-    this.logger.log(
-      `Posting stock adjustment entry for ${adjustment.adjustmentNumber}`,
-    );
+    this.logger.log(`Posting stock adjustment entry for ${adjustment.adjustmentNumber}`);
 
     // Get account mappings
     const mappings = await this.accountMappingService.getMappings();
 
     // Validate required mappings exist
-    this.validateMapping(
-      mappings,
-      MappingType.INVENTORY_ASSET,
-      "Inventory Asset",
-    );
+    this.validateMapping(mappings, MappingType.INVENTORY_ASSET, 'Inventory Asset');
     this.validateMapping(
       mappings,
       MappingType.INVENTORY_ADJUSTMENT_GAIN,
-      "Inventory Adjustment Gain",
+      'Inventory Adjustment Gain',
     );
     this.validateMapping(
       mappings,
       MappingType.INVENTORY_ADJUSTMENT_LOSS,
-      "Inventory Adjustment Loss",
+      'Inventory Adjustment Loss',
     );
 
     // Validate period is open
@@ -645,15 +553,11 @@ export class AccountingService {
     });
 
     if (!periodValidation.period) {
-      throw new BadRequestException(
-        `No fiscal period found for date ${adjustment.adjustmentDate}`,
-      );
+      throw new BadRequestException(`No fiscal period found for date ${adjustment.adjustmentDate}`);
     }
 
     // Calculate totals for increases and decreases
-    const { totalIncrease, totalDecrease } = this.calculateAdjustmentTotals(
-      adjustment.items,
-    );
+    const { totalIncrease, totalDecrease } = this.calculateAdjustmentTotals(adjustment.items);
 
     // Build journal entry lines
     const lines: CreateJournalEntryLineDto[] = [];
@@ -666,14 +570,14 @@ export class AccountingService {
           accountId: mappings[MappingType.INVENTORY_ASSET],
           debitAmount: totalIncrease,
           creditAmount: 0,
-          memo: "Inventory increase",
+          memo: 'Inventory increase',
         },
         // CR Inventory Adjustment Gain
         {
           accountId: mappings[MappingType.INVENTORY_ADJUSTMENT_GAIN],
           debitAmount: 0,
           creditAmount: totalIncrease,
-          memo: "Inventory adjustment gain",
+          memo: 'Inventory adjustment gain',
         },
       );
     }
@@ -686,14 +590,14 @@ export class AccountingService {
           accountId: mappings[MappingType.INVENTORY_ADJUSTMENT_LOSS],
           debitAmount: totalDecrease,
           creditAmount: 0,
-          memo: "Inventory adjustment loss",
+          memo: 'Inventory adjustment loss',
         },
         // CR Inventory Asset
         {
           accountId: mappings[MappingType.INVENTORY_ASSET],
           debitAmount: 0,
           creditAmount: totalDecrease,
-          memo: "Inventory decrease",
+          memo: 'Inventory decrease',
         },
       );
     }
@@ -703,32 +607,27 @@ export class AccountingService {
       entryDate: new Date(adjustment.adjustmentDate),
       description: `Stock Adjustment ${adjustment.adjustmentNumber}`,
       fiscalPeriodId: periodValidation.period.id,
-      sourceType: "stock_adjustment",
+      sourceType: 'stock_adjustment',
       sourceId: adjustment.id,
       lines,
     };
 
     // Create and post the entry
     const entry = await this.journalEntryService.create(entryDto, userId);
-    const postedEntry = await this.journalEntryService.postEntry(
-      entry.id,
-      userId,
-    );
+    const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
     await this.auditLogService.log(
-      "AUTO_POST",
-      "JournalEntry",
+      'AUTO_POST',
+      'JournalEntry',
       `Auto-posted stock adjustment journal entry: ${adjustment.adjustmentNumber}`,
       {
         entityId: entry.id,
-        userId: userId ?? "system",
+        userId: userId ?? 'system',
         username,
-        metadata: { sourceType: "stock_adjustment", sourceId: adjustment.id },
+        metadata: { sourceType: 'stock_adjustment', sourceId: adjustment.id },
       },
     );
 
-    this.logger.log(
-      `Stock adjustment entry posted successfully: ${postedEntry.referenceNumber}`,
-    );
+    this.logger.log(`Stock adjustment entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
 
@@ -742,26 +641,16 @@ export class AccountingService {
     userId: string,
     username?: string,
   ): Promise<JournalEntry> {
-    this.logger.log(
-      `Posting owner equity entry for ${transaction.referenceNumber}`,
-    );
+    this.logger.log(`Posting owner equity entry for ${transaction.referenceNumber}`);
 
     const mappings = await this.accountMappingService.getMappings();
 
-    const paymentMethodCode = transaction.paymentMethod?.code || "CASH";
+    const paymentMethodCode = transaction.paymentMethod?.code || 'CASH';
     const paymentMappingKey = `payment_${paymentMethodCode.toLowerCase()}`;
 
-    this.validateMappingByKey(
-      mappings,
-      paymentMappingKey,
-      `payment method "${paymentMethodCode}"`,
-    );
-    this.validateMappingByKey(
-      mappings,
-      "equity_owners_equity",
-      "Owner's Equity",
-    );
-    this.validateMappingByKey(mappings, "equity_drawings", "Drawings");
+    this.validateMappingByKey(mappings, paymentMappingKey, `payment method "${paymentMethodCode}"`);
+    this.validateMappingByKey(mappings, 'equity_owners_equity', "Owner's Equity");
+    this.validateMappingByKey(mappings, 'equity_drawings', 'Drawings');
 
     await this.validatePeriodOpen(transaction.transactionDate);
 
@@ -784,7 +673,7 @@ export class AccountingService {
           accountId: mappings[paymentMappingKey],
           debitAmount: Number(transaction.amount),
           creditAmount: 0,
-          memo: "Capital injection received",
+          memo: 'Capital injection received',
         },
         {
           accountId: mappings.equity_owners_equity,
@@ -800,54 +689,49 @@ export class AccountingService {
           accountId: mappings.equity_drawings,
           debitAmount: Number(transaction.amount),
           creditAmount: 0,
-          memo: "Owner drawing",
+          memo: 'Owner drawing',
         },
         {
           accountId: mappings[paymentMappingKey],
           debitAmount: 0,
           creditAmount: Number(transaction.amount),
-          memo: "Cash paid for owner drawing",
+          memo: 'Cash paid for owner drawing',
         },
       );
     }
 
     const typeLabel =
       transaction.type === OwnerEquityTransactionType.CAPITAL_INJECTION
-        ? "Capital Injection"
-        : "Owner Drawing";
+        ? 'Capital Injection'
+        : 'Owner Drawing';
 
     const entry = await this.journalEntryService.create(
       {
         entryDate: new Date(transaction.transactionDate),
         description: `${typeLabel} ${transaction.referenceNumber}${
-          transaction.description ? ` - ${transaction.description}` : ""
+          transaction.description ? ` - ${transaction.description}` : ''
         }`,
         fiscalPeriodId: periodValidation.period.id,
-        sourceType: "owner_equity_transaction",
+        sourceType: 'owner_equity_transaction',
         sourceId: transaction.id,
         lines,
       },
       userId,
     );
 
-    const postedEntry = await this.journalEntryService.postEntry(
-      entry.id,
-      userId,
-    );
+    const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
     await this.auditLogService.log(
-      "AUTO_POST",
-      "JournalEntry",
+      'AUTO_POST',
+      'JournalEntry',
       `Auto-posted owner equity journal entry: ${transaction.referenceNumber}`,
       {
         entityId: entry.id,
-        userId: userId ?? "system",
+        userId: userId ?? 'system',
         username,
-        metadata: { sourceType: "owner_equity", sourceId: transaction.id },
+        metadata: { sourceType: 'owner_equity', sourceId: transaction.id },
       },
     );
-    this.logger.log(
-      `Owner equity entry posted successfully: ${postedEntry.referenceNumber}`,
-    );
+    this.logger.log(`Owner equity entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
 
@@ -864,19 +748,15 @@ export class AccountingService {
 
     const mappings = await this.accountMappingService.getMappings();
 
-    const paymentMethodCode = expense.paymentMethod?.code || "CASH";
+    const paymentMethodCode = expense.paymentMethod?.code || 'CASH';
     const paymentMappingKey = `payment_${paymentMethodCode.toLowerCase()}`;
 
-    this.validateMappingByKey(
-      mappings,
-      paymentMappingKey,
-      `payment method "${paymentMethodCode}"`,
-    );
+    this.validateMappingByKey(mappings, paymentMappingKey, `payment method "${paymentMethodCode}"`);
 
     // Expense account is directly selected by user, no mapping needed
     // Just validate it exists
     if (!expense.expenseAccountId) {
-      throw new BadRequestException("Expense account is required");
+      throw new BadRequestException('Expense account is required');
     }
 
     await this.validatePeriodOpen(expense.expenseDate);
@@ -886,12 +766,10 @@ export class AccountingService {
     });
 
     if (!periodValidation.period) {
-      throw new BadRequestException(
-        `No fiscal period found for date ${expense.expenseDate}`,
-      );
+      throw new BadRequestException(`No fiscal period found for date ${expense.expenseDate}`);
     }
 
-    const accountName = expense.expenseAccount?.name || "Expense";
+    const accountName = expense.expenseAccount?.name || 'Expense';
 
     const lines: CreateJournalEntryLineDto[] = [
       // DR Expense Account
@@ -906,64 +784,56 @@ export class AccountingService {
         accountId: mappings[paymentMappingKey],
         debitAmount: 0,
         creditAmount: Number(expense.amount),
-        memo: "Payment for expense",
+        memo: 'Payment for expense',
       },
     ];
 
     const description = `Expense ${expense.referenceNumber}${
-      expense.vendor ? ` - ${expense.vendor}` : ""
-    }${expense.description ? ` - ${expense.description}` : ""}`;
+      expense.vendor ? ` - ${expense.vendor}` : ''
+    }${expense.description ? ` - ${expense.description}` : ''}`;
 
     const entry = await this.journalEntryService.create(
       {
         entryDate: new Date(expense.expenseDate),
         description,
         fiscalPeriodId: periodValidation.period.id,
-        sourceType: "expense",
+        sourceType: 'expense',
         sourceId: expense.id,
         lines,
       },
       userId,
     );
 
-    const postedEntry = await this.journalEntryService.postEntry(
-      entry.id,
-      userId,
-    );
+    const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
     await this.auditLogService.log(
-      "AUTO_POST",
-      "JournalEntry",
+      'AUTO_POST',
+      'JournalEntry',
       `Auto-posted expense journal entry: ${expense.referenceNumber}`,
       {
         entityId: entry.id,
-        userId: userId ?? "system",
+        userId: userId ?? 'system',
         username,
-        metadata: { sourceType: "expense", sourceId: expense.id },
+        metadata: { sourceType: 'expense', sourceId: expense.id },
       },
     );
-    this.logger.log(
-      `Expense entry posted successfully: ${postedEntry.referenceNumber}`,
-    );
+    this.logger.log(`Expense entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
 
   async postFundTransferEntry(
-    transfer: import("../../../database/entities/fund-transfer.entity").FundTransfer,
+    transfer: import('../../../database/entities/fund-transfer.entity').FundTransfer,
     userId: string,
     username?: string,
   ): Promise<JournalEntry> {
-    this.logger.log(
-      `Posting fund transfer entry for ${transfer.referenceNumber}`,
-    );
+    this.logger.log(`Posting fund transfer entry for ${transfer.referenceNumber}`);
 
     const existingEntries = await this.journalEntryService.findBySource(
-      "fund_transfer",
+      'fund_transfer',
       transfer.id,
     );
     const activeEntry = existingEntries.find(
       (entry) =>
-        entry.status === JournalEntryStatus.POSTED ||
-        entry.status === JournalEntryStatus.DRAFT,
+        entry.status === JournalEntryStatus.POSTED || entry.status === JournalEntryStatus.DRAFT,
     );
 
     if (activeEntry) {
@@ -980,13 +850,11 @@ export class AccountingService {
     });
 
     if (!periodValidation.period) {
-      throw new BadRequestException(
-        `No fiscal period found for date ${transfer.transferDate}`,
-      );
+      throw new BadRequestException(`No fiscal period found for date ${transfer.transferDate}`);
     }
 
     const description = `Fund Transfer: ${transfer.referenceNumber}${
-      transfer.description ? ` - ${transfer.description}` : ""
+      transfer.description ? ` - ${transfer.description}` : ''
     }`;
 
     const lines: CreateJournalEntryLineDto[] = [
@@ -1009,32 +877,27 @@ export class AccountingService {
         entryDate: new Date(transfer.transferDate),
         description,
         fiscalPeriodId: periodValidation.period.id,
-        sourceType: "fund_transfer",
+        sourceType: 'fund_transfer',
         sourceId: transfer.id,
         lines,
       },
       userId,
     );
 
-    const postedEntry = await this.journalEntryService.postEntry(
-      entry.id,
-      userId,
-    );
+    const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
     await this.auditLogService.log(
-      "AUTO_POST",
-      "JournalEntry",
+      'AUTO_POST',
+      'JournalEntry',
       `Auto-posted fund transfer journal entry: ${transfer.referenceNumber}`,
       {
         entityId: entry.id,
-        userId: userId ?? "system",
+        userId: userId ?? 'system',
         username,
-        metadata: { sourceType: "fund_transfer", sourceId: transfer.id },
+        metadata: { sourceType: 'fund_transfer', sourceId: transfer.id },
       },
     );
 
-    this.logger.log(
-      `Fund transfer entry posted successfully: ${postedEntry.referenceNumber}`,
-    );
+    this.logger.log(`Fund transfer entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
 
@@ -1048,10 +911,7 @@ export class AccountingService {
 
     // TODO(#719): manager accepted for transactional call-site uniformity; JournalEntryService persistence is not yet manager-bound.
 
-    const entries = await this.journalEntryService.findBySource(
-      sourceType,
-      sourceId,
-    );
+    const entries = await this.journalEntryService.findBySource(sourceType, sourceId);
 
     if (entries.length === 0) {
       this.logger.warn(
@@ -1063,7 +923,7 @@ export class AccountingService {
     const currentPeriod = await this.fiscalPeriodService.getCurrentPeriod();
     if (!currentPeriod) {
       throw new BadRequestException(
-        "No open fiscal period found. Please open a fiscal period before processing reversals.",
+        'No open fiscal period found. Please open a fiscal period before processing reversals.',
       );
     }
 
@@ -1075,14 +935,8 @@ export class AccountingService {
         continue;
       }
 
-      await this.journalEntryService.reverseEntryInPeriod(
-        entry.id,
-        currentPeriod.id,
-        userId,
-      );
-      this.logger.log(
-        `Reversed entry ${entry.id} into period ${currentPeriod.id}`,
-      );
+      await this.journalEntryService.reverseEntryInPeriod(entry.id, currentPeriod.id, userId);
+      this.logger.log(`Reversed entry ${entry.id} into period ${currentPeriod.id}`);
     }
   }
 
@@ -1100,7 +954,7 @@ export class AccountingService {
     const currentPeriod = await this.fiscalPeriodService.getCurrentPeriod();
     if (!currentPeriod) {
       throw new BadRequestException(
-        "No open fiscal period found. Please open a fiscal period before processing refunds.",
+        'No open fiscal period found. Please open a fiscal period before processing refunds.',
       );
     }
 
@@ -1139,16 +993,14 @@ export class AccountingService {
       entryDate: new Date(),
       description: `Refund via ${refundMethodCode} for payment ${originalPaymentId}`,
       fiscalPeriodId: currentPeriod.id,
-      sourceType: "payment_refund",
+      sourceType: 'payment_refund',
       sourceId: originalPaymentId,
       lines,
     };
 
     const entry = await this.journalEntryService.create(entryDto, userId);
     await this.journalEntryService.postEntry(entry.id, userId);
-    this.logger.log(
-      `Refund transfer JE posted for payment ${originalPaymentId}`,
-    );
+    this.logger.log(`Refund transfer JE posted for payment ${originalPaymentId}`);
   }
 
   /**
@@ -1168,9 +1020,7 @@ export class AccountingService {
     });
 
     if (!periodValidation.isValid || !periodValidation.period) {
-      throw new BadRequestException(
-        `No open fiscal period found for date ${dto.asOfDate}`,
-      );
+      throw new BadRequestException(`No open fiscal period found for date ${dto.asOfDate}`);
     }
 
     const lines: CreateJournalEntryLineDto[] = [];
@@ -1187,7 +1037,7 @@ export class AccountingService {
           accountId: balance.accountId,
           debitAmount: Math.abs(balance.amount),
           creditAmount: 0,
-          memo: "Opening balance",
+          memo: 'Opening balance',
         });
         totalDebits += Math.abs(balance.amount);
       } else {
@@ -1195,16 +1045,14 @@ export class AccountingService {
           accountId: balance.accountId,
           debitAmount: 0,
           creditAmount: Math.abs(balance.amount),
-          memo: "Opening balance",
+          memo: 'Opening balance',
         });
         totalCredits += Math.abs(balance.amount);
       }
     }
 
     if (lines.length === 0) {
-      throw new BadRequestException(
-        "At least one non-zero opening balance is required",
-      );
+      throw new BadRequestException('At least one non-zero opening balance is required');
     }
 
     const difference = totalDebits - totalCredits;
@@ -1215,26 +1063,20 @@ export class AccountingService {
           accountId: dto.equityAccountId,
           debitAmount: 0,
           creditAmount: difference,
-          memo: "Opening balance equity",
+          memo: 'Opening balance equity',
         });
       } else {
         lines.push({
           accountId: dto.equityAccountId,
           debitAmount: Math.abs(difference),
           creditAmount: 0,
-          memo: "Opening balance equity",
+          memo: 'Opening balance equity',
         });
       }
     }
 
-    const finalDebits = lines.reduce(
-      (sum, line) => sum + Number(line.debitAmount || 0),
-      0,
-    );
-    const finalCredits = lines.reduce(
-      (sum, line) => sum + Number(line.creditAmount || 0),
-      0,
-    );
+    const finalDebits = lines.reduce((sum, line) => sum + Number(line.debitAmount || 0), 0);
+    const finalCredits = lines.reduce((sum, line) => sum + Number(line.creditAmount || 0), 0);
 
     if (Math.abs(finalDebits - finalCredits) > 0.01) {
       throw new BadRequestException(
@@ -1247,27 +1089,23 @@ export class AccountingService {
         entryDate: asOfDate,
         description: `Opening Balance Entry as of ${dto.asOfDate}`,
         fiscalPeriodId: periodValidation.period.id,
-        sourceType: "opening_balance",
+        sourceType: 'opening_balance',
         lines,
       },
       userId,
       username,
     );
 
-    const postedEntry = await this.journalEntryService.postEntry(
-      entry.id,
-      userId,
-      username,
-    );
+    const postedEntry = await this.journalEntryService.postEntry(entry.id, userId, username);
     await this.auditLogService.log(
-      "AUTO_POST",
-      "JournalEntry",
-      "Auto-posted opening balance entry",
+      'AUTO_POST',
+      'JournalEntry',
+      'Auto-posted opening balance entry',
       {
         entityId: entry.id,
-        userId: userId ?? "system",
+        userId: userId ?? 'system',
         username,
-        metadata: { sourceType: "opening_balance" },
+        metadata: { sourceType: 'opening_balance' },
       },
     );
     return postedEntry as any;

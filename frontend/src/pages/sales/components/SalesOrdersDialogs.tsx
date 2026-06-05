@@ -1,21 +1,21 @@
-import PaymentDialog from '@/components/sales/PaymentDialog'
-import RefundDialog from '@/components/sales/RefundDialog'
-import SalesOrderPrintDialog from './SalesOrderPrintDialog'
-import type { SalesOrder } from '@/types'
+import PaymentDialog from '@/components/sales/PaymentDialog';
+import RefundDialog from '@/components/sales/RefundDialog';
+import SalesOrderPrintDialog from './SalesOrderPrintDialog';
+import type { SalesOrder } from '@/types';
 
 interface SalesOrdersDialogsProps {
-  printOrder: SalesOrder | null
-  onClosePrint: () => void
-  paymentOrder: SalesOrder | null
-  onClosePayment: () => void
+  printOrder: SalesOrder | null;
+  onClosePrint: () => void;
+  paymentOrder: SalesOrder | null;
+  onClosePayment: () => void;
   onSubmitPayment: (
     payments: { paymentMethodId: string; amount: number; reference?: string }[],
-  ) => Promise<void>
-  refundOrder: SalesOrder | null
-  onCloseRefund: () => void
+  ) => Promise<void>;
+  refundOrder: SalesOrder | null;
+  onCloseRefund: () => void;
   onSubmitRefund: (
     refunds: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[],
-  ) => Promise<void>
+  ) => Promise<void>;
 }
 
 export default function SalesOrdersDialogs({
@@ -30,9 +30,7 @@ export default function SalesOrdersDialogs({
 }: SalesOrdersDialogsProps) {
   return (
     <>
-      {printOrder && (
-        <SalesOrderPrintDialog open onClose={onClosePrint} salesOrder={printOrder} />
-      )}
+      {printOrder && <SalesOrderPrintDialog open onClose={onClosePrint} salesOrder={printOrder} />}
       {paymentOrder && (
         <PaymentDialog
           open
@@ -54,5 +52,5 @@ export default function SalesOrdersDialogs({
         />
       )}
     </>
-  )
+  );
 }

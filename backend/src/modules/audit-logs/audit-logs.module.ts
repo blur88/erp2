@@ -1,8 +1,8 @@
-import { Module, Global } from "@nestjs/common";
-import { TypeOrmModule } from "@nestjs/typeorm";
-import { AuditLog } from "@/database/entities/audit-log.entity";
-import { AuditLogService } from "./services";
-import { AuditLogsController } from "./audit-logs.controller";
+import { Module, Global } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditLog } from '@/database/entities/audit-log.entity';
+import { AuditLogService } from './services';
+import { AuditLogsController } from './audit-logs.controller';
 
 @Global() // Make this module global so AuditLogService can be injected anywhere
 @Module({

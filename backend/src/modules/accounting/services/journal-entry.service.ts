@@ -4,29 +4,23 @@ import {
   BadRequestException,
   ConflictException,
   Logger,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, Between, IsNull, In } from "typeorm";
-import {
-  JournalEntry,
-  JournalEntryStatus,
-} from "../../../database/entities/journal-entry.entity";
-import { JournalEntryLine } from "../../../database/entities/journal-entry-line.entity";
-import {
-  FiscalPeriod,
-  FiscalPeriodStatus,
-} from "../../../database/entities/fiscal-period.entity";
-import { ChartOfAccount } from "../../../database/entities/chart-of-account.entity";
-import { SalesOrder } from "../../../database/entities/sales-order.entity";
-import { PurchaseOrder } from "../../../database/entities/purchase-order.entity";
-import { GoodsReceivedNote } from "../../../database/entities/goods-received-note.entity";
-import { Payment } from "../../../database/entities/payment.entity";
-import { VendorPayment } from "../../../database/entities/vendor-payment.entity";
-import { Expense } from "../../../database/entities/expense.entity";
-import { OwnerEquityTransaction } from "../../../database/entities/owner-equity-transaction.entity";
-import { FundTransfer } from "../../../database/entities/fund-transfer.entity";
-import { Settlement } from "../../../database/entities/settlement.entity";
-import { StockAdjustment } from "../../../database/entities/stock-adjustment.entity";
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, Between, IsNull, In } from 'typeorm';
+import { JournalEntry, JournalEntryStatus } from '../../../database/entities/journal-entry.entity';
+import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
+import { FiscalPeriod, FiscalPeriodStatus } from '../../../database/entities/fiscal-period.entity';
+import { ChartOfAccount } from '../../../database/entities/chart-of-account.entity';
+import { SalesOrder } from '../../../database/entities/sales-order.entity';
+import { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
+import { GoodsReceivedNote } from '../../../database/entities/goods-received-note.entity';
+import { Payment } from '../../../database/entities/payment.entity';
+import { VendorPayment } from '../../../database/entities/vendor-payment.entity';
+import { Expense } from '../../../database/entities/expense.entity';
+import { OwnerEquityTransaction } from '../../../database/entities/owner-equity-transaction.entity';
+import { FundTransfer } from '../../../database/entities/fund-transfer.entity';
+import { Settlement } from '../../../database/entities/settlement.entity';
+import { StockAdjustment } from '../../../database/entities/stock-adjustment.entity';
 import {
   CreateJournalEntryDto,
   UpdateJournalEntryDto,
@@ -34,9 +28,9 @@ import {
   JournalEntryResponseDto,
   JournalEntryListResponseDto,
   JournalEntryLineResponseDto,
-} from "../dto/journal-entry.dto";
-import { GlobalSearchResultDto } from "../../search/dto/global-search-result.dto";
-import { canSearchJournalEntries } from "../../search/search.permissions";
+} from '../dto/journal-entry.dto';
+import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
+import { canSearchJournalEntries } from '../../search/search.permissions';
 import {
   SEARCH_CANDIDATE_LIMIT,
   SCORE_EXACT_CODE,
@@ -45,13 +39,13 @@ import {
   SCORE_FUZZY,
   BOOST_JOURNAL,
   BOOST_EXACT_MATCH,
-} from "../../search/search.constants";
-import { JwtPayload } from "../../auth/strategies/jwt.strategy";
-import { UserRole } from "../../../database/entities/user.entity";
-import { ChartOfAccountsService } from "./chart-of-accounts.service";
-import { FiscalPeriodService } from "./fiscal-period.service";
-import { SettingsService } from "../../settings/settings.service";
-import { AuditLogService } from "../../audit-logs/services";
+} from '../../search/search.constants';
+import { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import { UserRole } from '../../../database/entities/user.entity';
+import { ChartOfAccountsService } from './chart-of-accounts.service';
+import { FiscalPeriodService } from './fiscal-period.service';
+import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class JournalEntryService {
@@ -103,10 +97,7 @@ export class JournalEntryService {
     this.logger.log(`Creating journal entry with date: ${createDto.entryDate}`);
 
     // Validate fiscal period exists and is open
-    await this.validateFiscalPeriod(
-      createDto.fiscalPeriodId,
-      createDto.entryDate,
-    );
+    await this.validateFiscalPeriod(createDto.fiscalPeriodId, createDto.entryDate);
 
     // Validate all accounts exist and are active
     await this.validateAccounts(createDto.lines.map((line) => line.accountId));
@@ -117,7 +108,7 @@ export class JournalEntryService {
     // Generate reference number if not provided
     const referenceNumber =
       createDto.referenceNumber ||
-      (await this.settingsService.generateDocumentNumber("Journal Entries"));
+      (await this.settingsService.generateDocumentNumber('Journal Entries'));
 
     // Check if reference number already exists
     const existingEntry = await this.journalEntryRepository.findOne({
@@ -158,24 +149,20 @@ export class JournalEntryService {
     await this.journalEntryLineRepository.save(lines);
 
     await this.auditLogService.log(
-      "CREATE",
-      "JournalEntry",
+      'CREATE',
+      'JournalEntry',
       `Created journal entry: ${savedEntry.referenceNumber}`,
-      { entityId: savedEntry.id, userId: userId ?? "system", username },
+      { entityId: savedEntry.id, userId: userId ?? 'system', username },
     );
 
-    this.logger.log(
-      `Journal entry created successfully with ID: ${savedEntry.id}`,
-    );
+    this.logger.log(`Journal entry created successfully with ID: ${savedEntry.id}`);
     return this.findOne(savedEntry.id);
   }
 
   /**
    * Find all journal entries with filtering, sorting, and pagination
    */
-  async findAll(
-    query: QueryJournalEntriesDto,
-  ): Promise<JournalEntryListResponseDto> {
+  async findAll(query: QueryJournalEntriesDto): Promise<JournalEntryListResponseDto> {
     const {
       page = 1,
       limit = 20,
@@ -186,73 +173,73 @@ export class JournalEntryService {
       sourceId,
       startDate,
       endDate,
-      sortBy = "entryDate",
-      sortOrder = "ASC",
+      sortBy = 'entryDate',
+      sortOrder = 'ASC',
       ids,
     } = query;
 
     const queryBuilder = this.journalEntryRepository
-      .createQueryBuilder("entry")
-      .leftJoinAndSelect("entry.fiscalPeriod", "fiscalPeriod")
-      .leftJoinAndSelect("entry.lines", "lines")
-      .leftJoinAndSelect("lines.account", "account")
-      .where("entry.deletedAt IS NULL");
+      .createQueryBuilder('entry')
+      .leftJoinAndSelect('entry.fiscalPeriod', 'fiscalPeriod')
+      .leftJoinAndSelect('entry.lines', 'lines')
+      .leftJoinAndSelect('lines.account', 'account')
+      .where('entry.deletedAt IS NULL');
 
     // Apply filters
     if (search) {
       queryBuilder.andWhere(
-        "(entry.referenceNumber ILIKE :search OR entry.description ILIKE :search)",
+        '(entry.referenceNumber ILIKE :search OR entry.description ILIKE :search)',
         { search: `%${search}%` },
       );
     }
 
     if (status) {
-      queryBuilder.andWhere("entry.status = :status", { status });
+      queryBuilder.andWhere('entry.status = :status', { status });
     }
 
     if (fiscalPeriodId) {
-      queryBuilder.andWhere("entry.fiscalPeriodId = :fiscalPeriodId", {
+      queryBuilder.andWhere('entry.fiscalPeriodId = :fiscalPeriodId', {
         fiscalPeriodId,
       });
     }
 
     if (ids) {
       const idList = ids
-        .split(",")
+        .split(',')
         .map((s) => s.trim())
         .filter(Boolean);
       if (idList.length > 0) {
-        queryBuilder.andWhere("entry.id IN (:...idList)", { idList });
+        queryBuilder.andWhere('entry.id IN (:...idList)', { idList });
       }
     } else {
       if (sourceType) {
-        queryBuilder.andWhere("entry.sourceType = :sourceType", { sourceType });
+        queryBuilder.andWhere('entry.sourceType = :sourceType', { sourceType });
       }
 
       if (sourceId) {
-        queryBuilder.andWhere("entry.sourceId = :sourceId", { sourceId });
+        queryBuilder.andWhere('entry.sourceId = :sourceId', { sourceId });
       }
     }
 
     if (startDate && endDate) {
-      queryBuilder.andWhere("entry.entryDate BETWEEN :startDate AND :endDate", {
+      queryBuilder.andWhere('entry.entryDate BETWEEN :startDate AND :endDate', {
         startDate,
         endDate,
       });
     } else if (startDate) {
-      queryBuilder.andWhere("entry.entryDate >= :startDate", { startDate });
+      queryBuilder.andWhere('entry.entryDate >= :startDate', { startDate });
     } else if (endDate) {
-      queryBuilder.andWhere("entry.entryDate <= :endDate", { endDate });
+      queryBuilder.andWhere('entry.entryDate <= :endDate', { endDate });
     }
 
     // Apply sorting
-    const validSortFields = ["entryDate", "referenceNumber", "createdAt"];
-    const sortField = validSortFields.includes(sortBy) ? sortBy : "entryDate";
-    const safeSortOrder = sortOrder?.toUpperCase() === "DESC" ? "DESC" : "ASC";
+    const validSortFields = ['entryDate', 'referenceNumber', 'createdAt'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'entryDate';
+    const safeSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
     queryBuilder.orderBy(`entry.${sortField}`, safeSortOrder);
-    if (sortField !== "referenceNumber") {
-      queryBuilder.addOrderBy("entry.referenceNumber", safeSortOrder);
+    if (sortField !== 'referenceNumber') {
+      queryBuilder.addOrderBy('entry.referenceNumber', safeSortOrder);
     }
 
     // Apply pagination
@@ -261,9 +248,7 @@ export class JournalEntryService {
 
     const [entries, total] = await queryBuilder.getManyAndCount();
     const sourceRefMap = await this.resolveSourceRefNumbersMany(entries);
-    const data = await Promise.all(
-      entries.map((entry) => this.toResponseDto(entry, sourceRefMap)),
-    );
+    const data = await Promise.all(entries.map((entry) => this.toResponseDto(entry, sourceRefMap)));
 
     return {
       data,
@@ -278,19 +263,16 @@ export class JournalEntryService {
     };
   }
 
-  async searchGlobal(
-    query: string,
-    user: JwtPayload,
-  ): Promise<GlobalSearchResultDto[]> {
+  async searchGlobal(query: string, user: JwtPayload): Promise<GlobalSearchResultDto[]> {
     if (!canSearchJournalEntries(user.role as UserRole)) return [];
 
     const trimmed = query.trim();
     const q = trimmed.toLowerCase();
 
     const results = await this.journalEntryRepository
-      .createQueryBuilder("je")
-      .where("je.deletedAt IS NULL")
-      .andWhere("(je.referenceNumber ILIKE :q OR je.description ILIKE :q)", {
+      .createQueryBuilder('je')
+      .where('je.deletedAt IS NULL')
+      .andWhere('(je.referenceNumber ILIKE :q OR je.description ILIKE :q)', {
         q: `%${trimmed}%`,
       })
       .take(SEARCH_CANDIDATE_LIMIT)
@@ -301,12 +283,12 @@ export class JournalEntryService {
     }
 
     const fuzzyResults = await this.journalEntryRepository
-      .createQueryBuilder("je")
-      .addSelect("similarity(je.referenceNumber, :q)", "sim")
-      .where("je.deletedAt IS NULL")
-      .andWhere("similarity(je.referenceNumber, :q) > 0.3")
-      .orderBy("sim", "DESC")
-      .setParameter("q", trimmed)
+      .createQueryBuilder('je')
+      .addSelect('similarity(je.referenceNumber, :q)', 'sim')
+      .where('je.deletedAt IS NULL')
+      .andWhere('similarity(je.referenceNumber, :q) > 0.3')
+      .orderBy('sim', 'DESC')
+      .setParameter('q', trimmed)
       .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
@@ -362,27 +344,19 @@ export class JournalEntryService {
     }
 
     // Validate fiscal period if being changed
-    if (
-      updateDto.fiscalPeriodId &&
-      updateDto.fiscalPeriodId !== entry.fiscalPeriodId
-    ) {
+    if (updateDto.fiscalPeriodId && updateDto.fiscalPeriodId !== entry.fiscalPeriodId) {
       const entryDate = updateDto.entryDate || entry.entryDate;
       await this.validateFiscalPeriod(updateDto.fiscalPeriodId, entryDate);
     }
 
     // Validate accounts if lines are being updated
     if (updateDto.lines) {
-      await this.validateAccounts(
-        updateDto.lines.map((line) => line.accountId),
-      );
+      await this.validateAccounts(updateDto.lines.map((line) => line.accountId));
       this.validateEntryLines(updateDto.lines);
     }
 
     // Check for reference number conflicts if being changed
-    if (
-      updateDto.referenceNumber &&
-      updateDto.referenceNumber !== entry.referenceNumber
-    ) {
+    if (updateDto.referenceNumber && updateDto.referenceNumber !== entry.referenceNumber) {
       const existingEntry = await this.journalEntryRepository.findOne({
         where: { referenceNumber: updateDto.referenceNumber },
         withDeleted: true,
@@ -427,10 +401,10 @@ export class JournalEntryService {
     }
 
     await this.auditLogService.log(
-      "UPDATE",
-      "JournalEntry",
+      'UPDATE',
+      'JournalEntry',
       `Updated journal entry: ${entry.referenceNumber}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Journal entry updated successfully: ${id}`);
@@ -471,21 +445,17 @@ export class JournalEntryService {
     await this.journalEntryRepository.softDelete(id);
 
     await this.auditLogService.log(
-      "DELETE",
-      "JournalEntry",
+      'DELETE',
+      'JournalEntry',
       `Deleted journal entry: ${entry.referenceNumber}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Journal entry soft-deleted successfully: ${id}`);
   }
 
-  private mapJournalEntry(
-    je: JournalEntry,
-    q: string,
-    fuzzy: boolean,
-  ): GlobalSearchResultDto {
-    const ref = je.referenceNumber?.toLowerCase() ?? "";
+  private mapJournalEntry(je: JournalEntry, q: string, fuzzy: boolean): GlobalSearchResultDto {
+    const ref = je.referenceNumber?.toLowerCase() ?? '';
     const baseScore = fuzzy
       ? SCORE_FUZZY
       : ref === q
@@ -495,15 +465,12 @@ export class JournalEntryService {
           : SCORE_CONTAINS;
 
     return {
-      type: "journal_entry",
+      type: 'journal_entry',
       id: je.id,
       label: je.referenceNumber,
       description: je.description ?? undefined,
       route: `/accounting/journal-entries/${je.id}`,
-      score:
-        baseScore +
-        BOOST_JOURNAL +
-        (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
+      score: baseScore + BOOST_JOURNAL + (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
     };
   }
 
@@ -543,9 +510,7 @@ export class JournalEntryService {
     }
 
     // Validate fiscal period is still open
-    const periodIsOpen = await this.fiscalPeriodService.checkPeriodOpen(
-      entry.fiscalPeriodId,
-    );
+    const periodIsOpen = await this.fiscalPeriodService.checkPeriodOpen(entry.fiscalPeriodId);
     if (!periodIsOpen) {
       throw new BadRequestException(
         `Cannot post journal entry - fiscal period '${entry.fiscalPeriod.name}' is closed`,
@@ -559,8 +524,8 @@ export class JournalEntryService {
 
     if (entryDate < periodStart || entryDate > periodEnd) {
       throw new BadRequestException(
-        `Entry date ${entryDate.toISOString().split("T")[0]} is outside fiscal period range ` +
-          `(${periodStart.toISOString().split("T")[0]} to ${periodEnd.toISOString().split("T")[0]})`,
+        `Entry date ${entryDate.toISOString().split('T')[0]} is outside fiscal period range ` +
+          `(${periodStart.toISOString().split('T')[0]} to ${periodEnd.toISOString().split('T')[0]})`,
       );
     }
 
@@ -569,10 +534,10 @@ export class JournalEntryService {
     const postedEntry = await this.journalEntryRepository.save(entry);
 
     await this.auditLogService.log(
-      "POST",
-      "JournalEntry",
+      'POST',
+      'JournalEntry',
       `Posted journal entry: ${entry.referenceNumber}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Journal entry posted successfully: ${id}`);
@@ -625,7 +590,7 @@ export class JournalEntryService {
 
     // Generate reference number for reversal entry
     const reversalReferenceNumber =
-      await this.settingsService.generateDocumentNumber("Journal Entries");
+      await this.settingsService.generateDocumentNumber('Journal Entries');
 
     // Create reversal entry
     const reversalEntry = this.journalEntryRepository.create({
@@ -637,8 +602,7 @@ export class JournalEntryService {
       status: JournalEntryStatus.POSTED, // Reversals are posted immediately
     });
 
-    const savedReversalEntry =
-      await this.journalEntryRepository.save(reversalEntry);
+    const savedReversalEntry = await this.journalEntryRepository.save(reversalEntry);
 
     // Create reversal lines (swap debits and credits)
     const reversalLines = originalEntry.lines.map((line) =>
@@ -647,7 +611,7 @@ export class JournalEntryService {
         accountId: line.accountId,
         debitAmount: line.creditAmount, // Swap credit to debit
         creditAmount: line.debitAmount, // Swap debit to credit
-        memo: line.memo ? `Reversal: ${line.memo}` : "Reversal entry",
+        memo: line.memo ? `Reversal: ${line.memo}` : 'Reversal entry',
       }),
     );
 
@@ -659,20 +623,18 @@ export class JournalEntryService {
     await this.journalEntryRepository.save(originalEntry);
 
     await this.auditLogService.log(
-      "REVERSE",
-      "JournalEntry",
+      'REVERSE',
+      'JournalEntry',
       `Reversed journal entry: ${originalEntry.referenceNumber} -> ${savedReversalEntry.referenceNumber}`,
       {
         entityId: id,
-        userId: userId ?? "system",
+        userId: userId ?? 'system',
         username,
         metadata: { reversalEntryId: savedReversalEntry.id },
       },
     );
 
-    this.logger.log(
-      `Journal entry reversed successfully: ${id} -> ${savedReversalEntry.id}`,
-    );
+    this.logger.log(`Journal entry reversed successfully: ${id} -> ${savedReversalEntry.id}`);
     return this.findOne(savedReversalEntry.id);
   }
 
@@ -682,9 +644,7 @@ export class JournalEntryService {
     userId?: string,
     username?: string,
   ): Promise<JournalEntryResponseDto> {
-    this.logger.log(
-      `Reversing journal entry ${id} into period ${fiscalPeriodId}`,
-    );
+    this.logger.log(`Reversing journal entry ${id} into period ${fiscalPeriodId}`);
 
     const originalEntry = await this.journalEntryRepository.findOne({
       where: { id },
@@ -707,16 +667,15 @@ export class JournalEntryService {
       );
     }
 
-    const periodIsOpen =
-      await this.fiscalPeriodService.checkPeriodOpen(fiscalPeriodId);
+    const periodIsOpen = await this.fiscalPeriodService.checkPeriodOpen(fiscalPeriodId);
     if (!periodIsOpen) {
       throw new BadRequestException(
-        "Cannot reverse journal entry - target fiscal period is closed",
+        'Cannot reverse journal entry - target fiscal period is closed',
       );
     }
 
     const reversalReferenceNumber =
-      await this.settingsService.generateDocumentNumber("Journal Entries");
+      await this.settingsService.generateDocumentNumber('Journal Entries');
 
     const reversalEntry = this.journalEntryRepository.create({
       entryDate: new Date(),
@@ -729,8 +688,7 @@ export class JournalEntryService {
       // results or they will be reversed again on subsequent reversal calls
     });
 
-    const savedReversalEntry =
-      await this.journalEntryRepository.save(reversalEntry);
+    const savedReversalEntry = await this.journalEntryRepository.save(reversalEntry);
 
     const reversalLines = originalEntry.lines.map((line) =>
       this.journalEntryLineRepository.create({
@@ -738,7 +696,7 @@ export class JournalEntryService {
         accountId: line.accountId,
         debitAmount: line.creditAmount,
         creditAmount: line.debitAmount,
-        memo: line.memo ? `Reversal: ${line.memo}` : "Reversal entry",
+        memo: line.memo ? `Reversal: ${line.memo}` : 'Reversal entry',
       }),
     );
 
@@ -749,27 +707,22 @@ export class JournalEntryService {
     await this.journalEntryRepository.save(originalEntry);
 
     await this.auditLogService.log(
-      "REVERSE",
-      "JournalEntry",
+      'REVERSE',
+      'JournalEntry',
       `Reversed journal entry: ${originalEntry.referenceNumber} (into period ${fiscalPeriodId})`,
       {
         entityId: id,
-        userId: userId ?? "system",
+        userId: userId ?? 'system',
         username,
         metadata: { reversalEntryId: savedReversalEntry.id, fiscalPeriodId },
       },
     );
 
-    this.logger.log(
-      `Journal entry reversed: ${id} -> ${savedReversalEntry.id}`,
-    );
+    this.logger.log(`Journal entry reversed: ${id} -> ${savedReversalEntry.id}`);
     return this.findOne(savedReversalEntry.id);
   }
 
-  async findBySource(
-    sourceType: string,
-    sourceId: string,
-  ): Promise<JournalEntry[]> {
+  async findBySource(sourceType: string, sourceId: string): Promise<JournalEntry[]> {
     // Only return original entries (not reversal entries) to avoid reversing reversals
     return this.journalEntryRepository.find({
       where: { sourceType, sourceId, reversalOfId: IsNull() },
@@ -793,7 +746,7 @@ export class JournalEntryService {
         await this.postEntry(id, userId, username);
         succeeded.push(id);
       } catch (error: any) {
-        failed.push({ id, error: error?.message || "Unknown error" });
+        failed.push({ id, error: error?.message || 'Unknown error' });
       }
     }
 
@@ -816,7 +769,7 @@ export class JournalEntryService {
         await this.remove(id, userId, username);
         succeeded.push(id);
       } catch (error: any) {
-        failed.push({ id, error: error?.message || "Unknown error" });
+        failed.push({ id, error: error?.message || 'Unknown error' });
       }
     }
 
@@ -826,18 +779,13 @@ export class JournalEntryService {
   /**
    * Validate fiscal period exists and is open
    */
-  private async validateFiscalPeriod(
-    fiscalPeriodId: string,
-    entryDate: Date,
-  ): Promise<void> {
+  private async validateFiscalPeriod(fiscalPeriodId: string, entryDate: Date): Promise<void> {
     const period = await this.fiscalPeriodRepository.findOne({
       where: { id: fiscalPeriodId },
     });
 
     if (!period) {
-      throw new NotFoundException(
-        `Fiscal period with ID '${fiscalPeriodId}' not found`,
-      );
+      throw new NotFoundException(`Fiscal period with ID '${fiscalPeriodId}' not found`);
     }
 
     if (period.status !== FiscalPeriodStatus.OPEN) {
@@ -853,8 +801,8 @@ export class JournalEntryService {
 
     if (date < periodStart || date > periodEnd) {
       throw new BadRequestException(
-        `Entry date ${date.toISOString().split("T")[0]} is outside fiscal period range ` +
-          `(${periodStart.toISOString().split("T")[0]} to ${periodEnd.toISOString().split("T")[0]})`,
+        `Entry date ${date.toISOString().split('T')[0]} is outside fiscal period range ` +
+          `(${periodStart.toISOString().split('T')[0]} to ${periodEnd.toISOString().split('T')[0]})`,
       );
     }
   }
@@ -886,7 +834,7 @@ export class JournalEntryService {
   private validateEntryLines(lines: any[]): void {
     if (!lines || lines.length < 2) {
       throw new BadRequestException(
-        "Journal entry must have at least 2 lines (minimum one debit and one credit)",
+        'Journal entry must have at least 2 lines (minimum one debit and one credit)',
       );
     }
 
@@ -910,29 +858,22 @@ export class JournalEntryService {
 
       // Validate amounts are positive
       if (debit < 0 || credit < 0) {
-        throw new BadRequestException(
-          `Line ${i + 1}: Debit and credit amounts must be positive`,
-        );
+        throw new BadRequestException(`Line ${i + 1}: Debit and credit amounts must be positive`);
       }
     }
   }
 
   /** Batch-resolves source reference numbers for a list of entries — one IN query per sourceType. */
-  private async resolveSourceRefNumbersMany(
-    entries: JournalEntry[],
-  ): Promise<Map<string, string>> {
+  private async resolveSourceRefNumbersMany(entries: JournalEntry[]): Promise<Map<string, string>> {
     const refMap = new Map<string, string>();
 
-    const withSource = entries.filter(
-      (entry) => entry.sourceType && entry.sourceId,
-    );
+    const withSource = entries.filter((entry) => entry.sourceType && entry.sourceId);
     if (withSource.length === 0) return refMap;
 
     // Group unique sourceIds by sourceType using a Set to avoid O(n²) dedup
     const grouped = new Map<string, Set<string>>();
     for (const entry of withSource) {
-      if (!grouped.has(entry.sourceType!))
-        grouped.set(entry.sourceType!, new Set());
+      if (!grouped.has(entry.sourceType!)) grouped.set(entry.sourceType!, new Set());
       grouped.get(entry.sourceType!)!.add(entry.sourceId!);
     }
 
@@ -941,7 +882,7 @@ export class JournalEntryService {
       const ids = [...idSet];
       try {
         switch (sourceType) {
-          case "sales_order": {
+          case 'sales_order': {
             const records = await this.salesOrderRepository.find({
               where: { id: In(ids) },
               select: { id: true, orderNumber: true },
@@ -951,7 +892,7 @@ export class JournalEntryService {
             }
             break;
           }
-          case "purchase_order": {
+          case 'purchase_order': {
             const records = await this.purchaseOrderRepository.find({
               where: { id: In(ids) },
               select: { id: true, orderNumber: true },
@@ -961,7 +902,7 @@ export class JournalEntryService {
             }
             break;
           }
-          case "payment": {
+          case 'payment': {
             const records = await this.paymentRepository.find({
               where: { id: In(ids) },
               select: { id: true, paymentNumber: true },
@@ -971,7 +912,7 @@ export class JournalEntryService {
             }
             break;
           }
-          case "goods_received_note": {
+          case 'goods_received_note': {
             const records = await this.grnRepository.find({
               where: { id: In(ids) },
               select: { id: true, grnNumber: true },
@@ -981,7 +922,7 @@ export class JournalEntryService {
             }
             break;
           }
-          case "vendor_payment": {
+          case 'vendor_payment': {
             const records = await this.vendorPaymentRepository.find({
               where: { id: In(ids) },
               select: { id: true, paymentNumber: true },
@@ -991,7 +932,7 @@ export class JournalEntryService {
             }
             break;
           }
-          case "expense": {
+          case 'expense': {
             const records = await this.expenseRepository.find({
               where: { id: In(ids) },
               select: { id: true, referenceNumber: true },
@@ -1001,20 +942,17 @@ export class JournalEntryService {
             }
             break;
           }
-          case "owner_equity_transaction": {
+          case 'owner_equity_transaction': {
             const records = await this.ownerEquityTransactionRepository.find({
               where: { id: In(ids) },
               select: { id: true, referenceNumber: true },
             });
             for (const record of records) {
-              refMap.set(
-                `owner_equity_transaction:${record.id}`,
-                record.referenceNumber,
-              );
+              refMap.set(`owner_equity_transaction:${record.id}`, record.referenceNumber);
             }
             break;
           }
-          case "fund_transfer": {
+          case 'fund_transfer': {
             const records = await this.fundTransferRepository.find({
               where: { id: In(ids) },
               select: { id: true, referenceNumber: true },
@@ -1024,7 +962,7 @@ export class JournalEntryService {
             }
             break;
           }
-          case "settlement": {
+          case 'settlement': {
             const records = await this.settlementRepository.find({
               where: { id: In(ids) },
               withDeleted: true,
@@ -1035,16 +973,13 @@ export class JournalEntryService {
             }
             break;
           }
-          case "stock_adjustment": {
+          case 'stock_adjustment': {
             const records = await this.stockAdjustmentRepository.find({
               where: { id: In(ids) },
               select: { id: true, adjustmentNumber: true },
             });
             for (const record of records) {
-              refMap.set(
-                `stock_adjustment:${record.id}`,
-                record.adjustmentNumber,
-              );
+              refMap.set(`stock_adjustment:${record.id}`, record.adjustmentNumber);
             }
             break;
           }
@@ -1070,63 +1005,63 @@ export class JournalEntryService {
 
     try {
       switch (sourceType) {
-        case "sales_order": {
+        case 'sales_order': {
           const record = await this.salesOrderRepository.findOne({
             where: { id: sourceId },
             select: { id: true, orderNumber: true },
           });
           return record?.orderNumber;
         }
-        case "purchase_order": {
+        case 'purchase_order': {
           const record = await this.purchaseOrderRepository.findOne({
             where: { id: sourceId },
             select: { id: true, orderNumber: true },
           });
           return record?.orderNumber;
         }
-        case "payment": {
+        case 'payment': {
           const record = await this.paymentRepository.findOne({
             where: { id: sourceId },
             select: { id: true, paymentNumber: true },
           });
           return record?.paymentNumber;
         }
-        case "goods_received_note": {
+        case 'goods_received_note': {
           const record = await this.grnRepository.findOne({
             where: { id: sourceId },
             select: { id: true, grnNumber: true },
           });
           return record?.grnNumber;
         }
-        case "vendor_payment": {
+        case 'vendor_payment': {
           const record = await this.vendorPaymentRepository.findOne({
             where: { id: sourceId },
             select: { id: true, paymentNumber: true },
           });
           return record?.paymentNumber;
         }
-        case "expense": {
+        case 'expense': {
           const record = await this.expenseRepository.findOne({
             where: { id: sourceId },
             select: { id: true, referenceNumber: true },
           });
           return record?.referenceNumber;
         }
-        case "owner_equity_transaction": {
+        case 'owner_equity_transaction': {
           const record = await this.ownerEquityTransactionRepository.findOne({
             where: { id: sourceId },
             select: { id: true, referenceNumber: true },
           });
           return record?.referenceNumber;
         }
-        case "fund_transfer": {
+        case 'fund_transfer': {
           const record = await this.fundTransferRepository.findOne({
             where: { id: sourceId },
             select: { id: true, referenceNumber: true },
           });
           return record?.referenceNumber;
         }
-        case "settlement": {
+        case 'settlement': {
           const record = await this.settlementRepository.findOne({
             where: { id: sourceId },
             withDeleted: true,
@@ -1134,7 +1069,7 @@ export class JournalEntryService {
           });
           return record?.settlementNumber;
         }
-        case "stock_adjustment": {
+        case 'stock_adjustment': {
           const record = await this.stockAdjustmentRepository.findOne({
             where: { id: sourceId },
             select: { id: true, adjustmentNumber: true },
@@ -1186,16 +1121,10 @@ export class JournalEntryService {
             status: entry.fiscalPeriod.status,
           }
         : undefined,
-      lines: entry.lines
-        ? entry.lines.map((line) => this.toLineResponseDto(line))
-        : undefined,
+      lines: entry.lines ? entry.lines.map((line) => this.toLineResponseDto(line)) : undefined,
       // map not propagated: reversalOf/reversedBy are not loaded in list queries
-      reversalOf: entry.reversalOf
-        ? await this.toResponseDto(entry.reversalOf)
-        : undefined,
-      reversedBy: entry.reversedBy
-        ? await this.toResponseDto(entry.reversedBy)
-        : undefined,
+      reversalOf: entry.reversalOf ? await this.toResponseDto(entry.reversalOf) : undefined,
+      reversedBy: entry.reversedBy ? await this.toResponseDto(entry.reversedBy) : undefined,
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,
       deletedAt: entry.deletedAt,
@@ -1205,9 +1134,7 @@ export class JournalEntryService {
   /**
    * Convert journal entry line entity to response DTO
    */
-  private toLineResponseDto(
-    line: JournalEntryLine,
-  ): JournalEntryLineResponseDto {
+  private toLineResponseDto(line: JournalEntryLine): JournalEntryLineResponseDto {
     return {
       id: line.id,
       journalEntryId: line.journalEntryId,

@@ -1,4 +1,4 @@
-import { PurchaseCostHistory } from "../../../../database/entities/purchase-cost-history.entity";
+import { PurchaseCostHistory } from '../../../../database/entities/purchase-cost-history.entity';
 
 /**
  * Base interface for costing strategies

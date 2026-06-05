@@ -1,4 +1,4 @@
-import { ValidationError } from "class-validator";
+import { ValidationError } from 'class-validator';
 
 export function extractValidationMessages(errors: ValidationError[]): string[] {
   const messages: string[] = [];

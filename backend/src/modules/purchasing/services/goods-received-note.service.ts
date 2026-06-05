@@ -1,33 +1,28 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  BadRequestException,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, Like } from "typeorm";
-import { BaseCrudService } from "../../../common/services/base-crud.service";
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, Like } from 'typeorm';
+import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   GoodsReceivedNote,
   GoodsReceivedNoteItem,
   PurchaseOrder,
   Supplier,
   Product,
-} from "../../../database/entities";
+} from '../../../database/entities';
 import {
   CreateGoodsReceivedNoteDto,
   UpdateGoodsReceivedNoteDto,
   GoodsReceivedNoteQueryDto,
   GoodsReceivedNoteResponseDto,
   GoodsReceivedNoteListResponseDto,
-} from "../dto/goods-received-note.dto";
-import { BaseCostCalculatorService } from "../../inventory/services/base-cost-calculator.service";
-import { StockMovementService } from "../../inventory/services/stock-movement.service";
-import { CreateStockMovementDto } from "../../inventory/dto/stock.dto";
-import { StockMovementType } from "../../../database/entities/stock-movement.entity";
-import { SettingsService } from "../../settings/settings.service";
-import { AuditLogService } from "../../audit-logs/services";
-import { AccountingService } from "@modules/accounting/services/accounting.service";
+} from '../dto/goods-received-note.dto';
+import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
+import { StockMovementService } from '../../inventory/services/stock-movement.service';
+import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
+import { StockMovementType } from '../../../database/entities/stock-movement.entity';
+import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
+import { AccountingService } from '@modules/accounting/services/accounting.service';
 
 @Injectable()
 export class GoodsReceivedNoteService extends BaseCrudService<
@@ -59,7 +54,7 @@ export class GoodsReceivedNoteService extends BaseCrudService<
   }
 
   getEntityType(): string {
-    return "GoodsReceivedNote";
+    return 'GoodsReceivedNote';
   }
 
   buildWhereClause(query: GoodsReceivedNoteQueryDto) {
@@ -87,9 +82,7 @@ export class GoodsReceivedNoteService extends BaseCrudService<
     });
 
     if (!purchaseOrder) {
-      throw new NotFoundException(
-        `Purchase Order with ID ${createDto.purchaseOrderId} not found`,
-      );
+      throw new NotFoundException(`Purchase Order with ID ${createDto.purchaseOrderId} not found`);
     }
 
     // Check if a GRN already exists for this purchase order
@@ -98,14 +91,11 @@ export class GoodsReceivedNoteService extends BaseCrudService<
     });
 
     if (existingGrn) {
-      throw new BadRequestException(
-        `A Goods Received Note already exists for this purchase order (GRN: ${existingGrn.grnNumber})`,
-      );
+      throw new BadRequestException(`A Goods Received Note already exists for this purchase order (GRN: ${existingGrn.grnNumber})`);
     }
 
     try {
-      const grnNumber =
-        await this.settingsService.generateDocumentNumber("Goods Received");
+      const grnNumber = await this.settingsService.generateDocumentNumber('Goods Received');
 
       // Create GRN entity first (without items)
       const grn = this.grnRepository.create({
@@ -141,13 +131,9 @@ export class GoodsReceivedNoteService extends BaseCrudService<
 
       // Create stock movements and update product quantities for each GRN item
       for (const grnItem of grnItems) {
-        const poItem = purchaseOrder.items?.find(
-          (item) => item.id === grnItem.purchaseOrderItemId,
-        );
+        const poItem = purchaseOrder.items?.find(item => item.id === grnItem.purchaseOrderItemId);
         if (!poItem) {
-          this.logger.warn(
-            `PO item not found for GRN item ${grnItem.id}, skipping stock movement`,
-          );
+          this.logger.warn(`PO item not found for GRN item ${grnItem.id}, skipping stock movement`);
           continue;
         }
 
@@ -157,14 +143,14 @@ export class GoodsReceivedNoteService extends BaseCrudService<
           movementType: StockMovementType.PURCHASE_RECEIPT,
           quantity: Number(grnItem.receivedQuantity),
           reason: `Purchase order received: ${purchaseOrder.orderNumber}`,
-          referenceType: "purchase_order",
+          referenceType: 'purchase_order',
           referenceId: purchaseOrder.id,
           unitValue: Number(poItem.unitCost),
         };
 
         await this.stockMovementService.create(createMovementDto);
         this.logger.log(
-          `Stock movement created for product ${grnItem.productId}: +${grnItem.receivedQuantity} units from PO ${purchaseOrder.orderNumber}`,
+          `Stock movement created for product ${grnItem.productId}: +${grnItem.receivedQuantity} units from PO ${purchaseOrder.orderNumber}`
         );
       }
 
@@ -176,51 +162,38 @@ export class GoodsReceivedNoteService extends BaseCrudService<
       // Update base cost for each received item
       await this.updateBaseCostsForGrn(savedGrn, purchaseOrder);
 
-      this.logger.log(
-        `GRN created successfully with ${grnItems.length} items: ${savedGrn.id}`,
-      );
+      this.logger.log(`GRN created successfully with ${grnItems.length} items: ${savedGrn.id}`);
 
       // Log audit trail for create
       await this.auditLogService.log(
-        "CREATE",
-        "GoodsReceivedNote",
+        'CREATE',
+        'GoodsReceivedNote',
         `Created GRN: ${savedGrn.grnNumber}`,
         {
           entityId: savedGrn.id,
-          userId: userId || "system",
+          userId: userId || 'system',
           username,
           newValues: {
             grnNumber: savedGrn.grnNumber,
             purchaseOrderId: savedGrn.purchaseOrderId,
             status: savedGrn.status,
           },
-        },
+        }
       );
 
       // Auto-post to accounting (don't fail GRN on error)
       try {
         const fullGrn = await this.grnRepository.findOne({
           where: { id: savedGrn.id },
-          relations: {
-            supplier: true,
-            purchaseOrder: true,
-            items: { product: true, purchaseOrderItem: true },
-          },
+          relations: { supplier: true, purchaseOrder: true, items: { product: true, purchaseOrderItem: true } },
         });
 
         if (fullGrn) {
-          await this.accountingService.postGoodsReceivedEntry(
-            fullGrn,
-            userId || "system",
-            username,
-          );
-          this.logger.log(
-            `Posted accounting entry for GRN ${fullGrn.grnNumber}`,
-          );
+          await this.accountingService.postGoodsReceivedEntry(fullGrn, userId || 'system', username);
+          this.logger.log(`Posted accounting entry for GRN ${fullGrn.grnNumber}`);
         }
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         const errorStack = error instanceof Error ? error.stack : undefined;
         this.logger.error(
           `Failed to post accounting entry for GRN ${savedGrn.id}: ${errorMessage}`,
@@ -231,20 +204,17 @@ export class GoodsReceivedNoteService extends BaseCrudService<
 
       return this.findOne(savedGrn.id);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(`Error creating GRN: ${errorMessage}`, errorStack);
-      throw new BadRequestException("Failed to create goods received note");
+      throw new BadRequestException('Failed to create goods received note');
     }
   }
 
   /**
    * Get all GRNs with filtering (no pagination)
    */
-  async findAll(
-    query: GoodsReceivedNoteQueryDto,
-  ): Promise<GoodsReceivedNoteListResponseDto> {
+  async findAll(query: GoodsReceivedNoteQueryDto): Promise<GoodsReceivedNoteListResponseDto> {
     this.logger.log(`Finding GRNs with query: ${JSON.stringify(query)}`);
 
     const {
@@ -254,71 +224,60 @@ export class GoodsReceivedNoteService extends BaseCrudService<
       purchaseOrderId,
       receivedDateFrom,
       receivedDateTo,
-      sortBy = "grnNumber",
-      sortOrder = "ASC",
+      sortBy = 'grnNumber',
+      sortOrder = 'ASC',
     } = query;
 
     const queryBuilder = this.grnRepository
-      .createQueryBuilder("grn")
-      .leftJoinAndSelect("grn.supplier", "supplier")
-      .leftJoinAndSelect("grn.purchaseOrder", "purchaseOrder")
-      .leftJoinAndSelect("purchaseOrder.vendorPayments", "vendorPayments")
-      .leftJoinAndSelect("grn.items", "items")
-      .leftJoinAndSelect("items.product", "product")
-      .where("grn.deletedAt IS NULL");
+      .createQueryBuilder('grn')
+      .leftJoinAndSelect('grn.supplier', 'supplier')
+      .leftJoinAndSelect('grn.purchaseOrder', 'purchaseOrder')
+      .leftJoinAndSelect('purchaseOrder.vendorPayments', 'vendorPayments')
+      .leftJoinAndSelect('grn.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
+      .where('grn.deletedAt IS NULL');
 
     // Apply search filter
     if (search) {
       queryBuilder.andWhere(
-        "(grn.grnNumber ILIKE :search OR supplier.companyName ILIKE :search OR purchaseOrder.orderNumber ILIKE :search)",
-        { search: `%${search}%` },
+        '(grn.grnNumber ILIKE :search OR supplier.companyName ILIKE :search OR purchaseOrder.orderNumber ILIKE :search)',
+        { search: `%${search}%` }
       );
     }
 
     // Apply filters
     if (status) {
-      queryBuilder.andWhere("grn.status = :status", { status });
+      queryBuilder.andWhere('grn.status = :status', { status });
     }
 
     if (supplierId) {
-      queryBuilder.andWhere("grn.supplierId = :supplierId", { supplierId });
+      queryBuilder.andWhere('grn.supplierId = :supplierId', { supplierId });
     }
 
     if (purchaseOrderId) {
-      queryBuilder.andWhere("grn.purchaseOrderId = :purchaseOrderId", {
-        purchaseOrderId,
-      });
+      queryBuilder.andWhere('grn.purchaseOrderId = :purchaseOrderId', { purchaseOrderId });
     }
 
     if (receivedDateFrom) {
-      queryBuilder.andWhere("grn.receivedDate >= :receivedDateFrom", {
-        receivedDateFrom,
-      });
+      queryBuilder.andWhere('grn.receivedDate >= :receivedDateFrom', { receivedDateFrom });
     }
 
     if (receivedDateTo) {
-      queryBuilder.andWhere("grn.receivedDate <= :receivedDateTo", {
-        receivedDateTo,
-      });
+      queryBuilder.andWhere('grn.receivedDate <= :receivedDateTo', { receivedDateTo });
     }
 
     // Apply sorting
-    const validSortFields = [
-      "grnNumber",
-      "receivedDate",
-      "status",
-      "totalQuantityReceived",
-    ];
+    const validSortFields = ['grnNumber', 'receivedDate', 'status', 'totalQuantityReceived'];
     if (validSortFields.includes(sortBy)) {
       queryBuilder.orderBy(`grn.${sortBy}`, sortOrder);
     } else {
-      queryBuilder.orderBy("grn.grnNumber", "ASC");
+      queryBuilder.orderBy('grn.grnNumber', 'ASC');
     }
 
     const grns = await queryBuilder.getMany();
     const total = grns.length;
 
-    const grnDtos = grns.map((grn) => this.mapToResponseDto(grn));
+    const grnDtos = grns.map(grn => this.mapToResponseDto(grn));
 
     return {
       grns: grnDtos,
@@ -339,17 +298,11 @@ export class GoodsReceivedNoteService extends BaseCrudService<
 
     const grn = await this.grnRepository.findOne({
       where: { id },
-      relations: {
-        supplier: true,
-        purchaseOrder: { vendorPayments: true },
-        items: { product: true },
-      },
+      relations: { supplier: true, purchaseOrder: { vendorPayments: true }, items: { product: true } },
     });
 
     if (!grn) {
-      throw new NotFoundException(
-        `Goods Received Note with ID ${id} not found`,
-      );
+      throw new NotFoundException(`Goods Received Note with ID ${id} not found`);
     }
 
     return this.mapToResponseDto(grn);
@@ -369,16 +322,12 @@ export class GoodsReceivedNoteService extends BaseCrudService<
     const grn = await this.grnRepository.findOne({ where: { id } });
 
     if (!grn) {
-      throw new NotFoundException(
-        `Goods Received Note with ID ${id} not found`,
-      );
+      throw new NotFoundException(`Goods Received Note with ID ${id} not found`);
     }
 
     try {
       Object.assign(grn, {
-        ...(updateDto.receivedDate && {
-          receivedDate: new Date(updateDto.receivedDate),
-        }),
+        ...(updateDto.receivedDate && { receivedDate: new Date(updateDto.receivedDate) }),
         ...(updateDto.status && { status: updateDto.status }),
       });
 
@@ -386,50 +335,43 @@ export class GoodsReceivedNoteService extends BaseCrudService<
 
       // Log audit trail for update
       await this.auditLogService.log(
-        "UPDATE",
-        "GoodsReceivedNote",
+        'UPDATE',
+        'GoodsReceivedNote',
         `Updated GRN: ${updatedGrn.grnNumber}`,
         {
           entityId: id,
-          userId: userId || "system",
+          userId: userId || 'system',
           username,
           newValues: {
             grnNumber: updatedGrn.grnNumber,
             status: updatedGrn.status,
           },
-        },
+        }
       );
 
       this.logger.log(`GRN updated successfully: ${updatedGrn.id}`);
       return this.findOne(updatedGrn.id);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(`Error updating GRN: ${errorMessage}`, errorStack);
-      throw new BadRequestException("Failed to update goods received note");
+      throw new BadRequestException('Failed to update goods received note');
     }
   }
 
   /**
    * Soft delete GRN and sync deletedAt with associated PO using same timestamp
    */
-  async softDelete(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<void> {
+  async softDelete(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Soft deleting GRN: ${id}`);
 
     const grn = await this.grnRepository.findOne({
       where: { id },
-      relations: { purchaseOrder: true },
+      relations: { purchaseOrder: true }
     });
 
     if (!grn) {
-      throw new NotFoundException(
-        `Goods Received Note with ID ${id} not found`,
-      );
+      throw new NotFoundException(`Goods Received Note with ID ${id} not found`);
     }
 
     try {
@@ -441,7 +383,7 @@ export class GoodsReceivedNoteService extends BaseCrudService<
         .createQueryBuilder()
         .update()
         .set({ deletedAt })
-        .where("id = :id", { id })
+        .where('id = :id', { id })
         .execute();
 
       // Sync deletedAt with associated PO if it exists (same timestamp)
@@ -450,81 +392,74 @@ export class GoodsReceivedNoteService extends BaseCrudService<
           .createQueryBuilder()
           .update()
           .set({ deletedAt })
-          .where("id = :id", { id: grn.purchaseOrderId })
+          .where('id = :id', { id: grn.purchaseOrderId })
           .execute();
-        this.logger.log(
-          `Associated PO ${grn.purchaseOrder?.orderNumber || grn.purchaseOrderId} soft deleted with timestamp ${deletedAt.toISOString()}`,
-        );
+        this.logger.log(`Associated PO ${grn.purchaseOrder?.orderNumber || grn.purchaseOrderId} soft deleted with timestamp ${deletedAt.toISOString()}`);
       }
 
       // Log audit trail for soft delete
       await this.auditLogService.log(
-        "DELETE",
-        "GoodsReceivedNote",
+        'DELETE',
+        'GoodsReceivedNote',
         `Deleted GRN: ${grn.grnNumber}`,
         {
           entityId: id,
-          userId: userId || "system",
+          userId: userId || 'system',
           username,
           oldValues: {
             grnNumber: grn.grnNumber,
             purchaseOrderId: grn.purchaseOrderId,
             status: grn.status,
           },
-        },
+        }
       );
 
-      this.logger.log(
-        `GRN soft deleted successfully with timestamp ${deletedAt.toISOString()}`,
-      );
+      this.logger.log(`GRN soft deleted successfully with timestamp ${deletedAt.toISOString()}`);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(`Error soft deleting GRN: ${errorMessage}`, errorStack);
-      throw new BadRequestException(
-        "Failed to soft delete goods received note",
-      );
+      throw new BadRequestException('Failed to soft delete goods received note');
     }
   }
 
   /**
    * Get all soft-deleted GRNs (no pagination)
    */
-  async findDeleted(
-    query: GoodsReceivedNoteQueryDto,
-  ): Promise<GoodsReceivedNoteListResponseDto> {
-    this.logger.log("Finding deleted GRNs");
+  async findDeleted(query: GoodsReceivedNoteQueryDto): Promise<GoodsReceivedNoteListResponseDto> {
+    this.logger.log('Finding deleted GRNs');
 
-    const { search, sortBy = "receivedDate", sortOrder = "DESC" } = query;
+    const {
+      search,
+      sortBy = 'receivedDate',
+      sortOrder = 'DESC',
+    } = query;
 
     const queryBuilder = this.grnRepository
-      .createQueryBuilder("grn")
-      .leftJoinAndSelect("grn.supplier", "supplier")
-      .leftJoinAndSelect("grn.purchaseOrder", "purchaseOrder")
+      .createQueryBuilder('grn')
+      .leftJoinAndSelect('grn.supplier', 'supplier')
+      .leftJoinAndSelect('grn.purchaseOrder', 'purchaseOrder')
       .withDeleted()
-      .where("grn.deletedAt IS NOT NULL");
+      .where('grn.deletedAt IS NOT NULL');
 
     // Apply filters
     if (search) {
       queryBuilder.andWhere(
-        "(grn.grnNumber ILIKE :search OR supplier.companyName ILIKE :search)",
-        { search: `%${search}%` },
+        '(grn.grnNumber ILIKE :search OR supplier.companyName ILIKE :search)',
+        { search: `%${search}%` }
       );
     }
 
     // Apply sorting
-    const validSortFields = ["grnNumber", "receivedDate", "deletedAt"];
-    const sortField = validSortFields.includes(sortBy)
-      ? sortBy
-      : "receivedDate";
-    queryBuilder.orderBy(`grn.${sortField}`, sortOrder as "ASC" | "DESC");
+    const validSortFields = ['grnNumber', 'receivedDate', 'deletedAt'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'receivedDate';
+    queryBuilder.orderBy(`grn.${sortField}`, sortOrder as 'ASC' | 'DESC');
 
     const grns = await queryBuilder.getMany();
     const total = grns.length;
 
     return {
-      grns: grns.map((grn) => this.mapToResponseDto(grn)),
+      grns: grns.map(grn => this.mapToResponseDto(grn)),
       total,
       page: 1,
       limit: total,
@@ -537,27 +472,21 @@ export class GoodsReceivedNoteService extends BaseCrudService<
   /**
    * Restore a soft-deleted GRN and sync deletedAt with associated PO (sets to null)
    */
-  async restore(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<GoodsReceivedNoteResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<GoodsReceivedNoteResponseDto> {
     this.logger.log(`Restoring GRN: ${id}`);
 
     const grn = await this.grnRepository.findOne({
       where: { id },
       withDeleted: true,
-      relations: { purchaseOrder: true },
+      relations: { purchaseOrder: true }
     });
 
     if (!grn) {
-      throw new NotFoundException(
-        `Goods Received Note with ID ${id} not found`,
-      );
+      throw new NotFoundException(`Goods Received Note with ID ${id} not found`);
     }
 
     if (!grn.deletedAt) {
-      throw new BadRequestException("Goods Received Note is not deleted");
+      throw new BadRequestException('Goods Received Note is not deleted');
     }
 
     try {
@@ -566,7 +495,7 @@ export class GoodsReceivedNoteService extends BaseCrudService<
         .createQueryBuilder()
         .update()
         .set({ deletedAt: null })
-        .where("id = :id", { id })
+        .where('id = :id', { id })
         .execute();
 
       // Sync restore with associated PO if it exists (set deletedAt to null)
@@ -575,11 +504,9 @@ export class GoodsReceivedNoteService extends BaseCrudService<
           .createQueryBuilder()
           .update()
           .set({ deletedAt: null })
-          .where("id = :id", { id: grn.purchaseOrderId })
+          .where('id = :id', { id: grn.purchaseOrderId })
           .execute();
-        this.logger.log(
-          `Associated PO ${grn.purchaseOrder?.orderNumber || grn.purchaseOrderId} restored (deletedAt set to null)`,
-        );
+        this.logger.log(`Associated PO ${grn.purchaseOrder?.orderNumber || grn.purchaseOrderId} restored (deletedAt set to null)`);
       }
 
       const restoredGrn = await this.grnRepository.findOne({
@@ -588,36 +515,33 @@ export class GoodsReceivedNoteService extends BaseCrudService<
       });
 
       if (!restoredGrn) {
-        throw new NotFoundException(
-          `Goods Received Note with ID ${id} not found after restore`,
-        );
+        throw new NotFoundException(`Goods Received Note with ID ${id} not found after restore`);
       }
 
       // Log audit trail for restore
       await this.auditLogService.log(
-        "RESTORE",
-        "GoodsReceivedNote",
+        'RESTORE',
+        'GoodsReceivedNote',
         `Restored GRN: ${restoredGrn.grnNumber}`,
         {
           entityId: id,
-          userId: userId || "system",
+          userId: userId || 'system',
           username,
           newValues: {
             grnNumber: restoredGrn.grnNumber,
             purchaseOrderId: restoredGrn.purchaseOrderId,
             status: restoredGrn.status,
           },
-        },
+        }
       );
 
       this.logger.log(`GRN restored successfully (deletedAt set to null)`);
       return this.mapToResponseDto(restoredGrn);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(`Error restoring GRN: ${errorMessage}`, errorStack);
-      throw new BadRequestException("Failed to restore goods received note");
+      throw new BadRequestException('Failed to restore goods received note');
     }
   }
 
@@ -644,20 +568,14 @@ export class GoodsReceivedNoteService extends BaseCrudService<
       }
     }
 
-    this.logger.log(
-      `Bulk restore completed: ${restoredCount} restored, ${failedIds.length} failed`,
-    );
+    this.logger.log(`Bulk restore completed: ${restoredCount} restored, ${failedIds.length} failed`);
     return { restoredCount, failedIds };
   }
 
   /**
    * Permanently delete a GRN
    */
-  async permanentDelete(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<void> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Permanently deleting GRN: ${id}`);
 
     const grn = await this.grnRepository.findOne({
@@ -666,48 +584,38 @@ export class GoodsReceivedNoteService extends BaseCrudService<
     });
 
     if (!grn) {
-      throw new NotFoundException(
-        `Goods Received Note with ID ${id} not found`,
-      );
+      throw new NotFoundException(`Goods Received Note with ID ${id} not found`);
     }
 
     if (!grn.deletedAt) {
-      throw new BadRequestException(
-        "GRN must be soft-deleted before permanent deletion",
-      );
+      throw new BadRequestException('GRN must be soft-deleted before permanent deletion');
     }
 
     // Log audit trail for permanent delete
     await this.auditLogService.log(
-      "PERMANENT_DELETE",
-      "GoodsReceivedNote",
+      'PERMANENT_DELETE',
+      'GoodsReceivedNote',
       `Permanently deleted GRN: ${grn.grnNumber}`,
       {
         entityId: id,
-        userId: userId || "system",
+        userId: userId || 'system',
         username,
         oldValues: {
           grnNumber: grn.grnNumber,
           purchaseOrderId: grn.purchaseOrderId,
           status: grn.status,
         },
-      },
+      }
     );
 
     try {
       await this.grnRepository.remove(grn);
       this.logger.log(`GRN permanently deleted: ${id}`);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(
-        `Error permanently deleting GRN: ${errorMessage}`,
-        errorStack,
-      );
-      throw new BadRequestException(
-        "Failed to permanently delete goods received note",
-      );
+      this.logger.error(`Error permanently deleting GRN: ${errorMessage}`, errorStack);
+      throw new BadRequestException('Failed to permanently delete goods received note');
     }
   }
 
@@ -734,9 +642,7 @@ export class GoodsReceivedNoteService extends BaseCrudService<
       }
     }
 
-    this.logger.log(
-      `Bulk permanent delete completed: ${deletedCount} deleted, ${failedIds.length} failed`,
-    );
+    this.logger.log(`Bulk permanent delete completed: ${deletedCount} deleted, ${failedIds.length} failed`);
     return { deletedCount, failedIds };
   }
 
@@ -757,9 +663,7 @@ export class GoodsReceivedNoteService extends BaseCrudService<
     const grnItems: GoodsReceivedNoteItem[] = [];
 
     for (const itemData of items) {
-      const grnItem = this.grnItemRepository.create(
-        itemData,
-      ) as unknown as GoodsReceivedNoteItem;
+      const grnItem = this.grnItemRepository.create(itemData) as unknown as GoodsReceivedNoteItem;
       grnItems.push(grnItem);
     }
 
@@ -769,29 +673,24 @@ export class GoodsReceivedNoteService extends BaseCrudService<
   /**
    * Map GRN entity to response DTO
    */
-  private mapToResponseDto(
-    grn: GoodsReceivedNote,
-  ): GoodsReceivedNoteResponseDto {
+  private mapToResponseDto(grn: GoodsReceivedNote): GoodsReceivedNoteResponseDto {
     return {
       id: grn.id,
       grnNumber: grn.grnNumber,
       status: grn.status,
-      purchaseOrder: grn.purchaseOrder
-        ? {
-            id: grn.purchaseOrder.id,
-            orderNumber: grn.purchaseOrder.orderNumber,
-            totalAmount: Number(grn.purchaseOrder.totalAmount),
-            vendorPayments:
-              grn.purchaseOrder.vendorPayments?.map((payment) => ({
-                id: payment.id,
-                paymentNumber: payment.paymentNumber,
-                amount: Number(payment.amount),
-                paymentDate: payment.paymentDate,
-                paymentMethodId: payment.paymentMethodId,
-                status: payment.status,
-              })) || [],
-          }
-        : undefined,
+      purchaseOrder: grn.purchaseOrder ? {
+        id: grn.purchaseOrder.id,
+        orderNumber: grn.purchaseOrder.orderNumber,
+        totalAmount: Number(grn.purchaseOrder.totalAmount),
+        vendorPayments: grn.purchaseOrder.vendorPayments?.map(payment => ({
+          id: payment.id,
+          paymentNumber: payment.paymentNumber,
+          amount: Number(payment.amount),
+          paymentDate: payment.paymentDate,
+          paymentMethodId: payment.paymentMethodId,
+          status: payment.status,
+        })) || [],
+      } : undefined,
       supplier: {
         id: grn.supplier.id,
         supplierCode: grn.supplier.id.substring(0, 8).toUpperCase(),
@@ -809,22 +708,21 @@ export class GoodsReceivedNoteService extends BaseCrudService<
       receivedPercentage: grn.receivedPercentage,
       isFullyReceived: grn.isFullyReceived,
       isPartiallyReceived: grn.isPartiallyReceived,
-      items: (grn.items || []).map((item) => ({
+      items: (grn.items || []).map(item => ({
         id: item.id,
         purchaseOrderItem: {
-          id: item.purchaseOrderItemId || "",
-          description: item.product?.description || "",
+          id: item.purchaseOrderItemId || '',
+          description: item.product?.description || '',
           quantity: Number(item.orderedQuantity),
           product: {
             id: item.productId,
             sku: item.product?.barcode || item.productId,
-            name: item.product?.name || "Unknown Product",
+            name: item.product?.name || 'Unknown Product',
           },
         },
         orderedQuantity: Number(item.orderedQuantity),
         receivedQuantity: Number(item.receivedQuantity),
-        isFullyReceived:
-          Number(item.receivedQuantity) >= Number(item.orderedQuantity),
+        isFullyReceived: Number(item.receivedQuantity) >= Number(item.orderedQuantity),
       })),
       createdAt: grn.createdAt,
       updatedAt: grn.updatedAt,
@@ -847,20 +745,16 @@ export class GoodsReceivedNoteService extends BaseCrudService<
     const poShipping = Number(po.shippingAmount || 0);
 
     this.logger.log(
-      `PO ${po.orderNumber}: Subtotal RM ${poSubtotal.toFixed(2)}, Shipping RM ${poShipping.toFixed(2)}`,
+      `PO ${po.orderNumber}: Subtotal RM ${poSubtotal.toFixed(2)}, Shipping RM ${poShipping.toFixed(2)}`
     );
 
     // Process each GRN item
     for (const grnItem of grn.items) {
       // Find corresponding PO item to get unit cost
-      const poItem = po.items?.find(
-        (item) => item.id === grnItem.purchaseOrderItemId,
-      );
+      const poItem = po.items?.find(item => item.id === grnItem.purchaseOrderItemId);
 
       if (!poItem) {
-        this.logger.warn(
-          `PO item not found for GRN item ${grnItem.id}, skipping base cost update`,
-        );
+        this.logger.warn(`PO item not found for GRN item ${grnItem.id}, skipping base cost update`);
         continue;
       }
 
@@ -876,7 +770,7 @@ export class GoodsReceivedNoteService extends BaseCrudService<
       );
 
       this.logger.log(
-        `Product ${grnItem.productId}: ${receivedQty} units @ RM ${unitCost.toFixed(4)} + RM ${shippingPerUnit.toFixed(4)} shipping`,
+        `Product ${grnItem.productId}: ${receivedQty} units @ RM ${unitCost.toFixed(4)} + RM ${shippingPerUnit.toFixed(4)} shipping`
       );
 
       // Add stock to cost history and recalculate base cost

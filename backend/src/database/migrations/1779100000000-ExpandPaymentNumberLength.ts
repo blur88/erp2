@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class ExpandPaymentNumberLength1779100000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {

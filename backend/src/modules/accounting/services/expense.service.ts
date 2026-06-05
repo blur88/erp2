@@ -3,20 +3,17 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, Not, IsNull } from "typeorm";
-import {
-  Expense,
-  ExpenseStatus,
-} from "../../../database/entities/expense.entity";
-import { PaymentMethodEntity } from "../../../database/entities/payment-method.entity";
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, Not, IsNull } from 'typeorm';
+import { Expense, ExpenseStatus } from '../../../database/entities/expense.entity';
+import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import {
   ChartOfAccount,
   AccountType,
-} from "../../../database/entities/chart-of-account.entity";
-import { AccountingService } from "./accounting.service";
-import { SettingsService } from "../../settings/settings.service";
+} from '../../../database/entities/chart-of-account.entity';
+import { AccountingService } from './accounting.service';
+import { SettingsService } from '../../settings/settings.service';
 import {
   CreateExpenseDto,
   UpdateExpenseDto,
@@ -24,8 +21,8 @@ import {
   BulkExpenseDto,
   ExpenseResponseDto,
   ExpenseListResponseDto,
-} from "../dto/expense.dto";
-import { AuditLogService } from "../../audit-logs/services";
+} from '../dto/expense.dto';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class ExpenseService {
@@ -53,66 +50,54 @@ export class ExpenseService {
       startDate,
       endDate,
       search,
-      sortBy = "referenceNumber",
-      sortOrder = "DESC",
+      sortBy = 'referenceNumber',
+      sortOrder = 'DESC',
       includeDeleted,
     } = query;
 
     const qb = this.expenseRepository
-      .createQueryBuilder("e")
-      .leftJoinAndSelect("e.paymentMethod", "paymentMethod")
-      .leftJoinAndSelect("e.expenseAccount", "expenseAccount");
+      .createQueryBuilder('e')
+      .leftJoinAndSelect('e.paymentMethod', 'paymentMethod')
+      .leftJoinAndSelect('e.expenseAccount', 'expenseAccount');
 
     if (!includeDeleted) {
-      qb.where("e.deletedAt IS NULL");
+      qb.where('e.deletedAt IS NULL');
     } else {
       qb.withDeleted();
     }
 
     if (expenseAccountId) {
-      qb.andWhere("e.expenseAccountId = :expenseAccountId", {
-        expenseAccountId,
-      });
+      qb.andWhere('e.expenseAccountId = :expenseAccountId', { expenseAccountId });
     }
 
     if (paymentMethodId) {
-      qb.andWhere("e.paymentMethodId = :paymentMethodId", { paymentMethodId });
+      qb.andWhere('e.paymentMethodId = :paymentMethodId', { paymentMethodId });
     }
 
     if (status) {
-      qb.andWhere("e.status = :status", { status });
+      qb.andWhere('e.status = :status', { status });
     }
 
     if (startDate) {
-      qb.andWhere("e.expenseDate >= :startDate", { startDate });
+      qb.andWhere('e.expenseDate >= :startDate', { startDate });
     }
 
     if (endDate) {
-      qb.andWhere("e.expenseDate <= :endDate", { endDate });
+      qb.andWhere('e.expenseDate <= :endDate', { endDate });
     }
 
     if (search) {
       qb.andWhere(
-        "(e.description ILIKE :search OR e.vendor ILIKE :search OR e.referenceNumber ILIKE :search)",
+        '(e.description ILIKE :search OR e.vendor ILIKE :search OR e.referenceNumber ILIKE :search)',
         { search: `%${search}%` },
       );
     }
 
-    const allowedSortFields = [
-      "referenceNumber",
-      "expenseDate",
-      "createdAt",
-      "amount",
-      "vendor",
-    ];
-    const safeSortBy = allowedSortFields.includes(sortBy)
-      ? sortBy
-      : "referenceNumber";
-    const safeSortOrder = sortOrder === "ASC" ? "ASC" : "DESC";
+    const allowedSortFields = ['referenceNumber', 'expenseDate', 'createdAt', 'amount', 'vendor'];
+    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'referenceNumber';
+    const safeSortOrder = sortOrder === 'ASC' ? 'ASC' : 'DESC';
 
-    qb.orderBy(`e.${safeSortBy}`, safeSortOrder)
-      .skip((page - 1) * limit)
-      .take(limit);
+    qb.orderBy(`e.${safeSortBy}`, safeSortOrder).skip((page - 1) * limit).take(limit);
 
     const [rows, total] = await qb.getManyAndCount();
 
@@ -150,9 +135,7 @@ export class ExpenseService {
     });
 
     if (!paymentMethod || paymentMethod.deletedAt) {
-      throw new NotFoundException(
-        `Payment method ${dto.paymentMethodId} not found`,
-      );
+      throw new NotFoundException(`Payment method ${dto.paymentMethodId} not found`);
     }
 
     const account = await this.chartOfAccountRepository.findOne({
@@ -169,8 +152,7 @@ export class ExpenseService {
       );
     }
 
-    const referenceNumber =
-      await this.settingsService.generateDocumentNumber("Expenses");
+    const referenceNumber = await this.settingsService.generateDocumentNumber('Expenses');
 
     const expense = this.expenseRepository.create({
       referenceNumber,
@@ -185,10 +167,10 @@ export class ExpenseService {
 
     const saved = await this.expenseRepository.save(expense);
     await this.auditLogService.log(
-      "CREATE",
-      "Expense",
+      'CREATE',
+      'Expense',
       `Created expense: ${saved.referenceNumber}`,
-      { entityId: saved.id, userId: userId ?? "system", username },
+      { entityId: saved.id, userId: userId ?? 'system', username },
     );
     return this.findOne(saved.id);
   }
@@ -208,7 +190,7 @@ export class ExpenseService {
     }
 
     if (expense.status === ExpenseStatus.POSTED) {
-      throw new BadRequestException("Cannot update a posted expense");
+      throw new BadRequestException('Cannot update a posted expense');
     }
 
     if (dto.paymentMethodId) {
@@ -216,9 +198,7 @@ export class ExpenseService {
         where: { id: dto.paymentMethodId, isActive: true },
       });
       if (!paymentMethod || paymentMethod.deletedAt) {
-        throw new NotFoundException(
-          `Payment method ${dto.paymentMethodId} not found`,
-        );
+        throw new NotFoundException(`Payment method ${dto.paymentMethodId} not found`);
       }
     }
 
@@ -227,9 +207,7 @@ export class ExpenseService {
         where: { id: dto.expenseAccountId, isActive: true },
       });
       if (!account || account.deletedAt) {
-        throw new NotFoundException(
-          `Account ${dto.expenseAccountId} not found`,
-        );
+        throw new NotFoundException(`Account ${dto.expenseAccountId} not found`);
       }
       if (account.type !== AccountType.EXPENSE) {
         throw new BadRequestException(
@@ -247,10 +225,10 @@ export class ExpenseService {
 
     await this.expenseRepository.save(expense);
     await this.auditLogService.log(
-      "UPDATE",
-      "Expense",
+      'UPDATE',
+      'Expense',
       `Updated expense: ${expense.referenceNumber}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
     return this.findOne(id);
   }
@@ -265,23 +243,19 @@ export class ExpenseService {
     }
 
     if (expense.status === ExpenseStatus.POSTED) {
-      throw new BadRequestException("Cannot delete a posted expense");
+      throw new BadRequestException('Cannot delete a posted expense');
     }
 
     await this.expenseRepository.softDelete(id);
     await this.auditLogService.log(
-      "DELETE",
-      "Expense",
+      'DELETE',
+      'Expense',
       `Deleted expense: ${expense.referenceNumber}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
   }
 
-  async post(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<ExpenseResponseDto> {
+  async post(id: string, userId?: string, username?: string): Promise<ExpenseResponseDto> {
     const expense = await this.expenseRepository.findOne({
       where: { id },
       relations: { paymentMethod: true, expenseAccount: true },
@@ -292,23 +266,23 @@ export class ExpenseService {
     }
 
     if (expense.status === ExpenseStatus.POSTED) {
-      throw new BadRequestException("Expense is already posted");
+      throw new BadRequestException('Expense is already posted');
     }
 
     try {
       const journalEntry = await this.accountingService.postExpenseEntry(
         expense,
-        userId ?? "system",
+        userId ?? 'system',
         username,
       );
       expense.status = ExpenseStatus.POSTED;
       expense.journalEntryId = journalEntry.id;
       await this.expenseRepository.save(expense);
       await this.auditLogService.log(
-        "POST",
-        "Expense",
+        'POST',
+        'Expense',
         `Posted expense: ${expense.referenceNumber}`,
-        { entityId: id, userId: userId ?? "system", username },
+        { entityId: id, userId: userId ?? 'system', username },
       );
     } catch (error) {
       this.logger.error(
@@ -398,15 +372,15 @@ export class ExpenseService {
     }
 
     if (!expense.deletedAt) {
-      throw new BadRequestException("Expense is not deleted");
+      throw new BadRequestException('Expense is not deleted');
     }
 
     await this.expenseRepository.restore(id);
     await this.auditLogService.log(
-      "RESTORE",
-      "Expense",
+      'RESTORE',
+      'Expense',
       `Restored expense: ${expense.referenceNumber}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
     return this.findOne(id);
   }
@@ -425,23 +399,19 @@ export class ExpenseService {
     }
 
     if (expense.status !== ExpenseStatus.POSTED) {
-      throw new BadRequestException("Only posted expenses can be unposted");
+      throw new BadRequestException('Only posted expenses can be unposted');
     }
 
-    await this.accountingService.reverseSourceEntries(
-      "expense",
-      id,
-      userId ?? "system",
-    );
+    await this.accountingService.reverseSourceEntries('expense', id, userId ?? 'system');
 
     expense.status = ExpenseStatus.REVERSED;
     await this.expenseRepository.save(expense);
 
     await this.auditLogService.log(
-      "UNPOST",
-      "Expense",
+      'UNPOST',
+      'Expense',
       `Unposted expense: ${expense.referenceNumber}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
     return this.findOne(id);
   }
@@ -451,16 +421,12 @@ export class ExpenseService {
       withDeleted: true,
       where: { deletedAt: Not(IsNull()) },
       relations: { paymentMethod: true, expenseAccount: true },
-      order: { deletedAt: "DESC" },
+      order: { deletedAt: 'DESC' },
     });
     return records.map((r) => this.toResponseDto(r));
   }
 
-  async permanentDelete(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<void> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     const expense = await this.expenseRepository.findOne({
       where: { id },
       withDeleted: true,
@@ -471,17 +437,15 @@ export class ExpenseService {
     }
 
     if (!expense.deletedAt) {
-      throw new BadRequestException(
-        "Expense must be soft-deleted before permanent deletion",
-      );
+      throw new BadRequestException('Expense must be soft-deleted before permanent deletion');
     }
 
     await this.expenseRepository.delete(id);
     await this.auditLogService.log(
-      "DELETE",
-      "Expense",
+      'DELETE',
+      'Expense',
       `Permanently deleted expense: ${expense.referenceNumber}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
   }
 
@@ -498,9 +462,7 @@ export class ExpenseService {
         await this.permanentDelete(id, userId, username);
         deleted++;
       } catch (error) {
-        this.logger.error(
-          `Failed to permanently delete expense ${id}: ${error.message}`,
-        );
+        this.logger.error(`Failed to permanently delete expense ${id}: ${error.message}`);
         failed++;
       }
     }

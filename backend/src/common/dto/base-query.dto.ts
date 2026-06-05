@@ -1,12 +1,5 @@
-import { Transform, Type } from "class-transformer";
-import {
-  IsBoolean,
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  Min,
-} from "class-validator";
+import { Transform, Type } from 'class-transformer';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class BaseQueryDto {
   @IsOptional()
@@ -15,9 +8,9 @@ export class BaseQueryDto {
 
   @IsOptional()
   @Transform(({ value }) => {
-    if (value === undefined || value === null || value === "") return undefined;
-    if (value === "true") return true;
-    if (value === "false") return false;
+    if (value === undefined || value === null || value === '') return undefined;
+    if (value === 'true') return true;
+    if (value === 'false') return false;
     return value;
   })
   @IsBoolean()
@@ -28,8 +21,8 @@ export class BaseQueryDto {
   sortBy?: string;
 
   @IsOptional()
-  @IsIn(["ASC", "DESC"])
-  sortOrder?: "ASC" | "DESC";
+  @IsIn(['ASC', 'DESC'])
+  sortOrder?: 'ASC' | 'DESC';
 
   @IsOptional()
   @Type(() => Number)

@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import {
   Between,
   In,
@@ -7,18 +7,12 @@ import {
   LessThanOrEqual,
   MoreThanOrEqual,
   Repository,
-} from "typeorm";
-import { Product } from "../../../database/entities/product.entity";
-import {
-  SalesOrder,
-  SalesOrderStatus,
-} from "../../../database/entities/sales-order.entity";
-import { SalesOrderPayment } from "../../../database/entities/sales-order-payment.entity";
-import {
-  QuerySalesOrdersDto,
-  SalesOrderResponseDto,
-} from "../dto/sales-order.dto";
-import { mapSalesOrderToResponseDto } from "./sales-order.mapper";
+} from 'typeorm';
+import { Product } from '../../../database/entities/product.entity';
+import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
+import { SalesOrderPayment } from '../../../database/entities/sales-order-payment.entity';
+import { QuerySalesOrdersDto, SalesOrderResponseDto } from '../dto/sales-order.dto';
+import { mapSalesOrderToResponseDto } from './sales-order.mapper';
 
 @Injectable()
 export class SalesOrderQueryService {
@@ -39,56 +33,54 @@ export class SalesOrderQueryService {
       toDate,
       paymentStatus,
       status,
-      sortBy = "orderNumber",
-      sortOrder = "ASC",
+      sortBy = 'orderNumber',
+      sortOrder = 'ASC',
       page = 1,
       limit = 1000,
     } = query;
 
     let queryBuilder = this.salesOrderRepository
-      .createQueryBuilder("order")
-      .leftJoinAndSelect("order.customer", "customer")
-      .leftJoinAndSelect("order.items", "items")
-      .leftJoinAndSelect("items.product", "product")
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.customer', 'customer')
+      .leftJoinAndSelect('order.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
       .select([
-        "order.id",
-        "order.orderNumber",
-        "order.orderDate",
-        "order.status",
-        "order.paymentStatus",
-        "order.subtotal",
-        "order.shippingAmount",
-        "order.totalAmount",
-        "order.customerId",
-        "order.createdAt",
-        "order.updatedAt",
-        "customer.id",
-        "customer.name",
-        "customer.phone",
-        "customer.billingStreetAddress",
-        "customer.billingCity",
-        "customer.billingState",
-        "customer.billingPostalCode",
-        "customer.billingCountry",
-        "items.id",
-        "items.quantity",
-        "items.unitPrice",
-        "items.totalAmount",
-        "items.productId",
-        "product.id",
-        "product.name",
-        "product.baseCost",
+        'order.id',
+        'order.orderNumber',
+        'order.orderDate',
+        'order.status',
+        'order.paymentStatus',
+        'order.subtotal',
+        'order.shippingAmount',
+        'order.totalAmount',
+        'order.customerId',
+        'order.createdAt',
+        'order.updatedAt',
+        'customer.id',
+        'customer.name',
+        'customer.phone',
+        'customer.billingStreetAddress',
+        'customer.billingCity',
+        'customer.billingState',
+        'customer.billingPostalCode',
+        'customer.billingCountry',
+        'items.id',
+        'items.quantity',
+        'items.unitPrice',
+        'items.totalAmount',
+        'items.productId',
+        'product.id',
+        'product.name',
+        'product.baseCost',
       ])
-      .where("order.deletedAt IS NULL");
+      .where('order.deletedAt IS NULL');
 
     if (customerId) {
-      queryBuilder = queryBuilder.andWhere("order.customerId = :customerId", {
-        customerId,
-      });
+      queryBuilder = queryBuilder.andWhere('order.customerId = :customerId', { customerId });
     }
 
     if (fromDate) {
-      queryBuilder = queryBuilder.andWhere("order.orderDate >= :fromDate", {
+      queryBuilder = queryBuilder.andWhere('order.orderDate >= :fromDate', {
         fromDate: new Date(fromDate),
       });
     }
@@ -96,43 +88,38 @@ export class SalesOrderQueryService {
     if (toDate) {
       const endDate = new Date(toDate);
       endDate.setHours(23, 59, 59, 999);
-      queryBuilder = queryBuilder.andWhere("order.orderDate <= :toDate", {
-        toDate: endDate,
-      });
+      queryBuilder = queryBuilder.andWhere('order.orderDate <= :toDate', { toDate: endDate });
     }
 
     if (search) {
       queryBuilder = queryBuilder.andWhere(
-        "(order.orderNumber ILIKE :search OR customer.name ILIKE :search OR product.name ILIKE :search)",
+        '(order.orderNumber ILIKE :search OR customer.name ILIKE :search OR product.name ILIKE :search)',
         { search: `%${search}%` },
       );
     }
 
-    if (paymentStatus && paymentStatus !== "all") {
-      queryBuilder = queryBuilder.andWhere(
-        "order.paymentStatus = :paymentStatus",
-        {
-          paymentStatus: paymentStatus.toUpperCase(),
-        },
-      );
+    if (paymentStatus && paymentStatus !== 'all') {
+      queryBuilder = queryBuilder.andWhere('order.paymentStatus = :paymentStatus', {
+        paymentStatus: paymentStatus.toUpperCase(),
+      });
     }
 
-    if (status && status !== "all") {
-      queryBuilder = queryBuilder.andWhere("order.status = :status", {
+    if (status && status !== 'all') {
+      queryBuilder = queryBuilder.andWhere('order.status = :status', {
         status: status.toUpperCase(),
       });
     }
 
     queryBuilder = queryBuilder
-      .orderBy(`order.${sortBy}`, sortOrder as "ASC" | "DESC")
+      .orderBy(`order.${sortBy}`, sortOrder as 'ASC' | 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
     // Deterministic tiebreaker: orders sharing the same primary sort value
     // (e.g. same orderDate) fall back to newest order number first, so a
     // freshly created/duplicated order reliably appears at the top.
-    if (sortBy !== "orderNumber") {
-      queryBuilder = queryBuilder.addOrderBy("order.orderNumber", "DESC");
+    if (sortBy !== 'orderNumber') {
+      queryBuilder = queryBuilder.addOrderBy('order.orderNumber', 'DESC');
     }
 
     const [orders, total] = await queryBuilder.getManyAndCount();
@@ -151,8 +138,8 @@ export class SalesOrderQueryService {
       customerId,
       fromDate,
       toDate,
-      sortBy = "orderNumber",
-      sortOrder = "ASC",
+      sortBy = 'orderNumber',
+      sortOrder = 'ASC',
     } = query;
 
     const findOptions: any = {
@@ -177,15 +164,13 @@ export class SalesOrderQueryService {
       findOptions.where.orderDate = LessThanOrEqual(endDate);
     }
 
-    const total = await this.salesOrderRepository.count({
-      where: findOptions.where,
-    });
+    const total = await this.salesOrderRepository.count({ where: findOptions.where });
     const orders = await this.salesOrderRepository.find(findOptions);
 
     return {
       data: orders.map((order) => ({
         ...mapSalesOrderToResponseDto(order),
-        customerName: order.customer?.name || "Unknown Customer",
+        customerName: order.customer?.name || 'Unknown Customer',
         itemsCount: order.items?.length || 0,
         isOverdue: false,
       })),
@@ -198,39 +183,28 @@ export class SalesOrderQueryService {
     const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const thisWeek = new Date(today.setDate(today.getDate() - today.getDay()));
 
-    const [
-      totalOrders,
-      fulfilledOrders,
-      unfulfilledOrders,
-      thisMonthOrders,
-      thisWeekOrders,
-    ] = await Promise.all([
-      this.salesOrderRepository.count(),
-      this.salesOrderRepository.count({
-        where: { status: SalesOrderStatus.FULFILLED },
-      }),
-      // Unfulfilled = everything not yet shipped and not cancelled. A paid order
-      // awaiting fulfillment is READY (not DRAFT), so both must be counted here.
-      this.salesOrderRepository.count({
-        where: { status: In([SalesOrderStatus.DRAFT, SalesOrderStatus.READY]) },
-      }),
-      this.salesOrderRepository.count({
-        where: { orderDate: MoreThanOrEqual(thisMonth) },
-      }),
-      this.salesOrderRepository.count({
-        where: { orderDate: MoreThanOrEqual(thisWeek) },
-      }),
-    ]);
+    const [totalOrders, fulfilledOrders, unfulfilledOrders, thisMonthOrders, thisWeekOrders] =
+      await Promise.all([
+        this.salesOrderRepository.count(),
+        this.salesOrderRepository.count({ where: { status: SalesOrderStatus.FULFILLED } }),
+        // Unfulfilled = everything not yet shipped and not cancelled. A paid order
+        // awaiting fulfillment is READY (not DRAFT), so both must be counted here.
+        this.salesOrderRepository.count({
+          where: { status: In([SalesOrderStatus.DRAFT, SalesOrderStatus.READY]) },
+        }),
+        this.salesOrderRepository.count({ where: { orderDate: MoreThanOrEqual(thisMonth) } }),
+        this.salesOrderRepository.count({ where: { orderDate: MoreThanOrEqual(thisWeek) } }),
+      ]);
 
     const totalSalesResult = await this.salesOrderRepository
-      .createQueryBuilder("order")
-      .select("COALESCE(SUM(order.totalAmount), 0)", "total")
+      .createQueryBuilder('order')
+      .select('COALESCE(SUM(order.totalAmount), 0)', 'total')
       .getRawOne();
 
     const thisMonthSalesResult = await this.salesOrderRepository
-      .createQueryBuilder("order")
-      .select("COALESCE(SUM(order.totalAmount), 0)", "total")
-      .where("order.orderDate >= :startDate", { startDate: thisMonth })
+      .createQueryBuilder('order')
+      .select('COALESCE(SUM(order.totalAmount), 0)', 'total')
+      .where('order.orderDate >= :startDate', { startDate: thisMonth })
       .getRawOne();
 
     return {
@@ -254,21 +228,19 @@ export class SalesOrderQueryService {
       relations: { customer: true, items: { product: true } },
     });
 
-    if (!order) throw new NotFoundException("Sales order not found");
+    if (!order) throw new NotFoundException('Sales order not found');
 
     if (order.items && order.items.length > 0) {
       for (const item of order.items) {
         if (!item.product && item.productId) {
-          item.product = await this.productRepository.findOne({
-            where: { id: item.productId },
-          });
+          item.product = await this.productRepository.findOne({ where: { id: item.productId } });
         }
       }
     }
 
     const payments = await this.salesOrderPaymentRepository.find({
       where: { salesOrderId: id },
-      order: { paymentDate: "ASC" },
+      order: { paymentDate: 'ASC' },
       relations: { paymentMethod: true },
     });
 
@@ -282,12 +254,12 @@ export class SalesOrderQueryService {
     });
 
     if (!order) {
-      throw new NotFoundException("Sales order not found");
+      throw new NotFoundException('Sales order not found');
     }
 
     const payments = await this.salesOrderPaymentRepository.find({
       where: { salesOrderId: order.id },
-      order: { paymentDate: "ASC" },
+      order: { paymentDate: 'ASC' },
       relations: { paymentMethod: true },
     });
 
@@ -298,7 +270,7 @@ export class SalesOrderQueryService {
     const orders = await this.salesOrderRepository.find({
       where: { customerId },
       relations: { items: true },
-      order: { orderDate: "DESC" },
+      order: { orderDate: 'DESC' },
       take: limit,
     });
 

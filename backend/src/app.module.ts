@@ -1,45 +1,45 @@
-import { Module } from "@nestjs/common";
-import { TypeOrmModule } from "@nestjs/typeorm";
-import { ConfigModule, ConfigService } from "@nestjs/config";
-import { BullModule } from "@nestjs/bullmq";
-import { ScheduleModule } from "@nestjs/schedule";
-import { APP_INTERCEPTOR, APP_GUARD } from "@nestjs/core";
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { BullModule } from '@nestjs/bullmq';
+import { ScheduleModule } from '@nestjs/schedule';
+import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 
 // Configuration
-import { DatabaseConfig } from "./config/database.config";
+import { DatabaseConfig } from './config/database.config';
 
 // Filters & Interceptors
-import { ErrorManagementModule } from "./common/error-management";
-import { LoggingInterceptor } from "./common/interceptors/logging.interceptor";
+import { ErrorManagementModule } from './common/error-management';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 // Modules
-import { AuthModule } from "./modules/auth/auth.module";
-import { AuditLogsModule } from "./modules/audit-logs/audit-logs.module";
-import { UsersModule } from "./modules/users/users.module";
-import { InventoryModule } from "./modules/inventory/inventory.module";
-import { SalesModule } from "./modules/sales/sales.module";
-import { PurchasingModule } from "./modules/purchasing/purchasing.module";
-import { DashboardModule } from "./modules/dashboard/dashboard-module";
-import { SettingsModule } from "./modules/settings/settings.module";
-import { PrintSettingsModule } from "./modules/print-settings/print-settings.module";
-import { BackupModule } from "./modules/backup/backup.module";
-import { PriceListsModule } from "./modules/price-lists/price-lists.module";
-import { AccountingModule } from "./modules/accounting/accounting.module";
-import { SearchModule } from "./modules/search/search.module";
+import { AuthModule } from './modules/auth/auth.module';
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
+import { UsersModule } from './modules/users/users.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
+import { SalesModule } from './modules/sales/sales.module';
+import { PurchasingModule } from './modules/purchasing/purchasing.module';
+import { DashboardModule } from './modules/dashboard/dashboard-module';
+import { SettingsModule } from './modules/settings/settings.module';
+import { PrintSettingsModule } from './modules/print-settings/print-settings.module';
+import { BackupModule } from './modules/backup/backup.module';
+import { PriceListsModule } from './modules/price-lists/price-lists.module';
+import { AccountingModule } from './modules/accounting/accounting.module';
+import { SearchModule } from './modules/search/search.module';
 
 // Auth Guards
-import { JwtAuthGuard } from "./modules/auth/guards/jwt-auth.guard";
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 
 // Controllers
-import { AppController } from "./app.controller";
-import { AppService } from "./app.service";
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: process.env.NODE_ENV === "test" ? ".env.test" : ".env",
+      envFilePath: process.env.NODE_ENV === 'test' ? '.env.test' : '.env',
     }),
 
     // Database
@@ -52,9 +52,9 @@ import { AppService } from "./app.service";
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         connection: {
-          host: configService.get<string>("REDIS_HOST", "redis"),
-          port: parseInt(configService.get<string>("REDIS_PORT", "6379")),
-          password: configService.get<string>("REDIS_PASSWORD"),
+          host: configService.get<string>('REDIS_HOST', 'redis'),
+          port: parseInt(configService.get<string>('REDIS_PORT', '6379')),
+          password: configService.get<string>('REDIS_PASSWORD'),
         },
       }),
       inject: [ConfigService],

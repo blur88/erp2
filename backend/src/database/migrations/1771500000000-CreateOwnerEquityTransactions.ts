@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateOwnerEquityTransactions1771500000000 implements MigrationInterface {
-  name = "CreateOwnerEquityTransactions1771500000000";
+  name = 'CreateOwnerEquityTransactions1771500000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
@@ -68,18 +68,10 @@ export class CreateOwnerEquityTransactions1771500000000 implements MigrationInte
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `ALTER TABLE "owner_equity_transactions" DROP CONSTRAINT "FK_owner_equity_transactions_journalEntryId"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "owner_equity_transactions" DROP CONSTRAINT "FK_owner_equity_transactions_paymentMethodId"`,
-    );
+    await queryRunner.query(`ALTER TABLE "owner_equity_transactions" DROP CONSTRAINT "FK_owner_equity_transactions_journalEntryId"`);
+    await queryRunner.query(`ALTER TABLE "owner_equity_transactions" DROP CONSTRAINT "FK_owner_equity_transactions_paymentMethodId"`);
     await queryRunner.query(`DROP TABLE "owner_equity_transactions"`);
-    await queryRunner.query(
-      `DROP TYPE "public"."owner_equity_transactions_status_enum"`,
-    );
-    await queryRunner.query(
-      `DROP TYPE "public"."owner_equity_transactions_type_enum"`,
-    );
+    await queryRunner.query(`DROP TYPE "public"."owner_equity_transactions_status_enum"`);
+    await queryRunner.query(`DROP TYPE "public"."owner_equity_transactions_type_enum"`);
   }
 }

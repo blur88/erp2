@@ -1,30 +1,24 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  BadRequestException,
-  ConflictException,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, FindOptionsWhere, Like, In, Between } from "typeorm";
-import { BaseCrudService } from "../../../common/services/base-crud.service";
+import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, FindOptionsWhere, Like, In, Between } from 'typeorm';
+import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   Supplier,
   SupplierType,
-} from "../../../database/entities/supplier.entity";
-import { PurchaseOrder } from "../../../database/entities/purchase-order.entity";
-import { GoodsReceivedNote } from "../../../database/entities/goods-received-note.entity";
-import { VendorPayment } from "../../../database/entities/vendor-payment.entity";
+} from '../../../database/entities/supplier.entity';
+import { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
+import { GoodsReceivedNote } from '../../../database/entities/goods-received-note.entity';
+import { VendorPayment } from '../../../database/entities/vendor-payment.entity';
 import {
   CreateSupplierDto,
   UpdateSupplierDto,
   SupplierQueryDto,
   SupplierResponseDto,
   SupplierListResponseDto,
-} from "../dto";
-import { AuditLogService } from "../../audit-logs/services";
-import { GlobalSearchResultDto } from "../../search/dto/global-search-result.dto";
-import { canSearchSuppliers } from "../../search/search.permissions";
+} from '../dto';
+import { AuditLogService } from '../../audit-logs/services';
+import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
+import { canSearchSuppliers } from '../../search/search.permissions';
 import {
   SEARCH_CANDIDATE_LIMIT,
   SCORE_EXACT_NAME,
@@ -33,10 +27,10 @@ import {
   SCORE_FUZZY,
   BOOST_SUPPLIER,
   BOOST_EXACT_MATCH,
-} from "../../search/search.constants";
-import { JwtPayload } from "../../auth/strategies/jwt.strategy";
-import { UserRole } from "../../../database/entities/user.entity";
-import { generateBaseSlug } from "../../../common/utils/slug.util";
+} from '../../search/search.constants';
+import { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import { UserRole } from '../../../database/entities/user.entity';
+import { generateBaseSlug } from '../../../common/utils/slug.util';
 
 @Injectable()
 export class SupplierService extends BaseCrudService<
@@ -62,7 +56,7 @@ export class SupplierService extends BaseCrudService<
   }
 
   getEntityType(): string {
-    return "Supplier";
+    return 'Supplier';
   }
 
   buildWhereClause(query: SupplierQueryDto): FindOptionsWhere<Supplier> {
@@ -81,17 +75,15 @@ export class SupplierService extends BaseCrudService<
 
   protected async afterDelete(entity: Supplier): Promise<void> {
     const activePurchaseOrdersCount = await this.supplierRepository
-      .createQueryBuilder("supplier")
-      .leftJoin("supplier.purchaseOrders", "po")
-      .where("supplier.id = :id", { id: entity.id })
-      .andWhere("po.deletedAt IS NULL")
-      .andWhere("po.isActive = :isActive", { isActive: true })
+      .createQueryBuilder('supplier')
+      .leftJoin('supplier.purchaseOrders', 'po')
+      .where('supplier.id = :id', { id: entity.id })
+      .andWhere('po.deletedAt IS NULL')
+      .andWhere('po.isActive = :isActive', { isActive: true })
       .getCount();
 
     if (activePurchaseOrdersCount > 0) {
-      throw new BadRequestException(
-        "Cannot deactivate supplier with active purchase orders",
-      );
+      throw new BadRequestException('Cannot deactivate supplier with active purchase orders');
     }
   }
 
@@ -107,19 +99,15 @@ export class SupplierService extends BaseCrudService<
 
     // Check for duplicate company name (case-insensitive)
     const existingSupplier = await this.supplierRepository
-      .createQueryBuilder("supplier")
-      .where("LOWER(supplier.companyName) = LOWER(:companyName)", {
-        companyName: createSupplierDto.companyName,
+      .createQueryBuilder('supplier')
+      .where('LOWER(supplier.companyName) = LOWER(:companyName)', {
+        companyName: createSupplierDto.companyName
       })
       .getOne();
 
     if (existingSupplier) {
-      this.logger.warn(
-        `Duplicate company name detected: ${createSupplierDto.companyName}`,
-      );
-      throw new ConflictException(
-        `Supplier with company name "${createSupplierDto.companyName}" already exists`,
-      );
+      this.logger.warn(`Duplicate company name detected: ${createSupplierDto.companyName}`);
+      throw new ConflictException(`Supplier with company name "${createSupplierDto.companyName}" already exists`);
     }
 
     try {
@@ -128,21 +116,19 @@ export class SupplierService extends BaseCrudService<
         totalPurchases: 0,
         totalOrders: 0,
       });
-      supplier.slug = await this.generateUniqueSlug(
-        createSupplierDto.companyName,
-      );
+      supplier.slug = await this.generateUniqueSlug(createSupplierDto.companyName);
 
       const savedSupplier = await this.supplierRepository.save(supplier);
       this.logger.log(`Supplier created successfully: ${savedSupplier.id}`);
 
       // Log audit trail for create
       await this.auditLogService.log(
-        "CREATE",
-        "Supplier",
+        'CREATE',
+        'Supplier',
         `Created supplier: ${savedSupplier.companyName}`,
         {
           entityId: savedSupplier.id,
-          userId: userId || "system",
+          userId: userId || 'system',
           username,
           newValues: {
             companyName: savedSupplier.companyName,
@@ -150,16 +136,15 @@ export class SupplierService extends BaseCrudService<
             phone: savedSupplier.phone,
             type: savedSupplier.type,
           },
-        },
+        }
       );
 
       return this.mapToResponseDto(savedSupplier);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(`Error creating supplier: ${errorMessage}`, errorStack);
-      throw new BadRequestException("Failed to create supplier");
+      throw new BadRequestException('Failed to create supplier');
     }
   }
 
@@ -173,50 +158,47 @@ export class SupplierService extends BaseCrudService<
       search,
       type,
       isActive,
-      sortBy = "companyName",
-      sortOrder = "ASC",
+      sortBy = 'companyName',
+      sortOrder = 'ASC',
       page,
       limit,
     } = query;
 
-    const queryBuilder = this.supplierRepository.createQueryBuilder("supplier");
+    const queryBuilder = this.supplierRepository.createQueryBuilder('supplier');
 
     // Apply search filter
     if (search) {
       queryBuilder.andWhere(
-        "(supplier.companyName ILIKE :search OR supplier.contactPerson ILIKE :search)",
-        { search: `%${search}%` },
+        '(supplier.companyName ILIKE :search OR supplier.contactPerson ILIKE :search)',
+        { search: `%${search}%` }
       );
     }
 
     // Apply filters
     if (type) {
-      queryBuilder.andWhere("supplier.type = :type", { type });
+      queryBuilder.andWhere('supplier.type = :type', { type });
     }
 
     if (isActive !== undefined) {
-      queryBuilder.andWhere("supplier.isActive = :isActive", { isActive });
+      queryBuilder.andWhere('supplier.isActive = :isActive', { isActive });
     }
 
     // Apply sorting
     const validSortFields = [
-      "companyName",
-      "type",
-      "totalPurchases",
-      "totalOrders",
-      "createdAt",
-      "lastPurchaseDate",
+      'companyName', 'type',
+      'totalPurchases', 'totalOrders',
+      'createdAt', 'lastPurchaseDate'
     ];
 
     if (validSortFields.includes(sortBy)) {
       queryBuilder.orderBy(`supplier.${sortBy}`, sortOrder);
     } else {
-      queryBuilder.orderBy("supplier.companyName", "ASC");
+      queryBuilder.orderBy('supplier.companyName', 'ASC');
     }
 
     // Add secondary sort by companyName if not primary sort
-    if (sortBy !== "companyName") {
-      queryBuilder.addOrderBy("supplier.companyName", "ASC");
+    if (sortBy !== 'companyName') {
+      queryBuilder.addOrderBy('supplier.companyName', 'ASC');
     }
 
     const shouldPaginate = page !== undefined && limit !== undefined;
@@ -225,9 +207,7 @@ export class SupplierService extends BaseCrudService<
     }
 
     const [suppliers, total] = await queryBuilder.getManyAndCount();
-    const supplierDtos = suppliers.map((supplier) =>
-      this.mapToResponseDto(supplier),
-    );
+    const supplierDtos = suppliers.map(supplier => this.mapToResponseDto(supplier));
 
     return {
       data: supplierDtos,
@@ -238,19 +218,16 @@ export class SupplierService extends BaseCrudService<
     };
   }
 
-  async searchGlobal(
-    query: string,
-    user: JwtPayload,
-  ): Promise<GlobalSearchResultDto[]> {
+  async searchGlobal(query: string, user: JwtPayload): Promise<GlobalSearchResultDto[]> {
     if (!canSearchSuppliers(user.role as UserRole)) return [];
 
     const trimmed = query.trim();
     const q = trimmed.toLowerCase();
 
     const results = await this.supplierRepository
-      .createQueryBuilder("supplier")
-      .where("supplier.deletedAt IS NULL")
-      .andWhere("supplier.companyName ILIKE :q", { q: `%${trimmed}%` })
+      .createQueryBuilder('supplier')
+      .where('supplier.deletedAt IS NULL')
+      .andWhere('supplier.companyName ILIKE :q', { q: `%${trimmed}%` })
       .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
@@ -259,12 +236,12 @@ export class SupplierService extends BaseCrudService<
     }
 
     const fuzzyResults = await this.supplierRepository
-      .createQueryBuilder("supplier")
-      .addSelect("similarity(supplier.companyName, :q)", "sim")
-      .where("supplier.deletedAt IS NULL")
-      .andWhere("similarity(supplier.companyName, :q) > 0.3")
-      .orderBy("sim", "DESC")
-      .setParameter("q", trimmed)
+      .createQueryBuilder('supplier')
+      .addSelect('similarity(supplier.companyName, :q)', 'sim')
+      .where('supplier.deletedAt IS NULL')
+      .andWhere('similarity(supplier.companyName, :q) > 0.3')
+      .orderBy('sim', 'DESC')
+      .setParameter('q', trimmed)
       .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
@@ -291,8 +268,7 @@ export class SupplierService extends BaseCrudService<
 
   async findBySlug(slug: string): Promise<SupplierResponseDto> {
     const supplier = await this.supplierRepository.findOne({ where: { slug } });
-    if (!supplier)
-      throw new NotFoundException(`Supplier with slug '${slug}' not found`);
+    if (!supplier) throw new NotFoundException(`Supplier with slug '${slug}' not found`);
     return this.mapToResponseDto(supplier);
   }
 
@@ -316,35 +292,27 @@ export class SupplierService extends BaseCrudService<
     // Check for duplicate company name (case-insensitive, excluding current supplier)
     if (updateSupplierDto.companyName) {
       const existingSupplier = await this.supplierRepository
-        .createQueryBuilder("supplier")
-        .where("LOWER(supplier.companyName) = LOWER(:companyName)", {
-          companyName: updateSupplierDto.companyName,
-        })
-        .andWhere("supplier.id != :id", { id })
+        .createQueryBuilder('supplier')
+        .where('LOWER(supplier.companyName) = LOWER(:companyName)', { companyName: updateSupplierDto.companyName })
+        .andWhere('supplier.id != :id', { id })
         .getOne();
 
       if (existingSupplier) {
-        this.logger.warn(
-          `Duplicate company name detected: ${updateSupplierDto.companyName}`,
-        );
-        throw new ConflictException(
-          `Supplier with company name "${updateSupplierDto.companyName}" already exists`,
-        );
+        this.logger.warn(`Duplicate company name detected: ${updateSupplierDto.companyName}`);
+        throw new ConflictException(`Supplier with company name "${updateSupplierDto.companyName}" already exists`);
       }
     }
 
     try {
       // Track changes for audit
       const changes: Record<string, { from: any; to: any }> = {};
-      Object.keys(updateSupplierDto).forEach((key) => {
+      Object.keys(updateSupplierDto).forEach(key => {
         if (updateSupplierDto[key] !== supplier[key]) {
           changes[key] = { from: supplier[key], to: updateSupplierDto[key] };
         }
       });
 
-      const nameChanged =
-        updateSupplierDto.companyName !== undefined &&
-        updateSupplierDto.companyName !== supplier.companyName;
+      const nameChanged = updateSupplierDto.companyName !== undefined && updateSupplierDto.companyName !== supplier.companyName;
       Object.assign(supplier, updateSupplierDto);
       if (nameChanged) {
         supplier.slug = await this.generateUniqueSlug(supplier.companyName, id);
@@ -354,31 +322,30 @@ export class SupplierService extends BaseCrudService<
       // Log audit trail for update
       if (Object.keys(changes).length > 0) {
         await this.auditLogService.log(
-          "UPDATE",
-          "Supplier",
+          'UPDATE',
+          'Supplier',
           `Updated supplier: ${updatedSupplier.companyName}`,
           {
             entityId: id,
-            userId: userId || "system",
+            userId: userId || 'system',
             username,
             oldValues: Object.fromEntries(
-              Object.entries(changes).map(([key, val]) => [key, val.from]),
+              Object.entries(changes).map(([key, val]) => [key, val.from])
             ),
             newValues: Object.fromEntries(
-              Object.entries(changes).map(([key, val]) => [key, val.to]),
+              Object.entries(changes).map(([key, val]) => [key, val.to])
             ),
-          },
+          }
         );
       }
 
       this.logger.log(`Supplier updated successfully: ${updatedSupplier.id}`);
       return this.mapToResponseDto(updatedSupplier);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(`Error updating supplier: ${errorMessage}`, errorStack);
-      throw new BadRequestException("Failed to update supplier");
+      throw new BadRequestException('Failed to update supplier');
     }
   }
 
@@ -388,26 +355,19 @@ export class SupplierService extends BaseCrudService<
   async checkDuplicateCompanyName(
     companyName: string,
     excludeId?: string,
-  ): Promise<{
-    exists: boolean;
-    isInactive?: boolean;
-    supplier?: SupplierResponseDto;
-    message?: string;
-  }> {
+  ): Promise<{ exists: boolean; isInactive?: boolean; supplier?: SupplierResponseDto; message?: string }> {
     this.logger.log(`Checking duplicate company name: ${companyName}`);
 
     // First check active suppliers
     const activeQueryBuilder = this.supplierRepository
-      .createQueryBuilder("supplier")
-      .where("LOWER(supplier.companyName) = LOWER(:companyName)", {
-        companyName,
-      });
+      .createQueryBuilder('supplier')
+      .where('LOWER(supplier.companyName) = LOWER(:companyName)', { companyName });
 
     if (excludeId) {
-      activeQueryBuilder.andWhere("supplier.id != :excludeId", { excludeId });
+      activeQueryBuilder.andWhere('supplier.id != :excludeId', { excludeId });
     }
 
-    activeQueryBuilder.andWhere("supplier.deletedAt IS NULL");
+    activeQueryBuilder.andWhere('supplier.deletedAt IS NULL');
 
     const activeSupplier = await activeQueryBuilder.getOne();
 
@@ -421,17 +381,13 @@ export class SupplierService extends BaseCrudService<
 
     // Then check soft-deleted (inactive) suppliers
     const inactiveQueryBuilder = this.supplierRepository
-      .createQueryBuilder("supplier")
+      .createQueryBuilder('supplier')
       .withDeleted()
-      .where("LOWER(supplier.companyName) = LOWER(:companyName)", {
-        companyName,
-      })
-      .andWhere(
-        "(supplier.deletedAt IS NOT NULL OR supplier.isActive = false)",
-      );
+      .where('LOWER(supplier.companyName) = LOWER(:companyName)', { companyName })
+      .andWhere('(supplier.deletedAt IS NOT NULL OR supplier.isActive = false)');
 
     if (excludeId) {
-      inactiveQueryBuilder.andWhere("supplier.id != :excludeId", { excludeId });
+      inactiveQueryBuilder.andWhere('supplier.id != :excludeId', { excludeId });
     }
 
     const inactiveSupplier = await inactiveQueryBuilder.getOne();
@@ -452,18 +408,19 @@ export class SupplierService extends BaseCrudService<
    * Soft delete supplier (deactivate)
    */
 
+
   /**
    * Update supplier purchase metrics
    */
   async updatePurchaseMetrics(
-    supplierId: string,
-    orderAmount: number,
-    isFirstOrder: boolean = false,
+    supplierId: string, 
+    orderAmount: number, 
+    isFirstOrder: boolean = false
   ): Promise<void> {
     this.logger.log(`Updating purchase metrics for supplier: ${supplierId}`);
 
-    const supplier = await this.supplierRepository.findOne({
-      where: { id: supplierId },
+    const supplier = await this.supplierRepository.findOne({ 
+      where: { id: supplierId } 
     });
 
     if (!supplier) {
@@ -476,14 +433,10 @@ export class SupplierService extends BaseCrudService<
 
       this.logger.log(`Purchase metrics updated for supplier: ${supplierId}`);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(
-        `Error updating purchase metrics: ${errorMessage}`,
-        errorStack,
-      );
-      throw new BadRequestException("Failed to update purchase metrics");
+      this.logger.error(`Error updating purchase metrics: ${errorMessage}`, errorStack);
+      throw new BadRequestException('Failed to update purchase metrics');
     }
   }
 
@@ -521,6 +474,7 @@ export class SupplierService extends BaseCrudService<
   //   }
   // }
 
+
   /**
    * Check if supplier can make purchase
    *
@@ -528,12 +482,10 @@ export class SupplierService extends BaseCrudService<
    * This method only checks if the supplier is generally eligible to make purchases.
    */
   async canPurchase(supplierId: string, _amount?: number): Promise<boolean> {
-    this.logger.log(
-      `Checking purchase eligibility for supplier: ${supplierId}`,
-    );
+    this.logger.log(`Checking purchase eligibility for supplier: ${supplierId}`);
 
     const supplier = await this.supplierRepository.findOne({
-      where: { id: supplierId },
+      where: { id: supplierId }
     });
 
     if (!supplier) {
@@ -547,10 +499,7 @@ export class SupplierService extends BaseCrudService<
   /**
    * Search suppliers by name or code
    */
-  async searchSuppliers(
-    query: string,
-    limit: number = 10,
-  ): Promise<SupplierResponseDto[]> {
+  async searchSuppliers(query: string, limit: number = 10): Promise<SupplierResponseDto[]> {
     this.logger.log(`Searching suppliers with query: ${query}`);
 
     const suppliers = await this.supplierRepository.find({
@@ -559,10 +508,10 @@ export class SupplierService extends BaseCrudService<
         { contactPerson: Like(`%${query}%`) },
       ],
       take: limit,
-      order: { companyName: "ASC" },
+      order: { companyName: 'ASC' },
     });
 
-    return suppliers.map((supplier) => this.mapToResponseDto(supplier));
+    return suppliers.map(supplier => this.mapToResponseDto(supplier));
   }
 
   /**
@@ -573,11 +522,12 @@ export class SupplierService extends BaseCrudService<
 
     const suppliers = await this.supplierRepository.find({
       where: { type, isActive: true },
-      order: { companyName: "ASC" },
+      order: { companyName: 'ASC' },
     });
 
-    return suppliers.map((supplier) => this.mapToResponseDto(supplier));
+    return suppliers.map(supplier => this.mapToResponseDto(supplier));
   }
+
 
   // Credit limit functionality removed - method disabled
   // async findOverCreditLimit(): Promise<SupplierResponseDto[]> {
@@ -590,14 +540,15 @@ export class SupplierService extends BaseCrudService<
   //   return suppliers.map(supplier => this.mapToResponseDto(supplier));
   // }
 
+
   /**
    * Activate supplier
    */
   async activate(supplierId: string): Promise<SupplierResponseDto> {
     this.logger.log(`Activating supplier: ${supplierId}`);
 
-    const supplier = await this.supplierRepository.findOne({
-      where: { id: supplierId },
+    const supplier = await this.supplierRepository.findOne({ 
+      where: { id: supplierId } 
     });
 
     if (!supplier) {
@@ -611,28 +562,21 @@ export class SupplierService extends BaseCrudService<
       this.logger.log(`Supplier activated successfully: ${supplierId}`);
       return this.mapToResponseDto(updatedSupplier);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(
-        `Error activating supplier: ${errorMessage}`,
-        errorStack,
-      );
-      throw new BadRequestException("Failed to activate supplier");
+      this.logger.error(`Error activating supplier: ${errorMessage}`, errorStack);
+      throw new BadRequestException('Failed to activate supplier');
     }
   }
 
   /**
    * Suspend supplier
    */
-  async suspend(
-    supplierId: string,
-    reason: string,
-  ): Promise<SupplierResponseDto> {
+  async suspend(supplierId: string, reason: string): Promise<SupplierResponseDto> {
     this.logger.log(`Suspending supplier: ${supplierId}`);
 
-    const supplier = await this.supplierRepository.findOne({
-      where: { id: supplierId },
+    const supplier = await this.supplierRepository.findOne({ 
+      where: { id: supplierId } 
     });
 
     if (!supplier) {
@@ -640,20 +584,16 @@ export class SupplierService extends BaseCrudService<
     }
 
     try {
-      supplier.notes = (supplier.notes || "") + `\nSuspended: ${reason}`;
+      supplier.notes = (supplier.notes || '') + `\nSuspended: ${reason}`;
       const updatedSupplier = await this.supplierRepository.save(supplier);
 
       this.logger.log(`Supplier suspended successfully: ${supplierId}`);
       return this.mapToResponseDto(updatedSupplier);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(
-        `Error suspending supplier: ${errorMessage}`,
-        errorStack,
-      );
-      throw new BadRequestException("Failed to suspend supplier");
+      this.logger.error(`Error suspending supplier: ${errorMessage}`, errorStack);
+      throw new BadRequestException('Failed to suspend supplier');
     }
   }
 
@@ -661,36 +601,39 @@ export class SupplierService extends BaseCrudService<
    * Get all soft-deleted suppliers
    */
   async findDeleted(query: SupplierQueryDto): Promise<SupplierListResponseDto> {
-    this.logger.log("Finding deleted suppliers");
+    this.logger.log('Finding deleted suppliers');
 
-    const { search, type, sortBy = "companyName", sortOrder = "ASC" } = query;
+    const {
+      search,
+      type,
+      sortBy = 'companyName',
+      sortOrder = 'ASC',
+    } = query;
 
     const queryBuilder = this.supplierRepository
-      .createQueryBuilder("supplier")
+      .createQueryBuilder('supplier')
       .withDeleted()
-      .where("supplier.deletedAt IS NOT NULL");
+      .where('supplier.deletedAt IS NOT NULL');
 
     // Apply filters
     if (search) {
       queryBuilder.andWhere(
-        "(supplier.companyName ILIKE :search OR supplier.contactPerson ILIKE :search)",
-        { search: `%${search}%` },
+        '(supplier.companyName ILIKE :search OR supplier.contactPerson ILIKE :search)',
+        { search: `%${search}%` }
       );
     }
 
     if (type) {
-      queryBuilder.andWhere("supplier.type = :type", { type });
+      queryBuilder.andWhere('supplier.type = :type', { type });
     }
 
-    const validSortFields = ["companyName", "type", "createdAt", "deletedAt"];
-    const sortField = validSortFields.includes(sortBy) ? sortBy : "companyName";
-    queryBuilder.orderBy(`supplier.${sortField}`, sortOrder as "ASC" | "DESC");
+    const validSortFields = ['companyName', 'type', 'createdAt', 'deletedAt'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'companyName';
+    queryBuilder.orderBy(`supplier.${sortField}`, sortOrder as 'ASC' | 'DESC');
 
     const suppliers = await queryBuilder.getMany();
 
-    const supplierDtos = suppliers.map((supplier) =>
-      this.mapToResponseDto(supplier),
-    );
+    const supplierDtos = suppliers.map(supplier => this.mapToResponseDto(supplier));
 
     return {
       data: supplierDtos,
@@ -701,11 +644,7 @@ export class SupplierService extends BaseCrudService<
   /**
    * Restore a soft-deleted supplier
    */
-  async restore(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<SupplierResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<SupplierResponseDto> {
     this.logger.log(`Restoring supplier: ${id}`);
 
     const supplier = await this.supplierRepository.findOne({
@@ -718,7 +657,7 @@ export class SupplierService extends BaseCrudService<
     }
 
     if (!supplier.deletedAt) {
-      throw new BadRequestException("Supplier is not deleted");
+      throw new BadRequestException('Supplier is not deleted');
     }
 
     try {
@@ -730,21 +669,19 @@ export class SupplierService extends BaseCrudService<
       });
 
       if (!restoredSupplier) {
-        throw new NotFoundException(
-          `Supplier with ID ${id} not found after restore`,
-        );
+        throw new NotFoundException(`Supplier with ID ${id} not found after restore`);
       }
 
       // No need to update status as it was removed
 
       // Log audit trail for restore
       await this.auditLogService.log(
-        "RESTORE",
-        "Supplier",
+        'RESTORE',
+        'Supplier',
         `Restored supplier: ${restoredSupplier.companyName}`,
         {
           entityId: id,
-          userId: userId || "system",
+          userId: userId || 'system',
           username,
           newValues: {
             companyName: restoredSupplier.companyName,
@@ -752,31 +689,23 @@ export class SupplierService extends BaseCrudService<
             phone: restoredSupplier.phone,
             type: restoredSupplier.type,
           },
-        },
+        }
       );
 
       this.logger.log(`Supplier restored successfully: ${id}`);
       return this.mapToResponseDto(restoredSupplier);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(
-        `Error restoring supplier: ${errorMessage}`,
-        errorStack,
-      );
-      throw new BadRequestException("Failed to restore supplier");
+      this.logger.error(`Error restoring supplier: ${errorMessage}`, errorStack);
+      throw new BadRequestException('Failed to restore supplier');
     }
   }
 
   /**
    * Permanently delete a supplier
    */
-  async permanentDelete(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<void> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Permanently deleting supplier: ${id}`);
 
     const supplier = await this.supplierRepository.findOne({
@@ -789,19 +718,17 @@ export class SupplierService extends BaseCrudService<
     }
 
     if (!supplier.deletedAt) {
-      throw new BadRequestException(
-        "Supplier must be soft-deleted before permanent deletion",
-      );
+      throw new BadRequestException('Supplier must be soft-deleted before permanent deletion');
     }
 
     // Log audit trail for permanent delete
     await this.auditLogService.log(
-      "PERMANENT_DELETE",
-      "Supplier",
+      'PERMANENT_DELETE',
+      'Supplier',
       `Permanently deleted supplier: ${supplier.companyName}`,
       {
         entityId: id,
-        userId: userId || "system",
+        userId: userId || 'system',
         username,
         oldValues: {
           companyName: supplier.companyName,
@@ -809,56 +736,46 @@ export class SupplierService extends BaseCrudService<
           phone: supplier.phone,
           type: supplier.type,
         },
-      },
+      }
     );
 
     try {
       await this.supplierRepository.remove(supplier);
       this.logger.log(`Supplier permanently deleted: ${id}`);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(
-        `Error permanently deleting supplier: ${errorMessage}`,
-        errorStack,
-      );
-      throw new BadRequestException("Failed to permanently delete supplier");
+      this.logger.error(`Error permanently deleting supplier: ${errorMessage}`, errorStack);
+      throw new BadRequestException('Failed to permanently delete supplier');
     }
   }
 
-  async getSupplierPurchaseOrders(
-    supplierId: string,
-  ): Promise<{ data: PurchaseOrder[]; total: number }> {
+  async getSupplierPurchaseOrders(supplierId: string): Promise<{ data: PurchaseOrder[]; total: number }> {
     const [data, total] = await this.purchaseOrderRepository.findAndCount({
       where: { supplierId },
-      order: { orderNumber: "ASC" },
+      order: { orderNumber: 'ASC' },
       take: 50,
     });
 
     return { data, total };
   }
 
-  async getSupplierGRNs(
-    supplierId: string,
-  ): Promise<{ data: GoodsReceivedNote[]; total: number }> {
+  async getSupplierGRNs(supplierId: string): Promise<{ data: GoodsReceivedNote[]; total: number }> {
     const [data, total] = await this.grnRepository.findAndCount({
       where: { supplierId },
       relations: { purchaseOrder: true },
-      order: { grnNumber: "ASC" },
+      order: { grnNumber: 'ASC' },
       take: 50,
     });
 
     return { data, total };
   }
 
-  async getSupplierPayments(
-    supplierId: string,
-  ): Promise<{ data: VendorPayment[]; total: number }> {
+  async getSupplierPayments(supplierId: string): Promise<{ data: VendorPayment[]; total: number }> {
     const [data, total] = await this.vendorPaymentRepository.findAndCount({
       where: { supplierId },
       relations: { paymentMethodEntity: true },
-      order: { paymentNumber: "ASC" },
+      order: { paymentNumber: 'ASC' },
       take: 50,
     });
 
@@ -902,10 +819,7 @@ export class SupplierService extends BaseCrudService<
     };
   }
 
-  private async generateUniqueSlug(
-    companyName: string,
-    excludeId?: string,
-  ): Promise<string> {
+  private async generateUniqueSlug(companyName: string, excludeId?: string): Promise<string> {
     const base = generateBaseSlug(companyName);
     let slug = base;
     let counter = 1;
@@ -925,7 +839,7 @@ export class SupplierService extends BaseCrudService<
     q: string,
     fuzzy: boolean,
   ): GlobalSearchResultDto {
-    const name = supplier.companyName?.toLowerCase() ?? "";
+    const name = supplier.companyName?.toLowerCase() ?? '';
     const baseScore = fuzzy
       ? SCORE_FUZZY
       : name === q
@@ -935,7 +849,7 @@ export class SupplierService extends BaseCrudService<
           : SCORE_CONTAINS;
 
     return {
-      type: "supplier",
+      type: 'supplier',
       id: supplier.id,
       label: supplier.companyName,
       description: supplier.phone ?? undefined,

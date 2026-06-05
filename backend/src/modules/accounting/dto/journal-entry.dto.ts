@@ -14,57 +14,50 @@ import {
   IsDateString,
   ArrayMinSize,
   Matches,
-} from "class-validator";
-import { Type } from "class-transformer";
-import {
-  ApiProperty,
-  ApiPropertyOptional,
-  OmitType,
-  PartialType,
-} from "@nestjs/swagger";
-import { JournalEntryStatus } from "../../../database/entities/journal-entry.entity";
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
+import { JournalEntryStatus } from '../../../database/entities/journal-entry.entity';
 
 // Journal Entry Line DTO
 export class CreateJournalEntryLineDto {
-  @ApiProperty({ description: "Chart of account ID" })
+  @ApiProperty({ description: 'Chart of account ID' })
   @IsUUID()
   accountId: string;
 
-  @ApiProperty({ description: "Debit amount", minimum: 0, default: 0 })
+  @ApiProperty({ description: 'Debit amount', minimum: 0, default: 0 })
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
   debitAmount: number;
 
-  @ApiProperty({ description: "Credit amount", minimum: 0, default: 0 })
+  @ApiProperty({ description: 'Credit amount', minimum: 0, default: 0 })
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
   creditAmount: number;
 
-  @ApiPropertyOptional({ description: "Line item memo/description" })
+  @ApiPropertyOptional({ description: 'Line item memo/description' })
   @IsOptional()
   @IsString()
   @MaxLength(1000)
   memo?: string;
 }
 
-export class UpdateJournalEntryLineDto extends PartialType(
-  CreateJournalEntryLineDto,
-) {
-  @ApiPropertyOptional({ description: "Line ID (for updating existing lines)" })
+export class UpdateJournalEntryLineDto extends PartialType(CreateJournalEntryLineDto) {
+  @ApiPropertyOptional({ description: 'Line ID (for updating existing lines)' })
   @IsOptional()
   @IsUUID()
   id?: string;
 }
 
 export class OpeningBalanceLineDto {
-  @ApiProperty({ description: "Account ID" })
+  @ApiProperty({ description: 'Account ID' })
   @IsUUID()
   accountId: string;
 
   @ApiProperty({
-    description: "Positive = debit, negative = credit",
+    description: 'Positive = debit, negative = credit',
   })
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 4 })
@@ -73,15 +66,12 @@ export class OpeningBalanceLineDto {
 
 export class PostOpeningBalancesDto {
   @ApiProperty({
-    description: "Opening balance date (typically first day of fiscal year)",
+    description: 'Opening balance date (typically first day of fiscal year)',
   })
   @IsDateString()
   asOfDate: string;
 
-  @ApiProperty({
-    description: "Account balances",
-    type: [OpeningBalanceLineDto],
-  })
+  @ApiProperty({ description: 'Account balances', type: [OpeningBalanceLineDto] })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
@@ -89,15 +79,14 @@ export class PostOpeningBalancesDto {
   balances: OpeningBalanceLineDto[];
 
   @ApiProperty({
-    description:
-      "Equity account to use for balancing (e.g., Opening Balance Equity)",
+    description: 'Equity account to use for balancing (e.g., Opening Balance Equity)',
   })
   @IsUUID()
   equityAccountId: string;
 }
 
 export class BulkOperationDto {
-  @ApiProperty({ description: "Array of journal entry IDs" })
+  @ApiProperty({ description: 'Array of journal entry IDs' })
   @IsArray()
   @ArrayMinSize(1)
   @IsUUID(undefined, { each: true })
@@ -105,33 +94,33 @@ export class BulkOperationDto {
 }
 
 export class BulkOperationResultDto {
-  @ApiProperty({ description: "Successfully processed entry IDs" })
+  @ApiProperty({ description: 'Successfully processed entry IDs' })
   succeeded: string[];
 
-  @ApiProperty({ description: "Failed entries with error messages" })
+  @ApiProperty({ description: 'Failed entries with error messages' })
   failed: { id: string; error: string }[];
 }
 
 export class JournalEntryLineResponseDto {
-  @ApiProperty({ description: "Line ID" })
+  @ApiProperty({ description: 'Line ID' })
   id: string;
 
-  @ApiProperty({ description: "Journal entry ID" })
+  @ApiProperty({ description: 'Journal entry ID' })
   journalEntryId: string;
 
-  @ApiProperty({ description: "Chart of account ID" })
+  @ApiProperty({ description: 'Chart of account ID' })
   accountId: string;
 
-  @ApiProperty({ description: "Debit amount" })
+  @ApiProperty({ description: 'Debit amount' })
   debitAmount: number;
 
-  @ApiProperty({ description: "Credit amount" })
+  @ApiProperty({ description: 'Credit amount' })
   creditAmount: number;
 
-  @ApiPropertyOptional({ description: "Line item memo/description" })
+  @ApiPropertyOptional({ description: 'Line item memo/description' })
   memo?: string;
 
-  @ApiPropertyOptional({ description: "Account details" })
+  @ApiPropertyOptional({ description: 'Account details' })
   account?: {
     id: string;
     code: string;
@@ -139,54 +128,47 @@ export class JournalEntryLineResponseDto {
     type: string;
   };
 
-  @ApiProperty({ description: "Creation date" })
+  @ApiProperty({ description: 'Creation date' })
   createdAt: Date;
 
-  @ApiProperty({ description: "Last update date" })
+  @ApiProperty({ description: 'Last update date' })
   updatedAt: Date;
 }
 
 // Journal Entry DTOs
 export class CreateJournalEntryDto {
-  @ApiProperty({ description: "Transaction entry date", type: Date })
+  @ApiProperty({ description: 'Transaction entry date', type: Date })
   @Type(() => Date)
   @IsDate()
   entryDate: Date;
 
-  @ApiPropertyOptional({
-    description: "Unique reference number (auto-generated if not provided)",
-  })
+  @ApiPropertyOptional({ description: 'Unique reference number (auto-generated if not provided)' })
   @IsOptional()
   @IsString()
   @MaxLength(50)
   referenceNumber?: string;
 
-  @ApiProperty({ description: "Journal entry description", maxLength: 1000 })
+  @ApiProperty({ description: 'Journal entry description', maxLength: 1000 })
   @IsString()
   @MaxLength(1000)
   description: string;
 
-  @ApiProperty({ description: "Fiscal period ID" })
+  @ApiProperty({ description: 'Fiscal period ID' })
   @IsUUID()
   fiscalPeriodId: string;
 
-  @ApiPropertyOptional({
-    description: 'Source transaction type (e.g., "SALES_ORDER", "PAYMENT")',
-  })
+  @ApiPropertyOptional({ description: 'Source transaction type (e.g., "SALES_ORDER", "PAYMENT")' })
   @IsOptional()
   @IsString()
   @MaxLength(100)
   sourceType?: string;
 
-  @ApiPropertyOptional({ description: "Source transaction ID" })
+  @ApiPropertyOptional({ description: 'Source transaction ID' })
   @IsOptional()
   @IsUUID()
   sourceId?: string;
 
-  @ApiProperty({
-    description: "Journal entry lines",
-    type: [CreateJournalEntryLineDto],
-  })
+  @ApiProperty({ description: 'Journal entry lines', type: [CreateJournalEntryLineDto] })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateJournalEntryLineDto)
@@ -194,46 +176,43 @@ export class CreateJournalEntryDto {
 }
 
 export class UpdateJournalEntryDto extends PartialType(
-  OmitType(CreateJournalEntryDto, ["lines"] as const),
+  OmitType(CreateJournalEntryDto, ['lines'] as const),
 ) {
-  @ApiPropertyOptional({ description: "Transaction entry date", type: Date })
+  @ApiPropertyOptional({ description: 'Transaction entry date', type: Date })
   @IsOptional()
   @Type(() => Date)
   @IsDate()
   entryDate?: Date;
 
-  @ApiPropertyOptional({ description: "Unique reference number" })
+  @ApiPropertyOptional({ description: 'Unique reference number' })
   @IsOptional()
   @IsString()
   @MaxLength(50)
   referenceNumber?: string;
 
-  @ApiPropertyOptional({ description: "Journal entry description" })
+  @ApiPropertyOptional({ description: 'Journal entry description' })
   @IsOptional()
   @IsString()
   @MaxLength(1000)
   description?: string;
 
-  @ApiPropertyOptional({ description: "Fiscal period ID" })
+  @ApiPropertyOptional({ description: 'Fiscal period ID' })
   @IsOptional()
   @IsUUID()
   fiscalPeriodId?: string;
 
-  @ApiPropertyOptional({ description: "Source transaction type" })
+  @ApiPropertyOptional({ description: 'Source transaction type' })
   @IsOptional()
   @IsString()
   @MaxLength(100)
   sourceType?: string;
 
-  @ApiPropertyOptional({ description: "Source transaction ID" })
+  @ApiPropertyOptional({ description: 'Source transaction ID' })
   @IsOptional()
   @IsUUID()
   sourceId?: string;
 
-  @ApiPropertyOptional({
-    description: "Journal entry lines",
-    type: [UpdateJournalEntryLineDto],
-  })
+  @ApiPropertyOptional({ description: 'Journal entry lines', type: [UpdateJournalEntryLineDto] })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
@@ -242,19 +221,14 @@ export class UpdateJournalEntryDto extends PartialType(
 }
 
 export class QueryJournalEntriesDto {
-  @ApiPropertyOptional({ description: "Page number", minimum: 1, default: 1 })
+  @ApiPropertyOptional({ description: 'Page number', minimum: 1, default: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({
-    description: "Items per page",
-    minimum: 1,
-    maximum: 100,
-    default: 20,
-  })
+  @ApiPropertyOptional({ description: 'Items per page', minimum: 1, maximum: 100, default: 20 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -262,125 +236,113 @@ export class QueryJournalEntriesDto {
   @Max(100)
   limit?: number = 20;
 
-  @ApiPropertyOptional({
-    description: "Search term (reference number or description)",
-  })
+  @ApiPropertyOptional({ description: 'Search term (reference number or description)' })
   @IsOptional()
   @IsString()
   @MaxLength(200)
   search?: string;
 
-  @ApiPropertyOptional({
-    description: "Filter by status",
-    enum: JournalEntryStatus,
-  })
+  @ApiPropertyOptional({ description: 'Filter by status', enum: JournalEntryStatus })
   @IsOptional()
   @IsEnum(JournalEntryStatus)
   status?: JournalEntryStatus;
 
-  @ApiPropertyOptional({ description: "Filter by fiscal period ID" })
+  @ApiPropertyOptional({ description: 'Filter by fiscal period ID' })
   @IsOptional()
   @IsUUID()
   fiscalPeriodId?: string;
 
-  @ApiPropertyOptional({ description: "Filter by source type" })
+  @ApiPropertyOptional({ description: 'Filter by source type' })
   @IsOptional()
   @IsString()
   sourceType?: string;
 
-  @ApiPropertyOptional({ description: "Filter by source ID" })
+  @ApiPropertyOptional({ description: 'Filter by source ID' })
   @IsOptional()
   @IsUUID()
   sourceId?: string;
 
-  @ApiPropertyOptional({ description: "Filter by start date", type: Date })
+  @ApiPropertyOptional({ description: 'Filter by start date', type: Date })
   @IsOptional()
   @Type(() => Date)
   @IsDate()
   startDate?: Date;
 
-  @ApiPropertyOptional({ description: "Filter by end date", type: Date })
+  @ApiPropertyOptional({ description: 'Filter by end date', type: Date })
   @IsOptional()
   @Type(() => Date)
   @IsDate()
   endDate?: Date;
 
-  @ApiPropertyOptional({
-    description: "Sort field",
-    enum: ["entryDate", "referenceNumber", "createdAt"],
-  })
+  @ApiPropertyOptional({ description: 'Sort field', enum: ['entryDate', 'referenceNumber', 'createdAt'] })
   @IsOptional()
   @IsString()
   sortBy?: string;
 
-  @ApiPropertyOptional({ description: "Filter by comma-separated entry UUIDs" })
+  @ApiPropertyOptional({ description: 'Filter by comma-separated entry UUIDs' })
   @IsOptional()
-  @Matches(/^[0-9a-f-]+(,[0-9a-f-]+)*$/i, {
-    message: "ids must be a comma-separated list of UUIDs",
-  })
+  @Matches(/^[0-9a-f-]+(,[0-9a-f-]+)*$/i, { message: 'ids must be a comma-separated list of UUIDs' })
   ids?: string;
 
-  @ApiPropertyOptional({ description: "Sort direction", enum: ["ASC", "DESC"] })
+  @ApiPropertyOptional({ description: 'Sort direction', enum: ['ASC', 'DESC'] })
   @IsOptional()
   @IsString()
-  sortOrder?: "ASC" | "DESC";
+  sortOrder?: 'ASC' | 'DESC';
 }
 
 export class JournalEntryResponseDto {
-  @ApiProperty({ description: "Entry ID" })
+  @ApiProperty({ description: 'Entry ID' })
   id: string;
 
-  @ApiProperty({ description: "Transaction entry date", type: Date })
+  @ApiProperty({ description: 'Transaction entry date', type: Date })
   entryDate: Date;
 
-  @ApiProperty({ description: "Unique reference number" })
+  @ApiProperty({ description: 'Unique reference number' })
   referenceNumber: string;
 
-  @ApiProperty({ description: "Journal entry description" })
+  @ApiProperty({ description: 'Journal entry description' })
   description: string;
 
-  @ApiProperty({ description: "Entry status", enum: JournalEntryStatus })
+  @ApiProperty({ description: 'Entry status', enum: JournalEntryStatus })
   status: JournalEntryStatus;
 
-  @ApiProperty({ description: "Fiscal period ID" })
+  @ApiProperty({ description: 'Fiscal period ID' })
   fiscalPeriodId: string;
 
-  @ApiPropertyOptional({ description: "ID of the entry being reversed" })
+  @ApiPropertyOptional({ description: 'ID of the entry being reversed' })
   reversalOfId?: string;
 
-  @ApiPropertyOptional({ description: "ID of the reversing entry" })
+  @ApiPropertyOptional({ description: 'ID of the reversing entry' })
   reversedById?: string;
 
-  @ApiPropertyOptional({ description: "Source transaction type" })
+  @ApiPropertyOptional({ description: 'Source transaction type' })
   sourceType?: string;
 
-  @ApiPropertyOptional({ description: "Source transaction ID" })
+  @ApiPropertyOptional({ description: 'Source transaction ID' })
   sourceId?: string;
 
-  @ApiPropertyOptional({
-    description: "Human-readable reference of the source document",
-  })
+  @ApiPropertyOptional({ description: 'Human-readable reference of the source document' })
   sourceRefNumber?: string;
 
-  @ApiProperty({ description: "Whether entry is in DRAFT status" })
+  @ApiProperty({ description: 'Whether entry is in DRAFT status' })
   isDraft: boolean;
 
-  @ApiProperty({ description: "Whether entry is POSTED" })
+  @ApiProperty({ description: 'Whether entry is POSTED' })
   isPosted: boolean;
 
-  @ApiProperty({ description: "Whether entry is REVERSED" })
+  @ApiProperty({ description: 'Whether entry is REVERSED' })
   isReversed: boolean;
 
-  @ApiProperty({ description: "Total debit amount" })
+  @ApiProperty({ description: 'Total debit amount' })
   totalDebits: number;
 
-  @ApiProperty({ description: "Total credit amount" })
+  @ApiProperty({ description: 'Total credit amount' })
   totalCredits: number;
 
-  @ApiProperty({ description: "Whether entry is balanced" })
+  @ApiProperty({ description: 'Whether entry is balanced' })
   isBalanced: boolean;
 
-  @ApiPropertyOptional({ description: "Fiscal period details" })
+  @ApiPropertyOptional({ description: 'Fiscal period details' })
   fiscalPeriod?: {
     id: string;
     code: string;
@@ -388,36 +350,30 @@ export class JournalEntryResponseDto {
     status: string;
   };
 
-  @ApiPropertyOptional({
-    description: "Journal entry lines",
-    type: [JournalEntryLineResponseDto],
-  })
+  @ApiPropertyOptional({ description: 'Journal entry lines', type: [JournalEntryLineResponseDto] })
   lines?: JournalEntryLineResponseDto[];
 
-  @ApiPropertyOptional({ description: "Entry being reversed" })
+  @ApiPropertyOptional({ description: 'Entry being reversed' })
   reversalOf?: JournalEntryResponseDto;
 
-  @ApiPropertyOptional({ description: "Reversing entry" })
+  @ApiPropertyOptional({ description: 'Reversing entry' })
   reversedBy?: JournalEntryResponseDto;
 
-  @ApiProperty({ description: "Creation date" })
+  @ApiProperty({ description: 'Creation date' })
   createdAt: Date;
 
-  @ApiProperty({ description: "Last update date" })
+  @ApiProperty({ description: 'Last update date' })
   updatedAt: Date;
 
-  @ApiPropertyOptional({ description: "Soft delete date" })
+  @ApiPropertyOptional({ description: 'Soft delete date' })
   deletedAt?: Date;
 }
 
 export class JournalEntryListResponseDto {
-  @ApiProperty({
-    description: "List of journal entries",
-    type: [JournalEntryResponseDto],
-  })
+  @ApiProperty({ description: 'List of journal entries', type: [JournalEntryResponseDto] })
   data: JournalEntryResponseDto[];
 
-  @ApiProperty({ description: "Pagination metadata" })
+  @ApiProperty({ description: 'Pagination metadata' })
   meta: {
     page: number;
     limit: number;

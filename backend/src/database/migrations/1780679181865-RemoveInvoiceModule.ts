@@ -1,13 +1,11 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class RemoveInvoiceModule1780679181865 implements MigrationInterface {
-  name = "RemoveInvoiceModule1780679181865";
+  name = 'RemoveInvoiceModule1780679181865';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 0. Add new columns (added by entity changes, but must exist before backfill).
-    await queryRunner.query(
-      `ALTER TABLE "payments" ADD COLUMN IF NOT EXISTS "salesOrderId" uuid`,
-    );
+    await queryRunner.query(`ALTER TABLE "payments" ADD COLUMN IF NOT EXISTS "salesOrderId" uuid`);
     await queryRunner.query(
       `ALTER TABLE "sales_orders" ADD COLUMN IF NOT EXISTS "fulfilledAt" timestamp`,
     );
@@ -58,9 +56,7 @@ export class RemoveInvoiceModule1780679181865 implements MigrationInterface {
       END $$;
     `);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_payments_invoiceId"`);
-    await queryRunner.query(
-      `ALTER TABLE "payments" DROP COLUMN IF EXISTS "invoiceId"`,
-    );
+    await queryRunner.query(`ALTER TABLE "payments" DROP COLUMN IF EXISTS "invoiceId"`);
 
     // 5. Drop invoice tables (child first).
     await queryRunner.query(`DROP TABLE IF EXISTS "invoice_items" CASCADE`);
@@ -69,7 +65,7 @@ export class RemoveInvoiceModule1780679181865 implements MigrationInterface {
 
   public async down(): Promise<void> {
     throw new Error(
-      "RemoveInvoiceModule is not reversible: invoice/invoice_item tables and payment->invoice links were dropped.",
+      'RemoveInvoiceModule is not reversible: invoice/invoice_item tables and payment->invoice links were dropped.',
     );
   }
 }

@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
   IsOptional,
@@ -9,50 +9,47 @@ import {
   Min,
   Max,
   IsEnum,
-} from "class-validator";
-import { Type } from "class-transformer";
-import { SettlementStatus } from "../../../database/entities/settlement.entity";
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { SettlementStatus } from '../../../database/entities/settlement.entity';
 
 export class CreateSettlementDto {
-  @ApiProperty({ description: "Payment method ID" })
+  @ApiProperty({ description: 'Payment method ID' })
   @IsUUID()
   paymentMethodId: string;
 
-  @ApiProperty({ description: "Settlement date (YYYY-MM-DD)" })
+  @ApiProperty({ description: 'Settlement date (YYYY-MM-DD)' })
   @IsDateString()
   settlementDate: string;
 
-  @ApiProperty({
-    description: "Payment IDs to include in settlement",
-    type: [String],
-  })
+  @ApiProperty({ description: 'Payment IDs to include in settlement', type: [String] })
   @IsArray()
-  @IsUUID("4", { each: true })
+  @IsUUID('4', { each: true })
   paymentIds: string[];
 
-  @ApiPropertyOptional({ description: "Bank reference number" })
+  @ApiPropertyOptional({ description: 'Bank reference number' })
   @IsOptional()
   @IsString()
   reference?: string;
 
-  @ApiPropertyOptional({ description: "Notes" })
+  @ApiPropertyOptional({ description: 'Notes' })
   @IsOptional()
   @IsString()
   notes?: string;
 }
 
 export class UpdateSettlementDto {
-  @ApiPropertyOptional({ description: "Settlement date (YYYY-MM-DD)" })
+  @ApiPropertyOptional({ description: 'Settlement date (YYYY-MM-DD)' })
   @IsOptional()
   @IsDateString()
   settlementDate?: string;
 
-  @ApiPropertyOptional({ description: "Bank reference number" })
+  @ApiPropertyOptional({ description: 'Bank reference number' })
   @IsOptional()
   @IsString()
   reference?: string;
 
-  @ApiPropertyOptional({ description: "Notes" })
+  @ApiPropertyOptional({ description: 'Notes' })
   @IsOptional()
   @IsString()
   notes?: string;
@@ -74,31 +71,25 @@ export class QuerySettlementsDto {
   @Max(100)
   limit?: number = 20;
 
-  @ApiPropertyOptional({ description: "Filter by payment method ID" })
+  @ApiPropertyOptional({ description: 'Filter by payment method ID' })
   @IsOptional()
   @IsUUID()
   paymentMethodId?: string;
 
-  @ApiPropertyOptional({
-    description: "Filter by status",
-    enum: SettlementStatus,
-  })
+  @ApiPropertyOptional({ description: 'Filter by status', enum: SettlementStatus })
   @IsOptional()
   @IsEnum(SettlementStatus)
   status?: SettlementStatus;
 
-  @ApiPropertyOptional({
-    description: "Sort field",
-    enum: ["settlementDate", "createdAt", "totalAmount"],
-  })
+  @ApiPropertyOptional({ description: 'Sort field', enum: ['settlementDate', 'createdAt', 'totalAmount'] })
   @IsOptional()
   @IsString()
   sortBy?: string;
 
-  @ApiPropertyOptional({ description: "Sort order", enum: ["ASC", "DESC"] })
+  @ApiPropertyOptional({ description: 'Sort order', enum: ['ASC', 'DESC'] })
   @IsOptional()
   @IsString()
-  sortOrder?: "ASC" | "DESC";
+  sortOrder?: 'ASC' | 'DESC';
 }
 
 export class SettlementResponseDto {

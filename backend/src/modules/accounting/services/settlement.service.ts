@@ -3,18 +3,12 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { In, IsNull, Not, Repository } from "typeorm";
-import {
-  Settlement,
-  SettlementStatus,
-} from "../../../database/entities/settlement.entity";
-import { PaymentMethodEntity } from "../../../database/entities/payment-method.entity";
-import {
-  Payment,
-  SettlementStatusEnum,
-} from "../../../database/entities/payment.entity";
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, IsNull, Not, Repository } from 'typeorm';
+import { Settlement, SettlementStatus } from '../../../database/entities/settlement.entity';
+import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
+import { Payment, SettlementStatusEnum } from '../../../database/entities/payment.entity';
 import {
   CreateSettlementDto,
   UpdateSettlementDto,
@@ -22,10 +16,10 @@ import {
   SettlementListResponseDto,
   SettlementResponseDto,
   PendingPaymentsSummaryDto,
-} from "../dto/settlement.dto";
-import { AccountingService } from "./accounting.service";
-import { SettingsService } from "../../settings/settings.service";
-import { AuditLogService } from "../../audit-logs/services";
+} from '../dto/settlement.dto';
+import { AccountingService } from './accounting.service';
+import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class SettlementService {
@@ -43,36 +37,32 @@ export class SettlementService {
     private readonly auditLogService: AuditLogService,
   ) {}
 
-  async findAll(
-    query: QuerySettlementsDto,
-  ): Promise<SettlementListResponseDto> {
+  async findAll(query: QuerySettlementsDto): Promise<SettlementListResponseDto> {
     const {
       page = 1,
       limit = 20,
       paymentMethodId,
       status,
-      sortBy = "settlementDate",
-      sortOrder = "DESC",
+      sortBy = 'settlementDate',
+      sortOrder = 'DESC',
     } = query;
 
     const qb = this.settlementRepository
-      .createQueryBuilder("s")
-      .leftJoinAndSelect("s.paymentMethod", "paymentMethod")
-      .where("s.deletedAt IS NULL");
+      .createQueryBuilder('s')
+      .leftJoinAndSelect('s.paymentMethod', 'paymentMethod')
+      .where('s.deletedAt IS NULL');
 
     if (paymentMethodId) {
-      qb.andWhere("s.paymentMethodId = :paymentMethodId", { paymentMethodId });
+      qb.andWhere('s.paymentMethodId = :paymentMethodId', { paymentMethodId });
     }
 
     if (status) {
-      qb.andWhere("s.status = :status", { status });
+      qb.andWhere('s.status = :status', { status });
     }
 
-    const allowedSortFields = ["settlementDate", "createdAt", "totalAmount"];
-    const safeSortBy = allowedSortFields.includes(sortBy)
-      ? sortBy
-      : "settlementDate";
-    const safeSortOrder = sortOrder === "ASC" ? "ASC" : "DESC";
+    const allowedSortFields = ['settlementDate', 'createdAt', 'totalAmount'];
+    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'settlementDate';
+    const safeSortOrder = sortOrder === 'ASC' ? 'ASC' : 'DESC';
 
     qb.orderBy(`s.${safeSortBy}`, safeSortOrder)
       .skip((page - 1) * limit)
@@ -115,19 +105,15 @@ export class SettlementService {
     });
 
     if (!paymentMethod || paymentMethod.deletedAt) {
-      throw new NotFoundException(
-        `Payment method ${dto.paymentMethodId} not found`,
-      );
+      throw new NotFoundException(`Payment method ${dto.paymentMethodId} not found`);
     }
 
     if (!paymentMethod.requiresSettlement) {
-      throw new BadRequestException(
-        "Selected payment method does not require settlement",
-      );
+      throw new BadRequestException('Selected payment method does not require settlement');
     }
 
     if (!dto.paymentIds.length) {
-      throw new BadRequestException("At least one payment must be selected");
+      throw new BadRequestException('At least one payment must be selected');
     }
 
     const payments = await this.paymentRepository.find({
@@ -136,7 +122,7 @@ export class SettlementService {
     });
 
     if (payments.length !== dto.paymentIds.length) {
-      throw new BadRequestException("Some payments were not found");
+      throw new BadRequestException('Some payments were not found');
     }
 
     for (const payment of payments) {
@@ -160,8 +146,7 @@ export class SettlementService {
     }
 
     const totalAmount = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-    const settlementNumber =
-      await this.settingsService.generateDocumentNumber("Settlements");
+    const settlementNumber = await this.settingsService.generateDocumentNumber('Settlements');
 
     const settlement = this.settlementRepository.create({
       settlementNumber,
@@ -181,20 +166,16 @@ export class SettlementService {
     );
 
     await this.auditLogService.log(
-      "CREATE",
-      "Settlement",
+      'CREATE',
+      'Settlement',
       `Created settlement draft: ${savedSettlement.settlementNumber}`,
-      { entityId: savedSettlement.id, userId: userId ?? "system", username },
+      { entityId: savedSettlement.id, userId: userId ?? 'system', username },
     );
 
     return this.findOne(savedSettlement.id);
   }
 
-  async post(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<SettlementResponseDto> {
+  async post(id: string, userId?: string, username?: string): Promise<SettlementResponseDto> {
     const settlement = await this.settlementRepository.findOne({
       where: { id },
       relations: { paymentMethod: true },
@@ -204,13 +185,8 @@ export class SettlementService {
       throw new NotFoundException(`Settlement ${id} not found`);
     }
 
-    if (
-      settlement.status !== SettlementStatus.DRAFT &&
-      settlement.status !== SettlementStatus.REVERSED
-    ) {
-      throw new BadRequestException(
-        "Settlement must be draft or reversed to post",
-      );
+    if (settlement.status !== SettlementStatus.DRAFT && settlement.status !== SettlementStatus.REVERSED) {
+      throw new BadRequestException('Settlement must be draft or reversed to post');
     }
 
     const payments = await this.paymentRepository.find({
@@ -221,9 +197,7 @@ export class SettlementService {
     });
 
     if (payments.length === 0) {
-      throw new BadRequestException(
-        "No reserved pending payments linked to this settlement",
-      );
+      throw new BadRequestException('No reserved pending payments linked to this settlement');
     }
 
     await this.paymentRepository.update(
@@ -240,7 +214,7 @@ export class SettlementService {
         saved,
         settlement.paymentMethod,
         Number(saved.totalAmount),
-        userId || "system",
+        userId || 'system',
         username,
       );
     } catch (error) {
@@ -251,12 +225,12 @@ export class SettlementService {
     }
 
     await this.auditLogService.log(
-      "UPDATE",
-      "Settlement",
+      'UPDATE',
+      'Settlement',
       `Posted settlement: ${saved.settlementNumber}`,
       {
         entityId: id,
-        userId: userId ?? "system",
+        userId: userId ?? 'system',
         username,
         oldValues: { status: previousStatus },
         newValues: { status: saved.status },
@@ -266,11 +240,7 @@ export class SettlementService {
     return this.findOne(id);
   }
 
-  async reverse(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<SettlementResponseDto> {
+  async reverse(id: string, userId?: string, username?: string): Promise<SettlementResponseDto> {
     const settlement = await this.settlementRepository.findOne({
       where: { id },
       relations: { paymentMethod: true },
@@ -281,15 +251,11 @@ export class SettlementService {
     }
 
     if (settlement.status !== SettlementStatus.POSTED) {
-      throw new BadRequestException("Only posted settlements can be reversed");
+      throw new BadRequestException('Only posted settlements can be reversed');
     }
 
     try {
-      await this.accountingService.reverseSourceEntries(
-        "settlement",
-        id,
-        userId || "system",
-      );
+      await this.accountingService.reverseSourceEntries('settlement', id, userId || 'system');
     } catch (error) {
       this.logger.error(
         `Failed to reverse settlement accounting entries for ${settlement.settlementNumber}: ${error.message}`,
@@ -306,12 +272,12 @@ export class SettlementService {
     const saved = await this.settlementRepository.save(settlement);
 
     await this.auditLogService.log(
-      "UPDATE",
-      "Settlement",
+      'UPDATE',
+      'Settlement',
       `Reversed settlement: ${saved.settlementNumber}`,
       {
         entityId: id,
-        userId: userId ?? "system",
+        userId: userId ?? 'system',
         username,
         oldValues: { status: SettlementStatus.POSTED },
         newValues: { status: SettlementStatus.REVERSED },
@@ -327,21 +293,14 @@ export class SettlementService {
     userId?: string,
     username?: string,
   ): Promise<SettlementResponseDto> {
-    const settlement = await this.settlementRepository.findOne({
-      where: { id },
-    });
+    const settlement = await this.settlementRepository.findOne({ where: { id } });
 
     if (!settlement || settlement.deletedAt) {
       throw new NotFoundException(`Settlement ${id} not found`);
     }
 
-    if (
-      settlement.status !== SettlementStatus.DRAFT &&
-      settlement.status !== SettlementStatus.REVERSED
-    ) {
-      throw new BadRequestException(
-        "Only draft or reversed settlements can be edited",
-      );
+    if (settlement.status !== SettlementStatus.DRAFT && settlement.status !== SettlementStatus.REVERSED) {
+      throw new BadRequestException('Only draft or reversed settlements can be edited');
     }
 
     if (dto.settlementDate !== undefined) {
@@ -357,28 +316,24 @@ export class SettlementService {
     await this.settlementRepository.save(settlement);
 
     await this.auditLogService.log(
-      "UPDATE",
-      "Settlement",
+      'UPDATE',
+      'Settlement',
       `Updated settlement: ${settlement.settlementNumber}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     return this.findOne(id);
   }
 
   async remove(id: string, userId?: string, username?: string): Promise<void> {
-    const settlement = await this.settlementRepository.findOne({
-      where: { id },
-    });
+    const settlement = await this.settlementRepository.findOne({ where: { id } });
 
     if (!settlement || settlement.deletedAt) {
       throw new NotFoundException(`Settlement ${id} not found`);
     }
 
     if (settlement.status === SettlementStatus.POSTED) {
-      throw new BadRequestException(
-        "Cannot delete a posted settlement. Reverse it first.",
-      );
+      throw new BadRequestException('Cannot delete a posted settlement. Reverse it first.');
     }
 
     await this.paymentRepository.update(
@@ -388,10 +343,10 @@ export class SettlementService {
     await this.settlementRepository.softDelete(id);
 
     await this.auditLogService.log(
-      "DELETE",
-      "Settlement",
+      'DELETE',
+      'Settlement',
       `Deleted settlement: ${settlement.settlementNumber}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
   }
 
@@ -400,16 +355,12 @@ export class SettlementService {
       withDeleted: true,
       where: { deletedAt: Not(IsNull()) },
       relations: { paymentMethod: true },
-      order: { deletedAt: "DESC" },
+      order: { deletedAt: 'DESC' },
     });
     return Promise.all(records.map((record) => this.toResponseDto(record)));
   }
 
-  async restore(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<SettlementResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<SettlementResponseDto> {
     const settlement = await this.settlementRepository.findOne({
       where: { id },
       withDeleted: true,
@@ -420,26 +371,22 @@ export class SettlementService {
     }
 
     if (!settlement.deletedAt) {
-      throw new BadRequestException("Settlement is not deleted");
+      throw new BadRequestException('Settlement is not deleted');
     }
 
     await this.settlementRepository.restore(id);
 
     await this.auditLogService.log(
-      "RESTORE",
-      "Settlement",
+      'RESTORE',
+      'Settlement',
       `Restored settlement: ${settlement.settlementNumber}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     return this.findOne(id);
   }
 
-  async permanentDelete(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<void> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     const settlement = await this.settlementRepository.findOne({
       where: { id },
       withDeleted: true,
@@ -450,9 +397,7 @@ export class SettlementService {
     }
 
     if (!settlement.deletedAt) {
-      throw new BadRequestException(
-        "Settlement must be soft-deleted before permanent deletion",
-      );
+      throw new BadRequestException('Settlement must be soft-deleted before permanent deletion');
     }
 
     await this.paymentRepository.update(
@@ -462,10 +407,10 @@ export class SettlementService {
     await this.settlementRepository.delete(id);
 
     await this.auditLogService.log(
-      "DELETE",
-      "Settlement",
+      'DELETE',
+      'Settlement',
       `Permanently deleted settlement: ${settlement.settlementNumber}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
   }
 
@@ -477,27 +422,25 @@ export class SettlementService {
         settlementId: IsNull(),
       },
       relations: { customer: true, paymentMethodEntity: true },
-      order: { paymentDate: "ASC" },
+      order: { paymentDate: 'ASC' },
     });
   }
 
   async getPendingSettlementsSummary(): Promise<PendingPaymentsSummaryDto[]> {
     const rows = await this.paymentRepository
-      .createQueryBuilder("p")
-      .innerJoin("p.paymentMethodEntity", "pm")
-      .select("p.paymentMethodId", "paymentMethodId")
-      .addSelect("pm.code", "paymentMethodCode")
-      .addSelect("pm.name", "paymentMethodName")
-      .addSelect("COUNT(p.id)", "pendingCount")
-      .addSelect("COALESCE(SUM(p.amount), 0)", "pendingAmount")
-      .where("p.settlementStatus = :status", {
-        status: SettlementStatusEnum.PENDING,
-      })
-      .andWhere("p.settlementId IS NULL")
-      .groupBy("p.paymentMethodId")
-      .addGroupBy("pm.code")
-      .addGroupBy("pm.name")
-      .orderBy("pm.name", "ASC")
+      .createQueryBuilder('p')
+      .innerJoin('p.paymentMethodEntity', 'pm')
+      .select('p.paymentMethodId', 'paymentMethodId')
+      .addSelect('pm.code', 'paymentMethodCode')
+      .addSelect('pm.name', 'paymentMethodName')
+      .addSelect('COUNT(p.id)', 'pendingCount')
+      .addSelect('COALESCE(SUM(p.amount), 0)', 'pendingAmount')
+      .where('p.settlementStatus = :status', { status: SettlementStatusEnum.PENDING })
+      .andWhere('p.settlementId IS NULL')
+      .groupBy('p.paymentMethodId')
+      .addGroupBy('pm.code')
+      .addGroupBy('pm.name')
+      .orderBy('pm.name', 'ASC')
       .getRawMany();
 
     return rows.map((row) => ({
@@ -509,9 +452,7 @@ export class SettlementService {
     }));
   }
 
-  private async toResponseDto(
-    settlement: Settlement,
-  ): Promise<SettlementResponseDto> {
+  private async toResponseDto(settlement: Settlement): Promise<SettlementResponseDto> {
     const paymentCount = await this.paymentRepository.count({
       where: { settlementId: settlement.id },
     });

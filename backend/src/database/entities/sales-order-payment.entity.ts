@@ -7,54 +7,52 @@ import {
   CreateDateColumn,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-} from "typeorm";
-import { IsDecimal, IsOptional, IsString } from "class-validator";
-import { SalesOrder } from "./sales-order.entity";
-import { PaymentMethodEntity } from "./payment-method.entity";
+} from 'typeorm';
+import { IsDecimal, IsOptional, IsString } from 'class-validator';
+import { SalesOrder } from './sales-order.entity';
+import { PaymentMethodEntity } from './payment-method.entity';
 
-@Entity("sales_order_payments")
-@Index(["salesOrderId"])
-@Index(["paymentDate"])
+@Entity('sales_order_payments')
+@Index(['salesOrderId'])
+@Index(['paymentDate'])
 export class SalesOrderPayment {
-  @PrimaryGeneratedColumn("uuid")
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: "uuid" })
+  @Column({ type: 'uuid' })
   salesOrderId: string;
 
-  @Column({ type: "uuid" })
+  @Column({ type: 'uuid' })
   paymentMethodId: string;
 
-  @Column({ type: "varchar", length: 100, nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   @IsOptional()
   @IsString()
   referenceNumber?: string;
 
-  @Column({ type: "decimal", precision: 15, scale: 4 })
-  @IsDecimal({ decimal_digits: "0,4" })
+  @Column({ type: 'decimal', precision: 15, scale: 4 })
+  @IsDecimal({ decimal_digits: '0,4' })
   amount: number;
 
-  @Column({ type: "date" })
+  @Column({ type: 'date' })
   paymentDate: string;
 
-  @Column({ type: "text", nullable: true })
+  @Column({ type: 'text', nullable: true })
   @IsOptional()
   @IsString()
   notes?: string;
 
-  @CreateDateColumn({ type: "timestamptz", default: () => "CURRENT_TIMESTAMP" })
+  @CreateDateColumn({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
-  @UpdateDateColumn({ type: "timestamptz", default: () => "CURRENT_TIMESTAMP" })
+  @UpdateDateColumn({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
   updatedAt: Date;
 
-  @ManyToOne(() => SalesOrder, (o) => o.salesOrderPayments, {
-    onDelete: "CASCADE",
-  })
-  @JoinColumn({ name: "salesOrderId" })
+  @ManyToOne(() => SalesOrder, (o) => o.salesOrderPayments, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'salesOrderId' })
   salesOrder: SalesOrder;
 
   @ManyToOne(() => PaymentMethodEntity, { eager: false })
-  @JoinColumn({ name: "paymentMethodId" })
+  @JoinColumn({ name: 'paymentMethodId' })
   paymentMethod: PaymentMethodEntity;
 }

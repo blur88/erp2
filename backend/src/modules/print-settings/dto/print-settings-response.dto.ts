@@ -1,5 +1,5 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { PrintSettings } from "../../../database/entities/print-settings.entity";
+import { ApiProperty } from '@nestjs/swagger';
+import { PrintSettings } from '../../../database/entities/print-settings.entity';
 
 export class PrintSettingsResponseDto {
   @ApiProperty()

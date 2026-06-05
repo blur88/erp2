@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddPaidBalanceToSalesOrder1780053327024 implements MigrationInterface {
-  name = "AddPaidBalanceToSalesOrder1780053327024";
+  name = 'AddPaidBalanceToSalesOrder1780053327024';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
@@ -23,11 +23,7 @@ export class AddPaidBalanceToSalesOrder1780053327024 implements MigrationInterfa
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `ALTER TABLE "sales_orders" DROP COLUMN IF EXISTS "balanceDue"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "sales_orders" DROP COLUMN IF EXISTS "paidAmount"`,
-    );
+    await queryRunner.query(`ALTER TABLE "sales_orders" DROP COLUMN IF EXISTS "balanceDue"`);
+    await queryRunner.query(`ALTER TABLE "sales_orders" DROP COLUMN IF EXISTS "paidAmount"`);
   }
 }

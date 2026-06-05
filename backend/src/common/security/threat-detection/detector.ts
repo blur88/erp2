@@ -1,8 +1,8 @@
-import { BadRequestException } from "@nestjs/common";
-import { Request } from "express";
-import sanitizeHtml from "sanitize-html";
-import { ThreatPatterns } from "./patterns";
-import { SecurityLogger } from "../logging/security-logger";
+import { BadRequestException } from '@nestjs/common';
+import { Request } from 'express';
+import sanitizeHtml from 'sanitize-html';
+import { ThreatPatterns } from './patterns';
+import { SecurityLogger } from '../logging/security-logger';
 
 export class ThreatDetector {
   constructor(private readonly logger: SecurityLogger) {}
@@ -19,7 +19,7 @@ export class ThreatDetector {
       return;
     }
 
-    if (typeof obj === "object") {
+    if (typeof obj === 'object') {
       for (const [key, value] of Object.entries(obj)) {
         this.checkStringForThreats(key, `${context}.${key}(key)`, req);
         this.detectThreats(value, `${context}.${key}`, req);
@@ -27,7 +27,7 @@ export class ThreatDetector {
       return;
     }
 
-    if (typeof obj === "string") {
+    if (typeof obj === 'string') {
       this.checkStringForThreats(obj, context, req);
     }
   }
@@ -37,44 +37,44 @@ export class ThreatDetector {
     context: string,
     req: Request,
   ): void {
-    if (!input || typeof input !== "string") {
+    if (!input || typeof input !== 'string') {
       return;
     }
 
     // XSS: block immediately after logging.
     if (this.detectXssThreats(input)) {
       this.logger.logThreatDetection({
-        threats: "CRITICAL_XSS",
+        threats: 'CRITICAL_XSS',
         context,
         path: req.path,
         method: req.method,
         ip: req.ip,
-        userAgent: req.headers["user-agent"]?.substring(0, 100),
+        userAgent: req.headers['user-agent']?.substring(0, 100),
         sample: input.substring(0, 200),
       });
       throw new BadRequestException(
-        "Request contains potentially malicious content",
+        'Request contains potentially malicious content',
       );
     }
 
     const threats: string[] = [];
 
     if (this.detectSqlThreats(input)) {
-      threats.push("CRITICAL_SQL_INJECTION");
+      threats.push('CRITICAL_SQL_INJECTION');
     }
 
     if (this.detectNoSqlThreats(input)) {
-      threats.push("CRITICAL_NOSQL_INJECTION");
+      threats.push('CRITICAL_NOSQL_INJECTION');
     }
 
     if (threats.length > 0) {
       this.logger.logThreatDetection({
-        threats: threats.join(", "),
+        threats: threats.join(', '),
         context,
         path: req.path,
         method: req.method,
         ip: req.ip,
-        userAgent: req.headers["user-agent"]?.substring(0, 100),
+        userAgent: req.headers['user-agent']?.substring(0, 100),
         sample: input.substring(0, 200),
       });
     }
@@ -91,7 +91,7 @@ export class ThreatDetector {
   }
 
   private escapeAngleBrackets(input: string): string {
-    return input.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return input.replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
   private detectSqlThreats(input: string): boolean {

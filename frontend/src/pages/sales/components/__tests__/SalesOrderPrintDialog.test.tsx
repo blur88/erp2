@@ -1,8 +1,8 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
-import SalesOrderPrintDialog from '../SalesOrderPrintDialog'
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import SalesOrderPrintDialog from '../SalesOrderPrintDialog';
 
-import type { SalesOrder } from '@/types'
+import type { SalesOrder } from '@/types';
 
 const mockPrintData = {
   logoUrl: '',
@@ -17,18 +17,18 @@ const mockPrintData = {
   website: '',
   salesPerPageFooter: '',
   salesEndOfDocFooter: '',
-}
+};
 
 vi.mock('@/store/api/printSettingsApi', () => ({
   useGetPrintSettingsQuery: vi.fn(() => ({
     data: mockPrintData,
     isLoading: false,
   })),
-}))
+}));
 
 vi.mock('@/hooks/useCurrency', () => ({
   useCurrency: vi.fn(() => ({ currency: 'RM' })),
-}))
+}));
 
 function makeSalesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   return {
@@ -42,7 +42,7 @@ function makeSalesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
     createdAt: new Date('2026-06-01'),
     updatedAt: new Date('2026-06-01'),
     ...overrides,
-  } as SalesOrder
+  } as SalesOrder;
 }
 
 describe('SalesOrderPrintDialog', () => {
@@ -53,10 +53,10 @@ describe('SalesOrderPrintDialog', () => {
         salesOrder={makeSalesOrder({ status: 'DRAFT' })}
         onClose={() => {}}
       />,
-    )
-    const invoiceRadio = screen.getByRole('radio', { name: /Invoice/i })
-    expect(invoiceRadio).toBeDisabled()
-  })
+    );
+    const invoiceRadio = screen.getByRole('radio', { name: /Invoice/i });
+    expect(invoiceRadio).toBeDisabled();
+  });
 
   it('enables Invoice option when status is FULFILLED', () => {
     render(
@@ -65,8 +65,8 @@ describe('SalesOrderPrintDialog', () => {
         salesOrder={makeSalesOrder({ status: 'FULFILLED' })}
         onClose={() => {}}
       />,
-    )
-    const invoiceRadio = screen.getByRole('radio', { name: /Invoice/i })
-    expect(invoiceRadio).toBeEnabled()
-  })
-})
+    );
+    const invoiceRadio = screen.getByRole('radio', { name: /Invoice/i });
+    expect(invoiceRadio).toBeEnabled();
+  });
+});

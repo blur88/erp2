@@ -4,22 +4,22 @@ import {
   BadRequestException,
   ForbiddenException,
   Logger,
-} from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
-import { ConfigService } from "@nestjs/config";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, LessThan } from "typeorm";
-import * as bcrypt from "bcrypt";
-import * as crypto from "crypto";
-import { User, UserStatus } from "@/database/entities/user.entity";
-import { RefreshToken } from "@/database/entities/refresh-token.entity";
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, LessThan } from 'typeorm';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
+import { User, UserStatus } from '@/database/entities/user.entity';
+import { RefreshToken } from '@/database/entities/refresh-token.entity';
 import {
   LoginDto,
   RegisterDto,
   AuthResponseDto,
   RefreshTokenDto,
   ChangePasswordDto,
-} from "./dto";
+} from './dto';
 
 const BCRYPT_ROUNDS = 12;
 const MAX_FAILED_ATTEMPTS = 5;
@@ -51,7 +51,7 @@ export class AuthService {
 
     // Empty-check done here (not via @IsNotEmpty on the DTO) to return 401 rather than 400
     if (!usernameOrEmail) {
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     // Find user by username or email
@@ -60,7 +60,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     // Self-heal: if the lock has expired by the app clock, clear it before the
@@ -89,7 +89,7 @@ export class AuthService {
 
     // Check if user is active
     if (!user.isActive || user.status !== UserStatus.ACTIVE) {
-      throw new UnauthorizedException("Account is not active");
+      throw new UnauthorizedException('Account is not active');
     }
 
     // Validate password
@@ -97,7 +97,7 @@ export class AuthService {
 
     if (!isPasswordValid) {
       await this.handleFailedLogin(user);
-      throw new UnauthorizedException("Invalid credentials");
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     // Reset failed login attempts on successful login
@@ -119,9 +119,7 @@ export class AuthService {
       userAgent,
     );
 
-    this.logger.log(
-      `User ${user.username} logged in successfully from ${ipAddress}`,
-    );
+    this.logger.log(`User ${user.username} logged in successfully from ${ipAddress}`);
 
     return {
       accessToken,
@@ -136,19 +134,12 @@ export class AuthService {
    * User registration
    */
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
-    const {
-      username,
-      email,
-      password,
-      passwordConfirmation,
-      firstName,
-      lastName,
-      role,
-    } = registerDto;
+    const { username, email, password, passwordConfirmation, firstName, lastName, role } =
+      registerDto;
 
     // Validate password confirmation
     if (password !== passwordConfirmation) {
-      throw new BadRequestException("Password and confirmation do not match");
+      throw new BadRequestException('Password and confirmation do not match');
     }
 
     // Check if username already exists
@@ -157,7 +148,7 @@ export class AuthService {
     });
 
     if (existingUsername) {
-      throw new BadRequestException("Username already exists");
+      throw new BadRequestException('Username already exists');
     }
 
     // Check if email already exists
@@ -166,7 +157,7 @@ export class AuthService {
     });
 
     if (existingEmail) {
-      throw new BadRequestException("Email already exists");
+      throw new BadRequestException('Email already exists');
     }
 
     // Hash password
@@ -221,28 +212,32 @@ export class AuthService {
     });
 
     if (!refreshTokenRecord) {
-      throw new UnauthorizedException("Invalid refresh token");
+      throw new UnauthorizedException('Invalid refresh token');
     }
 
     // Check if token is expired
     if (refreshTokenRecord.isExpired) {
       await this.refreshTokenRepository.remove(refreshTokenRecord);
-      throw new UnauthorizedException("Refresh token expired");
+      throw new UnauthorizedException('Refresh token expired');
     }
 
     const user = refreshTokenRecord.user;
 
     // Check if user is still active
     if (!user.isActive || user.status !== UserStatus.ACTIVE) {
-      throw new UnauthorizedException("User account is not active");
+      throw new UnauthorizedException('User account is not active');
     }
 
     // Invalidate old refresh token (token rotation)
     await this.refreshTokenRepository.remove(refreshTokenRecord);
 
     // Generate new tokens
-    const { accessToken, refreshToken: newRefreshToken } =
-      await this.generateTokens(user, false, ipAddress, userAgent);
+    const { accessToken, refreshToken: newRefreshToken } = await this.generateTokens(
+      user,
+      false,
+      ipAddress,
+      userAgent,
+    );
 
     this.logger.log(`Access token refreshed for user ${user.username}`);
 
@@ -266,44 +261,33 @@ export class AuthService {
   /**
    * Change user password
    */
-  async changePassword(
-    userId: string,
-    changePasswordDto: ChangePasswordDto,
-  ): Promise<void> {
-    const { currentPassword, newPassword, newPasswordConfirmation } =
-      changePasswordDto;
+  async changePassword(userId: string, changePasswordDto: ChangePasswordDto): Promise<void> {
+    const { currentPassword, newPassword, newPasswordConfirmation } = changePasswordDto;
 
     // Validate new password confirmation
     if (newPassword !== newPasswordConfirmation) {
-      throw new BadRequestException(
-        "New password and confirmation do not match",
-      );
+      throw new BadRequestException('New password and confirmation do not match');
     }
 
     // Find user
     const user = await this.userRepository.findOne({ where: { id: userId } });
 
     if (!user) {
-      throw new UnauthorizedException("User not found");
+      throw new UnauthorizedException('User not found');
     }
 
     // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(
-      currentPassword,
-      user.password,
-    );
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
 
     if (!isCurrentPasswordValid) {
-      throw new UnauthorizedException("Current password is incorrect");
+      throw new UnauthorizedException('Current password is incorrect');
     }
 
     // Check that new password is different from current
     const isSamePassword = await bcrypt.compare(newPassword, user.password);
 
     if (isSamePassword) {
-      throw new BadRequestException(
-        "New password must be different from current password",
-      );
+      throw new BadRequestException('New password must be different from current password');
     }
 
     // Hash new password
@@ -317,9 +301,7 @@ export class AuthService {
     // Invalidate all refresh tokens (force re-login everywhere)
     await this.logout(userId);
 
-    this.logger.log(
-      `Password changed for user ${user.username} - all sessions invalidated`,
-    );
+    this.logger.log(`Password changed for user ${user.username} - all sessions invalidated`);
   }
 
   /**
@@ -329,7 +311,7 @@ export class AuthService {
     const user = await this.userRepository.findOne({ where: { id: userId } });
 
     if (!user) {
-      throw new UnauthorizedException("User not found");
+      throw new UnauthorizedException('User not found');
     }
 
     return this.sanitizeUser(user);
@@ -341,7 +323,7 @@ export class AuthService {
    */
   async shouldShowDefaultCredentials(): Promise<boolean> {
     const adminUser = await this.userRepository.findOne({
-      where: { username: "admin", email: "admin@erp.com" },
+      where: { username: 'admin', email: 'admin@erp.com' },
     });
 
     // Show default credentials if admin exists and requires password change
@@ -355,9 +337,7 @@ export class AuthService {
     user.failedLoginAttempts += 1;
 
     if (user.failedLoginAttempts >= MAX_FAILED_ATTEMPTS) {
-      user.lockedUntil = new Date(
-        Date.now() + LOCKOUT_DURATION_MINUTES * 60 * 1000,
-      );
+      user.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
       this.logger.warn(
         `Account ${user.username} locked due to ${MAX_FAILED_ATTEMPTS} failed login attempts`,
       );
@@ -385,17 +365,14 @@ export class AuthService {
 
     // Generate access token (short-lived)
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get("JWT_ACCESS_TOKEN_EXPIRY", "15m"),
+      expiresIn: this.configService.get('JWT_ACCESS_TOKEN_EXPIRY', '15m'),
     });
 
     // Generate refresh token (long-lived)
     // If "Remember me" is checked: 7 days, otherwise: 2 days (covers 12h idle + buffer)
-    const refreshTokenExpiry = rememberMe ? "7d" : "2d";
+    const refreshTokenExpiry = rememberMe ? '7d' : '2d';
     const refreshToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get(
-        "JWT_REFRESH_TOKEN_EXPIRY",
-        refreshTokenExpiry,
-      ),
+      expiresIn: this.configService.get('JWT_REFRESH_TOKEN_EXPIRY', refreshTokenExpiry),
     });
 
     // Store refresh token in database (hashed)
@@ -422,17 +399,14 @@ export class AuthService {
    * Hash token using SHA-256 for secure storage
    */
   private hashToken(token: string): string {
-    return crypto.createHash("sha256").update(token).digest("hex");
+    return crypto.createHash('sha256').update(token).digest('hex');
   }
 
   /**
    * Get access token expiry in seconds
    */
   private getAccessTokenExpiry(): number {
-    const expiry = this.configService.get<string>(
-      "JWT_ACCESS_TOKEN_EXPIRY",
-      "15m",
-    );
+    const expiry = this.configService.get<string>('JWT_ACCESS_TOKEN_EXPIRY', '15m');
     return this.parseExpiry(expiry);
   }
 
@@ -444,13 +418,13 @@ export class AuthService {
     const value = parseInt(expiry.slice(0, -1), 10);
 
     switch (unit) {
-      case "s":
+      case 's':
         return value;
-      case "m":
+      case 'm':
         return value * 60;
-      case "h":
+      case 'h':
         return value * 60 * 60;
-      case "d":
+      case 'd':
         return value * 60 * 60 * 24;
       default:
         return 900; // Default 15 minutes

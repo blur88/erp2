@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddRegionalSettingsToPriceCostingSettings1771700000000 implements MigrationInterface {
-  name = "AddRegionalSettingsToPriceCostingSettings1771700000000";
+  name = 'AddRegionalSettingsToPriceCostingSettings1771700000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

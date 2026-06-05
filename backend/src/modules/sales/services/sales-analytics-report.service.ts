@@ -1,11 +1,11 @@
-import { Injectable } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Between, In, Repository } from "typeorm";
-import { SalesOrder } from "../../../database/entities/sales-order.entity";
-import { Payment } from "../../../database/entities/payment.entity";
-import { Product } from "../../../database/entities/product.entity";
-import { SalesOrderItem } from "../../../database/entities/sales-order-item.entity";
-import { PurchaseOrderItem } from "../../../database/entities/purchase-order-item.entity";
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Between, In, Repository } from 'typeorm';
+import { SalesOrder } from '../../../database/entities/sales-order.entity';
+import { Payment } from '../../../database/entities/payment.entity';
+import { Product } from '../../../database/entities/product.entity';
+import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
+import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
 
 @Injectable()
 export class SalesAnalyticsReportService {
@@ -52,7 +52,7 @@ export class SalesAnalyticsReportService {
     } else if (query.dateFrom) {
       dateWhere.orderDate = Between(query.dateFrom, new Date());
     } else if (query.dateTo) {
-      dateWhere.orderDate = Between(new Date("2000-01-01"), query.dateTo);
+      dateWhere.orderDate = Between(new Date('2000-01-01'), query.dateTo);
     }
 
     // Get sales data for each product
@@ -60,17 +60,17 @@ export class SalesAnalyticsReportService {
       products.map(async (product) => {
         // Get sales order items for this product
         const salesItemsQuery = this.salesOrderItemRepository
-          .createQueryBuilder("item")
-          .leftJoinAndSelect("item.salesOrder", "order")
-          .where("item.productId = :productId", { productId: product.id });
+          .createQueryBuilder('item')
+          .leftJoinAndSelect('item.salesOrder', 'order')
+          .where('item.productId = :productId', { productId: product.id });
 
         if (query.dateFrom) {
-          salesItemsQuery.andWhere("order.orderDate >= :dateFrom", {
+          salesItemsQuery.andWhere('order.orderDate >= :dateFrom', {
             dateFrom: query.dateFrom,
           });
         }
         if (query.dateTo) {
-          salesItemsQuery.andWhere("order.orderDate <= :dateTo", {
+          salesItemsQuery.andWhere('order.orderDate <= :dateTo', {
             dateTo: query.dateTo,
           });
         }
@@ -78,10 +78,7 @@ export class SalesAnalyticsReportService {
         const salesItems = await salesItemsQuery.getMany();
 
         // Calculate sales metrics
-        const soldQty = salesItems.reduce(
-          (sum, item) => sum + Number(item.quantity),
-          0,
-        );
+        const soldQty = salesItems.reduce((sum, item) => sum + Number(item.quantity), 0);
         const totalSales = salesItems.reduce(
           (sum, item) => sum + Number(item.quantity) * Number(item.unitPrice),
           0,
@@ -90,24 +87,23 @@ export class SalesAnalyticsReportService {
         // Calculate COGS using actual unitCost from sales order items
         // This represents the cost of goods that were actually SOLD
         const cost = salesItems.reduce(
-          (sum, item) =>
-            sum + Number(item.quantity) * Number(item.unitCost || 0),
+          (sum, item) => sum + Number(item.quantity) * Number(item.unitCost || 0),
           0,
         );
 
         // Get purchase order items for this product
         const purchaseItemsQuery = this.purchaseOrderItemRepository
-          .createQueryBuilder("item")
-          .leftJoinAndSelect("item.purchaseOrder", "po")
-          .where("item.productId = :productId", { productId: product.id });
+          .createQueryBuilder('item')
+          .leftJoinAndSelect('item.purchaseOrder', 'po')
+          .where('item.productId = :productId', { productId: product.id });
 
         if (query.dateFrom) {
-          purchaseItemsQuery.andWhere("po.orderDate >= :dateFrom", {
+          purchaseItemsQuery.andWhere('po.orderDate >= :dateFrom', {
             dateFrom: query.dateFrom,
           });
         }
         if (query.dateTo) {
-          purchaseItemsQuery.andWhere("po.orderDate <= :dateTo", {
+          purchaseItemsQuery.andWhere('po.orderDate <= :dateTo', {
             dateTo: query.dateTo,
           });
         }
@@ -115,10 +111,7 @@ export class SalesAnalyticsReportService {
         const purchaseItems = await purchaseItemsQuery.getMany();
 
         // Calculate purchase metrics
-        const purchaseQty = purchaseItems.reduce(
-          (sum, item) => sum + Number(item.quantity),
-          0,
-        );
+        const purchaseQty = purchaseItems.reduce((sum, item) => sum + Number(item.quantity), 0);
         const purchaseSubtotal = purchaseItems.reduce(
           (sum, item) => sum + Number(item.quantity) * Number(item.unitCost),
           0,
@@ -134,7 +127,7 @@ export class SalesAnalyticsReportService {
         return {
           productId: product.id,
           productName: product.name,
-          category: product.category?.name || "Uncategorized",
+          category: product.category?.name || 'Uncategorized',
           soldQty,
           totalSales,
           cost,
@@ -180,25 +173,23 @@ export class SalesAnalyticsReportService {
     for (const product of products) {
       // Get sales order items for this product
       const salesItemsQuery = this.salesOrderItemRepository
-        .createQueryBuilder("item")
-        .leftJoinAndSelect("item.salesOrder", "order")
-        .leftJoinAndSelect("order.customer", "customer")
-        .where("item.productId = :productId", { productId: product.id });
+        .createQueryBuilder('item')
+        .leftJoinAndSelect('item.salesOrder', 'order')
+        .leftJoinAndSelect('order.customer', 'customer')
+        .where('item.productId = :productId', { productId: product.id });
 
       if (query.dateFrom) {
-        salesItemsQuery.andWhere("order.orderDate >= :dateFrom", {
+        salesItemsQuery.andWhere('order.orderDate >= :dateFrom', {
           dateFrom: query.dateFrom,
         });
       }
       if (query.dateTo) {
-        salesItemsQuery.andWhere("order.orderDate <= :dateTo", {
+        salesItemsQuery.andWhere('order.orderDate <= :dateTo', {
           dateTo: query.dateTo,
         });
       }
 
-      const salesItems = await salesItemsQuery
-        .orderBy("order.orderDate", "DESC")
-        .getMany();
+      const salesItems = await salesItemsQuery.orderBy('order.orderDate', 'DESC').getMany();
 
       // Transform sales items to detail records
       for (const item of salesItems) {
@@ -211,19 +202,19 @@ export class SalesAnalyticsReportService {
         const profit = totalAmount - totalCost;
 
         // Determine price level from customer's price list or default to retail
-        let pricingScheme = "Retail";
+        let pricingScheme = 'Retail';
         if (order.customer?.priceList) {
           pricingScheme = order.customer.priceList.name;
         }
 
         productDetails.push({
-          transactionType: "Sale",
+          transactionType: 'Sale',
           transactionDate: order.orderDate,
           documentNumber: order.orderNumber,
-          customerSupplier: order.customer?.name || "Unknown",
+          customerSupplier: order.customer?.name || 'Unknown',
           productId: product.id,
           productName: product.name,
-          category: product.category?.name || "Uncategorized",
+          category: product.category?.name || 'Uncategorized',
           quantity: quantity,
           unitPrice: unitPrice,
           pricingScheme: pricingScheme,
@@ -261,10 +252,10 @@ export class SalesAnalyticsReportService {
     }
 
     // Filter by fulfillment status if specified
-    if (query.status && query.status !== "all") {
-      if (query.status === "fulfilled") {
+    if (query.status && query.status !== 'all') {
+      if (query.status === 'fulfilled') {
         orderWhere.isFulfilled = true;
-      } else if (query.status === "unfulfilled") {
+      } else if (query.status === 'unfulfilled') {
         orderWhere.isFulfilled = false;
       }
     }
@@ -275,14 +266,14 @@ export class SalesAnalyticsReportService {
     } else if (query.dateFrom) {
       orderWhere.orderDate = Between(query.dateFrom, new Date());
     } else if (query.dateTo) {
-      orderWhere.orderDate = Between(new Date("2000-01-01"), query.dateTo);
+      orderWhere.orderDate = Between(new Date('2000-01-01'), query.dateTo);
     }
 
     // Get all sales orders with items and invoices for payment status
     const orders = await this.salesOrderRepository.find({
       where: orderWhere,
       relations: { customer: true, items: { product: true }, payments: true },
-      order: { orderNumber: "ASC" },
+      order: { orderNumber: 'ASC' },
     });
 
     // Calculate profit for each order and filter by payment status if needed
@@ -305,23 +296,20 @@ export class SalesAnalyticsReportService {
       // Calculate payment status from order payments
       const totalInvoiced = Number(order.totalAmount || 0);
       const payments = order.payments || [];
-      const totalPaid = payments.reduce(
-        (sum, p) => sum + Number(p.amount || 0),
-        0,
-      );
+      const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-      let paymentStatus = "unpaid";
+      let paymentStatus = 'unpaid';
       if (totalPaid >= totalInvoiced && totalInvoiced > 0) {
-        paymentStatus = totalPaid > totalInvoiced ? "overpaid" : "paid";
+        paymentStatus = totalPaid > totalInvoiced ? 'overpaid' : 'paid';
       } else if (totalPaid > 0) {
-        paymentStatus = "partial";
+        paymentStatus = 'partial';
       }
 
       return {
         orderNumber: order.orderNumber,
         orderDate: order.orderDate,
-        customerName: order.customer?.name || "Unknown",
-        inventoryStatus: order.isFulfilled ? "fulfilled" : "unfulfilled",
+        customerName: order.customer?.name || 'Unknown',
+        inventoryStatus: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
         paymentStatus,
         totalRevenue,
         totalCost,
@@ -330,7 +318,7 @@ export class SalesAnalyticsReportService {
     });
 
     // Filter by payment status if specified
-    if (query.paymentStatus && query.paymentStatus !== "all") {
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
       profitReports = profitReports.filter(
         (report) => report.paymentStatus === query.paymentStatus,
       );
@@ -338,8 +326,8 @@ export class SalesAnalyticsReportService {
 
     // Sort by order number (extract numeric part for proper sorting)
     profitReports.sort((a, b) => {
-      const numA = parseInt(a.orderNumber.replace(/\D/g, ""), 10) || 0;
-      const numB = parseInt(b.orderNumber.replace(/\D/g, ""), 10) || 0;
+      const numA = parseInt(a.orderNumber.replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt(b.orderNumber.replace(/\D/g, ''), 10) || 0;
       return numA - numB;
     });
 
@@ -367,14 +355,14 @@ export class SalesAnalyticsReportService {
     } else if (query.dateFrom) {
       orderWhere.orderDate = Between(query.dateFrom, new Date());
     } else if (query.dateTo) {
-      orderWhere.orderDate = Between(new Date("2000-01-01"), query.dateTo);
+      orderWhere.orderDate = Between(new Date('2000-01-01'), query.dateTo);
     }
 
     // Get all sales orders with invoices and payments
     const orders = await this.salesOrderRepository.find({
       where: orderWhere,
       relations: { customer: true, payments: true },
-      order: { orderDate: "DESC" },
+      order: { orderDate: 'DESC' },
     });
 
     // Group by customer and calculate payment status
@@ -400,8 +388,8 @@ export class SalesAnalyticsReportService {
 
     orders.forEach((order) => {
       const customerId = order.customer?.id;
-      const customerName = order.customer?.name || "Unknown";
-      const customerPhone = order.customer?.phone || "";
+      const customerName = order.customer?.name || 'Unknown';
+      const customerPhone = order.customer?.phone || '';
 
       if (!customerId) return;
 
@@ -419,7 +407,7 @@ export class SalesAnalyticsReportService {
           lastOrderDate: null,
           invoicesPaid: 0,
           averagePaymentAmount: 0,
-          paymentStatus: "unpaid",
+          paymentStatus: 'unpaid',
           orderCount: 0,
         });
       }
@@ -429,10 +417,7 @@ export class SalesAnalyticsReportService {
 
       // Track last order date
       const orderDate = new Date(order.orderDate);
-      if (
-        !customerData.lastOrderDate ||
-        orderDate > customerData.lastOrderDate
-      ) {
+      if (!customerData.lastOrderDate || orderDate > customerData.lastOrderDate) {
         customerData.lastOrderDate = orderDate;
       }
 
@@ -448,16 +433,10 @@ export class SalesAnalyticsReportService {
         const paymentDate = new Date(payment.paymentDate);
 
         // Track date ranges
-        if (
-          !customerData.lastPaymentDate ||
-          paymentDate > customerData.lastPaymentDate
-        ) {
+        if (!customerData.lastPaymentDate || paymentDate > customerData.lastPaymentDate) {
           customerData.lastPaymentDate = paymentDate;
         }
-        if (
-          !customerData.firstPaymentDate ||
-          paymentDate < customerData.firstPaymentDate
-        ) {
+        if (!customerData.firstPaymentDate || paymentDate < customerData.firstPaymentDate) {
           customerData.firstPaymentDate = paymentDate;
         }
       });
@@ -469,34 +448,26 @@ export class SalesAnalyticsReportService {
     });
 
     // Calculate payment status and averages for each customer
-    const customerSummaries = Array.from(customerPaymentMap.values()).map(
-      (customer) => {
-        // Calculate payment status based on total invoiced vs total paid
-        if (
-          customer.totalPaid >= customer.totalInvoiced &&
-          customer.totalInvoiced > 0
-        ) {
-          customer.paymentStatus =
-            customer.totalPaid > customer.totalInvoiced ? "overpaid" : "paid";
-        } else if (customer.totalPaid > 0) {
-          customer.paymentStatus = "partial";
-        } else {
-          customer.paymentStatus = "unpaid";
-        }
+    const customerSummaries = Array.from(customerPaymentMap.values()).map((customer) => {
+      // Calculate payment status based on total invoiced vs total paid
+      if (customer.totalPaid >= customer.totalInvoiced && customer.totalInvoiced > 0) {
+        customer.paymentStatus = customer.totalPaid > customer.totalInvoiced ? 'overpaid' : 'paid';
+      } else if (customer.totalPaid > 0) {
+        customer.paymentStatus = 'partial';
+      } else {
+        customer.paymentStatus = 'unpaid';
+      }
 
-        // Calculate average payment amount
-        customer.averagePaymentAmount =
-          customer.paymentCount > 0
-            ? customer.totalPayments / customer.paymentCount
-            : 0;
+      // Calculate average payment amount
+      customer.averagePaymentAmount =
+        customer.paymentCount > 0 ? customer.totalPayments / customer.paymentCount : 0;
 
-        return customer;
-      },
-    );
+      return customer;
+    });
 
     // Filter by payment status if specified
     let filteredSummaries = customerSummaries;
-    if (query.paymentStatus && query.paymentStatus !== "all") {
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
       filteredSummaries = customerSummaries.filter(
         (customer) => customer.paymentStatus === query.paymentStatus,
       );
@@ -529,14 +500,14 @@ export class SalesAnalyticsReportService {
     } else if (query.dateFrom) {
       orderWhere.orderDate = Between(query.dateFrom, new Date());
     } else if (query.dateTo) {
-      orderWhere.orderDate = Between(new Date("2000-01-01"), query.dateTo);
+      orderWhere.orderDate = Between(new Date('2000-01-01'), query.dateTo);
     }
 
     // Get all sales orders with invoices and payments
     const orders = await this.salesOrderRepository.find({
       where: orderWhere,
       relations: { customer: true, payments: true },
-      order: { orderNumber: "ASC" },
+      order: { orderNumber: 'ASC' },
     });
 
     // Transform to payment by order report format
@@ -546,19 +517,16 @@ export class SalesAnalyticsReportService {
       const orderPayments = order.payments || [];
 
       // Calculate payment totals for this order
-      const totalPaid = orderPayments.reduce(
-        (sum, p) => sum + Number(p.amount || 0),
-        0,
-      );
+      const totalPaid = orderPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
       const totalAmount = Number(order.totalAmount || 0);
       const balance = totalAmount - totalPaid;
 
       // Determine payment status
-      let paymentStatus = "unpaid";
+      let paymentStatus = 'unpaid';
       if (totalPaid >= totalAmount && totalAmount > 0) {
-        paymentStatus = totalPaid > totalAmount ? "overpaid" : "paid";
+        paymentStatus = totalPaid > totalAmount ? 'overpaid' : 'paid';
       } else if (totalPaid > 0) {
-        paymentStatus = "partial";
+        paymentStatus = 'partial';
       }
 
       // Find last payment date for this order
@@ -574,13 +542,13 @@ export class SalesAnalyticsReportService {
       }
 
       paymentByOrderData.push({
-        customerId: order.customer?.id || "",
-        customerName: order.customer?.name || "Unknown",
+        customerId: order.customer?.id || '',
+        customerName: order.customer?.name || 'Unknown',
         orderNumber: order.orderNumber,
         orderDate: order.orderDate,
-        invoiceNumber: "",
+        invoiceNumber: '',
         invoiceDate: null,
-        inventoryStatus: order.isFulfilled ? "fulfilled" : "unfulfilled",
+        inventoryStatus: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
         totalAmount,
         paidAmount: totalPaid,
         balance,
@@ -591,7 +559,7 @@ export class SalesAnalyticsReportService {
 
     // Filter by payment status if specified
     let filteredData = paymentByOrderData;
-    if (query.paymentStatus && query.paymentStatus !== "all") {
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
       filteredData = paymentByOrderData.filter(
         (item) => item.paymentStatus === query.paymentStatus,
       );
@@ -599,8 +567,8 @@ export class SalesAnalyticsReportService {
 
     // Sort by order number (extract numeric part for proper sorting)
     filteredData.sort((a, b) => {
-      const numA = parseInt(a.orderNumber.replace(/\D/g, ""), 10) || 0;
-      const numB = parseInt(b.orderNumber.replace(/\D/g, ""), 10) || 0;
+      const numA = parseInt(a.orderNumber.replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt(b.orderNumber.replace(/\D/g, ''), 10) || 0;
       return numA - numB;
     });
 
@@ -617,40 +585,37 @@ export class SalesAnalyticsReportService {
   }) {
     // Build WHERE conditions for payments
     let paymentQuery = this.paymentRepository
-      .createQueryBuilder("payment")
-      .leftJoinAndSelect("payment.salesOrder", "salesOrder")
-      .leftJoinAndSelect("salesOrder.customer", "customer");
+      .createQueryBuilder('payment')
+      .leftJoinAndSelect('payment.salesOrder', 'salesOrder')
+      .leftJoinAndSelect('salesOrder.customer', 'customer');
 
     // Apply date range filter on payment date
     if (query.dateFrom && query.dateTo) {
-      paymentQuery = paymentQuery.andWhere(
-        "payment.paymentDate BETWEEN :dateFrom AND :dateTo",
-        {
-          dateFrom: query.dateFrom,
-          dateTo: query.dateTo,
-        },
-      );
+      paymentQuery = paymentQuery.andWhere('payment.paymentDate BETWEEN :dateFrom AND :dateTo', {
+        dateFrom: query.dateFrom,
+        dateTo: query.dateTo,
+      });
     } else if (query.dateFrom) {
-      paymentQuery = paymentQuery.andWhere("payment.paymentDate >= :dateFrom", {
+      paymentQuery = paymentQuery.andWhere('payment.paymentDate >= :dateFrom', {
         dateFrom: query.dateFrom,
       });
     } else if (query.dateTo) {
-      paymentQuery = paymentQuery.andWhere("payment.paymentDate <= :dateTo", {
+      paymentQuery = paymentQuery.andWhere('payment.paymentDate <= :dateTo', {
         dateTo: query.dateTo,
       });
     }
 
     // Apply customer filter
     if (query.customerId) {
-      paymentQuery = paymentQuery.andWhere("customer.id = :customerId", {
+      paymentQuery = paymentQuery.andWhere('customer.id = :customerId', {
         customerId: query.customerId,
       });
     }
 
     // Get all payments
     const payments = await paymentQuery
-      .orderBy("payment.paymentDate", "DESC")
-      .addOrderBy("payment.paymentNumber", "DESC")
+      .orderBy('payment.paymentDate', 'DESC')
+      .addOrderBy('payment.paymentNumber', 'DESC')
       .getMany();
 
     // Transform to payment details format
@@ -663,26 +628,25 @@ export class SalesAnalyticsReportService {
         paymentNumber: payment.paymentNumber,
         paymentDate: payment.paymentDate,
         paymentAmount: Number(payment.amount || 0),
-        paymentMethod:
-          payment.paymentMethodEntity?.code?.toLowerCase() || "cash",
-        customerId: customer?.id || "",
-        customerName: customer?.name || "Unknown",
-        orderNumber: salesOrder?.orderNumber || "",
+        paymentMethod: payment.paymentMethodEntity?.code?.toLowerCase() || 'cash',
+        customerId: customer?.id || '',
+        customerName: customer?.name || 'Unknown',
+        orderNumber: salesOrder?.orderNumber || '',
         orderDate: salesOrder?.orderDate || null,
-        invoiceNumber: "",
+        invoiceNumber: '',
         invoiceDate: null,
         invoiceTotal: 0,
         invoicePaid: 0,
         invoiceBalance: 0,
-        paymentStatus: "paid",
-        inventoryStatus: salesOrder?.isFulfilled ? "fulfilled" : "unfulfilled",
-        notes: payment.notes || "",
+        paymentStatus: 'paid',
+        inventoryStatus: salesOrder?.isFulfilled ? 'fulfilled' : 'unfulfilled',
+        notes: payment.notes || '',
       };
     });
 
     // Filter by payment status if specified
     let filteredData = paymentDetailsData;
-    if (query.paymentStatus && query.paymentStatus !== "all") {
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
       filteredData = paymentDetailsData.filter(
         (item) => item.paymentStatus === query.paymentStatus,
       );
@@ -704,83 +668,72 @@ export class SalesAnalyticsReportService {
   }) {
     // Build WHERE conditions for sales orders
     let orderQuery = this.salesOrderRepository
-      .createQueryBuilder("salesOrder")
-      .leftJoinAndSelect("salesOrder.customer", "customer")
-      .leftJoinAndSelect("customer.priceList", "priceList")
-      .leftJoinAndSelect("salesOrder.items", "items")
-      .leftJoinAndSelect("items.product", "product")
-      .leftJoinAndSelect("product.category", "category")
-      .leftJoinAndSelect("salesOrder.payments", "payments");
+      .createQueryBuilder('salesOrder')
+      .leftJoinAndSelect('salesOrder.customer', 'customer')
+      .leftJoinAndSelect('customer.priceList', 'priceList')
+      .leftJoinAndSelect('salesOrder.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('salesOrder.payments', 'payments');
 
     // Apply date range filter on order date
     if (query.dateFrom && query.dateTo) {
-      orderQuery = orderQuery.andWhere(
-        "salesOrder.orderDate BETWEEN :dateFrom AND :dateTo",
-        {
-          dateFrom: query.dateFrom,
-          dateTo: query.dateTo,
-        },
-      );
+      orderQuery = orderQuery.andWhere('salesOrder.orderDate BETWEEN :dateFrom AND :dateTo', {
+        dateFrom: query.dateFrom,
+        dateTo: query.dateTo,
+      });
     } else if (query.dateFrom) {
-      orderQuery = orderQuery.andWhere("salesOrder.orderDate >= :dateFrom", {
+      orderQuery = orderQuery.andWhere('salesOrder.orderDate >= :dateFrom', {
         dateFrom: query.dateFrom,
       });
     } else if (query.dateTo) {
-      orderQuery = orderQuery.andWhere("salesOrder.orderDate <= :dateTo", {
+      orderQuery = orderQuery.andWhere('salesOrder.orderDate <= :dateTo', {
         dateTo: query.dateTo,
       });
     }
 
     // Apply customer filter
     if (query.customerId) {
-      orderQuery = orderQuery.andWhere("customer.id = :customerId", {
+      orderQuery = orderQuery.andWhere('customer.id = :customerId', {
         customerId: query.customerId,
       });
     }
 
     // Apply category filter
     if (query.categoryId) {
-      orderQuery = orderQuery.andWhere("category.id = :categoryId", {
+      orderQuery = orderQuery.andWhere('category.id = :categoryId', {
         categoryId: query.categoryId,
       });
     }
 
     // Apply product filter
     if (query.productIds && query.productIds.length > 0) {
-      orderQuery = orderQuery.andWhere("product.id IN (:...productIds)", {
+      orderQuery = orderQuery.andWhere('product.id IN (:...productIds)', {
         productIds: query.productIds,
       });
     }
 
     // Apply inventory status filter
-    if (query.inventoryStatus && query.inventoryStatus !== "all") {
-      if (query.inventoryStatus === "fulfilled") {
-        orderQuery = orderQuery.andWhere(
-          "salesOrder.isFulfilled = :isFulfilled",
-          {
-            isFulfilled: true,
-          },
-        );
-      } else if (query.inventoryStatus === "unfulfilled") {
-        orderQuery = orderQuery.andWhere(
-          "salesOrder.isFulfilled = :isFulfilled",
-          {
-            isFulfilled: false,
-          },
-        );
+    if (query.inventoryStatus && query.inventoryStatus !== 'all') {
+      if (query.inventoryStatus === 'fulfilled') {
+        orderQuery = orderQuery.andWhere('salesOrder.isFulfilled = :isFulfilled', {
+          isFulfilled: true,
+        });
+      } else if (query.inventoryStatus === 'unfulfilled') {
+        orderQuery = orderQuery.andWhere('salesOrder.isFulfilled = :isFulfilled', {
+          isFulfilled: false,
+        });
       }
     }
 
     // Get all orders
     const orders = await orderQuery
-      .orderBy("salesOrder.orderDate", "DESC")
-      .addOrderBy("salesOrder.orderNumber", "DESC")
+      .orderBy('salesOrder.orderDate', 'DESC')
+      .addOrderBy('salesOrder.orderNumber', 'DESC')
       .getMany();
 
     // Remove duplicates if filtering by products (since one order can have multiple products)
-    const uniqueOrders = Array.from(
-      new Map(orders.map((order) => [order.id, order])).values(),
-    );
+    const uniqueOrders = Array.from(new Map(orders.map((order) => [order.id, order])).values());
 
     // Transform to order history format - return individual line items
     const orderHistoryData: any[] = [];
@@ -791,10 +744,7 @@ export class SalesAnalyticsReportService {
       const paymentsData = order.payments || [];
 
       // Calculate total amount from items
-      const totalAmount = items.reduce(
-        (sum, item) => sum + Number(item.totalAmount || 0),
-        0,
-      );
+      const totalAmount = items.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0);
 
       // Calculate paid amount from all payments
       const paidAmount = paymentsData.reduce(
@@ -803,11 +753,11 @@ export class SalesAnalyticsReportService {
       );
 
       // Determine payment status
-      let paymentStatus = "unpaid";
+      let paymentStatus = 'unpaid';
       if (paidAmount >= totalAmount && totalAmount > 0) {
-        paymentStatus = paidAmount > totalAmount ? "overpaid" : "paid";
+        paymentStatus = paidAmount > totalAmount ? 'overpaid' : 'paid';
       } else if (paidAmount > 0) {
-        paymentStatus = "partial";
+        paymentStatus = 'partial';
       }
 
       // Create a row for each line item
@@ -824,27 +774,25 @@ export class SalesAnalyticsReportService {
           orderId: order.id,
           orderNumber: order.orderNumber,
           orderDate: order.orderDate,
-          customerId: customer?.id || "",
-          customerName: customer?.name || "Unknown",
-          productId: product?.id || "",
-          productName: product?.name || "Unknown Product",
-          categoryName: product?.category?.name || "-",
+          customerId: customer?.id || '',
+          customerName: customer?.name || 'Unknown',
+          productId: product?.id || '',
+          productName: product?.name || 'Unknown Product',
+          categoryName: product?.category?.name || '-',
           quantity,
           amount,
           cost,
           profit,
           paymentStatus,
-          inventoryStatus: order.isFulfilled ? "fulfilled" : "unfulfilled",
+          inventoryStatus: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
         });
       });
     });
 
     // Filter by payment status if specified
     let filteredData = orderHistoryData;
-    if (query.paymentStatus && query.paymentStatus !== "all") {
-      filteredData = orderHistoryData.filter(
-        (item) => item.paymentStatus === query.paymentStatus,
-      );
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
+      filteredData = orderHistoryData.filter((item) => item.paymentStatus === query.paymentStatus);
     }
 
     return {
@@ -862,76 +810,65 @@ export class SalesAnalyticsReportService {
   }) {
     // Build WHERE conditions for sales orders
     let orderQuery = this.salesOrderRepository
-      .createQueryBuilder("salesOrder")
-      .leftJoinAndSelect("salesOrder.customer", "customer")
-      .leftJoinAndSelect("customer.priceList", "priceList")
-      .leftJoinAndSelect("salesOrder.items", "items")
-      .leftJoinAndSelect("items.product", "product")
-      .leftJoinAndSelect("product.category", "category")
-      .leftJoinAndSelect("salesOrder.payments", "payments");
+      .createQueryBuilder('salesOrder')
+      .leftJoinAndSelect('salesOrder.customer', 'customer')
+      .leftJoinAndSelect('customer.priceList', 'priceList')
+      .leftJoinAndSelect('salesOrder.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('salesOrder.payments', 'payments');
 
     // Apply date range filter on order date
     if (query.dateFrom && query.dateTo) {
-      orderQuery = orderQuery.andWhere(
-        "salesOrder.orderDate BETWEEN :dateFrom AND :dateTo",
-        {
-          dateFrom: query.dateFrom,
-          dateTo: query.dateTo,
-        },
-      );
+      orderQuery = orderQuery.andWhere('salesOrder.orderDate BETWEEN :dateFrom AND :dateTo', {
+        dateFrom: query.dateFrom,
+        dateTo: query.dateTo,
+      });
     } else if (query.dateFrom) {
-      orderQuery = orderQuery.andWhere("salesOrder.orderDate >= :dateFrom", {
+      orderQuery = orderQuery.andWhere('salesOrder.orderDate >= :dateFrom', {
         dateFrom: query.dateFrom,
       });
     } else if (query.dateTo) {
-      orderQuery = orderQuery.andWhere("salesOrder.orderDate <= :dateTo", {
+      orderQuery = orderQuery.andWhere('salesOrder.orderDate <= :dateTo', {
         dateTo: query.dateTo,
       });
     }
 
     // Apply product filter (multiple)
     if (query.productIds && query.productIds.length > 0) {
-      orderQuery = orderQuery.andWhere("product.id IN (:...productIds)", {
+      orderQuery = orderQuery.andWhere('product.id IN (:...productIds)', {
         productIds: query.productIds,
       });
     }
 
     // Apply category filter
     if (query.categoryId) {
-      orderQuery = orderQuery.andWhere("category.id = :categoryId", {
+      orderQuery = orderQuery.andWhere('category.id = :categoryId', {
         categoryId: query.categoryId,
       });
     }
 
     // Apply inventory status filter
-    if (query.inventoryStatus && query.inventoryStatus !== "all") {
-      if (query.inventoryStatus === "fulfilled") {
-        orderQuery = orderQuery.andWhere(
-          "salesOrder.isFulfilled = :isFulfilled",
-          {
-            isFulfilled: true,
-          },
-        );
-      } else if (query.inventoryStatus === "unfulfilled") {
-        orderQuery = orderQuery.andWhere(
-          "salesOrder.isFulfilled = :isFulfilled",
-          {
-            isFulfilled: false,
-          },
-        );
+    if (query.inventoryStatus && query.inventoryStatus !== 'all') {
+      if (query.inventoryStatus === 'fulfilled') {
+        orderQuery = orderQuery.andWhere('salesOrder.isFulfilled = :isFulfilled', {
+          isFulfilled: true,
+        });
+      } else if (query.inventoryStatus === 'unfulfilled') {
+        orderQuery = orderQuery.andWhere('salesOrder.isFulfilled = :isFulfilled', {
+          isFulfilled: false,
+        });
       }
     }
 
     // Get all orders
     const orders = await orderQuery
-      .orderBy("salesOrder.orderDate", "DESC")
-      .addOrderBy("salesOrder.orderNumber", "DESC")
+      .orderBy('salesOrder.orderDate', 'DESC')
+      .addOrderBy('salesOrder.orderNumber', 'DESC')
       .getMany();
 
     // Remove duplicates if filtering by products (since one order can have multiple products)
-    const uniqueOrders = Array.from(
-      new Map(orders.map((order) => [order.id, order])).values(),
-    );
+    const uniqueOrders = Array.from(new Map(orders.map((order) => [order.id, order])).values());
 
     // Transform to product-customer format - return individual line items
     const productCustomerData: any[] = [];
@@ -942,10 +879,7 @@ export class SalesAnalyticsReportService {
       const paymentsData = order.payments || [];
 
       // Calculate total amount from items
-      const totalAmount = items.reduce(
-        (sum, item) => sum + Number(item.totalAmount || 0),
-        0,
-      );
+      const totalAmount = items.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0);
 
       // Calculate paid amount from all payments
       const paidAmount = paymentsData.reduce(
@@ -954,11 +888,11 @@ export class SalesAnalyticsReportService {
       );
 
       // Determine payment status
-      let paymentStatus = "unpaid";
+      let paymentStatus = 'unpaid';
       if (paidAmount >= totalAmount && totalAmount > 0) {
-        paymentStatus = paidAmount > totalAmount ? "overpaid" : "paid";
+        paymentStatus = paidAmount > totalAmount ? 'overpaid' : 'paid';
       } else if (paidAmount > 0) {
-        paymentStatus = "partial";
+        paymentStatus = 'partial';
       }
 
       // Create a row for each line item
@@ -972,11 +906,11 @@ export class SalesAnalyticsReportService {
         const profit = amount - cost;
 
         productCustomerData.push({
-          productId: product?.id || "",
-          productName: product?.name || "Unknown Product",
-          categoryName: product?.category?.name || "-",
-          customerId: customer?.id || "",
-          customerName: customer?.name || "Unknown",
+          productId: product?.id || '',
+          productName: product?.name || 'Unknown Product',
+          categoryName: product?.category?.name || '-',
+          customerId: customer?.id || '',
+          customerName: customer?.name || 'Unknown',
           orderId: order.id,
           orderNumber: order.orderNumber,
           orderDate: order.orderDate,
@@ -985,14 +919,14 @@ export class SalesAnalyticsReportService {
           cost,
           profit,
           paymentStatus,
-          inventoryStatus: order.isFulfilled ? "fulfilled" : "unfulfilled",
+          inventoryStatus: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
         });
       });
     });
 
     // Filter by payment status if specified
     let filteredData = productCustomerData;
-    if (query.paymentStatus && query.paymentStatus !== "all") {
+    if (query.paymentStatus && query.paymentStatus !== 'all') {
       filteredData = productCustomerData.filter(
         (item) => item.paymentStatus === query.paymentStatus,
       );

@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class RemoveUnusedSupplierFields1732850000000 implements MigrationInterface {
-  name = "RemoveUnusedSupplierFields1732850000000";
+  name = 'RemoveUnusedSupplierFields1732850000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Remove unused columns from suppliers table
@@ -10,25 +10,25 @@ export class RemoveUnusedSupplierFields1732850000000 implements MigrationInterfa
 
     // Check and drop columns if they exist
     const columns = [
-      "contactTitle",
-      "alternativePhone",
-      "fax",
-      "taxId",
-      "address",
-      "city",
-      "state",
-      "postalCode",
-      "country",
-      "currency",
-      "categories",
-      "certifications",
-      "metadata",
+      'contactTitle',
+      'alternativePhone',
+      'fax',
+      'taxId',
+      'address',
+      'city',
+      'state',
+      'postalCode',
+      'country',
+      'currency',
+      'categories',
+      'certifications',
+      'metadata',
     ];
 
     for (const column of columns) {
-      const hasColumn = await queryRunner.hasColumn("suppliers", column);
+      const hasColumn = await queryRunner.hasColumn('suppliers', column);
       if (hasColumn) {
-        await queryRunner.dropColumn("suppliers", column);
+        await queryRunner.dropColumn('suppliers', column);
       }
     }
   }

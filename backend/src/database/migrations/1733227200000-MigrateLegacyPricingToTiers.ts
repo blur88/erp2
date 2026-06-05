@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class MigrateLegacyPricingToTiers1733227200000 implements MigrationInterface {
-  name = "MigrateLegacyPricingToTiers1733227200000";
+  name = 'MigrateLegacyPricingToTiers1733227200000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Step 1: Ensure pricingTiers column exists (it should from previous migrations)
@@ -53,17 +53,11 @@ export class MigrateLegacyPricingToTiers1733227200000 implements MigrationInterf
       `);
 
       // Step 5: Remove legacy pricing columns
-      await queryRunner.query(
-        `ALTER TABLE "products" DROP COLUMN IF EXISTS "retailPrice"`,
-      );
-      await queryRunner.query(
-        `ALTER TABLE "products" DROP COLUMN IF EXISTS "wholesalePrice"`,
-      );
-      await queryRunner.query(
-        `ALTER TABLE "products" DROP COLUMN IF EXISTS "specialPrice"`,
-      );
+      await queryRunner.query(`ALTER TABLE "products" DROP COLUMN IF EXISTS "retailPrice"`);
+      await queryRunner.query(`ALTER TABLE "products" DROP COLUMN IF EXISTS "wholesalePrice"`);
+      await queryRunner.query(`ALTER TABLE "products" DROP COLUMN IF EXISTS "specialPrice"`);
     } else {
-      console.log("Legacy pricing columns do not exist, skipping migration");
+      console.log('Legacy pricing columns do not exist, skipping migration');
     }
   }
 

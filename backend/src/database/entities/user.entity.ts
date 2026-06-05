@@ -1,4 +1,8 @@
-import { Entity, Column, Index } from "typeorm";
+import {
+  Entity,
+  Column,
+  Index,
+} from 'typeorm';
 import {
   IsEmail,
   IsString,
@@ -8,38 +12,38 @@ import {
   MinLength,
   MaxLength,
   IsPhoneNumber,
-} from "class-validator";
-import { BaseEntity } from "./base.entity";
+} from 'class-validator';
+import { BaseEntity } from './base.entity';
 
 export enum UserRole {
-  ADMIN = "admin",
-  MANAGER = "manager",
-  SALES_STAFF = "sales_staff",
-  INVENTORY_STAFF = "inventory_staff",
-  PROCUREMENT_STAFF = "procurement_staff",
+  ADMIN = 'admin',
+  MANAGER = 'manager',
+  SALES_STAFF = 'sales_staff',
+  INVENTORY_STAFF = 'inventory_staff',
+  PROCUREMENT_STAFF = 'procurement_staff',
 }
 
 export enum UserStatus {
-  ACTIVE = "active",
-  INACTIVE = "inactive",
-  SUSPENDED = "suspended",
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  SUSPENDED = 'suspended',
 }
 
 /**
  * User entity for authentication and user management
  * Supports role-based access control and user activity tracking
  */
-@Entity("users")
-@Index(["email"], { unique: true })
-@Index(["username"], { unique: true })
-@Index(["role", "status"])
-@Index(["isActive", "status"])
+@Entity('users')
+@Index(['email'], { unique: true })
+@Index(['username'], { unique: true })
+@Index(['role', 'status'])
+@Index(['isActive', 'status'])
 export class User extends BaseEntity {
   @Column({
-    type: "varchar",
+    type: 'varchar',
     length: 50,
     unique: true,
-    comment: "Unique username for login",
+    comment: 'Unique username for login',
   })
   @IsString()
   @MinLength(3)
@@ -47,11 +51,11 @@ export class User extends BaseEntity {
   username: string;
 
   @Column({
-    type: "varchar",
+    type: 'varchar',
     length: 100,
     unique: true,
     nullable: true,
-    comment: "User email address",
+    comment: 'User email address',
   })
   @IsOptional()
   @IsEmail()
@@ -59,19 +63,19 @@ export class User extends BaseEntity {
   email?: string;
 
   @Column({
-    type: "varchar",
+    type: 'varchar',
     length: 255,
-    comment: "Hashed password",
+    comment: 'Hashed password',
   })
   @IsString()
   @MinLength(6)
   password: string;
 
   @Column({
-    type: "varchar",
+    type: 'varchar',
     length: 100,
     nullable: true,
-    comment: "User first name",
+    comment: 'User first name',
   })
   @IsOptional()
   @IsString()
@@ -79,10 +83,10 @@ export class User extends BaseEntity {
   firstName?: string;
 
   @Column({
-    type: "varchar",
+    type: 'varchar',
     length: 100,
     nullable: true,
-    comment: "User last name",
+    comment: 'User last name',
   })
   @IsOptional()
   @IsString()
@@ -90,87 +94,87 @@ export class User extends BaseEntity {
   lastName?: string;
 
   @Column({
-    type: "varchar",
+    type: 'varchar',
     length: 20,
     nullable: true,
-    comment: "User phone number",
+    comment: 'User phone number',
   })
   @IsOptional()
   @IsPhoneNumber()
   phoneNumber?: string;
 
   @Column({
-    type: "enum",
+    type: 'enum',
     enum: UserRole,
     default: UserRole.SALES_STAFF,
-    comment: "User role for access control",
+    comment: 'User role for access control',
   })
   @IsEnum(UserRole)
   role: UserRole;
 
   @Column({
-    type: "enum",
+    type: 'enum',
     enum: UserStatus,
     default: UserStatus.ACTIVE,
-    comment: "User account status",
+    comment: 'User account status',
   })
   @IsEnum(UserStatus)
   status: UserStatus;
 
   @Column({
-    type: "boolean",
+    type: 'boolean',
     default: true,
-    comment: "Whether the user account is active",
+    comment: 'Whether the user account is active',
   })
   @IsBoolean()
   declare isActive: boolean;
 
   @Column({
-    type: "timestamptz",
+    type: 'timestamptz',
     nullable: true,
-    comment: "Last login timestamp",
+    comment: 'Last login timestamp',
   })
   @IsOptional()
   lastLoginAt?: Date;
 
   @Column({
-    type: "varchar",
+    type: 'varchar',
     length: 45,
     nullable: true,
-    comment: "Last login IP address",
+    comment: 'Last login IP address',
   })
   @IsOptional()
   @IsString()
   lastLoginIp?: string;
 
   @Column({
-    type: "int",
+    type: 'int',
     default: 0,
-    comment: "Number of failed login attempts",
+    comment: 'Number of failed login attempts',
   })
   failedLoginAttempts: number;
 
   @Column({
-    type: "timestamptz",
+    type: 'timestamptz',
     nullable: true,
-    comment: "Account locked until this timestamp",
+    comment: 'Account locked until this timestamp',
   })
   @IsOptional()
   lockedUntil?: Date;
 
   @Column({
-    type: "text",
+    type: 'text',
     nullable: true,
-    comment: "User profile notes or description",
+    comment: 'User profile notes or description',
   })
   @IsOptional()
   @IsString()
   notes?: string;
 
   @Column({
-    type: "boolean",
+    type: 'boolean',
     default: false,
-    comment: "Whether user must change password before accessing app",
+    comment: 'Whether user must change password before accessing app',
   })
   @IsBoolean()
   requiresPasswordChange: boolean;
@@ -178,10 +182,11 @@ export class User extends BaseEntity {
   // Relationships
   // salesOrders relationship removed - createdByUser field removed from SalesOrder entity
 
+  
   // Virtual fields
   get fullName(): string {
-    const firstName = this.firstName || "";
-    const lastName = this.lastName || "";
+    const firstName = this.firstName || '';
+    const lastName = this.lastName || '';
     return `${firstName} ${lastName}`.trim();
   }
 

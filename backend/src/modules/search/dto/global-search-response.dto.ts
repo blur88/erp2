@@ -1,4 +1,4 @@
-import { GlobalSearchResultDto } from "./global-search-result.dto";
+import { GlobalSearchResultDto } from './global-search-result.dto';
 
 export class GlobalSearchResponseDto {
   query: string;

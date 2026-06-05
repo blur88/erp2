@@ -4,29 +4,17 @@ import {
   ConflictException,
   BadRequestException,
   Logger,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import {
-  DataSource,
-  EntityManager,
-  Repository,
-  FindOptionsWhere,
-  In,
-} from "typeorm";
-import { BaseCrudService } from "../../../common/services/base-crud.service";
-import {
-  SalesOrder,
-  SalesOrderStatus,
-} from "../../../database/entities/sales-order.entity";
-import {
-  SalesOrderItem,
-  DiscountType,
-} from "../../../database/entities/sales-order-item.entity";
-import { SalesOrderPayment } from "../../../database/entities/sales-order-payment.entity";
-import { Customer } from "../../../database/entities/customer.entity";
-import { Product } from "../../../database/entities/product.entity";
-import { User } from "../../../database/entities/user.entity";
-import { PriceListItem } from "../../../database/entities/price-list-item.entity";
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { DataSource, EntityManager, Repository, FindOptionsWhere, In } from 'typeorm';
+import { BaseCrudService } from '../../../common/services/base-crud.service';
+import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
+import { SalesOrderItem, DiscountType } from '../../../database/entities/sales-order-item.entity';
+import { SalesOrderPayment } from '../../../database/entities/sales-order-payment.entity';
+import { Customer } from '../../../database/entities/customer.entity';
+import { Product } from '../../../database/entities/product.entity';
+import { User } from '../../../database/entities/user.entity';
+import { PriceListItem } from '../../../database/entities/price-list-item.entity';
 import {
   CreateSalesOrderDto,
   UpdateSalesOrderDto,
@@ -34,9 +22,9 @@ import {
   SalesOrderResponseDto,
   RecordPaymentDto,
   RecordRefundDto,
-} from "../dto/sales-order.dto";
-import { GlobalSearchResultDto } from "../../search/dto/global-search-result.dto";
-import { canSearchSalesOrders } from "../../search/search.permissions";
+} from '../dto/sales-order.dto';
+import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
+import { canSearchSalesOrders } from '../../search/search.permissions';
 import {
   SEARCH_CANDIDATE_LIMIT,
   SCORE_EXACT_CODE,
@@ -45,23 +33,23 @@ import {
   SCORE_FUZZY,
   BOOST_TRANSACTION,
   BOOST_EXACT_MATCH,
-} from "../../search/search.constants";
-import { CustomerService } from "./customer.service";
-import { InventoryIntegrationService } from "./inventory-integration.service";
+} from '../../search/search.constants';
+import { CustomerService } from './customer.service';
+import { InventoryIntegrationService } from './inventory-integration.service';
 import {
   ValidationUtil,
   BulkOperationUtil,
   BulkOperationResponse,
-} from "../../../common/utils/validation.util";
-import { StockMovementService } from "../../../modules/inventory/services/stock-movement.service";
-import { BaseCostCalculatorService } from "../../inventory/services/base-cost-calculator.service";
-import { SettingsService } from "../../settings/settings.service";
-import { AuditLogService } from "../../audit-logs/services";
-import { AccountingService } from "@modules/accounting/services/accounting.service";
-import { SalesOrderFulfillmentService } from "./sales-order-fulfillment.service";
-import { SalesOrderLifecycleService } from "./sales-order-lifecycle.service";
-import { SalesOrderPaymentService } from "./sales-order-payment.service";
-import { SalesOrderQueryService } from "./sales-order-query.service";
+} from '../../../common/utils/validation.util';
+import { StockMovementService } from '../../../modules/inventory/services/stock-movement.service';
+import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
+import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
+import { AccountingService } from '@modules/accounting/services/accounting.service';
+import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
+import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
+import { SalesOrderPaymentService } from './sales-order-payment.service';
+import { SalesOrderQueryService } from './sales-order-query.service';
 
 @Injectable()
 export class SalesOrderService extends BaseCrudService<
@@ -102,7 +90,7 @@ export class SalesOrderService extends BaseCrudService<
   }
 
   getEntityType(): string {
-    return "SalesOrder";
+    return 'SalesOrder';
   }
 
   buildWhereClause(query: QuerySalesOrdersDto): FindOptionsWhere<SalesOrder> {
@@ -118,25 +106,21 @@ export class SalesOrderService extends BaseCrudService<
   private async generateSequentialOrderNumber(): Promise<string> {
     // Use document number settings to generate order number
     try {
-      const orderNumber =
-        await this.settingsService.generateDocumentNumber("Sales Orders");
-      console.log(
-        "[generateSequentialOrderNumber] Generated order number:",
-        orderNumber,
-      );
+      const orderNumber = await this.settingsService.generateDocumentNumber('Sales Orders');
+      console.log('[generateSequentialOrderNumber] Generated order number:', orderNumber);
       return orderNumber;
     } catch (error) {
       console.error(
-        "[generateSequentialOrderNumber] Error generating order number:",
+        '[generateSequentialOrderNumber] Error generating order number:',
         error.message,
       );
       // Fallback to legacy method if settings service fails
       const lastOrder = await this.salesOrderRepository
-        .createQueryBuilder("order")
+        .createQueryBuilder('order')
         .withDeleted()
-        .select("order.orderNumber")
-        .where("order.orderNumber LIKE :prefix", { prefix: "SO-%" })
-        .orderBy("order.orderNumber", "DESC")
+        .select('order.orderNumber')
+        .where('order.orderNumber LIKE :prefix', { prefix: 'SO-%' })
+        .orderBy('order.orderNumber', 'DESC')
         .limit(1)
         .getOne();
 
@@ -148,11 +132,8 @@ export class SalesOrderService extends BaseCrudService<
         }
       }
 
-      const newOrderNumber = `SO-${nextNumber.toString().padStart(6, "0")}`;
-      console.log(
-        "[generateSequentialOrderNumber] Fallback order number:",
-        newOrderNumber,
-      );
+      const newOrderNumber = `SO-${nextNumber.toString().padStart(6, '0')}`;
+      console.log('[generateSequentialOrderNumber] Fallback order number:', newOrderNumber);
       return newOrderNumber;
     }
   }
@@ -170,12 +151,12 @@ export class SalesOrderService extends BaseCrudService<
       relations: { priceList: true },
     });
     if (!customer) {
-      throw new NotFoundException("Customer not found");
+      throw new NotFoundException('Customer not found');
     }
 
     // Check customer status
     if (!customer.isActive) {
-      throw new ConflictException("Customer is not active");
+      throw new ConflictException('Customer is not active');
     }
 
     // Validate and calculate order totals with customer pricing scheme
@@ -187,18 +168,15 @@ export class SalesOrderService extends BaseCrudService<
     // Note: Credit limit check removed - customerService not available
 
     // Check inventory availability
-    const inventoryCheck =
-      await this.inventoryIntegrationService.checkAvailability(
-        items.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-        })),
-      );
+    const inventoryCheck = await this.inventoryIntegrationService.checkAvailability(
+      items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+      })),
+    );
 
     if (!inventoryCheck.available) {
-      throw new ConflictException(
-        `Insufficient inventory: ${inventoryCheck.message}`,
-      );
+      throw new ConflictException(`Insufficient inventory: ${inventoryCheck.message}`);
     }
 
     // Retry logic for handling duplicate order numbers (race condition)
@@ -227,20 +205,15 @@ export class SalesOrderService extends BaseCrudService<
       } catch (error) {
         lastError = error;
         // Check if it's a duplicate key error
-        if (
-          error.code === "23505" &&
-          error.constraint === "UQ_ea901f7691ec7f314f072d9dee8"
-        ) {
+        if (error.code === '23505' && error.constraint === 'UQ_ea901f7691ec7f314f072d9dee8') {
           retries--;
           if (retries === 0) {
             throw new ConflictException(
-              "Failed to generate unique order number after multiple attempts. Please try again.",
+              'Failed to generate unique order number after multiple attempts. Please try again.',
             );
           }
           // Wait a longer random time before retrying (50-200ms) to reduce collision probability
-          await new Promise((resolve) =>
-            setTimeout(resolve, 50 + Math.random() * 150),
-          );
+          await new Promise((resolve) => setTimeout(resolve, 50 + Math.random() * 150));
           continue;
         }
         // If it's not a duplicate error, rethrow immediately
@@ -250,24 +223,18 @@ export class SalesOrderService extends BaseCrudService<
 
     // If we exhausted retries but savedOrder is not set, throw the last error
     if (!savedOrder) {
-      throw lastError || new ConflictException("Failed to create sales order");
+      throw lastError || new ConflictException('Failed to create sales order');
     }
 
     // Create order items
     const createdItems = [];
     for (const itemData of orderItems) {
-      console.log(
-        "Creating order item with data:",
-        JSON.stringify(itemData, null, 2),
-      );
+      console.log('Creating order item with data:', JSON.stringify(itemData, null, 2));
       const orderItem = this.salesOrderItemRepository.create({
         ...itemData,
         salesOrderId: savedOrder.id,
       });
-      console.log(
-        "Created order item object:",
-        JSON.stringify(orderItem, null, 2),
-      );
+      console.log('Created order item object:', JSON.stringify(orderItem, null, 2));
       createdItems.push(await this.salesOrderItemRepository.save(orderItem));
     }
 
@@ -282,12 +249,12 @@ export class SalesOrderService extends BaseCrudService<
 
     // Log audit trail for create
     await this.auditLogService.log(
-      "CREATE",
-      "SalesOrder",
+      'CREATE',
+      'SalesOrder',
       `Created sales order: ${savedOrder.orderNumber} for ${customer.name} (RM ${totalAmount.toFixed(2)})`,
       {
         entityId: savedOrder.id,
-        userId: userId || "system",
+        userId: userId || 'system',
         username,
         newValues: {
           orderNumber: savedOrder.orderNumber,
@@ -306,19 +273,16 @@ export class SalesOrderService extends BaseCrudService<
     return this.salesOrderQueryService.findAll(query);
   }
 
-  async searchGlobal(
-    query: string,
-    user: any,
-  ): Promise<GlobalSearchResultDto[]> {
+  async searchGlobal(query: string, user: any): Promise<GlobalSearchResultDto[]> {
     if (!canSearchSalesOrders(user.role)) return [];
 
     const trimmed = query.trim();
     const q = trimmed.toLowerCase();
     const orders = await this.salesOrderRepository
-      .createQueryBuilder("order")
-      .leftJoinAndSelect("order.customer", "customer")
-      .where("order.deletedAt IS NULL")
-      .andWhere("(order.orderNumber ILIKE :q OR customer.name ILIKE :q)", {
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.customer', 'customer')
+      .where('order.deletedAt IS NULL')
+      .andWhere('(order.orderNumber ILIKE :q OR customer.name ILIKE :q)', {
         q: `%${trimmed}%`,
       })
       .take(SEARCH_CANDIDATE_LIMIT)
@@ -329,25 +293,21 @@ export class SalesOrderService extends BaseCrudService<
     }
 
     const fuzzyOrders = await this.salesOrderRepository
-      .createQueryBuilder("order")
-      .addSelect("similarity(order.orderNumber, :q)", "sim")
-      .leftJoinAndSelect("order.customer", "customer")
-      .where("order.deletedAt IS NULL")
-      .andWhere("similarity(order.orderNumber, :q) > 0.3")
-      .orderBy("sim", "DESC")
-      .setParameter("q", trimmed)
+      .createQueryBuilder('order')
+      .addSelect('similarity(order.orderNumber, :q)', 'sim')
+      .leftJoinAndSelect('order.customer', 'customer')
+      .where('order.deletedAt IS NULL')
+      .andWhere('similarity(order.orderNumber, :q) > 0.3')
+      .orderBy('sim', 'DESC')
+      .setParameter('q', trimmed)
       .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
     return fuzzyOrders.map((order) => this.mapSalesOrder(order, q, true));
   }
 
-  private mapSalesOrder(
-    order: SalesOrder,
-    q: string,
-    fuzzy: boolean,
-  ): GlobalSearchResultDto {
-    const orderNumber = order.orderNumber?.toLowerCase() ?? "";
+  private mapSalesOrder(order: SalesOrder, q: string, fuzzy: boolean): GlobalSearchResultDto {
+    const orderNumber = order.orderNumber?.toLowerCase() ?? '';
     const baseScore = fuzzy
       ? SCORE_FUZZY
       : orderNumber === q
@@ -357,15 +317,13 @@ export class SalesOrderService extends BaseCrudService<
           : SCORE_CONTAINS;
 
     return {
-      type: "transaction",
+      type: 'transaction',
       id: order.id,
       label: order.orderNumber,
-      description: order.customer?.name ?? "",
+      description: order.customer?.name ?? '',
       route: `/sales/orders/${order.id}/edit`,
       score:
-        baseScore +
-        BOOST_TRANSACTION +
-        (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
+        baseScore + BOOST_TRANSACTION + (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
     };
   }
 
@@ -397,7 +355,7 @@ export class SalesOrderService extends BaseCrudService<
       where: { id },
     });
     if (!order) {
-      throw new NotFoundException("Sales order not found");
+      throw new NotFoundException('Sales order not found');
     }
 
     const { items, customerId, notes } = updateSalesOrderDto;
@@ -421,9 +379,9 @@ export class SalesOrderService extends BaseCrudService<
       // Lock the parent order before deriving any totals from mutable state.
       const locked = await manager.getRepository(SalesOrder).findOne({
         where: { id },
-        lock: { mode: "pessimistic_write" },
+        lock: { mode: 'pessimistic_write' },
       });
-      if (!locked) throw new NotFoundException("Sales order not found");
+      if (!locked) throw new NotFoundException('Sales order not found');
 
       // Re-assert editability against the LOCKED row: assertEditAllowed ran on an
       // unlocked pre-read, so a concurrent fulfill/cancel could have moved the order out
@@ -436,8 +394,7 @@ export class SalesOrderService extends BaseCrudService<
       // A supplied customerId changes pricing, so re-pricing is required whenever the
       // customer changes — even with no items in the DTO. Detect that here so the
       // customer-only path re-prices existing items rather than keeping stale totals.
-      const customerChanged =
-        customerId !== undefined && customerId !== locked.customerId;
+      const customerChanged = customerId !== undefined && customerId !== locked.customerId;
 
       // Resolve the pricing/validation customer inside the lock. A supplied customerId is
       // validated whenever present (even for customer-only edits); otherwise fall back to
@@ -449,7 +406,7 @@ export class SalesOrderService extends BaseCrudService<
           relations: { priceList: true },
         });
         if (!pricingCustomer) {
-          throw new NotFoundException("Customer not found");
+          throw new NotFoundException('Customer not found');
         }
       } else if (items && items.length > 0) {
         pricingCustomer = await manager.getRepository(Customer).findOne({
@@ -457,7 +414,7 @@ export class SalesOrderService extends BaseCrudService<
           relations: { priceList: true },
         });
         if (!pricingCustomer) {
-          throw new NotFoundException("Customer not found");
+          throw new NotFoundException('Customer not found');
         }
       }
 
@@ -484,15 +441,9 @@ export class SalesOrderService extends BaseCrudService<
       }
 
       if (itemsToPrice && itemsToPrice.length > 0) {
-        orderItems = await this.validateAndProcessItems(
-          itemsToPrice,
-          pricingCustomer!,
-          manager,
-        );
+        orderItems = await this.validateAndProcessItems(itemsToPrice, pricingCustomer!, manager);
 
-        await manager
-          .getRepository(SalesOrderItem)
-          .delete({ salesOrderId: id });
+        await manager.getRepository(SalesOrderItem).delete({ salesOrderId: id });
         for (const itemData of orderItems) {
           // Use direct repository insert instead of create/save to bypass entity hooks.
           await manager.getRepository(SalesOrderItem).insert({
@@ -540,10 +491,7 @@ export class SalesOrderService extends BaseCrudService<
       // reconciled order so we can snapshot it for the audit without re-reading.
       let reconciled: SalesOrder | null = null;
       if (updateData.totalAmount !== undefined) {
-        reconciled = await this.salesOrderPaymentService.reconcileOrderState(
-          id,
-          manager,
-        );
+        reconciled = await this.salesOrderPaymentService.reconcileOrderState(id, manager);
       }
 
       // Capture the post-edit row BEFORE the lock releases so the audit "after" reflects
@@ -552,8 +500,7 @@ export class SalesOrderService extends BaseCrudService<
       // with no priced items) that still mutated the row.
       if (hasChanges) {
         const after =
-          reconciled ??
-          (await manager.getRepository(SalesOrder).findOne({ where: { id } }));
+          reconciled ?? (await manager.getRepository(SalesOrder).findOne({ where: { id } }));
         if (after) {
           auditNewValues = SalesOrderService.snapshotOrderForAudit(after);
         }
@@ -563,12 +510,12 @@ export class SalesOrderService extends BaseCrudService<
     // Log audit trail for update
     if (Object.keys(updateData).length > 0) {
       await this.auditLogService.log(
-        "UPDATE",
-        "SalesOrder",
+        'UPDATE',
+        'SalesOrder',
         `Updated sales order: ${order.orderNumber}`,
         {
           entityId: id,
-          userId: userId || "system",
+          userId: userId || 'system',
           username,
           oldValues: auditOldValues,
           newValues: auditNewValues ?? updateData,
@@ -579,17 +526,14 @@ export class SalesOrderService extends BaseCrudService<
     return this.findById(id);
   }
 
-  async duplicateOrder(
-    id: string,
-    userId: string,
-  ): Promise<SalesOrderResponseDto> {
+  async duplicateOrder(id: string, userId: string): Promise<SalesOrderResponseDto> {
     const originalOrder = await this.salesOrderRepository.findOne({
       where: { id },
       relations: { items: true },
     });
 
     if (!originalOrder) {
-      throw new NotFoundException("Sales order not found");
+      throw new NotFoundException('Sales order not found');
     }
 
     const duplicateData: CreateSalesOrderDto = {
@@ -620,11 +564,10 @@ export class SalesOrderService extends BaseCrudService<
     });
 
     if (!order) {
-      throw new NotFoundException("Sales order not found");
+      throw new NotFoundException('Sales order not found');
     }
 
-    const inventoryStatus =
-      await this.inventoryIntegrationService.getOrderFulfillmentStatus(id);
+    const inventoryStatus = await this.inventoryIntegrationService.getOrderFulfillmentStatus(id);
 
     return {
       orderId: id,
@@ -640,10 +583,7 @@ export class SalesOrderService extends BaseCrudService<
 
   // Helper methods
 
-  private async triggerMetricUpdate(
-    customerId: string,
-    context: string,
-  ): Promise<void> {
+  private async triggerMetricUpdate(customerId: string, context: string): Promise<void> {
     try {
       await this.customerService.updateCustomerMetrics(customerId);
     } catch (error) {
@@ -672,9 +612,7 @@ export class SalesOrderService extends BaseCrudService<
    * Build the normalized before/after value snapshot logged on an order edit. Kept in
    * one place so the audit "old" and "new" records always share the exact same shape.
    */
-  private static snapshotOrderForAudit(
-    order: SalesOrder,
-  ): Record<string, unknown> {
+  private static snapshotOrderForAudit(order: SalesOrder): Record<string, unknown> {
     return {
       customerId: order.customerId,
       notes: order.notes ?? null,
@@ -693,9 +631,7 @@ export class SalesOrderService extends BaseCrudService<
     customer?: Customer,
     manager?: EntityManager,
   ) {
-    const productRepo = manager
-      ? manager.getRepository(Product)
-      : this.productRepository;
+    const productRepo = manager ? manager.getRepository(Product) : this.productRepository;
     const priceListItemRepo = manager
       ? manager.getRepository(PriceListItem)
       : this.priceListItemRepository;
@@ -724,9 +660,7 @@ export class SalesOrderService extends BaseCrudService<
     for (const item of items) {
       const product = productById.get(item.productId);
       if (!product) {
-        throw new NotFoundException(
-          `Product with ID ${item.productId} not found`,
-        );
+        throw new NotFoundException(`Product with ID ${item.productId} not found`);
       }
 
       // Determine unit price - price list first, then fall back to baseCost.
@@ -744,15 +678,9 @@ export class SalesOrderService extends BaseCrudService<
 
       // Calculate total discount for the line (not per unit)
       let calculatedDiscountAmount = 0;
-      if (
-        item.discountType === DiscountType.PERCENTAGE &&
-        discountPercent > 0
-      ) {
+      if (item.discountType === DiscountType.PERCENTAGE && discountPercent > 0) {
         calculatedDiscountAmount = (lineTotal * discountPercent) / 100;
-      } else if (
-        item.discountType === DiscountType.AMOUNT &&
-        discountAmount > 0
-      ) {
+      } else if (item.discountType === DiscountType.AMOUNT && discountAmount > 0) {
         calculatedDiscountAmount = discountAmount;
       }
 
@@ -775,20 +703,12 @@ export class SalesOrderService extends BaseCrudService<
     return processedItems;
   }
 
-  async cancel(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<SalesOrderResponseDto> {
+  async cancel(id: string, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
     await this.salesOrderLifecycleService.cancel(id, userId, username);
     return this.salesOrderQueryService.findById(id);
   }
 
-  async uncancel(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<SalesOrderResponseDto> {
+  async uncancel(id: string, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
     await this.salesOrderLifecycleService.uncancel(id, userId, username);
     return this.salesOrderQueryService.findById(id);
   }
@@ -799,12 +719,7 @@ export class SalesOrderService extends BaseCrudService<
     userId?: string,
     username?: string,
   ): Promise<SalesOrderResponseDto> {
-    await this.salesOrderPaymentService.recordPayment(
-      orderId,
-      dto,
-      userId,
-      username,
-    );
+    await this.salesOrderPaymentService.recordPayment(orderId, dto, userId, username);
     return this.salesOrderQueryService.findById(orderId);
   }
 
@@ -814,12 +729,7 @@ export class SalesOrderService extends BaseCrudService<
     userId?: string,
     username?: string,
   ): Promise<SalesOrderResponseDto> {
-    await this.salesOrderPaymentService.recordRefund(
-      orderId,
-      dto,
-      userId,
-      username,
-    );
+    await this.salesOrderPaymentService.recordRefund(orderId, dto, userId, username);
     return this.salesOrderQueryService.findById(orderId);
   }
 
@@ -829,12 +739,7 @@ export class SalesOrderService extends BaseCrudService<
     userId?: string,
     username?: string,
   ): Promise<SalesOrderPayment[]> {
-    return this.salesOrderPaymentService.recordPayments(
-      orderId,
-      dtos,
-      userId,
-      username,
-    );
+    return this.salesOrderPaymentService.recordPayments(orderId, dtos, userId, username);
   }
 
   async recordRefunds(
@@ -843,12 +748,7 @@ export class SalesOrderService extends BaseCrudService<
     userId?: string,
     username?: string,
   ) {
-    return this.salesOrderPaymentService.recordRefunds(
-      orderId,
-      dtos,
-      userId,
-      username,
-    );
+    return this.salesOrderPaymentService.recordRefunds(orderId, dtos, userId, username);
   }
 
   async listPayments(orderId: string) {
@@ -869,11 +769,7 @@ export class SalesOrderService extends BaseCrudService<
     userId?: string,
     username?: string,
   ): Promise<SalesOrderResponseDto> {
-    await this.salesOrderFulfillmentService.unfulfillOrder(
-      id,
-      userId,
-      username,
-    );
+    await this.salesOrderFulfillmentService.unfulfillOrder(id, userId, username);
     return this.salesOrderQueryService.findById(id);
   }
 }

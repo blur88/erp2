@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
-import InvoicePrint from '../InvoicePrint'
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import InvoicePrint from '../InvoicePrint';
 
 const mockPrintData = {
   logoUrl: '',
@@ -15,18 +15,18 @@ const mockPrintData = {
   website: '',
   salesPerPageFooter: '',
   salesEndOfDocFooter: '',
-}
+};
 
 vi.mock('@/store/api/printSettingsApi', () => ({
   useGetPrintSettingsQuery: vi.fn(() => ({
     data: mockPrintData,
     isLoading: false,
   })),
-}))
+}));
 
 vi.mock('@/hooks/useCurrency', () => ({
   useCurrency: vi.fn(() => ({ currency: 'RM' })),
-}))
+}));
 
 describe('InvoicePrint', () => {
   it('renders "Invoice" title', () => {
@@ -43,9 +43,9 @@ describe('InvoicePrint', () => {
         }}
         paidTotal={70}
       />,
-    )
-    expect(screen.getByText('INVOICE')).toBeInTheDocument()
-  })
+    );
+    expect(screen.getByText('INVOICE')).toBeInTheDocument();
+  });
 
   it('shows Balance Due', () => {
     render(
@@ -59,9 +59,9 @@ describe('InvoicePrint', () => {
         }}
         paidTotal={70}
       />,
-    )
-    expect(screen.getByText('Balance:')).toBeInTheDocument()
-  })
+    );
+    expect(screen.getByText('Balance:')).toBeInTheDocument();
+  });
 
   it('calculates Balance Due correctly: (100 + 10) - 70 = 40', () => {
     render(
@@ -75,7 +75,7 @@ describe('InvoicePrint', () => {
         }}
         paidTotal={70}
       />,
-    )
-    expect(screen.getByText('RM 40.00')).toBeInTheDocument()
-  })
-})
+    );
+    expect(screen.getByText('RM 40.00')).toBeInTheDocument();
+  });
+});

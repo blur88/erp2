@@ -8,8 +8,8 @@ import {
   BeforeUpdate,
   ManyToOne,
   JoinColumn,
-} from "typeorm";
-import { IsUUID, IsDate, IsOptional, IsBoolean } from "class-validator";
+} from 'typeorm';
+import { IsUUID, IsDate, IsOptional, IsBoolean } from 'class-validator';
 
 /**
  * Base entity class that provides common fields for all entities
@@ -19,44 +19,48 @@ import { IsUUID, IsDate, IsOptional, IsBoolean } from "class-validator";
  * - Soft delete support
  */
 export abstract class BaseEntity {
-  @PrimaryGeneratedColumn("uuid")
+  @PrimaryGeneratedColumn('uuid')
   @IsOptional()
   @IsUUID(4)
   id: string;
 
   @CreateDateColumn({
-    type: "timestamptz",
-    default: () => "CURRENT_TIMESTAMP",
+    type: 'timestamptz',
+    default: () => 'CURRENT_TIMESTAMP',
   })
   @IsOptional()
   @IsDate()
   readonly createdAt: Date;
 
   @UpdateDateColumn({
-    type: "timestamptz",
-    default: () => "CURRENT_TIMESTAMP",
+    type: 'timestamptz',
+    default: () => 'CURRENT_TIMESTAMP',
   })
   @IsOptional()
   @IsDate()
   readonly updatedAt: Date;
 
   @DeleteDateColumn({
-    type: "timestamptz",
+    type: 'timestamptz',
     nullable: true,
   })
   @IsOptional()
   @IsDate()
   readonly deletedAt?: Date;
 
+  
+  
+  
   @Column({
-    type: "boolean",
+    type: 'boolean',
     default: true,
-    comment: "Soft delete flag for performance queries",
+    comment: 'Soft delete flag for performance queries',
   })
   @IsOptional()
   @IsBoolean()
   isActive: boolean;
 
+  
   @BeforeInsert()
   async beforeInsert() {
     // Set default values

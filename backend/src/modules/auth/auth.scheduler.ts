@@ -1,6 +1,6 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { Cron, CronExpression } from "@nestjs/schedule";
-import { AuthService } from "./auth.service";
+import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { AuthService } from './auth.service';
 
 /**
  * Scheduled tasks for authentication module
@@ -17,15 +17,13 @@ export class AuthScheduler {
    */
   @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async handleTokenCleanup() {
-    this.logger.log("Starting scheduled cleanup of expired refresh tokens");
+    this.logger.log('Starting scheduled cleanup of expired refresh tokens');
 
     try {
       const deletedCount = await this.authService.cleanupExpiredTokens();
-      this.logger.log(
-        `Token cleanup completed: ${deletedCount} expired tokens removed`,
-      );
+      this.logger.log(`Token cleanup completed: ${deletedCount} expired tokens removed`);
     } catch (error) {
-      this.logger.error("Token cleanup failed", error.stack);
+      this.logger.error('Token cleanup failed', error.stack);
     }
   }
 }

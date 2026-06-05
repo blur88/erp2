@@ -1,37 +1,34 @@
-import { Test, TestingModule } from "@nestjs/testing";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import {
   NotFoundException,
   BadRequestException,
   ConflictException,
-} from "@nestjs/common";
-import { AccountMappingService } from "./account-mapping.service";
-import {
-  AccountMapping,
-  MappingType,
-} from "../../../database/entities/account-mapping.entity";
-import { ChartOfAccount } from "../../../database/entities/chart-of-account.entity";
-import { PaymentMethodEntity } from "../../../database/entities/payment-method.entity";
-import { AuditLogService } from "../../audit-logs/services";
+} from '@nestjs/common';
+import { AccountMappingService } from './account-mapping.service';
+import { AccountMapping, MappingType } from '../../../database/entities/account-mapping.entity';
+import { ChartOfAccount } from '../../../database/entities/chart-of-account.entity';
+import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
+import { AuditLogService } from '../../audit-logs/services';
 import {
   CreateAccountMappingDto,
   UpdateAccountMappingDto,
-} from "../dto/account-mapping.dto";
+} from '../dto/account-mapping.dto';
 
-describe("AccountMappingService", () => {
+describe('AccountMappingService', () => {
   let service: AccountMappingService;
   let mappingRepository: jest.Mocked<Repository<AccountMapping>>;
   let accountRepository: jest.Mocked<Repository<ChartOfAccount>>;
 
-  const mockAccountId = "123e4567-e89b-12d3-a456-426614174000";
-  const mockMappingId = "223e4567-e89b-12d3-a456-426614174001";
+  const mockAccountId = '123e4567-e89b-12d3-a456-426614174000';
+  const mockMappingId = '223e4567-e89b-12d3-a456-426614174001';
 
   const mockAccount: Partial<ChartOfAccount> = {
     id: mockAccountId,
-    code: "4000",
-    name: "Sales Revenue",
-    type: "REVENUE" as any,
+    code: '4000',
+    name: 'Sales Revenue',
+    type: 'REVENUE' as any,
     isActive: true,
   };
 
@@ -39,7 +36,7 @@ describe("AccountMappingService", () => {
     id: mockMappingId,
     mappingType: MappingType.SALES_REVENUE,
     accountId: mockAccountId,
-    description: "Sales revenue account",
+    description: 'Sales revenue account',
     isActive: true,
     account: mockAccount as ChartOfAccount,
     createdAt: new Date(),
@@ -104,45 +101,33 @@ describe("AccountMappingService", () => {
     jest.clearAllMocks();
   });
 
-  describe("getMappings", () => {
-    it("should return mappings as object keyed by MappingType", async () => {
+  describe('getMappings', () => {
+    it('should return mappings as object keyed by MappingType', async () => {
       const mockMappings = [
         { ...mockMapping, mappingType: MappingType.SALES_REVENUE },
-        {
-          ...mockMapping,
-          mappingType: MappingType.SALES_AR,
-          accountId: "another-id",
-        },
+        { ...mockMapping, mappingType: MappingType.SALES_AR, accountId: 'another-id' },
       ];
 
-      mappingRepository.find.mockResolvedValue(
-        mockMappings as AccountMapping[],
-      );
+      mappingRepository.find.mockResolvedValue(mockMappings as AccountMapping[]);
 
       const result = await service.getMappings();
 
       expect(result).toEqual({
         [MappingType.SALES_REVENUE]: mockAccountId,
-        [MappingType.SALES_AR]: "another-id",
+        [MappingType.SALES_AR]: 'another-id',
       });
       expect(mappingRepository.find).toHaveBeenCalledWith({
         where: { isActive: true },
       });
     });
 
-    it("should only include active mappings", async () => {
+    it('should only include active mappings', async () => {
       const mockMappings = [
-        {
-          ...mockMapping,
-          mappingType: MappingType.SALES_REVENUE,
-          isActive: true,
-        },
+        { ...mockMapping, mappingType: MappingType.SALES_REVENUE, isActive: true },
         { ...mockMapping, mappingType: MappingType.SALES_AR, isActive: false },
       ];
 
-      mappingRepository.find.mockResolvedValue([
-        mockMappings[0],
-      ] as AccountMapping[]);
+      mappingRepository.find.mockResolvedValue([mockMappings[0]] as AccountMapping[]);
 
       const result = await service.getMappings();
 
@@ -152,7 +137,7 @@ describe("AccountMappingService", () => {
       expect(result[MappingType.SALES_AR]).toBeUndefined();
     });
 
-    it("should return empty object when no mappings exist", async () => {
+    it('should return empty object when no mappings exist', async () => {
       mappingRepository.find.mockResolvedValue([]);
 
       const result = await service.getMappings();
@@ -161,8 +146,8 @@ describe("AccountMappingService", () => {
     });
   });
 
-  describe("validateMappings", () => {
-    it("should return validation result with all required mapping types", async () => {
+  describe('validateMappings', () => {
+    it('should return validation result with all required mapping types', async () => {
       const allMappingTypes = Object.values(MappingType);
       const mockMappings = allMappingTypes.map((type, idx) => ({
         ...mockMapping,
@@ -170,9 +155,7 @@ describe("AccountMappingService", () => {
         accountId: `account-${idx}`,
       }));
 
-      mappingRepository.find.mockResolvedValue(
-        mockMappings as AccountMapping[],
-      );
+      mappingRepository.find.mockResolvedValue(mockMappings as AccountMapping[]);
 
       const result = await service.validateMappings();
 
@@ -181,15 +164,13 @@ describe("AccountMappingService", () => {
       expect(result.configuredMappings).toHaveLength(allMappingTypes.length);
     });
 
-    it("should identify missing mapping types", async () => {
+    it('should identify missing mapping types', async () => {
       const mockMappings = [
         { ...mockMapping, mappingType: MappingType.SALES_REVENUE },
         { ...mockMapping, mappingType: MappingType.SALES_AR },
       ];
 
-      mappingRepository.find.mockResolvedValue(
-        mockMappings as AccountMapping[],
-      );
+      mappingRepository.find.mockResolvedValue(mockMappings as AccountMapping[]);
 
       const result = await service.validateMappings();
 
@@ -199,62 +180,52 @@ describe("AccountMappingService", () => {
       expect(result.missingMappings).toContain(MappingType.SALES_INVENTORY);
     });
 
-    it("should return false when no mappings configured", async () => {
+    it('should return false when no mappings configured', async () => {
       mappingRepository.find.mockResolvedValue([]);
 
       const result = await service.validateMappings();
 
       expect(result.isValid).toBe(false);
-      expect(result.missingMappings).toHaveLength(
-        Object.values(MappingType).length,
-      );
+      expect(result.missingMappings).toHaveLength(Object.values(MappingType).length);
     });
   });
 
-  describe("create", () => {
+  describe('create', () => {
     const createDto: CreateAccountMappingDto = {
       mappingType: MappingType.SALES_REVENUE,
       accountId: mockAccountId,
-      description: "Sales revenue account",
+      description: 'Sales revenue account',
     };
 
-    it("should create a new mapping successfully", async () => {
+    it('should create a new mapping successfully', async () => {
       // First findOne check for existing mapping
       mappingRepository.findOne.mockResolvedValueOnce(null);
-      accountRepository.findOne.mockResolvedValue(
-        mockAccount as ChartOfAccount,
-      );
+      accountRepository.findOne.mockResolvedValue(mockAccount as ChartOfAccount);
       mappingRepository.create.mockReturnValue(mockMapping as AccountMapping);
       mappingRepository.save.mockResolvedValue(mockMapping as AccountMapping);
       // Second findOne to reload with relations
-      mappingRepository.findOne.mockResolvedValueOnce(
-        mockMapping as AccountMapping,
-      );
+      mappingRepository.findOne.mockResolvedValueOnce(mockMapping as AccountMapping);
 
-      const result = await service.create(createDto, "test-user");
+      const result = await service.create(createDto, 'test-user');
 
       expect(result.id).toBe(mockMapping.id);
       expect(result.mappingType).toBe(mockMapping.mappingType);
       expect(mappingRepository.save).toHaveBeenCalled();
     });
 
-    it("should throw ConflictException if mappingType already exists", async () => {
-      accountRepository.findOne.mockResolvedValue(
-        mockAccount as ChartOfAccount,
-      );
-      mappingRepository.findOne.mockResolvedValue(
-        mockMapping as AccountMapping,
-      );
+    it('should throw ConflictException if mappingType already exists', async () => {
+      accountRepository.findOne.mockResolvedValue(mockAccount as ChartOfAccount);
+      mappingRepository.findOne.mockResolvedValue(mockMapping as AccountMapping);
 
-      await expect(service.create(createDto, "test-user")).rejects.toThrow(
+      await expect(service.create(createDto, 'test-user')).rejects.toThrow(
         ConflictException,
       );
     });
 
-    it("should restore soft-deleted mapping type and update account", async () => {
+    it('should restore soft-deleted mapping type and update account', async () => {
       const deletedMapping = {
         ...mockMapping,
-        deletedAt: new Date("2026-02-10T00:00:00.000Z"),
+        deletedAt: new Date('2026-02-10T00:00:00.000Z'),
       };
       const restoredMapping = {
         ...deletedMapping,
@@ -267,20 +238,16 @@ describe("AccountMappingService", () => {
       mappingRepository.findOne.mockResolvedValueOnce(
         deletedMapping as AccountMapping,
       );
-      accountRepository.findOne.mockResolvedValue(
-        mockAccount as ChartOfAccount,
-      );
+      accountRepository.findOne.mockResolvedValue(mockAccount as ChartOfAccount);
       mappingRepository.recover.mockResolvedValue(
         restoredMapping as AccountMapping,
       );
-      mappingRepository.save.mockResolvedValue(
-        restoredMapping as AccountMapping,
-      );
+      mappingRepository.save.mockResolvedValue(restoredMapping as AccountMapping);
       mappingRepository.findOne.mockResolvedValueOnce(
         restoredMapping as AccountMapping,
       );
 
-      const result = await service.create(createDto, "test-user");
+      const result = await service.create(createDto, 'test-user');
 
       expect(mappingRepository.recover).toHaveBeenCalled();
       expect(mappingRepository.save).toHaveBeenCalledWith(
@@ -294,7 +261,7 @@ describe("AccountMappingService", () => {
       expect(result.mappingType).toBe(createDto.mappingType);
     });
 
-    it("should reactivate inactive mapping type and update account", async () => {
+    it('should reactivate inactive mapping type and update account', async () => {
       const inactiveMapping = {
         ...mockMapping,
         isActive: false,
@@ -310,9 +277,7 @@ describe("AccountMappingService", () => {
       mappingRepository.findOne.mockResolvedValueOnce(
         inactiveMapping as AccountMapping,
       );
-      accountRepository.findOne.mockResolvedValue(
-        mockAccount as ChartOfAccount,
-      );
+      accountRepository.findOne.mockResolvedValue(mockAccount as ChartOfAccount);
       mappingRepository.save.mockResolvedValue(
         reactivatedMapping as AccountMapping,
       );
@@ -320,7 +285,7 @@ describe("AccountMappingService", () => {
         reactivatedMapping as AccountMapping,
       );
 
-      const result = await service.create(createDto, "test-user");
+      const result = await service.create(createDto, 'test-user');
 
       expect(mappingRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -333,28 +298,28 @@ describe("AccountMappingService", () => {
       expect(result.mappingType).toBe(createDto.mappingType);
     });
 
-    it("should throw NotFoundException if account does not exist", async () => {
+    it('should throw NotFoundException if account does not exist', async () => {
       mappingRepository.findOne.mockResolvedValue(null);
       accountRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.create(createDto, "test-user")).rejects.toThrow(
+      await expect(service.create(createDto, 'test-user')).rejects.toThrow(
         NotFoundException,
       );
     });
 
-    it("should throw NotFoundException if account is inactive", async () => {
+    it('should throw NotFoundException if account is inactive', async () => {
       mappingRepository.findOne.mockResolvedValue(null);
       // When account is inactive, findOne with isActive: true returns null
       accountRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.create(createDto, "test-user")).rejects.toThrow(
+      await expect(service.create(createDto, 'test-user')).rejects.toThrow(
         NotFoundException,
       );
     });
   });
 
-  describe("findAll", () => {
-    it("should return paginated mappings", async () => {
+  describe('findAll', () => {
+    it('should return paginated mappings', async () => {
       const mockMappings = [mockMapping];
       mockQueryBuilder.getManyAndCount.mockResolvedValue([mockMappings, 1]);
 
@@ -366,34 +331,32 @@ describe("AccountMappingService", () => {
       expect(result.meta.page).toBe(1);
     });
 
-    it("should filter by isActive", async () => {
+    it('should filter by isActive', async () => {
       mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
 
       await service.findAll({ isActive: true });
 
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        "mapping.isActive = :isActive",
+        'mapping.isActive = :isActive',
         { isActive: true },
       );
     });
 
-    it("should filter by mappingType", async () => {
+    it('should filter by mappingType', async () => {
       mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
 
       await service.findAll({ mappingType: MappingType.SALES_REVENUE });
 
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        "mapping.mappingType = :mappingType",
+        'mapping.mappingType = :mappingType',
         { mappingType: MappingType.SALES_REVENUE },
       );
     });
   });
 
-  describe("findOne", () => {
-    it("should return a mapping by id", async () => {
-      mappingRepository.findOne.mockResolvedValue(
-        mockMapping as AccountMapping,
-      );
+  describe('findOne', () => {
+    it('should return a mapping by id', async () => {
+      mappingRepository.findOne.mockResolvedValue(mockMapping as AccountMapping);
 
       const result = await service.findOne(mockMappingId);
 
@@ -406,7 +369,7 @@ describe("AccountMappingService", () => {
       });
     });
 
-    it("should throw NotFoundException if mapping not found", async () => {
+    it('should throw NotFoundException if mapping not found', async () => {
       mappingRepository.findOne.mockResolvedValue(null);
 
       await expect(service.findOne(mockMappingId)).rejects.toThrow(
@@ -415,81 +378,65 @@ describe("AccountMappingService", () => {
     });
   });
 
-  describe("update", () => {
+  describe('update', () => {
     const updateDto: UpdateAccountMappingDto = {
-      accountId: "new-account-id",
-      description: "Updated description",
+      accountId: 'new-account-id',
+      description: 'Updated description',
     };
 
-    it("should update a mapping successfully", async () => {
+    it('should update a mapping successfully', async () => {
       const updatedMapping = { ...mockMapping, ...updateDto };
       // First findOne for getting the mapping
-      mappingRepository.findOne.mockResolvedValueOnce(
-        mockMapping as AccountMapping,
-      );
-      accountRepository.findOne.mockResolvedValue(
-        mockAccount as ChartOfAccount,
-      );
-      mappingRepository.save.mockResolvedValue(
-        updatedMapping as AccountMapping,
-      );
+      mappingRepository.findOne.mockResolvedValueOnce(mockMapping as AccountMapping);
+      accountRepository.findOne.mockResolvedValue(mockAccount as ChartOfAccount);
+      mappingRepository.save.mockResolvedValue(updatedMapping as AccountMapping);
       // Second findOne for reloading with relations
-      mappingRepository.findOne.mockResolvedValueOnce(
-        updatedMapping as AccountMapping,
-      );
+      mappingRepository.findOne.mockResolvedValueOnce(updatedMapping as AccountMapping);
 
-      const result = await service.update(
-        mockMappingId,
-        updateDto,
-        "test-user",
-      );
+      const result = await service.update(mockMappingId, updateDto, 'test-user');
 
       expect(result.accountId).toBe(updateDto.accountId);
       expect(result.description).toBe(updateDto.description);
     });
 
-    it("should throw NotFoundException if mapping not found", async () => {
+    it('should throw NotFoundException if mapping not found', async () => {
       mappingRepository.findOne.mockResolvedValue(null);
 
-      await expect(
-        service.update(mockMappingId, updateDto, "test-user"),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.update(mockMappingId, updateDto, 'test-user')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
-    it("should validate account exists when updating accountId", async () => {
+    it('should validate account exists when updating accountId', async () => {
       const mapping = { ...mockMapping, accountId: mockAccountId };
-      const newAccountDto = { accountId: "different-account-id" };
+      const newAccountDto = { accountId: 'different-account-id' };
 
-      mappingRepository.findOne.mockResolvedValueOnce(
-        mapping as AccountMapping,
-      );
+      mappingRepository.findOne.mockResolvedValueOnce(mapping as AccountMapping);
       accountRepository.findOne.mockResolvedValueOnce(null);
 
-      await expect(
-        service.update(mockMappingId, newAccountDto, "test-user"),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.update(mockMappingId, newAccountDto, 'test-user')).rejects.toThrow(
+        NotFoundException,
+      );
 
       // Verify account validation was called
       expect(accountRepository.findOne).toHaveBeenCalled();
     });
   });
 
-  describe("remove", () => {
-    it("should soft delete a mapping", async () => {
-      mappingRepository.findOne.mockResolvedValue(
-        mockMapping as AccountMapping,
-      );
+  describe('remove', () => {
+    it('should soft delete a mapping', async () => {
+      mappingRepository.findOne.mockResolvedValue(mockMapping as AccountMapping);
       mappingRepository.softDelete.mockResolvedValue({ affected: 1 } as any);
 
-      await service.remove(mockMappingId, "test-user");
+      await service.remove(mockMappingId, 'test-user');
 
       expect(mappingRepository.softDelete).toHaveBeenCalledWith(mockMappingId);
     });
 
-    it("should throw NotFoundException if mapping not found", async () => {
+    it('should throw NotFoundException if mapping not found', async () => {
       mappingRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.remove(mockMappingId, "test-user")).rejects.toThrow(
+      await expect(service.remove(mockMappingId, 'test-user')).rejects.toThrow(
         NotFoundException,
       );
     });

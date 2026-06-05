@@ -4,16 +4,16 @@ import {
   BadRequestException,
   ConflictException,
   Logger,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import {
   ChartOfAccount,
   AccountType,
-} from "../../../database/entities/chart-of-account.entity";
-import { JournalEntryLine } from "../../../database/entities/journal-entry-line.entity";
-import { AccountMapping } from "../../../database/entities/account-mapping.entity";
-import { BankReconciliation } from "../../../database/entities/bank-reconciliation.entity";
+} from '../../../database/entities/chart-of-account.entity';
+import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
+import { AccountMapping } from '../../../database/entities/account-mapping.entity';
+import { BankReconciliation } from '../../../database/entities/bank-reconciliation.entity';
 import {
   CreateChartOfAccountDto,
   UpdateChartOfAccountDto,
@@ -22,8 +22,8 @@ import {
   ChartOfAccountListResponseDto,
   ChartOfAccountHierarchyDto,
   RecentActivityItemDto,
-} from "../dto/chart-of-account.dto";
-import { AuditLogService } from "../../audit-logs/services";
+} from '../dto/chart-of-account.dto';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class ChartOfAccountsService {
@@ -61,7 +61,7 @@ export class ChartOfAccountsService {
       if (existingAccount.deletedAt) {
         throw new ConflictException(
           `Account with code '${createDto.code}' was previously deleted. ` +
-            `Please restore it or use a different code.`,
+          `Please restore it or use a different code.`,
         );
       }
       throw new ConflictException(
@@ -98,10 +98,10 @@ export class ChartOfAccountsService {
     const savedAccount = await this.accountRepository.save(account);
 
     await this.auditLogService.log(
-      "CREATE",
-      "Account",
+      'CREATE',
+      'Account',
       `Created account: ${savedAccount.code} - ${savedAccount.name}`,
-      { entityId: savedAccount.id, userId: userId ?? "system", username },
+      { entityId: savedAccount.id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Account created successfully with ID: ${savedAccount.id}`);
@@ -122,49 +122,47 @@ export class ChartOfAccountsService {
       isActive,
       parentId,
       isCashEquivalent,
-      sortBy = "code",
-      sortOrder = "ASC",
+      sortBy = 'code',
+      sortOrder = 'ASC',
     } = query;
 
     const queryBuilder = this.accountRepository
-      .createQueryBuilder("account")
-      .leftJoinAndSelect("account.parent", "parent")
-      .where("account.deletedAt IS NULL");
+      .createQueryBuilder('account')
+      .leftJoinAndSelect('account.parent', 'parent')
+      .where('account.deletedAt IS NULL');
 
     // Apply filters
     if (search) {
       queryBuilder.andWhere(
-        "(account.code ILIKE :search OR account.name ILIKE :search)",
+        '(account.code ILIKE :search OR account.name ILIKE :search)',
         { search: `%${search}%` },
       );
     }
 
     if (type) {
-      queryBuilder.andWhere("account.type = :type", { type });
+      queryBuilder.andWhere('account.type = :type', { type });
     }
 
     if (isActive !== undefined) {
-      queryBuilder.andWhere("account.isActive = :isActive", { isActive });
+      queryBuilder.andWhere('account.isActive = :isActive', { isActive });
     }
 
     if (isCashEquivalent !== undefined) {
-      queryBuilder.andWhere("account.isCashEquivalent = :isCashEquivalent", {
-        isCashEquivalent,
-      });
+      queryBuilder.andWhere('account.isCashEquivalent = :isCashEquivalent', { isCashEquivalent });
     }
 
     if (parentId !== undefined) {
-      if (parentId === null || parentId === "null") {
-        queryBuilder.andWhere("account.parentId IS NULL");
+      if (parentId === null || parentId === 'null') {
+        queryBuilder.andWhere('account.parentId IS NULL');
       } else {
-        queryBuilder.andWhere("account.parentId = :parentId", { parentId });
+        queryBuilder.andWhere('account.parentId = :parentId', { parentId });
       }
     }
 
     // Apply sorting
-    const validSortFields = ["code", "name", "type", "createdAt"];
-    const sortField = validSortFields.includes(sortBy) ? sortBy : "code";
-    const safeSortOrder = sortOrder?.toUpperCase() === "DESC" ? "DESC" : "ASC";
+    const validSortFields = ['code', 'name', 'type', 'createdAt'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'code';
+    const safeSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
     queryBuilder.orderBy(`account.${sortField}`, safeSortOrder);
 
@@ -236,7 +234,7 @@ export class ChartOfAccountsService {
         if (existingAccount.deletedAt) {
           throw new ConflictException(
             `Account with code '${updateDto.code}' was previously deleted. ` +
-              `Please restore it or use a different code.`,
+            `Please restore it or use a different code.`,
           );
         }
         throw new ConflictException(
@@ -259,7 +257,7 @@ export class ChartOfAccountsService {
 
       // Prevent circular reference
       if (updateDto.parentId === id) {
-        throw new BadRequestException("An account cannot be its own parent");
+        throw new BadRequestException('An account cannot be its own parent');
       }
 
       // Ensure parent account is the same type
@@ -274,7 +272,7 @@ export class ChartOfAccountsService {
       const isDescendant = await this.isDescendantOf(updateDto.parentId, id);
       if (isDescendant) {
         throw new BadRequestException(
-          "Cannot set parent to a descendant account (circular reference)",
+          'Cannot set parent to a descendant account (circular reference)',
         );
       }
     }
@@ -291,10 +289,10 @@ export class ChartOfAccountsService {
     });
 
     await this.auditLogService.log(
-      "UPDATE",
-      "Account",
+      'UPDATE',
+      'Account',
       `Updated account: ${account.code} - ${account.name}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Account updated successfully: ${id}`);
@@ -320,7 +318,7 @@ export class ChartOfAccountsService {
     if (account.children && account.children.length > 0) {
       throw new BadRequestException(
         `Cannot delete account '${account.name}' - it has ${account.children.length} child account(s). ` +
-          `Please delete or reassign child accounts first.`,
+        `Please delete or reassign child accounts first.`,
       );
     }
 
@@ -332,7 +330,7 @@ export class ChartOfAccountsService {
     if (journalEntryLineCount > 0) {
       throw new BadRequestException(
         `Cannot delete account '${account.name}' - it has ${journalEntryLineCount} journal entry line(s). ` +
-          `Accounts with transactions cannot be deleted.`,
+        `Accounts with transactions cannot be deleted.`,
       );
     }
 
@@ -340,10 +338,10 @@ export class ChartOfAccountsService {
     await this.accountRepository.softDelete(id);
 
     await this.auditLogService.log(
-      "DELETE",
-      "Account",
+      'DELETE',
+      'Account',
       `Deleted account: ${account.code} - ${account.name}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Account soft-deleted successfully: ${id}`);
@@ -353,32 +351,26 @@ export class ChartOfAccountsService {
    * Get all soft-deleted accounts
    */
   async findDeleted(): Promise<ChartOfAccountResponseDto[]> {
-    this.logger.log("Fetching all soft-deleted accounts");
+    this.logger.log('Fetching all soft-deleted accounts');
 
     const deletedAccounts = await this.accountRepository.find({
       where: {},
       relations: { parent: true },
       withDeleted: true,
-      order: { code: "ASC" },
+      order: { code: 'ASC' },
     });
 
     // Filter only deleted accounts
-    const deleted = deletedAccounts.filter(
-      (account) => account.deletedAt !== null,
-    );
+    const deleted = deletedAccounts.filter(account => account.deletedAt !== null);
 
     this.logger.log(`Found ${deleted.length} soft-deleted accounts`);
-    return deleted.map((account) => this.toResponseDto(account));
+    return deleted.map(account => this.toResponseDto(account));
   }
 
   /**
    * Restore a soft-deleted account
    */
-  async restore(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<ChartOfAccountResponseDto> {
+  async restore(id: string, userId?: string, username?: string): Promise<ChartOfAccountResponseDto> {
     this.logger.log(`Restoring account with ID: ${id}`);
 
     const account = await this.accountRepository.findOne({
@@ -416,10 +408,10 @@ export class ChartOfAccountsService {
     });
 
     await this.auditLogService.log(
-      "RESTORE",
-      "Account",
+      'RESTORE',
+      'Account',
       `Restored account: ${account.code} - ${account.name}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Account restored successfully: ${id}`);
@@ -460,13 +452,13 @@ export class ChartOfAccountsService {
    * Get full account hierarchy as a tree structure
    */
   async getAccountHierarchy(): Promise<ChartOfAccountHierarchyDto> {
-    this.logger.log("Fetching account hierarchy");
+    this.logger.log('Fetching account hierarchy');
 
     // Get all accounts
     const accounts = await this.accountRepository.find({
       where: { isActive: true },
       relations: { parent: true, children: true },
-      order: { type: "ASC", code: "ASC" },
+      order: { type: 'ASC', code: 'ASC' },
     });
 
     // Build hierarchy by type
@@ -513,45 +505,39 @@ export class ChartOfAccountsService {
     const children = await this.accountRepository.find({
       where: { parentId, isActive: true },
       relations: { parent: true },
-      order: { code: "ASC" },
+      order: { code: 'ASC' },
     });
 
     return children.map((child) => this.toResponseDto(child));
   }
 
-  async getRecentActivity(
-    id: string,
-    limit: number,
-  ): Promise<RecentActivityItemDto[]> {
+  async getRecentActivity(id: string, limit: number): Promise<RecentActivityItemDto[]> {
     const account = await this.accountRepository.findOne({ where: { id } });
     if (!account) {
       throw new NotFoundException(`Account with ID '${id}' not found`);
     }
 
     const rows = await this.journalEntryLineRepository
-      .createQueryBuilder("jel")
-      .leftJoin("jel.journalEntry", "je")
-      .where("jel.accountId = :id", { id })
-      .andWhere("je.status = :status", { status: "POSTED" })
-      .orderBy("je.entryDate", "DESC")
-      .addOrderBy("jel.id", "DESC")
+      .createQueryBuilder('jel')
+      .leftJoin('jel.journalEntry', 'je')
+      .where('jel.accountId = :id', { id })
+      .andWhere('je.status = :status', { status: 'POSTED' })
+      .orderBy('je.entryDate', 'DESC')
+      .addOrderBy('jel.id', 'DESC')
       .limit(limit)
       .select([
-        "je.entryDate AS date",
-        "je.referenceNumber AS reference",
-        "je.description AS description",
-        "jel.debitAmount AS debit",
-        "jel.creditAmount AS credit",
+        'je.entryDate AS date',
+        'je.referenceNumber AS reference',
+        'je.description AS description',
+        'jel.debitAmount AS debit',
+        'jel.creditAmount AS credit',
       ])
       .getRawMany();
 
     return rows.map((row) => ({
-      date:
-        row.date instanceof Date
-          ? row.date.toISOString().split("T")[0]
-          : String(row.date).split("T")[0],
+      date: row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date).split('T')[0],
       reference: row.reference,
-      description: row.description ?? "",
+      description: row.description ?? '',
       debit: Number(row.debit) > 0 ? Number(row.debit) : null,
       credit: Number(row.credit) > 0 ? Number(row.credit) : null,
     }));
@@ -561,11 +547,7 @@ export class ChartOfAccountsService {
    * Permanently delete an account (hard delete)
    * Only soft-deleted accounts can be permanently deleted
    */
-  async permanentDelete(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<void> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     this.logger.log(`Permanently deleting account with ID: ${id}`);
 
     const account = await this.accountRepository.findOne({
@@ -600,7 +582,7 @@ export class ChartOfAccountsService {
     if (journalEntryLineCount > 0) {
       throw new BadRequestException(
         `Cannot permanently delete account '${account.name}' - it has ${journalEntryLineCount} journal entry line(s). ` +
-          `Accounts with transactions cannot be permanently deleted.`,
+        `Accounts with transactions cannot be permanently deleted.`,
       );
     }
 
@@ -612,11 +594,9 @@ export class ChartOfAccountsService {
       const mappings = await this.accountMappingRepository.find({
         where: { accountId: id },
       });
-      const mappingTypes = [
-        ...new Set(mappings.map((m) => m.mappingType)),
-      ].sort();
+      const mappingTypes = [...new Set(mappings.map((m) => m.mappingType))].sort();
       throw new BadRequestException(
-        `Cannot permanently delete account '${account.name}' - it is used in account mapping(s): ${mappingTypes.join(", ")}. Clear those mappings first.`,
+        `Cannot permanently delete account '${account.name}' - it is used in account mapping(s): ${mappingTypes.join(', ')}. Clear those mappings first.`,
       );
     }
 
@@ -638,10 +618,10 @@ export class ChartOfAccountsService {
     await this.accountRepository.remove(account);
 
     await this.auditLogService.log(
-      "PERMANENT_DELETE",
-      "Account",
+      'PERMANENT_DELETE',
+      'Account',
       `Permanently deleted account: ${account.code} - ${account.name}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Account permanently deleted: ${id}`);
@@ -672,8 +652,7 @@ export class ChartOfAccountsService {
         await this.permanentDelete(accountId, userId, username);
         deletedCount += 1;
       } catch (error: any) {
-        const reason =
-          error?.response?.message || error?.message || "Unknown error";
+        const reason = error?.response?.message || error?.message || 'Unknown error';
         failedIds.push(accountId);
         failedItems.push({ id: accountId, reason });
         this.logger.warn(
@@ -689,78 +668,57 @@ export class ChartOfAccountsService {
    * Seed default chart of accounts
    * Creates 20+ accounts covering all account types
    */
-  async seedDefaultChartOfAccounts(
-    userId?: string,
-    username?: string,
-  ): Promise<void> {
-    this.logger.log("Seeding default chart of accounts");
+  async seedDefaultChartOfAccounts(userId?: string, username?: string): Promise<void> {
+    this.logger.log('Seeding default chart of accounts');
 
     // Check if accounts already exist
     const existingCount = await this.accountRepository.count();
     if (existingCount > 0) {
-      this.logger.warn("Chart of accounts already seeded, skipping");
+      this.logger.warn('Chart of accounts already seeded, skipping');
       return;
     }
 
     const defaultAccounts: CreateChartOfAccountDto[] = [
       // ASSET Accounts
-      { code: "1000", name: "Cash", type: AccountType.ASSET },
-      { code: "1010", name: "CIMB", type: AccountType.ASSET },
-      { code: "1020", name: "Maybank", type: AccountType.ASSET },
-      { code: "1030", name: "Shopee Receivable", type: AccountType.ASSET },
-      { code: "1100", name: "Accounts Receivable", type: AccountType.ASSET },
-      { code: "1200", name: "Inventory", type: AccountType.ASSET },
+      { code: '1000', name: 'Cash', type: AccountType.ASSET },
+      { code: '1010', name: 'CIMB', type: AccountType.ASSET },
+      { code: '1020', name: 'Maybank', type: AccountType.ASSET },
+      { code: '1030', name: 'Shopee Receivable', type: AccountType.ASSET },
+      { code: '1100', name: 'Accounts Receivable', type: AccountType.ASSET },
+      { code: '1200', name: 'Inventory', type: AccountType.ASSET },
 
       // LIABILITY Accounts
-      { code: "2000", name: "Accounts Payable", type: AccountType.LIABILITY },
+      { code: '2000', name: 'Accounts Payable', type: AccountType.LIABILITY },
 
       // EQUITY Accounts
-      { code: "3000", name: "Owner's Capital", type: AccountType.EQUITY },
-      { code: "3100", name: "Retained Earnings", type: AccountType.EQUITY },
-      { code: "3200", name: "Owner's Drawings", type: AccountType.EQUITY },
+      { code: '3000', name: "Owner's Capital", type: AccountType.EQUITY },
+      { code: '3100', name: 'Retained Earnings', type: AccountType.EQUITY },
+      { code: '3200', name: "Owner's Drawings", type: AccountType.EQUITY },
 
       // REVENUE Accounts
-      { code: "4000", name: "Sales Revenue", type: AccountType.REVENUE },
-      { code: "4100", name: "Other Income", type: AccountType.REVENUE },
-      {
-        code: "4200",
-        name: "Inventory Adjustment Gain",
-        type: AccountType.REVENUE,
-      },
+      { code: '4000', name: 'Sales Revenue', type: AccountType.REVENUE },
+      { code: '4100', name: 'Other Income', type: AccountType.REVENUE },
+      { code: '4200', name: 'Inventory Adjustment Gain', type: AccountType.REVENUE },
 
       // EXPENSE Accounts
-      { code: "5000", name: "Cost of Goods Sold", type: AccountType.EXPENSE },
-      { code: "6000", name: "Utilities Expense", type: AccountType.EXPENSE },
-      {
-        code: "6100",
-        name: "Office Supplies Expense",
-        type: AccountType.EXPENSE,
-      },
-      { code: "6200", name: "Courier Expense", type: AccountType.EXPENSE },
-      {
-        code: "6300",
-        name: "Inventory Adjustment Loss",
-        type: AccountType.EXPENSE,
-      },
+      { code: '5000', name: 'Cost of Goods Sold', type: AccountType.EXPENSE },
+      { code: '6000', name: 'Utilities Expense', type: AccountType.EXPENSE },
+      { code: '6100', name: 'Office Supplies Expense', type: AccountType.EXPENSE },
+      { code: '6200', name: 'Courier Expense', type: AccountType.EXPENSE },
+      { code: '6300', name: 'Inventory Adjustment Loss', type: AccountType.EXPENSE },
     ];
 
     // Create all accounts
     for (const accountDto of defaultAccounts) {
       try {
         await this.create(accountDto, userId, username);
-        this.logger.log(
-          `Created account: ${accountDto.code} - ${accountDto.name}`,
-        );
+        this.logger.log(`Created account: ${accountDto.code} - ${accountDto.name}`);
       } catch (error) {
-        this.logger.error(
-          `Failed to create account ${accountDto.code}: ${error.message}`,
-        );
+        this.logger.error(`Failed to create account ${accountDto.code}: ${error.message}`);
       }
     }
 
-    this.logger.log(
-      `Default chart of accounts seeded: ${defaultAccounts.length} accounts`,
-    );
+    this.logger.log(`Default chart of accounts seeded: ${defaultAccounts.length} accounts`);
   }
 
   /**

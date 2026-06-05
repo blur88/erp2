@@ -1,22 +1,32 @@
-import { Entity, Column, Index, ManyToOne, JoinColumn } from "typeorm";
-import { IsDecimal, Min, IsInt } from "class-validator";
-import { BaseEntity } from "./base.entity";
-import { GoodsReceivedNote } from "./goods-received-note.entity";
-import { Product } from "./product.entity";
-import { PurchaseOrderItem } from "./purchase-order-item.entity";
+import {
+  Entity,
+  Column,
+  Index,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import {
+  IsDecimal,
+  Min,
+  IsInt,
+} from 'class-validator';
+import { BaseEntity } from './base.entity';
+import { GoodsReceivedNote } from './goods-received-note.entity';
+import { Product } from './product.entity';
+import { PurchaseOrderItem } from './purchase-order-item.entity';
 
 /**
  * Goods Received Note Item entity for individual line items in GRNs
  * Tracks received quantities and quality inspection results
  */
-@Entity("goods_received_note_items")
-@Index(["grnId"])
-@Index(["productId"])
-@Index(["purchaseOrderItemId"])
+@Entity('goods_received_note_items')
+@Index(['grnId'])
+@Index(['productId'])
+@Index(['purchaseOrderItemId'])
 export class GoodsReceivedNoteItem extends BaseEntity {
   @Column({
-    type: "int",
-    comment: "Line item sequence number within the GRN",
+    type: 'int',
+    comment: 'Line item sequence number within the GRN',
   })
   @IsInt()
   @Min(1)
@@ -27,22 +37,22 @@ export class GoodsReceivedNoteItem extends BaseEntity {
 
   // Quantity Information
   @Column({
-    type: "decimal",
+    type: 'decimal',
     precision: 15,
     scale: 4,
-    comment: "Ordered quantity (from PO)",
+    comment: 'Ordered quantity (from PO)',
   })
-  @IsDecimal({ decimal_digits: "0,4" })
+  @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
   orderedQuantity: number;
 
   @Column({
-    type: "decimal",
+    type: 'decimal',
     precision: 15,
     scale: 4,
-    comment: "Quantity received",
+    comment: 'Quantity received',
   })
-  @IsDecimal({ decimal_digits: "0,4" })
+  @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
   receivedQuantity: number;
 
@@ -51,50 +61,51 @@ export class GoodsReceivedNoteItem extends BaseEntity {
 
   // Foreign Keys
   @Column({
-    type: "uuid",
-    comment: "Goods Received Note ID",
+    type: 'uuid',
+    comment: 'Goods Received Note ID',
   })
   grnId: string;
 
   @Column({
-    type: "uuid",
-    comment: "Product ID",
+    type: 'uuid',
+    comment: 'Product ID',
   })
   productId: string;
 
   @Column({
-    type: "uuid",
+    type: 'uuid',
     nullable: true,
-    comment: "Reference to original purchase order item",
+    comment: 'Reference to original purchase order item',
   })
   purchaseOrderItemId?: string;
 
   // Relationships
   @ManyToOne(() => GoodsReceivedNote, (grn) => grn.items, {
-    onDelete: "CASCADE",
+    onDelete: 'CASCADE',
   })
-  @JoinColumn({ name: "grnId" })
+  @JoinColumn({ name: 'grnId' })
   grn: GoodsReceivedNote;
 
   @ManyToOne(() => Product, {
-    onDelete: "RESTRICT",
+    onDelete: 'RESTRICT',
     eager: false,
   })
-  @JoinColumn({ name: "productId" })
+  @JoinColumn({ name: 'productId' })
   product: Product;
 
   @ManyToOne(() => PurchaseOrderItem, {
-    onDelete: "SET NULL",
+    onDelete: 'SET NULL',
     nullable: true,
     eager: false,
   })
-  @JoinColumn({ name: "purchaseOrderItemId" })
+  @JoinColumn({ name: 'purchaseOrderItemId' })
   purchaseOrderItem?: PurchaseOrderItem;
 
   // Computed properties
   get isFullyReceived(): boolean {
     return Number(this.receivedQuantity) >= Number(this.orderedQuantity);
   }
+
 
   get varianceQuantity(): number {
     return Number(this.receivedQuantity) - Number(this.orderedQuantity);
@@ -113,8 +124,7 @@ export class GoodsReceivedNoteItem extends BaseEntity {
     poItem: PurchaseOrderItem,
     receivedQty?: number,
   ): Partial<GoodsReceivedNoteItem> {
-    const qty =
-      receivedQty !== undefined ? receivedQty : Number(poItem.quantity);
+    const qty = receivedQty !== undefined ? receivedQty : Number(poItem.quantity);
 
     return {
       purchaseOrderItemId: poItem.id,

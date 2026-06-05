@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddOwnerEquityDocumentNumberSetting1772200000000 implements MigrationInterface {
-  name = "AddOwnerEquityDocumentNumberSetting1772200000000";
+  name = 'AddOwnerEquityDocumentNumberSetting1772200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     const currentYear = new Date().getFullYear() % 100;
@@ -10,7 +10,7 @@ export class AddOwnerEquityDocumentNumberSetting1772200000000 implements Migrati
         ("documentName", "prefix", "paddingDigits", "nextNumber", "lastResetYear")
        VALUES ($1, $2, 3, 1, $3)
        ON CONFLICT ("documentName") DO NOTHING`,
-      ["Owner Equity", "EQ", currentYear],
+      ['Owner Equity', 'EQ', currentYear],
     );
   }
 

@@ -1,68 +1,67 @@
-import { createApi } from '@reduxjs/toolkit/query/react'
+import { createApi } from '@reduxjs/toolkit/query/react';
 
-import type { Customer, PaginatedResponse, Payment, SalesOrder, SalesOrderPayment } from '@/types'
+import type { Customer, PaginatedResponse, Payment, SalesOrder, SalesOrderPayment } from '@/types';
 
-import { axiosBaseQuery } from './baseQuery'
-import { normalizeSingle } from './normalizers'
+import { axiosBaseQuery } from './baseQuery';
+import { normalizeSingle } from './normalizers';
 
 export interface SalesOrderItem {
-  id: string
-  orderNumber: string
-  orderDate: string
-  isFulfilled: boolean
-  isPaid: boolean
-  totalAmount: number
-  itemsCount: number
+  id: string;
+  orderNumber: string;
+  orderDate: string;
+  isFulfilled: boolean;
+  isPaid: boolean;
+  totalAmount: number;
+  itemsCount: number;
 }
-
 
 const defaultMeta = {
   total: 0,
   page: undefined as number | undefined,
   limit: undefined as number | undefined,
-}
+};
 
 function normalizeNamedCollection<T>(
   response: any,
   key: 'customers' | 'orders' | 'payments' | 'data',
 ): PaginatedResponse<T> {
   if (!response) {
-    return { data: [], meta: defaultMeta }
+    return { data: [], meta: defaultMeta };
   }
 
   if (Array.isArray(response)) {
     return {
       data: response,
       meta: { total: response.length },
-    }
+    };
   }
 
-  const data = response[key] ?? response.data ?? []
+  const data = response[key] ?? response.data ?? [];
   const meta = {
     total: response.meta?.total ?? response.total ?? (Array.isArray(data) ? data.length : 0),
     page: response.meta?.page as number | undefined,
     limit: response.meta?.limit as number | undefined,
-  }
+  };
 
   return {
     data: Array.isArray(data) ? data : [],
     meta,
-  }
+  };
 }
 
 function withNormalizedSortOrder(params?: Record<string, unknown>) {
   if (!params) {
-    return {}
+    return {};
   }
 
   if (typeof params.sortOrder !== 'string') {
-    return params
+    return params;
   }
 
   return {
     ...params,
     sortOrder: params.sortOrder.toUpperCase(),
-  }
+  };
 }
 
 export const salesApiSlice = createApi({
@@ -79,7 +78,8 @@ export const salesApiSlice = createApi({
   endpoints: (builder) => ({
     getCustomers: builder.query<PaginatedResponse<Customer>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/customers', params: params ?? {} }),
-      transformResponse: (response: any) => normalizeNamedCollection<Customer>(response, 'customers'),
+      transformResponse: (response: any) =>
+        normalizeNamedCollection<Customer>(response, 'customers'),
       providesTags: ['Customer'],
     }),
     getCustomer: builder.query<Customer, string>({
@@ -90,7 +90,7 @@ export const salesApiSlice = createApi({
     getCustomerBySlug: builder.query<Customer, string>({
       query: (slug) => ({ url: `/customers/slug/${slug}` }),
       transformResponse: normalizeSingle<Customer>,
-      providesTags: (result) => result ? [{ type: 'Customer', id: result.id }] : [],
+      providesTags: (result) => (result ? [{ type: 'Customer', id: result.id }] : []),
     }),
     createCustomer: builder.mutation<Customer, Partial<Customer>>({
       query: (body) => ({ url: '/customers', method: 'POST', data: body }),
@@ -106,9 +106,13 @@ export const salesApiSlice = createApi({
       query: (id) => ({ url: `/customers/${id}`, method: 'DELETE' }),
       invalidatesTags: ['Customer', 'DeletedCustomer', 'SalesOrder', 'Payment'],
     }),
-    getDeletedCustomers: builder.query<PaginatedResponse<Customer>, Record<string, unknown> | undefined>({
+    getDeletedCustomers: builder.query<
+      PaginatedResponse<Customer>,
+      Record<string, unknown> | undefined
+    >({
       query: (params) => ({ url: '/customers/deleted', params: params ?? {} }),
-      transformResponse: (response: any) => normalizeNamedCollection<Customer>(response, 'customers'),
+      transformResponse: (response: any) =>
+        normalizeNamedCollection<Customer>(response, 'customers'),
       providesTags: ['DeletedCustomer'],
     }),
     restoreCustomer: builder.mutation<Customer, string>({
@@ -116,15 +120,25 @@ export const salesApiSlice = createApi({
       transformResponse: normalizeSingle<Customer>,
       invalidatesTags: ['Customer', 'DeletedCustomer', 'SalesOrder', 'Payment'],
     }),
-    bulkRestoreCustomers: builder.mutation<{ restoredCount: number; failedIds: string[] }, string[]>({
-      query: (customerIds) => ({ url: '/customers/bulk-restore', method: 'POST', data: { customerIds } }),
+    bulkRestoreCustomers: builder.mutation<
+      { restoredCount: number; failedIds: string[] },
+      string[]
+    >({
+      query: (customerIds) => ({
+        url: '/customers/bulk-restore',
+        method: 'POST',
+        data: { customerIds },
+      }),
       invalidatesTags: ['Customer', 'DeletedCustomer', 'SalesOrder', 'Payment'],
     }),
     permanentDeleteCustomer: builder.mutation<void, string>({
       query: (id) => ({ url: `/customers/${id}/permanent`, method: 'DELETE' }),
       invalidatesTags: ['DeletedCustomer'],
     }),
-    bulkPermanentDeleteCustomers: builder.mutation<{ deletedCount: number; failedIds: string[] }, string[]>({
+    bulkPermanentDeleteCustomers: builder.mutation<
+      { deletedCount: number; failedIds: string[] },
+      string[]
+    >({
       query: (customerIds) => ({
         url: '/customers/bulk-permanent-delete',
         method: 'POST',
@@ -133,9 +147,13 @@ export const salesApiSlice = createApi({
       invalidatesTags: ['DeletedCustomer'],
     }),
 
-    getSalesOrders: builder.query<PaginatedResponse<SalesOrder>, Record<string, unknown> | undefined>({
+    getSalesOrders: builder.query<
+      PaginatedResponse<SalesOrder>,
+      Record<string, unknown> | undefined
+    >({
       query: (params) => ({ url: '/sales-orders', params: withNormalizedSortOrder(params) }),
-      transformResponse: (response: any) => normalizeNamedCollection<SalesOrder>(response, 'orders'),
+      transformResponse: (response: any) =>
+        normalizeNamedCollection<SalesOrder>(response, 'orders'),
       providesTags: ['SalesOrder'],
     }),
     getSalesOrder: builder.query<SalesOrder, string>({
@@ -146,7 +164,7 @@ export const salesApiSlice = createApi({
     getSalesOrderByNumber: builder.query<SalesOrder, string>({
       query: (orderNumber) => ({ url: `/sales-orders/number/${orderNumber}` }),
       transformResponse: normalizeSingle<SalesOrder>,
-      providesTags: (result) => result ? [{ type: 'SalesOrder', id: result.id }] : [],
+      providesTags: (result) => (result ? [{ type: 'SalesOrder', id: result.id }] : []),
     }),
     getSalesOrderPayments: builder.query<SalesOrderPayment[], string>({
       query: (id) => ({ url: `/sales-orders/${id}/payments` }),
@@ -164,7 +182,12 @@ export const salesApiSlice = createApi({
       invalidatesTags: ['SalesOrder', 'Payment'],
     }),
     deleteSalesOrder: builder.mutation<
-      { data?: SalesOrder | null; message?: string; deletedOrderNumber?: string; redirect?: string },
+      {
+        data?: SalesOrder | null;
+        message?: string;
+        deletedOrderNumber?: string;
+        redirect?: string;
+      },
       string
     >({
       query: (id) => ({ url: `/sales-orders/${id}`, method: 'DELETE' }),
@@ -179,7 +202,11 @@ export const salesApiSlice = createApi({
       SalesOrder,
       { id: string; data?: { trackingNumber?: string; shippingMethod?: string; notes?: string } }
     >({
-      query: ({ id, data }) => ({ url: `/sales-orders/${id}/ship`, method: 'PUT', data: data ?? {} }),
+      query: ({ id, data }) => ({
+        url: `/sales-orders/${id}/ship`,
+        method: 'PUT',
+        data: data ?? {},
+      }),
       transformResponse: normalizeSingle<SalesOrder>,
       invalidatesTags: ['SalesOrder'],
     }),
@@ -210,7 +237,15 @@ export const salesApiSlice = createApi({
     }),
     recordOrderPayments: builder.mutation<
       SalesOrder,
-      { id: string; payments: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[] }
+      {
+        id: string;
+        payments: {
+          paymentMethodId: string;
+          amount: number;
+          paymentDate: string;
+          reference?: string;
+        }[];
+      }
     >({
       query: ({ id, payments }) => ({
         url: `/sales-orders/${id}/payments/batch`,
@@ -222,7 +257,15 @@ export const salesApiSlice = createApi({
     }),
     recordOrderRefunds: builder.mutation<
       SalesOrder,
-      { id: string; refunds: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[] }
+      {
+        id: string;
+        refunds: {
+          paymentMethodId: string;
+          amount: number;
+          paymentDate: string;
+          reference?: string;
+        }[];
+      }
     >({
       query: ({ id, refunds }) => ({
         url: `/sales-orders/${id}/refunds`,
@@ -247,9 +290,16 @@ export const salesApiSlice = createApi({
       transformResponse: (response: any) => normalizeSingle<SalesOrder>(response?.data ?? response),
       invalidatesTags: ['SalesOrder'],
     }),
-    getDeletedSalesOrders: builder.query<PaginatedResponse<SalesOrder>, Record<string, unknown> | undefined>({
-      query: (params) => ({ url: '/sales-orders/deleted', params: withNormalizedSortOrder(params) }),
-      transformResponse: (response: any) => normalizeNamedCollection<SalesOrder>(response, 'orders'),
+    getDeletedSalesOrders: builder.query<
+      PaginatedResponse<SalesOrder>,
+      Record<string, unknown> | undefined
+    >({
+      query: (params) => ({
+        url: '/sales-orders/deleted',
+        params: withNormalizedSortOrder(params),
+      }),
+      transformResponse: (response: any) =>
+        normalizeNamedCollection<SalesOrder>(response, 'orders'),
       providesTags: ['DeletedSalesOrder'],
     }),
     restoreSalesOrder: builder.mutation<SalesOrder, string>({
@@ -257,15 +307,25 @@ export const salesApiSlice = createApi({
       transformResponse: normalizeSingle<SalesOrder>,
       invalidatesTags: ['SalesOrder', 'DeletedSalesOrder'],
     }),
-    bulkRestoreSalesOrders: builder.mutation<{ restoredCount: number; failedIds: string[] }, string[]>({
-      query: (salesOrderIds) => ({ url: '/sales-orders/bulk-restore', method: 'POST', data: { salesOrderIds } }),
+    bulkRestoreSalesOrders: builder.mutation<
+      { restoredCount: number; failedIds: string[] },
+      string[]
+    >({
+      query: (salesOrderIds) => ({
+        url: '/sales-orders/bulk-restore',
+        method: 'POST',
+        data: { salesOrderIds },
+      }),
       invalidatesTags: ['SalesOrder', 'DeletedSalesOrder'],
     }),
     permanentDeleteSalesOrder: builder.mutation<void, string>({
       query: (id) => ({ url: `/sales-orders/${id}/permanent`, method: 'DELETE' }),
       invalidatesTags: ['DeletedSalesOrder'],
     }),
-    bulkPermanentDeleteSalesOrders: builder.mutation<{ deletedCount: number; failedIds: string[] }, string[]>({
+    bulkPermanentDeleteSalesOrders: builder.mutation<
+      { deletedCount: number; failedIds: string[] },
+      string[]
+    >({
       query: (salesOrderIds) => ({
         url: '/sales-orders/bulk-permanent-delete',
         method: 'POST',
@@ -299,11 +359,18 @@ export const salesApiSlice = createApi({
       invalidatesTags: ['Payment', 'DeletedPayment', 'SalesOrder'],
     }),
     voidPayment: builder.mutation<Payment, { id: string; reason?: string }>({
-      query: ({ id, reason }) => ({ url: `/payments/${id}/void`, method: 'POST', data: { reason } }),
+      query: ({ id, reason }) => ({
+        url: `/payments/${id}/void`,
+        method: 'POST',
+        data: { reason },
+      }),
       transformResponse: normalizeSingle<Payment>,
       invalidatesTags: ['Payment', 'SalesOrder'],
     }),
-    getDeletedPayments: builder.query<PaginatedResponse<Payment>, Record<string, unknown> | undefined>({
+    getDeletedPayments: builder.query<
+      PaginatedResponse<Payment>,
+      Record<string, unknown> | undefined
+    >({
       query: (params) => ({ url: '/payments/deleted', params: params ?? {} }),
       transformResponse: (response: any) => normalizeNamedCollection<Payment>(response, 'payments'),
       providesTags: ['DeletedPayment'],
@@ -313,15 +380,21 @@ export const salesApiSlice = createApi({
       transformResponse: normalizeSingle<Payment>,
       invalidatesTags: ['Payment', 'DeletedPayment', 'SalesOrder'],
     }),
-    bulkRestorePayments: builder.mutation<{ restoredCount: number; failedIds: string[] }, string[]>({
-      query: (paymentIds) => ({ url: '/payments/bulk-restore', method: 'POST', data: { paymentIds } }),
-      invalidatesTags: ['Payment', 'DeletedPayment', 'SalesOrder'],
-    }),
+    bulkRestorePayments: builder.mutation<{ restoredCount: number; failedIds: string[] }, string[]>(
+      {
+        query: (paymentIds) => ({
+          url: '/payments/bulk-restore',
+          method: 'POST',
+          data: { paymentIds },
+        }),
+        invalidatesTags: ['Payment', 'DeletedPayment', 'SalesOrder'],
+      },
+    ),
     getCustomerPayments: builder.query<Payment[], string>({
       query: (id) => ({ url: `/payments/customer/${id}` }),
       transformResponse: (response: any): Payment[] => {
-        if (Array.isArray(response)) return response
-        return response?.data ?? []
+        if (Array.isArray(response)) return response;
+        return response?.data ?? [];
       },
       providesTags: ['Payment'],
     }),
@@ -333,7 +406,7 @@ export const salesApiSlice = createApi({
       providesTags: (_result, _error, id) => [{ type: 'Customer', id }, 'SalesOrder'],
     }),
   }),
-})
+});
 
 export const {
   useGetCustomersQuery,
@@ -387,4 +460,4 @@ export const {
   useBulkRestorePaymentsMutation,
   useGetCustomerPaymentsQuery,
   useGetCustomerSalesHistoryQuery,
-} = salesApiSlice
+} = salesApiSlice;

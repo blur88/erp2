@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class BackfillReadyStatus1780100000000 implements MigrationInterface {
-  name = "BackfillReadyStatus1780100000000";
+  name = 'BackfillReadyStatus1780100000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

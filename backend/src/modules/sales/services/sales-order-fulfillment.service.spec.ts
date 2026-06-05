@@ -1,40 +1,40 @@
-import { Test, TestingModule } from "@nestjs/testing";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { DataSource, EntityManager, Repository } from "typeorm";
-import { ConflictException, NotFoundException } from "@nestjs/common";
-import { SalesOrderFulfillmentService } from "./sales-order-fulfillment.service";
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
+import { ConflictException, NotFoundException } from '@nestjs/common';
+import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
 import {
   SalesOrder,
   SalesOrderStatus,
   SalesOrderPaymentStatus,
-} from "../../../database/entities/sales-order.entity";
-import { SalesOrderItem } from "../../../database/entities/sales-order-item.entity";
-import { InventoryIntegrationService } from "./inventory-integration.service";
-import { StockMovementService } from "../../inventory/services/stock-movement.service";
-import { BaseCostCalculatorService } from "../../inventory/services/base-cost-calculator.service";
-import { AuditLogService } from "../../audit-logs/services";
-import { AccountingService } from "../../accounting/services/accounting.service";
+} from '../../../database/entities/sales-order.entity';
+import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
+import { InventoryIntegrationService } from './inventory-integration.service';
+import { StockMovementService } from '../../inventory/services/stock-movement.service';
+import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
+import { AuditLogService } from '../../audit-logs/services';
+import { AccountingService } from '../../accounting/services/accounting.service';
 
 const mockOrder = (overrides: Partial<SalesOrder> = {}): SalesOrder =>
   ({
-    id: "order-1",
-    orderNumber: "SO-000001",
+    id: 'order-1',
+    orderNumber: 'SO-000001',
     status: SalesOrderStatus.DRAFT,
     paymentStatus: SalesOrderPaymentStatus.PAID,
     totalAmount: 1000,
-    customerId: "customer-1",
+    customerId: 'customer-1',
     items: [
       {
-        id: "item-1",
-        productId: "product-1",
+        id: 'item-1',
+        productId: 'product-1',
         quantity: 5,
-        product: { id: "product-1", name: "Widget", stockQuantity: 100 },
+        product: { id: 'product-1', name: 'Widget', stockQuantity: 100 },
       } as SalesOrderItem,
     ],
     ...overrides,
   }) as SalesOrder;
 
-describe("SalesOrderFulfillmentService", () => {
+describe('SalesOrderFulfillmentService', () => {
   let service: SalesOrderFulfillmentService;
   let orderRepo: jest.Mocked<Repository<SalesOrder>>;
   let inventoryService: jest.Mocked<InventoryIntegrationService>;
@@ -50,9 +50,7 @@ describe("SalesOrderFulfillmentService", () => {
     const manager = {
       getRepository: jest.fn().mockReturnValue({ findOne, update }),
     } as unknown as EntityManager;
-    (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) =>
-      cb(manager),
-    );
+    (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
     return { findOne, update, manager };
   }
 
@@ -100,66 +98,56 @@ describe("SalesOrderFulfillmentService", () => {
     dataSource = module.get(DataSource) as jest.Mocked<DataSource>;
   });
 
-  describe("fulfillOrder", () => {
-    it("throws NotFoundException when order not found", async () => {
+  describe('fulfillOrder', () => {
+    it('throws NotFoundException when order not found', async () => {
       wireTransaction(null);
-      await expect(service.fulfillOrder("order-1")).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow(NotFoundException);
     });
 
-    it("throws ConflictException when already FULFILLED", async () => {
+    it('throws ConflictException when already FULFILLED', async () => {
       wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
-      await expect(service.fulfillOrder("order-1")).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow(ConflictException);
     });
 
-    it("throws ConflictException when not READY", async () => {
+    it('throws ConflictException when not READY', async () => {
       wireTransaction(mockOrder({ status: SalesOrderStatus.DRAFT }));
-      await expect(service.fulfillOrder("order-1")).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow(ConflictException);
     });
 
-    it("lock-reads the order and persists status via the manager", async () => {
+    it('lock-reads the order and persists status via the manager', async () => {
       const order = mockOrder({ status: SalesOrderStatus.READY });
       const { findOne, update } = wireTransaction(order);
 
-      await service.fulfillOrder("order-1");
+      await service.fulfillOrder('order-1');
 
       expect(findOne).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "order-1" },
-          lock: { mode: "pessimistic_write" },
+          where: { id: 'order-1' },
+          lock: { mode: 'pessimistic_write' },
         }),
       );
       expect(update).toHaveBeenCalledWith(
-        "order-1",
+        'order-1',
         expect.objectContaining({ status: SalesOrderStatus.FULFILLED }),
       );
       expect(inventoryService.adjustStock).toHaveBeenCalledWith(
-        "product-1",
+        'product-1',
         -5,
         expect.any(String),
-        "order-1",
+        'order-1',
         undefined,
         undefined,
         expect.anything(),
       );
     });
 
-    it("rolls back (propagates) when accounting posting fails — no swallow", async () => {
+    it('rolls back (propagates) when accounting posting fails — no swallow', async () => {
       wireTransaction(mockOrder({ status: SalesOrderStatus.READY }));
-      accountingService.postSalesOrderEntry.mockRejectedValue(
-        new Error("period closed"),
-      );
-      await expect(service.fulfillOrder("order-1")).rejects.toThrow(
-        "period closed",
-      );
+      accountingService.postSalesOrderEntry.mockRejectedValue(new Error('period closed'));
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow('period closed');
     });
 
-    it("posts accounting against the re-read order (fresh updatedAt + post-reduction costs), not the lock-read snapshot", async () => {
+    it('posts accounting against the re-read order (fresh updatedAt + post-reduction costs), not the lock-read snapshot', async () => {
       // lockRowForUpdate issues two reads (bare lock, then relations hydrate); the
       // post-update re-read is a third read returning a row carrying the just-
       // persisted updatedAt and recalculated product baseCost.
@@ -167,7 +155,7 @@ describe("SalesOrderFulfillmentService", () => {
       const repricedOrder = mockOrder({
         status: SalesOrderStatus.FULFILLED,
         // sentinel distinguishing the re-read from the lock-read snapshot
-        updatedAt: new Date("2099-01-01T00:00:00Z"),
+        updatedAt: new Date('2099-01-01T00:00:00Z'),
       } as Partial<SalesOrder>);
 
       const findOne = jest
@@ -179,15 +167,13 @@ describe("SalesOrderFulfillmentService", () => {
       const manager = {
         getRepository: jest.fn().mockReturnValue({ findOne, update }),
       } as unknown as EntityManager;
-      (dataSource.transaction as jest.Mock).mockImplementation(
-        async (cb: any) => cb(manager),
-      );
+      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
 
-      await service.fulfillOrder("order-1", "user-1", "admin");
+      await service.fulfillOrder('order-1', 'user-1', 'admin');
 
       // The status update must persist a fresh updatedAt so fulfilledDate is correct.
       expect(update).toHaveBeenCalledWith(
-        "order-1",
+        'order-1',
         expect.objectContaining({
           status: SalesOrderStatus.FULFILLED,
           updatedAt: expect.any(Date),
@@ -196,198 +182,182 @@ describe("SalesOrderFulfillmentService", () => {
       // Accounting must be posted with the re-read row, not the stale lock-read snapshot.
       expect(accountingService.postSalesOrderEntry).toHaveBeenCalledWith(
         repricedOrder,
-        "user-1",
-        "admin",
+        'user-1',
+        'admin',
         expect.anything(),
       );
     });
 
-    it("throws ConflictException when an item has insufficient stock", async () => {
+    it('throws ConflictException when an item has insufficient stock', async () => {
       const order = mockOrder({
         status: SalesOrderStatus.READY,
         items: [
           {
-            id: "item-1",
-            productId: "product-1",
+            id: 'item-1',
+            productId: 'product-1',
             quantity: 5,
-            product: { id: "product-1", name: "Widget", stockQuantity: 2 },
+            product: { id: 'product-1', name: 'Widget', stockQuantity: 2 },
           } as SalesOrderItem,
         ],
       });
       wireTransaction(order);
 
-      await expect(service.fulfillOrder("order-1")).rejects.toThrow(
-        ConflictException,
-      );
-      await expect(service.fulfillOrder("order-1")).rejects.toThrow(
-        /out of stock/i,
-      );
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow(ConflictException);
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow(/out of stock/i);
       expect(inventoryService.adjustStock).not.toHaveBeenCalled();
     });
 
-    it("throws ConflictException when an item is fully out of stock", async () => {
+    it('throws ConflictException when an item is fully out of stock', async () => {
       const order = mockOrder({
         status: SalesOrderStatus.READY,
         items: [
           {
-            id: "item-1",
-            productId: "product-1",
+            id: 'item-1',
+            productId: 'product-1',
             quantity: 1,
-            product: { id: "product-1", name: "Widget", stockQuantity: 0 },
+            product: { id: 'product-1', name: 'Widget', stockQuantity: 0 },
           } as SalesOrderItem,
         ],
       });
       wireTransaction(order);
 
-      await expect(service.fulfillOrder("order-1")).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow(ConflictException);
     });
 
-    it("lists each offending item in the error message", async () => {
+    it('lists each offending item in the error message', async () => {
       const order = mockOrder({
         status: SalesOrderStatus.READY,
         items: [
           {
-            id: "item-1",
-            productId: "product-1",
+            id: 'item-1',
+            productId: 'product-1',
             quantity: 5,
-            product: { id: "product-1", name: "Widget", stockQuantity: 2 },
+            product: { id: 'product-1', name: 'Widget', stockQuantity: 2 },
           } as SalesOrderItem,
           {
-            id: "item-2",
-            productId: "product-2",
+            id: 'item-2',
+            productId: 'product-2',
             quantity: 3,
-            product: { id: "product-2", name: "Gadget", stockQuantity: 0 },
+            product: { id: 'product-2', name: 'Gadget', stockQuantity: 0 },
           } as SalesOrderItem,
         ],
       });
       wireTransaction(order);
 
-      await expect(service.fulfillOrder("order-1")).rejects.toThrow(
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow(
         /Widget.*Gadget|Gadget.*Widget/,
       );
     });
 
-    it("fulfills normally when all items have sufficient stock", async () => {
+    it('fulfills normally when all items have sufficient stock', async () => {
       const order = mockOrder({
         status: SalesOrderStatus.READY,
         items: [
           {
-            id: "item-1",
-            productId: "product-1",
+            id: 'item-1',
+            productId: 'product-1',
             quantity: 5,
-            product: { id: "product-1", name: "Widget", stockQuantity: 5 },
+            product: { id: 'product-1', name: 'Widget', stockQuantity: 5 },
           } as SalesOrderItem,
         ],
       });
       wireTransaction(order);
 
-      await service.fulfillOrder("order-1");
+      await service.fulfillOrder('order-1');
 
       expect(inventoryService.adjustStock).toHaveBeenCalled();
     });
 
-    it("sets fulfilledAt timestamp on fulfill", async () => {
+    it('sets fulfilledAt timestamp on fulfill', async () => {
       const order = mockOrder({ status: SalesOrderStatus.READY });
       const { update } = wireTransaction(order);
 
-      const result = await service.fulfillOrder("order-1");
+      const result = await service.fulfillOrder('order-1');
 
       expect(update).toHaveBeenCalledWith(
-        "order-1",
+        'order-1',
         expect.objectContaining({ fulfilledAt: expect.any(Date) }),
       );
       expect(result.fulfilledAt).toBeInstanceOf(Date);
     });
   });
 
-  describe("unfulfillOrder", () => {
-    it("throws ConflictException when order is not FULFILLED", async () => {
+  describe('unfulfillOrder', () => {
+    it('throws ConflictException when order is not FULFILLED', async () => {
       wireTransaction(mockOrder({ status: SalesOrderStatus.DRAFT }));
-      await expect(service.unfulfillOrder("order-1")).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(service.unfulfillOrder('order-1')).rejects.toThrow(ConflictException);
     });
 
-    it("lock-reads the order, reverses inventory, and persists status READY via manager", async () => {
+    it('lock-reads the order, reverses inventory, and persists status READY via manager', async () => {
       const order = mockOrder({ status: SalesOrderStatus.FULFILLED });
       const { findOne, update } = wireTransaction(order);
 
-      await service.unfulfillOrder("order-1");
+      await service.unfulfillOrder('order-1');
 
       expect(findOne).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "order-1" },
-          lock: { mode: "pessimistic_write" },
+          where: { id: 'order-1' },
+          lock: { mode: 'pessimistic_write' },
         }),
       );
       expect(baseCostCalculator.restoreStock).toHaveBeenCalledWith(
-        "product-1",
+        'product-1',
         5,
         expect.anything(),
       );
       expect(stockMovementService.deleteByReference).toHaveBeenCalledWith(
-        "sales_order",
-        "order-1",
+        'sales_order',
+        'order-1',
         expect.anything(),
       );
       expect(update).toHaveBeenCalledWith(
-        "order-1",
+        'order-1',
         expect.objectContaining({ status: SalesOrderStatus.READY }),
       );
     });
 
-    it("reverses the sales_order journal entry on unfulfill", async () => {
+    it('reverses the sales_order journal entry on unfulfill', async () => {
       wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
-      await service.unfulfillOrder("order-1", "user-99", "admin");
+      await service.unfulfillOrder('order-1', 'user-99', 'admin');
       expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith(
-        "sales_order",
-        "order-1",
-        "user-99",
+        'sales_order',
+        'order-1',
+        'user-99',
         expect.anything(),
       );
     });
 
-    it("rolls back (propagates) when stock-movement deletion fails — no swallow", async () => {
+    it('rolls back (propagates) when stock-movement deletion fails — no swallow', async () => {
       wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
-      stockMovementService.deleteByReference.mockRejectedValue(
-        new Error("delete failed"),
-      );
-      await expect(service.unfulfillOrder("order-1")).rejects.toThrow(
-        "delete failed",
-      );
+      stockMovementService.deleteByReference.mockRejectedValue(new Error('delete failed'));
+      await expect(service.unfulfillOrder('order-1')).rejects.toThrow('delete failed');
     });
 
-    it("rolls back (propagates) when accounting reversal fails — no swallow", async () => {
+    it('rolls back (propagates) when accounting reversal fails — no swallow', async () => {
       wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
-      accountingService.reverseSourceEntries.mockRejectedValue(
-        new Error("No open fiscal period"),
-      );
-      await expect(service.unfulfillOrder("order-1")).rejects.toThrow(
-        "No open fiscal period",
-      );
+      accountingService.reverseSourceEntries.mockRejectedValue(new Error('No open fiscal period'));
+      await expect(service.unfulfillOrder('order-1')).rejects.toThrow('No open fiscal period');
     });
 
-    it("clears fulfilledAt on unfulfill", async () => {
+    it('clears fulfilledAt on unfulfill', async () => {
       const order = mockOrder({
         status: SalesOrderStatus.FULFILLED,
         fulfilledAt: new Date(),
       });
       const { update } = wireTransaction(order);
 
-      const result = await service.unfulfillOrder("order-1");
+      const result = await service.unfulfillOrder('order-1');
 
       expect(update).toHaveBeenCalledWith(
-        "order-1",
+        'order-1',
         expect.objectContaining({ fulfilledAt: null }),
       );
       expect(result.fulfilledAt).toBeUndefined();
     });
   });
 
-  describe("fulfill/unfulfill with READY status", () => {
-    it("rejects fulfilling a DRAFT order", async () => {
+  describe('fulfill/unfulfill with READY status', () => {
+    it('rejects fulfilling a DRAFT order', async () => {
       wireTransaction(
         mockOrder({
           status: SalesOrderStatus.DRAFT,
@@ -396,12 +366,10 @@ describe("SalesOrderFulfillmentService", () => {
         }),
       );
 
-      await expect(service.fulfillOrder("order-1")).rejects.toThrow(
-        "must be Ready",
-      );
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow('must be Ready');
     });
 
-    it("fulfills a READY order -> FULFILLED", async () => {
+    it('fulfills a READY order -> FULFILLED', async () => {
       const order = mockOrder({
         status: SalesOrderStatus.READY,
         paymentStatus: SalesOrderPaymentStatus.PAID,
@@ -409,12 +377,12 @@ describe("SalesOrderFulfillmentService", () => {
       });
       wireTransaction(order);
 
-      const result = await service.fulfillOrder("order-1");
+      const result = await service.fulfillOrder('order-1');
 
       expect(result.status).toBe(SalesOrderStatus.FULFILLED);
     });
 
-    it("unfulfills a FULFILLED order back to READY", async () => {
+    it('unfulfills a FULFILLED order back to READY', async () => {
       const order = mockOrder({
         status: SalesOrderStatus.FULFILLED,
         paymentStatus: SalesOrderPaymentStatus.PAID,
@@ -422,7 +390,7 @@ describe("SalesOrderFulfillmentService", () => {
       });
       wireTransaction(order);
 
-      const result = await service.unfulfillOrder("order-1");
+      const result = await service.unfulfillOrder('order-1');
 
       expect(result.status).toBe(SalesOrderStatus.READY);
     });

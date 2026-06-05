@@ -1,18 +1,18 @@
-import { validate } from "class-validator";
-import { UpdateRegionalSettingsDto } from "./update-regional-settings.dto";
+import { validate } from 'class-validator';
+import { UpdateRegionalSettingsDto } from './update-regional-settings.dto';
 
-describe("UpdateRegionalSettingsDto", () => {
-  it("accepts all supported date formats", async () => {
+describe('UpdateRegionalSettingsDto', () => {
+  it('accepts all supported date formats', async () => {
     const supportedFormats = [
-      "DD/MM/YYYY",
-      "DD-MM-YYYY",
-      "MM/DD/YYYY",
-      "MM-DD-YYYY",
-      "YYYY-MM-DD",
-      "DD MMM YYYY",
-      "DD MMMM YYYY",
-      "MMM DD, YYYY",
-      "MMMM DD, YYYY",
+      'DD/MM/YYYY',
+      'DD-MM-YYYY',
+      'MM/DD/YYYY',
+      'MM-DD-YYYY',
+      'YYYY-MM-DD',
+      'DD MMM YYYY',
+      'DD MMMM YYYY',
+      'MMM DD, YYYY',
+      'MMMM DD, YYYY',
     ];
 
     for (const dateFormat of supportedFormats) {
@@ -24,32 +24,32 @@ describe("UpdateRegionalSettingsDto", () => {
     }
   });
 
-  it("rejects unsupported date formats", async () => {
+  it('rejects unsupported date formats', async () => {
     const dto = new UpdateRegionalSettingsDto();
-    dto.dateFormat = "YYYY/MM/DD";
+    dto.dateFormat = 'YYYY/MM/DD';
 
     const errors = await validate(dto);
     expect(errors.length).toBeGreaterThan(0);
   });
 
-  it("accepts valid IANA timezone strings", async () => {
+  it('accepts valid IANA timezone strings', async () => {
     const dto = new UpdateRegionalSettingsDto();
-    dto.timezone = "Asia/Kuala_Lumpur";
+    dto.timezone = 'Asia/Kuala_Lumpur';
 
     const errors = await validate(dto);
     expect(errors).toHaveLength(0);
   });
 
-  it("rejects invalid timezone strings", async () => {
+  it('rejects invalid timezone strings', async () => {
     const dto = new UpdateRegionalSettingsDto();
-    dto.timezone = "Not/ATimezone";
+    dto.timezone = 'Not/ATimezone';
 
     const errors = await validate(dto);
     expect(errors.length).toBeGreaterThan(0);
   });
 
-  describe("startOfWeek", () => {
-    it("accepts 0 (Sunday)", async () => {
+  describe('startOfWeek', () => {
+    it('accepts 0 (Sunday)', async () => {
       const dto = new UpdateRegionalSettingsDto();
       dto.startOfWeek = 0;
 
@@ -57,7 +57,7 @@ describe("UpdateRegionalSettingsDto", () => {
       expect(errors).toHaveLength(0);
     });
 
-    it("accepts 1 (Monday)", async () => {
+    it('accepts 1 (Monday)', async () => {
       const dto = new UpdateRegionalSettingsDto();
       dto.startOfWeek = 1;
 
@@ -65,7 +65,7 @@ describe("UpdateRegionalSettingsDto", () => {
       expect(errors).toHaveLength(0);
     });
 
-    it("rejects 2", async () => {
+    it('rejects 2', async () => {
       const dto = new UpdateRegionalSettingsDto();
       dto.startOfWeek = 2;
 
@@ -73,7 +73,7 @@ describe("UpdateRegionalSettingsDto", () => {
       expect(errors.length).toBeGreaterThan(0);
     });
 
-    it("rejects -1", async () => {
+    it('rejects -1', async () => {
       const dto = new UpdateRegionalSettingsDto();
       dto.startOfWeek = -1;
 

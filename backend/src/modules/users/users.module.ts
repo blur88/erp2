@@ -1,10 +1,10 @@
-import { Module } from "@nestjs/common";
-import { TypeOrmModule } from "@nestjs/typeorm";
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 // import { CacheModule } from '@nestjs/cache-manager';
 
-import { UsersService } from "./users.service";
-import { UsersController } from "./users.controller";
-import { User } from "../../database/entities/user.entity";
+import { UsersService } from './users.service';
+import { UsersController } from './users.controller';
+import { User } from '../../database/entities/user.entity';
 
 /**
  * Users Module
@@ -14,7 +14,7 @@ import { User } from "../../database/entities/user.entity";
   imports: [
     // TypeORM for User entity
     TypeOrmModule.forFeature([User]),
-
+    
     // Cache module for session management (temporarily disabled for basic testing)
     // CacheModule.register(),
   ],

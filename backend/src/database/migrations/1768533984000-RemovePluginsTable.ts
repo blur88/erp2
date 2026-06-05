@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Migration to remove the plugins table
@@ -10,18 +10,18 @@ import { MigrationInterface, QueryRunner } from "typeorm";
  * @date 2026-01-16
  */
 export class RemovePluginsTable1768533984000 implements MigrationInterface {
-  name = "RemovePluginsTable1768533984000";
+  name = 'RemovePluginsTable1768533984000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Check if the plugins table exists before dropping
-    const tableExists = await queryRunner.hasTable("plugins");
+    const tableExists = await queryRunner.hasTable('plugins');
 
     if (tableExists) {
       // Drop the plugins table
       await queryRunner.query(`DROP TABLE IF EXISTS "plugins" CASCADE`);
-      console.log("✅ Successfully dropped plugins table");
+      console.log('✅ Successfully dropped plugins table');
     } else {
-      console.log("ℹ️ Plugins table does not exist, skipping drop");
+      console.log('ℹ️ Plugins table does not exist, skipping drop');
     }
   }
 
@@ -75,25 +75,13 @@ export class RemovePluginsTable1768533984000 implements MigrationInterface {
     `);
 
     // Recreate indexes
-    await queryRunner.query(
-      `CREATE INDEX "IDX_plugins_identifier" ON "plugins" ("identifier")`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_plugins_name" ON "plugins" ("name")`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_plugins_status" ON "plugins" ("status")`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_plugins_type" ON "plugins" ("type")`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_plugins_isActive" ON "plugins" ("isActive")`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_plugins_installedDate" ON "plugins" ("installedDate")`,
-    );
+    await queryRunner.query(`CREATE INDEX "IDX_plugins_identifier" ON "plugins" ("identifier")`);
+    await queryRunner.query(`CREATE INDEX "IDX_plugins_name" ON "plugins" ("name")`);
+    await queryRunner.query(`CREATE INDEX "IDX_plugins_status" ON "plugins" ("status")`);
+    await queryRunner.query(`CREATE INDEX "IDX_plugins_type" ON "plugins" ("type")`);
+    await queryRunner.query(`CREATE INDEX "IDX_plugins_isActive" ON "plugins" ("isActive")`);
+    await queryRunner.query(`CREATE INDEX "IDX_plugins_installedDate" ON "plugins" ("installedDate")`);
 
-    console.log("✅ Successfully recreated plugins table (rollback)");
+    console.log('✅ Successfully recreated plugins table (rollback)');
   }
 }

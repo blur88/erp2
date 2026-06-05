@@ -3,21 +3,18 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, Not, IsNull } from "typeorm";
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, Not, IsNull } from 'typeorm';
 import {
   BankReconciliation,
   BankReconciliationStatus,
-} from "../../../database/entities/bank-reconciliation.entity";
-import { ReconciledTransaction } from "../../../database/entities/reconciled-transaction.entity";
-import { JournalEntryLine } from "../../../database/entities/journal-entry-line.entity";
-import { JournalEntryStatus } from "../../../database/entities/journal-entry.entity";
-import { ChartOfAccount } from "../../../database/entities/chart-of-account.entity";
-import {
-  FiscalPeriod,
-  FiscalPeriodStatus,
-} from "../../../database/entities/fiscal-period.entity";
+} from '../../../database/entities/bank-reconciliation.entity';
+import { ReconciledTransaction } from '../../../database/entities/reconciled-transaction.entity';
+import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
+import { JournalEntryStatus } from '../../../database/entities/journal-entry.entity';
+import { ChartOfAccount } from '../../../database/entities/chart-of-account.entity';
+import { FiscalPeriod, FiscalPeriodStatus } from '../../../database/entities/fiscal-period.entity';
 import {
   CreateBankReconciliationDto,
   UpdateBankReconciliationDto,
@@ -26,8 +23,8 @@ import {
   BankReconciliationResponseDto,
   BankReconciliationListResponseDto,
   ReconciledTransactionResponseDto,
-} from "../dto/reconciliation.dto";
-import { AuditLogService } from "../../audit-logs/services";
+} from '../dto/reconciliation.dto';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class ReconciliationService {
@@ -55,18 +52,14 @@ export class ReconciliationService {
     userId?: string,
     username?: string,
   ): Promise<BankReconciliationResponseDto> {
-    this.logger.log(
-      `Creating bank reconciliation for account: ${createDto.accountId}`,
-    );
+    this.logger.log(`Creating bank reconciliation for account: ${createDto.accountId}`);
 
     // Validate account exists and is a bank/cash account (Asset type)
     const account = await this.chartOfAccountRepository.findOne({
       where: { id: createDto.accountId, isActive: true },
     });
     if (!account) {
-      throw new NotFoundException(
-        `Account with ID '${createDto.accountId}' not found or inactive`,
-      );
+      throw new NotFoundException(`Account with ID '${createDto.accountId}' not found or inactive`);
     }
 
     // Validate fiscal period exists and is open
@@ -74,14 +67,10 @@ export class ReconciliationService {
       where: { id: createDto.fiscalPeriodId },
     });
     if (!period) {
-      throw new NotFoundException(
-        `Fiscal period with ID '${createDto.fiscalPeriodId}' not found`,
-      );
+      throw new NotFoundException(`Fiscal period with ID '${createDto.fiscalPeriodId}' not found`);
     }
     if (period.status === FiscalPeriodStatus.CLOSED) {
-      throw new BadRequestException(
-        `Cannot create reconciliation for closed period '${period.name}'`,
-      );
+      throw new BadRequestException(`Cannot create reconciliation for closed period '${period.name}'`);
     }
 
     // Check for existing in-progress reconciliation for same account+period
@@ -94,7 +83,7 @@ export class ReconciliationService {
     });
     if (existing) {
       throw new BadRequestException(
-        "An in-progress reconciliation already exists for this account and period. Complete or delete it first.",
+        'An in-progress reconciliation already exists for this account and period. Complete or delete it first.',
       );
     }
 
@@ -118,10 +107,10 @@ export class ReconciliationService {
     await this.loadUnreconciledTransactions(saved.id, createDto.accountId);
 
     await this.auditLogService.log(
-      "CREATE",
-      "BankReconciliation",
+      'CREATE',
+      'BankReconciliation',
       `Created bank reconciliation for account: ${saved.accountId}`,
-      { entityId: saved.id, userId: userId ?? "system", username },
+      { entityId: saved.id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Bank reconciliation created: ${saved.id}`);
@@ -140,8 +129,8 @@ export class ReconciliationService {
       accountId,
       fiscalPeriodId,
       status,
-      sortBy = "reconciliationDate",
-      sortOrder = "DESC",
+      sortBy = 'reconciliationDate',
+      sortOrder = 'DESC',
       search,
       startDate,
       endDate,
@@ -149,54 +138,46 @@ export class ReconciliationService {
     } = query;
 
     const queryBuilder = this.reconciliationRepository
-      .createQueryBuilder("recon")
-      .leftJoinAndSelect("recon.account", "account")
-      .leftJoinAndSelect("recon.fiscalPeriod", "fiscalPeriod")
-      .where("recon.deletedAt IS NULL");
+      .createQueryBuilder('recon')
+      .leftJoinAndSelect('recon.account', 'account')
+      .leftJoinAndSelect('recon.fiscalPeriod', 'fiscalPeriod')
+      .where('recon.deletedAt IS NULL');
 
     if (accountId) {
-      queryBuilder.andWhere("recon.accountId = :accountId", { accountId });
+      queryBuilder.andWhere('recon.accountId = :accountId', { accountId });
     }
     if (fiscalPeriodId) {
-      queryBuilder.andWhere("recon.fiscalPeriodId = :fiscalPeriodId", {
-        fiscalPeriodId,
-      });
+      queryBuilder.andWhere('recon.fiscalPeriodId = :fiscalPeriodId', { fiscalPeriodId });
     }
     if (status) {
-      queryBuilder.andWhere("recon.status = :status", { status });
+      queryBuilder.andWhere('recon.status = :status', { status });
     }
     if (search) {
       queryBuilder.andWhere(
-        "(account.name ILIKE :search OR account.code ILIKE :search OR fiscalPeriod.name ILIKE :search)",
+        '(account.name ILIKE :search OR account.code ILIKE :search OR fiscalPeriod.name ILIKE :search)',
         { search: `%${search}%` },
       );
     }
     if (startDate) {
-      queryBuilder.andWhere("recon.reconciliationDate >= :startDate", {
-        startDate,
-      });
+      queryBuilder.andWhere('recon.reconciliationDate >= :startDate', { startDate });
     }
     if (endDate) {
-      queryBuilder.andWhere("recon.reconciliationDate <= :endDate", {
-        endDate,
-      });
+      queryBuilder.andWhere('recon.reconciliationDate <= :endDate', { endDate });
     }
     if (isBalanced !== undefined) {
       if (isBalanced) {
-        queryBuilder.andWhere("ABS(recon.difference) < 0.01");
+        queryBuilder.andWhere('ABS(recon.difference) < 0.01');
       } else {
-        queryBuilder.andWhere("ABS(recon.difference) >= 0.01");
+        queryBuilder.andWhere('ABS(recon.difference) >= 0.01');
       }
     }
 
-    const validSortFields = ["reconciliationDate", "createdAt"];
-    const sortField = validSortFields.includes(sortBy)
-      ? sortBy
-      : "reconciliationDate";
-    const safeSortOrder = sortOrder?.toUpperCase() === "DESC" ? "DESC" : "ASC";
+    const validSortFields = ['reconciliationDate', 'createdAt'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'reconciliationDate';
+    const safeSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
     queryBuilder.orderBy(`recon.${sortField}`, safeSortOrder);
     // Hardcoded tiebreaker; account.name intentionally excluded from validSortFields to avoid sort-direction conflict
-    queryBuilder.addOrderBy("account.name", "ASC");
+    queryBuilder.addOrderBy('account.name', 'ASC');
 
     const offset = (page - 1) * limit;
     queryBuilder.skip(offset).take(limit);
@@ -223,9 +204,7 @@ export class ReconciliationService {
     const withTransactions = {
       account: true,
       fiscalPeriod: true,
-      reconciledTransactions: {
-        journalEntryLine: { account: true, journalEntry: true },
-      },
+      reconciledTransactions: { journalEntryLine: { account: true, journalEntry: true } },
     };
     const reconciliation = await this.reconciliationRepository.findOne({
       where: { id },
@@ -233,9 +212,7 @@ export class ReconciliationService {
     });
 
     if (!reconciliation) {
-      throw new NotFoundException(
-        `Bank reconciliation with ID '${id}' not found`,
-      );
+      throw new NotFoundException(`Bank reconciliation with ID '${id}' not found`);
     }
 
     return this.toResponseDto(reconciliation);
@@ -246,7 +223,7 @@ export class ReconciliationService {
       withDeleted: true,
       where: { deletedAt: Not(IsNull()) },
       relations: { account: true, fiscalPeriod: true },
-      order: { deletedAt: "DESC" },
+      order: { deletedAt: 'DESC' },
     });
     return records.map((r) => this.toResponseDto(r));
   }
@@ -262,13 +239,11 @@ export class ReconciliationService {
     });
 
     if (!reconciliation) {
-      throw new NotFoundException(
-        `Bank reconciliation with ID '${id}' not found`,
-      );
+      throw new NotFoundException(`Bank reconciliation with ID '${id}' not found`);
     }
 
     if (!reconciliation.deletedAt) {
-      throw new BadRequestException("Bank reconciliation is not deleted");
+      throw new BadRequestException('Bank reconciliation is not deleted');
     }
 
     const duplicate = await this.reconciliationRepository.findOne({
@@ -280,7 +255,7 @@ export class ReconciliationService {
     });
     if (duplicate) {
       throw new BadRequestException(
-        "Cannot restore: an in-progress reconciliation already exists for this account and period.",
+        'Cannot restore: an in-progress reconciliation already exists for this account and period.',
       );
     }
 
@@ -293,45 +268,37 @@ export class ReconciliationService {
     } as any);
 
     await this.auditLogService.log(
-      "RESTORE",
-      "BankReconciliation",
-      "Restored bank reconciliation",
-      { entityId: id, userId: userId ?? "system", username },
+      'RESTORE',
+      'BankReconciliation',
+      'Restored bank reconciliation',
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Bank reconciliation restored: ${id}`);
     return this.findOne(id);
   }
 
-  async permanentDelete(
-    id: string,
-    userId?: string,
-    username?: string,
-  ): Promise<void> {
+  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
     const reconciliation = await this.reconciliationRepository.findOne({
       where: { id } as any,
       withDeleted: true,
     });
 
     if (!reconciliation) {
-      throw new NotFoundException(
-        `Bank reconciliation with ID '${id}' not found`,
-      );
+      throw new NotFoundException(`Bank reconciliation with ID '${id}' not found`);
     }
 
     if (!reconciliation.deletedAt) {
-      throw new BadRequestException(
-        "Bank reconciliation must be soft-deleted before permanent deletion",
-      );
+      throw new BadRequestException('Bank reconciliation must be soft-deleted before permanent deletion');
     }
 
     await this.reconciliationRepository.delete(id);
 
     await this.auditLogService.log(
-      "DELETE",
-      "BankReconciliation",
-      "Permanently deleted bank reconciliation",
-      { entityId: id, userId: userId ?? "system", username },
+      'DELETE',
+      'BankReconciliation',
+      'Permanently deleted bank reconciliation',
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Bank reconciliation permanently deleted: ${id}`);
@@ -352,9 +319,7 @@ export class ReconciliationService {
         await this.restore(id, userId, username);
         restoredCount += 1;
       } catch (error: any) {
-        this.logger.warn(
-          `Failed to restore bank reconciliation '${id}': ${error.message}`,
-        );
+        this.logger.warn(`Failed to restore bank reconciliation '${id}': ${error.message}`);
         failedIds.push(id);
       }
     }
@@ -377,9 +342,7 @@ export class ReconciliationService {
         await this.permanentDelete(id, userId, username);
         deletedCount += 1;
       } catch (error: any) {
-        this.logger.warn(
-          `Failed to permanently delete bank reconciliation '${id}': ${error.message}`,
-        );
+        this.logger.warn(`Failed to permanently delete bank reconciliation '${id}': ${error.message}`);
         failedIds.push(id);
       }
     }
@@ -401,72 +364,55 @@ export class ReconciliationService {
     });
 
     if (!reconciliation) {
-      throw new NotFoundException(
-        `Bank reconciliation with ID '${id}' not found`,
-      );
+      throw new NotFoundException(`Bank reconciliation with ID '${id}' not found`);
     }
 
     if (reconciliation.status === BankReconciliationStatus.COMPLETED) {
-      throw new BadRequestException("Cannot update a completed reconciliation");
+      throw new BadRequestException('Cannot update a completed reconciliation');
     }
 
     const accountChanged =
-      updateDto.accountId !== undefined &&
-      updateDto.accountId !== reconciliation.accountId;
+      updateDto.accountId !== undefined && updateDto.accountId !== reconciliation.accountId;
 
     if (accountChanged) {
       const newAccount = await this.chartOfAccountRepository.findOne({
         where: { id: updateDto.accountId, isActive: true },
       });
       if (!newAccount) {
-        throw new NotFoundException(
-          `Account with ID '${updateDto.accountId}' not found or inactive`,
-        );
+        throw new NotFoundException(`Account with ID '${updateDto.accountId}' not found or inactive`);
       }
 
       const duplicate = await this.reconciliationRepository.findOne({
         where: {
           accountId: updateDto.accountId,
-          fiscalPeriodId:
-            updateDto.fiscalPeriodId ?? reconciliation.fiscalPeriodId,
+          fiscalPeriodId: updateDto.fiscalPeriodId ?? reconciliation.fiscalPeriodId,
           status: BankReconciliationStatus.IN_PROGRESS,
         },
       });
       if (duplicate && duplicate.id !== id) {
         throw new BadRequestException(
-          "An in-progress reconciliation already exists for this account and period. Complete or delete it first.",
+          'An in-progress reconciliation already exists for this account and period. Complete or delete it first.',
         );
       }
 
-      await this.reconciledTransactionRepository.delete({
-        reconciliationId: id,
-      });
+      await this.reconciledTransactionRepository.delete({ reconciliationId: id });
 
-      const newBookBalance = await this.calculateBookBalance(
-        updateDto.accountId!,
-      );
+      const newBookBalance = await this.calculateBookBalance(updateDto.accountId!);
       reconciliation.accountId = updateDto.accountId!;
       reconciliation.bookBalance = newBookBalance;
       reconciliation.statementBalance = 0;
       reconciliation.calculateDifference();
     }
 
-    if (
-      updateDto.fiscalPeriodId !== undefined &&
-      updateDto.fiscalPeriodId !== reconciliation.fiscalPeriodId
-    ) {
+    if (updateDto.fiscalPeriodId !== undefined && updateDto.fiscalPeriodId !== reconciliation.fiscalPeriodId) {
       const newPeriod = await this.fiscalPeriodRepository.findOne({
         where: { id: updateDto.fiscalPeriodId },
       });
       if (!newPeriod) {
-        throw new NotFoundException(
-          `Fiscal period with ID '${updateDto.fiscalPeriodId}' not found`,
-        );
+        throw new NotFoundException(`Fiscal period with ID '${updateDto.fiscalPeriodId}' not found`);
       }
       if (newPeriod.status === FiscalPeriodStatus.CLOSED) {
-        throw new BadRequestException(
-          `Cannot set reconciliation to closed period '${newPeriod.name}'`,
-        );
+        throw new BadRequestException(`Cannot set reconciliation to closed period '${newPeriod.name}'`);
       }
 
       const duplicate = await this.reconciliationRepository.findOne({
@@ -478,7 +424,7 @@ export class ReconciliationService {
       });
       if (duplicate && duplicate.id !== id) {
         throw new BadRequestException(
-          "An in-progress reconciliation already exists for this account and period. Complete or delete it first.",
+          'An in-progress reconciliation already exists for this account and period. Complete or delete it first.',
         );
       }
 
@@ -504,10 +450,10 @@ export class ReconciliationService {
     }
 
     await this.auditLogService.log(
-      "UPDATE",
-      "BankReconciliation",
-      "Updated bank reconciliation",
-      { entityId: id, userId: userId ?? "system", username },
+      'UPDATE',
+      'BankReconciliation',
+      'Updated bank reconciliation',
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     return this.findOne(id);
@@ -522,23 +468,21 @@ export class ReconciliationService {
     });
 
     if (!reconciliation) {
-      throw new NotFoundException(
-        `Bank reconciliation with ID '${id}' not found`,
-      );
+      throw new NotFoundException(`Bank reconciliation with ID '${id}' not found`);
     }
 
     if (reconciliation.status === BankReconciliationStatus.COMPLETED) {
       throw new BadRequestException(
-        "Cannot delete a completed reconciliation. Please reopen it first.",
+        'Cannot delete a completed reconciliation. Please reopen it first.',
       );
     }
 
     await this.reconciliationRepository.softDelete(id);
     await this.auditLogService.log(
-      "DELETE",
-      "BankReconciliation",
-      "Deleted bank reconciliation",
-      { entityId: id, userId: userId ?? "system", username },
+      'DELETE',
+      'BankReconciliation',
+      'Deleted bank reconciliation',
+      { entityId: id, userId: userId ?? 'system', username },
     );
     this.logger.log(`Bank reconciliation soft-deleted: ${id}`);
   }
@@ -557,13 +501,11 @@ export class ReconciliationService {
     });
 
     if (!reconciliation) {
-      throw new NotFoundException(
-        `Bank reconciliation with ID '${id}' not found`,
-      );
+      throw new NotFoundException(`Bank reconciliation with ID '${id}' not found`);
     }
 
     if (reconciliation.status === BankReconciliationStatus.COMPLETED) {
-      throw new BadRequestException("Cannot modify a completed reconciliation");
+      throw new BadRequestException('Cannot modify a completed reconciliation');
     }
 
     // Update cleared status
@@ -598,13 +540,11 @@ export class ReconciliationService {
     });
 
     if (!reconciliation) {
-      throw new NotFoundException(
-        `Bank reconciliation with ID '${id}' not found`,
-      );
+      throw new NotFoundException(`Bank reconciliation with ID '${id}' not found`);
     }
 
     if (reconciliation.status === BankReconciliationStatus.COMPLETED) {
-      throw new BadRequestException("Cannot modify a completed reconciliation");
+      throw new BadRequestException('Cannot modify a completed reconciliation');
     }
 
     for (const lineId of dto.journalEntryLineIds) {
@@ -637,34 +577,28 @@ export class ReconciliationService {
     });
 
     if (!reconciliation) {
-      throw new NotFoundException(
-        `Bank reconciliation with ID '${id}' not found`,
-      );
+      throw new NotFoundException(`Bank reconciliation with ID '${id}' not found`);
     }
 
     if (reconciliation.status === BankReconciliationStatus.COMPLETED) {
-      throw new BadRequestException("Reconciliation is already completed");
+      throw new BadRequestException('Reconciliation is already completed');
     }
 
     // Recalculate to ensure latest data
     await this.recalculateBalances(id);
 
     // Re-fetch after recalculation
-    const updated = await this.reconciliationRepository.findOne({
-      where: { id },
-    });
+    const updated = await this.reconciliationRepository.findOne({ where: { id } });
 
     if (!updated) {
-      throw new NotFoundException(
-        `Bank reconciliation with ID '${id}' not found`,
-      );
+      throw new NotFoundException(`Bank reconciliation with ID '${id}' not found`);
     }
 
     if (!updated.isBalanced) {
       throw new BadRequestException(
         `Cannot complete reconciliation. Difference: ${Number(updated.difference).toFixed(2)}. ` +
-          `Statement balance: ${Number(updated.statementBalance).toFixed(2)}, ` +
-          `Cleared balance: ${Number(updated.bookBalance).toFixed(2)}`,
+        `Statement balance: ${Number(updated.statementBalance).toFixed(2)}, ` +
+        `Cleared balance: ${Number(updated.bookBalance).toFixed(2)}`,
       );
     }
 
@@ -673,12 +607,12 @@ export class ReconciliationService {
     await this.reconciliationRepository.save(updated);
 
     await this.auditLogService.log(
-      "UPDATE",
-      "BankReconciliation",
-      "Completed bank reconciliation",
+      'UPDATE',
+      'BankReconciliation',
+      'Completed bank reconciliation',
       {
         entityId: id,
-        userId: userId ?? "system",
+        userId: userId ?? 'system',
         username,
         oldValues: { status: previousStatus },
         newValues: { status: updated.status },
@@ -703,15 +637,11 @@ export class ReconciliationService {
     });
 
     if (!reconciliation) {
-      throw new NotFoundException(
-        `Bank reconciliation with ID '${id}' not found`,
-      );
+      throw new NotFoundException(`Bank reconciliation with ID '${id}' not found`);
     }
 
     if (reconciliation.status !== BankReconciliationStatus.COMPLETED) {
-      throw new BadRequestException(
-        "Can only reopen completed reconciliations",
-      );
+      throw new BadRequestException('Can only reopen completed reconciliations');
     }
 
     const previousStatus = reconciliation.status;
@@ -719,12 +649,12 @@ export class ReconciliationService {
     await this.reconciliationRepository.save(reconciliation);
 
     await this.auditLogService.log(
-      "UPDATE",
-      "BankReconciliation",
-      "Reopened bank reconciliation",
+      'UPDATE',
+      'BankReconciliation',
+      'Reopened bank reconciliation',
       {
         entityId: id,
-        userId: userId ?? "system",
+        userId: userId ?? 'system',
         username,
         oldValues: { status: previousStatus },
         newValues: { status: reconciliation.status },
@@ -743,13 +673,13 @@ export class ReconciliationService {
    */
   private async calculateBookBalance(accountId: string): Promise<number> {
     const result = await this.journalEntryLineRepository
-      .createQueryBuilder("line")
-      .innerJoin("line.journalEntry", "entry")
-      .select("COALESCE(SUM(line.debitAmount), 0)", "totalDebit")
-      .addSelect("COALESCE(SUM(line.creditAmount), 0)", "totalCredit")
-      .where("line.accountId = :accountId", { accountId })
-      .andWhere("entry.status = :status", { status: JournalEntryStatus.POSTED })
-      .andWhere("entry.deletedAt IS NULL")
+      .createQueryBuilder('line')
+      .innerJoin('line.journalEntry', 'entry')
+      .select('COALESCE(SUM(line.debitAmount), 0)', 'totalDebit')
+      .addSelect('COALESCE(SUM(line.creditAmount), 0)', 'totalCredit')
+      .where('line.accountId = :accountId', { accountId })
+      .andWhere('entry.status = :status', { status: JournalEntryStatus.POSTED })
+      .andWhere('entry.deletedAt IS NULL')
       .getRawOne();
 
     return Number(result.totalDebit) - Number(result.totalCredit);
@@ -766,23 +696,23 @@ export class ReconciliationService {
     // Find all posted journal entry lines for this account that are NOT already
     // cleared in a completed reconciliation
     const lines = await this.journalEntryLineRepository
-      .createQueryBuilder("line")
-      .innerJoin("line.journalEntry", "entry")
+      .createQueryBuilder('line')
+      .innerJoin('line.journalEntry', 'entry')
       .leftJoin(
-        "reconciled_transactions",
-        "rt",
-        "rt.journalEntryLineId = line.id AND rt.cleared = true",
+        'reconciled_transactions',
+        'rt',
+        'rt.journalEntryLineId = line.id AND rt.cleared = true',
       )
       .leftJoin(
-        "bank_reconciliations",
-        "br",
-        "br.id = rt.reconciliationId AND br.status = :completedStatus",
+        'bank_reconciliations',
+        'br',
+        'br.id = rt.reconciliationId AND br.status = :completedStatus',
         { completedStatus: BankReconciliationStatus.COMPLETED },
       )
-      .where("line.accountId = :accountId", { accountId })
-      .andWhere("entry.status = :status", { status: JournalEntryStatus.POSTED })
-      .andWhere("entry.deletedAt IS NULL")
-      .andWhere("br.id IS NULL")
+      .where('line.accountId = :accountId', { accountId })
+      .andWhere('entry.status = :status', { status: JournalEntryStatus.POSTED })
+      .andWhere('entry.deletedAt IS NULL')
+      .andWhere('br.id IS NULL')
       .getMany();
 
     const transactions = lines.map((line) =>
@@ -816,16 +746,15 @@ export class ReconciliationService {
 
     // Sum cleared transactions
     const result = await this.reconciledTransactionRepository
-      .createQueryBuilder("rt")
-      .innerJoin("rt.journalEntryLine", "line")
-      .select("COALESCE(SUM(line.debitAmount), 0)", "totalDebit")
-      .addSelect("COALESCE(SUM(line.creditAmount), 0)", "totalCredit")
-      .where("rt.reconciliationId = :reconciliationId", { reconciliationId })
-      .andWhere("rt.cleared = true")
+      .createQueryBuilder('rt')
+      .innerJoin('rt.journalEntryLine', 'line')
+      .select('COALESCE(SUM(line.debitAmount), 0)', 'totalDebit')
+      .addSelect('COALESCE(SUM(line.creditAmount), 0)', 'totalCredit')
+      .where('rt.reconciliationId = :reconciliationId', { reconciliationId })
+      .andWhere('rt.cleared = true')
       .getRawOne();
 
-    const clearedBalance =
-      Number(result.totalDebit) - Number(result.totalCredit);
+    const clearedBalance = Number(result.totalDebit) - Number(result.totalCredit);
     reconciliation.bookBalance = clearedBalance;
     reconciliation.calculateDifference();
 
@@ -835,9 +764,7 @@ export class ReconciliationService {
   /**
    * Convert entity to response DTO
    */
-  private toResponseDto(
-    recon: BankReconciliation,
-  ): BankReconciliationResponseDto {
+  private toResponseDto(recon: BankReconciliation): BankReconciliationResponseDto {
     return {
       id: recon.id,
       accountId: recon.accountId,
@@ -867,18 +794,14 @@ export class ReconciliationService {
           }
         : undefined,
       reconciledTransactions: recon.reconciledTransactions
-        ? recon.reconciledTransactions.map((t) =>
-            this.toTransactionResponseDto(t),
-          )
+        ? recon.reconciledTransactions.map((t) => this.toTransactionResponseDto(t))
         : undefined,
       createdAt: recon.createdAt,
       updatedAt: recon.updatedAt,
     };
   }
 
-  private toTransactionResponseDto(
-    txn: ReconciledTransaction,
-  ): ReconciledTransactionResponseDto {
+  private toTransactionResponseDto(txn: ReconciledTransaction): ReconciledTransactionResponseDto {
     return {
       id: txn.id,
       reconciliationId: txn.reconciliationId,
@@ -903,12 +826,9 @@ export class ReconciliationService {
             journalEntry: (txn.journalEntryLine as any).journalEntry
               ? {
                   id: (txn.journalEntryLine as any).journalEntry.id,
-                  referenceNumber: (txn.journalEntryLine as any).journalEntry
-                    .referenceNumber,
-                  entryDate: (txn.journalEntryLine as any).journalEntry
-                    .entryDate,
-                  description: (txn.journalEntryLine as any).journalEntry
-                    .description,
+                  referenceNumber: (txn.journalEntryLine as any).journalEntry.referenceNumber,
+                  entryDate: (txn.journalEntryLine as any).journalEntry.entryDate,
+                  description: (txn.journalEntryLine as any).journalEntry.description,
                 }
               : undefined,
           }

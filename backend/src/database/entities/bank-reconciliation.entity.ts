@@ -5,16 +5,21 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
-} from "typeorm";
-import { IsEnum, IsDecimal, IsDate, IsUUID } from "class-validator";
-import { BaseEntity } from "./base.entity";
-import { ChartOfAccount } from "./chart-of-account.entity";
-import { FiscalPeriod } from "./fiscal-period.entity";
-import { ReconciledTransaction } from "./reconciled-transaction.entity";
+} from 'typeorm';
+import {
+  IsEnum,
+  IsDecimal,
+  IsDate,
+  IsUUID,
+} from 'class-validator';
+import { BaseEntity } from './base.entity';
+import { ChartOfAccount } from './chart-of-account.entity';
+import { FiscalPeriod } from './fiscal-period.entity';
+import { ReconciledTransaction } from './reconciled-transaction.entity';
 
 export enum BankReconciliationStatus {
-  IN_PROGRESS = "IN_PROGRESS",
-  COMPLETED = "COMPLETED",
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
 }
 
 /**
@@ -22,95 +27,91 @@ export enum BankReconciliationStatus {
  * Skeleton entity for Phase 4 implementation
  * Will be used to match bank statement transactions with journal entry lines
  */
-@Entity("bank_reconciliations")
-@Index(["accountId"])
-@Index(["fiscalPeriodId"])
-@Index(["reconciliationDate"])
-@Index(["status"])
+@Entity('bank_reconciliations')
+@Index(['accountId'])
+@Index(['fiscalPeriodId'])
+@Index(['reconciliationDate'])
+@Index(['status'])
 export class BankReconciliation extends BaseEntity {
   @Column({
-    type: "date",
-    comment: "Date of reconciliation",
+    type: 'date',
+    comment: 'Date of reconciliation',
   })
   @IsDate()
   reconciliationDate: Date;
 
   @Column({
-    type: "uuid",
-    comment: "Bank account (Chart of Account ID)",
+    type: 'uuid',
+    comment: 'Bank account (Chart of Account ID)',
   })
   @IsUUID()
   accountId: string;
 
   @Column({
-    type: "uuid",
-    comment: "Fiscal period ID",
+    type: 'uuid',
+    comment: 'Fiscal period ID',
   })
   @IsUUID()
   fiscalPeriodId: string;
 
   @Column({
-    type: "decimal",
+    type: 'decimal',
     precision: 15,
     scale: 4,
     default: 0,
-    comment: "Balance per bank statement",
+    comment: 'Balance per bank statement',
   })
-  @IsDecimal({ decimal_digits: "0,4" })
+  @IsDecimal({ decimal_digits: '0,4' })
   statementBalance: number;
 
   @Column({
-    type: "decimal",
+    type: 'decimal',
     precision: 15,
     scale: 4,
     default: 0,
-    comment: "Balance per books (general ledger)",
+    comment: 'Balance per books (general ledger)',
   })
-  @IsDecimal({ decimal_digits: "0,4" })
+  @IsDecimal({ decimal_digits: '0,4' })
   bookBalance: number;
 
   @Column({
-    type: "decimal",
+    type: 'decimal',
     precision: 15,
     scale: 4,
     default: 0,
-    comment: "Difference between statement and book balance",
+    comment: 'Difference between statement and book balance',
   })
-  @IsDecimal({ decimal_digits: "0,4" })
+  @IsDecimal({ decimal_digits: '0,4' })
   difference: number;
 
   @Column({
-    type: "enum",
+    type: 'enum',
     enum: BankReconciliationStatus,
     default: BankReconciliationStatus.IN_PROGRESS,
-    comment: "Reconciliation status",
+    comment: 'Reconciliation status',
   })
   @IsEnum(BankReconciliationStatus)
   status: BankReconciliationStatus;
 
   // Relationships
   @ManyToOne(() => ChartOfAccount, (account) => account.bankReconciliations, {
-    onDelete: "RESTRICT",
+    onDelete: 'RESTRICT',
     eager: false,
   })
-  @JoinColumn({ name: "accountId" })
+  @JoinColumn({ name: 'accountId' })
   account: ChartOfAccount;
 
   @ManyToOne(() => FiscalPeriod, (period) => period.bankReconciliations, {
-    onDelete: "RESTRICT",
+    onDelete: 'RESTRICT',
     eager: false,
   })
-  @JoinColumn({ name: "fiscalPeriodId" })
+  @JoinColumn({ name: 'fiscalPeriodId' })
   fiscalPeriod: FiscalPeriod;
 
-  @OneToMany(
-    () => ReconciledTransaction,
-    (transaction) => transaction.reconciliation,
-    {
-      cascade: true,
-      eager: false,
-    },
-  )
+  @OneToMany(() => ReconciledTransaction, (transaction) => transaction.reconciliation, {
+    cascade: true,
+    eager: false,
+  })
   reconciledTransactions: ReconciledTransaction[];
 
   // Computed properties
@@ -133,9 +134,7 @@ export class BankReconciliation extends BaseEntity {
 
   complete(): void {
     if (!this.isBalanced) {
-      throw new Error(
-        "Cannot complete reconciliation with unbalanced difference",
-      );
+      throw new Error('Cannot complete reconciliation with unbalanced difference');
     }
     this.status = BankReconciliationStatus.COMPLETED;
   }

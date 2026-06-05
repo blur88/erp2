@@ -5,16 +5,16 @@ import {
   BadRequestException,
   Inject,
   forwardRef,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { In, Repository } from "typeorm";
-import { Product } from "../../../database/entities/product.entity";
-import { SalesOrder } from "../../../database/entities/sales-order.entity";
-import { SalesOrderItem } from "../../../database/entities/sales-order-item.entity";
-import { StockMovementService } from "./stock-movement.service";
-import { ProductService } from "./product.service";
-import { PricingService } from "./pricing.service";
-import { SettingsService } from "../../settings/settings.service";
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, Repository } from 'typeorm';
+import { Product } from '../../../database/entities/product.entity';
+import { SalesOrder } from '../../../database/entities/sales-order.entity';
+import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
+import { StockMovementService } from './stock-movement.service';
+import { ProductService } from './product.service';
+import { PricingService } from './pricing.service';
+import { SettingsService } from '../../settings/settings.service';
 
 export interface SalesOrderIntegration {
   orderId: string;
@@ -89,22 +89,18 @@ export class IntegrationService {
 
     // Check stock availability first
     const availabilityChecks = await this.checkStockAvailability(
-      salesOrderData.items.map((item) => ({
+      salesOrderData.items.map(item => ({
         productId: item.productId,
         quantity: item.quantity,
       })),
     );
 
-    const unavailableItems = availabilityChecks.filter(
-      (check) => !check.isAvailable,
-    );
-
+    const unavailableItems = availabilityChecks.filter(check => !check.isAvailable);
+    
     if (unavailableItems.length > 0 && salesOrderData.reserveStock) {
       this.logger.warn(
         `Some items not available for sales order ${salesOrderData.orderId}:`,
-        unavailableItems.map(
-          (item) => `${item.sku}: ${item.shortfallQuantity} short`,
-        ),
+        unavailableItems.map(item => `${item.sku}: ${item.shortfallQuantity} short`),
       );
     }
 
@@ -132,7 +128,7 @@ export class IntegrationService {
 
     if (salesOrderData.reserveStock) {
       stockReservation = await this.reserveStockForOrder(
-        salesOrderData.items.map((item) => ({
+        salesOrderData.items.map(item => ({
           productId: item.productId,
           quantity: item.quantity,
         })),
@@ -143,9 +139,7 @@ export class IntegrationService {
 
     // Audit logging removed with authentication system
 
-    this.logger.log(
-      `Sales order processed: ${salesOrderData.orderId}, Total: ${totalValue}`,
-    );
+    this.logger.log(`Sales order processed: ${salesOrderData.orderId}, Total: ${totalValue}`);
 
     return {
       stockReservation,
@@ -170,7 +164,7 @@ export class IntegrationService {
     this.logger.log(`Fulfilling sales order: ${orderId}`);
 
     // Create stock movements for each sold item
-    const movementPromises = items.map((item) =>
+    const movementPromises = items.map(item =>
       this.stockMovementService.recordSale(
         item.productId,
         item.quantity,
@@ -196,27 +190,21 @@ export class IntegrationService {
   async checkStockAvailability(
     items: Array<{ productId: string; quantity: number }>,
   ): Promise<StockAvailabilityCheck[]> {
-    const productIds = items.map((item) => item.productId);
-    const products = await this.productRepository.findBy({
-      id: In(productIds),
-    });
+    const productIds = items.map(item => item.productId);
+    const products = await this.productRepository.findBy({ id: In(productIds) });
 
     const availabilityChecks: StockAvailabilityCheck[] = [];
 
     for (const item of items) {
-      const product = products.find((p) => p.id === item.productId);
-
+      const product = products.find(p => p.id === item.productId);
+      
       if (!product) {
-        throw new NotFoundException(
-          `Product with ID '${item.productId}' not found`,
-        );
+        throw new NotFoundException(`Product with ID '${item.productId}' not found`);
       }
 
       const availableQuantity = product.stockQuantity;
       const isAvailable = availableQuantity >= item.quantity;
-      const shortfallQuantity = isAvailable
-        ? 0
-        : item.quantity - availableQuantity;
+      const shortfallQuantity = isAvailable ? 0 : item.quantity - availableQuantity;
 
       availabilityChecks.push({
         productId: product.id,
@@ -227,8 +215,7 @@ export class IntegrationService {
         reservedQuantity: Number(0),
         stockQuantity: Number(product.stockQuantity),
         isAvailable,
-        shortfallQuantity:
-          shortfallQuantity > 0 ? shortfallQuantity : undefined,
+        shortfallQuantity: shortfallQuantity > 0 ? shortfallQuantity : undefined,
       });
     }
 
@@ -243,8 +230,8 @@ export class IntegrationService {
     reason: string,
     userId?: string,
   ): Promise<StockReservationResult> {
-    const reservedItems: StockReservationResult["reservedItems"] = [];
-    const failedItems: StockReservationResult["failedItems"] = [];
+    const reservedItems: StockReservationResult['reservedItems'] = [];
+    const failedItems: StockReservationResult['failedItems'] = [];
 
     for (const item of items) {
       try {
@@ -257,7 +244,7 @@ export class IntegrationService {
             productId: item.productId,
             requestedQuantity: item.quantity,
             availableQuantity: 0,
-            reason: "Product not found",
+            reason: 'Product not found',
           });
           continue;
         }
@@ -285,7 +272,7 @@ export class IntegrationService {
                 productId: item.productId,
                 requestedQuantity: item.quantity - reserveQuantity,
                 availableQuantity: 0,
-                reason: "Partial stock available",
+                reason: 'Partial stock available',
               });
             }
           } else {
@@ -293,7 +280,7 @@ export class IntegrationService {
               productId: item.productId,
               requestedQuantity: item.quantity,
               availableQuantity,
-              reason: "Failed to reserve stock",
+              reason: 'Failed to reserve stock',
             });
           }
         } else {
@@ -301,13 +288,11 @@ export class IntegrationService {
             productId: item.productId,
             requestedQuantity: item.quantity,
             availableQuantity,
-            reason: "Insufficient stock available",
+            reason: 'Insufficient stock available',
           });
         }
       } catch (error) {
-        this.logger.error(
-          `Failed to reserve stock for product ${item.productId}: ${error.message}`,
-        );
+        this.logger.error(`Failed to reserve stock for product ${item.productId}: ${error.message}`);
         failedItems.push({
           productId: item.productId,
           requestedQuantity: item.quantity,
@@ -336,46 +321,39 @@ export class IntegrationService {
     // In a complete implementation, you would track reservations by order ID
     // For now, this is a placeholder for the logic
     this.logger.log(`Released reservations for order: ${orderId}`);
-
+    
     // Audit logging removed with authentication system
   }
 
   /**
    * Get products that need reordering based on current stock levels
    */
-  async getProductsNeedingReorder(): Promise<
-    Array<{
-      productId: string;
-      sku: string;
-      name: string;
-      currentStock: number;
-      reorderLevel: number;
-      optimalStockLevel: number;
-      recommendedOrderQuantity: number;
-      averageDailyUsage: number;
-      leadTimeDays: number;
-    }>
-  > {
-    const { lowStockThreshold } =
-      await this.settingsService.getRegionalSettings();
+  async getProductsNeedingReorder(): Promise<Array<{
+    productId: string;
+    sku: string;
+    name: string;
+    currentStock: number;
+    reorderLevel: number;
+    optimalStockLevel: number;
+    recommendedOrderQuantity: number;
+    averageDailyUsage: number;
+    leadTimeDays: number;
+  }>> {
+    const { lowStockThreshold } = await this.settingsService.getRegionalSettings();
     // Get products below reorder level
     const products = await this.productRepository
-      .createQueryBuilder("product")
-      .leftJoinAndSelect("product.category", "category")
-      .where("product.stockQuantity <= :lowStockThreshold", {
-        lowStockThreshold,
-      })
-      .andWhere("product.isActive = true")
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .where('product.stockQuantity <= :lowStockThreshold', { lowStockThreshold })
+      .andWhere('product.isActive = true')
       .getMany();
 
     const reorderRecommendations = [];
 
     for (const product of products) {
       // Calculate average daily usage (mock calculation)
-      const averageDailyUsage = await this.calculateAverageDailyUsage(
-        product.id,
-      );
-
+      const averageDailyUsage = await this.calculateAverageDailyUsage(product.id);
+      
       // Estimate lead time (mock - would come from supplier data)
       const leadTimeDays = 7; // Default 7 days
 
@@ -400,8 +378,7 @@ export class IntegrationService {
     }
 
     return reorderRecommendations.sort(
-      (a, b) =>
-        a.currentStock / a.reorderLevel - b.currentStock / b.reorderLevel,
+      (a, b) => (a.currentStock / a.reorderLevel) - (b.currentStock / b.reorderLevel),
     );
   }
 
@@ -435,11 +412,11 @@ export class IntegrationService {
       const priceListName = item.priceList?.name.toLowerCase();
       const price = Number(item.price);
 
-      if (priceListName?.includes("retail")) {
+      if (priceListName?.includes('retail')) {
         retailPrice = price;
-      } else if (priceListName?.includes("wholesale")) {
+      } else if (priceListName?.includes('wholesale')) {
         wholesalePrice = price;
-      } else if (priceListName?.includes("special")) {
+      } else if (priceListName?.includes('special')) {
         specialPrice = price;
       }
     }
@@ -454,25 +431,14 @@ export class IntegrationService {
 
     if (maintainMargins && Number(product.baseCost) > 0) {
       // Calculate current margins
-      const retailMargin =
-        oldPricing.retail > 0
-          ? (oldPricing.retail - Number(product.baseCost)) / oldPricing.retail
-          : 0;
-      const wholesaleMargin =
-        oldPricing.wholesale > 0
-          ? (oldPricing.wholesale - Number(product.baseCost)) /
-            oldPricing.wholesale
-          : 0;
-      const specialMargin =
-        oldPricing.special > 0
-          ? (oldPricing.special - Number(product.baseCost)) / oldPricing.special
-          : 0;
+      const retailMargin = oldPricing.retail > 0 ? (oldPricing.retail - Number(product.baseCost)) / oldPricing.retail : 0;
+      const wholesaleMargin = oldPricing.wholesale > 0 ? (oldPricing.wholesale - Number(product.baseCost)) / oldPricing.wholesale : 0;
+      const specialMargin = oldPricing.special > 0 ? (oldPricing.special - Number(product.baseCost)) / oldPricing.special : 0;
 
       // Apply same margins to new cost
       newPricing = {
         retail: retailMargin > 0 ? newBaseCost / (1 - retailMargin) : 0,
-        wholesale:
-          wholesaleMargin > 0 ? newBaseCost / (1 - wholesaleMargin) : 0,
+        wholesale: wholesaleMargin > 0 ? newBaseCost / (1 - wholesaleMargin) : 0,
         special: specialMargin > 0 ? newBaseCost / (1 - specialMargin) : 0,
       };
 
@@ -503,18 +469,10 @@ export class IntegrationService {
   async validateOrderItems(
     items: Array<{ productId: string; quantity: number }>,
   ): Promise<{
-    validItems: Array<{
-      productId: string;
-      quantity: number;
-      product: Product;
-    }>;
+    validItems: Array<{ productId: string; quantity: number; product: Product }>;
     invalidItems: Array<{ productId: string; reason: string }>;
   }> {
-    const validItems: Array<{
-      productId: string;
-      quantity: number;
-      product: Product;
-    }> = [];
+    const validItems: Array<{ productId: string; quantity: number; product: Product }> = [];
     const invalidItems: Array<{ productId: string; reason: string }> = [];
 
     for (const item of items) {
@@ -526,7 +484,7 @@ export class IntegrationService {
         if (!product) {
           invalidItems.push({
             productId: item.productId,
-            reason: "Product not found",
+            reason: 'Product not found',
           });
           continue;
         }
@@ -534,7 +492,7 @@ export class IntegrationService {
         if (!product.isActive) {
           invalidItems.push({
             productId: item.productId,
-            reason: "Product is not active",
+            reason: 'Product is not active',
           });
           continue;
         }
@@ -542,7 +500,7 @@ export class IntegrationService {
         if (item.quantity <= 0) {
           invalidItems.push({
             productId: item.productId,
-            reason: "Quantity must be greater than zero",
+            reason: 'Quantity must be greater than zero',
           });
           continue;
         }

@@ -1,22 +1,12 @@
-import { Injectable } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, Between, MoreThan, In } from "typeorm";
-import {
-  Product,
-  Category,
-  StockMovement,
-  PriceListItem as PriceListItemEntity,
-} from "../../../database/entities";
-import { PurchaseCostHistory } from "../../../database/entities/purchase-cost-history.entity";
-import { PurchaseOrderItem } from "../../../database/entities/purchase-order-item.entity";
-import {
-  differenceInCalendarDays,
-  subDays,
-  subMonths,
-  subYears,
-} from "date-fns";
-import { SettingsService } from "../../settings/settings.service";
-import { resolveDateRange } from "@/common/utils/date-range.util";
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, Between, MoreThan, In } from 'typeorm';
+import { Product, Category, StockMovement, PriceListItem as PriceListItemEntity } from '../../../database/entities';
+import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
+import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
+import { differenceInCalendarDays, subDays, subMonths, subYears } from 'date-fns';
+import { SettingsService } from '../../settings/settings.service';
+import { resolveDateRange } from '@/common/utils/date-range.util';
 import {
   InventoryAnalyticsQueryDto,
   InventoryAnalyticsResponseDto,
@@ -25,8 +15,8 @@ import {
   InventoryPeriodBlockDto,
   LowStockAlertDto,
   RecentMovementDto,
-} from "../dto/inventory-analytics.dto";
-import { GroupByPeriod } from "@/common/dto/analytics.dto";
+} from '../dto/inventory-analytics.dto';
+import { GroupByPeriod } from '@/common/dto/analytics.dto';
 
 export interface InventorySummaryQuery {
   productIds?: string[];
@@ -124,7 +114,7 @@ export interface ProductCostItem {
 interface InventoryDashboardFilters {
   categoryId?: string;
   productIds?: string[];
-  stockStatus?: "in_stock" | "low_stock" | "out_of_stock";
+  stockStatus?: 'in_stock' | 'low_stock' | 'out_of_stock';
 }
 
 @Injectable()
@@ -149,27 +139,27 @@ export class InventoryAnalyticsService {
     query: InventorySummaryQuery,
   ): Promise<{ data: InventorySummaryItem[] }> {
     const queryBuilder = this.productRepository
-      .createQueryBuilder("product")
-      .leftJoinAndSelect("product.category", "category")
-      .where("product.isActive = :isActive", { isActive: true })
-      .andWhere("product.deletedAt IS NULL");
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .where('product.isActive = :isActive', { isActive: true })
+      .andWhere('product.deletedAt IS NULL');
 
     // Product IDs filter
     if (query.productIds && query.productIds.length > 0) {
-      queryBuilder.andWhere("product.id IN (:...productIds)", {
+      queryBuilder.andWhere('product.id IN (:...productIds)', {
         productIds: query.productIds,
       });
     }
 
     // Category filter
     if (query.categoryId) {
-      queryBuilder.andWhere("product.categoryId = :categoryId", {
+      queryBuilder.andWhere('product.categoryId = :categoryId', {
         categoryId: query.categoryId,
       });
     }
 
     // Order by product name
-    queryBuilder.orderBy("product.name", "ASC");
+    queryBuilder.orderBy('product.name', 'ASC');
 
     const products = await queryBuilder.getMany();
 
@@ -179,23 +169,21 @@ export class InventoryAnalyticsService {
       const priceListItems = await this.priceListItemRepository.find({
         where: {
           priceListId: query.priceListId,
-          productId: In(products.map((p) => p.id)),
+          productId: In(products.map(p => p.id)),
         },
       });
-      priceListItems.forEach((item) => {
-        priceMap.set(item.productId, parseFloat(item.price?.toString() || "0"));
+      priceListItems.forEach(item => {
+        priceMap.set(item.productId, parseFloat(item.price?.toString() || '0'));
       });
     }
 
     const data: InventorySummaryItem[] = products.map((product) => {
-      const baseCost = parseFloat(product.baseCost?.toString() || "0");
-      const stockQuantity = parseFloat(
-        product.stockQuantity?.toString() || "0",
-      );
+      const baseCost = parseFloat(product.baseCost?.toString() || '0');
+      const stockQuantity = parseFloat(product.stockQuantity?.toString() || '0');
 
       // Get unit price from price list, fallback to base cost if not found
       const unitPrice = query.priceListId
-        ? priceMap.get(product.id) || baseCost
+        ? (priceMap.get(product.id) || baseCost)
         : baseCost;
 
       // Calculate inventory value (cost * quantity)
@@ -210,15 +198,15 @@ export class InventoryAnalyticsService {
       return {
         productId: product.id,
         productName: product.name,
-        categoryName: product.category?.name || "Uncategorized",
-        type: product.type || "product",
+        categoryName: product.category?.name || 'Uncategorized',
+        type: product.type || 'product',
         baseCost,
         unitPrice,
         stockQuantity,
         inventoryValue,
         salesValue,
         potentialProfit,
-        status: "active",
+        status: 'active',
       };
     });
 
@@ -230,45 +218,45 @@ export class InventoryAnalyticsService {
   ): Promise<{ data: HistoricalInventoryItem[] }> {
     // First, get all products that match the filters
     const productQueryBuilder = this.productRepository
-      .createQueryBuilder("product")
-      .leftJoinAndSelect("product.category", "category")
-      .where("product.isActive = :isActive", { isActive: true })
-      .andWhere("product.deletedAt IS NULL");
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .where('product.isActive = :isActive', { isActive: true })
+      .andWhere('product.deletedAt IS NULL');
 
     // Product IDs filter
     if (query.productIds && query.productIds.length > 0) {
-      productQueryBuilder.andWhere("product.id IN (:...productIds)", {
+      productQueryBuilder.andWhere('product.id IN (:...productIds)', {
         productIds: query.productIds,
       });
     }
 
     // Category filter
     if (query.categoryId) {
-      productQueryBuilder.andWhere("product.categoryId = :categoryId", {
+      productQueryBuilder.andWhere('product.categoryId = :categoryId', {
         categoryId: query.categoryId,
       });
     }
 
     // If target date (endDate) is specified, only include products created on or before that date
     if (query.endDate) {
-      productQueryBuilder.andWhere("product.createdAt <= :endDate", {
+      productQueryBuilder.andWhere('product.createdAt <= :endDate', {
         endDate: query.endDate,
       });
     }
 
-    productQueryBuilder.orderBy("product.name", "ASC");
+    productQueryBuilder.orderBy('product.name', 'ASC');
     const products = await productQueryBuilder.getMany();
 
     // Now get stock movements for these products
     const movementQueryBuilder = this.stockMovementRepository
-      .createQueryBuilder("movement")
-      .leftJoinAndSelect("movement.product", "product")
-      .where("1=1");
+      .createQueryBuilder('movement')
+      .leftJoinAndSelect('movement.product', 'product')
+      .where('1=1');
 
     // Only get movements for the filtered products
     if (products.length > 0) {
-      const productIds = products.map((p) => p.id);
-      movementQueryBuilder.andWhere("movement.productId IN (:...productIds)", {
+      const productIds = products.map(p => p.id);
+      movementQueryBuilder.andWhere('movement.productId IN (:...productIds)', {
         productIds,
       });
     } else {
@@ -278,25 +266,22 @@ export class InventoryAnalyticsService {
 
     // Date range filter
     if (query.startDate && query.endDate) {
-      movementQueryBuilder.andWhere(
-        "movement.movementDate BETWEEN :startDate AND :endDate",
-        {
-          startDate: query.startDate,
-          endDate: query.endDate,
-        },
-      );
+      movementQueryBuilder.andWhere('movement.movementDate BETWEEN :startDate AND :endDate', {
+        startDate: query.startDate,
+        endDate: query.endDate,
+      });
     } else if (query.startDate) {
-      movementQueryBuilder.andWhere("movement.movementDate >= :startDate", {
+      movementQueryBuilder.andWhere('movement.movementDate >= :startDate', {
         startDate: query.startDate,
       });
     } else if (query.endDate) {
-      movementQueryBuilder.andWhere("movement.movementDate <= :endDate", {
+      movementQueryBuilder.andWhere('movement.movementDate <= :endDate', {
         endDate: query.endDate,
       });
     }
 
     // Get all purchase cost history batches for the filtered products
-    const productIds = products.map((p) => p.id);
+    const productIds = products.map(p => p.id);
 
     // Calculate cost and quantity for each product using purchase_cost_history
     // This matches the BaseCostCalculatorService method
@@ -308,12 +293,12 @@ export class InventoryAnalyticsService {
             productId: product.id,
             remainingQuantity: MoreThan(0),
           },
-          order: { receivedDate: "ASC" },
+          order: { receivedDate: 'ASC' },
         });
 
         // Apply date filter if endDate is specified
         const filteredBatches = query.endDate
-          ? batches.filter((batch) => batch.receivedDate <= query.endDate)
+          ? batches.filter(batch => batch.receivedDate <= query.endDate)
           : batches;
 
         // Calculate using Moving Average from RECEIVED quantities
@@ -323,13 +308,9 @@ export class InventoryAnalyticsService {
         let totalRemainingQty = 0;
 
         for (const batch of filteredBatches) {
-          const receivedQty = parseFloat(
-            batch.receivedQuantity?.toString() || "0",
-          );
-          const remainingQty = parseFloat(
-            batch.remainingQuantity?.toString() || "0",
-          );
-          const landedCost = parseFloat(batch.landedCost?.toString() || "0");
+          const receivedQty = parseFloat(batch.receivedQuantity?.toString() || '0');
+          const remainingQty = parseFloat(batch.remainingQuantity?.toString() || '0');
+          const landedCost = parseFloat(batch.landedCost?.toString() || '0');
 
           totalReceivedQty += receivedQty;
           totalRemainingQty += remainingQty;
@@ -337,29 +318,28 @@ export class InventoryAnalyticsService {
         }
 
         // Calculate weighted average unit cost
-        const unitValue =
-          totalReceivedQty > 0 ? totalCost / totalReceivedQty : 0;
+        const unitValue = totalReceivedQty > 0 ? totalCost / totalReceivedQty : 0;
 
         // Total value is based on REMAINING quantity, not received quantity
         const totalValue = totalRemainingQty * unitValue;
 
         return {
           productName: product.name,
-          categoryName: product.category?.name || "Uncategorized",
+          categoryName: product.category?.name || 'Uncategorized',
           movementDate: null, // Not applicable for summary
-          movementType: "", // Not applicable for summary
-          movementDescription: "", // Not applicable for summary
+          movementType: '', // Not applicable for summary
+          movementDescription: '', // Not applicable for summary
           quantity: totalRemainingQty,
           previousBalance: 0, // Not applicable for summary
           newBalance: totalRemainingQty, // Same as quantity for summary
           unitValue,
           totalValue,
-          orderNumber: "", // Not applicable for summary
-          referenceType: "", // Not applicable for summary
-          reason: "", // Not applicable for summary
-          notes: "", // Not applicable for summary
+          orderNumber: '', // Not applicable for summary
+          referenceType: '', // Not applicable for summary
+          reason: '', // Not applicable for summary
+          notes: '', // Not applicable for summary
         };
-      }),
+      })
     );
 
     return { data };
@@ -370,26 +350,26 @@ export class InventoryAnalyticsService {
   ): Promise<{ data: MovementSummaryItem[] }> {
     // First, get all products that match the filters
     const productQueryBuilder = this.productRepository
-      .createQueryBuilder("product")
-      .leftJoinAndSelect("product.category", "category")
-      .where("product.isActive = :isActive", { isActive: true })
-      .andWhere("product.deletedAt IS NULL");
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .where('product.isActive = :isActive', { isActive: true })
+      .andWhere('product.deletedAt IS NULL');
 
     // Product IDs filter
     if (query.productIds && query.productIds.length > 0) {
-      productQueryBuilder.andWhere("product.id IN (:...productIds)", {
+      productQueryBuilder.andWhere('product.id IN (:...productIds)', {
         productIds: query.productIds,
       });
     }
 
     // Category filter
     if (query.categoryId) {
-      productQueryBuilder.andWhere("product.categoryId = :categoryId", {
+      productQueryBuilder.andWhere('product.categoryId = :categoryId', {
         categoryId: query.categoryId,
       });
     }
 
-    productQueryBuilder.orderBy("product.name", "ASC");
+    productQueryBuilder.orderBy('product.name', 'ASC');
     const products = await productQueryBuilder.getMany();
 
     if (products.length === 0) {
@@ -398,26 +378,23 @@ export class InventoryAnalyticsService {
 
     // Get stock movements for these products
     const movementQueryBuilder = this.stockMovementRepository
-      .createQueryBuilder("movement")
-      .where("movement.productId IN (:...productIds)", {
-        productIds: products.map((p) => p.id),
+      .createQueryBuilder('movement')
+      .where('movement.productId IN (:...productIds)', {
+        productIds: products.map(p => p.id),
       });
 
     // Date range filter
     if (query.startDate && query.endDate) {
-      movementQueryBuilder.andWhere(
-        "movement.movementDate BETWEEN :startDate AND :endDate",
-        {
-          startDate: query.startDate,
-          endDate: query.endDate,
-        },
-      );
+      movementQueryBuilder.andWhere('movement.movementDate BETWEEN :startDate AND :endDate', {
+        startDate: query.startDate,
+        endDate: query.endDate,
+      });
     } else if (query.startDate) {
-      movementQueryBuilder.andWhere("movement.movementDate >= :startDate", {
+      movementQueryBuilder.andWhere('movement.movementDate >= :startDate', {
         startDate: query.startDate,
       });
     } else if (query.endDate) {
-      movementQueryBuilder.andWhere("movement.movementDate <= :endDate", {
+      movementQueryBuilder.andWhere('movement.movementDate <= :endDate', {
         endDate: query.endDate,
       });
     }
@@ -426,15 +403,13 @@ export class InventoryAnalyticsService {
 
     // Calculate summary for each product
     const data: MovementSummaryItem[] = products.map((product) => {
-      const productMovements = movements.filter(
-        (m) => m.productId === product.id,
-      );
+      const productMovements = movements.filter(m => m.productId === product.id);
 
       let quantityIn = 0;
       let quantityOut = 0;
 
-      productMovements.forEach((movement) => {
-        const qty = parseFloat(movement.quantity?.toString() || "0");
+      productMovements.forEach(movement => {
+        const qty = parseFloat(movement.quantity?.toString() || '0');
         if (qty > 0) {
           quantityIn += qty;
         } else {
@@ -443,13 +418,11 @@ export class InventoryAnalyticsService {
       });
 
       // Quantity on hand is current stock quantity
-      const quantityOnHand = parseFloat(
-        product.stockQuantity?.toString() || "0",
-      );
+      const quantityOnHand = parseFloat(product.stockQuantity?.toString() || '0');
 
       return {
         productName: product.name,
-        categoryName: product.category?.name || "Uncategorized",
+        categoryName: product.category?.name || 'Uncategorized',
         quantityIn,
         quantityOut,
         quantityOnHand,
@@ -464,26 +437,26 @@ export class InventoryAnalyticsService {
   ): Promise<{ data: PriceListReportItem[] }> {
     // Get all products that match the filters
     const productQueryBuilder = this.productRepository
-      .createQueryBuilder("product")
-      .leftJoinAndSelect("product.category", "category")
-      .where("product.isActive = :isActive", { isActive: true })
-      .andWhere("product.deletedAt IS NULL");
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .where('product.isActive = :isActive', { isActive: true })
+      .andWhere('product.deletedAt IS NULL');
 
     // Product IDs filter
     if (query.productIds && query.productIds.length > 0) {
-      productQueryBuilder.andWhere("product.id IN (:...productIds)", {
+      productQueryBuilder.andWhere('product.id IN (:...productIds)', {
         productIds: query.productIds,
       });
     }
 
     // Category filter
     if (query.categoryId) {
-      productQueryBuilder.andWhere("product.categoryId = :categoryId", {
+      productQueryBuilder.andWhere('product.categoryId = :categoryId', {
         categoryId: query.categoryId,
       });
     }
 
-    productQueryBuilder.orderBy("product.name", "ASC");
+    productQueryBuilder.orderBy('product.name', 'ASC');
     const products = await productQueryBuilder.getMany();
 
     // Default discount
@@ -495,20 +468,20 @@ export class InventoryAnalyticsService {
       const priceListItems = await this.priceListItemRepository.find({
         where: {
           priceListId: query.priceListId,
-          productId: In(products.map((p) => p.id)),
+          productId: In(products.map(p => p.id)),
         },
       });
-      priceListItems.forEach((item) => {
-        priceMap.set(item.productId, parseFloat(item.price?.toString() || "0"));
+      priceListItems.forEach(item => {
+        priceMap.set(item.productId, parseFloat(item.price?.toString() || '0'));
       });
     }
 
     // Calculate price list for each product
     const data: PriceListReportItem[] = products.map((product) => {
       // Get price from price list or fallback to base cost
-      const baseCost = parseFloat(product.baseCost?.toString() || "0");
+      const baseCost = parseFloat(product.baseCost?.toString() || '0');
       const price = query.priceListId
-        ? priceMap.get(product.id) || baseCost
+        ? (priceMap.get(product.id) || baseCost)
         : baseCost;
 
       // Calculate discounted price
@@ -519,7 +492,7 @@ export class InventoryAnalyticsService {
 
       return {
         productName: product.name,
-        categoryName: product.category?.name || "Uncategorized",
+        categoryName: product.category?.name || 'Uncategorized',
         price,
         discountedPrice,
         salesCost,
@@ -534,124 +507,101 @@ export class InventoryAnalyticsService {
   ): Promise<{ data: ProductCostItem[] }> {
     // Build query to get stock movements with related order information
     const movementQueryBuilder = this.stockMovementRepository
-      .createQueryBuilder("movement")
-      .leftJoinAndSelect("movement.product", "product")
-      .leftJoinAndSelect("product.category", "category")
-      .leftJoin(
-        "sales_orders",
-        "so",
-        "movement.referenceType = 'sales_order' AND movement.referenceId = so.id",
-      )
-      .leftJoin(
-        "purchase_orders",
-        "po",
-        "movement.referenceType = 'purchase_order' AND movement.referenceId = po.id",
-      )
-      .leftJoin(
-        "stock_adjustments",
-        "sa",
-        "movement.referenceType = 'stock_adjustment' AND movement.referenceId = sa.id",
-      )
-      .addSelect(
-        "COALESCE(so.orderNumber, po.orderNumber, sa.adjustmentNumber, '-')",
-        "orderNumberResolved",
-      )
-      .where("product.isActive = :isActive", { isActive: true })
-      .andWhere("product.deletedAt IS NULL");
+      .createQueryBuilder('movement')
+      .leftJoinAndSelect('movement.product', 'product')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoin('sales_orders', 'so', 'movement.referenceType = \'sales_order\' AND movement.referenceId = so.id')
+      .leftJoin('purchase_orders', 'po', 'movement.referenceType = \'purchase_order\' AND movement.referenceId = po.id')
+      .leftJoin('stock_adjustments', 'sa', 'movement.referenceType = \'stock_adjustment\' AND movement.referenceId = sa.id')
+      .addSelect('COALESCE(so.orderNumber, po.orderNumber, sa.adjustmentNumber, \'-\')', 'orderNumberResolved')
+      .where('product.isActive = :isActive', { isActive: true })
+      .andWhere('product.deletedAt IS NULL');
 
     // Product IDs filter
     if (query.productIds && query.productIds.length > 0) {
-      movementQueryBuilder.andWhere("movement.productId IN (:...productIds)", {
+      movementQueryBuilder.andWhere('movement.productId IN (:...productIds)', {
         productIds: query.productIds,
       });
     }
 
     // Date range filter
     if (query.startDate && query.endDate) {
-      movementQueryBuilder.andWhere(
-        "movement.movementDate BETWEEN :startDate AND :endDate",
-        {
-          startDate: query.startDate,
-          endDate: query.endDate,
-        },
-      );
+      movementQueryBuilder.andWhere('movement.movementDate BETWEEN :startDate AND :endDate', {
+        startDate: query.startDate,
+        endDate: query.endDate,
+      });
     } else if (query.startDate) {
-      movementQueryBuilder.andWhere("movement.movementDate >= :startDate", {
+      movementQueryBuilder.andWhere('movement.movementDate >= :startDate', {
         startDate: query.startDate,
       });
     } else if (query.endDate) {
-      movementQueryBuilder.andWhere("movement.movementDate <= :endDate", {
+      movementQueryBuilder.andWhere('movement.movementDate <= :endDate', {
         endDate: query.endDate,
       });
     }
 
     // Order by date and product
-    movementQueryBuilder
-      .orderBy("movement.movementDate", "ASC")
-      .addOrderBy("product.name", "ASC");
+    movementQueryBuilder.orderBy('movement.movementDate', 'ASC')
+      .addOrderBy('product.name', 'ASC');
 
-    const { entities: movements, raw: rawResults } =
-      await movementQueryBuilder.getRawAndEntities();
+    const { entities: movements, raw: rawResults } = await movementQueryBuilder.getRawAndEntities();
 
     // Create a map of movement IDs to resolved order numbers
     const orderNumberMap = new Map<string, string>();
     rawResults.forEach((raw: any) => {
-      orderNumberMap.set(raw.movement_id, raw.orderNumberResolved || "-");
+      orderNumberMap.set(raw.movement_id, raw.orderNumberResolved || '-');
     });
 
     // Calculate running cost for each product movement
-    const productRunningTotals = new Map<
-      string,
-      {
-        totalQuantity: number;
-        totalCost: number;
-      }
-    >();
+    const productRunningTotals = new Map<string, {
+      totalQuantity: number;
+      totalCost: number;
+    }>();
 
     // Helper function to map movement type to transaction type label
     const getTransactionType = (movementType: string): string => {
       switch (movementType) {
-        case "purchase_receipt":
-          return "Purchase Order Receive";
-        case "sale":
-          return "Sales Order Fulfillment";
-        case "adjustment_increase":
-        case "adjustment_decrease":
-          return "Stock Adjustment";
-        case "sales_return":
-          return "Sales Return";
-        case "sale_reversal":
-          return "Sales Order Unfulfillment";
-        case "purchase_return":
-          return "Purchase Return";
-        case "initial_stock":
-          return "Initial Stock";
-        case "production_receipt":
-          return "Production Receipt";
-        case "production_consumption":
-          return "Production Consumption";
-        case "transfer_in":
-          return "Transfer In";
-        case "transfer_out":
-          return "Transfer Out";
-        case "damage":
-          return "Damage";
-        case "expiry":
-          return "Expiry";
-        case "theft":
-          return "Theft";
-        case "loss":
-          return "Loss";
+        case 'purchase_receipt':
+          return 'Purchase Order Receive';
+        case 'sale':
+          return 'Sales Order Fulfillment';
+        case 'adjustment_increase':
+        case 'adjustment_decrease':
+          return 'Stock Adjustment';
+        case 'sales_return':
+          return 'Sales Return';
+        case 'sale_reversal':
+          return 'Sales Order Unfulfillment';
+        case 'purchase_return':
+          return 'Purchase Return';
+        case 'initial_stock':
+          return 'Initial Stock';
+        case 'production_receipt':
+          return 'Production Receipt';
+        case 'production_consumption':
+          return 'Production Consumption';
+        case 'transfer_in':
+          return 'Transfer In';
+        case 'transfer_out':
+          return 'Transfer Out';
+        case 'damage':
+          return 'Damage';
+        case 'expiry':
+          return 'Expiry';
+        case 'theft':
+          return 'Theft';
+        case 'loss':
+          return 'Loss';
         default:
-          return "Other";
+          return 'Other';
       }
     };
 
     const data: ProductCostItem[] = movements.map((movement) => {
       const productId = movement.productId;
-      const quantityChange = parseFloat(movement.quantity?.toString() || "0");
-      const unitValue = parseFloat(movement.unitValue?.toString() || "0");
-      const quantityAfter = parseFloat(movement.newBalance?.toString() || "0");
+      const quantityChange = parseFloat(movement.quantity?.toString() || '0');
+      const unitValue = parseFloat(movement.unitValue?.toString() || '0');
+      const quantityAfter = parseFloat(movement.newBalance?.toString() || '0');
 
       // Get or initialize running totals for this product
       let productTotals = productRunningTotals.get(productId);
@@ -673,10 +623,9 @@ export class InventoryAnalyticsService {
         productTotals.totalCost += costChange;
       } else {
         // Outward movement: calculate cost based on average, then update totals
-        const avgCostBefore =
-          productTotals.totalQuantity > 0
-            ? productTotals.totalCost / productTotals.totalQuantity
-            : unitValue;
+        const avgCostBefore = productTotals.totalQuantity > 0
+          ? productTotals.totalCost / productTotals.totalQuantity
+          : unitValue;
 
         const outwardCost = Math.abs(quantityChange) * avgCostBefore;
         costChange = -outwardCost; // Negative for outward movements
@@ -685,19 +634,18 @@ export class InventoryAnalyticsService {
       }
 
       // Calculate average cost after this movement
-      const averageCost =
-        productTotals.totalQuantity > 0
-          ? productTotals.totalCost / productTotals.totalQuantity
-          : 0;
+      const averageCost = productTotals.totalQuantity > 0
+        ? productTotals.totalCost / productTotals.totalQuantity
+        : 0;
 
       // Total cost is the current accumulated cost for this product
       const totalCost = productTotals.totalCost;
 
       return {
-        productName: movement.product?.name || "Unknown",
-        categoryName: movement.product?.category?.name || "Uncategorized",
+        productName: movement.product?.name || 'Unknown',
+        categoryName: movement.product?.category?.name || 'Uncategorized',
         transactionType: getTransactionType(movement.movementType),
-        orderNumber: orderNumberMap.get(movement.id) || "-",
+        orderNumber: orderNumberMap.get(movement.id) || '-',
         orderDate: movement.movementDate,
         quantityChange,
         quantityAfter,
@@ -722,11 +670,7 @@ export class InventoryAnalyticsService {
     );
     const groupBy = query.groupBy ?? GroupByPeriod.DAY;
     const comparePeriod = query.compareWith
-      ? this.computeInventoryComparePeriod(
-          startDate,
-          endDate,
-          query.compareWith,
-        )
+      ? this.computeInventoryComparePeriod(startDate, endDate, query.compareWith)
       : null;
 
     const filters: InventoryDashboardFilters = {
@@ -736,66 +680,46 @@ export class InventoryAnalyticsService {
 
     if (query.supplierId) {
       const items = await this.purchaseOrderItemRepository
-        .createQueryBuilder("poi")
-        .innerJoin("poi.purchaseOrder", "po")
-        .where("po.supplierId = :supplierId", { supplierId: query.supplierId })
-        .select("DISTINCT poi.productId", "productId")
+        .createQueryBuilder('poi')
+        .innerJoin('poi.purchaseOrder', 'po')
+        .where('po.supplierId = :supplierId', { supplierId: query.supplierId })
+        .select('DISTINCT poi.productId', 'productId')
         .getRawMany();
       // Pass empty array rather than early-returning — applyProductFilters uses
       // `1 = 0` to short-circuit all sub-queries, which PostgreSQL optimises away.
       filters.productIds = items.map((row: any) => row.productId as string);
     }
 
-    const [
-      snapshotMetrics,
-      movementTotals,
-      periodData,
-      lowStockAlerts,
-      recentMovements,
-    ] = await Promise.all([
-      this.getInventorySnapshotMetrics(filters),
-      this.getInventoryMovementTotals(startDate, endDate, filters),
-      this.getInventoryPeriodData(startDate, endDate, groupBy, filters),
-      this.getLowStockAlerts(10, filters),
-      this.getRecentMovements(startDate, endDate, 5, filters),
-    ]);
+    const [snapshotMetrics, movementTotals, periodData, lowStockAlerts, recentMovements] =
+      await Promise.all([
+        this.getInventorySnapshotMetrics(filters),
+        this.getInventoryMovementTotals(startDate, endDate, filters),
+        this.getInventoryPeriodData(startDate, endDate, groupBy, filters),
+        this.getLowStockAlerts(10, filters),
+        this.getRecentMovements(startDate, endDate, 5, filters),
+      ]);
 
-    const currentMetrics: InventoryMetricsDto = {
-      ...snapshotMetrics,
-      ...movementTotals,
-    };
+    const currentMetrics: InventoryMetricsDto = { ...snapshotMetrics, ...movementTotals };
 
     const current: InventoryPeriodBlockDto = {
       metrics: currentMetrics,
       periodData,
-      periodStart: startDate.toISOString().split("T")[0],
-      periodEnd: endDate.toISOString().split("T")[0],
+      periodStart: startDate.toISOString().split('T')[0],
+      periodEnd: endDate.toISOString().split('T')[0],
     };
 
     let comparison: InventoryPeriodBlockDto | undefined;
     if (comparePeriod) {
       const [compareMovementTotals, comparePeriodData] = await Promise.all([
-        this.getInventoryMovementTotals(
-          comparePeriod.compareStart,
-          comparePeriod.compareEnd,
-          filters,
-        ),
-        this.getInventoryPeriodData(
-          comparePeriod.compareStart,
-          comparePeriod.compareEnd,
-          groupBy,
-          filters,
-        ),
+        this.getInventoryMovementTotals(comparePeriod.compareStart, comparePeriod.compareEnd, filters),
+        this.getInventoryPeriodData(comparePeriod.compareStart, comparePeriod.compareEnd, groupBy, filters),
       ]);
-      const compareMetrics: InventoryMetricsDto = {
-        ...snapshotMetrics,
-        ...compareMovementTotals,
-      };
+      const compareMetrics: InventoryMetricsDto = { ...snapshotMetrics, ...compareMovementTotals };
       comparison = {
         metrics: compareMetrics,
         periodData: comparePeriodData,
-        periodStart: comparePeriod.compareStart.toISOString().split("T")[0],
-        periodEnd: comparePeriod.compareEnd.toISOString().split("T")[0],
+        periodStart: comparePeriod.compareStart.toISOString().split('T')[0],
+        periodEnd: comparePeriod.compareEnd.toISOString().split('T')[0],
       };
     }
 
@@ -804,16 +728,14 @@ export class InventoryAnalyticsService {
 
   private async getInventorySnapshotMetrics(
     filters: InventoryDashboardFilters = {},
-  ): Promise<
-    Omit<InventoryMetricsDto, "stockMovementsIn" | "stockMovementsOut">
-  > {
+  ): Promise<Omit<InventoryMetricsDto, 'stockMovementsIn' | 'stockMovementsOut'>> {
     const threshold = await this.getLowStockThreshold();
     const safeThreshold = Math.floor(Number(threshold));
     const qb = this.productRepository
-      .createQueryBuilder("product")
-      .leftJoin("product.category", "category")
-      .where("product.deletedAt IS NULL")
-      .andWhere("product.isActive = :isActive", { isActive: true })
+      .createQueryBuilder('product')
+      .leftJoin('product.category', 'category')
+      .where('product.deletedAt IS NULL')
+      .andWhere('product.isActive = :isActive', { isActive: true })
       .select([
         'COUNT(*) as "totalProducts"',
         'COALESCE(SUM(product.baseCost * product.stockQuantity), 0) as "inventoryValue"',
@@ -821,12 +743,12 @@ export class InventoryAnalyticsService {
         `SUM(CASE WHEN product.stockQuantity > 0 AND product.stockQuantity <= ${safeThreshold} THEN 1 ELSE 0 END) as "lowStockCount"`,
       ]);
 
-    this.applyProductFilters(qb, filters, "product", threshold);
+    this.applyProductFilters(qb, filters, 'product', threshold);
     const products = await qb.getRawOne();
 
     const totalCategories = await this.categoryRepository
-      .createQueryBuilder("category")
-      .where("category.isActive = :isActive", { isActive: true })
+      .createQueryBuilder('category')
+      .where('category.isActive = :isActive', { isActive: true })
       .select('COUNT(*) as "totalCategories"')
       .getRawOne();
 
@@ -843,24 +765,15 @@ export class InventoryAnalyticsService {
     startDate: Date,
     endDate: Date,
     filters: InventoryDashboardFilters = {},
-  ): Promise<
-    Pick<InventoryMetricsDto, "stockMovementsIn" | "stockMovementsOut">
-  > {
+  ): Promise<Pick<InventoryMetricsDto, 'stockMovementsIn' | 'stockMovementsOut'>> {
     const threshold = await this.getLowStockThreshold();
     const qb = this.stockMovementRepository
-      .createQueryBuilder("movement")
-      .where("movement.movementDate BETWEEN :startDate AND :endDate", {
-        startDate,
-        endDate,
-      });
+      .createQueryBuilder('movement')
+      .where('movement.movementDate BETWEEN :startDate AND :endDate', { startDate, endDate });
 
-    if (
-      filters.categoryId ||
-      filters.productIds !== undefined ||
-      filters.stockStatus
-    ) {
-      qb.innerJoin("movement.product", "product");
-      this.applyProductFilters(qb, filters, "product", threshold);
+    if (filters.categoryId || filters.productIds !== undefined || filters.stockStatus) {
+      qb.innerJoin('movement.product', 'product');
+      this.applyProductFilters(qb, filters, 'product', threshold);
     }
 
     qb.select([
@@ -887,45 +800,38 @@ export class InventoryAnalyticsService {
 
     switch (groupBy) {
       case GroupByPeriod.DAY:
-        dateFormat = "YYYY-MM-DD";
+        dateFormat = 'YYYY-MM-DD';
         break;
       case GroupByPeriod.WEEK:
-        dateFormat = "IYYY-IW";
+        dateFormat = 'IYYY-IW';
         break;
       case GroupByPeriod.QUARTER:
         dateFormat = 'YYYY-"Q"Q';
         break;
       case GroupByPeriod.YEAR:
-        dateFormat = "YYYY";
+        dateFormat = 'YYYY';
         break;
       default:
-        dateFormat = "YYYY-MM";
+        dateFormat = 'YYYY-MM';
         break;
     }
 
     const qb = this.stockMovementRepository
-      .createQueryBuilder("movement")
-      .where("movement.movementDate BETWEEN :startDate AND :endDate", {
-        startDate,
-        endDate,
-      });
+      .createQueryBuilder('movement')
+      .where('movement.movementDate BETWEEN :startDate AND :endDate', { startDate, endDate });
 
-    if (
-      filters.categoryId ||
-      filters.productIds !== undefined ||
-      filters.stockStatus
-    ) {
-      qb.innerJoin("movement.product", "product");
-      this.applyProductFilters(qb, filters, "product", threshold);
+    if (filters.categoryId || filters.productIds !== undefined || filters.stockStatus) {
+      qb.innerJoin('movement.product', 'product');
+      this.applyProductFilters(qb, filters, 'product', threshold);
     }
 
     qb.select([
-      `TO_CHAR(movement.movementDate, '${dateFormat}') as period`,
-      'COALESCE(SUM(CASE WHEN movement.quantity > 0 THEN movement.quantity ELSE 0 END), 0) as "movementsIn"',
-      'COALESCE(SUM(CASE WHEN movement.quantity < 0 THEN ABS(movement.quantity) ELSE 0 END), 0) as "movementsOut"',
-    ])
+        `TO_CHAR(movement.movementDate, '${dateFormat}') as period`,
+        'COALESCE(SUM(CASE WHEN movement.quantity > 0 THEN movement.quantity ELSE 0 END), 0) as "movementsIn"',
+        'COALESCE(SUM(CASE WHEN movement.quantity < 0 THEN ABS(movement.quantity) ELSE 0 END), 0) as "movementsOut"',
+      ])
       .groupBy(`TO_CHAR(movement.movementDate, '${dateFormat}')`)
-      .orderBy(`TO_CHAR(movement.movementDate, '${dateFormat}')`, "ASC");
+      .orderBy(`TO_CHAR(movement.movementDate, '${dateFormat}')`, 'ASC');
 
     const data = await qb.getRawMany();
 
@@ -942,40 +848,36 @@ export class InventoryAnalyticsService {
   ): Promise<LowStockAlertDto[]> {
     const threshold = await this.getLowStockThreshold();
     const qb = this.productRepository
-      .createQueryBuilder("product")
-      .leftJoinAndSelect("product.category", "category")
-      .where("product.deletedAt IS NULL")
-      .andWhere("product.isActive = :isActive", { isActive: true })
-      .andWhere("product.stockQuantity <= :threshold", { threshold });
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .where('product.deletedAt IS NULL')
+      .andWhere('product.isActive = :isActive', { isActive: true })
+      .andWhere('product.stockQuantity <= :threshold', { threshold });
 
     if (filters.categoryId) {
-      qb.andWhere("product.categoryId = :categoryId", {
-        categoryId: filters.categoryId,
-      });
+      qb.andWhere('product.categoryId = :categoryId', { categoryId: filters.categoryId });
     }
     if (filters.productIds !== undefined) {
       if (filters.productIds.length === 0) {
-        qb.andWhere("1 = 0");
+        qb.andWhere('1 = 0');
       } else {
-        qb.andWhere("product.id IN (:...productIds)", {
-          productIds: filters.productIds,
-        });
+        qb.andWhere('product.id IN (:...productIds)', { productIds: filters.productIds });
       }
     }
 
-    qb.orderBy("product.stockQuantity", "ASC").limit(limit);
+    qb.orderBy('product.stockQuantity', 'ASC').limit(limit);
 
     const products = await qb.getMany();
 
     return products.map((product) => ({
       productId: product.id,
       productName: product.name,
-      categoryName: product.category?.name || "Uncategorized",
-      stockQuantity: parseFloat(product.stockQuantity?.toString() || "0"),
+      categoryName: product.category?.name || 'Uncategorized',
+      stockQuantity: parseFloat(product.stockQuantity?.toString() || '0'),
       status:
-        parseFloat(product.stockQuantity?.toString() || "0") <= 0
-          ? "out_of_stock"
-          : "low_stock",
+        parseFloat(product.stockQuantity?.toString() || '0') <= 0
+          ? 'out_of_stock'
+          : 'low_stock',
     }));
   }
 
@@ -987,100 +889,68 @@ export class InventoryAnalyticsService {
   ): Promise<RecentMovementDto[]> {
     const threshold = await this.getLowStockThreshold();
     const qb = this.stockMovementRepository
-      .createQueryBuilder("movement")
-      .leftJoinAndSelect("movement.product", "product")
-      .leftJoin(
-        "sales_orders",
-        "so",
-        "movement.referenceType = 'sales_order' AND movement.referenceId = so.id",
-      )
-      .leftJoin(
-        "purchase_orders",
-        "po",
-        "movement.referenceType = 'purchase_order' AND movement.referenceId = po.id",
-      )
-      .leftJoin(
-        "stock_adjustments",
-        "sa",
-        "movement.referenceType = 'stock_adjustment' AND movement.referenceId = sa.id",
-      )
-      .addSelect(
-        "COALESCE(so.orderNumber, po.orderNumber, sa.adjustmentNumber, '-')",
-        "orderNumberResolved",
-      )
-      .where("movement.movementDate BETWEEN :startDate AND :endDate", {
-        startDate,
-        endDate,
-      });
+      .createQueryBuilder('movement')
+      .leftJoinAndSelect('movement.product', 'product')
+      .leftJoin('sales_orders', 'so', 'movement.referenceType = \'sales_order\' AND movement.referenceId = so.id')
+      .leftJoin('purchase_orders', 'po', 'movement.referenceType = \'purchase_order\' AND movement.referenceId = po.id')
+      .leftJoin('stock_adjustments', 'sa', 'movement.referenceType = \'stock_adjustment\' AND movement.referenceId = sa.id')
+      .addSelect('COALESCE(so.orderNumber, po.orderNumber, sa.adjustmentNumber, \'-\')', 'orderNumberResolved')
+      .where('movement.movementDate BETWEEN :startDate AND :endDate', { startDate, endDate });
 
-    if (
-      filters.categoryId ||
-      filters.productIds !== undefined ||
-      filters.stockStatus
-    ) {
+    if (filters.categoryId || filters.productIds !== undefined || filters.stockStatus) {
       // product is already joined unconditionally via leftJoinAndSelect above
-      this.applyProductFilters(qb, filters, "product", threshold);
+      this.applyProductFilters(qb, filters, 'product', threshold);
     }
 
-    qb.orderBy("movement.movementDate", "DESC").limit(limit);
+    qb.orderBy('movement.movementDate', 'DESC').limit(limit);
 
-    const { entities: movements, raw: rawResults } =
-      await qb.getRawAndEntities();
+    const { entities: movements, raw: rawResults } = await qb.getRawAndEntities();
 
     const orderNumberMap = new Map<string, string>();
     rawResults.forEach((raw: any) => {
-      orderNumberMap.set(raw.movement_id, raw.orderNumberResolved || "-");
+      orderNumberMap.set(raw.movement_id, raw.orderNumberResolved || '-');
     });
 
     return movements.map((movement) => {
-      const date =
-        movement.movementDate instanceof Date
-          ? movement.movementDate
-          : new Date(movement.movementDate);
+      const date = movement.movementDate instanceof Date
+        ? movement.movementDate
+        : new Date(movement.movementDate);
 
       return {
-        movementDate: date.toISOString().split("T")[0],
-        productName: movement.product?.name || "Unknown",
-        movementType: movement.movementType || "",
-        quantity: parseFloat(movement.quantity?.toString() || "0"),
-        referenceNumber: orderNumberMap.get(movement.id) || "-",
+        movementDate: date.toISOString().split('T')[0],
+        productName: movement.product?.name || 'Unknown',
+        movementType: movement.movementType || '',
+        quantity: parseFloat(movement.quantity?.toString() || '0'),
+        referenceNumber: orderNumberMap.get(movement.id) || '-',
       };
     });
   }
 
   private applyProductFilters(
-    qb: import("typeorm").SelectQueryBuilder<any>,
+    qb: import('typeorm').SelectQueryBuilder<any>,
     filters: InventoryDashboardFilters,
-    productAlias: string = "product",
+    productAlias: string = 'product',
     lowStockThreshold: number = 10,
   ): void {
     if (filters.categoryId) {
-      qb.andWhere(`${productAlias}.categoryId = :categoryId`, {
-        categoryId: filters.categoryId,
-      });
+      qb.andWhere(`${productAlias}.categoryId = :categoryId`, { categoryId: filters.categoryId });
     }
     if (filters.productIds !== undefined) {
       if (filters.productIds.length === 0) {
-        qb.andWhere("1 = 0");
+        qb.andWhere('1 = 0');
       } else {
-        qb.andWhere(`${productAlias}.id IN (:...productIds)`, {
-          productIds: filters.productIds,
-        });
+        qb.andWhere(`${productAlias}.id IN (:...productIds)`, { productIds: filters.productIds });
       }
     }
-    if (filters.stockStatus === "in_stock") {
-      qb.andWhere(`${productAlias}.stockQuantity > :inStockThreshold`, {
-        inStockThreshold: lowStockThreshold,
-      });
-    } else if (filters.stockStatus === "low_stock") {
+    if (filters.stockStatus === 'in_stock') {
+      qb.andWhere(`${productAlias}.stockQuantity > :inStockThreshold`, { inStockThreshold: lowStockThreshold });
+    } else if (filters.stockStatus === 'low_stock') {
       qb.andWhere(
         `${productAlias}.stockQuantity > :lowStockMin AND ${productAlias}.stockQuantity <= :lowStockMax`,
         { lowStockMin: 0, lowStockMax: lowStockThreshold },
       );
-    } else if (filters.stockStatus === "out_of_stock") {
-      qb.andWhere(`${productAlias}.stockQuantity <= :outOfStockThreshold`, {
-        outOfStockThreshold: 0,
-      });
+    } else if (filters.stockStatus === 'out_of_stock') {
+      qb.andWhere(`${productAlias}.stockQuantity <= :outOfStockThreshold`, { outOfStockThreshold: 0 });
     }
   }
 
@@ -1092,16 +962,16 @@ export class InventoryAnalyticsService {
   private computeInventoryComparePeriod(
     start: Date,
     end: Date,
-    compareWith: "previous_period" | "last_month" | "last_year",
+    compareWith: 'previous_period' | 'last_month' | 'last_year',
   ): { compareStart: Date; compareEnd: Date } {
-    if (compareWith === "previous_period") {
+    if (compareWith === 'previous_period') {
       const dayCount = differenceInCalendarDays(end, start) + 1;
       const compareEnd = subDays(start, 1);
       const compareStart = subDays(compareEnd, dayCount - 1);
       return { compareStart, compareEnd };
     }
 
-    if (compareWith === "last_month") {
+    if (compareWith === 'last_month') {
       return {
         compareStart: subMonths(start, 1),
         compareEnd: subMonths(end, 1),

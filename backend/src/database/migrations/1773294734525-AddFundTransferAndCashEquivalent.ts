@@ -1,10 +1,12 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 const FUND_TRANSFER_DOCUMENT_NUMBER_SETTING_ID =
-  "d6fd8dd0-8f45-4a9f-bf2f-2fca7fd29e77";
+  'd6fd8dd0-8f45-4a9f-bf2f-2fca7fd29e77';
 
-export class AddFundTransferAndCashEquivalent1773294734525 implements MigrationInterface {
-  name = "AddFundTransferAndCashEquivalent1773294734525";
+export class AddFundTransferAndCashEquivalent1773294734525
+  implements MigrationInterface
+{
+  name = 'AddFundTransferAndCashEquivalent1773294734525';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
@@ -85,8 +87,8 @@ export class AddFundTransferAndCashEquivalent1773294734525 implements MigrationI
        ON CONFLICT ("documentName") DO NOTHING`,
       [
         FUND_TRANSFER_DOCUMENT_NUMBER_SETTING_ID,
-        "Fund Transfers",
-        "TRF",
+        'Fund Transfers',
+        'TRF',
         currentYear,
       ],
     );

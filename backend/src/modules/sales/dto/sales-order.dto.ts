@@ -9,26 +9,26 @@ import {
   ValidateNested,
   IsInt,
   Matches,
-} from "class-validator";
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { Transform, Type } from "class-transformer";
-import { DiscountType } from "../../../database/entities/sales-order-item.entity";
-import { BaseQueryDto } from "../../../common/dto/base-query.dto";
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
+import { DiscountType } from '../../../database/entities/sales-order-item.entity';
+import { BaseQueryDto } from '../../../common/dto/base-query.dto';
 import {
   SalesOrderStatus,
   SalesOrderPaymentStatus,
-} from "../../../database/entities/sales-order.entity";
+} from '../../../database/entities/sales-order.entity';
 
 export class SalesOrderItemDto {
   @ApiProperty({
-    description: "Product ID",
-    example: "uuid-string",
+    description: 'Product ID',
+    example: 'uuid-string',
   })
   @IsUUID()
   productId: string;
 
   @ApiProperty({
-    description: "Quantity ordered",
+    description: 'Quantity ordered',
     example: 10,
   })
   @IsInt()
@@ -36,7 +36,7 @@ export class SalesOrderItemDto {
   quantity: number;
 
   @ApiPropertyOptional({
-    description: "Unit price (if different from product price)",
+    description: 'Unit price (if different from product price)',
     example: 25.5,
   })
   @IsOptional()
@@ -44,7 +44,7 @@ export class SalesOrderItemDto {
   unitPrice?: number;
 
   @ApiPropertyOptional({
-    description: "Type of discount: percentage or fixed amount",
+    description: 'Type of discount: percentage or fixed amount',
     enum: DiscountType,
     example: DiscountType.PERCENTAGE,
   })
@@ -52,7 +52,7 @@ export class SalesOrderItemDto {
   discountType?: DiscountType;
 
   @ApiPropertyOptional({
-    description: "Discount percentage for this item (0-100)",
+    description: 'Discount percentage for this item (0-100)',
     example: 5.0,
   })
   @IsOptional()
@@ -60,7 +60,7 @@ export class SalesOrderItemDto {
   discountPercent?: number;
 
   @ApiPropertyOptional({
-    description: "Discount amount for this item (fixed amount or calculated)",
+    description: 'Discount amount for this item (fixed amount or calculated)',
     example: 12.75,
   })
   @IsOptional()
@@ -68,8 +68,8 @@ export class SalesOrderItemDto {
   discountAmount?: number;
 
   @ApiPropertyOptional({
-    description: "Item notes",
-    example: "Special packaging required",
+    description: 'Item notes',
+    example: 'Special packaging required',
   })
   @IsOptional()
   @IsString()
@@ -78,22 +78,22 @@ export class SalesOrderItemDto {
 
 export class CreateSalesOrderDto {
   @ApiProperty({
-    description: "Customer ID",
-    example: "uuid-string",
+    description: 'Customer ID',
+    example: 'uuid-string',
   })
   @IsUUID()
   customerId: string;
 
   @ApiPropertyOptional({
-    description: "Special instructions or notes",
-    example: "Fragile items, handle with care",
+    description: 'Special instructions or notes',
+    example: 'Fragile items, handle with care',
   })
   @IsOptional()
   @IsString()
   notes?: string;
 
   @ApiPropertyOptional({
-    description: "Shipping/freight charges",
+    description: 'Shipping/freight charges',
     example: 50.0,
   })
   @IsOptional()
@@ -101,7 +101,7 @@ export class CreateSalesOrderDto {
   shippingAmount?: number;
 
   @ApiProperty({
-    description: "Order items",
+    description: 'Order items',
     type: [SalesOrderItemDto],
   })
   @IsArray()
@@ -112,23 +112,23 @@ export class CreateSalesOrderDto {
 
 export class UpdateSalesOrderDto {
   @ApiPropertyOptional({
-    description: "Customer ID",
-    example: "uuid-string",
+    description: 'Customer ID',
+    example: 'uuid-string',
   })
   @IsOptional()
   @IsUUID()
   customerId?: string;
 
   @ApiPropertyOptional({
-    description: "Special instructions or notes",
-    example: "Updated delivery instructions",
+    description: 'Special instructions or notes',
+    example: 'Updated delivery instructions',
   })
   @IsOptional()
   @IsString()
   notes?: string;
 
   @ApiPropertyOptional({
-    description: "Shipping/freight charges",
+    description: 'Shipping/freight charges',
     example: 50.0,
   })
   @IsOptional()
@@ -136,7 +136,7 @@ export class UpdateSalesOrderDto {
   shippingAmount?: number;
 
   @ApiPropertyOptional({
-    description: "Order items",
+    description: 'Order items',
     type: [SalesOrderItemDto],
   })
   @IsOptional()
@@ -148,24 +148,24 @@ export class UpdateSalesOrderDto {
 
 export class QuerySalesOrdersDto extends BaseQueryDto {
   @ApiPropertyOptional({
-    description: "Filter by customer ID",
-    example: "uuid-string",
+    description: 'Filter by customer ID',
+    example: 'uuid-string',
   })
   @IsOptional()
   @IsUUID()
   customerId?: string;
 
   @ApiPropertyOptional({
-    description: "Filter orders from date",
-    example: "2024-01-01",
+    description: 'Filter orders from date',
+    example: '2024-01-01',
   })
   @IsOptional()
   @IsString()
   fromDate?: string;
 
   @ApiPropertyOptional({
-    description: "Filter orders to date",
-    example: "2024-12-31",
+    description: 'Filter orders to date',
+    example: '2024-12-31',
   })
   @IsOptional()
   @IsString()
@@ -173,18 +173,18 @@ export class QuerySalesOrdersDto extends BaseQueryDto {
 
   @ApiPropertyOptional({ enum: SalesOrderPaymentStatus })
   @IsOptional()
-  paymentStatus?: SalesOrderPaymentStatus | "all";
+  paymentStatus?: SalesOrderPaymentStatus | 'all';
 
   @ApiPropertyOptional({ enum: SalesOrderStatus })
   @IsOptional()
-  status?: SalesOrderStatus | "all";
+  status?: SalesOrderStatus | 'all';
 }
 
 export class SalesOrderItemResponseDto {
-  @ApiProperty({ example: "uuid-string" })
+  @ApiProperty({ example: 'uuid-string' })
   id: string;
 
-  @ApiProperty({ example: "uuid-string" })
+  @ApiProperty({ example: 'uuid-string' })
   productId: string;
 
   @ApiProperty({ nullable: true })
@@ -214,24 +214,24 @@ export class SalesOrderItemResponseDto {
   @ApiProperty({ example: 242.25 })
   totalAmount: number;
 
-  @ApiProperty({ example: "Special packaging required", nullable: true })
+  @ApiProperty({ example: 'Special packaging required', nullable: true })
   notes?: string;
 
-  @ApiProperty({ example: "2024-01-01T00:00:00Z" })
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   createdAt: Date;
 
-  @ApiProperty({ example: "2024-01-01T00:00:00Z" })
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   updatedAt: Date;
 }
 
 export class SalesOrderResponseDto {
-  @ApiProperty({ example: "uuid-string" })
+  @ApiProperty({ example: 'uuid-string' })
   id: string;
 
-  @ApiProperty({ example: "SO-2024-001" })
+  @ApiProperty({ example: 'SO-2024-001' })
   orderNumber: string;
 
-  @ApiProperty({ example: "2024-01-01" })
+  @ApiProperty({ example: '2024-01-01' })
   orderDate: Date;
 
   @ApiProperty({ enum: SalesOrderStatus })
@@ -254,14 +254,14 @@ export class SalesOrderResponseDto {
 
   @ApiProperty({
     example: 591.5,
-    description: "totalAmount - paidAmount; negative means overpaid (surplus)",
+    description: 'totalAmount - paidAmount; negative means overpaid (surplus)',
   })
   balanceDue: number;
 
-  @ApiProperty({ example: "Fragile items, handle with care", nullable: true })
+  @ApiProperty({ example: 'Fragile items, handle with care', nullable: true })
   notes?: string;
 
-  @ApiProperty({ example: "uuid-string" })
+  @ApiProperty({ example: 'uuid-string' })
   customerId: string;
 
   @ApiProperty()
@@ -280,13 +280,13 @@ export class SalesOrderResponseDto {
   @ApiProperty({ type: [SalesOrderItemResponseDto] })
   items: SalesOrderItemResponseDto[];
 
-  @ApiProperty({ example: "2024-01-01T00:00:00Z" })
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   createdAt: Date;
 
-  @ApiProperty({ example: "2024-01-01T00:00:00Z" })
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   updatedAt: Date;
 
-  @ApiProperty({ type: "array", items: { type: "object" } })
+  @ApiProperty({ type: 'array', items: { type: 'object' } })
   payments: {
     id: string;
     amount: number;
@@ -299,16 +299,16 @@ export class SalesOrderResponseDto {
 }
 
 export class SalesOrderSummaryDto {
-  @ApiProperty({ example: "uuid-string" })
+  @ApiProperty({ example: 'uuid-string' })
   id: string;
 
-  @ApiProperty({ example: "SO-2024-001" })
+  @ApiProperty({ example: 'SO-2024-001' })
   orderNumber: string;
 
-  @ApiProperty({ example: "2024-01-01" })
+  @ApiProperty({ example: '2024-01-01' })
   orderDate: Date;
 
-  @ApiProperty({ example: "Acme Corporation" })
+  @ApiProperty({ example: 'Acme Corporation' })
   customerName: string;
 
   @ApiProperty({ example: 991.5 })
@@ -322,7 +322,7 @@ export class SalesOrderSummaryDto {
 }
 
 export class RecordPaymentDto {
-  @ApiProperty({ description: "Payment method ID" })
+  @ApiProperty({ description: 'Payment method ID' })
   @IsUUID()
   paymentMethodId: string;
 
@@ -332,9 +332,9 @@ export class RecordPaymentDto {
   @Transform(({ value }) => parseFloat(value))
   amount: number;
 
-  @ApiProperty({ example: "2026-05-26" })
+  @ApiProperty({ example: '2026-05-26' })
   @Matches(/^\d{4}-\d{2}-\d{2}$/, {
-    message: "paymentDate must be a valid date in YYYY-MM-DD format",
+    message: 'paymentDate must be a valid date in YYYY-MM-DD format',
   })
   paymentDate: string;
 

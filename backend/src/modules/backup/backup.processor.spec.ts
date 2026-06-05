@@ -1,12 +1,12 @@
-import { Job } from "bullmq";
-import { BackupProcessor } from "./backup.processor";
-import { BackupService } from "./backup.service";
+import { Job } from 'bullmq';
+import { BackupProcessor } from './backup.processor';
+import { BackupService } from './backup.service';
 
-describe("BackupProcessor", () => {
+describe('BackupProcessor', () => {
   let backupService: jest.Mocked<
     Pick<
       BackupService,
-      "createBackup" | "cleanupOldBackups" | "cleanupBackupsWithSettings"
+      'createBackup' | 'cleanupOldBackups' | 'cleanupBackupsWithSettings'
     >
   >;
   let processor: BackupProcessor;
@@ -21,40 +21,40 @@ describe("BackupProcessor", () => {
     processor = new BackupProcessor(backupService as unknown as BackupService);
   });
 
-  it("dispatches create-backup jobs to BackupService.createBackup", async () => {
+  it('dispatches create-backup jobs to BackupService.createBackup', async () => {
     backupService.createBackup.mockResolvedValue({
-      id: "backup-1",
-      filename: "backup.sql",
+      id: 'backup-1',
+      filename: 'backup.sql',
     } as never);
 
     const result = await processor.process({
-      id: "job-1",
-      name: "create-backup",
+      id: 'job-1',
+      name: 'create-backup',
       data: {
         backupDto: {
-          type: "full",
+          type: 'full',
           includeFiles: true,
         },
       },
     } as Job);
 
     expect(backupService.createBackup).toHaveBeenCalledWith({
-      type: "full",
+      type: 'full',
       includeFiles: true,
     });
     expect(result).toEqual({
       success: true,
-      backupId: "backup-1",
-      filename: "backup.sql",
+      backupId: 'backup-1',
+      filename: 'backup.sql',
     });
   });
 
-  it("dispatches cleanup-old-backups jobs to BackupService.cleanupOldBackups", async () => {
+  it('dispatches cleanup-old-backups jobs to BackupService.cleanupOldBackups', async () => {
     backupService.cleanupOldBackups.mockResolvedValue(3 as never);
 
     const result = await processor.process({
-      id: "job-2",
-      name: "cleanup-old-backups",
+      id: 'job-2',
+      name: 'cleanup-old-backups',
       data: {
         retentionDays: 30,
       },
@@ -64,12 +64,12 @@ describe("BackupProcessor", () => {
     expect(result).toEqual({ success: true, deletedCount: 3 });
   });
 
-  it("dispatches cleanup-with-settings jobs to BackupService.cleanupBackupsWithSettings", async () => {
+  it('dispatches cleanup-with-settings jobs to BackupService.cleanupBackupsWithSettings', async () => {
     backupService.cleanupBackupsWithSettings.mockResolvedValue(2 as never);
 
     const result = await processor.process({
-      id: "job-3",
-      name: "cleanup-with-settings",
+      id: 'job-3',
+      name: 'cleanup-with-settings',
       data: {},
     } as Job);
 

@@ -1,18 +1,14 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddPaymentMethodsAndSettlements1771100000000 implements MigrationInterface {
-  name = "AddPaymentMethodsAndSettlements1771100000000";
+  name = 'AddPaymentMethodsAndSettlements1771100000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Drop old payment_methods table (different schema from previous dev work)
     await queryRunner.query(`DROP TABLE IF EXISTS "payment_methods" CASCADE`);
 
-    await queryRunner.query(
-      `CREATE TYPE "settlement_status_enum" AS ENUM ('not_applicable', 'pending', 'settled')`,
-    );
-    await queryRunner.query(
-      `CREATE TYPE "settlement_status_entity_enum" AS ENUM ('pending', 'completed', 'cancelled')`,
-    );
+    await queryRunner.query(`CREATE TYPE "settlement_status_enum" AS ENUM ('not_applicable', 'pending', 'settled')`);
+    await queryRunner.query(`CREATE TYPE "settlement_status_entity_enum" AS ENUM ('pending', 'completed', 'cancelled')`);
 
     await queryRunner.query(`
       CREATE TABLE "payment_methods" (
@@ -30,12 +26,8 @@ export class AddPaymentMethodsAndSettlements1771100000000 implements MigrationIn
       )
     `);
 
-    await queryRunner.query(
-      `CREATE INDEX "IDX_payment_methods_code" ON "payment_methods" ("code")`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_payment_methods_isActive" ON "payment_methods" ("isActive")`,
-    );
+    await queryRunner.query(`CREATE INDEX "IDX_payment_methods_code" ON "payment_methods" ("code")`);
+    await queryRunner.query(`CREATE INDEX "IDX_payment_methods_isActive" ON "payment_methods" ("isActive")`);
 
     await queryRunner.query(`
       CREATE TABLE "settlements" (
@@ -57,18 +49,10 @@ export class AddPaymentMethodsAndSettlements1771100000000 implements MigrationIn
       )
     `);
 
-    await queryRunner.query(
-      `CREATE INDEX "IDX_settlements_number" ON "settlements" ("settlementNumber")`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_settlements_paymentMethodId" ON "settlements" ("paymentMethodId")`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_settlements_status" ON "settlements" ("status")`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_settlements_date" ON "settlements" ("settlementDate")`,
-    );
+    await queryRunner.query(`CREATE INDEX "IDX_settlements_number" ON "settlements" ("settlementNumber")`);
+    await queryRunner.query(`CREATE INDEX "IDX_settlements_paymentMethodId" ON "settlements" ("paymentMethodId")`);
+    await queryRunner.query(`CREATE INDEX "IDX_settlements_status" ON "settlements" ("status")`);
+    await queryRunner.query(`CREATE INDEX "IDX_settlements_date" ON "settlements" ("settlementDate")`);
 
     await queryRunner.query(`
       ALTER TABLE "payments"
@@ -77,15 +61,9 @@ export class AddPaymentMethodsAndSettlements1771100000000 implements MigrationIn
       ADD COLUMN "settlementId" uuid
     `);
 
-    await queryRunner.query(
-      `CREATE INDEX "IDX_payments_paymentMethodId" ON "payments" ("paymentMethodId")`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_payments_settlementId" ON "payments" ("settlementId")`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_payments_settlementStatus" ON "payments" ("settlementStatus")`,
-    );
+    await queryRunner.query(`CREATE INDEX "IDX_payments_paymentMethodId" ON "payments" ("paymentMethodId")`);
+    await queryRunner.query(`CREATE INDEX "IDX_payments_settlementId" ON "payments" ("settlementId")`);
+    await queryRunner.query(`CREATE INDEX "IDX_payments_settlementStatus" ON "payments" ("settlementStatus")`);
 
     await queryRunner.query(`
       ALTER TABLE "payments"
@@ -111,55 +89,31 @@ export class AddPaymentMethodsAndSettlements1771100000000 implements MigrationIn
       WHERE "paymentMethodId" IS NULL
     `);
 
-    await queryRunner.query(
-      `ALTER TABLE "payments" ALTER COLUMN "paymentMethodId" SET NOT NULL`,
-    );
+    await queryRunner.query(`ALTER TABLE "payments" ALTER COLUMN "paymentMethodId" SET NOT NULL`);
 
-    await queryRunner.query(
-      `ALTER TABLE "payments" DROP COLUMN "paymentMethod"`,
-    );
-    await queryRunner.query(
-      `DROP TYPE IF EXISTS "payments_paymentmethod_enum"`,
-    );
+    await queryRunner.query(`ALTER TABLE "payments" DROP COLUMN "paymentMethod"`);
+    await queryRunner.query(`DROP TYPE IF EXISTS "payments_paymentmethod_enum"`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `CREATE TYPE "payments_paymentmethod_enum" AS ENUM ('cash')`,
-    );
+    await queryRunner.query(`CREATE TYPE "payments_paymentmethod_enum" AS ENUM ('cash')`);
     await queryRunner.query(`
       ALTER TABLE "payments" ADD COLUMN "paymentMethod" "payments_paymentmethod_enum" NOT NULL DEFAULT 'cash'
     `);
 
-    await queryRunner.query(
-      `ALTER TABLE "payments" DROP CONSTRAINT IF EXISTS "FK_payments_settlement"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "payments" DROP CONSTRAINT IF EXISTS "FK_payments_paymentMethod"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "IDX_payments_settlementStatus"`,
-    );
+    await queryRunner.query(`ALTER TABLE "payments" DROP CONSTRAINT IF EXISTS "FK_payments_settlement"`);
+    await queryRunner.query(`ALTER TABLE "payments" DROP CONSTRAINT IF EXISTS "FK_payments_paymentMethod"`);
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_payments_settlementStatus"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_payments_settlementId"`);
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "IDX_payments_paymentMethodId"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "payments" DROP COLUMN "settlementId"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "payments" DROP COLUMN "settlementStatus"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "payments" DROP COLUMN "paymentMethodId"`,
-    );
+    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_payments_paymentMethodId"`);
+    await queryRunner.query(`ALTER TABLE "payments" DROP COLUMN "settlementId"`);
+    await queryRunner.query(`ALTER TABLE "payments" DROP COLUMN "settlementStatus"`);
+    await queryRunner.query(`ALTER TABLE "payments" DROP COLUMN "paymentMethodId"`);
 
     await queryRunner.query(`DROP TABLE IF EXISTS "settlements"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "payment_methods"`);
 
-    await queryRunner.query(
-      `DROP TYPE IF EXISTS "settlement_status_entity_enum"`,
-    );
+    await queryRunner.query(`DROP TYPE IF EXISTS "settlement_status_entity_enum"`);
     await queryRunner.query(`DROP TYPE IF EXISTS "settlement_status_enum"`);
   }
 }

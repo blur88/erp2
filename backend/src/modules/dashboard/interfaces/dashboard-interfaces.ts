@@ -11,12 +11,12 @@ export interface DashboardWidget {
 }
 
 export enum WidgetType {
-  LineChart = "line_chart",
-  BarChart = "bar_chart",
-  PieChart = "pie_chart",
-  Gauge = "gauge",
-  KPI = "kpi",
-  Table = "table",
+  LineChart = 'line_chart',
+  BarChart = 'bar_chart',
+  PieChart = 'pie_chart',
+  Gauge = 'gauge',
+  KPI = 'kpi',
+  Table = 'table'
 }
 
 export interface WidgetConfig {
@@ -61,12 +61,12 @@ export interface KPIDefinition {
 }
 
 export enum KPICategory {
-  Sales = "sales",
-  Inventory = "inventory",
-  Financial = "financial",
-  Operational = "operational",
-  Customer = "customer",
-  Supplier = "supplier",
+  Sales = 'sales',
+  Inventory = 'inventory',
+  Financial = 'financial',
+  Operational = 'operational',
+  Customer = 'customer',
+  Supplier = 'supplier'
 }
 
 // Alert Interfaces
@@ -81,12 +81,12 @@ export interface DashboardAlert {
 }
 
 export enum AlertType {
-  Threshold = "threshold",
+  Threshold = 'threshold',
 }
 
 export enum AlertSeverity {
-  Low = "low",
-  Medium = "medium",
+  Low = 'low',
+  Medium = 'medium',
 }
 
 // Dashboard Personalization

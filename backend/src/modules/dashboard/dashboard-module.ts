@@ -1,11 +1,11 @@
-import { Module } from "@nestjs/common";
-import { DashboardController } from "./controllers/dashboard-controller";
-import { DashboardService } from "./services/dashboard-service";
-import { DashboardWebSocketGateway } from "./gateways/dashboard-websocket-gateway";
+import { Module } from '@nestjs/common';
+import { DashboardController } from './controllers/dashboard-controller';
+import { DashboardService } from './services/dashboard-service';
+import { DashboardWebSocketGateway } from './gateways/dashboard-websocket-gateway';
 
 // Import necessary service dependencies
 // import { SalesModule } from '../sales/sales.module'; // Temporarily disabled for startup
-import { InventoryModule } from "../inventory/inventory.module";
+import { InventoryModule } from '../inventory/inventory.module';
 // Note: FinancialModule and PurchasingModule disabled for now
 
 @Module({
@@ -17,6 +17,6 @@ import { InventoryModule } from "../inventory/inventory.module";
   ],
   controllers: [DashboardController],
   providers: [DashboardService, DashboardWebSocketGateway],
-  exports: [DashboardService],
+  exports: [DashboardService]
 })
 export class DashboardModule {}

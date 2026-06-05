@@ -1,6 +1,6 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { IBaseCostingStrategy } from "./base-costing-strategy.interface";
-import { PurchaseCostHistory } from "../../../../database/entities/purchase-cost-history.entity";
+import { Injectable, Logger } from '@nestjs/common';
+import { IBaseCostingStrategy } from './base-costing-strategy.interface';
+import { PurchaseCostHistory } from '../../../../database/entities/purchase-cost-history.entity';
 
 /**
  * Moving Average Costing Strategy
@@ -15,7 +15,7 @@ export class AverageCostingStrategy implements IBaseCostingStrategy {
   private readonly logger = new Logger(AverageCostingStrategy.name);
 
   getMethodName(): string {
-    return "AVERAGE";
+    return 'AVERAGE';
   }
 
   async calculateBaseCost(
@@ -49,9 +49,7 @@ export class AverageCostingStrategy implements IBaseCostingStrategy {
 
     // Return weighted average
     const weightedAvg =
-      totalQuantity > 0
-        ? totalCost / totalQuantity
-        : Number(currentBaseCost || 0);
+      totalQuantity > 0 ? totalCost / totalQuantity : Number(currentBaseCost || 0);
 
     this.logger.log(
       `[AVERAGE] Product ${productId}: RM ${totalCost.toFixed(2)} / ${totalQuantity} units = RM ${weightedAvg.toFixed(4)}`,
@@ -70,8 +68,7 @@ export class AverageCostingStrategy implements IBaseCostingStrategy {
 
     // Sort by received date (oldest first)
     const sortedBatches = [...batches].sort(
-      (a, b) =>
-        new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime(),
+      (a, b) => new Date(a.receivedDate).getTime() - new Date(b.receivedDate).getTime(),
     );
 
     for (const batch of sortedBatches) {

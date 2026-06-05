@@ -1,22 +1,19 @@
-import { NotFoundException } from "@nestjs/common";
-import { Test, TestingModule } from "@nestjs/testing";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { NotFoundException } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
-import { Category } from "../../../database/entities/category.entity";
-import { Product } from "../../../database/entities/product.entity";
-import { AuditLogService } from "../../audit-logs/services";
-import { CategoryService } from "./category.service";
+import { Category } from '../../../database/entities/category.entity';
+import { Product } from '../../../database/entities/product.entity';
+import { AuditLogService } from '../../audit-logs/services';
+import { CategoryService } from './category.service';
 
-describe("CategoryService", () => {
+describe('CategoryService', () => {
   let service: CategoryService;
   let categoryRepository: jest.Mocked<Repository<Category>>;
   let productRepository: jest.Mocked<Repository<Product>>;
 
-  const createCategory = (
-    id: string,
-    overrides: Partial<Category> = {},
-  ): Category =>
+  const createCategory = (id: string, overrides: Partial<Category> = {}): Category =>
     ({
       id,
       name: `Category ${id}`,
@@ -26,8 +23,8 @@ describe("CategoryService", () => {
       fullPath: `Category ${id}`,
       isRoot: true,
       hasChildren: false,
-      createdAt: new Date("2026-04-01T00:00:00.000Z"),
-      updatedAt: new Date("2026-04-01T00:00:00.000Z"),
+      createdAt: new Date('2026-04-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-04-01T00:00:00.000Z'),
       deletedAt: null,
       children: [],
       ...overrides,
@@ -41,9 +38,7 @@ describe("CategoryService", () => {
     addOrderBy: jest.fn().mockReturnThis(),
     skip: jest.fn().mockReturnThis(),
     take: jest.fn().mockReturnThis(),
-    getManyAndCount: jest
-      .fn()
-      .mockResolvedValue([categories, categories.length]),
+    getManyAndCount: jest.fn().mockResolvedValue([categories, categories.length]),
   });
 
   beforeEach(async () => {
@@ -81,70 +76,56 @@ describe("CategoryService", () => {
     productRepository = module.get(getRepositoryToken(Product));
   });
 
-  it("findDeleted applies parentId filtering through the shared query builder path", async () => {
+  it('findDeleted applies parentId filtering through the shared query builder path', async () => {
     const qb = createQueryBuilder([
-      createCategory("child-1", {
-        parentId: "parent-1",
-        isRoot: false,
-        level: 1,
-      }),
+      createCategory('child-1', { parentId: 'parent-1', isRoot: false, level: 1 }),
     ]);
     categoryRepository.createQueryBuilder.mockReturnValue(qb as any);
     categoryRepository.findAndCount.mockResolvedValue([[], 0] as any);
 
-    await service.findDeleted({ parentId: "parent-1" });
+    await service.findDeleted({ parentId: 'parent-1' });
 
-    expect(categoryRepository.createQueryBuilder).toHaveBeenCalledWith(
-      "category",
-    );
-    expect(qb.andWhere).toHaveBeenCalledWith("category.parentId = :parentId", {
-      parentId: "parent-1",
+    expect(categoryRepository.createQueryBuilder).toHaveBeenCalledWith('category');
+    expect(qb.andWhere).toHaveBeenCalledWith('category.parentId = :parentId', {
+      parentId: 'parent-1',
     });
   });
 
-  describe("getCategoryProducts", () => {
-    it("returns products for a valid category", async () => {
-      categoryRepository.findOne.mockResolvedValue({
-        id: "cat-1",
-        name: "Hardware",
-      } as any);
+  describe('getCategoryProducts', () => {
+    it('returns products for a valid category', async () => {
+      categoryRepository.findOne.mockResolvedValue({ id: 'cat-1', name: 'Hardware' } as any);
       productRepository.find.mockResolvedValue([
-        { id: "prod-1", name: "Widget", stockQuantity: 5 },
-        { id: "prod-2", name: "Bolt", stockQuantity: 0 },
+        { id: 'prod-1', name: 'Widget', stockQuantity: 5 },
+        { id: 'prod-2', name: 'Bolt', stockQuantity: 0 },
       ] as any);
 
-      const result = await service.getCategoryProducts("cat-1");
+      const result = await service.getCategoryProducts('cat-1');
 
       expect(result).toEqual({
         data: [
-          { id: "prod-1", name: "Widget", stockQuantity: 5 },
-          { id: "prod-2", name: "Bolt", stockQuantity: 0 },
+          { id: 'prod-1', name: 'Widget', stockQuantity: 5 },
+          { id: 'prod-2', name: 'Bolt', stockQuantity: 0 },
         ],
       });
       expect(productRepository.find).toHaveBeenCalledWith({
-        where: { categoryId: "cat-1" },
+        where: { categoryId: 'cat-1' },
         select: { id: true, name: true, stockQuantity: true },
       });
     });
 
-    it("returns empty data array for a category with no products", async () => {
-      categoryRepository.findOne.mockResolvedValue({
-        id: "cat-2",
-        name: "Empty",
-      } as any);
+    it('returns empty data array for a category with no products', async () => {
+      categoryRepository.findOne.mockResolvedValue({ id: 'cat-2', name: 'Empty' } as any);
       productRepository.find.mockResolvedValue([] as any);
 
-      const result = await service.getCategoryProducts("cat-2");
+      const result = await service.getCategoryProducts('cat-2');
 
       expect(result).toEqual({ data: [] });
     });
 
-    it("throws NotFoundException for an unknown category ID", async () => {
+    it('throws NotFoundException for an unknown category ID', async () => {
       categoryRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.getCategoryProducts("no-such-id")).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.getCategoryProducts('no-such-id')).rejects.toThrow(NotFoundException);
     });
   });
 });

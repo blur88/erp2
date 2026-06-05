@@ -8,7 +8,7 @@ import {
   // Tree,        // Temporarily disabled
   // TreeParent,  // Temporarily disabled
   // TreeChildren,// Temporarily disabled
-} from "typeorm";
+} from 'typeorm';
 import {
   IsString,
   IsOptional,
@@ -16,56 +16,54 @@ import {
   IsInt,
   Min,
   Matches,
-} from "class-validator";
-import { BaseEntity } from "./base.entity";
-import { Product } from "./product.entity";
+} from 'class-validator';
+import { BaseEntity } from './base.entity';
+import { Product } from './product.entity';
 
 /**
  * Category entity for hierarchical product categorization
  * Supports tree structure for nested categories
  * Optimized with path materialization for better query performance
  */
-@Entity("categories")
+@Entity('categories')
 // @Tree('materialized-path') // Temporarily disabled due to TypeORM materialized path issues
-@Index(["name", "parentId"], { unique: true }) // Categories must be unique within same parent
-@Index(["parentId"])
-@Index(["path"])
+@Index(['name', 'parentId'], { unique: true }) // Categories must be unique within same parent
+@Index(['parentId'])
+@Index(['path'])
 export class Category extends BaseEntity {
   @Column({
-    type: "varchar",
+    type: 'varchar',
     length: 100,
-    comment: "Category name",
+    comment: 'Category name',
   })
   @IsString()
   @MaxLength(100)
   name: string;
 
   @Column({
-    type: "varchar",
+    type: 'varchar',
     length: 500,
     nullable: true,
-    comment: "Materialized path for tree structure (auto-managed)",
+    comment: 'Materialized path for tree structure (auto-managed)',
   })
   @IsOptional()
   @IsString()
-  @Matches(/^[a-f0-9\-\.]*$/, {
-    message: "Path must contain only UUID characters, hyphens, and dots",
-  })
+  @Matches(/^[a-f0-9\-\.]*$/, { message: 'Path must contain only UUID characters, hyphens, and dots' })
   path?: string;
 
   @Column({
-    type: "int",
+    type: 'int',
     default: 0,
-    comment: "Depth level in the tree (0 = root)",
+    comment: 'Depth level in the tree (0 = root)',
   })
   @IsInt()
   @Min(0)
   level: number;
 
   @Column({
-    type: "uuid",
+    type: 'uuid',
     nullable: true,
-    comment: "Parent category ID",
+    comment: 'Parent category ID',
   })
   @IsOptional()
   parentId?: string;
@@ -73,9 +71,9 @@ export class Category extends BaseEntity {
   // Tree relationships (temporarily disabled due to TypeORM tree issues)
   // @TreeParent()
   @ManyToOne(() => Category, (category) => category.children, {
-    onDelete: "CASCADE",
+    onDelete: 'CASCADE',
   })
-  @JoinColumn({ name: "parentId" })
+  @JoinColumn({ name: 'parentId' })
   parent?: Category;
 
   // @TreeChildren()
@@ -108,11 +106,14 @@ export class Category extends BaseEntity {
    * @returns Formatted path string (e.g., "Electronics > Mobile Phones")
    */
   get fullPath(): string {
-    if (this.path && typeof this.path === "string") {
+    if (this.path && typeof this.path === 'string') {
       const sanitizedPath = this.sanitizePath(this.path);
-      return sanitizedPath.split(".").filter(Boolean).join(" > ");
+      return sanitizedPath
+        .split('.')
+        .filter(Boolean)
+        .join(' > ');
     }
-    return this.name || "Unnamed Category";
+    return this.name || 'Unnamed Category';
   }
 
   // Helper methods
@@ -121,9 +122,9 @@ export class Category extends BaseEntity {
    * @returns Array of UUID strings representing ancestor categories
    */
   getAncestors(): string[] {
-    if (!this.path || typeof this.path !== "string") return [];
+    if (!this.path || typeof this.path !== 'string') return [];
     const sanitizedPath = this.sanitizePath(this.path);
-    return sanitizedPath.split(".").filter(Boolean);
+    return sanitizedPath.split('.').filter(Boolean);
   }
 
   /**
@@ -132,7 +133,7 @@ export class Category extends BaseEntity {
    * @returns True if this category is a descendant of the given category
    */
   isDescendantOf(categoryId: string): boolean {
-    if (!categoryId || typeof categoryId !== "string") return false;
+    if (!categoryId || typeof categoryId !== 'string') return false;
     return this.getAncestors().includes(categoryId);
   }
 
@@ -152,8 +153,8 @@ export class Category extends BaseEntity {
    * @returns Sanitized path string containing only valid UUID characters, hyphens, and dots
    */
   private sanitizePath(path: string): string {
-    if (!path || typeof path !== "string") return "";
+    if (!path || typeof path !== 'string') return '';
     // Allow only UUID characters (a-f, 0-9), hyphens, and dots
-    return path.replace(/[^a-f0-9\-\.]/gi, "");
+    return path.replace(/[^a-f0-9\-\.]/gi, '');
   }
 }

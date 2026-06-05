@@ -21,7 +21,12 @@ export interface User {
   updatedAt: Date | string;
 }
 
-export type UserRole = 'admin' | 'manager' | 'sales_staff' | 'inventory_staff' | 'procurement_staff';
+export type UserRole =
+  | 'admin'
+  | 'manager'
+  | 'sales_staff'
+  | 'inventory_staff'
+  | 'procurement_staff';
 
 // Product and Inventory types
 export interface Product {
@@ -58,8 +63,8 @@ export interface Category {
   hasChildren: boolean;
   children?: Category[];
   parent?: Partial<Category>;
-  productCount?: number;  // Number of products in this category
-  isActive: boolean;  // Soft delete flag from BaseEntity
+  productCount?: number; // Number of products in this category
+  isActive: boolean; // Soft delete flag from BaseEntity
   createdAt: Date | string;
   updatedAt: Date | string;
   deletedAt?: Date | string | null; // For soft-deleted categories
@@ -149,13 +154,11 @@ export interface StockAdjustment {
   updatedAt: Date;
 }
 
-
 // Sales types
 export enum CustomerType {
   INDIVIDUAL = 'individual',
   BUSINESS = 'business',
 }
-
 
 export interface Customer {
   id: string;
@@ -291,7 +294,16 @@ export interface Payment {
   paymentMethodEntity?: PaymentMethodConfig;
   settlementStatus?: 'not_applicable' | 'pending' | 'settled';
   settlementId?: string;
-  paymentMethod?: 'cash' | 'card' | 'bank_transfer' | 'check' | 'credit_card' | 'debit_card' | 'online_payment' | 'mobile_payment' | 'other';
+  paymentMethod?:
+    | 'cash'
+    | 'card'
+    | 'bank_transfer'
+    | 'check'
+    | 'credit_card'
+    | 'debit_card'
+    | 'online_payment'
+    | 'mobile_payment'
+    | 'other';
   reference?: string;
   referenceNumber?: string;
   status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded';
@@ -568,7 +580,6 @@ export interface PaginatedResponse<T> {
     limit?: number;
   };
 }
-
 
 export interface QueryParams {
   page?: number;

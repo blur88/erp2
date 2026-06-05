@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddCustomerBillingShippingEmail1779300000000 implements MigrationInterface {
-  name = "AddCustomerBillingShippingEmail1779300000000";
+  name = 'AddCustomerBillingShippingEmail1779300000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
@@ -59,60 +59,26 @@ export class AddCustomerBillingShippingEmail1779300000000 implements MigrationIn
       END $$;
     `);
 
-    await queryRunner.query(
-      `ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "email" varchar(255)`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "billingStreetAddress" varchar(255)`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "billingCity" varchar(100)`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "billingState" varchar(100)`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "billingPostalCode" varchar(20)`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "billingCountry" varchar(100)`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "shippingStreetAddress" varchar(255)`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "shippingCity" varchar(100)`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "shippingState" varchar(100)`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "shippingPostalCode" varchar(20)`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "shippingCountry" varchar(100)`,
-    );
+    await queryRunner.query(`ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "email" varchar(255)`);
+    await queryRunner.query(`ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "billingStreetAddress" varchar(255)`);
+    await queryRunner.query(`ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "billingCity" varchar(100)`);
+    await queryRunner.query(`ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "billingState" varchar(100)`);
+    await queryRunner.query(`ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "billingPostalCode" varchar(20)`);
+    await queryRunner.query(`ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "billingCountry" varchar(100)`);
+    await queryRunner.query(`ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "shippingStreetAddress" varchar(255)`);
+    await queryRunner.query(`ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "shippingCity" varchar(100)`);
+    await queryRunner.query(`ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "shippingState" varchar(100)`);
+    await queryRunner.query(`ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "shippingPostalCode" varchar(20)`);
+    await queryRunner.query(`ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "shippingCountry" varchar(100)`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `ALTER TABLE "customers" DROP COLUMN IF EXISTS "shippingCountry"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "customers" DROP COLUMN IF EXISTS "shippingPostalCode"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "customers" DROP COLUMN IF EXISTS "shippingState"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "customers" DROP COLUMN IF EXISTS "shippingCity"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "customers" DROP COLUMN IF EXISTS "shippingStreetAddress"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "customers" DROP COLUMN IF EXISTS "email"`,
-    );
+    await queryRunner.query(`ALTER TABLE "customers" DROP COLUMN IF EXISTS "shippingCountry"`);
+    await queryRunner.query(`ALTER TABLE "customers" DROP COLUMN IF EXISTS "shippingPostalCode"`);
+    await queryRunner.query(`ALTER TABLE "customers" DROP COLUMN IF EXISTS "shippingState"`);
+    await queryRunner.query(`ALTER TABLE "customers" DROP COLUMN IF EXISTS "shippingCity"`);
+    await queryRunner.query(`ALTER TABLE "customers" DROP COLUMN IF EXISTS "shippingStreetAddress"`);
+    await queryRunner.query(`ALTER TABLE "customers" DROP COLUMN IF EXISTS "email"`);
 
     await queryRunner.query(`
       DO $$

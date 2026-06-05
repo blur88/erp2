@@ -1,38 +1,38 @@
-import React, { useCallback, useMemo, useState } from 'react'
-import { Chip, Stack } from '@mui/material'
-import { useLocation } from 'react-router-dom'
+import React, { useCallback, useMemo, useState } from 'react';
+import { Chip, Stack } from '@mui/material';
+import { useLocation } from 'react-router-dom';
 
-import PaymentContextHeader from './components/PaymentContextHeader'
-import PaymentsDialogs from './components/PaymentsDialogs'
-import PaymentsTable from './components/PaymentsTable'
-import PaymentWorkspaceCard from './components/PaymentWorkspaceCard'
-import { type PaymentListItem, usePaymentsWorkspace } from './hooks/usePaymentsWorkspace'
+import PaymentContextHeader from './components/PaymentContextHeader';
+import PaymentsDialogs from './components/PaymentsDialogs';
+import PaymentsTable from './components/PaymentsTable';
+import PaymentWorkspaceCard from './components/PaymentWorkspaceCard';
+import { type PaymentListItem, usePaymentsWorkspace } from './hooks/usePaymentsWorkspace';
 
-import GenericListPage from '@/components/common/GenericListPage'
-import { useFilterBar } from '@/hooks/useFilterBar'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import { useGetCustomersQuery, useGetPaymentsQuery } from '@/store/api/salesApi'
-import { selectSelectedPayment } from '@/store/slices/salesSlice'
-import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
-import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
+import GenericListPage from '@/components/common/GenericListPage';
+import { useFilterBar } from '@/hooks/useFilterBar';
+import { useAppDispatch, useAppSelector } from '@/hooks/useRedux';
+import { useGetCustomersQuery, useGetPaymentsQuery } from '@/store/api/salesApi';
+import { selectSelectedPayment } from '@/store/slices/salesSlice';
+import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types';
+import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange';
 
 interface PaymentFilters {
-  search: string
-  period: PeriodValue
-  customerId: string | null
-  transactionStatus: string | null
+  search: string;
+  period: PeriodValue;
+  customerId: string | null;
+  transactionStatus: string | null;
 }
 
 const PaymentsPage: React.FC = () => {
-  const location = useLocation()
-  const dispatch = useAppDispatch()
-  const selectedPayment = useAppSelector(selectSelectedPayment) as PaymentListItem | null
-  const [sortBy, setSortBy] = useState('paymentNumber')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const location = useLocation();
+  const dispatch = useAppDispatch();
+  const selectedPayment = useAppSelector(selectSelectedPayment) as PaymentListItem | null;
+  const [sortBy, setSortBy] = useState('paymentNumber');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  const presetCustomerId = (location.state as { customerId?: string } | null)?.customerId ?? null
-  const { data: customersData } = useGetCustomersQuery({})
-  const customers = customersData?.data ?? []
+  const presetCustomerId = (location.state as { customerId?: string } | null)?.customerId ?? null;
+  const { data: customersData } = useGetCustomersQuery({});
+  const customers = customersData?.data ?? [];
 
   const filterConfig = useMemo<FilterBarConfig<PaymentFilters>>(
     () => ({
@@ -50,9 +50,9 @@ const PaymentsPage: React.FC = () => {
       },
     }),
     [],
-  )
+  );
 
-  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig);
 
   const filterBarHandlers = useMemo(
     () =>
@@ -60,17 +60,18 @@ const PaymentsPage: React.FC = () => {
         ? { ...handlers, onClearAll: () => handlers.onClearField('search') }
         : handlers,
     [handlers, presetCustomerId],
-  )
+  );
 
-  const weekStartsOn = getStartOfWeek()
+  const weekStartsOn = getStartOfWeek();
   const dateRange = useMemo(() => {
-    const period = appliedFilters.period
-    if (!period || period.key === null) return { fromDate: undefined, toDate: undefined }
-    if (period.key === 'custom') return { fromDate: period.from ?? undefined, toDate: period.to ?? undefined }
+    const period = appliedFilters.period;
+    if (!period || period.key === null) return { fromDate: undefined, toDate: undefined };
+    if (period.key === 'custom')
+      return { fromDate: period.from ?? undefined, toDate: period.to ?? undefined };
 
-    const range = getPeriodDateRange(period.key, weekStartsOn)
-    return { fromDate: range.from, toDate: range.to }
-  }, [appliedFilters.period, weekStartsOn])
+    const range = getPeriodDateRange(period.key, weekStartsOn);
+    return { fromDate: range.from, toDate: range.to };
+  }, [appliedFilters.period, weekStartsOn]);
 
   const queryArgs = useMemo(
     () => ({
@@ -91,22 +92,25 @@ const PaymentsPage: React.FC = () => {
       sortOrder,
       presetCustomerId,
     ],
-  )
+  );
 
-  const { data, isLoading: loading, error, refetch } = useGetPaymentsQuery(queryArgs)
-  const payments = (data?.data ?? []) as PaymentListItem[]
-  const totalPayments = data?.meta?.total ?? 0
+  const { data, isLoading: loading, error, refetch } = useGetPaymentsQuery(queryArgs);
+  const payments = (data?.data ?? []) as PaymentListItem[];
+  const totalPayments = data?.meta?.total ?? 0;
   const workspace = usePaymentsWorkspace({
     dispatch,
     payments,
     selectedPayment,
     refetch,
-  })
+  });
 
-  const handleSort = useCallback((field: string) => {
-    setSortOrder((prev) => (sortBy === field && prev === 'asc' ? 'desc' : 'asc'))
-    setSortBy(field)
-  }, [sortBy])
+  const handleSort = useCallback(
+    (field: string) => {
+      setSortOrder((prev) => (sortBy === field && prev === 'asc' ? 'desc' : 'asc'));
+      setSortBy(field);
+    },
+    [sortBy],
+  );
 
   return (
     <GenericListPage
@@ -123,17 +127,19 @@ const PaymentsPage: React.FC = () => {
       searchInputRef={workspace.searchInputRef}
       sort={{ field: 'paymentNumber', sortBy, sortOrder, onSort: handleSort }}
       error={error ? 'Failed to load payments.' : null}
-      contentSlot={presetCustomerId ? (
-        <Stack direction="row" sx={{ mb: 2 }}>
-          <Chip
-            label={`Customer: ${customers.find((customer) => customer.id === presetCustomerId)?.name ?? presetCustomerId}`}
-            size="small"
-            variant="filled"
-            color="primary"
-          />
-        </Stack>
-      ) : null}
-      listSlot={(
+      contentSlot={
+        presetCustomerId ? (
+          <Stack direction="row" sx={{ mb: 2 }}>
+            <Chip
+              label={`Customer: ${customers.find((customer) => customer.id === presetCustomerId)?.name ?? presetCustomerId}`}
+              size="small"
+              variant="filled"
+              color="primary"
+            />
+          </Stack>
+        ) : null
+      }
+      listSlot={
         <PaymentsTable
           payments={payments}
           loading={loading}
@@ -143,8 +149,8 @@ const PaymentsPage: React.FC = () => {
           onPaymentSelect={workspace.handlePaymentSelect}
           paymentListRef={workspace.paymentListRef}
         />
-      )}
-      headerSlot={(
+      }
+      headerSlot={
         <PaymentContextHeader
           selectedPayment={selectedPayment}
           journalEntryRefs={workspace.journalEntryRefs}
@@ -153,9 +159,9 @@ const PaymentsPage: React.FC = () => {
           onOrderClick={workspace.handleOrderClick}
           onNavigateToJournalEntry={workspace.handleNavigateToJournalEntry}
         />
-      )}
+      }
       workspaceSlot={<PaymentWorkspaceCard selectedPayment={selectedPayment} />}
-      dialogs={(
+      dialogs={
         <PaymentsDialogs
           deletedPaymentsDialogOpen={workspace.deletedPaymentsDialogOpen}
           printDialogOpen={workspace.printDialogOpen}
@@ -163,9 +169,9 @@ const PaymentsPage: React.FC = () => {
           onCloseDeletedPaymentsDialog={() => workspace.setDeletedPaymentsDialogOpen(false)}
           onClosePrintDialog={() => workspace.setPrintDialogOpen(false)}
         />
-      )}
+      }
     />
-  )
-}
+  );
+};
 
-export default PaymentsPage
+export default PaymentsPage;

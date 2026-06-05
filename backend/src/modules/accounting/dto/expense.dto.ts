@@ -9,8 +9,8 @@ import {
   IsArray,
   Min,
   MaxLength,
-} from "class-validator";
-import { Transform, Type } from "class-transformer";
+} from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 
 export class CreateExpenseDto {
   @IsDateString()
@@ -109,13 +109,13 @@ export class QueryExpenseDto {
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => value === "true" || value === true)
+  @Transform(({ value }) => value === 'true' || value === true)
   includeDeleted?: boolean;
 }
 
 export class BulkExpenseDto {
   @IsArray()
-  @IsUUID("4", { each: true })
+  @IsUUID('4', { each: true })
   ids: string[];
 }
 

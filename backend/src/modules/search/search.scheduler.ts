@@ -1,6 +1,6 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { Cron, CronExpression } from "@nestjs/schedule";
-import { DataSource } from "typeorm";
+import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { DataSource } from 'typeorm';
 
 const RETENTION_DAYS = 90;
 
@@ -12,7 +12,7 @@ export class SearchScheduler {
 
   @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async handleRetentionCleanup(): Promise<void> {
-    this.logger.log("Starting search analytics retention cleanup");
+    this.logger.log('Starting search analytics retention cleanup');
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -38,12 +38,12 @@ export class SearchScheduler {
     } catch (error) {
       await queryRunner.rollbackTransaction().catch((rollbackError: Error) => {
         this.logger.error(
-          "Rollback failed during retention cleanup",
+          'Rollback failed during retention cleanup',
           rollbackError.stack,
         );
       });
       this.logger.error(
-        "Search analytics retention cleanup failed",
+        'Search analytics retention cleanup failed',
         (error as Error).stack,
       );
     } finally {

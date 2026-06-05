@@ -1,6 +1,6 @@
 export function generateBaseSlug(input: string): string {
   const safe = input.slice(0, 256).toLowerCase();
-  let result = "";
+  let result = '';
   let prevDash = false;
 
   for (const ch of safe) {
@@ -8,9 +8,9 @@ export function generateBaseSlug(input: string): string {
     if ((code >= 97 && code <= 122) || (code >= 48 && code <= 57)) {
       result += ch;
       prevDash = false;
-    } else if (ch === " " || ch === "-" || ch === "_") {
+    } else if (ch === ' ' || ch === '-' || ch === '_') {
       if (!prevDash) {
-        result += "-";
+        result += '-';
         prevDash = true;
       }
     }
@@ -18,7 +18,7 @@ export function generateBaseSlug(input: string): string {
 
   let start = 0;
   let end = result.length;
-  while (start < end && result[start] === "-") start++;
-  while (end > start && result[end - 1] === "-") end--;
-  return result.slice(start, end) || "entity";
+  while (start < end && result[start] === '-') start++;
+  while (end > start && result[end - 1] === '-') end--;
+  return result.slice(start, end) || 'entity';
 }

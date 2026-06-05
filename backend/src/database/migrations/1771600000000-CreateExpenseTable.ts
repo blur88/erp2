@@ -1,7 +1,7 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateExpenseTable1771600000000 implements MigrationInterface {
-  name = "CreateExpenseTable1771600000000";
+  name = 'CreateExpenseTable1771600000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
@@ -73,15 +73,9 @@ export class CreateExpenseTable1771600000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `ALTER TABLE "expenses" DROP CONSTRAINT "FK_expenses_journalEntryId"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "expenses" DROP CONSTRAINT "FK_expenses_expenseAccountId"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "expenses" DROP CONSTRAINT "FK_expenses_paymentMethodId"`,
-    );
+    await queryRunner.query(`ALTER TABLE "expenses" DROP CONSTRAINT "FK_expenses_journalEntryId"`);
+    await queryRunner.query(`ALTER TABLE "expenses" DROP CONSTRAINT "FK_expenses_expenseAccountId"`);
+    await queryRunner.query(`ALTER TABLE "expenses" DROP CONSTRAINT "FK_expenses_paymentMethodId"`);
     await queryRunner.query(`DROP TABLE "expenses"`);
     await queryRunner.query(`DROP TYPE "public"."expenses_status_enum"`);
   }

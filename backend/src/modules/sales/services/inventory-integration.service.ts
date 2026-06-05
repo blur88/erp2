@@ -4,22 +4,16 @@ import {
   BadRequestException,
   Inject,
   forwardRef,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, EntityManager } from "typeorm";
-import {
-  Product,
-  ProductType,
-} from "../../../database/entities/product.entity";
-import {
-  StockMovement,
-  StockMovementType,
-} from "../../../database/entities/stock-movement.entity";
-import { SalesOrder } from "../../../database/entities/sales-order.entity";
-import { SalesOrderItem } from "../../../database/entities/sales-order-item.entity";
-import { BaseCostCalculatorService } from "../../inventory/services/base-cost-calculator.service";
-import { SettingsService } from "../../settings/settings.service";
-import { repoFor } from "../../../common/db/tx-helpers";
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, EntityManager } from 'typeorm';
+import { Product, ProductType } from '../../../database/entities/product.entity';
+import { StockMovement, StockMovementType } from '../../../database/entities/stock-movement.entity';
+import { SalesOrder } from '../../../database/entities/sales-order.entity';
+import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
+import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
+import { SettingsService } from '../../settings/settings.service';
+import { repoFor } from '../../../common/db/tx-helpers';
 
 export interface StockItem {
   productId: string;
@@ -55,7 +49,7 @@ export interface OrderFulfillmentStatus {
     reserved: number;
     fulfilled: number;
     pending: number;
-    status: "available" | "reserved" | "fulfilled" | "backordered";
+    status: 'available' | 'reserved' | 'fulfilled' | 'backordered';
   }[];
 }
 
@@ -104,7 +98,7 @@ export class InventoryIntegrationService {
 
       availabilityItems.push({
         productId: item.productId,
-        productSku: product.barcode || "",
+        productSku: product.barcode || '',
         productName: product.name,
         requested: item.quantity,
         available: availableQuantity,
@@ -115,8 +109,7 @@ export class InventoryIntegrationService {
 
     return {
       available: allAvailable, // Always true now - allowing negative stock
-      message:
-        "All items are available (negative stock allowed for stocked products)",
+      message: 'All items are available (negative stock allowed for stocked products)',
       items: availabilityItems,
     };
   }
@@ -125,15 +118,13 @@ export class InventoryIntegrationService {
     // Check availability first (now allows negative stock for GOODS)
     const availabilityCheck = await this.checkAvailability(items);
     if (!availabilityCheck.available) {
-      throw new BadRequestException("Insufficient stock for reservation");
+      throw new BadRequestException('Insufficient stock for reservation');
     }
 
     // Reserve stock for each item
     for (const item of items) {
       if (!item.salesOrderId) {
-        throw new BadRequestException(
-          "Sales order ID is required for stock reservation",
-        );
+        throw new BadRequestException('Sales order ID is required for stock reservation');
       }
 
       // Get or create order reservations
@@ -174,12 +165,12 @@ export class InventoryIntegrationService {
     });
 
     if (!order) {
-      throw new NotFoundException("Sales order not found");
+      throw new NotFoundException('Sales order not found');
     }
 
     const orderReservations = this.reservations.get(salesOrderId);
     if (!orderReservations) {
-      throw new BadRequestException("No reservations found for this order");
+      throw new BadRequestException('No reservations found for this order');
     }
 
     // Fulfill each item
@@ -196,7 +187,7 @@ export class InventoryIntegrationService {
       const reservedQuantity = orderReservations.get(item.productId) || 0;
       if (reservedQuantity < item.quantity) {
         throw new BadRequestException(
-          `Insufficient reserved stock for product ${product.barcode || product.name}. Reserved: ${reservedQuantity}, Required: ${item.quantity}`,
+          `Insufficient reserved stock for product ${product.barcode || product.name}. Reserved: ${reservedQuantity}, Required: ${item.quantity}`
         );
       }
 
@@ -236,16 +227,14 @@ export class InventoryIntegrationService {
     }
   }
 
-  async getOrderFulfillmentStatus(
-    salesOrderId: string,
-  ): Promise<OrderFulfillmentStatus> {
+  async getOrderFulfillmentStatus(salesOrderId: string): Promise<OrderFulfillmentStatus> {
     const order = await this.salesOrderRepository.findOne({
       where: { id: salesOrderId },
       relations: { items: { product: true } },
     });
 
     if (!order) {
-      throw new NotFoundException("Sales order not found");
+      throw new NotFoundException('Sales order not found');
     }
 
     const orderReservations = this.reservations.get(salesOrderId) || new Map();
@@ -259,24 +248,20 @@ export class InventoryIntegrationService {
       if (!product) continue;
 
       const reserved = orderReservations.get(item.productId) || 0;
-
+      
       // Determine fulfilled quantity based on stock movements
-      const fulfilledQuantity = await this.getFulfilledQuantity(
-        salesOrderId,
-        item.productId,
-      );
+      const fulfilledQuantity = await this.getFulfilledQuantity(salesOrderId, item.productId);
       const pending = Math.max(0, item.quantity - reserved - fulfilledQuantity);
 
-      let status: "available" | "reserved" | "fulfilled" | "backordered" =
-        "available";
+      let status: 'available' | 'reserved' | 'fulfilled' | 'backordered' = 'available';
       if (fulfilledQuantity >= item.quantity) {
-        status = "fulfilled";
+        status = 'fulfilled';
         fulfilledItems++;
       } else if (reserved > 0) {
-        status = "reserved";
+        status = 'reserved';
         reservedItems++;
       } else if (Number(product.stockQuantity) < item.quantity) {
-        status = "backordered";
+        status = 'backordered';
         pendingItems++;
       } else {
         pendingItems++;
@@ -284,7 +269,7 @@ export class InventoryIntegrationService {
 
       fulfillmentItems.push({
         productId: item.productId,
-        productSku: product.barcode || "",
+        productSku: product.barcode || '',
         productName: product.name,
         ordered: item.quantity,
         reserved,
@@ -317,10 +302,7 @@ export class InventoryIntegrationService {
     const reservations = [];
 
     // Scan all reservations for this product
-    for (const [
-      salesOrderId,
-      orderReservations,
-    ] of this.reservations.entries()) {
+    for (const [salesOrderId, orderReservations] of this.reservations.entries()) {
       const reserved = orderReservations.get(productId);
       if (reserved && reserved > 0) {
         totalReserved += reserved;
@@ -342,9 +324,7 @@ export class InventoryIntegrationService {
 
     return {
       totalReserved,
-      reservations: reservations.sort(
-        (a, b) => b.createdDate.getTime() - a.createdDate.getTime(),
-      ),
+      reservations: reservations.sort((a, b) => b.createdDate.getTime() - a.createdDate.getTime()),
     };
   }
 
@@ -355,7 +335,7 @@ export class InventoryIntegrationService {
   ): Promise<void> {
     const orderReservations = this.reservations.get(salesOrderId);
     if (!orderReservations) {
-      throw new NotFoundException("No reservations found for this order");
+      throw new NotFoundException('No reservations found for this order');
     }
 
     const currentReservation = orderReservations.get(productId) || 0;
@@ -367,18 +347,14 @@ export class InventoryIntegrationService {
 
     // Check availability if increasing reservation
     if (difference > 0) {
-      const availabilityCheck = await this.checkAvailability([
-        {
-          productId,
-          quantity: difference,
-          salesOrderId,
-        },
-      ]);
+      const availabilityCheck = await this.checkAvailability([{
+        productId,
+        quantity: difference,
+        salesOrderId,
+      }]);
 
       if (!availabilityCheck.available) {
-        throw new BadRequestException(
-          "Insufficient stock for increased reservation",
-        );
+        throw new BadRequestException('Insufficient stock for increased reservation');
       }
     }
 
@@ -401,8 +377,7 @@ export class InventoryIntegrationService {
     totalReservations: number;
     reservationValue: number;
   }> {
-    const { lowStockThreshold } =
-      await this.settingsService.getRegionalSettings();
+    const { lowStockThreshold } = await this.settingsService.getRegionalSettings();
     const products = await this.productRepository.find({
       where: { isActive: true },
     });
@@ -413,8 +388,7 @@ export class InventoryIntegrationService {
     let reservationValue = 0;
 
     for (const product of products) {
-      const stockValue =
-        Number(product.stockQuantity) * Number(product.baseCost || 0);
+      const stockValue = Number(product.stockQuantity) * Number(product.baseCost || 0);
       totalStockValue += stockValue;
 
       if (Number(product.stockQuantity) <= lowStockThreshold) {
@@ -424,8 +398,7 @@ export class InventoryIntegrationService {
       // Calculate reservations for this product
       const reservations = await this.getProductReservations(product.id);
       totalReservations += reservations.totalReserved;
-      reservationValue +=
-        reservations.totalReserved * Number(product.baseCost || 0);
+      reservationValue += reservations.totalReserved * Number(product.baseCost || 0);
     }
 
     return {
@@ -460,11 +433,9 @@ export class InventoryIntegrationService {
 
     // Create stock movement record BEFORE updating product
     // This ensures previousBalance and newBalance are calculated correctly
-    const movementType =
-      movementTypeOverride ||
-      (quantityChange > 0
-        ? StockMovementType.ADJUSTMENT_INCREASE
-        : StockMovementType.SALE); // Use SALE for negative adjustments (fulfillment)
+    const movementType = movementTypeOverride || (quantityChange > 0
+      ? StockMovementType.ADJUSTMENT_INCREASE
+      : StockMovementType.SALE); // Use SALE for negative adjustments (fulfillment)
 
     await this.createStockMovementWithBalances(
       productId,
@@ -482,11 +453,7 @@ export class InventoryIntegrationService {
     // Errors propagate so a wrapping transaction rolls back.
     if (quantityChange < 0) {
       const quantitySold = Math.abs(quantityChange);
-      await this.baseCostCalculator.reduceStock(
-        productId,
-        quantitySold,
-        manager,
-      );
+      await this.baseCostCalculator.reduceStock(productId, quantitySold, manager);
     }
 
     // Update product stock quantity (allow negative for GOODS products)
@@ -498,19 +465,16 @@ export class InventoryIntegrationService {
 
   private getReservedQuantity(productId: string): number {
     let totalReserved = 0;
-
+    
     for (const orderReservations of this.reservations.values()) {
       const reserved = orderReservations.get(productId) || 0;
       totalReserved += reserved;
     }
-
+    
     return totalReserved;
   }
 
-  private async getFulfilledQuantity(
-    salesOrderId: string,
-    productId: string,
-  ): Promise<number> {
+  private async getFulfilledQuantity(salesOrderId: string, productId: string): Promise<number> {
     const movements = await this.stockMovementRepository.find({
       where: {
         productId,
@@ -520,12 +484,7 @@ export class InventoryIntegrationService {
     });
 
     return movements.reduce((total, movement) => {
-      return (
-        total +
-        (movement.movementType === StockMovementType.SALE
-          ? movement.quantity
-          : 0)
-      );
+      return total + (movement.movementType === StockMovementType.SALE ? movement.quantity : 0);
     }, 0);
   }
 
@@ -538,9 +497,7 @@ export class InventoryIntegrationService {
     userId?: string,
   ): Promise<StockMovement> {
     // Get current product stock to calculate previous balance
-    const product = await this.productRepository.findOne({
-      where: { id: productId },
-    });
+    const product = await this.productRepository.findOne({ where: { id: productId } });
     if (!product) {
       throw new NotFoundException(`Product ${productId} not found`);
     }
@@ -571,11 +528,7 @@ export class InventoryIntegrationService {
     userId?: string,
     manager?: EntityManager,
   ): Promise<StockMovement> {
-    const stockMovementRepo = repoFor(
-      manager,
-      StockMovement,
-      this.stockMovementRepository,
-    );
+    const stockMovementRepo = repoFor(manager, StockMovement, this.stockMovementRepository);
     const movement = stockMovementRepo.create({
       productId,
       quantity,
@@ -584,7 +537,7 @@ export class InventoryIntegrationService {
       movementType,
       reason,
       referenceId,
-      referenceType: referenceId ? "sales_order" : null, // Set referenceType if referenceId is provided
+      referenceType: referenceId ? 'sales_order' : null, // Set referenceType if referenceId is provided
       movementDate: new Date(),
     });
 

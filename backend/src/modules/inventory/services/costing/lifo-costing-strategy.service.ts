@@ -1,6 +1,6 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { IBaseCostingStrategy } from "./base-costing-strategy.interface";
-import { PurchaseCostHistory } from "../../../../database/entities/purchase-cost-history.entity";
+import { Injectable, Logger } from '@nestjs/common';
+import { IBaseCostingStrategy } from './base-costing-strategy.interface';
+import { PurchaseCostHistory } from '../../../../database/entities/purchase-cost-history.entity';
 
 /**
  * LIFO (Last-In-First-Out) Costing Strategy
@@ -16,7 +16,7 @@ export class LifoCostingStrategy implements IBaseCostingStrategy {
   private readonly logger = new Logger(LifoCostingStrategy.name);
 
   getMethodName(): string {
-    return "LIFO";
+    return 'LIFO';
   }
 
   async calculateBaseCost(
@@ -50,9 +50,7 @@ export class LifoCostingStrategy implements IBaseCostingStrategy {
 
     // Return weighted average of remaining inventory
     const weightedAvg =
-      totalQuantity > 0
-        ? totalCost / totalQuantity
-        : Number(currentBaseCost || 0);
+      totalQuantity > 0 ? totalCost / totalQuantity : Number(currentBaseCost || 0);
 
     this.logger.log(
       `[LIFO] Product ${productId}: RM ${totalCost.toFixed(2)} / ${totalQuantity} units remaining = RM ${weightedAvg.toFixed(4)}`,
@@ -71,8 +69,7 @@ export class LifoCostingStrategy implements IBaseCostingStrategy {
 
     // Sort by received date (newest first)
     const sortedBatches = [...batches].sort(
-      (a, b) =>
-        new Date(b.receivedDate).getTime() - new Date(a.receivedDate).getTime(),
+      (a, b) => new Date(b.receivedDate).getTime() - new Date(a.receivedDate).getTime(),
     );
 
     for (const batch of sortedBatches) {

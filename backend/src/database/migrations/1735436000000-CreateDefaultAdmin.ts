@@ -1,5 +1,5 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
-import * as bcrypt from "bcrypt";
+import { MigrationInterface, QueryRunner } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 
 export class CreateDefaultAdmin1735436000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -9,12 +9,12 @@ export class CreateDefaultAdmin1735436000000 implements MigrationInterface {
     );
 
     if (existingAdmin.length > 0) {
-      console.log("Admin user already exists, skipping creation");
+      console.log('Admin user already exists, skipping creation');
       return;
     }
 
     // Hash default password
-    const hashedPassword = await bcrypt.hash("Admin@123!", 12);
+    const hashedPassword = await bcrypt.hash('Admin@123!', 12);
 
     // Create default admin user
     await queryRunner.query(
@@ -48,17 +48,15 @@ export class CreateDefaultAdmin1735436000000 implements MigrationInterface {
       [hashedPassword],
     );
 
-    console.log("Default admin user created");
-    console.log("Username: admin");
-    console.log("Password: Admin@123!");
-    console.log(
-      "⚠️  IMPORTANT: Change this password immediately after first login!",
-    );
+    console.log('Default admin user created');
+    console.log('Username: admin');
+    console.log('Password: Admin@123!');
+    console.log('⚠️  IMPORTANT: Change this password immediately after first login!');
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Remove default admin user
     await queryRunner.query(`DELETE FROM users WHERE username = 'admin'`);
-    console.log("Default admin user removed");
+    console.log('Default admin user removed');
   }
 }

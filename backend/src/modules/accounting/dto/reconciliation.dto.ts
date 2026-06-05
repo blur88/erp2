@@ -10,27 +10,27 @@ import {
   IsDateString,
   Min,
   Max,
-} from "class-validator";
-import { Type, Transform } from "class-transformer";
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { BankReconciliationStatus } from "../../../database/entities/bank-reconciliation.entity";
+} from 'class-validator';
+import { Type, Transform } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { BankReconciliationStatus } from '../../../database/entities/bank-reconciliation.entity';
 
 // Create DTO
 export class CreateBankReconciliationDto {
-  @ApiProperty({ description: "Bank/Cash account ID (Chart of Account)" })
+  @ApiProperty({ description: 'Bank/Cash account ID (Chart of Account)' })
   @IsUUID()
   accountId: string;
 
-  @ApiProperty({ description: "Fiscal period ID" })
+  @ApiProperty({ description: 'Fiscal period ID' })
   @IsUUID()
   fiscalPeriodId: string;
 
-  @ApiProperty({ description: "Reconciliation date", type: Date })
+  @ApiProperty({ description: 'Reconciliation date', type: Date })
   @Type(() => Date)
   @IsDate()
   reconciliationDate: Date;
 
-  @ApiProperty({ description: "Balance per bank statement" })
+  @ApiProperty({ description: 'Balance per bank statement' })
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 4 })
   statementBalance: number;
@@ -38,25 +38,23 @@ export class CreateBankReconciliationDto {
 
 // Update DTO
 export class UpdateBankReconciliationDto {
-  @ApiPropertyOptional({
-    description: "Bank/Cash account ID (Chart of Account)",
-  })
+  @ApiPropertyOptional({ description: 'Bank/Cash account ID (Chart of Account)' })
   @IsOptional()
   @IsUUID()
   accountId?: string;
 
-  @ApiPropertyOptional({ description: "Fiscal period ID" })
+  @ApiPropertyOptional({ description: 'Fiscal period ID' })
   @IsOptional()
   @IsUUID()
   fiscalPeriodId?: string;
 
-  @ApiPropertyOptional({ description: "Reconciliation date", type: Date })
+  @ApiPropertyOptional({ description: 'Reconciliation date', type: Date })
   @IsOptional()
   @Type(() => Date)
   @IsDate()
   reconciliationDate?: Date;
 
-  @ApiPropertyOptional({ description: "Balance per bank statement" })
+  @ApiPropertyOptional({ description: 'Balance per bank statement' })
   @IsOptional()
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 4 })
@@ -65,19 +63,14 @@ export class UpdateBankReconciliationDto {
 
 // Query DTO
 export class QueryBankReconciliationsDto {
-  @ApiPropertyOptional({ description: "Page number", minimum: 1, default: 1 })
+  @ApiPropertyOptional({ description: 'Page number', minimum: 1, default: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({
-    description: "Items per page",
-    minimum: 1,
-    maximum: 100,
-    default: 20,
-  })
+  @ApiPropertyOptional({ description: 'Items per page', minimum: 1, maximum: 100, default: 20 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -85,75 +78,58 @@ export class QueryBankReconciliationsDto {
   @Max(100)
   limit?: number = 20;
 
-  @ApiPropertyOptional({ description: "Filter by account ID" })
+  @ApiPropertyOptional({ description: 'Filter by account ID' })
   @IsOptional()
   @IsUUID()
   accountId?: string;
 
-  @ApiPropertyOptional({ description: "Filter by fiscal period ID" })
+  @ApiPropertyOptional({ description: 'Filter by fiscal period ID' })
   @IsOptional()
   @IsUUID()
   fiscalPeriodId?: string;
 
-  @ApiPropertyOptional({
-    description: "Filter by status",
-    enum: BankReconciliationStatus,
-  })
+  @ApiPropertyOptional({ description: 'Filter by status', enum: BankReconciliationStatus })
   @IsOptional()
   @IsEnum(BankReconciliationStatus)
   status?: BankReconciliationStatus;
 
-  @ApiPropertyOptional({
-    description: "Search by account name, account code, or fiscal period name",
-  })
+  @ApiPropertyOptional({ description: 'Search by account name, account code, or fiscal period name' })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({
-    description: "Filter by reconciliation date (from), e.g. 2026-01-01",
-  })
+  @ApiPropertyOptional({ description: 'Filter by reconciliation date (from), e.g. 2026-01-01' })
   @IsOptional()
   @IsDateString()
   startDate?: string;
 
-  @ApiPropertyOptional({
-    description: "Filter by reconciliation date (to), e.g. 2026-12-31",
-  })
+  @ApiPropertyOptional({ description: 'Filter by reconciliation date (to), e.g. 2026-12-31' })
   @IsOptional()
   @IsDateString()
   endDate?: string;
 
-  @ApiPropertyOptional({
-    description: "Filter by balanced status (difference = 0 when true)",
-  })
+  @ApiPropertyOptional({ description: 'Filter by balanced status (difference = 0 when true)' })
   @IsOptional()
-  @Transform(({ value }) => value === "true" || value === true)
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   isBalanced?: boolean;
 
-  @ApiPropertyOptional({
-    description: "Sort field",
-    enum: ["reconciliationDate", "createdAt"],
-  })
+  @ApiPropertyOptional({ description: 'Sort field', enum: ['reconciliationDate', 'createdAt'] })
   @IsOptional()
   @IsString()
   sortBy?: string;
 
-  @ApiPropertyOptional({ description: "Sort direction", enum: ["ASC", "DESC"] })
+  @ApiPropertyOptional({ description: 'Sort direction', enum: ['ASC', 'DESC'] })
   @IsOptional()
   @IsString()
-  sortOrder?: "ASC" | "DESC";
+  sortOrder?: 'ASC' | 'DESC';
 }
 
 // Mark/unmark cleared DTO
 export class ToggleClearedDto {
-  @ApiProperty({
-    description: "Journal entry line IDs to toggle",
-    type: [String],
-  })
+  @ApiProperty({ description: 'Journal entry line IDs to toggle', type: [String] })
   @IsArray()
-  @IsUUID("4", { each: true })
+  @IsUUID('4', { each: true })
   journalEntryLineIds: string[];
 }
 
@@ -180,12 +156,7 @@ export class ReconciledTransactionResponseDto {
     creditAmount: number;
     memo: string;
     account?: { id: string; code: string; name: string; type: string };
-    journalEntry?: {
-      id: string;
-      referenceNumber: string;
-      entryDate: Date;
-      description: string;
-    };
+    journalEntry?: { id: string; referenceNumber: string; entryDate: Date; description: string };
   };
 
   @ApiProperty()

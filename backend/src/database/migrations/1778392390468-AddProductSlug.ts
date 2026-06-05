@@ -1,14 +1,12 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class AddProductSlug1778392390468 implements MigrationInterface {
-  name = "AddProductSlug1778392390468";
+    name = 'AddProductSlug1778392390468'
 
-  public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `ALTER TABLE "products" ADD "slug" character varying(255)`,
-    );
+    public async up(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`ALTER TABLE "products" ADD "slug" character varying(255)`);
 
-    await queryRunner.query(`
+        await queryRunner.query(`
   WITH base_slugs AS (
     SELECT
       id,
@@ -47,13 +45,12 @@ export class AddProductSlug1778392390468 implements MigrationInterface {
   WHERE products.id = ranked.id
 `);
 
-    await queryRunner.query(
-      `CREATE UNIQUE INDEX "IDX_products_slug" ON "products" ("slug")`,
-    );
-  }
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_products_slug" ON "products" ("slug")`);
+    }
 
-  public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX "public"."IDX_products_slug"`);
-    await queryRunner.query(`ALTER TABLE "products" DROP COLUMN "slug"`);
-  }
+    public async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`DROP INDEX "public"."IDX_products_slug"`);
+        await queryRunner.query(`ALTER TABLE "products" DROP COLUMN "slug"`);
+    }
+
 }

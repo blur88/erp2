@@ -1,58 +1,58 @@
-import { MigrationInterface, QueryRunner, Table } from "typeorm";
+import { MigrationInterface, QueryRunner, Table } from 'typeorm';
 
 export class CreatePriceCostingSettings1764380000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.createTable(
       new Table({
-        name: "price_costing_settings",
+        name: 'price_costing_settings',
         columns: [
           {
-            name: "id",
-            type: "uuid",
+            name: 'id',
+            type: 'uuid',
             isPrimary: true,
-            generationStrategy: "uuid",
-            default: "uuid_generate_v4()",
+            generationStrategy: 'uuid',
+            default: 'uuid_generate_v4()',
           },
           {
-            name: "currency",
-            type: "varchar",
-            length: "10",
+            name: 'currency',
+            type: 'varchar',
+            length: '10',
             default: "'USD'",
             isNullable: false,
           },
           {
-            name: "costingMethod",
-            type: "varchar",
-            length: "50",
+            name: 'costingMethod',
+            type: 'varchar',
+            length: '50',
             default: "'AVERAGE'",
             isNullable: false,
           },
           {
-            name: "customerPricingSchemes",
-            type: "jsonb",
+            name: 'customerPricingSchemes',
+            type: 'jsonb',
             isNullable: true,
           },
           {
-            name: "isActive",
-            type: "boolean",
+            name: 'isActive',
+            type: 'boolean',
             default: true,
             isNullable: false,
           },
           {
-            name: "createdAt",
-            type: "timestamptz",
-            default: "CURRENT_TIMESTAMP",
+            name: 'createdAt',
+            type: 'timestamptz',
+            default: 'CURRENT_TIMESTAMP',
             isNullable: false,
           },
           {
-            name: "updatedAt",
-            type: "timestamptz",
-            default: "CURRENT_TIMESTAMP",
+            name: 'updatedAt',
+            type: 'timestamptz',
+            default: 'CURRENT_TIMESTAMP',
             isNullable: false,
           },
           {
-            name: "deletedAt",
-            type: "timestamptz",
+            name: 'deletedAt',
+            type: 'timestamptz',
             isNullable: true,
           },
         ],
@@ -67,6 +67,6 @@ export class CreatePriceCostingSettings1764380000000 implements MigrationInterfa
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.dropTable("price_costing_settings");
+    await queryRunner.dropTable('price_costing_settings');
   }
 }

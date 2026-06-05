@@ -1,44 +1,38 @@
-import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { Test, TestingModule } from "@nestjs/testing";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { In, IsNull } from "typeorm";
-import { Repository } from "typeorm";
-import {
-  Settlement,
-  SettlementStatus,
-} from "../../../database/entities/settlement.entity";
-import { PaymentMethodEntity } from "../../../database/entities/payment-method.entity";
-import {
-  Payment,
-  SettlementStatusEnum,
-} from "../../../database/entities/payment.entity";
-import { SettlementService } from "./settlement.service";
-import { AccountingService } from "./accounting.service";
-import { SettingsService } from "../../settings/settings.service";
-import { AuditLogService } from "../../audit-logs/services";
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { In, IsNull } from 'typeorm';
+import { Repository } from 'typeorm';
+import { Settlement, SettlementStatus } from '../../../database/entities/settlement.entity';
+import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
+import { Payment, SettlementStatusEnum } from '../../../database/entities/payment.entity';
+import { SettlementService } from './settlement.service';
+import { AccountingService } from './accounting.service';
+import { SettingsService } from '../../settings/settings.service';
+import { AuditLogService } from '../../audit-logs/services';
 
 const mockPaymentMethod = {
-  id: "pm-1",
-  code: "SHOPEE",
-  name: "Shopee",
+  id: 'pm-1',
+  code: 'SHOPEE',
+  name: 'Shopee',
   requiresSettlement: true,
   isActive: true,
 } as PaymentMethodEntity;
 
 const mockPayment = {
-  id: "p-1",
-  paymentNumber: "PAY-1",
+  id: 'p-1',
+  paymentNumber: 'PAY-1',
   amount: 100,
-  paymentMethodId: "pm-1",
+  paymentMethodId: 'pm-1',
   settlementStatus: SettlementStatusEnum.PENDING,
   settlementId: null,
 } as unknown as Payment;
 
 const mockDraftSettlement = {
-  id: "s-1",
-  settlementNumber: "STL-26-001",
-  paymentMethodId: "pm-1",
-  settlementDate: new Date("2026-02-14"),
+  id: 's-1',
+  settlementNumber: 'STL-26-001',
+  paymentMethodId: 'pm-1',
+  settlementDate: new Date('2026-02-14'),
   totalAmount: 100,
   status: SettlementStatus.DRAFT,
   paymentMethod: mockPaymentMethod,
@@ -52,7 +46,7 @@ const mockPostedSettlement = {
   status: SettlementStatus.POSTED,
 } as Settlement;
 
-describe("SettlementService", () => {
+describe('SettlementService', () => {
   let service: SettlementService;
   let settlementRepository: jest.Mocked<Repository<Settlement>>;
   let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
@@ -99,9 +93,7 @@ describe("SettlementService", () => {
         },
         {
           provide: SettingsService,
-          useValue: {
-            generateDocumentNumber: jest.fn().mockResolvedValue("STL-26-001"),
-          },
+          useValue: { generateDocumentNumber: jest.fn().mockResolvedValue('STL-26-001') },
         },
         {
           provide: AuditLogService,
@@ -112,9 +104,7 @@ describe("SettlementService", () => {
 
     service = module.get<SettlementService>(SettlementService);
     settlementRepository = module.get(getRepositoryToken(Settlement));
-    paymentMethodRepository = module.get(
-      getRepositoryToken(PaymentMethodEntity),
-    );
+    paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     paymentRepository = module.get(getRepositoryToken(Payment));
     accountingService = module.get(AccountingService);
     settingsService = module.get(SettingsService);
@@ -125,12 +115,12 @@ describe("SettlementService", () => {
     mockPostedSettlement.reference = undefined;
   });
 
-  it("should be defined", () => {
+  it('should be defined', () => {
     expect(service).toBeDefined();
   });
 
-  describe("create", () => {
-    it("creates settlement as draft and reserves only selected payments without posting journal entry", async () => {
+  describe('create', () => {
+    it('creates settlement as draft and reserves only selected payments without posting journal entry', async () => {
       paymentMethodRepository.findOne.mockResolvedValue(mockPaymentMethod);
       paymentRepository.find.mockResolvedValue([mockPayment]);
       settlementRepository.create.mockReturnValue(mockDraftSettlement);
@@ -139,55 +129,45 @@ describe("SettlementService", () => {
       paymentRepository.count.mockResolvedValue(1);
 
       const result = await service.create({
-        paymentMethodId: "pm-1",
-        settlementDate: "2026-02-14",
-        paymentIds: ["p-1"],
+        paymentMethodId: 'pm-1',
+        settlementDate: '2026-02-14',
+        paymentIds: ['p-1'],
       });
 
       expect(result.status).toBe(SettlementStatus.DRAFT);
       expect(paymentRepository.update).toHaveBeenCalledWith(
-        { id: In(["p-1"]) },
-        { settlementId: "s-1" },
+        { id: In(['p-1']) },
+        { settlementId: 's-1' },
       );
       expect(accountingService.postSettlementEntry).not.toHaveBeenCalled();
-      expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith(
-        "Settlements",
-      );
+      expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith('Settlements');
     });
 
-    it("throws if payment method does not require settlement", async () => {
+    it('throws if payment method does not require settlement', async () => {
       paymentMethodRepository.findOne.mockResolvedValue({
         ...mockPaymentMethod,
         requiresSettlement: false,
       } as PaymentMethodEntity);
 
       await expect(
-        service.create({
-          paymentMethodId: "pm-1",
-          settlementDate: "2026-02-14",
-          paymentIds: ["p-1"],
-        }),
+        service.create({ paymentMethodId: 'pm-1', settlementDate: '2026-02-14', paymentIds: ['p-1'] }),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("throws if a payment is already settled", async () => {
+    it('throws if a payment is already settled', async () => {
       paymentMethodRepository.findOne.mockResolvedValue(mockPaymentMethod);
       paymentRepository.find.mockResolvedValue([
         { ...mockPayment, settlementStatus: SettlementStatusEnum.SETTLED },
       ] as Payment[]);
 
       await expect(
-        service.create({
-          paymentMethodId: "pm-1",
-          settlementDate: "2026-02-14",
-          paymentIds: ["p-1"],
-        }),
+        service.create({ paymentMethodId: 'pm-1', settlementDate: '2026-02-14', paymentIds: ['p-1'] }),
       ).rejects.toThrow(BadRequestException);
     });
   });
 
-  describe("post", () => {
-    it("posts a draft settlement, settles reserved payments and calls postSettlementEntry", async () => {
+  describe('post', () => {
+    it('posts a draft settlement, settles reserved payments and calls postSettlementEntry', async () => {
       settlementRepository.findOne
         .mockResolvedValueOnce(mockDraftSettlement)
         .mockResolvedValueOnce(mockPostedSettlement);
@@ -195,37 +175,37 @@ describe("SettlementService", () => {
       settlementRepository.save.mockResolvedValue(mockPostedSettlement);
       paymentRepository.count.mockResolvedValue(1);
 
-      const result = await service.post("s-1", "user-1");
+      const result = await service.post('s-1', 'user-1');
 
       expect(paymentRepository.find).toHaveBeenCalledWith({
         where: {
-          settlementId: "s-1",
+          settlementId: 's-1',
           settlementStatus: SettlementStatusEnum.PENDING,
         },
       });
       expect(paymentRepository.update).toHaveBeenCalledWith(
-        { id: In(["p-1"]) },
+        { id: In(['p-1']) },
         { settlementStatus: SettlementStatusEnum.SETTLED },
       );
       expect(accountingService.postSettlementEntry).toHaveBeenCalled();
       expect(result.status).toBe(SettlementStatus.POSTED);
     });
 
-    it("throws if settlement is already posted", async () => {
+    it('throws if settlement is already posted', async () => {
       settlementRepository.findOne.mockResolvedValue(mockPostedSettlement);
 
-      await expect(service.post("s-1")).rejects.toThrow(BadRequestException);
+      await expect(service.post('s-1')).rejects.toThrow(BadRequestException);
     });
 
-    it("throws if settlement not found", async () => {
+    it('throws if settlement not found', async () => {
       settlementRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.post("missing")).rejects.toThrow(NotFoundException);
+      await expect(service.post('missing')).rejects.toThrow(NotFoundException);
     });
   });
 
-  describe("reverse", () => {
-    it("reverses a posted settlement, keeps settlementId, returns payments to pending and reverses journal entries", async () => {
+  describe('reverse', () => {
+    it('reverses a posted settlement, keeps settlementId, returns payments to pending and reverses journal entries', async () => {
       settlementRepository.findOne.mockResolvedValue(mockPostedSettlement);
       settlementRepository.save.mockResolvedValue({
         ...mockPostedSettlement,
@@ -233,117 +213,102 @@ describe("SettlementService", () => {
       } as Settlement);
       paymentRepository.count.mockResolvedValue(0);
 
-      const result = await service.reverse("s-1", "user-1");
+      const result = await service.reverse('s-1', 'user-1');
 
-      expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith(
-        "settlement",
-        "s-1",
-        "user-1",
-      );
+      expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith('settlement', 's-1', 'user-1');
       expect(paymentRepository.update).toHaveBeenCalledWith(
-        { settlementId: "s-1" },
+        { settlementId: 's-1' },
         { settlementStatus: SettlementStatusEnum.PENDING },
       );
       expect(result.status).toBe(SettlementStatus.REVERSED);
     });
 
-    it("throws if settlement is not posted", async () => {
+    it('throws if settlement is not posted', async () => {
       settlementRepository.findOne.mockResolvedValue(mockDraftSettlement);
 
-      await expect(service.reverse("s-1")).rejects.toThrow(BadRequestException);
+      await expect(service.reverse('s-1')).rejects.toThrow(BadRequestException);
     });
   });
 
-  describe("update", () => {
-    it("updates metadata on a draft settlement", async () => {
+  describe('update', () => {
+    it('updates metadata on a draft settlement', async () => {
       settlementRepository.findOne
         .mockResolvedValueOnce(mockDraftSettlement)
-        .mockResolvedValueOnce({
-          ...mockDraftSettlement,
-          reference: "NEW-REF",
-        } as Settlement);
-      settlementRepository.save.mockResolvedValue({
-        ...mockDraftSettlement,
-        reference: "NEW-REF",
-      } as Settlement);
+        .mockResolvedValueOnce({ ...mockDraftSettlement, reference: 'NEW-REF' } as Settlement);
+      settlementRepository.save.mockResolvedValue({ ...mockDraftSettlement, reference: 'NEW-REF' } as Settlement);
       paymentRepository.count.mockResolvedValue(1);
 
-      const result = await service.update("s-1", { reference: "NEW-REF" });
+      const result = await service.update('s-1', { reference: 'NEW-REF' });
 
       expect(settlementRepository.save).toHaveBeenCalled();
-      expect(result.reference).toBe("NEW-REF");
+      expect(result.reference).toBe('NEW-REF');
     });
 
-    it("throws if settlement is posted", async () => {
+    it('throws if settlement is posted', async () => {
       settlementRepository.findOne.mockResolvedValue(mockPostedSettlement);
 
-      await expect(service.update("s-1", { reference: "X" })).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.update('s-1', { reference: 'X' })).rejects.toThrow(BadRequestException);
     });
   });
 
-  describe("remove", () => {
-    it("soft deletes a draft settlement and unreserves its payments", async () => {
+  describe('remove', () => {
+    it('soft deletes a draft settlement and unreserves its payments', async () => {
       settlementRepository.findOne.mockResolvedValue(mockDraftSettlement);
       settlementRepository.softDelete.mockResolvedValue({} as any);
 
-      await service.remove("s-1", "user-1");
+      await service.remove('s-1', 'user-1');
 
       expect(paymentRepository.update).toHaveBeenCalledWith(
-        { settlementId: "s-1" },
+        { settlementId: 's-1' },
         { settlementId: null },
       );
-      expect(settlementRepository.softDelete).toHaveBeenCalledWith("s-1");
+      expect(settlementRepository.softDelete).toHaveBeenCalledWith('s-1');
     });
 
-    it("throws if settlement is posted", async () => {
+    it('throws if settlement is posted', async () => {
       settlementRepository.findOne.mockResolvedValue(mockPostedSettlement);
 
-      await expect(service.remove("s-1")).rejects.toThrow(BadRequestException);
+      await expect(service.remove('s-1')).rejects.toThrow(BadRequestException);
     });
   });
 
-  describe("getPendingPayments", () => {
-    it("returns only unreserved pending payments for the payment method", async () => {
+  describe('getPendingPayments', () => {
+    it('returns only unreserved pending payments for the payment method', async () => {
       paymentRepository.find.mockResolvedValue([mockPayment]);
 
-      await service.getPendingPayments("pm-1");
+      await service.getPendingPayments('pm-1');
 
       expect(paymentRepository.find).toHaveBeenCalledWith({
         where: {
-          paymentMethodId: "pm-1",
+          paymentMethodId: 'pm-1',
           settlementStatus: SettlementStatusEnum.PENDING,
           settlementId: IsNull(),
         },
         relations: { customer: true, paymentMethodEntity: true },
-        order: { paymentDate: "ASC" },
+        order: { paymentDate: 'ASC' },
       });
     });
   });
 
-  describe("restore", () => {
-    it("restores a soft-deleted settlement", async () => {
-      const deleted = {
-        ...mockDraftSettlement,
-        deletedAt: new Date(),
-      } as Settlement;
+  describe('restore', () => {
+    it('restores a soft-deleted settlement', async () => {
+      const deleted = { ...mockDraftSettlement, deletedAt: new Date() } as Settlement;
       settlementRepository.findOne
         .mockResolvedValueOnce(deleted)
         .mockResolvedValueOnce(mockDraftSettlement);
       settlementRepository.restore.mockResolvedValue({} as any);
       paymentRepository.count.mockResolvedValue(0);
 
-      const result = await service.restore("s-1", "user-1");
+      const result = await service.restore('s-1', 'user-1');
 
-      expect(settlementRepository.restore).toHaveBeenCalledWith("s-1");
-      expect(result.id).toBe("s-1");
+      expect(settlementRepository.restore).toHaveBeenCalledWith('s-1');
+      expect(result.id).toBe('s-1');
     });
 
-    it("throws if settlement is not deleted", async () => {
+    it('throws if settlement is not deleted', async () => {
       settlementRepository.findOne.mockResolvedValue(mockDraftSettlement);
 
-      await expect(service.restore("s-1")).rejects.toThrow(BadRequestException);
+      await expect(service.restore('s-1')).rejects.toThrow(BadRequestException);
     });
   });
 });

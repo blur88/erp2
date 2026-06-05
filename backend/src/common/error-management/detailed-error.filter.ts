@@ -1,10 +1,5 @@
-import {
-  ArgumentsHost,
-  BadRequestException,
-  Catch,
-  ExceptionFilter,
-} from "@nestjs/common";
-import { Request, Response } from "express";
+import { ArgumentsHost, BadRequestException, Catch, ExceptionFilter } from '@nestjs/common';
+import { Request, Response } from 'express';
 
 @Catch(BadRequestException)
 export class DetailedErrorFilter implements ExceptionFilter {
@@ -16,13 +11,12 @@ export class DetailedErrorFilter implements ExceptionFilter {
 
     const exceptionResponse = exception.getResponse();
 
-    if (typeof exceptionResponse === "object" && exceptionResponse !== null) {
+    if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
       const detailedResponse = exceptionResponse as any;
       if (
         detailedResponse.error &&
-        (detailedResponse.error === "DELETION_PREVENTED_BY_DEPENDENCIES" ||
-          detailedResponse.error ===
-            "PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES")
+        (detailedResponse.error === 'DELETION_PREVENTED_BY_DEPENDENCIES' ||
+          detailedResponse.error === 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES')
       ) {
         return response.status(status).json({
           statusCode: status,
@@ -39,10 +33,7 @@ export class DetailedErrorFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path: request.url,
       method: request.method,
-      message:
-        typeof exceptionResponse === "string"
-          ? exceptionResponse
-          : (exceptionResponse as any).message,
+      message: typeof exceptionResponse === 'string' ? exceptionResponse : (exceptionResponse as any).message,
     });
   }
 }

@@ -1,4 +1,4 @@
-import { ConfigService } from "@nestjs/config";
+import { ConfigService } from '@nestjs/config';
 
 /**
  * SSL configuration utilities for database connections
@@ -10,19 +10,19 @@ import { ConfigService } from "@nestjs/config";
  * @returns SSL configuration object
  */
 export function createSSLConfig(configService: ConfigService): any {
-  const isProduction = configService.get("NODE_ENV") === "production";
-
+  const isProduction = configService.get('NODE_ENV') === 'production';
+  
   if (!isProduction) {
     // Development/staging: allow SSL to be optionally enabled
-    const sslEnabled = configService.get<string>("DB_SSL", "false") === "true";
+    const sslEnabled = configService.get<string>('DB_SSL', 'false') === 'true';
     return sslEnabled;
   }
-
+  
   // Production: enforce proper SSL with certificate validation
-  const sslCA = configService.get<string>("DB_SSL_CA");
-  const sslCert = configService.get<string>("DB_SSL_CERT");
-  const sslKey = configService.get<string>("DB_SSL_KEY");
-
+  const sslCA = configService.get<string>('DB_SSL_CA');
+  const sslCert = configService.get<string>('DB_SSL_CERT');
+  const sslKey = configService.get<string>('DB_SSL_KEY');
+  
   // Allow production without full SSL certs for Docker environments
   // but always enforce encryption and certificate validation
   if (sslCA && sslCert && sslKey) {
@@ -33,7 +33,7 @@ export function createSSLConfig(configService: ConfigService): any {
       key: sslKey,
     };
   }
-
+  
   // Fallback: enforce SSL with server certificate validation
   return {
     rejectUnauthorized: true,

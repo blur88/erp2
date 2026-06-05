@@ -1,20 +1,11 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
-import {
-  GoodsReceivedNote,
-  PurchaseOrder,
-  VendorPayment,
-} from "../../../database/entities";
-import { GrnStatus } from "../../../database/entities/goods-received-note.entity";
-import { StockMovement } from "../../../database/entities/stock-movement.entity";
-import { AuditLogService } from "../../audit-logs/services";
+import { GoodsReceivedNote, PurchaseOrder, VendorPayment } from '../../../database/entities';
+import { GrnStatus } from '../../../database/entities/goods-received-note.entity';
+import { StockMovement } from '../../../database/entities/stock-movement.entity';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class PurchaseOrderLifecycleService {
@@ -36,12 +27,12 @@ export class PurchaseOrderLifecycleService {
     });
 
     if (!purchaseOrder) {
-      throw new NotFoundException("Purchase order not found");
+      throw new NotFoundException('Purchase order not found');
     }
 
     if (Number(purchaseOrder.paidAmount || 0) > 0) {
       throw new BadRequestException(
-        "Cannot edit purchase order items that have been paid. Please unpay first.",
+        'Cannot edit purchase order items that have been paid. Please unpay first.',
       );
     }
 
@@ -51,27 +42,23 @@ export class PurchaseOrderLifecycleService {
 
     if (grn?.status === GrnStatus.RECEIVED) {
       throw new BadRequestException(
-        "Cannot edit purchase order items with received goods. Please return goods first.",
+        'Cannot edit purchase order items with received goods. Please return goods first.',
       );
     }
   }
 
-  async softDelete(
-    purchaseOrderId: string,
-    userId?: string,
-    username?: string,
-  ): Promise<void> {
+  async softDelete(purchaseOrderId: string, userId?: string, username?: string): Promise<void> {
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
       where: { id: purchaseOrderId },
     });
 
     if (!purchaseOrder) {
-      throw new NotFoundException("Purchase order not found");
+      throw new NotFoundException('Purchase order not found');
     }
 
     if (Number(purchaseOrder.paidAmount || 0) > 0) {
       throw new BadRequestException(
-        "Cannot delete purchase order that has been paid. Please unpay first.",
+        'Cannot delete purchase order that has been paid. Please unpay first.',
       );
     }
 
@@ -81,7 +68,7 @@ export class PurchaseOrderLifecycleService {
 
     if (grn?.status === GrnStatus.RECEIVED) {
       throw new BadRequestException(
-        "Cannot delete purchase order with received goods. Please return goods first.",
+        'Cannot delete purchase order with received goods. Please return goods first.',
       );
     }
 
@@ -92,16 +79,16 @@ export class PurchaseOrderLifecycleService {
         .createQueryBuilder()
         .update()
         .set({ deletedAt })
-        .where("id = :id", { id: grn.id })
+        .where('id = :id', { id: grn.id })
         .execute();
 
       await this.auditLogService.log(
-        "DELETE",
-        "GoodsReceivedNote",
+        'DELETE',
+        'GoodsReceivedNote',
         `Deleted GRN: ${grn.grnNumber} (auto-deleted with PO)`,
         {
           entityId: grn.id,
-          userId: userId || "system",
+          userId: userId || 'system',
           username,
           oldValues: {
             grnNumber: grn.grnNumber,
@@ -121,16 +108,16 @@ export class PurchaseOrderLifecycleService {
         .createQueryBuilder()
         .update()
         .set({ deletedAt })
-        .where("id = :id", { id: vendorPayment.id })
+        .where('id = :id', { id: vendorPayment.id })
         .execute();
 
       await this.auditLogService.log(
-        "DELETE",
-        "VendorPayment",
+        'DELETE',
+        'VendorPayment',
         `Deleted vendor payment: ${vendorPayment.paymentNumber} (auto-deleted with PO)`,
         {
           entityId: vendorPayment.id,
-          userId: userId || "system",
+          userId: userId || 'system',
           username,
           oldValues: {
             paymentNumber: vendorPayment.paymentNumber,
@@ -144,23 +131,18 @@ export class PurchaseOrderLifecycleService {
       .createQueryBuilder()
       .update()
       .set({ deletedAt })
-      .where("id = :id", { id: purchaseOrderId })
+      .where('id = :id', { id: purchaseOrderId })
       .execute();
 
-    await this.auditLogService.log(
-      "DELETE",
-      "PurchaseOrder",
-      `Deleted purchase order: ${purchaseOrder.orderNumber}`,
-      {
-        entityId: purchaseOrderId,
-        userId: userId || "system",
-        username,
-        oldValues: {
-          orderNumber: purchaseOrder.orderNumber,
-          totalAmount: purchaseOrder.totalAmount,
-        },
+    await this.auditLogService.log('DELETE', 'PurchaseOrder', `Deleted purchase order: ${purchaseOrder.orderNumber}`, {
+      entityId: purchaseOrderId,
+      userId: userId || 'system',
+      username,
+      oldValues: {
+        orderNumber: purchaseOrder.orderNumber,
+        totalAmount: purchaseOrder.totalAmount,
       },
-    );
+    });
 
     this.logger.log(
       `Purchase order ${purchaseOrder.orderNumber} soft deleted with timestamp ${deletedAt.toISOString()}`,
@@ -168,15 +150,14 @@ export class PurchaseOrderLifecycleService {
   }
 
   async assertPermanentDeleteAllowed(purchaseOrderId: string): Promise<void> {
-    const stockMovementRepository =
-      this.purchaseOrderRepository.manager.getRepository(StockMovement);
+    const stockMovementRepository = this.purchaseOrderRepository.manager.getRepository(StockMovement);
     const stockMovementCount = await stockMovementRepository.count({
-      where: { referenceType: "purchase_order", referenceId: purchaseOrderId },
+      where: { referenceType: 'purchase_order', referenceId: purchaseOrderId },
     });
 
     if (stockMovementCount > 0) {
       throw new BadRequestException(
-        "Cannot permanently delete purchase order with existing stock movements.",
+        'Cannot permanently delete purchase order with existing stock movements.',
       );
     }
 
@@ -186,12 +167,12 @@ export class PurchaseOrderLifecycleService {
     });
 
     if (!purchaseOrder) {
-      throw new NotFoundException("Purchase order not found");
+      throw new NotFoundException('Purchase order not found');
     }
 
     if (Number(purchaseOrder.paidAmount || 0) > 0) {
       throw new BadRequestException(
-        "Cannot permanently delete purchase order that has payments recorded. Please unpay first.",
+        'Cannot permanently delete purchase order that has payments recorded. Please unpay first.',
       );
     }
   }

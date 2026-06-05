@@ -3,15 +3,15 @@ import {
   NotFoundException,
   ConflictException,
   Logger,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import {
   AccountMapping,
   MappingType,
-} from "../../../database/entities/account-mapping.entity";
-import { ChartOfAccount } from "../../../database/entities/chart-of-account.entity";
-import { PaymentMethodEntity } from "../../../database/entities/payment-method.entity";
+} from '../../../database/entities/account-mapping.entity';
+import { ChartOfAccount } from '../../../database/entities/chart-of-account.entity';
+import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import {
   CreateAccountMappingDto,
   UpdateAccountMappingDto,
@@ -19,8 +19,8 @@ import {
   AccountMappingResponseDto,
   AccountMappingListResponseDto,
   MappingValidationResponseDto,
-} from "../dto/account-mapping.dto";
-import { AuditLogService } from "../../audit-logs/services";
+} from '../dto/account-mapping.dto';
+import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
 export class AccountMappingService {
@@ -41,7 +41,7 @@ export class AccountMappingService {
    * Returns: { SALES_REVENUE: 'uuid', SALES_AR: 'uuid', ... }
    */
   async getMappings(): Promise<Record<string, string>> {
-    this.logger.log("Fetching active account mappings");
+    this.logger.log('Fetching active account mappings');
 
     const mappings = await this.mappingRepository.find({
       where: { isActive: true },
@@ -59,7 +59,7 @@ export class AccountMappingService {
    * Validate that all required mappings are configured
    */
   async validateMappings(): Promise<MappingValidationResponseDto> {
-    this.logger.log("Validating account mappings");
+    this.logger.log('Validating account mappings');
 
     const allRequiredTypes: string[] = Object.values(MappingType);
     const paymentMethods = await this.paymentMethodRepository.find({
@@ -110,30 +110,30 @@ export class AccountMappingService {
       limit = 20,
       mappingType,
       isActive,
-      sortBy = "mappingType",
-      sortOrder = "ASC",
+      sortBy = 'mappingType',
+      sortOrder = 'ASC',
     } = query;
 
     const queryBuilder = this.mappingRepository
-      .createQueryBuilder("mapping")
-      .leftJoinAndSelect("mapping.account", "account")
-      .where("mapping.deletedAt IS NULL");
+      .createQueryBuilder('mapping')
+      .leftJoinAndSelect('mapping.account', 'account')
+      .where('mapping.deletedAt IS NULL');
 
     // Apply filters
     if (mappingType) {
-      queryBuilder.andWhere("mapping.mappingType = :mappingType", {
+      queryBuilder.andWhere('mapping.mappingType = :mappingType', {
         mappingType,
       });
     }
 
     if (isActive !== undefined) {
-      queryBuilder.andWhere("mapping.isActive = :isActive", { isActive });
+      queryBuilder.andWhere('mapping.isActive = :isActive', { isActive });
     }
 
     // Apply sorting
-    const validSortFields = ["mappingType", "createdAt"];
-    const sortField = validSortFields.includes(sortBy) ? sortBy : "mappingType";
-    const safeSortOrder = sortOrder?.toUpperCase() === "DESC" ? "DESC" : "ASC";
+    const validSortFields = ['mappingType', 'createdAt'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'mappingType';
+    const safeSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
     queryBuilder.orderBy(`mapping.${sortField}`, safeSortOrder);
 
@@ -225,12 +225,12 @@ export class AccountMappingService {
           `Account mapping restored successfully with ID: ${savedRestoredMapping.id}`,
         );
         await this.auditLogService.log(
-          "CREATE",
-          "AccountMapping",
+          'CREATE',
+          'AccountMapping',
           `Created account mapping: ${savedRestoredMapping.mappingType}`,
           {
             entityId: savedRestoredMapping.id,
-            userId: userId ?? "system",
+            userId: userId ?? 'system',
             username,
           },
         );
@@ -257,12 +257,12 @@ export class AccountMappingService {
           `Account mapping reactivated successfully with ID: ${savedReactivatedMapping.id}`,
         );
         await this.auditLogService.log(
-          "CREATE",
-          "AccountMapping",
+          'CREATE',
+          'AccountMapping',
           `Created account mapping: ${savedReactivatedMapping.mappingType}`,
           {
             entityId: savedReactivatedMapping.id,
-            userId: userId ?? "system",
+            userId: userId ?? 'system',
             username,
           },
         );
@@ -292,10 +292,10 @@ export class AccountMappingService {
       `Account mapping created successfully with ID: ${savedMapping.id}`,
     );
     await this.auditLogService.log(
-      "CREATE",
-      "AccountMapping",
+      'CREATE',
+      'AccountMapping',
       `Created account mapping: ${savedMapping.mappingType}`,
-      { entityId: savedMapping.id, userId: userId ?? "system", username },
+      { entityId: savedMapping.id, userId: userId ?? 'system', username },
     );
     return this.toResponseDto(mappingWithRelations!);
   }
@@ -343,10 +343,10 @@ export class AccountMappingService {
     });
 
     await this.auditLogService.log(
-      "UPDATE",
-      "AccountMapping",
+      'UPDATE',
+      'AccountMapping',
       `Updated account mapping: ${mapping.mappingType}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Account mapping updated successfully: ${id}`);
@@ -371,10 +371,10 @@ export class AccountMappingService {
     await this.mappingRepository.softDelete(id);
 
     await this.auditLogService.log(
-      "DELETE",
-      "AccountMapping",
+      'DELETE',
+      'AccountMapping',
       `Deleted account mapping: ${mapping.mappingType}`,
-      { entityId: id, userId: userId ?? "system", username },
+      { entityId: id, userId: userId ?? 'system', username },
     );
 
     this.logger.log(`Account mapping soft-deleted successfully: ${id}`);

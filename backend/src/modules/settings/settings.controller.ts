@@ -12,7 +12,7 @@ import {
   HttpStatus,
   Logger,
   BadRequestException,
-} from "@nestjs/common";
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -20,11 +20,11 @@ import {
   ApiBadRequestResponse,
   ApiConsumes,
   ApiBody,
-} from "@nestjs/swagger";
-import { FileInterceptor } from "@nestjs/platform-express";
-import { diskStorage } from "multer";
-import { extname } from "path";
-import { SettingsService } from "./settings.service";
+} from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import { SettingsService } from './settings.service';
 import {
   UpdateCompanySettingsDto,
   CompanySettingsResponseDto,
@@ -34,14 +34,14 @@ import {
   DocumentNumberSettingsResponseDto,
   GenerateDocumentNumberDto,
   GenerateDocumentNumberResponseDto,
-} from "./dto";
+} from './dto';
 
 /**
  * Settings Controller
  * Handles company settings operations
  */
-@ApiTags("Settings")
-@Controller("settings")
+@ApiTags('Settings')
+@Controller('settings')
 export class SettingsController {
   private readonly logger = new Logger(SettingsController.name);
 
@@ -50,25 +50,22 @@ export class SettingsController {
   /**
    * Get company settings
    */
-  @Get("company")
+  @Get('company')
   @ApiOperation({
-    summary: "Get company settings",
-    description: "Retrieve current company settings",
+    summary: 'Get company settings',
+    description: 'Retrieve current company settings',
   })
   @ApiResponse({
     status: 200,
-    description: "Company settings retrieved successfully",
+    description: 'Company settings retrieved successfully',
     type: CompanySettingsResponseDto,
   })
   async getCompanySettings(): Promise<CompanySettingsResponseDto> {
     try {
-      this.logger.log("Fetching company settings");
+      this.logger.log('Fetching company settings');
       return await this.settingsService.getCompanySettings();
     } catch (error) {
-      this.logger.error(
-        `Failed to get company settings: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to get company settings: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -76,32 +73,26 @@ export class SettingsController {
   /**
    * Update company settings
    */
-  @Put("company")
+  @Put('company')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: "Update company settings",
-    description: "Update company settings information",
+    summary: 'Update company settings',
+    description: 'Update company settings information',
   })
   @ApiResponse({
     status: 200,
-    description: "Company settings updated successfully",
+    description: 'Company settings updated successfully',
     type: CompanySettingsResponseDto,
   })
-  @ApiBadRequestResponse({ description: "Invalid input data" })
+  @ApiBadRequestResponse({ description: 'Invalid input data' })
   async updateCompanySettings(
     @Body(ValidationPipe) updateDto: UpdateCompanySettingsDto,
   ): Promise<CompanySettingsResponseDto> {
     try {
-      this.logger.log("Updating company settings");
-      return await this.settingsService.updateCompanySettings(
-        updateDto,
-        "system",
-      );
+      this.logger.log('Updating company settings');
+      return await this.settingsService.updateCompanySettings(updateDto, 'system');
     } catch (error) {
-      this.logger.error(
-        `Failed to update company settings: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to update company settings: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -109,14 +100,13 @@ export class SettingsController {
   /**
    * Upload company logo
    */
-  @Post("company/logo")
+  @Post('company/logo')
   @UseInterceptors(
-    FileInterceptor("logo", {
+    FileInterceptor('logo', {
       storage: diskStorage({
-        destination: "./uploads/logos",
+        destination: './uploads/logos',
         filename: (req, file, callback) => {
-          const uniqueSuffix =
-            Date.now() + "-" + Math.round(Math.random() * 1e9);
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
           const ext = extname(file.originalname);
           callback(null, `logo-${uniqueSuffix}${ext}`);
         },
@@ -124,9 +114,7 @@ export class SettingsController {
       fileFilter: (req, file, callback) => {
         if (!file.originalname.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
           return callback(
-            new BadRequestException(
-              "Only image files are allowed (jpg, jpeg, png, gif, webp)",
-            ),
+            new BadRequestException('Only image files are allowed (jpg, jpeg, png, gif, webp)'),
             false,
           );
         }
@@ -137,39 +125,39 @@ export class SettingsController {
       },
     }),
   )
-  @ApiConsumes("multipart/form-data")
+  @ApiConsumes('multipart/form-data')
   @ApiOperation({
-    summary: "Upload company logo",
-    description: "Upload company logo image (max 5MB, jpg/jpeg/png/gif/webp)",
+    summary: 'Upload company logo',
+    description: 'Upload company logo image (max 5MB, jpg/jpeg/png/gif/webp)',
   })
   @ApiBody({
     schema: {
-      type: "object",
+      type: 'object',
       properties: {
         logo: {
-          type: "string",
-          format: "binary",
+          type: 'string',
+          format: 'binary',
         },
       },
     },
   })
   @ApiResponse({
     status: 201,
-    description: "Logo uploaded successfully",
+    description: 'Logo uploaded successfully',
     type: CompanySettingsResponseDto,
   })
-  @ApiBadRequestResponse({ description: "Invalid file type or size" })
+  @ApiBadRequestResponse({ description: 'Invalid file type or size' })
   async uploadLogo(
     @UploadedFile() file: Express.Multer.File,
   ): Promise<CompanySettingsResponseDto> {
     try {
       if (!file) {
-        throw new BadRequestException("No file uploaded");
+        throw new BadRequestException('No file uploaded');
       }
 
       this.logger.log(`Uploading company logo: ${file.filename}`);
       const logoUrl = `/uploads/logos/${file.filename}`;
-      return await this.settingsService.updateLogoUrl(logoUrl, "system");
+      return await this.settingsService.updateLogoUrl(logoUrl, 'system');
     } catch (error) {
       this.logger.error(`Failed to upload logo: ${error.message}`, error.stack);
       throw error;
@@ -179,21 +167,21 @@ export class SettingsController {
   /**
    * Delete company logo
    */
-  @Delete("company/logo")
+  @Delete('company/logo')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: "Delete company logo",
-    description: "Remove company logo",
+    summary: 'Delete company logo',
+    description: 'Remove company logo',
   })
   @ApiResponse({
     status: 200,
-    description: "Logo deleted successfully",
+    description: 'Logo deleted successfully',
     type: CompanySettingsResponseDto,
   })
   async deleteLogo(): Promise<CompanySettingsResponseDto> {
     try {
-      this.logger.log("Deleting company logo");
-      return await this.settingsService.deleteLogoUrl("system");
+      this.logger.log('Deleting company logo');
+      return await this.settingsService.deleteLogoUrl('system');
     } catch (error) {
       this.logger.error(`Failed to delete logo: ${error.message}`, error.stack);
       throw error;
@@ -203,25 +191,22 @@ export class SettingsController {
   /**
    * Get regional settings
    */
-  @Get("regional")
+  @Get('regional')
   @ApiOperation({
-    summary: "Get regional settings",
-    description: "Retrieve current regional settings",
+    summary: 'Get regional settings',
+    description: 'Retrieve current regional settings',
   })
   @ApiResponse({
     status: 200,
-    description: "Regional settings retrieved successfully",
+    description: 'Regional settings retrieved successfully',
     type: RegionalSettingsResponseDto,
   })
   async getRegionalSettings(): Promise<RegionalSettingsResponseDto> {
     try {
-      this.logger.log("Fetching regional settings");
+      this.logger.log('Fetching regional settings');
       return await this.settingsService.getRegionalSettings();
     } catch (error) {
-      this.logger.error(
-        `Failed to get regional settings: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to get regional settings: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -229,32 +214,26 @@ export class SettingsController {
   /**
    * Update regional settings
    */
-  @Put("regional")
+  @Put('regional')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: "Update regional settings",
-    description: "Update regional settings information",
+    summary: 'Update regional settings',
+    description: 'Update regional settings information',
   })
   @ApiResponse({
     status: 200,
-    description: "Regional settings updated successfully",
+    description: 'Regional settings updated successfully',
     type: RegionalSettingsResponseDto,
   })
-  @ApiBadRequestResponse({ description: "Invalid input data" })
+  @ApiBadRequestResponse({ description: 'Invalid input data' })
   async updateRegionalSettings(
     @Body(ValidationPipe) updateDto: UpdateRegionalSettingsDto,
   ): Promise<RegionalSettingsResponseDto> {
     try {
-      this.logger.log("Updating regional settings");
-      return await this.settingsService.updateRegionalSettings(
-        updateDto,
-        "system",
-      );
+      this.logger.log('Updating regional settings');
+      return await this.settingsService.updateRegionalSettings(updateDto, 'system');
     } catch (error) {
-      this.logger.error(
-        `Failed to update regional settings: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to update regional settings: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -262,31 +241,28 @@ export class SettingsController {
   /**
    * Get default currency
    */
-  @Get("default-currency")
+  @Get('default-currency')
   @ApiOperation({
-    summary: "Get default currency",
-    description: "Retrieve the default currency from settings",
+    summary: 'Get default currency',
+    description: 'Retrieve the default currency from settings',
   })
   @ApiResponse({
     status: 200,
-    description: "Default currency retrieved successfully",
+    description: 'Default currency retrieved successfully',
     schema: {
-      type: "object",
+      type: 'object',
       properties: {
-        currency: { type: "string" },
+        currency: { type: 'string' },
       },
     },
   })
   async getDefaultCurrency(): Promise<{ currency: string }> {
     try {
-      this.logger.log("Fetching default currency");
+      this.logger.log('Fetching default currency');
       const currency = await this.settingsService.getDefaultCurrency();
       return { currency };
     } catch (error) {
-      this.logger.error(
-        `Failed to get default currency: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to get default currency: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -294,25 +270,22 @@ export class SettingsController {
   /**
    * Get document number settings
    */
-  @Get("document-numbers")
+  @Get('document-numbers')
   @ApiOperation({
-    summary: "Get document number settings",
-    description: "Retrieve current document number configurations",
+    summary: 'Get document number settings',
+    description: 'Retrieve current document number configurations',
   })
   @ApiResponse({
     status: 200,
-    description: "Document number settings retrieved successfully",
+    description: 'Document number settings retrieved successfully',
     type: DocumentNumberSettingsResponseDto,
   })
   async getDocumentNumberSettings(): Promise<DocumentNumberSettingsResponseDto> {
     try {
-      this.logger.log("Fetching document number settings");
+      this.logger.log('Fetching document number settings');
       return await this.settingsService.getDocumentNumberSettings();
     } catch (error) {
-      this.logger.error(
-        `Failed to get document number settings: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to get document number settings: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -320,32 +293,26 @@ export class SettingsController {
   /**
    * Update document number settings
    */
-  @Put("document-numbers")
+  @Put('document-numbers')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: "Update document number settings",
-    description: "Update document number configurations",
+    summary: 'Update document number settings',
+    description: 'Update document number configurations',
   })
   @ApiResponse({
     status: 200,
-    description: "Document number settings updated successfully",
+    description: 'Document number settings updated successfully',
     type: DocumentNumberSettingsResponseDto,
   })
-  @ApiBadRequestResponse({ description: "Invalid input data" })
+  @ApiBadRequestResponse({ description: 'Invalid input data' })
   async updateDocumentNumberSettings(
     @Body(ValidationPipe) updateDto: UpdateDocumentNumberSettingsDto,
   ): Promise<DocumentNumberSettingsResponseDto> {
     try {
-      this.logger.log("Updating document number settings");
-      return await this.settingsService.updateDocumentNumberSettings(
-        updateDto,
-        "system",
-      );
+      this.logger.log('Updating document number settings');
+      return await this.settingsService.updateDocumentNumberSettings(updateDto, 'system');
     } catch (error) {
-      this.logger.error(
-        `Failed to update document number settings: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to update document number settings: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -353,35 +320,29 @@ export class SettingsController {
   /**
    * Generate next document number
    */
-  @Post("document-numbers/generate")
+  @Post('document-numbers/generate')
   @ApiOperation({
-    summary: "Generate next document number",
-    description:
-      "Generate the next document number for a specific document type",
+    summary: 'Generate next document number',
+    description: 'Generate the next document number for a specific document type',
   })
   @ApiResponse({
     status: 201,
-    description: "Document number generated successfully",
+    description: 'Document number generated successfully',
     type: GenerateDocumentNumberResponseDto,
   })
-  @ApiBadRequestResponse({ description: "Invalid input data" })
+  @ApiBadRequestResponse({ description: 'Invalid input data' })
   async generateDocumentNumber(
     @Body(ValidationPipe) dto: GenerateDocumentNumberDto,
   ): Promise<GenerateDocumentNumberResponseDto> {
     try {
       this.logger.log(`Generating document number for ${dto.documentName}`);
-      const documentNumber = await this.settingsService.generateDocumentNumber(
-        dto.documentName,
-      );
+      const documentNumber = await this.settingsService.generateDocumentNumber(dto.documentName);
       return {
         documentNumber,
         documentName: dto.documentName,
       };
     } catch (error) {
-      this.logger.error(
-        `Failed to generate document number: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to generate document number: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -389,27 +350,23 @@ export class SettingsController {
   /**
    * Sync document number settings with database
    */
-  @Post("document-numbers/sync")
+  @Post('document-numbers/sync')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: "Sync document numbers with database",
-    description:
-      "Synchronize document number settings with existing database records to prevent conflicts",
+    summary: 'Sync document numbers with database',
+    description: 'Synchronize document number settings with existing database records to prevent conflicts',
   })
   @ApiResponse({
     status: 200,
-    description: "Document numbers synchronized successfully",
+    description: 'Document numbers synchronized successfully',
   })
   async syncDocumentNumbers(): Promise<{ message: string }> {
     try {
-      this.logger.log("Syncing document numbers with database");
+      this.logger.log('Syncing document numbers with database');
       await this.settingsService.syncDocumentNumbersWithDatabase();
-      return { message: "Document numbers synchronized successfully" };
+      return { message: 'Document numbers synchronized successfully' };
     } catch (error) {
-      this.logger.error(
-        `Failed to sync document numbers: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to sync document numbers: ${error.message}`, error.stack);
       throw error;
     }
   }
