@@ -219,6 +219,19 @@ describe('SalesOrderFulfillmentService', () => {
 
       expect(inventoryService.adjustStock).toHaveBeenCalled();
     });
+
+    it('sets fulfilledAt timestamp on fulfill', async () => {
+      const order = mockOrder({ status: SalesOrderStatus.READY });
+      const { update } = wireTransaction(order);
+
+      const result = await service.fulfillOrder('order-1');
+
+      expect(update).toHaveBeenCalledWith(
+        'order-1',
+        expect.objectContaining({ fulfilledAt: expect.any(Date) }),
+      );
+      expect(result.fulfilledAt).toBeInstanceOf(Date);
+    });
   });
 
   describe('unfulfillOrder', () => {
@@ -259,6 +272,19 @@ describe('SalesOrderFulfillmentService', () => {
       wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
       accountingService.reverseSourceEntries.mockRejectedValue(new Error('No open fiscal period'));
       await expect(service.unfulfillOrder('order-1')).rejects.toThrow('No open fiscal period');
+    });
+
+    it('clears fulfilledAt on unfulfill', async () => {
+      const order = mockOrder({ status: SalesOrderStatus.FULFILLED, fulfilledAt: new Date() });
+      const { update } = wireTransaction(order);
+
+      const result = await service.unfulfillOrder('order-1');
+
+      expect(update).toHaveBeenCalledWith(
+        'order-1',
+        expect.objectContaining({ fulfilledAt: null }),
+      );
+      expect(result.fulfilledAt).toBeUndefined();
     });
   });
 

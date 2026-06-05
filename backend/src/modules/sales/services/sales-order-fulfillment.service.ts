@@ -77,8 +77,10 @@ export class SalesOrderFulfillmentService {
       await manager.getRepository(SalesOrder).update(id, {
         status: SalesOrderStatus.FULFILLED,
         updatedAt: now,
+        fulfilledAt: now,
       });
       order.status = SalesOrderStatus.FULFILLED;
+      order.fulfilledAt = now;
 
       // Re-read the order after the status update + stock reduction, then post
       // accounting against that fresh row. This fixes two things the in-memory
@@ -136,8 +138,12 @@ export class SalesOrderFulfillmentService {
       const result = await this.stockMovementService.deleteByReference('sales_order', order.id, manager);
       this.logger.log(`Deleted ${result.deletedCount} stock movements for ${order.orderNumber}`);
 
-      await manager.getRepository(SalesOrder).update(id, { status: SalesOrderStatus.READY });
+      await manager.getRepository(SalesOrder).update(id, {
+        status: SalesOrderStatus.READY,
+        fulfilledAt: null as any,
+      });
       order.status = SalesOrderStatus.READY;
+      order.fulfilledAt = undefined;
 
       await this.accountingService.reverseSourceEntries('sales_order', id, userId || 'system', manager);
       this.logger.log(`Reversed accounting entry for sales order ${order.orderNumber}`);
