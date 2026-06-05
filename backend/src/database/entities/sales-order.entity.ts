@@ -100,6 +100,13 @@ export class SalesOrder extends BaseEntity {
   @IsString()
   notes?: string;
 
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+    comment: 'Actual fulfillment timestamp (set when status -> FULFILLED)',
+  })
+  fulfilledAt?: Date;
+
   @Column({ type: 'uuid' })
   customerId: string;
 
