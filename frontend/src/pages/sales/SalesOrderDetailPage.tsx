@@ -8,7 +8,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import PageHeader from '@/components/common/PageHeader'
-import SalesOrderPrint from '@/components/print/SalesOrderPrint'
+import SalesOrderPrintDialog from './components/SalesOrderPrintDialog'
 import PaymentDialog from '@/components/sales/PaymentDialog'
 import RefundDialog from '@/components/sales/RefundDialog'
 import { TABLE_STYLES } from '@/constants/tableStyles'
@@ -321,7 +321,7 @@ export default function SalesOrderDetailPage() {
       )}
 
       {activeDialog === 'print' && (
-        <SalesOrderPrint
+        <SalesOrderPrintDialog
           open
           onClose={() => setActiveDialog(null)}
           salesOrder={order}

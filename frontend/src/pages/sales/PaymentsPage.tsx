@@ -151,7 +151,6 @@ const PaymentsPage: React.FC = () => {
           journalEntryRefsLoading={workspace.journalEntryRefsLoading}
           onPrint={() => workspace.setPrintDialogOpen(true)}
           onOrderClick={workspace.handleOrderClick}
-          onInvoiceClick={workspace.handleInvoiceClick}
           onNavigateToJournalEntry={workspace.handleNavigateToJournalEntry}
         />
       )}

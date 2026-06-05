@@ -13,14 +13,12 @@ import {
   Tabs,
   Typography,
 } from '@mui/material'
-import { default as InvoiceIcon } from '@mui/icons-material/AccountBalance'
 import { default as PaymentIcon } from '@mui/icons-material/Payment'
 import { default as OrdersIcon } from '@mui/icons-material/ShoppingCart'
 import { useNavigate } from 'react-router-dom'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import {
-  useGetCustomerOutstandingInvoicesQuery,
   useGetCustomerPaymentsQuery,
   useGetCustomerSalesHistoryQuery,
 } from '@/store/api/salesApi'
@@ -71,16 +69,11 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
   const { data: ordersData, isLoading: ordersLoading, isError: ordersError } = useGetCustomerSalesHistoryQuery(customerId, {
     skip: !customerId || tabValue !== 0,
   })
-  const { data: invoicesData, isLoading: invoicesLoading, isError: invoicesError } = useGetCustomerOutstandingInvoicesQuery(customerId, {
-    skip: !customerId || tabValue !== 1,
-  })
   const { data: paymentsData, isLoading: paymentsLoading, isError: paymentsError } = useGetCustomerPaymentsQuery(customerId, {
-    skip: !customerId || tabValue !== 2,
+    skip: !customerId || tabValue !== 1,
   })
 
   const orders = ordersData?.orders ?? []
-  const invoices = invoicesData?.invoices ?? []
-  const totalOutstanding = invoicesData?.totalOutstanding ?? 0
   const payments = paymentsData ?? []
 
   if (!selectedCustomer) {
@@ -92,7 +85,6 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tabValue} onChange={(_, value) => setTabValue(value)} sx={{ minHeight: 36 }}>
           <Tab icon={<OrdersIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Orders" sx={{ minHeight: 36 }} />
-          <Tab icon={<InvoiceIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Invoices" sx={{ minHeight: 36 }} />
           <Tab icon={<PaymentIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Payments" sx={{ minHeight: 36 }} />
         </Tabs>
       </Box>
@@ -169,86 +161,6 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
         )}
       </TabPanel>
       <TabPanel value={tabValue} index={1}>
-        {invoicesLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : invoicesError ? (
-          <Typography
-            sx={{
-              color: "error.main",
-              py: 4,
-              textAlign: 'center'
-            }}>
-            Failed to load invoices.
-          </Typography>
-        ) : invoices.length === 0 ? (
-          <Typography
-            sx={{
-              color: "text.secondary",
-              py: 4,
-              textAlign: 'center'
-            }}>
-            No outstanding invoices.
-          </Typography>
-        ) : (
-          <>
-            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
-              <Typography variant="subtitle2" sx={{
-                color: "text.secondary"
-              }}>
-                Total Outstanding: <strong>{formatCurrency(totalOutstanding)}</strong>
-              </Typography>
-            </Box>
-            <TableContainer component={Paper} variant="outlined">
-              <Table size={TABLE_STYLES.size}>
-                <TableHead>
-                  <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
-                    <TableCell>Invoice #</TableCell>
-                    <TableCell>Date</TableCell>
-                    <TableCell align="right">Total</TableCell>
-                    <TableCell align="right">Balance Due</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {invoices.map((invoice) => (
-                    <TableRow
-                      key={invoice.id}
-                      hover
-                      sx={{ cursor: 'pointer' }}
-                      onClick={() => navigate('/sales/invoices', { state: { highlightInvoiceId: invoice.id } })}
-                    >
-                      <TableCell>
-                        <Typography
-                          variant="body2"
-                          color="primary"
-                          sx={{
-                            fontWeight: 600
-                          }}
-                        >
-                          {invoice.invoiceNumber}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{formatDate(invoice.invoiceDate)}</TableCell>
-                      <TableCell align="right">{formatCurrency(invoice.totalAmount)}</TableCell>
-                      <TableCell align="right">
-                        <Typography
-                          sx={{
-                            fontWeight: 600,
-                            color: "error.main"
-                          }}>
-                          {formatCurrency(invoice.balanceDue)}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </>
-        )}
-      </TabPanel>
-      <TabPanel value={tabValue} index={2}>
         {paymentsLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />

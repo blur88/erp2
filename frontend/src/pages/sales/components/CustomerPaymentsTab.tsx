@@ -54,7 +54,7 @@ export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabP
                   {payment.paymentNumber}
                 </Typography>
               </TableCell>
-              <TableCell>{payment.invoice?.invoiceNumber ?? '—'}</TableCell>
+              <TableCell>{payment.salesOrderId ?? '—'}</TableCell>
               <TableCell>{formatDate(payment.paymentDate)}</TableCell>
               <TableCell>{payment.paymentMethodEntity?.name ?? '—'}</TableCell>
               <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>

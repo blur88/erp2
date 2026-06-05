@@ -28,7 +28,6 @@ interface PaymentContextHeaderProps {
   journalEntryRefsLoading: boolean
   onPrint: () => void
   onOrderClick: (orderId: string, event: React.MouseEvent) => void
-  onInvoiceClick: (invoiceId: string, event: React.MouseEvent) => void
   onNavigateToJournalEntry: () => void
 }
 
@@ -69,7 +68,6 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
   journalEntryRefsLoading,
   onPrint,
   onOrderClick,
-  onInvoiceClick,
   onNavigateToJournalEntry,
 }) => {
   const navigate = useNavigate()
@@ -196,28 +194,6 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
                           sx={linkButtonSx}
                         >
                           {selectedPayment.relatedOrderNumber}
-                        </Typography>
-                      ) : (
-                        <Typography
-                          sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
-                        >
-                          N/A
-                        </Typography>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={labelCellSx}>Invoice No</TableCell>
-                    <TableCell sx={valueCellSx}>
-                      {selectedPayment.relatedInvoiceNumber ? (
-                        <Typography
-                          component="button"
-                          onClick={(event) =>
-                            onInvoiceClick(selectedPayment.relatedInvoiceId!, event)
-                          }
-                          sx={linkButtonSx}
-                        >
-                          {selectedPayment.relatedInvoiceNumber}
                         </Typography>
                       ) : (
                         <Typography

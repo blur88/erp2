@@ -287,47 +287,10 @@ export interface SalesOrderPayment {
   updatedAt: string;
 }
 
-export interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  customer: Customer;
-  salesOrder?: SalesOrder;
-  // Backend fields (actual API shape)
-  invoiceDate: Date | string;
-  totalAmount: number;
-  balanceDue: number;
-  // Legacy aliases kept for backward compatibility
-  total: number;
-  paidAmount: number;
-  dueAmount: number;
-  issueDate: Date;
-  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
-  paidDate?: Date;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface InvoiceItem {
-  id: string;
-  product: Product;
-  quantity: number;
-  unitPrice: number;
-  discountType?: 'percentage' | 'amount';
-  discountPercent?: number;
-  discount: number;
-  taxRate: number;
-  total: number;
-}
-
 export interface Payment {
   id: string;
   paymentNumber: string;
-  invoice?: {
-    id: string;
-    invoiceNumber: string;
-    items?: InvoiceItem[];
-  };
-  invoiceId?: string;
+  salesOrderId?: string;
   customer?: Customer;
   customerId?: string;
   customerName?: string;

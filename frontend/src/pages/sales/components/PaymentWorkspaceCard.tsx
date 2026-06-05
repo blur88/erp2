@@ -27,7 +27,7 @@ const PaymentWorkspaceCard: React.FC<PaymentWorkspaceCardProps> = ({ selectedPay
     return <Paper sx={{ flex: 1 }} />
   }
 
-  const items = selectedPayment.invoice?.items ?? []
+  const items: any[] = []
 
   return (
     <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

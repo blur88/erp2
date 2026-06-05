@@ -1,6 +1,6 @@
 import PaymentDialog from '@/components/sales/PaymentDialog'
 import RefundDialog from '@/components/sales/RefundDialog'
-import { SalesOrderPrint } from '@/components/print'
+import SalesOrderPrintDialog from './SalesOrderPrintDialog'
 import type { SalesOrder } from '@/types'
 
 interface SalesOrdersDialogsProps {
@@ -31,7 +31,7 @@ export default function SalesOrdersDialogs({
   return (
     <>
       {printOrder && (
-        <SalesOrderPrint open onClose={onClosePrint} salesOrder={printOrder} />
+        <SalesOrderPrintDialog open onClose={onClosePrint} salesOrder={printOrder} />
       )}
       {paymentOrder && (
         <PaymentDialog

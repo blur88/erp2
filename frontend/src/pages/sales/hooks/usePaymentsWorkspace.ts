@@ -24,9 +24,7 @@ export interface PaymentListItem {
   notes?: string
   reference?: string
   relatedOrderId?: string
-  relatedInvoiceId?: string
   relatedOrderNumber?: string
-  relatedInvoiceNumber?: string
   customer?: {
     id: string
     name: string
@@ -36,21 +34,6 @@ export interface PaymentListItem {
   salesOrder?: {
     id: string
     orderNumber: string
-  }
-  invoice?: {
-    id: string
-    invoiceNumber: string
-    items?: Array<{
-      id?: string
-      product?: { name: string }
-      quantity: number
-      unitPrice: number
-      discountType?: string
-      discountPercent?: number
-      discount?: number
-      totalAmount?: number
-      total?: number
-    }>
   }
 }
 
@@ -141,11 +124,6 @@ export function usePaymentsWorkspace({
     navigate(`/sales/orders?highlight=${orderId}`)
   }, [navigate])
 
-  const handleInvoiceClick = useCallback((invoiceId: string, event: MouseEvent) => {
-    event.stopPropagation()
-    navigate('/sales/invoices', { state: { highlightInvoiceId: invoiceId } })
-  }, [navigate])
-
   const handleNavigateToJournalEntry = useCallback(
     () => {
       navigateToJournalEntries()
@@ -166,7 +144,6 @@ export function usePaymentsWorkspace({
     handleSelect,
     handlePaymentSelect: handleSelect,
     handleOrderClick,
-    handleInvoiceClick,
     handleNavigateToJournalEntry,
   }
 }
