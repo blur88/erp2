@@ -18,7 +18,6 @@ export async function truncateAll(dataSource: DataSource): Promise<void> {
     TRUNCATE TABLE
       journal_entry_lines,
       journal_entries,
-      invoices,
       payments,
       sales_order_items,
       sales_orders,

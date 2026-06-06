@@ -146,7 +146,7 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
   // Helper: Clean database
   async function cleanDatabase() {
     await dataSource.query(
-      "TRUNCATE TABLE journal_entry_lines, journal_entries, vendor_payments, goods_received_note_items, goods_received_notes, purchase_order_items, purchase_orders, payments, settlements, invoice_items, invoices, sales_order_items, sales_orders, stock_adjustment_items, stock_adjustments, products, categories, customers, suppliers, account_mappings, payment_methods, chart_of_accounts, fiscal_periods, reconciled_transactions, bank_reconciliations, document_number_settings CASCADE",
+      "TRUNCATE TABLE journal_entry_lines, journal_entries, vendor_payments, goods_received_note_items, goods_received_notes, purchase_order_items, purchase_orders, payments, settlements, sales_order_items, sales_orders, stock_adjustment_items, stock_adjustments, products, categories, customers, suppliers, account_mappings, payment_methods, chart_of_accounts, fiscal_periods, reconciled_transactions, bank_reconciliations, document_number_settings CASCADE",
     );
   }
 
