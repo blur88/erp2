@@ -113,6 +113,29 @@ describe('SalesOrderQueryService', () => {
       return { qb, andWhereCalls };
     }
 
+    it('selects product.stockQuantity so the list can show real stock status', async () => {
+      // Without stockQuantity in the select, the mapper sees undefined and the
+      // frontend falsely reports "out of stock", blocking fulfilment of
+      // in-stock items (SO-26-024).
+      const { qb } = buildQbMock();
+      salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll({} as any);
+
+      const selectArg = qb.select.mock.calls[0][0] as string[];
+      expect(selectArg).toContain('product.stockQuantity');
+    });
+
+    it('selects order.fulfilledAt so the invoice print can show the fulfilment date', async () => {
+      const { qb } = buildQbMock();
+      salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll({} as any);
+
+      const selectArg = qb.select.mock.calls[0][0] as string[];
+      expect(selectArg).toContain('order.fulfilledAt');
+    });
+
     it('applies persisted status=READY directly', async () => {
       const { qb, andWhereCalls } = buildQbMock();
       salesOrderRepository.createQueryBuilder.mockReturnValue(qb);

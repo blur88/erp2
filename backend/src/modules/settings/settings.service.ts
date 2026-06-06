@@ -10,7 +10,6 @@ import { CompanySettings } from '../../database/entities/company-settings.entity
 import { RegionalSettings } from '../../database/entities/regional-settings.entity';
 import { DocumentNumberSetting } from '../../database/entities/document-number-settings.entity';
 import { SalesOrder } from '../../database/entities/sales-order.entity';
-import { Invoice } from '../../database/entities/invoice.entity';
 import { Payment } from '../../database/entities/payment.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { GoodsReceivedNote } from '../../database/entities/goods-received-note.entity';
@@ -50,8 +49,6 @@ export class SettingsService {
     private documentNumberSettingRepository: Repository<DocumentNumberSetting>,
     @InjectRepository(SalesOrder)
     private salesOrderRepository: Repository<SalesOrder>,
-    @InjectRepository(Invoice)
-    private invoiceRepository: Repository<Invoice>,
     @InjectRepository(Payment)
     private paymentRepository: Repository<Payment>,
     @InjectRepository(PurchaseOrder)
@@ -89,10 +86,7 @@ export class SettingsService {
 
       return this.mapToResponseDto(settings);
     } catch (error) {
-      this.logger.error(
-        `Failed to get company settings: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to get company settings: ${error.message}`, error.stack);
       throw new InternalServerErrorException('Failed to retrieve company settings');
     }
   }
@@ -122,16 +116,11 @@ export class SettingsService {
 
       const savedSettings = await this.companySettingsRepository.save(settings);
 
-      this.logger.log(
-        `Company settings updated by ${updatedBy}`,
-      );
+      this.logger.log(`Company settings updated by ${updatedBy}`);
 
       return this.mapToResponseDto(savedSettings);
     } catch (error) {
-      this.logger.error(
-        `Failed to update company settings: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to update company settings: ${error.message}`, error.stack);
       throw new InternalServerErrorException('Failed to update company settings');
     }
   }
@@ -139,10 +128,7 @@ export class SettingsService {
   /**
    * Update company logo URL
    */
-  async updateLogoUrl(
-    logoUrl: string,
-    updatedBy = 'system',
-  ): Promise<CompanySettingsResponseDto> {
+  async updateLogoUrl(logoUrl: string, updatedBy = 'system'): Promise<CompanySettingsResponseDto> {
     try {
       let settings = await this.companySettingsRepository.findOne({
         where: { isActive: true },
@@ -160,16 +146,11 @@ export class SettingsService {
       settings.logoUrl = logoUrl;
       const savedSettings = await this.companySettingsRepository.save(settings);
 
-      this.logger.log(
-        `Company logo updated by ${updatedBy}`,
-      );
+      this.logger.log(`Company logo updated by ${updatedBy}`);
 
       return this.mapToResponseDto(savedSettings);
     } catch (error) {
-      this.logger.error(
-        `Failed to update company logo: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to update company logo: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -177,9 +158,7 @@ export class SettingsService {
   /**
    * Delete company logo
    */
-  async deleteLogoUrl(
-    updatedBy = 'system',
-  ): Promise<CompanySettingsResponseDto> {
+  async deleteLogoUrl(updatedBy = 'system'): Promise<CompanySettingsResponseDto> {
     try {
       let settings = await this.companySettingsRepository.findOne({
         where: { isActive: true },
@@ -197,16 +176,11 @@ export class SettingsService {
       settings.logoUrl = null;
       const savedSettings = await this.companySettingsRepository.save(settings);
 
-      this.logger.log(
-        `Company logo deleted by ${updatedBy}`,
-      );
+      this.logger.log(`Company logo deleted by ${updatedBy}`);
 
       return this.mapToResponseDto(savedSettings);
     } catch (error) {
-      this.logger.error(
-        `Failed to delete company logo: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to delete company logo: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -253,10 +227,7 @@ export class SettingsService {
         this.logger.warn(`Logo file not found: ${filePath}`);
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to delete logo file: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to delete logo file: ${error.message}`, error.stack);
       // Don't throw error - continue even if file deletion fails
     }
   }
@@ -286,10 +257,7 @@ export class SettingsService {
 
       return this.mapToRegionalSettingsResponseDto(settings);
     } catch (error) {
-      this.logger.error(
-        `Failed to get price and costing settings: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to get price and costing settings: ${error.message}`, error.stack);
       throw new InternalServerErrorException('Failed to retrieve price and costing settings');
     }
   }
@@ -319,9 +287,7 @@ export class SettingsService {
 
       const savedSettings = await this.regionalSettingsRepository.save(settings);
 
-      this.logger.log(
-        `Price and costing settings updated by ${updatedBy}`,
-      );
+      this.logger.log(`Price and costing settings updated by ${updatedBy}`);
 
       return this.mapToRegionalSettingsResponseDto(savedSettings);
     } catch (error) {
@@ -352,7 +318,9 @@ export class SettingsService {
   /**
    * Map entity to price costing response DTO
    */
-  private mapToRegionalSettingsResponseDto(settings: RegionalSettings): RegionalSettingsResponseDto {
+  private mapToRegionalSettingsResponseDto(
+    settings: RegionalSettings,
+  ): RegionalSettingsResponseDto {
     return plainToInstance(RegionalSettingsResponseDto, settings, {
       excludeExtraneousValues: true,
     });
@@ -369,10 +337,7 @@ export class SettingsService {
 
       return settings?.currency || 'USD';
     } catch (error) {
-      this.logger.error(
-        `Failed to get default currency: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to get default currency: ${error.message}`, error.stack);
       return 'USD';
     }
   }
@@ -485,7 +450,6 @@ export class SettingsService {
     const currentYY = new Date().getFullYear() % 100;
     const defaults = [
       { documentName: 'Sales Orders', prefix: 'SO' },
-      { documentName: 'Invoices', prefix: 'INV' },
       { documentName: 'Payments', prefix: 'PAY' },
       { documentName: 'Purchase Orders', prefix: 'PO' },
       { documentName: 'Goods Received', prefix: 'GRN' },
@@ -543,17 +507,6 @@ export class SettingsService {
                 .limit(1)
                 .getOne();
               if (r?.orderNumber) maxNumber = parseInt(r.orderNumber.split('-')[2], 10) || 0;
-              break;
-            }
-            case 'Invoices': {
-              const r = await this.invoiceRepository
-                .createQueryBuilder('inv')
-                .select('inv.invoiceNumber')
-                .where('inv.invoiceNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('inv.invoiceNumber', 'DESC')
-                .limit(1)
-                .getOne();
-              if (r?.invoiceNumber) maxNumber = parseInt(r.invoiceNumber.split('-')[2], 10) || 0;
               break;
             }
             case 'Payments': {
@@ -616,7 +569,9 @@ export class SettingsService {
               const r = await this.stockAdjustmentRepository
                 .createQueryBuilder('sa')
                 .select('sa.adjustmentNumber')
-                .where('sa.adjustmentNumber LIKE :p', { p: pattern(row.prefix) })
+                .where('sa.adjustmentNumber LIKE :p', {
+                  p: pattern(row.prefix),
+                })
                 .orderBy('sa.adjustmentNumber', 'DESC')
                 .limit(1)
                 .getOne();
@@ -633,29 +588,36 @@ export class SettingsService {
                 .orderBy('je.referenceNumber', 'DESC')
                 .limit(1)
                 .getOne();
-              if (r?.referenceNumber) maxNumber = parseInt(r.referenceNumber.split('-')[2], 10) || 0;
+              if (r?.referenceNumber)
+                maxNumber = parseInt(r.referenceNumber.split('-')[2], 10) || 0;
               break;
             }
             case 'Expenses': {
               const r = await this.expenseRepository
                 .createQueryBuilder('exp')
                 .select('exp.referenceNumber')
-                .where('exp.referenceNumber LIKE :p', { p: pattern(row.prefix) })
+                .where('exp.referenceNumber LIKE :p', {
+                  p: pattern(row.prefix),
+                })
                 .orderBy('exp.referenceNumber', 'DESC')
                 .limit(1)
                 .getOne();
-              if (r?.referenceNumber) maxNumber = parseInt(r.referenceNumber.split('-')[2], 10) || 0;
+              if (r?.referenceNumber)
+                maxNumber = parseInt(r.referenceNumber.split('-')[2], 10) || 0;
               break;
             }
             case 'Settlements': {
               const r = await this.settlementRepository
                 .createQueryBuilder('stl')
                 .select('stl.settlementNumber')
-                .where('stl.settlementNumber LIKE :p', { p: pattern(row.prefix) })
+                .where('stl.settlementNumber LIKE :p', {
+                  p: pattern(row.prefix),
+                })
                 .orderBy('stl.settlementNumber', 'DESC')
                 .limit(1)
                 .getOne();
-              if (r?.settlementNumber) maxNumber = parseInt(r.settlementNumber.split('-')[2], 10) || 0;
+              if (r?.settlementNumber)
+                maxNumber = parseInt(r.settlementNumber.split('-')[2], 10) || 0;
               break;
             }
             case 'Owner Equity': {
@@ -666,7 +628,8 @@ export class SettingsService {
                 .orderBy('eq.referenceNumber', 'DESC')
                 .limit(1)
                 .getOne();
-              if (r?.referenceNumber) maxNumber = parseInt(r.referenceNumber.split('-')[2], 10) || 0;
+              if (r?.referenceNumber)
+                maxNumber = parseInt(r.referenceNumber.split('-')[2], 10) || 0;
               break;
             }
             default:

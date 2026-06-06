@@ -1,21 +1,22 @@
-import { Client } from 'pg';
-import { execSync } from 'child_process';
-import * as path from 'path';
-import * as dotenv from 'dotenv';
+import { Client } from "pg";
+import { execSync } from "child_process";
+import * as path from "path";
+import * as dotenv from "dotenv";
 
 export default async function globalSetup() {
   // Load test env vars
-  dotenv.config({ path: path.resolve(__dirname, '../.env.test') });
+  dotenv.config({ path: path.resolve(__dirname, "../.env.test") });
 
-  const { DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE } = process.env;
+  const { DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE } =
+    process.env;
 
   // Connect to default 'postgres' maintenance DB to create erp_db_test
   const client = new Client({
-    host: DB_HOST || 'localhost',
-    port: parseInt(DB_PORT || '5432', 10),
-    user: DB_USERNAME || 'erp_user',
+    host: DB_HOST || "localhost",
+    port: parseInt(DB_PORT || "5432", 10),
+    user: DB_USERNAME || "erp_user",
     password: DB_PASSWORD,
-    database: 'postgres', // connect to maintenance DB — cannot drop the DB you're connected to
+    database: "postgres", // connect to maintenance DB — cannot drop the DB you're connected to
   });
 
   await client.connect();
@@ -29,18 +30,21 @@ export default async function globalSetup() {
   // Prepare schema on the test DB.
   // Prefer migrations, but fallback to schema sync because this repository's
   // migration set is not bootstrap-safe on an empty database.
-  const backendRoot = path.resolve(__dirname, '..');
+  const backendRoot = path.resolve(__dirname, "..");
   try {
-    execSync('npm run migration:run', {
+    execSync("npm run migration:run", {
       cwd: backendRoot,
-      stdio: 'inherit',
+      stdio: "inherit",
       env: { ...process.env }, // .env.test vars already loaded above
     });
   } catch (_error) {
-    execSync('npm run typeorm -- -d ./src/config/database.config.ts schema:sync', {
-      cwd: backendRoot,
-      stdio: 'inherit',
-      env: { ...process.env },
-    });
+    execSync(
+      "npm run typeorm -- -d ./src/config/database.config.ts schema:sync",
+      {
+        cwd: backendRoot,
+        stdio: "inherit",
+        env: { ...process.env },
+      },
+    );
   }
 }

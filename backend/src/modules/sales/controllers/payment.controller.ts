@@ -10,13 +10,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiParam,
-  ApiQuery,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { PaymentService } from '../services/payment.service';
 import {
   CreatePaymentDto,
@@ -62,16 +56,53 @@ export class PaymentController {
     description: 'List of payments retrieved successfully',
     type: [PaymentResponseDto],
   })
-  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
-  @ApiQuery({ name: 'invoiceId', required: false, description: 'Filter by invoice ID' })
-  @ApiQuery({ name: 'paymentMethod', required: false, description: 'Filter by payment method' })
-  @ApiQuery({ name: 'status', required: false, description: 'Filter by status' })
-  @ApiQuery({ name: 'type', required: false, description: 'Filter by payment type' })
-  @ApiQuery({ name: 'fromDate', required: false, description: 'Filter payments from date' })
-  @ApiQuery({ name: 'toDate', required: false, description: 'Filter payments to date' })
-  @ApiQuery({ name: 'referenceNumber', required: false, description: 'Search by reference number' })
+  @ApiQuery({
+    name: 'customerId',
+    required: false,
+    description: 'Filter by customer ID',
+  })
+  @ApiQuery({
+    name: 'invoiceId',
+    required: false,
+    description: 'Filter by invoice ID',
+  })
+  @ApiQuery({
+    name: 'paymentMethod',
+    required: false,
+    description: 'Filter by payment method',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: 'Filter by status',
+  })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    description: 'Filter by payment type',
+  })
+  @ApiQuery({
+    name: 'fromDate',
+    required: false,
+    description: 'Filter payments from date',
+  })
+  @ApiQuery({
+    name: 'toDate',
+    required: false,
+    description: 'Filter payments to date',
+  })
+  @ApiQuery({
+    name: 'referenceNumber',
+    required: false,
+    description: 'Search by reference number',
+  })
   @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field' })
-  @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['ASC', 'DESC'],
+    description: 'Sort order',
+  })
   async getAllPayments(@Query() query: QueryPaymentsDto) {
     return this.paymentService.findAll(query);
   }
@@ -108,7 +139,10 @@ export class PaymentController {
     type: PaymentResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Payment not found' })
-  @ApiResponse({ status: 400, description: 'Invalid input data or status transition' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid input data or status transition',
+  })
   async updatePayment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updatePaymentDto: UpdatePaymentDto,
@@ -145,7 +179,10 @@ export class PaymentController {
     type: PaymentResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Payment not found' })
-  @ApiResponse({ status: 400, description: 'Payment cannot be marked as failed' })
+  @ApiResponse({
+    status: 400,
+    description: 'Payment cannot be marked as failed',
+  })
   async failPayment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body('reason') reason?: string,
@@ -182,7 +219,10 @@ export class PaymentController {
     type: PaymentResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Payment not found' })
-  @ApiResponse({ status: 400, description: 'Payment cannot be refunded or invalid amount' })
+  @ApiResponse({
+    status: 400,
+    description: 'Payment cannot be refunded or invalid amount',
+  })
   async refundPayment(
     @Body() refundDto: RefundPaymentDto,
     @CurrentUser('userId') currentUserId: string,
@@ -218,25 +258,41 @@ export class PaymentController {
     return this.paymentService.getPaymentsByCustomer(customerId);
   }
 
-  @Get('invoice/:invoiceId')
-  @ApiOperation({ summary: 'Get payments by invoice' })
-  @ApiParam({ name: 'invoiceId', description: 'Invoice ID', type: 'string' })
+  @Get('sales-order/:salesOrderId')
+  @ApiOperation({ summary: 'Get payments by sales order' })
+  @ApiParam({
+    name: 'salesOrderId',
+    description: 'Sales order ID',
+    type: 'string',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Invoice payments retrieved successfully',
+    description: 'Sales order payments retrieved successfully',
     type: [PaymentSummaryDto],
   })
-  async getPaymentsByInvoice(
-    @Param('invoiceId', ParseUUIDPipe) invoiceId: string,
+  async getPaymentsBySalesOrder(
+    @Param('salesOrderId', ParseUUIDPipe) salesOrderId: string,
   ): Promise<PaymentSummaryDto[]> {
-    return this.paymentService.getPaymentsByInvoice(invoiceId);
+    return this.paymentService.getPaymentsBySalesOrder(salesOrderId);
   }
 
   @Get('statistics/summary')
   @ApiOperation({ summary: 'Get payment statistics' })
-  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
-  @ApiQuery({ name: 'fromDate', required: false, description: 'Statistics from date' })
-  @ApiQuery({ name: 'toDate', required: false, description: 'Statistics to date' })
+  @ApiQuery({
+    name: 'customerId',
+    required: false,
+    description: 'Filter by customer ID',
+  })
+  @ApiQuery({
+    name: 'fromDate',
+    required: false,
+    description: 'Statistics from date',
+  })
+  @ApiQuery({
+    name: 'toDate',
+    required: false,
+    description: 'Statistics to date',
+  })
   @ApiResponse({
     status: 200,
     description: 'Payment statistics retrieved successfully',

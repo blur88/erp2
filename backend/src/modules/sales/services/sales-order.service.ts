@@ -13,8 +13,6 @@ import { SalesOrderItem, DiscountType } from '../../../database/entities/sales-o
 import { SalesOrderPayment } from '../../../database/entities/sales-order-payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { Product } from '../../../database/entities/product.entity';
-import { Invoice } from '../../../database/entities/invoice.entity';
-import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
 import { User } from '../../../database/entities/user.entity';
 import { PriceListItem } from '../../../database/entities/price-list-item.entity';
 import {
@@ -38,7 +36,11 @@ import {
 } from '../../search/search.constants';
 import { CustomerService } from './customer.service';
 import { InventoryIntegrationService } from './inventory-integration.service';
-import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
+import {
+  ValidationUtil,
+  BulkOperationUtil,
+  BulkOperationResponse,
+} from '../../../common/utils/validation.util';
 import { StockMovementService } from '../../../modules/inventory/services/stock-movement.service';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { SettingsService } from '../../settings/settings.service';
@@ -67,10 +69,6 @@ export class SalesOrderService extends BaseCrudService<
     private readonly customerRepository: Repository<Customer>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
-    @InjectRepository(Invoice)
-    private readonly invoiceRepository: Repository<Invoice>,
-    @InjectRepository(InvoiceItem)
-    private readonly invoiceItemRepository: Repository<InvoiceItem>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(PriceListItem)
@@ -112,7 +110,10 @@ export class SalesOrderService extends BaseCrudService<
       console.log('[generateSequentialOrderNumber] Generated order number:', orderNumber);
       return orderNumber;
     } catch (error) {
-      console.error('[generateSequentialOrderNumber] Error generating order number:', error.message);
+      console.error(
+        '[generateSequentialOrderNumber] Error generating order number:',
+        error.message,
+      );
       // Fallback to legacy method if settings service fails
       const lastOrder = await this.salesOrderRepository
         .createQueryBuilder('order')
@@ -137,38 +138,6 @@ export class SalesOrderService extends BaseCrudService<
     }
   }
 
-  private async generateInvoiceNumber(): Promise<string> {
-    // Use document number settings to generate invoice number
-    try {
-      const invoiceNumber = await this.settingsService.generateDocumentNumber('Invoices');
-      console.log('[generateInvoiceNumber] Generated invoice number:', invoiceNumber);
-      return invoiceNumber;
-    } catch (error) {
-      console.error('[generateInvoiceNumber] Error generating invoice number:', error.message);
-      // Fallback to legacy method
-      const lastInvoice = await this.invoiceRepository
-        .createQueryBuilder('invoice')
-        .withDeleted()
-        .select('invoice.invoiceNumber')
-        .where('invoice.invoiceNumber LIKE :prefix', { prefix: 'INV-%' })
-        .orderBy('invoice.invoiceNumber', 'DESC')
-        .limit(1)
-        .getOne();
-
-      let nextNumber = 1;
-      if (lastInvoice) {
-        const match = lastInvoice.invoiceNumber.match(/^INV-(\d+)$/);
-        if (match) {
-          nextNumber = parseInt(match[1]) + 1;
-        }
-      }
-
-      const newInvoiceNumber = `INV-${nextNumber.toString().padStart(6, '0')}`;
-      console.log('[generateInvoiceNumber] Fallback invoice number:', newInvoiceNumber);
-      return newInvoiceNumber;
-    }
-  }
-
   async create(
     createSalesOrderDto: CreateSalesOrderDto,
     userId?: string,
@@ -179,7 +148,7 @@ export class SalesOrderService extends BaseCrudService<
     // Verify customer exists and can purchase
     const customer = await this.customerRepository.findOne({
       where: { id: customerId },
-      relations: { priceList: true }
+      relations: { priceList: true },
     });
     if (!customer) {
       throw new NotFoundException('Customer not found');
@@ -200,7 +169,10 @@ export class SalesOrderService extends BaseCrudService<
 
     // Check inventory availability
     const inventoryCheck = await this.inventoryIntegrationService.checkAvailability(
-      items.map(item => ({ productId: item.productId, quantity: item.quantity }))
+      items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+      })),
     );
 
     if (!inventoryCheck.available) {
@@ -236,10 +208,12 @@ export class SalesOrderService extends BaseCrudService<
         if (error.code === '23505' && error.constraint === 'UQ_ea901f7691ec7f314f072d9dee8') {
           retries--;
           if (retries === 0) {
-            throw new ConflictException('Failed to generate unique order number after multiple attempts. Please try again.');
+            throw new ConflictException(
+              'Failed to generate unique order number after multiple attempts. Please try again.',
+            );
           }
           // Wait a longer random time before retrying (50-200ms) to reduce collision probability
-          await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 150));
+          await new Promise((resolve) => setTimeout(resolve, 50 + Math.random() * 150));
           continue;
         }
         // If it's not a duplicate error, rethrow immediately
@@ -266,90 +240,12 @@ export class SalesOrderService extends BaseCrudService<
 
     // Reserve inventory
     await this.inventoryIntegrationService.reserveStock(
-      items.map(item => ({
+      items.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
         salesOrderId: savedOrder.id,
-      }))
+      })),
     );
-
-    // Automatically generate invoice when order is created
-    try {
-      // Reload order with customer relation to populate customerName for invoice
-      const orderWithCustomer = await this.salesOrderRepository.findOne({
-        where: { id: savedOrder.id },
-        relations: { customer: true, items: true }
-      });
-
-      if (!orderWithCustomer) {
-        throw new Error('Order not found after save');
-      }
-
-      if (!orderWithCustomer.customer) {
-        throw new Error('Customer information not found for invoice generation');
-      }
-
-      // Generate invoice number
-      const invoiceNumber = await this.generateInvoiceNumber();
-
-      // Create invoice using the fromSalesOrder factory method
-      const invoiceData = Invoice.fromSalesOrder(orderWithCustomer);
-      const invoice = this.invoiceRepository.create({
-        ...invoiceData,
-        invoiceNumber,
-      });
-
-      // lineItems removed from invoice model
-
-      // Calculate totals and set correct status
-      invoice.calculateTotals();
-      invoice.updateStatus();
-
-      await this.invoiceRepository.save(invoice);
-
-      // Log audit trail for invoice creation
-      await this.auditLogService.log(
-        'CREATE',
-        'Invoice',
-        `Created invoice: ${invoice.invoiceNumber} for sales order ${orderWithCustomer.orderNumber}`,
-          {
-            entityId: invoice.id,
-            userId: userId || 'system',
-            username,
-            newValues: {
-            invoiceNumber: invoice.invoiceNumber,
-            salesOrderId: orderWithCustomer.id,
-            customerId: orderWithCustomer.customerId,
-            totalAmount: invoice.totalAmount,
-            status: invoice.status,
-          },
-        }
-      );
-
-      // Copy sales order items to invoice items
-      if (orderWithCustomer.items && orderWithCustomer.items.length > 0) {
-        const invoiceItemsData = orderWithCustomer.items.map(soItem => ({
-          invoiceId: invoice.id,
-          lineNumber: soItem.lineNumber,
-          productId: soItem.productId,
-          quantity: Number(soItem.quantity),
-          unitPrice: Number(soItem.unitPrice),
-          discountType: soItem.discountType,
-          discountPercent: Number(soItem.discountPercent || 0),
-          discount: Number(soItem.discountAmount || 0),
-          totalAmount: Number(soItem.totalAmount),
-        }));
-
-        await this.invoiceItemRepository.insert(invoiceItemsData);
-        console.log(`✅ Copied ${invoiceItemsData.length} items to invoice ${invoice.invoiceNumber}`);
-      }
-
-      console.log(`✅ Auto-generated invoice ${invoice.invoiceNumber} for new order ${savedOrder.orderNumber}`);
-    } catch (error) {
-      console.error(`⚠️ Failed to auto-generate invoice for order ${savedOrder.orderNumber}:`, error.message);
-      console.error('Full error:', error); // Add full error logging for debugging
-      // Don't throw error - order creation should still succeed even if invoice creation fails
-    }
 
     // Log audit trail for create
     await this.auditLogService.log(
@@ -367,7 +263,7 @@ export class SalesOrderService extends BaseCrudService<
           totalAmount,
           itemCount: createdItems.length,
         },
-      }
+      },
     );
 
     return this.findById(savedOrder.id);
@@ -410,11 +306,7 @@ export class SalesOrderService extends BaseCrudService<
     return fuzzyOrders.map((order) => this.mapSalesOrder(order, q, true));
   }
 
-  private mapSalesOrder(
-    order: SalesOrder,
-    q: string,
-    fuzzy: boolean,
-  ): GlobalSearchResultDto {
+  private mapSalesOrder(order: SalesOrder, q: string, fuzzy: boolean): GlobalSearchResultDto {
     const orderNumber = order.orderNumber?.toLowerCase() ?? '';
     const baseScore = fuzzy
       ? SCORE_FUZZY
@@ -431,9 +323,7 @@ export class SalesOrderService extends BaseCrudService<
       description: order.customer?.name ?? '',
       route: `/sales/orders/${order.id}/edit`,
       score:
-        baseScore +
-        BOOST_TRANSACTION +
-        (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
+        baseScore + BOOST_TRANSACTION + (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
     };
   }
 
@@ -462,7 +352,7 @@ export class SalesOrderService extends BaseCrudService<
     await this.salesOrderLifecycleService.assertEditAllowed(id);
 
     const order = await this.salesOrderRepository.findOne({
-      where: { id }
+      where: { id },
     });
     if (!order) {
       throw new NotFoundException('Sales order not found');
@@ -518,7 +408,7 @@ export class SalesOrderService extends BaseCrudService<
         if (!pricingCustomer) {
           throw new NotFoundException('Customer not found');
         }
-      } else if ((items && items.length > 0)) {
+      } else if (items && items.length > 0) {
         pricingCustomer = await manager.getRepository(Customer).findOne({
           where: { id: locked.customerId },
           relations: { priceList: true },
@@ -572,9 +462,10 @@ export class SalesOrderService extends BaseCrudService<
         }
 
         const subtotal = SalesOrderService.sumItemTotals(orderItems);
-        const shippingAmount = updateSalesOrderDto.shippingAmount !== undefined
-          ? Number(updateSalesOrderDto.shippingAmount)
-          : Number(locked.shippingAmount || 0);
+        const shippingAmount =
+          updateSalesOrderDto.shippingAmount !== undefined
+            ? Number(updateSalesOrderDto.shippingAmount)
+            : Number(locked.shippingAmount || 0);
         updateData.shippingAmount = shippingAmount;
         updateData.subtotal = subtotal;
         updateData.totalAmount = subtotal + shippingAmount;
@@ -628,7 +519,7 @@ export class SalesOrderService extends BaseCrudService<
           username,
           oldValues: auditOldValues,
           newValues: auditNewValues ?? updateData,
-        }
+        },
       );
     }
 
@@ -649,7 +540,7 @@ export class SalesOrderService extends BaseCrudService<
       customerId: originalOrder.customerId,
       notes: originalOrder.notes,
       shippingAmount: Number(originalOrder.shippingAmount || 0),
-      items: originalOrder.items.map(item => ({
+      items: originalOrder.items.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
         unitPrice: Number(item.unitPrice),
@@ -697,9 +588,13 @@ export class SalesOrderService extends BaseCrudService<
       await this.customerService.updateCustomerMetrics(customerId);
     } catch (error) {
       if (error instanceof NotFoundException) {
-        this.logger.warn(`Customer not found for metric update after ${context} — possible orphaned order (customerId: ${customerId})`);
+        this.logger.warn(
+          `Customer not found for metric update after ${context} — possible orphaned order (customerId: ${customerId})`,
+        );
       } else {
-        this.logger.error(`Failed to update customer metrics after ${context} (customerId: ${customerId}): ${error.message}`);
+        this.logger.error(
+          `Failed to update customer metrics after ${context} (customerId: ${customerId}): ${error.message}`,
+        );
       }
     }
   }
@@ -731,9 +626,15 @@ export class SalesOrderService extends BaseCrudService<
     };
   }
 
-  private async validateAndProcessItems(items: any[], customer?: Customer, manager?: EntityManager) {
+  private async validateAndProcessItems(
+    items: any[],
+    customer?: Customer,
+    manager?: EntityManager,
+  ) {
     const productRepo = manager ? manager.getRepository(Product) : this.productRepository;
-    const priceListItemRepo = manager ? manager.getRepository(PriceListItem) : this.priceListItemRepository;
+    const priceListItemRepo = manager
+      ? manager.getRepository(PriceListItem)
+      : this.priceListItemRepository;
 
     // Batch-load products and price-list rows up front to avoid an N+1 of findOne calls
     // inside the (locked) edit transaction.
@@ -812,37 +713,63 @@ export class SalesOrderService extends BaseCrudService<
     return this.salesOrderQueryService.findById(id);
   }
 
-  async recordPayment(orderId: string, dto: RecordPaymentDto, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
+  async recordPayment(
+    orderId: string,
+    dto: RecordPaymentDto,
+    userId?: string,
+    username?: string,
+  ): Promise<SalesOrderResponseDto> {
     await this.salesOrderPaymentService.recordPayment(orderId, dto, userId, username);
     return this.salesOrderQueryService.findById(orderId);
   }
 
-  async recordRefund(orderId: string, dto: RecordRefundDto, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
+  async recordRefund(
+    orderId: string,
+    dto: RecordRefundDto,
+    userId?: string,
+    username?: string,
+  ): Promise<SalesOrderResponseDto> {
     await this.salesOrderPaymentService.recordRefund(orderId, dto, userId, username);
     return this.salesOrderQueryService.findById(orderId);
   }
 
-  async recordPayments(orderId: string, dtos: RecordPaymentDto[], userId?: string, username?: string): Promise<SalesOrderPayment[]> {
+  async recordPayments(
+    orderId: string,
+    dtos: RecordPaymentDto[],
+    userId?: string,
+    username?: string,
+  ): Promise<SalesOrderPayment[]> {
     return this.salesOrderPaymentService.recordPayments(orderId, dtos, userId, username);
   }
 
-  async recordRefunds(orderId: string, dtos: RecordPaymentDto[], userId?: string, username?: string) {
-    return this.salesOrderPaymentService.recordRefunds(orderId, dtos, userId, username)
+  async recordRefunds(
+    orderId: string,
+    dtos: RecordPaymentDto[],
+    userId?: string,
+    username?: string,
+  ) {
+    return this.salesOrderPaymentService.recordRefunds(orderId, dtos, userId, username);
   }
 
   async listPayments(orderId: string) {
     return this.salesOrderPaymentService.listPayments(orderId);
   }
 
-  async fulfillOrder(id: string, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
+  async fulfillOrder(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<SalesOrderResponseDto> {
     await this.salesOrderFulfillmentService.fulfillOrder(id, userId, username);
     return this.salesOrderQueryService.findById(id);
   }
 
-  async unfulfillOrder(id: string, userId?: string, username?: string): Promise<SalesOrderResponseDto> {
+  async unfulfillOrder(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<SalesOrderResponseDto> {
     await this.salesOrderFulfillmentService.unfulfillOrder(id, userId, username);
     return this.salesOrderQueryService.findById(id);
   }
-
-
 }

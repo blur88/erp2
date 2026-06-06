@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import HistoryIcon from '@mui/icons-material/History'
-import SearchIcon from '@mui/icons-material/Search'
+import { useEffect, useMemo, useRef, useState } from 'react';
+import HistoryIcon from '@mui/icons-material/History';
+import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
   CircularProgress,
@@ -9,26 +9,19 @@ import {
   Modal,
   Typography,
   useTheme,
-} from '@mui/material'
-import { useNavigate } from 'react-router-dom'
+} from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 
-import { useAppSelector } from '@/hooks/useRedux'
-import { useSearchGlobalQuery } from '@/store/api/searchApi'
-import { selectCurrentUser } from '@/store/slices/authSlice'
-import type {
-  GlobalSearchResultDto,
-  GlobalSearchResultType,
-} from '@/types/search'
-import {
-  addRecentSearch,
-  getRecentSearches,
-  type RecentSearchItem,
-} from '@/utils/recentSearch'
-import { highlightText } from '@/utils/highlightText'
+import { useAppSelector } from '@/hooks/useRedux';
+import { useSearchGlobalQuery } from '@/store/api/searchApi';
+import { selectCurrentUser } from '@/store/slices/authSlice';
+import type { GlobalSearchResultDto, GlobalSearchResultType } from '@/types/search';
+import { addRecentSearch, getRecentSearches, type RecentSearchItem } from '@/utils/recentSearch';
+import { highlightText } from '@/utils/highlightText';
 
 interface SearchModalProps {
-  open: boolean
-  onClose: () => void
+  open: boolean;
+  onClose: () => void;
 }
 
 const GROUP_ORDER: GlobalSearchResultType[] = [
@@ -36,12 +29,11 @@ const GROUP_ORDER: GlobalSearchResultType[] = [
   'product',
   'transaction',
   'supplier',
-  'invoice',
   'customer_payment',
   'vendor_payment',
   'journal_entry',
   'page',
-]
+];
 
 const GROUP_LABELS: Record<GlobalSearchResultType, string> = {
   page: 'Pages',
@@ -49,11 +41,10 @@ const GROUP_LABELS: Record<GlobalSearchResultType, string> = {
   product: 'Products',
   transaction: 'Transactions',
   supplier: 'Suppliers',
-  invoice: 'Invoices',
   customer_payment: 'Customer Payments',
   vendor_payment: 'Vendor Payments',
   journal_entry: 'Journal Entries',
-}
+};
 
 const TYPE_BADGES: Record<GlobalSearchResultType, string> = {
   page: 'Page',
@@ -61,131 +52,128 @@ const TYPE_BADGES: Record<GlobalSearchResultType, string> = {
   product: 'Product',
   transaction: 'Transaction',
   supplier: 'Supplier',
-  invoice: 'Invoice',
   customer_payment: 'Customer Payment',
   vendor_payment: 'Vendor Payment',
   journal_entry: 'Journal',
-}
+};
 
 type NavigableItem = {
-  label: string
-  description?: string
-  route: string
-  type: GlobalSearchResultType
-}
+  label: string;
+  description?: string;
+  route: string;
+  type: GlobalSearchResultType;
+};
 
 function useDebounce(value: string, delay: number) {
-  const [debouncedValue, setDebouncedValue] = useState(value)
+  const [debouncedValue, setDebouncedValue] = useState(value);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      setDebouncedValue(value)
-    }, delay)
+      setDebouncedValue(value);
+    }, delay);
 
-    return () => window.clearTimeout(timeoutId)
-  }, [delay, value])
+    return () => window.clearTimeout(timeoutId);
+  }, [delay, value]);
 
-  return debouncedValue
+  return debouncedValue;
 }
 
 export default function SearchModal({ open, onClose }: SearchModalProps) {
-  const navigate = useNavigate()
-  const theme = useTheme()
-  const inputRef = useRef<HTMLInputElement>(null)
-  const currentUser = useAppSelector(selectCurrentUser)
-  const userId = currentUser?.id ?? ''
-  const [query, setQuery] = useState('')
-  const [selectedIndex, setSelectedIndex] = useState(0)
-  const [recentSearches, setRecentSearches] = useState<RecentSearchItem[]>([])
-  const debouncedQuery = useDebounce(query, 250)
-  const trimmedQuery = debouncedQuery.trim()
-  const isEmptyQuery = trimmedQuery.length === 0
-  const isActiveQuery = trimmedQuery.length >= 2
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const currentUser = useAppSelector(selectCurrentUser);
+  const userId = currentUser?.id ?? '';
+  const [query, setQuery] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [recentSearches, setRecentSearches] = useState<RecentSearchItem[]>([]);
+  const debouncedQuery = useDebounce(query, 250);
+  const trimmedQuery = debouncedQuery.trim();
+  const isEmptyQuery = trimmedQuery.length === 0;
+  const isActiveQuery = trimmedQuery.length >= 2;
 
   const { data, isLoading, isFetching, isError } = useSearchGlobalQuery(
     { q: trimmedQuery },
     { skip: !isActiveQuery },
-  )
+  );
 
   useEffect(() => {
     if (!open) {
-      return undefined
+      return undefined;
     }
 
     const timeoutId = window.setTimeout(() => {
-      inputRef.current?.focus()
-    }, 0)
+      inputRef.current?.focus();
+    }, 0);
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        handleClose()
+        handleClose();
       }
-    }
+    };
 
-    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      window.clearTimeout(timeoutId)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [open, onClose])
+      window.clearTimeout(timeoutId);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open, onClose]);
 
   useEffect(() => {
     if (open) {
-      setQuery('')
-      setSelectedIndex(0)
+      setQuery('');
+      setSelectedIndex(0);
     }
-  }, [open])
+  }, [open]);
 
   useEffect(() => {
     if (open && userId) {
-      setRecentSearches(getRecentSearches(userId))
+      setRecentSearches(getRecentSearches(userId));
     }
-  }, [open, userId])
+  }, [open, userId]);
 
   useEffect(() => {
-    setSelectedIndex(0)
-  }, [data])
+    setSelectedIndex(0);
+  }, [data]);
 
   useEffect(() => {
-    setSelectedIndex(0)
-  }, [isEmptyQuery])
+    setSelectedIndex(0);
+  }, [isEmptyQuery]);
 
   const flatResults = useMemo((): NavigableItem[] => {
     if (isEmptyQuery) {
-      return recentSearches
+      return recentSearches;
     }
 
     if (!isActiveQuery || !data) {
-      return []
+      return [];
     }
 
-    return GROUP_ORDER.flatMap((type) =>
-      data.results.filter((result) => result.type === type),
-    )
-  }, [data, isActiveQuery, isEmptyQuery, recentSearches])
+    return GROUP_ORDER.flatMap((type) => data.results.filter((result) => result.type === type));
+  }, [data, isActiveQuery, isEmptyQuery, recentSearches]);
 
   const groups = useMemo(() => {
-    let offset = 0
+    let offset = 0;
 
     return GROUP_ORDER.map((type) => {
-      const items = flatResults.filter((result) => result.type === type)
+      const items = flatResults.filter((result) => result.type === type);
       const group = {
         type,
         label: GROUP_LABELS[type],
         items,
         offset,
-      }
-      offset += items.length
-      return group
-    }).filter((group) => group.items.length > 0)
-  }, [flatResults])
+      };
+      offset += items.length;
+      return group;
+    }).filter((group) => group.items.length > 0);
+  }, [flatResults]);
 
   const handleClose = () => {
-    setQuery('')
-    setSelectedIndex(0)
-    onClose()
-  }
+    setQuery('');
+    setSelectedIndex(0);
+    onClose();
+  };
 
   const handleSelect = (item: NavigableItem) => {
     if (userId) {
@@ -194,55 +182,54 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
         description: item.description,
         route: item.route,
         type: item.type,
-      })
+      });
 
-      const stored = getRecentSearches(userId)
+      const stored = getRecentSearches(userId);
       if (stored.some((entry) => entry.route === item.route)) {
-        setRecentSearches(stored)
+        setRecentSearches(stored);
       } else {
         setRecentSearches((current) =>
-          [{ ...item, timestamp: Date.now() }, ...current.filter((entry) => entry.route !== item.route)].slice(0, 8),
-        )
+          [
+            { ...item, timestamp: Date.now() },
+            ...current.filter((entry) => entry.route !== item.route),
+          ].slice(0, 8),
+        );
       }
     }
 
-    navigate(item.route)
-    handleClose()
-  }
+    navigate(item.route);
+    handleClose();
+  };
 
   const handleInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'ArrowDown') {
-      event.preventDefault()
+      event.preventDefault();
       setSelectedIndex((currentIndex) =>
-        flatResults.length === 0
-          ? 0
-          : (currentIndex + 1) % flatResults.length,
-      )
-      return
+        flatResults.length === 0 ? 0 : (currentIndex + 1) % flatResults.length,
+      );
+      return;
     }
 
     if (event.key === 'ArrowUp') {
-      event.preventDefault()
+      event.preventDefault();
       setSelectedIndex((currentIndex) =>
-        flatResults.length === 0
-          ? 0
-          : (currentIndex - 1 + flatResults.length) % flatResults.length,
-      )
-      return
+        flatResults.length === 0 ? 0 : (currentIndex - 1 + flatResults.length) % flatResults.length,
+      );
+      return;
     }
 
     if (event.key === 'Enter' && flatResults[selectedIndex]) {
-      event.preventDefault()
-      handleSelect(flatResults[selectedIndex])
+      event.preventDefault();
+      handleSelect(flatResults[selectedIndex]);
     }
-  }
+  };
 
-  const showHelp = !isEmptyQuery && !isActiveQuery
-  const showRecent = isEmptyQuery
-  const showLive = isActiveQuery
-  const showLoading = showLive && (isLoading || isFetching) && !data
-  const showError = showLive && isError && !showLoading
-  const showEmpty = showLive && !showLoading && !showError && !!data && flatResults.length === 0
+  const showHelp = !isEmptyQuery && !isActiveQuery;
+  const showRecent = isEmptyQuery;
+  const showLive = isActiveQuery;
+  const showLoading = showLive && (isLoading || isFetching) && !data;
+  const showError = showLive && isError && !showLoading;
+  const showEmpty = showLive && !showLoading && !showError && !!data && flatResults.length === 0;
 
   return (
     <Modal open={open} onClose={handleClose} aria-label="Global search">
@@ -288,9 +275,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
             }}
             slotProps={{ input: { 'aria-label': 'search' } }}
           />
-          {(isLoading || isFetching) && !showLoading && (
-            <CircularProgress size={16} />
-          )}
+          {(isLoading || isFetching) && !showLoading && <CircularProgress size={16} />}
         </Box>
 
         <Divider sx={{ bgcolor: theme.palette.divider }} />
@@ -301,8 +286,7 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
               variant="body2"
               sx={{ color: theme.palette.text.secondary, textAlign: 'center', px: 3, py: 4 }}
             >
-              Type at least 2 characters to search pages, customers, products,
-              and transactions.
+              Type at least 2 characters to search pages, customers, products, and transactions.
             </Typography>
           )}
 
@@ -374,53 +358,54 @@ export default function SearchModal({ open, onClose }: SearchModalProps) {
             </Box>
           )}
 
-          {showLive && groups.map((group) => (
-            <Box key={group.type}>
-              <Typography
-                variant="caption"
-                sx={{
-                  display: 'block',
-                  px: 2,
-                  py: 1,
-                  color: theme.palette.text.secondary,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                }}
-              >
-                {group.label}
-              </Typography>
-              {group.items.map((item, itemIndex) => {
-                const flatIndex = group.offset + itemIndex
-                const isSelected = flatIndex === selectedIndex
+          {showLive &&
+            groups.map((group) => (
+              <Box key={group.type}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: 'block',
+                    px: 2,
+                    py: 1,
+                    color: theme.palette.text.secondary,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                  }}
+                >
+                  {group.label}
+                </Typography>
+                {group.items.map((item, itemIndex) => {
+                  const flatIndex = group.offset + itemIndex;
+                  const isSelected = flatIndex === selectedIndex;
 
-                return (
-                  <SearchResultRow
-                    key={`${item.type}-${item.route}`}
-                    item={item}
-                    isSelected={isSelected}
-                    onClick={() => handleSelect(item)}
-                    onHover={() => setSelectedIndex(flatIndex)}
-                    query={trimmedQuery}
-                    highlightColor={theme.palette.primary.light}
-                  />
-                )
-              })}
-            </Box>
-          ))}
+                  return (
+                    <SearchResultRow
+                      key={`${item.type}-${item.route}`}
+                      item={item}
+                      isSelected={isSelected}
+                      onClick={() => handleSelect(item)}
+                      onHover={() => setSelectedIndex(flatIndex)}
+                      query={trimmedQuery}
+                      highlightColor={theme.palette.primary.light}
+                    />
+                  );
+                })}
+              </Box>
+            ))}
         </Box>
       </Box>
     </Modal>
-  )
+  );
 }
 
 interface SearchResultRowProps {
-  item: NavigableItem
-  isSelected: boolean
-  onClick: () => void
-  onHover: () => void
-  query: string
-  highlightColor: string
-  isRecent?: boolean
+  item: NavigableItem;
+  isSelected: boolean;
+  onClick: () => void;
+  onHover: () => void;
+  query: string;
+  highlightColor: string;
+  isRecent?: boolean;
 }
 
 function SearchResultRow({
@@ -449,9 +434,7 @@ function SearchResultRow({
         },
       }}
     >
-      {isRecent && (
-        <HistoryIcon sx={{ color: 'text.secondary', fontSize: 16, flexShrink: 0 }} />
-      )}
+      {isRecent && <HistoryIcon sx={{ color: 'text.secondary', fontSize: 16, flexShrink: 0 }} />}
 
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Typography sx={{ color: 'text.primary', fontWeight: 600 }}>
@@ -483,5 +466,5 @@ function SearchResultRow({
         </Typography>
       )}
     </Box>
-  )
+  );
 }

@@ -9,7 +9,6 @@ import { Repository, FindOptionsWhere } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
-import { Invoice } from '../../../database/entities/invoice.entity';
 import {
   CreateCustomerDto,
   UpdateCustomerDto,
@@ -30,7 +29,11 @@ import {
   BOOST_CUSTOMER,
   BOOST_EXACT_MATCH,
 } from '../../search/search.constants';
-import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
+import {
+  ValidationUtil,
+  BulkOperationUtil,
+  BulkOperationResponse,
+} from '../../../common/utils/validation.util';
 import { TransactionManager, Transactional } from '../../../common/utils/transaction.util';
 import { AuditLogService } from '../../audit-logs/services';
 import { generateBaseSlug } from '../../../common/utils/slug.util';
@@ -47,8 +50,6 @@ export class CustomerService extends BaseCrudService<
     private readonly customerRepository: Repository<Customer>,
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepository: Repository<SalesOrder>,
-    @InjectRepository(Invoice)
-    private readonly invoiceRepository: Repository<Invoice>,
     private readonly transactionManager: TransactionManager,
     auditLogService: AuditLogService,
   ) {
@@ -72,48 +73,31 @@ export class CustomerService extends BaseCrudService<
     qb = qb.leftJoinAndSelect('customer.priceList', 'priceList');
 
     if (query.priceListId) {
-      qb = qb.andWhere('customer.priceListId = :priceListId', { priceListId: query.priceListId });
+      qb = qb.andWhere('customer.priceListId = :priceListId', {
+        priceListId: query.priceListId,
+      });
     }
 
     return qb;
   }
 
   protected async afterDelete(entity: Customer): Promise<void> {
-    const [activeOrderCount, activeInvoiceCount] = await Promise.all([
-      this.salesOrderRepository.count({ where: { customerId: entity.id } }),
-      this.invoiceRepository.count({ where: { customerId: entity.id } }),
-    ]);
+    const activeOrderCount = await this.salesOrderRepository.count({
+      where: { customerId: entity.id },
+    });
 
-    if (activeOrderCount > 0 || activeInvoiceCount > 0) {
-      const relatedRecords = [];
-      if (activeOrderCount > 0) {
-        relatedRecords.push(`${activeOrderCount} order${activeOrderCount === 1 ? '' : 's'}`);
-      }
-      if (activeInvoiceCount > 0) {
-        relatedRecords.push(`${activeInvoiceCount} invoice${activeInvoiceCount === 1 ? '' : 's'}`);
-      }
-
-      const suggestions = [];
-      if (activeOrderCount > 0) {
-        suggestions.push(`Complete or cancel the ${activeOrderCount} pending order${activeOrderCount === 1 ? '' : 's'} first`);
-      }
-      if (activeInvoiceCount > 0) {
-        suggestions.push(`Resolve the ${activeInvoiceCount} invoice${activeInvoiceCount === 1 ? '' : 's'} first`);
-      }
-      if (suggestions.length === 0) {
-        suggestions.push('Complete all pending business transactions first');
-      }
-
+    if (activeOrderCount > 0) {
       throw new BadRequestException({
-        message: `Cannot delete customer '${entity.name}' because they have ${relatedRecords.join(' and ')}.`,
+        message: `Cannot delete customer '${entity.name}' because they have ${activeOrderCount} order${activeOrderCount === 1 ? '' : 's'}.`,
         error: 'DELETION_PREVENTED_BY_DEPENDENCIES',
         customerName: entity.name,
         customerId: entity.id,
         dependencies: {
           orders: activeOrderCount,
-          invoices: activeInvoiceCount,
         },
-        suggestions,
+        suggestions: [
+          `Complete or cancel the ${activeOrderCount} pending order${activeOrderCount === 1 ? '' : 's'} first`,
+        ],
         details: `Customer '${entity.name}' (${entity.id}) cannot be deleted due to existing business relationships. This is a safety measure to preserve data integrity.`,
       });
     }
@@ -152,7 +136,7 @@ export class CustomerService extends BaseCrudService<
           type: savedCustomer.type,
           priceListId: savedCustomer.priceListId,
         },
-      }
+      },
     );
 
     return this.mapToResponseDto(savedCustomer);
@@ -176,9 +160,9 @@ export class CustomerService extends BaseCrudService<
     // pricingScheme removed in Phase 8 - use priceListId instead
     if (isActive !== undefined) where.isActive = isActive;
 
-
     // Use query builder for case-insensitive sorting
-    let queryBuilder = this.customerRepository.createQueryBuilder('customer')
+    let queryBuilder = this.customerRepository
+      .createQueryBuilder('customer')
       .leftJoinAndSelect('customer.priceList', 'priceList');
 
     // Apply base where conditions
@@ -187,15 +171,16 @@ export class CustomerService extends BaseCrudService<
     });
 
     if (priceListId) {
-      queryBuilder.andWhere('customer.priceListId = :priceListId', { priceListId });
+      queryBuilder.andWhere('customer.priceListId = :priceListId', {
+        priceListId,
+      });
     }
 
     // Apply search conditions
     if (search) {
-      queryBuilder.andWhere(
-        '(customer.name ILIKE :search OR customer.phone ILIKE :search)',
-        { search: `%${search}%` }
-      );
+      queryBuilder.andWhere('(customer.name ILIKE :search OR customer.phone ILIKE :search)', {
+        search: `%${search}%`,
+      });
     }
 
     // Apply sorting - use COLLATE for case-insensitive name sorting
@@ -214,7 +199,7 @@ export class CustomerService extends BaseCrudService<
     const [customers, total] = await queryBuilder.getManyAndCount();
 
     return {
-      data: customers.map(customer => this.mapToResponseDto(customer)),
+      data: customers.map((customer) => this.mapToResponseDto(customer)),
       meta: {
         total,
         ...(shouldPaginate && { page, limit }),
@@ -231,10 +216,9 @@ export class CustomerService extends BaseCrudService<
     const customers = await this.customerRepository
       .createQueryBuilder('customer')
       .where('customer.deletedAt IS NULL')
-      .andWhere(
-        '(customer.name ILIKE :q OR customer.phone ILIKE :q)',
-        { q: `%${trimmed}%` },
-      )
+      .andWhere('(customer.name ILIKE :q OR customer.phone ILIKE :q)', {
+        q: `%${trimmed}%`,
+      })
       .take(SEARCH_CANDIDATE_LIMIT)
       .getMany();
 
@@ -244,14 +228,9 @@ export class CustomerService extends BaseCrudService<
 
     const fuzzyResults = await this.customerRepository
       .createQueryBuilder('customer')
-      .addSelect(
-        'GREATEST(similarity(customer.name, :q), similarity(customer.phone, :q))',
-        'sim',
-      )
+      .addSelect('GREATEST(similarity(customer.name, :q), similarity(customer.phone, :q))', 'sim')
       .where('customer.deletedAt IS NULL')
-      .andWhere(
-        '(similarity(customer.name, :q) > 0.3 OR similarity(customer.phone, :q) > 0.3)',
-      )
+      .andWhere('(similarity(customer.name, :q) > 0.3 OR similarity(customer.phone, :q) > 0.3)')
       .orderBy('sim', 'DESC')
       .setParameter('q', trimmed)
       .take(SEARCH_CANDIDATE_LIMIT)
@@ -260,11 +239,7 @@ export class CustomerService extends BaseCrudService<
     return fuzzyResults.map((customer) => this.mapCustomer(customer, q, true));
   }
 
-  private mapCustomer(
-    customer: Customer,
-    q: string,
-    fuzzy: boolean,
-  ): GlobalSearchResultDto {
+  private mapCustomer(customer: Customer, q: string, fuzzy: boolean): GlobalSearchResultDto {
     const name = customer.name?.toLowerCase() ?? '';
     const phone = customer.phone?.toLowerCase() ?? '';
     const baseScore = fuzzy
@@ -288,18 +263,12 @@ export class CustomerService extends BaseCrudService<
       score:
         baseScore +
         BOOST_CUSTOMER +
-        (baseScore === SCORE_EXACT_CODE || baseScore === SCORE_EXACT_NAME
-          ? BOOST_EXACT_MATCH
-          : 0),
+        (baseScore === SCORE_EXACT_CODE || baseScore === SCORE_EXACT_NAME ? BOOST_EXACT_MATCH : 0),
     };
   }
 
   async findDeleted(query: QueryCustomersDto) {
-    const {
-      search,
-      sortBy = 'name',
-      sortOrder = 'ASC',
-    } = query;
+    const { search, sortBy = 'name', sortOrder = 'ASC' } = query;
 
     const queryBuilder = this.customerRepository
       .createQueryBuilder('customer')
@@ -308,10 +277,9 @@ export class CustomerService extends BaseCrudService<
 
     // Add search conditions
     if (search) {
-      queryBuilder.andWhere(
-        '(customer.name ILIKE :search OR customer.phone ILIKE :search)',
-        { search: `%${search}%` }
-      );
+      queryBuilder.andWhere('(customer.name ILIKE :search OR customer.phone ILIKE :search)', {
+        search: `%${search}%`,
+      });
     }
 
     // Add case-insensitive ordering for name field, regular ordering for others
@@ -324,7 +292,7 @@ export class CustomerService extends BaseCrudService<
     const customers = await queryBuilder.getMany();
 
     return {
-      data: customers.map(customer => this.mapToResponseDto(customer)),
+      data: customers.map((customer) => this.mapToResponseDto(customer)),
       total: customers.length,
     };
   }
@@ -336,7 +304,7 @@ export class CustomerService extends BaseCrudService<
       select: { id: true, name: true, phone: true },
     });
 
-    return customers.map(customer => ({
+    return customers.map((customer) => ({
       id: customer.id,
       name: customer.name,
       phone: customer.phone,
@@ -346,7 +314,7 @@ export class CustomerService extends BaseCrudService<
   async findById(id: string): Promise<CustomerResponseDto> {
     const customer = await this.customerRepository.findOne({
       where: { id },
-      relations: { priceList: true }
+      relations: { priceList: true },
     });
     if (!customer) {
       throw new NotFoundException('Customer not found');
@@ -363,7 +331,6 @@ export class CustomerService extends BaseCrudService<
     return this.mapToResponseDto(customer);
   }
 
-  
   async update(
     id: string,
     updateCustomerDto: UpdateCustomerDto,
@@ -388,7 +355,8 @@ export class CustomerService extends BaseCrudService<
       await this.validatePhoneUniqueness(updateCustomerDto.phone, id);
     }
 
-    const nameChanged = updateCustomerDto.name !== undefined && updateCustomerDto.name !== customer.name;
+    const nameChanged =
+      updateCustomerDto.name !== undefined && updateCustomerDto.name !== customer.name;
     Object.assign(customer, updateCustomerDto);
     if (nameChanged) {
       customer.slug = await this.generateUniqueSlug(customer.name, id);
@@ -411,7 +379,7 @@ export class CustomerService extends BaseCrudService<
           type: savedCustomer.type,
           priceListId: savedCustomer.priceListId,
         },
-      }
+      },
     );
 
     return this.mapToResponseDto(savedCustomer);
@@ -421,7 +389,7 @@ export class CustomerService extends BaseCrudService<
     // Find the customer first to validate
     const customer = await this.customerRepository.findOne({
       where: { id },
-      withDeleted: true
+      withDeleted: true,
     });
 
     // Use standardized validation
@@ -431,28 +399,20 @@ export class CustomerService extends BaseCrudService<
     await this.customerRepository.restore(id);
 
     // Log audit trail
-    await this.auditLogService.log(
-      'RESTORE',
-      'Customer',
-      `Restored customer: ${customer.name}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        newValues: {
-          name: customer.name,
-          phone: customer.phone,
-        },
-      }
-    );
+    await this.auditLogService.log('RESTORE', 'Customer', `Restored customer: ${customer.name}`, {
+      entityId: id,
+      userId: userId || 'system',
+      username,
+      newValues: {
+        name: customer.name,
+        phone: customer.phone,
+      },
+    });
 
     return this.mapToResponseDto(customer);
   }
 
   // Credit management methods removed - fields don't exist in current entity
-
-
-
 
   async getSalesHistory(customerId: string) {
     await this.findCustomerEntity(customerId); // Verify customer exists
@@ -465,7 +425,7 @@ export class CustomerService extends BaseCrudService<
 
     return {
       customerId,
-      orders: orders.map(order => ({
+      orders: orders.map((order) => ({
         id: order.id,
         orderNumber: order.orderNumber,
         orderDate: order.orderDate,
@@ -473,41 +433,6 @@ export class CustomerService extends BaseCrudService<
         isPaid: order.isPaidInFull,
         totalAmount: Number(order.totalAmount),
         itemsCount: order.items?.length || 0,
-      })),
-    };
-  }
-
-  async getOutstandingInvoices(customerId: string) {
-    await this.findCustomerEntity(customerId); // Verify customer exists
-
-    const invoices = await this.invoiceRepository.find({
-      where: {
-        customerId,
-        // Note: filtering for balanceDue > 0 will be done in code below
-      },
-      order: { invoiceDate: 'ASC' },
-    });
-
-    const outstandingInvoices = invoices.filter(invoice => Number(invoice.balanceDue) > 0);
-
-    const totalOutstanding = outstandingInvoices.reduce(
-      (sum, invoice) => sum + Number(invoice.balanceDue),
-      0,
-    );
-
-    return {
-      customerId,
-      totalOutstanding,
-      invoicesCount: outstandingInvoices.length,
-      invoices: outstandingInvoices.map(invoice => ({
-        id: invoice.id,
-        invoiceNumber: invoice.invoiceNumber,
-        invoiceDate: invoice.invoiceDate,
-        totalAmount: Number(invoice.totalAmount),
-        paidAmount: Number(invoice.paidAmount),
-        balanceDue: Number(invoice.balanceDue),
-        salesOrderId: invoice.salesOrderId ?? null,
-        // daysPastDue and isOverdue removed as they depend on dueDate
       })),
     };
   }
@@ -538,13 +463,6 @@ export class CustomerService extends BaseCrudService<
       lastPaymentDate: null,
     };
 
-    // Get overdue invoice count
-    const overdueInvoices = await this.invoiceRepository.count({
-      where: { 
-        customerId,
-      },
-    });
-
     return {
       customerId,
       customer: {
@@ -562,9 +480,6 @@ export class CustomerService extends BaseCrudService<
         totalPaid: paymentStats.totalPaid || 0,
         averagePaymentAmount: paymentStats.averagePaymentAmount || 0,
         lastPaymentDate: paymentStats.lastPaymentDate,
-      },
-      invoices: {
-        overdueCount: overdueInvoices,
       },
     };
   }
@@ -593,12 +508,7 @@ export class CustomerService extends BaseCrudService<
         try {
           ValidationUtil.validateForRestore(customer, 'Customer', customerId);
         } catch (error) {
-          BulkOperationUtil.addFailure(
-            failedItems,
-            customerId,
-            error.message,
-            'VALIDATION_ERROR'
-          );
+          BulkOperationUtil.addFailure(failedItems, customerId, error.message, 'VALIDATION_ERROR');
           continue;
         }
 
@@ -615,16 +525,11 @@ export class CustomerService extends BaseCrudService<
               name: customer.name,
               phone: customer.phone,
             },
-          }
+          },
         );
         successCount++;
       } catch (error) {
-        BulkOperationUtil.addFailure(
-          failedItems,
-          customerId,
-          error.message,
-          'UNEXPECTED_ERROR'
-        );
+        BulkOperationUtil.addFailure(failedItems, customerId, error.message, 'UNEXPECTED_ERROR');
       }
     }
 
@@ -655,58 +560,29 @@ export class CustomerService extends BaseCrudService<
         try {
           ValidationUtil.validateForPermanentDelete(customer, 'Customer', customerId);
         } catch (error) {
-          BulkOperationUtil.addFailure(
-            failedItems,
-            customerId,
-            error.message,
-            'VALIDATION_ERROR'
-          );
+          BulkOperationUtil.addFailure(failedItems, customerId, error.message, 'VALIDATION_ERROR');
           continue;
         }
 
         // Check for active references with comprehensive dependency checking
         // Only check for non-soft-deleted records since soft-deleted records can coexist
-        const [orderCount, invoiceCount] = await Promise.all([
-          this.salesOrderRepository.count({
-            where: { customerId },
-            // Don't count soft-deleted orders
-            withDeleted: false
-          }),
-          this.invoiceRepository.count({
-            where: { customerId },
-            // Don't count soft-deleted invoices
-            withDeleted: false
-          }),
-        ]);
+        const orderCount = await this.salesOrderRepository.count({
+          where: { customerId },
+          withDeleted: false,
+        });
 
-        // Payment count check temporarily disabled (Payment entity not available)
-        const paymentCount = 0;
-
-        const dependencies = [
-          { name: 'order', count: orderCount },
-          { name: 'invoice', count: invoiceCount },
-          { name: 'payment', count: paymentCount },
-        ];
-
-        const activeDependencies = dependencies.filter(dep => dep.count > 0);
-        if (activeDependencies.length > 0) {
-          const dependencyDetails = activeDependencies.map(dep =>
-            `${dep.count} ${dep.name}${dep.count > 1 ? 's' : ''}`
-          ).join(', ');
-
+        if (orderCount > 0) {
           BulkOperationUtil.addFailure(
             failedItems,
             customerId,
-            `Cannot permanently delete customer '${customer.name}' (${customer.id}) due to active dependencies: ${dependencyDetails}. Complete all business transactions first.`,
+            `Cannot permanently delete customer '${customer.name}' (${customer.id}) due to ${orderCount} active order${orderCount > 1 ? 's' : ''}. Complete all business transactions first.`,
             'DEPENDENCY_ERROR',
             {
               customerName: customer.name,
               dependencies: {
                 orders: orderCount,
-                invoices: invoiceCount,
-                payments: paymentCount
-              }
-            }
+              },
+            },
           );
           continue;
         }
@@ -721,16 +597,6 @@ export class CustomerService extends BaseCrudService<
             .where('customerId = :customerId', { customerId })
             .andWhere('deletedAt IS NOT NULL')
             .execute(),
-
-          // Delete soft-deleted invoices
-          this.invoiceRepository
-            .createQueryBuilder()
-            .delete()
-            .where('customerId = :customerId', { customerId })
-            .andWhere('deletedAt IS NOT NULL')
-            .execute(),
-
-          // TODO: Add payment deletion when Payment entity is available
         ]);
 
         // Log audit trail for permanent delete
@@ -748,23 +614,23 @@ export class CustomerService extends BaseCrudService<
               type: customer.type,
               priceListId: customer.priceListId,
             },
-          }
+          },
         );
 
         // Perform hard delete
         await this.customerRepository.delete(customerId);
         successCount++;
       } catch (error) {
-        BulkOperationUtil.addFailure(
-          failedItems,
-          customerId,
-          error.message,
-          'UNEXPECTED_ERROR'
-        );
+        BulkOperationUtil.addFailure(failedItems, customerId, error.message, 'UNEXPECTED_ERROR');
       }
     }
 
-    return BulkOperationUtil.createResponse('permanently deleted', 'customer', successCount, failedItems);
+    return BulkOperationUtil.createResponse(
+      'permanently deleted',
+      'customer',
+      successCount,
+      failedItems,
+    );
   }
 
   @Transactional('Customer permanent deletion with financial integrity validation')
@@ -775,41 +641,28 @@ export class CustomerService extends BaseCrudService<
       where: { id },
       withDeleted: true,
     });
-    console.log(`Found customer:`, customer ? { id: customer.id, name: customer.name, deletedAt: customer.deletedAt } : 'null');
+    console.log(
+      `Found customer:`,
+      customer
+        ? {
+            id: customer.id,
+            name: customer.name,
+            deletedAt: customer.deletedAt,
+          }
+        : 'null',
+    );
 
     // Use standardized validation
     ValidationUtil.validateForPermanentDelete(customer, 'Customer', id);
 
     // Check for active references with comprehensive dependency checking
     // Only check for non-soft-deleted records since soft-deleted records can coexist
-    const [orderCount, invoiceCount] = await Promise.all([
-      this.salesOrderRepository.count({
-        where: { customerId: id },
-        // Don't count soft-deleted orders
-        withDeleted: false
-      }),
-      this.invoiceRepository.count({
-        where: { customerId: id },
-        // Don't count soft-deleted invoices
-        withDeleted: false
-      }),
-    ]);
+    const orderCount = await this.salesOrderRepository.count({
+      where: { customerId: id },
+      withDeleted: false,
+    });
 
-    // Payment count check temporarily disabled (Payment entity not available)
-    const paymentCount = 0;
-
-    const dependencies = [
-      { name: 'order', count: orderCount },
-      { name: 'invoice', count: invoiceCount },
-      { name: 'payment', count: paymentCount },
-    ];
-
-    const activeDependencies = dependencies.filter(dep => dep.count > 0);
-    if (activeDependencies.length > 0) {
-      const dependencyDetails = activeDependencies.map(dep =>
-        `${dep.count} active ${dep.name}${dep.count > 1 ? 's' : ''}`
-      ).join(', ');
-
+    if (orderCount > 0) {
       const errorResponse = {
         message: `Cannot permanently delete customer '${customer.name}' due to active business relationships`,
         error: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES',
@@ -817,16 +670,12 @@ export class CustomerService extends BaseCrudService<
         customerId: customer.id,
         dependencies: {
           orders: orderCount,
-          invoices: invoiceCount,
-          payments: paymentCount
         },
-        details: `Customer '${customer.name}' (${customer.id}) has ${dependencyDetails}. Permanent deletion is blocked to preserve financial audit trails and data integrity.`,
+        details: `Customer '${customer.name}' (${customer.id}) has ${orderCount} active order${orderCount > 1 ? 's' : ''}. Permanent deletion is blocked to preserve financial audit trails and data integrity.`,
         suggestions: [
           'Complete and archive all pending orders first',
-          'Ensure all invoices are fully paid and closed',
-          'Remove any payment references or reassign to other customers',
-          'Consider using soft delete instead if you need to hide the customer'
-        ]
+          'Consider using soft delete instead if you need to hide the customer',
+        ],
       };
 
       // Use BadRequestException with the full error object
@@ -840,11 +689,11 @@ export class CustomerService extends BaseCrudService<
       const consistencyCheck = await this.transactionManager.validateFinancialConsistency(id);
       if (!consistencyCheck.isValid) {
         // Only fail if the customer was not found due to other reasons
-        if (consistencyCheck.discrepancies.some(d => d.includes('Customer not found'))) {
+        if (consistencyCheck.discrepancies.some((d) => d.includes('Customer not found'))) {
           console.log('Skipping financial consistency check for soft-deleted customer');
         } else {
           throw new BadRequestException(
-            `Customer financial data inconsistency detected: ${consistencyCheck.discrepancies.join(', ')}`
+            `Customer financial data inconsistency detected: ${consistencyCheck.discrepancies.join(', ')}`,
           );
         }
       }
@@ -862,16 +711,6 @@ export class CustomerService extends BaseCrudService<
         .where('customerId = :customerId', { customerId: id })
         .andWhere('deletedAt IS NOT NULL')
         .execute(),
-
-      // Delete soft-deleted invoices
-      this.invoiceRepository
-        .createQueryBuilder()
-        .delete()
-        .where('customerId = :customerId', { customerId: id })
-        .andWhere('deletedAt IS NOT NULL')
-        .execute(),
-
-      // TODO: Add payment deletion when Payment entity is available
     ]);
 
     // Log audit trail for permanent delete
@@ -889,7 +728,7 @@ export class CustomerService extends BaseCrudService<
           type: customer.type,
           priceListId: customer.priceListId,
         },
-      }
+      },
     );
 
     // Perform hard delete
@@ -900,8 +739,12 @@ export class CustomerService extends BaseCrudService<
    * Validate and correct customer financial totals
    * Use for data integrity maintenance
    */
-  async validateCustomerFinancials(customerId: string): Promise<{ isValid: boolean; discrepancies: string[] }> {
-    const customer = await this.customerRepository.findOne({ where: { id: customerId } });
+  async validateCustomerFinancials(
+    customerId: string,
+  ): Promise<{ isValid: boolean; discrepancies: string[] }> {
+    const customer = await this.customerRepository.findOne({
+      where: { id: customerId },
+    });
     if (!customer) {
       throw new NotFoundException('Customer not found');
     }
@@ -915,7 +758,9 @@ export class CustomerService extends BaseCrudService<
    */
   @Transactional('Customer financial totals correction')
   async correctCustomerFinancials(customerId: string): Promise<CustomerResponseDto> {
-    const customer = await this.customerRepository.findOne({ where: { id: customerId } });
+    const customer = await this.customerRepository.findOne({
+      where: { id: customerId },
+    });
     if (!customer) {
       throw new NotFoundException('Customer not found');
     }
@@ -923,7 +768,9 @@ export class CustomerService extends BaseCrudService<
     await this.transactionManager.correctCustomerTotals(customerId);
 
     // Return updated customer
-    const updatedCustomer = await this.customerRepository.findOne({ where: { id: customerId } });
+    const updatedCustomer = await this.customerRepository.findOne({
+      where: { id: customerId },
+    });
     return this.mapToResponseDto(updatedCustomer);
   }
 
@@ -931,7 +778,10 @@ export class CustomerService extends BaseCrudService<
    * Recalculate all customer totals from actual sales order data
    * This method fixes discrepancies in customer financial metrics
    */
-  async recalculateAllCustomerTotals(): Promise<{ updated: number; message: string }> {
+  async recalculateAllCustomerTotals(): Promise<{
+    updated: number;
+    message: string;
+  }> {
     console.log('🔄 Starting recalculation of all customer totals...');
 
     // Get all customers (including inactive — inactive customers may still have fulfilled orders)
@@ -990,9 +840,14 @@ export class CustomerService extends BaseCrudService<
    * Update customer metrics for a specific customer based on their sales orders
    */
   async updateCustomerMetrics(customerId: string): Promise<void> {
-    const customer = await this.customerRepository.findOne({ where: { id: customerId }, withDeleted: true });
+    const customer = await this.customerRepository.findOne({
+      where: { id: customerId },
+      withDeleted: true,
+    });
     if (!customer) {
-      throw new NotFoundException(`Customer not found for metric update (customerId: ${customerId}) — possible orphaned order`);
+      throw new NotFoundException(
+        `Customer not found for metric update (customerId: ${customerId}) — possible orphaned order`,
+      );
     }
 
     // Calculate actual totals from sales orders
@@ -1042,7 +897,7 @@ export class CustomerService extends BaseCrudService<
     const existingCustomers = await queryBuilder.getMany();
 
     // Check for normalized phone number matches
-    const duplicateCustomer = existingCustomers.find(customer => {
+    const duplicateCustomer = existingCustomers.find((customer) => {
       if (!customer.phone) return false;
       const existingNormalizedPhone = customer.phone.replace(/[\s\-\(\)\+]/g, '');
       return existingNormalizedPhone === normalizedPhone;
@@ -1050,7 +905,7 @@ export class CustomerService extends BaseCrudService<
 
     if (duplicateCustomer) {
       throw new ConflictException(
-        `A customer with phone number "${phone}" already exists (Customer: ${duplicateCustomer.name})`
+        `A customer with phone number "${phone}" already exists (Customer: ${duplicateCustomer.name})`,
       );
     }
   }
@@ -1058,7 +913,7 @@ export class CustomerService extends BaseCrudService<
   private async findCustomerEntity(id: string): Promise<Customer> {
     const customer = await this.customerRepository.findOne({
       where: { id },
-      relations: { priceList: true }
+      relations: { priceList: true },
     });
     if (!customer) {
       throw new NotFoundException('Customer not found');
@@ -1101,13 +956,15 @@ export class CustomerService extends BaseCrudService<
       shippingCountry: customer.shippingCountry,
       isActive: customer.isActive,
       priceListId: customer.priceListId,
-      priceList: customer.priceList ? {
-        id: customer.priceList.id,
-        name: customer.priceList.name,
-        code: customer.priceList.code,
-        isDefault: customer.priceList.isDefault,
-        isActive: customer.priceList.isActive,
-      } : undefined,
+      priceList: customer.priceList
+        ? {
+            id: customer.priceList.id,
+            name: customer.priceList.name,
+            code: customer.priceList.code,
+            isDefault: customer.priceList.isDefault,
+            isActive: customer.priceList.isActive,
+          }
+        : undefined,
       totalSales: Number(customer.totalSales),
       totalOrders: customer.totalOrders,
       lastPurchaseDate: customer.lastPurchaseDate,

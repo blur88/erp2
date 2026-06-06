@@ -12,13 +12,16 @@ export function mapSalesOrderToResponseDto(
     id: order.id,
     orderNumber: order.orderNumber,
     orderDate: order.orderDate,
+    fulfilledAt: order.fulfilledAt,
     status: order.status,
     paymentStatus: order.paymentStatus,
     subtotal: Number(order.subtotal || 0),
     shippingAmount: Number(order.shippingAmount || 0),
     totalAmount: Number(order.totalAmount),
     paidAmount: Number(order.paidAmount || 0),
-    balanceDue: Number(order.balanceDue ?? (Number(order.totalAmount) - Number(order.paidAmount || 0))),
+    balanceDue: Number(
+      order.balanceDue ?? Number(order.totalAmount) - Number(order.paidAmount || 0),
+    ),
     notes: order.notes,
     customerId: order.customerId,
     customer: order.customer
@@ -43,7 +46,13 @@ export function mapSalesOrderToResponseDto(
               name: item.product.name,
               description: item.product.description,
               barcode: item.product.barcode,
-              stockQuantity: Number(item.product.stockQuantity ?? 0),
+              // Preserve "not loaded" as undefined rather than defaulting to 0.
+              // A trimmed list query may omit stockQuantity; coercing it to 0
+              // makes the frontend falsely report "out of stock" (SO-26-024).
+              stockQuantity:
+                item.product.stockQuantity == null
+                  ? undefined
+                  : Number(item.product.stockQuantity),
             }
           : null,
         quantity: item.quantity,

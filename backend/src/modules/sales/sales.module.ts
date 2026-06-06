@@ -7,8 +7,6 @@ import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../database/entities/sales-order-item.entity';
 import { SalesOrderPayment } from '../../database/entities/sales-order-payment.entity';
 import { Product } from '../../database/entities/product.entity';
-import { Invoice } from '../../database/entities/invoice.entity';
-import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { Payment } from '../../database/entities/payment.entity';
 import { PaymentMethodEntity } from '../../database/entities/payment-method.entity';
 import { User } from '../../database/entities/user.entity';
@@ -23,14 +21,12 @@ import { ExportModule } from '../../common/export.module';
 // Controllers
 import { CustomerController } from './controllers/customer.controller';
 import { SalesOrderController } from './controllers/sales-order.controller'; // Temporarily disabled due to TypeScript errors
-import { InvoiceController } from './controllers/invoice.controller';
 import { PaymentController } from './controllers/payment.controller';
 import { SalesAnalyticsController } from './controllers/sales-analytics.controller';
 
 // Services
 import { CustomerService } from './services/customer.service';
 import { SalesOrderService } from './services/sales-order.service'; // Temporarily disabled due to TypeScript errors
-import { InvoiceService } from './services/invoice.service';
 import { PaymentService } from './services/payment.service';
 import { SalesAnalyticsService } from './services/sales-analytics.service';
 import { SalesAnalyticsReportService } from './services/sales-analytics-report.service';
@@ -49,8 +45,6 @@ import { TransactionManager } from '../../common/utils/transaction.util';
       SalesOrderItem,
       SalesOrderPayment,
       Product,
-      Invoice,
-      InvoiceItem,
       Payment,
       PaymentMethodEntity,
       User,
@@ -66,14 +60,12 @@ import { TransactionManager } from '../../common/utils/transaction.util';
   controllers: [
     CustomerController,
     SalesOrderController, // Temporarily disabled due to TypeScript errors
-    InvoiceController,
     PaymentController,
     SalesAnalyticsController,
   ],
   providers: [
     CustomerService,
     SalesOrderService,
-    InvoiceService,
     PaymentService,
     SalesAnalyticsService,
     SalesAnalyticsReportService,
@@ -87,7 +79,6 @@ import { TransactionManager } from '../../common/utils/transaction.util';
   exports: [
     CustomerService,
     SalesOrderService, // Temporarily disabled due to TypeScript errors
-    InvoiceService,
     PaymentService,
   ],
 })

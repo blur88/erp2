@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
@@ -77,8 +73,10 @@ export class SalesOrderFulfillmentService {
       await manager.getRepository(SalesOrder).update(id, {
         status: SalesOrderStatus.FULFILLED,
         updatedAt: now,
+        fulfilledAt: now,
       });
       order.status = SalesOrderStatus.FULFILLED;
+      order.fulfilledAt = now;
 
       // Re-read the order after the status update + stock reduction, then post
       // accounting against that fresh row. This fixes two things the in-memory
@@ -100,19 +98,29 @@ export class SalesOrderFulfillmentService {
       // journal entries commit on a separate connection. A failure *here* still rolls
       // back stock + status (the post is the last in-tx step); the residual gap is a
       // failure of the outer COMMIT after the GL committed, which #719 will close.
-      await this.accountingService.postSalesOrderEntry(orderForPosting, userId || 'system', username, manager);
+      await this.accountingService.postSalesOrderEntry(
+        orderForPosting,
+        userId || 'system',
+        username,
+        manager,
+      );
       this.logger.log(`Posted accounting entry for sales order ${order.orderNumber}`);
 
       return order;
     });
 
-    await this.auditLogService.log('FULFILL', 'SalesOrder', `Fulfilled sales order: ${saved.orderNumber}`, {
-      entityId: id,
-      userId: userId || 'system',
-      username,
-      oldValues: { status: SalesOrderStatus.READY },
-      newValues: { status: SalesOrderStatus.FULFILLED },
-    });
+    await this.auditLogService.log(
+      'FULFILL',
+      'SalesOrder',
+      `Fulfilled sales order: ${saved.orderNumber}`,
+      {
+        entityId: id,
+        userId: userId || 'system',
+        username,
+        oldValues: { status: SalesOrderStatus.READY },
+        newValues: { status: SalesOrderStatus.FULFILLED },
+      },
+    );
 
     return saved;
   }
@@ -133,25 +141,43 @@ export class SalesOrderFulfillmentService {
         }
       }
 
-      const result = await this.stockMovementService.deleteByReference('sales_order', order.id, manager);
+      const result = await this.stockMovementService.deleteByReference(
+        'sales_order',
+        order.id,
+        manager,
+      );
       this.logger.log(`Deleted ${result.deletedCount} stock movements for ${order.orderNumber}`);
 
-      await manager.getRepository(SalesOrder).update(id, { status: SalesOrderStatus.READY });
+      await manager.getRepository(SalesOrder).update(id, {
+        status: SalesOrderStatus.READY,
+        fulfilledAt: null as any,
+      });
       order.status = SalesOrderStatus.READY;
+      order.fulfilledAt = undefined;
 
-      await this.accountingService.reverseSourceEntries('sales_order', id, userId || 'system', manager);
+      await this.accountingService.reverseSourceEntries(
+        'sales_order',
+        id,
+        userId || 'system',
+        manager,
+      );
       this.logger.log(`Reversed accounting entry for sales order ${order.orderNumber}`);
 
       return order;
     });
 
-    await this.auditLogService.log('UPDATE', 'SalesOrder', `Unfulfilled sales order: ${saved.orderNumber}`, {
-      entityId: id,
-      userId: userId || 'system',
-      username,
-      oldValues: { status: SalesOrderStatus.FULFILLED },
-      newValues: { status: SalesOrderStatus.READY },
-    });
+    await this.auditLogService.log(
+      'UPDATE',
+      'SalesOrder',
+      `Unfulfilled sales order: ${saved.orderNumber}`,
+      {
+        entityId: id,
+        userId: userId || 'system',
+        username,
+        oldValues: { status: SalesOrderStatus.FULFILLED },
+        newValues: { status: SalesOrderStatus.READY },
+      },
+    );
 
     return saved;
   }

@@ -1,29 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import {
-  NotFoundException,
-  BadRequestException,
-  ConflictException,
-} from '@nestjs/common';
+import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { JournalEntryService } from './journal-entry.service';
 import { ChartOfAccountsService } from './chart-of-accounts.service';
 import { FiscalPeriodService } from './fiscal-period.service';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
-import {
-  JournalEntry,
-  JournalEntryStatus,
-} from '../../../database/entities/journal-entry.entity';
+import { JournalEntry, JournalEntryStatus } from '../../../database/entities/journal-entry.entity';
 import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
-import {
-  FiscalPeriod,
-  FiscalPeriodStatus,
-} from '../../../database/entities/fiscal-period.entity';
-import {
-  ChartOfAccount,
-  AccountType,
-} from '../../../database/entities/chart-of-account.entity';
+import { FiscalPeriod, FiscalPeriodStatus } from '../../../database/entities/fiscal-period.entity';
+import { ChartOfAccount, AccountType } from '../../../database/entities/chart-of-account.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
 import { GoodsReceivedNote } from '../../../database/entities/goods-received-note.entity';
@@ -34,7 +21,6 @@ import { OwnerEquityTransaction } from '../../../database/entities/owner-equity-
 import { FundTransfer } from '../../../database/entities/fund-transfer.entity';
 import { Settlement } from '../../../database/entities/settlement.entity';
 import { StockAdjustment } from '../../../database/entities/stock-adjustment.entity';
-import { Invoice } from '../../../database/entities/invoice.entity';
 import {
   CreateJournalEntryDto,
   UpdateJournalEntryDto,
@@ -61,7 +47,6 @@ describe('JournalEntryService', () => {
   let mockFundTransferRepo: { findOne: jest.Mock; find: jest.Mock };
   let mockSettlementRepo: { findOne: jest.Mock; find: jest.Mock };
   let mockStockAdjustmentRepo: { findOne: jest.Mock; find: jest.Mock };
-  let mockInvoiceRepo: { findOne: jest.Mock; find: jest.Mock };
 
   // Test data
   const mockFiscalPeriod: Partial<FiscalPeriod> = {
@@ -143,8 +128,6 @@ describe('JournalEntryService', () => {
     mockFundTransferRepo = { findOne: jest.fn(), find: jest.fn() };
     mockSettlementRepo = { findOne: jest.fn(), find: jest.fn() };
     mockStockAdjustmentRepo = { findOne: jest.fn(), find: jest.fn() };
-    mockInvoiceRepo = { findOne: jest.fn(), find: jest.fn() };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         JournalEntryService,
@@ -183,20 +166,40 @@ describe('JournalEntryService', () => {
             find: jest.fn(),
           },
         },
-        { provide: getRepositoryToken(SalesOrder), useValue: mockSalesOrderRepo },
-        { provide: getRepositoryToken(PurchaseOrder), useValue: mockPurchaseOrderRepo },
-        { provide: getRepositoryToken(GoodsReceivedNote), useValue: mockGrnRepo },
+        {
+          provide: getRepositoryToken(SalesOrder),
+          useValue: mockSalesOrderRepo,
+        },
+        {
+          provide: getRepositoryToken(PurchaseOrder),
+          useValue: mockPurchaseOrderRepo,
+        },
+        {
+          provide: getRepositoryToken(GoodsReceivedNote),
+          useValue: mockGrnRepo,
+        },
         { provide: getRepositoryToken(Payment), useValue: mockPaymentRepo },
-        { provide: getRepositoryToken(VendorPayment), useValue: mockVendorPaymentRepo },
+        {
+          provide: getRepositoryToken(VendorPayment),
+          useValue: mockVendorPaymentRepo,
+        },
         { provide: getRepositoryToken(Expense), useValue: mockExpenseRepo },
         {
           provide: getRepositoryToken(OwnerEquityTransaction),
           useValue: mockOwnerEquityTransactionRepo,
         },
-        { provide: getRepositoryToken(FundTransfer), useValue: mockFundTransferRepo },
-        { provide: getRepositoryToken(Settlement), useValue: mockSettlementRepo },
-        { provide: getRepositoryToken(StockAdjustment), useValue: mockStockAdjustmentRepo },
-        { provide: getRepositoryToken(Invoice), useValue: mockInvoiceRepo },
+        {
+          provide: getRepositoryToken(FundTransfer),
+          useValue: mockFundTransferRepo,
+        },
+        {
+          provide: getRepositoryToken(Settlement),
+          useValue: mockSettlementRepo,
+        },
+        {
+          provide: getRepositoryToken(StockAdjustment),
+          useValue: mockStockAdjustmentRepo,
+        },
         {
           provide: ChartOfAccountsService,
           useValue: {
@@ -326,7 +329,10 @@ describe('JournalEntryService', () => {
     });
 
     it('should throw BadRequestException if fiscal period is closed', async () => {
-      const closedPeriod = { ...mockFiscalPeriod, status: FiscalPeriodStatus.CLOSED };
+      const closedPeriod = {
+        ...mockFiscalPeriod,
+        status: FiscalPeriodStatus.CLOSED,
+      };
       fiscalPeriodRepository.findOne.mockResolvedValue(closedPeriod as FiscalPeriod);
 
       await expect(service.create(createDto)).rejects.toThrow(BadRequestException);
@@ -424,10 +430,7 @@ describe('JournalEntryService', () => {
       await service.findAll(queryDto);
 
       expect(queryBuilder.orderBy).toHaveBeenCalledWith('entry.entryDate', 'ASC');
-      expect(queryBuilder.addOrderBy).toHaveBeenCalledWith(
-        'entry.referenceNumber',
-        'ASC',
-      );
+      expect(queryBuilder.addOrderBy).toHaveBeenCalledWith('entry.referenceNumber', 'ASC');
     });
 
     it('should return paginated journal entries', async () => {
@@ -496,10 +499,9 @@ describe('JournalEntryService', () => {
 
       await service.findAll({ ids: 'entry-1,entry-2' });
 
-      expect(andWhereMock).toHaveBeenCalledWith(
-        'entry.id IN (:...idList)',
-        { idList: ['entry-1', 'entry-2'] },
-      );
+      expect(andWhereMock).toHaveBeenCalledWith('entry.id IN (:...idList)', {
+        idList: ['entry-1', 'entry-2'],
+      });
     });
 
     it('calls resolveSourceRefNumbersMany once and does not call per-entry findOne on source repos', async () => {
@@ -632,7 +634,9 @@ describe('JournalEntryService', () => {
       } as JournalEntry;
 
       journalEntryRepository.findOne.mockResolvedValue(entry);
-      mockPurchaseOrderRepo.findOne.mockResolvedValue({ orderNumber: 'PO-0007' });
+      mockPurchaseOrderRepo.findOne.mockResolvedValue({
+        orderNumber: 'PO-0007',
+      });
 
       const result = await service.findOne('entry-1');
 
@@ -669,40 +673,6 @@ describe('JournalEntryService', () => {
     });
   });
 
-  describe('resolveSourceRefNumber for invoice', () => {
-    it('returns invoiceNumber when sourceType is invoice', async () => {
-      const mockEntry = {
-        ...mockJournalEntry,
-        sourceType: 'invoice',
-        sourceId: 'invoice-1',
-        lines: [mockJournalEntryLine1, mockJournalEntryLine2],
-      };
-      journalEntryRepository.findOne.mockResolvedValue(mockEntry as JournalEntry);
-      mockInvoiceRepo.findOne.mockResolvedValue({ invoiceNumber: 'INV-0042' });
-
-      const result = await service.findOne('entry-1');
-      expect(result.sourceRefNumber).toBe('INV-0042');
-      expect(mockInvoiceRepo.findOne).toHaveBeenCalledWith({
-        where: { id: 'invoice-1' },
-        select: { id: true, invoiceNumber: true },
-      });
-    });
-
-    it('returns undefined when invoice not found', async () => {
-      const mockEntry = {
-        ...mockJournalEntry,
-        sourceType: 'invoice',
-        sourceId: 'invoice-missing',
-        lines: [mockJournalEntryLine1, mockJournalEntryLine2],
-      };
-      journalEntryRepository.findOne.mockResolvedValue(mockEntry as JournalEntry);
-      mockInvoiceRepo.findOne.mockResolvedValue(null);
-
-      const result = await service.findOne('entry-1');
-      expect(result.sourceRefNumber).toBeUndefined();
-    });
-  });
-
   describe('update', () => {
     const updateDto: UpdateJournalEntryDto = {
       description: 'Updated description',
@@ -725,7 +695,10 @@ describe('JournalEntryService', () => {
     });
 
     it('should throw BadRequestException if entry is not DRAFT', async () => {
-      const postedEntry = { ...mockJournalEntry, status: JournalEntryStatus.POSTED };
+      const postedEntry = {
+        ...mockJournalEntry,
+        status: JournalEntryStatus.POSTED,
+      };
       journalEntryRepository.findOne.mockResolvedValue(postedEntry as JournalEntry);
 
       await expect(service.update('entry-1', updateDto)).rejects.toThrow(BadRequestException);
@@ -741,7 +714,9 @@ describe('JournalEntryService', () => {
   describe('remove', () => {
     it('should soft delete a DRAFT journal entry', async () => {
       journalEntryRepository.findOne.mockResolvedValue(mockJournalEntry as JournalEntry);
-      journalEntryRepository.softDelete.mockResolvedValue({ affected: 1 } as any);
+      journalEntryRepository.softDelete.mockResolvedValue({
+        affected: 1,
+      } as any);
 
       await service.remove('entry-1');
 
@@ -749,14 +724,20 @@ describe('JournalEntryService', () => {
     });
 
     it('should throw BadRequestException if entry is not DRAFT', async () => {
-      const postedEntry = { ...mockJournalEntry, status: JournalEntryStatus.POSTED };
+      const postedEntry = {
+        ...mockJournalEntry,
+        status: JournalEntryStatus.POSTED,
+      };
       journalEntryRepository.findOne.mockResolvedValue(postedEntry as JournalEntry);
 
       await expect(service.remove('entry-1')).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException if entry has been reversed', async () => {
-      const reversedEntry = { ...mockJournalEntry, reversedById: 'rev-entry-1' };
+      const reversedEntry = {
+        ...mockJournalEntry,
+        reversedById: 'rev-entry-1',
+      };
       journalEntryRepository.findOne.mockResolvedValue(reversedEntry as JournalEntry);
 
       await expect(service.remove('entry-1')).rejects.toThrow(BadRequestException);
@@ -846,7 +827,8 @@ describe('JournalEntryService', () => {
   describe('bulkPost', () => {
     it('should post multiple draft entries', async () => {
       const ids = ['id1', 'id2', 'id3'];
-      jest.spyOn(service, 'postEntry')
+      jest
+        .spyOn(service, 'postEntry')
         .mockResolvedValueOnce({ id: 'id1', status: 'POSTED' } as any)
         .mockResolvedValueOnce({ id: 'id2', status: 'POSTED' } as any)
         .mockResolvedValueOnce({ id: 'id3', status: 'POSTED' } as any);
@@ -859,7 +841,8 @@ describe('JournalEntryService', () => {
 
     it('should return partial results when some entries fail', async () => {
       const ids = ['id1', 'id2'];
-      jest.spyOn(service, 'postEntry')
+      jest
+        .spyOn(service, 'postEntry')
         .mockResolvedValueOnce({ id: 'id1', status: 'POSTED' } as any)
         .mockRejectedValueOnce(new BadRequestException('Not balanced'));
 
@@ -875,7 +858,8 @@ describe('JournalEntryService', () => {
   describe('bulkDelete', () => {
     it('should delete multiple draft entries', async () => {
       const ids = ['id1', 'id2'];
-      jest.spyOn(service, 'remove')
+      jest
+        .spyOn(service, 'remove')
         .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce(undefined);
 
@@ -887,7 +871,8 @@ describe('JournalEntryService', () => {
 
     it('should return failures for non-draft entries', async () => {
       const ids = ['id1', 'id2'];
-      jest.spyOn(service, 'remove')
+      jest
+        .spyOn(service, 'remove')
         .mockResolvedValueOnce(undefined)
         .mockRejectedValueOnce(new BadRequestException('Cannot delete posted entry'));
 
@@ -917,8 +902,12 @@ describe('JournalEntryService', () => {
       journalEntryRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
 
       fiscalPeriodService.checkPeriodOpen.mockResolvedValue(true);
-      journalEntryRepository.create.mockReturnValue({ id: 'rev-entry-1' } as JournalEntry);
-      journalEntryRepository.save.mockResolvedValue({ id: 'rev-entry-1' } as JournalEntry);
+      journalEntryRepository.create.mockReturnValue({
+        id: 'rev-entry-1',
+      } as JournalEntry);
+      journalEntryRepository.save.mockResolvedValue({
+        id: 'rev-entry-1',
+      } as JournalEntry);
       journalEntryLineRepository.create.mockReturnValue({} as JournalEntryLine);
       journalEntryLineRepository.save.mockResolvedValue([] as any);
 
@@ -988,9 +977,7 @@ describe('JournalEntryService', () => {
         { id: 'so-1', orderNumber: 'SO-001' },
         { id: 'so-2', orderNumber: 'SO-002' },
       ]);
-      mockPaymentRepo.find.mockResolvedValue([
-        { id: 'pay-1', paymentNumber: 'PAY-001' },
-      ]);
+      mockPaymentRepo.find.mockResolvedValue([{ id: 'pay-1', paymentNumber: 'PAY-001' }]);
 
       const map = await (service as any).resolveSourceRefNumbersMany(entries);
 
@@ -1019,9 +1006,7 @@ describe('JournalEntryService', () => {
     });
 
     it('returns empty Map when a repo throws - does not rethrow', async () => {
-      const entries = [
-        { id: 'e1', sourceType: 'sales_order', sourceId: 'so-1' },
-      ] as any[];
+      const entries = [{ id: 'e1', sourceType: 'sales_order', sourceId: 'so-1' }] as any[];
 
       mockSalesOrderRepo.find.mockRejectedValue(new Error('DB error'));
 

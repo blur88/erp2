@@ -3,7 +3,11 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
-import { SalesOrder, SalesOrderStatus, SalesOrderPaymentStatus } from '../../../database/entities/sales-order.entity';
+import {
+  SalesOrder,
+  SalesOrderStatus,
+  SalesOrderPaymentStatus,
+} from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { InventoryIntegrationService } from './inventory-integration.service';
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
@@ -11,23 +15,24 @@ import { BaseCostCalculatorService } from '../../inventory/services/base-cost-ca
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
 
-const mockOrder = (overrides: Partial<SalesOrder> = {}): SalesOrder => ({
-  id: 'order-1',
-  orderNumber: 'SO-000001',
-  status: SalesOrderStatus.DRAFT,
-  paymentStatus: SalesOrderPaymentStatus.PAID,
-  totalAmount: 1000,
-  customerId: 'customer-1',
-  items: [
-    {
-      id: 'item-1',
-      productId: 'product-1',
-      quantity: 5,
-      product: { id: 'product-1', name: 'Widget', stockQuantity: 100 },
-    } as SalesOrderItem,
-  ],
-  ...overrides,
-} as SalesOrder);
+const mockOrder = (overrides: Partial<SalesOrder> = {}): SalesOrder =>
+  ({
+    id: 'order-1',
+    orderNumber: 'SO-000001',
+    status: SalesOrderStatus.DRAFT,
+    paymentStatus: SalesOrderPaymentStatus.PAID,
+    totalAmount: 1000,
+    customerId: 'customer-1',
+    items: [
+      {
+        id: 'item-1',
+        productId: 'product-1',
+        quantity: 5,
+        product: { id: 'product-1', name: 'Widget', stockQuantity: 100 },
+      } as SalesOrderItem,
+    ],
+    ...overrides,
+  }) as SalesOrder;
 
 describe('SalesOrderFulfillmentService', () => {
   let service: SalesOrderFulfillmentService;
@@ -42,7 +47,9 @@ describe('SalesOrderFulfillmentService', () => {
   function wireTransaction(order: SalesOrder | null) {
     const findOne = jest.fn().mockResolvedValue(order);
     const update = jest.fn().mockResolvedValue(undefined);
-    const manager = { getRepository: jest.fn().mockReturnValue({ findOne, update }) } as unknown as EntityManager;
+    const manager = {
+      getRepository: jest.fn().mockReturnValue({ findOne, update }),
+    } as unknown as EntityManager;
     (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
     return { findOne, update, manager };
   }
@@ -51,12 +58,32 @@ describe('SalesOrderFulfillmentService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SalesOrderFulfillmentService,
-        { provide: getRepositoryToken(SalesOrder), useValue: { findOne: jest.fn(), save: jest.fn() } },
-        { provide: InventoryIntegrationService, useValue: { adjustStock: jest.fn() } },
-        { provide: StockMovementService, useValue: { deleteByReference: jest.fn().mockResolvedValue({ deletedCount: 1 }) } },
-        { provide: BaseCostCalculatorService, useValue: { restoreStock: jest.fn() } },
+        {
+          provide: getRepositoryToken(SalesOrder),
+          useValue: { findOne: jest.fn(), save: jest.fn() },
+        },
+        {
+          provide: InventoryIntegrationService,
+          useValue: { adjustStock: jest.fn() },
+        },
+        {
+          provide: StockMovementService,
+          useValue: {
+            deleteByReference: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+          },
+        },
+        {
+          provide: BaseCostCalculatorService,
+          useValue: { restoreStock: jest.fn() },
+        },
         { provide: AuditLogService, useValue: { log: jest.fn() } },
-        { provide: AccountingService, useValue: { postSalesOrderEntry: jest.fn().mockResolvedValue(undefined), reverseSourceEntries: jest.fn().mockResolvedValue(undefined) } },
+        {
+          provide: AccountingService,
+          useValue: {
+            postSalesOrderEntry: jest.fn().mockResolvedValue(undefined),
+            reverseSourceEntries: jest.fn().mockResolvedValue(undefined),
+          },
+        },
         { provide: DataSource, useValue: { transaction: jest.fn() } },
       ],
     }).compile();
@@ -94,10 +121,24 @@ describe('SalesOrderFulfillmentService', () => {
       await service.fulfillOrder('order-1');
 
       expect(findOne).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'order-1' }, lock: { mode: 'pessimistic_write' } }),
+        expect.objectContaining({
+          where: { id: 'order-1' },
+          lock: { mode: 'pessimistic_write' },
+        }),
       );
-      expect(update).toHaveBeenCalledWith('order-1', expect.objectContaining({ status: SalesOrderStatus.FULFILLED }));
-      expect(inventoryService.adjustStock).toHaveBeenCalledWith('product-1', -5, expect.any(String), 'order-1', undefined, undefined, expect.anything());
+      expect(update).toHaveBeenCalledWith(
+        'order-1',
+        expect.objectContaining({ status: SalesOrderStatus.FULFILLED }),
+      );
+      expect(inventoryService.adjustStock).toHaveBeenCalledWith(
+        'product-1',
+        -5,
+        expect.any(String),
+        'order-1',
+        undefined,
+        undefined,
+        expect.anything(),
+      );
     });
 
     it('rolls back (propagates) when accounting posting fails — no swallow', async () => {
@@ -123,7 +164,9 @@ describe('SalesOrderFulfillmentService', () => {
         .mockResolvedValueOnce(lockReadOrder) // lockRowForUpdate: relations hydrate
         .mockResolvedValueOnce(repricedOrder); // priced re-read before posting
       const update = jest.fn().mockResolvedValue(undefined);
-      const manager = { getRepository: jest.fn().mockReturnValue({ findOne, update }) } as unknown as EntityManager;
+      const manager = {
+        getRepository: jest.fn().mockReturnValue({ findOne, update }),
+      } as unknown as EntityManager;
       (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
 
       await service.fulfillOrder('order-1', 'user-1', 'admin');
@@ -131,7 +174,10 @@ describe('SalesOrderFulfillmentService', () => {
       // The status update must persist a fresh updatedAt so fulfilledDate is correct.
       expect(update).toHaveBeenCalledWith(
         'order-1',
-        expect.objectContaining({ status: SalesOrderStatus.FULFILLED, updatedAt: expect.any(Date) }),
+        expect.objectContaining({
+          status: SalesOrderStatus.FULFILLED,
+          updatedAt: expect.any(Date),
+        }),
       );
       // Accounting must be posted with the re-read row, not the stale lock-read snapshot.
       expect(accountingService.postSalesOrderEntry).toHaveBeenCalledWith(
@@ -198,7 +244,9 @@ describe('SalesOrderFulfillmentService', () => {
       });
       wireTransaction(order);
 
-      await expect(service.fulfillOrder('order-1')).rejects.toThrow(/Widget.*Gadget|Gadget.*Widget/);
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow(
+        /Widget.*Gadget|Gadget.*Widget/,
+      );
     });
 
     it('fulfills normally when all items have sufficient stock', async () => {
@@ -219,6 +267,19 @@ describe('SalesOrderFulfillmentService', () => {
 
       expect(inventoryService.adjustStock).toHaveBeenCalled();
     });
+
+    it('sets fulfilledAt timestamp on fulfill', async () => {
+      const order = mockOrder({ status: SalesOrderStatus.READY });
+      const { update } = wireTransaction(order);
+
+      const result = await service.fulfillOrder('order-1');
+
+      expect(update).toHaveBeenCalledWith(
+        'order-1',
+        expect.objectContaining({ fulfilledAt: expect.any(Date) }),
+      );
+      expect(result.fulfilledAt).toBeInstanceOf(Date);
+    });
   });
 
   describe('unfulfillOrder', () => {
@@ -234,18 +295,35 @@ describe('SalesOrderFulfillmentService', () => {
       await service.unfulfillOrder('order-1');
 
       expect(findOne).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'order-1' }, lock: { mode: 'pessimistic_write' } }),
+        expect.objectContaining({
+          where: { id: 'order-1' },
+          lock: { mode: 'pessimistic_write' },
+        }),
       );
-      expect(baseCostCalculator.restoreStock).toHaveBeenCalledWith('product-1', 5, expect.anything());
-      expect(stockMovementService.deleteByReference).toHaveBeenCalledWith('sales_order', 'order-1', expect.anything());
-      expect(update).toHaveBeenCalledWith('order-1', expect.objectContaining({ status: SalesOrderStatus.READY }));
+      expect(baseCostCalculator.restoreStock).toHaveBeenCalledWith(
+        'product-1',
+        5,
+        expect.anything(),
+      );
+      expect(stockMovementService.deleteByReference).toHaveBeenCalledWith(
+        'sales_order',
+        'order-1',
+        expect.anything(),
+      );
+      expect(update).toHaveBeenCalledWith(
+        'order-1',
+        expect.objectContaining({ status: SalesOrderStatus.READY }),
+      );
     });
 
     it('reverses the sales_order journal entry on unfulfill', async () => {
       wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
       await service.unfulfillOrder('order-1', 'user-99', 'admin');
       expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith(
-        'sales_order', 'order-1', 'user-99', expect.anything(),
+        'sales_order',
+        'order-1',
+        'user-99',
+        expect.anything(),
       );
     });
 
@@ -260,19 +338,43 @@ describe('SalesOrderFulfillmentService', () => {
       accountingService.reverseSourceEntries.mockRejectedValue(new Error('No open fiscal period'));
       await expect(service.unfulfillOrder('order-1')).rejects.toThrow('No open fiscal period');
     });
+
+    it('clears fulfilledAt on unfulfill', async () => {
+      const order = mockOrder({
+        status: SalesOrderStatus.FULFILLED,
+        fulfilledAt: new Date(),
+      });
+      const { update } = wireTransaction(order);
+
+      const result = await service.unfulfillOrder('order-1');
+
+      expect(update).toHaveBeenCalledWith(
+        'order-1',
+        expect.objectContaining({ fulfilledAt: null }),
+      );
+      expect(result.fulfilledAt).toBeUndefined();
+    });
   });
 
   describe('fulfill/unfulfill with READY status', () => {
     it('rejects fulfilling a DRAFT order', async () => {
       wireTransaction(
-        mockOrder({ status: SalesOrderStatus.DRAFT, paymentStatus: SalesOrderPaymentStatus.PAID, items: [] }),
+        mockOrder({
+          status: SalesOrderStatus.DRAFT,
+          paymentStatus: SalesOrderPaymentStatus.PAID,
+          items: [],
+        }),
       );
 
       await expect(service.fulfillOrder('order-1')).rejects.toThrow('must be Ready');
     });
 
     it('fulfills a READY order -> FULFILLED', async () => {
-      const order = mockOrder({ status: SalesOrderStatus.READY, paymentStatus: SalesOrderPaymentStatus.PAID, items: [] });
+      const order = mockOrder({
+        status: SalesOrderStatus.READY,
+        paymentStatus: SalesOrderPaymentStatus.PAID,
+        items: [],
+      });
       wireTransaction(order);
 
       const result = await service.fulfillOrder('order-1');
@@ -281,7 +383,11 @@ describe('SalesOrderFulfillmentService', () => {
     });
 
     it('unfulfills a FULFILLED order back to READY', async () => {
-      const order = mockOrder({ status: SalesOrderStatus.FULFILLED, paymentStatus: SalesOrderPaymentStatus.PAID, items: [] });
+      const order = mockOrder({
+        status: SalesOrderStatus.FULFILLED,
+        paymentStatus: SalesOrderPaymentStatus.PAID,
+        items: [],
+      });
       wireTransaction(order);
 
       const result = await service.unfulfillOrder('order-1');

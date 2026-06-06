@@ -1,22 +1,8 @@
-import {
-  Entity,
-  Column,
-  Index,
-  ManyToOne,
-  JoinColumn,
-} from 'typeorm';
-import {
-  IsString,
-  IsOptional,
-  IsEnum,
-  MaxLength,
-  IsDecimal,
-  Min,
-  IsDate,
-} from 'class-validator';
+import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
+import { IsString, IsOptional, IsEnum, MaxLength, IsDecimal, Min, IsDate } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { Customer } from './customer.entity';
-import { Invoice } from './invoice.entity';
+import { SalesOrder } from './sales-order.entity';
 import { PaymentMethodEntity } from './payment-method.entity';
 import { Settlement } from './settlement.entity';
 
@@ -34,7 +20,6 @@ export enum SettlementStatusEnum {
   SETTLED = 'settled',
 }
 
-
 /**
  * Payment entity for recording customer payments against invoices
  * Simplified cash-based payment system
@@ -42,7 +27,7 @@ export enum SettlementStatusEnum {
 @Entity('payments')
 @Index(['paymentNumber'], { unique: true })
 @Index(['customerId'])
-@Index(['invoiceId'])
+@Index(['salesOrderId'])
 @Index(['status'])
 @Index(['paymentDate'])
 @Index(['paymentMethodId'])
@@ -59,7 +44,6 @@ export class Payment extends BaseEntity {
   @MaxLength(50)
   paymentNumber: string;
 
-  
   @Column({
     type: 'enum',
     enum: PaymentStatus,
@@ -131,12 +115,11 @@ export class Payment extends BaseEntity {
   @Column({
     type: 'uuid',
     nullable: true,
-    comment: 'Related invoice ID',
+    comment: 'Related sales order ID',
   })
   @IsOptional()
-  invoiceId?: string;
+  salesOrderId?: string;
 
-  
   // Relationships
   @ManyToOne(() => Customer, (customer) => customer.payments, {
     onDelete: 'RESTRICT',
@@ -145,13 +128,13 @@ export class Payment extends BaseEntity {
   @JoinColumn({ name: 'customerId' })
   customer: Customer;
 
-  @ManyToOne(() => Invoice, (invoice) => invoice.payments, {
-    onDelete: 'SET NULL',
+  @ManyToOne(() => SalesOrder, (salesOrder) => salesOrder.payments, {
+    onDelete: 'RESTRICT',
     nullable: true,
-    eager: true,
+    eager: false,
   })
-  @JoinColumn({ name: 'invoiceId' })
-  invoice?: Invoice;
+  @JoinColumn({ name: 'salesOrderId' })
+  salesOrder?: SalesOrder;
 
   @ManyToOne(() => PaymentMethodEntity, {
     onDelete: 'RESTRICT',
@@ -168,7 +151,6 @@ export class Payment extends BaseEntity {
   })
   @JoinColumn({ name: 'settlementId' })
   settlement?: Settlement;
-
 
   // Computed properties
   get isCompleted(): boolean {

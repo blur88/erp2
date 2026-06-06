@@ -9,14 +9,7 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  Repository,
-  UpdateResult,
-  In,
-  IsNull,
-  FindOptionsWhere,
-  Not,
-} from 'typeorm';
+import { Repository, UpdateResult, In, IsNull, FindOptionsWhere, Not } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { Product, ProductType } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
@@ -25,7 +18,6 @@ import { PurchaseOrderItem } from '../../../database/entities/purchase-order-ite
 import { StockMovement, StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { StockAdjustmentItem } from '../../../database/entities/stock-adjustment.entity';
 import { GoodsReceivedNoteItem } from '../../../database/entities/goods-received-note-item.entity';
-import { InvoiceItem } from '../../../database/entities/invoice-item.entity';
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import {
   CreateProductDto,
@@ -54,7 +46,11 @@ import {
 import { CategoryService } from './category.service';
 import { StockMovementService } from './stock-movement.service';
 import { BaseCostCalculatorService } from './base-cost-calculator.service';
-import { ValidationUtil, BulkOperationUtil, BulkOperationResponse } from '../../../common/utils/validation.util';
+import {
+  ValidationUtil,
+  BulkOperationUtil,
+  BulkOperationResponse,
+} from '../../../common/utils/validation.util';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { generateBaseSlug } from '../../../common/utils/slug.util';
@@ -85,8 +81,6 @@ export class ProductService extends BaseCrudService<
     private readonly stockAdjustmentItemRepository: Repository<StockAdjustmentItem>,
     @InjectRepository(GoodsReceivedNoteItem)
     private readonly goodsReceivedNoteItemRepository: Repository<GoodsReceivedNoteItem>,
-    @InjectRepository(InvoiceItem)
-    private readonly invoiceItemRepository: Repository<InvoiceItem>,
     @InjectRepository(PurchaseCostHistory)
     private readonly purchaseCostHistoryRepository: Repository<PurchaseCostHistory>,
     @Inject(forwardRef(() => CategoryService))
@@ -131,22 +125,30 @@ export class ProductService extends BaseCrudService<
       );
 
     if (query.categoryId) {
-      qb = qb.andWhere('product.categoryId = :categoryId', { categoryId: query.categoryId });
+      qb = qb.andWhere('product.categoryId = :categoryId', {
+        categoryId: query.categoryId,
+      });
     }
     if (query.type) {
       qb = qb.andWhere('product.type = :type', { type: query.type });
     }
     if (query.isActive !== undefined) {
-      qb = qb.andWhere('product.isActive = :isActive', { isActive: query.isActive });
+      qb = qb.andWhere('product.isActive = :isActive', {
+        isActive: query.isActive,
+      });
     }
     if (query.outOfStock) {
       qb = qb.andWhere('product.stockQuantity <= 0');
     }
     if (query.minStock !== undefined) {
-      qb = qb.andWhere('product.stockQuantity >= :minStock', { minStock: query.minStock });
+      qb = qb.andWhere('product.stockQuantity >= :minStock', {
+        minStock: query.minStock,
+      });
     }
     if (query.maxStock !== undefined) {
-      qb = qb.andWhere('product.stockQuantity <= :maxStock', { maxStock: query.maxStock });
+      qb = qb.andWhere('product.stockQuantity <= :maxStock', {
+        maxStock: query.maxStock,
+      });
     }
 
     return qb;
@@ -208,7 +210,7 @@ export class ProductService extends BaseCrudService<
     if (activeSalesOrderItemCount > 0) {
       throw new ConflictException(
         `Cannot delete '${entity.name}' - product is in ${activeSalesOrderItemCount} pending sales order(s). ` +
-        `Please fulfill or cancel those orders first.`,
+          `Please fulfill or cancel those orders first.`,
       );
     }
   }
@@ -226,7 +228,9 @@ export class ProductService extends BaseCrudService<
     // Check if product name already exists (case-insensitive, including soft-deleted products)
     const existingProductByName = await this.productRepository
       .createQueryBuilder('product')
-      .where('LOWER(product.name) = LOWER(:name)', { name: createProductDto.name.trim() })
+      .where('LOWER(product.name) = LOWER(:name)', {
+        name: createProductDto.name.trim(),
+      })
       .withDeleted()
       .getOne();
 
@@ -234,7 +238,7 @@ export class ProductService extends BaseCrudService<
       if (existingProductByName.deletedAt) {
         throw new ConflictException(
           `Product with name '${createProductDto.name}' was previously deleted but cannot be reused. ` +
-          `Please choose a different name or restore the deleted product.`
+            `Please choose a different name or restore the deleted product.`,
         );
       } else {
         throw new ConflictException(`Product with name '${createProductDto.name}' already exists`);
@@ -245,7 +249,9 @@ export class ProductService extends BaseCrudService<
     if (createProductDto.barcode) {
       const existingProduct = await this.productRepository
         .createQueryBuilder('product')
-        .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: createProductDto.barcode.trim() })
+        .where('LOWER(product.barcode) = LOWER(:barcode)', {
+          barcode: createProductDto.barcode.trim(),
+        })
         .withDeleted()
         .getOne();
 
@@ -253,10 +259,12 @@ export class ProductService extends BaseCrudService<
         if (existingProduct.deletedAt) {
           throw new ConflictException(
             `Product with barcode '${createProductDto.barcode}' was previously deleted but cannot be reused. ` +
-            `Please choose a different barcode.`
+              `Please choose a different barcode.`,
           );
         } else {
-          throw new ConflictException(`Product with barcode '${createProductDto.barcode}' already exists`);
+          throw new ConflictException(
+            `Product with barcode '${createProductDto.barcode}' already exists`,
+          );
         }
       }
     }
@@ -267,7 +275,9 @@ export class ProductService extends BaseCrudService<
     });
 
     if (!category) {
-      throw new NotFoundException(`Category with ID '${createProductDto.categoryId}' not found or inactive`);
+      throw new NotFoundException(
+        `Category with ID '${createProductDto.categoryId}' not found or inactive`,
+      );
     }
 
     // Validate pricing logic
@@ -304,16 +314,22 @@ export class ProductService extends BaseCrudService<
           this.logger.warn(`Failed to create initial stock movement: ${error.message}`);
         }
       } else {
-        await this.productRepository.update(savedProduct.id, { stockQuantity: createProductDto.stockQuantity });
+        await this.productRepository.update(savedProduct.id, {
+          stockQuantity: createProductDto.stockQuantity,
+        });
         savedProduct.stockQuantity = createProductDto.stockQuantity;
       }
     }
 
     // Create initial cost history for products with stock
-    if (createProductDto.stockQuantity && createProductDto.stockQuantity > 0 && createProductDto.baseCost) {
+    if (
+      createProductDto.stockQuantity &&
+      createProductDto.stockQuantity > 0 &&
+      createProductDto.baseCost
+    ) {
       try {
         this.logger.log(
-          `Creating initial cost history for product ${savedProduct.id}: ${createProductDto.stockQuantity} units @ RM ${createProductDto.baseCost}`
+          `Creating initial cost history for product ${savedProduct.id}: ${createProductDto.stockQuantity} units @ RM ${createProductDto.baseCost}`,
         );
 
         await this.baseCostCalculator.addStock(
@@ -346,7 +362,7 @@ export class ProductService extends BaseCrudService<
           baseCost: savedProduct.baseCost,
           stockQuantity: savedProduct.stockQuantity,
         },
-      }
+      },
     );
 
     this.logger.log(`Product created successfully with ID: ${savedProduct.id}`);
@@ -357,11 +373,13 @@ export class ProductService extends BaseCrudService<
    * Find all products with filtering and sorting
    */
   async findAll(query: QueryProductsDto): Promise<ProductListResponseDto> {
-    const queryBuilder = this.buildProductListQuery(query, { includeDeleted: false });
+    const queryBuilder = this.buildProductListQuery(query, {
+      includeDeleted: false,
+    });
     this.applyProductOrdering(queryBuilder, query, 'name');
     const [products, total] = await queryBuilder.getManyAndCount();
 
-    const data = products.map(product => this.toResponseDto(product));
+    const data = products.map((product) => this.toResponseDto(product));
 
     return {
       data,
@@ -389,14 +407,9 @@ export class ProductService extends BaseCrudService<
 
     const fuzzyProducts = await this.productRepository
       .createQueryBuilder('product')
-      .addSelect(
-        'GREATEST(similarity(product.name, :q), similarity(product.barcode, :q))',
-        'sim',
-      )
+      .addSelect('GREATEST(similarity(product.name, :q), similarity(product.barcode, :q))', 'sim')
       .where('product.deletedAt IS NULL')
-      .andWhere(
-        '(similarity(product.name, :q) > 0.3 OR similarity(product.barcode, :q) > 0.3)',
-      )
+      .andWhere('(similarity(product.name, :q) > 0.3 OR similarity(product.barcode, :q) > 0.3)')
       .orderBy('sim', 'DESC')
       .setParameter('q', trimmed)
       .take(SEARCH_CANDIDATE_LIMIT)
@@ -405,11 +418,7 @@ export class ProductService extends BaseCrudService<
     return fuzzyProducts.map((product) => this.mapProduct(product, q, true));
   }
 
-  private mapProduct(
-    product: Product,
-    q: string,
-    fuzzy: boolean,
-  ): GlobalSearchResultDto {
+  private mapProduct(product: Product, q: string, fuzzy: boolean): GlobalSearchResultDto {
     const name = product.name?.toLowerCase() ?? '';
     const barcode = product.barcode?.toLowerCase() ?? '';
     const baseScore = fuzzy
@@ -433,9 +442,7 @@ export class ProductService extends BaseCrudService<
       score:
         baseScore +
         BOOST_PRODUCT +
-        (baseScore === SCORE_EXACT_CODE || baseScore === SCORE_EXACT_NAME
-          ? BOOST_EXACT_MATCH
-          : 0),
+        (baseScore === SCORE_EXACT_CODE || baseScore === SCORE_EXACT_NAME ? BOOST_EXACT_MATCH : 0),
     };
   }
 
@@ -494,11 +501,7 @@ export class ProductService extends BaseCrudService<
   /**
    * Check for duplicate product names and barcodes (including soft-deleted)
    */
-  async checkDuplicate(params: {
-    name?: string;
-    barcode?: string;
-    excludeId?: string;
-  }): Promise<{
+  async checkDuplicate(params: { name?: string; barcode?: string; excludeId?: string }): Promise<{
     nameExists: boolean;
     barcodeExists: boolean;
     nameConflict?: {
@@ -527,11 +530,15 @@ export class ProductService extends BaseCrudService<
     if (params.name && params.name.trim()) {
       const nameQuery = this.productRepository
         .createQueryBuilder('product')
-        .where('LOWER(product.name) = LOWER(:name)', { name: params.name.trim() })
+        .where('LOWER(product.name) = LOWER(:name)', {
+          name: params.name.trim(),
+        })
         .withDeleted();
 
       if (params.excludeId) {
-        nameQuery.andWhere('product.id != :excludeId', { excludeId: params.excludeId });
+        nameQuery.andWhere('product.id != :excludeId', {
+          excludeId: params.excludeId,
+        });
       }
 
       const existingByName = await nameQuery.getOne();
@@ -551,11 +558,15 @@ export class ProductService extends BaseCrudService<
     if (params.barcode && params.barcode.trim()) {
       const barcodeQuery = this.productRepository
         .createQueryBuilder('product')
-        .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: params.barcode.trim() })
+        .where('LOWER(product.barcode) = LOWER(:barcode)', {
+          barcode: params.barcode.trim(),
+        })
         .withDeleted();
 
       if (params.excludeId) {
-        barcodeQuery.andWhere('product.id != :excludeId', { excludeId: params.excludeId });
+        barcodeQuery.andWhere('product.id != :excludeId', {
+          excludeId: params.excludeId,
+        });
       }
 
       const existingByBarcode = await barcodeQuery.getOne();
@@ -580,11 +591,13 @@ export class ProductService extends BaseCrudService<
   async findDeleted(query: QueryProductsDto): Promise<ProductListResponseDto> {
     this.logger.log('Fetching deleted products with filters:', query);
 
-    const queryBuilder = this.buildProductListQuery(query, { includeDeleted: true });
+    const queryBuilder = this.buildProductListQuery(query, {
+      includeDeleted: true,
+    });
     this.applyProductOrdering(queryBuilder, query, 'deletedAt');
     const [deletedProducts, total] = await queryBuilder.getManyAndCount();
 
-    const productDtos = deletedProducts.map(product => this.toResponseDto(product));
+    const productDtos = deletedProducts.map((product) => this.toResponseDto(product));
 
     return {
       data: productDtos,
@@ -611,7 +624,9 @@ export class ProductService extends BaseCrudService<
     if (product.barcode) {
       const existingProduct = await this.productRepository
         .createQueryBuilder('product')
-        .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: product.barcode })
+        .where('LOWER(product.barcode) = LOWER(:barcode)', {
+          barcode: product.barcode,
+        })
         .andWhere('product.id != :id', { id: product.id })
         .getOne();
 
@@ -619,7 +634,7 @@ export class ProductService extends BaseCrudService<
         existingProduct,
         'barcode',
         product.barcode,
-        'Product'
+        'Product',
       );
     }
 
@@ -647,7 +662,7 @@ export class ProductService extends BaseCrudService<
           baseCost: restoredProduct.baseCost,
           stockQuantity: restoredProduct.stockQuantity,
         },
-      }
+      },
     );
 
     return this.toResponseDto(restoredProduct!);
@@ -684,12 +699,7 @@ export class ProductService extends BaseCrudService<
         try {
           ValidationUtil.validateForRestore(product, 'Product', id);
         } catch (error) {
-          BulkOperationUtil.addFailure(
-            failedItems,
-            id,
-            error.message,
-            'VALIDATION_ERROR'
-          );
+          BulkOperationUtil.addFailure(failedItems, id, error.message, 'VALIDATION_ERROR');
           continue;
         }
 
@@ -697,7 +707,9 @@ export class ProductService extends BaseCrudService<
         if (product.barcode) {
           const existingProduct = await this.productRepository
             .createQueryBuilder('product')
-            .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: product.barcode })
+            .where('LOWER(product.barcode) = LOWER(:barcode)', {
+              barcode: product.barcode,
+            })
             .andWhere('product.id != :id', { id: product.id })
             .getOne();
 
@@ -706,7 +718,7 @@ export class ProductService extends BaseCrudService<
               failedItems,
               id,
               `Barcode '${product.barcode}' is now used by another active product`,
-              'BARCODE_CONFLICT'
+              'BARCODE_CONFLICT',
             );
             continue;
           }
@@ -719,19 +731,14 @@ export class ProductService extends BaseCrudService<
           'RESTORE',
           'Product',
           `Restored product: ${product.name} (${product.barcode})`,
-          { entityId: id, userId: userId || 'system', username }
+          { entityId: id, userId: userId || 'system', username },
         );
 
         successCount++;
         this.logger.log(`Product restored: ${id}`);
       } catch (error) {
         this.logger.error(`Failed to restore product ${id}: ${error.message}`);
-        BulkOperationUtil.addFailure(
-          failedItems,
-          id,
-          error.message,
-          'UNEXPECTED_ERROR'
-        );
+        BulkOperationUtil.addFailure(failedItems, id, error.message, 'UNEXPECTED_ERROR');
       }
     }
 
@@ -758,12 +765,12 @@ export class ProductService extends BaseCrudService<
 
     if (dependencies.hasDependencies) {
       const dependencyList = dependencies.dependencies
-        .map(dep => `${dep.count} ${dep.type}`)
+        .map((dep) => `${dep.count} ${dep.type}`)
         .join(', ');
 
       throw new ConflictException(
         `Cannot permanently delete '${product.name}' - product has dependent records: ${dependencyList}. ` +
-        `These records must be removed first before permanent deletion.`
+          `These records must be removed first before permanent deletion.`,
       );
     }
 
@@ -782,13 +789,16 @@ export class ProductService extends BaseCrudService<
           baseCost: product.baseCost,
           stockQuantity: product.stockQuantity,
         },
-      }
+      },
     );
 
     // Delete initial_stock movement before hard delete — stock_movements FK is RESTRICT so the DB
     // will reject the product delete if this row remains. purchase_cost_history has CASCADE so
     // the DB removes it automatically; no explicit delete needed there.
-    await this.stockMovementRepository.delete({ productId: id, movementType: StockMovementType.INITIAL_STOCK });
+    await this.stockMovementRepository.delete({
+      productId: id,
+      movementType: StockMovementType.INITIAL_STOCK,
+    });
 
     // Hard delete the product from database
     await this.productRepository.delete(id);
@@ -826,12 +836,7 @@ export class ProductService extends BaseCrudService<
         try {
           ValidationUtil.validateForPermanentDelete(product, 'Product', id);
         } catch (error) {
-          BulkOperationUtil.addFailure(
-            failedItems,
-            id,
-            error.message,
-            'VALIDATION_ERROR'
-          );
+          BulkOperationUtil.addFailure(failedItems, id, error.message, 'VALIDATION_ERROR');
           continue;
         }
 
@@ -840,14 +845,14 @@ export class ProductService extends BaseCrudService<
 
         if (dependencies.hasDependencies) {
           const dependencyList = dependencies.dependencies
-            .map(dep => `${dep.count} ${dep.type}`)
+            .map((dep) => `${dep.count} ${dep.type}`)
             .join(', ');
 
           BulkOperationUtil.addFailure(
             failedItems,
             id,
             `Product '${product.name}' has dependent records: ${dependencyList}`,
-            'DEPENDENCY_ERROR'
+            'DEPENDENCY_ERROR',
           );
           continue;
         }
@@ -857,27 +862,35 @@ export class ProductService extends BaseCrudService<
           'PERMANENT_DELETE',
           'Product',
           `Permanently deleted product: ${product.name} (${product.barcode})`,
-          { entityId: id, userId: userId || 'system', username, oldValues: { name: product.name, barcode: product.barcode } }
+          {
+            entityId: id,
+            userId: userId || 'system',
+            username,
+            oldValues: { name: product.name, barcode: product.barcode },
+          },
         );
         // Delete initial_stock movement before hard delete — stock_movements FK is RESTRICT.
         // purchase_cost_history has CASCADE so the DB removes it automatically.
-        await this.stockMovementRepository.delete({ productId: id, movementType: StockMovementType.INITIAL_STOCK });
+        await this.stockMovementRepository.delete({
+          productId: id,
+          movementType: StockMovementType.INITIAL_STOCK,
+        });
         await this.productRepository.delete(id);
 
         successCount++;
         this.logger.log(`Product permanently deleted: ${id}`);
       } catch (error) {
         this.logger.error(`Failed to permanently delete product ${id}: ${error.message}`);
-        BulkOperationUtil.addFailure(
-          failedItems,
-          id,
-          error.message,
-          'UNEXPECTED_ERROR'
-        );
+        BulkOperationUtil.addFailure(failedItems, id, error.message, 'UNEXPECTED_ERROR');
       }
     }
 
-    return BulkOperationUtil.createResponse('permanently deleted', 'product', successCount, failedItems);
+    return BulkOperationUtil.createResponse(
+      'permanently deleted',
+      'product',
+      successCount,
+      failedItems,
+    );
   }
 
   /**
@@ -901,10 +914,15 @@ export class ProductService extends BaseCrudService<
     }
 
     // Check for name conflicts if name is being changed (case-insensitive)
-    if (updateProductDto.name && updateProductDto.name.toLowerCase() !== product.name.toLowerCase()) {
+    if (
+      updateProductDto.name &&
+      updateProductDto.name.toLowerCase() !== product.name.toLowerCase()
+    ) {
       const existingProductByName = await this.productRepository
         .createQueryBuilder('product')
-        .where('LOWER(product.name) = LOWER(:name)', { name: updateProductDto.name.trim() })
+        .where('LOWER(product.name) = LOWER(:name)', {
+          name: updateProductDto.name.trim(),
+        })
         .andWhere('product.id != :id', { id: product.id })
         .withDeleted()
         .getOne();
@@ -913,19 +931,26 @@ export class ProductService extends BaseCrudService<
         if (existingProductByName.deletedAt) {
           throw new ConflictException(
             `Product with name '${updateProductDto.name}' was previously deleted but cannot be reused. ` +
-            `Please choose a different name or restore the deleted product.`
+              `Please choose a different name or restore the deleted product.`,
           );
         } else {
-          throw new ConflictException(`Product with name '${updateProductDto.name}' already exists`);
+          throw new ConflictException(
+            `Product with name '${updateProductDto.name}' already exists`,
+          );
         }
       }
     }
 
     // Check for barcode conflicts if barcode is being changed (case-insensitive)
-    if (updateProductDto.barcode && updateProductDto.barcode.toLowerCase() !== product.barcode?.toLowerCase()) {
+    if (
+      updateProductDto.barcode &&
+      updateProductDto.barcode.toLowerCase() !== product.barcode?.toLowerCase()
+    ) {
       const existingProduct = await this.productRepository
         .createQueryBuilder('product')
-        .where('LOWER(product.barcode) = LOWER(:barcode)', { barcode: updateProductDto.barcode.trim() })
+        .where('LOWER(product.barcode) = LOWER(:barcode)', {
+          barcode: updateProductDto.barcode.trim(),
+        })
         .andWhere('product.id != :id', { id: product.id })
         .withDeleted()
         .getOne();
@@ -934,10 +959,12 @@ export class ProductService extends BaseCrudService<
         if (existingProduct.deletedAt) {
           throw new ConflictException(
             `Product with barcode '${updateProductDto.barcode}' was previously deleted but cannot be reused. ` +
-            `Please choose a different barcode or restore the deleted product.`
+              `Please choose a different barcode or restore the deleted product.`,
           );
         } else {
-          throw new ConflictException(`Product with barcode '${updateProductDto.barcode}' already exists`);
+          throw new ConflictException(
+            `Product with barcode '${updateProductDto.barcode}' already exists`,
+          );
         }
       }
     }
@@ -949,13 +976,16 @@ export class ProductService extends BaseCrudService<
       });
 
       if (!category) {
-        throw new NotFoundException(`Category with ID '${updateProductDto.categoryId}' not found or inactive`);
+        throw new NotFoundException(
+          `Category with ID '${updateProductDto.categoryId}' not found or inactive`,
+        );
       }
     }
 
     // Transform DTO fields to match entity fields FIRST
     const updateData: any = { ...updateProductDto };
-    const nameChanged = updateProductDto.name !== undefined && updateProductDto.name !== product.name;
+    const nameChanged =
+      updateProductDto.name !== undefined && updateProductDto.name !== product.name;
     if (nameChanged) {
       updateData.slug = await this.generateUniqueSlug(updateProductDto.name!, id);
     }
@@ -975,7 +1005,7 @@ export class ProductService extends BaseCrudService<
 
     // Track changes for audit (use transformed data)
     const changes: Record<string, { from: any; to: any }> = {};
-    Object.keys(updateData).forEach(key => {
+    Object.keys(updateData).forEach((key) => {
       if (updateData[key] !== product[key]) {
         changes[key] = { from: product[key], to: updateData[key] };
       }
@@ -988,8 +1018,8 @@ export class ProductService extends BaseCrudService<
 
     // Use direct update with ID string for better control over what gets updated
     await this.productRepository.update(
-      id,  // Use the ID parameter directly, not product.id
-      updateData
+      id, // Use the ID parameter directly, not product.id
+      updateData,
     );
 
     // Reload the product with category relation to ensure fresh data
@@ -1009,12 +1039,10 @@ export class ProductService extends BaseCrudService<
           userId: userId || 'system',
           username,
           oldValues: Object.fromEntries(
-            Object.entries(changes).map(([key, val]) => [key, val.from])
+            Object.entries(changes).map(([key, val]) => [key, val.from]),
           ),
-          newValues: Object.fromEntries(
-            Object.entries(changes).map(([key, val]) => [key, val.to])
-          ),
-        }
+          newValues: Object.fromEntries(Object.entries(changes).map(([key, val]) => [key, val.to])),
+        },
       );
     }
 
@@ -1033,23 +1061,29 @@ export class ProductService extends BaseCrudService<
 
     // Check sales order items
     const salesOrderItemCount = await this.salesOrderItemRepository.count({
-      where: { productId }
+      where: { productId },
     });
     if (salesOrderItemCount > 0) {
-      dependencies.push({ type: 'sales order items', count: salesOrderItemCount });
+      dependencies.push({
+        type: 'sales order items',
+        count: salesOrderItemCount,
+      });
     }
 
     // Check purchase order items
     const purchaseOrderItemCount = await this.purchaseOrderItemRepository.count({
-      where: { productId }
+      where: { productId },
     });
     if (purchaseOrderItemCount > 0) {
-      dependencies.push({ type: 'purchase order items', count: purchaseOrderItemCount });
+      dependencies.push({
+        type: 'purchase order items',
+        count: purchaseOrderItemCount,
+      });
     }
 
     // Check stock movements — exclude system-generated initial_stock entries
     const stockMovementCount = await this.stockMovementRepository.count({
-      where: { productId, movementType: Not(StockMovementType.INITIAL_STOCK) }
+      where: { productId, movementType: Not(StockMovementType.INITIAL_STOCK) },
     });
     if (stockMovementCount > 0) {
       dependencies.push({ type: 'stock movements', count: stockMovementCount });
@@ -1057,31 +1091,29 @@ export class ProductService extends BaseCrudService<
 
     // Check stock adjustment items
     const stockAdjustmentItemCount = await this.stockAdjustmentItemRepository.count({
-      where: { productId }
+      where: { productId },
     });
     if (stockAdjustmentItemCount > 0) {
-      dependencies.push({ type: 'stock adjustment items', count: stockAdjustmentItemCount });
+      dependencies.push({
+        type: 'stock adjustment items',
+        count: stockAdjustmentItemCount,
+      });
     }
 
     // Check goods received note items
     const goodsReceivedNoteItemCount = await this.goodsReceivedNoteItemRepository.count({
-      where: { productId }
+      where: { productId },
     });
     if (goodsReceivedNoteItemCount > 0) {
-      dependencies.push({ type: 'goods received note items', count: goodsReceivedNoteItemCount });
-    }
-
-    // Check invoice items
-    const invoiceItemCount = await this.invoiceItemRepository.count({
-      where: { productId }
-    });
-    if (invoiceItemCount > 0) {
-      dependencies.push({ type: 'invoice items', count: invoiceItemCount });
+      dependencies.push({
+        type: 'goods received note items',
+        count: goodsReceivedNoteItemCount,
+      });
     }
 
     return {
       hasDependencies: dependencies.length > 0,
-      dependencies
+      dependencies,
     };
   }
 
@@ -1105,12 +1137,14 @@ export class ProductService extends BaseCrudService<
   async bulkUpdatePrices(bulkUpdateDto: BulkUpdatePricesDto): Promise<void> {
     this.logger.log(`Bulk updating prices for ${bulkUpdateDto.products.length} products`);
 
-    const productIds = bulkUpdateDto.products.map(p => p.productId);
-    const products = await this.productRepository.findBy({ id: In(productIds) });
+    const productIds = bulkUpdateDto.products.map((p) => p.productId);
+    const products = await this.productRepository.findBy({
+      id: In(productIds),
+    });
 
     if (products.length !== productIds.length) {
-      const foundIds = products.map(p => p.id);
-      const missingIds = productIds.filter(id => !foundIds.includes(id));
+      const foundIds = products.map((p) => p.id);
+      const missingIds = productIds.filter((id) => !foundIds.includes(id));
       throw new NotFoundException(`Products not found: ${missingIds.join(', ')}`);
     }
 
@@ -1118,7 +1152,7 @@ export class ProductService extends BaseCrudService<
     // Audit promises removed with authentication system
 
     for (const priceUpdate of bulkUpdateDto.products) {
-      const product = products.find(p => p.id === priceUpdate.productId)!;
+      const product = products.find((p) => p.id === priceUpdate.productId)!;
       const updateData: Partial<Product> = {};
 
       // Track price changes
@@ -1129,16 +1163,17 @@ export class ProductService extends BaseCrudService<
 
       if (priceUpdate.baseCost !== undefined && priceUpdate.baseCost !== product.baseCost) {
         updateData.baseCost = priceUpdate.baseCost;
-        priceChanges.baseCost = { from: Number(product.baseCost), to: priceUpdate.baseCost };
+        priceChanges.baseCost = {
+          from: Number(product.baseCost),
+          to: priceUpdate.baseCost,
+        };
       }
 
       if (Object.keys(updateData).length > 0) {
         // Validate new pricing
         this.validatePricing({ ...product, ...updateData } as any);
 
-        updates.push(
-          this.productRepository.update(priceUpdate.productId, updateData)
-        );
+        updates.push(this.productRepository.update(priceUpdate.productId, updateData));
 
         // Audit logging removed with authentication system
       }
@@ -1170,11 +1205,15 @@ export class ProductService extends BaseCrudService<
 
     // Apply filters if provided
     if (filters?.categoryId) {
-      queryBuilder.andWhere('product.categoryId = :categoryId', { categoryId: filters.categoryId });
+      queryBuilder.andWhere('product.categoryId = :categoryId', {
+        categoryId: filters.categoryId,
+      });
     }
 
     if (filters?.lowStock) {
-      queryBuilder.andWhere('product.stockQuantity <= :lowStockThreshold', { lowStockThreshold });
+      queryBuilder.andWhere('product.stockQuantity <= :lowStockThreshold', {
+        lowStockThreshold,
+      });
     }
 
     if (filters?.outOfStock) {
@@ -1182,14 +1221,16 @@ export class ProductService extends BaseCrudService<
     }
 
     if (filters?.isActive !== undefined) {
-      queryBuilder.andWhere('product.isActive = :isActive', { isActive: filters.isActive });
+      queryBuilder.andWhere('product.isActive = :isActive', {
+        isActive: filters.isActive,
+      });
     }
 
     queryBuilder.orderBy('product.name', 'ASC');
 
     const results = await queryBuilder.getRawMany();
 
-    return results.map(result => ({
+    return results.map((result) => ({
       id: result.product_id,
       barcode: result.product_barcode,
       name: result.product_name,
@@ -1197,7 +1238,12 @@ export class ProductService extends BaseCrudService<
       availableQuantity: Number(result.product_stockQuantity),
       reservedQuantity: 0, // Simplified model doesn't track reserved stock
       reorderLevel: lowStockThreshold,
-      stockStatus: Number(result.product_stockQuantity) <= 0 ? 'out_of_stock' : Number(result.product_stockQuantity) <= lowStockThreshold ? 'low_stock' : 'in_stock',
+      stockStatus:
+        Number(result.product_stockQuantity) <= 0
+          ? 'out_of_stock'
+          : Number(result.product_stockQuantity) <= lowStockThreshold
+            ? 'low_stock'
+            : 'in_stock',
       isLowStock: Number(result.product_stockQuantity) <= lowStockThreshold,
       isOutOfStock: Number(result.product_stockQuantity) <= 0,
       categoryName: result.category_name,
@@ -1223,8 +1269,10 @@ export class ProductService extends BaseCrudService<
    * Reserve stock for a product
    */
   async reserveStock(productId: string, quantity: number): Promise<boolean> {
-    const product = await this.productRepository.findOne({ where: { id: productId } });
-    
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+    });
+
     if (!product) {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
@@ -1234,7 +1282,7 @@ export class ProductService extends BaseCrudService<
       await this.productRepository.save(product);
       return true;
     }
-    
+
     return false;
   }
 
@@ -1242,8 +1290,10 @@ export class ProductService extends BaseCrudService<
    * Release reserved stock for a product
    */
   async releaseReservedStock(productId: string, quantity: number): Promise<void> {
-    const product = await this.productRepository.findOne({ where: { id: productId } });
-    
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+    });
+
     if (!product) {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
@@ -1255,20 +1305,26 @@ export class ProductService extends BaseCrudService<
   /**
    * Update stock quantity for a product (internal use by stock movement service)
    */
-  async updateStockQuantity(productId: string, newQuantity: number, _userId?: string): Promise<void> {
-    const product = await this.productRepository.findOne({ where: { id: productId } });
-    
+  async updateStockQuantity(
+    productId: string,
+    newQuantity: number,
+    _userId?: string,
+  ): Promise<void> {
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+    });
+
     if (!product) {
       throw new NotFoundException(`Product with ID '${productId}' not found`);
     }
 
     const previousQuantity = product.stockQuantity;
     product.stockQuantity = newQuantity;
-    
+
     await this.productRepository.save(product);
 
     this.logger.log(
-      `Stock quantity updated for product ${productId}: ${previousQuantity} -> ${newQuantity}`
+      `Stock quantity updated for product ${productId}: ${previousQuantity} -> ${newQuantity}`,
     );
   }
 
@@ -1282,7 +1338,11 @@ export class ProductService extends BaseCrudService<
     lowStockCount: number;
     outOfStockCount: number;
     recentMovements: number;
-    categoryBreakdown: Array<{ category: string; count: number; value: number }>;
+    categoryBreakdown: Array<{
+      category: string;
+      count: number;
+      value: number;
+    }>;
     stockHealthMetrics: {
       inStockPercentage: number;
       outOfStockPercentage: number;
@@ -1294,18 +1354,18 @@ export class ProductService extends BaseCrudService<
 
     // Get total products count
     const totalProducts = await this.productRepository.count({
-      where: { deletedAt: IsNull() }
+      where: { deletedAt: IsNull() },
     });
 
     // Get total categories count
     const totalCategories = await this.categoryRepository.count({
-      where: { isActive: true }
+      where: { isActive: true },
     });
 
     // Get all active products with category info for calculations
     const products = await this.productRepository.find({
       relations: { category: true },
-      where: { deletedAt: IsNull() }
+      where: { deletedAt: IsNull() },
     });
 
     // Calculate comprehensive statistics
@@ -1314,7 +1374,7 @@ export class ProductService extends BaseCrudService<
     let outOfStockCount = 0;
     const categoryMap = new Map<string, { count: number; value: number }>();
 
-    products.forEach(product => {
+    products.forEach((product) => {
       const stock = Number(product.stockQuantity) || 0;
       // Use baseCost for inventory valuation (standard accounting practice)
       const cost = Number(product.baseCost) || 0;
@@ -1347,14 +1407,15 @@ export class ProductService extends BaseCrudService<
     const inStockCount = totalProducts - outOfStockCount;
     const stockHealthMetrics = {
       inStockPercentage: totalProducts > 0 ? Math.round((inStockCount / totalProducts) * 100) : 0,
-      outOfStockPercentage: totalProducts > 0 ? Math.round((outOfStockCount / totalProducts) * 100) : 0,
+      outOfStockPercentage:
+        totalProducts > 0 ? Math.round((outOfStockCount / totalProducts) * 100) : 0,
       averageValue: totalProducts > 0 ? inventoryValue / totalProducts : 0,
     };
 
     // Get recent movements count (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
+
     let recentMovements = 0;
     try {
       // Try to get recent movements count from stock movement service
@@ -1387,14 +1448,16 @@ export class ProductService extends BaseCrudService<
   /**
    * Get product prices from all price lists
    */
-  async getProductPrices(productId: string): Promise<Array<{
-    priceListId: string;
-    priceListCode: string;
-    priceListName: string;
-    price: number;
-    costBasis: number | null;
-    margin: number | null;
-  }>> {
+  async getProductPrices(productId: string): Promise<
+    Array<{
+      priceListId: string;
+      priceListCode: string;
+      priceListName: string;
+      price: number;
+      costBasis: number | null;
+      margin: number | null;
+    }>
+  > {
     const product = await this.productRepository.findOne({
       where: { id: productId },
       relations: { priceListItems: { priceList: true } },
@@ -1408,7 +1471,7 @@ export class ProductService extends BaseCrudService<
       return [];
     }
 
-    return product.priceListItems.map(item => ({
+    return product.priceListItems.map((item) => ({
       priceListId: item.priceListId,
       priceListCode: item.priceList.code,
       priceListName: item.priceList.name,
@@ -1435,26 +1498,31 @@ export class ProductService extends BaseCrudService<
       stockQuantity: Number(product.stockQuantity),
       notes: product.notes,
       categoryId: product.categoryId,
-      category: product.category ? {
-        id: product.category.id,
-        name: product.category.name,
-        fullPath: product.category.fullPath,
-      } : null,
-      priceListItems: product.priceListItems?.map(item => ({
-        id: item.id,
-        priceListId: item.priceListId,
-        productId: item.productId,
-        price: Number(item.price),
-        costBasis: item.costBasis ? Number(item.costBasis) : null,
-        marginPercent: item.marginPercent ? Number(item.marginPercent) : null,
-        priceList: item.priceList ? {
-          id: item.priceList.id,
-          code: item.priceList.code,
-          name: item.priceList.name,
-          isDefault: item.priceList.isDefault,
-          isActive: item.priceList.isActive,
-        } : undefined,
-      })) || [],
+      category: product.category
+        ? {
+            id: product.category.id,
+            name: product.category.name,
+            fullPath: product.category.fullPath,
+          }
+        : null,
+      priceListItems:
+        product.priceListItems?.map((item) => ({
+          id: item.id,
+          priceListId: item.priceListId,
+          productId: item.productId,
+          price: Number(item.price),
+          costBasis: item.costBasis ? Number(item.costBasis) : null,
+          marginPercent: item.marginPercent ? Number(item.marginPercent) : null,
+          priceList: item.priceList
+            ? {
+                id: item.priceList.id,
+                code: item.priceList.code,
+                name: item.priceList.name,
+                isDefault: item.priceList.isDefault,
+                isActive: item.priceList.isActive,
+              }
+            : undefined,
+        })) || [],
       isOutOfStock: product.isOutOfStock,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
@@ -1489,9 +1557,7 @@ export class ProductService extends BaseCrudService<
    * Check if the update contains pricing changes
    */
   private hasPricingChanges(_updateDto: UpdateProductDto): boolean {
-    return ['baseCost', 'pricingTiers'].some(
-      field => _updateDto.hasOwnProperty(field)
-    );
+    return ['baseCost', 'pricingTiers'].some((field) => _updateDto.hasOwnProperty(field));
   }
 
   /**
@@ -1531,7 +1597,7 @@ export class ProductService extends BaseCrudService<
       const categories = await this.categoryRepository.find({
         where: { isActive: true },
       });
-      const categoryMap = new Map(categories.map(cat => [cat.name.toLowerCase(), cat.id]));
+      const categoryMap = new Map(categories.map((cat) => [cat.name.toLowerCase(), cat.id]));
 
       // Process each row
       for (let i = 0; i < rows.length; i++) {
@@ -1541,15 +1607,18 @@ export class ProductService extends BaseCrudService<
         try {
           // Validate and process the row
           const productData = await this.validateAndProcessRow(row, rowNumber, categoryMap, result);
-          
+
           if (!productData) {
             result.skippedCount++;
             continue;
           }
 
           // Check for duplicates
-          const existingProduct = await this.findDuplicateProduct(productData.name, productData.barcode);
-          
+          const existingProduct = await this.findDuplicateProduct(
+            productData.name,
+            productData.barcode,
+          );
+
           if (existingProduct) {
             if (importDto.updateExisting) {
               // Update existing product
@@ -1595,9 +1664,10 @@ export class ProductService extends BaseCrudService<
         }
       }
 
-      this.logger.log(`Import completed: ${result.successCount} created, ${result.updatedCount} updated, ${result.failureCount} failed, ${result.skippedCount} skipped`);
+      this.logger.log(
+        `Import completed: ${result.successCount} created, ${result.updatedCount} updated, ${result.failureCount} failed, ${result.skippedCount} skipped`,
+      );
       return result;
-
     } catch (error) {
       this.logger.error('Import failed:', error);
       throw new BadRequestException(`Import failed: ${error.message}`);
@@ -1605,7 +1675,7 @@ export class ProductService extends BaseCrudService<
   }
 
   /**
-   * Generate CSV template for product import 
+   * Generate CSV template for product import
    */
   async generateImportTemplate(): Promise<StreamableFile> {
     const csvHeaders = [
@@ -1670,9 +1740,9 @@ export class ProductService extends BaseCrudService<
 
     const csvContent = [
       csvHeaders.join(','),
-      sampleData1.map(field => `"${field}"`).join(','),
-      sampleData2.map(field => `"${field}"`).join(','),
-      sampleData3.map(field => `"${field}"`).join(','),
+      sampleData1.map((field) => `"${field}"`).join(','),
+      sampleData2.map((field) => `"${field}"`).join(','),
+      sampleData3.map((field) => `"${field}"`).join(','),
     ].join('\n');
 
     const buffer = Buffer.from(csvContent, 'utf-8');
@@ -1684,7 +1754,7 @@ export class ProductService extends BaseCrudService<
    */
   private async parseImportFile(file: Express.Multer.File, format: string): Promise<any[]> {
     const fileContent = file.buffer.toString('utf-8');
-    
+
     if (format === 'csv') {
       return this.parseCsvContent(fileContent);
     } else if (format === 'excel') {
@@ -1703,7 +1773,7 @@ export class ProductService extends BaseCrudService<
       throw new BadRequestException('CSV content must be a string');
     }
 
-    const lines = content.split('\n').filter(line => line.trim());
+    const lines = content.split('\n').filter((line) => line.trim());
 
     if (lines.length < 2) {
       throw new BadRequestException('File must contain at least a header row and one data row');
@@ -1718,11 +1788,11 @@ export class ProductService extends BaseCrudService<
 
     // Parse header
     const headerLine = lines[0];
-    const headers = this.parseCsvLine(headerLine).map(h => h.toLowerCase().replace(/\*/g, ''));
+    const headers = this.parseCsvLine(headerLine).map((h) => h.toLowerCase().replace(/\*/g, ''));
 
     // Validate required headers
     const requiredHeaders = ['name', 'type', 'categoryname', 'basecost'];
-    const missingHeaders = requiredHeaders.filter(req => !headers.includes(req));
+    const missingHeaders = requiredHeaders.filter((req) => !headers.includes(req));
 
     if (missingHeaders.length > 0) {
       throw new BadRequestException(`Missing required headers: ${missingHeaders.join(', ')}`);
@@ -1816,7 +1886,7 @@ export class ProductService extends BaseCrudService<
     // Map category name to ID
     const categoryName = row.categoryname.toLowerCase();
     const categoryId = categoryMap.get(categoryName);
-    
+
     if (!categoryId) {
       result.errors.push({
         row: rowNumber,
@@ -1879,7 +1949,7 @@ export class ProductService extends BaseCrudService<
       baseCost,
       stockQuantity: parseNumber(row.stockquantity, 'stockQuantity') || 0,
       notes: row.notes?.trim() || undefined,
-      isActive: row.isactive === 'true' || row.isactive === true || row.isactive === '1' || true
+      isActive: row.isactive === 'true' || row.isactive === true || row.isactive === '1' || true,
     };
 
     return productData;
@@ -1904,11 +1974,7 @@ export class ProductService extends BaseCrudService<
   /**
    * Get order history for a product (both sales and purchase orders)
    */
-  async getOrderHistory(
-    productId: string,
-    page: number = 1,
-    limit: number = 20
-  ): Promise<any> {
+  async getOrderHistory(productId: string, page: number = 1, limit: number = 20): Promise<any> {
     this.logger.log(`Getting order history for product ${productId}`);
 
     // Verify product exists
@@ -1937,8 +2003,8 @@ export class ProductService extends BaseCrudService<
 
     // Transform sales order items (filter out items without order data)
     const salesOrders = salesOrderItems
-      .filter(item => item.salesOrder) // Only process items with loaded order
-      .map(item => {
+      .filter((item) => item.salesOrder) // Only process items with loaded order
+      .map((item) => {
         return {
           id: item.id,
           type: 'sales_order',
@@ -1955,12 +2021,12 @@ export class ProductService extends BaseCrudService<
 
     // Transform purchase order items (filter out items without order data)
     const purchaseOrders = purchaseOrderItems
-      .filter(item => item.purchaseOrder) // Only process items with loaded order
-      .map(item => {
+      .filter((item) => item.purchaseOrder) // Only process items with loaded order
+      .map((item) => {
         // Calculate payment status from vendor payments
         const vendorPayments = item.purchaseOrder.vendorPayments || [];
         const totalPaid = vendorPayments
-          .filter(payment => payment.status === 'completed')
+          .filter((payment) => payment.status === 'completed')
           .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
         const totalAmount = Number(item.purchaseOrder.totalAmount || 0);
 
@@ -1972,7 +2038,9 @@ export class ProductService extends BaseCrudService<
         }
 
         // Check if fully received using the entity method
-        const isFullyReceived = item.purchaseOrder.isFullyReceived ? item.purchaseOrder.isFullyReceived() : false;
+        const isFullyReceived = item.purchaseOrder.isFullyReceived
+          ? item.purchaseOrder.isFullyReceived()
+          : false;
 
         return {
           id: item.id,
@@ -1990,7 +2058,7 @@ export class ProductService extends BaseCrudService<
 
     // Combine and sort by updatedAt (most recently updated first)
     const combinedOrders = [...salesOrders, ...purchaseOrders].sort(
-      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     );
 
     // Get total count

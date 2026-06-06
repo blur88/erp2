@@ -1,13 +1,4 @@
-import {
-  IsOptional,
-  IsEnum,
-  IsIn,
-  IsUUID,
-  IsDate,
-  IsInt,
-  Min,
-  IsString,
-} from 'class-validator';
+import { IsOptional, IsEnum, IsIn, IsUUID, IsDate, IsInt, Min, IsString } from 'class-validator';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { format } from 'date-fns';
 import { Transform, Type } from 'class-transformer';
@@ -101,7 +92,7 @@ export class SalesAnalyticsQueryDto {
 }
 
 export class SalesMetricsDto {
-  @ApiProperty({ example: 125000.50, description: 'Total revenue' })
+  @ApiProperty({ example: 125000.5, description: 'Total revenue' })
   totalRevenue!: number;
 
   @ApiProperty({ example: 250, description: 'Total orders' })
@@ -110,7 +101,7 @@ export class SalesMetricsDto {
   @ApiProperty({ example: 45, description: 'New customers' })
   newCustomers!: number;
 
-  @ApiProperty({ example: 500.00, description: 'Average order value' })
+  @ApiProperty({ example: 500.0, description: 'Average order value' })
   averageOrderValue!: number;
 
   @ApiProperty({ example: 15.2, description: 'Conversion rate' })
@@ -122,7 +113,7 @@ export class SalesMetricsDto {
   @ApiProperty({ example: 30000.25, description: 'Pending invoices amount' })
   pendingInvoicesAmount!: number;
 
-  @ApiProperty({ example: 5000.00, description: 'Overdue invoices amount' })
+  @ApiProperty({ example: 5000.0, description: 'Overdue invoices amount' })
   overdueInvoicesAmount!: number;
 
   @ApiProperty({ example: 180, description: 'Completed orders' })
@@ -139,7 +130,7 @@ export class PeriodMetricDto {
   @ApiProperty({ example: '2023-12', description: 'Period' })
   period!: string;
 
-  @ApiProperty({ example: 25000.50, description: 'Revenue' })
+  @ApiProperty({ example: 25000.5, description: 'Revenue' })
   revenue!: number;
 
   @ApiProperty({ example: 50, description: 'Orders' })
@@ -148,7 +139,7 @@ export class PeriodMetricDto {
   @ApiProperty({ example: 10, description: 'New customers' })
   newCustomers!: number;
 
-  @ApiProperty({ example: 500.00, description: 'Average order value' })
+  @ApiProperty({ example: 500.0, description: 'Average order value' })
   averageOrderValue!: number;
 }
 
@@ -178,7 +169,7 @@ export class TopCustomerDto {
   @ApiProperty({ example: 'john@acme.com', description: 'Customer email' })
   customerEmail!: string;
 
-  @ApiProperty({ example: 15000.50, description: 'Total revenue' })
+  @ApiProperty({ example: 15000.5, description: 'Total revenue' })
   totalRevenue!: number;
 
   @ApiProperty({ example: 25, description: 'Total orders' })
@@ -187,7 +178,10 @@ export class TopCustomerDto {
   @ApiProperty({ example: 600.02, description: 'Average order value' })
   averageOrderValue!: number;
 
-  @ApiProperty({ example: '2023-11-15T00:00:00Z', description: 'Last order date' })
+  @ApiProperty({
+    example: '2023-11-15T00:00:00Z',
+    description: 'Last order date',
+  })
   lastOrderDate!: Date;
 }
 
@@ -204,10 +198,10 @@ export class TopProductDto {
   @ApiProperty({ example: 150, description: 'Quantity sold' })
   quantitySold!: number;
 
-  @ApiProperty({ example: 7500.00, description: 'Total revenue' })
+  @ApiProperty({ example: 7500.0, description: 'Total revenue' })
   totalRevenue!: number;
 
-  @ApiProperty({ example: 50.00, description: 'Average price' })
+  @ApiProperty({ example: 50.0, description: 'Average price' })
   averagePrice!: number;
 
   @ApiProperty({ example: 25, description: 'Order count' })
@@ -283,7 +277,7 @@ export class PipelineStageDto {
   @ApiProperty({ example: 15, description: 'Order count' })
   orderCount!: number;
 
-  @ApiProperty({ example: 75000.50, description: 'Total value' })
+  @ApiProperty({ example: 75000.5, description: 'Total value' })
   totalValue!: number;
 
   @ApiProperty({ example: 5000.03, description: 'Average value' })
@@ -377,10 +371,16 @@ export class CustomerMetricsDto {
   @ApiProperty({ example: 1800.03, description: 'Average order value' })
   averageOrderValue!: number;
 
-  @ApiProperty({ example: '2023-11-15T00:00:00Z', description: 'Last order date' })
+  @ApiProperty({
+    example: '2023-11-15T00:00:00Z',
+    description: 'Last order date',
+  })
   lastOrderDate!: Date;
 
-  @ApiProperty({ example: '2023-01-15T00:00:00Z', description: 'First order date' })
+  @ApiProperty({
+    example: '2023-01-15T00:00:00Z',
+    description: 'First order date',
+  })
   firstOrderDate!: Date;
 
   @ApiProperty({ example: 95.5, description: 'Payment score' })
@@ -440,7 +440,7 @@ export class RevenueDataDto {
   @ApiProperty({ example: '2023-01', description: 'Period' })
   period!: string;
 
-  @ApiProperty({ example: 25000.50, description: 'Revenue' })
+  @ApiProperty({ example: 25000.5, description: 'Revenue' })
   revenue!: number;
 
   @ApiProperty({ example: 50, description: 'Orders' })
@@ -449,10 +449,18 @@ export class RevenueDataDto {
   @ApiProperty({ example: 500.01, description: 'Average order value' })
   averageOrderValue!: number;
 
-  @ApiProperty({ example: 22500.45, description: 'Previous period revenue', required: false })
+  @ApiProperty({
+    example: 22500.45,
+    description: 'Previous period revenue',
+    required: false,
+  })
   previousPeriodRevenue?: number;
 
-  @ApiProperty({ example: 11.1, description: 'Growth percentage', required: false })
+  @ApiProperty({
+    example: 11.1,
+    description: 'Growth percentage',
+    required: false,
+  })
   growthPercentage?: number;
 }
 
@@ -469,10 +477,18 @@ export class RevenueReportResponseDto {
   @ApiProperty({ example: 500.01, description: 'Average order value' })
   averageOrderValue!: number;
 
-  @ApiProperty({ example: 275000.25, description: 'Previous period revenue', required: false })
+  @ApiProperty({
+    example: 275000.25,
+    description: 'Previous period revenue',
+    required: false,
+  })
   previousPeriodRevenue?: number;
 
-  @ApiProperty({ example: 9.1, description: 'Growth percentage', required: false })
+  @ApiProperty({
+    example: 9.1,
+    description: 'Growth percentage',
+    required: false,
+  })
   growthPercentage?: number;
 
   @ApiProperty({ example: '2023-01-01T00:00:00Z', description: 'Period start' })

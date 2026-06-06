@@ -88,6 +88,67 @@ describe('mapSalesOrderToResponseDto', () => {
     });
   });
 
+  it('does not report stockQuantity 0 when the relation omitted it (not loaded)', () => {
+    // List queries select a trimmed product (no stockQuantity). The mapper must
+    // not coerce the missing value to 0, or the frontend falsely shows
+    // "out of stock" and blocks fulfilment of an in-stock item (SO-26-024).
+    const order = {
+      id: 'order-1',
+      orderNumber: 'SO-26-024',
+      orderDate: new Date('2026-03-31T00:00:00.000Z'),
+      status: SalesOrderStatus.READY,
+      paymentStatus: SalesOrderPaymentStatus.PAID,
+      subtotal: 40,
+      shippingAmount: 0,
+      totalAmount: 40,
+      customerId: 'customer-1',
+      customer: null,
+      items: [
+        {
+          id: 'item-1',
+          productId: 'product-1',
+          quantity: 1,
+          unitPrice: 40,
+          totalAmount: 40,
+          product: {
+            id: 'product-1',
+            name: 'Product A',
+            // stockQuantity intentionally absent (not selected by list query)
+          },
+        },
+      ],
+      createdAt: new Date('2026-03-31T00:00:00.000Z'),
+      updatedAt: new Date('2026-04-01T00:00:00.000Z'),
+    };
+
+    const dto = mapSalesOrderToResponseDto(order as any);
+
+    expect(dto.items[0].product?.stockQuantity).toBeUndefined();
+  });
+
+  it('emits fulfilledAt so the invoice print can show the fulfilment date', () => {
+    const fulfilledAt = new Date('2026-04-02T08:00:00.000Z');
+    const order = {
+      id: 'o1',
+      orderNumber: 'SO-26-024',
+      orderDate: new Date('2026-04-01'),
+      status: SalesOrderStatus.FULFILLED,
+      paymentStatus: SalesOrderPaymentStatus.PAID,
+      subtotal: 40,
+      shippingAmount: 0,
+      totalAmount: 40,
+      fulfilledAt,
+      customerId: 'c1',
+      items: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const dto = mapSalesOrderToResponseDto(order as any);
+
+    expect(dto.fulfilledAt).toEqual(fulfilledAt);
+  });
+
   it('emits paidAmount and balanceDue from the entity', () => {
     const order = {
       id: 'o1',

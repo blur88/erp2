@@ -19,8 +19,6 @@ import { FiscalPeriod } from '../database/entities/fiscal-period.entity';
 import { FundTransfer } from '../database/entities/fund-transfer.entity';
 import { GoodsReceivedNote } from '../database/entities/goods-received-note.entity';
 import { GoodsReceivedNoteItem } from '../database/entities/goods-received-note-item.entity';
-import { Invoice } from '../database/entities/invoice.entity';
-import { InvoiceItem } from '../database/entities/invoice-item.entity';
 import { JournalEntry } from '../database/entities/journal-entry.entity';
 import { JournalEntryLine } from '../database/entities/journal-entry-line.entity';
 import { OwnerEquityTransaction } from '../database/entities/owner-equity-transaction.entity';
@@ -59,7 +57,10 @@ import { VendorPayment } from '../database/entities/vendor-payment.entity';
  * @returns Database configuration options
  * @throws Error if configuration is invalid or insecure
  */
-export function createDatabaseConfig(configService: ConfigService, allowDefaults = false): DataSourceOptions {
+export function createDatabaseConfig(
+  configService: ConfigService,
+  allowDefaults = false,
+): DataSourceOptions {
   // Validate required environment variables with security checks
   validateDatabaseConfig(configService, allowDefaults);
 
@@ -68,10 +69,19 @@ export function createDatabaseConfig(configService: ConfigService, allowDefaults
 
   // Get configuration values with proper validation
   const host = configService.get<string>('DB_HOST') || (allowDefaults ? 'postgres' : undefined);
-  const port = validateAndParseInt(configService.get<string>('DB_PORT'), '5432', 1, 65535, 'DB_PORT');
-  const username = configService.get<string>('DB_USERNAME') || (allowDefaults ? 'erp_user' : undefined);
-  const password = configService.get<string>('DB_PASSWORD') || (allowDefaults ? 'erp_password' : undefined);
-  const database = configService.get<string>('DB_DATABASE') || (allowDefaults ? 'erp_db' : undefined);
+  const port = validateAndParseInt(
+    configService.get<string>('DB_PORT'),
+    '5432',
+    1,
+    65535,
+    'DB_PORT',
+  );
+  const username =
+    configService.get<string>('DB_USERNAME') || (allowDefaults ? 'erp_user' : undefined);
+  const password =
+    configService.get<string>('DB_PASSWORD') || (allowDefaults ? 'erp_password' : undefined);
+  const database =
+    configService.get<string>('DB_DATABASE') || (allowDefaults ? 'erp_db' : undefined);
 
   // Ensure all required values are present
   if (!host || !username || !password || !database) {
@@ -86,31 +96,72 @@ export function createDatabaseConfig(configService: ConfigService, allowDefaults
     password,
     database,
     entities: [
-      AccountMapping, AuditLog, BackupLog, BackupSchedule, BackupRetentionSettings,
-      BankReconciliation, Category, ChartOfAccount, CompanySettings, Customer,
-      DocumentNumberSetting, Expense, FiscalPeriod, FundTransfer, GoodsReceivedNote, GoodsReceivedNoteItem,
-      Invoice, InvoiceItem, JournalEntry, JournalEntryLine, OwnerEquityTransaction,
-      Payment, PaymentMethodEntity, RegionalSettings, PriceList, PriceListItem,
-      PrintSettings, Product, PurchaseCostHistory, PurchaseOrder, PurchaseOrderItem,
-      ReconciledTransaction, RefreshToken, SalesOrder, SalesOrderItem, SalesOrderPayment, SearchClick, SearchQuery, Settlement,
-      StockAdjustment, StockAdjustmentItem, StockMovement, Supplier, User, VendorPayment,
+      AccountMapping,
+      AuditLog,
+      BackupLog,
+      BackupSchedule,
+      BackupRetentionSettings,
+      BankReconciliation,
+      Category,
+      ChartOfAccount,
+      CompanySettings,
+      Customer,
+      DocumentNumberSetting,
+      Expense,
+      FiscalPeriod,
+      FundTransfer,
+      GoodsReceivedNote,
+      GoodsReceivedNoteItem,
+      JournalEntry,
+      JournalEntryLine,
+      OwnerEquityTransaction,
+      Payment,
+      PaymentMethodEntity,
+      RegionalSettings,
+      PriceList,
+      PriceListItem,
+      PrintSettings,
+      Product,
+      PurchaseCostHistory,
+      PurchaseOrder,
+      PurchaseOrderItem,
+      ReconciledTransaction,
+      RefreshToken,
+      SalesOrder,
+      SalesOrderItem,
+      SalesOrderPayment,
+      SearchClick,
+      SearchQuery,
+      Settlement,
+      StockAdjustment,
+      StockAdjustmentItem,
+      StockMovement,
+      Supplier,
+      User,
+      VendorPayment,
     ],
     migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
-    
+
     // Security: Disable auto-synchronization in production
-    synchronize: !isProduction && isDevelopment && configService.get<string>('DB_SYNCHRONIZE', 'false') === 'true',
-    
+    synchronize:
+      !isProduction &&
+      isDevelopment &&
+      configService.get<string>('DB_SYNCHRONIZE', 'false') === 'true',
+
     // Controlled logging without sensitive data
     logging: isDevelopment && configService.get<string>('DB_LOGGING', 'false') === 'true',
-    
+
     // Security-hardened SSL configuration
     ssl: createSSLConfig(configService),
-    
+
     extra: {
       // Validated connection pool settings
       connectionLimit: validateAndParseInt(
         configService.get<string>('DB_MAX_CONNECTIONS'),
-        '10', 1, 100, 'DB_MAX_CONNECTIONS'
+        '10',
+        1,
+        100,
+        'DB_MAX_CONNECTIONS',
       ),
 
       // Network configuration
@@ -119,11 +170,17 @@ export function createDatabaseConfig(configService: ConfigService, allowDefaults
       // Timeout configurations with reasonable limits
       connectionTimeoutMillis: validateAndParseInt(
         configService.get<string>('DB_CONNECTION_TIMEOUT'),
-        '60000', 5000, 300000, 'DB_CONNECTION_TIMEOUT'
+        '60000',
+        5000,
+        300000,
+        'DB_CONNECTION_TIMEOUT',
       ),
       idleTimeoutMillis: validateAndParseInt(
         configService.get<string>('DB_IDLE_TIMEOUT'),
-        '10000', 1000, 3600000, 'DB_IDLE_TIMEOUT'
+        '10000',
+        1000,
+        3600000,
+        'DB_IDLE_TIMEOUT',
       ),
 
       // Timezone configuration for PostgreSQL

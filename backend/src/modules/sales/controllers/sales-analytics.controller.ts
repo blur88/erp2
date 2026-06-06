@@ -1,19 +1,6 @@
-import {
-  Controller,
-  Get,
-  Query,
-  ParseUUIDPipe,
-  Param,
-  Res,
-} from '@nestjs/common';
+import { Controller, Get, Query, ParseUUIDPipe, Param, Res } from '@nestjs/common';
 import { Response } from 'express';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiQuery,
-  ApiParam,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { SalesAnalyticsService } from '../services/sales-analytics.service';
 import { SalesOrderService } from '../services/sales-order.service';
 import { ExportService } from '../../../common/services/export.service';
@@ -30,7 +17,6 @@ import {
   DateRange,
   GroupByPeriod,
 } from '../dto/sales-analytics.dto';
-import { InvoiceStatus } from '../../../database/entities/invoice.entity';
 
 @ApiTags('Sales Analytics')
 @Controller('sales/analytics')
@@ -43,31 +29,69 @@ export class SalesAnalyticsController {
 
   @Get('dashboard')
   @ApiOperation({ summary: 'Get comprehensive sales analytics for dashboard' })
-  @ApiQuery({ name: 'dateRange', required: false, enum: DateRange, description: 'Predefined date range' })
-  @ApiQuery({ name: 'startDate', required: false, description: 'Custom start date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'endDate', required: false, description: 'Custom end date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
-  @ApiQuery({ name: 'salesRepId', required: false, description: 'Filter by sales representative ID' })
-  @ApiQuery({ name: 'groupBy', required: false, enum: ['day', 'week', 'month', 'quarter', 'year'], description: 'Group results by period' })
+  @ApiQuery({
+    name: 'dateRange',
+    required: false,
+    enum: DateRange,
+    description: 'Predefined date range',
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    description: 'Custom start date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    description: 'Custom end date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'customerId',
+    required: false,
+    description: 'Filter by customer ID',
+  })
+  @ApiQuery({
+    name: 'salesRepId',
+    required: false,
+    description: 'Filter by sales representative ID',
+  })
+  @ApiQuery({
+    name: 'groupBy',
+    required: false,
+    enum: ['day', 'week', 'month', 'quarter', 'year'],
+    description: 'Group results by period',
+  })
   @ApiQuery({
     name: 'compareWith',
     required: false,
     enum: ['previous_period', 'last_month', 'last_year'],
     description: 'Comparison period for delta metrics',
   })
-  @ApiQuery({ name: 'isFulfilled', required: false, description: 'Filter by fulfillment status (true/false)' })
-  @ApiQuery({ name: 'paymentStatus', required: false, enum: InvoiceStatus, description: 'Filter by invoice payment status' })
+  @ApiQuery({
+    name: 'isFulfilled',
+    required: false,
+    description: 'Filter by fulfillment status (true/false)',
+  })
+  @ApiQuery({
+    name: 'paymentStatus',
+    required: false,
+    description: 'Filter by invoice payment status',
+  })
   @ApiResponse({
     status: 200,
     description: 'Sales analytics retrieved successfully',
     type: SalesAnalyticsResponseDto,
   })
-  async getSalesAnalytics(@Query() query: SalesAnalyticsQueryDto): Promise<SalesAnalyticsResponseDto> {
+  async getSalesAnalytics(
+    @Query() query: SalesAnalyticsQueryDto,
+  ): Promise<SalesAnalyticsResponseDto> {
     return this.salesAnalyticsService.getSalesAnalytics(query);
   }
 
   @Get('dashboard/metrics')
-  @ApiOperation({ summary: 'Get key dashboard metrics for today, this month, and this year' })
+  @ApiOperation({
+    summary: 'Get key dashboard metrics for today, this month, and this year',
+  })
   @ApiResponse({
     status: 200,
     description: 'Dashboard metrics retrieved successfully',
@@ -76,15 +100,15 @@ export class SalesAnalyticsController {
       properties: {
         today: {
           type: 'object',
-          description: 'Today\'s metrics',
+          description: "Today's metrics",
         },
         thisMonth: {
           type: 'object',
-          description: 'This month\'s metrics',
+          description: "This month's metrics",
         },
         thisYear: {
           type: 'object',
-          description: 'This year\'s metrics',
+          description: "This year's metrics",
         },
       },
     },
@@ -95,11 +119,32 @@ export class SalesAnalyticsController {
 
   @Get('pipeline')
   @ApiOperation({ summary: 'Get sales pipeline analytics' })
-  @ApiQuery({ name: 'dateRange', required: false, enum: DateRange, description: 'Predefined date range' })
-  @ApiQuery({ name: 'startDate', required: false, description: 'Custom start date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'endDate', required: false, description: 'Custom end date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
-  @ApiQuery({ name: 'salesRepId', required: false, description: 'Filter by sales representative ID' })
+  @ApiQuery({
+    name: 'dateRange',
+    required: false,
+    enum: DateRange,
+    description: 'Predefined date range',
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    description: 'Custom start date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    description: 'Custom end date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'customerId',
+    required: false,
+    description: 'Filter by customer ID',
+  })
+  @ApiQuery({
+    name: 'salesRepId',
+    required: false,
+    description: 'Filter by sales representative ID',
+  })
   @ApiResponse({
     status: 200,
     description: 'Sales pipeline analytics retrieved successfully',
@@ -112,10 +157,28 @@ export class SalesAnalyticsController {
   @Get('customer/:customerId')
   @ApiOperation({ summary: 'Get detailed customer analytics' })
   @ApiParam({ name: 'customerId', description: 'Customer ID', type: 'string' })
-  @ApiQuery({ name: 'dateRange', required: false, enum: DateRange, description: 'Predefined date range' })
-  @ApiQuery({ name: 'startDate', required: false, description: 'Custom start date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'endDate', required: false, description: 'Custom end date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'includeDetails', required: false, type: Boolean, description: 'Include detailed transaction history' })
+  @ApiQuery({
+    name: 'dateRange',
+    required: false,
+    enum: DateRange,
+    description: 'Predefined date range',
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    description: 'Custom start date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    description: 'Custom end date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'includeDetails',
+    required: false,
+    type: Boolean,
+    description: 'Include detailed transaction history',
+  })
   @ApiResponse({
     status: 200,
     description: 'Customer analytics retrieved successfully',
@@ -134,11 +197,34 @@ export class SalesAnalyticsController {
 
   @Get('revenue-report')
   @ApiOperation({ summary: 'Get comprehensive revenue report' })
-  @ApiQuery({ name: 'period', required: false, enum: DateRange, description: 'Report period' })
-  @ApiQuery({ name: 'startDate', required: false, description: 'Custom start date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'endDate', required: false, description: 'Custom end date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'groupBy', required: false, enum: ['day', 'week', 'month'], description: 'Group by period' })
-  @ApiQuery({ name: 'includeComparison', required: false, type: Boolean, description: 'Include comparison with previous period' })
+  @ApiQuery({
+    name: 'period',
+    required: false,
+    enum: DateRange,
+    description: 'Report period',
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    description: 'Custom start date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    description: 'Custom end date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'groupBy',
+    required: false,
+    enum: ['day', 'week', 'month'],
+    description: 'Group by period',
+  })
+  @ApiQuery({
+    name: 'includeComparison',
+    required: false,
+    type: Boolean,
+    description: 'Include comparison with previous period',
+  })
   @ApiResponse({
     status: 200,
     description: 'Revenue report retrieved successfully',
@@ -150,10 +236,28 @@ export class SalesAnalyticsController {
 
   @Get('top-customers')
   @ApiOperation({ summary: 'Get top customers by revenue' })
-  @ApiQuery({ name: 'dateRange', required: false, enum: DateRange, description: 'Predefined date range' })
-  @ApiQuery({ name: 'startDate', required: false, description: 'Custom start date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'endDate', required: false, description: 'Custom end date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of top customers to return' })
+  @ApiQuery({
+    name: 'dateRange',
+    required: false,
+    enum: DateRange,
+    description: 'Predefined date range',
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    description: 'Custom start date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    description: 'Custom end date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of top customers to return',
+  })
   @ApiResponse({
     status: 200,
     description: 'Top customers retrieved successfully',
@@ -184,16 +288,34 @@ export class SalesAnalyticsController {
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
     });
-    
+
     return analytics.topCustomers.slice(0, limit);
   }
 
   @Get('top-products')
   @ApiOperation({ summary: 'Get top products by sales volume' })
-  @ApiQuery({ name: 'dateRange', required: false, enum: DateRange, description: 'Predefined date range' })
-  @ApiQuery({ name: 'startDate', required: false, description: 'Custom start date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'endDate', required: false, description: 'Custom end date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of top products to return' })
+  @ApiQuery({
+    name: 'dateRange',
+    required: false,
+    enum: DateRange,
+    description: 'Predefined date range',
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    description: 'Custom start date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    description: 'Custom end date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of top products to return',
+  })
   @ApiResponse({
     status: 200,
     description: 'Top products retrieved successfully',
@@ -224,14 +346,23 @@ export class SalesAnalyticsController {
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
     });
-    
+
     return analytics.topProducts.slice(0, limit);
   }
 
   @Get('trends/:period')
   @ApiOperation({ summary: 'Get sales trends for a specific period' })
-  @ApiParam({ name: 'period', enum: ['daily', 'weekly', 'monthly'], description: 'Trend period' })
-  @ApiQuery({ name: 'days', required: false, type: Number, description: 'Number of days to analyze (default: 30)' })
+  @ApiParam({
+    name: 'period',
+    enum: ['daily', 'weekly', 'monthly'],
+    description: 'Trend period',
+  })
+  @ApiQuery({
+    name: 'days',
+    required: false,
+    type: Number,
+    description: 'Number of days to analyze (default: 30)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Sales trends retrieved successfully',
@@ -296,8 +427,8 @@ export class SalesAnalyticsController {
     // Calculate trends and growth
     const trends = analytics.current.periodData.map((current, index) => {
       const previous = analytics.current.periodData[index - 1];
-      const growthPercentage = previous?.revenue 
-        ? ((current.revenue - previous.revenue) / previous.revenue) * 100 
+      const growthPercentage = previous?.revenue
+        ? ((current.revenue - previous.revenue) / previous.revenue) * 100
         : 0;
 
       return {
@@ -308,10 +439,11 @@ export class SalesAnalyticsController {
 
     const totalRevenue = trends.reduce((sum, trend) => sum + trend.revenue, 0);
     const totalOrders = trends.reduce((sum, trend) => sum + trend.orders, 0);
-    const growthRates = trends.map(t => t.growthPercentage).filter(g => g !== 0);
-    const averageGrowth = growthRates.length > 0 
-      ? growthRates.reduce((sum, rate) => sum + rate, 0) / growthRates.length 
-      : 0;
+    const growthRates = trends.map((t) => t.growthPercentage).filter((g) => g !== 0);
+    const averageGrowth =
+      growthRates.length > 0
+        ? growthRates.reduce((sum, rate) => sum + rate, 0) / growthRates.length
+        : 0;
 
     let trend: 'upward' | 'downward' | 'stable';
     if (averageGrowth > 5) {
@@ -336,10 +468,27 @@ export class SalesAnalyticsController {
 
   @Get('performance/sales-rep/:salesRepId')
   @ApiOperation({ summary: 'Get sales representative performance analytics' })
-  @ApiParam({ name: 'salesRepId', description: 'Sales representative user ID', type: 'string' })
-  @ApiQuery({ name: 'dateRange', required: false, enum: DateRange, description: 'Predefined date range' })
-  @ApiQuery({ name: 'startDate', required: false, description: 'Custom start date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'endDate', required: false, description: 'Custom end date (YYYY-MM-DD)' })
+  @ApiParam({
+    name: 'salesRepId',
+    description: 'Sales representative user ID',
+    type: 'string',
+  })
+  @ApiQuery({
+    name: 'dateRange',
+    required: false,
+    enum: DateRange,
+    description: 'Predefined date range',
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    description: 'Custom start date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    description: 'Custom end date (YYYY-MM-DD)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Sales rep performance retrieved successfully',
@@ -355,11 +504,30 @@ export class SalesAnalyticsController {
   }
 
   @Get('product-summary')
-  @ApiOperation({ summary: 'Get product summary report with sales and purchase data' })
-  @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'dateTo', required: false, description: 'End date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'categoryId', required: false, description: 'Filter by category ID' })
-  @ApiQuery({ name: 'productIds', required: false, type: [String], description: 'Filter by product IDs' })
+  @ApiOperation({
+    summary: 'Get product summary report with sales and purchase data',
+  })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    description: 'Start date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    description: 'End date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    description: 'Filter by category ID',
+  })
+  @ApiQuery({
+    name: 'productIds',
+    required: false,
+    type: [String],
+    description: 'Filter by product IDs',
+  })
   @ApiResponse({
     status: 200,
     description: 'Product summary report retrieved successfully',
@@ -402,11 +570,30 @@ export class SalesAnalyticsController {
   }
 
   @Get('product-details')
-  @ApiOperation({ summary: 'Get product details report with transaction-level data' })
-  @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'dateTo', required: false, description: 'End date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'categoryId', required: false, description: 'Filter by category ID' })
-  @ApiQuery({ name: 'productIds', required: false, type: [String], description: 'Filter by product IDs' })
+  @ApiOperation({
+    summary: 'Get product details report with transaction-level data',
+  })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    description: 'Start date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    description: 'End date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    description: 'Filter by category ID',
+  })
+  @ApiQuery({
+    name: 'productIds',
+    required: false,
+    type: [String],
+    description: 'Filter by product IDs',
+  })
   @ApiResponse({
     status: 200,
     description: 'Product details report retrieved successfully',
@@ -452,11 +639,31 @@ export class SalesAnalyticsController {
 
   @Get('sales-order-profit')
   @ApiOperation({ summary: 'Get sales order profit report' })
-  @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'dateTo', required: false, description: 'End date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
-  @ApiQuery({ name: 'status', required: false, description: 'Filter by inventory status (fulfilled/unfulfilled)' })
-  @ApiQuery({ name: 'paymentStatus', required: false, description: 'Filter by payment status (unpaid/partial/paid/overpaid)' })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    description: 'Start date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    description: 'End date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'customerId',
+    required: false,
+    description: 'Filter by customer ID',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    description: 'Filter by inventory status (fulfilled/unfulfilled)',
+  })
+  @ApiQuery({
+    name: 'paymentStatus',
+    required: false,
+    description: 'Filter by payment status (unpaid/partial/paid/overpaid)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Sales order profit report retrieved successfully',
@@ -500,10 +707,26 @@ export class SalesAnalyticsController {
 
   @Get('customer-payment-summary')
   @ApiOperation({ summary: 'Get customer payment summary report' })
-  @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'dateTo', required: false, description: 'End date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
-  @ApiQuery({ name: 'paymentStatus', required: false, description: 'Filter by payment status' })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    description: 'Start date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    description: 'End date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'customerId',
+    required: false,
+    description: 'Filter by customer ID',
+  })
+  @ApiQuery({
+    name: 'paymentStatus',
+    required: false,
+    description: 'Filter by payment status',
+  })
   @ApiResponse({
     status: 200,
     description: 'Customer payment summary report retrieved successfully',
@@ -545,11 +768,29 @@ export class SalesAnalyticsController {
   }
 
   @Get('customer-payment-by-order')
-  @ApiOperation({ summary: 'Get customer payment by order report - shows payments grouped by sales order' })
-  @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'dateTo', required: false, description: 'End date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
-  @ApiQuery({ name: 'paymentStatus', required: false, description: 'Filter by payment status' })
+  @ApiOperation({
+    summary: 'Get customer payment by order report - shows payments grouped by sales order',
+  })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    description: 'Start date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    description: 'End date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'customerId',
+    required: false,
+    description: 'Filter by customer ID',
+  })
+  @ApiQuery({
+    name: 'paymentStatus',
+    required: false,
+    description: 'Filter by payment status',
+  })
   @ApiResponse({
     status: 200,
     description: 'Customer payment by order report retrieved successfully',
@@ -594,11 +835,29 @@ export class SalesAnalyticsController {
   }
 
   @Get('customer-payment-details')
-  @ApiOperation({ summary: 'Get customer payment details report - shows individual payment transactions' })
-  @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date for payment date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'dateTo', required: false, description: 'End date for payment date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
-  @ApiQuery({ name: 'paymentStatus', required: false, description: 'Filter by payment status' })
+  @ApiOperation({
+    summary: 'Get customer payment details report - shows individual payment transactions',
+  })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    description: 'Start date for payment date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    description: 'End date for payment date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'customerId',
+    required: false,
+    description: 'Filter by customer ID',
+  })
+  @ApiQuery({
+    name: 'paymentStatus',
+    required: false,
+    description: 'Filter by payment status',
+  })
   @ApiResponse({
     status: 200,
     description: 'Customer payment details report retrieved successfully',
@@ -648,14 +907,45 @@ export class SalesAnalyticsController {
   }
 
   @Get('customer-order-history')
-  @ApiOperation({ summary: 'Get customer order history report - shows order line items with product details' })
-  @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date for order date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'dateTo', required: false, description: 'End date for order date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'customerId', required: false, description: 'Filter by customer ID' })
-  @ApiQuery({ name: 'categoryId', required: false, description: 'Filter by category ID' })
-  @ApiQuery({ name: 'productIds', required: false, type: [String], description: 'Filter by product IDs' })
-  @ApiQuery({ name: 'inventoryStatus', required: false, description: 'Filter by inventory status (fulfilled/unfulfilled)' })
-  @ApiQuery({ name: 'paymentStatus', required: false, description: 'Filter by payment status (unpaid/partial/paid/overpaid)' })
+  @ApiOperation({
+    summary: 'Get customer order history report - shows order line items with product details',
+  })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    description: 'Start date for order date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    description: 'End date for order date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'customerId',
+    required: false,
+    description: 'Filter by customer ID',
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    description: 'Filter by category ID',
+  })
+  @ApiQuery({
+    name: 'productIds',
+    required: false,
+    type: [String],
+    description: 'Filter by product IDs',
+  })
+  @ApiQuery({
+    name: 'inventoryStatus',
+    required: false,
+    description: 'Filter by inventory status (fulfilled/unfulfilled)',
+  })
+  @ApiQuery({
+    name: 'paymentStatus',
+    required: false,
+    description: 'Filter by payment status (unpaid/partial/paid/overpaid)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Customer order history report retrieved successfully',
@@ -708,13 +998,40 @@ export class SalesAnalyticsController {
   }
 
   @Get('product-customer-report')
-  @ApiOperation({ summary: 'Get product-customer report - shows which customers purchased which products' })
-  @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date for order date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'dateTo', required: false, description: 'End date for order date (YYYY-MM-DD)' })
-  @ApiQuery({ name: 'productIds', required: false, type: [String], description: 'Filter by product IDs' })
-  @ApiQuery({ name: 'categoryId', required: false, description: 'Filter by category ID' })
-  @ApiQuery({ name: 'inventoryStatus', required: false, description: 'Filter by inventory status (fulfilled/unfulfilled)' })
-  @ApiQuery({ name: 'paymentStatus', required: false, description: 'Filter by payment status (unpaid/partial/paid/overpaid)' })
+  @ApiOperation({
+    summary: 'Get product-customer report - shows which customers purchased which products',
+  })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    description: 'Start date for order date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    description: 'End date for order date (YYYY-MM-DD)',
+  })
+  @ApiQuery({
+    name: 'productIds',
+    required: false,
+    type: [String],
+    description: 'Filter by product IDs',
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    description: 'Filter by category ID',
+  })
+  @ApiQuery({
+    name: 'inventoryStatus',
+    required: false,
+    description: 'Filter by inventory status (fulfilled/unfulfilled)',
+  })
+  @ApiQuery({
+    name: 'paymentStatus',
+    required: false,
+    description: 'Filter by payment status (unpaid/partial/paid/overpaid)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Product-customer report retrieved successfully',
@@ -785,14 +1102,49 @@ export class SalesAnalyticsController {
       fulfillmentStatus: o.isFulfilled ? 'Fulfilled' : 'Pending',
     }));
     const columns = [
-      { key: 'customerName', header: 'Customer', type: 'string' as const, width: 25 },
-      { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
+      {
+        key: 'customerName',
+        header: 'Customer',
+        type: 'string' as const,
+        width: 25,
+      },
+      {
+        key: 'orderNumber',
+        header: 'Order #',
+        type: 'string' as const,
+        width: 15,
+      },
       { key: 'orderDate', header: 'Date', type: 'date' as const, width: 12 },
-      { key: 'fulfillmentStatus', header: 'Fulfillment', type: 'string' as const, width: 14 },
-      { key: 'itemsCount', header: 'Items', type: 'number' as const, width: 10 },
-      { key: 'totalAmount', header: 'Total', type: 'currency' as const, width: 15 },
-      { key: 'paidAmount', header: 'Paid', type: 'currency' as const, width: 15 },
-      { key: 'balanceDue', header: 'Balance', type: 'currency' as const, width: 15 },
+      {
+        key: 'fulfillmentStatus',
+        header: 'Fulfillment',
+        type: 'string' as const,
+        width: 14,
+      },
+      {
+        key: 'itemsCount',
+        header: 'Items',
+        type: 'number' as const,
+        width: 10,
+      },
+      {
+        key: 'totalAmount',
+        header: 'Total',
+        type: 'currency' as const,
+        width: 15,
+      },
+      {
+        key: 'paidAmount',
+        header: 'Paid',
+        type: 'currency' as const,
+        width: 15,
+      },
+      {
+        key: 'balanceDue',
+        header: 'Balance',
+        type: 'currency' as const,
+        width: 15,
+      },
     ];
     const buffer = await this.exportService.exportGrouped(
       'Sales Order Summary',
@@ -823,15 +1175,55 @@ export class SalesAnalyticsController {
       productIds: normalizeIds(productIds),
     });
     const columns = [
-      { key: 'category', header: 'Category', type: 'string' as const, width: 20 },
-      { key: 'productName', header: 'Product', type: 'string' as const, width: 30 },
-      { key: 'soldQty', header: 'Sold Qty', type: 'number' as const, width: 12 },
-      { key: 'totalSales', header: 'Total Sales', type: 'currency' as const, width: 15 },
+      {
+        key: 'category',
+        header: 'Category',
+        type: 'string' as const,
+        width: 20,
+      },
+      {
+        key: 'productName',
+        header: 'Product',
+        type: 'string' as const,
+        width: 30,
+      },
+      {
+        key: 'soldQty',
+        header: 'Sold Qty',
+        type: 'number' as const,
+        width: 12,
+      },
+      {
+        key: 'totalSales',
+        header: 'Total Sales',
+        type: 'currency' as const,
+        width: 15,
+      },
       { key: 'cost', header: 'Cost', type: 'currency' as const, width: 15 },
-      { key: 'salesProfit', header: 'Sales Profit', type: 'currency' as const, width: 15 },
-      { key: 'purchaseQty', header: 'Purchase Qty', type: 'number' as const, width: 14 },
-      { key: 'purchaseSubtotal', header: 'Purchase Subtotal', type: 'currency' as const, width: 18 },
-      { key: 'totalProfit', header: 'Total Profit', type: 'currency' as const, width: 15 },
+      {
+        key: 'salesProfit',
+        header: 'Sales Profit',
+        type: 'currency' as const,
+        width: 15,
+      },
+      {
+        key: 'purchaseQty',
+        header: 'Purchase Qty',
+        type: 'number' as const,
+        width: 14,
+      },
+      {
+        key: 'purchaseSubtotal',
+        header: 'Purchase Subtotal',
+        type: 'currency' as const,
+        width: 18,
+      },
+      {
+        key: 'totalProfit',
+        header: 'Total Profit',
+        type: 'currency' as const,
+        width: 15,
+      },
     ];
     const buffer = await this.exportService.exportGrouped(
       'Sales by Product Summary',
@@ -840,7 +1232,15 @@ export class SalesAnalyticsController {
       {
         groupKey: 'category',
         groupLabel: 'Category',
-        subtotalColumns: ['soldQty', 'totalSales', 'cost', 'salesProfit', 'purchaseQty', 'purchaseSubtotal', 'totalProfit'],
+        subtotalColumns: [
+          'soldQty',
+          'totalSales',
+          'cost',
+          'salesProfit',
+          'purchaseQty',
+          'purchaseSubtotal',
+          'totalProfit',
+        ],
       },
     );
     sendExcel(res, buffer, 'sales-by-product-summary');
@@ -862,14 +1262,49 @@ export class SalesAnalyticsController {
       productIds: normalizeIds(productIds),
     });
     const columns = [
-      { key: 'productName', header: 'Product', type: 'string' as const, width: 30 },
-      { key: 'category', header: 'Category', type: 'string' as const, width: 20 },
-      { key: 'transactionDate', header: 'Date', type: 'date' as const, width: 14 },
-      { key: 'documentNumber', header: 'Document #', type: 'string' as const, width: 18 },
-      { key: 'customerSupplier', header: 'Customer', type: 'string' as const, width: 25 },
+      {
+        key: 'productName',
+        header: 'Product',
+        type: 'string' as const,
+        width: 30,
+      },
+      {
+        key: 'category',
+        header: 'Category',
+        type: 'string' as const,
+        width: 20,
+      },
+      {
+        key: 'transactionDate',
+        header: 'Date',
+        type: 'date' as const,
+        width: 14,
+      },
+      {
+        key: 'documentNumber',
+        header: 'Document #',
+        type: 'string' as const,
+        width: 18,
+      },
+      {
+        key: 'customerSupplier',
+        header: 'Customer',
+        type: 'string' as const,
+        width: 25,
+      },
       { key: 'quantity', header: 'Qty', type: 'number' as const, width: 10 },
-      { key: 'unitPrice', header: 'Unit Price', type: 'currency' as const, width: 15 },
-      { key: 'totalAmount', header: 'Total', type: 'currency' as const, width: 15 },
+      {
+        key: 'unitPrice',
+        header: 'Unit Price',
+        type: 'currency' as const,
+        width: 15,
+      },
+      {
+        key: 'totalAmount',
+        header: 'Total',
+        type: 'currency' as const,
+        width: 15,
+      },
       { key: 'cost', header: 'Cost', type: 'currency' as const, width: 15 },
       { key: 'profit', header: 'Profit', type: 'currency' as const, width: 15 },
     ];
@@ -908,17 +1343,47 @@ export class SalesAnalyticsController {
       paymentStatus,
     });
     const columns = [
-      { key: 'customerName', header: 'Customer', type: 'string' as const, width: 25 },
-      { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
+      {
+        key: 'customerName',
+        header: 'Customer',
+        type: 'string' as const,
+        width: 25,
+      },
+      {
+        key: 'orderNumber',
+        header: 'Order #',
+        type: 'string' as const,
+        width: 15,
+      },
       { key: 'orderDate', header: 'Date', type: 'date' as const, width: 14 },
-      { key: 'productName', header: 'Product', type: 'string' as const, width: 30 },
-      { key: 'categoryName', header: 'Category', type: 'string' as const, width: 18 },
+      {
+        key: 'productName',
+        header: 'Product',
+        type: 'string' as const,
+        width: 30,
+      },
+      {
+        key: 'categoryName',
+        header: 'Category',
+        type: 'string' as const,
+        width: 18,
+      },
       { key: 'quantity', header: 'Qty', type: 'number' as const, width: 10 },
       { key: 'amount', header: 'Amount', type: 'currency' as const, width: 15 },
       { key: 'cost', header: 'Cost', type: 'currency' as const, width: 15 },
       { key: 'profit', header: 'Profit', type: 'currency' as const, width: 15 },
-      { key: 'paymentStatus', header: 'Payment', type: 'string' as const, width: 14 },
-      { key: 'inventoryStatus', header: 'Inventory', type: 'string' as const, width: 14 },
+      {
+        key: 'paymentStatus',
+        header: 'Payment',
+        type: 'string' as const,
+        width: 14,
+      },
+      {
+        key: 'inventoryStatus',
+        header: 'Inventory',
+        type: 'string' as const,
+        width: 14,
+      },
     ];
     const buffer = await this.exportService.exportGrouped(
       'Customer Order History',
@@ -949,14 +1414,54 @@ export class SalesAnalyticsController {
       paymentStatus,
     });
     const columns = [
-      { key: 'customerName', header: 'Customer', type: 'string' as const, width: 25 },
-      { key: 'customerPhone', header: 'Phone', type: 'string' as const, width: 18 },
-      { key: 'orderCount', header: 'Orders', type: 'number' as const, width: 10 },
-      { key: 'totalInvoiced', header: 'Invoiced', type: 'currency' as const, width: 15 },
-      { key: 'totalPaid', header: 'Paid', type: 'currency' as const, width: 15 },
-      { key: 'totalPayments', header: 'Payments', type: 'currency' as const, width: 15 },
-      { key: 'paymentCount', header: 'Payment Count', type: 'number' as const, width: 15 },
-      { key: 'paymentStatus', header: 'Status', type: 'string' as const, width: 12 },
+      {
+        key: 'customerName',
+        header: 'Customer',
+        type: 'string' as const,
+        width: 25,
+      },
+      {
+        key: 'customerPhone',
+        header: 'Phone',
+        type: 'string' as const,
+        width: 18,
+      },
+      {
+        key: 'orderCount',
+        header: 'Orders',
+        type: 'number' as const,
+        width: 10,
+      },
+      {
+        key: 'totalInvoiced',
+        header: 'Invoiced',
+        type: 'currency' as const,
+        width: 15,
+      },
+      {
+        key: 'totalPaid',
+        header: 'Paid',
+        type: 'currency' as const,
+        width: 15,
+      },
+      {
+        key: 'totalPayments',
+        header: 'Payments',
+        type: 'currency' as const,
+        width: 15,
+      },
+      {
+        key: 'paymentCount',
+        header: 'Payment Count',
+        type: 'number' as const,
+        width: 15,
+      },
+      {
+        key: 'paymentStatus',
+        header: 'Status',
+        type: 'string' as const,
+        width: 12,
+      },
     ];
     const buffer = await this.exportService.exportFlat(
       'Customer Payment Summary',
@@ -982,14 +1487,54 @@ export class SalesAnalyticsController {
       paymentStatus,
     });
     const columns = [
-      { key: 'customerName', header: 'Customer', type: 'string' as const, width: 25 },
-      { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
-      { key: 'orderDate', header: 'Order Date', type: 'date' as const, width: 14 },
-      { key: 'invoiceNumber', header: 'Invoice #', type: 'string' as const, width: 15 },
-      { key: 'totalAmount', header: 'Invoice Total', type: 'currency' as const, width: 15 },
-      { key: 'paidAmount', header: 'Paid', type: 'currency' as const, width: 15 },
-      { key: 'balance', header: 'Balance', type: 'currency' as const, width: 15 },
-      { key: 'paymentStatus', header: 'Status', type: 'string' as const, width: 12 },
+      {
+        key: 'customerName',
+        header: 'Customer',
+        type: 'string' as const,
+        width: 25,
+      },
+      {
+        key: 'orderNumber',
+        header: 'Order #',
+        type: 'string' as const,
+        width: 15,
+      },
+      {
+        key: 'orderDate',
+        header: 'Order Date',
+        type: 'date' as const,
+        width: 14,
+      },
+      {
+        key: 'invoiceNumber',
+        header: 'Invoice #',
+        type: 'string' as const,
+        width: 15,
+      },
+      {
+        key: 'totalAmount',
+        header: 'Invoice Total',
+        type: 'currency' as const,
+        width: 15,
+      },
+      {
+        key: 'paidAmount',
+        header: 'Paid',
+        type: 'currency' as const,
+        width: 15,
+      },
+      {
+        key: 'balance',
+        header: 'Balance',
+        type: 'currency' as const,
+        width: 15,
+      },
+      {
+        key: 'paymentStatus',
+        header: 'Status',
+        type: 'string' as const,
+        width: 12,
+      },
     ];
     const buffer = await this.exportService.exportGrouped(
       'Customer Payment by Order',
@@ -1020,14 +1565,49 @@ export class SalesAnalyticsController {
       paymentStatus,
     });
     const columns = [
-      { key: 'customerName', header: 'Customer', type: 'string' as const, width: 25 },
-      { key: 'paymentNumber', header: 'Payment #', type: 'string' as const, width: 15 },
+      {
+        key: 'customerName',
+        header: 'Customer',
+        type: 'string' as const,
+        width: 25,
+      },
+      {
+        key: 'paymentNumber',
+        header: 'Payment #',
+        type: 'string' as const,
+        width: 15,
+      },
       { key: 'paymentDate', header: 'Date', type: 'date' as const, width: 14 },
-      { key: 'paymentAmount', header: 'Amount', type: 'currency' as const, width: 15 },
-      { key: 'paymentMethod', header: 'Method', type: 'string' as const, width: 14 },
-      { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
-      { key: 'invoiceNumber', header: 'Invoice #', type: 'string' as const, width: 15 },
-      { key: 'invoiceBalance', header: 'Invoice Balance', type: 'currency' as const, width: 18 },
+      {
+        key: 'paymentAmount',
+        header: 'Amount',
+        type: 'currency' as const,
+        width: 15,
+      },
+      {
+        key: 'paymentMethod',
+        header: 'Method',
+        type: 'string' as const,
+        width: 14,
+      },
+      {
+        key: 'orderNumber',
+        header: 'Order #',
+        type: 'string' as const,
+        width: 15,
+      },
+      {
+        key: 'invoiceNumber',
+        header: 'Invoice #',
+        type: 'string' as const,
+        width: 15,
+      },
+      {
+        key: 'invoiceBalance',
+        header: 'Invoice Balance',
+        type: 'currency' as const,
+        width: 18,
+      },
     ];
     const buffer = await this.exportService.exportGrouped(
       'Customer Payment Details',
@@ -1062,10 +1642,30 @@ export class SalesAnalyticsController {
       paymentStatus,
     });
     const columns = [
-      { key: 'productName', header: 'Product', type: 'string' as const, width: 30 },
-      { key: 'categoryName', header: 'Category', type: 'string' as const, width: 18 },
-      { key: 'customerName', header: 'Customer', type: 'string' as const, width: 25 },
-      { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
+      {
+        key: 'productName',
+        header: 'Product',
+        type: 'string' as const,
+        width: 30,
+      },
+      {
+        key: 'categoryName',
+        header: 'Category',
+        type: 'string' as const,
+        width: 18,
+      },
+      {
+        key: 'customerName',
+        header: 'Customer',
+        type: 'string' as const,
+        width: 25,
+      },
+      {
+        key: 'orderNumber',
+        header: 'Order #',
+        type: 'string' as const,
+        width: 15,
+      },
       { key: 'orderDate', header: 'Date', type: 'date' as const, width: 14 },
       { key: 'quantity', header: 'Qty', type: 'number' as const, width: 10 },
       { key: 'amount', header: 'Amount', type: 'currency' as const, width: 15 },
@@ -1103,14 +1703,49 @@ export class SalesAnalyticsController {
       paymentStatus,
     });
     const columns = [
-      { key: 'customerName', header: 'Customer', type: 'string' as const, width: 25 },
-      { key: 'orderNumber', header: 'Order #', type: 'string' as const, width: 15 },
+      {
+        key: 'customerName',
+        header: 'Customer',
+        type: 'string' as const,
+        width: 25,
+      },
+      {
+        key: 'orderNumber',
+        header: 'Order #',
+        type: 'string' as const,
+        width: 15,
+      },
       { key: 'orderDate', header: 'Date', type: 'date' as const, width: 14 },
-      { key: 'inventoryStatus', header: 'Inventory Status', type: 'string' as const, width: 18 },
-      { key: 'paymentStatus', header: 'Payment Status', type: 'string' as const, width: 16 },
-      { key: 'totalRevenue', header: 'Revenue', type: 'currency' as const, width: 15 },
-      { key: 'totalCost', header: 'Cost', type: 'currency' as const, width: 15 },
-      { key: 'grossProfit', header: 'Gross Profit', type: 'currency' as const, width: 15 },
+      {
+        key: 'inventoryStatus',
+        header: 'Inventory Status',
+        type: 'string' as const,
+        width: 18,
+      },
+      {
+        key: 'paymentStatus',
+        header: 'Payment Status',
+        type: 'string' as const,
+        width: 16,
+      },
+      {
+        key: 'totalRevenue',
+        header: 'Revenue',
+        type: 'currency' as const,
+        width: 15,
+      },
+      {
+        key: 'totalCost',
+        header: 'Cost',
+        type: 'currency' as const,
+        width: 15,
+      },
+      {
+        key: 'grossProfit',
+        header: 'Gross Profit',
+        type: 'currency' as const,
+        width: 15,
+      },
     ];
     const buffer = await this.exportService.exportGrouped(
       'Sales Order Profit',
@@ -1124,5 +1759,4 @@ export class SalesAnalyticsController {
     );
     sendExcel(res, buffer, 'sales-order-profit');
   }
-
 }

@@ -65,21 +65,31 @@ export class SalesAnalyticsReportService {
           .where('item.productId = :productId', { productId: product.id });
 
         if (query.dateFrom) {
-          salesItemsQuery.andWhere('order.orderDate >= :dateFrom', { dateFrom: query.dateFrom });
+          salesItemsQuery.andWhere('order.orderDate >= :dateFrom', {
+            dateFrom: query.dateFrom,
+          });
         }
         if (query.dateTo) {
-          salesItemsQuery.andWhere('order.orderDate <= :dateTo', { dateTo: query.dateTo });
+          salesItemsQuery.andWhere('order.orderDate <= :dateTo', {
+            dateTo: query.dateTo,
+          });
         }
 
         const salesItems = await salesItemsQuery.getMany();
 
         // Calculate sales metrics
         const soldQty = salesItems.reduce((sum, item) => sum + Number(item.quantity), 0);
-        const totalSales = salesItems.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unitPrice)), 0);
+        const totalSales = salesItems.reduce(
+          (sum, item) => sum + Number(item.quantity) * Number(item.unitPrice),
+          0,
+        );
 
         // Calculate COGS using actual unitCost from sales order items
         // This represents the cost of goods that were actually SOLD
-        const cost = salesItems.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unitCost || 0)), 0);
+        const cost = salesItems.reduce(
+          (sum, item) => sum + Number(item.quantity) * Number(item.unitCost || 0),
+          0,
+        );
 
         // Get purchase order items for this product
         const purchaseItemsQuery = this.purchaseOrderItemRepository
@@ -88,17 +98,24 @@ export class SalesAnalyticsReportService {
           .where('item.productId = :productId', { productId: product.id });
 
         if (query.dateFrom) {
-          purchaseItemsQuery.andWhere('po.orderDate >= :dateFrom', { dateFrom: query.dateFrom });
+          purchaseItemsQuery.andWhere('po.orderDate >= :dateFrom', {
+            dateFrom: query.dateFrom,
+          });
         }
         if (query.dateTo) {
-          purchaseItemsQuery.andWhere('po.orderDate <= :dateTo', { dateTo: query.dateTo });
+          purchaseItemsQuery.andWhere('po.orderDate <= :dateTo', {
+            dateTo: query.dateTo,
+          });
         }
 
         const purchaseItems = await purchaseItemsQuery.getMany();
 
         // Calculate purchase metrics
         const purchaseQty = purchaseItems.reduce((sum, item) => sum + Number(item.quantity), 0);
-        const purchaseSubtotal = purchaseItems.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unitCost)), 0);
+        const purchaseSubtotal = purchaseItems.reduce(
+          (sum, item) => sum + Number(item.quantity) * Number(item.unitCost),
+          0,
+        );
 
         // Sales Profit = Revenue - COGS (profitability view)
         const salesProfit = totalSales - cost;
@@ -119,7 +136,7 @@ export class SalesAnalyticsReportService {
           purchaseSubtotal,
           totalProfit,
         };
-      })
+      }),
     );
 
     return {
@@ -159,19 +176,20 @@ export class SalesAnalyticsReportService {
         .createQueryBuilder('item')
         .leftJoinAndSelect('item.salesOrder', 'order')
         .leftJoinAndSelect('order.customer', 'customer')
-        .leftJoin('order.invoices', 'invoice')
         .where('item.productId = :productId', { productId: product.id });
 
       if (query.dateFrom) {
-        salesItemsQuery.andWhere('invoice.invoiceDate >= :dateFrom', { dateFrom: query.dateFrom });
+        salesItemsQuery.andWhere('order.orderDate >= :dateFrom', {
+          dateFrom: query.dateFrom,
+        });
       }
       if (query.dateTo) {
-        salesItemsQuery.andWhere('invoice.invoiceDate <= :dateTo', { dateTo: query.dateTo });
+        salesItemsQuery.andWhere('order.orderDate <= :dateTo', {
+          dateTo: query.dateTo,
+        });
       }
 
-      const salesItems = await salesItemsQuery
-        .orderBy('order.orderDate', 'DESC')
-        .getMany();
+      const salesItems = await salesItemsQuery.orderBy('order.orderDate', 'DESC').getMany();
 
       // Transform sales items to detail records
       for (const item of salesItems) {
@@ -254,7 +272,7 @@ export class SalesAnalyticsReportService {
     // Get all sales orders with items and invoices for payment status
     const orders = await this.salesOrderRepository.find({
       where: orderWhere,
-      relations: { customer: true, items: { product: true }, invoices: { payments: true } },
+      relations: { customer: true, items: { product: true }, payments: true },
       order: { orderNumber: 'ASC' },
     });
 
@@ -270,18 +288,15 @@ export class SalesAnalyticsReportService {
       const totalCost = items.reduce((sum, item) => {
         const quantity = Number(item.quantity || 0);
         const unitCost = Number(item.unitCost || 0);
-        return sum + (quantity * unitCost);
+        return sum + quantity * unitCost;
       }, 0);
 
       const grossProfit = totalRevenue - totalCost;
 
-      // Calculate payment status from invoices
-      const invoices = order.invoices || [];
-      const totalInvoiced = invoices.reduce((sum, inv) => sum + Number(inv.totalAmount || 0), 0);
-      const totalPaid = invoices.reduce((sum, inv) => {
-        const payments = inv.payments || [];
-        return sum + payments.reduce((pSum, p) => pSum + Number(p.amount || 0), 0);
-      }, 0);
+      // Calculate payment status from order payments
+      const totalInvoiced = Number(order.totalAmount || 0);
+      const payments = order.payments || [];
+      const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
       let paymentStatus = 'unpaid';
       if (totalPaid >= totalInvoiced && totalInvoiced > 0) {
@@ -304,7 +319,9 @@ export class SalesAnalyticsReportService {
 
     // Filter by payment status if specified
     if (query.paymentStatus && query.paymentStatus !== 'all') {
-      profitReports = profitReports.filter(report => report.paymentStatus === query.paymentStatus);
+      profitReports = profitReports.filter(
+        (report) => report.paymentStatus === query.paymentStatus,
+      );
     }
 
     // Sort by order number (extract numeric part for proper sorting)
@@ -344,27 +361,30 @@ export class SalesAnalyticsReportService {
     // Get all sales orders with invoices and payments
     const orders = await this.salesOrderRepository.find({
       where: orderWhere,
-      relations: { customer: true, invoices: { payments: true } },
+      relations: { customer: true, payments: true },
       order: { orderDate: 'DESC' },
     });
 
     // Group by customer and calculate payment status
-    const customerPaymentMap = new Map<string, {
-      customerId: string;
-      customerName: string;
-      customerPhone: string;
-      totalInvoiced: number;
-      totalPaid: number;
-      totalPayments: number;
-      paymentCount: number;
-      lastPaymentDate: Date | null;
-      firstPaymentDate: Date | null;
-      lastOrderDate: Date | null;
-      invoicesPaid: number;
-      averagePaymentAmount: number;
-      paymentStatus: string;
-      orderCount: number;
-    }>();
+    const customerPaymentMap = new Map<
+      string,
+      {
+        customerId: string;
+        customerName: string;
+        customerPhone: string;
+        totalInvoiced: number;
+        totalPaid: number;
+        totalPayments: number;
+        paymentCount: number;
+        lastPaymentDate: Date | null;
+        firstPaymentDate: Date | null;
+        lastOrderDate: Date | null;
+        invoicesPaid: number;
+        averagePaymentAmount: number;
+        paymentStatus: string;
+        orderCount: number;
+      }
+    >();
 
     orders.forEach((order) => {
       const customerId = order.customer?.id;
@@ -401,38 +421,34 @@ export class SalesAnalyticsReportService {
         customerData.lastOrderDate = orderDate;
       }
 
-      // Process invoices and payments
-      const invoices = order.invoices || [];
-      invoices.forEach((invoice) => {
-        customerData.totalInvoiced += Number(invoice.totalAmount || 0);
+      // Process payments
+      const orderPayments = order.payments || [];
+      customerData.totalInvoiced += Number(order.totalAmount || 0);
+      orderPayments.forEach((payment) => {
+        const paymentAmount = Number(payment.amount || 0);
+        customerData.totalPaid += paymentAmount;
+        customerData.totalPayments += paymentAmount;
+        customerData.paymentCount += 1;
 
-        const payments = invoice.payments || [];
-        payments.forEach((payment) => {
-          const paymentAmount = Number(payment.amount || 0);
-          customerData.totalPaid += paymentAmount;
-          customerData.totalPayments += paymentAmount;
-          customerData.paymentCount += 1;
+        const paymentDate = new Date(payment.paymentDate);
 
-          const paymentDate = new Date(payment.paymentDate);
-
-          // Track date ranges
-          if (!customerData.lastPaymentDate || paymentDate > customerData.lastPaymentDate) {
-            customerData.lastPaymentDate = paymentDate;
-          }
-          if (!customerData.firstPaymentDate || paymentDate < customerData.firstPaymentDate) {
-            customerData.firstPaymentDate = paymentDate;
-          }
-        });
-
-        // Count invoices that have payments
-        if (payments.length > 0) {
-          customerData.invoicesPaid += 1;
+        // Track date ranges
+        if (!customerData.lastPaymentDate || paymentDate > customerData.lastPaymentDate) {
+          customerData.lastPaymentDate = paymentDate;
+        }
+        if (!customerData.firstPaymentDate || paymentDate < customerData.firstPaymentDate) {
+          customerData.firstPaymentDate = paymentDate;
         }
       });
+
+      // Count orders that have payments
+      if (orderPayments.length > 0) {
+        customerData.invoicesPaid += 1;
+      }
     });
 
     // Calculate payment status and averages for each customer
-    const customerSummaries = Array.from(customerPaymentMap.values()).map(customer => {
+    const customerSummaries = Array.from(customerPaymentMap.values()).map((customer) => {
       // Calculate payment status based on total invoiced vs total paid
       if (customer.totalPaid >= customer.totalInvoiced && customer.totalInvoiced > 0) {
         customer.paymentStatus = customer.totalPaid > customer.totalInvoiced ? 'overpaid' : 'paid';
@@ -443,9 +459,8 @@ export class SalesAnalyticsReportService {
       }
 
       // Calculate average payment amount
-      customer.averagePaymentAmount = customer.paymentCount > 0
-        ? customer.totalPayments / customer.paymentCount
-        : 0;
+      customer.averagePaymentAmount =
+        customer.paymentCount > 0 ? customer.totalPayments / customer.paymentCount : 0;
 
       return customer;
     });
@@ -454,7 +469,7 @@ export class SalesAnalyticsReportService {
     let filteredSummaries = customerSummaries;
     if (query.paymentStatus && query.paymentStatus !== 'all') {
       filteredSummaries = customerSummaries.filter(
-        customer => customer.paymentStatus === query.paymentStatus
+        (customer) => customer.paymentStatus === query.paymentStatus,
       );
     }
 
@@ -491,7 +506,7 @@ export class SalesAnalyticsReportService {
     // Get all sales orders with invoices and payments
     const orders = await this.salesOrderRepository.find({
       where: orderWhere,
-      relations: { customer: true, invoices: { payments: true } },
+      relations: { customer: true, payments: true },
       order: { orderNumber: 'ASC' },
     });
 
@@ -499,47 +514,46 @@ export class SalesAnalyticsReportService {
     const paymentByOrderData: any[] = [];
 
     orders.forEach((order) => {
-      const invoices = order.invoices || [];
+      const orderPayments = order.payments || [];
 
-      invoices.forEach((invoice) => {
-        const payments = invoice.payments || [];
+      // Calculate payment totals for this order
+      const totalPaid = orderPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const totalAmount = Number(order.totalAmount || 0);
+      const balance = totalAmount - totalPaid;
 
-        // Calculate payment totals for this invoice
-        const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-        const totalAmount = Number(invoice.totalAmount || 0);
-        const balance = totalAmount - totalPaid;
+      // Determine payment status
+      let paymentStatus = 'unpaid';
+      if (totalPaid >= totalAmount && totalAmount > 0) {
+        paymentStatus = totalPaid > totalAmount ? 'overpaid' : 'paid';
+      } else if (totalPaid > 0) {
+        paymentStatus = 'partial';
+      }
 
-        // Determine payment status
-        let paymentStatus = 'unpaid';
-        if (totalPaid >= totalAmount && totalAmount > 0) {
-          paymentStatus = totalPaid > totalAmount ? 'overpaid' : 'paid';
-        } else if (totalPaid > 0) {
-          paymentStatus = 'partial';
-        }
-
-        // Find last payment date for this invoice
-        let lastPaymentDate: Date | null = null;
-        if (payments.length > 0) {
-          lastPaymentDate = payments.reduce((latest, p) => {
+      // Find last payment date for this order
+      let lastPaymentDate: Date | null = null;
+      if (orderPayments.length > 0) {
+        lastPaymentDate = orderPayments.reduce(
+          (latest, p) => {
             const pDate = new Date(p.paymentDate);
             return !latest || pDate > latest ? pDate : latest;
-          }, null as Date | null);
-        }
+          },
+          null as Date | null,
+        );
+      }
 
-        paymentByOrderData.push({
-          customerId: order.customer?.id || '',
-          customerName: order.customer?.name || 'Unknown',
-          orderNumber: order.orderNumber,
-          orderDate: order.orderDate,
-          invoiceNumber: invoice.invoiceNumber,
-          invoiceDate: invoice.invoiceDate,
-          inventoryStatus: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
-          totalAmount,
-          paidAmount: totalPaid,
-          balance,
-          paymentStatus,
-          lastPaymentDate,
-        });
+      paymentByOrderData.push({
+        customerId: order.customer?.id || '',
+        customerName: order.customer?.name || 'Unknown',
+        orderNumber: order.orderNumber,
+        orderDate: order.orderDate,
+        invoiceNumber: '',
+        invoiceDate: null,
+        inventoryStatus: order.isFulfilled ? 'fulfilled' : 'unfulfilled',
+        totalAmount,
+        paidAmount: totalPaid,
+        balance,
+        paymentStatus,
+        lastPaymentDate,
       });
     });
 
@@ -547,7 +561,7 @@ export class SalesAnalyticsReportService {
     let filteredData = paymentByOrderData;
     if (query.paymentStatus && query.paymentStatus !== 'all') {
       filteredData = paymentByOrderData.filter(
-        item => item.paymentStatus === query.paymentStatus
+        (item) => item.paymentStatus === query.paymentStatus,
       );
     }
 
@@ -572,8 +586,7 @@ export class SalesAnalyticsReportService {
     // Build WHERE conditions for payments
     let paymentQuery = this.paymentRepository
       .createQueryBuilder('payment')
-      .leftJoinAndSelect('payment.invoice', 'invoice')
-      .leftJoinAndSelect('invoice.salesOrder', 'salesOrder')
+      .leftJoinAndSelect('payment.salesOrder', 'salesOrder')
       .leftJoinAndSelect('salesOrder.customer', 'customer');
 
     // Apply date range filter on payment date
@@ -607,21 +620,8 @@ export class SalesAnalyticsReportService {
 
     // Transform to payment details format
     const paymentDetailsData = payments.map((payment) => {
-      const invoice = payment.invoice;
-      const salesOrder = invoice?.salesOrder;
+      const salesOrder = payment.salesOrder;
       const customer = salesOrder?.customer;
-
-      // Calculate payment status for the invoice
-      const totalAmount = Number(invoice?.totalAmount || 0);
-      const paidAmount = Number(invoice?.paidAmount || 0);
-      const balance = totalAmount - paidAmount;
-
-      let paymentStatus = 'unpaid';
-      if (paidAmount >= totalAmount && totalAmount > 0) {
-        paymentStatus = paidAmount > totalAmount ? 'overpaid' : 'paid';
-      } else if (paidAmount > 0) {
-        paymentStatus = 'partial';
-      }
 
       return {
         paymentId: payment.id,
@@ -633,12 +633,12 @@ export class SalesAnalyticsReportService {
         customerName: customer?.name || 'Unknown',
         orderNumber: salesOrder?.orderNumber || '',
         orderDate: salesOrder?.orderDate || null,
-        invoiceNumber: invoice?.invoiceNumber || '',
-        invoiceDate: invoice?.invoiceDate || null,
-        invoiceTotal: totalAmount,
-        invoicePaid: paidAmount,
-        invoiceBalance: balance,
-        paymentStatus,
+        invoiceNumber: '',
+        invoiceDate: null,
+        invoiceTotal: 0,
+        invoicePaid: 0,
+        invoiceBalance: 0,
+        paymentStatus: 'paid',
         inventoryStatus: salesOrder?.isFulfilled ? 'fulfilled' : 'unfulfilled',
         notes: payment.notes || '',
       };
@@ -648,7 +648,7 @@ export class SalesAnalyticsReportService {
     let filteredData = paymentDetailsData;
     if (query.paymentStatus && query.paymentStatus !== 'all') {
       filteredData = paymentDetailsData.filter(
-        item => item.paymentStatus === query.paymentStatus
+        (item) => item.paymentStatus === query.paymentStatus,
       );
     }
 
@@ -674,8 +674,7 @@ export class SalesAnalyticsReportService {
       .leftJoinAndSelect('salesOrder.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
       .leftJoinAndSelect('product.category', 'category')
-      .leftJoinAndSelect('salesOrder.invoices', 'invoices')
-      .leftJoinAndSelect('invoices.payments', 'payments');
+      .leftJoinAndSelect('salesOrder.payments', 'payments');
 
     // Apply date range filter on order date
     if (query.dateFrom && query.dateTo) {
@@ -734,9 +733,7 @@ export class SalesAnalyticsReportService {
       .getMany();
 
     // Remove duplicates if filtering by products (since one order can have multiple products)
-    const uniqueOrders = Array.from(
-      new Map(orders.map(order => [order.id, order])).values()
-    );
+    const uniqueOrders = Array.from(new Map(orders.map((order) => [order.id, order])).values());
 
     // Transform to order history format - return individual line items
     const orderHistoryData: any[] = [];
@@ -744,16 +741,16 @@ export class SalesAnalyticsReportService {
     uniqueOrders.forEach((order) => {
       const customer = order.customer;
       const items = order.items || [];
-      const invoices = order.invoices || [];
+      const paymentsData = order.payments || [];
 
       // Calculate total amount from items
       const totalAmount = items.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0);
 
       // Calculate paid amount from all payments
-      const paidAmount = invoices.reduce((sum, invoice) => {
-        const payments = invoice.payments || [];
-        return sum + payments.reduce((pSum, payment) => pSum + Number(payment.amount || 0), 0);
-      }, 0);
+      const paidAmount = paymentsData.reduce(
+        (sum, payment) => sum + Number(payment.amount || 0),
+        0,
+      );
 
       // Determine payment status
       let paymentStatus = 'unpaid';
@@ -795,9 +792,7 @@ export class SalesAnalyticsReportService {
     // Filter by payment status if specified
     let filteredData = orderHistoryData;
     if (query.paymentStatus && query.paymentStatus !== 'all') {
-      filteredData = orderHistoryData.filter(
-        item => item.paymentStatus === query.paymentStatus
-      );
+      filteredData = orderHistoryData.filter((item) => item.paymentStatus === query.paymentStatus);
     }
 
     return {
@@ -821,8 +816,7 @@ export class SalesAnalyticsReportService {
       .leftJoinAndSelect('salesOrder.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
       .leftJoinAndSelect('product.category', 'category')
-      .leftJoinAndSelect('salesOrder.invoices', 'invoices')
-      .leftJoinAndSelect('invoices.payments', 'payments');
+      .leftJoinAndSelect('salesOrder.payments', 'payments');
 
     // Apply date range filter on order date
     if (query.dateFrom && query.dateTo) {
@@ -874,9 +868,7 @@ export class SalesAnalyticsReportService {
       .getMany();
 
     // Remove duplicates if filtering by products (since one order can have multiple products)
-    const uniqueOrders = Array.from(
-      new Map(orders.map(order => [order.id, order])).values()
-    );
+    const uniqueOrders = Array.from(new Map(orders.map((order) => [order.id, order])).values());
 
     // Transform to product-customer format - return individual line items
     const productCustomerData: any[] = [];
@@ -884,16 +876,16 @@ export class SalesAnalyticsReportService {
     uniqueOrders.forEach((order) => {
       const customer = order.customer;
       const items = order.items || [];
-      const invoices = order.invoices || [];
+      const paymentsData = order.payments || [];
 
       // Calculate total amount from items
       const totalAmount = items.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0);
 
       // Calculate paid amount from all payments
-      const paidAmount = invoices.reduce((sum, invoice) => {
-        const payments = invoice.payments || [];
-        return sum + payments.reduce((pSum, payment) => pSum + Number(payment.amount || 0), 0);
-      }, 0);
+      const paidAmount = paymentsData.reduce(
+        (sum, payment) => sum + Number(payment.amount || 0),
+        0,
+      );
 
       // Determine payment status
       let paymentStatus = 'unpaid';
@@ -936,7 +928,7 @@ export class SalesAnalyticsReportService {
     let filteredData = productCustomerData;
     if (query.paymentStatus && query.paymentStatus !== 'all') {
       filteredData = productCustomerData.filter(
-        item => item.paymentStatus === query.paymentStatus
+        (item) => item.paymentStatus === query.paymentStatus,
       );
     }
 

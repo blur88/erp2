@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { JournalEntryService } from './journal-entry.service';
 import { AccountMappingService } from './account-mapping.service';
@@ -17,7 +12,10 @@ import { PaymentMethodEntity } from '../../../database/entities/payment-method.e
 import { GoodsReceivedNote } from '../../../database/entities/goods-received-note.entity';
 import { GoodsReceivedNoteItem } from '../../../database/entities/goods-received-note-item.entity';
 import { VendorPayment } from '../../../database/entities/vendor-payment.entity';
-import { StockAdjustment, StockAdjustmentItem } from '../../../database/entities/stock-adjustment.entity';
+import {
+  StockAdjustment,
+  StockAdjustmentItem,
+} from '../../../database/entities/stock-adjustment.entity';
 import { Settlement } from '../../../database/entities/settlement.entity';
 import {
   OwnerEquityTransaction,
@@ -55,9 +53,12 @@ export class AccountingService {
     this.logger.log(`Posting sales order entry for ${salesOrder.orderNumber}`);
 
     // Guard: skip if an active (POSTED or DRAFT) entry already exists for this source
-    const existingEntries = await this.journalEntryService.findBySource('sales_order', salesOrder.id);
+    const existingEntries = await this.journalEntryService.findBySource(
+      'sales_order',
+      salesOrder.id,
+    );
     const activeEntry = existingEntries.find(
-      e => e.status === JournalEntryStatus.POSTED || e.status === JournalEntryStatus.DRAFT,
+      (e) => e.status === JournalEntryStatus.POSTED || e.status === JournalEntryStatus.DRAFT,
     );
     if (activeEntry) {
       this.logger.warn(
@@ -84,9 +85,7 @@ export class AccountingService {
     });
 
     if (!periodValidation.period) {
-      throw new BadRequestException(
-        `No fiscal period found for date ${salesOrder.fulfilledDate}`,
-      );
+      throw new BadRequestException(`No fiscal period found for date ${salesOrder.fulfilledDate}`);
     }
 
     // Guard: items relation must be loaded — without it revenue and COGS are both wrong
@@ -193,9 +192,7 @@ export class AccountingService {
       },
     );
 
-    this.logger.log(
-      `Sales order entries posted successfully for order: ${salesOrder.orderNumber}`,
-    );
+    this.logger.log(`Sales order entries posted successfully for order: ${salesOrder.orderNumber}`);
 
     return postedRevenueEntry as any;
   }
@@ -218,11 +215,7 @@ export class AccountingService {
     const paymentMethodCode = payment.paymentMethodEntity?.code || 'CASH';
     const debitMappingKey = `payment_${paymentMethodCode.toLowerCase()}`;
 
-    this.validateMappingByKey(
-      mappings,
-      debitMappingKey,
-      `payment method "${paymentMethodCode}"`,
-    );
+    this.validateMappingByKey(mappings, debitMappingKey, `payment method "${paymentMethodCode}"`);
     this.validateMapping(mappings, MappingType.PAYMENT_AR, 'Accounts Receivable');
 
     // Validate period is open
@@ -234,9 +227,7 @@ export class AccountingService {
     });
 
     if (!periodValidation.period) {
-      throw new BadRequestException(
-        `No fiscal period found for date ${payment.paymentDate}`,
-      );
+      throw new BadRequestException(`No fiscal period found for date ${payment.paymentDate}`);
     }
 
     // Build journal entry lines
@@ -282,9 +273,7 @@ export class AccountingService {
       },
     );
 
-    this.logger.log(
-      `Payment entry posted successfully: ${postedEntry.referenceNumber}`,
-    );
+    this.logger.log(`Payment entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
 
@@ -306,11 +295,7 @@ export class AccountingService {
     const paymentMappingKey = `payment_${paymentMethod.code.toLowerCase()}`;
     const settlementMappingKey = `payment_${paymentMethod.code.toLowerCase()}_settlement`;
 
-    this.validateMappingByKey(
-      mappings,
-      paymentMappingKey,
-      `${paymentMethod.name} payment account`,
-    );
+    this.validateMappingByKey(mappings, paymentMappingKey, `${paymentMethod.name} payment account`);
     this.validateMappingByKey(
       mappings,
       settlementMappingKey,
@@ -323,9 +308,7 @@ export class AccountingService {
     });
 
     if (!periodValidation.period) {
-      throw new BadRequestException(
-        `No fiscal period found for date ${settlement.settlementDate}`,
-      );
+      throw new BadRequestException(`No fiscal period found for date ${settlement.settlementDate}`);
     }
 
     const lines: CreateJournalEntryLineDto[] = [
@@ -367,9 +350,7 @@ export class AccountingService {
         metadata: { sourceType: 'settlement', sourceId: settlement.id },
       },
     );
-    this.logger.log(
-      `Settlement entry posted successfully: ${postedEntry.referenceNumber}`,
-    );
+    this.logger.log(`Settlement entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
 
@@ -400,9 +381,7 @@ export class AccountingService {
     });
 
     if (!periodValidation.period) {
-      throw new BadRequestException(
-        `No fiscal period found for date ${grn.receivedDate}`,
-      );
+      throw new BadRequestException(`No fiscal period found for date ${grn.receivedDate}`);
     }
 
     // Calculate total from GRN items
@@ -451,9 +430,7 @@ export class AccountingService {
       },
     );
 
-    this.logger.log(
-      `Goods received entry posted successfully: ${postedEntry.referenceNumber}`,
-    );
+    this.logger.log(`Goods received entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
 
@@ -490,9 +467,7 @@ export class AccountingService {
     });
 
     if (!periodValidation.period) {
-      throw new BadRequestException(
-        `No fiscal period found for date ${vendorPayment.paymentDate}`,
-      );
+      throw new BadRequestException(`No fiscal period found for date ${vendorPayment.paymentDate}`);
     }
 
     // Build journal entry lines
@@ -538,9 +513,7 @@ export class AccountingService {
       },
     );
 
-    this.logger.log(
-      `Vendor payment entry posted successfully: ${postedEntry.referenceNumber}`,
-    );
+    this.logger.log(`Vendor payment entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
 
@@ -560,8 +533,16 @@ export class AccountingService {
 
     // Validate required mappings exist
     this.validateMapping(mappings, MappingType.INVENTORY_ASSET, 'Inventory Asset');
-    this.validateMapping(mappings, MappingType.INVENTORY_ADJUSTMENT_GAIN, 'Inventory Adjustment Gain');
-    this.validateMapping(mappings, MappingType.INVENTORY_ADJUSTMENT_LOSS, 'Inventory Adjustment Loss');
+    this.validateMapping(
+      mappings,
+      MappingType.INVENTORY_ADJUSTMENT_GAIN,
+      'Inventory Adjustment Gain',
+    );
+    this.validateMapping(
+      mappings,
+      MappingType.INVENTORY_ADJUSTMENT_LOSS,
+      'Inventory Adjustment Loss',
+    );
 
     // Validate period is open
     await this.validatePeriodOpen(adjustment.adjustmentDate);
@@ -572,15 +553,11 @@ export class AccountingService {
     });
 
     if (!periodValidation.period) {
-      throw new BadRequestException(
-        `No fiscal period found for date ${adjustment.adjustmentDate}`,
-      );
+      throw new BadRequestException(`No fiscal period found for date ${adjustment.adjustmentDate}`);
     }
 
     // Calculate totals for increases and decreases
-    const { totalIncrease, totalDecrease } = this.calculateAdjustmentTotals(
-      adjustment.items,
-    );
+    const { totalIncrease, totalDecrease } = this.calculateAdjustmentTotals(adjustment.items);
 
     // Build journal entry lines
     const lines: CreateJournalEntryLineDto[] = [];
@@ -650,9 +627,7 @@ export class AccountingService {
       },
     );
 
-    this.logger.log(
-      `Stock adjustment entry posted successfully: ${postedEntry.referenceNumber}`,
-    );
+    this.logger.log(`Stock adjustment entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
 
@@ -673,11 +648,7 @@ export class AccountingService {
     const paymentMethodCode = transaction.paymentMethod?.code || 'CASH';
     const paymentMappingKey = `payment_${paymentMethodCode.toLowerCase()}`;
 
-    this.validateMappingByKey(
-      mappings,
-      paymentMappingKey,
-      `payment method "${paymentMethodCode}"`,
-    );
+    this.validateMappingByKey(mappings, paymentMappingKey, `payment method "${paymentMethodCode}"`);
     this.validateMappingByKey(mappings, 'equity_owners_equity', "Owner's Equity");
     this.validateMappingByKey(mappings, 'equity_drawings', 'Drawings');
 
@@ -760,9 +731,7 @@ export class AccountingService {
         metadata: { sourceType: 'owner_equity', sourceId: transaction.id },
       },
     );
-    this.logger.log(
-      `Owner equity entry posted successfully: ${postedEntry.referenceNumber}`,
-    );
+    this.logger.log(`Owner equity entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
 
@@ -782,11 +751,7 @@ export class AccountingService {
     const paymentMethodCode = expense.paymentMethod?.code || 'CASH';
     const paymentMappingKey = `payment_${paymentMethodCode.toLowerCase()}`;
 
-    this.validateMappingByKey(
-      mappings,
-      paymentMappingKey,
-      `payment method "${paymentMethodCode}"`,
-    );
+    this.validateMappingByKey(mappings, paymentMappingKey, `payment method "${paymentMethodCode}"`);
 
     // Expense account is directly selected by user, no mapping needed
     // Just validate it exists
@@ -801,9 +766,7 @@ export class AccountingService {
     });
 
     if (!periodValidation.period) {
-      throw new BadRequestException(
-        `No fiscal period found for date ${expense.expenseDate}`,
-      );
+      throw new BadRequestException(`No fiscal period found for date ${expense.expenseDate}`);
     }
 
     const accountName = expense.expenseAccount?.name || 'Expense';
@@ -870,8 +833,7 @@ export class AccountingService {
     );
     const activeEntry = existingEntries.find(
       (entry) =>
-        entry.status === JournalEntryStatus.POSTED ||
-        entry.status === JournalEntryStatus.DRAFT,
+        entry.status === JournalEntryStatus.POSTED || entry.status === JournalEntryStatus.DRAFT,
     );
 
     if (activeEntry) {
@@ -888,9 +850,7 @@ export class AccountingService {
     });
 
     if (!periodValidation.period) {
-      throw new BadRequestException(
-        `No fiscal period found for date ${transfer.transferDate}`,
-      );
+      throw new BadRequestException(`No fiscal period found for date ${transfer.transferDate}`);
     }
 
     const description = `Fund Transfer: ${transfer.referenceNumber}${
@@ -937,9 +897,7 @@ export class AccountingService {
       },
     );
 
-    this.logger.log(
-      `Fund transfer entry posted successfully: ${postedEntry.referenceNumber}`,
-    );
+    this.logger.log(`Fund transfer entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
 
@@ -1049,7 +1007,11 @@ export class AccountingService {
    * Post opening balances as a single balanced journal entry.
    * Positive amounts become debits, negative amounts become credits.
    */
-  async postOpeningBalances(dto: PostOpeningBalancesDto, userId?: string, username?: string): Promise<JournalEntry> {
+  async postOpeningBalances(
+    dto: PostOpeningBalancesDto,
+    userId?: string,
+    username?: string,
+  ): Promise<JournalEntry> {
     this.logger.log(`Posting opening balances as of ${dto.asOfDate}`);
 
     const asOfDate = new Date(dto.asOfDate);
@@ -1058,9 +1020,7 @@ export class AccountingService {
     });
 
     if (!periodValidation.isValid || !periodValidation.period) {
-      throw new BadRequestException(
-        `No open fiscal period found for date ${dto.asOfDate}`,
-      );
+      throw new BadRequestException(`No open fiscal period found for date ${dto.asOfDate}`);
     }
 
     const lines: CreateJournalEntryLineDto[] = [];
@@ -1124,13 +1084,17 @@ export class AccountingService {
       );
     }
 
-    const entry = await this.journalEntryService.create({
-      entryDate: asOfDate,
-      description: `Opening Balance Entry as of ${dto.asOfDate}`,
-      fiscalPeriodId: periodValidation.period.id,
-      sourceType: 'opening_balance',
-      lines,
-    }, userId, username);
+    const entry = await this.journalEntryService.create(
+      {
+        entryDate: asOfDate,
+        description: `Opening Balance Entry as of ${dto.asOfDate}`,
+        fiscalPeriodId: periodValidation.period.id,
+        sourceType: 'opening_balance',
+        lines,
+      },
+      userId,
+      username,
+    );
 
     const postedEntry = await this.journalEntryService.postEntry(entry.id, userId, username);
     await this.auditLogService.log(
@@ -1171,7 +1135,7 @@ export class AccountingService {
     if (!mappings[mappingType]) {
       throw new NotFoundException(
         `Account mapping not configured for ${displayName} (${mappingType}). ` +
-        `Please configure account mappings before posting transactions.`,
+          `Please configure account mappings before posting transactions.`,
       );
     }
   }
@@ -1195,7 +1159,7 @@ export class AccountingService {
   private calculateCOGS(items: SalesOrderItem[]): number {
     return items.reduce((total, item) => {
       const baseCost = Number(item.product?.baseCost || 0);
-      return total + (Number(item.quantity) * baseCost);
+      return total + Number(item.quantity) * baseCost;
     }, 0);
   }
 
@@ -1206,7 +1170,7 @@ export class AccountingService {
     return items.reduce((total, item) => {
       // Try to get unitCost from purchaseOrderItem relationship if available
       const unitCost = item.purchaseOrderItem?.unitCost || 0;
-      return total + (Number(item.receivedQuantity) * Number(unitCost));
+      return total + Number(item.receivedQuantity) * Number(unitCost);
     }, 0);
   }
 

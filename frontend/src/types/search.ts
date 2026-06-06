@@ -4,7 +4,6 @@ export type GlobalSearchResultType =
   | 'product'
   | 'transaction'
   | 'supplier'
-  | 'invoice'
   | 'customer_payment'
   | 'vendor_payment'
   | 'journal_entry'

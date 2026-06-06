@@ -6,7 +6,6 @@ import { ProductService } from '../inventory/services/product.service';
 import { SupplierService } from '../purchasing/services/supplier.service';
 import { VendorPaymentService } from '../purchasing/services/vendor-payment.service';
 import { SalesOrderService } from '../sales/services/sales-order.service';
-import { InvoiceService } from '../sales/services/invoice.service';
 import { PaymentService } from '../sales/services/payment.service';
 import { PurchaseOrderService } from '../purchasing/services/purchase-order.service';
 import { SearchAnalyticsService } from './search-analytics.service';
@@ -21,14 +20,9 @@ describe('SearchService', () => {
   let salesOrderService: jest.Mocked<Pick<SalesOrderService, 'searchGlobal'>>;
   let purchaseOrderService: jest.Mocked<Pick<PurchaseOrderService, 'searchGlobal'>>;
   let supplierService: jest.Mocked<Pick<SupplierService, 'searchGlobal'>>;
-  let invoiceService: jest.Mocked<Pick<InvoiceService, 'searchGlobal'>>;
   let paymentService: jest.Mocked<Pick<PaymentService, 'searchGlobal'>>;
-  let vendorPaymentService: jest.Mocked<
-    Pick<VendorPaymentService, 'searchGlobal'>
-  >;
-  let journalEntryService: jest.Mocked<
-    Pick<JournalEntryService, 'searchGlobal'>
-  >;
+  let vendorPaymentService: jest.Mocked<Pick<VendorPaymentService, 'searchGlobal'>>;
+  let journalEntryService: jest.Mocked<Pick<JournalEntryService, 'searchGlobal'>>;
   let searchAnalyticsService: jest.Mocked<Pick<SearchAnalyticsService, 'logQuery'>>;
 
   const mockUser = { userId: 'u1', username: 'admin' } as any;
@@ -66,10 +60,6 @@ describe('SearchService', () => {
           useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
         },
         {
-          provide: InvoiceService,
-          useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
-        },
-        {
           provide: PaymentService,
           useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
         },
@@ -94,7 +84,6 @@ describe('SearchService', () => {
     salesOrderService = module.get(SalesOrderService);
     purchaseOrderService = module.get(PurchaseOrderService);
     supplierService = module.get(SupplierService);
-    invoiceService = module.get(InvoiceService);
     paymentService = module.get(PaymentService);
     vendorPaymentService = module.get(VendorPaymentService);
     journalEntryService = module.get(JournalEntryService);
@@ -109,16 +98,9 @@ describe('SearchService', () => {
     expect(salesOrderService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
     expect(purchaseOrderService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
     expect(supplierService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
-    expect(invoiceService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
     expect(paymentService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
-    expect(vendorPaymentService.searchGlobal).toHaveBeenCalledWith(
-      'abc',
-      mockUser,
-    );
-    expect(journalEntryService.searchGlobal).toHaveBeenCalledWith(
-      'abc',
-      mockUser,
-    );
+    expect(vendorPaymentService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
+    expect(journalEntryService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
   });
 
   it('returns early with empty results for queries shorter than 2 characters', async () => {
@@ -135,12 +117,8 @@ describe('SearchService', () => {
   });
 
   it('sorts merged results by descending score', async () => {
-    (customerService.searchGlobal as jest.Mock).mockResolvedValue([
-      makeResult('Low', 50),
-    ]);
-    (productService.searchGlobal as jest.Mock).mockResolvedValue([
-      makeResult('High', 100),
-    ]);
+    (customerService.searchGlobal as jest.Mock).mockResolvedValue([makeResult('Low', 50)]);
+    (productService.searchGlobal as jest.Mock).mockResolvedValue([makeResult('High', 100)]);
 
     const result = await service.search('test', mockUser);
 
@@ -150,18 +128,32 @@ describe('SearchService', () => {
 
   it('breaks score ties with case-insensitive label ascending order', async () => {
     (customerService.searchGlobal as jest.Mock).mockResolvedValue([
-      { type: 'customer', id: 'a', label: 'Zebra Corp', route: '/customers/a', score: 80 },
-      { type: 'customer', id: 'b', label: 'apple inc', route: '/customers/b', score: 80 },
-      { type: 'customer', id: 'c', label: 'Mango Ltd', route: '/customers/c', score: 80 },
+      {
+        type: 'customer',
+        id: 'a',
+        label: 'Zebra Corp',
+        route: '/customers/a',
+        score: 80,
+      },
+      {
+        type: 'customer',
+        id: 'b',
+        label: 'apple inc',
+        route: '/customers/b',
+        score: 80,
+      },
+      {
+        type: 'customer',
+        id: 'c',
+        label: 'Mango Ltd',
+        route: '/customers/c',
+        score: 80,
+      },
     ]);
 
     const result = await service.search('corp', mockUser);
 
-    expect(result.results.map((r) => r.label)).toEqual([
-      'apple inc',
-      'Mango Ltd',
-      'Zebra Corp',
-    ]);
+    expect(result.results.map((r) => r.label)).toEqual(['apple inc', 'Mango Ltd', 'Zebra Corp']);
   });
 
   it('treats undefined score as 0 when sorting', async () => {
@@ -190,12 +182,8 @@ describe('SearchService', () => {
   });
 
   it('returns partial results if one source fails', async () => {
-    (customerService.searchGlobal as jest.Mock).mockRejectedValue(
-      new Error('DB error'),
-    );
-    (productService.searchGlobal as jest.Mock).mockResolvedValue([
-      makeResult('Widget', 80),
-    ]);
+    (customerService.searchGlobal as jest.Mock).mockRejectedValue(new Error('DB error'));
+    (productService.searchGlobal as jest.Mock).mockResolvedValue([makeResult('Widget', 80)]);
 
     const result = await service.search('wi', mockUser);
 
@@ -206,21 +194,27 @@ describe('SearchService', () => {
   describe('searchPages scoring', () => {
     it('scores an exact page label match as SCORE_PAGE_EXACT + BOOST_PAGE (90)', async () => {
       // "Dashboard" is an exact match for query "dashboard"
-      const result = await service.search('dashboard', { role: UserRole.ADMIN } as any);
+      const result = await service.search('dashboard', {
+        role: UserRole.ADMIN,
+      } as any);
       const dashPage = result.results.find((r) => r.route === '/dashboard');
       expect(dashPage?.score).toBe(90); // SCORE_PAGE_EXACT(90) + BOOST_PAGE(0)
     });
 
     it('scores a page starts-with match as SCORE_PAGE_STARTSWITH + BOOST_PAGE (75)', async () => {
-      // "Invoices" starts with "inv"
-      const result = await service.search('inv', { role: UserRole.ADMIN } as any);
-      const invoicesPage = result.results.find((r) => r.route === '/sales/invoices');
-      expect(invoicesPage?.score).toBe(75); // SCORE_PAGE_STARTSWITH(75) + BOOST_PAGE(0)
+      // "Payments" starts with "pay"
+      const result = await service.search('pay', {
+        role: UserRole.ADMIN,
+      } as any);
+      const paymentsPage = result.results.find((r) => r.route === '/sales/payments');
+      expect(paymentsPage?.score).toBe(75); // SCORE_PAGE_STARTSWITH(75) + BOOST_PAGE(0)
     });
 
     it('scores a keyword-only match as SCORE_PAGE_KEYWORD + BOOST_PAGE (50)', async () => {
       // "Customers" has keyword "clients" — searching "clients" is a keyword match, not label match
-      const result = await service.search('clients', { role: UserRole.ADMIN } as any);
+      const result = await service.search('clients', {
+        role: UserRole.ADMIN,
+      } as any);
       const customersPage = result.results.find((r) => r.route === '/sales/customers');
       expect(customersPage?.score).toBe(50); // SCORE_PAGE_KEYWORD(50) + BOOST_PAGE(0)
     });
@@ -247,9 +241,7 @@ describe('SearchService', () => {
       const result = await service.search('product summary', {
         role: UserRole.ADMIN,
       } as any);
-      const page = result.results.find((r) =>
-        r.route?.startsWith('/reports/sales/'),
-      );
+      const page = result.results.find((r) => r.route?.startsWith('/reports/sales/'));
       expect(page?.description).toBe('Report');
     });
 
@@ -257,9 +249,7 @@ describe('SearchService', () => {
       const result = await service.search('journal', {
         role: UserRole.ADMIN,
       } as any);
-      const page = result.results.find((r) =>
-        r.route?.startsWith('/accounting/'),
-      );
+      const page = result.results.find((r) => r.route?.startsWith('/accounting/'));
       expect(page?.description).toBe('Accounting');
     });
 
@@ -285,21 +275,16 @@ describe('SearchService', () => {
       for (const role of Object.values(UserRole)) {
         const user = { role } as any;
         const result = await service.search('dashboard', user);
-        const dashboardResult = result.results.find(
-          (r) => r.route === '/dashboard',
-        );
+        const dashboardResult = result.results.find((r) => r.route === '/dashboard');
         expect(dashboardResult).toBeDefined();
       }
     });
 
     it('returns Audit Logs page only for admin', async () => {
-      const adminResult = await service.search(
-        'audit',
-        { role: UserRole.ADMIN } as any,
-      );
-      expect(
-        adminResult.results.find((r) => r.route === '/audit-logs'),
-      ).toBeDefined();
+      const adminResult = await service.search('audit', {
+        role: UserRole.ADMIN,
+      } as any);
+      expect(adminResult.results.find((r) => r.route === '/audit-logs')).toBeDefined();
 
       for (const role of [
         UserRole.MANAGER,
@@ -308,43 +293,26 @@ describe('SearchService', () => {
         UserRole.PROCUREMENT_STAFF,
       ]) {
         const result = await service.search('audit', { role } as any);
-        expect(
-          result.results.find((r) => r.route === '/audit-logs'),
-        ).toBeUndefined();
+        expect(result.results.find((r) => r.route === '/audit-logs')).toBeUndefined();
       }
     });
 
     it('returns Customers page only for sales roles', async () => {
-      for (const role of [
-        UserRole.ADMIN,
-        UserRole.MANAGER,
-        UserRole.SALES_STAFF,
-      ]) {
+      for (const role of [UserRole.ADMIN, UserRole.MANAGER, UserRole.SALES_STAFF]) {
         const result = await service.search('customer', { role } as any);
-        expect(
-          result.results.find((r) => r.route === '/sales/customers'),
-        ).toBeDefined();
+        expect(result.results.find((r) => r.route === '/sales/customers')).toBeDefined();
       }
 
-      for (const role of [
-        UserRole.INVENTORY_STAFF,
-        UserRole.PROCUREMENT_STAFF,
-      ]) {
+      for (const role of [UserRole.INVENTORY_STAFF, UserRole.PROCUREMENT_STAFF]) {
         const result = await service.search('customer', { role } as any);
-        expect(
-          result.results.find((r) => r.route === '/sales/customers'),
-        ).toBeUndefined();
+        expect(result.results.find((r) => r.route === '/sales/customers')).toBeUndefined();
       }
     });
 
     it('returns Journal Entries page only for finance roles', async () => {
       for (const role of [UserRole.ADMIN, UserRole.MANAGER]) {
         const result = await service.search('journal', { role } as any);
-        expect(
-          result.results.find(
-            (r) => r.route === '/accounting/journal-entries',
-          ),
-        ).toBeDefined();
+        expect(result.results.find((r) => r.route === '/accounting/journal-entries')).toBeDefined();
       }
 
       for (const role of [
@@ -354,9 +322,7 @@ describe('SearchService', () => {
       ]) {
         const result = await service.search('journal', { role } as any);
         expect(
-          result.results.find(
-            (r) => r.route === '/accounting/journal-entries',
-          ),
+          result.results.find((r) => r.route === '/accounting/journal-entries'),
         ).toBeUndefined();
       }
     });

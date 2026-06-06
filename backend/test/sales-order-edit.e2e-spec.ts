@@ -1,22 +1,25 @@
-import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
-import { DataSource } from 'typeorm';
-import { AppModule } from '../src/app.module';
-import { Customer, CustomerType } from '../src/database/entities/customer.entity';
+import { INestApplication } from "@nestjs/common";
+import { Test, TestingModule } from "@nestjs/testing";
+import { DataSource } from "typeorm";
+import { AppModule } from "../src/app.module";
+import {
+  Customer,
+  CustomerType,
+} from "../src/database/entities/customer.entity";
 import {
   SalesOrder,
   SalesOrderPaymentStatus,
   SalesOrderStatus,
-} from '../src/database/entities/sales-order.entity';
+} from "../src/database/entities/sales-order.entity";
 import {
   DiscountType,
   SalesOrderItem,
-} from '../src/database/entities/sales-order-item.entity';
-import { SalesOrderPaymentService } from '../src/modules/sales/services/sales-order-payment.service';
-import { SalesOrderService } from '../src/modules/sales/services/sales-order.service';
-import { seedCategory, seedProduct, truncateAll } from './e2e/helpers/seed';
+} from "../src/database/entities/sales-order-item.entity";
+import { SalesOrderPaymentService } from "../src/modules/sales/services/sales-order-payment.service";
+import { SalesOrderService } from "../src/modules/sales/services/sales-order.service";
+import { seedCategory, seedProduct, truncateAll } from "./e2e/helpers/seed";
 
-describe('Sales order edit transaction (e2e)', () => {
+describe("Sales order edit transaction (e2e)", () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let salesOrderService: SalesOrderService;
@@ -39,55 +42,69 @@ describe('Sales order edit transaction (e2e)', () => {
     await app.close();
   });
 
-  it('rolls back deleted items and totals when replacement item insertion fails', async () => {
+  it("rolls back deleted items and totals when replacement item insertion fails", async () => {
     const category = await seedCategory(dataSource);
     const product = await seedProduct(dataSource, category.id, {
       baseCost: 100,
       stockQuantity: 100,
     });
     const customerRepo = dataSource.getRepository(Customer);
-    const customer = await customerRepo.save(customerRepo.create({
-      type: CustomerType.BUSINESS,
-      name: 'Rollback Test Customer',
-      isActive: true,
-    }));
+    const customer = await customerRepo.save(
+      customerRepo.create({
+        type: CustomerType.BUSINESS,
+        name: "Rollback Test Customer",
+        isActive: true,
+      }),
+    );
     const orderRepo = dataSource.getRepository(SalesOrder);
-    const order = await orderRepo.save(orderRepo.create({
-      orderNumber: 'SO-ROLLBACK-001',
-      orderDate: new Date(),
-      customerId: customer.id,
-      status: SalesOrderStatus.DRAFT,
-      paymentStatus: SalesOrderPaymentStatus.UNPAID,
-      subtotal: 100,
-      shippingAmount: 0,
-      totalAmount: 100,
-      paidAmount: 0,
-      balanceDue: 100,
-    }));
+    const order = await orderRepo.save(
+      orderRepo.create({
+        orderNumber: "SO-ROLLBACK-001",
+        orderDate: new Date(),
+        customerId: customer.id,
+        status: SalesOrderStatus.DRAFT,
+        paymentStatus: SalesOrderPaymentStatus.UNPAID,
+        subtotal: 100,
+        shippingAmount: 0,
+        totalAmount: 100,
+        paidAmount: 0,
+        balanceDue: 100,
+      }),
+    );
     const itemRepo = dataSource.getRepository(SalesOrderItem);
-    const originalItem = await itemRepo.save(itemRepo.create({
-      lineNumber: 1,
-      salesOrderId: order.id,
-      productId: product.id,
-      quantity: 1,
-      unitPrice: 100,
-      unitCost: 100,
-      discountType: DiscountType.PERCENTAGE,
-      discountPercent: 0,
-      discountAmount: 0,
-      totalAmount: 100,
-    }));
-
-    await expect(salesOrderService.update(order.id, {
-      items: [{
+    const originalItem = await itemRepo.save(
+      itemRepo.create({
+        lineNumber: 1,
+        salesOrderId: order.id,
         productId: product.id,
-        quantity: 2147483648,
-        unitPrice: 50,
-      }],
-    })).rejects.toThrow();
+        quantity: 1,
+        unitPrice: 100,
+        unitCost: 100,
+        discountType: DiscountType.PERCENTAGE,
+        discountPercent: 0,
+        discountAmount: 0,
+        totalAmount: 100,
+      }),
+    );
 
-    const persistedOrder = await orderRepo.findOneOrFail({ where: { id: order.id } });
-    const persistedItems = await itemRepo.find({ where: { salesOrderId: order.id } });
+    await expect(
+      salesOrderService.update(order.id, {
+        items: [
+          {
+            productId: product.id,
+            quantity: 2147483648,
+            unitPrice: 50,
+          },
+        ],
+      }),
+    ).rejects.toThrow();
+
+    const persistedOrder = await orderRepo.findOneOrFail({
+      where: { id: order.id },
+    });
+    const persistedItems = await itemRepo.find({
+      where: { salesOrderId: order.id },
+    });
 
     expect(Number(persistedOrder.subtotal)).toBe(100);
     expect(Number(persistedOrder.totalAmount)).toBe(100);
@@ -97,62 +114,72 @@ describe('Sales order edit transaction (e2e)', () => {
     expect(Number(persistedItems[0].totalAmount)).toBe(100);
   });
 
-  it('rolls back item + total changes when post-write reconciliation fails', async () => {
+  it("rolls back item + total changes when post-write reconciliation fails", async () => {
     const category = await seedCategory(dataSource);
     const product = await seedProduct(dataSource, category.id, {
       baseCost: 100,
       stockQuantity: 100,
     });
     const customerRepo = dataSource.getRepository(Customer);
-    const customer = await customerRepo.save(customerRepo.create({
-      type: CustomerType.BUSINESS,
-      name: 'Reconcile Fail Customer',
-      isActive: true,
-    }));
+    const customer = await customerRepo.save(
+      customerRepo.create({
+        type: CustomerType.BUSINESS,
+        name: "Reconcile Fail Customer",
+        isActive: true,
+      }),
+    );
     const orderRepo = dataSource.getRepository(SalesOrder);
-    const order = await orderRepo.save(orderRepo.create({
-      orderNumber: 'SO-RECONCILE-001',
-      orderDate: new Date(),
-      customerId: customer.id,
-      status: SalesOrderStatus.DRAFT,
-      paymentStatus: SalesOrderPaymentStatus.UNPAID,
-      subtotal: 100,
-      shippingAmount: 0,
-      totalAmount: 100,
-      paidAmount: 0,
-      balanceDue: 100,
-    }));
+    const order = await orderRepo.save(
+      orderRepo.create({
+        orderNumber: "SO-RECONCILE-001",
+        orderDate: new Date(),
+        customerId: customer.id,
+        status: SalesOrderStatus.DRAFT,
+        paymentStatus: SalesOrderPaymentStatus.UNPAID,
+        subtotal: 100,
+        shippingAmount: 0,
+        totalAmount: 100,
+        paidAmount: 0,
+        balanceDue: 100,
+      }),
+    );
     const itemRepo = dataSource.getRepository(SalesOrderItem);
-    const originalItem = await itemRepo.save(itemRepo.create({
-      lineNumber: 1,
-      salesOrderId: order.id,
-      productId: product.id,
-      quantity: 1,
-      unitPrice: 100,
-      unitCost: 100,
-      discountType: DiscountType.PERCENTAGE,
-      discountPercent: 0,
-      discountAmount: 0,
-      totalAmount: 100,
-    }));
+    const originalItem = await itemRepo.save(
+      itemRepo.create({
+        lineNumber: 1,
+        salesOrderId: order.id,
+        productId: product.id,
+        quantity: 1,
+        unitPrice: 100,
+        unitCost: 100,
+        discountType: DiscountType.PERCENTAGE,
+        discountPercent: 0,
+        discountAmount: 0,
+        totalAmount: 100,
+      }),
+    );
 
     const paymentService = app.get(SalesOrderPaymentService);
     const spy = jest
-      .spyOn(paymentService, 'reconcileOrderState')
-      .mockRejectedValueOnce(new Error('reconcile boom'));
+      .spyOn(paymentService, "reconcileOrderState")
+      .mockRejectedValueOnce(new Error("reconcile boom"));
 
     try {
       await expect(
         salesOrderService.update(order.id, {
           items: [{ productId: product.id, quantity: 3, unitPrice: 40 }],
         }),
-      ).rejects.toThrow('reconcile boom');
+      ).rejects.toThrow("reconcile boom");
     } finally {
       spy.mockRestore();
     }
 
-    const persistedOrder = await orderRepo.findOneOrFail({ where: { id: order.id } });
-    const persistedItems = await itemRepo.find({ where: { salesOrderId: order.id } });
+    const persistedOrder = await orderRepo.findOneOrFail({
+      where: { id: order.id },
+    });
+    const persistedItems = await itemRepo.find({
+      where: { salesOrderId: order.id },
+    });
 
     // The items branch writes subtotal, shippingAmount and totalAmount together, so prove
     // all three rolled back — not just totalAmount — or a partial-commit regression slips through.

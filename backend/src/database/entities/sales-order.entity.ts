@@ -1,25 +1,10 @@
-import {
-  Entity,
-  Column,
-  Index,
-  ManyToOne,
-  JoinColumn,
-  OneToMany,
-} from 'typeorm';
-import {
-  IsString,
-  IsOptional,
-  IsEnum,
-  MaxLength,
-  IsDecimal,
-  Min,
-  IsDate,
-} from 'class-validator';
+import { Entity, Column, Index, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import { IsString, IsOptional, IsEnum, MaxLength, IsDecimal, Min, IsDate } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { Customer } from './customer.entity';
 import { SalesOrderItem } from './sales-order-item.entity';
 import { SalesOrderPayment } from './sales-order-payment.entity';
-import { Invoice } from './invoice.entity';
+import { Payment } from './payment.entity';
 
 export enum SalesOrderStatus {
   DRAFT = 'DRAFT',
@@ -100,6 +85,13 @@ export class SalesOrder extends BaseEntity {
   @IsString()
   notes?: string;
 
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+    comment: 'Actual fulfillment timestamp (set when status -> FULFILLED)',
+  })
+  fulfilledAt?: Date;
+
   @Column({ type: 'uuid' })
   customerId: string;
 
@@ -122,11 +114,11 @@ export class SalesOrder extends BaseEntity {
   })
   salesOrderPayments: SalesOrderPayment[];
 
-  @OneToMany(() => Invoice, (invoice) => invoice.salesOrder, {
+  @OneToMany(() => Payment, (payment) => payment.salesOrder, {
     cascade: false,
     eager: false,
   })
-  invoices: Invoice[];
+  payments?: Payment[];
 
   /** @deprecated Use `status === SalesOrderStatus.FULFILLED` instead. Kept for analytics/invoice query compatibility. */
   get isFulfilled(): boolean {

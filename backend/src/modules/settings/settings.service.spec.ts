@@ -31,7 +31,6 @@ describe('SettingsService', () => {
       {} as any,
       {} as any,
       {} as any,
-      {} as any,
       goodsReceivedNoteRepository as any,
       {} as any,
       {} as any,

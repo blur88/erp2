@@ -10,7 +10,6 @@ export interface RecentSearchItem {
     | 'product'
     | 'transaction'
     | 'supplier'
-    | 'invoice'
     | 'customer_payment'
     | 'vendor_payment'
     | 'journal_entry'

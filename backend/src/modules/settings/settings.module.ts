@@ -8,7 +8,6 @@ import { CompanySettings } from '../../database/entities/company-settings.entity
 import { RegionalSettings } from '../../database/entities/regional-settings.entity';
 import { DocumentNumberSetting } from '../../database/entities/document-number-settings.entity';
 import { SalesOrder } from '../../database/entities/sales-order.entity';
-import { Invoice } from '../../database/entities/invoice.entity';
 import { Payment } from '../../database/entities/payment.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { GoodsReceivedNote } from '../../database/entities/goods-received-note.entity';
@@ -36,7 +35,6 @@ import { PaymentMethodService } from './services/payment-method.service';
       RegionalSettings,
       DocumentNumberSetting,
       SalesOrder,
-      Invoice,
       Payment,
       PurchaseOrder,
       GoodsReceivedNote,
@@ -58,10 +56,6 @@ import { PaymentMethodService } from './services/payment-method.service';
   ],
   controllers: [SettingsController, PaymentMethodController],
   providers: [SettingsService, PaymentMethodService],
-  exports: [
-    SettingsService,
-    PaymentMethodService,
-    TypeOrmModule,
-  ],
+  exports: [SettingsService, PaymentMethodService, TypeOrmModule],
 })
 export class SettingsModule {}

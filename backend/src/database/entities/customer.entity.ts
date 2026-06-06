@@ -1,11 +1,4 @@
-import {
-  Entity,
-  Column,
-  Index,
-  OneToMany,
-  ManyToOne,
-  JoinColumn,
-} from 'typeorm';
+import { Entity, Column, Index, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import {
   IsString,
   IsBoolean,
@@ -20,7 +13,6 @@ import {
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { SalesOrder } from './sales-order.entity';
-import { Invoice } from './invoice.entity';
 import { Payment } from './payment.entity';
 import { PriceList } from './price-list.entity';
 
@@ -28,7 +20,6 @@ export enum CustomerType {
   INDIVIDUAL = 'individual',
   BUSINESS = 'business',
 }
-
 
 /**
  * Customer entity for sales management
@@ -41,7 +32,6 @@ export enum CustomerType {
 @Index(['priceListId'])
 @Index(['isActive'])
 export class Customer extends BaseEntity {
-
   @Column({
     type: 'enum',
     enum: CustomerType,
@@ -59,7 +49,9 @@ export class Customer extends BaseEntity {
   @IsString()
   @IsNotEmpty()
   @MaxLength(200)
-  @Matches(/^[A-Za-z0-9\s\-\.,'&]+$/, { message: 'Name contains invalid characters' })
+  @Matches(/^[A-Za-z0-9\s\-\.,'&]+$/, {
+    message: 'Name contains invalid characters',
+  })
   name: string;
 
   @Column({
@@ -254,7 +246,6 @@ export class Customer extends BaseEntity {
   @JoinColumn({ name: 'priceListId' })
   priceList?: PriceList;
 
-
   // Customer Metrics
   @Column({
     type: 'decimal',
@@ -306,11 +297,6 @@ export class Customer extends BaseEntity {
   })
   salesOrders: SalesOrder[];
 
-  @OneToMany(() => Invoice, (invoice) => invoice.customer, {
-    cascade: false,
-  })
-  invoices: Invoice[];
-
   @OneToMany(() => Payment, (payment) => payment.customer, {
     cascade: false,
   })
@@ -330,11 +316,11 @@ export class Customer extends BaseEntity {
     if (orderAmount < 0) {
       throw new Error('Order amount cannot be negative');
     }
-    
+
     this.totalSales = Number(this.totalSales) + Number(orderAmount);
     this.totalOrders += 1;
     this.lastPurchaseDate = new Date();
-    
+
     if (isFirstOrder || !this.firstPurchaseDate) {
       this.firstPurchaseDate = new Date();
     }

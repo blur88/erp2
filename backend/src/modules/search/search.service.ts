@@ -6,7 +6,6 @@ import { PurchaseOrderService } from '../purchasing/services/purchase-order.serv
 import { SupplierService } from '../purchasing/services/supplier.service';
 import { VendorPaymentService } from '../purchasing/services/vendor-payment.service';
 import { CustomerService } from '../sales/services/customer.service';
-import { InvoiceService } from '../sales/services/invoice.service';
 import { PaymentService } from '../sales/services/payment.service';
 import { SalesOrderService } from '../sales/services/sales-order.service';
 import { UserRole } from '../../database/entities/user.entity';
@@ -48,12 +47,36 @@ const STATIC_PAGES: Array<{
   route: string;
   roles: UserRole[];
 }> = [
-  { label: 'Dashboard', keywords: ['home', 'overview'], route: '/dashboard', roles: ALL_ROLES },
-  { label: 'Sales', keywords: ['sales', 'overview'], route: '/sales', roles: SALES_ROLES },
-  { label: 'Customers', keywords: ['clients', 'buyers'], route: '/sales/customers', roles: SALES_ROLES },
-  { label: 'Sales Orders', keywords: ['orders', 'so'], route: '/sales/orders', roles: SALES_ROLES },
-  { label: 'Invoices', keywords: ['billing', 'invoice'], route: '/sales/invoices', roles: SALES_ROLES },
-  { label: 'Payments', keywords: ['receipts', 'payment'], route: '/sales/payments', roles: SALES_ROLES },
+  {
+    label: 'Dashboard',
+    keywords: ['home', 'overview'],
+    route: '/dashboard',
+    roles: ALL_ROLES,
+  },
+  {
+    label: 'Sales',
+    keywords: ['sales', 'overview'],
+    route: '/sales',
+    roles: SALES_ROLES,
+  },
+  {
+    label: 'Customers',
+    keywords: ['clients', 'buyers'],
+    route: '/sales/customers',
+    roles: SALES_ROLES,
+  },
+  {
+    label: 'Sales Orders',
+    keywords: ['orders', 'so'],
+    route: '/sales/orders',
+    roles: SALES_ROLES,
+  },
+  {
+    label: 'Payments',
+    keywords: ['receipts', 'payment'],
+    route: '/sales/payments',
+    roles: SALES_ROLES,
+  },
   {
     label: 'Purchasing',
     keywords: ['purchasing', 'overview'],
@@ -396,7 +419,6 @@ export class SearchService {
     private readonly salesOrderService: SalesOrderService,
     private readonly purchaseOrderService: PurchaseOrderService,
     private readonly supplierService: SupplierService,
-    private readonly invoiceService: InvoiceService,
     private readonly paymentService: PaymentService,
     private readonly vendorPaymentService: VendorPaymentService,
     private readonly journalEntryService: JournalEntryService,
@@ -419,41 +441,23 @@ export class SearchService {
       salesOrders,
       purchaseOrders,
       suppliers,
-      invoices,
       customerPayments,
       vendorPayments,
       journalEntries,
     ] = await Promise.all([
-      this.safeSearch('pages', () =>
-        Promise.resolve(this.searchPages(trimmed, user)),
-      ),
-      this.safeSearch('customers', () =>
-        this.customerService.searchGlobal(trimmed, user),
-      ),
-      this.safeSearch('products', () =>
-        this.productService.searchGlobal(trimmed, user),
-      ),
-      this.safeSearch('salesOrders', () =>
-        this.salesOrderService.searchGlobal(trimmed, user),
-      ),
+      this.safeSearch('pages', () => Promise.resolve(this.searchPages(trimmed, user))),
+      this.safeSearch('customers', () => this.customerService.searchGlobal(trimmed, user)),
+      this.safeSearch('products', () => this.productService.searchGlobal(trimmed, user)),
+      this.safeSearch('salesOrders', () => this.salesOrderService.searchGlobal(trimmed, user)),
       this.safeSearch('purchaseOrders', () =>
         this.purchaseOrderService.searchGlobal(trimmed, user),
       ),
-      this.safeSearch('suppliers', () =>
-        this.supplierService.searchGlobal(trimmed, user),
-      ),
-      this.safeSearch('invoices', () =>
-        this.invoiceService.searchGlobal(trimmed, user),
-      ),
-      this.safeSearch('customerPayments', () =>
-        this.paymentService.searchGlobal(trimmed, user),
-      ),
+      this.safeSearch('suppliers', () => this.supplierService.searchGlobal(trimmed, user)),
+      this.safeSearch('customerPayments', () => this.paymentService.searchGlobal(trimmed, user)),
       this.safeSearch('vendorPayments', () =>
         this.vendorPaymentService.searchGlobal(trimmed, user),
       ),
-      this.safeSearch('journalEntries', () =>
-        this.journalEntryService.searchGlobal(trimmed, user),
-      ),
+      this.safeSearch('journalEntries', () => this.journalEntryService.searchGlobal(trimmed, user)),
     ]);
 
     const executionTimeMs = Date.now() - startTime;
@@ -465,7 +469,6 @@ export class SearchService {
       ...salesOrders,
       ...purchaseOrders,
       ...suppliers,
-      ...invoices,
       ...customerPayments,
       ...vendorPayments,
       ...journalEntries,
@@ -474,9 +477,7 @@ export class SearchService {
         const scoreDiff = (b.score ?? 0) - (a.score ?? 0);
         if (scoreDiff !== 0) return scoreDiff;
 
-        return (a.label ?? '')
-          .toLowerCase()
-          .localeCompare((b.label ?? '').toLowerCase());
+        return (a.label ?? '').toLowerCase().localeCompare((b.label ?? '').toLowerCase());
       })
       .slice(0, SEARCH_RESPONSE_LIMIT);
 
@@ -489,9 +490,7 @@ export class SearchService {
         executionTimeMs,
       });
     } catch (error) {
-      this.logger.error(
-        `Search analytics logging failed: ${(error as Error).message}`,
-      );
+      this.logger.error(`Search analytics logging failed: ${(error as Error).message}`);
     }
 
     return { query, searchQueryId, results };
@@ -504,9 +503,7 @@ export class SearchService {
     try {
       return await fn();
     } catch (error) {
-      this.logger.error(
-        `Search source "${source}" failed: ${(error as Error).message}`,
-      );
+      this.logger.error(`Search source "${source}" failed: ${(error as Error).message}`);
       return [];
     }
   }

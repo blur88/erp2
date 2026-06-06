@@ -48,6 +48,7 @@ export class SalesOrderQueryService {
         'order.id',
         'order.orderNumber',
         'order.orderDate',
+        'order.fulfilledAt',
         'order.status',
         'order.paymentStatus',
         'order.subtotal',
@@ -71,7 +72,10 @@ export class SalesOrderQueryService {
         'items.productId',
         'product.id',
         'product.name',
+        'product.description',
+        'product.barcode',
         'product.baseCost',
+        'product.stockQuantity',
       ])
       .where('order.deletedAt IS NULL');
 

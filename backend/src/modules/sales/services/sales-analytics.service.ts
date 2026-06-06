@@ -1,9 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { addDays, addMonths, addWeeks, addYears, differenceInCalendarDays, format, getISOWeek, getISOWeekYear, subDays, subMonths, subYears } from 'date-fns';
+import {
+  addDays,
+  addMonths,
+  addWeeks,
+  addYears,
+  differenceInCalendarDays,
+  format,
+  getISOWeek,
+  getISOWeekYear,
+  subDays,
+  subMonths,
+  subYears,
+} from 'date-fns';
 import { Repository, Between } from 'typeorm';
-import { SalesOrder } from '../../../database/entities/sales-order.entity';
-import { Invoice, InvoiceStatus } from '../../../database/entities/invoice.entity';
+import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { Payment, PaymentStatus } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
@@ -29,32 +40,11 @@ import { SalesAnalyticsReportService } from './sales-analytics-report.service';
 import { SettingsService } from '../../settings/settings.service';
 import { resolveDateRange } from '@/common/utils/date-range.util';
 
-function translatePaymentStatus(
-  status: 'unpaid' | 'partial' | 'paid' | 'overpaid',
-): InvoiceStatus {
-  switch (status) {
-    case 'unpaid':
-      return InvoiceStatus.DRAFT;
-    case 'partial':
-      return InvoiceStatus.PARTIAL_PAID;
-    case 'paid':
-    case 'overpaid':
-      return InvoiceStatus.PAID;
-  }
-}
-
-/** Returns true when the query requires the extra overpaid predicate (paidAmount > totalAmount). */
-function isOverpaidFilter(status: string | undefined): boolean {
-  return status === 'overpaid';
-}
-
 @Injectable()
 export class SalesAnalyticsService {
   constructor(
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepository: Repository<SalesOrder>,
-    @InjectRepository(Invoice)
-    private readonly invoiceRepository: Repository<Invoice>,
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
     @InjectRepository(Customer)
@@ -67,7 +57,12 @@ export class SalesAnalyticsService {
 
   async getSalesAnalytics(query: SalesAnalyticsQueryDto): Promise<SalesAnalyticsResponseDto> {
     const { timezone } = await this.settingsService.getRegionalSettings();
-    const { startDate, endDate } = resolveDateRange(timezone, query.dateRange, query.startDate, query.endDate);
+    const { startDate, endDate } = resolveDateRange(
+      timezone,
+      query.dateRange,
+      query.startDate,
+      query.endDate,
+    );
     const groupBy = query.groupBy ?? GroupByPeriod.MONTH;
     const comparePeriod = query.compareWith
       ? this.computeComparePeriod(startDate, endDate, query.compareWith)
@@ -112,18 +107,30 @@ export class SalesAnalyticsService {
 
   async getSalesPipeline(query: SalesPipelineQueryDto): Promise<SalesPipelineResponseDto> {
     const { timezone } = await this.settingsService.getRegionalSettings();
-    const { startDate, endDate } = resolveDateRange(timezone, query.dateRange, query.startDate, query.endDate);
+    const { startDate, endDate } = resolveDateRange(
+      timezone,
+      query.dateRange,
+      query.startDate,
+      query.endDate,
+    );
 
     let queryBuilder = this.salesOrderRepository
       .createQueryBuilder('order')
-      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+      .where('order.orderDate BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      });
 
     if (query.customerId) {
-      queryBuilder = queryBuilder.andWhere('order.customerId = :customerId', { customerId: query.customerId });
+      queryBuilder = queryBuilder.andWhere('order.customerId = :customerId', {
+        customerId: query.customerId,
+      });
     }
 
     if (query.salesRepId) {
-      queryBuilder = queryBuilder.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
+      queryBuilder = queryBuilder.andWhere('order.createdByUserId = :salesRepId', {
+        salesRepId: query.salesRepId,
+      });
     }
 
     // Get pipeline data (status column removed, so we show fulfillment status instead)
@@ -140,7 +147,7 @@ export class SalesAnalyticsService {
     const totalOrders = stagesData.reduce((sum, stage) => sum + parseInt(stage.orderCount), 0);
     const totalValue = stagesData.reduce((sum, stage) => sum + parseFloat(stage.totalValue), 0);
 
-    const stages: PipelineStageDto[] = stagesData.map(stage => ({
+    const stages: PipelineStageDto[] = stagesData.map((stage) => ({
       status: stage.order_isFulfilled ? 'fulfilled' : 'pending',
       statusLabel: stage.order_isFulfilled ? 'Fulfilled' : 'Pending Fulfillment',
       orderCount: parseInt(stage.orderCount),
@@ -151,7 +158,7 @@ export class SalesAnalyticsService {
 
     // Calculate conversion rate (fulfilled orders / total orders)
     const fulfilledOrders = stagesData
-      .filter(stage => stage.order_isFulfilled === true)
+      .filter((stage) => stage.order_isFulfilled === true)
       .reduce((sum, stage) => sum + parseInt(stage.orderCount), 0);
 
     const conversionRate = totalOrders > 0 ? (fulfilledOrders / totalOrders) * 100 : 0;
@@ -173,7 +180,12 @@ export class SalesAnalyticsService {
     }
 
     const { timezone } = await this.settingsService.getRegionalSettings();
-    const { startDate, endDate } = resolveDateRange(timezone, query.dateRange, query.startDate, query.endDate);
+    const { startDate, endDate } = resolveDateRange(
+      timezone,
+      query.dateRange,
+      query.startDate,
+      query.endDate,
+    );
 
     const customer = await this.customerRepository.findOne({
       where: { id: query.customerId },
@@ -187,39 +199,31 @@ export class SalesAnalyticsService {
     const ordersQuery = this.salesOrderRepository
       .createQueryBuilder('order')
       .where('order.customerId = :customerId', { customerId: query.customerId })
-      .andWhere('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+      .andWhere('order.orderDate BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      });
 
-    const [orderStats, paymentStats] = await Promise.all([
-      ordersQuery
-        .select([
-          'COUNT(*) as "totalOrders"',
-          'COALESCE(SUM(order.totalAmount), 0) as "totalRevenue"',
-          'COALESCE(AVG(order.totalAmount), 0) as "averageOrderValue"',
-          'MIN(order.orderDate) as "firstOrderDate"',
-          'MAX(order.orderDate) as "lastOrderDate"',
-        ])
-        .getRawOne(),
-      
-      this.paymentRepository
-        .createQueryBuilder('payment')
-        .where('payment.customerId = :customerId', { customerId: query.customerId })
-        .andWhere('payment.paymentDate BETWEEN :startDate AND :endDate', { startDate, endDate })
-        .andWhere('payment.status = :status', { status: PaymentStatus.COMPLETED })
-        .select('COALESCE(AVG(EXTRACT(DAY FROM (payment.paymentDate - invoice.invoiceDate))), 0)', 'avgPaymentDays')
-        .leftJoin('payment.invoice', 'invoice')
-        .getRawOne(),
-    ]);
+    const orderStats = await ordersQuery
+      .select([
+        'COUNT(*) as "totalOrders"',
+        'COALESCE(SUM(order.totalAmount), 0) as "totalRevenue"',
+        'COALESCE(AVG(order.totalAmount), 0) as "averageOrderValue"',
+        'MIN(order.orderDate) as "firstOrderDate"',
+        'MAX(order.orderDate) as "lastOrderDate"',
+      ])
+      .getRawOne();
 
-    const daysSinceLastOrder = customer.lastPurchaseDate 
+    const daysSinceLastOrder = customer.lastPurchaseDate
       ? Math.floor((Date.now() - customer.lastPurchaseDate.getTime()) / (1000 * 60 * 60 * 24))
       : 0;
 
-    // Calculate payment score based on payment history
-    const avgPaymentDays = parseFloat(paymentStats.avgPaymentDays) || 30;
+    // Calculate payment score based on payment history (default 30 days, removed invoice-based computation)
+    const avgPaymentDays = 30;
     const standardPaymentTerms = 30; // Default payment terms
     let paymentScore = 100;
     if (avgPaymentDays > standardPaymentTerms) {
-      paymentScore = Math.max(0, 100 - ((avgPaymentDays - standardPaymentTerms) * 2));
+      paymentScore = Math.max(0, 100 - (avgPaymentDays - standardPaymentTerms) * 2);
     }
 
     return {
@@ -237,7 +241,12 @@ export class SalesAnalyticsService {
 
   async getRevenueReport(query: RevenueReportQueryDto): Promise<RevenueReportResponseDto> {
     const { timezone } = await this.settingsService.getRegionalSettings();
-    const { startDate, endDate } = resolveDateRange(timezone, query.period, query.startDate, query.endDate);
+    const { startDate, endDate } = resolveDateRange(
+      timezone,
+      query.period,
+      query.startDate,
+      query.endDate,
+    );
     const groupBy = query.groupBy || 'month';
 
     // Get current period data
@@ -251,24 +260,23 @@ export class SalesAnalyticsService {
       const previousStartDate = new Date(startDate.getTime() - periodDuration);
       const previousEndDate = new Date(startDate.getTime() - 1);
 
-      previousPeriodData = await this.getRevenueDataByPeriod(previousStartDate, previousEndDate, groupBy);
-      
-      const previousStats = await this.invoiceRepository
-        .createQueryBuilder('invoice')
-        .where('invoice.invoiceDate BETWEEN :startDate AND :endDate', {
-          startDate: previousStartDate,
-          endDate: previousEndDate,
-        })
-        // All invoice statuses are valid (no cancelled status anymore)
-        .select([
-          'COALESCE(SUM(invoice.paidAmount), 0) as "totalRevenue"',
-          'COUNT(*) as "totalOrders"',
-        ])
-        .getRawOne();
+      previousPeriodData = await this.getRevenueDataByPeriod(
+        previousStartDate,
+        previousEndDate,
+        groupBy,
+      );
+
+      const previousStats = previousPeriodData.reduce(
+        (acc, item) => ({
+          totalRevenue: acc.totalRevenue + item.revenue,
+          totalOrders: acc.totalOrders + item.orders,
+        }),
+        { totalRevenue: 0, totalOrders: 0 },
+      );
 
       previousPeriodTotals = {
-        totalRevenue: parseFloat(previousStats.totalRevenue) || 0,
-        totalOrders: parseInt(previousStats.totalOrders) || 0,
+        totalRevenue: previousStats.totalRevenue,
+        totalOrders: previousStats.totalOrders,
       };
     }
 
@@ -287,23 +295,27 @@ export class SalesAnalyticsService {
       return {
         ...current,
         previousPeriodRevenue: previous?.revenue,
-        growthPercentage: previous?.revenue 
-          ? ((current.revenue - previous.revenue) / previous.revenue) * 100 
+        growthPercentage: previous?.revenue
+          ? ((current.revenue - previous.revenue) / previous.revenue) * 100
           : undefined,
       };
     });
 
-    const growthPercentage = previousPeriodTotals.totalRevenue > 0
-      ? ((currentPeriodTotals.totalRevenue - previousPeriodTotals.totalRevenue) / previousPeriodTotals.totalRevenue) * 100
-      : 0;
+    const growthPercentage =
+      previousPeriodTotals.totalRevenue > 0
+        ? ((currentPeriodTotals.totalRevenue - previousPeriodTotals.totalRevenue) /
+            previousPeriodTotals.totalRevenue) *
+          100
+        : 0;
 
     return {
       data: dataWithComparison,
       totalRevenue: currentPeriodTotals.totalRevenue,
       totalOrders: currentPeriodTotals.totalOrders,
-      averageOrderValue: currentPeriodTotals.totalOrders > 0 
-        ? currentPeriodTotals.totalRevenue / currentPeriodTotals.totalOrders 
-        : 0,
+      averageOrderValue:
+        currentPeriodTotals.totalOrders > 0
+          ? currentPeriodTotals.totalRevenue / currentPeriodTotals.totalOrders
+          : 0,
       previousPeriodRevenue: previousPeriodTotals.totalRevenue,
       growthPercentage,
       periodStart: startDate,
@@ -348,19 +360,21 @@ export class SalesAnalyticsService {
   ): Promise<SalesMetricsDto> {
     let orderQuery = this.salesOrderRepository
       .createQueryBuilder('order')
-      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
-
-    let invoiceQuery = this.invoiceRepository
-      .createQueryBuilder('invoice')
-      .where('invoice.invoiceDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+      .where('order.orderDate BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      });
 
     if (query?.customerId) {
-      orderQuery = orderQuery.andWhere('order.customerId = :customerId', { customerId: query.customerId });
-      invoiceQuery = invoiceQuery.andWhere('invoice.customerId = :customerId', { customerId: query.customerId });
+      orderQuery = orderQuery.andWhere('order.customerId = :customerId', {
+        customerId: query.customerId,
+      });
     }
 
     if (query?.salesRepId) {
-      orderQuery = orderQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
+      orderQuery = orderQuery.andWhere('order.createdByUserId = :salesRepId', {
+        salesRepId: query.salesRepId,
+      });
     }
 
     if (query?.fulfillmentStatus !== undefined) {
@@ -369,17 +383,7 @@ export class SalesAnalyticsService {
       });
     }
 
-    if (query?.paymentStatus) {
-      const invoiceStatus = translatePaymentStatus(query.paymentStatus);
-      invoiceQuery = invoiceQuery.andWhere('invoice.status = :paymentStatus', {
-        paymentStatus: invoiceStatus,
-      });
-      if (isOverpaidFilter(query.paymentStatus)) {
-        invoiceQuery = invoiceQuery.andWhere('invoice.paidAmount > invoice.totalAmount');
-      }
-    }
-
-    const [orderStats, invoiceStats, customerStats, paymentStats] = await Promise.all([
+    const [orderStats, fulfilledStats, customerStats, paymentStats] = await Promise.all([
       // Order statistics (status column removed, using fulfillment status)
       orderQuery
         .select([
@@ -392,38 +396,51 @@ export class SalesAnalyticsService {
         ])
         .getRawOne(),
 
-      // Invoice statistics
-      invoiceQuery
+      // Fulfilled order statistics (replaces old invoice-based revenue)
+      this.salesOrderRepository
+        .createQueryBuilder('order')
+        .where('order.orderDate BETWEEN :startDate AND :endDate', {
+          startDate,
+          endDate,
+        })
+        .andWhere('order.status = :status', {
+          status: SalesOrderStatus.FULFILLED,
+        })
         .select([
-          'COALESCE(SUM(CASE WHEN invoice.status = :paid THEN invoice.totalAmount ELSE 0 END), 0) as "paidInvoicesAmount"',
-          'COALESCE(SUM(CASE WHEN invoice.status IN (:...pending) THEN invoice.balanceDue ELSE 0 END), 0) as "pendingInvoicesAmount"',
-          // Overdue calculation removed as it depends on dueDate
+          'COALESCE(SUM(order.totalAmount + order.shippingAmount), 0) as "paidInvoicesAmount"',
+          'COALESCE(SUM(CASE WHEN order.status = :status2 THEN order.balanceDue ELSE 0 END), 0) as "pendingInvoicesAmount"',
           '0 as "overdueInvoicesAmount"',
         ])
-        .setParameters({
-          paid: InvoiceStatus.PAID,
-          pending: [InvoiceStatus.DRAFT, InvoiceStatus.PARTIAL_PAID],
-        })
+        .setParameter('status2', SalesOrderStatus.FULFILLED)
         .getRawOne(),
 
       // New customers in period
       this.customerRepository
         .createQueryBuilder('customer')
-        .where('customer.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
+        .where('customer.createdAt BETWEEN :startDate AND :endDate', {
+          startDate,
+          endDate,
+        })
         .getCount(),
 
       // Payment statistics for conversion rate
       this.paymentRepository
         .createQueryBuilder('payment')
-        .where('payment.paymentDate BETWEEN :startDate AND :endDate', { startDate, endDate })
-        .andWhere('payment.status = :completed', { completed: PaymentStatus.COMPLETED })
+        .where('payment.paymentDate BETWEEN :startDate AND :endDate', {
+          startDate,
+          endDate,
+        })
+        .andWhere('payment.status = :completed', {
+          completed: PaymentStatus.COMPLETED,
+        })
         .getCount(),
     ]);
 
     // Calculate conversion rate based on completed orders vs total orders
-    const conversionRate = parseInt(orderStats.totalOrders) > 0 
-      ? (parseInt(orderStats.completedOrders) / parseInt(orderStats.totalOrders)) * 100 
-      : 0;
+    const conversionRate =
+      parseInt(orderStats.totalOrders) > 0
+        ? (parseInt(orderStats.completedOrders) / parseInt(orderStats.totalOrders)) * 100
+        : 0;
 
     return {
       totalRevenue: parseFloat(orderStats.totalRevenue) || 0,
@@ -431,9 +448,9 @@ export class SalesAnalyticsService {
       newCustomers: customerStats || 0,
       averageOrderValue: parseFloat(orderStats.averageOrderValue) || 0,
       conversionRate,
-      paidInvoicesAmount: parseFloat(invoiceStats.paidInvoicesAmount) || 0,
-      pendingInvoicesAmount: parseFloat(invoiceStats.pendingInvoicesAmount) || 0,
-      overdueInvoicesAmount: parseFloat(invoiceStats.overdueInvoicesAmount) || 0,
+      paidInvoicesAmount: parseFloat(fulfilledStats.paidInvoicesAmount) || 0,
+      pendingInvoicesAmount: parseFloat(fulfilledStats.pendingInvoicesAmount) || 0,
+      overdueInvoicesAmount: parseFloat(fulfilledStats.overdueInvoicesAmount) || 0,
       completedOrders: parseInt(orderStats.completedOrders) || 0,
       confirmedOrders: parseInt(orderStats.confirmedOrders) || 0,
       draftOrders: parseInt(orderStats.draftOrders) || 0,
@@ -474,7 +491,10 @@ export class SalesAnalyticsService {
 
     let periodQuery = this.salesOrderRepository
       .createQueryBuilder('order')
-      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+      .where('order.orderDate BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      });
 
     if (query?.fulfillmentStatus !== undefined) {
       periodQuery = periodQuery.andWhere('order.isFulfilled = :isFulfilled', {
@@ -483,21 +503,15 @@ export class SalesAnalyticsService {
     }
 
     if (query?.customerId) {
-      periodQuery = periodQuery.andWhere('order.customerId = :customerId', { customerId: query.customerId });
+      periodQuery = periodQuery.andWhere('order.customerId = :customerId', {
+        customerId: query.customerId,
+      });
     }
 
     if (query?.salesRepId) {
-      periodQuery = periodQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
-    }
-
-    if (query?.paymentStatus) {
-      const invoiceStatus = translatePaymentStatus(query.paymentStatus);
-      periodQuery = periodQuery
-        .leftJoin('order.invoices', 'invoice')
-        .andWhere('invoice.status = :paymentStatus', { paymentStatus: invoiceStatus });
-      if (isOverpaidFilter(query.paymentStatus)) {
-        periodQuery = periodQuery.andWhere('invoice.paidAmount > invoice.totalAmount');
-      }
+      periodQuery = periodQuery.andWhere('order.createdByUserId = :salesRepId', {
+        salesRepId: query.salesRepId,
+      });
     }
 
     const data = await periodQuery
@@ -514,7 +528,10 @@ export class SalesAnalyticsService {
     // Also get new customers for each period
     const customerData = await this.customerRepository
       .createQueryBuilder('customer')
-      .where('customer.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .where('customer.createdAt BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
       .select([
         `TO_CHAR(customer.createdAt, '${dateFormat}') as period`,
         'COUNT(*) as "newCustomers"',
@@ -523,9 +540,11 @@ export class SalesAnalyticsService {
       .orderBy(`TO_CHAR(customer.createdAt, '${dateFormat}')`, 'ASC')
       .getRawMany();
 
-    const customerMap = new Map(customerData.map(item => [item.period, parseInt(item.newCustomers)]));
+    const customerMap = new Map(
+      customerData.map((item) => [item.period, parseInt(item.newCustomers)]),
+    );
 
-    const mapped = data.map(item => ({
+    const mapped = data.map((item) => ({
       period: item.period,
       revenue: parseFloat(item.revenue) || 0,
       orders: parseInt(item.orders) || 0,
@@ -545,7 +564,10 @@ export class SalesAnalyticsService {
     let topCustomersQuery = this.salesOrderRepository
       .createQueryBuilder('order')
       .leftJoin('order.customer', 'customer')
-      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+      .where('order.orderDate BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      });
 
     if (query?.fulfillmentStatus !== undefined) {
       topCustomersQuery = topCustomersQuery.andWhere('order.isFulfilled = :isFulfilled', {
@@ -553,18 +575,10 @@ export class SalesAnalyticsService {
       });
     }
 
-    if (query?.paymentStatus) {
-      const invoiceStatus = translatePaymentStatus(query.paymentStatus);
-      topCustomersQuery = topCustomersQuery
-        .leftJoin('order.invoices', 'invoice')
-        .andWhere('invoice.status = :paymentStatus', { paymentStatus: invoiceStatus });
-      if (isOverpaidFilter(query.paymentStatus)) {
-        topCustomersQuery = topCustomersQuery.andWhere('invoice.paidAmount > invoice.totalAmount');
-      }
-    }
-
     if (query?.salesRepId) {
-      topCustomersQuery = topCustomersQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
+      topCustomersQuery = topCustomersQuery.andWhere('order.createdByUserId = :salesRepId', {
+        salesRepId: query.salesRepId,
+      });
     }
 
     const data = await topCustomersQuery
@@ -584,7 +598,7 @@ export class SalesAnalyticsService {
       .limit(limit)
       .getRawMany();
 
-    return data.map(item => ({
+    return data.map((item) => ({
       customerId: item.customerId,
       customerName: item.customerName,
       customerEmail: item.customerEmail,
@@ -605,7 +619,10 @@ export class SalesAnalyticsService {
       .createQueryBuilder('item')
       .leftJoin('item.product', 'product')
       .leftJoin('item.salesOrder', 'order')
-      .where('order.orderDate BETWEEN :startDate AND :endDate', { startDate, endDate });
+      .where('order.orderDate BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      });
 
     if (query?.fulfillmentStatus !== undefined) {
       topProductsQuery = topProductsQuery.andWhere('order.isFulfilled = :isFulfilled', {
@@ -613,22 +630,16 @@ export class SalesAnalyticsService {
       });
     }
 
-    if (query?.paymentStatus) {
-      const invoiceStatus = translatePaymentStatus(query.paymentStatus);
-      topProductsQuery = topProductsQuery
-        .leftJoin('order.invoices', 'invoice')
-        .andWhere('invoice.status = :paymentStatus', { paymentStatus: invoiceStatus });
-      if (isOverpaidFilter(query.paymentStatus)) {
-        topProductsQuery = topProductsQuery.andWhere('invoice.paidAmount > invoice.totalAmount');
-      }
-    }
-
     if (query?.customerId) {
-      topProductsQuery = topProductsQuery.andWhere('order.customerId = :customerId', { customerId: query.customerId });
+      topProductsQuery = topProductsQuery.andWhere('order.customerId = :customerId', {
+        customerId: query.customerId,
+      });
     }
 
     if (query?.salesRepId) {
-      topProductsQuery = topProductsQuery.andWhere('order.createdByUserId = :salesRepId', { salesRepId: query.salesRepId });
+      topProductsQuery = topProductsQuery.andWhere('order.createdByUserId = :salesRepId', {
+        salesRepId: query.salesRepId,
+      });
     }
 
     const data = await topProductsQuery
@@ -648,7 +659,7 @@ export class SalesAnalyticsService {
       .limit(limit)
       .getRawMany();
 
-    return data.map(item => ({
+    return data.map((item) => ({
       productId: item.productId,
       productSku: item.productSku,
       productName: item.productName,
@@ -678,20 +689,26 @@ export class SalesAnalyticsService {
         break;
     }
 
-    const data = await this.invoiceRepository
-      .createQueryBuilder('invoice')
-      .where('invoice.invoiceDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+    const data = await this.salesOrderRepository
+      .createQueryBuilder('order')
+      .where('order.orderDate BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
+      .andWhere('order.status = :status', {
+        status: SalesOrderStatus.FULFILLED,
+      })
       .select([
-        `TO_CHAR(invoice.invoiceDate, '${dateFormat}') as period`,
-        'COALESCE(SUM(invoice.paidAmount), 0) as revenue',
+        `TO_CHAR(order.orderDate, '${dateFormat}') as period`,
+        'COALESCE(SUM(order.totalAmount + order.shippingAmount), 0) as revenue',
         'COUNT(*) as orders',
-        'COALESCE(AVG(invoice.totalAmount), 0) as "averageOrderValue"',
+        'COALESCE(AVG(order.totalAmount + order.shippingAmount), 0) as "averageOrderValue"',
       ])
-      .groupBy(`TO_CHAR(invoice.invoiceDate, '${dateFormat}')`)
-      .orderBy(`TO_CHAR(invoice.invoiceDate, '${dateFormat}')`, 'ASC')
+      .groupBy(`TO_CHAR(order.orderDate, '${dateFormat}')`)
+      .orderBy(`TO_CHAR(order.orderDate, '${dateFormat}')`, 'ASC')
       .getRawMany();
 
-    return data.map(item => ({
+    return data.map((item) => ({
       period: item.period,
       revenue: parseFloat(item.revenue) || 0,
       orders: parseInt(item.orders) || 0,
@@ -705,7 +722,7 @@ export class SalesAnalyticsService {
     endDate: Date,
     groupBy: string,
   ): PeriodMetricDto[] {
-    const dataMap = new Map(data.map(item => [item.period, item]));
+    const dataMap = new Map(data.map((item) => [item.period, item]));
     const labels: string[] = [];
     let cursor = new Date(startDate);
 
@@ -743,14 +760,15 @@ export class SalesAnalyticsService {
       labels.push(label);
     }
 
-    return labels.map(label =>
-      dataMap.get(label) ?? {
-        period: label,
-        revenue: 0,
-        orders: 0,
-        newCustomers: 0,
-        averageOrderValue: 0,
-      },
+    return labels.map(
+      (label) =>
+        dataMap.get(label) ?? {
+          period: label,
+          revenue: 0,
+          orders: 0,
+          newCustomers: 0,
+          averageOrderValue: 0,
+        },
     );
   }
 

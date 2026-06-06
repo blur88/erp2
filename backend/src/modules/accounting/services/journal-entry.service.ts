@@ -7,10 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, IsNull, In } from 'typeorm';
-import {
-  JournalEntry,
-  JournalEntryStatus,
-} from '../../../database/entities/journal-entry.entity';
+import { JournalEntry, JournalEntryStatus } from '../../../database/entities/journal-entry.entity';
 import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
 import { FiscalPeriod, FiscalPeriodStatus } from '../../../database/entities/fiscal-period.entity';
 import { ChartOfAccount } from '../../../database/entities/chart-of-account.entity';
@@ -24,7 +21,6 @@ import { OwnerEquityTransaction } from '../../../database/entities/owner-equity-
 import { FundTransfer } from '../../../database/entities/fund-transfer.entity';
 import { Settlement } from '../../../database/entities/settlement.entity';
 import { StockAdjustment } from '../../../database/entities/stock-adjustment.entity';
-import { Invoice } from '../../../database/entities/invoice.entity';
 import {
   CreateJournalEntryDto,
   UpdateJournalEntryDto,
@@ -84,8 +80,6 @@ export class JournalEntryService {
     private readonly settlementRepository: Repository<Settlement>,
     @InjectRepository(StockAdjustment)
     private readonly stockAdjustmentRepository: Repository<StockAdjustment>,
-    @InjectRepository(Invoice)
-    private readonly invoiceRepository: Repository<Invoice>,
     private readonly chartOfAccountsService: ChartOfAccountsService,
     private readonly fiscalPeriodService: FiscalPeriodService,
     private readonly settingsService: SettingsService,
@@ -114,7 +108,7 @@ export class JournalEntryService {
     // Generate reference number if not provided
     const referenceNumber =
       createDto.referenceNumber ||
-      await this.settingsService.generateDocumentNumber('Journal Entries');
+      (await this.settingsService.generateDocumentNumber('Journal Entries'));
 
     // Check if reference number already exists
     const existingEntry = await this.journalEntryRepository.findOne({
@@ -168,9 +162,7 @@ export class JournalEntryService {
   /**
    * Find all journal entries with filtering, sorting, and pagination
    */
-  async findAll(
-    query: QueryJournalEntriesDto,
-  ): Promise<JournalEntryListResponseDto> {
+  async findAll(query: QueryJournalEntriesDto): Promise<JournalEntryListResponseDto> {
     const {
       page = 1,
       limit = 20,
@@ -206,11 +198,16 @@ export class JournalEntryService {
     }
 
     if (fiscalPeriodId) {
-      queryBuilder.andWhere('entry.fiscalPeriodId = :fiscalPeriodId', { fiscalPeriodId });
+      queryBuilder.andWhere('entry.fiscalPeriodId = :fiscalPeriodId', {
+        fiscalPeriodId,
+      });
     }
 
     if (ids) {
-      const idList = ids.split(',').map((s) => s.trim()).filter(Boolean);
+      const idList = ids
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
       if (idList.length > 0) {
         queryBuilder.andWhere('entry.id IN (:...idList)', { idList });
       }
@@ -304,7 +301,12 @@ export class JournalEntryService {
   async findOne(id: string): Promise<JournalEntryResponseDto> {
     const entry = await this.journalEntryRepository.findOne({
       where: { id },
-      relations: { fiscalPeriod: true, lines: { account: true }, reversalOf: true, reversedBy: true },
+      relations: {
+        fiscalPeriod: true,
+        lines: { account: true },
+        reversalOf: true,
+        reversedBy: true,
+      },
     });
 
     if (!entry) {
@@ -435,7 +437,7 @@ export class JournalEntryService {
     if (entry.reversedById) {
       throw new BadRequestException(
         `Cannot delete journal entry '${entry.referenceNumber}' - it has been reversed. ` +
-        `Reversed entries cannot be deleted.`,
+          `Reversed entries cannot be deleted.`,
       );
     }
 
@@ -452,11 +454,7 @@ export class JournalEntryService {
     this.logger.log(`Journal entry soft-deleted successfully: ${id}`);
   }
 
-  private mapJournalEntry(
-    je: JournalEntry,
-    q: string,
-    fuzzy: boolean,
-  ): GlobalSearchResultDto {
+  private mapJournalEntry(je: JournalEntry, q: string, fuzzy: boolean): GlobalSearchResultDto {
     const ref = je.referenceNumber?.toLowerCase() ?? '';
     const baseScore = fuzzy
       ? SCORE_FUZZY
@@ -472,10 +470,7 @@ export class JournalEntryService {
       label: je.referenceNumber,
       description: je.description ?? undefined,
       route: `/accounting/journal-entries/${je.id}`,
-      score:
-        baseScore +
-        BOOST_JOURNAL +
-        (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
+      score: baseScore + BOOST_JOURNAL + (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
     };
   }
 
@@ -483,7 +478,11 @@ export class JournalEntryService {
    * Post a draft entry
    * Validates: entry is balanced, period is open, changes status to POSTED
    */
-  async postEntry(id: string, userId?: string, username?: string): Promise<JournalEntryResponseDto> {
+  async postEntry(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<JournalEntryResponseDto> {
     this.logger.log(`Posting journal entry with ID: ${id}`);
 
     const entry = await this.journalEntryRepository.findOne({
@@ -506,7 +505,7 @@ export class JournalEntryService {
     if (!entry.isBalanced) {
       throw new BadRequestException(
         `Cannot post unbalanced journal entry. ` +
-        `Debits: ${entry.totalDebits.toFixed(2)}, Credits: ${entry.totalCredits.toFixed(2)}`,
+          `Debits: ${entry.totalDebits.toFixed(2)}, Credits: ${entry.totalCredits.toFixed(2)}`,
       );
     }
 
@@ -526,7 +525,7 @@ export class JournalEntryService {
     if (entryDate < periodStart || entryDate > periodEnd) {
       throw new BadRequestException(
         `Entry date ${entryDate.toISOString().split('T')[0]} is outside fiscal period range ` +
-        `(${periodStart.toISOString().split('T')[0]} to ${periodEnd.toISOString().split('T')[0]})`,
+          `(${periodStart.toISOString().split('T')[0]} to ${periodEnd.toISOString().split('T')[0]})`,
       );
     }
 
@@ -549,7 +548,11 @@ export class JournalEntryService {
    * Reverse a posted entry
    * Creates a new entry that's the mirror of the original
    */
-  async reverseEntry(id: string, userId?: string, username?: string): Promise<JournalEntryResponseDto> {
+  async reverseEntry(
+    id: string,
+    userId?: string,
+    username?: string,
+  ): Promise<JournalEntryResponseDto> {
     this.logger.log(`Reversing journal entry with ID: ${id}`);
 
     const originalEntry = await this.journalEntryRepository.findOne({
@@ -576,7 +579,9 @@ export class JournalEntryService {
     }
 
     // Validate fiscal period is still open
-    const periodIsOpen = await this.fiscalPeriodService.checkPeriodOpen(originalEntry.fiscalPeriodId);
+    const periodIsOpen = await this.fiscalPeriodService.checkPeriodOpen(
+      originalEntry.fiscalPeriodId,
+    );
     if (!periodIsOpen) {
       throw new BadRequestException(
         `Cannot reverse journal entry - fiscal period '${originalEntry.fiscalPeriod.name}' is closed`,
@@ -584,7 +589,8 @@ export class JournalEntryService {
     }
 
     // Generate reference number for reversal entry
-    const reversalReferenceNumber = await this.settingsService.generateDocumentNumber('Journal Entries');
+    const reversalReferenceNumber =
+      await this.settingsService.generateDocumentNumber('Journal Entries');
 
     // Create reversal entry
     const reversalEntry = this.journalEntryRepository.create({
@@ -668,7 +674,8 @@ export class JournalEntryService {
       );
     }
 
-    const reversalReferenceNumber = await this.settingsService.generateDocumentNumber('Journal Entries');
+    const reversalReferenceNumber =
+      await this.settingsService.generateDocumentNumber('Journal Entries');
 
     const reversalEntry = this.journalEntryRepository.create({
       entryDate: new Date(),
@@ -723,7 +730,11 @@ export class JournalEntryService {
     });
   }
 
-  async bulkPost(ids: string[], userId?: string, username?: string): Promise<{
+  async bulkPost(
+    ids: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<{
     succeeded: string[];
     failed: { id: string; error: string }[];
   }> {
@@ -742,7 +753,11 @@ export class JournalEntryService {
     return { succeeded, failed };
   }
 
-  async bulkDelete(ids: string[], userId?: string, username?: string): Promise<{
+  async bulkDelete(
+    ids: string[],
+    userId?: string,
+    username?: string,
+  ): Promise<{
     succeeded: string[];
     failed: { id: string; error: string }[];
   }> {
@@ -787,7 +802,7 @@ export class JournalEntryService {
     if (date < periodStart || date > periodEnd) {
       throw new BadRequestException(
         `Entry date ${date.toISOString().split('T')[0]} is outside fiscal period range ` +
-        `(${periodStart.toISOString().split('T')[0]} to ${periodEnd.toISOString().split('T')[0]})`,
+          `(${periodStart.toISOString().split('T')[0]} to ${periodEnd.toISOString().split('T')[0]})`,
       );
     }
   }
@@ -843,17 +858,13 @@ export class JournalEntryService {
 
       // Validate amounts are positive
       if (debit < 0 || credit < 0) {
-        throw new BadRequestException(
-          `Line ${i + 1}: Debit and credit amounts must be positive`,
-        );
+        throw new BadRequestException(`Line ${i + 1}: Debit and credit amounts must be positive`);
       }
     }
   }
 
   /** Batch-resolves source reference numbers for a list of entries — one IN query per sourceType. */
-  private async resolveSourceRefNumbersMany(
-    entries: JournalEntry[],
-  ): Promise<Map<string, string>> {
+  private async resolveSourceRefNumbersMany(entries: JournalEntry[]): Promise<Map<string, string>> {
     const refMap = new Map<string, string>();
 
     const withSource = entries.filter((entry) => entry.sourceType && entry.sourceId);
@@ -972,21 +983,14 @@ export class JournalEntryService {
             }
             break;
           }
-          case 'invoice': {
-            const records = await this.invoiceRepository.find({
-              where: { id: In(ids) },
-              select: { id: true, invoiceNumber: true },
-            });
-            for (const record of records) {
-              refMap.set(`invoice:${record.id}`, record.invoiceNumber);
-            }
-            break;
-          }
           default:
             break;
         }
       } catch (err) {
-        this.logger.error(`resolveSourceRefNumbersMany failed for sourceType '${sourceType}', skipping`, err);
+        this.logger.error(
+          `resolveSourceRefNumbersMany failed for sourceType '${sourceType}', skipping`,
+          err,
+        );
       }
     }
 
@@ -1072,13 +1076,6 @@ export class JournalEntryService {
           });
           return record?.adjustmentNumber;
         }
-        case 'invoice': {
-          const record = await this.invoiceRepository.findOne({
-            where: { id: sourceId },
-            select: { id: true, invoiceNumber: true },
-          });
-          return record?.invoiceNumber;
-        }
         // settlement: no dedicated list page, source navigation not supported
         // opening_balance: synthetic entry with no source entity UUID
         default:
@@ -1124,16 +1121,10 @@ export class JournalEntryService {
             status: entry.fiscalPeriod.status,
           }
         : undefined,
-      lines: entry.lines
-        ? entry.lines.map((line) => this.toLineResponseDto(line))
-        : undefined,
+      lines: entry.lines ? entry.lines.map((line) => this.toLineResponseDto(line)) : undefined,
       // map not propagated: reversalOf/reversedBy are not loaded in list queries
-      reversalOf: entry.reversalOf
-        ? await this.toResponseDto(entry.reversalOf)
-        : undefined,
-      reversedBy: entry.reversedBy
-        ? await this.toResponseDto(entry.reversedBy)
-        : undefined,
+      reversalOf: entry.reversalOf ? await this.toResponseDto(entry.reversalOf) : undefined,
+      reversedBy: entry.reversedBy ? await this.toResponseDto(entry.reversedBy) : undefined,
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,
       deletedAt: entry.deletedAt,

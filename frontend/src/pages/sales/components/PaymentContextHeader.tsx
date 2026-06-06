@@ -1,6 +1,6 @@
-import React from 'react'
-import { default as PrintIcon } from '@mui/icons-material/Print'
-import { useNavigate } from 'react-router-dom'
+import React from 'react';
+import { default as PrintIcon } from '@mui/icons-material/Print';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Paper,
@@ -10,26 +10,25 @@ import {
   TableContainer,
   TableRow,
   Typography,
-} from '@mui/material'
-import Grid from '@mui/material/Grid'
+} from '@mui/material';
+import Grid from '@mui/material/Grid';
 
-import type { PaymentListItem } from '../hooks/usePaymentsWorkspace'
+import type { PaymentListItem } from '../hooks/usePaymentsWorkspace';
 
-import { AppButton } from '@/components/common/AppButton'
-import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
-import { EntityStatusChip } from '@/components/common/EntityStatusChip'
-import { TABLE_STYLES } from '@/constants/tableStyles'
-import type { JournalEntryRef } from '@/hooks/useJournalEntryRef'
-import { formatCurrency, formatDate } from '@/utils/formatters'
+import { AppButton } from '@/components/common/AppButton';
+import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar';
+import { EntityStatusChip } from '@/components/common/EntityStatusChip';
+import { TABLE_STYLES } from '@/constants/tableStyles';
+import type { JournalEntryRef } from '@/hooks/useJournalEntryRef';
+import { formatCurrency, formatDate } from '@/utils/formatters';
 
 interface PaymentContextHeaderProps {
-  selectedPayment: PaymentListItem | null
-  journalEntryRefs: JournalEntryRef[]
-  journalEntryRefsLoading: boolean
-  onPrint: () => void
-  onOrderClick: (orderId: string, event: React.MouseEvent) => void
-  onInvoiceClick: (invoiceId: string, event: React.MouseEvent) => void
-  onNavigateToJournalEntry: () => void
+  selectedPayment: PaymentListItem | null;
+  journalEntryRefs: JournalEntryRef[];
+  journalEntryRefsLoading: boolean;
+  onPrint: () => void;
+  onOrderClick: (orderId: string, event: React.MouseEvent) => void;
+  onNavigateToJournalEntry: () => void;
 }
 
 const detailTableSx = {
@@ -41,10 +40,10 @@ const detailTableSx = {
     '&:nth-of-type(1)': { width: '40%' },
     '&:nth-of-type(2)': { width: '60%' },
   },
-}
+};
 
-const labelCellSx = { fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' }
-const valueCellSx = { fontSize: '0.8rem' }
+const labelCellSx = { fontWeight: 600, color: 'text.secondary', fontSize: '0.8rem' };
+const valueCellSx = { fontSize: '0.8rem' };
 
 const linkButtonSx = {
   fontSize: '0.8rem',
@@ -55,13 +54,13 @@ const linkButtonSx = {
   background: 'none',
   padding: 0,
   '&:hover': { color: 'primary.dark' },
-}
+};
 
 const getPaymentMethodLabel = (payment: PaymentListItem) => {
-  if (payment.paymentMethodEntity?.name) return payment.paymentMethodEntity.name
-  if (payment.paymentMethod) return payment.paymentMethod
-  return 'Unknown'
-}
+  if (payment.paymentMethodEntity?.name) return payment.paymentMethodEntity.name;
+  if (payment.paymentMethod) return payment.paymentMethod;
+  return 'Unknown';
+};
 
 const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
   selectedPayment,
@@ -69,10 +68,9 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
   journalEntryRefsLoading,
   onPrint,
   onOrderClick,
-  onInvoiceClick,
   onNavigateToJournalEntry,
 }) => {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   if (!selectedPayment) {
     return (
       <Paper sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
@@ -80,7 +78,7 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
           Select a payment to view details
         </Typography>
       </Paper>
-    )
+    );
   }
 
   return (
@@ -130,7 +128,9 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
                       {selectedPayment.customer?.id ? (
                         <Typography
                           component="button"
-                          onClick={() => navigate(`/sales/customers?highlight=${selectedPayment.customer!.id}`)}
+                          onClick={() =>
+                            navigate(`/sales/customers?highlight=${selectedPayment.customer!.id}`)
+                          }
                           sx={linkButtonSx}
                         >
                           {selectedPayment.customer.name}
@@ -206,28 +206,6 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
                       )}
                     </TableCell>
                   </TableRow>
-                  <TableRow>
-                    <TableCell sx={labelCellSx}>Invoice No</TableCell>
-                    <TableCell sx={valueCellSx}>
-                      {selectedPayment.relatedInvoiceNumber ? (
-                        <Typography
-                          component="button"
-                          onClick={(event) =>
-                            onInvoiceClick(selectedPayment.relatedInvoiceId!, event)
-                          }
-                          sx={linkButtonSx}
-                        >
-                          {selectedPayment.relatedInvoiceNumber}
-                        </Typography>
-                      ) : (
-                        <Typography
-                          sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}
-                        >
-                          N/A
-                        </Typography>
-                      )}
-                    </TableCell>
-                  </TableRow>
                   {selectedPayment.customer?.email && (
                     <TableRow>
                       <TableCell sx={labelCellSx}>Customer Email</TableCell>
@@ -278,7 +256,7 @@ const PaymentContextHeader: React.FC<PaymentContextHeaderProps> = ({
         </Grid>
       </Box>
     </Paper>
-  )
-}
+  );
+};
 
-export default PaymentContextHeader
+export default PaymentContextHeader;

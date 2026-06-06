@@ -14,7 +14,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { DiscountType } from '../../../database/entities/sales-order-item.entity';
 import { BaseQueryDto } from '../../../common/dto/base-query.dto';
-import { SalesOrderStatus, SalesOrderPaymentStatus } from '../../../database/entities/sales-order.entity';
+import {
+  SalesOrderStatus,
+  SalesOrderPaymentStatus,
+} from '../../../database/entities/sales-order.entity';
 
 export class SalesOrderItemDto {
   @ApiProperty({
@@ -34,10 +37,10 @@ export class SalesOrderItemDto {
 
   @ApiPropertyOptional({
     description: 'Unit price (if different from product price)',
-    example: 25.50,
+    example: 25.5,
   })
   @IsOptional()
-  @Transform(({ value }) => value ? parseFloat(value) : undefined)
+  @Transform(({ value }) => (value ? parseFloat(value) : undefined))
   unitPrice?: number;
 
   @ApiPropertyOptional({
@@ -53,7 +56,7 @@ export class SalesOrderItemDto {
     example: 5.0,
   })
   @IsOptional()
-  @Transform(({ value }) => value ? parseFloat(value) : 0)
+  @Transform(({ value }) => (value ? parseFloat(value) : 0))
   discountPercent?: number;
 
   @ApiPropertyOptional({
@@ -61,7 +64,7 @@ export class SalesOrderItemDto {
     example: 12.75,
   })
   @IsOptional()
-  @Transform(({ value }) => value ? parseFloat(value) : 0)
+  @Transform(({ value }) => (value ? parseFloat(value) : 0))
   discountAmount?: number;
 
   @ApiPropertyOptional({
@@ -91,10 +94,10 @@ export class CreateSalesOrderDto {
 
   @ApiPropertyOptional({
     description: 'Shipping/freight charges',
-    example: 50.00,
+    example: 50.0,
   })
   @IsOptional()
-  @Transform(({ value }) => value ? parseFloat(value) : 0)
+  @Transform(({ value }) => (value ? parseFloat(value) : 0))
   shippingAmount?: number;
 
   @ApiProperty({
@@ -126,10 +129,10 @@ export class UpdateSalesOrderDto {
 
   @ApiPropertyOptional({
     description: 'Shipping/freight charges',
-    example: 50.00,
+    example: 50.0,
   })
   @IsOptional()
-  @Transform(({ value }) => value ? parseFloat(value) : 0)
+  @Transform(({ value }) => (value ? parseFloat(value) : 0))
   shippingAmount?: number;
 
   @ApiPropertyOptional({
@@ -151,7 +154,6 @@ export class QuerySalesOrdersDto extends BaseQueryDto {
   @IsOptional()
   @IsUUID()
   customerId?: string;
-
 
   @ApiPropertyOptional({
     description: 'Filter orders from date',
@@ -191,13 +193,13 @@ export class SalesOrderItemResponseDto {
     name: string;
     description?: string;
     barcode?: string;
-    stockQuantity: number;
+    stockQuantity?: number;
   } | null;
 
   @ApiProperty({ example: 10 })
   quantity: number;
 
-  @ApiProperty({ example: 25.50 })
+  @ApiProperty({ example: 25.5 })
   unitPrice: number;
 
   @ApiProperty({ enum: DiscountType, example: DiscountType.PERCENTAGE })
@@ -232,25 +234,31 @@ export class SalesOrderResponseDto {
   @ApiProperty({ example: '2024-01-01' })
   orderDate: Date;
 
+  @ApiPropertyOptional({ example: '2024-01-02', description: 'Set when the order is fulfilled' })
+  fulfilledAt?: Date;
+
   @ApiProperty({ enum: SalesOrderStatus })
   status: SalesOrderStatus;
 
   @ApiProperty({ enum: SalesOrderPaymentStatus })
   paymentStatus: SalesOrderPaymentStatus;
 
-  @ApiProperty({ example: 941.50 })
+  @ApiProperty({ example: 941.5 })
   subtotal: number;
 
-  @ApiProperty({ example: 50.00 })
+  @ApiProperty({ example: 50.0 })
   shippingAmount: number;
 
-  @ApiProperty({ example: 991.50 })
+  @ApiProperty({ example: 991.5 })
   totalAmount: number;
 
   @ApiProperty({ example: 400.0 })
   paidAmount: number;
 
-  @ApiProperty({ example: 591.5, description: 'totalAmount - paidAmount; negative means overpaid (surplus)' })
+  @ApiProperty({
+    example: 591.5,
+    description: 'totalAmount - paidAmount; negative means overpaid (surplus)',
+  })
   balanceDue: number;
 
   @ApiProperty({ example: 'Fragile items, handle with care', nullable: true })
@@ -306,7 +314,7 @@ export class SalesOrderSummaryDto {
   @ApiProperty({ example: 'Acme Corporation' })
   customerName: string;
 
-  @ApiProperty({ example: 991.50 })
+  @ApiProperty({ example: 991.5 })
   totalAmount: number;
 
   @ApiProperty({ example: false })
@@ -321,14 +329,16 @@ export class RecordPaymentDto {
   @IsUUID()
   paymentMethodId: string;
 
-  @ApiProperty({ example: 500.00 })
+  @ApiProperty({ example: 500.0 })
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0.01)
   @Transform(({ value }) => parseFloat(value))
   amount: number;
 
   @ApiProperty({ example: '2026-05-26' })
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'paymentDate must be a valid date in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'paymentDate must be a valid date in YYYY-MM-DD format',
+  })
   paymentDate: string;
 
   @ApiPropertyOptional()
@@ -348,7 +358,7 @@ export class RecordRefundsDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => RecordRefundDto)
-  refunds: RecordRefundDto[]
+  refunds: RecordRefundDto[];
 }
 
 export class RecordPaymentsDto {

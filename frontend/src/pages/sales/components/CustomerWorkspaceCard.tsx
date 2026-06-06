@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   CircularProgress,
@@ -12,26 +12,21 @@ import {
   TableRow,
   Tabs,
   Typography,
-} from '@mui/material'
-import { default as InvoiceIcon } from '@mui/icons-material/AccountBalance'
-import { default as PaymentIcon } from '@mui/icons-material/Payment'
-import { default as OrdersIcon } from '@mui/icons-material/ShoppingCart'
-import { useNavigate } from 'react-router-dom'
+} from '@mui/material';
+import { default as PaymentIcon } from '@mui/icons-material/Payment';
+import { default as OrdersIcon } from '@mui/icons-material/ShoppingCart';
+import { useNavigate } from 'react-router-dom';
 
-import { TABLE_STYLES } from '@/constants/tableStyles'
-import {
-  useGetCustomerOutstandingInvoicesQuery,
-  useGetCustomerPaymentsQuery,
-  useGetCustomerSalesHistoryQuery,
-} from '@/store/api/salesApi'
-import type { Customer } from '@/types'
-import { formatCurrency } from '@/utils/currency'
-import { formatDate } from '@/utils/formatters'
+import { TABLE_STYLES } from '@/constants/tableStyles';
+import { useGetCustomerPaymentsQuery, useGetCustomerSalesHistoryQuery } from '@/store/api/salesApi';
+import type { Customer } from '@/types';
+import { formatCurrency } from '@/utils/currency';
+import { formatDate } from '@/utils/formatters';
 
 interface TabPanelProps {
-  children?: React.ReactNode
-  index: number
-  value: number
+  children?: React.ReactNode;
+  index: number;
+  value: number;
 }
 
 function TabPanel({ children, value, index }: TabPanelProps) {
@@ -45,55 +40,63 @@ function TabPanel({ children, value, index }: TabPanelProps) {
         flexDirection: 'column',
       }}
     >
-      {value === index && (
-        <Box sx={{ p: TABLE_STYLES.cell.padding.px, flex: 1 }}>
-          {children}
-        </Box>
-      )}
+      {value === index && <Box sx={{ p: TABLE_STYLES.cell.padding.px, flex: 1 }}>{children}</Box>}
     </Box>
-  )
+  );
 }
 
 interface CustomerWorkspaceCardProps {
-  selectedCustomer: Customer | null
+  selectedCustomer: Customer | null;
 }
 
 const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedCustomer }) => {
-  const navigate = useNavigate()
-  const [tabValue, setTabValue] = useState(0)
+  const navigate = useNavigate();
+  const [tabValue, setTabValue] = useState(0);
 
-  const customerId = selectedCustomer?.id ?? ''
+  const customerId = selectedCustomer?.id ?? '';
 
   useEffect(() => {
-    setTabValue(0)
-  }, [customerId])
+    setTabValue(0);
+  }, [customerId]);
 
-  const { data: ordersData, isLoading: ordersLoading, isError: ordersError } = useGetCustomerSalesHistoryQuery(customerId, {
+  const {
+    data: ordersData,
+    isLoading: ordersLoading,
+    isError: ordersError,
+  } = useGetCustomerSalesHistoryQuery(customerId, {
     skip: !customerId || tabValue !== 0,
-  })
-  const { data: invoicesData, isLoading: invoicesLoading, isError: invoicesError } = useGetCustomerOutstandingInvoicesQuery(customerId, {
+  });
+  const {
+    data: paymentsData,
+    isLoading: paymentsLoading,
+    isError: paymentsError,
+  } = useGetCustomerPaymentsQuery(customerId, {
     skip: !customerId || tabValue !== 1,
-  })
-  const { data: paymentsData, isLoading: paymentsLoading, isError: paymentsError } = useGetCustomerPaymentsQuery(customerId, {
-    skip: !customerId || tabValue !== 2,
-  })
+  });
 
-  const orders = ordersData?.orders ?? []
-  const invoices = invoicesData?.invoices ?? []
-  const totalOutstanding = invoicesData?.totalOutstanding ?? 0
-  const payments = paymentsData ?? []
+  const orders = ordersData?.orders ?? [];
+  const payments = paymentsData ?? [];
 
   if (!selectedCustomer) {
-    return <Paper sx={{ flex: 1 }} />
+    return <Paper sx={{ flex: 1 }} />;
   }
 
   return (
     <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tabValue} onChange={(_, value) => setTabValue(value)} sx={{ minHeight: 36 }}>
-          <Tab icon={<OrdersIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Orders" sx={{ minHeight: 36 }} />
-          <Tab icon={<InvoiceIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Invoices" sx={{ minHeight: 36 }} />
-          <Tab icon={<PaymentIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Payments" sx={{ minHeight: 36 }} />
+          <Tab
+            icon={<OrdersIcon sx={{ fontSize: 16 }} />}
+            iconPosition="start"
+            label="Orders"
+            sx={{ minHeight: 36 }}
+          />
+          <Tab
+            icon={<PaymentIcon sx={{ fontSize: 16 }} />}
+            iconPosition="start"
+            label="Payments"
+            sx={{ minHeight: 36 }}
+          />
         </Tabs>
       </Box>
       <TabPanel value={tabValue} index={0}>
@@ -104,26 +107,30 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
         ) : ordersError ? (
           <Typography
             sx={{
-              color: "error.main",
+              color: 'error.main',
               py: 4,
-              textAlign: 'center'
-            }}>
+              textAlign: 'center',
+            }}
+          >
             Failed to load orders.
           </Typography>
         ) : orders.length === 0 ? (
           <Typography
             sx={{
-              color: "text.secondary",
+              color: 'text.secondary',
               py: 4,
-              textAlign: 'center'
-            }}>
+              textAlign: 'center',
+            }}
+          >
             No orders found.
           </Typography>
         ) : (
           <TableContainer component={Paper} variant="outlined">
             <Table size={TABLE_STYLES.size}>
               <TableHead>
-                <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
+                <TableRow
+                  sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}
+                >
                   <TableCell>Order #</TableCell>
                   <TableCell>Date</TableCell>
                   <TableCell>Status</TableCell>
@@ -139,9 +146,13 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
                     onClick={() => navigate(`/sales/orders?highlight=${order.id}`)}
                   >
                     <TableCell>
-                      <Typography variant="body2" color="primary" sx={{
-                        fontWeight: 600
-                      }}>
+                      <Typography
+                        variant="body2"
+                        color="primary"
+                        sx={{
+                          fontWeight: 600,
+                        }}
+                      >
                         {order.orderNumber}
                       </Typography>
                     </TableCell>
@@ -169,86 +180,6 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
         )}
       </TabPanel>
       <TabPanel value={tabValue} index={1}>
-        {invoicesLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : invoicesError ? (
-          <Typography
-            sx={{
-              color: "error.main",
-              py: 4,
-              textAlign: 'center'
-            }}>
-            Failed to load invoices.
-          </Typography>
-        ) : invoices.length === 0 ? (
-          <Typography
-            sx={{
-              color: "text.secondary",
-              py: 4,
-              textAlign: 'center'
-            }}>
-            No outstanding invoices.
-          </Typography>
-        ) : (
-          <>
-            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
-              <Typography variant="subtitle2" sx={{
-                color: "text.secondary"
-              }}>
-                Total Outstanding: <strong>{formatCurrency(totalOutstanding)}</strong>
-              </Typography>
-            </Box>
-            <TableContainer component={Paper} variant="outlined">
-              <Table size={TABLE_STYLES.size}>
-                <TableHead>
-                  <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
-                    <TableCell>Invoice #</TableCell>
-                    <TableCell>Date</TableCell>
-                    <TableCell align="right">Total</TableCell>
-                    <TableCell align="right">Balance Due</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {invoices.map((invoice) => (
-                    <TableRow
-                      key={invoice.id}
-                      hover
-                      sx={{ cursor: 'pointer' }}
-                      onClick={() => navigate('/sales/invoices', { state: { highlightInvoiceId: invoice.id } })}
-                    >
-                      <TableCell>
-                        <Typography
-                          variant="body2"
-                          color="primary"
-                          sx={{
-                            fontWeight: 600
-                          }}
-                        >
-                          {invoice.invoiceNumber}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{formatDate(invoice.invoiceDate)}</TableCell>
-                      <TableCell align="right">{formatCurrency(invoice.totalAmount)}</TableCell>
-                      <TableCell align="right">
-                        <Typography
-                          sx={{
-                            fontWeight: 600,
-                            color: "error.main"
-                          }}>
-                          {formatCurrency(invoice.balanceDue)}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </>
-        )}
-      </TabPanel>
-      <TabPanel value={tabValue} index={2}>
         {paymentsLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
@@ -256,26 +187,30 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
         ) : paymentsError ? (
           <Typography
             sx={{
-              color: "error.main",
+              color: 'error.main',
               py: 4,
-              textAlign: 'center'
-            }}>
+              textAlign: 'center',
+            }}
+          >
             Failed to load payments.
           </Typography>
         ) : payments.length === 0 ? (
           <Typography
             sx={{
-              color: "text.secondary",
+              color: 'text.secondary',
               py: 4,
-              textAlign: 'center'
-            }}>
+              textAlign: 'center',
+            }}
+          >
             No payments found.
           </Typography>
         ) : (
           <TableContainer component={Paper} variant="outlined">
             <Table size={TABLE_STYLES.size}>
               <TableHead>
-                <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
+                <TableRow
+                  sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}
+                >
                   <TableCell>Payment #</TableCell>
                   <TableCell>Date</TableCell>
                   <TableCell>Status</TableCell>
@@ -288,12 +223,18 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
                     key={payment.id}
                     hover
                     sx={{ cursor: 'pointer' }}
-                    onClick={() => navigate('/sales/payments', { state: { highlightPaymentId: payment.id } })}
+                    onClick={() =>
+                      navigate('/sales/payments', { state: { highlightPaymentId: payment.id } })
+                    }
                   >
                     <TableCell>
-                      <Typography variant="body2" color="primary" sx={{
-                        fontWeight: 600
-                      }}>
+                      <Typography
+                        variant="body2"
+                        color="primary"
+                        sx={{
+                          fontWeight: 600,
+                        }}
+                      >
                         {payment.paymentNumber}
                       </Typography>
                     </TableCell>
@@ -309,6 +250,6 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
       </TabPanel>
     </Paper>
   );
-}
+};
 
-export default CustomerWorkspaceCard
+export default CustomerWorkspaceCard;

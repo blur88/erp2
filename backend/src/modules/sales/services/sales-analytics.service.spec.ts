@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { SalesAnalyticsService } from './sales-analytics.service';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
-import { Invoice } from '../../../database/entities/invoice.entity';
 import { Payment } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
@@ -36,6 +35,7 @@ function makeChainableQb(rawOneResult: any = {}) {
     select: jest.fn().mockReturnThis(),
     addSelect: jest.fn().mockReturnThis(),
     setParameters: jest.fn().mockReturnThis(),
+    setParameter: jest.fn().mockReturnThis(),
     groupBy: jest.fn().mockReturnThis(),
     addGroupBy: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
@@ -62,11 +62,16 @@ describe('SalesAnalyticsService', () => {
       providers: [
         SalesAnalyticsService,
         { provide: getRepositoryToken(SalesOrder), useValue: makeRepoMock() },
-        { provide: getRepositoryToken(Invoice), useValue: makeRepoMock() },
         { provide: getRepositoryToken(Payment), useValue: makeRepoMock() },
         { provide: getRepositoryToken(Customer), useValue: makeRepoMock() },
-        { provide: getRepositoryToken(SalesOrderItem), useValue: makeRepoMock() },
-        { provide: SalesAnalyticsReportService, useValue: { getProductSummary: jest.fn() } },
+        {
+          provide: getRepositoryToken(SalesOrderItem),
+          useValue: makeRepoMock(),
+        },
+        {
+          provide: SalesAnalyticsReportService,
+          useValue: { getProductSummary: jest.fn() },
+        },
         { provide: SettingsService, useValue: settingsService },
       ],
     }).compile();
@@ -77,19 +82,31 @@ describe('SalesAnalyticsService', () => {
   describe('computeComparePeriod', () => {
     describe('previous_period', () => {
       it('returns window of same day count ending day before start', () => {
-        const result = (service as any).computeComparePeriod(d('2026-03-01'), d('2026-03-31'), 'previous_period');
+        const result = (service as any).computeComparePeriod(
+          d('2026-03-01'),
+          d('2026-03-31'),
+          'previous_period',
+        );
         expect(result.compareStart.toISOString().slice(0, 10)).toBe('2026-01-29');
         expect(result.compareEnd.toISOString().slice(0, 10)).toBe('2026-02-28');
       });
 
       it('handles 28-day window (non-leap Feb)', () => {
-        const result = (service as any).computeComparePeriod(d('2026-02-01'), d('2026-02-28'), 'previous_period');
+        const result = (service as any).computeComparePeriod(
+          d('2026-02-01'),
+          d('2026-02-28'),
+          'previous_period',
+        );
         expect(result.compareStart.toISOString().slice(0, 10)).toBe('2026-01-04');
         expect(result.compareEnd.toISOString().slice(0, 10)).toBe('2026-01-31');
       });
 
       it('handles single-day window', () => {
-        const result = (service as any).computeComparePeriod(d('2026-03-15'), d('2026-03-15'), 'previous_period');
+        const result = (service as any).computeComparePeriod(
+          d('2026-03-15'),
+          d('2026-03-15'),
+          'previous_period',
+        );
         expect(result.compareStart.toISOString().slice(0, 10)).toBe('2026-03-14');
         expect(result.compareEnd.toISOString().slice(0, 10)).toBe('2026-03-14');
       });
@@ -97,13 +114,21 @@ describe('SalesAnalyticsService', () => {
 
     describe('last_month', () => {
       it('subtracts one calendar month from start and end independently', () => {
-        const result = (service as any).computeComparePeriod(d('2026-03-01'), d('2026-03-31'), 'last_month');
+        const result = (service as any).computeComparePeriod(
+          d('2026-03-01'),
+          d('2026-03-31'),
+          'last_month',
+        );
         expect(result.compareStart.toISOString().slice(0, 10)).toBe('2026-02-01');
         expect(result.compareEnd.toISOString().slice(0, 10)).toBe('2026-02-28');
       });
 
       it('handles range spanning a month boundary', () => {
-        const result = (service as any).computeComparePeriod(d('2026-01-28'), d('2026-02-03'), 'last_month');
+        const result = (service as any).computeComparePeriod(
+          d('2026-01-28'),
+          d('2026-02-03'),
+          'last_month',
+        );
         expect(result.compareStart.toISOString().slice(0, 10)).toBe('2025-12-28');
         expect(result.compareEnd.toISOString().slice(0, 10)).toBe('2026-01-03');
       });
@@ -111,13 +136,21 @@ describe('SalesAnalyticsService', () => {
 
     describe('last_year', () => {
       it('returns same date one year back', () => {
-        const result = (service as any).computeComparePeriod(d('2026-03-01'), d('2026-03-31'), 'last_year');
+        const result = (service as any).computeComparePeriod(
+          d('2026-03-01'),
+          d('2026-03-31'),
+          'last_year',
+        );
         expect(result.compareStart.toISOString().slice(0, 10)).toBe('2025-03-01');
         expect(result.compareEnd.toISOString().slice(0, 10)).toBe('2025-03-31');
       });
 
       it('clamps Feb 29 to Feb 28 in non-leap year', () => {
-        const result = (service as any).computeComparePeriod(d('2024-02-01'), d('2024-02-29'), 'last_year');
+        const result = (service as any).computeComparePeriod(
+          d('2024-02-01'),
+          d('2024-02-29'),
+          'last_year',
+        );
         expect(result.compareEnd.toISOString().slice(0, 10)).toBe('2023-02-28');
       });
     });
@@ -210,7 +243,9 @@ describe('SalesAnalyticsService', () => {
     it('accepts paymentStatus=paid as valid canonical value', async () => {
       const { plainToInstance } = await import('class-transformer');
       const { validate } = await import('class-validator');
-      const dto = plainToInstance(SalesAnalyticsQueryDto, { paymentStatus: 'paid' });
+      const dto = plainToInstance(SalesAnalyticsQueryDto, {
+        paymentStatus: 'paid',
+      });
       const errors = await validate(dto);
 
       expect(errors.filter((e) => e.property === 'paymentStatus')).toHaveLength(0);
@@ -221,7 +256,9 @@ describe('SalesAnalyticsService', () => {
       const { plainToInstance } = await import('class-transformer');
       const { validate } = await import('class-validator');
       const { SalesAnalyticsQueryDto } = await import('../dto/sales-analytics.dto');
-      const dto = plainToInstance(SalesAnalyticsQueryDto, { paymentStatus: 'invalid' });
+      const dto = plainToInstance(SalesAnalyticsQueryDto, {
+        paymentStatus: 'invalid',
+      });
       const errors = await validate(dto);
 
       expect(errors.filter((e) => e.property === 'paymentStatus')).toHaveLength(1);
@@ -258,37 +295,33 @@ describe('SalesAnalyticsService', () => {
       const qb = makeQbChain();
       const customerQb = makeCustomerQbChain();
       (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
-      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerQb);
+      (service as any).customerRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(customerQb);
 
-      await (service as any).getPeriodData(start, end, 'month', { customerId: 'cust-1' });
+      await (service as any).getPeriodData(start, end, 'month', {
+        customerId: 'cust-1',
+      });
 
-      expect(qb.andWhere).toHaveBeenCalledWith('order.customerId = :customerId', { customerId: 'cust-1' });
+      expect(qb.andWhere).toHaveBeenCalledWith('order.customerId = :customerId', {
+        customerId: 'cust-1',
+      });
     });
 
     it('applies salesRepId filter when provided', async () => {
       const qb = makeQbChain();
       const customerQb = makeCustomerQbChain();
       (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
-      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerQb);
-
-      await (service as any).getPeriodData(start, end, 'month', { salesRepId: 'rep-1' });
-
-      expect(qb.andWhere).toHaveBeenCalledWith('order.createdByUserId = :salesRepId', { salesRepId: 'rep-1' });
-    });
-
-    it('applies paymentStatus filter with translated invoice join when provided', async () => {
-      const qb = makeQbChain();
-      const customerQb = makeCustomerQbChain();
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
-      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerQb);
+      (service as any).customerRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(customerQb);
 
       await (service as any).getPeriodData(start, end, 'month', {
-        paymentStatus: 'unpaid',
-      } as any);
+        salesRepId: 'rep-1',
+      });
 
-      expect(qb.leftJoin).toHaveBeenCalledWith('order.invoices', 'invoice');
-      expect(qb.andWhere).toHaveBeenCalledWith('invoice.status = :paymentStatus', {
-        paymentStatus: 'draft',
+      expect(qb.andWhere).toHaveBeenCalledWith('order.createdByUserId = :salesRepId', {
+        salesRepId: 'rep-1',
       });
     });
 
@@ -296,7 +329,9 @@ describe('SalesAnalyticsService', () => {
       const qb = makeQbChain();
       const customerQb = makeCustomerQbChain();
       (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
-      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerQb);
+      (service as any).customerRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(customerQb);
 
       await (service as any).getPeriodData(start, end, 'month', {});
 
@@ -304,154 +339,6 @@ describe('SalesAnalyticsService', () => {
       expect(andWhereCalls).not.toContain(expect.stringContaining('customerId'));
       expect(andWhereCalls).not.toContain(expect.stringContaining('salesRepId'));
       expect(andWhereCalls).not.toContain(expect.stringContaining('paymentStatus'));
-    });
-  });
-
-  describe('calculateSalesMetrics — fulfillmentStatus translation', () => {
-    it('adds isFulfilled=true WHERE when fulfillmentStatus=fulfilled', async () => {
-      const orderQb = makeChainableQb({
-        totalRevenue: '0',
-        totalOrders: '0',
-        averageOrderValue: '0',
-        completedOrders: '0',
-        confirmedOrders: '0',
-        draftOrders: '0',
-      });
-      const invoiceQb = makeChainableQb({
-        paidInvoicesAmount: '0',
-        pendingInvoicesAmount: '0',
-        overdueInvoicesAmount: '0',
-      });
-      const module2 = await Test.createTestingModule({
-        providers: [
-          SalesAnalyticsService,
-          {
-            provide: getRepositoryToken(SalesOrder),
-            useValue: { createQueryBuilder: jest.fn().mockReturnValue(orderQb) },
-          },
-          {
-            provide: getRepositoryToken(Invoice),
-            useValue: { createQueryBuilder: jest.fn().mockReturnValue(invoiceQb) },
-          },
-          {
-            provide: getRepositoryToken(Payment),
-            useValue: { createQueryBuilder: jest.fn().mockReturnValue(makeChainableQb()) },
-          },
-          {
-            provide: getRepositoryToken(Customer),
-            useValue: { createQueryBuilder: jest.fn().mockReturnValue(makeChainableQb()) },
-          },
-          { provide: getRepositoryToken(SalesOrderItem), useValue: makeRepoMock() },
-          { provide: SalesAnalyticsReportService, useValue: { getProductSummary: jest.fn() } },
-          { provide: SettingsService, useValue: settingsService },
-        ],
-      }).compile();
-      const svc = module2.get<SalesAnalyticsService>(SalesAnalyticsService);
-
-      const query = new SalesAnalyticsQueryDto();
-      query.fulfillmentStatus = 'fulfilled';
-      await (svc as any).calculateSalesMetrics(new Date(), new Date(), query);
-
-      const andWhereCalls: string[] = orderQb.andWhere.mock.calls.map((c: any[]) => c[0]);
-      expect(andWhereCalls.some((call) => call.includes('isFulfilled'))).toBe(true);
-    });
-
-    it('adds isFulfilled=false WHERE when fulfillmentStatus=unfulfilled', async () => {
-      const orderQb = makeChainableQb({
-        totalRevenue: '0',
-        totalOrders: '0',
-        averageOrderValue: '0',
-        completedOrders: '0',
-        confirmedOrders: '0',
-        draftOrders: '0',
-      });
-      const invoiceQb = makeChainableQb({
-        paidInvoicesAmount: '0',
-        pendingInvoicesAmount: '0',
-        overdueInvoicesAmount: '0',
-      });
-      const module2 = await Test.createTestingModule({
-        providers: [
-          SalesAnalyticsService,
-          {
-            provide: getRepositoryToken(SalesOrder),
-            useValue: { createQueryBuilder: jest.fn().mockReturnValue(orderQb) },
-          },
-          {
-            provide: getRepositoryToken(Invoice),
-            useValue: { createQueryBuilder: jest.fn().mockReturnValue(invoiceQb) },
-          },
-          {
-            provide: getRepositoryToken(Payment),
-            useValue: { createQueryBuilder: jest.fn().mockReturnValue(makeChainableQb()) },
-          },
-          {
-            provide: getRepositoryToken(Customer),
-            useValue: { createQueryBuilder: jest.fn().mockReturnValue(makeChainableQb()) },
-          },
-          { provide: getRepositoryToken(SalesOrderItem), useValue: makeRepoMock() },
-          { provide: SalesAnalyticsReportService, useValue: { getProductSummary: jest.fn() } },
-          { provide: SettingsService, useValue: settingsService },
-        ],
-      }).compile();
-      const svc = module2.get<SalesAnalyticsService>(SalesAnalyticsService);
-
-      const query = new SalesAnalyticsQueryDto();
-      query.fulfillmentStatus = 'unfulfilled';
-      await (svc as any).calculateSalesMetrics(new Date(), new Date(), query);
-
-      const andWhereCalls: string[] = orderQb.andWhere.mock.calls.map((c: any[]) => c[0]);
-      expect(andWhereCalls.some((call) => call.includes('isFulfilled'))).toBe(true);
-    });
-  });
-
-  describe('calculateSalesMetrics — paymentStatus translation', () => {
-    it('maps paymentStatus=unpaid to invoice.status=draft in WHERE clause', async () => {
-      const orderQb = makeChainableQb({
-        totalRevenue: '0',
-        totalOrders: '0',
-        averageOrderValue: '0',
-        completedOrders: '0',
-        confirmedOrders: '0',
-        draftOrders: '0',
-      });
-      const invoiceQb = makeChainableQb({
-        paidInvoicesAmount: '0',
-        pendingInvoicesAmount: '0',
-        overdueInvoicesAmount: '0',
-      });
-      const module2 = await Test.createTestingModule({
-        providers: [
-          SalesAnalyticsService,
-          {
-            provide: getRepositoryToken(SalesOrder),
-            useValue: { createQueryBuilder: jest.fn().mockReturnValue(orderQb) },
-          },
-          {
-            provide: getRepositoryToken(Invoice),
-            useValue: { createQueryBuilder: jest.fn().mockReturnValue(invoiceQb) },
-          },
-          {
-            provide: getRepositoryToken(Payment),
-            useValue: { createQueryBuilder: jest.fn().mockReturnValue(makeChainableQb()) },
-          },
-          {
-            provide: getRepositoryToken(Customer),
-            useValue: { createQueryBuilder: jest.fn().mockReturnValue(makeChainableQb()) },
-          },
-          { provide: getRepositoryToken(SalesOrderItem), useValue: makeRepoMock() },
-          { provide: SalesAnalyticsReportService, useValue: { getProductSummary: jest.fn() } },
-          { provide: SettingsService, useValue: settingsService },
-        ],
-      }).compile();
-      const svc = module2.get<SalesAnalyticsService>(SalesAnalyticsService);
-
-      const query = new SalesAnalyticsQueryDto();
-      query.paymentStatus = 'unpaid';
-      await (svc as any).calculateSalesMetrics(new Date(), new Date(), query);
-
-      const andWhereCalls: string[] = invoiceQb.andWhere.mock.calls.map((c: any[]) => c[0]);
-      expect(andWhereCalls.some((call) => call.includes('invoice.status'))).toBe(true);
     });
   });
 
@@ -477,9 +364,13 @@ describe('SalesAnalyticsService', () => {
       const qb = makeQbChain();
       (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
 
-      await (service as any).getTopCustomers(start, end, 10, { salesRepId: 'rep-1' });
+      await (service as any).getTopCustomers(start, end, 10, {
+        salesRepId: 'rep-1',
+      });
 
-      expect(qb.andWhere).toHaveBeenCalledWith('order.createdByUserId = :salesRepId', { salesRepId: 'rep-1' });
+      expect(qb.andWhere).toHaveBeenCalledWith('order.createdByUserId = :salesRepId', {
+        salesRepId: 'rep-1',
+      });
     });
 
     it('does not add salesRepId andWhere when not provided', async () => {
@@ -515,28 +406,43 @@ describe('SalesAnalyticsService', () => {
       const qb = makeQbChain();
       (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
 
-      await (service as any).getTopProducts(start, end, 10, { customerId: 'cust-1' });
+      await (service as any).getTopProducts(start, end, 10, {
+        customerId: 'cust-1',
+      });
 
-      expect(qb.andWhere).toHaveBeenCalledWith('order.customerId = :customerId', { customerId: 'cust-1' });
+      expect(qb.andWhere).toHaveBeenCalledWith('order.customerId = :customerId', {
+        customerId: 'cust-1',
+      });
     });
 
     it('applies salesRepId filter when provided', async () => {
       const qb = makeQbChain();
       (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
 
-      await (service as any).getTopProducts(start, end, 10, { salesRepId: 'rep-1' });
+      await (service as any).getTopProducts(start, end, 10, {
+        salesRepId: 'rep-1',
+      });
 
-      expect(qb.andWhere).toHaveBeenCalledWith('order.createdByUserId = :salesRepId', { salesRepId: 'rep-1' });
+      expect(qb.andWhere).toHaveBeenCalledWith('order.createdByUserId = :salesRepId', {
+        salesRepId: 'rep-1',
+      });
     });
 
     it('applies both customerId and salesRepId when both provided', async () => {
       const qb = makeQbChain();
       (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
 
-      await (service as any).getTopProducts(start, end, 10, { customerId: 'cust-1', salesRepId: 'rep-1' });
+      await (service as any).getTopProducts(start, end, 10, {
+        customerId: 'cust-1',
+        salesRepId: 'rep-1',
+      });
 
-      expect(qb.andWhere).toHaveBeenCalledWith('order.customerId = :customerId', { customerId: 'cust-1' });
-      expect(qb.andWhere).toHaveBeenCalledWith('order.createdByUserId = :salesRepId', { salesRepId: 'rep-1' });
+      expect(qb.andWhere).toHaveBeenCalledWith('order.customerId = :customerId', {
+        customerId: 'cust-1',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('order.createdByUserId = :salesRepId', {
+        salesRepId: 'rep-1',
+      });
     });
 
     it('applies no extra andWhere calls when query has no filters', async () => {
@@ -552,25 +458,54 @@ describe('SalesAnalyticsService', () => {
   });
 
   describe('fillPeriodGaps', () => {
-    const zero = { revenue: 0, orders: 0, newCustomers: 0, averageOrderValue: 0 };
+    const zero = {
+      revenue: 0,
+      orders: 0,
+      newCustomers: 0,
+      averageOrderValue: 0,
+    };
 
     describe('day groupBy', () => {
       it('fills missing days with zeros', () => {
         const start = new Date('2026-03-01T00:00:00.000Z');
         const end = new Date('2026-03-05T23:59:59.999Z');
         const sparse = [
-          { period: '2026-03-01', revenue: 100, orders: 2, newCustomers: 1, averageOrderValue: 50 },
-          { period: '2026-03-05', revenue: 200, orders: 3, newCustomers: 0, averageOrderValue: 66.67 },
+          {
+            period: '2026-03-01',
+            revenue: 100,
+            orders: 2,
+            newCustomers: 1,
+            averageOrderValue: 50,
+          },
+          {
+            period: '2026-03-05',
+            revenue: 200,
+            orders: 3,
+            newCustomers: 0,
+            averageOrderValue: 66.67,
+          },
         ];
 
         const result = (service as any).fillPeriodGaps(sparse, start, end, 'day');
 
         expect(result).toHaveLength(5);
-        expect(result[0]).toEqual({ period: '2026-03-01', revenue: 100, orders: 2, newCustomers: 1, averageOrderValue: 50 });
+        expect(result[0]).toEqual({
+          period: '2026-03-01',
+          revenue: 100,
+          orders: 2,
+          newCustomers: 1,
+          averageOrderValue: 50,
+        });
         expect(result[1]).toEqual({ period: '2026-03-02', ...zero });
         expect(result[2]).toEqual({ period: '2026-03-03', ...zero });
         expect(result[3]).toEqual({ period: '2026-03-04', ...zero });
-        expect(result[4]).toEqual({ period: '2026-03-05', revenue: 200, orders: 3, newCustomers: 0, averageOrderValue: 66.67 });
+        expect(result[4]).toEqual({
+          period: '2026-03-05',
+          revenue: 200,
+          orders: 3,
+          newCustomers: 0,
+          averageOrderValue: 66.67,
+        });
       });
 
       it('handles empty DB result - all zeros', () => {
@@ -586,12 +521,26 @@ describe('SalesAnalyticsService', () => {
       it('handles single-day range with one order', () => {
         const start = new Date('2026-03-15T00:00:00.000Z');
         const end = new Date('2026-03-15T23:59:59.999Z');
-        const sparse = [{ period: '2026-03-15', revenue: 50, orders: 1, newCustomers: 0, averageOrderValue: 50 }];
+        const sparse = [
+          {
+            period: '2026-03-15',
+            revenue: 50,
+            orders: 1,
+            newCustomers: 0,
+            averageOrderValue: 50,
+          },
+        ];
 
         const result = (service as any).fillPeriodGaps(sparse, start, end, 'day');
 
         expect(result).toHaveLength(1);
-        expect(result[0]).toEqual({ period: '2026-03-15', revenue: 50, orders: 1, newCustomers: 0, averageOrderValue: 50 });
+        expect(result[0]).toEqual({
+          period: '2026-03-15',
+          revenue: 50,
+          orders: 1,
+          newCustomers: 0,
+          averageOrderValue: 50,
+        });
       });
     });
 
@@ -600,14 +549,26 @@ describe('SalesAnalyticsService', () => {
         const start = new Date('2026-03-02T00:00:00.000Z');
         const end = new Date('2026-03-22T23:59:59.999Z');
         const sparse = [
-          { period: '2026-11', revenue: 100, orders: 2, newCustomers: 0, averageOrderValue: 50 },
+          {
+            period: '2026-11',
+            revenue: 100,
+            orders: 2,
+            newCustomers: 0,
+            averageOrderValue: 50,
+          },
         ];
 
         const result = (service as any).fillPeriodGaps(sparse, start, end, 'week');
 
         expect(result).toHaveLength(3);
         expect(result[0]).toEqual({ period: '2026-10', ...zero });
-        expect(result[1]).toEqual({ period: '2026-11', revenue: 100, orders: 2, newCustomers: 0, averageOrderValue: 50 });
+        expect(result[1]).toEqual({
+          period: '2026-11',
+          revenue: 100,
+          orders: 2,
+          newCustomers: 0,
+          averageOrderValue: 50,
+        });
         expect(result[2]).toEqual({ period: '2026-12', ...zero });
       });
     });
@@ -617,14 +578,26 @@ describe('SalesAnalyticsService', () => {
         const start = new Date('2026-01-01T00:00:00.000Z');
         const end = new Date('2026-03-31T23:59:59.999Z');
         const sparse = [
-          { period: '2026-02', revenue: 500, orders: 5, newCustomers: 2, averageOrderValue: 100 },
+          {
+            period: '2026-02',
+            revenue: 500,
+            orders: 5,
+            newCustomers: 2,
+            averageOrderValue: 100,
+          },
         ];
 
         const result = (service as any).fillPeriodGaps(sparse, start, end, 'month');
 
         expect(result).toHaveLength(3);
         expect(result[0]).toEqual({ period: '2026-01', ...zero });
-        expect(result[1]).toEqual({ period: '2026-02', revenue: 500, orders: 5, newCustomers: 2, averageOrderValue: 100 });
+        expect(result[1]).toEqual({
+          period: '2026-02',
+          revenue: 500,
+          orders: 5,
+          newCustomers: 2,
+          averageOrderValue: 100,
+        });
         expect(result[2]).toEqual({ period: '2026-03', ...zero });
       });
     });
@@ -634,13 +607,25 @@ describe('SalesAnalyticsService', () => {
         const start = new Date('2026-01-01T00:00:00.000Z');
         const end = new Date('2026-06-30T23:59:59.999Z');
         const sparse = [
-          { period: '2026-Q1', revenue: 1000, orders: 10, newCustomers: 3, averageOrderValue: 100 },
+          {
+            period: '2026-Q1',
+            revenue: 1000,
+            orders: 10,
+            newCustomers: 3,
+            averageOrderValue: 100,
+          },
         ];
 
         const result = (service as any).fillPeriodGaps(sparse, start, end, 'quarter');
 
         expect(result).toHaveLength(2);
-        expect(result[0]).toEqual({ period: '2026-Q1', revenue: 1000, orders: 10, newCustomers: 3, averageOrderValue: 100 });
+        expect(result[0]).toEqual({
+          period: '2026-Q1',
+          revenue: 1000,
+          orders: 10,
+          newCustomers: 3,
+          averageOrderValue: 100,
+        });
         expect(result[1]).toEqual({ period: '2026-Q2', ...zero });
       });
     });
@@ -650,13 +635,25 @@ describe('SalesAnalyticsService', () => {
         const start = new Date('2025-01-01T00:00:00.000Z');
         const end = new Date('2026-12-31T23:59:59.999Z');
         const sparse = [
-          { period: '2025', revenue: 5000, orders: 50, newCustomers: 10, averageOrderValue: 100 },
+          {
+            period: '2025',
+            revenue: 5000,
+            orders: 50,
+            newCustomers: 10,
+            averageOrderValue: 100,
+          },
         ];
 
         const result = (service as any).fillPeriodGaps(sparse, start, end, 'year');
 
         expect(result).toHaveLength(2);
-        expect(result[0]).toEqual({ period: '2025', revenue: 5000, orders: 50, newCustomers: 10, averageOrderValue: 100 });
+        expect(result[0]).toEqual({
+          period: '2025',
+          revenue: 5000,
+          orders: 50,
+          newCustomers: 10,
+          averageOrderValue: 100,
+        });
         expect(result[1]).toEqual({ period: '2026', ...zero });
       });
     });
@@ -675,6 +672,7 @@ describe('SalesAnalyticsService', () => {
         orderBy: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
         setParameters: jest.fn().mockReturnThis(),
+        setParameter: jest.fn().mockReturnThis(),
         getRawOne: jest.fn().mockResolvedValue({
           totalRevenue: '0',
           totalOrders: '0',
@@ -696,58 +694,49 @@ describe('SalesAnalyticsService', () => {
 
     it('applies fulfillmentStatus filter to orderQuery in calculateSalesMetrics', async () => {
       const orderChain = makeChainMock();
-      const invoiceChain = makeChainMock();
       const customerChain = makeChainMock();
       const paymentChain = makeChainMock();
 
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(orderChain);
-      (service as any).invoiceRepository.createQueryBuilder = jest.fn().mockReturnValue(invoiceChain);
-      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerChain);
-      (service as any).paymentRepository.createQueryBuilder = jest.fn().mockReturnValue(paymentChain);
-      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(makeChainMock({}, []));
+      (service as any).salesOrderRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(orderChain);
+      (service as any).customerRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(customerChain);
+      (service as any).paymentRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(paymentChain);
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(makeChainMock({}, []));
 
       await service.getSalesAnalytics({
         fulfillmentStatus: 'fulfilled',
         dateRange: undefined,
       } as any);
 
-      expect(orderChain.andWhere).toHaveBeenCalledWith(
-        'order.isFulfilled = :isFulfilled',
-        { isFulfilled: true },
-      );
-    });
-
-    it('applies paymentStatus filter to invoiceQuery in calculateSalesMetrics', async () => {
-      const orderChain = makeChainMock();
-      const invoiceChain = makeChainMock();
-      const customerChain = makeChainMock();
-      const paymentChain = makeChainMock();
-
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(orderChain);
-      (service as any).invoiceRepository.createQueryBuilder = jest.fn().mockReturnValue(invoiceChain);
-      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerChain);
-      (service as any).paymentRepository.createQueryBuilder = jest.fn().mockReturnValue(paymentChain);
-      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(makeChainMock({}, []));
-
-      await service.getSalesAnalytics({ paymentStatus: 'unpaid', dateRange: undefined } as any);
-
-      expect(invoiceChain.andWhere).toHaveBeenCalledWith(
-        'invoice.status = :paymentStatus',
-        { paymentStatus: 'draft' },
-      );
+      expect(orderChain.andWhere).toHaveBeenCalledWith('order.isFulfilled = :isFulfilled', {
+        isFulfilled: true,
+      });
     });
 
     it('applies fulfillmentStatus filter to getPeriodData orderQuery', async () => {
       const orderChain = makeChainMock({}, []);
-      const invoiceChain = makeChainMock();
       const customerChain = makeChainMock({}, []);
       const paymentChain = makeChainMock();
 
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(orderChain);
-      (service as any).invoiceRepository.createQueryBuilder = jest.fn().mockReturnValue(invoiceChain);
-      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerChain);
-      (service as any).paymentRepository.createQueryBuilder = jest.fn().mockReturnValue(paymentChain);
-      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(makeChainMock({}, []));
+      (service as any).salesOrderRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(orderChain);
+      (service as any).customerRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(customerChain);
+      (service as any).paymentRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(paymentChain);
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(makeChainMock({}, []));
 
       await service.getSalesAnalytics({
         fulfillmentStatus: 'unfulfilled',
@@ -762,15 +751,21 @@ describe('SalesAnalyticsService', () => {
 
     it('applies fulfillmentStatus filter to getTopCustomers orderQuery', async () => {
       const orderChain = makeChainMock({}, []);
-      const invoiceChain = makeChainMock();
       const customerChain = makeChainMock({}, []);
       const paymentChain = makeChainMock();
 
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(orderChain);
-      (service as any).invoiceRepository.createQueryBuilder = jest.fn().mockReturnValue(invoiceChain);
-      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerChain);
-      (service as any).paymentRepository.createQueryBuilder = jest.fn().mockReturnValue(paymentChain);
-      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(makeChainMock({}, []));
+      (service as any).salesOrderRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(orderChain);
+      (service as any).customerRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(customerChain);
+      (service as any).paymentRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(paymentChain);
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(makeChainMock({}, []));
 
       await service.getSalesAnalytics({
         fulfillmentStatus: 'fulfilled',
@@ -781,81 +776,6 @@ describe('SalesAnalyticsService', () => {
         (args: any[]) => args[0] === 'order.isFulfilled = :isFulfilled',
       );
       expect(orderCalls.length).toBeGreaterThanOrEqual(3);
-    });
-
-    it('applies paymentStatus filter to getTopCustomers via invoice join', async () => {
-      const orderChain = makeChainMock({}, []);
-      const invoiceChain = makeChainMock();
-      const customerChain = makeChainMock({}, []);
-      const paymentChain = makeChainMock();
-
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(orderChain);
-      (service as any).invoiceRepository.createQueryBuilder = jest.fn().mockReturnValue(invoiceChain);
-      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerChain);
-      (service as any).paymentRepository.createQueryBuilder = jest.fn().mockReturnValue(paymentChain);
-      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(makeChainMock({}, []));
-
-      await service.getSalesAnalytics({
-        paymentStatus: 'paid' as any,
-        dateRange: undefined,
-      } as any);
-
-      // getTopCustomers joins order.invoices and filters by invoice.status
-      const invoiceStatusCalls = orderChain.andWhere.mock.calls.filter(
-        (args: any[]) => args[0] === 'invoice.status = :paymentStatus',
-      );
-      expect(invoiceStatusCalls.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('applies paymentStatus filter to getTopProducts via invoice join', async () => {
-      const orderChain = makeChainMock({}, []);
-      const invoiceChain = makeChainMock();
-      const customerChain = makeChainMock({}, []);
-      const paymentChain = makeChainMock();
-      const itemChain = makeChainMock({}, []);
-
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(orderChain);
-      (service as any).invoiceRepository.createQueryBuilder = jest.fn().mockReturnValue(invoiceChain);
-      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerChain);
-      (service as any).paymentRepository.createQueryBuilder = jest.fn().mockReturnValue(paymentChain);
-      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(itemChain);
-
-      await service.getSalesAnalytics({
-        paymentStatus: 'paid' as any,
-        dateRange: undefined,
-      } as any);
-
-      // getTopProducts joins order.invoices and filters by invoice.status
-      const invoiceStatusCalls = itemChain.andWhere.mock.calls.filter(
-        (args: any[]) => args[0] === 'invoice.status = :paymentStatus',
-      );
-      expect(invoiceStatusCalls.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('adds paidAmount > totalAmount predicate when paymentStatus=overpaid (calculateSalesMetrics)', async () => {
-      const orderChain = makeChainMock();
-      const invoiceChain = makeChainMock();
-      const customerChain = makeChainMock();
-      const paymentChain = makeChainMock();
-
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(orderChain);
-      (service as any).invoiceRepository.createQueryBuilder = jest.fn().mockReturnValue(invoiceChain);
-      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(customerChain);
-      (service as any).paymentRepository.createQueryBuilder = jest.fn().mockReturnValue(paymentChain);
-      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(makeChainMock({}, []));
-
-      await service.getSalesAnalytics({ paymentStatus: 'overpaid' as any, dateRange: undefined } as any);
-
-      // Must set invoice.status = PAID
-      expect(invoiceChain.andWhere).toHaveBeenCalledWith(
-        'invoice.status = :paymentStatus',
-        { paymentStatus: 'paid' },
-      );
-      // AND additionally constrain to invoices where paidAmount exceeds totalAmount
-      const overpaidCalls = invoiceChain.andWhere.mock.calls.filter(
-        (args: any[]) => args[0] === 'invoice.paidAmount > invoice.totalAmount',
-      );
-      expect(overpaidCalls.length).toBeGreaterThanOrEqual(1);
     });
   });
 });

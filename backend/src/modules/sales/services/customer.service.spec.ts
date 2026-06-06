@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import { CustomerService } from './customer.service';
 import { Customer, CustomerType } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
-import { Invoice } from '../../../database/entities/invoice.entity';
 import { AuditLogService } from '../../audit-logs/services';
 import { TransactionManager } from '../../../common/utils/transaction.util';
 import { UserRole } from '../../../database/entities/user.entity';
@@ -57,10 +56,6 @@ describe('CustomerService', () => {
           useValue: { createQueryBuilder: jest.fn() },
         },
         {
-          provide: getRepositoryToken(Invoice),
-          useValue: { createQueryBuilder: jest.fn() },
-        },
-        {
           provide: TransactionManager,
           useValue: { runInTransaction: jest.fn() },
         },
@@ -83,7 +78,9 @@ describe('CustomerService', () => {
         orderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[createCustomer('1'), createCustomer('2')], 2]),
+        getManyAndCount: jest
+          .fn()
+          .mockResolvedValue([[createCustomer('1'), createCustomer('2')], 2]),
       };
       customerRepository.createQueryBuilder.mockReturnValue(qb as any);
 
@@ -127,7 +124,9 @@ describe('CustomerService', () => {
         offset: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
         getMany: jest.fn().mockResolvedValue([
-          createCustomer('deleted-1', { deletedAt: new Date('2026-04-05T00:00:00.000Z') }),
+          createCustomer('deleted-1', {
+            deletedAt: new Date('2026-04-05T00:00:00.000Z'),
+          }),
         ]),
       };
       customerRepository.createQueryBuilder.mockReturnValue(qb as any);
@@ -137,7 +136,12 @@ describe('CustomerService', () => {
       expect(qb.offset).not.toHaveBeenCalled();
       expect(qb.limit).not.toHaveBeenCalled();
       expect(result).toEqual({
-        data: [expect.objectContaining({ id: 'deleted-1', name: 'Customer deleted-1' })],
+        data: [
+          expect.objectContaining({
+            id: 'deleted-1',
+            name: 'Customer deleted-1',
+          }),
+        ],
         total: 1,
       });
     });
@@ -155,10 +159,9 @@ describe('CustomerService', () => {
 
       await service.findAll({ priceListId: 'pl-uuid-1' });
 
-      expect(qb.andWhere).toHaveBeenCalledWith(
-        'customer.priceListId = :priceListId',
-        { priceListId: 'pl-uuid-1' },
-      );
+      expect(qb.andWhere).toHaveBeenCalledWith('customer.priceListId = :priceListId', {
+        priceListId: 'pl-uuid-1',
+      });
     });
 
     it('applies type filter via where condition', async () => {
@@ -172,10 +175,9 @@ describe('CustomerService', () => {
 
       await service.findAll({ type: CustomerType.INDIVIDUAL });
 
-      expect(qb.andWhere).toHaveBeenCalledWith(
-        'customer.type = :type',
-        { type: CustomerType.INDIVIDUAL },
-      );
+      expect(qb.andWhere).toHaveBeenCalledWith('customer.type = :type', {
+        type: CustomerType.INDIVIDUAL,
+      });
     });
   });
 
@@ -331,7 +333,10 @@ describe('CustomerService', () => {
 
   describe('updateCustomerMetrics', () => {
     it('counts only fulfilled non-deleted orders', async () => {
-      const customer = createCustomer('c1', { totalOrders: 5, totalSales: 500 });
+      const customer = createCustomer('c1', {
+        totalOrders: 5,
+        totalSales: 500,
+      });
       customerRepository.findOne = jest.fn().mockResolvedValue(customer);
       customerRepository.save = jest.fn().mockResolvedValue(customer);
 
@@ -402,9 +407,6 @@ describe('CustomerService', () => {
       const salesOrderRepository: jest.Mocked<Repository<SalesOrder>> = module.get(
         getRepositoryToken(SalesOrder),
       );
-      const invoiceRepository: jest.Mocked<Repository<Invoice>> = module.get(
-        getRepositoryToken(Invoice),
-      );
 
       const qb = {
         where: jest.fn().mockReturnThis(),
@@ -419,7 +421,6 @@ describe('CustomerService', () => {
         }),
       };
       salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
-      invoiceRepository.count = jest.fn().mockResolvedValue(0);
 
       await service.getCustomerStatistics('c1');
 
@@ -431,7 +432,10 @@ describe('CustomerService', () => {
 
   describe('findBySlug', () => {
     it('returns customer when slug matches', async () => {
-      const customer = createCustomer('c1', { slug: 'acme-corp', priceList: undefined });
+      const customer = createCustomer('c1', {
+        slug: 'acme-corp',
+        priceList: undefined,
+      });
       customerRepository.findOne.mockResolvedValue(customer);
 
       const result = await service.findBySlug('acme-corp');
@@ -446,17 +450,25 @@ describe('CustomerService', () => {
     it('throws NotFoundException when slug does not exist', async () => {
       customerRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.findBySlug('nonexistent')).rejects.toThrow("Customer with slug 'nonexistent' not found");
+      await expect(service.findBySlug('nonexistent')).rejects.toThrow(
+        "Customer with slug 'nonexistent' not found",
+      );
     });
   });
 
   describe('generateUniqueSlug (via update)', () => {
     it('assigns a clean slug when no collision exists', async () => {
-      const existing = createCustomer('c1', { slug: 'old-name', name: 'Old Name' });
-      const updated = createCustomer('c1', { slug: 'new-name', name: 'New Name' });
+      const existing = createCustomer('c1', {
+        slug: 'old-name',
+        name: 'Old Name',
+      });
+      const updated = createCustomer('c1', {
+        slug: 'new-name',
+        name: 'New Name',
+      });
       customerRepository.findOne
         .mockResolvedValueOnce(existing) // findOne for update — loads the customer
-        .mockResolvedValueOnce(null)     // slug uniqueness check: 'new-name' is free
+        .mockResolvedValueOnce(null) // slug uniqueness check: 'new-name' is free
         .mockResolvedValue(updated);
       customerRepository.save.mockResolvedValue(updated);
 
@@ -466,13 +478,19 @@ describe('CustomerService', () => {
     });
 
     it('appends counter suffix when base slug is already taken by another entity', async () => {
-      const existing = createCustomer('c1', { slug: 'old-name', name: 'Old Name' });
+      const existing = createCustomer('c1', {
+        slug: 'old-name',
+        name: 'Old Name',
+      });
       const collision = createCustomer('c2', { slug: 'acme-corp' });
-      const updated = createCustomer('c1', { slug: 'acme-corp-1', name: 'Acme Corp' });
+      const updated = createCustomer('c1', {
+        slug: 'acme-corp-1',
+        name: 'Acme Corp',
+      });
       customerRepository.findOne
-        .mockResolvedValueOnce(existing)  // findOne for update
+        .mockResolvedValueOnce(existing) // findOne for update
         .mockResolvedValueOnce(collision) // 'acme-corp' taken by c2
-        .mockResolvedValueOnce(null)      // 'acme-corp-1' free
+        .mockResolvedValueOnce(null) // 'acme-corp-1' free
         .mockResolvedValue(updated);
       customerRepository.save.mockResolvedValue(updated);
 
@@ -482,7 +500,10 @@ describe('CustomerService', () => {
     });
 
     it('does not treat itself as a collision when updating with same name', async () => {
-      const existing = createCustomer('c1', { slug: 'acme-corp', name: 'Acme Corp' });
+      const existing = createCustomer('c1', {
+        slug: 'acme-corp',
+        name: 'Acme Corp',
+      });
       customerRepository.findOne
         .mockResolvedValueOnce(existing) // findOne for update
         .mockResolvedValueOnce(existing) // slug check: finds 'acme-corp' but id matches excludeId

@@ -21,12 +21,15 @@ export class CreateVendorPaymentDto {
   @IsUUID()
   purchaseOrderId?: string;
 
-  @ApiPropertyOptional({ description: 'Goods Received Note ID', example: 'uuid' })
+  @ApiPropertyOptional({
+    description: 'Goods Received Note ID',
+    example: 'uuid',
+  })
   @IsOptional()
   @IsUUID()
   grnId?: string;
 
-  @ApiProperty({ description: 'Payment amount', example: 1000.00 })
+  @ApiProperty({ description: 'Payment amount', example: 1000.0 })
   @IsNumber()
   @Min(0)
   amount: number;
@@ -46,7 +49,10 @@ export class CreateVendorPaymentDto {
   @MaxLength(100)
   referenceNumber?: string;
 
-  @ApiPropertyOptional({ description: 'Payment notes', example: 'Payment for invoice #123' })
+  @ApiPropertyOptional({
+    description: 'Payment notes',
+    example: 'Payment for invoice #123',
+  })
   @IsOptional()
   @IsString()
   notes?: string;
@@ -55,7 +61,7 @@ export class CreateVendorPaymentDto {
     description: 'Payment status',
     enum: ['pending', 'completed', 'cancelled'],
     example: 'completed',
-    default: 'pending'
+    default: 'pending',
   })
   @IsOptional()
   @IsString()
@@ -74,12 +80,15 @@ export class UpdateVendorPaymentDto {
   @IsUUID()
   purchaseOrderId?: string;
 
-  @ApiPropertyOptional({ description: 'Goods Received Note ID', example: 'uuid' })
+  @ApiPropertyOptional({
+    description: 'Goods Received Note ID',
+    example: 'uuid',
+  })
   @IsOptional()
   @IsUUID()
   grnId?: string;
 
-  @ApiPropertyOptional({ description: 'Payment amount', example: 1000.00 })
+  @ApiPropertyOptional({ description: 'Payment amount', example: 1000.0 })
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -101,7 +110,10 @@ export class UpdateVendorPaymentDto {
   @MaxLength(100)
   referenceNumber?: string;
 
-  @ApiPropertyOptional({ description: 'Payment notes', example: 'Payment for invoice #123' })
+  @ApiPropertyOptional({
+    description: 'Payment notes',
+    example: 'Payment for invoice #123',
+  })
   @IsOptional()
   @IsString()
   notes?: string;
@@ -109,7 +121,7 @@ export class UpdateVendorPaymentDto {
   @ApiPropertyOptional({
     description: 'Payment status',
     enum: ['pending', 'completed', 'cancelled'],
-    example: 'completed'
+    example: 'completed',
   })
   @IsOptional()
   @IsString()
@@ -123,48 +135,72 @@ export class QueryVendorPaymentsDto {
   @IsUUID()
   supplierId?: string;
 
-  @ApiPropertyOptional({ description: 'Payment status filter', example: 'completed' })
+  @ApiPropertyOptional({
+    description: 'Payment status filter',
+    example: 'completed',
+  })
   @IsOptional()
   @IsString()
   @IsIn(['pending', 'completed', 'cancelled'])
   status?: string;
 
-  @ApiPropertyOptional({ description: 'Payment method ID filter', example: 'uuid' })
+  @ApiPropertyOptional({
+    description: 'Payment method ID filter',
+    example: 'uuid',
+  })
   @IsOptional()
   @IsUUID()
   paymentMethodId?: string;
 
-  @ApiPropertyOptional({ description: 'Start date filter', example: '2025-10-01' })
+  @ApiPropertyOptional({
+    description: 'Start date filter',
+    example: '2025-10-01',
+  })
   @IsOptional()
   @IsDateString()
   startDate?: string;
 
-  @ApiPropertyOptional({ description: 'End date filter', example: '2025-10-31' })
+  @ApiPropertyOptional({
+    description: 'End date filter',
+    example: '2025-10-31',
+  })
   @IsOptional()
   @IsDateString()
   endDate?: string;
 
   @ApiPropertyOptional({ description: 'Page number', example: 1, default: 1 })
   @IsOptional()
-  @Transform(({ value }) => value ? parseInt(value, 10) : 1)
+  @Transform(({ value }) => (value ? parseInt(value, 10) : 1))
   @IsNumber()
   @Min(1)
   page?: number;
 
-  @ApiPropertyOptional({ description: 'Items per page', example: 20, default: 20 })
+  @ApiPropertyOptional({
+    description: 'Items per page',
+    example: 20,
+    default: 20,
+  })
   @IsOptional()
-  @Transform(({ value }) => value ? parseInt(value, 10) : 20)
+  @Transform(({ value }) => (value ? parseInt(value, 10) : 20))
   @IsNumber()
   @Min(1)
   limit?: number;
 
-  @ApiPropertyOptional({ description: 'Sort by field', example: 'paymentNumber', default: 'paymentDate' })
+  @ApiPropertyOptional({
+    description: 'Sort by field',
+    example: 'paymentNumber',
+    default: 'paymentDate',
+  })
   @IsOptional()
   @IsString()
   @IsIn(['paymentNumber', 'paymentDate', 'amount'])
   sortBy?: string;
 
-  @ApiPropertyOptional({ description: 'Sort order', example: 'asc', default: 'desc' })
+  @ApiPropertyOptional({
+    description: 'Sort order',
+    example: 'asc',
+    default: 'desc',
+  })
   @IsOptional()
   @Transform(({ value }) => value?.toUpperCase())
   @IsString()

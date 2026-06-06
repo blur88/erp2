@@ -11,14 +11,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiParam,
-  ApiQuery,
-  ApiBody,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { CustomerService } from '../services/customer.service';
 import {
   CreateCustomerDto,
@@ -42,7 +35,10 @@ export class CustomerController {
     type: CustomerResponseDto,
   })
   @ApiResponse({ status: 400, description: 'Invalid input data' })
-  @ApiResponse({ status: 409, description: 'Customer with email already exists' })
+  @ApiResponse({
+    status: 409,
+    description: 'Customer with email already exists',
+  })
   async createCustomer(
     @Body() createCustomerDto: CreateCustomerDto,
     @CurrentUser('userId') currentUserId: string,
@@ -58,13 +54,42 @@ export class CustomerController {
     description: 'List of customers retrieved successfully',
     type: [CustomerResponseDto],
   })
-  @ApiQuery({ name: 'search', required: false, description: 'Search customers by name, email, or phone' })
-  @ApiQuery({ name: 'type', required: false, enum: ['individual', 'business'], description: 'Filter by customer type' })
-  @ApiQuery({ name: 'status', required: false, enum: ['active', 'inactive', 'suspended', 'blacklisted'], description: 'Filter by status' })
-  @ApiQuery({ name: 'pricingScheme', required: false, enum: ['retail', 'wholesale', 'special'], description: 'Filter by price level' })
-  @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Search customers by name, email, or phone',
+  })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: ['individual', 'business'],
+    description: 'Filter by customer type',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['active', 'inactive', 'suspended', 'blacklisted'],
+    description: 'Filter by status',
+  })
+  @ApiQuery({
+    name: 'pricingScheme',
+    required: false,
+    enum: ['retail', 'wholesale', 'special'],
+    description: 'Filter by price level',
+  })
+  @ApiQuery({
+    name: 'isActive',
+    required: false,
+    type: Boolean,
+    description: 'Filter by active status',
+  })
   @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field' })
-  @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'], description: 'Sort order' })
+  @ApiQuery({
+    name: 'sortOrder',
+    required: false,
+    enum: ['ASC', 'DESC'],
+    description: 'Sort order',
+  })
   async getAllCustomers(@Query() query: QueryCustomersDto) {
     return this.customerService.findAll(query);
   }
@@ -87,7 +112,11 @@ export class CustomerController {
     description: 'List of soft-deleted customers retrieved successfully',
     type: [CustomerResponseDto],
   })
-  @ApiQuery({ name: 'search', required: false, description: 'Search customers by name, email, or phone' })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Search customers by name, email, or phone',
+  })
   async getDeletedCustomers(@Query() query: QueryCustomersDto) {
     return this.customerService.findDeleted(query);
   }
@@ -95,7 +124,11 @@ export class CustomerController {
   @Get('slug/:slug')
   @ApiOperation({ summary: 'Get customer by slug' })
   @ApiParam({ name: 'slug', description: 'Customer slug', type: 'string' })
-  @ApiResponse({ status: 200, description: 'Customer retrieved successfully', type: CustomerResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Customer retrieved successfully',
+    type: CustomerResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Customer not found' })
   async getCustomerBySlug(@Param('slug') slug: string): Promise<CustomerResponseDto> {
     return this.customerService.findBySlug(slug);
@@ -114,7 +147,6 @@ export class CustomerController {
     return this.customerService.findById(id);
   }
 
-  
   @Put(':id')
   @ApiOperation({ summary: 'Update customer' })
   @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
@@ -145,25 +177,38 @@ export class CustomerController {
     schema: {
       type: 'object',
       properties: {
-        message: { type: 'string', example: 'Cannot delete customer \'John Doe\' because they have 3 orders and 2 invoices.' },
-        error: { type: 'string', example: 'DELETION_PREVENTED_BY_DEPENDENCIES' },
+        message: {
+          type: 'string',
+          example: "Cannot delete customer 'John Doe' because they have 3 orders and 2 invoices.",
+        },
+        error: {
+          type: 'string',
+          example: 'DELETION_PREVENTED_BY_DEPENDENCIES',
+        },
         customerName: { type: 'string', example: 'John Doe' },
         customerId: { type: 'string', example: 'uuid' },
         dependencies: {
           type: 'object',
           properties: {
             orders: { type: 'number', example: 3 },
-            invoices: { type: 'number', example: 2 }
-          }
+            invoices: { type: 'number', example: 2 },
+          },
         },
         suggestions: {
           type: 'array',
           items: { type: 'string' },
-          example: ['Remove or reassign the 3 orders first', 'Remove or reassign the 2 invoices first']
+          example: [
+            'Remove or reassign the 3 orders first',
+            'Remove or reassign the 2 invoices first',
+          ],
         },
-        details: { type: 'string', example: 'Customer \'John Doe\' (uuid) cannot be deleted due to existing business relationships.' }
-      }
-    }
+        details: {
+          type: 'string',
+          example:
+            "Customer 'John Doe' (uuid) cannot be deleted due to existing business relationships.",
+        },
+      },
+    },
   })
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteCustomer(
@@ -174,11 +219,6 @@ export class CustomerController {
     return this.customerService.softDelete(id, currentUserId, currentUsername);
   }
 
-
-
-
-
-
   @Get(':id/sales-history')
   @ApiOperation({ summary: 'Get customer sales history' })
   @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
@@ -187,22 +227,8 @@ export class CustomerController {
     description: 'Sales history retrieved successfully',
   })
   @ApiResponse({ status: 404, description: 'Customer not found' })
-  async getCustomerSalesHistory(
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getCustomerSalesHistory(@Param('id', ParseUUIDPipe) id: string) {
     return this.customerService.getSalesHistory(id);
-  }
-
-  @Get(':id/outstanding-invoices')
-  @ApiOperation({ summary: 'Get customer outstanding invoices' })
-  @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Outstanding invoices retrieved successfully',
-  })
-  @ApiResponse({ status: 404, description: 'Customer not found' })
-  async getOutstandingInvoices(@Param('id', ParseUUIDPipe) id: string) {
-    return this.customerService.getOutstandingInvoices(id);
   }
 
   @Get(':id/statistics')
@@ -246,7 +272,10 @@ export class CustomerController {
     status: 200,
     description: 'Customers restored successfully',
   })
-  @ApiResponse({ status: 400, description: 'Invalid customer IDs or customers are not deleted' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid customer IDs or customers are not deleted',
+  })
   @ApiBody({
     schema: {
       type: 'object',
@@ -254,11 +283,11 @@ export class CustomerController {
         customerIds: {
           type: 'array',
           items: { type: 'string', format: 'uuid' },
-          description: 'Array of customer IDs to restore'
-        }
+          description: 'Array of customer IDs to restore',
+        },
       },
-      required: ['customerIds']
-    }
+      required: ['customerIds'],
+    },
   })
   @HttpCode(HttpStatus.OK)
   async bulkRestore(
@@ -266,11 +295,15 @@ export class CustomerController {
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('username') currentUsername: string,
   ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
-    const result = await this.customerService.bulkRestore(body.customerIds, currentUserId, currentUsername);
+    const result = await this.customerService.bulkRestore(
+      body.customerIds,
+      currentUserId,
+      currentUsername,
+    );
     return {
       message: `Successfully restored ${result.successCount} of ${body.customerIds.length} customers`,
       restoredCount: result.successCount,
-      failedIds: result.failedItems.map(item => item.id),
+      failedIds: result.failedItems.map((item) => item.id),
     };
   }
 
@@ -280,7 +313,10 @@ export class CustomerController {
     status: 200,
     description: 'Customers permanently deleted successfully',
   })
-  @ApiResponse({ status: 400, description: 'Invalid customer IDs or customers have active references' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid customer IDs or customers have active references',
+  })
   @ApiBody({
     schema: {
       type: 'object',
@@ -288,11 +324,11 @@ export class CustomerController {
         customerIds: {
           type: 'array',
           items: { type: 'string', format: 'uuid' },
-          description: 'Array of customer IDs to permanently delete'
-        }
+          description: 'Array of customer IDs to permanently delete',
+        },
       },
-      required: ['customerIds']
-    }
+      required: ['customerIds'],
+    },
   })
   @HttpCode(HttpStatus.OK)
   async bulkPermanentDelete(
@@ -308,7 +344,7 @@ export class CustomerController {
     return {
       message: `Successfully permanently deleted ${result.successCount} of ${body.customerIds.length} customers`,
       deletedCount: result.successCount,
-      failedIds: result.failedItems.map(item => item.id),
+      failedIds: result.failedItems.map((item) => item.id),
     };
   }
 
@@ -342,8 +378,15 @@ export class CustomerController {
     schema: {
       type: 'object',
       properties: {
-        message: { type: 'string', example: 'Cannot permanently delete customer \'John Doe\' due to active business relationships' },
-        error: { type: 'string', example: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES' },
+        message: {
+          type: 'string',
+          example:
+            "Cannot permanently delete customer 'John Doe' due to active business relationships",
+        },
+        error: {
+          type: 'string',
+          example: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES',
+        },
         customerName: { type: 'string', example: 'John Doe' },
         customerId: { type: 'string', example: 'uuid' },
         dependencies: {
@@ -351,17 +394,24 @@ export class CustomerController {
           properties: {
             orders: { type: 'number', example: 2 },
             invoices: { type: 'number', example: 1 },
-            payments: { type: 'number', example: 0 }
-          }
+            payments: { type: 'number', example: 0 },
+          },
         },
         suggestions: {
           type: 'array',
           items: { type: 'string' },
-          example: ['Complete and archive all pending orders first', 'Ensure all invoices are fully paid and closed']
+          example: [
+            'Complete and archive all pending orders first',
+            'Ensure all invoices are fully paid and closed',
+          ],
         },
-        details: { type: 'string', example: 'Customer \'John Doe\' (uuid) has 2 active orders, 1 active invoice. Permanent deletion is blocked to preserve financial audit trails and data integrity.' }
-      }
-    }
+        details: {
+          type: 'string',
+          example:
+            "Customer 'John Doe' (uuid) has 2 active orders, 1 active invoice. Permanent deletion is blocked to preserve financial audit trails and data integrity.",
+        },
+      },
+    },
   })
   @ApiParam({ name: 'id', description: 'Customer ID' })
   @HttpCode(HttpStatus.NO_CONTENT)

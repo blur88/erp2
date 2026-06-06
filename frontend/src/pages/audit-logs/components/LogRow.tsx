@@ -36,7 +36,6 @@ function getEntityLink(entityType: string, entityId?: string | null): string | n
     Customer: '/sales/customers',
     Order: id ? `/sales/orders/${id}/edit` : '/sales/orders',
     SalesOrder: id ? `/sales/orders/${id}/edit` : '/sales/orders',
-    Invoice: '/sales/invoices',
     Supplier: '/purchasing/suppliers',
     PurchaseOrder: id ? `/purchasing/orders/${id}/edit` : '/purchasing/orders',
     Account: '/accounting/chart-of-accounts',

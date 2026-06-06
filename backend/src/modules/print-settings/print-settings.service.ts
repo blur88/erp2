@@ -43,7 +43,6 @@ export class PrintSettingsService {
         reportPerPageFooter: '',
         reportEndOfDocFooter: '',
         salesOrderTemplate: this.getDefaultTemplate('Sales Order'),
-        invoiceTemplate: this.getDefaultTemplate('Invoice'),
         paymentReceiptTemplate: this.getDefaultTemplate('Payment Receipt'),
         purchaseOrderTemplate: this.getDefaultTemplate('Purchase Order'),
         grnTemplate: this.getDefaultTemplate('Goods Received Note'),
@@ -58,9 +57,7 @@ export class PrintSettingsService {
   /**
    * Update print settings
    */
-  async updateSettings(
-    updateDto: UpdatePrintSettingsDto,
-  ): Promise<PrintSettingsResponseDto> {
+  async updateSettings(updateDto: UpdatePrintSettingsDto): Promise<PrintSettingsResponseDto> {
     let settings = await this.printSettingsRepository.findOne({
       where: {},
       order: { createdAt: 'ASC' },

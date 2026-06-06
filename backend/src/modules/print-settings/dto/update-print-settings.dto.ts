@@ -75,7 +75,10 @@ export class UpdatePrintSettingsDto {
   @IsString()
   purchasingPerPageFooter?: string;
 
-  @ApiProperty({ description: 'Purchasing end of document footer', required: false })
+  @ApiProperty({
+    description: 'Purchasing end of document footer',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   purchasingEndOfDocFooter?: string;
@@ -86,7 +89,10 @@ export class UpdatePrintSettingsDto {
   @IsString()
   inventoryPerPageFooter?: string;
 
-  @ApiProperty({ description: 'Inventory end of document footer', required: false })
+  @ApiProperty({
+    description: 'Inventory end of document footer',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   inventoryEndOfDocFooter?: string;
@@ -97,28 +103,35 @@ export class UpdatePrintSettingsDto {
   @IsString()
   reportPerPageFooter?: string;
 
-  @ApiProperty({ description: 'Report end of document footer', required: false })
+  @ApiProperty({
+    description: 'Report end of document footer',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   reportEndOfDocFooter?: string;
 
   // Template Settings
-  @ApiProperty({ description: 'Sales order template configuration', required: false })
+  @ApiProperty({
+    description: 'Sales order template configuration',
+    required: false,
+  })
   @IsOptional()
   @IsObject()
   salesOrderTemplate?: object;
 
-  @ApiProperty({ description: 'Invoice template configuration', required: false })
-  @IsOptional()
-  @IsObject()
-  invoiceTemplate?: object;
-
-  @ApiProperty({ description: 'Payment receipt template configuration', required: false })
+  @ApiProperty({
+    description: 'Payment receipt template configuration',
+    required: false,
+  })
   @IsOptional()
   @IsObject()
   paymentReceiptTemplate?: object;
 
-  @ApiProperty({ description: 'Purchase order template configuration', required: false })
+  @ApiProperty({
+    description: 'Purchase order template configuration',
+    required: false,
+  })
   @IsOptional()
   @IsObject()
   purchaseOrderTemplate?: object;
@@ -128,7 +141,10 @@ export class UpdatePrintSettingsDto {
   @IsObject()
   grnTemplate?: object;
 
-  @ApiProperty({ description: 'Vendor payment template configuration', required: false })
+  @ApiProperty({
+    description: 'Vendor payment template configuration',
+    required: false,
+  })
   @IsOptional()
   @IsObject()
   vendorPaymentTemplate?: object;

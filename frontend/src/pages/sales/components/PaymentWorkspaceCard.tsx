@@ -1,4 +1,4 @@
-import React from 'react'
+import React from 'react';
 import {
   Alert,
   Box,
@@ -10,30 +10,38 @@ import {
   TableHead,
   TableRow,
   Typography,
-} from '@mui/material'
+} from '@mui/material';
 
-import type { PaymentListItem } from '../hooks/usePaymentsWorkspace'
+import type { PaymentListItem } from '../hooks/usePaymentsWorkspace';
 
-import { WorkspaceCardSectionHeader } from '@/components/common/WorkspaceCardSectionHeader'
-import { TABLE_STYLES } from '@/constants/tableStyles'
-import { formatCurrency, formatWholeQuantity } from '@/utils/formatters'
+import { WorkspaceCardSectionHeader } from '@/components/common/WorkspaceCardSectionHeader';
+import { TABLE_STYLES } from '@/constants/tableStyles';
+import { formatCurrency, formatWholeQuantity } from '@/utils/formatters';
 
 interface PaymentWorkspaceCardProps {
-  selectedPayment: PaymentListItem | null
+  selectedPayment: PaymentListItem | null;
 }
 
 const PaymentWorkspaceCard: React.FC<PaymentWorkspaceCardProps> = ({ selectedPayment }) => {
   if (!selectedPayment) {
-    return <Paper sx={{ flex: 1 }} />
+    return <Paper sx={{ flex: 1 }} />;
   }
 
-  const items = selectedPayment.invoice?.items ?? []
+  const items: any[] = [];
 
   return (
     <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <WorkspaceCardSectionHeader title="Payment Items" />
 
-      <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', p: TABLE_STYLES.cell.padding.px }}>
+      <Box
+        sx={{
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          p: TABLE_STYLES.cell.padding.px,
+        }}
+      >
         <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {items.length > 0 ? (
             <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
@@ -59,10 +67,18 @@ const PaymentWorkspaceCard: React.FC<PaymentWorkspaceCardProps> = ({ selectedPay
                     }}
                   >
                     <TableCell sx={{ width: '40%' }}>Product</TableCell>
-                    <TableCell align="center" sx={{ width: '12%' }}>Quantity</TableCell>
-                    <TableCell align="right" sx={{ width: '16%' }}>Unit Price</TableCell>
-                    <TableCell align="right" sx={{ width: '16%' }}>Discount</TableCell>
-                    <TableCell align="right" sx={{ width: '16%' }}>Total</TableCell>
+                    <TableCell align="center" sx={{ width: '12%' }}>
+                      Quantity
+                    </TableCell>
+                    <TableCell align="right" sx={{ width: '16%' }}>
+                      Unit Price
+                    </TableCell>
+                    <TableCell align="right" sx={{ width: '16%' }}>
+                      Discount
+                    </TableCell>
+                    <TableCell align="right" sx={{ width: '16%' }}>
+                      Total
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -70,11 +86,20 @@ const PaymentWorkspaceCard: React.FC<PaymentWorkspaceCardProps> = ({ selectedPay
                     <TableRow
                       key={item.id ?? index}
                       hover
-                      sx={{ '&:hover': { backgroundColor: 'action.hover' }, height: TABLE_STYLES.row.height }}
+                      sx={{
+                        '&:hover': { backgroundColor: 'action.hover' },
+                        height: TABLE_STYLES.row.height,
+                      }}
                     >
-                      <TableCell sx={{ fontSize: '0.8rem' }}>{item.product?.name ?? 'Unknown Product'}</TableCell>
-                      <TableCell align="center" sx={{ fontSize: '0.8rem' }}>{formatWholeQuantity(item.quantity)}</TableCell>
-                      <TableCell align="right" sx={{ fontSize: '0.8rem' }}>{formatCurrency(item.unitPrice)}</TableCell>
+                      <TableCell sx={{ fontSize: '0.8rem' }}>
+                        {item.product?.name ?? 'Unknown Product'}
+                      </TableCell>
+                      <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
+                        {formatWholeQuantity(item.quantity)}
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
+                        {formatCurrency(item.unitPrice)}
+                      </TableCell>
                       <TableCell align="right" sx={{ fontSize: '0.8rem' }}>
                         {item.discountType === 'percentage' && item.discountPercent
                           ? `${item.discountPercent}%`
@@ -99,7 +124,13 @@ const PaymentWorkspaceCard: React.FC<PaymentWorkspaceCardProps> = ({ selectedPay
           <Box sx={{ mt: 1 }}>
             <Typography
               variant="tableHeader"
-              sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px', mb: 1 }}
+              sx={{
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                mb: 1,
+              }}
             >
               NOTES
             </Typography>
@@ -119,7 +150,7 @@ const PaymentWorkspaceCard: React.FC<PaymentWorkspaceCardProps> = ({ selectedPay
         )}
       </Box>
     </Paper>
-  )
-}
+  );
+};
 
-export default PaymentWorkspaceCard
+export default PaymentWorkspaceCard;

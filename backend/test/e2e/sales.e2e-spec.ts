@@ -1,11 +1,17 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
-import request from 'supertest';
-import { DataSource } from 'typeorm';
-import { AppModule } from '../../src/app.module';
-import { truncateAll, seedAdmin, seedCategory, seedProduct, seedPaymentMethod } from './helpers/seed';
+import { Test, TestingModule } from "@nestjs/testing";
+import { INestApplication, ValidationPipe } from "@nestjs/common";
+import request from "supertest";
+import { DataSource } from "typeorm";
+import { AppModule } from "../../src/app.module";
+import {
+  truncateAll,
+  seedAdmin,
+  seedCategory,
+  seedProduct,
+  seedPaymentMethod,
+} from "./helpers/seed";
 
-describe('Sales (e2e)', () => {
+describe("Sales (e2e)", () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let accessToken: string;
@@ -29,14 +35,17 @@ describe('Sales (e2e)', () => {
 
     await seedAdmin(dataSource);
     const category = await seedCategory(dataSource);
-    const product = await seedProduct(dataSource, category.id, { stockQuantity: 100, baseCost: 100 });
+    const product = await seedProduct(dataSource, category.id, {
+      stockQuantity: 100,
+      baseCost: 100,
+    });
     productId = product.id;
     const pm = await seedPaymentMethod(dataSource);
     paymentMethodId = pm.id;
 
     const loginRes = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ usernameOrEmail: 'admin', password: 'Admin@123!' });
+      .post("/auth/login")
+      .send({ usernameOrEmail: "admin", password: "Admin@123!" });
     accessToken = loginRes.body.accessToken;
   });
 
@@ -47,60 +56,60 @@ describe('Sales (e2e)', () => {
 
   // ─── Customer CRUD ────────────────────────────────────────────────────────
 
-  describe('Customer CRUD', () => {
-    it('POST /customers — creates a customer', async () => {
+  describe("Customer CRUD", () => {
+    it("POST /customers — creates a customer", async () => {
       const res = await request(app.getHttpServer())
-        .post('/customers')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .send({ type: 'business', name: 'Acme Corp' })
+        .post("/customers")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ type: "business", name: "Acme Corp" })
         .expect(201);
 
-      expect(res.body).toHaveProperty('id');
-      expect(res.body.name).toBe('Acme Corp');
+      expect(res.body).toHaveProperty("id");
+      expect(res.body.name).toBe("Acme Corp");
       customerId = res.body.id;
     });
 
-    it('GET /customers — lists customers', async () => {
+    it("GET /customers — lists customers", async () => {
       const res = await request(app.getHttpServer())
-        .get('/customers')
-        .set('Authorization', `Bearer ${accessToken}`)
+        .get("/customers")
+        .set("Authorization", `Bearer ${accessToken}`)
         .expect(200);
 
       const items: any[] = res.body.data ?? res.body;
       expect(items.map((c: any) => c.id)).toContain(customerId);
     });
 
-    it('GET /customers/:id — returns the customer', async () => {
+    it("GET /customers/:id — returns the customer", async () => {
       const res = await request(app.getHttpServer())
         .get(`/customers/${customerId}`)
-        .set('Authorization', `Bearer ${accessToken}`)
+        .set("Authorization", `Bearer ${accessToken}`)
         .expect(200);
 
       expect(res.body.id).toBe(customerId);
-      expect(res.body.name).toBe('Acme Corp');
+      expect(res.body.name).toBe("Acme Corp");
     });
 
-    it('PUT /customers/:id — updates the customer', async () => {
+    it("PUT /customers/:id — updates the customer", async () => {
       const res = await request(app.getHttpServer())
         .put(`/customers/${customerId}`)
-        .set('Authorization', `Bearer ${accessToken}`)
-        .send({ name: 'Acme Corporation Ltd' })
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ name: "Acme Corporation Ltd" })
         .expect(200);
 
-      expect(res.body.name).toBe('Acme Corporation Ltd');
+      expect(res.body.name).toBe("Acme Corporation Ltd");
     });
 
-    it('DELETE /customers/:id — soft-deletes the customer', async () => {
+    it("DELETE /customers/:id — soft-deletes the customer", async () => {
       await request(app.getHttpServer())
         .delete(`/customers/${customerId}`)
-        .set('Authorization', `Bearer ${accessToken}`)
+        .set("Authorization", `Bearer ${accessToken}`)
         .expect(204);
     });
 
-    it('POST /customers/:id/restore — restores the customer', async () => {
+    it("POST /customers/:id/restore — restores the customer", async () => {
       const res = await request(app.getHttpServer())
         .post(`/customers/${customerId}/restore`)
-        .set('Authorization', `Bearer ${accessToken}`)
+        .set("Authorization", `Bearer ${accessToken}`)
         .expect(201);
 
       expect(res.body.id).toBe(customerId);
@@ -109,93 +118,93 @@ describe('Sales (e2e)', () => {
 
   // ─── Sales Order Lifecycle ────────────────────────────────────────────────
 
-  describe('Sales order lifecycle', () => {
-    it('POST /sales-orders — creates a sales order', async () => {
+  describe("Sales order lifecycle", () => {
+    it("POST /sales-orders — creates a sales order", async () => {
       const res = await request(app.getHttpServer())
-        .post('/sales-orders')
-        .set('Authorization', `Bearer ${accessToken}`)
+        .post("/sales-orders")
+        .set("Authorization", `Bearer ${accessToken}`)
         .send({
           customerId,
           items: [{ productId, quantity: 2, unitPrice: 150 }],
         })
         .expect(201);
 
-      expect(res.body.data).toHaveProperty('id');
-      expect(res.body.data).toHaveProperty('orderNumber');
+      expect(res.body.data).toHaveProperty("id");
+      expect(res.body.data).toHaveProperty("orderNumber");
       salesOrderId = res.body.data.id;
       salesOrderNumber = res.body.data.orderNumber;
     });
 
-    it('GET /sales-orders/:id — returns the sales order', async () => {
+    it("GET /sales-orders/:id — returns the sales order", async () => {
       const res = await request(app.getHttpServer())
         .get(`/sales-orders/${salesOrderId}`)
-        .set('Authorization', `Bearer ${accessToken}`)
+        .set("Authorization", `Bearer ${accessToken}`)
         .expect(200);
 
       expect(res.body.id).toBe(salesOrderId);
       expect(res.body.customerId).toBe(customerId);
     });
 
-    it('GET /sales-orders/number/:orderNumber — returns by order number', async () => {
+    it("GET /sales-orders/number/:orderNumber — returns by order number", async () => {
       const res = await request(app.getHttpServer())
         .get(`/sales-orders/number/${salesOrderNumber}`)
-        .set('Authorization', `Bearer ${accessToken}`)
+        .set("Authorization", `Bearer ${accessToken}`)
         .expect(200);
 
       expect(res.body.id).toBe(salesOrderId);
     });
 
-    it('GET /sales-orders/:id — order starts as DRAFT/UNPAID', async () => {
+    it("GET /sales-orders/:id — order starts as DRAFT/UNPAID", async () => {
       const res = await request(app.getHttpServer())
         .get(`/sales-orders/${salesOrderId}`)
-        .set('Authorization', `Bearer ${accessToken}`)
+        .set("Authorization", `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(res.body.status).toBe('DRAFT');
-      expect(res.body.paymentStatus).toBe('UNPAID');
+      expect(res.body.status).toBe("DRAFT");
+      expect(res.body.paymentStatus).toBe("UNPAID");
     });
 
-    it('PUT /sales-orders/:id — updates the sales order notes', async () => {
+    it("PUT /sales-orders/:id — updates the sales order notes", async () => {
       const res = await request(app.getHttpServer())
         .put(`/sales-orders/${salesOrderId}`)
-        .set('Authorization', `Bearer ${accessToken}`)
+        .set("Authorization", `Bearer ${accessToken}`)
         .send({
           customerId,
-          notes: 'Handle with care',
+          notes: "Handle with care",
           items: [{ productId, quantity: 2, unitPrice: 150 }],
         })
         .expect(200);
 
       const order = res.body.data ?? res.body;
-      expect(order.notes).toBe('Handle with care');
+      expect(order.notes).toBe("Handle with care");
     });
 
-    it('POST /sales-orders/:id/duplicate — duplicates the order', async () => {
+    it("POST /sales-orders/:id/duplicate — duplicates the order", async () => {
       const res = await request(app.getHttpServer())
         .post(`/sales-orders/${salesOrderId}/duplicate`)
-        .set('Authorization', `Bearer ${accessToken}`)
+        .set("Authorization", `Bearer ${accessToken}`)
         .expect(201);
 
       const order = res.body.data ?? res.body;
-      expect(order).toHaveProperty('id');
+      expect(order).toHaveProperty("id");
     });
   });
 
   // ─── Payment flow ─────────────────────────────────────────────────────────
 
-  describe('Payment flow', () => {
-    it('POST /sales-orders/:id/payments — records a partial payment', async () => {
+  describe("Payment flow", () => {
+    it("POST /sales-orders/:id/payments — records a partial payment", async () => {
       await request(app.getHttpServer())
         .post(`/sales-orders/${salesOrderId}/payments`)
-        .set('Authorization', `Bearer ${accessToken}`)
-        .send({ amount: 100, paymentMethodId, paymentDate: '2026-05-26' })
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ amount: 100, paymentMethodId, paymentDate: "2026-05-26" })
         .expect(200);
     });
 
-    it('GET /sales-orders/:id/payments — lists payments', async () => {
+    it("GET /sales-orders/:id/payments — lists payments", async () => {
       const res = await request(app.getHttpServer())
         .get(`/sales-orders/${salesOrderId}/payments`)
-        .set('Authorization', `Bearer ${accessToken}`)
+        .set("Authorization", `Bearer ${accessToken}`)
         .expect(200);
 
       const payments: any[] = res.body.data ?? res.body;
@@ -203,26 +212,32 @@ describe('Sales (e2e)', () => {
       expect(Number(payments[0].amount)).toBe(100);
     });
 
-    it('GET /sales-orders/:id — paymentStatus is PARTIAL after partial payment', async () => {
+    it("GET /sales-orders/:id — paymentStatus is PARTIAL after partial payment", async () => {
       const res = await request(app.getHttpServer())
         .get(`/sales-orders/${salesOrderId}`)
-        .set('Authorization', `Bearer ${accessToken}`)
+        .set("Authorization", `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(res.body.paymentStatus).toBe('PARTIAL');
+      expect(res.body.paymentStatus).toBe("PARTIAL");
     });
   });
 
   // ─── Edge cases ───────────────────────────────────────────────────────────
 
-  describe('Edge cases', () => {
-    it('POST /sales-orders — non-existent product returns 404', async () => {
+  describe("Edge cases", () => {
+    it("POST /sales-orders — non-existent product returns 404", async () => {
       const res = await request(app.getHttpServer())
-        .post('/sales-orders')
-        .set('Authorization', `Bearer ${accessToken}`)
+        .post("/sales-orders")
+        .set("Authorization", `Bearer ${accessToken}`)
         .send({
           customerId,
-          items: [{ productId: '00000000-0000-0000-0000-000000000000', quantity: 1, unitPrice: 150 }],
+          items: [
+            {
+              productId: "00000000-0000-0000-0000-000000000000",
+              quantity: 1,
+              unitPrice: 150,
+            },
+          ],
         })
         .expect(404);
 

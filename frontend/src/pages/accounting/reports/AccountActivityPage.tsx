@@ -114,9 +114,6 @@ const getReferenceLink = (referenceType?: string, referenceId?: string): string 
     // Could be sales or purchasing payment - default to sales
     return `/sales/payments/${referenceId}`;
   }
-  if (typeUpper === 'INVOICE') {
-    return `/sales/invoices/${referenceId}`;
-  }
   return null;
 };
 
