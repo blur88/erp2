@@ -234,6 +234,9 @@ export class SalesOrderResponseDto {
   @ApiProperty({ example: '2024-01-01' })
   orderDate: Date;
 
+  @ApiPropertyOptional({ example: '2024-01-02', description: 'Set when the order is fulfilled' })
+  fulfilledAt?: Date;
+
   @ApiProperty({ enum: SalesOrderStatus })
   status: SalesOrderStatus;
 

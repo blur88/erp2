@@ -12,6 +12,7 @@ export function mapSalesOrderToResponseDto(
     id: order.id,
     orderNumber: order.orderNumber,
     orderDate: order.orderDate,
+    fulfilledAt: order.fulfilledAt,
     status: order.status,
     paymentStatus: order.paymentStatus,
     subtotal: Number(order.subtotal || 0),

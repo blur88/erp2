@@ -220,6 +220,7 @@ export interface SalesOrder {
   shippedDate?: Date;
   deliveredDate?: Date;
   fulfilledDate?: Date;
+  fulfilledAt?: Date;
   shippingAddress?: string;
   shippingCity?: string;
   shippingState?: string;

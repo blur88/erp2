@@ -48,6 +48,7 @@ export class SalesOrderQueryService {
         'order.id',
         'order.orderNumber',
         'order.orderDate',
+        'order.fulfilledAt',
         'order.status',
         'order.paymentStatus',
         'order.subtotal',

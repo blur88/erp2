@@ -116,21 +116,45 @@ const SalesOrderPrintDialog: React.FC<SalesOrderPrintDialogProps> = ({
   };
 
   const renderInvoiceContent = () => {
+    const items = (salesOrder.items || []).map((item: any) => {
+      const quantity = item.quantity || 0;
+      const unitPrice = item.unitPrice || 0;
+      const lineSubtotal = quantity * unitPrice;
+
+      let amount = item.totalAmount || lineSubtotal;
+      let discountValue = 0;
+      let discountDisplay = '-';
+
+      if (item.discountType === 'percentage' && item.discountPercent) {
+        discountValue = item.discountAmount || (lineSubtotal * item.discountPercent) / 100;
+        amount = lineSubtotal - discountValue;
+        discountDisplay = `${Number(item.discountPercent).toFixed(2)}%`;
+      } else if (item.discountType === 'amount' && item.discountAmount) {
+        discountValue = item.discountAmount;
+        amount = lineSubtotal - discountValue;
+        discountDisplay = `${currency} ${Number(discountValue).toFixed(2)}`;
+      }
+
+      return {
+        name: item.product?.name ?? '',
+        quantity,
+        unitPrice,
+        discount: discountValue,
+        discountDisplay,
+        total: Number(amount),
+      };
+    });
+
     return (
       <InvoicePrint
         salesOrder={{
           orderNumber: salesOrder.orderNumber,
-          fulfilledAt: (salesOrder as any).fulfilledAt || salesOrder.fulfilledDate || '',
+          fulfilledAt: (salesOrder.fulfilledAt || salesOrder.fulfilledDate || '') as string,
           subtotalAmount: salesOrder.subtotal ?? salesOrder.totalAmount ?? 0,
           shippingAmount: salesOrder.shippingAmount ?? 0,
           totalAmount: salesOrder.totalAmount ?? 0,
           customerName: salesOrder.customer?.name ?? '',
-          items: (salesOrder.items || []).map((item) => ({
-            name: item.product?.name ?? '',
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            total: item.totalAmount ?? item.total ?? item.unitPrice * item.quantity,
-          })),
+          items,
         }}
         paidTotal={paidAmount}
       />

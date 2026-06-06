@@ -17,6 +17,8 @@ interface InvoicePrintProps {
       name: string;
       quantity: number;
       unitPrice: number;
+      discount?: number;
+      discountDisplay?: string;
       total: number;
     }>;
   };
@@ -31,6 +33,8 @@ const InvoicePrint: React.FC<InvoicePrintProps> = ({ salesOrder, paidTotal }) =>
     description: item.name,
     quantity: item.quantity,
     unitPrice: item.unitPrice,
+    discount: item.discount ?? 0,
+    discountDisplay: item.discountDisplay ?? '-',
     amount: item.total,
   }));
 
@@ -76,7 +80,7 @@ const InvoicePrint: React.FC<InvoicePrintProps> = ({ salesOrder, paidTotal }) =>
       totals={totals}
       perPageFooter={printSettings?.salesPerPageFooter || ''}
       endOfDocFooter={printSettings?.salesEndOfDocFooter || ''}
-      showDiscount={false}
+      showDiscount={true}
       showPricing={true}
       currency={currency}
     />

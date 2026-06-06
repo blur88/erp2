@@ -126,6 +126,29 @@ describe('mapSalesOrderToResponseDto', () => {
     expect(dto.items[0].product?.stockQuantity).toBeUndefined();
   });
 
+  it('emits fulfilledAt so the invoice print can show the fulfilment date', () => {
+    const fulfilledAt = new Date('2026-04-02T08:00:00.000Z');
+    const order = {
+      id: 'o1',
+      orderNumber: 'SO-26-024',
+      orderDate: new Date('2026-04-01'),
+      status: SalesOrderStatus.FULFILLED,
+      paymentStatus: SalesOrderPaymentStatus.PAID,
+      subtotal: 40,
+      shippingAmount: 0,
+      totalAmount: 40,
+      fulfilledAt,
+      customerId: 'c1',
+      items: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const dto = mapSalesOrderToResponseDto(order as any);
+
+    expect(dto.fulfilledAt).toEqual(fulfilledAt);
+  });
+
   it('emits paidAmount and balanceDue from the entity', () => {
     const order = {
       id: 'o1',

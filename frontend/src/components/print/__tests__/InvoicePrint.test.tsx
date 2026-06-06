@@ -78,4 +78,41 @@ describe('InvoicePrint', () => {
     );
     expect(screen.getByText('RM 40.00')).toBeInTheDocument();
   });
+
+  it('shows the fulfilment date', () => {
+    render(
+      <InvoicePrint
+        salesOrder={{
+          orderNumber: 'SO-001',
+          fulfilledAt: '2026-06-01',
+          subtotalAmount: 100,
+          shippingAmount: 10,
+          totalAmount: 110,
+        }}
+        paidTotal={70}
+      />,
+    );
+    // Date label is present and non-empty (formatted by formatDate).
+    const dateNode = screen.getByText('Date:').parentElement;
+    expect(dateNode?.textContent?.replace('Date:', '').trim()).not.toBe('');
+  });
+
+  it('renders the Discount column to match the Sales Order template', () => {
+    render(
+      <InvoicePrint
+        salesOrder={{
+          orderNumber: 'SO-001',
+          fulfilledAt: '2026-06-01',
+          subtotalAmount: 100,
+          shippingAmount: 10,
+          totalAmount: 110,
+          items: [
+            { name: 'Product A', quantity: 2, unitPrice: 50, discount: 0, discountDisplay: '-', total: 100 },
+          ],
+        }}
+        paidTotal={70}
+      />,
+    );
+    expect(screen.getByText('Discount')).toBeInTheDocument();
+  });
 });
