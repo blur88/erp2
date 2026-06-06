@@ -193,7 +193,7 @@ export class SalesOrderItemResponseDto {
     name: string;
     description?: string;
     barcode?: string;
-    stockQuantity: number;
+    stockQuantity?: number;
   } | null;
 
   @ApiProperty({ example: 10 })

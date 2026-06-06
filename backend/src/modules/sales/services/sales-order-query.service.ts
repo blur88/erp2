@@ -71,7 +71,10 @@ export class SalesOrderQueryService {
         'items.productId',
         'product.id',
         'product.name',
+        'product.description',
+        'product.barcode',
         'product.baseCost',
+        'product.stockQuantity',
       ])
       .where('order.deletedAt IS NULL');
 

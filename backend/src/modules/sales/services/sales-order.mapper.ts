@@ -45,7 +45,13 @@ export function mapSalesOrderToResponseDto(
               name: item.product.name,
               description: item.product.description,
               barcode: item.product.barcode,
-              stockQuantity: Number(item.product.stockQuantity ?? 0),
+              // Preserve "not loaded" as undefined rather than defaulting to 0.
+              // A trimmed list query may omit stockQuantity; coercing it to 0
+              // makes the frontend falsely report "out of stock" (SO-26-024).
+              stockQuantity:
+                item.product.stockQuantity == null
+                  ? undefined
+                  : Number(item.product.stockQuantity),
             }
           : null,
         quantity: item.quantity,

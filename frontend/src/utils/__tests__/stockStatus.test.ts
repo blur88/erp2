@@ -43,4 +43,12 @@ describe('getStockOffenders', () => {
 
     expect(getStockOffenders(items)).toEqual([])
   })
+
+  it('does not flag a product whose stockQuantity is unknown (not loaded)', () => {
+    // A trimmed list payload may omit stockQuantity. Unknown stock must not be
+    // treated as 0, or in-stock items falsely block fulfilment (SO-26-024).
+    const items = [{ product: { name: 'Product A' }, quantity: 1 }]
+
+    expect(getStockOffenders(items)).toEqual([])
+  })
 })
