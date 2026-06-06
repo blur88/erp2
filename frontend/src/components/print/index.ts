@@ -1,4 +1,3 @@
-export { default as SalesOrderPrint } from './SalesOrderPrint'
 export { default as InvoicePrint } from './InvoicePrint'
 export { default as PaymentReceiptPrint } from './PaymentReceiptPrint'
 export { default as PurchaseOrderPrint } from './PurchaseOrderPrint'
