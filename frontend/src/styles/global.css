@@ -252,3 +252,21 @@ html {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Print isolation: when printing, show only the marked print root
+   (document templates in print dialogs), hide all app/dialog chrome. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-root,
+  .print-root * {
+    visibility: visible;
+  }
+  .print-root {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+}
