@@ -189,10 +189,12 @@ const SalesOrderPrintDialog: React.FC<SalesOrderPrintDialogProps> = ({
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
-        ) : printType === 'sales_order' ? (
-          renderSalesOrderContent()
         ) : (
-          renderInvoiceContent()
+          <Box className="print-root" data-testid="print-root">
+            {printType === 'sales_order'
+              ? renderSalesOrderContent()
+              : renderInvoiceContent()}
+          </Box>
         )}
       </DialogContent>
       <DialogActions sx={{ '@media print': { display: 'none' } }}>
