@@ -61,7 +61,6 @@ vi.mock('@/store/api/salesApi', async (importOriginal) => {
 vi.mock('../components/OrderOverviewTab', () => ({ default: () => <div>OverviewTab</div> }))
 vi.mock('../components/OrderPaymentsTab', () => ({ default: () => <div>PaymentsTab</div> }))
 vi.mock('../components/OrderJournalEntriesTab', () => ({ default: () => <div>JournalTab</div> }))
-vi.mock('@/components/print/SalesOrderPrint', () => ({ default: () => <div>PrintDialog</div> }))
 vi.mock('@/components/sales/PaymentDialog', () => ({ default: () => <div>PaymentDialog</div> }))
 vi.mock('@/components/sales/RefundDialog', () => ({ default: () => <div>RefundDialog</div> }))
 
