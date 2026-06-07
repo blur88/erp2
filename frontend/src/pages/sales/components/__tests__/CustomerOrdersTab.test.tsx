@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
@@ -6,9 +7,18 @@ import { describe, expect, it, vi } from 'vitest'
 
 import CustomerOrdersTab from '../CustomerOrdersTab'
 
-const { mockGetSalesOrders } = vi.hoisted(() => ({
+const { mockGetSalesOrders, mockNavigate } = vi.hoisted(() => ({
   mockGetSalesOrders: vi.fn(),
+  mockNavigate: vi.fn(),
 }))
+
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  }
+})
 
 vi.mock('@/store/api/salesApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/store/api/salesApi')>()
@@ -63,6 +73,30 @@ describe('CustomerOrdersTab', () => {
     renderTab('c1')
     expect(screen.getByText('SO-001')).toBeInTheDocument()
     expect(screen.getByText(/Completed/i)).toBeInTheDocument()
+  })
+
+  it('navigates to the order detail page when View is clicked', async () => {
+    mockNavigate.mockClear()
+    mockGetSalesOrders.mockReturnValue({
+      data: {
+        data: [{
+          id: 'o1',
+          orderNumber: 'SO-001',
+          orderDate: '2026-01-15',
+          isCompleted: true,
+          isFulfilled: false,
+          totalAmount: 1500,
+          customerId: 'c1',
+          createdAt: '2026-01-15',
+          updatedAt: '2026-01-15',
+        }],
+        meta: { total: 1 },
+      },
+      isLoading: false,
+    })
+    renderTab('c1')
+    await userEvent.click(screen.getByRole('button', { name: /view/i }))
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/orders/SO-001/view')
   })
 
   it('passes customerId to query', () => {
