@@ -173,7 +173,7 @@ describe('SalesOrderPaymentService', () => {
       expect(captured.update.status).toBe(SalesOrderStatus.DRAFT);
     });
 
-    it('promotes DRAFT -> READY and yields OVERPAID when total drops below amount paid', async () => {
+    it('keeps DRAFT and yields OVERPAID when total drops below amount paid', async () => {
       const order = {
         id: 'o2',
         status: SalesOrderStatus.DRAFT,
@@ -186,7 +186,23 @@ describe('SalesOrderPaymentService', () => {
       await service.reconcileOrderState('o2');
 
       expect(captured.update.paymentStatus).toBe(SalesOrderPaymentStatus.OVERPAID);
-      expect(captured.update.status).toBe(SalesOrderStatus.READY);
+      expect(order.status).toBe(SalesOrderStatus.DRAFT);
+    });
+
+    it('demotes READY -> DRAFT + OVERPAID when an extra payment tips into overpayment', async () => {
+      const order = {
+        id: 'o-over',
+        status: SalesOrderStatus.READY,
+        totalAmount: 100,
+        paidAmount: 100,
+      } as SalesOrder;
+      const { manager, captured } = mockTxManager([{ amount: 120 }], order);
+      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+
+      await service.reconcileOrderState('o-over');
+
+      expect(captured.update.paymentStatus).toBe(SalesOrderPaymentStatus.OVERPAID);
+      expect(captured.update.status).toBe(SalesOrderStatus.DRAFT);
     });
 
     it('reuses a provided transaction manager (no new transaction) and locks the order', async () => {
@@ -735,7 +751,7 @@ describe('SalesOrderPaymentService', () => {
       );
     });
 
-    it('flips DRAFT -> READY on overpayment', async () => {
+    it('keeps DRAFT on overpayment', async () => {
       const order = mockOrder({
         status: SalesOrderStatus.DRAFT,
         totalAmount: 100,
@@ -756,11 +772,9 @@ describe('SalesOrderPaymentService', () => {
 
       expect(update).toHaveBeenCalledWith(
         order.id,
-        expect.objectContaining({
-          status: SalesOrderStatus.READY,
-          paymentStatus: SalesOrderPaymentStatus.OVERPAID,
-        }),
+        expect.objectContaining({ paymentStatus: SalesOrderPaymentStatus.OVERPAID }),
       );
+      expect(order.status).toBe(SalesOrderStatus.DRAFT);
     });
 
     it('flips READY -> DRAFT when a refund drops below full payment', async () => {

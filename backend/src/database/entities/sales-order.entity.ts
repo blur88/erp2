@@ -130,7 +130,10 @@ export class SalesOrder extends BaseEntity {
     return this.status === SalesOrderStatus.FULFILLED ? this.updatedAt : undefined;
   }
 
-  /** @deprecated Use `paymentStatus === PAID || paymentStatus === OVERPAID` instead. */
+  /**
+   * @deprecated Payment truth only. OVERPAID still counts here, but fulfillability
+   * is separate and now requires status === READY.
+   */
   get isPaidInFull(): boolean {
     return (
       this.paymentStatus === SalesOrderPaymentStatus.PAID ||

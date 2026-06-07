@@ -34,7 +34,9 @@ export class SalesOrderFulfillmentService {
         throw new ConflictException('Order is already fulfilled');
       }
       if (order.status !== SalesOrderStatus.READY) {
-        throw new ConflictException('Cannot fulfill order - order must be Ready (paid in full)');
+        throw new ConflictException(
+          'Cannot fulfill order - order must be Ready (paid exactly in full, not over- or under-paid)',
+        );
       }
 
       const offenders = order.items

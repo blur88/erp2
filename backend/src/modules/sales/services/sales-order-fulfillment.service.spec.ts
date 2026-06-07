@@ -114,6 +114,16 @@ describe('SalesOrderFulfillmentService', () => {
       await expect(service.fulfillOrder('order-1')).rejects.toThrow(ConflictException);
     });
 
+    it('throws ConflictException when the order is overpaid (DRAFT)', async () => {
+      wireTransaction(
+        mockOrder({
+          status: SalesOrderStatus.DRAFT,
+          paymentStatus: SalesOrderPaymentStatus.OVERPAID,
+        }),
+      );
+      await expect(service.fulfillOrder('order-1')).rejects.toThrow(ConflictException);
+    });
+
     it('lock-reads the order and persists status via the manager', async () => {
       const order = mockOrder({ status: SalesOrderStatus.READY });
       const { findOne, update } = wireTransaction(order);
