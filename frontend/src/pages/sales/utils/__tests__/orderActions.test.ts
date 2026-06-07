@@ -51,9 +51,20 @@ describe('getOrderActions', () => {
     expect(actions).not.toContain('cancel')
   })
 
-  it('READY + OVERPAID: still fulfill + refund + edit', () => {
+  it('READY + OVERPAID: not fulfillable — refund + edit, no fulfill', () => {
+    // Overpaid is treated like PARTIAL: not fulfillable. Backend demotes such an
+    // order to DRAFT, but the UI must also hide fulfill if a stale READY+OVERPAID
+    // state ever reaches it.
     const actions = getOrderActions(makeOrder('READY', 'OVERPAID'))
-    expect(actions).toContain('fulfill')
+    expect(actions).not.toContain('fulfill')
+    expect(actions).toContain('refund')
+    expect(actions).toContain('edit')
+  })
+
+  it('DRAFT + OVERPAID: not fulfillable — refund + edit, no fulfill, no pay', () => {
+    const actions = getOrderActions(makeOrder('DRAFT', 'OVERPAID'))
+    expect(actions).not.toContain('fulfill')
+    expect(actions).not.toContain('pay')
     expect(actions).toContain('refund')
     expect(actions).toContain('edit')
   })

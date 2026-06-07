@@ -268,8 +268,8 @@ export class SalesOrderPaymentService {
     const all = await manager.getRepository(SalesOrderPayment).find({ where: { salesOrderId: order.id } });
     const netPaid = all.reduce((sum, r) => sum + Number(r.amount), 0);
     const newStatus = this.computePaymentStatus(all, order.totalAmount);
-    const paidInFull =
-      newStatus === SalesOrderPaymentStatus.PAID || newStatus === SalesOrderPaymentStatus.OVERPAID;
+    // OVERPAID is not fulfillable. Only exact payment (PAID) promotes to READY.
+    const paidInFull = newStatus === SalesOrderPaymentStatus.PAID;
 
     const update: Partial<SalesOrder> = {
       paymentStatus: newStatus,

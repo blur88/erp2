@@ -27,8 +27,13 @@ export function getOrderActionMetas(order: SalesOrder): OrderActionMeta[] {
   const isUnpaid = paymentStatus === 'UNPAID'
   const isFullyPaid = paymentStatus === 'PAID' || paymentStatus === 'OVERPAID'
   const needsPayment = isUnpaid || paymentStatus === 'PARTIAL'
+  // Overpaid is treated like PARTIAL: NOT fulfillable. Only an exactly-paid order
+  // is fulfillable. Mirrors backend updatePaymentStatusInTx, which excludes
+  // OVERPAID from the paid-in-full band (so overpaid never reaches READY). Guard
+  // the READY arm too in case a stale READY+OVERPAID state ever reaches the UI.
+  const isOverpaid = paymentStatus === 'OVERPAID'
   // A paid DRAFT is "Ready" even if its status column still reads DRAFT.
-  const isReadyState = isReady || (isDraft && isFullyPaid)
+  const isReadyState = !isOverpaid && (isReady || (isDraft && isFullyPaid))
 
   if (isCancelled) {
     return [{ action: 'uncancel' }, { action: 'print' }]
