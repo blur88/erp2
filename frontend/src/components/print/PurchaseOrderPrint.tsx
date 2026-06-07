@@ -70,7 +70,7 @@ const PurchaseOrderPrint: React.FC<PurchaseOrderPrintProps> = ({ open, onClose, 
             <CircularProgress />
           </Box>
         ) : (
-          <Box ref={printRef}>
+          <Box ref={printRef} className="print-root">
             <BasePrintTemplate
               settings={printSettings}
               documentTitle="Purchase Order"

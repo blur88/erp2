@@ -112,6 +112,7 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
             p: 2,
             m: 0,
             width: '100%',
+            minHeight: 'auto',
           },
         }}
       >

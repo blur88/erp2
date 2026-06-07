@@ -165,7 +165,7 @@ const SalesOrderPrintDialog: React.FC<SalesOrderPrintDialogProps> = ({
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Print Options</DialogTitle>
       <DialogContent>
-        <FormControl sx={{ mb: 2 }}>
+        <FormControl className="print-chrome" sx={{ mb: 2 }}>
           <RadioGroup
             value={printType}
             onChange={(_, value) => setPrintType(value as 'sales_order' | 'invoice')}
@@ -189,10 +189,12 @@ const SalesOrderPrintDialog: React.FC<SalesOrderPrintDialogProps> = ({
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
-        ) : printType === 'sales_order' ? (
-          renderSalesOrderContent()
         ) : (
-          renderInvoiceContent()
+          <Box className="print-root" data-testid="print-root">
+            {printType === 'sales_order'
+              ? renderSalesOrderContent()
+              : renderInvoiceContent()}
+          </Box>
         )}
       </DialogContent>
       <DialogActions sx={{ '@media print': { display: 'none' } }}>

@@ -69,4 +69,18 @@ describe('SalesOrderPrintDialog', () => {
     const invoiceRadio = screen.getByRole('radio', { name: /Invoice/i });
     expect(invoiceRadio).toBeEnabled();
   });
+
+  it('wraps the document template in a print-root container', () => {
+    render(
+      <SalesOrderPrintDialog
+        open
+        salesOrder={makeSalesOrder({ status: 'FULFILLED' })}
+        onClose={() => {}}
+      />,
+    );
+    const printRoot = screen.getByTestId('print-root');
+    expect(printRoot).toBeInTheDocument();
+    // Document title from BasePrintTemplate must be inside the print root.
+    expect(printRoot).toHaveTextContent(/SALES ORDER/i);
+  });
 });
