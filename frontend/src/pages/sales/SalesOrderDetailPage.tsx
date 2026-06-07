@@ -112,10 +112,12 @@ export default function SalesOrderDetailPage() {
     );
   }
 
+  // Overpaid is treated like PARTIAL: NOT fulfillable (mirrors backend, which
+  // excludes OVERPAID from the paid-in-full band so it never reaches READY).
   const isReadyState =
-    order.status === 'READY' ||
-    (order.status === 'DRAFT' &&
-      (order.paymentStatus === 'PAID' || order.paymentStatus === 'OVERPAID'));
+    order.paymentStatus !== 'OVERPAID' &&
+    (order.status === 'READY' ||
+      (order.status === 'DRAFT' && order.paymentStatus === 'PAID'));
   const stockOffenders = getStockOffenders(
     (order.items ?? []).map((item) => ({
       product: item.product,
