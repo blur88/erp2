@@ -78,9 +78,10 @@ describe('OrderActionBar', () => {
     expect(screen.queryByRole('button', { name: 'Unfulfill' })).not.toBeInTheDocument()
   })
 
-  it('Draft+Overpaid shows Fulfill and Refund — no Cancel', () => {
+  it('Draft+Overpaid shows Refund — no Fulfill, no Cancel', () => {
+    // Overpaid is treated like PARTIAL: not fulfillable.
     renderBar(makeOrder({ status: 'DRAFT', paymentStatus: 'OVERPAID' }))
-    expect(screen.getByRole('button', { name: 'Fulfill' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Fulfill' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Refund' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
   })
