@@ -165,7 +165,7 @@ const SalesOrderPrintDialog: React.FC<SalesOrderPrintDialogProps> = ({
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Print Options</DialogTitle>
       <DialogContent>
-        <FormControl sx={{ mb: 2 }}>
+        <FormControl className="print-chrome" sx={{ mb: 2 }}>
           <RadioGroup
             value={printType}
             onChange={(_, value) => setPrintType(value as 'sales_order' | 'invoice')}

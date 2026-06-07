@@ -254,19 +254,38 @@ html {
 }
 
 /* Print isolation: when printing, show only the marked print root
-   (document templates in print dialogs), hide all app/dialog chrome. */
+   (document templates in print dialogs), hide all app/dialog chrome.
+
+   The app shell (#root) is removed from layout with display:none so it
+   contributes no height. Within the MUI Dialog portal the unwanted chrome
+   (title, radio toggle, action buttons) is hidden with visibility while the
+   print root is re-shown — visibility keeps the ancestor chain intact so the
+   document still renders. The print root is left in normal flow (no absolute
+   positioning) so multi-page documents paginate instead of clipping. */
 @media print {
-  body * {
-    visibility: hidden;
+  /* Remove the app shell entirely so it contributes no height. */
+  #root {
+    display: none !important;
   }
-  .print-root,
-  .print-root * {
-    visibility: visible;
+  /* Remove dialog chrome that sits ABOVE/BELOW the document so it leaves no
+     blank space (these are siblings of the print root, not ancestors). */
+  .MuiDialogTitle-root,
+  .MuiDialogActions-root,
+  .print-chrome {
+    display: none !important;
   }
+  /* Let the document and its ancestor chain flow naturally on the page. */
+  .MuiDialog-root,
+  .MuiDialog-container,
+  .MuiDialog-paper,
+  .MuiPaper-root,
+  .MuiDialogContent-root,
   .print-root {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
+    position: static !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 }
