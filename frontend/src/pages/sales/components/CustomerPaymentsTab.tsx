@@ -1,6 +1,5 @@
 import {
   Box,
-  Button,
   CircularProgress,
   Paper,
   Table,
@@ -11,7 +10,6 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
 
 import { TABLE_STYLES } from '@/constants/tableStyles';
 import { useGetPaymentsQuery } from '@/store/api/salesApi';
@@ -23,7 +21,6 @@ interface CustomerPaymentsTabProps {
 }
 
 export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabProps) {
-  const navigate = useNavigate();
   const { data, isLoading } = useGetPaymentsQuery({ customerId });
   const payments = [...(data?.data ?? [])].sort((a, b) =>
     (a.paymentNumber ?? '').localeCompare(b.paymentNumber ?? '', undefined, { numeric: true }),
@@ -52,15 +49,12 @@ export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabP
           <TableRow
             sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}
           >
-            <TableCell sx={{ width: '18%' }}>Payment #</TableCell>
-            <TableCell sx={{ width: '18%' }}>Invoice #</TableCell>
-            <TableCell sx={{ width: '16%' }}>Date</TableCell>
-            <TableCell sx={{ width: '18%' }}>Method</TableCell>
-            <TableCell align="right" sx={{ width: '15%' }}>
+            <TableCell sx={{ width: '20%' }}>Payment #</TableCell>
+            <TableCell sx={{ width: '20%' }}>Invoice #</TableCell>
+            <TableCell sx={{ width: '18%' }}>Date</TableCell>
+            <TableCell sx={{ width: '20%' }}>Method</TableCell>
+            <TableCell align="right" sx={{ width: '22%' }}>
               Amount
-            </TableCell>
-            <TableCell align="right" sx={{ width: '15%' }}>
-              Action
             </TableCell>
           </TableRow>
         </TableHead>
@@ -76,17 +70,6 @@ export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabP
               <TableCell>{formatDate(payment.paymentDate)}</TableCell>
               <TableCell>{payment.paymentMethodEntity?.name ?? '—'}</TableCell>
               <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
-              <TableCell align="right">
-                <Button
-                  size="small"
-                  variant="text"
-                  onClick={() =>
-                    navigate('/sales/payments', { state: { highlightPaymentId: payment.id } })
-                  }
-                >
-                  View
-                </Button>
-              </TableCell>
             </TableRow>
           ))}
         </TableBody>

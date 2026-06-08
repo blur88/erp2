@@ -54,6 +54,8 @@ export class SalesOrderQueryService {
         'order.subtotal',
         'order.shippingAmount',
         'order.totalAmount',
+        'order.paidAmount',
+        'order.balanceDue',
         'order.customerId',
         'order.createdAt',
         'order.updatedAt',

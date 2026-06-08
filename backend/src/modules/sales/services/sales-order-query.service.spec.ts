@@ -136,6 +136,20 @@ describe('SalesOrderQueryService', () => {
       expect(selectArg).toContain('order.fulfilledAt');
     });
 
+    it('selects order.paidAmount so the payment receipt print is enabled for paid orders', async () => {
+      // Without paidAmount in the select, the mapper defaults it to 0 and the
+      // print dialog disables the Payment Receipt option for orders that are
+      // actually paid (#747).
+      const { qb } = buildQbMock();
+      salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll({} as any);
+
+      const selectArg = qb.select.mock.calls[0][0] as string[];
+      expect(selectArg).toContain('order.paidAmount');
+      expect(selectArg).toContain('order.balanceDue');
+    });
+
     it('applies persisted status=READY directly', async () => {
       const { qb, andWhereCalls } = buildQbMock();
       salesOrderRepository.createQueryBuilder.mockReturnValue(qb);

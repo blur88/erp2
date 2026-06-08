@@ -152,13 +152,6 @@ export const menuSections: MenuSection[] = [
             path: '/sales/orders',
             roles: SALES_ROLES,
           },
-          {
-            id: 'payments',
-            title: 'Payments',
-            icon: <PaymentsIcon />,
-            path: '/sales/payments',
-            roles: SALES_ROLES,
-          },
         ],
       },
       {

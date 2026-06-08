@@ -115,4 +115,30 @@ describe('InvoicePrint', () => {
     );
     expect(screen.getByText('Discount')).toBeInTheDocument();
   });
+
+  it('renders the full customer address when provided', () => {
+    render(
+      <InvoicePrint
+        salesOrder={{
+          orderNumber: 'SO-001',
+          fulfilledAt: '2026-06-01',
+          subtotalAmount: 100,
+          shippingAmount: 0,
+          totalAmount: 100,
+          customerName: 'Acme Co',
+          customerAddress: '12 Jalan Test',
+          customerCity: 'KL',
+          customerState: 'WP',
+          customerPostalCode: '50000',
+          customerCountry: 'Malaysia',
+          customerPhone: '0123456789',
+          items: [],
+        } as any}
+        paidTotal={0}
+      />,
+    );
+
+    expect(screen.getByText('12 Jalan Test')).toBeInTheDocument();
+    expect(screen.getByText(/50000, KL/)).toBeInTheDocument();
+  });
 });

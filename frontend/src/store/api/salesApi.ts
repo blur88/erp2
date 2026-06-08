@@ -73,7 +73,6 @@ export const salesApiSlice = createApi({
     'SalesOrder',
     'DeletedSalesOrder',
     'Payment',
-    'DeletedPayment',
   ],
   endpoints: (builder) => ({
     getCustomers: builder.query<PaginatedResponse<Customer>, Record<string, unknown> | undefined>({
@@ -339,57 +338,6 @@ export const salesApiSlice = createApi({
       transformResponse: (response: any) => normalizeNamedCollection<Payment>(response, 'payments'),
       providesTags: ['Payment'],
     }),
-    getPayment: builder.query<Payment, string>({
-      query: (id) => ({ url: `/payments/${id}` }),
-      transformResponse: normalizeSingle<Payment>,
-      providesTags: (_result, _error, id) => [{ type: 'Payment', id }],
-    }),
-    createPayment: builder.mutation<Payment, Partial<Payment>>({
-      query: (body) => ({ url: '/payments', method: 'POST', data: body }),
-      transformResponse: normalizeSingle<Payment>,
-      invalidatesTags: ['Payment', 'SalesOrder'],
-    }),
-    updatePayment: builder.mutation<Payment, { id: string; data: Partial<Payment> }>({
-      query: ({ id, data }) => ({ url: `/payments/${id}`, method: 'PUT', data }),
-      transformResponse: normalizeSingle<Payment>,
-      invalidatesTags: ['Payment', 'SalesOrder'],
-    }),
-    deletePayment: builder.mutation<void, string>({
-      query: (id) => ({ url: `/payments/${id}`, method: 'DELETE' }),
-      invalidatesTags: ['Payment', 'DeletedPayment', 'SalesOrder'],
-    }),
-    voidPayment: builder.mutation<Payment, { id: string; reason?: string }>({
-      query: ({ id, reason }) => ({
-        url: `/payments/${id}/void`,
-        method: 'POST',
-        data: { reason },
-      }),
-      transformResponse: normalizeSingle<Payment>,
-      invalidatesTags: ['Payment', 'SalesOrder'],
-    }),
-    getDeletedPayments: builder.query<
-      PaginatedResponse<Payment>,
-      Record<string, unknown> | undefined
-    >({
-      query: (params) => ({ url: '/payments/deleted', params: params ?? {} }),
-      transformResponse: (response: any) => normalizeNamedCollection<Payment>(response, 'payments'),
-      providesTags: ['DeletedPayment'],
-    }),
-    restorePayment: builder.mutation<Payment, string>({
-      query: (id) => ({ url: `/payments/${id}/restore`, method: 'POST' }),
-      transformResponse: normalizeSingle<Payment>,
-      invalidatesTags: ['Payment', 'DeletedPayment', 'SalesOrder'],
-    }),
-    bulkRestorePayments: builder.mutation<{ restoredCount: number; failedIds: string[] }, string[]>(
-      {
-        query: (paymentIds) => ({
-          url: '/payments/bulk-restore',
-          method: 'POST',
-          data: { paymentIds },
-        }),
-        invalidatesTags: ['Payment', 'DeletedPayment', 'SalesOrder'],
-      },
-    ),
     getCustomerPayments: builder.query<Payment[], string>({
       query: (id) => ({ url: `/payments/customer/${id}` }),
       transformResponse: (response: any): Payment[] => {
@@ -449,15 +397,6 @@ export const {
   usePermanentDeleteSalesOrderMutation,
   useBulkPermanentDeleteSalesOrdersMutation,
   useGetPaymentsQuery,
-  useGetPaymentQuery,
-  useLazyGetPaymentQuery,
-  useCreatePaymentMutation,
-  useUpdatePaymentMutation,
-  useDeletePaymentMutation,
-  useVoidPaymentMutation,
-  useGetDeletedPaymentsQuery,
-  useRestorePaymentMutation,
-  useBulkRestorePaymentsMutation,
   useGetCustomerPaymentsQuery,
   useGetCustomerSalesHistoryQuery,
 } = salesApiSlice;

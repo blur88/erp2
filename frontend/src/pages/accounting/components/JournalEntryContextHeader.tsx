@@ -25,7 +25,6 @@ const ENTRY_TYPE_LABELS: Record<string, string> = {
 const SOURCE_ROUTES: Record<string, (id: string) => string> = {
   sales_order: (id) => `/sales/orders?highlight=${id}`,
   purchase_order: (id) => `/purchasing/orders?highlight=${id}`,
-  payment: (id) => `/sales/payments?highlight=${id}`,
   goods_received_note: (id) => `/purchasing/goods-received?grnId=${id}`,
   vendor_payment: (id) => `/purchasing/vendor-payments?vpId=${id}`,
   expense: () => `/accounting/expenses`,
