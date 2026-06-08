@@ -13,6 +13,12 @@ interface InvoicePrintProps {
     shippingAmount: number;
     totalAmount: number;
     customerName?: string;
+    customerAddress?: string;
+    customerCity?: string;
+    customerState?: string;
+    customerPostalCode?: string;
+    customerCountry?: string;
+    customerPhone?: string;
     items?: Array<{
       name: string;
       quantity: number;
@@ -53,12 +59,12 @@ const InvoicePrint: React.FC<InvoicePrintProps> = ({ salesOrder, paidTotal }) =>
 
   const recipient = {
     name: salesOrder.customerName || '',
-    address: '',
-    city: '',
-    state: '',
-    postalCode: '',
-    country: '',
-    phone: '',
+    address: salesOrder.customerAddress || '',
+    city: salesOrder.customerCity || '',
+    state: salesOrder.customerState || '',
+    postalCode: salesOrder.customerPostalCode || '',
+    country: salesOrder.customerCountry || '',
+    phone: salesOrder.customerPhone || '',
   };
 
   if (isLoading) {

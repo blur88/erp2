@@ -65,6 +65,7 @@ describe('CustomerPaymentsTab', () => {
     renderTab('c1');
     expect(screen.getByText('PAY-001')).toBeInTheDocument();
     expect(screen.getByText('Cash')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /View/i })).not.toBeInTheDocument();
   });
 
   it('shows em dash when paymentMethodEntity is absent', () => {

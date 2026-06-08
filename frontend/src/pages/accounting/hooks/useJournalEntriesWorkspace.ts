@@ -49,7 +49,6 @@ export function useJournalEntriesWorkspace({ entries, refetch, dispatch, selecte
   const navigateToSource = useCallback((sourceType: string, sourceId: string) => {
     const routes: Record<string, (id: string) => string> = {
       sales_order: (id) => `/sales/orders?highlight=${id}`,
-      payment: (id) => `/sales/payments?highlight=${id}`,
       goods_received_note: (id) => `/purchasing/goods-received?grnId=${id}`,
       vendor_payment: (id) => `/purchasing/vendor-payments?vpId=${id}`,
       expense: () => `/accounting/expenses`,

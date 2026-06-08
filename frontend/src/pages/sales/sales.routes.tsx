@@ -8,7 +8,6 @@ const CustomerProfilePage = React.lazy(() => import('./CustomerProfilePage'))
 const OrdersPage = React.lazy(() => import('./OrdersPage'))
 const CreateSalesOrderPage = React.lazy(() => import('./CreateSalesOrderPage'))
 const SalesOrderDetailPage = React.lazy(() => import('./SalesOrderDetailPage'))
-const PaymentsPage = React.lazy(() => import('./PaymentsPage'))
 const SalesByProductSummary = React.lazy(() => import('./SalesByProductSummary'))
 const SalesByProductDetails = React.lazy(() => import('./SalesByProductDetails'))
 const SalesOrderSummary = React.lazy(() => import('./SalesOrderSummary'))
@@ -29,7 +28,6 @@ export const salesRoutes: RouteObject[] = [
   { path: '/sales/orders/create', element: <CreateSalesOrderPage />, handle: { title: 'Create Sales Order' } },
   { path: '/sales/orders/:orderNumber/edit', element: <CreateSalesOrderPage />, handle: { title: 'Edit Sales Order' } },
   { path: '/sales/orders/:orderNumber/view', element: <SalesOrderDetailPage />, handle: { title: 'Sales Order' } },
-  { path: '/sales/payments', element: <PaymentsPage />, handle: { title: 'Payments' } },
   { path: '/reports/sales/product-summary', element: <SalesByProductSummary />, handle: { title: 'Sales by Product Summary' } },
   { path: '/reports/sales/product-details', element: <SalesByProductDetails />, handle: { title: 'Sales by Product Details' } },
   { path: '/reports/sales/order-summary', element: <SalesOrderSummary />, handle: { title: 'Sales Order Summary' } },

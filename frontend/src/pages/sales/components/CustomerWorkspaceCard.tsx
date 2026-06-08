@@ -222,10 +222,6 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
                   <TableRow
                     key={payment.id}
                     hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() =>
-                      navigate('/sales/payments', { state: { highlightPaymentId: payment.id } })
-                    }
                   >
                     <TableCell>
                       <Typography

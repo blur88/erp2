@@ -110,10 +110,6 @@ const getReferenceLink = (referenceType?: string, referenceId?: string): string 
   if (typeUpper === 'PURCHASE' || typeUpper === 'PURCHASE_ORDER') {
     return `/purchasing/purchase-orders/${referenceId}`;
   }
-  if (typeUpper === 'PAYMENT') {
-    // Could be sales or purchasing payment - default to sales
-    return `/sales/payments/${referenceId}`;
-  }
   return null;
 };
 

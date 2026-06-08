@@ -170,7 +170,7 @@ describe('CustomerWorkspaceCard', () => {
     expect(screen.getByText('completed')).toBeInTheDocument();
   });
 
-  it('clicking a payment navigates to sales payments with highlightPaymentId state', async () => {
+  it('payment rows are no longer navigable', async () => {
     mockUseGetCustomerPaymentsQuery.mockReturnValue({
       data: [
         {
@@ -192,9 +192,7 @@ describe('CustomerWorkspaceCard', () => {
     await waitFor(() => expect(screen.getByText('PAY-001')).toBeInTheDocument());
 
     fireEvent.click(screen.getByText('PAY-001').closest('tr')!);
-    expect(mockNavigate).toHaveBeenCalledWith('/sales/payments', {
-      state: { highlightPaymentId: 'pay-1' },
-    });
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('shows error state for each tab on fetch failure', async () => {
