@@ -13,7 +13,6 @@ import { FiscalPeriod, FiscalPeriodStatus } from '../../../database/entities/fis
 import { ChartOfAccount } from '../../../database/entities/chart-of-account.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
-import { GoodsReceivedNote } from '../../../database/entities/goods-received-note.entity';
 import { Payment } from '../../../database/entities/payment.entity';
 import { VendorPayment } from '../../../database/entities/vendor-payment.entity';
 import { Expense } from '../../../database/entities/expense.entity';
@@ -64,8 +63,6 @@ export class JournalEntryService {
     private readonly salesOrderRepository: Repository<SalesOrder>,
     @InjectRepository(PurchaseOrder)
     private readonly purchaseOrderRepository: Repository<PurchaseOrder>,
-    @InjectRepository(GoodsReceivedNote)
-    private readonly grnRepository: Repository<GoodsReceivedNote>,
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
     @InjectRepository(VendorPayment)
@@ -912,16 +909,8 @@ export class JournalEntryService {
             }
             break;
           }
-          case 'goods_received_note': {
-            const records = await this.grnRepository.find({
-              where: { id: In(ids) },
-              select: { id: true, grnNumber: true },
-            });
-            for (const record of records) {
-              refMap.set(`goods_received_note:${record.id}`, record.grnNumber);
-            }
-            break;
-          }
+          // 'goods_received_note' source removed with the GRN module. Legacy
+          // GRN-sourced entries (pre-redesign) fall through to no resolved ref.
           case 'vendor_payment': {
             const records = await this.vendorPaymentRepository.find({
               where: { id: In(ids) },
@@ -1026,13 +1015,8 @@ export class JournalEntryService {
           });
           return record?.paymentNumber;
         }
-        case 'goods_received_note': {
-          const record = await this.grnRepository.findOne({
-            where: { id: sourceId },
-            select: { id: true, grnNumber: true },
-          });
-          return record?.grnNumber;
-        }
+        // 'goods_received_note' source removed with the GRN module. Legacy
+        // GRN-sourced entries (pre-redesign) resolve to no ref number.
         case 'vendor_payment': {
           const record = await this.vendorPaymentRepository.findOne({
             where: { id: sourceId },

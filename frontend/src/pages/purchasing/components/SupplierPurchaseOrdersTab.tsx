@@ -13,11 +13,12 @@ import {
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
-import { EntityStatusChip } from '@/components/common/EntityStatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetSupplierPurchaseOrdersQuery } from '@/store/api/purchasingApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
+
+import PurchaseOrderStatusChip from './PurchaseOrderStatusChip'
 
 interface SupplierPurchaseOrdersTabProps {
   supplierId: string
@@ -57,33 +58,29 @@ export default function SupplierPurchaseOrdersTab({ supplierId }: SupplierPurcha
           </TableRow>
         </TableHead>
         <TableBody>
-          {orders.map((order) => {
-            const status = (order as { status?: string }).status
-
-            return (
-              <TableRow key={order.id} hover>
-                <TableCell>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {order.orderNumber}
-                  </Typography>
-                </TableCell>
-                <TableCell>{formatDate(order.orderDate)}</TableCell>
-                <TableCell>
-                  <EntityStatusChip status={status === 'completed' ? 'completed' : 'pending'} />
-                </TableCell>
-                <TableCell align="right">{formatCurrency(order.totalAmount ?? order.total ?? 0)}</TableCell>
-                <TableCell align="right">
-                  <Button
-                    size="small"
-                    variant="text"
-                    onClick={() => navigate(`/purchasing/orders?highlight=${order.id}`)}
-                  >
-                    View
-                  </Button>
-                </TableCell>
-              </TableRow>
-            )
-          })}
+          {orders.map((order) => (
+            <TableRow key={order.id} hover>
+              <TableCell>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {order.orderNumber}
+                </Typography>
+              </TableCell>
+              <TableCell>{formatDate(order.orderDate)}</TableCell>
+              <TableCell>
+                <PurchaseOrderStatusChip status={order.status} />
+              </TableCell>
+              <TableCell align="right">{formatCurrency(order.totalAmount ?? order.total ?? 0)}</TableCell>
+              <TableCell align="right">
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => navigate(`/purchasing/orders/${order.orderNumber}/view`)}
+                >
+                  View
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
         </TableBody>
       </Table>
     </TableContainer>

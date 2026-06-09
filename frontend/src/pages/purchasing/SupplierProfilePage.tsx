@@ -1,6 +1,5 @@
 import React from 'react'
 import { Box, CircularProgress, Tab, Tabs, Typography } from '@mui/material'
-import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import LocalShippingIcon from '@mui/icons-material/LocalShipping'
 import PaymentIcon from '@mui/icons-material/Payment'
 import StoreIcon from '@mui/icons-material/Store'
@@ -16,7 +15,6 @@ import {
   useUpdateSupplierMutation,
 } from '@/store/api/purchasingApi'
 
-import SupplierGRNTab from './components/SupplierGRNTab'
 import SupplierOverviewTab from './components/SupplierOverviewTab'
 import SupplierPaymentsTab from './components/SupplierPaymentsTab'
 import SupplierPurchaseOrdersTab from './components/SupplierPurchaseOrdersTab'
@@ -52,7 +50,7 @@ export default function SupplierProfilePage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { showSuccess, showError } = useNotification()
-  const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 3)
+  const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 2)
 
   const { data: supplier, isLoading, isError } = useGetSupplierBySlugQuery(slug ?? skipToken)
   const [updateSupplier] = useUpdateSupplierMutation()
@@ -115,7 +113,6 @@ export default function SupplierProfilePage() {
         >
           <Tab icon={<StoreIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Overview" sx={{ minHeight: 36 }} />
           <Tab icon={<LocalShippingIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Purchase Orders" sx={{ minHeight: 36 }} />
-          <Tab icon={<AccountBalanceIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="GRN" sx={{ minHeight: 36 }} />
           <Tab icon={<PaymentIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Vendor Payments" sx={{ minHeight: 36 }} />
         </Tabs>
       </Box>
@@ -127,9 +124,6 @@ export default function SupplierProfilePage() {
         <SupplierPurchaseOrdersTab supplierId={supplier.id} />
       </TabPanel>
       <TabPanel value={tabValue} index={2}>
-        <SupplierGRNTab supplierId={supplier.id} />
-      </TabPanel>
-      <TabPanel value={tabValue} index={3}>
         <SupplierPaymentsTab supplierId={supplier.id} />
       </TabPanel>
     </Box>

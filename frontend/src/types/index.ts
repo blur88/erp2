@@ -353,18 +353,25 @@ export interface Supplier {
   deletedAt?: Date | string | null;
 }
 
+export type PurchaseOrderStatus = 'DRAFT' | 'READY' | 'RECEIVED' | 'CANCELLED';
+export type PurchaseOrderPaymentStatus = 'UNPAID' | 'PARTIAL' | 'PAID' | 'OVERPAID';
+
 export interface PurchaseOrder {
   id: string;
   orderNumber: string;
-  supplier: Supplier;
-  items: PurchaseOrderItem[];
-  total: number;
+  supplier?: Supplier;
+  supplierId?: string;
+  status: PurchaseOrderStatus;
+  paymentStatus: PurchaseOrderPaymentStatus;
+  items?: PurchaseOrderItem[];
+  total?: number;
   paidAmount?: number;
   subtotal?: number;
   discountAmount?: number;
   shippingAmount?: number;
   totalAmount?: number;
   orderDate: Date;
+  deletedAt?: Date | string;
   expectedDate?: Date;
   receivedDate?: Date;
   notes?: string;
@@ -374,23 +381,25 @@ export interface PurchaseOrder {
     status: string;
     receivedDate?: Date;
   }>;
-  vendorPayments?: Array<{
-    id: string;
-    paymentNumber: string;
-    amount?: number;
-    paymentDate?: Date | string;
-    status?: string;
-  }>;
+  vendorPayments?: Partial<VendorPayment>[];
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface PurchaseOrderItem {
   id: string;
-  product: Product;
+  product?: Product;
+  productId?: string;
+  description?: string;
   quantity: number;
-  unitPrice: number;
-  total: number;
+  unitPrice?: number;
+  unitCost?: number;
+  discountPercent?: number;
+  discountAmount?: number;
+  total?: number;
+  totalAmount?: number;
+  receivedQuantity?: number;
+  status?: string;
 }
 
 export interface GoodsReceivedNote {

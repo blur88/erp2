@@ -7,7 +7,6 @@ import {
   SupplierType,
 } from '../../../database/entities/supplier.entity';
 import { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
-import { GoodsReceivedNote } from '../../../database/entities/goods-received-note.entity';
 import { VendorPayment } from '../../../database/entities/vendor-payment.entity';
 import {
   CreateSupplierDto,
@@ -46,8 +45,6 @@ export class SupplierService extends BaseCrudService<
     private readonly supplierRepository: Repository<Supplier>,
     @InjectRepository(PurchaseOrder)
     private readonly purchaseOrderRepository: Repository<PurchaseOrder>,
-    @InjectRepository(GoodsReceivedNote)
-    private readonly grnRepository: Repository<GoodsReceivedNote>,
     @InjectRepository(VendorPayment)
     private readonly vendorPaymentRepository: Repository<VendorPayment>,
     auditLogService: AuditLogService,
@@ -256,7 +253,7 @@ export class SupplierService extends BaseCrudService<
 
     const supplier = await this.supplierRepository.findOne({
       where: { id },
-      relations: { purchaseOrders: true, goodsReceivedNotes: true },
+      relations: { purchaseOrders: true },
     });
 
     if (!supplier) {
@@ -760,21 +757,10 @@ export class SupplierService extends BaseCrudService<
     return { data, total };
   }
 
-  async getSupplierGRNs(supplierId: string): Promise<{ data: GoodsReceivedNote[]; total: number }> {
-    const [data, total] = await this.grnRepository.findAndCount({
-      where: { supplierId },
-      relations: { purchaseOrder: true },
-      order: { grnNumber: 'ASC' },
-      take: 50,
-    });
-
-    return { data, total };
-  }
-
   async getSupplierPayments(supplierId: string): Promise<{ data: VendorPayment[]; total: number }> {
     const [data, total] = await this.vendorPaymentRepository.findAndCount({
       where: { supplierId },
-      relations: { paymentMethodEntity: true },
+      relations: { paymentMethodEntity: true, purchaseOrder: true },
       order: { paymentNumber: 'ASC' },
       take: 50,
     });

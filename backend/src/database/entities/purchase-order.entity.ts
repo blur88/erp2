@@ -20,9 +20,21 @@ import {
 import { BaseEntity } from './base.entity';
 import { Supplier } from './supplier.entity';
 import { PurchaseOrderItem } from './purchase-order-item.entity';
-import { GoodsReceivedNote } from './goods-received-note.entity';
 import { VendorPayment } from './vendor-payment.entity';
 
+export enum PurchaseOrderStatus {
+  DRAFT = 'DRAFT',
+  READY = 'READY',
+  RECEIVED = 'RECEIVED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum PurchaseOrderPaymentStatus {
+  UNPAID = 'UNPAID',
+  PARTIAL = 'PARTIAL',
+  PAID = 'PAID',
+  OVERPAID = 'OVERPAID',
+}
 
 /**
  * Purchase Order entity for managing supplier orders
@@ -32,6 +44,8 @@ import { VendorPayment } from './vendor-payment.entity';
 @Index(['orderNumber'], { unique: true })
 @Index(['supplierId'])
 @Index(['orderDate'])
+@Index(['status'])
+@Index(['paymentStatus'])
 export class PurchaseOrder extends BaseEntity {
   @Column({
     type: 'varchar',
@@ -117,6 +131,24 @@ export class PurchaseOrder extends BaseEntity {
   @Min(0)
   paidAmount: number;
 
+  @Column({
+    type: 'enum',
+    enum: PurchaseOrderStatus,
+    default: PurchaseOrderStatus.DRAFT,
+    comment: 'Purchase order lifecycle status',
+  })
+  @IsEnum(PurchaseOrderStatus)
+  status: PurchaseOrderStatus;
+
+  @Column({
+    type: 'enum',
+    enum: PurchaseOrderPaymentStatus,
+    default: PurchaseOrderPaymentStatus.UNPAID,
+    comment: 'Derived payment status',
+  })
+  @IsEnum(PurchaseOrderPaymentStatus)
+  paymentStatus: PurchaseOrderPaymentStatus;
+
   // Additional Information
   @Column({
     type: 'text',
@@ -147,11 +179,6 @@ export class PurchaseOrder extends BaseEntity {
     eager: false,
   })
   items: PurchaseOrderItem[];
-
-  @OneToMany(() => GoodsReceivedNote, (grn) => grn.purchaseOrder, {
-    cascade: false,
-  })
-  goodsReceivedNotes: GoodsReceivedNote[];
 
   @OneToMany(() => VendorPayment, (payment) => payment.purchaseOrder, {
     cascade: false,

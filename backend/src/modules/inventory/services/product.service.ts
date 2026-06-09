@@ -9,7 +9,7 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, UpdateResult, In, IsNull, FindOptionsWhere, Not } from 'typeorm';
+import { EntityManager, Repository, UpdateResult, In, IsNull, FindOptionsWhere, Not } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { Product, ProductType } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
@@ -17,7 +17,7 @@ import { SalesOrderItem } from '../../../database/entities/sales-order-item.enti
 import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
 import { StockMovement, StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { StockAdjustmentItem } from '../../../database/entities/stock-adjustment.entity';
-import { GoodsReceivedNoteItem } from '../../../database/entities/goods-received-note-item.entity';
+
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import {
   CreateProductDto,
@@ -54,6 +54,7 @@ import {
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { generateBaseSlug } from '../../../common/utils/slug.util';
+import { repoFor } from '../../../common/db/tx-helpers';
 
 @Injectable()
 export class ProductService extends BaseCrudService<
@@ -79,8 +80,7 @@ export class ProductService extends BaseCrudService<
     private readonly stockMovementRepository: Repository<StockMovement>,
     @InjectRepository(StockAdjustmentItem)
     private readonly stockAdjustmentItemRepository: Repository<StockAdjustmentItem>,
-    @InjectRepository(GoodsReceivedNoteItem)
-    private readonly goodsReceivedNoteItemRepository: Repository<GoodsReceivedNoteItem>,
+
     @InjectRepository(PurchaseCostHistory)
     private readonly purchaseCostHistoryRepository: Repository<PurchaseCostHistory>,
     @Inject(forwardRef(() => CategoryService))
@@ -1100,17 +1100,6 @@ export class ProductService extends BaseCrudService<
       });
     }
 
-    // Check goods received note items
-    const goodsReceivedNoteItemCount = await this.goodsReceivedNoteItemRepository.count({
-      where: { productId },
-    });
-    if (goodsReceivedNoteItemCount > 0) {
-      dependencies.push({
-        type: 'goods received note items',
-        count: goodsReceivedNoteItemCount,
-      });
-    }
-
     return {
       hasDependencies: dependencies.length > 0,
       dependencies,
@@ -1309,8 +1298,10 @@ export class ProductService extends BaseCrudService<
     productId: string,
     newQuantity: number,
     _userId?: string,
+    manager?: EntityManager,
   ): Promise<void> {
-    const product = await this.productRepository.findOne({
+    const productRepo = repoFor(manager, Product, this.productRepository);
+    const product = await productRepo.findOne({
       where: { id: productId },
     });
 
@@ -1321,7 +1312,7 @@ export class ProductService extends BaseCrudService<
     const previousQuantity = product.stockQuantity;
     product.stockQuantity = newQuantity;
 
-    await this.productRepository.save(product);
+    await productRepo.save(product);
 
     this.logger.log(
       `Stock quantity updated for product ${productId}: ${previousQuantity} -> ${newQuantity}`,

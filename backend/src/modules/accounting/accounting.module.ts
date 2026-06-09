@@ -17,7 +17,6 @@ import { Expense } from '../../database/entities/expense.entity';
 import { FundTransfer } from '../../database/entities/fund-transfer.entity';
 import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
-import { GoodsReceivedNote } from '../../database/entities/goods-received-note.entity';
 import { VendorPayment } from '../../database/entities/vendor-payment.entity';
 import { StockAdjustment } from '../../database/entities/stock-adjustment.entity';
 
@@ -68,7 +67,6 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
       FundTransfer,
       SalesOrder,
       PurchaseOrder,
-      GoodsReceivedNote,
       VendorPayment,
       StockAdjustment,
     ]),

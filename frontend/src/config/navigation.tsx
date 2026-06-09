@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { default as DashboardIcon } from '@mui/icons-material/Dashboard';
+import { default as PaymentDetailIcon } from '@mui/icons-material/MonetizationOn';
 import { default as InventoryIcon } from '@mui/icons-material/Inventory';
 import { default as SalesIcon } from '@mui/icons-material/PointOfSale';
 import { default as PurchasingIcon } from '@mui/icons-material/Assignment';
@@ -10,10 +11,8 @@ import { default as CustomersIcon } from '@mui/icons-material/People';
 import { default as OrdersIcon } from '@mui/icons-material/Receipt';
 import { default as PaymentsIcon } from '@mui/icons-material/Payment';
 import { default as SuppliersIcon } from '@mui/icons-material/Business';
-import { default as GRNIcon } from '@mui/icons-material/LocalShipping';
 import { default as CompanyIcon } from '@mui/icons-material/BusinessCenter';
 import { default as PurchaseOrderIcon } from '@mui/icons-material/Description';
-import { default as VendorPaymentsIcon } from '@mui/icons-material/AccountBalance';
 import { default as StockAdjustmentIcon } from '@mui/icons-material/SwapVert';
 import { default as SwapHorizIcon } from '@mui/icons-material/SwapHoriz';
 import { default as PriceCostingIcon } from '@mui/icons-material/PriceChange';
@@ -23,7 +22,6 @@ import { default as ProfitIcon } from '@mui/icons-material/TrendingUp';
 import { default as PaymentSummaryIcon } from '@mui/icons-material/AccountBalanceWallet';
 import { default as AccountBalanceWalletIcon } from '@mui/icons-material/AccountBalanceWallet';
 import { default as PaymentOrderIcon } from '@mui/icons-material/ReceiptLongOutlined';
-import { default as PaymentDetailIcon } from '@mui/icons-material/MonetizationOn';
 import { default as HistoryIcon } from '@mui/icons-material/History';
 import { default as CustomerProductIcon } from '@mui/icons-material/PersonSearch';
 import { default as InventorySummaryIcon } from '@mui/icons-material/Inventory2';
@@ -178,20 +176,6 @@ export const menuSections: MenuSection[] = [
             title: 'Purchase Orders',
             icon: <PurchaseOrderIcon />,
             path: '/purchasing/orders',
-            roles: PROCUREMENT_ROLES,
-          },
-          {
-            id: 'grn',
-            title: 'Goods Received',
-            icon: <GRNIcon />,
-            path: '/purchasing/goods-received',
-            roles: PROCUREMENT_ROLES,
-          },
-          {
-            id: 'vendor-payments',
-            title: 'Vendor Payments',
-            icon: <VendorPaymentsIcon />,
-            path: '/purchasing/vendor-payments',
             roles: PROCUREMENT_ROLES,
           },
         ],
@@ -420,22 +404,6 @@ export const menuSections: MenuSection[] = [
             icon: <OrdersIcon />,
             group: 'Purchasing',
             path: '/reports/purchasing/order-status',
-            roles: PROCUREMENT_ROLES,
-          },
-          {
-            id: 'vendor-payment-details',
-            title: 'Payment Details',
-            icon: <PaymentDetailIcon />,
-            group: 'Purchasing',
-            path: '/reports/purchasing/payment-details',
-            roles: PROCUREMENT_ROLES,
-          },
-          {
-            id: 'vendor-purchase-list',
-            title: 'Vendor Products',
-            icon: <SuppliersIcon />,
-            group: 'Purchasing',
-            path: '/reports/purchasing/vendor-purchase-list',
             roles: PROCUREMENT_ROLES,
           },
           {

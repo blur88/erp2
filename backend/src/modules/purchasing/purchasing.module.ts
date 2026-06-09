@@ -6,8 +6,6 @@ import {
   Supplier,
   PurchaseOrder,
   PurchaseOrderItem,
-  GoodsReceivedNote,
-  GoodsReceivedNoteItem,
   VendorPayment,
   PaymentMethodEntity,
   Product,
@@ -18,7 +16,6 @@ import {
 import { SupplierService } from './services/supplier.service';
 import { PurchaseOrderService } from './services/purchase-order.service';
 import { PurchaseOrderLifecycleService } from './services/purchase-order-lifecycle.service';
-import { GoodsReceivedNoteService } from './services/goods-received-note.service';
 import { VendorPaymentService } from './services/vendor-payment.service';
 import { PurchasingAnalyticsService } from './services/purchasing-analytics.service';
 
@@ -26,8 +23,6 @@ import { PurchasingAnalyticsService } from './services/purchasing-analytics.serv
 import {
   SupplierController,
   PurchaseOrderController,
-  GoodsReceivedNoteController,
-  VendorPaymentController,
   PurchasingAnalyticsController,
 } from './controllers';
 
@@ -43,8 +38,6 @@ import { ExportModule } from '../../common/export.module';
       Supplier,
       PurchaseOrder,
       PurchaseOrderItem,
-      GoodsReceivedNote,
-      GoodsReceivedNoteItem,
       VendorPayment,
       PaymentMethodEntity,
       Product,
@@ -59,8 +52,6 @@ import { ExportModule } from '../../common/export.module';
   controllers: [
     SupplierController,
     PurchaseOrderController,
-    GoodsReceivedNoteController,
-    VendorPaymentController,
     PurchasingAnalyticsController,
   ],
 
@@ -68,7 +59,6 @@ import { ExportModule } from '../../common/export.module';
     SupplierService,
     PurchaseOrderService,
     PurchaseOrderLifecycleService,
-    GoodsReceivedNoteService,
     VendorPaymentService,
     PurchasingAnalyticsService,
   ],
@@ -77,7 +67,6 @@ import { ExportModule } from '../../common/export.module';
     SupplierService,
     PurchaseOrderService,
     PurchaseOrderLifecycleService,
-    GoodsReceivedNoteService,
     VendorPaymentService,
     PurchasingAnalyticsService,
   ],

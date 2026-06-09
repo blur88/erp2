@@ -13,7 +13,7 @@ import { FiscalPeriod, FiscalPeriodStatus } from '../../../database/entities/fis
 import { ChartOfAccount, AccountType } from '../../../database/entities/chart-of-account.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
-import { GoodsReceivedNote } from '../../../database/entities/goods-received-note.entity';
+
 import { Payment } from '../../../database/entities/payment.entity';
 import { VendorPayment } from '../../../database/entities/vendor-payment.entity';
 import { Expense } from '../../../database/entities/expense.entity';
@@ -174,10 +174,7 @@ describe('JournalEntryService', () => {
           provide: getRepositoryToken(PurchaseOrder),
           useValue: mockPurchaseOrderRepo,
         },
-        {
-          provide: getRepositoryToken(GoodsReceivedNote),
-          useValue: mockGrnRepo,
-        },
+
         { provide: getRepositoryToken(Payment), useValue: mockPaymentRepo },
         {
           provide: getRepositoryToken(VendorPayment),

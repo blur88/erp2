@@ -12,7 +12,6 @@ import { DocumentNumberSetting } from '../../database/entities/document-number-s
 import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { Payment } from '../../database/entities/payment.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
-import { GoodsReceivedNote } from '../../database/entities/goods-received-note.entity';
 import { VendorPayment } from '../../database/entities/vendor-payment.entity';
 import { StockAdjustment } from '../../database/entities/stock-adjustment.entity';
 import { JournalEntry } from '../../database/entities/journal-entry.entity';
@@ -53,8 +52,6 @@ export class SettingsService {
     private paymentRepository: Repository<Payment>,
     @InjectRepository(PurchaseOrder)
     private purchaseOrderRepository: Repository<PurchaseOrder>,
-    @InjectRepository(GoodsReceivedNote)
-    private goodsReceivedNoteRepository: Repository<GoodsReceivedNote>,
     @InjectRepository(VendorPayment)
     private vendorPaymentRepository: Repository<VendorPayment>,
     @InjectRepository(StockAdjustment)
@@ -529,29 +526,6 @@ export class SettingsService {
                 .limit(1)
                 .getOne();
               if (r?.orderNumber) maxNumber = parseInt(r.orderNumber.split('-')[2], 10) || 0;
-              break;
-            }
-            case 'Goods Received': {
-              const r = await this.goodsReceivedNoteRepository
-                .createQueryBuilder('grn')
-                .select('grn.grnNumber')
-                .where('grn.grnNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('grn.grnNumber', 'DESC')
-                .limit(1)
-                .getOne();
-              if (r?.grnNumber) maxNumber = parseInt(r.grnNumber.split('-')[2], 10) || 0;
-
-              const legacy = await this.goodsReceivedNoteRepository
-                .createQueryBuilder('grn')
-                .select('grn.grnNumber')
-                .where("grn.grnNumber ~ '^GRN-\\\\d+$'")
-                .orderBy('grn.grnNumber', 'DESC')
-                .limit(1)
-                .getOne();
-              if (legacy?.grnNumber) {
-                const legacyNum = parseInt(legacy.grnNumber.split('-')[1], 10) || 0;
-                maxNumber = Math.max(maxNumber, legacyNum);
-              }
               break;
             }
             case 'Vendor Payments': {

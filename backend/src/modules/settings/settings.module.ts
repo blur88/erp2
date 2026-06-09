@@ -10,7 +10,6 @@ import { DocumentNumberSetting } from '../../database/entities/document-number-s
 import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { Payment } from '../../database/entities/payment.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
-import { GoodsReceivedNote } from '../../database/entities/goods-received-note.entity';
 import { VendorPayment } from '../../database/entities/vendor-payment.entity';
 import { StockAdjustment } from '../../database/entities/stock-adjustment.entity';
 import { PaymentMethodEntity } from '../../database/entities/payment-method.entity';
@@ -37,7 +36,6 @@ import { PaymentMethodService } from './services/payment-method.service';
       SalesOrder,
       Payment,
       PurchaseOrder,
-      GoodsReceivedNote,
       VendorPayment,
       StockAdjustment,
       PaymentMethodEntity,

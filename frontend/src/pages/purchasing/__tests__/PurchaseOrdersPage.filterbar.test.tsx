@@ -20,87 +20,22 @@ const filterBarSpy = vi.fn()
 
 vi.mock('@/store/api/purchasingApi', () => ({
   useGetPurchaseOrdersQuery,
-  useGetSuppliersQuery: vi.fn(() => ({
-    data: { data: [{ id: 'sup-1', companyName: 'Anaheim Electronics' }] },
-  })),
-  useLazyGetPurchaseOrderQuery: vi.fn(() => [vi.fn()]),
-  useReceiveGoodsMutation: vi.fn(() => [vi.fn()]),
-  useReturnGoodsMutation: vi.fn(() => [vi.fn()]),
-  useMarkPurchaseOrderAsUnpaidMutation: vi.fn(() => [vi.fn()]),
-  useRecordOrderPaymentsMutation: vi.fn(() => [vi.fn()]),
-  useDeletePurchaseOrderMutation: vi.fn(() => [vi.fn()]),
+  useReceiveGoodsMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
+  useReturnGoodsMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
+  useCancelPurchaseOrderMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
+  useMarkPurchaseOrderAsUnpaidMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
+  useRecordVendorPaymentsMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
 }))
 
 vi.mock('@/components/filters', () => ({
   FilterBar: (props: unknown) => {
     filterBarSpy(props)
-    return (
-      <div>
-        <input placeholder="Search purchase orders..." />
-      </div>
-    )
+    return <input placeholder="Search purchase orders..." />
   },
 }))
 
-vi.mock('@/components/common/MasterDetailWorkspace', () => ({
-  default: ({ listSlot, headerSlot, workspaceSlot }: any) => (
-    <div>
-      <div>MasterDetailWorkspace</div>
-      <div>{listSlot}</div>
-      <div>{headerSlot}</div>
-      <div>{workspaceSlot}</div>
-    </div>
-  ),
-}))
-vi.mock('../components/PurchaseOrderContextHeader', () => ({ default: () => <div>PurchaseOrderContextHeader</div> }))
-vi.mock('../components/PurchaseOrdersTable', () => ({ default: () => <div>PurchaseOrdersTable</div> }))
-vi.mock('../components/PurchaseOrderWorkspaceCard', () => ({ default: () => <div>PurchaseOrderWorkspaceCard</div> }))
-vi.mock('../components/PurchaseOrdersDialogs', () => ({ default: () => <div>PurchaseOrdersDialogs</div> }))
-vi.mock('../hooks/usePurchaseOrdersWorkspace', () => ({
-  usePurchaseOrdersWorkspace: () => ({
-    sorting: { sortBy: 'orderNumber', sortOrder: 'asc' },
-    handleSort: vi.fn(),
-    focusedOrderIndex: -1,
-    deleteConfirmOpen: false,
-    setDeleteConfirmOpen: vi.fn(),
-    orderToDelete: null,
-    setOrderToDelete: vi.fn(),
-    deletedOrdersDialogOpen: false,
-    setDeletedOrdersDialogOpen: vi.fn(),
-    blockedDialogOpen: false,
-    setBlockedDialogOpen: vi.fn(),
-    printDialogOpen: false,
-    setPrintDialogOpen: vi.fn(),
-    blockedDialogType: 'edit',
-    isLoading: false,
-    paymentDialogOpen: false,
-    setPaymentDialogOpen: vi.fn(),
-    paymentDialogOrder: null,
-    journalEntryRefs: [],
-    journalEntryRefsLoading: false,
-    orderListRef: { current: null },
-    searchInputRef: { current: null },
-    handleOrderSelect: vi.fn(),
-    handleNavigateUp: vi.fn(),
-    handleNavigateDown: vi.fn(),
-    focusSearchInput: vi.fn(),
-    handleReceive: vi.fn(),
-    handleReturn: vi.fn(),
-    handleEditClick: vi.fn(),
-    handleReturnAndEdit: vi.fn(),
-    handleReturnOnly: vi.fn(),
-    handleUnpayAndEdit: vi.fn(),
-    handleReturnAndDelete: vi.fn(),
-    handleUnpayAndDelete: vi.fn(),
-    handleUnpay: vi.fn(),
-    handleOpenPaymentDialog: vi.fn(),
-    handleRecordPayments: vi.fn(),
-    handleDeleteClick: vi.fn(),
-    handleDeleteConfirm: vi.fn(),
-    navigateToGoodsReceived: vi.fn(),
-    navigateToVendorPayment: vi.fn(),
-    navigateToJournalEntries: vi.fn(),
-  }),
+vi.mock('@/hooks/useNotification', () => ({
+  useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
 }))
 
 function renderPage(initialUrl = '/') {
@@ -129,48 +64,48 @@ describe('PurchaseOrdersPage FilterBar integration', () => {
     expect(screen.getByPlaceholderText(/search purchase orders/i)).toBeInTheDocument()
   })
 
-  it('renders the master-detail workspace with split purchasing detail cards', () => {
-    renderPage()
+  it('uses the new PO list page and query shape', () => {
+    renderPage('/?search=gundam&supplierId=sup-1&status=READY&paymentStatus=PAID')
 
-    expect(screen.getByText('MasterDetailWorkspace')).toBeInTheDocument()
-    expect(screen.getByText('PurchaseOrdersTable')).toBeInTheDocument()
-    expect(screen.getByText('PurchaseOrderWorkspaceCard')).toBeInTheDocument()
-  })
-
-  it('restores new URL params into the purchase orders query', () => {
-    renderPage('/?search=gundam&supplierId=sup-1')
     expect(useGetPurchaseOrdersQuery).toHaveBeenLastCalledWith(
       expect.objectContaining({
         search: 'gundam',
         supplierId: 'sup-1',
+        status: 'READY',
+        paymentStatus: 'PAID',
+        sortBy: 'orderNumber',
+        sortOrder: 'ASC',
+        page: 1,
+        limit: 25,
       }),
     )
   })
 
-  it('configures the supplier filter with the named supplier type', () => {
+  it('configures supplier, status, and payment filters', () => {
     renderPage()
 
     const latestProps = filterBarSpy.mock.calls.at(-1)?.[0] as {
       config: {
-        fields: Array<{ field: string; type: string }>
+        fields: Array<{ field: string; type: string; valueCase?: string }>
       }
     }
 
     expect(latestProps.config.fields).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          field: 'supplierId',
-          type: 'supplier',
-        }),
+        expect.objectContaining({ field: 'supplierId', type: 'supplier' }),
+        expect.objectContaining({ field: 'status', type: 'purchasing-status' }),
+        expect.objectContaining({ field: 'paymentStatus', type: 'payment-status', valueCase: 'upper' }),
       ]),
     )
   })
 
-  it('ignores legacy date params', () => {
+  it('keeps date params out of the list query when no period is selected', () => {
     renderPage('/?orderDateFrom=2024-01-01')
+
     expect(useGetPurchaseOrdersQuery).toHaveBeenLastCalledWith(
       expect.not.objectContaining({
         orderDateFrom: expect.anything(),
+        orderDateTo: expect.anything(),
       }),
     )
   })

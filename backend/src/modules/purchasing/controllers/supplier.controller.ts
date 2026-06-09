@@ -164,15 +164,6 @@ export class SupplierController {
     return await this.supplierService.getSupplierPurchaseOrders(id);
   }
 
-  @Get(':id/grns')
-  @ApiOperation({ summary: 'Get goods received notes for a supplier' })
-  @ApiResponse({ status: 200, description: 'GRNs retrieved successfully' })
-  async getSupplierGRNs(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<{ data: any[]; total: number }> {
-    return await this.supplierService.getSupplierGRNs(id);
-  }
-
   @Get(':id/payments')
   @ApiOperation({ summary: 'Get vendor payments for a supplier' })
   @ApiResponse({ status: 200, description: 'Payments retrieved successfully' })

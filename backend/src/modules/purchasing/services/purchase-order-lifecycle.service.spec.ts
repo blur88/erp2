@@ -1,30 +1,33 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 
-import { GoodsReceivedNote, PurchaseOrder, VendorPayment } from '../../../database/entities';
-import { GrnStatus } from '../../../database/entities/goods-received-note.entity';
+import {
+  PurchaseOrder,
+  PurchaseOrderItem,
+  PurchaseOrderPaymentStatus,
+  PurchaseOrderStatus,
+  VendorPayment,
+} from '../../../database/entities';
 import { StockMovement } from '../../../database/entities/stock-movement.entity';
 import { AuditLogService } from '../../audit-logs/services';
+import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
+import { AccountingService } from '../../accounting/services/accounting.service';
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
 import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
 
 describe('PurchaseOrderLifecycleService', () => {
   let service: PurchaseOrderLifecycleService;
   let poRepository: jest.Mocked<Repository<PurchaseOrder>>;
-  let grnRepository: jest.Mocked<Repository<GoodsReceivedNote>>;
   let vpRepository: jest.Mocked<Repository<VendorPayment>>;
   let auditLogService: jest.Mocked<AuditLogService>;
+  let dataSource: { transaction: jest.Mock };
+  let stockMovementService: { deleteByReference: jest.Mock; create: jest.Mock };
+  let baseCostCalculator: { addStock: jest.Mock; removeStock: jest.Mock; calculateShippingByValue: jest.Mock };
+  let accountingService: { postPurchaseReceiptEntry: jest.Mock; reverseSourceEntries: jest.Mock };
 
   const poQueryBuilder = {
-    update: jest.fn().mockReturnThis(),
-    set: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    execute: jest.fn().mockResolvedValue(undefined),
-  };
-
-  const grnQueryBuilder = {
     update: jest.fn().mockReturnThis(),
     set: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
@@ -44,19 +47,9 @@ describe('PurchaseOrderLifecycleService', () => {
     supplierId: 'supplier-1',
     totalAmount: 100,
     paidAmount: 0,
+    status: PurchaseOrderStatus.DRAFT,
+    paymentStatus: PurchaseOrderPaymentStatus.UNPAID,
   } as PurchaseOrder;
-
-  const mockDraftGrn = {
-    id: 'grn-1',
-    grnNumber: 'GRN-000001',
-    purchaseOrderId: 'po-1',
-    status: GrnStatus.DRAFT,
-  } as GoodsReceivedNote;
-
-  const mockReceivedGrn = {
-    ...mockDraftGrn,
-    status: GrnStatus.RECEIVED,
-  } as GoodsReceivedNote;
 
   const mockVendorPayment = {
     id: 'vp-1',
@@ -76,163 +69,224 @@ describe('PurchaseOrderLifecycleService', () => {
       },
     } as unknown as jest.Mocked<Repository<PurchaseOrder>>;
 
-    grnRepository = {
-      findOne: jest.fn(),
-      find: jest.fn(),
-      createQueryBuilder: jest.fn().mockReturnValue(grnQueryBuilder),
-    } as unknown as jest.Mocked<Repository<GoodsReceivedNote>>;
-
     vpRepository = {
       find: jest.fn(),
       createQueryBuilder: jest.fn().mockReturnValue(vpQueryBuilder),
     } as unknown as jest.Mocked<Repository<VendorPayment>>;
 
+    dataSource = {
+      transaction: jest.fn(),
+    };
+
     auditLogService = {
       log: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<AuditLogService>;
+
+    stockMovementService = {
+      deleteByReference: jest.fn().mockResolvedValue({ deletedCount: 0 }),
+      create: jest.fn().mockResolvedValue({}),
+    };
+    baseCostCalculator = {
+      addStock: jest.fn(),
+      removeStock: jest.fn(),
+      calculateShippingByValue: jest.fn().mockReturnValue(0),
+    };
+    accountingService = {
+      postPurchaseReceiptEntry: jest.fn(),
+      reverseSourceEntries: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PurchaseOrderLifecycleService,
         { provide: getRepositoryToken(PurchaseOrder), useValue: poRepository },
-        { provide: getRepositoryToken(GoodsReceivedNote), useValue: grnRepository },
         { provide: getRepositoryToken(VendorPayment), useValue: vpRepository },
-        {
-          provide: StockMovementService,
-          useValue: { deleteByReference: jest.fn().mockResolvedValue({ deletedCount: 0 }) },
-        },
+        { provide: StockMovementService, useValue: stockMovementService },
+        { provide: BaseCostCalculatorService, useValue: baseCostCalculator },
+        { provide: AccountingService, useValue: accountingService },
+        { provide: DataSource, useValue: dataSource },
         { provide: AuditLogService, useValue: auditLogService },
       ],
     }).compile();
 
     service = module.get(PurchaseOrderLifecycleService);
+    stockMovementService = module.get(StockMovementService);
+    baseCostCalculator = module.get(BaseCostCalculatorService);
+    accountingService = module.get(AccountingService);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('assertItemsNotLocked', () => {
-    it('throws when purchase order is missing', async () => {
-      poRepository.findOne.mockResolvedValue(null);
+  describe('cancel and uncancel', () => {
+    it('cancel sets status CANCELLED when order is draft and unpaid', async () => {
+      const orderRepo = {
+        findOne: jest.fn().mockResolvedValue({ ...mockOrder }),
+        update: jest.fn().mockResolvedValue(undefined),
+      } as any;
+      dataSource.transaction.mockImplementation(async (cb: any) => cb({ getRepository: () => orderRepo }));
 
-      await expect(service.assertItemsNotLocked('po-1')).rejects.toThrow(NotFoundException);
+      const result = await service.cancel('po-1', 'user-1', 'admin');
+
+      expect(orderRepo.findOne).toHaveBeenCalled();
+      expect(orderRepo.update).toHaveBeenCalledWith('po-1', expect.objectContaining({ status: PurchaseOrderStatus.CANCELLED }));
+      expect(result.status).toBe(PurchaseOrderStatus.CANCELLED);
     });
 
-    it('throws when paid amount is greater than zero', async () => {
-      poRepository.findOne.mockResolvedValue({ ...mockOrder, paidAmount: 50 } as PurchaseOrder);
+    it('cancel rejects when payments were recorded', async () => {
+      const orderRepo = {
+        findOne: jest.fn().mockResolvedValue({
+          ...mockOrder,
+          status: PurchaseOrderStatus.DRAFT,
+          paymentStatus: PurchaseOrderPaymentStatus.PARTIAL,
+        }),
+        update: jest.fn(),
+      } as any;
+      dataSource.transaction.mockImplementation(async (cb: any) => cb({ getRepository: () => orderRepo }));
 
-      await expect(service.assertItemsNotLocked('po-1')).rejects.toThrow(
-        'Cannot edit purchase order items that have been paid. Please unpay first.',
-      );
+      await expect(service.cancel('po-1')).rejects.toThrow(/recorded payments/i);
     });
 
-    it('throws when a received GRN exists', async () => {
-      poRepository.findOne.mockResolvedValue(mockOrder);
-      grnRepository.findOne.mockResolvedValue(mockReceivedGrn);
+    it('uncancel sets status DRAFT when order is cancelled', async () => {
+      const orderRepo = {
+        findOne: jest.fn().mockResolvedValue({
+          ...mockOrder,
+          status: PurchaseOrderStatus.CANCELLED,
+        }),
+        update: jest.fn().mockResolvedValue(undefined),
+      } as any;
+      dataSource.transaction.mockImplementation(async (cb: any) => cb({ getRepository: () => orderRepo }));
 
-      await expect(service.assertItemsNotLocked('po-1')).rejects.toThrow(
-        'Cannot edit purchase order items with received goods. Please return goods first.',
-      );
-    });
+      const result = await service.uncancel('po-1', 'user-1', 'admin');
 
-    it('resolves when no payment or received GRN exists', async () => {
-      poRepository.findOne.mockResolvedValue(mockOrder);
-      grnRepository.findOne.mockResolvedValue(mockDraftGrn);
-
-      await expect(service.assertItemsNotLocked('po-1')).resolves.toBeUndefined();
-    });
-  });
-
-  describe('softDelete', () => {
-    it('throws when purchase order has been paid', async () => {
-      poRepository.findOne.mockResolvedValue({ ...mockOrder, paidAmount: 20 } as PurchaseOrder);
-
-      await expect(service.softDelete('po-1')).rejects.toThrow(
-        'Cannot delete purchase order that has been paid. Please unpay first.',
-      );
-    });
-
-    it('throws when purchase order has received goods', async () => {
-      poRepository.findOne.mockResolvedValue(mockOrder);
-      grnRepository.findOne.mockResolvedValue(mockReceivedGrn);
-
-      await expect(service.softDelete('po-1')).rejects.toThrow(
-        'Cannot delete purchase order with received goods. Please return goods first.',
-      );
-    });
-
-    it('soft deletes the PO, GRN, and vendor payments with the same timestamp', async () => {
-      poRepository.findOne.mockResolvedValue(mockOrder);
-      grnRepository.findOne.mockResolvedValue(mockDraftGrn);
-      vpRepository.find.mockResolvedValue([mockVendorPayment]);
-
-      await service.softDelete('po-1', 'user-1', 'admin');
-
-      expect(poQueryBuilder.execute).toHaveBeenCalled();
-      expect(grnQueryBuilder.execute).toHaveBeenCalled();
-      expect(vpQueryBuilder.execute).toHaveBeenCalledTimes(1);
-
-      const poDeletedAt = poQueryBuilder.set.mock.calls[0][0].deletedAt;
-      const grnDeletedAt = grnQueryBuilder.set.mock.calls[0][0].deletedAt;
-      const vpDeletedAt = vpQueryBuilder.set.mock.calls[0][0].deletedAt;
-
-      expect(poDeletedAt).toBeInstanceOf(Date);
-      expect(poDeletedAt).toEqual(grnDeletedAt);
-      expect(poDeletedAt).toEqual(vpDeletedAt);
-      expect(auditLogService.log).toHaveBeenCalledTimes(3);
+      expect(orderRepo.update).toHaveBeenCalledWith('po-1', expect.objectContaining({ status: PurchaseOrderStatus.DRAFT }));
+      expect(result.status).toBe(PurchaseOrderStatus.DRAFT);
     });
   });
 
-  describe('assertPermanentDeleteAllowed', () => {
-    it('throws when stock movements exist for the purchase order', async () => {
-      const count = jest.fn().mockResolvedValue(2);
-      (poRepository.manager.getRepository as jest.Mock).mockReturnValue({ count });
+  describe('receive and return', () => {
+    it('receive posts stock + cost + GL and sets RECEIVED', async () => {
+      const readyOrder = {
+        ...mockOrder,
+        status: PurchaseOrderStatus.READY,
+        items: [
+          {
+            id: 'po-item-1',
+            productId: 'product-1',
+            quantity: 10,
+            unitCost: 5,
+            receivedQuantity: 0,
+            product: { id: 'product-1' },
+          },
+        ],
+        subtotal: 50,
+        shippingAmount: 0,
+        supplier: { companyName: 'Acme' },
+      } as any;
 
-      await expect(service.assertPermanentDeleteAllowed('po-1')).rejects.toThrow(
-        'Cannot permanently delete purchase order with existing stock movements.',
+      const poRepo = {
+        findOne: jest.fn()
+          .mockResolvedValueOnce(readyOrder)
+          .mockResolvedValueOnce(readyOrder),
+        update: jest.fn().mockResolvedValue(undefined),
+      } as any;
+      const itemRepo = {
+        update: jest.fn().mockResolvedValue(undefined),
+      } as any;
+      dataSource.transaction.mockImplementation(async (cb: any) =>
+        cb({
+          getRepository: (entity: any) => {
+            if (entity === PurchaseOrder) return poRepo;
+            if (entity === PurchaseOrderItem) return itemRepo;
+            return {};
+          },
+        }),
       );
-      expect(poRepository.manager.getRepository).toHaveBeenCalledWith(StockMovement);
-      expect(count).toHaveBeenCalledWith({
-        where: { referenceType: 'purchase_order', referenceId: 'po-1' },
-      });
-    });
 
-    it('throws when the purchase order is not found', async () => {
-      const count = jest.fn().mockResolvedValue(0);
-      (poRepository.manager.getRepository as jest.Mock).mockReturnValue({ count });
-      poRepository.findOne.mockResolvedValue(null);
+      accountingService.postPurchaseReceiptEntry.mockResolvedValue({} as any);
 
-      await expect(service.assertPermanentDeleteAllowed('po-1')).rejects.toThrow(NotFoundException);
-    });
+      const result = await service.receive('po-1', 'user-1', 'admin');
 
-    it('throws when the purchase order has a paid amount greater than zero', async () => {
-      const count = jest.fn().mockResolvedValue(0);
-      (poRepository.manager.getRepository as jest.Mock).mockReturnValue({ count });
-      poRepository.findOne.mockResolvedValue({ ...mockOrder, paidAmount: 50 } as PurchaseOrder);
-      vpRepository.find.mockResolvedValue([]);
-
-      await expect(service.assertPermanentDeleteAllowed('po-1')).rejects.toThrow(
-        'Cannot permanently delete purchase order that has payments recorded. Please unpay first.',
+      expect(stockMovementService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          movementType: 'purchase_receipt',
+          referenceType: 'purchase_order',
+          referenceId: 'po-1',
+        }),
+        'user-1',
+        expect.anything(),
       );
+      expect(baseCostCalculator.addStock).toHaveBeenCalledWith(
+        'product-1',
+        'po-1',
+        10,
+        5,
+        0,
+        expect.any(Date),
+        expect.anything(),
+      );
+      expect(accountingService.postPurchaseReceiptEntry).toHaveBeenCalled();
+      expect(result.status).toBe(PurchaseOrderStatus.RECEIVED);
     });
 
-    it('allows deletion when soft-deleted vendor payments exist but paidAmount is zero', async () => {
-      const count = jest.fn().mockResolvedValue(0);
-      (poRepository.manager.getRepository as jest.Mock).mockReturnValue({ count });
-      poRepository.findOne.mockResolvedValue({ ...mockOrder, paidAmount: 0 } as PurchaseOrder);
-      vpRepository.find.mockResolvedValue([mockVendorPayment]);
+    it('return reverses stock + cost + GL and sets READY', async () => {
+      const receivedOrder = {
+        ...mockOrder,
+        status: PurchaseOrderStatus.RECEIVED,
+        items: [
+          {
+            id: 'po-item-1',
+            productId: 'product-1',
+            quantity: 10,
+            unitCost: 5,
+            receivedQuantity: 10,
+            product: { id: 'product-1' },
+          },
+        ],
+      } as any;
 
-      await expect(service.assertPermanentDeleteAllowed('po-1')).resolves.toBeUndefined();
-    });
+      const poRepo = {
+        findOne: jest.fn()
+          .mockResolvedValueOnce(receivedOrder)
+          .mockResolvedValueOnce(receivedOrder),
+        update: jest.fn().mockResolvedValue(undefined),
+      } as any;
+      const itemRepo = {
+        update: jest.fn().mockResolvedValue(undefined),
+      } as any;
+      dataSource.transaction.mockImplementation(async (cb: any) =>
+        cb({
+          getRepository: (entity: any) => {
+            if (entity === PurchaseOrder) return poRepo;
+            if (entity === PurchaseOrderItem) return itemRepo;
+            return {};
+          },
+        }),
+      );
 
-    it('resolves when neither stock movements nor paid amount exist', async () => {
-      const count = jest.fn().mockResolvedValue(0);
-      (poRepository.manager.getRepository as jest.Mock).mockReturnValue({ count });
-      poRepository.findOne.mockResolvedValue(mockOrder);
-      vpRepository.find.mockResolvedValue([]);
+      accountingService.reverseSourceEntries.mockResolvedValue(undefined);
 
-      await expect(service.assertPermanentDeleteAllowed('po-1')).resolves.toBeUndefined();
+      const result = await service.return('po-1', 'user-1', 'admin');
+
+      expect(baseCostCalculator.removeStock).toHaveBeenCalledWith(
+        'product-1',
+        'po-1',
+        expect.anything(),
+      );
+      expect(stockMovementService.deleteByReference).toHaveBeenCalledWith(
+        'purchase_order',
+        'po-1',
+        expect.anything(),
+      );
+      expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith(
+        'purchase_order',
+        'po-1',
+        'user-1',
+        expect.anything(),
+      );
+      expect(result.status).toBe(PurchaseOrderStatus.READY);
     });
   });
+
 });

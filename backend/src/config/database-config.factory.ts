@@ -17,8 +17,6 @@ import { DocumentNumberSetting } from '../database/entities/document-number-sett
 import { Expense } from '../database/entities/expense.entity';
 import { FiscalPeriod } from '../database/entities/fiscal-period.entity';
 import { FundTransfer } from '../database/entities/fund-transfer.entity';
-import { GoodsReceivedNote } from '../database/entities/goods-received-note.entity';
-import { GoodsReceivedNoteItem } from '../database/entities/goods-received-note-item.entity';
 import { JournalEntry } from '../database/entities/journal-entry.entity';
 import { JournalEntryLine } from '../database/entities/journal-entry-line.entity';
 import { OwnerEquityTransaction } from '../database/entities/owner-equity-transaction.entity';
@@ -110,8 +108,6 @@ export function createDatabaseConfig(
       Expense,
       FiscalPeriod,
       FundTransfer,
-      GoodsReceivedNote,
-      GoodsReceivedNoteItem,
       JournalEntry,
       JournalEntryLine,
       OwnerEquityTransaction,

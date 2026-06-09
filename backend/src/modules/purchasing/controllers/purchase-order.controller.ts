@@ -159,6 +159,42 @@ export class PurchaseOrderController {
     return { data };
   }
 
+  @Post(':id/cancel')
+  @ApiOperation({ summary: 'Cancel purchase order' })
+  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Purchase order cancelled successfully',
+    type: PurchaseOrderResponseDto,
+  })
+  @HttpCode(HttpStatus.OK)
+  async cancel(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<{ data: PurchaseOrderResponseDto }> {
+    const data = await this.purchaseOrderService.cancel(id, currentUserId, currentUsername);
+    return { data };
+  }
+
+  @Post(':id/uncancel')
+  @ApiOperation({ summary: 'Uncancel purchase order' })
+  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'Purchase order uncancelled successfully',
+    type: PurchaseOrderResponseDto,
+  })
+  @HttpCode(HttpStatus.OK)
+  async uncancel(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<{ data: PurchaseOrderResponseDto }> {
+    const data = await this.purchaseOrderService.uncancel(id, currentUserId, currentUsername);
+    return { data };
+  }
+
   @Post(':id/restore')
   @ApiOperation({ summary: 'Restore a deleted purchase order' })
   @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
@@ -242,7 +278,7 @@ export class PurchaseOrderController {
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('username') currentUsername: string,
   ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const data = await this.purchaseOrderService.receiveGoods(id, currentUserId, currentUsername);
+    const data = await this.purchaseOrderService.receive(id, currentUserId, currentUsername);
     return { data };
   }
 
@@ -262,7 +298,16 @@ export class PurchaseOrderController {
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('username') currentUsername: string,
   ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const data = await this.purchaseOrderService.returnGoods(id, currentUserId, currentUsername);
+    const data = await this.purchaseOrderService.return(id, currentUserId, currentUsername);
+    return { data };
+  }
+
+  @Get(':id/payments')
+  @ApiOperation({ summary: 'List vendor payments for purchase order' })
+  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Vendor payments retrieved successfully' })
+  async getPayments(@Param('id', ParseUUIDPipe) id: string): Promise<{ data: any[] }> {
+    const data = await this.purchaseOrderService.getPayments(id);
     return { data };
   }
 
@@ -322,7 +367,18 @@ export class PurchaseOrderController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RecordOrderPaymentsDto,
   ): Promise<PurchaseOrderResponseDto> {
-    return this.purchaseOrderService.recordOrderPayments(id, dto.payments);
+    return this.purchaseOrderService.recordVendorPayments(id, dto.payments);
+  }
+
+  @Post(':id/payments')
+  @ApiOperation({ summary: 'Record vendor payments for a purchase order' })
+  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
+  @HttpCode(HttpStatus.OK)
+  async recordVendorPayments(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RecordOrderPaymentsDto,
+  ): Promise<PurchaseOrderResponseDto> {
+    return this.purchaseOrderService.recordVendorPayments(id, dto.payments);
   }
 
   @Post(':id/unpay')
@@ -339,7 +395,7 @@ export class PurchaseOrderController {
   async markAsUnpaid(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const result = await this.purchaseOrderService.markAsUnpaid(id);
+    const result = await this.purchaseOrderService.unpay(id);
     return { data: result };
   }
 

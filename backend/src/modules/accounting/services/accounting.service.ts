@@ -9,8 +9,7 @@ import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { Payment } from '../../../database/entities/payment.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
-import { GoodsReceivedNote } from '../../../database/entities/goods-received-note.entity';
-import { GoodsReceivedNoteItem } from '../../../database/entities/goods-received-note-item.entity';
+import { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
 import { VendorPayment } from '../../../database/entities/vendor-payment.entity';
 import {
   StockAdjustment,
@@ -355,82 +354,94 @@ export class AccountingService {
   }
 
   /**
-   * Post journal entry for goods received
+   * Post journal entry for purchase receipt
    * DR Inventory Asset, CR Accounts Payable
    */
-  async postGoodsReceivedEntry(
-    grn: GoodsReceivedNote,
+  async postPurchaseReceiptEntry(
+    purchaseOrder: PurchaseOrder,
     userId: string,
+    receiveDate: Date,
     username?: string,
   ): Promise<JournalEntry> {
-    this.logger.log(`Posting goods received entry for ${grn.grnNumber}`);
+    this.logger.log(`Posting purchase receipt entry for ${purchaseOrder.orderNumber}`);
 
-    // Get account mappings
+    const existingEntries = await this.journalEntryService.findBySource(
+      'purchase_order',
+      purchaseOrder.id,
+    );
+    const activeEntry = existingEntries.find(
+      (entry) =>
+        entry.status === JournalEntryStatus.POSTED || entry.status === JournalEntryStatus.DRAFT,
+    );
+    if (activeEntry) {
+      this.logger.warn(
+        `Journal entry already exists for purchase order ${purchaseOrder.orderNumber} (${activeEntry.referenceNumber}) - skipping duplicate`,
+      );
+      return activeEntry as any;
+    }
+
     const mappings = await this.accountMappingService.getMappings();
-
-    // Validate required mappings exist
     this.validateMapping(mappings, MappingType.PURCHASE_INVENTORY, 'Inventory Asset');
     this.validateMapping(mappings, MappingType.PURCHASE_AP, 'Accounts Payable');
 
-    // Validate period is open
-    await this.validatePeriodOpen(grn.receivedDate);
-
-    // Get the period for this date
+    await this.validatePeriodOpen(receiveDate);
     const periodValidation = await this.fiscalPeriodService.validatePeriod({
-      date: grn.receivedDate,
+      date: receiveDate,
     });
-
     if (!periodValidation.period) {
-      throw new BadRequestException(`No fiscal period found for date ${grn.receivedDate}`);
+      throw new BadRequestException(`No fiscal period found for date ${receiveDate}`);
     }
 
-    // Calculate total from GRN items
-    const totalAmount = this.calculateGRNTotal(grn.items);
+    if (purchaseOrder.items == null) {
+      throw new BadRequestException(
+        `Cannot post purchase receipt entry for ${purchaseOrder.orderNumber}: items relation not loaded`,
+      );
+    }
 
-    // Build journal entry lines
-    const lines: CreateJournalEntryLineDto[] = [
-      // DR Inventory Asset
-      {
-        accountId: mappings[MappingType.PURCHASE_INVENTORY],
-        debitAmount: totalAmount,
-        creditAmount: 0,
-        memo: 'Inventory received',
-      },
-      // CR Accounts Payable
-      {
-        accountId: mappings[MappingType.PURCHASE_AP],
-        debitAmount: 0,
-        creditAmount: totalAmount,
-        memo: 'Amount payable to supplier',
-      },
-    ];
+    const totalAmount =
+      purchaseOrder.items.reduce((sum, item) => sum + Number(item.totalAmount ?? 0), 0) +
+      Number(purchaseOrder.shippingAmount ?? 0);
 
-    // Create journal entry DTO
+    const supplierName =
+      purchaseOrder.supplier?.companyName ?? (purchaseOrder.supplier as any)?.name ?? '';
+
     const entryDto: CreateJournalEntryDto = {
-      entryDate: new Date(grn.receivedDate),
-      description: `GRN ${grn.grnNumber} from ${grn.supplier.companyName}`,
+      entryDate: new Date(receiveDate),
+      description: `Purchase Order ${purchaseOrder.orderNumber} from ${supplierName}`.trim(),
       fiscalPeriodId: periodValidation.period.id,
-      sourceType: 'goods_received_note',
-      sourceId: grn.id,
-      lines,
+      sourceType: 'purchase_order',
+      sourceId: purchaseOrder.id,
+      lines: [
+        {
+          accountId: mappings[MappingType.PURCHASE_INVENTORY],
+          debitAmount: totalAmount,
+          creditAmount: 0,
+          memo: 'Inventory received',
+        },
+        {
+          accountId: mappings[MappingType.PURCHASE_AP],
+          debitAmount: 0,
+          creditAmount: totalAmount,
+          memo: 'Amount payable to supplier',
+        },
+      ],
     };
 
-    // Create and post the entry
     const entry = await this.journalEntryService.create(entryDto, userId);
     const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
     await this.auditLogService.log(
       'AUTO_POST',
       'JournalEntry',
-      `Auto-posted goods received journal entry: ${grn.grnNumber}`,
+      `Auto-posted purchase receipt journal entry: ${purchaseOrder.orderNumber}`,
       {
         entityId: entry.id,
         userId: userId ?? 'system',
         username,
-        metadata: { sourceType: 'goods_received_note', sourceId: grn.id },
+        metadata: { sourceType: 'purchase_order', sourceId: purchaseOrder.id },
       },
     );
 
-    this.logger.log(`Goods received entry posted successfully: ${postedEntry.referenceNumber}`);
+    this.logger.log(`Purchase receipt entry posted successfully: ${postedEntry.referenceNumber}`);
     return postedEntry as any;
   }
 
@@ -1160,17 +1171,6 @@ export class AccountingService {
     return items.reduce((total, item) => {
       const baseCost = Number(item.product?.baseCost || 0);
       return total + Number(item.quantity) * baseCost;
-    }, 0);
-  }
-
-  /**
-   * Calculate total amount from GRN items
-   */
-  private calculateGRNTotal(items: GoodsReceivedNoteItem[]): number {
-    return items.reduce((total, item) => {
-      // Try to get unitCost from purchaseOrderItem relationship if available
-      const unitCost = item.purchaseOrderItem?.unitCost || 0;
-      return total + Number(item.receivedQuantity) * Number(unitCost);
     }, 0);
   }
 
