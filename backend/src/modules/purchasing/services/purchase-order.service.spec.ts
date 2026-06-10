@@ -484,5 +484,36 @@ describe('PurchaseOrderService', () => {
         'system',
       );
     });
+
+    it('rejects payments for a CANCELLED purchase order', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValue({
+        ...mockPurchaseOrderForPayment,
+        status: PurchaseOrderStatus.CANCELLED,
+      } as unknown as PurchaseOrder);
+
+      await expect(
+        service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 200 }]),
+      ).rejects.toThrow(/CANCELLED/);
+      expect(vendorPaymentService.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects payments for a RECEIVED purchase order', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValue({
+        ...mockPurchaseOrderForPayment,
+        status: PurchaseOrderStatus.RECEIVED,
+      } as unknown as PurchaseOrder);
+
+      await expect(
+        service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 200 }]),
+      ).rejects.toThrow(/RECEIVED/);
+    });
+
+    it('rejects a non-positive payment line amount', async () => {
+      vendorPaymentRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 0 }]),
+      ).rejects.toThrow(/greater than zero/);
+    });
   });
 });

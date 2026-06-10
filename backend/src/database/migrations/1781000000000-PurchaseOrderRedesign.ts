@@ -28,7 +28,11 @@ export class PurchaseOrderRedesign1781000000000 implements MigrationInterface {
       UPDATE "purchase_orders" po
       SET "status" = CASE
         WHEN po."deletedAt" IS NOT NULL THEN 'CANCELLED'
-        WHEN NOT EXISTS (
+        WHEN EXISTS (
+          SELECT 1 FROM "purchase_order_items" poi
+          WHERE poi."purchaseOrderId" = po."id"
+        )
+        AND NOT EXISTS (
           SELECT 1
           FROM "purchase_order_items" poi
           WHERE poi."purchaseOrderId" = po."id"

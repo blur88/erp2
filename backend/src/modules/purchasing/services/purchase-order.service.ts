@@ -747,11 +747,24 @@ export class PurchaseOrderService extends BaseCrudService<
       throw new NotFoundException('Purchase order not found');
     }
 
+    if (
+      purchaseOrder.status === PurchaseOrderStatus.CANCELLED ||
+      purchaseOrder.status === PurchaseOrderStatus.RECEIVED
+    ) {
+      throw new BadRequestException(
+        `Cannot record payments for a ${purchaseOrder.status} purchase order.`,
+      );
+    }
+
     if (!payments || payments.length === 0) {
       throw new BadRequestException('At least one payment line is required');
     }
 
-    const totalNewPayment = payments.reduce((sum, p) => sum + p.amount, 0);
+    if (payments.some((p) => !(Number(p.amount) > 0))) {
+      throw new BadRequestException('Each payment line amount must be greater than zero');
+    }
+
+    const totalNewPayment = payments.reduce((sum, p) => sum + Number(p.amount), 0);
 
     // Check for a previously soft-deleted payment for this PO (from a prior unpay)
     const previousPayment = await this.vendorPaymentRepository.findOne({
