@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react'
 import { keyframes } from '@emotion/react'
 import {
   Box,
-  Chip,
   CircularProgress,
   Divider,
   IconButton,
@@ -23,6 +22,7 @@ import { default as DatabaseIcon } from '@mui/icons-material/Storage'
 
 import { ApiService } from '@/services/api'
 import TopBarUtilityPanel from './TopBarUtilityPanel'
+import { StatusChip } from '@/components/common/StatusChip'
 
 interface ServiceHealth {
   status: 'healthy' | 'unhealthy' | 'unknown'
@@ -80,15 +80,6 @@ const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, onOpen, onClose }
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     onOpen(event)
     void checkHealth()
-  }
-
-  const getStatusColor = (status: string): 'success' | 'error' | 'warning' | 'default' => {
-    switch (status) {
-      case 'healthy': return 'success'
-      case 'unhealthy': return 'error'
-      case 'degraded': return 'warning'
-      default: return 'default'
-    }
   }
 
   const getOverallStatus = (): 'healthy' | 'degraded' | 'unhealthy' | 'unknown' => {
@@ -168,7 +159,7 @@ const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, onOpen, onClose }
               <Box sx={{ mb: 2 }}>
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>Overall Status</Typography>
                 <Box sx={{ mt: 0.5 }}>
-                  <Chip label={health.status.toUpperCase()} color={getStatusColor(health.status)} size="small" sx={{ fontWeight: 600 }} />
+                  <StatusChip status={health.status} label={health.status.toUpperCase()} sx={{ fontWeight: 600 }} />
                   <Typography variant="caption" sx={{ color: 'text.secondary', ml: 1 }}>
                     Uptime: {formatUptime(health.uptime)}
                   </Typography>
@@ -192,7 +183,7 @@ const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, onOpen, onClose }
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <Typography variant="body2">{label}</Typography>
-                          <Chip label={status.toUpperCase()} color={getStatusColor(status)} size="small" sx={{ height: 20, fontSize: '0.65rem' }} />
+                          <StatusChip status={status} label={status.toUpperCase()} sx={{ height: 20, fontSize: '0.65rem' }} />
                         </Box>
                       }
                       secondary={<Typography variant="caption" sx={{ color: 'text.secondary' }}>{message}</Typography>}

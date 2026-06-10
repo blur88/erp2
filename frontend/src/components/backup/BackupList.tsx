@@ -18,6 +18,7 @@ import { default as RestoreIcon } from '@mui/icons-material/Restore'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as InfoIcon } from '@mui/icons-material/Info';
 import { useAppDispatch } from '@/hooks/useRedux';
+import { StatusChip } from '@/components/common/StatusChip';
 import type { BackupLog } from '@/store/api/backupApi';
 import { useDeleteBackupMutation } from '@/store/api/backupApi';
 import { setCurrentBackup } from '@/store/slices/backupSlice';
@@ -69,19 +70,6 @@ const BackupList: React.FC<BackupListProps> = ({ backups }) => {
   const handleViewDetails = (backup: BackupLog) => {
     dispatch(setCurrentBackup(backup));
     setDetailsDialogOpen(true);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'success';
-      case 'in_progress':
-        return 'info';
-      case 'failed':
-        return 'error';
-      default:
-        return 'default';
-    }
   };
 
   const formatBytes = (bytes: number | null) => {
@@ -145,11 +133,7 @@ const BackupList: React.FC<BackupListProps> = ({ backups }) => {
                     />
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={backup.status}
-                      size="small"
-                      color={getStatusColor(backup.status) as any}
-                    />
+                    <StatusChip status={backup.status} />
                   </TableCell>
                   <TableCell>{formatBytes(typeof backup.size === 'string' ? parseInt(backup.size, 10) : backup.size)}</TableCell>
                   <TableCell>
