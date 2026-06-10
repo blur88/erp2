@@ -11,6 +11,7 @@ interface PurchaseOrderActionBarProps {
   onReturn: () => void
   onEdit: () => void
   onCancel: () => void
+  onUncancel: () => void
   onUnpay: () => void
   onPrint: () => void
 }
@@ -22,6 +23,7 @@ export default function PurchaseOrderActionBar({
   onReturn,
   onEdit,
   onCancel,
+  onUncancel,
   onUnpay,
   onPrint,
 }: PurchaseOrderActionBarProps) {
@@ -33,6 +35,7 @@ export default function PurchaseOrderActionBar({
     return: onReturn,
     edit: onEdit,
     cancel: onCancel,
+    uncancel: onUncancel,
     unpay: onUnpay,
     print: onPrint,
   }
@@ -43,6 +46,7 @@ export default function PurchaseOrderActionBar({
     return: 'Return',
     edit: 'Edit',
     cancel: 'Cancel',
+    uncancel: 'Uncancel',
     unpay: 'Unpay',
     print: 'Print',
   }
@@ -53,6 +57,7 @@ export default function PurchaseOrderActionBar({
     return: 'outlined',
     edit: 'outlined',
     cancel: 'outlined',
+    uncancel: 'outlined',
     unpay: 'outlined',
     print: 'outlined',
   }

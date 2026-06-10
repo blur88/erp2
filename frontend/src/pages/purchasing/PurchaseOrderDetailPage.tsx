@@ -18,6 +18,7 @@ import {
   useReceiveGoodsMutation,
   useRecordVendorPaymentsMutation,
   useReturnGoodsMutation,
+  useUncancelPurchaseOrderMutation,
 } from '@/store/api/purchasingApi'
 import type { VendorPayment } from '@/types'
 
@@ -29,7 +30,7 @@ import PurchaseOrderPaymentStatusChip from './components/PurchaseOrderPaymentSta
 import PurchaseOrderPrintDialog from './components/PurchaseOrderPrintDialog'
 import PurchaseOrderStatusChip from './components/PurchaseOrderStatusChip'
 
-type Dialog = 'pay' | 'receive' | 'return' | 'cancel' | 'unpay' | 'print' | null
+type Dialog = 'pay' | 'receive' | 'return' | 'cancel' | 'uncancel' | 'unpay' | 'print' | null
 
 interface TabPanelProps {
   children?: ReactNode
@@ -87,6 +88,7 @@ export default function PurchaseOrderDetailPage() {
   }, [order?.orderNumber, navigate])
 
   const [cancelOrder, { isLoading: isCancelling }] = useCancelPurchaseOrderMutation()
+  const [uncancelOrder, { isLoading: isUncancelling }] = useUncancelPurchaseOrderMutation()
   const [receiveOrder, { isLoading: isReceiving }] = useReceiveGoodsMutation()
   const [returnOrder, { isLoading: isReturning }] = useReturnGoodsMutation()
   const [markUnpaid, { isLoading: isUnpaying }] = useMarkPurchaseOrderAsUnpaidMutation()
@@ -151,6 +153,16 @@ export default function PurchaseOrderDetailPage() {
     }
   }
 
+  const handleUncancelConfirm = async () => {
+    try {
+      await uncancelOrder(order.id).unwrap()
+      showSuccess(`Purchase order ${order.orderNumber} uncancelled`)
+      setActiveDialog(null)
+    } catch (error) {
+      showError(getErrorMessage(error, 'Failed to uncancel purchase order'))
+    }
+  }
+
   const handleUnpayConfirm = async () => {
     try {
       await markUnpaid(order.id).unwrap()
@@ -183,6 +195,7 @@ export default function PurchaseOrderDetailPage() {
         onReturn={() => setActiveDialog('return')}
         onEdit={() => navigate(`/purchasing/orders/${order.orderNumber}/edit`)}
         onCancel={() => setActiveDialog('cancel')}
+        onUncancel={() => setActiveDialog('uncancel')}
         onUnpay={() => setActiveDialog('unpay')}
         onPrint={() => setActiveDialog('print')}
       />
@@ -248,11 +261,21 @@ export default function PurchaseOrderDetailPage() {
         open={activeDialog === 'cancel'}
         title="Cancel Purchase Order"
         message={`Cancel this purchase order? (${order.orderNumber})`}
-        confirmText="Cancel"
+        confirmText="Cancel Order"
         severity="error"
         onConfirm={handleCancelConfirm}
         onCancel={() => setActiveDialog(null)}
         loading={isCancelling}
+      />
+
+      <ConfirmationDialog
+        open={activeDialog === 'uncancel'}
+        title="Uncancel Purchase Order"
+        message={`Restore this cancelled purchase order to draft? (${order.orderNumber})`}
+        confirmText="Uncancel"
+        onConfirm={handleUncancelConfirm}
+        onCancel={() => setActiveDialog(null)}
+        loading={isUncancelling}
       />
 
       <ConfirmationDialog

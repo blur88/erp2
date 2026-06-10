@@ -26,7 +26,9 @@ export function getPurchaseOrderActionMetas(order: PurchaseOrder): PurchaseOrder
   const isUnpaid = paymentStatus === 'UNPAID'
 
   if (isCancelled) {
-    return []
+    // Mirror Sales Order: a cancelled order can be uncancelled (back to DRAFT)
+    // and still printed. All other actions are unavailable.
+    return [{ action: 'uncancel' }, { action: 'print' }]
   }
 
   const metas: PurchaseOrderActionMeta[] = []
