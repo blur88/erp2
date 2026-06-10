@@ -1,8 +1,10 @@
+export type StockStatusKey = 'in_stock' | 'low_stock' | 'out_of_stock'
+
 export const getStockStatus = (
   stockQuantity: number,
   lowStockThreshold: number,
-): { label: string; color: 'error' | 'warning' | 'success' } => {
-  if (stockQuantity <= 0) return { label: 'Out of Stock', color: 'error' }
-  if (stockQuantity <= lowStockThreshold) return { label: 'Low Stock', color: 'warning' }
-  return { label: 'In Stock', color: 'success' }
+): StockStatusKey => {
+  if (stockQuantity <= 0) return 'out_of_stock'
+  if (stockQuantity <= lowStockThreshold) return 'low_stock'
+  return 'in_stock'
 }
