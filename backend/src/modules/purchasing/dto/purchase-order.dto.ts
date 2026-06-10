@@ -165,6 +165,9 @@ export class PurchaseOrderItemResponseDto {
   @ApiProperty({ description: 'Unit price' })
   unitPrice: number;
 
+  @ApiPropertyOptional({ description: 'Discount type', enum: ['percentage', 'fixed_amount'] })
+  discountType?: 'percentage' | 'fixed_amount';
+
   @ApiProperty({ description: 'Discount percentage' })
   discountPercent: number;
 

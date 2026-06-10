@@ -174,13 +174,24 @@ const CreatePurchaseOrderPage: React.FC = () => {
       const itemsToReset = orderToLoad.items?.map((item: any) => {
         const productId = item.productId || item.product?.id || ''
 
+        // Prefer the stored discountType; fall back to inferring from which
+        // discount field is populated for older records that omit it.
+        const discountType: 'percent' | 'amount' =
+          item.discountType === 'fixed_amount'
+            ? 'amount'
+            : item.discountType === 'percentage'
+              ? 'percent'
+              : item.discountPercent > 0
+                ? 'percent'
+                : 'amount'
+
         return {
           productId,
           product: item.product,
           quantity: item.quantity || 1,
           unitPrice: item.unitPrice || item.unitCost || 0,
-          discountType: (item.discountPercent > 0 ? 'percent' : 'amount') as 'percent' | 'amount',
-          discountValue: item.discountPercent || item.discountAmount || 0,
+          discountType,
+          discountValue: discountType === 'percent' ? (item.discountPercent || 0) : (item.discountAmount || 0),
           discountPercent: item.discountPercent || 0,
           totalPrice: item.totalAmount || 0,
         }

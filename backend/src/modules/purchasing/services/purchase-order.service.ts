@@ -968,6 +968,7 @@ export class PurchaseOrderService extends BaseCrudService<
         description: item.product?.name || 'Unknown Product',
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitCost),
+        discountType: item.discountType,
         discountPercent: Number(item.discountPercent),
         discountAmount: Number(item.discountAmount),
         taxPercent: 0,
