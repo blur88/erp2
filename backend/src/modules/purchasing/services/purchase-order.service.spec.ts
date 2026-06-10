@@ -578,4 +578,49 @@ describe('PurchaseOrderService', () => {
       ).rejects.toThrow(/greater than zero/);
     });
   });
+
+  describe('duplicateOrder', () => {
+    it('builds a CreatePurchaseOrderDto copying supplier, notes, and full item discount shape, then calls create', async () => {
+      const original = {
+        id: 'po-1',
+        supplierId: 'sup-1',
+        notes: 'hello',
+        shippingAmount: '5',
+        items: [
+          {
+            productId: 'p-1',
+            quantity: '2',
+            unitCost: '10',
+            discountType: 'fixed_amount',
+            discountPercent: '0',
+            discountAmount: '1.5',
+          },
+        ],
+      }
+      purchaseOrderRepository.findOne.mockResolvedValueOnce(original as any)
+      const createSpy = jest
+        .spyOn(service, 'create')
+        .mockResolvedValue(mockReturnDto as any)
+
+      await service.duplicateOrder('po-1', 'user-1')
+
+      expect(createSpy).toHaveBeenCalledTimes(1)
+      const dto = createSpy.mock.calls[0][0]
+      expect(dto.supplierId).toBe('sup-1')
+      expect(dto.notes).toBe('hello')
+      expect(dto.items[0]).toMatchObject({
+        productId: 'p-1',
+        quantity: 2,
+        unitPrice: 10,
+        discountType: 'fixed_amount',
+        discountPercent: 0,
+        discountAmount: 1.5,
+      })
+    })
+
+    it('throws NotFoundException when the original does not exist', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValueOnce(null as any)
+      await expect(service.duplicateOrder('missing', 'user-1')).rejects.toThrow('Purchase order not found')
+    })
+  })
 });

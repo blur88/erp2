@@ -718,6 +718,37 @@ export class PurchaseOrderService extends BaseCrudService<
     return this.markAsUnpaid(id, userId, username);
   }
 
+  async duplicateOrder(id: string, userId: string): Promise<PurchaseOrderResponseDto> {
+    const original = await this.purchaseOrderRepository.findOne({
+      where: { id },
+      relations: { items: true },
+    });
+
+    if (!original) {
+      throw new NotFoundException('Purchase order not found');
+    }
+
+    const duplicateData: CreatePurchaseOrderDto = {
+      supplierId: original.supplierId,
+      orderDate: new Date().toISOString().split('T')[0],
+      notes: original.notes,
+      shippingAmount: Number(original.shippingAmount || 0),
+      items: (original.items ?? []).map((item) => ({
+        productId: item.productId,
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitCost),
+        // Copy the full discount shape — a fixed_amount discount has
+        // discountPercent = 0, so omitting discountType + discountAmount
+        // would silently drop it.
+        discountType: item.discountType,
+        discountPercent: Number(item.discountPercent ?? 0),
+        discountAmount: Number(item.discountAmount ?? 0),
+      })),
+    };
+
+    return this.create(duplicateData, userId);
+  }
+
   /**
    * Record multiple payment lines for a purchase order
    * Each line creates a separate VendorPayment with journal posting
