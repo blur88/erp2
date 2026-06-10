@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import PaymentIcon from '@mui/icons-material/Payment'
 import ReceiptIcon from '@mui/icons-material/Receipt'
@@ -12,15 +12,17 @@ import VendorPaymentDialog from '@/components/purchasing/VendorPaymentDialog'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelPurchaseOrderMutation,
+  useDuplicatePurchaseOrderMutation,
   useGetPurchaseOrderByNumberQuery,
   useGetPurchaseOrderPaymentsQuery,
-  useMarkPurchaseOrderAsUnpaidMutation,
   useReceiveGoodsMutation,
+  useRecordPurchaseOrderRefundsMutation,
   useRecordVendorPaymentsMutation,
   useReturnGoodsMutation,
   useUncancelPurchaseOrderMutation,
 } from '@/store/api/purchasingApi'
 import type { VendorPayment } from '@/types'
+import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
 
 import PurchaseOrderActionBar from './components/PurchaseOrderActionBar'
 import PurchaseOrderJournalEntriesTab from './components/PurchaseOrderJournalEntriesTab'
@@ -29,7 +31,7 @@ import PurchaseOrderPaymentsTab from './components/PurchaseOrderPaymentsTab'
 import PurchaseOrderPrintDialog from './components/PurchaseOrderPrintDialog'
 import { StatusChip } from '@/components/common/StatusChip'
 
-type Dialog = 'pay' | 'receive' | 'return' | 'cancel' | 'uncancel' | 'unpay' | 'print' | null
+type Dialog = 'pay' | 'receive' | 'return' | 'cancel' | 'uncancel' | 'refund' | 'print' | null
 
 interface TabPanelProps {
   children?: ReactNode
@@ -90,8 +92,27 @@ export default function PurchaseOrderDetailPage() {
   const [uncancelOrder, { isLoading: isUncancelling }] = useUncancelPurchaseOrderMutation()
   const [receiveOrder, { isLoading: isReceiving }] = useReceiveGoodsMutation()
   const [returnOrder, { isLoading: isReturning }] = useReturnGoodsMutation()
-  const [markUnpaid, { isLoading: isUnpaying }] = useMarkPurchaseOrderAsUnpaidMutation()
+  const [duplicateOrder] = useDuplicatePurchaseOrderMutation()
+  const [recordRefunds] = useRecordPurchaseOrderRefundsMutation()
   const [recordPayments] = useRecordVendorPaymentsMutation()
+
+  // Build RefundSource[] from vendor payments (net by payment)
+  const refundSources: RefundSource[] = useMemo(() => {
+    const netByPayment: Record<string, { paid: number; refunded: number; label: string }> = {}
+    for (const p of payments ?? []) {
+      const key = p.id
+      const entry = (netByPayment[key] ??= { paid: 0, refunded: 0, label: p.paymentNumber ?? 'Payment' })
+      const amt = Number(p.amount)
+      if (amt >= 0) entry.paid += amt
+      else entry.refunded += Math.abs(amt)
+    }
+    return Object.entries(netByPayment).map(([id, v]) => ({
+      id,
+      label: v.label,
+      paidAmount: v.paid,
+      alreadyRefunded: v.refunded,
+    }))
+  }, [payments])
 
   if (isLoading) {
     return (
@@ -162,13 +183,28 @@ export default function PurchaseOrderDetailPage() {
     }
   }
 
-  const handleUnpayConfirm = async () => {
+  const handleDuplicateOrder = async () => {
     try {
-      await markUnpaid(order.id).unwrap()
-      showSuccess(`Purchase order ${order.orderNumber} marked unpaid`)
+      const result = await duplicateOrder(order.id).unwrap()
+      showSuccess(`Duplicate created: ${result.orderNumber}`)
+    } catch (error) {
+      showError(getErrorMessage(error, `Failed to duplicate ${order.orderNumber}`))
+    }
+  }
+
+  const handleSubmitRefund = async (
+    lines: { sourceId: string; amount: number; reference?: string }[],
+  ) => {
+    try {
+      await recordRefunds({
+        id: order.id,
+        refunds: lines.map((l) => ({ vendorPaymentId: l.sourceId, amount: l.amount, reason: l.reference })),
+      }).unwrap()
+      showSuccess(`Refund recorded for ${order.orderNumber}`)
       setActiveDialog(null)
     } catch (error) {
-      showError(getErrorMessage(error, 'Failed to unpay purchase order'))
+      showError(getErrorMessage(error, `Failed to record refund for ${order.orderNumber}`))
+      throw error
     }
   }
 
@@ -195,7 +231,8 @@ export default function PurchaseOrderDetailPage() {
         onEdit={() => navigate(`/purchasing/orders/${order.orderNumber}/edit`)}
         onCancel={() => setActiveDialog('cancel')}
         onUncancel={() => setActiveDialog('uncancel')}
-        onUnpay={() => setActiveDialog('unpay')}
+        onDuplicate={handleDuplicateOrder}
+        onRefund={() => setActiveDialog('refund')}
         onPrint={() => setActiveDialog('print')}
       />
 
@@ -277,15 +314,13 @@ export default function PurchaseOrderDetailPage() {
         loading={isUncancelling}
       />
 
-      <ConfirmationDialog
-        open={activeDialog === 'unpay'}
-        title="Mark Unpaid"
-        message={`Remove payment records for this purchase order? (${order.orderNumber})`}
-        confirmText="Unpay"
-        severity="warning"
-        onConfirm={handleUnpayConfirm}
-        onCancel={() => setActiveDialog(null)}
-        loading={isUnpaying}
+      <RefundDialog
+        open={activeDialog === 'refund'}
+        onClose={() => setActiveDialog(null)}
+        onSubmit={handleSubmitRefund}
+        sources={refundSources}
+        orderNumber={order.orderNumber}
+        totalAmount={order.totalAmount ?? 0}
       />
 
       {activeDialog === 'pay' && (
