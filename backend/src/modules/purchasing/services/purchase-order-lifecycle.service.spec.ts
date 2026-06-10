@@ -176,6 +176,7 @@ describe('PurchaseOrderLifecycleService', () => {
             productId: 'product-1',
             quantity: 10,
             unitCost: 5,
+            totalAmount: 50,
             receivedQuantity: 0,
             product: { id: 'product-1' },
           },
@@ -228,6 +229,65 @@ describe('PurchaseOrderLifecycleService', () => {
       );
       expect(accountingService.postPurchaseReceiptEntry).toHaveBeenCalled();
       expect(result.status).toBe(PurchaseOrderStatus.RECEIVED);
+    });
+
+    it('capitalizes inventory at the NET (after-discount) unit cost so GL matches the subledger', async () => {
+      // unitCost 10, but line total 80 for qty 10 -> 20% line discount -> net 8/unit.
+      // The GL entry debits inventory from item.totalAmount (80), so the cost
+      // batch must also capitalize 8/unit, not the raw 10.
+      const discountedOrder = {
+        ...mockOrder,
+        status: PurchaseOrderStatus.READY,
+        items: [
+          {
+            id: 'po-item-1',
+            productId: 'product-1',
+            quantity: 10,
+            unitCost: 10,
+            totalAmount: 80,
+            receivedQuantity: 0,
+            product: { id: 'product-1' },
+          },
+        ],
+        subtotal: 80,
+        shippingAmount: 0,
+        supplier: { companyName: 'Acme' },
+      } as any;
+
+      const poRepo = {
+        findOne: jest.fn().mockResolvedValueOnce(discountedOrder).mockResolvedValueOnce(discountedOrder),
+        update: jest.fn().mockResolvedValue(undefined),
+      } as any;
+      const itemRepo = { update: jest.fn().mockResolvedValue(undefined) } as any;
+      dataSource.transaction.mockImplementation(async (cb: any) =>
+        cb({
+          getRepository: (entity: any) => {
+            if (entity === PurchaseOrder) return poRepo;
+            if (entity === PurchaseOrderItem) return itemRepo;
+            return {};
+          },
+        }),
+      );
+      accountingService.postPurchaseReceiptEntry.mockResolvedValue({} as any);
+
+      await service.receive('po-1', 'user-1', 'admin');
+
+      // 4th positional arg to addStock is the net unit cost = 80 / 10 = 8.
+      expect(baseCostCalculator.addStock).toHaveBeenCalledWith(
+        'product-1',
+        'po-1',
+        10,
+        8,
+        0,
+        expect.any(Date),
+        expect.anything(),
+      );
+      // Stock movement unitValue must also be the net cost.
+      expect(stockMovementService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ unitValue: 8 }),
+        'user-1',
+        expect.anything(),
+      );
     });
 
     it('return reverses stock + cost + GL and sets READY', async () => {

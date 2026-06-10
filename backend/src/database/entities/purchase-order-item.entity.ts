@@ -207,12 +207,6 @@ export class PurchaseOrderItem extends BaseEntity {
     let unitDiscount = 0;
     let totalDiscountAmount = 0;
 
-    console.log('[calculateTotals] discountType:', this.discountType);
-    console.log('[calculateTotals] discountAmount:', this.discountAmount);
-    console.log('[calculateTotals] discountPercent:', this.discountPercent);
-    console.log('[calculateTotals] unitCost:', this.unitCost);
-    console.log('[calculateTotals] quantity:', this.quantity);
-
     if (this.discountType === 'percentage') {
       // Percentage discount: apply to unit price
       unitDiscount = this.discountPercent > 0
@@ -225,9 +219,6 @@ export class PurchaseOrderItem extends BaseEntity {
       totalDiscountAmount = unitDiscount * Number(this.quantity);
     }
 
-    console.log('[calculateTotals] unitDiscount:', unitDiscount);
-    console.log('[calculateTotals] totalDiscountAmount:', totalDiscountAmount);
-
     // Discounted unit price
     const discountedUnitPrice = Number(this.unitCost) - unitDiscount;
 
@@ -238,8 +229,6 @@ export class PurchaseOrderItem extends BaseEntity {
 
     // Calculate total amount: discounted unit price × quantity
     this.totalAmount = discountedUnitPrice * Number(this.quantity);
-
-    console.log('[calculateTotals] totalAmount:', this.totalAmount);
   }
 
   @BeforeInsert()

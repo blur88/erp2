@@ -159,9 +159,22 @@ export class PurchaseOrderLifecycleService {
 
       for (const item of purchaseOrder.items || []) {
         const quantity = Number(item.quantity);
-        const unitCost = Number(item.unitCost);
+        // Capitalize inventory at the NET (after line discount) unit cost so the
+        // cost-history subledger matches the GL inventory debit, which the
+        // accounting entry posts from item.totalAmount (also net of discount).
+        // PO.subtotal is the sum of item.totalAmount, so the shipping-by-value
+        // share is computed on the same net basis for both numerator and
+        // denominator.
+        // item.totalAmount is the line total net of discount; divide back to a
+        // per-unit net cost. Fall back to the raw unitCost if the line total is
+        // missing or non-positive.
+        const lineTotal = Number(item.totalAmount);
+        const netUnitCost =
+          quantity > 0 && Number.isFinite(lineTotal) && lineTotal > 0
+            ? lineTotal / quantity
+            : Number(item.unitCost);
         const shippingPerUnit = this.baseCostCalculator.calculateShippingByValue(
-          unitCost,
+          netUnitCost,
           quantity,
           poSubtotal,
           poShipping,
@@ -174,7 +187,7 @@ export class PurchaseOrderLifecycleService {
           reason: `Purchase order received: ${purchaseOrder.orderNumber}`,
           referenceType: 'purchase_order',
           referenceId: purchaseOrder.id,
-          unitValue: unitCost,
+          unitValue: netUnitCost,
         };
 
         await this.stockMovementService.create(movementDto, userId, manager);
@@ -182,7 +195,7 @@ export class PurchaseOrderLifecycleService {
           item.productId,
           purchaseOrder.id,
           quantity,
-          unitCost,
+          netUnitCost,
           shippingPerUnit,
           receiveDate,
           manager,
