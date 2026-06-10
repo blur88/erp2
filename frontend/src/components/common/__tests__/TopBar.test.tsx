@@ -84,6 +84,33 @@ describe('TopBar breadcrumbs', () => {
     renderTopBar('/settings/inventory-costing')
     expect(screen.getByText('Inventory Costing')).toBeInTheDocument()
   })
+
+  it('shows order number leaf for sales order detail (no location.state)', () => {
+    mockUseMatches.mockReturnValue([
+      { handle: { title: 'Sales Order' }, params: { orderNumber: 'SO-123' } },
+    ])
+    renderTopBar('/sales/orders/SO-123/view')
+    expect(screen.getByText('SO-123')).toBeInTheDocument()
+    expect(screen.queryByText('Sales Order')).not.toBeInTheDocument()
+  })
+
+  it('shows order number leaf for purchase order detail (no location.state)', () => {
+    mockUseMatches.mockReturnValue([
+      { handle: { title: 'Purchase Order' }, params: { orderNumber: 'PO-456' } },
+    ])
+    renderTopBar('/purchasing/orders/PO-456/view')
+    expect(screen.getByText('PO-456')).toBeInTheDocument()
+    expect(screen.queryByText('Purchase Order')).not.toBeInTheDocument()
+  })
+
+  it('location.state.breadcrumbTitle overrides the URL param leaf', () => {
+    mockUseMatches.mockReturnValue([
+      { handle: { title: 'Sales Order' }, params: { orderNumber: 'SO-123' } },
+    ])
+    renderTopBar({ pathname: '/sales/orders/SO-123/view', state: { breadcrumbTitle: 'SO-999' } })
+    expect(screen.getByText('SO-999')).toBeInTheDocument()
+    expect(screen.queryByText('SO-123')).not.toBeInTheDocument()
+  })
 })
 
 describe('TopBar search', () => {
