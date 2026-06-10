@@ -90,6 +90,8 @@ describe('TopBar breadcrumbs', () => {
       { handle: { title: 'Sales Order' }, params: { orderNumber: 'SO-123' } },
     ])
     renderTopBar('/sales/orders/SO-123/view')
+    expect(screen.getByText('Sales')).toBeInTheDocument()
+    expect(screen.getByText('Sales Orders')).toBeInTheDocument()
     expect(screen.getByText('SO-123')).toBeInTheDocument()
     expect(screen.queryByText('Sales Order')).not.toBeInTheDocument()
   })
@@ -99,6 +101,8 @@ describe('TopBar breadcrumbs', () => {
       { handle: { title: 'Purchase Order' }, params: { orderNumber: 'PO-456' } },
     ])
     renderTopBar('/purchasing/orders/PO-456/view')
+    expect(screen.getByText('Purchasing')).toBeInTheDocument()
+    expect(screen.getByText('Purchase Orders')).toBeInTheDocument()
     expect(screen.getByText('PO-456')).toBeInTheDocument()
     expect(screen.queryByText('Purchase Order')).not.toBeInTheDocument()
   })
