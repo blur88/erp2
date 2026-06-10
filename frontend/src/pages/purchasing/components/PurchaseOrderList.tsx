@@ -8,8 +8,7 @@ import type { PurchaseOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
 import { getPurchaseOrderActionMetas } from '../utils/purchaseOrderActions'
-import PurchaseOrderPaymentStatusChip from './PurchaseOrderPaymentStatusChip'
-import PurchaseOrderStatusChip from './PurchaseOrderStatusChip'
+import { StatusChip } from '@/components/common/StatusChip'
 
 interface PurchaseOrderListProps {
   orders: PurchaseOrder[]
@@ -78,13 +77,13 @@ export default function PurchaseOrderList(props: PurchaseOrderListProps) {
       key: 'status',
       width: '13%',
       raw: true,
-      render: (order) => <PurchaseOrderStatusChip status={order.status} />,
+      render: (order) => <StatusChip status={order.status} />,
     },
     {
       key: 'paymentStatus',
       width: '14%',
       raw: true,
-      render: (order) => <PurchaseOrderPaymentStatusChip status={order.paymentStatus} />,
+      render: (order) => <StatusChip status={order.paymentStatus} />,
     },
     {
       key: 'actions',

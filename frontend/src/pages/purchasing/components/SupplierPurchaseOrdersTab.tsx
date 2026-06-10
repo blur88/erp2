@@ -18,7 +18,7 @@ import { useGetSupplierPurchaseOrdersQuery } from '@/store/api/purchasingApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
 
-import PurchaseOrderStatusChip from './PurchaseOrderStatusChip'
+import { StatusChip } from '@/components/common/StatusChip'
 
 interface SupplierPurchaseOrdersTabProps {
   supplierId: string
@@ -67,7 +67,7 @@ export default function SupplierPurchaseOrdersTab({ supplierId }: SupplierPurcha
               </TableCell>
               <TableCell>{formatDate(order.orderDate)}</TableCell>
               <TableCell>
-                <PurchaseOrderStatusChip status={order.status} />
+                <StatusChip status={order.status} />
               </TableCell>
               <TableCell align="right">{formatCurrency(order.totalAmount ?? order.total ?? 0)}</TableCell>
               <TableCell align="right">
