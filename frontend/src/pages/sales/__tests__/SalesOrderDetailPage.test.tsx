@@ -12,6 +12,7 @@ import SalesOrderDetailPage from '../SalesOrderDetailPage'
 const {
   mockNavigate,
   mockGetSalesOrderByNumber,
+  mockGetSalesOrderPayments,
   mockFulfill,
   mockUnfulfill,
   mockCancel,
@@ -22,6 +23,7 @@ const {
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockGetSalesOrderByNumber: vi.fn(),
+  mockGetSalesOrderPayments: vi.fn(),
   mockFulfill: vi.fn(),
   mockUnfulfill: vi.fn(),
   mockCancel: vi.fn(),
@@ -48,6 +50,7 @@ vi.mock('@/store/api/salesApi', async (importOriginal) => {
   return {
     ...actual,
     useGetSalesOrderByNumberQuery: mockGetSalesOrderByNumber,
+    useGetSalesOrderPaymentsQuery: mockGetSalesOrderPayments,
     useFulfillSalesOrderMutation: () => [mockFulfill, { isLoading: false }],
     useUnfulfillSalesOrderMutation: () => [mockUnfulfill, { isLoading: false }],
     useCancelSalesOrderMutation: () => [mockCancel, { isLoading: false }],
@@ -62,7 +65,7 @@ vi.mock('../components/OrderOverviewTab', () => ({ default: () => <div>OverviewT
 vi.mock('../components/OrderPaymentsTab', () => ({ default: () => <div>PaymentsTab</div> }))
 vi.mock('../components/OrderJournalEntriesTab', () => ({ default: () => <div>JournalTab</div> }))
 vi.mock('@/components/sales/PaymentDialog', () => ({ default: () => <div>PaymentDialog</div> }))
-vi.mock('@/components/sales/RefundDialog', () => ({ default: () => <div>RefundDialog</div> }))
+vi.mock('@/components/common/RefundDialog', () => ({ default: () => <div>RefundDialog</div> }))
 
 function makeOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   return {
@@ -96,6 +99,7 @@ function renderPage(orderNumber = 'SO-26-001') {
 describe('SalesOrderDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetSalesOrderPayments.mockReturnValue({ data: [], isLoading: false })
   })
 
   it('shows loading state', () => {
