@@ -1,8 +1,18 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { INestApplication, ValidationPipe } from "@nestjs/common";
 import request from "supertest";
-import { DataSource } from "typeorm";
+import { DataSource, Repository } from "typeorm";
+import { getRepositoryToken } from "@nestjs/typeorm";
 import { AppModule } from "../../src/app.module";
+import {
+  FiscalPeriod,
+  FiscalPeriodStatus,
+} from "../../src/database/entities/fiscal-period.entity";
+import { ChartOfAccount } from "../../src/database/entities/chart-of-account.entity";
+import {
+  AccountMapping,
+  MappingType,
+} from "../../src/database/entities/account-mapping.entity";
 import {
   truncateAll,
   seedAdmin,
@@ -45,6 +55,72 @@ describe("Purchasing (e2e)", () => {
     const pm = await seedPaymentMethod(dataSource);
     paymentMethodId = pm.id;
     await seedDocumentNumberSettings(dataSource);
+
+    // Accounting setup: receive() posts a purchase journal entry
+    // (Dr PURCHASE_INVENTORY / Cr PURCHASE_AP) inside an open fiscal period.
+    // Seed the chart of accounts, the two purchase mappings, and an open
+    // fiscal period covering today's date (tests use today for orderDate).
+    const fiscalPeriodRepo: Repository<FiscalPeriod> = app.get(
+      getRepositoryToken(FiscalPeriod),
+    );
+    const chartOfAccountRepo: Repository<ChartOfAccount> = app.get(
+      getRepositoryToken(ChartOfAccount),
+    );
+    const accountMappingRepo: Repository<AccountMapping> = app.get(
+      getRepositoryToken(AccountMapping),
+    );
+
+    // Open fiscal period for the current month, range includes today.
+    const now = new Date();
+    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const code = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+      2,
+      "0",
+    )}`;
+    await fiscalPeriodRepo.save(
+      fiscalPeriodRepo.create({
+        code,
+        name: code,
+        status: FiscalPeriodStatus.OPEN,
+        startDate: periodStart,
+        endDate: periodEnd,
+      } as any),
+    );
+
+    // Chart of accounts: Inventory Asset + Accounts Payable.
+    const inventoryAccount = (await chartOfAccountRepo.save(
+      chartOfAccountRepo.create({
+        code: "1300",
+        name: "Inventory Asset",
+        type: "ASSET" as any,
+        isActive: true,
+      } as any),
+    )) as unknown as ChartOfAccount;
+    const apAccount = (await chartOfAccountRepo.save(
+      chartOfAccountRepo.create({
+        code: "2100",
+        name: "Accounts Payable",
+        type: "LIABILITY" as any,
+        isActive: true,
+      } as any),
+    )) as unknown as ChartOfAccount;
+
+    // Purchase account mappings.
+    await accountMappingRepo.save([
+      accountMappingRepo.create({
+        mappingType: MappingType.PURCHASE_INVENTORY,
+        accountId: inventoryAccount.id,
+        description: "Mapping for purchase_inventory",
+        isActive: true,
+      }),
+      accountMappingRepo.create({
+        mappingType: MappingType.PURCHASE_AP,
+        accountId: apAccount.id,
+        description: "Mapping for purchase_ap",
+        isActive: true,
+      }),
+    ]);
 
     const loginRes = await request(app.getHttpServer())
       .post("/auth/login")
@@ -126,12 +202,25 @@ describe("Purchasing (e2e)", () => {
   // ─── Purchase Order Lifecycle ─────────────────────────────────────────────
 
   describe("Purchase order lifecycle", () => {
+    // Use a dedicated supplier so this block does not depend on the Supplier CRUD
+    // tests' delete/restore mutations leaving `supplierId` in a usable state.
+    let poSupplierId: string;
+
+    beforeAll(async () => {
+      const res = await request(app.getHttpServer())
+        .post("/purchasing/suppliers")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ type: "local", companyName: "PO Lifecycle Supplier" })
+        .expect(201);
+      poSupplierId = (res.body.data ?? res.body).id;
+    });
+
     it("POST /purchasing/orders — creates a purchase order", async () => {
       const res = await request(app.getHttpServer())
         .post("/purchasing/orders")
         .set("Authorization", `Bearer ${accessToken}`)
         .send({
-          supplierId,
+          supplierId: poSupplierId,
           orderDate: new Date().toISOString().split("T")[0],
           items: [{ productId, quantity: 10, unitPrice: 55 }],
         })
@@ -152,7 +241,8 @@ describe("Purchasing (e2e)", () => {
 
       const po = res.body.data ?? res.body;
       expect(po.id).toBe(purchaseOrderId);
-      expect(po.supplier?.id ?? po.supplierId).toBe(supplierId);
+      // PO was created against the lifecycle-dedicated supplier (poSupplierId).
+      expect(po.supplier?.id ?? po.supplierId).toBe(poSupplierId);
     });
 
     it("GET /purchasing/orders/by-number/:orderNumber — returns by order number", async () => {
@@ -175,12 +265,27 @@ describe("Purchasing (e2e)", () => {
       expect(Number(res.body.totalOrders)).toBeGreaterThan(0);
     });
 
-    it("PUT /purchasing/orders/:id — updates the purchase order notes", async () => {
+    // The PO lifecycle now requires payment in full before a PO is editable or
+    // receivable (DRAFT -> pay -> READY -> receive). Pay first, then edit/receive.
+    it("POST /purchasing/orders/:id/payments — pays in full, transitions to READY", async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/purchasing/orders/${purchaseOrderId}/payments`)
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ payments: [{ paymentMethodId, amount: 550 }] })
+        .expect(200);
+
+      const body = res.body.data ?? res.body;
+      expect(Number(body.paidAmount)).toBe(550);
+      expect(body.status).toBe("READY");
+      expect(body.paymentStatus).toBe("PAID");
+    });
+
+    it("PUT /purchasing/orders/:id — updates the purchase order notes (READY editable)", async () => {
       const res = await request(app.getHttpServer())
         .put(`/purchasing/orders/${purchaseOrderId}`)
         .set("Authorization", `Bearer ${accessToken}`)
         .send({
-          supplierId,
+          supplierId: poSupplierId,
           orderDate: new Date().toISOString().split("T")[0],
           notes: "Updated notes",
           items: [{ productId, quantity: 10, unitPrice: 55 }],
@@ -189,18 +294,29 @@ describe("Purchasing (e2e)", () => {
 
       expect((res.body.data ?? res.body).notes).toBe("Updated notes");
     });
+
+    it("GET /purchasing/orders/:id — paidAmount reflects the payment", async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/purchasing/orders/${purchaseOrderId}`)
+        .set("Authorization", `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(Number((res.body.data ?? res.body).paidAmount)).toBe(550);
+    });
   });
 
   // ─── Goods received (stock impact) ────────────────────────────────────────
 
   describe("Goods received", () => {
-    it("POST /purchasing/orders/:id/receive — receives goods", async () => {
+    it("POST /purchasing/orders/:id/receive — receives goods (READY -> RECEIVED)", async () => {
       const res = await request(app.getHttpServer())
         .post(`/purchasing/orders/${purchaseOrderId}/receive`)
         .set("Authorization", `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(res.body.data ?? res.body).toHaveProperty("id");
+      const body = res.body.data ?? res.body;
+      expect(body).toHaveProperty("id");
+      expect(body.status).toBe("RECEIVED");
     });
 
     it("GET /inventory/products/:id — stock increased after receiving goods", async () => {
@@ -211,29 +327,6 @@ describe("Purchasing (e2e)", () => {
 
       // Product started at 0 stock; received 10 units
       expect(Number(res.body.stockQuantity)).toBe(10);
-    });
-  });
-
-  // ─── Vendor payment ───────────────────────────────────────────────────────
-
-  describe("Vendor payment", () => {
-    it("POST /purchasing/orders/:id/record-payment — records a payment", async () => {
-      const res = await request(app.getHttpServer())
-        .post(`/purchasing/orders/${purchaseOrderId}/record-payment`)
-        .set("Authorization", `Bearer ${accessToken}`)
-        .send({ amount: 550 })
-        .expect(200);
-
-      expect(Number((res.body.data ?? res.body).paidAmount)).toBe(550);
-    });
-
-    it("GET /purchasing/orders/:id — paidAmount reflects the payment", async () => {
-      const res = await request(app.getHttpServer())
-        .get(`/purchasing/orders/${purchaseOrderId}`)
-        .set("Authorization", `Bearer ${accessToken}`)
-        .expect(200);
-
-      expect(Number((res.body.data ?? res.body).paidAmount)).toBe(550);
     });
   });
 

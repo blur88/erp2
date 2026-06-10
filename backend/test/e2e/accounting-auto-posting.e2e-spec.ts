@@ -30,13 +30,12 @@ import { SalesOrderItem } from "../../src/database/entities/sales-order-item.ent
 import { Payment } from "../../src/database/entities/payment.entity";
 import { PurchaseOrder } from "../../src/database/entities/purchase-order.entity";
 import { PurchaseOrderItem } from "../../src/database/entities/purchase-order-item.entity";
-import { GoodsReceivedNote } from "../../src/database/entities/goods-received-note.entity";
 import { VendorPayment } from "../../src/database/entities/vendor-payment.entity";
 import { PaymentMethodEntity } from "../../src/database/entities/payment-method.entity";
 import { StockAdjustment } from "../../src/database/entities/stock-adjustment.entity";
 import { SalesOrderService } from "../../src/modules/sales/services/sales-order.service";
 import { PaymentService } from "../../src/modules/sales/services/payment.service";
-import { GoodsReceivedNoteService } from "../../src/modules/purchasing/services/goods-received-note.service";
+import { PurchaseOrderLifecycleService } from "../../src/modules/purchasing/services/purchase-order-lifecycle.service";
 import { VendorPaymentService } from "../../src/modules/purchasing/services/vendor-payment.service";
 import { StockAdjustmentService } from "../../src/modules/inventory/services/stock-adjustment.service";
 import { JournalEntryService } from "../../src/modules/accounting/services/journal-entry.service";
@@ -59,7 +58,6 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
   let salesOrderRepo: Repository<SalesOrder>;
   let paymentRepo: Repository<Payment>;
   let purchaseOrderRepo: Repository<PurchaseOrder>;
-  let grnRepo: Repository<GoodsReceivedNote>;
   let vendorPaymentRepo: Repository<VendorPayment>;
   let paymentMethodRepo: Repository<PaymentMethodEntity>;
   let stockAdjustmentRepo: Repository<StockAdjustment>;
@@ -67,7 +65,7 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
   // Services
   let salesOrderService: SalesOrderService;
   let paymentService: PaymentService;
-  let grnService: GoodsReceivedNoteService;
+  let lifecycleService: PurchaseOrderLifecycleService;
   let vendorPaymentService: VendorPaymentService;
   let stockAdjustmentService: StockAdjustmentService;
   let journalEntryService: JournalEntryService;
@@ -106,7 +104,6 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
     salesOrderRepo = app.get(getRepositoryToken(SalesOrder));
     paymentRepo = app.get(getRepositoryToken(Payment));
     purchaseOrderRepo = app.get(getRepositoryToken(PurchaseOrder));
-    grnRepo = app.get(getRepositoryToken(GoodsReceivedNote));
     vendorPaymentRepo = app.get(getRepositoryToken(VendorPayment));
     paymentMethodRepo = app.get(getRepositoryToken(PaymentMethodEntity));
     stockAdjustmentRepo = app.get(getRepositoryToken(StockAdjustment));
@@ -114,7 +111,7 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
     // Get services
     salesOrderService = app.get(SalesOrderService);
     paymentService = app.get(PaymentService);
-    grnService = app.get(GoodsReceivedNoteService);
+    lifecycleService = app.get(PurchaseOrderLifecycleService);
     vendorPaymentService = app.get(VendorPaymentService);
     stockAdjustmentService = app.get(StockAdjustmentService);
     journalEntryService = app.get(JournalEntryService);
@@ -146,7 +143,7 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
   // Helper: Clean database
   async function cleanDatabase() {
     await dataSource.query(
-      "TRUNCATE TABLE journal_entry_lines, journal_entries, vendor_payments, goods_received_note_items, goods_received_notes, purchase_order_items, purchase_orders, payments, settlements, sales_order_items, sales_orders, stock_adjustment_items, stock_adjustments, products, categories, customers, suppliers, account_mappings, payment_methods, chart_of_accounts, fiscal_periods, reconciled_transactions, bank_reconciliations, document_number_settings CASCADE",
+      "TRUNCATE TABLE journal_entry_lines, journal_entries, vendor_payments, purchase_order_items, purchase_orders, payments, settlements, sales_order_items, sales_orders, stock_adjustment_items, stock_adjustments, products, categories, customers, suppliers, account_mappings, payment_methods, chart_of_accounts, fiscal_periods, reconciled_transactions, bank_reconciliations, document_number_settings CASCADE",
     );
   }
 
@@ -659,9 +656,9 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
     });
   });
 
-  describe("Goods Received Note Auto-Posting", () => {
-    it("should auto-post journal entry when GRN created", async () => {
-      // Create purchase order
+  describe("Purchase Receipt Auto-Posting", () => {
+    it("should auto-post journal entry when purchase order received", async () => {
+      // Create purchase order (READY + PAID so receive() is allowed)
       const po = purchaseOrderRepo.create({
         orderNumber: "PO-TEST-001",
         supplierId: testSupplier.id,
@@ -669,7 +666,8 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
         subtotal: 500.0,
         shippingAmount: 0,
         totalAmount: 500.0,
-        status: "approved",
+        status: "READY",
+        paymentStatus: "PAID",
       } as any);
       const savedPo = (await purchaseOrderRepo.save(
         po,
@@ -682,19 +680,16 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
         productId: testProduct.id,
         quantity: 10,
         unitCost: 50.0,
-        totalCost: 500.0,
+        totalAmount: 500.0,
       } as any);
       await dataSource.getRepository(PurchaseOrderItem).save(poItem);
 
-      // Create GRN
-      const grn = await grnService.create({
-        purchaseOrderId: savedPo.id,
-        receivedDate: "2026-02-15",
-      });
+      // Receive the purchase order
+      await lifecycleService.receive(savedPo.id);
 
       // Verify journal entry was created
       const journalEntries = await journalEntryRepo.find({
-        where: { sourceType: "goods_received_note", sourceId: grn.id },
+        where: { sourceType: "purchase_order", sourceId: savedPo.id },
         relations: { lines: true },
       });
 
@@ -720,7 +715,7 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
       expect(Number(apLine.creditAmount)).toBe(500.0);
     });
 
-    it("should calculate total from purchase order item unitCost", async () => {
+    it("should calculate total from purchase order item totalAmount", async () => {
       const po = purchaseOrderRepo.create({
         orderNumber: "PO-TEST-001",
         supplierId: testSupplier.id,
@@ -728,7 +723,8 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
         subtotal: 1000.0,
         shippingAmount: 0,
         totalAmount: 1000.0,
-        status: "approved",
+        status: "READY",
+        paymentStatus: "PAID",
       } as any);
       const savedPo = (await purchaseOrderRepo.save(
         po,
@@ -740,17 +736,14 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
         productId: testProduct.id,
         quantity: 10,
         unitCost: 100.0,
-        totalCost: 1000.0,
+        totalAmount: 1000.0,
       } as any);
       await dataSource.getRepository(PurchaseOrderItem).save(poItem);
 
-      const grn = await grnService.create({
-        purchaseOrderId: savedPo.id,
-        receivedDate: "2026-02-15",
-      });
+      await lifecycleService.receive(savedPo.id);
 
       const journalEntries = await journalEntryRepo.find({
-        where: { sourceType: "goods_received_note", sourceId: grn.id },
+        where: { sourceType: "purchase_order", sourceId: savedPo.id },
         relations: { lines: true },
       });
 
@@ -775,7 +768,8 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
         subtotal: 600.0,
         shippingAmount: 0,
         totalAmount: 600.0,
-        status: "approved",
+        status: "READY",
+        paymentStatus: "PAID",
       } as any);
       const savedPo = (await purchaseOrderRepo.save(
         po,
@@ -787,14 +781,11 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
         productId: testProduct.id,
         quantity: 10,
         unitCost: 60.0,
-        totalCost: 600.0,
+        totalAmount: 600.0,
       } as any);
       await dataSource.getRepository(PurchaseOrderItem).save(poItem);
 
-      await grnService.create({
-        purchaseOrderId: savedPo.id,
-        receivedDate: "2026-02-15",
-      });
+      await lifecycleService.receive(savedPo.id);
 
       // Check product was updated
       const updatedProduct = await productRepo.findOne({
@@ -804,7 +795,7 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
 
       // Journal entry should use the purchase costs
       const journalEntries = await journalEntryRepo.find({
-        where: { sourceType: "goods_received_note" },
+        where: { sourceType: "purchase_order", sourceId: savedPo.id },
         relations: { lines: true },
       });
 
@@ -815,11 +806,16 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
       expect(Number(inventoryLine.debitAmount)).toBe(600.0);
     });
 
-    it("should continue GRN creation when accounting fails", async () => {
-      // Delete inventory mapping
+    it("rolls back receipt when an accounting mapping is missing (atomic)", async () => {
+      // Delete inventory mapping so accounting posting fails inside the receipt tx.
       await dataSource.query(
         `DELETE FROM account_mappings WHERE "mappingKey" = $1`,
         [MappingType.PURCHASE_INVENTORY],
+      );
+
+      const stockBefore = Number(
+        (await productRepo.findOne({ where: { id: testProduct.id } }))!
+          .stockQuantity,
       );
 
       const po = purchaseOrderRepo.create({
@@ -829,7 +825,8 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
         subtotal: 500.0,
         shippingAmount: 0,
         totalAmount: 500.0,
-        status: "approved",
+        status: "READY",
+        paymentStatus: "PAID",
       } as any);
       const savedPo = (await purchaseOrderRepo.save(
         po,
@@ -841,22 +838,28 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
         productId: testProduct.id,
         quantity: 10,
         unitCost: 50.0,
-        totalCost: 500.0,
+        totalAmount: 500.0,
       } as any);
       await dataSource.getRepository(PurchaseOrderItem).save(poItem);
 
-      // GRN creation should succeed
-      const grn = await grnService.create({
-        purchaseOrderId: savedPo.id,
-        receivedDate: "2026-02-15",
+      // Receipt is atomic: a missing mapping fails the whole transaction.
+      await expect(lifecycleService.receive(savedPo.id)).rejects.toThrow();
+
+      // PO stays READY (status change rolled back).
+      const reloaded = await purchaseOrderRepo.findOne({
+        where: { id: savedPo.id },
       });
+      expect(reloaded!.status).toBe("READY");
 
-      expect(grn).toBeDefined();
-      expect(grn.id).toBeTruthy();
+      // Stock was not posted (stock movement rolled back with the transaction).
+      const productAfter = await productRepo.findOne({
+        where: { id: testProduct.id },
+      });
+      expect(Number(productAfter!.stockQuantity)).toBe(stockBefore);
 
-      // But no journal entry should be created
+      // No journal entry created.
       const journalEntries = await journalEntryRepo.find({
-        where: { sourceType: "goods_received_note", sourceId: grn.id },
+        where: { sourceType: "purchase_order", sourceId: savedPo.id },
       });
       expect(journalEntries).toHaveLength(0);
     });
@@ -864,7 +867,7 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
 
   describe("Vendor Payment Auto-Posting", () => {
     it("should auto-post journal entry when vendor payment made", async () => {
-      // Create PO and GRN first
+      // Create PO and receive it first (posts the AP payable)
       const po = purchaseOrderRepo.create({
         orderNumber: "PO-TEST-001",
         supplierId: testSupplier.id,
@@ -872,7 +875,8 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
         subtotal: 1000.0,
         shippingAmount: 0,
         totalAmount: 1000.0,
-        status: "approved",
+        status: "READY",
+        paymentStatus: "PAID",
       } as any);
       const savedPo = (await purchaseOrderRepo.save(
         po,
@@ -884,14 +888,11 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
         productId: testProduct.id,
         quantity: 10,
         unitCost: 100.0,
-        totalCost: 1000.0,
+        totalAmount: 1000.0,
       } as any);
       await dataSource.getRepository(PurchaseOrderItem).save(poItem);
 
-      await grnService.create({
-        purchaseOrderId: savedPo.id,
-        receivedDate: "2026-02-15",
-      });
+      await lifecycleService.receive(savedPo.id);
 
       // Create vendor payment
       const payment = await vendorPaymentService.create({
@@ -939,7 +940,8 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
         subtotal: 1000.0,
         shippingAmount: 0,
         totalAmount: 1000.0,
-        status: "approved",
+        status: "READY",
+        paymentStatus: "PAID",
       } as any);
       const savedPo = (await purchaseOrderRepo.save(
         po,
@@ -951,24 +953,21 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
         productId: testProduct.id,
         quantity: 10,
         unitCost: 100.0,
-        totalCost: 1000.0,
+        totalAmount: 1000.0,
       } as any);
       await dataSource.getRepository(PurchaseOrderItem).save(poItem);
 
-      const grn = await grnService.create({
-        purchaseOrderId: savedPo.id,
-        receivedDate: "2026-02-15",
-      });
+      await lifecycleService.receive(savedPo.id);
 
-      // GRN creates AP credit of 1000
-      const grnEntries = await journalEntryRepo.find({
-        where: { sourceType: "goods_received_note", sourceId: grn.id },
+      // Receipt creates AP credit of 1000
+      const receiptEntries = await journalEntryRepo.find({
+        where: { sourceType: "purchase_order", sourceId: savedPo.id },
         relations: { lines: true },
       });
-      const grnApLine = grnEntries[0].lines.find(
+      const receiptApLine = receiptEntries[0].lines.find(
         (l) => l.accountId === accounts["2100"].id,
       );
-      expect(Number(grnApLine.creditAmount)).toBe(1000.0);
+      expect(Number(receiptApLine.creditAmount)).toBe(1000.0);
 
       // Payment creates AP debit of 1000
       const payment = await vendorPaymentService.create({
@@ -1012,7 +1011,8 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
         subtotal: 1000.0,
         shippingAmount: 0,
         totalAmount: 1000.0,
-        status: "approved",
+        status: "READY",
+        paymentStatus: "PAID",
       } as any);
       const savedPo = (await purchaseOrderRepo.save(
         po,
@@ -1024,14 +1024,11 @@ describe("Accounting Auto-Posting Integration (E2E)", () => {
         productId: testProduct.id,
         quantity: 10,
         unitCost: 100.0,
-        totalCost: 1000.0,
+        totalAmount: 1000.0,
       } as any);
       await dataSource.getRepository(PurchaseOrderItem).save(poItem);
 
-      await grnService.create({
-        purchaseOrderId: savedPo.id,
-        receivedDate: "2026-02-15",
-      });
+      await lifecycleService.receive(savedPo.id);
 
       // First partial payment
       await vendorPaymentService.create({
