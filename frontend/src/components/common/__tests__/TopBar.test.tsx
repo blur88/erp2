@@ -38,10 +38,12 @@ function makeStore(unreadCount = 0) {
   })
 }
 
-function renderTopBar(path: string, collapsed = false) {
+type RouterEntry = string | { pathname: string; state?: unknown }
+
+function renderTopBar(entry: RouterEntry, collapsed = false) {
   return render(
     <Provider store={makeStore()}>
-      <MemoryRouter initialEntries={[path]}>
+      <MemoryRouter initialEntries={[entry]}>
         <TopBar collapsed={collapsed} onMobileMenuOpen={vi.fn()} />
       </MemoryRouter>
     </Provider>
