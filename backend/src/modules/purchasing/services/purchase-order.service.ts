@@ -1,6 +1,6 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException, HttpException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException, ForbiddenException, HttpException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, Like, In, Between } from 'typeorm';
+import { Repository, FindOptionsWhere, Like, In, Between, DataSource, EntityManager } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   PurchaseOrder,
@@ -63,6 +63,7 @@ export class PurchaseOrderService extends BaseCrudService<
     auditLogService: AuditLogService,
     private readonly accountingService: AccountingService,
     private readonly purchaseOrderLifecycleService: PurchaseOrderLifecycleService,
+    private readonly dataSource: DataSource,
   ) {
     super(purchaseOrderRepository, auditLogService);
   }
@@ -747,6 +748,111 @@ export class PurchaseOrderService extends BaseCrudService<
     };
 
     return this.create(duplicateData, userId);
+  }
+
+  async recordRefunds(
+    orderId: string,
+    refunds: { vendorPaymentId: string; amount: number; reason?: string }[],
+    userId?: string,
+    username?: string,
+  ): Promise<PurchaseOrderResponseDto> {
+    const actor = userId || 'system';
+
+    for (const line of refunds) {
+      if (!(Number(line.amount) > 0)) {
+        throw new BadRequestException('Each refund amount must be greater than zero');
+      }
+    }
+
+    const purchaseOrder = await this.purchaseOrderRepository.findOne({ where: { id: orderId } });
+    if (!purchaseOrder) {
+      throw new NotFoundException('Purchase order not found');
+    }
+    if (
+      purchaseOrder.status === PurchaseOrderStatus.CANCELLED ||
+      purchaseOrder.status === PurchaseOrderStatus.RECEIVED
+    ) {
+      throw new BadRequestException(
+        `Cannot refund a ${purchaseOrder.status} purchase order.`,
+      );
+    }
+
+    // The reversed originals, captured inside the tx so GL reversal can run after commit.
+    const reversedOriginalIds: string[] = [];
+
+    await this.dataSource.transaction(async (manager: EntityManager) => {
+      const repo = manager.getRepository(VendorPayment);
+
+      for (const line of refunds) {
+        // Atomic flip completed -> refunded. If no row matched (already refunded,
+        // wrong PO, or missing), affected === 0 -> reject. This is the
+        // concurrency-safe re-refund guard.
+        const flip = await repo.update(
+          { id: line.vendorPaymentId, purchaseOrderId: orderId, status: 'completed' } as any,
+          { status: 'refunded' } as any,
+        );
+        if (!flip.affected) {
+          throw new ConflictException(
+            `Vendor payment ${line.vendorPaymentId} is not refundable (not found, not this order, or already refunded).`,
+          );
+        }
+
+        const original = await repo.findOne({ where: { id: line.vendorPaymentId } });
+        if (!original) {
+          throw new ConflictException(`Vendor payment ${line.vendorPaymentId} not found`);
+        }
+        if (Number(line.amount) > Number(original.amount)) {
+          throw new BadRequestException(
+            `Refund amount (${line.amount}) exceeds original payment amount (${original.amount})`,
+          );
+        }
+
+        const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments');
+        const refundRow = repo.create({
+          supplierId: original.supplierId,
+          purchaseOrderId: orderId,
+          paymentMethodId: original.paymentMethodId,
+          paymentDate: new Date(),
+          paymentNumber,
+          amount: -Number(line.amount),
+          notes: line.reason,
+          status: 'refunded',
+        } as any);
+        await repo.save(refundRow);
+
+        reversedOriginalIds.push(line.vendorPaymentId);
+      }
+    });
+
+    // GL reversal runs after the DB tx (accounting is not manager-bound, #719).
+    // reverseSourceEntries is idempotent on already-reversed entries.
+    for (const originalId of reversedOriginalIds) {
+      try {
+        await this.accountingService.reverseSourceEntries('vendor_payment', originalId, actor);
+      } catch (error) {
+        this.logger.error(
+          `Failed to reverse accounting for vendor payment ${originalId}: ${error.message}`,
+        );
+      }
+    }
+
+    await this.reconcilePaymentState(purchaseOrder);
+
+    for (const originalId of reversedOriginalIds) {
+      await this.auditLogService.log(
+        'CREATE',
+        'VendorPayment',
+        `Recorded refund for ${purchaseOrder.orderNumber}`,
+        {
+          entityId: originalId,
+          userId: actor,
+          username,
+          newValues: { originalVendorPaymentId: originalId, resultingPaymentStatus: purchaseOrder.paymentStatus },
+        },
+      );
+    }
+
+    return this.findOne(orderId);
   }
 
   /**

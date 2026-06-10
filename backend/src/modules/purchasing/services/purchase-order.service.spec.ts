@@ -650,4 +650,61 @@ describe('PurchaseOrderService', () => {
       await expect(service.duplicateOrder('missing', 'user-1')).rejects.toThrow('Purchase order not found')
     })
   })
+
+  describe('recordRefunds', () => {
+    const draftPaidPO = {
+      id: 'po-1',
+      orderNumber: 'PO-001',
+      status: 'READY',
+      supplierId: 'sup-1',
+      totalAmount: '0',
+    }
+
+    it('inserts a negative refunded row via the manager repo (NOT VendorPaymentService.create) and reverses the original GL', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValueOnce(draftPaidPO as any)
+      const original = {
+        id: 'vp-1',
+        purchaseOrderId: 'po-1',
+        supplierId: 'sup-1',
+        paymentMethodId: 'pm-1',
+        amount: '100',
+        status: 'completed',
+      }
+      const { manager, saved } = mockTxManager({ original })
+      ;(dataSource.transaction as jest.Mock).mockImplementation(async (cb) => cb(manager))
+      ;(service as any).settingsService.generateDocumentNumber = jest.fn().mockResolvedValue('VP-REF-1')
+      jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
+
+      await service.recordRefunds(
+        'po-1',
+        [{ vendorPaymentId: 'vp-1', amount: 100, reason: 'overpaid' }],
+        'user-1',
+        'admin',
+      )
+
+      // Negative row persisted with all non-null columns + refunded status.
+      expect(saved).toHaveLength(1)
+      expect(saved[0]).toMatchObject({
+        supplierId: 'sup-1',
+        purchaseOrderId: 'po-1',
+        paymentMethodId: 'pm-1',
+        paymentNumber: 'VP-REF-1',
+        amount: -100,
+        status: 'refunded',
+        notes: 'overpaid',
+      })
+      expect(saved[0].paymentDate).toBeDefined()
+
+      // Refund row NOT routed through the auto-posting service.create (would double-post GL).
+      expect(vendorPaymentService.create).not.toHaveBeenCalled()
+      // Original entry reversed (not the refund row).
+      expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith(
+        'vendor_payment',
+        'vp-1',
+        'user-1',
+      )
+      // postVendorPaymentEntry never called for the refund row.
+      expect(accountingService.postVendorPaymentEntry).not.toHaveBeenCalled()
+    })
+  })
 });
