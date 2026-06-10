@@ -4,6 +4,7 @@ const VENDOR_PAYMENT_STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
   { value: 'completed', label: 'Completed' },
   { value: 'cancelled', label: 'Cancelled' },
+  { value: 'refunded', label: 'Refunded' },
 ]
 
 interface Props {

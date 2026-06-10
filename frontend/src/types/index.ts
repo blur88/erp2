@@ -409,7 +409,7 @@ export interface VendorPayment {
   paymentMethodEntity?: PaymentMethodConfig;
   referenceNumber?: string;
   notes?: string;
-  status: 'pending' | 'completed' | 'cancelled';
+  status: 'pending' | 'completed' | 'cancelled' | 'refunded';
   createdAt: Date | string;
   updatedAt: Date | string;
   deletedAt?: Date | string;
