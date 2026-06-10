@@ -20,7 +20,9 @@ import {
     Filler,
 } from 'chart.js'
 import { Line, Doughnut } from 'react-chartjs-2'
+import type { Theme } from '@mui/material/styles'
 import { formatCurrency, formatNumber, formatSalesPeriodLabel } from '@/utils/formatters'
+import { resolveStatusColor } from '@/components/common/StatusChip'
 
 ChartJS.register(
     CategoryScale,
@@ -130,23 +132,21 @@ interface OrderStatusChartProps {
     loading?: boolean
 }
 
+export function statusToHex(theme: Theme, status: string): string {
+  const color = resolveStatusColor(status)
+  if (color === 'default') return theme.palette.grey[500]
+  return theme.palette[color].main
+}
+
 const OrderStatusChart: React.FC<OrderStatusChartProps> = ({ ordersByStatus, loading = false }) => {
     const theme = useTheme()
-
-    const statusColors: { [key: string]: string } = {
-        fulfilled: theme.palette.success.main,
-        pending: theme.palette.warning.main,
-        cancelled: theme.palette.error.main,
-        confirmed: theme.palette.info.main,
-        draft: theme.palette.grey[400],
-    }
 
     const chartData = {
         labels: ordersByStatus.map(item => item.status.charAt(0).toUpperCase() + item.status.slice(1)),
         datasets: [
             {
                 data: ordersByStatus.map(item => item.count),
-                backgroundColor: ordersByStatus.map(item => statusColors[item.status.toLowerCase()] || theme.palette.grey[500]),
+                backgroundColor: ordersByStatus.map(item => statusToHex(theme, item.status)),
                 borderWidth: 2,
                 borderColor: theme.palette.background.paper,
             }
