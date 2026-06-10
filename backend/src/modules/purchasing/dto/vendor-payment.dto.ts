@@ -51,13 +51,13 @@ export class CreateVendorPaymentDto {
 
   @ApiPropertyOptional({
     description: 'Payment status',
-    enum: ['pending', 'completed', 'cancelled'],
+    enum: ['pending', 'completed', 'cancelled', 'refunded'],
     example: 'completed',
     default: 'pending',
   })
   @IsOptional()
   @IsString()
-  @IsIn(['pending', 'completed', 'cancelled'])
+  @IsIn(['pending', 'completed', 'cancelled', 'refunded'])
   status?: string;
 }
 
@@ -104,12 +104,12 @@ export class UpdateVendorPaymentDto {
 
   @ApiPropertyOptional({
     description: 'Payment status',
-    enum: ['pending', 'completed', 'cancelled'],
+    enum: ['pending', 'completed', 'cancelled', 'refunded'],
     example: 'completed',
   })
   @IsOptional()
   @IsString()
-  @IsIn(['pending', 'completed', 'cancelled'])
+  @IsIn(['pending', 'completed', 'cancelled', 'refunded'])
   status?: string;
 }
 
@@ -125,7 +125,7 @@ export class QueryVendorPaymentsDto {
   })
   @IsOptional()
   @IsString()
-  @IsIn(['pending', 'completed', 'cancelled'])
+  @IsIn(['pending', 'completed', 'cancelled', 'refunded'])
   status?: string;
 
   @ApiPropertyOptional({
