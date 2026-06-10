@@ -40,6 +40,7 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useNavigate } from 'react-router-dom'
 import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
+import { StatusChip } from '@/components/common/StatusChip'
 import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/hooks/useFilterBar'
@@ -474,16 +475,10 @@ const PurchasingPage: React.FC = () => {
                             </Typography>
                           </TableCell>
                           <TableCell>
-                            <Chip
-                              label={order.status === 'received' ? 'Received' : 'Pending'}
-                              color={order.status === 'received' ? 'success' : 'warning'}
-                              size="small"
+                            <StatusChip
+                              status={order.status === 'received' ? 'received' : 'not_received'}
                               variant="outlined"
-                              sx={{
-                                fontSize: '0.7rem',
-                                fontWeight: 500,
-                                height: 20,
-                              }}
+                              sx={{ fontSize: '0.7rem', fontWeight: 500, height: 20 }}
                             />
                           </TableCell>
                         </TableRow>
