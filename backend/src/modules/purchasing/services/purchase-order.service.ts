@@ -278,8 +278,6 @@ export class PurchaseOrderService extends BaseCrudService<
           lineNumber: lineNum,
         });
 
-        this.logger.debug(`Created item with lineNumber: ${item.lineNumber}, lineNum variable: ${lineNum}`);
-
         // Calculate totals manually to get the amount before saving
         // Discount is applied to unit price first, then multiplied by quantity
         let unitDiscount = 0;
@@ -293,14 +291,10 @@ export class PurchaseOrderService extends BaseCrudService<
         const discountedUnitPrice = Number(item.unitCost) - unitDiscount;
         const totalAmount = discountedUnitPrice * Number(item.quantity);
 
-        this.logger.debug(`After manual calculation, lineNumber: ${item.lineNumber}, totalAmount: ${totalAmount}`);
-
         orderItems.push(item);
         subtotal += totalAmount;
         lineNum++;
       }
-
-      this.logger.debug(`Total items created: ${orderItems.length}, checking lineNumbers: ${orderItems.map(i => i.lineNumber).join(', ')}`);
 
       // Set purchase order totals
       purchaseOrder.subtotal = subtotal;
@@ -563,8 +557,6 @@ export class PurchaseOrderService extends BaseCrudService<
           item.receivedQuantity = 0;
           item.lineNumber = lineNum;
 
-          this.logger.debug(`Item before push - lineNumber: ${item.lineNumber}, productId: ${item.productId}, quantity: ${item.quantity}`);
-
           // Calculate totals manually to get the amount before saving
           // Discount is applied to unit price first, then multiplied by quantity
           let unitDiscount = 0;
@@ -583,14 +575,10 @@ export class PurchaseOrderService extends BaseCrudService<
           lineNum++;
         }
 
-        this.logger.debug(`About to save ${orderItems.length} items. LineNumbers: ${orderItems.map(i => `${i.lineNumber}`).join(', ')}`);
-
         try {
-          const savedItems = await this.purchaseOrderItemRepository.save(orderItems);
-          this.logger.debug(`Saved ${savedItems.length} items successfully`);
+          await this.purchaseOrderItemRepository.save(orderItems);
         } catch (saveError) {
-          this.logger.error(`Failed to save items: ${saveError.message}`);
-          this.logger.debug(`Item details before save attempt: ${JSON.stringify(orderItems.map(i => ({ lineNumber: i.lineNumber, productId: i.productId, quantity: i.quantity })))}`);
+          this.logger.error(`Failed to save purchase order items: ${saveError.message}`);
           throw saveError;
         }
 

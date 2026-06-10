@@ -282,7 +282,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
         navigate(`/purchasing/orders?highlight=${(result as any).id}`)
       }
     } catch (err: any) {
-      console.error('Error creating purchase order:', err)
       setError(err.response?.data?.message || 'Failed to create purchase order')
       showError(err.response?.data?.message || 'Failed to create purchase order')
     } finally {
