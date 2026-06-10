@@ -8,8 +8,7 @@ import type { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
 import { getOrderActionMetas } from '../utils/orderActions'
-import { SalesOrderPaymentStatusChip } from './SalesOrderPaymentStatusChip'
-import { SalesOrderStatusChip } from './SalesOrderStatusChip'
+import { StatusChip } from '@/components/common/StatusChip'
 
 interface SalesOrderListProps {
   orders: SalesOrder[]
@@ -82,14 +81,14 @@ export default function SalesOrderList(props: SalesOrderListProps) {
       width: '13%',
       raw: true,
       render: (order) => (
-        <SalesOrderStatusChip status={order.status} paymentStatus={order.paymentStatus} />
+        <StatusChip status={order.status} />
       ),
     },
     {
       key: 'paymentStatus',
       width: '14%',
       raw: true,
-      render: (order) => <SalesOrderPaymentStatusChip status={order.paymentStatus} />,
+      render: (order) => <StatusChip status={order.paymentStatus} />,
     },
     {
       key: 'actions',

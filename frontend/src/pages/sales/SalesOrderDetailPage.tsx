@@ -28,8 +28,7 @@ import OrderActionBar from './components/OrderActionBar';
 import OrderJournalEntriesTab from './components/OrderJournalEntriesTab';
 import OrderOverviewTab from './components/OrderOverviewTab';
 import OrderPaymentsTab from './components/OrderPaymentsTab';
-import { SalesOrderPaymentStatusChip } from './components/SalesOrderPaymentStatusChip';
-import { SalesOrderStatusChip } from './components/SalesOrderStatusChip';
+import { StatusChip } from '@/components/common/StatusChip';
 import { getStockOffenders } from '@/utils/stockStatus';
 
 type Dialog = 'pay' | 'refund' | 'print' | 'fulfill' | 'unfulfill' | 'cancel' | 'uncancel' | null;
@@ -211,8 +210,8 @@ export default function SalesOrderDetailPage() {
         title={order.orderNumber}
         titleBadge={
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <SalesOrderStatusChip status={order.status} paymentStatus={order.paymentStatus} />
-            <SalesOrderPaymentStatusChip status={order.paymentStatus} />
+            <StatusChip status={order.status} />
+            <StatusChip status={order.paymentStatus} />
           </Box>
         }
         backAction={() => navigate('/sales/orders')}
