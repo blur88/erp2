@@ -18,7 +18,7 @@ import Grid from '@mui/material/Grid'
 
 import { AppButton } from '@/components/common/AppButton'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
-import { EntityStatusChip } from '@/components/common/EntityStatusChip'
+import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { StockAdjustment } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
@@ -86,7 +86,7 @@ const StockAdjustmentContextHeader: React.FC<StockAdjustmentContextHeaderProps> 
     <Paper sx={{ overflow: 'hidden' }}>
       <EntityContextHeaderBar
         title={`Stock Adjustment - ${selectedAdjustment.adjustmentNumber}`}
-        statusChip={<EntityStatusChip status={selectedAdjustment.status} />}
+        statusChip={<StatusChip status={selectedAdjustment.status} />}
         actions={(
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <AppButton

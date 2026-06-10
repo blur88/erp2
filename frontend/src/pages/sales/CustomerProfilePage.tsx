@@ -5,7 +5,7 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import { skipToken } from '@reduxjs/toolkit/query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
-import { EntityStatusChip } from '@/components/common/EntityStatusChip';
+import { StatusChip } from '@/components/common/StatusChip';
 import PageHeader from '@/components/common/PageHeader';
 import { TABLE_STYLES } from '@/constants/tableStyles';
 import { useGetCustomerBySlugQuery } from '@/store/api/salesApi';
@@ -66,7 +66,7 @@ export default function CustomerProfilePage() {
     <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <PageHeader
         title={customer.name}
-        titleBadge={<EntityStatusChip status={customer.isActive ? 'active' : 'inactive'} />}
+        titleBadge={<StatusChip status={customer.isActive ? 'active' : 'inactive'} />}
         backAction={() => navigate('/sales/customers')}
         primaryAction={{
           label: 'Edit Customer',

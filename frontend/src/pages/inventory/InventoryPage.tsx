@@ -40,6 +40,7 @@ import { useNavigate } from 'react-router-dom'
 import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import GenericOverviewPage from '@/components/common/GenericOverviewPage'
+import { StatusChip } from '@/components/common/StatusChip'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useInventoryAnalytics } from './hooks/useInventoryAnalytics'
@@ -574,10 +575,9 @@ const InventoryPage: React.FC = () => {
                           </Typography>
                         </Box>
                       </Box>
-                      <Chip
+                      <StatusChip
+                        status={alert.status}
                         label={alert.status === 'out_of_stock' ? 'Out' : 'Low'}
-                        color={alert.status === 'out_of_stock' ? 'error' : 'warning'}
-                        size="small"
                         sx={{
                           fontSize: '0.7rem',
                           fontWeight: 500,

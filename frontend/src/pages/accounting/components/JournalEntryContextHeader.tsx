@@ -3,7 +3,7 @@ import Grid from '@mui/material/Grid'
 import { useNavigate } from 'react-router-dom'
 
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
-import { EntityStatusChip } from '@/components/common/EntityStatusChip'
+import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useLazyGetVendorPaymentQuery } from '@/store/api/purchasingApi'
 import { JournalEntry } from '@/types'
@@ -153,7 +153,7 @@ export function JournalEntryContextHeader({ selectedEntry }: Props) {
         title={`Journal Entry Details - ${selectedEntry.referenceNumber}`}
         statusChip={(
           <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-            <EntityStatusChip status={selectedEntry.status} />
+            <StatusChip status={selectedEntry.status} />
             {selectedEntry.sourceType && (
               <Chip
                 label={ENTRY_TYPE_LABELS[selectedEntry.sourceType] ?? selectedEntry.sourceType}

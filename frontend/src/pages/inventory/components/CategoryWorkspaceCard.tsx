@@ -2,7 +2,6 @@ import React from 'react'
 import {
   Alert,
   Box,
-  Chip,
   CircularProgress,
   Paper,
   Table,
@@ -19,6 +18,7 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetCategoryProductsQuery } from '@/store/api/inventoryApi'
 import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
 import type { Category } from '@/types'
+import { StatusChip } from '@/components/common/StatusChip'
 import { getStockStatus } from '@/utils/stockUtils'
 
 interface CategoryWorkspaceCardProps {
@@ -100,10 +100,7 @@ const CategoryWorkspaceCard: React.FC<CategoryWorkspaceCardProps> = ({ selectedC
                           {stock}
                         </TableCell>
                         <TableCell align="center">
-                          <Chip
-                            label={status.label}
-                            color={status.color}
-                            size="small"
+                          <StatusChip status={status}
                             variant="outlined"
                             sx={{ fontSize: '0.7rem', fontWeight: 500, height: 20 }}
                           />

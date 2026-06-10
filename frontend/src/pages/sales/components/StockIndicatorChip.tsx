@@ -1,6 +1,6 @@
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
-import { Chip } from '@mui/material'
 
+import { StatusChip } from '@/components/common/StatusChip'
 import { getStockStatus } from '@/utils/stockStatus'
 
 interface StockIndicatorChipProps {
@@ -12,27 +12,25 @@ export default function StockIndicatorChip({ stockQuantity, quantity }: StockInd
   const status = getStockStatus(stockQuantity, quantity)
 
   if (status === 'in_stock') {
-    return <Chip label="In stock" color="success" size="small" variant="outlined" />
+    return <StatusChip status="in_stock" label="In stock" variant="outlined" />
   }
 
   if (status === 'out_of_stock') {
     return (
-      <Chip
-        icon={<WarningAmberIcon />}
+      <StatusChip
+        status="out_of_stock"
         label={`Out of stock (${Number(stockQuantity)})`}
-        color="error"
-        size="small"
+        icon={<WarningAmberIcon />}
         variant="outlined"
       />
     )
   }
 
   return (
-    <Chip
-      icon={<WarningAmberIcon />}
+    <StatusChip
+      status="insufficient"
       label={`Only ${Number(stockQuantity)} left (need ${quantity})`}
-      color="warning"
-      size="small"
+      icon={<WarningAmberIcon />}
       variant="outlined"
     />
   )

@@ -27,6 +27,7 @@ import {
 } from '@mui/material';
 import { default as ReceiptIcon } from '@mui/icons-material/Receipt';
 import PageHeader from '@/components/common/PageHeader';
+import { StatusChip } from '@/components/common/StatusChip';
 import { useNavigate } from 'react-router-dom';
 import { formatDate, formatDateTime } from '@/utils/formatters';
 import { useGetAccountActivityQuery, useGetChartOfAccountsQuery } from '@/store/api/accountingApi';
@@ -87,15 +88,6 @@ const getEntryTypeColor = (entryType: string): 'default' | 'primary' | 'warning'
   if (typeUpper === 'ADJUSTMENT') return 'secondary';
   if (typeUpper === 'OPENING') return 'info';
   if (typeUpper === 'CLOSING') return 'error';
-  return 'default';
-};
-
-// Status chip colors
-const getStatusColor = (status: string): 'default' | 'success' | 'error' => {
-  const statusUpper = status.toUpperCase();
-  if (statusUpper === JournalEntryStatus.DRAFT) return 'default';
-  if (statusUpper === JournalEntryStatus.POSTED) return 'success';
-  if (statusUpper === JournalEntryStatus.REVERSED) return 'error';
   return 'default';
 };
 
@@ -536,12 +528,7 @@ const AccountActivityPage: React.FC = () => {
                             />
                           </TableCell>
                           <TableCell>
-                            <Chip
-                              label={entry.status.toUpperCase()}
-                              color={getStatusColor(entry.status)}
-                              size="small"
-                              sx={{ fontWeight: 500 }}
-                            />
+                            <StatusChip status={entry.status} label={entry.status.toUpperCase()} sx={{ fontWeight: 500 }} />
                           </TableCell>
                           <TableCell>
                             <Typography variant="body2">

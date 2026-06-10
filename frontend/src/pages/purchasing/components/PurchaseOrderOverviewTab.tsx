@@ -6,8 +6,7 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { PurchaseOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
-import PurchaseOrderPaymentStatusChip from './PurchaseOrderPaymentStatusChip'
-import PurchaseOrderStatusChip from './PurchaseOrderStatusChip'
+import { StatusChip } from '@/components/common/StatusChip'
 
 interface PurchaseOrderOverviewTabProps {
   order: PurchaseOrder
@@ -72,8 +71,8 @@ export default function PurchaseOrderOverviewTab({ order }: PurchaseOrderOvervie
                 label="Status"
                 value={
                   <Box sx={{ display: 'flex', gap: 1 }}>
-                    <PurchaseOrderStatusChip status={order.status} />
-                    <PurchaseOrderPaymentStatusChip status={order.paymentStatus} />
+                    <StatusChip status={order.status} />
+                    <StatusChip status={order.paymentStatus} />
                   </Box>
                 }
               />

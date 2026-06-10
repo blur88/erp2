@@ -24,6 +24,7 @@ import {
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { AppButton } from '@/components/common/AppButton'
+import { StatusChip } from '@/components/common/StatusChip'
 import { default as PdfIcon } from '@mui/icons-material/PictureAsPdf'
 import { default as ExcelIcon } from '@mui/icons-material/TableChart'
 import { default as RefreshIcon } from '@mui/icons-material/Refresh'
@@ -888,22 +889,12 @@ const SalesOrderSummary: React.FC = () => {
                             )}
                             {selectedColumns.includes('inventoryStatus') && (
                               <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                                <Chip
-                                  label={row.isFulfilled ? 'Fulfilled' : 'Unfulfilled'}
-                                  size="small"
-                                  color={row.isFulfilled ? 'success' : 'warning'}
-                                  sx={{ fontSize: '0.7rem', height: '20px' }}
-                                />
+                                <StatusChip status={row.isFulfilled ? 'fulfilled' : 'unfulfilled'} sx={{ fontSize: '0.7rem', height: '20px' }} />
                               </TableCell>
                             )}
                             {selectedColumns.includes('paymentStatus') && (
                               <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                                <Chip
-                                  label={row.isPaidInFull ? 'Paid' : row.paidAmount > 0 ? 'Partial' : 'Unpaid'}
-                                  size="small"
-                                  color={row.isPaidInFull ? 'success' : row.paidAmount > 0 ? 'warning' : 'default'}
-                                  sx={{ fontSize: '0.7rem', height: '20px' }}
-                                />
+                                <StatusChip status={row.isPaidInFull ? 'paid' : row.paidAmount > 0 ? 'partial' : 'unpaid'} sx={{ fontSize: '0.7rem', height: '20px' }} />
                               </TableCell>
                             )}
                             {selectedColumns.includes('orderDate') && (

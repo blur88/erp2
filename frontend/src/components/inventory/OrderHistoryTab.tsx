@@ -10,10 +10,10 @@ import {
   TableRow,
   TablePagination,
   CircularProgress,
-  Chip,
 } from '@mui/material'
 import { ApiService } from '@/services/api'
 import { useNotification } from '@/hooks/useNotification'
+import { StatusChip } from '@/components/common/StatusChip'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate as formatDisplayDate } from '@/utils/formatters'
 import { TABLE_STYLES } from '@/constants/tableStyles'
@@ -83,57 +83,17 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
 
   const getStatusChip = (order: OrderHistoryItem) => {
     if (order.type === 'sales_order') {
-      // For sales orders, show payment and fulfillment status
-      const paymentColor =
-        order.paymentStatus === 'paid'
-          ? 'success'
-          : order.paymentStatus === 'partial'
-          ? 'warning'
-          : 'default'
-
-      const fulfillmentColor = order.fulfillmentStatus === 'fulfilled' ? 'success' : 'default'
-
       return (
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-          <Chip
-            label={order.paymentStatus === 'paid' ? 'Paid' : order.paymentStatus === 'partial' ? 'Partial' : 'Pending'}
-            color={paymentColor as any}
-            size="small"
-            sx={{ fontSize: '0.7rem' }}
-          />
-          <Chip
-            label={order.fulfillmentStatus === 'fulfilled' ? 'Fulfilled' : 'Pending'}
-            color={fulfillmentColor as any}
-            size="small"
-            sx={{ fontSize: '0.7rem' }}
-          />
+          <StatusChip status={order.paymentStatus === 'paid' ? 'paid' : order.paymentStatus === 'partial' ? 'partial' : 'unpaid'} sx={{ fontSize: '0.7rem' }} />
+          <StatusChip status={order.fulfillmentStatus === 'fulfilled' ? 'fulfilled' : 'unfulfilled'} sx={{ fontSize: '0.7rem' }} />
         </Box>
       )
     } else {
-      // For purchase orders, show payment and received status
-      const paymentColor =
-        order.paymentStatus === 'paid'
-          ? 'success'
-          : order.paymentStatus === 'partial'
-          ? 'warning'
-          : 'default'
-
-      const receivedColor = order.receivedStatus === 'received' ? 'success' : 'default'
-
       return (
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-          <Chip
-            label={order.paymentStatus === 'paid' ? 'Paid' : order.paymentStatus === 'partial' ? 'Partial' : 'Pending'}
-            color={paymentColor as any}
-            size="small"
-            sx={{ fontSize: '0.7rem' }}
-          />
-          <Chip
-            label={order.receivedStatus === 'received' ? 'Received' : 'Pending Delivery'}
-            color={receivedColor as any}
-            size="small"
-            sx={{ fontSize: '0.7rem' }}
-          />
+          <StatusChip status={order.paymentStatus === 'paid' ? 'paid' : order.paymentStatus === 'partial' ? 'partial' : 'unpaid'} sx={{ fontSize: '0.7rem' }} />
+          <StatusChip status={order.receivedStatus === 'received' ? 'received' : 'not_received'} sx={{ fontSize: '0.7rem' }} />
         </Box>
       )
     }

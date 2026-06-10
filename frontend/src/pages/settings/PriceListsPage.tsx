@@ -26,6 +26,7 @@ import { default as ViewIcon } from '@mui/icons-material/Visibility'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/common/PageHeader'
 import GenericOverviewPage from '@/components/common/GenericOverviewPage'
+import { StatusChip } from '@/components/common/StatusChip'
 import { FilterBar } from '@/components/filters'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useFilterBar } from '@/hooks/useFilterBar'
@@ -442,16 +443,7 @@ const PriceListsPage: React.FC = () => {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        label={priceList.isActive ? 'Active' : 'Inactive'}
-                        size="small"
-                        color={priceList.isActive ? 'success' : 'default'}
-                        sx={{
-                          fontSize: '0.65rem',
-                          height: 20,
-                          fontWeight: 500,
-                        }}
-                      />
+                      <StatusChip status={priceList.isActive ? 'active' : 'inactive'} sx={{ fontSize: '0.65rem', height: 20 }} />
                     </TableCell>
                     <TableCell align="right">
                       <Box

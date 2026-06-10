@@ -20,8 +20,7 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
-import { SalesOrderPaymentStatusChip } from './SalesOrderPaymentStatusChip'
-import { SalesOrderStatusChip } from './SalesOrderStatusChip'
+import { StatusChip } from '@/components/common/StatusChip'
 
 interface OrderOverviewTabProps {
   order: SalesOrder
@@ -102,8 +101,8 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
                 label="Status"
                 value={
                   <Box sx={{ display: 'flex', gap: 1 }}>
-                    <SalesOrderStatusChip status={order.status} paymentStatus={order.paymentStatus} />
-                    <SalesOrderPaymentStatusChip status={order.paymentStatus} />
+                    <StatusChip status={order.status} />
+                    <StatusChip status={order.paymentStatus} />
                   </Box>
                 }
               />

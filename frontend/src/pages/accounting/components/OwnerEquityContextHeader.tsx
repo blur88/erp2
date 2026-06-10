@@ -7,7 +7,7 @@ import { default as UndoIcon } from '@mui/icons-material/Undo'
 
 import { AppButton } from '@/components/common/AppButton'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
-import { EntityStatusChip } from '@/components/common/EntityStatusChip'
+import { StatusChip } from '@/components/common/StatusChip'
 import { useJournalEntryRefs } from '@/hooks/useJournalEntryRefs'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { OwnerEquityTransaction } from '@/types'
@@ -73,7 +73,7 @@ export function OwnerEquityContextHeader({ selected, onEdit, onPost, onDelete, o
               label={typeLabel[selected.type]}
               color={selected.type === 'capital_injection' ? 'primary' : 'warning'}
             />
-            <EntityStatusChip status={selected.status} />
+            <StatusChip status={selected.status} />
           </Stack>
         )}
         actions={(

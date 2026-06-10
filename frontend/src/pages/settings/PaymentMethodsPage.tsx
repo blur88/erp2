@@ -23,6 +23,7 @@ import {
 import PaymentMethodFormDialog from '@/components/settings/PaymentMethodFormDialog';
 import DeletedPaymentMethodsDialog from '@/components/settings/DeletedPaymentMethodsDialog';
 import PageHeader from '@/components/common/PageHeader';
+import { StatusChip } from '@/components/common/StatusChip';
 import GenericOverviewPage from '@/components/common/GenericOverviewPage';
 import { useNotification } from '@/hooks/useNotification';
 import {
@@ -137,11 +138,7 @@ const PaymentMethodsPage: React.FC = () => {
                   </TableCell>
                   <TableCell>{method.sortOrder}</TableCell>
                   <TableCell>
-                    <Chip
-                      size="small"
-                      color={method.isActive ? 'success' : 'default'}
-                      label={method.isActive ? 'Active' : 'Inactive'}
-                    />
+                    <StatusChip status={method.isActive ? 'active' : 'inactive'} />
                   </TableCell>
                   <TableCell align="right">
                     <IconButton

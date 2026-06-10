@@ -23,6 +23,7 @@ import { default as UnlockIcon } from '@mui/icons-material/LockOpen'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { FilterBar } from '@/components/filters'
 import PageHeader from '@/components/common/PageHeader'
+import { StatusChip } from '@/components/common/StatusChip'
 import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useAppSelector } from '@/hooks/useRedux'
@@ -241,16 +242,6 @@ const UserManagementPage: React.FC = () => {
       procurement_staff: 'primary',
     }
     return colors[role] || 'primary'
-  }
-
-  // Status color mapping
-  const getStatusColor = (status: string): 'success' | 'error' | 'warning' => {
-    const colors: Record<string, 'success' | 'error' | 'warning'> = {
-      active: 'success',
-      inactive: 'error',
-      suspended: 'warning',
-    }
-    return colors[status] || 'error'
   }
 
   // Format date
@@ -511,16 +502,7 @@ const UserManagementPage: React.FC = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          <Chip
-                            label={user.status}
-                            size="small"
-                            color={getStatusColor(user.status)}
-                            sx={{
-                              fontSize: '0.65rem',
-                              height: 20,
-                              fontWeight: 500,
-                            }}
-                          />
+                          <StatusChip status={user.status} sx={{ fontSize: '0.65rem', height: 20, fontWeight: 500 }} />
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 400 }}>

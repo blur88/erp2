@@ -23,8 +23,8 @@ vi.mock('@/store/api/purchasingApi', () => ({
   ],
 }))
 
-vi.mock('@/components/common/EntityStatusChip', () => ({
-  EntityStatusChip: ({ status }: any) => <span>{status}</span>,
+vi.mock('@/components/common/StatusChip', () => ({
+  StatusChip: ({ status }: any) => <span>{status}</span>,
 }))
 
 vi.mock('@/components/common/EntityContextHeaderBar', () => ({

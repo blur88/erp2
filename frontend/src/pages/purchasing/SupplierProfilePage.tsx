@@ -6,7 +6,7 @@ import StoreIcon from '@mui/icons-material/Store'
 import { skipToken } from '@reduxjs/toolkit/query'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
-import { EntityStatusChip } from '@/components/common/EntityStatusChip'
+import { StatusChip } from '@/components/common/StatusChip'
 import PageHeader from '@/components/common/PageHeader'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useNotification } from '@/hooks/useNotification'
@@ -91,7 +91,7 @@ export default function SupplierProfilePage() {
     <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <PageHeader
         title={supplier.companyName}
-        titleBadge={<EntityStatusChip status={supplier.isActive ? 'active' : 'inactive'} />}
+        titleBadge={<StatusChip status={supplier.isActive ? 'active' : 'inactive'} />}
         backAction={() => navigate('/purchasing/suppliers')}
         primaryAction={{
           label: 'Edit Supplier',

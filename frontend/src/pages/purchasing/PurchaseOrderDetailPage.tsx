@@ -26,9 +26,8 @@ import PurchaseOrderActionBar from './components/PurchaseOrderActionBar'
 import PurchaseOrderJournalEntriesTab from './components/PurchaseOrderJournalEntriesTab'
 import PurchaseOrderOverviewTab from './components/PurchaseOrderOverviewTab'
 import PurchaseOrderPaymentsTab from './components/PurchaseOrderPaymentsTab'
-import PurchaseOrderPaymentStatusChip from './components/PurchaseOrderPaymentStatusChip'
 import PurchaseOrderPrintDialog from './components/PurchaseOrderPrintDialog'
-import PurchaseOrderStatusChip from './components/PurchaseOrderStatusChip'
+import { StatusChip } from '@/components/common/StatusChip'
 
 type Dialog = 'pay' | 'receive' | 'return' | 'cancel' | 'uncancel' | 'unpay' | 'print' | null
 
@@ -181,8 +180,8 @@ export default function PurchaseOrderDetailPage() {
         title={order.orderNumber}
         titleBadge={
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <PurchaseOrderStatusChip status={order.status} />
-            <PurchaseOrderPaymentStatusChip status={order.paymentStatus} />
+            <StatusChip status={order.status} />
+            <StatusChip status={order.paymentStatus} />
           </Box>
         }
         backAction={() => navigate('/purchasing/orders')}

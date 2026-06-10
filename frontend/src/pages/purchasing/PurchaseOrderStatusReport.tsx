@@ -41,6 +41,7 @@ import { default as KeyboardDoubleArrowRightIcon } from '@mui/icons-material/Key
 import { default as KeyboardDoubleArrowLeftIcon } from '@mui/icons-material/KeyboardDoubleArrowLeft'
 import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
+import { StatusChip } from '@/components/common/StatusChip'
 import { printColors } from '@/styles/printTokens'
 import { PRINT_STYLES } from '@/styles/printStyles'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
@@ -540,21 +541,6 @@ const PurchaseOrderStatusReport: React.FC = () => {
     setPage(0)
   }
 
-  const getStatusColor = (status: string) => {
-    return status === 'received' ? 'success' : 'warning'
-  }
-
-  const getPaymentStatusColor = (status: string) => {
-    switch (status) {
-      case 'paid':
-        return 'success'
-      case 'partial':
-        return 'warning'
-      default:
-        return 'error'
-    }
-  }
-
   return (
     <>
       <PageHeader
@@ -955,20 +941,16 @@ const PurchaseOrderStatusReport: React.FC = () => {
                               )}
                               {selectedColumns.includes('status') && (
                                 <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                                  <Chip
-                                    label={row.status.charAt(0).toUpperCase() + row.status.slice(1)}
-                                    color={getStatusColor(row.status) as any}
-                                    size="small"
+                                  <StatusChip
+                                    status={row.status}
                                     sx={{ fontSize: '0.7rem', height: '20px' }}
                                   />
                                 </TableCell>
                               )}
                               {selectedColumns.includes('paymentStatus') && (
                                 <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                                  <Chip
-                                    label={row.paymentStatus.charAt(0).toUpperCase() + row.paymentStatus.slice(1)}
-                                    color={getPaymentStatusColor(row.paymentStatus) as any}
-                                    size="small"
+                                  <StatusChip
+                                    status={row.paymentStatus}
                                     sx={{ fontSize: '0.7rem', height: '20px' }}
                                   />
                                 </TableCell>

@@ -22,6 +22,7 @@ import {
   InputAdornment,
 } from '@mui/material'
 import { AppButton } from '@/components/common/AppButton'
+import { StatusChip } from '@/components/common/StatusChip'
 import { default as BackIcon } from '@mui/icons-material/ArrowBack'
 import { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle'
 import { default as EditIcon } from '@mui/icons-material/Edit'
@@ -205,11 +206,7 @@ const PriceListDetailsPage: React.FC = () => {
               {selectedPriceList.isDefault && (
                 <Chip label="Default" color="warning" size="small" />
               )}
-              <Chip
-                label={selectedPriceList.isActive ? 'Active' : 'Inactive'}
-                color={selectedPriceList.isActive ? 'success' : 'default'}
-                size="small"
-              />
+              <StatusChip status={selectedPriceList.isActive ? 'active' : 'inactive'} />
             </Box>
             <Typography variant="body2" sx={{
               color: "text.secondary"

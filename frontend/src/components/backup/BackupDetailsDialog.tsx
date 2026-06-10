@@ -11,6 +11,7 @@ import {
   Divider,
   Stack,
 } from '@mui/material';
+import { StatusChip } from '@/components/common/StatusChip';
 import { useAppSelector } from '@/hooks/useRedux';
 import { format } from 'date-fns';
 
@@ -38,19 +39,6 @@ const BackupDetailsDialog: React.FC<BackupDetailsDialogProps> = ({ open, onClose
       return format(new Date(dateString), 'PPpp');
     } catch {
       return dateString;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'success';
-      case 'in_progress':
-        return 'info';
-      case 'failed':
-        return 'error';
-      default:
-        return 'default';
     }
   };
 
@@ -85,11 +73,7 @@ const BackupDetailsDialog: React.FC<BackupDetailsDialogProps> = ({ open, onClose
               <Typography variant="subtitle2" color="textSecondary" gutterBottom>
                 Status
               </Typography>
-              <Chip
-                label={currentBackup.status}
-                size="small"
-                color={getStatusColor(currentBackup.status) as any}
-              />
+              <StatusChip status={currentBackup.status} />
             </Box>
 
             <Box sx={{ flex: '1 1 200px' }}>

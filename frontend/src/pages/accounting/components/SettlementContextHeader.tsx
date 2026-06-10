@@ -8,7 +8,7 @@ import { default as RestoreIcon } from '@mui/icons-material/Restore'
 
 import { AppButton } from '@/components/common/AppButton'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
-import { EntityStatusChip } from '@/components/common/EntityStatusChip'
+import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useJournalEntryRef } from '@/hooks/useJournalEntryRef'
 import type { Settlement } from '@/types'
@@ -116,7 +116,7 @@ export function SettlementContextHeader({
     <Paper sx={{ overflow: 'hidden' }}>
       <EntityContextHeaderBar
         title={selected.settlementNumber}
-        statusChip={<EntityStatusChip status={selected.status} />}
+        statusChip={<StatusChip status={selected.status} />}
         actions={actions}
       />
       <Grid container spacing={3} sx={{ p: TABLE_STYLES.cell.padding.px }}>
@@ -141,7 +141,7 @@ export function SettlementContextHeader({
                 </TableRow>
                 <TableRow sx={{ backgroundColor: 'grey.50' }}>
                   <TableCell sx={labelCellSx}>Status</TableCell>
-                  <TableCell sx={valueCellSx}><EntityStatusChip status={selected.status} /></TableCell>
+                  <TableCell sx={valueCellSx}><StatusChip status={selected.status} /></TableCell>
                 </TableRow>
               </TableBody>
             </Table>

@@ -12,6 +12,7 @@ import {
     Chip,
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
+import { StatusChip } from '@/components/common/StatusChip'
 import { formatCurrency } from '@/utils/formatters'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 
@@ -109,17 +110,7 @@ const RecentPurchasesTable: React.FC<RecentPurchasesTableProps> = ({ orders, tot
                                         </Typography>
                                     </TableCell>
                                     <TableCell>
-                                        <Chip
-                                            label={order.isFullyReceived ? 'Received' : 'Pending'}
-                                            color={order.isFullyReceived ? 'success' : 'warning'}
-                                            size="small"
-                                            variant="outlined"
-                                            sx={{
-                                                fontSize: '0.7rem',
-                                                fontWeight: 500,
-                                                height: 20
-                                            }}
-                                        />
+                                        <StatusChip status={order.isFullyReceived ? 'received' : 'not_received'} variant="outlined" sx={{ fontSize: '0.7rem', fontWeight: 500, height: 20 }} />
                                     </TableCell>
                                 </TableRow>
                             ))

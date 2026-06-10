@@ -8,7 +8,7 @@ import { format } from 'date-fns'
 
 import { AppButton } from '@/components/common/AppButton'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
-import { EntityStatusChip } from '@/components/common/EntityStatusChip'
+import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { BankReconciliation, BankReconciliationStatus } from '@/types'
 import { formatCurrency } from '@/utils/formatters'
@@ -66,7 +66,7 @@ export function BankReconciliationContextHeader({ selected, onEdit, onComplete, 
     <Paper sx={{ overflow: 'hidden' }}>
       <EntityContextHeaderBar
         title={selected.account?.name ?? 'Bank Account'}
-        statusChip={<EntityStatusChip status={selected.status} />}
+        statusChip={<StatusChip status={selected.status} />}
         actions={(
           <Stack direction="row" spacing={0.5}>
             {isInProgress && (

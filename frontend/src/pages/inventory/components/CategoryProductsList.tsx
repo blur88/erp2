@@ -1,7 +1,6 @@
 import React from 'react'
 import {
   Box,
-  Chip,
   CircularProgress,
   Table,
   TableBody,
@@ -15,6 +14,7 @@ import {
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetProductsQuery } from '@/store/api/inventoryApi'
 import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
+import { StatusChip } from '@/components/common/StatusChip'
 import { getStockStatus } from '@/utils/stockUtils'
 
 interface CategoryProductsListProps {
@@ -87,10 +87,7 @@ const CategoryProductsList: React.FC<CategoryProductsListProps> = ({ categoryId 
                     <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                       {stock}
                     </Typography>
-                    <Chip
-                      label={status.label}
-                      color={status.color}
-                      size="small"
+                    <StatusChip status={status}
                       variant="outlined"
                       sx={{ fontSize: '0.7rem', fontWeight: 500, height: 20 }}
                     />

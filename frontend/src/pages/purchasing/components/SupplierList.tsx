@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
-import { EntityStatusChip } from '@/components/common/EntityStatusChip'
+import { StatusChip } from '@/components/common/StatusChip'
 import RowActionMenu from '@/components/common/RowActionMenu'
 import type { Supplier } from '@/types'
 
@@ -37,7 +37,7 @@ export default function SupplierList({
       width: '12%',
       raw: true,
       render: (supplier) => (
-        <EntityStatusChip status={supplier.isActive ? 'active' : 'inactive'} />
+        <StatusChip status={supplier.isActive ? 'active' : 'inactive'} />
       ),
     },
     {

@@ -1,7 +1,7 @@
 import { Box, Button, CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
-import { EntityStatusChip } from '@/components/common/EntityStatusChip'
+import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetSalesOrdersQuery } from '@/store/api/salesApi'
 import { formatCurrency } from '@/utils/currency'
@@ -54,7 +54,7 @@ export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps
               </TableCell>
               <TableCell>{formatDate(order.orderDate)}</TableCell>
               <TableCell>
-                <EntityStatusChip status={order.isCompleted || order.isFulfilled ? 'completed' : 'pending'} />
+                <StatusChip status={order.isCompleted || order.isFulfilled ? 'completed' : 'pending'} />
               </TableCell>
               <TableCell align="right">{formatCurrency(order.totalAmount)}</TableCell>
               <TableCell align="right">
