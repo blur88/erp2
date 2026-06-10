@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsOptional,
   IsEnum,
+  IsIn,
   IsArray,
   IsNumber,
   IsInt,
@@ -19,6 +20,10 @@ import {
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { BaseQueryDto } from '../../../common/dto/base-query.dto';
+import {
+  PurchaseOrderPaymentStatus,
+  PurchaseOrderStatus,
+} from '../../../database/entities/purchase-order.entity';
 
 export class CreatePurchaseOrderItemDto {
   @ApiProperty({ description: 'Product ID from catalog' })
@@ -113,15 +118,21 @@ export class PurchaseOrderQueryDto extends BaseQueryDto {
   @IsDateString()
   orderDateTo?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by GRN status', enum: ['draft', 'received'] })
+  @ApiPropertyOptional({
+    description: 'Filter by PO status',
+    enum: ['DRAFT', 'READY', 'RECEIVED', 'CANCELLED'],
+  })
   @IsOptional()
-  @IsEnum(['draft', 'received'])
-  status?: 'draft' | 'received';
+  @IsIn(['DRAFT', 'READY', 'RECEIVED', 'CANCELLED'])
+  status?: PurchaseOrderStatus;
 
-  @ApiPropertyOptional({ description: 'Filter by payment status', enum: ['unpaid', 'partial', 'paid', 'overpaid'] })
+  @ApiPropertyOptional({
+    description: 'Filter by payment status',
+    enum: ['UNPAID', 'PARTIAL', 'PAID', 'OVERPAID'],
+  })
   @IsOptional()
-  @IsEnum(['unpaid', 'partial', 'paid', 'overpaid'])
-  paymentStatus?: 'unpaid' | 'partial' | 'paid' | 'overpaid';
+  @IsIn(['UNPAID', 'PARTIAL', 'PAID', 'OVERPAID'])
+  paymentStatus?: PurchaseOrderPaymentStatus;
 
   @ApiPropertyOptional({ description: 'Sort by field', default: 'orderDate' })
   @IsOptional()
@@ -153,6 +164,9 @@ export class PurchaseOrderItemResponseDto {
 
   @ApiProperty({ description: 'Unit price' })
   unitPrice: number;
+
+  @ApiPropertyOptional({ description: 'Discount type', enum: ['percentage', 'fixed_amount'] })
+  discountType?: 'percentage' | 'fixed_amount';
 
   @ApiProperty({ description: 'Discount percentage' })
   discountPercent: number;
@@ -186,6 +200,7 @@ export class PurchaseOrderResponseDto {
   @ApiProperty({ description: 'Supplier information' })
   supplier?: {
     id: string;
+    slug?: string;
     supplierCode: string;
     companyName: string;
     contactPerson?: string;
@@ -219,6 +234,12 @@ export class PurchaseOrderResponseDto {
   @ApiProperty({ description: 'Total amount paid' })
   paidAmount: number;
 
+  @ApiProperty({ description: 'Lifecycle status' })
+  status: PurchaseOrderStatus;
+
+  @ApiProperty({ description: 'Payment status' })
+  paymentStatus: PurchaseOrderPaymentStatus;
+
   @ApiProperty({ description: 'Notes' })
   notes?: string;
 
@@ -233,14 +254,6 @@ export class PurchaseOrderResponseDto {
 
   @ApiProperty({ description: 'Order items', type: [PurchaseOrderItemResponseDto] })
   items: PurchaseOrderItemResponseDto[];
-
-  @ApiPropertyOptional({ description: 'Goods Received Notes associated with this order' })
-  goodsReceivedNotes?: Array<{
-    id: string;
-    grnNumber: string;
-    status: string;
-    receiptDate: Date;
-  }>;
 
   @ApiPropertyOptional({ description: 'Vendor Payments associated with this order' })
   vendorPayments?: Array<{
@@ -373,9 +386,11 @@ export class RecordOrderPaymentLineDto {
   reference?: string;
 }
 
-export class RecordOrderPaymentsDto {
+export class RecordVendorPaymentsDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => RecordOrderPaymentLineDto)
   payments: RecordOrderPaymentLineDto[];
 }
+
+export class RecordOrderPaymentsDto extends RecordVendorPaymentsDto {}

@@ -398,6 +398,39 @@ describe('AccountingService', () => {
     });
   });
 
+  describe('postPurchaseReceiptEntry', () => {
+    it('posts a purchase receipt entry sourced by purchase_order', async () => {
+      accountMappingService.getMappings.mockResolvedValue(mockMappings);
+      fiscalPeriodService.validatePeriod.mockResolvedValue({
+        isValid: true,
+        message: 'Period is open',
+        period: mockOpenPeriod as any,
+      });
+      journalEntryService.findBySource.mockResolvedValue([]);
+      journalEntryService.create.mockResolvedValue(mockJournalEntry as any);
+      journalEntryService.postEntry.mockResolvedValue(mockJournalEntry as any);
+
+      const po = {
+        id: 'po-1',
+        orderNumber: 'PO-0001',
+        receivedDate: new Date('2026-06-10'),
+        supplier: { companyName: 'Acme' },
+        items: [{ totalAmount: 100 }],
+        shippingAmount: 0,
+      } as any;
+
+      await service.postPurchaseReceiptEntry(po, 'user-1', new Date('2026-06-10'), 'admin');
+
+      expect(journalEntryService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sourceType: 'purchase_order',
+          sourceId: 'po-1',
+        }),
+        'user-1',
+      );
+    });
+  });
+
   describe('postCustomerPaymentEntry', () => {
     const mockPayment = {
       id: 'payment-123',
@@ -471,31 +504,19 @@ describe('AccountingService', () => {
     });
   });
 
-  describe('postGoodsReceivedEntry', () => {
-    const mockGRN = {
-      id: 'grn-123',
-      grnNumber: 'GRN-001',
-      receivedDate: new Date('2026-01-15'),
+  describe('postPurchaseReceiptEntry', () => {
+    const mockPO = {
+      id: 'po-123',
+      orderNumber: 'PO-0001',
+      items: [
+        { totalAmount: 600 },
+        { totalAmount: 400 },
+      ],
+      shippingAmount: 0,
       supplier: {
         id: 'supplier-123',
         companyName: 'Test Supplier',
       },
-      items: [
-        {
-          id: 'item-1',
-          receivedQuantity: 10,
-          purchaseOrderItem: {
-            unitCost: 60,
-          },
-        },
-        {
-          id: 'item-2',
-          receivedQuantity: 5,
-          purchaseOrderItem: {
-            unitCost: 80,
-          },
-        },
-      ],
     } as any;
 
     beforeEach(() => {
@@ -507,21 +528,22 @@ describe('AccountingService', () => {
       });
       journalEntryService.create.mockResolvedValue(mockJournalEntry as any);
       journalEntryService.postEntry.mockResolvedValue(mockJournalEntry as any);
+      journalEntryService.findBySource.mockResolvedValue([]);
     });
 
     it('should create journal entry with correct lines', async () => {
-      const result = await service.postGoodsReceivedEntry(mockGRN, 'user-123');
+      const result = await service.postPurchaseReceiptEntry(mockPO, 'user-123', new Date('2026-01-15'));
 
       expect(journalEntryService.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          entryDate: mockGRN.receivedDate,
-          description: `GRN GRN-001 from Test Supplier`,
-          sourceType: 'goods_received_note',
-          sourceId: 'grn-123',
+          entryDate: new Date('2026-01-15'),
+          description: 'Purchase Order PO-0001 from Test Supplier',
+          sourceType: 'purchase_order',
+          sourceId: 'po-123',
           lines: expect.arrayContaining([
             expect.objectContaining({
               accountId: 'purchase-inventory-id',
-              debitAmount: 1000, // (10 * 60) + (5 * 80)
+              debitAmount: 1000, // (600 + 400)
               creditAmount: 0,
             }),
             expect.objectContaining({
@@ -537,17 +559,17 @@ describe('AccountingService', () => {
       expect(result).toEqual(mockJournalEntry);
     });
 
-    it('should calculate total correctly from GRN items', async () => {
-      await service.postGoodsReceivedEntry(mockGRN, 'user-123');
+    it('should calculate total correctly from PO items', async () => {
+      await service.postPurchaseReceiptEntry(mockPO, 'user-123', new Date('2026-01-15'));
 
       const createCall = journalEntryService.create.mock.calls[0][0];
       const inventoryLine = createCall.lines.find((l: any) => l.accountId === 'purchase-inventory-id');
 
-      expect(inventoryLine.debitAmount).toBe(1000); // (10 * 60) + (5 * 80)
+      expect(inventoryLine.debitAmount).toBe(1000); // 600 + 400
     });
 
     it('should use correct account mappings', async () => {
-      await service.postGoodsReceivedEntry(mockGRN, 'user-123');
+      await service.postPurchaseReceiptEntry(mockPO, 'user-123', new Date('2026-01-15'));
 
       const createCall = journalEntryService.create.mock.calls[0][0];
       const accountIds = createCall.lines.map((l: any) => l.accountId);
@@ -878,27 +900,6 @@ describe('AccountingService', () => {
       });
     });
 
-    describe('calculateGRNTotal', () => {
-      it('should calculate GRN total correctly', () => {
-        const items = [
-          { receivedQuantity: 10, purchaseOrderItem: { unitCost: 60 } },
-          { receivedQuantity: 5, purchaseOrderItem: { unitCost: 80 } },
-        ] as any;
-
-        const result = (service as any).calculateGRNTotal(items);
-        expect(result).toBe(1000); // (10 * 60) + (5 * 80)
-      });
-
-      it('should handle missing purchaseOrderItem', () => {
-        const items = [
-          { receivedQuantity: 10, purchaseOrderItem: { unitCost: 60 } },
-          { receivedQuantity: 5 }, // No purchaseOrderItem
-        ] as any;
-
-        const result = (service as any).calculateGRNTotal(items);
-        expect(result).toBe(600); // Only first item counted
-      });
-    });
 
     describe('calculateAdjustmentTotals', () => {
       it('should calculate increases correctly', () => {

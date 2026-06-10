@@ -138,12 +138,14 @@ export class BaseCostCalculatorService {
    */
   async addStock(
     productId: string,
-    grnId: string,
+    purchaseOrderId: string | null,
     quantity: number,
     unitCost: number,
     shippingPerUnit: number,
     receivedDate: Date,
+    manager?: EntityManager,
   ): Promise<void> {
+    const costHistoryRepo = repoFor(manager, PurchaseCostHistory, this.costHistoryRepository);
     const landedCost = Number(unitCost) + Number(shippingPerUnit);
 
     this.logger.log(
@@ -151,9 +153,9 @@ export class BaseCostCalculatorService {
     );
 
     // Create new batch in history
-    const newBatch = this.costHistoryRepository.create({
+    const newBatch = costHistoryRepo.create({
       productId,
-      grnId,
+      purchaseOrderId: purchaseOrderId ?? undefined,
       unitCost,
       shippingPerUnit,
       landedCost,
@@ -162,31 +164,32 @@ export class BaseCostCalculatorService {
       receivedDate,
     });
 
-    await this.costHistoryRepository.save(newBatch);
+    await costHistoryRepo.save(newBatch);
 
     this.logger.log(`Created cost history batch ${newBatch.id}`);
 
     // Recalculate base cost
-    await this.updateProductBaseCost(productId);
+    await this.updateProductBaseCost(productId, manager);
   }
 
   /**
    * Remove stock when returning goods to supplier
    * Validates that no stock has been sold from this batch, then deletes it
    */
-  async removeStock(productId: string, grnId: string): Promise<void> {
-    this.logger.log(`Removing stock for product ${productId} from GRN ${grnId}`);
+  async removeStock(productId: string, purchaseOrderId: string, manager?: EntityManager): Promise<void> {
+    const costHistoryRepo = repoFor(manager, PurchaseCostHistory, this.costHistoryRepository);
+    this.logger.log(`Removing stock for product ${productId} from purchase order ${purchaseOrderId}`);
 
-    // Find the batch(es) created for this GRN
-    const batches = await this.costHistoryRepository.find({
+    // Find the batch(es) created for this purchase order
+    const batches = await costHistoryRepo.find({
       where: {
         productId,
-        grnId,
+        purchaseOrderId,
       },
     });
 
     if (batches.length === 0) {
-      this.logger.warn(`No cost history batches found for product ${productId} and GRN ${grnId}`);
+      this.logger.warn(`No cost history batches found for product ${productId} and purchase order ${purchaseOrderId}`);
       return;
     }
 
@@ -209,13 +212,13 @@ export class BaseCostCalculatorService {
       this.logger.debug(
         `Deleting batch ${batch.id}: ${batch.receivedQuantity} units (${batch.remainingQuantity} remaining) @ RM ${Number(batch.landedCost).toFixed(4)}`
       );
-      await this.costHistoryRepository.delete(batch.id);
+      await costHistoryRepo.delete(batch.id);
     }
 
-    this.logger.log(`Deleted ${batches.length} cost history batch(es) for GRN ${grnId}`);
+    this.logger.log(`Deleted ${batches.length} cost history batch(es) for purchase order ${purchaseOrderId}`);
 
     // Recalculate base cost after removal
-    await this.updateProductBaseCost(productId);
+    await this.updateProductBaseCost(productId, manager);
   }
 
   /**

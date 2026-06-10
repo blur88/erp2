@@ -2,13 +2,11 @@ import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { Supplier } from './supplier.entity';
 import { PurchaseOrder } from './purchase-order.entity';
-import { GoodsReceivedNote } from './goods-received-note.entity';
 import { PaymentMethodEntity } from './payment-method.entity';
 
 @Entity('vendor_payments')
 @Index(['supplierId', 'status'])
 @Index(['paymentDate'])
-@Index(['grnId'])
 export class VendorPayment extends BaseEntity {
   @Column({ length: 50, unique: true })
   paymentNumber: string;
@@ -18,9 +16,6 @@ export class VendorPayment extends BaseEntity {
 
   @Column({ type: 'uuid', nullable: true })
   purchaseOrderId: string;
-
-  @Column({ type: 'uuid', nullable: true })
-  grnId: string;
 
   @Column({ type: 'decimal', precision: 12, scale: 4, default: 0 })
   amount: number;
@@ -48,10 +43,6 @@ export class VendorPayment extends BaseEntity {
   @ManyToOne(() => PurchaseOrder, { nullable: true })
   @JoinColumn({ name: 'purchaseOrderId' })
   purchaseOrder: PurchaseOrder;
-
-  @ManyToOne(() => GoodsReceivedNote, { nullable: true, eager: true })
-  @JoinColumn({ name: 'grnId' })
-  grn: GoodsReceivedNote;
 
   @ManyToOne(() => PaymentMethodEntity, { nullable: true, eager: true })
   @JoinColumn({ name: 'paymentMethodId' })

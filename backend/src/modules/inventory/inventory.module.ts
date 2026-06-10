@@ -19,7 +19,7 @@ import { SalesOrderItem } from '../../database/entities/sales-order-item.entity'
 import { Supplier } from '../../database/entities/supplier.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { PurchaseOrderItem } from '../../database/entities/purchase-order-item.entity';
-import { GoodsReceivedNoteItem } from '../../database/entities/goods-received-note-item.entity';
+
 
 // Controllers
 import { ProductController } from './controllers/product.controller';
@@ -73,7 +73,6 @@ import { ExportModule } from '../../common/export.module';
       Supplier,
       PurchaseOrder,
       PurchaseOrderItem,
-      GoodsReceivedNoteItem,
     ]),
     // Import users module for user-related operations
     forwardRef(() => UsersModule),

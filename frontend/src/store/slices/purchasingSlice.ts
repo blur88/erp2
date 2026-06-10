@@ -1,11 +1,10 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
 import type { RootState } from '@/store'
-import type { GoodsReceivedNote, PurchaseOrder, Supplier, SupplierType, VendorPayment } from '@/types'
+import type { PurchaseOrder, Supplier, SupplierType, VendorPayment } from '@/types'
 
 interface PurchasingState {
   selectedPurchaseOrder: PurchaseOrder | null
-  selectedGRN: GoodsReceivedNote | null
   selectedVendorPayment: VendorPayment | null
   selectedSupplier: Supplier | null
   supplierFilters: {
@@ -20,7 +19,6 @@ interface PurchasingState {
 
 const initialState: PurchasingState = {
   selectedPurchaseOrder: null,
-  selectedGRN: null,
   selectedVendorPayment: null,
   selectedSupplier: null,
   supplierFilters: {
@@ -37,9 +35,6 @@ const purchasingSlice = createSlice({
   reducers: {
     setSelectedPurchaseOrder: (state, action: PayloadAction<PurchaseOrder | null>) => {
       state.selectedPurchaseOrder = action.payload
-    },
-    setSelectedGRN: (state, action: PayloadAction<GoodsReceivedNote | null>) => {
-      state.selectedGRN = action.payload
     },
     setSelectedVendorPayment: (state, action: PayloadAction<VendorPayment | null>) => {
       state.selectedVendorPayment = action.payload
@@ -58,7 +53,6 @@ const purchasingSlice = createSlice({
 
 export const {
   setSelectedPurchaseOrder,
-  setSelectedGRN,
   setSelectedVendorPayment,
   setSelectedSupplier,
   updatePurchaseOrderInPlace,
@@ -66,6 +60,5 @@ export const {
 } = purchasingSlice.actions
 
 export const selectSelectedPurchaseOrder = (state: RootState) => state.purchasing.selectedPurchaseOrder
-export const selectSelectedGRN = (state: RootState) => state.purchasing.selectedGRN
 export const selectSelectedVendorPayment = (state: RootState) => state.purchasing.selectedVendorPayment
 export default purchasingSlice.reducer

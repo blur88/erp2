@@ -9,7 +9,7 @@ import { SalesOrderItem } from '../../../database/entities/sales-order-item.enti
 import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
 import { StockMovement, StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { StockAdjustmentItem } from '../../../database/entities/stock-adjustment.entity';
-import { GoodsReceivedNoteItem } from '../../../database/entities/goods-received-note-item.entity';
+
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import { CategoryService } from './category.service';
 import { StockMovementService } from './stock-movement.service';
@@ -79,7 +79,6 @@ describe('ProductService pagination removal', () => {
         { provide: getRepositoryToken(PurchaseOrderItem), useValue: {} },
         { provide: getRepositoryToken(StockMovement), useValue: {} },
         { provide: getRepositoryToken(StockAdjustmentItem), useValue: {} },
-        { provide: getRepositoryToken(GoodsReceivedNoteItem), useValue: {} },
         { provide: getRepositoryToken(PurchaseCostHistory), useValue: {} },
         { provide: CategoryService, useValue: {} },
         { provide: StockMovementService, useValue: {} },
@@ -416,10 +415,6 @@ describe('checkProductDependencies', () => {
         useValue: makeRepo(0),
       },
       {
-        provide: getRepositoryToken(GoodsReceivedNoteItem),
-        useValue: makeRepo(0),
-      },
-      {
         provide: getRepositoryToken(PurchaseCostHistory),
         useValue: makeRepo(0),
       },
@@ -546,10 +541,6 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
       { token: getRepositoryToken(StockMovement), useValue: stockMovementRepo },
       {
         token: getRepositoryToken(StockAdjustmentItem),
-        useValue: makeCountRepo(0),
-      },
-      {
-        token: getRepositoryToken(GoodsReceivedNoteItem),
         useValue: makeCountRepo(0),
       },
       {

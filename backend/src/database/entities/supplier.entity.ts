@@ -16,7 +16,6 @@ import {
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { PurchaseOrder } from './purchase-order.entity';
-import { GoodsReceivedNote } from './goods-received-note.entity';
 
 export enum SupplierType {
   LOCAL = 'local',
@@ -275,11 +274,6 @@ export class Supplier extends BaseEntity {
     cascade: false,
   })
   purchaseOrders: PurchaseOrder[];
-
-  @OneToMany(() => GoodsReceivedNote, (grn) => grn.supplier, {
-    cascade: false,
-  })
-  goodsReceivedNotes: GoodsReceivedNote[];
 
   get averageOrderValue(): number {
     return this.totalOrders > 0 ? Number(this.totalPurchases) / this.totalOrders : 0;

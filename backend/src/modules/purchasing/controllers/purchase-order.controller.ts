@@ -59,21 +59,6 @@ export class PurchaseOrderController {
     return { data };
   }
 
-  @Get('deleted')
-  @ApiOperation({ summary: 'Get all deleted purchase orders' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of deleted purchase orders retrieved successfully',
-    type: PurchaseOrderListResponseDto,
-  })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
-  async findDeleted(
-    @Query() query: PurchaseOrderQueryDto,
-  ): Promise<PurchaseOrderListResponseDto> {
-    return this.purchaseOrderService.findDeleted(query);
-  }
-
   @Get()
   @ApiOperation({ summary: 'Get all purchase orders with filtering and pagination' })
   @ApiResponse({
@@ -159,75 +144,44 @@ export class PurchaseOrderController {
     return { data };
   }
 
-  @Post(':id/restore')
-  @ApiOperation({ summary: 'Restore a deleted purchase order' })
+  @Post(':id/cancel')
+  @ApiOperation({ summary: 'Cancel purchase order' })
   @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
   @ApiResponse({
     status: 200,
-    description: 'Purchase order restored successfully',
+    description: 'Purchase order cancelled successfully',
     type: PurchaseOrderResponseDto,
   })
-  @ApiResponse({ status: 404, description: 'Purchase order not found' })
   @HttpCode(HttpStatus.OK)
-  async restore(
+  async cancel(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('username') currentUsername: string,
   ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const data = await this.purchaseOrderService.restore(id, currentUserId, currentUsername);
+    const data = await this.purchaseOrderService.cancel(id, currentUserId, currentUsername);
     return { data };
   }
 
-  @Post('bulk-restore')
-  @ApiOperation({ summary: 'Bulk restore deleted purchase orders' })
-  @ApiResponse({
-    status: 200,
-    description: 'Purchase orders restored successfully',
-  })
-  @HttpCode(HttpStatus.OK)
-  async bulkRestore(
-    @Body() body: { orderIds: string[] },
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<{ restoredCount: number; failedIds: string[] }> {
-    return this.purchaseOrderService.bulkRestore(body.orderIds, currentUserId, currentUsername);
-  }
-
-  @Post('bulk-permanent-delete')
-  @ApiOperation({ summary: 'Permanently delete multiple purchase orders' })
-  @ApiResponse({
-    status: 200,
-    description: 'Purchase orders permanently deleted successfully',
-  })
-  @HttpCode(HttpStatus.OK)
-  async bulkPermanentDelete(
-    @Body() body: { orderIds: string[] },
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<{ deletedCount: number; failedIds: string[] }> {
-    return this.purchaseOrderService.bulkPermanentDelete(body.orderIds, currentUserId, currentUsername);
-  }
-
-  @Delete(':id/permanent')
-  @ApiOperation({ summary: 'Permanently delete a purchase order' })
+  @Post(':id/uncancel')
+  @ApiOperation({ summary: 'Uncancel purchase order' })
   @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
   @ApiResponse({
     status: 200,
-    description: 'Purchase order permanently deleted successfully',
+    description: 'Purchase order uncancelled successfully',
+    type: PurchaseOrderResponseDto,
   })
-  @ApiResponse({ status: 404, description: 'Purchase order not found' })
   @HttpCode(HttpStatus.OK)
-  async permanentDelete(
+  async uncancel(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('username') currentUsername: string,
-  ): Promise<{ message: string }> {
-    await this.purchaseOrderService.permanentDelete(id, currentUserId, currentUsername);
-    return { message: 'Purchase order permanently deleted successfully' };
+  ): Promise<{ data: PurchaseOrderResponseDto }> {
+    const data = await this.purchaseOrderService.uncancel(id, currentUserId, currentUsername);
+    return { data };
   }
 
   @Post(':id/receive')
-  @ApiOperation({ summary: 'Receive goods for purchase order - changes GRN status to received and updates product quantities' })
+  @ApiOperation({ summary: 'Receive goods for purchase order - posts stock + cost, transitions READY -> RECEIVED' })
   @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
   @ApiResponse({
     status: 200,
@@ -235,19 +189,19 @@ export class PurchaseOrderController {
     type: PurchaseOrderResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Purchase order not found' })
-  @ApiResponse({ status: 400, description: 'GRN must be in draft status' })
+  @ApiResponse({ status: 400, description: 'Order must be Ready to receive' })
   @HttpCode(HttpStatus.OK)
   async receiveGoods(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('username') currentUsername: string,
   ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const data = await this.purchaseOrderService.receiveGoods(id, currentUserId, currentUsername);
+    const data = await this.purchaseOrderService.receive(id, currentUserId, currentUsername);
     return { data };
   }
 
   @Post(':id/return')
-  @ApiOperation({ summary: 'Return goods for purchase order - changes GRN status back to draft and reverts product quantities' })
+  @ApiOperation({ summary: 'Return goods for purchase order - reverses stock + cost, transitions RECEIVED -> READY' })
   @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
   @ApiResponse({
     status: 200,
@@ -255,74 +209,42 @@ export class PurchaseOrderController {
     type: PurchaseOrderResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Purchase order not found' })
-  @ApiResponse({ status: 400, description: 'GRN must be in received status' })
+  @ApiResponse({ status: 400, description: 'Order must be Received to return' })
   @HttpCode(HttpStatus.OK)
   async returnGoods(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser('userId') currentUserId: string,
     @CurrentUser('username') currentUsername: string,
   ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const data = await this.purchaseOrderService.returnGoods(id, currentUserId, currentUsername);
+    const data = await this.purchaseOrderService.return(id, currentUserId, currentUsername);
     return { data };
   }
 
-  @Post(':id/pay')
-  @ApiOperation({ summary: 'Mark purchase order as paid - creates vendor payment' })
+  @Get(':id/payments')
+  @ApiOperation({ summary: 'List vendor payments for purchase order' })
   @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Purchase order marked as paid successfully',
-    type: PurchaseOrderResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Purchase order not found' })
-  @ApiResponse({ status: 400, description: 'Purchase order already paid' })
-  @HttpCode(HttpStatus.OK)
-  async markAsPaid(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<{ data: PurchaseOrderResponseDto; payment: any }> {
-    const result = await this.purchaseOrderService.markAsPaid(id);
-    return { data: result.order, payment: result.payment };
+  @ApiResponse({ status: 200, description: 'Vendor payments retrieved successfully' })
+  async getPayments(@Param('id', ParseUUIDPipe) id: string): Promise<{ data: any[] }> {
+    const data = await this.purchaseOrderService.getPayments(id);
+    return { data };
   }
 
-  @Post(':id/record-payment')
-  @ApiOperation({ summary: 'Record payment for purchase order' })
+  @Post(':id/payments')
+  @ApiOperation({ summary: 'Record vendor payments for a purchase order' })
   @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        amount: {
-          type: 'number',
-          description: 'Payment amount to record',
-        },
-      },
-      required: ['amount'],
-    },
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Payment recorded successfully',
-    type: PurchaseOrderResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Purchase order not found' })
   @HttpCode(HttpStatus.OK)
-  async recordPayment(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { amount: number },
-  ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const result = await this.purchaseOrderService.recordPayment(id, body.amount);
-    return { data: result };
-  }
-
-  @Post(':id/record-payments')
-  @ApiOperation({ summary: 'Record multiple payment lines for a purchase order' })
-  @ApiParam({ name: 'id', description: 'Purchase Order ID' })
-  @HttpCode(HttpStatus.OK)
-  async recordOrderPayments(
+  async recordVendorPayments(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RecordOrderPaymentsDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<PurchaseOrderResponseDto> {
-    return this.purchaseOrderService.recordOrderPayments(id, dto.payments);
+    return this.purchaseOrderService.recordVendorPayments(
+      id,
+      dto.payments,
+      currentUserId,
+      currentUsername,
+    );
   }
 
   @Post(':id/unpay')
@@ -338,41 +260,11 @@ export class PurchaseOrderController {
   @HttpCode(HttpStatus.OK)
   async markAsUnpaid(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const result = await this.purchaseOrderService.markAsUnpaid(id);
+    const result = await this.purchaseOrderService.unpay(id, currentUserId, currentUsername);
     return { data: result };
   }
 
-  @Get(':id/payment-status')
-  @ApiOperation({ summary: 'Check payment status of purchase order' })
-  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Payment status retrieved successfully',
-  })
-  @ApiResponse({ status: 404, description: 'Purchase order not found' })
-  async getPaymentStatus(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<{ isPaid: boolean; payment?: any }> {
-    const result = await this.purchaseOrderService.getPaymentStatus(id);
-    return result;
-  }
-
-  @Delete(':id')
-  @ApiOperation({ summary: 'Delete purchase order (soft delete)' })
-  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Purchase order deleted successfully',
-  })
-  @ApiResponse({ status: 404, description: 'Purchase order not found' })
-  @HttpCode(HttpStatus.OK)
-  async remove(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<{ message: string }> {
-    await this.purchaseOrderService.remove(id, currentUserId, currentUsername);
-    return { message: 'Purchase order deleted successfully' };
-  }
 }

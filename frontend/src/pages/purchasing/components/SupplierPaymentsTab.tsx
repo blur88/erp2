@@ -72,7 +72,13 @@ export default function SupplierPaymentsTab({ supplierId }: SupplierPaymentsTabP
                 <Button
                   size="small"
                   variant="text"
-                  onClick={() => navigate(`/purchasing/vendor-payments?vpId=${payment.id}`)}
+                  onClick={() => {
+                    const orderNumber = payment.purchaseOrder?.orderNumber
+                    if (orderNumber) {
+                      navigate(`/purchasing/orders/${orderNumber}/view`)
+                    }
+                  }}
+                  disabled={!payment.purchaseOrder?.orderNumber}
                 >
                   View
                 </Button>

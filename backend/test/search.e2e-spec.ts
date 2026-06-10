@@ -39,7 +39,7 @@ describe("GET /search/global - role-based filtering (e2e)", () => {
 
   beforeEach(async () => {
     await dataSource.query(
-      "TRUNCATE TABLE refresh_tokens, vendor_payments, goods_received_note_items, goods_received_notes, purchase_order_items, purchase_orders, payments, sales_order_items, sales_orders, stock_adjustment_items, stock_adjustments, products, categories, customers, suppliers, users RESTART IDENTITY CASCADE",
+      "TRUNCATE TABLE refresh_tokens, vendor_payments, purchase_order_items, purchase_orders, payments, sales_order_items, sales_orders, stock_adjustment_items, stock_adjustments, products, categories, customers, suppliers, users RESTART IDENTITY CASCADE",
     );
 
     await Promise.all(Object.values(UserRole).map((role) => createUser(role)));

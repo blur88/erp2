@@ -33,10 +33,10 @@ export class PurchaseCostHistory extends BaseEntity {
   @Column({
     type: 'uuid',
     nullable: true,
-    comment: 'GRN ID or special UUID for opening balance',
+    comment: 'Purchase order ID or special UUID for opening balance',
   })
   @IsUUID(4)
-  grnId?: string;
+  purchaseOrderId?: string;
 
   @Column({
     type: 'decimal',

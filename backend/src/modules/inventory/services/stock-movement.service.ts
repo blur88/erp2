@@ -52,12 +52,15 @@ export class StockMovementService {
   async create(
     createMovementDto: CreateStockMovementDto,
     userId?: string,
+    manager?: EntityManager,
   ): Promise<StockMovementResponseDto> {
+    const stockMovementRepo = repoFor(manager, StockMovement, this.stockMovementRepository);
+    const productRepo = repoFor(manager, Product, this.productRepository);
     this.logger.log(
       `Creating stock movement for product ${createMovementDto.productId}: ${createMovementDto.quantity} units`,
     );
 
-    const product = await this.productRepository.findOne({
+    const product = await productRepo.findOne({
       where: { id: createMovementDto.productId },
       relations: { category: true },
     });
@@ -96,19 +99,20 @@ export class StockMovementService {
     }
 
     // Create stock movement
-    const stockMovement = this.stockMovementRepository.create({
+    const stockMovement = stockMovementRepo.create({
       ...createMovementDto,
       previousBalance,
       newBalance,
     });
 
-    const savedMovement = await this.stockMovementRepository.save(stockMovement);
+    const savedMovement = await stockMovementRepo.save(stockMovement);
 
     // Update product stock quantity
     await this.productService.updateStockQuantity(
       product.id,
       newBalance,
       userId,
+      manager,
     );
 
     // Audit logging removed with authentication system
@@ -116,7 +120,7 @@ export class StockMovementService {
     this.logger.log(`Stock movement created successfully: ${savedMovement.id}`);
 
     // Reload with relations for response DTO
-    const movementWithRelations = await this.stockMovementRepository.findOne({
+    const movementWithRelations = await stockMovementRepo.findOne({
       where: { id: savedMovement.id },
       relations: { product: true },
     });
@@ -242,10 +246,12 @@ export class StockMovementService {
     id: string,
     reason: string,
     userId?: string,
+    manager?: EntityManager,
   ): Promise<StockMovementResponseDto> {
+    const stockMovementRepo = repoFor(manager, StockMovement, this.stockMovementRepository);
     this.logger.log(`Reversing stock movement: ${id}`);
 
-    const movement = await this.stockMovementRepository.findOne({
+    const movement = await stockMovementRepo.findOne({
       where: { id },
       relations: { product: true },
     });
@@ -256,13 +262,14 @@ export class StockMovementService {
 
     // Create reversal movement
     const reversalMovement = movement.reverse(reason);
-    const savedReversal = await this.stockMovementRepository.save(reversalMovement);
+    const savedReversal = await stockMovementRepo.save(reversalMovement);
 
     // Update product stock
     await this.productService.updateStockQuantity(
       movement.product.id,
       Number(reversalMovement.newBalance),
       userId,
+      manager,
     );
 
     // Audit logging removed with authentication system

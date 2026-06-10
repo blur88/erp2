@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
 import { EntityStatusChip } from '@/components/common/EntityStatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import { useLazyGetVendorPaymentQuery } from '@/store/api/purchasingApi'
 import { JournalEntry } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
@@ -22,11 +23,9 @@ const ENTRY_TYPE_LABELS: Record<string, string> = {
   fund_transfer: 'Fund Transfer',
 }
 
-const SOURCE_ROUTES: Record<string, (id: string) => string> = {
-  sales_order: (id) => `/sales/orders?highlight=${id}`,
-  purchase_order: (id) => `/purchasing/orders?highlight=${id}`,
-  goods_received_note: (id) => `/purchasing/goods-received?grnId=${id}`,
-  vendor_payment: (id) => `/purchasing/vendor-payments?vpId=${id}`,
+const SOURCE_ROUTES: Record<string, (id: string, refNumber?: string) => string> = {
+  sales_order: (_id, refNumber) => `/sales/orders/${refNumber ?? _id}/view`,
+  purchase_order: (_id, refNumber) => `/purchasing/orders/${refNumber ?? _id}/view`,
   expense: () => `/accounting/expenses`,
   owner_equity_transaction: () => `/accounting/owner-equity`,
   fund_transfer: () => `/accounting/fund-transfers`,
@@ -67,6 +66,7 @@ interface Props {
 
 export function JournalEntryContextHeader({ selectedEntry }: Props) {
   const navigate = useNavigate()
+  const [fetchVendorPayment] = useLazyGetVendorPaymentQuery()
 
   if (!selectedEntry) {
     return (
@@ -86,16 +86,65 @@ export function JournalEntryContextHeader({ selectedEntry }: Props) {
   const isReversalEntry = !!selectedEntry.reversalOfId && !!selectedEntry.reversalOf
   const originalEntry = selectedEntry.reversalOf
 
-  const handleNavigateToSource = () => {
-    if (!hasSource) return
-    const route = SOURCE_ROUTES[selectedEntry.sourceType!]
-    if (route) navigate(route(selectedEntry.sourceId!))
+  const navigateToSource = async (
+    sourceType: string | undefined,
+    sourceId: string | undefined,
+    sourceRefNumber: string | undefined,
+  ) => {
+    if (!sourceType || !sourceId) return
+
+    if (sourceType === 'vendor_payment') {
+      try {
+        const payment = await fetchVendorPayment(sourceId).unwrap()
+        const orderNumber = payment.purchaseOrder?.orderNumber
+        if (orderNumber) {
+          navigate(`/purchasing/orders/${orderNumber}/view`)
+        }
+      } catch {
+        // Legacy vendor-payment entries can fail to resolve; leave the link inert.
+      }
+      return
+    }
+
+    const route = SOURCE_ROUTES[sourceType]
+    if (route) navigate(route(sourceId, sourceRefNumber))
   }
 
-  const handleNavigateToOriginalSource = () => {
-    if (!originalEntry?.sourceType || !originalEntry?.sourceId) return
-    const route = SOURCE_ROUTES[originalEntry.sourceType]
-    if (route) navigate(route(originalEntry.sourceId))
+  const renderSourceValue = (
+    sourceType: string | undefined,
+    sourceId: string | undefined,
+    sourceRefNumber: string | undefined,
+  ) => {
+    if (!sourceType || !sourceId) {
+      return <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>—</Typography>
+    }
+
+    const canNavigate = sourceType === 'vendor_payment' || Boolean(SOURCE_ROUTES[sourceType])
+    const label = sourceRefNumber ?? sourceId
+
+    if (!canNavigate) {
+      return <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{label}</Typography>
+    }
+
+    return (
+      <Typography
+        component="button"
+        onClick={() => {
+          void navigateToSource(sourceType, sourceId, sourceRefNumber)
+        }}
+        sx={{
+          fontSize: '0.8rem',
+          color: 'primary.main',
+          cursor: 'pointer',
+          textDecoration: 'none',
+          border: 'none',
+          background: 'none',
+          padding: 0,
+        }}
+      >
+        {label}
+      </Typography>
+    )
   }
 
   return (
@@ -161,20 +210,11 @@ export function JournalEntryContextHeader({ selectedEntry }: Props) {
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Reversal of</TableCell>
                     <TableCell sx={valueCellSx}>
-                      <Typography
-                        component="button"
-                        onClick={handleNavigateToOriginalSource}
-                        sx={{
-                          fontSize: '0.8rem',
-                          color: originalEntry?.sourceType && originalEntry?.sourceId ? 'primary.main' : 'text.primary',
-                          cursor: originalEntry?.sourceType && originalEntry?.sourceId ? 'pointer' : 'default',
-                          border: 'none',
-                          background: 'none',
-                          padding: 0,
-                        }}
-                      >
-                        {originalEntry?.referenceNumber}
-                      </Typography>
+                      {renderSourceValue(
+                        originalEntry?.sourceType,
+                        originalEntry?.sourceId,
+                        originalEntry?.referenceNumber,
+                      )}
                     </TableCell>
                   </TableRow>
                 )}
@@ -182,26 +222,10 @@ export function JournalEntryContextHeader({ selectedEntry }: Props) {
                   <TableRow sx={isReversalEntry ? {} : { backgroundColor: 'grey.50' }}>
                     <TableCell sx={labelCellSx}>Source</TableCell>
                     <TableCell sx={valueCellSx}>
-                      {selectedEntry.sourceRefNumber ? (
-                        <Typography
-                          component="button"
-                          onClick={handleNavigateToSource}
-                          sx={{
-                            fontSize: '0.8rem',
-                            color: 'primary.main',
-                            cursor: 'pointer',
-                            textDecoration: 'none',
-                            border: 'none',
-                            background: 'none',
-                            padding: 0,
-                          }}
-                        >
-                          {selectedEntry.sourceRefNumber}
-                        </Typography>
-                      ) : (
-                        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontStyle: 'italic' }}>
-                          —
-                        </Typography>
+                      {renderSourceValue(
+                        selectedEntry.sourceType,
+                        selectedEntry.sourceId,
+                        selectedEntry.sourceRefNumber,
                       )}
                     </TableCell>
                   </TableRow>

@@ -11,9 +11,6 @@ export * from './supplier.dto';
 // Purchase Order DTOs
 export * from './purchase-order.dto';
 
-// Goods Received Note DTOs
-export * from './goods-received-note.dto';
-
 // Vendor Payment DTOs
 export * from './vendor-payment.dto';
 

@@ -5,9 +5,12 @@ import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   VendorPayment,
   PurchaseOrder,
-  GoodsReceivedNote,
   PaymentMethodEntity,
 } from '../../../database/entities';
+import {
+  PurchaseOrderPaymentStatus,
+  PurchaseOrderStatus,
+} from '../../../database/entities/purchase-order.entity';
 import {
   CreateVendorPaymentDto,
   UpdateVendorPaymentDto,
@@ -45,8 +48,6 @@ export class VendorPaymentService extends BaseCrudService<
     private vendorPaymentRepository: Repository<VendorPayment>,
     @InjectRepository(PurchaseOrder)
     private purchaseOrderRepository: Repository<PurchaseOrder>,
-    @InjectRepository(GoodsReceivedNote)
-    private grnRepository: Repository<GoodsReceivedNote>,
     @InjectRepository(PaymentMethodEntity)
     private paymentMethodRepository: Repository<PaymentMethodEntity>,
     auditLogService: AuditLogService,
@@ -95,22 +96,10 @@ export class VendorPaymentService extends BaseCrudService<
       paymentMethodId = defaultPaymentMethod?.id || null;
     }
 
-    // Automatically link GRN if purchaseOrderId is provided but grnId is not
-    let grnId = createDto.grnId;
-    if (createDto.purchaseOrderId && !grnId) {
-      const grn = await this.grnRepository.findOne({
-        where: { purchaseOrderId: createDto.purchaseOrderId },
-      });
-      if (grn) {
-        grnId = grn.id;
-      }
-    }
-
     const vendorPayment = this.vendorPaymentRepository.create({
       ...createDto,
       paymentMethodId,
       paymentNumber,
-      grnId,
     });
 
     const savedPayment = await this.vendorPaymentRepository.save(vendorPayment);
@@ -181,7 +170,6 @@ export class VendorPaymentService extends BaseCrudService<
       .leftJoinAndSelect('vendorPayment.purchaseOrder', 'purchaseOrder')
       .leftJoinAndSelect('purchaseOrder.items', 'purchaseOrderItems')
       .leftJoinAndSelect('purchaseOrderItems.product', 'product')
-      .leftJoinAndSelect('vendorPayment.grn', 'grn')
       .leftJoinAndSelect('vendorPayment.paymentMethodEntity', 'paymentMethodEntity')
       .where('vendorPayment.isActive = :isActive', { isActive: true });
 
@@ -315,7 +303,11 @@ export class VendorPaymentService extends BaseCrudService<
   async findOne(id: string): Promise<VendorPayment> {
     const vendorPayment = await this.vendorPaymentRepository.findOne({
       where: { id, isActive: true },
-      relations: { supplier: true, purchaseOrder: { items: { product: true } }, grn: true, paymentMethodEntity: true },
+      relations: {
+        supplier: true,
+        purchaseOrder: { items: { product: true } },
+        paymentMethodEntity: true,
+      },
     });
 
     if (!vendorPayment) {
@@ -387,7 +379,6 @@ export class VendorPaymentService extends BaseCrudService<
       .createQueryBuilder('vendorPayment')
       .leftJoinAndSelect('vendorPayment.supplier', 'supplier')
       .leftJoinAndSelect('vendorPayment.purchaseOrder', 'purchaseOrder')
-      .leftJoinAndSelect('vendorPayment.grn', 'grn')
       .leftJoinAndSelect('vendorPayment.paymentMethodEntity', 'paymentMethodEntity')
       .where('vendorPayment.isActive = :isActive', { isActive: false });
 
@@ -542,11 +533,6 @@ export class VendorPaymentService extends BaseCrudService<
       throw new BadRequestException('Vendor payment already exists for this purchase order');
     }
 
-    // Find GRN for this purchase order
-    const grn = await this.grnRepository.findOne({
-      where: { purchaseOrderId: poId },
-    });
-
     // Create vendor payment
     const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments');
     const defaultPaymentMethod = await this.paymentMethodRepository.findOne({
@@ -557,7 +543,6 @@ export class VendorPaymentService extends BaseCrudService<
       paymentNumber,
       supplierId: purchaseOrder.supplierId,
       purchaseOrderId: poId,
-      grnId: grn?.id,
       amount: Number(purchaseOrder.totalAmount),
       paymentDate: new Date(),
       paymentMethodId: defaultPaymentMethod?.id || null,
@@ -569,6 +554,10 @@ export class VendorPaymentService extends BaseCrudService<
 
     // Keep PO payment aggregates in sync for UI totals and actions.
     purchaseOrder.paidAmount = Number(purchaseOrder.totalAmount);
+    purchaseOrder.paymentStatus = PurchaseOrderPaymentStatus.PAID;
+    if (purchaseOrder.status === PurchaseOrderStatus.DRAFT) {
+      purchaseOrder.status = PurchaseOrderStatus.READY;
+    }
     await this.purchaseOrderRepository.save(purchaseOrder);
 
     // Log audit trail for create
@@ -601,7 +590,7 @@ export class VendorPaymentService extends BaseCrudService<
         purchaseOrderId: poId,
         isActive: true,
       },
-      relations: { supplier: true, purchaseOrder: true, grn: true, paymentMethodEntity: true },
+      relations: { supplier: true, purchaseOrder: true, paymentMethodEntity: true },
     });
   }
 

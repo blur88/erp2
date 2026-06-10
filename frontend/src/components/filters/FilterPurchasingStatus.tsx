@@ -1,8 +1,10 @@
 import { FilterSelect } from './FilterSelect'
 
 const PURCHASING_STATUS_OPTIONS = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'received', label: 'Received' },
+  { value: 'DRAFT', label: 'Draft' },
+  { value: 'READY', label: 'Ready' },
+  { value: 'RECEIVED', label: 'Received' },
+  { value: 'CANCELLED', label: 'Cancelled' },
 ]
 
 interface Props {

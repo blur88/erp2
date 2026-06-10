@@ -357,7 +357,6 @@ export class PurchasingAnalyticsService {
       .createQueryBuilder('vp')
       .leftJoinAndSelect('vp.supplier', 'supplier')
       .leftJoinAndSelect('vp.purchaseOrder', 'purchaseOrder')
-      .leftJoinAndSelect('vp.grn', 'grn')
       .where('vp.isActive = :isActive', { isActive: true })
       .andWhere('vp.deletedAt IS NULL');
 
@@ -415,7 +414,7 @@ export class PurchasingAnalyticsService {
         supplierName: vp.supplier?.companyName || 'N/A',
         orderNumber: vp.purchaseOrder?.orderNumber || '',
         orderDate: orderDateStr,
-        grnNumber: vp.grn?.grnNumber || null,
+        grnNumber: null,
         paymentAmount: parseFloat(vp.amount?.toString() || '0'),
         paymentMethodId: vp.paymentMethodId || null,
         referenceNumber: vp.referenceNumber || null,
