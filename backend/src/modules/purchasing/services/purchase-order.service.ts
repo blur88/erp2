@@ -720,12 +720,14 @@ export class PurchaseOrderService extends BaseCrudService<
   async recordVendorPayments(
     id: string,
     payments: { paymentMethodId: string; amount: number; reference?: string }[],
+    userId?: string,
+    username?: string,
   ): Promise<PurchaseOrderResponseDto> {
-    return this.recordOrderPayments(id, payments);
+    return this.recordOrderPayments(id, payments, userId, username);
   }
 
-  async unpay(id: string): Promise<PurchaseOrderResponseDto> {
-    return this.markAsUnpaid(id);
+  async unpay(id: string, userId?: string, username?: string): Promise<PurchaseOrderResponseDto> {
+    return this.markAsUnpaid(id, userId, username);
   }
 
   /**
@@ -735,6 +737,8 @@ export class PurchaseOrderService extends BaseCrudService<
   async recordOrderPayments(
     id: string,
     payments: { paymentMethodId: string; amount: number; reference?: string }[],
+    userId?: string,
+    username?: string,
   ): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Recording ${payments.length} payment lines for purchase order: ${id}`);
 
@@ -764,7 +768,13 @@ export class PurchaseOrderService extends BaseCrudService<
       throw new BadRequestException('Each payment line amount must be greater than zero');
     }
 
-    const totalNewPayment = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const actor = userId || 'system';
+
+    // NOTE: vendor-payment creation and GL posting are not yet bound to a shared
+    // transaction manager (see #719), so this method cannot be made fully atomic.
+    // To stay robust against a partially-applied batch, the order's paidAmount and
+    // statuses are NOT accumulated in memory — they are recomputed from the actual
+    // persisted active vendor payments at the end via reconcilePaymentState().
 
     // Check for a previously soft-deleted payment for this PO (from a prior unpay)
     const previousPayment = await this.vendorPaymentRepository.findOne({
@@ -794,11 +804,34 @@ export class PurchaseOrderService extends BaseCrudService<
 
       // Re-post accounting entry for restored payment.
       const fullPayment = await this.vendorPaymentService.findOne(restoredPayment.id);
-      await this.accountingService.postVendorPaymentEntry(fullPayment, 'system');
+      await this.accountingService.postVendorPaymentEntry(fullPayment, actor, username);
 
       // Create additional vendor payments for remaining lines.
       for (const line of payments.slice(1)) {
-        await this.vendorPaymentService.create({
+        await this.vendorPaymentService.create(
+          {
+            supplierId: purchaseOrder.supplierId,
+            purchaseOrderId: id,
+            amount: line.amount,
+            paymentDate: new Date().toISOString().split('T')[0],
+            paymentMethodId: line.paymentMethodId,
+            status: 'completed',
+            notes: line.reference || undefined,
+          },
+          actor,
+          username,
+        );
+      }
+
+      await this.reconcilePaymentState(purchaseOrder);
+      this.logger.log(`Restored vendor payment ${restoredPayment.paymentNumber} for PO ${purchaseOrder.orderNumber}`);
+      return this.findOne(id);
+    }
+
+    // No previous payment - create a vendor payment for each line.
+    for (const line of payments) {
+      await this.vendorPaymentService.create(
+        {
           supplierId: purchaseOrder.supplierId,
           purchaseOrderId: id,
           amount: line.amount,
@@ -806,62 +839,55 @@ export class PurchaseOrderService extends BaseCrudService<
           paymentMethodId: line.paymentMethodId,
           status: 'completed',
           notes: line.reference || undefined,
-        });
-      }
-
-      purchaseOrder.paidAmount = totalNewPayment;
-      purchaseOrder.paymentStatus = this.derivePaymentStatus(
-        totalNewPayment,
-        Number(purchaseOrder.totalAmount),
+        },
+        actor,
+        username,
       );
-      if (
-        purchaseOrder.paymentStatus === PurchaseOrderPaymentStatus.PAID ||
-        purchaseOrder.paymentStatus === PurchaseOrderPaymentStatus.OVERPAID
-      ) {
-        purchaseOrder.status = PurchaseOrderStatus.READY;
-      }
-      await this.purchaseOrderRepository.save(purchaseOrder);
-      this.logger.log(`Restored vendor payment ${restoredPayment.paymentNumber} for PO ${purchaseOrder.orderNumber}`);
-      return this.findOne(id);
     }
 
-    // No previous payment - create a vendor payment for each line.
-    for (const line of payments) {
-      await this.vendorPaymentService.create({
-        supplierId: purchaseOrder.supplierId,
-        purchaseOrderId: id,
-        amount: line.amount,
-        paymentDate: new Date().toISOString().split('T')[0],
-        paymentMethodId: line.paymentMethodId,
-        status: 'completed',
-        notes: line.reference || undefined,
-      });
-    }
-
-    // Update paidAmount on the order (use Number() to avoid string concatenation with decimal columns)
-    const newPaidAmount = Number(purchaseOrder.paidAmount || 0) + totalNewPayment;
-    purchaseOrder.paidAmount = newPaidAmount;
-    purchaseOrder.paymentStatus = this.derivePaymentStatus(
-      newPaidAmount,
-      Number(purchaseOrder.totalAmount),
+    await this.reconcilePaymentState(purchaseOrder);
+    this.logger.log(
+      `Purchase order ${purchaseOrder.orderNumber} paid amount updated to ${purchaseOrder.paidAmount}`,
     );
-    if (
-      purchaseOrder.paymentStatus === PurchaseOrderPaymentStatus.PAID ||
-      purchaseOrder.paymentStatus === PurchaseOrderPaymentStatus.OVERPAID
-    ) {
-      purchaseOrder.status = PurchaseOrderStatus.READY;
-    }
-    await this.purchaseOrderRepository.save(purchaseOrder);
-
-    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} paid amount updated to ${newPaidAmount}`);
 
     return this.findOne(id);
   }
 
   /**
+   * Recompute paidAmount, paymentStatus and the DRAFT<->READY band from the
+   * actual persisted active vendor payments — the single source of truth — and
+   * persist them on the order. Using the DB sum (rather than an in-memory
+   * accumulator) keeps the order consistent even if a multi-line batch was only
+   * partially applied. Only the DRAFT<->READY band is auto-managed here;
+   * RECEIVED/CANCELLED orders never reach this method.
+   */
+  private async reconcilePaymentState(purchaseOrder: PurchaseOrder): Promise<void> {
+    const activePayments = await this.vendorPaymentService.findAllByPurchaseOrder(purchaseOrder.id);
+    const paidAmount = activePayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const total = Number(purchaseOrder.totalAmount);
+
+    purchaseOrder.paidAmount = paidAmount;
+    purchaseOrder.paymentStatus = this.derivePaymentStatus(paidAmount, total);
+
+    const fullyPaid =
+      purchaseOrder.paymentStatus === PurchaseOrderPaymentStatus.PAID ||
+      purchaseOrder.paymentStatus === PurchaseOrderPaymentStatus.OVERPAID;
+
+    // Move DRAFT -> READY when fully paid; revert READY -> DRAFT when no longer
+    // fully paid. Never touch RECEIVED/CANCELLED (unreachable here).
+    if (fullyPaid && purchaseOrder.status === PurchaseOrderStatus.DRAFT) {
+      purchaseOrder.status = PurchaseOrderStatus.READY;
+    } else if (!fullyPaid && purchaseOrder.status === PurchaseOrderStatus.READY) {
+      purchaseOrder.status = PurchaseOrderStatus.DRAFT;
+    }
+
+    await this.purchaseOrderRepository.save(purchaseOrder);
+  }
+
+  /**
    * Mark purchase order as unpaid by soft-deleting the vendor payment
    */
-  async markAsUnpaid(id: string): Promise<PurchaseOrderResponseDto> {
+  async markAsUnpaid(id: string, userId?: string, username?: string): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Marking purchase order as unpaid: ${id}`);
 
     const purchaseOrder = await this.purchaseOrderRepository.findOne({
@@ -879,6 +905,8 @@ export class PurchaseOrderService extends BaseCrudService<
       );
     }
 
+    const actor = userId || 'system';
+
     // Find all existing payments
     const existingPayments = await this.vendorPaymentService.findAllByPurchaseOrder(id);
     if (!existingPayments || existingPayments.length === 0) {
@@ -888,7 +916,7 @@ export class PurchaseOrderService extends BaseCrudService<
     // Reverse accounting entries and soft-delete each vendor payment
     for (const payment of existingPayments) {
       try {
-        await this.accountingService.reverseSourceEntries('vendor_payment', payment.id, 'system');
+        await this.accountingService.reverseSourceEntries('vendor_payment', payment.id, actor);
       } catch (error) {
         this.logger.error(`Failed to reverse accounting for vendor payment ${payment.id}: ${error.message}`);
       }

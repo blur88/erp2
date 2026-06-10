@@ -236,8 +236,15 @@ export class PurchaseOrderController {
   async recordVendorPayments(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RecordOrderPaymentsDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<PurchaseOrderResponseDto> {
-    return this.purchaseOrderService.recordVendorPayments(id, dto.payments);
+    return this.purchaseOrderService.recordVendorPayments(
+      id,
+      dto.payments,
+      currentUserId,
+      currentUsername,
+    );
   }
 
   @Post(':id/unpay')
@@ -253,8 +260,10 @@ export class PurchaseOrderController {
   @HttpCode(HttpStatus.OK)
   async markAsUnpaid(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<{ data: PurchaseOrderResponseDto }> {
-    const result = await this.purchaseOrderService.unpay(id);
+    const result = await this.purchaseOrderService.unpay(id, currentUserId, currentUsername);
     return { data: result };
   }
 

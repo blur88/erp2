@@ -431,6 +431,45 @@ describe('PurchaseOrderService', () => {
       purchaseOrderRepository.save.mockResolvedValue(mockPurchaseOrderForPayment);
       vendorPaymentService.findOne.mockResolvedValue(mockRestoredPayment);
       accountingService.postVendorPaymentEntry.mockResolvedValue(undefined);
+      // reconcilePaymentState() reads the persisted active payments to recompute
+      // paidAmount; default to a single 200 payment for these cases.
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { id: 'vp-active', amount: 200 } as unknown as VendorPayment,
+      ]);
+    });
+
+    it('derives paidAmount from the persisted active payments, not the in-memory total', async () => {
+      vendorPaymentRepository.findOne.mockResolvedValue(null);
+      vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
+      // DB reports two active payments (120 + 80 = 200) regardless of the single
+      // line passed in — paidAmount must reflect the DB sum.
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { id: 'vp-a', amount: 120 } as unknown as VendorPayment,
+        { id: 'vp-b', amount: 80 } as unknown as VendorPayment,
+      ]);
+
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 200 }]);
+
+      const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
+      expect(Number(saved.paidAmount)).toBe(200);
+    });
+
+    it('threads the acting user into payment creation and accounting', async () => {
+      vendorPaymentRepository.findOne.mockResolvedValue(null);
+      vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
+
+      await service.recordOrderPayments(
+        'po-1',
+        [{ paymentMethodId: 'pm-cash', amount: 200 }],
+        'user-42',
+        'alice',
+      );
+
+      expect(vendorPaymentService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ purchaseOrderId: 'po-1' }),
+        'user-42',
+        'alice',
+      );
     });
 
     it('creates a new vendor payment when no previous soft-deleted payment exists', async () => {
@@ -482,6 +521,7 @@ describe('PurchaseOrderService', () => {
       expect(accountingService.postVendorPaymentEntry).toHaveBeenCalledWith(
         mockRestoredPayment,
         'system',
+        undefined,
       );
     });
 
