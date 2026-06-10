@@ -7,4 +7,5 @@
 
 export * from './supplier.controller';
 export * from './purchase-order.controller';
+export * from './vendor-payment.controller';
 export * from './purchasing-analytics.controller';

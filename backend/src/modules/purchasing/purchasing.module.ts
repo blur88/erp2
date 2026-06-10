@@ -23,6 +23,7 @@ import { PurchasingAnalyticsService } from './services/purchasing-analytics.serv
 import {
   SupplierController,
   PurchaseOrderController,
+  VendorPaymentController,
   PurchasingAnalyticsController,
 } from './controllers';
 
@@ -52,6 +53,7 @@ import { ExportModule } from '../../common/export.module';
   controllers: [
     SupplierController,
     PurchaseOrderController,
+    VendorPaymentController,
     PurchasingAnalyticsController,
   ],
 

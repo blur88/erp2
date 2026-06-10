@@ -1,7 +1,6 @@
 import { createApi } from '@reduxjs/toolkit/query/react'
 
 import type {
-  GoodsReceivedNote,
   PaginatedResponse,
   PurchaseOrder,
   Supplier,
@@ -47,8 +46,6 @@ export const purchasingApiSlice = createApi({
     'DeletedSupplier',
     'PurchaseOrder',
     'DeletedPurchaseOrder',
-    'GoodsReceivedNote',
-    'DeletedGRN',
     'VendorPayment',
     'DeletedVendorPayment',
   ],
@@ -71,16 +68,16 @@ export const purchasingApiSlice = createApi({
     createSupplier: builder.mutation<Supplier, Partial<Supplier>>({
       query: (body) => ({ url: '/purchasing/suppliers', method: 'POST', data: body }),
       transformResponse: normalizeSingle<Supplier>,
-      invalidatesTags: ['Supplier', 'PurchaseOrder', 'GoodsReceivedNote', 'VendorPayment'],
+      invalidatesTags: ['Supplier', 'PurchaseOrder', 'VendorPayment'],
     }),
     updateSupplier: builder.mutation<Supplier, { id: string; data: Partial<Supplier> }>({
       query: ({ id, data }) => ({ url: `/purchasing/suppliers/${id}`, method: 'PATCH', data }),
       transformResponse: normalizeSingle<Supplier>,
-      invalidatesTags: ['Supplier', 'PurchaseOrder', 'GoodsReceivedNote', 'VendorPayment'],
+      invalidatesTags: ['Supplier', 'PurchaseOrder', 'VendorPayment'],
     }),
     deleteSupplier: builder.mutation<void, string>({
       query: (id) => ({ url: `/purchasing/suppliers/${id}`, method: 'DELETE' }),
-      invalidatesTags: ['Supplier', 'DeletedSupplier', 'PurchaseOrder', 'GoodsReceivedNote', 'VendorPayment'],
+      invalidatesTags: ['Supplier', 'DeletedSupplier', 'PurchaseOrder', 'VendorPayment'],
     }),
     getDeletedSuppliers: builder.query<PaginatedResponse<Supplier>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/purchasing/suppliers/deleted', params: params ?? {} }),
@@ -91,10 +88,6 @@ export const purchasingApiSlice = createApi({
       query: (id) => ({ url: `/purchasing/suppliers/${id}/purchase-orders` }),
       providesTags: (_result, _error, id) => [{ type: 'Supplier', id }],
     }),
-    getSupplierGRNs: builder.query<{ data: GoodsReceivedNote[]; total: number }, string>({
-      query: (id) => ({ url: `/purchasing/suppliers/${id}/grns` }),
-      providesTags: (_result, _error, id) => [{ type: 'Supplier', id }],
-    }),
     getSupplierPayments: builder.query<{ data: VendorPayment[]; total: number }, string>({
       query: (id) => ({ url: `/purchasing/suppliers/${id}/payments` }),
       providesTags: (_result, _error, id) => [{ type: 'Supplier', id }],
@@ -102,7 +95,7 @@ export const purchasingApiSlice = createApi({
     restoreSupplier: builder.mutation<Supplier, string>({
       query: (id) => ({ url: `/purchasing/suppliers/${id}/restore`, method: 'POST' }),
       transformResponse: normalizeSingle<Supplier>,
-      invalidatesTags: ['Supplier', 'DeletedSupplier', 'PurchaseOrder', 'GoodsReceivedNote', 'VendorPayment'],
+      invalidatesTags: ['Supplier', 'DeletedSupplier', 'PurchaseOrder', 'VendorPayment'],
     }),
     permanentDeleteSupplier: builder.mutation<void, string>({
       query: (id) => ({ url: `/purchasing/suppliers/${id}/permanent`, method: 'DELETE' }),
@@ -110,7 +103,7 @@ export const purchasingApiSlice = createApi({
     }),
     bulkRestoreSuppliers: builder.mutation<{ restoredCount: number; failedIds: string[] }, string[]>({
       query: (supplierIds) => ({ url: '/purchasing/suppliers/bulk-restore', method: 'POST', data: { supplierIds } }),
-      invalidatesTags: ['Supplier', 'DeletedSupplier', 'PurchaseOrder', 'GoodsReceivedNote', 'VendorPayment'],
+      invalidatesTags: ['Supplier', 'DeletedSupplier', 'PurchaseOrder', 'VendorPayment'],
     }),
     bulkPermanentDeleteSuppliers: builder.mutation<{ deletedCount: number; failedIds: string[] }, string[]>({
       query: (supplierIds) => ({
@@ -147,6 +140,13 @@ export const purchasingApiSlice = createApi({
       transformResponse: (response: any) => response?.data ?? response ?? [],
       providesTags: (_result, _error, id) => [{ type: 'PurchaseOrder', id }],
     }),
+    // Single vendor payment by id — used by the accounting journal-entry UI to
+    // resolve/navigate `vendor_payment`-sourced entries.
+    getVendorPayment: builder.query<VendorPayment, string>({
+      query: (id) => ({ url: `/purchasing/vendor-payments/${id}` }),
+      transformResponse: normalizeSingle<VendorPayment>,
+      providesTags: (_result, _error, id) => [{ type: 'VendorPayment' as const, id }],
+    }),
     createPurchaseOrder: builder.mutation<PurchaseOrder, Partial<PurchaseOrder>>({
       query: (body) => ({ url: '/purchasing/orders', method: 'POST', data: body }),
       transformResponse: normalizeSingle<PurchaseOrder>,
@@ -155,7 +155,7 @@ export const purchasingApiSlice = createApi({
     updatePurchaseOrder: builder.mutation<PurchaseOrder, { id: string; data: Partial<PurchaseOrder> }>({
       query: ({ id, data }) => ({ url: `/purchasing/orders/${id}`, method: 'PUT', data }),
       transformResponse: normalizeSingle<PurchaseOrder>,
-      invalidatesTags: ['PurchaseOrder', 'GoodsReceivedNote', 'VendorPayment'],
+      invalidatesTags: ['PurchaseOrder', 'VendorPayment'],
     }),
     cancelPurchaseOrder: builder.mutation<PurchaseOrder, string>({
       query: (id) => ({ url: `/purchasing/orders/${id}/cancel`, method: 'POST' }),
@@ -169,7 +169,7 @@ export const purchasingApiSlice = createApi({
     }),
     deletePurchaseOrder: builder.mutation<void, string>({
       query: (id) => ({ url: `/purchasing/orders/${id}`, method: 'DELETE' }),
-      invalidatesTags: ['PurchaseOrder', 'DeletedPurchaseOrder', 'GoodsReceivedNote', 'VendorPayment'],
+      invalidatesTags: ['PurchaseOrder', 'DeletedPurchaseOrder', 'VendorPayment'],
     }),
     getDeletedPurchaseOrders: builder.query<PaginatedResponse<PurchaseOrder>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/purchasing/orders/deleted', params: params ?? {} }),
@@ -200,12 +200,12 @@ export const purchasingApiSlice = createApi({
     receiveGoods: builder.mutation<PurchaseOrder, string>({
       query: (purchaseOrderId) => ({ url: `/purchasing/orders/${purchaseOrderId}/receive`, method: 'POST' }),
       transformResponse: normalizeSingle<PurchaseOrder>,
-      invalidatesTags: ['PurchaseOrder', 'GoodsReceivedNote'],
+      invalidatesTags: ['PurchaseOrder'],
     }),
     returnGoods: builder.mutation<PurchaseOrder, string>({
       query: (purchaseOrderId) => ({ url: `/purchasing/orders/${purchaseOrderId}/return`, method: 'POST' }),
       transformResponse: normalizeSingle<PurchaseOrder>,
-      invalidatesTags: ['PurchaseOrder', 'GoodsReceivedNote'],
+      invalidatesTags: ['PurchaseOrder'],
     }),
     recordVendorPayments: builder.mutation<
       PurchaseOrder,
@@ -242,46 +242,6 @@ export const purchasingApiSlice = createApi({
       invalidatesTags: ['PurchaseOrder', 'VendorPayment'],
     }),
 
-    getGoodsReceivedNotes: builder.query<PaginatedResponse<GoodsReceivedNote>, Record<string, unknown> | undefined>({
-      query: (params) => ({
-        url: '/purchasing/goods-received-notes',
-        params: params
-          ? {
-              ...params,
-              sortOrder:
-                typeof params.sortOrder === 'string' ? params.sortOrder.toUpperCase() : params.sortOrder,
-            }
-          : {},
-      }),
-      transformResponse: (response: any) => normalizeNamedCollection<GoodsReceivedNote>(response, 'grns'),
-      providesTags: ['GoodsReceivedNote'],
-    }),
-    getDeletedGRNs: builder.query<PaginatedResponse<GoodsReceivedNote>, Record<string, unknown> | undefined>({
-      query: (params) => ({ url: '/purchasing/goods-received-notes/deleted', params: params ?? {} }),
-      transformResponse: (response: any) => normalizeNamedCollection<GoodsReceivedNote>(response, 'grns'),
-      providesTags: ['DeletedGRN'],
-    }),
-    getGoodsReceivedNote: builder.query<GoodsReceivedNote, string>({
-      query: (id) => ({ url: `/purchasing/goods-received-notes/${id}` }),
-      transformResponse: normalizeSingle<GoodsReceivedNote>,
-      providesTags: (_result, _error, id) => [{ type: 'GoodsReceivedNote', id }],
-    }),
-
-    getVendorPayments: builder.query<PaginatedResponse<VendorPayment>, Record<string, unknown> | undefined>({
-      query: (params) => ({ url: '/purchasing/vendor-payments', params: params ?? {} }),
-      transformResponse: (response: any) => normalizeNamedCollection<VendorPayment>(response, 'payments'),
-      providesTags: ['VendorPayment'],
-    }),
-    getVendorPayment: builder.query<VendorPayment, string>({
-      query: (id) => ({ url: `/purchasing/vendor-payments/${id}` }),
-      transformResponse: normalizeSingle<VendorPayment>,
-      providesTags: (_result, _error, id) => [{ type: 'VendorPayment' as const, id }],
-    }),
-    getDeletedVendorPayments: builder.query<PaginatedResponse<VendorPayment>, Record<string, unknown> | undefined>({
-      query: (params) => ({ url: '/purchasing/vendor-payments/deleted', params: params ?? {} }),
-      transformResponse: (response: any) => normalizeNamedCollection<VendorPayment>(response, 'payments'),
-      providesTags: ['DeletedVendorPayment'],
-    }),
   }),
 })
 
@@ -295,7 +255,6 @@ export const {
   useDeleteSupplierMutation,
   useGetDeletedSuppliersQuery,
   useGetSupplierPurchaseOrdersQuery,
-  useGetSupplierGRNsQuery,
   useGetSupplierPaymentsQuery,
   useRestoreSupplierMutation,
   usePermanentDeleteSupplierMutation,
@@ -324,10 +283,5 @@ export const {
   useMarkPurchaseOrderAsUnpaidMutation,
   useUnpayPurchaseOrderMutation,
   useRecordOrderPaymentsMutation,
-  useGetGoodsReceivedNotesQuery,
-  useLazyGetGoodsReceivedNoteQuery,
-  useGetDeletedGRNsQuery,
-  useGetVendorPaymentsQuery,
-  useGetDeletedVendorPaymentsQuery,
   useLazyGetVendorPaymentQuery,
 } = purchasingApiSlice

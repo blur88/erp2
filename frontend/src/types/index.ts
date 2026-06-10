@@ -375,12 +375,6 @@ export interface PurchaseOrder {
   expectedDate?: Date;
   receivedDate?: Date;
   notes?: string;
-  goodsReceivedNotes?: Array<{
-    id: string;
-    grnNumber: string;
-    status: string;
-    receivedDate?: Date;
-  }>;
   vendorPayments?: Partial<VendorPayment>[];
   createdAt: Date;
   updatedAt: Date;
@@ -402,31 +396,6 @@ export interface PurchaseOrderItem {
   status?: string;
 }
 
-export interface GoodsReceivedNote {
-  id: string;
-  grnNumber: string;
-  purchaseOrder: PurchaseOrder;
-  supplier: Supplier;
-  items: GRNItem[];
-  status: 'draft' | 'received';
-  receivedDate: Date;
-  totalQuantityReceived?: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface GRNItem {
-  id: string;
-  product: Product;
-  productName?: string;
-  orderedQuantity: number;
-  receivedQuantity: number;
-  purchaseOrderItem?: {
-    id: string;
-    product?: Product;
-  };
-}
-
 export interface VendorPayment {
   id: string;
   paymentNumber: string;
@@ -434,7 +403,6 @@ export interface VendorPayment {
   supplierId: string;
   purchaseOrder?: PurchaseOrder;
   purchaseOrderId?: string;
-  grnId?: string;
   amount: number;
   paymentDate: Date | string;
   paymentMethodId?: string;
