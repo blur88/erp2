@@ -24,6 +24,7 @@ import {
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { AppButton } from '@/components/common/AppButton'
+import { StatusChip } from '@/components/common/StatusChip'
 import { default as PdfIcon } from '@mui/icons-material/PictureAsPdf'
 import { default as ExcelIcon } from '@mui/icons-material/TableChart'
 import { default as RefreshIcon } from '@mui/icons-material/Refresh'
@@ -841,27 +842,12 @@ const SalesOrderProfitReport: React.FC = () => {
                             )}
                             {selectedColumns.includes('inventoryStatus') && (
                               <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                                <Chip
-                                  label={row.inventoryStatus.charAt(0).toUpperCase() + row.inventoryStatus.slice(1)}
-                                  size="small"
-                                  color={row.inventoryStatus === 'fulfilled' ? 'success' : 'warning'}
-                                  sx={{ fontSize: '0.7rem', height: '20px' }}
-                                />
+                                <StatusChip status={row.inventoryStatus === 'fulfilled' ? 'fulfilled' : 'unfulfilled'} sx={{ fontSize: '0.7rem', height: '20px' }} />
                               </TableCell>
                             )}
                             {selectedColumns.includes('paymentStatus') && (
                               <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                                <Chip
-                                  label={row.paymentStatus.charAt(0).toUpperCase() + row.paymentStatus.slice(1)}
-                                  size="small"
-                                  color={
-                                    row.paymentStatus === 'paid' ? 'success' :
-                                    row.paymentStatus === 'partial' ? 'warning' :
-                                    row.paymentStatus === 'overpaid' ? 'info' :
-                                    'error'
-                                  }
-                                  sx={{ fontSize: '0.7rem', height: '20px' }}
-                                />
+                                <StatusChip status={row.paymentStatus} sx={{ fontSize: '0.7rem', height: '20px' }} />
                               </TableCell>
                             )}
                             {selectedColumns.includes('customerName') && (

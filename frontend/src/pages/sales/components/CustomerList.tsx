@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
-import { EntityStatusChip } from '@/components/common/EntityStatusChip'
+import { StatusChip } from '@/components/common/StatusChip'
 import RowActionMenu from '@/components/common/RowActionMenu'
 import type { Customer } from '@/types'
 import { formatCustomerType } from '@/utils/customerUtils'
@@ -35,7 +35,7 @@ export default function CustomerList({
       width: '12%',
       raw: true,
       render: (customer) => (
-        <EntityStatusChip status={customer.isActive ? 'active' : 'inactive'} />
+        <StatusChip status={customer.isActive ? 'active' : 'inactive'} />
       ),
     },
     {

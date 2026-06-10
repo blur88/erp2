@@ -26,6 +26,7 @@ import {
 } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { AppButton } from '@/components/common/AppButton'
+import { StatusChip } from '@/components/common/StatusChip'
 import { default as PdfIcon } from '@mui/icons-material/PictureAsPdf'
 import { default as ExcelIcon } from '@mui/icons-material/TableChart'
 import { default as RefreshIcon } from '@mui/icons-material/Refresh'
@@ -428,17 +429,6 @@ const CustomerPaymentByOrder: React.FC = () => {
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(parseInt(event.target.value, 10))
     setPage(0)
-  }
-
-  // Helper function to get payment status chip color
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'paid': return 'success'
-      case 'partial': return 'warning'
-      case 'overpaid': return 'info'
-      case 'unpaid': return 'error'
-      default: return 'default'
-    }
   }
 
   return (
@@ -855,22 +845,12 @@ const CustomerPaymentByOrder: React.FC = () => {
                         )}
                         {selectedColumns.includes('inventoryStatus') && (
                           <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                            <Chip
-                              label={row.inventoryStatus.charAt(0).toUpperCase() + row.inventoryStatus.slice(1)}
-                              color={row.inventoryStatus === 'fulfilled' ? 'success' : 'warning'}
-                              size="small"
-                              sx={{ fontSize: '0.7rem', height: '20px' }}
-                            />
+                            <StatusChip status={row.inventoryStatus === 'fulfilled' ? 'fulfilled' : 'unfulfilled'} sx={{ fontSize: '0.7rem', height: '20px' }} />
                           </TableCell>
                         )}
                         {selectedColumns.includes('paymentStatus') && (
                           <TableCell align="center" sx={{ fontSize: '0.8rem' }}>
-                            <Chip
-                              label={row.paymentStatus.charAt(0).toUpperCase() + row.paymentStatus.slice(1)}
-                              color={getStatusColor(row.paymentStatus) as any}
-                              size="small"
-                              sx={{ fontSize: '0.7rem', height: '20px' }}
-                            />
+                            <StatusChip status={row.paymentStatus} sx={{ fontSize: '0.7rem', height: '20px' }} />
                           </TableCell>
                         )}
                         {selectedColumns.includes('orderDate') && (

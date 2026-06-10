@@ -19,6 +19,7 @@ import { default as SalesIcon } from '@mui/icons-material/PointOfSale'
 import { default as CustomersIcon } from '@mui/icons-material/People'
 import { default as OrdersIcon } from '@mui/icons-material/Receipt'
 import { default as PaymentsIcon } from '@mui/icons-material/Payment'
+import { StatusChip } from '@/components/common/StatusChip'
 import { formatCurrency, formatDate, formatNumber } from '@/utils/formatters'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { AppButton } from '@/components/common/AppButton'
@@ -377,17 +378,7 @@ const SalesPage: React.FC = () => {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          label={order.isFulfilled ? 'Fulfilled' : 'Pending'}
-                          color={order.isFulfilled ? 'success' : 'warning'}
-                          size="small"
-                          variant="outlined"
-                          sx={{
-                            fontSize: '0.7rem',
-                            fontWeight: 500,
-                            height: 20,
-                          }}
-                        />
+                        <StatusChip status={order.isFulfilled ? 'fulfilled' : 'unfulfilled'} variant="outlined" sx={{ fontSize: '0.7rem', fontWeight: 500, height: 20 }} />
                       </TableCell>
                     </TableRow>
                   )) : (
