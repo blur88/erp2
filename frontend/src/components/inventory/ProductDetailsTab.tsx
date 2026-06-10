@@ -15,6 +15,8 @@ import { formatCurrency } from '@/utils/currency'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetProductPriceListItemsQuery } from '@/store/api/priceListApi'
 import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
+import { StatusChip } from '@/components/common/StatusChip'
+import { getStockStatus } from '@/utils/stockUtils'
 
 interface ProductDetailsTabProps {
   product: Product
@@ -24,19 +26,6 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
   const { data: priceListItems = [], isLoading: loading } = useGetProductPriceListItemsQuery(product.id)
   const { data: regionalSettings } = useGetRegionalSettingsQuery()
   const lowStockThreshold = regionalSettings?.lowStockThreshold ?? 10
-
-  const getStockStatus = () => {
-    const stock = product.stockQuantity || 0
-
-    if (stock <= 0) {
-      return { label: 'Out of Stock', color: 'error' as const }
-    }
-    if (stock <= lowStockThreshold) {
-      return { label: 'Low Stock', color: 'warning' as const }
-    }
-
-    return { label: 'In Stock', color: 'success' as const }
-  }
 
   // Calculate margin for a price
   const calculateMargin = (price: number, baseCost: number): number => {
@@ -364,11 +353,7 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
                       <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                         {product.stockQuantity || 0}
                       </Typography>
-                      <Chip
-                        label={getStockStatus().label}
-                        color={getStockStatus().color}
-                        size="small"
-                        variant="outlined"
+                      <StatusChip status={getStockStatus(product.stockQuantity || 0, lowStockThreshold)}
                         sx={{
                           fontSize: '0.7rem',
                           fontWeight: 500,
