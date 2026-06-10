@@ -77,7 +77,6 @@ export default function RefundDialog({
     [sources],
   )
 
-
   const [lines, setLines] = useState<RefundLine[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
