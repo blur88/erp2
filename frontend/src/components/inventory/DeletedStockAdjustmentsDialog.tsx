@@ -1,6 +1,7 @@
 import React from 'react'
-import { Chip, Typography } from '@mui/material'
+import { Typography } from '@mui/material'
 import { default as AssessmentIcon } from '@mui/icons-material/Assessment'
+import { StatusChip } from '@/components/common/StatusChip'
 import GenericDeletedDialog, { type ColumnDef } from '@/components/common/GenericDeletedDialog'
 import {
   useBulkPermanentDeleteStockAdjustmentsMutation,
@@ -18,17 +19,6 @@ interface DeletedStockAdjustmentsDialogProps {
 
 type DeletedStockAdjustment = StockAdjustment & { deletedAt?: string | Date }
 
-const getStatusColor = (status: string): 'warning' | 'success' | 'error' => {
-  switch (status.toLowerCase()) {
-    case 'completed':
-      return 'success'
-    case 'cancelled':
-      return 'error'
-    default:
-      return 'warning'
-  }
-}
-
 const columns: ColumnDef<DeletedStockAdjustment>[] = [
   {
     label: 'Adjustment Number',
@@ -43,13 +33,7 @@ const columns: ColumnDef<DeletedStockAdjustment>[] = [
     label: 'Status',
     width: '15%',
     render: (adjustment) => (
-      <Chip
-        label={adjustment.status}
-        size="small"
-        color={getStatusColor(adjustment.status)}
-        variant="outlined"
-        sx={{ fontSize: '0.7rem', fontWeight: 500, height: 20, textTransform: 'capitalize' }}
-      />
+      <StatusChip status={adjustment.status} variant="outlined" sx={{ fontSize: '0.7rem', fontWeight: 500, height: 20 }} />
     ),
   },
   {
