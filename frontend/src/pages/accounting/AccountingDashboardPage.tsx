@@ -11,7 +11,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
   Card,
   CardContent,
   CardActionArea,
@@ -30,6 +29,7 @@ import { default as AccountBalanceWalletIcon } from '@mui/icons-material/Account
 import PageHeader from '@/components/common/PageHeader';
 import GenericOverviewPage from '@/components/common/GenericOverviewPage';
 import { useNavigate } from 'react-router-dom';
+import { StatusChip, EntityTypeChip } from '@/components/common/StatusChip';
 import {
   useGetBalanceSheetQuery,
   useGetCurrentFiscalPeriodQuery,
@@ -133,30 +133,10 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
 };
 
 // Status chip helper
-const getStatusChip = (status: string) => {
-  const statusMap: Record<string, { color: 'default' | 'success' | 'warning' | 'error', label: string }> = {
-    draft: { color: 'default', label: 'Draft' },
-    posted: { color: 'success', label: 'Posted' },
-    reversed: { color: 'error', label: 'Reversed' },
-  };
-
-  const config = statusMap[status.toLowerCase()] || { color: 'default', label: status };
-  return <Chip label={config.label} color={config.color} size="small" />;
-};
+const getStatusChip = (status: string) => <StatusChip status={status} />;
 
 // Entry type chip helper
-const getEntryTypeChip = (type: string) => {
-  const typeMap: Record<string, { color: 'default' | 'primary' | 'secondary' | 'info' | 'warning', label: string }> = {
-    manual: { color: 'primary', label: 'Manual' },
-    system: { color: 'secondary', label: 'System' },
-    adjustment: { color: 'warning', label: 'Adjustment' },
-    closing: { color: 'info', label: 'Closing' },
-    opening: { color: 'info', label: 'Opening' },
-  };
-
-  const config = typeMap[type.toLowerCase()] || { color: 'default', label: type };
-  return <Chip label={config.label} color={config.color} size="small" variant="outlined" />;
-};
+const getEntryTypeChip = (type: string) => <EntityTypeChip type={type} />;
 
 const AccountingDashboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -240,11 +220,7 @@ const AccountingDashboardPage: React.FC = () => {
         subtitle="Overview of your financial position and accounting activity"
         titleBadge={
           currentPeriod ? (
-            <Chip
-              label={`${currentPeriod.name} ${isCurrentPeriodOpen ? 'Open' : 'Closed'}`}
-              color={isCurrentPeriodOpen ? 'success' : 'error'}
-              size="small"
-            />
+            <StatusChip status={isCurrentPeriodOpen ? 'open' : 'closed'} label={`${currentPeriod.name} ${isCurrentPeriodOpen ? 'Open' : 'Closed'}`} />
           ) : undefined
         }
       />
@@ -544,11 +520,7 @@ const AccountingDashboardPage: React.FC = () => {
                   {currentPeriod.name}
                 </Typography>
                 <Box sx={{ mb: 2 }}>
-                  <Chip
-                    label={isCurrentPeriodOpen ? 'Open' : 'Closed'}
-                    color={isCurrentPeriodOpen ? 'success' : 'error'}
-                    size="small"
-                  />
+                  <StatusChip status={isCurrentPeriodOpen ? 'open' : 'closed'} />
                 </Box>
                 <Stack spacing={1.5} sx={{ mb: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
