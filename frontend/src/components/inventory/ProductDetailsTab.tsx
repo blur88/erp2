@@ -354,6 +354,7 @@ const ProductDetailsTab: React.FC<ProductDetailsTabProps> = ({ product }) => {
                         {product.stockQuantity || 0}
                       </Typography>
                       <StatusChip status={getStockStatus(product.stockQuantity || 0, lowStockThreshold)}
+                        variant="outlined"
                         sx={{
                           fontSize: '0.7rem',
                           fontWeight: 500,

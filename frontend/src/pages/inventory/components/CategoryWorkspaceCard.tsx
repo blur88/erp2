@@ -101,6 +101,7 @@ const CategoryWorkspaceCard: React.FC<CategoryWorkspaceCardProps> = ({ selectedC
                         </TableCell>
                         <TableCell align="center">
                           <StatusChip status={status}
+                            variant="outlined"
                             sx={{ fontSize: '0.7rem', fontWeight: 500, height: 20 }}
                           />
                         </TableCell>

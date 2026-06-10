@@ -88,6 +88,7 @@ const CategoryProductsList: React.FC<CategoryProductsListProps> = ({ categoryId 
                       {stock}
                     </Typography>
                     <StatusChip status={status}
+                      variant="outlined"
                       sx={{ fontSize: '0.7rem', fontWeight: 500, height: 20 }}
                     />
                   </Box>
