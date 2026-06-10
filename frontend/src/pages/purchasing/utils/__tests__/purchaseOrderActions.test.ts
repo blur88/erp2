@@ -16,27 +16,33 @@ function actions(po: PurchaseOrder): string[] {
 }
 
 describe('getPurchaseOrderActionMetas', () => {
-  it('draft + unpaid: pay, cancel, print', () => {
-    expect(actions(order('DRAFT', 'UNPAID'))).toEqual(['pay', 'cancel', 'print'])
+  it('draft + unpaid: pay, edit, cancel, duplicate, print', () => {
+    expect(actions(order('DRAFT', 'UNPAID'))).toEqual(['pay', 'edit', 'cancel', 'duplicate', 'print'])
   })
 
-  it('draft + partial: pay (no cancel), print', () => {
-    expect(actions(order('DRAFT', 'PARTIAL'))).toEqual(['pay', 'print'])
+  it('draft + partial: pay, edit, duplicate, print (no cancel)', () => {
+    expect(actions(order('DRAFT', 'PARTIAL'))).toEqual(['pay', 'edit', 'duplicate', 'print'])
   })
 
-  it('ready: receive, unpay, edit, print', () => {
-    expect(actions(order('READY', 'PAID'))).toEqual(['receive', 'unpay', 'edit', 'print'])
+  it('ready (fully paid): receive, refund, edit, duplicate, print', () => {
+    expect(actions(order('READY', 'PAID'))).toEqual(['receive', 'refund', 'edit', 'duplicate', 'print'])
   })
 
-  it('received: return, print', () => {
-    expect(actions(order('RECEIVED', 'PAID'))).toEqual(['return', 'print'])
+  it('received: return, refund (disabled), duplicate, print', () => {
+    const metas = getPurchaseOrderActionMetas(order('RECEIVED', 'PAID'))
+    expect(metas.map((m) => m.action)).toEqual(['return', 'refund', 'duplicate', 'print'])
+    expect(metas.find((m) => m.action === 'refund')?.disabled).toBe(true)
   })
 
-  it('cancelled: uncancel, print (mirrors Sales Order)', () => {
+  it('cancelled: uncancel, print', () => {
     expect(actions(order('CANCELLED', 'UNPAID'))).toEqual(['uncancel', 'print'])
   })
 
-  it('does not offer pay once fully paid in draft', () => {
-    expect(actions(order('DRAFT', 'PAID'))).not.toContain('pay')
+  it('no refund when unpaid', () => {
+    expect(actions(order('DRAFT', 'UNPAID'))).not.toContain('refund')
+  })
+
+  it('paid draft is treated as ready: receive, refund, edit, duplicate, print', () => {
+    expect(actions(order('DRAFT', 'PAID'))).toEqual(['receive', 'refund', 'edit', 'duplicate', 'print'])
   })
 })
