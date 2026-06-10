@@ -21,7 +21,8 @@ interface PurchaseOrderListProps {
   onReturn: (order: PurchaseOrder) => void
   onCancel: (order: PurchaseOrder) => void
   onUncancel: (order: PurchaseOrder) => void
-  onUnpay: (order: PurchaseOrder) => void
+  onDuplicate: (order: PurchaseOrder) => void
+  onRefund: (order: PurchaseOrder) => void
   onPrint: (order: PurchaseOrder) => void
   paginationSlot?: ReactNode
 }
@@ -36,7 +37,8 @@ function buildActions(order: PurchaseOrder, props: PurchaseOrderListProps): RowA
     edit: () => props.onEdit(order),
     cancel: () => props.onCancel(order),
     uncancel: () => props.onUncancel(order),
-    unpay: () => props.onUnpay(order),
+    duplicate: () => props.onDuplicate(order),
+    refund: () => props.onRefund(order),
     print: () => props.onPrint(order),
   }
 
@@ -47,7 +49,8 @@ function buildActions(order: PurchaseOrder, props: PurchaseOrderListProps): RowA
     edit: 'Edit',
     cancel: 'Cancel',
     uncancel: 'Uncancel',
-    unpay: 'Unpay',
+    duplicate: 'Duplicate',
+    refund: 'Refund',
     print: 'Print',
   }
 
