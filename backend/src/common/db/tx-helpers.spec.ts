@@ -32,9 +32,12 @@ describe('tx-helpers', () => {
 
       expect(result).toBe(locked);
       expect(findOne).toHaveBeenCalledTimes(1);
+      // loadEagerRelations:false keeps eager relations from being LEFT JOINed into
+      // the FOR UPDATE query (Postgres rejects FOR UPDATE over an outer join).
       expect(findOne).toHaveBeenCalledWith({
         where: { id: 'x1' },
         lock: { mode: 'pessimistic_write' },
+        loadEagerRelations: false,
       });
     });
 
@@ -53,10 +56,11 @@ describe('tx-helpers', () => {
       });
 
       expect(result).toBe(withRelations);
-      // Step 1 takes the lock on the bare row (no relations in the query).
+      // Step 1 takes the lock on the bare row (no relations, no eager joins).
       expect(findOne).toHaveBeenNthCalledWith(1, {
         where: { id: 'x1' },
         lock: { mode: 'pessimistic_write' },
+        loadEagerRelations: false,
       });
       // Step 2 loads relations without a lock (no FOR UPDATE over the join).
       expect(findOne).toHaveBeenNthCalledWith(2, {

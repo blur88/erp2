@@ -46,10 +46,17 @@ export async function lockRowForUpdate<T extends ObjectLiteral>(
 ): Promise<T> {
   const repo = manager.getRepository(entity);
 
-  // Step 1: lock the bare row FOR UPDATE (no join, so the lock is valid).
+  // Step 1: lock the bare row FOR UPDATE. `loadEagerRelations: false` is
+  // essential: if the entity declares any `eager: true` relation (e.g.
+  // PurchaseOrder.supplier), TypeORM would otherwise LEFT JOIN it into this
+  // query, and Postgres rejects `SELECT … FOR UPDATE` on the nullable side of an
+  // outer join ("FOR UPDATE cannot be applied to the nullable side of an outer
+  // join"). Locking the bare row keeps the lock valid; relations are hydrated in
+  // step 2.
   const locked = await repo.findOne({
     where: { id } as any,
     lock: { mode: 'pessimistic_write' },
+    loadEagerRelations: false,
   });
   if (!locked) {
     throw new NotFoundException(options?.notFoundMessage ?? 'Resource not found');
