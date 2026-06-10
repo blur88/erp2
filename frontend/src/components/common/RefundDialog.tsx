@@ -68,6 +68,16 @@ export default function RefundDialog({
   const surplus = Math.max(0, netPaid - Number(totalAmount))
   const hasSurplus = surplus > 0
 
+  // Per-source amount still available to refund (paid minus what was already refunded).
+  const sourceAvailable = useCallback(
+    (sourceId: string) => {
+      const s = sources.find((src) => src.id === sourceId)
+      return s ? Math.max(0, s.paidAmount - s.alreadyRefunded) : 0
+    },
+    [sources],
+  )
+
+
   const [lines, setLines] = useState<RefundLine[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -167,6 +177,24 @@ export default function RefundDialog({
       )
       return
     }
+    // Per-source guard: each source can only be refunded up to its own available
+    // amount. The aggregate check above can pass while a single source is
+    // over-refunded (offset by surplus on another), which the backend rejects.
+    const enteredBySource = validLines.reduce<Record<string, number>>((acc, l) => {
+      const amt = typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string)
+      acc[l.sourceId] = (acc[l.sourceId] ?? 0) + amt
+      return acc
+    }, {})
+    for (const [sourceId, entered] of Object.entries(enteredBySource)) {
+      const available = sourceAvailable(sourceId)
+      if (entered > available) {
+        const label = sources.find((s) => s.id === sourceId)?.label || 'source'
+        setError(
+          `Refund for ${label} (${formatCurrency(entered)}) exceeds its available amount (${formatCurrency(available)}).`,
+        )
+        return
+      }
+    }
     setSubmitting(true)
     try {
       await onSubmit(
@@ -242,11 +270,16 @@ export default function RefundDialog({
                   <MenuItem value="" disabled>
                     Source
                   </MenuItem>
-                  {sources.map((s) => (
-                    <MenuItem key={s.id} value={s.id} sx={{ fontSize: '0.85rem' }}>
-                      {s.label}
-                    </MenuItem>
-                  ))}
+                  {sources
+                    // Only offer sources with something left to refund, but always
+                    // keep the line's current selection renderable (avoids an
+                    // out-of-range Select value).
+                    .filter((s) => s.paidAmount - s.alreadyRefunded > 0 || s.id === line.sourceId)
+                    .map((s) => (
+                      <MenuItem key={s.id} value={s.id} sx={{ fontSize: '0.85rem' }}>
+                        {s.label}
+                      </MenuItem>
+                    ))}
                 </Select>
               </FormControl>
 

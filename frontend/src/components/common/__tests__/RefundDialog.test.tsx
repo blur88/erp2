@@ -176,4 +176,45 @@ describe('RefundDialog', () => {
     expect(lines[0]).toHaveProperty('sourceId', 'src-a')
     expect(lines[1]).toHaveProperty('sourceId', 'src-b')
   })
+
+  it('does not offer a zero-available source in the picker', async () => {
+    // pm-2 has paidAmount 0 -> nothing left to refund -> must not be selectable.
+    renderDialog({
+      sources: [
+        { id: 'pm-1', label: 'Cash', paidAmount: 500, alreadyRefunded: 0 },
+        { id: 'pm-2', label: 'Bank Transfer', paidAmount: 0, alreadyRefunded: 0 },
+      ],
+    })
+    // Open the source Select (first combobox).
+    await userEvent.click(screen.getAllByRole('combobox')[0])
+    const options = await screen.findAllByRole('option')
+    const labels = options.map((o) => o.textContent)
+    expect(labels).toContain('Cash')
+    expect(labels).not.toContain('Bank Transfer')
+  })
+
+  it('rejects a line that exceeds its own source available even if total fits', async () => {
+    // Two sources, 300 + 200 = 500 total available. A single 400 refund against
+    // the 300 source fits the aggregate (400 <= 500) but over-refunds that source.
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    renderDialog({
+      sources: [
+        { id: 'src-a', label: 'Cash', paidAmount: 300, alreadyRefunded: 0 },
+        { id: 'src-b', label: 'Bank Transfer', paidAmount: 200, alreadyRefunded: 0 },
+      ],
+      totalAmount: 500,
+      onSubmit,
+    })
+    // Two lines pre-fill (300 + 200). Zero out the second (src-b) so it is
+    // filtered as an invalid line and the aggregate becomes just src-a's 400
+    // (<= 500 total), but 400 > src-a's own 300 available.
+    const amounts = screen.getAllByPlaceholderText('Amount')
+    await userEvent.clear(amounts[0])
+    await userEvent.type(amounts[0], '400')
+    await userEvent.clear(amounts[1])
+    await userEvent.click(screen.getByRole('button', { name: /^refund$/i }))
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+    expect(screen.getByRole('alert').textContent).toMatch(/exceeds its available amount/i)
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
 })
