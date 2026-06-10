@@ -38,10 +38,12 @@ function makeStore(unreadCount = 0) {
   })
 }
 
-function renderTopBar(path: string, collapsed = false) {
+type RouterEntry = string | { pathname: string; state?: unknown }
+
+function renderTopBar(entry: RouterEntry, collapsed = false) {
   return render(
     <Provider store={makeStore()}>
-      <MemoryRouter initialEntries={[path]}>
+      <MemoryRouter initialEntries={[entry]}>
         <TopBar collapsed={collapsed} onMobileMenuOpen={vi.fn()} />
       </MemoryRouter>
     </Provider>
@@ -81,6 +83,37 @@ describe('TopBar breadcrumbs', () => {
     mockUseMatches.mockReturnValue([{ handle: { title: 'Inventory Costing' } }])
     renderTopBar('/settings/inventory-costing')
     expect(screen.getByText('Inventory Costing')).toBeInTheDocument()
+  })
+
+  it('shows order number leaf for sales order detail (no location.state)', () => {
+    mockUseMatches.mockReturnValue([
+      { handle: { title: 'Sales Order', breadcrumbParam: 'orderNumber' }, params: { orderNumber: 'SO-123' } },
+    ])
+    renderTopBar('/sales/orders/SO-123/view')
+    expect(screen.getByText('Sales')).toBeInTheDocument()
+    expect(screen.getByText('Sales Orders')).toBeInTheDocument()
+    expect(screen.getByText('SO-123')).toBeInTheDocument()
+    expect(screen.queryByText('Sales Order')).not.toBeInTheDocument()
+  })
+
+  it('shows order number leaf for purchase order detail (no location.state)', () => {
+    mockUseMatches.mockReturnValue([
+      { handle: { title: 'Purchase Order', breadcrumbParam: 'orderNumber' }, params: { orderNumber: 'PO-456' } },
+    ])
+    renderTopBar('/purchasing/orders/PO-456/view')
+    expect(screen.getByText('Purchasing')).toBeInTheDocument()
+    expect(screen.getByText('Purchase Orders')).toBeInTheDocument()
+    expect(screen.getByText('PO-456')).toBeInTheDocument()
+    expect(screen.queryByText('Purchase Order')).not.toBeInTheDocument()
+  })
+
+  it('location.state.breadcrumbTitle overrides the URL param leaf', () => {
+    mockUseMatches.mockReturnValue([
+      { handle: { title: 'Sales Order', breadcrumbParam: 'orderNumber' }, params: { orderNumber: 'SO-123' } },
+    ])
+    renderTopBar({ pathname: '/sales/orders/SO-123/view', state: { breadcrumbTitle: 'SO-999' } })
+    expect(screen.getByText('SO-999')).toBeInTheDocument()
+    expect(screen.queryByText('SO-123')).not.toBeInTheDocument()
   })
 })
 

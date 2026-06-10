@@ -136,8 +136,8 @@ const NAVIGABLE_PATHS = new Set([
   '/settings/backup',
 ])
 
-type RouteHandle = { title?: string }
-type MatchShape = { handle?: RouteHandle | null }
+type RouteHandle = { title?: string; breadcrumbParam?: string }
+type MatchShape = { handle?: RouteHandle | null; params?: Record<string, string | undefined> }
 
 interface BreadcrumbSegment {
   label: string
@@ -147,13 +147,24 @@ interface BreadcrumbSegment {
 
 function buildBreadcrumbs(pathname: string, matches: MatchShape[], leafOverride?: string): BreadcrumbSegment[] {
   const leafMatch = [...matches].reverse().find(match => (match.handle as RouteHandle | undefined)?.title)
-  const leafHandleTitle = (leafMatch?.handle as RouteHandle | undefined)?.title
+  const leafHandle = leafMatch?.handle as RouteHandle | undefined
+  const leafHandleTitle = leafHandle?.title
+  // Routes that opt in via handle.breadcrumbParam (e.g. order-detail pages) use
+  // the named URL param as a refresh-proof leaf label —
+  // location.state.breadcrumbTitle is lost on reload. The route is the single
+  // source of truth for which param to use. No decodeURIComponent: react-router
+  // already decodes params (a second decode throws on values with %).
+  const leafParamTitle = leafHandle?.breadcrumbParam
+    ? leafMatch?.params?.[leafHandle.breadcrumbParam]
+    : undefined
   const parts = pathname.split('/').filter(Boolean)
   const prefixes = parts.map((_, index) => `/${parts.slice(0, index + 1).join('/')}`)
 
   return prefixes.reduce<BreadcrumbSegment[]>((segments, prefix, index) => {
     const isLast = index === prefixes.length - 1
-    const label = isLast ? (leafOverride ?? leafHandleTitle ?? BREADCRUMB_MAP[prefix]) : BREADCRUMB_MAP[prefix]
+    const label = isLast
+      ? (leafOverride ?? leafParamTitle ?? leafHandleTitle ?? BREADCRUMB_MAP[prefix])
+      : BREADCRUMB_MAP[prefix]
     if (!label) return segments
     segments.push({ label, path: prefix, isNavigable: NAVIGABLE_PATHS.has(prefix) && !isLast })
     return segments
