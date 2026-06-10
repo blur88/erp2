@@ -24,8 +24,10 @@ vi.mock('@/store/api/purchasingApi', () => ({
   useReturnGoodsMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
   useCancelPurchaseOrderMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
   useUncancelPurchaseOrderMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
-  useMarkPurchaseOrderAsUnpaidMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
+  useDuplicatePurchaseOrderMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
+  useRecordPurchaseOrderRefundsMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
   useRecordVendorPaymentsMutation: vi.fn(() => [vi.fn(), { isLoading: false }]),
+  useGetPurchaseOrderPaymentsQuery: vi.fn(() => ({ data: [], isLoading: false })),
 }))
 
 vi.mock('@/components/filters', () => ({
@@ -38,6 +40,8 @@ vi.mock('@/components/filters', () => ({
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
 }))
+
+vi.mock('@/components/common/RefundDialog', () => ({ default: () => null }))
 
 function renderPage(initialUrl = '/') {
   const store = configureStore({

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { skipToken } from '@reduxjs/toolkit/query'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import PagePagination from '@/components/common/PagePagination'
@@ -9,14 +10,17 @@ import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelPurchaseOrderMutation,
+  useDuplicatePurchaseOrderMutation,
+  useGetPurchaseOrderPaymentsQuery,
   useGetPurchaseOrdersQuery,
-  useMarkPurchaseOrderAsUnpaidMutation,
   useReceiveGoodsMutation,
+  useRecordPurchaseOrderRefundsMutation,
   useRecordVendorPaymentsMutation,
   useReturnGoodsMutation,
   useUncancelPurchaseOrderMutation,
 } from '@/store/api/purchasingApi'
 import type { PurchaseOrder } from '@/types'
+import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
@@ -51,7 +55,7 @@ const filterConfig: FilterBarConfig<PurchaseOrderFilters> = {
   },
 }
 
-type ConfirmAction = 'receive' | 'return' | 'cancel' | 'uncancel' | 'unpay'
+type ConfirmAction = 'receive' | 'return' | 'cancel' | 'uncancel'
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (typeof error === 'object' && error !== null && 'data' in error) {
@@ -73,6 +77,7 @@ const PurchaseOrdersPage: React.FC = () => {
   const [limit, setLimit] = useState(DEFAULT_LIMIT)
   const [printOrder, setPrintOrder] = useState<PurchaseOrder | null>(null)
   const [paymentOrder, setPaymentOrder] = useState<PurchaseOrder | null>(null)
+  const [refundOrder, setRefundOrder] = useState<PurchaseOrder | null>(null)
   const [confirmOrder, setConfirmOrder] = useState<PurchaseOrder | null>(null)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
 
@@ -125,8 +130,33 @@ const PurchaseOrdersPage: React.FC = () => {
   const [returnPurchaseOrder, { isLoading: isReturning }] = useReturnGoodsMutation()
   const [cancelPurchaseOrder, { isLoading: isCancelling }] = useCancelPurchaseOrderMutation()
   const [uncancelPurchaseOrder, { isLoading: isUncancelling }] = useUncancelPurchaseOrderMutation()
-  const [markPurchaseOrderAsUnpaid, { isLoading: isUnpaying }] = useMarkPurchaseOrderAsUnpaidMutation()
+  const [duplicatePurchaseOrder] = useDuplicatePurchaseOrderMutation()
+  const [recordPurchaseOrderRefunds] = useRecordPurchaseOrderRefundsMutation()
   const [recordVendorPayments] = useRecordVendorPaymentsMutation()
+
+  // Fetch payments for refund dialog only when needed
+  const { data: refundPaymentRecords = [] } = useGetPurchaseOrderPaymentsQuery(
+    refundOrder ? refundOrder.id : skipToken,
+  )
+
+  // Build RefundSource[] from vendor payments (net by payment)
+  const refundSources: RefundSource[] = useMemo(() => {
+    if (!refundOrder) return []
+    const netByPayment: Record<string, { paid: number; refunded: number; label: string }> = {}
+    for (const p of refundPaymentRecords ?? []) {
+      const key = p.id
+      const entry = (netByPayment[key] ??= { paid: 0, refunded: 0, label: p.paymentNumber ?? 'Payment' })
+      const amt = Number(p.amount)
+      if (amt >= 0) entry.paid += amt
+      else entry.refunded += Math.abs(amt)
+    }
+    return Object.entries(netByPayment).map(([id, v]) => ({
+      id,
+      label: v.label,
+      paidAmount: v.paid,
+      alreadyRefunded: v.refunded,
+    }))
+  }, [refundOrder, refundPaymentRecords])
 
   const handleSort = useCallback((field: string) => {
     setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
@@ -192,10 +222,6 @@ const PurchaseOrdersPage: React.FC = () => {
           await uncancelPurchaseOrder(confirmOrder.id).unwrap()
           showSuccess(`Purchase order ${confirmOrder.orderNumber} uncancelled`)
           break
-        case 'unpay':
-          await markPurchaseOrderAsUnpaid(confirmOrder.id).unwrap()
-          showSuccess(`Purchase order ${confirmOrder.orderNumber} marked unpaid`)
-          break
       }
       closeConfirm()
     } catch (error) {
@@ -212,7 +238,6 @@ const PurchaseOrdersPage: React.FC = () => {
     closeConfirm,
     confirmAction,
     confirmOrder,
-    markPurchaseOrderAsUnpaid,
     receivePurchaseOrder,
     returnPurchaseOrder,
     showError,
@@ -254,17 +279,40 @@ const PurchaseOrdersPage: React.FC = () => {
         confirmText: 'Uncancel',
         loading: isUncancelling,
       },
-      unpay: {
-        title: 'Mark Unpaid',
-        message: `Remove payment records for this purchase order? (${confirmOrder.orderNumber})`,
-        confirmText: 'Unpay',
-        severity: 'warning',
-        loading: isUnpaying,
-      },
     }
 
     return configs[confirmAction]
-  }, [confirmAction, confirmOrder, isCancelling, isUncancelling, isReceiving, isReturning, isUnpaying])
+  }, [confirmAction, confirmOrder, isCancelling, isUncancelling, isReceiving, isReturning])
+
+  const handleDuplicateOrder = useCallback(async (order: PurchaseOrder) => {
+    try {
+      const result = await duplicatePurchaseOrder(order.id).unwrap()
+      showSuccess(`Duplicate created: ${result.orderNumber}`)
+    } catch (error) {
+      showError(getErrorMessage(error, `Failed to duplicate ${order.orderNumber}`))
+    }
+  }, [duplicatePurchaseOrder, showError, showSuccess])
+
+  const handleRefundOrder = useCallback((order: PurchaseOrder) => {
+    setRefundOrder(order)
+  }, [])
+
+  const handleSubmitRefund = useCallback(async (
+    lines: { sourceId: string; amount: number; reference?: string }[],
+  ) => {
+    if (!refundOrder) return
+    try {
+      await recordPurchaseOrderRefunds({
+        id: refundOrder.id,
+        refunds: lines.map((l) => ({ vendorPaymentId: l.sourceId, amount: l.amount, reason: l.reference })),
+      }).unwrap()
+      showSuccess(`Refund recorded for ${refundOrder.orderNumber}`)
+      setRefundOrder(null)
+    } catch (error) {
+      showError(getErrorMessage(error, `Failed to record refund for ${refundOrder.orderNumber}`))
+      throw error
+    }
+  }, [refundOrder, recordPurchaseOrderRefunds, showError, showSuccess])
 
   return (
     <>
@@ -298,7 +346,8 @@ const PurchaseOrdersPage: React.FC = () => {
             onReturn={(order) => openConfirm(order, 'return')}
             onCancel={(order) => openConfirm(order, 'cancel')}
             onUncancel={(order) => openConfirm(order, 'uncancel')}
-            onUnpay={(order) => openConfirm(order, 'unpay')}
+            onDuplicate={handleDuplicateOrder}
+            onRefund={handleRefundOrder}
             onPrint={(order) => setPrintOrder(order)}
             paginationSlot={(
               <PagePagination
@@ -331,6 +380,17 @@ const PurchaseOrdersPage: React.FC = () => {
                 onClose={() => setPrintOrder(null)}
                 purchaseOrder={printOrder}
                 payment={printOrder.vendorPayments?.[0] ?? null}
+              />
+            )}
+
+            {refundOrder && (
+              <RefundDialog
+                open
+                onClose={() => setRefundOrder(null)}
+                onSubmit={handleSubmitRefund}
+                sources={refundSources}
+                orderNumber={refundOrder.orderNumber}
+                totalAmount={refundOrder.totalAmount ?? 0}
               />
             )}
 
