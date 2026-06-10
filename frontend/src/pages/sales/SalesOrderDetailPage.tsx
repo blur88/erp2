@@ -10,7 +10,8 @@ import ConfirmationDialog from '@/components/common/ConfirmationDialog';
 import PageHeader from '@/components/common/PageHeader';
 import SalesOrderPrintDialog from './components/SalesOrderPrintDialog';
 import PaymentDialog from '@/components/sales/PaymentDialog';
-import RefundDialog from '@/components/sales/RefundDialog';
+import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog';
+import { getCurrentDate } from '@/utils/formatters';
 import { TABLE_STYLES } from '@/constants/tableStyles';
 import { useNotification } from '@/hooks/useNotification';
 import {
@@ -20,6 +21,7 @@ import {
   useGetSalesOrderByNumberQuery,
   useRecordOrderPaymentsMutation,
   useRecordOrderRefundsMutation,
+  useGetSalesOrderPaymentsQuery,
   useUncancelSalesOrderMutation,
   useUnfulfillSalesOrderMutation,
 } from '@/store/api/salesApi';
@@ -94,6 +96,29 @@ export default function SalesOrderDetailPage() {
   const [duplicateOrder] = useDuplicateSalesOrderMutation();
   const [recordPayments] = useRecordOrderPaymentsMutation();
   const [recordRefunds] = useRecordOrderRefundsMutation();
+
+  // Fetch payments for refund dialog only when needed
+  const { data: paymentRecords = [] } = useGetSalesOrderPaymentsQuery(
+    activeDialog === 'refund' && order ? order.id : skipToken,
+  )
+
+  // Build RefundSource[] from SO payments (net by payment method)
+  const netByMethod = (paymentRecords ?? []).reduce<
+    Record<string, { paid: number; refunded: number; label: string }>
+  >((acc, p: any) => {
+    const key = p.paymentMethodId
+    const entry = (acc[key] ??= { paid: 0, refunded: 0, label: p.paymentMethod?.name ?? 'Payment' })
+    const amt = Number(p.amount)
+    if (amt >= 0) entry.paid += amt
+    else entry.refunded += Math.abs(amt)
+    return acc
+  }, {})
+  const refundSources: RefundSource[] = Object.entries(netByMethod).map(([id, v]) => ({
+    id,
+    label: v.label,
+    paidAmount: v.paid,
+    alreadyRefunded: v.refunded,
+  }))
 
   if (isLoading) {
     return (
@@ -192,10 +217,18 @@ export default function SalesOrderDetailPage() {
   };
 
   const handleSubmitRefund = async (
-    refunds: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[],
+    lines: { sourceId: string; amount: number; reference?: string }[],
   ) => {
     try {
-      await recordRefunds({ id: order.id, refunds }).unwrap();
+      await recordRefunds({
+        id: order.id,
+        refunds: lines.map((l) => ({
+          paymentMethodId: l.sourceId,
+          amount: l.amount,
+          paymentDate: getCurrentDate(),
+          reference: l.reference,
+        })),
+      }).unwrap();
       showSuccess(`Refund recorded for ${order.orderNumber}`);
       setActiveDialog(null);
     } catch (error) {
@@ -333,7 +366,7 @@ export default function SalesOrderDetailPage() {
           open
           onClose={() => setActiveDialog(null)}
           onSubmit={handleSubmitRefund}
-          orderId={order.id}
+          sources={refundSources}
           orderNumber={order.orderNumber}
           totalAmount={order.totalAmount}
         />

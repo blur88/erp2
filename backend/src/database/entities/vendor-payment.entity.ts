@@ -33,7 +33,7 @@ export class VendorPayment extends BaseEntity {
   notes: string;
 
   @Column({ length: 20, default: 'pending' })
-  status: string; // 'pending', 'completed', 'cancelled'
+  status: string; // 'pending', 'completed', 'cancelled', 'refunded'
 
   // Relations
   @ManyToOne(() => Supplier, { eager: true })

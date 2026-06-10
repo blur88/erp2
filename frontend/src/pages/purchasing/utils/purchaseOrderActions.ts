@@ -4,11 +4,12 @@ export type PurchaseOrderAction =
   | 'pay'
   | 'receive'
   | 'return'
+  | 'refund'
   | 'edit'
   | 'cancel'
   | 'uncancel'
+  | 'duplicate'
   | 'print'
-  | 'unpay'
 
 export interface PurchaseOrderActionMeta {
   action: PurchaseOrderAction
@@ -20,40 +21,65 @@ export function getPurchaseOrderActionMetas(order: PurchaseOrder): PurchaseOrder
   const status = order.status
   const paymentStatus = order.paymentStatus
   const isDraft = status === 'DRAFT'
-  const isReady = status === 'READY' || (status === 'DRAFT' && (paymentStatus === 'PAID' || paymentStatus === 'OVERPAID'))
+  const isReady = status === 'READY'
   const isReceived = status === 'RECEIVED'
   const isCancelled = status === 'CANCELLED'
   const isUnpaid = paymentStatus === 'UNPAID'
+  const isFullyPaid = paymentStatus === 'PAID' || paymentStatus === 'OVERPAID'
+  const isOverpaid = paymentStatus === 'OVERPAID'
+  const needsPayment = isUnpaid || paymentStatus === 'PARTIAL'
+  // A paid DRAFT is "Ready" even if its status column still reads DRAFT. Overpaid
+  // is excluded from the ready band (mirrors Sales Order).
+  const isReadyState = !isOverpaid && (isReady || (isDraft && isFullyPaid))
 
   if (isCancelled) {
-    // Mirror Sales Order: a cancelled order can be uncancelled (back to DRAFT)
-    // and still printed. All other actions are unavailable.
     return [{ action: 'uncancel' }, { action: 'print' }]
   }
 
   const metas: PurchaseOrderActionMeta[] = []
 
-  if (isDraft) {
-    if (paymentStatus !== 'PAID' && paymentStatus !== 'OVERPAID') {
-      metas.push({ action: 'pay' })
-    }
-
-    if (isUnpaid) {
-      metas.push({ action: 'cancel' })
-    }
+  // Pay — DRAFT with an outstanding balance.
+  if (isDraft && needsPayment) {
+    metas.push({ action: 'pay' })
   }
 
-  if (isReady) {
+  // Receive — Ready only (fully paid). No stock check: a PO receives incoming goods.
+  if (isReadyState) {
     metas.push({ action: 'receive' })
-    metas.push({ action: 'unpay' })
-    metas.push({ action: 'edit' })
   }
 
+  // Return — Received only.
   if (isReceived) {
     metas.push({ action: 'return' })
   }
 
+  // Refund — only when fully paid (or overpaid); disabled on Received (return first).
+  if (isFullyPaid) {
+    metas.push({
+      action: 'refund',
+      disabled: isReceived,
+      tooltip: isReceived ? 'Cannot refund a received order. Please return first.' : undefined,
+    })
+  }
+
+  // Edit — any unreceived order (DRAFT/READY), enabled regardless of payment.
+  if (isDraft || isReady) {
+    metas.push({ action: 'edit' })
+  }
+
+  // Cancel — DRAFT with no payment at all.
+  if (isDraft && isUnpaid) {
+    metas.push({ action: 'cancel' })
+  }
+
+  // Duplicate — all non-cancelled orders (cancelled returned early above).
+  metas.push({ action: 'duplicate' })
+
   metas.push({ action: 'print' })
 
   return metas
+}
+
+export function getPurchaseOrderActions(order: PurchaseOrder): PurchaseOrderAction[] {
+  return getPurchaseOrderActionMetas(order).map((m) => m.action)
 }

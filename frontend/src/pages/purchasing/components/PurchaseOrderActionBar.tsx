@@ -12,7 +12,8 @@ interface PurchaseOrderActionBarProps {
   onEdit: () => void
   onCancel: () => void
   onUncancel: () => void
-  onUnpay: () => void
+  onDuplicate: () => void
+  onRefund: () => void
   onPrint: () => void
 }
 
@@ -24,7 +25,8 @@ export default function PurchaseOrderActionBar({
   onEdit,
   onCancel,
   onUncancel,
-  onUnpay,
+  onDuplicate,
+  onRefund,
   onPrint,
 }: PurchaseOrderActionBarProps) {
   const metas = getPurchaseOrderActionMetas(order)
@@ -36,7 +38,8 @@ export default function PurchaseOrderActionBar({
     edit: onEdit,
     cancel: onCancel,
     uncancel: onUncancel,
-    unpay: onUnpay,
+    duplicate: onDuplicate,
+    refund: onRefund,
     print: onPrint,
   }
 
@@ -47,7 +50,8 @@ export default function PurchaseOrderActionBar({
     edit: 'Edit',
     cancel: 'Cancel',
     uncancel: 'Uncancel',
-    unpay: 'Unpay',
+    duplicate: 'Duplicate',
+    refund: 'Refund',
     print: 'Print',
   }
 
@@ -58,7 +62,8 @@ export default function PurchaseOrderActionBar({
     edit: 'outlined',
     cancel: 'outlined',
     uncancel: 'outlined',
-    unpay: 'outlined',
+    duplicate: 'outlined',
+    refund: 'outlined',
     print: 'outlined',
   }
 

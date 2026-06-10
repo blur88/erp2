@@ -29,6 +29,7 @@ import {
   PurchaseOrderListResponseDto,
   PurchaseOrderSummaryDto,
   RecordOrderPaymentsDto,
+  RecordPurchaseOrderRefundsDto,
 } from '../dto';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
@@ -265,6 +266,38 @@ export class PurchaseOrderController {
   ): Promise<{ data: PurchaseOrderResponseDto }> {
     const result = await this.purchaseOrderService.unpay(id, currentUserId, currentUsername);
     return { data: result };
+  }
+
+  @Post(':id/duplicate')
+  @ApiOperation({ summary: 'Duplicate a purchase order into a new DRAFT' })
+  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
+  @ApiResponse({ status: 201, description: 'Duplicate created', type: PurchaseOrderResponseDto })
+  async duplicateOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+  ): Promise<{ data: PurchaseOrderResponseDto }> {
+    const data = await this.purchaseOrderService.duplicateOrder(id, currentUserId);
+    return { data };
+  }
+
+  @Post(':id/refunds')
+  @ApiOperation({ summary: 'Refund vendor payments — reverses original payment GL' })
+  @ApiParam({ name: 'id', description: 'Purchase order ID', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Refund recorded', type: PurchaseOrderResponseDto })
+  @HttpCode(HttpStatus.OK)
+  async recordRefunds(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RecordPurchaseOrderRefundsDto,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<{ data: PurchaseOrderResponseDto }> {
+    const data = await this.purchaseOrderService.recordRefunds(
+      id,
+      dto.refunds,
+      currentUserId,
+      currentUsername,
+    );
+    return { data };
   }
 
 }

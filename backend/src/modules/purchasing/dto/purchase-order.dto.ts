@@ -394,3 +394,29 @@ export class RecordVendorPaymentsDto {
 }
 
 export class RecordOrderPaymentsDto extends RecordVendorPaymentsDto {}
+
+export class RefundLineDto {
+  @ApiProperty({ description: 'Original vendor payment to reverse' })
+  @IsUUID()
+  vendorPaymentId: string;
+
+  @ApiProperty({ description: 'Refund amount (positive)' })
+  @Transform(({ value }) => parseFloat(value))
+  @IsNumber()
+  @Min(0.01)
+  amount: number;
+
+  @ApiPropertyOptional({ description: 'Refund reason' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+
+export class RecordPurchaseOrderRefundsDto {
+  @ApiProperty({ description: 'Refund lines', type: [RefundLineDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => RefundLineDto)
+  refunds: RefundLineDto[];
+}

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Logger } from '@nestjs/common';
 import { PurchaseOrderService } from './purchase-order.service';
 import {
@@ -34,6 +34,7 @@ describe('PurchaseOrderService', () => {
   let accountingService: jest.Mocked<AccountingService>;
   let stockMovementService: jest.Mocked<StockMovementService>;
   let vendorPaymentService: jest.Mocked<VendorPaymentService>;
+  let dataSource: jest.Mocked<DataSource>
   const adminUser = { role: UserRole.ADMIN } as any;
 
   const mockPurchaseOrder = {
@@ -60,7 +61,28 @@ describe('PurchaseOrderService', () => {
     orderNumber: 'PO-000001',
   } as any;
 
+  // Builds a fake EntityManager whose VendorPayment repo is controllable.
+  function mockTxManager(opts) {
+    const saved = []
+    const vpRepo = {
+      findOne: jest.fn().mockResolvedValue(opts.original),
+      // atomic conditional flip: UPDATE ... WHERE id AND status='completed'
+      update: jest.fn().mockResolvedValue({ affected: opts.conditionalUpdateAffected ?? 1 }),
+      create: jest.fn((row) => row),
+      save: jest.fn(async (row) => {
+        const persisted = { id: 'refund-row', ...row }
+        saved.push(persisted)
+        return persisted
+      }),
+    }
+    const manager = {
+      getRepository: jest.fn().mockReturnValue(vpRepo),
+    }
+    return { manager, vpRepo, saved }
+  }
+
   beforeEach(async () => {
+    dataSource = { transaction: jest.fn() } as any
     module = await Test.createTestingModule({
       providers: [
         PurchaseOrderService,
@@ -154,6 +176,10 @@ describe('PurchaseOrderService', () => {
             return: jest.fn(),
           },
         },
+        {
+          provide: DataSource,
+          useValue: dataSource,
+        },
       ],
     }).compile();
 
@@ -166,6 +192,7 @@ describe('PurchaseOrderService', () => {
     accountingService = module.get(AccountingService);
     stockMovementService = module.get(StockMovementService);
     vendorPaymentService = module.get(VendorPaymentService);
+    dataSource = module.get(DataSource)
     jest.spyOn(Logger.prototype, 'log').mockImplementation();
     jest.spyOn(Logger.prototype, 'error').mockImplementation();
     jest.spyOn(Logger.prototype, 'warn').mockImplementation();
@@ -578,4 +605,147 @@ describe('PurchaseOrderService', () => {
       ).rejects.toThrow(/greater than zero/);
     });
   });
+
+  describe('duplicateOrder', () => {
+    it('builds a CreatePurchaseOrderDto copying supplier, notes, and full item discount shape, then calls create', async () => {
+      const original = {
+        id: 'po-1',
+        supplierId: 'sup-1',
+        notes: 'hello',
+        shippingAmount: '5',
+        items: [
+          {
+            productId: 'p-1',
+            quantity: '2',
+            unitCost: '10',
+            discountType: 'fixed_amount',
+            discountPercent: '0',
+            discountAmount: '1.5',
+          },
+        ],
+      }
+      purchaseOrderRepository.findOne.mockResolvedValueOnce(original as any)
+      const createSpy = jest
+        .spyOn(service, 'create')
+        .mockResolvedValue(mockReturnDto as any)
+
+      await service.duplicateOrder('po-1', 'user-1')
+
+      expect(createSpy).toHaveBeenCalledTimes(1)
+      const dto = createSpy.mock.calls[0][0]
+      expect(dto.supplierId).toBe('sup-1')
+      expect(dto.notes).toBe('hello')
+      expect(dto.items[0]).toMatchObject({
+        productId: 'p-1',
+        quantity: 2,
+        unitPrice: 10,
+        discountType: 'fixed_amount',
+        discountPercent: 0,
+        discountAmount: 1.5,
+      })
+    })
+
+    it('throws NotFoundException when the original does not exist', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValueOnce(null as any)
+      await expect(service.duplicateOrder('missing', 'user-1')).rejects.toThrow('Purchase order not found')
+    })
+  })
+
+  describe('recordRefunds', () => {
+    const draftPaidPO = {
+      id: 'po-1',
+      orderNumber: 'PO-001',
+      status: 'READY',
+      supplierId: 'sup-1',
+      totalAmount: '0',
+    }
+
+    it('inserts a negative refunded row via the manager repo (NOT VendorPaymentService.create) and reverses the original GL', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValueOnce(draftPaidPO as any)
+      const original = {
+        id: 'vp-1',
+        purchaseOrderId: 'po-1',
+        supplierId: 'sup-1',
+        paymentMethodId: 'pm-1',
+        amount: '100',
+        status: 'completed',
+      }
+      const { manager, saved } = mockTxManager({ original })
+      ;(dataSource.transaction as jest.Mock).mockImplementation(async (cb) => cb(manager))
+      ;(service as any).settingsService.generateDocumentNumber = jest.fn().mockResolvedValue('VP-REF-1')
+      jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
+
+      await service.recordRefunds(
+        'po-1',
+        [{ vendorPaymentId: 'vp-1', amount: 100, reason: 'overpaid' }],
+        'user-1',
+        'admin',
+      )
+
+      // Negative row persisted with all non-null columns + refunded status.
+      expect(saved).toHaveLength(1)
+      expect(saved[0]).toMatchObject({
+        supplierId: 'sup-1',
+        purchaseOrderId: 'po-1',
+        paymentMethodId: 'pm-1',
+        paymentNumber: 'VP-REF-1',
+        amount: -100,
+        status: 'refunded',
+        notes: 'overpaid',
+      })
+      expect(saved[0].paymentDate).toBeDefined()
+
+      // Refund row NOT routed through the auto-posting service.create (would double-post GL).
+      expect(vendorPaymentService.create).not.toHaveBeenCalled()
+      // Original entry reversed (not the refund row).
+      expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith(
+        'vendor_payment',
+        'vp-1',
+        'user-1',
+      )
+      // postVendorPaymentEntry never called for the refund row.
+      expect(accountingService.postVendorPaymentEntry).not.toHaveBeenCalled()
+    })
+
+    it('rejects refund on a RECEIVED purchase order', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValueOnce({ ...draftPaidPO, status: 'RECEIVED' } as any)
+      await expect(
+        service.recordRefunds('po-1', [{ vendorPaymentId: 'vp-1', amount: 10 }], 'u'),
+      ).rejects.toThrow('Cannot refund a RECEIVED purchase order.')
+    })
+
+    it('rejects refund on a CANCELLED purchase order', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValueOnce({ ...draftPaidPO, status: 'CANCELLED' } as any)
+      await expect(
+        service.recordRefunds('po-1', [{ vendorPaymentId: 'vp-1', amount: 10 }], 'u'),
+      ).rejects.toThrow('Cannot refund a CANCELLED purchase order.')
+    })
+
+    it('rejects a non-positive amount', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValueOnce(draftPaidPO as any)
+      await expect(
+        service.recordRefunds('po-1', [{ vendorPaymentId: 'vp-1', amount: 0 }], 'u'),
+      ).rejects.toThrow('greater than zero')
+    })
+
+    it('rejects re-refunding an already-refunded original (conditional update affected 0)', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValueOnce(draftPaidPO as any)
+      const { manager } = mockTxManager({ original: { id: 'vp-1' }, conditionalUpdateAffected: 0 })
+      ;(dataSource.transaction as jest.Mock).mockImplementation(async (cb) => cb(manager))
+      await expect(
+        service.recordRefunds('po-1', [{ vendorPaymentId: 'vp-1', amount: 10 }], 'u'),
+      ).rejects.toThrow('not refundable')
+    })
+
+    it('rejects a refund amount greater than the original payment', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValueOnce(draftPaidPO as any)
+      const original = { id: 'vp-1', purchaseOrderId: 'po-1', supplierId: 'sup-1', amount: '50', status: 'completed' }
+      const { manager } = mockTxManager({ original })
+      ;(dataSource.transaction as jest.Mock).mockImplementation(async (cb) => cb(manager))
+      ;(service as any).settingsService.generateDocumentNumber = jest.fn().mockResolvedValue('VP-REF-1')
+      await expect(
+        service.recordRefunds('po-1', [{ vendorPaymentId: 'vp-1', amount: 100 }], 'u'),
+      ).rejects.toThrow('exceeds original payment amount')
+    })
+  })
 });

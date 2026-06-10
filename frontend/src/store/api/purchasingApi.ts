@@ -224,11 +224,6 @@ export const purchasingApiSlice = createApi({
       transformResponse: (response: any) => normalizeSingle<PurchaseOrder>(response?.data ?? response),
       invalidatesTags: ['PurchaseOrder', 'VendorPayment'],
     }),
-    unpayPurchaseOrder: builder.mutation<PurchaseOrder, string>({
-      query: (purchaseOrderId) => ({ url: `/purchasing/orders/${purchaseOrderId}/unpay`, method: 'POST' }),
-      transformResponse: (response: any) => normalizeSingle<PurchaseOrder>(response?.data ?? response),
-      invalidatesTags: ['PurchaseOrder', 'VendorPayment'],
-    }),
     recordOrderPayments: builder.mutation<
       PurchaseOrder,
       { purchaseOrderId: string; payments: { paymentMethodId: string; amount: number; reference?: string }[] }
@@ -237,6 +232,23 @@ export const purchasingApiSlice = createApi({
         url: `/purchasing/orders/${purchaseOrderId}/record-payments`,
         method: 'POST',
         data: { payments },
+      }),
+      transformResponse: normalizeSingle<PurchaseOrder>,
+      invalidatesTags: ['PurchaseOrder', 'VendorPayment'],
+    }),
+    duplicatePurchaseOrder: builder.mutation<PurchaseOrder, string>({
+      query: (id) => ({ url: `/purchasing/orders/${id}/duplicate`, method: 'POST' }),
+      transformResponse: normalizeSingle<PurchaseOrder>,
+      invalidatesTags: ['PurchaseOrder'],
+    }),
+    recordPurchaseOrderRefunds: builder.mutation<
+      PurchaseOrder,
+      { id: string; refunds: { vendorPaymentId: string; amount: number; reason?: string }[] }
+    >({
+      query: ({ id, refunds }) => ({
+        url: `/purchasing/orders/${id}/refunds`,
+        method: 'POST',
+        data: { refunds },
       }),
       transformResponse: normalizeSingle<PurchaseOrder>,
       invalidatesTags: ['PurchaseOrder', 'VendorPayment'],
@@ -281,7 +293,8 @@ export const {
   useReturnGoodsMutation,
   useRecordVendorPaymentsMutation,
   useMarkPurchaseOrderAsUnpaidMutation,
-  useUnpayPurchaseOrderMutation,
   useRecordOrderPaymentsMutation,
+  useDuplicatePurchaseOrderMutation,
+  useRecordPurchaseOrderRefundsMutation,
   useLazyGetVendorPaymentQuery,
 } = purchasingApiSlice
