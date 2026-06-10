@@ -7,7 +7,7 @@ import { format } from 'date-fns'
 
 import { AppButton } from '@/components/common/AppButton'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
-import { EntityStatusChip } from '@/components/common/EntityStatusChip'
+import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { FiscalPeriod } from '@/types'
 
@@ -28,7 +28,7 @@ export function FiscalPeriodContextHeader({ selected, onClose, onReopen, onEdit,
     <Paper>
       <EntityContextHeaderBar
         title={selected.name}
-        statusChip={<EntityStatusChip status={selected.status} />}
+        statusChip={<StatusChip status={selected.status} />}
         actions={(
           <Stack direction="row" spacing={0.5}>
             {selected.isOpen ? (

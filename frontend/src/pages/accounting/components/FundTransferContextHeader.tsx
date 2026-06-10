@@ -8,7 +8,7 @@ import { default as UndoIcon } from '@mui/icons-material/Undo'
 
 import { AppButton } from '@/components/common/AppButton'
 import { EntityContextHeaderBar } from '@/components/common/EntityContextHeaderBar'
-import { EntityStatusChip } from '@/components/common/EntityStatusChip'
+import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useJournalEntryRef } from '@/hooks/useJournalEntryRef'
 import type { FundTransfer } from '@/types'
@@ -101,7 +101,7 @@ export function FundTransferContextHeader({
     <Paper sx={{ overflow: 'hidden' }}>
       <EntityContextHeaderBar
         title={selected.referenceNumber}
-        statusChip={<EntityStatusChip status={selected.status} />}
+        statusChip={<StatusChip status={selected.status} />}
         actions={actions}
       />
       <Grid container spacing={3} sx={{ p: TABLE_STYLES.cell.padding.px }}>
