@@ -17,6 +17,12 @@ vi.mock('@/utils/formatters', () => ({
   formatDate: (date: string) => date,
 }))
 
+vi.mock('@/store/api/purchasingApi', () => ({
+  useLazyGetVendorPaymentQuery: () => [
+    vi.fn(() => ({ unwrap: () => Promise.resolve({ purchaseOrder: { orderNumber: 'PO-1' } }) })),
+  ],
+}))
+
 vi.mock('@/components/common/EntityStatusChip', () => ({
   EntityStatusChip: ({ status }: any) => <span>{status}</span>,
 }))
@@ -131,7 +137,8 @@ describe('JournalEntryContextHeader', () => {
       makeEntry({ sourceType: 'purchase_order', sourceId: 'po-1', sourceRefNumber: 'PO-0007' }),
     )
     fireEvent.click(screen.getByText('PO-0007'))
-    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders?highlight=po-1')
+    // PO redesign routes to the detail page by order number, not the old highlight query.
+    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders/PO-0007/view')
   })
 
   it('does not render Edit, Post, Delete, or Reverse buttons', () => {
