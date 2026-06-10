@@ -528,7 +528,7 @@ const AccountActivityPage: React.FC = () => {
                             />
                           </TableCell>
                           <TableCell>
-                            <StatusChip status={entry.status} />
+                            <StatusChip status={entry.status} label={entry.status.toUpperCase()} sx={{ fontWeight: 500 }} />
                           </TableCell>
                           <TableCell>
                             <Typography variant="body2">
