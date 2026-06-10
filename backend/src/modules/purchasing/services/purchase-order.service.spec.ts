@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 import { Logger } from '@nestjs/common';
 import { PurchaseOrderService } from './purchase-order.service';
 import {
@@ -34,6 +34,7 @@ describe('PurchaseOrderService', () => {
   let accountingService: jest.Mocked<AccountingService>;
   let stockMovementService: jest.Mocked<StockMovementService>;
   let vendorPaymentService: jest.Mocked<VendorPaymentService>;
+  let dataSource: jest.Mocked<DataSource>
   const adminUser = { role: UserRole.ADMIN } as any;
 
   const mockPurchaseOrder = {
@@ -60,7 +61,28 @@ describe('PurchaseOrderService', () => {
     orderNumber: 'PO-000001',
   } as any;
 
+  // Builds a fake EntityManager whose VendorPayment repo is controllable.
+  function mockTxManager(opts) {
+    const saved = []
+    const vpRepo = {
+      findOne: jest.fn().mockResolvedValue(opts.original),
+      // atomic conditional flip: UPDATE ... WHERE id AND status='completed'
+      update: jest.fn().mockResolvedValue({ affected: opts.conditionalUpdateAffected ?? 1 }),
+      create: jest.fn((row) => row),
+      save: jest.fn(async (row) => {
+        const persisted = { id: 'refund-row', ...row }
+        saved.push(persisted)
+        return persisted
+      }),
+    }
+    const manager = {
+      getRepository: jest.fn().mockReturnValue(vpRepo),
+    }
+    return { manager, vpRepo, saved }
+  }
+
   beforeEach(async () => {
+    dataSource = { transaction: jest.fn() } as any
     module = await Test.createTestingModule({
       providers: [
         PurchaseOrderService,
@@ -154,6 +176,10 @@ describe('PurchaseOrderService', () => {
             return: jest.fn(),
           },
         },
+        {
+          provide: DataSource,
+          useValue: dataSource,
+        },
       ],
     }).compile();
 
@@ -166,6 +192,7 @@ describe('PurchaseOrderService', () => {
     accountingService = module.get(AccountingService);
     stockMovementService = module.get(StockMovementService);
     vendorPaymentService = module.get(VendorPaymentService);
+    dataSource = module.get(DataSource)
     jest.spyOn(Logger.prototype, 'log').mockImplementation();
     jest.spyOn(Logger.prototype, 'error').mockImplementation();
     jest.spyOn(Logger.prototype, 'warn').mockImplementation();
