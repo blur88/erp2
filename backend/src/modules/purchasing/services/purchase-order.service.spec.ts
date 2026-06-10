@@ -706,5 +706,46 @@ describe('PurchaseOrderService', () => {
       // postVendorPaymentEntry never called for the refund row.
       expect(accountingService.postVendorPaymentEntry).not.toHaveBeenCalled()
     })
+
+    it('rejects refund on a RECEIVED purchase order', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValueOnce({ ...draftPaidPO, status: 'RECEIVED' } as any)
+      await expect(
+        service.recordRefunds('po-1', [{ vendorPaymentId: 'vp-1', amount: 10 }], 'u'),
+      ).rejects.toThrow('Cannot refund a RECEIVED purchase order.')
+    })
+
+    it('rejects refund on a CANCELLED purchase order', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValueOnce({ ...draftPaidPO, status: 'CANCELLED' } as any)
+      await expect(
+        service.recordRefunds('po-1', [{ vendorPaymentId: 'vp-1', amount: 10 }], 'u'),
+      ).rejects.toThrow('Cannot refund a CANCELLED purchase order.')
+    })
+
+    it('rejects a non-positive amount', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValueOnce(draftPaidPO as any)
+      await expect(
+        service.recordRefunds('po-1', [{ vendorPaymentId: 'vp-1', amount: 0 }], 'u'),
+      ).rejects.toThrow('greater than zero')
+    })
+
+    it('rejects re-refunding an already-refunded original (conditional update affected 0)', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValueOnce(draftPaidPO as any)
+      const { manager } = mockTxManager({ original: { id: 'vp-1' }, conditionalUpdateAffected: 0 })
+      ;(dataSource.transaction as jest.Mock).mockImplementation(async (cb) => cb(manager))
+      await expect(
+        service.recordRefunds('po-1', [{ vendorPaymentId: 'vp-1', amount: 10 }], 'u'),
+      ).rejects.toThrow('not refundable')
+    })
+
+    it('rejects a refund amount greater than the original payment', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValueOnce(draftPaidPO as any)
+      const original = { id: 'vp-1', purchaseOrderId: 'po-1', supplierId: 'sup-1', amount: '50', status: 'completed' }
+      const { manager } = mockTxManager({ original })
+      ;(dataSource.transaction as jest.Mock).mockImplementation(async (cb) => cb(manager))
+      ;(service as any).settingsService.generateDocumentNumber = jest.fn().mockResolvedValue('VP-REF-1')
+      await expect(
+        service.recordRefunds('po-1', [{ vendorPaymentId: 'vp-1', amount: 100 }], 'u'),
+      ).rejects.toThrow('exceeds original payment amount')
+    })
   })
 });
