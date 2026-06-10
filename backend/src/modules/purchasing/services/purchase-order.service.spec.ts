@@ -50,6 +50,7 @@ describe('PurchaseOrderService', () => {
     ],
     supplier: {
       id: 'supplier-1',
+      slug: 'supplier-a',
       companyName: 'Supplier A',
     },
   } as unknown as PurchaseOrder;
@@ -262,6 +263,27 @@ describe('PurchaseOrderService', () => {
       const results = await service.searchGlobal('Vendor', adminUser);
 
       expect(results[0].score).toBe(70);
+    });
+  });
+
+  describe('findByOrderNumber', () => {
+    it('maps the supplier slug so the detail page can link to the supplier', async () => {
+      const entityLike = {
+        ...mockPurchaseOrder,
+        isFullyReceived: () => false,
+        getTotalReceivedQuantity: () => 0,
+        getTotalOrderedQuantity: () => 10,
+      } as unknown as PurchaseOrder;
+      purchaseOrderRepository.createQueryBuilder = jest.fn().mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(entityLike),
+      } as any);
+
+      const dto = await service.findByOrderNumber('PO-000001');
+
+      expect(dto.supplier?.slug).toBe('supplier-a');
+      expect(dto.supplier?.companyName).toBe('Supplier A');
     });
   });
 

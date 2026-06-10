@@ -934,6 +934,7 @@ export class PurchaseOrderService extends BaseCrudService<
       orderNumber: purchaseOrder.orderNumber,
       supplier: purchaseOrder.supplier ? {
         id: purchaseOrder.supplier.id,
+        slug: purchaseOrder.supplier.slug,
         supplierCode: purchaseOrder.supplier.id.slice(0, 8).toUpperCase(),
         companyName: purchaseOrder.supplier.companyName,
         contactPerson: purchaseOrder.supplier.contactPerson,

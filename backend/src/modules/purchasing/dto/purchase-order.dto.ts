@@ -197,6 +197,7 @@ export class PurchaseOrderResponseDto {
   @ApiProperty({ description: 'Supplier information' })
   supplier?: {
     id: string;
+    slug?: string;
     supplierCode: string;
     companyName: string;
     contactPerson?: string;
