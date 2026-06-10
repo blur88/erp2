@@ -27,7 +27,7 @@ export const salesRoutes: RouteObject[] = [
   { path: '/sales/orders', element: <OrdersPage />, handle: { title: 'Sales Orders' } },
   { path: '/sales/orders/create', element: <CreateSalesOrderPage />, handle: { title: 'Create Sales Order' } },
   { path: '/sales/orders/:orderNumber/edit', element: <CreateSalesOrderPage />, handle: { title: 'Edit Sales Order' } },
-  { path: '/sales/orders/:orderNumber/view', element: <SalesOrderDetailPage />, handle: { title: 'Sales Order' } },
+  { path: '/sales/orders/:orderNumber/view', element: <SalesOrderDetailPage />, handle: { title: 'Sales Order', breadcrumbParam: 'orderNumber' } },
   { path: '/reports/sales/product-summary', element: <SalesByProductSummary />, handle: { title: 'Sales by Product Summary' } },
   { path: '/reports/sales/product-details', element: <SalesByProductDetails />, handle: { title: 'Sales by Product Details' } },
   { path: '/reports/sales/order-summary', element: <SalesOrderSummary />, handle: { title: 'Sales Order Summary' } },
