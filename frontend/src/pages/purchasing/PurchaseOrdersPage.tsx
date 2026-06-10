@@ -14,6 +14,7 @@ import {
   useReceiveGoodsMutation,
   useRecordVendorPaymentsMutation,
   useReturnGoodsMutation,
+  useUncancelPurchaseOrderMutation,
 } from '@/store/api/purchasingApi'
 import type { PurchaseOrder } from '@/types'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
@@ -50,7 +51,7 @@ const filterConfig: FilterBarConfig<PurchaseOrderFilters> = {
   },
 }
 
-type ConfirmAction = 'receive' | 'return' | 'cancel' | 'unpay'
+type ConfirmAction = 'receive' | 'return' | 'cancel' | 'uncancel' | 'unpay'
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (typeof error === 'object' && error !== null && 'data' in error) {
@@ -123,6 +124,7 @@ const PurchaseOrdersPage: React.FC = () => {
   const [receivePurchaseOrder, { isLoading: isReceiving }] = useReceiveGoodsMutation()
   const [returnPurchaseOrder, { isLoading: isReturning }] = useReturnGoodsMutation()
   const [cancelPurchaseOrder, { isLoading: isCancelling }] = useCancelPurchaseOrderMutation()
+  const [uncancelPurchaseOrder, { isLoading: isUncancelling }] = useUncancelPurchaseOrderMutation()
   const [markPurchaseOrderAsUnpaid, { isLoading: isUnpaying }] = useMarkPurchaseOrderAsUnpaidMutation()
   const [recordVendorPayments] = useRecordVendorPaymentsMutation()
 
@@ -186,6 +188,10 @@ const PurchaseOrdersPage: React.FC = () => {
           await cancelPurchaseOrder(confirmOrder.id).unwrap()
           showSuccess(`Purchase order ${confirmOrder.orderNumber} cancelled`)
           break
+        case 'uncancel':
+          await uncancelPurchaseOrder(confirmOrder.id).unwrap()
+          showSuccess(`Purchase order ${confirmOrder.orderNumber} uncancelled`)
+          break
         case 'unpay':
           await markPurchaseOrderAsUnpaid(confirmOrder.id).unwrap()
           showSuccess(`Purchase order ${confirmOrder.orderNumber} marked unpaid`)
@@ -202,6 +208,7 @@ const PurchaseOrdersPage: React.FC = () => {
     }
   }, [
     cancelPurchaseOrder,
+    uncancelPurchaseOrder,
     closeConfirm,
     confirmAction,
     confirmOrder,
@@ -237,9 +244,15 @@ const PurchaseOrdersPage: React.FC = () => {
       cancel: {
         title: 'Cancel Purchase Order',
         message: `Cancel this purchase order? (${confirmOrder.orderNumber})`,
-        confirmText: 'Cancel',
+        confirmText: 'Cancel Order',
         severity: 'error',
         loading: isCancelling,
+      },
+      uncancel: {
+        title: 'Uncancel Purchase Order',
+        message: `Restore this cancelled purchase order to draft? (${confirmOrder.orderNumber})`,
+        confirmText: 'Uncancel',
+        loading: isUncancelling,
       },
       unpay: {
         title: 'Mark Unpaid',
@@ -251,7 +264,7 @@ const PurchaseOrdersPage: React.FC = () => {
     }
 
     return configs[confirmAction]
-  }, [confirmAction, confirmOrder, isCancelling, isReceiving, isReturning, isUnpaying])
+  }, [confirmAction, confirmOrder, isCancelling, isUncancelling, isReceiving, isReturning, isUnpaying])
 
   return (
     <>
@@ -284,6 +297,7 @@ const PurchaseOrdersPage: React.FC = () => {
             onReceive={(order) => openConfirm(order, 'receive')}
             onReturn={(order) => openConfirm(order, 'return')}
             onCancel={(order) => openConfirm(order, 'cancel')}
+            onUncancel={(order) => openConfirm(order, 'uncancel')}
             onUnpay={(order) => openConfirm(order, 'unpay')}
             onPrint={(order) => setPrintOrder(order)}
             paginationSlot={(
