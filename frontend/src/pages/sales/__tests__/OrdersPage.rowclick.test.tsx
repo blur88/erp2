@@ -5,8 +5,8 @@ import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { SalesOrder } from '@/types'
 import salesReducer from '@/store/slices/salesSlice'
+import type { SalesOrder } from '@/types'
 
 import OrdersPage from '../OrdersPage'
 
