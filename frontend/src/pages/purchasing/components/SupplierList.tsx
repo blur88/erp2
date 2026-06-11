@@ -75,7 +75,7 @@ export default function SupplierList({
       headers={['Company Name', 'Contact Person', 'Type', 'Status', 'Actions']}
       selectedId={undefined}
       focusedIndex={-1}
-      onSelect={() => {}}
+      onSelect={(supplier) => navigate(`/purchasing/suppliers/${supplier.slug}/view`)}
       listRef={{ current: null }}
       dataAttr="supplier"
       paginationSlot={paginationSlot}
