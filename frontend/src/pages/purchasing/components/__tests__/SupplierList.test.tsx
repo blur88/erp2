@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -66,7 +66,9 @@ describe('SupplierList columns', () => {
 
   it('renders - when contact person is not set', () => {
     renderList([{ ...baseSupplier, contactPerson: null }])
-    expect(screen.getByText('-')).toBeInTheDocument()
+    const row = screen.getByText('Globex').closest('tr') as HTMLElement
+    expect(within(row).getByText('-')).toBeInTheDocument()
+    expect(within(row).queryByText('Hank Scorpio')).not.toBeInTheDocument()
   })
 
   it('renders Local for local type', () => {

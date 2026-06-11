@@ -5,21 +5,22 @@ import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { SalesOrder } from '@/types'
 import salesReducer from '@/store/slices/salesSlice'
 
 import OrdersPage from '../OrdersPage'
 
-const order = {
+const order: SalesOrder = {
   id: 'ord-1',
   orderNumber: 'SO-26-001',
   status: 'DRAFT',
   paymentStatus: 'UNPAID',
   customerId: 'cust-1',
-  customer: { id: 'cust-1', name: 'Amuro Ray' },
+  customer: { id: 'cust-1', name: 'Amuro Ray' } as any,
   totalAmount: 1000,
-  orderDate: '2026-01-15',
-  createdAt: '2026-01-15',
-  updatedAt: '2026-01-15',
+  orderDate: new Date('2026-01-15'),
+  createdAt: new Date('2026-01-15'),
+  updatedAt: new Date('2026-01-15'),
 }
 
 vi.mock('@/store/api/salesApi', () => ({
