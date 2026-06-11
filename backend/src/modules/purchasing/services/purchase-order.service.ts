@@ -994,9 +994,9 @@ export class PurchaseOrderService extends BaseCrudService<
     purchaseOrder.paidAmount = paidAmount;
     purchaseOrder.paymentStatus = this.derivePaymentStatus(paidAmount, total);
 
-    const fullyPaid =
-      purchaseOrder.paymentStatus === PurchaseOrderPaymentStatus.PAID ||
-      purchaseOrder.paymentStatus === PurchaseOrderPaymentStatus.OVERPAID;
+    // OVERPAID is not fulfillable. Only exact payment (PAID) promotes to READY,
+    // matching the sales-order rule in sales-order-payment.service.ts.
+    const fullyPaid = purchaseOrder.paymentStatus === PurchaseOrderPaymentStatus.PAID;
 
     // Move DRAFT -> READY when fully paid; revert READY -> DRAFT when no longer
     // fully paid. Never touch RECEIVED/CANCELLED (unreachable here).

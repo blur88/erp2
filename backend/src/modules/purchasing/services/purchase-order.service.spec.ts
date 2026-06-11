@@ -604,6 +604,90 @@ describe('PurchaseOrderService', () => {
         service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 0 }]),
       ).rejects.toThrow(/greater than zero/);
     });
+
+    it('keeps an overpaid DRAFT order in DRAFT (does not promote to READY)', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValue({
+        ...mockPurchaseOrderForPayment,
+        totalAmount: 100,
+        status: PurchaseOrderStatus.DRAFT,
+      } as unknown as PurchaseOrder);
+      vendorPaymentRepository.findOne.mockResolvedValue(null);
+      vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
+      // Persisted active payments sum to 120 against a 100 total => OVERPAID.
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { id: 'vp-over', amount: 120 } as unknown as VendorPayment,
+      ]);
+
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 120 }]);
+
+      const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
+      expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.OVERPAID);
+      expect(saved.status).toBe(PurchaseOrderStatus.DRAFT);
+    });
+
+    it('reverts a READY order to DRAFT when it becomes overpaid', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValue({
+        ...mockPurchaseOrderForPayment,
+        totalAmount: 100,
+        status: PurchaseOrderStatus.READY,
+      } as unknown as PurchaseOrder);
+      vendorPaymentRepository.findOne.mockResolvedValue(null);
+      vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
+      // Already-fully-paid READY order receives an extra payment => 150 vs 100 total => OVERPAID.
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { id: 'vp-a', amount: 100 } as unknown as VendorPayment,
+        { id: 'vp-b', amount: 50 } as unknown as VendorPayment,
+      ]);
+
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 50 }]);
+
+      const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
+      expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.OVERPAID);
+      expect(saved.status).toBe(PurchaseOrderStatus.DRAFT);
+    });
+
+    it('promotes a DRAFT order to READY on exact full payment', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValue({
+        ...mockPurchaseOrderForPayment,
+        totalAmount: 100,
+        status: PurchaseOrderStatus.DRAFT,
+      } as unknown as PurchaseOrder);
+      vendorPaymentRepository.findOne.mockResolvedValue(null);
+      vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
+      // Persisted active payments sum to exactly 100 => PAID.
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { id: 'vp-exact', amount: 100 } as unknown as VendorPayment,
+      ]);
+
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 100 }]);
+
+      const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
+      expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.PAID);
+      expect(saved.status).toBe(PurchaseOrderStatus.READY);
+    });
+
+    it('promotes a DRAFT order to READY via reconcilePaymentState when an overpaid sum is reduced to exact PAID', async () => {
+      // Spec test case 4: drive the private method directly. There is no public
+      // flow that reduces overpaid to exact PAID (markAsUnpaid removes ALL
+      // payments and resets to DRAFT, bypassing reconcilePaymentState), so this
+      // guards the reverse-direction parity claim against the private method.
+      const order = {
+        ...mockPurchaseOrderForPayment,
+        id: 'po-1',
+        totalAmount: 100,
+        status: PurchaseOrderStatus.DRAFT,
+      } as unknown as PurchaseOrder;
+      // Active payment set sums to exactly 100 against a 100 total => PAID.
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { id: 'vp-exact', amount: 100 } as unknown as VendorPayment,
+      ]);
+
+      await (service as any).reconcilePaymentState(order);
+
+      const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
+      expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.PAID);
+      expect(saved.status).toBe(PurchaseOrderStatus.READY);
+    });
   });
 
   describe('duplicateOrder', () => {
