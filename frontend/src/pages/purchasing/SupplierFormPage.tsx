@@ -240,9 +240,11 @@ const SupplierFormPage: React.FC = () => {
     if (!hasNameDuplicate) setDuplicateNameResult(null)
   }, [hasNameDuplicate])
 
-  const cancelDestination = returnTo === 'profile' && profilePath
-    ? profilePath
-    : '/purchasing/suppliers'
+  const cancelDestination = returnTo === 'purchase-order'
+    ? '/purchasing/orders/create'
+    : returnTo === 'profile' && profilePath
+      ? profilePath
+      : '/purchasing/suppliers'
 
   const handleCancel = () => {
     navigate(cancelDestination)
@@ -295,7 +297,11 @@ const SupplierFormPage: React.FC = () => {
         showSuccess(`${savedSupplier.companyName} created successfully`)
       }
 
-      if (returnTo === 'profile' && profilePath) {
+      if (returnTo === 'purchase-order') {
+        navigate('/purchasing/orders/create', {
+          state: { preselectSupplierId: savedSupplier.id },
+        })
+      } else if (returnTo === 'profile' && profilePath) {
         navigate(profilePath)
       } else {
         navigate(`/purchasing/suppliers?highlight=${savedSupplier.id}`)
