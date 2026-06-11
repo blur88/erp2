@@ -1,53 +1,60 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  Alert,
+  Autocomplete,
   Box,
+  Card,
+  CardContent,
   Grid,
-  TextField,
-  Typography,
+  IconButton,
+  MenuItem,
+  Paper,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  IconButton,
-  Paper,
-  Autocomplete,
-  Alert,
-  Card,
-  CardContent,
-  MenuItem,
+  TextField,
+  Typography,
   useTheme,
 } from '@mui/material'
-import { default as AddIcon } from '@mui/icons-material/Add'
-import { default as DeleteIcon } from '@mui/icons-material/Delete'
-import { useForm, useFieldArray, Controller } from 'react-hook-form'
+import AddIcon from '@mui/icons-material/Add'
+import DeleteIcon from '@mui/icons-material/Delete'
 import { yupResolver } from '@hookform/resolvers/yup'
+import { Controller, useFieldArray, useForm } from 'react-hook-form'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import * as yup from 'yup'
-import { formatCurrency, getCurrentDate } from '@/utils/formatters'
+
 import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
-import TransactionForm from '@/components/common/TransactionForm'
+import { useCurrency } from '@/hooks/useCurrency'
+import { useLineItemKeyNav } from '@/hooks/useLineItemKeyNav'
 import { useNotification } from '@/hooks/useNotification'
 import { useProductSearch } from '@/hooks/useProductSearch'
 import { useAppDispatch } from '@/hooks/useRedux'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
-import { setSelectedPurchaseOrder, updatePurchaseOrderInPlace } from '@/store/slices/purchasingSlice'
 import {
   useCreatePurchaseOrderMutation,
   useGetSuppliersQuery,
-  useUpdatePurchaseOrderMutation,
   useLazyGetPurchaseOrderByNumberQuery,
+  useUpdatePurchaseOrderMutation,
 } from '@/store/api/purchasingApi'
-import { useCurrency } from '@/hooks/useCurrency'
+import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
+import {
+  setSelectedPurchaseOrder,
+  updatePurchaseOrderInPlace,
+} from '@/store/slices/purchasingSlice'
+import { formatCurrency, getCurrentDate } from '@/utils/formatters'
+import { getStockOffenders } from '@/utils/stockStatus'
+import StockIndicatorChip from '@/pages/sales/components/StockIndicatorChip'
 
 interface PurchaseOrderItem {
   productId: string
   product?: any
   quantity: number
   unitPrice: number
-  discountType: 'percent' | 'amount'
+  discountType: 'percentage' | 'amount'
   discountValue: number
   discountPercent: number
   totalPrice: number
@@ -65,196 +72,259 @@ const schema = yup.object({
   supplierId: yup.string().required('Supplier is required'),
   orderDate: yup.string().required('Order date is required'),
   notes: yup.string().optional(),
-  shipping: yup.number().min(0).optional(),
-  items: yup.array().of(
-    yup.object({
-      productId: yup.string().required('Product is required'),
-      quantity: yup.number().positive('Quantity must be positive').required(),
-      unitPrice: yup.number().min(0).required(),
-      discountType: yup.string().oneOf(['percent', 'amount']).required(),
-      discountValue: yup.number().min(0).optional(),
-      discountPercent: yup.number().min(0).max(100).optional(),
-      totalPrice: yup.number().min(0).required(),
-    })
-  ).min(1, 'At least one item is required'),
+  shipping: yup.number().min(0).optional().default(0),
+  items: yup
+    .array()
+    .of(
+      yup.object({
+        productId: yup.string().required('Product is required'),
+        quantity: yup
+          .number()
+          .integer('Quantity must be a whole number')
+          .min(1, 'Quantity must be at least 1')
+          .required('Quantity is required'),
+        unitPrice: yup.number().min(0, 'Unit price must be 0 or more').required(),
+        discountType: yup.string().oneOf(['percentage', 'amount']).required(),
+        discountValue: yup
+          .number()
+          .min(0, 'Discount must be 0 or more')
+          .when('discountType', {
+            is: 'percentage',
+            then: (s) => s.max(100, 'Percentage discount cannot exceed 100'),
+          })
+          .optional()
+          .default(0),
+        discountPercent: yup.number().min(0).optional().default(0),
+        totalPrice: yup.number().min(0).required(),
+      }),
+    )
+    .min(1, 'At least one item is required'),
 })
 
+const fieldSx = {
+  '& .MuiInputBase-input': { fontSize: '0.875rem' },
+  '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+}
+
+const emptyItem = (): PurchaseOrderItem => ({
+  productId: '',
+  quantity: 1,
+  unitPrice: 0,
+  discountType: 'percentage',
+  discountValue: 0,
+  discountPercent: 0,
+  totalPrice: 0,
+})
+
+function formatNum(value: number | string): string {
+  if (value === '' || value === null || value === undefined) return ''
+  const num = typeof value === 'string' ? parseFloat(value) : value
+  if (isNaN(num)) return ''
+  const fixed = num.toFixed(2)
+  const [int, dec] = fixed.split('.')
+  return `${int.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${dec}`
+}
+
+function parseNum(value: string): number {
+  return parseFloat(value.replace(/,/g, '')) || 0
+}
+
+const COL_COUNT = 4
+
 const CreatePurchaseOrderPage: React.FC = () => {
-  const {currency} = useCurrency()
+  const { currency } = useCurrency()
   const theme = useTheme()
   const navigate = useNavigate()
+  const location = useLocation()
   const dispatch = useAppDispatch()
   const { orderNumber } = useParams<{ orderNumber: string }>()
   const isEditMode = !!orderNumber
   const { showSuccess, showError } = useNotification()
-  // Shared options list for all product Autocomplete rows. Replaced (not merged) on each
-  // search so the dropdown shows only current results. Selected values survive options
-  // replacement because each row's `value` prop is sourced from watchedItems, not from
-  // this array — see `isOptionEqualToValue` and the value expression in the Autocomplete.
+
   const { products, loadProducts, seedProducts } = useProductSearch()
   const [loading, setLoading] = useState(false)
   const [loadingOrder, setLoadingOrder] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [orderToLoad, setOrderToLoad] = useState<any>(null)
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
+  const preselectAppliedRef = useRef(false)
+
   const { data: suppliersResponse } = useGetSuppliersQuery({})
+  const suppliers = useMemo(() => suppliersResponse?.data ?? [], [suppliersResponse])
+  const { data: docNumberSettings, isLoading: loadingDocNumbers } =
+    useGetDocumentNumberSettingsQuery()
+
   const [createPurchaseOrder] = useCreatePurchaseOrderMutation()
   const [updatePurchaseOrder] = useUpdatePurchaseOrderMutation()
   const [fetchPurchaseOrderByNumber] = useLazyGetPurchaseOrderByNumberQuery()
-  const [editingOrderId, setEditingOrderId] = useState<string | null>(null)
-  const suppliers = suppliersResponse?.data || []
 
-  const { control, handleSubmit, watch, setValue, reset, formState: { errors, isDirty, isSubmitting } } = useForm<CreatePurchaseOrderFormData>({
+  const orderNumberPreview = useMemo(() => {
+    if (isEditMode) return null
+    if (loadingDocNumbers) return 'Loading...'
+    const config = docNumberSettings?.configurations?.find(
+      (c: any) => c.documentName === 'Purchase Orders',
+    )
+    if (!config) return 'Auto-generated'
+    const yy = String(new Date().getFullYear() % 100).padStart(2, '0')
+    const seq = String(config.nextNumber).padStart(config.paddingDigits, '0')
+    return `${config.prefix}-${yy}-${seq}`
+  }, [docNumberSettings, isEditMode, loadingDocNumbers])
+
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    reset,
+    formState: { errors, isDirty, isSubmitting },
+  } = useForm<CreatePurchaseOrderFormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: {
       supplierId: '',
       orderDate: getCurrentDate(),
       notes: '',
       shipping: 0,
-      items: [
-        {
-          productId: '',
-          quantity: 1,
-          unitPrice: 0,
-          discountType: 'percent' as const,
-          discountValue: 0,
-          discountPercent: 0,
-          totalPrice: 0,
-        }
-      ],
+      items: [emptyItem()],
     },
   })
   const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSubmitting)
 
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: 'items',
-  })
-
+  const { fields, append, remove } = useFieldArray({ control, name: 'items' })
   const watchedItems = watch('items')
   const watchedShipping = watch('shipping')
+
+  const getKeyHandler = useLineItemKeyNav(COL_COUNT, fields.length, () => append(emptyItem()))
+
+  const subtotal = watchedItems.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
+  const shippingAmt = Number(watchedShipping) || 0
+  const totals = { subtotal, shipping: shippingAmt, total: subtotal + shippingAmt }
+  const stockOffenders = getStockOffenders(
+    (watchedItems ?? []).map((item) => ({
+      product: item.product,
+      quantity: Number(item.quantity ?? 0),
+    })),
+  )
 
   useEffect(() => {
     loadProducts()
   }, [])
 
-  // Load purchase order data in edit mode
+  // Apply preselectSupplierId after returning from "Add new supplier".
+  useEffect(() => {
+    const preselectId = (location.state as any)?.preselectSupplierId as string | undefined
+    if (!preselectId || !suppliers.length || preselectAppliedRef.current) return
+    const found = suppliers.find((s: any) => s.id === preselectId)
+    if (found) {
+      preselectAppliedRef.current = true
+      setValue('supplierId', found.id, { shouldDirty: true })
+    }
+  }, [suppliers, location.state, setValue])
+
+  // Load purchase order data in edit mode.
   useEffect(() => {
     if (isEditMode && orderNumber) {
-      loadPurchaseOrder(orderNumber)
+      setLoadingOrder(true)
+      fetchPurchaseOrderByNumber(orderNumber)
+        .unwrap()
+        .then((order: any) => {
+          setEditingOrderId(order.id)
+          if (order.items?.length) {
+            seedProducts(order.items.filter((i: any) => i.product).map((i: any) => i.product))
+          }
+          setOrderToLoad(order)
+        })
+        .catch((err: any) => {
+          showError(err?.response?.data?.message || 'Failed to load purchase order')
+          setLoadingOrder(false)
+        })
     }
   }, [isEditMode, orderNumber])
 
-  const loadPurchaseOrder = async (currentOrderNumber: string) => {
-    setLoadingOrder(true)
-    try {
-      const order = await fetchPurchaseOrderByNumber(currentOrderNumber).unwrap()
-      setEditingOrderId(order.id)
-
-      // Extract products from order items and add to products state
-      if (order.items && order.items.length > 0) {
-        const orderProducts = order.items
-          .filter((item: any) => item.product)
-          .map((item: any) => item.product)
-
-        seedProducts(orderProducts)
-      }
-
-      // Store order data to be loaded after products are set
-      setOrderToLoad(order)
-    } catch (err: any) {
-      showError(err?.response?.data?.message || 'Failed to load purchase order')
-      setError('Failed to load purchase order')
-      setLoadingOrder(false)
-    }
-  }
-
-  // Reset form after products are loaded
+  // Reset form once products for the loaded order are present.
   useEffect(() => {
-    if (orderToLoad && products.length > 0) {
-      const itemsToReset = orderToLoad.items?.map((item: any) => {
-        const productId = item.productId || item.product?.id || ''
+    if (!orderToLoad) return
+    const needsProducts = orderToLoad.items?.some((i: any) => i.product)
+    if (needsProducts && !products.length) return
 
-        // Prefer the stored discountType; fall back to inferring from which
-        // discount field is populated for older records that omit it.
-        const discountType: 'percent' | 'amount' =
-          item.discountType === 'fixed_amount'
-            ? 'amount'
-            : item.discountType === 'percentage'
-              ? 'percent'
-              : item.discountPercent > 0
-                ? 'percent'
-                : 'amount'
+    const itemsToReset = orderToLoad.items?.map((item: any) => {
+      // Prefer the stored discountType; fall back to inferring from which
+      // discount field is populated for older records that omit it.
+      const discountType: 'percentage' | 'amount' =
+        item.discountType === 'fixed_amount'
+          ? 'amount'
+          : item.discountType === 'percentage'
+            ? 'percentage'
+            : item.discountPercent > 0
+              ? 'percentage'
+              : 'amount'
 
-        return {
-          productId,
-          product: item.product,
-          quantity: item.quantity || 1,
-          unitPrice: item.unitPrice || item.unitCost || 0,
-          discountType,
-          discountValue: discountType === 'percent' ? (item.discountPercent || 0) : (item.discountAmount || 0),
-          discountPercent: item.discountPercent || 0,
-          totalPrice: item.totalAmount || 0,
-        }
-      })
+      return {
+        productId: item.productId || item.product?.id || '',
+        product: item.product,
+        quantity: parseInt(item.quantity) || 1,
+        unitPrice: item.unitPrice || item.unitCost || 0,
+        discountType,
+        discountValue:
+          discountType === 'percentage'
+            ? item.discountPercent || 0
+            : item.discountAmount || 0,
+        discountPercent: item.discountPercent || 0,
+        totalPrice: item.totalAmount || 0,
+      }
+    })
 
-      // Map order data to form
-      reset({
-        supplierId: orderToLoad.supplierId || orderToLoad.supplier?.id || '',
-        orderDate: orderToLoad.orderDate ? new Date(orderToLoad.orderDate).toISOString().split('T')[0] : getCurrentDate(),
-        notes: orderToLoad.notes || '',
-        shipping: orderToLoad.shippingAmount || 0,
-        items: itemsToReset || [
-          {
-            productId: '',
-            quantity: 1,
-            unitPrice: 0,
-            discountType: 'percent' as const,
-            discountValue: 0,
-            discountPercent: 0,
-            totalPrice: 0,
-          }
-        ],
-      })
+    reset({
+      supplierId: orderToLoad.supplierId || orderToLoad.supplier?.id || '',
+      orderDate: orderToLoad.orderDate
+        ? new Date(orderToLoad.orderDate).toISOString().split('T')[0]
+        : getCurrentDate(),
+      notes: orderToLoad.notes || '',
+      shipping: orderToLoad.shippingAmount || 0,
+      items: itemsToReset?.length ? itemsToReset : [emptyItem()],
+    })
 
-      setOrderToLoad(null)
-      setLoadingOrder(false)
-    }
+    setOrderToLoad(null)
+    setLoadingOrder(false)
   }, [orderToLoad, products, reset])
 
-  // Recalculate totals when items change
+  // Recompute totals when items change. Must NOT mark the form dirty.
   useEffect(() => {
     watchedItems.forEach((item, index) => {
       const quantityValue = item.quantity as number | string | null | undefined
-
       if (quantityValue != null && quantityValue !== '' && item.unitPrice !== undefined) {
-        const quantity = Number(quantityValue)
-        const unitPrice = Number(item.unitPrice)
-        let unitDiscount = 0
-
-        if (item.discountType === 'percent') {
-          // Percentage discount: apply to unit price
-          unitDiscount = unitPrice * (Number(item.discountValue || 0) / 100)
-        } else {
-          // Fixed amount discount: per unit
-          unitDiscount = Number(item.discountValue || 0)
-        }
-
-        const discountedUnitPrice = unitPrice - unitDiscount
-        const total = discountedUnitPrice * quantity
-
-        if (Math.abs(item.totalPrice - total) > 0.01) {
-          // Derived recompute — must NOT mark the form dirty, or loading an
-          // existing order would flip isDirty true with no user action.
+        const qty = Number(quantityValue)
+        const price = Number(item.unitPrice)
+        const unitDiscount =
+          item.discountType === 'percentage'
+            ? price * (Number(item.discountValue || 0) / 100)
+            : Number(item.discountValue || 0)
+        const total = (price - unitDiscount) * qty
+        if (Math.abs((item.totalPrice || 0) - total) > 0.01) {
           setValue(`items.${index}.totalPrice`, Number(total.toFixed(2)))
         }
       }
     })
   }, [JSON.stringify(watchedItems), setValue])
 
+  const handleProductSelect = useCallback(
+    (index: number, product: any) => {
+      if (!product) return
+      seedProducts([product])
+      const price = Number(product.baseCost || 0)
+      const qty = Number(watchedItems[index]?.quantity) || 1
+      setValue(`items.${index}.productId`, product.id, { shouldDirty: true })
+      setValue(`items.${index}.unitPrice`, price, { shouldDirty: true })
+      setValue(`items.${index}.totalPrice`, Number((price * qty).toFixed(2)), { shouldDirty: true })
+      setValue(`items.${index}.product`, product, { shouldDirty: true })
+    },
+    [seedProducts, setValue, watchedItems],
+  )
+
+  const handleCancel = () => {
+    navigate('/purchasing/orders')
+  }
+
   const onSubmit = async (data: CreatePurchaseOrderFormData) => {
     setLoading(true)
-    setError(null)
-
     try {
       const orderData = {
         supplierId: data.supplierId,
@@ -262,237 +332,178 @@ const CreatePurchaseOrderPage: React.FC = () => {
         notes: data.notes || undefined,
         shippingAmount: Number(data.shipping) || 0,
         items: data.items.map((item, index) => {
-          // Map frontend discount type to backend format
-          const discountType = item.discountType === 'percent' ? 'percentage' : 'fixed_amount'
-
+          const discountValue = Number(item.discountValue) || 0
           return {
             lineNumber: index + 1,
             productId: item.productId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            discountType: discountType,
-            discountPercent: item.discountType === 'percent' ? Number(item.discountValue || 0) : 0,
-            discountAmount: item.discountType === 'amount' ? Number(item.discountValue || 0) : 0,
+            quantity: Number(item.quantity),
+            unitPrice: Number(item.unitPrice),
+            discountType: item.discountType === 'percentage' ? 'percentage' : 'fixed_amount',
+            discountPercent: item.discountType === 'percentage' ? discountValue : 0,
+            discountAmount: item.discountType === 'amount' ? discountValue : 0,
           }
         }),
       }
 
       if (isEditMode && editingOrderId) {
-        const updatedOrder = await updatePurchaseOrder({ id: editingOrderId, data: orderData as any }).unwrap()
-
-        dispatch(updatePurchaseOrderInPlace(updatedOrder))
-        dispatch(setSelectedPurchaseOrder(updatedOrder as any))
-
+        const updated = await updatePurchaseOrder({
+          id: editingOrderId,
+          data: orderData as any,
+        }).unwrap()
+        dispatch(updatePurchaseOrderInPlace(updated))
+        dispatch(setSelectedPurchaseOrder(updated as any))
         showSuccess('Purchase order updated successfully')
-        navigate(`/purchasing/orders?highlight=${updatedOrder.id}`)
+        navigate(`/purchasing/orders?highlight=${updated.id}`)
       } else {
-        const result = await createPurchaseOrder(orderData as any).unwrap()
-        dispatch(setSelectedPurchaseOrder(result as any))
+        const created = await createPurchaseOrder(orderData as any).unwrap()
+        dispatch(setSelectedPurchaseOrder(created as any))
         showSuccess('Purchase order created successfully')
-        // Navigate to orders page with the new order selected
-        navigate(`/purchasing/orders?highlight=${(result as any).id}`)
+        navigate(`/purchasing/orders?highlight=${(created as any).id}`)
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create purchase order')
-      showError(err.response?.data?.message || 'Failed to create purchase order')
+      showError(err?.response?.data?.message || 'Failed to create purchase order')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleProductSelect = async (index: number, product: any) => {
-    if (product) {
-      seedProducts([product])
-      await Promise.resolve()
-      setValue(`items.${index}.productId`, product.id, { shouldDirty: true })
-      setValue(`items.${index}.unitPrice`, Number(product.baseCost || 0), { shouldDirty: true })
-      setValue(`items.${index}.product`, product, { shouldDirty: true })
-    }
+  if (loadingOrder) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+        <Typography>Loading purchase order...</Typography>
+      </Box>
+    )
   }
-
-  const formatNumberWithCommas = (value: number | string): string => {
-    if (value === '' || value === null || value === undefined) return ''
-    const num = typeof value === 'string' ? parseFloat(value) : value
-    if (isNaN(num)) return ''
-
-    // Format with 2 decimal places
-    const fixed = num.toFixed(2)
-    const parts = fixed.split('.')
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-    return parts.join('.')
-  }
-
-  const parseFormattedNumber = (value: string): number => {
-    return parseFloat(value.replace(/,/g, '')) || 0;
-  }
-
-  const calculateOrderTotals = () => {
-    const subtotal = watchedItems.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
-    const shipping = Number(watchedShipping) || 0
-    const totalAmount = subtotal + shipping
-    return { subtotal, shipping, totalAmount }
-  }
-
-  const addItem = () => {
-    append({
-      productId: '',
-      quantity: 1,
-      unitPrice: 0,
-      discountType: 'percent' as const,
-      discountValue: 0,
-      discountPercent: 0,
-      totalPrice: 0,
-    })
-  }
-
-  // Calculate totals reactively - recalculates whenever watchedItems or watchedShipping changes
-  // Note: We use JSON.stringify for watchedItems because it's a proxy object from watch()
-  // and the reference doesn't change when item values change
-  const totals = React.useMemo(() => {
-    return calculateOrderTotals()
-  }, [JSON.stringify(watchedItems), watchedShipping])
 
   return (
     <>
-      {/* Header */}
       <PageHeader
         variant="workflow"
         title={isEditMode ? 'Edit Purchase Order' : 'Create Purchase Order'}
-        subtitle={isEditMode ? 'Update order details, items, and pricing' : 'Fill in order details, add items, and set pricing'}
-        backAction={() => navigate('/purchasing/orders')}
+        subtitle={
+          isEditMode
+            ? 'Update order details, items, and pricing'
+            : 'Fill in order details, add items, and set pricing'
+        }
+        backAction={handleCancel}
       />
-      {loadingOrder ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <Typography>Loading purchase order...</Typography>
-        </Box>
-      ) : (
-      <TransactionForm
-        mode="custom"
-        entityLabel="Supplier"
-        entityOptions={suppliers.map((supplier: any) => ({ id: supplier.id, name: supplier.companyName }))}
-        lineItemColumns={[
-          { key: 'product', label: 'Product' },
-          { key: 'quantity', label: 'Qty' },
-          { key: 'unitPrice', label: 'Cost Price' },
-          { key: 'discount', label: 'Discount' },
-          { key: 'subtotal', label: 'Sub-total' },
-        ]}
-        onSubmit={handleSubmit(onSubmit)}
-        onCancel={() => navigate('/purchasing/orders')}
-        isSubmitting={loading}
-        hideDefaultActions
-        error={error ? (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
-        ) : null}
-      >
+
+      <form noValidate onSubmit={handleSubmit(onSubmit)}>
         <Grid container spacing={3}>
-          {/* PO Information Card */}
           <Grid size={12}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>PO Information</Typography>
+                <Typography variant="h6" gutterBottom>
+                  Order Info
+                </Typography>
                 <Grid container spacing={2}>
-                  <Grid
-                    size={{
-                      xs: 12,
-                      md: 6
-                    }}>
-                    <Controller
-                      name="supplierId"
-                      control={control}
-                      render={({ field }) => (
-                        <Autocomplete
-                          options={suppliers}
-                          getOptionLabel={(option) => option.companyName}
-                          value={suppliers.find(s => s.id === field.value) || null}
-                          onChange={(_, value) => field.onChange(value?.id || '')}
-                          size="small"
-                          renderInput={(params) => (
-                            <TextField
-                              {...params}
-                              label="Supplier"
-                              error={!!errors.supplierId}
-                              helperText={errors.supplierId?.message}
-                              required
-                              size="small"
-                              sx={{
-                                '& .MuiInputBase-input': {
-                                  fontSize: '0.875rem',
-                                },
-                                '& .MuiInputLabel-root': {
-                                  fontSize: '0.875rem',
-                                }
-                              }}
-                            />
-                          )}
-                          slotProps={{
-                            paper: {
-                              sx: {
-                                '& .MuiAutocomplete-option': {
-                                  fontSize: '0.875rem',
-                                }
-                              }
-                            }
-                          }}
-                        />
-                      )}
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Order Number"
+                      value={isEditMode ? (orderNumber ?? '') : (orderNumberPreview ?? '')}
+                      slotProps={{ input: { readOnly: true } }}
+                      sx={fieldSx}
                     />
                   </Grid>
 
-                  <Grid
-                    size={{
-                      xs: 12,
-                      md: 6
-                    }}>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <Controller
                       name="orderDate"
                       control={control}
                       render={({ field }) => (
                         <TextField
                           {...field}
-                          label="Order Date"
-                          type="date"
-                          slotProps={{ inputLabel: { shrink: true } }}
-                          error={!!errors.orderDate}
-                          helperText={errors.orderDate?.message}
-                          required
                           fullWidth
                           size="small"
-                          sx={{
-                            '& .MuiInputBase-input': {
-                              fontSize: '0.875rem',
-                            },
-                            '& .MuiInputLabel-root': {
-                              fontSize: '0.875rem',
-                            }
-                          }}
+                          label="Order Date"
+                          type="date"
+                          required
+                          disabled={loading}
+                          error={!!errors.orderDate}
+                          helperText={errors.orderDate?.message}
+                          slotProps={{ inputLabel: { shrink: true } }}
+                          sx={fieldSx}
                         />
                       )}
                     />
+                  </Grid>
+
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Controller
+                          name="supplierId"
+                          control={control}
+                          render={({ field }) => (
+                            <Autocomplete
+                              options={suppliers}
+                              getOptionLabel={(option) => option.companyName}
+                              value={suppliers.find((s: any) => s.id === field.value) || null}
+                              onChange={(_, value) => field.onChange(value?.id || '')}
+                              size="small"
+                              disabled={loading}
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  label="Supplier"
+                                  required
+                                  size="small"
+                                  error={!!errors.supplierId}
+                                  helperText={errors.supplierId?.message}
+                                  sx={fieldSx}
+                                />
+                              )}
+                              slotProps={{
+                                paper: {
+                                  sx: { '& .MuiAutocomplete-option': { fontSize: '0.875rem' } },
+                                },
+                              }}
+                            />
+                          )}
+                        />
+                      </Box>
+                      <IconButton
+                        size="small"
+                        title="Add new supplier"
+                        disabled={loading}
+                        onClick={() =>
+                          navigate('/purchasing/suppliers/create', {
+                            state: { returnTo: 'purchase-order' },
+                          })
+                        }
+                        sx={{ mt: 0.5 }}
+                      >
+                        <AddIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
                   </Grid>
                 </Grid>
               </CardContent>
             </Card>
           </Grid>
 
-          {/* PO Items Card */}
           <Grid size={12}>
             <Card>
               <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6">PO Items</Typography>
-                  <AppButton
-                    variant="secondary"
-                    startIcon={<AddIcon />}
-                    onClick={addItem}
-                  >
-                    Add Item
-                  </AppButton>
-                </Box>
+                <Typography variant="h6" gutterBottom>
+                  Line Items
+                </Typography>
 
-                <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
+                {stockOffenders.length > 0 && (
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    {`${stockOffenders.length} item(s) out of stock: `}
+                    {stockOffenders
+                      .map((o) => `${o.name} (Qty: ${o.quantity}, Stock: ${o.stock})`)
+                      .join(', ')}
+                  </Alert>
+                )}
+
+                <TableContainer
+                  component={Paper}
+                  sx={{ border: `1px solid ${theme.palette.divider}` }}
+                >
                   <Table
                     size="small"
                     sx={{
@@ -504,341 +515,154 @@ const CreatePurchaseOrderPage: React.FC = () => {
                       '& .MuiTableHead-root .MuiTableCell-root': {
                         backgroundColor: theme.palette.grey[50],
                         fontWeight: 600,
-                        color: theme.palette.text.primary,
-                        border: `1px solid ${theme.palette.divider}`,
                       },
                       '& .MuiTableBody-root .MuiTableRow-root:hover': {
                         backgroundColor: theme.palette.action.hover,
                       },
-                      '& .MuiTextField-root': {
-                        '& .MuiOutlinedInput-root': {
-                          border: 'none',
-                          '& fieldset': {
-                            border: 'none',
-                          },
-                          '&:hover fieldset': {
-                            border: `1px solid ${theme.palette.primary.main}`,
-                          },
-                          '&.Mui-focused fieldset': {
-                            border: `1px solid ${theme.palette.primary.main}`,
-                          },
-                          backgroundColor: 'transparent',
-                          fontSize: '0.875rem',
+                      '& .MuiTextField-root .MuiOutlinedInput-root': {
+                        '& fieldset': { border: 'none' },
+                        '&:hover fieldset': { border: `1px solid ${theme.palette.primary.main}` },
+                        '&.Mui-focused fieldset': {
+                          border: `1px solid ${theme.palette.primary.main}`,
                         },
-                        '& .MuiInputBase-input': {
-                          padding: '6px 8px',
-                          textAlign: 'center',
-                        },
-                        '& .MuiFormHelperText-root': {
-                          position: 'absolute',
-                          bottom: '-20px',
-                          fontSize: '0.75rem',
-                        },
+                        backgroundColor: 'transparent',
+                        fontSize: '0.875rem',
                       },
-                      '& .MuiAutocomplete-root .MuiTextField-root .MuiInputBase-input': {
-                        textAlign: 'left',
-                      }
+                      '& .MuiTextField-root .MuiInputBase-input': { padding: '6px 8px' },
+                      '& .MuiAutocomplete-root .MuiOutlinedInput-root': {
+                        paddingTop: 0,
+                        paddingBottom: 0,
+                      },
                     }}
                   >
                     <TableHead>
                       <TableRow>
-                        <TableCell align="center" sx={{ width: '30%', minWidth: 200 }}>Product</TableCell>
-                        <TableCell align="center" sx={{ width: '8%', minWidth: 70 }}>Qty</TableCell>
-                        <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>Price</TableCell>
-                        <TableCell align="center" sx={{ width: '16%', minWidth: 120 }}>Discount</TableCell>
-                        <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>Sub-total</TableCell>
-                        <TableCell align="center" sx={{ width: '8%', minWidth: 60 }}>Action</TableCell>
-                        <TableCell align="center" sx={{ width: '5%', minWidth: 40 }}></TableCell>
+                        <TableCell sx={{ width: '30%', minWidth: 200 }}>Product</TableCell>
+                        <TableCell align="center" sx={{ width: '8%', minWidth: 70 }}>
+                          Qty
+                        </TableCell>
+                        <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>
+                          Unit Price
+                        </TableCell>
+                        <TableCell align="center" sx={{ width: '16%', minWidth: 120 }}>
+                          Discount
+                        </TableCell>
+                        <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>
+                          Subtotal
+                        </TableCell>
+                        <TableCell align="center" sx={{ width: '5%', minWidth: 40 }} />
+                        <TableCell align="center" sx={{ width: '5%', minWidth: 40 }}>
+                          #
+                        </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {fields.map((field, index) => (
-                        <TableRow key={field.id}>
-                          <TableCell sx={{ padding: '2px !important' }}>
-                            <Controller
-                              name={`items.${index}.productId`}
-                              control={control}
-                              render={({ field: productField }) => (
-                                <Autocomplete
-                                  options={products}
-                                  getOptionLabel={(option) => option?.name || ''}
-                                  isOptionEqualToValue={(option, value) => option.id === value.id}
-                                  value={watchedItems[index]?.product || products.find(p => p.id === productField.value) || null}
-                                  onChange={(_, value) => handleProductSelect(index, value)}
-                                  onInputChange={(_, value, reason) => {
-                                    if (reason === 'input' && value.trim().length >= 1) {
-                                      loadProducts(value)
-                                    } else if (reason === 'input') {
-                                      loadProducts('')
-                                    }
-                                  }}
-                                  filterOptions={(options) => options}
-                                  size="small"
-                                  renderInput={(params) => (
-                                    <TextField
-                                      {...params}
-                                      placeholder="Search by name or barcode..."
-                                      variant="outlined"
-                                      error={!!errors.items?.[index]?.productId}
-                                      sx={{
-                                        '& .MuiInputBase-input': {
-                                          textAlign: 'left !important',
-                                          padding: '6px 8px !important',
-                                          fontSize: '0.875rem',
-                                        }
-                                      }}
-                                    />
-                                  )}
-                                  sx={{
-                                    '& .MuiAutocomplete-inputRoot': {
-                                      padding: '0 !important',
-                                    }
-                                  }}
-                                  slotProps={{
-                                    paper: {
-                                      sx: {
-                                        '& .MuiAutocomplete-option': {
-                                          fontSize: '0.875rem',
-                                        }
-                                      }
-                                    }
-                                  }}
-                                />
-                              )}
-                            />
-                          </TableCell>
-                          <TableCell sx={{ padding: '2px !important' }}>
-                            <Controller
-                              name={`items.${index}.quantity`}
-                              control={control}
-                              render={({ field: qtyField }) => {
-                                const formatQuantity = (value: number | string): string => {
-                                  if (value === '' || value === null || value === undefined) return ''
-                                  const num = typeof value === 'string' ? parseInt(value) : Math.floor(value)
-                                  if (isNaN(num)) return ''
-                                  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-                                }
-
-                                const [displayValue, setDisplayValue] = React.useState(formatQuantity(qtyField.value))
-                                const [isFocused, setIsFocused] = React.useState(false)
-
-                                React.useEffect(() => {
-                                  if (!isFocused) {
-                                    setDisplayValue(formatQuantity(qtyField.value))
-                                  }
-                                }, [qtyField.value, isFocused])
-
-                                return (
-                                  <TextField
-                                    value={displayValue}
-                                    onChange={(e) => {
-                                      const value = e.target.value.replace(/[^0-9]/g, '')
-                                      setDisplayValue(value)
-                                      qtyField.onChange(parseInt(value) || 0)
-                                    }}
-                                    onFocus={() => {
-                                      setIsFocused(true)
-                                      setDisplayValue(qtyField.value?.toString() || '')
-                                    }}
-                                    onBlur={() => {
-                                      setIsFocused(false)
-                                      setDisplayValue(formatQuantity(qtyField.value))
-                                    }}
-                                    variant="outlined"
-                                    slotProps={{ htmlInput: { style: { textAlign: 'center', fontSize: '0.875rem' } } }}
-                                    error={!!errors.items?.[index]?.quantity}
-                                  />
-                                );
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell sx={{ padding: '2px !important' }}>
-                            <Controller
-                              name={`items.${index}.unitPrice`}
-                              control={control}
-                              render={({ field: priceField }) => {
-                                const [displayValue, setDisplayValue] = React.useState(formatNumberWithCommas(priceField.value))
-                                const [isFocused, setIsFocused] = React.useState(false)
-
-                                React.useEffect(() => {
-                                  if (!isFocused) {
-                                    setDisplayValue(formatNumberWithCommas(priceField.value))
-                                  }
-                                }, [priceField.value, isFocused])
-
-                                return (
-                                  <TextField
-                                    value={displayValue}
-                                    onChange={(e) => {
-                                      const value = e.target.value.replace(/[^0-9.]/g, '')
-                                      setDisplayValue(value)
-                                      priceField.onChange(parseFormattedNumber(value))
-                                    }}
-                                    onFocus={() => {
-                                      setIsFocused(true)
-                                      setDisplayValue(priceField.value?.toString() || '')
-                                    }}
-                                    onBlur={() => {
-                                      setIsFocused(false)
-                                      setDisplayValue(formatNumberWithCommas(priceField.value))
-                                    }}
-                                    variant="outlined"
-                                    slotProps={{
-                                      htmlInput: { style: { textAlign: 'right', fontSize: '0.875rem' } },
-                                      input: { startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: theme.palette.text.secondary }}>{currency}</span> }
-                                    }}
-                                    error={!!errors.items?.[index]?.unitPrice}
-                                  />
-                                );
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell sx={{ padding: '2px !important' }}>
-                            <Box sx={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
-                              <Controller
-                                name={`items.${index}.discountValue`}
-                                control={control}
-                                render={({ field: discountField }) => {
-                                  const [displayValue, setDisplayValue] = React.useState(formatNumberWithCommas(discountField.value))
-                                  const [isFocused, setIsFocused] = React.useState(false)
-
-                                  React.useEffect(() => {
-                                    if (!isFocused) {
-                                      setDisplayValue(formatNumberWithCommas(discountField.value))
-                                    }
-                                  }, [discountField.value, isFocused])
-
-                                  return (
-                                    <TextField
-                                      value={displayValue}
-                                      onChange={(e) => {
-                                        const value = e.target.value.replace(/[^0-9.]/g, '')
-                                        setDisplayValue(value)
-                                        discountField.onChange(parseFormattedNumber(value))
-                                      }}
-                                      onFocus={() => {
-                                        setIsFocused(true)
-                                        setDisplayValue(discountField.value?.toString() || '')
-                                      }}
-                                      onBlur={() => {
-                                        setIsFocused(false)
-                                        setDisplayValue(formatNumberWithCommas(discountField.value))
-                                      }}
-                                      variant="outlined"
-                                      slotProps={{
-                                        htmlInput: { style: { textAlign: 'right', fontSize: '0.875rem' } }
-                                      }}
-                                      error={!!errors.items?.[index]?.discountValue}
-                                      sx={{
-                                        flex: 1,
-                                      }}
-                                    />
-                                  );
-                                }}
-                              />
-                              <Controller
-                                name={`items.${index}.discountType`}
-                                control={control}
-                                render={({ field: typeField }) => (
-                                  <TextField
-                                    {...typeField}
-                                    select
-                                    variant="outlined"
-                                    sx={{
-                                      width: '60px',
-                                      '& .MuiInputBase-input': {
-                                        fontSize: '0.875rem',
-                                        padding: '6px 4px',
-                                      }
-                                    }}
-                                    slotProps={{
-                                      select: {
-                                        MenuProps: {
-                                          slotProps: {
-                                            paper: {
-                                              sx: {
-                                                '& .MuiMenuItem-root': {
-                                                  fontSize: '0.875rem',
-                                                }
-                                              }
-                                            }
-                                          }
-                                        }
-                                      }
-                                    }}
-                                  >
-                                    <MenuItem value="percent">%</MenuItem>
-                                    <MenuItem value="amount">{currency}</MenuItem>
-                                  </TextField>
-                                )}
-                              />
-                            </Box>
-                          </TableCell>
-                          <TableCell align="right" sx={{ padding: '2px 8px !important' }}>
-                            <Typography variant="body2" sx={{
-                              fontWeight: "600"
-                            }}>
-                              {formatCurrency(watchedItems[index]?.totalPrice || 0)}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center" sx={{ padding: '2px !important' }}>
-                            <IconButton
-                              onClick={() => remove(index)}
-                              disabled={fields.length === 1}
-                              size="small"
-                              sx={{
-                                color: theme.palette.error.main,
-                                '&:hover': { backgroundColor: theme.palette.error.light },
-                                '&.Mui-disabled': { color: theme.palette.action.disabled }
-                              }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </TableCell>
-                          <TableCell sx={{ width: 40, padding: '2px !important' }}>
-                            <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
-                              {index + 1}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
+                        <LineItemRow
+                          key={field.id}
+                          index={index}
+                          control={control}
+                          errors={errors}
+                          watchedItem={watchedItems[index]}
+                          products={products}
+                          currency={currency}
+                          theme={theme}
+                          isSaving={loading}
+                          isOnlyRow={fields.length === 1}
+                          getKeyHandler={getKeyHandler}
+                          onProductSelect={handleProductSelect}
+                          onRemove={() => remove(index)}
+                          loadProducts={loadProducts}
+                        />
                       ))}
                     </TableBody>
                   </Table>
                 </TableContainer>
+
+                <Box sx={{ mt: 2 }}>
+                  <AppButton
+                    variant="secondary"
+                    startIcon={<AddIcon />}
+                    onClick={() => append(emptyItem())}
+                    disabled={loading}
+                  >
+                    Add Row / Add Item
+                  </AppButton>
+                </Box>
+
+                {errors.items && !Array.isArray(errors.items) && (
+                  <Alert severity="error" sx={{ mt: 1 }}>
+                    {(errors.items as any).message}
+                  </Alert>
+                )}
               </CardContent>
             </Card>
           </Grid>
 
-          {/* Notes and Summary */}
-          <Grid
-            size={{
-              xs: 12,
-              md: 8
-            }}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Grid size={12}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Shipping & Total
+                </Typography>
+                <Grid container spacing={2} sx={{ alignItems: 'center' }}>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <ShippingField
+                      control={control}
+                      currency={currency}
+                      theme={theme}
+                      isSaving={loading}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Total Amount"
+                      value={formatNum(totals.total)}
+                      slotProps={{
+                        input: {
+                          readOnly: true,
+                          startAdornment: (
+                            <span
+                              style={{
+                                marginRight: 4,
+                                fontSize: '0.75rem',
+                                color: theme.palette.text.secondary,
+                              }}
+                            >
+                              {currency}
+                            </span>
+                          ),
+                        },
+                      }}
+                      sx={fieldSx}
+                    />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid size={12}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Additional
+                </Typography>
                 <Controller
                   name="notes"
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
-                      label="Notes"
-                      multiline
                       fullWidth
-                      sx={{
-                        flex: 1,
-                        '& .MuiInputBase-root': {
-                          height: '100%',
-                          alignItems: 'flex-start',
-                        },
-                        '& .MuiInputBase-input': {
-                          fontSize: '0.875rem',
-                        },
-                        '& .MuiInputLabel-root': {
-                          fontSize: '0.875rem',
-                        }
-                      }}
+                      multiline
+                      minRows={3}
+                      size="small"
+                      label="Notes"
+                      disabled={loading}
+                      sx={fieldSx}
                     />
                   )}
                 />
@@ -846,111 +670,364 @@ const CreatePurchaseOrderPage: React.FC = () => {
             </Card>
           </Grid>
 
-          <Grid
-            size={{
-              xs: 12,
-              md: 4
-            }}>
-            <Card sx={{ height: '100%' }}>
-              <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <Typography variant="h6" gutterBottom>PO Summary</Typography>
-
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2">Sub-total:</Typography>
-                  <Typography variant="body2">{formatCurrency(totals.subtotal)}</Typography>
-                </Box>
-
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2">Shipping:</Typography>
-                  <Controller
-                    name="shipping"
-                    control={control}
-                    render={({ field }) => {
-                      const [displayValue, setDisplayValue] = React.useState(formatNumberWithCommas(field.value))
-                      const [isFocused, setIsFocused] = React.useState(false)
-
-                      React.useEffect(() => {
-                        if (!isFocused) {
-                          setDisplayValue(formatNumberWithCommas(field.value))
-                        }
-                      }, [field.value, isFocused])
-
-                      return (
-                        <TextField
-                          value={displayValue}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/[^0-9.]/g, '')
-                            setDisplayValue(value)
-                            // Allow empty string or parse the number
-                            const numValue = value === '' ? 0 : parseFloat(value.replace(/,/g, ''))
-                            field.onChange(isNaN(numValue) ? 0 : numValue)
-                          }}
-                          onFocus={() => {
-                            setIsFocused(true)
-                            // Show the actual value, including 0
-                            setDisplayValue(field.value === 0 ? '0' : (field.value?.toString() || '0'))
-                          }}
-                          onBlur={() => {
-                            setIsFocused(false)
-                            // If empty or invalid, set to 0
-                            if (displayValue === '' || displayValue === '.') {
-                              field.onChange(0)
-                            }
-                            setDisplayValue(formatNumberWithCommas(field.value || 0))
-                          }}
-                          variant="outlined"
-                          size="small"
-                          slotProps={{
-                            htmlInput: { style: { textAlign: 'right', fontSize: '0.875rem' } },
-                            input: { startAdornment: <span style={{ marginRight: '4px', fontSize: '0.75rem', color: theme.palette.text.secondary }}>{currency}</span> }
-                          }}
-                          sx={{
-                            width: '120px',
-                            '& .MuiInputBase-input': {
-                              padding: '4px 8px',
-                            },
-                          }}
-                        />
-                      );
-                    }}
-                  />
-                </Box>
-
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, pt: 1, borderTop: `1px solid ${theme.palette.divider}` }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>Total:</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>{formatCurrency(totals.totalAmount)}</Typography>
-                </Box>
-
-                <Box sx={{ display: 'flex', gap: 2, mt: 'auto' }}>
-                  <AppButton
-                    variant="secondary"
-                    fullWidth
-                    onClick={() => navigate('/purchasing/orders')}
-                    disabled={loading}
-                  >
-                    Cancel
-                  </AppButton>
-                  <AppButton
-                    variant="primary"
-                    type="submit"
-                    fullWidth
-                    disabled={loading}
-                  >
-                    {loading
-                      ? (isEditMode ? 'Updating...' : 'Creating...')
-                      : (isEditMode ? 'Update Order' : 'Create Order')
-                    }
-                  </AppButton>
-                </Box>
-              </CardContent>
-            </Card>
+          <Grid size={12}>
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+              <AppButton variant="secondary" onClick={handleCancel} disabled={loading}>
+                Cancel
+              </AppButton>
+              <AppButton variant="primary" type="submit" disabled={loading}>
+                {loading
+                  ? isEditMode
+                    ? 'Updating...'
+                    : 'Creating...'
+                  : isEditMode
+                    ? 'Update Order'
+                    : 'Create Order'}
+              </AppButton>
+            </Box>
           </Grid>
         </Grid>
-      </TransactionForm>
-      )}
+      </form>
+
       {UnsavedChangesDialog}
     </>
-  );
+  )
 }
 
 export default CreatePurchaseOrderPage
+
+interface LineItemRowProps {
+  index: number
+  control: any
+  errors: any
+  watchedItem: PurchaseOrderItem
+  products: any[]
+  currency: string
+  theme: any
+  isSaving: boolean
+  isOnlyRow: boolean
+  getKeyHandler: (row: number, col: number) => React.KeyboardEventHandler<HTMLElement>
+  onProductSelect: (index: number, product: any) => void
+  onRemove: () => void
+  loadProducts: (search?: string) => void
+}
+
+function LineItemRow({
+  index,
+  control,
+  errors,
+  watchedItem,
+  products,
+  currency,
+  theme,
+  isSaving,
+  isOnlyRow,
+  getKeyHandler,
+  onProductSelect,
+  onRemove,
+  loadProducts,
+}: LineItemRowProps) {
+  const [qtyDisplay, setQtyDisplay] = useState(String(watchedItem?.quantity ?? 1))
+  const [priceDisplay, setPriceDisplay] = useState(formatNum(watchedItem?.unitPrice ?? 0))
+  const [discountDisplay, setDiscountDisplay] = useState(formatNum(watchedItem?.discountValue ?? 0))
+  const [qtyFocused, setQtyFocused] = useState(false)
+  const [priceFocused, setPriceFocused] = useState(false)
+  const [discountFocused, setDiscountFocused] = useState(false)
+
+  useEffect(() => {
+    if (!qtyFocused) setQtyDisplay(String(watchedItem?.quantity ?? 1))
+  }, [qtyFocused, watchedItem?.quantity])
+
+  useEffect(() => {
+    if (!priceFocused) setPriceDisplay(formatNum(watchedItem?.unitPrice ?? 0))
+  }, [priceFocused, watchedItem?.unitPrice])
+
+  useEffect(() => {
+    if (!discountFocused) setDiscountDisplay(formatNum(watchedItem?.discountValue ?? 0))
+  }, [discountFocused, watchedItem?.discountValue])
+
+  return (
+    <TableRow>
+      <TableCell sx={{ padding: '2px !important' }} data-cell={`r${index}-c0`}>
+        <Controller
+          name={`items.${index}.productId`}
+          control={control}
+          render={({ field }) => (
+            <>
+              <Autocomplete
+                options={products}
+                getOptionLabel={(option) => option?.name || ''}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                value={watchedItem?.product || products.find((p) => p.id === field.value) || null}
+                onChange={(_, value) => onProductSelect(index, value)}
+                onInputChange={(_, value, reason) => {
+                  if (reason === 'input') loadProducts(value.trim().length >= 1 ? value : '')
+                }}
+                filterOptions={(options) => options}
+                size="small"
+                disabled={isSaving}
+                onKeyDown={getKeyHandler(index, 0)}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Search by name or barcode..."
+                    variant="outlined"
+                    error={!!errors.items?.[index]?.productId}
+                    helperText={errors.items?.[index]?.productId?.message}
+                    sx={{
+                      '& .MuiInputBase-input': {
+                        textAlign: 'left !important',
+                        padding: '6px 8px !important',
+                        fontSize: '0.875rem',
+                      },
+                    }}
+                  />
+                )}
+                slotProps={{
+                  paper: { sx: { '& .MuiAutocomplete-option': { fontSize: '0.875rem' } } },
+                }}
+              />
+              {watchedItem?.product && (
+                <Box sx={{ mt: 0.5 }}>
+                  <StockIndicatorChip
+                    stockQuantity={Number(watchedItem.product.stockQuantity ?? 0)}
+                    quantity={Number(watchedItem.quantity ?? 0)}
+                  />
+                </Box>
+              )}
+            </>
+          )}
+        />
+      </TableCell>
+
+      <TableCell sx={{ padding: '2px !important' }} data-cell={`r${index}-c1`}>
+        <Controller
+          name={`items.${index}.quantity`}
+          control={control}
+          render={({ field }) => (
+            <TextField
+              value={qtyFocused ? qtyDisplay : String(field.value ?? '')}
+              onChange={(e) => {
+                const v = e.target.value.replace(/[^0-9]/g, '')
+                setQtyDisplay(v)
+                field.onChange(parseInt(v) || 0)
+              }}
+              onFocus={() => {
+                setQtyFocused(true)
+                setQtyDisplay(String(field.value ?? ''))
+              }}
+              onBlur={() => {
+                setQtyFocused(false)
+                setQtyDisplay(String(field.value ?? ''))
+              }}
+              onKeyDown={getKeyHandler(index, 1)}
+              variant="outlined"
+              disabled={isSaving}
+              error={!!errors.items?.[index]?.quantity}
+              slotProps={{
+                htmlInput: {
+                  style: { textAlign: 'center', fontSize: '0.875rem' },
+                  inputMode: 'numeric',
+                },
+              }}
+            />
+          )}
+        />
+      </TableCell>
+
+      <TableCell sx={{ padding: '2px !important' }} data-cell={`r${index}-c2`}>
+        <Controller
+          name={`items.${index}.unitPrice`}
+          control={control}
+          render={({ field }) => (
+            <TextField
+              value={priceFocused ? priceDisplay : formatNum(field.value)}
+              onChange={(e) => {
+                const v = e.target.value.replace(/[^0-9.]/g, '')
+                setPriceDisplay(v)
+                field.onChange(parseNum(v))
+              }}
+              onFocus={() => {
+                setPriceFocused(true)
+                setPriceDisplay(String(field.value ?? ''))
+              }}
+              onBlur={() => {
+                setPriceFocused(false)
+                if (!priceDisplay || priceDisplay === '.') field.onChange(0)
+              }}
+              onKeyDown={getKeyHandler(index, 2)}
+              variant="outlined"
+              disabled={isSaving}
+              error={!!errors.items?.[index]?.unitPrice}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <span
+                      style={{
+                        marginRight: 4,
+                        fontSize: '0.75rem',
+                        color: theme.palette.text.secondary,
+                      }}
+                    >
+                      {currency}
+                    </span>
+                  ),
+                },
+                htmlInput: { style: { textAlign: 'right', fontSize: '0.875rem' } },
+              }}
+            />
+          )}
+        />
+      </TableCell>
+
+      <TableCell sx={{ padding: '2px !important' }} data-cell={`r${index}-c3`}>
+        <Box sx={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+          <Controller
+            name={`items.${index}.discountValue`}
+            control={control}
+            render={({ field }) => (
+              <TextField
+                value={discountFocused ? discountDisplay : formatNum(field.value)}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9.]/g, '')
+                  setDiscountDisplay(v)
+                  field.onChange(parseNum(v))
+                }}
+                onFocus={() => {
+                  setDiscountFocused(true)
+                  setDiscountDisplay(String(field.value ?? ''))
+                }}
+                onBlur={() => {
+                  setDiscountFocused(false)
+                  if (!discountDisplay || discountDisplay === '.') field.onChange(0)
+                }}
+                onKeyDown={getKeyHandler(index, 3)}
+                variant="outlined"
+                disabled={isSaving}
+                error={!!errors.items?.[index]?.discountValue}
+                sx={{ flex: 1 }}
+                slotProps={{
+                  htmlInput: { style: { textAlign: 'right', fontSize: '0.875rem' } },
+                }}
+              />
+            )}
+          />
+          <Controller
+            name={`items.${index}.discountType`}
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                select
+                variant="outlined"
+                disabled={isSaving}
+                sx={{
+                  width: '60px',
+                  '& .MuiInputBase-input': { fontSize: '0.875rem', padding: '6px 4px' },
+                }}
+                slotProps={{
+                  select: {
+                    MenuProps: {
+                      slotProps: {
+                        paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.875rem' } } },
+                      },
+                    },
+                  },
+                }}
+              >
+                <MenuItem value="percentage">%</MenuItem>
+                <MenuItem value="amount">{currency}</MenuItem>
+              </TextField>
+            )}
+          />
+        </Box>
+      </TableCell>
+
+      <TableCell align="right" sx={{ padding: '2px 8px !important' }}>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {formatCurrency(watchedItem?.totalPrice || 0)}
+        </Typography>
+      </TableCell>
+
+      <TableCell align="center" sx={{ padding: '2px !important' }}>
+        <IconButton
+          size="small"
+          onClick={onRemove}
+          disabled={isOnlyRow || isSaving}
+          sx={{
+            color: theme.palette.error.main,
+            '&.Mui-disabled': { color: theme.palette.action.disabled },
+          }}
+        >
+          <DeleteIcon fontSize="small" />
+        </IconButton>
+      </TableCell>
+
+      <TableCell sx={{ padding: '2px !important' }}>
+        <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
+          {index + 1}
+        </Typography>
+      </TableCell>
+    </TableRow>
+  )
+}
+
+interface ShippingFieldProps {
+  control: any
+  currency: string
+  theme: any
+  isSaving: boolean
+}
+
+function ShippingField({ control, currency, theme, isSaving }: ShippingFieldProps) {
+  const [display, setDisplay] = useState('0.00')
+  const [focused, setFocused] = useState(false)
+
+  return (
+    <Controller
+      name="shipping"
+      control={control}
+      render={({ field }) => (
+        <TextField
+          fullWidth
+          size="small"
+          label="Shipping Fee"
+          value={focused ? display : formatNum(field.value ?? 0)}
+          onChange={(e) => {
+            const v = e.target.value.replace(/[^0-9.]/g, '')
+            setDisplay(v)
+            const num = parseFloat(v.replace(/,/g, ''))
+            field.onChange(isNaN(num) ? 0 : num)
+          }}
+          onFocus={() => {
+            setFocused(true)
+            setDisplay(String(field.value ?? '0'))
+          }}
+          onBlur={() => {
+            setFocused(false)
+            if (!display || display === '.') field.onChange(0)
+            setDisplay(formatNum(field.value ?? 0))
+          }}
+          disabled={isSaving}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <span
+                  style={{
+                    marginRight: 4,
+                    fontSize: '0.75rem',
+                    color: theme.palette.text.secondary,
+                  }}
+                >
+                  {currency}
+                </span>
+              ),
+            },
+            htmlInput: { style: { textAlign: 'right', fontSize: '0.875rem' } },
+          }}
+          sx={fieldSx}
+        />
+      )}
+    />
+  )
+}
