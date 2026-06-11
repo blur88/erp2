@@ -25,6 +25,7 @@ const {
   mockUpdatePurchaseOrder,
   mockFetchPurchaseOrder,
   mockParams,
+  mockGetDocumentNumberSettings,
 } = vi.hoisted(() => ({
   mockDispatch: vi.fn(),
   mockNavigate: vi.fn(),
@@ -33,6 +34,7 @@ const {
   mockUpdatePurchaseOrder: vi.fn(),
   mockFetchPurchaseOrder: vi.fn(),
   mockParams: vi.fn(() => ({})),
+  mockGetDocumentNumberSettings: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async () => {
@@ -58,6 +60,10 @@ vi.mock('@/hooks/useNotification', () => ({
 
 vi.mock('@/hooks/useCurrency', () => ({
   useCurrency: () => ({ currency: '$' }),
+}))
+
+vi.mock('@/store/api/settingsApi', () => ({
+  useGetDocumentNumberSettingsQuery: () => mockGetDocumentNumberSettings(),
 }))
 
 vi.mock('@/store/slices/purchasingSlice', () => ({
@@ -95,6 +101,20 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockParams.mockReturnValue({})
+
+    mockGetDocumentNumberSettings.mockReturnValue({
+      data: {
+        configurations: [
+          {
+            documentName: 'Purchase Orders',
+            prefix: 'PO',
+            nextNumber: 42,
+            paddingDigits: 4,
+          },
+        ],
+      },
+      isLoading: false,
+    })
 
     mockGet.mockImplementation(async (_url: string, config?: { params?: { search?: string } }) => {
       if (config?.params?.search?.startsWith(replacementSearchTerm)) {
