@@ -115,7 +115,7 @@ export default defineConfig(({ mode }) => {
       // Vite's resolver (which rewrites the import) instead of raw Node ESM.
       server: {
         deps: {
-          inline: ['@mui/material', 'react-transition-group'],
+          inline: [/@mui\//, /react-transition-group/],
         },
       },
       environment: 'jsdom',

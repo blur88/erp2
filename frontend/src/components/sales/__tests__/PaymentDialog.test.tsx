@@ -162,6 +162,12 @@ describe('PaymentDialog', () => {
   it('Escape on untouched dialog closes immediately without confirmation', async () => {
     const onClose = vi.fn()
     renderDialog({ totalAmount: 1000, onClose })
+    // MUI's Escape handler is bound to the modal root's onKeyDown, so the event
+    // must originate inside the dialog. In jsdom the focus trap never moves focus
+    // into the dialog (document.hasFocus() is false in headless test runs), leaving
+    // focus on <body>; without this the synthetic Escape never reaches the handler.
+    // The edited-dialog sibling test passes only because typing focuses an input.
+    screen.getByRole('dialog').focus()
     await userEvent.keyboard('{Escape}')
     expect(onClose).toHaveBeenCalledOnce()
     expect(screen.queryByText('Discard this payment?')).not.toBeInTheDocument()
