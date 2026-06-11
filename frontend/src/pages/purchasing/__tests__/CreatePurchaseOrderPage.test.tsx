@@ -439,7 +439,8 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
 
   // NOTE: The "does not re-apply preselect after manual change" guard for
   // `preselectAppliedRef` is covered by the shared pattern's test in
-  // CreateSalesOrderPage.test.tsx (identical effect). A PO-local version could
-  // not be made non-vacuous here without a real store re-render trigger, so it
-  // is intentionally omitted rather than left as a false-passing test.
+  // CreateSalesOrderPage.test.tsx (the preselect effect is identical). A
+  // PO-local version could not be made non-vacuous here without a real store
+  // re-render trigger, so it is intentionally omitted rather than left as a
+  // false-passing test.
 })
