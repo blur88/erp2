@@ -437,27 +437,9 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
     })
   })
 
-  it('does not re-apply preselect after the user clears the supplier', async () => {
-    const user = userEvent.setup()
-    render(
-      <MemoryRouter
-        initialEntries={[
-          { pathname: '/purchasing/orders/create', state: { preselectSupplierId: 'supplier-1' } },
-        ]}
-      >
-        <CreatePurchaseOrderPage />
-      </MemoryRouter>,
-    )
-
-    const supplierInput = screen.getByLabelText(/supplier/i) as HTMLInputElement
-    await waitFor(() => {
-      expect(supplierInput.value).toBe('Acme Supplies')
-    })
-
-    // Clear the selection; preselect must not re-fire (preselectAppliedRef guard).
-    await user.clear(supplierInput)
-    await waitFor(() => {
-      expect(supplierInput.value).toBe('')
-    })
-  })
+  // NOTE: The "does not re-apply preselect after manual change" guard for
+  // `preselectAppliedRef` is covered by the shared pattern's test in
+  // CreateSalesOrderPage.test.tsx (identical effect). A PO-local version could
+  // not be made non-vacuous here without a real store re-render trigger, so it
+  // is intentionally omitted rather than left as a false-passing test.
 })
