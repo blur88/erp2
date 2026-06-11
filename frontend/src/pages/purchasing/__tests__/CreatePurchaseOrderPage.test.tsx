@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { BrowserRouter } from 'react-router-dom'
+import { BrowserRouter, MemoryRouter } from 'react-router-dom'
 
 import CreatePurchaseOrderPage from '../CreatePurchaseOrderPage'
 
@@ -434,6 +434,23 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
     const orderNumberInput = screen.getByLabelText('Order Number') as HTMLInputElement
     await waitFor(() => {
       expect(orderNumberInput.value).toBe(`PO-${yy}-0042`)
+    })
+  })
+
+  it('preselects the supplier from navigation state', async () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: '/purchasing/orders/create', state: { preselectSupplierId: 'supplier-1' } },
+        ]}
+      >
+        <CreatePurchaseOrderPage />
+      </MemoryRouter>,
+    )
+
+    const supplierInput = screen.getByLabelText(/supplier/i) as HTMLInputElement
+    await waitFor(() => {
+      expect(supplierInput.value).toBe('Acme Supplies')
     })
   })
 })
