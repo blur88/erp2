@@ -298,7 +298,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
             ? price * (Number(item.discountValue || 0) / 100)
             : Number(item.discountValue || 0)
         const total = (price - unitDiscount) * qty
-        if (Math.abs((item.totalPrice || 0) - total) > 0.01) {
+        if (Math.abs((item.totalPrice || 0) - total) > 0.001) {
           setValue(`items.${index}.totalPrice`, Number(total.toFixed(2)))
         }
       }
@@ -439,7 +439,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                           render={({ field }) => (
                             <Autocomplete
                               options={suppliers}
-                              getOptionLabel={(option) => option.companyName}
+                              getOptionLabel={(option) => option?.companyName ?? ''}
                               value={suppliers.find((s: any) => s.id === field.value) || null}
                               onChange={(_, value) => field.onChange(value?.id || '')}
                               size="small"
