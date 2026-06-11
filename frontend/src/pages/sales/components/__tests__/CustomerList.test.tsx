@@ -1,14 +1,20 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { CustomerType } from '@/types'
 
 import CustomerList from '../CustomerList'
 
+const navigateMock = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
-  return { ...actual, useNavigate: () => vi.fn() }
+  return { ...actual, useNavigate: () => navigateMock }
+})
+
+beforeEach(() => {
+  navigateMock.mockClear()
 })
 
 const baseCustomer = {
@@ -114,5 +120,13 @@ describe('CustomerList columns', () => {
   it('renders Inactive chip for inactive customer', () => {
     renderList([{ ...baseCustomer, isActive: false }])
     expect(screen.getByText('Inactive')).toBeInTheDocument()
+  })
+})
+
+describe('CustomerList row click', () => {
+  it('navigates to the customer detail page when a row is clicked', async () => {
+    renderList()
+    await userEvent.click(screen.getByText('Acme Corp'))
+    expect(navigateMock).toHaveBeenCalledWith('/sales/customers/acme-corp/view')
   })
 })

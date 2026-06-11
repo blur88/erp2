@@ -73,7 +73,7 @@ export default function CustomerList({
       headers={['Name', 'Phone', 'Type', 'Price List', 'Status', 'Actions']}
       selectedId={undefined}
       focusedIndex={-1}
-      onSelect={() => {}}
+      onSelect={(customer) => navigate(`/sales/customers/${customer.slug}/view`)}
       listRef={{ current: null }}
       dataAttr="customer"
       paginationSlot={paginationSlot}
