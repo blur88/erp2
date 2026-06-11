@@ -81,6 +81,15 @@ describe('SalesOrderList columns', () => {
   })
 })
 
+describe('SalesOrderList row click', () => {
+  it('calls onView when a row is clicked', async () => {
+    const onView = vi.fn()
+    renderList({ ...defaultProps, onView })
+    await userEvent.click(screen.getByText('SO-26-001'))
+    expect(onView).toHaveBeenCalledWith(expect.objectContaining({ orderNumber: 'SO-26-001' }))
+  })
+})
+
 describe('SalesOrderList empty state', () => {
   it('shows empty message when no orders', () => {
     renderList({ ...defaultProps, orders: [], total: 0 })
