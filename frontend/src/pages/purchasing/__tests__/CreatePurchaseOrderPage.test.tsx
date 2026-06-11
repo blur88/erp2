@@ -97,24 +97,21 @@ vi.mock('@/store/api/purchasingApi', () => ({
   useLazyGetPurchaseOrderByNumberQuery: () => [mockFetchPurchaseOrder],
 }))
 
+const PO_DOC_SETTINGS = {
+  data: {
+    configurations: [
+      { documentName: 'Purchase Orders', prefix: 'PO', nextNumber: 42, paddingDigits: 4 },
+    ],
+  },
+  isLoading: false,
+}
+
 describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockParams.mockReturnValue({})
 
-    mockGetDocumentNumberSettings.mockReturnValue({
-      data: {
-        configurations: [
-          {
-            documentName: 'Purchase Orders',
-            prefix: 'PO',
-            nextNumber: 42,
-            paddingDigits: 4,
-          },
-        ],
-      },
-      isLoading: false,
-    })
+    mockGetDocumentNumberSettings.mockReturnValue(PO_DOC_SETTINGS)
 
     mockGet.mockImplementation(async (_url: string, config?: { params?: { search?: string } }) => {
       if (config?.params?.search?.startsWith(replacementSearchTerm)) {
@@ -410,20 +407,6 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
   })
 
   it('shows order number preview from DocumentNumberSettings', async () => {
-    mockGetDocumentNumberSettings.mockReturnValue({
-      data: {
-        configurations: [
-          {
-            documentName: 'Purchase Orders',
-            prefix: 'PO',
-            nextNumber: 42,
-            paddingDigits: 4,
-          },
-        ],
-      },
-      isLoading: false,
-    })
-
     render(
       <BrowserRouter>
         <CreatePurchaseOrderPage />
@@ -451,6 +434,30 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
     const supplierInput = screen.getByLabelText(/supplier/i) as HTMLInputElement
     await waitFor(() => {
       expect(supplierInput.value).toBe('Acme Supplies')
+    })
+  })
+
+  it('does not re-apply preselect after the user clears the supplier', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: '/purchasing/orders/create', state: { preselectSupplierId: 'supplier-1' } },
+        ]}
+      >
+        <CreatePurchaseOrderPage />
+      </MemoryRouter>,
+    )
+
+    const supplierInput = screen.getByLabelText(/supplier/i) as HTMLInputElement
+    await waitFor(() => {
+      expect(supplierInput.value).toBe('Acme Supplies')
+    })
+
+    // Clear the selection; preselect must not re-fire (preselectAppliedRef guard).
+    await user.clear(supplierInput)
+    await waitFor(() => {
+      expect(supplierInput.value).toBe('')
     })
   })
 })
