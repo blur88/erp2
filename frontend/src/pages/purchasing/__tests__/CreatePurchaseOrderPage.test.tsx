@@ -408,4 +408,32 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
     })
     expect(within(row as HTMLTableRowElement).queryByText('RM 11.00')).not.toBeInTheDocument()
   })
+
+  it('shows order number preview from DocumentNumberSettings', async () => {
+    mockGetDocumentNumberSettings.mockReturnValue({
+      data: {
+        configurations: [
+          {
+            documentName: 'Purchase Orders',
+            prefix: 'PO',
+            nextNumber: 42,
+            paddingDigits: 4,
+          },
+        ],
+      },
+      isLoading: false,
+    })
+
+    render(
+      <BrowserRouter>
+        <CreatePurchaseOrderPage />
+      </BrowserRouter>,
+    )
+
+    const yy = String(new Date().getFullYear() % 100).padStart(2, '0')
+    const orderNumberInput = screen.getByLabelText('Order Number') as HTMLInputElement
+    await waitFor(() => {
+      expect(orderNumberInput.value).toBe(`PO-${yy}-0042`)
+    })
+  })
 })
