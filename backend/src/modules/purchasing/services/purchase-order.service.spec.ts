@@ -677,7 +677,7 @@ describe('PurchaseOrderService', () => {
         totalAmount: 100,
         status: PurchaseOrderStatus.DRAFT,
       } as unknown as PurchaseOrder;
-      // Active payment set now sums to exactly 100 (down from a prior overpaid sum).
+      // Active payment set sums to exactly 100 against a 100 total => PAID.
       vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
         { id: 'vp-exact', amount: 100 } as unknown as VendorPayment,
       ]);
