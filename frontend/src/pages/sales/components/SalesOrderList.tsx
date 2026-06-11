@@ -120,7 +120,7 @@ export default function SalesOrderList(props: SalesOrderListProps) {
       headers={['Order #', 'Customer', 'Date', 'Total', 'Status', 'Payment', 'Actions']}
       selectedId={undefined}
       focusedIndex={-1}
-      onSelect={() => {}}
+      onSelect={props.onView}
       listRef={{ current: null }}
       dataAttr="order"
       paginationSlot={paginationSlot}
