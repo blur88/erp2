@@ -12,7 +12,7 @@ import OrdersPage from '../OrdersPage'
 const simpleListPageSpy = vi.fn()
 
 vi.mock('@/store/api/salesApi', () => ({
-  useGetSalesOrdersQuery: vi.fn(() => ({ data: undefined, isFetching: false, error: undefined })),
+  useGetSalesOrdersQuery: vi.fn(() => ({ data: { data: [], meta: { total: 0 } }, isFetching: false, error: undefined })),
   useGetCustomersQuery: vi.fn(() => ({ data: undefined, isFetching: false })),
   useFulfillSalesOrderMutation: vi.fn(() => [vi.fn()]),
   useUnfulfillSalesOrderMutation: vi.fn(() => [vi.fn()]),
