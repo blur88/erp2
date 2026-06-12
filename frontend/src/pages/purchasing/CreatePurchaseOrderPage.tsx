@@ -353,7 +353,12 @@ const CreatePurchaseOrderPage: React.FC = () => {
         navigate(`/purchasing/orders?highlight=${(created as any).id}`)
       }
     } catch (err: any) {
-      showError(err?.response?.data?.message || 'Failed to create purchase order')
+      showError(
+        err?.data?.message ||
+          (typeof err?.data === 'string' ? err.data : undefined) ||
+          err?.response?.data?.message ||
+          `Failed to ${isEditMode ? 'update' : 'create'} purchase order`,
+      )
     } finally {
       setLoading(false)
     }
