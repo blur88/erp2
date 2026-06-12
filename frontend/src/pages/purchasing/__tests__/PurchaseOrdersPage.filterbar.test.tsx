@@ -79,7 +79,7 @@ describe('PurchaseOrdersPage FilterBar integration', () => {
         status: 'READY',
         paymentStatus: 'PAID',
         sortBy: 'orderNumber',
-        sortOrder: 'ASC',
+        sortOrder: 'DESC',
         page: 1,
         limit: 25,
       }),

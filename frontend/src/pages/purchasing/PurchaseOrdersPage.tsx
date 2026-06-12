@@ -72,7 +72,7 @@ const PurchaseOrdersPage: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
   const [sortBy, setSortBy] = useState('orderNumber')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(DEFAULT_LIMIT)
   const [printOrder, setPrintOrder] = useState<PurchaseOrder | null>(null)

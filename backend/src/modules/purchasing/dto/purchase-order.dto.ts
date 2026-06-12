@@ -134,10 +134,10 @@ export class PurchaseOrderQueryDto extends BaseQueryDto {
   @IsIn(['UNPAID', 'PARTIAL', 'PAID', 'OVERPAID'])
   paymentStatus?: PurchaseOrderPaymentStatus;
 
-  @ApiPropertyOptional({ description: 'Sort by field', default: 'orderDate' })
+  @ApiPropertyOptional({ description: 'Sort by field', default: 'orderNumber' })
   @IsOptional()
   @IsString()
-  sortBy?: string = 'orderDate';
+  sortBy?: string = 'orderNumber';
 
   @ApiPropertyOptional({ description: 'Sort order', enum: ['ASC', 'DESC'], default: 'DESC' })
   @IsOptional()

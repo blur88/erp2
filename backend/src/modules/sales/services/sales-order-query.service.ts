@@ -34,7 +34,7 @@ export class SalesOrderQueryService {
       paymentStatus,
       status,
       sortBy = 'orderNumber',
-      sortOrder = 'ASC',
+      sortOrder = 'DESC',
       page = 1,
       limit = 1000,
     } = query;

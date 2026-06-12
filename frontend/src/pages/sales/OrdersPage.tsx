@@ -55,7 +55,7 @@ const OrdersPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
-  const [sortBy, setSortBy] = useState('orderDate')
+  const [sortBy, setSortBy] = useState('orderNumber')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(DEFAULT_LIMIT)
@@ -204,7 +204,7 @@ const OrdersPage: React.FC = () => {
         handlers={handlers}
         hasActiveFilters={hasActiveFilters}
         searchInputRef={searchInputRef}
-        sort={{ field: 'orderDate', sortBy, sortOrder, onSort: handleSort }}
+        sort={{ field: 'orderNumber', sortBy, sortOrder, onSort: handleSort }}
         isFetching={isFetching}
         error={error ? 'Failed to load sales orders.' : null}
         tableSlot={(
