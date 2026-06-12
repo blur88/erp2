@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { BrowserRouter } from 'react-router-dom'
+import { BrowserRouter, MemoryRouter } from 'react-router-dom'
 
 import CreatePurchaseOrderPage from '../CreatePurchaseOrderPage'
 
@@ -25,6 +25,7 @@ const {
   mockUpdatePurchaseOrder,
   mockFetchPurchaseOrder,
   mockParams,
+  mockGetDocumentNumberSettings,
 } = vi.hoisted(() => ({
   mockDispatch: vi.fn(),
   mockNavigate: vi.fn(),
@@ -33,6 +34,7 @@ const {
   mockUpdatePurchaseOrder: vi.fn(),
   mockFetchPurchaseOrder: vi.fn(),
   mockParams: vi.fn(() => ({})),
+  mockGetDocumentNumberSettings: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async () => {
@@ -58,6 +60,10 @@ vi.mock('@/hooks/useNotification', () => ({
 
 vi.mock('@/hooks/useCurrency', () => ({
   useCurrency: () => ({ currency: '$' }),
+}))
+
+vi.mock('@/store/api/settingsApi', () => ({
+  useGetDocumentNumberSettingsQuery: () => mockGetDocumentNumberSettings(),
 }))
 
 vi.mock('@/store/slices/purchasingSlice', () => ({
@@ -91,10 +97,21 @@ vi.mock('@/store/api/purchasingApi', () => ({
   useLazyGetPurchaseOrderByNumberQuery: () => [mockFetchPurchaseOrder],
 }))
 
+const PO_DOC_SETTINGS = {
+  data: {
+    configurations: [
+      { documentName: 'Purchase Orders', prefix: 'PO', nextNumber: 42, paddingDigits: 4 },
+    ],
+  },
+  isLoading: false,
+}
+
 describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockParams.mockReturnValue({})
+
+    mockGetDocumentNumberSettings.mockReturnValue(PO_DOC_SETTINGS)
 
     mockGet.mockImplementation(async (_url: string, config?: { params?: { search?: string } }) => {
       if (config?.params?.search?.startsWith(replacementSearchTerm)) {
@@ -388,4 +405,42 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
     })
     expect(within(row as HTMLTableRowElement).queryByText('RM 11.00')).not.toBeInTheDocument()
   })
+
+  it('shows order number preview from DocumentNumberSettings', async () => {
+    render(
+      <BrowserRouter>
+        <CreatePurchaseOrderPage />
+      </BrowserRouter>,
+    )
+
+    const yy = String(new Date().getFullYear() % 100).padStart(2, '0')
+    const orderNumberInput = screen.getByLabelText('Order Number') as HTMLInputElement
+    await waitFor(() => {
+      expect(orderNumberInput.value).toBe(`PO-${yy}-0042`)
+    })
+  })
+
+  it('preselects the supplier from navigation state', async () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: '/purchasing/orders/create', state: { preselectSupplierId: 'supplier-1' } },
+        ]}
+      >
+        <CreatePurchaseOrderPage />
+      </MemoryRouter>,
+    )
+
+    const supplierInput = screen.getByLabelText(/supplier/i) as HTMLInputElement
+    await waitFor(() => {
+      expect(supplierInput.value).toBe('Acme Supplies')
+    })
+  })
+
+  // NOTE: The "does not re-apply preselect after manual change" guard for
+  // `preselectAppliedRef` is covered by the shared pattern's test in
+  // CreateSalesOrderPage.test.tsx (the preselect effect is identical). A
+  // PO-local version could not be made non-vacuous here without a real store
+  // re-render trigger, so it is intentionally omitted rather than left as a
+  // false-passing test.
 })

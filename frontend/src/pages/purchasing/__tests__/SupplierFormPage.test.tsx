@@ -94,6 +94,24 @@ function renderEditPage(supplierSlug = 'global-parts-ltd') {
   )
 }
 
+function renderCreatePageFromPO() {
+  const store = configureStore({ reducer: { purchasing: purchasingReducer } })
+
+  return render(
+    <Provider store={store}>
+      <MemoryRouter
+        initialEntries={[
+          { pathname: '/purchasing/suppliers/create', state: { returnTo: 'purchase-order' } },
+        ]}
+      >
+        <Routes>
+          <Route path="/purchasing/suppliers/create" element={<SupplierFormPage />} />
+        </Routes>
+      </MemoryRouter>
+    </Provider>,
+  )
+}
+
 describe('SupplierFormPage - Create mode', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -261,5 +279,38 @@ describe('SupplierFormPage - company name duplicate check', () => {
 
     expect(screen.getByText('✓ Available')).toBeInTheDocument()
     vi.useRealTimers()
+  })
+})
+
+describe('SupplierFormPage - returnTo purchase-order', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockBlockerState.current = 'idle'
+    mockCreateSupplier.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-sup' }) })
+    mockCheckDuplicate.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ exists: false }) })
+    mockFetchSupplierBySlug.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(null) })
+  })
+
+  it('returns to create-PO with preselectSupplierId after successful create', async () => {
+    const user = userEvent.setup()
+    renderCreatePageFromPO()
+
+    await user.type(screen.getByLabelText(/company name/i), 'Acme Supplies')
+    await user.click(screen.getByRole('button', { name: /create/i }))
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders/create', {
+        state: { preselectSupplierId: 'new-sup' },
+      })
+    })
+  })
+
+  it('returns to create-PO on cancel', async () => {
+    const user = userEvent.setup()
+    renderCreatePageFromPO()
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders/create')
   })
 })
