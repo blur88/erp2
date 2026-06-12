@@ -182,6 +182,17 @@ describe('SalesOrderQueryService', () => {
       expect(qb.addOrderBy).not.toHaveBeenCalled();
     });
 
+    it('defaults to ordering by orderNumber DESC when no sort is supplied', async () => {
+      const { qb } = buildQbMock();
+      salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll({} as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('order.orderNumber', 'DESC');
+      // orderNumber is unique, so no secondary tiebreaker is added
+      expect(qb.addOrderBy).not.toHaveBeenCalled();
+    });
+
     it('applies a paymentStatus param independently of READY', async () => {
       const { qb, andWhereCalls } = buildQbMock();
       salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
