@@ -154,7 +154,7 @@ export class PurchaseOrderService extends BaseCrudService<
   private applyListOrdering(
     queryBuilder: any,
     query: PurchaseOrderQueryDto,
-    defaultSortField: 'orderDate' | 'deletedAt',
+    defaultSortField: 'orderNumber' | 'orderDate' | 'deletedAt',
     options: { addSecondaryOrderNumber: boolean },
   ) {
     const sortField = this.allowedSortFields.includes(query.sortBy ?? '')
@@ -370,7 +370,7 @@ export class PurchaseOrderService extends BaseCrudService<
     const skip = limit ? (page - 1) * limit : 0;
     const queryBuilder = this.buildPurchaseOrderListQuery(query, { includeDeleted: false });
 
-    this.applyListOrdering(queryBuilder, query, 'orderDate', { addSecondaryOrderNumber: true });
+    this.applyListOrdering(queryBuilder, query, 'orderNumber', { addSecondaryOrderNumber: true });
 
     const total = await queryBuilder.getCount();
 

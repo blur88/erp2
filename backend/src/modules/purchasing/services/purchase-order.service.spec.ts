@@ -449,6 +449,17 @@ describe('PurchaseOrderService', () => {
         expect(order.status).toBe(PurchaseOrderStatus.RECEIVED);
       });
     });
+
+    it('defaults to ordering by orderNumber DESC when no sort is supplied', async () => {
+      const queryBuilder = createFindAllQueryBuilder([createFindAllOrder()]);
+      purchaseOrderRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      await service.findAll({});
+
+      expect(queryBuilder.orderBy).toHaveBeenCalledWith('po.orderNumber', 'DESC');
+      // sortField === 'orderNumber' so the secondary orderNumber tiebreaker is skipped
+      expect(queryBuilder.addOrderBy).not.toHaveBeenCalled();
+    });
   });
 
 
