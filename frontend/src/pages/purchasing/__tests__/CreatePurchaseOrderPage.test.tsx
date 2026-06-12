@@ -443,4 +443,35 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
   // PO-local version could not be made non-vacuous here without a real store
   // re-render trigger, so it is intentionally omitted rather than left as a
   // false-passing test.
+
+  it('does not show stock warnings when ordered quantity exceeds stock (purchasing, not selling)', async () => {
+    // Default create-mode mocks are set in beforeEach. Override the product
+    // search to return a low-stock product so the (removed) warning code path
+    // would otherwise fire.
+    mockGet.mockImplementation(async (_url: string) => ({
+      data: [{ id: 'product-1', name: 'Alpha Widget', baseCost: 11, stockQuantity: 4 }],
+    }))
+
+    render(
+      <BrowserRouter>
+        <CreatePurchaseOrderPage />
+      </BrowserRouter>
+    )
+
+    const productInput = screen.getByPlaceholderText('Search by name or barcode...')
+    fireEvent.mouseDown(productInput)
+    fireEvent.change(productInput, { target: { value: 'Alpha' } })
+
+    const listbox = await screen.findByRole('listbox')
+    fireEvent.click(within(listbox).getByText('Alpha Widget'))
+
+    // Set the line-item quantity to 20 (above stock of 4).
+    const qtyInput = await screen.findByDisplayValue('1')
+    fireEvent.change(qtyInput, { target: { value: '20' } })
+
+    // Page-level "N item(s) out of stock: ..." Alert must not render.
+    expect(screen.queryByText(/out of stock/i)).not.toBeInTheDocument()
+    // Per-line StockIndicatorChip "Only 4 left (need 20)" must not render.
+    expect(screen.queryByText(/left \(need/i)).not.toBeInTheDocument()
+  })
 })

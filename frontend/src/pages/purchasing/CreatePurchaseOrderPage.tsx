@@ -46,8 +46,6 @@ import {
   updatePurchaseOrderInPlace,
 } from '@/store/slices/purchasingSlice'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
-import { getStockOffenders } from '@/utils/stockStatus'
-import StockIndicatorChip from '@/pages/sales/components/StockIndicatorChip'
 
 interface PurchaseOrderItem {
   productId: string
@@ -197,12 +195,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const subtotal = watchedItems.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
   const shippingAmt = Number(watchedShipping) || 0
   const totals = { subtotal, shipping: shippingAmt, total: subtotal + shippingAmt }
-  const stockOffenders = getStockOffenders(
-    (watchedItems ?? []).map((item) => ({
-      product: item.product,
-      quantity: Number(item.quantity ?? 0),
-    })),
-  )
 
   useEffect(() => {
     loadProducts()
@@ -491,15 +483,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
                   Line Items
                 </Typography>
 
-                {stockOffenders.length > 0 && (
-                  <Alert severity="warning" sx={{ mb: 2 }}>
-                    {`${stockOffenders.length} item(s) out of stock: `}
-                    {stockOffenders
-                      .map((o) => `${o.name} (Qty: ${o.quantity}, Stock: ${o.stock})`)
-                      .join(', ')}
-                  </Alert>
-                )}
-
                 <TableContainer
                   component={Paper}
                   sx={{ border: `1px solid ${theme.palette.divider}` }}
@@ -753,49 +736,39 @@ function LineItemRow({
           name={`items.${index}.productId`}
           control={control}
           render={({ field }) => (
-            <>
-              <Autocomplete
-                options={products}
-                getOptionLabel={(option) => option?.name || ''}
-                isOptionEqualToValue={(option, value) => option.id === value.id}
-                value={watchedItem?.product || products.find((p) => p.id === field.value) || null}
-                onChange={(_, value) => onProductSelect(index, value)}
-                onInputChange={(_, value, reason) => {
-                  if (reason === 'input') loadProducts(value.trim().length >= 1 ? value : '')
-                }}
-                filterOptions={(options) => options}
-                size="small"
-                disabled={isSaving}
-                onKeyDown={getKeyHandler(index, 0)}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    placeholder="Search by name or barcode..."
-                    variant="outlined"
-                    error={!!errors.items?.[index]?.productId}
-                    helperText={errors.items?.[index]?.productId?.message}
-                    sx={{
-                      '& .MuiInputBase-input': {
-                        textAlign: 'left !important',
-                        padding: '6px 8px !important',
-                        fontSize: '0.875rem',
-                      },
-                    }}
-                  />
-                )}
-                slotProps={{
-                  paper: { sx: { '& .MuiAutocomplete-option': { fontSize: '0.875rem' } } },
-                }}
-              />
-              {watchedItem?.product && (
-                <Box sx={{ mt: 0.5 }}>
-                  <StockIndicatorChip
-                    stockQuantity={Number(watchedItem.product.stockQuantity ?? 0)}
-                    quantity={Number(watchedItem.quantity ?? 0)}
-                  />
-                </Box>
+            <Autocomplete
+              options={products}
+              getOptionLabel={(option) => option?.name || ''}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              value={watchedItem?.product || products.find((p) => p.id === field.value) || null}
+              onChange={(_, value) => onProductSelect(index, value)}
+              onInputChange={(_, value, reason) => {
+                if (reason === 'input') loadProducts(value.trim().length >= 1 ? value : '')
+              }}
+              filterOptions={(options) => options}
+              size="small"
+              disabled={isSaving}
+              onKeyDown={getKeyHandler(index, 0)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="Search by name or barcode..."
+                  variant="outlined"
+                  error={!!errors.items?.[index]?.productId}
+                  helperText={errors.items?.[index]?.productId?.message}
+                  sx={{
+                    '& .MuiInputBase-input': {
+                      textAlign: 'left !important',
+                      padding: '6px 8px !important',
+                      fontSize: '0.875rem',
+                    },
+                  }}
+                />
               )}
-            </>
+              slotProps={{
+                paper: { sx: { '& .MuiAutocomplete-option': { fontSize: '0.875rem' } } },
+              }}
+            />
           )}
         />
       </TableCell>
