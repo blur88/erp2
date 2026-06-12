@@ -46,6 +46,7 @@ import {
   updatePurchaseOrderInPlace,
 } from '@/store/slices/purchasingSlice'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 
 interface PurchaseOrderItem {
   productId: string
@@ -354,10 +355,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
       }
     } catch (err: any) {
       showError(
-        err?.data?.message ||
-          (typeof err?.data === 'string' ? err.data : undefined) ||
-          err?.response?.data?.message ||
-          `Failed to ${isEditMode ? 'update' : 'create'} purchase order`,
+        rtkErrorMessage(err, `Failed to ${isEditMode ? 'update' : 'create'} purchase order`),
       )
     } finally {
       setLoading(false)

@@ -47,6 +47,7 @@ import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
 import { setSelectedOrder } from '@/store/slices/salesSlice'
 import type { RootState } from '@/store'
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getStockOffenders } from '@/utils/stockStatus'
 import { getOrderActionMetas } from './utils/orderActions'
 import StockIndicatorChip from './components/StockIndicatorChip'
@@ -406,10 +407,7 @@ const CreateSalesOrderPage: React.FC = () => {
       }
     } catch (err: any) {
       showError(
-        err?.data?.message ||
-          (typeof err?.data === 'string' ? err.data : undefined) ||
-          err?.response?.data?.message ||
-          `Failed to ${isEditMode ? 'update' : 'create'} sales order`,
+        rtkErrorMessage(err, `Failed to ${isEditMode ? 'update' : 'create'} sales order`),
       )
     }
   }

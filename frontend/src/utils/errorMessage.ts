@@ -17,6 +17,31 @@ export const getErrorMessage = (error: unknown, fallback: string): string => {
   return fallback;
 };
 
+/**
+ * Resolve a user-facing message from an error thrown by an RTK Query mutation's
+ * `.unwrap()`. The shared axiosBaseQuery returns `{ status, data: '<message>' }`,
+ * where `data` is the backend message string. Falls back to legacy Axios shapes
+ * and finally the provided fallback.
+ */
+export const rtkErrorMessage = (error: unknown, fallback: string): string => {
+  const err = error as {
+    data?: unknown
+    response?: { data?: { message?: unknown } }
+  }
+
+  if (err?.data && typeof err.data === 'object' && 'message' in err.data) {
+    const message = (err.data as { message?: unknown }).message
+    if (typeof message === 'string' && message.trim().length > 0) return message
+  }
+
+  if (typeof err?.data === 'string' && err.data.trim().length > 0) return err.data
+
+  const axiosMessage = err?.response?.data?.message
+  if (typeof axiosMessage === 'string' && axiosMessage.trim().length > 0) return axiosMessage
+
+  return fallback
+}
+
 const extractMessageValue = (error: unknown): unknown => {
   if (!error || typeof error !== 'object') {
     return error;
