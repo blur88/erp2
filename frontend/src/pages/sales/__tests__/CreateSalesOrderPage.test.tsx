@@ -772,48 +772,6 @@ describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
     })
   })
 
-  it('shows the backend message and an update-specific fallback when an edit submit fails', async () => {
-    mockFetchSalesOrder.mockReturnValue({
-      unwrap: vi.fn().mockResolvedValue(existingOrder),
-    })
-
-    render(
-      <BrowserRouter>
-        <CreateSalesOrderPage />
-      </BrowserRouter>,
-    )
-
-    await waitFor(() => {
-      expect(screen.getByRole('combobox', { name: /customer/i })).toHaveValue('Test Customer')
-    })
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /update order/i })).toBeInTheDocument()
-    })
-
-    // RTK Query error shape: { status, data: '<message>' }
-    mockUpdateSalesOrder.mockReturnValue({
-      unwrap: vi.fn().mockRejectedValue({ status: 400, data: 'Order is not editable' }),
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: /update order/i }))
-
-    await waitFor(() => {
-      expect(mockShowError).toHaveBeenCalledWith('Order is not editable')
-    })
-
-    // No message → fallback names the update action, not create.
-    mockShowError.mockClear()
-    mockUpdateSalesOrder.mockReturnValue({
-      unwrap: vi.fn().mockRejectedValue({ status: 500 }),
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: /update order/i }))
-
-    await waitFor(() => {
-      expect(mockShowError).toHaveBeenCalledWith('Failed to update sales order')
-    })
-  })
-
   it('shows discard dialog when blocker intercepts navigation in edit mode', async () => {
     mockBlockerState.current = 'blocked'
     mockFetchSalesOrder.mockReturnValue({

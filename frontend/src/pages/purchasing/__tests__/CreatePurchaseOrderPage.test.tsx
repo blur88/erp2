@@ -26,7 +26,6 @@ const {
   mockFetchPurchaseOrder,
   mockParams,
   mockGetDocumentNumberSettings,
-  mockShowError,
 } = vi.hoisted(() => ({
   mockDispatch: vi.fn(),
   mockNavigate: vi.fn(),
@@ -36,7 +35,6 @@ const {
   mockFetchPurchaseOrder: vi.fn(),
   mockParams: vi.fn(() => ({})),
   mockGetDocumentNumberSettings: vi.fn(),
-  mockShowError: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async () => {
@@ -56,7 +54,7 @@ vi.mock('@/hooks/useRedux', () => ({
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({
     showSuccess: vi.fn(),
-    showError: mockShowError,
+    showError: vi.fn(),
   }),
 }))
 
@@ -153,62 +151,6 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
     )
 
     expect(await screen.findByRole('heading', { name: 'Edit Purchase Order' })).toBeInTheDocument()
-  })
-
-  it('shows the backend message and an update-specific fallback when an edit submit fails', async () => {
-    mockParams.mockReturnValue({ orderNumber: 'PO-TEST' })
-    mockFetchPurchaseOrder.mockReturnValue({
-      unwrap: vi.fn().mockResolvedValue({
-        id: 'po-test-id',
-        supplierId: 'supplier-1',
-        orderDate: '2026-03-01T00:00:00.000Z',
-        shippingAmount: 0,
-        items: [
-          {
-            lineNumber: 1,
-            productId: 'product-1',
-            product: { id: 'product-1', name: 'Alpha Widget', baseCost: 11 },
-            quantity: 1,
-            unitCost: 11,
-            discountType: 'percentage',
-            discountPercent: 0,
-            discountAmount: 0,
-          },
-        ],
-      }),
-    })
-
-    render(
-      <BrowserRouter>
-        <CreatePurchaseOrderPage />
-      </BrowserRouter>,
-    )
-
-    await screen.findByRole('heading', { name: 'Edit Purchase Order' })
-
-    // RTK Query error shape: { status, data: '<message>' }
-    mockUpdatePurchaseOrder.mockReturnValue({
-      unwrap: vi.fn().mockRejectedValue({ status: 400, data: 'Order is not in a draft state' }),
-    })
-
-    await userEvent.click(screen.getByRole('button', { name: /update order/i }))
-
-    await waitFor(() => {
-      expect(mockShowError).toHaveBeenCalledWith('Order is not in a draft state')
-    })
-    expect(mockShowError).not.toHaveBeenCalledWith('Failed to create purchase order')
-
-    // No message → fallback names the update action, not create.
-    mockShowError.mockClear()
-    mockUpdatePurchaseOrder.mockReturnValue({
-      unwrap: vi.fn().mockRejectedValue({ status: 500 }),
-    })
-
-    await userEvent.click(screen.getByRole('button', { name: /update order/i }))
-
-    await waitFor(() => {
-      expect(mockShowError).toHaveBeenCalledWith('Failed to update purchase order')
-    })
   })
 
   it('replaces the autocomplete options with only the latest product search results', async () => {

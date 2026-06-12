@@ -407,7 +407,6 @@ const CreateSalesOrderPage: React.FC = () => {
     } catch (err: any) {
       showError(
         err?.data?.message ||
-          (typeof err?.data === 'string' ? err.data : undefined) ||
           err?.response?.data?.message ||
           `Failed to ${isEditMode ? 'update' : 'create'} sales order`,
       )
