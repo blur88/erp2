@@ -172,7 +172,11 @@ const PurchaseOrderPrintDialog: React.FC<PurchaseOrderPrintDialogProps> = ({
     })
 
     const total = Number(po?.totalAmount ?? 0)
-    const paid = Number(printablePayment?.amount ?? 0)
+    // Use the order's cumulative paidAmount (matches the SO payment receipt),
+    // not a single payment's amount — otherwise a PO paid across multiple
+    // payments shows a wrong, non-zero balance. Fall back to this payment's
+    // amount only when the order does not carry paidAmount.
+    const paid = Number(po?.paidAmount ?? printablePayment?.amount ?? 0)
     const totals = {
       subtotal: Number(po?.subtotal ?? 0),
       shipping: Number(po?.shippingAmount ?? 0),

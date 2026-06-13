@@ -217,6 +217,45 @@ describe('PurchaseOrderPrintDialog', () => {
     expect(within(widgetRow).getByText(/100\.00/)).toBeInTheDocument();
   });
 
+  it('uses the order cumulative paidAmount, not a single payment amount', async () => {
+    // Repro of PO-26-028: total 50, fully paid across two payments (20 + 30).
+    // The dialog receives one payment (20); balance must still be 0, not 30.
+    const user = userEvent.setup();
+    render(
+      <PurchaseOrderPrintDialog
+        open
+        purchaseOrder={makePurchaseOrder({
+          subtotal: 50,
+          totalAmount: 50,
+          paidAmount: 50,
+          items: [
+            {
+              id: 'poi-50',
+              quantity: 1,
+              unitPrice: 50,
+              totalAmount: 50,
+              product: { id: 'p-50', name: 'Widget' },
+            },
+          ],
+        })}
+        payment={
+          { id: 'vp-20', amount: 20, paymentDate: '2026-06-13' } as Partial<VendorPayment>
+        }
+        onClose={() => {}}
+      />,
+    );
+
+    await user.click(screen.getByRole('radio', { name: /Vendor Payment/i }));
+
+    const printRoot = screen.getByTestId('print-root');
+    // Paid reflects cumulative 50.00 (the order's paidAmount), not the 20 payment.
+    expect(printRoot).toHaveTextContent(/50\.00/);
+    expect(printRoot).toHaveTextContent(/Balance:/i);
+    expect(printRoot).toHaveTextContent(/0\.00/);
+    // The single-payment value must NOT be the balance.
+    expect(printRoot).not.toHaveTextContent(/30\.00/);
+  });
+
   it('falls back to PO supplier when payment carries a PO without a supplier', async () => {
     const user = userEvent.setup();
     render(
