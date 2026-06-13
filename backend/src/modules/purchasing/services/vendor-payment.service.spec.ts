@@ -227,6 +227,30 @@ describe('VendorPaymentService', () => {
     });
   });
 
+  describe('findAllByPurchaseOrder manager binding', () => {
+    it('uses the injected repository when no manager is passed', async () => {
+      vendorPaymentRepository.find.mockResolvedValue([]);
+
+      await service.findAllByPurchaseOrder('po-1');
+
+      expect(vendorPaymentRepository.find).toHaveBeenCalledWith({
+        where: { purchaseOrderId: 'po-1', isActive: true },
+      });
+    });
+
+    it('uses the manager repository when a manager is passed', async () => {
+      const managerRepo = { find: jest.fn().mockResolvedValue([]) };
+      const manager = { getRepository: jest.fn().mockReturnValue(managerRepo) } as any;
+
+      await service.findAllByPurchaseOrder('po-1', manager);
+
+      expect(manager.getRepository).toHaveBeenCalledWith(VendorPayment);
+      expect(managerRepo.find).toHaveBeenCalledWith({
+        where: { purchaseOrderId: 'po-1', isActive: true },
+      });
+    });
+  });
+
   describe('searchGlobal', () => {
     const adminUser = { role: UserRole.ADMIN } as any;
 

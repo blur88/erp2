@@ -100,6 +100,7 @@ describe('PurchaseOrderService', () => {
           provide: getRepositoryToken(PurchaseOrderItem),
           useValue: {
             save: jest.fn(),
+            delete: jest.fn(),
           },
         },
         {
@@ -290,6 +291,149 @@ describe('PurchaseOrderService', () => {
       const results = await service.searchGlobal('Vendor', adminUser);
 
       expect(results[0].score).toBe(70);
+    });
+  });
+
+  describe('update workflow', () => {
+    // Wire the transaction so every in-callback getRepository(...) returns a
+    // manager-bound mock, and the locked row is a REAL PurchaseOrder instance (so
+    // calculateTotals() — a method on the entity — is callable).
+    function setupTxMocks(opts: {
+      lockedStatus: PurchaseOrderStatus;
+      lockedOverrides?: Partial<PurchaseOrder>;
+      payments?: { amount: number }[];
+    }) {
+      const savedOrders: PurchaseOrder[] = [];
+      const poManagerRepo = {
+        findOne: jest.fn(),
+        save: jest.fn().mockImplementation((o: PurchaseOrder) => {
+          savedOrders.push(Object.assign(new PurchaseOrder(), o));
+          return Promise.resolve(o);
+        }),
+      };
+      const itemManagerRepo = {
+        delete: jest.fn().mockResolvedValue(undefined),
+        save: jest.fn().mockResolvedValue([]),
+      };
+      const productManagerRepo = {
+        findOne: jest.fn().mockResolvedValue({ id: 'product-1' }),
+      };
+
+      const lockedOrder = Object.assign(new PurchaseOrder(), {
+        id: 'po-1',
+        orderNumber: 'PO-000001',
+        status: opts.lockedStatus,
+        subtotal: 100,
+        discountPercent: 0,
+        discountAmount: 0,
+        shippingAmount: 0,
+        totalAmount: 100,
+        paidAmount: 0,
+        paymentStatus: PurchaseOrderPaymentStatus.UNPAID,
+        orderDate: new Date('2024-01-01'),
+        ...opts.lockedOverrides,
+      });
+      // lockRowForUpdate -> manager.getRepository(PurchaseOrder).findOne(...)
+      poManagerRepo.findOne.mockResolvedValue(lockedOrder);
+
+      const manager = {
+        getRepository: jest.fn().mockImplementation((entity: any) => {
+          if (entity === PurchaseOrder) return poManagerRepo;
+          if (entity === PurchaseOrderItem) return itemManagerRepo;
+          if (entity === Product) return productManagerRepo;
+          return { save: jest.fn(), findOne: jest.fn(), delete: jest.fn() };
+        }),
+      };
+
+      dataSource.transaction.mockImplementation(async (cb: any) => cb(manager));
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue(
+        (opts.payments ?? []) as any,
+      );
+
+      return { manager, poManagerRepo, itemManagerRepo, productManagerRepo, savedOrders };
+    }
+
+    it('all in-transaction data access uses the manager, not injected repos', async () => {
+      const { poManagerRepo, itemManagerRepo, productManagerRepo } = setupTxMocks({
+        lockedStatus: PurchaseOrderStatus.DRAFT,
+      });
+      // After transaction entry there must be no injected-repo data access.
+      purchaseOrderRepository.save.mockClear();
+      purchaseOrderItemRepository.delete.mockClear();
+      purchaseOrderItemRepository.save.mockClear();
+      productRepository.findOne.mockClear();
+
+      await service.update('po-1', {
+        items: [{ productId: 'product-1', quantity: 1, unitPrice: 50 } as any],
+      } as any);
+
+      expect(productManagerRepo.findOne).toHaveBeenCalled();
+      expect(itemManagerRepo.delete).toHaveBeenCalledWith({ purchaseOrderId: 'po-1' });
+      expect(itemManagerRepo.save).toHaveBeenCalled();
+      expect(poManagerRepo.save).toHaveBeenCalled();
+
+      expect(purchaseOrderRepository.save).not.toHaveBeenCalled();
+      expect(purchaseOrderItemRepository.delete).not.toHaveBeenCalled();
+      expect(purchaseOrderItemRepository.save).not.toHaveBeenCalled();
+      expect(productRepository.findOne).not.toHaveBeenCalled();
+    });
+
+    it('re-asserts editability against the locked row and rejects a RECEIVED order', async () => {
+      setupTxMocks({ lockedStatus: PurchaseOrderStatus.RECEIVED });
+
+      await expect(
+        service.update('po-1', { shippingAmount: 10 } as any),
+      ).rejects.toThrow('Return the goods first.');
+    });
+
+    it('recomputes totals and reconciles on a shipping-only update (no items)', async () => {
+      const { savedOrders } = setupTxMocks({
+        lockedStatus: PurchaseOrderStatus.READY,
+        payments: [{ amount: 100 }], // fully paid against old total of 100
+      });
+
+      await service.update('po-1', { shippingAmount: 20 } as any);
+
+      // total recomputed to 120, paid is only 100 -> PARTIAL, demoted to DRAFT
+      const finalSave = savedOrders[savedOrders.length - 1];
+      expect(finalSave.totalAmount).toBe(120);
+      expect(finalSave.paymentStatus).toBe(PurchaseOrderPaymentStatus.PARTIAL);
+      expect(finalSave.status).toBe(PurchaseOrderStatus.DRAFT);
+    });
+
+    it('promotes a partially-paid DRAFT to READY when a lower total makes it fully paid', async () => {
+      // DRAFT, subtotal 100, paid 80 (PARTIAL). Apply 20% discount -> total 80,
+      // now fully paid -> PAID + promoted to READY.
+      const { savedOrders } = setupTxMocks({
+        lockedStatus: PurchaseOrderStatus.DRAFT,
+        payments: [{ amount: 80 }],
+      });
+
+      await service.update('po-1', { discountPercent: 20 } as any);
+
+      const finalSave = savedOrders[savedOrders.length - 1];
+      expect(finalSave.totalAmount).toBe(80);
+      expect(finalSave.paymentStatus).toBe(PurchaseOrderPaymentStatus.PAID);
+      expect(finalSave.status).toBe(PurchaseOrderStatus.READY);
+    });
+
+    it('clears the discount on a discount-removal update (10% -> 0%)', async () => {
+      // Locked DRAFT carrying a stale 10% discount (subtotal 100, discountAmount 10,
+      // total 90). Removing the discount restores total to 100.
+      const { savedOrders } = setupTxMocks({
+        lockedStatus: PurchaseOrderStatus.DRAFT,
+        lockedOverrides: {
+          discountPercent: 10,
+          discountAmount: 10,
+          totalAmount: 90,
+        },
+      });
+
+      await service.update('po-1', { discountPercent: 0 } as any);
+
+      const finalSave = savedOrders[savedOrders.length - 1];
+      expect(finalSave.discountAmount).toBe(0);
+      expect(finalSave.totalAmount).toBe(100);
     });
   });
 

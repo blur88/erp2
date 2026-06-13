@@ -36,6 +36,7 @@ import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
 import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
+import { lockRowForUpdate, repoFor } from '../../../common/db/tx-helpers';
 
 @Injectable()
 export class PurchaseOrderService extends BaseCrudService<
@@ -501,97 +502,73 @@ export class PurchaseOrderService extends BaseCrudService<
     username?: string,
   ): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Updating purchase order: ${id}`);
-
-    const purchaseOrder = await this.purchaseOrderRepository.findOne({
-      where: { id },
-      // Don't load items relation to avoid cascade issues when we manually save them
-    });
-
-    if (!purchaseOrder) {
-      throw new NotFoundException(`Purchase order with ID ${id} not found`);
-    }
-
-    await this.purchaseOrderLifecycleService.assertEditAllowed(id);
-
-    // Check if order can be modified
     try {
-      // Update basic fields (exclude items as they're handled separately)
-      const { items: _, ...updateFields } = updatePurchaseOrderDto;
-      Object.assign(purchaseOrder, {
-        ...updateFields,
-        orderDate: updatePurchaseOrderDto.orderDate ?
-          new Date(updatePurchaseOrderDto.orderDate) : purchaseOrder.orderDate,
+      const updatedPurchaseOrder = await this.dataSource.transaction(async (manager: EntityManager) => {
+        const itemRepo = repoFor(manager, PurchaseOrderItem, this.purchaseOrderItemRepository);
+        const productRepo = repoFor(manager, Product, this.productRepository);
+
+        const purchaseOrder = await lockRowForUpdate(manager, PurchaseOrder, id, {
+          notFoundMessage: `Purchase order with ID ${id} not found`,
+        });
+
+        PurchaseOrderLifecycleService.assertStatusEditable(purchaseOrder.status);
+
+        const { items: _, ...updateFields } = updatePurchaseOrderDto;
+        Object.assign(purchaseOrder, {
+          ...updateFields,
+          orderDate: updatePurchaseOrderDto.orderDate ? new Date(updatePurchaseOrderDto.orderDate) : purchaseOrder.orderDate,
+        });
+
+        if (updatePurchaseOrderDto.items) {
+          await itemRepo.delete({ purchaseOrderId: id });
+
+          const orderItems: PurchaseOrderItem[] = [];
+          let subtotal = 0;
+          let lineNum = 1;
+
+          for (const itemDto of updatePurchaseOrderDto.items) {
+            const product = await productRepo.findOne({ where: { id: itemDto.productId } });
+            if (!product) {
+              throw new BadRequestException(`Product with ID ${itemDto.productId} not found`);
+            }
+
+            const item = new PurchaseOrderItem();
+            item.purchaseOrderId = id;
+            item.productId = itemDto.productId;
+            item.quantity = itemDto.quantity;
+            item.unitCost = itemDto.unitPrice;
+            item.discountType = itemDto.discountType || 'percentage';
+            item.discountPercent = itemDto.discountPercent || 0;
+            item.discountAmount = itemDto.discountAmount || 0;
+            item.status = 'pending' as any;
+            item.receivedQuantity = 0;
+            item.lineNumber = lineNum;
+
+            let unitDiscount = 0;
+            if (item.discountType === 'percentage') {
+              unitDiscount = item.discountPercent > 0 ? (Number(item.unitCost) * Number(item.discountPercent)) / 100 : 0;
+            } else if (item.discountType === 'fixed_amount') {
+              unitDiscount = Number(item.discountAmount) || 0;
+            }
+            const discountedUnitPrice = Number(item.unitCost) - unitDiscount;
+            const totalAmount = discountedUnitPrice * Number(item.quantity);
+
+            orderItems.push(item);
+            subtotal += totalAmount;
+            lineNum++;
+          }
+
+          await itemRepo.save(orderItems);
+          purchaseOrder.subtotal = subtotal;
+          purchaseOrder.items = orderItems;
+        }
+
+        purchaseOrder.calculateTotals();
+
+        await this.reconcilePaymentState(purchaseOrder, manager);
+        return purchaseOrder;
       });
 
-      // Update items if provided
-      if (updatePurchaseOrderDto.items) {
-        // Remove existing items
-        await this.purchaseOrderItemRepository.delete({ purchaseOrderId: id });
-
-        // Create new items
-        const orderItems: PurchaseOrderItem[] = [];
-        let subtotal = 0;
-        let lineNum = 1;
-
-        for (const itemDto of updatePurchaseOrderDto.items) {
-          let product: Product | undefined;
-
-          if (itemDto.productId) {
-            product = await this.productRepository.findOne({
-              where: { id: itemDto.productId },
-            });
-          }
-
-          if (!product) {
-            throw new BadRequestException(`Product with ID ${itemDto.productId} not found`);
-          }
-
-          const item = new PurchaseOrderItem();
-          item.purchaseOrderId = id;
-          item.productId = itemDto.productId;
-          item.quantity = itemDto.quantity;
-          item.unitCost = itemDto.unitPrice;
-          item.discountType = itemDto.discountType || 'percentage';
-          item.discountPercent = itemDto.discountPercent || 0;
-          item.discountAmount = itemDto.discountAmount || 0;
-          item.status = 'pending' as any;
-          item.receivedQuantity = 0;
-          item.lineNumber = lineNum;
-
-          // Calculate totals manually to get the amount before saving
-          // Discount is applied to unit price first, then multiplied by quantity
-          let unitDiscount = 0;
-          if (item.discountType === 'percentage') {
-            unitDiscount = item.discountPercent > 0
-              ? (Number(item.unitCost) * Number(item.discountPercent)) / 100
-              : 0;
-          } else if (item.discountType === 'fixed_amount') {
-            unitDiscount = Number(item.discountAmount) || 0;
-          }
-          const discountedUnitPrice = Number(item.unitCost) - unitDiscount;
-          const totalAmount = discountedUnitPrice * Number(item.quantity);
-
-          orderItems.push(item);
-          subtotal += totalAmount;
-          lineNum++;
-        }
-
-        try {
-          await this.purchaseOrderItemRepository.save(orderItems);
-        } catch (saveError) {
-          this.logger.error(`Failed to save purchase order items: ${saveError.message}`);
-          throw saveError;
-        }
-
-        purchaseOrder.subtotal = subtotal;
-        // Attach items to purchase order before calculating totals
-        purchaseOrder.items = orderItems;
-        purchaseOrder.calculateTotals();
-      }
-
-      const updatedPurchaseOrder = await this.purchaseOrderRepository.save(purchaseOrder);
-
-      // Log audit trail for update
       await this.auditLogService.log(
         'UPDATE',
         'PurchaseOrder',
@@ -611,6 +588,9 @@ export class PurchaseOrderService extends BaseCrudService<
       return await this.findOne(updatedPurchaseOrder.id);
     } catch (error) {
       this.logger.error(`Error updating purchase order: ${error.message}`, error.stack);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new BadRequestException('Failed to update purchase order');
     }
   }
@@ -986,8 +966,8 @@ export class PurchaseOrderService extends BaseCrudService<
    * partially applied. Only the DRAFT<->READY band is auto-managed here;
    * RECEIVED/CANCELLED orders never reach this method.
    */
-  private async reconcilePaymentState(purchaseOrder: PurchaseOrder): Promise<void> {
-    const activePayments = await this.vendorPaymentService.findAllByPurchaseOrder(purchaseOrder.id);
+  private async reconcilePaymentState(purchaseOrder: PurchaseOrder, manager?: EntityManager): Promise<void> {
+    const activePayments = await this.vendorPaymentService.findAllByPurchaseOrder(purchaseOrder.id, manager);
     const paidAmount = activePayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
     const total = Number(purchaseOrder.totalAmount);
 
@@ -1005,8 +985,7 @@ export class PurchaseOrderService extends BaseCrudService<
     } else if (!fullyPaid && purchaseOrder.status === PurchaseOrderStatus.READY) {
       purchaseOrder.status = PurchaseOrderStatus.DRAFT;
     }
-
-    await this.purchaseOrderRepository.save(purchaseOrder);
+    await repoFor(manager, PurchaseOrder, this.purchaseOrderRepository).save(purchaseOrder);
   }
 
   /**

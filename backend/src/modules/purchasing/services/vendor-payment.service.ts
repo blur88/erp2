@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
+import { Repository, Between, LessThanOrEqual, MoreThanOrEqual, EntityManager } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   VendorPayment,
@@ -20,6 +20,7 @@ import {
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '@modules/accounting/services/accounting.service';
 import { SettingsService } from '@modules/settings/settings.service';
+import { repoFor } from '../../../common/db/tx-helpers';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
 import { canSearchVendorPayments } from '../../search/search.permissions';
 import {
@@ -597,8 +598,8 @@ export class VendorPaymentService extends BaseCrudService<
   /**
    * Find all vendor payments for a purchase order
    */
-  async findAllByPurchaseOrder(poId: string): Promise<VendorPayment[]> {
-    return this.vendorPaymentRepository.find({
+  async findAllByPurchaseOrder(poId: string, manager?: EntityManager): Promise<VendorPayment[]> {
+    return repoFor(manager, VendorPayment, this.vendorPaymentRepository).find({
       where: {
         purchaseOrderId: poId,
         isActive: true,

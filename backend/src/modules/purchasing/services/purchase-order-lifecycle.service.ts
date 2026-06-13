@@ -49,7 +49,7 @@ export class PurchaseOrderLifecycleService {
   }
 
   static assertStatusEditable(status: PurchaseOrderStatus): void {
-    if (status !== PurchaseOrderStatus.READY) {
+    if (status !== PurchaseOrderStatus.DRAFT && status !== PurchaseOrderStatus.READY) {
       throw new BadRequestException(
         `Cannot edit purchase order in ${status} status. ${
           status === PurchaseOrderStatus.RECEIVED
@@ -280,4 +280,3 @@ export class PurchaseOrderLifecycleService {
     return saved;
   }
 }
-
