@@ -13,8 +13,8 @@ import {
   RadioGroup,
   Tooltip,
 } from '@mui/material'
-import { default as PrintIcon } from '@mui/icons-material/Print'
-import { default as CloseIcon } from '@mui/icons-material/Close'
+import PrintIcon from '@mui/icons-material/Print'
+import CloseIcon from '@mui/icons-material/Close'
 
 import BasePrintTemplate from '@/components/print/BasePrintTemplate'
 import { useGetPrintSettingsQuery } from '@/store/api/printSettingsApi'
@@ -24,8 +24,8 @@ import type { PurchaseOrder, VendorPayment } from '@/types'
 
 // The PO response DTO returns the supplier FLATTENED (address/city/...),
 // not the global Supplier entity shape (shipping*/billing*).
-// Fields are `string | null` so the global Supplier (whose `phone` is
-// `string | null`) is structurally assignable from callers without casts.
+// All PrintSupplier fields are optional, so any object is structurally
+// assignable — callers pass PurchaseOrder which has Supplier? for supplier.
 export interface PrintSupplier {
   companyName?: string | null
   address?: string | null
@@ -92,7 +92,6 @@ const PurchaseOrderPrintDialog: React.FC<PurchaseOrderPrintDialogProps> = ({
     ? {
         ...payment,
         purchaseOrder: (payment.purchaseOrder ?? purchaseOrder) as PurchaseOrderPrintData,
-        supplier: (payment.supplier ?? purchaseOrder.supplier) as PrintSupplier | undefined,
       }
     : null
 
@@ -164,7 +163,7 @@ const PurchaseOrderPrintDialog: React.FC<PurchaseOrderPrintDialogProps> = ({
         documentTitle="Vendor Payment"
         documentNumber={po?.orderNumber || printablePayment?.id || ''}
         documentDate={formatDate(printablePayment?.paymentDate || new Date())}
-        recipient={toRecipient(po?.supplier ?? printablePayment?.supplier)}
+        recipient={toRecipient(po?.supplier)}
         items={items}
         totals={totals}
         notes={printablePayment?.notes || ''}
