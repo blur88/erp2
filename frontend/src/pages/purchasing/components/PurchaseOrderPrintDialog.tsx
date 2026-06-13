@@ -23,9 +23,9 @@ import { formatDate } from '@/utils/formatters'
 import type { PurchaseOrder, VendorPayment } from '@/types'
 
 // The PO response DTO returns the supplier FLATTENED (address/city/...),
-// not the global Supplier entity shape (shipping*/billing*).
-// All PrintSupplier fields are optional, so any object is structurally
-// assignable — callers pass PurchaseOrder which has Supplier? for supplier.
+// not the global Supplier entity shape (shipping*/billing*). Fields are
+// optional and `string | null` so the global Supplier (whose `phone` is
+// `string | null`) is structurally assignable from callers without casts.
 export interface PrintSupplier {
   companyName?: string | null
   address?: string | null
@@ -92,6 +92,7 @@ const PurchaseOrderPrintDialog: React.FC<PurchaseOrderPrintDialogProps> = ({
     ? {
         ...payment,
         purchaseOrder: (payment.purchaseOrder ?? purchaseOrder) as PurchaseOrderPrintData,
+        supplier: (payment.supplier ?? purchaseOrder.supplier) as PrintSupplier | undefined,
       }
     : null
 
@@ -139,13 +140,19 @@ const PurchaseOrderPrintDialog: React.FC<PurchaseOrderPrintDialogProps> = ({
 
   const renderVendorPaymentContent = () => {
     const po = printablePayment?.purchaseOrder
-    const items = (po?.items || []).map((item) => ({
-      description: itemDescription(item),
-      quantity: Number(item.quantity ?? 0),
-      unitPrice: Number(item.unitPrice ?? item.unitCost ?? 0),
-      discount: Number(item.discountAmount ?? 0),
-      amount: Number(item.totalAmount ?? 0),
-    }))
+    const items = (po?.items || []).map((item) => {
+      const quantity = Number(item.quantity ?? 0)
+      const unitPrice = Number(item.unitPrice ?? item.unitCost ?? 0)
+      return {
+        description: itemDescription(item),
+        quantity,
+        unitPrice,
+        discount: Number(item.discountAmount ?? 0),
+        // Prefer the server line total; fall back to quantity * unitPrice so a
+        // missing totalAmount does not render as 0 (matches PO content).
+        amount: Number(item.totalAmount ?? quantity * unitPrice),
+      }
+    })
 
     const total = Number(po?.totalAmount ?? 0)
     const paid = Number(printablePayment?.amount ?? 0)
@@ -163,7 +170,7 @@ const PurchaseOrderPrintDialog: React.FC<PurchaseOrderPrintDialogProps> = ({
         documentTitle="Vendor Payment"
         documentNumber={po?.orderNumber || printablePayment?.id || ''}
         documentDate={formatDate(printablePayment?.paymentDate || new Date())}
-        recipient={toRecipient(po?.supplier)}
+        recipient={toRecipient(po?.supplier ?? printablePayment?.supplier)}
         items={items}
         totals={totals}
         notes={printablePayment?.notes || ''}

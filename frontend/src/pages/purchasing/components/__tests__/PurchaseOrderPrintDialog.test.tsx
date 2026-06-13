@@ -216,4 +216,55 @@ describe('PurchaseOrderPrintDialog', () => {
     expect(within(widgetRow).getByText(/50\.00/)).toBeInTheDocument();
     expect(within(widgetRow).getByText(/100\.00/)).toBeInTheDocument();
   });
+
+  it('falls back to PO supplier when payment carries a PO without a supplier', async () => {
+    const user = userEvent.setup();
+    render(
+      <PurchaseOrderPrintDialog
+        open
+        purchaseOrder={makePurchaseOrder()}
+        payment={
+          {
+            id: 'vp-2',
+            amount: 40,
+            paymentDate: '2026-06-05',
+            // Nested PO present but missing a supplier — recipient must fall
+            // back to the outer purchaseOrder's flattened supplier.
+            purchaseOrder: { orderNumber: 'PO-001', items: [] } as never,
+          } as Partial<VendorPayment>
+        }
+        onClose={() => {}}
+      />,
+    );
+
+    await user.click(screen.getByRole('radio', { name: /Vendor Payment/i }));
+    expect(screen.getByTestId('print-root')).toHaveTextContent('Acme Supplies');
+  });
+
+  it('computes the vendor payment line amount when totalAmount is absent', async () => {
+    const user = userEvent.setup();
+    render(
+      <PurchaseOrderPrintDialog
+        open
+        purchaseOrder={makePurchaseOrder({
+          items: [
+            {
+              id: 'poi-9',
+              quantity: 3,
+              unitPrice: 25,
+              // no totalAmount -> amount should be 3 * 25 = 75.00, not 0
+              product: { id: 'p-9', name: 'Sprocket' },
+            },
+          ],
+        })}
+        payment={{ id: 'vp-3', amount: 10 } as Partial<VendorPayment>}
+        onClose={() => {}}
+      />,
+    );
+
+    await user.click(screen.getByRole('radio', { name: /Vendor Payment/i }));
+    const printRoot = screen.getByTestId('print-root');
+    const row = within(printRoot).getByText('Sprocket').closest('tr') as HTMLElement;
+    expect(within(row).getByText(/75\.00/)).toBeInTheDocument();
+  });
 });
