@@ -64,6 +64,15 @@ export class PurchaseOrder extends BaseEntity {
   @IsDate()
   orderDate: Date;
 
+  @Column({
+    type: 'date',
+    nullable: true,
+    comment: 'Date goods were received (set on RECEIVED transition)',
+  })
+  @IsOptional()
+  @IsDate()
+  receivedDate?: Date | null;
+
   // Financial Information
   @Column({
     type: 'decimal',
