@@ -758,6 +758,14 @@ export class PurchaseOrderService extends BaseCrudService<
       }
     }
 
+    // Generate document numbers BEFORE opening the transaction. generateDocumentNumber
+    // does its own DB work and is not bound to this tx manager (#719); running it while
+    // holding the PO pessimistic_write lock would extend the lock for no benefit.
+    const paymentNumbers: string[] = [];
+    for (let i = 0; i < refunds.length; i++) {
+      paymentNumbers.push(await this.settingsService.generateDocumentNumber('Vendor Payments'));
+    }
+
     const savedRefundRows: { id: string; paymentMethodId: string }[] = [];
 
     await this.dataSource.transaction(async (manager: EntityManager) => {
@@ -782,14 +790,14 @@ export class PurchaseOrderService extends BaseCrudService<
         );
       }
 
-      for (const line of refunds) {
-        const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments');
+      for (let i = 0; i < refunds.length; i++) {
+        const line = refunds[i];
         const refundRow = repo.create({
           supplierId: purchaseOrder.supplierId,
           purchaseOrderId: orderId,
           paymentMethodId: line.paymentMethodId,
           paymentDate: new Date(),
-          paymentNumber,
+          paymentNumber: paymentNumbers[i],
           amount: -Number(line.amount),
           notes: line.reference,
           status: 'completed',
@@ -823,7 +831,7 @@ export class PurchaseOrderService extends BaseCrudService<
           entityId: row.id,
           userId: actor,
           username,
-          newValues: { vendorPaymentId: row.id, paymentMethodId: row.paymentMethodId, refund: true },
+          newValues: { refundVendorPaymentId: row.id, paymentMethodId: row.paymentMethodId, refund: true },
         },
       );
     }
