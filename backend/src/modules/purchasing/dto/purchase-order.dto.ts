@@ -396,9 +396,9 @@ export class RecordVendorPaymentsDto {
 export class RecordOrderPaymentsDto extends RecordVendorPaymentsDto {}
 
 export class RefundLineDto {
-  @ApiProperty({ description: 'Original vendor payment to reverse' })
+  @ApiProperty({ description: 'Payment method to refund against' })
   @IsUUID()
-  vendorPaymentId: string;
+  paymentMethodId: string;
 
   @ApiProperty({ description: 'Refund amount (positive)' })
   @Transform(({ value }) => parseFloat(value))
@@ -406,10 +406,10 @@ export class RefundLineDto {
   @Min(0.01)
   amount: number;
 
-  @ApiPropertyOptional({ description: 'Refund reason' })
+  @ApiPropertyOptional({ description: 'Refund reference / note' })
   @IsOptional()
   @IsString()
-  reason?: string;
+  reference?: string;
 }
 
 export class RecordPurchaseOrderRefundsDto {

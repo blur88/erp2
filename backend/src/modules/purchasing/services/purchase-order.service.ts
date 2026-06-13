@@ -9,7 +9,8 @@ import {
   PurchaseOrderStatus,
   Supplier,
   Product,
-  VendorPayment
+  VendorPayment,
+  PaymentMethodEntity
 } from '../../../database/entities';
 import {
   CreatePurchaseOrderDto,
@@ -58,6 +59,8 @@ export class PurchaseOrderService extends BaseCrudService<
     private readonly productRepository: Repository<Product>,
     @InjectRepository(VendorPayment)
     private readonly vendorPaymentRepository: Repository<VendorPayment>,
+    @InjectRepository(PaymentMethodEntity)
+    private readonly paymentMethodRepository: Repository<PaymentMethodEntity>,
     private readonly supplierService: SupplierService,
     private readonly vendorPaymentService: VendorPaymentService,
     private readonly settingsService: SettingsService,
@@ -732,102 +735,95 @@ export class PurchaseOrderService extends BaseCrudService<
 
   async recordRefunds(
     orderId: string,
-    refunds: { vendorPaymentId: string; amount: number; reason?: string }[],
+    refunds: { paymentMethodId: string; amount: number; reference?: string }[],
     userId?: string,
     username?: string,
   ): Promise<PurchaseOrderResponseDto> {
     const actor = userId || 'system';
 
+    if (refunds.length === 0) {
+      throw new BadRequestException('At least one refund line is required');
+    }
     for (const line of refunds) {
       if (!(Number(line.amount) > 0)) {
         throw new BadRequestException('Each refund amount must be greater than zero');
       }
     }
-
-    const purchaseOrder = await this.purchaseOrderRepository.findOne({ where: { id: orderId } });
-    if (!purchaseOrder) {
-      throw new NotFoundException('Purchase order not found');
-    }
-    if (
-      purchaseOrder.status === PurchaseOrderStatus.CANCELLED ||
-      purchaseOrder.status === PurchaseOrderStatus.RECEIVED
-    ) {
-      throw new BadRequestException(
-        `Cannot refund a ${purchaseOrder.status} purchase order.`,
-      );
+    for (const line of refunds) {
+      const method = await this.paymentMethodRepository.findOne({
+        where: { id: line.paymentMethodId, isActive: true },
+      });
+      if (!method) {
+        throw new BadRequestException(`Payment method ${line.paymentMethodId} not found or inactive`);
+      }
     }
 
-    // The reversed originals, captured inside the tx so GL reversal can run after commit.
-    const reversedOriginalIds: string[] = [];
+    const savedRefundRows: { id: string; paymentMethodId: string }[] = [];
 
     await this.dataSource.transaction(async (manager: EntityManager) => {
+      const purchaseOrder = await lockRowForUpdate(manager, PurchaseOrder, orderId, {
+        notFoundMessage: 'Purchase order not found',
+      });
+      if (
+        purchaseOrder.status === PurchaseOrderStatus.CANCELLED ||
+        purchaseOrder.status === PurchaseOrderStatus.RECEIVED
+      ) {
+        throw new BadRequestException(`Cannot refund a ${purchaseOrder.status} purchase order.`);
+      }
+
       const repo = manager.getRepository(VendorPayment);
 
-      for (const line of refunds) {
-        // Atomic flip completed -> refunded. If no row matched (already refunded,
-        // wrong PO, or missing), affected === 0 -> reject. This is the
-        // concurrency-safe re-refund guard.
-        const flip = await repo.update(
-          { id: line.vendorPaymentId, purchaseOrderId: orderId, status: 'completed' } as any,
-          { status: 'refunded' } as any,
+      const existing = await repo.find({ where: { purchaseOrderId: orderId, isActive: true } });
+      const netPaid = existing.reduce((sum, r) => sum + Number(r.amount), 0);
+      const totalRefund = refunds.reduce((sum, l) => sum + Number(l.amount), 0);
+      if (totalRefund > netPaid + 0.001) {
+        throw new BadRequestException(
+          `Total refund amount (${totalRefund}) exceeds net paid (${netPaid.toFixed(4)})`,
         );
-        if (!flip.affected) {
-          throw new ConflictException(
-            `Vendor payment ${line.vendorPaymentId} is not refundable (not found, not this order, or already refunded).`,
-          );
-        }
+      }
 
-        const original = await repo.findOne({ where: { id: line.vendorPaymentId } });
-        if (!original) {
-          throw new ConflictException(`Vendor payment ${line.vendorPaymentId} not found`);
-        }
-        if (Number(line.amount) > Number(original.amount)) {
-          throw new BadRequestException(
-            `Refund amount (${line.amount}) exceeds original payment amount (${original.amount})`,
-          );
-        }
-
+      for (const line of refunds) {
         const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments');
         const refundRow = repo.create({
-          supplierId: original.supplierId,
+          supplierId: purchaseOrder.supplierId,
           purchaseOrderId: orderId,
-          paymentMethodId: original.paymentMethodId,
+          paymentMethodId: line.paymentMethodId,
           paymentDate: new Date(),
           paymentNumber,
           amount: -Number(line.amount),
-          notes: line.reason,
-          status: 'refunded',
+          notes: line.reference,
+          status: 'completed',
         } as any);
-        await repo.save(refundRow);
-
-        reversedOriginalIds.push(line.vendorPaymentId);
+        const saved = await repo.save(refundRow);
+        savedRefundRows.push({ id: (saved as any).id, paymentMethodId: line.paymentMethodId });
       }
+
+      await this.reconcilePaymentState(purchaseOrder, manager);
     });
 
-    // GL reversal runs after the DB tx (accounting is not manager-bound, #719).
-    // reverseSourceEntries is idempotent on already-reversed entries.
-    for (const originalId of reversedOriginalIds) {
+    for (const row of savedRefundRows) {
       try {
-        await this.accountingService.reverseSourceEntries('vendor_payment', originalId, actor);
+        const fullRow = await this.vendorPaymentRepository.findOne({ where: { id: row.id } });
+        if (fullRow) {
+          await this.accountingService.postVendorRefundEntry(fullRow, actor, username);
+        }
       } catch (error) {
         this.logger.error(
-          `Failed to reverse accounting for vendor payment ${originalId}: ${error.message}`,
+          `Failed to post refund accounting entry for vendor payment ${row.id}: ${error.message}`,
         );
       }
     }
 
-    await this.reconcilePaymentState(purchaseOrder);
-
-    for (const originalId of reversedOriginalIds) {
+    for (const row of savedRefundRows) {
       await this.auditLogService.log(
         'CREATE',
         'VendorPayment',
-        `Recorded refund for ${purchaseOrder.orderNumber}`,
+        `Recorded refund for purchase order ${orderId}`,
         {
-          entityId: originalId,
+          entityId: row.id,
           userId: actor,
           username,
-          newValues: { originalVendorPaymentId: originalId, resultingPaymentStatus: purchaseOrder.paymentStatus },
+          newValues: { vendorPaymentId: row.id, paymentMethodId: row.paymentMethodId, refund: true },
         },
       );
     }
