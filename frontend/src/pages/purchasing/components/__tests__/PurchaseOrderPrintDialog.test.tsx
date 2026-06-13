@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import PurchaseOrderPrintDialog, {
   type PurchaseOrderPrintData,
   type PrintSupplier,
@@ -77,6 +77,9 @@ function makePurchaseOrder(
 }
 
 describe('PurchaseOrderPrintDialog', () => {
+  // formatDate reads localStorage.dateFormat; clear so a stray value can't bleed between tests.
+  afterEach(() => localStorage.clear());
+
   it('renders the Purchase Order preview by default in a print-root', () => {
     render(
       <PurchaseOrderPrintDialog
@@ -383,7 +386,10 @@ describe('PurchaseOrderPrintDialog', () => {
     // Qty column shows received qty (3), not ordered (5).
     const widgetRow = within(printRoot).getByText('Widget').closest('tr') as HTMLElement;
     expect(within(widgetRow).getByText('3')).toBeInTheDocument();
-    // No money: unit price / amount must not appear.
+    // No money: the pricing column headers must be absent (structural, not value-based).
+    expect(within(printRoot).queryByText('Unit Price')).not.toBeInTheDocument();
+    expect(within(printRoot).queryByText('Amount')).not.toBeInTheDocument();
+    // ...and the line's price/amount values do not render.
     expect(printRoot).not.toHaveTextContent(/50\.00/);
     expect(printRoot).not.toHaveTextContent(/250\.00/);
     // Total Quantity box present.
