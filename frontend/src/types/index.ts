@@ -373,7 +373,7 @@ export interface PurchaseOrder {
   orderDate: Date;
   deletedAt?: Date | string;
   expectedDate?: Date;
-  receivedDate?: Date;
+  receivedDate?: Date | null;
   notes?: string;
   vendorPayments?: Partial<VendorPayment>[];
   createdAt: Date;

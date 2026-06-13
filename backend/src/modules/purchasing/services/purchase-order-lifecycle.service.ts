@@ -209,8 +209,10 @@ export class PurchaseOrderLifecycleService {
 
       await manager.getRepository(PurchaseOrder).update(id, {
         status: PurchaseOrderStatus.RECEIVED,
+        receivedDate: receiveDate,
       });
       purchaseOrder.status = PurchaseOrderStatus.RECEIVED;
+      purchaseOrder.receivedDate = receiveDate;
 
       await this.accountingService.postPurchaseReceiptEntry(
         purchaseOrder,
@@ -256,8 +258,10 @@ export class PurchaseOrderLifecycleService {
 
       await manager.getRepository(PurchaseOrder).update(id, {
         status: PurchaseOrderStatus.READY,
+        receivedDate: null,
       });
       purchaseOrder.status = PurchaseOrderStatus.READY;
+      purchaseOrder.receivedDate = null;
 
       await this.accountingService.reverseSourceEntries(
         'purchase_order',

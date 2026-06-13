@@ -1064,6 +1064,7 @@ export class PurchaseOrderService extends BaseCrudService<
         country: purchaseOrder.supplier.billingCountry,
       } : undefined,
       orderDate: purchaseOrder.orderDate,
+      receivedDate: purchaseOrder.receivedDate,
       subtotal: Number(purchaseOrder.subtotal),
       discountPercent: Number(purchaseOrder.discountPercent),
       discountAmount: Number(purchaseOrder.discountAmount),

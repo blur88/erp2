@@ -617,6 +617,29 @@ describe('PurchaseOrderService', () => {
       // sortField === 'orderNumber' so the secondary orderNumber tiebreaker is skipped
       expect(queryBuilder.addOrderBy).not.toHaveBeenCalled();
     });
+
+    it('maps receivedDate through to the response dto', async () => {
+      const received = new Date('2026-06-10');
+      const queryBuilder = createFindAllQueryBuilder([
+        createFindAllOrder({ receivedDate: received } as any),
+      ]);
+      purchaseOrderRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      const result = await service.findAll({});
+
+      expect(result.orders[0].receivedDate).toEqual(received);
+    });
+
+    it('maps a null receivedDate as null', async () => {
+      const queryBuilder = createFindAllQueryBuilder([
+        createFindAllOrder({ receivedDate: null } as any),
+      ]);
+      purchaseOrderRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      const result = await service.findAll({});
+
+      expect(result.orders[0].receivedDate).toBeNull();
+    });
   });
 
 

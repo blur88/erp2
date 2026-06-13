@@ -62,6 +62,7 @@ export interface PrintPurchaseOrderItem {
   unitCost?: number
   discountAmount?: number
   totalAmount?: number
+  receivedQuantity?: number
 }
 
 export type PurchaseOrderPrintData = Omit<PurchaseOrder, 'supplier' | 'items'> & {
@@ -97,7 +98,7 @@ const PurchaseOrderPrintDialog: React.FC<PurchaseOrderPrintDialogProps> = ({
   purchaseOrder,
   payment,
 }) => {
-  const [printType, setPrintType] = useState<'purchase_order' | 'vendor_payment'>(
+  const [printType, setPrintType] = useState<'purchase_order' | 'vendor_payment' | 'grn'>(
     'purchase_order',
   )
   const { currency } = useCurrency()
@@ -204,6 +205,36 @@ const PurchaseOrderPrintDialog: React.FC<PurchaseOrderPrintDialogProps> = ({
     )
   }
 
+  const renderGRNContent = () => {
+    const items = (purchaseOrder.items || []).map((item) => ({
+      description: itemDescription(item),
+      // GRN is a receiving doc: show what arrived, fall back to ordered qty.
+      quantity: Number(item.receivedQuantity ?? item.quantity ?? 0),
+      // amount is a required PrintItem field but unused when showPricing is false.
+      amount: 0,
+    }))
+
+    return (
+      <BasePrintTemplate
+        settings={printSettings}
+        documentTitle="Goods Received Note"
+        documentNumber={purchaseOrder.orderNumber || ''}
+        documentDate={formatDate(
+          purchaseOrder.receivedDate ?? purchaseOrder.updatedAt ?? new Date(),
+        )}
+        recipient={toRecipient(purchaseOrder.supplier)}
+        items={items}
+        totals={{ subtotal: 0, total: 0 }}
+        notes={purchaseOrder.notes || ''}
+        perPageFooter={printSettings?.purchasingPerPageFooter || ''}
+        endOfDocFooter={printSettings?.purchasingEndOfDocFooter || ''}
+        showDiscount={false}
+        showPricing={false}
+        currency={currency}
+      />
+    )
+  }
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Print Options</DialogTitle>
@@ -212,7 +243,7 @@ const PurchaseOrderPrintDialog: React.FC<PurchaseOrderPrintDialogProps> = ({
           <RadioGroup
             value={printType}
             onChange={(_, value) =>
-              setPrintType(value as 'purchase_order' | 'vendor_payment')
+              setPrintType(value as 'purchase_order' | 'vendor_payment' | 'grn')
             }
             row
           >
@@ -231,6 +262,22 @@ const PurchaseOrderPrintDialog: React.FC<PurchaseOrderPrintDialogProps> = ({
                 />
               </span>
             </Tooltip>
+            <Tooltip
+              title={
+                purchaseOrder.status !== 'RECEIVED'
+                  ? 'Goods have not been received yet'
+                  : ''
+              }
+            >
+              <span>
+                <FormControlLabel
+                  value="grn"
+                  control={<Radio />}
+                  label="Goods Received Note"
+                  disabled={purchaseOrder.status !== 'RECEIVED'}
+                />
+              </span>
+            </Tooltip>
           </RadioGroup>
         </FormControl>
 
@@ -240,9 +287,11 @@ const PurchaseOrderPrintDialog: React.FC<PurchaseOrderPrintDialogProps> = ({
           </Box>
         ) : (
           <Box className="print-root" data-testid="print-root">
-            {printType === 'vendor_payment'
-              ? renderVendorPaymentContent()
-              : renderPurchaseOrderContent()}
+            {printType === 'grn'
+              ? renderGRNContent()
+              : printType === 'vendor_payment'
+                ? renderVendorPaymentContent()
+                : renderPurchaseOrderContent()}
           </Box>
         )}
       </DialogContent>
