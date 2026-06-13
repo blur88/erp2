@@ -397,6 +397,9 @@ describe('PurchaseOrderPrintDialog', () => {
   });
 
   it('GRN date uses receivedDate when present', async () => {
+    // Pin the format explicitly so the test does not depend on the jsdom default;
+    // afterEach clears it. formatDate() reads this same key, so assertions stay in sync.
+    localStorage.setItem('dateFormat', 'DD/MM/YYYY');
     const user = userEvent.setup();
     render(
       <PurchaseOrderPrintDialog
@@ -411,8 +414,7 @@ describe('PurchaseOrderPrintDialog', () => {
       />,
     );
     await user.click(screen.getByRole('radio', { name: /Goods Received Note/i }));
-    // Assert via formatDate (it reads localStorage.dateFormat) rather than a hardcoded
-    // string, and assert it is NOT the updatedAt date.
+    // Assert via formatDate (same format key as the component) and that it is NOT updatedAt.
     expect(screen.getByTestId('print-root')).toHaveTextContent(
       formatDate(new Date('2026-06-10')),
     );
@@ -422,6 +424,7 @@ describe('PurchaseOrderPrintDialog', () => {
   });
 
   it('GRN date falls back to updatedAt when receivedDate is absent', async () => {
+    localStorage.setItem('dateFormat', 'DD/MM/YYYY');
     const user = userEvent.setup();
     render(
       <PurchaseOrderPrintDialog
