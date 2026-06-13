@@ -8,6 +8,7 @@ import PurchaseOrderPrintDialog, {
 } from '../PurchaseOrderPrintDialog';
 
 import type { VendorPayment } from '@/types';
+import { formatDate } from '@/utils/formatters';
 
 const mockPrintData = {
   logoUrl: '',
@@ -327,5 +328,127 @@ describe('PurchaseOrderPrintDialog', () => {
     const printRoot = screen.getByTestId('print-root');
     const row = within(printRoot).getByText('Sprocket').closest('tr') as HTMLElement;
     expect(within(row).getByText(/75\.00/)).toBeInTheDocument();
+  });
+
+  it('disables Goods Received Note when the PO is not RECEIVED', () => {
+    render(
+      <PurchaseOrderPrintDialog
+        open
+        purchaseOrder={makePurchaseOrder({ status: 'READY' })}
+        payment={null}
+        onClose={() => {}}
+      />,
+    );
+    expect(screen.getByRole('radio', { name: /Goods Received Note/i })).toBeDisabled();
+  });
+
+  it('enables Goods Received Note when the PO is RECEIVED', () => {
+    render(
+      <PurchaseOrderPrintDialog
+        open
+        purchaseOrder={makePurchaseOrder({ status: 'RECEIVED' })}
+        payment={null}
+        onClose={() => {}}
+      />,
+    );
+    expect(screen.getByRole('radio', { name: /Goods Received Note/i })).toBeEnabled();
+  });
+
+  it('shows the GRN preview with received quantities and no pricing columns', async () => {
+    const user = userEvent.setup();
+    render(
+      <PurchaseOrderPrintDialog
+        open
+        purchaseOrder={makePurchaseOrder({
+          status: 'RECEIVED',
+          receivedDate: new Date('2026-06-10'),
+          items: [
+            {
+              id: 'poi-1',
+              quantity: 5,
+              receivedQuantity: 3,
+              unitPrice: 50,
+              totalAmount: 250,
+              product: { id: 'p-1', name: 'Widget' },
+            },
+          ],
+        })}
+        payment={null}
+        onClose={() => {}}
+      />,
+    );
+    await user.click(screen.getByRole('radio', { name: /Goods Received Note/i }));
+    const printRoot = screen.getByTestId('print-root');
+    expect(printRoot).toHaveTextContent(/GOODS RECEIVED NOTE/i);
+    // Qty column shows received qty (3), not ordered (5).
+    const widgetRow = within(printRoot).getByText('Widget').closest('tr') as HTMLElement;
+    expect(within(widgetRow).getByText('3')).toBeInTheDocument();
+    // No money: unit price / amount must not appear.
+    expect(printRoot).not.toHaveTextContent(/50\.00/);
+    expect(printRoot).not.toHaveTextContent(/250\.00/);
+    // Total Quantity box present.
+    expect(printRoot).toHaveTextContent(/Total Quantity/i);
+  });
+
+  it('GRN date uses receivedDate when present', async () => {
+    const user = userEvent.setup();
+    render(
+      <PurchaseOrderPrintDialog
+        open
+        purchaseOrder={makePurchaseOrder({
+          status: 'RECEIVED',
+          receivedDate: new Date('2026-06-10'),
+          updatedAt: new Date('2026-06-30'),
+        })}
+        payment={null}
+        onClose={() => {}}
+      />,
+    );
+    await user.click(screen.getByRole('radio', { name: /Goods Received Note/i }));
+    // Assert via formatDate (it reads localStorage.dateFormat) rather than a hardcoded
+    // string, and assert it is NOT the updatedAt date.
+    expect(screen.getByTestId('print-root')).toHaveTextContent(
+      formatDate(new Date('2026-06-10')),
+    );
+    expect(screen.getByTestId('print-root')).not.toHaveTextContent(
+      formatDate(new Date('2026-06-30')),
+    );
+  });
+
+  it('GRN date falls back to updatedAt when receivedDate is absent', async () => {
+    const user = userEvent.setup();
+    render(
+      <PurchaseOrderPrintDialog
+        open
+        purchaseOrder={makePurchaseOrder({
+          status: 'RECEIVED',
+          receivedDate: null,
+          updatedAt: new Date('2026-06-30'),
+        })}
+        payment={null}
+        onClose={() => {}}
+      />,
+    );
+    await user.click(screen.getByRole('radio', { name: /Goods Received Note/i }));
+    expect(screen.getByTestId('print-root')).toHaveTextContent(
+      formatDate(new Date('2026-06-30')),
+    );
+  });
+
+  it('calls window.print for the GRN type', async () => {
+    const user = userEvent.setup();
+    const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
+    render(
+      <PurchaseOrderPrintDialog
+        open
+        purchaseOrder={makePurchaseOrder({ status: 'RECEIVED' })}
+        payment={null}
+        onClose={() => {}}
+      />,
+    );
+    await user.click(screen.getByRole('radio', { name: /Goods Received Note/i }));
+    await user.click(screen.getByRole('button', { name: /Print/i }));
+    expect(printSpy).toHaveBeenCalled();
+    printSpy.mockRestore();
   });
 });
