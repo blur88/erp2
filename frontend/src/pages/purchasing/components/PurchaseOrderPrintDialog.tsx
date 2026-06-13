@@ -22,18 +22,33 @@ import { useCurrency } from '@/hooks/useCurrency'
 import { formatDate } from '@/utils/formatters'
 import type { PurchaseOrder, VendorPayment } from '@/types'
 
-// The PO response DTO returns the supplier FLATTENED (address/city/...),
-// not the global Supplier entity shape (shipping*/billing*). Fields are
-// optional and `string | null` so the global Supplier (whose `phone` is
-// `string | null`) is structurally assignable from callers without casts.
+// Supplier payloads reaching this dialog come in two shapes:
+//  1. The PO response DTO, which FLATTENS the supplier (address/city/...).
+//  2. The global Supplier entity (shipping*/billing*), if a VendorPayment ever
+//     carries its own supplier.
+// PrintSupplier accepts both; toRecipient resolves the address from whichever
+// is present (flat -> shipping -> billing). All fields are optional and
+// `string | null` so the global Supplier is structurally assignable without casts.
 export interface PrintSupplier {
   companyName?: string | null
+  // Flattened PO-DTO shape
   address?: string | null
   city?: string | null
   state?: string | null
   postalCode?: string | null
   country?: string | null
   phone?: string | null
+  // Global Supplier entity shape (fallback)
+  shippingStreetAddress?: string | null
+  shippingCity?: string | null
+  shippingState?: string | null
+  shippingPostalCode?: string | null
+  shippingCountry?: string | null
+  billingStreetAddress?: string | null
+  billingCity?: string | null
+  billingState?: string | null
+  billingPostalCode?: string | null
+  billingCountry?: string | null
 }
 
 // PO line item as returned by the PO response DTO: numeric fields, product.name,
@@ -61,13 +76,15 @@ interface PurchaseOrderPrintDialogProps {
   payment?: Partial<VendorPayment> | null
 }
 
+// Resolve each address field from whichever supplier shape is present:
+// flattened PO-DTO field first, then shipping*, then billing*.
 const toRecipient = (s?: PrintSupplier) => ({
   name: s?.companyName || 'Unknown Supplier',
-  address: s?.address || '',
-  city: s?.city || '',
-  state: s?.state || '',
-  postalCode: s?.postalCode || '',
-  country: s?.country || '',
+  address: s?.address || s?.shippingStreetAddress || s?.billingStreetAddress || '',
+  city: s?.city || s?.shippingCity || s?.billingCity || '',
+  state: s?.state || s?.shippingState || s?.billingState || '',
+  postalCode: s?.postalCode || s?.shippingPostalCode || s?.billingPostalCode || '',
+  country: s?.country || s?.shippingCountry || s?.billingCountry || '',
   phone: s?.phone || '',
 })
 

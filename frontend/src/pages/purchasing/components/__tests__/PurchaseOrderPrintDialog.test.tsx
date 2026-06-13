@@ -241,6 +241,28 @@ describe('PurchaseOrderPrintDialog', () => {
     expect(screen.getByTestId('print-root')).toHaveTextContent('Acme Supplies');
   });
 
+  it('resolves the address from a global-shape supplier (shipping*/billing*)', () => {
+    render(
+      <PurchaseOrderPrintDialog
+        open
+        purchaseOrder={makePurchaseOrder({
+          // Supplier in the global entity shape, not the flattened PO-DTO shape.
+          supplier: {
+            companyName: 'Global Co',
+            shippingStreetAddress: '99 Shipping Rd',
+            shippingCity: 'Penang',
+            shippingPostalCode: '10000',
+          } as PrintSupplier,
+        })}
+        payment={null}
+        onClose={() => {}}
+      />,
+    );
+    const printRoot = screen.getByTestId('print-root');
+    expect(printRoot).toHaveTextContent('99 Shipping Rd');
+    expect(printRoot).toHaveTextContent(/10000, Penang/);
+  });
+
   it('computes the vendor payment line amount when totalAmount is absent', async () => {
     const user = userEvent.setup();
     render(
