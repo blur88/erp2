@@ -255,6 +255,15 @@ describe('PurchaseOrderLifecycleService', () => {
       );
       expect(accountingService.postPurchaseReceiptEntry).toHaveBeenCalled();
       expect(result.status).toBe(PurchaseOrderStatus.RECEIVED);
+
+      expect(poRepo.update).toHaveBeenCalledWith(
+        'po-1',
+        expect.objectContaining({
+          status: PurchaseOrderStatus.RECEIVED,
+          receivedDate: expect.any(Date),
+        }),
+      );
+      expect(result.receivedDate).toBeInstanceOf(Date);
     });
 
     it('capitalizes inventory at the NET (after-discount) unit cost so GL matches the subledger', async () => {
@@ -320,6 +329,7 @@ describe('PurchaseOrderLifecycleService', () => {
       const receivedOrder = {
         ...mockOrder,
         status: PurchaseOrderStatus.RECEIVED,
+        receivedDate: new Date('2026-06-01'),
         items: [
           {
             id: 'po-item-1',
@@ -372,6 +382,15 @@ describe('PurchaseOrderLifecycleService', () => {
         expect.anything(),
       );
       expect(result.status).toBe(PurchaseOrderStatus.READY);
+
+      expect(poRepo.update).toHaveBeenCalledWith(
+        'po-1',
+        expect.objectContaining({
+          status: PurchaseOrderStatus.READY,
+          receivedDate: null,
+        }),
+      );
+      expect(result.receivedDate).toBeNull();
     });
   });
 
