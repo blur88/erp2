@@ -37,7 +37,7 @@ describe('useProductSearch', () => {
 
     expect(result.current.products).toEqual([makeProduct('1', 'Alpha')])
     expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
-      params: { isActive: true, sortBy: 'name', sortOrder: 'ASC' },
+      params: { sortBy: 'name', sortOrder: 'ASC' },
     })
   })
 
@@ -48,8 +48,18 @@ describe('useProductSearch', () => {
     await act(() => result.current.loadProducts('apple'))
 
     expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
-      params: { isActive: true, sortBy: 'name', sortOrder: 'ASC', search: 'apple' },
+      params: { sortBy: 'name', sortOrder: 'ASC', search: 'apple' },
     })
+  })
+
+  it('does not send an isActive filter, so inactive products are included (regression #768)', async () => {
+    mockGet.mockResolvedValue(makeResponse([]))
+    const { result } = renderHook(() => useProductSearch())
+
+    await act(() => result.current.loadProducts())
+
+    const callConfig = mockGet.mock.calls[0][1] as { params: Record<string, unknown> }
+    expect(callConfig.params).not.toHaveProperty('isActive')
   })
 
   it('loadProducts replaces the list, not merges', async () => {

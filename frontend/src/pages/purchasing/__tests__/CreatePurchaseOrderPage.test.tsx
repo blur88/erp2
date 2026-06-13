@@ -230,7 +230,7 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
-        params: { isActive: true, sortBy: 'name', sortOrder: 'ASC', search: replacementSearchTerm },
+        params: { sortBy: 'name', sortOrder: 'ASC', search: replacementSearchTerm },
       })
     })
 
@@ -268,7 +268,7 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
-        params: { isActive: true, sortBy: 'name', sortOrder: 'ASC', search: replacementSearchTerm },
+        params: { sortBy: 'name', sortOrder: 'ASC', search: replacementSearchTerm },
       })
     })
 
@@ -325,7 +325,7 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
-        params: { isActive: true, sortBy: 'name', sortOrder: 'ASC', search: replacementSearchTerm },
+        params: { sortBy: 'name', sortOrder: 'ASC', search: replacementSearchTerm },
       })
     })
 
@@ -356,7 +356,7 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
-        params: { isActive: true, sortBy: 'name', sortOrder: 'ASC' },
+        params: { sortBy: 'name', sortOrder: 'ASC' },
       })
     })
 
@@ -365,7 +365,7 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
-        params: { isActive: true, sortBy: 'name', sortOrder: 'ASC', search: replacementSearchTerm },
+        params: { sortBy: 'name', sortOrder: 'ASC', search: replacementSearchTerm },
       })
     })
 

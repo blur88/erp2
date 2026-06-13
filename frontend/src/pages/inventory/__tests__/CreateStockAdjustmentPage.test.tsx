@@ -118,7 +118,7 @@ describe('CreateStockAdjustmentPage product search', { timeout: 60000 }, () => {
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
-        params: { isActive: true, sortBy: 'name', sortOrder: 'ASC', search: replacementSearchTerm },
+        params: { sortBy: 'name', sortOrder: 'ASC', search: replacementSearchTerm },
       })
     })
 
@@ -156,7 +156,7 @@ describe('CreateStockAdjustmentPage product search', { timeout: 60000 }, () => {
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
-        params: { isActive: true, sortBy: 'name', sortOrder: 'ASC', search: replacementSearchTerm },
+        params: { sortBy: 'name', sortOrder: 'ASC', search: replacementSearchTerm },
       })
     })
 
@@ -257,7 +257,7 @@ describe('CreateStockAdjustmentPage product search', { timeout: 60000 }, () => {
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
-        params: { isActive: true, sortBy: 'name', sortOrder: 'ASC', search: replacementSearchTerm },
+        params: { sortBy: 'name', sortOrder: 'ASC', search: replacementSearchTerm },
       })
     })
 
