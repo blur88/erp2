@@ -165,6 +165,32 @@ describe('PurchaseOrderLifecycleService', () => {
     });
   });
 
+  describe('assertStatusEditable', () => {
+    it('does not throw for DRAFT', () => {
+      expect(() =>
+        PurchaseOrderLifecycleService.assertStatusEditable(PurchaseOrderStatus.DRAFT),
+      ).not.toThrow();
+    });
+
+    it('does not throw for READY', () => {
+      expect(() =>
+        PurchaseOrderLifecycleService.assertStatusEditable(PurchaseOrderStatus.READY),
+      ).not.toThrow();
+    });
+
+    it('throws "Return the goods first." for RECEIVED', () => {
+      expect(() =>
+        PurchaseOrderLifecycleService.assertStatusEditable(PurchaseOrderStatus.RECEIVED),
+      ).toThrow('Return the goods first.');
+    });
+
+    it('throws "Uncancel the order first." for CANCELLED', () => {
+      expect(() =>
+        PurchaseOrderLifecycleService.assertStatusEditable(PurchaseOrderStatus.CANCELLED),
+      ).toThrow('Uncancel the order first.');
+    });
+  });
+
   describe('receive and return', () => {
     it('receive posts stock + cost + GL and sets RECEIVED', async () => {
       const readyOrder = {

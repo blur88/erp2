@@ -219,6 +219,8 @@ export class PurchaseOrder extends BaseEntity {
     // Calculate discount amount
     if (this.discountPercent > 0) {
       this.discountAmount = (Number(this.subtotal || 0) * Number(this.discountPercent)) / 100;
+    } else {
+      this.discountAmount = 0;
     }
 
     // Calculate total (subtotal - discount + shipping)
