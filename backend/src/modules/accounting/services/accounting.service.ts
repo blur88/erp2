@@ -528,6 +528,77 @@ export class AccountingService {
     return postedEntry as any;
   }
 
+  async postVendorRefundEntry(
+    vendorPayment: VendorPayment,
+    userId: string,
+    username?: string,
+  ): Promise<JournalEntry> {
+    this.logger.log(`Posting vendor refund entry for ${vendorPayment.paymentNumber}`);
+
+    const mappings = await this.accountMappingService.getMappings();
+
+    this.validateMapping(mappings, MappingType.VENDOR_PAYMENT_AP, 'Accounts Payable');
+    const paymentMethodCode = vendorPayment.paymentMethodEntity?.code || 'CASH';
+    const creditMappingKey = `vendor_payment_${paymentMethodCode.toLowerCase()}`;
+    this.validateMappingByKey(
+      mappings,
+      creditMappingKey,
+      `vendor payment method "${paymentMethodCode}"`,
+    );
+
+    await this.validatePeriodOpen(vendorPayment.paymentDate);
+
+    const periodValidation = await this.fiscalPeriodService.validatePeriod({
+      date: vendorPayment.paymentDate,
+    });
+    if (!periodValidation.period) {
+      throw new BadRequestException(`No fiscal period found for date ${vendorPayment.paymentDate}`);
+    }
+
+    const refundAmount = Math.abs(Number(vendorPayment.amount));
+
+    const lines: CreateJournalEntryLineDto[] = [
+      {
+        accountId: mappings[creditMappingKey],
+        debitAmount: refundAmount,
+        creditAmount: 0,
+        memo: 'Cash refunded by vendor',
+      },
+      {
+        accountId: mappings[MappingType.VENDOR_PAYMENT_AP],
+        debitAmount: 0,
+        creditAmount: refundAmount,
+        memo: 'Accounts payable restored',
+      },
+    ];
+
+    const entryDto: CreateJournalEntryDto = {
+      entryDate: new Date(vendorPayment.paymentDate),
+      description: `Vendor Refund ${vendorPayment.paymentNumber} from ${vendorPayment.supplier.companyName}`,
+      fiscalPeriodId: periodValidation.period.id,
+      sourceType: 'vendor_payment',
+      sourceId: vendorPayment.id,
+      lines,
+    };
+
+    const entry = await this.journalEntryService.create(entryDto, userId);
+    const postedEntry = await this.journalEntryService.postEntry(entry.id, userId);
+    await this.auditLogService.log(
+      'AUTO_POST',
+      'JournalEntry',
+      `Auto-posted vendor refund journal entry: ${vendorPayment.paymentNumber}`,
+      {
+        entityId: entry.id,
+        userId: userId ?? 'system',
+        username,
+        metadata: { sourceType: 'vendor_payment', sourceId: vendorPayment.id },
+      },
+    );
+
+    this.logger.log(`Vendor refund entry posted successfully: ${postedEntry.referenceNumber}`);
+    return postedEntry as any;
+  }
+
   /**
    * Post journal entry for stock adjustment
    * Handles both increases and decreases
