@@ -24,6 +24,7 @@ import {
 import type { VendorPayment } from '@/types'
 import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
 
+import { buildPoRefundSources, toPoRefundPayload } from './utils/poRefund'
 import PurchaseOrderActionBar from './components/PurchaseOrderActionBar'
 import PurchaseOrderJournalEntriesTab from './components/PurchaseOrderJournalEntriesTab'
 import PurchaseOrderOverviewTab from './components/PurchaseOrderOverviewTab'
@@ -96,23 +97,11 @@ export default function PurchaseOrderDetailPage() {
   const [recordRefunds] = useRecordPurchaseOrderRefundsMutation()
   const [recordPayments] = useRecordVendorPaymentsMutation()
 
-  // Build RefundSource[] from vendor payments (net by payment)
-  const refundSources: RefundSource[] = useMemo(() => {
-    const netByPayment: Record<string, { paid: number; refunded: number; label: string }> = {}
-    for (const p of payments ?? []) {
-      const key = p.id
-      const entry = (netByPayment[key] ??= { paid: 0, refunded: 0, label: p.paymentNumber ?? 'Payment' })
-      const amt = Number(p.amount)
-      if (amt >= 0) entry.paid += amt
-      else entry.refunded += Math.abs(amt)
-    }
-    return Object.entries(netByPayment).map(([id, v]) => ({
-      id,
-      label: v.label,
-      paidAmount: v.paid,
-      alreadyRefunded: v.refunded,
-    }))
-  }, [payments])
+  // Build RefundSource[] from vendor payments (grouped by payment method)
+  const refundSources: RefundSource[] = useMemo(
+    () => buildPoRefundSources(payments ?? []),
+    [payments],
+  )
 
   if (isLoading) {
     return (
@@ -198,7 +187,7 @@ export default function PurchaseOrderDetailPage() {
     try {
       await recordRefunds({
         id: order.id,
-        refunds: lines.map((l) => ({ vendorPaymentId: l.sourceId, amount: l.amount, reason: l.reference })),
+        refunds: toPoRefundPayload(lines),
       }).unwrap()
       showSuccess(`Refund recorded for ${order.orderNumber}`)
       setActiveDialog(null)

@@ -24,6 +24,7 @@ import RefundDialog, { type RefundSource } from '@/components/common/RefundDialo
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
+import { buildPoRefundSources, toPoRefundPayload } from './utils/poRefund'
 import PurchaseOrderList from './components/PurchaseOrderList'
 import PurchaseOrderPrintDialog from './components/PurchaseOrderPrintDialog'
 
@@ -139,23 +140,10 @@ const PurchaseOrdersPage: React.FC = () => {
     refundOrder ? refundOrder.id : skipToken,
   )
 
-  // Build RefundSource[] from vendor payments (net by payment)
+  // Build RefundSource[] from vendor payments (grouped by payment method)
   const refundSources: RefundSource[] = useMemo(() => {
     if (!refundOrder) return []
-    const netByPayment: Record<string, { paid: number; refunded: number; label: string }> = {}
-    for (const p of refundPaymentRecords ?? []) {
-      const key = p.id
-      const entry = (netByPayment[key] ??= { paid: 0, refunded: 0, label: p.paymentNumber ?? 'Payment' })
-      const amt = Number(p.amount)
-      if (amt >= 0) entry.paid += amt
-      else entry.refunded += Math.abs(amt)
-    }
-    return Object.entries(netByPayment).map(([id, v]) => ({
-      id,
-      label: v.label,
-      paidAmount: v.paid,
-      alreadyRefunded: v.refunded,
-    }))
+    return buildPoRefundSources(refundPaymentRecords ?? [])
   }, [refundOrder, refundPaymentRecords])
 
   const handleSort = useCallback((field: string) => {
@@ -304,7 +292,7 @@ const PurchaseOrdersPage: React.FC = () => {
     try {
       await recordPurchaseOrderRefunds({
         id: refundOrder.id,
-        refunds: lines.map((l) => ({ vendorPaymentId: l.sourceId, amount: l.amount, reason: l.reference })),
+        refunds: toPoRefundPayload(lines),
       }).unwrap()
       showSuccess(`Refund recorded for ${refundOrder.orderNumber}`)
       setRefundOrder(null)

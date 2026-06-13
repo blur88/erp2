@@ -644,6 +644,41 @@ describe('AccountingService', () => {
     });
   });
 
+  describe('postVendorRefundEntry', () => {
+    it('posts reversed polarity with positive amounts (DR Cash / CR AP)', async () => {
+      const refundRow = {
+        id: 'vp-refund-1',
+        paymentNumber: 'VP-REFUND-1',
+        amount: -200,
+        paymentDate: new Date('2026-06-13'),
+        supplier: { companyName: 'Acme' },
+        paymentMethodEntity: { code: 'CASH' },
+      } as any;
+
+      accountMappingService.getMappings.mockResolvedValue(mockMappings);
+      fiscalPeriodService.validatePeriod.mockResolvedValue({
+        isValid: true,
+        message: 'Period is open',
+        period: mockOpenPeriod as any,
+      });
+      journalEntryService.create.mockResolvedValue(mockJournalEntry as any);
+      journalEntryService.postEntry.mockResolvedValue(mockJournalEntry as any);
+
+      await service.postVendorRefundEntry(refundRow, 'user-1');
+
+      const entryDto = (journalEntryService.create as jest.Mock).mock.calls[0][0];
+      const apLine = entryDto.lines.find((l: any) => l.accountId === mockMappings[MappingType.VENDOR_PAYMENT_AP]);
+      const cashLine = entryDto.lines.find((l: any) => l.accountId === mockMappings['vendor_payment_cash']);
+
+      expect(apLine.creditAmount).toBe(200);
+      expect(apLine.debitAmount).toBe(0);
+      expect(cashLine.debitAmount).toBe(200);
+      expect(cashLine.creditAmount).toBe(0);
+      expect(apLine.creditAmount).toBeGreaterThan(0);
+      expect(cashLine.debitAmount).toBeGreaterThan(0);
+    });
+  });
+
   describe('postStockAdjustmentEntry', () => {
     const mockAdjustmentIncrease = {
       id: 'adj-123',
