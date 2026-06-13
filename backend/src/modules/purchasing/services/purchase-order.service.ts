@@ -758,14 +758,6 @@ export class PurchaseOrderService extends BaseCrudService<
       }
     }
 
-    // Generate document numbers BEFORE opening the transaction. generateDocumentNumber
-    // does its own DB work and is not bound to this tx manager (#719); running it while
-    // holding the PO pessimistic_write lock would extend the lock for no benefit.
-    const paymentNumbers: string[] = [];
-    for (let i = 0; i < refunds.length; i++) {
-      paymentNumbers.push(await this.settingsService.generateDocumentNumber('Vendor Payments'));
-    }
-
     const savedRefundRows: { id: string; paymentMethodId: string }[] = [];
 
     await this.dataSource.transaction(async (manager: EntityManager) => {
@@ -790,14 +782,20 @@ export class PurchaseOrderService extends BaseCrudService<
         );
       }
 
-      for (let i = 0; i < refunds.length; i++) {
-        const line = refunds[i];
+      // Generate the document number only AFTER the guards pass. generateDocumentNumber
+      // commits its counter in its own transaction (#719), so a number is burned the
+      // moment it is consumed — generating before the guards would leave sequence gaps
+      // on every rejected refund. SO avoids this entirely because SalesOrderPayment has
+      // no document number; VendorPayment requires a unique paymentNumber, so PO must
+      // generate one, and we do it past the point where the refund can still be rejected.
+      for (const line of refunds) {
+        const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments');
         const refundRow = repo.create({
           supplierId: purchaseOrder.supplierId,
           purchaseOrderId: orderId,
           paymentMethodId: line.paymentMethodId,
           paymentDate: new Date(),
-          paymentNumber: paymentNumbers[i],
+          paymentNumber,
           amount: -Number(line.amount),
           notes: line.reference,
           status: 'completed',
