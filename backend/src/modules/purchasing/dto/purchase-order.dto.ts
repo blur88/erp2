@@ -216,6 +216,9 @@ export class PurchaseOrderResponseDto {
   @ApiProperty({ description: 'Order date' })
   orderDate: Date;
 
+  @ApiPropertyOptional({ description: 'Date goods were received' })
+  receivedDate?: Date | null;
+
   @ApiProperty({ description: 'Subtotal amount' })
   subtotal: number;
 
