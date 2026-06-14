@@ -32,7 +32,7 @@ import { useCurrency } from '@/hooks/useCurrency'
 import { useLineItemKeyNav } from '@/hooks/useLineItemKeyNav'
 import { useNotification } from '@/hooks/useNotification'
 import { useProductSearch } from '@/hooks/useProductSearch'
-import { useAppDispatch } from '@/hooks/useRedux'
+
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 import {
   useCreatePurchaseOrderMutation,
@@ -41,10 +41,7 @@ import {
   useUpdatePurchaseOrderMutation,
 } from '@/store/api/purchasingApi'
 import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
-import {
-  setSelectedPurchaseOrder,
-  updatePurchaseOrderInPlace,
-} from '@/store/slices/purchasingSlice'
+
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 
@@ -135,7 +132,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
-  const dispatch = useAppDispatch()
   const { orderNumber } = useParams<{ orderNumber: string }>()
   const isEditMode = !!orderNumber
   const { showSuccess, showError } = useNotification()
@@ -343,13 +339,12 @@ const CreatePurchaseOrderPage: React.FC = () => {
           id: editingOrderId,
           data: orderData as any,
         }).unwrap()
-        dispatch(updatePurchaseOrderInPlace(updated))
-        dispatch(setSelectedPurchaseOrder(updated as any))
+
         showSuccess('Purchase order updated successfully')
         navigate(`/purchasing/orders?highlight=${updated.id}`)
       } else {
         const created = await createPurchaseOrder(orderData as any).unwrap()
-        dispatch(setSelectedPurchaseOrder(created as any))
+
         showSuccess('Purchase order created successfully')
         navigate(`/purchasing/orders?highlight=${(created as any).id}`)
       }
