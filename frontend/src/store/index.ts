@@ -12,7 +12,6 @@ import authSlice from './slices/authSlice'
 import notificationSlice from './slices/notificationSlice'
 import inventorySlice from './slices/inventorySlice'
 import salesSlice from './slices/salesSlice'
-import purchasingSlice from './slices/purchasingSlice'
 import accountingSlice from './slices/accountingSlice'
 import backupSlice from './slices/backupSlice'
 import auditLogSlice from './slices/auditLogSlice'
@@ -36,7 +35,6 @@ const rootReducer = combineReducers({
   notifications: notificationSlice,
   inventory: inventorySlice,
   sales: salesSlice,
-  purchasing: purchasingSlice,
   accounting: accountingSlice,
   backup: backupSlice,
   auditLogs: auditLogSlice,
