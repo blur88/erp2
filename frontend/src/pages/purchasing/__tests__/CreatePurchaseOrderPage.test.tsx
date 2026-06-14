@@ -18,7 +18,6 @@ const createDeferred = <T,>() => {
 }
 
 const {
-  mockDispatch,
   mockNavigate,
   mockGet,
   mockCreatePurchaseOrder,
@@ -28,7 +27,6 @@ const {
   mockGetDocumentNumberSettings,
   mockShowError,
 } = vi.hoisted(() => ({
-  mockDispatch: vi.fn(),
   mockNavigate: vi.fn(),
   mockGet: vi.fn(),
   mockCreatePurchaseOrder: vi.fn(),
@@ -49,10 +47,6 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
-vi.mock('@/hooks/useRedux', () => ({
-  useAppDispatch: () => mockDispatch,
-}))
-
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({
     showSuccess: vi.fn(),
@@ -66,17 +60,6 @@ vi.mock('@/hooks/useCurrency', () => ({
 
 vi.mock('@/store/api/settingsApi', () => ({
   useGetDocumentNumberSettingsQuery: () => mockGetDocumentNumberSettings(),
-}))
-
-vi.mock('@/store/slices/purchasingSlice', () => ({
-  updatePurchaseOrderInPlace: vi.fn((value) => ({
-    type: 'purchasing/updatePurchaseOrderInPlace',
-    payload: value,
-  })),
-  setSelectedPurchaseOrder: vi.fn((value) => ({
-    type: 'purchasing/setSelectedPurchaseOrder',
-    payload: value,
-  })),
 }))
 
 vi.mock('@/services/api', () => ({
@@ -390,7 +373,7 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
     })
   })
 
-  it('dispatches the created purchase order before navigating back to the orders list', async () => {
+  it('navigates to the orders list with a highlight after creating an order', async () => {
     const createdOrder = { id: 'new-po-id', orderNumber: 'PO-NEW' }
     mockCreatePurchaseOrder.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue(createdOrder),
@@ -415,22 +398,8 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
     await userEvent.click(screen.getByRole('button', { name: /create order/i }))
 
     await waitFor(() => {
-      expect(mockDispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: expect.stringContaining('setSelectedPurchaseOrder'),
-          payload: expect.objectContaining({ id: 'new-po-id' }),
-        }),
-      )
+      expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders?highlight=new-po-id')
     })
-
-    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders?highlight=new-po-id')
-    const dispatchCallIndex = mockDispatch.mock.calls.findIndex((call) =>
-      String(call[0]?.type).includes('setSelectedPurchaseOrder'),
-    )
-    expect(dispatchCallIndex).toBeGreaterThanOrEqual(0)
-    expect(mockDispatch.mock.invocationCallOrder[dispatchCallIndex]).toBeLessThan(
-      mockNavigate.mock.invocationCallOrder[0],
-    )
   })
 
   it('recalculates row total to 0.00 when quantity is set to 0', async () => {

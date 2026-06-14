@@ -5,7 +5,6 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import SuppliersPage from '../SuppliersPage'
-import purchasingReducer from '@/store/slices/purchasingSlice'
 
 const { useGetSuppliersQuery } = vi.hoisted(() => ({
   useGetSuppliersQuery: vi.fn(() => ({
@@ -51,7 +50,7 @@ vi.mock('../components/SupplierList', () => ({
 }))
 
 function renderPage(initialUrl = '/') {
-  const store = configureStore({ reducer: { purchasing: purchasingReducer } })
+  const store = configureStore({ reducer: { _noop: (state = {}) => state } })
 
   return render(
     <Provider store={store}>

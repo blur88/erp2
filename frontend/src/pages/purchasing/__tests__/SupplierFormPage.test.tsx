@@ -6,7 +6,6 @@ import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
 import SupplierFormPage from '../SupplierFormPage'
-import purchasingReducer from '@/store/slices/purchasingSlice'
 
 const {
   mockNavigate,
@@ -67,7 +66,7 @@ vi.mock('@/services/api', () => ({
 }))
 
 function renderCreatePage() {
-  const store = configureStore({ reducer: { purchasing: purchasingReducer } })
+  const store = configureStore({ reducer: { _noop: (state = {}) => state } })
 
   return render(
     <Provider store={store}>
@@ -81,7 +80,7 @@ function renderCreatePage() {
 }
 
 function renderEditPage(supplierSlug = 'global-parts-ltd') {
-  const store = configureStore({ reducer: { purchasing: purchasingReducer } })
+  const store = configureStore({ reducer: { _noop: (state = {}) => state } })
 
   return render(
     <Provider store={store}>
@@ -95,7 +94,7 @@ function renderEditPage(supplierSlug = 'global-parts-ltd') {
 }
 
 function renderCreatePageFromPO() {
-  const store = configureStore({ reducer: { purchasing: purchasingReducer } })
+  const store = configureStore({ reducer: { _noop: (state = {}) => state } })
 
   return render(
     <Provider store={store}>

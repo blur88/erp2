@@ -5,7 +5,6 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import PurchaseOrdersPage from '../PurchaseOrdersPage'
-import purchasingReducer from '@/store/slices/purchasingSlice'
 
 const { useGetPurchaseOrdersQuery } = vi.hoisted(() => ({
   useGetPurchaseOrdersQuery: vi.fn(() => ({
@@ -46,7 +45,7 @@ vi.mock('@/components/common/RefundDialog', () => ({ default: () => null }))
 function renderPage(initialUrl = '/') {
   const store = configureStore({
     reducer: {
-      purchasing: purchasingReducer,
+      _noop: (state = {}) => state,
     },
   })
 
