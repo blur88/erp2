@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import PurchaseOrdersPage from '../PurchaseOrdersPage'
+
 const { useGetPurchaseOrdersQuery } = vi.hoisted(() => ({
   useGetPurchaseOrdersQuery: vi.fn(() => ({
     data: { data: [], meta: { total: 0 } },

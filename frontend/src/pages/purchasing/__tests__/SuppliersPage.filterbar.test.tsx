@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import SuppliersPage from '../SuppliersPage'
+
 const { useGetSuppliersQuery } = vi.hoisted(() => ({
   useGetSuppliersQuery: vi.fn(() => ({
     data: { data: [], meta: { total: 0 } },

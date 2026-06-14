@@ -32,7 +32,6 @@ import { useCurrency } from '@/hooks/useCurrency'
 import { useLineItemKeyNav } from '@/hooks/useLineItemKeyNav'
 import { useNotification } from '@/hooks/useNotification'
 import { useProductSearch } from '@/hooks/useProductSearch'
-
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 import {
   useCreatePurchaseOrderMutation,
@@ -41,7 +40,6 @@ import {
   useUpdatePurchaseOrderMutation,
 } from '@/store/api/purchasingApi'
 import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
-
 import { formatCurrency, getCurrentDate } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 
@@ -339,12 +337,10 @@ const CreatePurchaseOrderPage: React.FC = () => {
           id: editingOrderId,
           data: orderData as any,
         }).unwrap()
-
         showSuccess('Purchase order updated successfully')
         navigate(`/purchasing/orders?highlight=${updated.id}`)
       } else {
         const created = await createPurchaseOrder(orderData as any).unwrap()
-
         showSuccess('Purchase order created successfully')
         navigate(`/purchasing/orders?highlight=${(created as any).id}`)
       }

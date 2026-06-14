@@ -47,8 +47,6 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
-
-
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({
     showSuccess: vi.fn(),
@@ -63,8 +61,6 @@ vi.mock('@/hooks/useCurrency', () => ({
 vi.mock('@/store/api/settingsApi', () => ({
   useGetDocumentNumberSettingsQuery: () => mockGetDocumentNumberSettings(),
 }))
-
-
 
 vi.mock('@/services/api', () => ({
   ApiService: {
