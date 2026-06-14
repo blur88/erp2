@@ -80,6 +80,4 @@ export function getPurchaseOrderActionMetas(order: PurchaseOrder): PurchaseOrder
   return metas
 }
 
-export function getPurchaseOrderActions(order: PurchaseOrder): PurchaseOrderAction[] {
-  return getPurchaseOrderActionMetas(order).map((m) => m.action)
-}
+
