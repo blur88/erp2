@@ -11,6 +11,7 @@ import {
   TablePagination,
   CircularProgress,
 } from '@mui/material'
+import { useNavigate } from 'react-router-dom'
 import { ApiService } from '@/services/api'
 import { useNotification } from '@/hooks/useNotification'
 import { StatusChip } from '@/components/common/StatusChip'
@@ -37,6 +38,15 @@ interface OrderHistoryItem {
 
 const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
   const { showError } = useNotification()
+  const navigate = useNavigate()
+
+  const goToOrder = (order: OrderHistoryItem) => {
+    if (order.type === 'sales_order') {
+      navigate(`/sales/orders/${order.orderNumber}/view`)
+    } else {
+      navigate(`/purchasing/orders/${order.orderNumber}/view`)
+    }
+  }
   const [orders, setOrders] = useState<OrderHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
@@ -160,7 +170,12 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
           </TableHead>
           <TableBody>
             {orders.map((order) => (
-              <TableRow key={order.id} hover>
+              <TableRow
+                key={order.id}
+                hover
+                sx={{ cursor: 'pointer' }}
+                onClick={() => goToOrder(order)}
+              >
                 <TableCell>
                   <Typography
                     variant="body2"
