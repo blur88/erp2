@@ -1,182 +1,168 @@
-import React, { useCallback, useMemo, useState } from 'react'
-import { default as CloudUploadIcon } from '@mui/icons-material/CloudUpload'
-import { default as TableChartIcon } from '@mui/icons-material/TableChart'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Box, Link } from '@mui/material'
+import { useNavigate } from 'react-router-dom'
 
-import GenericListPage from '@/components/common/GenericListPage'
-import { AppButton } from '@/components/common/AppButton'
+import PagePagination from '@/components/common/PagePagination'
+import SimpleListPage from '@/components/common/SimpleListPage'
+import ProductImportDialog from '@/components/inventory/ProductImportDialog'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
-import {
-  useGetProductsQuery,
-} from '@/store/api/inventoryApi'
-import {
-  selectSelectedProduct,
-} from '@/store/slices/inventorySlice'
+import { useNotification } from '@/hooks/useNotification'
+import { useGetProductsQuery, useUpdateProductMutation } from '@/store/api/inventoryApi'
+import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
+import { getStockStatus } from '@/utils/stockUtils'
+import type { Product } from '@/types'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
-import ProductContextHeader from './components/ProductContextHeader'
-import ProductsDialogs from './components/ProductsDialogs'
 import ProductList from './components/ProductList'
-import ProductWorkspaceCard from './components/ProductWorkspaceCard'
-import { useProductsWorkspace } from './hooks/useProductsWorkspace'
 
-interface InventoryProductFilters {
+interface ProductFilters {
   search: string
+  status: 'active' | 'inactive' | null
   categoryId: string | null
-  type: 'goods' | 'service' | null
-  stockStatus: 'low_stock' | 'out_of_stock' | null
+  stockStatus: 'in_stock' | 'low_stock' | 'out_of_stock' | null
 }
 
-const ProductsPage: React.FC = () => {
-  const dispatch = useAppDispatch()
-  const selectedProduct = useAppSelector(selectSelectedProduct)
+const filterConfig: FilterBarConfig<ProductFilters> = {
+  search: { placeholder: 'Search by name or barcode...' },
+  fields: [
+    { field: 'status', label: 'Status', type: 'status' },
+    { field: 'categoryId', label: 'Category', type: 'category' },
+    { field: 'stockStatus', label: 'Stock Status', type: 'stock-status' },
+  ],
+  defaults: { search: '', status: null, categoryId: null, stockStatus: null },
+}
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50]
+const DEFAULT_LIMIT = 25
+
+function getDefaultPrice(product: Product): number | null {
+  const items = product.priceListItems ?? []
+  const def = items.find((it) => it.priceList?.isDefault)
+  return def ? def.price : null
+}
+
+export default function ProductsPage() {
+  const navigate = useNavigate()
+  const { showSuccess, showError } = useNotification()
+  const [pageError, setPageError] = useState<string | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
   const [sortBy, setSortBy] = useState('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(DEFAULT_LIMIT)
+
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+  const [updateProduct] = useUpdateProductMutation()
+
+  useEffect(() => {
+    setPage(1)
+  }, [appliedFilters])
 
   const handleSort = useCallback((field: string) => {
     setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
     setSortBy(field)
+    setPage(1)
   }, [sortBy])
 
-  const filterConfig = useMemo<FilterBarConfig<InventoryProductFilters>>(
-    () => ({
-      search: { placeholder: 'Search by name, barcode, or brand...' },
-      fields: [
-        { field: 'categoryId', label: 'Category', type: 'category' },
-        { field: 'type', label: 'Product Type', type: 'product-type' },
-        { field: 'stockStatus', label: 'Stock Status', type: 'stock-status' },
-      ],
-      defaults: {
-        search: '',
-        categoryId: null,
-        type: null,
-        stockStatus: null,
-      },
-    }),
-    [],
-  )
+  const handleLimitChange = useCallback((newLimit: number) => {
+    setLimit(newLimit)
+    setPage(1)
+  }, [])
 
-  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
-
-  const productQueryParams = useMemo(() => {
-    const params: Record<string, string | boolean> = {}
-
-    if (appliedFilters.search) {
-      params.search = appliedFilters.search
+  const queryParams = useMemo(() => {
+    const params: Record<string, string | number | boolean | undefined> = {
+      sortBy,
+      sortOrder: sortOrder.toUpperCase(),
+      isActive:
+        appliedFilters.status === 'active'
+          ? true
+          : appliedFilters.status === 'inactive'
+            ? false
+            : undefined,
     }
-    if (appliedFilters.categoryId) {
-      params.categoryId = appliedFilters.categoryId
-    }
-    if (appliedFilters.type === 'goods') {
-      params.type = 'Stocked Product'
-    } else if (appliedFilters.type === 'service') {
-      params.type = 'Service'
-    }
-    if (appliedFilters.stockStatus === 'low_stock') {
-      params.lowStock = true
-    } else if (appliedFilters.stockStatus === 'out_of_stock') {
-      params.outOfStock = true
-    }
-
-    params.sortBy = sortBy
-    params.sortOrder = sortOrder.toUpperCase()
-
+    if (appliedFilters.search) params.search = appliedFilters.search
+    if (appliedFilters.categoryId) params.categoryId = appliedFilters.categoryId
+    if (appliedFilters.stockStatus === 'out_of_stock') params.outOfStock = true
+    if (appliedFilters.stockStatus === 'in_stock') params.minStock = 1
     return params
   }, [appliedFilters, sortBy, sortOrder])
 
-  const {
-    data: productsResponse,
-    isFetching: isProductsFetching,
-    refetch: refetchProducts,
-  } = useGetProductsQuery(productQueryParams)
-  const products = productsResponse?.data || []
+  const { data: response, isLoading, isFetching, error } = useGetProductsQuery(queryParams)
+  const rawProducts = response?.data ?? []
 
-  const workspace = useProductsWorkspace({
-    dispatch,
-    products,
-    productFilters: appliedFilters,
-    selectedProduct,
-    refetchProducts: () => void refetchProducts(),
-  })
+  const { data: regionalSettings } = useGetRegionalSettingsQuery()
+  const lowStockThreshold = regionalSettings?.lowStockThreshold ?? 10
+  const filtered =
+    appliedFilters.stockStatus === 'low_stock'
+      ? rawProducts.filter(
+          (p) => getStockStatus(p.stockQuantity, lowStockThreshold) === 'low_stock',
+        )
+      : rawProducts
+
+  const total = filtered.length
+  const products = filtered.slice((page - 1) * limit, page * limit)
+
+  const handleStatusToggle = useCallback(async (product: Product) => {
+    try {
+      await updateProduct({ id: product.id, data: { isActive: !product.isActive } }).unwrap()
+      showSuccess(product.isActive ? `${product.name} set as inactive` : `${product.name} reactivated`)
+    } catch {
+      const msg = product.isActive
+        ? `Failed to deactivate ${product.name}`
+        : `Failed to reactivate ${product.name}`
+      setPageError(msg)
+      showError(msg)
+    }
+  }, [updateProduct, showSuccess, showError])
 
   return (
-    <GenericListPage
+    <SimpleListPage
       title="Products"
-      subtitle="Manage your product catalog and inventory"
-      secondaryAction={{ label: 'View Deleted', onClick: () => workspace.setDeletedProductsDialogOpen(true) }}
-      primaryAction={{ label: 'Add Product', onClick: workspace.handleAddProduct }}
+      subtitle="Manage your product catalog, prices, and stock levels."
+      primaryAction={{ label: 'New Product', onClick: () => navigate('/inventory/products/create') }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
-      searchInputRef={workspace.searchInputRef}
+      searchInputRef={searchInputRef}
       sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
-      filterExtra={(
-        <>
-          <AppButton
-            size="filter"
-            variant="outlined"
-            startIcon={<CloudUploadIcon />}
-            onClick={() => workspace.setImportDialogOpen(true)}
-          >
-            Import
-          </AppButton>
-          <AppButton
-            size="filter"
-            variant="outlined"
-            startIcon={<TableChartIcon />}
-            loading={workspace.isExporting}
-            onClick={workspace.handleExportClick}
-          >
-            Export
-          </AppButton>
-        </>
+      isFetching={isFetching}
+      error={pageError || (error ? 'Failed to load products.' : null)}
+      onErrorClose={() => setPageError(null)}
+      tableSlot={(
+        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          <Box sx={{ mb: 1 }}>
+            <Link component="button" type="button" variant="body2" onClick={() => setImportOpen(true)}>
+              Import
+            </Link>
+          </Box>
+          <ProductList
+            products={products}
+            loading={isLoading || isFetching}
+            total={total}
+            onStatusToggle={handleStatusToggle}
+            getDefaultPrice={getDefaultPrice}
+            paginationSlot={(
+              <PagePagination
+                total={total}
+                page={page}
+                limit={limit}
+                onPageChange={setPage}
+                onLimitChange={handleLimitChange}
+                pageSizeOptions={PAGE_SIZE_OPTIONS}
+              />
+            )}
+          />
+        </Box>
       )}
-      listSlot={(
-        <ProductList
-          products={products}
-          loading={isProductsFetching}
-          selectedProductId={selectedProduct?.id}
-          focusedIndex={workspace.focusedIndex}
-          onSelect={workspace.handleSelect}
-          productListRef={workspace.listRef}
-        />
-      )}
-      headerSlot={(
-        <ProductContextHeader
-          selectedProduct={selectedProduct}
-          onEdit={() => selectedProduct && workspace.handleEditProduct(selectedProduct)}
-          onDelete={() => selectedProduct && workspace.handleDeleteProduct(selectedProduct)}
-        />
-      )}
-      workspaceSlot={<ProductWorkspaceCard selectedProduct={selectedProduct} />}
       dialogs={(
-        <ProductsDialogs
-          exportMenuAnchor={workspace.exportMenuAnchor}
-          isExporting={workspace.isExporting}
-          products={products}
-          productFilters={{
-            search: appliedFilters.search,
-          }}
-          calculatorPanelOpen={workspace.calculatorPanelOpen}
-          deletedProductsDialogOpen={workspace.deletedProductsDialogOpen}
-          importDialogOpen={workspace.importDialogOpen}
-          deleteConfirmOpen={workspace.deleteConfirmOpen}
-          productToDelete={workspace.productToDelete}
-          onCloseExportMenu={workspace.handleExportClose}
-          onExport={workspace.handleExport}
-          onCloseCalculator={() => workspace.setCalculatorPanelOpen(false)}
-          onCloseDeletedProductsDialog={() => workspace.setDeletedProductsDialogOpen(false)}
-          onCloseImportDialog={() => workspace.setImportDialogOpen(false)}
-          onImportSuccess={() => {
-            void refetchProducts()
-          }}
-          onConfirmDelete={() => void workspace.handleConfirmDelete(workspace.productToDelete)}
-          onCancelDelete={workspace.handleCancelDelete}
+        <ProductImportDialog
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          onImportSuccess={() => setImportOpen(false)}
         />
       )}
     />
   )
 }
-
-export default ProductsPage
