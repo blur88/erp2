@@ -1,5 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -34,6 +35,16 @@ vi.mock('@/store/api/settingsApi', async (importOriginal) => {
   return {
     ...actual,
     useGetRegionalSettingsQuery: () => ({ data: { lowStockThreshold: 10 } }),
+  }
+})
+
+const { navigateSpy } = vi.hoisted(() => ({ navigateSpy: vi.fn() }))
+
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return {
+    ...actual,
+    useNavigate: () => navigateSpy,
   }
 })
 
@@ -100,10 +111,35 @@ afterEach(() => {
 })
 
 describe('ProductsPage', () => {
-  it('renders the page header and Import link', () => {
+  it('renders the page header and Import action', () => {
     renderPage()
     expect(screen.getByText('Products')).toBeInTheDocument()
-    expect(screen.getByText('Import')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Import' })).toBeInTheDocument()
+  })
+
+  it('renders Import before New Product (grouped header actions)', () => {
+    renderPage()
+    const importButton = screen.getByRole('button', { name: 'Import' })
+    const newProductButton = screen.getByRole('button', { name: 'New Product' })
+    expect(importButton.parentElement).toBe(newProductButton.parentElement)
+    expect(
+      importButton.compareDocumentPosition(newProductButton)
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('opens the import dialog when Import is clicked', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(screen.getByRole('button', { name: 'Import' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('navigates to create page when New Product is clicked', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(screen.getByRole('button', { name: 'New Product' }))
+    expect(navigateSpy).toHaveBeenCalledWith('/inventory/products/create')
   })
 
   it('sends isActive: undefined when the status filter is All', () => {
