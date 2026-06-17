@@ -121,14 +121,13 @@ describe('ProductsPage', () => {
     renderPage()
     const importButton = screen.getByRole('button', { name: 'Import' })
     const newProductButton = screen.getByRole('button', { name: 'New Product' })
-    // Grouped: both live in one header action container. Anchor on Import's
-    // parent and assert it contains New Product, rather than identical
-    // parentElement. This survives a future wrapper around New Product (e.g. a
-    // tooltip span) while still proving grouping; a wrapper around Import itself
-    // would still need this anchor revisited.
-    const container = importButton.parentElement
-    expect(container).not.toBeNull()
-    expect(container?.contains(newProductButton)).toBe(true)
+    // Grouped: both buttons live inside the single header action container.
+    // Anchor on the named container (not either button's parentElement) so the
+    // test survives a future per-button wrapper (e.g. tooltip span) on either
+    // Import or New Product while still proving they are grouped together.
+    const actions = screen.getByTestId('page-header-actions')
+    expect(actions).toContainElement(importButton)
+    expect(actions).toContainElement(newProductButton)
     // And Import comes BEFORE New Product in DOM order.
     expect(
       importButton.compareDocumentPosition(newProductButton)
