@@ -53,4 +53,18 @@ describe('ProductList', () => {
     fireEvent.click(screen.getByText('Widget'))
     expect(mockNavigate).toHaveBeenCalledWith('/inventory/products/widget/view')
   })
+
+  it('row action menu offers View/Edit/Set-Inactive but no Delete', () => {
+    renderList()
+    fireEvent.click(screen.getByLabelText('row actions'))
+    expect(screen.getByText('View Product')).toBeInTheDocument()
+    expect(screen.getByText('Edit Product')).toBeInTheDocument()
+    expect(screen.getByText('Set as Inactive')).toBeInTheDocument()
+    expect(screen.queryByText(/delete/i)).not.toBeInTheDocument()
+  })
+
+  it('renders the empty state when there are no products', () => {
+    renderList({ products: [], total: 0 })
+    expect(screen.getByText(/no products found/i)).toBeInTheDocument()
+  })
 })

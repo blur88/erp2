@@ -314,7 +314,7 @@ const CreateProductPage: React.FC = () => {
           }
         }
         // In edit mode, invalidate the product-specific PriceListItem cache so
-        // ProductDetailsTab refetches and shows the updated prices immediately
+        // the product view (ProductOverviewTab) shows the updated prices immediately
         if (isEditMode) {
           dispatch(priceListApiSlice.util.invalidateTags([{ type: 'PriceListItem', id: `product-${productId}` }]))
         }
