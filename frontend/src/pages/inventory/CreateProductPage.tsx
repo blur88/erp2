@@ -769,30 +769,19 @@ const CreateProductPage: React.FC = () => {
                 </CardContent>
               </Card>
             </Grid>
+            <Grid size={12}>
+              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                <AppButton variant="secondary" onClick={handleCancel} disabled={loading}>Cancel</AppButton>
+                <AppButton
+                  variant="primary"
+                  type="submit"
+                  disabled={loading || hasNameDuplicate || hasBarcodeDuplicate}
+                >
+                  {loading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Product' : 'Create Product')}
+                </AppButton>
+              </Box>
+            </Grid>
           </Grid>
-
-          <Box
-            sx={{
-              position: 'sticky',
-              bottom: 0,
-              bgcolor: 'background.paper',
-              borderTop: 1,
-              borderColor: 'divider',
-              py: 2,
-              display: 'flex',
-              gap: 2,
-              justifyContent: 'flex-end',
-            }}
-          >
-            <AppButton variant="secondary" onClick={handleCancel} disabled={loading}>Cancel</AppButton>
-            <AppButton
-              variant="primary"
-              type="submit"
-              disabled={loading || hasNameDuplicate || hasBarcodeDuplicate}
-            >
-              {loading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Product' : 'Create Product')}
-            </AppButton>
-          </Box>
         </form>
         {UnsavedChangesDialog}
 
