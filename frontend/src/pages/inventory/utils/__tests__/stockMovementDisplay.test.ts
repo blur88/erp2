@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { StockMovementType } from '@/types'
 
-import { getMovementLabel, getMovementNavTarget } from '../stockMovementDisplay'
+import { getMovementLabel, getMovementNavTarget, getReferenceLabel } from '../stockMovementDisplay'
 
 describe('getMovementLabel', () => {
   it('labels inward types', () => {
@@ -30,5 +30,21 @@ describe('getMovementNavTarget', () => {
   it('returns null for non-navigable referenceTypes', () => {
     expect(getMovementNavTarget('stock_movement_reversal')).toBeNull()
     expect(getMovementNavTarget(undefined)).toBeNull()
+  })
+})
+
+describe('getReferenceLabel', () => {
+  it('maps known referenceTypes to friendly labels', () => {
+    expect(getReferenceLabel('sales_order')).toBe('Sales Order')
+    expect(getReferenceLabel('purchase_order')).toBe('Purchase Order')
+    expect(getReferenceLabel('stock_movement_reversal')).toBe('Reversal')
+  })
+
+  it('title-cases unknown snake_case referenceTypes', () => {
+    expect(getReferenceLabel('some_other_ref')).toBe('Some Other Ref')
+  })
+
+  it('returns an em dash for missing referenceType', () => {
+    expect(getReferenceLabel(undefined)).toBe('—')
   })
 })

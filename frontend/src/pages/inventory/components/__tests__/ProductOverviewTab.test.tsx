@@ -39,4 +39,17 @@ describe('ProductOverviewTab', () => {
     render(<ProductOverviewTab product={{ ...product, stockQuantity: 3 } as Product} />)
     expect(screen.getByText('Low Stock')).toBeInTheDocument()
   })
+
+  it('renders additional price lists ordered by priority', () => {
+    const multiPrice = {
+      ...product,
+      priceListItems: [
+        { priceListId: 'b', price: 80, priceList: { id: 'b', name: 'Wholesale', priority: 2 } },
+        { priceListId: 'a', price: 100, priceList: { id: 'a', name: 'Retail', priority: 1 } },
+      ],
+    } as unknown as Product
+    render(<ProductOverviewTab product={multiPrice} />)
+    const names = screen.getAllByText(/Retail|Wholesale/).map((n) => n.textContent)
+    expect(names).toEqual(['Retail', 'Wholesale']) // priority 1 before priority 2
+  })
 })

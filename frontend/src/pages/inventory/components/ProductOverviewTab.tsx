@@ -22,7 +22,9 @@ function Field({ label, value }: { label: string; value?: string | null }) {
 }
 
 export default function ProductOverviewTab({ product }: { product: Product }) {
-  const priceListItems = product.priceListItems ?? []
+  const priceListItems = [...(product.priceListItems ?? [])].sort(
+    (a, b) => (a.priceList?.priority ?? 0) - (b.priceList?.priority ?? 0),
+  )
   const { data: regionalSettings } = useGetRegionalSettingsQuery()
   const lowStockThreshold = regionalSettings?.lowStockThreshold ?? 10
   const stockStatus = getStockStatus(product.stockQuantity, lowStockThreshold)

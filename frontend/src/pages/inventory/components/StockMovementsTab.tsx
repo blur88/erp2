@@ -18,15 +18,14 @@ import { useLazyGetPurchaseOrderQuery } from '@/store/api/purchasingApi'
 import { useLazyGetSalesOrderQuery } from '@/store/api/salesApi'
 import { useGetStockMovementsQuery } from '@/store/api/inventoryApi'
 import type { StockMovement } from '@/types'
-import { formatNumber } from '@/utils/formatters'
-import { formatDate } from '@/utils/formatters'
+import { formatDate, formatNumber } from '@/utils/formatters'
 
-import { getMovementLabel, getMovementNavTarget } from '../utils/stockMovementDisplay'
+import { getMovementLabel, getMovementNavTarget, getReferenceLabel } from '../utils/stockMovementDisplay'
 
 export default function StockMovementsTab({ productId }: { productId: string }) {
   const navigate = useNavigate()
   const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [rowsPerPage, setRowsPerPage] = useState(25)
 
   const { data, isLoading } = useGetStockMovementsQuery({
     productId,
@@ -100,7 +99,7 @@ export default function StockMovementsTab({ productId }: { productId: string }) 
                 >
                   <TableCell>{formatDate(movement.movementDate)}</TableCell>
                   <TableCell>{getMovementLabel(movement.movementType)}</TableCell>
-                  <TableCell>{movement.referenceType ?? '—'}</TableCell>
+                  <TableCell>{getReferenceLabel(movement.referenceType)}</TableCell>
                   <TableCell align="right">{qtySign}{formatNumber(movement.quantity)}</TableCell>
                   <TableCell align="right">{formatNumber(movement.newBalance)}</TableCell>
                   <TableCell>{movement.notes ?? '—'}</TableCell>
@@ -111,7 +110,7 @@ export default function StockMovementsTab({ productId }: { productId: string }) 
         </Table>
       </TableContainer>
       <TablePagination
-        rowsPerPageOptions={[10, 20, 50]}
+        rowsPerPageOptions={[10, 25, 50]}
         component="div"
         count={total}
         rowsPerPage={rowsPerPage}

@@ -30,3 +30,19 @@ export function getMovementNavTarget(referenceType?: string): MovementNavTarget 
   if (referenceType === 'purchase_order') return 'purchase_order'
   return null
 }
+
+const REFERENCE_LABELS: Record<string, string> = {
+  sales_order: 'Sales Order',
+  purchase_order: 'Purchase Order',
+  stock_adjustment: 'Stock Adjustment',
+  stock_movement_reversal: 'Reversal',
+}
+
+/** Human-readable label for a movement's referenceType (snake_case → Title Case). */
+export function getReferenceLabel(referenceType?: string): string {
+  if (!referenceType) return '—'
+  return (
+    REFERENCE_LABELS[referenceType] ??
+    referenceType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  )
+}
