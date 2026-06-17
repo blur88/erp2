@@ -8,13 +8,16 @@ import {
   Alert,
   Card,
   CardContent,
-
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   MenuItem,
-  Chip,
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 
-import { useForm, Controller, type Control } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { useGetPriceListsQuery, useBulkUpdatePricesMutation, priceListApiSlice } from '@/store/api/priceListApi'
@@ -22,6 +25,7 @@ import { useCreateProductMutation, useLazyGetProductBySlugQuery, useUpdateProduc
 import { useDispatch } from 'react-redux'
 import { useNotification } from '@/hooks/useNotification'
 import { AppButton } from '@/components/common/AppButton'
+import MarginChip from '@/components/common/MarginChip'
 import PageHeader from '@/components/common/PageHeader'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import { Category, PriceList } from '@/types'
@@ -75,13 +79,6 @@ const PriceListPriceField: React.FC<{
     }
   }
 
-  const calculateMargin = (price: number, cost: number): number => {
-    if (!price || !cost || price <= 0 || cost <= 0) return 0
-    return ((price - cost) / price) * 100
-  }
-
-  const margin = calculateMargin(value, baseCost)
-
   return (
     <Grid size={{ xs: 12, md: 6 }}>
       <Box>
@@ -112,23 +109,8 @@ const PriceListPriceField: React.FC<{
         />
         {value > 0 && baseCost > 0 && (
           <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Typography variant="caption" sx={{
-              color: "text.secondary"
-            }}>
-              Margin:
-            </Typography>
-            <Chip
-              label={`${margin.toFixed(1)}%`}
-              size="small"
-              variant="outlined"
-              color={margin > 20 ? 'success' : margin > 10 ? 'warning' : 'error'}
-              sx={{
-                fontSize: '0.7rem',
-                fontWeight: 500,
-                height: 20,
-                minWidth: 42
-              }}
-            />
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>Margin:</Typography>
+            <MarginChip price={value} cost={baseCost} />
           </Box>
         )}
       </Box>
@@ -152,66 +134,6 @@ interface PriceListPrice {
   priceListId: string
   price: number
 }
-
-interface ProductAdditionalInformationCardProps {
-  control: Control<ProductFormData>
-  disabled: boolean
-  isEditMode: boolean
-  loading: boolean
-  onCancel: () => void
-}
-
-const ProductAdditionalInformationCard: React.FC<ProductAdditionalInformationCardProps> = ({
-  control,
-  disabled,
-  isEditMode,
-  loading,
-  onCancel,
-}) => (
-  <Card sx={{ height: '100%' }}>
-    <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Typography variant="h6" gutterBottom>Additional Information</Typography>
-
-      <Controller
-        name="notes"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            label="Notes"
-            multiline
-            rows={6}
-            fullWidth
-            size="small"
-            sx={{
-              mb: 2,
-              '& .MuiInputBase-input': {
-                fontSize: '0.875rem',
-              },
-              '& .MuiInputLabel-root': {
-                fontSize: '0.875rem',
-              }
-            }}
-          />
-        )}
-      />
-
-      <Box sx={{ mt: 'auto' }}>
-        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-          <AppButton variant="secondary" fullWidth onClick={onCancel} disabled={loading}>
-            Cancel
-          </AppButton>
-          <AppButton variant="primary" type="submit" fullWidth disabled={disabled}>
-            {loading
-              ? (isEditMode ? 'Updating...' : 'Creating...')
-              : (isEditMode ? 'Update Product' : 'Create Product')
-            }
-          </AppButton>
-        </Box>
-      </Box>
-    </CardContent>
-  </Card>
-)
 
 const productSchema = yup.object({
   name: yup.string().required('Product name is required').min(2, 'Name must be at least 2 characters'),
@@ -252,7 +174,9 @@ const CreateProductPage: React.FC = () => {
   // Currency hook
   const { currency } = useCurrency()
 
-  const { control, handleSubmit, watch, reset, formState: { errors, isDirty, isSubmitting } } = useForm<ProductFormData>({
+  const [pendingType, setPendingType] = useState<'Stocked Product' | 'Service' | null>(null)
+
+  const { control, handleSubmit, watch, reset, setValue, formState: { errors, isDirty, isSubmitting } } = useForm<ProductFormData>({
     resolver: yupResolver(productSchema) as any,
     defaultValues: {
       name: '',
@@ -390,7 +314,7 @@ const CreateProductPage: React.FC = () => {
           }
         }
         // In edit mode, invalidate the product-specific PriceListItem cache so
-        // ProductDetailsTab refetches and shows the updated prices immediately
+        // the product view (ProductOverviewTab) shows the updated prices immediately
         if (isEditMode) {
           dispatch(priceListApiSlice.util.invalidateTags([{ type: 'PriceListItem', id: `product-${productId}` }]))
         }
@@ -406,6 +330,14 @@ const CreateProductPage: React.FC = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleCancel = () => {
+    if (isEditMode && editingProductId) {
+      navigate(`/inventory/products?highlight=${editingProductId}`)
+      return
+    }
+    navigate('/inventory/products')
   }
 
   const formatNumberWithCommas = (value: number | string): string => {
@@ -588,6 +520,14 @@ const CreateProductPage: React.FC = () => {
                             required
                             fullWidth
                             size="small"
+                            onChange={(e) => {
+                              const next = e.target.value as 'Stocked Product' | 'Service'
+                              if (isEditMode && next !== field.value) {
+                                setPendingType(next)
+                              } else {
+                                field.onChange(next)
+                              }
+                            }}
                             sx={{
                               '& .MuiInputBase-input': {
                                 fontSize: '0.875rem',
@@ -799,32 +739,87 @@ const CreateProductPage: React.FC = () => {
                   </CardContent>
                 </Card>
               )}
-            </Grid>
 
-            {/* Notes and Actions */}
-            <Grid
-              size={{
-                xs: 12,
-                md: 4
-              }}>
-              <ProductAdditionalInformationCard
-                control={control}
-                disabled={loading || hasNameDuplicate || hasBarcodeDuplicate}
-                isEditMode={isEditMode}
-                loading={loading}
-                onCancel={() => {
-                  if (isEditMode && editingProductId) {
-                    navigate(`/inventory/products?highlight=${editingProductId}`)
-                    return
-                  }
-
-                  navigate('/inventory/products')
-                }}
-              />
+              {/* Notes */}
+              <Card sx={{ mt: 3, mb: 2 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>Notes</Typography>
+                  <Controller
+                    name="notes"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        label="Notes"
+                        multiline
+                        rows={4}
+                        fullWidth
+                        size="small"
+                        sx={{
+                          '& .MuiInputBase-input': {
+                            fontSize: '0.875rem',
+                          },
+                          '& .MuiInputLabel-root': {
+                            fontSize: '0.875rem',
+                          }
+                        }}
+                      />
+                    )}
+                  />
+                </CardContent>
+              </Card>
             </Grid>
           </Grid>
+
+          <Box
+            sx={{
+              position: 'sticky',
+              bottom: 0,
+              bgcolor: 'background.paper',
+              borderTop: 1,
+              borderColor: 'divider',
+              py: 2,
+              display: 'flex',
+              gap: 2,
+              justifyContent: 'flex-end',
+            }}
+          >
+            <AppButton variant="secondary" onClick={handleCancel} disabled={loading}>Cancel</AppButton>
+            <AppButton
+              variant="primary"
+              type="submit"
+              disabled={loading || hasNameDuplicate || hasBarcodeDuplicate}
+            >
+              {loading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Product' : 'Create Product')}
+            </AppButton>
+          </Box>
         </form>
         {UnsavedChangesDialog}
+
+        <Dialog open={pendingType != null} onClose={() => setPendingType(null)}>
+          <DialogTitle>Change product type?</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              {pendingType === 'Service'
+                ? 'Switching to Service will stop stock tracking. Existing stock data for this product will no longer be used.'
+                : 'Switching to Stocked Product will start stock tracking from the entered quantity.'}
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <AppButton variant="secondary" onClick={() => setPendingType(null)}>Cancel</AppButton>
+            <AppButton
+              variant="primary"
+              onClick={() => {
+                if (pendingType) {
+                  setValue('type', pendingType, { shouldDirty: true })
+                }
+                setPendingType(null)
+              }}
+            >
+              Confirm
+            </AppButton>
+          </DialogActions>
+        </Dialog>
         </>
       )}
     </>

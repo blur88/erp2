@@ -1,10 +1,9 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
-import type { Category, Product, StockAdjustment } from '@/types'
+import type { Category, StockAdjustment } from '@/types'
 import type { RootState } from '@/store'
 
 interface InventoryState {
-  selectedProduct: Product | null
   selectedCategory: Category | null
   selectedStockAdjustment: StockAdjustment | null
   filters: {
@@ -15,7 +14,6 @@ interface InventoryState {
 }
 
 const initialState: InventoryState = {
-  selectedProduct: null,
   selectedCategory: null,
   selectedStockAdjustment: null,
   filters: {
@@ -29,9 +27,6 @@ const inventorySlice = createSlice({
   name: 'inventory',
   initialState,
   reducers: {
-    setSelectedProduct: (state, action: PayloadAction<Product | null>) => {
-      state.selectedProduct = action.payload
-    },
     setSelectedCategory: (state, action: PayloadAction<Category | null>) => {
       state.selectedCategory = action.payload
     },
@@ -45,13 +40,11 @@ const inventorySlice = createSlice({
 })
 
 export const {
-  setSelectedProduct,
   setSelectedCategory,
   setSelectedStockAdjustment,
   setCategoryFilters,
 } = inventorySlice.actions
 
-export const selectSelectedProduct = (state: RootState) => state.inventory.selectedProduct
 export const selectSelectedCategory = (state: RootState) => state.inventory.selectedCategory
 export const selectSelectedStockAdjustment = (state: RootState) => state.inventory.selectedStockAdjustment
 export default inventorySlice.reducer

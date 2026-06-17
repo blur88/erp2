@@ -45,6 +45,7 @@ export interface Product {
   stockQuantity: number;
   isActive: boolean;
   notes?: string;
+  priceListItems?: ProductPriceListItem[];
   // Stock status indicators
   isOutOfStock: boolean;
   createdAt: Date;
@@ -638,6 +639,13 @@ export interface PriceList {
   createdAt: Date | string;
   updatedAt: Date | string;
   deletedAt?: Date | string;
+  priority?: number;
+}
+
+export interface ProductPriceListItem {
+  priceListId: string;
+  priceList?: PriceList;
+  price: number;
 }
 
 export interface PriceListItem {
