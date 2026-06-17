@@ -119,17 +119,24 @@ describe('ProductsPage', () => {
     appliedStockStatus = 'low_stock'
     productsData = [
       product({ id: '1', slug: 'low', name: 'LowStockItem', stockQuantity: 3 }),
-      product({ id: '2', slug: 'ok', name: 'HealthyItem', stockQuantity: 50 }),
-      product({ id: '3', slug: 'zero', name: 'OutItem', stockQuantity: 0 }),
+      product({ id: '2', slug: 'edge-low', name: 'AtThresholdItem', stockQuantity: 10 }),
+      product({ id: '3', slug: 'edge-in', name: 'JustAboveItem', stockQuantity: 11 }),
+      product({ id: '4', slug: 'ok', name: 'HealthyItem', stockQuantity: 50 }),
+      product({ id: '5', slug: 'zero', name: 'OutItem', stockQuantity: 0 }),
     ]
     renderPage()
-    // threshold 10: only stockQuantity 3 is low_stock (0 is out_of_stock, 50 is in_stock)
+    // threshold 10: qty in (0, 10] is low; qty 0 is out; qty > 10 is in.
     expect(screen.getByText('LowStockItem')).toBeInTheDocument()
+    expect(screen.getByText('AtThresholdItem')).toBeInTheDocument() // boundary: qty===10 is low
+    expect(screen.queryByText('JustAboveItem')).not.toBeInTheDocument() // boundary: qty===11 is in
     expect(screen.queryByText('HealthyItem')).not.toBeInTheDocument()
     expect(screen.queryByText('OutItem')).not.toBeInTheDocument()
-    // Low Stock has no server predicate — must not be sent to the backend.
+    // Low Stock has no server predicate — the page must not send a server stock filter.
     expect(getProductsSpy).not.toHaveBeenCalledWith(
-      expect.objectContaining({ lowStock: expect.anything() }),
+      expect.objectContaining({ outOfStock: expect.anything() }),
+    )
+    expect(getProductsSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({ minStock: expect.anything() }),
     )
   })
 })
