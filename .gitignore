@@ -15,22 +15,21 @@ out/
 .turbo
 
 # Environment variables (CRITICAL - never commit actual .env files!)
-.env
-.env.local
-.env.*.local
-.env.development
-.env.development.local
-.env.test
-.env.test.local
-.env.production
-.env.production.local
-.env.staging
-.env.staging.local
+# **/ prefix matches at any depth (root + backend/ + frontend/ subdirs)
+**/.env
+**/.env.local
+**/.env.*.local
+**/.env.development
+**/.env.development.local
+**/.env.test
+**/.env.test.local
+**/.env.production
+**/.env.production.local
+**/.env.staging
+**/.env.staging.local
 
 # Keep template files (these should be committed)
-!.env.example
-!backend/.env.example
-!frontend/.env.example
+!**/.env.example
 
 # Logs
 *.log
@@ -200,3 +199,11 @@ docs/superpowers/plans/completed/
 !docs/superpowers/plans/README.md
 docs/superpowers/specs/*.md
 docs/superpowers/specs/completed/
+
+# Local-only test docs
+docs/test/
+
+# Agent/CLI tool scratch dirs (local-only)
+.agents/
+.antigravitycli/
+.superpowers/
