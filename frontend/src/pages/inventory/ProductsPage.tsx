@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Link } from '@mui/material'
+import { Box } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
 import PagePagination from '@/components/common/PagePagination'
@@ -121,6 +121,7 @@ export default function ProductsPage() {
       title="Products"
       subtitle="Manage your product catalog, prices, and stock levels."
       primaryAction={{ label: 'New Product', onClick: () => navigate('/inventory/products/create') }}
+      secondaryAction={{ label: 'Import', onClick: () => setImportOpen(true) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}
@@ -132,11 +133,6 @@ export default function ProductsPage() {
       onErrorClose={() => setPageError(null)}
       tableSlot={(
         <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-          <Box sx={{ mb: 1 }}>
-            <Link component="button" type="button" variant="body2" onClick={() => setImportOpen(true)}>
-              Import
-            </Link>
-          </Box>
           <ProductList
             products={products}
             loading={isLoading || isFetching}

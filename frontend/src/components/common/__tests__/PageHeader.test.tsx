@@ -64,6 +64,20 @@ describe('PageHeader', () => {
   it('does not render actions box when neither action is provided', () => {
     renderWithTheme(<PageHeader title="Sales Orders" />)
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('page-header-actions')).not.toBeInTheDocument()
+  })
+
+  it('groups both actions inside the page-header-actions container', () => {
+    renderWithTheme(
+      <PageHeader
+        title="T"
+        secondaryAction={{ label: 'Import', onClick: vi.fn() }}
+        primaryAction={{ label: 'New Product', onClick: vi.fn() }}
+      />,
+    )
+    const actions = screen.getByTestId('page-header-actions')
+    expect(actions).toContainElement(screen.getByRole('button', { name: 'Import' }))
+    expect(actions).toContainElement(screen.getByRole('button', { name: 'New Product' }))
   })
 
   it('renders only primary button when only primaryAction is provided', () => {

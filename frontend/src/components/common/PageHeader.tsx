@@ -88,6 +88,7 @@ export default function PageHeader({
 
         {hasActions && (
           <Box
+            data-testid="page-header-actions"
             sx={{
               display: 'flex',
               alignItems: 'center',
