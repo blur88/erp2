@@ -389,6 +389,58 @@ describe('ProductService pagination removal', () => {
       );
     });
   });
+
+  describe('findBySlug / findByBarcode relations (#784)', () => {
+    const priceList = {
+      id: 'pl-1',
+      code: 'RETAIL',
+      name: 'Retail',
+      priority: 1,
+      isDefault: true,
+      isActive: true,
+    } as any;
+
+    const productWithPriceList = createProduct('prod-1', {
+      slug: 'product-prod-1',
+      priceListItems: [
+        {
+          id: 'pli-1',
+          priceListId: 'pl-1',
+          productId: 'prod-1',
+          price: 100,
+          costBasis: 80,
+          marginPercent: 25,
+          priceList,
+        },
+      ] as any,
+    });
+
+    it('findBySlug loads priceListItems with priceList relation', async () => {
+      productRepository.findOne = jest.fn().mockResolvedValue(productWithPriceList);
+
+      const result = await service.findBySlug('product-prod-1');
+
+      expect(productRepository.findOne).toHaveBeenCalledWith({
+        where: { slug: 'product-prod-1' },
+        relations: { category: true, priceListItems: { priceList: true } },
+      });
+      expect(result.priceListItems).toHaveLength(1);
+      expect(result.priceListItems[0].priceList?.priority).toBe(1);
+    });
+
+    it('findByBarcode loads priceListItems with priceList relation', async () => {
+      productRepository.findOne = jest.fn().mockResolvedValue(productWithPriceList);
+
+      const result = await service.findByBarcode('SKU-prod-1');
+
+      expect(productRepository.findOne).toHaveBeenCalledWith({
+        where: { barcode: 'SKU-prod-1' },
+        relations: { category: true, priceListItems: { priceList: true } },
+      });
+      expect(result.priceListItems).toHaveLength(1);
+      expect(result.priceListItems[0].priceList?.priority).toBe(1);
+    });
+  });
 });
 
 describe('checkProductDependencies', () => {

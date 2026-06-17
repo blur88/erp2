@@ -475,7 +475,7 @@ export class ProductService extends BaseCrudService<
   async findByBarcode(barcode: string): Promise<ProductResponseDto> {
     const product = await this.productRepository.findOne({
       where: { barcode },
-      relations: { category: true },
+      relations: { category: true, priceListItems: { priceList: true } },
     });
 
     if (!product) {
@@ -488,7 +488,7 @@ export class ProductService extends BaseCrudService<
   async findBySlug(slug: string): Promise<ProductResponseDto> {
     const product = await this.productRepository.findOne({
       where: { slug },
-      relations: { category: true },
+      relations: { category: true, priceListItems: { priceList: true } },
     });
 
     if (!product) {
@@ -1509,6 +1509,7 @@ export class ProductService extends BaseCrudService<
                 id: item.priceList.id,
                 code: item.priceList.code,
                 name: item.priceList.name,
+                priority: item.priceList.priority,
                 isDefault: item.priceList.isDefault,
                 isActive: item.priceList.isActive,
               }
