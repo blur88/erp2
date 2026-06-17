@@ -393,12 +393,8 @@ const CreateProductPage: React.FC = () => {
           )}
 
           <Grid container spacing={3}>
-            {/* Product Information Card */}
-            <Grid
-              size={{
-                xs: 12,
-                md: 8
-              }}>
+            {/* LEFT COLUMN: Product Information + Pricing */}
+            <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>Product Information</Typography>
@@ -658,10 +654,13 @@ const CreateProductPage: React.FC = () => {
                   </Grid>
                 </CardContent>
               </Card>
+            </Grid>
 
+            {/* RIGHT COLUMN: Stock (conditional) + Notes */}
+            <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
               {/* Stock Card - Only for Stocked Products */}
               {watchedType === 'Stocked Product' && (
-                <Card sx={{ mt: 3 }}>
+                <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom>Stock Information</Typography>
                     <Grid container spacing={2}>
@@ -740,37 +739,49 @@ const CreateProductPage: React.FC = () => {
                 </Card>
               )}
 
-              {/* Notes */}
-              <Card sx={{ mt: 3, mb: 2 }}>
-                <CardContent>
+              {/* Notes — flex-stretched to fill the right column */}
+              <Card
+                sx={{
+                  mt: watchedType === 'Stocked Product' ? 3 : 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  flexGrow: 1,
+                }}
+              >
+                <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
                   <Typography variant="h6" gutterBottom>Notes</Typography>
-                  <Controller
-                    name="notes"
-                    control={control}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        label="Notes"
-                        multiline
-                        rows={4}
-                        fullWidth
-                        size="small"
-                        sx={{
-                          '& .MuiInputBase-input': {
-                            fontSize: '0.875rem',
-                          },
-                          '& .MuiInputLabel-root': {
-                            fontSize: '0.875rem',
-                          }
-                        }}
-                      />
-                    )}
-                  />
+                  <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', mt: 1 }}>
+                    <Controller
+                      name="notes"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          value={field.value || ''}
+                          label="Notes"
+                          multiline
+                          minRows={4}
+                          fullWidth
+                          size="small"
+                          sx={{
+                            flexGrow: 1,
+                            '& .MuiInputBase-root': { height: '100%', alignItems: 'flex-start' },
+                            '& .MuiInputBase-input': {
+                              fontSize: '0.875rem',
+                              height: '100% !important',
+                              overflow: 'auto !important',
+                            },
+                            '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+                          }}
+                        />
+                      )}
+                    />
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>
             <Grid size={12}>
-              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 2 }}>
                 <AppButton variant="secondary" onClick={handleCancel} disabled={loading}>Cancel</AppButton>
                 <AppButton
                   variant="primary"
