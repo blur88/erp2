@@ -440,6 +440,43 @@ describe('ProductService pagination removal', () => {
       expect(result.priceListItems).toHaveLength(1);
       expect(result.priceListItems[0].priceList?.priority).toBe(1);
     });
+
+    it('restore reloads the product with priceListItems relation', async () => {
+      const restorable = createProduct('prod-1', {
+        barcode: null,
+        deletedAt: new Date('2026-03-10T00:00:00.000Z'),
+        priceListItems: productWithPriceList.priceListItems,
+      });
+      productRepository.findOne = jest.fn().mockResolvedValue(restorable);
+      productRepository.restore = jest.fn().mockResolvedValue(undefined);
+
+      const result = await service.restore('prod-1');
+
+      // Second findOne is the post-restore refetch returned to the client.
+      expect(productRepository.findOne).toHaveBeenNthCalledWith(2, {
+        where: { id: 'prod-1' },
+        relations: { category: true, priceListItems: { priceList: true } },
+      });
+      expect(result.priceListItems[0].priceList?.priority).toBe(1);
+    });
+
+    it('update reloads the product with priceListItems relation', async () => {
+      const existing = createProduct('prod-1', {
+        priceListItems: productWithPriceList.priceListItems,
+      });
+      productRepository.findOne = jest.fn().mockResolvedValue(existing);
+      productRepository.update = jest.fn().mockResolvedValue(undefined);
+
+      // No name/barcode change → no conflict query builders are invoked.
+      const result = await service.update('prod-1', {} as any);
+
+      // Second findOne is the reload returned to the client.
+      expect(productRepository.findOne).toHaveBeenNthCalledWith(2, {
+        where: { id: 'prod-1' },
+        relations: { category: true, priceListItems: { priceList: true } },
+      });
+      expect(result.priceListItems[0].priceList?.priority).toBe(1);
+    });
   });
 });
 

@@ -644,7 +644,7 @@ export class ProductService extends BaseCrudService<
     // Fetch the restored product
     const restoredProduct = await this.productRepository.findOne({
       where: { id },
-      relations: { category: true },
+      relations: { category: true, priceListItems: { priceList: true } },
     });
 
     // Log audit trail for restore
@@ -1022,10 +1022,10 @@ export class ProductService extends BaseCrudService<
       updateData,
     );
 
-    // Reload the product with category relation to ensure fresh data
+    // Reload the product with category and price list relations to ensure fresh data
     const productWithCategory = await this.productRepository.findOne({
       where: { id },
-      relations: { category: true },
+      relations: { category: true, priceListItems: { priceList: true } },
     });
 
     // Log audit trail for update
