@@ -475,7 +475,7 @@ export class ProductService extends BaseCrudService<
   async findByBarcode(barcode: string): Promise<ProductResponseDto> {
     const product = await this.productRepository.findOne({
       where: { barcode },
-      relations: { category: true },
+      relations: { category: true, priceListItems: { priceList: true } },
     });
 
     if (!product) {
@@ -488,7 +488,7 @@ export class ProductService extends BaseCrudService<
   async findBySlug(slug: string): Promise<ProductResponseDto> {
     const product = await this.productRepository.findOne({
       where: { slug },
-      relations: { category: true },
+      relations: { category: true, priceListItems: { priceList: true } },
     });
 
     if (!product) {
@@ -644,7 +644,7 @@ export class ProductService extends BaseCrudService<
     // Fetch the restored product
     const restoredProduct = await this.productRepository.findOne({
       where: { id },
-      relations: { category: true },
+      relations: { category: true, priceListItems: { priceList: true } },
     });
 
     // Log audit trail for restore
@@ -1022,10 +1022,10 @@ export class ProductService extends BaseCrudService<
       updateData,
     );
 
-    // Reload the product with category relation to ensure fresh data
+    // Reload the product with category and price list relations to ensure fresh data
     const productWithCategory = await this.productRepository.findOne({
       where: { id },
-      relations: { category: true },
+      relations: { category: true, priceListItems: { priceList: true } },
     });
 
     // Log audit trail for update
@@ -1509,6 +1509,7 @@ export class ProductService extends BaseCrudService<
                 id: item.priceList.id,
                 code: item.priceList.code,
                 name: item.priceList.name,
+                priority: item.priceList.priority,
                 isDefault: item.priceList.isDefault,
                 isActive: item.priceList.isActive,
               }

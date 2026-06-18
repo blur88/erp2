@@ -389,6 +389,95 @@ describe('ProductService pagination removal', () => {
       );
     });
   });
+
+  describe('findBySlug / findByBarcode relations (#784)', () => {
+    const priceList = {
+      id: 'pl-1',
+      code: 'RETAIL',
+      name: 'Retail',
+      priority: 1,
+      isDefault: true,
+      isActive: true,
+    } as any;
+
+    const productWithPriceList = createProduct('prod-1', {
+      slug: 'product-prod-1',
+      priceListItems: [
+        {
+          id: 'pli-1',
+          priceListId: 'pl-1',
+          productId: 'prod-1',
+          price: 100,
+          costBasis: 80,
+          marginPercent: 25,
+          priceList,
+        },
+      ] as any,
+    });
+
+    it('findBySlug loads priceListItems with priceList relation', async () => {
+      productRepository.findOne = jest.fn().mockResolvedValue(productWithPriceList);
+
+      const result = await service.findBySlug('product-prod-1');
+
+      expect(productRepository.findOne).toHaveBeenCalledWith({
+        where: { slug: 'product-prod-1' },
+        relations: { category: true, priceListItems: { priceList: true } },
+      });
+      expect(result.priceListItems).toHaveLength(1);
+      expect(result.priceListItems[0].priceList?.priority).toBe(1);
+    });
+
+    it('findByBarcode loads priceListItems with priceList relation', async () => {
+      productRepository.findOne = jest.fn().mockResolvedValue(productWithPriceList);
+
+      const result = await service.findByBarcode('SKU-prod-1');
+
+      expect(productRepository.findOne).toHaveBeenCalledWith({
+        where: { barcode: 'SKU-prod-1' },
+        relations: { category: true, priceListItems: { priceList: true } },
+      });
+      expect(result.priceListItems).toHaveLength(1);
+      expect(result.priceListItems[0].priceList?.priority).toBe(1);
+    });
+
+    it('restore reloads the product with priceListItems relation', async () => {
+      const restorable = createProduct('prod-1', {
+        barcode: null,
+        deletedAt: new Date('2026-03-10T00:00:00.000Z'),
+        priceListItems: productWithPriceList.priceListItems,
+      });
+      productRepository.findOne = jest.fn().mockResolvedValue(restorable);
+      productRepository.restore = jest.fn().mockResolvedValue(undefined);
+
+      const result = await service.restore('prod-1');
+
+      // Second findOne is the post-restore refetch returned to the client.
+      expect(productRepository.findOne).toHaveBeenNthCalledWith(2, {
+        where: { id: 'prod-1' },
+        relations: { category: true, priceListItems: { priceList: true } },
+      });
+      expect(result.priceListItems[0].priceList?.priority).toBe(1);
+    });
+
+    it('update reloads the product with priceListItems relation', async () => {
+      const existing = createProduct('prod-1', {
+        priceListItems: productWithPriceList.priceListItems,
+      });
+      productRepository.findOne = jest.fn().mockResolvedValue(existing);
+      productRepository.update = jest.fn().mockResolvedValue(undefined);
+
+      // No name/barcode change → no conflict query builders are invoked.
+      const result = await service.update('prod-1', {} as any);
+
+      // Second findOne is the reload returned to the client.
+      expect(productRepository.findOne).toHaveBeenNthCalledWith(2, {
+        where: { id: 'prod-1' },
+        relations: { category: true, priceListItems: { priceList: true } },
+      });
+      expect(result.priceListItems[0].priceList?.priority).toBe(1);
+    });
+  });
 });
 
 describe('checkProductDependencies', () => {

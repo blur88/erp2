@@ -186,6 +186,24 @@ export class ProductResponseDto {
   @ApiProperty({ description: 'Last update date' })
   updatedAt: Date;
 
+  @ApiProperty({ description: 'Price list items for this product', type: [Object] })
+  priceListItems: {
+    id: string;
+    priceListId: string;
+    productId: string;
+    price: number;
+    costBasis: number | null;
+    marginPercent: number | null;
+    priceList?: {
+      id: string;
+      code: string;
+      name: string;
+      priority: number;
+      isDefault: boolean;
+      isActive: boolean;
+    };
+  }[];
+
   @ApiPropertyOptional({ description: 'Deletion date (only for soft-deleted products)' })
   deletedAt?: Date;
 }
