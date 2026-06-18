@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
-import { Box, Card, CardContent, Grid, Link, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
+import { Box, Card, CardContent, Grid, Link, Typography } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 
-import { TABLE_STYLES } from '@/constants/tableStyles'
+import { DataTable, type Column } from '@/components/common/DataTable'
 import type { PurchaseOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
@@ -85,34 +85,37 @@ export default function PurchaseOrderOverviewTab({ order }: PurchaseOrderOvervie
         </Grid>
       </Grid>
 
-      <TableContainer component={Paper} variant="outlined">
-        <Table size={TABLE_STYLES.size}>
-          <TableHead>
-            <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600 } }}>
-              <TableCell>Product</TableCell>
-              <TableCell align="right">Quantity</TableCell>
-              <TableCell align="right">Unit Cost</TableCell>
-              <TableCell align="right">Discount</TableCell>
-              <TableCell align="right">Subtotal</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {items.map((item) => (
-              <TableRow key={item.id} hover>
-                <TableCell>{item.product?.name ?? item.description ?? '—'}</TableCell>
-                <TableCell align="right">{item.quantity}</TableCell>
-                <TableCell align="right">{formatCurrency(item.unitCost ?? item.unitPrice ?? 0)}</TableCell>
-                <TableCell align="right">
-                  {item.discountAmount
-                    ? `${formatCurrency(item.discountAmount)}${item.discountPercent ? ` (${Number(item.discountPercent).toFixed(2)}%)` : ''}`
-                    : '—'}
-                </TableCell>
-                <TableCell align="right">{formatCurrency(item.totalAmount ?? item.total ?? 0)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <DataTable
+        columns={
+          [
+            { header: 'Product', render: (item) => item.product?.name ?? item.description ?? '—' },
+            { header: 'Quantity', align: 'right', render: (item) => item.quantity },
+            {
+              header: 'Unit Cost',
+              align: 'right',
+              render: (item) => formatCurrency(item.unitCost ?? item.unitPrice ?? 0),
+            },
+            {
+              header: 'Discount',
+              align: 'right',
+              render: (item) =>
+                item.discountAmount
+                  ? `${formatCurrency(item.discountAmount)}${
+                      item.discountPercent ? ` (${Number(item.discountPercent).toFixed(2)}%)` : ''
+                    }`
+                  : '—',
+            },
+            {
+              header: 'Subtotal',
+              align: 'right',
+              render: (item) => formatCurrency(item.totalAmount ?? item.total ?? 0),
+            },
+          ] as Column<(typeof items)[number]>[]
+        }
+        rows={items}
+        getRowKey={(item) => item.id}
+        emptyText="No items on this purchase order."
+      />
 
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
         <Box sx={{ minWidth: 240 }}>
