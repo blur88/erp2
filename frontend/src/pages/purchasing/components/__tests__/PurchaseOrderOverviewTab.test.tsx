@@ -61,4 +61,22 @@ describe('PurchaseOrderOverviewTab items table', () => {
     // and not a zero-currency value in the discount column
     expect(cells.some((c) => c.textContent === '$0.00')).toBe(false)
   })
+
+  it('renders the empty-items state and still shows the summary totals', () => {
+    renderTab({
+      orderNumber: 'PO-3',
+      orderDate: '2026-01-01',
+      status: 'draft',
+      paymentStatus: 'unpaid',
+      totalAmount: 100,
+      paidAmount: 0,
+      items: [],
+    })
+    // DataTable shows the centered empty state instead of a header-only table.
+    expect(screen.getByText('No items on this purchase order.')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    // The summary totals box below the items table still renders unconditionally.
+    expect(screen.getByText('Subtotal')).toBeInTheDocument()
+    expect(screen.getByText('Total')).toBeInTheDocument()
+  })
 })
