@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { ThemeProvider } from '@mui/material/styles'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
@@ -52,6 +52,13 @@ describe('PurchaseOrderOverviewTab items table', () => {
         { id: 'i2', product: { name: 'Gadget' }, quantity: 1, unitCost: 100, totalAmount: 100 },
       ],
     })
-    expect(screen.getByText('Gadget')).toBeInTheDocument()
+    // discount cell renders the em dash (not "$0.00") when there is no discount.
+    // Scope to the items table — the order-info card also renders em dashes.
+    const table = screen.getByRole('table')
+    const cells = within(table).getAllByRole('cell')
+    expect(within(table).getByText('Gadget')).toBeInTheDocument()
+    expect(cells.some((c) => c.textContent === '—')).toBe(true)
+    // and not a zero-currency value in the discount column
+    expect(cells.some((c) => c.textContent === '$0.00')).toBe(false)
   })
 })

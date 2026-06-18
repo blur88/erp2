@@ -69,7 +69,7 @@ export default function StockMovementsTab({ productId }: { productId: string }) 
   return (
     <DataTable
       columns={columns}
-      rows={movements as StockMovement[]}
+      rows={movements}
       getRowKey={(m) => m.id}
       emptyText="No stock movements recorded for this product"
       isLoading={isLoading}
