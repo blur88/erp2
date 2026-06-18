@@ -98,8 +98,9 @@ export default function PurchaseOrderOverviewTab({ order }: PurchaseOrderOvervie
             {
               header: 'Discount',
               align: 'right',
+              // No discount (undefined or 0) renders an em dash.
               render: (item) =>
-                item.discountAmount
+                Number(item.discountAmount) > 0
                   ? `${formatCurrency(item.discountAmount)}${
                       item.discountPercent ? ` (${Number(item.discountPercent).toFixed(2)}%)` : ''
                     }`
