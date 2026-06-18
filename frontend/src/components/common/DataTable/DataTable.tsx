@@ -64,35 +64,46 @@ export function DataTable<T>({
     return centeredText(emptyText)
   }
 
-  const containerProps = sticky
-    ? { sx: { flex: 1, overflow: 'auto' } }
-    : { component: Paper as const, variant: 'outlined' as const }
+  const container = (
+    <Table stickyHeader={sticky} size={TABLE_STYLES.size}>
+      <TableHead>
+        <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
+          {columns.map((col, i) => (
+            <TableCell key={i} align={col.align} sx={col.width ? { width: col.width } : undefined}>
+              {col.header}
+            </TableCell>
+          ))}
+        </TableRow>
+      </TableHead>
+      <TableBody>
+        {rows.map((row) => (
+          <TableRow key={getRowKey(row)} hover>
+            {columns.map((col, i) => (
+              <TableCell key={i} align={col.align}>
+                {col.render(row)}
+              </TableCell>
+            ))}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  )
+
+  if (sticky) {
+    return (
+      <>
+        <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+          {container}
+        </TableContainer>
+        {footer}
+      </>
+    )
+  }
 
   return (
     <>
-      <TableContainer {...containerProps}>
-        <Table size={TABLE_STYLES.size} stickyHeader={sticky}>
-          <TableHead>
-            <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
-              {columns.map((col, i) => (
-                <TableCell key={i} align={col.align} sx={col.width ? { width: col.width } : undefined}>
-                  {col.header}
-                </TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow key={getRowKey(row)} hover>
-                {columns.map((col, i) => (
-                  <TableCell key={i} align={col.align}>
-                    {col.render(row)}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <TableContainer component={Paper} variant="outlined">
+        {container}
       </TableContainer>
       {footer}
     </>

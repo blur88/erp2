@@ -1,8 +1,7 @@
-import { Box, Button, CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
 import { StatusChip } from '@/components/common/StatusChip'
-import { TABLE_STYLES } from '@/constants/tableStyles'
+import { DataTable, type Column, bold, viewAction } from '@/components/common/DataTable'
 import { useGetSalesOrdersQuery } from '@/store/api/salesApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
@@ -16,60 +15,30 @@ export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps
   const { data, isLoading } = useGetSalesOrdersQuery({ customerId })
   const orders = data?.data ?? []
 
-  if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-        <CircularProgress />
-      </Box>
-    )
-  }
-
-  if (orders.length === 0) {
-    return (
-      <Typography sx={{ color: 'text.secondary', py: 4, textAlign: 'center' }}>
-        No orders yet for this customer.
-      </Typography>
-    )
-  }
+  const columns: Column<(typeof orders)[number]>[] = [
+    { header: 'Order #', width: '18%', render: (o) => bold(o.orderNumber) },
+    { header: 'Date', width: '18%', render: (o) => formatDate(o.orderDate) },
+    {
+      header: 'Status',
+      width: '20%',
+      render: (o) => <StatusChip status={o.isCompleted || o.isFulfilled ? 'completed' : 'pending'} />,
+    },
+    { header: 'Total', align: 'right', width: '18%', render: (o) => formatCurrency(o.totalAmount) },
+    {
+      header: 'Action',
+      align: 'right',
+      width: '26%',
+      render: (o) => viewAction(() => navigate(`/sales/orders/${o.orderNumber}/view`)),
+    },
+  ]
 
   return (
-    <TableContainer component={Paper} variant="outlined">
-      <Table size={TABLE_STYLES.size}>
-        <TableHead>
-          <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
-            <TableCell sx={{ width: '18%' }}>Order #</TableCell>
-            <TableCell sx={{ width: '18%' }}>Date</TableCell>
-            <TableCell sx={{ width: '20%' }}>Status</TableCell>
-            <TableCell align="right" sx={{ width: '18%' }}>Total</TableCell>
-            <TableCell align="right" sx={{ width: '26%' }}>Action</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {orders.map((order) => (
-            <TableRow key={order.id} hover>
-              <TableCell>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {order.orderNumber}
-                </Typography>
-              </TableCell>
-              <TableCell>{formatDate(order.orderDate)}</TableCell>
-              <TableCell>
-                <StatusChip status={order.isCompleted || order.isFulfilled ? 'completed' : 'pending'} />
-              </TableCell>
-              <TableCell align="right">{formatCurrency(order.totalAmount)}</TableCell>
-              <TableCell align="right">
-                <Button
-                  size="small"
-                  variant="text"
-                  onClick={() => navigate(`/sales/orders/${order.orderNumber}/view`)}
-                >
-                  View
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+    <DataTable
+      columns={columns}
+      rows={orders}
+      getRowKey={(o) => o.id}
+      emptyText="No orders yet for this customer."
+      isLoading={isLoading}
+    />
   )
 }
