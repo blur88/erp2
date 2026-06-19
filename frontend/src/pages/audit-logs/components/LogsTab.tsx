@@ -3,6 +3,7 @@ import {
   Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TablePagination, TableRow, CircularProgress, Typography, Alert,
 } from '@mui/material'
+import { PAGINATION } from '@/constants/tableStyles'
 import type { AuditLog } from '@/types'
 import LogRow from './LogRow'
 
@@ -64,7 +65,7 @@ const LogsTab: React.FC<LogsTabProps> = ({
           </Table>
         </TableContainer>
         <TablePagination
-          rowsPerPageOptions={[10, 20, 50, 100]}
+          rowsPerPageOptions={PAGINATION.options}
           component="div"
           count={total}
           rowsPerPage={limit}

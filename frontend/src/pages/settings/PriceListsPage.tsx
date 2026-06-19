@@ -24,6 +24,7 @@ import { default as StarIcon } from '@mui/icons-material/Star'
 import { default as StarBorderIcon } from '@mui/icons-material/StarBorder'
 import { default as ViewIcon } from '@mui/icons-material/Visibility'
 import { useNavigate } from 'react-router-dom'
+import { PAGINATION } from '@/constants/tableStyles'
 import PageHeader from '@/components/common/PageHeader'
 import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import { StatusChip } from '@/components/common/StatusChip'
@@ -582,7 +583,7 @@ const PriceListsPage: React.FC = () => {
           </Table>
         </TableContainer>
         <TablePagination
-          rowsPerPageOptions={[10, 20, 50, 100]}
+          rowsPerPageOptions={PAGINATION.options}
           component="div"
           count={total}
           rowsPerPage={pagination.limit}
