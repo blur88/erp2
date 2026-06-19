@@ -47,7 +47,7 @@ import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { escapeHtml } from '@/utils/security'
 import { printReport } from '@/utils/printReport'
 import { exportReportExcel } from '@/utils/exportReport'
-import { TABLE_STYLES } from '@/constants/tableStyles'
+import { PAGINATION, TABLE_STYLES } from '@/constants/tableStyles'
 import { ApiService } from '@/services/api'
 
 interface CustomerOrderHistory {
@@ -101,7 +101,7 @@ const CustomerOrderHistory: React.FC = () => {
 
   // Pagination
   const [page, setPage] = useState<number>(0)
-  const [rowsPerPage, setRowsPerPage] = useState<number>(25)
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION.defaultPageSize)
 
   useEffect(() => {
     // Load customers with authentication
@@ -1259,7 +1259,7 @@ const CustomerOrderHistory: React.FC = () => {
                     onPageChange={handleChangePage}
                     rowsPerPage={rowsPerPage}
                     onRowsPerPageChange={handleChangeRowsPerPage}
-                    rowsPerPageOptions={[10, 25, 50, 100]}
+                    rowsPerPageOptions={PAGINATION.options}
                   />
                 </Box>
               )}
