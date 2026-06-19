@@ -1,12 +1,14 @@
 import { Box, Pagination, Select, Typography } from '@mui/material'
 
+import { PAGINATION } from '@/constants/tableStyles'
+
 interface PagePaginationProps {
   total: number
   page: number
   limit: number
   onPageChange: (page: number) => void
   onLimitChange: (limit: number) => void
-  pageSizeOptions?: number[]
+  pageSizeOptions?: readonly number[]
 }
 
 export default function PagePagination({
@@ -15,7 +17,7 @@ export default function PagePagination({
   limit,
   onPageChange,
   onLimitChange,
-  pageSizeOptions = [10, 25, 50],
+  pageSizeOptions = PAGINATION.options,
 }: PagePaginationProps) {
   const totalPages = Math.ceil(total / limit)
   const from = total === 0 ? 0 : (page - 1) * limit + 1

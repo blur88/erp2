@@ -12,6 +12,7 @@ import {
 import type { Supplier } from '@/types'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
+import { PAGINATION } from '@/constants/tableStyles'
 import SupplierList from './components/SupplierList'
 
 interface SupplierFilters {
@@ -29,9 +30,6 @@ const filterConfig: FilterBarConfig<SupplierFilters> = {
   defaults: { search: '', status: null, type: null },
 }
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50]
-const DEFAULT_LIMIT = 25
-
 const SuppliersPage: React.FC = () => {
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
@@ -39,7 +37,7 @@ const SuppliersPage: React.FC = () => {
   const [sortBy, setSortBy] = useState('companyName')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(DEFAULT_LIMIT)
+  const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
@@ -123,7 +121,7 @@ const SuppliersPage: React.FC = () => {
               limit={limit}
               onPageChange={setPage}
               onLimitChange={handleLimitChange}
-              pageSizeOptions={PAGE_SIZE_OPTIONS}
+              pageSizeOptions={PAGINATION.options}
             />
           )}
         />

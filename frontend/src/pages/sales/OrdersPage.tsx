@@ -19,6 +19,7 @@ import type { SalesOrder } from '@/types'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
+import { PAGINATION } from '@/constants/tableStyles'
 import SalesOrderList from './components/SalesOrderList'
 import SalesOrdersDialogs from './components/SalesOrdersDialogs'
 
@@ -29,9 +30,6 @@ interface SalesOrderFilters {
   period: PeriodValue
   status: 'DRAFT' | 'READY' | 'FULFILLED' | 'CANCELLED' | null
 }
-
-const PAGE_SIZE_OPTIONS = [10, 25, 50]
-const DEFAULT_LIMIT = 25
 
 const filterConfig: FilterBarConfig<SalesOrderFilters> = {
   search: { placeholder: 'Search orders...' },
@@ -58,7 +56,7 @@ const OrdersPage: React.FC = () => {
   const [sortBy, setSortBy] = useState('orderNumber')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(DEFAULT_LIMIT)
+  const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
 
   const [printOrder, setPrintOrder] = useState<SalesOrder | null>(null)
   const [paymentOrder, setPaymentOrder] = useState<SalesOrder | null>(null)
@@ -229,7 +227,7 @@ const OrdersPage: React.FC = () => {
                 limit={limit}
                 onPageChange={setPage}
                 onLimitChange={handleLimitChange}
-                pageSizeOptions={PAGE_SIZE_OPTIONS}
+                pageSizeOptions={PAGINATION.options}
               />
             )}
           />
