@@ -79,7 +79,7 @@ describe('StockMovementsTab', () => {
     expect(screen.getByText('first batch')).toBeInTheDocument()
   })
 
-  it('navigates to the sales order detail on a sales_order row click', async () => {
+  it('navigates to the sales order detail when View is clicked', async () => {
     movements = [
       makeMovement({
         movementType: StockMovementType.SALE,
@@ -92,24 +92,24 @@ describe('StockMovementsTab', () => {
     ]
     mockFetchSalesOrder.mockReturnValue({ unwrap: () => Promise.resolve({ orderNumber: 'SO-100' }) })
     renderTab()
-    fireEvent.click(screen.getByText('sold'))
+    fireEvent.click(screen.getByRole('button', { name: /view/i }))
     await waitFor(() =>
       expect(mockNavigate).toHaveBeenCalledWith('/sales/orders/SO-100/view'),
     )
     expect(mockFetchSalesOrder).toHaveBeenCalledWith('so-uuid')
   })
 
-  it('navigates to the purchase order detail on a purchase_order row click', async () => {
+  it('navigates to the purchase order detail when View is clicked', async () => {
     movements = [makeMovement({ referenceType: 'purchase_order', referenceId: 'po-uuid' })]
     mockFetchPurchaseOrder.mockReturnValue({ unwrap: () => Promise.resolve({ orderNumber: 'PO-7' }) })
     renderTab()
-    fireEvent.click(screen.getByText('first batch'))
+    fireEvent.click(screen.getByRole('button', { name: /view/i }))
     await waitFor(() =>
       expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders/PO-7/view'),
     )
   })
 
-  it('does not navigate for a non-order referenceType', () => {
+  it('disables View for a non-order referenceType and fires no lookup', () => {
     movements = [
       makeMovement({
         movementType: StockMovementType.ADJUSTMENT_INCREASE,
@@ -119,17 +119,25 @@ describe('StockMovementsTab', () => {
       }),
     ]
     renderTab()
-    fireEvent.click(screen.getByText('manual fix'))
+    const viewBtn = screen.getByRole('button', { name: /view/i })
+    expect(viewBtn).toBeDisabled()
+    fireEvent.click(viewBtn)
     expect(mockNavigate).not.toHaveBeenCalled()
     expect(mockFetchSalesOrder).not.toHaveBeenCalled()
     expect(mockFetchPurchaseOrder).not.toHaveBeenCalled()
+  })
+
+  it('disables View when referenceId is missing even for an order referenceType', () => {
+    movements = [makeMovement({ referenceType: 'purchase_order', referenceId: undefined })]
+    renderTab()
+    expect(screen.getByRole('button', { name: /view/i })).toBeDisabled()
   })
 
   it('stays on the tab when the order lookup fails (no-op)', async () => {
     movements = [makeMovement({ referenceType: 'purchase_order', referenceId: 'po-uuid' })]
     mockFetchPurchaseOrder.mockReturnValue({ unwrap: () => Promise.reject(new Error('not found')) })
     renderTab()
-    fireEvent.click(screen.getByText('first batch'))
+    fireEvent.click(screen.getByRole('button', { name: /view/i }))
     await waitFor(() => expect(mockFetchPurchaseOrder).toHaveBeenCalled())
     expect(mockNavigate).not.toHaveBeenCalled()
   })

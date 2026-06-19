@@ -1,19 +1,6 @@
-import {
-  Box,
-  Button,
-  CircularProgress,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Typography,
-} from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
-import { TABLE_STYLES } from '@/constants/tableStyles'
+import { DataTable, type Column, bold, viewAction } from '@/components/common/DataTable'
 import { useGetSupplierPaymentsQuery } from '@/store/api/purchasingApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
@@ -27,66 +14,33 @@ export default function SupplierPaymentsTab({ supplierId }: SupplierPaymentsTabP
   const { data, isLoading } = useGetSupplierPaymentsQuery(supplierId)
   const payments = data?.data ?? []
 
-  if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-        <CircularProgress />
-      </Box>
-    )
-  }
-
-  if (payments.length === 0) {
-    return (
-      <Typography sx={{ color: 'text.secondary', py: 4, textAlign: 'center' }}>
-        No payments yet for this supplier.
-      </Typography>
-    )
-  }
+  const columns: Column<(typeof payments)[number]>[] = [
+    { header: 'Payment #', width: '18%', render: (p) => bold(p.paymentNumber) },
+    { header: 'Date', width: '16%', render: (p) => formatDate(p.paymentDate) },
+    { header: 'Method', width: '18%', render: (p) => p.paymentMethodEntity?.name ?? '-' },
+    { header: 'Reference #', width: '18%', render: (p) => p.referenceNumber ?? '-' },
+    { header: 'Amount', align: 'right', width: '15%', render: (p) => formatCurrency(p.amount) },
+    {
+      header: 'Action',
+      align: 'right',
+      width: '15%',
+      render: (p) => {
+        const orderNumber = p.purchaseOrder?.orderNumber
+        return viewAction(
+          () => orderNumber && navigate(`/purchasing/orders/${orderNumber}/view`),
+          !orderNumber,
+        )
+      },
+    },
+  ]
 
   return (
-    <TableContainer component={Paper} variant="outlined">
-      <Table size={TABLE_STYLES.size}>
-        <TableHead>
-          <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
-            <TableCell sx={{ width: '18%' }}>Payment #</TableCell>
-            <TableCell sx={{ width: '16%' }}>Date</TableCell>
-            <TableCell sx={{ width: '18%' }}>Method</TableCell>
-            <TableCell sx={{ width: '18%' }}>Reference #</TableCell>
-            <TableCell align="right" sx={{ width: '15%' }}>Amount</TableCell>
-            <TableCell align="right" sx={{ width: '15%' }}>Action</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {payments.map((payment) => (
-            <TableRow key={payment.id} hover>
-              <TableCell>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {payment.paymentNumber}
-                </Typography>
-              </TableCell>
-              <TableCell>{formatDate(payment.paymentDate)}</TableCell>
-              <TableCell>{payment.paymentMethodEntity?.name ?? '-'}</TableCell>
-              <TableCell>{payment.referenceNumber ?? '-'}</TableCell>
-              <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
-              <TableCell align="right">
-                <Button
-                  size="small"
-                  variant="text"
-                  onClick={() => {
-                    const orderNumber = payment.purchaseOrder?.orderNumber
-                    if (orderNumber) {
-                      navigate(`/purchasing/orders/${orderNumber}/view`)
-                    }
-                  }}
-                  disabled={!payment.purchaseOrder?.orderNumber}
-                >
-                  View
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+    <DataTable
+      columns={columns}
+      rows={payments}
+      getRowKey={(p) => p.id}
+      emptyText="No payments yet for this supplier."
+      isLoading={isLoading}
+    />
   )
 }
