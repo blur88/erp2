@@ -49,6 +49,14 @@ describe('DataTable', () => {
     expect(screen.getByText('Boom')).toBeInTheDocument()
   })
 
+  it('wraps a populated sticky table in an outlined Paper card', () => {
+    const { container } = render(
+      <DataTable columns={columns} rows={rows} getRowKey={(r) => r.id} emptyText="Nothing" sticky />,
+    )
+    expect(container.querySelector('.MuiPaper-outlined')).not.toBeNull()
+    expect(screen.getByText('Alpha')).toBeInTheDocument()
+  })
+
   it('renders a footer below the table', () => {
     render(
       <DataTable

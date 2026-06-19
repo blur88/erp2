@@ -92,7 +92,7 @@ export function DataTable<T>({
   if (sticky) {
     return (
       <>
-        <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+        <TableContainer component={Paper} variant="outlined" sx={{ flex: 1, overflow: 'auto' }}>
           {container}
         </TableContainer>
         {footer}
