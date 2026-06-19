@@ -132,7 +132,12 @@ export class StockMovementService {
       relations: { product: true },
     });
 
-    return this.toResponseDto(movementWithRelations);
+    const referenceNumber = await this.resolveReferenceNumber(
+      movementWithRelations.referenceType,
+      movementWithRelations.referenceId,
+      manager,
+    );
+    return this.toResponseDto(movementWithRelations, referenceNumber);
   }
 
   /**
@@ -215,7 +220,17 @@ export class StockMovementService {
 
     const [movements, total] = await queryBuilder.getManyAndCount();
 
-    const data = movements.map(movement => this.toResponseDto(movement));
+    const referenceNumbers = await this.buildReferenceNumberMap(movements);
+    const data = movements.map(movement =>
+      this.toResponseDto(
+        movement,
+        movement.referenceType && movement.referenceId
+          ? referenceNumbers.get(
+              this.referenceKey(movement.referenceType, movement.referenceId),
+            )
+          : undefined,
+      ),
+    );
 
     return {
       data,
@@ -243,7 +258,11 @@ export class StockMovementService {
       throw new NotFoundException(`Stock movement with ID '${id}' not found`);
     }
 
-    return this.toResponseDto(movement);
+    const referenceNumber = await this.resolveReferenceNumber(
+      movement.referenceType,
+      movement.referenceId,
+    );
+    return this.toResponseDto(movement, referenceNumber);
   }
 
   /**
@@ -282,7 +301,12 @@ export class StockMovementService {
     // Audit logging removed with authentication system
 
     this.logger.log(`Stock movement reversed successfully: ${savedReversal.id}`);
-    return this.toResponseDto(savedReversal);
+    const referenceNumber = await this.resolveReferenceNumber(
+      savedReversal.referenceType,
+      savedReversal.referenceId,
+      manager,
+    );
+    return this.toResponseDto(savedReversal, referenceNumber);
   }
 
   /**
@@ -584,7 +608,10 @@ export class StockMovementService {
   /**
    * Convert stock movement entity to response DTO
    */
-  private toResponseDto(movement: StockMovement): StockMovementResponseDto {
+  private toResponseDto(
+    movement: StockMovement,
+    referenceNumber?: string,
+  ): StockMovementResponseDto {
     return {
       id: movement.id,
       movementType: movement.movementType,
@@ -596,6 +623,7 @@ export class StockMovementService {
       totalValue: movement.totalValue ? Number(movement.totalValue) : undefined,
       referenceType: movement.referenceType,
       referenceId: movement.referenceId,
+      referenceNumber,
       reason: movement.reason,
       notes: movement.notes,
       product: {
