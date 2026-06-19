@@ -13,6 +13,8 @@ interface JournalEntriesTabProps {
   orderId: string
   /** Empty-state copy (differs per source type). */
   emptyText: string
+  /** Error-state copy. */
+  errorText?: string
 }
 
 /**
@@ -21,7 +23,12 @@ interface JournalEntriesTabProps {
  * the filtered journal-entries page. Backs both OrderJournalEntriesTab and
  * PurchaseOrderJournalEntriesTab — they differ only by sourceType + copy.
  */
-export default function JournalEntriesTab({ sourceType, orderId, emptyText }: JournalEntriesTabProps) {
+export default function JournalEntriesTab({
+  sourceType,
+  orderId,
+  emptyText,
+  errorText = 'Failed to load journal entries.',
+}: JournalEntriesTabProps) {
   const { data, isLoading, isError } = useGetJournalEntriesQuery({ sourceType, sourceId: orderId })
   const entries = data?.data ?? []
 
@@ -66,7 +73,7 @@ export default function JournalEntriesTab({ sourceType, orderId, emptyText }: Jo
       emptyText={emptyText}
       isLoading={isLoading}
       isError={isError}
-      errorText="Failed to load journal entries."
+      errorText={errorText}
     />
   )
 }
