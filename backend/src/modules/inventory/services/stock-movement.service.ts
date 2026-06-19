@@ -13,12 +13,15 @@ import {
   SelectQueryBuilder,
   Between,
   EntityManager,
+  In,
 } from 'typeorm';
 import {
   StockMovement,
   StockMovementType,
 } from '../../../database/entities/stock-movement.entity';
 import { Product } from '../../../database/entities/product.entity';
+import { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
+import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { repoFor } from '../../../common/db/tx-helpers';
 import {
   CreateStockMovementDto,
@@ -41,6 +44,10 @@ export class StockMovementService {
     private readonly stockMovementRepository: Repository<StockMovement>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(PurchaseOrder)
+    private readonly purchaseOrderRepository: Repository<PurchaseOrder>,
+    @InjectRepository(SalesOrder)
+    private readonly salesOrderRepository: Repository<SalesOrder>,
     @Inject(forwardRef(() => ProductService))
     private readonly productService: ProductService,
   ) {}
@@ -125,7 +132,12 @@ export class StockMovementService {
       relations: { product: true },
     });
 
-    return this.toResponseDto(movementWithRelations);
+    const referenceNumber = await this.resolveReferenceNumber(
+      movementWithRelations.referenceType,
+      movementWithRelations.referenceId,
+      manager,
+    );
+    return this.toResponseDto(movementWithRelations, referenceNumber);
   }
 
   /**
@@ -208,7 +220,17 @@ export class StockMovementService {
 
     const [movements, total] = await queryBuilder.getManyAndCount();
 
-    const data = movements.map(movement => this.toResponseDto(movement));
+    const referenceNumbers = await this.buildReferenceNumberMap(movements);
+    const data = movements.map(movement =>
+      this.toResponseDto(
+        movement,
+        movement.referenceType && movement.referenceId
+          ? referenceNumbers.get(
+              this.referenceKey(movement.referenceType, movement.referenceId),
+            )
+          : undefined,
+      ),
+    );
 
     return {
       data,
@@ -236,7 +258,11 @@ export class StockMovementService {
       throw new NotFoundException(`Stock movement with ID '${id}' not found`);
     }
 
-    return this.toResponseDto(movement);
+    const referenceNumber = await this.resolveReferenceNumber(
+      movement.referenceType,
+      movement.referenceId,
+    );
+    return this.toResponseDto(movement, referenceNumber);
   }
 
   /**
@@ -275,7 +301,12 @@ export class StockMovementService {
     // Audit logging removed with authentication system
 
     this.logger.log(`Stock movement reversed successfully: ${savedReversal.id}`);
-    return this.toResponseDto(savedReversal);
+    const referenceNumber = await this.resolveReferenceNumber(
+      savedReversal.referenceType,
+      savedReversal.referenceId,
+      manager,
+    );
+    return this.toResponseDto(savedReversal, referenceNumber);
   }
 
   /**
@@ -500,10 +531,91 @@ export class StockMovementService {
     return alerts;
   }
 
+  /** Map key for a reference-number lookup: type-scoped so PO/SO can't collide on a shared UUID. */
+  private referenceKey(referenceType: string, referenceId: string): string {
+    return `${referenceType}:${referenceId}`;
+  }
+
+  /**
+   * Resolve a single movement's order number (PO/SO only). Uses the active
+   * transaction manager when given so lookups don't escape an open transaction.
+   */
+  private async resolveReferenceNumber(
+    referenceType: string | undefined,
+    referenceId: string | undefined,
+    manager?: EntityManager,
+  ): Promise<string | undefined> {
+    if (!referenceId) return undefined;
+    if (referenceType === 'purchase_order') {
+      const repo = repoFor(manager, PurchaseOrder, this.purchaseOrderRepository);
+      const po = await repo.findOne({
+        where: { id: referenceId },
+        select: { id: true, orderNumber: true },
+        loadEagerRelations: false, // PurchaseOrder.supplier is eager; skip the needless JOIN
+      });
+      return po?.orderNumber;
+    }
+    if (referenceType === 'sales_order') {
+      const repo = repoFor(manager, SalesOrder, this.salesOrderRepository);
+      const so = await repo.findOne({
+        where: { id: referenceId },
+        select: { id: true, orderNumber: true },
+        loadEagerRelations: false,
+      });
+      return so?.orderNumber;
+    }
+    return undefined;
+  }
+
+  /**
+   * Batch-resolve order numbers for a page of movements: one PO query + one SO
+   * query (skipped when empty). Returns a map keyed `${referenceType}:${referenceId}`.
+   */
+  private async buildReferenceNumberMap(
+    movements: StockMovement[],
+  ): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    const poIds = new Set<string>();
+    const soIds = new Set<string>();
+
+    for (const m of movements) {
+      if (!m.referenceId) continue;
+      if (m.referenceType === 'purchase_order') poIds.add(m.referenceId);
+      else if (m.referenceType === 'sales_order') soIds.add(m.referenceId);
+    }
+
+    if (poIds.size > 0) {
+      const pos = await this.purchaseOrderRepository.find({
+        where: { id: In([...poIds]) },
+        select: { id: true, orderNumber: true },
+        loadEagerRelations: false, // PurchaseOrder.supplier is eager; skip the needless JOIN
+      });
+      for (const po of pos) {
+        map.set(this.referenceKey('purchase_order', po.id), po.orderNumber);
+      }
+    }
+
+    if (soIds.size > 0) {
+      const sos = await this.salesOrderRepository.find({
+        where: { id: In([...soIds]) },
+        select: { id: true, orderNumber: true },
+        loadEagerRelations: false,
+      });
+      for (const so of sos) {
+        map.set(this.referenceKey('sales_order', so.id), so.orderNumber);
+      }
+    }
+
+    return map;
+  }
+
   /**
    * Convert stock movement entity to response DTO
    */
-  private toResponseDto(movement: StockMovement): StockMovementResponseDto {
+  private toResponseDto(
+    movement: StockMovement,
+    referenceNumber?: string,
+  ): StockMovementResponseDto {
     return {
       id: movement.id,
       movementType: movement.movementType,
@@ -515,6 +627,7 @@ export class StockMovementService {
       totalValue: movement.totalValue ? Number(movement.totalValue) : undefined,
       referenceType: movement.referenceType,
       referenceId: movement.referenceId,
+      referenceNumber,
       reason: movement.reason,
       notes: movement.notes,
       product: {
