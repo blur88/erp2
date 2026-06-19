@@ -77,6 +77,14 @@ describe('OrderJournalEntriesTab', () => {
     expect(screen.getByText('Sales order SO-26-001')).toBeInTheDocument()
   })
 
+  it('renders a gold-standard grey header (DataTable)', () => {
+    mockGetJournalEntries.mockReturnValue({ data: { data: [makeEntry()], meta: { total: 1 } }, isLoading: false })
+    const { container } = renderTab('o1')
+    const headerCell = container.querySelector('.MuiTableCell-head')
+    expect(headerCell).not.toBeNull()
+    expect(headerCell).toHaveStyle({ backgroundColor: 'rgb(250, 250, 250)' })
+  })
+
   it('passes correct sourceType and sourceId to query', () => {
     mockGetJournalEntries.mockReturnValue({ data: { data: [], meta: { total: 0 } }, isLoading: false })
     renderTab('order-99')

@@ -1,19 +1,7 @@
-import {
-  Box,
-  CircularProgress,
-  Link,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Typography,
-} from '@mui/material'
+import { Link } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 
-import { TABLE_STYLES } from '@/constants/tableStyles'
+import { DataTable, type Column, bold } from '@/components/common/DataTable'
 import { useGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import type { JournalEntryLine } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
@@ -23,66 +11,54 @@ interface OrderJournalEntriesTabProps {
 }
 
 export default function OrderJournalEntriesTab({ orderId }: OrderJournalEntriesTabProps) {
-  const { data, isLoading, isError } = useGetJournalEntriesQuery({ sourceType: 'sales_order', sourceId: orderId })
+  const { data, isLoading, isError } = useGetJournalEntriesQuery({
+    sourceType: 'sales_order',
+    sourceId: orderId,
+  })
   const entries = data?.data ?? []
 
-  if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-        <CircularProgress />
-      </Box>
-    )
-  }
+  const sumLines = (lines: JournalEntryLine[] | undefined, key: 'debitAmount' | 'creditAmount') =>
+    (lines ?? []).reduce((sum: number, line: JournalEntryLine) => sum + Number(line[key]), 0)
 
-  if (isError) {
-    return (
-      <Typography sx={{ color: 'text.secondary', py: 4, textAlign: 'center' }}>
-        Failed to load journal entries.
-      </Typography>
-    )
-  }
-
-  if (entries.length === 0) {
-    return (
-      <Typography sx={{ color: 'text.secondary', py: 4, textAlign: 'center' }}>
-        No journal entries created for this sales order.
-      </Typography>
-    )
-  }
+  const columns: Column<(typeof entries)[number]>[] = [
+    {
+      header: 'Entry Number',
+      width: '18%',
+      render: (entry) =>
+        bold(
+          <Link
+            component={RouterLink}
+            to={`/accounting/journal-entries?sourceType=sales_order&sourceId=${orderId}`}
+          >
+            {entry.referenceNumber}
+          </Link>,
+        ),
+    },
+    { header: 'Date', width: '16%', render: (entry) => formatDate(entry.entryDate) },
+    { header: 'Description', width: '36%', render: (entry) => entry.description },
+    {
+      header: 'Debit',
+      align: 'right',
+      width: '15%',
+      render: (entry) => formatCurrency(sumLines(entry.lines, 'debitAmount')),
+    },
+    {
+      header: 'Credit',
+      align: 'right',
+      width: '15%',
+      render: (entry) => formatCurrency(sumLines(entry.lines, 'creditAmount')),
+    },
+  ]
 
   return (
-    <TableContainer component={Paper} variant="outlined">
-      <Table size={TABLE_STYLES.size}>
-        <TableHead>
-          <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600 } }}>
-            <TableCell>Entry Number</TableCell>
-            <TableCell>Date</TableCell>
-            <TableCell>Description</TableCell>
-            <TableCell align="right">Debit</TableCell>
-            <TableCell align="right">Credit</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {entries.map((entry) => {
-            const totalDebit = (entry.lines ?? []).reduce((sum: number, line: JournalEntryLine) => sum + Number(line.debitAmount), 0)
-            const totalCredit = (entry.lines ?? []).reduce((sum: number, line: JournalEntryLine) => sum + Number(line.creditAmount), 0)
-
-            return (
-              <TableRow key={entry.id} hover>
-                <TableCell>
-                  <Link component={RouterLink} to={`/accounting/journal-entries?sourceType=sales_order&sourceId=${orderId}`}>
-                    {entry.referenceNumber}
-                  </Link>
-                </TableCell>
-                <TableCell>{formatDate(entry.entryDate)}</TableCell>
-                <TableCell>{entry.description}</TableCell>
-                <TableCell align="right">{formatCurrency(totalDebit)}</TableCell>
-                <TableCell align="right">{formatCurrency(totalCredit)}</TableCell>
-              </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
-    </TableContainer>
+    <DataTable
+      columns={columns}
+      rows={entries}
+      getRowKey={(entry) => entry.id}
+      emptyText="No journal entries created for this sales order."
+      isLoading={isLoading}
+      isError={isError}
+      errorText="Failed to load journal entries."
+    />
   )
 }
