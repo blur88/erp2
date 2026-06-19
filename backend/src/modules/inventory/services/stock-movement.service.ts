@@ -551,6 +551,7 @@ export class StockMovementService {
       const po = await repo.findOne({
         where: { id: referenceId },
         select: { id: true, orderNumber: true },
+        loadEagerRelations: false, // PurchaseOrder.supplier is eager; skip the needless JOIN
       });
       return po?.orderNumber;
     }
@@ -559,6 +560,7 @@ export class StockMovementService {
       const so = await repo.findOne({
         where: { id: referenceId },
         select: { id: true, orderNumber: true },
+        loadEagerRelations: false,
       });
       return so?.orderNumber;
     }
@@ -586,6 +588,7 @@ export class StockMovementService {
       const pos = await this.purchaseOrderRepository.find({
         where: { id: In([...poIds]) },
         select: { id: true, orderNumber: true },
+        loadEagerRelations: false, // PurchaseOrder.supplier is eager; skip the needless JOIN
       });
       for (const po of pos) {
         map.set(this.referenceKey('purchase_order', po.id), po.orderNumber);
@@ -596,6 +599,7 @@ export class StockMovementService {
       const sos = await this.salesOrderRepository.find({
         where: { id: In([...soIds]) },
         select: { id: true, orderNumber: true },
+        loadEagerRelations: false,
       });
       for (const so of sos) {
         map.set(this.referenceKey('sales_order', so.id), so.orderNumber);
