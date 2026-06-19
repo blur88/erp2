@@ -190,6 +190,9 @@ export class StockMovementResponseDto {
   @ApiPropertyOptional({ description: 'Reference ID' })
   referenceId?: string;
 
+  @ApiPropertyOptional({ description: 'Reference number (order number, e.g. PO-26-028)' })
+  referenceNumber?: string;
+
   @ApiPropertyOptional({ description: 'Movement reason' })
   reason?: string;
 
