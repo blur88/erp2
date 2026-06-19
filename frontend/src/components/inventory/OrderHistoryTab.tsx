@@ -102,14 +102,14 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
   }
 
   const columns: Column<OrderHistoryItem>[] = [
-    { header: 'Type', render: (o) => getOrderTypeLabel(o.type) },
-    { header: 'Order #', render: (o) => bold(o.orderNumber) },
-    { header: 'Customer/Vendor', render: (o) => o.customerOrVendor },
-    { header: 'Date', render: (o) => formatDate(o.date) },
-    { header: 'Order Status', render: (o) => renderStatus(o) },
-    { header: 'Quantity', align: 'right', render: (o) => Math.floor(o.quantity) },
-    { header: 'Sub-Total', align: 'right', render: (o) => bold(formatCurrency(o.subTotal)) },
-    { header: 'Action', align: 'right', render: (o) => viewAction(() => goToOrder(o)) },
+    { header: 'Type', width: '12%', render: (o) => getOrderTypeLabel(o.type) },
+    { header: 'Order #', width: '12%', render: (o) => bold(o.orderNumber) },
+    { header: 'Customer/Vendor', width: '18%', render: (o) => o.customerOrVendor },
+    { header: 'Date', width: '12%', render: (o) => formatDate(o.date) },
+    { header: 'Order Status', width: '16%', render: (o) => renderStatus(o) },
+    { header: 'Quantity', align: 'right', width: '10%', render: (o) => Math.floor(o.quantity) },
+    { header: 'Sub-Total', align: 'right', width: '12%', render: (o) => bold(formatCurrency(o.subTotal)) },
+    { header: 'Action', align: 'right', width: '8%', render: (o) => viewAction(() => goToOrder(o)) },
   ]
 
   return (
