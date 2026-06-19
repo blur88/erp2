@@ -9,12 +9,13 @@ import { useGetStockMovementsQuery } from '@/store/api/inventoryApi'
 import type { StockMovement } from '@/types'
 import { formatDate, formatNumber } from '@/utils/formatters'
 
+import { PAGINATION } from '@/constants/tableStyles'
 import { getMovementLabel, getMovementNavTarget, getReferenceLabel } from '../utils/stockMovementDisplay'
 
 export default function StockMovementsTab({ productId }: { productId: string }) {
   const navigate = useNavigate()
   const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(25)
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION.defaultPageSize)
 
   const { data, isLoading } = useGetStockMovementsQuery({
     productId,
@@ -76,7 +77,7 @@ export default function StockMovementsTab({ productId }: { productId: string }) 
       sticky
       footer={
         <TablePagination
-          rowsPerPageOptions={[10, 25, 50]}
+          rowsPerPageOptions={PAGINATION.options}
           component="div"
           count={total}
           rowsPerPage={rowsPerPage}
