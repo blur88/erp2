@@ -142,6 +142,18 @@ describe('StockMovementsTab', () => {
     expect(mockNavigate).not.toHaveBeenCalled()
   })
 
+  it('shows the reference document number when present, in bold', () => {
+    movements = [makeMovement({ referenceType: 'purchase_order', referenceId: 'po-uuid', referenceNumber: 'PO-7' })]
+    renderTab()
+    expect(screen.getByText('PO-7')).toBeInTheDocument()
+  })
+
+  it('falls back to the reference type label when no referenceNumber', () => {
+    movements = [makeMovement({ referenceType: 'sales_order', referenceId: 'so-uuid', referenceNumber: undefined })]
+    renderTab()
+    expect(screen.getByText('Sales Order')).toBeInTheDocument()
+  })
+
   it('renders the empty state when there are no movements', () => {
     movements = []
     renderTab()

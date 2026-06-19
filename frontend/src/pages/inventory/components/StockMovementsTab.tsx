@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { TablePagination } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
-import { DataTable, type Column, viewAction } from '@/components/common/DataTable'
+import { DataTable, type Column, bold, viewAction } from '@/components/common/DataTable'
 import { useLazyGetPurchaseOrderQuery } from '@/store/api/purchasingApi'
 import { useLazyGetSalesOrderQuery } from '@/store/api/salesApi'
 import { useGetStockMovementsQuery } from '@/store/api/inventoryApi'
@@ -46,7 +46,7 @@ export default function StockMovementsTab({ productId }: { productId: string }) 
   const columns: Column<StockMovement>[] = [
     { header: 'Date', width: '14%', render: (m) => formatDate(m.movementDate) },
     { header: 'Type', width: '16%', render: (m) => getMovementLabel(m.movementType) },
-    { header: 'Reference', width: '16%', render: (m) => getReferenceLabel(m.referenceType) },
+    { header: 'Reference', width: '16%', render: (m) => bold(m.referenceNumber ?? getReferenceLabel(m.referenceType)) },
     {
       header: 'Qty Change',
       align: 'right',
