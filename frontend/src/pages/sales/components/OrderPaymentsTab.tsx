@@ -1,18 +1,8 @@
-import {
-  Box,
-  CircularProgress,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Typography,
-} from '@mui/material'
+import { Box, Typography } from '@mui/material'
 
-import { TABLE_STYLES } from '@/constants/tableStyles'
+import { DataTable, type Column } from '@/components/common/DataTable'
 import { useGetSalesOrderPaymentsQuery } from '@/store/api/salesApi'
+import type { SalesOrderPayment } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
 interface OrderPaymentsTabProps {
@@ -23,81 +13,61 @@ interface OrderPaymentsTabProps {
 export default function OrderPaymentsTab({ orderId, totalAmount }: OrderPaymentsTabProps) {
   const { data: payments = [], isLoading, isError } = useGetSalesOrderPaymentsQuery(orderId)
 
-  if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-        <CircularProgress />
-      </Box>
-    )
-  }
-
-  if (isError) {
-    return (
-      <Typography sx={{ color: 'text.secondary', py: 4, textAlign: 'center' }}>
-        Failed to load payments.
-      </Typography>
-    )
-  }
-
-  if (payments.length === 0) {
-    return (
-      <Typography sx={{ color: 'text.secondary', py: 4, textAlign: 'center' }}>
-        No payments recorded for this sales order.
-      </Typography>
-    )
-  }
-
   const totalPaid = payments.reduce((sum, payment) => sum + Number(payment.amount), 0)
   const balance = totalAmount - totalPaid
 
-  return (
-    <Box>
-      <TableContainer component={Paper} variant="outlined">
-        <Table size={TABLE_STYLES.size}>
-          <TableHead>
-            <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600 } }}>
-              <TableCell>Payment Date</TableCell>
-              <TableCell>Payment Method</TableCell>
-              <TableCell>Reference Number</TableCell>
-              <TableCell align="right">Amount</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {payments.map((payment) => (
-              <TableRow key={payment.id} hover>
-                <TableCell>{formatDate(payment.paymentDate)}</TableCell>
-                <TableCell>{payment.paymentMethod?.name ?? '—'}</TableCell>
-                <TableCell>{payment.referenceNumber ?? '—'}</TableCell>
-                <TableCell
-                  align="right"
-                  data-testid={`payment-amount-${payment.id}`}
-                  sx={{ color: Number(payment.amount) < 0 ? 'error.main' : 'text.primary' }}
-                >
-                  {formatCurrency(payment.amount)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+  const columns: Column<SalesOrderPayment>[] = [
+    { header: 'Payment Date', width: '22%', render: (p) => formatDate(p.paymentDate) },
+    { header: 'Payment Method', width: '28%', render: (p) => p.paymentMethod?.name ?? '—' },
+    { header: 'Reference Number', width: '28%', render: (p) => p.referenceNumber ?? '—' },
+    {
+      header: 'Amount',
+      align: 'right',
+      width: '22%',
+      render: (p) => (
+        <Typography
+          variant="body2"
+          component="span"
+          data-testid={`payment-amount-${p.id}`}
+          sx={{ color: Number(p.amount) < 0 ? 'error.main' : 'text.primary' }}
+        >
+          {formatCurrency(p.amount)}
+        </Typography>
+      ),
+    },
+  ]
 
+  const summary =
+    payments.length > 0 ? (
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
         <Box sx={{ minWidth: 240 }}>
           {[
-            { label: 'Total Paid', value: formatCurrency(totalPaid), bold: true },
-            { label: 'Balance', value: formatCurrency(balance), bold: true },
-          ].map(({ label, value, bold }) => (
+            { label: 'Total Paid', value: formatCurrency(totalPaid) },
+            { label: 'Balance', value: formatCurrency(balance) },
+          ].map(({ label, value }) => (
             <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-              <Typography variant="body2" sx={{ fontWeight: bold ? 600 : 400 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
                 {label}
               </Typography>
-              <Typography variant="body2" sx={{ fontWeight: bold ? 600 : 400 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
                 {value}
               </Typography>
             </Box>
           ))}
         </Box>
       </Box>
-    </Box>
+    ) : undefined
+
+  return (
+    <DataTable
+      columns={columns}
+      rows={payments}
+      getRowKey={(p) => p.id}
+      emptyText="No payments recorded for this sales order."
+      isLoading={isLoading}
+      isError={isError}
+      errorText="Failed to load payments."
+      footer={summary}
+    />
   )
 }

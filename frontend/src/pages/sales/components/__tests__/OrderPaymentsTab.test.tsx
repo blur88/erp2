@@ -95,4 +95,12 @@ describe('OrderPaymentsTab', () => {
     renderTab('order-99', 100)
     expect(mockGetSalesOrderPayments).toHaveBeenCalledWith('order-99')
   })
+
+  it('renders a gold-standard grey header (DataTable)', () => {
+    mockGetSalesOrderPayments.mockReturnValue({ data: [makePayment()], isLoading: false })
+    const { container } = renderTab('o1', 200)
+    const headerCell = container.querySelector('.MuiTableCell-head')
+    expect(headerCell).not.toBeNull()
+    expect(headerCell).toHaveStyle({ backgroundColor: 'rgb(250, 250, 250)' })
+  })
 })
