@@ -3,6 +3,7 @@ import {
   IsOptional,
   IsEnum,
   IsNumber,
+  IsInt,
   IsBoolean,
   IsDateString,
   IsUUID,
@@ -67,12 +68,14 @@ export class UpdateExpenseDto {
 export class QueryExpenseDto {
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   page?: number;
 
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   limit?: number;
 
   @IsOptional()
