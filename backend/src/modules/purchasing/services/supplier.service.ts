@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, Like, In, Between } from 'typeorm';
+import { Repository, FindOptionsWhere, FindManyOptions, Like, In, Between } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   Supplier,
@@ -751,14 +751,18 @@ export class SupplierService extends BaseCrudService<
     supplierId: string,
     query: { page?: number; limit?: number } = {},
   ): Promise<{ data: PurchaseOrder[]; meta: { total: number } }> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 25;
-    const [data, total] = await this.purchaseOrderRepository.findAndCount({
+    const { page, limit } = query;
+    const options: FindManyOptions<PurchaseOrder> = {
       where: { supplierId },
       order: { orderNumber: 'ASC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    };
+    // Paginate only when both page and limit are provided; absent => full set
+    // (consistent with PaymentService.findAll). Defends any non-UI caller.
+    if (page && limit) {
+      options.skip = (page - 1) * limit;
+      options.take = limit;
+    }
+    const [data, total] = await this.purchaseOrderRepository.findAndCount(options);
 
     return { data, meta: { total } };
   }
@@ -767,15 +771,17 @@ export class SupplierService extends BaseCrudService<
     supplierId: string,
     query: { page?: number; limit?: number } = {},
   ): Promise<{ data: VendorPayment[]; meta: { total: number } }> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 25;
-    const [data, total] = await this.vendorPaymentRepository.findAndCount({
+    const { page, limit } = query;
+    const options: FindManyOptions<VendorPayment> = {
       where: { supplierId },
       relations: { paymentMethodEntity: true, purchaseOrder: true },
       order: { paymentNumber: 'ASC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    };
+    if (page && limit) {
+      options.skip = (page - 1) * limit;
+      options.take = limit;
+    }
+    const [data, total] = await this.vendorPaymentRepository.findAndCount(options);
 
     return { data, meta: { total } };
   }
