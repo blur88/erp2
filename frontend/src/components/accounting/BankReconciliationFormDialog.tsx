@@ -49,7 +49,7 @@ const BankReconciliationFormDialog: React.FC<BankReconciliationFormDialogProps> 
     { skip: !open },
   );
   const { data: periodsResponse } = useGetFiscalPeriodsQuery(
-    { page: 1, status: FiscalPeriodStatus.OPEN },
+    { status: FiscalPeriodStatus.OPEN },
     { skip: !open },
   );
   const [createBankReconciliation] = useCreateBankReconciliationMutation();

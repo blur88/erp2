@@ -54,9 +54,9 @@ function defaultForm(): FormState {
 export function ExpenseFormDialog({ open, editTarget, onClose, onSaved }: Props) {
   const [form, setForm] = useState<FormState>(defaultForm())
 
-  const { data: paymentMethodsResponse } = useGetPaymentMethodsQuery({ page: 1, isActive: true })
+  const { data: paymentMethodsResponse } = useGetPaymentMethodsQuery({ isActive: true })
   const paymentMethods = useMemo(() => paymentMethodsResponse?.data ?? [], [paymentMethodsResponse?.data])
-  const { data: expenseAccountsResponse } = useGetChartOfAccountsQuery({ page: 1, type: 'EXPENSE', isActive: true })
+  const { data: expenseAccountsResponse } = useGetChartOfAccountsQuery({ type: 'EXPENSE', isActive: true })
   const expenseAccounts = useMemo(
     () => (expenseAccountsResponse?.data ?? []) as ChartOfAccount[],
     [expenseAccountsResponse?.data],

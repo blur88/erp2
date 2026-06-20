@@ -77,7 +77,7 @@ const FundTransfersPage: React.FC = () => {
   }), [appliedFilters.status, appliedFilters.sourceAccountId, appliedFilters.destinationAccountId, dateRange])
 
   const { data, isLoading, refetch } = useGetFundTransfersQuery(filters)
-  const { data: accountsResponse } = useGetChartOfAccountsQuery({ isCashEquivalent: true, limit: 200 })
+  const { data: accountsResponse } = useGetChartOfAccountsQuery({ page: 1, isCashEquivalent: true, limit: 200 })
   const [createFundTransfer, { isLoading: creating }] = useCreateFundTransferMutation()
   const [updateFundTransfer, { isLoading: updating }] = useUpdateFundTransferMutation()
 

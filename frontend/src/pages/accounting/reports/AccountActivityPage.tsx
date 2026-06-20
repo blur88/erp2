@@ -162,7 +162,7 @@ const AccountActivityPage: React.FC = () => {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const { data: accountsResponse } = useGetChartOfAccountsQuery({ page: 1, isActive: true });
+  const { data: accountsResponse } = useGetChartOfAccountsQuery({ isActive: true });
   const accounts = accountsResponse?.data ?? [];
   const queryArgs = submitted && selectedAccount
     ? {
