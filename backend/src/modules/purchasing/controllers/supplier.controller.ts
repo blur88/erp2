@@ -31,6 +31,7 @@ import {
   SupplierListResponseDto,
 } from '../dto';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { BaseQueryDto } from '@/common/dto/base-query.dto';
 
 @ApiTags('Suppliers')
 @Controller('purchasing/suppliers')
@@ -160,8 +161,9 @@ export class SupplierController {
   @ApiResponse({ status: 200, description: 'Purchase orders retrieved successfully' })
   async getSupplierPurchaseOrders(
     @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<{ data: any[]; total: number }> {
-    return await this.supplierService.getSupplierPurchaseOrders(id);
+    @Query() query: BaseQueryDto,
+  ): Promise<{ data: any[]; meta: { total: number } }> {
+    return await this.supplierService.getSupplierPurchaseOrders(id, query);
   }
 
   @Get(':id/payments')
@@ -169,8 +171,9 @@ export class SupplierController {
   @ApiResponse({ status: 200, description: 'Payments retrieved successfully' })
   async getSupplierPayments(
     @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<{ data: any[]; total: number }> {
-    return await this.supplierService.getSupplierPayments(id);
+    @Query() query: BaseQueryDto,
+  ): Promise<{ data: any[]; meta: { total: number } }> {
+    return await this.supplierService.getSupplierPayments(id, query);
   }
 
   @Get(':id')

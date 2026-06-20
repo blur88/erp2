@@ -747,25 +747,37 @@ export class SupplierService extends BaseCrudService<
     }
   }
 
-  async getSupplierPurchaseOrders(supplierId: string): Promise<{ data: PurchaseOrder[]; total: number }> {
+  async getSupplierPurchaseOrders(
+    supplierId: string,
+    query: { page?: number; limit?: number } = {},
+  ): Promise<{ data: PurchaseOrder[]; meta: { total: number } }> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 25;
     const [data, total] = await this.purchaseOrderRepository.findAndCount({
       where: { supplierId },
       order: { orderNumber: 'ASC' },
-      take: 50,
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return { data, total };
+    return { data, meta: { total } };
   }
 
-  async getSupplierPayments(supplierId: string): Promise<{ data: VendorPayment[]; total: number }> {
+  async getSupplierPayments(
+    supplierId: string,
+    query: { page?: number; limit?: number } = {},
+  ): Promise<{ data: VendorPayment[]; meta: { total: number } }> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 25;
     const [data, total] = await this.vendorPaymentRepository.findAndCount({
       where: { supplierId },
       relations: { paymentMethodEntity: true, purchaseOrder: true },
       order: { paymentNumber: 'ASC' },
-      take: 50,
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return { data, total };
+    return { data, meta: { total } };
   }
 
   /**
