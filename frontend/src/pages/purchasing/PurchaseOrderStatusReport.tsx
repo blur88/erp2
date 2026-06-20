@@ -173,7 +173,6 @@ const PurchaseOrderStatusReport: React.FC = () => {
     setGroupBy('none')
     setSortBy1('productName')
     setReportTitle('Purchase Order Status Report')
-    reset()
     setLimit(25)
   }
 

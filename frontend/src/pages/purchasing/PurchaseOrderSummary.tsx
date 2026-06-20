@@ -138,7 +138,6 @@ const PurchaseOrderSummary: React.FC = () => {
     setGroupBy('none')
     setSortBy1('orderNumber')
     setReportTitle('Purchase Order Summary Report')
-    reset()
     setLimit(25)
   }
 

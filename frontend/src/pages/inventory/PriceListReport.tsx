@@ -161,7 +161,6 @@ const PriceListReport: React.FC = () => {
     setGroupBy('none')
     setSortBy1('productName')
     setReportTitle('Product Price List Report')
-    reset()
     setLimit(25)
   }
 

@@ -136,7 +136,6 @@ const CustomerPaymentDetails: React.FC = () => {
     setReportTitle('Customer Payment Details')
 
     // Reset pagination
-    reset()
     setLimit(25)
   }
 

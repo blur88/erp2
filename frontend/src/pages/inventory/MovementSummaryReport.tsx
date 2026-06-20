@@ -130,7 +130,6 @@ const MovementSummaryReport: React.FC = () => {
     setGroupBy('none')
     setSortBy1('productName')
     setReportTitle('Inventory Movement Summary Report')
-    reset()
     setLimit(25)
   }
 

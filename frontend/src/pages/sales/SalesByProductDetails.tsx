@@ -186,7 +186,6 @@ const SalesByProductDetails: React.FC = () => {
     setReportTitle('Sales by Product Details')
 
     // Reset pagination
-    reset()
     setLimit(25)
   }
 

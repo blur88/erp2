@@ -140,7 +140,6 @@ const SalesOrderProfitReport: React.FC = () => {
     setReportTitle('Sales Order Profit Report')
 
     // Reset pagination
-    reset()
     setLimit(25)
   }
 

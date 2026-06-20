@@ -319,7 +319,6 @@ const CustomerOrderHistory: React.FC = () => {
     setReportTitle('Customer Order History')
 
     // Reset pagination
-    reset()
     setLimit(25)
   }
 

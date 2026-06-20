@@ -144,7 +144,6 @@ const CustomerPaymentByOrder: React.FC = () => {
     setReportTitle('Customer Payment by Order')
 
     // Reset pagination
-    reset()
     setLimit(25)
   }
 

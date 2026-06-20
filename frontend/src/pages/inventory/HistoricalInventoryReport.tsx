@@ -134,7 +134,6 @@ const HistoricalInventoryReport: React.FC = () => {
     setGroupBy('none')
     setSortBy1('productName')
     setReportTitle('Historical Inventory Report')
-    reset()
     setLimit(25)
   }
 

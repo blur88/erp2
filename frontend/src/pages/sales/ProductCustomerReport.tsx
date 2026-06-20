@@ -306,7 +306,6 @@ const ProductCustomerReport: React.FC = () => {
     setReportTitle('Product Customer Report')
 
     // Reset pagination
-    reset()
     setLimit(25)
   }
 

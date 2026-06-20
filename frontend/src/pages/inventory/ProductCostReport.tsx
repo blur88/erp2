@@ -130,7 +130,6 @@ const ProductCostReport: React.FC = () => {
     setGroupBy('productName')
     setSortBy1('productName')
     setReportTitle('Product Cost Report')
-    reset()
     setLimit(25)
   }
 
