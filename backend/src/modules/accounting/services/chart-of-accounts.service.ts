@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { applyPagination } from '../../../common/pagination/apply-pagination';
 import {
   ChartOfAccount,
   AccountType,
@@ -115,8 +116,8 @@ export class ChartOfAccountsService {
     query: QueryChartOfAccountsDto,
   ): Promise<ChartOfAccountListResponseDto> {
     const {
-      page = 1,
-      limit = 20,
+      page,
+      limit,
       search,
       type,
       isActive,
@@ -167,8 +168,8 @@ export class ChartOfAccountsService {
     queryBuilder.orderBy(`account.${sortField}`, safeSortOrder);
 
     // Apply pagination
-    const offset = (page - 1) * limit;
-    queryBuilder.skip(offset).take(limit);
+    const shouldPaginate = page !== undefined && limit !== undefined;
+    applyPagination(queryBuilder, page, limit);
 
     const [accounts, total] = await queryBuilder.getManyAndCount();
 
@@ -180,9 +181,9 @@ export class ChartOfAccountsService {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPreviousPage: page > 1,
+        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1,
+        hasNextPage: shouldPaginate ? page < Math.ceil(total / limit) : false,
+        hasPreviousPage: shouldPaginate ? page > 1 : false,
       },
     };
   }
