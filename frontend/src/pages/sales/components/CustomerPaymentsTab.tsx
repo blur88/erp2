@@ -1,4 +1,6 @@
+import PagePagination from '@/components/common/PagePagination'
 import { DataTable, type Column, bold } from '@/components/common/DataTable'
+import { usePagination } from '@/hooks/usePagination'
 import { useGetPaymentsQuery } from '@/store/api/salesApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
@@ -8,10 +10,16 @@ interface CustomerPaymentsTabProps {
 }
 
 export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabProps) {
-  const { data, isLoading } = useGetPaymentsQuery({ customerId })
-  const payments = [...(data?.data ?? [])].sort((a, b) =>
-    (a.paymentNumber ?? '').localeCompare(b.paymentNumber ?? '', undefined, { numeric: true }),
-  )
+  const { page, limit, paginationProps } = usePagination()
+  const { data, isLoading } = useGetPaymentsQuery({
+    customerId,
+    page,
+    limit,
+    sortBy: 'paymentNumber',
+    sortOrder: 'ASC',
+  })
+  const payments = data?.data ?? []
+  const total = data?.meta?.total ?? 0
 
   const columns: Column<(typeof payments)[number]>[] = [
     { header: 'Payment #', width: '20%', render: (p) => bold(p.paymentNumber) },
@@ -28,6 +36,7 @@ export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabP
       getRowKey={(p) => p.id}
       emptyText="No payments yet for this customer."
       isLoading={isLoading}
+      footer={<PagePagination total={total} {...paginationProps} />}
     />
   )
 }

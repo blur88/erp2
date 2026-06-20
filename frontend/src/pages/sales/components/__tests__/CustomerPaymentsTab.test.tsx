@@ -91,11 +91,41 @@ describe('CustomerPaymentsTab', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('passes customerId to query', () => {
+  it('passes customerId, page, limit and lexical sort to the query', () => {
     mockGetPayments.mockReturnValue({ data: { data: [], meta: { total: 0 } }, isLoading: false });
     renderTab('cust-99');
     expect(mockGetPayments).toHaveBeenCalledWith(
-      expect.objectContaining({ customerId: 'cust-99' }),
+      expect.objectContaining({
+        customerId: 'cust-99',
+        page: 1,
+        limit: expect.any(Number),
+        sortBy: 'paymentNumber',
+        sortOrder: 'ASC',
+      }),
     );
+  });
+
+  it('renders the pagination footer with the total', () => {
+    mockGetPayments.mockReturnValue({
+      data: {
+        data: [
+          {
+            id: 'p1',
+            paymentNumber: 'PAY-001',
+            paymentDate: '2026-01-25',
+            amount: 1000,
+            paymentMethodEntity: { id: 'pm1', name: 'Cash', isActive: true },
+            status: 'completed',
+            customerId: 'c1',
+            createdAt: '2026-01-25',
+            updatedAt: '2026-01-25',
+          },
+        ],
+        meta: { total: 17 },
+      },
+      isLoading: false,
+    });
+    renderTab('c1');
+    expect(screen.getByText(/of 17 records/)).toBeInTheDocument();
   });
 });
