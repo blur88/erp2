@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Between, In } from 'typeorm';
+import { applyPagination } from '@/common/pagination/apply-pagination';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   Payment,
@@ -209,9 +210,7 @@ export class PaymentService extends BaseCrudService<
       );
     }
 
-    if (page && limit) {
-      queryBuilder.skip((page - 1) * limit).take(limit);
-    }
+    applyPagination(queryBuilder, page, limit);
 
     const [payments, total] = await queryBuilder.getManyAndCount();
 

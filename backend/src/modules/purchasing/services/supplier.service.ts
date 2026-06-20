@@ -772,11 +772,8 @@ export class SupplierService extends BaseCrudService<
       where: { supplierId },
       relations: { paymentMethodEntity: true, purchaseOrder: true },
       order: { paymentNumber: 'ASC' },
+      ...paginationOptions(page, limit),
     };
-    if (page && limit) {
-      options.skip = (page - 1) * limit;
-      options.take = limit;
-    }
     const [data, total] = await this.vendorPaymentRepository.findAndCount(options);
 
     return { data, meta: { total } };
