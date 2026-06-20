@@ -84,13 +84,25 @@ export const purchasingApiSlice = createApi({
       transformResponse: (response: any) => normalizeNamedCollection<Supplier>(response, 'data'),
       providesTags: ['DeletedSupplier'],
     }),
-    getSupplierPurchaseOrders: builder.query<{ data: PurchaseOrder[]; total: number }, string>({
-      query: (id) => ({ url: `/purchasing/suppliers/${id}/purchase-orders` }),
-      providesTags: (_result, _error, id) => [{ type: 'Supplier', id }],
+    getSupplierPurchaseOrders: builder.query<
+      PaginatedResponse<PurchaseOrder>,
+      { supplierId: string; page: number; limit: number }
+    >({
+      query: ({ supplierId, page, limit }) => ({
+        url: `/purchasing/suppliers/${supplierId}/purchase-orders`,
+        params: { page, limit },
+      }),
+      providesTags: (_result, _error, { supplierId }) => [{ type: 'Supplier', id: supplierId }],
     }),
-    getSupplierPayments: builder.query<{ data: VendorPayment[]; total: number }, string>({
-      query: (id) => ({ url: `/purchasing/suppliers/${id}/payments` }),
-      providesTags: (_result, _error, id) => [{ type: 'Supplier', id }],
+    getSupplierPayments: builder.query<
+      PaginatedResponse<VendorPayment>,
+      { supplierId: string; page: number; limit: number }
+    >({
+      query: ({ supplierId, page, limit }) => ({
+        url: `/purchasing/suppliers/${supplierId}/payments`,
+        params: { page, limit },
+      }),
+      providesTags: (_result, _error, { supplierId }) => [{ type: 'Supplier', id: supplierId }],
     }),
     restoreSupplier: builder.mutation<Supplier, string>({
       query: (id) => ({ url: `/purchasing/suppliers/${id}/restore`, method: 'POST' }),
