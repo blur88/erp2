@@ -15,7 +15,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TablePagination,
   CircularProgress,
   Stack,
   useTheme,
@@ -27,6 +26,8 @@ import {
   DialogActions,
   IconButton,
 } from '@mui/material'
+import PagePagination from '@/components/common/PagePagination'
+import { usePagination } from '@/hooks/usePagination'
 import { default as PdfIcon } from '@mui/icons-material/PictureAsPdf'
 import { default as ExcelIcon } from '@mui/icons-material/TableChart'
 import { default as RefreshIcon } from '@mui/icons-material/Refresh'
@@ -42,7 +43,7 @@ import { formatCurrency, formatDateTime } from '@/utils/formatters'
 import { escapeHtml } from '@/utils/security'
 import { printReport } from '@/utils/printReport'
 import { exportReportExcel } from '@/utils/exportReport'
-import { PAGINATION, TABLE_STYLES } from '@/constants/tableStyles'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import { ApiService } from '@/services/api'
 import { printColors } from '@/styles/printTokens'
 import { PRINT_STYLES } from '@/styles/printStyles'
@@ -94,8 +95,7 @@ const PriceListReport: React.FC = () => {
   const [reportTitle, setReportTitle] = useState<string>('Product Price List Report')
 
   // Pagination
-  const [page, setPage] = useState<number>(0)
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION.defaultPageSize)
+  const { page, limit, reset, setLimit, paginationProps } = usePagination()
 
   const { data: productsResponse } = useGetProductsQuery({ limit: 10000 })
   const products = productsResponse?.data ?? []
@@ -123,7 +123,7 @@ const PriceListReport: React.FC = () => {
 
   const handleGenerateReport = async () => {
     setLoading(true)
-    setPage(0)
+    reset()
 
     try {
       const params = new URLSearchParams()
@@ -161,8 +161,8 @@ const PriceListReport: React.FC = () => {
     setGroupBy('none')
     setSortBy1('productName')
     setReportTitle('Product Price List Report')
-    setPage(0)
-    setRowsPerPage(25)
+    reset()
+    setLimit(25)
   }
 
   const handleProductClick = (productId: string, event: React.MouseEvent) => {
@@ -453,16 +453,9 @@ const PriceListReport: React.FC = () => {
   }
 
   const sortedData = getSortedData()
-  const paginatedData = sortedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+  const paginatedData = sortedData.slice((page - 1) * limit, (page - 1) * limit + limit)
 
-  const handleChangePage = (_: unknown, newPage: number) => {
-    setPage(newPage)
-  }
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10))
-    setPage(0)
-  }
 
   return (
     <>
@@ -873,15 +866,7 @@ const PriceListReport: React.FC = () => {
               {/* Pagination */}
               {reportData.length > 0 && (
                 <Box sx={{ borderTop: TABLE_STYLES.cell.border, flexShrink: 0 }}>
-                  <TablePagination
-                    component="div"
-                    count={sortedData.length}
-                    page={page}
-                    onPageChange={handleChangePage}
-                    rowsPerPage={rowsPerPage}
-                    onRowsPerPageChange={handleChangeRowsPerPage}
-                    rowsPerPageOptions={PAGINATION.options}
-                  />
+                  <PagePagination total={sortedData.length} {...paginationProps} />
                 </Box>
               )}
             </Paper>

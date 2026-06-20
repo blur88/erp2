@@ -15,13 +15,14 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TablePagination,
   CircularProgress,
   Stack,
   useTheme,
   useMediaQuery,
   Chip,
 } from '@mui/material'
+import PagePagination from '@/components/common/PagePagination'
+import { usePagination } from '@/hooks/usePagination'
 import { alpha } from '@mui/material/styles'
 import { AppButton } from '@/components/common/AppButton'
 import { StatusChip } from '@/components/common/StatusChip'
@@ -37,7 +38,7 @@ import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import { escapeHtml } from '@/utils/security'
 import { printReport } from '@/utils/printReport'
 import { exportReportExcel } from '@/utils/exportReport'
-import { PAGINATION, TABLE_STYLES } from '@/constants/tableStyles'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import api from '@/services/api'
 
 interface SalesOrderProfit {
@@ -74,8 +75,7 @@ const SalesOrderProfitReport: React.FC = () => {
   const [reportTitle, setReportTitle] = useState<string>('Sales Order Profit Report')
 
   // Pagination
-  const [page, setPage] = useState<number>(0)
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION.defaultPageSize)
+  const { page, limit, reset, setLimit, paginationProps } = usePagination()
 
   useEffect(() => {
     // Load customers using authenticated API
@@ -96,7 +96,7 @@ const SalesOrderProfitReport: React.FC = () => {
 
   const handleGenerateReport = async () => {
     setLoading(true)
-    setPage(0) // Reset to first page when generating new report
+    reset() // Reset to first page when generating new report
 
     try {
       // Build query parameters
@@ -140,8 +140,8 @@ const SalesOrderProfitReport: React.FC = () => {
     setReportTitle('Sales Order Profit Report')
 
     // Reset pagination
-    setPage(0)
-    setRowsPerPage(25)
+    reset()
+    setLimit(25)
   }
 
   const handleExportExcel = async () => {
@@ -418,17 +418,10 @@ const SalesOrderProfitReport: React.FC = () => {
   const sortedData = getSortedData()
 
   // Apply pagination to sorted data
-  const paginatedData = sortedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+  const paginatedData = sortedData.slice((page - 1) * limit, (page - 1) * limit + limit)
 
   // Pagination handlers
-  const handleChangePage = (_: unknown, newPage: number) => {
-    setPage(newPage)
-  }
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10))
-    setPage(0)
-  }
 
   return (
     <>
@@ -977,15 +970,7 @@ const SalesOrderProfitReport: React.FC = () => {
               {/* Pagination */}
               {reportData.length > 0 && (
                 <Box sx={{ borderTop: TABLE_STYLES.cell.border, flexShrink: 0 }}>
-                  <TablePagination
-                    component="div"
-                    count={sortedData.length}
-                    page={page}
-                    onPageChange={handleChangePage}
-                    rowsPerPage={rowsPerPage}
-                    onRowsPerPageChange={handleChangeRowsPerPage}
-                    rowsPerPageOptions={PAGINATION.options}
-                  />
+                  <PagePagination total={sortedData.length} {...paginationProps} />
                 </Box>
               )}
             </Paper>
