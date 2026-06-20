@@ -1,5 +1,6 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
+import { PAGINATION } from '@/constants/tableStyles'
 import type { AuditAction } from '@/types'
 import type { RootState } from '@/store'
 
@@ -26,7 +27,7 @@ interface AuditLogUIState {
 const initialState: AuditLogUIState = {
   pagination: {
     page: 1,
-    limit: 20,
+    limit: PAGINATION.defaultPageSize,
   },
   filters: {
     search: '',

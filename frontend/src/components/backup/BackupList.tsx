@@ -189,6 +189,7 @@ const BackupList: React.FC<BackupListProps> = ({ backups }) => {
         </Table>
       </TableContainer>
 
+      {/* Intentional opt-out from PAGINATION: backup lists are small, start at 5. */}
       <TablePagination
         rowsPerPageOptions={[5, 10, 25, 50]}
         component="div"

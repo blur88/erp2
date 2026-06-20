@@ -38,7 +38,7 @@ import {
 import type { User } from '@/types'
 import UserFormDialog from '@/components/settings/UserFormDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import { TABLE_STYLES } from '@/constants/tableStyles'
+import { PAGINATION, TABLE_STYLES } from '@/constants/tableStyles'
 import { formatDateTime } from '@/utils/formatters'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
@@ -54,7 +54,7 @@ const UserManagementPage: React.FC = () => {
 
   // State
   const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION.defaultPageSize)
 
   // Dialog states
   const [formDialogOpen, setFormDialogOpen] = useState(false)
@@ -623,7 +623,7 @@ const UserManagementPage: React.FC = () => {
           </Box>
         )}
         <TablePagination
-          rowsPerPageOptions={[10, 20, 50, 100]}
+          rowsPerPageOptions={PAGINATION.options}
           component="div"
           count={totalCount}
           rowsPerPage={rowsPerPage}

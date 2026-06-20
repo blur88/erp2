@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { PAGINATION } from '@/constants/tableStyles'
 import auditLogReducer, {
   clearFilters,
   setActiveTab,
@@ -10,6 +11,12 @@ import auditLogReducer, {
 } from '@/store/slices/auditLogSlice'
 
 describe('auditLogSlice UI state', () => {
+  it('defaults pagination limit to PAGINATION.defaultPageSize', () => {
+    const state = auditLogReducer(undefined, { type: '@@INIT' })
+    expect(state.pagination.limit).toBe(PAGINATION.defaultPageSize)
+    expect(state.pagination.page).toBe(1)
+  })
+
   it('updates filters', () => {
     const state = auditLogReducer(undefined, setFilters({ search: 'john' }))
     expect(state.filters.search).toBe('john')

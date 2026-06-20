@@ -10,6 +10,7 @@ import { useNotification } from '@/hooks/useNotification'
 import { useGetProductsQuery, useUpdateProductMutation } from '@/store/api/inventoryApi'
 import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
 import { getStockStatus } from '@/utils/stockUtils'
+import { PAGINATION } from '@/constants/tableStyles'
 import type { Product } from '@/types'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
@@ -32,9 +33,6 @@ const filterConfig: FilterBarConfig<ProductFilters> = {
   defaults: { search: '', status: null, categoryId: null, stockStatus: null },
 }
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50]
-const DEFAULT_LIMIT = 25
-
 function getDefaultPrice(product: Product): number | null {
   const items = product.priceListItems ?? []
   const def = items.find((it) => it.priceList?.isDefault)
@@ -49,7 +47,7 @@ export default function ProductsPage() {
   const [sortBy, setSortBy] = useState('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(DEFAULT_LIMIT)
+  const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
@@ -146,7 +144,7 @@ export default function ProductsPage() {
                 limit={limit}
                 onPageChange={setPage}
                 onLimitChange={handleLimitChange}
-                pageSizeOptions={PAGE_SIZE_OPTIONS}
+                pageSizeOptions={PAGINATION.options}
               />
             )}
           />

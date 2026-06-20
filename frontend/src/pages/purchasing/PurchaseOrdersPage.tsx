@@ -23,6 +23,7 @@ import type { PurchaseOrder } from '@/types'
 import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
+import { PAGINATION } from '@/constants/tableStyles'
 
 import { buildPoRefundSources, toPoRefundPayload } from './utils/poRefund'
 import PurchaseOrderList from './components/PurchaseOrderList'
@@ -35,9 +36,6 @@ interface PurchaseOrderFilters {
   period: PeriodValue
   status: 'DRAFT' | 'READY' | 'RECEIVED' | 'CANCELLED' | null
 }
-
-const PAGE_SIZE_OPTIONS = [10, 25, 50]
-const DEFAULT_LIMIT = 25
 
 const filterConfig: FilterBarConfig<PurchaseOrderFilters> = {
   search: { placeholder: 'Search purchase orders...' },
@@ -75,7 +73,7 @@ const PurchaseOrdersPage: React.FC = () => {
   const [sortBy, setSortBy] = useState('orderNumber')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(DEFAULT_LIMIT)
+  const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
   const [printOrder, setPrintOrder] = useState<PurchaseOrder | null>(null)
   const [paymentOrder, setPaymentOrder] = useState<PurchaseOrder | null>(null)
   const [refundOrder, setRefundOrder] = useState<PurchaseOrder | null>(null)
@@ -344,7 +342,7 @@ const PurchaseOrdersPage: React.FC = () => {
                 limit={limit}
                 onPageChange={setPage}
                 onLimitChange={handleLimitChange}
-                pageSizeOptions={PAGE_SIZE_OPTIONS}
+                pageSizeOptions={PAGINATION.options}
               />
             )}
           />

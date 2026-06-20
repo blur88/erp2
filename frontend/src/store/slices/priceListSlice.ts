@@ -1,5 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 
+import { PAGINATION } from '@/constants/tableStyles'
+
 interface PriceListUIState {
   pagination: {
     page: number
@@ -10,7 +12,7 @@ interface PriceListUIState {
 const initialState: PriceListUIState = {
   pagination: {
     page: 1,
-    limit: 20,
+    limit: PAGINATION.defaultPageSize,
   },
 }
 

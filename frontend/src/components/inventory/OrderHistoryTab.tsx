@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { ApiService } from '@/services/api'
 import { useNotification } from '@/hooks/useNotification'
 import { StatusChip } from '@/components/common/StatusChip'
+import { PAGINATION } from '@/constants/tableStyles'
 import { DataTable, type Column, bold, statusGroup, viewAction } from '@/components/common/DataTable'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
@@ -41,7 +42,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
   const [orders, setOrders] = useState<OrderHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(20)
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION.defaultPageSize)
   const [total, setTotal] = useState(0)
 
   useEffect(() => {
@@ -122,7 +123,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
       sticky
       footer={
         <TablePagination
-          rowsPerPageOptions={[10, 20, 50]}
+          rowsPerPageOptions={PAGINATION.options}
           component="div"
           count={total}
           rowsPerPage={rowsPerPage}
