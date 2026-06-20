@@ -91,6 +91,44 @@ describe('CategoryService', () => {
     });
   });
 
+  describe('findAll pagination', () => {
+    it('returns full set when page/limit absent', async () => {
+      const cats = [createCategory('c1'), createCategory('c2')];
+      const qb = createQueryBuilder(cats);
+      categoryRepository.createQueryBuilder.mockReturnValue(qb as any);
+      await service.findAll({} as any);
+      expect(qb.skip).not.toHaveBeenCalled();
+    });
+
+    it('paginates when page/limit present', async () => {
+      const cats = [createCategory('c1')];
+      const qb = createQueryBuilder(cats);
+      categoryRepository.createQueryBuilder.mockReturnValue(qb as any);
+      await service.findAll({ page: 2, limit: 20 } as any);
+      expect(qb.skip).toHaveBeenCalledWith(20);
+      expect(qb.take).toHaveBeenCalledWith(20);
+    });
+  });
+
+  describe('findDeleted pagination', () => {
+    it('returns full set when page/limit absent', async () => {
+      const cats = [createCategory('c1'), createCategory('c2')];
+      const qb = createQueryBuilder(cats);
+      categoryRepository.createQueryBuilder.mockReturnValue(qb as any);
+      await service.findDeleted({} as any);
+      expect(qb.skip).not.toHaveBeenCalled();
+    });
+
+    it('paginates when page/limit present', async () => {
+      const cats = [createCategory('c1')];
+      const qb = createQueryBuilder(cats);
+      categoryRepository.createQueryBuilder.mockReturnValue(qb as any);
+      await service.findDeleted({ page: 2, limit: 20 } as any);
+      expect(qb.skip).toHaveBeenCalledWith(20);
+      expect(qb.take).toHaveBeenCalledWith(20);
+    });
+  });
+
   describe('getCategoryProducts', () => {
     it('returns products for a valid category', async () => {
       categoryRepository.findOne.mockResolvedValue({ id: 'cat-1', name: 'Hardware' } as any);
