@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder, Like, ILike, LessThanOrEqual } from 'typeorm';
+import { applyPagination } from '@/common/pagination/apply-pagination';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole, UserStatus } from '../../database/entities/user.entity';
 import {
@@ -156,18 +157,18 @@ export class UsersService {
       queryBuilder.orderBy(`user.${sortBy}`, sortOrder);
 
       // Apply pagination
-      const offset = (page - 1) * limit;
-      queryBuilder.skip(offset).take(limit);
+      const shouldPaginate = page !== undefined && limit !== undefined;
+      applyPagination(queryBuilder, page, limit);
 
       // Execute query
       const [users, total] = await queryBuilder.getManyAndCount();
 
       const mappedUsers = users.map(user => this.mapToResponseDto(user));
 
-      const totalPages = Math.ceil(total / limit);
+      const totalPages = shouldPaginate ? Math.ceil(total / limit) : undefined;
 
       this.logger.log(
-        `Retrieved ${users.length} users (page ${page}/${totalPages}) by ${requestingUser}`,
+        `Retrieved ${users.length} users${shouldPaginate ? ` (page ${page}/${totalPages})` : ''} by ${requestingUser}`,
       );
 
       return {
@@ -175,9 +176,9 @@ export class UsersService {
         total,
         page,
         limit,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
+        ...(shouldPaginate && { totalPages }),
+        ...(shouldPaginate && { hasNextPage: page < totalPages }),
+        ...(shouldPaginate && { hasPrevPage: page > 1 }),
       };
     } catch (error) {
       this.logger.error(`User retrieval failed: ${error.message}`, error.stack);

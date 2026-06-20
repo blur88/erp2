@@ -26,7 +26,7 @@ export class QueryUsersDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page?: number = 1;
+  page?: number;
 
   @ApiProperty({
     description: 'Number of records per page',
@@ -40,7 +40,7 @@ export class QueryUsersDto {
   @IsInt()
   @Min(1)
   @Max(100)
-  limit?: number = 20;
+  limit?: number;
 
   @ApiProperty({
     description: 'Search term for username, email, first name, or last name',

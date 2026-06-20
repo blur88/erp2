@@ -30,6 +30,33 @@ describe('UsersService', () => {
     jest.clearAllMocks();
   });
 
+  describe('findAll pagination', () => {
+    const createQb = () => ({
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    });
+
+    it('returns full set when page/limit absent', async () => {
+      const qb = createQb();
+      jest.spyOn(service as any, 'createQueryBuilder').mockReturnValue(qb);
+      jest.spyOn(userRepository, 'update').mockResolvedValue({ affected: 0 } as any);
+      await service.findAll({} as any);
+      expect(qb.skip).not.toHaveBeenCalled();
+    });
+
+    it('paginates when page/limit present', async () => {
+      const qb = createQb();
+      jest.spyOn(service as any, 'createQueryBuilder').mockReturnValue(qb);
+      jest.spyOn(userRepository, 'update').mockResolvedValue({ affected: 0 } as any);
+      await service.findAll({ page: 2, limit: 20 } as any);
+      expect(qb.skip).toHaveBeenCalledWith(20);
+      expect(qb.take).toHaveBeenCalledWith(20);
+    });
+  });
+
   describe('findAll() lazy lock self-heal (issue #710)', () => {
     const createQueryBuilderMock = () => ({
       andWhere: jest.fn().mockReturnThis(),
