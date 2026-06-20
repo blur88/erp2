@@ -1,26 +1,24 @@
-import { useState } from 'react'
-import { TablePagination } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
+import PagePagination from '@/components/common/PagePagination'
 import { DataTable, type Column, bold, viewAction } from '@/components/common/DataTable'
+import { usePagination } from '@/hooks/usePagination'
 import { useLazyGetPurchaseOrderQuery } from '@/store/api/purchasingApi'
 import { useLazyGetSalesOrderQuery } from '@/store/api/salesApi'
 import { useGetStockMovementsQuery } from '@/store/api/inventoryApi'
 import type { StockMovement } from '@/types'
 import { formatDate, formatNumber } from '@/utils/formatters'
-import { PAGINATION } from '@/constants/tableStyles'
 
 import { getMovementLabel, getMovementNavTarget, getReferenceLabel } from '../utils/stockMovementDisplay'
 
 export default function StockMovementsTab({ productId }: { productId: string }) {
   const navigate = useNavigate()
-  const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION.defaultPageSize)
+  const { page, limit, paginationProps } = usePagination()
 
   const { data, isLoading } = useGetStockMovementsQuery({
     productId,
-    page: page + 1,
-    limit: rowsPerPage,
+    page,
+    limit,
   })
   const movements = data?.data ?? []
   const total = data?.meta?.total ?? 0
@@ -76,19 +74,7 @@ export default function StockMovementsTab({ productId }: { productId: string }) 
       isLoading={isLoading}
       sticky
       footer={
-        <TablePagination
-          rowsPerPageOptions={PAGINATION.options}
-          component="div"
-          count={total}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={(_, newPage) => setPage(newPage)}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10))
-            setPage(0)
-          }}
-          size="small"
-        />
+        <PagePagination total={total} {...paginationProps} />
       }
     />
   )

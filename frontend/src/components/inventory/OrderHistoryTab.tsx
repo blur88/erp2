@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react'
-import { TablePagination } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
+import PagePagination from '@/components/common/PagePagination'
 import { ApiService } from '@/services/api'
 import { useNotification } from '@/hooks/useNotification'
 import { StatusChip } from '@/components/common/StatusChip'
-import { PAGINATION } from '@/constants/tableStyles'
+import { usePagination } from '@/hooks/usePagination'
 import { DataTable, type Column, bold, statusGroup, viewAction } from '@/components/common/DataTable'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
@@ -39,10 +39,9 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
     }
   }
 
+  const { page, limit, paginationProps } = usePagination()
   const [orders, setOrders] = useState<OrderHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION.defaultPageSize)
   const [total, setTotal] = useState(0)
 
   useEffect(() => {
@@ -50,7 +49,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
       try {
         setLoading(true)
         const response = (await ApiService.get(`/inventory/products/${productId}/order-history`, {
-          params: { page: page + 1, limit: rowsPerPage },
+          params: { page, limit },
         })) as any
         const data = response.data?.data || response.data || []
         const meta = response.data?.meta || response.meta || {}
@@ -66,7 +65,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
     if (productId) {
       fetchOrderHistory()
     }
-  }, [productId, page, rowsPerPage, showError])
+  }, [productId, page, limit, showError])
 
   const getOrderTypeLabel = (type: string): string =>
     type === 'sales_order' ? 'Sales Order' : 'Purchase Order'
@@ -122,19 +121,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
       isLoading={loading}
       sticky
       footer={
-        <TablePagination
-          rowsPerPageOptions={PAGINATION.options}
-          component="div"
-          count={total}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={(_, newPage) => setPage(newPage)}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10))
-            setPage(0)
-          }}
-          size="small"
-        />
+        <PagePagination total={total} {...paginationProps} />
       }
     />
   )
