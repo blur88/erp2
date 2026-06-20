@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, IsBoolean, IsEnum } from 'class-validator';
+import { IsOptional, IsString, IsBoolean, IsEnum, IsInt, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class QueryPriceListsDto {
@@ -23,10 +23,15 @@ export class QueryPriceListsDto {
   @ApiProperty({ required: false, example: 1, default: 1 })
   @IsOptional()
   @Type(() => Number)
-  page?: number = 1;
+  @IsInt()
+  @Min(1)
+  page?: number;
 
   @ApiProperty({ required: false, example: 10, default: 10 })
   @IsOptional()
   @Type(() => Number)
-  limit?: number = 10;
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
 }

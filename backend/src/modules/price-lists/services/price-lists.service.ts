@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
+import { applyPagination } from '@/common/pagination/apply-pagination';
 import { PriceList, PriceListItem } from '@/database/entities';
 import { CreatePriceListDto, UpdatePriceListDto, QueryPriceListsDto, BulkUpdatePricesDto, ApplyPercentageAdjustmentDto } from '../dto';
 
@@ -27,7 +28,7 @@ export class PriceListsService {
    * Find all price lists with pagination and filtering
    */
   async findAll(query: QueryPriceListsDto): Promise<PaginatedResponse<PriceList>> {
-    const { search, isActive, isDefault, page = 1, limit = 10 } = query;
+    const { search, isActive, isDefault, page, limit } = query;
 
     const queryBuilder = this.priceListRepository.createQueryBuilder('priceList');
 
@@ -51,8 +52,8 @@ export class PriceListsService {
     queryBuilder.andWhere('priceList.deletedAt IS NULL');
 
     // Pagination
-    const skip = (page - 1) * limit;
-    queryBuilder.skip(skip).take(limit);
+    const shouldPaginate = page !== undefined && limit !== undefined;
+    applyPagination(queryBuilder, page, limit);
 
     // Order by
     queryBuilder.orderBy('priceList.isDefault', 'DESC');
@@ -66,7 +67,7 @@ export class PriceListsService {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
+        ...(shouldPaginate && { totalPages: Math.ceil(total / limit) }),
       },
     };
   }
