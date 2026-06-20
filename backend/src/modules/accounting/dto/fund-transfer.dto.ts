@@ -3,6 +3,7 @@ import {
   IsOptional,
   IsEnum,
   IsNumber,
+  IsInt,
   IsDateString,
   IsUUID,
   Min,
@@ -55,12 +56,14 @@ export class UpdateFundTransferDto {
 export class QueryFundTransfersDto {
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   page?: number;
 
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   limit?: number;
 
   @IsOptional()
