@@ -105,42 +105,42 @@ describe('StockMovementService', () => {
     });
   });
 
+  function makeMovement(overrides: Partial<StockMovement>): StockMovement {
+    return {
+      id: 'm1',
+      movementType: 'initial_stock' as any,
+      movementDate: new Date(),
+      quantity: 10,
+      previousBalance: 0,
+      newBalance: 10,
+      referenceType: undefined,
+      referenceId: undefined,
+      product: { id: 'p1', name: 'Test', barcode: 'SKU001' } as any,
+      isInward: true,
+      isOutward: false,
+      getDescription: () => '',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...overrides,
+    } as StockMovement;
+  }
+
+  function mockQueryBuilder(movements: StockMovement[], total: number) {
+    const qb: any = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([movements, total]),
+    };
+    (stockMovementRepository.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+    return qb;
+  }
+
   describe('referenceNumber population', () => {
-    function makeMovement(overrides: Partial<StockMovement>): StockMovement {
-      return {
-        id: 'm1',
-        movementType: 'initial_stock' as any,
-        movementDate: new Date(),
-        quantity: 10,
-        previousBalance: 0,
-        newBalance: 10,
-        referenceType: undefined,
-        referenceId: undefined,
-        product: { id: 'p1', name: 'Test', barcode: 'SKU001' } as any,
-        isInward: true,
-        isOutward: false,
-        getDescription: () => '',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        ...overrides,
-      } as StockMovement;
-    }
-
-    function mockQueryBuilder(movements: StockMovement[], total: number) {
-      const qb: any = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([movements, total]),
-      };
-      (stockMovementRepository.createQueryBuilder as jest.Mock).mockReturnValue(qb);
-      return qb;
-    }
-
     it('populates referenceNumber from the related PO for purchase_order movements', async () => {
       const movements = [
         makeMovement({ id: 'm1', referenceType: 'purchase_order', referenceId: 'po-1' }),
@@ -222,6 +222,44 @@ describe('StockMovementService', () => {
       const result = await service.findOne('m1');
 
       expect(result.referenceNumber).toBe('SO-26-027');
+    });
+  });
+
+  describe('pagination', () => {
+    function mockQb(movements: StockMovement[], total: number) {
+      const qb: any = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([movements, total]),
+      };
+      (stockMovementRepository.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+      return qb;
+    }
+
+    it('returns full set when page/limit absent', async () => {
+      const movements = [makeMovement({ id: 'm1' }), makeMovement({ id: 'm2' })];
+      const qb = mockQb(movements, 2);
+      (purchaseOrderRepository.find as jest.Mock).mockResolvedValue([]);
+      (salesOrderRepository.find as jest.Mock).mockResolvedValue([]);
+      const result = await service.findAll({} as any);
+      expect(qb.skip).not.toHaveBeenCalled();
+      expect(qb.take).not.toHaveBeenCalled();
+      expect(result.data).toHaveLength(2);
+    });
+
+    it('paginates when page/limit present', async () => {
+      const movements = [makeMovement({ id: 'm1' })];
+      const qb = mockQb(movements, 10);
+      (purchaseOrderRepository.find as jest.Mock).mockResolvedValue([]);
+      (salesOrderRepository.find as jest.Mock).mockResolvedValue([]);
+      await service.findAll({ page: 2, limit: 20 } as any);
+      expect(qb.skip).toHaveBeenCalledWith(20);
+      expect(qb.take).toHaveBeenCalledWith(20);
     });
   });
 });
