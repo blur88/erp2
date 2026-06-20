@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   Box,
   Typography,
@@ -11,7 +11,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TablePagination,
   Alert,
   CircularProgress,
   Chip,
@@ -21,6 +20,8 @@ import { default as EditIcon } from '@mui/icons-material/Edit'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as UnlockIcon } from '@mui/icons-material/LockOpen'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
+import PagePagination from '@/components/common/PagePagination'
+import { usePagination } from '@/hooks/usePagination'
 import { FilterBar } from '@/components/filters'
 import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
@@ -38,7 +39,7 @@ import {
 import type { User } from '@/types'
 import UserFormDialog from '@/components/settings/UserFormDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import { PAGINATION, TABLE_STYLES } from '@/constants/tableStyles'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatDateTime } from '@/utils/formatters'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
@@ -53,8 +54,7 @@ const UserManagementPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
 
   // State
-  const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION.defaultPageSize)
+  const { page, limit, reset, paginationProps } = usePagination()
 
   // Dialog states
   const [formDialogOpen, setFormDialogOpen] = useState(false)
@@ -87,13 +87,13 @@ const UserManagementPage: React.FC = () => {
 
   const userQueryParams = useMemo(
     () => ({
-      page: page + 1,
-      limit: rowsPerPage,
+      page,
+      limit,
       search: appliedFilters.search || undefined,
       role: appliedFilters.role ?? undefined,
       status: appliedFilters.status ?? undefined,
     }),
-    [appliedFilters, page, rowsPerPage],
+    [appliedFilters, page, limit],
   )
   const { data: usersResponse, isLoading, isFetching, error, refetch: refetchUsers } =
     useGetUsersQuery(userQueryParams)
@@ -103,35 +103,31 @@ const UserManagementPage: React.FC = () => {
   const [updateUser] = useUpdateUserMutation()
   const users = usersResponse?.data ?? []
   const totalCount = usersResponse?.meta?.total ?? 0
-  const resetPage = useCallback(() => {
-    setPage(0)
-  }, [])
-
   const filterHandlers = useMemo(
     () => ({
       ...handlers,
       onSearchChange: (value: string) => {
-        resetPage()
+        reset()
         handlers.onSearchChange(value)
       },
       onSearchCommit: () => {
-        resetPage()
+        reset()
         handlers.onSearchCommit()
       },
       onQuickFilterChange: (field: keyof UserFilters, value: unknown) => {
-        resetPage()
+        reset()
         handlers.onQuickFilterChange(field, value)
       },
       onClearField: (field: keyof UserFilters) => {
-        resetPage()
+        reset()
         handlers.onClearField(field)
       },
       onClearAll: () => {
-        resetPage()
+        reset()
         handlers.onClearAll()
       },
     }),
-    [handlers, resetPage],
+    [handlers, reset],
   )
 
   // Check if user is admin
@@ -143,15 +139,6 @@ const UserManagementPage: React.FC = () => {
   }, [currentUser, showError])
 
   // Handlers
-  const handlePageChange = (_event: unknown, newPage: number) => {
-    setPage(newPage)
-  }
-
-  const handleRowsPerPageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10))
-    setPage(0)
-  }
-
   const handleAddUser = () => {
     setSelectedUser(null)
     setFormDialogOpen(true)
@@ -622,15 +609,7 @@ const UserManagementPage: React.FC = () => {
             </TableContainer>
           </Box>
         )}
-        <TablePagination
-          rowsPerPageOptions={PAGINATION.options}
-          component="div"
-          count={totalCount}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handlePageChange}
-          onRowsPerPageChange={handleRowsPerPageChange}
-        />
+        <PagePagination total={totalCount} {...paginationProps} />
       </Paper>
       {/* User Form Dialog */}
       <UserFormDialog

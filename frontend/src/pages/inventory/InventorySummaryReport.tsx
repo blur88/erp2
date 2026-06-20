@@ -16,7 +16,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TablePagination,
   CircularProgress,
   Stack,
   useTheme,
@@ -28,6 +27,8 @@ import {
   DialogActions,
   IconButton,
 } from '@mui/material'
+import PagePagination from '@/components/common/PagePagination'
+import { usePagination } from '@/hooks/usePagination'
 import { alpha } from '@mui/material/styles'
 import { default as PdfIcon } from '@mui/icons-material/PictureAsPdf'
 import { default as ExcelIcon } from '@mui/icons-material/TableChart'
@@ -44,7 +45,7 @@ import { formatCurrency, formatDateTime } from '@/utils/formatters'
 import { escapeHtml } from '@/utils/security'
 import { printReport } from '@/utils/printReport'
 import { exportReportExcel } from '@/utils/exportReport'
-import { PAGINATION, TABLE_STYLES } from '@/constants/tableStyles'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import { ApiService } from '@/services/api'
 import { useGetEffectivePriceListsQuery } from '@/store/api/priceListApi'
 import { printColors } from '@/styles/printTokens'
@@ -97,8 +98,7 @@ const InventorySummaryReport: React.FC = () => {
   const [reportTitle, setReportTitle] = useState<string>('Inventory Summary Report')
 
   // Pagination
-  const [page, setPage] = useState<number>(0)
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION.defaultPageSize)
+  const { page, limit, reset, setLimit, paginationProps } = usePagination()
 
   useEffect(() => {
     // Load products
@@ -144,7 +144,7 @@ const InventorySummaryReport: React.FC = () => {
 
   const handleGenerateReport = async () => {
     setLoading(true)
-    setPage(0)
+    reset()
 
     try {
       const params = new URLSearchParams()
@@ -176,8 +176,7 @@ const InventorySummaryReport: React.FC = () => {
     setGroupBy('none')
     setSortBy1('productName')
     setReportTitle('Inventory Summary Report')
-    setPage(0)
-    setRowsPerPage(25)
+    setLimit(25)
   }
 
   const handleProductClick = (productId: string, event: React.MouseEvent) => {
@@ -547,16 +546,9 @@ const InventorySummaryReport: React.FC = () => {
   }
 
   const sortedData = getSortedData()
-  const paginatedData = sortedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+  const paginatedData = sortedData.slice((page - 1) * limit, (page - 1) * limit + limit)
 
-  const handleChangePage = (_: unknown, newPage: number) => {
-    setPage(newPage)
-  }
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10))
-    setPage(0)
-  }
 
   return (
     <>
@@ -1056,15 +1048,7 @@ const InventorySummaryReport: React.FC = () => {
               {/* Pagination */}
               {reportData.length > 0 && (
                 <Box sx={{ borderTop: TABLE_STYLES.cell.border, flexShrink: 0 }}>
-                  <TablePagination
-                    component="div"
-                    count={sortedData.length}
-                    page={page}
-                    onPageChange={handleChangePage}
-                    rowsPerPage={rowsPerPage}
-                    onRowsPerPageChange={handleChangeRowsPerPage}
-                    rowsPerPageOptions={PAGINATION.options}
-                  />
+                  <PagePagination total={sortedData.length} {...paginationProps} />
                 </Box>
               )}
             </Paper>

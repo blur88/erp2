@@ -11,7 +11,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TablePagination,
   Alert,
   CircularProgress,
   Chip,
@@ -24,8 +23,8 @@ import { default as StarIcon } from '@mui/icons-material/Star'
 import { default as StarBorderIcon } from '@mui/icons-material/StarBorder'
 import { default as ViewIcon } from '@mui/icons-material/Visibility'
 import { useNavigate } from 'react-router-dom'
-import { PAGINATION } from '@/constants/tableStyles'
 import PageHeader from '@/components/common/PageHeader'
+import PagePagination from '@/components/common/PagePagination'
 import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import { StatusChip } from '@/components/common/StatusChip'
 import { FilterBar } from '@/components/filters'
@@ -130,12 +129,12 @@ const PriceListsPage: React.FC = () => {
   })
 
   // Handlers
-  const handlePageChange = (_event: unknown, newPage: number) => {
-    dispatch(setPagination({ page: newPage + 1 }))
+  const handlePageChange = (newPage: number) => {
+    dispatch(setPagination({ page: newPage }))
   }
 
-  const handleRowsPerPageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    dispatch(setPagination({ limit: parseInt(event.target.value, 10), page: 1 }))
+  const handleLimitChange = (newLimit: number) => {
+    dispatch(setPagination({ limit: newLimit, page: 1 }))
   }
 
   const handleAddPriceList = () => {
@@ -582,14 +581,12 @@ const PriceListsPage: React.FC = () => {
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination
-          rowsPerPageOptions={PAGINATION.options}
-          component="div"
-          count={total}
-          rowsPerPage={pagination.limit}
-          page={pagination.page - 1}
+        <PagePagination
+          total={total}
+          page={pagination.page}
+          limit={pagination.limit}
           onPageChange={handlePageChange}
-          onRowsPerPageChange={handleRowsPerPageChange}
+          onLimitChange={handleLimitChange}
         />
       </Paper>
       {/* Price List Form Dialog */}

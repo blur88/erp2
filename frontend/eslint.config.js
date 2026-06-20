@@ -135,4 +135,30 @@ export default tseslint.config(
       'no-restricted-syntax': 'off',
     },
   },
+  // TablePagination guard — use <PagePagination> for a consistent pagination UI.
+  {
+    files: ['**/*.ts', '**/*.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@mui/material',
+              importNames: ['TablePagination'],
+              message:
+                'Use <PagePagination> (components/common/PagePagination.tsx) for a consistent pagination UI. BackupList is the only sanctioned exception.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // Known exception — BackupList intentionally keeps raw TablePagination (see tableStyles.ts opt-out).
+  {
+    files: ['src/components/backup/BackupList.tsx'],
+    rules: {
+      'no-restricted-imports': 'off',
+    },
+  },
 );
