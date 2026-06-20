@@ -234,6 +234,26 @@ describe('SalesOrderQueryService', () => {
       expect(excludeClause).toBeUndefined();
     });
 
+    it('does not paginate when page/limit absent (full set)', async () => {
+      const { qb } = buildQbMock();
+      salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll({});
+
+      expect(qb.skip).not.toHaveBeenCalled();
+      expect(qb.take).not.toHaveBeenCalled();
+    });
+
+    it('paginates when page/limit present', async () => {
+      const { qb } = buildQbMock();
+      salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll({ page: 2, limit: 50 } as any);
+
+      expect(qb.skip).toHaveBeenCalledWith(50);
+      expect(qb.take).toHaveBeenCalledWith(50);
+    });
+
     describe('independent status + payment filtering', () => {
       it('status=READY applies status=READY only', async () => {
         const { qb, andWhereCalls } = buildQbMock();
