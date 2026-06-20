@@ -532,6 +532,42 @@ describe('JournalEntryService', () => {
       expect(result.data[0].sourceRefNumber).toBe('SO-001');
     });
 
+    it('returns full set when page/limit absent', async () => {
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      };
+      journalEntryRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({} as any);
+
+      expect(qb.skip).not.toHaveBeenCalled();
+    });
+
+    it('paginates when page/limit present', async () => {
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      };
+      journalEntryRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({ page: 2, limit: 20 } as any);
+      expect(qb.skip).toHaveBeenCalledWith(20);
+      expect(qb.take).toHaveBeenCalledWith(20);
+    });
+
     it('does not apply ids filter when ids param is absent', async () => {
       const andWhereMock = jest.fn().mockReturnThis();
       const queryBuilder = {
