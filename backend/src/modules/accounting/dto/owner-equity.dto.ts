@@ -3,9 +3,11 @@ import {
   IsOptional,
   IsEnum,
   IsNumber,
+  IsInt,
   IsDateString,
   IsUUID,
   Min,
+  Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { OwnerEquityTransactionType } from '../../../database/entities/owner-equity-transaction.entity';
@@ -55,12 +57,15 @@ export class UpdateOwnerEquityDto {
 export class QueryOwnerEquityDto {
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   page?: number;
 
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Max(500)
   limit?: number;
 
   @IsOptional()

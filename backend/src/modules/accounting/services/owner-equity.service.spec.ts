@@ -112,12 +112,29 @@ describe('OwnerEquityService', () => {
     expect(mockQueryBuilder.withDeleted).toHaveBeenCalled();
   });
 
-  it('findAll ignores invalid query filters and sanitizes pagination', async () => {
+  it('returns full set when page/limit absent', async () => {
+    mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await service.findAll({} as any);
+
+    expect(mockQueryBuilder.skip).not.toHaveBeenCalled();
+  });
+
+  it('paginates when page/limit present', async () => {
+    mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await service.findAll({ page: 2, limit: 20 } as any);
+
+    expect(mockQueryBuilder.skip).toHaveBeenCalledWith(20);
+    expect(mockQueryBuilder.take).toHaveBeenCalledWith(20);
+  });
+
+  it('findAll ignores invalid query filters', async () => {
     mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
 
     await service.findAll({
-      page: '1' as any,
-      limit: '100' as any,
+      page: 1,
+      limit: 20,
       type: 'invalid_type' as any,
       status: 'invalid_status',
     });
@@ -129,7 +146,7 @@ describe('OwnerEquityService', () => {
       status: 'invalid_status',
     });
     expect(mockQueryBuilder.skip).toHaveBeenCalledWith(0);
-    expect(mockQueryBuilder.take).toHaveBeenCalledWith(100);
+    expect(mockQueryBuilder.take).toHaveBeenCalledWith(20);
   });
 
   it('findOne returns a single transaction', async () => {
