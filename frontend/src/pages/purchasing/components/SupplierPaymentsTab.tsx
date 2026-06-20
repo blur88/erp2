@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom'
 
+import PagePagination from '@/components/common/PagePagination'
 import { DataTable, type Column, bold, viewAction } from '@/components/common/DataTable'
+import { usePagination } from '@/hooks/usePagination'
 import { useGetSupplierPaymentsQuery } from '@/store/api/purchasingApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
@@ -11,8 +13,10 @@ interface SupplierPaymentsTabProps {
 
 export default function SupplierPaymentsTab({ supplierId }: SupplierPaymentsTabProps) {
   const navigate = useNavigate()
-  const { data, isLoading } = useGetSupplierPaymentsQuery(supplierId)
+  const { page, limit, paginationProps } = usePagination()
+  const { data, isLoading } = useGetSupplierPaymentsQuery({ supplierId, page, limit })
   const payments = data?.data ?? []
+  const total = data?.meta?.total ?? 0
 
   const columns: Column<(typeof payments)[number]>[] = [
     { header: 'Payment #', width: '18%', render: (p) => bold(p.paymentNumber) },
@@ -41,6 +45,7 @@ export default function SupplierPaymentsTab({ supplierId }: SupplierPaymentsTabP
       getRowKey={(p) => p.id}
       emptyText="No payments yet for this supplier."
       isLoading={isLoading}
+      footer={<PagePagination total={total} {...paginationProps} />}
     />
   )
 }
