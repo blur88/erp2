@@ -11,6 +11,7 @@ import { AccountMapping } from '../../../database/entities/account-mapping.entit
 import { ChartOfAccount } from '../../../database/entities/chart-of-account.entity';
 import { Payment } from '../../../database/entities/payment.entity';
 import { Settlement } from '../../../database/entities/settlement.entity';
+import { applyPagination } from '@/common/pagination/apply-pagination';
 import {
   CreatePaymentMethodDto,
   UpdatePaymentMethodDto,
@@ -37,7 +38,7 @@ export class PaymentMethodService {
   ) {}
 
   async findAll(query: QueryPaymentMethodsDto): Promise<PaymentMethodListResponseDto> {
-    const { page = 1, limit = 50, isActive, requiresSettlement } = query;
+    const { page, limit, isActive, requiresSettlement } = query;
 
     const qb = this.paymentMethodRepository
       .createQueryBuilder('pm')
@@ -51,7 +52,8 @@ export class PaymentMethodService {
     }
 
     qb.orderBy('pm.sortOrder', 'ASC').addOrderBy('pm.name', 'ASC');
-    qb.skip((page - 1) * limit).take(limit);
+    const shouldPaginate = page !== undefined && limit !== undefined;
+    applyPagination(qb, page, limit);
 
     const [data, total] = await qb.getManyAndCount();
 
@@ -61,7 +63,7 @@ export class PaymentMethodService {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        ...(shouldPaginate && { totalPages: Math.ceil(total / limit) }),
       },
     };
   }
