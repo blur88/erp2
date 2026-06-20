@@ -18,8 +18,8 @@ import {
 import type { SalesOrder } from '@/types'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
-
 import { PAGINATION } from '@/constants/tableStyles'
+
 import SalesOrderList from './components/SalesOrderList'
 import SalesOrdersDialogs from './components/SalesOrdersDialogs'
 

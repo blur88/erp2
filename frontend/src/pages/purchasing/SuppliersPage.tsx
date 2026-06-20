@@ -11,8 +11,8 @@ import {
 } from '@/store/api/purchasingApi'
 import type { Supplier } from '@/types'
 import type { FilterBarConfig } from '@/types/filterBar.types'
-
 import { PAGINATION } from '@/constants/tableStyles'
+
 import SupplierList from './components/SupplierList'
 
 interface SupplierFilters {

@@ -11,8 +11,8 @@ import {
 } from '@/store/api/salesApi'
 import type { Customer } from '@/types'
 import type { FilterBarConfig } from '@/types/filterBar.types'
-
 import { PAGINATION } from '@/constants/tableStyles'
+
 import CustomerList from './components/CustomerList'
 
 interface CustomerFilters {

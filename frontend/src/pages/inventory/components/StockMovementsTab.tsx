@@ -8,8 +8,8 @@ import { useLazyGetSalesOrderQuery } from '@/store/api/salesApi'
 import { useGetStockMovementsQuery } from '@/store/api/inventoryApi'
 import type { StockMovement } from '@/types'
 import { formatDate, formatNumber } from '@/utils/formatters'
-
 import { PAGINATION } from '@/constants/tableStyles'
+
 import { getMovementLabel, getMovementNavTarget, getReferenceLabel } from '../utils/stockMovementDisplay'
 
 export default function StockMovementsTab({ productId }: { productId: string }) {

@@ -10,10 +10,10 @@ import { useNotification } from '@/hooks/useNotification'
 import { useGetProductsQuery, useUpdateProductMutation } from '@/store/api/inventoryApi'
 import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
 import { getStockStatus } from '@/utils/stockUtils'
+import { PAGINATION } from '@/constants/tableStyles'
 import type { Product } from '@/types'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
-import { PAGINATION } from '@/constants/tableStyles'
 import ProductList from './components/ProductList'
 
 interface ProductFilters {
