@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, IsNull } from 'typeorm';
+import { applyPagination } from '../../../common/pagination/apply-pagination';
 import {
   BankReconciliation,
   BankReconciliationStatus,
@@ -124,8 +125,8 @@ export class ReconciliationService {
     query: QueryBankReconciliationsDto,
   ): Promise<BankReconciliationListResponseDto> {
     const {
-      page = 1,
-      limit = 20,
+      page,
+      limit,
       accountId,
       fiscalPeriodId,
       status,
@@ -179,8 +180,8 @@ export class ReconciliationService {
     // Hardcoded tiebreaker; account.name intentionally excluded from validSortFields to avoid sort-direction conflict
     queryBuilder.addOrderBy('account.name', 'ASC');
 
-    const offset = (page - 1) * limit;
-    queryBuilder.skip(offset).take(limit);
+    const shouldPaginate = page !== undefined && limit !== undefined;
+    applyPagination(queryBuilder, page, limit);
 
     const [reconciliations, total] = await queryBuilder.getManyAndCount();
 
@@ -190,9 +191,9 @@ export class ReconciliationService {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPreviousPage: page > 1,
+        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1,
+        hasNextPage: shouldPaginate ? page < Math.ceil(total / limit) : false,
+        hasPreviousPage: shouldPaginate ? page > 1 : false,
       },
     };
   }
