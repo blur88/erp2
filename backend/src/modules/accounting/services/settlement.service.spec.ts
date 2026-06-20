@@ -119,6 +119,37 @@ describe('SettlementService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('findAll', () => {
+    const mockQb = () => ({
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    });
+
+    it('returns full set when page/limit absent', async () => {
+      const qb = mockQb();
+      settlementRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({} as any);
+
+      expect(qb.skip).not.toHaveBeenCalled();
+    });
+
+    it('paginates when page/limit present', async () => {
+      const qb = mockQb();
+      settlementRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({ page: 2, limit: 20 } as any);
+
+      expect(qb.skip).toHaveBeenCalledWith(20);
+      expect(qb.take).toHaveBeenCalledWith(20);
+    });
+  });
+
   describe('create', () => {
     it('creates settlement as draft and reserves only selected payments without posting journal entry', async () => {
       paymentMethodRepository.findOne.mockResolvedValue(mockPaymentMethod);

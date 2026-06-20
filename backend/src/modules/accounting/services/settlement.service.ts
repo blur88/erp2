@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, Repository } from 'typeorm';
+import { applyPagination } from '../../../common/pagination/apply-pagination';
 import { Settlement, SettlementStatus } from '../../../database/entities/settlement.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { Payment, SettlementStatusEnum } from '../../../database/entities/payment.entity';
@@ -39,8 +40,8 @@ export class SettlementService {
 
   async findAll(query: QuerySettlementsDto): Promise<SettlementListResponseDto> {
     const {
-      page = 1,
-      limit = 20,
+      page,
+      limit,
       paymentMethodId,
       status,
       sortBy = 'settlementDate',
@@ -64,9 +65,9 @@ export class SettlementService {
     const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'settlementDate';
     const safeSortOrder = sortOrder === 'ASC' ? 'ASC' : 'DESC';
 
-    qb.orderBy(`s.${safeSortBy}`, safeSortOrder)
-      .skip((page - 1) * limit)
-      .take(limit);
+    const shouldPaginate = page !== undefined && limit !== undefined;
+    qb.orderBy(`s.${safeSortBy}`, safeSortOrder);
+    applyPagination(qb, page, limit);
 
     const [rows, total] = await qb.getManyAndCount();
     const data = await Promise.all(rows.map((row) => this.toResponseDto(row)));
@@ -77,7 +78,7 @@ export class SettlementService {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1,
       },
     };
   }
