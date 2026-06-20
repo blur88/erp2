@@ -103,7 +103,29 @@ describe('CustomerOrdersTab', () => {
     mockGetSalesOrders.mockReturnValue({ data: { data: [], meta: { total: 0 } }, isLoading: false })
     renderTab('customer-abc')
     expect(mockGetSalesOrders).toHaveBeenCalledWith(
-      expect.objectContaining({ customerId: 'customer-abc' }),
+      expect.objectContaining({ customerId: 'customer-abc', page: 1, limit: expect.any(Number) }),
     )
+  })
+
+  it('renders the pagination footer with the total', () => {
+    mockGetSalesOrders.mockReturnValue({
+      data: {
+        data: [{
+          id: 'o1',
+          orderNumber: 'SO-001',
+          orderDate: '2026-01-15',
+          isCompleted: true,
+          isFulfilled: false,
+          totalAmount: 1500,
+          customerId: 'c1',
+          createdAt: '2026-01-15',
+          updatedAt: '2026-01-15',
+        }],
+        meta: { total: 42 },
+      },
+      isLoading: false,
+    })
+    renderTab('c1')
+    expect(screen.getByText(/of 42 records/)).toBeInTheDocument()
   })
 })
