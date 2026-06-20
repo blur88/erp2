@@ -176,6 +176,8 @@ export class PaymentService extends BaseCrudService<
       sortBy = 'paymentDate',
       sortOrder = 'DESC',
       status,
+      page,
+      limit,
     } = query;
 
     const where: FindOptionsWhere<Payment> = {};
@@ -205,6 +207,10 @@ export class PaymentService extends BaseCrudService<
         '(payment.paymentNumber ILIKE :search OR customer.name ILIKE :search)',
         { search: `%${search}%` },
       );
+    }
+
+    if (page && limit) {
+      queryBuilder.skip((page - 1) * limit).take(limit);
     }
 
     const [payments, total] = await queryBuilder.getManyAndCount();

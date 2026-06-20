@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, Like, In, Between } from 'typeorm';
+import { Repository, FindOptionsWhere, FindManyOptions, Like, In, Between } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   Supplier,
@@ -747,25 +747,43 @@ export class SupplierService extends BaseCrudService<
     }
   }
 
-  async getSupplierPurchaseOrders(supplierId: string): Promise<{ data: PurchaseOrder[]; total: number }> {
-    const [data, total] = await this.purchaseOrderRepository.findAndCount({
+  async getSupplierPurchaseOrders(
+    supplierId: string,
+    query: { page?: number; limit?: number } = {},
+  ): Promise<{ data: PurchaseOrder[]; meta: { total: number } }> {
+    const { page, limit } = query;
+    const options: FindManyOptions<PurchaseOrder> = {
       where: { supplierId },
       order: { orderNumber: 'ASC' },
-      take: 50,
-    });
+    };
+    // Paginate only when both page and limit are provided; absent => full set
+    // (consistent with PaymentService.findAll). Defends any non-UI caller.
+    if (page && limit) {
+      options.skip = (page - 1) * limit;
+      options.take = limit;
+    }
+    const [data, total] = await this.purchaseOrderRepository.findAndCount(options);
 
-    return { data, total };
+    return { data, meta: { total } };
   }
 
-  async getSupplierPayments(supplierId: string): Promise<{ data: VendorPayment[]; total: number }> {
-    const [data, total] = await this.vendorPaymentRepository.findAndCount({
+  async getSupplierPayments(
+    supplierId: string,
+    query: { page?: number; limit?: number } = {},
+  ): Promise<{ data: VendorPayment[]; meta: { total: number } }> {
+    const { page, limit } = query;
+    const options: FindManyOptions<VendorPayment> = {
       where: { supplierId },
       relations: { paymentMethodEntity: true, purchaseOrder: true },
       order: { paymentNumber: 'ASC' },
-      take: 50,
-    });
+    };
+    if (page && limit) {
+      options.skip = (page - 1) * limit;
+      options.take = limit;
+    }
+    const [data, total] = await this.vendorPaymentRepository.findAndCount(options);
 
-    return { data, total };
+    return { data, meta: { total } };
   }
 
   /**

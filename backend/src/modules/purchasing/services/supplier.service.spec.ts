@@ -12,6 +12,8 @@ import { UserRole } from '../../../database/entities/user.entity';
 describe('SupplierService', () => {
   let service: SupplierService;
   let supplierRepository: jest.Mocked<Repository<Supplier>>;
+  let purchaseOrderRepository: jest.Mocked<Repository<PurchaseOrder>>;
+  let vendorPaymentRepository: jest.Mocked<Repository<VendorPayment>>;
 
   const createSupplier = (id: string, overrides: Partial<Supplier> = {}): Supplier =>
     ({
@@ -78,6 +80,8 @@ describe('SupplierService', () => {
 
     service = module.get(SupplierService);
     supplierRepository = module.get(getRepositoryToken(Supplier));
+    purchaseOrderRepository = module.get(getRepositoryToken(PurchaseOrder));
+    vendorPaymentRepository = module.get(getRepositoryToken(VendorPayment));
   });
 
   describe('findAll', () => {
@@ -183,6 +187,58 @@ describe('SupplierService', () => {
         route: '/purchasing/suppliers/sup-1',
       });
       expect(results[0].score).toBe(122);
+    });
+  });
+
+  describe('getSupplierPurchaseOrders', () => {
+    it('applies skip/take and returns meta.total', async () => {
+      const findAndCount = purchaseOrderRepository.findAndCount as jest.Mock;
+      findAndCount.mockResolvedValue([[{ id: 'po1' }], 80]);
+
+      const result = await service.getSupplierPurchaseOrders('sup-1', { page: 2, limit: 25 } as any);
+
+      expect(findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { supplierId: 'sup-1' }, skip: 25, take: 25 }),
+      );
+      expect(result).toEqual({ data: [{ id: 'po1' }], meta: { total: 80 } });
+    });
+
+    it('omits skip/take when page/limit are absent (full set)', async () => {
+      const findAndCount = purchaseOrderRepository.findAndCount as jest.Mock;
+      findAndCount.mockResolvedValue([[{ id: 'po1' }], 80]);
+
+      const result = await service.getSupplierPurchaseOrders('sup-1');
+
+      const arg = findAndCount.mock.calls[0][0];
+      expect(arg.skip).toBeUndefined();
+      expect(arg.take).toBeUndefined();
+      expect(result).toEqual({ data: [{ id: 'po1' }], meta: { total: 80 } });
+    });
+  });
+
+  describe('getSupplierPayments', () => {
+    it('applies skip/take and returns meta.total', async () => {
+      const findAndCount = vendorPaymentRepository.findAndCount as jest.Mock;
+      findAndCount.mockResolvedValue([[{ id: 'vp1' }], 60]);
+
+      const result = await service.getSupplierPayments('sup-1', { page: 2, limit: 10 } as any);
+
+      expect(findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { supplierId: 'sup-1' }, skip: 10, take: 10 }),
+      );
+      expect(result).toEqual({ data: [{ id: 'vp1' }], meta: { total: 60 } });
+    });
+
+    it('omits skip/take when page/limit are absent (full set)', async () => {
+      const findAndCount = vendorPaymentRepository.findAndCount as jest.Mock;
+      findAndCount.mockResolvedValue([[{ id: 'vp1' }], 60]);
+
+      const result = await service.getSupplierPayments('sup-1');
+
+      const arg = findAndCount.mock.calls[0][0];
+      expect(arg.skip).toBeUndefined();
+      expect(arg.take).toBeUndefined();
+      expect(result).toEqual({ data: [{ id: 'vp1' }], meta: { total: 60 } });
     });
   });
 });

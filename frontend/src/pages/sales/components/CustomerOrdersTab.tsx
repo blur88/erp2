@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 
+import PagePagination from '@/components/common/PagePagination'
 import { StatusChip } from '@/components/common/StatusChip'
 import { DataTable, type Column, bold, viewAction } from '@/components/common/DataTable'
+import { usePagination } from '@/hooks/usePagination'
 import { useGetSalesOrdersQuery } from '@/store/api/salesApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
@@ -12,8 +14,10 @@ interface CustomerOrdersTabProps {
 
 export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps) {
   const navigate = useNavigate()
-  const { data, isLoading } = useGetSalesOrdersQuery({ customerId })
+  const { page, limit, paginationProps } = usePagination()
+  const { data, isLoading } = useGetSalesOrdersQuery({ customerId, page, limit })
   const orders = data?.data ?? []
+  const total = data?.meta?.total ?? 0
 
   const columns: Column<(typeof orders)[number]>[] = [
     { header: 'Order #', width: '18%', render: (o) => bold(o.orderNumber) },
@@ -39,6 +43,7 @@ export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps
       getRowKey={(o) => o.id}
       emptyText="No orders yet for this customer."
       isLoading={isLoading}
+      footer={<PagePagination total={total} {...paginationProps} />}
     />
   )
 }

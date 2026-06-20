@@ -128,6 +128,45 @@ describe('PaymentService', () => {
 
       expect(result.data).toHaveLength(1);
     });
+
+    it('applies skip/take when page and limit are provided', async () => {
+      const skip = jest.fn().mockReturnThis();
+      const take = jest.fn().mockReturnThis();
+      jest.spyOn(paymentRepository, 'createQueryBuilder').mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        skip,
+        take,
+        getManyAndCount: jest.fn().mockResolvedValue([[], 100]),
+      } as any);
+
+      const result = await service.findAll({ page: 3, limit: 20 } as any);
+
+      expect(skip).toHaveBeenCalledWith(40);
+      expect(take).toHaveBeenCalledWith(20);
+      expect(result.meta.total).toBe(100);
+    });
+
+    it('does NOT apply skip/take when page/limit are absent', async () => {
+      const skip = jest.fn().mockReturnThis();
+      const take = jest.fn().mockReturnThis();
+      jest.spyOn(paymentRepository, 'createQueryBuilder').mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        skip,
+        take,
+        getManyAndCount: jest.fn().mockResolvedValue([[], 5]),
+      } as any);
+
+      await service.findAll({} as any);
+
+      expect(skip).not.toHaveBeenCalled();
+      expect(take).not.toHaveBeenCalled();
+    });
   });
 
   describe('create', () => {

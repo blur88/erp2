@@ -58,4 +58,25 @@ describe('SupplierPaymentsTab', () => {
     renderTab()
     expect(screen.getByRole('button', { name: /view/i })).toBeDisabled()
   })
+
+  it('passes supplierId, page and limit to the query', () => {
+    mockQuery.mockReturnValue({ data: { data: [], meta: { total: 0 } }, isLoading: false })
+    renderTab()
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ supplierId: 's1', page: 1, limit: expect.any(Number) }),
+    )
+  })
+
+  it('renders the footer total', () => {
+    mockQuery.mockReturnValue({
+      data: {
+        data: [{ id: 'vp1', paymentNumber: 'VP-001', paymentDate: '2026-01-01', amount: 250, paymentMethodEntity: { id: 'm1', name: 'Bank', isActive: true } }],
+        meta: { total: 55 },
+      },
+      isLoading: false,
+    })
+    renderTab()
+    expect(screen.getByText('VP-001')).toBeInTheDocument()
+    expect(screen.getByText(/of 55 records/)).toBeInTheDocument()
+  })
 })
