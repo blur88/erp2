@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException, ConflictExc
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, FindManyOptions, Like, In, Between } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
+import { paginationOptions } from '@/common/pagination/apply-pagination';
 import {
   Supplier,
   SupplierType,
@@ -755,13 +756,8 @@ export class SupplierService extends BaseCrudService<
     const options: FindManyOptions<PurchaseOrder> = {
       where: { supplierId },
       order: { orderNumber: 'ASC' },
+      ...paginationOptions(page, limit),
     };
-    // Paginate only when both page and limit are provided; absent => full set
-    // (consistent with PaymentService.findAll). Defends any non-UI caller.
-    if (page && limit) {
-      options.skip = (page - 1) * limit;
-      options.take = limit;
-    }
     const [data, total] = await this.purchaseOrderRepository.findAndCount(options);
 
     return { data, meta: { total } };

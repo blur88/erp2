@@ -3,12 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, Like } from 'typeorm';
 import { AuditLog } from '@/database/entities/audit-log.entity';
 import { CreateAuditLogDto, QueryAuditLogsDto } from '../dto';
+import { paginationOptions } from '@/common/pagination/apply-pagination';
 
 export interface PaginatedResponse<T> {
   data: T[];
   meta: {
-    page: number;
-    limit: number;
+    page?: number;
+    limit?: number;
     total: number;
     totalPages: number;
   };
@@ -79,8 +80,8 @@ export class AuditLogService {
    */
   async findAll(query: QueryAuditLogsDto): Promise<PaginatedResponse<AuditLog>> {
     const {
-      page = 1,
-      limit = 20,
+      page,
+      limit,
       search,
       action,
       entityType,
@@ -93,8 +94,6 @@ export class AuditLogService {
       sortBy = 'createdAt',
       sortOrder = 'DESC',
     } = query;
-
-    const skip = (page - 1) * limit;
 
     // Build where clause
     const where: any = {
@@ -139,17 +138,17 @@ export class AuditLogService {
     const [data, total] = await this.auditLogRepository.findAndCount({
       where,
       order: { [sortBy]: sortOrder },
-      skip,
-      take: limit,
+      ...paginationOptions(page, limit),
     });
 
+    const shouldPaginate = page !== undefined && limit !== undefined;
     return {
       data,
       meta: {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1,
       },
     };
   }
