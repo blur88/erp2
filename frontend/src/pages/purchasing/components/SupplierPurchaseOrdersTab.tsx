@@ -1,24 +1,12 @@
-import {
-  Box,
-  Button,
-  CircularProgress,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Typography,
-} from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
-import { TABLE_STYLES } from '@/constants/tableStyles'
+import PagePagination from '@/components/common/PagePagination'
+import { StatusChip } from '@/components/common/StatusChip'
+import { DataTable, type Column, bold, viewAction } from '@/components/common/DataTable'
+import { usePagination } from '@/hooks/usePagination'
 import { useGetSupplierPurchaseOrdersQuery } from '@/store/api/purchasingApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
-
-import { StatusChip } from '@/components/common/StatusChip'
 
 interface SupplierPurchaseOrdersTabProps {
   supplierId: string
@@ -26,63 +14,37 @@ interface SupplierPurchaseOrdersTabProps {
 
 export default function SupplierPurchaseOrdersTab({ supplierId }: SupplierPurchaseOrdersTabProps) {
   const navigate = useNavigate()
-  const { data, isLoading } = useGetSupplierPurchaseOrdersQuery(supplierId)
+  const { page, limit, paginationProps } = usePagination()
+  const { data, isLoading } = useGetSupplierPurchaseOrdersQuery({ supplierId, page, limit })
   const orders = data?.data ?? []
+  const total = data?.meta?.total ?? 0
 
-  if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-        <CircularProgress />
-      </Box>
-    )
-  }
-
-  if (orders.length === 0) {
-    return (
-      <Typography sx={{ color: 'text.secondary', py: 4, textAlign: 'center' }}>
-        No purchase orders yet for this supplier.
-      </Typography>
-    )
-  }
+  const columns: Column<(typeof orders)[number]>[] = [
+    { header: 'PO #', width: '20%', render: (o) => bold(o.orderNumber) },
+    { header: 'Date', width: '20%', render: (o) => formatDate(o.orderDate) },
+    { header: 'Status', width: '20%', render: (o) => <StatusChip status={o.status} /> },
+    {
+      header: 'Total',
+      align: 'right',
+      width: '20%',
+      render: (o) => formatCurrency(o.totalAmount ?? o.total ?? 0),
+    },
+    {
+      header: 'Action',
+      align: 'right',
+      width: '20%',
+      render: (o) => viewAction(() => navigate(`/purchasing/orders/${o.orderNumber}/view`)),
+    },
+  ]
 
   return (
-    <TableContainer component={Paper} variant="outlined">
-      <Table size={TABLE_STYLES.size}>
-        <TableHead>
-          <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
-            <TableCell sx={{ width: '20%' }}>PO #</TableCell>
-            <TableCell sx={{ width: '20%' }}>Date</TableCell>
-            <TableCell sx={{ width: '20%' }}>Status</TableCell>
-            <TableCell align="right" sx={{ width: '20%' }}>Total</TableCell>
-            <TableCell align="right" sx={{ width: '20%' }}>Action</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {orders.map((order) => (
-            <TableRow key={order.id} hover>
-              <TableCell>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {order.orderNumber}
-                </Typography>
-              </TableCell>
-              <TableCell>{formatDate(order.orderDate)}</TableCell>
-              <TableCell>
-                <StatusChip status={order.status} />
-              </TableCell>
-              <TableCell align="right">{formatCurrency(order.totalAmount ?? order.total ?? 0)}</TableCell>
-              <TableCell align="right">
-                <Button
-                  size="small"
-                  variant="text"
-                  onClick={() => navigate(`/purchasing/orders/${order.orderNumber}/view`)}
-                >
-                  View
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+    <DataTable
+      columns={columns}
+      rows={orders}
+      getRowKey={(o) => o.id}
+      emptyText="No purchase orders yet for this supplier."
+      isLoading={isLoading}
+      footer={<PagePagination total={total} {...paginationProps} />}
+    />
   )
 }
