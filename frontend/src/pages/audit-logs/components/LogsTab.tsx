@@ -1,9 +1,9 @@
 import React from 'react'
 import {
   Paper, Table, TableBody, TableCell, TableContainer, TableHead,
-  TablePagination, TableRow, CircularProgress, Typography, Alert,
+  TableRow, CircularProgress, Typography, Alert,
 } from '@mui/material'
-import { PAGINATION } from '@/constants/tableStyles'
+import PagePagination from '@/components/common/PagePagination'
 import type { AuditLog } from '@/types'
 import LogRow from './LogRow'
 
@@ -64,14 +64,12 @@ const LogsTab: React.FC<LogsTabProps> = ({
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination
-          rowsPerPageOptions={PAGINATION.options}
-          component="div"
-          count={total}
-          rowsPerPage={limit}
-          page={page - 1}
-          onPageChange={(_e, p) => onPageChange(p + 1)}
-          onRowsPerPageChange={(e) => onLimitChange(parseInt(e.target.value, 10))}
+        <PagePagination
+          total={total}
+          page={page}
+          limit={limit}
+          onPageChange={onPageChange}
+          onLimitChange={onLimitChange}
         />
       </Paper>
     </>
