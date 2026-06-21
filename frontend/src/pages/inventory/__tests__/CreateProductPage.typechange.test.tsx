@@ -5,17 +5,22 @@ import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
-const { mockNavigate, mockUpdateProduct, mockFetchProductBySlug } =
-  vi.hoisted(() => ({
-    mockNavigate: vi.fn(),
-    mockUpdateProduct: vi.fn(() => ({ unwrap: () => Promise.resolve({ id: 'p1' }) })),
-    mockFetchProductBySlug: vi.fn(() => ({
-      unwrap: () => Promise.resolve({
-        id: 'p1', slug: 'widget', name: 'Widget', type: 'Stocked Product',
-        categoryId: 'c1', baseCost: 10, stockQuantity: 5, isActive: true, priceListItems: [],
-      }),
-    })),
-  }))
+const { mockNavigate, mockUpdateProduct, mockFetchProductBySlug, productState } =
+  vi.hoisted(() => {
+    const productState = { stockQuantity: 5 }
+    return {
+      mockNavigate: vi.fn(),
+      mockUpdateProduct: vi.fn(() => ({ unwrap: () => Promise.resolve({ id: 'p1' }) })),
+      mockFetchProductBySlug: vi.fn(() => ({
+        unwrap: () => Promise.resolve({
+          id: 'p1', slug: 'widget', name: 'Widget', type: 'Stocked Product',
+          categoryId: 'c1', baseCost: 10, stockQuantity: productState.stockQuantity,
+          isActive: true, priceListItems: [],
+        }),
+      })),
+      productState,
+    }
+  })
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
@@ -81,7 +86,30 @@ function renderEdit() {
 }
 
 describe('CreateProductPage type change', () => {
-  it('confirms before changing type from Stocked Product to Service in edit mode', async () => {
+  it('blocks Stocked→Service when stock > 0 (no Confirm, type unchanged)', async () => {
+    productState.stockQuantity = 5
+    const user = userEvent.setup()
+    renderEdit()
+
+    await waitFor(() => expect(screen.getByDisplayValue('Widget')).toBeInTheDocument())
+
+    const typeSelect = screen.getByLabelText(/Product Type/i)
+    await user.click(typeSelect)
+    await user.click(await screen.findByRole('option', { name: 'Service' }))
+
+    expect(
+      await screen.findByText(/Reduce stock to 0 via a Stock Adjustment before converting to a Service/i),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Confirm$/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Close$/i })).toBeInTheDocument()
+
+    // Close dialog, then verify type field unchanged
+    await user.click(screen.getByRole('button', { name: /^Close$/i }))
+    expect(screen.getByDisplayValue('Stocked Product')).toBeInTheDocument()
+  })
+
+  it('warns (with Confirm) on Stocked→Service when stock is 0', async () => {
+    productState.stockQuantity = 0
     const user = userEvent.setup()
     renderEdit()
 
@@ -92,5 +120,6 @@ describe('CreateProductPage type change', () => {
     await user.click(await screen.findByRole('option', { name: 'Service' }))
 
     expect(await screen.findByText(/stop stock tracking/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Confirm$/i })).toBeInTheDocument()
   })
 })
