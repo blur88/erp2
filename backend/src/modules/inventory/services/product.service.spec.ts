@@ -72,6 +72,7 @@ describe('ProductService pagination removal', () => {
           provide: getRepositoryToken(Product),
           useValue: {
             createQueryBuilder: jest.fn(),
+            findOne: jest.fn(),
           },
         },
         { provide: getRepositoryToken(Category), useValue: {} },
@@ -476,6 +477,50 @@ describe('ProductService pagination removal', () => {
         relations: { category: true, priceListItems: { priceList: true } },
       });
       expect(result.priceListItems[0].priceList?.priority).toBe(1);
+    });
+  });
+
+  describe('update() Stocked→Service block', () => {
+    it('rejects GOODS→SERVICE when stockQuantity > 0', async () => {
+      const product = createProduct('p1', {
+        type: ProductType.GOODS,
+        stockQuantity: 5,
+      });
+      productRepository.findOne.mockResolvedValue(product);
+
+      await expect(
+        service.update('p1', { type: ProductType.SERVICE } as any),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.update('p1', { type: ProductType.SERVICE } as any),
+      ).rejects.toThrow(
+        'Reduce stock to 0 via a Stock Adjustment before converting to a Service',
+      );
+    });
+
+    it('allows GOODS→SERVICE when stockQuantity is 0', async () => {
+      const loaded = createProduct('p1', {
+        type: ProductType.GOODS,
+        stockQuantity: 0,
+      });
+      const reloaded = createProduct('p1', {
+        type: ProductType.SERVICE,
+        stockQuantity: 0,
+      });
+      // update() calls findOne twice: initial load, then reload-with-relations.
+      productRepository.findOne
+        .mockResolvedValueOnce(loaded)
+        .mockResolvedValueOnce(reloaded);
+      productRepository.update = jest.fn().mockResolvedValue({ affected: 1 });
+
+      const result = await service.update('p1', {
+        type: ProductType.SERVICE,
+      } as any);
+
+      expect(productRepository.update).toHaveBeenCalledWith('p1', {
+        type: ProductType.SERVICE,
+      });
+      expect(result.type).toBe(ProductType.SERVICE);
     });
   });
 });

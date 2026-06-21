@@ -364,6 +364,10 @@ const CreateProductPage: React.FC = () => {
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
 
+  const currentStockQuantity = Number(watch('stockQuantity') ?? 0)
+  const isBlockedConversion =
+    pendingType === 'Service' && currentStockQuantity > 0
+
   return (
     <>
       {/* Header */}
@@ -800,24 +804,32 @@ const CreateProductPage: React.FC = () => {
           <DialogTitle>Change product type?</DialogTitle>
           <DialogContent>
             <DialogContentText>
-              {pendingType === 'Service'
+              {isBlockedConversion
+                ? 'Reduce stock to 0 via a Stock Adjustment before converting to a Service'
+                : pendingType === 'Service'
                 ? 'Switching to Service will stop stock tracking. Existing stock data for this product will no longer be used.'
                 : 'Switching to Stocked Product will start stock tracking from the entered quantity.'}
             </DialogContentText>
           </DialogContent>
           <DialogActions>
-            <AppButton variant="secondary" onClick={() => setPendingType(null)}>Cancel</AppButton>
-            <AppButton
-              variant="primary"
-              onClick={() => {
-                if (pendingType) {
-                  setValue('type', pendingType, { shouldDirty: true })
-                }
-                setPendingType(null)
-              }}
-            >
-              Confirm
-            </AppButton>
+            {isBlockedConversion ? (
+              <AppButton variant="primary" onClick={() => setPendingType(null)}>Close</AppButton>
+            ) : (
+              <>
+                <AppButton variant="secondary" onClick={() => setPendingType(null)}>Cancel</AppButton>
+                <AppButton
+                  variant="primary"
+                  onClick={() => {
+                    if (pendingType) {
+                      setValue('type', pendingType, { shouldDirty: true })
+                    }
+                    setPendingType(null)
+                  }}
+                >
+                  Confirm
+                </AppButton>
+              </>
+            )}
           </DialogActions>
         </Dialog>
         </>
