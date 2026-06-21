@@ -7,13 +7,13 @@ import { describe, expect, it, vi } from 'vitest'
 
 const { mockNavigate, mockUpdateProduct, mockFetchProductBySlug, productState } =
   vi.hoisted(() => {
-    const productState = { stockQuantity: 5 }
+    const productState = { stockQuantity: 5, type: 'Stocked Product' as 'Stocked Product' | 'Service' }
     return {
       mockNavigate: vi.fn(),
       mockUpdateProduct: vi.fn(() => ({ unwrap: () => Promise.resolve({ id: 'p1' }) })),
       mockFetchProductBySlug: vi.fn(() => ({
         unwrap: () => Promise.resolve({
-          id: 'p1', slug: 'widget', name: 'Widget', type: 'Stocked Product',
+          id: 'p1', slug: 'widget', name: 'Widget', type: productState.type,
           categoryId: 'c1', baseCost: 10, stockQuantity: productState.stockQuantity,
           isActive: true, priceListItems: [],
         }),
@@ -88,6 +88,7 @@ function renderEdit() {
 describe('CreateProductPage type change', () => {
   it('blocks Stocked→Service when stock > 0 (no Confirm, type unchanged)', async () => {
     productState.stockQuantity = 5
+    productState.type = 'Stocked Product'
     const user = userEvent.setup()
     renderEdit()
 
@@ -110,6 +111,7 @@ describe('CreateProductPage type change', () => {
 
   it('warns (with Confirm) on Stocked→Service when stock is 0', async () => {
     productState.stockQuantity = 0
+    productState.type = 'Stocked Product'
     const user = userEvent.setup()
     renderEdit()
 
@@ -124,5 +126,24 @@ describe('CreateProductPage type change', () => {
     // Confirm applies the conversion: dialog closes and the type field becomes Service.
     await user.click(screen.getByRole('button', { name: /^Confirm$/i }))
     await waitFor(() => expect(screen.getByDisplayValue('Service')).toBeInTheDocument())
+  })
+
+  it('shows "start at 0 / Stock Adjustments" copy on Service→Stocked in edit mode', async () => {
+    productState.stockQuantity = 0
+    productState.type = 'Service'
+    const user = userEvent.setup()
+    renderEdit()
+
+    await waitFor(() => expect(screen.getByDisplayValue('Widget')).toBeInTheDocument())
+
+    const typeSelect = screen.getByLabelText(/Product Type/i)
+    await user.click(typeSelect)
+    await user.click(await screen.findByRole('option', { name: 'Stocked Product' }))
+
+    expect(
+      await screen.findByText(
+        /start stock tracking at 0\. You must set quantity afterward via Stock Adjustments\./i,
+      ),
+    ).toBeInTheDocument()
   })
 })

@@ -808,7 +808,7 @@ const CreateProductPage: React.FC = () => {
                 ? 'Reduce stock to 0 via a Stock Adjustment before converting to a Service'
                 : pendingType === 'Service'
                 ? 'Switching to Service will stop stock tracking. Existing stock data for this product will no longer be used.'
-                : 'Switching to Stocked Product will start stock tracking from the entered quantity.'}
+                : 'Switching to Stocked Product will start stock tracking at 0. You must set quantity afterward via Stock Adjustments.'}
             </DialogContentText>
           </DialogContent>
           <DialogActions>
