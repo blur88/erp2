@@ -913,6 +913,18 @@ export class ProductService extends BaseCrudService<
       throw new NotFoundException(`Product with ID '${id}' not found`);
     }
 
+    // Y6 (#775/#804): block Stocked→Service conversion while stock remains.
+    // Avoids silently zeroing stock without an audit trail.
+    if (
+      updateProductDto.type === ProductType.SERVICE &&
+      product.type === ProductType.GOODS &&
+      Number(product.stockQuantity) > 0
+    ) {
+      throw new BadRequestException(
+        'Reduce stock to 0 via a Stock Adjustment before converting to a Service',
+      );
+    }
+
     // Check for name conflicts if name is being changed (case-insensitive)
     if (
       updateProductDto.name &&
