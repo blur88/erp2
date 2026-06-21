@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException, HttpException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Like, In, Between, DataSource, EntityManager } from 'typeorm';
+import { applyPagination } from '@/common/pagination/apply-pagination';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   PurchaseOrder,
@@ -371,16 +372,14 @@ export class PurchaseOrderService extends BaseCrudService<
 
     const page = query.page || 1;
     const limit = query.limit;
-    const skip = limit ? (page - 1) * limit : 0;
     const queryBuilder = this.buildPurchaseOrderListQuery(query, { includeDeleted: false });
 
     this.applyListOrdering(queryBuilder, query, 'orderNumber', { addSecondaryOrderNumber: true });
 
     const total = await queryBuilder.getCount();
 
-    if (limit) {
-      queryBuilder.skip(skip).take(limit);
-    }
+    // page is always defined (defaults to 1), so the helper paginates iff limit is present.
+    applyPagination(queryBuilder, page, limit);
 
     const purchaseOrders = await queryBuilder.getMany();
     const orderDtos = purchaseOrders.map(order => this.mapToResponseDto(order));
