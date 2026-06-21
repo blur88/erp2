@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException, ConflictExc
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, FindManyOptions, Like, In, Between } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
-import { paginationOptions } from '@/common/pagination/apply-pagination';
+import { applyPagination, paginationOptions } from '@/common/pagination/apply-pagination';
 import {
   Supplier,
   SupplierType,
@@ -200,9 +200,7 @@ export class SupplierService extends BaseCrudService<
     }
 
     const shouldPaginate = page !== undefined && limit !== undefined;
-    if (shouldPaginate) {
-      queryBuilder.skip((page - 1) * limit).take(limit);
-    }
+    applyPagination(queryBuilder, page, limit);
 
     const [suppliers, total] = await queryBuilder.getManyAndCount();
     const supplierDtos = suppliers.map(supplier => this.mapToResponseDto(supplier));

@@ -87,19 +87,19 @@ export class UpdateStockAdjustmentDto {
 
 // DTO for querying stock adjustments
 export class QueryStockAdjustmentsDto {
-  @ApiPropertyOptional({ description: 'Page number', minimum: 1, default: 1 })
+  @ApiPropertyOptional({ description: 'Page number', minimum: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(1)
-  page?: number = 1;
+  page?: number;
 
-  @ApiPropertyOptional({ description: 'Items per page', minimum: 1, maximum: 100, default: 20 })
+  @ApiPropertyOptional({ description: 'Items per page', minimum: 1, maximum: 100 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(1)
-  limit?: number = 20;
+  limit?: number;
 
   @ApiPropertyOptional({ description: 'Filter by status', enum: StockAdjustmentStatus })
   @IsOptional()
