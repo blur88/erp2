@@ -732,7 +732,7 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
       productId: 'product-id',
       movementType: StockMovementType.INITIAL_STOCK,
     });
-      const cleanupOrder = stockMovementRepo.delete.mock.invocationCallOrder[0];
+    const cleanupOrder = stockMovementRepo.delete.mock.invocationCallOrder[0];
     const deleteOrder = productRepo.delete.mock.invocationCallOrder[0];
     expect(cleanupOrder).toBeLessThan(deleteOrder);
   });
