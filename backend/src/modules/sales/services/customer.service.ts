@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
+import { applyPagination } from '../../../common/pagination/apply-pagination';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
@@ -191,10 +192,7 @@ export class CustomerService extends BaseCrudService<
     }
 
     const shouldPaginate = page !== undefined && limit !== undefined;
-
-    if (shouldPaginate) {
-      queryBuilder.skip((page - 1) * limit).take(limit);
-    }
+    applyPagination(queryBuilder, page, limit);
 
     const [customers, total] = await queryBuilder.getManyAndCount();
 
