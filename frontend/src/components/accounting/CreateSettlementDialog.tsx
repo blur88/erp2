@@ -46,7 +46,7 @@ const CreateSettlementDialog: React.FC<CreateSettlementDialogProps> = ({ open, o
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
   const { data: paymentMethodsResponse } = useGetPaymentMethodsQuery(
-    { page: 1, isActive: true },
+    { isActive: true },
     { skip: !open },
   );
   const { data: pendingPayments = [] } = useGetPendingSettlementPaymentsQuery(paymentMethodId, {

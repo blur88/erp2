@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException, ConflictExc
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, FindManyOptions, Like, In, Between } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
+import { applyPagination, paginationOptions } from '@/common/pagination/apply-pagination';
 import {
   Supplier,
   SupplierType,
@@ -199,9 +200,7 @@ export class SupplierService extends BaseCrudService<
     }
 
     const shouldPaginate = page !== undefined && limit !== undefined;
-    if (shouldPaginate) {
-      queryBuilder.skip((page - 1) * limit).take(limit);
-    }
+    applyPagination(queryBuilder, page, limit);
 
     const [suppliers, total] = await queryBuilder.getManyAndCount();
     const supplierDtos = suppliers.map(supplier => this.mapToResponseDto(supplier));
@@ -755,13 +754,8 @@ export class SupplierService extends BaseCrudService<
     const options: FindManyOptions<PurchaseOrder> = {
       where: { supplierId },
       order: { orderNumber: 'ASC' },
+      ...paginationOptions(page, limit),
     };
-    // Paginate only when both page and limit are provided; absent => full set
-    // (consistent with PaymentService.findAll). Defends any non-UI caller.
-    if (page && limit) {
-      options.skip = (page - 1) * limit;
-      options.take = limit;
-    }
     const [data, total] = await this.purchaseOrderRepository.findAndCount(options);
 
     return { data, meta: { total } };
@@ -776,11 +770,8 @@ export class SupplierService extends BaseCrudService<
       where: { supplierId },
       relations: { paymentMethodEntity: true, purchaseOrder: true },
       order: { paymentNumber: 'ASC' },
+      ...paginationOptions(page, limit),
     };
-    if (page && limit) {
-      options.skip = (page - 1) * limit;
-      options.take = limit;
-    }
     const [data, total] = await this.vendorPaymentRepository.findAndCount(options);
 
     return { data, meta: { total } };

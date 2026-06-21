@@ -13,6 +13,7 @@ interface Props {
 
 export function FilterExpenseAccount({ field, value, onChange }: Props) {
   const { data } = useGetChartOfAccountsQuery({
+    page: 1,
     type: AccountType.EXPENSE,
     isActive: true,
     limit: 200,

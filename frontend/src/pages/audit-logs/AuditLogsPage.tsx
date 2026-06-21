@@ -44,7 +44,7 @@ const AuditLogsPage: React.FC = () => {
     const loadPriceLists = async () => {
       try {
         const result = await dispatch(
-          priceListApiSlice.endpoints.getPriceLists.initiate({ page: 1, sortBy: 'name', sortOrder: 'asc' })
+          priceListApiSlice.endpoints.getPriceLists.initiate({ sortBy: 'name', sortOrder: 'asc' })
         )
         const data = result.data?.data ?? []
         const map: Record<string, string> = {}

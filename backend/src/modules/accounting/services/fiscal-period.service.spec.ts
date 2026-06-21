@@ -216,6 +216,25 @@ describe('FiscalPeriodService', () => {
         expect.objectContaining({ yearStart: expect.any(Date), yearEnd: expect.any(Date) }),
       );
     });
+
+    it('returns full set when page/limit absent', async () => {
+      const queryBuilder = createMockQueryBuilder([], 0);
+      fiscalPeriodRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      await service.findAll({} as any);
+
+      expect(queryBuilder.skip).not.toHaveBeenCalled();
+    });
+
+    it('paginates when page/limit present', async () => {
+      const queryBuilder = createMockQueryBuilder([], 0);
+      fiscalPeriodRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+
+      await service.findAll({ page: 2, limit: 20 } as any);
+
+      expect(queryBuilder.skip).toHaveBeenCalledWith(20);
+      expect(queryBuilder.take).toHaveBeenCalledWith(20);
+    });
   });
 
   describe('findOne', () => {

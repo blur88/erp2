@@ -42,7 +42,7 @@ const AccountMappingsPage: React.FC = () => {
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
   const { data: mappings = [], isLoading, error, refetch: refetchMappings } = useGetAccountMappingsQuery()
   const { data: validationResult, refetch: refetchValidation } = useValidateAccountMappingsQuery()
-  const { data: paymentMethodsResponse } = useGetPaymentMethodsQuery({ page: 1, isActive: true })
+  const { data: paymentMethodsResponse } = useGetPaymentMethodsQuery({ isActive: true })
   const paymentMethods = useMemo(() => ((paymentMethodsResponse?.data ?? []) as Array<{ code: string; name: string; requiresSettlement: boolean; useForPurchases: boolean }>), [paymentMethodsResponse])
 
   const tableRows = useMemo(() => {

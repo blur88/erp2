@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
+import { applyPagination } from '../../../common/pagination/apply-pagination';
 import {
   FundTransfer,
   FundTransferStatus,
@@ -377,8 +378,8 @@ export class FundTransferService {
 
   async findAll(query: QueryFundTransfersDto): Promise<FundTransferListResponseDto> {
     const {
-      page = 1,
-      limit = 20,
+      page,
+      limit,
       startDate,
       endDate,
       sourceAccountId,
@@ -422,15 +423,15 @@ export class FundTransferService {
     const safeSortField = validSortFields.includes(sortBy) ? sortBy : 'transferDate';
     const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-    qb.orderBy(`transfer.${safeSortField}`, safeSortOrder)
-      .skip((page - 1) * limit)
-      .take(limit);
+    const shouldPaginate = page !== undefined && limit !== undefined;
+    qb.orderBy(`transfer.${safeSortField}`, safeSortOrder);
+    applyPagination(qb, page, limit);
 
     const [rows, total] = await qb.getManyAndCount();
 
     return {
       data: rows.map((row) => this.toResponseDto(row)),
-      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      meta: { page, limit, total, totalPages: shouldPaginate ? Math.ceil(total / limit) : 1 },
     };
   }
 

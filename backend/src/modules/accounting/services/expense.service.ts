@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, IsNull } from 'typeorm';
+import { applyPagination } from '../../../common/pagination/apply-pagination';
 import { Expense, ExpenseStatus } from '../../../database/entities/expense.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import {
@@ -42,8 +43,8 @@ export class ExpenseService {
 
   async findAll(query: QueryExpenseDto): Promise<ExpenseListResponseDto> {
     const {
-      page = 1,
-      limit = 20,
+      page,
+      limit,
       expenseAccountId,
       paymentMethodId,
       status,
@@ -97,7 +98,9 @@ export class ExpenseService {
     const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'referenceNumber';
     const safeSortOrder = sortOrder === 'ASC' ? 'ASC' : 'DESC';
 
-    qb.orderBy(`e.${safeSortBy}`, safeSortOrder).skip((page - 1) * limit).take(limit);
+    const shouldPaginate = page !== undefined && limit !== undefined;
+    qb.orderBy(`e.${safeSortBy}`, safeSortOrder);
+    applyPagination(qb, page, limit);
 
     const [rows, total] = await qb.getManyAndCount();
 
@@ -107,7 +110,7 @@ export class ExpenseService {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1,
       },
     };
   }

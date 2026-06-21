@@ -8,6 +8,7 @@ import {
   MoreThanOrEqual,
   Repository,
 } from 'typeorm';
+import { applyPagination } from '../../../common/pagination/apply-pagination';
 import { Product } from '../../../database/entities/product.entity';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { SalesOrderPayment } from '../../../database/entities/sales-order-payment.entity';
@@ -35,8 +36,8 @@ export class SalesOrderQueryService {
       status,
       sortBy = 'orderNumber',
       sortOrder = 'DESC',
-      page = 1,
-      limit = 1000,
+      page,
+      limit,
     } = query;
 
     let queryBuilder = this.salesOrderRepository
@@ -116,10 +117,10 @@ export class SalesOrderQueryService {
       });
     }
 
+    const shouldPaginate = page !== undefined && limit !== undefined;
     queryBuilder = queryBuilder
-      .orderBy(`order.${sortBy}`, sortOrder as 'ASC' | 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit);
+      .orderBy(`order.${sortBy}`, sortOrder as 'ASC' | 'DESC');
+    applyPagination(queryBuilder, page, limit);
 
     // Deterministic tiebreaker: orders sharing the same primary sort value
     // (e.g. same orderDate) fall back to newest order number first, so a
@@ -135,7 +136,7 @@ export class SalesOrderQueryService {
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit),
+      totalPages: shouldPaginate ? Math.ceil(total / limit) : 1,
     };
   }
 

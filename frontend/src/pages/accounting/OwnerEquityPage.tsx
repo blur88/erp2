@@ -75,7 +75,7 @@ const OwnerEquityPage: React.FC = () => {
     startDate: dateRange.fromDate,
     endDate: dateRange.toDate,
   })
-  const { data: paymentMethodsResponse } = useGetPaymentMethodsQuery({ page: 1, isActive: true })
+  const { data: paymentMethodsResponse } = useGetPaymentMethodsQuery({ isActive: true })
   const paymentMethods = (paymentMethodsResponse?.data ?? []) as PaymentMethodConfig[]
 
   const [createOwnerEquityTransaction] = useCreateOwnerEquityTransactionMutation()

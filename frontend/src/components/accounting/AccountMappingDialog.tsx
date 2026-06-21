@@ -67,7 +67,6 @@ const AccountMappingDialog: React.FC<AccountMappingDialogProps> = ({
   const [error, setError] = useState<string | null>(null)
   const { data: accountsResponse, isLoading: loadingAccounts } = useGetChartOfAccountsQuery(
     {
-      page: 1,
       isActive: true,
       sortBy: 'code',
       sortOrder: 'ASC',

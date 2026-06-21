@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEnum, IsUUID, IsDateString } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsUUID, IsDateString, IsInt, Min, Max } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 
@@ -14,15 +14,20 @@ export enum AuditAction {
 }
 
 export class QueryAuditLogsDto {
-  @ApiPropertyOptional({ description: 'Page number', minimum: 1, default: 1 })
+  @ApiPropertyOptional({ description: 'Page number', minimum: 1 })
   @IsOptional()
+  @IsInt()
+  @Min(1)
   @Type(() => Number)
-  page?: number = 1;
+  page?: number;
 
-  @ApiPropertyOptional({ description: 'Items per page', minimum: 1, maximum: 100, default: 20 })
+  @ApiPropertyOptional({ description: 'Items per page', minimum: 1, maximum: 100 })
   @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
   @Type(() => Number)
-  limit?: number = 20;
+  limit?: number;
 
   @ApiPropertyOptional({ description: 'Search by description', example: 'Updated product' })
   @IsOptional()

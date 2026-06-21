@@ -323,7 +323,7 @@ describe('AccountMappingService', () => {
       const mockMappings = [mockMapping];
       mockQueryBuilder.getManyAndCount.mockResolvedValue([mockMappings, 1]);
 
-      const result = await service.findAll({});
+      const result = await service.findAll({ page: 1, limit: 20 });
 
       expect(result.data[0].id).toBe(mockMapping.id);
       expect(result.data[0].mappingType).toBe(mockMapping.mappingType);
@@ -351,6 +351,23 @@ describe('AccountMappingService', () => {
         'mapping.mappingType = :mappingType',
         { mappingType: MappingType.SALES_REVENUE },
       );
+    });
+
+    it('returns full set when page/limit absent', async () => {
+      mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({} as any);
+
+      expect(mockQueryBuilder.skip).not.toHaveBeenCalled();
+    });
+
+    it('paginates when page/limit present', async () => {
+      mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 2, limit: 20 } as any);
+
+      expect(mockQueryBuilder.skip).toHaveBeenCalledWith(20);
+      expect(mockQueryBuilder.take).toHaveBeenCalledWith(20);
     });
   });
 

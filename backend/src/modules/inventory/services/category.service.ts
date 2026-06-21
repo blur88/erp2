@@ -16,6 +16,7 @@ import {
   In,
   FindOptionsWhere,
 } from 'typeorm';
+import { applyPagination } from '@/common/pagination/apply-pagination';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { Category } from '../../../database/entities/category.entity';
 import { Product } from '../../../database/entities/product.entity';
@@ -184,16 +185,16 @@ export class CategoryService extends BaseCrudService<
    */
   async findAll(query: QueryCategoriesDto): Promise<CategoryListResponseDto> {
     const {
-      page = 1,
-      limit = 20,
+      page,
+      limit,
       includeTree = false,
       includeProductCount = false,
     } = query;
     const queryBuilder = this.buildCategoryListQuery(query, { includeDeleted: false });
 
     // Apply pagination
-    const offset = (page - 1) * limit;
-    queryBuilder.skip(offset).take(limit);
+    const shouldPaginate = page !== undefined && limit !== undefined;
+    applyPagination(queryBuilder, page, limit);
 
     const [categories, total] = await queryBuilder.getManyAndCount();
 
@@ -220,12 +221,12 @@ export class CategoryService extends BaseCrudService<
     return {
       data,
       meta: {
+        total,
         page,
         limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPreviousPage: page > 1,
+        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1,
+        hasNextPage: shouldPaginate ? page < Math.ceil(total / limit) : false,
+        hasPreviousPage: shouldPaginate ? page > 1 : false,
       },
     };
   }
@@ -252,10 +253,10 @@ export class CategoryService extends BaseCrudService<
     this.logger.log('Fetching deleted categories with filters:', query);
 
     const {
-      page = 1,
-      limit = 20,
+      page,
+      limit,
     } = query;
-    const skip = (page - 1) * limit;
+    const shouldPaginate = page !== undefined && limit !== undefined;
     const deletedQuery = {
       ...query,
       sortBy: this.allowedSortFields.includes(query.sortBy ?? '') ? query.sortBy : 'deletedAt',
@@ -263,7 +264,7 @@ export class CategoryService extends BaseCrudService<
     } as QueryCategoriesDto;
     const queryBuilder = this.buildCategoryListQuery(deletedQuery, { includeDeleted: true });
 
-    queryBuilder.skip(skip).take(limit);
+    applyPagination(queryBuilder, page, limit);
 
     const [categories, total] = await queryBuilder.getManyAndCount();
 
@@ -276,12 +277,12 @@ export class CategoryService extends BaseCrudService<
     return {
       data,
       meta: {
+        total,
         page,
         limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPreviousPage: page > 1,
+        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1,
+        hasNextPage: shouldPaginate ? page < Math.ceil(total / limit) : false,
+        hasPreviousPage: shouldPaginate ? page > 1 : false,
       },
     };
   }

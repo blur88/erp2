@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, IsNull, In } from 'typeorm';
+import { applyPagination } from '../../../common/pagination/apply-pagination';
 import { JournalEntry, JournalEntryStatus } from '../../../database/entities/journal-entry.entity';
 import { JournalEntryLine } from '../../../database/entities/journal-entry-line.entity';
 import { FiscalPeriod, FiscalPeriodStatus } from '../../../database/entities/fiscal-period.entity';
@@ -161,8 +162,8 @@ export class JournalEntryService {
    */
   async findAll(query: QueryJournalEntriesDto): Promise<JournalEntryListResponseDto> {
     const {
-      page = 1,
-      limit = 20,
+      page,
+      limit,
       search,
       status,
       fiscalPeriodId,
@@ -240,8 +241,8 @@ export class JournalEntryService {
     }
 
     // Apply pagination
-    const offset = (page - 1) * limit;
-    queryBuilder.skip(offset).take(limit);
+    const shouldPaginate = page !== undefined && limit !== undefined;
+    applyPagination(queryBuilder, page, limit);
 
     const [entries, total] = await queryBuilder.getManyAndCount();
     const sourceRefMap = await this.resolveSourceRefNumbersMany(entries);
@@ -253,9 +254,9 @@ export class JournalEntryService {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPreviousPage: page > 1,
+        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1,
+        hasNextPage: shouldPaginate ? page < Math.ceil(total / limit) : false,
+        hasPreviousPage: shouldPaginate ? page > 1 : false,
       },
     };
   }

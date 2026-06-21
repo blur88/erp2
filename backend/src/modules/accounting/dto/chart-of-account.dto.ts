@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsUUID,
   IsNumber,
+  IsInt,
   IsBoolean,
   IsArray,
   ArrayNotEmpty,
@@ -76,17 +77,17 @@ export class QueryChartOfAccountsDto {
   @ApiPropertyOptional({ description: 'Page number', minimum: 1, default: 1 })
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsInt()
   @Min(1)
-  page?: number = 1;
+  page?: number;
 
   @ApiPropertyOptional({ description: 'Items per page', minimum: 1, maximum: 500, default: 20 })
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsInt()
   @Min(1)
   @Max(500)
-  limit?: number = 20;
+  limit?: number;
 
   @ApiPropertyOptional({ description: 'Search term (account code or name)' })
   @IsOptional()

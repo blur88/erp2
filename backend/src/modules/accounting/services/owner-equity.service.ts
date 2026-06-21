@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { applyPagination } from '../../../common/pagination/apply-pagination';
 import {
   OwnerEquityTransaction,
   OwnerEquityTransactionStatus,
@@ -39,8 +40,8 @@ export class OwnerEquityService {
 
   async findAll(query: QueryOwnerEquityDto): Promise<OwnerEquityListResponseDto> {
     const {
-      page: rawPage = 1,
-      limit: rawLimit = 20,
+      page,
+      limit,
       type,
       status,
       startDate,
@@ -48,11 +49,7 @@ export class OwnerEquityService {
       sortBy = 'referenceNumber',
       sortOrder = 'DESC',
     } = query;
-    const parsedPage = Number(rawPage);
-    const parsedLimit = Number(rawLimit);
-    const page = Number.isFinite(parsedPage) && parsedPage > 0 ? Math.floor(parsedPage) : 1;
-    const limit =
-      Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(Math.floor(parsedLimit), 500) : 20;
+    const shouldPaginate = page !== undefined && limit !== undefined;
     const validTypes = Object.values(OwnerEquityTransactionType);
     const validStatuses = Object.values(OwnerEquityTransactionStatus);
 
@@ -88,7 +85,8 @@ export class OwnerEquityService {
     const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'referenceNumber';
     const safeSortOrder = sortOrder === 'ASC' ? 'ASC' : 'DESC';
 
-    qb.orderBy(`oet.${safeSortBy}`, safeSortOrder).skip((page - 1) * limit).take(limit);
+    qb.orderBy(`oet.${safeSortBy}`, safeSortOrder);
+    applyPagination(qb, page, limit);
 
     const [rows, total] = await qb.getManyAndCount();
 
@@ -98,7 +96,7 @@ export class OwnerEquityService {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1,
       },
     };
   }

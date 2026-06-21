@@ -64,7 +64,6 @@ const ExpensesPage: React.FC = () => {
 
   const filters = useMemo(
     () => ({
-      page: 1,
       status: appliedFilters.status || undefined,
       startDate: dateRange.fromDate,
       endDate: dateRange.toDate,

@@ -15,6 +15,7 @@ import {
   EntityManager,
   In,
 } from 'typeorm';
+import { applyPagination } from '@/common/pagination/apply-pagination';
 import {
   StockMovement,
   StockMovementType,
@@ -145,8 +146,8 @@ export class StockMovementService {
    */
   async findAll(query: QueryStockMovementsDto) {
     const {
-      page = 1,
-      limit = 20,
+      page,
+      limit,
       productId,
       movementType,
       fromDate,
@@ -215,8 +216,8 @@ export class StockMovementService {
     queryBuilder.addOrderBy('movement.createdAt', normalizedSortOrder);
 
     // Apply pagination
-    const offset = (page - 1) * limit;
-    queryBuilder.skip(offset).take(limit);
+    const shouldPaginate = page !== undefined && limit !== undefined;
+    applyPagination(queryBuilder, page, limit);
 
     const [movements, total] = await queryBuilder.getManyAndCount();
 
@@ -235,12 +236,12 @@ export class StockMovementService {
     return {
       data,
       meta: {
+        total,
         page,
         limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPreviousPage: page > 1,
+        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1,
+        hasNextPage: shouldPaginate ? page < Math.ceil(total / limit) : false,
+        hasPreviousPage: shouldPaginate ? page > 1 : false,
       },
     };
   }

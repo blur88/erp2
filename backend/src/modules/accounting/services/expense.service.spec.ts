@@ -151,6 +151,23 @@ describe('ExpenseService', () => {
     });
   });
 
+  it('returns full set when page/limit absent', async () => {
+    mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await service.findAll({} as any);
+
+    expect(mockQueryBuilder.skip).not.toHaveBeenCalled();
+  });
+
+  it('paginates when page/limit present', async () => {
+    mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await service.findAll({ page: 2, limit: 20 } as any);
+
+    expect(mockQueryBuilder.skip).toHaveBeenCalledWith(20);
+    expect(mockQueryBuilder.take).toHaveBeenCalledWith(20);
+  });
+
   it('findOne returns a single expense with relations', async () => {
     expenseRepository.findOne.mockResolvedValue({
       id: 'ex-1',

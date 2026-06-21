@@ -30,7 +30,6 @@ const FiscalPeriodsPage: React.FC = () => {
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
 
   const queryParams = useMemo(() => ({
-    page: 1,
     sortBy: 'startDate',
     sortOrder: 'DESC' as const,
     status: appliedFilters.status ? appliedFilters.status.toUpperCase() as FiscalPeriodStatus : undefined,

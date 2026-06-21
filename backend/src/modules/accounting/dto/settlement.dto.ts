@@ -6,6 +6,7 @@ import {
   IsDateString,
   IsArray,
   IsNumber,
+  IsInt,
   Min,
   Max,
   IsEnum,
@@ -59,17 +60,17 @@ export class QuerySettlementsDto {
   @ApiPropertyOptional({ minimum: 1, default: 1 })
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsInt()
   @Min(1)
-  page?: number = 1;
+  page?: number;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
+  @IsInt()
   @Min(1)
   @Max(100)
-  limit?: number = 20;
+  limit?: number;
 
   @ApiPropertyOptional({ description: 'Filter by payment method ID' })
   @IsOptional()
