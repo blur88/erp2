@@ -66,7 +66,6 @@ const SettlementsPage: React.FC = () => {
   }, [appliedFilters.period, weekStartsOn])
 
   const { data: settlementsResponse, isLoading, refetch } = useGetSettlementsQuery({
-    page: 1,
     status: appliedFilters.status || undefined,
     startDate: dateRange.fromDate,
     endDate: dateRange.toDate,
