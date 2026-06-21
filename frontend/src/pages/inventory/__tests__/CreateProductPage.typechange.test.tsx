@@ -129,7 +129,6 @@ describe('CreateProductPage type change', () => {
   })
 
   it('shows "start at 0 / Stock Adjustments" copy on Service→Stocked in edit mode', async () => {
-    productState.stockQuantity = 0
     productState.type = 'Service'
     const user = userEvent.setup()
     renderEdit()
