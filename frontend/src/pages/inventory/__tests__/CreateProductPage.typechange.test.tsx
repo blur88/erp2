@@ -120,6 +120,9 @@ describe('CreateProductPage type change', () => {
     await user.click(await screen.findByRole('option', { name: 'Service' }))
 
     expect(await screen.findByText(/stop stock tracking/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Confirm$/i })).toBeInTheDocument()
+
+    // Confirm applies the conversion: dialog closes and the type field becomes Service.
+    await user.click(screen.getByRole('button', { name: /^Confirm$/i }))
+    await waitFor(() => expect(screen.getByDisplayValue('Service')).toBeInTheDocument())
   })
 })
