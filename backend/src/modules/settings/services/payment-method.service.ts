@@ -63,7 +63,7 @@ export class PaymentMethodService {
         page,
         limit,
         total,
-        ...(shouldPaginate && { totalPages: Math.ceil(total / limit) }),
+        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1,
       },
     };
   }

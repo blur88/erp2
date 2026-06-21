@@ -237,11 +237,11 @@ export class StockMovementService {
       data,
       meta: {
         total,
-        ...(shouldPaginate && { page }),
-        ...(shouldPaginate && { limit }),
-        ...(shouldPaginate && { totalPages: Math.ceil(total / limit) }),
-        ...(shouldPaginate && { hasNextPage: page < Math.ceil(total / limit) }),
-        ...(shouldPaginate && { hasPreviousPage: page > 1 }),
+        page,
+        limit,
+        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1,
+        hasNextPage: shouldPaginate ? page < Math.ceil(total / limit) : false,
+        hasPreviousPage: shouldPaginate ? page > 1 : false,
       },
     };
   }

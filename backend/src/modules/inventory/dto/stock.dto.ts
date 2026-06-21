@@ -61,14 +61,14 @@ export class CreateStockMovementDto {
 }
 
 export class QueryStockMovementsDto {
-  @ApiPropertyOptional({ description: 'Page number', minimum: 1, default: 1 })
+  @ApiPropertyOptional({ description: 'Page number', minimum: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number;
 
-  @ApiPropertyOptional({ description: 'Items per page', minimum: 1, maximum: 100, default: 20 })
+  @ApiPropertyOptional({ description: 'Items per page', minimum: 1, maximum: 100 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

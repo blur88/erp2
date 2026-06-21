@@ -165,7 +165,7 @@ export class UsersService {
 
       const mappedUsers = users.map(user => this.mapToResponseDto(user));
 
-      const totalPages = shouldPaginate ? Math.ceil(total / limit) : undefined;
+      const totalPages = shouldPaginate ? Math.ceil(total / limit) : 1;
 
       this.logger.log(
         `Retrieved ${users.length} users${shouldPaginate ? ` (page ${page}/${totalPages})` : ''} by ${requestingUser}`,
@@ -176,9 +176,9 @@ export class UsersService {
         total,
         page,
         limit,
-        ...(shouldPaginate && { totalPages }),
-        ...(shouldPaginate && { hasNextPage: page < totalPages }),
-        ...(shouldPaginate && { hasPrevPage: page > 1 }),
+        totalPages,
+        hasNextPage: shouldPaginate ? page < totalPages : false,
+        hasPrevPage: shouldPaginate ? page > 1 : false,
       };
     } catch (error) {
       this.logger.error(`User retrieval failed: ${error.message}`, error.stack);

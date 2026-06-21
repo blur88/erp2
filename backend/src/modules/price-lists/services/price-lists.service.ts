@@ -67,7 +67,7 @@ export class PriceListsService {
         total,
         page,
         limit,
-        ...(shouldPaginate && { totalPages: Math.ceil(total / limit) }),
+        totalPages: shouldPaginate ? Math.ceil(total / limit) : 1,
       },
     };
   }
