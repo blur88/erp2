@@ -30,6 +30,7 @@ import { Product } from './product.entity';
 @Index(['name', 'parentId'], { unique: true }) // Categories must be unique within same parent
 @Index(['parentId'])
 @Index(['path'])
+@Index(['slug'], { unique: true })
 export class Category extends BaseEntity {
   @Column({
     type: 'varchar',
@@ -39,6 +40,31 @@ export class Category extends BaseEntity {
   @IsString()
   @MaxLength(100)
   name: string;
+
+  @Column({
+    type: 'varchar',
+    length: 140,
+    comment: 'URL slug (unique)',
+  })
+  @IsString()
+  slug: string;
+
+  @Column({
+    type: 'boolean',
+    default: true,
+    comment: 'Active/inactive business status (separate from soft-delete isActive)',
+  })
+  @IsOptional()
+  isEnabled: boolean;
+
+  @Column({
+    type: 'text',
+    nullable: true,
+    comment: 'Category description (multiline)',
+  })
+  @IsOptional()
+  @IsString()
+  description?: string;
 
   @Column({
     type: 'varchar',
