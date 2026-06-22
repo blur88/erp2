@@ -21,6 +21,11 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsUUID(4)
   parentId?: string;
+
+  @ApiPropertyOptional({ description: 'Category description' })
+  @IsOptional()
+  @IsString()
+  description?: string;
 }
 
 export class UpdateCategoryDto extends PartialType(CreateCategoryDto) {
@@ -64,6 +69,15 @@ export class CategoryResponseDto {
 
   @ApiProperty({ description: 'Category name' })
   name: string;
+
+  @ApiProperty({ description: 'URL slug' })
+  slug: string;
+
+  @ApiProperty({ description: 'Active/inactive status' })
+  isEnabled: boolean;
+
+  @ApiPropertyOptional({ description: 'Category description' })
+  description?: string;
 
   @ApiPropertyOptional({ description: 'Materialized path' })
   path?: string;
@@ -245,4 +259,10 @@ export class CategoryProductDto {
 
   @ApiProperty({ description: 'Current stock quantity' })
   stockQuantity: number;
+}
+
+export class SetCategoryEnabledDto {
+  @ApiProperty({ description: 'Whether the category is active' })
+  @IsBoolean()
+  enabled: boolean;
 }
