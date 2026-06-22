@@ -1,163 +1,89 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { Box } from '@mui/material'
+import { useNavigate } from 'react-router-dom'
 
-import GenericListPage from '@/components/common/GenericListPage'
-import { FilterCategoryLevel } from '@/components/filters'
+import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetCategoriesQuery } from '@/store/api/inventoryApi'
-import { selectSelectedCategory } from '@/store/slices/inventorySlice'
+import type { Category } from '@/types'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
-import CategoryContextHeader from './components/CategoryContextHeader'
-import CategoryDialogs from './components/CategoryDialogs'
 import CategoryList from './components/CategoryList'
-import CategoryWorkspaceCard from './components/CategoryWorkspaceCard'
-import { useCategoriesWorkspace } from './hooks/useCategoriesWorkspace'
 
 interface CategoryFilters {
   search: string
+  status: 'active' | 'inactive' | null
 }
 
-const CategoriesPage: React.FC = () => {
-  const dispatch = useAppDispatch()
-  const selectedCategory = useAppSelector(selectSelectedCategory)
+function filterWithAncestors(all: Category[], match: (c: Category) => boolean): Category[] {
+  const byId = new Map(all.map((c) => [c.id, c]))
+  const keep = new Set<string>()
+  for (const c of all) {
+    if (!match(c)) continue
+    keep.add(c.id)
+    let pid = c.parentId ?? null
+    while (pid && byId.has(pid)) { keep.add(pid); pid = byId.get(pid)!.parentId ?? null }
+  }
+  return all.filter((c) => keep.has(c.id))
+}
+
+const filterConfig: FilterBarConfig<CategoryFilters> = {
+  search: { placeholder: 'Search categories by name...' },
+  fields: [
+    { field: 'status', label: 'Status', type: 'status' },
+  ],
+  defaults: { search: '', status: null },
+}
+
+export default function CategoriesPage() {
+  const navigate = useNavigate()
   const [sortBy, setSortBy] = useState('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
-  const [levelFilter, setLevelFilter] = useState<string | null>(null)
+
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
 
   const handleSort = useCallback((field: string) => {
     setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
     setSortBy(field)
   }, [sortBy])
 
-  const filterConfig = useMemo<FilterBarConfig<CategoryFilters>>(
-    () => ({
-      search: { placeholder: 'Search categories by name...' },
-      fields: [],
-      defaults: { search: '' },
-    }),
-    [],
-  )
-
-  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
-  const categoryHandlers = useMemo(
-    () => ({ ...handlers, onClearAll: () => { handlers.onClearAll(); setLevelFilter(null) } }),
-    [handlers],
-  )
-
-  const {
-    data: categories = [],
-    isFetching,
-    refetch: refetchCategories,
-  } = useGetCategoriesQuery({
+  const { data: categories = [], isFetching, error } = useGetCategoriesQuery({
     includeProductCount: true,
-    search: appliedFilters.search || undefined,
-    sortBy,
-    sortOrder: sortOrder.toUpperCase(),
   })
 
-  const visibleCategories = levelFilter !== null
-    ? categories.filter((category) => String(category.level) === levelFilter)
-    : categories
-
-  const [isDuplicateName, setIsDuplicateName] = useState(false)
-  const [duplicateNameError, setDuplicateNameError] = useState<string | null>(null)
-  const resetFormRef = useRef<((values: { name: string; parentId: string | null }) => void) | null>(null)
-
-  const handleFormReady = useCallback((resetFn: (values: { name: string; parentId: string | null }) => void) => {
-    resetFormRef.current = resetFn
-  }, [])
-
-  const handleDuplicateStateChange = useCallback((isDuplicate: boolean, error: string | null) => {
-    setIsDuplicateName(isDuplicate)
-    setDuplicateNameError(error)
-  }, [])
-
-  const resetForm = useCallback((values: { name: string; parentId: string | null }) => {
-    resetFormRef.current?.(values)
-  }, [])
-
-  const workspace = useCategoriesWorkspace({
-    dispatch,
-    categories: visibleCategories,
-    selectedCategory,
-    isDuplicateName,
-    duplicateNameError,
-    refetchCategories: () => {
-      void refetchCategories()
-    },
-    resetForm,
-  })
+  const visibleCategories = useMemo(() => {
+    return filterWithAncestors(categories, (c) => {
+      if (appliedFilters.search && !c.name.toLowerCase().includes(appliedFilters.search.toLowerCase())) return false
+      if (appliedFilters.status === 'active' && !c.isEnabled) return false
+      if (appliedFilters.status === 'inactive' && c.isEnabled) return false
+      return true
+    })
+  }, [categories, appliedFilters])
 
   return (
-    <GenericListPage
+    <SimpleListPage
       title="Categories"
-      subtitle={`Organize your products with categories (${visibleCategories.length} ${appliedFilters.search || levelFilter ? 'found' : 'total'})`}
-      primaryAction={{ label: 'Add Category', onClick: () => workspace.handleAddCategory() }}
-      secondaryAction={{
-        label: 'View Deleted',
-        onClick: () => workspace.setDeletedCategoriesDialogOpen(true),
-      }}
+      subtitle="Organize your product categories."
+      primaryAction={{ label: 'New Category', onClick: () => navigate('/inventory/categories/create') }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
-      handlers={categoryHandlers}
-      hasActiveFilters={hasActiveFilters || levelFilter !== null}
-      searchInputRef={workspace.searchInputRef}
+      handlers={handlers}
+      hasActiveFilters={hasActiveFilters}
+      searchInputRef={searchInputRef}
       sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
-      filterExtra={(
-        <FilterCategoryLevel
-          categories={categories}
-          value={levelFilter}
-          onChange={setLevelFilter}
-        />
-      )}
-      listSlot={(
-        <CategoryList
-          categories={visibleCategories}
-          loading={isFetching}
-          selectedCategoryId={selectedCategory?.id}
-          focusedIndex={workspace.focusedIndex}
-          onSelect={workspace.handleSelect}
-          categoryListRef={workspace.listRef}
-        />
-      )}
-      headerSlot={(
-        <CategoryContextHeader
-          selectedCategory={selectedCategory}
-          allCategories={categories}
-          onEdit={() => selectedCategory && workspace.handleEditCategory(selectedCategory)}
-          onDelete={() => selectedCategory && workspace.handleDeleteCategory(selectedCategory)}
-        />
-      )}
-      workspaceSlot={<CategoryWorkspaceCard selectedCategory={selectedCategory} />}
-      dialogs={(
-        <CategoryDialogs
-          dialogOpen={workspace.dialogOpen}
-          editMode={workspace.editMode}
-          selectedCategory={selectedCategory}
-          submitting={workspace.submitting}
-          categories={categories}
-          onSubmit={workspace.onSubmit}
-          onDialogClose={() => workspace.setDialogOpen(false)}
-          onFormReady={handleFormReady}
-          onDuplicateStateChange={handleDuplicateStateChange}
-          deletedCategoriesDialogOpen={workspace.deletedCategoriesDialogOpen}
-          onCloseDeletedCategories={() => workspace.setDeletedCategoriesDialogOpen(false)}
-          onCategoryRestored={() => void refetchCategories()}
-          deleteConfirmOpen={workspace.deleteConfirmOpen}
-          categoryToDelete={workspace.categoryToDelete}
-          onConfirmDelete={() => void workspace.handleConfirmDelete(workspace.categoryToDelete)}
-          onCancelDelete={workspace.handleCancelDelete}
-          smartDeleteOpen={workspace.smartDeleteOpen}
-          deleteError={workspace.deleteError}
-          onSmartDelete={(moveToUncategorized) =>
-            workspace.handleSmartDelete(workspace.categoryToDelete, moveToUncategorized)
-          }
-          onSmartDeleteClose={workspace.handleSmartDeleteClose}
-        />
+      isFetching={isFetching}
+      error={error ? 'Failed to load categories.' : null}
+      tableSlot={(
+        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          <CategoryList
+            categories={visibleCategories}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+          />
+        </Box>
       )}
     />
   )
 }
-
-export default CategoriesPage
