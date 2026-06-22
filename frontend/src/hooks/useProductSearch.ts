@@ -23,7 +23,7 @@ const getProductsFromResponse = (response: unknown): Product[] => {
   return []
 }
 
-export function useProductSearch() {
+export function useProductSearch({ onlyActive = false }: { onlyActive?: boolean } = {}) {
   const [products, setProducts] = useState<Product[]>([])
   const latestRequestRef = useRef(0)
 
@@ -37,6 +37,11 @@ export function useProductSearch() {
         sortBy: 'name',
         sortOrder: 'ASC',
       }
+
+      if (onlyActive) {
+        params.isActive = 'true'
+      }
+
       const trimmedSearchTerm = searchTerm.trim()
 
       if (trimmedSearchTerm.length >= 1) {

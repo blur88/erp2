@@ -52,7 +52,9 @@ describe('useProductSearch', () => {
     })
   })
 
-  it('does not send an isActive filter, so inactive products are included (regression #768)', async () => {
+  // Default (no option) intentionally omits isActive so callers like the stock
+  // adjustment page can still see inactive products. Opt-in is tested below.
+  it('does not send an isActive filter by default so callers can include inactive products', async () => {
     mockGet.mockResolvedValue(makeResponse([]))
     const { result } = renderHook(() => useProductSearch())
 
@@ -60,6 +62,17 @@ describe('useProductSearch', () => {
 
     const callConfig = mockGet.mock.calls[0][1] as { params: Record<string, unknown> }
     expect(callConfig.params).not.toHaveProperty('isActive')
+  })
+
+  it('sends isActive=true when onlyActive option is set (issue #808)', async () => {
+    mockGet.mockResolvedValue(makeResponse([]))
+    const { result } = renderHook(() => useProductSearch({ onlyActive: true }))
+
+    await act(() => result.current.loadProducts('bolt'))
+
+    expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
+      params: { sortBy: 'name', sortOrder: 'ASC', search: 'bolt', isActive: 'true' },
+    })
   })
 
   it('loadProducts replaces the list, not merges', async () => {
