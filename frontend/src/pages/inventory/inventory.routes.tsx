@@ -6,6 +6,7 @@ const ProductsPage = React.lazy(() => import('./ProductsPage'))
 const CreateProductPage = React.lazy(() => import('./CreateProductPage'))
 const ProductViewPage = React.lazy(() => import('./ProductViewPage'))
 const CategoriesPage = React.lazy(() => import('./CategoriesPage'))
+const CategoryFormPage = React.lazy(() => import('./CategoryFormPage'))
 const StockAdjustmentsPage = React.lazy(() => import('./StockAdjustmentsPage'))
 const CreateStockAdjustmentPage = React.lazy(() => import('./CreateStockAdjustmentPage'))
 const InventorySummaryReport = React.lazy(() => import('./InventorySummaryReport'))
@@ -21,6 +22,8 @@ export const inventoryRoutes: RouteObject[] = [
   { path: '/inventory/products/:slug/view', element: <ProductViewPage />, handle: { title: 'Product', breadcrumbParam: 'slug' } },
   { path: '/inventory/products/:slug/edit', element: <CreateProductPage />, handle: { title: 'Edit Product' } },
   { path: '/inventory/categories', element: <CategoriesPage />, handle: { title: 'Categories' } },
+  { path: '/inventory/categories/create', element: <CategoryFormPage />, handle: { title: 'Create Category' } },
+  { path: '/inventory/categories/:slug/edit', element: <CategoryFormPage />, handle: { title: 'Edit Category' } },
   { path: '/inventory/stock-adjustments', element: <StockAdjustmentsPage />, handle: { title: 'Stock Adjustments' } },
   { path: '/inventory/stock-adjustments/create', element: <CreateStockAdjustmentPage />, handle: { title: 'Create Stock Adjustment' } },
   { path: '/inventory/stock-adjustments/:adjustmentNumber/edit', element: <CreateStockAdjustmentPage />, handle: { title: 'Edit Stock Adjustment' } },
