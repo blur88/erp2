@@ -134,7 +134,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const isEditMode = !!orderNumber
   const { showSuccess, showError } = useNotification()
 
-  const { products, loadProducts, seedProducts } = useProductSearch()
+  const { products, loadProducts, seedProducts } = useProductSearch({ onlyActive: true })
   const [loading, setLoading] = useState(false)
   const [loadingOrder, setLoadingOrder] = useState(false)
   const [orderToLoad, setOrderToLoad] = useState<any>(null)

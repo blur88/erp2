@@ -187,7 +187,7 @@ const CreateSalesOrderPage: React.FC = () => {
   const [triggerGetSalesOrderByNumber] = useLazyGetSalesOrderByNumberQuery()
   const isSaving = Boolean(createState.isLoading || updateState.isLoading)
 
-  const { products, loadProducts, seedProducts } = useProductSearch()
+  const { products, loadProducts, seedProducts } = useProductSearch({ onlyActive: true })
 
   const orderNumberPreview = useMemo(() => {
     if (isEditMode) return null
