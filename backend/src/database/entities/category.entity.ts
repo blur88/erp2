@@ -5,10 +5,12 @@ import {
   OneToMany,
   ManyToOne,
   JoinColumn,
+  BeforeInsert,
   // Tree,        // Temporarily disabled
   // TreeParent,  // Temporarily disabled
   // TreeChildren,// Temporarily disabled
 } from 'typeorm';
+import { randomUUID } from 'crypto';
 import {
   IsString,
   IsOptional,
@@ -19,6 +21,7 @@ import {
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { Product } from './product.entity';
+import { generateBaseSlug } from '../../common/utils/slug.util';
 
 /**
  * Category entity for hierarchical product categorization
@@ -111,6 +114,20 @@ export class Category extends BaseEntity {
     cascade: false,
   })
   products: Product[];
+
+  /**
+   * Guarantee a non-null, unique slug on every insert path.
+   * CategoryService.create() sets a clean, human-readable unique slug before
+   * save; this hook only fires when slug is unset (direct repo inserts, test
+   * fixtures), appending a short random suffix to avoid unique-index clashes.
+   */
+  @BeforeInsert()
+  ensureSlug(): void {
+    if (!this.slug) {
+      const base = generateBaseSlug(this.name || 'category');
+      this.slug = `${base}-${randomUUID().slice(0, 8)}`;
+    }
+  }
 
   // Computed properties
   /**

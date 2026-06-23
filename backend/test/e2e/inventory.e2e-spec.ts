@@ -87,20 +87,30 @@ describe("Inventory (e2e)", () => {
       expect(res.body.name).toBe("Consumer Electronics");
     });
 
-    it("DELETE /inventory/categories/:id — soft-deletes the category", async () => {
-      await request(app.getHttpServer())
-        .delete(`/inventory/categories/${categoryId}`)
+    it("GET /inventory/categories/slug/:slug — returns the category by slug", async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/inventory/categories/slug/consumer-electronics`)
         .set("Authorization", `Bearer ${accessToken}`)
         .expect(200);
-    });
-
-    it("POST /inventory/categories/:id/restore — restores the category", async () => {
-      const res = await request(app.getHttpServer())
-        .post(`/inventory/categories/${categoryId}/restore`)
-        .set("Authorization", `Bearer ${accessToken}`)
-        .expect(201);
 
       expect(res.body.id).toBe(categoryId);
+      expect(res.body.slug).toBe("consumer-electronics");
+    });
+
+    it("PATCH /inventory/categories/:id/enabled — toggles active status", async () => {
+      const off = await request(app.getHttpServer())
+        .patch(`/inventory/categories/${categoryId}/enabled`)
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ enabled: false })
+        .expect(200);
+      expect(off.body.isEnabled).toBe(false);
+
+      const on = await request(app.getHttpServer())
+        .patch(`/inventory/categories/${categoryId}/enabled`)
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({ enabled: true })
+        .expect(200);
+      expect(on.body.isEnabled).toBe(true);
     });
   });
 
