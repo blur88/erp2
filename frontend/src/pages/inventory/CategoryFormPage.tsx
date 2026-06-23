@@ -18,6 +18,7 @@ import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import CategorySelector from '@/components/inventory/CategorySelector'
 import {
+  useGetCategoriesQuery,
   useGetCategoryBySlugQuery,
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
@@ -53,6 +54,7 @@ const CategoryFormPage: React.FC = () => {
   const preselectedParentId = searchParams.get('parentId')
 
   const { data: category, isFetching: isFetchingCategory } = useGetCategoryBySlugQuery(slug!, { skip: !slug })
+  const { data: allCategories } = useGetCategoriesQuery(undefined, { skip: isEditMode || !preselectedParentId })
   const [createCategory, { isLoading: isCreating }] = useCreateCategoryMutation()
   const [updateCategory, { isLoading: isUpdating }] = useUpdateCategoryMutation()
   const { showSuccess, showError } = useNotification()
@@ -103,9 +105,12 @@ const CategoryFormPage: React.FC = () => {
   useEffect(() => {
     if (!isEditMode && preselectedParentId) {
       setValue('parentId', preselectedParentId)
-      setSelectedParent({ id: preselectedParentId, name: '' } as Category)
+      const resolved = allCategories?.find((c) => c.id === preselectedParentId)
+      setSelectedParent(
+        resolved ?? ({ id: preselectedParentId, name: '' } as Category),
+      )
     }
-  }, [isEditMode, preselectedParentId, setValue])
+  }, [isEditMode, preselectedParentId, setValue, allCategories])
 
   const onSubmit = async (data: FormData) => {
     if (hasNameDuplicate) {
@@ -130,7 +135,7 @@ const CategoryFormPage: React.FC = () => {
 
       navigate('/inventory/categories')
     } catch (err: any) {
-      showError(err?.message || `Failed to ${isEditMode ? 'update' : 'create'} category`)
+      showError(err?.data?.message || err?.message || `Failed to ${isEditMode ? 'update' : 'create'} category`)
     }
   }
 

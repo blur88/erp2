@@ -44,6 +44,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 
 vi.mock('@/store/api/inventoryApi', () => ({
   useGetCategoryBySlugQuery: (...args: any[]) => mockGetCategoryBySlug(...args),
+  useGetCategoriesQuery: () => ({ data: [] }),
   useCreateCategoryMutation: () => [mockCreateCategory, { isLoading: false }],
   useUpdateCategoryMutation: () => [mockUpdateCategory, { isLoading: false }],
 }))
@@ -84,6 +85,19 @@ function renderCreatePage() {
   )
 }
 
+function renderEditPage() {
+  const store = configureStore({ reducer: { _noop: (state = {}) => state } })
+  return render(
+    <Provider store={store}>
+      <MemoryRouter initialEntries={['/inventory/categories/mens/edit']}>
+        <Routes>
+          <Route path="/inventory/categories/:slug/edit" element={<CategoryFormPage />} />
+        </Routes>
+      </MemoryRouter>
+    </Provider>,
+  )
+}
+
 describe('CategoryFormPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -112,5 +126,30 @@ describe('CategoryFormPage', () => {
     })
 
     expect(screen.getByRole('button', { name: /create/i })).toBeDisabled()
+  })
+
+  it('populates fields and excludes self from parent options in edit mode', async () => {
+    mockGetCategoryBySlug.mockReturnValue({
+      data: {
+        id: 'cat-2',
+        name: "Men's",
+        slug: 'mens',
+        description: 'Menswear',
+        parentId: 'cat-1',
+        parent: { id: 'cat-1', name: 'Apparel', slug: 'apparel' },
+        isEnabled: true,
+      },
+      isFetching: false,
+    })
+
+    renderEditPage()
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Men's")).toBeInTheDocument()
+    })
+    expect(screen.getByDisplayValue('Menswear')).toBeInTheDocument()
+    // self must be excluded from the parent selector to prevent self-parenting
+    expect(screen.getByText(/excluded: cat-2/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /update/i })).toBeInTheDocument()
   })
 })

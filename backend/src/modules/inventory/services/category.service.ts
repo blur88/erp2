@@ -302,11 +302,22 @@ export class CategoryService extends BaseCrudService<
   }
 
   async findBySlug(slug: string): Promise<CategoryResponseDto> {
-    const category = await this.categoryRepository.findOne({ where: { slug } });
+    const category = await this.categoryRepository.findOne({
+      where: { slug },
+      relations: { parent: true },
+    });
     if (!category) {
       throw new NotFoundException(`Category with slug '${slug}' not found`);
     }
-    return this.toResponseDto(category, false, true);
+    const response = await this.toResponseDto(category, false, true);
+    if (category.parent) {
+      response.parent = {
+        id: category.parent.id,
+        name: category.parent.name,
+        slug: category.parent.slug,
+      };
+    }
+    return response;
   }
 
   async setEnabled(id: string, enabled: boolean): Promise<CategoryResponseDto> {

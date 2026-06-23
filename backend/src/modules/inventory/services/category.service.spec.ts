@@ -160,6 +160,14 @@ describe('CategoryService', () => {
       jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(null as any);
       await expect(service.findBySlug('nope')).rejects.toThrow(NotFoundException);
     });
+    it('loads and maps the parent (id/name/slug) for view/edit pages', async () => {
+      jest.spyOn(categoryRepository, 'findOne').mockResolvedValue({
+        id: 'c', name: 'Child', slug: 'child', isEnabled: true, parentId: 'p',
+        parent: { id: 'p', name: 'Parent', slug: 'parent', extra: 'ignored' },
+      } as any);
+      const result = await service.findBySlug('child');
+      expect(result.parent).toEqual({ id: 'p', name: 'Parent', slug: 'parent' });
+    });
   });
 
   describe('setEnabled', () => {
