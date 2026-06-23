@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Typography } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import RowActionMenu from '@/components/common/RowActionMenu'
 import { StatusChip } from '@/components/common/StatusChip'
 import { useNotification } from '@/hooks/useNotification'
@@ -126,6 +127,7 @@ export default function CategoryList({ categories, sortBy, sortOrder }: Category
         onSelect={(c) => navigate(`/inventory/categories/${c.slug}/view`)}
         listRef={{ current: null }}
         dataAttr="category"
+        paginationSlot={<Box sx={{ borderTop: TABLE_STYLES.cell.border }} />}
       />
       <ConfirmationDialog
         open={pendingToggle !== null}
