@@ -81,7 +81,7 @@ describe('ProductService pagination removal', () => {
         { provide: getRepositoryToken(StockMovement), useValue: {} },
         { provide: getRepositoryToken(StockAdjustmentItem), useValue: {} },
         { provide: getRepositoryToken(PurchaseCostHistory), useValue: {} },
-        { provide: CategoryService, useValue: {} },
+        { provide: CategoryService, useValue: { resolveFullPaths: jest.fn().mockResolvedValue(new Map()) } },
         { provide: StockMovementService, useValue: {} },
         { provide: BaseCostCalculatorService, useValue: {} },
         { provide: SettingsService, useValue: {} },
@@ -91,6 +91,7 @@ describe('ProductService pagination removal', () => {
 
     service = module.get(ProductService);
     productRepository = module.get(getRepositoryToken(Product));
+    (service as any).categoryService = module.get(CategoryService);
   });
 
   describe('CSV import parser hardening', () => {
@@ -156,6 +157,33 @@ describe('ProductService pagination removal', () => {
         '12.50',
       ]);
     });
+  });
+
+  it('product list maps category.fullPath from resolved ancestor map', async () => {
+    const categoryService = (service as any).categoryService;
+    (categoryService.resolveFullPaths as jest.Mock).mockResolvedValue(
+      new Map([['cat1', 'Electronics > Phones']]),
+    );
+    const product = {
+      id: 'p1', slug: 'widget', name: 'Widget', baseCost: 1, stockQuantity: 0,
+      categoryId: 'cat1', category: { id: 'cat1', name: 'Phones' },
+    } as any;
+    const qb = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      withDeleted: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[product], 1]),
+    };
+    productRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+    const res = await service.findAll({} as any);
+    expect(res.data[0].category.fullPath).toBe('Electronics > Phones');
   });
 
   it('findAll returns all matching products with total-only metadata', async () => {
@@ -562,7 +590,7 @@ describe('checkProductDependencies', () => {
       providers: [
         ProductService,
         ...mergedProviders,
-        { provide: CategoryService, useValue: {} },
+        { provide: CategoryService, useValue: { resolveFullPaths: jest.fn().mockResolvedValue(new Map()) } },
         { provide: StockMovementService, useValue: {} },
         { provide: BaseCostCalculatorService, useValue: {} },
         { provide: SettingsService, useValue: {} },
@@ -693,7 +721,7 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
       providers: [
         ProductService,
         ...providers,
-        { provide: CategoryService, useValue: {} },
+        { provide: CategoryService, useValue: { resolveFullPaths: jest.fn().mockResolvedValue(new Map()) } },
         { provide: StockMovementService, useValue: {} },
         { provide: BaseCostCalculatorService, useValue: {} },
         { provide: SettingsService, useValue: {} },
