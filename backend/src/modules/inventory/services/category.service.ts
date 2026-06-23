@@ -848,23 +848,27 @@ export class CategoryService extends BaseCrudService<
    */
   async resolveFullPaths(ids: string[]): Promise<Map<string, string>> {
     const result = new Map<string, string>();
-    const cache = new Map<string, Category>();
+    const uniqueIds = [...new Set(ids)].filter(Boolean);
+    if (uniqueIds.length === 0) return result;
 
-    const load = async (id: string): Promise<Category | null> => {
-      if (cache.has(id)) return cache.get(id)!;
-      const cat = await this.categoryRepository.findOne({ where: { id } });
-      if (cat) cache.set(id, cat);
-      return cat;
-    };
+    // Single bounded query: load every category's {id, name, parentId} into an
+    // in-memory map, then walk ancestor chains without further DB round-trips.
+    // Avoids the N×depth findOne fan-out a per-row parent-walk would cause.
+    const all = await this.categoryRepository.find({
+      select: { id: true, name: true, parentId: true },
+    });
+    const byId = new Map<string, Pick<Category, 'id' | 'name' | 'parentId'>>(
+      all.map((c) => [c.id, c]),
+    );
 
-    for (const id of [...new Set(ids)]) {
+    for (const id of uniqueIds) {
       const names: string[] = [];
       const seen = new Set<string>();
-      let current = await load(id);
+      let current = byId.get(id);
       while (current && !seen.has(current.id)) {
         seen.add(current.id);
         names.unshift(current.name);
-        current = current.parentId ? await load(current.parentId) : null;
+        current = current.parentId ? byId.get(current.parentId) : undefined;
       }
       if (names.length) result.set(id, names.join(' > '));
     }

@@ -77,6 +77,10 @@ describe('CategoryService', () => {
     service = module.get(CategoryService);
     categoryRepository = module.get(getRepositoryToken(Category));
     productRepository = module.get(getRepositoryToken(Product));
+
+    // Baseline for resolveFullPaths' bulk category load; tests that assert a
+    // specific ancestor chain override this with their own dataset.
+    categoryRepository.find.mockResolvedValue([]);
   });
 
   describe('findAll pagination', () => {
@@ -194,9 +198,7 @@ describe('CategoryService', () => {
       const a = { id: 'a', name: 'Electronics', parentId: null } as any;
       const b = { id: 'b', name: 'Mobile Phones', parentId: 'a' } as any;
       const c = { id: 'c', name: 'Cases', parentId: 'b' } as any;
-      jest.spyOn(categoryRepository, 'findOne').mockImplementation(({ where }: any) =>
-        Promise.resolve(({ a, b, c } as any)[where.id]),
-      );
+      jest.spyOn(categoryRepository, 'find').mockResolvedValue([a, b, c] as any);
 
       const map = await service.resolveFullPaths(['c']);
       expect(map.get('c')).toBe('Electronics > Mobile Phones > Cases');
@@ -204,18 +206,23 @@ describe('CategoryService', () => {
 
     it('resolves a root category to its own name', async () => {
       const a = { id: 'a', name: 'Electronics', parentId: null } as any;
-      jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(a);
+      jest.spyOn(categoryRepository, 'find').mockResolvedValue([a] as any);
       const map = await service.resolveFullPaths(['a']);
       expect(map.get('a')).toBe('Electronics');
+    });
+
+    it('does not query when given an empty id list', async () => {
+      const findSpy = jest.spyOn(categoryRepository, 'find');
+      const map = await service.resolveFullPaths([]);
+      expect(map.size).toBe(0);
+      expect(findSpy).not.toHaveBeenCalled();
     });
 
     it('terminates on a corrupt parent cycle without looping forever', async () => {
       // a.parent = b, b.parent = a (bad data) — visited-set guard must stop
       const a = { id: 'a', name: 'A', parentId: 'b' } as any;
       const b = { id: 'b', name: 'B', parentId: 'a' } as any;
-      jest.spyOn(categoryRepository, 'findOne').mockImplementation(({ where }: any) =>
-        Promise.resolve(({ a, b } as any)[where.id]),
-      );
+      jest.spyOn(categoryRepository, 'find').mockResolvedValue([a, b] as any);
       const map = await service.resolveFullPaths(['a']);
       expect(map.get('a')).toBe('B > A');
     });
