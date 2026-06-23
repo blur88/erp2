@@ -66,6 +66,7 @@ export default function CategoryList({ categories, sortBy, sortOrder }: Category
   const columns: ColumnConfig<Category>[] = [
     {
       key: 'name',
+      width: '48%',
       raw: true,
       render: (c) => (
         <Typography
@@ -84,12 +85,12 @@ export default function CategoryList({ categories, sortBy, sortOrder }: Category
     },
     {
       key: 'productCount',
-      width: '20%',
+      width: '22%',
       render: (c) => `${c.productCount ?? 0} items`,
     },
     {
       key: 'status',
-      width: '12%',
+      width: '15%',
       raw: true,
       render: (c) => <StatusChip status={c.isEnabled ? 'active' : 'inactive'} />,
     },
