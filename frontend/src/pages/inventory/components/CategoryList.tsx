@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Typography } from '@mui/material'
 
+import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 import RowActionMenu from '@/components/common/RowActionMenu'
 import { StatusChip } from '@/components/common/StatusChip'
+import { useNotification } from '@/hooks/useNotification'
 import { useSetCategoryEnabledMutation } from '@/store/api/inventoryApi'
 import type { Category } from '@/types'
 
@@ -38,8 +41,26 @@ function flattenTree(cats: Category[], sortBy: string, order: 'asc' | 'desc'): C
 
 export default function CategoryList({ categories, sortBy, sortOrder }: CategoryListProps) {
   const navigate = useNavigate()
-  const [setCategoryEnabled] = useSetCategoryEnabledMutation()
+  const { showSuccess, showError } = useNotification()
+  const [setCategoryEnabled, { isLoading: toggling }] = useSetCategoryEnabledMutation()
+  const [pendingToggle, setPendingToggle] = useState<Category | null>(null)
   const flat = flattenTree(categories, sortBy, sortOrder)
+
+  const confirmToggle = async () => {
+    if (!pendingToggle) return
+    const target = pendingToggle
+    const nextEnabled = !target.isEnabled
+    try {
+      await setCategoryEnabled({ id: target.id, enabled: nextEnabled }).unwrap()
+      showSuccess(nextEnabled ? `${target.name} reactivated` : `${target.name} set as inactive`)
+      setPendingToggle(null)
+    } catch (e: any) {
+      const msg = e?.data?.message
+        ?? `Failed to ${nextEnabled ? 'reactivate' : 'deactivate'} ${target.name}`
+      showError(msg)
+      setPendingToggle(null)
+    }
+  }
 
   const columns: ColumnConfig<Category>[] = [
     {
@@ -82,8 +103,8 @@ export default function CategoryList({ categories, sortBy, sortOrder }: Category
             { label: 'Edit', onClick: () => navigate(`/inventory/categories/${c.slug}/edit`) },
             { label: 'Add Subcategory', onClick: () => navigate(`/inventory/categories/create?parentId=${c.id}`) },
             c.isEnabled
-              ? { label: 'Set as Inactive', onClick: () => { setCategoryEnabled({ id: c.id, enabled: false }).unwrap() } }
-              : { label: 'Reactivate', onClick: () => { setCategoryEnabled({ id: c.id, enabled: true }).unwrap() } },
+              ? { label: 'Set as Inactive', onClick: () => setPendingToggle(c) }
+              : { label: 'Reactivate', onClick: () => setPendingToggle(c) },
           ]}
         />
       ),
@@ -91,19 +112,35 @@ export default function CategoryList({ categories, sortBy, sortOrder }: Category
   ]
 
   return (
-    <EntityTable
-      rows={flat}
-      columns={columns}
-      loading={false}
-      total={flat.length}
-      label="Categories"
-      showHeader={false}
-      headers={['Name', 'Product Count', 'Status', 'Actions']}
-      selectedId={undefined}
-      focusedIndex={-1}
-      onSelect={() => {}}
-      listRef={{ current: null }}
-      dataAttr="category"
-    />
+    <>
+      <EntityTable
+        rows={flat}
+        columns={columns}
+        loading={false}
+        total={flat.length}
+        label="Categories"
+        showHeader={false}
+        headers={['Name', 'Product Count', 'Status', 'Actions']}
+        selectedId={undefined}
+        focusedIndex={-1}
+        onSelect={() => {}}
+        listRef={{ current: null }}
+        dataAttr="category"
+      />
+      <ConfirmationDialog
+        open={pendingToggle !== null}
+        title={pendingToggle?.isEnabled ? 'Set Category Inactive' : 'Reactivate Category'}
+        message={
+          pendingToggle?.isEnabled
+            ? `Set "${pendingToggle?.name}" as inactive? It can no longer be assigned to new products.`
+            : `Reactivate "${pendingToggle?.name}"?`
+        }
+        confirmText={pendingToggle?.isEnabled ? 'Set Inactive' : 'Reactivate'}
+        severity={pendingToggle?.isEnabled ? 'warning' : 'info'}
+        loading={toggling}
+        onConfirm={confirmToggle}
+        onCancel={() => setPendingToggle(null)}
+      />
+    </>
   )
 }

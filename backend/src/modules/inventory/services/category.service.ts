@@ -98,17 +98,13 @@ export class CategoryService extends BaseCrudService<
   }
 
   protected get allowedSortFields(): string[] {
-    return ['name', 'createdAt', 'updatedAt', 'deletedAt'];
+    return ['name', 'createdAt', 'updatedAt'];
   }
 
-  private buildCategoryListQuery(query: QueryCategoriesDto, options: { includeDeleted: boolean }) {
-    let queryBuilder = this.categoryRepository.createQueryBuilder('category');
-
-    if (options.includeDeleted) {
-      queryBuilder = queryBuilder.withDeleted().where('category.deletedAt IS NOT NULL');
-    } else {
-      queryBuilder = queryBuilder.where('1=1');
-    }
+  private buildCategoryListQuery(query: QueryCategoriesDto) {
+    let queryBuilder = this.categoryRepository
+      .createQueryBuilder('category')
+      .where('1=1');
 
     if (query.search) {
       queryBuilder = this.applySearch(queryBuilder, query.search, 'category');
@@ -190,7 +186,7 @@ export class CategoryService extends BaseCrudService<
       includeTree = false,
       includeProductCount = false,
     } = query;
-    const queryBuilder = this.buildCategoryListQuery(query, { includeDeleted: false });
+    const queryBuilder = this.buildCategoryListQuery(query);
 
     // Apply pagination
     const shouldPaginate = page !== undefined && limit !== undefined;
@@ -764,8 +760,7 @@ export class CategoryService extends BaseCrudService<
     if (params.name && params.name.trim()) {
       const nameQuery = this.categoryRepository
         .createQueryBuilder('category')
-        .where('LOWER(category.name) = LOWER(:name)', { name: params.name.trim() })
-        .withDeleted();
+        .where('LOWER(category.name) = LOWER(:name)', { name: params.name.trim() });
 
       if (params.parentId) {
         nameQuery.andWhere('category.parentId = :parentId', { parentId: params.parentId });
