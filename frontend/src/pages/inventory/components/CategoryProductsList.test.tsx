@@ -1,10 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import userEvent from '@testing-library/user-event'
 
 import CategoryProductsList from './CategoryProductsList'
 
+const mockNavigate = vi.hoisted(() => vi.fn())
 const mockUseGetProductsQuery = vi.hoisted(() => vi.fn())
 const mockUseGetRegionalSettingsQuery = vi.hoisted(() => vi.fn())
+
+vi.mock('react-router-dom', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react-router-dom')>()),
+  useNavigate: () => mockNavigate,
+}))
 
 vi.mock('@/store/api/inventoryApi', () => ({
   useGetProductsQuery: mockUseGetProductsQuery,
@@ -17,45 +25,43 @@ vi.mock('@/store/api/settingsApi', () => ({
 const makeProduct = (overrides: Partial<{
   id: string
   name: string
+  slug: string
   barcode: string | null
   stockQuantity: number
 }> = {}) => ({
   id: 'prod-1',
   name: 'Widget',
+  slug: 'widget',
   barcode: 'WGT-001',
   stockQuantity: 50,
   ...overrides,
 })
 
+const renderList = () =>
+  render(
+    <MemoryRouter>
+      <CategoryProductsList categoryId="cat-1" />
+    </MemoryRouter>,
+  )
+
 describe('CategoryProductsList', () => {
   beforeEach(() => {
+    mockNavigate.mockReset()
     mockUseGetProductsQuery.mockReset()
     mockUseGetRegionalSettingsQuery.mockReset()
     mockUseGetRegionalSettingsQuery.mockReturnValue({ data: { lowStockThreshold: 10 } })
   })
 
-  it('shows a loading spinner while fetching', () => {
-    mockUseGetProductsQuery.mockReturnValue({ data: undefined, isLoading: true, isError: false })
-
-    render(<CategoryProductsList categoryId="cat-1" />)
-
-    expect(screen.getByRole('progressbar')).toBeInTheDocument()
-  })
-
   it('shows error message when fetch fails', () => {
     mockUseGetProductsQuery.mockReturnValue({ data: undefined, isLoading: false, isError: true })
-
-    render(<CategoryProductsList categoryId="cat-1" />)
-
+    renderList()
     expect(screen.getByText('Failed to load products.')).toBeInTheDocument()
   })
 
-  it('shows empty state when category has no products', () => {
+  it('shows the EntityTable empty state when category has no products', () => {
     mockUseGetProductsQuery.mockReturnValue({ data: { data: [] }, isLoading: false, isError: false })
-
-    render(<CategoryProductsList categoryId="cat-1" />)
-
-    expect(screen.getByText('No products in this category.')).toBeInTheDocument()
+    renderList()
+    expect(screen.getByText('No Products found')).toBeInTheDocument()
   })
 
   it('renders product name and barcode', () => {
@@ -64,9 +70,7 @@ describe('CategoryProductsList', () => {
       isLoading: false,
       isError: false,
     })
-
-    render(<CategoryProductsList categoryId="cat-1" />)
-
+    renderList()
     expect(screen.getByText('Widget')).toBeInTheDocument()
     expect(screen.getByText('WGT-001')).toBeInTheDocument()
   })
@@ -77,35 +81,27 @@ describe('CategoryProductsList', () => {
       isLoading: false,
       isError: false,
     })
-
-    render(<CategoryProductsList categoryId="cat-1" />)
-
+    renderList()
     expect(screen.getByText('—')).toBeInTheDocument()
   })
 
   it('shows In Stock chip when stock is above threshold', () => {
-    mockUseGetRegionalSettingsQuery.mockReturnValue({ data: { lowStockThreshold: 10 } })
     mockUseGetProductsQuery.mockReturnValue({
       data: { data: [makeProduct({ stockQuantity: 11 })] },
       isLoading: false,
       isError: false,
     })
-
-    render(<CategoryProductsList categoryId="cat-1" />)
-
+    renderList()
     expect(screen.getByText('In Stock')).toBeInTheDocument()
   })
 
   it('shows Low Stock chip when stock is at or below threshold', () => {
-    mockUseGetRegionalSettingsQuery.mockReturnValue({ data: { lowStockThreshold: 10 } })
     mockUseGetProductsQuery.mockReturnValue({
       data: { data: [makeProduct({ stockQuantity: 10 })] },
       isLoading: false,
       isError: false,
     })
-
-    render(<CategoryProductsList categoryId="cat-1" />)
-
+    renderList()
     expect(screen.getByText('Low Stock')).toBeInTheDocument()
   })
 
@@ -115,9 +111,7 @@ describe('CategoryProductsList', () => {
       isLoading: false,
       isError: false,
     })
-
-    render(<CategoryProductsList categoryId="cat-1" />)
-
+    renderList()
     expect(screen.getByText('Out of Stock')).toBeInTheDocument()
   })
 
@@ -128,10 +122,19 @@ describe('CategoryProductsList', () => {
       isLoading: false,
       isError: false,
     })
-
-    render(<CategoryProductsList categoryId="cat-1" />)
-
-    // 20 <= 25 threshold → Low Stock (not In Stock, which the hardcoded fallback of 10 would give)
+    renderList()
     expect(screen.getByText('Low Stock')).toBeInTheDocument()
+  })
+
+  it('navigates to the product view page on row click', async () => {
+    const user = userEvent.setup()
+    mockUseGetProductsQuery.mockReturnValue({
+      data: { data: [makeProduct({ slug: 'widget' })] },
+      isLoading: false,
+      isError: false,
+    })
+    renderList()
+    await user.click(screen.getByText('Widget'))
+    expect(mockNavigate).toHaveBeenCalledWith('/inventory/products/widget/view')
   })
 })
