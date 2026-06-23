@@ -701,7 +701,6 @@ export class CategoryService extends BaseCrudService<
     const base = generateBaseSlug(name);
     let slug = base;
     let counter = 1;
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const existing = await this.categoryRepository.findOne({
         where: { slug },
