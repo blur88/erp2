@@ -58,7 +58,6 @@ export interface Category {
   slug: string;
   isEnabled: boolean;
   description?: string;
-  path?: string | null;
   level: number;
   parentId?: string | null;
   fullPath: string;
