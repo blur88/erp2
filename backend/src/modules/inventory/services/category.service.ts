@@ -859,8 +859,10 @@ export class CategoryService extends BaseCrudService<
 
     for (const id of [...new Set(ids)]) {
       const names: string[] = [];
+      const seen = new Set<string>();
       let current = await load(id);
-      while (current) {
+      while (current && !seen.has(current.id)) {
+        seen.add(current.id);
         names.unshift(current.name);
         current = current.parentId ? await load(current.parentId) : null;
       }

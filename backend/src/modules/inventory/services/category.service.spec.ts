@@ -208,6 +208,17 @@ describe('CategoryService', () => {
       const map = await service.resolveFullPaths(['a']);
       expect(map.get('a')).toBe('Electronics');
     });
+
+    it('terminates on a corrupt parent cycle without looping forever', async () => {
+      // a.parent = b, b.parent = a (bad data) — visited-set guard must stop
+      const a = { id: 'a', name: 'A', parentId: 'b' } as any;
+      const b = { id: 'b', name: 'B', parentId: 'a' } as any;
+      jest.spyOn(categoryRepository, 'findOne').mockImplementation(({ where }: any) =>
+        Promise.resolve(({ a, b } as any)[where.id]),
+      );
+      const map = await service.resolveFullPaths(['a']);
+      expect(map.get('a')).toBe('B > A');
+    });
   });
 
   describe('toResponseDto tree render', () => {
