@@ -161,12 +161,50 @@ describe('CategoryService', () => {
       await expect(service.findBySlug('nope')).rejects.toThrow(NotFoundException);
     });
     it('loads and maps the parent (id/name/slug) for view/edit pages', async () => {
-      jest.spyOn(categoryRepository, 'findOne').mockResolvedValue({
-        id: 'c', name: 'Child', slug: 'child', isEnabled: true, parentId: 'p',
-        parent: { id: 'p', name: 'Parent', slug: 'parent', extra: 'ignored' },
-      } as any);
+      const child = { id: 'c', name: 'Child', slug: 'child', isEnabled: true, parentId: 'p' } as any;
+      const parent = { id: 'p', name: 'Parent', slug: 'parent' } as any;
+      jest.spyOn(categoryRepository, 'findOne').mockImplementation(({ where }: any) =>
+        Promise.resolve(where.id === 'p' ? parent : where.id === 'c' || where.slug === 'child' ? { ...child, parent } : null),
+      );
       const result = await service.findBySlug('child');
       expect(result.parent).toEqual({ id: 'p', name: 'Parent', slug: 'parent' });
+    });
+  });
+
+  describe('resolveFullPaths', () => {
+    it('resolves a nested chain to "A > B > C"', async () => {
+      const a = { id: 'a', name: 'Electronics', parentId: null } as any;
+      const b = { id: 'b', name: 'Mobile Phones', parentId: 'a' } as any;
+      const c = { id: 'c', name: 'Cases', parentId: 'b' } as any;
+      jest.spyOn(categoryRepository, 'findOne').mockImplementation(({ where }: any) =>
+        Promise.resolve(({ a, b, c } as any)[where.id]),
+      );
+
+      const map = await service.resolveFullPaths(['c']);
+      expect(map.get('c')).toBe('Electronics > Mobile Phones > Cases');
+    });
+
+    it('resolves a root category to its own name', async () => {
+      const a = { id: 'a', name: 'Electronics', parentId: null } as any;
+      jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(a);
+      const map = await service.resolveFullPaths(['a']);
+      expect(map.get('a')).toBe('Electronics');
+    });
+  });
+
+  describe('toResponseDto tree render', () => {
+    it('builds child fullPath from parent prefix in tree render', async () => {
+      const root = {
+        id: 'a', name: 'Electronics', slug: 'electronics', level: 0, parentId: null,
+        isEnabled: true, isRoot: true, hasChildren: true, createdAt: new Date(), updatedAt: new Date(),
+        children: [{
+          id: 'b', name: 'Phones', slug: 'phones', level: 1, parentId: 'a',
+          isEnabled: true, isRoot: false, hasChildren: false, createdAt: new Date(), updatedAt: new Date(), children: [],
+        }],
+      } as any;
+      const dto = await (service as any).toResponseDto(root, true, false, root.name);
+      expect(dto.fullPath).toBe('Electronics');
+      expect(dto.children[0].fullPath).toBe('Electronics > Phones');
     });
   });
 
