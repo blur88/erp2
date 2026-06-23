@@ -171,6 +171,24 @@ describe('CategoryService', () => {
     });
   });
 
+  describe('moveCategory', () => {
+    it('updates moved category own path before save', async () => {
+      const moved = { id: 'c', name: 'C', parentId: null, level: 0, path: 'C' } as any;
+      const newParent = { id: 'b', name: 'B', parentId: null, level: 1, path: 'A.B' } as any;
+
+      categoryRepository.findOne.mockImplementation(({ where }: any) =>
+        Promise.resolve(where.id === 'c' ? moved : where.id === 'b' ? newParent : null),
+      );
+      categoryRepository.find.mockResolvedValue([] as any);
+      const saveSpy = categoryRepository.save.mockImplementation((c: any) => Promise.resolve(c));
+
+      await service.moveCategory('c', { newParentId: 'b' } as any);
+
+      const savedArg = saveSpy.mock.calls[0][0] as any;
+      expect(savedArg.path).toBe('A.B.C');
+    });
+  });
+
   describe('resolveFullPaths', () => {
     it('resolves a nested chain to "A > B > C"', async () => {
       const a = { id: 'a', name: 'Electronics', parentId: null } as any;

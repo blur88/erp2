@@ -524,11 +524,15 @@ export class CategoryService extends BaseCrudService<
       category.parent = newParent;
       category.parentId = moveCategoryDto.newParentId;
       category.level = newParent.level + 1;
+      category.path = newParent.path
+        ? `${newParent.path}.${category.name}`
+        : `${newParent.name}.${category.name}`;
     } else {
       // Moving to root level
       category.parent = null;
       category.parentId = null;
       category.level = 0;
+      category.path = category.name;
     }
 
     const movedCategory = await this.categoryRepository.save(category);
