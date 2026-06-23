@@ -28,7 +28,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
   }
 })
 
-vi.mock('./components/CategoryList', () => ({ default: () => <div>CategoryList</div> }))
+vi.mock('../components/CategoryList', () => ({ default: () => <div>CategoryList</div> }))
 
 function renderPage() {
   const store = configureStore({ reducer: { empty: (s = null) => s } })
