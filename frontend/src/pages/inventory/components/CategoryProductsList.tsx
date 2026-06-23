@@ -6,6 +6,7 @@ import { StatusChip } from '@/components/common/StatusChip'
 import { useGetCategoryProductsQuery, type CategoryProduct } from '@/store/api/inventoryApi'
 import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
 import { getStockStatus } from '@/utils/stockUtils'
+import { formatWholeQuantity } from '@/utils/formatters'
 
 interface CategoryProductsListProps {
   categoryId: string
@@ -28,7 +29,7 @@ const CategoryProductsList: React.FC<CategoryProductsListProps> = ({ categoryId 
         const status = getStockStatus(stock, lowStockThreshold)
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="body2">{stock}</Typography>
+            <Typography variant="body2">{formatWholeQuantity(stock)}</Typography>
             <StatusChip status={status} variant="outlined" sx={{ fontSize: '0.7rem', fontWeight: 500, height: 20 }} />
           </Box>
         )
