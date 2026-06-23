@@ -58,10 +58,10 @@ describe('CategoryProductsList', () => {
     expect(screen.getByText('Failed to load products.')).toBeInTheDocument()
   })
 
-  it('shows the EntityTable empty state when category has no products', () => {
+  it('shows the category-specific empty state when category has no products', () => {
     mockUseGetProductsQuery.mockReturnValue({ data: { data: [] }, isLoading: false, isError: false })
     renderList()
-    expect(screen.getByText('No Products found')).toBeInTheDocument()
+    expect(screen.getByText('No products in this category.')).toBeInTheDocument()
   })
 
   it('renders product name and barcode', () => {
@@ -126,7 +126,7 @@ describe('CategoryProductsList', () => {
     expect(screen.getByText('Low Stock')).toBeInTheDocument()
   })
 
-  it('navigates to the product view page on row click', async () => {
+  it('navigates to the product view page via the View action', async () => {
     const user = userEvent.setup()
     mockUseGetProductsQuery.mockReturnValue({
       data: { data: [makeProduct({ slug: 'widget' })] },
@@ -134,7 +134,7 @@ describe('CategoryProductsList', () => {
       isError: false,
     })
     renderList()
-    await user.click(screen.getByText('Widget'))
+    await user.click(screen.getByRole('button', { name: 'View' }))
     expect(mockNavigate).toHaveBeenCalledWith('/inventory/products/widget/view')
   })
 })
