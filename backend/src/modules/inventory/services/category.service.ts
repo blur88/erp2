@@ -851,11 +851,14 @@ export class CategoryService extends BaseCrudService<
     const uniqueIds = [...new Set(ids)].filter(Boolean);
     if (uniqueIds.length === 0) return result;
 
-    // Single bounded query: load every category's {id, name, parentId} into an
-    // in-memory map, then walk ancestor chains without further DB round-trips.
-    // Avoids the N×depth findOne fan-out a per-row parent-walk would cause.
+    // One bounded query loads every category's {id, name, parentId} into an
+    // in-memory map, then ancestor chains are walked without further DB
+    // round-trips (avoids the N×depth findOne fan-out a per-row parent-walk
+    // would cause). `withDeleted` keeps the chain intact when an ancestor — or
+    // the target itself, e.g. a deleted product's category — is soft-deleted.
     const all = await this.categoryRepository.find({
       select: { id: true, name: true, parentId: true },
+      withDeleted: true,
     });
     const byId = new Map<string, Pick<Category, 'id' | 'name' | 'parentId'>>(
       all.map((c) => [c.id, c]),

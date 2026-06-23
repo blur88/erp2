@@ -218,6 +218,15 @@ describe('CategoryService', () => {
       expect(findSpy).not.toHaveBeenCalled();
     });
 
+    it('loads with withDeleted so soft-deleted ancestors keep the chain intact', async () => {
+      const a = { id: 'a', name: 'Electronics', parentId: null } as any; // soft-deleted ancestor
+      const b = { id: 'b', name: 'Phones', parentId: 'a' } as any;
+      const findSpy = jest.spyOn(categoryRepository, 'find').mockResolvedValue([a, b] as any);
+      const map = await service.resolveFullPaths(['b']);
+      expect(findSpy).toHaveBeenCalledWith(expect.objectContaining({ withDeleted: true }));
+      expect(map.get('b')).toBe('Electronics > Phones');
+    });
+
     it('terminates on a corrupt parent cycle without looping forever', async () => {
       // a.parent = b, b.parent = a (bad data) — visited-set guard must stop
       const a = { id: 'a', name: 'A', parentId: 'b' } as any;
