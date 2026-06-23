@@ -123,7 +123,7 @@ export default function CategoryList({ categories, sortBy, sortOrder }: Category
         headers={['Name', 'Product Count', 'Status', 'Actions']}
         selectedId={undefined}
         focusedIndex={-1}
-        onSelect={() => {}}
+        onSelect={(c) => navigate(`/inventory/categories/${c.slug}/view`)}
         listRef={{ current: null }}
         dataAttr="category"
       />

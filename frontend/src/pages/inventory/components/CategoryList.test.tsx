@@ -9,6 +9,12 @@ const mockUnwrap = vi.fn()
 const mockSetCategoryEnabled = vi.fn(() => ({ unwrap: mockUnwrap }))
 const mockShowSuccess = vi.fn()
 const mockShowError = vi.fn()
+const mockNavigate = vi.fn()
+
+vi.mock('react-router-dom', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react-router-dom')>()),
+  useNavigate: () => mockNavigate,
+}))
 
 vi.mock('@/store/api/inventoryApi', () => ({
   useSetCategoryEnabledMutation: () => [mockSetCategoryEnabled, { isLoading: false }],
@@ -48,6 +54,13 @@ describe('CategoryList', () => {
     expect(screen.getByText('Apparel')).toBeInTheDocument()
     expect(screen.getByText('3 items')).toBeInTheDocument()
     expect(screen.queryByText(/^Delete$/)).not.toBeInTheDocument()
+  })
+
+  it('navigates to the view page on row click', async () => {
+    const user = userEvent.setup()
+    renderList()
+    await user.click(screen.getByText('Apparel'))
+    expect(mockNavigate).toHaveBeenCalledWith('/inventory/categories/apparel/view')
   })
 
   it('confirms then deactivates and shows a success toast', async () => {
