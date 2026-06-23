@@ -145,59 +145,11 @@ export class Category extends BaseEntity {
   }
 
   /**
-   * Get human-readable full path of the category hierarchy
-   * @returns Formatted path string (e.g., "Electronics > Mobile Phones")
+   * Human-readable full path requires DB/service context (ancestor names);
+   * the entity alone only knows its own name. CategoryService.resolveFullPaths
+   * builds the real ancestor path. This getter is a safe single-level fallback.
    */
   get fullPath(): string {
-    if (this.path && typeof this.path === 'string') {
-      const sanitizedPath = this.sanitizePath(this.path);
-      return sanitizedPath
-        .split('.')
-        .filter(Boolean)
-        .join(' > ');
-    }
     return this.name || 'Unnamed Category';
-  }
-
-  // Helper methods
-  /**
-   * Get array of ancestor category IDs from the materialized path
-   * @returns Array of UUID strings representing ancestor categories
-   */
-  getAncestors(): string[] {
-    if (!this.path || typeof this.path !== 'string') return [];
-    const sanitizedPath = this.sanitizePath(this.path);
-    return sanitizedPath.split('.').filter(Boolean);
-  }
-
-  /**
-   * Check if this category is a descendant of another category
-   * @param categoryId UUID of the potential ancestor category
-   * @returns True if this category is a descendant of the given category
-   */
-  isDescendantOf(categoryId: string): boolean {
-    if (!categoryId || typeof categoryId !== 'string') return false;
-    return this.getAncestors().includes(categoryId);
-  }
-
-  /**
-   * Check if this category is an ancestor of another category
-   * @param category The potential descendant category
-   * @returns True if this category is an ancestor of the given category
-   */
-  isAncestorOf(category: Category): boolean {
-    if (!category || !category.id) return false;
-    return category.isDescendantOf(this.id);
-  }
-
-  /**
-   * Sanitize path string to prevent path traversal attacks
-   * @param path Raw path string
-   * @returns Sanitized path string containing only valid UUID characters, hyphens, and dots
-   */
-  private sanitizePath(path: string): string {
-    if (!path || typeof path !== 'string') return '';
-    // Allow only UUID characters (a-f, 0-9), hyphens, and dots
-    return path.replace(/[^a-f0-9\-\.]/gi, '');
   }
 }

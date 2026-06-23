@@ -77,6 +77,10 @@ describe('CategoryService', () => {
     service = module.get(CategoryService);
     categoryRepository = module.get(getRepositoryToken(Category));
     productRepository = module.get(getRepositoryToken(Product));
+
+    // Baseline for resolveFullPaths' bulk category load; tests that assert a
+    // specific ancestor chain override this with their own dataset.
+    categoryRepository.find.mockResolvedValue([]);
   });
 
   describe('findAll pagination', () => {
@@ -161,12 +165,91 @@ describe('CategoryService', () => {
       await expect(service.findBySlug('nope')).rejects.toThrow(NotFoundException);
     });
     it('loads and maps the parent (id/name/slug) for view/edit pages', async () => {
-      jest.spyOn(categoryRepository, 'findOne').mockResolvedValue({
-        id: 'c', name: 'Child', slug: 'child', isEnabled: true, parentId: 'p',
-        parent: { id: 'p', name: 'Parent', slug: 'parent', extra: 'ignored' },
-      } as any);
+      const child = { id: 'c', name: 'Child', slug: 'child', isEnabled: true, parentId: 'p' } as any;
+      const parent = { id: 'p', name: 'Parent', slug: 'parent' } as any;
+      jest.spyOn(categoryRepository, 'findOne').mockImplementation(({ where }: any) =>
+        Promise.resolve(where.id === 'p' ? parent : where.id === 'c' || where.slug === 'child' ? { ...child, parent } : null),
+      );
       const result = await service.findBySlug('child');
       expect(result.parent).toEqual({ id: 'p', name: 'Parent', slug: 'parent' });
+    });
+  });
+
+  describe('moveCategory', () => {
+    it('updates moved category own path before save', async () => {
+      const moved = { id: 'c', name: 'C', parentId: null, level: 0, path: 'C' } as any;
+      const newParent = { id: 'b', name: 'B', parentId: null, level: 1, path: 'A.B' } as any;
+
+      categoryRepository.findOne.mockImplementation(({ where }: any) =>
+        Promise.resolve(where.id === 'c' ? moved : where.id === 'b' ? newParent : null),
+      );
+      categoryRepository.find.mockResolvedValue([] as any);
+      const saveSpy = categoryRepository.save.mockImplementation((c: any) => Promise.resolve(c));
+
+      await service.moveCategory('c', { newParentId: 'b' } as any);
+
+      const savedArg = saveSpy.mock.calls[0][0] as any;
+      expect(savedArg.path).toBe('A.B.C');
+    });
+  });
+
+  describe('resolveFullPaths', () => {
+    it('resolves a nested chain to "A > B > C"', async () => {
+      const a = { id: 'a', name: 'Electronics', parentId: null } as any;
+      const b = { id: 'b', name: 'Mobile Phones', parentId: 'a' } as any;
+      const c = { id: 'c', name: 'Cases', parentId: 'b' } as any;
+      jest.spyOn(categoryRepository, 'find').mockResolvedValue([a, b, c] as any);
+
+      const map = await service.resolveFullPaths(['c']);
+      expect(map.get('c')).toBe('Electronics > Mobile Phones > Cases');
+    });
+
+    it('resolves a root category to its own name', async () => {
+      const a = { id: 'a', name: 'Electronics', parentId: null } as any;
+      jest.spyOn(categoryRepository, 'find').mockResolvedValue([a] as any);
+      const map = await service.resolveFullPaths(['a']);
+      expect(map.get('a')).toBe('Electronics');
+    });
+
+    it('does not query when given an empty id list', async () => {
+      const findSpy = jest.spyOn(categoryRepository, 'find');
+      const map = await service.resolveFullPaths([]);
+      expect(map.size).toBe(0);
+      expect(findSpy).not.toHaveBeenCalled();
+    });
+
+    it('loads with withDeleted so soft-deleted ancestors keep the chain intact', async () => {
+      const a = { id: 'a', name: 'Electronics', parentId: null } as any; // soft-deleted ancestor
+      const b = { id: 'b', name: 'Phones', parentId: 'a' } as any;
+      const findSpy = jest.spyOn(categoryRepository, 'find').mockResolvedValue([a, b] as any);
+      const map = await service.resolveFullPaths(['b']);
+      expect(findSpy).toHaveBeenCalledWith(expect.objectContaining({ withDeleted: true }));
+      expect(map.get('b')).toBe('Electronics > Phones');
+    });
+
+    it('terminates on a corrupt parent cycle without looping forever', async () => {
+      // a.parent = b, b.parent = a (bad data) — visited-set guard must stop
+      const a = { id: 'a', name: 'A', parentId: 'b' } as any;
+      const b = { id: 'b', name: 'B', parentId: 'a' } as any;
+      jest.spyOn(categoryRepository, 'find').mockResolvedValue([a, b] as any);
+      const map = await service.resolveFullPaths(['a']);
+      expect(map.get('a')).toBe('B > A');
+    });
+  });
+
+  describe('toResponseDto tree render', () => {
+    it('builds child fullPath from parent prefix in tree render', async () => {
+      const root = {
+        id: 'a', name: 'Electronics', slug: 'electronics', level: 0, parentId: null,
+        isEnabled: true, isRoot: true, hasChildren: true, createdAt: new Date(), updatedAt: new Date(),
+        children: [{
+          id: 'b', name: 'Phones', slug: 'phones', level: 1, parentId: 'a',
+          isEnabled: true, isRoot: false, hasChildren: false, createdAt: new Date(), updatedAt: new Date(), children: [],
+        }],
+      } as any;
+      const dto = await (service as any).toResponseDto(root, true, false, root.name);
+      expect(dto.fullPath).toBe('Electronics');
+      expect(dto.children[0].fullPath).toBe('Electronics > Phones');
     });
   });
 

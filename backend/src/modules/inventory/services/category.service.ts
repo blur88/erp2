@@ -173,7 +173,8 @@ export class CategoryService extends BaseCrudService<
     );
 
     this.logger.log(`Category created successfully with ID: ${savedCategory.id}`);
-    return this.toResponseDto(savedCategory);
+    const fp = (await this.resolveFullPaths([savedCategory.id])).get(savedCategory.id) ?? savedCategory.name;
+    return this.toResponseDto(savedCategory, false, false, fp);
   }
 
   /**
@@ -201,15 +202,16 @@ export class CategoryService extends BaseCrudService<
       const treeData = await Promise.all(
         categories.map(async (category) => {
           const categoryWithChildren = await this.loadCategoryTree(category);
-          return this.toResponseDto(categoryWithChildren, true, includeProductCount);
+          return this.toResponseDto(categoryWithChildren, true, includeProductCount, categoryWithChildren.name);
         }),
       );
       data = treeData;
     } else {
       // Regular list view
+      const fullPathMap = await this.resolveFullPaths(categories.map((c) => c.id));
       data = await Promise.all(
-        categories.map(async (category) => 
-          this.toResponseDto(category, false, includeProductCount)
+        categories.map((category) =>
+          this.toResponseDto(category, false, includeProductCount, fullPathMap.get(category.id) ?? category.name),
         ),
       );
     }
@@ -257,7 +259,7 @@ export class CategoryService extends BaseCrudService<
       const data = await Promise.all(
         rootCategories.map(async (category) => {
           const categoryWithChildren = await this.loadCategoryTree(category);
-          return this.toResponseDto(categoryWithChildren, true, includeProductCount);
+          return this.toResponseDto(categoryWithChildren, true, includeProductCount, categoryWithChildren.name);
         }),
       );
 
@@ -298,7 +300,8 @@ export class CategoryService extends BaseCrudService<
       throw new NotFoundException(`Category with ID '${id}' not found`);
     }
 
-    return this.toResponseDto(category, includeChildren, includeProductCount);
+    const fp = (await this.resolveFullPaths([category.id])).get(category.id) ?? category.name;
+    return this.toResponseDto(category, includeChildren, includeProductCount, fp);
   }
 
   async findBySlug(slug: string): Promise<CategoryResponseDto> {
@@ -309,7 +312,8 @@ export class CategoryService extends BaseCrudService<
     if (!category) {
       throw new NotFoundException(`Category with slug '${slug}' not found`);
     }
-    const response = await this.toResponseDto(category, false, true);
+    const fp = (await this.resolveFullPaths([category.id])).get(category.id) ?? category.name;
+    const response = await this.toResponseDto(category, false, true, fp);
     if (category.parent) {
       response.parent = {
         id: category.parent.id,
@@ -338,7 +342,8 @@ export class CategoryService extends BaseCrudService<
     }
     category.isEnabled = enabled;
     const saved = await this.categoryRepository.save(category);
-    return this.toResponseDto(saved, false, true);
+    const fp = (await this.resolveFullPaths([saved.id])).get(saved.id) ?? saved.name;
+    return this.toResponseDto(saved, false, true, fp);
   }
 
   /**
@@ -353,10 +358,15 @@ export class CategoryService extends BaseCrudService<
 
     const ancestors = await this.loadAncestors(category);
     
+    const chain = [...ancestors, category];
+    const fpMap = await this.resolveFullPaths(chain.map((c) => c.id));
+    
     return {
       id: category.id,
-      ancestors: await Promise.all(ancestors.map(ancestor => this.toResponseDto(ancestor))),
-      category: await this.toResponseDto(category),
+      ancestors: await Promise.all(
+        ancestors.map((a) => this.toResponseDto(a, false, false, fpMap.get(a.id) ?? a.name)),
+      ),
+      category: await this.toResponseDto(category, false, false, fpMap.get(category.id) ?? category.name),
       breadcrumbs: [...ancestors.map(a => a.name), category.name],
     };
   }
@@ -479,7 +489,8 @@ export class CategoryService extends BaseCrudService<
     }
 
     this.logger.log(`Category updated successfully: ${updatedCategory.id}`);
-    return this.toResponseDto(updatedCategory);
+    const fp = (await this.resolveFullPaths([updatedCategory.id])).get(updatedCategory.id) ?? updatedCategory.name;
+    return this.toResponseDto(updatedCategory, false, false, fp);
   }
 
   /**
@@ -513,11 +524,15 @@ export class CategoryService extends BaseCrudService<
       category.parent = newParent;
       category.parentId = moveCategoryDto.newParentId;
       category.level = newParent.level + 1;
+      category.path = newParent.path
+        ? `${newParent.path}.${category.name}`
+        : `${newParent.name}.${category.name}`;
     } else {
       // Moving to root level
       category.parent = null;
       category.parentId = null;
       category.level = 0;
+      category.path = category.name;
     }
 
     const movedCategory = await this.categoryRepository.save(category);
@@ -528,7 +543,8 @@ export class CategoryService extends BaseCrudService<
     // Audit logging removed with authentication system
 
     this.logger.log(`Category moved successfully: ${movedCategory.id}`);
-    return this.toResponseDto(movedCategory);
+    const fp = (await this.resolveFullPaths([movedCategory.id])).get(movedCategory.id) ?? movedCategory.name;
+    return this.toResponseDto(movedCategory, false, false, fp);
   }
 
   /**
@@ -639,10 +655,12 @@ export class CategoryService extends BaseCrudService<
       where: { parentId: id },
     });
 
+    const fp = (await this.resolveFullPaths([category.id])).get(category.id) ?? category.name;
+
     return {
       id: category.id,
       name: category.name,
-      fullPath: category.fullPath,
+      fullPath: fp,
       directProductCount,
       totalProductCount,
       subcategoryCount: directSubcategoryCount,
@@ -664,9 +682,10 @@ export class CategoryService extends BaseCrudService<
    * Convert category entity to response DTO
    */
   private async toResponseDto(
-    category: Category, 
-    includeChildren = false, 
-    includeProductCount = false,
+    category: Category,
+    includeChildren: boolean,
+    includeProductCount: boolean,
+    fullPath: string,
   ): Promise<CategoryResponseDto> {
     const response: CategoryResponseDto = {
       id: category.id,
@@ -674,10 +693,9 @@ export class CategoryService extends BaseCrudService<
       slug: category.slug,
       isEnabled: category.isEnabled,
       description: category.description,
-      path: category.path,
       level: category.level,
       parentId: category.parentId,
-      fullPath: category.fullPath,
+      fullPath,
       isRoot: category.isRoot,
       hasChildren: category.hasChildren,
       createdAt: category.createdAt,
@@ -694,9 +712,10 @@ export class CategoryService extends BaseCrudService<
 
     // Include children if requested and available
     if (includeChildren && category.children) {
+      const selfPath = response.fullPath;
       response.children = await Promise.all(
-        category.children.map(child => 
-          this.toResponseDto(child, includeChildren, includeProductCount)
+        category.children.map((child) =>
+          this.toResponseDto(child, includeChildren, includeProductCount, `${selfPath} > ${child.name}`),
         ),
       );
     }
@@ -820,6 +839,43 @@ export class CategoryService extends BaseCrudService<
     }
 
     return category;
+  }
+
+  /**
+   * Resolve each given category id to its human-readable full path
+   * ("Ancestor > ... > Self") using the real parent chain. The materialized
+   * `path` column is NOT used — it is unreliable for display.
+   */
+  async resolveFullPaths(ids: string[]): Promise<Map<string, string>> {
+    const result = new Map<string, string>();
+    const uniqueIds = [...new Set(ids)].filter(Boolean);
+    if (uniqueIds.length === 0) return result;
+
+    // One bounded query loads every category's {id, name, parentId} into an
+    // in-memory map, then ancestor chains are walked without further DB
+    // round-trips (avoids the N×depth findOne fan-out a per-row parent-walk
+    // would cause). `withDeleted` keeps the chain intact when an ancestor — or
+    // the target itself, e.g. a deleted product's category — is soft-deleted.
+    const all = await this.categoryRepository.find({
+      select: { id: true, name: true, parentId: true },
+      withDeleted: true,
+    });
+    const byId = new Map<string, Pick<Category, 'id' | 'name' | 'parentId'>>(
+      all.map((c) => [c.id, c]),
+    );
+
+    for (const id of uniqueIds) {
+      const names: string[] = [];
+      const seen = new Set<string>();
+      let current = byId.get(id);
+      while (current && !seen.has(current.id)) {
+        seen.add(current.id);
+        names.unshift(current.name);
+        current = current.parentId ? byId.get(current.parentId) : undefined;
+      }
+      if (names.length) result.set(id, names.join(' > '));
+    }
+    return result;
   }
 
   /**

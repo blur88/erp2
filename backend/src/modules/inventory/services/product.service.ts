@@ -366,7 +366,10 @@ export class ProductService extends BaseCrudService<
     );
 
     this.logger.log(`Product created successfully with ID: ${savedProduct.id}`);
-    return this.toResponseDto(savedProduct);
+    const fullPathMap = savedProduct.categoryId
+      ? await this.categoryService.resolveFullPaths([savedProduct.categoryId])
+      : undefined;
+    return this.toResponseDto(savedProduct, fullPathMap);
   }
 
   /**
@@ -379,7 +382,10 @@ export class ProductService extends BaseCrudService<
     this.applyProductOrdering(queryBuilder, query, 'name');
     const [products, total] = await queryBuilder.getManyAndCount();
 
-    const data = products.map((product) => this.toResponseDto(product));
+    const fullPathMap = await this.categoryService.resolveFullPaths(
+      [...new Set(products.map((p) => p.categoryId).filter(Boolean))] as string[],
+    );
+    const data = products.map((product) => this.toResponseDto(product, fullPathMap));
 
     return {
       data,
@@ -459,7 +465,10 @@ export class ProductService extends BaseCrudService<
       throw new NotFoundException(`Product with ID '${id}' not found`);
     }
 
-    return this.toResponseDto(product);
+    const fullPathMap = product.categoryId
+      ? await this.categoryService.resolveFullPaths([product.categoryId])
+      : undefined;
+    return this.toResponseDto(product, fullPathMap);
   }
 
   /**
@@ -482,7 +491,10 @@ export class ProductService extends BaseCrudService<
       throw new NotFoundException(`Product with barcode '${barcode}' not found`);
     }
 
-    return this.toResponseDto(product);
+    const fullPathMap = product.categoryId
+      ? await this.categoryService.resolveFullPaths([product.categoryId])
+      : undefined;
+    return this.toResponseDto(product, fullPathMap);
   }
 
   async findBySlug(slug: string): Promise<ProductResponseDto> {
@@ -495,7 +507,10 @@ export class ProductService extends BaseCrudService<
       throw new NotFoundException(`Product with slug '${slug}' not found`);
     }
 
-    return this.toResponseDto(product);
+    const fullPathMap = product.categoryId
+      ? await this.categoryService.resolveFullPaths([product.categoryId])
+      : undefined;
+    return this.toResponseDto(product, fullPathMap);
   }
 
   /**
@@ -597,7 +612,10 @@ export class ProductService extends BaseCrudService<
     this.applyProductOrdering(queryBuilder, query, 'deletedAt');
     const [deletedProducts, total] = await queryBuilder.getManyAndCount();
 
-    const productDtos = deletedProducts.map((product) => this.toResponseDto(product));
+    const fullPathMap = await this.categoryService.resolveFullPaths(
+      [...new Set(deletedProducts.map((p) => p.categoryId).filter(Boolean))] as string[],
+    );
+    const productDtos = deletedProducts.map((product) => this.toResponseDto(product, fullPathMap));
 
     return {
       data: productDtos,
@@ -665,7 +683,10 @@ export class ProductService extends BaseCrudService<
       },
     );
 
-    return this.toResponseDto(restoredProduct!);
+    const fullPathMap = restoredProduct!.categoryId
+      ? await this.categoryService.resolveFullPaths([restoredProduct!.categoryId])
+      : undefined;
+    return this.toResponseDto(restoredProduct!, fullPathMap);
   }
 
   /**
@@ -1059,7 +1080,10 @@ export class ProductService extends BaseCrudService<
     }
 
     this.logger.log(`Product updated successfully: ${id}`);
-    return this.toResponseDto(productWithCategory!);
+    const fullPathMap = productWithCategory!.categoryId
+      ? await this.categoryService.resolveFullPaths([productWithCategory!.categoryId])
+      : undefined;
+    return this.toResponseDto(productWithCategory!, fullPathMap);
   }
 
   /**
@@ -1487,7 +1511,7 @@ export class ProductService extends BaseCrudService<
   /**
    * Convert product entity to response DTO
    */
-  private toResponseDto(product: Product): ProductResponseDto {
+  private toResponseDto(product: Product, fullPathMap?: Map<string, string>): ProductResponseDto {
     return {
       id: product.id,
       slug: product.slug,
@@ -1505,7 +1529,7 @@ export class ProductService extends BaseCrudService<
         ? {
             id: product.category.id,
             name: product.category.name,
-            fullPath: product.category.fullPath,
+            fullPath: fullPathMap?.get(product.categoryId) ?? product.category.name,
           }
         : null,
       priceListItems:

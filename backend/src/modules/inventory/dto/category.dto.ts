@@ -79,9 +79,6 @@ export class CategoryResponseDto {
   @ApiPropertyOptional({ description: 'Category description' })
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Materialized path' })
-  path?: string;
-
   @ApiProperty({ description: 'Tree level depth' })
   level: number;
 

@@ -12,7 +12,7 @@ const CATEGORY = vi.hoisted(() => ({
   description: 'Old category',
   level: 1,
   parentId: 'cat-parent',
-  fullPath: 'Root / Old',
+  fullPath: 'Root > Old',
   parent: { id: 'cat-parent', name: 'Root Cat', slug: 'root-cat' },
   productCount: 5,
   createdAt: '2024-01-01T00:00:00Z',
@@ -69,7 +69,7 @@ describe('CategoryViewPage', () => {
 
   it('renders representative field values', async () => {
     renderPage()
-    expect(await screen.findByText('Root / Old')).toBeInTheDocument()
+    expect(await screen.findByText('Root > Old')).toBeInTheDocument()
     expect(screen.getByText('Level 1')).toBeInTheDocument()
     expect(screen.getByText('Root Cat')).toBeInTheDocument()
     expect(screen.getByText('Old category')).toBeInTheDocument()
