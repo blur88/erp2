@@ -9,7 +9,6 @@ interface CategoryDuplicateCheckResult {
   nameConflict?: {
     id: string
     name: string
-    isDeleted: boolean
     parentId?: string
   }
 }
@@ -48,9 +47,7 @@ export const useCategoryDuplicateCheck = (props?: UseCategoryDuplicateCheckProps
 
       return {
         exists: true,
-        message: conflict.isDeleted
-          ? `Category with name '${conflict.name}' was previously deleted. Please choose a different name or restore the deleted category.`
-          : `Category with name '${conflict.name}' already exists at this level`,
+        message: `Category with name '${conflict.name}' already exists at this level`,
       }
     }
 

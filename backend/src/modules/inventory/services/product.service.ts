@@ -271,7 +271,7 @@ export class ProductService extends BaseCrudService<
 
     // Validate category exists
     const category = await this.categoryRepository.findOne({
-      where: { id: createProductDto.categoryId, isActive: true },
+      where: { id: createProductDto.categoryId, isEnabled: true },
     });
 
     if (!category) {
@@ -984,7 +984,7 @@ export class ProductService extends BaseCrudService<
     // Validate category if being changed
     if (updateProductDto.categoryId && updateProductDto.categoryId !== product.categoryId) {
       const category = await this.categoryRepository.findOne({
-        where: { id: updateProductDto.categoryId, isActive: true },
+        where: { id: updateProductDto.categoryId, isEnabled: true },
       });
 
       if (!category) {

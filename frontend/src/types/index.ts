@@ -55,6 +55,8 @@ export interface Product {
 export interface Category {
   id: string;
   name: string;
+  slug: string;
+  isEnabled: boolean;
   description?: string;
   path?: string | null;
   level: number;

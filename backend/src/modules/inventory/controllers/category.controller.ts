@@ -5,7 +5,6 @@ import {
   Body,
   Patch,
   Param,
-  Delete,
   Query,
   ParseUUIDPipe,
   HttpStatus,
@@ -33,6 +32,7 @@ import {
   CategoryStatsDto,
   CategoryAncestorsDto,
   CategoryProductDto,
+  SetCategoryEnabledDto,
 } from '../dto/category.dto';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
@@ -96,20 +96,6 @@ export class CategoryController {
     return this.categoryService.getTree(includeProductCount);
   }
 
-  @Get('deleted')
-  @ApiOperation({ summary: 'Get all soft-deleted categories' })
-  @ApiResponse({
-    status: 200,
-    description: 'Deleted categories retrieved successfully',
-    type: CategoryListResponseDto,
-  })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
-  @ApiQuery({ name: 'search', required: false, description: 'Search term' })
-  async findDeleted(@Query() query: QueryCategoriesDto): Promise<CategoryListResponseDto> {
-    return this.categoryService.findDeleted(query);
-  }
-
   @Get('roots')
   @ApiOperation({ summary: 'Get root level categories only' })
   @ApiResponse({
@@ -156,6 +142,15 @@ export class CategoryController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<{ data: CategoryProductDto[] }> {
     return this.categoryService.getCategoryProducts(id);
+  }
+
+  @Get('slug/:slug')
+  @ApiOperation({ summary: 'Get a category by slug' })
+  @ApiResponse({ status: 200, type: CategoryResponseDto })
+  @ApiResponse({ status: 404, description: 'Category not found' })
+  @ApiParam({ name: 'slug', description: 'Category slug' })
+  async findBySlug(@Param('slug') slug: string): Promise<CategoryResponseDto> {
+    return this.categoryService.findBySlug(slug);
   }
 
   @Get(':id')
@@ -255,6 +250,20 @@ export class CategoryController {
     return this.categoryService.update(id, updateCategoryDto, currentUserId, currentUsername);
   }
 
+  @Patch(':id/enabled')
+  @ApiOperation({ summary: 'Set category active/inactive status' })
+  @ApiResponse({ status: 200, type: CategoryResponseDto })
+  @ApiResponse({ status: 400, description: 'Has active subcategories' })
+  @ApiResponse({ status: 404, description: 'Category not found' })
+  @ApiParam({ name: 'id', description: 'Category ID' })
+  @ApiBody({ type: SetCategoryEnabledDto })
+  async setEnabled(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetCategoryEnabledDto,
+  ): Promise<CategoryResponseDto> {
+    return this.categoryService.setEnabled(id, dto.enabled);
+  }
+
   @Patch(':id/move')
   @ApiOperation({ summary: 'Move category to a new parent' })
   @ApiResponse({
@@ -290,168 +299,4 @@ export class CategoryController {
     return { message: `Successfully updated ${bulkUpdateDto.categories.length} categories` };
   }
 
-  @Post('bulk-restore')
-  @ApiOperation({ summary: 'Bulk restore soft-deleted categories' })
-  @ApiResponse({
-    status: 200,
-    description: 'Categories restored successfully',
-  })
-  @ApiResponse({ status: 400, description: 'Invalid category IDs or categories are not deleted' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        categoryIds: {
-          type: 'array',
-          items: { type: 'string', format: 'uuid' },
-          description: 'Array of category IDs to restore'
-        }
-      },
-      required: ['categoryIds']
-    }
-  })
-  @HttpCode(HttpStatus.OK)
-  async bulkRestore(
-    @Body() body: { categoryIds: string[] },
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<{ message: string; restoredCount: number; failedIds: string[] }> {
-    const result = await this.categoryService.bulkRestore(
-      body.categoryIds,
-      currentUserId,
-      currentUsername,
-    );
-    return {
-      message: `Successfully restored ${result.successCount} of ${body.categoryIds.length} categories`,
-      restoredCount: result.successCount,
-      failedIds: result.failedItems.map(item => item.id),
-    };
-  }
-
-  @Post(':id/restore')
-  @ApiOperation({ summary: 'Restore a soft-deleted category' })
-  @ApiResponse({
-    status: 200,
-    description: 'Category restored successfully',
-    type: CategoryResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Category not found' })
-  @ApiResponse({ status: 400, description: 'Category is not deleted' })
-  @ApiParam({ name: 'id', description: 'Category ID' })
-  async restore(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<CategoryResponseDto> {
-    return this.categoryService.restore(id, currentUserId, currentUsername);
-  }
-
-  @Post('bulk-permanent-delete')
-  @ApiOperation({ summary: 'Bulk permanently delete categories from database' })
-  @ApiResponse({
-    status: 200,
-    description: 'Categories permanently deleted successfully',
-  })
-  @ApiResponse({ status: 400, description: 'Invalid category IDs or categories have active references' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        categoryIds: {
-          type: 'array',
-          items: { type: 'string', format: 'uuid' },
-          description: 'Array of category IDs to permanently delete'
-        }
-      },
-      required: ['categoryIds']
-    }
-  })
-  @HttpCode(HttpStatus.OK)
-  async bulkPermanentDelete(
-    @Body() body: { categoryIds: string[] },
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<{ message: string; deletedCount: number; failedIds: string[] }> {
-    const result = await this.categoryService.bulkPermanentDelete(
-      body.categoryIds,
-      currentUserId,
-      currentUsername,
-    );
-    return {
-      message: `Successfully permanently deleted ${result.successCount} of ${body.categoryIds.length} categories`,
-      deletedCount: result.successCount,
-      failedIds: result.failedItems.map(item => item.id),
-    };
-  }
-
-  @Delete(':id/permanent')
-  @ApiOperation({ summary: 'Permanently delete a category from database' })
-  @ApiResponse({
-    status: 204,
-    description: 'Category permanently deleted successfully',
-  })
-  @ApiResponse({ status: 404, description: 'Category not found' })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Category must be soft-deleted first or has active references' 
-  })
-  @ApiParam({ name: 'id', description: 'Category ID' })
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async permanentDelete(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<void> {
-    await this.categoryService.permanentDelete(id, currentUserId, currentUsername);
-  }
-
-  @Delete(':id')
-  @ApiOperation({ summary: 'Delete a category with optional force and move options' })
-  @ApiResponse({
-    status: 200,
-    description: 'Category deleted successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        message: { type: 'string' },
-        moved: { type: 'number', description: 'Number of products moved (if applicable)' }
-      }
-    }
-  })
-  @ApiResponse({ status: 404, description: 'Category not found' })
-  @ApiResponse({
-    status: 400,
-    description: 'Cannot delete category with subcategories or products (use force options)'
-  })
-  @ApiParam({ name: 'id', description: 'Category ID' })
-  @ApiQuery({
-    name: 'force',
-    required: false,
-    description: 'Force deletion even if category has products',
-    type: 'boolean'
-  })
-  @ApiQuery({
-    name: 'moveToUncategorized',
-    required: false,
-    description: 'Move products to Uncategorized category before deletion (requires force=true)',
-    type: 'boolean'
-  })
-  async remove(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-    @Query('force') force?: boolean,
-    @Query('moveToUncategorized') moveToUncategorized?: boolean,
-  ): Promise<{ message: string; moved?: number }> {
-    const result = await this.categoryService.remove(
-      id,
-      currentUserId,
-      {
-        force: force === true,
-        moveToUncategorized: moveToUncategorized === true,
-      },
-      currentUsername,
-    );
-    return result;
-  }
 }

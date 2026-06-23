@@ -62,9 +62,9 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
       const categoryTree = (response as any)?.data || (Array.isArray(response) ? response : [])
       const flatCategories = flattenCategoryTree(categoryTree)
       
-      // Filter out excluded categories
+      // Filter out excluded categories and disabled categories (unless it's the current value)
       const filteredCategories = flatCategories.filter(
-        cat => !excludeCategories.includes(cat.id)
+        cat => !excludeCategories.includes(cat.id) && (cat.isEnabled !== false || cat.id === value?.id)
       )
       
       // Add root option if allowed

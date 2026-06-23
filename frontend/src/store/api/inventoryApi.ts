@@ -14,7 +14,7 @@ export interface CategoryProduct {
 export const inventoryApiSlice = createApi({
   reducerPath: 'inventoryApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['Product', 'DeletedProduct', 'Category', 'DeletedCategory', 'StockAdjustment', 'DeletedStockAdjustment', 'StockMovement'],
+  tagTypes: ['Product', 'DeletedProduct', 'Category', 'StockAdjustment', 'DeletedStockAdjustment', 'StockMovement'],
   endpoints: (builder) => ({
     getProducts: builder.query<PaginatedResponse<Product>, Record<string, unknown> | undefined>({
       query: (params) => ({
@@ -108,10 +108,6 @@ export const inventoryApiSlice = createApi({
       transformResponse: normalizeSingle<Category>,
       invalidatesTags: ['Category'],
     }),
-    deleteCategory: builder.mutation<void, string>({
-      query: (id) => ({ url: `/inventory/categories/${id}`, method: 'DELETE' }),
-      invalidatesTags: ['Category', 'DeletedCategory'],
-    }),
     checkCategoryDuplicate: builder.query<{
       nameExists: boolean
       nameConflict?: {
@@ -123,27 +119,19 @@ export const inventoryApiSlice = createApi({
     }, Record<string, unknown>>({
       query: (params) => ({ url: '/inventory/categories/check-duplicate', params }),
     }),
-    getDeletedCategories: builder.query<PaginatedResponse<Category>, Record<string, unknown> | undefined>({
-      query: (params) => ({ url: '/inventory/categories/deleted', params: params ?? {} }),
-      transformResponse: normalizePaginated<Category>,
-      providesTags: ['DeletedCategory'],
-    }),
-    restoreCategory: builder.mutation<Category, string>({
-      query: (id) => ({ url: `/inventory/categories/${id}/restore`, method: 'POST' }),
+    getCategoryBySlug: builder.query<Category, string>({
+      query: (slug) => ({ url: `/inventory/categories/slug/${slug}` }),
       transformResponse: normalizeSingle<Category>,
-      invalidatesTags: ['Category', 'DeletedCategory'],
+      providesTags: (_r, _e, slug) => [{ type: 'Category', id: slug }],
     }),
-    permanentDeleteCategory: builder.mutation<void, string>({
-      query: (id) => ({ url: `/inventory/categories/${id}/permanent`, method: 'DELETE' }),
-      invalidatesTags: ['DeletedCategory'],
-    }),
-    bulkRestoreCategories: builder.mutation<{ restoredCount: number; failedIds: string[] }, string[]>({
-      query: (categoryIds) => ({ url: '/inventory/categories/bulk-restore', method: 'POST', data: { categoryIds } }),
-      invalidatesTags: ['Category', 'DeletedCategory'],
-    }),
-    bulkPermanentDeleteCategories: builder.mutation<{ deletedCount: number; failedIds: string[] }, string[]>({
-      query: (categoryIds) => ({ url: '/inventory/categories/bulk-permanent-delete', method: 'POST', data: { categoryIds } }),
-      invalidatesTags: ['DeletedCategory'],
+    setCategoryEnabled: builder.mutation<Category, { id: string; enabled: boolean }>({
+      query: ({ id, enabled }) => ({
+        url: `/inventory/categories/${id}/enabled`,
+        method: 'PATCH',
+        data: { enabled },
+      }),
+      transformResponse: normalizeSingle<Category>,
+      invalidatesTags: ['Category'],
     }),
 
     getDashboardStats: builder.query<{
@@ -253,13 +241,9 @@ export const {
   useGetCategoryProductsQuery,
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
-  useDeleteCategoryMutation,
   useLazyCheckCategoryDuplicateQuery,
-  useGetDeletedCategoriesQuery,
-  useRestoreCategoryMutation,
-  usePermanentDeleteCategoryMutation,
-  useBulkRestoreCategoriesMutation,
-  useBulkPermanentDeleteCategoriesMutation,
+  useGetCategoryBySlugQuery,
+  useSetCategoryEnabledMutation,
   useGetDashboardStatsQuery,
   useGetStockMovementsQuery,
   useGetOutOfStockProductsQuery,

@@ -51,6 +51,9 @@ describe('CategoryService', () => {
             createQueryBuilder: jest.fn(),
             findAndCount: jest.fn(),
             findOne: jest.fn(),
+            find: jest.fn(),
+            findBy: jest.fn(),
+            save: jest.fn(),
             restore: jest.fn(),
             update: jest.fn(),
           },
@@ -76,21 +79,6 @@ describe('CategoryService', () => {
     productRepository = module.get(getRepositoryToken(Product));
   });
 
-  it('findDeleted applies parentId filtering through the shared query builder path', async () => {
-    const qb = createQueryBuilder([
-      createCategory('child-1', { parentId: 'parent-1', isRoot: false, level: 1 }),
-    ]);
-    categoryRepository.createQueryBuilder.mockReturnValue(qb as any);
-    categoryRepository.findAndCount.mockResolvedValue([[], 0] as any);
-
-    await service.findDeleted({ parentId: 'parent-1' });
-
-    expect(categoryRepository.createQueryBuilder).toHaveBeenCalledWith('category');
-    expect(qb.andWhere).toHaveBeenCalledWith('category.parentId = :parentId', {
-      parentId: 'parent-1',
-    });
-  });
-
   describe('findAll pagination', () => {
     it('returns full set when page/limit absent', async () => {
       const cats = [createCategory('c1'), createCategory('c2')];
@@ -105,25 +93,6 @@ describe('CategoryService', () => {
       const qb = createQueryBuilder(cats);
       categoryRepository.createQueryBuilder.mockReturnValue(qb as any);
       await service.findAll({ page: 2, limit: 20 } as any);
-      expect(qb.skip).toHaveBeenCalledWith(20);
-      expect(qb.take).toHaveBeenCalledWith(20);
-    });
-  });
-
-  describe('findDeleted pagination', () => {
-    it('returns full set when page/limit absent', async () => {
-      const cats = [createCategory('c1'), createCategory('c2')];
-      const qb = createQueryBuilder(cats);
-      categoryRepository.createQueryBuilder.mockReturnValue(qb as any);
-      await service.findDeleted({} as any);
-      expect(qb.skip).not.toHaveBeenCalled();
-    });
-
-    it('paginates when page/limit present', async () => {
-      const cats = [createCategory('c1')];
-      const qb = createQueryBuilder(cats);
-      categoryRepository.createQueryBuilder.mockReturnValue(qb as any);
-      await service.findDeleted({ page: 2, limit: 20 } as any);
       expect(qb.skip).toHaveBeenCalledWith(20);
       expect(qb.take).toHaveBeenCalledWith(20);
     });
@@ -164,6 +133,55 @@ describe('CategoryService', () => {
       categoryRepository.findOne.mockResolvedValue(null);
 
       await expect(service.getCategoryProducts('no-such-id')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('generateUniqueSlug', () => {
+    it('returns base slug when no collision', async () => {
+      jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(null as any);
+      await expect((service as any).generateUniqueSlug('Electronics')).resolves.toBe('electronics');
+    });
+    it('suffixes with -1, -2 on collision', async () => {
+      const findOne = jest.spyOn(categoryRepository, 'findOne');
+      findOne.mockResolvedValueOnce({ id: 'x' } as any)
+             .mockResolvedValueOnce({ id: 'y' } as any)
+             .mockResolvedValueOnce(null as any);
+      await expect((service as any).generateUniqueSlug('Electronics')).resolves.toBe('electronics-2');
+    });
+  });
+
+  describe('findBySlug', () => {
+    it('returns an inactive (isEnabled=false) category', async () => {
+      jest.spyOn(categoryRepository, 'findOne').mockResolvedValue({ id: 'a', name: 'Old', slug: 'old', isEnabled: false } as any);
+      const result = await service.findBySlug('old');
+      expect(result.isEnabled).toBe(false);
+    });
+    it('throws NotFound when slug missing', async () => {
+      jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(null as any);
+      await expect(service.findBySlug('nope')).rejects.toThrow(NotFoundException);
+    });
+    it('loads and maps the parent (id/name/slug) for view/edit pages', async () => {
+      jest.spyOn(categoryRepository, 'findOne').mockResolvedValue({
+        id: 'c', name: 'Child', slug: 'child', isEnabled: true, parentId: 'p',
+        parent: { id: 'p', name: 'Parent', slug: 'parent', extra: 'ignored' },
+      } as any);
+      const result = await service.findBySlug('child');
+      expect(result.parent).toEqual({ id: 'p', name: 'Parent', slug: 'parent' });
+    });
+  });
+
+  describe('setEnabled', () => {
+    it('blocks disabling when a direct enabled child exists', async () => {
+      jest.spyOn(categoryRepository, 'findOne').mockResolvedValue({ id: 'p', name: 'Parent', isEnabled: true } as any);
+      jest.spyOn(categoryRepository, 'find').mockResolvedValue([{ id: 'c', name: 'Child', isEnabled: true }] as any);
+      await expect(service.setEnabled('p', false)).rejects.toThrow(/Child/);
+    });
+    it('allows disabling with no enabled children', async () => {
+      jest.spyOn(categoryRepository, 'findOne').mockResolvedValue({ id: 'p', name: 'Parent', isEnabled: true, slug: 'parent' } as any);
+      jest.spyOn(categoryRepository, 'find').mockResolvedValue([] as any);
+      jest.spyOn(categoryRepository, 'save').mockResolvedValue({ id: 'p', name: 'Parent', isEnabled: false, slug: 'parent' } as any);
+      const result = await service.setEnabled('p', false);
+      expect(result.isEnabled).toBe(false);
     });
   });
 });
