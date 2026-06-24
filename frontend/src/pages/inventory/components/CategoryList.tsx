@@ -16,6 +16,14 @@ interface CategoryListProps {
   sortBy: string
   sortOrder: 'asc' | 'desc'
   onSort: (field: string) => void
+  flat?: boolean
+}
+
+function compareCategories(a: Category, b: Category, sortBy: string, order: 'asc' | 'desc'): number {
+  const v = sortBy === 'productCount'
+    ? (a.productCount ?? 0) - (b.productCount ?? 0)
+    : a.name.localeCompare(b.name)
+  return order === 'asc' ? v : -v
 }
 
 function flattenTree(cats: Category[], sortBy: string, order: 'asc' | 'desc'): Category[] {
@@ -25,27 +33,23 @@ function flattenTree(cats: Category[], sortBy: string, order: 'asc' | 'desc'): C
     if (!byParent.has(key)) byParent.set(key, [])
     byParent.get(key)!.push(c)
   }
-  const cmp = (a: Category, b: Category) => {
-    const v = sortBy === 'productCount'
-      ? (a.productCount ?? 0) - (b.productCount ?? 0)
-      : a.name.localeCompare(b.name)
-    return order === 'asc' ? v : -v
-  }
   const out: Category[] = []
   const walk = (parentId: string | null) => {
-    const kids = (byParent.get(parentId) ?? []).slice().sort(cmp)
+    const kids = (byParent.get(parentId) ?? []).slice().sort((a, b) => compareCategories(a, b, sortBy, order))
     for (const k of kids) { out.push(k); walk(k.id) }
   }
   walk(null)
   return out
 }
 
-export default function CategoryList({ categories, sortBy, sortOrder }: CategoryListProps) {
+export default function CategoryList({ categories, sortBy, sortOrder, flat = false }: CategoryListProps) {
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
   const [setCategoryEnabled, { isLoading: toggling }] = useSetCategoryEnabledMutation()
   const [pendingToggle, setPendingToggle] = useState<Category | null>(null)
-  const flat = flattenTree(categories, sortBy, sortOrder)
+  const rows = flat
+    ? categories.slice().sort((a, b) => compareCategories(a, b, sortBy, sortOrder))
+    : flattenTree(categories, sortBy, sortOrder)
 
   const confirmToggle = async () => {
     if (!pendingToggle) return
@@ -72,7 +76,7 @@ export default function CategoryList({ categories, sortBy, sortOrder }: Category
         <Typography
           variant="body2"
           sx={{
-            pl: c.level * 3,
+            pl: flat ? 0 : c.level * 3,
             fontWeight: 400,
             fontSize: '0.8rem',
             lineHeight: 1.2,
@@ -116,10 +120,10 @@ export default function CategoryList({ categories, sortBy, sortOrder }: Category
   return (
     <>
       <EntityTable
-        rows={flat}
+        rows={rows}
         columns={columns}
         loading={false}
-        total={flat.length}
+        total={rows.length}
         label="Categories"
         showHeader={false}
         headers={['Name', 'Product Count', 'Status', 'Actions']}
