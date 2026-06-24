@@ -62,11 +62,11 @@ export default function CategoriesPage() {
         ? true
         : appliedFilters.status === 'active' ? c.isEnabled : !c.isEnabled
 
-    if (statusActive) {
+    if (appliedFilters.status !== null) {
       return categories.filter((c) => matchesSearch(c) && matchesStatus(c))
     }
     return filterWithAncestors(categories, (c) => matchesSearch(c) && matchesStatus(c))
-  }, [categories, appliedFilters, statusActive])
+  }, [categories, appliedFilters])
 
   return (
     <SimpleListPage
