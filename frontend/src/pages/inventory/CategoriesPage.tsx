@@ -52,13 +52,20 @@ export default function CategoriesPage() {
     includeProductCount: true,
   })
 
+  const statusActive = appliedFilters.status !== null
+
   const visibleCategories = useMemo(() => {
-    return filterWithAncestors(categories, (c) => {
-      if (appliedFilters.search && !c.name.toLowerCase().includes(appliedFilters.search.toLowerCase())) return false
-      if (appliedFilters.status === 'active' && !c.isEnabled) return false
-      if (appliedFilters.status === 'inactive' && c.isEnabled) return false
-      return true
-    })
+    const matchesSearch = (c: Category) =>
+      !appliedFilters.search || c.name.toLowerCase().includes(appliedFilters.search.toLowerCase())
+    const matchesStatus = (c: Category) =>
+      appliedFilters.status === null
+        ? true
+        : appliedFilters.status === 'active' ? c.isEnabled : !c.isEnabled
+
+    if (appliedFilters.status !== null) {
+      return categories.filter((c) => matchesSearch(c) && matchesStatus(c))
+    }
+    return filterWithAncestors(categories, (c) => matchesSearch(c) && matchesStatus(c))
   }, [categories, appliedFilters])
 
   return (
@@ -81,6 +88,7 @@ export default function CategoriesPage() {
             sortBy={sortBy}
             sortOrder={sortOrder}
             onSort={handleSort}
+            flat={statusActive}
           />
         </Box>
       )}
