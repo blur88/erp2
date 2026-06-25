@@ -118,4 +118,23 @@ describe('CategoryProductsList', () => {
     renderList()
     expect(screen.getByText('Low Stock')).toBeInTheDocument()
   })
+
+  it('renders Qty and Status as separate columns in separate cells', () => {
+    mockUseGetCategoryProductsQuery.mockReturnValue({
+      data: { data: [makeProduct({ name: 'Widget', stockQuantity: 5 })] },
+      isLoading: false,
+      isError: false,
+    })
+    renderList()
+
+    expect(screen.getByRole('columnheader', { name: 'Name' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Qty' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Status' })).toBeInTheDocument()
+
+    const qtyCell = screen.getByText('5').closest('td')
+    const statusCell = screen.getByText('Low Stock').closest('td')
+    expect(qtyCell).not.toBeNull()
+    expect(statusCell).not.toBeNull()
+    expect(qtyCell).not.toBe(statusCell)
+  })
 })

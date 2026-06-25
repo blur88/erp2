@@ -1,5 +1,4 @@
 import React from 'react'
-import { Box, Typography } from '@mui/material'
 
 import { DataTable, type Column, bold } from '@/components/common/DataTable'
 import { StatusChip } from '@/components/common/StatusChip'
@@ -20,18 +19,24 @@ const CategoryProductsList: React.FC<CategoryProductsListProps> = ({ categoryId 
   const lowStockThreshold = regionalSettings?.lowStockThreshold ?? 10
 
   const columns: Column<CategoryProduct>[] = [
-    { header: 'Name', width: '70%', render: (p) => bold(p.name) },
+    { header: 'Name', width: '55%', render: (p) => bold(p.name) },
     {
-      header: 'Stock',
+      header: 'Qty',
+      width: '15%',
+      align: 'right',
+      render: (p) => formatWholeQuantity(p.stockQuantity ?? 0),
+    },
+    {
+      header: 'Status',
       width: '30%',
       render: (p) => {
-        const stock = p.stockQuantity ?? 0
-        const status = getStockStatus(stock, lowStockThreshold)
+        const status = getStockStatus(p.stockQuantity ?? 0, lowStockThreshold)
         return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="body2">{formatWholeQuantity(stock)}</Typography>
-            <StatusChip status={status} variant="outlined" sx={{ fontSize: '0.7rem', fontWeight: 500, height: 20 }} />
-          </Box>
+          <StatusChip
+            status={status}
+            variant="outlined"
+            sx={{ fontSize: '0.7rem', fontWeight: 500, height: 20 }}
+          />
         )
       },
     },
