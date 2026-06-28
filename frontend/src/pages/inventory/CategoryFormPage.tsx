@@ -166,8 +166,8 @@ const CategoryFormPage: React.FC = () => {
 
       <form noValidate onSubmit={handleSubmit(onSubmit)}>
         <Grid container spacing={3}>
-          <Grid size={{ xs: 12, md: 8 }}>
-            <Card>
+          <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+            <Card sx={{ flex: 1 }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>Category Information</Typography>
                 <Grid container spacing={2}>
@@ -215,27 +215,43 @@ const CategoryFormPage: React.FC = () => {
                       )}
                     />
                   </Grid>
-
-                  <Grid size={12}>
-                    <Controller
-                      name="description"
-                      control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          value={field.value || ''}
-                          label="Description"
-                          multiline
-                          rows={3}
-                          fullWidth
-                          size="small"
-                          disabled={isSaving}
-                          sx={fieldSx}
-                        />
-                      )}
-                    />
-                  </Grid>
                 </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+            <Card sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+              <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
+                <Typography variant="h6" gutterBottom>Description</Typography>
+                <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', mt: 1 }}>
+                  <Controller
+                    name="description"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        value={field.value || ''}
+                        label="Description"
+                        multiline
+                        minRows={4}
+                        fullWidth
+                        size="small"
+                        disabled={isSaving}
+                        sx={{
+                          flexGrow: 1,
+                          '& .MuiInputBase-root': { height: '100%', alignItems: 'flex-start' },
+                          '& .MuiInputBase-input': {
+                            fontSize: '0.875rem',
+                            height: '100% !important',
+                            overflow: 'auto !important',
+                          },
+                          '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+                        }}
+                      />
+                    )}
+                  />
+                </Box>
               </CardContent>
             </Card>
           </Grid>
