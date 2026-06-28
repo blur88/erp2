@@ -13,9 +13,6 @@
   "ignoreDependencies": [
     "conventional-changelog-angular"
   ],
-  "ignoreBinaries": [
-    "eslint",
-    "semantic-release"
-  ],
+  "ignoreBinaries": [],
   "ignoreExportsUsedInFile": true
 }
