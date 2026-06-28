@@ -63,6 +63,7 @@ describe('CategoryService', () => {
           useValue: {
             count: jest.fn().mockResolvedValue(0),
             find: jest.fn(),
+            createQueryBuilder: jest.fn(),
           },
         },
         {
@@ -103,40 +104,58 @@ describe('CategoryService', () => {
   });
 
   describe('getCategoryProducts', () => {
-    it('returns products for a valid category', async () => {
+    let qb: any;
+
+    beforeEach(() => {
+      // No clearMocks/resetMocks in jest config — fresh qb per test to avoid
+      // call-history bleed between specs.
+      qb = {
+        where: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn(),
+      };
+      productRepository.createQueryBuilder.mockReturnValue(qb);
+    });
+
+    it('queries products with case-insensitive name ordering', async () => {
       categoryRepository.findOne.mockResolvedValue({ id: 'cat-1', name: 'Hardware' } as any);
-      productRepository.find.mockResolvedValue([
-        { id: 'prod-1', name: 'Widget', stockQuantity: 5 },
-        { id: 'prod-2', name: 'Bolt', stockQuantity: 0 },
-      ] as any);
+      qb.getMany.mockResolvedValue([
+        { id: 'prod-1', name: 'apple', stockQuantity: 5 },
+        { id: 'prod-2', name: 'Banana', stockQuantity: 0 },
+        { id: 'prod-3', name: 'cherry', stockQuantity: 2 },
+      ]);
 
       const result = await service.getCategoryProducts('cat-1');
 
       expect(result).toEqual({
         data: [
-          { id: 'prod-1', name: 'Widget', stockQuantity: 5 },
-          { id: 'prod-2', name: 'Bolt', stockQuantity: 0 },
+          { id: 'prod-1', name: 'apple', stockQuantity: 5 },
+          { id: 'prod-2', name: 'Banana', stockQuantity: 0 },
+          { id: 'prod-3', name: 'cherry', stockQuantity: 2 },
         ],
       });
-      expect(productRepository.find).toHaveBeenCalledWith({
-        where: { categoryId: 'cat-1' },
-        select: { id: true, name: true, stockQuantity: true },
-      });
+      expect(productRepository.createQueryBuilder).toHaveBeenCalledWith('product');
+      expect(qb.where).toHaveBeenCalledWith('product.categoryId = :id', { id: 'cat-1' });
+      expect(qb.select).toHaveBeenCalledWith(['product.id', 'product.name', 'product.stockQuantity']);
+      expect(qb.orderBy).toHaveBeenCalledWith('UPPER(product.name)', 'ASC');
+      expect(qb.getMany).toHaveBeenCalled();
     });
 
     it('returns empty data array for a category with no products', async () => {
       categoryRepository.findOne.mockResolvedValue({ id: 'cat-2', name: 'Empty' } as any);
-      productRepository.find.mockResolvedValue([] as any);
+      qb.getMany.mockResolvedValue([]);
 
       const result = await service.getCategoryProducts('cat-2');
 
       expect(result).toEqual({ data: [] });
     });
 
-    it('throws NotFoundException for an unknown category ID', async () => {
+    it('throws NotFoundException for an unknown category ID without querying products', async () => {
       categoryRepository.findOne.mockResolvedValue(null);
 
       await expect(service.getCategoryProducts('no-such-id')).rejects.toThrow(NotFoundException);
+      expect(productRepository.createQueryBuilder).not.toHaveBeenCalled();
     });
   });
 
