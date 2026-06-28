@@ -129,32 +129,6 @@ describe('SupplierService', () => {
         meta: { total: 17, page: 2, limit: 10 },
       });
     });
-
-    it('findDeleted returns all deleted suppliers without skip/take pagination', async () => {
-      const qb = {
-        withDeleted: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          createSupplier('deleted-1', { deletedAt: new Date('2026-04-05T00:00:00.000Z') }),
-        ]),
-      };
-      supplierRepository.createQueryBuilder.mockReturnValue(qb as any);
-
-      const result = await service.findDeleted({});
-
-      expect(qb.skip).not.toHaveBeenCalled();
-      expect(qb.take).not.toHaveBeenCalled();
-      expect(result).toEqual({
-        data: [
-          expect.objectContaining({ id: 'deleted-1', companyName: 'Supplier deleted-1' }),
-        ],
-        meta: { total: 1 },
-      });
-    });
   });
 
   describe('searchGlobal', () => {

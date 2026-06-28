@@ -79,11 +79,6 @@ export const purchasingApiSlice = createApi({
       query: (id) => ({ url: `/purchasing/suppliers/${id}`, method: 'DELETE' }),
       invalidatesTags: ['Supplier', 'DeletedSupplier', 'PurchaseOrder', 'VendorPayment'],
     }),
-    getDeletedSuppliers: builder.query<PaginatedResponse<Supplier>, Record<string, unknown> | undefined>({
-      query: (params) => ({ url: '/purchasing/suppliers/deleted', params: params ?? {} }),
-      transformResponse: (response: any) => normalizeNamedCollection<Supplier>(response, 'data'),
-      providesTags: ['DeletedSupplier'],
-    }),
     getSupplierPurchaseOrders: builder.query<
       PaginatedResponse<PurchaseOrder>,
       { supplierId: string; page: number; limit: number }
@@ -183,11 +178,6 @@ export const purchasingApiSlice = createApi({
       query: (id) => ({ url: `/purchasing/orders/${id}`, method: 'DELETE' }),
       invalidatesTags: ['PurchaseOrder', 'DeletedPurchaseOrder', 'VendorPayment'],
     }),
-    getDeletedPurchaseOrders: builder.query<PaginatedResponse<PurchaseOrder>, Record<string, unknown> | undefined>({
-      query: (params) => ({ url: '/purchasing/orders/deleted', params: params ?? {} }),
-      transformResponse: (response: any) => normalizeNamedCollection<PurchaseOrder>(response, 'orders'),
-      providesTags: ['DeletedPurchaseOrder'],
-    }),
     restorePurchaseOrder: builder.mutation<PurchaseOrder, string>({
       query: (id) => ({ url: `/purchasing/orders/${id}/restore`, method: 'POST' }),
       transformResponse: normalizeSingle<PurchaseOrder>,
@@ -236,18 +226,6 @@ export const purchasingApiSlice = createApi({
       transformResponse: (response: any) => normalizeSingle<PurchaseOrder>(response?.data ?? response),
       invalidatesTags: ['PurchaseOrder', 'VendorPayment'],
     }),
-    recordOrderPayments: builder.mutation<
-      PurchaseOrder,
-      { purchaseOrderId: string; payments: { paymentMethodId: string; amount: number; reference?: string }[] }
-    >({
-      query: ({ purchaseOrderId, payments }) => ({
-        url: `/purchasing/orders/${purchaseOrderId}/record-payments`,
-        method: 'POST',
-        data: { payments },
-      }),
-      transformResponse: normalizeSingle<PurchaseOrder>,
-      invalidatesTags: ['PurchaseOrder', 'VendorPayment'],
-    }),
     duplicatePurchaseOrder: builder.mutation<PurchaseOrder, string>({
       query: (id) => ({ url: `/purchasing/orders/${id}/duplicate`, method: 'POST' }),
       transformResponse: normalizeSingle<PurchaseOrder>,
@@ -277,7 +255,6 @@ export const {
   useCreateSupplierMutation,
   useUpdateSupplierMutation,
   useDeleteSupplierMutation,
-  useGetDeletedSuppliersQuery,
   useGetSupplierPurchaseOrdersQuery,
   useGetSupplierPaymentsQuery,
   useRestoreSupplierMutation,
@@ -296,7 +273,6 @@ export const {
   useCancelPurchaseOrderMutation,
   useUncancelPurchaseOrderMutation,
   useDeletePurchaseOrderMutation,
-  useGetDeletedPurchaseOrdersQuery,
   useRestorePurchaseOrderMutation,
   usePermanentDeletePurchaseOrderMutation,
   useBulkRestorePurchaseOrdersMutation,
@@ -305,7 +281,6 @@ export const {
   useReturnGoodsMutation,
   useRecordVendorPaymentsMutation,
   useMarkPurchaseOrderAsUnpaidMutation,
-  useRecordOrderPaymentsMutation,
   useDuplicatePurchaseOrderMutation,
   useRecordPurchaseOrderRefundsMutation,
   useLazyGetVendorPaymentQuery,

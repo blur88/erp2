@@ -110,42 +110,9 @@ export class SupplierController {
     return await this.supplierService.checkDuplicateCompanyName(companyName, excludeId);
   }
 
-  @Get('search')
-  @ApiOperation({
-    summary: 'Search suppliers',
-    description: 'Quick search suppliers by name, code, or contact person with limited results.'
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Search results retrieved successfully',
-    type: [SupplierResponseDto],
-  })
-  @ApiQuery({ name: 'q', required: true, type: String, description: 'Search query' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Maximum results (default: 10)' })
-  async search(
-    @Query('q') query: string,
-    @Query('limit') limit?: number,
-  ): Promise<SupplierResponseDto[]> {
-    this.logger.log(`Searching suppliers with query: ${query}`);
-    return await this.supplierService.searchSuppliers(query, limit);
-  }
 
 
 
-  @Get('deleted')
-  @ApiOperation({
-    summary: 'Get deleted suppliers',
-    description: 'Retrieve all soft-deleted suppliers with pagination.'
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Deleted suppliers retrieved successfully',
-    type: SupplierListResponseDto,
-  })
-  async findDeleted(@Query() query: SupplierQueryDto): Promise<SupplierListResponseDto> {
-    this.logger.log('Getting deleted suppliers');
-    return await this.supplierService.findDeleted(query);
-  }
 
   @Get('slug/:slug')
   @ApiOperation({ summary: 'Get supplier by slug' })
@@ -218,52 +185,6 @@ export class SupplierController {
   }
 
 
-
-  @Post(':id/activate')
-  @ApiOperation({ 
-    summary: 'Activate supplier',
-    description: 'Activate a previously deactivated supplier to enable purchase order creation.'
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Supplier activated successfully',
-    type: SupplierResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Supplier not found' })
-  @ApiParam({ name: 'id', description: 'Supplier UUID' })
-  async activate(@Param('id', ParseUUIDPipe) id: string): Promise<SupplierResponseDto> {
-    this.logger.log(`Activating supplier: ${id}`);
-    return await this.supplierService.activate(id);
-  }
-
-  @Post(':id/suspend')
-  @ApiOperation({ 
-    summary: 'Suspend supplier',
-    description: 'Suspend supplier due to performance issues or compliance concerns.'
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Supplier suspended successfully',
-    type: SupplierResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Supplier not found' })
-  @ApiParam({ name: 'id', description: 'Supplier UUID' })
-  @ApiBody({ 
-    schema: { 
-      type: 'object', 
-      properties: { 
-        reason: { type: 'string', minLength: 5, maxLength: 500 } 
-      },
-      required: ['reason']
-    } 
-  })
-  async suspend(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body('reason') reason: string,
-  ): Promise<SupplierResponseDto> {
-    this.logger.log(`Suspending supplier: ${id}`);
-    return await this.supplierService.suspend(id, reason);
-  }
 
   @Get(':id/can-purchase')
   @ApiOperation({ 
