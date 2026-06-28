@@ -107,15 +107,7 @@ export class PaymentController {
     return this.paymentService.findAll(query);
   }
 
-  @Get('deleted')
-  @ApiOperation({ summary: 'Get all deleted payments' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of deleted payments retrieved successfully',
-  })
-  async getDeletedPayments(@Query() query: QueryPaymentsDto) {
-    return this.paymentService.findDeleted(query);
-  }
+
 
   @Get(':id')
   @ApiOperation({ summary: 'Get payment by ID' })
@@ -152,64 +144,11 @@ export class PaymentController {
     return this.paymentService.update(id, updatePaymentDto, currentUserId, currentUsername);
   }
 
-  @Put(':id/complete')
-  @ApiOperation({ summary: 'Mark payment as completed' })
-  @ApiParam({ name: 'id', description: 'Payment ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Payment completed successfully',
-    type: PaymentResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Payment not found' })
-  @ApiResponse({ status: 400, description: 'Payment cannot be completed' })
-  async completePayment(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<PaymentResponseDto> {
-    return this.paymentService.complete(id, currentUserId, currentUsername);
-  }
 
-  @Put(':id/fail')
-  @ApiOperation({ summary: 'Mark payment as failed' })
-  @ApiParam({ name: 'id', description: 'Payment ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Payment marked as failed successfully',
-    type: PaymentResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Payment not found' })
-  @ApiResponse({
-    status: 400,
-    description: 'Payment cannot be marked as failed',
-  })
-  async failPayment(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body('reason') reason?: string,
-    @CurrentUser('userId') currentUserId?: string,
-    @CurrentUser('username') currentUsername?: string,
-  ): Promise<PaymentResponseDto> {
-    return this.paymentService.fail(id, reason, currentUserId, currentUsername);
-  }
 
-  @Put(':id/cancel')
-  @ApiOperation({ summary: 'Cancel payment' })
-  @ApiParam({ name: 'id', description: 'Payment ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Payment cancelled successfully',
-    type: PaymentResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Payment not found' })
-  @ApiResponse({ status: 400, description: 'Payment cannot be cancelled' })
-  async cancelPayment(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body('reason') reason?: string,
-    @CurrentUser('userId') currentUserId?: string,
-    @CurrentUser('username') currentUsername?: string,
-  ): Promise<PaymentResponseDto> {
-    return this.paymentService.cancel(id, reason, currentUserId, currentUsername);
-  }
+
+
+
 
   @Post('refund')
   @ApiOperation({ summary: 'Process a payment refund' })
@@ -321,17 +260,4 @@ export class PaymentController {
     return this.paymentService.restore(id, currentUserId, currentUsername);
   }
 
-  @Post('bulk-restore')
-  @ApiOperation({ summary: 'Restore multiple deleted payments' })
-  @ApiResponse({
-    status: 200,
-    description: 'Payments restored successfully',
-  })
-  async bulkRestorePayments(
-    @Body('paymentIds') paymentIds: string[],
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ) {
-    return this.paymentService.bulkRestore(paymentIds, currentUserId, currentUsername);
-  }
 }

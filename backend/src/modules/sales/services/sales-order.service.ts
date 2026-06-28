@@ -577,10 +577,6 @@ export class SalesOrderService extends BaseCrudService<
     };
   }
 
-  async findOrdersByCustomer(customerId: string, limit: number = 10) {
-    return this.salesOrderQueryService.findOrdersByCustomer(customerId, limit);
-  }
-
   // Helper methods
 
   private async triggerMetricUpdate(customerId: string, context: string): Promise<void> {

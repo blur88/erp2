@@ -773,68 +773,6 @@ export class CustomerService extends BaseCrudService<
   }
 
   /**
-   * Recalculate all customer totals from actual sales order data
-   * This method fixes discrepancies in customer financial metrics
-   */
-  async recalculateAllCustomerTotals(): Promise<{
-    updated: number;
-    message: string;
-  }> {
-    console.log('🔄 Starting recalculation of all customer totals...');
-
-    // Get all customers (including inactive — inactive customers may still have fulfilled orders)
-    const customers = await this.customerRepository.find();
-
-    let updatedCount = 0;
-
-    for (const customer of customers) {
-      // Calculate actual totals from sales orders
-      const orderStats = await this.salesOrderRepository
-        .createQueryBuilder('order')
-        .where('order.customerId = :customerId', { customerId: customer.id })
-        .andWhere('order.deletedAt IS NULL')
-        .andWhere('order.isFulfilled = :isFulfilled', { isFulfilled: true })
-        .select([
-          'COUNT(*) as totalorders',
-          'COALESCE(SUM(order.totalAmount), 0) as totalsales',
-          'MIN(order.orderDate) as firstorderdate',
-          'MAX(order.orderDate) as lastorderdate',
-        ])
-        .getRawOne();
-
-      const actualTotalOrders = parseInt(orderStats.totalorders) || 0;
-      const actualTotalSales = parseFloat(orderStats.totalsales) || 0;
-      const firstOrderDate = orderStats.firstorderdate;
-      const lastOrderDate = orderStats.lastorderdate;
-
-      // Check if there's a discrepancy
-      const hasDiscrepancy =
-        customer.totalOrders !== actualTotalOrders ||
-        Number(customer.totalSales) !== actualTotalSales;
-
-      if (hasDiscrepancy) {
-        console.log(`📊 Updating customer ${customer.name}:`);
-        console.log(`   Before: ${customer.totalOrders} orders, $${customer.totalSales} sales`);
-        console.log(`   After:  ${actualTotalOrders} orders, $${actualTotalSales} sales`);
-
-        // Update customer metrics
-        customer.totalOrders = actualTotalOrders;
-        customer.totalSales = actualTotalSales;
-        customer.firstPurchaseDate = firstOrderDate;
-        customer.lastPurchaseDate = lastOrderDate;
-
-        await this.customerRepository.save(customer);
-        updatedCount++;
-      }
-    }
-
-    const message = `Recalculation complete. Updated ${updatedCount} customers out of ${customers.length}.`;
-    console.log(`✅ ${message}`);
-
-    return { updated: updatedCount, message };
-  }
-
-  /**
    * Update customer metrics for a specific customer based on their sales orders
    */
   async updateCustomerMetrics(customerId: string): Promise<void> {

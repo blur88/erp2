@@ -77,16 +77,6 @@ export class SalesOrderController {
     return this.salesOrderService.findAll(query);
   }
 
-  @Get('customer/:customerId')
-  @ApiOperation({ summary: 'Get sales orders for a customer' })
-  @ApiParam({ name: 'customerId', type: 'string' })
-  async getOrdersByCustomer(
-    @Param('customerId', ParseUUIDPipe) customerId: string,
-    @Query('limit') limit?: number,
-  ) {
-    return this.salesOrderService.findOrdersByCustomer(customerId, limit);
-  }
-
   @Get('number/:orderNumber')
   @ApiOperation({ summary: 'Get sales order by order number' })
   async getSalesOrderByNumber(@Param('orderNumber') orderNumber: string): Promise<SalesOrderResponseDto> {
