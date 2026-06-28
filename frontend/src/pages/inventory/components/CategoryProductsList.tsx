@@ -22,13 +22,13 @@ const CategoryProductsList: React.FC<CategoryProductsListProps> = ({ categoryId 
     { header: 'Name', width: '55%', render: (p) => bold(p.name) },
     {
       header: 'Qty',
-      width: '15%',
+      width: '20%',
       align: 'right',
       render: (p) => formatWholeQuantity(p.stockQuantity ?? 0),
     },
     {
       header: 'Status',
-      width: '30%',
+      width: '25%',
       render: (p) => {
         const status = getStockStatus(p.stockQuantity ?? 0, lowStockThreshold)
         return (
