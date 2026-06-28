@@ -236,10 +236,12 @@ export class CategoryService extends BaseCrudService<
       throw new NotFoundException(`Category with id ${id} not found`);
     }
 
-    const products = await this.productRepository.find({
-      where: { categoryId: id },
-      select: { id: true, name: true, stockQuantity: true },
-    });
+    const products = await this.productRepository
+      .createQueryBuilder('product')
+      .where('product.categoryId = :id', { id })
+      .select(['product.id', 'product.name', 'product.stockQuantity'])
+      .orderBy('UPPER(product.name)', 'ASC')
+      .getMany();
 
     return { data: products as CategoryProductDto[] };
   }
