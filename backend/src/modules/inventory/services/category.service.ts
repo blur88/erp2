@@ -10,7 +10,6 @@ import {
   Repository,
   // TreeRepository, // Temporarily disabled due to tree structure issues
   SelectQueryBuilder,
-  In,
   FindOptionsWhere,
 } from 'typeorm';
 import { applyPagination } from '@/common/pagination/apply-pagination';
@@ -25,7 +24,6 @@ import {
   CategoryListResponseDto,
   CategoryTreeResponseDto,
   MoveCategoryDto,
-  BulkUpdateCategoriesDto,
   CategoryStatsDto,
   CategoryAncestorsDto,
   CategoryProductDto,
@@ -549,52 +547,7 @@ export class CategoryService extends BaseCrudService<
     return this.toResponseDto(movedCategory, false, false, fp);
   }
 
-  /**
-   * Bulk update categories
-   */
-  async bulkUpdate(bulkUpdateDto: BulkUpdateCategoriesDto, userId?: string): Promise<void> {
-    this.logger.log(`Bulk updating ${bulkUpdateDto.categories.length} categories`);
 
-    const categoryIds = bulkUpdateDto.categories.map(c => c.id);
-    const categories = await this.categoryRepository.findBy({ id: In(categoryIds) });
-
-    if (categories.length !== categoryIds.length) {
-      const foundIds = categories.map(c => c.id);
-      const missingIds = categoryIds.filter(id => !foundIds.includes(id));
-      throw new NotFoundException(`Categories not found: ${missingIds.join(', ')}`);
-    }
-
-    const updates = bulkUpdateDto.categories.map(async (categoryUpdate) => {
-      const category = categories.find(c => c.id === categoryUpdate.id)!;
-      
-      // Validate name conflicts if name is changing
-      if (categoryUpdate.name && categoryUpdate.name !== category.name) {
-        await this.validateCategoryName(categoryUpdate.name, category.parentId, category.id);
-      }
-
-
-      // Track changes
-      const changes: Record<string, { from: any; to: any }> = {};
-      ['name', 'parentId'].forEach(field => {
-        if (categoryUpdate[field] !== undefined && categoryUpdate[field] !== category[field]) {
-          changes[field] = { from: category[field], to: categoryUpdate[field] };
-        }
-      });
-
-      // Apply updates
-      Object.assign(category, categoryUpdate);
-      
-      const updatedCategory = await this.categoryRepository.save(category);
-
-      // Audit logging removed with authentication system
-
-      return updatedCategory;
-    });
-
-    await Promise.all(updates);
-
-    this.logger.log(`Bulk update completed for ${updates.length} categories`);
-  }
 
   /**
    * Get category statistics

@@ -2,12 +2,10 @@ import {
   IsString,
   IsOptional,
   IsUUID,
-  IsArray,
   IsBoolean,
   MaxLength,
-  ValidateNested,
 } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { BaseQueryDto } from '../../../common/dto/base-query.dto';
 
@@ -142,31 +140,6 @@ export class MoveCategoryDto {
   @IsOptional()
   @IsUUID(4)
   newParentId?: string;
-}
-
-export class BulkUpdateCategoriesDto {
-  @ApiProperty({ description: 'List of category updates', type: 'array' })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CategoryBulkUpdateDto)
-  categories: CategoryBulkUpdateDto[];
-}
-
-export class CategoryBulkUpdateDto {
-  @ApiProperty({ description: 'Category ID' })
-  @IsUUID(4)
-  id: string;
-
-  @ApiPropertyOptional({ description: 'New category name' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  name?: string;
-
-  @ApiPropertyOptional({ description: 'New parent ID' })
-  @IsOptional()
-  @IsUUID(4)
-  parentId?: string;
 }
 
 export class CategoryStatsDto {

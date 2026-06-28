@@ -7,8 +7,6 @@ import {
   Param,
   Query,
   ParseUUIDPipe,
-  HttpStatus,
-  HttpCode,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -28,7 +26,6 @@ import {
   CategoryListResponseDto,
   CategoryTreeResponseDto,
   MoveCategoryDto,
-  BulkUpdateCategoriesDto,
   CategoryStatsDto,
   CategoryAncestorsDto,
   CategoryProductDto,
@@ -282,21 +279,6 @@ export class CategoryController {
     return this.categoryService.moveCategory(id, moveCategoryDto);
   }
 
-  @Post('bulk-update')
-  @ApiOperation({ summary: 'Bulk update categories' })
-  @ApiResponse({
-    status: 200,
-    description: 'Categories updated successfully',
-  })
-  @ApiResponse({ status: 400, description: 'Invalid update data' })
-  @ApiResponse({ status: 404, description: 'One or more categories not found' })
-  @ApiBody({ type: BulkUpdateCategoriesDto })
-  @HttpCode(HttpStatus.OK)
-  async bulkUpdate(
-    @Body() bulkUpdateDto: BulkUpdateCategoriesDto,
-  ): Promise<{ message: string }> {
-    await this.categoryService.bulkUpdate(bulkUpdateDto);
-    return { message: `Successfully updated ${bulkUpdateDto.categories.length} categories` };
-  }
+
 
 }
