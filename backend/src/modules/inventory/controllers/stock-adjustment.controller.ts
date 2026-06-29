@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -146,22 +147,19 @@ export class StockAdjustmentController {
   ): Promise<StockAdjustmentResponseDto> {
     return this.stockAdjustmentService.complete(id);
   }
-
-
-  @Post(':id/uncomplete')
-  @ApiOperation({ summary: 'Revert a completed stock adjustment back to draft (reverses stock movements)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Stock adjustment reverted to draft successfully',
-    type: StockAdjustmentResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Only completed adjustments can be reverted' })
+  @Patch(':id/notes')
+  @ApiOperation({ summary: 'Update only the notes of a stock adjustment (any status)' })
+  @ApiResponse({ status: 200, description: 'Notes updated successfully', type: StockAdjustmentResponseDto })
   @ApiResponse({ status: 404, description: 'Stock adjustment not found' })
   @ApiParam({ name: 'id', description: 'Stock adjustment ID' })
-  async uncomplete(
+  @ApiBody({ schema: { type: 'object', properties: { notes: { type: 'string' } } } })
+  async updateNotes(
     @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { notes?: string },
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
   ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.uncomplete(id);
+    return this.stockAdjustmentService.updateNotes(id, body.notes, currentUserId, currentUsername);
   }
 
   @Delete(':id')

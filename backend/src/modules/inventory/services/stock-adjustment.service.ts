@@ -438,6 +438,34 @@ export class StockAdjustmentService extends BaseCrudService<
   }
 
   /**
+   * Update ONLY the notes field, regardless of status.
+   * Does not touch items, quantities, stock movements, totals, or the journal entry.
+   */
+  async updateNotes(
+    id: string,
+    notes: string | undefined,
+    userId?: string,
+    username?: string,
+  ): Promise<StockAdjustmentResponseDto> {
+    const adjustment = await this.stockAdjustmentRepository.findOne({ where: { id } });
+    if (!adjustment) {
+      throw new NotFoundException(`Stock adjustment with ID '${id}' not found`);
+    }
+
+    adjustment.notes = notes;
+    await this.stockAdjustmentRepository.save(adjustment);
+
+    await this.auditLogService.log(
+      'UPDATE',
+      'StockAdjustment',
+      `Updated notes for stock adjustment: ${adjustment.adjustmentNumber}`,
+      { entityId: id, userId: userId || 'system', username },
+    );
+
+    return this.findOne(id);
+  }
+
+  /**
    * Complete a stock adjustment (post to stock movements)
    */
   async complete(id: string, userId?: string, username?: string): Promise<StockAdjustmentResponseDto> {
@@ -533,79 +561,6 @@ export class StockAdjustmentService extends BaseCrudService<
 
     return this.findOne(id);
   }
-
-
-  /**
-   * Uncomplete/revert a completed stock adjustment back to draft
-   * This reverses the stock movements that were posted
-   */
-  async uncomplete(id: string): Promise<StockAdjustmentResponseDto> {
-    const adjustment = await this.stockAdjustmentRepository.findOne({
-      where: { id },
-      relations: { items: { product: true } },
-    });
-
-    if (!adjustment) {
-      throw new NotFoundException(`Stock adjustment with ID '${id}' not found`);
-    }
-
-    if (adjustment.status !== StockAdjustmentStatus.COMPLETED) {
-      throw new BadRequestException('Only completed adjustments can be reverted to draft');
-    }
-
-    if (!adjustment.items || adjustment.items.length === 0) {
-      throw new BadRequestException('Cannot revert adjustment with no items');
-    }
-
-    // Use transaction to ensure atomicity
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      // Create reverse stock movements for each item
-      for (const item of adjustment.items) {
-        if (item.difference === 0) continue;
-
-        // Reverse the movement type
-        const movementType = item.difference > 0
-          ? StockMovementType.ADJUSTMENT_DECREASE
-          : StockMovementType.ADJUSTMENT_INCREASE;
-
-        // Reverse the quantity (negative becomes positive, positive becomes negative)
-        const reverseQuantity = -item.difference;
-
-        await this.stockMovementService.create(
-          {
-            productId: item.productId,
-            movementType,
-            quantity: reverseQuantity,
-            unitValue: item.unitCost,
-            referenceType: 'stock_adjustment',
-            referenceId: adjustment.id,
-            reason: `Revert Stock Adjustment ${adjustment.adjustmentNumber}`,
-            notes: `Reverting adjustment back to draft: ${item.notes || adjustment.notes || ''}`,
-          },
-        );
-      }
-
-      // Update adjustment status back to draft
-      adjustment.status = StockAdjustmentStatus.DRAFT;
-      await queryRunner.manager.save(adjustment);
-
-      await queryRunner.commitTransaction();
-      this.logger.log(`Stock adjustment ${adjustment.adjustmentNumber} reverted to draft successfully`);
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      this.logger.error(`Failed to revert stock adjustment: ${error.message}`, error.stack);
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
-
-    return this.findOne(id);
-  }
-
   /**
    * Delete a stock adjustment (soft delete, only drafts)
    */

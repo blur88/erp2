@@ -353,6 +353,21 @@ describe('StockAdjustmentService', () => {
       expect(result.items[0].stockAfter).toBeNull();
     });
   });
+
+  describe('updateNotes', () => {
+    it('updates notes on a completed adjustment without changing status/items', async () => {
+      const adjustment: any = { id: 'a1', adjustmentNumber: 'SA-1', status: 'completed', notes: 'old', items: [] };
+      jest.spyOn(stockAdjustmentRepository, 'findOne').mockResolvedValue(adjustment);
+      jest.spyOn(stockAdjustmentRepository, 'save').mockImplementation(async (a: any) => a);
+      const findOneSpy = jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'a1', notes: 'new', status: 'completed' } as any);
+
+      const result = await service.updateNotes('a1', 'new');
+      expect(adjustment.notes).toBe('new');
+      expect(adjustment.status).toBe('completed');
+      expect(result.notes).toBe('new');
+      findOneSpy.mockRestore();
+    });
+  });
 });
 
 describe('StockAdjustmentItemDto', () => {
