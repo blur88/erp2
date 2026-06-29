@@ -122,21 +122,20 @@ export default function StockAdjustmentsPage() {
             rows={pageRows}
             total={total}
             loading={isFetching}
-            paginationSlot={null}
+            paginationSlot={(
+              <PagePagination
+                total={total}
+                page={page}
+                limit={limit}
+                onPageChange={setPage}
+                onLimitChange={handleLimitChange}
+                pageSizeOptions={PAGINATION.options}
+              />
+            )}
             onComplete={(a) => setCompleteTarget(a.id)}
             onRevert={(a) => setRevertTarget(a.id)}
           />
         </Box>
-      )}
-      paginationSlot={(
-        <PagePagination
-          total={total}
-          page={page}
-          limit={limit}
-          onPageChange={setPage}
-          onLimitChange={handleLimitChange}
-          pageSizeOptions={PAGINATION.options}
-        />
       )}
       dialogs={(
         <StockAdjustmentsDialogs
