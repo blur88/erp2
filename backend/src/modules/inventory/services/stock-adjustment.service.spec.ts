@@ -288,6 +288,26 @@ describe('StockAdjustmentService', () => {
       await expect(service.create(dto)).rejects.toThrow('Duplicate product');
     });
   });
+
+  describe('findAll filters', () => {
+    it('joins product and adds product.name to search + category filter', async () => {
+      const calls: { sql: string; params?: any }[] = [];
+      const qb: any = {
+        leftJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn((sql: string, params?: any) => { calls.push({ sql, params }); return qb; }),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        distinct: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      };
+      jest.spyOn(stockAdjustmentRepository, 'createQueryBuilder').mockReturnValue(qb);
+      await service.findAll({ search: 'widget', categoryId: 'cat-1' } as any);
+      const joinedSql = calls.map(c => c.sql).join(' | ');
+      expect(joinedSql).toContain('product.name');
+      expect(joinedSql).toContain('product.categoryId');
+    });
+  });
 });
 
 describe('StockAdjustmentItemDto', () => {

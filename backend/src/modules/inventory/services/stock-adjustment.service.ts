@@ -215,12 +215,15 @@ export class StockAdjustmentService extends BaseCrudService<
       fromDate,
       toDate,
       search,
+      categoryId,
       sortBy = 'adjustmentNumber',
       sortOrder = 'ASC',
     } = query;
 
     const queryBuilder = this.stockAdjustmentRepository
       .createQueryBuilder('adjustment')
+      .leftJoin('adjustment.items', 'item')
+      .leftJoin('item.product', 'product')
       .where('adjustment.deletedAt IS NULL');
 
     // Apply filters
@@ -241,9 +244,13 @@ export class StockAdjustmentService extends BaseCrudService<
 
     if (search) {
       queryBuilder.andWhere(
-        '(adjustment.adjustmentNumber ILIKE :search OR adjustment.notes ILIKE :search)',
+        '(adjustment.adjustmentNumber ILIKE :search OR adjustment.notes ILIKE :search OR product.name ILIKE :search)',
         { search: `%${search}%` },
       );
+    }
+
+    if (categoryId) {
+      queryBuilder.andWhere('product.categoryId = :categoryId', { categoryId });
     }
 
     // Apply sorting
@@ -252,6 +259,9 @@ export class StockAdjustmentService extends BaseCrudService<
     const normalizedSortOrder = sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
     queryBuilder.orderBy(`adjustment.${sortField}`, normalizedSortOrder);
     queryBuilder.addOrderBy('adjustment.createdAt', normalizedSortOrder);
+
+    // DISTINCT on adjustment id to avoid join fan-out duplicates
+    queryBuilder.distinct(true);
 
     const [adjustments, total] = await queryBuilder.getManyAndCount();
 
