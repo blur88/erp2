@@ -51,6 +51,7 @@ export default function StockAdjustmentList({ rows, total, loading, paginationSl
       total={total}
       label="Stock Adjustments"
       headers={['Adjustment Number', 'Date', 'Status', 'Item Count', 'Total Value', 'Actions']}
+      showHeader={false}
       focusedIndex={-1}
       listRef={{ current: null }}
       onSelect={(a) => navigate(`/inventory/stock-adjustments/${a.id}/view`)}
