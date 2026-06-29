@@ -472,13 +472,6 @@ export class ProductService extends BaseCrudService<
   }
 
   /**
-   * Find one product by SKU (alias for barcode)
-   */
-  async findBySku(sku: string): Promise<ProductResponseDto> {
-    return this.findByBarcode(sku);
-  }
-
-  /**
    * Find one product by barcode
    */
   async findByBarcode(barcode: string): Promise<ProductResponseDto> {
@@ -1309,22 +1302,6 @@ export class ProductService extends BaseCrudService<
     }
 
     return false;
-  }
-
-  /**
-   * Release reserved stock for a product
-   */
-  async releaseReservedStock(productId: string, quantity: number): Promise<void> {
-    const product = await this.productRepository.findOne({
-      where: { id: productId },
-    });
-
-    if (!product) {
-      throw new NotFoundException(`Product with ID '${productId}' not found`);
-    }
-
-    product.stockQuantity = Number(product.stockQuantity) + quantity;
-    await this.productRepository.save(product);
   }
 
   /**

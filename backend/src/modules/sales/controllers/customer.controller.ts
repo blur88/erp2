@@ -243,16 +243,6 @@ export class CustomerController {
     return this.customerService.getCustomerStatistics(id);
   }
 
-  @Post('recalculate-totals')
-  @ApiOperation({ summary: 'Recalculate all customer totals from sales data' })
-  @ApiResponse({
-    status: 200,
-    description: 'Customer totals recalculated successfully',
-  })
-  async recalculateCustomerTotals() {
-    return this.customerService.recalculateAllCustomerTotals();
-  }
-
   @Post(':id/update-metrics')
   @ApiOperation({ summary: 'Update specific customer metrics' })
   @ApiParam({ name: 'id', description: 'Customer ID', type: 'string' })

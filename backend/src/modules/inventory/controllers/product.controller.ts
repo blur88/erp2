@@ -100,22 +100,6 @@ export class ProductController {
     return this.productService.findAll(query);
   }
 
-  @Get('stock-summary')
-  @ApiOperation({ summary: 'Get stock summary for all products' })
-  @ApiResponse({
-    status: 200,
-    description: 'Stock summary retrieved successfully',
-    type: [ProductStockSummaryDto],
-  })
-  @ApiQuery({ name: 'categoryId', required: false, description: 'Filter by category' })
-  @ApiQuery({ name: 'lowStock', required: false, description: 'Filter low stock items only' })
-  @ApiQuery({ name: 'outOfStock', required: false, description: 'Filter out of stock items only' })
-  async getStockSummary(
-    @Query() filters: Partial<QueryProductsDto>,
-  ): Promise<ProductStockSummaryDto[]> {
-    return this.productService.getStockSummary(filters);
-  }
-
   @Get('low-stock')
   @ApiOperation({ summary: 'Get products with low stock levels' })
   @ApiResponse({
@@ -136,19 +120,6 @@ export class ProductController {
   })
   async getOutOfStockProducts(): Promise<ProductStockSummaryDto[]> {
     return this.productService.getOutOfStockProducts();
-  }
-
-  @Get('sku/:sku')
-  @ApiOperation({ summary: 'Get a product by SKU' })
-  @ApiResponse({
-    status: 200,
-    description: 'Product retrieved successfully',
-    type: ProductResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  @ApiParam({ name: 'sku', description: 'Product SKU' })
-  async findBySku(@Param('sku') sku: string): Promise<ProductResponseDto> {
-    return this.productService.findBySku(sku);
   }
 
   @Get('check-duplicate')
@@ -290,28 +261,6 @@ export class ProductController {
     return this.productService.findOne(id);
   }
 
-  @Get(':id/pricing-analysis')
-  @ApiOperation({ summary: 'Get pricing analysis for a product' })
-  @ApiResponse({
-    status: 200,
-    description: 'Pricing analysis retrieved successfully',
-  })
-  @ApiParam({ name: 'id', description: 'Product ID' })
-  async getPricingAnalysis(@Param('id', ParseUUIDPipe) id: string) {
-    return this.pricingService.analyzeMargins(id);
-  }
-
-  @Get(':id/dynamic-pricing')
-  @ApiOperation({ summary: 'Get dynamic pricing recommendations for a product' })
-  @ApiResponse({
-    status: 200,
-    description: 'Dynamic pricing recommendations retrieved successfully',
-  })
-  @ApiParam({ name: 'id', description: 'Product ID' })
-  async getDynamicPricing(@Param('id', ParseUUIDPipe) id: string) {
-    return this.pricingService.applyDynamicPricing(id);
-  }
-
   @Get(':id/order-history')
   @ApiOperation({ summary: 'Get order history for a product (sales and purchase orders)' })
   @ApiResponse({
@@ -370,80 +319,6 @@ export class ProductController {
   ): Promise<{ message: string }> {
     await this.productService.bulkUpdatePrices(bulkUpdateDto);
     return { message: `Successfully updated prices for ${bulkUpdateDto.products.length} products` };
-  }
-
-  @Post(':id/reserve-stock')
-  @ApiOperation({ summary: 'Reserve stock for a product' })
-  @ApiResponse({
-    status: 200,
-    description: 'Stock reserved successfully',
-  })
-  @ApiResponse({ status: 400, description: 'Insufficient stock available' })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  @ApiParam({ name: 'id', description: 'Product ID' })
-  @HttpCode(HttpStatus.OK)
-  async reserveStock(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { quantity: number },
-  ): Promise<{ success: boolean; message: string }> {
-    const success = await this.productService.reserveStock(
-      id,
-      body.quantity,
-    );
-
-    return {
-      success,
-      message: success
-        ? `Successfully reserved ${body.quantity} units`
-        : 'Insufficient stock available for reservation',
-    };
-  }
-
-  @Post(':id/release-reserved-stock')
-  @ApiOperation({ summary: 'Release reserved stock for a product' })
-  @ApiResponse({
-    status: 200,
-    description: 'Reserved stock released successfully',
-  })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  @ApiParam({ name: 'id', description: 'Product ID' })
-  @HttpCode(HttpStatus.OK)
-  async releaseReservedStock(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { quantity: number },
-  ): Promise<{ message: string }> {
-    await this.productService.releaseReservedStock(
-      id,
-      body.quantity,
-    );
-
-    return { message: `Successfully released ${body.quantity} reserved units` };
-  }
-
-  @Post('calculate-price')
-  @ApiOperation({ summary: 'Calculate price for a product with discounts' })
-  @ApiResponse({
-    status: 200,
-    description: 'Price calculated successfully',
-  })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  @HttpCode(HttpStatus.OK)
-  async calculatePrice(
-    @Body() body: {
-      productId: string;
-      customerId?: string;
-      quantity?: number;
-      customerType?: 'retail' | 'wholesale' | 'special';
-      promotionCode?: string;
-    },
-  ) {
-    return this.pricingService.calculatePrice(body.productId, {
-      customerId: body.customerId,
-      customerType: body.customerType,
-      quantity: body.quantity,
-      promotionCode: body.promotionCode,
-      includeDiscounts: true,
-    });
   }
 
   @Post('bulk-restore')

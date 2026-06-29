@@ -493,24 +493,6 @@ export class SupplierService extends BaseCrudService<
   }
 
   /**
-   * Search suppliers by name or code
-   */
-  async searchSuppliers(query: string, limit: number = 10): Promise<SupplierResponseDto[]> {
-    this.logger.log(`Searching suppliers with query: ${query}`);
-
-    const suppliers = await this.supplierRepository.find({
-      where: [
-        { companyName: Like(`%${query}%`) },
-        { contactPerson: Like(`%${query}%`) },
-      ],
-      take: limit,
-      order: { companyName: 'ASC' },
-    });
-
-    return suppliers.map(supplier => this.mapToResponseDto(supplier));
-  }
-
-  /**
    * Get suppliers by type
    */
   async findByType(type: SupplierType): Promise<SupplierResponseDto[]> {
@@ -536,106 +518,6 @@ export class SupplierService extends BaseCrudService<
   //   return suppliers.map(supplier => this.mapToResponseDto(supplier));
   // }
 
-
-  /**
-   * Activate supplier
-   */
-  async activate(supplierId: string): Promise<SupplierResponseDto> {
-    this.logger.log(`Activating supplier: ${supplierId}`);
-
-    const supplier = await this.supplierRepository.findOne({ 
-      where: { id: supplierId } 
-    });
-
-    if (!supplier) {
-      throw new NotFoundException(`Supplier with ID ${supplierId} not found`);
-    }
-
-    try {
-      supplier.isActive = true;
-      const updatedSupplier = await this.supplierRepository.save(supplier);
-
-      this.logger.log(`Supplier activated successfully: ${supplierId}`);
-      return this.mapToResponseDto(updatedSupplier);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error activating supplier: ${errorMessage}`, errorStack);
-      throw new BadRequestException('Failed to activate supplier');
-    }
-  }
-
-  /**
-   * Suspend supplier
-   */
-  async suspend(supplierId: string, reason: string): Promise<SupplierResponseDto> {
-    this.logger.log(`Suspending supplier: ${supplierId}`);
-
-    const supplier = await this.supplierRepository.findOne({ 
-      where: { id: supplierId } 
-    });
-
-    if (!supplier) {
-      throw new NotFoundException(`Supplier with ID ${supplierId} not found`);
-    }
-
-    try {
-      supplier.notes = (supplier.notes || '') + `\nSuspended: ${reason}`;
-      const updatedSupplier = await this.supplierRepository.save(supplier);
-
-      this.logger.log(`Supplier suspended successfully: ${supplierId}`);
-      return this.mapToResponseDto(updatedSupplier);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Error suspending supplier: ${errorMessage}`, errorStack);
-      throw new BadRequestException('Failed to suspend supplier');
-    }
-  }
-
-  /**
-   * Get all soft-deleted suppliers
-   */
-  async findDeleted(query: SupplierQueryDto): Promise<SupplierListResponseDto> {
-    this.logger.log('Finding deleted suppliers');
-
-    const {
-      search,
-      type,
-      sortBy = 'companyName',
-      sortOrder = 'ASC',
-    } = query;
-
-    const queryBuilder = this.supplierRepository
-      .createQueryBuilder('supplier')
-      .withDeleted()
-      .where('supplier.deletedAt IS NOT NULL');
-
-    // Apply filters
-    if (search) {
-      queryBuilder.andWhere(
-        '(supplier.companyName ILIKE :search OR supplier.contactPerson ILIKE :search)',
-        { search: `%${search}%` }
-      );
-    }
-
-    if (type) {
-      queryBuilder.andWhere('supplier.type = :type', { type });
-    }
-
-    const validSortFields = ['companyName', 'type', 'createdAt', 'deletedAt'];
-    const sortField = validSortFields.includes(sortBy) ? sortBy : 'companyName';
-    queryBuilder.orderBy(`supplier.${sortField}`, sortOrder as 'ASC' | 'DESC');
-
-    const suppliers = await queryBuilder.getMany();
-
-    const supplierDtos = suppliers.map(supplier => this.mapToResponseDto(supplier));
-
-    return {
-      data: supplierDtos,
-      meta: { total: suppliers.length },
-    };
-  }
 
   /**
    * Restore a soft-deleted supplier

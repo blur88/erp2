@@ -273,22 +273,4 @@ export class SalesOrderQueryService {
     return mapSalesOrderToResponseDto(order, payments);
   }
 
-  async findOrdersByCustomer(customerId: string, limit: number = 10) {
-    const orders = await this.salesOrderRepository.find({
-      where: { customerId },
-      relations: { items: true },
-      order: { orderDate: 'DESC' },
-      take: limit,
-    });
-
-    return orders.map((order) => ({
-      id: order.id,
-      orderNumber: order.orderNumber,
-      orderDate: order.orderDate,
-      totalAmount: Number(order.totalAmount),
-      status: order.status,
-      paymentStatus: order.paymentStatus,
-      itemsCount: order.items?.length || 0,
-    }));
-  }
 }

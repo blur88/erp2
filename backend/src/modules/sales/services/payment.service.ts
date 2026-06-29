@@ -386,109 +386,6 @@ export class PaymentService extends BaseCrudService<
     return payments.reduce((sum, p) => sum + Number(p.amount), 0);
   }
 
-  async complete(id: string, userId?: string, username?: string): Promise<PaymentResponseDto> {
-    const payment = await this.findPaymentWithRelations(id);
-
-    if (payment.status === PaymentStatus.COMPLETED) {
-      throw new ConflictException('Payment is already completed');
-    }
-
-    payment.status = PaymentStatus.COMPLETED;
-    const savedPayment = await this.paymentRepository.save(payment);
-
-    // Handle payment completion logic
-    await this.handlePaymentCompletion(savedPayment);
-
-    // Log audit trail
-    await this.auditLogService.log(
-      'UPDATE',
-      'Payment',
-      `Completed payment ${payment.paymentNumber}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        newValues: { status: PaymentStatus.COMPLETED },
-      },
-    );
-
-    return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
-  }
-
-  async fail(
-    id: string,
-    reason?: string,
-    userId?: string,
-    username?: string,
-  ): Promise<PaymentResponseDto> {
-    const payment = await this.findPaymentWithRelations(id);
-
-    if (payment.status === PaymentStatus.COMPLETED) {
-      throw new BadRequestException('Cannot mark a completed payment as failed');
-    }
-
-    payment.status = PaymentStatus.FAILED;
-    if (reason) {
-      payment.notes = payment.notes
-        ? `${payment.notes}\nFailed reason: ${reason}`
-        : `Failed reason: ${reason}`;
-    }
-
-    const savedPayment = await this.paymentRepository.save(payment);
-
-    // Log audit trail
-    await this.auditLogService.log(
-      'UPDATE',
-      'Payment',
-      `Marked payment ${payment.paymentNumber} as failed`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        newValues: { status: PaymentStatus.FAILED, reason },
-      },
-    );
-
-    return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
-  }
-
-  async cancel(
-    id: string,
-    reason?: string,
-    userId?: string,
-    username?: string,
-  ): Promise<PaymentResponseDto> {
-    const payment = await this.findPaymentWithRelations(id);
-
-    if (payment.status === PaymentStatus.COMPLETED) {
-      throw new BadRequestException('Cannot cancel a completed payment. Use refund instead.');
-    }
-
-    payment.status = PaymentStatus.CANCELLED;
-    if (reason) {
-      payment.notes = payment.notes
-        ? `${payment.notes}\nCancelled reason: ${reason}`
-        : `Cancelled reason: ${reason}`;
-    }
-
-    const savedPayment = await this.paymentRepository.save(payment);
-
-    // Log audit trail
-    await this.auditLogService.log(
-      'UPDATE',
-      'Payment',
-      `Cancelled payment ${payment.paymentNumber}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        newValues: { status: PaymentStatus.CANCELLED, reason },
-      },
-    );
-
-    return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
-  }
-
   async refund(
     refundDto: {
       paymentId: string;
@@ -661,44 +558,6 @@ export class PaymentService extends BaseCrudService<
     };
   }
 
-  async findDeleted(query: QueryPaymentsDto = {}) {
-    const { search, customerId, sortBy = 'deletedAt', sortOrder = 'DESC' } = query;
-
-    let queryBuilder = this.paymentRepository
-      .createQueryBuilder('payment')
-      .withDeleted() // Include soft-deleted records
-      .leftJoinAndSelect('payment.customer', 'customer')
-      .leftJoinAndSelect('payment.paymentMethodEntity', 'paymentMethodEntity')
-      .where('payment.deletedAt IS NOT NULL'); // Only get soft-deleted payments
-
-    if (customerId) {
-      queryBuilder = queryBuilder.andWhere('payment.customerId = :customerId', {
-        customerId,
-      });
-    }
-
-    if (search) {
-      queryBuilder = queryBuilder.andWhere(
-        '(payment.paymentNumber ILIKE :search OR customer.name ILIKE :search)',
-        { search: `%${search}%` },
-      );
-    }
-
-    // Add sorting
-    queryBuilder = queryBuilder.orderBy(`payment.${sortBy}`, sortOrder as 'ASC' | 'DESC');
-
-    const [payments, total] = await queryBuilder.getManyAndCount();
-
-    const data = payments.map((payment) => this.mapToResponseDto(payment));
-
-    return {
-      data,
-      meta: {
-        total,
-      },
-    };
-  }
-
   async restore(id: string, userId?: string, username?: string): Promise<PaymentResponseDto> {
     const payment = await this.paymentRepository.findOne({
       where: { id },
@@ -740,30 +599,6 @@ export class PaymentService extends BaseCrudService<
     });
 
     return this.mapToResponseDto(restoredPayment);
-  }
-
-  async bulkRestore(
-    paymentIds: string[],
-    userId?: string,
-    username?: string,
-  ): Promise<{ restoredCount: number; failedIds: string[] }> {
-    if (!paymentIds || paymentIds.length === 0) {
-      return { restoredCount: 0, failedIds: [] };
-    }
-
-    const failedIds = [];
-    let successCount = 0;
-
-    for (const id of paymentIds) {
-      try {
-        await this.restore(id, userId, username);
-        successCount++;
-      } catch (error) {
-        failedIds.push(id);
-      }
-    }
-
-    return { restoredCount: successCount, failedIds };
   }
 
   private mapToResponseDto(payment: Payment): PaymentResponseDto {
