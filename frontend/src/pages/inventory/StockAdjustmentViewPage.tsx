@@ -1,5 +1,25 @@
+import type { ReactNode } from 'react'
 import { useState } from 'react'
-import { Box, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material'
+import {
+  Box,
+  Card,
+  CardContent,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Grid,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+  useTheme,
+} from '@mui/material'
 import { skipToken } from '@reduxjs/toolkit/query'
 import { useNavigate, useParams } from 'react-router-dom'
 
@@ -7,11 +27,27 @@ import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
 import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetStockAdjustmentQuery, useUpdateStockAdjustmentNotesMutation } from '@/store/api/inventoryApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate, formatNumber } from '@/utils/formatters'
 
+function Field({ label, value }: { label: string; value?: ReactNode }) {
+  const hasValue = value !== null && value !== undefined && value !== ''
+  return (
+    <Box sx={{ mb: 1.5 }}>
+      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.25 }}>
+        {label}
+      </Typography>
+      <Typography variant="body2" component="div" sx={{ color: 'text.primary' }}>
+        {hasValue ? value : '—'}
+      </Typography>
+    </Box>
+  )
+}
+
 export default function StockAdjustmentViewPage() {
+  const theme = useTheme()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data: adj, isLoading, isError } = useGetStockAdjustmentQuery(id ?? skipToken)
@@ -72,62 +108,90 @@ export default function StockAdjustmentViewPage() {
         }}
       />
 
-      <Box sx={{ display: 'flex', gap: 2, px: 3, py: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-        <Typography variant="body2" color="text.secondary">
-          Date: {formatDate(adj.adjustmentDate)}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Items: {formatNumber(adj.itemCount)}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Total Value: {formatCurrency(adj.totalValue)}
-        </Typography>
-        {isCompleted && (
-          <AccountingEntryLink sourceType="stock_adjustment" sourceId={adj.id} variant="inline" />
-        )}
+      <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
+        <Grid container spacing={3}>
+          <Grid size={12}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
+                  <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    <Field label="Date" value={formatDate(adj.adjustmentDate)} />
+                    <Field label="Items" value={formatNumber(adj.itemCount)} />
+                    <Field label="Total Value" value={formatCurrency(adj.totalValue)} />
+                  </Box>
+                  {isCompleted && (
+                    <AccountingEntryLink sourceType="stock_adjustment" sourceId={adj.id} variant="inline" />
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid size={12}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>Items</Typography>
+                <TableContainer sx={{ border: `1px solid ${theme.palette.divider}` }}>
+                  <Table
+                    size="small"
+                    sx={{
+                      '& .MuiTableCell-root': {
+                        border: `1px solid ${theme.palette.divider}`,
+                        padding: '6px 8px',
+                        fontSize: '0.875rem',
+                      },
+                      '& .MuiTableHead-root .MuiTableCell-root': {
+                        backgroundColor: theme.palette.grey[50],
+                        fontWeight: 600,
+                      },
+                    }}
+                  >
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Product</TableCell>
+                        <TableCell align="center">Current Stock</TableCell>
+                        <TableCell align="center">Qty Change</TableCell>
+                        <TableCell align="right">Unit Cost</TableCell>
+                        <TableCell align="right">Total</TableCell>
+                        <TableCell align="center">Stock After</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {(adj.items ?? []).map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>{item.product.name}</TableCell>
+                          <TableCell align="center">
+                            {isCompleted ? formatNumber(item.stockBefore ?? 0) : formatNumber(item.liveStock ?? 0)}
+                          </TableCell>
+                          <TableCell align="center" sx={{ color: item.difference > 0 ? 'success.main' : 'error.main', fontWeight: 600 }}>
+                            {item.difference > 0 ? '+' : ''}{formatNumber(item.difference)}
+                          </TableCell>
+                          <TableCell align="right">{formatCurrency(item.unitCost ?? 0)}</TableCell>
+                          <TableCell align="right">{formatCurrency(item.totalValue ?? 0)}</TableCell>
+                          <TableCell align="center">
+                            {isCompleted ? (item.stockAfter != null ? formatNumber(item.stockAfter) : '—') : '—'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid size={12}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>Notes</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+                  {adj.notes || '—'}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
       </Box>
-
-      <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
-        <Table size="small" stickyHeader>
-          <TableHead>
-            <TableRow>
-              <TableCell>Product</TableCell>
-              <TableCell>Current Stock</TableCell>
-              <TableCell>Qty Change</TableCell>
-              <TableCell>Unit Cost</TableCell>
-              <TableCell>Total</TableCell>
-              <TableCell>Stock After</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {(adj.items ?? []).map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>{item.product.name}</TableCell>
-                <TableCell>
-                  {isCompleted ? formatNumber(item.stockBefore ?? 0) : formatNumber(item.liveStock ?? 0)}
-                </TableCell>
-                <TableCell sx={{ color: item.difference > 0 ? 'success.main' : 'error.main' }}>
-                  {item.difference > 0 ? '+' : ''}{formatNumber(item.difference)}
-                </TableCell>
-                <TableCell>{formatCurrency(item.unitCost ?? 0)}</TableCell>
-                <TableCell>{formatCurrency(item.totalValue ?? 0)}</TableCell>
-                <TableCell>
-                  {isCompleted ? (item.stockAfter != null ? formatNumber(item.stockAfter) : '—') : '—'}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {adj.notes && (
-        <Box sx={{ px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Notes</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
-            {adj.notes}
-          </Typography>
-        </Box>
-      )}
 
       {/* Notes edit dialog for completed adjustments */}
       <Dialog open={notesOpen} onClose={handleCloseNotes} maxWidth="sm" fullWidth>
