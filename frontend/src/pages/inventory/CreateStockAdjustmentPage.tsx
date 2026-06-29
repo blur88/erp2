@@ -57,7 +57,7 @@ const schema = yup.object({
     yup.object({
       productId: yup.string().required('Product is required'),
       liveStock: yup.number().required(),
-      difference: yup.number().required('Quantity change is required'),
+      difference: yup.number().required('Quantity change is required').notOneOf([0], 'Quantity change cannot be zero'),
       unitCost: yup.number().required(),
     }),
   ).min(1, 'At least one item is required'),

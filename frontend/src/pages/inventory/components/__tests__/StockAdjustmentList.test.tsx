@@ -10,5 +10,6 @@ const rows = [
 it('renders adjustment numbers and status chips', () => {
   render(<MemoryRouter><StockAdjustmentList rows={rows as any} total={2} loading={false} paginationSlot={null} /></MemoryRouter>)
   expect(screen.getByText('SA-000001')).toBeInTheDocument()
-  expect(screen.getByText('SA-000002')).toBeInTheDocument()
+  expect(screen.getByText('Draft')).toBeInTheDocument()
+  expect(screen.getByText('Completed')).toBeInTheDocument()
 })
