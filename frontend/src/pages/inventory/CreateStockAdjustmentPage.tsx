@@ -34,6 +34,7 @@ import {
   useUpdateStockAdjustmentMutation,
 } from '@/store/api/inventoryApi'
 import { getCurrentDate } from '@/utils/formatters'
+import { formatCurrency } from '@/utils/currency'
 import { useNotification } from '@/hooks/useNotification'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 
@@ -125,7 +126,9 @@ const CreateStockAdjustmentPage: React.FC = () => {
       notes: (adjustment as any).notes || '',
       items: ((adjustment as any).items ?? []).map((item: any) => ({
         productId: item.productId,
-        liveStock: Number(item.oldQuantity ?? item.liveStock ?? 0),
+        // Prefer current live stock (backend-enriched) over the stored oldQuantity snapshot,
+        // so a re-edited draft derives old/new from up-to-date stock (matches spec).
+        liveStock: Number(item.liveStock ?? item.oldQuantity ?? 0),
         difference: Number(item.difference ?? 0),
         unitCost: Number(item.unitCost ?? 0),
       })),
@@ -440,13 +443,15 @@ const CreateStockAdjustmentPage: React.FC = () => {
                           </TableCell>
                           <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
                             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                              {watchedItems?.[index]?.unitCost ?? 0}
+                              {formatCurrency(watchedItems?.[index]?.unitCost ?? 0)}
                             </Typography>
                           </TableCell>
                           <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
                             <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                              {Math.abs(watchedItems?.[index]?.difference ?? 0) *
-                                (watchedItems?.[index]?.unitCost ?? 0)}
+                              {formatCurrency(
+                                Math.abs(watchedItems?.[index]?.difference ?? 0) *
+                                  (watchedItems?.[index]?.unitCost ?? 0),
+                              )}
                             </Typography>
                           </TableCell>
                           <TableCell align="center" sx={{ padding: '2px !important' }}>
