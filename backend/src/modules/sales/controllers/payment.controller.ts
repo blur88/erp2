@@ -144,12 +144,6 @@ export class PaymentController {
     return this.paymentService.update(id, updatePaymentDto, currentUserId, currentUsername);
   }
 
-
-
-
-
-
-
   @Post('refund')
   @ApiOperation({ summary: 'Process a payment refund' })
   @ApiResponse({

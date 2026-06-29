@@ -278,7 +278,4 @@ export class CategoryController {
   ): Promise<CategoryResponseDto> {
     return this.categoryService.moveCategory(id, moveCategoryDto);
   }
-
-
-
 }
