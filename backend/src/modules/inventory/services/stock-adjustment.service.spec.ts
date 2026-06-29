@@ -275,6 +275,19 @@ describe('StockAdjustmentService', () => {
       expect(result).toBeDefined();
     });
   });
+
+  describe('duplicate product rejection', () => {
+    it('create() throws BadRequestException when the same productId appears twice', async () => {
+      const dto = {
+        adjustmentDate: new Date(),
+        items: [
+          { productId: 'p1', oldQuantity: 0, newQuantity: 1, difference: 1 },
+          { productId: 'p1', oldQuantity: 0, newQuantity: 2, difference: 2 },
+        ],
+      } as any;
+      await expect(service.create(dto)).rejects.toThrow('Duplicate product');
+    });
+  });
 });
 
 describe('StockAdjustmentItemDto', () => {

@@ -76,6 +76,18 @@ export class StockAdjustmentService extends BaseCrudService<
     }
   }
 
+  private assertNoDuplicateProducts(items: { productId: string }[]): void {
+    const seen = new Set<string>();
+    for (const item of items) {
+      if (seen.has(item.productId)) {
+        throw new BadRequestException(
+          'Duplicate product in stock adjustment items — each product may appear only once',
+        );
+      }
+      seen.add(item.productId);
+    }
+  }
+
   /**
    * Generate SA reference number for stock adjustments
    */
@@ -122,6 +134,7 @@ export class StockAdjustmentService extends BaseCrudService<
     if (!createDto.items || createDto.items.length === 0) {
       throw new BadRequestException('Stock adjustment must have at least one item');
     }
+    this.assertNoDuplicateProducts(createDto.items);
 
     // Verify all products exist
     const productIds = createDto.items.map(item => item.productId);
@@ -319,6 +332,8 @@ export class StockAdjustmentService extends BaseCrudService<
 
     // Update items if provided
     if (updateDto.items) {
+      this.assertNoDuplicateProducts(updateDto.items);
+
       // Remove old items
       await this.stockAdjustmentItemRepository.delete({
         stockAdjustmentId: id,
