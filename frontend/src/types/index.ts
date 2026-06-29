@@ -132,6 +132,9 @@ export interface StockAdjustmentItem {
   isIncrease: boolean;
   isDecrease: boolean;
   absoluteDifference: number;
+  liveStock?: number;
+  stockBefore?: number | null;
+  stockAfter?: number | null;
 }
 
 export interface StockAdjustment {

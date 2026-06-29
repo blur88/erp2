@@ -123,6 +123,11 @@ export class QueryStockAdjustmentsDto {
   @IsString()
   search?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by product category ID (within adjustment items)' })
+  @IsOptional()
+  @IsUUID(4)
+  categoryId?: string;
+
   @ApiPropertyOptional({ description: 'Sort field', enum: ['adjustmentDate', 'adjustmentNumber', 'totalValue', 'itemCount'] })
   @IsOptional()
   @IsString()
@@ -172,6 +177,15 @@ export class StockAdjustmentItemResponseDto {
 
   @ApiProperty({ description: 'Absolute difference' })
   absoluteDifference: number;
+
+  @ApiPropertyOptional({ description: 'Live product stock at load time (for create/edit form)' })
+  liveStock?: number;
+
+  @ApiPropertyOptional({ description: 'Historical stock before this adjustment (completed only, from StockMovement.previousBalance)' })
+  stockBefore?: number | null;
+
+  @ApiPropertyOptional({ description: 'Historical stock after this adjustment (completed only, from StockMovement.newBalance)' })
+  stockAfter?: number | null;
 }
 
 export class StockAdjustmentResponseDto {
