@@ -1,55 +1,53 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import React, { useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
+  Alert,
+  Autocomplete,
   Box,
+  Card,
+  CardContent,
   Grid,
-  TextField,
-  Typography,
+  IconButton,
+  Paper,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  IconButton,
-  Paper,
-  Autocomplete,
-  Alert,
-  Card,
-  CardContent,
+  TextField,
+  Typography,
   useTheme,
 } from '@mui/material'
-import { default as AddIcon } from '@mui/icons-material/Add'
-import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import AddIcon from '@mui/icons-material/Add'
+import DeleteIcon from '@mui/icons-material/Delete'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { ApiService } from '@/services/api'
+
 import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
-import TransactionForm from '@/components/common/TransactionForm'
 import {
-  useLazyGetStockAdjustmentByNumberQuery,
+  useGetProductsQuery,
+  useGetStockAdjustmentQuery,
   useCreateStockAdjustmentMutation,
   useUpdateStockAdjustmentMutation,
 } from '@/store/api/inventoryApi'
-import { useProductSearch } from '@/hooks/useProductSearch'
 import { getCurrentDate } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 
-interface AdjustmentItem {
+interface ItemRow {
   productId: string
-  product?: any
-  newQuantity: number
-  oldQuantity: number
+  liveStock: number
   difference: number
+  unitCost: number
 }
 
-interface CreateAdjustmentFormData {
+interface FormData {
   adjustmentDate: string
   notes?: string
-  items: AdjustmentItem[]
+  items: ItemRow[]
 }
 
 const schema = yup.object({
@@ -58,277 +56,202 @@ const schema = yup.object({
   items: yup.array().of(
     yup.object({
       productId: yup.string().required('Product is required'),
-      newQuantity: yup.number().min(0, 'New quantity cannot be negative').required(),
-      oldQuantity: yup.number().required(),
-      difference: yup.number().required(),
-    })
+      liveStock: yup.number().required(),
+      difference: yup.number().required('Quantity change is required'),
+      unitCost: yup.number().required(),
+    }),
   ).min(1, 'At least one item is required'),
 })
 
 const CreateStockAdjustmentPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
-  const { adjustmentNumber } = useParams<{ adjustmentNumber: string }>()
-  const isEditMode = !!adjustmentNumber
+  const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
+  const revertFrom = searchParams.get('revertFrom')
+  const isEditMode = !!id
   const { showSuccess, showError } = useNotification()
-  const { products, loadProducts, seedProducts } = useProductSearch()
+
+  const { data: productsData, isLoading: productsLoading } = useGetProductsQuery({ isActive: true })
+  const { data: adjustment, isLoading: adjustmentLoading } = useGetStockAdjustmentQuery(id!, { skip: !id })
+  const { data: sourceAdjustment, isLoading: sourceLoading } = useGetStockAdjustmentQuery(revertFrom!, { skip: !revertFrom })
+
   const [createStockAdjustment, { isLoading: isCreating }] = useCreateStockAdjustmentMutation()
   const [updateStockAdjustment, { isLoading: isUpdating }] = useUpdateStockAdjustmentMutation()
-  const [triggerGetStockAdjustmentByNumber] = useLazyGetStockAdjustmentByNumberQuery()
-  const loading = isCreating || isUpdating
-  const [loadingAdjustment, setLoadingAdjustment] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [adjustmentToLoad, setAdjustmentToLoad] = useState<any>(null)
-  const [editingAdjustmentId, setEditingAdjustmentId] = useState<string | null>(null)
+  const isSaving = isCreating || isUpdating
 
-  const { control, handleSubmit, watch, setValue, reset, formState: { errors, isDirty, isSubmitting } } = useForm<CreateAdjustmentFormData>({
+  const products = (productsData?.data ?? []) as any[]
+  const [duplicateError, setDuplicateError] = useState<string | null>(null)
+  const [pageError, setPageError] = useState<string | null>(null)
+
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    reset,
+    formState: { errors, isDirty, isSubmitting },
+  } = useForm<FormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: {
       adjustmentDate: getCurrentDate(),
       notes: '',
-      items: [
-        {
-          productId: '',
-          newQuantity: 0,
-          oldQuantity: 0,
-          difference: 0,
-        }
-      ],
+      items: [{ productId: '', liveStock: 0, difference: 0, unitCost: 0 }],
     },
   })
   const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSubmitting)
 
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: 'items',
-  })
-
+  const { fields, append, remove } = useFieldArray({ control, name: 'items' })
   const watchedItems = watch('items')
 
-  useEffect(() => {
-    loadProducts()
-  }, [])
+  const editAppliedRef = useRef(false)
+  const revertAppliedRef = useRef(false)
 
-  // Load stock adjustment data in edit mode
   useEffect(() => {
-    if (isEditMode && adjustmentNumber) {
-      loadStockAdjustment(adjustmentNumber)
+    editAppliedRef.current = false
+  }, [id])
+
+  useEffect(() => {
+    revertAppliedRef.current = false
+  }, [revertFrom])
+
+  useEffect(() => {
+    if (!adjustment || !isEditMode || editAppliedRef.current) return
+    editAppliedRef.current = true
+    reset({
+      adjustmentDate: adjustment.adjustmentDate
+        ? new Date(adjustment.adjustmentDate).toISOString().split('T')[0]
+        : getCurrentDate(),
+      notes: (adjustment as any).notes || '',
+      items: ((adjustment as any).items ?? []).map((item: any) => ({
+        productId: item.productId,
+        liveStock: Number(item.oldQuantity ?? item.liveStock ?? 0),
+        difference: Number(item.difference ?? 0),
+        unitCost: Number(item.unitCost ?? 0),
+      })),
+    })
+  }, [adjustment, isEditMode, reset])
+
+  useEffect(() => {
+    if (!revertFrom || !sourceAdjustment || !products.length || revertAppliedRef.current) return
+    if ((sourceAdjustment as any).status !== 'completed') {
+      showError('Cannot revert an adjustment that is not completed')
+      navigate(`/inventory/stock-adjustments/${revertFrom}/view`)
+      return
     }
-  }, [adjustmentNumber, isEditMode])
-
-  const loadStockAdjustment = async (currentAdjustmentNumber: string) => {
-    setLoadingAdjustment(true)
-    try {
-      const adjustment = await triggerGetStockAdjustmentByNumber(currentAdjustmentNumber).unwrap()
-      setEditingAdjustmentId(adjustment.id)
-
-      // Extract products from adjustment items and add to products state
-      if (adjustment.items && adjustment.items.length > 0) {
-        const adjustmentProducts = adjustment.items
-          .filter((item: any) => item.product)
-          .map((item: any) => item.product)
-
-        seedProducts(adjustmentProducts)
+    revertAppliedRef.current = true
+    const grouped = new Map<string, { productId: string; unitCost: number; diffSum: number }>()
+    ;((sourceAdjustment as any).items ?? []).forEach((item: any) => {
+      const existing = grouped.get(item.productId)
+      if (existing) {
+        existing.diffSum += Number(item.difference) || 0
+      } else {
+        grouped.set(item.productId, {
+          productId: item.productId,
+          unitCost: Number(item.unitCost) || 0,
+          diffSum: Number(item.difference) || 0,
+        })
       }
-
-      // Store adjustment data to be loaded after products are set
-      setAdjustmentToLoad(adjustment)
-    } catch (err: any) {
-      showError(err?.data?.message || err?.message || 'Failed to load stock adjustment')
-      setError('Failed to load stock adjustment')
-      setLoadingAdjustment(false)
-    }
-  }
-
-  // Reset form after products are loaded
-  useEffect(() => {
-    if (adjustmentToLoad && products.length > 0) {
-      const itemsToReset = adjustmentToLoad.items?.map((item: any) => {
-        const productId = item.productId || item.product?.id || ''
-
+    })
+    const prefillItems = Array.from(grouped.values())
+      .map((g) => {
+        const product = products.find((p: any) => p.id === g.productId)
         return {
-          productId,
-          product: item.product,
-          newQuantity: Number(item.newQuantity) || 0,
-          oldQuantity: Number(item.oldQuantity) || 0,
-          difference: Number(item.difference) || 0,
+          productId: g.productId,
+          liveStock: product?.stockQuantity ?? 0,
+          difference: -g.diffSum,
+          unitCost: g.unitCost,
         }
       })
-
-      // Map adjustment data to form
-      reset({
-        adjustmentDate: adjustmentToLoad.adjustmentDate
-          ? new Date(adjustmentToLoad.adjustmentDate).toISOString().split('T')[0]
-          : getCurrentDate(),
-        notes: adjustmentToLoad.notes || '',
-        items: itemsToReset || [
-          {
-            productId: '',
-            newQuantity: 0,
-            oldQuantity: 0,
-            difference: 0,
-          }
-        ],
-      })
-
-      setAdjustmentToLoad(null)
-      setLoadingAdjustment(false)
-    }
-  }, [adjustmentToLoad, products, reset])
-
-  // Recalculate difference when quantities change
-  useEffect(() => {
-    watchedItems.forEach((item, index) => {
-      const newQty = Number(item.newQuantity) || 0
-      const oldQty = Number(item.oldQuantity) || 0
-      const diff = newQty - oldQty
-
-      if (item.difference !== diff) {
-        // Derived recompute — must NOT mark the form dirty, or loading an
-        // existing adjustment would flip isDirty true with no user action.
-        setValue(`items.${index}.difference`, diff)
-      }
+      .filter((item) => item.difference !== 0)
+    reset({
+      adjustmentDate: getCurrentDate(),
+      notes: '',
+      items: prefillItems.length > 0 ? prefillItems : [{ productId: '', liveStock: 0, difference: 0, unitCost: 0 }],
     })
-  }, [JSON.stringify(watchedItems), setValue])
+  }, [revertFrom, sourceAdjustment, products, reset, navigate, showError])
 
-  const onSubmit = async (data: CreateAdjustmentFormData) => {
-    setError(null)
+  const hasNegativeStock = (watchedItems ?? []).some((item) => {
+    if (!item.productId) return false
+    return (Number(item.liveStock) || 0) + (Number(item.difference) || 0) < 0
+  })
 
+  const handleProductSelect = (index: number, product: any) => {
+    if (!product) return
+    const existing = (watchedItems ?? []).find(
+      (item, i) => i !== index && item.productId === product.id,
+    )
+    if (existing) {
+      setDuplicateError(`Product "${product.name}" is already in the items list`)
+      return
+    }
+    setDuplicateError(null)
+    setValue(`items.${index}.productId`, product.id, { shouldDirty: true })
+    setValue(`items.${index}.liveStock`, Number(product.stockQuantity) || 0, { shouldDirty: true })
+    setValue(`items.${index}.unitCost`, Number(product.baseCost) || 0, { shouldDirty: true })
+  }
+
+  const onSubmit = async (data: FormData) => {
+    setPageError(null)
     try {
-      // Filter items with differences
-      const itemsWithDifference = data.items.filter(item => item.difference !== 0)
-
-      if (itemsWithDifference.length === 0) {
-        showError('No changes to record. At least one item must have a difference.')
-        return
-      }
-
-      // Create stock adjustment using the proper stock adjustments API
-      const adjustmentData = {
+      const items = data.items
+        .filter((item) => item.productId && item.difference !== 0)
+        .map((item) => ({
+          productId: item.productId,
+          oldQuantity: Number(item.liveStock),
+          newQuantity: Number(item.liveStock) + Number(item.difference),
+          difference: Number(item.difference),
+          unitCost: Number(item.unitCost),
+        }))
+      const payload = {
         adjustmentDate: data.adjustmentDate,
         notes: data.notes || undefined,
-        items: itemsWithDifference.map(item => ({
-          productId: item.productId,
-          newQuantity: item.newQuantity,
-          oldQuantity: item.oldQuantity,
-          difference: item.difference,
-        })),
+        items,
       }
-
-      if (isEditMode && editingAdjustmentId) {
-        // Edit mode: Update existing adjustment
-        const updatedAdjustment = await updateStockAdjustment({ id: editingAdjustmentId, data: adjustmentData }).unwrap()
-        const saNumber = updatedAdjustment?.adjustmentNumber || 'N/A'
-
-        showSuccess(`Stock adjustment ${saNumber} updated successfully`)
-        navigate(`/inventory/stock-adjustments?highlight=${updatedAdjustment.id}`)
+      if (isEditMode && id) {
+        const updated = await updateStockAdjustment({ id, data: payload }).unwrap()
+        showSuccess(`Stock adjustment ${updated.adjustmentNumber || ''} updated successfully`)
+        navigate(`/inventory/stock-adjustments?highlight=${updated.id}`)
       } else {
-        // Create mode: Create new adjustment (kept as draft)
-        const adjustment = await createStockAdjustment(adjustmentData).unwrap()
-
-        const saNumber = adjustment?.adjustmentNumber || 'N/A'
-        const itemsAdjusted = adjustment?.itemCount || 0
-        const status = adjustment?.status || 'draft'
-
-        showSuccess(`Stock adjustment ${saNumber} created successfully (${itemsAdjusted} items) - Status: ${status}`)
-        navigate(`/inventory/stock-adjustments?highlight=${adjustment.id}`)
+        const created = await createStockAdjustment(payload).unwrap()
+        showSuccess(`Stock adjustment ${created.adjustmentNumber || ''} created successfully`)
+        navigate(`/inventory/stock-adjustments?highlight=${created.id}`)
       }
     } catch (err: any) {
-      setError(err.data?.message || err.message || 'Failed to record stock adjustments')
-      showError(err.data?.message || err.message || 'Failed to record stock adjustments')
+      const msg = err?.data?.message || err?.message || 'Failed to save stock adjustment'
+      setPageError(msg)
+      showError(msg)
     }
   }
 
-  const handleProductSelect = async (index: number, product: any) => {
-    if (product) {
-      // Keep selected product in the options list so it stays visible if another row's search replaces products
-      seedProducts([product])
-      // Fetch fresh product data to get current stock
-      try {
-        const response = await ApiService.get(`/inventory/products/${product.id}`)
-        const freshProduct = (response as any).data || product
+  const pageLoading = productsLoading || (isEditMode && adjustmentLoading) || (!!revertFrom && sourceLoading)
 
-        setValue(`items.${index}.productId`, freshProduct.id, { shouldDirty: true })
-        setValue(`items.${index}.product`, freshProduct, { shouldDirty: true })
-        seedProducts([freshProduct])
-        setValue(`items.${index}.oldQuantity`, Number(freshProduct.stockQuantity || 0), { shouldDirty: true })
-        setValue(`items.${index}.newQuantity`, Number(freshProduct.stockQuantity || 0), { shouldDirty: true })
-      } catch (err) {
-        console.error('Error fetching product:', err)
-        setValue(`items.${index}.productId`, product.id, { shouldDirty: true })
-        setValue(`items.${index}.product`, product, { shouldDirty: true })
-        setValue(`items.${index}.oldQuantity`, Number(product.stockQuantity || 0), { shouldDirty: true })
-        setValue(`items.${index}.newQuantity`, Number(product.stockQuantity || 0), { shouldDirty: true })
-      }
-    }
-  }
-
-  const formatNumberWithCommas = (value: number | string): string => {
-    if (value === '' || value === null || value === undefined) return ''
-    const num = typeof value === 'string' ? parseFloat(value) : value
-    if (isNaN(num)) return ''
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  }
-
-  const parseFormattedNumber = (value: string): number => {
-    return parseFloat(value.replace(/,/g, '')) || 0;
-  }
-
-  const addItem = () => {
-    append({
-      productId: '',
-      newQuantity: 0,
-      oldQuantity: 0,
-      difference: 0,
-    })
+  if (pageLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+        <Typography>Loading...</Typography>
+      </Box>
+    )
   }
 
   return (
     <>
-      {/* Header */}
       <PageHeader
         variant="workflow"
-        title={isEditMode ? 'Edit Stock Adjustment' : 'Create Stock Adjustment'}
+        title={isEditMode ? 'Edit Stock Adjustment' : revertFrom ? 'Revert Stock Adjustment' : 'Create Stock Adjustment'}
         subtitle={isEditMode ? 'Update adjustment details and quantities' : 'Adjust stock quantities for inventory corrections'}
         backAction={() => navigate('/inventory/stock-adjustments')}
       />
-      {loadingAdjustment ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <Typography>Loading stock adjustment...</Typography>
-        </Box>
-      ) : (
-        <TransactionForm
-          mode="custom"
-          entityLabel={undefined}
-          entityOptions={[]}
-          lineItemColumns={[
-            { key: 'product', label: 'Product' },
-            { key: 'adjustmentType', label: 'Adjustment Type' },
-            { key: 'quantity', label: 'Quantity' },
-            { key: 'notes', label: 'Notes' },
-          ]}
-          onSubmit={handleSubmit(onSubmit, () => showError('Please fix the form errors before submitting.'))}
-          onCancel={() => navigate('/inventory/stock-adjustments')}
-          isSubmitting={loading}
-          hideDefaultActions
-          error={error ? (
-            <Alert severity="error" sx={{ mb: 3 }}>
-              {error}
-            </Alert>
-          ) : null}
-        >
-          <Grid container spacing={3}>
-          {/* Date Field */}
+      <form noValidate onSubmit={handleSubmit(onSubmit)}>
+        <Grid container spacing={3}>
           <Grid size={12}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>Adjustment Information</Typography>
+                <Typography variant="h6" gutterBottom>
+                  Adjustment Information
+                </Typography>
                 <Grid container spacing={2}>
-                  <Grid
-                    size={{
-                      xs: 12,
-                      md: 6
-                    }}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Controller
                       name="adjustmentDate"
                       control={control}
@@ -337,19 +260,15 @@ const CreateStockAdjustmentPage: React.FC = () => {
                           {...field}
                           label="Adjustment Date"
                           type="date"
-                          slotProps={{ inputLabel: { shrink: true } }}
-                          error={!!errors.adjustmentDate}
-                          helperText={errors.adjustmentDate?.message}
                           required
                           fullWidth
                           size="small"
+                          error={!!errors.adjustmentDate}
+                          helperText={errors.adjustmentDate?.message}
+                          slotProps={{ inputLabel: { shrink: true } }}
                           sx={{
-                            '& .MuiInputBase-input': {
-                              fontSize: '0.875rem',
-                            },
-                            '& .MuiInputLabel-root': {
-                              fontSize: '0.875rem',
-                            }
+                            '& .MuiInputBase-input': { fontSize: '0.875rem' },
+                            '& .MuiInputLabel-root': { fontSize: '0.875rem' },
                           }}
                         />
                       )}
@@ -360,7 +279,6 @@ const CreateStockAdjustmentPage: React.FC = () => {
             </Card>
           </Grid>
 
-          {/* Items Table */}
           <Grid size={12}>
             <Card>
               <CardContent>
@@ -369,11 +287,24 @@ const CreateStockAdjustmentPage: React.FC = () => {
                   <AppButton
                     variant="secondary"
                     startIcon={<AddIcon />}
-                    onClick={addItem}
+                    onClick={() => append({ productId: '', liveStock: 0, difference: 0, unitCost: 0 })}
                   >
                     Add Item
                   </AppButton>
                 </Box>
+
+                {duplicateError && (
+                  <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setDuplicateError(null)}>
+                    {duplicateError}
+                  </Alert>
+                )}
+
+                {hasNegativeStock && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    This adjustment will result in negative stock for some products. Reduce quantity or
+                    adjust stock first.
+                  </Alert>
+                )}
 
                 <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
                   <Table
@@ -387,50 +318,40 @@ const CreateStockAdjustmentPage: React.FC = () => {
                       '& .MuiTableHead-root .MuiTableCell-root': {
                         backgroundColor: theme.palette.grey[50],
                         fontWeight: 600,
-                        color: theme.palette.text.primary,
-                        border: `1px solid ${theme.palette.divider}`,
                       },
-                      '& .MuiTableBody-root .MuiTableRow-root:hover': {
-                        backgroundColor: theme.palette.action.hover,
+                      '& .MuiTextField-root .MuiOutlinedInput-root': {
+                        '& fieldset': { border: 'none' },
+                        '&:hover fieldset': { border: `1px solid ${theme.palette.primary.main}` },
+                        '&.Mui-focused fieldset': { border: `1px solid ${theme.palette.primary.main}` },
+                        backgroundColor: 'transparent',
+                        fontSize: '0.875rem',
                       },
-                      '& .MuiTextField-root': {
-                        '& .MuiOutlinedInput-root': {
-                          border: 'none',
-                          '& fieldset': {
-                            border: 'none',
-                          },
-                          '&:hover fieldset': {
-                            border: `1px solid ${theme.palette.primary.main}`,
-                          },
-                          '&.Mui-focused fieldset': {
-                            border: `1px solid ${theme.palette.primary.main}`,
-                          },
-                          backgroundColor: 'transparent',
-                          fontSize: '0.875rem',
-                        },
-                        '& .MuiInputBase-input': {
-                          padding: '6px 8px',
-                          textAlign: 'center',
-                        },
-                        '& .MuiFormHelperText-root': {
-                          position: 'absolute',
-                          bottom: '-20px',
-                          fontSize: '0.75rem',
-                        },
+                      '& .MuiTextField-root .MuiInputBase-input': { padding: '6px 8px' },
+                      '& .MuiAutocomplete-root .MuiOutlinedInput-root': {
+                        paddingTop: 0,
+                        paddingBottom: 0,
                       },
-                      '& .MuiAutocomplete-root .MuiTextField-root .MuiInputBase-input': {
-                        textAlign: 'left',
-                      }
                     }}
                   >
                     <TableHead>
                       <TableRow>
-                        <TableCell align="center" sx={{ width: '35%', minWidth: 200 }}>Product</TableCell>
-                        <TableCell align="center" sx={{ width: '15%', minWidth: 100 }}>New Quantity</TableCell>
-                        <TableCell align="center" sx={{ width: '15%', minWidth: 100 }}>Old Quantity</TableCell>
-                        <TableCell align="center" sx={{ width: '15%', minWidth: 100 }}>Difference</TableCell>
-                        <TableCell align="center" sx={{ width: '8%', minWidth: 60 }}>Action</TableCell>
-                        <TableCell align="center" sx={{ width: '5%', minWidth: 40 }}></TableCell>
+                        <TableCell sx={{ width: '30%', minWidth: 200 }}>Product</TableCell>
+                        <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
+                          Current Stock
+                        </TableCell>
+                        <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
+                          Qty Change
+                        </TableCell>
+                        <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
+                          Unit Cost
+                        </TableCell>
+                        <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
+                          Total
+                        </TableCell>
+                        <TableCell align="center" sx={{ width: '8%', minWidth: 60 }} />
+                        <TableCell align="center" sx={{ width: '5%', minWidth: 40 }}>
+                          #
+                        </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -440,26 +361,18 @@ const CreateStockAdjustmentPage: React.FC = () => {
                             <Controller
                               name={`items.${index}.productId`}
                               control={control}
-                              render={({ field: productField }) => (
+                              render={({ field: pdField }) => (
                                 <Autocomplete
                                   options={products}
-                                  getOptionLabel={(option) => option?.name || ''}
-                                  isOptionEqualToValue={(option, value) => option.id === value.id}
-                                  value={watchedItems[index]?.product || products.find(p => p.id === productField.value) || null}
+                                  getOptionLabel={(option: any) => option?.name || ''}
+                                  isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
+                                  value={products.find((p: any) => p.id === pdField.value) || null}
                                   onChange={(_, value) => handleProductSelect(index, value)}
-                                  onInputChange={(_, value, reason) => {
-                                    if (reason === 'input' && value.trim().length >= 1) {
-                                      loadProducts(value)
-                                    } else if (reason === 'input') {
-                                      loadProducts('')
-                                    }
-                                  }}
-                                  filterOptions={(options) => options}
                                   size="small"
                                   renderInput={(params) => (
                                     <TextField
                                       {...params}
-                                      placeholder="Search by name or barcode..."
+                                      placeholder="Search product..."
                                       variant="outlined"
                                       error={!!errors.items?.[index]?.productId}
                                       helperText={errors.items?.[index]?.productId?.message}
@@ -468,94 +381,72 @@ const CreateStockAdjustmentPage: React.FC = () => {
                                           textAlign: 'left !important',
                                           padding: '6px 8px !important',
                                           fontSize: '0.875rem',
-                                        }
+                                        },
                                       }}
                                     />
                                   )}
-                                  sx={{
-                                    '& .MuiAutocomplete-inputRoot': {
-                                      padding: '0 !important',
-                                    }
-                                  }}
                                   slotProps={{
                                     paper: {
                                       sx: {
-                                        '& .MuiAutocomplete-option': {
-                                          fontSize: '0.875rem',
-                                        }
-                                      }
-                                    }
+                                        '& .MuiAutocomplete-option': { fontSize: '0.875rem' },
+                                      },
+                                    },
                                   }}
                                 />
                               )}
                             />
                           </TableCell>
+                          <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
+                            <Typography
+                              variant="body2"
+                              sx={{ color: 'text.secondary' }}
+                              data-testid={`liveStock-${index}`}
+                            >
+                              {watchedItems?.[index]?.liveStock ?? 0}
+                            </Typography>
+                          </TableCell>
                           <TableCell sx={{ padding: '2px !important' }}>
                             <Controller
-                              name={`items.${index}.newQuantity`}
+                              name={`items.${index}.difference`}
                               control={control}
-                              render={({ field: qtyField }) => {
-                                const [displayValue, setDisplayValue] = React.useState(formatNumberWithCommas(qtyField.value))
-                                const [isFocused, setIsFocused] = React.useState(false)
-
-                                React.useEffect(() => {
-                                  if (!isFocused) {
-                                    setDisplayValue(formatNumberWithCommas(qtyField.value))
-                                  }
-                                }, [qtyField.value, isFocused])
-
+                              render={({ field: diffField }) => {
+                                const displayValue = String(diffField.value ?? '')
                                 return (
                                   <TextField
                                     value={displayValue}
                                     onChange={(e) => {
-                                      const value = e.target.value.replace(/[^0-9]/g, '')
-                                      setDisplayValue(value)
-                                      qtyField.onChange(parseInt(value) || 0)
-                                    }}
-                                    onFocus={() => {
-                                      setIsFocused(true)
-                                      setDisplayValue(qtyField.value?.toString() || '')
-                                    }}
-                                    onBlur={() => {
-                                      setIsFocused(false)
-                                      setDisplayValue(formatNumberWithCommas(qtyField.value))
+                                      const raw = e.target.value
+                                      if (raw === '' || raw === '-') {
+                                        diffField.onChange(raw === '-' ? raw : 0)
+                                        return
+                                      }
+                                      const num = Number(raw)
+                                      if (!isNaN(num)) diffField.onChange(num)
                                     }}
                                     variant="outlined"
+                                    error={!!errors.items?.[index]?.difference}
+                                    helperText={errors.items?.[index]?.difference?.message}
                                     slotProps={{
                                       htmlInput: {
                                         style: { textAlign: 'center', fontSize: '0.875rem' },
                                         inputMode: 'numeric',
-                                        pattern: '[0-9]*',
-                                        'data-testid': `items.${index}.newQuantity`,
-                                      }
+                                        'data-testid': `items.${index}.difference`,
+                                      },
                                     }}
-                                    error={!!errors.items?.[index]?.newQuantity}
-                                    helperText={errors.items?.[index]?.newQuantity?.message}
                                   />
-                                );
+                                )
                               }}
                             />
                           </TableCell>
                           <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
                             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                              {formatNumberWithCommas(watchedItems[index]?.oldQuantity || 0)}
+                              {watchedItems?.[index]?.unitCost ?? 0}
                             </Typography>
                           </TableCell>
                           <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                fontWeight: "600",
-                                fontSize: '0.875rem',
-
-                                color: watchedItems[index]?.difference > 0
-                                  ? 'success.main'
-                                  : watchedItems[index]?.difference < 0
-                                  ? 'error.main'
-                                  : 'text.primary'
-                              }}>
-                              {watchedItems[index]?.difference > 0 ? '+' : ''}
-                              {formatNumberWithCommas(watchedItems[index]?.difference || 0)}
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                              {Math.abs(watchedItems?.[index]?.difference ?? 0) *
+                                (watchedItems?.[index]?.unitCost ?? 0)}
                             </Typography>
                           </TableCell>
                           <TableCell align="center" sx={{ padding: '2px !important' }}>
@@ -565,8 +456,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                               size="small"
                               sx={{
                                 color: theme.palette.error.main,
-                                '&:hover': { backgroundColor: theme.palette.error.light },
-                                '&.Mui-disabled': { color: theme.palette.action.disabled }
+                                '&.Mui-disabled': { color: theme.palette.action.disabled },
                               }}
                             >
                               <DeleteIcon fontSize="small" />
@@ -582,11 +472,16 @@ const CreateStockAdjustmentPage: React.FC = () => {
                     </TableBody>
                   </Table>
                 </TableContainer>
+
+                {errors.items && !Array.isArray(errors.items) && (
+                  <Alert severity="error" sx={{ mt: 1 }}>
+                    {(errors.items as any).message}
+                  </Alert>
+                )}
               </CardContent>
             </Card>
           </Grid>
 
-          {/* Notes */}
           <Grid size={12}>
             <Card>
               <CardContent>
@@ -601,12 +496,8 @@ const CreateStockAdjustmentPage: React.FC = () => {
                       rows={3}
                       fullWidth
                       sx={{
-                        '& .MuiInputBase-input': {
-                          fontSize: '0.875rem',
-                        },
-                        '& .MuiInputLabel-root': {
-                          fontSize: '0.875rem',
-                        }
+                        '& .MuiInputBase-input': { fontSize: '0.875rem' },
+                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
                       }}
                     />
                   )}
@@ -615,31 +506,48 @@ const CreateStockAdjustmentPage: React.FC = () => {
             </Card>
           </Grid>
 
-          {/* Action Buttons */}
+          {pageError && (
+            <Grid size={12}>
+              <Alert severity="error">{pageError}</Alert>
+            </Grid>
+          )}
+
           <Grid size={12}>
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+            <Box
+              sx={{
+                position: 'sticky',
+                bottom: 0,
+                backgroundColor: 'background.paper',
+                borderTop: `1px solid ${theme.palette.divider}`,
+                py: 2,
+                px: 3,
+                display: 'flex',
+                gap: 2,
+                justifyContent: 'flex-end',
+              }}
+            >
               <AppButton
                 variant="outlined"
                 onClick={() => navigate('/inventory/stock-adjustments')}
-                disabled={loading}
+                disabled={isSaving}
               >
                 Cancel
               </AppButton>
               <AppButton
                 variant="primary"
                 type="submit"
-                loading={loading}
+                loading={isSaving}
+                disabled={hasNegativeStock}
               >
                 {isEditMode ? 'Update Adjustment' : 'Create Adjustment'}
               </AppButton>
             </Box>
           </Grid>
-          </Grid>
-        </TransactionForm>
-      )}
+        </Grid>
+      </form>
       {UnsavedChangesDialog}
     </>
-  );
+  )
 }
 
 export default CreateStockAdjustmentPage
