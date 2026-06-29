@@ -10,6 +10,13 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from '@mui/material'
@@ -18,12 +25,10 @@ import { useNavigate, useParams } from 'react-router-dom'
 
 import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
 import { AppButton } from '@/components/common/AppButton'
-import { DataTable, type Column } from '@/components/common/DataTable'
 import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetStockAdjustmentQuery, useUpdateStockAdjustmentNotesMutation } from '@/store/api/inventoryApi'
-import type { StockAdjustmentItem } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate, formatNumber } from '@/utils/formatters'
 
@@ -34,7 +39,7 @@ function Field({ label, value }: { label: string; value?: ReactNode }) {
       <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.25 }}>
         {label}
       </Typography>
-      <Typography variant="body2" component="div" sx={{ color: 'text.primary' }}>
+      <Typography component="div" variant="body2" sx={{ color: 'text.primary' }}>
         {hasValue ? value : '—'}
       </Typography>
     </Box>
@@ -67,6 +72,7 @@ export default function StockAdjustmentViewPage() {
 
   const isDraft = adj.status === 'draft'
   const isCompleted = adj.status === 'completed'
+  const items = adj.items ?? []
 
   const handleEdit = () => {
     if (isDraft) {
@@ -90,34 +96,6 @@ export default function StockAdjustmentViewPage() {
     setNotesOpen(false)
   }
 
-  const columns: Column<StockAdjustmentItem>[] = [
-    { header: 'Product', width: '28%', render: (item) => item.product.name },
-    {
-      header: 'Current Stock',
-      align: 'right',
-      width: '14%',
-      render: (item) => formatNumber(isCompleted ? item.stockBefore ?? 0 : item.liveStock ?? 0),
-    },
-    {
-      header: 'Qty Change',
-      align: 'right',
-      width: '12%',
-      render: (item) => (
-        <Box component="span" sx={{ color: item.difference > 0 ? 'success.main' : 'error.main', fontWeight: 600 }}>
-          {item.difference > 0 ? '+' : ''}{formatNumber(item.difference)}
-        </Box>
-      ),
-    },
-    { header: 'Unit Cost', align: 'right', width: '14%', render: (item) => formatCurrency(item.unitCost ?? 0) },
-    { header: 'Total', align: 'right', width: '14%', render: (item) => formatCurrency(item.totalValue ?? 0) },
-    {
-      header: 'Stock After',
-      align: 'right',
-      width: '14%',
-      render: (item) => (isCompleted ? (item.stockAfter != null ? formatNumber(item.stockAfter) : '—') : '—'),
-    },
-  ]
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <PageHeader
@@ -131,49 +109,81 @@ export default function StockAdjustmentViewPage() {
       />
 
       <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
-        <Grid container spacing={3}>
-          <Grid size={12}>
-            <Card>
+        <Grid container spacing={3} sx={{ mb: 3, alignItems: 'stretch' }}>
+          <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
+            <Card sx={{ flex: 1 }}>
               <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
-                  <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    <Field label="Date" value={formatDate(adj.adjustmentDate)} />
-                    <Field label="Items" value={formatNumber(adj.itemCount)} />
-                    <Field label="Total Value" value={formatCurrency(adj.totalValue)} />
-                  </Box>
-                  {isCompleted && (
-                    <AccountingEntryLink sourceType="stock_adjustment" sourceId={adj.id} variant="inline" />
-                  )}
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid size={12}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Items</Typography>
-                <DataTable
-                  columns={columns}
-                  rows={adj.items ?? []}
-                  getRowKey={(item) => item.id}
-                  emptyText="No items on this adjustment"
-                />
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid size={12}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Notes</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
-                  {adj.notes || '—'}
+                <Typography variant="h6" gutterBottom>
+                  Adjustment Info
                 </Typography>
+                <Field label="Adjustment Number" value={adj.adjustmentNumber} />
+                <Field label="Adjustment Date" value={formatDate(adj.adjustmentDate)} />
+                <Field label="Notes" value={adj.notes} />
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
+            <Card sx={{ flex: 1 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Summary
+                </Typography>
+                <Field label="Status" value={<StatusChip status={adj.status} />} />
+                <Field label="Item Count" value={formatNumber(adj.itemCount)} />
+                <Field label="Total Value" value={formatCurrency(adj.totalValue)} />
+                {isCompleted && (
+                  <Field
+                    label="Journal Entry"
+                    value={<AccountingEntryLink sourceType="stock_adjustment" sourceId={adj.id} variant="inline" />}
+                  />
+                )}
               </CardContent>
             </Card>
           </Grid>
         </Grid>
+
+        <TableContainer component={Paper} variant="outlined">
+          <Table size={TABLE_STYLES.size}>
+            <TableHead>
+              <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600 } }}>
+                <TableCell>Product</TableCell>
+                <TableCell align="right">Current Stock</TableCell>
+                <TableCell align="right">Qty Change</TableCell>
+                <TableCell align="right">Unit Cost</TableCell>
+                <TableCell align="right">Total</TableCell>
+                <TableCell align="right">Stock After</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {items.map((item) => (
+                <TableRow key={item.id} hover>
+                  <TableCell>{item.product.name}</TableCell>
+                  <TableCell align="right">
+                    {formatNumber(isCompleted ? item.stockBefore ?? 0 : item.liveStock ?? 0)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ color: item.difference > 0 ? 'success.main' : 'error.main', fontWeight: 600 }}>
+                    {item.difference > 0 ? '+' : ''}{formatNumber(item.difference)}
+                  </TableCell>
+                  <TableCell align="right">{formatCurrency(item.unitCost ?? 0)}</TableCell>
+                  <TableCell align="right">{formatCurrency(item.totalValue ?? 0)}</TableCell>
+                  <TableCell align="right">
+                    {isCompleted ? (item.stockAfter != null ? formatNumber(item.stockAfter) : '—') : '—'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+          <Box sx={{ minWidth: 240 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>Total Value</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatCurrency(adj.totalValue)}</Typography>
+            </Box>
+          </Box>
+        </Box>
       </Box>
 
       {/* Notes edit dialog for completed adjustments */}
