@@ -10,25 +10,20 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
-  useTheme,
 } from '@mui/material'
 import { skipToken } from '@reduxjs/toolkit/query'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
 import { AppButton } from '@/components/common/AppButton'
+import { DataTable, type Column } from '@/components/common/DataTable'
 import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetStockAdjustmentQuery, useUpdateStockAdjustmentNotesMutation } from '@/store/api/inventoryApi'
+import type { StockAdjustmentItem } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate, formatNumber } from '@/utils/formatters'
 
@@ -47,7 +42,6 @@ function Field({ label, value }: { label: string; value?: ReactNode }) {
 }
 
 export default function StockAdjustmentViewPage() {
-  const theme = useTheme()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data: adj, isLoading, isError } = useGetStockAdjustmentQuery(id ?? skipToken)
@@ -96,6 +90,34 @@ export default function StockAdjustmentViewPage() {
     setNotesOpen(false)
   }
 
+  const columns: Column<StockAdjustmentItem>[] = [
+    { header: 'Product', width: '28%', render: (item) => item.product.name },
+    {
+      header: 'Current Stock',
+      align: 'right',
+      width: '14%',
+      render: (item) => formatNumber(isCompleted ? item.stockBefore ?? 0 : item.liveStock ?? 0),
+    },
+    {
+      header: 'Qty Change',
+      align: 'right',
+      width: '12%',
+      render: (item) => (
+        <Box component="span" sx={{ color: item.difference > 0 ? 'success.main' : 'error.main', fontWeight: 600 }}>
+          {item.difference > 0 ? '+' : ''}{formatNumber(item.difference)}
+        </Box>
+      ),
+    },
+    { header: 'Unit Cost', align: 'right', width: '14%', render: (item) => formatCurrency(item.unitCost ?? 0) },
+    { header: 'Total', align: 'right', width: '14%', render: (item) => formatCurrency(item.totalValue ?? 0) },
+    {
+      header: 'Stock After',
+      align: 'right',
+      width: '14%',
+      render: (item) => (isCompleted ? (item.stockAfter != null ? formatNumber(item.stockAfter) : '—') : '—'),
+    },
+  ]
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <PageHeader
@@ -131,51 +153,12 @@ export default function StockAdjustmentViewPage() {
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>Items</Typography>
-                <TableContainer sx={{ border: `1px solid ${theme.palette.divider}` }}>
-                  <Table
-                    size="small"
-                    sx={{
-                      '& .MuiTableCell-root': {
-                        border: `1px solid ${theme.palette.divider}`,
-                        padding: '6px 8px',
-                        fontSize: '0.875rem',
-                      },
-                      '& .MuiTableHead-root .MuiTableCell-root': {
-                        backgroundColor: theme.palette.grey[50],
-                        fontWeight: 600,
-                      },
-                    }}
-                  >
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Product</TableCell>
-                        <TableCell align="center">Current Stock</TableCell>
-                        <TableCell align="center">Qty Change</TableCell>
-                        <TableCell align="right">Unit Cost</TableCell>
-                        <TableCell align="right">Total</TableCell>
-                        <TableCell align="center">Stock After</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {(adj.items ?? []).map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>{item.product.name}</TableCell>
-                          <TableCell align="center">
-                            {isCompleted ? formatNumber(item.stockBefore ?? 0) : formatNumber(item.liveStock ?? 0)}
-                          </TableCell>
-                          <TableCell align="center" sx={{ color: item.difference > 0 ? 'success.main' : 'error.main', fontWeight: 600 }}>
-                            {item.difference > 0 ? '+' : ''}{formatNumber(item.difference)}
-                          </TableCell>
-                          <TableCell align="right">{formatCurrency(item.unitCost ?? 0)}</TableCell>
-                          <TableCell align="right">{formatCurrency(item.totalValue ?? 0)}</TableCell>
-                          <TableCell align="center">
-                            {isCompleted ? (item.stockAfter != null ? formatNumber(item.stockAfter) : '—') : '—'}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                <DataTable
+                  columns={columns}
+                  rows={adj.items ?? []}
+                  getRowKey={(item) => item.id}
+                  emptyText="No items on this adjustment"
+                />
               </CardContent>
             </Card>
           </Grid>
