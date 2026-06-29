@@ -15,7 +15,7 @@ describe('inventoryApiSlice', () => {
     expect(inventoryApiSlice.endpoints.createStockAdjustment).toBeDefined()
     expect(inventoryApiSlice.endpoints.updateStockAdjustment).toBeDefined()
     expect(inventoryApiSlice.endpoints.completeStockAdjustment).toBeDefined()
-    expect(inventoryApiSlice.endpoints.uncompleteStockAdjustment).toBeDefined()
+    expect(inventoryApiSlice.endpoints.updateStockAdjustmentNotes).toBeDefined()
     expect(inventoryApiSlice.endpoints.createCategory).toBeDefined()
     expect(inventoryApiSlice.endpoints.updateCategory).toBeDefined()
     expect(inventoryApiSlice.endpoints.getCategoryBySlug).toBeDefined()

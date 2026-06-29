@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import GenericListPage from '@/components/common/GenericListPage'
@@ -7,15 +7,12 @@ import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   useGetStockAdjustmentsQuery,
 } from '@/store/api/inventoryApi'
-import { selectSelectedStockAdjustment } from '@/store/slices/inventorySlice'
+import type { StockAdjustment } from '@/types'
+import { selectSelectedStockAdjustment, setSelectedStockAdjustment } from '@/store/slices/inventorySlice'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
-import StockAdjustmentContextHeader from './components/StockAdjustmentContextHeader'
 import StockAdjustmentList from './components/StockAdjustmentList'
-import StockAdjustmentWorkspaceCard from './components/StockAdjustmentWorkspaceCard'
-import StockAdjustmentsDialogs from './components/StockAdjustmentsDialogs'
-import { useStockAdjustmentsWorkspace } from './hooks/useStockAdjustmentsWorkspace'
 
 interface StockAdjustmentFilters {
   search: string
@@ -91,13 +88,6 @@ const StockAdjustmentsPage: React.FC = () => {
     ? ((adjustmentsError as any).data?.message || (adjustmentsError as any).data || 'Failed to fetch stock adjustments')
     : null
 
-  const workspace = useStockAdjustmentsWorkspace({
-    dispatch,
-    adjustments,
-    selectedAdjustment,
-    refetchAdjustments: () => void refetchAdjustments(),
-  })
-
   const handleSort = useCallback((field: string) => {
     setSorting((prev) => ({
       sortBy: field,
@@ -105,24 +95,26 @@ const StockAdjustmentsPage: React.FC = () => {
     }))
   }, [])
 
-  const navigateToJournalEntry = useCallback(() => {
-    if (!workspace.journalEntryRef) return
-    navigate(
-      `/accounting/journal-entries?sourceType=${workspace.journalEntryRef.sourceType}&sourceId=${workspace.journalEntryRef.sourceId}`,
-    )
-  }, [navigate, workspace.journalEntryRef])
+  const handleSelect = useCallback(
+    (adjustment: StockAdjustment) => {
+      dispatch(setSelectedStockAdjustment(adjustment))
+    },
+    [dispatch],
+  )
+
+  const adjustmentListRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   return (
     <GenericListPage
       title="Stock Adjustments"
       subtitle="View and manage stock adjustment history"
-      secondaryAction={{ label: 'View Deleted', onClick: () => workspace.setShowDeletedDialog(true) }}
       primaryAction={{ label: 'New Adjustment', onClick: () => navigate('/inventory/stock-adjustments/create') }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
-      searchInputRef={workspace.searchInputRef}
+      searchInputRef={searchInputRef}
       sort={{
         field: 'adjustmentNumber',
         sortBy: sorting.sortBy,
@@ -136,42 +128,13 @@ const StockAdjustmentsPage: React.FC = () => {
           loading={loading}
           total={total}
           selectedAdjustmentId={selectedAdjustment?.id}
-          focusedAdjustmentIndex={workspace.focusedIndex}
-          onSelect={workspace.handleSelect}
-          adjustmentListRef={workspace.listRef}
+          focusedAdjustmentIndex={0}
+          onSelect={handleSelect}
+          adjustmentListRef={adjustmentListRef}
         />
       )}
-      headerSlot={(
-        <StockAdjustmentContextHeader
-          selectedAdjustment={selectedAdjustment}
-          journalEntryRef={workspace.journalEntryRef}
-          journalEntryRefLoading={workspace.journalEntryRefLoading}
-          onEdit={workspace.handleEdit}
-          onDelete={() => selectedAdjustment && workspace.handleDelete(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
-          onComplete={() => selectedAdjustment && workspace.handleComplete(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
-          onRevert={() => selectedAdjustment && workspace.handleRevert(selectedAdjustment.id, selectedAdjustment.adjustmentNumber)}
-          onNavigateToJournalEntry={navigateToJournalEntry}
-        />
-      )}
-      workspaceSlot={<StockAdjustmentWorkspaceCard selectedAdjustment={selectedAdjustment} />}
-      dialogs={(
-        <StockAdjustmentsDialogs
-          showDeletedDialog={workspace.showDeletedDialog}
-          onCloseDeletedDialog={() => workspace.setShowDeletedDialog(false)}
-          deleteConfirmOpen={workspace.deleteConfirmOpen}
-          adjustmentToDeleteName={workspace.adjustmentToDeleteName}
-          onConfirmDelete={() => void workspace.handleConfirmDelete(workspace.adjustmentToDelete)}
-          onCancelDelete={workspace.handleCancelDelete}
-          completeConfirmOpen={workspace.completeConfirmOpen}
-          adjustmentToCompleteName={workspace.adjustmentToCompleteName}
-          onConfirmComplete={() => void workspace.handleConfirmComplete(workspace.adjustmentToComplete)}
-          onCancelComplete={workspace.handleCancelComplete}
-          revertConfirmOpen={workspace.revertConfirmOpen}
-          adjustmentToRevertName={workspace.adjustmentToRevertName}
-          onConfirmRevert={() => void workspace.handleConfirmRevert(workspace.adjustmentToRevert)}
-          onCancelRevert={workspace.handleCancelRevert}
-        />
-      )}
+      headerSlot={null}
+      workspaceSlot={null}
     />
   )
 }
