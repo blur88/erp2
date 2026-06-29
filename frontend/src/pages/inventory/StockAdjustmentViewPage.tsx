@@ -48,8 +48,12 @@ export default function StockAdjustmentViewPage() {
   }
 
   const handleNotesSave = async () => {
-    await updateNotes({ id: adj.id, notes: notesDraft })
-    setNotesOpen(false)
+    try {
+      await updateNotes({ id: adj.id, notes: notesDraft }).unwrap()
+      setNotesOpen(false)
+    } catch {
+      // keep dialog open on failure; api layer surfaces the error
+    }
   }
 
   const handleCloseNotes = () => {
@@ -96,7 +100,7 @@ export default function StockAdjustmentViewPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {adj.items.map((item) => (
+            {(adj.items ?? []).map((item) => (
               <TableRow key={item.id}>
                 <TableCell>{item.product.name}</TableCell>
                 <TableCell>

@@ -2,7 +2,6 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { Box } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 
-import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import PagePagination from '@/components/common/PagePagination'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
@@ -12,6 +11,7 @@ import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
 import StockAdjustmentList from './components/StockAdjustmentList'
+import StockAdjustmentsDialogs from './components/StockAdjustmentsDialogs'
 
 interface StockAdjustmentFilters {
   search: string
@@ -37,6 +37,7 @@ export default function StockAdjustmentsPage() {
   const [sortBy, setSortBy] = useState('adjustmentNumber')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [completeTarget, setCompleteTarget] = useState<string | null>(null)
+  const [revertTarget, setRevertTarget] = useState<string | null>(null)
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
@@ -83,6 +84,7 @@ export default function StockAdjustmentsPage() {
   }, [])
 
   const completeTargetRow = allRows.find((r) => r.id === completeTarget) ?? null
+  const revertTargetRow = allRows.find((r) => r.id === revertTarget) ?? null
 
   const handleConfirmComplete = useCallback(async () => {
     if (!completeTarget) return
@@ -94,6 +96,12 @@ export default function StockAdjustmentsPage() {
       setCompleteTarget(null)
     }
   }, [completeTarget, completeAdjustment])
+
+  const handleConfirmRevert = useCallback(() => {
+    if (!revertTarget) return
+    navigate(`/inventory/stock-adjustments/create?revertFrom=${revertTarget}`)
+    setRevertTarget(null)
+  }, [revertTarget, navigate])
 
   return (
     <SimpleListPage
@@ -116,7 +124,7 @@ export default function StockAdjustmentsPage() {
             loading={isFetching}
             paginationSlot={null}
             onComplete={(a) => setCompleteTarget(a.id)}
-            onRevert={(a) => navigate(`/inventory/stock-adjustments/create?revertFrom=${a.id}`)}
+            onRevert={(a) => setRevertTarget(a.id)}
           />
         </Box>
       )}
@@ -131,14 +139,15 @@ export default function StockAdjustmentsPage() {
         />
       )}
       dialogs={(
-        <ConfirmationDialog
-          open={!!completeTarget}
-          title="Complete Adjustment"
-          message={`Are you sure you want to complete adjustment ${completeTargetRow?.adjustmentNumber ?? ''}?`}
-          confirmText="Complete"
-          onConfirm={handleConfirmComplete}
-          onCancel={() => setCompleteTarget(null)}
-          severity="warning"
+        <StockAdjustmentsDialogs
+          completeConfirmOpen={!!completeTarget}
+          adjustmentToCompleteName={completeTargetRow?.adjustmentNumber ?? ''}
+          onConfirmComplete={handleConfirmComplete}
+          onCancelComplete={() => setCompleteTarget(null)}
+          revertConfirmOpen={!!revertTarget}
+          adjustmentToRevertName={revertTargetRow?.adjustmentNumber ?? ''}
+          onConfirmRevert={handleConfirmRevert}
+          onCancelRevert={() => setRevertTarget(null)}
         />
       )}
     />
