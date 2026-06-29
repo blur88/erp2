@@ -192,10 +192,14 @@ export const inventoryApiSlice = createApi({
       transformResponse: normalizeSingle<StockAdjustment>,
       invalidatesTags: ['StockAdjustment'],
     }),
-    uncompleteStockAdjustment: builder.mutation<StockAdjustment, string>({
-      query: (id) => ({ url: `/inventory/stock-adjustments/${id}/uncomplete`, method: 'POST' }),
+    updateStockAdjustmentNotes: builder.mutation<StockAdjustment, { id: string; notes?: string }>({
+      query: ({ id, notes }) => ({
+        url: `/inventory/stock-adjustments/${id}/notes`,
+        method: 'PATCH',
+        data: { notes },
+      }),
       transformResponse: normalizeSingle<StockAdjustment>,
-      invalidatesTags: ['StockAdjustment'],
+      invalidatesTags: (_result, _error, { id }) => ['StockAdjustment', { type: 'StockAdjustment', id }],
     }),
     getDeletedStockAdjustments: builder.query<PaginatedResponse<StockAdjustment>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/inventory/stock-adjustments/deleted', params: params ?? {} }),
@@ -256,7 +260,7 @@ export const {
   useUpdateStockAdjustmentMutation,
   useDeleteStockAdjustmentMutation,
   useCompleteStockAdjustmentMutation,
-  useUncompleteStockAdjustmentMutation,
+  useUpdateStockAdjustmentNotesMutation,
   useGetDeletedStockAdjustmentsQuery,
   useRestoreStockAdjustmentMutation,
   usePermanentDeleteStockAdjustmentMutation,

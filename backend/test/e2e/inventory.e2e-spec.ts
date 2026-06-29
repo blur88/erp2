@@ -218,22 +218,6 @@ describe("Inventory (e2e)", () => {
 
       expect(Number(res.body.stockQuantity)).toBe(60);
     });
-
-    it("POST /inventory/stock-adjustments/:id/uncomplete — reverses the adjustment", async () => {
-      await request(app.getHttpServer())
-        .post(`/inventory/stock-adjustments/${adjustmentId}/uncomplete`)
-        .set("Authorization", `Bearer ${accessToken}`)
-        .expect(201);
-    });
-
-    it("GET /inventory/products/:id — stock reverted after uncomplete", async () => {
-      const res = await request(app.getHttpServer())
-        .get(`/inventory/products/${productId}`)
-        .set("Authorization", `Bearer ${accessToken}`)
-        .expect(200);
-
-      expect(Number(res.body.stockQuantity)).toBe(50);
-    });
   });
 
   // ─── Edge cases ───────────────────────────────────────────────────────────

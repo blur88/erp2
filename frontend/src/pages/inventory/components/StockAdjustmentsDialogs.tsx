@@ -1,15 +1,8 @@
 import React from 'react'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
-import DeletedStockAdjustmentsDialog from '@/components/inventory/DeletedStockAdjustmentsDialog'
 
 interface StockAdjustmentsDialogsProps {
-  showDeletedDialog: boolean
-  onCloseDeletedDialog: () => void
-  deleteConfirmOpen: boolean
-  adjustmentToDeleteName: string
-  onConfirmDelete: () => void
-  onCancelDelete: () => void
   completeConfirmOpen: boolean
   adjustmentToCompleteName: string
   onConfirmComplete: () => void
@@ -21,12 +14,6 @@ interface StockAdjustmentsDialogsProps {
 }
 
 const StockAdjustmentsDialogs: React.FC<StockAdjustmentsDialogsProps> = ({
-  showDeletedDialog,
-  onCloseDeletedDialog,
-  deleteConfirmOpen,
-  adjustmentToDeleteName,
-  onConfirmDelete,
-  onCancelDelete,
   completeConfirmOpen,
   adjustmentToCompleteName,
   onConfirmComplete,
@@ -38,42 +25,24 @@ const StockAdjustmentsDialogs: React.FC<StockAdjustmentsDialogsProps> = ({
 }) => {
   return (
     <>
-      <DeletedStockAdjustmentsDialog
-        open={showDeletedDialog}
-        onClose={onCloseDeletedDialog}
-      />
-
-      <ConfirmationDialog
-        open={deleteConfirmOpen}
-        title="Confirm Delete"
-        message={`Are you sure you want to delete stock adjustment #${adjustmentToDeleteName}? This will move it to deleted stock adjustments.`}
-        confirmText="Delete"
-        cancelText="Cancel"
-        onConfirm={onConfirmDelete}
-        onCancel={onCancelDelete}
-        severity="warning"
-      />
-
       <ConfirmationDialog
         open={completeConfirmOpen}
-        title="Confirm Complete"
-        message={`Are you sure you want to complete stock adjustment #${adjustmentToCompleteName}? This will post the stock movements and update inventory levels. The adjustment can be reverted to draft if needed.`}
+        title="Complete Stock Adjustment?"
+        message={`Apply stock changes and create a journal entry for ${adjustmentToCompleteName}?`}
         confirmText="Complete"
         cancelText="Cancel"
         onConfirm={onConfirmComplete}
         onCancel={onCancelComplete}
-        severity="info"
       />
 
       <ConfirmationDialog
         open={revertConfirmOpen}
-        title="Revert to Draft"
-        message={`Are you sure you want to revert stock adjustment #${adjustmentToRevertName} back to draft? This will reverse the stock movements and return inventory levels to their previous state.`}
-        confirmText="Revert to Draft"
-        cancelText="Go Back"
+        title="Revert Stock Adjustment?"
+        message={`Open a new adjustment with opposite quantities to reverse ${adjustmentToRevertName}?`}
+        confirmText="Revert"
+        cancelText="Cancel"
         onConfirm={onConfirmRevert}
         onCancel={onCancelRevert}
-        severity="warning"
       />
     </>
   )
