@@ -25,7 +25,7 @@ import {
   StockAdjustmentItemResponseDto,
 } from '../dto/stock-adjustment.dto';
 import { StockMovementService } from './stock-movement.service';
-import { StockMovementType } from '../../../database/entities/stock-movement.entity';
+import { StockMovementType, StockMovement } from '../../../database/entities/stock-movement.entity';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '@modules/accounting/services/accounting.service';
@@ -48,6 +48,8 @@ export class StockAdjustmentService extends BaseCrudService<
     private readonly productRepository: Repository<Product>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(StockMovement)
+    private readonly stockMovementRepository: Repository<StockMovement>,
     @Inject(forwardRef(() => StockMovementService))
     private readonly stockMovementService: StockMovementService,
     private readonly dataSource: DataSource,
@@ -294,7 +296,32 @@ export class StockAdjustmentService extends BaseCrudService<
       throw new NotFoundException(`Stock adjustment with ID '${id}' has been deleted`);
     }
 
-    return this.toResponseDto(adjustment);
+    const dto = this.toResponseDto(adjustment);
+    const isCompleted = adjustment.status === StockAdjustmentStatus.COMPLETED;
+
+    for (let i = 0; i < dto.items.length; i++) {
+      const sourceItem = adjustment.items[i];
+      dto.items[i].liveStock = sourceItem.product
+        ? Number(sourceItem.product.stockQuantity)
+        : undefined;
+
+      if (isCompleted) {
+        const movement = await this.stockMovementRepository.findOne({
+          where: {
+            referenceType: 'stock_adjustment',
+            referenceId: adjustment.id,
+            productId: sourceItem.productId,
+          },
+        });
+        dto.items[i].stockBefore = movement ? Number(movement.previousBalance) : null;
+        dto.items[i].stockAfter = movement ? Number(movement.newBalance) : null;
+      } else {
+        dto.items[i].stockBefore = null;
+        dto.items[i].stockAfter = null;
+      }
+    }
+
+    return dto;
   }
 
   async findByAdjustmentNumber(adjustmentNumber: string): Promise<StockAdjustmentResponseDto> {

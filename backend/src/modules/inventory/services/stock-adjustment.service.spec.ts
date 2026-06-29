@@ -10,6 +10,7 @@ import { StockMovementService } from './stock-movement.service';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { AccountingService } from '../../accounting/services/accounting.service';
+import { StockMovement } from '../../../database/entities/stock-movement.entity';
 import { StockAdjustmentItemDto } from '../dto/stock-adjustment.dto';
 
 describe('StockAdjustmentService', () => {
@@ -19,6 +20,7 @@ describe('StockAdjustmentService', () => {
   let stockMovementService: jest.Mocked<StockMovementService>;
   let auditLogService: jest.Mocked<AuditLogService>;
   let dataSource: jest.Mocked<DataSource>;
+  let stockMovementRepository: jest.Mocked<Repository<StockMovement>>;
 
   const createMockStockAdjustment = (status: StockAdjustmentStatus = StockAdjustmentStatus.DRAFT): Partial<StockAdjustment> => ({
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -112,6 +114,12 @@ describe('StockAdjustmentService', () => {
           useValue: {},
         },
         {
+          provide: getRepositoryToken(StockMovement),
+          useValue: {
+            findOne: jest.fn(),
+          },
+        },
+        {
           provide: getDataSourceToken(),
           useValue: dataSource,
         },
@@ -147,6 +155,7 @@ describe('StockAdjustmentService', () => {
     accountingService = module.get(AccountingService);
     stockMovementService = module.get(StockMovementService);
     auditLogService = module.get(AuditLogService);
+    stockMovementRepository = module.get(getRepositoryToken(StockMovement));
   });
 
   it('should be defined', () => {
@@ -306,6 +315,42 @@ describe('StockAdjustmentService', () => {
       const joinedSql = calls.map(c => c.sql).join(' | ');
       expect(joinedSql).toContain('product.name');
       expect(joinedSql).toContain('product.categoryId');
+    });
+  });
+
+  describe('findOne enrichment', () => {
+    it('completed adjustment populates stockBefore/stockAfter from StockMovement and liveStock from product', async () => {
+      const adjustment: any = {
+        id: 'a1', adjustmentNumber: 'SA-000001', status: 'completed',
+        adjustmentDate: new Date(), itemCount: 1, totalValue: 10, createdAt: new Date(), updatedAt: new Date(),
+        isEditable: () => false, canComplete: () => false,
+        items: [{ id: 'i1', productId: 'p1', oldQuantity: 5, newQuantity: 7, difference: 2, unitCost: 5, totalValue: 10,
+          isIncrease: true, isDecrease: false, absoluteDifference: 2,
+          product: { id: 'p1', name: 'Widget', barcode: 'B1', stockQuantity: 7 } }],
+      };
+      jest.spyOn(stockAdjustmentRepository, 'findOne').mockResolvedValue(adjustment);
+      jest.spyOn(stockMovementRepository, 'findOne').mockResolvedValue({ previousBalance: 5, newBalance: 7 } as any);
+
+      const result = await service.findOne('a1');
+      expect(result.items[0].liveStock).toBe(7);
+      expect(result.items[0].stockBefore).toBe(5);
+      expect(result.items[0].stockAfter).toBe(7);
+    });
+
+    it('draft adjustment returns null stockBefore/stockAfter and liveStock from product', async () => {
+      const adjustment: any = {
+        id: 'a2', adjustmentNumber: 'SA-000002', status: 'draft',
+        adjustmentDate: new Date(), itemCount: 1, totalValue: 0, createdAt: new Date(), updatedAt: new Date(),
+        isEditable: () => true, canComplete: () => true,
+        items: [{ id: 'i2', productId: 'p2', oldQuantity: 3, newQuantity: 4, difference: 1,
+          isIncrease: true, isDecrease: false, absoluteDifference: 1,
+          product: { id: 'p2', name: 'Gadget', barcode: 'B2', stockQuantity: 3 } }],
+      };
+      jest.spyOn(stockAdjustmentRepository, 'findOne').mockResolvedValue(adjustment);
+      const result = await service.findOne('a2');
+      expect(result.items[0].liveStock).toBe(3);
+      expect(result.items[0].stockBefore).toBeNull();
+      expect(result.items[0].stockAfter).toBeNull();
     });
   });
 });
