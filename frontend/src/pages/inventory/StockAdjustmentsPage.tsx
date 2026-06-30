@@ -32,6 +32,11 @@ const filterConfig: FilterBarConfig<StockAdjustmentFilters> = {
   defaults: { search: '', period: { key: null, from: null, to: null }, status: null, categoryId: null },
 }
 
+// Backend stock errors embed quantities like "1.0000" / "1.5000". Trim
+// trailing-zero decimals for readability in the toast: 1.0000 → 1, 1.5000 → 1.5.
+const tidyDecimals = (message: string): string =>
+  message.replace(/(\d+)\.(\d*?)0+(?=\D|$)/g, (_, intPart, frac) => (frac ? `${intPart}.${frac}` : intPart))
+
 export default function StockAdjustmentsPage() {
   const navigate = useNavigate()
   const [page, setPage] = useState(1)
@@ -97,7 +102,7 @@ export default function StockAdjustmentsPage() {
       showSuccess(`Stock adjustment ${name} completed`)
       setCompleteTarget(null)
     } catch (error) {
-      showError(rtkErrorMessage(error, 'Failed to complete stock adjustment'))
+      showError(tidyDecimals(rtkErrorMessage(error, 'Failed to complete stock adjustment')))
     }
   }, [completeTarget, completeTargetRow, completeAdjustment, showSuccess, showError])
 

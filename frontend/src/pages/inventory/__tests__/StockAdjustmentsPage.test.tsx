@@ -77,7 +77,19 @@ it('surfaces backend error and keeps the dialog open when completion fails', asy
   await clickConfirm(user)
 
   await waitFor(() =>
-    expect(showErrorSpy).toHaveBeenCalledWith('Insufficient stock. Available: 1.0000, Requested: 15'),
+    expect(showErrorSpy).toHaveBeenCalledWith('Insufficient stock. Available: 1, Requested: 15'),
   )
   expect(screen.getByText('Complete Stock Adjustment?')).toBeInTheDocument()
+})
+
+it('keeps non-zero fractional digits when tidying the error message', async () => {
+  const user = userEvent.setup()
+  unwrapMock.mockRejectedValue({ data: { message: 'Insufficient stock. Available: 1.5000, Requested: 15' } })
+  renderPage()
+  await openCompleteDialog(user)
+  await clickConfirm(user)
+
+  await waitFor(() =>
+    expect(showErrorSpy).toHaveBeenCalledWith('Insufficient stock. Available: 1.5, Requested: 15'),
+  )
 })
