@@ -803,6 +803,33 @@ describe('JournalEntryService', () => {
       expect(journalEntryRepository.save).toHaveBeenCalled();
     });
 
+    it('should post an entry dated on the last day of the period even with a time component', async () => {
+      // Regression: an entryDate carrying a time-of-day (e.g. created via `new Date()`
+      // late on the period's end date) must not be treated as "after" the period end,
+      // which is stored as a date-only value (midnight).
+      const entryWithLines = {
+        ...mockJournalEntry,
+        entryDate: new Date('2026-01-31T19:32:31Z'),
+        fiscalPeriod: {
+          ...mockFiscalPeriod,
+          startDate: new Date('2026-01-01'),
+          endDate: new Date('2026-01-31'),
+        },
+        lines: [mockJournalEntryLine1, mockJournalEntryLine2],
+        isBalanced: true,
+      };
+      journalEntryRepository.findOne.mockResolvedValue(entryWithLines as JournalEntry);
+      fiscalPeriodService.checkPeriodOpen.mockResolvedValue(true);
+      journalEntryRepository.save.mockResolvedValue({
+        ...entryWithLines,
+        status: JournalEntryStatus.POSTED,
+      } as JournalEntry);
+
+      const result = await service.postEntry('entry-1');
+
+      expect(result.status).toBe(JournalEntryStatus.POSTED);
+    });
+
     it('should throw BadRequestException if entry is not balanced', async () => {
       const unbalancedEntry = {
         ...mockJournalEntry,
