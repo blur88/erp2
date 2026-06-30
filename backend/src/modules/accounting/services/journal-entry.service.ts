@@ -515,10 +515,16 @@ export class JournalEntryService {
       );
     }
 
-    // Validate entry date falls within fiscal period
+    // Validate entry date falls within fiscal period. Compare date-only:
+    // entryDate may carry a time-of-day (e.g. created via `new Date()`), while the
+    // period bounds are stored as date-only. Normalize all to start-of-day so an
+    // entry on the period's last day is not wrongly rejected (matches validatePeriod).
     const entryDate = new Date(entry.entryDate);
     const periodStart = new Date(entry.fiscalPeriod.startDate);
     const periodEnd = new Date(entry.fiscalPeriod.endDate);
+    entryDate.setUTCHours(0, 0, 0, 0);
+    periodStart.setUTCHours(0, 0, 0, 0);
+    periodEnd.setUTCHours(0, 0, 0, 0);
 
     if (entryDate < periodStart || entryDate > periodEnd) {
       throw new BadRequestException(
@@ -792,10 +798,15 @@ export class JournalEntryService {
       );
     }
 
-    // Validate entry date falls within period
+    // Validate entry date falls within period. Compare date-only (the entry date may
+    // carry a time-of-day while the period bounds are date-only) so an entry on the
+    // period's last day is not wrongly rejected (matches validatePeriod).
     const date = new Date(entryDate);
     const periodStart = new Date(period.startDate);
     const periodEnd = new Date(period.endDate);
+    date.setUTCHours(0, 0, 0, 0);
+    periodStart.setUTCHours(0, 0, 0, 0);
+    periodEnd.setUTCHours(0, 0, 0, 0);
 
     if (date < periodStart || date > periodEnd) {
       throw new BadRequestException(
