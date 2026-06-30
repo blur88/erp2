@@ -9,6 +9,8 @@ import { useCompleteStockAdjustmentMutation, useGetStockAdjustmentsQuery } from 
 import { PAGINATION } from '@/constants/tableStyles'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
+import { useNotification } from '@/hooks/useNotification'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 
 import StockAdjustmentList from './components/StockAdjustmentList'
 import StockAdjustmentsDialogs from './components/StockAdjustmentsDialogs'
@@ -42,6 +44,7 @@ export default function StockAdjustmentsPage() {
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
   const [completeAdjustment] = useCompleteStockAdjustmentMutation()
+  const { showSuccess, showError } = useNotification()
 
   const weekStartsOn = getStartOfWeek()
 
@@ -88,14 +91,15 @@ export default function StockAdjustmentsPage() {
 
   const handleConfirmComplete = useCallback(async () => {
     if (!completeTarget) return
+    const name = completeTargetRow?.adjustmentNumber ?? ''
     try {
       await completeAdjustment(completeTarget).unwrap()
-    } catch {
-      // error handled by api layer
-    } finally {
+      showSuccess(`Stock adjustment ${name} completed`)
       setCompleteTarget(null)
+    } catch (error) {
+      showError(rtkErrorMessage(error, 'Failed to complete stock adjustment'))
     }
-  }, [completeTarget, completeAdjustment])
+  }, [completeTarget, completeTargetRow, completeAdjustment, showSuccess, showError])
 
   const handleConfirmRevert = useCallback(() => {
     if (!revertTarget) return
