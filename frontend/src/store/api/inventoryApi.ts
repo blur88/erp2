@@ -19,7 +19,7 @@ export const inventoryApiSlice = createApi({
     getProducts: builder.query<PaginatedResponse<Product>, Record<string, unknown> | undefined>({
       query: (params) => ({
         url: '/inventory/products',
-        params: { isActive: true, sortBy: 'name', sortOrder: 'asc', ...(params ?? {}) },
+        params: { isActive: true, sortBy: 'name', sortOrder: 'ASC', ...(params ?? {}) },
       }),
       transformResponse: normalizePaginated<Product>,
       providesTags: ['Product'],
