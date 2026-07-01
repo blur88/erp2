@@ -6,7 +6,7 @@ import StockAdjustmentList from '../StockAdjustmentList'
 const h = vi.hoisted(() => ({
   triggerMock: vi.fn(),
   navigateMock: vi.fn(),
-  lazyState: { data: undefined as any, isFetching: false, isError: false },
+  lazyState: { data: undefined as any, isFetching: false, isError: false, isUninitialized: false },
 }))
 
 vi.mock('@/store/api/inventoryApi', () => ({
@@ -41,6 +41,7 @@ beforeEach(() => {
   h.lazyState.data = detail
   h.lazyState.isFetching = false
   h.lazyState.isError = false
+  h.lazyState.isUninitialized = false
 })
 
 it('renders adjustment numbers and status chips', () => {
@@ -93,4 +94,15 @@ it('shows a retry button on error that re-triggers the fetch', async () => {
   h.triggerMock.mockClear()
   fireEvent.click(retry)
   expect(h.triggerMock).toHaveBeenCalledWith('a1', true)
+})
+
+it('shows a spinner (not an empty list) before the first fetch settles', async () => {
+  // Uninitialized: trigger fired but not yet resolved — no data, not error.
+  h.lazyState.data = undefined
+  h.lazyState.isUninitialized = true
+  renderList()
+  fireEvent.click(screen.getAllByRole('button', { name: /show products/i })[0])
+  await waitFor(() => expect(screen.getByRole('progressbar')).toBeInTheDocument())
+  // No empty "Total:" footer while loading.
+  expect(screen.queryByText(/Total:/)).not.toBeInTheDocument()
 })

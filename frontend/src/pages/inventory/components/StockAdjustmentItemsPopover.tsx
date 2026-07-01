@@ -18,7 +18,7 @@ interface Props {
 
 export default function StockAdjustmentItemsPopover({ adjustment }: Props) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
-  const [trigger, { data, isFetching, isError }] = useLazyGetStockAdjustmentQuery()
+  const [trigger, { data, isFetching, isError, isUninitialized }] = useLazyGetStockAdjustmentQuery()
 
   const count = adjustment.itemCount
   const label = count === 1 ? '1 item' : `${formatNumber(count)} items`
@@ -38,6 +38,10 @@ export default function StockAdjustmentItemsPopover({ adjustment }: Props) {
   const handleRetry = () => trigger(adjustment.id, true)
 
   const items = data?.items ?? []
+  // Show the spinner until the first fetch settles: before the initial trigger
+  // resolves, isFetching can briefly be false, which would otherwise flash an
+  // empty product list.
+  const isLoading = isFetching || isUninitialized
 
   return (
     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
@@ -55,13 +59,13 @@ export default function StockAdjustmentItemsPopover({ adjustment }: Props) {
         onClose={handleClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
       >
-        <Box sx={{ p: 2, minWidth: 220 }} onClick={(e) => e.stopPropagation()}>
-          {isFetching && (
+        <Box sx={{ p: 2, minWidth: 220 }}>
+          {isLoading && (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
               <CircularProgress size={20} />
             </Box>
           )}
-          {isError && (
+          {isError && !isLoading && (
             <Stack spacing={1} sx={{ alignItems: 'flex-start' }}>
               <Typography variant="body2" color="error">
                 Failed to load products.
@@ -69,7 +73,7 @@ export default function StockAdjustmentItemsPopover({ adjustment }: Props) {
               <Button size="small" onClick={handleRetry}>Retry</Button>
             </Stack>
           )}
-          {!isFetching && !isError && (
+          {!isLoading && !isError && (
             <>
               <Stack spacing={0.5}>
                 {items.map((item) => (
@@ -80,7 +84,15 @@ export default function StockAdjustmentItemsPopover({ adjustment }: Props) {
                     <Typography variant="body2">{item.product.name}</Typography>
                     <Typography
                       variant="body2"
-                      sx={{ color: item.difference > 0 ? 'success.main' : 'error.main', fontWeight: 600 }}
+                      sx={{
+                        color:
+                          item.difference > 0
+                            ? 'success.main'
+                            : item.difference < 0
+                              ? 'error.main'
+                              : 'text.secondary',
+                        fontWeight: 600,
+                      }}
                     >
                       {item.difference > 0 ? '+' : ''}{formatNumber(item.difference)}
                     </Typography>
