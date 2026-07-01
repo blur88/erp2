@@ -3,11 +3,12 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, expect, it, vi } from 'vitest'
 
-const { completeSpy, unwrapMock, showSuccessSpy, showErrorSpy } = vi.hoisted(() => ({
+const { completeSpy, unwrapMock, showSuccessSpy, showErrorSpy, getAdjustmentsSpy } = vi.hoisted(() => ({
   completeSpy: vi.fn(),
   unwrapMock: vi.fn(),
   showSuccessSpy: vi.fn(),
   showErrorSpy: vi.fn(),
+  getAdjustmentsSpy: vi.fn(),
 }))
 
 vi.mock('@/store/api/inventoryApi', async (importOriginal) => {
@@ -17,7 +18,10 @@ vi.mock('@/store/api/inventoryApi', async (importOriginal) => {
   ]
   return {
     ...actual,
-    useGetStockAdjustmentsQuery: () => ({ data: { data: mockRows }, isFetching: false, error: undefined }),
+    useGetStockAdjustmentsQuery: (params: unknown) => {
+      getAdjustmentsSpy(params)
+      return { data: { data: mockRows }, isFetching: false, error: undefined }
+    },
     useGetCategoriesQuery: () => ({ data: [] }),
     useCompleteStockAdjustmentMutation: () => [completeSpy, {}],
     // The item-count popover (StockAdjustmentItemsPopover) uses this lazy query;
@@ -57,6 +61,7 @@ beforeEach(() => {
   unwrapMock.mockReset()
   showSuccessSpy.mockReset()
   showErrorSpy.mockReset()
+  getAdjustmentsSpy.mockReset()
   completeSpy.mockReturnValue({ unwrap: unwrapMock })
 })
 
@@ -94,5 +99,14 @@ it('keeps non-zero fractional digits when tidying the error message', async () =
 
   await waitFor(() =>
     expect(showErrorSpy).toHaveBeenCalledWith('Insufficient stock. Available: 1.5, Requested: 15'),
+  )
+})
+
+it('defaults the list sort to newest-first by adjustment date', () => {
+  renderPage()
+
+  expect(getAdjustmentsSpy).toHaveBeenNthCalledWith(
+    1,
+    expect.objectContaining({ sortBy: 'adjustmentDate', sortOrder: 'DESC' }),
   )
 })

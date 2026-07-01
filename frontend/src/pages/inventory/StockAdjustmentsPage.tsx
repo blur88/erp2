@@ -41,8 +41,8 @@ export default function StockAdjustmentsPage() {
   const navigate = useNavigate()
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
-  const [sortBy, setSortBy] = useState('adjustmentNumber')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [sortBy, setSortBy] = useState('adjustmentDate')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [completeTarget, setCompleteTarget] = useState<string | null>(null)
   const [revertTarget, setRevertTarget] = useState<string | null>(null)
 
@@ -122,7 +122,7 @@ export default function StockAdjustmentsPage() {
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={searchInputRef}
-      sort={{ field: 'adjustmentNumber', sortBy, sortOrder, onSort: handleSort }}
+      sort={{ field: 'adjustmentDate', sortBy, sortOrder, onSort: handleSort }}
       isFetching={isFetching}
       error={error ? 'Failed to load stock adjustments.' : null}
       tableSlot={(
