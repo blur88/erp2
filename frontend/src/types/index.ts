@@ -141,7 +141,7 @@ export interface StockAdjustment {
   id: string;
   adjustmentNumber: string;
   adjustmentDate: Date;
-  status: 'draft' | 'completed' | 'cancelled';
+  status: 'draft' | 'completed';
   notes?: string;
   itemCount: number;
   totalValue: number;
