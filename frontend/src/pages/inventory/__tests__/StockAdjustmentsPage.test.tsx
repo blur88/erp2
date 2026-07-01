@@ -20,6 +20,9 @@ vi.mock('@/store/api/inventoryApi', async (importOriginal) => {
     useGetStockAdjustmentsQuery: () => ({ data: { data: mockRows }, isFetching: false, error: undefined }),
     useGetCategoriesQuery: () => ({ data: [] }),
     useCompleteStockAdjustmentMutation: () => [completeSpy, {}],
+    // The item-count popover (StockAdjustmentItemsPopover) uses this lazy query;
+    // stub it so the unwrapped page render doesn't require a Redux <Provider>.
+    useLazyGetStockAdjustmentQuery: () => [vi.fn(), { data: undefined, isFetching: false, isError: false, isUninitialized: true }],
   }
 })
 
