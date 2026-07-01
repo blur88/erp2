@@ -21,6 +21,7 @@ export class BaseQueryDto {
   sortBy?: string;
 
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
   @IsIn(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC';
 
