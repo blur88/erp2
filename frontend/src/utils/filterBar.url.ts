@@ -203,7 +203,7 @@ export function parseFilters<TFilters extends object>(
         const VALID_ROLE = ['admin', 'manager', 'sales_staff', 'inventory_staff', 'procurement_staff']
         result[fieldKey] = VALID_ROLE.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'stock-adjustment-status') {
-        const VALID_STOCK_ADJUSTMENT_STATUS = ['draft', 'completed', 'cancelled']
+        const VALID_STOCK_ADJUSTMENT_STATUS = ['draft', 'completed']
         result[fieldKey] = VALID_STOCK_ADJUSTMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'order-status') {
         const VALID_ORDER_STATUS = fieldKey === 'status'

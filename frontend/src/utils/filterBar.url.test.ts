@@ -373,3 +373,30 @@ describe('compare field type — getManagedParamKeys', () => {
     expect(keys.filter((k) => k.startsWith('sales_compareWith'))).toHaveLength(1)
   })
 })
+
+describe('parseFilters — stock-adjustment-status field', () => {
+  interface SaFilters {
+    search: string
+    status: string | null
+  }
+
+  const saConfig: FilterBarConfig<SaFilters> = {
+    search: { placeholder: 'Search...' },
+    fields: [
+      { field: 'status', label: 'Status', type: 'stock-adjustment-status' },
+    ],
+    defaults: { search: '', status: null },
+  }
+
+  it('rejects cancelled and returns null', () => {
+    expect(parseFilters(new URLSearchParams('status=cancelled'), saConfig).status).toBeNull()
+  })
+
+  it('accepts draft', () => {
+    expect(parseFilters(new URLSearchParams('status=draft'), saConfig).status).toBe('draft')
+  })
+
+  it('accepts completed', () => {
+    expect(parseFilters(new URLSearchParams('status=completed'), saConfig).status).toBe('completed')
+  })
+})
