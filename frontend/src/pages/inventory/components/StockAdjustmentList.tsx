@@ -7,6 +7,7 @@ import { StatusChip } from '@/components/common/StatusChip'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate, formatNumber } from '@/utils/formatters'
 import type { StockAdjustment } from '@/types'
+import StockAdjustmentItemsPopover from './StockAdjustmentItemsPopover'
 
 interface Props {
   rows: StockAdjustment[]
@@ -24,7 +25,7 @@ export default function StockAdjustmentList({ rows, total, loading, paginationSl
     { key: 'adjustmentNumber', width: '30%', render: (a) => a.adjustmentNumber },
     { key: 'date', width: '16%', render: (a) => formatDate(a.adjustmentDate) },
     { key: 'status', width: '14%', raw: true, render: (a) => <StatusChip status={a.status} /> },
-    { key: 'itemCount', width: '14%', render: (a) => formatNumber(a.itemCount) },
+    { key: 'itemCount', width: '14%', raw: true, render: (a) => <StockAdjustmentItemsPopover adjustment={a} /> },
     { key: 'totalValue', width: '18%', render: (a) => formatCurrency(a.totalValue) },
     {
       key: 'actions', width: '8%', raw: true,
