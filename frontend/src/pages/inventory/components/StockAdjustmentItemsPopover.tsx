@@ -58,6 +58,9 @@ export default function StockAdjustmentItemsPopover({ adjustment }: Props) {
         anchorEl={anchorEl}
         onClose={handleClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        // Stop the dismiss/backdrop click from bubbling to the row's onClick
+        // (which navigates to the View page). Mirrors RowActionMenu.
+        onClick={(e) => e.stopPropagation()}
       >
         <Box sx={{ p: 2, minWidth: 220 }}>
           {isLoading && (

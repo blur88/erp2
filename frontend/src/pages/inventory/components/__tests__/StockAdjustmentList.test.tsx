@@ -77,6 +77,14 @@ it('does NOT navigate when the icon is clicked (stopPropagation)', () => {
   expect(h.navigateMock).not.toHaveBeenCalled()
 })
 
+// NOTE: the "click outside closes the popover without navigating to the row's
+// View page" behavior relies on the MUI Popover's viewport-covering backdrop
+// catching the dismiss click. That is real-browser overlay hit-testing which
+// jsdom does not model (it dispatches synthetic clicks straight at a node,
+// ignoring the portal-rendered backdrop). So this is verified manually in the
+// browser, not here. The guard itself is the `onClick={(e) => e.stopPropagation()}`
+// on the <Popover> in StockAdjustmentItemsPopover (mirrors RowActionMenu).
+
 it('closes the popover on Escape', async () => {
   renderList()
   fireEvent.click(screen.getAllByRole('button', { name: /show products/i })[0])
