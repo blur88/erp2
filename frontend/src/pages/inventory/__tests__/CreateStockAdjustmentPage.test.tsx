@@ -16,6 +16,7 @@ const {
   mockShowSuccess,
   mockProductsQuery,
   mockAdjustmentQuery,
+  mockDocNumberSettings,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockParams: vi.fn(() => ({})),
@@ -26,6 +27,7 @@ const {
   mockShowSuccess: vi.fn(),
   mockProductsQuery: vi.fn(),
   mockAdjustmentQuery: vi.fn(),
+  mockDocNumberSettings: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async () => {
@@ -55,6 +57,10 @@ vi.mock('@/store/api/inventoryApi', () => ({
   useUpdateStockAdjustmentMutation: () => [mockUpdateAdjustment, { isLoading: false }],
 }))
 
+vi.mock('@/store/api/settingsApi', () => ({
+  useGetDocumentNumberSettingsQuery: () => mockDocNumberSettings(),
+}))
+
 const baseProduct1 = Object.freeze({
   id: 'p1', name: 'Alpha Widget', stockQuantity: 10, baseCost: 5,
 })
@@ -77,6 +83,7 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
     mockSearchParams.mockReturnValue([new URLSearchParams(), vi.fn()])
     mockProductsQuery.mockReturnValue(stableAllProducts)
     mockAdjustmentQuery.mockReturnValue(stableAdjNull)
+    mockDocNumberSettings.mockReturnValue({ data: undefined, isLoading: false })
     mockCreateAdjustment.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue({ id: 'adj-new', adjustmentNumber: 'SA-001' }),
     })
