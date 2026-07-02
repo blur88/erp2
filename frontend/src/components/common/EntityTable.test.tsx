@@ -173,4 +173,67 @@ describe('EntityTable', () => {
     expect(screen.getByText('No adjustments found')).toBeInTheDocument()
     expect(screen.queryByText('No Stock Adjustments found')).not.toBeInTheDocument()
   })
+
+  it('shows filtered empty state when hasActiveFilters and emptyFilteredLabel provided', () => {
+    render(
+      <EntityTable
+        rows={[]}
+        columns={columns}
+        loading={false}
+        total={0}
+        label="Stock Adjustments"
+        emptyFilteredLabel="adjustments"
+        hasActiveFilters={true}
+        selectedId={undefined}
+        focusedIndex={-1}
+        onSelect={vi.fn()}
+        listRef={{ current: null }}
+      />,
+    )
+
+    expect(screen.getByText('No adjustments match filters')).toBeInTheDocument()
+    expect(screen.queryByText('No adjustments found')).not.toBeInTheDocument()
+  })
+
+  it('shows unfiltered empty state when hasActiveFilters is false', () => {
+    render(
+      <EntityTable
+        rows={[]}
+        columns={columns}
+        loading={false}
+        total={0}
+        label="Stock Adjustments"
+        emptyLabel="adjustments"
+        emptyFilteredLabel="adjustments"
+        hasActiveFilters={false}
+        selectedId={undefined}
+        focusedIndex={-1}
+        onSelect={vi.fn()}
+        listRef={{ current: null }}
+      />,
+    )
+
+    expect(screen.getByText('No adjustments found')).toBeInTheDocument()
+    expect(screen.queryByText('No adjustments match filters')).not.toBeInTheDocument()
+  })
+
+  it('falls back to emptyLabel for filtered copy when emptyFilteredLabel is omitted', () => {
+    render(
+      <EntityTable
+        rows={[]}
+        columns={columns}
+        loading={false}
+        total={0}
+        label="Stock Adjustments"
+        emptyLabel="adjustments"
+        hasActiveFilters={true}
+        selectedId={undefined}
+        focusedIndex={-1}
+        onSelect={vi.fn()}
+        listRef={{ current: null }}
+      />,
+    )
+
+    expect(screen.getByText('No adjustments match filters')).toBeInTheDocument()
+  })
 })
