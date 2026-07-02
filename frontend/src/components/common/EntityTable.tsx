@@ -30,6 +30,7 @@ export interface EntityTableProps<T extends { id: string }> {
   loading: boolean
   total: number
   label: string
+  emptyLabel?: string
   selectedId?: string
   focusedIndex: number
   onSelect: (row: T) => void
@@ -112,6 +113,7 @@ function EntityTable<T extends { id: string }>({
   loading,
   total,
   label,
+  emptyLabel,
   selectedId,
   focusedIndex,
   onSelect,
@@ -217,7 +219,7 @@ function EntityTable<T extends { id: string }>({
                             variant="body2"
                             sx={{ color: 'text.secondary', textAlign: 'center', py: 2 }}
                           >
-                            No {label} found
+                            No {emptyLabel ?? label} found
                           </Typography>
                         </TableCell>
                       </TableRow>

@@ -153,4 +153,24 @@ describe('EntityTable', () => {
 
     expect(screen.getByText('Searching...')).toBeInTheDocument()
   })
+
+  it('uses emptyLabel for the empty state when provided', () => {
+    render(
+      <EntityTable
+        rows={[]}
+        columns={columns}
+        loading={false}
+        total={0}
+        label="Stock Adjustments"
+        emptyLabel="adjustments"
+        selectedId={undefined}
+        focusedIndex={-1}
+        onSelect={vi.fn()}
+        listRef={{ current: null }}
+      />,
+    )
+
+    expect(screen.getByText('No adjustments found')).toBeInTheDocument()
+    expect(screen.queryByText('No Stock Adjustments found')).not.toBeInTheDocument()
+  })
 })
