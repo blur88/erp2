@@ -77,7 +77,16 @@ it('does NOT navigate when the icon is clicked (stopPropagation)', () => {
   expect(h.navigateMock).not.toHaveBeenCalled()
 })
 
-// NOTE: the "click outside closes the popover without navigating to the row's
+it('shows "No adjustments found" when there are no rows', () => {
+  render(
+    <MemoryRouter>
+      <StockAdjustmentList rows={[] as any} total={0} loading={false} paginationSlot={null} />
+    </MemoryRouter>,
+  )
+  expect(screen.getByText('No adjustments found')).toBeInTheDocument()
+})
+
+  // NOTE: the "click outside closes the popover without navigating to the row's
 // View page" behavior relies on the MUI Popover's viewport-covering backdrop
 // catching the dismiss click. That is real-browser overlay hit-testing which
 // jsdom does not model (it dispatches synthetic clicks straight at a node,
