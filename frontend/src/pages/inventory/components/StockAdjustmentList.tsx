@@ -14,11 +14,12 @@ interface Props {
   total: number
   loading: boolean
   paginationSlot: ReactNode
+  hasActiveFilters: boolean
   onComplete?: (a: StockAdjustment) => void
   onRevert?: (a: StockAdjustment) => void
 }
 
-export default function StockAdjustmentList({ rows, total, loading, paginationSlot, onComplete, onRevert }: Props) {
+export default function StockAdjustmentList({ rows, total, loading, paginationSlot, hasActiveFilters, onComplete, onRevert }: Props) {
   const navigate = useNavigate()
 
   const columns: ColumnConfig<StockAdjustment>[] = [
@@ -52,6 +53,8 @@ export default function StockAdjustmentList({ rows, total, loading, paginationSl
       total={total}
       label="Stock Adjustments"
       emptyLabel="adjustments"
+      emptyFilteredLabel="adjustments"
+      hasActiveFilters={hasActiveFilters}
       headers={['Adjustment Number', 'Date', 'Status', 'Item Count', 'Total Value', 'Actions']}
       showHeader={false}
       focusedIndex={-1}

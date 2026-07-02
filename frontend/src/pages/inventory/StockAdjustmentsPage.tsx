@@ -131,6 +131,7 @@ export default function StockAdjustmentsPage() {
             rows={pageRows}
             total={total}
             loading={isFetching}
+            hasActiveFilters={hasActiveFilters}
             paginationSlot={(
               <PagePagination
                 total={total}

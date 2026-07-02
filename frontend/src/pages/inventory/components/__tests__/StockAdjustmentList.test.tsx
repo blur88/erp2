@@ -33,7 +33,7 @@ const rows = [
 ]
 
 const renderList = () =>
-  render(<MemoryRouter><StockAdjustmentList rows={rows as any} total={3} loading={false} paginationSlot={null} /></MemoryRouter>)
+  render(<MemoryRouter><StockAdjustmentList rows={rows as any} total={3} loading={false} paginationSlot={null} hasActiveFilters={false} /></MemoryRouter>)
 
 beforeEach(() => {
   h.triggerMock.mockReset()
@@ -115,11 +115,20 @@ it('shows a spinner (not an empty list) before the first fetch settles', async (
   expect(screen.queryByText(/Total:/)).not.toBeInTheDocument()
 })
 
-it('shows "No adjustments found" when there are no rows', () => {
+it('shows "No adjustments found" when there are no rows and no active filters', () => {
   render(
     <MemoryRouter>
-      <StockAdjustmentList rows={[] as any} total={0} loading={false} paginationSlot={null} />
+      <StockAdjustmentList rows={[] as any} total={0} loading={false} paginationSlot={null} hasActiveFilters={false} />
     </MemoryRouter>,
   )
   expect(screen.getByText('No adjustments found')).toBeInTheDocument()
+})
+
+it('shows "No adjustments match filters" when there are no rows and filters are active', () => {
+  render(
+    <MemoryRouter>
+      <StockAdjustmentList rows={[] as any} total={0} loading={false} paginationSlot={null} hasActiveFilters={true} />
+    </MemoryRouter>,
+  )
+  expect(screen.getByText('No adjustments match filters')).toBeInTheDocument()
 })

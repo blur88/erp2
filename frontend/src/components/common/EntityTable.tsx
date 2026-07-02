@@ -31,6 +31,8 @@ export interface EntityTableProps<T extends { id: string }> {
   total: number
   label: string
   emptyLabel?: string
+  emptyFilteredLabel?: string
+  hasActiveFilters?: boolean
   selectedId?: string
   focusedIndex: number
   onSelect: (row: T) => void
@@ -114,6 +116,8 @@ function EntityTable<T extends { id: string }>({
   total,
   label,
   emptyLabel,
+  emptyFilteredLabel,
+  hasActiveFilters,
   selectedId,
   focusedIndex,
   onSelect,
@@ -123,6 +127,13 @@ function EntityTable<T extends { id: string }>({
   headers,
   paginationSlot,
 }: EntityTableProps<T>) {
+  const emptyName = hasActiveFilters
+    ? emptyFilteredLabel ?? emptyLabel ?? label
+    : emptyLabel ?? label
+  const emptyMessage = hasActiveFilters
+    ? `No ${emptyName} match filters`
+    : `No ${emptyName} found`
+
   return (
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {showHeader && (
@@ -219,7 +230,7 @@ function EntityTable<T extends { id: string }>({
                             variant="body2"
                             sx={{ color: 'text.secondary', textAlign: 'center', py: 2 }}
                           >
-                            No {emptyLabel ?? label} found
+                            {emptyMessage}
                           </Typography>
                         </TableCell>
                       </TableRow>
