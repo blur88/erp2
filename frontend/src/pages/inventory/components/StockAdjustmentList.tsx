@@ -51,6 +51,7 @@ export default function StockAdjustmentList({ rows, total, loading, paginationSl
       loading={loading}
       total={total}
       label="Stock Adjustments"
+      emptyLabel="adjustments"
       headers={['Adjustment Number', 'Date', 'Status', 'Item Count', 'Total Value', 'Actions']}
       showHeader={false}
       focusedIndex={-1}

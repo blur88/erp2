@@ -114,3 +114,12 @@ it('shows a spinner (not an empty list) before the first fetch settles', async (
   // No empty "Total:" footer while loading.
   expect(screen.queryByText(/Total:/)).not.toBeInTheDocument()
 })
+
+it('shows "No adjustments found" when there are no rows', () => {
+  render(
+    <MemoryRouter>
+      <StockAdjustmentList rows={[] as any} total={0} loading={false} paginationSlot={null} />
+    </MemoryRouter>,
+  )
+  expect(screen.getByText('No adjustments found')).toBeInTheDocument()
+})
