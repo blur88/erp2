@@ -253,4 +253,66 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
       })
     })
   })
+
+  it('renders a read-only Adjustment Number field in create mode', () => {
+    render(
+      <BrowserRouter>
+        <CreateStockAdjustmentPage />
+      </BrowserRouter>,
+    )
+    const field = screen.getByLabelText(/adjustment number/i) as HTMLInputElement
+    expect(field).toBeInTheDocument()
+    expect(field).toHaveAttribute('readonly')
+  })
+
+  it('shows the SA-YY-NNNN preview from document number settings in create mode', () => {
+    mockDocNumberSettings.mockReturnValue({
+      data: {
+        configurations: [
+          { documentName: 'Stock Adjustment', prefix: 'SA', nextNumber: 7, paddingDigits: 4 },
+        ],
+      },
+      isLoading: false,
+    })
+    render(
+      <BrowserRouter>
+        <CreateStockAdjustmentPage />
+      </BrowserRouter>,
+    )
+    const yy = String(new Date().getFullYear() % 100).padStart(2, '0')
+    const field = screen.getByLabelText(/adjustment number/i) as HTMLInputElement
+    expect(field.value).toBe(`SA-${yy}-0007`)
+  })
+
+  it('falls back to Auto-generated when settings are unavailable', () => {
+    mockDocNumberSettings.mockReturnValue({ data: undefined, isLoading: false })
+    render(
+      <BrowserRouter>
+        <CreateStockAdjustmentPage />
+      </BrowserRouter>,
+    )
+    const field = screen.getByLabelText(/adjustment number/i) as HTMLInputElement
+    expect(field.value).toBe('Auto-generated')
+  })
+
+  it('shows the loaded adjustmentNumber in edit mode', () => {
+    mockParams.mockReturnValue({ id: 'adj-1' })
+    mockAdjustmentQuery.mockReturnValue({
+      data: {
+        id: 'adj-1',
+        adjustmentNumber: 'SA-25-0042',
+        adjustmentDate: '2026-07-01',
+        notes: '',
+        items: [],
+      },
+      isLoading: false,
+    })
+    render(
+      <BrowserRouter>
+        <CreateStockAdjustmentPage />
+      </BrowserRouter>,
+    )
+    const field = screen.getByLabelText(/adjustment number/i) as HTMLInputElement
+    expect(field.value).toBe('SA-25-0042')
+  })
 })
