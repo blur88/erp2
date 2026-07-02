@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Alert,
@@ -33,6 +33,7 @@ import {
   useCreateStockAdjustmentMutation,
   useUpdateStockAdjustmentMutation,
 } from '@/store/api/inventoryApi'
+import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
 import { getCurrentDate } from '@/utils/formatters'
 import { formatCurrency } from '@/utils/currency'
 import { useNotification } from '@/hooks/useNotification'
@@ -76,6 +77,22 @@ const CreateStockAdjustmentPage: React.FC = () => {
   const { data: productsData, isLoading: productsLoading } = useGetProductsQuery({ isActive: true })
   const { data: adjustment, isLoading: adjustmentLoading } = useGetStockAdjustmentQuery(id!, { skip: !id })
   const { data: sourceAdjustment, isLoading: sourceLoading } = useGetStockAdjustmentQuery(revertFrom!, { skip: !revertFrom })
+
+  const { data: docNumberSettings, isLoading: loadingDocNumbers } =
+    useGetDocumentNumberSettingsQuery()
+
+  const adjustmentNumberPreview = useMemo(() => {
+    if (isEditMode) return null
+    if (loadingDocNumbers) return 'Loading...'
+    if (!docNumberSettings) return 'Auto-generated'
+    const config = docNumberSettings.configurations?.find(
+      (c: any) => c.documentName === 'Stock Adjustment',
+    )
+    if (!config) return 'Auto-generated'
+    const yy = String(new Date().getFullYear() % 100).padStart(2, '0')
+    const seq = String(config.nextNumber).padStart(config.paddingDigits, '0')
+    return `${config.prefix}-${yy}-${seq}`
+  }, [docNumberSettings, isEditMode, loadingDocNumbers])
 
   const [createStockAdjustment, { isLoading: isCreating }] = useCreateStockAdjustmentMutation()
   const [updateStockAdjustment, { isLoading: isUpdating }] = useUpdateStockAdjustmentMutation()
@@ -254,6 +271,19 @@ const CreateStockAdjustmentPage: React.FC = () => {
                   Adjustment Information
                 </Typography>
                 <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Adjustment Number"
+                      value={isEditMode ? (adjustment?.adjustmentNumber ?? '') : (adjustmentNumberPreview ?? '')}
+                      slotProps={{ input: { readOnly: true }, inputLabel: { shrink: true } }}
+                      sx={{
+                        '& .MuiInputBase-input': { fontSize: '0.875rem' },
+                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+                      }}
+                    />
+                  </Grid>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <Controller
                       name="adjustmentDate"
