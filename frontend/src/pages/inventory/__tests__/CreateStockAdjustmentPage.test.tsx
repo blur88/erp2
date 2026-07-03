@@ -5,6 +5,8 @@ import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 
 import CreateStockAdjustmentPage from '../CreateStockAdjustmentPage'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 
 const {
   mockNavigate,
@@ -76,8 +78,18 @@ const stableAllProducts = Object.freeze({
   isLoading: false,
 })
 
+const renderPage = () =>
+  render(
+    <BrowserRouter>
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <CreateStockAdjustmentPage />
+      </LocalizationProvider>
+    </BrowserRouter>,
+  )
+
 describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
   beforeEach(() => {
+    localStorage.clear()
     vi.clearAllMocks()
     mockParams.mockReturnValue({})
     mockSearchParams.mockReturnValue([new URLSearchParams(), vi.fn()])
@@ -93,22 +105,34 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
   })
 
   it('renders the page header in create mode', () => {
-    render(
-      <BrowserRouter>
-        <CreateStockAdjustmentPage />
-      </BrowserRouter>,
-    )
+    renderPage()
     expect(screen.getByRole('heading', { name: /create stock adjustment/i })).toBeInTheDocument()
+  })
+
+  it('renders the Adjustment Date in the regional format (DD/MM/YYYY)', async () => {
+    localStorage.setItem('dateFormat', 'DD/MM/YYYY')
+    mockParams.mockReturnValue({ id: 'adj-1' })
+    mockAdjustmentQuery.mockReturnValue({
+      data: {
+        id: 'adj-1',
+        adjustmentNumber: 'SA-25-0042',
+        adjustmentDate: '2026-07-01',
+        notes: '',
+        items: [],
+      },
+      isLoading: false,
+    })
+    renderPage()
+    await waitFor(() => {
+      const dateField = screen.getByDisplayValue('01/07/2026')
+      expect(dateField).toBeInTheDocument()
+    })
   })
 
   describe('duplicate product guard', () => {
     it('blocks adding a product already in the items table', async () => {
       const user = userEvent.setup()
-      render(
-        <BrowserRouter>
-          <CreateStockAdjustmentPage />
-        </BrowserRouter>,
-      )
+      renderPage()
 
       const inputs = screen.getAllByPlaceholderText('Search product...')
       await user.click(inputs[0])
@@ -140,11 +164,7 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
         isLoading: false,
       })
       mockProductsQuery.mockReturnValue(stableSingleProduct)
-      render(
-        <BrowserRouter>
-          <CreateStockAdjustmentPage />
-        </BrowserRouter>,
-      )
+      renderPage()
 
       const input = screen.getByPlaceholderText('Search product...')
       await user.click(input)
@@ -197,11 +217,7 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
       })
       mockProductsQuery.mockReturnValue(stableRevertProducts)
 
-      render(
-        <BrowserRouter>
-          <CreateStockAdjustmentPage />
-        </BrowserRouter>,
-      )
+      renderPage()
 
       await waitFor(() => {
         const diffInput = screen.getByTestId('items.0.difference') as HTMLInputElement
@@ -238,11 +254,7 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
         return stableAdjNull
       })
 
-      render(
-        <BrowserRouter>
-          <CreateStockAdjustmentPage />
-        </BrowserRouter>,
-      )
+      renderPage()
 
       await waitFor(() => {
         expect(mockAdjustmentQuery).toHaveBeenCalledWith('abc-123')
@@ -255,11 +267,7 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
   })
 
   it('renders a read-only Adjustment Number field in create mode', () => {
-    render(
-      <BrowserRouter>
-        <CreateStockAdjustmentPage />
-      </BrowserRouter>,
-    )
+    renderPage()
     const field = screen.getByLabelText(/adjustment number/i) as HTMLInputElement
     expect(field).toBeInTheDocument()
     expect(field).toHaveAttribute('readonly')
@@ -274,11 +282,7 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
       },
       isLoading: false,
     })
-    render(
-      <BrowserRouter>
-        <CreateStockAdjustmentPage />
-      </BrowserRouter>,
-    )
+    renderPage()
     const yy = String(new Date().getFullYear() % 100).padStart(2, '0')
     const field = screen.getByLabelText(/adjustment number/i) as HTMLInputElement
     expect(field.value).toBe(`SA-${yy}-0007`)
@@ -286,11 +290,7 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
 
   it('falls back to Auto-generated when settings are unavailable', () => {
     mockDocNumberSettings.mockReturnValue({ data: undefined, isLoading: false })
-    render(
-      <BrowserRouter>
-        <CreateStockAdjustmentPage />
-      </BrowserRouter>,
-    )
+    renderPage()
     const field = screen.getByLabelText(/adjustment number/i) as HTMLInputElement
     expect(field.value).toBe('Auto-generated')
   })
@@ -307,11 +307,7 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
       },
       isLoading: false,
     })
-    render(
-      <BrowserRouter>
-        <CreateStockAdjustmentPage />
-      </BrowserRouter>,
-    )
+    renderPage()
     const field = screen.getByLabelText(/adjustment number/i) as HTMLInputElement
     expect(field.value).toBe('SA-25-0042')
   })
