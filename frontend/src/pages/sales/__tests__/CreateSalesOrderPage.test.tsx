@@ -1,8 +1,16 @@
 import '@testing-library/jest-dom/vitest'
+import type { ReactElement } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within, act } from '@testing-library/react'
+import { fireEvent, render as rtlRender, screen, waitFor, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter, MemoryRouter, Route, Routes } from 'react-router-dom'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
+
+// Wrap every render in LocalizationProvider — the Order Date field uses a
+// MUI X DatePicker, which throws without a localization context.
+const render = (ui: ReactElement) =>
+  rtlRender(<LocalizationProvider dateAdapter={AdapterDateFns}>{ui}</LocalizationProvider>)
 
 import CreateSalesOrderPage from '../CreateSalesOrderPage'
 
@@ -720,7 +728,9 @@ describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
     // Section 1 — Order Info
     await waitFor(() => {
       expect(screen.getByDisplayValue('SO-26-001')).toBeInTheDocument()
-      expect(screen.getByDisplayValue('2026-03-15')).toBeInTheDocument()
+      // Order Date renders via MUI X DatePicker in the user's regional format
+      // (default DD/MM/YYYY), not the raw ISO yyyy-MM-dd of a native date input.
+      expect(screen.getByDisplayValue('15/03/2026')).toBeInTheDocument()
       expect(screen.getByRole('combobox', { name: /customer/i })).toHaveValue('Test Customer')
     })
 

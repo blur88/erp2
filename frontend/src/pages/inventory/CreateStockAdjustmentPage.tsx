@@ -67,6 +67,11 @@ const schema = yup.object({
   ).min(1, 'At least one item is required'),
 })
 
+const fieldSx = {
+  '& .MuiInputBase-input': { fontSize: '0.875rem' },
+  '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+}
+
 const CreateStockAdjustmentPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
@@ -289,10 +294,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                       label="Adjustment Number"
                       value={isEditMode ? (adjustment?.adjustmentNumber ?? '') : (adjustmentNumberPreview ?? '')}
                       slotProps={{ input: { readOnly: true }, inputLabel: { shrink: true } }}
-                      sx={{
-                        '& .MuiInputBase-input': { fontSize: '0.875rem' },
-                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
-                      }}
+                      sx={fieldSx}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, md: 6 }}>
@@ -314,10 +316,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                               size: 'small',
                               error: !!errors.adjustmentDate,
                               helperText: errors.adjustmentDate?.message,
-                              sx: {
-                                '& .MuiInputBase-input': { fontSize: '0.875rem' },
-                                '& .MuiInputLabel-root': { fontSize: '0.875rem' },
-                              },
+                              sx: fieldSx,
                             },
                           }}
                         />
@@ -332,16 +331,9 @@ const CreateStockAdjustmentPage: React.FC = () => {
           <Grid size={12}>
             <Card>
               <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6">Line Items</Typography>
-                  <AppButton
-                    variant="secondary"
-                    startIcon={<AddIcon />}
-                    onClick={() => append({ productId: '', liveStock: 0, difference: 0, unitCost: 0 })}
-                  >
-                    Add Item
-                  </AppButton>
-                </Box>
+                <Typography variant="h6" gutterBottom>
+                  Line Items
+                </Typography>
 
                 {duplicateError && (
                   <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setDuplicateError(null)}>
@@ -368,6 +360,9 @@ const CreateStockAdjustmentPage: React.FC = () => {
                       '& .MuiTableHead-root .MuiTableCell-root': {
                         backgroundColor: theme.palette.grey[50],
                         fontWeight: 600,
+                      },
+                      '& .MuiTableBody-root .MuiTableRow-root:hover': {
+                        backgroundColor: theme.palette.action.hover,
                       },
                       '& .MuiTextField-root .MuiOutlinedInput-root': {
                         '& fieldset': { border: 'none' },
@@ -525,6 +520,16 @@ const CreateStockAdjustmentPage: React.FC = () => {
                   </Table>
                 </TableContainer>
 
+                <Box sx={{ mt: 2 }}>
+                  <AppButton
+                    variant="secondary"
+                    startIcon={<AddIcon />}
+                    onClick={() => append({ productId: '', liveStock: 0, difference: 0, unitCost: 0 })}
+                  >
+                    Add Item
+                  </AppButton>
+                </Box>
+
                 {errors.items && !Array.isArray(errors.items) && (
                   <Alert severity="error" sx={{ mt: 1 }}>
                     {(errors.items as any).message}
@@ -550,10 +555,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                       multiline
                       rows={3}
                       fullWidth
-                      sx={{
-                        '& .MuiInputBase-input': { fontSize: '0.875rem' },
-                        '& .MuiInputLabel-root': { fontSize: '0.875rem' },
-                      }}
+                      sx={fieldSx}
                     />
                   )}
                 />
@@ -568,21 +570,9 @@ const CreateStockAdjustmentPage: React.FC = () => {
           )}
 
           <Grid size={12}>
-            <Box
-              sx={{
-                position: 'sticky',
-                bottom: 0,
-                backgroundColor: 'background.paper',
-                borderTop: `1px solid ${theme.palette.divider}`,
-                py: 2,
-                px: 3,
-                display: 'flex',
-                gap: 2,
-                justifyContent: 'flex-end',
-              }}
-            >
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
               <AppButton
-                variant="outlined"
+                variant="secondary"
                 onClick={() => navigate('/inventory/stock-adjustments')}
                 disabled={isSaving}
               >

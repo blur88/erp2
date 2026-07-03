@@ -1,8 +1,16 @@
 import '@testing-library/jest-dom/vitest'
+import type { ReactElement } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render as rtlRender, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter, MemoryRouter } from 'react-router-dom'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
+
+// Wrap every render in LocalizationProvider — the Order Date field uses a
+// MUI X DatePicker, which throws without a localization context.
+const render = (ui: ReactElement) =>
+  rtlRender(<LocalizationProvider dateAdapter={AdapterDateFns}>{ui}</LocalizationProvider>)
 
 import CreatePurchaseOrderPage from '../CreatePurchaseOrderPage'
 

@@ -23,6 +23,8 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { yupResolver } from '@hookform/resolvers/yup'
+import { DatePicker } from '@mui/x-date-pickers'
+import { parseISO, format, isValid } from 'date-fns'
 import { Controller, useFieldArray, useForm } from 'react-hook-form'
 import { useStore } from 'react-redux'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
@@ -46,7 +48,7 @@ import { patchSalesOrderCaches } from '@/store/api/salesOrderCache'
 import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
 import { setSelectedOrder } from '@/store/slices/salesSlice'
 import type { RootState } from '@/store'
-import { formatCurrency, getCurrentDate } from '@/utils/formatters'
+import { formatCurrency, getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getStockOffenders } from '@/utils/stockStatus'
 import { getOrderActionMetas } from './utils/orderActions'
@@ -188,6 +190,9 @@ const CreateSalesOrderPage: React.FC = () => {
   const isSaving = Boolean(createState.isLoading || updateState.isLoading)
 
   const { products, loadProducts, seedProducts } = useProductSearch({ onlyActive: true })
+
+  const storedFormat = useMemo(() => localStorage.getItem('dateFormat') || 'DD/MM/YYYY', [])
+  const pickerFormat = useMemo(() => toMuiDatePickerFormat(storedFormat), [storedFormat])
 
   const orderNumberPreview = useMemo(() => {
     if (isEditMode) return null
@@ -356,7 +361,15 @@ const CreateSalesOrderPage: React.FC = () => {
 
   const handleProductSelect = useCallback(
     (index: number, product: any) => {
-      if (!product) return
+      if (!product) {
+        // Clearing the product (X button) must erase the row's product —
+        // follow the Stock Adjustment pattern instead of no-op leaving it stale.
+        setValue(`items.${index}.productId`, '', { shouldDirty: true, shouldValidate: true })
+        setValue(`items.${index}.product`, undefined, { shouldDirty: true })
+        setValue(`items.${index}.unitPrice`, 0, { shouldDirty: true })
+        setValue(`items.${index}.totalPrice`, 0, { shouldDirty: true })
+        return
+      }
       seedProducts([product])
       const price = getProductPrice(product, selectedCustomer)
       const qty = Number(watchedItems[index]?.quantity) || 1
@@ -469,18 +482,24 @@ const CreateSalesOrderPage: React.FC = () => {
                       name="orderDate"
                       control={control}
                       render={({ field }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          size="small"
+                        <DatePicker
                           label="Order Date"
-                          type="date"
-                          required
+                          value={field.value ? parseISO(field.value) : null}
+                          format={pickerFormat}
                           disabled={isSaving}
-                          error={!!errors.orderDate}
-                          helperText={errors.orderDate?.message}
-                          slotProps={{ inputLabel: { shrink: true } }}
-                          sx={fieldSx}
+                          onChange={(date) =>
+                            field.onChange(date && isValid(date) ? format(date, 'yyyy-MM-dd') : '')
+                          }
+                          slotProps={{
+                            textField: {
+                              required: true,
+                              fullWidth: true,
+                              size: 'small',
+                              error: !!errors.orderDate,
+                              helperText: errors.orderDate?.message,
+                              sx: fieldSx,
+                            },
+                          }}
                         />
                       )}
                     />
@@ -817,7 +836,7 @@ function LineItemRow({
           name={`items.${index}.productId`}
           control={control}
           render={({ field }) => (
-            <>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Autocomplete
                 options={products}
                 getOptionLabel={(option) => option?.name || ''}
@@ -831,6 +850,7 @@ function LineItemRow({
                 size="small"
                 disabled={isSaving}
                 onKeyDown={getKeyHandler(index, 0)}
+                sx={{ flex: 1 }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -852,14 +872,12 @@ function LineItemRow({
                 }}
               />
               {watchedItem?.product && (
-                <Box sx={{ mt: 0.5 }}>
-                  <StockIndicatorChip
-                    stockQuantity={Number(watchedItem.product.stockQuantity ?? 0)}
-                    quantity={Number(watchedItem.quantity ?? 0)}
-                  />
-                </Box>
+                <StockIndicatorChip
+                  stockQuantity={Number(watchedItem.product.stockQuantity ?? 0)}
+                  quantity={Number(watchedItem.quantity ?? 0)}
+                />
               )}
-            </>
+            </Box>
           )}
         />
       </TableCell>
