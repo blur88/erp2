@@ -361,7 +361,15 @@ const CreateSalesOrderPage: React.FC = () => {
 
   const handleProductSelect = useCallback(
     (index: number, product: any) => {
-      if (!product) return
+      if (!product) {
+        // Clearing the product (X button) must erase the row's product —
+        // follow the Stock Adjustment pattern instead of no-op leaving it stale.
+        setValue(`items.${index}.productId`, '', { shouldDirty: true, shouldValidate: true })
+        setValue(`items.${index}.product`, undefined, { shouldDirty: true })
+        setValue(`items.${index}.unitPrice`, 0, { shouldDirty: true })
+        setValue(`items.${index}.totalPrice`, 0, { shouldDirty: true })
+        return
+      }
       seedProducts([product])
       const price = getProductPrice(product, selectedCustomer)
       const qty = Number(watchedItems[index]?.quantity) || 1
@@ -828,7 +836,7 @@ function LineItemRow({
           name={`items.${index}.productId`}
           control={control}
           render={({ field }) => (
-            <>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Autocomplete
                 options={products}
                 getOptionLabel={(option) => option?.name || ''}
@@ -842,6 +850,7 @@ function LineItemRow({
                 size="small"
                 disabled={isSaving}
                 onKeyDown={getKeyHandler(index, 0)}
+                sx={{ flex: 1 }}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -863,14 +872,12 @@ function LineItemRow({
                 }}
               />
               {watchedItem?.product && (
-                <Box sx={{ mt: 0.5 }}>
-                  <StockIndicatorChip
-                    stockQuantity={Number(watchedItem.product.stockQuantity ?? 0)}
-                    quantity={Number(watchedItem.quantity ?? 0)}
-                  />
-                </Box>
+                <StockIndicatorChip
+                  stockQuantity={Number(watchedItem.product.stockQuantity ?? 0)}
+                  quantity={Number(watchedItem.quantity ?? 0)}
+                />
               )}
-            </>
+            </Box>
           )}
         />
       </TableCell>

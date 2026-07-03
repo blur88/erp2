@@ -299,7 +299,15 @@ const CreatePurchaseOrderPage: React.FC = () => {
 
   const handleProductSelect = useCallback(
     (index: number, product: any) => {
-      if (!product) return
+      if (!product) {
+        // Clearing the product (X button) must erase the row's product —
+        // follow the Stock Adjustment pattern instead of no-op leaving it stale.
+        setValue(`items.${index}.productId`, '', { shouldDirty: true, shouldValidate: true })
+        setValue(`items.${index}.product`, undefined, { shouldDirty: true })
+        setValue(`items.${index}.unitPrice`, 0, { shouldDirty: true })
+        setValue(`items.${index}.totalPrice`, 0, { shouldDirty: true })
+        return
+      }
       seedProducts([product])
       const price = Number(product.baseCost || 0)
       const qty = Number(watchedItems[index]?.quantity) || 1
