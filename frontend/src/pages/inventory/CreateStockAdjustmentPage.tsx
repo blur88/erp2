@@ -361,6 +361,9 @@ const CreateStockAdjustmentPage: React.FC = () => {
                         backgroundColor: theme.palette.grey[50],
                         fontWeight: 600,
                       },
+                      '& .MuiTableBody-root .MuiTableRow-root:hover': {
+                        backgroundColor: theme.palette.action.hover,
+                      },
                       '& .MuiTextField-root .MuiOutlinedInput-root': {
                         '& fieldset': { border: 'none' },
                         '&:hover fieldset': { border: `1px solid ${theme.palette.primary.main}` },
