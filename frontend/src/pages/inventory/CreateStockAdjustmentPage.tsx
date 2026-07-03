@@ -22,6 +22,8 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
+import { DatePicker } from '@mui/x-date-pickers'
+import { parseISO, format, isValid } from 'date-fns'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 
@@ -34,7 +36,7 @@ import {
   useUpdateStockAdjustmentMutation,
 } from '@/store/api/inventoryApi'
 import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
-import { getCurrentDate } from '@/utils/formatters'
+import { getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
 import { formatCurrency } from '@/utils/currency'
 import { useNotification } from '@/hooks/useNotification'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
@@ -93,6 +95,9 @@ const CreateStockAdjustmentPage: React.FC = () => {
     const seq = String(config.nextNumber).padStart(config.paddingDigits, '0')
     return `${config.prefix}-${yy}-${seq}`
   }, [docNumberSettings, isEditMode, loadingDocNumbers])
+
+  const storedFormat = useMemo(() => localStorage.getItem('dateFormat') || 'DD/MM/YYYY', [])
+  const pickerFormat = useMemo(() => toMuiDatePickerFormat(storedFormat), [storedFormat])
 
   const [createStockAdjustment, { isLoading: isCreating }] = useCreateStockAdjustmentMutation()
   const [updateStockAdjustment, { isLoading: isUpdating }] = useUpdateStockAdjustmentMutation()
@@ -289,19 +294,25 @@ const CreateStockAdjustmentPage: React.FC = () => {
                       name="adjustmentDate"
                       control={control}
                       render={({ field }) => (
-                        <TextField
-                          {...field}
+                        <DatePicker
                           label="Adjustment Date"
-                          type="date"
-                          required
-                          fullWidth
-                          size="small"
-                          error={!!errors.adjustmentDate}
-                          helperText={errors.adjustmentDate?.message}
-                          slotProps={{ inputLabel: { shrink: true } }}
-                          sx={{
-                            '& .MuiInputBase-input': { fontSize: '0.875rem' },
-                            '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+                          value={field.value ? parseISO(field.value) : null}
+                          format={pickerFormat}
+                          onChange={(date) =>
+                            field.onChange(date && isValid(date) ? format(date, 'yyyy-MM-dd') : '')
+                          }
+                          slotProps={{
+                            textField: {
+                              required: true,
+                              fullWidth: true,
+                              size: 'small',
+                              error: !!errors.adjustmentDate,
+                              helperText: errors.adjustmentDate?.message,
+                              sx: {
+                                '& .MuiInputBase-input': { fontSize: '0.875rem' },
+                                '& .MuiInputLabel-root': { fontSize: '0.875rem' },
+                              },
+                            },
                           }}
                         />
                       )}
