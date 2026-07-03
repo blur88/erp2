@@ -570,21 +570,9 @@ const CreateStockAdjustmentPage: React.FC = () => {
           )}
 
           <Grid size={12}>
-            <Box
-              sx={{
-                position: 'sticky',
-                bottom: 0,
-                backgroundColor: 'background.paper',
-                borderTop: `1px solid ${theme.palette.divider}`,
-                py: 2,
-                px: 3,
-                display: 'flex',
-                gap: 2,
-                justifyContent: 'flex-end',
-              }}
-            >
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
               <AppButton
-                variant="outlined"
+                variant="secondary"
                 onClick={() => navigate('/inventory/stock-adjustments')}
                 disabled={isSaving}
               >
