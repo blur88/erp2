@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { BrowserRouter } from 'react-router-dom'
 
 import CreateStockAdjustmentPage from '../CreateStockAdjustmentPage'
+import { formatCurrency } from '@/utils/currency'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 
@@ -310,5 +311,89 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
     renderPage()
     const field = screen.getByLabelText(/adjustment number/i) as HTMLInputElement
     expect(field.value).toBe('SA-25-0042')
+  })
+
+  describe('product clear (#857)', () => {
+    it('keeps the row empty after clearing a selected product', async () => {
+      const user = userEvent.setup()
+      renderPage()
+
+      const input = screen.getByPlaceholderText('Search product...')
+      await user.click(input)
+      const listbox = await screen.findByRole('listbox')
+      await user.click(within(listbox).getByText('Alpha Widget'))
+
+      await waitFor(() => {
+        expect(input).toHaveValue('Alpha Widget')
+      })
+      // Product-derived fields seeded (stockQuantity: 10, baseCost: 5)
+      expect(screen.getByTestId('liveStock-0')).toHaveTextContent('10')
+
+      // Enter a non-zero qty change BEFORE clearing. This makes the Unit Cost assertion
+      // discriminating: if unitCost is NOT reset (stale 5), Unit Cost cell shows
+      // formatCurrency(5) and Total shows formatCurrency(15) — neither is formatCurrency(0),
+      // so the assertion below fails. Only a real unitCost reset produces a zero-currency cell.
+      const diffInput = screen.getByTestId('items.0.difference') as HTMLInputElement
+      fireEvent.change(diffInput, { target: { value: '3' } })
+      await waitFor(() => expect(diffInput.value).toBe('3'))
+
+      const zeroCurrency = formatCurrency(0)
+      const staleUnitCost = formatCurrency(5)
+
+      // Clear via the Autocomplete clear (X) button, then blur the field
+      const clearBtn = screen.getByTitle('Clear')
+      await user.click(clearBtn)
+      fireEvent.blur(input)
+
+      // No snap-back: re-query the input after blur and assert the product did not come back
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Search product...')).toHaveValue('')
+      })
+      // liveStock reset
+      expect(screen.getByTestId('liveStock-0')).toHaveTextContent('0')
+      // unitCost reset — scope to THIS row so an unrelated formatCurrency(5) elsewhere can't
+      // mask a failure to reset. Stale unit cost gone from the row; a zero-currency cell present.
+      const row = diffInput.closest('tr') as HTMLElement
+      expect(within(row).queryByText(staleUnitCost)).not.toBeInTheDocument()
+      expect(within(row).getAllByText(zeroCurrency).length).toBeGreaterThan(0)
+      // qty change preserved
+      expect(diffInput.value).toBe('3')
+    })
+
+    it('blocks save for a lone cleared row instead of dropping it', async () => {
+      const user = userEvent.setup()
+      renderPage()
+
+      const input = screen.getByPlaceholderText('Search product...')
+      await user.click(input)
+      const listbox = await screen.findByRole('listbox')
+      await user.click(within(listbox).getByText('Alpha Widget'))
+      await waitFor(() => expect(input).toHaveValue('Alpha Widget'))
+
+      const diffInput = screen.getByTestId('items.0.difference') as HTMLInputElement
+      fireEvent.change(diffInput, { target: { value: '5' } })
+
+      await user.click(screen.getByTitle('Clear'))
+      await waitFor(() => expect(input).toHaveValue(''))
+      // qty change survives the product clear
+      expect(diffInput.value).toBe('5')
+
+      await user.click(screen.getByRole('button', { name: /create adjustment/i }))
+
+      // Validation blocks: mutation never fires, required error surfaces
+      await waitFor(() => {
+        expect(screen.getByText(/product is required/i)).toBeInTheDocument()
+      })
+      expect(mockCreateAdjustment).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('section alignment (#858)', () => {
+    it('renders PO/SO-aligned section headers', () => {
+      renderPage()
+      expect(screen.getByRole('heading', { name: /^adjustment info$/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /^line items$/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /^additional$/i })).toBeInTheDocument()
+    })
   })
 })
