@@ -22,6 +22,8 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { yupResolver } from '@hookform/resolvers/yup'
+import { DatePicker } from '@mui/x-date-pickers'
+import { parseISO, format, isValid } from 'date-fns'
 import { Controller, useFieldArray, useForm } from 'react-hook-form'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import * as yup from 'yup'
@@ -40,7 +42,7 @@ import {
   useUpdatePurchaseOrderMutation,
 } from '@/store/api/purchasingApi'
 import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
-import { formatCurrency, getCurrentDate } from '@/utils/formatters'
+import { formatCurrency, getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 
 interface PurchaseOrderItem {
@@ -149,6 +151,9 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const [createPurchaseOrder] = useCreatePurchaseOrderMutation()
   const [updatePurchaseOrder] = useUpdatePurchaseOrderMutation()
   const [fetchPurchaseOrderByNumber] = useLazyGetPurchaseOrderByNumberQuery()
+
+  const storedFormat = useMemo(() => localStorage.getItem('dateFormat') || 'DD/MM/YYYY', [])
+  const pickerFormat = useMemo(() => toMuiDatePickerFormat(storedFormat), [storedFormat])
 
   const orderNumberPreview = useMemo(() => {
     if (isEditMode) return null
@@ -399,18 +404,24 @@ const CreatePurchaseOrderPage: React.FC = () => {
                       name="orderDate"
                       control={control}
                       render={({ field }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          size="small"
+                        <DatePicker
                           label="Order Date"
-                          type="date"
-                          required
+                          value={field.value ? parseISO(field.value) : null}
+                          format={pickerFormat}
                           disabled={loading}
-                          error={!!errors.orderDate}
-                          helperText={errors.orderDate?.message}
-                          slotProps={{ inputLabel: { shrink: true } }}
-                          sx={fieldSx}
+                          onChange={(date) =>
+                            field.onChange(date && isValid(date) ? format(date, 'yyyy-MM-dd') : '')
+                          }
+                          slotProps={{
+                            textField: {
+                              required: true,
+                              fullWidth: true,
+                              size: 'small',
+                              error: !!errors.orderDate,
+                              helperText: errors.orderDate?.message,
+                              sx: fieldSx,
+                            },
+                          }}
                         />
                       )}
                     />
