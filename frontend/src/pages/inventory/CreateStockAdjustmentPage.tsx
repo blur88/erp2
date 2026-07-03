@@ -202,7 +202,13 @@ const CreateStockAdjustmentPage: React.FC = () => {
   })
 
   const handleProductSelect = (index: number, product: any) => {
-    if (!product) return
+    if (!product) {
+      setDuplicateError(null)
+      setValue(`items.${index}.productId`, '', { shouldDirty: true, shouldValidate: true })
+      setValue(`items.${index}.liveStock`, 0, { shouldDirty: true })
+      setValue(`items.${index}.unitCost`, 0, { shouldDirty: true })
+      return
+    }
     const existing = (watchedItems ?? []).find(
       (item, i) => i !== index && item.productId === product.id,
     )
@@ -211,7 +217,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
       return
     }
     setDuplicateError(null)
-    setValue(`items.${index}.productId`, product.id, { shouldDirty: true })
+    setValue(`items.${index}.productId`, product.id, { shouldDirty: true, shouldValidate: true })
     setValue(`items.${index}.liveStock`, Number(product.stockQuantity) || 0, { shouldDirty: true })
     setValue(`items.${index}.unitCost`, Number(product.baseCost) || 0, { shouldDirty: true })
   }
@@ -273,7 +279,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
-                  Adjustment Information
+                  Adjustment Info
                 </Typography>
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, md: 6 }}>
@@ -327,7 +333,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
             <Card>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6">Adjustment Items</Typography>
+                  <Typography variant="h6">Line Items</Typography>
                   <AppButton
                     variant="secondary"
                     startIcon={<AddIcon />}
@@ -531,6 +537,9 @@ const CreateStockAdjustmentPage: React.FC = () => {
           <Grid size={12}>
             <Card>
               <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Additional
+                </Typography>
                 <Controller
                   name="notes"
                   control={control}
