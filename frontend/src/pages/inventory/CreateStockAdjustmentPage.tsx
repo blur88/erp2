@@ -331,16 +331,9 @@ const CreateStockAdjustmentPage: React.FC = () => {
           <Grid size={12}>
             <Card>
               <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6">Line Items</Typography>
-                  <AppButton
-                    variant="secondary"
-                    startIcon={<AddIcon />}
-                    onClick={() => append({ productId: '', liveStock: 0, difference: 0, unitCost: 0 })}
-                  >
-                    Add Item
-                  </AppButton>
-                </Box>
+                <Typography variant="h6" gutterBottom>
+                  Line Items
+                </Typography>
 
                 {duplicateError && (
                   <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setDuplicateError(null)}>
@@ -523,6 +516,16 @@ const CreateStockAdjustmentPage: React.FC = () => {
                     </TableBody>
                   </Table>
                 </TableContainer>
+
+                <Box sx={{ mt: 2 }}>
+                  <AppButton
+                    variant="secondary"
+                    startIcon={<AddIcon />}
+                    onClick={() => append({ productId: '', liveStock: 0, difference: 0, unitCost: 0 })}
+                  >
+                    Add Item
+                  </AppButton>
+                </Box>
 
                 {errors.items && !Array.isArray(errors.items) && (
                   <Alert severity="error" sx={{ mt: 1 }}>
