@@ -532,7 +532,7 @@ describe('CreateSalesOrderPage — new features', () => {
       </BrowserRouter>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /add row/i }))
+    fireEvent.click(screen.getByRole('button', { name: /add item/i }))
 
     const lastColFirstRow = document.querySelector('[data-cell="r0-c3"]')
     expect(lastColFirstRow).not.toBeNull()
