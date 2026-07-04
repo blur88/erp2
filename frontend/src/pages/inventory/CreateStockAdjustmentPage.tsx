@@ -28,7 +28,6 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 
 import { AppButton } from '@/components/common/AppButton'
-import PageHeader from '@/components/common/PageHeader'
 import {
   useGetProductsQuery,
   useGetStockAdjustmentQuery,
@@ -37,7 +36,9 @@ import {
 } from '@/store/api/inventoryApi'
 import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
 import { getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
+import TransactionFormShell from '@/components/transactions/TransactionFormShell'
 import { formatCurrency } from '@/utils/currency'
+import { LINE_ITEM_TABLE_SX } from '@/components/transactions/transactionTableStyles'
 import { useNotification } from '@/hooks/useNotification'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 
@@ -272,324 +273,277 @@ const CreateStockAdjustmentPage: React.FC = () => {
 
   return (
     <>
-      <PageHeader
-        variant="workflow"
+      <TransactionFormShell
         title={isEditMode ? 'Edit Stock Adjustment' : revertFrom ? 'Revert Stock Adjustment' : 'Create Stock Adjustment'}
         subtitle={isEditMode ? 'Update adjustment details and quantities' : 'Adjust stock quantities for inventory corrections'}
         backAction={() => navigate('/inventory/stock-adjustments')}
-      />
-      <form noValidate onSubmit={handleSubmit(onSubmit)}>
-        <Grid container spacing={3}>
-          <Grid size={12}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Adjustment Info
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Adjustment Number"
-                      value={isEditMode ? (adjustment?.adjustmentNumber ?? '') : (adjustmentNumberPreview ?? '')}
-                      slotProps={{ input: { readOnly: true }, inputLabel: { shrink: true } }}
-                      sx={fieldSx}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Controller
-                      name="adjustmentDate"
-                      control={control}
-                      render={({ field }) => (
-                        <DatePicker
-                          label="Adjustment Date"
-                          value={field.value ? parseISO(field.value) : null}
-                          format={pickerFormat}
-                          onChange={(date) =>
-                            field.onChange(date && isValid(date) ? format(date, 'yyyy-MM-dd') : '')
-                          }
-                          slotProps={{
-                            textField: {
-                              required: true,
-                              fullWidth: true,
-                              size: 'small',
-                              error: !!errors.adjustmentDate,
-                              helperText: errors.adjustmentDate?.message,
-                              sx: fieldSx,
-                            },
-                          }}
-                        />
-                      )}
-                    />
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid size={12}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Line Items
-                </Typography>
-
-                {duplicateError && (
-                  <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setDuplicateError(null)}>
-                    {duplicateError}
-                  </Alert>
-                )}
-
-                {hasNegativeStock && (
-                  <Alert severity="error" sx={{ mb: 2 }}>
-                    This adjustment will result in negative stock for some products. Reduce quantity or
-                    adjust stock first.
-                  </Alert>
-                )}
-
-                <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
-                  <Table
+        onSubmit={handleSubmit(onSubmit)}
+        isSaving={isSaving}
+        submitLabel={isEditMode ? 'Update Adjustment' : 'Create Adjustment'}
+        submitDisabled={hasNegativeStock}
+        onCancel={() => navigate('/inventory/stock-adjustments')}
+      >
+        <Grid size={12}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Adjustment Info
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    fullWidth
                     size="small"
-                    sx={{
-                      '& .MuiTableCell-root': {
-                        border: `1px solid ${theme.palette.divider}`,
-                        padding: '4px 8px',
-                        fontSize: '0.875rem',
-                      },
-                      '& .MuiTableHead-root .MuiTableCell-root': {
-                        backgroundColor: theme.palette.grey[50],
-                        fontWeight: 600,
-                      },
-                      '& .MuiTableBody-root .MuiTableRow-root:hover': {
-                        backgroundColor: theme.palette.action.hover,
-                      },
-                      '& .MuiTextField-root .MuiOutlinedInput-root': {
-                        '& fieldset': { border: 'none' },
-                        '&:hover fieldset': { border: `1px solid ${theme.palette.primary.main}` },
-                        '&.Mui-focused fieldset': { border: `1px solid ${theme.palette.primary.main}` },
-                        backgroundColor: 'transparent',
-                        fontSize: '0.875rem',
-                      },
-                      '& .MuiTextField-root .MuiInputBase-input': { padding: '6px 8px' },
-                      '& .MuiAutocomplete-root .MuiOutlinedInput-root': {
-                        paddingTop: 0,
-                        paddingBottom: 0,
-                      },
-                    }}
-                  >
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ width: '30%', minWidth: 200 }}>Product</TableCell>
-                        <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
-                          Current Stock
-                        </TableCell>
-                        <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
-                          Qty Change
-                        </TableCell>
-                        <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
-                          Unit Cost
-                        </TableCell>
-                        <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
-                          Total
-                        </TableCell>
-                        <TableCell align="center" sx={{ width: '8%', minWidth: 60 }} />
-                        <TableCell align="center" sx={{ width: '5%', minWidth: 40 }}>
-                          #
-                        </TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {fields.map((field, index) => (
-                        <TableRow key={field.id}>
-                          <TableCell sx={{ padding: '2px !important' }}>
-                            <Controller
-                              name={`items.${index}.productId`}
-                              control={control}
-                              render={({ field: pdField }) => (
-                                <Autocomplete
-                                  options={products}
-                                  getOptionLabel={(option: any) => option?.name || ''}
-                                  isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
-                                  value={products.find((p: any) => p.id === pdField.value) || null}
-                                  onChange={(_, value) => handleProductSelect(index, value)}
-                                  size="small"
-                                  renderInput={(params) => (
-                                    <TextField
-                                      {...params}
-                                      placeholder="Search product..."
-                                      variant="outlined"
-                                      error={!!errors.items?.[index]?.productId}
-                                      helperText={errors.items?.[index]?.productId?.message}
-                                      sx={{
-                                        '& .MuiInputBase-input': {
-                                          textAlign: 'left !important',
-                                          padding: '6px 8px !important',
-                                          fontSize: '0.875rem',
-                                        },
-                                      }}
-                                    />
-                                  )}
-                                  slotProps={{
-                                    paper: {
-                                      sx: {
-                                        '& .MuiAutocomplete-option': { fontSize: '0.875rem' },
-                                      },
-                                    },
-                                  }}
-                                />
-                              )}
-                            />
-                          </TableCell>
-                          <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
-                            <Typography
-                              variant="body2"
-                              sx={{ color: 'text.secondary' }}
-                              data-testid={`liveStock-${index}`}
-                            >
-                              {watchedItems?.[index]?.liveStock ?? 0}
-                            </Typography>
-                          </TableCell>
-                          <TableCell sx={{ padding: '2px !important' }}>
-                            <Controller
-                              name={`items.${index}.difference`}
-                              control={control}
-                              render={({ field: diffField }) => {
-                                const displayValue = String(diffField.value ?? '')
-                                return (
+                    label="Adjustment Number"
+                    value={isEditMode ? (adjustment?.adjustmentNumber ?? '') : (adjustmentNumberPreview ?? '')}
+                    slotProps={{ input: { readOnly: true }, inputLabel: { shrink: true } }}
+                    sx={fieldSx}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Controller
+                    name="adjustmentDate"
+                    control={control}
+                    render={({ field }) => (
+                      <DatePicker
+                        label="Adjustment Date"
+                        value={field.value ? parseISO(field.value) : null}
+                        format={pickerFormat}
+                        onChange={(date) =>
+                          field.onChange(date && isValid(date) ? format(date, 'yyyy-MM-dd') : '')
+                        }
+                        slotProps={{
+                          textField: {
+                            required: true,
+                            fullWidth: true,
+                            size: 'small',
+                            error: !!errors.adjustmentDate,
+                            helperText: errors.adjustmentDate?.message,
+                            sx: fieldSx,
+                          },
+                        }}
+                      />
+                    )}
+                  />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid size={12}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Line Items
+              </Typography>
+
+              {duplicateError && (
+                <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setDuplicateError(null)}>
+                  {duplicateError}
+                </Alert>
+              )}
+
+              {hasNegativeStock && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  This adjustment will result in negative stock for some products. Reduce quantity or
+                  adjust stock first.
+                </Alert>
+              )}
+
+              <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
+                <Table size="small" sx={LINE_ITEM_TABLE_SX(theme)}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ width: '30%', minWidth: 200 }}>Product</TableCell>
+                      <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
+                        Current Stock
+                      </TableCell>
+                      <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
+                        Qty Change
+                      </TableCell>
+                      <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
+                        Unit Cost
+                      </TableCell>
+                      <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
+                        Total
+                      </TableCell>
+                      <TableCell align="center" sx={{ width: '8%', minWidth: 60 }} />
+                      <TableCell align="center" sx={{ width: '5%', minWidth: 40 }}>
+                        #
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {fields.map((field, index) => (
+                      <TableRow key={field.id}>
+                        <TableCell sx={{ padding: '2px !important' }}>
+                          <Controller
+                            name={`items.${index}.productId`}
+                            control={control}
+                            render={({ field: pdField }) => (
+                              <Autocomplete
+                                options={products}
+                                getOptionLabel={(option: any) => option?.name || ''}
+                                isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
+                                value={products.find((p: any) => p.id === pdField.value) || null}
+                                onChange={(_, value) => handleProductSelect(index, value)}
+                                size="small"
+                                renderInput={(params) => (
                                   <TextField
-                                    value={displayValue}
-                                    onChange={(e) => {
-                                      const raw = e.target.value
-                                      if (raw === '' || raw === '-') {
-                                        diffField.onChange(raw === '-' ? raw : 0)
-                                        return
-                                      }
-                                      const num = Number(raw)
-                                      if (!isNaN(num)) diffField.onChange(num)
-                                    }}
+                                    {...params}
+                                    placeholder="Search product..."
                                     variant="outlined"
-                                    error={!!errors.items?.[index]?.difference}
-                                    helperText={errors.items?.[index]?.difference?.message}
-                                    slotProps={{
-                                      htmlInput: {
-                                        style: { textAlign: 'center', fontSize: '0.875rem' },
-                                        inputMode: 'numeric',
-                                        'data-testid': `items.${index}.difference`,
+                                    error={!!errors.items?.[index]?.productId}
+                                    helperText={errors.items?.[index]?.productId?.message}
+                                    sx={{
+                                      '& .MuiInputBase-input': {
+                                        textAlign: 'left !important',
+                                        padding: '6px 8px !important',
+                                        fontSize: '0.875rem',
                                       },
                                     }}
                                   />
-                                )
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
-                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                              {formatCurrency(watchedItems?.[index]?.unitCost ?? 0)}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                              {formatCurrency(
-                                Math.abs(watchedItems?.[index]?.difference ?? 0) *
-                                  (watchedItems?.[index]?.unitCost ?? 0),
-                              )}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center" sx={{ padding: '2px !important' }}>
-                            <IconButton
-                              onClick={() => remove(index)}
-                              disabled={fields.length === 1}
-                              size="small"
-                              sx={{
-                                color: theme.palette.error.main,
-                                '&.Mui-disabled': { color: theme.palette.action.disabled },
-                              }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </TableCell>
-                          <TableCell sx={{ width: 40, padding: '2px !important' }}>
-                            <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
-                              {index + 1}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                                )}
+                                slotProps={{
+                                  paper: {
+                                    sx: {
+                                      '& .MuiAutocomplete-option': { fontSize: '0.875rem' },
+                                    },
+                                  },
+                                }}
+                              />
+                            )}
+                          />
+                        </TableCell>
+                        <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
+                          <Typography
+                            variant="body2"
+                            sx={{ color: 'text.secondary' }}
+                            data-testid={`liveStock-${index}`}
+                          >
+                            {watchedItems?.[index]?.liveStock ?? 0}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ padding: '2px !important' }}>
+                          <Controller
+                            name={`items.${index}.difference`}
+                            control={control}
+                            render={({ field: diffField }) => {
+                              const displayValue = String(diffField.value ?? '')
+                              return (
+                                <TextField
+                                  value={displayValue}
+                                  onChange={(e) => {
+                                    const raw = e.target.value
+                                    if (raw === '' || raw === '-') {
+                                      diffField.onChange(raw === '-' ? raw : 0)
+                                      return
+                                    }
+                                    const num = Number(raw)
+                                    if (!isNaN(num)) diffField.onChange(num)
+                                  }}
+                                  variant="outlined"
+                                  error={!!errors.items?.[index]?.difference}
+                                  helperText={errors.items?.[index]?.difference?.message}
+                                  slotProps={{
+                                    htmlInput: {
+                                      style: { textAlign: 'center', fontSize: '0.875rem' },
+                                      inputMode: 'numeric',
+                                      'data-testid': `items.${index}.difference`,
+                                    },
+                                  }}
+                                />
+                              )
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
+                          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                            {formatCurrency(watchedItems?.[index]?.unitCost ?? 0)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {formatCurrency(
+                              Math.abs(watchedItems?.[index]?.difference ?? 0) *
+                                (watchedItems?.[index]?.unitCost ?? 0),
+                            )}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center" sx={{ padding: '2px !important' }}>
+                          <IconButton
+                            onClick={() => remove(index)}
+                            disabled={fields.length === 1}
+                            size="small"
+                            sx={{
+                              color: theme.palette.error.main,
+                              '&.Mui-disabled': { color: theme.palette.action.disabled },
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                        <TableCell sx={{ width: 40, padding: '2px !important' }}>
+                          <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
+                            {index + 1}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
 
-                <Box sx={{ mt: 2 }}>
-                  <AppButton
-                    variant="secondary"
-                    startIcon={<AddIcon />}
-                    onClick={() => append({ productId: '', liveStock: 0, difference: 0, unitCost: 0 })}
-                  >
-                    Add Item
-                  </AppButton>
-                </Box>
+              <Box sx={{ mt: 2 }}>
+                <AppButton
+                  variant="secondary"
+                  startIcon={<AddIcon />}
+                  onClick={() => append({ productId: '', liveStock: 0, difference: 0, unitCost: 0 })}
+                >
+                  Add Item
+                </AppButton>
+              </Box>
 
-                {errors.items && !Array.isArray(errors.items) && (
-                  <Alert severity="error" sx={{ mt: 1 }}>
-                    {(errors.items as any).message}
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid size={12}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Additional
-                </Typography>
-                <Controller
-                  name="notes"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      label="Additional Notes (Optional)"
-                      multiline
-                      rows={3}
-                      fullWidth
-                      sx={fieldSx}
-                    />
-                  )}
-                />
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {pageError && (
-            <Grid size={12}>
-              <Alert severity="error">{pageError}</Alert>
-            </Grid>
-          )}
-
-          <Grid size={12}>
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-              <AppButton
-                variant="secondary"
-                onClick={() => navigate('/inventory/stock-adjustments')}
-                disabled={isSaving}
-              >
-                Cancel
-              </AppButton>
-              <AppButton
-                variant="primary"
-                type="submit"
-                loading={isSaving}
-                disabled={hasNegativeStock}
-              >
-                {isEditMode ? 'Update Adjustment' : 'Create Adjustment'}
-              </AppButton>
-            </Box>
-          </Grid>
+              {errors.items && !Array.isArray(errors.items) && (
+                <Alert severity="error" sx={{ mt: 1 }}>
+                  {(errors.items as any).message}
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
         </Grid>
-      </form>
+
+        <Grid size={12}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Additional
+              </Typography>
+              <Controller
+                name="notes"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Additional Notes (Optional)"
+                    multiline
+                    rows={3}
+                    fullWidth
+                    sx={fieldSx}
+                  />
+                )}
+              />
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {pageError && (
+          <Grid size={12}>
+            <Alert severity="error">{pageError}</Alert>
+          </Grid>
+        )}
+      </TransactionFormShell>
       {UnsavedChangesDialog}
     </>
   )
