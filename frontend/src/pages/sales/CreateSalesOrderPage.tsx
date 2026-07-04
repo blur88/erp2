@@ -49,6 +49,7 @@ import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
 import { setSelectedOrder } from '@/store/slices/salesSlice'
 import type { RootState } from '@/store'
 import { LINE_ITEM_TABLE_SX } from '@/components/transactions/transactionTableStyles'
+import { formatNum, parseNum } from '@/components/transactions/numberFormat'
 import { formatCurrency, getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getStockOffenders } from '@/utils/stockStatus'
@@ -142,19 +143,6 @@ function getProductPrice(product: any, customer: any): number {
     return Number(product.priceListItems[0].price)
   }
   return Number(product.baseCost ?? product.basePrice ?? 0)
-}
-
-function formatNum(value: number | string): string {
-  if (value === '' || value === null || value === undefined) return ''
-  const num = typeof value === 'string' ? parseFloat(value) : value
-  if (isNaN(num)) return ''
-  const fixed = num.toFixed(2)
-  const [int, dec] = fixed.split('.')
-  return `${int.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${dec}`
-}
-
-function parseNum(value: string): number {
-  return parseFloat(value.replace(/,/g, '')) || 0
 }
 
 const COL_COUNT = 4
