@@ -48,6 +48,7 @@ import { patchSalesOrderCaches } from '@/store/api/salesOrderCache'
 import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
 import { setSelectedOrder } from '@/store/slices/salesSlice'
 import type { RootState } from '@/store'
+import { LINE_ITEM_TABLE_SX } from '@/components/transactions/transactionTableStyles'
 import { formatCurrency, getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getStockOffenders } from '@/utils/stockStatus'
@@ -583,41 +584,7 @@ const CreateSalesOrderPage: React.FC = () => {
                   component={Paper}
                   sx={{ border: `1px solid ${theme.palette.divider}` }}
                 >
-                  <Table
-                    size="small"
-                    sx={{
-                      '& .MuiTableCell-root': {
-                        border: `1px solid ${theme.palette.divider}`,
-                        padding: '4px 8px',
-                        fontSize: '0.875rem',
-                      },
-                      '& .MuiTableHead-root .MuiTableCell-root': {
-                        backgroundColor: theme.palette.grey[50],
-                        fontWeight: 600,
-                      },
-                      '& .MuiTableBody-root .MuiTableRow-root:hover': {
-                        backgroundColor: theme.palette.action.hover,
-                      },
-                      '& .MuiTextField-root .MuiOutlinedInput-root': {
-                        '& fieldset': { border: 'none' },
-                        '&:hover fieldset': { border: `1px solid ${theme.palette.primary.main}` },
-                        '&.Mui-focused fieldset': {
-                          border: `1px solid ${theme.palette.primary.main}`,
-                        },
-                        backgroundColor: 'transparent',
-                        fontSize: '0.875rem',
-                      },
-                      '& .MuiTextField-root .MuiInputBase-input': { padding: '6px 8px' },
-                      // Autocomplete (Product) reserves vertical padding on its
-                      // OutlinedInput root for the popup/clear adornment, making it
-                      // taller than the plain TextField cells. Collapse that padding
-                      // so all line-item inputs share the same height.
-                      '& .MuiAutocomplete-root .MuiOutlinedInput-root': {
-                        paddingTop: 0,
-                        paddingBottom: 0,
-                      },
-                    }}
-                  >
+                  <Table size="small" sx={LINE_ITEM_TABLE_SX(theme)}>
                     <TableHead>
                       <TableRow>
                         <TableCell sx={{ width: '30%', minWidth: 200 }}>Product</TableCell>
