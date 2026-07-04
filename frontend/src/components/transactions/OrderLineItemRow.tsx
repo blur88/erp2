@@ -126,7 +126,7 @@ export default function OrderLineItemRow({
                     sx={{
                       '& .MuiInputBase-input': {
                         textAlign: 'left !important',
-                        padding: '6px 8px !important',
+                        padding: '2px 8px !important',
                         fontSize: '0.875rem',
                       },
                     }}
@@ -265,7 +265,7 @@ export default function OrderLineItemRow({
                 disabled={isSaving}
                 sx={{
                   width: '60px',
-                  '& .MuiInputBase-input': { fontSize: '0.875rem', padding: '6px 4px' },
+                  '& .MuiInputBase-input': { fontSize: '0.875rem', padding: '2px 4px' },
                 }}
                 slotProps={{
                   select: {

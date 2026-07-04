@@ -19,8 +19,10 @@ export const LINE_ITEM_TABLE_SX = (theme: Theme): SxProps<Theme> => ({
     '&.Mui-focused fieldset': { border: `1px solid ${theme.palette.primary.main}` },
     backgroundColor: 'transparent',
     fontSize: '0.875rem',
+    minHeight: 29,
+    height: 29,
   },
-  '& .MuiTextField-root .MuiInputBase-input': { padding: '6px 8px' },
+  '& .MuiTextField-root .MuiInputBase-input': { padding: '2px 8px' },
   '& .MuiAutocomplete-root .MuiOutlinedInput-root': {
     paddingTop: 0,
     paddingBottom: 0,
