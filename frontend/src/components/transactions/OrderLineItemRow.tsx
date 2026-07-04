@@ -9,27 +9,54 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import type { Theme } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { Controller } from 'react-hook-form'
+import type { Control, FieldErrors } from 'react-hook-form'
 
 import { formatCurrency } from '@/utils/formatters'
 import { formatNum, parseNum } from './numberFormat'
 
+/**
+ * Product option shown in the row's Autocomplete. Only the fields the row and
+ * its stock adornment read are declared; pages pass richer product objects.
+ */
+export interface OrderLineItemProduct {
+  id: string
+  name?: string
+  stockQuantity?: number
+}
+
+/**
+ * The order-line shape shared by the Sales Order and Purchase Order forms.
+ * Not universal — the Stock Adjustment row has a different shape and does not
+ * use this component.
+ */
+export interface OrderLineItem {
+  productId?: string
+  product?: OrderLineItemProduct
+  quantity?: number
+  unitPrice?: number
+  discountValue?: number
+  discountType?: 'percentage' | 'amount'
+  totalPrice?: number
+}
+
 interface OrderLineItemRowProps {
   index: number
-  control: any
-  errors: any
-  watchedItem: any
-  products: any[]
+  control: Control<any>
+  errors: FieldErrors<any>
+  watchedItem: OrderLineItem | undefined
+  products: OrderLineItemProduct[]
   currency: string
-  theme: any
+  theme: Theme
   isSaving: boolean
   isOnlyRow: boolean
   getKeyHandler: (row: number, col: number) => React.KeyboardEventHandler<HTMLElement>
-  onProductSelect: (index: number, product: any) => void
+  onProductSelect: (index: number, product: OrderLineItemProduct | null) => void
   onRemove: () => void
   loadProducts: (search?: string) => void
-  renderProductAdornment?: (watchedItem: any) => React.ReactNode
+  renderProductAdornment?: (watchedItem: OrderLineItem | undefined) => React.ReactNode
 }
 
 export default function OrderLineItemRow({

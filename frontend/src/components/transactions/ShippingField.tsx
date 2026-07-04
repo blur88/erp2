@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { TextField } from '@mui/material'
+import type { Theme } from '@mui/material'
 import { Controller } from 'react-hook-form'
+import type { Control } from 'react-hook-form'
 
 import { formatNum } from './numberFormat'
 
@@ -10,9 +12,9 @@ const fieldSx = {
 }
 
 interface ShippingFieldProps {
-  control: any
+  control: Control<any>
   currency: string
-  theme: any
+  theme: Theme
   isSaving: boolean
 }
 
