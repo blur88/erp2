@@ -192,6 +192,69 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
     })
   })
 
+  describe('clear Qty Change (#864)', () => {
+    // Products come from the beforeEach default (stableAllProducts, which
+    // already includes 'Low Stock Widget'). Don't re-mock products after render:
+    // the useGetProductsQuery hook already ran during renderPage().
+    const selectFirstProduct = async (user: ReturnType<typeof userEvent.setup>) => {
+      const input = screen.getByPlaceholderText('Search product...')
+      await user.click(input)
+      const listbox = await screen.findByRole('listbox')
+      await user.click(within(listbox).getByText('Low Stock Widget'))
+      await waitFor(() => expect(input).toHaveValue('Low Stock Widget'))
+    }
+
+    it('lets the user clear the field to empty instead of snapping back to 0', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await selectFirstProduct(user)
+
+      const diffInput = screen.getByTestId('items.0.difference') as HTMLInputElement
+      fireEvent.change(diffInput, { target: { value: '5' } })
+      await waitFor(() => expect(diffInput.value).toBe('5'))
+
+      fireEvent.change(diffInput, { target: { value: '' } })
+      await waitFor(() => expect(diffInput.value).toBe(''))
+    })
+
+    it('accepts a lone minus without breaking the row (smoke test)', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await selectFirstProduct(user)
+
+      const diffInput = screen.getByTestId('items.0.difference') as HTMLInputElement
+      fireEvent.change(diffInput, { target: { value: '-' } })
+      await waitFor(() => expect(diffInput.value).toBe('-'))
+
+      // Weak smoke test only: it asserts the row does not render the literal
+      // string "NaN". It does NOT prove step 6's guard, because formatCurrency
+      // maps NaN -> "RM 0.00", so the total cell reads "RM 0.00" whether the
+      // code uses Math.abs('-') (NaN) or Math.abs(Number('-') || 0) (0). The
+      // real protection for step 6 is the type-check in Step 9: Math.abs('-')
+      // is a TS error under the `number | '' | '-'` type, forcing the guard.
+      const row = diffInput.closest('tr') as HTMLElement
+      expect(within(row).queryByText(/NaN/)).not.toBeInTheDocument()
+    })
+
+    it('blocks submit when Qty Change is left empty', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await selectFirstProduct(user)
+
+      const diffInput = screen.getByTestId('items.0.difference') as HTMLInputElement
+      fireEvent.change(diffInput, { target: { value: '' } })
+      await waitFor(() => expect(diffInput.value).toBe(''))
+
+      await user.click(screen.getByRole('button', { name: /create adjustment/i }))
+
+      await waitFor(() => {
+        expect(screen.getByText(/quantity change is required/i)).toBeInTheDocument()
+      })
+      // Validation blocked submit — mutation never fired.
+      expect(mockCreateAdjustment).not.toHaveBeenCalled()
+    })
+  })
+
   describe('revert prefill', () => {
     it('prefills negative qty changes from a completed source when ?revertFrom is set', async () => {
       mockSearchParams.mockReturnValue([new URLSearchParams('revertFrom=source-1'), vi.fn()])
