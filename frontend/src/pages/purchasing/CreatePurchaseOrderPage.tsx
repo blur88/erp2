@@ -27,7 +27,6 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import * as yup from 'yup'
 
 import { AppButton } from '@/components/common/AppButton'
-import PageHeader from '@/components/common/PageHeader'
 import { useCurrency } from '@/hooks/useCurrency'
 import { useLineItemKeyNav } from '@/hooks/useLineItemKeyNav'
 import { useNotification } from '@/hooks/useNotification'
@@ -44,6 +43,7 @@ import { LINE_ITEM_TABLE_SX } from '@/components/transactions/transactionTableSt
 import { formatNum, parseNum } from '@/components/transactions/numberFormat'
 import ShippingField from '@/components/transactions/ShippingField'
 import OrderLineItemRow from '@/components/transactions/OrderLineItemRow'
+import TransactionFormShell from '@/components/transactions/TransactionFormShell'
 import { formatCurrency, getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 
@@ -365,284 +365,263 @@ const CreatePurchaseOrderPage: React.FC = () => {
 
   return (
     <>
-      <PageHeader
-        variant="workflow"
+      <TransactionFormShell
         title={isEditMode ? 'Edit Purchase Order' : 'Create Purchase Order'}
-        subtitle={
-          isEditMode
-            ? 'Update order details, items, and pricing'
-            : 'Fill in order details, add items, and set pricing'
-        }
+        subtitle={isEditMode ? 'Update order details, items, and pricing' : 'Fill in order details, add items, and set pricing'}
         backAction={handleCancel}
-      />
+        onSubmit={handleSubmit(onSubmit)}
+        isSaving={loading}
+        showLoadingSpinner={false}
+        submitLabel={loading ? (isEditMode ? 'Updating...' : 'Creating...') : isEditMode ? 'Update Order' : 'Create Order'}
+        onCancel={handleCancel}
+      >
+        <Grid size={12}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Order Info
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Order Number"
+                    value={isEditMode ? (orderNumber ?? '') : (orderNumberPreview ?? '')}
+                    slotProps={{ input: { readOnly: true } }}
+                    sx={fieldSx}
+                  />
+                </Grid>
 
-      <form noValidate onSubmit={handleSubmit(onSubmit)}>
-        <Grid container spacing={3}>
-          <Grid size={12}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Order Info
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Order Number"
-                      value={isEditMode ? (orderNumber ?? '') : (orderNumberPreview ?? '')}
-                      slotProps={{ input: { readOnly: true } }}
-                      sx={fieldSx}
-                    />
-                  </Grid>
-
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <Controller
-                      name="orderDate"
-                      control={control}
-                      render={({ field }) => (
-                        <DatePicker
-                          label="Order Date"
-                          value={field.value ? parseISO(field.value) : null}
-                          format={pickerFormat}
-                          disabled={loading}
-                          onChange={(date) =>
-                            field.onChange(date && isValid(date) ? format(date, 'yyyy-MM-dd') : '')
-                          }
-                          slotProps={{
-                            textField: {
-                              required: true,
-                              fullWidth: true,
-                              size: 'small',
-                              error: !!errors.orderDate,
-                              helperText: errors.orderDate?.message,
-                              sx: fieldSx,
-                            },
-                          }}
-                        />
-                      )}
-                    />
-                  </Grid>
-
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Controller
-                          name="supplierId"
-                          control={control}
-                          render={({ field }) => (
-                            <Autocomplete
-                              options={suppliers}
-                              getOptionLabel={(option) => option?.companyName ?? ''}
-                              value={suppliers.find((s: any) => s.id === field.value) || null}
-                              onChange={(_, value) => field.onChange(value?.id || '')}
-                              size="small"
-                              disabled={loading}
-                              renderInput={(params) => (
-                                <TextField
-                                  {...params}
-                                  label="Supplier"
-                                  required
-                                  size="small"
-                                  error={!!errors.supplierId}
-                                  helperText={errors.supplierId?.message}
-                                  sx={fieldSx}
-                                />
-                              )}
-                              slotProps={{
-                                paper: {
-                                  sx: { '& .MuiAutocomplete-option': { fontSize: '0.875rem' } },
-                                },
-                              }}
-                            />
-                          )}
-                        />
-                      </Box>
-                      <IconButton
-                        size="small"
-                        title="Add new supplier"
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Controller
+                    name="orderDate"
+                    control={control}
+                    render={({ field }) => (
+                      <DatePicker
+                        label="Order Date"
+                        value={field.value ? parseISO(field.value) : null}
+                        format={pickerFormat}
                         disabled={loading}
-                        onClick={() =>
-                          navigate('/purchasing/suppliers/create', {
-                            state: { returnTo: 'purchase-order' },
-                          })
+                        onChange={(date) =>
+                          field.onChange(date && isValid(date) ? format(date, 'yyyy-MM-dd') : '')
                         }
-                        sx={{ mt: 0.5 }}
-                      >
-                        <AddIcon fontSize="small" />
-                      </IconButton>
+                        slotProps={{
+                          textField: {
+                            required: true,
+                            fullWidth: true,
+                            size: 'small',
+                            error: !!errors.orderDate,
+                            helperText: errors.orderDate?.message,
+                            sx: fieldSx,
+                          },
+                        }}
+                      />
+                    )}
+                  />
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Controller
+                        name="supplierId"
+                        control={control}
+                        render={({ field }) => (
+                          <Autocomplete
+                            options={suppliers}
+                            getOptionLabel={(option) => option?.companyName ?? ''}
+                            value={suppliers.find((s: any) => s.id === field.value) || null}
+                            onChange={(_, value) => field.onChange(value?.id || '')}
+                            size="small"
+                            disabled={loading}
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
+                                label="Supplier"
+                                required
+                                size="small"
+                                error={!!errors.supplierId}
+                                helperText={errors.supplierId?.message}
+                                sx={fieldSx}
+                              />
+                            )}
+                            slotProps={{
+                              paper: {
+                                sx: { '& .MuiAutocomplete-option': { fontSize: '0.875rem' } },
+                              },
+                            }}
+                          />
+                        )}
+                      />
                     </Box>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid size={12}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Line Items
-                </Typography>
-
-                <TableContainer
-                  component={Paper}
-                  sx={{ border: `1px solid ${theme.palette.divider}` }}
-                >
-                  <Table size="small" sx={LINE_ITEM_TABLE_SX(theme)}>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ width: '30%', minWidth: 200 }}>Product</TableCell>
-                        <TableCell align="center" sx={{ width: '8%', minWidth: 70 }}>
-                          Qty
-                        </TableCell>
-                        <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>
-                          Unit Price
-                        </TableCell>
-                        <TableCell align="center" sx={{ width: '16%', minWidth: 120 }}>
-                          Discount
-                        </TableCell>
-                        <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>
-                          Subtotal
-                        </TableCell>
-                        <TableCell align="center" sx={{ width: '5%', minWidth: 40 }} />
-                        <TableCell align="center" sx={{ width: '5%', minWidth: 40 }}>
-                          #
-                        </TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {fields.map((field, index) => (
-                        <OrderLineItemRow
-                          key={field.id}
-                          index={index}
-                          control={control}
-                          errors={errors}
-                          watchedItem={watchedItems[index]}
-                          products={products}
-                          currency={currency}
-                          theme={theme}
-                          isSaving={loading}
-                          isOnlyRow={fields.length === 1}
-                          getKeyHandler={getKeyHandler}
-                          onProductSelect={handleProductSelect}
-                          onRemove={() => remove(index)}
-                          loadProducts={loadProducts}
-                        />
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-
-                <Box sx={{ mt: 2 }}>
-                  <AppButton
-                    variant="secondary"
-                    startIcon={<AddIcon />}
-                    onClick={() => append(emptyItem())}
-                    disabled={loading}
-                  >
-                    Add Row / Add Item
-                  </AppButton>
-                </Box>
-
-                {errors.items && !Array.isArray(errors.items) && (
-                  <Alert severity="error" sx={{ mt: 1 }}>
-                    {(errors.items as any).message}
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid size={12}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Shipping & Total
-                </Typography>
-                <Grid container spacing={2} sx={{ alignItems: 'center' }}>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <ShippingField
-                      control={control}
-                      currency={currency}
-                      theme={theme}
-                      isSaving={loading}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      fullWidth
+                    <IconButton
                       size="small"
-                      label="Total Amount"
-                      value={formatNum(totals.total)}
-                      slotProps={{
-                        input: {
-                          readOnly: true,
-                          startAdornment: (
-                            <span
-                              style={{
-                                marginRight: 4,
-                                fontSize: '0.75rem',
-                                color: theme.palette.text.secondary,
-                              }}
-                            >
-                              {currency}
-                            </span>
-                          ),
-                        },
-                      }}
-                      sx={fieldSx}
-                    />
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid size={12}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Additional
-                </Typography>
-                <Controller
-                  name="notes"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      multiline
-                      minRows={3}
-                      size="small"
-                      label="Notes"
+                      title="Add new supplier"
                       disabled={loading}
-                      sx={fieldSx}
-                    />
-                  )}
-                />
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid size={12}>
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-              <AppButton variant="secondary" onClick={handleCancel} disabled={loading}>
-                Cancel
-              </AppButton>
-              <AppButton variant="primary" type="submit" disabled={loading}>
-                {loading
-                  ? isEditMode
-                    ? 'Updating...'
-                    : 'Creating...'
-                  : isEditMode
-                    ? 'Update Order'
-                    : 'Create Order'}
-              </AppButton>
-            </Box>
-          </Grid>
+                      onClick={() =>
+                        navigate('/purchasing/suppliers/create', {
+                          state: { returnTo: 'purchase-order' },
+                        })
+                      }
+                      sx={{ mt: 0.5 }}
+                    >
+                      <AddIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
         </Grid>
-      </form>
+
+        <Grid size={12}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Line Items
+              </Typography>
+
+              <TableContainer
+                component={Paper}
+                sx={{ border: `1px solid ${theme.palette.divider}` }}
+              >
+                <Table size="small" sx={LINE_ITEM_TABLE_SX(theme)}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ width: '30%', minWidth: 200 }}>Product</TableCell>
+                      <TableCell align="center" sx={{ width: '8%', minWidth: 70 }}>
+                        Qty
+                      </TableCell>
+                      <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>
+                        Unit Price
+                      </TableCell>
+                      <TableCell align="center" sx={{ width: '16%', minWidth: 120 }}>
+                        Discount
+                      </TableCell>
+                      <TableCell align="center" sx={{ width: '13%', minWidth: 100 }}>
+                        Subtotal
+                      </TableCell>
+                      <TableCell align="center" sx={{ width: '5%', minWidth: 40 }} />
+                      <TableCell align="center" sx={{ width: '5%', minWidth: 40 }}>
+                        #
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {fields.map((field, index) => (
+                      <OrderLineItemRow
+                        key={field.id}
+                        index={index}
+                        control={control}
+                        errors={errors}
+                        watchedItem={watchedItems[index]}
+                        products={products}
+                        currency={currency}
+                        theme={theme}
+                        isSaving={loading}
+                        isOnlyRow={fields.length === 1}
+                        getKeyHandler={getKeyHandler}
+                        onProductSelect={handleProductSelect}
+                        onRemove={() => remove(index)}
+                        loadProducts={loadProducts}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              <Box sx={{ mt: 2 }}>
+                <AppButton
+                  variant="secondary"
+                  startIcon={<AddIcon />}
+                  onClick={() => append(emptyItem())}
+                  disabled={loading}
+                >
+                  Add Row / Add Item
+                </AppButton>
+              </Box>
+
+              {errors.items && !Array.isArray(errors.items) && (
+                <Alert severity="error" sx={{ mt: 1 }}>
+                  {(errors.items as any).message}
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid size={12}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Shipping & Total
+              </Typography>
+              <Grid container spacing={2} sx={{ alignItems: 'center' }}>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <ShippingField
+                    control={control}
+                    currency={currency}
+                    theme={theme}
+                    isSaving={loading}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Total Amount"
+                    value={formatNum(totals.total)}
+                    slotProps={{
+                      input: {
+                        readOnly: true,
+                        startAdornment: (
+                          <span
+                            style={{
+                              marginRight: 4,
+                              fontSize: '0.75rem',
+                              color: theme.palette.text.secondary,
+                            }}
+                          >
+                            {currency}
+                          </span>
+                        ),
+                      },
+                    }}
+                    sx={fieldSx}
+                  />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid size={12}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Additional
+              </Typography>
+              <Controller
+                name="notes"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    multiline
+                    minRows={3}
+                    size="small"
+                    label="Notes"
+                    disabled={loading}
+                    sx={fieldSx}
+                  />
+                )}
+              />
+            </CardContent>
+          </Card>
+        </Grid>
+      </TransactionFormShell>
 
       {UnsavedChangesDialog}
     </>
