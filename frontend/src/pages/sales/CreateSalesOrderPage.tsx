@@ -632,7 +632,7 @@ const CreateSalesOrderPage: React.FC = () => {
                   onClick={() => append(emptyItem())}
                   disabled={isSaving}
                 >
-                  Add Row / Add Item
+                  Add Item
                 </AppButton>
               </Box>
 

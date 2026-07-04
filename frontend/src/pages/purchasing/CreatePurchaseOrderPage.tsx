@@ -538,7 +538,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
                   onClick={() => append(emptyItem())}
                   disabled={loading}
                 >
-                  Add Row / Add Item
+                  Add Item
                 </AppButton>
               </Box>
 
