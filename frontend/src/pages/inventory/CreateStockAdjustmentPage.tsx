@@ -45,7 +45,7 @@ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 interface ItemRow {
   productId: string
   liveStock: number
-  difference: number
+  difference: number | '' | '-'
   unitCost: number
 }
 
@@ -62,7 +62,13 @@ const schema = yup.object({
     yup.object({
       productId: yup.string().required('Product is required'),
       liveStock: yup.number().required(),
-      difference: yup.number().required('Quantity change is required').notOneOf([0], 'Quantity change cannot be zero'),
+      difference: yup
+        .number()
+        .transform((value, originalValue) =>
+          originalValue === '' || originalValue === '-' ? undefined : value,
+        )
+        .required('Quantity change is required')
+        .notOneOf([0], 'Quantity change cannot be zero'),
       unitCost: yup.number().required(),
     }),
   ).min(1, 'At least one item is required'),
@@ -232,7 +238,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
     setPageError(null)
     try {
       const items = data.items
-        .filter((item) => item.productId && item.difference !== 0)
+        .filter((item) => item.productId && (Number(item.difference) || 0) !== 0)
         .map((item) => ({
           productId: item.productId,
           oldQuantity: Number(item.liveStock),
@@ -437,7 +443,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                                   onChange={(e) => {
                                     const raw = e.target.value
                                     if (raw === '' || raw === '-') {
-                                      diffField.onChange(raw === '-' ? raw : 0)
+                                      diffField.onChange(raw)
                                       return
                                     }
                                     const num = Number(raw)
@@ -466,8 +472,8 @@ const CreateStockAdjustmentPage: React.FC = () => {
                         <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
                             {formatCurrency(
-                              Math.abs(watchedItems?.[index]?.difference ?? 0) *
-                                (watchedItems?.[index]?.unitCost ?? 0),
+                              Math.abs(Number(watchedItems?.[index]?.difference) || 0) *
+                                (Number(watchedItems?.[index]?.unitCost) || 0),
                             )}
                           </Typography>
                         </TableCell>
