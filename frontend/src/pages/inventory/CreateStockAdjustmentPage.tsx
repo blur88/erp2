@@ -405,7 +405,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                                     sx={{
                                       '& .MuiInputBase-input': {
                                         textAlign: 'left !important',
-                                        padding: '6px 8px !important',
+                                        padding: '2px 8px !important',
                                         fontSize: '0.875rem',
                                       },
                                     }}
