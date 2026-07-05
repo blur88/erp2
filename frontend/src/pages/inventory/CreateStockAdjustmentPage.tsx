@@ -213,6 +213,14 @@ const CreateStockAdjustmentPage: React.FC = () => {
     return (Number(item.liveStock) || 0) + (Number(item.difference) || 0) < 0
   })
 
+  const selectedProductIds = useMemo(
+    () =>
+      new Set(
+        (watchedItems ?? []).map((item) => item.productId).filter(Boolean),
+      ),
+    [watchedItems],
+  )
+
   const handleProductSelect = (index: number, product: any) => {
     if (!product) {
       setDuplicateError(null)
@@ -389,7 +397,11 @@ const CreateStockAdjustmentPage: React.FC = () => {
                             control={control}
                             render={({ field: pdField }) => (
                               <Autocomplete
-                                options={products}
+                                options={products.filter(
+                                  (p: any) =>
+                                    p.id === pdField.value ||
+                                    !selectedProductIds.has(p.id),
+                                )}
                                 getOptionLabel={(option: any) => option?.name || ''}
                                 isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
                                 value={products.find((p: any) => p.id === pdField.value) || null}
