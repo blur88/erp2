@@ -485,24 +485,25 @@ const CreateStockAdjustmentPage: React.FC = () => {
                           />
                         </TableCell>
                         <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
-                          {(() => {
-                            const qtyAfter = calculateQtyAfter(
+                          <Typography
+                            variant="body2"
+                            data-testid={`qtyAfter-${index}`}
+                            sx={{
+                              fontWeight: 600,
+                              color:
+                                calculateQtyAfter(
+                                  watchedItems?.[index]?.liveStock ?? 0,
+                                  watchedItems?.[index]?.difference ?? 0,
+                                ) < 0
+                                  ? 'error.main'
+                                  : 'text.primary',
+                            }}
+                          >
+                            {calculateQtyAfter(
                               watchedItems?.[index]?.liveStock ?? 0,
                               watchedItems?.[index]?.difference ?? 0,
-                            )
-                            return (
-                              <Typography
-                                variant="body2"
-                                data-testid={`qtyAfter-${index}`}
-                                sx={{
-                                  fontWeight: 600,
-                                  color: qtyAfter < 0 ? 'error.main' : 'text.primary',
-                                }}
-                              >
-                                {qtyAfter}
-                              </Typography>
-                            )
-                          })()}
+                            )}
+                          </Typography>
                         </TableCell>
                         <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
                           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
