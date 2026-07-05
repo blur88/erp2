@@ -28,6 +28,13 @@ const product = {
 } as unknown as Product
 
 describe('ProductOverviewTab', () => {
+  it('shows "not tracked" for service products instead of stock status', () => {
+    render(<ProductOverviewTab product={{ ...product, type: 'Service', stockQuantity: 0 } as Product} />)
+    expect(screen.getByText('Stock not tracked for services')).toBeInTheDocument()
+    expect(screen.queryByText('Out of Stock')).not.toBeInTheDocument()
+    expect(screen.queryByText('Stock Qty')).not.toBeInTheDocument()
+  })
+
   it('renders basic info and a margin chip for the price list', () => {
     render(<ProductOverviewTab product={product} />)
     expect(screen.getByText('B1')).toBeInTheDocument()

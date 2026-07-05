@@ -27,7 +27,8 @@ export default function ProductOverviewTab({ product }: { product: Product }) {
   )
   const { data: regionalSettings } = useGetRegionalSettingsQuery()
   const lowStockThreshold = regionalSettings?.lowStockThreshold ?? 10
-  const stockStatus = getStockStatus(product.stockQuantity, lowStockThreshold)
+  const isService = product.type === 'Service'
+  const stockStatus = isService ? null : getStockStatus(product.stockQuantity, lowStockThreshold)
 
   return (
     <Box>
@@ -71,9 +72,15 @@ export default function ProductOverviewTab({ product }: { product: Product }) {
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                 <Typography variant="h6">Stock</Typography>
-                <StatusChip status={stockStatus} />
+                {!isService && stockStatus && <StatusChip status={stockStatus} />}
               </Box>
-              <Field label="Stock Qty" value={formatNumber(product.stockQuantity)} />
+              {isService ? (
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  Stock not tracked for services
+                </Typography>
+              ) : (
+                <Field label="Stock Qty" value={formatNumber(product.stockQuantity)} />
+              )}
             </CardContent>
           </Card>
         </Grid>

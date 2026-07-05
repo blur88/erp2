@@ -130,6 +130,13 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
     })
   })
 
+  it('requests only stocked products (excludes services)', () => {
+    renderPage()
+    expect(mockProductsQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ isActive: true, type: 'Stocked Product' }),
+    )
+  })
+
   describe('product exclusion', () => {
     it('hides an already-selected product from other rows', async () => {
       const user = userEvent.setup()
@@ -447,6 +454,28 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
         expect(screen.getByText(/product is required/i)).toBeInTheDocument()
       })
       expect(mockCreateAdjustment).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Qty After column', () => {
+    it('shows Qty After = current stock + qty change', async () => {
+      const user = userEvent.setup()
+      renderPage()
+
+      const input = screen.getByPlaceholderText('Search product...')
+      await user.click(input)
+      const listbox = await screen.findByRole('listbox')
+      await user.click(within(listbox).getByText('Alpha Widget'))
+
+      await waitFor(() => {
+        expect(input).toHaveValue('Alpha Widget')
+      })
+
+      const diff = screen.getByTestId('items.0.difference')
+      fireEvent.change(diff, { target: { value: '-3' } })
+      await waitFor(() => {
+        expect(screen.getByTestId('qtyAfter-0')).toHaveTextContent('7')
+      })
     })
   })
 
