@@ -14,7 +14,7 @@ import {
   StockAdjustmentItem,
   StockAdjustmentStatus,
 } from '../../../database/entities/stock-adjustment.entity';
-import { Product } from '../../../database/entities/product.entity';
+import { Product, ProductType } from '../../../database/entities/product.entity';
 import { User } from '../../../database/entities/user.entity';
 import {
   CreateStockAdjustmentDto,
@@ -75,6 +75,14 @@ export class StockAdjustmentService extends BaseCrudService<
   protected async afterDelete(adjustment: StockAdjustment): Promise<void> {
     if (adjustment.status !== StockAdjustmentStatus.DRAFT) {
       throw new BadRequestException('Only draft adjustments can be deleted');
+    }
+  }
+
+  private assertNoServiceProducts(products: Product[]): void {
+    if (products.some(p => p.type === ProductType.SERVICE)) {
+      throw new BadRequestException(
+        'Service products are not valid for stock adjustments',
+      );
     }
   }
 
@@ -144,6 +152,7 @@ export class StockAdjustmentService extends BaseCrudService<
     if (products.length !== productIds.length) {
       throw new BadRequestException('One or more products not found');
     }
+    this.assertNoServiceProducts(products);
 
     // Generate SA number
     const adjustmentNumber = await this.generateSANumber();
@@ -371,17 +380,18 @@ export class StockAdjustmentService extends BaseCrudService<
     if (updateDto.items) {
       this.assertNoDuplicateProducts(updateDto.items);
 
-      // Remove old items
-      await this.stockAdjustmentItemRepository.delete({
-        stockAdjustmentId: id,
-      });
-
-      // Verify all products exist
+      // Verify all products exist and are not services BEFORE mutating anything
       const productIds = updateDto.items.map(item => item.productId);
       const products = await this.productRepository.findBy({ id: In(productIds) });
       if (products.length !== productIds.length) {
         throw new BadRequestException('One or more products not found');
       }
+      this.assertNoServiceProducts(products);
+
+      // Safe to remove old items now that validation passed
+      await this.stockAdjustmentItemRepository.delete({
+        stockAdjustmentId: id,
+      });
 
       // Create new items
       let totalValue = 0;

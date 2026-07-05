@@ -4,7 +4,7 @@ import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { StockAdjustmentService } from './stock-adjustment.service';
 import { StockAdjustment, StockAdjustmentItem, StockAdjustmentStatus } from '../../../database/entities/stock-adjustment.entity';
-import { Product } from '../../../database/entities/product.entity';
+import { Product, ProductType } from '../../../database/entities/product.entity';
 import { User } from '../../../database/entities/user.entity';
 import { StockMovementService } from './stock-movement.service';
 import { SettingsService } from '../../settings/settings.service';
@@ -21,6 +21,8 @@ describe('StockAdjustmentService', () => {
   let auditLogService: jest.Mocked<AuditLogService>;
   let dataSource: jest.Mocked<DataSource>;
   let stockMovementRepository: jest.Mocked<Repository<StockMovement>>;
+  let productRepository: jest.Mocked<Repository<Product>>;
+  let stockAdjustmentItemRepository: jest.Mocked<Repository<StockAdjustmentItem>>;
 
   const createMockStockAdjustment = (status: StockAdjustmentStatus = StockAdjustmentStatus.DRAFT): Partial<StockAdjustment> => ({
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -103,11 +105,14 @@ describe('StockAdjustmentService', () => {
           useValue: {
             save: jest.fn(),
             create: jest.fn(),
+            delete: jest.fn(),
           },
         },
         {
           provide: getRepositoryToken(Product),
-          useValue: {},
+          useValue: {
+            findBy: jest.fn(),
+          },
         },
         {
           provide: getRepositoryToken(User),
@@ -156,6 +161,8 @@ describe('StockAdjustmentService', () => {
     stockMovementService = module.get(StockMovementService);
     auditLogService = module.get(AuditLogService);
     stockMovementRepository = module.get(getRepositoryToken(StockMovement));
+    productRepository = module.get(getRepositoryToken(Product));
+    stockAdjustmentItemRepository = module.get(getRepositoryToken(StockAdjustmentItem));
   });
 
   it('should be defined', () => {
@@ -354,7 +361,37 @@ describe('StockAdjustmentService', () => {
     });
   });
 
-  describe('updateNotes', () => {
+  describe('service product rejection', () => {
+  const serviceProduct = { id: 'svc-1', type: ProductType.SERVICE, baseCost: 5 } as any
+
+  it('create() rejects service products', async () => {
+    productRepository.findBy.mockResolvedValue([serviceProduct])
+    await expect(
+      service.create({ adjustmentDate: '2026-07-05', items: [{ productId: 'svc-1', oldQuantity: 0, newQuantity: 1, difference: 1 }] } as any),
+    ).rejects.toThrow('Service products are not valid for stock adjustments')
+  })
+
+  it('update() rejects service products', async () => {
+    stockAdjustmentRepository.findOne.mockResolvedValue({ id: 'sa-1', isEditable: () => true, items: [] } as any)
+    productRepository.findBy.mockResolvedValue([serviceProduct])
+    await expect(
+      service.update('sa-1', { items: [{ productId: 'svc-1', oldQuantity: 0, newQuantity: 1, difference: 1 }] } as any),
+    ).rejects.toThrow('Service products are not valid for stock adjustments')
+  })
+
+  it('update() rejection does not reach the delete/save path', async () => {
+    stockAdjustmentRepository.findOne.mockResolvedValue({ id: 'sa-1', isEditable: () => true, items: [] } as any)
+    productRepository.findBy.mockResolvedValue([serviceProduct])
+    await expect(
+      service.update('sa-1', { items: [{ productId: 'svc-1', oldQuantity: 0, newQuantity: 1, difference: 1 }] } as any),
+    ).rejects.toThrow()
+    expect(stockAdjustmentItemRepository.delete).not.toHaveBeenCalled()
+    expect(stockAdjustmentItemRepository.save).not.toHaveBeenCalled()
+    expect(stockAdjustmentRepository.save).not.toHaveBeenCalled()
+  })
+})
+
+describe('updateNotes', () => {
     it('updates notes on a completed adjustment without changing status/items', async () => {
       const adjustment: any = { id: 'a1', adjustmentNumber: 'SA-1', status: 'completed', notes: 'old', items: [] };
       jest.spyOn(stockAdjustmentRepository, 'findOne').mockResolvedValue(adjustment);
