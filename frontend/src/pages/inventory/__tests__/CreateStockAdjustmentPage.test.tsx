@@ -457,6 +457,28 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
     })
   })
 
+  describe('Qty After column', () => {
+    it('shows Qty After = current stock + qty change', async () => {
+      const user = userEvent.setup()
+      renderPage()
+
+      const input = screen.getByPlaceholderText('Search product...')
+      await user.click(input)
+      const listbox = await screen.findByRole('listbox')
+      await user.click(within(listbox).getByText('Alpha Widget'))
+
+      await waitFor(() => {
+        expect(input).toHaveValue('Alpha Widget')
+      })
+
+      const diff = screen.getByTestId('items.0.difference')
+      fireEvent.change(diff, { target: { value: '-3' } })
+      await waitFor(() => {
+        expect(screen.getByTestId('qtyAfter-0')).toHaveTextContent('7')
+      })
+    })
+  })
+
   describe('section alignment (#858)', () => {
     it('renders PO/SO-aligned section headers', () => {
       renderPage()

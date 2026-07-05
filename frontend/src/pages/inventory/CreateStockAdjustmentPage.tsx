@@ -79,6 +79,11 @@ const fieldSx = {
   '& .MuiInputLabel-root': { fontSize: '0.875rem' },
 }
 
+const calculateQtyAfter = (
+  liveStock: number | string,
+  difference: number | string,
+): number => (Number(liveStock) || 0) + (Number(difference) || 0)
+
 const CreateStockAdjustmentPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
@@ -210,7 +215,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
 
   const hasNegativeStock = (watchedItems ?? []).some((item) => {
     if (!item.productId) return false
-    return (Number(item.liveStock) || 0) + (Number(item.difference) || 0) < 0
+    return calculateQtyAfter(item.liveStock, item.difference) < 0
   })
 
   const selectedProductIds = useMemo(
@@ -369,12 +374,15 @@ const CreateStockAdjustmentPage: React.FC = () => {
                 <Table size="small" sx={LINE_ITEM_TABLE_SX(theme)}>
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ width: '30%', minWidth: 200 }}>Product</TableCell>
+                      <TableCell sx={{ width: '25%', minWidth: 200 }}>Product</TableCell>
                       <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
                         Current Stock
                       </TableCell>
                       <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
                         Qty Change
+                      </TableCell>
+                      <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
+                        Qty After
                       </TableCell>
                       <TableCell align="center" sx={{ width: '12%', minWidth: 80 }}>
                         Unit Cost
@@ -475,6 +483,26 @@ const CreateStockAdjustmentPage: React.FC = () => {
                               )
                             }}
                           />
+                        </TableCell>
+                        <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
+                          {(() => {
+                            const qtyAfter = calculateQtyAfter(
+                              watchedItems?.[index]?.liveStock ?? 0,
+                              watchedItems?.[index]?.difference ?? 0,
+                            )
+                            return (
+                              <Typography
+                                variant="body2"
+                                data-testid={`qtyAfter-${index}`}
+                                sx={{
+                                  fontWeight: 600,
+                                  color: qtyAfter < 0 ? 'error.main' : 'text.primary',
+                                }}
+                              >
+                                {qtyAfter}
+                              </Typography>
+                            )
+                          })()}
                         </TableCell>
                         <TableCell align="center" sx={{ padding: '2px 8px !important' }}>
                           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
