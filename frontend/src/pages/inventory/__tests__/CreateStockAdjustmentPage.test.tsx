@@ -130,6 +130,13 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
     })
   })
 
+  it('requests only stocked products (excludes services)', () => {
+    renderPage()
+    expect(mockProductsQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ isActive: true, type: 'Stocked Product' }),
+    )
+  })
+
   describe('product exclusion', () => {
     it('hides an already-selected product from other rows', async () => {
       const user = userEvent.setup()

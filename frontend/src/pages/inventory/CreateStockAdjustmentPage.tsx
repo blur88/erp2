@@ -88,7 +88,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
   const isEditMode = !!id
   const { showSuccess, showError } = useNotification()
 
-  const { data: productsData, isLoading: productsLoading } = useGetProductsQuery({ isActive: true })
+  const { data: productsData, isLoading: productsLoading } = useGetProductsQuery({ isActive: true, type: 'Stocked Product' })
   const { data: adjustment, isLoading: adjustmentLoading } = useGetStockAdjustmentQuery(id!, { skip: !id })
   const { data: sourceAdjustment, isLoading: sourceLoading } = useGetStockAdjustmentQuery(revertFrom!, { skip: !revertFrom })
 
