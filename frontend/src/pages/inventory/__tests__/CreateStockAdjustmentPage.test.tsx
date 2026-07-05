@@ -130,8 +130,8 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
     })
   })
 
-  describe('duplicate product guard', () => {
-    it('blocks adding a product already in the items table', async () => {
+  describe('product exclusion', () => {
+    it('hides an already-selected product from other rows', async () => {
       const user = userEvent.setup()
       renderPage()
 
@@ -149,11 +149,10 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
       const inputs2 = screen.getAllByPlaceholderText('Search product...')
       await user.click(inputs2[1])
       const listbox2 = await screen.findByRole('listbox')
-      await user.click(within(listbox2).getByText('Alpha Widget'))
 
-      await waitFor(() => {
-        expect(screen.getByText(/already in the items list/i)).toBeInTheDocument()
-      })
+      // Alpha Widget (taken in row 1) is absent; other products still present
+      expect(within(listbox2).queryByText('Alpha Widget')).not.toBeInTheDocument()
+      expect(within(listbox2).getByText('Beta Gadget')).toBeInTheDocument()
     })
   })
 
