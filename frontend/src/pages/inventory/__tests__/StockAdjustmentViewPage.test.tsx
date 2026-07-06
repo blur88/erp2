@@ -38,7 +38,7 @@ vi.mock('@/store/api/inventoryApi', () => ({
 import StockAdjustmentViewPage from '../StockAdjustmentViewPage'
 
 describe('StockAdjustmentViewPage', () => {
-  it('shows historical Current Stock and Stock After for completed items', () => {
+  it('labels the historical column "Stock Before" and shows stockBefore/stockAfter for completed items', () => {
     render(
       <MemoryRouter initialEntries={['/inventory/stock-adjustments/a1/view']}>
         <Routes>
@@ -47,7 +47,31 @@ describe('StockAdjustmentViewPage', () => {
       </MemoryRouter>,
     )
     expect(screen.getByText('Widget')).toBeInTheDocument()
+    // completed view relabels "Current Stock" -> "Stock Before" so the historical
+    // snapshot (stockBefore) is not mistaken for live stock (issue #873 follow-up)
+    expect(screen.getByText('Stock Before')).toBeInTheDocument()
+    expect(screen.queryByText('Current Stock')).not.toBeInTheDocument()
     expect(screen.getByText('5')).toBeInTheDocument()
     expect(screen.getByText('7')).toBeInTheDocument()
+  })
+
+  it('labels the column "Current Stock" and shows liveStock for a draft', () => {
+    const original = mockAdjustment.status
+    mockAdjustment.status = 'draft'
+    try {
+      render(
+        <MemoryRouter initialEntries={['/inventory/stock-adjustments/a1/view']}>
+          <Routes>
+            <Route path="/inventory/stock-adjustments/:id/view" element={<StockAdjustmentViewPage />} />
+          </Routes>
+        </MemoryRouter>,
+      )
+      // draft view keeps live-stock semantics: header "Current Stock", value = liveStock (7)
+      expect(screen.getByText('Current Stock')).toBeInTheDocument()
+      expect(screen.queryByText('Stock Before')).not.toBeInTheDocument()
+      expect(screen.getByText('7')).toBeInTheDocument()
+    } finally {
+      mockAdjustment.status = original
+    }
   })
 })

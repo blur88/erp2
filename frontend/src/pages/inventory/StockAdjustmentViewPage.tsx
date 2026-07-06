@@ -148,7 +148,7 @@ export default function StockAdjustmentViewPage() {
             <TableHead>
               <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600 } }}>
                 <TableCell>Product</TableCell>
-                <TableCell align="right">Current Stock</TableCell>
+                <TableCell align="right">{isCompleted ? 'Stock Before' : 'Current Stock'}</TableCell>
                 <TableCell align="right">Qty Change</TableCell>
                 <TableCell align="right">Unit Cost</TableCell>
                 <TableCell align="right">Total</TableCell>
