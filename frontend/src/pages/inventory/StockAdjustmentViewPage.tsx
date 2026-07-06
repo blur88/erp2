@@ -148,11 +148,11 @@ export default function StockAdjustmentViewPage() {
             <TableHead>
               <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600 } }}>
                 <TableCell>Product</TableCell>
-                <TableCell align="right">Current Stock</TableCell>
+                <TableCell align="right">{isCompleted ? 'Stock Before' : 'Current Stock'}</TableCell>
                 <TableCell align="right">Qty Change</TableCell>
+                <TableCell align="right">Stock After</TableCell>
                 <TableCell align="right">Unit Cost</TableCell>
                 <TableCell align="right">Total</TableCell>
-                <TableCell align="right">Stock After</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -165,11 +165,11 @@ export default function StockAdjustmentViewPage() {
                   <TableCell align="right" sx={{ color: item.difference > 0 ? 'success.main' : 'error.main', fontWeight: 600 }}>
                     {item.difference > 0 ? '+' : ''}{formatNumber(item.difference)}
                   </TableCell>
-                  <TableCell align="right">{formatCurrency(item.unitCost ?? 0)}</TableCell>
-                  <TableCell align="right">{formatCurrency(item.totalValue ?? 0)}</TableCell>
                   <TableCell align="right">
                     {isCompleted ? (item.stockAfter != null ? formatNumber(item.stockAfter) : '—') : '—'}
                   </TableCell>
+                  <TableCell align="right">{formatCurrency(item.unitCost ?? 0)}</TableCell>
+                  <TableCell align="right">{formatCurrency(item.totalValue ?? 0)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
