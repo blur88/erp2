@@ -403,6 +403,77 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
       expect((screen.getByTestId('items.0.difference') as HTMLInputElement).value).toBe('7')
       expect(screen.getByTestId('qtyAfter-0')).toHaveTextContent('32')
     })
+
+    it('matches refreshed live stock by productId, not server array index', async () => {
+      mockParams.mockReturnValue({ id: 'abc-123' })
+
+      const ui = (
+        <BrowserRouter>
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <CreateStockAdjustmentPage />
+          </LocalizationProvider>
+        </BrowserRouter>
+      )
+
+      // Two rows: p1 (row 0, live 10), p2 (row 1, live 5)
+      const initialEdit = {
+        data: {
+          id: 'abc-123',
+          adjustmentNumber: 'SA-001',
+          adjustmentDate: '2026-03-15T00:00:00.000Z',
+          notes: '',
+          items: [
+            { productId: 'p1', difference: 0, unitCost: 5, oldQuantity: 10, newQuantity: 10, liveStock: 10 },
+            { productId: 'p2', difference: 0, unitCost: 3, oldQuantity: 5, newQuantity: 5, liveStock: 5 },
+          ],
+        },
+        isLoading: false,
+        isError: false,
+      }
+      mockAdjustmentQuery.mockImplementation((id: string) =>
+        id === 'abc-123' ? initialEdit : stableAdjNull,
+      )
+
+      const { rerender } = render(ui)
+
+      await waitFor(() => {
+        expect(screen.getByTestId('liveStock-0')).toHaveTextContent('10')
+        expect(screen.getByTestId('liveStock-1')).toHaveTextContent('5')
+      })
+
+      // Refetch returns the SAME products but in REVERSED array order, each with
+      // new live stock: p2 -> 8, p1 -> 25. An index-based sync would put p2's 8
+      // into row 0 (p1) and p1's 25 into row 1 (p2). productId matching keeps
+      // row 0 (p1) = 25 and row 1 (p2) = 8.
+      const refetchedEdit = {
+        data: {
+          ...initialEdit.data,
+          items: [
+            { productId: 'p2', difference: 0, unitCost: 3, oldQuantity: 5, newQuantity: 5, liveStock: 8 },
+            { productId: 'p1', difference: 0, unitCost: 5, oldQuantity: 10, newQuantity: 10, liveStock: 25 },
+          ],
+        },
+        isLoading: false,
+        isError: false,
+      }
+      mockAdjustmentQuery.mockImplementation((id: string) =>
+        id === 'abc-123' ? refetchedEdit : stableAdjNull,
+      )
+      rerender(
+        <BrowserRouter>
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <CreateStockAdjustmentPage />
+          </LocalizationProvider>
+        </BrowserRouter>,
+      )
+
+      await waitFor(() => {
+        expect(screen.getByTestId('liveStock-0')).toHaveTextContent('25')
+      })
+      // row 0 is p1 -> 25 (not p2's 8), row 1 is p2 -> 8 (not p1's 25)
+      expect(screen.getByTestId('liveStock-0')).toHaveTextContent('25')
+      expect(screen.getByTestId('liveStock-1')).toHaveTextContent('8')
+    })
   })
 
   it('renders a read-only Adjustment Number field in create mode', () => {
