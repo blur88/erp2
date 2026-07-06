@@ -175,6 +175,28 @@ const CreateStockAdjustmentPage: React.FC = () => {
   }, [adjustment, isEditMode, reset])
 
   useEffect(() => {
+    if (!adjustment || !isEditMode || !editAppliedRef.current) return
+
+    const liveStockByProductId = new Map<string, number>(
+      ((adjustment as any).items ?? []).map((item: any) => [
+        item.productId,
+        Number(item.liveStock ?? item.oldQuantity ?? 0),
+      ]),
+    )
+
+    ;(watchedItems ?? []).forEach((item, index) => {
+      if (!item.productId) return
+      const liveStock = liveStockByProductId.get(item.productId)
+      if (liveStock === undefined || liveStock === item.liveStock) return
+
+      setValue(`items.${index}.liveStock`, liveStock, {
+        shouldDirty: false,
+        shouldValidate: false,
+      })
+    })
+  }, [adjustment, isEditMode, watchedItems, setValue])
+
+  useEffect(() => {
     if (!revertFrom || !sourceAdjustment || !products.length || revertAppliedRef.current) return
     if ((sourceAdjustment as any).status !== 'completed') {
       showError('Cannot revert an adjustment that is not completed')

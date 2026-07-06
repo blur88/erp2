@@ -336,6 +336,75 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
     })
   })
 
+  describe('live stock refresh on refetch (issue #873)', () => {
+    it('syncs Current Stock from a same-id refetch while preserving the entered qty change', async () => {
+      mockParams.mockReturnValue({ id: 'abc-123' })
+
+      const ui = (
+        <BrowserRouter>
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <CreateStockAdjustmentPage />
+          </LocalizationProvider>
+        </BrowserRouter>
+      )
+
+      const initialEdit = {
+        data: {
+          id: 'abc-123',
+          adjustmentNumber: 'SA-001',
+          adjustmentDate: '2026-03-15T00:00:00.000Z',
+          notes: '',
+          items: [
+            { productId: 'p1', difference: 0, unitCost: 5, oldQuantity: 10, newQuantity: 10, liveStock: 10 },
+          ],
+        },
+        isLoading: false,
+        isError: false,
+      }
+      mockAdjustmentQuery.mockImplementation((id: string) =>
+        id === 'abc-123' ? initialEdit : stableAdjNull,
+      )
+
+      const { rerender } = render(ui)
+
+      await waitFor(() => {
+        expect(screen.getByTestId('liveStock-0')).toHaveTextContent('10')
+      })
+
+      const diffInput = screen.getByTestId('items.0.difference') as HTMLInputElement
+      await userEvent.clear(diffInput)
+      await userEvent.type(diffInput, '7')
+      await waitFor(() => expect(diffInput.value).toBe('7'))
+
+      const refetchedEdit = {
+        data: {
+          ...initialEdit.data,
+          items: [
+            { productId: 'p1', difference: 0, unitCost: 5, oldQuantity: 10, newQuantity: 10, liveStock: 25 },
+          ],
+        },
+        isLoading: false,
+        isError: false,
+      }
+      mockAdjustmentQuery.mockImplementation((id: string) =>
+        id === 'abc-123' ? refetchedEdit : stableAdjNull,
+      )
+      rerender(
+        <BrowserRouter>
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <CreateStockAdjustmentPage />
+          </LocalizationProvider>
+        </BrowserRouter>,
+      )
+
+      await waitFor(() => {
+        expect(screen.getByTestId('liveStock-0')).toHaveTextContent('25')
+      })
+      expect((screen.getByTestId('items.0.difference') as HTMLInputElement).value).toBe('7')
+      expect(screen.getByTestId('qtyAfter-0')).toHaveTextContent('32')
+    })
+  })
+
   it('renders a read-only Adjustment Number field in create mode', () => {
     renderPage()
     const field = screen.getByLabelText(/adjustment number/i) as HTMLInputElement
