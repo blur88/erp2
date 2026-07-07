@@ -752,4 +752,55 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
       expect(screen.getByRole('heading', { name: /^additional$/i })).toBeInTheDocument()
     })
   })
+
+  describe('view-origin edit returns to view page (#877)', () => {
+    const editData = (id: string) => ({
+      data: {
+        id,
+        adjustmentNumber: 'SA-001',
+        adjustmentDate: '2026-03-15T00:00:00.000Z',
+        notes: '',
+        items: [{ productId: 'p1', difference: 5, unitCost: 5, oldQuantity: 10, newQuantity: 15 }],
+      },
+      isLoading: false,
+      isError: false,
+    })
+
+    beforeEach(() => {
+      mockParams.mockReturnValue({ id: 'abc-123' })
+      mockSearchParams.mockReturnValue([new URLSearchParams('from=view'), vi.fn()])
+      mockAdjustmentQuery.mockImplementation((id: string) =>
+        id === 'abc-123' ? editData('abc-123') : stableAdjNull,
+      )
+      mockUpdateAdjustment.mockReturnValue({
+        unwrap: vi.fn().mockResolvedValue({ id: 'abc-123', adjustmentNumber: 'SA-001' }),
+      })
+    })
+
+    it('Save returns to the view page instead of the list', async () => {
+      renderPage()
+      await waitFor(() => expect(screen.getByText(/edit stock adjustment/i)).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /update adjustment/i }))
+      await waitFor(() =>
+        expect(mockNavigate).toHaveBeenCalledWith('/inventory/stock-adjustments/abc-123/view'),
+      )
+    })
+
+    it('Cancel returns to the view page', async () => {
+      renderPage()
+      await waitFor(() => expect(screen.getByText(/edit stock adjustment/i)).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+      expect(mockNavigate).toHaveBeenCalledWith('/inventory/stock-adjustments/abc-123/view')
+    })
+
+    it('Back returns to the view page', async () => {
+      const { container } = renderPage()
+      await waitFor(() => expect(screen.getByText(/edit stock adjustment/i)).toBeInTheDocument())
+      // Back is an icon-only IconButton (ArrowBackIcon) in PageHeader with no
+      // accessible name; it is the button holding the ArrowBackIcon svg.
+      const backIcon = container.querySelector('[data-testid="ArrowBackIcon"]')
+      fireEvent.click(backIcon!.closest('button')!)
+      expect(mockNavigate).toHaveBeenCalledWith('/inventory/stock-adjustments/abc-123/view')
+    })
+  })
 })
