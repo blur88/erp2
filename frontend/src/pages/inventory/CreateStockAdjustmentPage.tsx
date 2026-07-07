@@ -93,7 +93,9 @@ const CreateStockAdjustmentPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
   const revertFrom = searchParams.get('revertFrom')
+  const fromView = searchParams.get('from') === 'view'
   const isEditMode = !!id
+  const editReturnPath = fromView && id ? `/inventory/stock-adjustments/${id}/view` : null
   const { showSuccess, showError } = useNotification()
 
   const { data: productsData, isLoading: productsLoading } = useGetProductsQuery({ isActive: true, type: 'Stocked Product' })
@@ -314,7 +316,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
       if (isEditMode && id) {
         const updated = await updateStockAdjustment({ id, data: payload }).unwrap()
         showSuccess(`Stock adjustment ${updated.adjustmentNumber || ''} updated successfully`)
-        navigate(`/inventory/stock-adjustments?highlight=${updated.id}`)
+        navigate(editReturnPath ?? `/inventory/stock-adjustments?highlight=${updated.id}`)
       } else {
         const created = await createStockAdjustment(payload).unwrap()
         showSuccess(`Stock adjustment ${created.adjustmentNumber || ''} created successfully`)
@@ -342,12 +344,12 @@ const CreateStockAdjustmentPage: React.FC = () => {
       <TransactionFormShell
         title={isEditMode ? 'Edit Stock Adjustment' : revertFrom ? 'Revert Stock Adjustment' : 'Create Stock Adjustment'}
         subtitle={isEditMode ? 'Update adjustment details and quantities' : 'Adjust stock quantities for inventory corrections'}
-        backAction={() => navigate('/inventory/stock-adjustments')}
+        backAction={() => navigate(editReturnPath ?? '/inventory/stock-adjustments')}
         onSubmit={handleSubmit(onSubmit)}
         isSaving={isSaving}
         submitLabel={isEditMode ? 'Update Adjustment' : 'Create Adjustment'}
         submitDisabled={hasNegativeStock}
-        onCancel={() => navigate('/inventory/stock-adjustments')}
+        onCancel={() => navigate(editReturnPath ?? '/inventory/stock-adjustments')}
       >
         <Grid size={12}>
           <Card>
