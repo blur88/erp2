@@ -336,6 +336,131 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
     })
   })
 
+  describe('edit shows product name from nested DTO (#875)', () => {
+    const editWith = (item: any) => {
+      mockParams.mockReturnValue({ id: 'abc-123' })
+      mockAdjustmentQuery.mockImplementation((id: string) =>
+        id === 'abc-123'
+          ? {
+              data: {
+                id: 'abc-123',
+                adjustmentNumber: 'SA-001',
+                adjustmentDate: '2026-03-15T00:00:00.000Z',
+                notes: '',
+                items: [item],
+              },
+              isLoading: false,
+              isError: false,
+            }
+          : stableAdjNull,
+      )
+    }
+
+    it('restores the product name when the DTO item is nested-only (product.id, no flat productId)', async () => {
+      editWith({
+        product: { id: 'p1', name: 'Alpha Widget', barcode: 'A1' },
+        difference: 5, unitCost: 5, oldQuantity: 10, newQuantity: 15, liveStock: 10,
+      })
+      renderPage()
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Search product...')).toHaveValue('Alpha Widget')
+      })
+    })
+
+    it('still shows the name when the restored product is absent from the products query', async () => {
+      editWith({
+        product: { id: 'gone', name: 'Retired Widget', barcode: 'Z9' },
+        difference: 2, unitCost: 7, oldQuantity: 4, newQuantity: 6, liveStock: 4,
+      })
+      renderPage()
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Search product...')).toHaveValue('Retired Widget')
+      })
+    })
+
+    it('preserves liveStock/unitCost for a fallback-only product (no zeroing)', async () => {
+      editWith({
+        product: { id: 'gone', name: 'Retired Widget', barcode: 'Z9' },
+        difference: 2, unitCost: 7, oldQuantity: 4, newQuantity: 6, liveStock: 4,
+      })
+      renderPage()
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Search product...')).toHaveValue('Retired Widget')
+      })
+      expect(screen.getByTestId('liveStock-0')).toHaveTextContent('4')
+      const row = (screen.getByTestId('items.0.difference') as HTMLInputElement).closest('tr') as HTMLElement
+      expect(within(row).getByText(formatCurrency(7))).toBeInTheDocument()
+    })
+
+    it('leaves the row invalid (required) when the DTO item has no product at all', async () => {
+      editWith({ difference: 2, unitCost: 7, oldQuantity: 4, newQuantity: 6, liveStock: 4 })
+      renderPage()
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Search product...')).toHaveValue('')
+      })
+      await userEvent.click(screen.getByRole('button', { name: /update adjustment/i }))
+      await waitFor(() => {
+        expect(screen.getByText(/product is required/i)).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('revert prefill from nested-only DTO (#875)', () => {
+    it('groups revert items by nested product.id and shows the product name', async () => {
+      mockSearchParams.mockReturnValue([new URLSearchParams('revertFrom=source-1'), vi.fn()])
+      mockAdjustmentQuery.mockImplementation((id: string) =>
+        id === 'source-1'
+          ? {
+              data: {
+                id: 'source-1',
+                status: 'completed',
+                items: [
+                  { product: { id: 'p1', name: 'Alpha Widget', barcode: 'A1' },
+                    difference: 10, unitCost: 5, oldQuantity: 20, newQuantity: 30, liveStock: 30 },
+                ],
+              },
+              isLoading: false,
+              isError: false,
+            }
+          : stableAdjNull,
+      )
+      renderPage()
+      await waitFor(() => {
+        const diffInput = screen.getByTestId('items.0.difference') as HTMLInputElement
+        expect(diffInput.value).toBe('-10')
+      })
+      expect(screen.getByPlaceholderText('Search product...')).toHaveValue('Alpha Widget')
+    })
+
+    it('prefills a revert product that is absent from the products query (empty products list)', async () => {
+      mockSearchParams.mockReturnValue([new URLSearchParams('revertFrom=source-1'), vi.fn()])
+      mockAdjustmentQuery.mockImplementation((id: string) =>
+        id === 'source-1'
+          ? {
+              data: {
+                id: 'source-1',
+                status: 'completed',
+                items: [
+                  { product: { id: 'gone', name: 'Retired Widget', barcode: 'Z9' },
+                    difference: 10, unitCost: 5, oldQuantity: 20, newQuantity: 30, liveStock: 30 },
+                ],
+              },
+              isLoading: false,
+              isError: false,
+            }
+          : stableAdjNull,
+      )
+      mockProductsQuery.mockReturnValue(stableProductsEmpty)
+      renderPage()
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Search product...')).toHaveValue('Retired Widget')
+      })
+      const diffInput = screen.getByTestId('items.0.difference') as HTMLInputElement
+      expect(diffInput.value).toBe('-10')
+      expect(screen.getByTestId('liveStock-0')).toHaveTextContent('30')
+    })
+  })
+
   describe('live stock refresh on refetch (issue #873)', () => {
     it('syncs Current Stock from a same-id refetch while preserving the entered qty change', async () => {
       mockParams.mockReturnValue({ id: 'abc-123' })

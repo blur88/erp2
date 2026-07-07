@@ -84,6 +84,9 @@ const calculateQtyAfter = (
   difference: number | string,
 ): number => (Number(liveStock) || 0) + (Number(difference) || 0)
 
+const getAdjustmentItemProductId = (item: any): string =>
+  item?.productId ?? item?.product?.id ?? ''
+
 const CreateStockAdjustmentPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
@@ -121,6 +124,22 @@ const CreateStockAdjustmentPage: React.FC = () => {
   const isSaving = isCreating || isUpdating
 
   const products = (productsData?.data ?? []) as any[]
+  const fallbackProductsById = useMemo(() => {
+    const map = new Map<string, any>()
+    const sources = [adjustment, sourceAdjustment]
+    for (const src of sources) {
+      for (const item of ((src as any)?.items ?? [])) {
+        const id = getAdjustmentItemProductId(item)
+        if (!id || !item.product || map.has(id)) continue
+        map.set(id, {
+          ...item.product,
+          stockQuantity: item.liveStock ?? item.oldQuantity ?? 0,
+          baseCost: item.unitCost ?? 0,
+        })
+      }
+    }
+    return map
+  }, [adjustment, sourceAdjustment])
   const [duplicateError, setDuplicateError] = useState<string | null>(null)
   const [pageError, setPageError] = useState<string | null>(null)
 
@@ -164,7 +183,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
         : getCurrentDate(),
       notes: (adjustment as any).notes || '',
       items: ((adjustment as any).items ?? []).map((item: any) => ({
-        productId: item.productId,
+        productId: getAdjustmentItemProductId(item),
         // Prefer current live stock (backend-enriched) over the stored oldQuantity snapshot,
         // so a re-edited draft derives old/new from up-to-date stock (matches spec).
         liveStock: Number(item.liveStock ?? item.oldQuantity ?? 0),
@@ -177,11 +196,13 @@ const CreateStockAdjustmentPage: React.FC = () => {
   useEffect(() => {
     if (!adjustment || !isEditMode || !editAppliedRef.current) return
 
-    const liveStockByProductId = new Map<string, number>(
-      ((adjustment as any).items ?? []).map((item: any) => [
-        item.productId,
-        Number(item.liveStock ?? item.oldQuantity ?? 0),
-      ]),
+    const liveStockByProductId = ((adjustment as any).items ?? []).reduce(
+      (map: Map<string, number>, item: any) => {
+        const pid = getAdjustmentItemProductId(item)
+        if (pid) map.set(pid, Number(item.liveStock ?? item.oldQuantity ?? 0))
+        return map
+      },
+      new Map<string, number>(),
     )
 
     ;(watchedItems ?? []).forEach((item, index) => {
@@ -197,7 +218,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
   }, [adjustment, isEditMode, watchedItems, setValue])
 
   useEffect(() => {
-    if (!revertFrom || !sourceAdjustment || !products.length || revertAppliedRef.current) return
+    if (!revertFrom || !sourceAdjustment || revertAppliedRef.current) return
     if ((sourceAdjustment as any).status !== 'completed') {
       showError('Cannot revert an adjustment that is not completed')
       navigate(`/inventory/stock-adjustments/${revertFrom}/view`)
@@ -206,12 +227,14 @@ const CreateStockAdjustmentPage: React.FC = () => {
     revertAppliedRef.current = true
     const grouped = new Map<string, { productId: string; unitCost: number; diffSum: number }>()
     ;((sourceAdjustment as any).items ?? []).forEach((item: any) => {
-      const existing = grouped.get(item.productId)
+      const productId = getAdjustmentItemProductId(item)
+      if (!productId) return
+      const existing = grouped.get(productId)
       if (existing) {
         existing.diffSum += Number(item.difference) || 0
       } else {
-        grouped.set(item.productId, {
-          productId: item.productId,
+        grouped.set(productId, {
+          productId,
           unitCost: Number(item.unitCost) || 0,
           diffSum: Number(item.difference) || 0,
         })
@@ -219,10 +242,12 @@ const CreateStockAdjustmentPage: React.FC = () => {
     })
     const prefillItems = Array.from(grouped.values())
       .map((g) => {
-        const product = products.find((p: any) => p.id === g.productId)
+        const product =
+          products.find((p: any) => p.id === g.productId) ??
+          fallbackProductsById.get(g.productId)
         return {
           productId: g.productId,
-          liveStock: product?.stockQuantity ?? 0,
+          liveStock: Number(product?.stockQuantity ?? 0),
           difference: -g.diffSum,
           unitCost: g.unitCost,
         }
@@ -233,7 +258,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
       notes: '',
       items: prefillItems.length > 0 ? prefillItems : [{ productId: '', liveStock: 0, difference: 0, unitCost: 0 }],
     })
-  }, [revertFrom, sourceAdjustment, products, reset, navigate, showError])
+  }, [revertFrom, sourceAdjustment, products, fallbackProductsById, reset, navigate, showError])
 
   const hasNegativeStock = (watchedItems ?? []).some((item) => {
     if (!item.productId) return false
@@ -427,14 +452,24 @@ const CreateStockAdjustmentPage: React.FC = () => {
                             control={control}
                             render={({ field: pdField }) => (
                               <Autocomplete
-                                options={products.filter(
-                                  (p: any) =>
-                                    p.id === pdField.value ||
-                                    !selectedProductIds.has(p.id),
-                                )}
+                                options={(() => {
+                                  const base = products.filter(
+                                    (p: any) =>
+                                      p.id === pdField.value ||
+                                      !selectedProductIds.has(p.id),
+                                  )
+                                  const fb = fallbackProductsById.get(pdField.value)
+                                  return fb && !base.some((p: any) => p.id === fb.id)
+                                    ? [...base, fb]
+                                    : base
+                                })()}
                                 getOptionLabel={(option: any) => option?.name || ''}
                                 isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
-                                value={products.find((p: any) => p.id === pdField.value) || null}
+                                value={
+                                  products.find((p: any) => p.id === pdField.value) ??
+                                  fallbackProductsById.get(pdField.value) ??
+                                  null
+                                }
                                 onChange={(_, value) => handleProductSelect(index, value)}
                                 size="small"
                                 renderInput={(params) => (
