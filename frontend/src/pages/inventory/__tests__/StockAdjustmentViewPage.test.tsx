@@ -1,7 +1,14 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, it, vi, expect } from 'vitest'
+
+const { mockNavigate } = vi.hoisted(() => ({ mockNavigate: vi.fn() }))
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom')
+  return { ...actual, useNavigate: () => mockNavigate }
+})
 
 const { mockAdjustment } = vi.hoisted(() => ({
   mockAdjustment: {
@@ -53,6 +60,25 @@ describe('StockAdjustmentViewPage', () => {
     expect(screen.queryByText('Current Stock')).not.toBeInTheDocument()
     expect(screen.getByText('5')).toBeInTheDocument()
     expect(screen.getByText('7')).toBeInTheDocument()
+  })
+
+  it('navigates to edit with ?from=view when editing a draft from the view page (#877)', async () => {
+    const original = mockAdjustment.status
+    mockAdjustment.status = 'draft'
+    mockNavigate.mockClear()
+    try {
+      render(
+        <MemoryRouter initialEntries={['/inventory/stock-adjustments/a1/view']}>
+          <Routes>
+            <Route path="/inventory/stock-adjustments/:id/view" element={<StockAdjustmentViewPage />} />
+          </Routes>
+        </MemoryRouter>,
+      )
+      fireEvent.click(screen.getByRole('button', { name: /^edit$/i }))
+      expect(mockNavigate).toHaveBeenCalledWith('/inventory/stock-adjustments/a1/edit?from=view')
+    } finally {
+      mockAdjustment.status = original
+    }
   })
 
   it('labels the column "Current Stock" and shows liveStock for a draft', () => {

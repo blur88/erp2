@@ -76,7 +76,7 @@ export default function StockAdjustmentViewPage() {
 
   const handleEdit = () => {
     if (isDraft) {
-      navigate(`/inventory/stock-adjustments/${adj.id}/edit`)
+      navigate(`/inventory/stock-adjustments/${adj.id}/edit?from=view`)
     } else {
       setNotesDraft(adj.notes || '')
       setNotesOpen(true)
