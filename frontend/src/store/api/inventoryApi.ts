@@ -14,7 +14,7 @@ export interface CategoryProduct {
 export const inventoryApiSlice = createApi({
   reducerPath: 'inventoryApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['Product', 'DeletedProduct', 'Category', 'StockAdjustment', 'DeletedStockAdjustment', 'StockMovement'],
+  tagTypes: ['Product', 'DeletedProduct', 'Category', 'StockAdjustment', 'StockMovement'],
   endpoints: (builder) => ({
     getProducts: builder.query<PaginatedResponse<Product>, Record<string, unknown> | undefined>({
       query: (params) => ({
@@ -185,7 +185,7 @@ export const inventoryApiSlice = createApi({
     }),
     deleteStockAdjustment: builder.mutation<void, string>({
       query: (id) => ({ url: `/inventory/stock-adjustments/${id}`, method: 'DELETE' }),
-      invalidatesTags: ['StockAdjustment', 'DeletedStockAdjustment'],
+      invalidatesTags: ['StockAdjustment'],
     }),
     completeStockAdjustment: builder.mutation<StockAdjustment, string>({
       query: (id) => ({ url: `/inventory/stock-adjustments/${id}/complete`, method: 'POST' }),
@@ -200,28 +200,6 @@ export const inventoryApiSlice = createApi({
       }),
       transformResponse: normalizeSingle<StockAdjustment>,
       invalidatesTags: (_result, _error, { id }) => ['StockAdjustment', { type: 'StockAdjustment', id }],
-    }),
-    getDeletedStockAdjustments: builder.query<PaginatedResponse<StockAdjustment>, Record<string, unknown> | undefined>({
-      query: (params) => ({ url: '/inventory/stock-adjustments/deleted', params: params ?? {} }),
-      transformResponse: normalizePaginated<StockAdjustment>,
-      providesTags: ['DeletedStockAdjustment'],
-    }),
-    restoreStockAdjustment: builder.mutation<StockAdjustment, string>({
-      query: (id) => ({ url: `/inventory/stock-adjustments/${id}/restore`, method: 'POST' }),
-      transformResponse: normalizeSingle<StockAdjustment>,
-      invalidatesTags: ['StockAdjustment', 'DeletedStockAdjustment'],
-    }),
-    permanentDeleteStockAdjustment: builder.mutation<void, string>({
-      query: (id) => ({ url: `/inventory/stock-adjustments/${id}/permanent`, method: 'DELETE' }),
-      invalidatesTags: ['DeletedStockAdjustment'],
-    }),
-    bulkPermanentDeleteStockAdjustments: builder.mutation<{ successCount: number; failedIds: string[] }, string[]>({
-      query: (stockAdjustmentIds) => ({
-        url: '/inventory/stock-adjustments/bulk-permanent-delete',
-        method: 'POST',
-        data: { stockAdjustmentIds },
-      }),
-      invalidatesTags: ['DeletedStockAdjustment'],
     }),
   }),
 })
@@ -261,8 +239,4 @@ export const {
   useDeleteStockAdjustmentMutation,
   useCompleteStockAdjustmentMutation,
   useUpdateStockAdjustmentNotesMutation,
-  useGetDeletedStockAdjustmentsQuery,
-  useRestoreStockAdjustmentMutation,
-  usePermanentDeleteStockAdjustmentMutation,
-  useBulkPermanentDeleteStockAdjustmentsMutation,
 } = inventoryApiSlice

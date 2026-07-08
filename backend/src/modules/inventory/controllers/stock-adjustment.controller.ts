@@ -26,7 +26,6 @@ import {
   UpdateStockAdjustmentDto,
   QueryStockAdjustmentsDto,
   StockAdjustmentResponseDto,
-  StockAdjustmentListResponseDto,
 } from '../dto/stock-adjustment.dto';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
@@ -53,21 +52,6 @@ export class StockAdjustmentController {
     @CurrentUser('username') currentUsername: string,
   ): Promise<StockAdjustmentResponseDto> {
     return this.stockAdjustmentService.create(createDto, currentUserId, currentUsername);
-  }
-
-  @Get('deleted')
-  @ApiOperation({ summary: 'Get deleted stock adjustments with filtering (no pagination)' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of deleted stock adjustments retrieved successfully',
-    type: [StockAdjustmentListResponseDto],
-  })
-  @ApiQuery({ name: 'search', required: false, description: 'Search term' })
-  @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field' })
-  @ApiQuery({ name: 'sortOrder', required: false, description: 'Sort order (ASC/DESC)' })
-  async getDeletedStockAdjustments(@Query() query: QueryStockAdjustmentsDto) {
-    const data = await this.stockAdjustmentService.findDeleted(query);
-    return data;
   }
 
   @Get()
@@ -178,78 +162,5 @@ export class StockAdjustmentController {
     @CurrentUser('username') currentUsername: string,
   ): Promise<void> {
     return this.stockAdjustmentService.softDelete(id, currentUserId, currentUsername);
-  }
-
-  @Post(':id/restore')
-  @ApiOperation({ summary: 'Restore a deleted stock adjustment' })
-  @ApiResponse({
-    status: 200,
-    description: 'Stock adjustment restored successfully',
-    type: StockAdjustmentResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Stock adjustment is not deleted' })
-  @ApiResponse({ status: 404, description: 'Stock adjustment not found' })
-  @ApiParam({ name: 'id', description: 'Stock adjustment ID' })
-  async restore(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<StockAdjustmentResponseDto> {
-    return this.stockAdjustmentService.restore(id, currentUserId, currentUsername);
-  }
-
-  @Delete(':id/permanent')
-  @ApiOperation({ summary: 'Permanently delete a stock adjustment from database' })
-  @ApiResponse({
-    status: 204,
-    description: 'Stock adjustment permanently deleted successfully',
-  })
-  @ApiResponse({ status: 404, description: 'Stock adjustment not found' })
-  @ApiResponse({
-    status: 400,
-    description: 'Stock adjustment must be soft-deleted first'
-  })
-  @ApiParam({ name: 'id', description: 'Stock adjustment ID' })
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async permanentDelete(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<void> {
-    await this.stockAdjustmentService.permanentDelete(id, currentUserId, currentUsername);
-  }
-
-  @Post('bulk-permanent-delete')
-  @ApiOperation({ summary: 'Bulk permanently delete stock adjustments from database' })
-  @ApiResponse({
-    status: 200,
-    description: 'Stock adjustments permanently deleted successfully',
-  })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        stockAdjustmentIds: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Array of stock adjustment IDs to permanently delete'
-        }
-      }
-    }
-  })
-  async bulkPermanentDelete(
-    @Body() body: { stockAdjustmentIds: string[] },
-    @CurrentUser('userId') currentUserId: string,
-    @CurrentUser('username') currentUsername: string,
-  ): Promise<any> {
-    const result = await this.stockAdjustmentService.bulkPermanentDelete(
-      body.stockAdjustmentIds,
-      currentUserId,
-      currentUsername,
-    );
-    return {
-      message: `Successfully permanently deleted ${result.successCount} of ${body.stockAdjustmentIds.length} stock adjustments`,
-      ...result
-    };
   }
 }
