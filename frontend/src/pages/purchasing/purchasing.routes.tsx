@@ -8,9 +8,7 @@ const SupplierProfilePage = React.lazy(() => import('./SupplierProfilePage'))
 const PurchaseOrdersPage = React.lazy(() => import('./PurchaseOrdersPage'))
 const CreatePurchaseOrderPage = React.lazy(() => import('./CreatePurchaseOrderPage'))
 const PurchaseOrderDetailPage = React.lazy(() => import('./PurchaseOrderDetailPage'))
-const PurchaseOrderSummary = React.lazy(() => import('./PurchaseOrderSummary'))
-const PurchaseOrderDetailsReport = React.lazy(() => import('./PurchaseOrderDetailsReport'))
-const PurchaseOrderStatusReport = React.lazy(() => import('./PurchaseOrderStatusReport'))
+
 
 export const purchasingRoutes: RouteObject[] = [
   { path: '/purchasing', element: <PurchasingPage />, handle: { title: 'Purchasing' } },
@@ -22,7 +20,5 @@ export const purchasingRoutes: RouteObject[] = [
   { path: '/purchasing/orders/create', element: <CreatePurchaseOrderPage />, handle: { title: 'Create Purchase Order' } },
   { path: '/purchasing/orders/:orderNumber/view', element: <PurchaseOrderDetailPage />, handle: { title: 'Purchase Order', breadcrumbParam: 'orderNumber' } },
   { path: '/purchasing/orders/:orderNumber/edit', element: <CreatePurchaseOrderPage />, handle: { title: 'Edit Purchase Order' } },
-  { path: '/reports/purchasing/order-summary', element: <PurchaseOrderSummary />, handle: { title: 'Purchase Order Summary' } },
-  { path: '/reports/purchasing/order-status', element: <PurchaseOrderStatusReport />, handle: { title: 'Purchase Order Status' } },
-  { path: '/reports/purchasing/order-details', element: <PurchaseOrderDetailsReport />, handle: { title: 'Purchase Order Details' } },
+  
 ]
