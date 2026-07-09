@@ -1,10 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AccountingService } from './accounting.service';
+import { AccountType } from '../../../database/entities/chart-of-account.entity';
 import { JournalEntryService } from './journal-entry.service';
 import { AccountMappingService } from './account-mapping.service';
 import { FiscalPeriodService } from './fiscal-period.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { MappingType } from '../../../database/entities/account-mapping.entity';
+import { JournalEntry } from '../../../database/entities/journal-entry.entity';
 import { FiscalPeriodStatus } from '../../../database/entities/fiscal-period.entity';
 import { AuditLogService } from '../../audit-logs/services';
 
@@ -13,6 +16,7 @@ describe('AccountingService', () => {
   let journalEntryService: jest.Mocked<JournalEntryService>;
   let accountMappingService: jest.Mocked<AccountMappingService>;
   let fiscalPeriodService: jest.Mocked<FiscalPeriodService>;
+  let journalEntryRepository: { delete: jest.Mock };
 
   const mockMappings: Record<string, string> = {
     [MappingType.SALES_REVENUE]: 'revenue-account-id',
@@ -75,6 +79,12 @@ describe('AccountingService', () => {
           },
         },
         {
+          provide: getRepositoryToken(JournalEntry),
+          useValue: {
+            delete: jest.fn(),
+          },
+        },
+        {
           provide: AuditLogService,
           useValue: {
             log: jest.fn(),
@@ -87,6 +97,7 @@ describe('AccountingService', () => {
     journalEntryService = module.get(JournalEntryService) as jest.Mocked<JournalEntryService>;
     accountMappingService = module.get(AccountMappingService) as jest.Mocked<AccountMappingService>;
     fiscalPeriodService = module.get(FiscalPeriodService) as jest.Mocked<FiscalPeriodService>;
+    journalEntryRepository = module.get(getRepositoryToken(JournalEntry));
   });
 
   it('should be defined', () => {
@@ -909,6 +920,75 @@ describe('AccountingService', () => {
       });
 
       await expect(service.postOpeningBalances(dto)).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('postAccountOpeningBalance', () => {
+    const mappings = { opening_balance_equity: 'equity-acc' };
+    beforeEach(() => {
+      accountMappingService.getMappings.mockResolvedValue(mappings);
+      fiscalPeriodService.validatePeriod.mockResolvedValue({
+        isValid: true, period: { id: 'fp-1' },
+      } as any);
+      journalEntryService.create.mockResolvedValue({ id: 'je-1' } as any);
+    });
+
+    it('debits the account and credits equity for ASSET', async () => {
+      await service.postAccountOpeningBalance('acc-1', AccountType.ASSET, 500);
+      const dto = (journalEntryService.create as jest.Mock).mock.calls[0][0];
+      expect(dto.lines[0]).toMatchObject({ accountId: 'acc-1', debitAmount: 500, creditAmount: 0 });
+      expect(dto.lines[1]).toMatchObject({ accountId: 'equity-acc', debitAmount: 0, creditAmount: 500 });
+      expect(journalEntryService.postEntry).toHaveBeenCalledWith('je-1', undefined, undefined);
+    });
+
+    it('debits the account and credits equity for EXPENSE', async () => {
+      await service.postAccountOpeningBalance('acc-1', AccountType.EXPENSE, 500);
+      const dto = (journalEntryService.create as jest.Mock).mock.calls[0][0];
+      expect(dto.lines[0]).toMatchObject({ debitAmount: 500, creditAmount: 0 });
+    });
+
+    it('credits the account and debits equity for LIABILITY/EQUITY/REVENUE', async () => {
+      for (const type of [AccountType.LIABILITY, AccountType.EQUITY, AccountType.REVENUE]) {
+        (journalEntryService.create as jest.Mock).mockClear();
+        await service.postAccountOpeningBalance('acc-1', type, 500);
+        const dto = (journalEntryService.create as jest.Mock).mock.calls[0][0];
+        expect(dto.lines[0]).toMatchObject({ accountId: 'acc-1', debitAmount: 0, creditAmount: 500 });
+        expect(dto.lines[1]).toMatchObject({ accountId: 'equity-acc', debitAmount: 500, creditAmount: 0 });
+      }
+    });
+
+    it('throws a clear error when opening_balance_equity is unmapped', async () => {
+      accountMappingService.getMappings.mockResolvedValue({});
+      await expect(
+        service.postAccountOpeningBalance('acc-1', AccountType.ASSET, 500),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws when no open fiscal period covers today', async () => {
+      fiscalPeriodService.validatePeriod.mockResolvedValue({ isValid: false, period: null } as any);
+      await expect(
+        service.postAccountOpeningBalance('acc-1', AccountType.ASSET, 500),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('is a no-op for amount 0', async () => {
+      await service.postAccountOpeningBalance('acc-1', AccountType.ASSET, 0);
+      expect(journalEntryService.create).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op for amount 0/undefined', async () => {
+      await service.postAccountOpeningBalance('acc-1', AccountType.ASSET, 0 as any);
+      expect(journalEntryService.create).not.toHaveBeenCalled();
+    });
+
+    it('hard-deletes the draft entry when postEntry fails, then rethrows', async () => {
+      journalEntryService.postEntry.mockRejectedValueOnce(
+        new BadRequestException('period closed'),
+      );
+      await expect(
+        service.postAccountOpeningBalance('acc-1', AccountType.ASSET, 500),
+      ).rejects.toThrow(BadRequestException);
+      expect(journalEntryRepository.delete).toHaveBeenCalledWith('je-1');
     });
   });
 

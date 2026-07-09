@@ -1,9 +1,11 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
-import { EntityManager } from 'typeorm';
+import { Injectable, BadRequestException, NotFoundException, Logger, Inject, forwardRef } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { JournalEntryService } from './journal-entry.service';
 import { AccountMappingService } from './account-mapping.service';
 import { FiscalPeriodService } from './fiscal-period.service';
 import { MappingType } from '../../../database/entities/account-mapping.entity';
+import { AccountType } from '../../../database/entities/chart-of-account.entity';
 import { JournalEntry, JournalEntryStatus } from '../../../database/entities/journal-entry.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
@@ -33,9 +35,12 @@ export class AccountingService {
   private readonly logger = new Logger(AccountingService.name);
 
   constructor(
+    @Inject(forwardRef(() => JournalEntryService))
     private readonly journalEntryService: JournalEntryService,
     private readonly accountMappingService: AccountMappingService,
     private readonly fiscalPeriodService: FiscalPeriodService,
+    @InjectRepository(JournalEntry)
+    private readonly journalEntryRepository: Repository<JournalEntry>,
     private readonly auditLogService: AuditLogService,
   ) {}
 
@@ -1191,6 +1196,73 @@ export class AccountingService {
       },
     );
     return postedEntry as any;
+  }
+
+  async postAccountOpeningBalance(
+    accountId: string,
+    accountType: AccountType,
+    amount: number,
+    userId?: string,
+    username?: string,
+  ): Promise<void> {
+    if (!amount) return;
+
+    const mappings = await this.accountMappingService.getMappings();
+    this.validateMappingByKey(mappings, 'opening_balance_equity', 'opening balance equity');
+    const equityAccountId = mappings['opening_balance_equity'];
+
+    const today = new Date();
+    const periodValidation = await this.fiscalPeriodService.validatePeriod({ date: today });
+    if (!periodValidation.isValid || !periodValidation.period) {
+      throw new BadRequestException('No open fiscal period found for today');
+    }
+
+    const debitAccount = accountType === AccountType.ASSET || accountType === AccountType.EXPENSE;
+    const magnitude = Math.abs(amount);
+    const lines = [
+      {
+        accountId,
+        debitAmount: debitAccount ? magnitude : 0,
+        creditAmount: debitAccount ? 0 : magnitude,
+        memo: 'Opening balance',
+      },
+      {
+        accountId: equityAccountId,
+        debitAmount: debitAccount ? 0 : magnitude,
+        creditAmount: debitAccount ? magnitude : 0,
+        memo: 'Opening balance equity',
+      },
+    ];
+
+    const entry = await this.journalEntryService.create(
+      {
+        entryDate: today,
+        description: 'Opening balance',
+        fiscalPeriodId: periodValidation.period.id,
+        sourceType: 'opening_balance',
+        lines,
+      } as any,
+      userId,
+      username,
+    );
+
+    try {
+      await this.journalEntryService.postEntry(entry.id, userId, username);
+    } catch (postErr) {
+      await this.hardDeleteDraftEntry(entry.id);
+      throw postErr;
+    }
+  }
+
+  private async hardDeleteDraftEntry(entryId: string): Promise<void> {
+    try {
+      await this.journalEntryRepository.delete(entryId);
+    } catch (cleanupErr) {
+      this.logger.error(
+        `Failed to clean up draft opening-balance entry ${entryId} after post failure`,
+        cleanupErr as Error,
+      );
+    }
   }
 
   /**

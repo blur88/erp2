@@ -4,6 +4,8 @@ import {
   BadRequestException,
   ConflictException,
   Logger,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -24,6 +26,7 @@ import {
   ChartOfAccountHierarchyDto,
   RecentActivityItemDto,
 } from '../dto/chart-of-account.dto';
+import { AccountingService } from './accounting.service';
 import { AuditLogService } from '../../audit-logs/services';
 
 @Injectable()
@@ -40,6 +43,8 @@ export class ChartOfAccountsService {
     @InjectRepository(BankReconciliation)
     private readonly bankReconciliationRepository: Repository<BankReconciliation>,
     private readonly auditLogService: AuditLogService,
+    @Inject(forwardRef(() => AccountingService))
+    private readonly accountingService: AccountingService,
   ) {}
 
   /**
@@ -91,12 +96,28 @@ export class ChartOfAccountsService {
     }
 
     // Create the account
+    const { openingBalance, ...accountData } = createDto;
     const account = this.accountRepository.create({
-      ...createDto,
+      ...accountData,
       isActive: createDto.isActive ?? true,
     });
 
     const savedAccount = await this.accountRepository.save(account);
+
+    if (openingBalance) {
+      try {
+        await this.accountingService.postAccountOpeningBalance(
+          savedAccount.id,
+          savedAccount.type,
+          openingBalance,
+          userId,
+          username,
+        );
+      } catch (err) {
+        await this.accountRepository.delete(savedAccount.id);
+        throw err;
+      }
+    }
 
     await this.auditLogService.log(
       'CREATE',

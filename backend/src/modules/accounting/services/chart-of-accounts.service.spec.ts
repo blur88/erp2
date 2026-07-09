@@ -15,6 +15,7 @@ import { JournalEntryLine } from '../../../database/entities/journal-entry-line.
 import { AccountMapping } from '../../../database/entities/account-mapping.entity';
 import { BankReconciliation } from '../../../database/entities/bank-reconciliation.entity';
 import { AuditLogService } from '../../audit-logs/services';
+import { AccountingService } from './accounting.service';
 import {
   CreateChartOfAccountDto,
   UpdateChartOfAccountDto,
@@ -29,6 +30,7 @@ describe('ChartOfAccountsService', () => {
   let journalEntryLineRepository: jest.Mocked<Repository<JournalEntryLine>>;
   let accountMappingRepository: jest.Mocked<Repository<AccountMapping>>;
   let bankReconciliationRepository: jest.Mocked<Repository<BankReconciliation>>;
+  let accountingService: jest.Mocked<AccountingService>;
 
   const mockAccount: Partial<ChartOfAccount> = {
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -71,6 +73,7 @@ describe('ChartOfAccountsService', () => {
             restore: jest.fn(),
             remove: jest.fn(),
             count: jest.fn(),
+            delete: jest.fn(),
             createQueryBuilder: jest.fn(() => mockQueryBuilder),
           },
         },
@@ -101,6 +104,12 @@ describe('ChartOfAccountsService', () => {
             log: jest.fn(),
           },
         },
+        {
+          provide: AccountingService,
+          useValue: {
+            postAccountOpeningBalance: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -113,6 +122,7 @@ describe('ChartOfAccountsService', () => {
     bankReconciliationRepository = module.get(
       getRepositoryToken(BankReconciliation),
     );
+    accountingService = module.get(AccountingService) as jest.Mocked<AccountingService>;
   });
 
   afterEach(() => {
@@ -226,6 +236,37 @@ describe('ChartOfAccountsService', () => {
       await expect(service.create(createDtoWithParent)).rejects.toThrow(
         BadRequestException,
       );
+    });
+  });
+
+  describe('create (opening balance)', () => {
+    beforeEach(() => {
+      accountRepository.findOne.mockResolvedValue(null);
+      accountRepository.create.mockReturnValue(mockAccount as ChartOfAccount);
+      accountRepository.save.mockResolvedValue(mockAccount as ChartOfAccount);
+    });
+
+    it('posts an opening-balance entry when openingBalance is nonzero', async () => {
+      const dto = { code: '1000', name: 'Cash', type: AccountType.ASSET, openingBalance: 500 };
+      await service.create(dto as any, 'user-1', 'tester');
+      expect(accountingService.postAccountOpeningBalance).toHaveBeenCalledWith(
+        expect.any(String), AccountType.ASSET, 500, 'user-1', 'tester',
+      );
+    });
+
+    it('does not post an opening-balance entry when openingBalance is zero/absent', async () => {
+      const dto = { code: '1000', name: 'Cash', type: AccountType.ASSET, openingBalance: 0 };
+      await service.create(dto as any, 'user-1', 'tester');
+      expect(accountingService.postAccountOpeningBalance).not.toHaveBeenCalled();
+    });
+
+    it('rolls back the created account if opening-balance posting fails', async () => {
+      accountingService.postAccountOpeningBalance.mockRejectedValueOnce(
+        new NotFoundException('unmapped equity'),
+      );
+      const dto = { code: '1000', name: 'Cash', type: AccountType.ASSET, openingBalance: 500 };
+      await expect(service.create(dto as any, 'user-1', 'tester')).rejects.toThrow(NotFoundException);
+      expect(accountRepository.delete).toHaveBeenCalled();
     });
   });
 

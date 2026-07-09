@@ -53,6 +53,16 @@ export class CreateChartOfAccountDto {
   @IsOptional()
   @IsBoolean()
   isCashEquivalent?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Create-only opening balance amount (posts a balanced journal entry). Non-negative; v1 has no contra/negative opening balances.',
+    default: 0,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  openingBalance?: number;
 }
 
 export class UpdateChartOfAccountDto {
