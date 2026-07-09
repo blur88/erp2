@@ -5,10 +5,6 @@ import { describe, expect, it } from 'vitest'
 
 const filesToKeepFlat = [
   'src/pages/settings/BackupManagement.tsx',
-  'src/pages/accounting/ChartOfAccountsPage.tsx',
-  'src/pages/accounting/JournalEntriesPage.tsx',
-  'src/pages/accounting/BankReconciliationsPage.tsx',
-  'src/pages/accounting/FiscalPeriodsPage.tsx',
   'src/pages/inventory/CategoriesPage.tsx',
 ]
 

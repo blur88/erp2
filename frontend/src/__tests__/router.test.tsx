@@ -77,7 +77,7 @@ function buildRouter(initialPath: string) {
         children: [
           { path: '/dashboard', element: <div>Dashboard</div> },
           { path: '/inventory/products', element: <div>Products Page</div> },
-          { path: '/accounting/journal-entries', element: <div>Journal Entries Page</div> },
+          { path: '/settings', element: <div>Settings Page</div> },
         ],
       },
     ],
@@ -108,13 +108,13 @@ describe('React Router v7 - unauthenticated redirect', () => {
   })
 
   it('redirects unauthenticated user visiting a deep route to /login', async () => {
-    const router = buildRouter('/accounting/journal-entries')
+    const router = buildRouter('/inventory/products')
     render(<RouterProvider router={router} />)
 
     await waitFor(() => {
       expect(screen.getByText('Login Page')).toBeInTheDocument()
     })
-    expect(screen.queryByText('Journal Entries Page')).not.toBeInTheDocument()
+    expect(screen.queryByText('Products Page')).not.toBeInTheDocument()
   })
 })
 

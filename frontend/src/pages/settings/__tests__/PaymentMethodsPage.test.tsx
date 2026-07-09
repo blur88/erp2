@@ -13,7 +13,7 @@ const mockedApi = vi.hoisted(() => ({
   usePermanentDeletePaymentMethodMutation: vi.fn(),
 }));
 
-vi.mock('@/store/api/accountingApi', () => ({
+vi.mock('@/store/api/paymentMethodsApi', () => ({
   useGetPaymentMethodsQuery: mockedApi.useGetPaymentMethodsQuery,
   useGetDeletedPaymentMethodsQuery: mockedApi.useGetDeletedPaymentMethodsQuery,
   useCreatePaymentMethodMutation: mockedApi.useCreatePaymentMethodMutation,
@@ -40,7 +40,6 @@ describe('PaymentMethodsPage', () => {
             id: 'pm-1',
             code: 'CASH',
             name: 'Cash',
-            requiresSettlement: false,
             useForPurchases: true,
             sortOrder: 1,
             isActive: true,

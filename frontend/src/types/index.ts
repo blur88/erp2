@@ -298,8 +298,6 @@ export interface Payment {
   method?: 'cash' | 'card' | 'bank_transfer' | 'cheque';
   paymentMethodId?: string;
   paymentMethodEntity?: PaymentMethodConfig;
-  settlementStatus?: 'not_applicable' | 'pending' | 'settled';
-  settlementId?: string;
   paymentMethod?:
     | 'cash'
     | 'card'
@@ -426,7 +424,6 @@ export interface PaymentMethodConfig {
   id: string;
   code: string;
   name: string;
-  requiresSettlement: boolean;
   useForPurchases: boolean;
   sortOrder: number;
   isActive: boolean;

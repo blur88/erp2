@@ -6,7 +6,7 @@ import {
   useGetDeletedPaymentMethodsQuery,
   usePermanentDeletePaymentMethodMutation,
   useRestorePaymentMethodMutation,
-} from '@/store/api/accountingApi'
+} from '@/store/api/paymentMethodsApi'
 import type { PaymentMethodConfig } from '@/types'
 import { formatDate } from '@/utils/formatters'
 

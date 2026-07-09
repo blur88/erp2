@@ -37,16 +37,7 @@ import { default as PeopleIcon } from '@mui/icons-material/People';
 import { default as SecurityIcon } from '@mui/icons-material/Security';
 import { default as LockIcon } from '@mui/icons-material/Lock';
 import { default as PriceTagIcon } from '@mui/icons-material/LocalOffer';
-import { default as AccountBalanceIcon } from '@mui/icons-material/AccountBalance';
-import { default as AccountBalanceOutlinedIcon } from '@mui/icons-material/AccountBalanceOutlined';
-import { default as AccountTreeIcon } from '@mui/icons-material/AccountTree';
-import { default as DescriptionIcon } from '@mui/icons-material/Description';
-import { default as DateRangeIcon } from '@mui/icons-material/DateRange';
 import { default as AssessmentIcon } from '@mui/icons-material/Assessment';
-import { default as ShowChartIcon } from '@mui/icons-material/ShowChart';
-import { default as ReceiptLongIcon } from '@mui/icons-material/ReceiptLong';
-import { default as TimelineIcon } from '@mui/icons-material/Timeline';
-import { default as MenuBookIcon } from '@mui/icons-material/MenuBook';
 import { default as RegionalIcon } from '@mui/icons-material/Language';
 import { default as StockLevelIcon } from '@mui/icons-material/WarningAmber';
 import type { AuthUser } from '../store/slices/authSlice';
@@ -218,89 +209,6 @@ export const menuSections: MenuSection[] = [
     ],
   },
   {
-    id: 'finance',
-    title: 'Finance',
-    items: [
-      {
-        id: 'accounting',
-        title: 'Accounting',
-        icon: <AccountBalanceIcon />,
-        children: [
-          {
-            id: 'accounting-dashboard',
-            title: 'Dashboard',
-            icon: <DashboardIcon />,
-            path: '/accounting/dashboard',
-            roles: FINANCE_ROLES,
-          },
-          {
-            id: 'chart-of-accounts',
-            title: 'Chart of Accounts',
-            icon: <AccountTreeIcon />,
-            path: '/accounting/chart-of-accounts',
-            roles: FINANCE_ROLES,
-          },
-          {
-            id: 'journal-entries',
-            title: 'Journal Entries',
-            icon: <DescriptionIcon />,
-            path: '/accounting/journal-entries',
-            roles: FINANCE_ROLES,
-          },
-          {
-            id: 'bank-reconciliation',
-            title: 'Bank Reconciliation',
-            icon: <AccountBalanceOutlinedIcon />,
-            path: '/accounting/bank-reconciliations',
-            roles: FINANCE_ROLES,
-          },
-          {
-            id: 'expenses',
-            title: 'Expenses',
-            icon: <OrdersIcon />,
-            path: '/accounting/expenses',
-            roles: FINANCE_ROLES,
-          },
-          {
-            id: 'fund-transfers',
-            title: 'Fund Transfers',
-            icon: <SwapHorizIcon />,
-            path: '/accounting/fund-transfers',
-            roles: FINANCE_ROLES,
-          },
-          {
-            id: 'settlements',
-            title: 'Settlements',
-            icon: <AccountBalanceWalletIcon />,
-            path: '/accounting/settlements',
-            roles: FINANCE_ROLES,
-          },
-          {
-            id: 'owner-equity',
-            title: "Owner's Equity",
-            icon: <AccountBalanceWalletIcon />,
-            path: '/accounting/owner-equity',
-            roles: FINANCE_ROLES,
-          },
-          {
-            id: 'fiscal-periods',
-            title: 'Fiscal Periods',
-            icon: <DateRangeIcon />,
-            path: '/accounting/fiscal-periods',
-            roles: ADMIN_ONLY,
-          },
-          {
-            id: 'account-mappings',
-            title: 'Account Mappings',
-            icon: <SettingsIcon />,
-            path: '/accounting/account-mappings',
-            roles: ADMIN_ONLY,
-          },
-        ],
-      },
-    ],
-  },
-  {
     id: 'insights',
     title: 'Insights',
     items: [
@@ -445,46 +353,6 @@ export const menuSections: MenuSection[] = [
             group: 'Inventory',
             path: '/reports/inventory/product-cost',
             roles: INVENTORY_ROLES,
-          },
-          {
-            id: 'trial-balance',
-            title: 'Trial Balance',
-            icon: <AccountBalanceIcon />,
-            group: 'Accounting',
-            path: '/accounting/reports/trial-balance',
-            roles: FINANCE_ROLES,
-          },
-          {
-            id: 'balance-sheet',
-            title: 'Balance Sheet',
-            icon: <ReceiptLongIcon />,
-            group: 'Accounting',
-            path: '/accounting/reports/balance-sheet',
-            roles: FINANCE_ROLES,
-          },
-          {
-            id: 'profit-loss',
-            title: 'Profit & Loss',
-            icon: <ShowChartIcon />,
-            group: 'Accounting',
-            path: '/accounting/reports/profit-loss',
-            roles: FINANCE_ROLES,
-          },
-          {
-            id: 'general-ledger',
-            title: 'General Ledger',
-            icon: <MenuBookIcon />,
-            group: 'Accounting',
-            path: '/accounting/reports/general-ledger',
-            roles: FINANCE_ROLES,
-          },
-          {
-            id: 'account-activity',
-            title: 'Account Activity',
-            icon: <TimelineIcon />,
-            group: 'Accounting',
-            path: '/accounting/reports/account-activity',
-            roles: FINANCE_ROLES,
           },
         ],
       },

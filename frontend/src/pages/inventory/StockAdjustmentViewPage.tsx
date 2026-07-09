@@ -23,7 +23,6 @@ import {
 import { skipToken } from '@reduxjs/toolkit/query'
 import { useNavigate, useParams } from 'react-router-dom'
 
-import AccountingEntryLink from '@/components/accounting/AccountingEntryLink'
 import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
@@ -132,12 +131,6 @@ export default function StockAdjustmentViewPage() {
                 <Field label="Status" value={<StatusChip status={adj.status} />} />
                 <Field label="Item Count" value={formatNumber(adj.itemCount)} />
                 <Field label="Total Value" value={formatCurrency(adj.totalValue)} />
-                {isCompleted && (
-                  <Field
-                    label="Journal Entry"
-                    value={<AccountingEntryLink sourceType="stock_adjustment" sourceId={adj.id} variant="inline" />}
-                  />
-                )}
               </CardContent>
             </Card>
           </Grid>

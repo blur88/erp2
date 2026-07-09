@@ -18,8 +18,4 @@ describe('browser env compatibility', () => {
   it('avoids process.env in PurchaseOrdersPage', () => {
     expect(readFrontendFile('src/pages/purchasing/PurchaseOrdersPage.tsx')).not.toMatch(/process\.env/)
   })
-
-  it('avoids process.env in FundTransfersPage', () => {
-    expect(readFrontendFile('src/pages/accounting/FundTransfersPage.tsx')).not.toMatch(/process\.env/)
-  })
 })

@@ -89,13 +89,6 @@ export default tseslint.config(
   {
     files: [
       // Permanent exceptions (reports, dashboards, tree/hierarchy, audit, auth)
-      'src/pages/accounting/AccountingDashboardPage.tsx',
-      'src/pages/accounting/ChartOfAccountsPage.tsx',
-      'src/pages/accounting/reports/AccountActivityPage.tsx',
-      'src/pages/accounting/reports/BalanceSheetPage.tsx',
-      'src/pages/accounting/reports/GeneralLedgerPage.tsx',
-      'src/pages/accounting/reports/ProfitAndLossPage.tsx',
-      'src/pages/accounting/reports/TrialBalancePage.tsx',
       'src/pages/audit-logs/AuditLogsPage.tsx',
       'src/pages/dashboard/DashboardPage.tsx',
       'src/pages/inventory/CategoriesPage.tsx',
@@ -119,10 +112,6 @@ export default tseslint.config(
       'src/pages/sales/SalesOrderProfitReport.tsx',
       'src/pages/sales/SalesOrderSummary.tsx',
       // Deferred pages — awaiting pattern validation
-      'src/pages/accounting/BankReconciliationDetailsPage.tsx',
-      'src/pages/accounting/BankReconciliationsPage.tsx',
-      'src/pages/accounting/JournalEntriesPage.tsx',
-      'src/pages/accounting/JournalEntryDetailsPage.tsx',
       'src/pages/purchasing/PurchasingPage.tsx',
       'src/pages/settings/BackupManagement.tsx',
       'src/pages/settings/PriceListDetailsPage.tsx',

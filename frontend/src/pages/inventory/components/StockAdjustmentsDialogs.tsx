@@ -28,7 +28,7 @@ const StockAdjustmentsDialogs: React.FC<StockAdjustmentsDialogsProps> = ({
       <ConfirmationDialog
         open={completeConfirmOpen}
         title="Complete Stock Adjustment?"
-        message={`Apply stock changes and create a journal entry for ${adjustmentToCompleteName}?`}
+        message={`Apply stock changes for ${adjustmentToCompleteName}?`}
         confirmText="Complete"
         cancelText="Cancel"
         onConfirm={onConfirmComplete}

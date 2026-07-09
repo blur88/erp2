@@ -12,7 +12,6 @@ import authSlice from './slices/authSlice'
 import notificationSlice from './slices/notificationSlice'
 import inventorySlice from './slices/inventorySlice'
 import salesSlice from './slices/salesSlice'
-import accountingSlice from './slices/accountingSlice'
 import backupSlice from './slices/backupSlice'
 import auditLogSlice from './slices/auditLogSlice'
 import priceListSlice from './slices/priceListSlice'
@@ -23,7 +22,6 @@ import { userManagementApiSlice } from './api/userManagementApi'
 import { inventoryApiSlice } from './api/inventoryApi'
 import { purchasingApiSlice } from './api/purchasingApi'
 import { salesApiSlice } from './api/salesApi'
-import { accountingApiSlice } from './api/accountingApi'
 import { settingsApiSlice } from './api/settingsApi'
 import { paymentMethodsApiSlice } from './api/paymentMethodsApi'
 import { printSettingsApiSlice } from './api/printSettingsApi'
@@ -35,7 +33,6 @@ const rootReducer = combineReducers({
   notifications: notificationSlice,
   inventory: inventorySlice,
   sales: salesSlice,
-  accounting: accountingSlice,
   backup: backupSlice,
   auditLogs: auditLogSlice,
   priceLists: priceListSlice,
@@ -46,7 +43,6 @@ const rootReducer = combineReducers({
   [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
   [purchasingApiSlice.reducerPath]: purchasingApiSlice.reducer,
   [salesApiSlice.reducerPath]: salesApiSlice.reducer,
-  [accountingApiSlice.reducerPath]: accountingApiSlice.reducer,
   [settingsApiSlice.reducerPath]: settingsApiSlice.reducer,
   [paymentMethodsApiSlice.reducerPath]: paymentMethodsApiSlice.reducer,
   [printSettingsApiSlice.reducerPath]: printSettingsApiSlice.reducer,
@@ -100,7 +96,6 @@ export const store = configureStore({
     inventoryApiSlice.middleware as any,
     purchasingApiSlice.middleware as any,
     salesApiSlice.middleware as any,
-    accountingApiSlice.middleware as any,
     settingsApiSlice.middleware as any,
     paymentMethodsApiSlice.middleware as any,
     printSettingsApiSlice.middleware as any,

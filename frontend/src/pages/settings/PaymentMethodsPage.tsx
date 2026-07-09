@@ -31,7 +31,7 @@ import {
   useDeletePaymentMethodMutation,
   useGetPaymentMethodsQuery,
   useUpdatePaymentMethodMutation,
-} from '@/store/api/accountingApi';
+} from '@/store/api/paymentMethodsApi';
 import type { PaymentMethodConfig } from '@/types';
 
 const PaymentMethodsPage: React.FC = () => {
@@ -110,7 +110,6 @@ const PaymentMethodsPage: React.FC = () => {
               <TableRow>
                 <TableCell>Code</TableCell>
                 <TableCell>Name</TableCell>
-                <TableCell>Requires Settlement</TableCell>
                 <TableCell>For Purchases</TableCell>
                 <TableCell>Sort Order</TableCell>
                 <TableCell>Active</TableCell>
@@ -122,13 +121,6 @@ const PaymentMethodsPage: React.FC = () => {
                 <TableRow key={method.id}>
                   <TableCell>{method.code}</TableCell>
                   <TableCell>{method.name}</TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      color={method.requiresSettlement ? 'warning' : 'default'}
-                      label={method.requiresSettlement ? 'Yes' : 'No'}
-                    />
-                  </TableCell>
                   <TableCell>
                     <Chip
                       size="small"
@@ -164,7 +156,7 @@ const PaymentMethodsPage: React.FC = () => {
               ))}
               {!methods.length && !loading && (
                 <TableRow>
-                  <TableCell colSpan={7}>
+                  <TableCell colSpan={6}>
                     <Typography sx={{
                       color: "text.secondary"
                     }}>No payment methods found.</Typography>

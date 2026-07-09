@@ -91,9 +91,7 @@ export function serializeFilters<TFilters extends object>(
       field.type === 'bank-reconciliation-status' ||
       field.type === 'settlement-status' ||
       field.type === 'fund-transfer-status' ||
-      field.type === 'account-type' ||
-      field.type === 'fund-transfer-source-account' ||
-      field.type === 'fund-transfer-destination-account'
+      field.type === 'account-type'
 
     if (isSingleValueField) {
       if (value !== null && value !== undefined && value !== defaultValue) {
@@ -179,9 +177,7 @@ export function parseFilters<TFilters extends object>(
       field.type === 'bank-reconciliation-status' ||
       field.type === 'settlement-status' ||
       field.type === 'fund-transfer-status' ||
-      field.type === 'account-type' ||
-      field.type === 'fund-transfer-source-account' ||
-      field.type === 'fund-transfer-destination-account'
+      field.type === 'account-type'
 
     if (isSingleValueField) {
       const raw = searchParams.get(key)
@@ -252,9 +248,6 @@ export function parseFilters<TFilters extends object>(
       } else if (field.type === 'fund-transfer-status') {
         const VALID_FUND_TRANSFER_STATUS = ['ACTIVE', 'CANCELLED']
         result[fieldKey] = VALID_FUND_TRANSFER_STATUS.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'fund-transfer-source-account' || field.type === 'fund-transfer-destination-account') {
-        // UUID from URL: accept any non-empty string; backend validates UUID format.
-        result[fieldKey] = raw.length > 0 ? raw : (defaultValue ?? null)
       } else if (field.type === 'account-type') {
         const VALID_ACCOUNT_TYPE = ['ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE']
         result[fieldKey] = VALID_ACCOUNT_TYPE.includes(raw) ? raw : (defaultValue ?? null)

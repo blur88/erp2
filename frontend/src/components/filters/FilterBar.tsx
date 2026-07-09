@@ -2,19 +2,14 @@ import { CircularProgress, Stack } from '@mui/material'
 
 import { FilterAccountType } from './FilterAccountType'
 import { FilterBalancedStatus } from './FilterBalancedStatus'
-import { FilterBankAccount } from './FilterBankAccount'
 import { FilterCategory } from './FilterCategory'
-import { FilterExpenseAccount } from './FilterExpenseAccount'
 import { FilterExpenseStatus } from './FilterExpenseStatus'
 import { FilterBankReconciliationStatus } from './FilterBankReconciliationStatus'
 import { FilterCompare } from './FilterCompare'
 import { FilterCustomer } from './FilterCustomer'
 import { FilterCustomerType } from './FilterCustomerType'
-import { FilterDestinationAccount } from './FilterDestinationAccount'
 import { FilterFiscalPeriodStatus } from './FilterFiscalPeriodStatus'
 import { FilterFundTransferStatus } from './FilterFundTransferStatus'
-import { FilterJournalEntryStatus } from './FilterJournalEntryStatus'
-import { FilterJournalEntryType } from './FilterJournalEntryType'
 import { FilterOrderStatus } from './FilterOrderStatus'
 import { FilterOwnerEquityType } from './FilterOwnerEquityType'
 import { FilterPaymentStatus } from './FilterPaymentStatus'
@@ -25,8 +20,6 @@ import { FilterProductType } from './FilterProductType'
 import { FilterPurchasingStatus } from './FilterPurchasingStatus'
 import { FilterRole } from './FilterRole'
 import { FilterSearch } from './FilterSearch'
-import { FilterSettlementStatus } from './FilterSettlementStatus'
-import { FilterSourceAccount } from './FilterSourceAccount'
 import { FilterStatus } from './FilterStatus'
 import { FilterStockAdjustmentStatus } from './FilterStockAdjustmentStatus'
 import { FilterStockStatus } from './FilterStockStatus'
@@ -282,42 +275,9 @@ function renderQuickField<TFilters extends object>(
     )
   }
 
-  if (field.type === 'journal-entry-status') {
-    return (
-      <FilterJournalEntryStatus
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'journal-entry-type') {
-    return (
-      <FilterJournalEntryType
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
   if (field.type === 'expense-status') {
     return (
       <FilterExpenseStatus
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'expense-account') {
-    return (
-      <FilterExpenseAccount
         key={fieldKey}
         field={fieldKey}
         value={(value as string | null) ?? null}
@@ -370,17 +330,6 @@ function renderQuickField<TFilters extends object>(
     )
   }
 
-  if (field.type === 'settlement-status') {
-    return (
-      <FilterSettlementStatus
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
   if (field.type === 'fund-transfer-status') {
     return (
       <FilterFundTransferStatus
@@ -395,39 +344,6 @@ function renderQuickField<TFilters extends object>(
   if (field.type === 'account-type') {
     return (
       <FilterAccountType
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'fund-transfer-source-account') {
-    return (
-      <FilterSourceAccount
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'fund-transfer-destination-account') {
-    return (
-      <FilterDestinationAccount
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'bank-reconciliation-account') {
-    return (
-      <FilterBankAccount
         key={fieldKey}
         field={fieldKey}
         value={(value as string | null) ?? null}

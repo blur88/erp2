@@ -1,5 +1,4 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import PaymentIcon from '@mui/icons-material/Payment';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import { Alert, Box, CircularProgress, Tab, Tabs, Typography } from '@mui/material';
@@ -27,7 +26,6 @@ import {
 } from '@/store/api/salesApi';
 
 import OrderActionBar from './components/OrderActionBar';
-import OrderJournalEntriesTab from './components/OrderJournalEntriesTab';
 import OrderOverviewTab from './components/OrderOverviewTab';
 import OrderPaymentsTab from './components/OrderPaymentsTab';
 import { StatusChip } from '@/components/common/StatusChip';
@@ -70,7 +68,7 @@ export default function SalesOrderDetailPage() {
   const { orderNumber } = useParams<{ orderNumber: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 2);
+  const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 1);
   const [activeDialog, setActiveDialog] = useState<Dialog>(null);
   const { showSuccess, showError } = useNotification();
 
@@ -290,13 +288,7 @@ export default function SalesOrderDetailPage() {
             label="Payments"
             sx={{ minHeight: 36 }}
           />
-          <Tab
-            icon={<AccountBalanceIcon sx={{ fontSize: 16 }} />}
-            iconPosition="start"
-            label="Journal Entries"
-            sx={{ minHeight: 36 }}
-          />
-        </Tabs>
+          </Tabs>
       </Box>
 
       <TabPanel value={tabValue} index={0}>
@@ -304,9 +296,6 @@ export default function SalesOrderDetailPage() {
       </TabPanel>
       <TabPanel value={tabValue} index={1}>
         <OrderPaymentsTab orderId={order.id} totalAmount={order.totalAmount} />
-      </TabPanel>
-      <TabPanel value={tabValue} index={2}>
-        <OrderJournalEntriesTab orderId={order.id} />
       </TabPanel>
 
       <ConfirmationDialog
