@@ -109,7 +109,7 @@ describe('Sidebar', () => {
     })
   })
 
-  it('renders Finance and Insights as top-level sections in correct order', () => {
+  it('renders Insights as a top-level section after Operations', () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
         <Sidebar />
@@ -121,11 +121,9 @@ describe('Sidebar', () => {
     )
 
     expect(sectionHeaders).toContain('Operations')
-    expect(sectionHeaders).toContain('Finance')
     expect(sectionHeaders).toContain('Insights')
     expect(sectionHeaders).toContain('Administration')
-    expect(sectionHeaders.indexOf('Operations')).toBeLessThan(sectionHeaders.indexOf('Finance'))
-    expect(sectionHeaders.indexOf('Finance')).toBeLessThan(sectionHeaders.indexOf('Insights'))
+    expect(sectionHeaders.indexOf('Operations')).toBeLessThan(sectionHeaders.indexOf('Insights'))
     expect(sectionHeaders.indexOf('Insights')).toBeLessThan(
       sectionHeaders.indexOf('Administration')
     )
@@ -180,25 +178,24 @@ describe('Sidebar', () => {
       expect(within(insightsList).getAllByText('Sales').length).toBeGreaterThan(0)
       expect(within(insightsList).getAllByText('Purchasing').length).toBeGreaterThan(0)
       expect(within(insightsList).getAllByText('Inventory').length).toBeGreaterThan(0)
-      expect(within(insightsList).getAllByText('Accounting').length).toBeGreaterThan(0)
     })
   })
 
-  it('Trial Balance is accessible by expanding Reports under Insights', async () => {
+  it('Product Summary is accessible by expanding Reports under Insights', async () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
         <Sidebar />
       </MemoryRouter>
     )
 
-    expect(screen.queryByText('Trial Balance')).not.toBeInTheDocument()
+    expect(screen.queryByText('Product Summary')).not.toBeInTheDocument()
 
     const insightsList = getSectionList('Insights')
     const reportsButton = within(insightsList).getByRole('button', { name: 'Reports' })
     fireEvent.click(reportsButton)
 
     await waitFor(() => {
-      expect(screen.getByText('Trial Balance')).toBeInTheDocument()
+      expect(screen.getByText('Product Summary')).toBeInTheDocument()
     })
   })
 
@@ -440,9 +437,8 @@ describe('Sidebar', () => {
       expect(within(flyout).getByRole('button', { name: 'Sales' })).toBeInTheDocument()
       expect(within(flyout).getByRole('button', { name: 'Purchasing' })).toBeInTheDocument()
       expect(within(flyout).getByRole('button', { name: 'Inventory' })).toBeInTheDocument()
-      expect(within(flyout).getByRole('button', { name: 'Accounting' })).toBeInTheDocument()
       expect(within(flyout).queryByRole('button', { name: 'Product Summary' })).not.toBeInTheDocument()
-      expect(within(flyout).queryByRole('button', { name: 'Trial Balance' })).not.toBeInTheDocument()
+      expect(within(flyout).queryByRole('button', { name: 'Order Summary' })).not.toBeInTheDocument()
     })
 
     it('expands a report category to show its items inline', async () => {

@@ -36,7 +36,6 @@ import { SupplierService } from './supplier.service';
 import { VendorPaymentService } from './vendor-payment.service';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
-import { AccountingService } from '../../accounting/services/accounting.service';
 import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
 import { lockRowForUpdate, repoFor } from '../../../common/db/tx-helpers';
 
@@ -66,7 +65,6 @@ export class PurchaseOrderService extends BaseCrudService<
     private readonly vendorPaymentService: VendorPaymentService,
     private readonly settingsService: SettingsService,
     auditLogService: AuditLogService,
-    private readonly accountingService: AccountingService,
     private readonly purchaseOrderLifecycleService: PurchaseOrderLifecycleService,
     private readonly dataSource: DataSource,
   ) {
@@ -807,19 +805,6 @@ export class PurchaseOrderService extends BaseCrudService<
     });
 
     for (const row of savedRefundRows) {
-      try {
-        const fullRow = await this.vendorPaymentRepository.findOne({ where: { id: row.id } });
-        if (fullRow) {
-          await this.accountingService.postVendorRefundEntry(fullRow, actor, username);
-        }
-      } catch (error) {
-        this.logger.error(
-          `Failed to post refund accounting entry for vendor payment ${row.id}: ${error.message}`,
-        );
-      }
-    }
-
-    for (const row of savedRefundRows) {
       await this.auditLogService.log(
         'CREATE',
         'VendorPayment',
@@ -907,10 +892,6 @@ export class PurchaseOrderService extends BaseCrudService<
       const restoredPayment = await this.vendorPaymentRepository.findOne({
         where: { id: previousPayment.id },
       });
-
-      // Re-post accounting entry for restored payment.
-      const fullPayment = await this.vendorPaymentService.findOne(restoredPayment.id);
-      await this.accountingService.postVendorPaymentEntry(fullPayment, actor, username);
 
       // Create additional vendor payments for remaining lines.
       for (const line of payments.slice(1)) {
@@ -1018,13 +999,8 @@ export class PurchaseOrderService extends BaseCrudService<
       throw new NotFoundException('No payment found for this purchase order');
     }
 
-    // Reverse accounting entries and soft-delete each vendor payment
+    // Soft-delete each vendor payment
     for (const payment of existingPayments) {
-      try {
-        await this.accountingService.reverseSourceEntries('vendor_payment', payment.id, actor);
-      } catch (error) {
-        this.logger.error(`Failed to reverse accounting for vendor payment ${payment.id}: ${error.message}`);
-      }
       await this.vendorPaymentService.softDeleteForUnpay(payment.id);
     }
 

@@ -12,7 +12,6 @@ const salesRoutes = readFileSync(resolve(pagesDir, 'sales/sales.routes.tsx'), 'u
 const purchasingRoutes = readFileSync(resolve(pagesDir, 'purchasing/purchasing.routes.tsx'), 'utf8')
 const settingsRoutes = readFileSync(resolve(pagesDir, 'settings/settings.routes.tsx'), 'utf8')
 const auditLogsRoutes = readFileSync(resolve(pagesDir, 'audit-logs/audit-logs.routes.tsx'), 'utf8')
-const accountingRoutes = readFileSync(resolve(pagesDir, 'accounting/accounting.routes.tsx'), 'utf8')
 
 describe('domain route file smoke tests', () => {
   it('auth routes define login and password change paths', () => {
@@ -37,11 +36,6 @@ describe('domain route file smoke tests', () => {
 
   it('audit-logs routes define the audit-logs path', () => {
     expect(auditLogsRoutes).toContain("path: '/audit-logs'")
-  })
-
-  it('accounting routes define dashboard and journal entries paths', () => {
-    expect(accountingRoutes).toContain("path: '/accounting/dashboard'")
-    expect(accountingRoutes).toContain("path: '/accounting/journal-entries'")
   })
 })
 

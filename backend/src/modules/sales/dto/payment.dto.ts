@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { PaymentStatus, SettlementStatusEnum } from '../../../database/entities/payment.entity';
+import { PaymentStatus } from '../../../database/entities/payment.entity';
 
 export class CreatePaymentDto {
   @ApiProperty({
@@ -175,15 +175,6 @@ export class PaymentResponseDto {
 
   @ApiProperty({ example: 'uuid-string' })
   paymentMethodId: string;
-
-  @ApiProperty({
-    enum: SettlementStatusEnum,
-    example: SettlementStatusEnum.NOT_APPLICABLE,
-  })
-  settlementStatus: SettlementStatusEnum;
-
-  @ApiProperty({ example: 'uuid-string', nullable: true })
-  settlementId?: string;
 
   @ApiProperty({
     type: () => Object,

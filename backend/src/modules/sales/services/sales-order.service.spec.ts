@@ -17,7 +17,6 @@ import { StockMovementService } from '../../../modules/inventory/services/stock-
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
-import { AccountingService } from '../../accounting/services/accounting.service';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 import { SalesOrderPaymentService } from './sales-order-payment.service';
@@ -96,7 +95,6 @@ describe('SalesOrderService', () => {
           useValue: { generateDocumentNumber: jest.fn() },
         },
         { provide: AuditLogService, useValue: { log: jest.fn() } },
-        { provide: AccountingService, useValue: {} },
         {
           provide: SalesOrderFulfillmentService,
           useValue: { fulfillOrder: jest.fn(), unfulfillOrder: jest.fn() },

@@ -7,7 +7,6 @@ import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { AuditLogService } from '../../audit-logs/services';
-import { AccountingService } from '../../accounting/services/accounting.service';
 import { NotFoundException } from '@nestjs/common';
 import { UserRole } from '../../../database/entities/user.entity';
 import { SettingsService } from '../../settings/settings.service';
@@ -18,7 +17,6 @@ describe('PaymentService', () => {
   let customerRepository: jest.Mocked<Repository<Customer>>;
   let salesOrderRepository: jest.Mocked<Repository<SalesOrder>>;
   let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
-  let accountingService: jest.Mocked<AccountingService>;
   let auditLogService: jest.Mocked<AuditLogService>;
   let settingsService: jest.Mocked<Pick<SettingsService, 'generateDocumentNumber'>>;
 
@@ -83,13 +81,6 @@ describe('PaymentService', () => {
           },
         },
         {
-          provide: AccountingService,
-          useValue: {
-            postCustomerPaymentEntry: jest.fn(),
-            reverseSourceEntries: jest.fn(),
-          },
-        },
-        {
           provide: SettingsService,
           useValue: {
             generateDocumentNumber: jest.fn(),
@@ -103,7 +94,6 @@ describe('PaymentService', () => {
     customerRepository = module.get(getRepositoryToken(Customer));
     salesOrderRepository = module.get(getRepositoryToken(SalesOrder));
     paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
-    accountingService = module.get(AccountingService);
     auditLogService = module.get(AuditLogService);
     settingsService = module.get(SettingsService);
     (settingsService.generateDocumentNumber as jest.Mock).mockResolvedValue('PAY-26-001');
@@ -185,7 +175,6 @@ describe('PaymentService', () => {
       paymentMethodRepository.findOne.mockResolvedValue({
         id: 'pm-1',
         code: 'CASH',
-        requiresSettlement: false,
       } as any);
       customerRepository.save.mockResolvedValue(mockCustomer as Customer);
       paymentRepository.create.mockReturnValue(mockPayment as Payment);
@@ -195,10 +184,6 @@ describe('PaymentService', () => {
       paymentRepository.findOne.mockResolvedValue(mockPayment as Payment);
 
       auditLogService.log.mockResolvedValue(undefined);
-      accountingService.postCustomerPaymentEntry.mockResolvedValue({
-        id: 'journal-1',
-        referenceNumber: 'JE-000001',
-      } as any);
 
       // Act
       const result = await service.create(createDto);
@@ -208,59 +193,8 @@ describe('PaymentService', () => {
       expect(paymentRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({ paymentNumber: 'PAY-26-001' }),
       );
-      expect(accountingService.postCustomerPaymentEntry).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: mockPayment.id,
-          paymentNumber: mockPayment.paymentNumber,
-          customer: expect.objectContaining({
-            id: 'customer-1',
-            name: 'Test Customer',
-          }),
-        }),
-        'system',
-        undefined,
-      );
       expect(result).toBeDefined();
       expect(paymentRepository.save).toHaveBeenCalled();
-    });
-
-    it('should continue when accounting post fails', async () => {
-      // Arrange
-      const createDto = {
-        customerId: 'customer-1',
-        paymentMethodId: 'pm-1',
-        amount: 1000,
-        paymentDate: new Date('2024-01-15'),
-      };
-      const mockCustomer = createMockCustomer();
-      const mockPayment = createMockPayment();
-
-      customerRepository.findOne.mockResolvedValue(mockCustomer as Customer);
-      paymentMethodRepository.findOne.mockResolvedValue({
-        id: 'pm-1',
-        code: 'CASH',
-        requiresSettlement: false,
-      } as any);
-      customerRepository.save.mockResolvedValue(mockCustomer as Customer);
-      paymentRepository.create.mockReturnValue(mockPayment as Payment);
-      paymentRepository.save.mockResolvedValue(mockPayment as Payment);
-
-      // Mock findPaymentWithRelations
-      paymentRepository.findOne.mockResolvedValue(mockPayment as Payment);
-
-      auditLogService.log.mockResolvedValue(undefined);
-      accountingService.postCustomerPaymentEntry.mockRejectedValue(
-        new Error('Account mappings not configured'),
-      );
-
-      // Act
-      const result = await service.create(createDto);
-
-      // Assert
-      expect(accountingService.postCustomerPaymentEntry).toHaveBeenCalled();
-      expect(result).toBeDefined();
-      expect(paymentRepository.save).toHaveBeenCalled();
-      // Should not throw error despite accounting failure
     });
 
     it('should load payment with relations before posting', async () => {
@@ -278,7 +212,6 @@ describe('PaymentService', () => {
       paymentMethodRepository.findOne.mockResolvedValue({
         id: 'pm-1',
         code: 'CASH',
-        requiresSettlement: false,
       } as any);
       customerRepository.save.mockResolvedValue(mockCustomer as Customer);
       paymentRepository.create.mockReturnValue(mockPayment as Payment);
@@ -288,15 +221,12 @@ describe('PaymentService', () => {
       paymentRepository.findOne.mockResolvedValue(mockPayment as Payment);
 
       auditLogService.log.mockResolvedValue(undefined);
-      accountingService.postCustomerPaymentEntry.mockResolvedValue({
-        id: 'journal-1',
-      } as any);
 
       // Act
       await service.create(createDto);
 
       // Assert
-      // Verify findOne was called to get payment with relations before accounting post
+      // Verify findOne was called to get payment with relations
       expect(paymentRepository.findOne).toHaveBeenCalledWith({
         where: { id: mockPayment.id },
         relations: {
@@ -305,11 +235,6 @@ describe('PaymentService', () => {
           paymentMethodEntity: true,
         },
       });
-
-      // Verify the accounting service received the payment with customer relation
-      const callArg = accountingService.postCustomerPaymentEntry.mock.calls[0][0];
-      expect(callArg).toHaveProperty('customer');
-      expect(callArg.customer).toEqual(mockCustomer);
     });
 
     it('should throw error when customer not found', async () => {
@@ -412,44 +337,4 @@ describe('PaymentService', () => {
     });
   });
 
-  describe('refund', () => {
-    const createOriginalPayment = () => ({
-      id: 'pay-123',
-      paymentNumber: 'PAY-001',
-      amount: 500,
-      status: PaymentStatus.COMPLETED,
-      customerId: 'cust-123',
-      salesOrderId: 'so-123',
-      paymentMethodId: 'pm-cash',
-      paymentMethodEntity: { id: 'pm-cash', code: 'CASH' },
-      customer: { id: 'cust-123', name: 'Test Customer' },
-      settlementStatus: 'NOT_APPLICABLE',
-    });
-
-    beforeEach(() => {
-      paymentRepository.create.mockImplementation((dto: any) => dto);
-      paymentRepository.findOne.mockImplementation(() =>
-        Promise.resolve(createOriginalPayment() as any),
-      );
-      auditLogService.log.mockResolvedValue(undefined);
-    });
-
-    it('should call reverseSourceEntries when refund method is same as original', async () => {
-      paymentRepository.save
-        .mockResolvedValueOnce({ id: 'refund-pay-123', amount: -200 } as any)
-        .mockResolvedValueOnce({
-          ...createOriginalPayment(),
-          status: PaymentStatus.REFUNDED,
-        } as any);
-      accountingService.reverseSourceEntries.mockResolvedValue(undefined);
-
-      await service.refund({ paymentId: 'pay-123', amount: 200 });
-
-      expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith(
-        'payment',
-        'pay-123',
-        'system',
-      );
-    });
-  });
 });

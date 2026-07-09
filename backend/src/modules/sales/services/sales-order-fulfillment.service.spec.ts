@@ -13,7 +13,6 @@ import { InventoryIntegrationService } from './inventory-integration.service';
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { AuditLogService } from '../../audit-logs/services';
-import { AccountingService } from '../../accounting/services/accounting.service';
 
 const mockOrder = (overrides: Partial<SalesOrder> = {}): SalesOrder =>
   ({
@@ -41,7 +40,6 @@ describe('SalesOrderFulfillmentService', () => {
   let stockMovementService: jest.Mocked<StockMovementService>;
   let baseCostCalculator: jest.Mocked<BaseCostCalculatorService>;
   let auditLogService: jest.Mocked<AuditLogService>;
-  let accountingService: jest.Mocked<AccountingService>;
   let dataSource: jest.Mocked<DataSource>;
 
   function wireTransaction(order: SalesOrder | null) {
@@ -77,13 +75,6 @@ describe('SalesOrderFulfillmentService', () => {
           useValue: { restoreStock: jest.fn() },
         },
         { provide: AuditLogService, useValue: { log: jest.fn() } },
-        {
-          provide: AccountingService,
-          useValue: {
-            postSalesOrderEntry: jest.fn().mockResolvedValue(undefined),
-            reverseSourceEntries: jest.fn().mockResolvedValue(undefined),
-          },
-        },
         { provide: DataSource, useValue: { transaction: jest.fn() } },
       ],
     }).compile();
@@ -94,7 +85,6 @@ describe('SalesOrderFulfillmentService', () => {
     stockMovementService = module.get(StockMovementService);
     baseCostCalculator = module.get(BaseCostCalculatorService);
     auditLogService = module.get(AuditLogService);
-    accountingService = module.get(AccountingService);
     dataSource = module.get(DataSource) as jest.Mocked<DataSource>;
   });
 
@@ -151,12 +141,6 @@ describe('SalesOrderFulfillmentService', () => {
       );
     });
 
-    it('rolls back (propagates) when accounting posting fails — no swallow', async () => {
-      wireTransaction(mockOrder({ status: SalesOrderStatus.READY }));
-      accountingService.postSalesOrderEntry.mockRejectedValue(new Error('period closed'));
-      await expect(service.fulfillOrder('order-1')).rejects.toThrow('period closed');
-    });
-
     it('posts accounting against the re-read order (fresh updatedAt + post-reduction costs), not the lock-read snapshot', async () => {
       // lockRowForUpdate issues two reads (bare lock, then relations hydrate); the
       // post-update re-read is a third read returning a row carrying the just-
@@ -188,13 +172,6 @@ describe('SalesOrderFulfillmentService', () => {
           status: SalesOrderStatus.FULFILLED,
           updatedAt: expect.any(Date),
         }),
-      );
-      // Accounting must be posted with the re-read row, not the stale lock-read snapshot.
-      expect(accountingService.postSalesOrderEntry).toHaveBeenCalledWith(
-        repricedOrder,
-        'user-1',
-        'admin',
-        expect.anything(),
       );
     });
 
@@ -326,27 +303,10 @@ describe('SalesOrderFulfillmentService', () => {
       );
     });
 
-    it('reverses the sales_order journal entry on unfulfill', async () => {
-      wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
-      await service.unfulfillOrder('order-1', 'user-99', 'admin');
-      expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith(
-        'sales_order',
-        'order-1',
-        'user-99',
-        expect.anything(),
-      );
-    });
-
     it('rolls back (propagates) when stock-movement deletion fails — no swallow', async () => {
       wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
       stockMovementService.deleteByReference.mockRejectedValue(new Error('delete failed'));
       await expect(service.unfulfillOrder('order-1')).rejects.toThrow('delete failed');
-    });
-
-    it('rolls back (propagates) when accounting reversal fails — no swallow', async () => {
-      wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
-      accountingService.reverseSourceEntries.mockRejectedValue(new Error('No open fiscal period'));
-      await expect(service.unfulfillOrder('order-1')).rejects.toThrow('No open fiscal period');
     });
 
     it('clears fulfilledAt on unfulfill', async () => {

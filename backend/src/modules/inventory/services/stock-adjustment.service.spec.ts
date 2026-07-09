@@ -9,14 +9,12 @@ import { User } from '../../../database/entities/user.entity';
 import { StockMovementService } from './stock-movement.service';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
-import { AccountingService } from '../../accounting/services/accounting.service';
 import { StockMovement } from '../../../database/entities/stock-movement.entity';
 import { StockAdjustmentItemDto } from '../dto/stock-adjustment.dto';
 
 describe('StockAdjustmentService', () => {
   let service: StockAdjustmentService;
   let stockAdjustmentRepository: jest.Mocked<Repository<StockAdjustment>>;
-  let accountingService: jest.Mocked<AccountingService>;
   let stockMovementService: jest.Mocked<StockMovementService>;
   let auditLogService: jest.Mocked<AuditLogService>;
   let dataSource: jest.Mocked<DataSource>;
@@ -146,18 +144,11 @@ describe('StockAdjustmentService', () => {
             log: jest.fn(),
           },
         },
-        {
-          provide: AccountingService,
-          useValue: {
-            postStockAdjustmentEntry: jest.fn(),
-          },
-        },
       ],
     }).compile();
 
     service = module.get<StockAdjustmentService>(StockAdjustmentService);
     stockAdjustmentRepository = module.get(getRepositoryToken(StockAdjustment));
-    accountingService = module.get(AccountingService);
     stockMovementService = module.get(StockMovementService);
     auditLogService = module.get(AuditLogService);
     stockMovementRepository = module.get(getRepositoryToken(StockMovement));
@@ -167,129 +158,6 @@ describe('StockAdjustmentService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
-  });
-
-  describe('complete', () => {
-    it('should post accounting entry successfully', async () => {
-      // Arrange
-      const mockAdjustment = createMockStockAdjustment();
-      const adjustmentId = mockAdjustment.id;
-      const completedAdjustment = createMockStockAdjustment(StockAdjustmentStatus.COMPLETED);
-
-      // First call returns draft, subsequent calls return completed
-      let callCount = 0;
-      stockAdjustmentRepository.findOne.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return Promise.resolve(mockAdjustment as StockAdjustment);
-        }
-        return Promise.resolve(completedAdjustment as StockAdjustment);
-      });
-
-      stockMovementService.create.mockResolvedValue(undefined);
-      auditLogService.log.mockResolvedValue(undefined);
-
-      accountingService.postStockAdjustmentEntry.mockResolvedValue({
-        id: 'journal-1',
-        referenceNumber: 'JE-000001',
-      } as any);
-
-      // Act
-      const result = await service.complete(adjustmentId);
-
-      // Assert
-      expect(accountingService.postStockAdjustmentEntry).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: adjustmentId,
-          adjustmentNumber: mockAdjustment.adjustmentNumber,
-        }),
-        'system',
-        undefined,
-      );
-      expect(result).toBeDefined();
-      expect(stockMovementService.create).toHaveBeenCalled();
-    });
-
-    it('should continue when accounting post fails', async () => {
-      // Arrange
-      const mockAdjustment = createMockStockAdjustment();
-      const adjustmentId = mockAdjustment.id;
-      const completedAdjustment = createMockStockAdjustment(StockAdjustmentStatus.COMPLETED);
-
-      // First call returns draft, subsequent calls return completed
-      let callCount = 0;
-      stockAdjustmentRepository.findOne.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return Promise.resolve(mockAdjustment as StockAdjustment);
-        }
-        return Promise.resolve(completedAdjustment as StockAdjustment);
-      });
-
-      stockMovementService.create.mockResolvedValue(undefined);
-      auditLogService.log.mockResolvedValue(undefined);
-
-      accountingService.postStockAdjustmentEntry.mockRejectedValue(
-        new Error('Account mappings not configured'),
-      );
-
-      // Act
-      const result = await service.complete(adjustmentId);
-
-      // Assert
-      expect(accountingService.postStockAdjustmentEntry).toHaveBeenCalled();
-      expect(result).toBeDefined();
-      expect(stockMovementService.create).toHaveBeenCalled();
-      // Should not throw error despite accounting failure
-    });
-
-    it('should load adjustment with relations before posting', async () => {
-      // Arrange
-      const mockAdjustment = createMockStockAdjustment();
-      const adjustmentId = mockAdjustment.id;
-      const completedAdjustment = createMockStockAdjustment(StockAdjustmentStatus.COMPLETED);
-
-      // First call returns draft, second call should load with relations
-      let callCount = 0;
-      stockAdjustmentRepository.findOne.mockImplementation((options: any) => {
-        callCount++;
-        if (callCount === 1) {
-          // First call to find the adjustment
-          return Promise.resolve(mockAdjustment as StockAdjustment);
-        } else if (callCount === 2) {
-          // Second call should be findOne(id) to get relations - this is from the findOne method
-          expect(options.where?.id || options).toBeTruthy();
-          return Promise.resolve(completedAdjustment as StockAdjustment);
-        }
-        return Promise.resolve(completedAdjustment as StockAdjustment);
-      });
-
-      stockMovementService.create.mockResolvedValue(undefined);
-      auditLogService.log.mockResolvedValue(undefined);
-
-      accountingService.postStockAdjustmentEntry.mockResolvedValue({
-        id: 'journal-1',
-        referenceNumber: 'JE-000001',
-      } as any);
-
-      // Act
-      const result = await service.complete(adjustmentId);
-
-      // Assert
-      // Note: findOne is called 3 times:
-      // 1. Initial load to check if adjustment exists
-      // 2. Load after transaction completes (for accounting)
-      // 3. Final load to return the response
-      expect(stockAdjustmentRepository.findOne).toHaveBeenCalledTimes(3);
-      expect(accountingService.postStockAdjustmentEntry).toHaveBeenCalledWith(
-        expect.objectContaining({
-          items: expect.any(Array),
-        }),
-        'system',
-        undefined,
-      );
-      expect(result).toBeDefined();
-    });
   });
 
   describe('duplicate product rejection', () => {

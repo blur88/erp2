@@ -3,23 +3,11 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { DataSource } from "typeorm";
 
 import { AppModule } from "../src/app.module";
-import {
-  AccountMapping,
-  MappingType,
-} from "../src/database/entities/account-mapping.entity";
 import { Category } from "../src/database/entities/category.entity";
-import {
-  AccountType,
-  ChartOfAccount,
-} from "../src/database/entities/chart-of-account.entity";
 import {
   Customer,
   CustomerType,
 } from "../src/database/entities/customer.entity";
-import {
-  FiscalPeriod,
-  FiscalPeriodStatus,
-} from "../src/database/entities/fiscal-period.entity";
 import { PaymentMethodEntity } from "../src/database/entities/payment-method.entity";
 import { Product } from "../src/database/entities/product.entity";
 import {
@@ -84,8 +72,6 @@ describe("Sales order transition concurrency (e2e)", () => {
       stockQuantity: 1000,
     });
     paymentMethod = await seedPaymentMethod(dataSource);
-    await seedAccountingMappings();
-    await seedOpenFiscalPeriod();
     await seedDocumentNumberSettings(dataSource);
 
     const customerRepo = dataSource.getRepository(Customer);
@@ -97,84 +83,6 @@ describe("Sales order transition concurrency (e2e)", () => {
       }),
     );
   });
-
-  async function seedAccountingMappings(): Promise<void> {
-    const accountRepo = dataSource.getRepository(ChartOfAccount);
-    const mappingRepo = dataSource.getRepository(AccountMapping);
-    const accountByCode: Record<string, ChartOfAccount> = {};
-    const accountData: Array<{
-      code: string;
-      name: string;
-      type: AccountType;
-    }> = [
-      { code: "1100", name: "Cash in Hand", type: AccountType.ASSET },
-      { code: "1200", name: "Accounts Receivable", type: AccountType.ASSET },
-      { code: "1300", name: "Inventory Asset", type: AccountType.ASSET },
-      { code: "4000", name: "Sales Revenue", type: AccountType.REVENUE },
-      { code: "5000", name: "Cost of Goods Sold", type: AccountType.EXPENSE },
-    ];
-
-    for (const account of accountData) {
-      let entity = await accountRepo.findOne({ where: { code: account.code } });
-      if (!entity) {
-        entity = await accountRepo.save(
-          accountRepo.create({
-            ...account,
-            isActive: true,
-          }),
-        );
-      }
-      accountByCode[account.code] = entity;
-    }
-
-    const mappings: Array<{ key: string; accountCode: string }> = [
-      { key: MappingType.SALES_REVENUE, accountCode: "4000" },
-      { key: MappingType.SALES_AR, accountCode: "1200" },
-      { key: MappingType.SALES_COGS, accountCode: "5000" },
-      { key: MappingType.SALES_INVENTORY, accountCode: "1300" },
-      { key: MappingType.PAYMENT_AR, accountCode: "1200" },
-      { key: "payment_cash", accountCode: "1100" },
-    ];
-
-    for (const mapping of mappings) {
-      const entity = await mappingRepo.findOne({
-        where: { mappingType: mapping.key },
-      });
-      if (!entity) {
-        await mappingRepo.save(
-          mappingRepo.create({
-            mappingType: mapping.key,
-            accountId: accountByCode[mapping.accountCode].id,
-            description: `Mapping for ${mapping.key}`,
-            isActive: true,
-          }),
-        );
-      }
-    }
-  }
-
-  async function seedOpenFiscalPeriod(): Promise<void> {
-    const fiscalRepo = dataSource.getRepository(FiscalPeriod);
-    const now = new Date();
-    const year = now.getUTCFullYear();
-    const startDate = new Date(Date.UTC(year, 0, 1));
-    const endDate = new Date(Date.UTC(year, 11, 31));
-    const code = `${year}-OPEN`;
-
-    const existing = await fiscalRepo.findOne({ where: { code } });
-    if (!existing) {
-      await fiscalRepo.save(
-        fiscalRepo.create({
-          code,
-          name: `Open Period ${year}`,
-          startDate,
-          endDate,
-          status: FiscalPeriodStatus.OPEN,
-          isActive: true,
-        }),
-      );
-    }
-  }
 
   async function seedDraftOrder(
     orderNumber: string,

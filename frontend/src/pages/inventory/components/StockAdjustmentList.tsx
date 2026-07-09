@@ -38,7 +38,6 @@ export default function StockAdjustmentList({ rows, total, loading, paginationSl
           ...(isDraft ? [{ label: 'Edit', onClick: () => navigate(`/inventory/stock-adjustments/${a.id}/edit`) }] : []),
           ...(isDraft && onComplete ? [{ label: 'Complete', onClick: () => onComplete(a) }] : []),
           ...(isCompleted && onRevert ? [{ label: 'Revert', onClick: () => onRevert(a) }] : []),
-          ...(isCompleted ? [{ label: 'View Journal Entry', onClick: () => navigate(`/accounting/journal-entries?sourceType=stock_adjustment&sourceId=${a.id}`) }] : []),
         ]
         return <RowActionMenu actions={actions} />
       },

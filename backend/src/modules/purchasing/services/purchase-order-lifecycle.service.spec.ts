@@ -13,7 +13,6 @@ import {
 import { StockMovement } from '../../../database/entities/stock-movement.entity';
 import { AuditLogService } from '../../audit-logs/services';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
-import { AccountingService } from '../../accounting/services/accounting.service';
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
 import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
 
@@ -25,8 +24,6 @@ describe('PurchaseOrderLifecycleService', () => {
   let dataSource: { transaction: jest.Mock };
   let stockMovementService: { deleteByReference: jest.Mock; create: jest.Mock };
   let baseCostCalculator: { addStock: jest.Mock; removeStock: jest.Mock; calculateShippingByValue: jest.Mock };
-  let accountingService: { postPurchaseReceiptEntry: jest.Mock; reverseSourceEntries: jest.Mock };
-
   const poQueryBuilder = {
     update: jest.fn().mockReturnThis(),
     set: jest.fn().mockReturnThis(),
@@ -91,10 +88,6 @@ describe('PurchaseOrderLifecycleService', () => {
       removeStock: jest.fn(),
       calculateShippingByValue: jest.fn().mockReturnValue(0),
     };
-    accountingService = {
-      postPurchaseReceiptEntry: jest.fn(),
-      reverseSourceEntries: jest.fn(),
-    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -103,7 +96,6 @@ describe('PurchaseOrderLifecycleService', () => {
         { provide: getRepositoryToken(VendorPayment), useValue: vpRepository },
         { provide: StockMovementService, useValue: stockMovementService },
         { provide: BaseCostCalculatorService, useValue: baseCostCalculator },
-        { provide: AccountingService, useValue: accountingService },
         { provide: DataSource, useValue: dataSource },
         { provide: AuditLogService, useValue: auditLogService },
       ],
@@ -112,7 +104,6 @@ describe('PurchaseOrderLifecycleService', () => {
     service = module.get(PurchaseOrderLifecycleService);
     stockMovementService = module.get(StockMovementService);
     baseCostCalculator = module.get(BaseCostCalculatorService);
-    accountingService = module.get(AccountingService);
   });
 
   afterEach(() => {
@@ -231,8 +222,6 @@ describe('PurchaseOrderLifecycleService', () => {
         }),
       );
 
-      accountingService.postPurchaseReceiptEntry.mockResolvedValue({} as any);
-
       const result = await service.receive('po-1', 'user-1', 'admin');
 
       expect(stockMovementService.create).toHaveBeenCalledWith(
@@ -253,7 +242,6 @@ describe('PurchaseOrderLifecycleService', () => {
         expect.any(Date),
         expect.anything(),
       );
-      expect(accountingService.postPurchaseReceiptEntry).toHaveBeenCalled();
       expect(result.status).toBe(PurchaseOrderStatus.RECEIVED);
 
       expect(poRepo.update).toHaveBeenCalledWith(
@@ -303,8 +291,6 @@ describe('PurchaseOrderLifecycleService', () => {
           },
         }),
       );
-      accountingService.postPurchaseReceiptEntry.mockResolvedValue({} as any);
-
       await service.receive('po-1', 'user-1', 'admin');
 
       // 4th positional arg to addStock is the net unit cost = 80 / 10 = 8.
@@ -361,8 +347,6 @@ describe('PurchaseOrderLifecycleService', () => {
         }),
       );
 
-      accountingService.reverseSourceEntries.mockResolvedValue(undefined);
-
       const result = await service.return('po-1', 'user-1', 'admin');
 
       expect(baseCostCalculator.removeStock).toHaveBeenCalledWith(
@@ -373,12 +357,6 @@ describe('PurchaseOrderLifecycleService', () => {
       expect(stockMovementService.deleteByReference).toHaveBeenCalledWith(
         'purchase_order',
         'po-1',
-        expect.anything(),
-      );
-      expect(accountingService.reverseSourceEntries).toHaveBeenCalledWith(
-        'purchase_order',
-        'po-1',
-        'user-1',
         expect.anything(),
       );
       expect(result.status).toBe(PurchaseOrderStatus.READY);

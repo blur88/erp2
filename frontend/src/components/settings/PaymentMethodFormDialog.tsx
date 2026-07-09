@@ -29,7 +29,6 @@ const PaymentMethodFormDialog: React.FC<PaymentMethodFormDialogProps> = ({
 
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
-  const [requiresSettlement, setRequiresSettlement] = useState(false);
   const [useForPurchases, setUseForPurchases] = useState(true);
   const [sortOrder, setSortOrder] = useState(0);
 
@@ -37,7 +36,6 @@ const PaymentMethodFormDialog: React.FC<PaymentMethodFormDialogProps> = ({
     if (open) {
       setCode(initialData?.code || '');
       setName(initialData?.name || '');
-      setRequiresSettlement(initialData?.requiresSettlement || false);
       setUseForPurchases(initialData?.useForPurchases ?? true);
       setSortOrder(initialData?.sortOrder || 0);
     }
@@ -51,7 +49,6 @@ const PaymentMethodFormDialog: React.FC<PaymentMethodFormDialogProps> = ({
     await onSubmit({
       code: code.trim().toUpperCase(),
       name: name.trim(),
-      requiresSettlement,
       useForPurchases,
       sortOrder,
     });
@@ -85,15 +82,6 @@ const PaymentMethodFormDialog: React.FC<PaymentMethodFormDialogProps> = ({
             value={sortOrder}
             onChange={(e) => setSortOrder(Number(e.target.value || 0))}
             fullWidth
-          />
-          <FormControlLabel
-            control={
-              <Switch
-                checked={requiresSettlement}
-                onChange={(e) => setRequiresSettlement(e.target.checked)}
-              />
-            }
-            label="Requires Settlement"
           />
           <FormControlLabel
             control={

@@ -35,14 +35,6 @@ export class PaymentMethodEntity extends BaseEntity {
   name: string;
 
   @Column({
-    type: 'boolean',
-    default: false,
-    comment: 'Whether this method requires third-party settlement',
-  })
-  @IsBoolean()
-  requiresSettlement: boolean;
-
-  @Column({
     type: 'int',
     default: 0,
     comment: 'Display order in dropdowns',

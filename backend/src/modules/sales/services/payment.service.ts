@@ -13,7 +13,6 @@ import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   Payment,
   PaymentStatus,
-  SettlementStatusEnum,
 } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
@@ -28,7 +27,6 @@ import {
   PaymentSummaryDto,
 } from '../dto/payment.dto';
 import { CustomerPrintDto } from '../dto/customer.dto';
-import { AccountingService } from '@modules/accounting/services/accounting.service';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
 import { canSearchCustomerPayments } from '../../search/search.permissions';
 import {
@@ -63,7 +61,6 @@ export class PaymentService extends BaseCrudService<
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepository: Repository<SalesOrder>,
     auditLogService: AuditLogService,
-    private readonly accountingService: AccountingService,
     private readonly settingsService: SettingsService,
   ) {
     super(paymentRepository, auditLogService);
@@ -117,9 +114,6 @@ export class PaymentService extends BaseCrudService<
       paymentNumber,
       status: PaymentStatus.COMPLETED,
       paymentMethodId: paymentMethod.id,
-      settlementStatus: paymentMethod.requiresSettlement
-        ? SettlementStatusEnum.PENDING
-        : SettlementStatusEnum.NOT_APPLICABLE,
     });
 
     const savedPayment = await this.paymentRepository.save(payment);
@@ -141,28 +135,10 @@ export class PaymentService extends BaseCrudService<
         newValues: {
           amount: savedPayment.amount,
           paymentMethodId: savedPayment.paymentMethodId,
-          settlementStatus: savedPayment.settlementStatus,
           status: savedPayment.status,
         },
       },
     );
-
-    // Auto-post to accounting (don't fail payment on error)
-    try {
-      const fullPayment = await this.findPaymentWithRelations(savedPayment.id);
-      await this.accountingService.postCustomerPaymentEntry(
-        fullPayment,
-        userId || 'system',
-        username,
-      );
-      this.logger.log(`Posted accounting entry for payment ${fullPayment.paymentNumber}`);
-    } catch (error) {
-      this.logger.error(
-        `Failed to post accounting entry for payment ${savedPayment.id}: ${error.message}`,
-        error.stack,
-      );
-      // Continue - don't fail the payment creation
-    }
 
     return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
   }
@@ -418,7 +394,6 @@ export class PaymentService extends BaseCrudService<
       paymentNumber: refundNumber,
       status: PaymentStatus.REFUNDED,
       paymentMethodId: originalPayment.paymentMethodId,
-      settlementStatus: originalPayment.settlementStatus,
       notes: refundDto.reason
         ? `Refund: ${refundDto.reason}`
         : `Refund of ${originalPayment.paymentNumber}`,
@@ -429,19 +404,6 @@ export class PaymentService extends BaseCrudService<
     // Update original payment status
     originalPayment.status = PaymentStatus.REFUNDED;
     await this.paymentRepository.save(originalPayment);
-
-    try {
-      await this.accountingService.reverseSourceEntries(
-        'payment',
-        originalPayment.id,
-        userId || 'system',
-      );
-    } catch (err) {
-      this.logger.error(
-        `Failed to post refund accounting entry for payment ${originalPayment.id}: ${err.message}`,
-      );
-      // Refund still succeeds - accounting inconsistency is logged
-    }
 
     // Log audit trail
     await this.auditLogService.log(
@@ -607,8 +569,6 @@ export class PaymentService extends BaseCrudService<
       paymentNumber: payment.paymentNumber,
       status: payment.status,
       paymentMethodId: payment.paymentMethodId,
-      settlementStatus: payment.settlementStatus,
-      settlementId: payment.settlementId,
       paymentMethodEntity: payment.paymentMethodEntity
         ? {
             id: payment.paymentMethodEntity.id,

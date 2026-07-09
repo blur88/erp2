@@ -63,7 +63,6 @@ vi.mock('@/store/api/salesApi', async (importOriginal) => {
 
 vi.mock('../components/OrderOverviewTab', () => ({ default: () => <div>OverviewTab</div> }))
 vi.mock('../components/OrderPaymentsTab', () => ({ default: () => <div>PaymentsTab</div> }))
-vi.mock('../components/OrderJournalEntriesTab', () => ({ default: () => <div>JournalTab</div> }))
 vi.mock('@/components/sales/PaymentDialog', () => ({ default: () => <div>PaymentDialog</div> }))
 vi.mock('@/components/common/RefundDialog', () => ({ default: () => <div>RefundDialog</div> }))
 
@@ -84,7 +83,7 @@ function makeOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
 }
 
 function renderPage(orderNumber = 'SO-26-001') {
-  const store = configureStore({ reducer: { sales: (state = {}) => state, accounting: (state = {}) => state } })
+  const store = configureStore({ reducer: { sales: (state = {}) => state } })
   return render(
     <Provider store={store}>
       <MemoryRouter initialEntries={[`/sales/orders/${orderNumber}/view`]}>
@@ -131,13 +130,6 @@ describe('SalesOrderDetailPage', () => {
     renderPage()
     await userEvent.click(screen.getByRole('tab', { name: /Payments/i }))
     expect(screen.getByText('PaymentsTab')).toBeInTheDocument()
-  })
-
-  it('switches to Journal Entries tab', async () => {
-    mockGetSalesOrderByNumber.mockReturnValue({ data: makeOrder(), isLoading: false })
-    renderPage()
-    await userEvent.click(screen.getByRole('tab', { name: /Journal/i }))
-    expect(screen.getByText('JournalTab')).toBeInTheDocument()
   })
 
   it('navigates back to orders list on back button click', async () => {

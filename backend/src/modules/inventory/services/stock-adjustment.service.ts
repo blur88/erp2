@@ -28,7 +28,6 @@ import { StockMovementService } from './stock-movement.service';
 import { StockMovementType, StockMovement } from '../../../database/entities/stock-movement.entity';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
-import { AccountingService } from '@modules/accounting/services/accounting.service';
 
 @Injectable()
 export class StockAdjustmentService extends BaseCrudService<
@@ -55,7 +54,6 @@ export class StockAdjustmentService extends BaseCrudService<
     private readonly dataSource: DataSource,
     private readonly settingsService: SettingsService,
     auditLogService: AuditLogService,
-    private readonly accountingService: AccountingService,
   ) {
     super(stockAdjustmentRepository, auditLogService);
   }
@@ -550,23 +548,6 @@ export class StockAdjustmentService extends BaseCrudService<
       throw error;
     } finally {
       await queryRunner.release();
-    }
-
-    // Auto-post to accounting (don't fail completion on error)
-    try {
-      const fullAdjustment = await this.findOne(id); // Get adjustment with relations
-      await this.accountingService.postStockAdjustmentEntry(
-        fullAdjustment as any,
-        userId || 'system',
-        username,
-      );
-      this.logger.log(`Posted accounting entry for stock adjustment ${adjustment.adjustmentNumber}`);
-    } catch (error) {
-      this.logger.error(
-        `Failed to post accounting entry for stock adjustment ${id}: ${error.message}`,
-        error.stack,
-      );
-      // Continue - don't fail the completion
     }
 
     return this.findOne(id);

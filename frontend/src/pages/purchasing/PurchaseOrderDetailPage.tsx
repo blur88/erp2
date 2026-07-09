@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import PaymentIcon from '@mui/icons-material/Payment'
 import ReceiptIcon from '@mui/icons-material/Receipt'
 import { Alert, Box, CircularProgress, Tab, Tabs, Typography } from '@mui/material'
@@ -26,7 +25,6 @@ import RefundDialog, { type RefundSource } from '@/components/common/RefundDialo
 
 import { buildPoRefundSources, toPoRefundPayload } from './utils/poRefund'
 import PurchaseOrderActionBar from './components/PurchaseOrderActionBar'
-import PurchaseOrderJournalEntriesTab from './components/PurchaseOrderJournalEntriesTab'
 import PurchaseOrderOverviewTab from './components/PurchaseOrderOverviewTab'
 import PurchaseOrderPaymentsTab from './components/PurchaseOrderPaymentsTab'
 import PurchaseOrderPrintDialog from './components/PurchaseOrderPrintDialog'
@@ -69,7 +67,7 @@ export default function PurchaseOrderDetailPage() {
   const { orderNumber } = useParams<{ orderNumber: string }>()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 2)
+  const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 1)
   const [activeDialog, setActiveDialog] = useState<Dialog>(null)
   const { showSuccess, showError } = useNotification()
 
@@ -243,13 +241,7 @@ export default function PurchaseOrderDetailPage() {
             label="Payments"
             sx={{ minHeight: 36 }}
           />
-          <Tab
-            icon={<AccountBalanceIcon sx={{ fontSize: 16 }} />}
-            iconPosition="start"
-            label="Journal Entries"
-            sx={{ minHeight: 36 }}
-          />
-        </Tabs>
+          </Tabs>
       </Box>
 
       <TabPanel value={tabValue} index={0}>
@@ -257,9 +249,6 @@ export default function PurchaseOrderDetailPage() {
       </TabPanel>
       <TabPanel value={tabValue} index={1}>
         <PurchaseOrderPaymentsTab orderId={order.id} totalAmount={order.totalAmount ?? 0} />
-      </TabPanel>
-      <TabPanel value={tabValue} index={2}>
-        <PurchaseOrderJournalEntriesTab orderId={order.id} />
       </TabPanel>
 
       <ConfirmationDialog

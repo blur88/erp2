@@ -4,4 +4,3 @@ export { SalesTrendChart, TopProductsList, TopCustomersList } from './SalesChart
 export { default as OrderActionBar } from './OrderActionBar'
 export { default as OrderOverviewTab } from './OrderOverviewTab'
 export { default as OrderPaymentsTab } from './OrderPaymentsTab'
-export { default as OrderJournalEntriesTab } from './OrderJournalEntriesTab'

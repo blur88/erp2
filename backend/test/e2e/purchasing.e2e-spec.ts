@@ -5,15 +5,6 @@ import { DataSource, Repository } from "typeorm";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { AppModule } from "../../src/app.module";
 import {
-  FiscalPeriod,
-  FiscalPeriodStatus,
-} from "../../src/database/entities/fiscal-period.entity";
-import { ChartOfAccount } from "../../src/database/entities/chart-of-account.entity";
-import {
-  AccountMapping,
-  MappingType,
-} from "../../src/database/entities/account-mapping.entity";
-import {
   truncateAll,
   seedAdmin,
   seedCategory,
@@ -60,67 +51,7 @@ describe("Purchasing (e2e)", () => {
     // (Dr PURCHASE_INVENTORY / Cr PURCHASE_AP) inside an open fiscal period.
     // Seed the chart of accounts, the two purchase mappings, and an open
     // fiscal period covering today's date (tests use today for orderDate).
-    const fiscalPeriodRepo: Repository<FiscalPeriod> = app.get(
-      getRepositoryToken(FiscalPeriod),
-    );
-    const chartOfAccountRepo: Repository<ChartOfAccount> = app.get(
-      getRepositoryToken(ChartOfAccount),
-    );
-    const accountMappingRepo: Repository<AccountMapping> = app.get(
-      getRepositoryToken(AccountMapping),
-    );
 
-    // Open fiscal period for the current month, range includes today.
-    const now = new Date();
-    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const code = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
-      2,
-      "0",
-    )}`;
-    await fiscalPeriodRepo.save(
-      fiscalPeriodRepo.create({
-        code,
-        name: code,
-        status: FiscalPeriodStatus.OPEN,
-        startDate: periodStart,
-        endDate: periodEnd,
-      } as any),
-    );
-
-    // Chart of accounts: Inventory Asset + Accounts Payable.
-    const inventoryAccount = (await chartOfAccountRepo.save(
-      chartOfAccountRepo.create({
-        code: "1300",
-        name: "Inventory Asset",
-        type: "ASSET" as any,
-        isActive: true,
-      } as any),
-    )) as unknown as ChartOfAccount;
-    const apAccount = (await chartOfAccountRepo.save(
-      chartOfAccountRepo.create({
-        code: "2100",
-        name: "Accounts Payable",
-        type: "LIABILITY" as any,
-        isActive: true,
-      } as any),
-    )) as unknown as ChartOfAccount;
-
-    // Purchase account mappings.
-    await accountMappingRepo.save([
-      accountMappingRepo.create({
-        mappingType: MappingType.PURCHASE_INVENTORY,
-        accountId: inventoryAccount.id,
-        description: "Mapping for purchase_inventory",
-        isActive: true,
-      }),
-      accountMappingRepo.create({
-        mappingType: MappingType.PURCHASE_AP,
-        accountId: apAccount.id,
-        description: "Mapping for purchase_ap",
-        isActive: true,
-      }),
-    ]);
 
     const loginRes = await request(app.getHttpServer())
       .post("/auth/login")

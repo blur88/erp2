@@ -8,7 +8,6 @@ import {
   SALES_ROLES,
   PROCUREMENT_ROLES,
   INVENTORY_ROLES,
-  FINANCE_ROLES,
   ADMIN_ONLY,
 } from './search.permissions';
 
@@ -46,7 +45,6 @@ describe('search.permissions', () => {
         UserRole.MANAGER,
         UserRole.INVENTORY_STAFF,
       ]);
-      expect(FINANCE_ROLES).toEqual([UserRole.ADMIN, UserRole.MANAGER]);
       expect(ADMIN_ONLY).toEqual([UserRole.ADMIN]);
     });
   });

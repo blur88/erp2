@@ -28,21 +28,7 @@ export type FilterFieldType =
   | 'price-list'
   | 'transaction-status'
   | 'vendor-payment-status'
-  | 'journal-entry-status'
-  | 'journal-entry-type'
-  | 'expense-status'
-  | 'expense-account'
   | 'payment-method'
-  | 'owner-equity-type'
-  | 'fiscal-period-status'
-  | 'bank-reconciliation-status'
-  | 'settlement-status'
-  | 'fund-transfer-status'
-  | 'account-type'
-  | 'fund-transfer-source-account'
-  | 'fund-transfer-destination-account'
-  | 'bank-reconciliation-account'
-  | 'bank-reconciliation-balanced'
 
 interface BaseFilterFieldConfig<TFilters, K extends keyof TFilters> {
   field: K
@@ -149,79 +135,9 @@ export interface VendorPaymentStatusFilterFieldConfig<TFilters, K extends keyof 
   type: 'vendor-payment-status'
 }
 
-export interface JournalEntryStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
-  extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'journal-entry-status'
-}
-
-export interface JournalEntryTypeFilterFieldConfig<TFilters, K extends keyof TFilters>
-  extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'journal-entry-type'
-}
-
-export interface ExpenseStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
-  extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'expense-status'
-}
-
-export interface ExpenseAccountFilterFieldConfig<TFilters, K extends keyof TFilters>
-  extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'expense-account'
-}
-
 export interface PaymentMethodFilterFieldConfig<TFilters, K extends keyof TFilters>
   extends BaseFilterFieldConfig<TFilters, K> {
   type: 'payment-method'
-}
-
-export interface OwnerEquityTypeFilterFieldConfig<TFilters, K extends keyof TFilters>
-  extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'owner-equity-type'
-}
-
-export interface FiscalPeriodStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
-  extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'fiscal-period-status'
-}
-
-export interface BankReconciliationStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
-  extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'bank-reconciliation-status'
-}
-
-export interface SettlementStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
-  extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'settlement-status'
-}
-
-export interface FundTransferStatusFilterFieldConfig<TFilters, K extends keyof TFilters>
-  extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'fund-transfer-status'
-}
-
-export interface AccountTypeFilterFieldConfig<TFilters, K extends keyof TFilters>
-  extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'account-type'
-}
-
-export interface FundTransferSourceAccountFilterFieldConfig<TFilters, K extends keyof TFilters>
-  extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'fund-transfer-source-account'
-}
-
-export interface FundTransferDestinationAccountFilterFieldConfig<TFilters, K extends keyof TFilters>
-  extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'fund-transfer-destination-account'
-}
-
-export interface BankReconciliationAccountFilterFieldConfig<TFilters, K extends keyof TFilters>
-  extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'bank-reconciliation-account'
-}
-
-export interface BankReconciliationBalancedFilterFieldConfig<TFilters, K extends keyof TFilters>
-  extends BaseFilterFieldConfig<TFilters, K> {
-  type: 'bank-reconciliation-balanced'
 }
 
 export type FilterFieldConfig<TFilters> =
@@ -244,21 +160,7 @@ export type FilterFieldConfig<TFilters> =
   | PriceListFilterFieldConfig<TFilters, keyof TFilters>
   | TransactionStatusFilterFieldConfig<TFilters, keyof TFilters>
   | VendorPaymentStatusFilterFieldConfig<TFilters, keyof TFilters>
-  | JournalEntryStatusFilterFieldConfig<TFilters, keyof TFilters>
-  | JournalEntryTypeFilterFieldConfig<TFilters, keyof TFilters>
-  | ExpenseStatusFilterFieldConfig<TFilters, keyof TFilters>
-  | ExpenseAccountFilterFieldConfig<TFilters, keyof TFilters>
   | PaymentMethodFilterFieldConfig<TFilters, keyof TFilters>
-  | OwnerEquityTypeFilterFieldConfig<TFilters, keyof TFilters>
-  | FiscalPeriodStatusFilterFieldConfig<TFilters, keyof TFilters>
-  | BankReconciliationStatusFilterFieldConfig<TFilters, keyof TFilters>
-  | SettlementStatusFilterFieldConfig<TFilters, keyof TFilters>
-  | FundTransferStatusFilterFieldConfig<TFilters, keyof TFilters>
-  | AccountTypeFilterFieldConfig<TFilters, keyof TFilters>
-  | FundTransferSourceAccountFilterFieldConfig<TFilters, keyof TFilters>
-  | FundTransferDestinationAccountFilterFieldConfig<TFilters, keyof TFilters>
-  | BankReconciliationAccountFilterFieldConfig<TFilters, keyof TFilters>
-  | BankReconciliationBalancedFilterFieldConfig<TFilters, keyof TFilters>
 
 export interface FilterBarConfig<TFilters> {
   search?: {

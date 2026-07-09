@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { ProductService } from '../inventory/services/product.service';
-import { JournalEntryService } from '../accounting/services/journal-entry.service';
 import { PurchaseOrderService } from '../purchasing/services/purchase-order.service';
 import { SupplierService } from '../purchasing/services/supplier.service';
 import { VendorPaymentService } from '../purchasing/services/vendor-payment.service';
@@ -16,7 +15,6 @@ import {
   SALES_ROLES,
   PROCUREMENT_ROLES,
   INVENTORY_ROLES,
-  FINANCE_ROLES,
   ADMIN_ONLY,
 } from './search.permissions';
 import {
@@ -32,7 +30,6 @@ function getPageCategory(route: string): string {
   const r = route.toLowerCase().trim();
   if (r === '/dashboard') return 'Dashboard';
   if (r === '/reports' || r.startsWith('/reports/')) return 'Report';
-  if (r === '/accounting' || r.startsWith('/accounting/')) return 'Accounting';
   if (r === '/sales' || r.startsWith('/sales/')) return 'Sales';
   if (r === '/purchasing' || r.startsWith('/purchasing/')) return 'Purchasing';
   if (r === '/inventory' || r.startsWith('/inventory/')) return 'Inventory';
@@ -131,66 +128,7 @@ const STATIC_PAGES: Array<{
     route: '/inventory/stock-adjustments',
     roles: INVENTORY_ROLES,
   },
-  {
-    label: 'Accounting',
-    keywords: ['accounting', 'finance', 'overview'],
-    route: '/accounting/dashboard',
-    roles: FINANCE_ROLES,
-  },
-  {
-    label: 'Journal Entries',
-    keywords: ['accounting', 'ledger'],
-    route: '/accounting/journal-entries',
-    roles: FINANCE_ROLES,
-  },
-  {
-    label: 'Chart of Accounts',
-    keywords: ['accounts', 'coa'],
-    route: '/accounting/chart-of-accounts',
-    roles: FINANCE_ROLES,
-  },
-  {
-    label: 'Fiscal Periods',
-    keywords: ['financial periods'],
-    route: '/accounting/fiscal-periods',
-    roles: ADMIN_ONLY,
-  },
-  {
-    label: 'Bank Reconciliation',
-    keywords: ['bank', 'reconciliation'],
-    route: '/accounting/bank-reconciliations',
-    roles: FINANCE_ROLES,
-  },
-  {
-    label: 'Expenses',
-    keywords: ['expenses'],
-    route: '/accounting/expenses',
-    roles: FINANCE_ROLES,
-  },
-  {
-    label: 'Fund Transfers',
-    keywords: ['fund transfer', 'transfer'],
-    route: '/accounting/fund-transfers',
-    roles: FINANCE_ROLES,
-  },
-  {
-    label: 'Settlements',
-    keywords: ['settlement'],
-    route: '/accounting/settlements',
-    roles: FINANCE_ROLES,
-  },
-  {
-    label: "Owner's Equity",
-    keywords: ['equity', 'owner'],
-    route: '/accounting/owner-equity',
-    roles: FINANCE_ROLES,
-  },
-  {
-    label: 'Account Mappings',
-    keywords: ['account mapping', 'mapping'],
-    route: '/accounting/account-mappings',
-    roles: ADMIN_ONLY,
-  },
+
   {
     label: 'Product Summary Report',
     keywords: ['sales report', 'product summary'],
@@ -305,36 +243,7 @@ const STATIC_PAGES: Array<{
     route: '/reports/inventory/product-cost',
     roles: INVENTORY_ROLES,
   },
-  {
-    label: 'Trial Balance',
-    keywords: ['trial balance', 'accounting report'],
-    route: '/accounting/reports/trial-balance',
-    roles: FINANCE_ROLES,
-  },
-  {
-    label: 'Balance Sheet',
-    keywords: ['balance sheet', 'accounting report'],
-    route: '/accounting/reports/balance-sheet',
-    roles: FINANCE_ROLES,
-  },
-  {
-    label: 'Profit & Loss',
-    keywords: ['profit loss', 'p&l', 'income statement'],
-    route: '/accounting/reports/profit-loss',
-    roles: FINANCE_ROLES,
-  },
-  {
-    label: 'General Ledger',
-    keywords: ['general ledger', 'gl', 'accounting report'],
-    route: '/accounting/reports/general-ledger',
-    roles: FINANCE_ROLES,
-  },
-  {
-    label: 'Account Activity',
-    keywords: ['account activity', 'accounting report'],
-    route: '/accounting/reports/account-activity',
-    roles: FINANCE_ROLES,
-  },
+
   {
     label: 'Company Settings',
     keywords: ['company', 'settings', 'configuration'],
@@ -421,7 +330,6 @@ export class SearchService {
     private readonly supplierService: SupplierService,
     private readonly paymentService: PaymentService,
     private readonly vendorPaymentService: VendorPaymentService,
-    private readonly journalEntryService: JournalEntryService,
     private readonly searchAnalyticsService: SearchAnalyticsService,
   ) {}
 
@@ -443,7 +351,6 @@ export class SearchService {
       suppliers,
       customerPayments,
       vendorPayments,
-      journalEntries,
     ] = await Promise.all([
       this.safeSearch('pages', () => Promise.resolve(this.searchPages(trimmed, user))),
       this.safeSearch('customers', () => this.customerService.searchGlobal(trimmed, user)),
@@ -457,9 +364,7 @@ export class SearchService {
       this.safeSearch('vendorPayments', () =>
         this.vendorPaymentService.searchGlobal(trimmed, user),
       ),
-      this.safeSearch('journalEntries', () => this.journalEntryService.searchGlobal(trimmed, user)),
     ]);
-
     const executionTimeMs = Date.now() - startTime;
 
     const results = [
@@ -471,7 +376,6 @@ export class SearchService {
       ...suppliers,
       ...customerPayments,
       ...vendorPayments,
-      ...journalEntries,
     ]
       .sort((a, b) => {
         const scoreDiff = (b.score ?? 0) - (a.score ?? 0);

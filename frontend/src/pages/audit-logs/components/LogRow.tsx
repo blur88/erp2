@@ -38,14 +38,6 @@ function getEntityLink(entityType: string, entityId?: string | null): string | n
     SalesOrder: id ? `/sales/orders/${id}/edit` : '/sales/orders',
     Supplier: '/purchasing/suppliers',
     PurchaseOrder: id ? `/purchasing/orders/${id}/edit` : '/purchasing/orders',
-    Account: '/accounting/chart-of-accounts',
-    JournalEntry: id ? `/accounting/journal-entries/${id}` : '/accounting/journal-entries',
-    FiscalPeriod: '/accounting/fiscal-periods',
-    AccountMapping: '/accounting/account-mappings',
-    BankReconciliation: '/accounting/bank-reconciliations',
-    Settlement: '/accounting/settlements',
-    OwnerEquity: '/accounting/owner-equity',
-    Expense: '/accounting/expenses',
   }
   return map[entityType] ?? null
 }
