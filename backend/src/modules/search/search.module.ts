@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AccountingModule } from '../accounting/accounting.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { PurchasingModule } from '../purchasing/purchasing.module';
 import { SalesModule } from '../sales/sales.module';
@@ -17,7 +16,6 @@ import { SearchService } from './search.service';
     SalesModule,
     InventoryModule,
     PurchasingModule,
-    AccountingModule,
   ],
   controllers: [SearchController],
   providers: [SearchService, SearchAnalyticsService, SearchScheduler],

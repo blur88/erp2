@@ -3,23 +3,14 @@ import { DataSourceOptions } from 'typeorm';
 import { validateAndParseInt } from './validation.utils';
 import { createSSLConfig } from './ssl.config';
 import { validateDatabaseConfig } from './environment.validator';
-import { AccountMapping } from '../database/entities/account-mapping.entity';
 import { AuditLog } from '../database/entities/audit-log.entity';
 import { BackupLog } from '../database/entities/backup-log.entity';
 import { BackupSchedule } from '../database/entities/backup-schedule.entity';
 import { BackupRetentionSettings } from '../database/entities/backup-settings.entity';
-import { BankReconciliation } from '../database/entities/bank-reconciliation.entity';
 import { Category } from '../database/entities/category.entity';
-import { ChartOfAccount } from '../database/entities/chart-of-account.entity';
 import { CompanySettings } from '../database/entities/company-settings.entity';
 import { Customer } from '../database/entities/customer.entity';
 import { DocumentNumberSetting } from '../database/entities/document-number-settings.entity';
-import { Expense } from '../database/entities/expense.entity';
-import { FiscalPeriod } from '../database/entities/fiscal-period.entity';
-import { FundTransfer } from '../database/entities/fund-transfer.entity';
-import { JournalEntry } from '../database/entities/journal-entry.entity';
-import { JournalEntryLine } from '../database/entities/journal-entry-line.entity';
-import { OwnerEquityTransaction } from '../database/entities/owner-equity-transaction.entity';
 import { Payment } from '../database/entities/payment.entity';
 import { PaymentMethodEntity } from '../database/entities/payment-method.entity';
 import { RegionalSettings } from '../database/entities/regional-settings.entity';
@@ -30,14 +21,12 @@ import { Product } from '../database/entities/product.entity';
 import { PurchaseCostHistory } from '../database/entities/purchase-cost-history.entity';
 import { PurchaseOrder } from '../database/entities/purchase-order.entity';
 import { PurchaseOrderItem } from '../database/entities/purchase-order-item.entity';
-import { ReconciledTransaction } from '../database/entities/reconciled-transaction.entity';
 import { RefreshToken } from '../database/entities/refresh-token.entity';
 import { SalesOrder } from '../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../database/entities/sales-order-item.entity';
 import { SalesOrderPayment } from '../database/entities/sales-order-payment.entity';
 import { SearchClick } from '../database/entities/search-click.entity';
 import { SearchQuery } from '../database/entities/search-query.entity';
-import { Settlement } from '../database/entities/settlement.entity';
 import { StockAdjustment, StockAdjustmentItem } from '../database/entities/stock-adjustment.entity';
 import { StockMovement } from '../database/entities/stock-movement.entity';
 import { Supplier } from '../database/entities/supplier.entity';
@@ -94,23 +83,14 @@ export function createDatabaseConfig(
     password,
     database,
     entities: [
-      AccountMapping,
       AuditLog,
       BackupLog,
       BackupSchedule,
       BackupRetentionSettings,
-      BankReconciliation,
       Category,
-      ChartOfAccount,
       CompanySettings,
       Customer,
       DocumentNumberSetting,
-      Expense,
-      FiscalPeriod,
-      FundTransfer,
-      JournalEntry,
-      JournalEntryLine,
-      OwnerEquityTransaction,
       Payment,
       PaymentMethodEntity,
       RegionalSettings,
@@ -121,14 +101,12 @@ export function createDatabaseConfig(
       PurchaseCostHistory,
       PurchaseOrder,
       PurchaseOrderItem,
-      ReconciledTransaction,
       RefreshToken,
       SalesOrder,
       SalesOrderItem,
       SalesOrderPayment,
       SearchClick,
       SearchQuery,
-      Settlement,
       StockAdjustment,
       StockAdjustmentItem,
       StockMovement,
