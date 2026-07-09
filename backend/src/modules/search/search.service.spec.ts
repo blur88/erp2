@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SearchService } from './search.service';
-import { JournalEntryService } from '../accounting/services/journal-entry.service';
 import { CustomerService } from '../sales/services/customer.service';
 import { ProductService } from '../inventory/services/product.service';
 import { SupplierService } from '../purchasing/services/supplier.service';
@@ -22,7 +21,6 @@ describe('SearchService', () => {
   let supplierService: jest.Mocked<Pick<SupplierService, 'searchGlobal'>>;
   let paymentService: jest.Mocked<Pick<PaymentService, 'searchGlobal'>>;
   let vendorPaymentService: jest.Mocked<Pick<VendorPaymentService, 'searchGlobal'>>;
-  let journalEntryService: jest.Mocked<Pick<JournalEntryService, 'searchGlobal'>>;
   let searchAnalyticsService: jest.Mocked<Pick<SearchAnalyticsService, 'logQuery'>>;
 
   const mockUser = { userId: 'u1', username: 'admin' } as any;
@@ -68,10 +66,6 @@ describe('SearchService', () => {
           useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
         },
         {
-          provide: JournalEntryService,
-          useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
-        },
-        {
           provide: SearchAnalyticsService,
           useValue: { logQuery: jest.fn() },
         },
@@ -86,11 +80,10 @@ describe('SearchService', () => {
     supplierService = module.get(SupplierService);
     paymentService = module.get(PaymentService);
     vendorPaymentService = module.get(VendorPaymentService);
-    journalEntryService = module.get(JournalEntryService);
     searchAnalyticsService = module.get(SearchAnalyticsService);
   });
 
-  it('fans out to all ten sources in parallel', async () => {
+  it('fans out to all nine sources in parallel', async () => {
     await service.search('abc', mockUser);
 
     expect(customerService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
@@ -100,7 +93,6 @@ describe('SearchService', () => {
     expect(supplierService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
     expect(paymentService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
     expect(vendorPaymentService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
-    expect(journalEntryService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
   });
 
   it('returns early with empty results for queries shorter than 2 characters', async () => {
@@ -245,14 +237,6 @@ describe('SearchService', () => {
       expect(page?.description).toBe('Report');
     });
 
-    it('returns "Accounting" for /accounting routes', async () => {
-      const result = await service.search('journal', {
-        role: UserRole.ADMIN,
-      } as any);
-      const page = result.results.find((r) => r.route?.startsWith('/accounting/'));
-      expect(page?.description).toBe('Accounting');
-    });
-
     it('returns "Audit" for /audit-logs', async () => {
       const result = await service.search('audit', {
         role: UserRole.ADMIN,
@@ -309,23 +293,6 @@ describe('SearchService', () => {
       }
     });
 
-    it('returns Journal Entries page only for finance roles', async () => {
-      for (const role of [UserRole.ADMIN, UserRole.MANAGER]) {
-        const result = await service.search('journal', { role } as any);
-        expect(result.results.find((r) => r.route === '/accounting/journal-entries')).toBeDefined();
-      }
-
-      for (const role of [
-        UserRole.SALES_STAFF,
-        UserRole.INVENTORY_STAFF,
-        UserRole.PROCUREMENT_STAFF,
-      ]) {
-        const result = await service.search('journal', { role } as any);
-        expect(
-          result.results.find((r) => r.route === '/accounting/journal-entries'),
-        ).toBeUndefined();
-      }
-    });
   });
 
   describe('searchQueryId', () => {
