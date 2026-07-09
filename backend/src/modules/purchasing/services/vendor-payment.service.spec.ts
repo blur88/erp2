@@ -4,7 +4,6 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { AuditLogService } from '../../audit-logs/services';
-import { AccountingService } from '../../accounting/services/accounting.service';
 import { SettingsService } from '../../settings/settings.service';
 import { UserRole } from '../../../database/entities/user.entity';
 import {
@@ -22,7 +21,6 @@ describe('VendorPaymentService', () => {
   let vendorPaymentRepository: jest.Mocked<Repository<VendorPayment>>;
   let purchaseOrderRepository: jest.Mocked<Repository<PurchaseOrder>>;
   let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
-  let accountingService: jest.Mocked<AccountingService>;
   let auditLogService: jest.Mocked<AuditLogService>;
   let settingsService: jest.Mocked<SettingsService>;
 
@@ -90,12 +88,6 @@ describe('VendorPaymentService', () => {
           },
         },
         {
-          provide: AccountingService,
-          useValue: {
-            postVendorPaymentEntry: jest.fn(),
-          },
-        },
-        {
           provide: SettingsService,
           useValue: {
             generateDocumentNumber: jest.fn(),
@@ -108,7 +100,6 @@ describe('VendorPaymentService', () => {
     vendorPaymentRepository = module.get(getRepositoryToken(VendorPayment));
     purchaseOrderRepository = module.get(getRepositoryToken(PurchaseOrder));
     paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
-    accountingService = module.get(AccountingService);
     auditLogService = module.get(AuditLogService);
     settingsService = module.get(SettingsService);
 
@@ -146,7 +137,6 @@ describe('VendorPaymentService', () => {
         ...mockVendorPayment,
         supplier: mockSupplier,
       } as VendorPayment);
-      accountingService.postVendorPaymentEntry.mockResolvedValue({} as any);
     });
 
     it('persists purchaseOrderId and posts accounting entry', async () => {
@@ -161,14 +151,6 @@ describe('VendorPaymentService', () => {
         }),
       );
       expect(purchaseOrderRepository.update).toHaveBeenCalledWith('po-123', {});
-      expect(accountingService.postVendorPaymentEntry).toHaveBeenCalledWith(
-        expect.objectContaining({
-          supplier: mockSupplier,
-          purchaseOrderId: 'po-123',
-        }),
-        'test-user',
-        undefined,
-      );
       expect(auditLogService.log).toHaveBeenCalledWith(
         'CREATE',
         'VendorPayment',
@@ -177,17 +159,6 @@ describe('VendorPaymentService', () => {
           entityId: mockVendorPayment.id,
           userId: 'test-user',
         }),
-      );
-    });
-
-    it('continues when accounting post fails', async () => {
-      accountingService.postVendorPaymentEntry.mockRejectedValueOnce(new Error('no mapping'));
-
-      await expect(service.create(createDto, 'test-user')).resolves.toBeDefined();
-
-      expect(Logger.prototype.error).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to post accounting entry'),
-        expect.any(String),
       );
     });
   });

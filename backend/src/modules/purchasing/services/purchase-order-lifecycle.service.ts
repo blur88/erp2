@@ -20,7 +20,6 @@ import { lockRowForUpdate } from '../../../common/db/tx-helpers';
 import { AuditLogService } from '../../audit-logs/services';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
-import { AccountingService } from '../../accounting/services/accounting.service';
 
 @Injectable()
 export class PurchaseOrderLifecycleService {
@@ -31,7 +30,6 @@ export class PurchaseOrderLifecycleService {
     private readonly purchaseOrderRepository: Repository<PurchaseOrder>,
     private readonly stockMovementService: StockMovementService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
-    private readonly accountingService: AccountingService,
     private readonly auditLogService: AuditLogService,
     private readonly dataSource: DataSource,
   ) {}
@@ -214,13 +212,6 @@ export class PurchaseOrderLifecycleService {
       purchaseOrder.status = PurchaseOrderStatus.RECEIVED;
       purchaseOrder.receivedDate = receiveDate;
 
-      await this.accountingService.postPurchaseReceiptEntry(
-        purchaseOrder,
-        userId || 'system',
-        receiveDate,
-        username,
-      );
-
       return purchaseOrder;
     });
 
@@ -262,13 +253,6 @@ export class PurchaseOrderLifecycleService {
       });
       purchaseOrder.status = PurchaseOrderStatus.READY;
       purchaseOrder.receivedDate = null;
-
-      await this.accountingService.reverseSourceEntries(
-        'purchase_order',
-        id,
-        userId || 'system',
-        manager,
-      );
 
       return purchaseOrder;
     });

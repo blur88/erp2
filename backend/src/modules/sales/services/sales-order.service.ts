@@ -45,7 +45,6 @@ import { StockMovementService } from '../../../modules/inventory/services/stock-
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
-import { AccountingService } from '@modules/accounting/services/accounting.service';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 import { SalesOrderPaymentService } from './sales-order-payment.service';
@@ -79,7 +78,6 @@ export class SalesOrderService extends BaseCrudService<
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly settingsService: SettingsService,
     auditLogService: AuditLogService,
-    private readonly accountingService: AccountingService,
     private readonly salesOrderFulfillmentService: SalesOrderFulfillmentService,
     private readonly salesOrderLifecycleService: SalesOrderLifecycleService,
     private readonly salesOrderPaymentService: SalesOrderPaymentService,

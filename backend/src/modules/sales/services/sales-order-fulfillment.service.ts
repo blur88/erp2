@@ -6,7 +6,6 @@ import { lockRowForUpdate } from '../../../common/db/tx-helpers';
 import { StockMovementService } from '../../../modules/inventory/services/stock-movement.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
-import { AccountingService } from '../../accounting/services/accounting.service';
 import { InventoryIntegrationService } from './inventory-integration.service';
 
 @Injectable()
@@ -20,7 +19,6 @@ export class SalesOrderFulfillmentService {
     private readonly stockMovementService: StockMovementService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly auditLogService: AuditLogService,
-    private readonly accountingService: AccountingService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -95,19 +93,6 @@ export class SalesOrderFulfillmentService {
       });
       const orderForPosting = pricedOrder ?? order;
 
-      // NOTE: postSalesOrderEntry receives `manager` for call-site uniformity, but
-      // JournalEntryService persistence is not yet manager-bound (see #719), so the
-      // journal entries commit on a separate connection. A failure *here* still rolls
-      // back stock + status (the post is the last in-tx step); the residual gap is a
-      // failure of the outer COMMIT after the GL committed, which #719 will close.
-      await this.accountingService.postSalesOrderEntry(
-        orderForPosting,
-        userId || 'system',
-        username,
-        manager,
-      );
-      this.logger.log(`Posted accounting entry for sales order ${order.orderNumber}`);
-
       return order;
     });
 
@@ -156,14 +141,6 @@ export class SalesOrderFulfillmentService {
       });
       order.status = SalesOrderStatus.READY;
       order.fulfilledAt = undefined;
-
-      await this.accountingService.reverseSourceEntries(
-        'sales_order',
-        id,
-        userId || 'system',
-        manager,
-      );
-      this.logger.log(`Reversed accounting entry for sales order ${order.orderNumber}`);
 
       return order;
     });

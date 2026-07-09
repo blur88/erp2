@@ -18,7 +18,6 @@ import {
   PaginatedResponse,
 } from '../dto';
 import { AuditLogService } from '../../audit-logs/services';
-import { AccountingService } from '@modules/accounting/services/accounting.service';
 import { SettingsService } from '@modules/settings/settings.service';
 import { repoFor } from '../../../common/db/tx-helpers';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
@@ -52,7 +51,6 @@ export class VendorPaymentService extends BaseCrudService<
     @InjectRepository(PaymentMethodEntity)
     private paymentMethodRepository: Repository<PaymentMethodEntity>,
     auditLogService: AuditLogService,
-    private readonly accountingService: AccountingService,
     private readonly settingsService: SettingsService,
   ) {
     super(vendorPaymentRepository, auditLogService);
@@ -127,23 +125,6 @@ export class VendorPaymentService extends BaseCrudService<
         },
       }
     );
-
-    // Auto-post to accounting (don't fail payment on error)
-    try {
-      const fullPayment = await this.findOne(savedPayment.id);
-      await this.accountingService.postVendorPaymentEntry(
-        fullPayment,
-        userId || 'system',
-        username,
-      );
-      this.logger.log(`Posted accounting entry for vendor payment ${fullPayment.paymentNumber}`);
-    } catch (error) {
-      this.logger.error(
-        `Failed to post accounting entry for vendor payment ${savedPayment.id}: ${error.message}`,
-        error.stack,
-      );
-      // Continue - don't fail the payment creation
-    }
 
     return savedPayment;
   }

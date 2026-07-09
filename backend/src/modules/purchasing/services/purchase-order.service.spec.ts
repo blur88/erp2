@@ -21,7 +21,6 @@ import { BaseCostCalculatorService } from '../../inventory/services/base-cost-ca
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
-import { AccountingService } from '../../accounting/services/accounting.service';
 import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
 
 describe('PurchaseOrderService', () => {
@@ -32,7 +31,6 @@ describe('PurchaseOrderService', () => {
   let productRepository: jest.Mocked<Repository<Product>>;
   let vendorPaymentRepository: jest.Mocked<Repository<VendorPayment>>;
   let auditLogService: jest.Mocked<AuditLogService>;
-  let accountingService: jest.Mocked<AccountingService>;
   let stockMovementService: jest.Mocked<StockMovementService>;
   let vendorPaymentService: jest.Mocked<VendorPaymentService>;
   let paymentMethodRepository: any;
@@ -172,15 +170,6 @@ describe('PurchaseOrderService', () => {
           },
         },
         {
-          provide: AccountingService,
-          useValue: {
-            postPurchaseReceiptEntry: jest.fn(),
-            reverseSourceEntries: jest.fn(),
-            postVendorPaymentEntry: jest.fn(),
-            postVendorRefundEntry: jest.fn(),
-          },
-        },
-        {
           provide: PurchaseOrderLifecycleService,
           useValue: {
             cancel: jest.fn(),
@@ -203,7 +192,6 @@ describe('PurchaseOrderService', () => {
     vendorPaymentRepository = module.get(getRepositoryToken(VendorPayment));
     paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     auditLogService = module.get(AuditLogService);
-    accountingService = module.get(AccountingService);
     stockMovementService = module.get(StockMovementService);
     vendorPaymentService = module.get(VendorPaymentService);
     dataSource = module.get(DataSource)
@@ -670,7 +658,6 @@ describe('PurchaseOrderService', () => {
       purchaseOrderRepository.findOne.mockResolvedValue(mockPurchaseOrderForPayment);
       purchaseOrderRepository.save.mockResolvedValue(mockPurchaseOrderForPayment);
       vendorPaymentService.findOne.mockResolvedValue(mockRestoredPayment);
-      accountingService.postVendorPaymentEntry.mockResolvedValue(undefined);
       // reconcilePaymentState() reads the persisted active payments to recompute
       // paidAmount; default to a single 200 payment for these cases.
       vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
@@ -746,22 +733,6 @@ describe('PurchaseOrderService', () => {
       expect(vendorPaymentRepository.update).toHaveBeenCalledWith(
         'vp-old-1',
         expect.objectContaining({ paymentMethodId: 'pm-cash', amount: 300, isActive: true }),
-      );
-    });
-
-    it('re-posts accounting entry after restoring', async () => {
-      vendorPaymentRepository.findOne
-        .mockResolvedValueOnce(mockDeletedPayment)
-        .mockResolvedValueOnce(mockRestoredPayment);
-      vendorPaymentRepository.restore.mockResolvedValue({} as any);
-      vendorPaymentRepository.update.mockResolvedValue({} as any);
-
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 200 }]);
-
-      expect(accountingService.postVendorPaymentEntry).toHaveBeenCalledWith(
-        mockRestoredPayment,
-        'system',
-        undefined,
       );
     });
 
@@ -973,15 +944,6 @@ describe('PurchaseOrderService', () => {
       expect(ctx.saved[0].paymentDate).toBeDefined()
     })
 
-    it('leaves originals untouched — no reverseSourceEntries (no per-original flip)', async () => {
-      wireTx()
-      jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
-
-      await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: 40 }], 'u')
-
-      expect(accountingService.reverseSourceEntries).not.toHaveBeenCalled()
-    })
-
     it('rejects total refund exceeding net paid across ACTIVE rows (aggregate guard)', async () => {
       wireTx({ existing: [{ amount: '100', isActive: true }] })
       await expect(
@@ -1007,26 +969,6 @@ describe('PurchaseOrderService', () => {
       await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: 40 }], 'u')
 
       expect(reconcileSpy).toHaveBeenCalledWith(lockedPO, expect.anything())
-    })
-
-    it('posts the refund GL via postVendorRefundEntry AFTER the transaction commits', async () => {
-      const order = []
-      const ctx = mockTxManager({ lockedPO, existing: [{ id: 'vp-1', amount: '100', paymentMethodId: 'pm-1', isActive: true }] })
-      ;(dataSource.transaction as jest.Mock).mockImplementation(async (cb) => {
-        const result = await cb(ctx.manager)
-        order.push('tx-committed')
-        return result
-      })
-      jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
-      ;(accountingService.postVendorRefundEntry as jest.Mock).mockImplementation(async () => {
-        order.push('gl-posted')
-      })
-
-      await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: 40 }], 'u')
-
-      expect(vendorPaymentRepository.findOne).toHaveBeenCalledWith({ where: { id: 'refund-1' } })
-      expect(accountingService.postVendorRefundEntry).toHaveBeenCalled()
-      expect(order).toEqual(['tx-committed', 'gl-posted'])
     })
 
     it('audit-logs each refund row with its id and paymentMethodId', async () => {

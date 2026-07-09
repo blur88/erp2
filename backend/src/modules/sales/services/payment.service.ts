@@ -28,7 +28,6 @@ import {
   PaymentSummaryDto,
 } from '../dto/payment.dto';
 import { CustomerPrintDto } from '../dto/customer.dto';
-import { AccountingService } from '@modules/accounting/services/accounting.service';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
 import { canSearchCustomerPayments } from '../../search/search.permissions';
 import {
@@ -63,7 +62,6 @@ export class PaymentService extends BaseCrudService<
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepository: Repository<SalesOrder>,
     auditLogService: AuditLogService,
-    private readonly accountingService: AccountingService,
     private readonly settingsService: SettingsService,
   ) {
     super(paymentRepository, auditLogService);
@@ -146,23 +144,6 @@ export class PaymentService extends BaseCrudService<
         },
       },
     );
-
-    // Auto-post to accounting (don't fail payment on error)
-    try {
-      const fullPayment = await this.findPaymentWithRelations(savedPayment.id);
-      await this.accountingService.postCustomerPaymentEntry(
-        fullPayment,
-        userId || 'system',
-        username,
-      );
-      this.logger.log(`Posted accounting entry for payment ${fullPayment.paymentNumber}`);
-    } catch (error) {
-      this.logger.error(
-        `Failed to post accounting entry for payment ${savedPayment.id}: ${error.message}`,
-        error.stack,
-      );
-      // Continue - don't fail the payment creation
-    }
 
     return this.mapToResponseDto(await this.findPaymentWithRelations(savedPayment.id));
   }
@@ -429,19 +410,6 @@ export class PaymentService extends BaseCrudService<
     // Update original payment status
     originalPayment.status = PaymentStatus.REFUNDED;
     await this.paymentRepository.save(originalPayment);
-
-    try {
-      await this.accountingService.reverseSourceEntries(
-        'payment',
-        originalPayment.id,
-        userId || 'system',
-      );
-    } catch (err) {
-      this.logger.error(
-        `Failed to post refund accounting entry for payment ${originalPayment.id}: ${err.message}`,
-      );
-      // Refund still succeeds - accounting inconsistency is logged
-    }
 
     // Log audit trail
     await this.auditLogService.log(
