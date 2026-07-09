@@ -30,7 +30,8 @@ import { AccountType, type ChartOfAccount } from '@/types'
 interface ChartOfAccountFormDialogProps {
   open: boolean
   account: ChartOfAccount | null
-  parentId?: string | null
+  /** When opening "Add child", the parent account. Locks child type + parent. */
+  parent?: ChartOfAccount | null
   onClose: () => void
   onSuccess: () => void
 }
@@ -66,7 +67,7 @@ const accountSchema = yup.object({
 const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
   open,
   account,
-  parentId,
+  parent,
   onClose,
   onSuccess,
 }) => {
@@ -115,15 +116,17 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
         reset({
           code: '',
           name: '',
-          type: 'asset',
-          parentId: parentId || null,
+          // Child accounts must match the parent's type (backend enforces this),
+          // so default + lock the type to the parent's when adding a child.
+          type: (parent ? parent.type.toLowerCase() : 'asset') as FormData['type'],
+          parentId: parent?.id || null,
           isActive: true,
           isCashEquivalent: false,
           openingBalance: 0,
         })
       }
     }
-  }, [open, account, parentId, reset])
+  }, [open, account, parent, reset])
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -139,8 +142,9 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
         await createChartOfAccount({
           code: data.code,
           name: data.name,
-          type: accountTypeMap[data.type],
-          parentId: (parentId ?? data.parentId) || undefined,
+          // When adding a child, type is locked to the parent's type.
+          type: parent ? parent.type : accountTypeMap[data.type],
+          parentId: parent?.id ?? data.parentId ?? undefined,
           isActive: data.isActive,
           isCashEquivalent: data.isCashEquivalent,
           openingBalance: data.openingBalance || 0,
@@ -271,22 +275,29 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
                   />
                 </Grid>
                 <Grid size={6}>
-                  <Controller
-                    name="type"
-                    control={control}
-                    render={({ field }) => (
-                      <FormControl fullWidth error={!!errors.type}>
-                        <InputLabel>Account Type</InputLabel>
-                        <Select {...field} label="Account Type">
-                          <MenuItem value="asset">Asset</MenuItem>
-                          <MenuItem value="liability">Liability</MenuItem>
-                          <MenuItem value="equity">Equity</MenuItem>
-                          <MenuItem value="revenue">Revenue</MenuItem>
-                          <MenuItem value="expense">Expense</MenuItem>
-                        </Select>
-                      </FormControl>
-                    )}
-                  />
+                  {parent ? (
+                    <>
+                      <Typography variant="subtitle2" color="text.secondary">Account Type</Typography>
+                      <Typography variant="body1">{parent.type}</Typography>
+                    </>
+                  ) : (
+                    <Controller
+                      name="type"
+                      control={control}
+                      render={({ field }) => (
+                        <FormControl fullWidth error={!!errors.type}>
+                          <InputLabel>Account Type</InputLabel>
+                          <Select {...field} label="Account Type">
+                            <MenuItem value="asset">Asset</MenuItem>
+                            <MenuItem value="liability">Liability</MenuItem>
+                            <MenuItem value="equity">Equity</MenuItem>
+                            <MenuItem value="revenue">Revenue</MenuItem>
+                            <MenuItem value="expense">Expense</MenuItem>
+                          </Select>
+                        </FormControl>
+                      )}
+                    />
+                  )}
                 </Grid>
 
                 {watchedType && (
@@ -323,28 +334,35 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
                 </Grid>
 
                 <Grid size={12}>
-                  <Controller
-                    name="parentId"
-                    control={control}
-                    render={({ field }) => (
-                      <FormControl fullWidth>
-                        <InputLabel>Parent Account (Optional)</InputLabel>
-                        <Select
-                          {...field}
-                          value={field.value || ''}
-                          onChange={(e) => field.onChange(e.target.value || null)}
-                          label="Parent Account (Optional)"
-                        >
-                          <MenuItem value=""><em>None (Root Account)</em></MenuItem>
-                          {parentAccounts.map((acc) => (
-                            <MenuItem key={acc.id} value={acc.id}>
-                              {acc.code} - {acc.name}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    )}
-                  />
+                  {parent ? (
+                    <>
+                      <Typography variant="subtitle2" color="text.secondary">Parent Account</Typography>
+                      <Typography variant="body1">{parent.code} - {parent.name}</Typography>
+                    </>
+                  ) : (
+                    <Controller
+                      name="parentId"
+                      control={control}
+                      render={({ field }) => (
+                        <FormControl fullWidth>
+                          <InputLabel>Parent Account (Optional)</InputLabel>
+                          <Select
+                            {...field}
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value || null)}
+                            label="Parent Account (Optional)"
+                          >
+                            <MenuItem value=""><em>None (Root Account)</em></MenuItem>
+                            {parentAccounts.map((acc) => (
+                              <MenuItem key={acc.id} value={acc.id}>
+                                {acc.code} - {acc.name}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      )}
+                    />
+                  )}
                 </Grid>
 
                 <Grid size={6}>

@@ -32,11 +32,11 @@ const ChartOfAccountsPage: React.FC = () => {
   const { data: hierarchyData, isLoading, isFetching, error } = useGetChartOfAccountsHierarchyQuery()
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [formOpen, setFormOpen] = useState(false)
-  const [formParentId, setFormParentId] = useState<string | null>(null)
+  const [formParent, setFormParent] = useState<ChartOfAccount | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
-  const openCreate = (parentId: string | null) => {
-    setFormParentId(parentId)
+  const openCreate = (parent: ChartOfAccount | null) => {
+    setFormParent(parent)
     setFormOpen(true)
   }
 
@@ -93,14 +93,14 @@ const ChartOfAccountsPage: React.FC = () => {
             accounts={filtered}
             loading={isLoading}
             onSelect={(a) => navigate(`/accounting/chart-of-accounts/${a.id}`)}
-            onAddChild={(a) => openCreate(a.id)}
+            onAddChild={(a) => openCreate(a)}
           />
         }
         dialogs={
           <ChartOfAccountFormDialog
             open={formOpen}
             account={null}
-            parentId={formParentId}
+            parent={formParent}
             onClose={() => setFormOpen(false)}
             onSuccess={() => setFormOpen(false)}
           />

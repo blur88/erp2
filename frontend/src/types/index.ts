@@ -702,6 +702,7 @@ export interface RecentActivityItem {
   date: string;
   reference: string;
   description: string;
+  sourceType: string | null;
   debit: number | null;
   credit: number | null;
 }

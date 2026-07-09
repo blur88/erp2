@@ -4,17 +4,33 @@ import { Box, Tab, Tabs, Typography } from '@mui/material'
 
 import ChartOfAccountFormDialog from '@/components/accounting/ChartOfAccountFormDialog'
 import { AppButton } from '@/components/common/AppButton'
-import { useGetChartOfAccountQuery } from '@/store/api/accountingApi'
+import {
+  useGetChartOfAccountQuery,
+  useGetChartOfAccountRecentActivityQuery,
+} from '@/store/api/accountingApi'
+import { formatCurrency } from '@/utils/formatters'
 
 import AccountJournalEntriesTab from './components/AccountJournalEntriesTab'
 
 export default function ChartOfAccountDetailPage() {
   const { id = '' } = useParams()
   const { data: account, isLoading } = useGetChartOfAccountQuery(id)
+  const { data: activity } = useGetChartOfAccountRecentActivityQuery({ id }, { skip: !id })
   const [tab, setTab] = useState(0)
   const [editOpen, setEditOpen] = useState(false)
 
   if (isLoading || !account) return null
+
+  // Opening balance is derived (not stored): the posted opening-balance JE line
+  // for this account. Debit shows positive, credit negative.
+  const openingBalanceLine = activity?.find((row) => row.sourceType === 'opening_balance')
+  const openingBalanceText = openingBalanceLine
+    ? formatCurrency(
+        openingBalanceLine.debit != null
+          ? openingBalanceLine.debit
+          : -(openingBalanceLine.credit ?? 0),
+      )
+    : '—'
 
   return (
     <Box>
@@ -47,14 +63,14 @@ export default function ChartOfAccountDetailPage() {
           <Typography variant="body1" sx={{ mb: 2 }}>{account.parent?.code ? `${account.parent.code} — ${account.parent.name}` : '—'}</Typography>
 
           <Typography variant="subtitle2" color="text.secondary">Opening Balance</Typography>
-          <Typography variant="body1">—</Typography>
+          <Typography variant="body1">{openingBalanceText}</Typography>
         </Box>
       )}
       {tab === 1 && <AccountJournalEntriesTab accountId={account.id} />}
       <ChartOfAccountFormDialog
         open={editOpen}
         account={account}
-        parentId={null}
+        parent={null}
         onClose={() => setEditOpen(false)}
         onSuccess={() => setEditOpen(false)}
       />

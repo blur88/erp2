@@ -422,9 +422,10 @@ export class ChartOfAccountsService {
   async getAccountHierarchy(): Promise<ChartOfAccountHierarchyDto> {
     this.logger.log('Fetching account hierarchy');
 
-    // Get all accounts
+    // Get all accounts. Inactive accounts stay visible in the COA list (spec:
+    // inactive is shown but blocked in new transactions); the frontend Status
+    // filter narrows by isActive. Soft-deleted rows remain excluded by default.
     const accounts = await this.accountRepository.find({
-      where: { isActive: true },
       relations: { parent: true, children: true },
       order: { type: 'ASC', code: 'ASC' },
     });
@@ -497,6 +498,7 @@ export class ChartOfAccountsService {
         'je.entryDate AS date',
         'je.referenceNumber AS reference',
         'je.description AS description',
+        'je.sourceType AS "sourceType"',
         'jel.debitAmount AS debit',
         'jel.creditAmount AS credit',
       ])
@@ -506,6 +508,7 @@ export class ChartOfAccountsService {
       date: row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date).split('T')[0],
       reference: row.reference,
       description: row.description ?? '',
+      sourceType: row.sourceType ?? null,
       debit: Number(row.debit) > 0 ? Number(row.debit) : null,
       credit: Number(row.credit) > 0 ? Number(row.credit) : null,
     }));

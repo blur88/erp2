@@ -252,6 +252,9 @@ export class RecentActivityItemDto {
   @ApiProperty({ description: 'Journal entry description' })
   description: string;
 
+  @ApiPropertyOptional({ description: "Journal entry source type (e.g. 'opening_balance')" })
+  sourceType: string | null;
+
   @ApiPropertyOptional({ description: 'Debit amount (null if credit entry)' })
   debit: number | null;
 
