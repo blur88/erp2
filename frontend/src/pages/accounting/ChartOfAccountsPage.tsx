@@ -1,19 +1,15 @@
 import React, { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
-import GenericListPage from '@/components/common/GenericListPage'
+import ChartOfAccountFormDialog from '@/components/accounting/ChartOfAccountFormDialog'
+import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useGetChartOfAccountsHierarchyQuery } from '@/store/api/accountingApi'
-import { selectSelectedAccount } from '@/store/slices/accountingSlice'
 import type { ChartOfAccount } from '@/types'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
-import { ChartOfAccountContextHeader } from './components/ChartOfAccountContextHeader'
-import { ChartOfAccountsDialogs } from './components/ChartOfAccountsDialogs'
-import { ChartOfAccountsTable } from './components/ChartOfAccountsTable'
-import { ChartOfAccountWorkspaceCard } from './components/ChartOfAccountWorkspaceCard'
-import { useChartOfAccountsWorkspace } from './hooks/useChartOfAccountsWorkspace'
+import { ChartOfAccountsTable, type IndentedAccount } from './components/ChartOfAccountsTable'
 
 interface CoaFilters {
   search: string
@@ -31,123 +27,74 @@ const filterConfig: FilterBarConfig<CoaFilters> = {
 }
 
 const ChartOfAccountsPage: React.FC = () => {
+  const navigate = useNavigate()
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
-  const { data: hierarchyData, isLoading, error, refetch } = useGetChartOfAccountsHierarchyQuery()
-  const dispatch = useAppDispatch()
-  const selectedAccount = useAppSelector(selectSelectedAccount)
+  const { data: hierarchyData, isLoading, isFetching, error } = useGetChartOfAccountsHierarchyQuery()
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [formOpen, setFormOpen] = useState(false)
 
-  const accounts = useMemo(() => {
-    const result: ChartOfAccount[] = []
-
-    const walk = (nodes: ChartOfAccount[]) => {
+  const flat = useMemo(() => {
+    const rows: IndentedAccount[] = []
+    const walk = (nodes: ChartOfAccount[], depth: number) => {
       for (const node of nodes) {
-        result.push(node)
-
-        if (node.children?.length) {
-          walk(node.children)
-        }
+        rows.push({ ...node, depth })
+        if (node.children?.length) walk(node.children, depth + 1)
       }
     }
-
-    walk(hierarchyData ?? [])
-    return result
+    walk(hierarchyData ?? [], 0)
+    return rows
   }, [hierarchyData])
 
-  const filteredAccounts = useMemo(() => {
-    let result = accounts
-
+  const filtered = useMemo(() => {
+    let result = flat
     if (appliedFilters.search) {
-      const searchTerm = appliedFilters.search.toLowerCase()
-      result = result.filter(
-        (account) =>
-          account.code.toLowerCase().includes(searchTerm) ||
-          account.name.toLowerCase().includes(searchTerm),
-      )
+      const q = appliedFilters.search.toLowerCase()
+      result = result.filter((a) => a.code.toLowerCase().includes(q) || a.name.toLowerCase().includes(q))
     }
-
-    if (appliedFilters.accountType) {
-      result = result.filter((account) => account.type === appliedFilters.accountType)
-    }
-
+    if (appliedFilters.accountType) result = result.filter((a) => a.type === appliedFilters.accountType)
     if (appliedFilters.isActive) {
-      const isActive = appliedFilters.isActive === 'active'
-      result = result.filter((account) => account.isActive === isActive)
+      const active = appliedFilters.isActive === 'active'
+      result = result.filter((a) => a.isActive === active)
     }
-
-    return [...result].sort((left, right) =>
-      sortOrder === 'asc'
-        ? left.code.localeCompare(right.code)
-        : right.code.localeCompare(left.code),
+    return [...result].sort((l, r) =>
+      sortOrder === 'asc' ? l.code.localeCompare(r.code) : r.code.localeCompare(l.code),
     )
-  }, [accounts, appliedFilters, sortOrder])
-
-  const workspace = useChartOfAccountsWorkspace(filteredAccounts, selectedAccount, dispatch, () => {
-    void refetch()
-  })
+  }, [flat, appliedFilters, sortOrder])
 
   return (
     <>
       <AccountMappingWarning context="system" />
-      <GenericListPage
+      <SimpleListPage
         title="Chart of Accounts"
-        subtitle={`Manage your accounting structure and account hierarchy (${hasActiveFilters ? `${filteredAccounts.length} of ${accounts.length}` : `${accounts.length} total`})`}
-        primaryAction={{
-          label: 'Add Account',
-          onClick: () => {
-            workspace.setSelected(null)
-            workspace.setFormDialogOpen(true)
-          },
-        }}
-        secondaryAction={{ label: 'View Deleted', onClick: () => workspace.setDeletedDialogOpen(true) }}
+        subtitle={`Manage your accounting structure (${hasActiveFilters ? `${filtered.length} of ${flat.length}` : `${flat.length} total`})`}
+        primaryAction={{ label: 'Add Account', onClick: () => setFormOpen(true) }}
         filterConfig={filterConfig}
         draftFilters={draftFilters}
         handlers={handlers}
         hasActiveFilters={hasActiveFilters}
-        searchInputRef={workspace.searchInputRef}
+        searchInputRef={{ current: null }}
         sort={{
           field: 'code',
           sortBy: 'code',
           sortOrder,
-          onSort: () => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc')),
+          onSort: () => setSortOrder((p) => (p === 'asc' ? 'desc' : 'asc')),
         }}
+        isFetching={isFetching}
         error={(error as any)?.data ?? null}
-        listSlot={
+        tableSlot={
           <ChartOfAccountsTable
-            accounts={filteredAccounts}
+            accounts={filtered}
             loading={isLoading}
-            selectedId={selectedAccount?.id ?? null}
-            onSelect={workspace.setSelected}
-            listRef={workspace.listRef}
-            focusedIndex={workspace.focusedIndex}
+            onSelect={(a) => navigate(`/accounting/chart-of-accounts/${a.id}`)}
+            onAddChild={(a) => setFormOpen(true)}
           />
         }
-        headerSlot={
-          <ChartOfAccountContextHeader
-            selected={selectedAccount}
-            onEdit={() => workspace.setFormDialogOpen(true)}
-            onDelete={() => selectedAccount && workspace.setDeleteTarget(selectedAccount)}
-          />
-        }
-        workspaceSlot={<ChartOfAccountWorkspaceCard selected={selectedAccount} />}
         dialogs={
-          <ChartOfAccountsDialogs
-            formDialogOpen={workspace.formDialogOpen}
-            selected={selectedAccount}
-            onCloseForm={() => workspace.setFormDialogOpen(false)}
-            onFormSuccess={() => {
-              workspace.setFormDialogOpen(false)
-              void refetch()
-            }}
-            deleteTarget={workspace.deleteTarget}
-            onConfirmDelete={() => void workspace.handleDelete()}
-            onCancelDelete={() => workspace.setDeleteTarget(null)}
-            seedConfirmOpen={workspace.seedConfirmOpen}
-            onConfirmSeed={() => void workspace.handleSeed()}
-            onCancelSeed={() => workspace.setSeedConfirmOpen(false)}
-            deletedDialogOpen={workspace.deletedDialogOpen}
-            onCloseDeletedDialog={() => workspace.setDeletedDialogOpen(false)}
-            onChanged={() => void refetch()}
+          <ChartOfAccountFormDialog
+            open={formOpen}
+            account={null}
+            onClose={() => setFormOpen(false)}
+            onSuccess={() => setFormOpen(false)}
           />
         }
       />
