@@ -144,7 +144,7 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
           isActive: data.isActive,
           isCashEquivalent: data.isCashEquivalent,
           openingBalance: data.openingBalance || 0,
-        }).unwrap()
+        } as any).unwrap()
         showSuccess('Account created successfully')
       }
 

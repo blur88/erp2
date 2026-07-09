@@ -29,6 +29,7 @@ const MAPPING_TYPE_LABELS: Record<MappingType, { label: string; category: string
   [MappingType.INVENTORY_ASSET]: { label: 'Inventory Asset', category: 'Inventory', description: 'Asset account for inventory adjustments' },
   [MappingType.INVENTORY_ADJUSTMENT_GAIN]: { label: 'Inventory Adjustment Gain', category: 'Inventory', description: 'Revenue account credited for positive inventory adjustments' },
   [MappingType.INVENTORY_ADJUSTMENT_LOSS]: { label: 'Inventory Adjustment Loss', category: 'Inventory', description: 'Expense account debited for negative inventory adjustments' },
+  [MappingType.OPENING_BALANCE_EQUITY]: { label: 'Opening Balance Equity', category: 'Equity', description: 'Equity account offset when per-account opening balances are posted' },
 }
 
 const staticCategories = ['Sales', 'Purchasing', 'Equity', 'Inventory']

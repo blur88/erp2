@@ -52,6 +52,7 @@ export function ChartOfAccountsTable({
       loading={loading}
       total={accounts.length}
       label="Accounts"
+      focusedIndex={-1}
       onSelect={onSelect}
       listRef={fallbackRef}
     />
