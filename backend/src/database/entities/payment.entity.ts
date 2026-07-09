@@ -4,20 +4,12 @@ import { BaseEntity } from './base.entity';
 import { Customer } from './customer.entity';
 import { SalesOrder } from './sales-order.entity';
 import { PaymentMethodEntity } from './payment-method.entity';
-import { Settlement } from './settlement.entity';
-
 export enum PaymentStatus {
   COMPLETED = 'completed',
   PENDING = 'pending',
   FAILED = 'failed',
   CANCELLED = 'cancelled',
   REFUNDED = 'refunded',
-}
-
-export enum SettlementStatusEnum {
-  NOT_APPLICABLE = 'not_applicable',
-  PENDING = 'pending',
-  SETTLED = 'settled',
 }
 
 /**
@@ -31,8 +23,6 @@ export enum SettlementStatusEnum {
 @Index(['status'])
 @Index(['paymentDate'])
 @Index(['paymentMethodId'])
-@Index(['settlementId'])
-@Index(['settlementStatus'])
 export class Payment extends BaseEntity {
   @Column({
     type: 'varchar',
@@ -60,23 +50,6 @@ export class Payment extends BaseEntity {
   })
   @IsOptional()
   paymentMethodId?: string;
-
-  @Column({
-    type: 'enum',
-    enum: SettlementStatusEnum,
-    default: SettlementStatusEnum.NOT_APPLICABLE,
-    comment: 'Settlement status for third-party payments',
-  })
-  @IsEnum(SettlementStatusEnum)
-  settlementStatus: SettlementStatusEnum;
-
-  @Column({
-    type: 'uuid',
-    nullable: true,
-    comment: 'Settlement ID when payment is settled',
-  })
-  @IsOptional()
-  settlementId?: string;
 
   @Column({
     type: 'date',
@@ -143,14 +116,6 @@ export class Payment extends BaseEntity {
   })
   @JoinColumn({ name: 'paymentMethodId' })
   paymentMethodEntity?: PaymentMethodEntity;
-
-  @ManyToOne(() => Settlement, {
-    onDelete: 'SET NULL',
-    nullable: true,
-    eager: false,
-  })
-  @JoinColumn({ name: 'settlementId' })
-  settlement?: Settlement;
 
   // Computed properties
   get isCompleted(): boolean {

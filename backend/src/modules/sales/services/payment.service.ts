@@ -135,7 +135,6 @@ export class PaymentService extends BaseCrudService<
         newValues: {
           amount: savedPayment.amount,
           paymentMethodId: savedPayment.paymentMethodId,
-          settlementStatus: savedPayment.settlementStatus,
           status: savedPayment.status,
         },
       },
@@ -395,7 +394,6 @@ export class PaymentService extends BaseCrudService<
       paymentNumber: refundNumber,
       status: PaymentStatus.REFUNDED,
       paymentMethodId: originalPayment.paymentMethodId,
-      settlementStatus: originalPayment.settlementStatus,
       notes: refundDto.reason
         ? `Refund: ${refundDto.reason}`
         : `Refund of ${originalPayment.paymentNumber}`,
@@ -571,8 +569,6 @@ export class PaymentService extends BaseCrudService<
       paymentNumber: payment.paymentNumber,
       status: payment.status,
       paymentMethodId: payment.paymentMethodId,
-      settlementStatus: payment.settlementStatus,
-      settlementId: payment.settlementId,
       paymentMethodEntity: payment.paymentMethodEntity
         ? {
             id: payment.paymentMethodEntity.id,
