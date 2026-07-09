@@ -104,7 +104,7 @@ export class PaymentMethodController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary:
-      'Permanently delete a soft-deleted payment method (blocked when referenced by payments/settlements)',
+      'Permanently delete a soft-deleted payment method (blocked when referenced by payments)',
   })
   @ApiParam({ name: 'id', description: 'Payment method ID' })
   async permanentDelete(@Param('id') id: string): Promise<void> {

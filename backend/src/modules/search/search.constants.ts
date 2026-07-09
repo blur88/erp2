@@ -23,7 +23,6 @@ export const BOOST_CUSTOMER_PAYMENT = 8;
 export const BOOST_VENDOR_PAYMENT = 8;
 export const BOOST_SUPPLIER = 7;
 export const BOOST_PRODUCT = 6;
-export const BOOST_JOURNAL = 4;
 export const BOOST_PAGE = 0; // intentionally zero - pages remain in formula for consistency but contribute no score boost
 
 // Applied once after baseScore resolves, when baseScore === SCORE_EXACT_CODE or SCORE_EXACT_NAME

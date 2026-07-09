@@ -12,7 +12,6 @@ export interface RecentSearchItem {
     | 'supplier'
     | 'customer_payment'
     | 'vendor_payment'
-    | 'journal_entry'
   timestamp: number
 }
 

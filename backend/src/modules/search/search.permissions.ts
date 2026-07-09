@@ -26,11 +26,6 @@ export const INVENTORY_ROLES: UserRole[] = [
   UserRole.INVENTORY_STAFF,
 ];
 
-export const FINANCE_ROLES: UserRole[] = [
-  UserRole.ADMIN,
-  UserRole.MANAGER,
-];
-
 export const ADMIN_ONLY: UserRole[] = [UserRole.ADMIN];
 
 export function canSearchCustomers(role: UserRole): boolean {
@@ -61,6 +56,3 @@ export function canSearchVendorPayments(role: UserRole): boolean {
   return PROCUREMENT_ROLES.includes(role);
 }
 
-export function canSearchJournalEntries(role: UserRole): boolean {
-  return FINANCE_ROLES.includes(role);
-}

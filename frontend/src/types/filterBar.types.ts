@@ -28,18 +28,7 @@ export type FilterFieldType =
   | 'price-list'
   | 'transaction-status'
   | 'vendor-payment-status'
-  | 'journal-entry-status'
-  | 'journal-entry-type'
-  | 'expense-status'
-  | 'expense-account'
   | 'payment-method'
-  | 'owner-equity-type'
-  | 'fiscal-period-status'
-  | 'bank-reconciliation-status'
-  | 'settlement-status'
-  | 'fund-transfer-status'
-  | 'account-type'
-  | 'bank-reconciliation-balanced'
 
 interface BaseFilterFieldConfig<TFilters, K extends keyof TFilters> {
   field: K

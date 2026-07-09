@@ -15,7 +15,6 @@ import {
   SALES_ROLES,
   PROCUREMENT_ROLES,
   INVENTORY_ROLES,
-  FINANCE_ROLES,
   ADMIN_ONLY,
 } from './search.permissions';
 import {

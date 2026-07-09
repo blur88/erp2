@@ -31,7 +31,6 @@ const GROUP_ORDER: GlobalSearchResultType[] = [
   'supplier',
   'customer_payment',
   'vendor_payment',
-  'journal_entry',
   'page',
 ];
 
@@ -43,7 +42,6 @@ const GROUP_LABELS: Record<GlobalSearchResultType, string> = {
   supplier: 'Suppliers',
   customer_payment: 'Customer Payments',
   vendor_payment: 'Vendor Payments',
-  journal_entry: 'Journal Entries',
 };
 
 const TYPE_BADGES: Record<GlobalSearchResultType, string> = {
@@ -54,7 +52,6 @@ const TYPE_BADGES: Record<GlobalSearchResultType, string> = {
   supplier: 'Supplier',
   customer_payment: 'Customer Payment',
   vendor_payment: 'Vendor Payment',
-  journal_entry: 'Journal',
 };
 
 type NavigableItem = {

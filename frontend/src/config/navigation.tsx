@@ -54,7 +54,6 @@ const ALL_ROLES: Role[] = [
 const SALES_ROLES: Role[] = ['admin', 'manager', 'sales_staff'];
 const PROCUREMENT_ROLES: Role[] = ['admin', 'manager', 'procurement_staff'];
 const INVENTORY_ROLES: Role[] = ['admin', 'manager', 'inventory_staff'];
-const FINANCE_ROLES: Role[] = ['admin', 'manager'];
 const ADMIN_ONLY: Role[] = ['admin'];
 
 export interface MenuItem {
