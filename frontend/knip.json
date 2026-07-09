@@ -7,7 +7,6 @@
   "ignoreExportsUsedInFile": true,
   "ignoreDependencies": [],
   "entry": [
-    "src/store/api/accountingApi.ts",
     "src/store/api/auditLogApi.ts",
     "src/store/api/inventoryApi.ts",
     "src/store/api/paymentMethodsApi.ts",
