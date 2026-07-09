@@ -16,11 +16,6 @@ import * as bcrypt from "bcrypt";
 export async function truncateAll(dataSource: DataSource): Promise<void> {
   await dataSource.query(`
     TRUNCATE TABLE
-      journal_entry_lines,
-      journal_entries,
-      account_mappings,
-      chart_of_accounts,
-      fiscal_periods,
       payments,
       sales_order_items,
       sales_orders,
@@ -94,7 +89,7 @@ export async function seedPaymentMethod(
   let pm = await pmRepo.findOne({ where: { code: "CASH" } });
   if (!pm) {
     pm = await pmRepo.save(
-      pmRepo.create({ code: "CASH", name: "Cash", requiresSettlement: false }),
+      pmRepo.create({ code: "CASH", name: "Cash" }),
     );
   }
   return pm;
@@ -108,7 +103,6 @@ export async function seedDocumentNumberSettings(
     { documentName: "Purchase Orders", prefix: "PO", paddingDigits: 3 },
     { documentName: "Goods Received", prefix: "GRN", paddingDigits: 3 },
     { documentName: "Vendor Payments", prefix: "VP", paddingDigits: 3 },
-    { documentName: "Journal Entries", prefix: "JE", paddingDigits: 4 },
   ];
   for (const cfg of configs) {
     await dataSource.query(
