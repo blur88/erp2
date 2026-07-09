@@ -4,6 +4,7 @@ import type { RouteObject } from 'react-router-dom'
 
 const AccountingDashboardPage = React.lazy(() => import('./AccountingDashboardPage'))
 const ChartOfAccountsPage = React.lazy(() => import('./ChartOfAccountsPage'))
+const ChartOfAccountDetailPage = React.lazy(() => import('./ChartOfAccountDetailPage'))
 const FiscalPeriodsPage = React.lazy(() => import('./FiscalPeriodsPage'))
 const JournalEntriesPage = React.lazy(() => import('./JournalEntriesPage'))
 const AccountMappingsPage = React.lazy(() => import('./AccountMappingsPage'))
@@ -22,6 +23,7 @@ export const accountingRoutes: RouteObject[] = [
   { path: '/accounting', element: <Navigate to="/accounting/dashboard" replace /> },
   { path: '/accounting/dashboard', element: <AccountingDashboardPage />, handle: { title: 'Dashboard' } },
   { path: '/accounting/chart-of-accounts', element: <ChartOfAccountsPage />, handle: { title: 'Chart of Accounts' } },
+  { path: '/accounting/chart-of-accounts/:id', element: <ChartOfAccountDetailPage />, handle: { title: 'Account' } },
   { path: '/accounting/fiscal-periods', element: <FiscalPeriodsPage />, handle: { title: 'Fiscal Periods' } },
   { path: '/accounting/journal-entries', element: <JournalEntriesPage />, handle: { title: 'Journal Entries' } },
   { path: '/accounting/journal-entries/:id', element: <Navigate to="/accounting/journal-entries" replace /> },
