@@ -22,10 +22,6 @@ export class CreatePaymentMethodDto {
   @MaxLength(100)
   name: string;
 
-  @ApiProperty({ description: 'Whether this method requires third-party settlement', default: false })
-  @IsBoolean()
-  requiresSettlement: boolean;
-
   @ApiPropertyOptional({ description: 'Whether this method is used for purchase orders', default: true })
   @IsOptional()
   @IsBoolean()
@@ -66,12 +62,6 @@ export class QueryPaymentMethodsDto {
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional({ description: 'Filter by requiresSettlement' })
-  @IsOptional()
-  @Type(() => Boolean)
-  @IsBoolean()
-  requiresSettlement?: boolean;
-
   @ApiPropertyOptional({ description: 'Filter by useForPurchases' })
   @IsOptional()
   @Type(() => Boolean)
@@ -83,7 +73,6 @@ export class PaymentMethodResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() code: string;
   @ApiProperty() name: string;
-  @ApiProperty() requiresSettlement: boolean;
   @ApiProperty() useForPurchases: boolean;
   @ApiProperty() sortOrder: number;
   @ApiProperty() isActive: boolean;

@@ -13,7 +13,6 @@ import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   Payment,
   PaymentStatus,
-  SettlementStatusEnum,
 } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
@@ -115,9 +114,6 @@ export class PaymentService extends BaseCrudService<
       paymentNumber,
       status: PaymentStatus.COMPLETED,
       paymentMethodId: paymentMethod.id,
-      settlementStatus: paymentMethod.requiresSettlement
-        ? SettlementStatusEnum.PENDING
-        : SettlementStatusEnum.NOT_APPLICABLE,
     });
 
     const savedPayment = await this.paymentRepository.save(payment);

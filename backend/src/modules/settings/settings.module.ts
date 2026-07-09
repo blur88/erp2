@@ -13,12 +13,6 @@ import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { VendorPayment } from '../../database/entities/vendor-payment.entity';
 import { StockAdjustment } from '../../database/entities/stock-adjustment.entity';
 import { PaymentMethodEntity } from '../../database/entities/payment-method.entity';
-import { AccountMapping } from '../../database/entities/account-mapping.entity';
-import { ChartOfAccount } from '../../database/entities/chart-of-account.entity';
-import { Settlement } from '../../database/entities/settlement.entity';
-import { JournalEntry } from '../../database/entities/journal-entry.entity';
-import { Expense } from '../../database/entities/expense.entity';
-import { OwnerEquityTransaction } from '../../database/entities/owner-equity-transaction.entity';
 import { PaymentMethodController } from './controllers/payment-method.controller';
 import { PaymentMethodService } from './services/payment-method.service';
 
@@ -39,12 +33,6 @@ import { PaymentMethodService } from './services/payment-method.service';
       VendorPayment,
       StockAdjustment,
       PaymentMethodEntity,
-      Settlement,
-      AccountMapping,
-      ChartOfAccount,
-      JournalEntry,
-      Expense,
-      OwnerEquityTransaction,
     ]),
 
     // Multer for file upload

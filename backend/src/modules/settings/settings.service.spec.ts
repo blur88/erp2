@@ -26,7 +26,7 @@ describe('SettingsService', () => {
       documentNumberSettingRepository as any,
       {} as any, {} as any,
       purchaseOrderRepository as any,
-      {} as any, {} as any, {} as any, {} as any, {} as any, {} as any,
+      {} as any, {} as any,
       {} as any,
     );
 
