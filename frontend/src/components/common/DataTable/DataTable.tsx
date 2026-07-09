@@ -24,7 +24,7 @@ export interface Column<T> {
 export interface DataTableProps<T> {
   columns: Column<T>[]
   rows: T[]
-  getRowKey: (row: T) => string
+  getRowKey: (row: T, index: number) => string
   emptyText: string
   isLoading?: boolean
   isError?: boolean
@@ -76,8 +76,8 @@ export function DataTable<T>({
         </TableRow>
       </TableHead>
       <TableBody>
-        {rows.map((row) => (
-          <TableRow key={getRowKey(row)} hover>
+        {rows.map((row, index) => (
+          <TableRow key={getRowKey(row, index)} hover>
             {columns.map((col, i) => (
               <TableCell key={i} align={col.align}>
                 {col.render(row)}

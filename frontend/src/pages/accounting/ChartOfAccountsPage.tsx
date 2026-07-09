@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import AccountMappingWarning from '@/components/accounting/AccountMappingWarning'
@@ -32,6 +32,13 @@ const ChartOfAccountsPage: React.FC = () => {
   const { data: hierarchyData, isLoading, isFetching, error } = useGetChartOfAccountsHierarchyQuery()
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [formOpen, setFormOpen] = useState(false)
+  const [formParentId, setFormParentId] = useState<string | null>(null)
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
+
+  const openCreate = (parentId: string | null) => {
+    setFormParentId(parentId)
+    setFormOpen(true)
+  }
 
   const flat = useMemo(() => {
     const rows: IndentedAccount[] = []
@@ -67,12 +74,12 @@ const ChartOfAccountsPage: React.FC = () => {
       <SimpleListPage
         title="Chart of Accounts"
         subtitle={`Manage your accounting structure (${hasActiveFilters ? `${filtered.length} of ${flat.length}` : `${flat.length} total`})`}
-        primaryAction={{ label: 'Add Account', onClick: () => setFormOpen(true) }}
+        primaryAction={{ label: 'Add Account', onClick: () => openCreate(null) }}
         filterConfig={filterConfig}
         draftFilters={draftFilters}
         handlers={handlers}
         hasActiveFilters={hasActiveFilters}
-        searchInputRef={{ current: null }}
+        searchInputRef={searchInputRef}
         sort={{
           field: 'code',
           sortBy: 'code',
@@ -86,13 +93,14 @@ const ChartOfAccountsPage: React.FC = () => {
             accounts={filtered}
             loading={isLoading}
             onSelect={(a) => navigate(`/accounting/chart-of-accounts/${a.id}`)}
-            onAddChild={(a) => setFormOpen(true)}
+            onAddChild={(a) => openCreate(a.id)}
           />
         }
         dialogs={
           <ChartOfAccountFormDialog
             open={formOpen}
             account={null}
+            parentId={formParentId}
             onClose={() => setFormOpen(false)}
             onSuccess={() => setFormOpen(false)}
           />

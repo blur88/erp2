@@ -19,7 +19,7 @@ export default function AccountJournalEntriesTab({ accountId }: { accountId: str
     <DataTable
       columns={columns}
       rows={rows}
-      getRowKey={(r) => r.date + r.reference}
+      getRowKey={(r, i) => `${r.date}-${r.reference}-${i}`}
       emptyText="No posted journal entries for this account."
       isLoading={isLoading}
       isError={isError}

@@ -233,19 +233,7 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
                   <Typography variant="subtitle2" color="text.secondary">Cash/Bank Account</Typography>
                   <Typography variant="body1">{account!.isCashEquivalent ? 'Yes' : 'No'}</Typography>
                 </Grid>
-                <Grid size={6}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={true}
-                        onChange={() => {}}
-                      />
-                    }
-                    label="Active (Enable for transactions)"
-                    sx={{ opacity: 0 }}
-                    disabled
-                  />
-                </Grid>
+                <Grid size={6} />
                 <Grid size={12}>
                   <Controller
                     name="isActive"
@@ -377,19 +365,7 @@ const ChartOfAccountFormDialog: React.FC<ChartOfAccountFormDialogProps> = ({
                   />
                 </Grid>
 
-                <Grid size={6}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={true}
-                        onChange={() => {}}
-                      />
-                    }
-                    label="Active"
-                    sx={{ opacity: 0 }}
-                    disabled
-                  />
-                </Grid>
+                <Grid size={6} />
 
                 <Grid size={6}>
                   <Controller

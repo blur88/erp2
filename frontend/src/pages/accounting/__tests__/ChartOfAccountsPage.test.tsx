@@ -17,8 +17,13 @@ const mockedApi = vi.hoisted(() => ({
 
 vi.mock('@/store/api/accountingApi', () => mockedApi)
 vi.mock('@/components/accounting/AccountMappingWarning', () => ({ default: () => null }))
+
+const dialogProps = vi.hoisted(() => ({ last: null as { open: boolean; parentId?: string | null } | null }))
 vi.mock('@/components/accounting/ChartOfAccountFormDialog', () => ({
-  default: ({ open }: { open: boolean }) => (open ? <div>Form Dialog</div> : null),
+  default: (props: { open: boolean; parentId?: string | null }) => {
+    dialogProps.last = props
+    return props.open ? <div>Form Dialog</div> : null
+  },
 }))
 
 const mockAccount = {
@@ -70,5 +75,17 @@ describe('ChartOfAccountsPage', () => {
   it('shows subtitle with account count', () => {
     renderPage()
     expect(screen.getByText(/1 total/)).toBeInTheDocument()
+  })
+
+  it('opens the create dialog with no parent from the primary action', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: /add account/i }))
+    expect(dialogProps.last).toMatchObject({ open: true, parentId: null })
+  })
+
+  it('opens the create dialog pre-set with the row as parent from Add child', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: /add child account/i }))
+    expect(dialogProps.last).toMatchObject({ open: true, parentId: 'a1' })
   })
 })
