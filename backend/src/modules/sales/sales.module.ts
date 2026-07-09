@@ -15,7 +15,6 @@ import { PurchaseOrderItem } from '../../database/entities/purchase-order-item.e
 import { PriceListItem } from '../../database/entities/price-list-item.entity';
 import { InventoryModule } from '../inventory/inventory.module';
 import { SettingsModule } from '../settings/settings.module';
-import { ExportModule } from '../../common/export.module';
 
 // Controllers
 import { CustomerController } from './controllers/customer.controller';
@@ -28,7 +27,6 @@ import { CustomerService } from './services/customer.service';
 import { SalesOrderService } from './services/sales-order.service'; // Temporarily disabled due to TypeScript errors
 import { PaymentService } from './services/payment.service';
 import { SalesAnalyticsService } from './services/sales-analytics.service';
-import { SalesAnalyticsReportService } from './services/sales-analytics-report.service';
 import { InventoryIntegrationService } from './services/inventory-integration.service';
 import { SalesOrderFulfillmentService } from './services/sales-order-fulfillment.service';
 import { SalesOrderLifecycleService } from './services/sales-order-lifecycle.service';
@@ -53,7 +51,6 @@ import { TransactionManager } from '../../common/utils/transaction.util';
     ]),
     forwardRef(() => InventoryModule),
     SettingsModule,
-    ExportModule,
   ],
   controllers: [
     CustomerController,
@@ -66,7 +63,6 @@ import { TransactionManager } from '../../common/utils/transaction.util';
     SalesOrderService,
     PaymentService,
     SalesAnalyticsService,
-    SalesAnalyticsReportService,
     InventoryIntegrationService,
     SalesOrderFulfillmentService,
     SalesOrderLifecycleService,
