@@ -175,7 +175,6 @@ describe('PaymentService', () => {
       paymentMethodRepository.findOne.mockResolvedValue({
         id: 'pm-1',
         code: 'CASH',
-        requiresSettlement: false,
       } as any);
       customerRepository.save.mockResolvedValue(mockCustomer as Customer);
       paymentRepository.create.mockReturnValue(mockPayment as Payment);
@@ -213,7 +212,6 @@ describe('PaymentService', () => {
       paymentMethodRepository.findOne.mockResolvedValue({
         id: 'pm-1',
         code: 'CASH',
-        requiresSettlement: false,
       } as any);
       customerRepository.save.mockResolvedValue(mockCustomer as Customer);
       paymentRepository.create.mockReturnValue(mockPayment as Payment);

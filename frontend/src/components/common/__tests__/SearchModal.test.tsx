@@ -187,13 +187,6 @@ describe('SearchModal', () => {
             route: '/purchasing/suppliers/s1',
             score: 77,
           },
-          {
-            type: 'journal_entry',
-            id: 'j1',
-            label: 'JE-2026-001',
-            route: '/accounting/journal-entries/j1',
-            score: 44,
-          },
         ],
       },
       isLoading: false,
@@ -205,7 +198,6 @@ describe('SearchModal', () => {
     typeAndFlush('ac');
 
     expect(screen.getByText('Suppliers')).toBeInTheDocument();
-    expect(screen.getByText('Journal Entries')).toBeInTheDocument();
   });
 
   it('renders data result groups before page group', () => {

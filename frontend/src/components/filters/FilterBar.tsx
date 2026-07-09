@@ -1,17 +1,10 @@
 import { CircularProgress, Stack } from '@mui/material'
 
-import { FilterAccountType } from './FilterAccountType'
-import { FilterBalancedStatus } from './FilterBalancedStatus'
 import { FilterCategory } from './FilterCategory'
-import { FilterExpenseStatus } from './FilterExpenseStatus'
-import { FilterBankReconciliationStatus } from './FilterBankReconciliationStatus'
 import { FilterCompare } from './FilterCompare'
 import { FilterCustomer } from './FilterCustomer'
 import { FilterCustomerType } from './FilterCustomerType'
-import { FilterFiscalPeriodStatus } from './FilterFiscalPeriodStatus'
-import { FilterFundTransferStatus } from './FilterFundTransferStatus'
 import { FilterOrderStatus } from './FilterOrderStatus'
-import { FilterOwnerEquityType } from './FilterOwnerEquityType'
 import { FilterPaymentStatus } from './FilterPaymentStatus'
 import { FilterPaymentMethod } from './FilterPaymentMethod'
 import { FilterPeriod } from './FilterPeriod'
@@ -275,86 +268,9 @@ function renderQuickField<TFilters extends object>(
     )
   }
 
-  if (field.type === 'expense-status') {
-    return (
-      <FilterExpenseStatus
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
   if (field.type === 'payment-method') {
     return (
       <FilterPaymentMethod
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'owner-equity-type') {
-    return (
-      <FilterOwnerEquityType
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'fiscal-period-status') {
-    return (
-      <FilterFiscalPeriodStatus
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'bank-reconciliation-status') {
-    return (
-      <FilterBankReconciliationStatus
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'fund-transfer-status') {
-    return (
-      <FilterFundTransferStatus
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'account-type') {
-    return (
-      <FilterAccountType
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'bank-reconciliation-balanced') {
-    return (
-      <FilterBalancedStatus
         key={fieldKey}
         field={fieldKey}
         value={(value as string | null) ?? null}

@@ -1,5 +1,4 @@
 import { PERIOD_KEYS, type PeriodKey } from '@/constants/periods'
-import { JournalEntryStatus } from '@/types'
 import type {
   FilterBarConfig,
   FilterFieldConfig,
@@ -82,16 +81,7 @@ export function serializeFilters<TFilters extends object>(
       field.type === 'stock-status' ||
       field.type === 'price-list' ||
       field.type === 'transaction-status' ||
-      field.type === 'vendor-payment-status' ||
-      field.type === 'journal-entry-status' ||
-      field.type === 'journal-entry-type' ||
-      field.type === 'expense-status' ||
-      field.type === 'owner-equity-type' ||
-      field.type === 'fiscal-period-status' ||
-      field.type === 'bank-reconciliation-status' ||
-      field.type === 'settlement-status' ||
-      field.type === 'fund-transfer-status' ||
-      field.type === 'account-type'
+      field.type === 'vendor-payment-status'
 
     if (isSingleValueField) {
       if (value !== null && value !== undefined && value !== defaultValue) {
@@ -168,16 +158,7 @@ export function parseFilters<TFilters extends object>(
       field.type === 'stock-status' ||
       field.type === 'price-list' ||
       field.type === 'transaction-status' ||
-      field.type === 'vendor-payment-status' ||
-      field.type === 'journal-entry-status' ||
-      field.type === 'journal-entry-type' ||
-      field.type === 'expense-status' ||
-      field.type === 'owner-equity-type' ||
-      field.type === 'fiscal-period-status' ||
-      field.type === 'bank-reconciliation-status' ||
-      field.type === 'settlement-status' ||
-      field.type === 'fund-transfer-status' ||
-      field.type === 'account-type'
+      field.type === 'vendor-payment-status'
 
     if (isSingleValueField) {
       const raw = searchParams.get(key)
@@ -224,33 +205,6 @@ export function parseFilters<TFilters extends object>(
       } else if (field.type === 'transaction-status') {
         const VALID_TRANSACTION_STATUS = ['completed', 'pending', 'failed', 'cancelled', 'refunded']
         result[fieldKey] = VALID_TRANSACTION_STATUS.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'journal-entry-status') {
-        const VALID_JOURNAL_ENTRY_STATUS = ['draft', 'posted', 'reversed', JournalEntryStatus.DRAFT, JournalEntryStatus.POSTED, JournalEntryStatus.REVERSED]
-        result[fieldKey] = VALID_JOURNAL_ENTRY_STATUS.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'journal-entry-type') {
-        const VALID_JOURNAL_ENTRY_TYPE = ['manual', 'sales_order', 'payment', 'settlement', 'goods_received_note', 'vendor_payment', 'stock_adjustment', 'owner_equity_transaction', 'expense', 'opening_balance', 'fund_transfer']
-        result[fieldKey] = VALID_JOURNAL_ENTRY_TYPE.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'expense-status') {
-        const VALID_EXPENSE_STATUS = ['draft', 'posted']
-        result[fieldKey] = VALID_EXPENSE_STATUS.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'owner-equity-type') {
-        const VALID_OWNER_EQUITY_TYPE = ['capital_injection', 'owner_drawing']
-        result[fieldKey] = VALID_OWNER_EQUITY_TYPE.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'fiscal-period-status') {
-        const VALID_FISCAL_PERIOD_STATUS = ['open', 'closed', 'OPEN', 'CLOSED']
-        result[fieldKey] = VALID_FISCAL_PERIOD_STATUS.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'bank-reconciliation-status') {
-        const VALID_BANK_RECONCILIATION_STATUS = ['in_progress', 'completed']
-        result[fieldKey] = VALID_BANK_RECONCILIATION_STATUS.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'settlement-status') {
-        const VALID_SETTLEMENT_STATUS = ['draft', 'posted', 'reversed']
-        result[fieldKey] = VALID_SETTLEMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'fund-transfer-status') {
-        const VALID_FUND_TRANSFER_STATUS = ['ACTIVE', 'CANCELLED']
-        result[fieldKey] = VALID_FUND_TRANSFER_STATUS.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'account-type') {
-        const VALID_ACCOUNT_TYPE = ['ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE']
-        result[fieldKey] = VALID_ACCOUNT_TYPE.includes(raw) ? raw : (defaultValue ?? null)
       } else {
         result[fieldKey] = raw
       }
