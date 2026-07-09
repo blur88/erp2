@@ -8,12 +8,13 @@ import {
   IsBoolean,
   IsArray,
   ArrayNotEmpty,
+  IsEmpty,
   MaxLength,
   Min,
   Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, ApiHideProperty, PartialType } from '@nestjs/swagger';
 import { AccountType } from '../../../database/entities/chart-of-account.entity';
 
 export class CreateChartOfAccountDto {
@@ -54,23 +55,33 @@ export class CreateChartOfAccountDto {
   isCashEquivalent?: boolean;
 }
 
-export class UpdateChartOfAccountDto extends PartialType(CreateChartOfAccountDto) {
-  @ApiPropertyOptional({ description: 'Unique account code', maxLength: 50 })
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  code?: string;
-
+export class UpdateChartOfAccountDto {
   @ApiPropertyOptional({ description: 'Account name', maxLength: 255 })
   @IsOptional()
   @IsString()
   @MaxLength(255)
   name?: string;
 
-  @ApiPropertyOptional({ description: 'Account type', enum: AccountType })
+  @ApiPropertyOptional({ description: 'Whether the account is active' })
   @IsOptional()
-  @IsEnum(AccountType)
-  type?: AccountType;
+  @IsBoolean()
+  isActive?: boolean;
+
+  @ApiHideProperty()
+  @IsEmpty({ message: 'Account code cannot be changed after creation' })
+  code?: never;
+
+  @ApiHideProperty()
+  @IsEmpty({ message: 'Account type cannot be changed after creation' })
+  type?: never;
+
+  @ApiHideProperty()
+  @IsEmpty({ message: 'Parent account cannot be changed after creation' })
+  parentId?: never;
+
+  @ApiHideProperty()
+  @IsEmpty({ message: 'Cash-equivalent flag cannot be changed after creation' })
+  isCashEquivalent?: never;
 }
 
 export class QueryChartOfAccountsDto {

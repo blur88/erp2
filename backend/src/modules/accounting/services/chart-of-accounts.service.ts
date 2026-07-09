@@ -224,60 +224,6 @@ export class ChartOfAccountsService {
       throw new NotFoundException(`Account with ID '${id}' not found`);
     }
 
-    // Check for code conflicts if code is being changed
-    if (updateDto.code && updateDto.code !== account.code) {
-      const existingAccount = await this.accountRepository.findOne({
-        where: { code: updateDto.code },
-        withDeleted: true,
-      });
-
-      if (existingAccount && existingAccount.id !== id) {
-        if (existingAccount.deletedAt) {
-          throw new ConflictException(
-            `Account with code '${updateDto.code}' was previously deleted. ` +
-            `Please restore it or use a different code.`,
-          );
-        }
-        throw new ConflictException(
-          `Account with code '${updateDto.code}' already exists`,
-        );
-      }
-    }
-
-    // Validate parent account if being changed
-    if (updateDto.parentId && updateDto.parentId !== account.parentId) {
-      const parentAccount = await this.accountRepository.findOne({
-        where: { id: updateDto.parentId, isActive: true },
-      });
-
-      if (!parentAccount) {
-        throw new NotFoundException(
-          `Parent account with ID '${updateDto.parentId}' not found or inactive`,
-        );
-      }
-
-      // Prevent circular reference
-      if (updateDto.parentId === id) {
-        throw new BadRequestException('An account cannot be its own parent');
-      }
-
-      // Ensure parent account is the same type
-      const accountType = updateDto.type || account.type;
-      if (parentAccount.type !== accountType) {
-        throw new BadRequestException(
-          `Parent account must be of the same type (${accountType})`,
-        );
-      }
-
-      // Check if the new parent is not a descendant
-      const isDescendant = await this.isDescendantOf(updateDto.parentId, id);
-      if (isDescendant) {
-        throw new BadRequestException(
-          'Cannot set parent to a descendant account (circular reference)',
-        );
-      }
-    }
-
     // Update the account
     Object.assign(account, updateDto);
 

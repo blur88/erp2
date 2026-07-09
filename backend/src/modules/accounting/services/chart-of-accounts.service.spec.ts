@@ -20,6 +20,8 @@ import {
   UpdateChartOfAccountDto,
   QueryChartOfAccountsDto,
 } from '../dto/chart-of-account.dto';
+import { validate } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
 
 describe('ChartOfAccountsService', () => {
   let service: ChartOfAccountsService;
@@ -363,28 +365,7 @@ describe('ChartOfAccountsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ConflictException when updating to existing code', async () => {
-      const existingAccount = { ...mockAccount, id: 'different-id', code: '2000' };
-      const updateDtoWithCode = { code: '2000' };
 
-      accountRepository.findOne
-        .mockResolvedValueOnce(mockAccount as ChartOfAccount)
-        .mockResolvedValueOnce(existingAccount as ChartOfAccount);
-
-      await expect(
-        service.update(mockAccount.id!, updateDtoWithCode),
-      ).rejects.toThrow(ConflictException);
-    });
-
-    it('should throw BadRequestException for circular reference (self as parent)', async () => {
-      const updateDtoWithSelfParent = { parentId: mockAccount.id };
-
-      accountRepository.findOne.mockResolvedValue(mockAccount as ChartOfAccount);
-
-      await expect(
-        service.update(mockAccount.id!, updateDtoWithSelfParent),
-      ).rejects.toThrow(BadRequestException);
-    });
   });
 
   describe('remove', () => {
@@ -698,5 +679,33 @@ describe('ChartOfAccountsService', () => {
 
       expect(accountRepository.save).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('UpdateChartOfAccountDto', () => {
+  it('rejects code', async () => {
+    const dto = plainToInstance(UpdateChartOfAccountDto, { code: '9999' });
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'code')).toBe(true);
+  });
+  it('rejects type', async () => {
+    const dto = plainToInstance(UpdateChartOfAccountDto, { type: 'EXPENSE' });
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'type')).toBe(true);
+  });
+  it('rejects isCashEquivalent', async () => {
+    const dto = plainToInstance(UpdateChartOfAccountDto, { isCashEquivalent: true });
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'isCashEquivalent')).toBe(true);
+  });
+  it('rejects parentId', async () => {
+    const dto = plainToInstance(UpdateChartOfAccountDto, { parentId: 'some-uuid' });
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'parentId')).toBe(true);
+  });
+  it('accepts name + isActive', async () => {
+    const dto = plainToInstance(UpdateChartOfAccountDto, { name: 'Cash', isActive: false });
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(0);
   });
 });
