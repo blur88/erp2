@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ERP system — NestJS 11 backend + React 19 / TypeScript 6 / Material-UI v9 frontend, served via NGINX in Docker.
 
 - **Databases**: PostgreSQL 18.3 (TypeORM, primary), Redis 8.6 (caching, queues, WebSocket state)
-- **Queue**: Bull Queue (background jobs)
+- **Queue**: BullMQ via `@nestjs/bullmq` (background jobs)
 - **Testing**: Jest (backend) + Vitest (frontend)
 - **Default admin**: `admin / Admin@123!` — change on first login
 
@@ -29,7 +29,10 @@ cd backend && npm run test
 # Run a single backend test file (path relative to backend/)
 cd backend && npx jest src/path/to/file.spec.ts --no-coverage
 
-# Run all frontend tests (slow — takes ~12 minutes for 154 files; do NOT assume hung)
+# Run backend e2e tests (required after entity/migration changes)
+cd backend && npm run test:e2e
+
+# Run all frontend tests (slow — ~12 minutes for ~167 files; do NOT assume hung)
 cd frontend && npm run test
 
 # Run a single frontend test file (path relative to frontend/)
@@ -52,6 +55,9 @@ cd backend && npm run lint && npm run format
 
 cd frontend && npm run lint
 
+# Maintenance menu (outdated deps, audit, knip, jscpd, docker rebuild)
+./maintain.sh
+
 # Deploy
 ./deploy.sh          # start
 ./deploy.sh restart  # restart
@@ -61,9 +67,13 @@ cd frontend && npm run lint
 
 ## Architecture
 
-**Active modules** (13): `AuthModule`, `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule`, `PriceListsModule`, `AuditLogsModule`, `BackupModule`, `AccountingModule`, `SearchModule`
+**Active business modules** (12, `backend/src/modules/`): `AuthModule`, `UsersModule`, `InventoryModule`, `SalesModule`, `PurchasingModule`, `DashboardModule`, `SettingsModule`, `PrintSettingsModule`, `PriceListsModule`, `AuditLogsModule`, `BackupModule`, `SearchModule`
 
-Reports are embedded in their business modules (Inventory, Sales, Purchasing) — there is no separate reports module.
+Plus `ErrorManagementModule` (`backend/src/common/error-management`) — cross-cutting exception filters/interceptors, registered in `app.module.ts` ahead of the business modules.
+
+The accounting module was removed (issue #884) — no `modules/accounting`, no journal entries, no chart of accounts.
+
+Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and methods **inside** the respective `*-analytics` controllers/services, which also serve the dashboards.
 
 **Non-obvious decisions:**
 - `TypeScript strict: false` — use `as any` when TypeORM types resist
@@ -73,7 +83,14 @@ Reports are embedded in their business modules (Inventory, Sales, Purchasing) �
 - All API responses go through `ApiService` which wraps them as `{ data: T, meta?: {...} }` — see Gotchas for access patterns
 - Frontend API calls use RTK Query (`frontend/src/store/api/`); `ApiService` (Axios) is the underlying transport layer
 
-**Accounting module** (double-entry, auto-posting): 7 entities, full RBAC. View reports: all roles. Create/edit journal entries: Admin + Manager. Delete/manage fiscal periods: Admin only.
+## Pre-PR verification gates
+
+`AGENTS.md` defines these as **required**, scoped to the files touched (not a default set). PRs must state the exact commands run and whether they passed.
+
+- Backend `src/**`: `cd backend && npm run lint && npm run test`
+- Backend entities/migrations: also `npm run migration:run && npm run test:e2e`
+- Frontend `src/**`: `cd frontend && npm run lint && npm run type-check && npm run test` (full suite required even for one-line changes)
+- Cross-app DTO/interface changes: both backend and frontend suites
 
 ## Gotchas
 
@@ -88,5 +105,9 @@ Reports are embedded in their business modules (Inventory, Sales, Purchasing) �
 **Frontend Docker**: Changes to frontend source require a rebuild — `docker compose build frontend && docker compose up -d frontend`. The Vite dev server (`npm run dev`) is for local-only development.
 
 **Path aliases**: Frontend uses `@/` as alias for `src/`. Backend uses `@/*` → `src/*` and `@modules/*` → `src/modules/*`.
+
+**Dead-code sweeps**: `maintain.sh do_knip()` wraps `npx knip` in `|| true`, so it always exits 0 and cannot be used as a gate — run `npx knip` directly per directory when you need pass/fail. Knip also reports false positives for backend service methods called by a *sibling service* rather than an HTTP route; grep the method name across `backend/src` before deleting anything.
+
+**Migrations can't be tested from an empty DB**: the dev database's `migrations` table is empty because the schema is built by `schema:sync`. The migration chain breaks at the second migration when run from scratch, so a new migration cannot be validated end-to-end with `migration:run` locally. Validate by inspection plus querying the live `pg_tables` / `pg_type`.
 
 **Pulling main**: Always use `git pull --ff-only` on `main` (or set globally: `git config --global pull.ff only`). A regular `git pull` with `merge.ff = false` creates a merge commit that re-triggers the Release workflow unnecessarily.
