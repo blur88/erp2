@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { default as DashboardIcon } from '@mui/icons-material/Dashboard';
-import { default as PaymentDetailIcon } from '@mui/icons-material/MonetizationOn';
 import { default as InventoryIcon } from '@mui/icons-material/Inventory';
 import { default as SalesIcon } from '@mui/icons-material/PointOfSale';
 import { default as PurchasingIcon } from '@mui/icons-material/Assignment';
@@ -16,19 +15,7 @@ import { default as PurchaseOrderIcon } from '@mui/icons-material/Description';
 import { default as StockAdjustmentIcon } from '@mui/icons-material/SwapVert';
 import { default as SwapHorizIcon } from '@mui/icons-material/SwapHoriz';
 import { default as PriceCostingIcon } from '@mui/icons-material/PriceChange';
-import { default as SummaryIcon } from '@mui/icons-material/Summarize';
-import { default as DetailIcon } from '@mui/icons-material/ListAlt';
-import { default as ProfitIcon } from '@mui/icons-material/TrendingUp';
-import { default as PaymentSummaryIcon } from '@mui/icons-material/AccountBalanceWallet';
 import { default as AccountBalanceWalletIcon } from '@mui/icons-material/AccountBalanceWallet';
-import { default as PaymentOrderIcon } from '@mui/icons-material/ReceiptLongOutlined';
-import { default as HistoryIcon } from '@mui/icons-material/History';
-import { default as CustomerProductIcon } from '@mui/icons-material/PersonSearch';
-import { default as InventorySummaryIcon } from '@mui/icons-material/Inventory2';
-import { default as HistoricalInventoryIcon } from '@mui/icons-material/Timeline';
-import { default as MovementSummaryIcon } from '@mui/icons-material/CompareArrows';
-import { default as PriceListIcon } from '@mui/icons-material/AttachMoney';
-import { default as CostReportIcon } from '@mui/icons-material/TrendingDown';
 import { default as PrintIcon } from '@mui/icons-material/Print';
 import { default as DocumentNumberIcon } from '@mui/icons-material/FormatListNumbered';
 import { default as BackupIcon } from '@mui/icons-material/Backup';
@@ -37,7 +24,6 @@ import { default as PeopleIcon } from '@mui/icons-material/People';
 import { default as SecurityIcon } from '@mui/icons-material/Security';
 import { default as LockIcon } from '@mui/icons-material/Lock';
 import { default as PriceTagIcon } from '@mui/icons-material/LocalOffer';
-import { default as AssessmentIcon } from '@mui/icons-material/Assessment';
 import { default as RegionalIcon } from '@mui/icons-material/Language';
 import { default as StockLevelIcon } from '@mui/icons-material/WarningAmber';
 import type { AuthUser } from '../store/slices/authSlice';
@@ -201,156 +187,6 @@ export const menuSections: MenuSection[] = [
             title: 'Stock Adjustments',
             icon: <StockAdjustmentIcon />,
             path: '/inventory/stock-adjustments',
-            roles: INVENTORY_ROLES,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'insights',
-    title: 'Insights',
-    items: [
-      {
-        id: 'reports',
-        title: 'Reports',
-        icon: <AssessmentIcon />,
-        flyoutMode: 'category-first',
-        children: [
-          {
-            id: 'sales-by-product-summary',
-            title: 'Product Summary',
-            icon: <SummaryIcon />,
-            group: 'Sales',
-            path: '/reports/sales/product-summary',
-            roles: SALES_ROLES,
-          },
-          {
-            id: 'sales-by-product-details',
-            title: 'Product Details',
-            icon: <DetailIcon />,
-            group: 'Sales',
-            path: '/reports/sales/product-details',
-            roles: SALES_ROLES,
-          },
-          {
-            id: 'sales-order-summary',
-            title: 'Order Summary',
-            icon: <OrdersIcon />,
-            group: 'Sales',
-            path: '/reports/sales/order-summary',
-            roles: SALES_ROLES,
-          },
-          {
-            id: 'sales-order-profit-report',
-            title: 'Order Profit',
-            icon: <ProfitIcon />,
-            group: 'Sales',
-            path: '/reports/sales/order-profit',
-            roles: SALES_ROLES,
-          },
-          {
-            id: 'customer-payment-summary',
-            title: 'Payment Summary',
-            icon: <PaymentSummaryIcon />,
-            group: 'Sales',
-            path: '/reports/sales/customer-payment-summary',
-            roles: SALES_ROLES,
-          },
-          {
-            id: 'customer-payment-by-order',
-            title: 'Payment by Order',
-            icon: <PaymentOrderIcon />,
-            group: 'Sales',
-            path: '/reports/sales/payment-by-order',
-            roles: SALES_ROLES,
-          },
-          {
-            id: 'customer-payment-details',
-            title: 'Payment Details',
-            icon: <PaymentDetailIcon />,
-            group: 'Sales',
-            path: '/reports/sales/payment-details',
-            roles: SALES_ROLES,
-          },
-          {
-            id: 'customer-order-history',
-            title: 'Order History',
-            icon: <HistoryIcon />,
-            group: 'Sales',
-            path: '/reports/sales/order-history',
-            roles: SALES_ROLES,
-          },
-          {
-            id: 'product-customer-report',
-            title: 'Product Customers',
-            icon: <CustomerProductIcon />,
-            group: 'Sales',
-            path: '/reports/sales/product-customer',
-            roles: SALES_ROLES,
-          },
-          {
-            id: 'purchase-order-summary',
-            title: 'Order Summary',
-            icon: <SummaryIcon />,
-            group: 'Purchasing',
-            path: '/reports/purchasing/order-summary',
-            roles: PROCUREMENT_ROLES,
-          },
-          {
-            id: 'purchase-order-details',
-            title: 'Order Details',
-            icon: <DetailIcon />,
-            group: 'Purchasing',
-            path: '/reports/purchasing/order-details',
-            roles: PROCUREMENT_ROLES,
-          },
-          {
-            id: 'purchase-order-status',
-            title: 'Order Status',
-            icon: <OrdersIcon />,
-            group: 'Purchasing',
-            path: '/reports/purchasing/order-status',
-            roles: PROCUREMENT_ROLES,
-          },
-          {
-            id: 'inventory-summary',
-            title: 'Inventory Summary',
-            icon: <InventorySummaryIcon />,
-            group: 'Inventory',
-            path: '/reports/inventory/summary',
-            roles: INVENTORY_ROLES,
-          },
-          {
-            id: 'historical-inventory',
-            title: 'Historical Inventory',
-            icon: <HistoricalInventoryIcon />,
-            group: 'Inventory',
-            path: '/reports/inventory/historical',
-            roles: INVENTORY_ROLES,
-          },
-          {
-            id: 'inventory-movement-summary',
-            title: 'Movement Summary',
-            icon: <MovementSummaryIcon />,
-            group: 'Inventory',
-            path: '/reports/inventory/movement-summary',
-            roles: INVENTORY_ROLES,
-          },
-          {
-            id: 'product-price-list',
-            title: 'Product Price List',
-            icon: <PriceListIcon />,
-            group: 'Inventory',
-            path: '/reports/inventory/price-list',
-            roles: INVENTORY_ROLES,
-          },
-          {
-            id: 'product-cost-report',
-            title: 'Product Cost Report',
-            icon: <CostReportIcon />,
-            group: 'Inventory',
-            path: '/reports/inventory/product-cost',
             roles: INVENTORY_ROLES,
           },
         ],

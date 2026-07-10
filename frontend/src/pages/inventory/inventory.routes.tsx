@@ -11,11 +11,7 @@ const CategoryViewPage = React.lazy(() => import('./CategoryViewPage'))
 const StockAdjustmentsPage = React.lazy(() => import('./StockAdjustmentsPage'))
 const CreateStockAdjustmentPage = React.lazy(() => import('./CreateStockAdjustmentPage'))
 const StockAdjustmentViewPage = React.lazy(() => import('./StockAdjustmentViewPage'))
-const InventorySummaryReport = React.lazy(() => import('./InventorySummaryReport'))
-const HistoricalInventoryReport = React.lazy(() => import('./HistoricalInventoryReport'))
-const MovementSummaryReport = React.lazy(() => import('./MovementSummaryReport'))
-const PriceListReport = React.lazy(() => import('./PriceListReport'))
-const ProductCostReport = React.lazy(() => import('./ProductCostReport'))
+
 
 export const inventoryRoutes: RouteObject[] = [
   { path: '/inventory', element: <InventoryPage />, handle: { title: 'Inventory' } },
@@ -31,9 +27,5 @@ export const inventoryRoutes: RouteObject[] = [
   { path: '/inventory/stock-adjustments/create', element: <CreateStockAdjustmentPage />, handle: { title: 'Create Stock Adjustment' } },
   { path: '/inventory/stock-adjustments/:id/view', element: <StockAdjustmentViewPage />, handle: { title: 'Stock Adjustment' } },
   { path: '/inventory/stock-adjustments/:id/edit', element: <CreateStockAdjustmentPage />, handle: { title: 'Edit Stock Adjustment' } },
-  { path: '/reports/inventory/summary', element: <InventorySummaryReport />, handle: { title: 'Inventory Summary' } },
-  { path: '/reports/inventory/historical', element: <HistoricalInventoryReport />, handle: { title: 'Historical Inventory' } },
-  { path: '/reports/inventory/movement-summary', element: <MovementSummaryReport />, handle: { title: 'Inventory Movement Summary' } },
-  { path: '/reports/inventory/price-list', element: <PriceListReport />, handle: { title: 'Product Price List' } },
-  { path: '/reports/inventory/product-cost', element: <ProductCostReport />, handle: { title: 'Product Cost Report' } },
+  
 ]

@@ -13,7 +13,7 @@ import {
   subMonths,
   subYears,
 } from 'date-fns';
-import { Repository, Between } from 'typeorm';
+import { Repository } from 'typeorm';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { Payment, PaymentStatus } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
@@ -30,13 +30,9 @@ import {
   PipelineStageDto,
   CustomerAnalyticsQueryDto,
   CustomerMetricsDto,
-  RevenueReportQueryDto,
-  RevenueReportResponseDto,
-  RevenueDataDto,
   GroupByPeriod,
   SalesAnalyticsPeriodBlockDto,
 } from '../dto/sales-analytics.dto';
-import { SalesAnalyticsReportService } from './sales-analytics-report.service';
 import { SettingsService } from '../../settings/settings.service';
 import { resolveDateRange } from '@/common/utils/date-range.util';
 
@@ -51,7 +47,6 @@ export class SalesAnalyticsService {
     private readonly customerRepository: Repository<Customer>,
     @InjectRepository(SalesOrderItem)
     private readonly salesOrderItemRepository: Repository<SalesOrderItem>,
-    private readonly salesAnalyticsReportService: SalesAnalyticsReportService,
     private readonly settingsService: SettingsService,
   ) {}
 
@@ -239,89 +234,7 @@ export class SalesAnalyticsService {
     };
   }
 
-  async getRevenueReport(query: RevenueReportQueryDto): Promise<RevenueReportResponseDto> {
-    const { timezone } = await this.settingsService.getRegionalSettings();
-    const { startDate, endDate } = resolveDateRange(
-      timezone,
-      query.period,
-      query.startDate,
-      query.endDate,
-    );
-    const groupBy = query.groupBy || 'month';
-
-    // Get current period data
-    const currentPeriodData = await this.getRevenueDataByPeriod(startDate, endDate, groupBy);
-
-    let previousPeriodData: RevenueDataDto[] = [];
-    let previousPeriodTotals = { totalRevenue: 0, totalOrders: 0 };
-
-    if (query.includeComparison) {
-      const periodDuration = endDate.getTime() - startDate.getTime();
-      const previousStartDate = new Date(startDate.getTime() - periodDuration);
-      const previousEndDate = new Date(startDate.getTime() - 1);
-
-      previousPeriodData = await this.getRevenueDataByPeriod(
-        previousStartDate,
-        previousEndDate,
-        groupBy,
-      );
-
-      const previousStats = previousPeriodData.reduce(
-        (acc, item) => ({
-          totalRevenue: acc.totalRevenue + item.revenue,
-          totalOrders: acc.totalOrders + item.orders,
-        }),
-        { totalRevenue: 0, totalOrders: 0 },
-      );
-
-      previousPeriodTotals = {
-        totalRevenue: previousStats.totalRevenue,
-        totalOrders: previousStats.totalOrders,
-      };
-    }
-
-    // Calculate current period totals
-    const currentPeriodTotals = currentPeriodData.reduce(
-      (acc, item) => ({
-        totalRevenue: acc.totalRevenue + item.revenue,
-        totalOrders: acc.totalOrders + item.orders,
-      }),
-      { totalRevenue: 0, totalOrders: 0 },
-    );
-
-    // Add comparison data to current period data
-    const dataWithComparison = currentPeriodData.map((current, index) => {
-      const previous = previousPeriodData[index];
-      return {
-        ...current,
-        previousPeriodRevenue: previous?.revenue,
-        growthPercentage: previous?.revenue
-          ? ((current.revenue - previous.revenue) / previous.revenue) * 100
-          : undefined,
-      };
-    });
-
-    const growthPercentage =
-      previousPeriodTotals.totalRevenue > 0
-        ? ((currentPeriodTotals.totalRevenue - previousPeriodTotals.totalRevenue) /
-            previousPeriodTotals.totalRevenue) *
-          100
-        : 0;
-
-    return {
-      data: dataWithComparison,
-      totalRevenue: currentPeriodTotals.totalRevenue,
-      totalOrders: currentPeriodTotals.totalOrders,
-      averageOrderValue:
-        currentPeriodTotals.totalOrders > 0
-          ? currentPeriodTotals.totalRevenue / currentPeriodTotals.totalOrders
-          : 0,
-      previousPeriodRevenue: previousPeriodTotals.totalRevenue,
-      growthPercentage,
-      periodStart: startDate,
-      periodEnd: endDate,
-    };
-  }
+  
 
   async getDashboardMetrics(): Promise<{
     today: SalesMetricsDto;
@@ -670,51 +583,7 @@ export class SalesAnalyticsService {
     }));
   }
 
-  private async getRevenueDataByPeriod(
-    startDate: Date,
-    endDate: Date,
-    groupBy: string,
-  ): Promise<RevenueDataDto[]> {
-    let dateFormat: string;
-
-    switch (groupBy) {
-      case 'day':
-        dateFormat = 'YYYY-MM-DD';
-        break;
-      case 'week':
-        dateFormat = 'IYYY-IW';
-        break;
-      default: // month
-        dateFormat = 'YYYY-MM';
-        break;
-    }
-
-    const data = await this.salesOrderRepository
-      .createQueryBuilder('order')
-      .where('order.orderDate BETWEEN :startDate AND :endDate', {
-        startDate,
-        endDate,
-      })
-      .andWhere('order.status = :status', {
-        status: SalesOrderStatus.FULFILLED,
-      })
-      .select([
-        `TO_CHAR(order.orderDate, '${dateFormat}') as period`,
-        'COALESCE(SUM(order.totalAmount + order.shippingAmount), 0) as revenue',
-        'COUNT(*) as orders',
-        'COALESCE(AVG(order.totalAmount + order.shippingAmount), 0) as "averageOrderValue"',
-      ])
-      .groupBy(`TO_CHAR(order.orderDate, '${dateFormat}')`)
-      .orderBy(`TO_CHAR(order.orderDate, '${dateFormat}')`, 'ASC')
-      .getRawMany();
-
-    return data.map((item) => ({
-      period: item.period,
-      revenue: parseFloat(item.revenue) || 0,
-      orders: parseInt(item.orders) || 0,
-      averageOrderValue: parseFloat(item.averageOrderValue) || 0,
-    }));
-  }
+  
 
   private fillPeriodGaps(
     data: PeriodMetricDto[],
@@ -796,82 +665,6 @@ export class SalesAnalyticsService {
       compareEnd: subYears(end, 1),
     };
   }
-
-  async getProductSummary(query: {
-    dateFrom?: Date;
-    dateTo?: Date;
-    categoryId?: string;
-    productIds?: string[];
-  }) {
-    return this.salesAnalyticsReportService.getProductSummary(query);
-  }
-
-  async getProductDetails(query: {
-    dateFrom?: Date;
-    dateTo?: Date;
-    categoryId?: string;
-    productIds?: string[];
-  }) {
-    return this.salesAnalyticsReportService.getProductDetails(query);
-  }
-
-  async getSalesOrderProfitReport(query: {
-    dateFrom?: Date;
-    dateTo?: Date;
-    customerId?: string;
-    status?: string;
-    paymentStatus?: string;
-  }) {
-    return this.salesAnalyticsReportService.getSalesOrderProfitReport(query);
-  }
-
-  async getCustomerPaymentSummary(query: {
-    dateFrom?: Date;
-    dateTo?: Date;
-    customerId?: string;
-    paymentStatus?: string;
-  }) {
-    return this.salesAnalyticsReportService.getCustomerPaymentSummary(query);
-  }
-
-  async getCustomerPaymentByOrder(query: {
-    dateFrom?: Date;
-    dateTo?: Date;
-    customerId?: string;
-    paymentStatus?: string;
-  }) {
-    return this.salesAnalyticsReportService.getCustomerPaymentByOrder(query);
-  }
-
-  async getCustomerPaymentDetails(query: {
-    dateFrom?: Date;
-    dateTo?: Date;
-    customerId?: string;
-    paymentStatus?: string;
-  }) {
-    return this.salesAnalyticsReportService.getCustomerPaymentDetails(query);
-  }
-
-  async getCustomerOrderHistory(query: {
-    dateFrom?: Date;
-    dateTo?: Date;
-    customerId?: string;
-    categoryId?: string;
-    productIds?: string[];
-    inventoryStatus?: string;
-    paymentStatus?: string;
-  }) {
-    return this.salesAnalyticsReportService.getCustomerOrderHistory(query);
-  }
-
-  async getProductCustomerReport(query: {
-    dateFrom?: Date;
-    dateTo?: Date;
-    productIds?: string[];
-    categoryId?: string;
-    inventoryStatus?: string;
-    paymentStatus?: string;
-  }) {
-    return this.salesAnalyticsReportService.getProductCustomerReport(query);
-  }
 }
+
+  

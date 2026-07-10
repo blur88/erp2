@@ -5,7 +5,6 @@ import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { Payment } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
-import { SalesAnalyticsReportService } from './sales-analytics-report.service';
 import { SalesAnalyticsQueryDto } from '../dto/sales-analytics.dto';
 import { SettingsService } from '../../settings/settings.service';
 
@@ -67,10 +66,6 @@ describe('SalesAnalyticsService', () => {
         {
           provide: getRepositoryToken(SalesOrderItem),
           useValue: makeRepoMock(),
-        },
-        {
-          provide: SalesAnalyticsReportService,
-          useValue: { getProductSummary: jest.fn() },
         },
         { provide: SettingsService, useValue: settingsService },
       ],
