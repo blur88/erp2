@@ -1,13 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import {
-  PurchaseOrder,
-  PurchaseOrderItem,
-  Supplier,
-  Product,
-  VendorPayment,
-} from '../../../database/entities';
+import { PurchaseOrder } from '../../../database/entities';
 import { differenceInCalendarDays, subDays, subMonths, subYears } from 'date-fns';
 import { SettingsService } from '../../settings/settings.service';
 import {
@@ -21,16 +15,6 @@ import {
 } from '../dto/purchasing-analytics.dto';
 import { GroupByPeriod } from '@/common/dto/analytics.dto';
 import { resolveDateRange } from '@/common/utils/date-range.util';
-
-interface PurchaseOrderSummaryQuery {
-  dateFrom?: Date;
-  dateTo?: Date;
-  supplierId?: string;
-  categoryId?: string;
-  productIds?: string[];
-  status?: string;
-  paymentStatus?: string;
-}
 
 interface PurchasingAnalyticsFilters {
   supplierId?: string;
@@ -49,48 +33,11 @@ function derivePaymentStatus(
   return 'unpaid';
 }
 
-export interface PurchaseOrderSummaryItem {
-  orderNumber: string;
-  orderDate: string;
-  supplierName: string;
-  status: string;
-  paymentStatus: string;
-  totalAmount: number;
-  paidAmount: number;
-  balance: number;
-  shippingAmount: number;
-}
-
-export interface PurchaseOrderDetailsItem {
-  orderNumber: string;
-  orderDate: string;
-  supplierName: string;
-  productName: string;
-  categoryName: string;
-  quantity: number;
-  receivedQuantity: number;
-  remainingQuantity: number;
-  unitPrice: number;
-  discountPercent: number;
-  discountAmount: number;
-  totalAmount: number;
-  status: string;
-  paymentStatus: string;
-}
-
 @Injectable()
 export class PurchasingAnalyticsService {
   constructor(
     @InjectRepository(PurchaseOrder)
     private readonly purchaseOrderRepository: Repository<PurchaseOrder>,
-    @InjectRepository(PurchaseOrderItem)
-    private readonly purchaseOrderItemRepository: Repository<PurchaseOrderItem>,
-    @InjectRepository(Supplier)
-    private readonly supplierRepository: Repository<Supplier>,
-    @InjectRepository(Product)
-    private readonly productRepository: Repository<Product>,
-    @InjectRepository(VendorPayment)
-    private readonly vendorPaymentRepository: Repository<VendorPayment>,
     private readonly settingsService: SettingsService,
   ) {}
 

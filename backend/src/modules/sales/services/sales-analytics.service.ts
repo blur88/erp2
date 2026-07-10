@@ -13,7 +13,7 @@ import {
   subMonths,
   subYears,
 } from 'date-fns';
-import { Repository, Between } from 'typeorm';
+import { Repository } from 'typeorm';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { Payment, PaymentStatus } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';

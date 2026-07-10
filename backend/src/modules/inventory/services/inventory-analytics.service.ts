@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThan, In } from 'typeorm';
-import { Product, Category, StockMovement, PriceListItem as PriceListItemEntity } from '../../../database/entities';
-import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
+import { Repository } from 'typeorm';
+import { Product, Category, StockMovement } from '../../../database/entities';
 import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
 import { differenceInCalendarDays, subDays, subMonths, subYears } from 'date-fns';
 import { SettingsService } from '../../settings/settings.service';
@@ -33,10 +32,6 @@ export class InventoryAnalyticsService {
     private readonly categoryRepository: Repository<Category>,
     @InjectRepository(StockMovement)
     private readonly stockMovementRepository: Repository<StockMovement>,
-    @InjectRepository(PurchaseCostHistory)
-    private readonly purchaseCostHistoryRepository: Repository<PurchaseCostHistory>,
-    @InjectRepository(PriceListItemEntity)
-    private readonly priceListItemRepository: Repository<PriceListItemEntity>,
     @InjectRepository(PurchaseOrderItem)
     private readonly purchaseOrderItemRepository: Repository<PurchaseOrderItem>,
     private readonly settingsService: SettingsService,
