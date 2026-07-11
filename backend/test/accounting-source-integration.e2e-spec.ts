@@ -254,6 +254,23 @@ describe('Accounting Source Integration (e2e)', () => {
       // Final status is completed.
       const final = await ds.query(`SELECT status FROM stock_adjustments WHERE id = $1`, [ADJ_ID]);
       expect(final[0]?.status).toBe('completed');
+
+      // No double-post: exactly ONE STOCK_ADJUSTMENT journal entry and exactly ONE
+      // stock movement for this adjustment (1 item). This is the property the
+      // pessimistic lock exists to guarantee — a lock on the wrong connection would
+      // let both complete() calls post, and these counts would be 2.
+      const jeCount = await ds.query(
+        `SELECT COUNT(*)::int AS n FROM journal_entry
+         WHERE "sourceDocumentId" = $1 AND "postingType" = 'STOCK_ADJUSTMENT'`,
+        [ADJ_ID],
+      );
+      expect(jeCount[0].n).toBe(1);
+      const movCount = await ds.query(
+        `SELECT COUNT(*)::int AS n FROM stock_movements
+         WHERE "referenceType" = 'stock_adjustment' AND "referenceId" = $1`,
+        [ADJ_ID],
+      );
+      expect(movCount[0].n).toBe(1);
     });
   });
 });

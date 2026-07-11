@@ -75,8 +75,10 @@ async function seedAccounting(conn: {
     ];
     for (const [code, name, type] of groups) {
       await db.query(
+        // Pass type as text; Postgres coerces it to the column's enum type, so this
+        // does not hardcode the generated enum type name.
         `INSERT INTO "chart_of_account" ("code","name","type","isSystem","isPostable")
-         VALUES ($1,$2,$3::"chart_of_account_type_enum",true,false)
+         VALUES ($1,$2,$3,true,false)
          ON CONFLICT ("code") DO NOTHING`,
         [code, name, type],
       );
@@ -93,7 +95,7 @@ async function seedAccounting(conn: {
     for (const [code, name, type, parentCode] of children) {
       await db.query(
         `INSERT INTO "chart_of_account" ("code","name","type","parentId","isSystem","isPostable")
-         VALUES ($1,$2,$3::"chart_of_account_type_enum",
+         VALUES ($1,$2,$3,
                  (SELECT "id" FROM "chart_of_account" WHERE "code"=$4), true, true)
          ON CONFLICT ("code") DO NOTHING`,
         [code, name, type, parentCode],
