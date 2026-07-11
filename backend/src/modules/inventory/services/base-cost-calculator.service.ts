@@ -5,6 +5,7 @@ import { Product } from '../../../database/entities/product.entity';
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import { CostingStrategyFactory } from './costing/costing-strategy-factory.service';
 import { repoFor } from '../../../common/db/tx-helpers';
+import { toMinorUnits, formatScale4 } from '../../accounting/utils/money';
 
 @Injectable()
 export class BaseCostCalculatorService {
@@ -77,47 +78,72 @@ export class BaseCostCalculatorService {
   }
 
   /**
-   * Reduce stock when selling
-   * Uses costing strategy to determine which batches to reduce from
-   * Updates remainingQuantity in cost history and recalculates base cost
+   * Reduce stock when selling.
+   * Uses costing strategy to determine which batches to reduce from.
+   * Locks selected batches FOR UPDATE before depleting.
+   * Updates remainingQuantity in cost history and recalculates base cost.
+   * Returns the consumed value as an unrounded scale-8 bigint (never round here).
+   * Consumption = Σ over depleted batches ((oldRemaining - newRemaining) × landedCost).
+   * Requires a transaction manager (FOR UPDATE requires an active txn).
    */
-  async reduceStock(productId: string, quantitySold: number, manager?: EntityManager): Promise<void> {
+  async reduceStock(productId: string, quantitySold: number, manager?: EntityManager): Promise<bigint> {
+    if (!manager) {
+      throw new Error('reduceStock requires a transaction manager for FOR UPDATE locking');
+    }
     const costHistoryRepo = repoFor(manager, PurchaseCostHistory, this.costHistoryRepository);
 
     this.logger.log(`Reducing stock for product ${productId}: ${quantitySold} units`);
 
+    // Lock the selected batches FOR UPDATE so concurrent fulfillments block.
     const batches = await costHistoryRepo.find({
       where: {
         productId,
         remainingQuantity: MoreThan(0),
       },
       order: { receivedDate: 'ASC' },
+      lock: { mode: 'pessimistic_write' },
     });
 
     if (batches.length === 0) {
       this.logger.warn(`No cost history batches found for product ${productId}, cannot reduce stock`);
-      return;
+      return 0n;
     }
 
     // Get active costing strategy to determine batch reduction order
     const strategy = await this.costingStrategyFactory.getActiveStrategy();
     const reductions = strategy.determineBatchReduction(batches, quantitySold);
 
+    let totalConsumedScale8 = 0n;
+    // Any per-batch shortfall (strategy float vs persisted scale-4 mismatch) is carried
+    // forward so total consumed still equals the requested quantity across batches.
+    let carryMinor = 0n;
+
     // Apply reductions
     for (const reduction of reductions) {
       const batch = batches.find(b => b.id === reduction.batchId);
       if (!batch) continue;
 
-      const batchRemaining = Number(batch.remainingQuantity);
-      const newRemaining = batchRemaining - reduction.quantity;
+      // Compute the new remaining in scale-4 minor-units (bigint) — never JS float.
+      const oldRemainingMinor = toMinorUnits(String(batch.remainingQuantity));
+      // Requested for this batch + any carried shortfall from earlier batches.
+      const requestedMinor = toMinorUnits(reduction.quantity.toFixed(4)) + carryMinor;
+      // A batch cannot go negative; consume at most what it holds, carry the rest.
+      const consumedQtyMinor = requestedMinor > oldRemainingMinor ? oldRemainingMinor : requestedMinor;
+      carryMinor = requestedMinor - consumedQtyMinor; // remainder for the next batch (0 if fully consumed)
+      const newRemainingMinor = oldRemainingMinor - consumedQtyMinor;
+      const newRemainingStr = formatScale4(newRemainingMinor);
 
       await costHistoryRepo.update(batch.id, {
-        remainingQuantity: newRemaining,
+        remainingQuantity: newRemainingStr as any,
         updatedAt: new Date(),
       });
 
+      // Scale-8: consumedQtyMinor × landedCostMinor
+      const landedCostMinor = toMinorUnits(String(batch.landedCost));
+      totalConsumedScale8 += consumedQtyMinor * landedCostMinor;
+
       this.logger.debug(
-        `Reduced batch ${batch.id}: ${batchRemaining} - ${reduction.quantity} = ${newRemaining} remaining`
+        `Reduced batch ${batch.id}: consumed ${consumedQtyMinor} minor qty, landed ${landedCostMinor}, scale-8 contrib ${consumedQtyMinor * landedCostMinor}, carry ${carryMinor}`
       );
     }
 
@@ -130,6 +156,8 @@ export class BaseCostCalculatorService {
 
     // Recalculate base cost after reduction
     await this.updateProductBaseCost(productId, manager);
+
+    return totalConsumedScale8;
   }
 
   /**
@@ -144,7 +172,7 @@ export class BaseCostCalculatorService {
     shippingPerUnit: number,
     receivedDate: Date,
     manager?: EntityManager,
-  ): Promise<void> {
+  ): Promise<{ landedCost: number; receivedQuantity: number }> {
     const costHistoryRepo = repoFor(manager, PurchaseCostHistory, this.costHistoryRepository);
     const landedCost = Number(unitCost) + Number(shippingPerUnit);
 
@@ -168,8 +196,18 @@ export class BaseCostCalculatorService {
 
     this.logger.log(`Created cost history batch ${newBatch.id}`);
 
+    // Reload the persisted batch to get the DB-stored values (NUMERIC rounding).
+    const persisted = await costHistoryRepo.findOne({
+      where: { id: newBatch.id } as any,
+    });
+
     // Recalculate base cost
     await this.updateProductBaseCost(productId, manager);
+
+    return {
+      landedCost: Number(persisted?.landedCost ?? landedCost),
+      receivedQuantity: Number(persisted?.receivedQuantity ?? quantity),
+    };
   }
 
   /**

@@ -41,6 +41,7 @@ describe('PaymentMethodsPage', () => {
             code: 'CASH',
             name: 'Cash',
             useForPurchases: true,
+            accountingChannel: 'CASH',
             sortOrder: 1,
             isActive: true,
           },
@@ -64,7 +65,7 @@ describe('PaymentMethodsPage', () => {
     render(<PaymentMethodsPage />);
 
     expect(screen.getByText('Payment Methods (1)')).toBeInTheDocument();
-    expect(screen.getByText('Cash')).toBeInTheDocument();
+    expect(screen.getAllByText('Cash')).toHaveLength(2);
     expect(screen.getByRole('button', { name: /add payment method/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /view deleted/i })).toBeInTheDocument();
   });

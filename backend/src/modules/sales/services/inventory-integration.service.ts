@@ -410,6 +410,11 @@ export class InventoryIntegrationService {
     };
   }
 
+  /**
+   * Adjust stock for a product.
+   * For depletions (negative quantityChange), returns the consumed value as an
+   * unrounded scale-8 bigint from reduceStock. For non-depletions, returns 0n.
+   */
   async adjustStock(
     productId: string,
     quantityChange: number,
@@ -418,7 +423,7 @@ export class InventoryIntegrationService {
     userId?: string,
     movementTypeOverride?: StockMovementType,
     manager?: EntityManager,
-  ): Promise<void> {
+  ): Promise<bigint> {
     const productRepo = repoFor(manager, Product, this.productRepository);
 
     const product = await productRepo.findOne({ where: { id: productId } });
@@ -432,10 +437,9 @@ export class InventoryIntegrationService {
     const newStockQuantity = currentStock + changeAmount;
 
     // Create stock movement record BEFORE updating product
-    // This ensures previousBalance and newBalance are calculated correctly
     const movementType = movementTypeOverride || (quantityChange > 0
       ? StockMovementType.ADJUSTMENT_INCREASE
-      : StockMovementType.SALE); // Use SALE for negative adjustments (fulfillment)
+      : StockMovementType.SALE);
 
     await this.createStockMovementWithBalances(
       productId,
@@ -449,16 +453,19 @@ export class InventoryIntegrationService {
       manager,
     );
 
+    let consumedScale8 = 0n;
+
     // Update FIFO cost history for sales (negative quantity changes).
-    // Errors propagate so a wrapping transaction rolls back.
     if (quantityChange < 0) {
       const quantitySold = Math.abs(quantityChange);
-      await this.baseCostCalculator.reduceStock(productId, quantitySold, manager);
+      consumedScale8 = await this.baseCostCalculator.reduceStock(productId, quantitySold, manager);
     }
 
     // Update product stock quantity (allow negative for GOODS products)
     product.stockQuantity = Number(newStockQuantity);
     await productRepo.save(product);
+
+    return consumedScale8;
   }
 
   // Private helper methods

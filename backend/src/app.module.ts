@@ -25,6 +25,7 @@ import { PrintSettingsModule } from './modules/print-settings/print-settings.mod
 import { BackupModule } from './modules/backup/backup.module';
 import { PriceListsModule } from './modules/price-lists/price-lists.module';
 import { SearchModule } from './modules/search/search.module';
+import { AccountingModule } from './modules/accounting/accounting.module';
 
 // Auth Guards
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';

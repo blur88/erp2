@@ -111,6 +111,7 @@ const PaymentMethodsPage: React.FC = () => {
                 <TableCell>Code</TableCell>
                 <TableCell>Name</TableCell>
                 <TableCell>For Purchases</TableCell>
+                <TableCell>Accounting Channel</TableCell>
                 <TableCell>Sort Order</TableCell>
                 <TableCell>Active</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -126,6 +127,13 @@ const PaymentMethodsPage: React.FC = () => {
                       size="small"
                       color={method.useForPurchases ? 'primary' : 'default'}
                       label={method.useForPurchases ? 'Yes' : 'No'}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      color={method.accountingChannel === 'CASH' ? 'warning' : 'info'}
+                      label={method.accountingChannel === 'CASH' ? 'Cash' : 'Bank'}
                     />
                   </TableCell>
                   <TableCell>{method.sortOrder}</TableCell>
@@ -156,7 +164,7 @@ const PaymentMethodsPage: React.FC = () => {
               ))}
               {!methods.length && !loading && (
                 <TableRow>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={7}>
                     <Typography sx={{
                       color: "text.secondary"
                     }}>No payment methods found.</Typography>

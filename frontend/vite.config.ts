@@ -108,11 +108,6 @@ export default defineConfig(({ mode }) => {
     },
     test: {
       globals: true,
-      // MUI v9.1+ ships ESM that does an extensionless directory import
-      // (`react-transition-group/TransitionGroupContext`). react-transition-group
-      // 4.x has no `exports` map, so Node's native ESM resolver rejects it with
-      // ERR_UNSUPPORTED_DIR_IMPORT. Inlining these deps routes them through
-      // Vite's resolver (which rewrites the import) instead of raw Node ESM.
       server: {
         deps: {
           inline: [/@mui\//, /react-transition-group/],

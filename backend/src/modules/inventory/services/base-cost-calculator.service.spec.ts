@@ -9,6 +9,7 @@ describe('BaseCostCalculatorService', () => {
   let service: BaseCostCalculatorService;
   let costHistoryRepository: {
     find: jest.Mock;
+    findOne: jest.Mock;
     update: jest.Mock;
     create: jest.Mock;
     save: jest.Mock;
@@ -18,6 +19,7 @@ describe('BaseCostCalculatorService', () => {
   beforeEach(async () => {
     costHistoryRepository = {
       find: jest.fn(),
+      findOne: jest.fn(),
       update: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
@@ -50,12 +52,13 @@ describe('BaseCostCalculatorService', () => {
     expect(find).toHaveBeenCalled();
   });
 
-  it('keys addStock batches by purchaseOrderId', async () => {
+  it('keys addStock batches by purchaseOrderId and returns persisted values', async () => {
     jest.spyOn(service as any, 'updateProductBaseCost').mockResolvedValue(undefined);
     costHistoryRepository.create.mockReturnValue({ id: 'batch-1' });
     costHistoryRepository.save.mockResolvedValue({ id: 'batch-1' });
+    costHistoryRepository.findOne.mockResolvedValue({ id: 'batch-1', landedCost: 6, receivedQuantity: 10 });
 
-    await service.addStock('product-1', 'po-1', 10, 5, 1, new Date('2026-06-10'));
+    const result = await service.addStock('product-1', 'po-1', 10, 5, 1, new Date('2026-06-10'));
 
     expect(costHistoryRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -63,6 +66,7 @@ describe('BaseCostCalculatorService', () => {
         purchaseOrderId: 'po-1',
       }),
     );
+    expect(result).toEqual({ landedCost: 6, receivedQuantity: 10 });
   });
 
   it('removes stock batches through the supplied manager using purchaseOrderId', async () => {

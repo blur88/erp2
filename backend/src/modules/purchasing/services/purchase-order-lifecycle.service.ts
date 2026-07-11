@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -16,6 +17,10 @@ import {
 } from '../../../database/entities';
 import { StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
+import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
+import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
+import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
+import { formatScale4, toMinorUnits } from '../../accounting/utils/money';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
 import { AuditLogService } from '../../audit-logs/services';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
@@ -32,6 +37,8 @@ export class PurchaseOrderLifecycleService {
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly auditLogService: AuditLogService,
     private readonly dataSource: DataSource,
+    @Inject(ACCOUNTING_POSTING_PORT)
+    private readonly accounting: AccountingPostingPort,
   ) {}
 
   async assertEditAllowed(purchaseOrderId: string): Promise<void> {
@@ -155,6 +162,7 @@ export class PurchaseOrderLifecycleService {
       const poSubtotal = Number(purchaseOrder.subtotal || 0);
       const poShipping = Number(purchaseOrder.shippingAmount || 0);
 
+      let inventoryScale8 = 0n;
       for (const item of purchaseOrder.items || []) {
         const quantity = Number(item.quantity);
         // Capitalize inventory at the NET (after line discount) unit cost so the
@@ -189,7 +197,7 @@ export class PurchaseOrderLifecycleService {
         };
 
         await this.stockMovementService.create(movementDto, userId, manager);
-        await this.baseCostCalculator.addStock(
+        const persisted = await this.baseCostCalculator.addStock(
           item.productId,
           purchaseOrder.id,
           quantity,
@@ -198,12 +206,22 @@ export class PurchaseOrderLifecycleService {
           receiveDate,
           manager,
         );
+        inventoryScale8 += toMinorUnits(String(persisted.receivedQuantity)) * toMinorUnits(String(persisted.landedCost));
 
         await manager.getRepository(PurchaseOrderItem).update(item.id, {
           receivedQuantity: quantity,
         });
         item.receivedQuantity = quantity;
       }
+
+      const inventoryMinor = (inventoryScale8 + 5000n) / 10000n;
+      await this.accounting.postPurchaseReceive({
+        purchaseOrderId: id,
+        sourceRef: purchaseOrder.orderNumber,
+        amount: formatScale4(inventoryMinor),
+        entryDate: receiveDate.toISOString().slice(0, 10),
+        createdBy: username,
+      }, manager);
 
       await manager.getRepository(PurchaseOrder).update(id, {
         status: PurchaseOrderStatus.RECEIVED,
@@ -246,6 +264,15 @@ export class PurchaseOrderLifecycleService {
       }
 
       await this.stockMovementService.deleteByReference('purchase_order', purchaseOrder.id, manager);
+
+      await this.accounting.reverseEntriesForDocument(
+        AccountingSourceType.PURCHASE_ORDER,
+        id,
+        [PostingType.PURCHASE_RECEIVE],
+        new Date().toISOString().slice(0, 10),
+        manager,
+        username,
+      );
 
       await manager.getRepository(PurchaseOrder).update(id, {
         status: PurchaseOrderStatus.READY,

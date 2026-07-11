@@ -9,6 +9,7 @@ import { User } from '../../../database/entities/user.entity';
 import { StockMovementService } from './stock-movement.service';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
+import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import { StockMovement } from '../../../database/entities/stock-movement.entity';
 import { StockAdjustmentItemDto } from '../dto/stock-adjustment.dto';
 
@@ -21,6 +22,7 @@ describe('StockAdjustmentService', () => {
   let stockMovementRepository: jest.Mocked<Repository<StockMovement>>;
   let productRepository: jest.Mocked<Repository<Product>>;
   let stockAdjustmentItemRepository: jest.Mocked<Repository<StockAdjustmentItem>>;
+  let accountingPort: { postStockAdjustment: jest.Mock; reverseEntriesForDocument: jest.Mock };
 
   const createMockStockAdjustment = (status: StockAdjustmentStatus = StockAdjustmentStatus.DRAFT): Partial<StockAdjustment> => ({
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -84,6 +86,7 @@ describe('StockAdjustmentService', () => {
 
     dataSource = {
       createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
+      transaction: jest.fn(),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -144,6 +147,14 @@ describe('StockAdjustmentService', () => {
             log: jest.fn(),
           },
         },
+        {
+          provide: ACCOUNTING_POSTING_PORT,
+          useValue: {
+            postStockAdjustment: jest.fn(),
+            postPurchasePayment: jest.fn(),
+            reverseEntriesForDocument: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -154,6 +165,7 @@ describe('StockAdjustmentService', () => {
     stockMovementRepository = module.get(getRepositoryToken(StockMovement));
     productRepository = module.get(getRepositoryToken(Product));
     stockAdjustmentItemRepository = module.get(getRepositoryToken(StockAdjustmentItem));
+    accountingPort = module.get(ACCOUNTING_POSTING_PORT) as any;
   });
 
   it('should be defined', () => {
@@ -258,6 +270,67 @@ describe('StockAdjustmentService', () => {
     expect(stockAdjustmentRepository.save).not.toHaveBeenCalled()
   })
 })
+
+describe('complete and revert', () => {
+  beforeEach(() => {
+    jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'sa-1' } as any);
+  });
+
+  it('complete posts STOCK_ADJUSTMENT JE with directional amounts inside txn', async () => {
+    const draft = createMockStockAdjustment(StockAdjustmentStatus.DRAFT);
+    const items = draft.items!;
+    const mockManager = {
+      findOne: jest.fn().mockResolvedValue(draft), // header lock now runs on the txn manager
+      find: jest.fn().mockResolvedValue(items),
+      save: jest.fn(),
+    };
+    (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb(mockManager),
+    );
+    (stockMovementService.create as jest.Mock).mockResolvedValue({});
+
+    await service.complete('sa-1', 'user-1', 'admin');
+
+    expect(stockMovementService.create).toHaveBeenCalledTimes(2);
+    expect(accountingPort.postStockAdjustment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        adjustmentId: '123e4567-e89b-12d3-a456-426614174000',
+        sourceRef: 'SA-000001',
+        increaseAmount: '100.0000',
+        decreaseAmount: '50.0000',
+      }),
+      mockManager,
+    );
+    expect(mockManager.save).toHaveBeenCalled();
+  });
+
+  it('revert reverses stock + JE and sets REVERTED', async () => {
+    const completed = createMockStockAdjustment(StockAdjustmentStatus.COMPLETED);
+    const items = completed.items!;
+    const mockManager = {
+      findOne: jest.fn().mockResolvedValue(completed), // header lock now runs on the txn manager
+      find: jest.fn().mockResolvedValue(items),
+      save: jest.fn(),
+    };
+    (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      cb(mockManager),
+    );
+    (stockMovementService.create as jest.Mock).mockResolvedValue({});
+
+    await service.revert('sa-1', 'user-1', 'admin');
+
+    expect(stockMovementService.create).toHaveBeenCalledTimes(2);
+    expect(accountingPort.reverseEntriesForDocument).toHaveBeenCalledWith(
+      'STOCK_ADJUSTMENT',
+      'sa-1',
+      ['STOCK_ADJUSTMENT'],
+      expect.any(String),
+      mockManager,
+      'admin',
+    );
+    expect(mockManager.save).toHaveBeenCalled();
+  });
+});
 
 describe('updateNotes', () => {
     it('updates notes on a completed adjustment without changing status/items', async () => {

@@ -3,6 +3,10 @@ import { DataSourceOptions } from 'typeorm';
 import { validateAndParseInt } from './validation.utils';
 import { createSSLConfig } from './ssl.config';
 import { validateDatabaseConfig } from './environment.validator';
+import { ChartOfAccount } from '../modules/accounting/entities/chart-of-account.entity';
+import { AccountingSettings } from '../modules/accounting/entities/accounting-settings.entity';
+import { JournalEntry } from '../modules/accounting/entities/journal-entry.entity';
+import { JournalEntryLine } from '../modules/accounting/entities/journal-entry-line.entity';
 import { AuditLog } from '../database/entities/audit-log.entity';
 import { BackupLog } from '../database/entities/backup-log.entity';
 import { BackupSchedule } from '../database/entities/backup-schedule.entity';
@@ -113,6 +117,10 @@ export function createDatabaseConfig(
       Supplier,
       User,
       VendorPayment,
+      ChartOfAccount,
+      AccountingSettings,
+      JournalEntry,
+      JournalEntryLine,
     ],
     migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
 

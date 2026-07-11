@@ -208,6 +208,7 @@ export class PaymentMethodService {
       code: pm.code,
       name: pm.name,
       useForPurchases: pm.useForPurchases,
+      accountingChannel: pm.accountingChannel,
       sortOrder: pm.sortOrder,
       isActive: pm.isActive,
       createdAt: pm.createdAt,

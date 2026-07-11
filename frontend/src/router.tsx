@@ -11,6 +11,7 @@ import { salesRoutes } from './pages/sales/sales.routes'
 import { purchasingRoutes } from './pages/purchasing/purchasing.routes'
 import { settingsRoutes } from './pages/settings/settings.routes'
 import { auditLogsRoutes } from './pages/audit-logs/audit-logs.routes'
+import { accountingRoutes } from './pages/accounting/accounting.routes'
 
 
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
@@ -61,6 +62,7 @@ export const router = createBrowserRouter([
           ...purchasingRoutes,
           ...settingsRoutes,
           ...auditLogsRoutes,
+          ...accountingRoutes,
           { path: '*', element: <NotFoundPage /> },
         ],
       },

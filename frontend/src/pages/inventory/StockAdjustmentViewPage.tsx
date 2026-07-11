@@ -24,12 +24,15 @@ import { skipToken } from '@reduxjs/toolkit/query'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { AppButton } from '@/components/common/AppButton'
+import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
-import { useGetStockAdjustmentQuery, useUpdateStockAdjustmentNotesMutation } from '@/store/api/inventoryApi'
+import { useGetStockAdjustmentQuery, useRevertStockAdjustmentMutation, useUpdateStockAdjustmentNotesMutation } from '@/store/api/inventoryApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate, formatNumber } from '@/utils/formatters'
+import { useNotification } from '@/hooks/useNotification'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 
 function Field({ label, value }: { label: string; value?: ReactNode }) {
   const hasValue = value !== null && value !== undefined && value !== ''
@@ -50,8 +53,11 @@ export default function StockAdjustmentViewPage() {
   const navigate = useNavigate()
   const { data: adj, isLoading, isError } = useGetStockAdjustmentQuery(id ?? skipToken)
   const [updateNotes] = useUpdateStockAdjustmentNotesMutation()
+  const [revertAdjustment] = useRevertStockAdjustmentMutation()
+  const { showSuccess, showError } = useNotification()
   const [notesOpen, setNotesOpen] = useState(false)
   const [notesDraft, setNotesDraft] = useState('')
+  const [revertConfirmOpen, setRevertConfirmOpen] = useState(false)
 
   if (isLoading) {
     return (
@@ -95,6 +101,16 @@ export default function StockAdjustmentViewPage() {
     setNotesOpen(false)
   }
 
+  const handleRevert = async () => {
+    try {
+      await revertAdjustment(adj.id).unwrap()
+      showSuccess(`Stock adjustment ${adj.adjustmentNumber} reverted`)
+      setRevertConfirmOpen(false)
+    } catch (error) {
+      showError(rtkErrorMessage(error, 'Failed to revert stock adjustment'))
+    }
+  }
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <PageHeader
@@ -105,6 +121,7 @@ export default function StockAdjustmentViewPage() {
           label: isDraft ? 'Edit' : 'Edit Notes',
           onClick: handleEdit,
         }}
+        secondaryAction={isCompleted ? { label: 'Revert', onClick: () => setRevertConfirmOpen(true) } : undefined}
       />
 
       <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
@@ -178,6 +195,16 @@ export default function StockAdjustmentViewPage() {
           </Box>
         </Box>
       </Box>
+
+      {/* Revert confirmation */}
+      <ConfirmationDialog
+        open={revertConfirmOpen}
+        title="Revert Stock Adjustment?"
+        message={`Reverse stock changes for ${adj.adjustmentNumber}? This action cannot be undone.`}
+        confirmText="Revert"
+        onConfirm={handleRevert}
+        onCancel={() => setRevertConfirmOpen(false)}
+      />
 
       {/* Notes edit dialog for completed adjustments */}
       <Dialog open={notesOpen} onClose={handleCloseNotes} maxWidth="sm" fullWidth>

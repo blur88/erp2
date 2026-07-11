@@ -425,6 +425,7 @@ export interface PaymentMethodConfig {
   code: string;
   name: string;
   useForPurchases: boolean;
+  accountingChannel: 'CASH' | 'BANK';
   sortOrder: number;
   isActive: boolean;
   createdAt: string;
@@ -555,4 +556,123 @@ export interface PriceListItem {
   createdAt: Date | string;
   updatedAt: Date | string;
   deletedAt?: Date | string;
+}
+
+// Accounting types
+export type AccountType = 'Asset' | 'Liability' | 'Equity' | 'Income' | 'Expense';
+
+export interface Account {
+  id: string;
+  code: string;
+  name: string;
+  type: AccountType;
+  parentId: string | null;
+  description: string | null;
+  isActive: boolean;
+  createdBy: string | null;
+  isSystem: boolean;
+  isPostable: boolean;
+  openingBalance: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
+export interface AccountTreeNode extends Account {
+  balance: string;
+  children: AccountTreeNode[];
+}
+
+export interface AccountingSettings {
+  id: boolean;
+  cashAccountId: string;
+  bankAccountId: string;
+  inventoryAccountId: string;
+  supplierDepositAccountId: string;
+  customerDepositAccountId: string;
+  openingBalanceEquityAccountId: string;
+  salesRevenueAccountId: string;
+  cogsAccountId: string;
+  defaultExpenseAccountId: string;
+}
+
+export type JournalEntryStatus = 'Posted' | 'Reversed';
+export type AccountingSourceType = 'SALES_ORDER' | 'PURCHASE_ORDER' | 'STOCK_ADJUSTMENT' | 'OPENING_BALANCE';
+
+export interface JournalEntry {
+  id: string;
+  journalNo: string;
+  date: string;
+  sourceRef: string | null;
+  description: string | null;
+  debit: string;
+  credit: string;
+  status: JournalEntryStatus;
+}
+
+export interface JournalEntryLine {
+  accountCode: string;
+  accountName: string;
+  debit: string;
+  credit: string;
+}
+
+export interface JournalEntryDetail {
+  id: string;
+  journalNo: string;
+  status: JournalEntryStatus;
+  entryDate: string;
+  sourceType: AccountingSourceType;
+  sourceDocumentId: string | null;
+  sourceRef: string | null;
+  description: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  lines: JournalEntryLine[];
+  totalDebit: string;
+  totalCredit: string;
+  difference: string;
+}
+
+export interface GeneralLedgerAccount {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export interface GeneralLedgerMovement {
+  date: string;
+  journalEntryId: string;
+  journalNo: string;
+  description: string | null;
+  debit: string;
+  credit: string;
+  balance: string;
+  sourceType: AccountingSourceType;
+  sourceDocumentId: string | null;
+  sourceRef: string | null;
+}
+
+export interface GeneralLedgerResponse {
+  account: GeneralLedgerAccount;
+  openingBalance: string;
+  movements: GeneralLedgerMovement[];
+  totalDebit: string;
+  totalCredit: string;
+  closingBalance: string;
+}
+
+export interface TrialBalanceRow {
+  code: string;
+  name: string;
+  debit: string;
+  credit: string;
+}
+
+export interface TrialBalanceResponse {
+  rows: TrialBalanceRow[];
+  totalDebit: string;
+  totalCredit: string;
+  difference: string;
+  balanced: boolean;
 }

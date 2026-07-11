@@ -40,6 +40,11 @@ const { mockAdjustment } = vi.hoisted(() => ({
 vi.mock('@/store/api/inventoryApi', () => ({
   useGetStockAdjustmentQuery: vi.fn().mockReturnValue({ data: mockAdjustment, isLoading: false, isError: false }),
   useUpdateStockAdjustmentNotesMutation: vi.fn().mockReturnValue([vi.fn(), { isLoading: false }]),
+  useRevertStockAdjustmentMutation: vi.fn().mockReturnValue([vi.fn(), { isLoading: false }]),
+}))
+
+vi.mock('@/hooks/useNotification', () => ({
+  useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
 }))
 
 import StockAdjustmentViewPage from '../StockAdjustmentViewPage'

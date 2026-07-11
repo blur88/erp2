@@ -7,7 +7,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   StockAdjustment,
@@ -28,6 +28,10 @@ import { StockMovementService } from './stock-movement.service';
 import { StockMovementType, StockMovement } from '../../../database/entities/stock-movement.entity';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
+import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
+import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
+import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
+import { formatScale4, toMinorUnits } from '../../accounting/utils/money';
 
 @Injectable()
 export class StockAdjustmentService extends BaseCrudService<
@@ -54,6 +58,8 @@ export class StockAdjustmentService extends BaseCrudService<
     private readonly dataSource: DataSource,
     private readonly settingsService: SettingsService,
     auditLogService: AuditLogService,
+    @Inject(ACCOUNTING_POSTING_PORT)
+    private readonly accounting: AccountingPostingPort,
   ) {
     super(stockAdjustmentRepository, auditLogService);
   }
@@ -477,34 +483,47 @@ export class StockAdjustmentService extends BaseCrudService<
    * Complete a stock adjustment (post to stock movements)
    */
   async complete(id: string, userId?: string, username?: string): Promise<StockAdjustmentResponseDto> {
-    const adjustment = await this.stockAdjustmentRepository.findOne({
-      where: { id },
-      relations: { items: { product: true } },
-    });
+    const { manager, auditEntry } = await this.dataSource.transaction(async (manager: EntityManager) => {
+      // Load + lock the header row on THIS transaction's manager (a pessimistic
+      // lock must run inside the same transaction, not on the default-repo connection).
+      const adjustment = await manager.findOne(StockAdjustment, {
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+        loadEagerRelations: false,
+      });
 
-    if (!adjustment) {
-      throw new NotFoundException(`Stock adjustment with ID '${id}' not found`);
-    }
+      if (!adjustment) {
+        throw new NotFoundException(`Stock adjustment with ID '${id}' not found`);
+      }
 
-    if (!adjustment.canComplete()) {
-      throw new BadRequestException('Only draft adjustments can be completed');
-    }
+      if (!adjustment.canComplete()) {
+        throw new BadRequestException('Only draft adjustments can be completed');
+      }
 
-    if (!adjustment.items || adjustment.items.length === 0) {
-      throw new BadRequestException('Cannot complete adjustment with no items');
-    }
+      if (adjustment.itemCount === 0) {
+        throw new BadRequestException('Cannot complete adjustment with no items');
+      }
 
-    // Use transaction to ensure atomicity
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+      // Load items separately through the manager (no LEFT JOIN lock issues).
+      const items = await manager.find(StockAdjustmentItem, {
+        where: { stockAdjustmentId: id },
+        relations: { product: true },
+      });
 
-    try {
-      // Create stock movements for each item
-      for (const item of adjustment.items) {
-        if (item.difference === 0) continue;
+      if (items.length === 0) {
+        throw new BadRequestException('Cannot complete adjustment with no items');
+      }
 
-        const movementType = item.difference > 0
+      let increaseMinor = 0n;
+      let decreaseMinor = 0n;
+
+      // Create stock movements for each item using the manager.
+      for (const item of items) {
+        // Single bigint parse drives the zero-check, movement direction, and value.
+        const diffMinor = toMinorUnits(String(item.difference));
+        if (diffMinor === 0n) continue;
+
+        const movementType = diffMinor > 0n
           ? StockMovementType.ADJUSTMENT_INCREASE
           : StockMovementType.ADJUSTMENT_DECREASE;
 
@@ -512,46 +531,149 @@ export class StockAdjustmentService extends BaseCrudService<
           {
             productId: item.productId,
             movementType,
-            quantity: item.difference,
+            quantity: Number(item.difference),
             unitValue: item.unitCost,
             referenceType: 'stock_adjustment',
             referenceId: adjustment.id,
             reason: `Stock Adjustment ${adjustment.adjustmentNumber}`,
             notes: item.notes || adjustment.notes,
           },
+          undefined,
+          manager,
+        );
+
+        // Accumulate value from the persisted totalValue (option A).
+        const valueMinor = item.totalValue != null
+          ? toMinorUnits(String(item.totalValue))
+          : (() => {
+              const qtyAbs = diffMinor < 0n ? -diffMinor : diffMinor;
+              const cost = toMinorUnits(String(item.unitCost ?? '0'));
+              return (qtyAbs * cost + 5000n) / 10000n;
+            })();
+        if (diffMinor > 0n) increaseMinor += valueMinor; else decreaseMinor += valueMinor;
+      }
+
+      // Post the stock adjustment JE (both directional pairs in one balanced entry).
+      if (increaseMinor > 0n || decreaseMinor > 0n) {
+        await this.accounting.postStockAdjustment({
+          adjustmentId: adjustment.id,
+          sourceRef: adjustment.adjustmentNumber,
+          increaseAmount: formatScale4(increaseMinor),
+          decreaseAmount: formatScale4(decreaseMinor),
+          entryDate: new Date().toISOString().slice(0, 10),
+          createdBy: username,
+        }, manager);
+      }
+
+      // Update adjustment status inside the txn.
+      adjustment.status = StockAdjustmentStatus.COMPLETED;
+      await manager.save(adjustment);
+
+      return { manager, auditEntry: { id: adjustment.id, number: adjustment.adjustmentNumber } };
+    });
+
+    // Audit log AFTER committed transaction.
+    await this.auditLogService.log(
+      'UPDATE',
+      'StockAdjustment',
+      `Completed stock adjustment: ${auditEntry.number}`,
+      {
+        entityId: auditEntry.id,
+        userId: userId || 'system',
+        username,
+        oldValues: { status: StockAdjustmentStatus.DRAFT },
+        newValues: { status: StockAdjustmentStatus.COMPLETED },
+      }
+    );
+
+    this.logger.log(`Stock adjustment ${auditEntry.number} completed successfully`);
+    return this.findOne(id);
+  }
+  /**
+   * Revert a completed stock adjustment — reverse stock movements + JE and set status REVERTED.
+   */
+  async revert(id: string, userId?: string, username?: string): Promise<StockAdjustmentResponseDto> {
+    const { manager, auditEntry } = await this.dataSource.transaction(async (manager: EntityManager) => {
+      // Lock the header on this transaction's manager (see complete()).
+      const adjustment = await manager.findOne(StockAdjustment, {
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+        loadEagerRelations: false,
+      });
+
+      if (!adjustment) {
+        throw new NotFoundException(`Stock adjustment with ID '${id}' not found`);
+      }
+
+      if (adjustment.status !== StockAdjustmentStatus.COMPLETED) {
+        throw new BadRequestException('Only completed adjustments can be reverted');
+      }
+
+      // Load items separately through the manager.
+      const items = await manager.find(StockAdjustmentItem, {
+        where: { stockAdjustmentId: id },
+        relations: { product: true },
+      });
+
+      // Write reversing stock movements (opposite sign).
+      for (const item of items) {
+        const diff = Number(item.difference);
+        if (diff === 0) continue;
+
+        const reverseType = diff > 0
+          ? StockMovementType.ADJUSTMENT_DECREASE
+          : StockMovementType.ADJUSTMENT_INCREASE;
+
+        await this.stockMovementService.create(
+          {
+            productId: item.productId,
+            movementType: reverseType,
+            quantity: -diff,
+            unitValue: item.unitCost,
+            referenceType: 'stock_adjustment',
+            referenceId: adjustment.id,
+            reason: `Reversal of stock adjustment ${adjustment.adjustmentNumber}`,
+            notes: item.notes || adjustment.notes,
+          },
+          undefined,
+          manager,
         );
       }
 
-      // Update adjustment status
-      adjustment.status = StockAdjustmentStatus.COMPLETED;
-      await queryRunner.manager.save(adjustment);
-
-      // Log audit trail for complete
-      await this.auditLogService.log(
-        'UPDATE',
-        'StockAdjustment',
-        `Completed stock adjustment: ${adjustment.adjustmentNumber}`,
-        {
-          entityId: adjustment.id,
-          userId: userId || 'system',
-          username,
-          oldValues: { status: StockAdjustmentStatus.DRAFT },
-          newValues: { status: StockAdjustmentStatus.COMPLETED },
-        }
+      // Reverse the accounting JE.
+      await this.accounting.reverseEntriesForDocument(
+        AccountingSourceType.STOCK_ADJUSTMENT,
+        id,
+        [PostingType.STOCK_ADJUSTMENT],
+        new Date().toISOString().slice(0, 10),
+        manager,
+        username,
       );
 
-      await queryRunner.commitTransaction();
-      this.logger.log(`Stock adjustment ${adjustment.adjustmentNumber} completed successfully`);
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      this.logger.error(`Failed to complete stock adjustment: ${error.message}`, error.stack);
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
+      // Set status REVERTED.
+      adjustment.status = StockAdjustmentStatus.REVERTED;
+      await manager.save(adjustment);
 
+      return { manager, auditEntry: { id: adjustment.id, number: adjustment.adjustmentNumber } };
+    });
+
+    await this.auditLogService.log(
+      'UPDATE',
+      'StockAdjustment',
+      `Reverted stock adjustment: ${auditEntry.number}`,
+      {
+        entityId: auditEntry.id,
+        userId: userId || 'system',
+        username,
+        oldValues: { status: StockAdjustmentStatus.COMPLETED },
+        newValues: { status: StockAdjustmentStatus.REVERTED },
+      }
+    );
+
+    this.logger.log(`Stock adjustment ${auditEntry.number} reverted successfully`);
     return this.findOne(id);
   }
+
   /**
    * Convert adjustment to list response DTO
    */

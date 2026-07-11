@@ -1,6 +1,24 @@
 import { SettingsService } from './settings.service';
 
 describe('SettingsService', () => {
+  it('reuses the caller transaction manager (no nested transaction)', async () => {
+    const manager = {
+      query: jest.fn()
+        .mockResolvedValueOnce([{ prefix: 'JE', paddingDigits: 3, nextNumber: 1, lastResetYear: new Date().getFullYear() % 100 }])
+        .mockResolvedValueOnce(undefined),
+    } as any;
+    const dataSourceMock = { transaction: jest.fn() };
+    const service = new SettingsService(
+      {} as any, {} as any, {} as any,
+      {} as any, {} as any, {} as any, {} as any, {} as any,
+      dataSourceMock as any,
+    );
+    const num = await service.generateDocumentNumber('Journal Entries', manager);
+    expect(num).toMatch(/^JE-\d{2}-001$/);
+    expect(manager.query).toHaveBeenCalled();
+    expect(dataSourceMock.transaction).not.toHaveBeenCalled();
+  });
+
   const createQueryBuilderMock = (result: unknown) => ({
     select: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),

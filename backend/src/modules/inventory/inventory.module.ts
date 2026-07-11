@@ -48,6 +48,7 @@ import { StandardCostingStrategy } from './services/costing/standard-costing-str
 import { CostingRecalculationService } from './services/costing-recalculation.service';
 
 // Other modules
+import { AccountingModule } from '../accounting/accounting.module';
 import { UsersModule } from '../users/users.module';
 import { SettingsModule } from '../settings/settings.module';
 import { ExportModule } from '../../common/export.module';
@@ -78,6 +79,7 @@ import { ExportModule } from '../../common/export.module';
     // Import settings module for price/costing settings
     SettingsModule,
     ExportModule,
+    AccountingModule,
   ],
   controllers: [
     ProductController,

@@ -1,0 +1,172 @@
+import { useMemo, useState } from 'react'
+import { Box, Typography } from '@mui/material'
+
+import ConfirmationDialog from '@/components/common/ConfirmationDialog'
+import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
+import RowActionMenu from '@/components/common/RowActionMenu'
+import { StatusChip } from '@/components/common/StatusChip'
+import { useNotification } from '@/hooks/useNotification'
+import { useUpdateAccountMutation } from '@/store/api/accountingApi'
+import type { AccountTreeNode } from '@/types'
+
+interface FlattenedRow {
+  id: string
+  account: AccountTreeNode
+  depth: number
+  isGroup: boolean
+}
+
+interface AccountListProps {
+  tree: AccountTreeNode[]
+  onAddChild: (parent: AccountTreeNode | null) => void
+  onEdit: (account: AccountTreeNode) => void
+}
+
+function flattenTree(tree: AccountTreeNode[]): FlattenedRow[] {
+  const result: FlattenedRow[] = []
+  const walk = (nodes: AccountTreeNode[], depth: number) => {
+    for (const node of nodes) {
+      const isGroup = node.children.length > 0
+      result.push({ id: node.id, account: node, depth, isGroup })
+      if (isGroup) {
+        walk(node.children, depth + 1)
+      }
+    }
+  }
+  walk(tree, 0)
+  return result
+}
+
+export default function AccountList({ tree, onAddChild, onEdit }: AccountListProps) {
+  const { showSuccess, showError } = useNotification()
+  const [updateAccount, { isLoading: updating }] = useUpdateAccountMutation()
+  const [pendingDeactivate, setPendingDeactivate] = useState<AccountTreeNode | null>(null)
+
+  const rows = useMemo(() => flattenTree(tree), [tree])
+
+  const confirmDeactivate = async () => {
+    if (!pendingDeactivate) return
+    try {
+      await updateAccount({ id: pendingDeactivate.id, data: { isActive: false } }).unwrap()
+      showSuccess(`${pendingDeactivate.name} set as inactive`)
+      setPendingDeactivate(null)
+    } catch (e: any) {
+      showError(e?.data?.message ?? `Failed to deactivate ${pendingDeactivate.name}`)
+      setPendingDeactivate(null)
+    }
+  }
+
+  const columns: ColumnConfig<FlattenedRow>[] = [
+    {
+      key: 'name',
+      width: '30%',
+      raw: true,
+      render: (row) => (
+        <Typography
+          variant="body2"
+          sx={{
+            pl: row.depth * 3,
+            fontWeight: row.isGroup ? 600 : 400,
+            fontSize: '0.8rem',
+            lineHeight: 1.2,
+            ...(!row.account.isActive && { color: 'text.secondary' }),
+          }}
+        >
+          {row.account.name}
+        </Typography>
+      ),
+    },
+    {
+      key: 'code',
+      width: '12%',
+      render: (row) => row.account.code,
+    },
+    {
+      key: 'type',
+      width: '12%',
+      render: (row) => row.account.type,
+    },
+    {
+      key: 'balance',
+      width: '15%',
+      render: (row) => row.account.balance,
+    },
+    {
+      key: 'status',
+      width: '10%',
+      raw: true,
+      render: (row) => <StatusChip status={row.account.isActive ? 'active' : 'inactive'} />,
+    },
+    {
+      key: 'actions',
+      width: '10%',
+      raw: true,
+      render: (row) => (
+        <RowActionMenu
+          actions={
+            row.isGroup
+              ? [{ label: 'Add Child Account', onClick: () => onAddChild(row.account) }]
+              : [
+                  { label: 'Edit', onClick: () => onEdit(row.account) },
+                  row.account.isActive
+                    ? { label: 'Set Inactive', onClick: () => handleDeactivate(row.account) }
+                    : { label: 'Reactivate', onClick: () => handleReactivate(row.account) },
+                ]
+          }
+        />
+      ),
+    },
+  ]
+
+  const handleDeactivate = async (account: AccountTreeNode) => {
+    if (account.balance !== '0.0000') {
+      setPendingDeactivate(account)
+    } else {
+      try {
+        await updateAccount({ id: account.id, data: { isActive: false } }).unwrap()
+        showSuccess(`${account.name} set as inactive`)
+      } catch (e: any) {
+        showError(e?.data?.message ?? `Failed to deactivate ${account.name}`)
+      }
+    }
+  }
+
+  const handleReactivate = async (account: AccountTreeNode) => {
+    try {
+      await updateAccount({ id: account.id, data: { isActive: true } }).unwrap()
+      showSuccess(`${account.name} reactivated`)
+    } catch (e: any) {
+      showError(e?.data?.message ?? `Failed to reactivate ${account.name}`)
+    }
+  }
+
+  return (
+    <>
+      <EntityTable
+        rows={rows}
+        columns={columns}
+        loading={false}
+        total={rows.length}
+        label="Chart of Accounts"
+        showHeader
+        headers={['Name', 'Code', 'Type', 'Balance', 'Status', 'Actions']}
+        selectedId={undefined}
+        focusedIndex={-1}
+        onSelect={() => {}}
+        listRef={{ current: null }}
+        dataAttr="account"
+        paginationSlot={<Box />}
+      />
+      <ConfirmationDialog
+        open={pendingDeactivate !== null}
+        title="Deactivate Account"
+        message={`This account has a non-zero balance (${pendingDeactivate?.balance ?? '0.0000'}). Set inactive anyway?`}
+        confirmText="Set Inactive"
+        severity="warning"
+        loading={updating}
+        onConfirm={confirmDeactivate}
+        onCancel={() => setPendingDeactivate(null)}
+      />
+    </>
+  )
+}

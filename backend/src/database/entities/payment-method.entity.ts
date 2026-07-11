@@ -2,12 +2,14 @@ import {
   Entity,
   Column,
   Index,
+  BeforeInsert,
 } from 'typeorm';
 import {
   IsString,
   IsBoolean,
   IsInt,
   MaxLength,
+  IsIn,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 
@@ -49,4 +51,20 @@ export class PaymentMethodEntity extends BaseEntity {
   })
   @IsBoolean()
   useForPurchases: boolean;
+
+  @Column({
+    type: 'varchar',
+    length: 4,
+    default: 'BANK',
+    comment: 'Accounting channel: CASH or BANK',
+  })
+  @IsIn(['CASH', 'BANK'])
+  accountingChannel: 'CASH' | 'BANK' = 'BANK';
+
+  @BeforeInsert()
+  setDefaultAccountingChannel() {
+    if (this.accountingChannel === undefined) {
+      this.accountingChannel = 'BANK';
+    }
+  }
 }
