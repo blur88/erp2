@@ -26,8 +26,10 @@ function capturedCoa(calls: Call[]): NormRow[] {
   return calls
     .filter((c) => /INSERT INTO "chart_of_account"/.test(c.sql))
     .map((c) => {
+      // Child rows use the INSERT template that includes the "parentId" column;
+      // group rows use the template without it. params: group [code,name,type],
+      // child [code,name,type,parentCode].
       const isChild = /parentId/.test(c.sql);
-      // group template params: [code, name, type]; child: [code, name, type, parentCode]
       return {
         code: c.params[0],
         name: c.params[1],
