@@ -46,7 +46,7 @@ function renderTopBar(entry: RouterEntry, collapsed = false) {
       <MemoryRouter initialEntries={[entry]}>
         <TopBar collapsed={collapsed} onMobileMenuOpen={vi.fn()} />
       </MemoryRouter>
-    </Provider>
+    </Provider>,
   )
 }
 
@@ -201,5 +201,30 @@ describe('TopBar mobile layout', () => {
     renderTopBar('/inventory/products/create')
     expect(screen.getByText('Create Product')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /open drawer/i })).toBeInTheDocument()
+  })
+})
+
+describe('TopBar accounting breadcrumbs', () => {
+  it('shows Accounting > Chart of Accounts as plain text', () => {
+    mockUseMatches.mockReturnValue([{ handle: { title: 'Chart of Accounts' } }])
+    // Force desktop layout for breadcrumb test
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: !query.includes('max-width'),
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    })
+    renderTopBar('/accounting/chart-of-accounts')
+    expect(screen.getByText('Accounting')).toBeInTheDocument()
+    expect(screen.getByText('Chart of Accounts')).toBeInTheDocument()
+    // Accounting is not a link (no /accounting index route)
+    expect(screen.queryByRole('link', { name: 'Accounting' })).toBeNull()
   })
 })
