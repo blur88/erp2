@@ -5,7 +5,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { CompanySettings } from '../../database/entities/company-settings.entity';
 import { RegionalSettings } from '../../database/entities/regional-settings.entity';
 import { DocumentNumberSetting } from '../../database/entities/document-number-settings.entity';
@@ -375,9 +375,9 @@ export class SettingsService {
   /**
    * Generate next document number for a specific document type
    */
-  async generateDocumentNumber(documentName: string): Promise<string> {
-    return this.dataSource.transaction(async (manager) => {
-      const rows = await manager.query(
+  async generateDocumentNumber(documentName: string, manager?: EntityManager): Promise<string> {
+    const run = async (m: EntityManager): Promise<string> => {
+      const rows = await m.query(
         `SELECT * FROM document_number_settings WHERE "documentName" = $1 FOR UPDATE`,
         [documentName],
       );
@@ -398,13 +398,15 @@ export class SettingsService {
       const seq = String(row.nextNumber).padStart(row.paddingDigits, '0');
       const documentNumber = `${row.prefix}-${yy}-${seq}`;
 
-      await manager.query(
+      await m.query(
         `UPDATE document_number_settings SET "nextNumber" = $1, "lastResetYear" = $2 WHERE "documentName" = $3`,
         [row.nextNumber + 1, row.lastResetYear, documentName],
       );
 
       return documentNumber;
-    });
+    };
+    // Caller-supplied manager: reuse its transaction (no nesting). Otherwise open our own.
+    return manager ? run(manager) : this.dataSource.transaction(run);
   }
 
   /**
