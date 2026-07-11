@@ -1,15 +1,5 @@
-import { AccountingSeederService } from './accounting-seeder.service';
+import { AccountingSeederService, CoaRow } from './accounting-seeder.service';
 import { STANDARD_COA_GROUPS, STANDARD_COA_CHILDREN, SETTINGS_CODE_MAP } from '../data/standard-coa';
-
-interface CoaRow {
-  id: string;
-  code: string;
-  name: string;
-  type: string;
-  parentId: string | null;
-  isSystem: boolean;
-  isPostable: boolean;
-}
 
 // Fake with transactional semantics: transaction() snapshots state, runs the body,
 // and restores the snapshot if the body throws (models Postgres ROLLBACK).

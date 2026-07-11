@@ -26,7 +26,7 @@ function capturedCoa(calls: Call[]): NormRow[] {
   return calls
     .filter((c) => /INSERT INTO "chart_of_account"/.test(c.sql))
     .map((c) => {
-      const isChild = /parentId/.test(c.sql) || c.params.length >= 4;
+      const isChild = /parentId/.test(c.sql);
       // group template params: [code, name, type]; child: [code, name, type, parentCode]
       return {
         code: c.params[0],

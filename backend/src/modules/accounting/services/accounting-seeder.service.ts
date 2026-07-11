@@ -11,12 +11,23 @@ import {
 
 const SEED_LOCK_KEY = 891891;
 
+// A chart_of_account row as the seeder reads it back for validation.
+export interface CoaRow {
+  id: string;
+  code: string;
+  name: string;
+  type: string;
+  parentId: string | null;
+  isSystem: boolean;
+  isPostable: boolean;
+}
+
 // Data-access surface. Production adapter wraps a TypeORM EntityManager; the
 // unit test supplies a fake with the same methods.
 export interface SeederManager {
   advisoryLock(key: number): Promise<void>;
   coaCount(): Promise<number>;
-  findCoaRowsByCode(code: string): Promise<{ id: string; code: string; name: string; type: string; parentId: string | null; isSystem: boolean; isPostable: boolean }[]>;
+  findCoaRowsByCode(code: string): Promise<CoaRow[]>;
   insertCoa(row: { code: string; name: string; type: string; parentId: string | null }): Promise<void>;
   getSettings(): Promise<Record<string, any> | null>;
   insertSettings(row: Record<string, any>): Promise<void>;
@@ -172,7 +183,7 @@ export class AccountingSeederService implements OnModuleInit {
 
     const checkOne = async (
       expected: { code: string; name: string; type: string; isSystem: boolean; isPostable: boolean },
-    ): Promise<{ id: string; code: string; name: string; type: string; parentId: string | null; isSystem: boolean; isPostable: boolean }> => {
+    ): Promise<CoaRow> => {
       const rows = await m.findCoaRowsByCode(expected.code);
       if (rows.length === 0) throw new Error(`Accounting inconsistent: missing account ${expected.code}. Manual reset required.`);
       if (rows.length > 1) throw new Error(`Accounting inconsistent: duplicate account ${expected.code} (${rows.length} rows). Manual reset required.`);
