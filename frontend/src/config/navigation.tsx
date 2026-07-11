@@ -309,4 +309,45 @@ export const menuSections: MenuSection[] = [
       },
     ],
   },
+  {
+    id: 'accounting',
+    title: 'Accounting',
+    items: [
+      {
+        id: 'chart-of-accounts',
+        title: 'Chart of Accounts',
+        icon: <AccountBalanceWalletIcon />,
+        path: '/accounting/chart-of-accounts',
+        roles: ADMIN_ONLY,
+      },
+      {
+        id: 'accounting-settings',
+        title: 'Accounting Settings',
+        icon: <SettingsIcon />,
+        path: '/accounting/settings',
+        roles: ADMIN_ONLY,
+      },
+      {
+        id: 'journal-entries',
+        title: 'Journal Entries',
+        icon: <OrdersIcon />,
+        path: '/accounting/journal-entries',
+        roles: ADMIN_ONLY,
+      },
+      {
+        id: 'general-ledger',
+        title: 'General Ledger',
+        icon: <AccountBalanceWalletIcon />,
+        path: '/accounting/general-ledger',
+        roles: ADMIN_ONLY,
+      },
+      {
+        id: 'trial-balance',
+        title: 'Trial Balance',
+        icon: <AccountBalanceWalletIcon />,
+        path: '/accounting/trial-balance',
+        roles: ADMIN_ONLY,
+      },
+    ],
+  },
 ];
