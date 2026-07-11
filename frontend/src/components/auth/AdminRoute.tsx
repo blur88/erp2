@@ -18,7 +18,9 @@ const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
 function AdminGuard({ children }: { children: React.ReactNode }) {
   const user = useAppSelector((state) => state.auth?.user)
 
-  if (user && user.role !== 'admin') {
+  // Fail closed: render admin content only once the user is loaded AND is an admin.
+  // A missing/unhydrated user must not fall through to the admin page.
+  if (!user || user.role !== 'admin') {
     return <Navigate to="/" replace />
   }
 
