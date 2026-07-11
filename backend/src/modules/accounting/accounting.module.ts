@@ -13,6 +13,7 @@ import { AccountingSettingsService } from './services/accounting-settings.servic
 import { JournalEntryService } from './services/journal-entry.service';
 import { GeneralLedgerService } from './services/general-ledger.service';
 import { TrialBalanceService } from './services/trial-balance.service';
+import { AccountingSeederService } from './services/accounting-seeder.service';
 import { ChartOfAccountController } from './controllers/chart-of-account.controller';
 import { AccountingSettingsController } from './controllers/accounting-settings.controller';
 import { JournalEntryController } from './controllers/journal-entry.controller';
@@ -32,7 +33,7 @@ import { ACCOUNTING_POSTING_PORT } from '../../common/accounting-posting/account
   providers: [
     AccountingLookupService, AccountingPostingService, AccountBalanceService,
     ChartOfAccountService, AccountingSettingsService, JournalEntryService,
-    GeneralLedgerService, TrialBalanceService,
+    GeneralLedgerService, TrialBalanceService, AccountingSeederService,
     { provide: ACCOUNTING_POSTING_PORT, useExisting: AccountingPostingService },
   ],
   exports: [ACCOUNTING_POSTING_PORT, AccountingLookupService],

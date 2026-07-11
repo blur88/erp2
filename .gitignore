@@ -72,7 +72,8 @@ Thumbs.db
 *.code-workspace
 
 # Docker volumes and data (runtime data - never commit)
-data/
+# Root-anchored so it does not shadow source dirs like backend/src/.../data/
+/data/
 postgres-data/
 redis-data/
 docker-volumes/
