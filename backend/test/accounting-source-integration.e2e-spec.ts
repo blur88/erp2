@@ -1,12 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { AppModule } from '../src/app.module';
+import { StockAdjustmentService } from '../src/modules/inventory/services/stock-adjustment.service';
 import { DataSource } from 'typeorm';
 import { ACCOUNTING_POSTING_PORT, AccountingPostingPort } from '../src/common/accounting-posting/accounting-posting.port';
 import { ChartOfAccount } from '../src/modules/accounting/entities/chart-of-account.entity';
 import { AccountingSettings } from '../src/modules/accounting/entities/accounting-settings.entity';
 import { TrialBalanceService } from '../src/modules/accounting/services/trial-balance.service';
 import { GeneralLedgerService } from '../src/modules/accounting/services/general-ledger.service';
+import { AccountingSourceType } from '../src/modules/accounting/entities/source-type.enum';
+import { PostingType } from '../src/modules/accounting/entities/posting-type.enum';
 
 const PO_ID = '00000000-0000-0000-0000-000000000010';
 const ADJ_ID = '00000000-0000-0000-0000-000000000020';
@@ -51,6 +55,7 @@ describe('Accounting Source Integration (e2e)', () => {
   let posting: AccountingPostingPort;
   let ledger: GeneralLedgerService;
   let trial: TrialBalanceService;
+  let stockAdjustmentService: StockAdjustmentService;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -63,6 +68,7 @@ describe('Accounting Source Integration (e2e)', () => {
     posting = moduleFixture.get(ACCOUNTING_POSTING_PORT);
     ledger = moduleFixture.get(GeneralLedgerService);
     trial = moduleFixture.get(TrialBalanceService);
+    stockAdjustmentService = moduleFixture.get(StockAdjustmentService);
     await seedAccounting(ds);
   });
 
@@ -71,11 +77,15 @@ describe('Accounting Source Integration (e2e)', () => {
     await app.close();
   });
 
-  afterEach(async () => {
-    // Clean all journal entries between tests so each scenario starts fresh.
+  // Clean all journal entries BEFORE and after each test, so each scenario starts
+  // from an empty ledger regardless of what other spec files/tests posted first
+  // (the other accounting spec accumulates entries and does not clean up).
+  const clearJournal = async () => {
     await ds.query(`DELETE FROM journal_entry_line`);
     await ds.query(`DELETE FROM journal_entry`);
-  });
+  };
+  beforeEach(clearJournal);
+  afterEach(clearJournal);
 
   describe('Purchase receive', () => {
     it('posts a PURCHASE_RECEIVE JE (Inventory ← Supplier Deposit) and stays balanced', async () => {
@@ -100,7 +110,7 @@ describe('Accounting Source Integration (e2e)', () => {
     it('posts a PURCHASE_REFUND JE (Supplier Deposit → Bank) and stays balanced', async () => {
       await ds.transaction((m) =>
         posting.postPurchaseRefund({
-          purchaseOrderId: PO_ID, sourceRef: 'PO-001', paymentRowId: 'vp-1',
+          purchaseOrderId: PO_ID, sourceRef: 'PO-001', refundRowId: randomUUID(),
           channel: 'BANK', amount: '200.0000',
           entryDate: '2026-07-12', createdBy: 'admin',
         }, m),
@@ -168,7 +178,7 @@ describe('Accounting Source Integration (e2e)', () => {
       );
 
       await ds.transaction((m) =>
-        posting.reverseEntriesForDocument('PURCHASE_ORDER', PO_ID, ['PURCHASE_RECEIVE'], '2026-07-16', m, 'admin'),
+        posting.reverseEntriesForDocument(AccountingSourceType.PURCHASE_ORDER, PO_ID, [PostingType.PURCHASE_RECEIVE], '2026-07-16', m, 'admin'),
       );
 
       const inventory = await ds.getRepository(ChartOfAccount).findOneByOrFail({ code: '1300' });
@@ -190,7 +200,7 @@ describe('Accounting Source Integration (e2e)', () => {
       );
 
       await ds.transaction((m) =>
-        posting.reverseEntriesForDocument('STOCK_ADJUSTMENT', ADJ_ID, ['STOCK_ADJUSTMENT'], '2026-07-18', m, 'admin'),
+        posting.reverseEntriesForDocument(AccountingSourceType.STOCK_ADJUSTMENT, ADJ_ID, [PostingType.STOCK_ADJUSTMENT], '2026-07-18', m, 'admin'),
       );
 
       const inventory = await ds.getRepository(ChartOfAccount).findOneByOrFail({ code: '1300' });
@@ -204,59 +214,41 @@ describe('Accounting Source Integration (e2e)', () => {
 
   describe('Concurrency', () => {
     it('two simultaneous complete(stock-adjustment) calls: only one succeeds, the second is rejected (status re-check after lock)', async () => {
-      // Create a draft stock adjustment via raw SQL to avoid service overhead.
-      await ds.query(`INSERT INTO stock_adjustments (id, "adjustmentNumber", "adjustmentDate", status, "itemCount", "totalValue")
-        VALUES ($1, 'SA-CONCUR', NOW(), 'draft', 1, 50)`, [ADJ_ID]);
-      await ds.query(`INSERT INTO stock_adjustment_items (id, "stockAdjustmentId", "productId", "oldQuantity", "newQuantity", difference, "unitCost", "totalValue")
-        VALUES (gen_random_uuid(), $1, gen_random_uuid(), 10, 20, 10, 5, 50)`, [ADJ_ID]);
+      // Seed a real product (FK target) + a draft adjustment with one item.
+      // The concurrency guard is exercised through the REAL service.complete(),
+      // not a re-implemented lock, so this test would fail if complete()'s lock
+      // were on the wrong connection.
+      const categoryId = randomUUID();
+      await ds.query(
+        `INSERT INTO categories (id, name, slug, "isActive")
+         VALUES ($1, 'Concur Cat ${categoryId}', 'concur-cat-${categoryId}', true)`,
+        [categoryId],
+      );
+      const productId = randomUUID();
+      await ds.query(
+        `INSERT INTO products (id, name, slug, type, "categoryId", "baseCost", "stockQuantity", "isActive")
+         VALUES ($1, 'Concur Product', 'concur-product-${productId}', 'Stocked Product', $2, 5, 10, true)`,
+        [productId, categoryId],
+      );
+      await ds.query(
+        `INSERT INTO stock_adjustments (id, "adjustmentNumber", "adjustmentDate", status, "itemCount", "totalValue")
+         VALUES ($1, 'SA-CONCUR', NOW(), 'draft', 1, 50)`,
+        [ADJ_ID],
+      );
+      await ds.query(
+        `INSERT INTO stock_adjustment_items (id, "stockAdjustmentId", "productId", "oldQuantity", "newQuantity", difference, "unitCost", "totalValue")
+         VALUES (gen_random_uuid(), $1, $2, 10, 20, 10, 5, 50)`,
+        [ADJ_ID, productId],
+      );
 
       const results = await Promise.allSettled([
-        (async () => {
-          const qr = ds.createQueryRunner();
-          await qr.connect();
-          await qr.startTransaction();
-          try {
-            const adjustment = await qr.manager.findOne('stock_adjustments', {
-              where: { id: ADJ_ID },
-              lock: { mode: 'pessimistic_write' },
-            } as any);
-            if (!adjustment || adjustment.status !== 'draft') throw new Error('Concurrent lock: status not draft');
-            await qr.manager.update('stock_adjustments', ADJ_ID, { status: 'completed' });
-            await qr.commitTransaction();
-            return 'ok';
-          } catch (e) {
-            await qr.rollbackTransaction();
-            throw e;
-          } finally {
-            await qr.release();
-          }
-        })(),
-        (async () => {
-          const qr = ds.createQueryRunner();
-          await qr.connect();
-          await qr.startTransaction();
-          try {
-            const adjustment = await qr.manager.findOne('stock_adjustments', {
-              where: { id: ADJ_ID },
-              lock: { mode: 'pessimistic_write' },
-            } as any);
-            if (!adjustment || adjustment.status !== 'draft') throw new Error('Concurrent lock: status not draft');
-            await qr.manager.update('stock_adjustments', ADJ_ID, { status: 'completed' });
-            await qr.commitTransaction();
-            return 'ok';
-          } catch (e) {
-            await qr.rollbackTransaction();
-            throw e;
-          } finally {
-            await qr.release();
-          }
-        })(),
+        stockAdjustmentService.complete(ADJ_ID, 'user-1', 'admin'),
+        stockAdjustmentService.complete(ADJ_ID, 'user-2', 'admin'),
       ]);
 
       const succeeded = results.filter((r) => r.status === 'fulfilled');
       const failed = results.filter((r) => r.status === 'rejected');
       expect(succeeded.length).toBe(1);
-      expect(succeeded[0]).toEqual({ status: 'fulfilled', value: 'ok' });
       expect(failed.length).toBe(1);
 
       // Final status is completed.

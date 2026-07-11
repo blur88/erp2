@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
+import { randomUUID } from 'crypto';
 import { ACCOUNTING_POSTING_PORT, AccountingPostingPort } from '../src/common/accounting-posting/accounting-posting.port';
 import { ChartOfAccount } from '../src/modules/accounting/entities/chart-of-account.entity';
 import { AccountingSettings } from '../src/modules/accounting/entities/accounting-settings.entity';
@@ -93,7 +94,7 @@ describe('Accounting v1 (e2e)', () => {
     let entryId: string;
     await ds.transaction(async (m) => {
       const res = await posting.postSalesPayment(
-        { salesOrderId: SO_ID, sourceRef: 'SO-26-002', paymentRowId: 'rev-pay-id', channel: 'CASH', amount: '300.0000', entryDate: '2026-07-15' },
+        { salesOrderId: SO_ID, sourceRef: 'SO-26-002', paymentRowId: randomUUID(), channel: 'CASH', amount: '300.0000', entryDate: '2026-07-15' },
         m,
       );
       entryId = res.journalEntryId;
@@ -109,35 +110,54 @@ describe('Accounting v1 (e2e)', () => {
   });
 
   it('applies deterministic same-date ordering for a stable running balance', async () => {
-    const cash = await ds.getRepository(ChartOfAccount).findOneByOrFail({ code: '1100' });
-    // Two entries, same date
-    await ds.transaction((m) =>
-      posting.postSalesPayment(
-        { salesOrderId: SO_ID, sourceRef: 'SO-26-003', paymentRowId: 'order-3-pay', channel: 'CASH', amount: '100.0000', entryDate: '2026-07-20' },
-        m,
-      ),
+    // Use a dedicated throwaway Asset account (created for this test only) so the
+    // ledger is isolated from every other suite/test that shares the preset accounts.
+    // Two same-date opening-balance entries → two debits to a debit-normal account.
+    const coaRepo = ds.getRepository(ChartOfAccount);
+    const assetGroup = await coaRepo.findOneByOrFail({ code: '1000' });
+    const acct: ChartOfAccount = await coaRepo.save(
+      coaRepo.create({
+        code: `TO-${Date.now() % 1_000_000}`, name: 'Ordering Test', type: 'Asset' as any,
+        parentId: assetGroup.id,
+        isActive: true, isSystem: false, isPostable: true, openingBalance: '0.0000',
+      }),
     );
     await ds.transaction((m) =>
-      posting.postSalesPayment(
-        { salesOrderId: SO_ID, sourceRef: 'SO-26-004', paymentRowId: 'order-4-pay', channel: 'CASH', amount: '200.0000', entryDate: '2026-07-20' },
-        m,
-      ),
+      posting.postOpeningBalance({ accountId: acct.id, sourceRef: 'ORD-1', amount: '100.0000', entryDate: '2026-07-20' }, m),
+    );
+    await ds.transaction((m) =>
+      posting.postOpeningBalance({ accountId: acct.id, sourceRef: 'ORD-2', amount: '200.0000', entryDate: '2026-07-20' }, m),
     );
 
-    const gl = await ledger.getLedger({ accountId: cash.id, fromDate: '2026-07-01', toDate: '2026-07-31' });
-    expect(gl.movements.length).toBeGreaterThanOrEqual(5);
-    // Running balance should be monotonic
+    const gl = await ledger.getLedger({ accountId: acct.id, fromDate: '2026-07-01', toDate: '2026-07-31' });
+    expect(gl.movements.length).toBe(2);
+    // Both are debits to a debit-normal account → running balance strictly increases.
     for (let i = 1; i < gl.movements.length; i++) {
-      expect(toMinorUnits(gl.movements[i].balance)).toBeGreaterThanOrEqual(toMinorUnits(gl.movements[i - 1].balance));
+      expect(toMinorUnits(gl.movements[i].balance)).toBeGreaterThan(toMinorUnits(gl.movements[i - 1].balance));
     }
+    expect(gl.closingBalance).toBe('300.0000');
   });
 
   it('honors the entryDate < fromDate opening-balance cutoff', async () => {
-    const cash = await ds.getRepository(ChartOfAccount).findOneByOrFail({ code: '1100' });
-    const gl = await ledger.getLedger({ accountId: cash.id, fromDate: '2026-07-11', toDate: '2026-07-31' });
-    // Entries before July 11 contributed to the opening balance; July 20 entries are movements
+    // Dedicated Owner Capital (equity) account, seeded with one pre-range and one in-range entry.
+    const equity = await ds.getRepository(ChartOfAccount).findOneByOrFail({ code: '3100' });
+    await ds.transaction((m) =>
+      posting.postOpeningBalance(
+        { accountId: equity.id, sourceRef: 'CUTOFF-PRE', amount: '1000.0000', entryDate: '2026-07-05' },
+        m,
+      ),
+    );
+    await ds.transaction((m) =>
+      posting.postOpeningBalance(
+        { accountId: equity.id, sourceRef: 'CUTOFF-IN', amount: '250.0000', entryDate: '2026-07-20' },
+        m,
+      ),
+    );
+
+    const gl = await ledger.getLedger({ accountId: equity.id, fromDate: '2026-07-11', toDate: '2026-07-31' });
+    // The July 5 entry is before fromDate → opening balance; only the July 20 entry is a movement.
     expect(toMinorUnits(gl.openingBalance)).toBeGreaterThan(0n);
-    expect(gl.movements.length).toBe(2); // the July 20 entries
+    expect(gl.movements.length).toBe(1);
   });
 });
 
