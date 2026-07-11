@@ -484,8 +484,9 @@ export class StockAdjustmentService extends BaseCrudService<
    */
   async complete(id: string, userId?: string, username?: string): Promise<StockAdjustmentResponseDto> {
     const { manager, auditEntry } = await this.dataSource.transaction(async (manager: EntityManager) => {
-      // Load + lock the header row (bare, no relations).
-      const adjustment = await this.stockAdjustmentRepository.findOne({
+      // Load + lock the header row on THIS transaction's manager (a pessimistic
+      // lock must run inside the same transaction, not on the default-repo connection).
+      const adjustment = await manager.findOne(StockAdjustment, {
         where: { id },
         lock: { mode: 'pessimistic_write' },
         loadEagerRelations: false,
@@ -518,10 +519,11 @@ export class StockAdjustmentService extends BaseCrudService<
 
       // Create stock movements for each item using the manager.
       for (const item of items) {
-        if (Number(item.difference) === 0) continue;
+        // Single bigint parse drives the zero-check, movement direction, and value.
+        const diffMinor = toMinorUnits(String(item.difference));
+        if (diffMinor === 0n) continue;
 
-        const diff = Number(item.difference);
-        const movementType = diff > 0
+        const movementType = diffMinor > 0n
           ? StockMovementType.ADJUSTMENT_INCREASE
           : StockMovementType.ADJUSTMENT_DECREASE;
 
@@ -529,7 +531,7 @@ export class StockAdjustmentService extends BaseCrudService<
           {
             productId: item.productId,
             movementType,
-            quantity: diff,
+            quantity: Number(item.difference),
             unitValue: item.unitCost,
             referenceType: 'stock_adjustment',
             referenceId: adjustment.id,
@@ -541,8 +543,6 @@ export class StockAdjustmentService extends BaseCrudService<
         );
 
         // Accumulate value from the persisted totalValue (option A).
-        const diffMinor = toMinorUnits(String(item.difference));
-        if (diffMinor === 0n) continue;
         const valueMinor = item.totalValue != null
           ? toMinorUnits(String(item.totalValue))
           : (() => {
@@ -594,7 +594,8 @@ export class StockAdjustmentService extends BaseCrudService<
    */
   async revert(id: string, userId?: string, username?: string): Promise<StockAdjustmentResponseDto> {
     const { manager, auditEntry } = await this.dataSource.transaction(async (manager: EntityManager) => {
-      const adjustment = await this.stockAdjustmentRepository.findOne({
+      // Lock the header on this transaction's manager (see complete()).
+      const adjustment = await manager.findOne(StockAdjustment, {
         where: { id },
         lock: { mode: 'pessimistic_write' },
         loadEagerRelations: false,

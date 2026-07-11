@@ -280,13 +280,13 @@ describe('complete and revert', () => {
     const draft = createMockStockAdjustment(StockAdjustmentStatus.DRAFT);
     const items = draft.items!;
     const mockManager = {
+      findOne: jest.fn().mockResolvedValue(draft), // header lock now runs on the txn manager
       find: jest.fn().mockResolvedValue(items),
       save: jest.fn(),
     };
     (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) =>
       cb(mockManager),
     );
-    jest.spyOn(stockAdjustmentRepository, 'findOne').mockResolvedValue(draft as any);
     (stockMovementService.create as jest.Mock).mockResolvedValue({});
 
     await service.complete('sa-1', 'user-1', 'admin');
@@ -308,13 +308,13 @@ describe('complete and revert', () => {
     const completed = createMockStockAdjustment(StockAdjustmentStatus.COMPLETED);
     const items = completed.items!;
     const mockManager = {
+      findOne: jest.fn().mockResolvedValue(completed), // header lock now runs on the txn manager
       find: jest.fn().mockResolvedValue(items),
       save: jest.fn(),
     };
     (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) =>
       cb(mockManager),
     );
-    jest.spyOn(stockAdjustmentRepository, 'findOne').mockResolvedValue(completed as any);
     (stockMovementService.create as jest.Mock).mockResolvedValue({});
 
     await service.revert('sa-1', 'user-1', 'admin');
