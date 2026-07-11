@@ -9,6 +9,10 @@ import {
   FormControlLabel,
   Switch,
   Stack,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
 } from '@mui/material';
 import type { PaymentMethodConfig } from '@/types';
 
@@ -29,6 +33,7 @@ const PaymentMethodFormDialog: React.FC<PaymentMethodFormDialogProps> = ({
 
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
+  const [accountingChannel, setAccountingChannel] = useState<'CASH' | 'BANK'>('BANK');
   const [useForPurchases, setUseForPurchases] = useState(true);
   const [sortOrder, setSortOrder] = useState(0);
 
@@ -36,6 +41,7 @@ const PaymentMethodFormDialog: React.FC<PaymentMethodFormDialogProps> = ({
     if (open) {
       setCode(initialData?.code || '');
       setName(initialData?.name || '');
+      setAccountingChannel(initialData?.accountingChannel ?? 'BANK');
       setUseForPurchases(initialData?.useForPurchases ?? true);
       setSortOrder(initialData?.sortOrder || 0);
     }
@@ -49,6 +55,7 @@ const PaymentMethodFormDialog: React.FC<PaymentMethodFormDialogProps> = ({
     await onSubmit({
       code: code.trim().toUpperCase(),
       name: name.trim(),
+      accountingChannel,
       useForPurchases,
       sortOrder,
     });
@@ -76,6 +83,17 @@ const PaymentMethodFormDialog: React.FC<PaymentMethodFormDialogProps> = ({
             required
             fullWidth
           />
+          <FormControl fullWidth>
+            <InputLabel>Accounting Channel</InputLabel>
+            <Select
+              label="Accounting Channel"
+              value={accountingChannel}
+              onChange={(e) => setAccountingChannel(e.target.value as 'CASH' | 'BANK')}
+            >
+              <MenuItem value="BANK">Bank</MenuItem>
+              <MenuItem value="CASH">Cash</MenuItem>
+            </Select>
+          </FormControl>
           <TextField
             label="Sort Order"
             type="number"

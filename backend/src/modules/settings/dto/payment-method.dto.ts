@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsOptional,
   IsInt,
+  IsIn,
   MaxLength,
   Min,
   Max,
@@ -31,6 +32,11 @@ export class CreatePaymentMethodDto {
   @IsOptional()
   @IsInt()
   sortOrder?: number;
+
+  @ApiPropertyOptional({ description: 'Accounting channel (CASH or BANK)', default: 'BANK' })
+  @IsOptional()
+  @IsIn(['CASH', 'BANK'])
+  accountingChannel?: 'CASH' | 'BANK';
 }
 
 export class UpdatePaymentMethodDto extends PartialType(CreatePaymentMethodDto) {
@@ -74,6 +80,7 @@ export class PaymentMethodResponseDto {
   @ApiProperty() code: string;
   @ApiProperty() name: string;
   @ApiProperty() useForPurchases: boolean;
+  @ApiProperty() accountingChannel: 'CASH' | 'BANK';
   @ApiProperty() sortOrder: number;
   @ApiProperty() isActive: boolean;
   @ApiProperty() createdAt: Date;

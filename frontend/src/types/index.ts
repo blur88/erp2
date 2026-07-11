@@ -425,6 +425,7 @@ export interface PaymentMethodConfig {
   code: string;
   name: string;
   useForPurchases: boolean;
+  accountingChannel: 'CASH' | 'BANK';
   sortOrder: number;
   isActive: boolean;
   createdAt: string;

@@ -188,4 +188,21 @@ describe('PaymentMethodService', () => {
 
     expect(paymentMethodRepository.delete).toHaveBeenCalledWith('pm-1');
   });
+
+  describe('PaymentMethodEntity accountingChannel', () => {
+    it('defaults accountingChannel to BANK when unset', () => {
+      const pm = new PaymentMethodEntity();
+      pm.code = 'TEST';
+      pm.name = 'Test';
+      expect(pm.accountingChannel).toBe('BANK');
+    });
+
+    it('allows setting accountingChannel to CASH', () => {
+      const pm = new PaymentMethodEntity();
+      pm.code = 'CASH';
+      pm.name = 'Cash';
+      pm.accountingChannel = 'CASH';
+      expect(pm.accountingChannel).toBe('CASH');
+    });
+  });
 });
