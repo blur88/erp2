@@ -22,6 +22,7 @@ import { Product } from './product.entity';
 export enum StockAdjustmentStatus {
   DRAFT = 'draft',
   COMPLETED = 'completed',
+  REVERTED = 'reverted',
 }
 
 /**

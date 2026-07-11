@@ -131,6 +131,25 @@ export class StockAdjustmentController {
   ): Promise<StockAdjustmentResponseDto> {
     return this.stockAdjustmentService.complete(id);
   }
+
+  @Post(':id/revert')
+  @ApiOperation({ summary: 'Revert a completed stock adjustment' })
+  @ApiResponse({
+    status: 200,
+    description: 'Stock adjustment reverted successfully',
+    type: StockAdjustmentResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Adjustment cannot be reverted' })
+  @ApiResponse({ status: 404, description: 'Stock adjustment not found' })
+  @ApiParam({ name: 'id', description: 'Stock adjustment ID' })
+  async revert(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') currentUserId: string,
+    @CurrentUser('username') currentUsername: string,
+  ): Promise<StockAdjustmentResponseDto> {
+    return this.stockAdjustmentService.revert(id, currentUserId, currentUsername);
+  }
+
   @Patch(':id/notes')
   @ApiOperation({ summary: 'Update only the notes of a stock adjustment (any status)' })
   @ApiResponse({ status: 200, description: 'Notes updated successfully', type: StockAdjustmentResponseDto })

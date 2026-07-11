@@ -192,6 +192,12 @@ export const inventoryApiSlice = createApi({
       transformResponse: normalizeSingle<StockAdjustment>,
       invalidatesTags: ['StockAdjustment'],
     }),
+    revertStockAdjustment: builder.mutation<StockAdjustment, string>({
+      query: (id) => ({ url: `/inventory/stock-adjustments/${id}/revert`, method: 'POST' }),
+      transformResponse: normalizeSingle<StockAdjustment>,
+      invalidatesTags: (_result, _error, id) => ['StockAdjustment', { type: 'StockAdjustment', id }],
+    }),
+
     updateStockAdjustmentNotes: builder.mutation<StockAdjustment, { id: string; notes?: string }>({
       query: ({ id, notes }) => ({
         url: `/inventory/stock-adjustments/${id}/notes`,
@@ -238,5 +244,6 @@ export const {
   useUpdateStockAdjustmentMutation,
   useDeleteStockAdjustmentMutation,
   useCompleteStockAdjustmentMutation,
+  useRevertStockAdjustmentMutation,
   useUpdateStockAdjustmentNotesMutation,
 } = inventoryApiSlice

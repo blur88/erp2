@@ -12,6 +12,8 @@ import {
 } from '../../../database/entities';
 import { StockMovement } from '../../../database/entities/stock-movement.entity';
 import { AuditLogService } from '../../audit-logs/services';
+import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
+import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
 import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
@@ -24,6 +26,7 @@ describe('PurchaseOrderLifecycleService', () => {
   let dataSource: { transaction: jest.Mock };
   let stockMovementService: { deleteByReference: jest.Mock; create: jest.Mock };
   let baseCostCalculator: { addStock: jest.Mock; removeStock: jest.Mock; calculateShippingByValue: jest.Mock };
+  let accountingPort: jest.Mocked<AccountingPostingPort>;
   const poQueryBuilder = {
     update: jest.fn().mockReturnThis(),
     set: jest.fn().mockReturnThis(),
@@ -84,10 +87,22 @@ describe('PurchaseOrderLifecycleService', () => {
       create: jest.fn().mockResolvedValue({}),
     };
     baseCostCalculator = {
-      addStock: jest.fn(),
+      addStock: jest.fn().mockResolvedValue({ landedCost: 5, receivedQuantity: 10 }),
       removeStock: jest.fn(),
       calculateShippingByValue: jest.fn().mockReturnValue(0),
     };
+    accountingPort = {
+      postSalesPayment: jest.fn(),
+      postSalesRefund: jest.fn(),
+      postSalesFulfillment: jest.fn(),
+      postPurchasePayment: jest.fn(),
+      postPurchaseRefund: jest.fn(),
+      postPurchaseReceive: jest.fn(),
+      postStockAdjustment: jest.fn(),
+      postOpeningBalance: jest.fn(),
+      reverseEntry: jest.fn(),
+      reverseEntriesForDocument: jest.fn(),
+    } as unknown as jest.Mocked<AccountingPostingPort>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -98,6 +113,7 @@ describe('PurchaseOrderLifecycleService', () => {
         { provide: BaseCostCalculatorService, useValue: baseCostCalculator },
         { provide: DataSource, useValue: dataSource },
         { provide: AuditLogService, useValue: auditLogService },
+        { provide: ACCOUNTING_POSTING_PORT, useValue: accountingPort },
       ],
     }).compile();
 
@@ -242,6 +258,14 @@ describe('PurchaseOrderLifecycleService', () => {
         expect.any(Date),
         expect.anything(),
       );
+      expect(accountingPort.postPurchaseReceive).toHaveBeenCalledWith(
+        expect.objectContaining({
+          purchaseOrderId: 'po-1',
+          sourceRef: 'PO-000001',
+          amount: '50.0000',
+        }),
+        expect.anything(),
+      );
       expect(result.status).toBe(PurchaseOrderStatus.RECEIVED);
 
       expect(poRepo.update).toHaveBeenCalledWith(
@@ -353,6 +377,14 @@ describe('PurchaseOrderLifecycleService', () => {
         'product-1',
         'po-1',
         expect.anything(),
+      );
+      expect(accountingPort.reverseEntriesForDocument).toHaveBeenCalledWith(
+        'PURCHASE_ORDER',
+        'po-1',
+        ['PURCHASE_RECEIVE'],
+        expect.any(String),
+        expect.anything(),
+        'admin',
       );
       expect(stockMovementService.deleteByReference).toHaveBeenCalledWith(
         'purchase_order',
