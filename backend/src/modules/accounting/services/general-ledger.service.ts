@@ -26,6 +26,8 @@ export class GeneralLedgerService {
         .select('COALESCE(SUM(l.debit),0)', 'debit')
         .addSelect('COALESCE(SUM(l.credit),0)', 'credit')
         .where('l."accountId" = :accountId', { accountId: params.accountId })
+        .andWhere('l."deletedAt" IS NULL')
+        .andWhere('e."deletedAt" IS NULL')
         .andWhere('e."entryDate" < :fromDate', { fromDate: params.fromDate })
         .getRawOne<{ debit: string; credit: string }>();
       openingRaw = toMinorUnits(openRows!.debit) - toMinorUnits(openRows!.credit);
@@ -33,7 +35,9 @@ export class GeneralLedgerService {
 
     const qb = this.lineRepo.createQueryBuilder('l')
       .innerJoinAndMapOne('l.entry', 'journal_entry', 'e', 'e.id = l."entryId"')
-      .where('l."accountId" = :accountId', { accountId: params.accountId });
+      .where('l."accountId" = :accountId', { accountId: params.accountId })
+      .andWhere('l."deletedAt" IS NULL')
+      .andWhere('e."deletedAt" IS NULL');
     if (params.fromDate) qb.andWhere('e."entryDate" >= :fromDate', { fromDate: params.fromDate });
     if (params.toDate) qb.andWhere('e."entryDate" <= :toDate', { toDate: params.toDate });
     if (params.sourceType && params.sourceType !== 'All') qb.andWhere('e."sourceType" = :st', { st: params.sourceType });

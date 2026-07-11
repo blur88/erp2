@@ -5,7 +5,7 @@ import { Product } from '../../../database/entities/product.entity';
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import { CostingStrategyFactory } from './costing/costing-strategy-factory.service';
 import { repoFor } from '../../../common/db/tx-helpers';
-import { toMinorUnits } from '../../accounting/utils/money';
+import { toMinorUnits, formatScale4 } from '../../accounting/utils/money';
 
 @Injectable()
 export class BaseCostCalculatorService {
@@ -114,23 +114,27 @@ export class BaseCostCalculatorService {
     const reductions = strategy.determineBatchReduction(batches, quantitySold);
 
     let totalConsumedScale8 = 0n;
+    // Any per-batch shortfall (strategy float vs persisted scale-4 mismatch) is carried
+    // forward so total consumed still equals the requested quantity across batches.
+    let carryMinor = 0n;
 
     // Apply reductions
     for (const reduction of reductions) {
       const batch = batches.find(b => b.id === reduction.batchId);
       if (!batch) continue;
 
-      // Capture persisted before/after remainingQuantity (not reduction.quantity)
+      // Compute the new remaining in scale-4 minor-units (bigint) — never JS float.
       const oldRemainingMinor = toMinorUnits(String(batch.remainingQuantity));
-
-      const newRemaining = Number(batch.remainingQuantity) - reduction.quantity;
-      const newRemainingStr = newRemaining.toFixed(4);
-      const newRemainingMinor = toMinorUnits(newRemainingStr);
-
-      const consumedQtyMinor = oldRemainingMinor - newRemainingMinor;
+      // Requested for this batch + any carried shortfall from earlier batches.
+      const requestedMinor = toMinorUnits(reduction.quantity.toFixed(4)) + carryMinor;
+      // A batch cannot go negative; consume at most what it holds, carry the rest.
+      const consumedQtyMinor = requestedMinor > oldRemainingMinor ? oldRemainingMinor : requestedMinor;
+      carryMinor = requestedMinor - consumedQtyMinor; // remainder for the next batch (0 if fully consumed)
+      const newRemainingMinor = oldRemainingMinor - consumedQtyMinor;
+      const newRemainingStr = formatScale4(newRemainingMinor);
 
       await costHistoryRepo.update(batch.id, {
-        remainingQuantity: newRemaining,
+        remainingQuantity: newRemainingStr as any,
         updatedAt: new Date(),
       });
 
@@ -139,7 +143,7 @@ export class BaseCostCalculatorService {
       totalConsumedScale8 += consumedQtyMinor * landedCostMinor;
 
       this.logger.debug(
-        `Reduced batch ${batch.id}: ${oldRemainingMinor} - ${consumedQtyMinor} minor qty consumed, landed ${landedCostMinor}, scale-8 contrib ${consumedQtyMinor * landedCostMinor}`
+        `Reduced batch ${batch.id}: consumed ${consumedQtyMinor} minor qty, landed ${landedCostMinor}, scale-8 contrib ${consumedQtyMinor * landedCostMinor}, carry ${carryMinor}`
       );
     }
 

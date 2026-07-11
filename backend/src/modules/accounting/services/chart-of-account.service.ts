@@ -45,7 +45,9 @@ export class ChartOfAccountService {
       if (toMinorUnits(opening) !== 0n) {
         await this.posting.postOpeningBalance({
           accountId: account.id, sourceRef: account.code,
-          amount: opening, entryDate: new Date().toISOString().slice(0, 10), createdBy: actor,
+          amount: opening,
+          entryDate: dto.openingBalanceDate ?? new Date().toISOString().slice(0, 10),
+          createdBy: actor,
         }, manager);
       }
       return account;

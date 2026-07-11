@@ -26,7 +26,7 @@ export class JournalEntryService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 25;
     const qb = this.entryRepo.createQueryBuilder('e')
-      .leftJoinAndSelect('e.lines', 'l')
+      .leftJoinAndSelect('e.lines', 'l', 'l."deletedAt" IS NULL')
       .orderBy('e.journalNo', 'DESC')
       .skip((page - 1) * limit).take(limit);
     const [entries, total] = await qb.getManyAndCount();

@@ -25,8 +25,10 @@ export class AccountBalanceService {
       .select('l."accountId"', 'accountId')
       .addSelect('COALESCE(SUM(l.debit),0)', 'debit')
       .addSelect('COALESCE(SUM(l.credit),0)', 'credit')
+      .where('l."deletedAt" IS NULL')
+      .andWhere('e."deletedAt" IS NULL')
       .groupBy('l."accountId"');
-    if (asOfDate) qb.where('e."entryDate" <= :asOfDate', { asOfDate });
+    if (asOfDate) qb.andWhere('e."entryDate" <= :asOfDate', { asOfDate });
     const rows = await qb.getRawMany<{ accountId: string; debit: string; credit: string }>();
     const map = new Map<string, bigint>();
     for (const r of rows) {

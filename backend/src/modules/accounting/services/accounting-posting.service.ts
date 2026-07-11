@@ -101,8 +101,13 @@ export class AccountingPostingService implements AccountingPostingPort {
     }, manager);
 
     // Zero-cost fulfillment (e.g. service products): skip the COGS JE entirely.
+    // A negative COGS is invalid (would violate CHK_jel_nonneg) — reject with a clear message.
+    const cogsMinor = toMinorUnits(cmd.cogsAmount);
+    if (cogsMinor < 0n) {
+      throw new BadRequestException(`COGS amount must not be negative: ${cmd.cogsAmount}`);
+    }
     let cogsEntryId: string | null = null;
-    if (toMinorUnits(cmd.cogsAmount) !== 0n) {
+    if (cogsMinor > 0n) {
       const cogs = await this.lookup.resolveAccount('cogs', manager);
       const inventory = await this.lookup.resolveAccount('inventory', manager);
       const cogsRes = await this.build({
@@ -202,11 +207,14 @@ export class AccountingPostingService implements AccountingPostingPort {
     const entryRepo = manager.getRepository(JournalEntry);
     const original = await entryRepo.findOne({ where: { id: cmd.originalEntryId } as any, relations: { lines: true } });
     if (!original) throw new BadRequestException('Original entry not found');
-    const lineRepo = manager.getRepository(JournalEntryLine);
-    const swapped: DraftLine[] = original.lines.map((l) => ({
-      account: { id: l.accountId, isPostable: true } as any,
-      debit: l.credit, credit: l.debit,
-    }));
+    const accountRepo = manager.getRepository(ChartOfAccount);
+    const swapped: DraftLine[] = [];
+    for (const l of original.lines) {
+      const account = await accountRepo.findOne({ where: { id: l.accountId } as any });
+      if (!account) throw new BadRequestException(`Account ${l.accountId} for reversal not found`);
+      // Swap debit/credit; the real account carries the isPostable guard.
+      swapped.push({ account, debit: l.credit, credit: l.debit });
+    }
     return this.build({
       sourceType: original.sourceType, sourceDocumentId: original.sourceDocumentId,
       sourceEventId: original.sourceEventId, sourceRef: original.sourceRef,
