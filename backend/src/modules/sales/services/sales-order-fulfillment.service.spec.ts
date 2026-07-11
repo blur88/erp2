@@ -13,6 +13,8 @@ import { InventoryIntegrationService } from './inventory-integration.service';
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { AuditLogService } from '../../audit-logs/services';
+import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
+import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 
 const mockOrder = (overrides: Partial<SalesOrder> = {}): SalesOrder =>
   ({
@@ -41,6 +43,7 @@ describe('SalesOrderFulfillmentService', () => {
   let baseCostCalculator: jest.Mocked<BaseCostCalculatorService>;
   let auditLogService: jest.Mocked<AuditLogService>;
   let dataSource: jest.Mocked<DataSource>;
+  let accountingPort: jest.Mocked<AccountingPostingPort>;
 
   function wireTransaction(order: SalesOrder | null) {
     const findOne = jest.fn().mockResolvedValue(order);
@@ -62,7 +65,7 @@ describe('SalesOrderFulfillmentService', () => {
         },
         {
           provide: InventoryIntegrationService,
-          useValue: { adjustStock: jest.fn() },
+          useValue: { adjustStock: jest.fn().mockResolvedValue(0n) },
         },
         {
           provide: StockMovementService,
@@ -75,6 +78,7 @@ describe('SalesOrderFulfillmentService', () => {
           useValue: { restoreStock: jest.fn() },
         },
         { provide: AuditLogService, useValue: { log: jest.fn() } },
+        { provide: ACCOUNTING_POSTING_PORT, useValue: { postSalesFulfillment: jest.fn(), reverseEntriesForDocument: jest.fn() } },
         { provide: DataSource, useValue: { transaction: jest.fn() } },
       ],
     }).compile();
@@ -85,6 +89,7 @@ describe('SalesOrderFulfillmentService', () => {
     stockMovementService = module.get(StockMovementService);
     baseCostCalculator = module.get(BaseCostCalculatorService);
     auditLogService = module.get(AuditLogService);
+    accountingPort = module.get(ACCOUNTING_POSTING_PORT);
     dataSource = module.get(DataSource) as jest.Mocked<DataSource>;
   });
 
@@ -150,6 +155,7 @@ describe('SalesOrderFulfillmentService', () => {
         status: SalesOrderStatus.FULFILLED,
         // sentinel distinguishing the re-read from the lock-read snapshot
         updatedAt: new Date('2099-01-01T00:00:00Z'),
+        fulfilledAt: new Date('2099-01-01T00:00:00Z'),
       } as Partial<SalesOrder>);
 
       const findOne = jest
@@ -267,6 +273,26 @@ describe('SalesOrderFulfillmentService', () => {
       );
       expect(result.fulfilledAt).toBeInstanceOf(Date);
     });
+
+    it('posts fulfillment revenue+COGS JEs after stock depletion', async () => {
+      const order = mockOrder({
+        status: SalesOrderStatus.READY,
+        totalAmount: 1000,
+      });
+      wireTransaction(order);
+      inventoryService.adjustStock.mockResolvedValue(349_995_000n);
+
+      await service.fulfillOrder('order-1', 'u', 'admin');
+
+      expect(accountingPort.postSalesFulfillment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          salesOrderId: 'order-1',
+          revenueAmount: '1000.0000',
+          cogsAmount: expect.any(String),
+        }),
+        expect.anything(),
+      );
+    });
   });
 
   describe('unfulfillOrder', () => {
@@ -323,6 +349,22 @@ describe('SalesOrderFulfillmentService', () => {
         expect.objectContaining({ fulfilledAt: null }),
       );
       expect(result.fulfilledAt).toBeUndefined();
+    });
+
+    it('reverses fulfillment JEs on unfulfill', async () => {
+      const order = mockOrder({ status: SalesOrderStatus.FULFILLED });
+      wireTransaction(order);
+
+      await service.unfulfillOrder('order-1', 'u', 'admin');
+
+      expect(accountingPort.reverseEntriesForDocument).toHaveBeenCalledWith(
+        'SALES_ORDER',
+        'order-1',
+        expect.arrayContaining(['SALES_FULFILLMENT_REVENUE', 'SALES_FULFILLMENT_COGS']),
+        expect.any(String),
+        expect.anything(),
+        'admin',
+      );
     });
   });
 

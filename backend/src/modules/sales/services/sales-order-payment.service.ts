@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -12,6 +13,9 @@ import { PaymentMethodEntity } from '../../../database/entities/payment-method.e
 import { AuditLogService } from '../../audit-logs/services';
 import { RecordPaymentDto } from '../dto/sales-order.dto';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
+import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
+import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
+import { formatScale4 } from '../../accounting/utils/money';
 
 const AMOUNT_TOLERANCE = 0.001;
 
@@ -25,6 +29,8 @@ export class SalesOrderPaymentService {
     @InjectRepository(PaymentMethodEntity)
     private readonly paymentMethodRepository: Repository<PaymentMethodEntity>,
     private readonly auditLogService: AuditLogService,
+    @Inject(ACCOUNTING_POSTING_PORT)
+    private readonly accounting: AccountingPostingPort,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -87,6 +93,15 @@ export class SalesOrderPaymentService {
         notes: dto.notes,
       });
       const savedRecord = await manager.getRepository(SalesOrderPayment).save(record);
+      await this.accounting.postSalesPayment({
+        salesOrderId: orderId,
+        sourceRef: order.orderNumber,
+        paymentRowId: savedRecord.id,
+        channel: method.accountingChannel,
+        amount: formatScale4(String(dto.amount)),
+        entryDate: dto.paymentDate,
+        createdBy: username,
+      }, manager);
       await this.updatePaymentStatusInTx(order, manager);
       return { saved: savedRecord, orderNumber: order.orderNumber };
     });
@@ -134,6 +149,15 @@ export class SalesOrderPaymentService {
         notes: dto.notes,
       });
       const savedRecord = await manager.getRepository(SalesOrderPayment).save(record);
+      await this.accounting.postSalesRefund({
+        salesOrderId: orderId,
+        sourceRef: order.orderNumber,
+        refundRowId: savedRecord.id,
+        channel: method.accountingChannel,
+        amount: formatScale4(String(dto.amount)),
+        entryDate: dto.paymentDate,
+        createdBy: username,
+      }, manager);
       const resultingStatus = await this.updatePaymentStatusInTx(order, manager);
       return { saved: savedRecord, resultingStatus, orderNumber: order.orderNumber };
     });
@@ -154,11 +178,14 @@ export class SalesOrderPaymentService {
     for (const dto of dtos) {
       if (dto.amount <= 0) throw new BadRequestException('Payment amount must be positive');
     }
+    const methodMap = new Map<string, PaymentMethodEntity>();
     for (const dto of dtos) {
+      if (methodMap.has(dto.paymentMethodId)) continue;
       const method = await this.paymentMethodRepository.findOne({
         where: { id: dto.paymentMethodId, isActive: true },
       });
       if (!method) throw new BadRequestException(`Payment method ${dto.paymentMethodId} not found or inactive`);
+      methodMap.set(dto.paymentMethodId, method);
     }
 
     const { results, orderNumber } = await this.dataSource.transaction(async (manager: EntityManager) => {
@@ -179,7 +206,18 @@ export class SalesOrderPaymentService {
           referenceNumber: dto.referenceNumber,
           notes: dto.notes,
         });
-        saved.push(await manager.getRepository(SalesOrderPayment).save(record));
+        const savedRecord = await manager.getRepository(SalesOrderPayment).save(record);
+        const method = methodMap.get(dto.paymentMethodId)!;
+        await this.accounting.postSalesPayment({
+          salesOrderId: orderId,
+          sourceRef: order.orderNumber,
+          paymentRowId: savedRecord.id,
+          channel: method.accountingChannel,
+          amount: formatScale4(String(dto.amount)),
+          entryDate: dto.paymentDate,
+          createdBy: username,
+        }, manager);
+        saved.push(savedRecord);
       }
       await this.updatePaymentStatusInTx(order, manager);
       return { results: saved, orderNumber: order.orderNumber };
@@ -203,11 +241,14 @@ export class SalesOrderPaymentService {
     for (const dto of dtos) {
       if (dto.amount <= 0) throw new BadRequestException('Refund amount must be positive');
     }
+    const methodMap = new Map<string, PaymentMethodEntity>();
     for (const dto of dtos) {
+      if (methodMap.has(dto.paymentMethodId)) continue;
       const method = await this.paymentMethodRepository.findOne({
         where: { id: dto.paymentMethodId, isActive: true },
       });
       if (!method) throw new BadRequestException(`Payment method ${dto.paymentMethodId} not found or inactive`);
+      methodMap.set(dto.paymentMethodId, method);
     }
 
     const { results, resultingStatus, orderNumber } = await this.dataSource.transaction(async (manager: EntityManager) => {
@@ -235,7 +276,18 @@ export class SalesOrderPaymentService {
           referenceNumber: dto.referenceNumber,
           notes: dto.notes,
         });
-        saved.push(await manager.getRepository(SalesOrderPayment).save(record));
+        const savedRecord = await manager.getRepository(SalesOrderPayment).save(record);
+        const method = methodMap.get(dto.paymentMethodId)!;
+        await this.accounting.postSalesRefund({
+          salesOrderId: orderId,
+          sourceRef: order.orderNumber,
+          refundRowId: savedRecord.id,
+          channel: method.accountingChannel,
+          amount: formatScale4(String(dto.amount)),
+          entryDate: dto.paymentDate,
+          createdBy: username,
+        }, manager);
+        saved.push(savedRecord);
       }
       const resultingStatus = await this.updatePaymentStatusInTx(order, manager);
       return { results: saved, resultingStatus, orderNumber: order.orderNumber };

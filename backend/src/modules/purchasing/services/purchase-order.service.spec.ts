@@ -22,6 +22,8 @@ import { StockMovementService } from '../../inventory/services/stock-movement.se
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
+import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
+import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 
 describe('PurchaseOrderService', () => {
   let module: TestingModule;
@@ -181,6 +183,10 @@ describe('PurchaseOrderService', () => {
         {
           provide: DataSource,
           useValue: dataSource,
+        },
+        {
+          provide: ACCOUNTING_POSTING_PORT,
+          useValue: { postPurchasePayment: jest.fn(), postPurchaseRefund: jest.fn(), reverseEntriesForDocument: jest.fn() },
         },
       ],
     }).compile();
@@ -658,11 +664,26 @@ describe('PurchaseOrderService', () => {
       purchaseOrderRepository.findOne.mockResolvedValue(mockPurchaseOrderForPayment);
       purchaseOrderRepository.save.mockResolvedValue(mockPurchaseOrderForPayment);
       vendorPaymentService.findOne.mockResolvedValue(mockRestoredPayment);
-      // reconcilePaymentState() reads the persisted active payments to recompute
-      // paidAmount; default to a single 200 payment for these cases.
+      paymentMethodRepository.findOne.mockResolvedValue({ id: 'pm-cash', isActive: true, accountingChannel: 'BANK' });
       vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
         { id: 'vp-active', amount: 200 } as unknown as VendorPayment,
       ]);
+      const vpFind = jest.fn().mockResolvedValue([]);
+      const vpFindOne = jest.fn().mockImplementation((...args) => (vendorPaymentRepository.findOne as any)(...args));
+      const vpRestore = jest.fn((...args) => (vendorPaymentRepository.restore as any)(...args));
+      const vpUpdate = jest.fn((...args) => (vendorPaymentRepository.update as any)(...args));
+      const vpCreate = jest.fn((r) => r);
+      const vpSave = jest.fn(async (r) => r);
+      const manager = {
+        getRepository: jest.fn((entity) => {
+          if (entity === PurchaseOrder) return {
+            findOne: jest.fn((...args) => (purchaseOrderRepository.findOne as any)(...args)),
+            save: jest.fn(async (row) => { await purchaseOrderRepository.save(row); return row; }),
+          };
+          return { find: vpFind, findOne: vpFindOne, restore: vpRestore, update: vpUpdate, create: vpCreate, save: vpSave };
+        }),
+      } as unknown as EntityManager;
+      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
     });
 
     it('derives paidAmount from the persisted active payments, not the in-memory total', async () => {
@@ -696,6 +717,7 @@ describe('PurchaseOrderService', () => {
         expect.objectContaining({ purchaseOrderId: 'po-1' }),
         'user-42',
         'alice',
+        expect.anything(),
       );
     });
 
@@ -907,7 +929,7 @@ describe('PurchaseOrderService', () => {
     }
 
     beforeEach(() => {
-      paymentMethodRepository.findOne.mockResolvedValue({ id: 'pm-1', isActive: true })
+      paymentMethodRepository.findOne.mockResolvedValue({ id: 'pm-1', isActive: true, accountingChannel: 'BANK' })
       ;(service as any).settingsService = { generateDocumentNumber: jest.fn().mockResolvedValue('VP-REF-1') }
       vendorPaymentRepository.findOne.mockResolvedValue({
         id: 'refund-1',

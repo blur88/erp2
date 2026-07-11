@@ -11,6 +11,8 @@ import {
 import { SalesOrderPayment } from '../../../database/entities/sales-order-payment.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { AuditLogService } from '../../audit-logs/services';
+import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
+import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 
 const mockOrder = (overrides: Partial<SalesOrder> = {}): SalesOrder =>
   ({
@@ -23,8 +25,8 @@ const mockOrder = (overrides: Partial<SalesOrder> = {}): SalesOrder =>
     ...overrides,
   }) as SalesOrder;
 
-const mockMethod = (): PaymentMethodEntity =>
-  ({ id: 'method-1', isActive: true }) as PaymentMethodEntity;
+const mockMethod = (overrides: Partial<PaymentMethodEntity> = {}): PaymentMethodEntity =>
+  ({ id: 'method-1', isActive: true, accountingChannel: 'BANK', ...overrides }) as PaymentMethodEntity;
 
 describe('SalesOrderPaymentService', () => {
   let service: SalesOrderPaymentService;
@@ -33,6 +35,7 @@ describe('SalesOrderPaymentService', () => {
   let methodRepo: jest.Mocked<Repository<PaymentMethodEntity>>;
   let auditLogService: jest.Mocked<AuditLogService>;
   let dataSource: jest.Mocked<DataSource>;
+  let accountingPort: jest.Mocked<AccountingPostingPort>;
 
   const buildMockManager = (
     paymentRecordsAfterSave: SalesOrderPayment[] = [],
@@ -76,6 +79,7 @@ describe('SalesOrderPaymentService', () => {
           useValue: { findOne: jest.fn() },
         },
         { provide: AuditLogService, useValue: { log: jest.fn() } },
+        { provide: ACCOUNTING_POSTING_PORT, useValue: { postSalesPayment: jest.fn(), postSalesRefund: jest.fn() } },
         { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
@@ -85,6 +89,7 @@ describe('SalesOrderPaymentService', () => {
     paymentRepo = module.get(getRepositoryToken(SalesOrderPayment));
     methodRepo = module.get(getRepositoryToken(PaymentMethodEntity));
     auditLogService = module.get(AuditLogService);
+    accountingPort = module.get(ACCOUNTING_POSTING_PORT);
   });
 
   describe('computePaymentStatus', () => {
@@ -443,6 +448,35 @@ describe('SalesOrderPaymentService', () => {
       );
     });
 
+    it('posts a SALES_PAYMENT JE inside the payment transaction', async () => {
+      const order = mockOrder({ status: SalesOrderStatus.DRAFT });
+      methodRepo.findOne.mockResolvedValue(mockMethod({ accountingChannel: 'CASH' }));
+      const findOne = jest.fn().mockResolvedValue(order);
+      const update = jest.fn().mockResolvedValue(undefined);
+      const manager = {
+        getRepository: jest.fn().mockImplementation((entity) => {
+          if (entity === SalesOrderPayment) {
+            return {
+              create: jest.fn().mockImplementation((d) => d),
+              save: jest.fn().mockImplementation((d) => Promise.resolve({ id: 'payment-new', ...d })),
+              find: jest.fn().mockResolvedValue([{ amount: 500 }]),
+            };
+          }
+          return { findOne, update };
+        }),
+      } as unknown as EntityManager;
+      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+
+      await service.recordPayment('order-1', {
+        paymentMethodId: 'method-1', amount: 500, paymentDate: '2026-07-10',
+      } as any, 'u', 'admin');
+
+      expect(accountingPort.postSalesPayment).toHaveBeenCalledWith(
+        expect.objectContaining({ salesOrderId: 'order-1', channel: 'CASH', amount: '500.0000', paymentRowId: 'payment-new' }),
+        expect.anything(),
+      );
+    });
+
     it('persists negative balanceDue when overpaid', async () => {
       const order = mockOrder({ totalAmount: 1000 });
       orderRepo.findOne.mockResolvedValue(order);
@@ -694,6 +728,35 @@ describe('SalesOrderPaymentService', () => {
           paymentDate: new Date(),
         } as any),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('posts a SALES_REFUND JE inside the refund transaction', async () => {
+      const order = mockOrder({ status: SalesOrderStatus.READY });
+      methodRepo.findOne.mockResolvedValue(mockMethod({ accountingChannel: 'BANK' }));
+      const findOne = jest.fn().mockResolvedValue(order);
+      const paymentFind = jest.fn().mockResolvedValue([{ amount: 1000 }]);
+      const manager = {
+        getRepository: jest.fn().mockImplementation((entity) => {
+          if (entity === SalesOrderPayment) {
+            return {
+              create: jest.fn().mockImplementation((d) => d),
+              save: jest.fn().mockImplementation((d) => Promise.resolve({ id: 'refund-new', ...d })),
+              find: paymentFind,
+            };
+          }
+          return { findOne, update: jest.fn() };
+        }),
+      } as unknown as EntityManager;
+      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+
+      await service.recordRefund('order-1', {
+        paymentMethodId: 'method-1', amount: 400, paymentDate: '2026-07-10',
+      } as any, 'u', 'admin');
+
+      expect(accountingPort.postSalesRefund).toHaveBeenCalledWith(
+        expect.objectContaining({ salesOrderId: 'order-1', channel: 'BANK', amount: '400.0000', refundRowId: 'refund-new' }),
+        expect.anything(),
+      );
     });
 
     it('rejects a refund exceeding net paid (cap read in-lock)', async () => {

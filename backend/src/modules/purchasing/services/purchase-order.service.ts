@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException, HttpException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException, HttpException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Like, In, Between, DataSource, EntityManager } from 'typeorm';
 import { applyPagination } from '@/common/pagination/apply-pagination';
@@ -38,6 +38,10 @@ import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
 import { lockRowForUpdate, repoFor } from '../../../common/db/tx-helpers';
+import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
+import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
+import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
+import { formatScale4 } from '../../accounting/utils/money';
 
 @Injectable()
 export class PurchaseOrderService extends BaseCrudService<
@@ -66,6 +70,8 @@ export class PurchaseOrderService extends BaseCrudService<
     private readonly settingsService: SettingsService,
     auditLogService: AuditLogService,
     private readonly purchaseOrderLifecycleService: PurchaseOrderLifecycleService,
+    @Inject(ACCOUNTING_POSTING_PORT)
+    private readonly accounting: AccountingPostingPort,
     private readonly dataSource: DataSource,
   ) {
     super(purchaseOrderRepository, auditLogService);
@@ -746,16 +752,19 @@ export class PurchaseOrderService extends BaseCrudService<
         throw new BadRequestException('Each refund amount must be greater than zero');
       }
     }
+    const methodMap = new Map<string, PaymentMethodEntity>();
     for (const line of refunds) {
+      if (methodMap.has(line.paymentMethodId)) continue;
       const method = await this.paymentMethodRepository.findOne({
         where: { id: line.paymentMethodId, isActive: true },
       });
       if (!method) {
         throw new BadRequestException(`Payment method ${line.paymentMethodId} not found or inactive`);
       }
+      methodMap.set(line.paymentMethodId, method);
     }
 
-    const savedRefundRows: { id: string; paymentMethodId: string }[] = [];
+    const savedRefundRows: { id: string; paymentMethodId: string; accountingChannel: 'CASH' | 'BANK' }[] = [];
 
     await this.dataSource.transaction(async (manager: EntityManager) => {
       const purchaseOrder = await lockRowForUpdate(manager, PurchaseOrder, orderId, {
@@ -779,14 +788,8 @@ export class PurchaseOrderService extends BaseCrudService<
         );
       }
 
-      // Generate the document number only AFTER the guards pass. generateDocumentNumber
-      // commits its counter in its own transaction (#719), so a number is burned the
-      // moment it is consumed — generating before the guards would leave sequence gaps
-      // on every rejected refund. SO avoids this entirely because SalesOrderPayment has
-      // no document number; VendorPayment requires a unique paymentNumber, so PO must
-      // generate one, and we do it past the point where the refund can still be rejected.
       for (const line of refunds) {
-        const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments');
+        const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments', manager);
         const refundRow = repo.create({
           supplierId: purchaseOrder.supplierId,
           purchaseOrderId: orderId,
@@ -798,7 +801,21 @@ export class PurchaseOrderService extends BaseCrudService<
           status: 'completed',
         } as any);
         const saved = await repo.save(refundRow);
-        savedRefundRows.push({ id: (saved as any).id, paymentMethodId: line.paymentMethodId });
+        const method = methodMap.get(line.paymentMethodId)!;
+        await this.accounting.postPurchaseRefund({
+          purchaseOrderId: orderId,
+          sourceRef: purchaseOrder.orderNumber,
+          refundRowId: (saved as any).id,
+          channel: method.accountingChannel,
+          amount: formatScale4(String(line.amount)),
+          entryDate: new Date().toISOString().slice(0, 10),
+          createdBy: username,
+        }, manager);
+        savedRefundRows.push({
+          id: (saved as any).id,
+          paymentMethodId: line.paymentMethodId,
+          accountingChannel: method.accountingChannel,
+        });
       }
 
       await this.reconcilePaymentState(purchaseOrder, manager);
@@ -833,109 +850,134 @@ export class PurchaseOrderService extends BaseCrudService<
   ): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Recording ${payments.length} payment lines for purchase order: ${id}`);
 
-    const purchaseOrder = await this.purchaseOrderRepository.findOne({
-      where: { id },
-      relations: { supplier: true },
-    });
-
-    if (!purchaseOrder) {
-      throw new NotFoundException('Purchase order not found');
-    }
-
-    if (
-      purchaseOrder.status === PurchaseOrderStatus.CANCELLED ||
-      purchaseOrder.status === PurchaseOrderStatus.RECEIVED
-    ) {
-      throw new BadRequestException(
-        `Cannot record payments for a ${purchaseOrder.status} purchase order.`,
-      );
-    }
-
-    if (!payments || payments.length === 0) {
-      throw new BadRequestException('At least one payment line is required');
-    }
-
-    if (payments.some((p) => !(Number(p.amount) > 0))) {
-      throw new BadRequestException('Each payment line amount must be greater than zero');
-    }
-
     const actor = userId || 'system';
 
-    // NOTE: vendor-payment creation and GL posting are not yet bound to a shared
-    // transaction manager (see #719), so this method cannot be made fully atomic.
-    // To stay robust against a partially-applied batch, the order's paidAmount and
-    // statuses are NOT accumulated in memory — they are recomputed from the actual
-    // persisted active vendor payments at the end via reconcilePaymentState().
-
-    // Check for a previously soft-deleted payment for this PO (from a prior unpay)
-    const previousPayment = await this.vendorPaymentRepository.findOne({
-      where: { purchaseOrderId: id },
-      withDeleted: true,
-      order: { deletedAt: 'DESC' } as any,
-    });
-
-    if (previousPayment?.deletedAt) {
-      // Restore previous vendor payment and update it with first payment line details.
-      const firstLine = payments[0];
-      await this.vendorPaymentRepository.restore(previousPayment.id);
-      // Reload from DB after restore so deletedAt is null on the in-memory object.
-      // Without this, save() would overwrite the restored deletedAt=null back to the old date.
-      // Use update() (direct SQL) instead of save() to guarantee the new paymentMethodId
-      // is written — save() can skip dirty fields due to the identity map after restore().
-      await this.vendorPaymentRepository.update(previousPayment.id, {
-        isActive: true,
-        paymentMethodId: firstLine.paymentMethodId,
-        amount: firstLine.amount,
-        notes: firstLine.reference || previousPayment.notes,
-        paymentDate: new Date() as any,
+    const methodMap = new Map<string, PaymentMethodEntity>();
+    for (const line of payments) {
+      if (methodMap.has(line.paymentMethodId)) continue;
+      const method = await this.paymentMethodRepository.findOne({
+        where: { id: line.paymentMethodId, isActive: true },
       });
-      const restoredPayment = await this.vendorPaymentRepository.findOne({
-        where: { id: previousPayment.id },
+      if (!method) throw new BadRequestException(`Payment method ${line.paymentMethodId} not found or inactive`);
+      methodMap.set(line.paymentMethodId, method);
+    }
+
+    await this.dataSource.transaction(async (manager: EntityManager) => {
+      const purchaseOrder = await lockRowForUpdate(manager, PurchaseOrder, id, {
+        notFoundMessage: 'Purchase order not found',
       });
 
-      // Create additional vendor payments for remaining lines.
-      for (const line of payments.slice(1)) {
-        await this.vendorPaymentService.create(
-          {
-            supplierId: purchaseOrder.supplierId,
-            purchaseOrderId: id,
-            amount: line.amount,
-            paymentDate: new Date().toISOString().split('T')[0],
-            paymentMethodId: line.paymentMethodId,
-            status: 'completed',
-            notes: line.reference || undefined,
-          },
-          actor,
-          username,
+      if (
+        purchaseOrder.status === PurchaseOrderStatus.CANCELLED ||
+        purchaseOrder.status === PurchaseOrderStatus.RECEIVED
+      ) {
+        throw new BadRequestException(
+          `Cannot record payments for a ${purchaseOrder.status} purchase order.`,
         );
       }
 
-      await this.reconcilePaymentState(purchaseOrder);
-      this.logger.log(`Restored vendor payment ${restoredPayment.paymentNumber} for PO ${purchaseOrder.orderNumber}`);
-      return this.findOne(id);
-    }
+      if (!payments || payments.length === 0) {
+        throw new BadRequestException('At least one payment line is required');
+      }
 
-    // No previous payment - create a vendor payment for each line.
-    for (const line of payments) {
-      await this.vendorPaymentService.create(
-        {
-          supplierId: purchaseOrder.supplierId,
+      if (payments.some((p) => !(Number(p.amount) > 0))) {
+        throw new BadRequestException('Each payment line amount must be greater than zero');
+      }
+
+      // Check for a previously soft-deleted payment for this PO (from a prior unpay)
+      const vpRepo = repoFor(manager, VendorPayment, this.vendorPaymentRepository);
+      const previousPayment = await vpRepo.findOne({
+        where: { purchaseOrderId: id },
+        withDeleted: true,
+        order: { deletedAt: 'DESC' } as any,
+      });
+
+      if (previousPayment?.deletedAt) {
+        // Restore the soft-deleted payment and update with first line details.
+        const firstLine = payments[0];
+        await vpRepo.restore(previousPayment.id);
+        await vpRepo.update(previousPayment.id, {
+          isActive: true,
+          paymentMethodId: firstLine.paymentMethodId,
+          amount: firstLine.amount,
+          notes: firstLine.reference || previousPayment.notes,
+          paymentDate: new Date() as any,
+        });
+        const restoredPayment = await vpRepo.findOne({
+          where: { id: previousPayment.id },
+        });
+        this.logger.log(`Restored vendor payment ${restoredPayment.paymentNumber} for PO ${purchaseOrder.orderNumber}`);
+
+        const method = methodMap.get(firstLine.paymentMethodId)!;
+        await this.accounting.postPurchasePayment({
           purchaseOrderId: id,
-          amount: line.amount,
-          paymentDate: new Date().toISOString().split('T')[0],
-          paymentMethodId: line.paymentMethodId,
-          status: 'completed',
-          notes: line.reference || undefined,
-        },
-        actor,
-        username,
-      );
-    }
+          sourceRef: purchaseOrder.orderNumber,
+          paymentRowId: restoredPayment.id,
+          channel: method.accountingChannel,
+          amount: formatScale4(String(firstLine.amount)),
+          entryDate: new Date().toISOString().slice(0, 10),
+          createdBy: username,
+        }, manager);
 
-    await this.reconcilePaymentState(purchaseOrder);
-    this.logger.log(
-      `Purchase order ${purchaseOrder.orderNumber} paid amount updated to ${purchaseOrder.paidAmount}`,
-    );
+        // Create new payments for remaining lines.
+        for (const line of payments.slice(1)) {
+          const savedPayment = await this.vendorPaymentService.create(
+            {
+              supplierId: purchaseOrder.supplierId,
+              purchaseOrderId: id,
+              amount: line.amount,
+              paymentDate: new Date().toISOString().split('T')[0],
+              paymentMethodId: line.paymentMethodId,
+              status: 'completed',
+              notes: line.reference || undefined,
+            },
+            actor,
+            username,
+            manager,
+          );
+          const m = methodMap.get(line.paymentMethodId)!;
+          await this.accounting.postPurchasePayment({
+            purchaseOrderId: id,
+            sourceRef: purchaseOrder.orderNumber,
+            paymentRowId: savedPayment.id,
+            channel: m.accountingChannel,
+            amount: formatScale4(String(line.amount)),
+            entryDate: new Date().toISOString().slice(0, 10),
+            createdBy: username,
+          }, manager);
+        }
+      } else {
+        // No previous payment — create a vendor payment for each line.
+        for (const line of payments) {
+          const savedPayment = await this.vendorPaymentService.create(
+            {
+              supplierId: purchaseOrder.supplierId,
+              purchaseOrderId: id,
+              amount: line.amount,
+              paymentDate: new Date().toISOString().split('T')[0],
+              paymentMethodId: line.paymentMethodId,
+              status: 'completed',
+              notes: line.reference || undefined,
+            },
+            actor,
+            username,
+            manager,
+          );
+          const method = methodMap.get(line.paymentMethodId)!;
+          await this.accounting.postPurchasePayment({
+            purchaseOrderId: id,
+            sourceRef: purchaseOrder.orderNumber,
+            paymentRowId: savedPayment.id,
+            channel: method.accountingChannel,
+            amount: formatScale4(String(line.amount)),
+            entryDate: new Date().toISOString().slice(0, 10),
+            createdBy: username,
+          }, manager);
+        }
+      }
+
+      await this.reconcilePaymentState(purchaseOrder, manager);
+    });
 
     return this.findOne(id);
   }
@@ -976,45 +1018,44 @@ export class PurchaseOrderService extends BaseCrudService<
   async markAsUnpaid(id: string, userId?: string, username?: string): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Marking purchase order as unpaid: ${id}`);
 
-    const purchaseOrder = await this.purchaseOrderRepository.findOne({
-      where: { id },
+    await this.dataSource.transaction(async (manager: EntityManager) => {
+      const purchaseOrder = await lockRowForUpdate(manager, PurchaseOrder, id, {
+        notFoundMessage: 'Purchase order not found',
+      });
+
+      if (purchaseOrder.status === PurchaseOrderStatus.RECEIVED) {
+        throw new BadRequestException(
+          'Cannot unpay purchase order with received goods. Please return goods first.'
+        );
+      }
+
+      const existingPayments = await this.vendorPaymentService.findAllByPurchaseOrder(id, manager);
+      if (!existingPayments || existingPayments.length === 0) {
+        throw new NotFoundException('No payment found for this purchase order');
+      }
+
+      for (const payment of existingPayments) {
+        await this.vendorPaymentService.softDeleteForUnpay(payment.id, manager);
+      }
+
+      const now = new Date();
+      const entryDate = now.toISOString().slice(0, 10);
+      purchaseOrder.paidAmount = 0;
+      purchaseOrder.paymentStatus = PurchaseOrderPaymentStatus.UNPAID;
+      purchaseOrder.status = PurchaseOrderStatus.DRAFT;
+      await manager.getRepository(PurchaseOrder).save(purchaseOrder);
+
+      await this.accounting.reverseEntriesForDocument(
+        AccountingSourceType.PURCHASE_ORDER,
+        id,
+        [PostingType.PURCHASE_PAYMENT, PostingType.PURCHASE_REFUND],
+        entryDate,
+        manager,
+        username,
+      );
     });
 
-    if (!purchaseOrder) {
-      throw new NotFoundException('Purchase order not found');
-    }
-
-    // Check if PO has received goods - must return before unpaying
-    if (purchaseOrder.status === PurchaseOrderStatus.RECEIVED) {
-      throw new BadRequestException(
-        'Cannot unpay purchase order with received goods. Please return goods first.'
-      );
-    }
-
-    const actor = userId || 'system';
-
-    // Find all existing payments
-    const existingPayments = await this.vendorPaymentService.findAllByPurchaseOrder(id);
-    if (!existingPayments || existingPayments.length === 0) {
-      throw new NotFoundException('No payment found for this purchase order');
-    }
-
-    // Soft-delete each vendor payment
-    for (const payment of existingPayments) {
-      await this.vendorPaymentService.softDeleteForUnpay(payment.id);
-    }
-
-    // Reset paidAmount to 0
-    purchaseOrder.paidAmount = 0;
-    purchaseOrder.paymentStatus = PurchaseOrderPaymentStatus.UNPAID;
-    purchaseOrder.status = PurchaseOrderStatus.DRAFT;
-    await this.purchaseOrderRepository.save(purchaseOrder);
-
-    // Get updated order
-    const updatedOrder = await this.findOne(id);
-
-    this.logger.log(`Purchase order ${purchaseOrder.orderNumber} marked as unpaid - payment deleted`);
-    return updatedOrder;
+    return this.findOne(id);
   }
 
 

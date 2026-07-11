@@ -84,32 +84,34 @@ export class VendorPaymentService extends BaseCrudService<
     createDto: CreateVendorPaymentDto,
     userId?: string,
     username?: string,
+    manager?: EntityManager,
   ): Promise<VendorPayment> {
-    const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments');
+    const paymentRepo = repoFor(manager, VendorPayment, this.vendorPaymentRepository);
+    const poRepo = repoFor(manager, PurchaseOrder, this.purchaseOrderRepository);
+
+    const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments', manager);
     let paymentMethodId = createDto.paymentMethodId;
 
     if (!paymentMethodId) {
-      const defaultPaymentMethod = await this.paymentMethodRepository.findOne({
+      const methodRepo = repoFor(manager, PaymentMethodEntity, this.paymentMethodRepository);
+      const defaultPaymentMethod = await methodRepo.findOne({
         where: { code: 'BANK', isActive: true },
       });
       paymentMethodId = defaultPaymentMethod?.id || null;
     }
 
-    const vendorPayment = this.vendorPaymentRepository.create({
+    const vendorPayment = paymentRepo.create({
       ...createDto,
       paymentMethodId,
       paymentNumber,
     });
 
-    const savedPayment = await this.vendorPaymentRepository.save(vendorPayment);
+    const savedPayment = await paymentRepo.save(vendorPayment);
 
-    // Touch the purchase order to update its updatedAt timestamp
     if (createDto.purchaseOrderId) {
-      // Force TypeORM to update by using the update query
-      await this.purchaseOrderRepository.update(createDto.purchaseOrderId, {});
+      await poRepo.update(createDto.purchaseOrderId, {});
     }
 
-    // Log audit trail for create
     await this.auditLogService.log(
       'CREATE',
       'VendorPayment',
@@ -480,21 +482,25 @@ export class VendorPaymentService extends BaseCrudService<
   /**
    * Soft delete a vendor payment during unpay without additional audit logging.
    */
-  async softDeleteForUnpay(id: string): Promise<void> {
-    const payment = await this.vendorPaymentRepository.findOne({ where: { id } });
+  async softDeleteForUnpay(id: string, manager?: EntityManager): Promise<void> {
+    const paymentRepo = repoFor(manager, VendorPayment, this.vendorPaymentRepository);
+    const payment = await paymentRepo.findOne({ where: { id } });
     if (!payment) return;
 
     payment.isActive = false;
-    await this.vendorPaymentRepository.save(payment);
-    await this.vendorPaymentRepository.softDelete(id);
+    await paymentRepo.save(payment);
+    await paymentRepo.softDelete(id);
   }
 
   /**
    * Create vendor payment for a purchase order
    */
-  async createForPurchaseOrder(poId: string, userId?: string, username?: string): Promise<VendorPayment> {
-    // Find the purchase order
-    const purchaseOrder = await this.purchaseOrderRepository.findOne({
+  async createForPurchaseOrder(poId: string, userId?: string, username?: string, manager?: EntityManager): Promise<VendorPayment> {
+    const poRepo = repoFor(manager, PurchaseOrder, this.purchaseOrderRepository);
+    const paymentRepo = repoFor(manager, VendorPayment, this.vendorPaymentRepository);
+    const methodRepo = repoFor(manager, PaymentMethodEntity, this.paymentMethodRepository);
+
+    const purchaseOrder = await poRepo.findOne({
       where: { id: poId },
       relations: { supplier: true },
     });
@@ -503,8 +509,7 @@ export class VendorPaymentService extends BaseCrudService<
       throw new NotFoundException('Purchase order not found');
     }
 
-    // Check if vendor payment already exists for this PO
-    const existingPayment = await this.vendorPaymentRepository.findOne({
+    const existingPayment = await paymentRepo.findOne({
       where: {
         purchaseOrderId: poId,
         isActive: true
@@ -515,13 +520,12 @@ export class VendorPaymentService extends BaseCrudService<
       throw new BadRequestException('Vendor payment already exists for this purchase order');
     }
 
-    // Create vendor payment
-    const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments');
-    const defaultPaymentMethod = await this.paymentMethodRepository.findOne({
+    const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments', manager);
+    const defaultPaymentMethod = await methodRepo.findOne({
       where: { code: 'BANK', isActive: true },
     });
 
-    const vendorPayment = this.vendorPaymentRepository.create({
+    const vendorPayment = paymentRepo.create({
       paymentNumber,
       supplierId: purchaseOrder.supplierId,
       purchaseOrderId: poId,
@@ -532,17 +536,15 @@ export class VendorPaymentService extends BaseCrudService<
       notes: `Auto-generated payment for PO ${purchaseOrder.orderNumber}`,
     });
 
-    const savedPayment = await this.vendorPaymentRepository.save(vendorPayment);
+    const savedPayment = await paymentRepo.save(vendorPayment);
 
-    // Keep PO payment aggregates in sync for UI totals and actions.
     purchaseOrder.paidAmount = Number(purchaseOrder.totalAmount);
     purchaseOrder.paymentStatus = PurchaseOrderPaymentStatus.PAID;
     if (purchaseOrder.status === PurchaseOrderStatus.DRAFT) {
       purchaseOrder.status = PurchaseOrderStatus.READY;
     }
-    await this.purchaseOrderRepository.save(purchaseOrder);
+    await poRepo.save(purchaseOrder);
 
-    // Log audit trail for create
     await this.auditLogService.log(
       'CREATE',
       'VendorPayment',

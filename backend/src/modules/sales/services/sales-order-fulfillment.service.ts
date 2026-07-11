@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
@@ -7,6 +7,11 @@ import { StockMovementService } from '../../../modules/inventory/services/stock-
 import { AuditLogService } from '../../audit-logs/services';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { InventoryIntegrationService } from './inventory-integration.service';
+import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
+import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
+import { AccountingSourceType } from '../../../common/accounting-posting/enums';
+import { PostingType } from '../../../common/accounting-posting/enums';
+import { formatScale4 } from '../../accounting/utils/money';
 
 @Injectable()
 export class SalesOrderFulfillmentService {
@@ -19,6 +24,8 @@ export class SalesOrderFulfillmentService {
     private readonly stockMovementService: StockMovementService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly auditLogService: AuditLogService,
+    @Inject(ACCOUNTING_POSTING_PORT)
+    private readonly accounting: AccountingPostingPort,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -55,9 +62,10 @@ export class SalesOrderFulfillmentService {
         );
       }
 
+      let cogsScale8 = 0n;
       for (const item of order.items) {
         if (item.product) {
-          await this.inventoryIntegrationService.adjustStock(
+          const consumed = await this.inventoryIntegrationService.adjustStock(
             item.productId,
             -item.quantity,
             `Sales order fulfillment: ${order.orderNumber}`,
@@ -66,6 +74,7 @@ export class SalesOrderFulfillmentService {
             undefined,
             manager,
           );
+          cogsScale8 += consumed;
         }
       }
 
@@ -78,20 +87,25 @@ export class SalesOrderFulfillmentService {
       order.status = SalesOrderStatus.FULFILLED;
       order.fulfilledAt = now;
 
-      // Re-read the order after the status update + stock reduction, then post
-      // accounting against that fresh row. This fixes two things the in-memory
-      // lock-read snapshot got wrong:
-      //  1. fulfilledDate (a getter over updatedAt) — the re-read carries the just-
-      //     persisted updatedAt = now, so the journal entry lands in the correct
-      //     fiscal period instead of the order's stale pre-fulfillment date.
-      //  2. COGS — adjustStock -> reduceStock may have recalculated each product's
-      //     baseCost as FIFO batches were depleted; the re-read items.product carry
-      //     the post-reduction cost (matching the previous post-save reload).
+      // Re-read for document fields only (orderNumber, revenue basis, fulfilledAt).
       const pricedOrder = await manager.getRepository(SalesOrder).findOne({
         where: { id },
         relations: { items: { product: true }, customer: true },
       });
       const orderForPosting = pricedOrder ?? order;
+
+      // Round COGS once across ALL layers/products: (scale8 + 5000) / 10000
+      const cogsMinor = (cogsScale8 + 5000n) / 10000n;
+      const revenueAmount = formatScale4(String(orderForPosting.totalAmount));
+      const cogsAmount = formatScale4(cogsMinor);
+      await this.accounting.postSalesFulfillment({
+        salesOrderId: id,
+        sourceRef: order.orderNumber,
+        revenueAmount,
+        cogsAmount,
+        entryDate: orderForPosting.fulfilledAt.toISOString().slice(0, 10),
+        createdBy: username,
+      }, manager);
 
       return order;
     });
@@ -141,6 +155,16 @@ export class SalesOrderFulfillmentService {
       });
       order.status = SalesOrderStatus.READY;
       order.fulfilledAt = undefined;
+
+      const entryDate = new Date().toISOString().slice(0, 10);
+      await this.accounting.reverseEntriesForDocument(
+        AccountingSourceType.SALES_ORDER,
+        order.id,
+        [PostingType.SALES_FULFILLMENT_REVENUE, PostingType.SALES_FULFILLMENT_COGS],
+        entryDate,
+        manager,
+        username,
+      );
 
       return order;
     });
