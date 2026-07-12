@@ -20,6 +20,10 @@ interface AccountListProps {
   tree: AccountTreeNode[]
   onAddChild: (parent: AccountTreeNode | null) => void
   onEdit: (account: AccountTreeNode) => void
+  // Every row action (Add Child / Edit / Set Inactive / Reactivate) writes via
+  // PATCH or POST /accounting/accounts, which stay admin-only. Non-admins can read
+  // the chart of accounts (#895) but get no actions column.
+  isAdmin?: boolean
 }
 
 function flattenTree(tree: AccountTreeNode[]): FlattenedRow[] {
@@ -37,7 +41,7 @@ function flattenTree(tree: AccountTreeNode[]): FlattenedRow[] {
   return result
 }
 
-export default function AccountList({ tree, onAddChild, onEdit }: AccountListProps) {
+export default function AccountList({ tree, onAddChild, onEdit, isAdmin = true }: AccountListProps) {
   const { showSuccess, showError } = useNotification()
   const [updateAccount, { isLoading: updating }] = useUpdateAccountMutation()
   const [pendingDeactivate, setPendingDeactivate] = useState<AccountTreeNode | null>(null)
@@ -97,25 +101,29 @@ export default function AccountList({ tree, onAddChild, onEdit }: AccountListPro
       raw: true,
       render: (row) => <StatusChip status={row.account.isActive ? 'active' : 'inactive'} />,
     },
-    {
-      key: 'actions',
-      width: '10%',
-      raw: true,
-      render: (row) => (
-        <RowActionMenu
-          actions={
-            row.isGroup
-              ? [{ label: 'Add Child Account', onClick: () => onAddChild(row.account) }]
-              : [
-                  { label: 'Edit', onClick: () => onEdit(row.account) },
-                  row.account.isActive
-                    ? { label: 'Set Inactive', onClick: () => handleDeactivate(row.account) }
-                    : { label: 'Reactivate', onClick: () => handleReactivate(row.account) },
-                ]
-          }
-        />
-      ),
-    },
+    ...(isAdmin
+      ? [
+          {
+            key: 'actions',
+            width: '10%',
+            raw: true,
+            render: (row: FlattenedRow) => (
+              <RowActionMenu
+                actions={
+                  row.isGroup
+                    ? [{ label: 'Add Child Account', onClick: () => onAddChild(row.account) }]
+                    : [
+                        { label: 'Edit', onClick: () => onEdit(row.account) },
+                        row.account.isActive
+                          ? { label: 'Set Inactive', onClick: () => handleDeactivate(row.account) }
+                          : { label: 'Reactivate', onClick: () => handleReactivate(row.account) },
+                      ]
+                }
+              />
+            ),
+          },
+        ]
+      : []),
   ]
 
   const handleDeactivate = async (account: AccountTreeNode) => {

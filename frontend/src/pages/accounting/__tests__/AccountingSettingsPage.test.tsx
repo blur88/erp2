@@ -182,8 +182,12 @@ vi.mock('@/hooks/useNotification', () => ({
 
 import AccountingSettingsPage from '../AccountingSettingsPage'
 
-function renderPage() {
-  const store = configureStore({ reducer: { empty: (s = null) => s } })
+// The page reads state.auth.user.role: PUT /accounting/settings is admin-only, so
+// the Save button only renders for an admin.
+function renderPage(role = 'admin') {
+  const store = configureStore({
+    reducer: { auth: (s = { user: { role }, isAuthenticated: true }) => s } as any,
+  })
   return render(
     <Provider store={store}>
       <MemoryRouter>
@@ -241,4 +245,25 @@ describe('AccountingSettingsPage', () => {
       })
     })
   })
+
+  // PUT /accounting/settings stays admin-only: these mappings decide which GL
+  // accounts sales/purchasing auto-post into. Non-admins read them, never save.
+  describe.each(['manager', 'sales_staff', 'inventory_staff', 'procurement_staff'])(
+    'as %s',
+    (role) => {
+      it('still reads the current mappings', () => {
+        renderPage(role)
+        expect(screen.getByText('Payment')).toBeInTheDocument()
+        expect(screen.getByText('Sales')).toBeInTheDocument()
+      })
+
+      it('hides the Save button and explains why', () => {
+        renderPage(role)
+        expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument()
+        expect(
+          screen.getByText(/read-only. Only an administrator can change them/i),
+        ).toBeInTheDocument()
+      })
+    },
+  )
 })

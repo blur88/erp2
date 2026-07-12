@@ -3,6 +3,7 @@ import { Box } from '@mui/material'
 
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useAppSelector } from '@/hooks/useRedux'
 import { useGetAccountTreeQuery } from '@/store/api/accountingApi'
 import type { AccountTreeNode } from '@/types'
 
@@ -20,6 +21,10 @@ const filterConfig = {
 }
 
 export default function ChartOfAccountsPage() {
+  // Accounting is readable by every authenticated role (#895), but creating and
+  // editing accounts stays admin-only on the backend. Hide the write controls
+  // rather than let a non-admin fill in a form that will 403 on submit.
+  const isAdmin = useAppSelector((state) => state.auth?.user?.role === 'admin')
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
   const [sortBy, setSortBy] = useState('name')
@@ -67,7 +72,7 @@ export default function ChartOfAccountsPage() {
     <SimpleListPage
       title="Chart of Accounts"
       subtitle="Manage your chart of accounts."
-      primaryAction={{ label: 'New Account', onClick: handleAddRoot }}
+      primaryAction={isAdmin ? { label: 'New Account', onClick: handleAddRoot } : undefined}
       filterConfig={filterConfig as any}
       draftFilters={draftFilters}
       handlers={handlers}
@@ -78,10 +83,15 @@ export default function ChartOfAccountsPage() {
       error={error ? 'Failed to load accounts.' : null}
       tableSlot={(
         <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-          <AccountList tree={tree} onAddChild={handleAddChild} onEdit={handleEdit} />
+          <AccountList
+            tree={tree}
+            onAddChild={handleAddChild}
+            onEdit={handleEdit}
+            isAdmin={isAdmin}
+          />
         </Box>
       )}
-      dialogs={(
+      dialogs={isAdmin ? (
         <AccountFormDialog
           open={dialogOpen}
           account={editingAccount}
@@ -89,7 +99,7 @@ export default function ChartOfAccountsPage() {
           onClose={handleDialogClose}
           onSuccess={handleDialogSuccess}
         />
-      )}
+      ) : undefined}
     />
   )
 }

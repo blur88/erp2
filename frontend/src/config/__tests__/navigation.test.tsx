@@ -87,30 +87,32 @@ describe('navigation structure', () => {
     expect(new Set(iconTypes).size).toBe(children.length)
   })
 
-  it('restricts every accounting child to admin', () => {
+  it('opens every accounting child to all roles', () => {
     const children = accountingParent().children ?? []
     expect(children).toHaveLength(5)
     children.forEach((child) => {
-      expect(child.roles).toEqual(['admin'])
+      expect(child.roles).toEqual([
+        'admin',
+        'manager',
+        'sales_staff',
+        'inventory_staff',
+        'procurement_staff',
+      ])
     })
   })
 
-  it('keeps the finance section for an admin', () => {
-    const ids = getFilteredMenuSections(menuSections, 'admin').map((s) => s.id)
-    expect(ids).toContain('finance')
-  })
-
-  it('drops the finance section for a non-admin role', () => {
-    const nonAdminRoles = [
+  it('keeps the finance section for every role', () => {
+    const roles = [
+      'admin',
       'manager',
       'sales_staff',
       'inventory_staff',
       'procurement_staff',
     ] as const
 
-    nonAdminRoles.forEach((role) => {
+    roles.forEach((role) => {
       const ids = getFilteredMenuSections(menuSections, role).map((s) => s.id)
-      expect(ids).not.toContain('finance')
+      expect(ids).toContain('finance')
     })
   })
 })

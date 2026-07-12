@@ -111,8 +111,12 @@ vi.mock('@/hooks/useNotification', () => ({
 
 import ChartOfAccountsPage from '../ChartOfAccountsPage'
 
-function renderPage() {
-  const store = configureStore({ reducer: { empty: (s = null) => s } })
+// The page reads state.auth.user.role: account writes are admin-only, so the
+// write controls only render for an admin.
+function renderPage(role = 'admin') {
+  const store = configureStore({
+    reducer: { auth: (s = { user: { role }, isAuthenticated: true }) => s } as any,
+  })
   return render(
     <Provider store={store}>
       <MemoryRouter>
@@ -161,4 +165,33 @@ describe('ChartOfAccountsPage', () => {
     expect(screen.queryByText('Delete')).not.toBeInTheDocument()
     expect(screen.queryByText('View')).not.toBeInTheDocument()
   })
+
+  it('shows the New Account button to an admin', () => {
+    renderPage('admin')
+    expect(screen.getByText('New Account')).toBeInTheDocument()
+  })
+
+  // Account writes (POST/PATCH /accounting/accounts) stay admin-only, so a
+  // non-admin must not be offered controls that would 403 on submit.
+  describe.each(['manager', 'sales_staff', 'inventory_staff', 'procurement_staff'])(
+    'as %s',
+    (role) => {
+      it('still reads the chart of accounts', () => {
+        renderPage(role)
+        expect(screen.getByText('Cash')).toBeInTheDocument()
+        expect(screen.getByText('Current Assets')).toBeInTheDocument()
+      })
+
+      it('hides the New Account button', () => {
+        renderPage(role)
+        expect(screen.queryByText('New Account')).not.toBeInTheDocument()
+      })
+
+      it('hides the row actions menu entirely', () => {
+        renderPage(role)
+        const leafRow = screen.getByText('Cash').closest('tr')!
+        expect(leafRow.querySelector('button[aria-label="row actions"]')).toBeNull()
+      })
+    },
+  )
 })

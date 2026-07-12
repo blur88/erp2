@@ -5,7 +5,8 @@ import { ChartOfAccountService } from '../services/chart-of-account.service';
 import { CreateAccountDto } from '../dto/create-account.dto';
 import { UpdateAccountDto } from '../dto/update-account.dto';
 
-@Auth(UserRole.ADMIN)
+// Reads are open to any authenticated role (#895); writes stay admin-only.
+@Auth()
 @Controller('accounting/accounts')
 export class ChartOfAccountController {
   constructor(private readonly service: ChartOfAccountService) {}
@@ -19,11 +20,13 @@ export class ChartOfAccountController {
   }
 
   @Post()
+  @Auth(UserRole.ADMIN)
   create(@Body() dto: CreateAccountDto, @Req() req: any) {
     return this.service.create(dto, req?.user?.username ?? 'system');
   }
 
   @Patch(':id')
+  @Auth(UserRole.ADMIN)
   update(@Param('id') id: string, @Body() dto: UpdateAccountDto, @Req() req: any) {
     return this.service.update(id, dto, req?.user?.username ?? 'system');
   }
