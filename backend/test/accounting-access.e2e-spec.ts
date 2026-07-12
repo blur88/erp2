@@ -124,6 +124,47 @@ describe('Accounting access (e2e)', () => {
     await request(app.getHttpServer()).get(getPath()).expect(401);
   });
 
+  // Reads are open to every role (#895), but WRITES stay admin-only. @Auth() is a
+  // class-level decorator, so un-gating the controller would otherwise also let any
+  // authenticated role create/edit GL accounts and rewire the account mappings that
+  // drive auto-posting. Per-method @Auth(UserRole.ADMIN) keeps those closed — same
+  // split as payment-method.controller.ts.
+  describe('write endpoints stay admin-only', () => {
+    it('forbids sales_staff from creating an account', async () => {
+      await request(app.getHttpServer())
+        .post('/accounting/accounts')
+        .set('Authorization', `Bearer ${nonAdminToken}`)
+        .send({ code: '9999', name: 'Rogue Account', type: 'expense' })
+        .expect(403);
+    });
+
+    it('forbids sales_staff from updating an account', async () => {
+      await request(app.getHttpServer())
+        .patch(`/accounting/accounts/${cashAccountId}`)
+        .set('Authorization', `Bearer ${nonAdminToken}`)
+        .send({ name: 'Renamed By Non-Admin' })
+        .expect(403);
+    });
+
+    it('forbids sales_staff from rewiring the account mappings', async () => {
+      await request(app.getHttpServer())
+        .put('/accounting/settings')
+        .set('Authorization', `Bearer ${nonAdminToken}`)
+        .send({ cashAccountId })
+        .expect(403);
+    });
+
+    // The guard rejects before the handler runs, so nothing above was written.
+    it('leaves the chart of accounts unchanged after the rejected writes', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/accounting/accounts')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      const codes = res.body.map((account: { code: string }) => account.code);
+      expect(codes).not.toContain('9999');
+    });
+  });
+
   // Assert valid seeded data exists after app.init() against the real DataSource.
   // NOTE: this proves the seeder produced/verified a correct state, but if the DB
   // was already populated the seeder took its no-op path — so this asserts the

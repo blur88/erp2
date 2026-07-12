@@ -1,9 +1,11 @@
 import { Controller, Get, Post, Patch, Body, Param, Query, Req } from '@nestjs/common';
 import { Auth } from '../../auth/decorators/auth.decorator';
+import { UserRole } from '../../../database/entities/user.entity';
 import { ChartOfAccountService } from '../services/chart-of-account.service';
 import { CreateAccountDto } from '../dto/create-account.dto';
 import { UpdateAccountDto } from '../dto/update-account.dto';
 
+// Reads are open to any authenticated role (#895); writes stay admin-only.
 @Auth()
 @Controller('accounting/accounts')
 export class ChartOfAccountController {
@@ -18,11 +20,13 @@ export class ChartOfAccountController {
   }
 
   @Post()
+  @Auth(UserRole.ADMIN)
   create(@Body() dto: CreateAccountDto, @Req() req: any) {
     return this.service.create(dto, req?.user?.username ?? 'system');
   }
 
   @Patch(':id')
+  @Auth(UserRole.ADMIN)
   update(@Param('id') id: string, @Body() dto: UpdateAccountDto, @Req() req: any) {
     return this.service.update(id, dto, req?.user?.username ?? 'system');
   }
