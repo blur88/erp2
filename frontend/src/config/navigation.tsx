@@ -16,6 +16,10 @@ import { default as StockAdjustmentIcon } from '@mui/icons-material/SwapVert';
 import { default as SwapHorizIcon } from '@mui/icons-material/SwapHoriz';
 import { default as PriceCostingIcon } from '@mui/icons-material/PriceChange';
 import { default as AccountBalanceWalletIcon } from '@mui/icons-material/AccountBalanceWallet';
+import { default as AccountTreeIcon } from '@mui/icons-material/AccountTree';
+import { default as ReceiptLongIcon } from '@mui/icons-material/ReceiptLong';
+import { default as MenuBookIcon } from '@mui/icons-material/MenuBook';
+import { default as BalanceIcon } from '@mui/icons-material/Balance';
 import { default as PrintIcon } from '@mui/icons-material/Print';
 import { default as DocumentNumberIcon } from '@mui/icons-material/FormatListNumbered';
 import { default as BackupIcon } from '@mui/icons-material/Backup';
@@ -194,43 +198,50 @@ export const menuSections: MenuSection[] = [
     ],
   },
   {
-    id: 'accounting',
-    title: 'Accounting',
+    id: 'finance',
+    title: 'Finance',
     items: [
       {
-        id: 'chart-of-accounts',
-        title: 'Chart of Accounts',
+        id: 'accounting',
+        title: 'Accounting',
         icon: <AccountBalanceWalletIcon />,
-        path: '/accounting/chart-of-accounts',
-        roles: ADMIN_ONLY,
-      },
-      {
-        id: 'accounting-settings',
-        title: 'Accounting Settings',
-        icon: <SettingsIcon />,
-        path: '/accounting/settings',
-        roles: ADMIN_ONLY,
-      },
-      {
-        id: 'journal-entries',
-        title: 'Journal Entries',
-        icon: <OrdersIcon />,
-        path: '/accounting/journal-entries',
-        roles: ADMIN_ONLY,
-      },
-      {
-        id: 'general-ledger',
-        title: 'General Ledger',
-        icon: <AccountBalanceWalletIcon />,
-        path: '/accounting/general-ledger',
-        roles: ADMIN_ONLY,
-      },
-      {
-        id: 'trial-balance',
-        title: 'Trial Balance',
-        icon: <AccountBalanceWalletIcon />,
-        path: '/accounting/trial-balance',
-        roles: ADMIN_ONLY,
+        children: [
+          {
+            id: 'chart-of-accounts',
+            title: 'Chart of Accounts',
+            icon: <AccountTreeIcon />,
+            path: '/accounting/chart-of-accounts',
+            roles: ADMIN_ONLY,
+          },
+          {
+            id: 'journal-entries',
+            title: 'Journal Entries',
+            icon: <ReceiptLongIcon />,
+            path: '/accounting/journal-entries',
+            roles: ADMIN_ONLY,
+          },
+          {
+            id: 'general-ledger',
+            title: 'General Ledger',
+            icon: <MenuBookIcon />,
+            path: '/accounting/general-ledger',
+            roles: ADMIN_ONLY,
+          },
+          {
+            id: 'trial-balance',
+            title: 'Trial Balance',
+            icon: <BalanceIcon />,
+            path: '/accounting/trial-balance',
+            roles: ADMIN_ONLY,
+          },
+          {
+            id: 'accounting-settings',
+            title: 'Accounting Settings',
+            icon: <SettingsIcon />,
+            path: '/accounting/settings',
+            roles: ADMIN_ONLY,
+          },
+        ],
       },
     ],
   },
