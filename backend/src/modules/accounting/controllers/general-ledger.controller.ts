@@ -1,9 +1,8 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { Auth } from '../../auth/decorators/auth.decorator';
-import { UserRole } from '../../../database/entities/user.entity';
 import { GeneralLedgerService } from '../services/general-ledger.service';
 
-@Auth(UserRole.ADMIN)
+@Auth()
 @Controller('accounting/general-ledger')
 export class GeneralLedgerController {
   constructor(private readonly service: GeneralLedgerService) {}

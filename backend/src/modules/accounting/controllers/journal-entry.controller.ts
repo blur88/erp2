@@ -1,9 +1,8 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { Auth } from '../../auth/decorators/auth.decorator';
-import { UserRole } from '../../../database/entities/user.entity';
 import { JournalEntryService } from '../services/journal-entry.service';
 
-@Auth(UserRole.ADMIN)
+@Auth()
 @Controller('accounting/journal-entries')
 export class JournalEntryController {
   constructor(private readonly service: JournalEntryService) {}

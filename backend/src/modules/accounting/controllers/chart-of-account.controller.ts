@@ -1,11 +1,10 @@
 import { Controller, Get, Post, Patch, Body, Param, Query, Req } from '@nestjs/common';
 import { Auth } from '../../auth/decorators/auth.decorator';
-import { UserRole } from '../../../database/entities/user.entity';
 import { ChartOfAccountService } from '../services/chart-of-account.service';
 import { CreateAccountDto } from '../dto/create-account.dto';
 import { UpdateAccountDto } from '../dto/update-account.dto';
 
-@Auth(UserRole.ADMIN)
+@Auth()
 @Controller('accounting/accounts')
 export class ChartOfAccountController {
   constructor(private readonly service: ChartOfAccountService) {}
