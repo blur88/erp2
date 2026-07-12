@@ -16,6 +16,7 @@ import * as yup from 'yup'
 
 import PageHeader from '@/components/common/PageHeader'
 import { useNotification } from '@/hooks/useNotification'
+import { useAppSelector } from '@/hooks/useRedux'
 import {
   useGetAccountsQuery,
   useGetAccountingSettingsQuery,
@@ -126,6 +127,11 @@ function SectionCard({ title, fields, accounts, control, errors }: SectionCardPr
 
 export default function AccountingSettingsPage() {
   const { showSuccess, showError } = useNotification()
+
+  // Every role can read the mappings (#895), but PUT /accounting/settings is
+  // admin-only: these decide which GL accounts sales/purchasing auto-post into.
+  // Non-admins see the current mappings without a way to save them.
+  const isAdmin = useAppSelector((state) => state.auth?.user?.role === 'admin')
 
   const { data: settings, isLoading: settingsLoading, error: settingsError } =
     useGetAccountingSettingsQuery()
@@ -242,17 +248,23 @@ export default function AccountingSettingsPage() {
           control={control}
           errors={errors}
         />
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            size="large"
-            disabled={isSaving}
-          >
-            {isSaving ? 'Saving...' : 'Save'}
-          </Button>
-        </Box>
+        {isAdmin ? (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              size="large"
+              disabled={isSaving}
+            >
+              {isSaving ? 'Saving...' : 'Save'}
+            </Button>
+          </Box>
+        ) : (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            Account mappings are read-only. Only an administrator can change them.
+          </Alert>
+        )}
       </form>
     </Box>
   )
