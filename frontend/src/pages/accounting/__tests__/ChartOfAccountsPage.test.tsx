@@ -255,28 +255,56 @@ describe('ChartOfAccountsPage', () => {
   })
 
   // The dialog's parent-account options come from the tree it is given. While a
-  // search is active it must still see every account, or a user could create an
-  // account under a wrong parent — or fail to find the right one.
-  it('offers every account as a parent in the form while a search is active', async () => {
+  // search is active it must still see every account, or a legal parent that the
+  // search happened to prune would be unreachable from the form.
+  it('offers a search-pruned group as a parent in the form', async () => {
+    // Another Asset group, so it is a LEGAL parent for the default Asset type —
+    // and the "cash" search prunes it out of the table.
+    const fixedAssets = {
+      ...mockTree[0],
+      id: 'fixed-assets',
+      code: '1500',
+      name: 'Fixed Assets',
+      children: [],
+    }
     const filtered = [{ ...mockTree[0], children: [mockTree[0].children[0]] }]
     vi.mocked(useGetAccountTreeQuery).mockImplementation((arg: any) =>
       (arg?.search
         ? { data: filtered, isFetching: false, error: undefined }
-        : { data: mockTree, isFetching: false, error: undefined }) as any,
+        : { data: [...mockTree, fixedAssets], isFetching: false, error: undefined }) as any,
     )
     const user = userEvent.setup()
     renderPageWithSearch('cash')
+    // Pruned from the table...
+    expect(screen.queryByText('Fixed Assets')).not.toBeInTheDocument()
+
     await user.click(screen.getByText('New Account'))
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
 
     // Parent Account is a MUI `TextField select` — its MenuItems only mount once
     // the select is open, so it has to be opened before asserting on options.
     await user.click(screen.getByLabelText(/Parent Account/i))
-    const options = await screen.findAllByRole('option')
-    const labels = options.map((o) => o.textContent)
-    // "Equity" is a group the active search pruned out of the table, but it is
-    // still a legal parent and must still be offered.
-    expect(labels).toEqual(expect.arrayContaining([expect.stringContaining('Equity')]))
+    const labels = (await screen.findAllByRole('option')).map((o) => o.textContent)
+
+    // ...but still offered as a parent, because the dialog gets the full tree.
+    expect(labels).toEqual(expect.arrayContaining([expect.stringContaining('Fixed Assets')]))
+  })
+
+  // The backend rejects a parent that is postable, inactive, or of a different
+  // type. Offering those in the dropdown just buys the user a 400 on submit.
+  it('only offers same-type group accounts as parents', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByText('New Account')) // defaults to type Asset
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    await user.click(screen.getByLabelText(/Parent Account/i))
+    const labels = (await screen.findAllByRole('option')).map((o) => o.textContent)
+
+    expect(labels).toEqual(expect.arrayContaining([expect.stringContaining('Current Assets')]))
+    // Equity group: wrong type. Cash: a postable leaf. Neither is a legal parent.
+    expect(labels).not.toEqual(expect.arrayContaining([expect.stringContaining('Equity')]))
+    expect(labels).not.toEqual(expect.arrayContaining([expect.stringContaining('Cash')]))
   })
 
   it('surfaces a full-tree failure even while a search is active', () => {

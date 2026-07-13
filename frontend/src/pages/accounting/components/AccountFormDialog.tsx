@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import {
   Button,
   Dialog,
@@ -25,11 +25,19 @@ const ACCOUNT_TYPES: { value: AccountType; label: string }[] = [
   { value: 'Expense', label: 'Expense' },
 ]
 
-function flattenForParent(tree: AccountTreeNode[]): { id: string; name: string; depth: number }[] {
+// Only offer parents the backend will actually accept. assertParentValid rejects
+// a parent that is postable (a leaf), inactive, or of a different type than the
+// child — offering those here just buys the user a 400 on submit.
+function flattenForParent(
+  tree: AccountTreeNode[],
+  type: AccountType,
+): { id: string; name: string; depth: number }[] {
   const result: { id: string; name: string; depth: number }[] = []
   const walk = (nodes: AccountTreeNode[], depth: number) => {
     for (const node of nodes) {
-      result.push({ id: node.id, name: node.name, depth })
+      if (!node.isPostable && node.isActive && node.type === type) {
+        result.push({ id: node.id, name: node.name, depth })
+      }
       if (node.children.length > 0) {
         walk(node.children, depth + 1)
       }
@@ -80,11 +88,16 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
     control,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<AccountFormData>({
     resolver: yupResolver(accountSchema) as any,
     defaultValues: { code: '', name: '', type: 'Asset', parentId: '', openingBalance: '', description: '' },
   })
+
+  const selectedType = watch('type')
+  const selectedParentId = watch('parentId')
 
   useEffect(() => {
     if (open) {
@@ -111,7 +124,16 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
     }
   }, [account, parent, open, reset])
 
-  const parentOptions = flattenForParent(tree)
+  const parentOptions = useMemo(() => flattenForParent(tree, selectedType), [tree, selectedType])
+
+  // Switching Type invalidates a parent of the old type. Drop it rather than
+  // submitting a pair the backend will reject.
+  useEffect(() => {
+    if (!open || isEdit) return
+    if (selectedParentId && !parentOptions.some((p) => p.id === selectedParentId)) {
+      setValue('parentId', '')
+    }
+  }, [open, isEdit, selectedParentId, parentOptions, setValue])
 
   const onSubmit = async (data: AccountFormData) => {
     try {
