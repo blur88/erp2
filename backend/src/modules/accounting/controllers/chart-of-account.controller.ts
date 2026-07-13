@@ -12,7 +12,7 @@ export class ChartOfAccountController {
   constructor(private readonly service: ChartOfAccountService) {}
 
   @Get('tree')
-  tree() { return this.service.findTree(); }
+  tree(@Query('search') search?: string) { return this.service.findTree({ search }); }
 
   @Get()
   list(@Query('type') type?: string, @Query('activeOnly') activeOnly?: string, @Query('postableOnly') postableOnly?: string) {
