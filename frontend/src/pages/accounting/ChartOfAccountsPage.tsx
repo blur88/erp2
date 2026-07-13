@@ -121,6 +121,8 @@ export default function ChartOfAccountsPage() {
           <AccountList
             tree={tree}
             isFetching={isFetching}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
             onAddChild={handleAddChild}
             onEdit={handleEdit}
             isAdmin={canWrite}
@@ -131,6 +133,7 @@ export default function ChartOfAccountsPage() {
         <AccountFormDialog
           open={dialogOpen}
           account={editingAccount}
+          parent={parentForNew}
           tree={fullTree}
           onClose={handleDialogClose}
           onSuccess={handleDialogSuccess}

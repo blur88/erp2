@@ -19,12 +19,30 @@ interface FlattenedRow {
 interface AccountListProps {
   tree: AccountTreeNode[]
   isFetching?: boolean
+  // Sorting reorders SIBLINGS within each level. The rows are a flattened tree,
+  // so sorting them as a flat list would tear children away from their parents.
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
   onAddChild: (parent: AccountTreeNode | null) => void
   onEdit: (account: AccountTreeNode) => void
   // Every row action (Add Child / Edit / Set Inactive / Reactivate) writes via
   // PATCH or POST /accounting/accounts, which stay admin-only. Non-admins can read
   // the chart of accounts (#895) but get no actions column.
   isAdmin?: boolean
+}
+
+function sortSiblings(
+  nodes: AccountTreeNode[],
+  sortBy: string,
+  sortOrder: 'asc' | 'desc',
+): AccountTreeNode[] {
+  const dir = sortOrder === 'desc' ? -1 : 1
+  return [...nodes]
+    .sort((a, b) => {
+      const key = sortBy === 'code' ? 'code' : 'name'
+      return dir * a[key].localeCompare(b[key], undefined, { numeric: true })
+    })
+    .map((n) => ({ ...n, children: sortSiblings(n.children, sortBy, sortOrder) }))
 }
 
 function flattenTree(tree: AccountTreeNode[]): FlattenedRow[] {
@@ -44,12 +62,23 @@ function flattenTree(tree: AccountTreeNode[]): FlattenedRow[] {
   return result
 }
 
-export default function AccountList({ tree, isFetching = false, onAddChild, onEdit, isAdmin = true }: AccountListProps) {
+export default function AccountList({
+  tree,
+  isFetching = false,
+  sortBy = 'name',
+  sortOrder = 'asc',
+  onAddChild,
+  onEdit,
+  isAdmin = true,
+}: AccountListProps) {
   const { showSuccess, showError } = useNotification()
   const [updateAccount, { isLoading: updating }] = useUpdateAccountMutation()
   const [pendingDeactivate, setPendingDeactivate] = useState<AccountTreeNode | null>(null)
 
-  const rows = useMemo(() => flattenTree(tree), [tree])
+  const rows = useMemo(
+    () => flattenTree(sortSiblings(tree, sortBy, sortOrder)),
+    [tree, sortBy, sortOrder],
+  )
 
   const confirmDeactivate = async () => {
     if (!pendingDeactivate) return

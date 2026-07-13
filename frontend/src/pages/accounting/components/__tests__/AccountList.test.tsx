@@ -40,6 +40,26 @@ const leaf = {
   children: [],
 }
 
+// Siblings deliberately out of order, and the child sorts BEFORE its own parent
+// by name ("Alpha" < "Zulu") — a flat sort would rip it away from the parent.
+const zulu = {
+  ...group,
+  id: 'zulu',
+  code: '9000',
+  name: 'Zulu Group',
+  isPostable: false,
+  children: [
+    { ...leaf, id: 'alpha', code: '9100', name: 'Alpha Child', parentId: 'zulu' },
+    { ...leaf, id: 'omega', code: '9200', name: 'Omega Child', parentId: 'zulu' },
+  ],
+}
+
+function rowNames(): string[] {
+  return Array.from(document.querySelectorAll('tbody tr'))
+    .map((tr) => tr.querySelector('td')?.textContent?.trim() ?? '')
+    .filter(Boolean)
+}
+
 function renderList(props: Partial<React.ComponentProps<typeof AccountList>> = {}) {
   return render(
     <AccountList
@@ -87,5 +107,33 @@ describe('AccountList', () => {
   it('shows the empty state once a search returns no matches', () => {
     renderList({ tree: [], isFetching: false })
     expect(screen.getByText(/No Chart of Accounts found/i)).toBeInTheDocument()
+  })
+})
+
+// Rows are a flattened tree, so sorting has to reorder siblings within each
+// level and re-flatten — sorting the flat row list would tear children away
+// from their parents.
+describe('AccountList sorting', () => {
+  it('sorts root siblings by name ascending', () => {
+    renderList({ tree: [zulu, group], sortBy: 'name', sortOrder: 'asc' })
+    expect(rowNames()).toEqual(['Current Assets', 'Zulu Group', 'Alpha Child', 'Omega Child'])
+  })
+
+  it('sorts root siblings by name descending', () => {
+    renderList({ tree: [group, zulu], sortBy: 'name', sortOrder: 'desc' })
+    expect(rowNames()).toEqual(['Zulu Group', 'Omega Child', 'Alpha Child', 'Current Assets'])
+  })
+
+  // "Alpha Child" sorts before its own parent "Zulu Group" by name. It must stay
+  // under Zulu regardless — this is the test a flat sort fails.
+  it('keeps children under their parent even when they sort before it', () => {
+    renderList({ tree: [zulu, group], sortBy: 'name', sortOrder: 'asc' })
+    const names = rowNames()
+    expect(names.indexOf('Alpha Child')).toBeGreaterThan(names.indexOf('Zulu Group'))
+  })
+
+  it('sorts by code when asked', () => {
+    renderList({ tree: [zulu, group], sortBy: 'code', sortOrder: 'desc' })
+    expect(rowNames()).toEqual(['Zulu Group', 'Omega Child', 'Alpha Child', 'Current Assets'])
   })
 })

@@ -317,4 +317,31 @@ describe('ChartOfAccountsPage', () => {
     renderPage()
     expect(screen.getByText('New Account')).toBeInTheDocument()
   })
+
+  // "Add Child Account" used to open the same blank form as "New Account": the
+  // chosen parent was tracked in state and never handed to the dialog.
+  it('prefills the parent when adding a child account', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const groupRow = screen.getByText('Current Assets').closest('tr')!
+    await user.click(groupRow.querySelector('button[aria-label="row actions"]')!)
+    await user.click(screen.getByText('Add Child Account'))
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    // The backend rejects a child whose type differs from its parent, so the type
+    // is inherited and locked rather than left for the user to get wrong.
+    const typeField = screen.getByLabelText(/Type/i)
+    expect(typeField).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByText(/Inherited from Current Assets/i)).toBeInTheDocument()
+  })
+
+  it('leaves the parent empty when adding a root account', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByText('New Account'))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.queryByText(/Inherited from/i)).not.toBeInTheDocument()
+  })
 })
