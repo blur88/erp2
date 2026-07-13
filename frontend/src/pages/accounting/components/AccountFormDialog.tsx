@@ -25,17 +25,24 @@ const ACCOUNT_TYPES: { value: AccountType; label: string }[] = [
   { value: 'Expense', label: 'Expense' },
 ]
 
-// Only offer parents the backend will actually accept. assertParentValid rejects
-// a parent that is postable (a leaf), inactive, or of a different type than the
-// child — offering those here just buys the user a 400 on submit.
+// When CREATING, only offer parents the backend will accept: assertParentValid
+// rejects a parent that is postable (a leaf), inactive, or of a different type
+// than the child, so offering those just buys the user a 400 on submit.
+//
+// When EDITING, list every account. assertParentValid runs on create only, so an
+// existing account may legitimately sit under a parent that has since been
+// deactivated — and the (disabled) Parent field has to render that parent's name
+// rather than fall blank because its option was filtered away.
 function flattenForParent(
   tree: AccountTreeNode[],
   type: AccountType,
+  creating: boolean,
 ): { id: string; name: string; depth: number }[] {
   const result: { id: string; name: string; depth: number }[] = []
   const walk = (nodes: AccountTreeNode[], depth: number) => {
     for (const node of nodes) {
-      if (!node.isPostable && node.isActive && node.type === type) {
+      const legalParent = !node.isPostable && node.isActive && node.type === type
+      if (!creating || legalParent) {
         result.push({ id: node.id, name: node.name, depth })
       }
       if (node.children.length > 0) {
@@ -124,7 +131,10 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
     }
   }, [account, parent, open, reset])
 
-  const parentOptions = useMemo(() => flattenForParent(tree, selectedType), [tree, selectedType])
+  const parentOptions = useMemo(
+    () => flattenForParent(tree, selectedType, !isEdit),
+    [tree, selectedType, isEdit],
+  )
 
   // Switching Type invalidates a parent of the old type. Drop it rather than
   // submitting a pair the backend will reject.

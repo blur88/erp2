@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
@@ -305,6 +305,27 @@ describe('ChartOfAccountsPage', () => {
     // Equity group: wrong type. Cash: a postable leaf. Neither is a legal parent.
     expect(labels).not.toEqual(expect.arrayContaining([expect.stringContaining('Equity')]))
     expect(labels).not.toEqual(expect.arrayContaining([expect.stringContaining('Cash')]))
+  })
+
+  // assertParentValid runs on CREATE only, so an existing account can legitimately
+  // sit under a group that was deactivated later. The Edit form's (disabled)
+  // Parent field must still render that parent, not fall blank because the
+  // create-time filter dropped its option.
+  it('still shows the parent when editing a child of a deactivated group', async () => {
+    const deactivatedGroup = { ...mockTree[0], isActive: false }
+    vi.mocked(useGetAccountTreeQuery).mockReturnValue(
+      { data: [deactivatedGroup, mockTree[1]], isFetching: false, error: undefined } as any,
+    )
+    const user = userEvent.setup()
+    renderPage()
+
+    const leafRow = screen.getByText('Cash').closest('tr')!
+    await user.click(leafRow.querySelector('button[aria-label="row actions"]')!)
+    await user.click(screen.getByText('Edit'))
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText('Current Assets')).toBeInTheDocument()
   })
 
   it('surfaces a full-tree failure even while a search is active', () => {
