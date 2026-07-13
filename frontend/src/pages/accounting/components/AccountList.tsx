@@ -18,6 +18,7 @@ interface FlattenedRow {
 
 interface AccountListProps {
   tree: AccountTreeNode[]
+  isFetching?: boolean
   onAddChild: (parent: AccountTreeNode | null) => void
   onEdit: (account: AccountTreeNode) => void
   // Every row action (Add Child / Edit / Set Inactive / Reactivate) writes via
@@ -30,9 +31,11 @@ function flattenTree(tree: AccountTreeNode[]): FlattenedRow[] {
   const result: FlattenedRow[] = []
   const walk = (nodes: AccountTreeNode[], depth: number) => {
     for (const node of nodes) {
-      const isGroup = node.children.length > 0
+      // Group identity is the domain flag, not children.length: a search that
+      // matches a group returns it with children: [] and it is still a group.
+      const isGroup = !node.isPostable
       result.push({ id: node.id, account: node, depth, isGroup })
-      if (isGroup) {
+      if (node.children.length > 0) {
         walk(node.children, depth + 1)
       }
     }
@@ -41,7 +44,7 @@ function flattenTree(tree: AccountTreeNode[]): FlattenedRow[] {
   return result
 }
 
-export default function AccountList({ tree, onAddChild, onEdit, isAdmin = true }: AccountListProps) {
+export default function AccountList({ tree, isFetching = false, onAddChild, onEdit, isAdmin = true }: AccountListProps) {
   const { showSuccess, showError } = useNotification()
   const [updateAccount, { isLoading: updating }] = useUpdateAccountMutation()
   const [pendingDeactivate, setPendingDeactivate] = useState<AccountTreeNode | null>(null)
@@ -153,7 +156,7 @@ export default function AccountList({ tree, onAddChild, onEdit, isAdmin = true }
       <EntityTable
         rows={rows}
         columns={columns}
-        loading={false}
+        loading={isFetching}
         total={rows.length}
         label="Chart of Accounts"
         showHeader
