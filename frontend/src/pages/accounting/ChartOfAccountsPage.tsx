@@ -33,7 +33,42 @@ export default function ChartOfAccountsPage() {
   const [editingAccount, setEditingAccount] = useState<AccountTreeNode | null>(null)
   const [parentForNew, setParentForNew] = useState<AccountTreeNode | null>(null)
 
-  const { data: tree = [], isFetching, error } = useGetAccountTreeQuery()
+  const search = appliedFilters.search.trim()
+
+  // Two cache entries on purpose. The dialog builds its parent-account options
+  // from the tree it is handed, so it must always see the UNFILTERED tree — a
+  // filtered one would let a user create an account under the wrong parent.
+  // RTK Query keys the cache on the serialized arg, so `{}` and `{ search: '' }`
+  // would be two entries firing the identical request: trim, then skip the empty
+  // case, and the unfiltered tree is fetched exactly once.
+  const {
+    data: fullTree = [],
+    isFetching: isFullTreeFetching,
+    error: fullTreeError,
+  } = useGetAccountTreeQuery({})
+
+  const {
+    data: filteredTree = [],
+    isFetching: isSearchFetching,
+    error: searchError,
+  } = useGetAccountTreeQuery({ search }, { skip: search.length === 0 })
+
+  const tree = search ? filteredTree : fullTree
+  const isFetching = search ? isSearchFetching : isFullTreeFetching
+
+  // The full tree is load-bearing even during a search (the dialog needs it), so
+  // its failure is never swallowed by an active search.
+  const error = fullTreeError
+    ? 'Failed to load accounts.'
+    : search && searchError
+      ? 'Failed to search accounts.'
+      : null
+
+  // No trustworthy full tree means no parent options, and opening the form could
+  // silently attach a new account to the wrong parent. Gate on the QUERY having
+  // settled, not on the data being non-empty — an empty chart of accounts is a
+  // valid state and must still allow creating the first account.
+  const canWrite = isAdmin && !isFullTreeFetching && !fullTreeError
 
   const handleSort = (field: string) => {
     setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
@@ -72,7 +107,7 @@ export default function ChartOfAccountsPage() {
     <SimpleListPage
       title="Chart of Accounts"
       subtitle="Manage your chart of accounts."
-      primaryAction={isAdmin ? { label: 'New Account', onClick: handleAddRoot } : undefined}
+      primaryAction={canWrite ? { label: 'New Account', onClick: handleAddRoot } : undefined}
       filterConfig={filterConfig as any}
       draftFilters={draftFilters}
       handlers={handlers}
@@ -80,22 +115,23 @@ export default function ChartOfAccountsPage() {
       searchInputRef={searchInputRef}
       sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
       isFetching={isFetching}
-      error={error ? 'Failed to load accounts.' : null}
+      error={error}
       tableSlot={(
         <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           <AccountList
             tree={tree}
+            isFetching={isFetching}
             onAddChild={handleAddChild}
             onEdit={handleEdit}
-            isAdmin={isAdmin}
+            isAdmin={canWrite}
           />
         </Box>
       )}
-      dialogs={isAdmin ? (
+      dialogs={canWrite ? (
         <AccountFormDialog
           open={dialogOpen}
           account={editingAccount}
-          tree={tree}
+          tree={fullTree}
           onClose={handleDialogClose}
           onSuccess={handleDialogSuccess}
         />

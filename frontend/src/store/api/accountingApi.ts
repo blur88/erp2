@@ -19,8 +19,11 @@ export const accountingApiSlice = createApi({
   baseQuery: axiosBaseQuery(),
   tagTypes: ['Account', 'AccountingSettings', 'JournalEntry'],
   endpoints: (builder) => ({
-    getAccountTree: builder.query<AccountTreeNode[], void>({
-      query: () => ({ url: '/accounting/accounts/tree' }),
+    getAccountTree: builder.query<AccountTreeNode[], { search?: string }>({
+      query: ({ search }) => ({
+        url: '/accounting/accounts/tree',
+        params: search ? { search } : undefined,
+      }),
       transformResponse: (response: any) => response as AccountTreeNode[],
       providesTags: ['Account'],
     }),
