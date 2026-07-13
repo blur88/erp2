@@ -87,7 +87,7 @@ export class ChartOfAccountService {
     return qb.orderBy('a.code', 'ASC').getMany();
   }
 
-  async findTree(): Promise<any[]> {
+  async findTree(filter?: { search?: string }): Promise<any[]> {
     const accounts = await this.coaRepo.find({ order: { code: 'ASC' } });
     const leaves = await this.balance.getLeafBalances();
     const withBalances = accounts.map((a) => {
@@ -96,7 +96,25 @@ export class ChartOfAccountService {
         : this.balance.getRollup(a.id, leaves, accounts as any);
       return { ...a, balance: formatScale4(this.balance.naturalBalance(a.type, raw)) };
     });
-    return this.buildTree(withBalances);
+    const tree = this.buildTree(withBalances);
+
+    // Prune AFTER the rollup above: group balances must be computed over every
+    // account, not only the ones a search happens to match.
+    const q = filter?.search?.trim().toLowerCase();
+    if (!q) return tree;
+    return this.pruneTree(tree, q);
+  }
+
+  // Keeps a node if it matches, or if any descendant matches — so a matching
+  // leaf is shown with its ancestor path intact. Non-matching siblings drop out.
+  private pruneTree(nodes: any[], q: string): any[] {
+    const out: any[] = [];
+    for (const n of nodes) {
+      const kids = this.pruneTree(n.children, q);
+      const self = n.name.toLowerCase().includes(q) || n.code.toLowerCase().includes(q);
+      if (self || kids.length) out.push({ ...n, children: kids });
+    }
+    return out;
   }
 
   private buildTree(rows: any[]): any[] {
