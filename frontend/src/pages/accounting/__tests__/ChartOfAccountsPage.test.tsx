@@ -154,6 +154,26 @@ describe('ChartOfAccountsPage', () => {
     expect(screen.getByText('Opening Balance Equity')).toBeInTheDocument()
   })
 
+  // Hierarchical code order: siblings sorted by code WITHIN each level, children
+  // still beneath their parent. Not a globally ascending list of codes — a
+  // child's code sits above its parent's next sibling, which is correct (#899).
+  it('renders the tree in hierarchical code order on first paint', () => {
+    renderPage()
+    const names = Array.from(document.querySelectorAll('tbody tr'))
+      .map((tr) => tr.querySelector('td')?.textContent?.trim() ?? '')
+      .filter(Boolean)
+
+    // Cash (1100) before Bank Account (1200) is the code order. Name order would
+    // put Bank Account first — that is the bug this guards.
+    expect(names).toEqual([
+      'Current Assets',
+      'Cash',
+      'Bank Account',
+      'Equity',
+      'Opening Balance Equity',
+    ])
+  })
+
   it('group row shows only "Add Child Account" in row actions', async () => {
     renderPage()
     const user = userEvent.setup()

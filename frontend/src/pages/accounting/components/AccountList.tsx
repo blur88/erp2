@@ -19,9 +19,9 @@ interface FlattenedRow {
 interface AccountListProps {
   tree: AccountTreeNode[]
   isFetching?: boolean
-  // Sorting reorders SIBLINGS within each level. The rows are a flattened tree,
-  // so sorting them as a flat list would tear children away from their parents.
-  sortBy?: string
+  // Sorting reorders SIBLINGS within each level, always by code (the accounting
+  // convention). The rows are a flattened tree, so sorting them as a flat list
+  // would tear children away from their parents.
   sortOrder?: 'asc' | 'desc'
   onAddChild: (parent: AccountTreeNode | null) => void
   onEdit: (account: AccountTreeNode) => void
@@ -31,18 +31,32 @@ interface AccountListProps {
   isAdmin?: boolean
 }
 
+// This does NOT merely reproduce the backend's ORDER BY code ASC. `code` is a
+// free-form varchar(20), so codes of unequal digit length are legal, and the two
+// collations disagree on them: Postgres orders '10000' before '9000'
+// lexicographically, while numeric collation gives the accounting order,
+// '9000' then '10000'. The client sort is what the user sees, so it is
+// load-bearing — do not drop it as redundant with the backend.
+//
+// The lexical tie-break is not cosmetic. Numeric collation reports distinct codes
+// with different leading zeros ('0100' vs '100') as EQUAL, and both are legal and
+// unique in the DB. Without a tie-break the comparator is not antisymmetric: a
+// stable sort freezes such a pair in backend order, so descending renders it
+// identically to ascending and the Sort toggle looks broken on those rows.
+function compareCodes(a: string, b: string): number {
+  const byValue = a.localeCompare(b, undefined, { numeric: true })
+  if (byValue !== 0) return byValue
+  return a < b ? -1 : a > b ? 1 : 0
+}
+
 function sortSiblings(
   nodes: AccountTreeNode[],
-  sortBy: string,
   sortOrder: 'asc' | 'desc',
 ): AccountTreeNode[] {
   const dir = sortOrder === 'desc' ? -1 : 1
   return [...nodes]
-    .sort((a, b) => {
-      const key = sortBy === 'code' ? 'code' : 'name'
-      return dir * a[key].localeCompare(b[key], undefined, { numeric: true })
-    })
-    .map((n) => ({ ...n, children: sortSiblings(n.children, sortBy, sortOrder) }))
+    .sort((a, b) => dir * compareCodes(a.code, b.code))
+    .map((n) => ({ ...n, children: sortSiblings(n.children, sortOrder) }))
 }
 
 function flattenTree(tree: AccountTreeNode[]): FlattenedRow[] {
@@ -65,7 +79,6 @@ function flattenTree(tree: AccountTreeNode[]): FlattenedRow[] {
 export default function AccountList({
   tree,
   isFetching = false,
-  sortBy = 'name',
   sortOrder = 'asc',
   onAddChild,
   onEdit,
@@ -76,8 +89,8 @@ export default function AccountList({
   const [pendingDeactivate, setPendingDeactivate] = useState<AccountTreeNode | null>(null)
 
   const rows = useMemo(
-    () => flattenTree(sortSiblings(tree, sortBy, sortOrder)),
-    [tree, sortBy, sortOrder],
+    () => flattenTree(sortSiblings(tree, sortOrder)),
+    [tree, sortOrder],
   )
 
   const confirmDeactivate = async () => {

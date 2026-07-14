@@ -40,8 +40,12 @@ const leaf = {
   children: [],
 }
 
-// Siblings deliberately out of order, and the child sorts BEFORE its own parent
-// by name ("Alpha" < "Zulu") — a flat sort would rip it away from the parent.
+// Siblings deliberately out of order. Two properties this fixture must have:
+//   1. "Zebra Child" is coded BELOW its own parent ("0100" < "9000") — a flat
+//      sort would rip it away from the parent and hoist it to the top.
+//   2. The children's NAME order is the reverse of their CODE order, so a name
+//      sort and a code sort produce different rows and the tests can tell them
+//      apart.
 const zulu = {
   ...group,
   id: 'zulu',
@@ -49,8 +53,8 @@ const zulu = {
   name: 'Zulu Group',
   isPostable: false,
   children: [
-    { ...leaf, id: 'alpha', code: '9100', name: 'Alpha Child', parentId: 'zulu' },
-    { ...leaf, id: 'omega', code: '9200', name: 'Omega Child', parentId: 'zulu' },
+    { ...leaf, id: 'zebra', code: '0100', name: 'Zebra Child', parentId: 'zulu' },
+    { ...leaf, id: 'apple', code: '9200', name: 'Apple Child', parentId: 'zulu' },
   ],
 }
 
@@ -114,26 +118,54 @@ describe('AccountList', () => {
 // level and re-flatten — sorting the flat row list would tear children away
 // from their parents.
 describe('AccountList sorting', () => {
-  it('sorts root siblings by name ascending', () => {
-    renderList({ tree: [zulu, group], sortBy: 'name', sortOrder: 'asc' })
-    expect(rowNames()).toEqual(['Current Assets', 'Zulu Group', 'Alpha Child', 'Omega Child'])
+  // No sortOrder prop: this exercises the 'asc' default.
+  it('sorts siblings by code ascending by default', () => {
+    renderList({ tree: [zulu, group] })
+    expect(rowNames()).toEqual(['Current Assets', 'Zulu Group', 'Zebra Child', 'Apple Child'])
   })
 
-  it('sorts root siblings by name descending', () => {
-    renderList({ tree: [group, zulu], sortBy: 'name', sortOrder: 'desc' })
-    expect(rowNames()).toEqual(['Zulu Group', 'Omega Child', 'Alpha Child', 'Current Assets'])
+  it('sorts siblings by code descending', () => {
+    renderList({ tree: [group, zulu], sortOrder: 'desc' })
+    expect(rowNames()).toEqual(['Zulu Group', 'Apple Child', 'Zebra Child', 'Current Assets'])
   })
 
-  // "Alpha Child" sorts before its own parent "Zulu Group" by name. It must stay
-  // under Zulu regardless — this is the test a flat sort fails.
+  // "Zebra Child" (0100) sorts before its own parent "Zulu Group" (9000) by code.
+  // It must stay under Zulu regardless — this is the test a flat sort fails.
   it('keeps children under their parent even when they sort before it', () => {
-    renderList({ tree: [zulu, group], sortBy: 'name', sortOrder: 'asc' })
+    renderList({ tree: [zulu, group] })
     const names = rowNames()
-    expect(names.indexOf('Alpha Child')).toBeGreaterThan(names.indexOf('Zulu Group'))
+    expect(names.indexOf('Zebra Child')).toBeGreaterThan(names.indexOf('Zulu Group'))
   })
 
-  it('sorts by code when asked', () => {
-    renderList({ tree: [zulu, group], sortBy: 'code', sortOrder: 'desc' })
-    expect(rowNames()).toEqual(['Zulu Group', 'Omega Child', 'Alpha Child', 'Current Assets'])
+  // `code` is a free-form varchar(20), so codes of unequal digit length are legal.
+  // Numeric collation is what makes 9000 precede 10000; a plain lexicographic sort
+  // (and the backend's own ORDER BY code) puts '10000' first. This is why the
+  // client-side sort is NOT redundant with the backend ordering.
+  it('orders codes by numeric value, not lexicographically', () => {
+    const short = { ...group, id: 'short', code: '9000', name: 'Nine Thousand' }
+    const long = { ...group, id: 'long', code: '10000', name: 'Ten Thousand' }
+    renderList({ tree: [long, short] })
+    expect(rowNames()).toEqual(['Nine Thousand', 'Ten Thousand'])
+  })
+
+  // Numeric collation reports '0100' and '100' as EQUAL, yet both are legal and
+  // unique in the DB. Without a lexical tie-break the comparator is not
+  // antisymmetric: a stable sort pins the pair in input order, so DESC comes out
+  // identical to ASC and the Sort toggle silently does nothing on these rows.
+  // Both directions are asserted on purpose — a one-direction test passes even
+  // with the bug present.
+  describe('codes that collate as equal but are distinct', () => {
+    const padded = { ...group, id: 'padded', code: '0100', name: 'Padded' }
+    const bare = { ...group, id: 'bare', code: '100', name: 'Bare' }
+
+    it('breaks the tie deterministically ascending', () => {
+      renderList({ tree: [bare, padded] })
+      expect(rowNames()).toEqual(['Padded', 'Bare'])
+    })
+
+    it('reverses that tie when descending', () => {
+      renderList({ tree: [bare, padded], sortOrder: 'desc' })
+      expect(rowNames()).toEqual(['Bare', 'Padded'])
+    })
   })
 })
