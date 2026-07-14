@@ -27,7 +27,11 @@ export default function ChartOfAccountsPage() {
   const isAdmin = useAppSelector((state) => state.auth?.user?.role === 'admin')
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
-  const [sortBy, setSortBy] = useState('name')
+  // Code ascending is the accounting convention and matches the backend's own
+  // ORDER BY code ASC (#899). sortBy is kept in state for two consumers — the
+  // FilterBar active-sort indicator and handleSort's direction toggle — but is
+  // NOT passed to AccountList, which always sorts by code.
+  const [sortBy, setSortBy] = useState('code')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingAccount, setEditingAccount] = useState<AccountTreeNode | null>(null)
@@ -113,7 +117,7 @@ export default function ChartOfAccountsPage() {
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={searchInputRef}
-      sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
+      sort={{ field: 'code', sortBy, sortOrder, onSort: handleSort }}
       isFetching={isFetching}
       error={error}
       tableSlot={(
@@ -121,7 +125,6 @@ export default function ChartOfAccountsPage() {
           <AccountList
             tree={tree}
             isFetching={isFetching}
-            sortBy={sortBy}
             sortOrder={sortOrder}
             onAddChild={handleAddChild}
             onEdit={handleEdit}
