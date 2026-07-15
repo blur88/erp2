@@ -8,6 +8,9 @@ import { ChartOfAccount } from '../src/modules/accounting/entities/chart-of-acco
 import { AccountingSettings } from '../src/modules/accounting/entities/accounting-settings.entity';
 import { GeneralLedgerService } from '../src/modules/accounting/services/general-ledger.service';
 import { TrialBalanceService } from '../src/modules/accounting/services/trial-balance.service';
+import { AccountingSeederService } from '../src/modules/accounting/services/accounting-seeder.service';
+import { ChartOfAccountService } from '../src/modules/accounting/services/chart-of-account.service';
+import { AccountType } from '../src/modules/accounting/entities/account-type.enum';
 
 const SO_ID = '00000000-0000-0000-0000-000000000001';
 const PAY_ID = '00000000-0000-0000-0000-000000000002';
@@ -51,6 +54,8 @@ describe('Accounting v1 (e2e)', () => {
   let posting: AccountingPostingPort;
   let ledger: GeneralLedgerService;
   let trial: TrialBalanceService;
+  let seeder: AccountingSeederService;
+  let coaService: ChartOfAccountService;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -63,6 +68,8 @@ describe('Accounting v1 (e2e)', () => {
     posting = moduleFixture.get(ACCOUNTING_POSTING_PORT);
     ledger = moduleFixture.get(GeneralLedgerService);
     trial = moduleFixture.get(TrialBalanceService);
+    seeder = moduleFixture.get(AccountingSeederService);
+    coaService = moduleFixture.get(ChartOfAccountService);
     await seedAccounting(ds);
   });
 
@@ -158,6 +165,45 @@ describe('Accounting v1 (e2e)', () => {
     // The July 5 entry is before fromDate → opening balance; only the July 20 entry is a movement.
     expect(toMinorUnits(gl.openingBalance)).toBeGreaterThan(0n);
     expect(gl.movements.length).toBe(1);
+  });
+
+  it('#901: heals a missing Journal Entries doc-number row so opening-balance create recovers', async () => {
+    const yy = new Date().getFullYear() % 100;
+    const yyStr = String(yy).padStart(2, '0');
+
+    const priorRows = await ds.query(
+      `SELECT COALESCE(MAX((split_part("journalNo", '-', 3))::int), 0) AS max
+         FROM journal_entry WHERE "journalNo" ~ ('^JE-' || $1 || '-[0-9]{1,9}$')`,
+      [yyStr],
+    );
+    const priorMax: number = Number(priorRows[0].max);
+
+    await ds.query(`DELETE FROM document_number_settings WHERE "documentName" = 'Journal Entries'`);
+
+    await seeder.seed();
+    const healed = await ds.query(
+      `SELECT * FROM document_number_settings WHERE "documentName" = 'Journal Entries'`,
+    );
+    expect(healed.length).toBe(1);
+    expect(healed[0].prefix).toBe('JE');
+    expect(Number(healed[0].nextNumber)).toBe(priorMax + 1);
+
+    const assetsGroup = await ds.getRepository(ChartOfAccount).findOneByOrFail({ code: '1000' });
+    const code = `9${Date.now().toString().slice(-4)}`;
+    const account = await coaService.create(
+      { code, name: 'OB Heal Test', type: AccountType.ASSET, parentId: assetsGroup.id, openingBalance: '100.0000' } as any,
+      'e2e',
+    );
+    expect(account.id).toBeDefined();
+
+    const jes = await ds.query(
+      `SELECT "journalNo" FROM journal_entry
+        WHERE "sourceType" = 'OPENING_BALANCE' AND "sourceDocumentId" = $1`,
+      [account.id],
+    );
+    expect(jes.length).toBe(1);
+    expect(jes[0].journalNo).toMatch(new RegExp(`^JE-${String(yy).padStart(2, '0')}-[0-9]{1,9}$`));
+    expect(parseInt(jes[0].journalNo.split('-')[2], 10)).toBe(priorMax + 1);
   });
 });
 
