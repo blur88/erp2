@@ -99,6 +99,7 @@ export class AccountingSeederService implements OnModuleInit {
         await settingsRepo.createQueryBuilder().insert().values(row as any).orIgnore().execute();
       },
       ensureJournalEntryDocNumber: async (currentYear) => {
+        const yy = String(currentYear).padStart(2, '0');
         await em.query(
           `INSERT INTO document_number_settings
              ("documentName", "prefix", "paddingDigits", "nextNumber", "lastResetYear")
@@ -106,9 +107,9 @@ export class AccountingSeederService implements OnModuleInit {
                   COALESCE(MAX((split_part("journalNo", '-', 3))::int), 0) + 1,
                   $1
              FROM journal_entry
-            WHERE "journalNo" ~ ('^JE-' || lpad($1::text, 2, '0') || '-[0-9]{1,9}$')
+            WHERE "journalNo" ~ ('^JE-' || $2 || '-[0-9]{1,9}$')
            ON CONFLICT ("documentName") DO NOTHING`,
-          [currentYear],
+          [currentYear, yy],
         );
       },
     };
