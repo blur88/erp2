@@ -430,9 +430,6 @@ export class SettingsService {
     }
   }
 
-  /**
-   * Create default document number settings
-   */
   // Highest current-year JE-<yy>-NNN sequence already in journal_entry, plus one
   // (1 when none / table absent). Mirrors AccountingSeederService's collision-safe
   // heal so both owners of the 'Journal Entries' row agree (#901). The regex bounds
@@ -447,12 +444,19 @@ export class SettingsService {
         [yy],
       );
       return Number(rows[0]?.next ?? 1);
-    } catch {
-      // journal_entry table may not exist (accounting module absent). No JEs => 1.
-      return 1;
+    } catch (err) {
+      // Only tolerate a missing journal_entry table (accounting module absent) —
+      // no JEs exist there, so 1 is correct. Any other error (SQL regression,
+      // transient DB fault) must NOT be masked: swallowing it here could seed the
+      // JE row at 1 while journal entries exist and re-arm the #901 collision.
+      if ((err as { code?: string })?.code === '42P01') return 1; // undefined_table
+      throw err;
     }
   }
 
+  /**
+   * Create default document number settings
+   */
   private async createDefaultDocumentNumberSettings(): Promise<void> {
     const currentYY = new Date().getFullYear() % 100;
     const defaults = [
