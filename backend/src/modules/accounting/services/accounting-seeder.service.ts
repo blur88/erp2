@@ -202,18 +202,22 @@ export class AccountingSeederService implements OnModuleInit {
   }
 
   // Full canonical hierarchy validation: every group + child present exactly once
-  // with expected name/type/flags, and each child's parentId points at the expected parent.
+  // with expected type/flags, and each child's parentId points at the expected parent.
+  // NOTE: `name` is deliberately NOT validated — it is user-editable display data
+  // (update() lets any account be renamed, with no isSystem guard), so a renamed
+  // seeded account must not fail boot. Only structural invariants the posting engine
+  // and settings depend on (code, type, isSystem, isPostable, parent) are enforced.
   private async validateHierarchy(m: SeederManager): Promise<void> {
     const idByCode: Record<string, string> = {};
 
     const checkOne = async (
-      expected: { code: string; name: string; type: string; isSystem: boolean; isPostable: boolean },
+      expected: { code: string; type: string; isSystem: boolean; isPostable: boolean },
     ): Promise<CoaRow> => {
       const rows = await m.findCoaRowsByCode(expected.code);
       if (rows.length === 0) throw new Error(`Accounting inconsistent: missing account ${expected.code}. Manual reset required.`);
       if (rows.length > 1) throw new Error(`Accounting inconsistent: duplicate account ${expected.code} (${rows.length} rows). Manual reset required.`);
       const r = rows[0];
-      if (r.name !== expected.name || r.type !== expected.type || r.isSystem !== expected.isSystem || r.isPostable !== expected.isPostable) {
+      if (r.type !== expected.type || r.isSystem !== expected.isSystem || r.isPostable !== expected.isPostable) {
         throw new Error(`Accounting inconsistent: account ${expected.code} has unexpected properties. Manual reset required.`);
       }
       idByCode[expected.code] = r.id;
@@ -221,10 +225,10 @@ export class AccountingSeederService implements OnModuleInit {
     };
 
     for (const g of STANDARD_COA_GROUPS) {
-      await checkOne({ code: g.code, name: g.name, type: g.type as string, isSystem: true, isPostable: false });
+      await checkOne({ code: g.code, type: g.type as string, isSystem: true, isPostable: false });
     }
     for (const c of STANDARD_COA_CHILDREN) {
-      const row = await checkOne({ code: c.code, name: c.name, type: c.type as string, isSystem: true, isPostable: true });
+      const row = await checkOne({ code: c.code, type: c.type as string, isSystem: true, isPostable: true });
       const expectedParentId = idByCode[c.parentCode];
       if (!expectedParentId || row.parentId !== expectedParentId) {
         throw new Error(`Accounting inconsistent: account ${c.code} parent should be ${c.parentCode} but parentId is ${row.parentId}. Manual reset required.`);
