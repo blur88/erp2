@@ -430,6 +430,30 @@ export class SettingsService {
     }
   }
 
+  // Highest current-year JE-<yy>-NNN sequence already in journal_entry, plus one
+  // (1 when none / table absent). Mirrors AccountingSeederService's collision-safe
+  // heal so both owners of the 'Journal Entries' row agree (#901). The regex bounds
+  // the segment to 1-9 digits so the ::int cast can never overflow or fail.
+  private async nextJournalEntrySequence(currentYY: number): Promise<number> {
+    try {
+      const yy = String(currentYY).padStart(2, '0');
+      const rows = await this.dataSource.query(
+        `SELECT COALESCE(MAX((split_part("journalNo", '-', 3))::int), 0) + 1 AS next
+           FROM journal_entry
+          WHERE "journalNo" ~ ('^JE-' || $1 || '-[0-9]{1,9}$')`,
+        [yy],
+      );
+      return Number(rows[0]?.next ?? 1);
+    } catch (err) {
+      // Only tolerate a missing journal_entry table (accounting module absent) —
+      // no JEs exist there, so 1 is correct. Any other error (SQL regression,
+      // transient DB fault) must NOT be masked: swallowing it here could seed the
+      // JE row at 1 while journal entries exist and re-arm the #901 collision.
+      if ((err as { code?: string })?.code === '42P01') return 1; // undefined_table
+      throw err;
+    }
+  }
+
   /**
    * Create default document number settings
    */
@@ -442,6 +466,10 @@ export class SettingsService {
       { documentName: 'Goods Received', prefix: 'GRN' },
       { documentName: 'Vendor Payments', prefix: 'VP' },
       { documentName: 'Stock Adjustment', prefix: 'SA' },
+      // Accounting v1 posts journal entries via this row; keep it in sync with
+      // migration 1772100000000 and AccountingSeederService (issue #901). Its
+      // nextNumber is derived collision-safe below, not the literal 1 above.
+      { documentName: 'Journal Entries', prefix: 'JE' },
     ];
 
     for (const d of defaults) {
@@ -449,11 +477,18 @@ export class SettingsService {
         where: { documentName: d.documentName },
       });
       if (!exists) {
+        // Journal Entries must start past any already-issued number or the next
+        // post collides with journal_entry.journalNo's UNIQUE constraint (#901).
+        // Other types have no rows yet on this path, so 1 is correct for them.
+        const nextNumber =
+          d.documentName === 'Journal Entries'
+            ? await this.nextJournalEntrySequence(currentYY)
+            : 1;
         await this.documentNumberSettingRepository.save(
           this.documentNumberSettingRepository.create({
             ...d,
             paddingDigits: 3,
-            nextNumber: 1,
+            nextNumber,
             lastResetYear: currentYY,
           }),
         );
@@ -542,7 +577,13 @@ export class SettingsService {
             }
 
             default:
-              this.logger.warn(`Unknown document type in sync: ${row.documentName}`);
+              // Document types this sync can't compute a max for (Journal Entries,
+              // Invoices, Expenses, Settlements, Owner Equity — their sequences live
+              // in other modules' tables). Do NOT reset their nextNumber to 1: that
+              // would collide with already-issued numbers on the next post (issue #901,
+              // where AccountingSeederService owns the Journal Entries sequence).
+              this.logger.warn(`Skipping sync for document type '${row.documentName}': no source-table max available, leaving nextNumber unchanged.`);
+              continue;
           }
 
           await this.documentNumberSettingRepository.update(

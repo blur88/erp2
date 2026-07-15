@@ -31,6 +31,7 @@ export interface SeederManager {
   insertCoa(row: { code: string; name: string; type: string; parentId: string | null }): Promise<void>;
   getSettings(): Promise<Record<string, any> | null>;
   insertSettings(row: Record<string, any>): Promise<void>;
+  ensureJournalEntryDocNumber(currentYear: number): Promise<void>;
 }
 
 // Anything that can run the core inside a rolling-back transaction.
@@ -97,10 +98,34 @@ export class AccountingSeederService implements OnModuleInit {
       insertSettings: async (row) => {
         await settingsRepo.createQueryBuilder().insert().values(row as any).orIgnore().execute();
       },
+      ensureJournalEntryDocNumber: async (currentYear) => {
+        // Fast path: skip the journal_entry aggregate scan on the common already-healed
+        // boot. The row is present on every boot after the first, so this avoids a full
+        // MAX() over journal_entry on the startup hot path (issue #901).
+        const existing = await em.query(
+          `SELECT 1 FROM document_number_settings WHERE "documentName" = 'Journal Entries' LIMIT 1`,
+        );
+        if (existing.length > 0) return;
+        const yy = String(currentYear).padStart(2, '0');
+        await em.query(
+          `INSERT INTO document_number_settings
+             ("documentName", "prefix", "paddingDigits", "nextNumber", "lastResetYear")
+           SELECT 'Journal Entries', 'JE', 3,
+                  COALESCE(MAX((split_part("journalNo", '-', 3))::int), 0) + 1,
+                  $1
+             FROM journal_entry
+            WHERE "journalNo" ~ ('^JE-' || $2 || '-[0-9]{1,9}$')
+           ON CONFLICT ("documentName") DO NOTHING`,
+          [currentYear, yy],
+        );
+      },
     };
   }
 
   private async runCore(m: SeederManager): Promise<void> {
+    this.phase = 'ensure-je-doc-number';
+    await m.ensureJournalEntryDocNumber(new Date().getFullYear() % 100);
+
     this.phase = 'inspect';
     const count = await m.coaCount();
     const settings = await m.getSettings();
