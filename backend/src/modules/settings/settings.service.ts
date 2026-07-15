@@ -442,6 +442,9 @@ export class SettingsService {
       { documentName: 'Goods Received', prefix: 'GRN' },
       { documentName: 'Vendor Payments', prefix: 'VP' },
       { documentName: 'Stock Adjustment', prefix: 'SA' },
+      // Accounting v1 posts journal entries via this row; keep it in sync with
+      // migration 1772100000000 and AccountingSeederService (issue #901).
+      { documentName: 'Journal Entries', prefix: 'JE' },
     ];
 
     for (const d of defaults) {
@@ -542,7 +545,13 @@ export class SettingsService {
             }
 
             default:
-              this.logger.warn(`Unknown document type in sync: ${row.documentName}`);
+              // Document types this sync can't compute a max for (Journal Entries,
+              // Invoices, Expenses, Settlements, Owner Equity — their sequences live
+              // in other modules' tables). Do NOT reset their nextNumber to 1: that
+              // would collide with already-issued numbers on the next post (issue #901,
+              // where AccountingSeederService owns the Journal Entries sequence).
+              this.logger.warn(`Skipping sync for document type '${row.documentName}': no source-table max available, leaving nextNumber unchanged.`);
+              continue;
           }
 
           await this.documentNumberSettingRepository.update(

@@ -59,4 +59,27 @@ describe('SettingsService', () => {
       { nextNumber: 123457, lastResetYear: expect.any(Number) },
     );
   });
+
+  it('syncDocumentNumbersWithDatabase leaves unknown document types (e.g. Journal Entries) unchanged', async () => {
+    // Regression for #901: the sync route must NOT reset a type it can't compute a
+    // source-table max for back to 1 — that would collide with already-issued numbers.
+    const documentNumberSettingRepository = {
+      find: jest.fn().mockResolvedValue([
+        { documentName: 'Journal Entries', prefix: 'JE', nextNumber: 42 },
+      ]),
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const service = new SettingsService(
+      {} as any, {} as any,
+      documentNumberSettingRepository as any,
+      {} as any, {} as any, {} as any, {} as any, {} as any,
+      {} as any,
+    );
+
+    await service.syncDocumentNumbersWithDatabase();
+
+    // No update issued for the unknown type — nextNumber preserved.
+    expect(documentNumberSettingRepository.update).not.toHaveBeenCalled();
+  });
 });

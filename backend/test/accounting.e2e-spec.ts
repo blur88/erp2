@@ -189,7 +189,9 @@ describe('Accounting v1 (e2e)', () => {
     expect(Number(healed[0].nextNumber)).toBe(priorMax + 1);
 
     const assetsGroup = await ds.getRepository(ChartOfAccount).findOneByOrFail({ code: '1000' });
-    const code = `9${Date.now().toString().slice(-4)}`;
+    // Full-precision timestamp keeps the code unique across runs on the shared e2e DB.
+    // varchar(20): 'OB' + 13-digit ms + 3-digit rand = 18 chars, within bounds.
+    const code = `OB${Date.now()}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
     const account = await coaService.create(
       { code, name: 'OB Heal Test', type: AccountType.ASSET, parentId: assetsGroup.id, openingBalance: '100.0000' } as any,
       'e2e',

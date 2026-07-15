@@ -99,6 +99,13 @@ export class AccountingSeederService implements OnModuleInit {
         await settingsRepo.createQueryBuilder().insert().values(row as any).orIgnore().execute();
       },
       ensureJournalEntryDocNumber: async (currentYear) => {
+        // Fast path: skip the journal_entry aggregate scan on the common already-healed
+        // boot. The row is present on every boot after the first, so this avoids a full
+        // MAX() over journal_entry on the startup hot path (issue #901).
+        const existing = await em.query(
+          `SELECT 1 FROM document_number_settings WHERE "documentName" = 'Journal Entries' LIMIT 1`,
+        );
+        if (existing.length > 0) return;
         const yy = String(currentYear).padStart(2, '0');
         await em.query(
           `INSERT INTO document_number_settings
