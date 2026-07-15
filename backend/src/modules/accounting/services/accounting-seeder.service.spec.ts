@@ -147,6 +147,16 @@ describe('AccountingSeederService', () => {
     expect(db.snapshotSettings()).toBeNull();
   });
 
+  it('tolerates a renamed system account (name is user-editable, not structural)', async () => {
+    // A user renamed seeded account 1200 'Bank' -> 'CIMB' via update(). Structure
+    // (code/type/flags/parent) is intact, so the seeder must NOT fail boot on it.
+    const renamed = fullCoa().map((r) => (r.code === '1200' ? { ...r, name: 'CIMB' } : r));
+    const db = makeFakeDb({ coa: renamed, settings: healthySettings() });
+    await expect(svcWith(db).seed()).resolves.toBeUndefined();
+    // The rename is preserved — the seeder never rewrites it.
+    expect(db.snapshotCoa().find((r: any) => r.code === '1200')!.name).toBe('CIMB');
+  });
+
   it('branch 3: empty COA + settings present -> throws, no writes', async () => {
     const db = makeFakeDb({ coa: [], settings: healthySettings() });
     await expect(svcWith(db).seed()).rejects.toThrow(/singleton|inconsistent|anomal/i);
