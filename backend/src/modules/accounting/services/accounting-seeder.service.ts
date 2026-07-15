@@ -31,6 +31,7 @@ export interface SeederManager {
   insertCoa(row: { code: string; name: string; type: string; parentId: string | null }): Promise<void>;
   getSettings(): Promise<Record<string, any> | null>;
   insertSettings(row: Record<string, any>): Promise<void>;
+  ensureJournalEntryDocNumber(currentYear: number): Promise<void>;
 }
 
 // Anything that can run the core inside a rolling-back transaction.
@@ -97,10 +98,26 @@ export class AccountingSeederService implements OnModuleInit {
       insertSettings: async (row) => {
         await settingsRepo.createQueryBuilder().insert().values(row as any).orIgnore().execute();
       },
+      ensureJournalEntryDocNumber: async (currentYear) => {
+        await em.query(
+          `INSERT INTO document_number_settings
+             ("documentName", "prefix", "paddingDigits", "nextNumber", "lastResetYear")
+           SELECT 'Journal Entries', 'JE', 3,
+                  COALESCE(MAX((split_part("journalNo", '-', 3))::int), 0) + 1,
+                  $1
+             FROM journal_entry
+            WHERE "journalNo" ~ ('^JE-' || lpad($1::text, 2, '0') || '-[0-9]{1,9}$')
+           ON CONFLICT ("documentName") DO NOTHING`,
+          [currentYear],
+        );
+      },
     };
   }
 
   private async runCore(m: SeederManager): Promise<void> {
+    this.phase = 'ensure-je-doc-number';
+    await m.ensureJournalEntryDocNumber(new Date().getFullYear() % 100);
+
     this.phase = 'inspect';
     const count = await m.coaCount();
     const settings = await m.getSettings();

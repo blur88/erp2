@@ -7,9 +7,13 @@ function makeFakeDb(opts: {
   coa: CoaRow[];
   settings: Record<string, any> | null;
   failInsertCoaOn?: string; // code whose insert throws (to trigger rollback path)
+  docNumbers?: Record<string, any>[];
+  existingJeNumbers?: string[];
 }) {
   let coa = opts.coa.map((r) => ({ ...r }));
   let settings = opts.settings ? { ...opts.settings } : null;
+  let docNumbers: Record<string, any>[] = (opts.docNumbers ?? []).map((r) => ({ ...r }));
+  const jeNumbers: string[] = opts.existingJeNumbers ?? [];
   const advisoryLocks: number[] = [];
 
   const managerApi = {
@@ -44,6 +48,18 @@ function makeFakeDb(opts: {
       if (settings) return; // singleton conflict
       settings = { ...row };
     },
+    async ensureJournalEntryDocNumber(currentYear: number) {
+      if (docNumbers.some((r) => r.documentName === 'Journal Entries')) return; // ON CONFLICT DO NOTHING
+      const yy = String(currentYear).padStart(2, '0');
+      const re = new RegExp(`^JE-${yy}-[0-9]{1,9}$`);
+      const maxSeq = jeNumbers
+        .filter((n) => re.test(n))
+        .reduce((max, n) => Math.max(max, parseInt(n.split('-')[2], 10)), 0);
+      docNumbers.push({
+        documentName: 'Journal Entries', prefix: 'JE', paddingDigits: 3,
+        nextNumber: maxSeq + 1, lastResetYear: currentYear,
+      });
+    },
   };
 
   return {
@@ -52,16 +68,19 @@ function makeFakeDb(opts: {
     async transaction(body: (m: typeof managerApi) => Promise<void>) {
       const snapCoa = coa.map((r) => ({ ...r }));
       const snapSettings = settings ? { ...settings } : null;
+      const snapDoc = docNumbers.map((r) => ({ ...r }));
       try {
         await body(managerApi);
       } catch (e) {
         coa = snapCoa;
         settings = snapSettings;
+        docNumbers = snapDoc;
         throw e;
       }
     },
     snapshotSettings: () => settings,
     snapshotCoa: () => coa,
+    snapshotDocNumbers: () => docNumbers,
   };
 }
 
@@ -186,5 +205,38 @@ describe('AccountingSeederService', () => {
     const unique = new Set(codes);
     expect(codes.length).toBe(unique.size); // no duplicate rows
     expect(codes.length).toBe(STANDARD_COA_GROUPS.length + STANDARD_COA_CHILDREN.length);
+  });
+
+  it('self-heals the Journal Entries doc-number row when absent', async () => {
+    const db = makeFakeDb({ coa: fullCoa(), settings: healthySettings(), docNumbers: [] });
+    await svcWith(db).seed();
+    const je = db.snapshotDocNumbers().find((r: any) => r.documentName === 'Journal Entries');
+    expect(je).toBeDefined();
+    expect(je.prefix).toBe('JE');
+    expect(je.paddingDigits).toBe(3);
+    expect(je.nextNumber).toBe(1); // no existing JEs
+  });
+
+  it('leaves an existing Journal Entries doc-number row untouched (idempotent)', async () => {
+    const existing = { documentName: 'Journal Entries', prefix: 'JX', paddingDigits: 5, nextNumber: 42, lastResetYear: 99 };
+    const db = makeFakeDb({ coa: fullCoa(), settings: healthySettings(), docNumbers: [{ ...existing }] });
+    await svcWith(db).seed();
+    await svcWith(db).seed(); // twice
+    const jes = db.snapshotDocNumbers().filter((r: any) => r.documentName === 'Journal Entries');
+    expect(jes.length).toBe(1);
+    expect(jes[0]).toEqual(existing); // entire row preserved — no field reset by the heal
+  });
+
+  it('initializes nextNumber past existing current-year JE numbers (collision-safe)', async () => {
+    const yy = new Date().getFullYear() % 100;
+    const cur = String(yy).padStart(2, '0');
+    const other = String((yy + 1) % 100).padStart(2, '0'); // a different year, stable across time
+    const db = makeFakeDb({
+      coa: fullCoa(), settings: healthySettings(), docNumbers: [],
+      existingJeNumbers: [`JE-${cur}-007`, `JE-${other}-500`, `INV-${cur}-001`],
+    });
+    await svcWith(db).seed();
+    const je = db.snapshotDocNumbers().find((r: any) => r.documentName === 'Journal Entries');
+    expect(je.nextNumber).toBe(8); // 7 (current year) + 1; other-year/other-prefix ignored
   });
 });
