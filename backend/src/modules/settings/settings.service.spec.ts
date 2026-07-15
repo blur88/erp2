@@ -82,4 +82,37 @@ describe('SettingsService', () => {
     // No update issued for the unknown type — nextNumber preserved.
     expect(documentNumberSettingRepository.update).not.toHaveBeenCalled();
   });
+
+  it('createDefaultDocumentNumberSettings seeds Journal Entries collision-safe (max existing +1)', async () => {
+    // Regression for #901: the create-default fallback must not seed JE at a literal 1
+    // when journal entries already exist, or the next post collides on journalNo.
+    const saved: any[] = [];
+    const documentNumberSettingRepository = {
+      // Empty table -> triggers createDefaultDocumentNumberSettings; then non-empty.
+      find: jest.fn()
+        .mockResolvedValueOnce([]) // syncDocumentNumbersWithDatabase: table empty
+        .mockResolvedValue(saved), // re-read after createDefault
+      findOne: jest.fn().mockResolvedValue(null), // no row exists yet
+      create: jest.fn((row) => row),
+      save: jest.fn(async (row) => { saved.push(row); return row; }),
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+    // journal_entry already has JE-yy-007 -> next sequence 8.
+    const dataSource = { query: jest.fn().mockResolvedValue([{ next: 8 }]) };
+
+    const service = new SettingsService(
+      {} as any, {} as any,
+      documentNumberSettingRepository as any,
+      {} as any, {} as any, {} as any, {} as any, {} as any,
+      dataSource as any,
+    );
+
+    await service.syncDocumentNumbersWithDatabase();
+
+    const je = saved.find((r) => r.documentName === 'Journal Entries');
+    expect(je).toBeDefined();
+    expect(je.nextNumber).toBe(8); // collision-safe, not 1
+    const so = saved.find((r) => r.documentName === 'Sales Orders');
+    expect(so.nextNumber).toBe(1); // other types unaffected
+  });
 });
