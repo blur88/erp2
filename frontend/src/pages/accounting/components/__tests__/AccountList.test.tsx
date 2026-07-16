@@ -112,6 +112,25 @@ describe('AccountList', () => {
     renderList({ tree: [], isFetching: false })
     expect(screen.getByText(/No Chart of Accounts found/i)).toBeInTheDocument()
   })
+
+  it('renders the balance column formatted as currency', () => {
+    renderList({ tree: [leaf] })
+    const row = screen.getByText('Cash').closest('tr')!
+    const cells = row.querySelectorAll('td')
+    expect(cells[3]).toHaveTextContent('RM 5,000.00')
+    expect(cells[3]).not.toHaveTextContent('5000.0000')
+  })
+
+  it('formats the balance in the deactivate confirmation dialog', async () => {
+    renderList({ tree: [leaf] })
+    const user = userEvent.setup()
+    const row = screen.getByText('Cash').closest('tr')!
+    await user.click(row.querySelector('button[aria-label="row actions"]')!)
+    await user.click(screen.getByText('Set Inactive'))
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveTextContent('RM 5,000.00')
+    expect(dialog).not.toHaveTextContent('5000.0000')
+  })
 })
 
 // Rows are a flattened tree, so sorting has to reorder siblings within each
