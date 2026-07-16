@@ -106,7 +106,8 @@ describe('TrialBalancePage', () => {
     const alert = screen.getByRole('alert')
     expect(alert).toBeInTheDocument()
     expect(alert).toHaveTextContent(/not balanced/i)
-    expect(alert).toHaveTextContent('1000.0000')
+    expect(alert).toHaveTextContent('RM 1,000.00')
+    expect(alert).not.toHaveTextContent('1000.0000')
   })
 
   it('does not render warning Alert for balanced trial balance', () => {
@@ -140,5 +141,23 @@ describe('TrialBalancePage', () => {
     await user.click(checkbox)
 
     expect(screen.getByText('Retained Earnings')).toBeInTheDocument()
+  })
+
+  it('formats row cells and totals as currency, em-dash for zero', () => {
+    renderPage()
+    const cash = screen.getByText('Cash').closest('tr')!.querySelectorAll('td')
+    expect(cash[2]).toHaveTextContent('RM 5,000.00')
+    expect(cash[2]).not.toHaveTextContent('5000.0000')
+    expect(cash[3]).toHaveTextContent('—')
+    expect(cash[3]).not.toHaveTextContent('RM')
+    const deposit = screen.getByText('Customer Deposit').closest('tr')!.querySelectorAll('td')
+    expect(deposit[2]).toHaveTextContent('—')
+    expect(deposit[3]).toHaveTextContent('RM 5,000.00')
+    const totalCells = screen.getByText('Total').closest('tr')!.querySelectorAll('td')
+    expect(totalCells[1]).toHaveTextContent('RM 5,000.00')
+    expect(totalCells[1]).not.toHaveTextContent('5000.0000')
+    expect(totalCells[2]).toHaveTextContent('RM 5,000.00')
+    expect(totalCells[2]).not.toHaveTextContent('5000.0000')
+    expect(screen.getByText(/Difference:/)).toHaveTextContent('RM 0.00')
   })
 })

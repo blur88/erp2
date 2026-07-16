@@ -16,6 +16,7 @@ import {
 } from '@mui/material'
 import PageHeader from '@/components/common/PageHeader'
 import { useGetTrialBalanceQuery } from '@/store/api/accountingApi'
+import { formatCurrency } from '@/utils/currency'
 import type { TrialBalanceResponse } from '@/types'
 
 export default function TrialBalancePage() {
@@ -74,7 +75,7 @@ export default function TrialBalancePage() {
         <>
           {!trialBalance.balanced && (
             <Alert severity="warning" sx={{ mb: 2 }}>
-              The trial balance is not balanced. Difference: {trialBalance.difference}
+              The trial balance is not balanced. Difference: {formatCurrency(trialBalance.difference)}
             </Alert>
           )}
 
@@ -109,10 +110,10 @@ export default function TrialBalancePage() {
                     <TableCell>{row.code}</TableCell>
                     <TableCell>{row.name}</TableCell>
                     <TableCell align="right">
-                      {row.debit !== '0.0000' ? row.debit : ''}
+                      {row.debit !== '0.0000' ? formatCurrency(row.debit) : '—'}
                     </TableCell>
                     <TableCell align="right">
-                      {row.credit !== '0.0000' ? row.credit : ''}
+                      {row.credit !== '0.0000' ? formatCurrency(row.credit) : '—'}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -129,10 +130,10 @@ export default function TrialBalancePage() {
                     >
                       <TableCell colSpan={2}>Total</TableCell>
                       <TableCell align="right">
-                        {trialBalance.totalDebit}
+                        {formatCurrency(trialBalance.totalDebit)}
                       </TableCell>
                       <TableCell align="right">
-                        {trialBalance.totalCredit}
+                        {formatCurrency(trialBalance.totalCredit)}
                       </TableCell>
                     </TableRow>
                     <TableRow>
@@ -142,7 +143,7 @@ export default function TrialBalancePage() {
                         align="right"
                         sx={{ fontStyle: 'italic', color: 'text.secondary' }}
                       >
-                        Difference: {trialBalance.difference}
+                        Difference: {formatCurrency(trialBalance.difference)}
                       </TableCell>
                     </TableRow>
                   </>
