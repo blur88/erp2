@@ -9,6 +9,7 @@ import type {
 
 import { axiosBaseQuery } from './baseQuery'
 import { normalizeSingle } from './normalizers'
+import { invalidateJournalEntriesOnSuccess } from './invalidateJournalEntries'
 
 const defaultMeta = {
   total: 0,
@@ -203,11 +204,13 @@ export const purchasingApiSlice = createApi({
       query: (purchaseOrderId) => ({ url: `/purchasing/orders/${purchaseOrderId}/receive`, method: 'POST' }),
       transformResponse: normalizeSingle<PurchaseOrder>,
       invalidatesTags: ['PurchaseOrder'],
+      onQueryStarted: invalidateJournalEntriesOnSuccess,
     }),
     returnGoods: builder.mutation<PurchaseOrder, string>({
       query: (purchaseOrderId) => ({ url: `/purchasing/orders/${purchaseOrderId}/return`, method: 'POST' }),
       transformResponse: normalizeSingle<PurchaseOrder>,
       invalidatesTags: ['PurchaseOrder'],
+      onQueryStarted: invalidateJournalEntriesOnSuccess,
     }),
     recordVendorPayments: builder.mutation<
       PurchaseOrder,
@@ -220,11 +223,13 @@ export const purchasingApiSlice = createApi({
       }),
       transformResponse: normalizeSingle<PurchaseOrder>,
       invalidatesTags: ['PurchaseOrder', 'VendorPayment'],
+      onQueryStarted: invalidateJournalEntriesOnSuccess,
     }),
     markPurchaseOrderAsUnpaid: builder.mutation<PurchaseOrder, string>({
       query: (purchaseOrderId) => ({ url: `/purchasing/orders/${purchaseOrderId}/unpay`, method: 'POST' }),
       transformResponse: (response: any) => normalizeSingle<PurchaseOrder>(response?.data ?? response),
       invalidatesTags: ['PurchaseOrder', 'VendorPayment'],
+      onQueryStarted: invalidateJournalEntriesOnSuccess,
     }),
     duplicatePurchaseOrder: builder.mutation<PurchaseOrder, string>({
       query: (id) => ({ url: `/purchasing/orders/${id}/duplicate`, method: 'POST' }),
@@ -242,6 +247,7 @@ export const purchasingApiSlice = createApi({
       }),
       transformResponse: normalizeSingle<PurchaseOrder>,
       invalidatesTags: ['PurchaseOrder', 'VendorPayment'],
+      onQueryStarted: invalidateJournalEntriesOnSuccess,
     }),
 
   }),
