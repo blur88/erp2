@@ -18,12 +18,12 @@ const { salesOrderEntry, openingBalanceEntry, mockUseGetJournalEntryQuery } = vi
     createdBy: 'admin',
     createdAt: '2026-07-01T12:00:00Z',
     lines: [
-      { accountCode: '1100', accountName: 'Cash', debit: '100.00', credit: '0.00' },
-      { accountCode: '4000', accountName: 'Sales Revenue', debit: '0.00', credit: '100.00' },
+      { accountCode: '1100', accountName: 'Cash', debit: '100.0000', credit: '0.0000' },
+      { accountCode: '4000', accountName: 'Sales Revenue', debit: '0.0000', credit: '100.0000' },
     ],
-    totalDebit: '100.00',
-    totalCredit: '100.00',
-    difference: '0.00',
+    totalDebit: '100.0000',
+    totalCredit: '100.0000',
+    difference: '0.0000',
   }
 
   const openingEntry = {
@@ -38,12 +38,12 @@ const { salesOrderEntry, openingBalanceEntry, mockUseGetJournalEntryQuery } = vi
     createdBy: 'system',
     createdAt: '2026-06-30T00:00:00Z',
     lines: [
-      { accountCode: '1100', accountName: 'Cash', debit: '5000.00', credit: '0.00' },
-      { accountCode: '3100', accountName: 'Opening Balance Equity', debit: '0.00', credit: '5000.00' },
+      { accountCode: '1100', accountName: 'Cash', debit: '5000.0000', credit: '0.0000' },
+      { accountCode: '3100', accountName: 'Opening Balance Equity', debit: '0.0000', credit: '5000.0000' },
     ],
-    totalDebit: '5000.00',
-    totalCredit: '5000.00',
-    difference: '0.00',
+    totalDebit: '5000.0000',
+    totalCredit: '5000.0000',
+    difference: '0.0000',
   }
 
   return {
@@ -93,15 +93,32 @@ describe('JournalEntryViewPage', () => {
     expect(screen.getByText('Posted')).toBeInTheDocument()
   })
 
-  it('shows totals with Difference = "0.00"', () => {
+  it('formats line cells and totals as currency', () => {
     mockUseGetJournalEntryQuery.mockReturnValue({
       data: salesOrderEntry,
       isFetching: false,
       error: undefined,
     })
     renderPage()
-    const zeroElements = screen.getAllByText('0.00')
-    expect(zeroElements.length).toBeGreaterThanOrEqual(1)
+    // Line table cell order: Account Code(0), Account Name(1), Debit(2), Credit(3)
+    // Line 1 (Cash): debit 100 formatted, credit 0 → em-dash
+    const line1 = screen.getByText('Cash').closest('tr')!.querySelectorAll('td')
+    expect(line1[2]).toHaveTextContent('RM 100.00')
+    expect(line1[2]).not.toHaveTextContent('100.0000')
+    expect(line1[3]).toHaveTextContent('—')
+    expect(line1[3]).not.toHaveTextContent('RM')
+    // Line 2 (Sales Revenue): debit 0 → em-dash, credit 100 formatted
+    const line2 = screen.getByText('Sales Revenue').closest('tr')!.querySelectorAll('td')
+    expect(line2[2]).toHaveTextContent('—')
+    expect(line2[2]).not.toHaveTextContent('RM')
+    expect(line2[3]).toHaveTextContent('RM 100.00')
+    // Totals section: assert all three summaries individually (labels are unique)
+    expect(screen.getByText('Total Debit').closest('div')!).toHaveTextContent('RM 100.00')
+    expect(screen.getByText('Total Credit').closest('div')!).toHaveTextContent('RM 100.00')
+    // Difference is always shown (no zero-guard) → RM 0.00, not em-dash
+    expect(screen.getByText('Difference').closest('div')!).toHaveTextContent('RM 0.00')
+    expect(screen.queryByText('100.0000')).not.toBeInTheDocument()
+    expect(screen.queryByText('0.0000')).not.toBeInTheDocument()
   })
 
   it('SALES_ORDER source shows clickable link', () => {

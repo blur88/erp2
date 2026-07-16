@@ -7,6 +7,7 @@ import RowActionMenu from '@/components/common/RowActionMenu'
 import { StatusChip } from '@/components/common/StatusChip'
 import { useNotification } from '@/hooks/useNotification'
 import { useUpdateAccountMutation } from '@/store/api/accountingApi'
+import { formatCurrency } from '@/utils/currency'
 import type { AccountTreeNode } from '@/types'
 
 interface FlattenedRow {
@@ -138,7 +139,7 @@ export default function AccountList({
     {
       key: 'balance',
       width: '15%',
-      render: (row) => row.account.balance,
+      render: (row) => formatCurrency(row.account.balance),
     },
     {
       key: 'status',
@@ -213,7 +214,7 @@ export default function AccountList({
       <ConfirmationDialog
         open={pendingDeactivate !== null}
         title="Deactivate Account"
-        message={`This account has a non-zero balance (${pendingDeactivate?.balance ?? '0.0000'}). Set inactive anyway?`}
+        message={`This account has a non-zero balance (${formatCurrency(pendingDeactivate?.balance ?? '0.0000')}). Set inactive anyway?`}
         confirmText="Set Inactive"
         severity="warning"
         loading={updating}

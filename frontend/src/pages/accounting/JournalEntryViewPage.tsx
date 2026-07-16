@@ -16,6 +16,7 @@ import {
 import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
 import { useGetJournalEntryQuery } from '@/store/api/accountingApi'
+import { formatCurrency } from '@/utils/currency'
 import type { AccountingSourceType } from '@/types'
 
 const SOURCE_PATHS: Record<AccountingSourceType, string | null> = {
@@ -126,8 +127,12 @@ export default function JournalEntryViewPage() {
                 <TableRow key={index}>
                   <TableCell>{line.accountCode}</TableCell>
                   <TableCell>{line.accountName}</TableCell>
-                  <TableCell align="right">{line.debit}</TableCell>
-                  <TableCell align="right">{line.credit}</TableCell>
+                  <TableCell align="right">
+                    {line.debit !== '0.0000' ? formatCurrency(line.debit) : '—'}
+                  </TableCell>
+                  <TableCell align="right">
+                    {line.credit !== '0.0000' ? formatCurrency(line.credit) : '—'}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -141,15 +146,15 @@ export default function JournalEntryViewPage() {
           <Grid container spacing={2} sx={{ maxWidth: 600 }}>
             <Grid size={{ xs: 4 }}>
               <Typography variant="subtitle2">Total Debit</Typography>
-              <Typography variant="body2">{entry.totalDebit}</Typography>
+              <Typography variant="body2">{formatCurrency(entry.totalDebit)}</Typography>
             </Grid>
             <Grid size={{ xs: 4 }}>
               <Typography variant="subtitle2">Total Credit</Typography>
-              <Typography variant="body2">{entry.totalCredit}</Typography>
+              <Typography variant="body2">{formatCurrency(entry.totalCredit)}</Typography>
             </Grid>
             <Grid size={{ xs: 4 }}>
               <Typography variant="subtitle2">Difference</Typography>
-              <Typography variant="body2">{entry.difference}</Typography>
+              <Typography variant="body2">{formatCurrency(entry.difference)}</Typography>
             </Grid>
           </Grid>
         </Box>
