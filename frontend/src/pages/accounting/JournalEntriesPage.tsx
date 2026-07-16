@@ -8,6 +8,7 @@ import PagePagination from '@/components/common/PagePagination'
 import { StatusChip } from '@/components/common/StatusChip'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useGetJournalEntriesQuery } from '@/store/api/accountingApi'
+import { formatCurrency } from '@/utils/currency'
 import { PAGINATION } from '@/constants/tableStyles'
 import type { JournalEntry } from '@/types'
 
@@ -46,8 +47,8 @@ export default function JournalEntriesPage() {
     { key: 'date', render: (row) => row.date },
     { key: 'sourceRef', render: (row) => row.sourceRef ?? '-' },
     { key: 'description', render: (row) => row.description ?? '-' },
-    { key: 'debit', render: (row) => row.debit },
-    { key: 'credit', render: (row) => row.credit },
+    { key: 'debit', render: (row) => (row.debit !== '0.0000' ? formatCurrency(row.debit) : '—') },
+    { key: 'credit', render: (row) => (row.credit !== '0.0000' ? formatCurrency(row.credit) : '—') },
     {
       key: 'status',
       raw: true,

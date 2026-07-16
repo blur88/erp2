@@ -13,8 +13,8 @@ const { mockJournalEntries } = vi.hoisted(() => ({
       date: '2026-07-01',
       sourceRef: 'SO-001',
       description: 'Sales order payment',
-      debit: '100.00',
-      credit: '0.00',
+      debit: '100.0000',
+      credit: '0.0000',
       status: 'Posted' as const,
     },
     {
@@ -23,8 +23,8 @@ const { mockJournalEntries } = vi.hoisted(() => ({
       date: '2026-07-02',
       sourceRef: null,
       description: null,
-      debit: '0.00',
-      credit: '50.00',
+      debit: '0.0000',
+      credit: '50.0000',
       status: 'Reversed' as const,
     },
   ],
@@ -96,6 +96,23 @@ describe('JournalEntriesPage', () => {
     renderPage()
     const viewButtons = screen.getAllByText('View')
     expect(viewButtons.length).toBe(2)
+  })
+
+  it('formats debit and credit cells as currency, em-dash for zero', () => {
+    renderPage()
+    // Column order: Journal No, Date, Source, Description, Debit(4), Credit(5), Status, Actions
+    // Row je-1: debit 100 formatted (cell 4), credit 0 → em-dash (cell 5)
+    const cells1 = screen.getByText('JE-000001').closest('tr')!.querySelectorAll('td')
+    expect(cells1[4]).toHaveTextContent('RM 100.00')
+    expect(cells1[4]).not.toHaveTextContent('100.0000')
+    expect(cells1[5]).toHaveTextContent('—')
+    expect(cells1[5]).not.toHaveTextContent('RM')
+    // Row je-2: debit 0 → em-dash (cell 4), credit 50 formatted (cell 5)
+    const cells2 = screen.getByText('JE-000002').closest('tr')!.querySelectorAll('td')
+    expect(cells2[4]).toHaveTextContent('—')
+    expect(cells2[4]).not.toHaveTextContent('RM')
+    expect(cells2[5]).toHaveTextContent('RM 50.00')
+    expect(cells2[5]).not.toHaveTextContent('50.0000')
   })
 
   it('does not render a create/new button', () => {
