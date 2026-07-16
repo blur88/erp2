@@ -35,20 +35,28 @@ export const formatCurrency = (
   // Get currency symbol (use override or cached value)
   const currencySymbol = currency || getCurrencySymbol()
 
-  // Handle null/undefined/empty values
-  const numericAmount = typeof amount === 'string' ? parseFloat(amount) : (amount ?? 0)
+  // Handle null/undefined by treating as zero.
+  // Keep string amounts as strings: Intl.NumberFormat.format() parses a decimal
+  // string losslessly, whereas Number()/parseFloat() would lose cents on large
+  // NUMERIC(18,4) values. Once the magnitude is large enough that binary64
+  // spacing (ULP) exceeds 0.01, a fractional cent can no longer be represented
+  // (e.g. '99999999999999.9900' -> ...99.98), even though the value is below 2^53.
+  const value: string | number = amount ?? 0
 
-  // Handle invalid numbers
-  if (isNaN(numericAmount)) {
+  // Validate without losing precision — Number() is only used for the NaN check,
+  // never for formatting. Finite values (even oversized ones) pass and are
+  // formatted from the original string.
+  if (!Number.isFinite(Number(value))) {
     return showSymbol ? `${currencySymbol} 0.00` : '0.00'
   }
 
-  // Format the number with thousand separators and decimal places
-  const formatted = numericAmount.toLocaleString('en-MY', {
+  // Format with thousand separators and decimal places. Passing the raw string
+  // (not a coerced Number) preserves all significant digits.
+  const formatted = new Intl.NumberFormat('en-MY', {
     minimumFractionDigits,
     maximumFractionDigits,
     useGrouping: true
-  })
+  }).format(value as any)
 
   return showSymbol ? `${currencySymbol} ${formatted}` : formatted
 }

@@ -214,7 +214,7 @@ export default function AccountList({
       <ConfirmationDialog
         open={pendingDeactivate !== null}
         title="Deactivate Account"
-        message={`This account has a non-zero balance (${formatCurrency(pendingDeactivate?.balance ?? '0')}). Set inactive anyway?`}
+        message={`This account has a non-zero balance (${formatCurrency(pendingDeactivate?.balance ?? '0.0000')}). Set inactive anyway?`}
         confirmText="Set Inactive"
         severity="warning"
         loading={updating}
