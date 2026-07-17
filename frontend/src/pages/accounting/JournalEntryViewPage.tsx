@@ -15,33 +15,24 @@ import { StatusChip } from '@/components/common/StatusChip'
 import { DataTable, type Column } from '@/components/common/DataTable'
 import { useGetJournalEntryQuery } from '@/store/api/accountingApi'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
+import { buildSourceLink } from './source-link'
 import type { AccountingSourceType } from '@/types'
-
-const SOURCE_PATHS: Record<AccountingSourceType, string | null> = {
-  SALES_ORDER: '/sales/orders',
-  PURCHASE_ORDER: '/purchasing/orders',
-  STOCK_ADJUSTMENT: '/inventory/stock-adjustments',
-  OPENING_BALANCE: null,
-}
 
 function SourceLink({
   sourceType,
   sourceDocumentId,
+  sourceRef,
 }: {
   sourceType: AccountingSourceType
   sourceDocumentId: string | null
+  sourceRef: string | null
 }) {
-  const basePath = SOURCE_PATHS[sourceType]
   const displayText = sourceType.replace(/_/g, ' ')
+  const href = buildSourceLink(sourceType, sourceDocumentId, sourceRef)
 
-  if (!basePath || !sourceDocumentId) {
+  if (!href) {
     return <Typography variant="body2">{displayText}</Typography>
   }
-
-  const href =
-    sourceType === 'STOCK_ADJUSTMENT'
-      ? `${basePath}/${sourceDocumentId}/view`
-      : `${basePath}/${sourceDocumentId}`
 
   return (
     <Button component={Link} to={href} variant="text" size="small" sx={{ textTransform: 'none' }}>
@@ -139,6 +130,7 @@ export default function JournalEntryViewPage() {
                   <SourceLink
                     sourceType={entry.sourceType}
                     sourceDocumentId={entry.sourceDocumentId}
+                    sourceRef={entry.sourceRef}
                   />
                 }
               />

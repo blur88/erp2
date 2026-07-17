@@ -243,7 +243,7 @@ describe('JournalEntryViewPage', () => {
     renderPage()
     const link = screen.getByRole('link', { name: /sales order/i })
     expect(link).toBeInTheDocument()
-    expect(link).toHaveAttribute('href', '/sales/orders/so-1')
+    expect(link).toHaveAttribute('href', '/sales/orders/SO-001/view')
   })
 
   it('OPENING_BALANCE source shows plain text, no link', () => {
