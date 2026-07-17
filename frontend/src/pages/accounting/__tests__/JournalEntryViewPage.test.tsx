@@ -7,7 +7,13 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { formatDate, formatDateTime } from '@/utils/formatters'
 
-const { salesOrderEntry, openingBalanceEntry, emptyLinesEntry, mockUseGetJournalEntryQuery } = vi.hoisted(() => {
+const {
+  salesOrderEntry,
+  openingBalanceEntry,
+  emptyLinesEntry,
+  zeroFormatsEntry,
+  mockUseGetJournalEntryQuery,
+} = vi.hoisted(() => {
   const salesEntry = {
     id: 'je-1',
     journalNo: 'JE-000001',
@@ -57,10 +63,23 @@ const { salesOrderEntry, openingBalanceEntry, emptyLinesEntry, mockUseGetJournal
     totalCredit: '0.0000',
   }
 
+  // Exercises lineCell's numeric zero-check across formats + a non-numeric guard.
+  const zeroFormatsEntry = {
+    ...salesEntry,
+    id: 'je-zeros',
+    journalNo: 'JE-000100',
+    lines: [
+      { accountCode: '1000', accountName: 'Bare Zero', debit: '0', credit: '50.0000' },
+      { accountCode: '1001', accountName: 'Two DP Zero', debit: '0.00', credit: '50.0000' },
+      { accountCode: '1002', accountName: 'Bad Value', debit: 'abc', credit: '50.0000' },
+    ],
+  }
+
   return {
     salesOrderEntry: salesEntry,
     openingBalanceEntry: openingEntry,
     emptyLinesEntry: emptyEntry,
+    zeroFormatsEntry,
     mockUseGetJournalEntryQuery: vi.fn(),
   }
 })
@@ -140,6 +159,46 @@ describe('JournalEntryViewPage', () => {
     expect(line2[3]).toHaveTextContent('RM 100.00')
     expect(screen.queryByText('100.0000')).not.toBeInTheDocument()
     expect(screen.queryByText('0.0000')).not.toBeInTheDocument()
+  })
+
+  it('treats alternate zero formats and non-numeric values as em-dash', () => {
+    mockUseGetJournalEntryQuery.mockReturnValue({
+      data: zeroFormatsEntry,
+      isFetching: false,
+      error: undefined,
+    })
+    renderPage()
+    // Debit column (index 2) for each row; all three are zero/invalid → em-dash, never RM.
+    const bare = screen.getByText('Bare Zero').closest('tr')!.querySelectorAll('td')
+    expect(bare[2]).toHaveTextContent('—')
+    expect(bare[2]).not.toHaveTextContent('RM')
+    const twoDp = screen.getByText('Two DP Zero').closest('tr')!.querySelectorAll('td')
+    expect(twoDp[2]).toHaveTextContent('—')
+    expect(twoDp[2]).not.toHaveTextContent('RM')
+    const bad = screen.getByText('Bad Value').closest('tr')!.querySelectorAll('td')
+    expect(bad[2]).toHaveTextContent('—')
+    expect(bad[2]).not.toHaveTextContent('NaN')
+  })
+
+  it('renders a spinner while fetching', () => {
+    mockUseGetJournalEntryQuery.mockReturnValue({
+      data: undefined,
+      isFetching: true,
+      error: undefined,
+    })
+    renderPage()
+    expect(screen.getByRole('progressbar')).toBeInTheDocument()
+  })
+
+  it('renders an error message when the query fails', () => {
+    mockUseGetJournalEntryQuery.mockReturnValue({
+      data: undefined,
+      isFetching: false,
+      error: { status: 500 },
+    })
+    renderPage()
+    expect(screen.getByText('Failed to load journal entry.')).toBeInTheDocument()
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
   })
 
   it('shows totals with formatted values in both the Summary card and the footer', () => {
