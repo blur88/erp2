@@ -151,5 +151,13 @@ describe('GeneralLedgerPage', () => {
     expect(creditElements.length).toBeGreaterThanOrEqual(1)
     const closingElements = screen.getAllByText(/8,000/)
     expect(closingElements.length).toBeGreaterThanOrEqual(1)
+
+    // Source link for SALES_ORDER uses sourceRef (SO-001) with /view suffix.
+    // Query by link role (not getByText) so the filter dropdown's "Sales Order"
+    // option can never collide with the movement-row source link.
+    expect(screen.getByRole('link', { name: /sales order/i })).toHaveAttribute(
+      'href',
+      '/sales/orders/SO-001/view',
+    )
   })
 })

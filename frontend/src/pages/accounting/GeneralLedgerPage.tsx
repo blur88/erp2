@@ -21,6 +21,7 @@ import { useGetAccountsQuery, useGetGeneralLedgerQuery } from '@/store/api/accou
 import type { AccountingSourceType } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
+import { buildSourceLink } from './source-link'
 
 const SOURCE_TYPES: { value: AccountingSourceType | ''; label: string }[] = [
   { value: '', label: 'All Sources' },
@@ -29,25 +30,6 @@ const SOURCE_TYPES: { value: AccountingSourceType | ''; label: string }[] = [
   { value: 'STOCK_ADJUSTMENT', label: 'Stock Adjustment' },
   { value: 'OPENING_BALANCE', label: 'Opening Balance' },
 ]
-
-function getSourceLink(
-  sourceType: AccountingSourceType,
-  sourceDocumentId: string | null,
-): string | null {
-  if (!sourceDocumentId) return null
-  switch (sourceType) {
-    case 'SALES_ORDER':
-      return `/sales/orders/${sourceDocumentId}`
-    case 'PURCHASE_ORDER':
-      return `/purchasing/orders/${sourceDocumentId}`
-    case 'STOCK_ADJUSTMENT':
-      return `/inventory/stock-adjustments/${sourceDocumentId}/view`
-    case 'OPENING_BALANCE':
-      return null
-    default:
-      return null
-  }
-}
 
 function getSourceLabel(sourceType: AccountingSourceType): string {
   switch (sourceType) {
@@ -219,9 +201,10 @@ export default function GeneralLedgerPage() {
                     </TableRow>
                   ) : (
                     glData.movements.map((movement, idx) => {
-                      const sourceLink = getSourceLink(
+                      const sourceLink = buildSourceLink(
                         movement.sourceType,
                         movement.sourceDocumentId,
+                        movement.sourceRef,
                       )
                       return (
                         <TableRow
