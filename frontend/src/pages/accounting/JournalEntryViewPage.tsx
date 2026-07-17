@@ -1,22 +1,19 @@
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import type { ReactNode } from 'react'
 import {
   Box,
   Button,
+  Card,
+  CardContent,
   Grid,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Typography,
 } from '@mui/material'
 
 import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
+import { DataTable, type Column } from '@/components/common/DataTable'
 import { useGetJournalEntryQuery } from '@/store/api/accountingApi'
-import { formatCurrency } from '@/utils/currency'
+import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import type { AccountingSourceType } from '@/types'
 
 const SOURCE_PATHS: Record<AccountingSourceType, string | null> = {
@@ -52,15 +49,21 @@ function SourceLink({
   )
 }
 
-function DetailRow({ label, value }: { label: string; value: string | null }) {
+function Field({ label, value }: { label: string; value?: ReactNode }) {
   return (
-    <Grid size={{ xs: 6 }}>
-      <Typography variant="caption" color="text.secondary">
+    <Box sx={{ mb: 1.5 }}>
+      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.25 }}>
         {label}
       </Typography>
-      <Typography variant="body2">{value ?? '-'}</Typography>
-    </Grid>
+      <Typography component="div" variant="body2" sx={{ color: 'text.primary' }}>
+        {value ?? '—'}
+      </Typography>
+    </Box>
   )
+}
+
+function lineCell(value: string) {
+  return value !== '0.0000' ? formatCurrency(value) : '—'
 }
 
 export default function JournalEntryViewPage() {
@@ -77,88 +80,105 @@ export default function JournalEntryViewPage() {
     return <Typography>Failed to load journal entry.</Typography>
   }
 
+  const statusChip = (
+    <StatusChip
+      status={entry.status === 'Posted' ? 'active' : 'inactive'}
+      label={entry.status}
+    />
+  )
+
+  const lines = entry.lines.map((line, index) => ({
+    ...line,
+    rowKey: `${line.accountCode}-${index}`,
+  }))
+
+  const columns: Column<(typeof lines)[number]>[] = [
+    { header: 'Account Code', render: (line) => line.accountCode },
+    { header: 'Account Name', render: (line) => line.accountName },
+    { header: 'Debit', align: 'right', render: (line) => lineCell(line.debit) },
+    { header: 'Credit', align: 'right', render: (line) => lineCell(line.credit) },
+  ]
+
+  const totals: { label: string; value: string; bold?: boolean }[] = [
+    { label: 'Total Debit', value: formatCurrency(entry.totalDebit) },
+    { label: 'Total Credit', value: formatCurrency(entry.totalCredit) },
+    { label: 'Difference', value: formatCurrency(entry.difference), bold: true },
+  ]
+
   return (
     <Box>
       <PageHeader
         title={`Journal Entry ${entry.journalNo}`}
-        titleBadge={
-          <StatusChip
-            status={entry.status === 'Posted' ? 'active' : 'inactive'}
-            label={entry.status}
-          />
-        }
+        titleBadge={statusChip}
         backAction={() => navigate('/accounting/journal-entries')}
       />
 
-      {/* Details Section */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Grid container spacing={2}>
-          <DetailRow label="Entry Date" value={entry.entryDate} />
-          <Grid size={{ xs: 6 }}>
-            <Typography variant="caption" color="text.secondary">
-              Source Type
-            </Typography>
-            <SourceLink sourceType={entry.sourceType} sourceDocumentId={entry.sourceDocumentId} />
-          </Grid>
-          <DetailRow label="Source Reference" value={entry.sourceRef} />
-          <DetailRow label="Description" value={entry.description} />
-          <DetailRow label="Created By" value={entry.createdBy} />
-          <DetailRow label="Created At" value={entry.createdAt} />
+      <Grid container spacing={3} sx={{ mb: 3, alignItems: 'stretch' }}>
+        <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
+          <Card sx={{ flex: 1 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Entry Info
+              </Typography>
+              <Field label="Entry Date" value={formatDate(entry.entryDate)} />
+              <Field
+                label="Source Type"
+                value={
+                  <SourceLink
+                    sourceType={entry.sourceType}
+                    sourceDocumentId={entry.sourceDocumentId}
+                  />
+                }
+              />
+              <Field label="Source Reference" value={entry.sourceRef} />
+              <Field label="Description" value={entry.description} />
+              <Field label="Created By" value={entry.createdBy} />
+              <Field label="Created At" value={formatDateTime(entry.createdAt)} />
+            </CardContent>
+          </Card>
         </Grid>
-      </Paper>
 
-      {/* Lines Table Section */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Journal Lines
-        </Typography>
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Account Code</TableCell>
-                <TableCell>Account Name</TableCell>
-                <TableCell align="right">Debit</TableCell>
-                <TableCell align="right">Credit</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {entry.lines.map((line, index) => (
-                <TableRow key={index}>
-                  <TableCell>{line.accountCode}</TableCell>
-                  <TableCell>{line.accountName}</TableCell>
-                  <TableCell align="right">
-                    {line.debit !== '0.0000' ? formatCurrency(line.debit) : '—'}
-                  </TableCell>
-                  <TableCell align="right">
-                    {line.credit !== '0.0000' ? formatCurrency(line.credit) : '—'}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+        <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
+          <Card sx={{ flex: 1 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Summary
+              </Typography>
+              <Field label="Status" value={statusChip} />
+              <Field label="Total Debit" value={formatCurrency(entry.totalDebit)} />
+              <Field label="Total Credit" value={formatCurrency(entry.totalCredit)} />
+              <Field label="Difference" value={formatCurrency(entry.difference)} />
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
-      {/* Totals Section */}
-      <Paper sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Grid container spacing={2} sx={{ maxWidth: 600 }}>
-            <Grid size={{ xs: 4 }}>
-              <Typography variant="subtitle2">Total Debit</Typography>
-              <Typography variant="body2">{formatCurrency(entry.totalDebit)}</Typography>
-            </Grid>
-            <Grid size={{ xs: 4 }}>
-              <Typography variant="subtitle2">Total Credit</Typography>
-              <Typography variant="body2">{formatCurrency(entry.totalCredit)}</Typography>
-            </Grid>
-            <Grid size={{ xs: 4 }}>
-              <Typography variant="subtitle2">Difference</Typography>
-              <Typography variant="body2">{formatCurrency(entry.difference)}</Typography>
-            </Grid>
-          </Grid>
+      <Typography variant="h6" sx={{ mb: 2 }}>
+        Journal Lines
+      </Typography>
+      <DataTable
+        columns={columns}
+        rows={lines}
+        getRowKey={(line) => line.rowKey}
+        emptyText="No lines on this journal entry."
+      />
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+        <Box sx={{ minWidth: 240 }}>
+          {totals.map(({ label, value, bold }) => (
+            <Box
+              key={label}
+              sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}
+            >
+              <Typography variant="body2" sx={{ fontWeight: bold ? 600 : 400 }}>
+                {label}
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: bold ? 600 : 400 }}>
+                {value}
+              </Typography>
+            </Box>
+          ))}
         </Box>
-      </Paper>
+      </Box>
     </Box>
   )
 }

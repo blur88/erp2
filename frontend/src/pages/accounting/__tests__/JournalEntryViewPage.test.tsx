@@ -5,7 +5,9 @@ import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
-const { salesOrderEntry, openingBalanceEntry, mockUseGetJournalEntryQuery } = vi.hoisted(() => {
+import { formatDate, formatDateTime } from '@/utils/formatters'
+
+const { salesOrderEntry, openingBalanceEntry, emptyLinesEntry, mockUseGetJournalEntryQuery } = vi.hoisted(() => {
   const salesEntry = {
     id: 'je-1',
     journalNo: 'JE-000001',
@@ -46,9 +48,19 @@ const { salesOrderEntry, openingBalanceEntry, mockUseGetJournalEntryQuery } = vi
     difference: '0.0000',
   }
 
+  const emptyEntry = {
+    ...salesEntry,
+    id: 'je-empty',
+    journalNo: 'JE-000099',
+    lines: [] as { accountCode: string; accountName: string; debit: string; credit: string }[],
+    totalDebit: '0.0000',
+    totalCredit: '0.0000',
+  }
+
   return {
     salesOrderEntry: salesEntry,
     openingBalanceEntry: openingEntry,
+    emptyLinesEntry: emptyEntry,
     mockUseGetJournalEntryQuery: vi.fn(),
   }
 })
@@ -82,7 +94,7 @@ describe('JournalEntryViewPage', () => {
     mockUseGetJournalEntryQuery.mockReset()
   })
 
-  it('renders header with journalNo and status', () => {
+  it('renders header and Summary card status (both placements)', () => {
     mockUseGetJournalEntryQuery.mockReturnValue({
       data: salesOrderEntry,
       isFetching: false,
@@ -90,35 +102,77 @@ describe('JournalEntryViewPage', () => {
     })
     renderPage()
     expect(screen.getByText(/JE-000001/)).toBeInTheDocument()
-    expect(screen.getByText('Posted')).toBeInTheDocument()
+    // Status appears in the header badge AND the Summary card.
+    expect(screen.getAllByText('Posted')).toHaveLength(2)
   })
 
-  it('formats line cells and totals as currency', () => {
+  it('formats entry and creation dates', () => {
     mockUseGetJournalEntryQuery.mockReturnValue({
       data: salesOrderEntry,
       isFetching: false,
       error: undefined,
     })
     renderPage()
-    // Line table cell order: Account Code(0), Account Name(1), Debit(2), Credit(3)
-    // Line 1 (Cash): debit 100 formatted, credit 0 → em-dash
+    // Raw ISO strings must not be shown verbatim.
+    expect(screen.queryByText('2026-07-01')).not.toBeInTheDocument()
+    expect(screen.queryByText('2026-07-01T12:00:00Z')).not.toBeInTheDocument()
+    // Formatted values are present.
+    expect(screen.getByText(formatDate('2026-07-01'))).toBeInTheDocument()
+    expect(screen.getByText(formatDateTime('2026-07-01T12:00:00Z'))).toBeInTheDocument()
+  })
+
+  it('formats line cells as currency with em-dash for zero', () => {
+    mockUseGetJournalEntryQuery.mockReturnValue({
+      data: salesOrderEntry,
+      isFetching: false,
+      error: undefined,
+    })
+    renderPage()
+    // DataTable renders a native table: Account Code(0), Name(1), Debit(2), Credit(3)
     const line1 = screen.getByText('Cash').closest('tr')!.querySelectorAll('td')
     expect(line1[2]).toHaveTextContent('RM 100.00')
     expect(line1[2]).not.toHaveTextContent('100.0000')
     expect(line1[3]).toHaveTextContent('—')
     expect(line1[3]).not.toHaveTextContent('RM')
-    // Line 2 (Sales Revenue): debit 0 → em-dash, credit 100 formatted
     const line2 = screen.getByText('Sales Revenue').closest('tr')!.querySelectorAll('td')
     expect(line2[2]).toHaveTextContent('—')
     expect(line2[2]).not.toHaveTextContent('RM')
     expect(line2[3]).toHaveTextContent('RM 100.00')
-    // Totals section: assert all three summaries individually (labels are unique)
-    expect(screen.getByText('Total Debit').closest('div')!).toHaveTextContent('RM 100.00')
-    expect(screen.getByText('Total Credit').closest('div')!).toHaveTextContent('RM 100.00')
-    // Difference is always shown (no zero-guard) → RM 0.00, not em-dash
-    expect(screen.getByText('Difference').closest('div')!).toHaveTextContent('RM 0.00')
     expect(screen.queryByText('100.0000')).not.toBeInTheDocument()
     expect(screen.queryByText('0.0000')).not.toBeInTheDocument()
+  })
+
+  it('shows totals with formatted values in both the Summary card and the footer', () => {
+    mockUseGetJournalEntryQuery.mockReturnValue({
+      data: salesOrderEntry,
+      isFetching: false,
+      error: undefined,
+    })
+    renderPage()
+    // Each total label appears once in the Summary card and once in the footer,
+    // and each occurrence's row/field must show the formatted amount.
+    const assertBoth = (label: string, formatted: string) => {
+      const labels = screen.getAllByText(label)
+      expect(labels).toHaveLength(2)
+      labels.forEach((el) => {
+        // Sibling value: Field caption+value share a parent Box; footer label+value
+        // share a flex Box. The nearest common wrapper contains the amount.
+        expect(el.parentElement!).toHaveTextContent(formatted)
+      })
+    }
+    assertBoth('Total Debit', 'RM 100.00')
+    assertBoth('Total Credit', 'RM 100.00')
+    assertBoth('Difference', 'RM 0.00')
+  })
+
+  it('renders empty-lines message when there are no lines', () => {
+    mockUseGetJournalEntryQuery.mockReturnValue({
+      data: emptyLinesEntry,
+      isFetching: false,
+      error: undefined,
+    })
+    renderPage()
+    expect(screen.getByText('No lines on this journal entry.')).toBeInTheDocument()
   })
 
   it('SALES_ORDER source shows clickable link', () => {
