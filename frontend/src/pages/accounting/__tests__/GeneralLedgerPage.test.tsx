@@ -151,5 +151,11 @@ describe('GeneralLedgerPage', () => {
     expect(creditElements.length).toBeGreaterThanOrEqual(1)
     const closingElements = screen.getAllByText(/8,000/)
     expect(closingElements.length).toBeGreaterThanOrEqual(1)
+
+    // Source link for SALES_ORDER uses sourceRef (SO-001) with /view suffix
+    expect(screen.getByText('Sales Order').closest('a')).toHaveAttribute(
+      'href',
+      '/sales/orders/SO-001/view',
+    )
   })
 })
