@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   CardContent,
+  CircularProgress,
   Grid,
   Typography,
 } from '@mui/material'
@@ -62,8 +63,9 @@ function Field({ label, value }: { label: string; value?: ReactNode }) {
   )
 }
 
+// Numeric compare (not string) so any zero format ('0', '0.00', '0.0000') → em-dash.
 function lineCell(value: string) {
-  return value !== '0.0000' ? formatCurrency(value) : '—'
+  return Number(value) !== 0 ? formatCurrency(value) : '—'
 }
 
 export default function JournalEntryViewPage() {
@@ -73,11 +75,19 @@ export default function JournalEntryViewPage() {
   const { data: entry, isFetching, error } = useGetJournalEntryQuery(id!)
 
   if (isFetching) {
-    return <Typography>Loading...</Typography>
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}>
+        <CircularProgress />
+      </Box>
+    )
   }
 
   if (error || !entry) {
-    return <Typography>Failed to load journal entry.</Typography>
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}>
+        <Typography color="text.secondary">Failed to load journal entry.</Typography>
+      </Box>
+    )
   }
 
   const statusChip = (
