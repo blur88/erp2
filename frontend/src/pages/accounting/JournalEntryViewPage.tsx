@@ -64,8 +64,10 @@ function Field({ label, value }: { label: string; value?: ReactNode }) {
 }
 
 // Numeric compare (not string) so any zero format ('0', '0.00', '0.0000') → em-dash.
+// Non-numeric/empty (NaN) also falls through to em-dash rather than "RM NaN".
 function lineCell(value: string) {
-  return Number(value) !== 0 ? formatCurrency(value) : '—'
+  const n = Number(value)
+  return Number.isFinite(n) && n !== 0 ? formatCurrency(value) : '—'
 }
 
 export default function JournalEntryViewPage() {
