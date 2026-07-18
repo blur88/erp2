@@ -21,7 +21,7 @@ import { useGetAccountsQuery, useGetGeneralLedgerQuery } from '@/store/api/accou
 import type { AccountingSourceType } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
-import { buildSourceLink } from './source-link'
+import SourceLink from './components/SourceLink'
 
 const SOURCE_TYPES: { value: AccountingSourceType | ''; label: string }[] = [
   { value: '', label: 'All Sources' },
@@ -30,21 +30,6 @@ const SOURCE_TYPES: { value: AccountingSourceType | ''; label: string }[] = [
   { value: 'STOCK_ADJUSTMENT', label: 'Stock Adjustment' },
   { value: 'OPENING_BALANCE', label: 'Opening Balance' },
 ]
-
-function getSourceLabel(sourceType: AccountingSourceType): string {
-  switch (sourceType) {
-    case 'SALES_ORDER':
-      return 'Sales Order'
-    case 'PURCHASE_ORDER':
-      return 'Purchase Order'
-    case 'STOCK_ADJUSTMENT':
-      return 'Stock Adjustment'
-    case 'OPENING_BALANCE':
-      return 'Opening Balance'
-    default:
-      return sourceType
-  }
-}
 
 export default function GeneralLedgerPage() {
   const [accountId, setAccountId] = useState('')
@@ -201,11 +186,6 @@ export default function GeneralLedgerPage() {
                     </TableRow>
                   ) : (
                     glData.movements.map((movement, idx) => {
-                      const sourceLink = buildSourceLink(
-                        movement.sourceType,
-                        movement.sourceDocumentId,
-                        movement.sourceRef,
-                      )
                       return (
                         <TableRow
                           key={`${movement.journalEntryId}-${idx}`}
@@ -238,16 +218,11 @@ export default function GeneralLedgerPage() {
                             {formatCurrency(movement.balance)}
                           </TableCell>
                           <TableCell>
-                            {sourceLink ? (
-                              <Link
-                                to={sourceLink}
-                                style={{ textDecoration: 'none' }}
-                              >
-                                {getSourceLabel(movement.sourceType)}
-                              </Link>
-                            ) : (
-                              getSourceLabel(movement.sourceType)
-                            )}
+                            <SourceLink
+                              sourceType={movement.sourceType}
+                              sourceDocumentId={movement.sourceDocumentId}
+                              sourceRef={movement.sourceRef}
+                            />
                           </TableCell>
                         </TableRow>
                       )
