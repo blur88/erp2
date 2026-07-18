@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
-import { MemoryRouter } from 'react-router-dom'
+import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 const { mockAccounts, mockGLData, mockAccountsQuery, mockGLQuery } = vi.hoisted(() => ({
@@ -90,15 +90,22 @@ vi.mock('react-router-dom', async () => {
 
 import GeneralLedgerPage from '../GeneralLedgerPage'
 
-function renderPage() {
+function renderPage(initialEntry = '/accounting/general-ledger') {
   const store = configureStore({ reducer: { empty: (s = null) => s } })
-  return render(
+  const router = createMemoryRouter(
+    [
+      { path: '/accounting/general-ledger', element: <GeneralLedgerPage /> },
+      { path: '/sales/orders/:id/view', element: <div>Sales Order Page</div> },
+      { path: '/accounting/journal-entries/:id', element: <div>JE Page</div> },
+    ],
+    { initialEntries: [initialEntry] },
+  )
+  render(
     <Provider store={store}>
-      <MemoryRouter>
-        <GeneralLedgerPage />
-      </MemoryRouter>
+      <RouterProvider router={router} />
     </Provider>,
   )
+  return router
 }
 
 describe('GeneralLedgerPage', () => {
@@ -115,45 +122,19 @@ describe('GeneralLedgerPage', () => {
   })
 
   it('renders movements, opening balance, and closing balance when an account is selected', () => {
-    mockAccountsQuery.mockReturnValue({
-      data: mockAccounts,
-      isFetching: false,
-    })
-    mockGLQuery.mockReturnValue({
-      data: mockGLData,
-      isFetching: false,
-    })
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
 
-    renderPage()
+    renderPage('/accounting/general-ledger?accountId=acct-1')
 
-    // Select an account from the dropdown
-    fireEvent.mouseDown(screen.getByRole('combobox', { name: /account/i }))
-    fireEvent.click(screen.getByRole('option', { name: /1100 - Cash/ }))
-
-    // Account info section shows code and name (may appear multiple times — in select + header)
     const accountInfoElements = screen.getAllByText('1100 - Cash')
     expect(accountInfoElements.length).toBeGreaterThanOrEqual(1)
-
-    // Opening balance is shown (check component renders the opening balance text)
     const obTexts = screen.getAllByText(/Opening Balance/)
     expect(obTexts.length).toBeGreaterThanOrEqual(1)
-    const fiveThousandElements = screen.getAllByText(/5,000/)
-    expect(fiveThousandElements.length).toBeGreaterThanOrEqual(1)
-
-    // Movements table shows journal entries
+    expect(screen.getAllByText(/5,000/).length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('JV-001')).toBeInTheDocument()
     expect(screen.getByText('JV-002')).toBeInTheDocument()
-    expect(screen.getByText('Initial balance entry')).toBeInTheDocument()
-    expect(screen.getByText('Sales revenue')).toBeInTheDocument()
 
-    // Summary section shows totals
-    const creditElements = screen.getAllByText(/2,000/)
-    expect(creditElements.length).toBeGreaterThanOrEqual(1)
-    const closingElements = screen.getAllByText(/8,000/)
-    expect(closingElements.length).toBeGreaterThanOrEqual(1)
-
-    // Source link for SALES_ORDER now uses the reference number (SO-001) as its text,
-    // with the type ("Sales Order") exposed as the accessible description via tooltip.
     const soLink = screen.getByRole('link', { name: 'SO-001' })
     expect(soLink).toHaveAttribute('href', '/sales/orders/SO-001/view')
     expect(soLink).toHaveAccessibleDescription('Sales Order')

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   Box,
   Grid,
@@ -31,26 +31,105 @@ const SOURCE_TYPES: { value: AccountingSourceType | ''; label: string }[] = [
   { value: 'OPENING_BALANCE', label: 'Opening Balance' },
 ]
 
+const VALID_SOURCE_TYPES = new Set<AccountingSourceType>([
+  'SALES_ORDER',
+  'PURCHASE_ORDER',
+  'STOCK_ADJUSTMENT',
+  'OPENING_BALANCE',
+])
+
+// Real calendar date, not merely a regex match: 2026-02-31 must be rejected.
+function isValidIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const [y, m, d] = value.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  return (
+    dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d
+  )
+}
+
 export default function GeneralLedgerPage() {
-  const [accountId, setAccountId] = useState('')
-  const [fromDate, setFromDate] = useState('')
-  const [toDate, setToDate] = useState('')
-  const [sourceType, setSourceType] = useState<AccountingSourceType | ''>('')
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const rawAccountId = searchParams.get('accountId') ?? ''
+  const rawSourceType = searchParams.get('sourceType') ?? ''
+  const rawFromDate = searchParams.get('fromDate') ?? ''
+  const rawToDate = searchParams.get('toDate') ?? ''
 
   const { data: accountsData } = useGetAccountsQuery({})
   const accounts = accountsData?.data ?? []
+  const accountsLoaded = Boolean(accountsData)
 
-  const glParams: Record<string, string> = { accountId }
-  if (fromDate) glParams.fromDate = fromDate
-  if (toDate) glParams.toDate = toDate
-  if (sourceType) glParams.sourceType = sourceType
+  // Account membership can only be confirmed once accounts have loaded. Until then,
+  // and for any id not in the list, the effective account id is '' (GL request skipped).
+  const accountIsMember =
+    accountsLoaded && accounts.some((acct) => acct.id === rawAccountId)
+  const effectiveAccountId = accountIsMember ? rawAccountId : ''
 
-  const { data: glData, isFetching } = useGetGeneralLedgerQuery(
+  const effectiveSourceType: AccountingSourceType | '' =
+    rawSourceType && VALID_SOURCE_TYPES.has(rawSourceType as AccountingSourceType)
+      ? (rawSourceType as AccountingSourceType)
+      : ''
+  const effectiveFromDate = isValidIsoDate(rawFromDate) ? rawFromDate : ''
+  const effectiveToDate = isValidIsoDate(rawToDate) ? rawToDate : ''
+
+  const setFilter = (key: string, value: string) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (value) next.set(key, value)
+        else next.delete(key)
+        return next
+      },
+      { replace: true },
+    )
+  }
+
+  const glParams: Record<string, string> = { accountId: effectiveAccountId }
+  if (effectiveFromDate) glParams.fromDate = effectiveFromDate
+  if (effectiveToDate) glParams.toDate = effectiveToDate
+  if (effectiveSourceType) glParams.sourceType = effectiveSourceType
+
+  const { data: glData, isFetching, error } = useGetGeneralLedgerQuery(
     glParams as { accountId: string; fromDate?: string; toDate?: string; sourceType?: string },
-    { skip: !accountId },
+    { skip: !effectiveAccountId },
   )
 
-  const hasSelection = Boolean(accountId)
+  const hasSelection = Boolean(effectiveAccountId)
+
+  // Single atomic cleanup: clone once, delete every key that is PRESENT in the URL but whose
+  // effective value is empty (covers both invalid values AND present-but-empty keys like
+  // `?sourceType=`), plus (only once accounts have loaded) an accountId not in the loaded list.
+  // At most one setSearchParams, guarded so it only fires when something changed → no loop.
+  // Use searchParams.has(key), NOT truthiness of the raw string, so `?sourceType=` is deleted.
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+
+    if (searchParams.has('sourceType') && !effectiveSourceType) next.delete('sourceType')
+    if (searchParams.has('fromDate') && !effectiveFromDate) next.delete('fromDate')
+    if (searchParams.has('toDate') && !effectiveToDate) next.delete('toDate')
+    // accountId: preserve while membership is unconfirmed (accounts still loading); once loaded,
+    // delete a present accountId that is not a member (or is present-but-empty).
+    if (accountsLoaded && searchParams.has('accountId') && !accountIsMember) {
+      next.delete('accountId')
+    }
+
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true })
+    }
+  }, [
+    searchParams,
+    rawSourceType,
+    rawFromDate,
+    rawToDate,
+    rawAccountId,
+    effectiveSourceType,
+    effectiveFromDate,
+    effectiveToDate,
+    accountsLoaded,
+    accountIsMember,
+    setSearchParams,
+  ])
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
@@ -73,8 +152,8 @@ export default function GeneralLedgerPage() {
                 fullWidth
                 size="small"
                 label="Account"
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
+                value={effectiveAccountId}
+                onChange={(e) => setFilter('accountId', e.target.value)}
                 required
               >
                 <MenuItem value="">
@@ -93,8 +172,8 @@ export default function GeneralLedgerPage() {
                 size="small"
                 label="From Date"
                 type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
+                value={effectiveFromDate}
+                onChange={(e) => setFilter('fromDate', e.target.value)}
                 slotProps={{ inputLabel: { shrink: true } }}
               />
             </Grid>
@@ -104,8 +183,8 @@ export default function GeneralLedgerPage() {
                 size="small"
                 label="To Date"
                 type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
+                value={effectiveToDate}
+                onChange={(e) => setFilter('toDate', e.target.value)}
                 slotProps={{ inputLabel: { shrink: true } }}
               />
             </Grid>
@@ -115,10 +194,8 @@ export default function GeneralLedgerPage() {
                 fullWidth
                 size="small"
                 label="Source Type"
-                value={sourceType}
-                onChange={(e) =>
-                  setSourceType(e.target.value as AccountingSourceType | '')
-                }
+                value={effectiveSourceType}
+                onChange={(e) => setFilter('sourceType', e.target.value)}
               >
                 {SOURCE_TYPES.map((st) => (
                   <MenuItem key={st.value} value={st.value}>
@@ -289,6 +366,12 @@ export default function GeneralLedgerPage() {
               </Grid>
             </Paper>
           </>
+        ) : error ? (
+          <Paper sx={{ p: 6, textAlign: 'center' }}>
+            <Typography variant="body1" color="text.secondary">
+              Unable to load ledger for this account.
+            </Typography>
+          </Paper>
         ) : null}
       </Box>
     </Box>
