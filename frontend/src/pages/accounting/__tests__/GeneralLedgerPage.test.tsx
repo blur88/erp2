@@ -257,7 +257,26 @@ describe('GeneralLedgerPage', () => {
 
     renderPage('/accounting/general-ledger?accountId=acct-1')
 
-    expect(screen.getByText('Unable to load ledger for this account.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Unable to load the general ledger. Please try again.'),
+    ).toBeInTheDocument()
+  })
+
+  it('flags an inverted date range and omits toDate from the GL query', () => {
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
+
+    renderPage(
+      '/accounting/general-ledger?accountId=acct-1&fromDate=2026-07-10&toDate=2026-07-01',
+    )
+
+    // Both dates are individually valid, so both stay in the URL / controls...
+    const [params] = mockGLQuery.mock.calls.at(-1)!
+    expect(params.fromDate).toBe('2026-07-10')
+    // ...but the inverted toDate is not sent to the backend (guaranteed-empty window).
+    expect(params.toDate).toBeUndefined()
+    // Inline validation surfaced on the To Date field.
+    expect(screen.getByText('To Date is before From Date')).toBeInTheDocument()
   })
 
   it('restores filters after navigating to a source document and back', async () => {

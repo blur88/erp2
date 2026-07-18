@@ -85,9 +85,16 @@ export default function GeneralLedgerPage() {
     )
   }
 
+  // Inverted range (from > to): both dates are individually valid but the window is empty.
+  // Flag it, and drop toDate from the request rather than send a guaranteed-empty query.
+  const dateRangeInvalid =
+    Boolean(effectiveFromDate) &&
+    Boolean(effectiveToDate) &&
+    effectiveFromDate > effectiveToDate
+
   const glParams: Record<string, string> = { accountId: effectiveAccountId }
   if (effectiveFromDate) glParams.fromDate = effectiveFromDate
-  if (effectiveToDate) glParams.toDate = effectiveToDate
+  if (effectiveToDate && !dateRangeInvalid) glParams.toDate = effectiveToDate
   if (effectiveSourceType) glParams.sourceType = effectiveSourceType
 
   const { data: glData, isFetching, error } = useGetGeneralLedgerQuery(
@@ -119,10 +126,6 @@ export default function GeneralLedgerPage() {
     }
   }, [
     searchParams,
-    rawSourceType,
-    rawFromDate,
-    rawToDate,
-    rawAccountId,
     effectiveSourceType,
     effectiveFromDate,
     effectiveToDate,
@@ -185,6 +188,8 @@ export default function GeneralLedgerPage() {
                 type="date"
                 value={effectiveToDate}
                 onChange={(e) => setFilter('toDate', e.target.value)}
+                error={dateRangeInvalid}
+                helperText={dateRangeInvalid ? 'To Date is before From Date' : undefined}
                 slotProps={{ inputLabel: { shrink: true } }}
               />
             </Grid>
@@ -369,7 +374,7 @@ export default function GeneralLedgerPage() {
         ) : error ? (
           <Paper sx={{ p: 6, textAlign: 'center' }}>
             <Typography variant="body1" color="text.secondary">
-              Unable to load ledger for this account.
+              Unable to load the general ledger. Please try again.
             </Typography>
           </Paper>
         ) : null}

@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Tooltip } from '@mui/material'
 
@@ -26,7 +27,7 @@ export default function SourceLink({
   const href = buildSourceLink(sourceType, sourceDocumentId, sourceRef)
   const primaryText = sourceRef || typeLabel
 
-  let inner: React.ReactElement
+  let inner: ReactElement
   if (href) {
     inner =
       variant === 'button' ? (
