@@ -234,16 +234,28 @@ describe('JournalEntryViewPage', () => {
     expect(screen.getByText('No lines on this journal entry.')).toBeInTheDocument()
   })
 
-  it('SALES_ORDER source shows clickable link', () => {
+  it('SALES_ORDER source shows the reference number as a clickable link with type description', () => {
     mockUseGetJournalEntryQuery.mockReturnValue({
       data: salesOrderEntry,
       isFetching: false,
       error: undefined,
     })
     renderPage()
-    const link = screen.getByRole('link', { name: /sales order/i })
-    expect(link).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: 'SO-001' })
     expect(link).toHaveAttribute('href', '/sales/orders/SO-001/view')
+    expect(link).toHaveAccessibleDescription('Sales Order')
+  })
+
+  it('labels the source row "Source" (not "Source Type") and omits a separate Source Reference field', () => {
+    mockUseGetJournalEntryQuery.mockReturnValue({
+      data: salesOrderEntry,
+      isFetching: false,
+      error: undefined,
+    })
+    renderPage()
+    expect(screen.getByText('Source')).toBeInTheDocument()
+    expect(screen.queryByText('Source Type')).not.toBeInTheDocument()
+    expect(screen.queryByText('Source Reference')).not.toBeInTheDocument()
   })
 
   it('OPENING_BALANCE source shows plain text, no link', () => {
