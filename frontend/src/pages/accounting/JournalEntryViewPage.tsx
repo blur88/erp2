@@ -1,8 +1,7 @@
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import {
   Box,
-  Button,
   Card,
   CardContent,
   CircularProgress,
@@ -15,31 +14,7 @@ import { StatusChip } from '@/components/common/StatusChip'
 import { DataTable, type Column } from '@/components/common/DataTable'
 import { useGetJournalEntryQuery } from '@/store/api/accountingApi'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
-import { buildSourceLink } from './source-link'
-import type { AccountingSourceType } from '@/types'
-
-function SourceLink({
-  sourceType,
-  sourceDocumentId,
-  sourceRef,
-}: {
-  sourceType: AccountingSourceType
-  sourceDocumentId: string | null
-  sourceRef: string | null
-}) {
-  const displayText = sourceType.replace(/_/g, ' ')
-  const href = buildSourceLink(sourceType, sourceDocumentId, sourceRef)
-
-  if (!href) {
-    return <Typography variant="body2">{displayText}</Typography>
-  }
-
-  return (
-    <Button component={Link} to={href} variant="text" size="small" sx={{ textTransform: 'none' }}>
-      {displayText}
-    </Button>
-  )
-}
+import SourceLink from './components/SourceLink'
 
 function Field({ label, value }: { label: string; value?: ReactNode }) {
   return (
@@ -125,16 +100,16 @@ export default function JournalEntryViewPage() {
               </Typography>
               <Field label="Entry Date" value={formatDate(entry.entryDate)} />
               <Field
-                label="Source Type"
+                label="Source"
                 value={
                   <SourceLink
+                    variant="button"
                     sourceType={entry.sourceType}
                     sourceDocumentId={entry.sourceDocumentId}
                     sourceRef={entry.sourceRef}
                   />
                 }
               />
-              <Field label="Source Reference" value={entry.sourceRef} />
               <Field label="Description" value={entry.description} />
               <Field label="Created By" value={entry.createdBy} />
               <Field label="Created At" value={formatDateTime(entry.createdAt)} />
