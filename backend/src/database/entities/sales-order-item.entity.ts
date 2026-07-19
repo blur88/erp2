@@ -189,8 +189,7 @@ export class SalesOrderItem extends BaseEntity {
   }
 
   // Static method to create from product
-  // Note: unitPrice should be provided from the price list system
-  // This method uses baseCost as fallback only
+  // Note: unitPrice must come from the price-list system; there is no cost fallback.
   static fromProduct(
     product: Product,
     quantity: number,
@@ -199,7 +198,7 @@ export class SalesOrderItem extends BaseEntity {
     return {
       productId: product.id,
       quantity,
-      unitPrice: unitPrice ?? product.baseCost,
+      unitPrice: unitPrice ?? 0,
       unitCost: Number(product.baseCost),
       discountType: DiscountType.PERCENTAGE,
       discountPercent: 0,
