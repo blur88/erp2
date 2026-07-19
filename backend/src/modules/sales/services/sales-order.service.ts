@@ -638,15 +638,38 @@ export class SalesOrderService extends BaseCrudService<
       : [];
     const productById = new Map(products.map((p) => [p.id, p]));
 
-    const priceByProduct = new Map<string, number>();
-    if (customer && customer.priceListId && productIds.length) {
+    const itemsByProduct = new Map<string, PriceListItem[]>();
+    if (productIds.length) {
       const priceListItems = await priceListItemRepo.find({
-        where: { priceListId: customer.priceListId, productId: In(productIds) },
+        where: { productId: In(productIds), isActive: true },
+        relations: { priceList: true },
       });
       for (const pli of priceListItems) {
-        priceByProduct.set(pli.productId, Number(pli.price));
+        if (!pli.isActive || !pli.priceList || !pli.priceList.isActive) continue;
+        const list = itemsByProduct.get(pli.productId) ?? [];
+        list.push(pli);
+        itemsByProduct.set(pli.productId, list);
       }
     }
+
+    const resolveDefaultPrice = (productId: string): number => {
+      const eligible = (itemsByProduct.get(productId) ?? [])
+        .slice()
+        .sort((a, b) => {
+          const pa = a.priceList.priority ?? Number.MAX_SAFE_INTEGER;
+          const pb = b.priceList.priority ?? Number.MAX_SAFE_INTEGER;
+          if (pa !== pb) return pa - pb;
+          return String(a.id).localeCompare(String(b.id));
+        });
+      if (eligible.length === 0) return 0;
+      if (customer?.priceListId) {
+        const match = eligible.find((i) => i.priceListId === customer.priceListId);
+        if (match) return Number(match.price);
+      }
+      const defaultItem = eligible.find((i) => i.priceList.isDefault);
+      if (defaultItem) return Number(defaultItem.price);
+      return Number(eligible[0].price);
+    };
 
     const processedItems = [];
     let lineNumber = 1;
@@ -657,13 +680,10 @@ export class SalesOrderService extends BaseCrudService<
         throw new NotFoundException(`Product with ID ${item.productId} not found`);
       }
 
-      // Determine unit price - price list first, then fall back to baseCost.
-      let defaultPrice = priceByProduct.get(item.productId) ?? 0;
-      if (defaultPrice === 0) {
-        defaultPrice = Number(product.baseCost) || 0;
-      }
-
-      const unitPrice = Number(item.unitPrice) || defaultPrice;
+      // Selling price: use the submitted value when present (including an explicit 0),
+      // otherwise resolve from active price lists. No baseCost fallback for a sale.
+      const unitPrice =
+        item.unitPrice != null ? Number(item.unitPrice) : resolveDefaultPrice(item.productId);
       const discountPercent = Number(item.discountPercent) || 0;
       const discountAmount = Number(item.discountAmount) || 0;
 
@@ -684,7 +704,7 @@ export class SalesOrderService extends BaseCrudService<
         lineNumber: lineNumber++,
         productId: item.productId,
         quantity: Number(item.quantity) || 1,
-        unitPrice: Number(unitPrice) || 0,
+        unitPrice: Number.isFinite(Number(unitPrice)) ? Number(unitPrice) : 0,
         unitCost: Number(product.baseCost) || 0,
         discountType: item.discountType || DiscountType.PERCENTAGE,
         discountPercent: Number(discountPercent) || 0,

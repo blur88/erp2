@@ -138,10 +138,10 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
 
     mockGet.mockImplementation(async (_url: string, config?: { params?: { search?: string } }) => {
       if (config?.params?.search?.startsWith(replacementSearchTerm)) {
-        return { data: [{ id: 'product-2', name: 'Beta Gadget', basePrice: 22 }] }
+        return { data: [{ id: 'product-2', name: 'Beta Gadget' }] }
       }
 
-      return { data: [{ id: 'product-1', name: 'Alpha Widget', basePrice: 11 }] }
+      return { data: [{ id: 'product-1', name: 'Alpha Widget' }] }
     })
   })
 
@@ -226,7 +226,7 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
             discountPercent: 0,
             discountAmount: 0,
             totalPrice: 88,
-            product: { id: 'product-9', name: 'Hydrated Product', basePrice: 44 },
+            product: { id: 'product-9', name: 'Hydrated Product' },
           },
         ],
         customerId: 'customer-1',
@@ -356,6 +356,166 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
     expect(mockDispatch.mock.invocationCallOrder[dispatchCallIndex]).toBeLessThan(
       mockNavigate.mock.invocationCallOrder[0],
     )
+  })
+
+  describe('getProductPrice resolution (#917)', () => {
+    const priceProduct = (overrides: Record<string, unknown> = {}) => ({
+      id: 'product-1',
+      name: 'Alpha Widget',
+      baseCost: 5,
+      stockQuantity: 10,
+      priceListItems: [],
+      ...overrides,
+    })
+
+    const selectAlpha = async () => {
+      const productInput = screen.getByPlaceholderText('Search by name or barcode...')
+      fireEvent.mouseDown(productInput)
+      fireEvent.click(within(await screen.findByRole('listbox')).getByText('Alpha Widget'))
+      return document.querySelector('[data-cell="r0-c1"]')?.closest('tr') as HTMLTableRowElement
+    }
+
+    it('prices from the default price-list item, ignoring baseCost', async () => {
+      mockGet.mockResolvedValue({
+        data: [
+          priceProduct({
+            priceListItems: [
+              {
+                id: 'pli-1',
+                priceListId: 'pl-default',
+                price: 30,
+                priceList: { isDefault: true, isActive: true, priority: 5 },
+              },
+            ],
+          }),
+        ],
+      })
+      render(
+        <BrowserRouter>
+          <CreateSalesOrderPage />
+        </BrowserRouter>,
+      )
+      const row = await selectAlpha()
+      await waitFor(() => expect(within(row).getByText('RM 30.00')).toBeInTheDocument())
+    })
+
+    it('prefers the customer price-list match over the default', async () => {
+      customersResponse.data.data = [{ id: 'customer-1', name: 'Test Customer', priceListId: 'pl-vip' }]
+      mockGet.mockResolvedValue({
+        data: [
+          priceProduct({
+            priceListItems: [
+              { id: 'a', priceListId: 'pl-default', price: 30, priceList: { isDefault: true, isActive: true, priority: 1 } },
+              { id: 'b', priceListId: 'pl-vip', price: 22, priceList: { isDefault: false, isActive: true, priority: 9 } },
+            ],
+          }),
+        ],
+      })
+      render(
+        <BrowserRouter>
+          <CreateSalesOrderPage />
+        </BrowserRouter>,
+      )
+      const customerBox = screen.getByRole('combobox', { name: /customer/i })
+      fireEvent.mouseDown(customerBox)
+      fireEvent.click(await screen.findByText('Test Customer'))
+      const row = await selectAlpha()
+      await waitFor(() => expect(within(row).getByText('RM 22.00')).toBeInTheDocument())
+    })
+
+    it('prices the lowest-priority active item when there is no default or customer match', async () => {
+      mockGet.mockResolvedValue({
+        data: [
+          priceProduct({
+            priceListItems: [
+              { id: 'z', priceListId: 'pl-b', price: 40, priceList: { isDefault: false, isActive: true, priority: 8 } },
+              { id: 'a', priceListId: 'pl-a', price: 15, priceList: { isDefault: false, isActive: true, priority: 3 } },
+            ],
+          }),
+        ],
+      })
+      render(
+        <BrowserRouter>
+          <CreateSalesOrderPage />
+        </BrowserRouter>,
+      )
+      const row = await selectAlpha()
+      await waitFor(() => expect(within(row).getByText('RM 15.00')).toBeInTheDocument())
+    })
+
+    it('breaks equal-priority ties by ascending item id (deterministic price)', async () => {
+      mockGet.mockResolvedValue({
+        data: [
+          priceProduct({
+            priceListItems: [
+              { id: 'b', priceListId: 'pl-b', price: 40, priceList: { isDefault: false, isActive: true, priority: 5 } },
+              { id: 'a', priceListId: 'pl-a', price: 15, priceList: { isDefault: false, isActive: true, priority: 5 } },
+            ],
+          }),
+        ],
+      })
+      render(
+        <BrowserRouter>
+          <CreateSalesOrderPage />
+        </BrowserRouter>,
+      )
+      const row = await selectAlpha()
+      await waitFor(() => expect(within(row).getByText('RM 15.00')).toBeInTheDocument())
+    })
+
+    it('treats an item whose price list is inactive (relation absent) as ineligible → 0', async () => {
+      mockGet.mockResolvedValue({
+        data: [
+          priceProduct({
+            baseCost: 7,
+            priceListItems: [{ id: 'x', priceListId: 'pl-dead', price: 99 }],
+          }),
+        ],
+      })
+      render(
+        <BrowserRouter>
+          <CreateSalesOrderPage />
+        </BrowserRouter>,
+      )
+      const row = await selectAlpha()
+      await waitFor(() => expect(within(row).getByText('RM 0.00')).toBeInTheDocument())
+    })
+
+    it('with no price-list items, unit price is 0 (not baseCost)', async () => {
+      mockGet.mockResolvedValue({ data: [priceProduct({ baseCost: 7 })] })
+      render(
+        <BrowserRouter>
+          <CreateSalesOrderPage />
+        </BrowserRouter>,
+      )
+      const row = await selectAlpha()
+      await waitFor(() => expect(within(row).getByText('RM 0.00')).toBeInTheDocument())
+    })
+
+    it('restores the default-list price after clear + reselect', async () => {
+      mockGet.mockResolvedValue({
+        data: [
+          priceProduct({
+            priceListItems: [
+              { id: 'pli-1', priceListId: 'pl-default', price: 30, priceList: { isDefault: true, isActive: true, priority: 5 } },
+            ],
+          }),
+        ],
+      })
+      render(
+        <BrowserRouter>
+          <CreateSalesOrderPage />
+        </BrowserRouter>,
+      )
+      const row = await selectAlpha()
+      await waitFor(() => expect(within(row).getByText('RM 30.00')).toBeInTheDocument())
+      fireEvent.click(screen.getByTitle('Clear'))
+      await screen.findByText(/product is required/i)
+      const productInput = screen.getByPlaceholderText('Search by name or barcode...')
+      fireEvent.mouseDown(productInput)
+      fireEvent.click(within(await screen.findByRole('listbox')).getByText('Alpha Widget'))
+      await waitFor(() => expect(within(row).getByText('RM 30.00')).toBeInTheDocument())
+    })
   })
 })
 
@@ -565,7 +725,7 @@ describe('CreateSalesOrderPage — new features', () => {
   })
 
   it('updates subtotal and total immediately when a product is selected', async () => {
-    mockGet.mockResolvedValue({ data: [{ id: 'product-1', name: 'Alpha Widget', basePrice: 11 }] })
+    mockGet.mockResolvedValue({ data: [{ id: 'product-1', name: 'Alpha Widget', priceListItems: [{ id: 'p1', priceListId: 'pl', price: 11, priceList: { isDefault: true, isActive: true, priority: 1 } }] }] })
 
     render(
       <BrowserRouter>
@@ -591,7 +751,7 @@ describe('CreateSalesOrderPage — new features', () => {
   })
 
   it('recalculates row total to 0.00 when quantity is set to 0', async () => {
-    mockGet.mockResolvedValue({ data: [{ id: 'product-1', name: 'Alpha Widget', basePrice: 11 }] })
+    mockGet.mockResolvedValue({ data: [{ id: 'product-1', name: 'Alpha Widget', priceListItems: [{ id: 'p1', priceListId: 'pl', price: 11, priceList: { isDefault: true, isActive: true, priority: 1 } }] }] })
 
     render(
       <BrowserRouter>
@@ -647,7 +807,7 @@ describe('CreateSalesOrderPage — new features', () => {
   })
 
   it('clears the product-required error after a product is re-selected', async () => {
-    mockGet.mockResolvedValue({ data: [{ id: 'product-1', name: 'Alpha Widget', basePrice: 11 }] })
+    mockGet.mockResolvedValue({ data: [{ id: 'product-1', name: 'Alpha Widget' }] })
 
     render(
       <BrowserRouter>
@@ -699,7 +859,7 @@ describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
         discountAmount: 0,
         totalPrice: 33,
         totalAmount: 33,
-        product: { id: 'product-1', name: 'Alpha Widget', basePrice: 11 },
+        product: { id: 'product-1', name: 'Alpha Widget' },
       },
     ],
   }

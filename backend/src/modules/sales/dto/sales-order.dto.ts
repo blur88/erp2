@@ -40,7 +40,9 @@ export class SalesOrderItemDto {
     example: 25.5,
   })
   @IsOptional()
-  @Transform(({ value }) => (value ? parseFloat(value) : undefined))
+  @Transform(({ value }) =>
+    value === undefined || value === null || value === '' ? undefined : parseFloat(value),
+  )
   unitPrice?: number;
 
   @ApiPropertyOptional({

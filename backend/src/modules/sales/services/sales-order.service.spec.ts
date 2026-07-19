@@ -440,7 +440,10 @@ describe('SalesOrderService', () => {
         find: jest.fn().mockResolvedValue([{ id: 'p1', baseCost: 1 }]),
       };
       const mgrPriceListItemRepo = {
-        find: jest.fn().mockResolvedValue([{ productId: 'p1', price: 70 }]),
+        find: jest.fn().mockResolvedValue([
+          { id: 'pli-new', productId: 'p1', priceListId: 'PL-NEW', price: 70,
+            isActive: true, priceList: { isDefault: false, isActive: true, priority: 1 } },
+        ]),
       };
       const mgrOrderRepo = {
         findOne: jest.fn().mockResolvedValue({
@@ -535,7 +538,10 @@ describe('SalesOrderService', () => {
         find: jest.fn().mockResolvedValue([{ id: 'p1', baseCost: 1 }]),
       };
       const mgrPriceListItemRepo = {
-        find: jest.fn().mockResolvedValue([{ productId: 'p1', price: 55 }]),
+        find: jest.fn().mockResolvedValue([
+          { id: 'pli-dto', productId: 'p1', priceListId: 'PL-DTO', price: 55,
+            isActive: true, priceList: { isDefault: false, isActive: true, priority: 1 } },
+        ]),
       };
       const reconciledOrder = {
         id: 'order-1',
@@ -614,7 +620,10 @@ describe('SalesOrderService', () => {
         find: jest.fn().mockResolvedValue([{ id: 'p1', baseCost: 1 }]),
       };
       const mgrPriceListItemRepo = {
-        find: jest.fn().mockResolvedValue([{ productId: 'p1', price: 55 }]),
+        find: jest.fn().mockResolvedValue([
+          { id: 'pli-dto', productId: 'p1', priceListId: 'PL-DTO', price: 55,
+            isActive: true, priceList: { isDefault: false, isActive: true, priority: 1 } },
+        ]),
       };
       const reconciledOrder = {
         id: 'order-1',
@@ -674,7 +683,8 @@ describe('SalesOrderService', () => {
       expect(mgrProductRepo.find).toHaveBeenCalled();
       expect(mgrPriceListItemRepo.find).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ priceListId: 'PL-DTO' }),
+          where: expect.objectContaining({ isActive: true }),
+          relations: { priceList: true },
         }),
       );
       expect(customerRepository.findOne).not.toHaveBeenCalled();
@@ -765,15 +775,12 @@ describe('SalesOrderService', () => {
         find: jest.fn().mockResolvedValue([{ id: 'p1', baseCost: 1 }]),
       };
       const mgrPriceListItemRepo = {
-        find: jest
-          .fn()
-          .mockImplementation(({ where }: any) =>
-            Promise.resolve(
-              where.priceListId === 'PL-FRESH'
-                ? [{ productId: 'p1', price: 70 }]
-                : [{ productId: 'p1', price: 999 }],
-            ),
-          ),
+        find: jest.fn().mockResolvedValue([
+          { id: 'fresh', productId: 'p1', priceListId: 'PL-FRESH', price: 70,
+            isActive: true, priceList: { isDefault: false, isActive: true, priority: 9 } },
+          { id: 'stale', productId: 'p1', priceListId: 'PL-STALE', price: 999,
+            isActive: true, priceList: { isDefault: false, isActive: true, priority: 1 } },
+        ]),
       };
       const manager = {
         getRepository: (e: any) => {
@@ -820,11 +827,6 @@ describe('SalesOrderService', () => {
         items: [{ productId: 'p1', quantity: 1 }],
       } as any);
 
-      expect(mgrPriceListItemRepo.find).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ priceListId: 'PL-FRESH' }),
-        }),
-      );
       expect(priceListItemRepository.find).not.toHaveBeenCalled();
       expect(mgrItemRepo.insert).toHaveBeenCalledWith(
         expect.objectContaining({ unitPrice: 70, totalAmount: 70 }),
@@ -852,7 +854,10 @@ describe('SalesOrderService', () => {
         find: jest.fn().mockResolvedValue([{ id: 'p1', baseCost: 1 }]),
       };
       const mgrPriceListItemRepo = {
-        find: jest.fn().mockResolvedValue([{ productId: 'p1', price: 70 }]),
+        find: jest.fn().mockResolvedValue([
+          { id: 'pli-fresh', productId: 'p1', priceListId: 'PL-FRESH', price: 70,
+            isActive: true, priceList: { isDefault: false, isActive: true, priority: 1 } },
+        ]),
       };
       const mgrOrderRepo = {
         findOne: jest.fn().mockResolvedValue({
@@ -902,7 +907,8 @@ describe('SalesOrderService', () => {
       expect(mgrProductRepo.find).toHaveBeenCalled();
       expect(mgrPriceListItemRepo.find).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ priceListId: 'PL-FRESH' }),
+          where: expect.objectContaining({ isActive: true }),
+          relations: { priceList: true },
         }),
       );
       expect(productRepository.find).not.toHaveBeenCalled();
@@ -1215,6 +1221,165 @@ describe('SalesOrderService', () => {
         } as any),
       ).rejects.toThrow('insert failed');
       expect(reconcileSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('validateAndProcessItems price resolution (via update re-pricing)', () => {
+    const buildManager = (opts: {
+      customerPriceListId?: string;
+      product?: any;
+      priceListItems: any[];
+      existingItem: any;
+    }) => {
+      const mgrCustomerRepo = {
+        findOne: jest.fn().mockResolvedValue({ id: 'cust-X', priceListId: opts.customerPriceListId }),
+      };
+      const mgrProductRepo = {
+        find: jest.fn().mockResolvedValue([opts.product ?? { id: 'p1', baseCost: 7 }]),
+      };
+      const mgrPriceListItemRepo = { find: jest.fn().mockResolvedValue(opts.priceListItems) };
+      const mgrOrderRepo = {
+        findOne: jest.fn().mockResolvedValue({
+          id: 'order-1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'UNPAID',
+          paidAmount: 0, shippingAmount: 0, subtotal: 0, totalAmount: 0, balanceDue: 0,
+          notes: null, customerId: 'old',
+        }),
+        update: jest.fn().mockResolvedValue({ affected: 1 }),
+      };
+      const mgrItemRepo = {
+        delete: jest.fn().mockResolvedValue(undefined),
+        insert: jest.fn().mockResolvedValue(undefined),
+        find: jest.fn().mockResolvedValue([opts.existingItem]),
+      };
+      const manager = {
+        getRepository: (e: any) => {
+          if (e === SalesOrderItem) return mgrItemRepo;
+          if (e === Customer) return mgrCustomerRepo;
+          if (e === Product) return mgrProductRepo;
+          if (e === PriceListItem) return mgrPriceListItemRepo;
+          return mgrOrderRepo;
+        },
+      } as unknown as EntityManager;
+      return { manager, mgrItemRepo };
+    };
+
+    const activeDefaultItem = (price: number) => ({
+      id: 'pli-1', productId: 'p1', priceListId: 'PL-DEF', price,
+      isActive: true, priceList: { isDefault: true, isActive: true, priority: 1 },
+    });
+
+    const runReprice = async (manager: EntityManager) => {
+      salesOrderRepository.findOne = jest.fn().mockResolvedValue({
+        id: 'order-1', status: 'DRAFT', customerId: 'old',
+      });
+      salesOrderLifecycleService.assertEditAllowed.mockResolvedValue(undefined);
+      dataSource.transaction = jest.fn().mockImplementation(async (cb: any) => cb(manager));
+      reconcileSpy.mockResolvedValue({ id: 'order-1' } as any);
+      await service.update('order-1', { customerId: 'cust-X' } as any);
+    };
+
+    const runWithItems = async (manager: EntityManager, items: any[]) => {
+      salesOrderRepository.findOne = jest.fn().mockResolvedValue({
+        id: 'order-1', status: 'DRAFT', customerId: 'old',
+      });
+      salesOrderLifecycleService.assertEditAllowed.mockResolvedValue(undefined);
+      dataSource.transaction = jest.fn().mockImplementation(async (cb: any) => cb(manager));
+      reconcileSpy.mockResolvedValue({ id: 'order-1' } as any);
+      await service.update('order-1', { customerId: 'cust-X', items } as any);
+    };
+
+    const existingLine = {
+      productId: 'p1', quantity: 1, discountType: DiscountType.PERCENTAGE,
+      discountPercent: 0, discountAmount: 0, notes: null,
+    };
+
+    it('resolves the active default-list price when the line has no override', async () => {
+      const { manager, mgrItemRepo } = buildManager({
+        priceListItems: [activeDefaultItem(30)], existingItem: existingLine,
+      });
+      await runReprice(manager);
+      expect(mgrItemRepo.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ unitPrice: 30, unitCost: 7 }),
+      );
+    });
+
+    it('prefers the customer price-list match over the default', async () => {
+      const { manager, mgrItemRepo } = buildManager({
+        customerPriceListId: 'PL-VIP',
+        priceListItems: [
+          activeDefaultItem(30),
+          { id: 'vip', productId: 'p1', priceListId: 'PL-VIP', price: 22,
+            isActive: true, priceList: { isDefault: false, isActive: true, priority: 9 } },
+        ],
+        existingItem: existingLine,
+      });
+      await runReprice(manager);
+      expect(mgrItemRepo.insert).toHaveBeenCalledWith(expect.objectContaining({ unitPrice: 22 }));
+    });
+
+    it('selects the lowest-priority item when there is no customer or default match', async () => {
+      const { manager, mgrItemRepo } = buildManager({
+        priceListItems: [
+          { id: 'hi', productId: 'p1', priceListId: 'PL-HI', price: 40,
+            isActive: true, priceList: { isDefault: false, isActive: true, priority: 8 } },
+          { id: 'lo', productId: 'p1', priceListId: 'PL-LO', price: 15,
+            isActive: true, priceList: { isDefault: false, isActive: true, priority: 3 } },
+        ],
+        existingItem: existingLine,
+      });
+      await runReprice(manager);
+      expect(mgrItemRepo.insert).toHaveBeenCalledWith(expect.objectContaining({ unitPrice: 15 }));
+    });
+
+    it('breaks equal-priority ties by ascending item id', async () => {
+      const { manager, mgrItemRepo } = buildManager({
+        priceListItems: [
+          { id: 'b', productId: 'p1', priceListId: 'PL-B', price: 40,
+            isActive: true, priceList: { isDefault: false, isActive: true, priority: 5 } },
+          { id: 'a', productId: 'p1', priceListId: 'PL-A', price: 15,
+            isActive: true, priceList: { isDefault: false, isActive: true, priority: 5 } },
+        ],
+        existingItem: existingLine,
+      });
+      await runReprice(manager);
+      expect(mgrItemRepo.insert).toHaveBeenCalledWith(expect.objectContaining({ unitPrice: 15 }));
+    });
+
+    it('excludes an item whose own isActive flag is false → 0', async () => {
+      const { manager, mgrItemRepo } = buildManager({
+        priceListItems: [{ ...activeDefaultItem(99), isActive: false }],
+        existingItem: existingLine,
+      });
+      await runReprice(manager);
+      expect(mgrItemRepo.insert).toHaveBeenCalledWith(expect.objectContaining({ unitPrice: 0 }));
+    });
+
+    it('ignores items whose price list is inactive → 0', async () => {
+      const { manager, mgrItemRepo } = buildManager({
+        priceListItems: [{ ...activeDefaultItem(99), priceList: { isDefault: true, isActive: false, priority: 1 } }],
+        existingItem: existingLine,
+      });
+      await runReprice(manager);
+      expect(mgrItemRepo.insert).toHaveBeenCalledWith(expect.objectContaining({ unitPrice: 0 }));
+    });
+
+    it('with no eligible price-list items, unitPrice is 0 and unitCost is baseCost', async () => {
+      const { manager, mgrItemRepo } = buildManager({
+        priceListItems: [], existingItem: existingLine,
+      });
+      await runReprice(manager);
+      expect(mgrItemRepo.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ unitPrice: 0, unitCost: 7 }),
+      );
+    });
+
+    it('preserves an explicit unitPrice of 0 even when an eligible price exists', async () => {
+      const { manager, mgrItemRepo } = buildManager({
+        customerPriceListId: 'PL-DEF',
+        priceListItems: [activeDefaultItem(30)], existingItem: existingLine,
+      });
+      await runWithItems(manager, [{ productId: 'p1', quantity: 1, unitPrice: 0 }]);
+      expect(mgrItemRepo.insert).toHaveBeenCalledWith(expect.objectContaining({ unitPrice: 0 }));
     });
   });
 

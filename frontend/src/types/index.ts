@@ -535,6 +535,7 @@ export interface PriceList {
 }
 
 export interface ProductPriceListItem {
+  id: string;
   priceListId: string;
   priceList?: PriceList;
   price: number;

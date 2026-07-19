@@ -132,18 +132,23 @@ const emptyItem = (): OrderItem => ({
 
 function getProductPrice(product: any, customer: any): number {
   if (!product) return 0
-  if (product.priceListItems?.length > 0) {
-    if (customer?.priceListId) {
-      const match = product.priceListItems.find(
-        (item: any) => item.priceListId === customer.priceListId,
-      )
-      if (match) return Number(match.price)
-    }
-    const defaultPrice = product.priceListItems.find((item: any) => item.priceList?.isDefault)
-    if (defaultPrice) return Number(defaultPrice.price)
-    return Number(product.priceListItems[0].price)
+  const eligible = (product.priceListItems ?? [])
+    .filter((item: any) => item.priceList && item.priceList.isActive)
+    .sort((a: any, b: any) => {
+      const pa = a.priceList.priority ?? Number.MAX_SAFE_INTEGER
+      const pb = b.priceList.priority ?? Number.MAX_SAFE_INTEGER
+      if (pa !== pb) return pa - pb
+      return String(a.id).localeCompare(String(b.id))
+    })
+  if (eligible.length === 0) return 0
+
+  if (customer?.priceListId) {
+    const match = eligible.find((item: any) => item.priceListId === customer.priceListId)
+    if (match) return Number(match.price)
   }
-  return Number(product.baseCost ?? product.basePrice ?? 0)
+  const defaultItem = eligible.find((item: any) => item.priceList.isDefault)
+  if (defaultItem) return Number(defaultItem.price)
+  return Number(eligible[0].price)
 }
 
 const COL_COUNT = 4
