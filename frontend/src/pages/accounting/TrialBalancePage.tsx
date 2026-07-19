@@ -26,7 +26,7 @@ export default function TrialBalancePage() {
 
   const { data, isFetching, error } = useGetTrialBalanceQuery(
     { asOfDate, showZero },
-    { skip: false },
+    { skip: false, refetchOnFocus: true, refetchOnMountOrArgChange: true },
   )
 
   const trialBalance = data as TrialBalanceResponse | undefined

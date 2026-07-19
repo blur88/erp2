@@ -143,6 +143,15 @@ describe('TrialBalancePage', () => {
     expect(screen.getByText('Retained Earnings')).toBeInTheDocument()
   })
 
+  it('requests refetch on focus and on mount/arg change', () => {
+    renderPage()
+    const options = mockUseGetTrialBalanceQuery.mock.calls[0][1]
+    expect(options).toMatchObject({
+      refetchOnFocus: true,
+      refetchOnMountOrArgChange: true,
+    })
+  })
+
   it('formats row cells and totals as currency, em-dash for zero', () => {
     renderPage()
     const cash = screen.getByText('Cash').closest('tr')!.querySelectorAll('td')
