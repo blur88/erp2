@@ -1,4 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit'
+import { setupListeners } from '@reduxjs/toolkit/query'
 import { persistStore, persistReducer } from 'redux-persist'
 const storage = {
   getItem: (key: string) => Promise.resolve(localStorage.getItem(key)),
@@ -108,6 +109,8 @@ export const store = configureStore({
 })
 
 export const persistor = persistStore(store)
+
+setupListeners(store.dispatch)
 
 export type RootState = ReturnType<typeof store.getState>
 export type AppDispatch = typeof store.dispatch
