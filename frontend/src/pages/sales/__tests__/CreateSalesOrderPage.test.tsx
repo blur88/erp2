@@ -645,6 +645,37 @@ describe('CreateSalesOrderPage — new features', () => {
       expect(screen.getByText('Out of stock (0)')).toBeInTheDocument()
     })
   })
+
+  it('clears the product-required error after a product is re-selected', async () => {
+    mockGet.mockResolvedValue({ data: [{ id: 'product-1', name: 'Alpha Widget', basePrice: 11 }] })
+
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    const productInput = screen.getByPlaceholderText('Search by name or barcode...')
+    fireEvent.mouseDown(productInput)
+    const listbox = await screen.findByRole('listbox')
+    fireEvent.click(within(listbox).getByText('Alpha Widget'))
+
+    await waitFor(() => {
+      expect(productInput).toHaveValue('Alpha Widget')
+    })
+
+    fireEvent.click(screen.getByTitle('Clear'))
+
+    expect(await screen.findByText(/product is required/i)).toBeInTheDocument()
+
+    fireEvent.mouseDown(productInput)
+    const listbox2 = await screen.findByRole('listbox')
+    fireEvent.click(within(listbox2).getByText('Alpha Widget'))
+
+    await waitFor(() => {
+      expect(screen.queryByText(/product is required/i)).not.toBeInTheDocument()
+    })
+  })
 })
 
 describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
