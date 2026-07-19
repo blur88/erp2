@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { accountingApiSlice } from '@/store/api/accountingApi'
-import { invalidateJournalEntriesOnSuccess } from '@/store/api/invalidateJournalEntries'
+import { invalidateAccountingReportsOnSuccess } from '@/store/api/invalidateAccountingReports'
 
-describe('invalidateJournalEntriesOnSuccess', () => {
+describe('invalidateAccountingReportsOnSuccess', () => {
   it('dispatches JournalEntry and TrialBalance invalidation after the mutation succeeds', async () => {
     const dispatch = vi.fn()
     const queryFulfilled = Promise.resolve({ data: {} })
 
-    await invalidateJournalEntriesOnSuccess(undefined, { dispatch, queryFulfilled })
+    await invalidateAccountingReportsOnSuccess(undefined, { dispatch, queryFulfilled })
 
     const expected = accountingApiSlice.util.invalidateTags(['JournalEntry', 'TrialBalance'])
     expect(dispatch).toHaveBeenCalledTimes(1)
@@ -20,7 +20,7 @@ describe('invalidateJournalEntriesOnSuccess', () => {
     const queryFulfilled = Promise.reject(new Error('mutation failed'))
 
     await expect(
-      invalidateJournalEntriesOnSuccess(undefined, { dispatch, queryFulfilled }),
+      invalidateAccountingReportsOnSuccess(undefined, { dispatch, queryFulfilled }),
     ).resolves.toBeUndefined()
     expect(dispatch).not.toHaveBeenCalled()
   })

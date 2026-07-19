@@ -109,11 +109,14 @@ describe('Trial Balance cross-slice invalidation', () => {
     await tbSub
     expect(countTrialBalanceGets()).toBe(1)
 
+    // Await the mutation settling. updateAccount invalidates only 'Account',
+    // so no Trial Balance refetch is ever scheduled — the count stays at 1
+    // deterministically, with no arbitrary timer.
     await store.dispatch(
       accountingApiSlice.endpoints.updateAccount.initiate({ id: 'acc-1', data: { name: 'Renamed' } }),
     )
+    await Promise.resolve()
 
-    await new Promise((r) => setTimeout(r, 50))
     expect(countTrialBalanceGets()).toBe(1)
     tbSub.unsubscribe()
   })
