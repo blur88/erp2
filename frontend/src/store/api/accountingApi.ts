@@ -17,7 +17,7 @@ import { normalizePaginated, normalizeSingle } from './normalizers'
 export const accountingApiSlice = createApi({
   reducerPath: 'accountingApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['Account', 'AccountingSettings', 'JournalEntry'],
+  tagTypes: ['Account', 'AccountingSettings', 'JournalEntry', 'TrialBalance'],
   endpoints: (builder) => ({
     getAccountTree: builder.query<AccountTreeNode[], { search?: string }>({
       query: ({ search }) => ({

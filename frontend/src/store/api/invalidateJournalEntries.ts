@@ -9,5 +9,5 @@ export const invalidateJournalEntriesOnSuccess = async (
   } catch {
     return
   }
-  dispatch(accountingApiSlice.util.invalidateTags(['JournalEntry']))
+  dispatch(accountingApiSlice.util.invalidateTags(['JournalEntry', 'TrialBalance']))
 }

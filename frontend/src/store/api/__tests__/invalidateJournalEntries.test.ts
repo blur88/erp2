@@ -4,13 +4,13 @@ import { accountingApiSlice } from '@/store/api/accountingApi'
 import { invalidateJournalEntriesOnSuccess } from '@/store/api/invalidateJournalEntries'
 
 describe('invalidateJournalEntriesOnSuccess', () => {
-  it('dispatches JournalEntry invalidation after the mutation succeeds', async () => {
+  it('dispatches JournalEntry and TrialBalance invalidation after the mutation succeeds', async () => {
     const dispatch = vi.fn()
     const queryFulfilled = Promise.resolve({ data: {} })
 
     await invalidateJournalEntriesOnSuccess(undefined, { dispatch, queryFulfilled })
 
-    const expected = accountingApiSlice.util.invalidateTags(['JournalEntry'])
+    const expected = accountingApiSlice.util.invalidateTags(['JournalEntry', 'TrialBalance'])
     expect(dispatch).toHaveBeenCalledTimes(1)
     expect(dispatch.mock.calls[0][0]).toEqual(expected)
   })
