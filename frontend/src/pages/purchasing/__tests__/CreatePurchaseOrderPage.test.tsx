@@ -511,4 +511,35 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
     // Per-line StockIndicatorChip "Only 4 left (need 20)" must not render.
     expect(screen.queryByText(/left \(need/i)).not.toBeInTheDocument()
   })
+
+  it('clears the product-required error after a product is re-selected', async () => {
+    mockGet.mockResolvedValue({ data: [{ id: 'product-1', name: 'Alpha Widget', baseCost: 11 }] })
+
+    render(
+      <BrowserRouter>
+        <CreatePurchaseOrderPage />
+      </BrowserRouter>,
+    )
+
+    const productInput = screen.getByPlaceholderText('Search by name or barcode...')
+    fireEvent.mouseDown(productInput)
+    const listbox = await screen.findByRole('listbox')
+    fireEvent.click(within(listbox).getByText('Alpha Widget'))
+
+    await waitFor(() => {
+      expect(productInput).toHaveValue('Alpha Widget')
+    })
+
+    fireEvent.click(screen.getByTitle('Clear'))
+
+    expect(await screen.findByText(/product is required/i)).toBeInTheDocument()
+
+    fireEvent.mouseDown(productInput)
+    const listbox2 = await screen.findByRole('listbox')
+    fireEvent.click(within(listbox2).getByText('Alpha Widget'))
+
+    await waitFor(() => {
+      expect(screen.queryByText(/product is required/i)).not.toBeInTheDocument()
+    })
+  })
 })

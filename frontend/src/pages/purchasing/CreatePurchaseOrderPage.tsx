@@ -300,7 +300,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
       seedProducts([product])
       const price = Number(product.baseCost || 0)
       const qty = Number(watchedItems[index]?.quantity) || 1
-      setValue(`items.${index}.productId`, product.id, { shouldDirty: true })
+      setValue(`items.${index}.productId`, product.id, { shouldDirty: true, shouldValidate: true })
       setValue(`items.${index}.unitPrice`, price, { shouldDirty: true })
       setValue(`items.${index}.totalPrice`, Number((price * qty).toFixed(2)), { shouldDirty: true })
       setValue(`items.${index}.product`, product, { shouldDirty: true })
