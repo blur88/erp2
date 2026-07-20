@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ConflictException }
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { applyPagination } from '@/common/pagination/apply-pagination';
+import { formatDateInTimezone } from '@/common/utils/date-in-timezone';
 import { PriceList, PriceListItem } from '@/database/entities';
 import { SettingsService } from '../../settings/settings.service';
 import { CreatePriceListDto, UpdatePriceListDto, QueryPriceListsDto, BulkUpdatePricesDto, ApplyPercentageAdjustmentDto } from '../dto';
@@ -199,16 +200,7 @@ export class PriceListsService {
 
   private async getAppToday(): Promise<string> {
     const { timezone } = await this.settingsService.getRegionalSettings();
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: timezone || 'Asia/Kuala_Lumpur',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).formatToParts(new Date());
-    const y = parts.find((p) => p.type === 'year')?.value;
-    const m = parts.find((p) => p.type === 'month')?.value;
-    const d = parts.find((p) => p.type === 'day')?.value;
-    return `${y}-${m}-${d}`;
+    return formatDateInTimezone(new Date(), timezone);
   }
 
   /**
