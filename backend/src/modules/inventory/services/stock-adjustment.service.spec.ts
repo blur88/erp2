@@ -27,7 +27,7 @@ describe('StockAdjustmentService', () => {
   const createMockStockAdjustment = (status: StockAdjustmentStatus = StockAdjustmentStatus.DRAFT): Partial<StockAdjustment> => ({
     id: '123e4567-e89b-12d3-a456-426614174000',
     adjustmentNumber: 'SA-000001',
-    adjustmentDate: new Date('2026-02-06'),
+    adjustmentDate: '2026-02-06',
     status,
     itemCount: 2,
     totalValue: 150,
@@ -175,7 +175,7 @@ describe('StockAdjustmentService', () => {
   describe('duplicate product rejection', () => {
     it('create() throws BadRequestException when the same productId appears twice', async () => {
       const dto = {
-        adjustmentDate: new Date(),
+        adjustmentDate: '2026-07-20',
         items: [
           { productId: 'p1', oldQuantity: 0, newQuantity: 1, difference: 1 },
           { productId: 'p1', oldQuantity: 0, newQuantity: 2, difference: 2 },
@@ -209,7 +209,7 @@ describe('StockAdjustmentService', () => {
     it('completed adjustment populates stockBefore/stockAfter from StockMovement and liveStock from product', async () => {
       const adjustment: any = {
         id: 'a1', adjustmentNumber: 'SA-000001', status: 'completed',
-        adjustmentDate: new Date(), itemCount: 1, totalValue: 10, createdAt: new Date(), updatedAt: new Date(),
+        adjustmentDate: '2026-07-20', itemCount: 1, totalValue: 10, createdAt: new Date(), updatedAt: new Date(),
         isEditable: () => false, canComplete: () => false,
         items: [{ id: 'i1', productId: 'p1', oldQuantity: 5, newQuantity: 7, difference: 2, unitCost: 5, totalValue: 10,
           isIncrease: true, isDecrease: false, absoluteDifference: 2,
@@ -227,7 +227,7 @@ describe('StockAdjustmentService', () => {
     it('draft adjustment returns null stockBefore/stockAfter and liveStock from product', async () => {
       const adjustment: any = {
         id: 'a2', adjustmentNumber: 'SA-000002', status: 'draft',
-        adjustmentDate: new Date(), itemCount: 1, totalValue: 0, createdAt: new Date(), updatedAt: new Date(),
+        adjustmentDate: '2026-07-20', itemCount: 1, totalValue: 0, createdAt: new Date(), updatedAt: new Date(),
         isEditable: () => true, canComplete: () => true,
         items: [{ id: 'i2', productId: 'p2', oldQuantity: 3, newQuantity: 4, difference: 1,
           isIncrease: true, isDecrease: false, absoluteDifference: 1,

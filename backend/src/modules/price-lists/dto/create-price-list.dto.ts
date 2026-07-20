@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsBoolean, IsOptional, IsDateString, IsEnum, MaxLength } from 'class-validator';
+import { IsString, IsBoolean, IsOptional, IsEnum, MaxLength } from 'class-validator';
+import { IsCalendarDate } from '../../../common/validators/is-calendar-date.validator';
 
 export class CreatePriceListDto {
   @ApiProperty({ example: 'RETAIL', description: 'Unique code for the price list' })
@@ -32,13 +33,13 @@ export class CreatePriceListDto {
   @IsOptional()
   isActive?: boolean;
 
-  @ApiProperty({ example: '2026-01-01T00:00:00Z', required: false })
-  @IsDateString()
+  @ApiProperty({ example: '2026-01-01', required: false })
+  @IsCalendarDate()
   @IsOptional()
-  effectiveFrom?: Date;
+  effectiveFrom?: string;
 
-  @ApiProperty({ example: '2026-12-31T23:59:59Z', required: false })
-  @IsDateString()
+  @ApiProperty({ example: '2026-12-31', required: false })
+  @IsCalendarDate()
   @IsOptional()
-  effectiveTo?: Date;
+  effectiveTo?: string;
 }

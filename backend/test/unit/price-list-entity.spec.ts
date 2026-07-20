@@ -11,7 +11,7 @@ describe("PriceList Entity", () => {
       priceList.description = "Standard retail prices";
       priceList.isDefault = false;
       priceList.isActive = true;
-      priceList.effectiveFrom = new Date("2026-01-01");
+      priceList.effectiveFrom = "2026-01-01";
       priceList.effectiveTo = null;
 
       const errors = await validate(priceList);
@@ -38,7 +38,7 @@ describe("PriceList Entity", () => {
       const priceList = new PriceList();
       priceList.name = "Test";
       priceList.code = "TEST";
-      priceList.effectiveFrom = new Date();
+      priceList.effectiveFrom = "2026-07-20";
       priceList.effectiveTo = null;
 
       const errors = await validate(priceList);
@@ -74,7 +74,7 @@ describe("PriceListItem Entity", () => {
       item.price = 100.0;
       item.costBasis = 80.0;
       item.marginPercent = 25.0;
-      item.effectiveFrom = new Date("2026-01-01");
+      item.effectiveFrom = "2026-01-01";
       item.effectiveTo = null;
       item.isActive = true;
 
@@ -114,7 +114,7 @@ describe("PriceListItem Entity", () => {
       item.priceListId = "123e4567-e89b-12d3-a456-426614174000";
       item.productId = "123e4567-e89b-12d3-a456-426614174001";
       item.price = 100.0;
-      item.effectiveFrom = new Date();
+      item.effectiveFrom = "2026-07-20";
       item.effectiveTo = null;
 
       const errors = await validate(item);

@@ -140,7 +140,7 @@ export interface StockAdjustmentItem {
 export interface StockAdjustment {
   id: string;
   adjustmentNumber: string;
-  adjustmentDate: Date;
+  adjustmentDate: string;
   status: 'draft' | 'completed';
   notes?: string;
   itemCount: number;
@@ -524,8 +524,8 @@ export interface PriceList {
   name: string;
   description?: string;
   isDefault: boolean;
-  effectiveFrom?: Date | string;
-  effectiveTo?: Date | string;
+  effectiveFrom?: string;
+  effectiveTo?: string;
   isActive: boolean;
   items?: PriceListItem[];
   createdAt: Date | string;

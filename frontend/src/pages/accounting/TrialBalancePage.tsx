@@ -17,10 +17,11 @@ import {
 import PageHeader from '@/components/common/PageHeader'
 import { useGetTrialBalanceQuery } from '@/store/api/accountingApi'
 import { formatCurrency } from '@/utils/currency'
+import { getCurrentDate } from '@/utils/formatters'
 import type { TrialBalanceResponse } from '@/types'
 
 export default function TrialBalancePage() {
-  const today = new Date().toISOString().split('T')[0]
+  const today = getCurrentDate()
   const [asOfDate, setAsOfDate] = useState(today)
   const [showZero, setShowZero] = useState(false)
 

@@ -45,11 +45,10 @@ export class StockAdjustment extends BaseEntity {
   adjustmentNumber: string;
 
   @Column({
-    type: 'timestamptz',
-    default: () => 'CURRENT_TIMESTAMP',
-    comment: 'Date and time of adjustment',
+    type: 'date',
+    comment: 'Date of adjustment (calendar date, no time component)',
   })
-  adjustmentDate: Date;
+  adjustmentDate: string;
 
   @Column({
     type: 'enum',

@@ -218,6 +218,33 @@ export const getCurrentDate = (): string => {
 }
 
 /**
+ * Convert a backend calendar-date value into a YYYY-MM-DD string for a
+ * <input type="date"> / MUI date picker. Calendar dates are timezone-free:
+ * a date-only string is passed through unchanged (NEVER reparsed via
+ * `new Date()`, which would apply the runtime timezone). A Date/timestamp
+ * (legacy rows written as UTC midnight) is reduced to its UTC calendar date.
+ * Do not use this for genuine instants — see getCurrentDate for "today".
+ */
+export const toDateInputValue = (
+  date: Date | string | null | undefined,
+): string => {
+  if (date === null || date === undefined || date === '') {
+    return ''
+  }
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return date
+  }
+  const d = date instanceof Date ? date : new Date(date)
+  if (Number.isNaN(d.getTime())) {
+    return ''
+  }
+  const year = d.getUTCFullYear()
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/**
  * Get date N days ago in the selected application timezone as YYYY-MM-DD string
  */
 const getDateDaysAgo = (days: number): string => {

@@ -15,6 +15,7 @@ import * as yup from 'yup'
 import { useNotification } from '@/hooks/useNotification'
 import { useCopyPriceListMutation } from '@/store/api/priceListApi'
 import type { PriceList } from '@/types'
+import { toDateInputValue } from '@/utils/formatters'
 
 // Form validation schema
 const copyPriceListSchema = yup.object({
@@ -85,9 +86,9 @@ const PriceListCopyDialog: React.FC<PriceListCopyDialogProps> = ({ open, priceLi
         name: `${priceList.name} (Copy)`,
         description: priceList.description || null,
         effectiveFrom: priceList.effectiveFrom
-          ? new Date(priceList.effectiveFrom).toISOString().split('T')[0]
+          ? toDateInputValue(priceList.effectiveFrom)
           : null,
-        effectiveTo: priceList.effectiveTo ? new Date(priceList.effectiveTo).toISOString().split('T')[0] : null,
+        effectiveTo: priceList.effectiveTo ? toDateInputValue(priceList.effectiveTo) : null,
       })
     }
   }, [priceList, open, reset])

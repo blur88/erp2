@@ -78,6 +78,30 @@ function renderPage() {
   )
 }
 
+describe('TrialBalancePage default As of Date', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-19T17:00:00.000Z'))
+    localStorage.setItem('timezone', 'Asia/Kuala_Lumpur')
+    mockUseGetTrialBalanceQuery.mockReturnValue({
+      data: balancedData,
+      isFetching: false,
+      error: undefined,
+    })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    localStorage.removeItem('timezone')
+  })
+
+  it('defaults to the app-timezone local date, not the UTC date', () => {
+    renderPage()
+    const input = screen.getByLabelText(/as of date/i) as HTMLInputElement
+    expect(input.value).toBe('2026-07-20')
+    expect(input.value).not.toBe('2026-07-19')
+  })
+})
+
 describe('TrialBalancePage', () => {
   beforeEach(() => {
     mockUseGetTrialBalanceQuery.mockReset()

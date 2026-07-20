@@ -11,7 +11,6 @@ import {
   IsNumber,
   IsBoolean,
   IsOptional,
-  IsDate,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { PriceList } from './price-list.entity';
@@ -58,15 +57,13 @@ export class PriceListItem extends BaseEntity {
   @IsOptional()
   declare isActive: boolean;
 
-  @Column({ type: 'timestamp', nullable: true })
-  @IsDate()
+  @Column({ type: 'date', nullable: true })
   @IsOptional()
-  effectiveFrom: Date;
+  effectiveFrom: string;
 
-  @Column({ type: 'timestamp', nullable: true })
-  @IsDate()
+  @Column({ type: 'date', nullable: true })
   @IsOptional()
-  effectiveTo: Date;
+  effectiveTo: string;
 
   // Relationships
   @ManyToOne(() => PriceList, (priceList) => priceList.items, {

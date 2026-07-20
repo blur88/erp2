@@ -35,7 +35,7 @@ import {
   useUpdateStockAdjustmentMutation,
 } from '@/store/api/inventoryApi'
 import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
-import { getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
+import { getCurrentDate, toDateInputValue, toMuiDatePickerFormat } from '@/utils/formatters'
 import TransactionFormShell from '@/components/transactions/TransactionFormShell'
 import { formatCurrency } from '@/utils/currency'
 import { LINE_ITEM_TABLE_SX } from '@/components/transactions/transactionTableStyles'
@@ -181,7 +181,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
     editAppliedRef.current = true
     reset({
       adjustmentDate: adjustment.adjustmentDate
-        ? new Date(adjustment.adjustmentDate).toISOString().split('T')[0]
+        ? toDateInputValue(adjustment.adjustmentDate)
         : getCurrentDate(),
       notes: (adjustment as any).notes || '',
       items: ((adjustment as any).items ?? []).map((item: any) => ({

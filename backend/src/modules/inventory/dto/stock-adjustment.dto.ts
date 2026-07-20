@@ -4,13 +4,13 @@ import {
   IsNumber,
   IsEnum,
   IsUUID,
-  IsDate,
   IsArray,
   MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
+import { Type } from 'class-transformer';
+import { IsCalendarDate } from '../../../common/validators/is-calendar-date.validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { StockAdjustmentStatus } from '../../../database/entities/stock-adjustment.entity';
 
@@ -47,10 +47,9 @@ export class StockAdjustmentItemDto {
 
 // DTO for creating a stock adjustment
 export class CreateStockAdjustmentDto {
-  @ApiProperty({ description: 'Adjustment date' })
-  @Transform(({ value }) => value ? new Date(value) : new Date())
-  @IsDate()
-  adjustmentDate: Date;
+  @ApiProperty({ description: 'Adjustment date', example: '2026-07-20' })
+  @IsCalendarDate()
+  adjustmentDate: string;
 
   @ApiPropertyOptional({ description: 'Adjustment notes/reason' })
   @IsOptional()
@@ -66,11 +65,10 @@ export class CreateStockAdjustmentDto {
 
 // DTO for updating a stock adjustment (draft only)
 export class UpdateStockAdjustmentDto {
-  @ApiPropertyOptional({ description: 'Adjustment date' })
+  @ApiPropertyOptional({ description: 'Adjustment date', example: '2026-07-20' })
   @IsOptional()
-  @Transform(({ value }) => value ? new Date(value) : undefined)
-  @IsDate()
-  adjustmentDate?: Date;
+  @IsCalendarDate()
+  adjustmentDate?: string;
 
   @ApiPropertyOptional({ description: 'Adjustment notes/reason' })
   @IsOptional()
@@ -106,17 +104,15 @@ export class QueryStockAdjustmentsDto {
   @IsEnum(StockAdjustmentStatus)
   status?: StockAdjustmentStatus;
 
-  @ApiPropertyOptional({ description: 'Filter adjustments from this date' })
+  @ApiPropertyOptional({ description: 'Filter adjustments from this date', example: '2026-07-01' })
   @IsOptional()
-  @Transform(({ value }) => value ? new Date(value) : undefined)
-  @IsDate()
-  fromDate?: Date;
+  @IsCalendarDate()
+  fromDate?: string;
 
-  @ApiPropertyOptional({ description: 'Filter adjustments to this date' })
+  @ApiPropertyOptional({ description: 'Filter adjustments to this date', example: '2026-07-20' })
   @IsOptional()
-  @Transform(({ value }) => value ? new Date(value) : undefined)
-  @IsDate()
-  toDate?: Date;
+  @IsCalendarDate()
+  toDate?: string;
 
   @ApiPropertyOptional({ description: 'Search term (adjustment number, notes)' })
   @IsOptional()
@@ -195,8 +191,8 @@ export class StockAdjustmentResponseDto {
   @ApiProperty({ description: 'Adjustment number' })
   adjustmentNumber: string;
 
-  @ApiProperty({ description: 'Adjustment date' })
-  adjustmentDate: Date;
+  @ApiProperty({ description: 'Adjustment date', example: '2026-07-20' })
+  adjustmentDate: string;
 
   @ApiProperty({ description: 'Adjustment status', enum: StockAdjustmentStatus })
   status: StockAdjustmentStatus;
@@ -233,8 +229,8 @@ export class StockAdjustmentListResponseDto {
   @ApiProperty({ description: 'Adjustment number' })
   adjustmentNumber: string;
 
-  @ApiProperty({ description: 'Adjustment date' })
-  adjustmentDate: Date;
+  @ApiProperty({ description: 'Adjustment date', example: '2026-07-20' })
+  adjustmentDate: string;
 
   @ApiProperty({ description: 'Adjustment status', enum: StockAdjustmentStatus })
   status: StockAdjustmentStatus;
