@@ -4,7 +4,7 @@ import type { Customer, PaginatedResponse, Payment, SalesOrder, SalesOrderPaymen
 
 import { axiosBaseQuery } from './baseQuery';
 import { normalizeSingle } from './normalizers';
-import { invalidateJournalEntriesOnSuccess } from './invalidateJournalEntries';
+import { invalidateAccountingReportsOnSuccess } from './invalidateAccountingReports';
 
 export interface SalesOrderItem {
   id: string;
@@ -254,7 +254,7 @@ export const salesApiSlice = createApi({
       }),
       transformResponse: (response: any) => normalizeSingle<SalesOrder>(response?.data ?? response),
       invalidatesTags: ['SalesOrder', 'Payment'],
-      onQueryStarted: invalidateJournalEntriesOnSuccess,
+      onQueryStarted: invalidateAccountingReportsOnSuccess,
     }),
     recordOrderRefunds: builder.mutation<
       SalesOrder,
@@ -275,25 +275,25 @@ export const salesApiSlice = createApi({
       }),
       transformResponse: (response: any) => normalizeSingle<SalesOrder>(response?.data ?? response),
       invalidatesTags: ['SalesOrder', 'Payment'],
-      onQueryStarted: invalidateJournalEntriesOnSuccess,
+      onQueryStarted: invalidateAccountingReportsOnSuccess,
     }),
     unpaySalesOrder: builder.mutation<SalesOrder, string>({
       query: (id) => ({ url: `/sales-orders/${id}/unpay`, method: 'POST' }),
       transformResponse: (response: any) => normalizeSingle<SalesOrder>(response?.data ?? response),
       invalidatesTags: ['SalesOrder', 'Payment'],
-      onQueryStarted: invalidateJournalEntriesOnSuccess,
+      onQueryStarted: invalidateAccountingReportsOnSuccess,
     }),
     fulfillSalesOrder: builder.mutation<SalesOrder, string>({
       query: (id) => ({ url: `/sales-orders/${id}/fulfill`, method: 'POST' }),
       transformResponse: (response: any) => normalizeSingle<SalesOrder>(response?.data ?? response),
       invalidatesTags: ['SalesOrder'],
-      onQueryStarted: invalidateJournalEntriesOnSuccess,
+      onQueryStarted: invalidateAccountingReportsOnSuccess,
     }),
     unfulfillSalesOrder: builder.mutation<SalesOrder, string>({
       query: (id) => ({ url: `/sales-orders/${id}/unfulfill`, method: 'POST' }),
       transformResponse: (response: any) => normalizeSingle<SalesOrder>(response?.data ?? response),
       invalidatesTags: ['SalesOrder'],
-      onQueryStarted: invalidateJournalEntriesOnSuccess,
+      onQueryStarted: invalidateAccountingReportsOnSuccess,
     }),
     getDeletedSalesOrders: builder.query<
       PaginatedResponse<SalesOrder>,

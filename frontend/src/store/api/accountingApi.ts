@@ -17,7 +17,7 @@ import { normalizePaginated, normalizeSingle } from './normalizers'
 export const accountingApiSlice = createApi({
   reducerPath: 'accountingApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['Account', 'AccountingSettings', 'JournalEntry'],
+  tagTypes: ['Account', 'AccountingSettings', 'JournalEntry', 'TrialBalance'],
   endpoints: (builder) => ({
     getAccountTree: builder.query<AccountTreeNode[], { search?: string }>({
       query: ({ search }) => ({
@@ -35,7 +35,7 @@ export const accountingApiSlice = createApi({
     createAccount: builder.mutation<Account, Partial<Account>>({
       query: (body) => ({ url: '/accounting/accounts', method: 'POST', data: body }),
       transformResponse: normalizeSingle<Account>,
-      invalidatesTags: ['Account'],
+      invalidatesTags: ['Account', 'JournalEntry', 'TrialBalance'],
     }),
     updateAccount: builder.mutation<Account, { id: string; data: Partial<Account> }>({
       query: ({ id, data }) => ({ url: `/accounting/accounts/${id}`, method: 'PATCH', data }),
@@ -78,6 +78,7 @@ export const accountingApiSlice = createApi({
     >({
       query: (params) => ({ url: '/accounting/trial-balance', params }),
       transformResponse: normalizeSingle<TrialBalanceResponse>,
+      providesTags: ['TrialBalance'],
     }),
   }),
 })
