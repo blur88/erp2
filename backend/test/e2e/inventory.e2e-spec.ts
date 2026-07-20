@@ -191,7 +191,7 @@ describe("Inventory (e2e)", () => {
         .post("/inventory/stock-adjustments")
         .set("Authorization", `Bearer ${accessToken}`)
         .send({
-          adjustmentDate: new Date().toISOString(),
+          adjustmentDate: "2026-07-20",
           notes: "Initial stock count",
           items: [
             { productId, oldQuantity: 50, newQuantity: 60, difference: 10 },
