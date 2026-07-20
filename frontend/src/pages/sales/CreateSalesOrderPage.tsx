@@ -51,7 +51,7 @@ import { formatNum, parseNum } from '@/components/transactions/numberFormat'
 import ShippingField from '@/components/transactions/ShippingField'
 import OrderLineItemRow from '@/components/transactions/OrderLineItemRow'
 import TransactionFormShell from '@/components/transactions/TransactionFormShell'
-import { formatCurrency, getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
+import { formatCurrency, getCurrentDate, toDateInputValue, toMuiDatePickerFormat } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getStockOffenders } from '@/utils/stockStatus'
 import { getOrderActionMetas } from './utils/orderActions'
@@ -325,7 +325,7 @@ const CreateSalesOrderPage: React.FC = () => {
     reset({
       customerId: orderToLoad.customerId || orderToLoad.customer?.id || '',
       orderDate: orderToLoad.orderDate
-        ? new Date(orderToLoad.orderDate).toISOString().split('T')[0]
+        ? toDateInputValue(orderToLoad.orderDate)
         : getCurrentDate(),
       notes: orderToLoad.notes || '',
       shipping: orderToLoad.shippingAmount || 0,

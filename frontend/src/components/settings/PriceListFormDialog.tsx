@@ -17,6 +17,7 @@ import * as yup from 'yup'
 import { useNotification } from '@/hooks/useNotification'
 import { useCreatePriceListMutation, useUpdatePriceListMutation } from '@/store/api/priceListApi'
 import type { PriceList } from '@/types'
+import { toDateInputValue } from '@/utils/formatters'
 
 // Form validation schema
 const priceListSchema = yup.object({
@@ -97,9 +98,9 @@ const PriceListFormDialog: React.FC<PriceListFormDialogProps> = ({ open, priceLi
           name: priceList.name,
           description: priceList.description || null,
           effectiveFrom: priceList.effectiveFrom
-            ? new Date(priceList.effectiveFrom).toISOString().split('T')[0]
+            ? toDateInputValue(priceList.effectiveFrom)
             : null,
-          effectiveTo: priceList.effectiveTo ? new Date(priceList.effectiveTo).toISOString().split('T')[0] : null,
+          effectiveTo: priceList.effectiveTo ? toDateInputValue(priceList.effectiveTo) : null,
           isDefault: priceList.isDefault,
           isActive: priceList.isActive,
         })
