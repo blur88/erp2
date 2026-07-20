@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { formatDate, formatDateTime, formatSalesPeriodLabel, formatWholeQuantity, toMuiDatePickerFormat } from './formatters'
+import { formatDate, formatDateTime, formatSalesPeriodLabel, formatWholeQuantity, toDateInputValue, toMuiDatePickerFormat } from './formatters'
 
 describe('formatWholeQuantity', () => {
   it('removes decimal places from numeric quantities', () => {
@@ -51,5 +51,26 @@ describe('formatSalesPeriodLabel', () => {
     localStorage.setItem('dateFormat', 'DD/MM/YYYY')
 
     expect(formatSalesPeriodLabel('2026-03-27')).toBe('27/03/2026')
+  })
+})
+
+describe('toDateInputValue', () => {
+  it('passes a date-only string through unchanged', () => {
+    expect(toDateInputValue('2026-07-20')).toBe('2026-07-20')
+  })
+
+  it('returns empty string for nullish input', () => {
+    expect(toDateInputValue(null)).toBe('')
+    expect(toDateInputValue(undefined)).toBe('')
+    expect(toDateInputValue('')).toBe('')
+  })
+
+  it('extracts the UTC calendar date from a UTC-midnight timestamp (no local shift)', () => {
+    expect(toDateInputValue('2026-07-20T00:00:00.000Z')).toBe('2026-07-20')
+    expect(toDateInputValue(new Date('2026-07-20T00:00:00.000Z'))).toBe('2026-07-20')
+  })
+
+  it('extracts the UTC calendar date from a non-midnight timestamp', () => {
+    expect(toDateInputValue('2026-07-20T18:30:00.000Z')).toBe('2026-07-20')
   })
 })
