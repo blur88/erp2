@@ -8,7 +8,6 @@ import {
   IsString,
   IsBoolean,
   IsOptional,
-  IsDate,
   IsNumber,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
@@ -47,15 +46,13 @@ export class PriceList extends BaseEntity {
   @IsOptional()
   declare isActive: boolean;
 
-  @Column({ type: 'timestamp', nullable: true })
-  @IsDate()
+  @Column({ type: 'date', nullable: true })
   @IsOptional()
-  effectiveFrom: Date;
+  effectiveFrom: string;
 
-  @Column({ type: 'timestamp', nullable: true })
-  @IsDate()
+  @Column({ type: 'date', nullable: true })
   @IsOptional()
-  effectiveTo: Date;
+  effectiveTo: string;
 
   @Column({ type: 'int', default: 0 })
   @IsNumber()
