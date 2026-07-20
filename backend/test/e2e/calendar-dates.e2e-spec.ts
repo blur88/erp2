@@ -34,7 +34,8 @@ beforeAll(async () => {
     active.timezone = 'Asia/Kuala_Lumpur';
     await rsRepo.save(active);
   } else {
-    createdRegional = await rsRepo.save(rsRepo.create({ timezone: 'Asia/Kuala_Lumpur', isActive: true } as any));
+    const entity = rsRepo.create({ timezone: 'Asia/Kuala_Lumpur', isActive: true } as Partial<RegionalSettings>);
+    createdRegional = await rsRepo.save(entity);
   }
 
   const login = await request(app.getHttpServer())

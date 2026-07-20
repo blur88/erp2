@@ -72,11 +72,13 @@ describe('CalendarDatesToDateColumns migration (integration)', () => {
     expect(await colType(qr, 'price_list_items', 'effectiveTo')).toBe('date');
     expect(await colDefault(qr, 'stock_adjustments', 'adjustmentDate')).toBeNull();
 
-    const [sa] = await qr.query(`SELECT "adjustmentDate" FROM stock_adjustments`);
-    expect(String(sa.adjustmentDate)).toContain('2026-07-20');
-    const [pl] = await qr.query(`SELECT "effectiveFrom","effectiveTo" FROM price_lists`);
-    expect(String(pl.effectiveFrom)).toContain('2026-01-01');
-    expect(String(pl.effectiveTo)).toContain('2026-12-31');
+    // Cast to text in SQL so the assertion is driver-independent (node-postgres
+    // parses a `date` column into a local-midnight JS Date otherwise).
+    const [sa] = await qr.query(`SELECT "adjustmentDate"::text AS d FROM stock_adjustments`);
+    expect(sa.d).toBe('2026-07-20'); // NOT 2026-07-19 despite LA session tz
+    const [pl] = await qr.query(`SELECT "effectiveFrom"::text AS f, "effectiveTo"::text AS t FROM price_lists`);
+    expect(pl.f).toBe('2026-01-01');
+    expect(pl.t).toBe('2026-12-31');
     const [pli] = await qr.query(`SELECT "effectiveTo" FROM price_list_items`);
     expect(pli.effectiveTo).toBeNull();
   });
