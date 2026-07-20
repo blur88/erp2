@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PriceListsService } from './price-lists.service';
 import { PriceList, PriceListItem } from '@/database/entities';
+import { SettingsService } from '../../settings/settings.service';
 
 describe('PriceListsService', () => {
   let service: PriceListsService;
@@ -31,6 +32,10 @@ describe('PriceListsService', () => {
             create: jest.fn(),
             save: jest.fn(),
           },
+        },
+        {
+          provide: SettingsService,
+          useValue: { getRegionalSettings: jest.fn().mockResolvedValue({ timezone: 'Asia/Kuala_Lumpur' }) },
         },
       ],
     }).compile();

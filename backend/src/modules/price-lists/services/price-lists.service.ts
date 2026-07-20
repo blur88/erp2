@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { applyPagination } from '@/common/pagination/apply-pagination';
 import { PriceList, PriceListItem } from '@/database/entities';
+import { SettingsService } from '../../settings/settings.service';
 import { CreatePriceListDto, UpdatePriceListDto, QueryPriceListsDto, BulkUpdatePricesDto, ApplyPercentageAdjustmentDto } from '../dto';
 
 export interface PaginatedResponse<T> {
@@ -22,6 +23,7 @@ export class PriceListsService {
     private readonly priceListRepository: Repository<PriceList>,
     @InjectRepository(PriceListItem)
     private readonly priceListItemRepository: Repository<PriceListItem>,
+    private readonly settingsService: SettingsService,
   ) {}
 
   /**
@@ -195,24 +197,32 @@ export class PriceListsService {
     return this.priceListRepository.save(priceList);
   }
 
+  private async getAppToday(): Promise<string> {
+    const { timezone } = await this.settingsService.getRegionalSettings();
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone || 'Asia/Kuala_Lumpur',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+    const y = parts.find((p) => p.type === 'year')?.value;
+    const m = parts.find((p) => p.type === 'month')?.value;
+    const d = parts.find((p) => p.type === 'day')?.value;
+    return `${y}-${m}-${d}`;
+  }
+
   /**
    * Get all currently effective price lists
    */
   async getEffectivePriceLists(): Promise<PriceList[]> {
-    const now = new Date();
+    const today = await this.getAppToday();
 
     return this.priceListRepository
       .createQueryBuilder('priceList')
       .where('priceList.isActive = :isActive', { isActive: true })
       .andWhere('priceList.deletedAt IS NULL')
-      .andWhere(
-        '(priceList.effectiveFrom IS NULL OR priceList.effectiveFrom <= :now)',
-        { now }
-      )
-      .andWhere(
-        '(priceList.effectiveTo IS NULL OR priceList.effectiveTo >= :now)',
-        { now }
-      )
+      .andWhere('(priceList.effectiveFrom IS NULL OR priceList.effectiveFrom <= :today)', { today })
+      .andWhere('(priceList.effectiveTo IS NULL OR priceList.effectiveTo >= :today)', { today })
       .orderBy('priceList.isDefault', 'DESC')
       .addOrderBy('priceList.code', 'ASC')
       .getMany();

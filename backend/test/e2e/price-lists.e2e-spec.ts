@@ -1,3 +1,4 @@
+import { Module } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
 import { INestApplication, ValidationPipe } from "@nestjs/common";
 import request from "supertest";
@@ -6,6 +7,14 @@ import { PriceListsModule } from "../../src/modules/price-lists/price-lists.modu
 import { PriceList } from "../../src/database/entities/price-list.entity";
 import { PriceListItem } from "../../src/database/entities/price-list-item.entity";
 import { Product } from "../../src/database/entities/product.entity";
+import { SettingsService } from "../../src/modules/settings/settings.service";
+import { SettingsModule } from "../../src/modules/settings/settings.module";
+
+@Module({
+  providers: [{ provide: SettingsService, useValue: { getRegionalSettings: async () => ({ timezone: 'Asia/Kuala_Lumpur' }) } }],
+  exports: [SettingsService],
+})
+class MockSettingsModule {}
 
 describe("PriceListsController (e2e)", () => {
   let app: INestApplication;
@@ -17,7 +26,7 @@ describe("PriceListsController (e2e)", () => {
     description: "Standard retail prices",
     isDefault: false,
     isActive: true,
-    effectiveFrom: new Date("2026-01-01"),
+    effectiveFrom: "2026-01-01",
     effectiveTo: null,
     items: [],
   };
@@ -68,6 +77,8 @@ describe("PriceListsController (e2e)", () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [PriceListsModule],
     })
+      .overrideModule(SettingsModule)
+      .useModule(MockSettingsModule)
       .overrideProvider(getRepositoryToken(PriceList))
       .useValue(mockPriceListRepository)
       .overrideProvider(getRepositoryToken(PriceListItem))

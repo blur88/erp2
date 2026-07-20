@@ -9,6 +9,7 @@ import { PriceListsService } from "../../src/modules/price-lists/services/price-
 import { PriceList } from "../../src/database/entities/price-list.entity";
 import { PriceListItem } from "../../src/database/entities/price-list-item.entity";
 import { Product } from "../../src/database/entities/product.entity";
+import { SettingsService } from "../../src/modules/settings/settings.service";
 import { CreatePriceListDto } from "../../src/modules/price-lists/dto/create-price-list.dto";
 import { UpdatePriceListDto } from "../../src/modules/price-lists/dto/update-price-list.dto";
 import { BulkUpdatePricesDto } from "../../src/modules/price-lists/dto/bulk-update-prices.dto";
@@ -23,7 +24,7 @@ describe("PriceListsService", () => {
     description: "Standard retail prices",
     isDefault: true,
     isActive: true,
-    effectiveFrom: new Date("2026-01-01"),
+    effectiveFrom: "2026-01-01",
     effectiveTo: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -36,7 +37,7 @@ describe("PriceListsService", () => {
     price: 100.0,
     costBasis: 80.0,
     marginPercent: 25.0,
-    effectiveFrom: new Date("2026-01-01"),
+    effectiveFrom: "2026-01-01",
     effectiveTo: null,
     isActive: true,
   };
@@ -107,6 +108,10 @@ describe("PriceListsService", () => {
         {
           provide: getRepositoryToken(Product),
           useValue: mockProductRepository,
+        },
+        {
+          provide: SettingsService,
+          useValue: { getRegionalSettings: jest.fn().mockResolvedValue({ timezone: 'Asia/Kuala_Lumpur' }) },
         },
       ],
     }).compile();
@@ -212,7 +217,7 @@ describe("PriceListsService", () => {
       description: "Wholesale prices",
       isDefault: false,
       isActive: true,
-      effectiveFrom: new Date("2026-01-01"),
+      effectiveFrom: "2026-01-01",
       effectiveTo: null,
     };
 
