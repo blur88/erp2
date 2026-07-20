@@ -24,6 +24,7 @@ export default async function globalSetup() {
   // Drop and recreate to ensure a clean slate on each run
   await client.query(`DROP DATABASE IF EXISTS ${DB_DATABASE}`);
   await client.query(`CREATE DATABASE ${DB_DATABASE} OWNER ${DB_USERNAME}`);
+  await client.query(`ALTER DATABASE ${DB_DATABASE} SET timezone = 'America/Los_Angeles'`);
 
   await client.end();
 
