@@ -97,6 +97,8 @@ export default function JournalEntriesPage() {
             loading={isFetching}
             total={total}
             label="Journal Entries"
+            emptyLabel="journal entries"
+            showHeader={false}
             focusedIndex={-1}
             onSelect={handleView}
             listRef={searchInputRef}

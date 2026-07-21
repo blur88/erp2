@@ -47,6 +47,7 @@ vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
 }))
 
+import { useGetJournalEntriesQuery } from '@/store/api/accountingApi'
 import JournalEntriesPage from '../JournalEntriesPage'
 
 function renderPage() {
@@ -119,5 +120,25 @@ describe('JournalEntriesPage', () => {
     renderPage()
     expect(screen.queryByText('New Journal Entry')).not.toBeInTheDocument()
     expect(screen.queryByText('+ New')).not.toBeInTheDocument()
+  })
+
+  // #923: the count strip made the accounting pages inconsistent with the
+  // Sales/Purchasing/Inventory lists, which all pass showHeader={false}.
+  it('does not render the count header strip', () => {
+    renderPage()
+    expect(screen.queryByText(/Journal Entries \(\d+\)/i)).not.toBeInTheDocument()
+  })
+
+  it('shows the empty state with natural copy when there are no entries', () => {
+    vi.mocked(useGetJournalEntriesQuery).mockReturnValueOnce({
+      data: { data: [], meta: { total: 0, page: 1, limit: 25 } },
+      isFetching: false,
+      error: undefined,
+    } as any)
+
+    renderPage()
+
+    expect(screen.getByText(/No journal entries found/i)).toBeInTheDocument()
+    expect(screen.queryByText(/No Journal Entries found/)).not.toBeInTheDocument()
   })
 })
