@@ -17,6 +17,7 @@ import {
 } from '@mui/material'
 
 import PageHeader from '@/components/common/PageHeader'
+import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetAccountsQuery, useGetGeneralLedgerQuery } from '@/store/api/accountingApi'
 import type { AccountingSourceType } from '@/types'
@@ -227,11 +228,7 @@ export default function GeneralLedgerPage() {
             </Typography>
           </Paper>
         ) : isFetching && !glData ? (
-          <Paper sx={{ p: 6, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              Loading...
-            </Typography>
-          </Paper>
+          <ListSkeleton rows={8} columns={7} />
         ) : glData ? (
           <>
             {/* Account Info */}
