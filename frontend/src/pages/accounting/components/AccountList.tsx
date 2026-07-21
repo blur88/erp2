@@ -202,7 +202,8 @@ export default function AccountList({
         loading={isFetching}
         total={rows.length}
         label="Chart of Accounts"
-        showHeader
+        emptyLabel="accounts"
+        showHeader={false}
         headers={['Name', 'Code', 'Type', 'Balance', 'Status', 'Actions']}
         selectedId={undefined}
         focusedIndex={-1}

@@ -105,12 +105,19 @@ describe('AccountList', () => {
   // in-flight search with no rows yet must report loading, not "not found".
   it('shows the loading state, not the empty state, while fetching with no rows', () => {
     renderList({ tree: [], isFetching: true })
-    expect(screen.queryByText(/No Chart of Accounts found/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/No accounts found/i)).not.toBeInTheDocument()
   })
 
   it('shows the empty state once a search returns no matches', () => {
     renderList({ tree: [], isFetching: false })
-    expect(screen.getByText(/No Chart of Accounts found/i)).toBeInTheDocument()
+    expect(screen.getByText(/No accounts found/i)).toBeInTheDocument()
+  })
+
+  // #923: the count strip made the accounting pages inconsistent with the
+  // Sales/Purchasing/Inventory lists, which all pass showHeader={false}.
+  it('does not render the count header strip', () => {
+    renderList({ tree: [group] })
+    expect(screen.queryByText(/Chart of Accounts \(\d+\)/i)).not.toBeInTheDocument()
   })
 
   it('renders the balance column formatted as currency', () => {
