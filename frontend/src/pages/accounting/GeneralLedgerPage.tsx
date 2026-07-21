@@ -269,11 +269,22 @@ export default function GeneralLedgerPage() {
 
             {/* Movements Table */}
             <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
-              <Table size={TABLE_STYLES.size}>
+              <Table
+                size={TABLE_STYLES.size}
+                sx={{
+                  '& .MuiTableCell-root': {
+                    py: TABLE_STYLES.cell.padding.py,
+                    px: TABLE_STYLES.cell.padding.px,
+                  },
+                  '& .MuiTableCell-head': {
+                    fontWeight: 600,
+                    py: TABLE_STYLES.header.padding.py,
+                    backgroundColor: TABLE_STYLES.header.backgroundColor,
+                  },
+                }}
+              >
                 <TableHead>
-                  <TableRow
-                    sx={{ '& .MuiTableCell-head': { fontWeight: 600 } }}
-                  >
+                  <TableRow>
                     <TableCell>Date</TableCell>
                     <TableCell>Journal No.</TableCell>
                     <TableCell>Description</TableCell>
