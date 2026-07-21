@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
+  Alert,
   Box,
   Grid,
   MenuItem,
@@ -141,6 +142,12 @@ export default function GeneralLedgerPage() {
         title="General Ledger"
         subtitle="View account movements and balances."
       />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Unable to load the general ledger. Please try again.
+        </Alert>
+      )}
 
       <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
         {/* Filters */}
@@ -371,12 +378,6 @@ export default function GeneralLedgerPage() {
               </Grid>
             </Paper>
           </>
-        ) : error ? (
-          <Paper sx={{ p: 6, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              Unable to load the general ledger. Please try again.
-            </Typography>
-          </Paper>
         ) : null}
       </Box>
     </Box>

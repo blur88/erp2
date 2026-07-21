@@ -279,6 +279,23 @@ describe('GeneralLedgerPage', () => {
     expect(screen.getByText('To Date is before From Date')).toBeInTheDocument()
   })
 
+  it('shows the error alert when a refetch fails while stale data is still displayed', () => {
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({
+      data: mockGLData,
+      isFetching: false,
+      error: { status: 500, data: 'boom' },
+    })
+
+    renderPage('/accounting/general-ledger?accountId=acct-1')
+
+    expect(
+      screen.getByText('Unable to load the general ledger. Please try again.'),
+    ).toBeInTheDocument()
+    // Stale data stays on screen alongside the error.
+    expect(screen.getByText('JV-001')).toBeInTheDocument()
+  })
+
   it('restores filters after navigating to a source document and back', async () => {
     const user = userEvent.setup()
     mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
