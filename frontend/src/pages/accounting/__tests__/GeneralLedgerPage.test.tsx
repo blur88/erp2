@@ -285,6 +285,22 @@ describe('GeneralLedgerPage', () => {
     expect(screen.getByText('To Date is before From Date')).toBeInTheDocument()
   })
 
+  it('renders the account code and name as a header badge', () => {
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
+
+    renderPage('/accounting/general-ledger?accountId=acct-1')
+
+    // Hyphen form, not a middot. Scoped to the badge so the Account select's
+    // selected MenuItem (same string) cannot satisfy this on its own.
+    const badge = screen.getByTestId('gl-account-badge')
+    expect(badge).toHaveTextContent('1100 - Cash')
+
+    const strip = screen.getByTestId('gl-summary-strip')
+    expect(strip).toHaveTextContent(/Opening Balance/)
+    expect(strip).toHaveTextContent(/Closing Balance/)
+  })
+
   it('renders a 7-column skeleton while the initial ledger request is in flight', () => {
     mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
     mockGLQuery.mockReturnValue({ data: undefined, isFetching: true })

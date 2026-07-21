@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import {
   Alert,
   Box,
-  Grid,
+  Chip,
   MenuItem,
   Paper,
   Table,
@@ -170,6 +170,43 @@ export default function GeneralLedgerPage() {
     </Box>
   )
 
+  const accountBadge = glData ? (
+    <Chip
+      size="small"
+      data-testid="gl-account-badge"
+      label={`${glData.account.code} - ${glData.account.name}`}
+    />
+  ) : undefined
+
+  const summaryStrip = glData ? (
+    <Box
+      data-testid="gl-summary-strip"
+      sx={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        columnGap: 3,
+        rowGap: 2,
+        mb: 2,
+      }}
+    >
+      {[
+        { label: 'Opening Balance', value: glData.openingBalance },
+        { label: 'Total Debit', value: glData.totalDebit },
+        { label: 'Total Credit', value: glData.totalCredit },
+        { label: 'Closing Balance', value: glData.closingBalance },
+      ].map((item) => (
+        <Box key={item.label} sx={{ flex: '1 1 auto', minWidth: 140 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+            {item.label}
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+            {formatCurrency(item.value)}
+          </Typography>
+        </Box>
+      ))}
+    </Box>
+  ) : null
+
   // Single atomic cleanup: clone once, delete every key that is PRESENT in the URL but whose
   // effective value is empty (covers both invalid values AND present-but-empty keys like
   // `?sourceType=`), plus (only once accounts have loaded) an accountId not in the loaded list.
@@ -207,6 +244,7 @@ export default function GeneralLedgerPage() {
         title="General Ledger"
         subtitle="View account movements and balances."
         toolbar={filterToolbar}
+        titleBadge={accountBadge}
       />
 
       {error && (
@@ -227,15 +265,7 @@ export default function GeneralLedgerPage() {
           <ListSkeleton rows={8} columns={7} />
         ) : glData ? (
           <>
-            {/* Account Info */}
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-                {glData.account.code} - {glData.account.name}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Opening Balance: {formatCurrency(glData.openingBalance)}
-              </Typography>
-            </Paper>
+            {summaryStrip}
 
             {/* Movements Table */}
             <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
@@ -314,62 +344,6 @@ export default function GeneralLedgerPage() {
               </Table>
             </TableContainer>
 
-            {/* Summary */}
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                Summary
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block' }}
-                  >
-                    Opening Balance
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {formatCurrency(glData.openingBalance)}
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block' }}
-                  >
-                    Total Debit
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {formatCurrency(glData.totalDebit)}
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block' }}
-                  >
-                    Total Credit
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {formatCurrency(glData.totalCredit)}
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block' }}
-                  >
-                    Closing Balance
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {formatCurrency(glData.closingBalance)}
-                  </Typography>
-                </Grid>
-              </Grid>
-            </Paper>
           </>
         ) : null}
       </Box>
