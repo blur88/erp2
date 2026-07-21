@@ -106,6 +106,70 @@ export default function GeneralLedgerPage() {
 
   const hasSelection = Boolean(effectiveAccountId)
 
+  const filterToolbar = (
+    <Box
+      sx={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 1.5,
+        alignItems: 'flex-start',
+      }}
+    >
+      <TextField
+        select
+        size="small"
+        label="Account"
+        value={effectiveAccountId}
+        onChange={(e) => setFilter('accountId', e.target.value)}
+        required
+        sx={{ flex: '2 1 260px' }}
+      >
+        <MenuItem value="">
+          <em>Select an account</em>
+        </MenuItem>
+        {accounts.map((acct) => (
+          <MenuItem key={acct.id} value={acct.id}>
+            {acct.code} - {acct.name}
+          </MenuItem>
+        ))}
+      </TextField>
+      <TextField
+        size="small"
+        label="From Date"
+        type="date"
+        value={effectiveFromDate}
+        onChange={(e) => setFilter('fromDate', e.target.value)}
+        slotProps={{ inputLabel: { shrink: true } }}
+        sx={{ flex: '0 0 160px' }}
+      />
+      <TextField
+        size="small"
+        label="To Date"
+        type="date"
+        value={effectiveToDate}
+        onChange={(e) => setFilter('toDate', e.target.value)}
+        error={dateRangeInvalid}
+        helperText={dateRangeInvalid ? 'To Date is before From Date' : undefined}
+        slotProps={{ inputLabel: { shrink: true } }}
+        sx={{ flex: '0 0 160px' }}
+      />
+      <TextField
+        select
+        size="small"
+        label="Source Type"
+        value={effectiveSourceType}
+        onChange={(e) => setFilter('sourceType', e.target.value)}
+        sx={{ flex: '1 1 180px' }}
+      >
+        {SOURCE_TYPES.map((st) => (
+          <MenuItem key={st.value} value={st.value}>
+            {st.label}
+          </MenuItem>
+        ))}
+      </TextField>
+    </Box>
+  )
+
   // Single atomic cleanup: clone once, delete every key that is PRESENT in the URL but whose
   // effective value is empty (covers both invalid values AND present-but-empty keys like
   // `?sourceType=`), plus (only once accounts have loaded) an accountId not in the loaded list.
@@ -142,6 +206,7 @@ export default function GeneralLedgerPage() {
         variant="workflow"
         title="General Ledger"
         subtitle="View account movements and balances."
+        toolbar={filterToolbar}
       />
 
       {error && (
@@ -151,75 +216,6 @@ export default function GeneralLedgerPage() {
       )}
 
       <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
-        {/* Filters */}
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-            Filters
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label="Account"
-                value={effectiveAccountId}
-                onChange={(e) => setFilter('accountId', e.target.value)}
-                required
-              >
-                <MenuItem value="">
-                  <em>Select an account</em>
-                </MenuItem>
-                {accounts.map((acct) => (
-                  <MenuItem key={acct.id} value={acct.id}>
-                    {acct.code} - {acct.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <TextField
-                fullWidth
-                size="small"
-                label="From Date"
-                type="date"
-                value={effectiveFromDate}
-                onChange={(e) => setFilter('fromDate', e.target.value)}
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <TextField
-                fullWidth
-                size="small"
-                label="To Date"
-                type="date"
-                value={effectiveToDate}
-                onChange={(e) => setFilter('toDate', e.target.value)}
-                error={dateRangeInvalid}
-                helperText={dateRangeInvalid ? 'To Date is before From Date' : undefined}
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 2 }}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label="Source Type"
-                value={effectiveSourceType}
-                onChange={(e) => setFilter('sourceType', e.target.value)}
-              >
-                {SOURCE_TYPES.map((st) => (
-                  <MenuItem key={st.value} value={st.value}>
-                    {st.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-          </Grid>
-        </Paper>
-
         {/* Content */}
         {!hasSelection ? (
           <Paper sx={{ p: 6, textAlign: 'center' }}>
