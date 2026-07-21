@@ -413,4 +413,20 @@ describe('ChartOfAccountsPage', () => {
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(screen.queryByText(/Inherited from/i)).not.toBeInTheDocument()
   })
+
+  // #923: guards the hasActiveFilters threading from the page into AccountList.
+  // The mock must stay keyed on the search arg — returning [] unconditionally
+  // would also empty the full tree, which drives canWrite.
+  it('shows the filtered empty state when a search returns no matches', () => {
+    vi.mocked(useGetAccountTreeQuery).mockImplementation(
+      ((arg: any) =>
+        arg?.search
+          ? { data: [], isFetching: false, error: undefined }
+          : { data: mockTree, isFetching: false, error: undefined }) as any,
+    )
+
+    renderPageWithSearch('nonexistent-account')
+
+    expect(screen.getByText(/No accounts match filters/i)).toBeInTheDocument()
+  })
 })

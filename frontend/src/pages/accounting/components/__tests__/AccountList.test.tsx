@@ -128,6 +128,12 @@ describe('AccountList', () => {
     expect(cells[3]).not.toHaveTextContent('5000.0000')
   })
 
+  it('reports the filtered empty state when filters are active', () => {
+    renderList({ tree: [], isFetching: false, hasActiveFilters: true })
+    expect(screen.getByText(/No accounts match filters/i)).toBeInTheDocument()
+    expect(screen.queryByText(/No accounts found/i)).not.toBeInTheDocument()
+  })
+
   it('formats the balance in the deactivate confirmation dialog', async () => {
     renderList({ tree: [leaf] })
     const user = userEvent.setup()

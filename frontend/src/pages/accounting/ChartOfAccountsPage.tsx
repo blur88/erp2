@@ -126,6 +126,7 @@ export default function ChartOfAccountsPage() {
             tree={tree}
             isFetching={isFetching}
             sortOrder={sortOrder}
+            hasActiveFilters={hasActiveFilters}
             onAddChild={handleAddChild}
             onEdit={handleEdit}
             isAdmin={canWrite}

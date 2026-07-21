@@ -30,6 +30,9 @@ interface AccountListProps {
   // PATCH or POST /accounting/accounts, which stay admin-only. Non-admins can read
   // the chart of accounts (#895) but get no actions column.
   isAdmin?: boolean
+  // Forwarded to EntityTable so a zero-result search reads "No accounts match
+  // filters" rather than "No accounts found" (#923).
+  hasActiveFilters?: boolean
 }
 
 // This does NOT merely reproduce the backend's ORDER BY code ASC. `code` is a
@@ -84,6 +87,7 @@ export default function AccountList({
   onAddChild,
   onEdit,
   isAdmin = true,
+  hasActiveFilters = false,
 }: AccountListProps) {
   const { showSuccess, showError } = useNotification()
   const [updateAccount, { isLoading: updating }] = useUpdateAccountMutation()
@@ -203,6 +207,7 @@ export default function AccountList({
         total={rows.length}
         label="Chart of Accounts"
         emptyLabel="accounts"
+        hasActiveFilters={hasActiveFilters}
         showHeader={false}
         headers={['Name', 'Code', 'Type', 'Balance', 'Status', 'Actions']}
         selectedId={undefined}
