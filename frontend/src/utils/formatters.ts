@@ -218,6 +218,20 @@ export const getCurrentDate = (): string => {
 }
 
 /**
+ * True only for a YYYY-MM-DD string naming a real calendar date.
+ * The UTC round-trip is load-bearing: a bare regex accepts 2026-02-31,
+ * which Date would silently roll over to March 3.
+ */
+export const isValidIsoDate = (value: string): boolean => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const [y, m, d] = value.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  return (
+    dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d
+  )
+}
+
+/**
  * Convert a backend calendar-date value into a YYYY-MM-DD string for a
  * <input type="date"> / MUI date picker. Calendar dates are timezone-free:
  * a date-only string is passed through unchanged (NEVER reparsed via

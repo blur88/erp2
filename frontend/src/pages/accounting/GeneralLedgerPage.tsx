@@ -23,7 +23,7 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetAccountsQuery, useGetGeneralLedgerQuery } from '@/store/api/accountingApi'
 import type { AccountingSourceType } from '@/types'
 import { formatCurrency } from '@/utils/currency'
-import { formatDate } from '@/utils/formatters'
+import { formatDate, isValidIsoDate } from '@/utils/formatters'
 import SourceLink from './components/SourceLink'
 
 const SOURCE_TYPES: { value: AccountingSourceType | ''; label: string }[] = [
@@ -40,16 +40,6 @@ const VALID_SOURCE_TYPES = new Set<AccountingSourceType>([
   'STOCK_ADJUSTMENT',
   'OPENING_BALANCE',
 ])
-
-// Real calendar date, not merely a regex match: 2026-02-31 must be rejected.
-function isValidIsoDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const [y, m, d] = value.split('-').map(Number)
-  const dt = new Date(Date.UTC(y, m - 1, d))
-  return (
-    dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d
-  )
-}
 
 export default function GeneralLedgerPage() {
   const [searchParams, setSearchParams] = useSearchParams()

@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { formatDate, formatDateTime, formatSalesPeriodLabel, formatWholeQuantity, toDateInputValue, toMuiDatePickerFormat } from './formatters'
+import { formatDate, formatDateTime, formatSalesPeriodLabel, formatWholeQuantity, isValidIsoDate, toDateInputValue, toMuiDatePickerFormat } from './formatters'
 
 describe('formatWholeQuantity', () => {
   it('removes decimal places from numeric quantities', () => {
@@ -72,5 +72,30 @@ describe('toDateInputValue', () => {
 
   it('extracts the UTC calendar date from a non-midnight timestamp', () => {
     expect(toDateInputValue('2026-07-20T18:30:00.000Z')).toBe('2026-07-20')
+  })
+})
+
+describe('isValidIsoDate', () => {
+  it('accepts a real calendar date', () => {
+    expect(isValidIsoDate('2026-03-01')).toBe(true)
+    expect(isValidIsoDate('2026-12-31')).toBe(true)
+  })
+
+  it('rejects a date that does not exist', () => {
+    expect(isValidIsoDate('2026-02-31')).toBe(false)
+    expect(isValidIsoDate('2026-13-01')).toBe(false)
+    expect(isValidIsoDate('2025-02-29')).toBe(false)
+  })
+
+  it('accepts a leap day in a leap year', () => {
+    expect(isValidIsoDate('2024-02-29')).toBe(true)
+  })
+
+  it('rejects malformed strings', () => {
+    expect(isValidIsoDate('')).toBe(false)
+    expect(isValidIsoDate('2026-3-1')).toBe(false)
+    expect(isValidIsoDate('03/01/2026')).toBe(false)
+    expect(isValidIsoDate('2026-03-01T00:00:00Z')).toBe(false)
+    expect(isValidIsoDate('not-a-date')).toBe(false)
   })
 })
