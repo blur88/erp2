@@ -259,6 +259,56 @@ describe('AccountingSettingsPage', () => {
     })
   })
 
+  it('Cancel restores a modified field to its loaded value', async () => {
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByLabelText('Cash Account'))
+    await user.click(screen.getByRole('option', { name: /1200 - Checking Account/i }))
+    expect(screen.getByLabelText('Cash Account')).toHaveTextContent('1200 - Checking Account')
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Cash Account')).toHaveTextContent('1100 - Cash on Hand')
+    })
+  })
+
+  it('Cancel is disabled while pristine and enabled once a field changes', async () => {
+    renderPage()
+    const user = userEvent.setup()
+
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled()
+
+    await user.click(screen.getByLabelText('Cash Account'))
+    await user.click(screen.getByRole('option', { name: /1200 - Checking Account/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /cancel/i })).toBeEnabled()
+    })
+  })
+
+  it('a successful save makes the saved values the new baseline', async () => {
+    mockUpdateSettings.mockClear()
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByLabelText('Cash Account'))
+    await user.click(screen.getByRole('option', { name: /1200 - Checking Account/i }))
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /cancel/i })).toBeEnabled()
+    })
+
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    // reset(data) after a successful save clears isDirty, so Cancel disables again.
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled()
+    })
+    // The saved value is the new baseline, not rolled back to the loaded one.
+    expect(screen.getByLabelText('Cash Account')).toHaveTextContent('1200 - Checking Account')
+  })
+
   // PUT /accounting/settings stays admin-only: these mappings decide which GL
   // accounts sales/purchasing auto-post into. Non-admins read them, never save.
   describe.each(['manager', 'sales_staff', 'inventory_staff', 'procurement_staff'])(

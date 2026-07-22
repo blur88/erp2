@@ -23,7 +23,7 @@ import {
   useGetAccountingSettingsQuery,
   useUpdateAccountingSettingsMutation,
 } from '@/store/api/accountingApi'
-import type { Account, AccountType } from '@/types'
+import type { Account, AccountType, AccountingSettings } from '@/types'
 
 interface FormValues {
   cashAccountId: string
@@ -75,6 +75,20 @@ const SYSTEM_FIELDS: SectionField[] = [
   { name: 'openingBalanceEquityAccountId', label: 'Opening Balance Equity Account', accountType: 'Equity' },
   { name: 'defaultExpenseAccountId', label: 'Default Expense Account', accountType: 'Expense' },
 ]
+
+function toFormValues(settings: AccountingSettings): FormValues {
+  return {
+    cashAccountId: settings.cashAccountId,
+    bankAccountId: settings.bankAccountId,
+    inventoryAccountId: settings.inventoryAccountId,
+    supplierDepositAccountId: settings.supplierDepositAccountId,
+    customerDepositAccountId: settings.customerDepositAccountId,
+    openingBalanceEquityAccountId: settings.openingBalanceEquityAccountId,
+    salesRevenueAccountId: settings.salesRevenueAccountId,
+    cogsAccountId: settings.cogsAccountId,
+    defaultExpenseAccountId: settings.defaultExpenseAccountId,
+  }
+}
 
 interface FieldGridProps {
   fields: SectionField[]
@@ -149,8 +163,8 @@ export default function AccountingSettingsPage() {
   const {
     control,
     handleSubmit,
-    formState: { errors },
-    setValue,
+    formState: { errors, isDirty },
+    reset,
   } = useForm<FormValues>({
     resolver: yupResolver(schema) as any,
     defaultValues: {
@@ -168,21 +182,14 @@ export default function AccountingSettingsPage() {
 
   useEffect(() => {
     if (settings) {
-      setValue('cashAccountId', settings.cashAccountId)
-      setValue('bankAccountId', settings.bankAccountId)
-      setValue('inventoryAccountId', settings.inventoryAccountId)
-      setValue('supplierDepositAccountId', settings.supplierDepositAccountId)
-      setValue('customerDepositAccountId', settings.customerDepositAccountId)
-      setValue('openingBalanceEquityAccountId', settings.openingBalanceEquityAccountId)
-      setValue('salesRevenueAccountId', settings.salesRevenueAccountId)
-      setValue('cogsAccountId', settings.cogsAccountId)
-      setValue('defaultExpenseAccountId', settings.defaultExpenseAccountId)
+      reset(toFormValues(settings))
     }
-  }, [settings, setValue])
+  }, [settings, reset])
 
   const onSubmit = async (data: FormValues) => {
     try {
       await updateSettings(data).unwrap()
+      reset(data)
       showSuccess('Accounting settings saved successfully.')
     } catch (err: any) {
       showError(err?.data?.message ?? err.message ?? 'Failed to save accounting settings')
@@ -252,6 +259,14 @@ export default function AccountingSettingsPage() {
 
             {isAdmin ? (
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
+                <Button
+                  variant="outlined"
+                  size="large"
+                  onClick={() => reset()}
+                  disabled={!isDirty || isSaving}
+                >
+                  Cancel
+                </Button>
                 <Button
                   type="submit"
                   variant="contained"
