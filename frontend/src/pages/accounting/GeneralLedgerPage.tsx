@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link as RouterLink, useSearchParams } from 'react-router-dom'
 import {
   Alert,
   Box,
   Chip,
+  Link,
   MenuItem,
   Paper,
   Table,
@@ -317,8 +318,9 @@ export default function GeneralLedgerPage() {
                           <TableCell>{formatDate(movement.date)}</TableCell>
                           <TableCell>
                             <Link
+                              component={RouterLink}
                               to={`/accounting/journal-entries/${movement.journalEntryId}`}
-                              style={{ textDecoration: 'none' }}
+                              underline="hover"
                             >
                               {movement.journalNo}
                             </Link>
