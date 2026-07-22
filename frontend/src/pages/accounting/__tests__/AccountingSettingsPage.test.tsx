@@ -224,6 +224,19 @@ describe('AccountingSettingsPage', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('keeps the page header mounted and shows a skeleton while loading', async () => {
+    const { useGetAccountingSettingsQuery } = await import('@/store/api/accountingApi')
+    const mockFn = vi.mocked(useGetAccountingSettingsQuery)
+    mockFn.mockReturnValue({ data: undefined, isLoading: true, error: undefined } as any)
+
+    const { container } = renderPage()
+
+    expect(screen.getByText('Accounting Settings')).toBeInTheDocument()
+    expect(container.querySelectorAll('.MuiSkeleton-root').length).toBeGreaterThan(0)
+
+    mockFn.mockReturnValue({ data: mockSettings, isLoading: false, error: undefined } as any)
+  })
+
   it('Save calls update mutation with all 9 ids', async () => {
     mockUpdateSettings.mockClear()
     renderPage()
