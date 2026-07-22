@@ -15,8 +15,9 @@ const {
 } = vi.hoisted(() => {
   const balanced = {
     rows: [
-      { code: '1100', name: 'Cash', debit: '5000.0000', credit: '0.0000' },
+      { accountId: 'acc-1100', code: '1100', name: 'Cash', debit: '5000.0000', credit: '0.0000' },
       {
+        accountId: 'acc-2100',
         code: '2100',
         name: 'Customer Deposit',
         debit: '0.0000',
@@ -31,8 +32,9 @@ const {
 
   const imbalanced = {
     rows: [
-      { code: '1100', name: 'Cash', debit: '5000.0000', credit: '0.0000' },
+      { accountId: 'acc-1100', code: '1100', name: 'Cash', debit: '5000.0000', credit: '0.0000' },
       {
+        accountId: 'acc-2100',
         code: '2100',
         name: 'Customer Deposit',
         debit: '0.0000',
@@ -46,6 +48,7 @@ const {
   }
 
   const zeroAccount = {
+    accountId: 'acc-3000',
     code: '3000',
     name: 'Retained Earnings',
     debit: '0.0000',
@@ -70,7 +73,10 @@ import TrialBalancePage from '../TrialBalancePage'
 function renderPage(initialUrl = '/accounting/trial-balance') {
   const store = configureStore({ reducer: { empty: (s = null) => s } })
   const router = createMemoryRouter(
-    [{ path: '/accounting/trial-balance', element: <TrialBalancePage /> }],
+    [
+      { path: '/accounting/trial-balance', element: <TrialBalancePage /> },
+      { path: '/accounting/general-ledger', element: <div>GL stub</div> },
+    ],
     { initialEntries: [initialUrl] },
   )
   const utils = render(
@@ -369,6 +375,74 @@ describe('TrialBalancePage presentation', () => {
     expect(screen.getByText('No accounts found.')).toBeInTheDocument()
     expect(screen.queryByText('Total')).not.toBeInTheDocument()
   })
+
+describe('TrialBalancePage drill-through to the General Ledger', () => {
+  const AT_DATE = '/accounting/trial-balance?asOfDate=2026-01-31'
+
+  beforeEach(() => {
+    mockUseGetTrialBalanceQuery.mockReset()
+    mockUseGetTrialBalanceQuery.mockReturnValue({
+      data: balancedData,
+      currentData: balancedData,
+      isFetching: false,
+      error: undefined,
+    })
+  })
+
+  it('exposes each account row as a focusable link', () => {
+    renderPage(AT_DATE)
+    const rows = screen.getAllByRole('link')
+    expect(rows).toHaveLength(2)
+    rows.forEach((row) => expect(row).toHaveAttribute('tabindex', '0'))
+  })
+
+  it('navigates to the general ledger for the clicked account, carrying asOfDate as toDate', async () => {
+    const { router } = renderPage(AT_DATE)
+    await userEvent.click(screen.getAllByRole('link')[0])
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/accounting/general-ledger')
+    })
+    const search = searchOf(router)
+    expect(search.get('accountId')).toBe('acc-1100')
+    expect(search.get('toDate')).toBe('2026-01-31')
+    expect(search.get('fromDate')).toBeNull()
+  })
+
+  it('navigates on Enter but not on Space', async () => {
+    const { router } = renderPage(AT_DATE)
+    const row = screen.getAllByRole('link')[1]
+    row.focus()
+
+    fireEvent.keyDown(row, { key: ' ', code: 'Space' })
+    expect(router.state.location.pathname).toBe('/accounting/trial-balance')
+
+    fireEvent.keyDown(row, { key: 'Enter', code: 'Enter' })
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/accounting/general-ledger')
+    })
+    expect(searchOf(router).get('accountId')).toBe('acc-2100')
+  })
+
+  it('navigates from a zero-balance row shown under showZero', async () => {
+    mockUseGetTrialBalanceQuery.mockReturnValue({
+      data: withZeroData,
+      currentData: withZeroData,
+      isFetching: false,
+      error: undefined,
+    })
+    const { router } = renderPage('/accounting/trial-balance?asOfDate=2026-01-31&showZero=true')
+    const rows = screen.getAllByRole('link')
+    expect(rows).toHaveLength(3)
+
+    await userEvent.click(rows[2])
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/accounting/general-ledger')
+    })
+    const search = searchOf(router)
+    expect(search.get('accountId')).toBe('acc-3000')
+    expect(search.get('toDate')).toBe('2026-01-31')
+  })
+})
 
   it('shows the skeleton while fetching with no currentData', () => {
     mockUseGetTrialBalanceQuery.mockReturnValue({
