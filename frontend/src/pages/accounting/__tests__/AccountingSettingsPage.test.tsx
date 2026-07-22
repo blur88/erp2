@@ -349,6 +349,51 @@ describe('AccountingSettingsPage', () => {
     })
   })
 
+  // A failed load must not leave an empty but submittable form behind: every
+  // field would post as '' and overwrite good mappings with blanks.
+  it('hides the form when the settings query fails', async () => {
+    const { useGetAccountingSettingsQuery } = await import('@/store/api/accountingApi')
+    const mockFn = vi.mocked(useGetAccountingSettingsQuery)
+    mockFn.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: { message: 'Boom' },
+    } as any)
+
+    try {
+      renderPage()
+
+      expect(screen.getByText('Boom')).toBeInTheDocument()
+      // Header survives so the page still frames correctly.
+      expect(screen.getByText('Accounting Settings')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Cash Account')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /save changes/i })).not.toBeInTheDocument()
+    } finally {
+      mockFn.mockReturnValue({ data: mockSettings, isLoading: false, error: undefined } as any)
+    }
+  })
+
+  // The accounts query populates every dropdown. If it fails the selects would
+  // render empty with no explanation, so its error has to surface too.
+  it('surfaces a failed accounts query instead of rendering empty dropdowns', async () => {
+    const { useGetAccountsQuery } = await import('@/store/api/accountingApi')
+    const mockFn = vi.mocked(useGetAccountsQuery)
+    mockFn.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: { message: 'Accounts exploded' },
+    } as any)
+
+    try {
+      renderPage()
+
+      expect(screen.getByText('Accounts exploded')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Cash Account')).not.toBeInTheDocument()
+    } finally {
+      mockFn.mockReturnValue({ data: mockAccounts, isLoading: false, error: undefined } as any)
+    }
+  })
+
   // PUT /accounting/settings stays admin-only: these mappings decide which GL
   // accounts sales/purchasing auto-post into. Non-admins read them, never save.
   describe.each(['manager', 'sales_staff', 'inventory_staff', 'procurement_staff'])(

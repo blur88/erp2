@@ -147,7 +147,11 @@ export default function AccountingSettingsPage() {
   const { data: settings, isLoading: settingsLoading, error: settingsError } =
     useGetAccountingSettingsQuery()
 
-  const { data: accountsResponse, isLoading: accountsLoading } = useGetAccountsQuery({
+  const {
+    data: accountsResponse,
+    isLoading: accountsLoading,
+    error: accountsError,
+  } = useGetAccountsQuery({
     postableOnly: true,
     activeOnly: true,
   } as Record<string, unknown>)
@@ -156,8 +160,11 @@ export default function AccountingSettingsPage() {
 
   const accounts = accountsResponse?.data ?? []
   const loading = settingsLoading || accountsLoading
-  const error = settingsError
-    ? (settingsError as any)?.message || 'Failed to load settings.'
+  // The accounts query fills every dropdown, so its failure is just as fatal as
+  // the settings one — without it the selects render with no options at all.
+  const loadError = settingsError ?? accountsError
+  const error = loadError
+    ? (loadError as any)?.message || 'Failed to load settings.'
     : null
 
   const {
@@ -213,7 +220,7 @@ export default function AccountingSettingsPage() {
       <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
         {loading ? (
           <ListSkeleton rows={8} columns={2} />
-        ) : (
+        ) : error ? null : (
           <form onSubmit={handleSubmit(onSubmit)}>
             <Stack spacing={3}>
               <PageSection label="Payment">
