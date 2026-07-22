@@ -4,18 +4,23 @@ import {
   Alert,
   Box,
   Checkbox,
-  CircularProgress,
+  Chip,
   FormControlLabel,
   Paper,
   Table,
   TableBody,
   TableCell,
   TableContainer,
+  TableFooter,
   TableHead,
   TableRow,
   TextField,
+  Typography,
 } from '@mui/material'
+
 import PageHeader from '@/components/common/PageHeader'
+import { ListSkeleton } from '@/components/common/ListSkeleton'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetTrialBalanceQuery } from '@/store/api/accountingApi'
 import { formatCurrency } from '@/utils/currency'
 import { getCurrentDate, isValidIsoDate } from '@/utils/formatters'
@@ -64,111 +69,173 @@ export default function TrialBalancePage() {
     }
   }, [searchParams, rawAsOfDate, setSearchParams])
 
-  const { data, currentData, isFetching, error } = useGetTrialBalanceQuery(
+  const { currentData, isFetching, error } = useGetTrialBalanceQuery(
     { asOfDate: effectiveAsOfDate, showZero },
     { refetchOnFocus: true, refetchOnMountOrArgChange: true },
   )
 
   // currentData, never data: RTK Query keeps `data` pointing at the PREVIOUS
   // argument's result while a new one is in flight, which would show another
-  // date's totals under the selected date.
-  void data
+  // date's totals under the selected date — and would keep showing them if the
+  // new request failed. Every visible element below is gated on this one value.
   const trialBalance = currentData as TrialBalanceResponse | undefined
-  const hasError = Boolean(error)
+
+  const filterToolbar = (
+    <Box
+      sx={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 1.5,
+        alignItems: 'center',
+      }}
+    >
+      <TextField
+        size="small"
+        label="As of Date"
+        type="date"
+        value={effectiveAsOfDate}
+        onChange={(e) => setFilter('asOfDate', e.target.value)}
+        slotProps={{ inputLabel: { shrink: true } }}
+        sx={{ flex: '0 0 160px' }}
+      />
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={showZero}
+            onChange={(e) => setFilter('showZero', e.target.checked ? 'true' : '')}
+          />
+        }
+        label="Show zero-balance accounts"
+      />
+    </Box>
+  )
+
+  const balancedChip = trialBalance ? (
+    <Chip
+      size="small"
+      data-testid="tb-balanced-chip"
+      color={trialBalance.balanced ? 'success' : 'warning'}
+      label={trialBalance.balanced ? 'Balanced' : 'Unbalanced'}
+    />
+  ) : undefined
+
+  const summaryStrip = trialBalance ? (
+    <Box
+      data-testid="tb-summary-strip"
+      sx={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        columnGap: 3,
+        rowGap: 2,
+        mb: 2,
+      }}
+    >
+      {[
+        { label: 'Total Debit', value: trialBalance.totalDebit },
+        { label: 'Total Credit', value: trialBalance.totalCredit },
+        // No Math.abs: the sign is the API's, and it tells the reader which
+        // side the books are out on.
+        { label: 'Difference', value: trialBalance.difference },
+      ].map((item) => (
+        <Box key={item.label} sx={{ flex: '1 1 auto', minWidth: 140 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+            {item.label}
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+            {formatCurrency(item.value)}
+          </Typography>
+        </Box>
+      ))}
+    </Box>
+  ) : null
 
   return (
-    <Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <PageHeader
+        variant="workflow"
         title="Trial Balance"
         subtitle="View account balances for a given date."
+        toolbar={filterToolbar}
+        titleBadge={balancedChip}
       />
 
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center', flexWrap: 'wrap' }}>
-        <TextField
-          label="As of Date"
-          type="date"
-          value={effectiveAsOfDate}
-          onChange={(e) => setFilter('asOfDate', e.target.value)}
-          size="small"
-          slotProps={{ inputLabel: { shrink: true } }}
-        />
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={showZero}
-              onChange={(e) => setFilter('showZero', e.target.checked ? 'true' : '')}
-            />
-          }
-          label="Show zero-balance accounts"
-        />
-      </Box>
-
-      {hasError && (
+      {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          Failed to load trial balance.
+          Unable to load the trial balance. Please try again.
         </Alert>
       )}
 
-      {isFetching && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <CircularProgress />
-        </Box>
+      {trialBalance && !trialBalance.balanced && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          The trial balance is not balanced. Difference:{' '}
+          {formatCurrency(trialBalance.difference)}
+        </Alert>
       )}
 
-      {trialBalance && !isFetching && (
-        <>
-          {!trialBalance.balanced && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              The trial balance is not balanced. Difference: {formatCurrency(trialBalance.difference)}
-            </Alert>
-          )}
+      <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
+        {isFetching && !trialBalance ? (
+          <ListSkeleton rows={8} columns={4} />
+        ) : trialBalance ? (
+          <>
+            {summaryStrip}
 
-          <TableContainer component={Paper}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>Account Code</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    Debit
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    Credit
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {trialBalance.rows.length === 0 && (
+            <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
+              <Table
+                size={TABLE_STYLES.size}
+                sx={{
+                  '& .MuiTableCell-root': {
+                    py: TABLE_STYLES.cell.padding.py,
+                    px: TABLE_STYLES.cell.padding.px,
+                  },
+                  '& .MuiTableCell-head': {
+                    fontWeight: 600,
+                    py: TABLE_STYLES.header.padding.py,
+                    backgroundColor: TABLE_STYLES.header.backgroundColor,
+                  },
+                }}
+              >
+                <TableHead>
                   <TableRow>
-                    <TableCell
-                      colSpan={4}
-                      align="center"
-                      sx={{ py: 3, color: 'text.secondary' }}
-                    >
-                      No accounts found.
-                    </TableCell>
+                    <TableCell>Account Code</TableCell>
+                    <TableCell>Name</TableCell>
+                    <TableCell align="right">Debit</TableCell>
+                    <TableCell align="right">Credit</TableCell>
                   </TableRow>
-                )}
-                {trialBalance.rows.map((row) => (
-                  <TableRow key={row.code}>
-                    <TableCell>{row.code}</TableCell>
-                    <TableCell>{row.name}</TableCell>
-                    <TableCell align="right">
-                      {row.debit !== '0.0000' ? formatCurrency(row.debit) : '—'}
-                    </TableCell>
-                    <TableCell align="right">
-                      {row.credit !== '0.0000' ? formatCurrency(row.credit) : '—'}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                </TableHead>
+                <TableBody>
+                  {trialBalance.rows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} align="center">
+                        <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
+                          No accounts found.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    trialBalance.rows.map((row) => (
+                      <TableRow key={row.code} hover>
+                        <TableCell>{row.code}</TableCell>
+                        <TableCell>{row.name}</TableCell>
+                        <TableCell align="right">
+                          {row.debit !== '0.0000' ? formatCurrency(row.debit) : '—'}
+                        </TableCell>
+                        <TableCell align="right">
+                          {row.credit !== '0.0000' ? formatCurrency(row.credit) : '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
                 {trialBalance.rows.length > 0 && (
-                  <>
+                  <TableFooter>
                     <TableRow
                       sx={{
                         '& td': {
                           borderTop: 2,
                           borderTopColor: 'divider',
                           fontWeight: 700,
+                          color: 'text.primary',
+                          fontSize: '0.875rem',
                         },
                       }}
                     >
@@ -180,23 +247,13 @@ export default function TrialBalancePage() {
                         {formatCurrency(trialBalance.totalCredit)}
                       </TableCell>
                     </TableRow>
-                    <TableRow>
-                      <TableCell colSpan={2} />
-                      <TableCell
-                        colSpan={2}
-                        align="right"
-                        sx={{ fontStyle: 'italic', color: 'text.secondary' }}
-                      >
-                        Difference: {formatCurrency(trialBalance.difference)}
-                      </TableCell>
-                    </TableRow>
-                  </>
+                  </TableFooter>
                 )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </>
-      )}
+              </Table>
+            </TableContainer>
+          </>
+        ) : null}
+      </Box>
     </Box>
   )
 }
