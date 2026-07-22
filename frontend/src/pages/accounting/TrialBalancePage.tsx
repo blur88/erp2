@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Alert,
   Box,
@@ -17,20 +18,62 @@ import {
 import PageHeader from '@/components/common/PageHeader'
 import { useGetTrialBalanceQuery } from '@/store/api/accountingApi'
 import { formatCurrency } from '@/utils/currency'
-import { getCurrentDate } from '@/utils/formatters'
+import { getCurrentDate, isValidIsoDate } from '@/utils/formatters'
 import type { TrialBalanceResponse } from '@/types'
 
 export default function TrialBalancePage() {
-  const today = getCurrentDate()
-  const [asOfDate, setAsOfDate] = useState(today)
-  const [showZero, setShowZero] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  const { data, isFetching, error } = useGetTrialBalanceQuery(
-    { asOfDate, showZero },
-    { skip: false, refetchOnFocus: true, refetchOnMountOrArgChange: true },
+  const rawAsOfDate = searchParams.get('asOfDate') ?? ''
+  // Trial Balance always needs a date, so an absent or impossible value means
+  // today — unlike the General Ledger, where an absent account skips the query.
+  const effectiveAsOfDate = isValidIsoDate(rawAsOfDate) ? rawAsOfDate : getCurrentDate()
+  // Only the exact string 'true' is truthy. Anything else (?showZero=1, an empty
+  // value) is false and gets cleaned out of the URL below.
+  const showZero = searchParams.get('showZero') === 'true'
+
+  const setFilter = (key: string, value: string) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (value) next.set(key, value)
+        else next.delete(key)
+        return next
+      },
+      { replace: true },
+    )
+  }
+
+  // Single atomic cleanup: delete every key PRESENT in the URL whose effective
+  // value is empty or invalid. Guarded on a real string difference so it cannot
+  // loop. Uses searchParams.has(key), not truthiness of the raw value, so
+  // `?showZero=` is deleted too. Today's date is deliberately never written —
+  // a bare URL is the canonical form for "today".
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams)
+
+    if (searchParams.has('asOfDate') && !isValidIsoDate(rawAsOfDate)) {
+      next.delete('asOfDate')
+    }
+    if (searchParams.has('showZero') && searchParams.get('showZero') !== 'true') {
+      next.delete('showZero')
+    }
+
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true })
+    }
+  }, [searchParams, rawAsOfDate, setSearchParams])
+
+  const { data, currentData, isFetching, error } = useGetTrialBalanceQuery(
+    { asOfDate: effectiveAsOfDate, showZero },
+    { refetchOnFocus: true, refetchOnMountOrArgChange: true },
   )
 
-  const trialBalance = data as TrialBalanceResponse | undefined
+  // currentData, never data: RTK Query keeps `data` pointing at the PREVIOUS
+  // argument's result while a new one is in flight, which would show another
+  // date's totals under the selected date.
+  void data
+  const trialBalance = currentData as TrialBalanceResponse | undefined
   const hasError = Boolean(error)
 
   return (
@@ -44,8 +87,8 @@ export default function TrialBalancePage() {
         <TextField
           label="As of Date"
           type="date"
-          value={asOfDate}
-          onChange={(e) => setAsOfDate(e.target.value)}
+          value={effectiveAsOfDate}
+          onChange={(e) => setFilter('asOfDate', e.target.value)}
           size="small"
           slotProps={{ inputLabel: { shrink: true } }}
         />
@@ -53,7 +96,7 @@ export default function TrialBalancePage() {
           control={
             <Checkbox
               checked={showZero}
-              onChange={(e) => setShowZero(e.target.checked)}
+              onChange={(e) => setFilter('showZero', e.target.checked ? 'true' : '')}
             />
           }
           label="Show zero-balance accounts"
