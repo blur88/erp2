@@ -664,6 +664,7 @@ export interface GeneralLedgerResponse {
 }
 
 export interface TrialBalanceRow {
+  accountId: string;
   code: string;
   name: string;
   debit: string;

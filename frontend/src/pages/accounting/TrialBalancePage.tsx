@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Alert,
   Box,
@@ -28,6 +28,7 @@ import type { TrialBalanceResponse } from '@/types'
 
 export default function TrialBalancePage() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
 
   const rawAsOfDate = searchParams.get('asOfDate') ?? ''
   // Trial Balance always needs a date, so an absent or impossible value means
@@ -36,6 +37,11 @@ export default function TrialBalancePage() {
   // Only the exact string 'true' is truthy. Anything else (?showZero=1, an empty
   // value) is false and gets cleaned out of the URL below.
   const showZero = searchParams.get('showZero') === 'true'
+
+  const openLedger = (accountId: string) => {
+    const params = new URLSearchParams({ accountId, toDate: effectiveAsOfDate })
+    navigate(`/accounting/general-ledger?${params.toString()}`)
+  }
 
   const setFilter = (key: string, value: string) => {
     setSearchParams(
@@ -213,7 +219,17 @@ export default function TrialBalancePage() {
                     </TableRow>
                   ) : (
                     trialBalance.rows.map((row) => (
-                      <TableRow key={row.code} hover>
+                      <TableRow
+                        key={row.code}
+                        hover
+                        role="link"
+                        tabIndex={0}
+                        onClick={() => openLedger(row.accountId)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') openLedger(row.accountId)
+                        }}
+                        sx={{ cursor: 'pointer' }}
+                      >
                         <TableCell>{row.code}</TableCell>
                         <TableCell>{row.name}</TableCell>
                         <TableCell align="right">

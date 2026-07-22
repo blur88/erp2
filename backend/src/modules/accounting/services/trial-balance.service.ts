@@ -5,6 +5,22 @@ import { ChartOfAccount } from '../entities/chart-of-account.entity';
 import { AccountBalanceService } from './account-balance.service';
 import { formatScale4 } from '../utils/money';
 
+export interface TrialBalanceRow {
+  accountId: string;
+  code: string;
+  name: string;
+  debit: string;
+  credit: string;
+}
+
+export interface TrialBalanceResponse {
+  rows: TrialBalanceRow[];
+  totalDebit: string;
+  totalCredit: string;
+  difference: string;
+  balanced: boolean;
+}
+
 @Injectable()
 export class TrialBalanceService {
   constructor(
@@ -18,8 +34,12 @@ export class TrialBalanceService {
       : { debit: '0.0000', credit: formatScale4(-rawDebitMinusCredit) };
   }
 
-  assemble(accounts: ChartOfAccount[], leaf: Map<string, bigint>, showZero: boolean) {
-    const rows: any[] = [];
+  assemble(
+    accounts: ChartOfAccount[],
+    leaf: Map<string, bigint>,
+    showZero: boolean,
+  ): TrialBalanceResponse {
+    const rows: TrialBalanceRow[] = [];
     let totalDebit = 0n, totalCredit = 0n;
     for (const a of accounts) {
       if (!a.isPostable) continue;
@@ -27,7 +47,7 @@ export class TrialBalanceService {
       if (raw === 0n && !showZero) continue;
       const { debit, credit } = this.classify(raw);
       if (raw >= 0n) totalDebit += raw; else totalCredit += -raw;
-      rows.push({ code: a.code, name: a.name, debit, credit });
+      rows.push({ accountId: a.id, code: a.code, name: a.name, debit, credit });
     }
     return {
       rows, totalDebit: formatScale4(totalDebit), totalCredit: formatScale4(totalCredit),
@@ -35,7 +55,9 @@ export class TrialBalanceService {
     };
   }
 
-  async getTrialBalance(params: { asOfDate?: string; showZero?: boolean }) {
+  async getTrialBalance(
+    params: { asOfDate?: string; showZero?: boolean },
+  ): Promise<TrialBalanceResponse> {
     const accounts = await this.coaRepo.find({ order: { code: 'ASC' } });
     const leaf = await this.balance.getLeafBalances(params.asOfDate);
     return this.assemble(accounts, leaf, !!params.showZero);

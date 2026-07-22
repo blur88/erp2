@@ -26,4 +26,19 @@ describe('TrialBalanceService.assemble', () => {
     expect(res.totalCredit).toBe('500.0000');
     expect(res.balanced).toBe(true);
   });
+
+  it('carries the source account id on every row, including zero rows under showZero', () => {
+    const rows = [
+      { id: 'a', code: '1100', name: 'Cash', type: AccountType.ASSET, isPostable: true },
+      { id: 'b', code: '2100', name: 'Cust Dep', type: AccountType.LIABILITY, isPostable: true },
+      { id: 'z', code: '1300', name: 'Inv', type: AccountType.ASSET, isPostable: true },
+    ] as any[];
+    const leaf = new Map<string, bigint>([['a', 5000000n], ['b', -5000000n], ['z', 0n]]);
+
+    const res = svc.assemble(rows, leaf, false);
+    expect(res.rows.map((r) => r.accountId)).toEqual(['a', 'b']);
+
+    const withZero = svc.assemble(rows, leaf, true);
+    expect(withZero.rows.map((r) => r.accountId)).toEqual(['a', 'b', 'z']);
+  });
 });
