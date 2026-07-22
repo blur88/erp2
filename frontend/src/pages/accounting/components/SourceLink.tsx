@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
-import { Link } from 'react-router-dom'
-import { Button, Tooltip } from '@mui/material'
+import { Link as RouterLink } from 'react-router-dom'
+import { Button, Link, Tooltip } from '@mui/material'
 
 import type { AccountingSourceType } from '@/types'
 import { buildSourceLink } from '../source-link'
@@ -32,7 +32,7 @@ export default function SourceLink({
     inner =
       variant === 'button' ? (
         <Button
-          component={Link}
+          component={RouterLink}
           to={href}
           variant="text"
           size="small"
@@ -41,7 +41,7 @@ export default function SourceLink({
           {primaryText}
         </Button>
       ) : (
-        <Link to={href} style={{ textDecoration: 'none' }}>
+        <Link component={RouterLink} to={href} underline="hover">
           {primaryText}
         </Link>
       )

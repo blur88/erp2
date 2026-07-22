@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link as RouterLink, useSearchParams } from 'react-router-dom'
 import {
+  Alert,
   Box,
-  Grid,
+  Chip,
+  Link,
   MenuItem,
   Paper,
   Table,
@@ -16,6 +18,7 @@ import {
 } from '@mui/material'
 
 import PageHeader from '@/components/common/PageHeader'
+import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetAccountsQuery, useGetGeneralLedgerQuery } from '@/store/api/accountingApi'
 import type { AccountingSourceType } from '@/types'
@@ -104,6 +107,107 @@ export default function GeneralLedgerPage() {
 
   const hasSelection = Boolean(effectiveAccountId)
 
+  const filterToolbar = (
+    <Box
+      sx={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 1.5,
+        alignItems: 'flex-start',
+      }}
+    >
+      <TextField
+        select
+        size="small"
+        label="Account"
+        value={effectiveAccountId}
+        onChange={(e) => setFilter('accountId', e.target.value)}
+        required
+        sx={{ flex: '2 1 260px' }}
+      >
+        <MenuItem value="">
+          <em>Select an account</em>
+        </MenuItem>
+        {accounts.map((acct) => (
+          <MenuItem key={acct.id} value={acct.id}>
+            {acct.code} - {acct.name}
+          </MenuItem>
+        ))}
+      </TextField>
+      <TextField
+        size="small"
+        label="From Date"
+        type="date"
+        value={effectiveFromDate}
+        onChange={(e) => setFilter('fromDate', e.target.value)}
+        slotProps={{ inputLabel: { shrink: true } }}
+        sx={{ flex: '0 0 160px' }}
+      />
+      <TextField
+        size="small"
+        label="To Date"
+        type="date"
+        value={effectiveToDate}
+        onChange={(e) => setFilter('toDate', e.target.value)}
+        error={dateRangeInvalid}
+        helperText={dateRangeInvalid ? 'To Date is before From Date' : undefined}
+        slotProps={{ inputLabel: { shrink: true } }}
+        sx={{ flex: '0 0 160px' }}
+      />
+      <TextField
+        select
+        size="small"
+        label="Source Type"
+        value={effectiveSourceType}
+        onChange={(e) => setFilter('sourceType', e.target.value)}
+        sx={{ flex: '1 1 180px' }}
+      >
+        {SOURCE_TYPES.map((st) => (
+          <MenuItem key={st.value} value={st.value}>
+            {st.label}
+          </MenuItem>
+        ))}
+      </TextField>
+    </Box>
+  )
+
+  const accountBadge = glData ? (
+    <Chip
+      size="small"
+      data-testid="gl-account-badge"
+      label={`${glData.account.code} - ${glData.account.name}`}
+    />
+  ) : undefined
+
+  const summaryStrip = glData ? (
+    <Box
+      data-testid="gl-summary-strip"
+      sx={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        columnGap: 3,
+        rowGap: 2,
+        mb: 2,
+      }}
+    >
+      {[
+        { label: 'Opening Balance', value: glData.openingBalance },
+        { label: 'Total Debit', value: glData.totalDebit },
+        { label: 'Total Credit', value: glData.totalCredit },
+        { label: 'Closing Balance', value: glData.closingBalance },
+      ].map((item) => (
+        <Box key={item.label} sx={{ flex: '1 1 auto', minWidth: 140 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+            {item.label}
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+            {formatCurrency(item.value)}
+          </Typography>
+        </Box>
+      ))}
+    </Box>
+  ) : null
+
   // Single atomic cleanup: clone once, delete every key that is PRESENT in the URL but whose
   // effective value is empty (covers both invalid values AND present-but-empty keys like
   // `?sourceType=`), plus (only once accounts have loaded) an accountId not in the loaded list.
@@ -140,78 +244,17 @@ export default function GeneralLedgerPage() {
         variant="workflow"
         title="General Ledger"
         subtitle="View account movements and balances."
+        toolbar={filterToolbar}
+        titleBadge={accountBadge}
       />
 
-      <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
-        {/* Filters */}
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-            Filters
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label="Account"
-                value={effectiveAccountId}
-                onChange={(e) => setFilter('accountId', e.target.value)}
-                required
-              >
-                <MenuItem value="">
-                  <em>Select an account</em>
-                </MenuItem>
-                {accounts.map((acct) => (
-                  <MenuItem key={acct.id} value={acct.id}>
-                    {acct.code} - {acct.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <TextField
-                fullWidth
-                size="small"
-                label="From Date"
-                type="date"
-                value={effectiveFromDate}
-                onChange={(e) => setFilter('fromDate', e.target.value)}
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <TextField
-                fullWidth
-                size="small"
-                label="To Date"
-                type="date"
-                value={effectiveToDate}
-                onChange={(e) => setFilter('toDate', e.target.value)}
-                error={dateRangeInvalid}
-                helperText={dateRangeInvalid ? 'To Date is before From Date' : undefined}
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 2 }}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label="Source Type"
-                value={effectiveSourceType}
-                onChange={(e) => setFilter('sourceType', e.target.value)}
-              >
-                {SOURCE_TYPES.map((st) => (
-                  <MenuItem key={st.value} value={st.value}>
-                    {st.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-          </Grid>
-        </Paper>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Unable to load the general ledger. Please try again.
+        </Alert>
+      )}
 
+      <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
         {/* Content */}
         {!hasSelection ? (
           <Paper sx={{ p: 6, textAlign: 'center' }}>
@@ -220,30 +263,29 @@ export default function GeneralLedgerPage() {
             </Typography>
           </Paper>
         ) : isFetching && !glData ? (
-          <Paper sx={{ p: 6, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              Loading...
-            </Typography>
-          </Paper>
+          <ListSkeleton rows={8} columns={7} />
         ) : glData ? (
           <>
-            {/* Account Info */}
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-                {glData.account.code} - {glData.account.name}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Opening Balance: {formatCurrency(glData.openingBalance)}
-              </Typography>
-            </Paper>
+            {summaryStrip}
 
             {/* Movements Table */}
             <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
-              <Table size={TABLE_STYLES.size}>
+              <Table
+                size={TABLE_STYLES.size}
+                sx={{
+                  '& .MuiTableCell-root': {
+                    py: TABLE_STYLES.cell.padding.py,
+                    px: TABLE_STYLES.cell.padding.px,
+                  },
+                  '& .MuiTableCell-head': {
+                    fontWeight: 600,
+                    py: TABLE_STYLES.header.padding.py,
+                    backgroundColor: TABLE_STYLES.header.backgroundColor,
+                  },
+                }}
+              >
                 <TableHead>
-                  <TableRow
-                    sx={{ '& .MuiTableCell-head': { fontWeight: 600 } }}
-                  >
+                  <TableRow>
                     <TableCell>Date</TableCell>
                     <TableCell>Journal No.</TableCell>
                     <TableCell>Description</TableCell>
@@ -276,8 +318,9 @@ export default function GeneralLedgerPage() {
                           <TableCell>{formatDate(movement.date)}</TableCell>
                           <TableCell>
                             <Link
+                              component={RouterLink}
                               to={`/accounting/journal-entries/${movement.journalEntryId}`}
-                              style={{ textDecoration: 'none' }}
+                              underline="hover"
                             >
                               {movement.journalNo}
                             </Link>
@@ -314,69 +357,7 @@ export default function GeneralLedgerPage() {
               </Table>
             </TableContainer>
 
-            {/* Summary */}
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                Summary
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block' }}
-                  >
-                    Opening Balance
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {formatCurrency(glData.openingBalance)}
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block' }}
-                  >
-                    Total Debit
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {formatCurrency(glData.totalDebit)}
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block' }}
-                  >
-                    Total Credit
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {formatCurrency(glData.totalCredit)}
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block' }}
-                  >
-                    Closing Balance
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {formatCurrency(glData.closingBalance)}
-                  </Typography>
-                </Grid>
-              </Grid>
-            </Paper>
           </>
-        ) : error ? (
-          <Paper sx={{ p: 6, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              Unable to load the general ledger. Please try again.
-            </Typography>
-          </Paper>
         ) : null}
       </Box>
     </Box>
