@@ -227,14 +227,21 @@ describe('AccountingSettingsPage', () => {
   it('keeps the page header mounted and shows a skeleton while loading', async () => {
     const { useGetAccountingSettingsQuery } = await import('@/store/api/accountingApi')
     const mockFn = vi.mocked(useGetAccountingSettingsQuery)
+    // The override must persist (the page re-renders, so mockReturnValueOnce
+    // would lapse before the assertions run), but nothing resets mocks between
+    // tests — the global afterEach only calls cleanup(). Restoring in `finally`
+    // keeps a failed assertion here from leaking a permanently-loading page into
+    // every later test and turning one failure into a file-wide cascade.
     mockFn.mockReturnValue({ data: undefined, isLoading: true, error: undefined } as any)
 
-    const { container } = renderPage()
+    try {
+      const { container } = renderPage()
 
-    expect(screen.getByText('Accounting Settings')).toBeInTheDocument()
-    expect(container.querySelectorAll('.MuiSkeleton-root').length).toBeGreaterThan(0)
-
-    mockFn.mockReturnValue({ data: mockSettings, isLoading: false, error: undefined } as any)
+      expect(screen.getByText('Accounting Settings')).toBeInTheDocument()
+      expect(container.querySelectorAll('.MuiSkeleton-root').length).toBeGreaterThan(0)
+    } finally {
+      mockFn.mockReturnValue({ data: mockSettings, isLoading: false, error: undefined } as any)
+    }
   })
 
   it('Save calls update mutation with all 9 ids', async () => {
