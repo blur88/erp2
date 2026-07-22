@@ -327,6 +327,15 @@ describe('AccountingSettingsPage', () => {
           screen.getByText(/read-only. Only an administrator can change them/i),
         ).toBeInTheDocument()
       })
+
+      it('renders the account selects disabled', () => {
+        renderPage(role)
+        expect(screen.getByLabelText('Cash Account')).toHaveAttribute('aria-disabled', 'true')
+        expect(screen.getByLabelText('Sales Revenue Account')).toHaveAttribute(
+          'aria-disabled',
+          'true',
+        )
+      })
     },
   )
 })
