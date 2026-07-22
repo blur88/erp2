@@ -163,8 +163,10 @@ export default function AccountingSettingsPage() {
   // The accounts query fills every dropdown, so its failure is just as fatal as
   // the settings one — without it the selects render with no options at all.
   const loadError = settingsError ?? accountsError
+  // axiosBaseQuery returns { status, data } with the message in `data`, so read
+  // that first; `.message` only covers a raw Error escaping the base query.
   const error = loadError
-    ? (loadError as any)?.message || 'Failed to load settings.'
+    ? (loadError as any)?.data || (loadError as any)?.message || 'Failed to load settings.'
     : null
 
   const {

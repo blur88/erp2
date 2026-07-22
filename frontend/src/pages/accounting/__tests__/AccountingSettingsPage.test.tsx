@@ -354,10 +354,11 @@ describe('AccountingSettingsPage', () => {
   it('hides the form when the settings query fails', async () => {
     const { useGetAccountingSettingsQuery } = await import('@/store/api/accountingApi')
     const mockFn = vi.mocked(useGetAccountingSettingsQuery)
+    // The shape axiosBaseQuery actually returns: { status, data }, message in `data`.
     mockFn.mockReturnValue({
       data: undefined,
       isLoading: false,
-      error: { message: 'Boom' },
+      error: { status: 500, data: 'Boom' },
     } as any)
 
     try {
@@ -381,7 +382,7 @@ describe('AccountingSettingsPage', () => {
     mockFn.mockReturnValue({
       data: undefined,
       isLoading: false,
-      error: { message: 'Accounts exploded' },
+      error: { status: 503, data: 'Accounts exploded' },
     } as any)
 
     try {
@@ -391,6 +392,19 @@ describe('AccountingSettingsPage', () => {
       expect(screen.queryByLabelText('Cash Account')).not.toBeInTheDocument()
     } finally {
       mockFn.mockReturnValue({ data: mockAccounts, isLoading: false, error: undefined } as any)
+    }
+  })
+
+  it('falls back to a generic message when the error carries no detail', async () => {
+    const { useGetAccountingSettingsQuery } = await import('@/store/api/accountingApi')
+    const mockFn = vi.mocked(useGetAccountingSettingsQuery)
+    mockFn.mockReturnValue({ data: undefined, isLoading: false, error: { status: 500 } } as any)
+
+    try {
+      renderPage()
+      expect(screen.getByText('Failed to load settings.')).toBeInTheDocument()
+    } finally {
+      mockFn.mockReturnValue({ data: mockSettings, isLoading: false, error: undefined } as any)
     }
   })
 
