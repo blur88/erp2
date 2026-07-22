@@ -6,12 +6,21 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 interface PageSectionProps {
   label: string
   meta?: ReactNode
+  /**
+   * Stretch to fill the parent's height with an internally scrolling body.
+   * Correct for a single card owning a workspace pane; leave off when stacking
+   * several cards in a scrolling column, or they compete for height and each
+   * grows its own scrollbar.
+   */
+  fill?: boolean
   children: ReactNode
 }
 
-export default function PageSection({ label, meta, children }: PageSectionProps) {
+export default function PageSection({ label, meta, fill = false, children }: PageSectionProps) {
   return (
-    <Paper sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+    <Paper
+      sx={fill ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } : undefined}
+    >
       <Box
         sx={{
           display: 'flex',
@@ -34,7 +43,7 @@ export default function PageSection({ label, meta, children }: PageSectionProps)
         </Typography>
         {meta && <Box data-testid="page-section-meta">{meta}</Box>}
       </Box>
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>{children}</Box>
+      <Box sx={fill ? { flex: 1, minHeight: 0, overflow: 'auto' } : undefined}>{children}</Box>
     </Paper>
   )
 }

@@ -29,4 +29,26 @@ describe('PageSection', () => {
     )
     expect(container.querySelector('[data-testid="page-section-meta"]')).not.toBeInTheDocument()
   })
+
+  it('does not stretch or scroll by default so cards can stack', () => {
+    const { container } = render(
+      <PageSection label="Payment"><div data-testid="child">content</div></PageSection>,
+    )
+    const paper = container.querySelector('.MuiPaper-root') as HTMLElement
+    const body = screen.getByTestId('child').parentElement as HTMLElement
+
+    expect(getComputedStyle(paper).flexGrow).not.toBe('1')
+    expect(getComputedStyle(body).overflow).not.toBe('auto')
+  })
+
+  it('stretches and scrolls when fill is set', () => {
+    const { container } = render(
+      <PageSection label="Payment" fill><div data-testid="child">content</div></PageSection>,
+    )
+    const paper = container.querySelector('.MuiPaper-root') as HTMLElement
+    const body = screen.getByTestId('child').parentElement as HTMLElement
+
+    expect(getComputedStyle(paper).flexGrow).toBe('1')
+    expect(getComputedStyle(body).overflow).toBe('auto')
+  })
 })
