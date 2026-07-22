@@ -316,6 +316,39 @@ describe('AccountingSettingsPage', () => {
     expect(screen.getByLabelText('Cash Account')).toHaveTextContent('1200 - Checking Account')
   })
 
+  // Guards the reason Cancel must call parameterless reset(): resetting from the
+  // `settings` query instead would roll the form back to the PRE-save response,
+  // which RTK Query can still be holding. Clicking Cancel *after* a save is the
+  // only action that distinguishes the two, so without this test the stale-value
+  // bug reintroduces itself with a green suite.
+  it('Cancel after a save restores the saved values, not the stale loaded ones', async () => {
+    mockUpdateSettings.mockClear()
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByLabelText('Cash Account'))
+    await user.click(screen.getByRole('option', { name: /1200 - Checking Account/i }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled()
+    })
+
+    // Dirty the form again, then Cancel. The baseline must be the SAVED value
+    // (1200), not the value the settings query still reports (1100).
+    await user.click(screen.getByLabelText('Cash Account'))
+    await user.click(screen.getByRole('option', { name: /1100 - Cash on Hand/i }))
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /cancel/i })).toBeEnabled()
+    })
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Cash Account')).toHaveTextContent('1200 - Checking Account')
+    })
+  })
+
   // PUT /accounting/settings stays admin-only: these mappings decide which GL
   // accounts sales/purchasing auto-post into. Non-admins read them, never save.
   describe.each(['manager', 'sales_staff', 'inventory_staff', 'procurement_staff'])(
