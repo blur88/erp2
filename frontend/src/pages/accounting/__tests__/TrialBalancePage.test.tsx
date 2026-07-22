@@ -376,6 +376,70 @@ describe('TrialBalancePage presentation', () => {
     expect(screen.queryByText('Total')).not.toBeInTheDocument()
   })
 
+  it('shows the skeleton while fetching with no currentData', () => {
+    mockUseGetTrialBalanceQuery.mockReturnValue({
+      data: undefined,
+      currentData: undefined,
+      isFetching: true,
+      error: undefined,
+    })
+    const { container } = renderPage()
+    expect(container.querySelectorAll('.MuiSkeleton-root').length).toBeGreaterThan(0)
+    expect(screen.queryByTestId('tb-summary-strip')).not.toBeInTheDocument()
+  })
+
+  it('keeps rows visible while refetching with currentData present', () => {
+    mockUseGetTrialBalanceQuery.mockReturnValue({
+      data: balancedData,
+      currentData: balancedData,
+      isFetching: true,
+      error: undefined,
+    })
+    const { container } = renderPage()
+    expect(screen.getByText('Cash')).toBeInTheDocument()
+    expect(container.querySelectorAll('.MuiSkeleton-root').length).toBe(0)
+  })
+
+  it('shows the previous date\'s totals nowhere when a new argument is in flight', () => {
+    mockUseGetTrialBalanceQuery.mockReturnValue({
+      data: balancedData,
+      currentData: undefined,
+      isFetching: true,
+      error: undefined,
+    })
+    renderPage()
+    expect(screen.queryByText('Cash')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('tb-summary-strip')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('tb-balanced-chip')).not.toBeInTheDocument()
+  })
+
+  it('renders the error alert alone when there is no currentData', () => {
+    mockUseGetTrialBalanceQuery.mockReturnValue({
+      data: undefined,
+      currentData: undefined,
+      isFetching: false,
+      error: { status: 500 },
+    })
+    const { container } = renderPage()
+    expect(screen.getByRole('alert')).toHaveTextContent(/unable to load the trial balance/i)
+    expect(container.querySelector('table')).toBeNull()
+    expect(container.querySelectorAll('.MuiSkeleton-root').length).toBe(0)
+  })
+
+  it('renders the error alert above retained rows when currentData is present', () => {
+    mockUseGetTrialBalanceQuery.mockReturnValue({
+      data: balancedData,
+      currentData: balancedData,
+      isFetching: false,
+      error: { status: 500 },
+    })
+    renderPage()
+    expect(screen.getByText(/unable to load the trial balance/i)).toBeInTheDocument()
+    expect(screen.getByText('Cash')).toBeInTheDocument()
+    expect(screen.getByTestId('tb-summary-strip')).toBeInTheDocument()
+  })
+})
+
 describe('TrialBalancePage drill-through to the General Ledger', () => {
   const AT_DATE = '/accounting/trial-balance?asOfDate=2026-01-31'
 
@@ -441,69 +505,5 @@ describe('TrialBalancePage drill-through to the General Ledger', () => {
     const search = searchOf(router)
     expect(search.get('accountId')).toBe('acc-3000')
     expect(search.get('toDate')).toBe('2026-01-31')
-  })
-})
-
-  it('shows the skeleton while fetching with no currentData', () => {
-    mockUseGetTrialBalanceQuery.mockReturnValue({
-      data: undefined,
-      currentData: undefined,
-      isFetching: true,
-      error: undefined,
-    })
-    const { container } = renderPage()
-    expect(container.querySelectorAll('.MuiSkeleton-root').length).toBeGreaterThan(0)
-    expect(screen.queryByTestId('tb-summary-strip')).not.toBeInTheDocument()
-  })
-
-  it('keeps rows visible while refetching with currentData present', () => {
-    mockUseGetTrialBalanceQuery.mockReturnValue({
-      data: balancedData,
-      currentData: balancedData,
-      isFetching: true,
-      error: undefined,
-    })
-    const { container } = renderPage()
-    expect(screen.getByText('Cash')).toBeInTheDocument()
-    expect(container.querySelectorAll('.MuiSkeleton-root').length).toBe(0)
-  })
-
-  it('shows the previous date\'s totals nowhere when a new argument is in flight', () => {
-    mockUseGetTrialBalanceQuery.mockReturnValue({
-      data: balancedData,
-      currentData: undefined,
-      isFetching: true,
-      error: undefined,
-    })
-    renderPage()
-    expect(screen.queryByText('Cash')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('tb-summary-strip')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('tb-balanced-chip')).not.toBeInTheDocument()
-  })
-
-  it('renders the error alert alone when there is no currentData', () => {
-    mockUseGetTrialBalanceQuery.mockReturnValue({
-      data: undefined,
-      currentData: undefined,
-      isFetching: false,
-      error: { status: 500 },
-    })
-    const { container } = renderPage()
-    expect(screen.getByRole('alert')).toHaveTextContent(/unable to load the trial balance/i)
-    expect(container.querySelector('table')).toBeNull()
-    expect(container.querySelectorAll('.MuiSkeleton-root').length).toBe(0)
-  })
-
-  it('renders the error alert above retained rows when currentData is present', () => {
-    mockUseGetTrialBalanceQuery.mockReturnValue({
-      data: balancedData,
-      currentData: balancedData,
-      isFetching: false,
-      error: { status: 500 },
-    })
-    renderPage()
-    expect(screen.getByText(/unable to load the trial balance/i)).toBeInTheDocument()
-    expect(screen.getByText('Cash')).toBeInTheDocument()
-    expect(screen.getByTestId('tb-summary-strip')).toBeInTheDocument()
   })
 })
