@@ -25,6 +25,8 @@ export interface JournalEntryListParams {
   status?: JournalEntryStatus
   fromDate?: string
   toDate?: string
+  sortBy?: 'journalNo'
+  sortOrder?: 'ASC' | 'DESC'
 }
 
 export interface AccountTreeParams {
