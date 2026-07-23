@@ -54,7 +54,10 @@ export class JournalEntryService {
       qb.andWhere(query.status === 'Reversed' ? `EXISTS ${sub}` : `NOT EXISTS ${sub}`);
     }
 
-    qb.orderBy('e.journalNo', 'DESC').skip((page - 1) * limit).take(limit);
+    const sortColumns: Record<'journalNo', string> = { journalNo: 'e.journalNo' };
+    const column = sortColumns[query.sortBy ?? 'journalNo'];
+    const order = query.sortOrder ?? 'DESC';
+    qb.orderBy(column, order).skip((page - 1) * limit).take(limit);
     const [entries, total] = await qb.getManyAndCount();
     // Which of these have a reversal pointing at them?
     const ids = entries.map((e) => e.id);

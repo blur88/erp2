@@ -37,7 +37,7 @@ describe('JournalEntryService.list filtering', () => {
         order.push(sql.includes('EXISTS') ? 'andWhere:EXISTS' : 'andWhere');
         return qb;
       },
-      orderBy: () => { order.push('orderBy'); return qb; },
+      orderBy: (col: string, dir: string) => { qb._orderBy = { col, dir }; order.push('orderBy'); return qb; },
       skip: (n: number) => { qb._skip = n; order.push('skip'); return qb; },
       take: (n: number) => { qb._take = n; order.push('take'); return qb; },
       subQuery: () => ({
@@ -128,5 +128,68 @@ describe('JournalEntryService.list filtering', () => {
     expect(qb._take).toBe(25);
     expect(result.meta.page).toBe(1);
     expect(result.meta.limit).toBe(25);
+  });
+});
+
+describe('JournalEntryService.list sorting', () => {
+  function makeSortQb() {
+    const order: string[] = [];
+    const qb: any = {
+      order,
+      leftJoinAndSelect: () => qb,
+      andWhere: () => qb,
+      orderBy: (col: string, dir: string) => { qb._orderBy = { col, dir }; return qb; },
+      skip: () => qb,
+      take: () => qb,
+      subQuery: () => ({ select: () => ({ from: () => ({ where: () => ({ andWhere: () => ({ getQuery: () => '(SELECT 1)' }) }) }) }) }),
+      getManyAndCount: async () => [[], 0],
+    };
+    return qb;
+  }
+  function buildSvc(qb: any) {
+    return new JournalEntryService(
+      { createQueryBuilder: () => qb, find: async () => [] } as any,
+      {} as any,
+    );
+  }
+
+  it('defaults to journalNo DESC when no sort params given', async () => {
+    const qb = makeSortQb();
+    await buildSvc(qb).list({});
+    expect(qb._orderBy).toEqual({ col: 'e.journalNo', dir: 'DESC' });
+  });
+
+  it('applies journalNo ASC when requested', async () => {
+    const qb = makeSortQb();
+    await buildSvc(qb).list({ sortBy: 'journalNo', sortOrder: 'ASC' });
+    expect(qb._orderBy).toEqual({ col: 'e.journalNo', dir: 'ASC' });
+  });
+
+  it('applies journalNo DESC when requested', async () => {
+    const qb = makeSortQb();
+    await buildSvc(qb).list({ sortBy: 'journalNo', sortOrder: 'DESC' });
+    expect(qb._orderBy).toEqual({ col: 'e.journalNo', dir: 'DESC' });
+  });
+
+  it('applies the sort together with active filters', async () => {
+    const qb = makeSortQb();
+    const calls: any[] = [];
+    qb.andWhere = (sql: string, params?: any) => { calls.push({ sql, params }); return qb; };
+    await buildSvc(qb).list({ sortBy: 'journalNo', sortOrder: 'ASC', search: 'INV-1', status: 'Reversed' });
+    // sort still applied…
+    expect(qb._orderBy).toEqual({ col: 'e.journalNo', dir: 'ASC' });
+    // …and the filters were not dropped
+    expect(calls.some((c) => c.sql.includes('ILIKE'))).toBe(true);
+    expect(calls.some((c) => c.sql.includes('EXISTS'))).toBe(true);
+  });
+
+  it('applies the sort together with pagination (page 2)', async () => {
+    const qb = makeSortQb();
+    qb.skip = (n: number) => { qb._skip = n; return qb; };
+    qb.take = (n: number) => { qb._take = n; return qb; };
+    await buildSvc(qb).list({ sortBy: 'journalNo', sortOrder: 'ASC', page: 2, limit: 25 });
+    expect(qb._orderBy).toEqual({ col: 'e.journalNo', dir: 'ASC' });
+    expect(qb._skip).toBe(25);
+    expect(qb._take).toBe(25);
   });
 });
