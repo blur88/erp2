@@ -45,6 +45,7 @@ import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { usePurchasingAnalytics } from './hooks/usePurchasingAnalytics'
+import { PURCHASING_ACTIVITY_STATUS_OPTIONS } from '@/constants/filterOptions'
 import { resolveApiParams } from '@/utils/dashboardApiParams'
 import type { DashboardCompare } from '@/utils/dashboardApiParams'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
@@ -61,60 +62,37 @@ ChartJS.register(
   ArcElement,
 )
 
+export interface PurchasingDashboardFilters {
+  period: PeriodValue
+  compareWith: DashboardCompare
+  supplierId: string | null
+  status: string | null
+  paymentStatus: string | null
+}
+
+export const purchasingFilterConfig: FilterBarConfig<PurchasingDashboardFilters> = {
+  namespace: 'purchasing',
+  fields: [
+    { field: 'period', label: 'Period', type: 'period' },
+    { field: 'compareWith', label: 'Compare', type: 'compare' },
+    { field: 'supplierId', label: 'Supplier', type: 'supplier', paramKey: 'supplier' },
+    { field: 'status', label: 'Order Status', type: 'select', options: PURCHASING_ACTIVITY_STATUS_OPTIONS, paramKey: 'status' },
+    { field: 'paymentStatus', label: 'Payment Status', type: 'payment-status', paramKey: 'payment' },
+  ],
+  defaults: {
+    period: { key: null, from: null, to: null },
+    compareWith: null,
+    supplierId: null,
+    status: null,
+    paymentStatus: null,
+  },
+}
+
 const PurchasingPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
 
-  type PurchasingDashboardFilters = {
-    period: PeriodValue
-    compareWith: DashboardCompare
-    supplierId: string | null
-    status: string | null
-    paymentStatus: string | null
-  }
-
-  const purchasingConfig: FilterBarConfig<PurchasingDashboardFilters> = {
-    namespace: 'purchasing',
-    fields: [
-      {
-        field: 'period',
-        label: 'Period',
-        type: 'period',
-      },
-      {
-        field: 'compareWith',
-        label: 'Compare',
-        type: 'compare',
-      },
-      {
-        field: 'supplierId',
-        label: 'Supplier',
-        type: 'supplier',
-        paramKey: 'supplier',
-      },
-      {
-        field: 'status',
-        label: 'Order Status',
-        type: 'purchasing-status',
-        paramKey: 'status',
-      },
-      {
-        field: 'paymentStatus',
-        label: 'Payment Status',
-        type: 'payment-status',
-        paramKey: 'payment',
-      },
-    ],
-    defaults: {
-      period: { key: null, from: null, to: null },
-      compareWith: null,
-      supplierId: null,
-      status: null,
-      paymentStatus: null,
-    },
-  }
-
-  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(purchasingConfig)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(purchasingFilterConfig)
   const resolvedApiParams = resolveApiParams(appliedFilters)
 
   const { data, isLoading, isFetching, error } = usePurchasingAnalytics(resolvedApiParams)
@@ -216,7 +194,7 @@ const PurchasingPage: React.FC = () => {
         primaryAction={{ label: 'Create Purchase Order', onClick: () => navigate('/purchasing/orders/create') }}
         toolbar={
           <FilterBar
-            config={purchasingConfig}
+            config={purchasingFilterConfig}
             draftFilters={draftFilters}
             handlers={handlers}
             hasActiveFilters={hasActiveFilters}

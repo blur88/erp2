@@ -16,6 +16,7 @@ import {
   useUnfulfillSalesOrderMutation,
 } from '@/store/api/salesApi'
 import type { SalesOrder } from '@/types'
+import { ORDER_STATUS_OPTIONS } from '@/constants/filterOptions'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
@@ -36,7 +37,7 @@ const filterConfig: FilterBarConfig<SalesOrderFilters> = {
   fields: [
     { field: 'period', label: 'Period', type: 'period' },
     { field: 'customerId', label: 'Customer', type: 'customer' },
-    { field: 'status', label: 'Order Status', type: 'order-status' },
+    { field: 'status', label: 'Order Status', type: 'select', options: ORDER_STATUS_OPTIONS },
     { field: 'paymentStatus', label: 'Payment Status', type: 'payment-status', valueCase: 'upper' },
   ],
   defaults: {

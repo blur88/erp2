@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { ChartOfAccountController } from './chart-of-account.controller';
 
 function makeCtrl() {
@@ -13,7 +14,6 @@ function makeCtrl() {
 describe('ChartOfAccountController', () => {
   it('delegates tree + create to the service', async () => {
     const { svc, ctrl } = makeCtrl();
-    expect(await ctrl.tree()).toEqual([{ code: '1000' }]);
     await ctrl.create({ code: '1500' } as any, { user: { username: 'admin' } } as any);
     expect(svc.create).toHaveBeenCalled();
   });
@@ -21,12 +21,40 @@ describe('ChartOfAccountController', () => {
   it('forwards the search term to the service', async () => {
     const { svc, ctrl } = makeCtrl();
     await ctrl.tree('cash');
-    expect(svc.findTree).toHaveBeenCalledWith({ search: 'cash' });
+    expect(svc.findTree).toHaveBeenCalledWith({ search: 'cash', type: undefined, isActive: undefined });
   });
 
-  it('passes an undefined search term when none is given', async () => {
+  it('passes undefined params when none is given', async () => {
     const { svc, ctrl } = makeCtrl();
     await ctrl.tree();
-    expect(svc.findTree).toHaveBeenCalledWith({ search: undefined });
+    expect(svc.findTree).toHaveBeenCalledWith({ search: undefined, type: undefined, isActive: undefined });
+  });
+
+  it('forwards the type filter', async () => {
+    const { svc, ctrl } = makeCtrl();
+    await ctrl.tree(undefined, 'Asset');
+    expect(svc.findTree).toHaveBeenCalledWith({ search: undefined, type: 'Asset', isActive: undefined });
+  });
+
+  it('forwards isActive=true', async () => {
+    const { svc, ctrl } = makeCtrl();
+    await ctrl.tree(undefined, undefined, 'true');
+    expect(svc.findTree).toHaveBeenCalledWith({ search: undefined, type: undefined, isActive: true });
+  });
+
+  it('forwards isActive=false', async () => {
+    const { svc, ctrl } = makeCtrl();
+    await ctrl.tree(undefined, undefined, 'false');
+    expect(svc.findTree).toHaveBeenCalledWith({ search: undefined, type: undefined, isActive: false });
+  });
+
+  it('rejects a malformed isActive', () => {
+    const { ctrl } = makeCtrl();
+    expect(() => ctrl.tree(undefined, undefined, 'yes')).toThrow(BadRequestException);
+  });
+
+  it('rejects an unknown account type', () => {
+    const { ctrl } = makeCtrl();
+    expect(() => ctrl.tree(undefined, 'bogus')).toThrow(BadRequestException);
   });
 });

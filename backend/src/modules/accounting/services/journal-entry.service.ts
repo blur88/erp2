@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JournalEntry } from '../entities/journal-entry.entity';
 import { JournalEntryLine } from '../entities/journal-entry-line.entity';
+import { ListJournalEntriesDto } from '../dto/list-journal-entries.dto';
 import { formatScale4, toMinorUnits } from '../utils/money';
 
 @Injectable()
@@ -22,13 +23,38 @@ export class JournalEntryService {
     return { totalDebit: formatScale4(d), totalCredit: formatScale4(c), difference: formatScale4(d - c) };
   }
 
-  async list(query: { page?: number; limit?: number }): Promise<{ data: any[]; meta: any }> {
+  async list(query: ListJournalEntriesDto): Promise<{ data: any[]; meta: any }> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 25;
+
+    if (query.fromDate && query.toDate && query.fromDate > query.toDate) {
+      throw new BadRequestException('fromDate must not be after toDate');
+    }
+
     const qb = this.entryRepo.createQueryBuilder('e')
-      .leftJoinAndSelect('e.lines', 'l', 'l."deletedAt" IS NULL')
-      .orderBy('e.journalNo', 'DESC')
-      .skip((page - 1) * limit).take(limit);
+      .leftJoinAndSelect('e.lines', 'l', 'l."deletedAt" IS NULL');
+
+    if (query.search) {
+      qb.andWhere(
+        '(e."journalNo" ILIKE :search OR e."sourceRef" ILIKE :search OR e.description ILIKE :search)',
+        { search: `%${query.search}%` },
+      );
+    }
+    if (query.fromDate) qb.andWhere('e."entryDate" >= :fromDate', { fromDate: query.fromDate });
+    if (query.toDate) qb.andWhere('e."entryDate" <= :toDate', { toDate: query.toDate });
+    if (query.sourceType) qb.andWhere('e."sourceType" = :sourceType', { sourceType: query.sourceType });
+
+    if (query.status) {
+      const sub = qb.subQuery()
+        .select('1')
+        .from(JournalEntry, 'r')
+        .where('r."reversalOfEntryId" = e.id')
+        .andWhere('r."deletedAt" IS NULL')
+        .getQuery();
+      qb.andWhere(query.status === 'Reversed' ? `EXISTS ${sub}` : `NOT EXISTS ${sub}`);
+    }
+
+    qb.orderBy('e.journalNo', 'DESC').skip((page - 1) * limit).take(limit);
     const [entries, total] = await qb.getManyAndCount();
     // Which of these have a reversal pointing at them?
     const ids = entries.map((e) => e.id);

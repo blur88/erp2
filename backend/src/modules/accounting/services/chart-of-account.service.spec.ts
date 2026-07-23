@@ -121,6 +121,80 @@ describe('ChartOfAccountService.findTree', () => {
   // The important accounting invariant: pruning must happen AFTER the balance
   // rollup, so a retained group still reports the balance of children the
   // search removed from view.
+describe('ChartOfAccountService.findTree filtering', () => {
+  const accounts = [
+    { id: 'a', code: '1000', name: 'Assets', type: AccountType.ASSET, parentId: null, isActive: true, isPostable: false },
+    { id: 'b', code: '1100', name: 'Cash', type: AccountType.ASSET, parentId: 'a', isActive: true, isPostable: true },
+    { id: 'e', code: '1200', name: 'Retired Equipment', type: AccountType.ASSET, parentId: 'a', isActive: false, isPostable: true },
+    { id: 'c', code: '2000', name: 'Liabilities', type: AccountType.LIABILITY, parentId: null, isActive: false, isPostable: false },
+    { id: 'd', code: '2100', name: 'Payables', type: AccountType.LIABILITY, parentId: 'c', isActive: true, isPostable: true },
+    { id: 'f', code: '2200', name: 'Cash Loans Payable', type: AccountType.LIABILITY, parentId: 'c', isActive: true, isPostable: true },
+  ];
+
+  const build = () => makeService({ accounts }).svc;
+
+  it('keeps only the matching type, with hierarchy intact', async () => {
+    const tree = await build().findTree({ type: AccountType.ASSET });
+    expect(tree.map((n: any) => n.code)).toEqual(['1000']);
+    expect(tree[0].children.map((n: any) => n.code)).toEqual(['1100', '1200']);
+  });
+
+  it('excludes an inactive leaf that has no active descendant', async () => {
+    const tree = await build().findTree({ isActive: true });
+    const assets: any = tree.find((n: any) => n.code === '1000');
+    expect(assets.children.map((n: any) => n.code)).toEqual(['1100']);
+  });
+
+  it('retains a non-matching ancestor as context', async () => {
+    const tree = await build().findTree({ isActive: true });
+    const liabilities: any = tree.find((n: any) => n.code === '2000');
+    expect(liabilities).toBeDefined();
+    expect(liabilities.isActive).toBe(false);
+    expect(liabilities.children.map((n: any) => n.code)).toEqual(['2100', '2200']);
+  });
+
+  it('combines search with type, excluding a cross-type name match', async () => {
+    const tree = await build().findTree({ search: 'cash', type: AccountType.ASSET });
+    expect(tree.map((n: any) => n.code)).toEqual(['1000']);
+    expect(tree[0].children.map((n: any) => n.code)).toEqual(['1100']);
+  });
+
+  it('returns the whole tree when no filter is given', async () => {
+    const tree = await build().findTree({});
+    expect(tree.map((n: any) => n.code)).toEqual(['1000', '2000']);
+    expect(tree[0].children.map((n: any) => n.code)).toEqual(['1100', '1200']);
+  });
+
+  it('does not let filtering change a rolled-up group balance', async () => {
+    const unfiltered = await build().findTree({});
+    const filtered = await build().findTree({ type: AccountType.ASSET });
+    const rootBefore: any = unfiltered.find((n: any) => n.code === '1000');
+    const rootAfter: any = filtered.find((n: any) => n.code === '1000');
+    expect(rootAfter.balance).toBe(rootBefore.balance);
+  });
+
+  // Regression: the filters must be ANDed in ONE traversal. Applying them as
+  // successive passes kept '2000 Liabilities' here — pass 1 retained it because
+  // its active child '2100' survived, then the search pass dropped '2100' for not
+  // matching the term but kept '2000' on its own name match, surfacing an
+  // INACTIVE account under isActive=true with no surviving descendant.
+  it('drops a node failing one filter even when it matches another', async () => {
+    const tree = await build().findTree({ search: 'liabilities', isActive: true });
+    expect(tree.find((n: any) => n.code === '2000')).toBeUndefined();
+  });
+
+  it('still returns a node matching every active filter at once', async () => {
+    // '2100 Payables' matches the term AND is active, so it satisfies every
+    // filter on its own. Its parent '2000 Liabilities' matches neither and is
+    // retained purely as ancestor context — the case the test above confirms is
+    // dropped once no descendant survives.
+    const tree = await build().findTree({ search: 'payables', isActive: true });
+    const liabilities: any = tree.find((n: any) => n.code === '2000');
+    expect(liabilities).toBeDefined();
+    expect(liabilities.children.map((n: any) => n.code)).toEqual(['2100']);
+  });
+});
+
   it('keeps a retained group balance rolled up over ALL children, not just matching ones', async () => {
     const leaves = new Map<string, bigint>([
       ['cash', 1000000n], // 100.0000

@@ -65,23 +65,12 @@ export function serializeFilters<TFilters extends object>(
     const value = filters[field.field]
     const defaultValue = defaults[String(field.field)]
     const isSingleValueField =
-      field.type === 'status' ||
-      field.type === 'user-status' ||
-      field.type === 'customer-type' ||
-      field.type === 'supplier-type' ||
-      field.type === 'role' ||
-      field.type === 'stock-adjustment-status' ||
+      field.type === 'select' ||
       field.type === 'customer' ||
-      field.type === 'order-status' ||
       field.type === 'payment-status' ||
       field.type === 'supplier' ||
-      field.type === 'purchasing-status' ||
       field.type === 'category' ||
-      field.type === 'product-type' ||
-      field.type === 'stock-status' ||
-      field.type === 'price-list' ||
-      field.type === 'transaction-status' ||
-      field.type === 'vendor-payment-status'
+      field.type === 'price-list'
 
     if (isSingleValueField) {
       if (value !== null && value !== undefined && value !== defaultValue) {
@@ -142,69 +131,23 @@ export function parseFilters<TFilters extends object>(
     const fieldKey = String(field.field)
     const defaultValue = defaults[fieldKey]
     const isSingleValueField =
-      field.type === 'status' ||
-      field.type === 'user-status' ||
-      field.type === 'customer-type' ||
-      field.type === 'supplier-type' ||
-      field.type === 'role' ||
-      field.type === 'stock-adjustment-status' ||
+      field.type === 'select' ||
       field.type === 'customer' ||
-      field.type === 'order-status' ||
       field.type === 'payment-status' ||
       field.type === 'supplier' ||
-      field.type === 'purchasing-status' ||
       field.type === 'category' ||
-      field.type === 'product-type' ||
-      field.type === 'stock-status' ||
-      field.type === 'price-list' ||
-      field.type === 'transaction-status' ||
-      field.type === 'vendor-payment-status'
+      field.type === 'price-list'
 
     if (isSingleValueField) {
       const raw = searchParams.get(key)
       if (raw === null) {
         result[fieldKey] = defaultValue ?? null
-      } else if (field.type === 'status') {
-        const VALID_STATUS = ['active', 'inactive']
-        result[fieldKey] = VALID_STATUS.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'user-status') {
-        const VALID_USER_STATUS = ['active', 'inactive', 'suspended']
-        result[fieldKey] = VALID_USER_STATUS.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'customer-type') {
-        const VALID_CUSTOMER_TYPE = ['individual', 'business']
-        result[fieldKey] = VALID_CUSTOMER_TYPE.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'supplier-type') {
-        const VALID_SUPPLIER_TYPE = ['local', 'international']
-        result[fieldKey] = VALID_SUPPLIER_TYPE.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'role') {
-        const VALID_ROLE = ['admin', 'manager', 'sales_staff', 'inventory_staff', 'procurement_staff']
-        result[fieldKey] = VALID_ROLE.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'stock-adjustment-status') {
-        const VALID_STOCK_ADJUSTMENT_STATUS = ['draft', 'completed']
-        result[fieldKey] = VALID_STOCK_ADJUSTMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'order-status') {
-        const VALID_ORDER_STATUS = fieldKey === 'status'
-          ? ['DRAFT', 'READY', 'FULFILLED', 'CANCELLED']
-          : ['fulfilled', 'unfulfilled']
-        result[fieldKey] = VALID_ORDER_STATUS.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'purchasing-status') {
-        const VALID_PURCHASING_STATUS = ['DRAFT', 'READY', 'RECEIVED', 'CANCELLED', 'draft', 'received']
-        result[fieldKey] = VALID_PURCHASING_STATUS.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'vendor-payment-status') {
-        const VALID_VENDOR_PAYMENT_STATUS = ['pending', 'completed', 'cancelled']
-        result[fieldKey] = VALID_VENDOR_PAYMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)
+      } else if (field.type === 'select') {
+        const allowed = field.options.map((option) => option.value)
+        result[fieldKey] = allowed.includes(raw) ? raw : (defaultValue ?? null)
       } else if (field.type === 'payment-status') {
         const VALID_PAYMENT_STATUS = ['unpaid', 'partial', 'paid', 'overpaid', 'UNPAID', 'PARTIAL', 'PAID', 'OVERPAID']
         result[fieldKey] = VALID_PAYMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'product-type') {
-        const VALID_PRODUCT_TYPE = ['goods', 'service']
-        result[fieldKey] = VALID_PRODUCT_TYPE.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'stock-status') {
-        const VALID_STOCK_STATUS = ['in_stock', 'low_stock', 'out_of_stock']
-        result[fieldKey] = VALID_STOCK_STATUS.includes(raw) ? raw : (defaultValue ?? null)
-      } else if (field.type === 'transaction-status') {
-        const VALID_TRANSACTION_STATUS = ['completed', 'pending', 'failed', 'cancelled', 'refunded']
-        result[fieldKey] = VALID_TRANSACTION_STATUS.includes(raw) ? raw : (defaultValue ?? null)
       } else {
         result[fieldKey] = raw
       }

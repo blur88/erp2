@@ -7,6 +7,7 @@ import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useCompleteStockAdjustmentMutation, useGetStockAdjustmentsQuery } from '@/store/api/inventoryApi'
 import { PAGINATION } from '@/constants/tableStyles'
+import { STOCK_ADJUSTMENT_STATUS_OPTIONS } from '@/constants/filterOptions'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { useNotification } from '@/hooks/useNotification'
@@ -26,7 +27,7 @@ const filterConfig: FilterBarConfig<StockAdjustmentFilters> = {
   search: { placeholder: 'Search by adjustment number, notes, or product name...' },
   fields: [
     { field: 'period', label: 'Period', type: 'period' },
-    { field: 'status', label: 'Status', type: 'stock-adjustment-status' },
+    { field: 'status', label: 'Status', type: 'select', options: STOCK_ADJUSTMENT_STATUS_OPTIONS },
     { field: 'categoryId', label: 'Category', type: 'category' },
   ],
   defaults: { search: '', period: { key: null, from: null, to: null }, status: null, categoryId: null },

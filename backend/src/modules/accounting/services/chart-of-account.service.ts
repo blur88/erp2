@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
 import { AccountingSettings } from '../entities/accounting-settings.entity';
+import { AccountType } from '../entities/account-type.enum';
 import { AccountingPostingService } from './accounting-posting.service';
 import { AccountBalanceService } from './account-balance.service';
 import { CreateAccountDto } from '../dto/create-account.dto';
@@ -87,7 +88,7 @@ export class ChartOfAccountService {
     return qb.orderBy('a.code', 'ASC').getMany();
   }
 
-  async findTree(filter?: { search?: string }): Promise<any[]> {
+  async findTree(filter?: { search?: string; type?: AccountType; isActive?: boolean }): Promise<any[]> {
     const accounts = await this.coaRepo.find({ order: { code: 'ASC' } });
     const leaves = await this.balance.getLeafBalances();
     const withBalances = accounts.map((a) => {
@@ -99,19 +100,38 @@ export class ChartOfAccountService {
     const tree = this.buildTree(withBalances);
 
     // Prune AFTER the rollup above: group balances must be computed over every
-    // account, not only the ones a search happens to match.
+    // account, not only the ones a filter happens to match.
     const q = filter?.search?.trim().toLowerCase();
-    if (!q) return tree;
-    return this.pruneTree(tree, q);
+    const type = filter?.type;
+    const isActive = filter?.isActive;
+    if (!q && !type && isActive === undefined) return tree;
+    return this.pruneTree(tree, { q, type, isActive });
   }
 
-  // Keeps a node if it matches, or if any descendant matches — so a matching
-  // leaf is shown with its ancestor path intact. Non-matching siblings drop out.
-  private pruneTree(nodes: any[], q: string): any[] {
+  // Keeps a node if it matches EVERY active filter, or if any descendant does —
+  // so a matching leaf keeps its ancestor path, and an ancestor retained purely
+  // as context need not match itself (e.g. an active child under an inactive
+  // parent). Non-matching siblings drop out.
+  //
+  // The predicates must be evaluated together in one traversal. Running them as
+  // successive passes is NOT equivalent: under isActive=true + search=Liabilities,
+  // pass 1 keeps an inactive parent because an active child survived, then pass 2
+  // drops that child for not matching the term but keeps the parent on its own
+  // name match — leaving a node that fails isActive with nothing to justify it.
+  private pruneTree(
+    nodes: any[],
+    filter: { q?: string; type?: AccountType; isActive?: boolean },
+  ): any[] {
     const out: any[] = [];
     for (const n of nodes) {
-      const kids = this.pruneTree(n.children, q);
-      const self = n.name.toLowerCase().includes(q) || n.code.toLowerCase().includes(q);
+      const kids = this.pruneTree(n.children, filter);
+      const matchesSearch =
+        !filter.q ||
+        n.name.toLowerCase().includes(filter.q) ||
+        n.code.toLowerCase().includes(filter.q);
+      const matchesType = !filter.type || n.type === filter.type;
+      const matchesActive = filter.isActive === undefined || n.isActive === filter.isActive;
+      const self = matchesSearch && matchesType && matchesActive;
       if (self || kids.length) out.push({ ...n, children: kids });
     }
     return out;

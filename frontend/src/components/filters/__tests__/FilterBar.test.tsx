@@ -6,6 +6,12 @@ import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { describe, expect, it, vi } from 'vitest'
 
+import {
+  FULFILLMENT_STATUS_OPTIONS,
+  ORDER_STATUS_OPTIONS,
+  PURCHASE_ORDER_STATUS_OPTIONS,
+  STATUS_OPTIONS,
+} from '@/constants/filterOptions'
 import type { FilterBarConfig, FilterBarHandlers, PeriodValue } from '@/types/filterBar.types'
 import { FilterBar } from '../FilterBar'
 
@@ -29,7 +35,7 @@ interface Filters {
 const config: FilterBarConfig<Filters> = {
   search: { placeholder: 'Search...' },
   fields: [
-    { field: 'status', label: 'Status', type: 'status' },
+    { field: 'status', label: 'Status', type: 'select', options: STATUS_OPTIONS },
   ],
   defaults: { search: '', status: null },
 }
@@ -266,19 +272,53 @@ describe('FilterBar — custom filter field types', () => {
     expect(screen.getByLabelText(/customer/i)).toBeInTheDocument()
   })
 
-  it('renders FilterOrderStatus when type=order-status', () => {
+  it('renders a select field for fulfillment status', () => {
     interface StatusFilters {
       fulfillmentStatus: string | null
     }
 
     const statusConfig: FilterBarConfig<StatusFilters> = {
-      fields: [{ field: 'fulfillmentStatus', label: 'Order Status', type: 'order-status' }],
+      fields: [{ field: 'fulfillmentStatus', label: 'Order Status', type: 'select', options: FULFILLMENT_STATUS_OPTIONS }],
     }
 
     render(
       <FilterBar
         config={statusConfig}
         draftFilters={{ fulfillmentStatus: null }}
+        handlers={{
+          onSearchChange: vi.fn(),
+          onSearchCommit: vi.fn(),
+          onQuickFilterChange: vi.fn(),
+          onClearField: vi.fn(),
+          onClearAll: vi.fn(),
+        }}
+        hasActiveFilters={false}
+      />,
+    )
+
+    // Assert the OPTIONS, not just the label. Fulfillment and sales-order status
+    // share the label "Order Status" but are different domains — a label-only
+    // check passes even when the wrong option set is wired up.
+    expect(screen.getByLabelText(/order status/i)).toBeInTheDocument()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /order status/i }))
+    expect(screen.getByRole('option', { name: 'Unfulfilled' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Fulfilled' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Draft' })).not.toBeInTheDocument()
+  })
+
+  it('renders a select field for order status', () => {
+    interface StatusFilters {
+      status: string | null
+    }
+
+    const statusConfig: FilterBarConfig<StatusFilters> = {
+      fields: [{ field: 'status', label: 'Order Status', type: 'select', options: ORDER_STATUS_OPTIONS }],
+    }
+
+    render(
+      <FilterBar
+        config={statusConfig}
+        draftFilters={{ status: null }}
         handlers={{
           onSearchChange: vi.fn(),
           onSearchCommit: vi.fn(),
@@ -349,13 +389,13 @@ describe('FilterBar — custom filter field types', () => {
     expect(screen.getByLabelText(/supplier/i)).toBeInTheDocument()
   })
 
-  it('renders FilterPurchasingStatus when type=purchasing-status', () => {
+  it('renders a select field for purchasing status', () => {
     interface PurchasingStatusFilters {
       status: string | null
     }
 
     const purchasingStatusConfig: FilterBarConfig<PurchasingStatusFilters> = {
-      fields: [{ field: 'status', label: 'Order Status', type: 'purchasing-status' }],
+      fields: [{ field: 'status', label: 'Order Status', type: 'select', options: PURCHASE_ORDER_STATUS_OPTIONS }],
     }
 
     render(

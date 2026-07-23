@@ -3,24 +3,12 @@ import { CircularProgress, Stack } from '@mui/material'
 import { FilterCategory } from './FilterCategory'
 import { FilterCompare } from './FilterCompare'
 import { FilterCustomer } from './FilterCustomer'
-import { FilterCustomerType } from './FilterCustomerType'
-import { FilterOrderStatus } from './FilterOrderStatus'
 import { FilterPaymentStatus } from './FilterPaymentStatus'
-import { FilterPaymentMethod } from './FilterPaymentMethod'
 import { FilterPeriod } from './FilterPeriod'
 import { FilterPriceList } from './FilterPriceList'
-import { FilterProductType } from './FilterProductType'
-import { FilterPurchasingStatus } from './FilterPurchasingStatus'
-import { FilterRole } from './FilterRole'
 import { FilterSearch } from './FilterSearch'
-import { FilterStatus } from './FilterStatus'
-import { FilterStockAdjustmentStatus } from './FilterStockAdjustmentStatus'
-import { FilterStockStatus } from './FilterStockStatus'
+import { FilterSelect } from './FilterSelect'
 import { FilterSupplier } from './FilterSupplier'
-import { FilterSupplierType } from './FilterSupplierType'
-import { FilterTransactionStatus } from './FilterTransactionStatus'
-import { FilterVendorPaymentStatus } from './FilterVendorPaymentStatus'
-import { FilterUserStatus } from './FilterUserStatus'
 import { AppButton } from '@/components/common/AppButton'
 import type {
   FilterBarConfig,
@@ -50,68 +38,17 @@ function renderQuickField<TFilters extends object>(
   const onChange = (nextValue: unknown) => handlers.onQuickFilterChange(field.field, nextValue)
   const fieldKey = String(field.field)
 
-  if (field.type === 'status') {
+  if (field.type === 'select') {
     return (
-      <FilterStatus
+      <FilterSelect
         key={fieldKey}
         field={fieldKey}
+        label={field.label}
         value={(value as string | null) ?? null}
+        options={field.options}
         onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'customer-type') {
-    return (
-      <FilterCustomerType
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'supplier-type') {
-    return (
-      <FilterSupplierType
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'user-status') {
-    return (
-      <FilterUserStatus
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'role') {
-    return (
-      <FilterRole
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'stock-adjustment-status') {
-    return (
-      <FilterStockAdjustmentStatus
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
+        emptyLabel={field.emptyLabel}
+        minWidth={field.minWidth}
       />
     )
   }
@@ -156,17 +93,6 @@ function renderQuickField<TFilters extends object>(
     )
   }
 
-  if (field.type === 'order-status') {
-    return (
-      <FilterOrderStatus
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
   if (field.type === 'payment-status') {
     return (
       <FilterPaymentStatus
@@ -202,75 +128,9 @@ function renderQuickField<TFilters extends object>(
     )
   }
 
-  if (field.type === 'purchasing-status') {
-    return (
-      <FilterPurchasingStatus
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'vendor-payment-status') {
-    return (
-      <FilterVendorPaymentStatus
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
   if (field.type === 'category') {
     return (
       <FilterCategory
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'product-type') {
-    return (
-      <FilterProductType
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'stock-status') {
-    return (
-      <FilterStockStatus
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange}
-      />
-    )
-  }
-
-  if (field.type === 'transaction-status') {
-    return (
-      <FilterTransactionStatus
-        key={fieldKey}
-        field={fieldKey}
-        value={(value as string | null) ?? null}
-        onChange={onChange as (value: string | null) => void}
-      />
-    )
-  }
-
-  if (field.type === 'payment-method') {
-    return (
-      <FilterPaymentMethod
         key={fieldKey}
         field={fieldKey}
         value={(value as string | null) ?? null}

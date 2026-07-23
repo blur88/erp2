@@ -10,6 +10,7 @@ import {
   useUpdateCustomerMutation,
 } from '@/store/api/salesApi'
 import type { Customer } from '@/types'
+import { STATUS_OPTIONS, CUSTOMER_TYPE_OPTIONS } from '@/constants/filterOptions'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 import { PAGINATION } from '@/constants/tableStyles'
 
@@ -25,8 +26,8 @@ interface CustomerFilters {
 const filterConfig: FilterBarConfig<CustomerFilters> = {
   search: { placeholder: 'Search by name or phone...' },
   fields: [
-    { field: 'status', label: 'Status', type: 'status' },
-    { field: 'type', label: 'Customer Type', type: 'customer-type' },
+    { field: 'status', label: 'Status', type: 'select', options: STATUS_OPTIONS },
+    { field: 'type', label: 'Customer Type', type: 'select', options: CUSTOMER_TYPE_OPTIONS },
     { field: 'priceListId', label: 'Price List', type: 'price-list' },
   ],
   defaults: { search: '', status: null, type: null, priceListId: null },

@@ -243,9 +243,8 @@ describe('ChartOfAccountsPage', () => {
 
   it('does not issue a filtered query when the search box is empty', () => {
     renderPage()
-    expect(vi.mocked(useGetAccountTreeQuery)).toHaveBeenCalledWith({})
     expect(vi.mocked(useGetAccountTreeQuery)).toHaveBeenCalledWith(
-      { search: '' },
+      {},
       expect.objectContaining({ skip: true }),
     )
   })
@@ -254,7 +253,7 @@ describe('ChartOfAccountsPage', () => {
   it('does not issue a filtered query for a whitespace-only term', () => {
     renderPageWithSearch('   ')
     expect(vi.mocked(useGetAccountTreeQuery)).toHaveBeenCalledWith(
-      { search: '' },
+      {},
       expect.objectContaining({ skip: true }),
     )
   })
@@ -397,10 +396,10 @@ describe('ChartOfAccountsPage', () => {
     await user.click(groupRow.querySelector('button[aria-label="row actions"]')!)
     await user.click(screen.getByText('Add Child Account'))
 
-    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    const dialog = await screen.findByRole('dialog')
     // The backend rejects a child whose type differs from its parent, so the type
     // is inherited and locked rather than left for the user to get wrong.
-    const typeField = screen.getByLabelText(/Type/i)
+    const typeField = within(dialog).getByLabelText(/Type/i)
     expect(typeField).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByText(/Inherited from Current Assets/i)).toBeInTheDocument()
   })

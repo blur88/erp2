@@ -38,6 +38,7 @@ import {
   useSetDefaultPriceListMutation,
 } from '@/store/api/priceListApi'
 import type { PriceList } from '@/types'
+import { STATUS_OPTIONS } from '@/constants/filterOptions'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 import PriceListFormDialog from '@/components/settings/PriceListFormDialog'
 import PriceListCopyDialog from '@/components/settings/PriceListCopyDialog'
@@ -58,7 +59,7 @@ const PriceListsPage: React.FC = () => {
     () => ({
       search: { placeholder: 'Search by code or name...' },
       fields: [
-        { field: 'status', label: 'Status', type: 'status' },
+        { field: 'status', label: 'Status', type: 'select', options: STATUS_OPTIONS },
       ],
       defaults: {
         search: '',

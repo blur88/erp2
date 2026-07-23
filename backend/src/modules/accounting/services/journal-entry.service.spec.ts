@@ -1,4 +1,5 @@
 import { JournalEntryService } from './journal-entry.service';
+import { AccountingSourceType } from '../entities/source-type.enum';
 
 describe('JournalEntryService.deriveStatus', () => {
   const svc = new JournalEntryService({} as any, {} as any);
@@ -16,9 +17,116 @@ describe('JournalEntryService.entryTotals', () => {
     const totals = svc.entryTotals([
       { debit: '500.0000', credit: '0.0000' },
       { debit: '0.0000', credit: '500.0000' },
-    ] as any);
+    ]);
     expect(totals.totalDebit).toBe('500.0000');
     expect(totals.totalCredit).toBe('500.0000');
     expect(totals.difference).toBe('0.0000');
+  });
+});
+
+describe('JournalEntryService.list filtering', () => {
+  function makeQb() {
+    const calls: { sql: string; params: any }[] = [];
+    const order: string[] = [];
+    const qb: any = {
+      calls,
+      order,
+      leftJoinAndSelect: () => qb,
+      andWhere: (sql: string, params?: any) => {
+        calls.push({ sql, params });
+        order.push(sql.includes('EXISTS') ? 'andWhere:EXISTS' : 'andWhere');
+        return qb;
+      },
+      orderBy: () => { order.push('orderBy'); return qb; },
+      skip: (n: number) => { qb._skip = n; order.push('skip'); return qb; },
+      take: (n: number) => { qb._take = n; order.push('take'); return qb; },
+      subQuery: () => ({
+        select: () => ({
+          from: () => ({
+            where: () => ({ andWhere: () => ({ getQuery: () => '(SELECT 1)' }) }),
+          }),
+        }),
+      }),
+      getManyAndCount: async () => { order.push('getManyAndCount'); return [[], 0]; },
+    };
+    return qb;
+  }
+
+  function build(qb: any) {
+    return new JournalEntryService(
+      { createQueryBuilder: () => qb, find: async () => [] } as any,
+      {} as any,
+    );
+  }
+
+  it('applies an ILIKE OR-group for search', async () => {
+    const qb = makeQb();
+    await build(qb).list({ search: 'INV-1' });
+    const where = qb.calls.find((c: any) => c.sql.includes('ILIKE'));
+    expect(where).toBeDefined();
+    expect(where.sql).toMatch(/journalNo.*ILIKE.*sourceRef.*ILIKE.*description.*ILIKE/s);
+    expect(where.sql.startsWith('(')).toBe(true);
+    expect(where.params).toEqual({ search: '%INV-1%' });
+  });
+
+  it('filters an inclusive date range on entryDate', async () => {
+    const qb = makeQb();
+    await build(qb).list({ fromDate: '2026-01-01', toDate: '2026-01-31' });
+    expect(qb.calls.some((c: any) => c.sql.includes('>=') && c.params.fromDate === '2026-01-01')).toBe(true);
+    expect(qb.calls.some((c: any) => c.sql.includes('<=') && c.params.toDate === '2026-01-31')).toBe(true);
+  });
+
+  it('filters sourceType directly', async () => {
+    const qb = makeQb();
+    await build(qb).list({ sourceType: AccountingSourceType.SALES_ORDER });
+    expect(qb.calls.some((c: any) => c.params?.sourceType === 'SALES_ORDER')).toBe(true);
+  });
+
+  it('resolves Reversed via EXISTS', async () => {
+    const qb = makeQb();
+    await build(qb).list({ status: 'Reversed' });
+    const exists = qb.calls.find((c: any) => c.sql.includes('EXISTS'));
+    expect(exists).toBeDefined();
+    expect(exists.sql.startsWith('NOT EXISTS')).toBe(false);
+  });
+
+  it('resolves Posted via NOT EXISTS', async () => {
+    const qb = makeQb();
+    await build(qb).list({ status: 'Posted' });
+    expect(qb.calls.some((c: any) => c.sql.includes('NOT EXISTS'))).toBe(true);
+  });
+
+  it('applies the status predicate BEFORE skip/take', async () => {
+    const qb = makeQb();
+    await build(qb).list({ status: 'Reversed' });
+    expect(qb.order.indexOf('andWhere:EXISTS')).toBeGreaterThan(-1);
+    expect(qb.order.indexOf('andWhere:EXISTS'))
+      .toBeLessThan(qb.order.indexOf('skip'));
+    expect(qb.order.indexOf('skip')).toBeLessThan(qb.order.indexOf('getManyAndCount'));
+  });
+
+  it('reports the filtered total, not the unfiltered one', async () => {
+    const qb = makeQb();
+    qb.getManyAndCount = async () => [
+      [],
+      qb.order.includes('andWhere:EXISTS') ? 3 : 90,
+    ];
+    const result = await build(qb).list({ status: 'Reversed', limit: 25 });
+    expect(result.meta.total).toBe(3);
+    expect(result.meta.totalPages).toBe(1);
+  });
+
+  it('rejects an inverted date range', async () => {
+    await expect(build(makeQb()).list({ fromDate: '2026-02-01', toDate: '2026-01-01' }))
+      .rejects.toThrow(/fromDate/);
+  });
+
+  it('defaults to page 1, limit 25', async () => {
+    const qb = makeQb();
+    const result = await build(qb).list({});
+    expect(qb._skip).toBe(0);
+    expect(qb._take).toBe(25);
+    expect(result.meta.page).toBe(1);
+    expect(result.meta.limit).toBe(25);
   });
 });

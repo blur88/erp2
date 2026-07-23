@@ -10,6 +10,7 @@ import {
   useUpdateSupplierMutation,
 } from '@/store/api/purchasingApi'
 import type { Supplier } from '@/types'
+import { STATUS_OPTIONS, SUPPLIER_TYPE_OPTIONS } from '@/constants/filterOptions'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 import { PAGINATION } from '@/constants/tableStyles'
 
@@ -24,8 +25,8 @@ interface SupplierFilters {
 const filterConfig: FilterBarConfig<SupplierFilters> = {
   search: { placeholder: 'Search by company name...' },
   fields: [
-    { field: 'status', label: 'Status', type: 'status' },
-    { field: 'type', label: 'Supplier Type', type: 'supplier-type' },
+    { field: 'status', label: 'Status', type: 'select', options: STATUS_OPTIONS },
+    { field: 'type', label: 'Supplier Type', type: 'select', options: SUPPLIER_TYPE_OPTIONS },
   ],
   defaults: { search: '', status: null, type: null },
 }
