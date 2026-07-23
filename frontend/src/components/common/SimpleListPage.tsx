@@ -20,9 +20,8 @@ interface SimpleListPageProps<F extends object> {
   handlers: FilterBarHandlers<F>
   hasActiveFilters: boolean
   searchInputRef: RefObject<HTMLInputElement | null>
-  // Optional: a list with no user-selectable sort order (e.g. journal entries,
-  // fixed to journalNo DESC by the backend) omits this so FilterBar does not
-  // render a Sort button that cannot do anything.
+  // Optional: a list with no user-selectable sort order omits this so FilterBar
+  // does not render a Sort button that cannot do anything.
   sort?: FilterBarSortConfig
   isFetching?: boolean
   error?: string | null
