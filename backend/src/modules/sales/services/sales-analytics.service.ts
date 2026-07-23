@@ -13,7 +13,7 @@ import {
   subMonths,
   subYears,
 } from 'date-fns';
-import { Repository } from 'typeorm';
+import { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { Payment, PaymentStatus } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
@@ -35,6 +35,48 @@ import {
 } from '../dto/sales-analytics.dto';
 import { SettingsService } from '../../settings/settings.service';
 import { resolveDateRange } from '@/common/utils/date-range.util';
+
+/**
+ * Applies the sales-order-level dashboard filters to a query builder.
+ *
+ * Extracted so every sales-order-derived aggregate applies the identical set.
+ * These blocks were previously copy-pasted per aggregate, which is how the
+ * paymentStatus filter came to be declared, validated by @IsIn, documented via
+ * @ApiQuery, and then silently ignored by this service (issue #935) — and how
+ * getTopCustomers came to be missing the customerId filter the others had.
+ *
+ * paymentStatus filters the stored, indexed SalesOrder.paymentStatus column
+ * rather than re-deriving status from paidAmount/totalAmount. Do not change
+ * this to an amount comparison: re-deriving would disagree with Sales'
+ * tolerance-based payment logic and make the dashboard contradict the Orders
+ * page. The DTO union is lowercase; the DB enum is uppercase, hence the
+ * toUpperCase() bridge (matching sales-order-query.service.ts).
+ */
+function applySalesOrderFilters<T extends ObjectLiteral>(
+  qb: SelectQueryBuilder<T>,
+  query: SalesAnalyticsQueryDto,
+  alias: string,
+): void {
+  if (query.customerId) {
+    qb.andWhere(`${alias}.customerId = :customerId`, { customerId: query.customerId });
+  }
+
+  if (query.salesRepId) {
+    qb.andWhere(`${alias}.createdByUserId = :salesRepId`, { salesRepId: query.salesRepId });
+  }
+
+  if (query.fulfillmentStatus !== undefined) {
+    qb.andWhere(`${alias}.isFulfilled = :isFulfilled`, {
+      isFulfilled: query.fulfillmentStatus === 'fulfilled',
+    });
+  }
+
+  if (query.paymentStatus) {
+    qb.andWhere(`${alias}.paymentStatus = :paymentStatus`, {
+      paymentStatus: query.paymentStatus.toUpperCase(),
+    });
+  }
+}
 
 @Injectable()
 export class SalesAnalyticsService {
@@ -271,7 +313,7 @@ export class SalesAnalyticsService {
     endDate: Date,
     query?: SalesAnalyticsQueryDto,
   ): Promise<SalesMetricsDto> {
-    let orderQuery = this.salesOrderRepository
+    const orderQuery = this.salesOrderRepository
       .createQueryBuilder('order')
       .where('order.orderDate BETWEEN :startDate AND :endDate', {
         startDate,
@@ -402,29 +444,15 @@ export class SalesAnalyticsService {
         break;
     }
 
-    let periodQuery = this.salesOrderRepository
+    const periodQuery = this.salesOrderRepository
       .createQueryBuilder('order')
       .where('order.orderDate BETWEEN :startDate AND :endDate', {
         startDate,
         endDate,
       });
 
-    if (query?.fulfillmentStatus !== undefined) {
-      periodQuery = periodQuery.andWhere('order.isFulfilled = :isFulfilled', {
-        isFulfilled: query.fulfillmentStatus === 'fulfilled',
-      });
-    }
-
-    if (query?.customerId) {
-      periodQuery = periodQuery.andWhere('order.customerId = :customerId', {
-        customerId: query.customerId,
-      });
-    }
-
-    if (query?.salesRepId) {
-      periodQuery = periodQuery.andWhere('order.createdByUserId = :salesRepId', {
-        salesRepId: query.salesRepId,
-      });
+    if (query) {
+      applySalesOrderFilters(periodQuery, query, 'order');
     }
 
     const data = await periodQuery
@@ -474,7 +502,7 @@ export class SalesAnalyticsService {
     limit: number,
     query?: SalesAnalyticsQueryDto,
   ): Promise<TopCustomerDto[]> {
-    let topCustomersQuery = this.salesOrderRepository
+    const topCustomersQuery = this.salesOrderRepository
       .createQueryBuilder('order')
       .leftJoin('order.customer', 'customer')
       .where('order.orderDate BETWEEN :startDate AND :endDate', {
@@ -482,16 +510,8 @@ export class SalesAnalyticsService {
         endDate,
       });
 
-    if (query?.fulfillmentStatus !== undefined) {
-      topCustomersQuery = topCustomersQuery.andWhere('order.isFulfilled = :isFulfilled', {
-        isFulfilled: query.fulfillmentStatus === 'fulfilled',
-      });
-    }
-
-    if (query?.salesRepId) {
-      topCustomersQuery = topCustomersQuery.andWhere('order.createdByUserId = :salesRepId', {
-        salesRepId: query.salesRepId,
-      });
+    if (query) {
+      applySalesOrderFilters(topCustomersQuery, query, 'order');
     }
 
     const data = await topCustomersQuery
@@ -528,7 +548,7 @@ export class SalesAnalyticsService {
     limit: number,
     query?: SalesAnalyticsQueryDto,
   ): Promise<TopProductDto[]> {
-    let topProductsQuery = this.salesOrderItemRepository
+    const topProductsQuery = this.salesOrderItemRepository
       .createQueryBuilder('item')
       .leftJoin('item.product', 'product')
       .leftJoin('item.salesOrder', 'order')
@@ -537,22 +557,8 @@ export class SalesAnalyticsService {
         endDate,
       });
 
-    if (query?.fulfillmentStatus !== undefined) {
-      topProductsQuery = topProductsQuery.andWhere('order.isFulfilled = :isFulfilled', {
-        isFulfilled: query.fulfillmentStatus === 'fulfilled',
-      });
-    }
-
-    if (query?.customerId) {
-      topProductsQuery = topProductsQuery.andWhere('order.customerId = :customerId', {
-        customerId: query.customerId,
-      });
-    }
-
-    if (query?.salesRepId) {
-      topProductsQuery = topProductsQuery.andWhere('order.createdByUserId = :salesRepId', {
-        salesRepId: query.salesRepId,
-      });
+    if (query) {
+      applySalesOrderFilters(topProductsQuery, query, 'order');
     }
 
     const data = await topProductsQuery

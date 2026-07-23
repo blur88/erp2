@@ -773,4 +773,84 @@ describe('SalesAnalyticsService', () => {
       expect(orderCalls.length).toBeGreaterThanOrEqual(3);
     });
   });
+
+  describe('paymentStatus filter', () => {
+    const start = new Date('2026-03-01T00:00:00.000Z');
+    const end = new Date('2026-03-31T23:59:59.999Z');
+
+    it('applies the stored paymentStatus column in getPeriodData', async () => {
+      const qb = makeChainableQb();
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await (service as any).getPeriodData(start, end, 'month', { paymentStatus: 'paid' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.paymentStatus = :paymentStatus', {
+        paymentStatus: 'PAID',
+      });
+    });
+
+    it('applies paymentStatus in getTopCustomers', async () => {
+      const qb = makeChainableQb();
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await (service as any).getTopCustomers(start, end, 10, { paymentStatus: 'paid' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.paymentStatus = :paymentStatus', {
+        paymentStatus: 'PAID',
+      });
+    });
+
+    it('applies paymentStatus in getTopProducts', async () => {
+      const qb = makeChainableQb();
+      (service as any).salesOrderItemRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(qb);
+
+      await (service as any).getTopProducts(start, end, 10, { paymentStatus: 'paid' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.paymentStatus = :paymentStatus', {
+        paymentStatus: 'PAID',
+      });
+    });
+
+    it.each([
+      ['unpaid', 'UNPAID'],
+      ['partial', 'PARTIAL'],
+      ['paid', 'PAID'],
+      ['overpaid', 'OVERPAID'],
+    ])('maps DTO value %s to enum %s', async (input, expected) => {
+      const qb = makeChainableQb();
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await (service as any).getPeriodData(start, end, 'month', { paymentStatus: input });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.paymentStatus = :paymentStatus', {
+        paymentStatus: expected,
+      });
+    });
+
+    it('applies customerId in getTopCustomers (previously missing)', async () => {
+      const qb = makeChainableQb();
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await (service as any).getTopCustomers(start, end, 10, { customerId: 'cust-1' });
+
+      expect(qb.andWhere).toHaveBeenCalledWith('order.customerId = :customerId', {
+        customerId: 'cust-1',
+      });
+    });
+
+    it('emits no payment predicate when paymentStatus is absent', async () => {
+      const qb = makeChainableQb();
+      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+
+      await (service as any).getPeriodData(start, end, 'month', { customerId: 'cust-1' });
+
+      const calls = qb.andWhere.mock.calls.map((c: any[]) => c[0]);
+      expect(calls).not.toContain('order.paymentStatus = :paymentStatus');
+    });
+  });
 });
