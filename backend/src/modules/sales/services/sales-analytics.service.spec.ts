@@ -842,6 +842,66 @@ describe('SalesAnalyticsService', () => {
       });
     });
 
+    it('applies paymentStatus to both metrics builders', async () => {
+      const orderQb = makeChainableQb({
+        totalRevenue: '0',
+        totalOrders: '0',
+        averageOrderValue: '0',
+        completedOrders: '0',
+        confirmedOrders: '0',
+        draftOrders: '0',
+      });
+      const fulfilledQb = makeChainableQb({
+        paidInvoicesAmount: '0',
+        pendingInvoicesAmount: '0',
+        overdueInvoicesAmount: '0',
+      });
+
+      (service as any).salesOrderRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValueOnce(orderQb)
+        .mockReturnValueOnce(fulfilledQb);
+      (service as any).customerRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(makeChainableQb());
+      (service as any).paymentRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(makeChainableQb());
+
+      await (service as any).calculateSalesMetrics(start, end, { paymentStatus: 'paid' });
+
+      expect(orderQb.andWhere).toHaveBeenCalledWith('order.paymentStatus = :paymentStatus', {
+        paymentStatus: 'PAID',
+      });
+      expect(fulfilledQb.andWhere).toHaveBeenCalledWith('order.paymentStatus = :paymentStatus', {
+        paymentStatus: 'PAID',
+      });
+    });
+
+    it('forwards the query to both comparison-period calls', async () => {
+      const query: any = {
+        dateRange: 'this_month',
+        groupBy: 'day',
+        compareWith: 'previous_period',
+        paymentStatus: 'paid',
+      };
+
+      const metricsSpy = jest
+        .spyOn(service as any, 'calculateSalesMetrics')
+        .mockResolvedValue({} as any);
+      const periodSpy = jest.spyOn(service as any, 'getPeriodData').mockResolvedValue([] as any);
+      jest.spyOn(service as any, 'getTopCustomers').mockResolvedValue([] as any);
+      jest.spyOn(service as any, 'getTopProducts').mockResolvedValue([] as any);
+
+      await service.getSalesAnalytics(query);
+
+      expect(metricsSpy).toHaveBeenCalledTimes(2);
+      expect(periodSpy).toHaveBeenCalledTimes(2);
+
+      expect(metricsSpy.mock.calls[1][2]).toBe(query);
+      expect(periodSpy.mock.calls[1][3]).toBe(query);
+    });
+
     it('emits no payment predicate when paymentStatus is absent', async () => {
       const qb = makeChainableQb();
       (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);

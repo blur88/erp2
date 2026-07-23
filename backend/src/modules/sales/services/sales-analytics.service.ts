@@ -122,8 +122,8 @@ export class SalesAnalyticsService {
     let comparison: SalesAnalyticsPeriodBlockDto | undefined;
     if (comparePeriod) {
       const [compareMetrics, comparePeriodData] = await Promise.all([
-        this.calculateSalesMetrics(comparePeriod.compareStart, comparePeriod.compareEnd),
-        this.getPeriodData(comparePeriod.compareStart, comparePeriod.compareEnd, groupBy),
+        this.calculateSalesMetrics(comparePeriod.compareStart, comparePeriod.compareEnd, query),
+        this.getPeriodData(comparePeriod.compareStart, comparePeriod.compareEnd, groupBy, query),
       ]);
 
       comparison = {
@@ -320,22 +320,22 @@ export class SalesAnalyticsService {
         endDate,
       });
 
-    if (query?.customerId) {
-      orderQuery = orderQuery.andWhere('order.customerId = :customerId', {
-        customerId: query.customerId,
-      });
+    if (query) {
+      applySalesOrderFilters(orderQuery, query, 'order');
     }
 
-    if (query?.salesRepId) {
-      orderQuery = orderQuery.andWhere('order.createdByUserId = :salesRepId', {
-        salesRepId: query.salesRepId,
+    const fulfilledQuery = this.salesOrderRepository
+      .createQueryBuilder('order')
+      .where('order.orderDate BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
+      .andWhere('order.status = :status', {
+        status: SalesOrderStatus.FULFILLED,
       });
-    }
 
-    if (query?.fulfillmentStatus !== undefined) {
-      orderQuery = orderQuery.andWhere('order.isFulfilled = :isFulfilled', {
-        isFulfilled: query.fulfillmentStatus === 'fulfilled',
-      });
+    if (query) {
+      applySalesOrderFilters(fulfilledQuery, query, 'order');
     }
 
     const [orderStats, fulfilledStats, customerStats, paymentStats] = await Promise.all([
@@ -352,15 +352,7 @@ export class SalesAnalyticsService {
         .getRawOne(),
 
       // Fulfilled order statistics (replaces old invoice-based revenue)
-      this.salesOrderRepository
-        .createQueryBuilder('order')
-        .where('order.orderDate BETWEEN :startDate AND :endDate', {
-          startDate,
-          endDate,
-        })
-        .andWhere('order.status = :status', {
-          status: SalesOrderStatus.FULFILLED,
-        })
+      fulfilledQuery
         .select([
           'COALESCE(SUM(order.totalAmount + order.shippingAmount), 0) as "paidInvoicesAmount"',
           'COALESCE(SUM(CASE WHEN order.status = :status2 THEN order.balanceDue ELSE 0 END), 0) as "pendingInvoicesAmount"',
