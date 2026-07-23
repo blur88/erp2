@@ -6,7 +6,12 @@ import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { describe, expect, it, vi } from 'vitest'
 
-import { ORDER_STATUS_OPTIONS, PURCHASE_ORDER_STATUS_OPTIONS, STATUS_OPTIONS } from '@/constants/filterOptions'
+import {
+  FULFILLMENT_STATUS_OPTIONS,
+  ORDER_STATUS_OPTIONS,
+  PURCHASE_ORDER_STATUS_OPTIONS,
+  STATUS_OPTIONS,
+} from '@/constants/filterOptions'
 import type { FilterBarConfig, FilterBarHandlers, PeriodValue } from '@/types/filterBar.types'
 import { FilterBar } from '../FilterBar'
 
@@ -273,7 +278,7 @@ describe('FilterBar — custom filter field types', () => {
     }
 
     const statusConfig: FilterBarConfig<StatusFilters> = {
-      fields: [{ field: 'fulfillmentStatus', label: 'Order Status', type: 'select', options: ORDER_STATUS_OPTIONS }],
+      fields: [{ field: 'fulfillmentStatus', label: 'Order Status', type: 'select', options: FULFILLMENT_STATUS_OPTIONS }],
     }
 
     render(
@@ -291,7 +296,14 @@ describe('FilterBar — custom filter field types', () => {
       />,
     )
 
+    // Assert the OPTIONS, not just the label. Fulfillment and sales-order status
+    // share the label "Order Status" but are different domains — a label-only
+    // check passes even when the wrong option set is wired up.
     expect(screen.getByLabelText(/order status/i)).toBeInTheDocument()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /order status/i }))
+    expect(screen.getByRole('option', { name: 'Unfulfilled' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Fulfilled' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Draft' })).not.toBeInTheDocument()
   })
 
   it('renders a select field for order status', () => {

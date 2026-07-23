@@ -66,6 +66,26 @@ export const PURCHASING_ACTIVITY_STATUS_OPTIONS: Options = [
   { value: 'pending', label: 'Pending' },
 ] as const
 
+export const ACCOUNT_TYPE_OPTIONS: Options = [
+  { value: 'Asset', label: 'Asset' },
+  { value: 'Liability', label: 'Liability' },
+  { value: 'Equity', label: 'Equity' },
+  { value: 'Income', label: 'Income' },
+  { value: 'Expense', label: 'Expense' },
+] as const
+
+export const JOURNAL_SOURCE_TYPE_OPTIONS: Options = [
+  { value: 'SALES_ORDER', label: 'Sales Order' },
+  { value: 'PURCHASE_ORDER', label: 'Purchase Order' },
+  { value: 'STOCK_ADJUSTMENT', label: 'Stock Adjustment' },
+  { value: 'OPENING_BALANCE', label: 'Opening Balance' },
+] as const
+
+export const JOURNAL_STATUS_OPTIONS: Options = [
+  { value: 'Posted', label: 'Posted' },
+  { value: 'Reversed', label: 'Reversed' },
+] as const
+
 export const COMPARE_OPTIONS = [
   { value: 'previous_period', label: 'Previous Period' },
   { value: 'last_month', label: 'Same Period Last Month' },

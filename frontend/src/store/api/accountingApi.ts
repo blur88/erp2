@@ -3,9 +3,12 @@ import { createApi } from '@reduxjs/toolkit/query/react'
 import type {
   Account,
   AccountTreeNode,
+  AccountType,
+  AccountingSourceType,
   AccountingSettings,
   JournalEntry,
   JournalEntryDetail,
+  JournalEntryStatus,
   GeneralLedgerResponse,
   TrialBalanceResponse,
   PaginatedResponse,
@@ -14,16 +17,38 @@ import type {
 import { axiosBaseQuery } from './baseQuery'
 import { normalizePaginated, normalizeSingle } from './normalizers'
 
+export interface JournalEntryListParams {
+  page?: number
+  limit?: number
+  search?: string
+  sourceType?: AccountingSourceType
+  status?: JournalEntryStatus
+  fromDate?: string
+  toDate?: string
+}
+
+export interface AccountTreeParams {
+  search?: string
+  type?: AccountType
+  isActive?: boolean
+}
+
 export const accountingApiSlice = createApi({
   reducerPath: 'accountingApi',
   baseQuery: axiosBaseQuery(),
   tagTypes: ['Account', 'AccountingSettings', 'JournalEntry', 'TrialBalance'],
   endpoints: (builder) => ({
-    getAccountTree: builder.query<AccountTreeNode[], { search?: string }>({
-      query: ({ search }) => ({
-        url: '/accounting/accounts/tree',
-        params: search ? { search } : undefined,
-      }),
+    getAccountTree: builder.query<AccountTreeNode[], AccountTreeParams>({
+      query: ({ search, type, isActive }) => {
+        const params: Record<string, string> = {}
+        if (search) params.search = search
+        if (type) params.type = type
+        if (isActive !== undefined) params.isActive = String(isActive)
+        return {
+          url: '/accounting/accounts/tree',
+          params: Object.keys(params).length ? params : undefined,
+        }
+      },
       transformResponse: (response: any) => response as AccountTreeNode[],
       providesTags: ['Account'],
     }),
@@ -54,9 +79,9 @@ export const accountingApiSlice = createApi({
     }),
     getJournalEntries: builder.query<
       PaginatedResponse<JournalEntry>,
-      Record<string, unknown> | undefined
+      JournalEntryListParams | undefined
     >({
-      query: (params) => ({ url: '/accounting/journal-entries', params: params ?? {} }),
+      query: (params) => ({ url: '/accounting/journal-entries', params: params as Record<string, unknown> | undefined }),
       transformResponse: normalizePaginated<JournalEntry>,
       providesTags: ['JournalEntry'],
     }),

@@ -1,23 +1,30 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Box } from '@mui/material'
 
 import SimpleListPage from '@/components/common/SimpleListPage'
+import { ACCOUNT_TYPE_OPTIONS, STATUS_OPTIONS } from '@/constants/filterOptions'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useAppSelector } from '@/hooks/useRedux'
-import { useGetAccountTreeQuery } from '@/store/api/accountingApi'
-import type { AccountTreeNode } from '@/types'
+import { useGetAccountTreeQuery, type AccountTreeParams } from '@/store/api/accountingApi'
+import type { AccountTreeNode, AccountType } from '@/types'
+import type { FilterBarConfig } from '@/types/filterBar.types'
 
 import AccountFormDialog from './components/AccountFormDialog'
 import AccountList from './components/AccountList'
 
 interface COAFilters {
   search: string
+  accountType: AccountType | null
+  status: 'active' | 'inactive' | null
 }
 
-const filterConfig = {
+const filterConfig: FilterBarConfig<COAFilters> = {
   search: { placeholder: 'Search accounts by name or code...' },
-  fields: [],
-  defaults: { search: '' },
+  fields: [
+    { field: 'accountType', label: 'Account Type', type: 'select', options: ACCOUNT_TYPE_OPTIONS },
+    { field: 'status', label: 'Status', type: 'select', options: STATUS_OPTIONS },
+  ],
+  defaults: { search: '', accountType: null, status: null },
 }
 
 export default function ChartOfAccountsPage() {
@@ -38,13 +45,24 @@ export default function ChartOfAccountsPage() {
   const [parentForNew, setParentForNew] = useState<AccountTreeNode | null>(null)
 
   const search = appliedFilters.search.trim()
+  const accountType = appliedFilters.accountType
+  const status = appliedFilters.status
+  const hasTreeFilters = Boolean(search) || accountType !== null || status !== null
+
+  const filterArgs = useMemo(() => {
+    const args: AccountTreeParams = {}
+    if (search) args.search = search
+    if (accountType) args.type = accountType
+    if (status !== null) args.isActive = status === 'active'
+    return args
+  }, [search, accountType, status])
 
   // Two cache entries on purpose. The dialog builds its parent-account options
   // from the tree it is handed, so it must always see the UNFILTERED tree — a
   // filtered one would let a user create an account under the wrong parent.
-  // RTK Query keys the cache on the serialized arg, so `{}` and `{ search: '' }`
-  // would be two entries firing the identical request: trim, then skip the empty
-  // case, and the unfiltered tree is fetched exactly once.
+  // RTK Query keys the cache on the serialized arg, and `filterArgs` omits every
+  // unset filter, so an unfiltered page serializes to `{}` exactly like the call
+  // below and the unfiltered tree is fetched once.
   const {
     data: fullTree = [],
     isFetching: isFullTreeFetching,
@@ -53,19 +71,19 @@ export default function ChartOfAccountsPage() {
 
   const {
     data: filteredTree = [],
-    isFetching: isSearchFetching,
-    error: searchError,
-  } = useGetAccountTreeQuery({ search }, { skip: search.length === 0 })
+    isFetching: isFilteredFetching,
+    error: filteredError,
+  } = useGetAccountTreeQuery(filterArgs, { skip: !hasTreeFilters })
 
-  const tree = search ? filteredTree : fullTree
-  const isFetching = search ? isSearchFetching : isFullTreeFetching
+  const tree = hasTreeFilters ? filteredTree : fullTree
+  const isFetching = hasTreeFilters ? isFilteredFetching : isFullTreeFetching
 
-  // The full tree is load-bearing even during a search (the dialog needs it), so
-  // its failure is never swallowed by an active search.
+  // The full tree is load-bearing even while a filter is active (the dialog needs
+  // it), so its failure is never swallowed by an active filter.
   const error = fullTreeError
     ? 'Failed to load accounts.'
-    : search && searchError
-      ? 'Failed to search accounts.'
+    : hasTreeFilters && filteredError
+      ? 'Failed to filter accounts.'
       : null
 
   // No trustworthy full tree means no parent options, and opening the form could

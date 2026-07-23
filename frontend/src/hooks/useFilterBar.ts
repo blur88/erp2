@@ -43,6 +43,7 @@ function isEqual(left: unknown, right: unknown): boolean {
 
 export function useFilterBar<TFilters extends object>(
   config: FilterBarConfig<TFilters>,
+  options?: { onApply?: () => void },
 ): {
   appliedFilters: TFilters
   draftFilters: TFilters
@@ -66,6 +67,8 @@ export function useFilterBar<TFilters extends object>(
   const [draftFilters, setDraftFilters] = useState<TFilters>(initialFilters)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchDraftRef = useRef<string>(((initialFilters as Record<string, unknown>).search as string | undefined) ?? '')
+  const onApplyRef = useRef(options?.onApply)
+  onApplyRef.current = options?.onApply
 
   useEffect(() => {
     const currentParams = new URLSearchParams(window.location.search)
@@ -99,11 +102,13 @@ export function useFilterBar<TFilters extends object>(
 
     if (value === '') {
       setAppliedFilters((prev) => ({ ...prev, search: '' }))
+      onApplyRef.current?.()
       return
     }
 
     debounceRef.current = setTimeout(() => {
       setAppliedFilters((prev) => ({ ...prev, search: value }))
+      onApplyRef.current?.()
     }, debounceMs)
   }, [debounceMs])
 
@@ -116,17 +121,20 @@ export function useFilterBar<TFilters extends object>(
       ...prev,
       search: searchDraftRef.current,
     }))
+    onApplyRef.current?.()
   }, [])
 
   const onQuickFilterChange = useCallback((field: keyof TFilters, value: unknown) => {
     setDraftFilters((prev) => ({ ...prev, [field]: value }))
     setAppliedFilters((prev) => ({ ...prev, [field]: value }))
+    onApplyRef.current?.()
   }, [])
 
   const onClearField = useCallback((field: keyof TFilters) => {
     const nextValue = (defaults as Record<string, unknown>)[String(field)]
     setDraftFilters((prev) => ({ ...prev, [field]: nextValue }))
     setAppliedFilters((prev) => ({ ...prev, [field]: nextValue }))
+    onApplyRef.current?.()
     if (field === 'search') {
       searchDraftRef.current = String(nextValue ?? '')
     }
@@ -138,6 +146,7 @@ export function useFilterBar<TFilters extends object>(
     }
     setDraftFilters(defaults)
     setAppliedFilters(defaults)
+    onApplyRef.current?.()
     searchDraftRef.current = String((defaults as Record<string, unknown>).search ?? '')
   }, [defaults])
 

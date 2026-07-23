@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Button } from '@mui/material'
 
@@ -6,19 +6,37 @@ import SimpleListPage from '@/components/common/SimpleListPage'
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 import PagePagination from '@/components/common/PagePagination'
 import { StatusChip } from '@/components/common/StatusChip'
+import { JOURNAL_SOURCE_TYPE_OPTIONS, JOURNAL_STATUS_OPTIONS } from '@/constants/filterOptions'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import { useGetJournalEntriesQuery } from '@/store/api/accountingApi'
+import { useGetJournalEntriesQuery, type JournalEntryListParams } from '@/store/api/accountingApi'
 import { formatCurrency } from '@/utils/currency'
+import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
-import type { JournalEntry } from '@/types'
+import type { AccountingSourceType, JournalEntry, JournalEntryStatus } from '@/types'
+import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 
 interface JEFilters {
   search: string
+  period: PeriodValue
+  sourceType: AccountingSourceType | null
+  status: JournalEntryStatus | null
 }
 
-const filterConfig = {
-  fields: [],
-  defaults: { search: '' },
+const filterConfig: FilterBarConfig<JEFilters> = {
+  search: { placeholder: 'Search by journal no., reference, or description...' },
+  fields: [
+    { field: 'period', label: 'Period', type: 'period' },
+    { field: 'sourceType', label: 'Source Type', type: 'select',
+      options: JOURNAL_SOURCE_TYPE_OPTIONS },
+    { field: 'status', label: 'Status', type: 'select',
+      options: JOURNAL_STATUS_OPTIONS },
+  ],
+  defaults: {
+    search: '',
+    period: { key: null, from: null, to: null },
+    sourceType: null,
+    status: null,
+  },
 }
 
 export default function JournalEntriesPage() {
@@ -27,9 +45,33 @@ export default function JournalEntriesPage() {
   const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
-  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } =
+    useFilterBar(filterConfig, { onApply: () => setPage(1) })
 
-  const { data: response, isFetching, error } = useGetJournalEntriesQuery({ page, limit })
+  const weekStartsOn = getStartOfWeek()
+
+  const dateRange = useMemo(() => {
+    const period = appliedFilters.period
+    if (!period || period.key === null) return { fromDate: undefined, toDate: undefined }
+    if (period.key === 'custom') {
+      return { fromDate: period.from ?? undefined, toDate: period.to ?? undefined }
+    }
+    const range = getPeriodDateRange(period.key, weekStartsOn)
+    return { fromDate: range.from, toDate: range.to }
+  }, [appliedFilters.period, weekStartsOn])
+
+  const queryParams = useMemo(() => {
+    const params: JournalEntryListParams = { page, limit }
+    const search = appliedFilters.search.trim()
+    if (search) params.search = search
+    if (appliedFilters.sourceType) params.sourceType = appliedFilters.sourceType
+    if (appliedFilters.status) params.status = appliedFilters.status
+    if (dateRange.fromDate) params.fromDate = dateRange.fromDate
+    if (dateRange.toDate) params.toDate = dateRange.toDate
+    return params
+  }, [page, limit, appliedFilters, dateRange])
+
+  const { data: response, isFetching, error } = useGetJournalEntriesQuery(queryParams)
   const rows = response?.data ?? []
   const total = response?.meta?.total ?? 0
 
@@ -81,12 +123,11 @@ export default function JournalEntriesPage() {
     <SimpleListPage
       title="Journal Entries"
       subtitle="View posted journal entries."
-      filterConfig={filterConfig as any}
+      filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={searchInputRef}
-      sort={{ field: '', sortBy: '', sortOrder: 'asc', onSort: () => {} }}
       isFetching={isFetching}
       error={error ? 'Failed to load journal entries.' : null}
       tableSlot={(
