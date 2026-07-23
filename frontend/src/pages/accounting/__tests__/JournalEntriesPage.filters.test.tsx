@@ -73,7 +73,7 @@ describe('JournalEntriesPage filters', () => {
 
   it('omits filters that are not set', () => {
     renderPage()
-    expect(listSpy).toHaveBeenLastCalledWith({ page: 1, limit: 25 })
+    expect(listSpy).toHaveBeenLastCalledWith({ page: 1, limit: 25, sortBy: 'journalNo', sortOrder: 'DESC' })
   })
 
   it('maps a debounced search into the query, trimmed', async () => {
@@ -117,7 +117,7 @@ describe('JournalEntriesPage filters', () => {
     await userEvent.click(screen.getByRole('option', { name: 'Sales Order' }))
 
     await userEvent.click(screen.getByRole('button', { name: /reset/i }))
-    expect(listSpy).toHaveBeenLastCalledWith({ page: 1, limit: 25 })
+    expect(listSpy).toHaveBeenLastCalledWith({ page: 1, limit: 25, sortBy: 'journalNo', sortOrder: 'DESC' })
   })
 
   it('never requests new filters against a stale page', async () => {
@@ -135,11 +135,45 @@ describe('JournalEntriesPage filters', () => {
     expect(offending).toEqual([])
   })
 
-  // The list is fixed to journalNo DESC by the backend and exposes no sortable
-  // column, so no Sort control should render. It previously did — wired to an
-  // empty field and a no-op onSort — giving a button that silently did nothing.
-  it('renders no Sort button, since the order is not user-selectable', () => {
+  it('renders the Sort button', () => {
     renderPage()
-    expect(screen.queryByRole('button', { name: /^sort$/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^sort$/i })).toBeInTheDocument()
+  })
+
+  it('sends default sort (journalNo DESC) on first render', () => {
+    renderPage()
+    expect(listSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sortBy: 'journalNo', sortOrder: 'DESC' }),
+    )
+  })
+
+  it('toggles to ASC when the Sort button is clicked', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: /^sort$/i }))
+    expect(listSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sortBy: 'journalNo', sortOrder: 'ASC' }),
+    )
+  })
+
+  it('resets to page 1 when the sort direction is toggled', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: /go to next page/i }))
+    expect(listSpy).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }))
+
+    await userEvent.click(screen.getByRole('button', { name: /^sort$/i }))
+    expect(listSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, sortOrder: 'ASC' }),
+    )
+  })
+
+  it('keeps active filters applied when sorting', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('combobox', { name: /status/i }))
+    await userEvent.click(screen.getByRole('option', { name: 'Posted' }))
+
+    await userEvent.click(screen.getByRole('button', { name: /^sort$/i }))
+    expect(listSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: 'Posted', sortBy: 'journalNo', sortOrder: 'ASC' }),
+    )
   })
 })

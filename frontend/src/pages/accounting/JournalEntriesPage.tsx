@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Button } from '@mui/material'
 
@@ -43,6 +43,8 @@ export default function JournalEntriesPage() {
   const navigate = useNavigate()
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
+  const [sortBy] = useState<'journalNo'>('journalNo')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } =
@@ -68,8 +70,10 @@ export default function JournalEntriesPage() {
     if (appliedFilters.status) params.status = appliedFilters.status
     if (dateRange.fromDate) params.fromDate = dateRange.fromDate
     if (dateRange.toDate) params.toDate = dateRange.toDate
+    params.sortBy = sortBy
+    params.sortOrder = sortOrder.toUpperCase() as 'ASC' | 'DESC'
     return params
-  }, [page, limit, appliedFilters, dateRange])
+  }, [page, limit, appliedFilters, dateRange, sortBy, sortOrder])
 
   const { data: response, isFetching, error } = useGetJournalEntriesQuery(queryParams)
   const rows = response?.data ?? []
@@ -79,6 +83,11 @@ export default function JournalEntriesPage() {
     setLimit(newLimit)
     setPage(1)
   }
+
+  const handleSort = useCallback(() => {
+    setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))
+    setPage(1)
+  }, [])
 
   const handleView = (row: JournalEntry) => {
     navigate(`/accounting/journal-entries/${row.id}`)
@@ -128,6 +137,7 @@ export default function JournalEntriesPage() {
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={searchInputRef}
+      sort={{ field: 'journalNo', sortBy, sortOrder, onSort: handleSort }}
       isFetching={isFetching}
       error={error ? 'Failed to load journal entries.' : null}
       tableSlot={(
