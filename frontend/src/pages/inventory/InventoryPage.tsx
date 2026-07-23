@@ -46,6 +46,7 @@ import { useFilterBar } from '@/hooks/useFilterBar'
 import { useInventoryAnalytics } from './hooks/useInventoryAnalytics'
 import { formatCurrency } from '@/utils/formatters'
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import { STOCK_STATUS_OPTIONS } from '@/constants/filterOptions'
 import { resolveApiParams } from '@/utils/dashboardApiParams'
 import type { DashboardCompare } from '@/utils/dashboardApiParams'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
@@ -110,7 +111,8 @@ const InventoryPage: React.FC = () => {
       {
         field: 'stockStatus',
         label: 'Stock Status',
-        type: 'stock-status',
+        type: 'select',
+        options: STOCK_STATUS_OPTIONS,
         paramKey: 'stock_status',
       },
     ],

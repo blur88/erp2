@@ -6,6 +6,7 @@ import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useGetCategoriesQuery } from '@/store/api/inventoryApi'
 import type { Category } from '@/types'
+import { STATUS_OPTIONS } from '@/constants/filterOptions'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
 import CategoryList from './components/CategoryList'
@@ -30,7 +31,7 @@ function filterWithAncestors(all: Category[], match: (c: Category) => boolean): 
 const filterConfig: FilterBarConfig<CategoryFilters> = {
   search: { placeholder: 'Search categories by name...' },
   fields: [
-    { field: 'status', label: 'Status', type: 'status' },
+    { field: 'status', label: 'Status', type: 'select', options: STATUS_OPTIONS },
   ],
   defaults: { search: '', status: null },
 }

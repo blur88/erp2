@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { STATUS_OPTIONS, PURCHASING_ACTIVITY_STATUS_OPTIONS, STOCK_ADJUSTMENT_STATUS_OPTIONS } from '@/constants/filterOptions'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getManagedParamKeys, parseFilters, serializeFilters } from '@/utils/filterBar.url'
 
@@ -11,7 +12,7 @@ interface TestFilters {
 const config: FilterBarConfig<TestFilters> = {
   search: { placeholder: 'Search...' },
   fields: [
-    { field: 'status', label: 'Status', type: 'status' },
+    { field: 'status', label: 'Status', type: 'select', options: STATUS_OPTIONS },
   ],
   defaults: {
     search: '',
@@ -190,7 +191,7 @@ interface NamespacedFilters {
 const namespacedConfig: FilterBarConfig<NamespacedFilters> = {
   search: { placeholder: 'Search...' },
   fields: [
-    { field: 'status', label: 'Status', type: 'status' },
+    { field: 'status', label: 'Status', type: 'select', options: STATUS_OPTIONS },
   ],
   defaults: { search: '', status: null },
   namespace: 'orders',
@@ -248,7 +249,7 @@ interface PurchasingFilters {
 const purchasingConfig: FilterBarConfig<PurchasingFilters> = {
   fields: [
     { field: 'supplierId', label: 'Supplier', type: 'supplier', paramKey: 'supplier' },
-    { field: 'status', label: 'Order Status', type: 'purchasing-status', paramKey: 'status' },
+    { field: 'status', label: 'Order Status', type: 'select', options: PURCHASING_ACTIVITY_STATUS_OPTIONS, paramKey: 'status' },
   ],
   defaults: {
     supplierId: null,
@@ -383,7 +384,7 @@ describe('parseFilters — stock-adjustment-status field', () => {
   const saConfig: FilterBarConfig<SaFilters> = {
     search: { placeholder: 'Search...' },
     fields: [
-      { field: 'status', label: 'Status', type: 'stock-adjustment-status' },
+      { field: 'status', label: 'Status', type: 'select', options: STOCK_ADJUSTMENT_STATUS_OPTIONS },
     ],
     defaults: { search: '', status: null },
   }

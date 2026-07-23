@@ -12,6 +12,7 @@ import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
 import { getStockStatus } from '@/utils/stockUtils'
 import { PAGINATION } from '@/constants/tableStyles'
 import type { Product } from '@/types'
+import { STATUS_OPTIONS, STOCK_STATUS_OPTIONS } from '@/constants/filterOptions'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
 import ProductList from './components/ProductList'
@@ -26,9 +27,9 @@ interface ProductFilters {
 const filterConfig: FilterBarConfig<ProductFilters> = {
   search: { placeholder: 'Search by name or barcode...' },
   fields: [
-    { field: 'status', label: 'Status', type: 'status' },
+    { field: 'status', label: 'Status', type: 'select', options: STATUS_OPTIONS },
     { field: 'categoryId', label: 'Category', type: 'category' },
-    { field: 'stockStatus', label: 'Stock Status', type: 'stock-status' },
+    { field: 'stockStatus', label: 'Stock Status', type: 'select', options: STOCK_STATUS_OPTIONS },
   ],
   defaults: { search: '', status: null, categoryId: null, stockStatus: null },
 }

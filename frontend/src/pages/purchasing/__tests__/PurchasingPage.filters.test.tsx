@@ -114,8 +114,7 @@ describe('PurchasingPage filters', () => {
         }),
         expect.objectContaining({
           field: 'status',
-          type: 'purchasing-status',
-          paramKey: 'status',
+          type: 'select',
         }),
       ]),
     )

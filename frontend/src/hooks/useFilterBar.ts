@@ -20,23 +20,12 @@ function getDefaults<TFilters extends object>(
     }
 
     if (
-      field.type === 'status' ||
-      field.type === 'user-status' ||
-      field.type === 'customer-type' ||
-      field.type === 'supplier-type' ||
-      field.type === 'role' ||
-      field.type === 'stock-adjustment-status' ||
+      field.type === 'select' ||
       field.type === 'customer' ||
-      field.type === 'order-status' ||
       field.type === 'payment-status' ||
       field.type === 'supplier' ||
-      field.type === 'purchasing-status' ||
       field.type === 'category' ||
-      field.type === 'product-type' ||
-      field.type === 'stock-status' ||
-      field.type === 'price-list' ||
-      field.type === 'transaction-status' ||
-      field.type === 'vendor-payment-status'
+      field.type === 'price-list'
     ) {
       defaults[key] = null
     }

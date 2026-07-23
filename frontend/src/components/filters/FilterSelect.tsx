@@ -12,7 +12,7 @@ interface Props {
   field: string
   label: string
   value: string | null
-  options: FilterOption[]
+  options: ReadonlyArray<Readonly<FilterOption>>
   onChange: (value: string | null) => void
   emptyLabel?: string
   minWidth?: number

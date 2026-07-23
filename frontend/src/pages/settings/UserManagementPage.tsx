@@ -41,6 +41,7 @@ import UserFormDialog from '@/components/settings/UserFormDialog'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatDateTime } from '@/utils/formatters'
+import { ROLE_OPTIONS, USER_STATUS_OPTIONS } from '@/constants/filterOptions'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 
 interface UserFilters {
@@ -75,8 +76,8 @@ const UserManagementPage: React.FC = () => {
     () => ({
       search: { placeholder: 'Search by name, email, or username...' },
       fields: [
-        { field: 'role', label: 'Role', type: 'role' },
-        { field: 'status', label: 'Status', type: 'user-status' },
+        { field: 'role', label: 'Role', type: 'select', options: ROLE_OPTIONS },
+        { field: 'status', label: 'Status', type: 'select', options: USER_STATUS_OPTIONS },
       ],
       defaults: { search: '', role: null, status: null },
     }),

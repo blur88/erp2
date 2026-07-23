@@ -3,6 +3,7 @@ import React from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 
+import { STATUS_OPTIONS } from '@/constants/filterOptions'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { useFilterBar } from '@/hooks/useFilterBar'
 
@@ -14,7 +15,7 @@ interface Filters {
 const config: FilterBarConfig<Filters> = {
   search: { placeholder: '', debounceMs: 0 },
   fields: [
-    { field: 'status', label: 'Status', type: 'status' },
+    { field: 'status', label: 'Status', type: 'select', options: STATUS_OPTIONS },
   ],
   defaults: { search: '', status: null },
 }

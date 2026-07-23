@@ -97,7 +97,7 @@ describe('PurchaseOrdersPage FilterBar integration', () => {
     expect(latestProps.config.fields).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ field: 'supplierId', type: 'supplier' }),
-        expect.objectContaining({ field: 'status', type: 'purchasing-status' }),
+        expect.objectContaining({ field: 'status', type: 'select' }),
         expect.objectContaining({ field: 'paymentStatus', type: 'payment-status', valueCase: 'upper' }),
       ]),
     )

@@ -21,6 +21,7 @@ import {
 } from '@/store/api/purchasingApi'
 import type { PurchaseOrder } from '@/types'
 import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
+import { PURCHASE_ORDER_STATUS_OPTIONS } from '@/constants/filterOptions'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
@@ -42,7 +43,7 @@ const filterConfig: FilterBarConfig<PurchaseOrderFilters> = {
   fields: [
     { field: 'period', label: 'Period', type: 'period' },
     { field: 'supplierId', label: 'Supplier', type: 'supplier' },
-    { field: 'status', label: 'Order Status', type: 'purchasing-status' },
+    { field: 'status', label: 'Order Status', type: 'select', options: PURCHASE_ORDER_STATUS_OPTIONS },
     { field: 'paymentStatus', label: 'Payment Status', type: 'payment-status', valueCase: 'upper' },
   ],
   defaults: {

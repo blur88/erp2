@@ -19,6 +19,7 @@ import { default as SalesIcon } from '@mui/icons-material/PointOfSale'
 import { default as CustomersIcon } from '@mui/icons-material/People'
 import { default as OrdersIcon } from '@mui/icons-material/Receipt'
 import { default as PaymentsIcon } from '@mui/icons-material/Payment'
+import { FULFILLMENT_STATUS_OPTIONS } from '@/constants/filterOptions'
 import { StatusChip } from '@/components/common/StatusChip'
 import { formatCurrency, formatDate, formatNumber } from '@/utils/formatters'
 import { TABLE_STYLES } from '@/constants/tableStyles'
@@ -71,7 +72,8 @@ const SalesPage: React.FC = () => {
       {
         field: 'fulfillmentStatus',
         label: 'Order Status',
-        type: 'order-status',
+        type: 'select',
+        options: FULFILLMENT_STATUS_OPTIONS,
         paramKey: 'fulfilled',
       },
       {
