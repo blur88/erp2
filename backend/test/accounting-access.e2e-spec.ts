@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import * as bcrypt from 'bcrypt';
 import { DataSource, Repository } from 'typeorm';
@@ -73,6 +73,14 @@ describe('Accounting access (e2e)', () => {
       imports: [AppModule],
     }).compile();
     app = moduleFixture.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: false,
+        skipMissingProperties: true,
+      }),
+    );
     await app.init();
     ds = moduleFixture.get(DataSource);
     users = ds.getRepository(User);
@@ -122,6 +130,29 @@ describe('Accounting access (e2e)', () => {
 
   it.each(ENDPOINTS)('still rejects an unauthenticated request to %s', async (_label, getPath) => {
     await request(app.getHttpServer()).get(getPath()).expect(401);
+  });
+
+  describe('journal entries sort validation', () => {
+    it('rejects an unsupported sortBy with 400', async () => {
+      await request(app.getHttpServer())
+        .get('/accounting/journal-entries?sortBy=entryDate')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(400);
+    });
+
+    it('rejects an unsupported sortOrder with 400', async () => {
+      await request(app.getHttpServer())
+        .get('/accounting/journal-entries?sortOrder=descending')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(400);
+    });
+
+    it('accepts the supported sortBy=journalNo & sortOrder=ASC', async () => {
+      await request(app.getHttpServer())
+        .get('/accounting/journal-entries?sortBy=journalNo&sortOrder=ASC')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+    });
   });
 
   // Reads are open to every role (#895), but WRITES stay admin-only. @Auth() is a

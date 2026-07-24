@@ -24,4 +24,10 @@ export class ListJournalEntriesDto {
 
   @IsOptional() @IsCalendarDate()
   toDate?: string;
+
+  @IsOptional() @IsIn(['journalNo'])
+  sortBy?: 'journalNo';
+
+  @IsOptional() @IsIn(['ASC', 'DESC'])
+  sortOrder?: 'ASC' | 'DESC';
 }
