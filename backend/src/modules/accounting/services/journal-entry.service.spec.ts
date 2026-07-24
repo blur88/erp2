@@ -133,9 +133,7 @@ describe('JournalEntryService.list filtering', () => {
 
 describe('JournalEntryService.list sorting', () => {
   function makeSortQb() {
-    const order: string[] = [];
     const qb: any = {
-      order,
       leftJoinAndSelect: () => qb,
       andWhere: () => qb,
       orderBy: (col: string, dir: string) => { qb._orderBy = { col, dir }; return qb; },

@@ -43,7 +43,7 @@ export default function JournalEntriesPage() {
   const navigate = useNavigate()
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
-  const [sortBy] = useState<'journalNo'>('journalNo')
+  const sortBy = 'journalNo' as const
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
