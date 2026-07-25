@@ -8,7 +8,7 @@ import PagePagination from '@/components/common/PagePagination'
 import { StatusChip } from '@/components/common/StatusChip'
 import RowActionMenu, { type RowAction } from '@/components/common/RowActionMenu'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import { useGetExpensesQuery, useGetAccountTreeQuery } from '@/store/api/accountingApi'
+import { useGetExpensesQuery, useGetAccountTreeQuery, type ExpenseListParams } from '@/store/api/accountingApi'
 import { formatCurrency } from '@/utils/currency'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
@@ -103,18 +103,7 @@ export default function ExpensesPage() {
   }, [appliedFilters.period, weekStartsOn])
 
   const queryParams = useMemo(() => {
-    const params: {
-      page: number
-      limit: number
-      sortBy: string
-      sortOrder: string
-      search?: string
-      fromDate?: string
-      toDate?: string
-      expenseAccountId?: string
-      paymentStatus?: ExpensePaymentStatus
-      documentStatus?: ExpenseDocumentStatus
-    } = {
+    const params: ExpenseListParams = {
       page,
       limit,
       sortBy,
