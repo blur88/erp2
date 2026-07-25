@@ -11,9 +11,17 @@ export interface RecentSearchItem {
     | 'transaction'
     | 'supplier'
     | 'customer_payment'
-    | 'vendor_payment'
   timestamp: number
 }
+
+const VALID_TYPES: ReadonlyArray<RecentSearchItem['type']> = [
+  'page',
+  'customer',
+  'product',
+  'transaction',
+  'supplier',
+  'customer_payment',
+]
 
 const storageKey = (userId: string) => `global_search_recent_${userId}`
 
@@ -24,7 +32,9 @@ export function getRecentSearches(userId: string): RecentSearchItem[] {
 
     const parsed: unknown = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
-    return parsed as RecentSearchItem[]
+    return (parsed as RecentSearchItem[]).filter((entry) =>
+      VALID_TYPES.includes(entry.type),
+    )
   } catch {
     return []
   }

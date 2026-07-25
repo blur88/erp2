@@ -401,7 +401,6 @@ export interface PurchaseOrderItem {
 
 export interface VendorPayment {
   id: string;
-  paymentNumber: string;
   supplier: Supplier;
   supplierId: string;
   purchaseOrder?: PurchaseOrder;

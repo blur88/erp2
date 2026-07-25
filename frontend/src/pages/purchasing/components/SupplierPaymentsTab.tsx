@@ -19,7 +19,7 @@ export default function SupplierPaymentsTab({ supplierId }: SupplierPaymentsTabP
   const total = data?.meta?.total ?? 0
 
   const columns: Column<(typeof payments)[number]>[] = [
-    { header: 'Payment #', width: '18%', render: (p) => bold(p.paymentNumber) },
+    { header: 'Payment', width: '18%', render: (p) => bold(p.id) },
     { header: 'Date', width: '16%', render: (p) => formatDate(p.paymentDate) },
     { header: 'Method', width: '18%', render: (p) => p.paymentMethodEntity?.name ?? '-' },
     { header: 'Reference #', width: '18%', render: (p) => p.referenceNumber ?? '-' },

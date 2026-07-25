@@ -71,6 +71,21 @@ describe('getRecentSearches', () => {
   })
 })
 
+it('drops stored vendor_payment entries no longer supported', () => {
+  localStorage.setItem(
+    'global_search_recent_u1',
+    JSON.stringify([
+      { label: 'VP-001', route: '/purchasing/vendor-payments/x', type: 'vendor_payment', timestamp: 1 },
+      { label: 'Acme', route: '/sales/customers/acme', type: 'customer', timestamp: 2 },
+    ]),
+  )
+
+  const result = getRecentSearches('u1')
+
+  expect(result).toHaveLength(1)
+  expect(result[0].type).toBe('customer')
+})
+
 describe('addRecentSearch', () => {
   it('prepends new item', () => {
     addRecentSearch(USER_ID, makeItem('/new'))
