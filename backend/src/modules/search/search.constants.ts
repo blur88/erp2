@@ -20,7 +20,6 @@ export const SCORE_PAGE_KEYWORD = 50;
 export const BOOST_TRANSACTION = 10;
 export const BOOST_CUSTOMER = 8;
 export const BOOST_CUSTOMER_PAYMENT = 8;
-export const BOOST_VENDOR_PAYMENT = 8;
 export const BOOST_SUPPLIER = 7;
 export const BOOST_PRODUCT = 6;
 export const BOOST_PAGE = 0; // intentionally zero - pages remain in formula for consistency but contribute no score boost

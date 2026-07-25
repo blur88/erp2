@@ -6,5 +6,4 @@ export enum SearchResultType {
   SUPPLIER = 'supplier',
   INVOICE = 'invoice',
   CUSTOMER_PAYMENT = 'customer_payment',
-  VENDOR_PAYMENT = 'vendor_payment',
 }

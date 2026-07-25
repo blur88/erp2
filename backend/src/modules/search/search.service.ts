@@ -3,7 +3,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { ProductService } from '../inventory/services/product.service';
 import { PurchaseOrderService } from '../purchasing/services/purchase-order.service';
 import { SupplierService } from '../purchasing/services/supplier.service';
-import { VendorPaymentService } from '../purchasing/services/vendor-payment.service';
 import { CustomerService } from '../sales/services/customer.service';
 import { PaymentService } from '../sales/services/payment.service';
 import { SalesOrderService } from '../sales/services/sales-order.service';
@@ -96,12 +95,6 @@ const STATIC_PAGES: Array<{
     label: 'Goods Received',
     keywords: ['grn', 'goods received', 'receiving'],
     route: '/purchasing/goods-received',
-    roles: PROCUREMENT_ROLES,
-  },
-  {
-    label: 'Vendor Payments',
-    keywords: ['vendor payment', 'ap'],
-    route: '/purchasing/vendor-payments',
     roles: PROCUREMENT_ROLES,
   },
   {
@@ -329,7 +322,6 @@ export class SearchService {
     private readonly purchaseOrderService: PurchaseOrderService,
     private readonly supplierService: SupplierService,
     private readonly paymentService: PaymentService,
-    private readonly vendorPaymentService: VendorPaymentService,
     private readonly searchAnalyticsService: SearchAnalyticsService,
   ) {}
 
@@ -350,7 +342,6 @@ export class SearchService {
       purchaseOrders,
       suppliers,
       customerPayments,
-      vendorPayments,
     ] = await Promise.all([
       this.safeSearch('pages', () => Promise.resolve(this.searchPages(trimmed, user))),
       this.safeSearch('customers', () => this.customerService.searchGlobal(trimmed, user)),
@@ -361,9 +352,6 @@ export class SearchService {
       ),
       this.safeSearch('suppliers', () => this.supplierService.searchGlobal(trimmed, user)),
       this.safeSearch('customerPayments', () => this.paymentService.searchGlobal(trimmed, user)),
-      this.safeSearch('vendorPayments', () =>
-        this.vendorPaymentService.searchGlobal(trimmed, user),
-      ),
     ]);
     const executionTimeMs = Date.now() - startTime;
 
@@ -375,7 +363,6 @@ export class SearchService {
       ...purchaseOrders,
       ...suppliers,
       ...customerPayments,
-      ...vendorPayments,
     ]
       .sort((a, b) => {
         const scoreDiff = (b.score ?? 0) - (a.score ?? 0);

@@ -20,19 +20,6 @@ import {
 import { AuditLogService } from '../../audit-logs/services';
 import { SettingsService } from '@modules/settings/settings.service';
 import { repoFor } from '../../../common/db/tx-helpers';
-import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
-import { canSearchVendorPayments } from '../../search/search.permissions';
-import {
-  SEARCH_CANDIDATE_LIMIT,
-  SCORE_EXACT_CODE,
-  SCORE_STARTSWITH_CODE,
-  SCORE_CONTAINS,
-  SCORE_FUZZY,
-  BOOST_VENDOR_PAYMENT,
-  BOOST_EXACT_MATCH,
-} from '../../search/search.constants';
-import { JwtPayload } from '../../auth/strategies/jwt.strategy';
-import { UserRole } from '../../../database/entities/user.entity';
 
 @Injectable()
 export class VendorPaymentService extends BaseCrudService<
@@ -212,72 +199,6 @@ export class VendorPaymentService extends BaseCrudService<
       totalPages: 1,
       hasNext: false,
       hasPrev: false,
-    };
-  }
-
-  async searchGlobal(query: string, user: JwtPayload): Promise<GlobalSearchResultDto[]> {
-    if (!canSearchVendorPayments(user.role as UserRole)) return [];
-
-    const trimmed = query.trim();
-    const q = trimmed.toLowerCase();
-
-    const results = await this.vendorPaymentRepository
-      .createQueryBuilder('vp')
-      .where('vp.deletedAt IS NULL')
-      .andWhere(
-        '(vp.paymentNumber ILIKE :q OR vp.referenceNumber ILIKE :q)',
-        { q: `%${trimmed}%` },
-      )
-      .take(SEARCH_CANDIDATE_LIMIT)
-      .getMany();
-
-    if (results.length > 0) {
-      return results.map((vp) => this.mapVendorPayment(vp, q, false));
-    }
-
-    const fuzzyResults = await this.vendorPaymentRepository
-      .createQueryBuilder('vp')
-      .addSelect(
-        'GREATEST(similarity(vp.paymentNumber, :q), similarity(vp.referenceNumber, :q))',
-        'sim',
-      )
-      .where('vp.deletedAt IS NULL')
-      .andWhere(
-        '(similarity(vp.paymentNumber, :q) > 0.3 OR similarity(vp.referenceNumber, :q) > 0.3)',
-      )
-      .orderBy('sim', 'DESC')
-      .setParameter('q', trimmed)
-      .take(SEARCH_CANDIDATE_LIMIT)
-      .getMany();
-
-    return fuzzyResults.map((vp) => this.mapVendorPayment(vp, q, true));
-  }
-
-  private mapVendorPayment(
-    vp: VendorPayment,
-    q: string,
-    fuzzy: boolean,
-  ): GlobalSearchResultDto {
-    const payNum = vp.paymentNumber?.toLowerCase() ?? '';
-    const refNum = vp.referenceNumber?.toLowerCase() ?? '';
-    const baseScore = fuzzy
-      ? SCORE_FUZZY
-      : payNum === q || refNum === q
-        ? SCORE_EXACT_CODE
-        : payNum.startsWith(q) || refNum.startsWith(q)
-          ? SCORE_STARTSWITH_CODE
-          : SCORE_CONTAINS;
-
-    return {
-      type: 'vendor_payment',
-      id: vp.id,
-      label: vp.paymentNumber,
-      description: vp.referenceNumber ?? undefined,
-      route: `/purchasing/vendor-payments/${vp.id}`,
-      score:
-        baseScore +
-        BOOST_VENDOR_PAYMENT +
-        (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
     };
   }
 

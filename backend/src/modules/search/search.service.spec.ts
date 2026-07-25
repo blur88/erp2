@@ -3,7 +3,6 @@ import { SearchService } from './search.service';
 import { CustomerService } from '../sales/services/customer.service';
 import { ProductService } from '../inventory/services/product.service';
 import { SupplierService } from '../purchasing/services/supplier.service';
-import { VendorPaymentService } from '../purchasing/services/vendor-payment.service';
 import { SalesOrderService } from '../sales/services/sales-order.service';
 import { PaymentService } from '../sales/services/payment.service';
 import { PurchaseOrderService } from '../purchasing/services/purchase-order.service';
@@ -20,7 +19,6 @@ describe('SearchService', () => {
   let purchaseOrderService: jest.Mocked<Pick<PurchaseOrderService, 'searchGlobal'>>;
   let supplierService: jest.Mocked<Pick<SupplierService, 'searchGlobal'>>;
   let paymentService: jest.Mocked<Pick<PaymentService, 'searchGlobal'>>;
-  let vendorPaymentService: jest.Mocked<Pick<VendorPaymentService, 'searchGlobal'>>;
   let searchAnalyticsService: jest.Mocked<Pick<SearchAnalyticsService, 'logQuery'>>;
 
   const mockUser = { userId: 'u1', username: 'admin' } as any;
@@ -62,10 +60,6 @@ describe('SearchService', () => {
           useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
         },
         {
-          provide: VendorPaymentService,
-          useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
-        },
-        {
           provide: SearchAnalyticsService,
           useValue: { logQuery: jest.fn() },
         },
@@ -79,7 +73,6 @@ describe('SearchService', () => {
     purchaseOrderService = module.get(PurchaseOrderService);
     supplierService = module.get(SupplierService);
     paymentService = module.get(PaymentService);
-    vendorPaymentService = module.get(VendorPaymentService);
     searchAnalyticsService = module.get(SearchAnalyticsService);
   });
 
@@ -92,7 +85,6 @@ describe('SearchService', () => {
     expect(purchaseOrderService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
     expect(supplierService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
     expect(paymentService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
-    expect(vendorPaymentService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
   });
 
   it('returns early with empty results for queries shorter than 2 characters', async () => {

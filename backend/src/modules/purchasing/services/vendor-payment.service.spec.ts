@@ -222,38 +222,6 @@ describe('VendorPaymentService', () => {
     });
   });
 
-  describe('searchGlobal', () => {
-    const adminUser = { role: UserRole.ADMIN } as any;
-
-    it('returns vendor payment search results', async () => {
-      vendorPaymentRepository.createQueryBuilder.mockReturnValue({
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        setParameter: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          {
-            id: 'vp-1',
-            paymentNumber: 'VP-001',
-            referenceNumber: 'REF-001',
-          },
-        ]),
-      } as any);
-
-      const results = await service.searchGlobal('VP-001', adminUser);
-
-      expect(results[0]).toMatchObject({
-        type: 'vendor_payment',
-        id: 'vp-1',
-        label: 'VP-001',
-        description: 'REF-001',
-        route: '/purchasing/vendor-payments/vp-1',
-      });
-    });
-  });
-
   describe('softDeleteForUnpay', () => {
     it('sets isActive=false and soft-deletes the payment', async () => {
       const mockPayment = {
