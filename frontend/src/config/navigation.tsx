@@ -221,6 +221,13 @@ export const menuSections: MenuSection[] = [
             roles: ALL_ROLES,
           },
           {
+            id: 'expenses',
+            title: 'Expenses',
+            icon: <DocumentNumberIcon />,
+            path: '/accounting/expenses',
+            roles: ALL_ROLES,
+          },
+          {
             id: 'general-ledger',
             title: 'General Ledger',
             icon: <MenuBookIcon />,
