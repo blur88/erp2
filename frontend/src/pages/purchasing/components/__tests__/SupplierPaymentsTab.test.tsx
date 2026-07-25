@@ -36,7 +36,6 @@ describe('SupplierPaymentsTab', () => {
         data: [
           {
             id: 'p1',
-            paymentNumber: 'PAY-1',
             paymentDate: '2026-01-01',
             amount: 100,
             purchaseOrder: { orderNumber: 'PO-9' },
@@ -52,7 +51,7 @@ describe('SupplierPaymentsTab', () => {
 
   it('disables View when the payment has no purchase order', () => {
     mockQuery.mockReturnValue({
-      data: { data: [{ id: 'p2', paymentNumber: 'PAY-2', paymentDate: '2026-01-01', amount: 50 }] },
+      data: { data: [{ id: 'p2', paymentDate: '2026-01-01', amount: 50 }] },
       isLoading: false,
     })
     renderTab()
@@ -70,13 +69,15 @@ describe('SupplierPaymentsTab', () => {
   it('renders the footer total', () => {
     mockQuery.mockReturnValue({
       data: {
-        data: [{ id: 'vp1', paymentNumber: 'VP-001', paymentDate: '2026-01-01', amount: 250, paymentMethodEntity: { id: 'm1', name: 'Bank', isActive: true } }],
+        data: [{ id: 'vp1', paymentDate: '2026-01-01', amount: 250, paymentMethodEntity: { id: 'm1', name: 'Bank', isActive: true }, purchaseOrder: { orderNumber: 'PO-26-001' } }],
         meta: { total: 55 },
       },
       isLoading: false,
     })
     renderTab()
-    expect(screen.getByText('VP-001')).toBeInTheDocument()
+    expect(screen.getByText('PO #')).toBeInTheDocument()
+    expect(screen.getByText('PO-26-001')).toBeInTheDocument()
+    expect(screen.queryByText('Payment #')).not.toBeInTheDocument()
     expect(screen.getByText(/of 55 records/)).toBeInTheDocument()
   })
 })

@@ -51,8 +51,3 @@ export function canSearchSuppliers(role: UserRole): boolean {
 export function canSearchCustomerPayments(role: UserRole): boolean {
   return SALES_ROLES.includes(role);
 }
-
-export function canSearchVendorPayments(role: UserRole): boolean {
-  return PROCUREMENT_ROLES.includes(role);
-}
-

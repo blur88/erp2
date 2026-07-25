@@ -640,7 +640,6 @@ describe('PurchaseOrderService', () => {
   describe('recordOrderPayments', () => {
     const mockDeletedPayment = {
       id: 'vp-old-1',
-      paymentNumber: 'VP-000001',
       purchaseOrderId: 'po-1',
       deletedAt: new Date('2026-02-19'),
       isActive: false,
@@ -927,10 +926,12 @@ describe('PurchaseOrderService', () => {
       supplierId: 'sup-1',
       totalAmount: '100',
     }
+    let generateSpy: jest.Mock;
 
     beforeEach(() => {
       paymentMethodRepository.findOne.mockResolvedValue({ id: 'pm-1', isActive: true, accountingChannel: 'BANK' })
-      ;(service as any).settingsService = { generateDocumentNumber: jest.fn().mockResolvedValue('VP-REF-1') }
+      generateSpy = jest.fn();
+      ;(service as any).settingsService = { generateDocumentNumber: generateSpy }
       vendorPaymentRepository.findOne.mockResolvedValue({
         id: 'refund-1',
         amount: -40,
@@ -958,12 +959,12 @@ describe('PurchaseOrderService', () => {
         supplierId: 'sup-1',
         purchaseOrderId: 'po-1',
         paymentMethodId: 'pm-1',
-        paymentNumber: 'VP-REF-1',
         amount: -40,
         status: 'completed',
         notes: 'damaged goods',
       })
       expect(ctx.saved[0].paymentDate).toBeDefined()
+      expect(generateSpy).not.toHaveBeenCalled()
     })
 
     it('rejects total refund exceeding net paid across ACTIVE rows (aggregate guard)', async () => {

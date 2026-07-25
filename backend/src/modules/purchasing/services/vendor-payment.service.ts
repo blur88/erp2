@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, LessThanOrEqual, MoreThanOrEqual, EntityManager } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   VendorPayment,
@@ -18,21 +18,7 @@ import {
   PaginatedResponse,
 } from '../dto';
 import { AuditLogService } from '../../audit-logs/services';
-import { SettingsService } from '@modules/settings/settings.service';
 import { repoFor } from '../../../common/db/tx-helpers';
-import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
-import { canSearchVendorPayments } from '../../search/search.permissions';
-import {
-  SEARCH_CANDIDATE_LIMIT,
-  SCORE_EXACT_CODE,
-  SCORE_STARTSWITH_CODE,
-  SCORE_CONTAINS,
-  SCORE_FUZZY,
-  BOOST_VENDOR_PAYMENT,
-  BOOST_EXACT_MATCH,
-} from '../../search/search.constants';
-import { JwtPayload } from '../../auth/strategies/jwt.strategy';
-import { UserRole } from '../../../database/entities/user.entity';
 
 @Injectable()
 export class VendorPaymentService extends BaseCrudService<
@@ -51,7 +37,6 @@ export class VendorPaymentService extends BaseCrudService<
     @InjectRepository(PaymentMethodEntity)
     private paymentMethodRepository: Repository<PaymentMethodEntity>,
     auditLogService: AuditLogService,
-    private readonly settingsService: SettingsService,
   ) {
     super(vendorPaymentRepository, auditLogService);
   }
@@ -89,7 +74,6 @@ export class VendorPaymentService extends BaseCrudService<
     const paymentRepo = repoFor(manager, VendorPayment, this.vendorPaymentRepository);
     const poRepo = repoFor(manager, PurchaseOrder, this.purchaseOrderRepository);
 
-    const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments', manager);
     let paymentMethodId = createDto.paymentMethodId;
 
     if (!paymentMethodId) {
@@ -103,7 +87,6 @@ export class VendorPaymentService extends BaseCrudService<
     const vendorPayment = paymentRepo.create({
       ...createDto,
       paymentMethodId,
-      paymentNumber,
     });
 
     const savedPayment = await paymentRepo.save(vendorPayment);
@@ -115,15 +98,15 @@ export class VendorPaymentService extends BaseCrudService<
     await this.auditLogService.log(
       'CREATE',
       'VendorPayment',
-      `Created vendor payment: ${savedPayment.paymentNumber}`,
+      `Created vendor payment ${savedPayment.id}`,
       {
         entityId: savedPayment.id,
         userId: userId || 'system',
         username,
         newValues: {
-          paymentNumber: savedPayment.paymentNumber,
           amount: savedPayment.amount,
           status: savedPayment.status,
+          referenceNumber: savedPayment.referenceNumber ?? null,
         },
       }
     );
@@ -160,7 +143,7 @@ export class VendorPaymentService extends BaseCrudService<
     // Apply search
     if (search) {
       queryBuilder.andWhere(
-        '(vendorPayment.paymentNumber ILIKE :search OR vendorPayment.referenceNumber ILIKE :search OR supplier.companyName ILIKE :search)',
+        '(vendorPayment.referenceNumber ILIKE :search OR supplier.companyName ILIKE :search)',
         { search: `%${search}%` },
       );
     }
@@ -215,72 +198,6 @@ export class VendorPaymentService extends BaseCrudService<
     };
   }
 
-  async searchGlobal(query: string, user: JwtPayload): Promise<GlobalSearchResultDto[]> {
-    if (!canSearchVendorPayments(user.role as UserRole)) return [];
-
-    const trimmed = query.trim();
-    const q = trimmed.toLowerCase();
-
-    const results = await this.vendorPaymentRepository
-      .createQueryBuilder('vp')
-      .where('vp.deletedAt IS NULL')
-      .andWhere(
-        '(vp.paymentNumber ILIKE :q OR vp.referenceNumber ILIKE :q)',
-        { q: `%${trimmed}%` },
-      )
-      .take(SEARCH_CANDIDATE_LIMIT)
-      .getMany();
-
-    if (results.length > 0) {
-      return results.map((vp) => this.mapVendorPayment(vp, q, false));
-    }
-
-    const fuzzyResults = await this.vendorPaymentRepository
-      .createQueryBuilder('vp')
-      .addSelect(
-        'GREATEST(similarity(vp.paymentNumber, :q), similarity(vp.referenceNumber, :q))',
-        'sim',
-      )
-      .where('vp.deletedAt IS NULL')
-      .andWhere(
-        '(similarity(vp.paymentNumber, :q) > 0.3 OR similarity(vp.referenceNumber, :q) > 0.3)',
-      )
-      .orderBy('sim', 'DESC')
-      .setParameter('q', trimmed)
-      .take(SEARCH_CANDIDATE_LIMIT)
-      .getMany();
-
-    return fuzzyResults.map((vp) => this.mapVendorPayment(vp, q, true));
-  }
-
-  private mapVendorPayment(
-    vp: VendorPayment,
-    q: string,
-    fuzzy: boolean,
-  ): GlobalSearchResultDto {
-    const payNum = vp.paymentNumber?.toLowerCase() ?? '';
-    const refNum = vp.referenceNumber?.toLowerCase() ?? '';
-    const baseScore = fuzzy
-      ? SCORE_FUZZY
-      : payNum === q || refNum === q
-        ? SCORE_EXACT_CODE
-        : payNum.startsWith(q) || refNum.startsWith(q)
-          ? SCORE_STARTSWITH_CODE
-          : SCORE_CONTAINS;
-
-    return {
-      type: 'vendor_payment',
-      id: vp.id,
-      label: vp.paymentNumber,
-      description: vp.referenceNumber ?? undefined,
-      route: `/purchasing/vendor-payments/${vp.id}`,
-      score:
-        baseScore +
-        BOOST_VENDOR_PAYMENT +
-        (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
-    };
-  }
-
   /**
    * Find one vendor payment by ID
    */
@@ -329,13 +246,12 @@ export class VendorPaymentService extends BaseCrudService<
     await this.auditLogService.log(
       'UPDATE',
       'VendorPayment',
-      `Updated vendor payment: ${savedPayment.paymentNumber}`,
+      `Updated vendor payment: ${id}`,
       {
         entityId: id,
         userId: userId || 'system',
         username,
         newValues: {
-          paymentNumber: savedPayment.paymentNumber,
           amount: savedPayment.amount,
           status: savedPayment.status,
         },
@@ -437,13 +353,12 @@ export class VendorPaymentService extends BaseCrudService<
     await this.auditLogService.log(
       'RESTORE',
       'VendorPayment',
-      `Restored vendor payment: ${restoredPayment.paymentNumber}`,
+      `Restored vendor payment: ${id}`,
       {
         entityId: id,
         userId: userId || 'system',
         username,
         newValues: {
-          paymentNumber: restoredPayment.paymentNumber,
           amount: restoredPayment.amount,
           status: restoredPayment.status,
         },
@@ -520,13 +435,11 @@ export class VendorPaymentService extends BaseCrudService<
       throw new BadRequestException('Vendor payment already exists for this purchase order');
     }
 
-    const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments', manager);
     const defaultPaymentMethod = await methodRepo.findOne({
       where: { code: 'BANK', isActive: true },
     });
 
     const vendorPayment = paymentRepo.create({
-      paymentNumber,
       supplierId: purchaseOrder.supplierId,
       purchaseOrderId: poId,
       amount: Number(purchaseOrder.totalAmount),
@@ -548,13 +461,12 @@ export class VendorPaymentService extends BaseCrudService<
     await this.auditLogService.log(
       'CREATE',
       'VendorPayment',
-      `Created vendor payment: ${savedPayment.paymentNumber} for PO ${purchaseOrder.orderNumber}`,
+      `Created vendor payment for PO ${purchaseOrder.orderNumber}`,
       {
         entityId: savedPayment.id,
         userId: userId || 'system',
         username,
         newValues: {
-          paymentNumber: savedPayment.paymentNumber,
           purchaseOrderId: poId,
           amount: savedPayment.amount,
           status: savedPayment.status,
@@ -607,13 +519,12 @@ export class VendorPaymentService extends BaseCrudService<
     await this.auditLogService.log(
       'PERMANENT_DELETE',
       'VendorPayment',
-      `Permanently deleted vendor payment: ${vendorPayment.paymentNumber}`,
+      `Permanently deleted vendor payment: ${id}`,
       {
         entityId: id,
         userId: userId || 'system',
         username,
         oldValues: {
-          paymentNumber: vendorPayment.paymentNumber,
           amount: vendorPayment.amount,
           status: vendorPayment.status,
           paymentMethodId: vendorPayment.paymentMethodId,

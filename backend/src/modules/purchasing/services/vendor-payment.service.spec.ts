@@ -4,8 +4,6 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { AuditLogService } from '../../audit-logs/services';
-import { SettingsService } from '../../settings/settings.service';
-import { UserRole } from '../../../database/entities/user.entity';
 import {
   PaymentMethodEntity,
   PurchaseOrder,
@@ -22,7 +20,6 @@ describe('VendorPaymentService', () => {
   let purchaseOrderRepository: jest.Mocked<Repository<PurchaseOrder>>;
   let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
   let auditLogService: jest.Mocked<AuditLogService>;
-  let settingsService: jest.Mocked<SettingsService>;
 
   const mockSupplier = {
     id: 'supplier-123',
@@ -41,7 +38,6 @@ describe('VendorPaymentService', () => {
 
   const mockVendorPayment = {
     id: 'payment-123',
-    paymentNumber: 'VP-000001',
     supplierId: 'supplier-123',
     purchaseOrderId: 'po-123',
     amount: 1000,
@@ -87,12 +83,6 @@ describe('VendorPaymentService', () => {
             log: jest.fn(),
           },
         },
-        {
-          provide: SettingsService,
-          useValue: {
-            generateDocumentNumber: jest.fn(),
-          },
-        },
       ],
     }).compile();
 
@@ -101,9 +91,6 @@ describe('VendorPaymentService', () => {
     purchaseOrderRepository = module.get(getRepositoryToken(PurchaseOrder));
     paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     auditLogService = module.get(AuditLogService);
-    settingsService = module.get(SettingsService);
-
-    settingsService.generateDocumentNumber.mockResolvedValue('VP-26-001');
 
     jest.spyOn(Logger.prototype, 'log').mockImplementation();
     jest.spyOn(Logger.prototype, 'error').mockImplementation();
@@ -139,6 +126,13 @@ describe('VendorPaymentService', () => {
       } as VendorPayment);
     });
 
+    it('does not generate a document number when creating a payment', async () => {
+      await service.create(createDto);
+      expect(vendorPaymentRepository.create).toHaveBeenCalledWith(
+        expect.not.objectContaining({ paymentNumber: expect.anything() }),
+      );
+    });
+
     it('persists purchaseOrderId and posts accounting entry', async () => {
       await service.create(createDto, 'test-user');
 
@@ -147,14 +141,13 @@ describe('VendorPaymentService', () => {
           purchaseOrderId: 'po-123',
           supplierId: 'supplier-123',
           paymentMethodId: 'pm-bank-id',
-          paymentNumber: 'VP-26-001',
         }),
       );
       expect(purchaseOrderRepository.update).toHaveBeenCalledWith('po-123', {});
       expect(auditLogService.log).toHaveBeenCalledWith(
         'CREATE',
         'VendorPayment',
-        'Created vendor payment: VP-000001',
+        `Created vendor payment ${mockVendorPayment.id}`,
         expect.objectContaining({
           entityId: mockVendorPayment.id,
           userId: 'test-user',
@@ -222,43 +215,10 @@ describe('VendorPaymentService', () => {
     });
   });
 
-  describe('searchGlobal', () => {
-    const adminUser = { role: UserRole.ADMIN } as any;
-
-    it('returns vendor payment search results', async () => {
-      vendorPaymentRepository.createQueryBuilder.mockReturnValue({
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        setParameter: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          {
-            id: 'vp-1',
-            paymentNumber: 'VP-001',
-            referenceNumber: 'REF-001',
-          },
-        ]),
-      } as any);
-
-      const results = await service.searchGlobal('VP-001', adminUser);
-
-      expect(results[0]).toMatchObject({
-        type: 'vendor_payment',
-        id: 'vp-1',
-        label: 'VP-001',
-        description: 'REF-001',
-        route: '/purchasing/vendor-payments/vp-1',
-      });
-    });
-  });
-
   describe('softDeleteForUnpay', () => {
     it('sets isActive=false and soft-deletes the payment', async () => {
       const mockPayment = {
         id: 'vp-1',
-        paymentNumber: 'VP-000001',
         isActive: true,
       } as VendorPayment;
 

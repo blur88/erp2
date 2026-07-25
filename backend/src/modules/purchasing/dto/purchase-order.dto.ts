@@ -261,7 +261,6 @@ export class PurchaseOrderResponseDto {
   @ApiPropertyOptional({ description: 'Vendor Payments associated with this order' })
   vendorPayments?: Array<{
     id: string;
-    paymentNumber: string;
     amount: number;
     paymentDate: Date;
     paymentMethodId?: string;

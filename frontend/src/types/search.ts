@@ -5,7 +5,6 @@ export type GlobalSearchResultType =
   | 'transaction'
   | 'supplier'
   | 'customer_payment'
-  | 'vendor_payment'
 
 export interface GlobalSearchResultDto {
   type: GlobalSearchResultType

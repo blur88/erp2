@@ -12,7 +12,6 @@ import { DocumentNumberSetting } from '../../database/entities/document-number-s
 import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { Payment } from '../../database/entities/payment.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
-import { VendorPayment } from '../../database/entities/vendor-payment.entity';
 import { StockAdjustment } from '../../database/entities/stock-adjustment.entity';
 import {
   UpdateCompanySettingsDto,
@@ -48,8 +47,6 @@ export class SettingsService {
     private paymentRepository: Repository<Payment>,
     @InjectRepository(PurchaseOrder)
     private purchaseOrderRepository: Repository<PurchaseOrder>,
-    @InjectRepository(VendorPayment)
-    private vendorPaymentRepository: Repository<VendorPayment>,
     @InjectRepository(StockAdjustment)
     private stockAdjustmentRepository: Repository<StockAdjustment>,
     private readonly dataSource: DataSource,
@@ -464,7 +461,6 @@ export class SettingsService {
       { documentName: 'Payments', prefix: 'PAY' },
       { documentName: 'Purchase Orders', prefix: 'PO' },
       { documentName: 'Goods Received', prefix: 'GRN' },
-      { documentName: 'Vendor Payments', prefix: 'VP' },
       { documentName: 'Stock Adjustment', prefix: 'SA' },
       // Accounting v1 posts journal entries via this row; keep it in sync with
       // migration 1772100000000 and AccountingSeederService (issue #901). Its
@@ -547,17 +543,6 @@ export class SettingsService {
                 .limit(1)
                 .getOne();
               if (r?.orderNumber) maxNumber = parseInt(r.orderNumber.split('-')[2], 10) || 0;
-              break;
-            }
-            case 'Vendor Payments': {
-              const r = await this.vendorPaymentRepository
-                .createQueryBuilder('vp')
-                .select('vp.paymentNumber')
-                .where('vp.paymentNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('vp.paymentNumber', 'DESC')
-                .limit(1)
-                .getOne();
-              if (r?.paymentNumber) maxNumber = parseInt(r.paymentNumber.split('-')[2], 10) || 0;
               break;
             }
             case 'Stock Adjustment': {

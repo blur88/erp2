@@ -789,13 +789,11 @@ export class PurchaseOrderService extends BaseCrudService<
       }
 
       for (const line of refunds) {
-        const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments', manager);
         const refundRow = repo.create({
           supplierId: purchaseOrder.supplierId,
           purchaseOrderId: orderId,
           paymentMethodId: line.paymentMethodId,
           paymentDate: new Date(),
-          paymentNumber,
           amount: -Number(line.amount),
           notes: line.reference,
           status: 'completed',
@@ -906,7 +904,7 @@ export class PurchaseOrderService extends BaseCrudService<
         const restoredPayment = await vpRepo.findOne({
           where: { id: previousPayment.id },
         });
-        this.logger.log(`Restored vendor payment ${restoredPayment.paymentNumber} for PO ${purchaseOrder.orderNumber}`);
+        this.logger.log(`Restored vendor payment ${restoredPayment.id} for PO ${purchaseOrder.orderNumber}`);
 
         const method = methodMap.get(firstLine.paymentMethodId)!;
         await this.accounting.postPurchasePayment({
@@ -1116,7 +1114,6 @@ export class PurchaseOrderService extends BaseCrudService<
       })) || [],
       vendorPayments: purchaseOrder.vendorPayments?.map(payment => ({
         id: payment.id,
-        paymentNumber: payment.paymentNumber,
         amount: Number(payment.amount),
         paymentDate: payment.paymentDate,
         paymentMethodId: payment.paymentMethodId,
