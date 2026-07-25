@@ -671,9 +671,16 @@ export interface TrialBalanceRow {
 }
 
 export interface TrialBalanceResponse {
-  rows: TrialBalanceRow[];
-  totalDebit: string;
-  totalCredit: string;
-  difference: string;
-  balanced: boolean;
+  rows: TrialBalanceRow[]
+  totalDebit: string
+  totalCredit: string
+  difference: string
+  balanced: boolean
 }
+
+export {
+  type Expense,
+  type ExpenseDocumentStatus,
+  type ExpensePaymentStatus,
+  type ExpensePaymentRow,
+} from './expense.types'
