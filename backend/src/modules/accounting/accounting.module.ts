@@ -4,6 +4,8 @@ import { ChartOfAccount } from './entities/chart-of-account.entity';
 import { AccountingSettings } from './entities/accounting-settings.entity';
 import { JournalEntry } from './entities/journal-entry.entity';
 import { JournalEntryLine } from './entities/journal-entry-line.entity';
+import { Expense } from './entities/expense.entity';
+import { ExpensePayment } from './entities/expense-payment.entity';
 import { SettingsModule } from '../settings/settings.module';
 import { AccountingLookupService } from './services/accounting-lookup.service';
 import { AccountingPostingService } from './services/accounting-posting.service';
@@ -23,7 +25,7 @@ import { ACCOUNTING_POSTING_PORT } from '../../common/accounting-posting/account
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ChartOfAccount, AccountingSettings, JournalEntry, JournalEntryLine]),
+    TypeOrmModule.forFeature([ChartOfAccount, AccountingSettings, JournalEntry, JournalEntryLine, Expense, ExpensePayment]),
     SettingsModule,
   ],
   controllers: [
