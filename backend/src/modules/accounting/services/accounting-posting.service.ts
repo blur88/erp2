@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { EntityManager } from 'typeorm';
+import { EntityManager, IsNull } from 'typeorm';
 import { AccountingLookupService } from './accounting-lookup.service';
 import { SettingsService } from '../../settings/settings.service';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
@@ -15,7 +15,8 @@ import {
 import {
   PostSalesPaymentCmd, PostSalesRefundCmd, PostSalesFulfillmentCmd,
   PostPurchasePaymentCmd, PostPurchaseRefundCmd, PostPurchaseReceiveCmd,
-  PostStockAdjustmentCmd, PostOpeningBalanceCmd, ReverseEntryCmd,
+  PostStockAdjustmentCmd, PostOpeningBalanceCmd, PostExpensePaymentCmd, PostExpenseRefundCmd,
+  ReverseEntryCmd,
 } from '../../../common/accounting-posting/posting-commands';
 
 type DraftLine = { account: ChartOfAccount; debit: string; credit: string };
@@ -178,6 +179,43 @@ export class AccountingPostingService implements AccountingPostingPort {
       sourceType: AccountingSourceType.STOCK_ADJUSTMENT, sourceDocumentId: cmd.adjustmentId,
       sourceRef: cmd.sourceRef, postingType: PostingType.STOCK_ADJUSTMENT, description: 'Stock adjustment',
       entryDate: cmd.entryDate, createdBy: cmd.createdBy, lines,
+    }, manager);
+  }
+
+  private async findExistingEntry(
+    sourceType: AccountingSourceType, sourceEventId: string, postingType: PostingType, manager: EntityManager,
+  ): Promise<PostResult | null> {
+    const existing = await manager.getRepository(JournalEntry).findOne({
+      where: { sourceType, sourceEventId, postingType, reversalOfEntryId: IsNull() } as any,
+    });
+    return existing ? { journalEntryId: (existing as any).id } : null;
+  }
+
+  async postExpensePayment(cmd: PostExpensePaymentCmd, manager: EntityManager): Promise<PostResult> {
+    const existing = await this.findExistingEntry(AccountingSourceType.EXPENSE, cmd.paymentRowId, PostingType.EXPENSE_PAYMENT, manager);
+    if (existing) return existing;
+    const expenseAcc = await manager.getRepository(ChartOfAccount).findOne({ where: { id: cmd.expenseAccountId } as any });
+    if (!expenseAcc) throw new BadRequestException(`Expense account ${cmd.expenseAccountId} not found`);
+    const channelAcc = await this.lookup.resolveChannelAccount(cmd.channel, manager);
+    return this.build({
+      sourceType: AccountingSourceType.EXPENSE, sourceDocumentId: cmd.expenseId, sourceEventId: cmd.paymentRowId,
+      sourceRef: cmd.sourceRef, postingType: PostingType.EXPENSE_PAYMENT, description: 'Expense payment',
+      entryDate: cmd.entryDate, createdBy: cmd.createdBy,
+      lines: [this.debitLine(expenseAcc, cmd.amount), this.creditLine(channelAcc, cmd.amount)],
+    }, manager);
+  }
+
+  async postExpenseRefund(cmd: PostExpenseRefundCmd, manager: EntityManager): Promise<PostResult> {
+    const existing = await this.findExistingEntry(AccountingSourceType.EXPENSE, cmd.refundRowId, PostingType.EXPENSE_REFUND, manager);
+    if (existing) return existing;
+    const expenseAcc = await manager.getRepository(ChartOfAccount).findOne({ where: { id: cmd.expenseAccountId } as any });
+    if (!expenseAcc) throw new BadRequestException(`Expense account ${cmd.expenseAccountId} not found`);
+    const channelAcc = await this.lookup.resolveChannelAccount(cmd.channel, manager);
+    return this.build({
+      sourceType: AccountingSourceType.EXPENSE, sourceDocumentId: cmd.expenseId, sourceEventId: cmd.refundRowId,
+      sourceRef: cmd.sourceRef, postingType: PostingType.EXPENSE_REFUND, description: 'Expense payment refund',
+      entryDate: cmd.entryDate, createdBy: cmd.createdBy,
+      lines: [this.debitLine(channelAcc, cmd.amount), this.creditLine(expenseAcc, cmd.amount)],
     }, manager);
   }
 

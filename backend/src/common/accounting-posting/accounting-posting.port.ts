@@ -2,8 +2,8 @@ import { EntityManager } from 'typeorm';
 import {
   PostSalesPaymentCmd, PostSalesRefundCmd, PostSalesFulfillmentCmd,
   PostPurchasePaymentCmd, PostPurchaseRefundCmd, PostPurchaseReceiveCmd,
-  PostStockAdjustmentCmd, PostOpeningBalanceCmd, ReverseEntryCmd,
-  AccountingSourceType, PostingType,
+  PostStockAdjustmentCmd, PostOpeningBalanceCmd, PostExpensePaymentCmd, PostExpenseRefundCmd,
+  ReverseEntryCmd, AccountingSourceType, PostingType,
 } from './posting-commands';
 
 export const ACCOUNTING_POSTING_PORT = 'ACCOUNTING_POSTING_PORT';
@@ -19,6 +19,8 @@ export interface AccountingPostingPort {
   postPurchaseReceive(cmd: PostPurchaseReceiveCmd, manager: EntityManager): Promise<PostResult>;
   postStockAdjustment(cmd: PostStockAdjustmentCmd, manager: EntityManager): Promise<PostResult>;
   postOpeningBalance(cmd: PostOpeningBalanceCmd, manager: EntityManager): Promise<PostResult>;
+  postExpensePayment(cmd: PostExpensePaymentCmd, manager: EntityManager): Promise<PostResult>;
+  postExpenseRefund(cmd: PostExpenseRefundCmd, manager: EntityManager): Promise<PostResult>;
   reverseEntry(cmd: ReverseEntryCmd, manager: EntityManager): Promise<PostResult>;
   reverseEntriesForDocument(
     sourceType: AccountingSourceType,
