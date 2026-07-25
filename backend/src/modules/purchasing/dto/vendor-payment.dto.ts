@@ -172,12 +172,12 @@ export class QueryVendorPaymentsDto {
 
   @ApiPropertyOptional({
     description: 'Sort by field',
-    example: 'paymentNumber',
+    example: 'paymentDate',
     default: 'paymentDate',
   })
   @IsOptional()
   @IsString()
-  @IsIn(['paymentNumber', 'paymentDate', 'amount'])
+  @IsIn(['paymentDate', 'amount'])
   sortBy?: string;
 
   @ApiPropertyOptional({
@@ -191,7 +191,7 @@ export class QueryVendorPaymentsDto {
   @IsIn(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC';
 
-  @ApiPropertyOptional({ description: 'Search query', example: 'VP-000001' })
+  @ApiPropertyOptional({ description: 'Search query', example: 'WIRE-20260115' })
   @IsOptional()
   @IsString()
   search?: string;

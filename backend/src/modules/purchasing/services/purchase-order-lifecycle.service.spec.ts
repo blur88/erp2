@@ -53,7 +53,6 @@ describe('PurchaseOrderLifecycleService', () => {
 
   const mockVendorPayment = {
     id: 'vp-1',
-    paymentNumber: 'VP-000001',
     purchaseOrderId: 'po-1',
     amount: 50,
   } as VendorPayment;

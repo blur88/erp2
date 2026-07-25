@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, LessThanOrEqual, MoreThanOrEqual, EntityManager } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   VendorPayment,
@@ -18,7 +18,6 @@ import {
   PaginatedResponse,
 } from '../dto';
 import { AuditLogService } from '../../audit-logs/services';
-import { SettingsService } from '@modules/settings/settings.service';
 import { repoFor } from '../../../common/db/tx-helpers';
 
 @Injectable()
@@ -38,7 +37,6 @@ export class VendorPaymentService extends BaseCrudService<
     @InjectRepository(PaymentMethodEntity)
     private paymentMethodRepository: Repository<PaymentMethodEntity>,
     auditLogService: AuditLogService,
-    private readonly settingsService: SettingsService,
   ) {
     super(vendorPaymentRepository, auditLogService);
   }
@@ -76,7 +74,6 @@ export class VendorPaymentService extends BaseCrudService<
     const paymentRepo = repoFor(manager, VendorPayment, this.vendorPaymentRepository);
     const poRepo = repoFor(manager, PurchaseOrder, this.purchaseOrderRepository);
 
-    const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments', manager);
     let paymentMethodId = createDto.paymentMethodId;
 
     if (!paymentMethodId) {
@@ -90,7 +87,6 @@ export class VendorPaymentService extends BaseCrudService<
     const vendorPayment = paymentRepo.create({
       ...createDto,
       paymentMethodId,
-      paymentNumber,
     });
 
     const savedPayment = await paymentRepo.save(vendorPayment);
@@ -102,15 +98,15 @@ export class VendorPaymentService extends BaseCrudService<
     await this.auditLogService.log(
       'CREATE',
       'VendorPayment',
-      `Created vendor payment: ${savedPayment.paymentNumber}`,
+      `Created vendor payment ${savedPayment.id}`,
       {
         entityId: savedPayment.id,
         userId: userId || 'system',
         username,
         newValues: {
-          paymentNumber: savedPayment.paymentNumber,
           amount: savedPayment.amount,
           status: savedPayment.status,
+          referenceNumber: savedPayment.referenceNumber ?? null,
         },
       }
     );
@@ -147,7 +143,7 @@ export class VendorPaymentService extends BaseCrudService<
     // Apply search
     if (search) {
       queryBuilder.andWhere(
-        '(vendorPayment.paymentNumber ILIKE :search OR vendorPayment.referenceNumber ILIKE :search OR supplier.companyName ILIKE :search)',
+        '(vendorPayment.referenceNumber ILIKE :search OR supplier.companyName ILIKE :search)',
         { search: `%${search}%` },
       );
     }
@@ -250,13 +246,12 @@ export class VendorPaymentService extends BaseCrudService<
     await this.auditLogService.log(
       'UPDATE',
       'VendorPayment',
-      `Updated vendor payment: ${savedPayment.paymentNumber}`,
+      `Updated vendor payment: ${id}`,
       {
         entityId: id,
         userId: userId || 'system',
         username,
         newValues: {
-          paymentNumber: savedPayment.paymentNumber,
           amount: savedPayment.amount,
           status: savedPayment.status,
         },
@@ -358,13 +353,12 @@ export class VendorPaymentService extends BaseCrudService<
     await this.auditLogService.log(
       'RESTORE',
       'VendorPayment',
-      `Restored vendor payment: ${restoredPayment.paymentNumber}`,
+      `Restored vendor payment: ${id}`,
       {
         entityId: id,
         userId: userId || 'system',
         username,
         newValues: {
-          paymentNumber: restoredPayment.paymentNumber,
           amount: restoredPayment.amount,
           status: restoredPayment.status,
         },
@@ -441,13 +435,11 @@ export class VendorPaymentService extends BaseCrudService<
       throw new BadRequestException('Vendor payment already exists for this purchase order');
     }
 
-    const paymentNumber = await this.settingsService.generateDocumentNumber('Vendor Payments', manager);
     const defaultPaymentMethod = await methodRepo.findOne({
       where: { code: 'BANK', isActive: true },
     });
 
     const vendorPayment = paymentRepo.create({
-      paymentNumber,
       supplierId: purchaseOrder.supplierId,
       purchaseOrderId: poId,
       amount: Number(purchaseOrder.totalAmount),
@@ -469,13 +461,12 @@ export class VendorPaymentService extends BaseCrudService<
     await this.auditLogService.log(
       'CREATE',
       'VendorPayment',
-      `Created vendor payment: ${savedPayment.paymentNumber} for PO ${purchaseOrder.orderNumber}`,
+      `Created vendor payment for PO ${purchaseOrder.orderNumber}`,
       {
         entityId: savedPayment.id,
         userId: userId || 'system',
         username,
         newValues: {
-          paymentNumber: savedPayment.paymentNumber,
           purchaseOrderId: poId,
           amount: savedPayment.amount,
           status: savedPayment.status,
@@ -528,13 +519,12 @@ export class VendorPaymentService extends BaseCrudService<
     await this.auditLogService.log(
       'PERMANENT_DELETE',
       'VendorPayment',
-      `Permanently deleted vendor payment: ${vendorPayment.paymentNumber}`,
+      `Permanently deleted vendor payment: ${id}`,
       {
         entityId: id,
         userId: userId || 'system',
         username,
         oldValues: {
-          paymentNumber: vendorPayment.paymentNumber,
           amount: vendorPayment.amount,
           status: vendorPayment.status,
           paymentMethodId: vendorPayment.paymentMethodId,

@@ -640,7 +640,6 @@ describe('PurchaseOrderService', () => {
   describe('recordOrderPayments', () => {
     const mockDeletedPayment = {
       id: 'vp-old-1',
-      paymentNumber: 'VP-000001',
       purchaseOrderId: 'po-1',
       deletedAt: new Date('2026-02-19'),
       isActive: false,
