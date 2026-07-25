@@ -4,7 +4,6 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { AuditLogService } from '../../audit-logs/services';
-import { UserRole } from '../../../database/entities/user.entity';
 import {
   PaymentMethodEntity,
   PurchaseOrder,
