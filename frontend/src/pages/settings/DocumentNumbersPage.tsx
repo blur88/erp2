@@ -26,7 +26,7 @@ import {
 
 const MODULE_GROUPS: Record<string, string[]> = {
   Sales: ['Sales Orders', 'Payments'],
-  Purchasing: ['Purchase Orders', 'Goods Received', 'Vendor Payments'],
+  Purchasing: ['Purchase Orders', 'Goods Received'],
   Inventory: ['Stock Adjustment'],
 };
 
