@@ -10,7 +10,7 @@ describe('SettingsService', () => {
     const dataSourceMock = { transaction: jest.fn() };
     const service = new SettingsService(
       {} as any, {} as any, {} as any,
-      {} as any, {} as any, {} as any, {} as any, {} as any,
+      {} as any, {} as any, {} as any, {} as any,
       dataSourceMock as any,
     );
     const num = await service.generateDocumentNumber('Journal Entries', manager);
@@ -44,7 +44,7 @@ describe('SettingsService', () => {
       documentNumberSettingRepository as any,
       {} as any, {} as any,
       purchaseOrderRepository as any,
-      {} as any, {} as any,
+      {} as any,
       {} as any,
     );
 
@@ -73,7 +73,7 @@ describe('SettingsService', () => {
     const service = new SettingsService(
       {} as any, {} as any,
       documentNumberSettingRepository as any,
-      {} as any, {} as any, {} as any, {} as any, {} as any,
+      {} as any, {} as any, {} as any, {} as any,
       {} as any,
     );
 
@@ -103,7 +103,7 @@ describe('SettingsService', () => {
     const service = new SettingsService(
       {} as any, {} as any,
       documentNumberSettingRepository as any,
-      {} as any, {} as any, {} as any, {} as any, {} as any,
+      {} as any, {} as any, {} as any, {} as any,
       dataSource as any,
     );
 
@@ -131,7 +131,7 @@ describe('SettingsService', () => {
     const service = new SettingsService(
       {} as any, {} as any,
       documentNumberSettingRepository as any,
-      {} as any, {} as any, {} as any, {} as any, {} as any,
+      {} as any, {} as any, {} as any, {} as any,
       dataSource as any,
     );
 
@@ -154,7 +154,7 @@ describe('SettingsService', () => {
     const service = new SettingsService(
       {} as any, {} as any,
       documentNumberSettingRepository as any,
-      {} as any, {} as any, {} as any, {} as any, {} as any,
+      {} as any, {} as any, {} as any, {} as any,
       dataSource as any,
     );
 

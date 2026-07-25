@@ -102,7 +102,7 @@ export async function seedDocumentNumberSettings(
   const configs = [
     { documentName: "Purchase Orders", prefix: "PO", paddingDigits: 3 },
     { documentName: "Goods Received", prefix: "GRN", paddingDigits: 3 },
-    { documentName: "Vendor Payments", prefix: "VP", paddingDigits: 3 },
+
   ];
   for (const cfg of configs) {
     await dataSource.query(
