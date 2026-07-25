@@ -1,3 +1,5 @@
+export type UpdateExpenseDto = Partial<CreateExpenseDto>;
+
 export interface CreateExpenseDto {
   expenseDate: string;
   payee?: string;

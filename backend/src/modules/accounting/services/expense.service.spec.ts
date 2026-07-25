@@ -49,22 +49,19 @@ describe('ExpenseService', () => {
   function setupTxAccount(overrides?: Partial<any>) {
     const defaults = { id: 'acc-1', isActive: true, isPostable: true, type: AccountType.EXPENSE };
     txAccount = { ...defaults, ...overrides };
+    const expenseRepoObj = { findOne: jest.fn(), create: (x: any) => x, save: async (x: any) => ({ ...x, id: 'exp-1' }) };
+    const coaRepoObj = { findOne: jest.fn().mockImplementation(() => { if (txAccount === null) return null; return txAccount; }) };
+    const paymentRepoObj = { count: jest.fn().mockResolvedValue(0), find: jest.fn().mockResolvedValue([]) };
     txManager = {
       getRepository: jest.fn().mockImplementation((entity: any) => {
-        if (entity === Expense) return {
-          findOne: jest.fn(),
-          create: (x: any) => x,
-          save: async (x: any) => ({ ...x, id: 'exp-1' }),
-        };
-        if (entity === ChartOfAccount) return {
-          findOne: jest.fn().mockImplementation(() => {
-            if (txAccount === null) return null;
-            return txAccount;
-          }),
-        };
+        if (entity === Expense) return expenseRepoObj;
+        if (entity === ChartOfAccount) return coaRepoObj;
+        if (entity === ExpensePayment) return paymentRepoObj;
         return {};
       }),
     };
+    txManager._expenseRepo = expenseRepoObj;
+    txManager._paymentRepo = paymentRepoObj;
     (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(txManager));
     return { manager: txManager, account: txAccount };
   }
@@ -331,6 +328,204 @@ describe('ExpenseService', () => {
       buildQb(qb);
       await service.list({ sortBy: 'expenseNumber' });
       expect(qb._orderBy).toEqual({ col: 'e.expenseNumber', dir: 'DESC' });
+    });
+  });
+
+  describe('computeAggregates', () => {
+    it('returns UNPAID when no payments', () => {
+      const result = ExpenseService.computeAggregates('1000.0000', []);
+      expect(result.paymentStatus).toBe(ExpensePaymentStatus.UNPAID);
+      expect(result.paidAmount).toBe('0.0000');
+      expect(result.balance).toBe('1000.0000');
+    });
+
+    it('returns PAID when paid >= total', () => {
+      const result = ExpenseService.computeAggregates('1000.0000', [
+        { amount: '600.0000' }, { amount: '400.0000' },
+      ]);
+      expect(result.paymentStatus).toBe(ExpensePaymentStatus.PAID);
+      expect(result.paidAmount).toBe('1000.0000');
+      expect(result.balance).toBe('0.0000');
+    });
+
+    it('returns PARTIAL when 0 < paid < total', () => {
+      const result = ExpenseService.computeAggregates('1000.0000', [{ amount: '300.0000' }]);
+      expect(result.paymentStatus).toBe(ExpensePaymentStatus.PARTIAL);
+      expect(result.paidAmount).toBe('300.0000');
+      expect(result.balance).toBe('700.0000');
+    });
+  });
+
+  describe('update', () => {
+    function mockLockedExpense(overrides: Partial<any> = {}) {
+      return {
+        id: 'exp-1',
+        expenseNumber: 'EXP-26-001',
+        totalAmount: '1000.0000',
+        paidAmount: '0.0000',
+        balance: '1000.0000',
+        documentStatus: ExpenseDocumentStatus.DRAFT,
+        paymentStatus: ExpensePaymentStatus.UNPAID,
+        expenseAccountId: 'acc-1',
+        expenseDate: '2026-07-20',
+        payee: 'Vendor A',
+        description: 'Office supplies',
+        notes: null,
+        ...overrides,
+      };
+    }
+
+    function setupUpdateTest(overrides: Partial<any> = {}) {
+      const expense = mockLockedExpense(overrides);
+      setupTxAccount();
+      txManager.getRepository(Expense).findOne.mockResolvedValue(expense);
+      return expense;
+    }
+
+    it('throws NotFoundException when expense does not exist', async () => {
+      setupTxAccount();
+      txManager.getRepository(Expense).findOne.mockResolvedValue(null);
+      await expect(service.update('nonexistent', { description: 'test' }, 'user-1', 'admin'))
+        .rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects CANCELLED documentStatus', async () => {
+      setupUpdateTest({ documentStatus: ExpenseDocumentStatus.CANCELLED });
+      await expect(service.update('exp-1', { description: 'Changed' }, 'user-1', 'admin'))
+        .rejects.toThrow('Cancelled expenses cannot be edited');
+    });
+
+    it('rejects PAID paymentStatus', async () => {
+      setupUpdateTest({ paymentStatus: ExpensePaymentStatus.PAID });
+      await expect(service.update('exp-1', { description: 'Changed' }, 'user-1', 'admin'))
+        .rejects.toThrow('Fully paid expenses cannot be edited');
+    });
+
+    it('rejects totalAmount <= 0', async () => {
+      setupUpdateTest();
+      await expect(service.update('exp-1', { totalAmount: '0.0000' }, 'user-1', 'admin'))
+        .rejects.toThrow('Amount must be greater than zero');
+    });
+
+    it('rejects totalAmount < paidAmount', async () => {
+      setupUpdateTest({ paidAmount: '500.0000' });
+      await expect(service.update('exp-1', { totalAmount: '400.0000' }, 'user-1', 'admin'))
+        .rejects.toThrow('Amount cannot be less than the amount already paid');
+    });
+
+    it('rejects expenseAccountId change when payment exists', async () => {
+      setupUpdateTest();
+      txManager.getRepository(ExpensePayment).count.mockResolvedValue(1);
+      await expect(service.update('exp-1', { expenseAccountId: 'acc-2' }, 'user-1', 'admin'))
+        .rejects.toThrow('Expense account is locked after the first payment');
+    });
+
+    it('re-validates account when expenseAccountId changes - not found', async () => {
+      setupUpdateTest();
+      txAccount = null;
+      await expect(service.update('exp-1', { expenseAccountId: 'acc-2' }, 'user-1', 'admin'))
+        .rejects.toThrow('Expense account not found');
+    });
+
+    it('re-validates account when expenseAccountId changes - not active', async () => {
+      setupUpdateTest();
+      txAccount = { id: 'acc-2', isActive: false, isPostable: true, type: AccountType.EXPENSE };
+      await expect(service.update('exp-1', { expenseAccountId: 'acc-2' }, 'user-1', 'admin'))
+        .rejects.toThrow('Expense account is not active');
+    });
+
+    it('recomputes aggregates when totalAmount decreases from PARTIAL to PAID', async () => {
+      setupUpdateTest({ totalAmount: '1000.0000', paidAmount: '500.0000', balance: '500.0000', paymentStatus: ExpensePaymentStatus.PARTIAL });
+      txManager.getRepository(ExpensePayment).find.mockResolvedValue([{ amount: '500.0000' }]);
+      const result = await service.update('exp-1', { totalAmount: '500.0000' }, 'user-1', 'admin');
+      expect(result.totalAmount).toBe('500.0000');
+      expect(result.paidAmount).toBe('500.0000');
+      expect(result.balance).toBe('0.0000');
+      expect(result.paymentStatus).toBe(ExpensePaymentStatus.PAID);
+    });
+
+    it('updates allowed fields and writes audit log', async () => {
+      setupUpdateTest();
+      const result = await service.update('exp-1', { description: 'Updated desc', payee: 'New Vendor', notes: 'Note added' }, 'user-1', 'admin');
+      expect(result.description).toBe('Updated desc');
+      expect(result.payee).toBe('New Vendor');
+      expect(result.notes).toBe('Note added');
+      expect(auditLogService.log).toHaveBeenCalledWith(
+        'UPDATE', 'Expense', expect.stringContaining('EXP-26-001'),
+        expect.objectContaining({ entityId: 'exp-1', userId: 'user-1', username: 'admin' }),
+      );
+    });
+
+    it('uses system as default userId when not provided', async () => {
+      setupUpdateTest();
+      await service.update('exp-1', { description: 'test' });
+      expect(auditLogService.log).toHaveBeenCalledWith(
+        'UPDATE', 'Expense', expect.any(String),
+        expect.objectContaining({ userId: 'system', username: undefined }),
+      );
+    });
+  });
+
+  describe('cancel', () => {
+    function setupCancelTest(overrides: Partial<any> = {}) {
+      const expense = {
+        id: 'exp-1',
+        expenseNumber: 'EXP-26-001',
+        totalAmount: '1000.0000',
+        paidAmount: '0.0000',
+        balance: '1000.0000',
+        documentStatus: ExpenseDocumentStatus.DRAFT,
+        paymentStatus: ExpensePaymentStatus.UNPAID,
+        expenseAccountId: 'acc-1',
+        expenseDate: '2026-07-20',
+        payee: 'Vendor A',
+        description: 'Office supplies',
+        notes: null,
+        ...overrides,
+      };
+      setupTxAccount();
+      txManager.getRepository(Expense).findOne.mockResolvedValue(expense);
+      return expense;
+    }
+
+    it('throws NotFoundException when expense does not exist', async () => {
+      setupTxAccount();
+      txManager.getRepository(Expense).findOne.mockResolvedValue(null);
+      await expect(service.cancel('nonexistent', 'user-1', 'admin'))
+        .rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects non-DRAFT status', async () => {
+      setupCancelTest({ documentStatus: ExpenseDocumentStatus.CANCELLED });
+      await expect(service.cancel('exp-1', 'user-1', 'admin'))
+        .rejects.toThrow('Only draft expenses can be cancelled');
+    });
+
+    it('rejects net paid != 0', async () => {
+      setupCancelTest({ paidAmount: '500.0000' });
+      await expect(service.cancel('exp-1', 'user-1', 'admin'))
+        .rejects.toThrow('Refund all payments before cancelling this expense');
+    });
+
+    it('sets documentStatus to CANCELLED and writes audit log', async () => {
+      setupCancelTest();
+      const repo = txManager.getRepository(Expense);
+      repo.save = jest.fn().mockImplementation(async (x: any) => x);
+      const result = await service.cancel('exp-1', 'user-1', 'admin');
+      expect(result.documentStatus).toBe(ExpenseDocumentStatus.CANCELLED);
+      expect(auditLogService.log).toHaveBeenCalledWith(
+        'CANCEL', 'Expense', expect.stringContaining('EXP-26-001'),
+        expect.objectContaining({ entityId: 'exp-1', userId: 'user-1', username: 'admin' }),
+      );
+    });
+
+    it('uses system as default userId when not provided', async () => {
+      setupCancelTest();
+      await service.cancel('exp-1');
+      expect(auditLogService.log).toHaveBeenCalledWith(
+        'CANCEL', 'Expense', expect.any(String),
+        expect.objectContaining({ userId: 'system', username: undefined }),
+      );
     });
   });
 });
