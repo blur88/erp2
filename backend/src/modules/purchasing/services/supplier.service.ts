@@ -651,7 +651,7 @@ export class SupplierService extends BaseCrudService<
     const options: FindManyOptions<VendorPayment> = {
       where: { supplierId },
       relations: { paymentMethodEntity: true, purchaseOrder: true },
-      order: { paymentNumber: 'ASC' },
+      order: { paymentDate: 'DESC', createdAt: 'DESC', id: 'DESC' },
       ...paginationOptions(page, limit),
     };
     const [data, total] = await this.vendorPaymentRepository.findAndCount(options);

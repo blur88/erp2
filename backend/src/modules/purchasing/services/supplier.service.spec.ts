@@ -214,5 +214,17 @@ describe('SupplierService', () => {
       expect(arg.take).toBeUndefined();
       expect(result).toEqual({ data: [{ id: 'vp1' }], meta: { total: 60 } });
     });
+
+    it('getSupplierPayments orders by paymentDate DESC with deterministic tie-breakers', async () => {
+      vendorPaymentRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.getSupplierPayments('supplier-1', {});
+
+      expect(vendorPaymentRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          order: { paymentDate: 'DESC', createdAt: 'DESC', id: 'DESC' },
+        }),
+      );
+    });
   });
 });
