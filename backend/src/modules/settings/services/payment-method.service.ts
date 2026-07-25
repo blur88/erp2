@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { Payment } from '../../../database/entities/payment.entity';
+import { ExpensePayment } from '../../../modules/accounting/entities/expense-payment.entity';
 import { applyPagination } from '@/common/pagination/apply-pagination';
 import {
   CreatePaymentMethodDto,
@@ -26,6 +27,8 @@ export class PaymentMethodService {
     private readonly paymentMethodRepository: Repository<PaymentMethodEntity>,
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
+    @InjectRepository(ExpensePayment)
+    private readonly expensePaymentRepository: Repository<ExpensePayment>,
   ) {}
 
   async findAll(query: QueryPaymentMethodsDto): Promise<PaymentMethodListResponseDto> {
@@ -163,16 +166,20 @@ export class PaymentMethodService {
       );
     }
 
-    const [paymentCount] = await Promise.all([
+    const [paymentCount, expensePaymentCount] = await Promise.all([
       this.paymentRepository.count({
+        where: { paymentMethodId: id, deletedAt: IsNull() as any },
+        withDeleted: true,
+      }),
+      this.expensePaymentRepository.count({
         where: { paymentMethodId: id, deletedAt: IsNull() as any },
         withDeleted: true,
       }),
     ]);
 
-    if (paymentCount > 0) {
+    if (paymentCount > 0 || expensePaymentCount > 0) {
       throw new ConflictException(
-        `Cannot permanently delete payment method "${pm.code}" because it is referenced by ${paymentCount} payment(s).`,
+        `Cannot permanently delete payment method "${pm.code}" because it is referenced by ${paymentCount} payment(s) and ${expensePaymentCount} expense payment(s).`,
       );
     }
 
