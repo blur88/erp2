@@ -169,7 +169,13 @@ describe('ExpenseService', () => {
 
   describe('findOne', () => {
     it('throws NotFoundException when expense not found', async () => {
-      expenseRepo.findOne = jest.fn().mockResolvedValue(null);
+      expenseRepo.createQueryBuilder = jest.fn().mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      });
       await expect(service.findOne('nonexistent')).rejects.toThrow(NotFoundException);
     });
 
@@ -177,8 +183,14 @@ describe('ExpenseService', () => {
       const payment1 = { id: 'p1', expenseId: 'exp-1', amount: '1000.0000', paymentDate: '2026-07-20', createdAt: new Date('2026-07-20T10:00:00Z'), sourcePaymentId: null, paymentMethod: { id: 'pm-1', name: 'Cash' } };
       const payment2 = { id: 'p2', expenseId: 'exp-1', amount: '500.0000', paymentDate: '2026-07-21', createdAt: new Date('2026-07-21T10:00:00Z'), sourcePaymentId: null, paymentMethod: { id: 'pm-2', name: 'Bank' } };
       const refund = { id: 'r1', expenseId: 'exp-1', amount: '200.0000', paymentDate: '2026-07-22', createdAt: new Date('2026-07-22T10:00:00Z'), sourcePaymentId: 'p1', paymentMethod: { id: 'pm-1', name: 'Cash' } };
-      expenseRepo.findOne = jest.fn().mockResolvedValue({
-        id: 'exp-1', expenseNumber: 'EXP-26-001', payments: [payment1, refund, payment2], expenseAccount: { id: 'acc-1', name: 'Office Expenses' },
+      expenseRepo.createQueryBuilder = jest.fn().mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({
+          id: 'exp-1', expenseNumber: 'EXP-26-001', payments: [payment1, refund, payment2], expenseAccount: { id: 'acc-1', name: 'Office Expenses' },
+        }),
       });
       const result = await service.findOne('exp-1');
       expect(result).toBeDefined();
@@ -196,8 +208,14 @@ describe('ExpenseService', () => {
       const payment = { id: 'p1', expenseId: 'exp-1', amount: '500.0000', paymentDate: '2026-07-20', createdAt: new Date('2026-07-20T10:00:00Z'), sourcePaymentId: null, paymentMethod: { id: 'pm-1', name: 'Cash' } };
       const refund1 = { id: 'r1', expenseId: 'exp-1', amount: '300.0000', paymentDate: '2026-07-21', createdAt: new Date('2026-07-21T10:00:00Z'), sourcePaymentId: 'p1', paymentMethod: { id: 'pm-1', name: 'Cash' } };
       const refund2 = { id: 'r2', expenseId: 'exp-1', amount: '200.0000', paymentDate: '2026-07-22', createdAt: new Date('2026-07-22T10:00:00Z'), sourcePaymentId: 'p1', paymentMethod: { id: 'pm-1', name: 'Cash' } };
-      expenseRepo.findOne = jest.fn().mockResolvedValue({
-        id: 'exp-1', expenseNumber: 'EXP-26-001', payments: [payment, refund1, refund2], expenseAccount: { id: 'acc-1' },
+      expenseRepo.createQueryBuilder = jest.fn().mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({
+          id: 'exp-1', expenseNumber: 'EXP-26-001', payments: [payment, refund1, refund2], expenseAccount: { id: 'acc-1' },
+        }),
       });
       const result = await service.findOne('exp-1');
       const p1: any = result.payments.find((p: any) => p.id === 'p1');
@@ -258,7 +276,9 @@ describe('ExpenseService', () => {
       await service.list({ search: 'office' });
       const where = qb.calls.find((c: any) => c.sql.includes('ILIKE'));
       expect(where).toBeDefined();
-      expect(where.sql).toMatch(/expenseNumber.*ILIKE|description.*ILIKE|payee.*ILIKE/);
+      expect(where.sql).toMatch(/expenseNumber.*ILIKE/);
+      expect(where.sql).toMatch(/description.*ILIKE/);
+      expect(where.sql).toMatch(/payee.*ILIKE/);
       expect(where.params).toEqual({ search: '%office%' });
     });
 

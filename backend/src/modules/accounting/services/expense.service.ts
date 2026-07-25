@@ -57,36 +57,37 @@ export class ExpenseService {
 
   private async assertValidExpenseAccount(accountId: string, manager: EntityManager): Promise<void> {
     const acc = await manager.getRepository(ChartOfAccount).findOne({ where: { id: accountId } as any });
-    if (!acc || !acc.isActive || !acc.isPostable || acc.type !== AccountType.EXPENSE) {
-      throw new BadRequestException('Expense account must be an active, postable Expense-type account');
+    if (!acc) {
+      throw new BadRequestException('Expense account not found');
+    }
+    if (!acc.isActive) {
+      throw new BadRequestException('Expense account is not active');
+    }
+    if (!acc.isPostable) {
+      throw new BadRequestException('Expense account is not postable');
+    }
+    if (acc.type !== AccountType.EXPENSE) {
+      throw new BadRequestException('Expense account must be an Expense-type account');
     }
   }
 
   async findOne(id: string): Promise<Expense> {
-    const expense = await this.expenseRepo.findOne({
-      where: { id } as any,
-      relations: {
-        payments: { paymentMethod: true },
-        expenseAccount: true,
-      },
-      order: {
-        payments: { paymentDate: 'ASC', createdAt: 'ASC' },
-      },
-    });
+    const expense = await this.expenseRepo.createQueryBuilder('e')
+      .leftJoinAndSelect('e.payments', 'payments')
+      .leftJoinAndSelect('payments.paymentMethod', 'paymentMethod', undefined, { withDeleted: true })
+      .leftJoinAndSelect('e.expenseAccount', 'expenseAccount')
+      .where('e.id = :id', { id })
+      .orderBy('payments.paymentDate', 'ASC')
+      .addOrderBy('payments.createdAt', 'ASC')
+      .getOne();
 
     if (!expense) throw new NotFoundException('Expense not found');
 
     const payments = expense.payments ?? [];
-    const refundMap = new Map<string, bigint>();
-    for (const p of payments) {
-      if (p.sourcePaymentId) {
-        const key = p.sourcePaymentId;
-        refundMap.set(key, (refundMap.get(key) ?? 0n) + toMinorUnits(p.amount));
-      }
-    }
+    const refunds = payments.filter(p => p.sourcePaymentId);
     for (const p of payments) {
       if (!p.sourcePaymentId) {
-        const refunded = refundMap.get(p.id) ?? 0n;
+        const refunded = sumMinor(refunds.filter(r => r.sourcePaymentId === p.id).map(r => r.amount));
         (p as any).remainingRefundable = formatScale4(toMinorUnits(p.amount) - refunded);
       }
     }
