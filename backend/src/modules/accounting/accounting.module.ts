@@ -21,6 +21,9 @@ import { AccountingSettingsController } from './controllers/accounting-settings.
 import { JournalEntryController } from './controllers/journal-entry.controller';
 import { GeneralLedgerController } from './controllers/general-ledger.controller';
 import { TrialBalanceController } from './controllers/trial-balance.controller';
+import { ExpenseController } from './controllers/expense.controller';
+import { ExpenseService } from './services/expense.service';
+import { ExpensePaymentService } from './services/expense-payment.service';
 import { ACCOUNTING_POSTING_PORT } from '../../common/accounting-posting/accounting-posting.port';
 
 @Module({
@@ -30,12 +33,13 @@ import { ACCOUNTING_POSTING_PORT } from '../../common/accounting-posting/account
   ],
   controllers: [
     ChartOfAccountController, AccountingSettingsController, JournalEntryController,
-    GeneralLedgerController, TrialBalanceController,
+    GeneralLedgerController, TrialBalanceController, ExpenseController,
   ],
   providers: [
     AccountingLookupService, AccountingPostingService, AccountBalanceService,
     ChartOfAccountService, AccountingSettingsService, JournalEntryService,
     GeneralLedgerService, TrialBalanceService, AccountingSeederService,
+    ExpenseService, ExpensePaymentService,
     { provide: ACCOUNTING_POSTING_PORT, useExisting: AccountingPostingService },
   ],
   exports: [ACCOUNTING_POSTING_PORT, AccountingLookupService],
