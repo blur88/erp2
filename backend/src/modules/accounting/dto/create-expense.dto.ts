@@ -9,6 +9,14 @@ export interface CreateExpenseDto {
   notes?: string;
 }
 
+export interface PayExpenseDto {
+  payments: { paymentMethodId: string; amount: string; paymentDate: string; reference?: string }[];
+}
+
+export interface RefundExpenseDto {
+  refunds: { sourcePaymentId: string; amount: string; refundDate: string; reference?: string }[];
+}
+
 export interface ListExpensesParams {
   page?: number;
   limit?: number;
