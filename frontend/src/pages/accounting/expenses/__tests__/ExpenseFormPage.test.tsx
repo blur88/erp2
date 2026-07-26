@@ -189,6 +189,11 @@ describe('ExpenseFormPage - Create mode', () => {
   })
 
   it('submits the picked calendar date without timezone shift', async () => {
+    // Force a UTC+8 zone so the test bites even on UTC CI hosts: a UTC-based
+    // formatter turns local midnight 2026-07-26 into 2026-07-25.
+    const originalTZ = process.env.TZ
+    process.env.TZ = 'Asia/Kuala_Lumpur'
+    try {
     const user = userEvent.setup()
     renderCreatePage()
     await user.type(screen.getByLabelText(/description/i), 'Dated expense')
@@ -208,6 +213,10 @@ describe('ExpenseFormPage - Create mode', () => {
         expect.objectContaining({ expenseDate: '2026-07-26' }),
       )
     })
+    } finally {
+      if (originalTZ === undefined) delete process.env.TZ
+      else process.env.TZ = originalTZ
+    }
   })
 
   it('calls createExpense and navigates to detail on submit', async () => {
