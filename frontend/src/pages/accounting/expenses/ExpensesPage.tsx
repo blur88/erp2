@@ -1,18 +1,31 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Button } from '@mui/material'
+import { skipToken } from '@reduxjs/toolkit/query'
 
+import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 import PagePagination from '@/components/common/PagePagination'
+import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
 import { StatusChip } from '@/components/common/StatusChip'
 import RowActionMenu, { type RowAction } from '@/components/common/RowActionMenu'
 import { useFilterBar } from '@/hooks/useFilterBar'
-import { useGetExpensesQuery, useGetAccountTreeQuery, type ExpenseListParams } from '@/store/api/accountingApi'
+import { useNotification } from '@/hooks/useNotification'
+import {
+  useCancelExpenseMutation,
+  useGetExpensesQuery,
+  useGetAccountTreeQuery,
+  useGetExpenseQuery,
+  usePayExpenseMutation,
+  useRefundExpenseMutation,
+  type ExpenseListParams,
+} from '@/store/api/accountingApi'
 import { formatCurrency } from '@/utils/currency'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
 import { getExpenseActionMetas } from '@/pages/accounting/expenses/expenseActions'
+import ExpensePayDialog from '@/pages/accounting/expenses/ExpensePayDialog'
 import type { Expense, ExpenseDocumentStatus, ExpensePaymentStatus } from '@/types'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 
@@ -69,6 +82,11 @@ export default function ExpensesPage() {
   const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
   const sortBy = 'expenseDate' as const
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [payExpenseRow, setPayExpenseRow] = useState<Expense | null>(null)
+  const [refundExpenseRow, setRefundExpenseRow] = useState<Expense | null>(null)
+  const [cancelExpenseRow, setCancelExpenseRow] = useState<Expense | null>(null)
+
+  const { showSuccess, showError } = useNotification()
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -123,6 +141,28 @@ export default function ExpensesPage() {
   const rows = response?.data ?? []
   const total = response?.meta?.total ?? 0
 
+  const [doPayExpense] = usePayExpenseMutation()
+  const [doRefundExpense] = useRefundExpenseMutation()
+  const [doCancelExpense, { isLoading: isCancelling }] = useCancelExpenseMutation()
+
+  const { data: cancelExpenseDetail } = useGetExpenseQuery(
+    cancelExpenseRow ? cancelExpenseRow.id : skipToken,
+  )
+
+  const refundSources: RefundSource[] = useMemo(() => {
+    if (!refundExpenseRow?.payments) return []
+    return refundExpenseRow.payments
+      .filter((p) => Number(p.amount) > 0)
+      .map((p) => ({
+        id: p.id,
+        label: p.paymentMethod?.name ?? 'Payment',
+        paidAmount: Number(p.amount),
+        alreadyRefunded: p.remainingRefundable
+          ? Number(p.amount) - Number(p.remainingRefundable)
+          : 0,
+      }))
+  }, [refundExpenseRow])
+
   const handleLimitChange = (newLimit: number) => {
     setLimit(newLimit)
     setPage(1)
@@ -137,6 +177,69 @@ export default function ExpensesPage() {
     navigate(`/accounting/expenses/${row.id}`)
   }
 
+  const handlePaySubmit = useCallback(
+    async (payments: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[]) => {
+      if (!payExpenseRow) return
+      try {
+        await doPayExpense({ id: payExpenseRow.id, data: { payments } }).unwrap()
+        showSuccess(`Payment recorded for ${payExpenseRow.expenseNumber}`)
+        setPayExpenseRow(null)
+      } catch (error) {
+        const message =
+          (error as any)?.response?.data?.message ||
+          (error as any)?.message ||
+          'Failed to record payment'
+        showError(message)
+        throw error
+      }
+    },
+    [payExpenseRow, doPayExpense, showSuccess, showError],
+  )
+
+  const handleRefundSubmit = useCallback(
+    async (lines: { sourceId: string; amount: number; reference?: string; date?: string }[]) => {
+      if (!refundExpenseRow) return
+      try {
+        await doRefundExpense({
+          id: refundExpenseRow.id,
+          data: {
+            refunds: lines.map((l) => ({
+              sourcePaymentId: l.sourceId,
+              amount: l.amount,
+              reference: l.reference,
+              date: l.date,
+            })),
+          },
+        }).unwrap()
+        showSuccess(`Refund recorded for ${refundExpenseRow.expenseNumber}`)
+        setRefundExpenseRow(null)
+      } catch (error) {
+        const message =
+          (error as any)?.response?.data?.message ||
+          (error as any)?.message ||
+          'Failed to record refund'
+        showError(message)
+        throw error
+      }
+    },
+    [refundExpenseRow, doRefundExpense, showSuccess, showError],
+  )
+
+  const handleCancelConfirm = useCallback(async () => {
+    if (!cancelExpenseRow) return
+    try {
+      await doCancelExpense(cancelExpenseRow.id).unwrap()
+      showSuccess(`Expense ${cancelExpenseRow.expenseNumber} cancelled`)
+      setCancelExpenseRow(null)
+    } catch (error) {
+      const message =
+        (error as any)?.response?.data?.message ||
+        (error as any)?.message ||
+        'Failed to cancel expense'
+      showError(message)
+    }
+  }, [cancelExpenseRow, doCancelExpense, showSuccess, showError])
+
   const buildRowActions = useCallback(
     (row: Expense): RowAction[] => {
       const metas = getExpenseActionMetas(row)
@@ -150,6 +253,12 @@ export default function ExpensesPage() {
           onClick: () => {
             if (meta.action === 'edit') {
               navigate(`/accounting/expenses/${row.id}/edit`)
+            } else if (meta.action === 'pay') {
+              setPayExpenseRow(row)
+            } else if (meta.action === 'refund') {
+              setRefundExpenseRow(row)
+            } else if (meta.action === 'cancel') {
+              setCancelExpenseRow(row)
             }
           },
           disabled: meta.disabled,
@@ -259,6 +368,43 @@ export default function ExpensesPage() {
             }
           />
         </Box>
+      }
+      dialogs={
+        <>
+          {payExpenseRow && (
+            <ExpensePayDialog
+              open
+              onClose={() => setPayExpenseRow(null)}
+              onSubmit={handlePaySubmit}
+              expense={payExpenseRow}
+            />
+          )}
+
+          {refundExpenseRow && (
+            <RefundDialog
+              open
+              onClose={() => setRefundExpenseRow(null)}
+              onSubmit={handleRefundSubmit}
+              sources={refundSources}
+              orderNumber={refundExpenseRow.expenseNumber}
+              totalAmount={Number(refundExpenseRow.totalAmount)}
+              showDateField
+            />
+          )}
+
+          {cancelExpenseRow && (
+            <ConfirmationDialog
+              open
+              title="Cancel Expense"
+              message={`Cancel this expense? (${cancelExpenseRow.expenseNumber})`}
+              confirmText="Cancel Expense"
+              severity="error"
+              onConfirm={handleCancelConfirm}
+              onCancel={() => setCancelExpenseRow(null)}
+              loading={isCancelling}
+            />
+          )}
+        </>
       }
     />
   )

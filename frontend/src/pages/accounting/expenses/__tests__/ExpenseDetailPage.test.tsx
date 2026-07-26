@@ -3,16 +3,29 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { act, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Expense } from '@/types'
 
 import ExpenseDetailPage from '../ExpenseDetailPage'
 
-const { mockNavigate, mockGetExpense, mockCancelExpense } = vi.hoisted(() => ({
+const {
+  mockNavigate,
+  mockGetExpense,
+  mockCancelExpense,
+  mockPayExpense,
+  mockRefundExpense,
+  mockShowSuccess,
+  mockShowError,
+} = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockGetExpense: vi.fn(),
-  mockCancelExpense: vi.fn(),
+  mockCancelExpense: vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) })),
+  mockPayExpense: vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) })),
+  mockRefundExpense: vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) })),
+  mockShowSuccess: vi.fn(),
+  mockShowError: vi.fn(),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -21,7 +34,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 })
 
 vi.mock('@/hooks/useNotification', () => ({
-  useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
+  useNotification: () => ({ showSuccess: mockShowSuccess, showError: mockShowError }),
 }))
 
 vi.mock('@/store/api/accountingApi', async (importOriginal) => {
@@ -30,8 +43,25 @@ vi.mock('@/store/api/accountingApi', async (importOriginal) => {
     ...actual,
     useGetExpenseQuery: mockGetExpense,
     useCancelExpenseMutation: () => [mockCancelExpense, { isLoading: false }],
+    usePayExpenseMutation: () => [mockPayExpense, { isLoading: false }],
+    useRefundExpenseMutation: () => [mockRefundExpense, { isLoading: false }],
   }
 })
+
+vi.mock('@/store/api/paymentMethodsApi', () => ({
+  useGetActivePaymentMethodsForPurchasesQuery: () => ({ data: [] }),
+}))
+
+vi.mock('../ExpensePayDialog', () => ({
+  default: ({ open, onSubmit }: any) =>
+    open ? <div data-testid="expense-pay-dialog" onClick={() => onSubmit([{ paymentMethodId: 'pm-1', amount: 100, paymentDate: '2024-01-01' }])}>ExpensePayDialog</div> : null,
+}))
+
+vi.mock('@/components/common/RefundDialog', () => ({
+  default: ({ open, onSubmit }: any) =>
+    open ? <div data-testid="expense-refund-dialog" onClick={() => onSubmit([{ sourceId: 'pmt-1', amount: 50 }])}>RefundDialog</div> : null,
+  __esModule: true,
+}))
 
 function makeExpense(overrides: Partial<Expense> = {}): Expense {
   return {
@@ -270,5 +300,95 @@ describe('ExpenseDetailPage', () => {
     renderPage()
     await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses')
+  })
+
+  describe('action wiring', () => {
+    it('opens PayDialog when Pay is clicked', async () => {
+      mockGetExpense.mockReturnValue({
+        data: makeExpense({ documentStatus: 'DRAFT', paymentStatus: 'UNPAID' }),
+        isLoading: false,
+      })
+      renderPage()
+      await userEvent.click(screen.getByRole('button', { name: 'Pay' }))
+      expect(screen.getByTestId('expense-pay-dialog')).toBeInTheDocument()
+    })
+
+    it('opens RefundDialog when Refund is clicked', async () => {
+      mockGetExpense.mockReturnValue({
+        data: makeExpense({ documentStatus: 'DRAFT', paymentStatus: 'PAID', payments: [{ id: 'pmt-1', expenseId: 'exp-1', paymentMethodId: 'pm-1', paymentDate: '2024-06-15', amount: '500.00', reference: null, sourcePaymentId: null, paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' } }] }),
+        isLoading: false,
+      })
+      renderPage()
+      await userEvent.click(screen.getByRole('button', { name: 'Refund' }))
+      expect(screen.getByTestId('expense-refund-dialog')).toBeInTheDocument()
+    })
+
+    it('opens ConfirmationDialog when Cancel is clicked', async () => {
+      mockGetExpense.mockReturnValue({
+        data: makeExpense({ documentStatus: 'DRAFT', paymentStatus: 'UNPAID' }),
+        isLoading: false,
+      })
+      renderPage()
+      await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.getByText(/Cancel this expense/i)).toBeInTheDocument()
+    })
+
+    it('confirmed Cancel fires cancelExpense mutation and shows success', async () => {
+      const unwrap = vi.fn().mockResolvedValue(undefined)
+      mockCancelExpense.mockReturnValue({ unwrap })
+      mockGetExpense.mockReturnValue({
+        data: makeExpense({ documentStatus: 'DRAFT', paymentStatus: 'UNPAID' }),
+        isLoading: false,
+      })
+      renderPage()
+      await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      await userEvent.click(screen.getByRole('button', { name: /cancel expense/i }))
+      await waitFor(() => expect(mockCancelExpense).toHaveBeenCalledWith('exp-1'))
+      expect(mockShowSuccess).toHaveBeenCalledWith(expect.stringContaining('EXP-001'))
+    })
+
+    it('Pay submit calls payExpense mutation and shows success', async () => {
+      const unwrap = vi.fn().mockResolvedValue(undefined)
+      mockPayExpense.mockReturnValue({ unwrap })
+      mockGetExpense.mockReturnValue({
+        data: makeExpense({ documentStatus: 'DRAFT', paymentStatus: 'UNPAID' }),
+        isLoading: false,
+      })
+      renderPage()
+      await userEvent.click(screen.getByRole('button', { name: 'Pay' }))
+      const dialog = screen.getByTestId('expense-pay-dialog')
+      // Click the dialog to trigger onSubmit (simulates pay dialog submit)
+      await act(async () => { dialog.click() })
+      await waitFor(() => expect(mockPayExpense).toHaveBeenCalled())
+      expect(mockShowSuccess).toHaveBeenCalledWith(expect.stringContaining('EXP-001'))
+    })
+
+    it('Refund submit calls refundExpense mutation and shows success', async () => {
+      const unwrap = vi.fn().mockResolvedValue(undefined)
+      mockRefundExpense.mockReturnValue({ unwrap })
+      mockGetExpense.mockReturnValue({
+        data: makeExpense({ documentStatus: 'DRAFT', paymentStatus: 'PAID', payments: [{ id: 'pmt-1', expenseId: 'exp-1', paymentMethodId: 'pm-1', paymentDate: '2024-06-15', amount: '500.00', reference: null, sourcePaymentId: null, paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' } }] }),
+        isLoading: false,
+      })
+      renderPage()
+      await userEvent.click(screen.getByRole('button', { name: 'Refund' }))
+      const dialog = screen.getByTestId('expense-refund-dialog')
+      await act(async () => { dialog.click() })
+      await waitFor(() => expect(mockRefundExpense).toHaveBeenCalled())
+      expect(mockShowSuccess).toHaveBeenCalledWith(expect.stringContaining('EXP-001'))
+    })
+
+    it('Cancel backend error shows error snackbar', async () => {
+      const unwrap = vi.fn().mockRejectedValue({ data: { message: 'Cannot cancel expense with payments' } })
+      mockCancelExpense.mockReturnValue({ unwrap })
+      mockGetExpense.mockReturnValue({
+        data: makeExpense({ documentStatus: 'DRAFT', paymentStatus: 'UNPAID' }),
+        isLoading: false,
+      })
+      renderPage()
+      await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+      await userEvent.click(screen.getByRole('button', { name: /cancel expense/i }))
+      await waitFor(() => expect(mockShowError).toHaveBeenCalled())
+    })
   })
 })

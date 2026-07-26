@@ -18,6 +18,7 @@ import {
 } from '@mui/material'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as AddIcon } from '@mui/icons-material/Add'
+import { getCurrentDate } from '@/utils/formatters'
 
 const newId = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -36,16 +37,18 @@ interface RefundLine {
   sourceId: string
   amount: number | string
   reference: string
+  date: string
 }
 
 interface RefundDialogProps {
   open: boolean
   onClose: () => void
-  onSubmit: (lines: { sourceId: string; amount: number; reference?: string }[]) => Promise<void>
+  onSubmit: (lines: { sourceId: string; amount: number; reference?: string; date?: string }[]) => Promise<void>
   sources: RefundSource[]
   orderNumber: string
   totalAmount: number
   title?: string
+  showDateField?: boolean
 }
 
 const formatCurrency = (amount: number) =>
@@ -59,6 +62,7 @@ export default function RefundDialog({
   orderNumber,
   totalAmount,
   title,
+  showDateField,
 }: RefundDialogProps) {
   const totalPaid = sources.reduce((sum, s) => sum + s.paidAmount, 0)
   const alreadyRefunded = sources.reduce((sum, s) => sum + s.alreadyRefunded, 0)
@@ -105,15 +109,18 @@ export default function RefundDialog({
           const net = s.paidAmount - s.alreadyRefunded
           const scaledAmount =
             netTotal > 0 ? Math.round((net / netTotal) * refundTarget * 100) / 100 : 0
+          const defaultDate = showDateField ? getCurrentDate() : ''
           return {
             id: newId(),
             sourceId: s.id,
             amount: scaledAmount > 0 ? scaledAmount : '',
             reference: '',
+            date: defaultDate,
           }
         }),
       )
     } else {
+      const defaultDate = showDateField ? getCurrentDate() : ''
       // Default a single line for the first source
       setLines([
         {
@@ -121,6 +128,7 @@ export default function RefundDialog({
           sourceId: sources[0].id,
           amount: availableForRefund > 0 ? availableForRefund : '',
           reference: '',
+          date: defaultDate,
         },
       ])
     }
@@ -144,6 +152,7 @@ export default function RefundDialog({
 
   const addLine = useCallback(() => {
     setUserHasEdited(true)
+    const defaultDate = showDateField ? getCurrentDate() : ''
     setLines((prev) => [
       ...prev,
       {
@@ -151,9 +160,10 @@ export default function RefundDialog({
         sourceId: sources[0]?.id || '',
         amount: remainingAfterRefund > 0 ? remainingAfterRefund : '',
         reference: '',
+        date: defaultDate,
       },
     ])
-  }, [sources, remainingAfterRefund])
+  }, [sources, remainingAfterRefund, showDateField])
 
   const removeLine = useCallback((index: number) => {
     setUserHasEdited(true)
@@ -201,6 +211,7 @@ export default function RefundDialog({
           sourceId: l.sourceId,
           amount: typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string),
           reference: l.reference || undefined,
+          ...(showDateField && l.date ? { date: l.date } : {}),
         })),
       )
       onClose()
@@ -299,6 +310,17 @@ export default function RefundDialog({
                     },
                 }}
               />
+
+              {showDateField && (
+                <TextField
+                  size="small"
+                  type="date"
+                  value={line.date}
+                  onChange={(e) => updateLine(index, 'date', e.target.value)}
+                  sx={{ width: 140 }}
+                  slotProps={{ htmlInput: { max: '2099-12-31' } }}
+                />
+              )}
 
               <TextField
                 size="small"

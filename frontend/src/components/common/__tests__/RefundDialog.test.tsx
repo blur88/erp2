@@ -217,4 +217,37 @@ describe('RefundDialog', () => {
     expect(screen.getByRole('alert').textContent).toMatch(/exceeds its available amount/i)
     expect(onSubmit).not.toHaveBeenCalled()
   })
+
+  describe('showDateField', () => {
+    it('renders date inputs when showDateField is true', () => {
+      renderDialog({ showDateField: true })
+      const dateInputs = document.querySelectorAll('input[type="date"]')
+      expect(dateInputs.length).toBeGreaterThan(0)
+    })
+
+    it('does not render date inputs when showDateField is false/undefined', () => {
+      renderDialog({ showDateField: false })
+      const dateInputs = document.querySelectorAll('input[type="date"]')
+      expect(dateInputs.length).toBe(0)
+    })
+
+    it('defaults to no date fields when showDateField is not provided', () => {
+      renderDialog()
+      const dateInputs = document.querySelectorAll('input[type="date"]')
+      expect(dateInputs.length).toBe(0)
+    })
+
+    it('submits date value when showDateField is true', async () => {
+      const onSubmit = vi.fn().mockResolvedValue(undefined)
+      renderDialog({ showDateField: true, onSubmit })
+      const amountInput = screen.getByPlaceholderText('Amount')
+      await userEvent.clear(amountInput)
+      await userEvent.type(amountInput, '100')
+      await userEvent.click(screen.getByRole('button', { name: /^refund$/i }))
+      await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+      const submittedLines = onSubmit.mock.calls[0][0]
+      expect(submittedLines[0]).toHaveProperty('date')
+      expect(typeof submittedLines[0].date).toBe('string')
+    })
+  })
 })

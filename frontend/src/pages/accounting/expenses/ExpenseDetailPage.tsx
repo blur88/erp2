@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import PaymentIcon from '@mui/icons-material/Payment'
 import ReceiptIcon from '@mui/icons-material/Receipt'
 import { Box, Button, Card, CardContent, CircularProgress, Grid, Tab, Tabs, Typography } from '@mui/material'
@@ -8,13 +8,20 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { DataTable, type Column } from '@/components/common/DataTable'
 import PageHeader from '@/components/common/PageHeader'
+import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
 import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useNotification } from '@/hooks/useNotification'
-import { useCancelExpenseMutation, useGetExpenseQuery } from '@/store/api/accountingApi'
+import {
+  useCancelExpenseMutation,
+  useGetExpenseQuery,
+  usePayExpenseMutation,
+  useRefundExpenseMutation,
+} from '@/store/api/accountingApi'
 import type { Expense, ExpensePaymentRow } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
+import ExpensePayDialog from './ExpensePayDialog'
 import { getExpenseActionMetas } from './expenseActions'
 
 interface TabPanelProps {
@@ -58,10 +65,28 @@ export default function ExpenseDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 1)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [payDialogOpen, setPayDialogOpen] = useState(false)
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false)
   const { showSuccess, showError } = useNotification()
 
   const { data: expense, isLoading, isError } = useGetExpenseQuery(id ?? skipToken)
   const [cancelExpense, { isLoading: isCancelling }] = useCancelExpenseMutation()
+  const [payExpense] = usePayExpenseMutation()
+  const [refundExpense] = useRefundExpenseMutation()
+
+  const refundSources: RefundSource[] = useMemo(() => {
+    if (!expense?.payments) return []
+    return expense.payments
+      .filter((p) => Number(p.amount) > 0)
+      .map((p) => ({
+        id: p.id,
+        label: p.paymentMethod?.name ?? 'Payment',
+        paidAmount: Number(p.amount),
+        alreadyRefunded: p.remainingRefundable
+          ? Number(p.amount) - Number(p.remainingRefundable)
+          : 0,
+      }))
+  }, [expense])
 
   if (isLoading) {
     return (
@@ -89,6 +114,52 @@ export default function ExpenseDetailPage() {
     }
   }
 
+  const handlePaySubmit = useCallback(
+    async (payments: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[]) => {
+      try {
+        await payExpense({ id: expense.id, data: { payments } }).unwrap()
+        showSuccess(`Payment recorded for ${expense.expenseNumber}`)
+        setPayDialogOpen(false)
+      } catch (error) {
+        const message =
+          (error as any)?.response?.data?.message ||
+          (error as any)?.message ||
+          'Failed to record payment'
+        showError(message)
+        throw error
+      }
+    },
+    [expense, payExpense, showError, showSuccess],
+  )
+
+  const handleRefundSubmit = useCallback(
+    async (lines: { sourceId: string; amount: number; reference?: string; date?: string }[]) => {
+      try {
+        await refundExpense({
+          id: expense.id,
+          data: {
+            refunds: lines.map((l) => ({
+              sourcePaymentId: l.sourceId,
+              amount: l.amount,
+              reference: l.reference,
+              date: l.date,
+            })),
+          },
+        }).unwrap()
+        showSuccess(`Refund recorded for ${expense.expenseNumber}`)
+        setRefundDialogOpen(false)
+      } catch (error) {
+        const message =
+          (error as any)?.response?.data?.message ||
+          (error as any)?.message ||
+          'Failed to record refund'
+        showError(message)
+        throw error
+      }
+    },
+    [expense, refundExpense, showError, showSuccess],
+  )
+
   const actionMetas = getExpenseActionMetas(expense)
 
   const actionLabels: Record<string, string> = {
@@ -107,6 +178,12 @@ export default function ExpenseDetailPage() {
 
   const handleAction = (action: string) => {
     switch (action) {
+      case 'pay':
+        setPayDialogOpen(true)
+        break
+      case 'refund':
+        setRefundDialogOpen(true)
+        break
       case 'edit':
         navigate(`/accounting/expenses/${expense.id}/edit`)
         break
@@ -253,6 +330,27 @@ export default function ExpenseDetailPage() {
         onCancel={() => setCancelDialogOpen(false)}
         loading={isCancelling}
       />
+
+      {payDialogOpen && (
+        <ExpensePayDialog
+          open
+          onClose={() => setPayDialogOpen(false)}
+          onSubmit={handlePaySubmit}
+          expense={expense}
+        />
+      )}
+
+      {refundDialogOpen && (
+        <RefundDialog
+          open
+          onClose={() => setRefundDialogOpen(false)}
+          onSubmit={handleRefundSubmit}
+          sources={refundSources}
+          orderNumber={expense.expenseNumber}
+          totalAmount={Number(expense.totalAmount)}
+          showDateField
+        />
+      )}
     </Box>
   )
 }
