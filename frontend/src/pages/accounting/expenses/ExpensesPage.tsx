@@ -181,7 +181,12 @@ export default function ExpensesPage() {
     async (payments: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[]) => {
       if (!payExpenseRow) return
       try {
-        await doPayExpense({ id: payExpenseRow.id, data: { payments } }).unwrap()
+        await doPayExpense({
+          id: payExpenseRow.id,
+          data: {
+            payments: payments.map((p) => ({ ...p, amount: String(p.amount) })),
+          },
+        }).unwrap()
         showSuccess(`Payment recorded for ${payExpenseRow.expenseNumber}`)
         setPayExpenseRow(null)
       } catch (error) {
@@ -205,9 +210,9 @@ export default function ExpensesPage() {
           data: {
             refunds: lines.map((l) => ({
               sourcePaymentId: l.sourceId,
-              amount: l.amount,
+              amount: String(l.amount),
               reference: l.reference,
-              date: l.date,
+              refundDate: l.date as string,
             })),
           },
         }).unwrap()

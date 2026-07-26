@@ -179,7 +179,7 @@ describe('ExpenseService', () => {
     it('returns expense with remainingRefundable on positive payment rows', async () => {
       const payment1 = { id: 'p1', expenseId: 'exp-1', amount: '1000.0000', paymentDate: '2026-07-20', createdAt: new Date('2026-07-20T10:00:00Z'), sourcePaymentId: null, paymentMethod: { id: 'pm-1', name: 'Cash' } };
       const payment2 = { id: 'p2', expenseId: 'exp-1', amount: '500.0000', paymentDate: '2026-07-21', createdAt: new Date('2026-07-21T10:00:00Z'), sourcePaymentId: null, paymentMethod: { id: 'pm-2', name: 'Bank' } };
-      const refund = { id: 'r1', expenseId: 'exp-1', amount: '200.0000', paymentDate: '2026-07-22', createdAt: new Date('2026-07-22T10:00:00Z'), sourcePaymentId: 'p1', paymentMethod: { id: 'pm-1', name: 'Cash' } };
+      const refund = { id: 'r1', expenseId: 'exp-1', amount: '-200.0000', paymentDate: '2026-07-22', createdAt: new Date('2026-07-22T10:00:00Z'), sourcePaymentId: 'p1', paymentMethod: { id: 'pm-1', name: 'Cash' } };
       expenseRepo.createQueryBuilder = jest.fn().mockReturnValue({
         leftJoinAndSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
@@ -203,8 +203,8 @@ describe('ExpenseService', () => {
 
     it('computes remainingRefundable as zero when fully refunded', async () => {
       const payment = { id: 'p1', expenseId: 'exp-1', amount: '500.0000', paymentDate: '2026-07-20', createdAt: new Date('2026-07-20T10:00:00Z'), sourcePaymentId: null, paymentMethod: { id: 'pm-1', name: 'Cash' } };
-      const refund1 = { id: 'r1', expenseId: 'exp-1', amount: '300.0000', paymentDate: '2026-07-21', createdAt: new Date('2026-07-21T10:00:00Z'), sourcePaymentId: 'p1', paymentMethod: { id: 'pm-1', name: 'Cash' } };
-      const refund2 = { id: 'r2', expenseId: 'exp-1', amount: '200.0000', paymentDate: '2026-07-22', createdAt: new Date('2026-07-22T10:00:00Z'), sourcePaymentId: 'p1', paymentMethod: { id: 'pm-1', name: 'Cash' } };
+      const refund1 = { id: 'r1', expenseId: 'exp-1', amount: '-300.0000', paymentDate: '2026-07-21', createdAt: new Date('2026-07-21T10:00:00Z'), sourcePaymentId: 'p1', paymentMethod: { id: 'pm-1', name: 'Cash' } };
+      const refund2 = { id: 'r2', expenseId: 'exp-1', amount: '-200.0000', paymentDate: '2026-07-22', createdAt: new Date('2026-07-22T10:00:00Z'), sourcePaymentId: 'p1', paymentMethod: { id: 'pm-1', name: 'Cash' } };
       expenseRepo.createQueryBuilder = jest.fn().mockReturnValue({
         leftJoinAndSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),

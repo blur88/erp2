@@ -117,7 +117,12 @@ export default function ExpenseDetailPage() {
   const handlePaySubmit = useCallback(
     async (payments: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[]) => {
       try {
-        await payExpense({ id: expense.id, data: { payments } }).unwrap()
+        await payExpense({
+          id: expense.id,
+          data: {
+            payments: payments.map((p) => ({ ...p, amount: String(p.amount) })),
+          },
+        }).unwrap()
         showSuccess(`Payment recorded for ${expense.expenseNumber}`)
         setPayDialogOpen(false)
       } catch (error) {
@@ -140,9 +145,9 @@ export default function ExpenseDetailPage() {
           data: {
             refunds: lines.map((l) => ({
               sourcePaymentId: l.sourceId,
-              amount: l.amount,
+              amount: String(l.amount),
               reference: l.reference,
-              date: l.date,
+              refundDate: l.date as string,
             })),
           },
         }).unwrap()

@@ -194,7 +194,8 @@ export class ExpenseService {
     for (const p of payments) {
       if (!p.sourcePaymentId) {
         const refunded = sumMinor(refunds.filter(r => r.sourcePaymentId === p.id).map(r => r.amount));
-        (p as any).remainingRefundable = formatScale4(toMinorUnits(p.amount) - refunded);
+        const remaining = toMinorUnits(p.amount) + refunded;
+        (p as any).remainingRefundable = formatScale4(remaining < 0n ? 0n : remaining);
       }
     }
 

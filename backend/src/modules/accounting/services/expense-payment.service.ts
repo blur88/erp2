@@ -163,6 +163,14 @@ export class ExpensePaymentService {
           );
         }
 
+        const method = await manager.getRepository(PaymentMethodEntity).findOne({
+          where: { id: source.paymentMethodId } as any,
+          withDeleted: true,
+        } as any);
+        if (!method) {
+          throw new BadRequestException(`Payment method ${source.paymentMethodId} not found`);
+        }
+
         for (const r of rows) {
           const refundRow = (await payRepo.save(
             payRepo.create({
@@ -174,14 +182,6 @@ export class ExpensePaymentService {
               sourcePaymentId: sourceId,
             } as any),
           )) as unknown as ExpensePayment;
-
-          const method = await manager.getRepository(PaymentMethodEntity).findOne({
-            where: { id: source.paymentMethodId } as any,
-            withDeleted: true,
-          } as any);
-          if (!method) {
-            throw new BadRequestException(`Payment method ${source.paymentMethodId} not found`);
-          }
 
           await this.posting.postExpenseRefund(
             {
