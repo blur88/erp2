@@ -127,6 +127,15 @@ describe('ExpensesPage', () => {
     renderPage()
     expect(screen.getByText('+ New Expense')).toBeInTheDocument()
   })
+
+  it('renders concise filter labels in the page toolbar', () => {
+    renderPage()
+    const filters = within(screen.getByTestId('page-header-toolbar'))
+
+    expect(filters.getByRole('combobox', { name: 'Account' })).toBeInTheDocument()
+    expect(filters.getByRole('combobox', { name: 'Payment' })).toBeInTheDocument()
+    expect(filters.getByRole('combobox', { name: 'Status' })).toBeInTheDocument()
+  })
 })
 
 describe('ExpensesPage - refund detail loading', () => {
