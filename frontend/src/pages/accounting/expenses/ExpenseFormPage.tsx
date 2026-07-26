@@ -16,7 +16,7 @@ import {
 } from '@mui/material'
 import { DatePicker } from '@mui/x-date-pickers'
 import { yupResolver } from '@hookform/resolvers/yup'
-import { parseISO } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { Controller, useForm } from 'react-hook-form'
 import { useBlocker, useNavigate, useParams } from 'react-router-dom'
 import * as yup from 'yup'
@@ -33,7 +33,7 @@ import {
   useUpdateExpenseMutation,
 } from '@/store/api/accountingApi'
 import type { AccountTreeNode } from '@/types'
-import { getCurrentDate, toDateInputValue } from '@/utils/formatters'
+import { getCurrentDate } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 
 interface ExpenseFormData {
@@ -80,7 +80,9 @@ const ExpenseFormPage: React.FC = () => {
   const accountOptions = useMemo(() => flattenAccountTree(accountTreeData), [accountTreeData])
   const hasPayments = (expense?.payments?.length ?? 0) > 0
   const paidAmountNum = parseFloat(expense?.paidAmount ?? '0')
-  const minAmount = isEdit ? Math.max(0.01, paidAmountNum) : 0.01
+  // No arbitrary 0.01 floor — backend accepts any positive scale-4 amount
+  // (e.g. 0.0001); the only lower bound is the net paid amount when editing.
+  const minAmount = isEdit ? paidAmountNum : 0
 
   useEffect(() => {
     if (isEdit && expense) {
@@ -251,7 +253,7 @@ const ExpenseFormPage: React.FC = () => {
                         <DatePicker
                           label="Expense Date"
                           value={field.value ? parseISO(field.value) : null}
-                          onChange={(date) => field.onChange(date ? toDateInputValue(date) : '')}
+                          onChange={(date) => field.onChange(date ? format(date, 'yyyy-MM-dd') : '')}
                           slotProps={{
                             textField: {
                               fullWidth: true,

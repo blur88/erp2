@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Button } from '@mui/material'
 import { skipToken } from '@reduxjs/toolkit/query'
@@ -153,9 +153,23 @@ export default function ExpensesPage() {
   )
 
   // List rows carry no payments — the refund dialog needs the detail record.
-  const { data: refundExpenseDetail } = useGetExpenseQuery(
-    refundExpenseRow ? refundExpenseRow.id : skipToken,
-  )
+  // currentData (not data) so a previously viewed expense's cache can never
+  // leak into another row's refund dialog; guard the id to be safe.
+  const {
+    currentData: refundExpenseData,
+    isError: refundDetailError,
+  } = useGetExpenseQuery(refundExpenseRow ? refundExpenseRow.id : skipToken)
+  const refundExpenseDetail =
+    refundExpenseRow && refundExpenseData?.id === refundExpenseRow.id
+      ? refundExpenseData
+      : undefined
+
+  useEffect(() => {
+    if (refundExpenseRow && refundDetailError) {
+      showError('Failed to load expense payments for refund')
+      setRefundExpenseRow(null)
+    }
+  }, [refundExpenseRow, refundDetailError, showError])
 
   const refundSources: RefundSource[] = useMemo(() => {
     if (!refundExpenseDetail?.payments) return []
