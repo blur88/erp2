@@ -8,10 +8,23 @@ import {
   IsDate,
   MaxLength,
   IsInt,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { PaymentStatus } from '../../../database/entities/payment.entity';
+
+/**
+ * Columns a client may sort payments by. `sortBy` is interpolated into an
+ * ORDER BY identifier, so anything outside this list must never reach SQL.
+ * Deliberately excludes paymentNumber — the column is retired (issue #946).
+ */
+export const PAYMENT_SORT_FIELDS = [
+  'paymentDate',
+  'amount',
+  'status',
+  'createdAt',
+] as const;
 
 export class CreatePaymentDto {
   @ApiProperty({
@@ -129,7 +142,7 @@ export class QueryPaymentsDto {
     example: 'paymentDate',
   })
   @IsOptional()
-  @IsString()
+  @IsIn(PAYMENT_SORT_FIELDS as unknown as string[])
   sortBy?: string;
 
   @ApiPropertyOptional({

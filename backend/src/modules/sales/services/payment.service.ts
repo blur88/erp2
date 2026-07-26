@@ -25,6 +25,7 @@ import {
   ProcessPaymentDto,
   AllocatePaymentDto,
   PaymentSummaryDto,
+  PAYMENT_SORT_FIELDS,
 } from '../dto/payment.dto';
 import { CustomerPrintDto } from '../dto/customer.dto';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
@@ -177,7 +178,10 @@ export class PaymentService extends BaseCrudService<
       .leftJoinAndSelect('items.product', 'product')
       .leftJoinAndSelect('payment.paymentMethodEntity', 'paymentMethodEntity')
       .where(where)
-      .orderBy(`payment.${sortBy}`, sortOrder);
+      .orderBy(
+        `payment.${(PAYMENT_SORT_FIELDS as readonly string[]).includes(sortBy) ? sortBy : 'paymentDate'}`,
+        sortOrder,
+      );
 
     if (search) {
       queryBuilder.andWhere(

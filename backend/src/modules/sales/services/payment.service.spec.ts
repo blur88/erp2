@@ -159,6 +159,36 @@ describe('PaymentService', () => {
     });
   });
 
+  describe('findAll sortBy guard', () => {
+    const makeQb = () => ({
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    });
+
+    it('falls back to paymentDate when sortBy is not an allowed column', async () => {
+      const qb = makeQb();
+      paymentRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({ sortBy: 'paymentNumber', sortOrder: 'ASC' } as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('payment.paymentDate', 'ASC');
+    });
+
+    it('honours an allowed sortBy column', async () => {
+      const qb = makeQb();
+      paymentRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({ sortBy: 'amount', sortOrder: 'DESC' } as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('payment.amount', 'DESC');
+    });
+  });
+
   describe('create', () => {
     it('should post accounting entry successfully', async () => {
       // Arrange
