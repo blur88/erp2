@@ -28,19 +28,6 @@ import {
   PAYMENT_SORT_FIELDS,
 } from '../dto/payment.dto';
 import { CustomerPrintDto } from '../dto/customer.dto';
-import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
-import { canSearchCustomerPayments } from '../../search/search.permissions';
-import {
-  SEARCH_CANDIDATE_LIMIT,
-  SCORE_EXACT_CODE,
-  SCORE_STARTSWITH_CODE,
-  SCORE_CONTAINS,
-  SCORE_FUZZY,
-  BOOST_CUSTOMER_PAYMENT,
-  BOOST_EXACT_MATCH,
-} from '../../search/search.constants';
-import { JwtPayload } from '../../auth/strategies/jwt.strategy';
-import { UserRole } from '../../../database/entities/user.entity';
 import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
@@ -469,59 +456,6 @@ export class PaymentService extends BaseCrudService<
     // Note: Customer balance tracking removed - updateBalance method doesn't exist
     // This method is kept for backward compatibility but no longer updates balance
     await this.customerRepository.save(customer);
-  }
-
-  async searchGlobal(query: string, user: JwtPayload): Promise<GlobalSearchResultDto[]> {
-    if (!canSearchCustomerPayments(user.role as UserRole)) return [];
-
-    const trimmed = query.trim();
-    const q = trimmed.toLowerCase();
-
-    const results = await this.paymentRepository
-      .createQueryBuilder('payment')
-      .where('payment.deletedAt IS NULL')
-      .andWhere('payment.paymentNumber ILIKE :q', { q: `%${trimmed}%` })
-      .take(SEARCH_CANDIDATE_LIMIT)
-      .getMany();
-
-    if (results.length > 0) {
-      return results.map((p) => this.mapPayment(p, q, false));
-    }
-
-    const fuzzyResults = await this.paymentRepository
-      .createQueryBuilder('payment')
-      .addSelect('similarity(payment.paymentNumber, :q)', 'sim')
-      .where('payment.deletedAt IS NULL')
-      .andWhere('similarity(payment.paymentNumber, :q) > 0.3')
-      .orderBy('sim', 'DESC')
-      .setParameter('q', trimmed)
-      .take(SEARCH_CANDIDATE_LIMIT)
-      .getMany();
-
-    return fuzzyResults.map((p) => this.mapPayment(p, q, true));
-  }
-
-  private mapPayment(p: Payment, q: string, fuzzy: boolean): GlobalSearchResultDto {
-    const num = p.paymentNumber?.toLowerCase() ?? '';
-    const baseScore = fuzzy
-      ? SCORE_FUZZY
-      : num === q
-        ? SCORE_EXACT_CODE
-        : num.startsWith(q)
-          ? SCORE_STARTSWITH_CODE
-          : SCORE_CONTAINS;
-
-    return {
-      type: 'customer_payment',
-      id: p.id,
-      label: p.paymentNumber,
-      description: undefined,
-      route: `/sales/payments/${p.id}`,
-      score:
-        baseScore +
-        BOOST_CUSTOMER_PAYMENT +
-        (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
-    };
   }
 
   async restore(id: string, userId?: string, username?: string): Promise<PaymentResponseDto> {

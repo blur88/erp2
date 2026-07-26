@@ -4,7 +4,6 @@ export type GlobalSearchResultType =
   | 'product'
   | 'transaction'
   | 'supplier'
-  | 'customer_payment'
 
 export interface GlobalSearchResultDto {
   type: GlobalSearchResultType

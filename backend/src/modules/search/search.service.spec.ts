@@ -4,7 +4,6 @@ import { CustomerService } from '../sales/services/customer.service';
 import { ProductService } from '../inventory/services/product.service';
 import { SupplierService } from '../purchasing/services/supplier.service';
 import { SalesOrderService } from '../sales/services/sales-order.service';
-import { PaymentService } from '../sales/services/payment.service';
 import { PurchaseOrderService } from '../purchasing/services/purchase-order.service';
 import { SearchAnalyticsService } from './search-analytics.service';
 import { GlobalSearchResultDto } from './dto/global-search-result.dto';
@@ -18,7 +17,6 @@ describe('SearchService', () => {
   let salesOrderService: jest.Mocked<Pick<SalesOrderService, 'searchGlobal'>>;
   let purchaseOrderService: jest.Mocked<Pick<PurchaseOrderService, 'searchGlobal'>>;
   let supplierService: jest.Mocked<Pick<SupplierService, 'searchGlobal'>>;
-  let paymentService: jest.Mocked<Pick<PaymentService, 'searchGlobal'>>;
   let searchAnalyticsService: jest.Mocked<Pick<SearchAnalyticsService, 'logQuery'>>;
 
   const mockUser = { userId: 'u1', username: 'admin' } as any;
@@ -56,10 +54,6 @@ describe('SearchService', () => {
           useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
         },
         {
-          provide: PaymentService,
-          useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
-        },
-        {
           provide: SearchAnalyticsService,
           useValue: { logQuery: jest.fn() },
         },
@@ -72,11 +66,10 @@ describe('SearchService', () => {
     salesOrderService = module.get(SalesOrderService);
     purchaseOrderService = module.get(PurchaseOrderService);
     supplierService = module.get(SupplierService);
-    paymentService = module.get(PaymentService);
     searchAnalyticsService = module.get(SearchAnalyticsService);
   });
 
-  it('fans out to all nine sources in parallel', async () => {
+  it('fans out to all six entity sources in parallel', async () => {
     await service.search('abc', mockUser);
 
     expect(customerService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
@@ -84,7 +77,6 @@ describe('SearchService', () => {
     expect(salesOrderService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
     expect(purchaseOrderService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
     expect(supplierService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
-    expect(paymentService.searchGlobal).toHaveBeenCalledWith('abc', mockUser);
   });
 
   it('returns early with empty results for queries shorter than 2 characters', async () => {
@@ -186,12 +178,12 @@ describe('SearchService', () => {
     });
 
     it('scores a page starts-with match as SCORE_PAGE_STARTSWITH + BOOST_PAGE (75)', async () => {
-      // "Payments" starts with "pay"
-      const result = await service.search('pay', {
+      // "Suppliers" starts with "sup"
+      const result = await service.search('sup', {
         role: UserRole.ADMIN,
       } as any);
-      const paymentsPage = result.results.find((r) => r.route === '/sales/payments');
-      expect(paymentsPage?.score).toBe(75); // SCORE_PAGE_STARTSWITH(75) + BOOST_PAGE(0)
+      const suppliersPage = result.results.find((r) => r.route === '/purchasing/suppliers');
+      expect(suppliersPage?.score).toBe(75); // SCORE_PAGE_STARTSWITH(75) + BOOST_PAGE(0)
     });
 
     it('scores a keyword-only match as SCORE_PAGE_KEYWORD + BOOST_PAGE (50)', async () => {
