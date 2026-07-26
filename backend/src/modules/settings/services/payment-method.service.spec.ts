@@ -5,11 +5,13 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import { PaymentMethodService } from './payment-method.service';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { Payment } from '../../../database/entities/payment.entity';
+import { ExpensePayment } from '../../../modules/accounting/entities/expense-payment.entity';
 
 describe('PaymentMethodService', () => {
   let service: PaymentMethodService;
   let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
   let paymentRepository: jest.Mocked<Repository<Payment>>;
+  let expensePaymentRepository: jest.Mocked<Repository<ExpensePayment>>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -39,12 +41,19 @@ describe('PaymentMethodService', () => {
             }),
           },
         },
+        {
+          provide: getRepositoryToken(ExpensePayment),
+          useValue: {
+            count: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<PaymentMethodService>(PaymentMethodService);
     paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     paymentRepository = module.get(getRepositoryToken(Payment));
+    expensePaymentRepository = module.get(getRepositoryToken(ExpensePayment));
   });
 
   it('should be defined', () => {
@@ -169,6 +178,21 @@ describe('PaymentMethodService', () => {
       deletedAt: new Date(),
     } as any);
     paymentRepository.count.mockResolvedValue(2);
+    expensePaymentRepository.count.mockResolvedValue(0);
+
+    await expect(service.permanentDelete('pm-1')).rejects.toThrow(ConflictException);
+    expect(paymentMethodRepository.delete).not.toHaveBeenCalled();
+  });
+
+  it('permanentDelete should throw ConflictException when expense payments reference the method', async () => {
+    paymentMethodRepository.findOne.mockResolvedValue({
+      id: 'pm-1',
+      code: 'SHOPEE',
+      name: 'Shopee',
+      deletedAt: new Date(),
+    } as any);
+    paymentRepository.count.mockResolvedValue(0);
+    expensePaymentRepository.count.mockResolvedValue(2);
 
     await expect(service.permanentDelete('pm-1')).rejects.toThrow(ConflictException);
     expect(paymentMethodRepository.delete).not.toHaveBeenCalled();
@@ -182,6 +206,7 @@ describe('PaymentMethodService', () => {
       deletedAt: new Date(),
     } as any);
     paymentRepository.count.mockResolvedValue(0);
+    expensePaymentRepository.count.mockResolvedValue(0);
     paymentMethodRepository.delete.mockResolvedValue({} as any);
 
     await service.permanentDelete('pm-1');

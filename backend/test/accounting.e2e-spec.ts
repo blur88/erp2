@@ -71,6 +71,13 @@ describe('Accounting v1 (e2e)', () => {
     seeder = moduleFixture.get(AccountingSeederService);
     coaService = moduleFixture.get(ChartOfAccountService);
     await seedAccounting(ds);
+    // Earlier suites (suite order is jest-size/timing dependent) may leave
+    // journal rows on the shared test DB — e.g. sales payments posted with
+    // today's date land inside this suite's July window. The assertions below
+    // build cumulative balances from a clean journal, so wipe it once here
+    // (tests in this suite intentionally build on each other — no per-test clear).
+    await ds.query(`DELETE FROM journal_entry_line`);
+    await ds.query(`DELETE FROM journal_entry`);
   });
 
   afterAll(async () => {

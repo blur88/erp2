@@ -10,6 +10,8 @@ export interface PostPurchaseRefundCmd extends Base { purchaseOrderId: string; r
 export interface PostPurchaseReceiveCmd extends Base { purchaseOrderId: string; amount: string; }
 export interface PostStockAdjustmentCmd extends Base { adjustmentId: string; increaseAmount: string; decreaseAmount: string; }
 export interface PostOpeningBalanceCmd extends Base { accountId: string; amount: string; }
+export interface PostExpensePaymentCmd extends Base { expenseId: string; paymentRowId: string; expenseAccountId: string; channel: PaymentChannel; amount: string; }
+export interface PostExpenseRefundCmd extends Base { expenseId: string; refundRowId: string; expenseAccountId: string; channel: PaymentChannel; amount: string; }
 export interface ReverseEntryCmd { originalEntryId: string; entryDate: string; createdBy?: string; }
 
 export { AccountType, AccountingSourceType, PostingType };

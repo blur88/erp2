@@ -11,6 +11,7 @@ describe('SettingsService', () => {
     const service = new SettingsService(
       {} as any, {} as any, {} as any,
       {} as any, {} as any, {} as any, {} as any,
+      {} as any,
       dataSourceMock as any,
     );
     const num = await service.generateDocumentNumber('Journal Entries', manager);
@@ -46,6 +47,7 @@ describe('SettingsService', () => {
       purchaseOrderRepository as any,
       {} as any,
       {} as any,
+      {} as any,
     );
 
     await service.syncDocumentNumbersWithDatabase();
@@ -61,8 +63,6 @@ describe('SettingsService', () => {
   });
 
   it('syncDocumentNumbersWithDatabase leaves unknown document types (e.g. Journal Entries) unchanged', async () => {
-    // Regression for #901: the sync route must NOT reset a type it can't compute a
-    // source-table max for back to 1 — that would collide with already-issued numbers.
     const documentNumberSettingRepository = {
       find: jest.fn().mockResolvedValue([
         { documentName: 'Journal Entries', prefix: 'JE', nextNumber: 42 },
@@ -75,35 +75,32 @@ describe('SettingsService', () => {
       documentNumberSettingRepository as any,
       {} as any, {} as any, {} as any, {} as any,
       {} as any,
+      {} as any,
     );
 
     await service.syncDocumentNumbersWithDatabase();
 
-    // No update issued for the unknown type — nextNumber preserved.
     expect(documentNumberSettingRepository.update).not.toHaveBeenCalled();
   });
 
   it('createDefaultDocumentNumberSettings seeds Journal Entries collision-safe (max existing +1)', async () => {
-    // Regression for #901: the create-default fallback must not seed JE at a literal 1
-    // when journal entries already exist, or the next post collides on journalNo.
     const saved: any[] = [];
     const documentNumberSettingRepository = {
-      // Empty table -> triggers createDefaultDocumentNumberSettings; then non-empty.
       find: jest.fn()
-        .mockResolvedValueOnce([]) // syncDocumentNumbersWithDatabase: table empty
-        .mockResolvedValue(saved), // re-read after createDefault
-      findOne: jest.fn().mockResolvedValue(null), // no row exists yet
+        .mockResolvedValueOnce([])
+        .mockResolvedValue(saved),
+      findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((row) => row),
       save: jest.fn(async (row) => { saved.push(row); return row; }),
       update: jest.fn().mockResolvedValue(undefined),
     };
-    // journal_entry already has JE-yy-007 -> next sequence 8.
     const dataSource = { query: jest.fn().mockResolvedValue([{ next: 8 }]) };
 
     const service = new SettingsService(
       {} as any, {} as any,
       documentNumberSettingRepository as any,
       {} as any, {} as any, {} as any, {} as any,
+      {} as any,
       dataSource as any,
     );
 
@@ -111,9 +108,9 @@ describe('SettingsService', () => {
 
     const je = saved.find((r) => r.documentName === 'Journal Entries');
     expect(je).toBeDefined();
-    expect(je.nextNumber).toBe(8); // collision-safe, not 1
+    expect(je.nextNumber).toBe(8);
     const so = saved.find((r) => r.documentName === 'Sales Orders');
-    expect(so.nextNumber).toBe(1); // other types unaffected
+    expect(so.nextNumber).toBe(1);
   });
 
   it('seeds Journal Entries at 1 when journal_entry table is absent (42P01)', async () => {
@@ -125,19 +122,19 @@ describe('SettingsService', () => {
       save: jest.fn(async (row) => { saved.push(row); return row; }),
       update: jest.fn().mockResolvedValue(undefined),
     };
-    // journal_entry does not exist -> Postgres undefined_table.
     const dataSource = { query: jest.fn().mockRejectedValue(Object.assign(new Error('relation "journal_entry" does not exist'), { code: '42P01' })) };
 
     const service = new SettingsService(
       {} as any, {} as any,
       documentNumberSettingRepository as any,
       {} as any, {} as any, {} as any, {} as any,
+      {} as any,
       dataSource as any,
     );
 
     await service.syncDocumentNumbersWithDatabase();
     const je = saved.find((r) => r.documentName === 'Journal Entries');
-    expect(je.nextNumber).toBe(1); // tolerated: no JEs exist, 1 is correct
+    expect(je.nextNumber).toBe(1);
   });
 
   it('rethrows a non-missing-table DB error instead of masking it as 1', async () => {
@@ -148,23 +145,83 @@ describe('SettingsService', () => {
       save: jest.fn(async (row) => row),
       update: jest.fn().mockResolvedValue(undefined),
     };
-    // A real DB fault (not 42P01) must not be swallowed into nextNumber=1.
     const dataSource = { query: jest.fn().mockRejectedValue(Object.assign(new Error('connection reset'), { code: '08006' })) };
 
     const service = new SettingsService(
       {} as any, {} as any,
       documentNumberSettingRepository as any,
       {} as any, {} as any, {} as any, {} as any,
+      {} as any,
       dataSource as any,
     );
 
-    // The non-42P01 error must surface (as sync's 500), not be masked into a
-    // JE row seeded at 1. And the JE row must never be saved with a masked value.
     await expect(service.syncDocumentNumbersWithDatabase()).rejects.toThrow(
       'Failed to sync document numbers',
     );
     expect(documentNumberSettingRepository.save).not.toHaveBeenCalledWith(
       expect.objectContaining({ documentName: 'Journal Entries' }),
     );
+  });
+
+  it('syncDocumentNumbersWithDatabase parses EXP sequence and sets nextNumber', async () => {
+    const documentNumberSettingRepository = {
+      find: jest.fn().mockResolvedValue([
+        { documentName: 'Expenses', prefix: 'EXP' },
+      ]),
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+    const queryBuilder = createQueryBuilderMock({ expenseNumber: 'EXP-26-123456' });
+    const expenseRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
+    };
+
+    const service = new SettingsService(
+      {} as any, {} as any,
+      documentNumberSettingRepository as any,
+      {} as any, {} as any,
+      {} as any, {} as any,
+      expenseRepository as any,
+      {} as any,
+    );
+
+    await service.syncDocumentNumbersWithDatabase();
+
+    expect(queryBuilder.where).toHaveBeenCalledWith(
+      'e.expenseNumber LIKE :p',
+      expect.objectContaining({ p: expect.stringMatching(/^EXP-\d{2}-%$/) }),
+    );
+    expect(documentNumberSettingRepository.update).toHaveBeenCalledWith(
+      { documentName: 'Expenses' },
+      { nextNumber: 123457, lastResetYear: expect.any(Number) },
+    );
+  });
+
+  it('createDefaultDocumentNumberSettings includes Expenses in defaults', async () => {
+    const saved: any[] = [];
+    const documentNumberSettingRepository = {
+      find: jest.fn().mockResolvedValueOnce([]).mockResolvedValue(saved),
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn((row) => row),
+      save: jest.fn(async (row) => { saved.push(row); return row; }),
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+    const expenseRepository = { createQueryBuilder: jest.fn() };
+    const dataSource = { query: jest.fn().mockResolvedValue([{ next: 1 }]) };
+
+    const service = new SettingsService(
+      {} as any, {} as any,
+      documentNumberSettingRepository as any,
+      {} as any, {} as any, {} as any, {} as any,
+      expenseRepository as any,
+      dataSource as any,
+    );
+
+    await service.syncDocumentNumbersWithDatabase();
+
+    const expense = saved.find((r) => r.documentName === 'Expenses');
+    expect(expense).toBeDefined();
+    expect(expense.documentName).toBe('Expenses');
+    expect(expense.prefix).toBe('EXP');
+    expect(expense.nextNumber).toBe(1);
   });
 });

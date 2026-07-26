@@ -11,6 +11,8 @@ import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { Payment } from '../../database/entities/payment.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { StockAdjustment } from '../../database/entities/stock-adjustment.entity';
+import { Expense } from '../accounting/entities/expense.entity';
+import { ExpensePayment } from '../accounting/entities/expense-payment.entity';
 import { PaymentMethodEntity } from '../../database/entities/payment-method.entity';
 import { PaymentMethodController } from './controllers/payment-method.controller';
 import { PaymentMethodService } from './services/payment-method.service';
@@ -30,6 +32,8 @@ import { PaymentMethodService } from './services/payment-method.service';
       Payment,
       PurchaseOrder,
       StockAdjustment,
+      Expense,
+      ExpensePayment,
       PaymentMethodEntity,
     ]),
 

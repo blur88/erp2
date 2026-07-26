@@ -1,10 +1,14 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { setupListeners } from '@reduxjs/toolkit/query'
 import { persistStore, persistReducer } from 'redux-persist'
+// Guard localStorage access: redux-persist debounces writes, which under
+// vitest can fire after the jsdom environment (and its localStorage) is torn
+// down — an unhandled ReferenceError that fails the whole run.
+const hasLocalStorage = () => typeof localStorage !== 'undefined'
 const storage = {
-  getItem: (key: string) => Promise.resolve(localStorage.getItem(key)),
-  setItem: (key: string, value: string) => Promise.resolve(localStorage.setItem(key, value)),
-  removeItem: (key: string) => Promise.resolve(localStorage.removeItem(key)),
+  getItem: (key: string) => Promise.resolve(hasLocalStorage() ? localStorage.getItem(key) : null),
+  setItem: (key: string, value: string) => Promise.resolve(hasLocalStorage() ? localStorage.setItem(key, value) : undefined),
+  removeItem: (key: string) => Promise.resolve(hasLocalStorage() ? localStorage.removeItem(key) : undefined),
 }
 import { combineReducers } from '@reduxjs/toolkit'
 

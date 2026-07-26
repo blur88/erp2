@@ -6,6 +6,7 @@ import type {
   AccountType,
   AccountingSourceType,
   AccountingSettings,
+  Expense,
   JournalEntry,
   JournalEntryDetail,
   JournalEntryStatus,
@@ -35,10 +36,23 @@ export interface AccountTreeParams {
   isActive?: boolean
 }
 
+export interface ExpenseListParams {
+  page?: number
+  limit?: number
+  search?: string
+  fromDate?: string
+  toDate?: string
+  expenseAccountId?: string
+  documentStatus?: 'DRAFT' | 'CANCELLED'
+  paymentStatus?: 'UNPAID' | 'PARTIAL' | 'PAID'
+  sortBy?: 'expenseNumber' | 'expenseDate' | 'totalAmount'
+  sortOrder?: 'ASC' | 'DESC'
+}
+
 export const accountingApiSlice = createApi({
   reducerPath: 'accountingApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['Account', 'AccountingSettings', 'JournalEntry', 'TrialBalance'],
+  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance'],
   endpoints: (builder) => ({
     getAccountTree: builder.query<AccountTreeNode[], AccountTreeParams>({
       query: ({ search, type, isActive }) => {
@@ -99,16 +113,69 @@ export const accountingApiSlice = createApi({
       query: (params) => ({ url: '/accounting/general-ledger', params }),
       transformResponse: normalizeSingle<GeneralLedgerResponse>,
     }),
-    getTrialBalance: builder.query<
-      TrialBalanceResponse,
-      { asOfDate?: string; showZero?: boolean }
-    >({
-      query: (params) => ({ url: '/accounting/trial-balance', params }),
-      transformResponse: normalizeSingle<TrialBalanceResponse>,
-      providesTags: ['TrialBalance'],
-    }),
-  }),
-})
+     getTrialBalance: builder.query<
+       TrialBalanceResponse,
+       { asOfDate?: string; showZero?: boolean }
+     >({
+       query: (params) => ({ url: '/accounting/trial-balance', params }),
+       transformResponse: normalizeSingle<TrialBalanceResponse>,
+       providesTags: ['TrialBalance'],
+     }),
+     getExpenses: builder.query<
+       PaginatedResponse<Expense>,
+       ExpenseListParams | undefined
+     >({
+       query: (params) => ({
+         url: '/accounting/expenses',
+         params: params as Record<string, unknown> | undefined,
+       }),
+       transformResponse: normalizePaginated<Expense>,
+       providesTags: ['Expense'],
+     }),
+     getExpense: builder.query<Expense, string>({
+       query: (id) => ({ url: `/accounting/expenses/${id}` }),
+       transformResponse: normalizeSingle<Expense>,
+       providesTags: (_result, _error, id) => [{ type: 'Expense' as const, id }],
+     }),
+     createExpense: builder.mutation<Expense, Partial<Expense>>({
+       query: (body) => ({ url: '/accounting/expenses', method: 'POST', data: body }),
+       transformResponse: normalizeSingle<Expense>,
+       invalidatesTags: ['Expense'],
+     }),
+     updateExpense: builder.mutation<Expense, { id: string; data: Partial<Expense> }>({
+       query: ({ id, data }) => ({
+         url: `/accounting/expenses/${id}`,
+         method: 'PATCH',
+         data,
+       }),
+       transformResponse: normalizeSingle<Expense>,
+       invalidatesTags: ['Expense'],
+     }),
+     cancelExpense: builder.mutation<Expense, string>({
+       query: (id) => ({ url: `/accounting/expenses/${id}/cancel`, method: 'POST' }),
+       transformResponse: normalizeSingle<Expense>,
+       invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance'],
+     }),
+     payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown> }>({
+       query: ({ id, data }) => ({
+         url: `/accounting/expenses/${id}/pay`,
+         method: 'POST',
+         data,
+       }),
+       transformResponse: normalizeSingle<Expense>,
+       invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance'],
+     }),
+     refundExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown> }>({
+       query: ({ id, data }) => ({
+         url: `/accounting/expenses/${id}/refund`,
+         method: 'POST',
+         data,
+       }),
+       transformResponse: normalizeSingle<Expense>,
+       invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance'],
+     }),
+   }),
+ })
 
 export const {
   useGetAccountTreeQuery,
@@ -123,4 +190,11 @@ export const {
   useGetGeneralLedgerQuery,
   useLazyGetGeneralLedgerQuery,
   useGetTrialBalanceQuery,
+  useGetExpensesQuery,
+  useGetExpenseQuery,
+  useCreateExpenseMutation,
+  useUpdateExpenseMutation,
+  useCancelExpenseMutation,
+  usePayExpenseMutation,
+  useRefundExpenseMutation,
 } = accountingApiSlice

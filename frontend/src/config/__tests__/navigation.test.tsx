@@ -45,7 +45,7 @@ describe('navigation structure', () => {
     expect(parent.children).toBeDefined()
   })
 
-  it('nests the five accounting pages as children with unchanged paths', () => {
+  it('nests the six accounting pages as children with unchanged paths', () => {
     const children = accountingParent().children ?? []
     expect(
       children.map((c) => ({ id: c.id, title: c.title, path: c.path })),
@@ -59,6 +59,11 @@ describe('navigation structure', () => {
         id: 'journal-entries',
         title: 'Journal Entries',
         path: '/accounting/journal-entries',
+      },
+      {
+        id: 'expenses',
+        title: 'Expenses',
+        path: '/accounting/expenses',
       },
       {
         id: 'general-ledger',
@@ -89,7 +94,7 @@ describe('navigation structure', () => {
 
   it('opens every accounting child to all roles', () => {
     const children = accountingParent().children ?? []
-    expect(children).toHaveLength(5)
+    expect(children).toHaveLength(6)
     children.forEach((child) => {
       expect(child.roles).toEqual([
         'admin',

@@ -13,6 +13,7 @@ import { SalesOrder } from '../../database/entities/sales-order.entity';
 import { Payment } from '../../database/entities/payment.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { StockAdjustment } from '../../database/entities/stock-adjustment.entity';
+import { Expense } from '../accounting/entities/expense.entity';
 import {
   UpdateCompanySettingsDto,
   CompanySettingsResponseDto,
@@ -49,6 +50,8 @@ export class SettingsService {
     private purchaseOrderRepository: Repository<PurchaseOrder>,
     @InjectRepository(StockAdjustment)
     private stockAdjustmentRepository: Repository<StockAdjustment>,
+    @InjectRepository(Expense)
+    private expenseRepository: Repository<Expense>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -466,6 +469,7 @@ export class SettingsService {
       // migration 1772100000000 and AccountingSeederService (issue #901). Its
       // nextNumber is derived collision-safe below, not the literal 1 above.
       { documentName: 'Journal Entries', prefix: 'JE' },
+      { documentName: 'Expenses', prefix: 'EXP' },
     ];
 
     for (const d of defaults) {
@@ -561,9 +565,21 @@ export class SettingsService {
               break;
             }
 
+            case 'Expenses': {
+              const r = await this.expenseRepository
+                .createQueryBuilder('e')
+                .select('e.expenseNumber')
+                .where('e.expenseNumber LIKE :p', { p: pattern(row.prefix) })
+                .orderBy('e.expenseNumber', 'DESC')
+                .limit(1)
+                .getOne();
+              if (r?.expenseNumber) maxNumber = parseInt(r.expenseNumber.split('-')[2], 10) || 0;
+              break;
+            }
+
             default:
               // Document types this sync can't compute a max for (Journal Entries,
-              // Invoices, Expenses, Settlements, Owner Equity — their sequences live
+              // Invoices, Settlements, Owner Equity — their sequences live
               // in other modules' tables). Do NOT reset their nextNumber to 1: that
               // would collide with already-issued numbers on the next post (issue #901,
               // where AccountingSeederService owns the Journal Entries sequence).
