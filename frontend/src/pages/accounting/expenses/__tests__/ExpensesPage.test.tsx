@@ -1,9 +1,10 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { mockExpenses } = vi.hoisted(() => ({
   mockExpenses: [
@@ -70,11 +71,16 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => vi.fn(), useSearchParams: () => [new URLSearchParams(), vi.fn()] }
 })
 
-vi.mock('@/hooks/useNotification', () => ({
-  useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
+const { mockShowSuccess, mockShowError } = vi.hoisted(() => ({
+  mockShowSuccess: vi.fn(),
+  mockShowError: vi.fn(),
 }))
 
-import { useGetExpensesQuery } from '@/store/api/accountingApi'
+vi.mock('@/hooks/useNotification', () => ({
+  useNotification: () => ({ showSuccess: mockShowSuccess, showError: mockShowError }),
+}))
+
+import { useGetExpensesQuery, useGetExpenseQuery } from '@/store/api/accountingApi'
 import ExpensesPage from '../ExpensesPage'
 
 function renderPage() {
@@ -120,5 +126,68 @@ describe('ExpensesPage', () => {
   it('shows New Expense button', () => {
     renderPage()
     expect(screen.getByText('+ New Expense')).toBeInTheDocument()
+  })
+})
+
+describe('ExpensesPage - refund detail loading', () => {
+  const refundDetail = {
+    ...mockExpenses[1],
+    payments: [
+      {
+        id: 'pay-1',
+        expenseId: 'exp-2',
+        paymentMethodId: 'pm-1',
+        paymentDate: '2026-07-02',
+        amount: '500.0000',
+        reference: null,
+        sourcePaymentId: null,
+        paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' },
+        remainingRefundable: '500.0000',
+      },
+    ],
+  }
+
+  async function openRefundOnSecondRow() {
+    const user = userEvent.setup()
+    renderPage()
+    // exp-2 is DRAFT + PAID, so its row menu offers Refund.
+    const menuButtons = screen.getAllByRole('button', { name: /row actions/i })
+    await user.click(menuButtons[1])
+    await user.click(await screen.findByRole('menuitem', { name: /refund/i }))
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('opens the refund dialog with sources once the detail record loads', async () => {
+    vi.mocked(useGetExpenseQuery).mockReturnValue({
+      currentData: refundDetail,
+      isError: false,
+    } as any)
+    await openRefundOnSecondRow()
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(mockShowError).not.toHaveBeenCalled()
+  })
+
+  it('does not open the refund dialog from another expense\'s cached detail', async () => {
+    vi.mocked(useGetExpenseQuery).mockReturnValue({
+      currentData: { ...refundDetail, id: 'exp-OTHER' },
+      isError: false,
+    } as any)
+    await openRefundOnSecondRow()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('shows an error and abandons the refund action when the detail fetch fails', async () => {
+    vi.mocked(useGetExpenseQuery).mockReturnValue({
+      currentData: undefined,
+      isError: true,
+    } as any)
+    await openRefundOnSecondRow()
+    await waitFor(() => {
+      expect(mockShowError).toHaveBeenCalledWith('Failed to load expense payments for refund')
+    })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

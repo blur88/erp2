@@ -172,6 +172,44 @@ describe('ExpenseFormPage - Create mode', () => {
     expect(mockCreateExpense).not.toHaveBeenCalled()
   })
 
+  it('accepts a sub-cent scale-4 amount such as 0.0001', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Rounding adjustment')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), '0.0001')
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+    await waitFor(() => {
+      expect(mockCreateExpense).toHaveBeenCalledWith(
+        expect.objectContaining({ totalAmount: '0.0001' }),
+      )
+    })
+    expect(screen.queryByText('Amount must be greater than 0')).not.toBeInTheDocument()
+  })
+
+  it('submits the picked calendar date without timezone shift', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Dated expense')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), '10')
+    // Type a date into the picker's text field; the picker hands the form a
+    // local-midnight Date. On a UTC+ host, formatting that Date via
+    // toISOString would submit the previous day.
+    // MUI X renders the date as Month/Day/Year spinbutton sections; typing
+    // digits auto-advances through them.
+    await user.click(screen.getByRole('spinbutton', { name: 'Month' }))
+    await user.keyboard('07262026')
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+    await waitFor(() => {
+      expect(mockCreateExpense).toHaveBeenCalledWith(
+        expect.objectContaining({ expenseDate: '2026-07-26' }),
+      )
+    })
+  })
+
   it('calls createExpense and navigates to detail on submit', async () => {
     const user = userEvent.setup()
     renderCreatePage()

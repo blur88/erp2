@@ -253,7 +253,14 @@ const ExpenseFormPage: React.FC = () => {
                         <DatePicker
                           label="Expense Date"
                           value={field.value ? parseISO(field.value) : null}
-                          onChange={(date) => field.onChange(date ? format(date, 'yyyy-MM-dd') : '')}
+                          onChange={(date) =>
+                            field.onChange(
+                              // Guard: the picker emits Invalid Date mid-typing.
+                              date && !Number.isNaN(date.getTime())
+                                ? format(date, 'yyyy-MM-dd')
+                                : '',
+                            )
+                          }
                           slotProps={{
                             textField: {
                               fullWidth: true,
