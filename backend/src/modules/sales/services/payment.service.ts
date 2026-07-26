@@ -28,7 +28,6 @@ import {
   PAYMENT_SORT_FIELDS,
 } from '../dto/payment.dto';
 import { CustomerPrintDto } from '../dto/customer.dto';
-import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class PaymentService extends BaseCrudService<
@@ -49,7 +48,6 @@ export class PaymentService extends BaseCrudService<
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepository: Repository<SalesOrder>,
     auditLogService: AuditLogService,
-    private readonly settingsService: SettingsService,
   ) {
     super(paymentRepository, auditLogService);
   }
@@ -94,12 +92,9 @@ export class PaymentService extends BaseCrudService<
       throw new NotFoundException('Payment method not found');
     }
 
-    const paymentNumber = await this.settingsService.generateDocumentNumber('Payments');
-
     // Create payment
     const payment = this.paymentRepository.create({
       ...createPaymentDto,
-      paymentNumber,
       status: PaymentStatus.COMPLETED,
       paymentMethodId: paymentMethod.id,
     });
@@ -171,10 +166,7 @@ export class PaymentService extends BaseCrudService<
       );
 
     if (search) {
-      queryBuilder.andWhere(
-        '(payment.paymentNumber ILIKE :search OR customer.name ILIKE :search)',
-        { search: `%${search}%` },
-      );
+      queryBuilder.andWhere('customer.name ILIKE :search', { search: `%${search}%` });
     }
 
     applyPagination(queryBuilder, page, limit);
@@ -287,7 +279,6 @@ export class PaymentService extends BaseCrudService<
 
     return payments.map((payment) => ({
       id: payment.id,
-      paymentNumber: payment.paymentNumber,
       paymentDate: payment.paymentDate,
       amount: Number(payment.amount),
       paymentMethodId: payment.paymentMethodId,
@@ -303,7 +294,6 @@ export class PaymentService extends BaseCrudService<
 
     return payments.map((payment) => ({
       id: payment.id,
-      paymentNumber: payment.paymentNumber,
       paymentDate: payment.paymentDate,
       amount: Number(payment.amount),
       paymentMethodId: payment.paymentMethodId,
@@ -374,20 +364,17 @@ export class PaymentService extends BaseCrudService<
 
     const refundMethodCode = originalPayment.paymentMethodEntity?.code || 'CASH';
 
-    const refundNumber = await this.settingsService.generateDocumentNumber('Payments');
-
     // Create a refund payment record (negative amount)
     const refundPayment = this.paymentRepository.create({
       customerId: originalPayment.customerId,
       salesOrderId: originalPayment.salesOrderId,
       paymentDate: new Date(),
       amount: -refundDto.amount,
-      paymentNumber: refundNumber,
       status: PaymentStatus.REFUNDED,
       paymentMethodId: originalPayment.paymentMethodId,
       notes: refundDto.reason
         ? `Refund: ${refundDto.reason}`
-        : `Refund of ${originalPayment.paymentNumber}`,
+        : `Refund of ${Number(originalPayment.amount).toFixed(2)} payment dated ${this.toDateOnly(originalPayment.paymentDate)}`,
     });
 
     const savedRefund = await this.paymentRepository.save(refundPayment);
@@ -400,7 +387,7 @@ export class PaymentService extends BaseCrudService<
     await this.auditLogService.log(
       'CREATE',
       'Payment',
-      `Created refund for payment ${originalPayment.paymentNumber}`,
+      `Created refund for ${this.toDateOnly(originalPayment.paymentDate)} payment of ${Number(originalPayment.amount).toFixed(2)}`,
       {
         entityId: savedRefund.id,
         userId: userId || 'system',
@@ -470,7 +457,7 @@ export class PaymentService extends BaseCrudService<
     }
 
     if (!payment.deletedAt) {
-      throw new ConflictException(`Payment ${payment.paymentNumber} is not deleted`);
+      throw new ConflictException(`Payment is not deleted`);
     }
 
     // Restore the payment
@@ -479,13 +466,12 @@ export class PaymentService extends BaseCrudService<
     await this.auditLogService.log(
       'RESTORE',
       'Payment',
-      `Restored payment: ${payment.paymentNumber}`,
+      `Restored payment: ${Number(payment.amount).toFixed(2)} on ${this.toDateOnly(payment.paymentDate)}`,
       {
         entityId: id,
         userId: userId || 'system',
         username,
         newValues: {
-          paymentNumber: payment.paymentNumber,
           amount: payment.amount,
           status: payment.status,
         },
@@ -504,7 +490,6 @@ export class PaymentService extends BaseCrudService<
   private mapToResponseDto(payment: Payment): PaymentResponseDto {
     return {
       id: payment.id,
-      paymentNumber: payment.paymentNumber,
       status: payment.status,
       paymentMethodId: payment.paymentMethodId,
       paymentMethodEntity: payment.paymentMethodEntity
@@ -569,5 +554,10 @@ export class PaymentService extends BaseCrudService<
       relatedSalesOrderId: payment.salesOrder?.id,
       relatedSalesOrderNumber: payment.salesOrder?.orderNumber,
     };
+  }
+
+  /** Formats a payment date as YYYY-MM-DD for human-readable audit text. */
+  private toDateOnly(value: Date | string): string {
+    return new Date(value).toISOString().slice(0, 10);
   }
 }

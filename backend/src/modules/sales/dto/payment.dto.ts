@@ -180,9 +180,6 @@ export class PaymentResponseDto {
   @ApiProperty({ example: 'uuid-string' })
   id: string;
 
-  @ApiProperty({ example: 'PAY-ABC123' })
-  paymentNumber: string;
-
   @ApiProperty({ enum: PaymentStatus, example: PaymentStatus.COMPLETED })
   status: PaymentStatus;
 
@@ -357,9 +354,6 @@ export class AllocatePaymentDto {
 export class PaymentSummaryDto {
   @ApiProperty({ example: 'uuid-string' })
   id: string;
-
-  @ApiProperty({ example: 'PAY-ABC123' })
-  paymentNumber: string;
 
   @ApiProperty({ example: '2023-12-01T00:00:00Z' })
   paymentDate: Date;

@@ -8,7 +8,6 @@ import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { AuditLogService } from '../../audit-logs/services';
 import { NotFoundException } from '@nestjs/common';
-import { SettingsService } from '../../settings/settings.service';
 
 describe('PaymentService', () => {
   let service: PaymentService;
@@ -17,11 +16,9 @@ describe('PaymentService', () => {
   let salesOrderRepository: jest.Mocked<Repository<SalesOrder>>;
   let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
   let auditLogService: jest.Mocked<AuditLogService>;
-  let settingsService: jest.Mocked<Pick<SettingsService, 'generateDocumentNumber'>>;
 
   const createMockPayment = (): Partial<Payment> => ({
     id: '123e4567-e89b-12d3-a456-426614174000',
-    paymentNumber: 'PAY-26-001',
     amount: 1000,
     paymentDate: new Date('2024-01-15'),
     status: PaymentStatus.COMPLETED,
@@ -50,6 +47,7 @@ describe('PaymentService', () => {
             save: jest.fn(),
             create: jest.fn(),
             createQueryBuilder: jest.fn(),
+            restore: jest.fn(),
           },
         },
         {
@@ -79,12 +77,6 @@ describe('PaymentService', () => {
             log: jest.fn(),
           },
         },
-        {
-          provide: SettingsService,
-          useValue: {
-            generateDocumentNumber: jest.fn(),
-          },
-        },
       ],
     }).compile();
 
@@ -94,8 +86,6 @@ describe('PaymentService', () => {
     salesOrderRepository = module.get(getRepositoryToken(SalesOrder));
     paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     auditLogService = module.get(AuditLogService);
-    settingsService = module.get(SettingsService);
-    (settingsService.generateDocumentNumber as jest.Mock).mockResolvedValue('PAY-26-001');
   });
 
   it('should be defined', () => {
@@ -104,7 +94,7 @@ describe('PaymentService', () => {
 
   describe('findAll', () => {
     it('filters payments by status when status is provided', async () => {
-      const mockPayments = [{ id: '1', status: 'completed', paymentNumber: 'PAY-001' }];
+      const mockPayments = [{ id: '1', status: 'completed' }];
       jest.spyOn(paymentRepository, 'createQueryBuilder').mockReturnValue({
         leftJoinAndSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
@@ -188,6 +178,77 @@ describe('PaymentService', () => {
     });
   });
 
+  describe('paymentNumber retirement', () => {
+    it('creates a payment without a generated document number', async () => {
+      const mockCustomer = createMockCustomer();
+      const mockPayment = createMockPayment();
+      customerRepository.findOne.mockResolvedValue(mockCustomer as Customer);
+      paymentMethodRepository.findOne.mockResolvedValue({ id: 'pm-1', code: 'CASH' } as any);
+      customerRepository.save.mockResolvedValue(mockCustomer as Customer);
+      paymentRepository.create.mockReturnValue(mockPayment as Payment);
+      paymentRepository.save.mockResolvedValue(mockPayment as Payment);
+      paymentRepository.findOne.mockResolvedValue(mockPayment as Payment);
+      auditLogService.log.mockResolvedValue(undefined);
+
+      await service.create({
+        customerId: 'customer-1',
+        paymentMethodId: 'pm-1',
+        amount: 1000,
+        paymentDate: new Date('2024-01-15'),
+      } as any);
+
+      expect(paymentRepository.create).toHaveBeenCalledWith(
+        expect.not.objectContaining({ paymentNumber: expect.anything() }),
+      );
+    });
+
+    it('writes a currency-neutral refund note referencing amount and date', async () => {
+      const original = {
+        ...createMockPayment(),
+        amount: 5000,
+        paymentDate: new Date('2026-07-27'),
+        status: PaymentStatus.COMPLETED,
+        paymentMethodEntity: { code: 'CASH' },
+      };
+      paymentRepository.findOne.mockResolvedValue(original as any);
+      paymentRepository.create.mockImplementation((v) => v as Payment);
+      paymentRepository.save.mockImplementation((v) => Promise.resolve(v as Payment));
+      auditLogService.log.mockResolvedValue(undefined);
+
+      await service.refund({ paymentId: original.id, amount: 100 } as any);
+
+      const created = paymentRepository.create.mock.calls[0][0] as any;
+      expect(created.notes).toBe('Refund of 5000.00 payment dated 2026-07-27');
+      expect(created.notes).not.toMatch(/PAY-/);
+      expect(created).not.toHaveProperty('paymentNumber');
+    });
+
+    it('omits paymentNumber from restore audit newValues', async () => {
+      const deleted = { ...createMockPayment(), deletedAt: new Date() };
+      paymentRepository.findOne.mockResolvedValue(deleted as any);
+      paymentRepository.restore.mockResolvedValue({} as any);
+      auditLogService.log.mockResolvedValue(undefined);
+
+      await service.restore(deleted.id as string);
+
+      const [, , message, options] = auditLogService.log.mock.calls[0];
+      expect(message).not.toMatch(/PAY-/);
+      expect(options.newValues).not.toHaveProperty('paymentNumber');
+    });
+
+    it('returns customer payment summaries without paymentNumber', async () => {
+      paymentRepository.find.mockResolvedValue([createMockPayment() as Payment]);
+      const result = await service.getPaymentsByCustomer('customer-1');
+      expect(result[0]).not.toHaveProperty('paymentNumber');
+    });
+
+    it('returns sales-order payment summaries without paymentNumber', async () => {
+      paymentRepository.find.mockResolvedValue([createMockPayment() as Payment]);
+      const result = await service.getPaymentsBySalesOrder('so-1');
+      expect(result[0]).not.toHaveProperty('paymentNumber');
+    });
+  });
+
   describe('create', () => {
     it('should post accounting entry successfully', async () => {
       // Arrange
@@ -218,10 +279,6 @@ describe('PaymentService', () => {
       const result = await service.create(createDto);
 
       // Assert
-      expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith('Payments');
-      expect(paymentRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ paymentNumber: 'PAY-26-001' }),
-      );
       expect(result).toBeDefined();
       expect(paymentRepository.save).toHaveBeenCalled();
     });
