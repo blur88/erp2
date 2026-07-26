@@ -8,7 +8,7 @@ const JournalEntryViewPage = React.lazy(() => import('./JournalEntryViewPage'))
 const GeneralLedgerPage = React.lazy(() => import('./GeneralLedgerPage'))
 const TrialBalancePage = React.lazy(() => import('./TrialBalancePage'))
 const ExpensesPage = React.lazy(() => import('./expenses/ExpensesPage'))
-const ExpenseFormPage = React.lazy(() => import('./ExpenseFormPage'))
+const ExpenseFormPage = React.lazy(() => import('./expenses/ExpenseFormPage'))
 const ExpenseDetailPage = React.lazy(() => import('./ExpenseDetailPage'))
 
 // Authentication is enforced by the parent router (authLoader + MainLayout in
