@@ -59,11 +59,11 @@ function getFilterConfig(
     search: { placeholder: 'Search by expense no., description...' },
     fields: [
       { field: 'period', label: 'Period', type: 'period' },
-      { field: 'expenseAccountId', label: 'Expense Account', type: 'select',
+      { field: 'expenseAccountId', label: 'Account', type: 'select',
         options: accountOptions,
         emptyLabel: 'All accounts' },
-      { field: 'paymentStatus', label: 'Payment Status', type: 'payment-status' },
-      { field: 'documentStatus', label: 'Document Status', type: 'select',
+      { field: 'paymentStatus', label: 'Payment', type: 'payment-status' },
+      { field: 'documentStatus', label: 'Status', type: 'select',
         options: [
           { value: 'DRAFT', label: 'Draft' },
           { value: 'CANCELLED', label: 'Cancelled' },
