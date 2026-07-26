@@ -20,6 +20,7 @@ import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as AddIcon } from '@mui/icons-material/Add'
 import { useGetActivePaymentMethodsForPurchasesQuery } from '@/store/api/paymentMethodsApi'
 import { getCurrentDate } from '@/utils/formatters'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 import type { Expense } from '@/types'
 
 interface PaymentLine {
@@ -129,6 +130,10 @@ export default function ExpensePayDialog({
       setError('At least one payment line with a valid amount is required.')
       return
     }
+    if (validLines.some((l) => !l.paymentDate)) {
+      setError('Payment date is required on every line.')
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -142,7 +147,7 @@ export default function ExpensePayDialog({
       )
       onClose()
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'Failed to record payment.')
+      setError(rtkErrorMessage(err, 'Failed to record payment.'))
     } finally {
       setSubmitting(false)
     }

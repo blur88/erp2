@@ -65,7 +65,7 @@ vi.mock('@/hooks/useNotification', () => ({
 }))
 
 const defaultAccounts = [
-  { id: 'exp-acc-1', code: '5000', name: 'Office Supplies', type: 'Expense', isActive: true, balance: '0', children: [] },
+  { id: 'exp-acc-1', code: '5000', name: 'Office Supplies', type: 'Expense', isActive: true, isPostable: true, balance: '0', children: [] },
   { id: 'exp-acc-2', code: '5010', name: 'Utilities', type: 'Expense', isActive: true, balance: '0', children: [] },
 ]
 

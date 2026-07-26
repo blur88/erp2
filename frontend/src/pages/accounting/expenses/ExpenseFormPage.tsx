@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from 'react'
 import {
+  Alert,
   Box,
   Card,
   CardContent,
@@ -32,7 +33,8 @@ import {
   useUpdateExpenseMutation,
 } from '@/store/api/accountingApi'
 import type { AccountTreeNode } from '@/types'
-import { getCurrentDate } from '@/utils/formatters'
+import { getCurrentDate, toDateInputValue } from '@/utils/formatters'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 
 interface ExpenseFormData {
   expenseDate: string
@@ -47,7 +49,9 @@ function flattenAccountTree(nodes: AccountTreeNode[]): { value: string; label: s
   const options: { value: string; label: string }[] = []
   const flatten = (items: AccountTreeNode[]) => {
     for (const item of items) {
-      options.push({ value: item.id, label: `${item.code} ${item.name}` })
+      if (item.isPostable) {
+        options.push({ value: item.id, label: `${item.code} ${item.name}` })
+      }
       if (item.children?.length) flatten(item.children)
     }
   }
@@ -66,7 +70,7 @@ const ExpenseFormPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const isEdit = !!id
 
-  const { data: expense, isLoading: loadingExpense } = useGetExpenseQuery(id!, { skip: !isEdit })
+  const { data: expense, isLoading: loadingExpense, isError: expenseLoadFailed } = useGetExpenseQuery(id!, { skip: !isEdit })
   const { data: accountTreeData = [], isLoading: loadingAccounts } = useGetAccountTreeQuery({ type: 'Expense', isActive: true })
   const { data: settings } = useGetAccountingSettingsQuery()
   const [createExpense, { isLoading: isCreating }] = useCreateExpenseMutation()
@@ -168,7 +172,13 @@ const ExpenseFormPage: React.FC = () => {
     }
 
     try {
-      if (isEdit && expense?.id) {
+      if (isEdit) {
+        // Never fall through to create in edit mode — a failed detail load
+        // must not silently duplicate the expense.
+        if (!expense?.id) {
+          showError('Expense could not be loaded — cannot save changes')
+          return
+        }
         await updateExpense({ id: expense.id, data: cleanedData }).unwrap()
         showSuccess('Expense updated successfully')
         navigate(`/accounting/expenses/${expense.id}`)
@@ -187,7 +197,7 @@ const ExpenseFormPage: React.FC = () => {
         })
         showError('Please fix the highlighted errors')
       } else {
-        showError(`Failed to ${isEdit ? 'update' : 'create'} expense`)
+        showError(rtkErrorMessage(error, `Failed to ${isEdit ? 'update' : 'create'} expense`))
       }
     }
   }
@@ -197,6 +207,22 @@ const ExpenseFormPage: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'center', pt: 10 }}>
         <CircularProgress />
       </Box>
+    )
+  }
+
+  if (isEdit && (expenseLoadFailed || !expense)) {
+    return (
+      <>
+        <PageHeader
+          title="Edit Expense"
+          subtitle=""
+          variant="workflow"
+          backAction={() => navigate('/accounting/expenses')}
+        />
+        <Alert severity="error" sx={{ mt: 2 }}>
+          Failed to load this expense. Go back and try again.
+        </Alert>
+      </>
     )
   }
 
@@ -225,7 +251,7 @@ const ExpenseFormPage: React.FC = () => {
                         <DatePicker
                           label="Expense Date"
                           value={field.value ? parseISO(field.value) : null}
-                          onChange={(date) => field.onChange(date ? date.toISOString().split('T')[0] : '')}
+                          onChange={(date) => field.onChange(date ? toDateInputValue(date) : '')}
                           slotProps={{
                             textField: {
                               fullWidth: true,

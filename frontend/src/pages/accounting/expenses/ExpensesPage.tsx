@@ -22,6 +22,7 @@ import {
   type ExpenseListParams,
 } from '@/store/api/accountingApi'
 import { formatCurrency } from '@/utils/currency'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
 import { getExpenseActionMetas } from '@/pages/accounting/expenses/expenseActions'
@@ -37,11 +38,13 @@ interface ExpenseFilters {
   documentStatus: ExpenseDocumentStatus | null
 }
 
-function buildAccountOptions(tree: { id: string; code: string; name: string; children?: unknown[] }[]): { value: string; label: string }[] {
+function buildAccountOptions(tree: { id: string; code: string; name: string; isPostable?: boolean; children?: unknown[] }[]): { value: string; label: string }[] {
   const options: { value: string; label: string }[] = []
   const flatten = (nodes: typeof tree) => {
     for (const node of nodes) {
-      options.push({ value: node.id, label: `${node.code} ${node.name}` })
+      if (node.isPostable) {
+        options.push({ value: node.id, label: `${node.code} ${node.name}` })
+      }
       if (node.children?.length) flatten(node.children as typeof tree)
     }
   }
@@ -149,9 +152,14 @@ export default function ExpensesPage() {
     cancelExpenseRow ? cancelExpenseRow.id : skipToken,
   )
 
+  // List rows carry no payments — the refund dialog needs the detail record.
+  const { data: refundExpenseDetail } = useGetExpenseQuery(
+    refundExpenseRow ? refundExpenseRow.id : skipToken,
+  )
+
   const refundSources: RefundSource[] = useMemo(() => {
-    if (!refundExpenseRow?.payments) return []
-    return refundExpenseRow.payments
+    if (!refundExpenseDetail?.payments) return []
+    return refundExpenseDetail.payments
       .filter((p) => Number(p.amount) > 0)
       .map((p) => ({
         id: p.id,
@@ -161,7 +169,7 @@ export default function ExpensesPage() {
           ? Number(p.amount) - Number(p.remainingRefundable)
           : 0,
       }))
-  }, [refundExpenseRow])
+  }, [refundExpenseDetail])
 
   const handleLimitChange = (newLimit: number) => {
     setLimit(newLimit)
@@ -190,11 +198,7 @@ export default function ExpensesPage() {
         showSuccess(`Payment recorded for ${payExpenseRow.expenseNumber}`)
         setPayExpenseRow(null)
       } catch (error) {
-        const message =
-          (error as any)?.response?.data?.message ||
-          (error as any)?.message ||
-          'Failed to record payment'
-        showError(message)
+        showError(rtkErrorMessage(error, 'Failed to record payment'))
         throw error
       }
     },
@@ -219,11 +223,7 @@ export default function ExpensesPage() {
         showSuccess(`Refund recorded for ${refundExpenseRow.expenseNumber}`)
         setRefundExpenseRow(null)
       } catch (error) {
-        const message =
-          (error as any)?.response?.data?.message ||
-          (error as any)?.message ||
-          'Failed to record refund'
-        showError(message)
+        showError(rtkErrorMessage(error, 'Failed to record refund'))
         throw error
       }
     },
@@ -237,11 +237,7 @@ export default function ExpensesPage() {
       showSuccess(`Expense ${cancelExpenseRow.expenseNumber} cancelled`)
       setCancelExpenseRow(null)
     } catch (error) {
-      const message =
-        (error as any)?.response?.data?.message ||
-        (error as any)?.message ||
-        'Failed to cancel expense'
-      showError(message)
+      showError(rtkErrorMessage(error, 'Failed to cancel expense'))
     }
   }, [cancelExpenseRow, doCancelExpense, showSuccess, showError])
 
@@ -385,7 +381,7 @@ export default function ExpensesPage() {
             />
           )}
 
-          {refundExpenseRow && (
+          {refundExpenseRow && refundExpenseDetail && (
             <RefundDialog
               open
               onClose={() => setRefundExpenseRow(null)}

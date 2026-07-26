@@ -180,6 +180,10 @@ export default function RefundDialog({
       setError('At least one refund line with a valid amount is required.')
       return
     }
+    if (showDateField && validLines.some((l) => !l.date)) {
+      setError('Refund date is required on every line.')
+      return
+    }
     if (totalEntered > availableForRefund) {
       setError(
         `Total refund (${formatCurrency(totalEntered)}) exceeds available for refund (${formatCurrency(availableForRefund)}).`,

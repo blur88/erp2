@@ -12,6 +12,7 @@ import RefundDialog, { type RefundSource } from '@/components/common/RefundDialo
 import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useNotification } from '@/hooks/useNotification'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 import {
   useCancelExpenseMutation,
   useGetExpenseQuery,
@@ -110,7 +111,7 @@ export default function ExpenseDetailPage() {
       showSuccess(`Expense ${expense.expenseNumber} cancelled`)
       setCancelDialogOpen(false)
     } catch (error) {
-      showError('Failed to cancel expense')
+      showError(rtkErrorMessage(error, 'Failed to cancel expense'))
     }
   }
 
@@ -126,11 +127,7 @@ export default function ExpenseDetailPage() {
         showSuccess(`Payment recorded for ${expense.expenseNumber}`)
         setPayDialogOpen(false)
       } catch (error) {
-        const message =
-          (error as any)?.response?.data?.message ||
-          (error as any)?.message ||
-          'Failed to record payment'
-        showError(message)
+        showError(rtkErrorMessage(error, 'Failed to record payment'))
         throw error
       }
     },
@@ -154,11 +151,7 @@ export default function ExpenseDetailPage() {
         showSuccess(`Refund recorded for ${expense.expenseNumber}`)
         setRefundDialogOpen(false)
       } catch (error) {
-        const message =
-          (error as any)?.response?.data?.message ||
-          (error as any)?.message ||
-          'Failed to record refund'
-        showError(message)
+        showError(rtkErrorMessage(error, 'Failed to record refund'))
         throw error
       }
     },

@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, EntityManager } from 'typeorm';
+import { Repository, DataSource, EntityManager, In } from 'typeorm';
+import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { Expense, ExpenseDocumentStatus, ExpensePaymentStatus } from '../entities/expense.entity';
 import { ExpensePayment } from '../entities/expense-payment.entity';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
@@ -180,7 +181,6 @@ export class ExpenseService {
   async findOne(id: string): Promise<Expense> {
     const expense = await this.expenseRepo.createQueryBuilder('e')
       .leftJoinAndSelect('e.payments', 'payments')
-      .leftJoinAndSelect('payments.paymentMethod', 'paymentMethod', undefined, { withDeleted: true })
       .leftJoinAndSelect('e.expenseAccount', 'expenseAccount')
       .where('e.id = :id', { id })
       .orderBy('payments.paymentDate', 'ASC')
@@ -190,6 +190,18 @@ export class ExpenseService {
     if (!expense) throw new NotFoundException('Expense not found');
 
     const payments = expense.payments ?? [];
+    // Load methods separately with withDeleted so soft-deleted methods still
+    // render on historical rows (join options can't express this).
+    const methodIds = [...new Set(payments.map((p) => p.paymentMethodId))];
+    if (methodIds.length) {
+      const methods = await this.dataSource
+        .getRepository(PaymentMethodEntity)
+        .find({ where: { id: In(methodIds) } as any, withDeleted: true });
+      const byId = new Map(methods.map((m) => [m.id, m]));
+      for (const p of payments) {
+        (p as any).paymentMethod = byId.get(p.paymentMethodId) ?? null;
+      }
+    }
     const refunds = payments.filter(p => p.sourcePaymentId);
     for (const p of payments) {
       if (!p.sourcePaymentId) {
