@@ -10,7 +10,7 @@ describe('SettingsService', () => {
     const dataSourceMock = { transaction: jest.fn() };
     const service = new SettingsService(
       {} as any, {} as any, {} as any,
-      {} as any, {} as any, {} as any, {} as any,
+      {} as any, {} as any, {} as any,
       {} as any,
       dataSourceMock as any,
     );
@@ -43,7 +43,7 @@ describe('SettingsService', () => {
     const service = new SettingsService(
       {} as any, {} as any,
       documentNumberSettingRepository as any,
-      {} as any, {} as any,
+      {} as any,
       purchaseOrderRepository as any,
       {} as any,
       {} as any,
@@ -73,7 +73,7 @@ describe('SettingsService', () => {
     const service = new SettingsService(
       {} as any, {} as any,
       documentNumberSettingRepository as any,
-      {} as any, {} as any, {} as any, {} as any,
+      {} as any, {} as any, {} as any,
       {} as any,
       {} as any,
     );
@@ -99,7 +99,7 @@ describe('SettingsService', () => {
     const service = new SettingsService(
       {} as any, {} as any,
       documentNumberSettingRepository as any,
-      {} as any, {} as any, {} as any, {} as any,
+      {} as any, {} as any, {} as any,
       {} as any,
       dataSource as any,
     );
@@ -127,7 +127,7 @@ describe('SettingsService', () => {
     const service = new SettingsService(
       {} as any, {} as any,
       documentNumberSettingRepository as any,
-      {} as any, {} as any, {} as any, {} as any,
+      {} as any, {} as any, {} as any,
       {} as any,
       dataSource as any,
     );
@@ -135,6 +135,38 @@ describe('SettingsService', () => {
     await service.syncDocumentNumbersWithDatabase();
     const je = saved.find((r) => r.documentName === 'Journal Entries');
     expect(je.nextNumber).toBe(1);
+  });
+
+  it('creates defaults without Payments or Goods Received', async () => {
+    const saved: Array<{ documentName: string }> = [];
+    const repo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn((v: any) => v),
+      save: jest.fn((v: any) => {
+        saved.push(v);
+        return Promise.resolve(v);
+      }),
+      find: jest.fn().mockResolvedValue([]),
+    };
+    const service = new SettingsService(
+      {} as any, {} as any,
+      repo as any,
+      {} as any, {} as any, {} as any, {} as any,
+      { query: jest.fn().mockResolvedValue([{ next: 1 }]) } as any,
+    );
+
+    await (service as any).createDefaultDocumentNumberSettings();
+
+    const names = saved.map((r) => r.documentName);
+    expect(names).toEqual([
+      'Sales Orders',
+      'Purchase Orders',
+      'Stock Adjustment',
+      'Journal Entries',
+      'Expenses',
+    ]);
+    expect(names).not.toContain('Payments');
+    expect(names).not.toContain('Goods Received');
   });
 
   it('rethrows a non-missing-table DB error instead of masking it as 1', async () => {
@@ -150,7 +182,7 @@ describe('SettingsService', () => {
     const service = new SettingsService(
       {} as any, {} as any,
       documentNumberSettingRepository as any,
-      {} as any, {} as any, {} as any, {} as any,
+      {} as any, {} as any, {} as any,
       {} as any,
       dataSource as any,
     );
@@ -178,7 +210,7 @@ describe('SettingsService', () => {
     const service = new SettingsService(
       {} as any, {} as any,
       documentNumberSettingRepository as any,
-      {} as any, {} as any,
+      {} as any,
       {} as any, {} as any,
       expenseRepository as any,
       {} as any,
@@ -211,7 +243,7 @@ describe('SettingsService', () => {
     const service = new SettingsService(
       {} as any, {} as any,
       documentNumberSettingRepository as any,
-      {} as any, {} as any, {} as any, {} as any,
+      {} as any, {} as any, {} as any,
       expenseRepository as any,
       dataSource as any,
     );

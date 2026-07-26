@@ -25,9 +25,10 @@ import {
 } from '@/store/api/settingsApi';
 
 const MODULE_GROUPS: Record<string, string[]> = {
-  Sales: ['Sales Orders', 'Payments'],
-  Purchasing: ['Purchase Orders', 'Goods Received'],
+  Sales: ['Sales Orders'],
+  Purchasing: ['Purchase Orders'],
   Inventory: ['Stock Adjustment'],
+  Accounting: ['Journal Entries', 'Expenses'],
 };
 
 const DocumentNumbersPage: React.FC = () => {
