@@ -345,6 +345,24 @@ describe('SearchService', () => {
       } as any);
       expect(result.results.map((r) => r.label)).toContain(label);
     });
+
+    // 'account' is a substring of the 'accounting' keyword, so this narrower
+    // query matches all six pages — accepted deliberately, since every result
+    // is relevant. Accounting Settings leads on SCORE_PAGE_STARTSWITH (its
+    // label begins with "Account"); the rest tie on SCORE_PAGE_KEYWORD, so
+    // only the top two positions are pinned.
+    it('searching "account" returns every accounting page, settings first', async () => {
+      const result = await service.search('account', {
+        role: UserRole.ADMIN,
+      } as any);
+      const labels = result.results.map((r) => r.label);
+
+      for (const [, label] of ACCOUNTING_PAGES) {
+        expect(labels).toContain(label);
+      }
+      expect(labels[0]).toBe('Accounting Settings');
+      expect(labels[1]).toBe('Chart of Accounts');
+    });
   });
 
   describe('searchQueryId', () => {
