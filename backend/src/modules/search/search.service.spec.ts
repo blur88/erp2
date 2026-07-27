@@ -351,17 +351,26 @@ describe('SearchService', () => {
     // is relevant. Accounting Settings leads on SCORE_PAGE_STARTSWITH (its
     // label begins with "Account"); the rest tie on SCORE_PAGE_KEYWORD, so
     // only the top two positions are pinned.
+    //
+    // Ranks are taken among accounting pages, not the merged list: entity hits
+    // legitimately interleave by score (a customer matching at
+    // SCORE_CONTAINS + BOOST_CUSTOMER = 68 sits between 75 and 50), so
+    // indexing the raw results would only pass because this suite mocks every
+    // entity source empty.
     it('searching "account" returns every accounting page, settings first', async () => {
       const result = await service.search('account', {
         role: UserRole.ADMIN,
       } as any);
       const labels = result.results.map((r) => r.label);
+      const pageLabels = result.results
+        .filter((r) => r.description === 'Accounting')
+        .map((r) => r.label);
 
       for (const [, label] of ACCOUNTING_PAGES) {
         expect(labels).toContain(label);
       }
-      expect(labels[0]).toBe('Accounting Settings');
-      expect(labels[1]).toBe('Chart of Accounts');
+      expect(pageLabels[0]).toBe('Accounting Settings');
+      expect(pageLabels[1]).toBe('Chart of Accounts');
     });
   });
 
