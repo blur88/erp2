@@ -320,6 +320,31 @@ describe('SearchService', () => {
         expect(page?.description).toBe('Accounting');
       },
     );
+
+    // Other modules catch their own name via an overview entry; /accounting is
+    // not a mounted route, so each page carries the module name instead.
+    it('searching "accounting" finds every accounting page', async () => {
+      const result = await service.search('accounting', {
+        role: UserRole.ADMIN,
+      } as any);
+      const labels = result.results.map((r) => r.label);
+
+      for (const [, label] of ACCOUNTING_PAGES) {
+        expect(labels).toContain(label);
+      }
+    });
+
+    // Matching is keyword.includes(query), so a singular query cannot match a
+    // plural-only keyword.
+    it.each([
+      ['entry', 'Journal Entries'],
+      ['ledgers', 'General Ledger'],
+    ])('searching "%s" finds %s', async (query, label) => {
+      const result = await service.search(query, {
+        role: UserRole.ADMIN,
+      } as any);
+      expect(result.results.map((r) => r.label)).toContain(label);
+    });
   });
 
   describe('searchQueryId', () => {

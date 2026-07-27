@@ -110,33 +110,36 @@ const STATIC_PAGES: Array<{
     roles: INVENTORY_ROLES,
   },
 
+  // Other modules catch their own name via an overview entry keyworded
+  // ['<module>', 'overview']. Accounting has no such entry because /accounting
+  // is not a mounted route, so each page carries 'accounting' instead.
   {
     label: 'Chart of Accounts',
-    keywords: ['coa', 'chart of accounts', 'accounts'],
+    keywords: ['coa', 'chart of accounts', 'accounts', 'accounting'],
     route: '/accounting/chart-of-accounts',
     roles: ACCOUNTING_ROLES,
   },
   {
     label: 'Journal Entries',
-    keywords: ['journal', 'je', 'entries'],
+    keywords: ['journal', 'je', 'entry', 'entries', 'accounting'],
     route: '/accounting/journal-entries',
     roles: ACCOUNTING_ROLES,
   },
   {
     label: 'Expenses',
-    keywords: ['expense', 'spending', 'bills'],
+    keywords: ['expense', 'spending', 'bills', 'accounting'],
     route: '/accounting/expenses',
     roles: ACCOUNTING_ROLES,
   },
   {
     label: 'General Ledger',
-    keywords: ['gl', 'general ledger', 'ledger'],
+    keywords: ['gl', 'general ledger', 'ledger', 'ledgers', 'accounting'],
     route: '/accounting/general-ledger',
     roles: ACCOUNTING_ROLES,
   },
   {
     label: 'Trial Balance',
-    keywords: ['trial balance', 'tb'],
+    keywords: ['trial balance', 'tb', 'accounting'],
     route: '/accounting/trial-balance',
     roles: ACCOUNTING_ROLES,
   },
