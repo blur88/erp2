@@ -149,7 +149,6 @@ describe('CustomerWorkspaceCard', () => {
       data: [
         {
           id: 'pay-1',
-          paymentNumber: 'PAY-001',
           paymentDate: '2026-01-15',
           status: 'completed',
           amount: 1500,
@@ -164,10 +163,8 @@ describe('CustomerWorkspaceCard', () => {
     fireEvent.click(screen.getByRole('tab', { name: /payments/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('PAY-001')).toBeInTheDocument();
+      expect(screen.getByText('completed')).toBeInTheDocument();
     });
-
-    expect(screen.getByText('completed')).toBeInTheDocument();
   });
 
   it('payment rows are no longer navigable', async () => {
@@ -175,7 +172,6 @@ describe('CustomerWorkspaceCard', () => {
       data: [
         {
           id: 'pay-1',
-          paymentNumber: 'PAY-001',
           paymentDate: '2026-01-15',
           status: 'completed',
           amount: 1500,
@@ -189,9 +185,9 @@ describe('CustomerWorkspaceCard', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: /payments/i }));
 
-    await waitFor(() => expect(screen.getByText('PAY-001')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('completed')).toBeInTheDocument());
 
-    fireEvent.click(screen.getByText('PAY-001').closest('tr')!);
+    fireEvent.click(screen.getByText('completed').closest('tr')!);
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 

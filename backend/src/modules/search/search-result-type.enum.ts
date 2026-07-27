@@ -5,5 +5,4 @@ export enum SearchResultType {
   TRANSACTION = 'transaction',
   SUPPLIER = 'supplier',
   INVOICE = 'invoice',
-  CUSTOMER_PAYMENT = 'customer_payment',
 }

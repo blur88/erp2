@@ -4,7 +4,6 @@ import { ProductService } from '../inventory/services/product.service';
 import { PurchaseOrderService } from '../purchasing/services/purchase-order.service';
 import { SupplierService } from '../purchasing/services/supplier.service';
 import { CustomerService } from '../sales/services/customer.service';
-import { PaymentService } from '../sales/services/payment.service';
 import { SalesOrderService } from '../sales/services/sales-order.service';
 import { UserRole } from '../../database/entities/user.entity';
 import { GlobalSearchResponseDto } from './dto/global-search-response.dto';
@@ -65,12 +64,6 @@ const STATIC_PAGES: Array<{
     label: 'Sales Orders',
     keywords: ['orders', 'so'],
     route: '/sales/orders',
-    roles: SALES_ROLES,
-  },
-  {
-    label: 'Payments',
-    keywords: ['receipts', 'payment'],
-    route: '/sales/payments',
     roles: SALES_ROLES,
   },
   {
@@ -321,7 +314,6 @@ export class SearchService {
     private readonly salesOrderService: SalesOrderService,
     private readonly purchaseOrderService: PurchaseOrderService,
     private readonly supplierService: SupplierService,
-    private readonly paymentService: PaymentService,
     private readonly searchAnalyticsService: SearchAnalyticsService,
   ) {}
 
@@ -341,7 +333,6 @@ export class SearchService {
       salesOrders,
       purchaseOrders,
       suppliers,
-      customerPayments,
     ] = await Promise.all([
       this.safeSearch('pages', () => Promise.resolve(this.searchPages(trimmed, user))),
       this.safeSearch('customers', () => this.customerService.searchGlobal(trimmed, user)),
@@ -351,7 +342,6 @@ export class SearchService {
         this.purchaseOrderService.searchGlobal(trimmed, user),
       ),
       this.safeSearch('suppliers', () => this.supplierService.searchGlobal(trimmed, user)),
-      this.safeSearch('customerPayments', () => this.paymentService.searchGlobal(trimmed, user)),
     ]);
     const executionTimeMs = Date.now() - startTime;
 
@@ -362,7 +352,6 @@ export class SearchService {
       ...salesOrders,
       ...purchaseOrders,
       ...suppliers,
-      ...customerPayments,
     ]
       .sort((a, b) => {
         const scoreDiff = (b.score ?? 0) - (a.score ?? 0);

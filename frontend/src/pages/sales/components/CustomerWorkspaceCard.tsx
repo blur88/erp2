@@ -211,7 +211,6 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
                 <TableRow
                   sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}
                 >
-                  <TableCell>Payment #</TableCell>
                   <TableCell>Date</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell align="right">Amount</TableCell>
@@ -223,17 +222,6 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
                     key={payment.id}
                     hover
                   >
-                    <TableCell>
-                      <Typography
-                        variant="body2"
-                        color="primary"
-                        sx={{
-                          fontWeight: 600,
-                        }}
-                      >
-                        {payment.paymentNumber}
-                      </Typography>
-                    </TableCell>
                     <TableCell>{formatDate(payment.paymentDate)}</TableCell>
                     <TableCell>{payment.status}</TableCell>
                     <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>

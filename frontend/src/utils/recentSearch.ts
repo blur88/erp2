@@ -10,7 +10,6 @@ export interface RecentSearchItem {
     | 'product'
     | 'transaction'
     | 'supplier'
-    | 'customer_payment'
   timestamp: number
 }
 
@@ -20,7 +19,6 @@ const VALID_TYPES: ReadonlyArray<RecentSearchItem['type']> = [
   'product',
   'transaction',
   'supplier',
-  'customer_payment',
 ]
 
 const storageKey = (userId: string) => `global_search_recent_${userId}`

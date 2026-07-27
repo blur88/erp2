@@ -48,7 +48,6 @@ describe('CustomerPaymentsTab', () => {
         data: [
           {
             id: 'p1',
-            paymentNumber: 'PAY-001',
             paymentDate: '2026-01-25',
             amount: 1000,
             paymentMethodEntity: { id: 'pm1', name: 'Cash', isActive: true },
@@ -63,7 +62,6 @@ describe('CustomerPaymentsTab', () => {
       isLoading: false,
     });
     renderTab('c1');
-    expect(screen.getByText('PAY-001')).toBeInTheDocument();
     expect(screen.getByText('Cash')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /View/i })).not.toBeInTheDocument();
   });
@@ -74,7 +72,6 @@ describe('CustomerPaymentsTab', () => {
         data: [
           {
             id: 'p2',
-            paymentNumber: 'PAY-002',
             paymentDate: '2026-02-01',
             amount: 500,
             status: 'completed',
@@ -91,7 +88,7 @@ describe('CustomerPaymentsTab', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('passes customerId, page, limit and lexical sort to the query', () => {
+  it('passes customerId, page, limit and date-desc sort to the query', () => {
     mockGetPayments.mockReturnValue({ data: { data: [], meta: { total: 0 } }, isLoading: false });
     renderTab('cust-99');
     expect(mockGetPayments).toHaveBeenCalledWith(
@@ -99,8 +96,8 @@ describe('CustomerPaymentsTab', () => {
         customerId: 'cust-99',
         page: 1,
         limit: expect.any(Number),
-        sortBy: 'paymentNumber',
-        sortOrder: 'ASC',
+        sortBy: 'paymentDate',
+        sortOrder: 'DESC',
       }),
     );
   });
@@ -111,7 +108,6 @@ describe('CustomerPaymentsTab', () => {
         data: [
           {
             id: 'p1',
-            paymentNumber: 'PAY-001',
             paymentDate: '2026-01-25',
             amount: 1000,
             paymentMethodEntity: { id: 'pm1', name: 'Cash', isActive: true },
@@ -127,5 +123,26 @@ describe('CustomerPaymentsTab', () => {
     });
     renderTab('c1');
     expect(screen.getByText(/of 17 records/)).toBeInTheDocument();
+  });
+
+  it('does not render a Payment # column', () => {
+    mockGetPayments.mockReturnValue({
+      data: {
+        data: [
+          {
+            id: 'p1',
+            paymentDate: '2026-01-25',
+            amount: 1000,
+            paymentMethodEntity: { id: 'pm1', name: 'Cash', isActive: true },
+          },
+        ],
+        meta: { total: 1 },
+      },
+      isLoading: false,
+    });
+    renderTab('c1');
+    expect(screen.getByText('Cash')).toBeInTheDocument();
+    expect(screen.queryByText('Payment #')).not.toBeInTheDocument();
+    expect(screen.queryByText('PAY-001')).not.toBeInTheDocument();
   });
 });

@@ -4,8 +4,7 @@ export type GlobalSearchResultType =
   | 'product'
   | 'transaction'
   | 'supplier'
-  | 'invoice'
-  | 'customer_payment';
+  | 'invoice';
 
 export class GlobalSearchResultDto {
   type: GlobalSearchResultType;

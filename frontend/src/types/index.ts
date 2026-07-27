@@ -251,7 +251,6 @@ export interface SalesOrder {
   deliveryDate?: Date;
   payments?: {
     id: string;
-    paymentNumber: string;
     amount: number;
     paymentDate: Date | string;
   }[];
@@ -289,7 +288,6 @@ export interface SalesOrderPayment {
 
 export interface Payment {
   id: string;
-  paymentNumber: string;
   salesOrderId?: string;
   customer?: Customer;
   customerId?: string;

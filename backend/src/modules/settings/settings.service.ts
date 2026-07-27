@@ -10,7 +10,6 @@ import { CompanySettings } from '../../database/entities/company-settings.entity
 import { RegionalSettings } from '../../database/entities/regional-settings.entity';
 import { DocumentNumberSetting } from '../../database/entities/document-number-settings.entity';
 import { SalesOrder } from '../../database/entities/sales-order.entity';
-import { Payment } from '../../database/entities/payment.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { StockAdjustment } from '../../database/entities/stock-adjustment.entity';
 import { Expense } from '../accounting/entities/expense.entity';
@@ -44,8 +43,6 @@ export class SettingsService {
     private documentNumberSettingRepository: Repository<DocumentNumberSetting>,
     @InjectRepository(SalesOrder)
     private salesOrderRepository: Repository<SalesOrder>,
-    @InjectRepository(Payment)
-    private paymentRepository: Repository<Payment>,
     @InjectRepository(PurchaseOrder)
     private purchaseOrderRepository: Repository<PurchaseOrder>,
     @InjectRepository(StockAdjustment)
@@ -461,9 +458,7 @@ export class SettingsService {
     const currentYY = new Date().getFullYear() % 100;
     const defaults = [
       { documentName: 'Sales Orders', prefix: 'SO' },
-      { documentName: 'Payments', prefix: 'PAY' },
       { documentName: 'Purchase Orders', prefix: 'PO' },
-      { documentName: 'Goods Received', prefix: 'GRN' },
       { documentName: 'Stock Adjustment', prefix: 'SA' },
       // Accounting v1 posts journal entries via this row; keep it in sync with
       // migration 1772100000000 and AccountingSeederService (issue #901). Its
@@ -525,17 +520,6 @@ export class SettingsService {
                 .limit(1)
                 .getOne();
               if (r?.orderNumber) maxNumber = parseInt(r.orderNumber.split('-')[2], 10) || 0;
-              break;
-            }
-            case 'Payments': {
-              const r = await this.paymentRepository
-                .createQueryBuilder('pay')
-                .select('pay.paymentNumber')
-                .where('pay.paymentNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('pay.paymentNumber', 'DESC')
-                .limit(1)
-                .getOne();
-              if (r?.paymentNumber) maxNumber = parseInt(r.paymentNumber.split('-')[2], 10) || 0;
               break;
             }
             case 'Purchase Orders': {

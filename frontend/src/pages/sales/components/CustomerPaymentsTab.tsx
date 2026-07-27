@@ -1,5 +1,5 @@
 import PagePagination from '@/components/common/PagePagination'
-import { DataTable, type Column, bold } from '@/components/common/DataTable'
+import { DataTable, type Column } from '@/components/common/DataTable'
 import { usePagination } from '@/hooks/usePagination'
 import { useGetPaymentsQuery } from '@/store/api/salesApi'
 import { formatCurrency } from '@/utils/currency'
@@ -15,18 +15,17 @@ export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabP
     customerId,
     page,
     limit,
-    sortBy: 'paymentNumber',
-    sortOrder: 'ASC',
+    sortBy: 'paymentDate',
+    sortOrder: 'DESC',
   })
   const payments = data?.data ?? []
   const total = data?.meta?.total ?? 0
 
   const columns: Column<(typeof payments)[number]>[] = [
-    { header: 'Payment #', width: '20%', render: (p) => bold(p.paymentNumber) },
-    { header: 'Invoice #', width: '20%', render: (p) => p.salesOrderId ?? '—' },
-    { header: 'Date', width: '18%', render: (p) => formatDate(p.paymentDate) },
-    { header: 'Method', width: '20%', render: (p) => p.paymentMethodEntity?.name ?? '—' },
-    { header: 'Amount', align: 'right', width: '22%', render: (p) => formatCurrency(p.amount) },
+    { header: 'Date', width: '25%', render: (p) => formatDate(p.paymentDate) },
+    { header: 'Invoice #', width: '25%', render: (p) => p.salesOrderId ?? '—' },
+    { header: 'Method', width: '25%', render: (p) => p.paymentMethodEntity?.name ?? '—' },
+    { header: 'Amount', align: 'right', width: '25%', render: (p) => formatCurrency(p.amount) },
   ]
 
   return (

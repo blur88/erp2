@@ -8,8 +8,6 @@ import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { AuditLogService } from '../../audit-logs/services';
 import { NotFoundException } from '@nestjs/common';
-import { UserRole } from '../../../database/entities/user.entity';
-import { SettingsService } from '../../settings/settings.service';
 
 describe('PaymentService', () => {
   let service: PaymentService;
@@ -18,11 +16,9 @@ describe('PaymentService', () => {
   let salesOrderRepository: jest.Mocked<Repository<SalesOrder>>;
   let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
   let auditLogService: jest.Mocked<AuditLogService>;
-  let settingsService: jest.Mocked<Pick<SettingsService, 'generateDocumentNumber'>>;
 
   const createMockPayment = (): Partial<Payment> => ({
     id: '123e4567-e89b-12d3-a456-426614174000',
-    paymentNumber: 'PAY-26-001',
     amount: 1000,
     paymentDate: new Date('2024-01-15'),
     status: PaymentStatus.COMPLETED,
@@ -51,6 +47,7 @@ describe('PaymentService', () => {
             save: jest.fn(),
             create: jest.fn(),
             createQueryBuilder: jest.fn(),
+            restore: jest.fn(),
           },
         },
         {
@@ -80,12 +77,6 @@ describe('PaymentService', () => {
             log: jest.fn(),
           },
         },
-        {
-          provide: SettingsService,
-          useValue: {
-            generateDocumentNumber: jest.fn(),
-          },
-        },
       ],
     }).compile();
 
@@ -95,8 +86,6 @@ describe('PaymentService', () => {
     salesOrderRepository = module.get(getRepositoryToken(SalesOrder));
     paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     auditLogService = module.get(AuditLogService);
-    settingsService = module.get(SettingsService);
-    (settingsService.generateDocumentNumber as jest.Mock).mockResolvedValue('PAY-26-001');
   });
 
   it('should be defined', () => {
@@ -105,7 +94,7 @@ describe('PaymentService', () => {
 
   describe('findAll', () => {
     it('filters payments by status when status is provided', async () => {
-      const mockPayments = [{ id: '1', status: 'completed', paymentNumber: 'PAY-001' }];
+      const mockPayments = [{ id: '1', status: 'completed' }];
       jest.spyOn(paymentRepository, 'createQueryBuilder').mockReturnValue({
         leftJoinAndSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
@@ -159,6 +148,148 @@ describe('PaymentService', () => {
     });
   });
 
+  describe('findAll sortBy guard', () => {
+    const makeQb = () => ({
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    });
+
+    it('falls back to paymentDate when sortBy is not an allowed column', async () => {
+      const qb = makeQb();
+      paymentRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({ sortBy: 'paymentNumber', sortOrder: 'ASC' } as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('payment.paymentDate', 'ASC');
+    });
+
+    it('honours an allowed sortBy column', async () => {
+      const qb = makeQb();
+      paymentRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({ sortBy: 'amount', sortOrder: 'DESC' } as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('payment.amount', 'DESC');
+    });
+  });
+
+  describe('paymentNumber retirement', () => {
+    it('creates a payment without a generated document number', async () => {
+      const mockCustomer = createMockCustomer();
+      const mockPayment = createMockPayment();
+      customerRepository.findOne.mockResolvedValue(mockCustomer as Customer);
+      paymentMethodRepository.findOne.mockResolvedValue({ id: 'pm-1', code: 'CASH' } as any);
+      customerRepository.save.mockResolvedValue(mockCustomer as Customer);
+      paymentRepository.create.mockReturnValue(mockPayment as Payment);
+      paymentRepository.save.mockResolvedValue(mockPayment as Payment);
+      paymentRepository.findOne.mockResolvedValue(mockPayment as Payment);
+      auditLogService.log.mockResolvedValue(undefined);
+
+      await service.create({
+        customerId: 'customer-1',
+        paymentMethodId: 'pm-1',
+        amount: 1000,
+        paymentDate: new Date('2024-01-15'),
+      } as any);
+
+      expect(paymentRepository.create).toHaveBeenCalledWith(
+        expect.not.objectContaining({ paymentNumber: expect.anything() }),
+      );
+    });
+
+    it('writes a currency-neutral refund note referencing amount and date', async () => {
+      const original = {
+        ...createMockPayment(),
+        amount: 5000,
+        // Local midnight, which is what the pg driver produces for a `date`
+        // column. Using new Date('2026-07-27') here would be UTC midnight and
+        // would mask an off-by-one in the formatter east of UTC.
+        paymentDate: new Date(2026, 6, 27),
+        status: PaymentStatus.COMPLETED,
+        paymentMethodEntity: { code: 'CASH' },
+      };
+      paymentRepository.findOne.mockResolvedValue(original as any);
+      paymentRepository.create.mockImplementation((v) => v as Payment);
+      paymentRepository.save.mockImplementation((v) => Promise.resolve(v as Payment));
+      auditLogService.log.mockResolvedValue(undefined);
+
+      await service.refund({ paymentId: original.id, amount: 100 } as any);
+
+      const created = paymentRepository.create.mock.calls[0][0] as any;
+      expect(created.notes).toBe('Refund of 5000.00 payment dated 2026-07-27');
+      expect(created.notes).not.toMatch(/PAY-/);
+      expect(created).not.toHaveProperty('paymentNumber');
+    });
+
+    it('formats a YYYY-MM-DD string payment date without shifting it', async () => {
+      const original = {
+        ...createMockPayment(),
+        amount: 250,
+        // TypeORM can hand back the raw string for a `date` column.
+        paymentDate: '2026-01-01' as any,
+        status: PaymentStatus.COMPLETED,
+        paymentMethodEntity: { code: 'CASH' },
+      };
+      paymentRepository.findOne.mockResolvedValue(original as any);
+      paymentRepository.create.mockImplementation((v) => v as Payment);
+      paymentRepository.save.mockImplementation((v) => Promise.resolve(v as Payment));
+      auditLogService.log.mockResolvedValue(undefined);
+
+      await service.refund({ paymentId: original.id, amount: 50 } as any);
+
+      const created = paymentRepository.create.mock.calls[0][0] as any;
+      expect(created.notes).toBe('Refund of 250.00 payment dated 2026-01-01');
+    });
+
+    it('omits paymentNumber from restore audit newValues', async () => {
+      const deleted = { ...createMockPayment(), deletedAt: new Date() };
+      paymentRepository.findOne.mockResolvedValue(deleted as any);
+      paymentRepository.restore.mockResolvedValue({} as any);
+      auditLogService.log.mockResolvedValue(undefined);
+
+      await service.restore(deleted.id as string);
+
+      const [, , message, options] = auditLogService.log.mock.calls[0];
+      expect(message).not.toMatch(/PAY-/);
+      expect(options.newValues).not.toHaveProperty('paymentNumber');
+    });
+
+    it('reports the restore audit date without shifting it', async () => {
+      // Local midnight, as the pg driver returns for a `date` column.
+      const deleted = {
+        ...createMockPayment(),
+        amount: 750,
+        paymentDate: new Date(2026, 6, 27),
+        deletedAt: new Date(),
+      };
+      paymentRepository.findOne.mockResolvedValue(deleted as any);
+      paymentRepository.restore.mockResolvedValue({} as any);
+      auditLogService.log.mockResolvedValue(undefined);
+
+      await service.restore(deleted.id as string);
+
+      const [, , message] = auditLogService.log.mock.calls[0];
+      expect(message).toBe('Restored payment: 750.00 on 2026-07-27');
+    });
+
+    it('returns customer payment summaries without paymentNumber', async () => {
+      paymentRepository.find.mockResolvedValue([createMockPayment() as Payment]);
+      const result = await service.getPaymentsByCustomer('customer-1');
+      expect(result[0]).not.toHaveProperty('paymentNumber');
+    });
+
+    it('returns sales-order payment summaries without paymentNumber', async () => {
+      paymentRepository.find.mockResolvedValue([createMockPayment() as Payment]);
+      const result = await service.getPaymentsBySalesOrder('so-1');
+      expect(result[0]).not.toHaveProperty('paymentNumber');
+    });
+  });
+
   describe('create', () => {
     it('should post accounting entry successfully', async () => {
       // Arrange
@@ -189,10 +320,6 @@ describe('PaymentService', () => {
       const result = await service.create(createDto);
 
       // Assert
-      expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith('Payments');
-      expect(paymentRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ paymentNumber: 'PAY-26-001' }),
-      );
       expect(result).toBeDefined();
       expect(paymentRepository.save).toHaveBeenCalled();
     });
@@ -249,37 +376,6 @@ describe('PaymentService', () => {
 
       // Act & Assert
       await expect(service.create(createDto)).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe('searchGlobal', () => {
-    const adminUser = { role: UserRole.ADMIN } as any;
-
-    it('exact payment number match scores SCORE_EXACT_CODE + BOOST_CUSTOMER_PAYMENT + BOOST_EXACT_MATCH', async () => {
-      const mockPayment = {
-        id: 'pay-1',
-        paymentNumber: 'PAY-001',
-      };
-
-      paymentRepository.createQueryBuilder.mockReturnValue({
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        setParameter: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([mockPayment]),
-      } as any);
-
-      const results = await service.searchGlobal('PAY-001', adminUser);
-
-      expect(results[0]).toMatchObject({
-        type: 'customer_payment',
-        id: 'pay-1',
-        label: 'PAY-001',
-        route: '/sales/payments/pay-1',
-      });
-      expect(results[0].score).toBe(148);
     });
   });
 

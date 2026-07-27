@@ -8,10 +8,23 @@ import {
   IsDate,
   MaxLength,
   IsInt,
+  IsIn,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { PaymentStatus } from '../../../database/entities/payment.entity';
+
+/**
+ * Columns a client may sort payments by. `sortBy` is interpolated into an
+ * ORDER BY identifier, so anything outside this list must never reach SQL.
+ * Deliberately excludes paymentNumber — the column is retired (issue #946).
+ */
+export const PAYMENT_SORT_FIELDS = [
+  'paymentDate',
+  'amount',
+  'status',
+  'createdAt',
+] as const;
 
 export class CreatePaymentDto {
   @ApiProperty({
@@ -117,8 +130,8 @@ export class QueryPaymentsDto {
   status?: PaymentStatus;
 
   @ApiPropertyOptional({
-    description: 'Search by payment number or customer name',
-    example: 'PAY-000001',
+    description: 'Search by customer name',
+    example: 'Acme Corp',
   })
   @IsOptional()
   @IsString()
@@ -129,7 +142,7 @@ export class QueryPaymentsDto {
     example: 'paymentDate',
   })
   @IsOptional()
-  @IsString()
+  @IsIn(PAYMENT_SORT_FIELDS as unknown as string[])
   sortBy?: string;
 
   @ApiPropertyOptional({
@@ -166,9 +179,6 @@ export class QueryPaymentsDto {
 export class PaymentResponseDto {
   @ApiProperty({ example: 'uuid-string' })
   id: string;
-
-  @ApiProperty({ example: 'PAY-ABC123' })
-  paymentNumber: string;
 
   @ApiProperty({ enum: PaymentStatus, example: PaymentStatus.COMPLETED })
   status: PaymentStatus;
@@ -344,9 +354,6 @@ export class AllocatePaymentDto {
 export class PaymentSummaryDto {
   @ApiProperty({ example: 'uuid-string' })
   id: string;
-
-  @ApiProperty({ example: 'PAY-ABC123' })
-  paymentNumber: string;
 
   @ApiProperty({ example: '2023-12-01T00:00:00Z' })
   paymentDate: Date;

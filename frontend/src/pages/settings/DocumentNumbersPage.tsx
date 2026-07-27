@@ -25,10 +25,14 @@ import {
 } from '@/store/api/settingsApi';
 
 const MODULE_GROUPS: Record<string, string[]> = {
-  Sales: ['Sales Orders', 'Payments'],
-  Purchasing: ['Purchase Orders', 'Goods Received'],
+  Sales: ['Sales Orders'],
+  Purchasing: ['Purchase Orders'],
   Inventory: ['Stock Adjustment'],
+  Accounting: ['Journal Entries', 'Expenses'],
 };
+
+/** Document types this page owns. Anything else the API returns is legacy. */
+const ACTIVE_DOCUMENT_NAMES = new Set(Object.values(MODULE_GROUPS).flat());
 
 const DocumentNumbersPage: React.FC = () => {
   const { showSuccess, showError } = useNotification();
@@ -44,12 +48,28 @@ const DocumentNumbersPage: React.FC = () => {
   } = useGetDocumentNumberSettingsQuery();
   const [updateDocumentNumberSettings] = useUpdateDocumentNumberSettingsMutation();
 
+  // Legacy rows the API may still return (Payments, Goods Received) are dropped
+  // here rather than at render time: the row indices this produces are what
+  // handleConfigChange edits and what handleSubmit validates and saves, so
+  // filtering anywhere later would let a hidden row be resubmitted — and
+  // recreate settings the migration deleted (issue #946).
+  //
+  // Memoised on the raw array: filter() allocates a new array each call, and
+  // feeding an unstable reference into setConfigurations below re-fires the
+  // previews effect on every render, which loops forever.
+  const activeConfigurations = React.useMemo(
+    () =>
+      settingsData?.configurations?.filter((c) => ACTIVE_DOCUMENT_NAMES.has(c.documentName)) ??
+      null,
+    [settingsData?.configurations],
+  );
+
   // Populate local configurations state when RTK data loads
   useEffect(() => {
-    if (settingsData && settingsData.configurations) {
-      setConfigurations(settingsData.configurations);
+    if (activeConfigurations) {
+      setConfigurations(activeConfigurations);
     }
-  }, [settingsData]);
+  }, [activeConfigurations]);
 
   useEffect(() => {
     const currentYY = String(new Date().getFullYear() % 100).padStart(2, '0');
@@ -68,13 +88,19 @@ const DocumentNumbersPage: React.FC = () => {
     field: 'prefix' | 'nextNumber',
     value: string | number,
   ) => {
-    const newConfigurations = [...configurations];
-    if (field === 'nextNumber') {
-      newConfigurations[index][field] = parseInt(value as string) || 1;
-    } else {
-      newConfigurations[index][field] = value as any;
-    }
-    setConfigurations(newConfigurations);
+    // Replace the edited row rather than mutating it: these objects come
+    // straight from RTK Query's cache, which is frozen in development, so an
+    // in-place write throws — and would corrupt the cache where it doesn't.
+    setConfigurations((current) =>
+      current.map((config, i) =>
+        i === index
+          ? {
+              ...config,
+              [field]: field === 'nextNumber' ? parseInt(value as string) || 1 : (value as any),
+            }
+          : config,
+      ),
+    );
   };
 
   const handleSubmit = async () => {
@@ -102,6 +128,14 @@ const DocumentNumbersPage: React.FC = () => {
   };
 
   const handleCancel = () => {
+    // Reset from the memoised cache value directly. Relying on refetch() alone
+    // does not work: RTK Query's structural sharing returns the *same* array
+    // reference when the refetched data is deeply equal, so activeConfigurations
+    // never changes, the populate effect never re-runs, and the discarded edits
+    // stay on screen. Unchanged settings are the normal case here.
+    if (activeConfigurations) {
+      setConfigurations(activeConfigurations);
+    }
     refetch();
   };
 

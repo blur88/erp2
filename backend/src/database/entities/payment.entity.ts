@@ -1,5 +1,5 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
-import { IsString, IsOptional, IsEnum, MaxLength, IsDecimal, Min, IsDate } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsDecimal, Min, IsDate } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { Customer } from './customer.entity';
 import { SalesOrder } from './sales-order.entity';
@@ -17,23 +17,12 @@ export enum PaymentStatus {
  * Simplified cash-based payment system
  */
 @Entity('payments')
-@Index(['paymentNumber'], { unique: true })
 @Index(['customerId'])
 @Index(['salesOrderId'])
 @Index(['status'])
 @Index(['paymentDate'])
 @Index(['paymentMethodId'])
 export class Payment extends BaseEntity {
-  @Column({
-    type: 'varchar',
-    length: 50,
-    unique: true,
-    comment: 'Unique payment reference number',
-  })
-  @IsString()
-  @MaxLength(50)
-  paymentNumber: string;
-
   @Column({
     type: 'enum',
     enum: PaymentStatus,

@@ -25,22 +25,9 @@ import {
   ProcessPaymentDto,
   AllocatePaymentDto,
   PaymentSummaryDto,
+  PAYMENT_SORT_FIELDS,
 } from '../dto/payment.dto';
 import { CustomerPrintDto } from '../dto/customer.dto';
-import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
-import { canSearchCustomerPayments } from '../../search/search.permissions';
-import {
-  SEARCH_CANDIDATE_LIMIT,
-  SCORE_EXACT_CODE,
-  SCORE_STARTSWITH_CODE,
-  SCORE_CONTAINS,
-  SCORE_FUZZY,
-  BOOST_CUSTOMER_PAYMENT,
-  BOOST_EXACT_MATCH,
-} from '../../search/search.constants';
-import { JwtPayload } from '../../auth/strategies/jwt.strategy';
-import { UserRole } from '../../../database/entities/user.entity';
-import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class PaymentService extends BaseCrudService<
@@ -61,7 +48,6 @@ export class PaymentService extends BaseCrudService<
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepository: Repository<SalesOrder>,
     auditLogService: AuditLogService,
-    private readonly settingsService: SettingsService,
   ) {
     super(paymentRepository, auditLogService);
   }
@@ -106,12 +92,9 @@ export class PaymentService extends BaseCrudService<
       throw new NotFoundException('Payment method not found');
     }
 
-    const paymentNumber = await this.settingsService.generateDocumentNumber('Payments');
-
     // Create payment
     const payment = this.paymentRepository.create({
       ...createPaymentDto,
-      paymentNumber,
       status: PaymentStatus.COMPLETED,
       paymentMethodId: paymentMethod.id,
     });
@@ -177,13 +160,13 @@ export class PaymentService extends BaseCrudService<
       .leftJoinAndSelect('items.product', 'product')
       .leftJoinAndSelect('payment.paymentMethodEntity', 'paymentMethodEntity')
       .where(where)
-      .orderBy(`payment.${sortBy}`, sortOrder);
+      .orderBy(
+        `payment.${(PAYMENT_SORT_FIELDS as readonly string[]).includes(sortBy) ? sortBy : 'paymentDate'}`,
+        sortOrder,
+      );
 
     if (search) {
-      queryBuilder.andWhere(
-        '(payment.paymentNumber ILIKE :search OR customer.name ILIKE :search)',
-        { search: `%${search}%` },
-      );
+      queryBuilder.andWhere('customer.name ILIKE :search', { search: `%${search}%` });
     }
 
     applyPagination(queryBuilder, page, limit);
@@ -296,7 +279,6 @@ export class PaymentService extends BaseCrudService<
 
     return payments.map((payment) => ({
       id: payment.id,
-      paymentNumber: payment.paymentNumber,
       paymentDate: payment.paymentDate,
       amount: Number(payment.amount),
       paymentMethodId: payment.paymentMethodId,
@@ -312,7 +294,6 @@ export class PaymentService extends BaseCrudService<
 
     return payments.map((payment) => ({
       id: payment.id,
-      paymentNumber: payment.paymentNumber,
       paymentDate: payment.paymentDate,
       amount: Number(payment.amount),
       paymentMethodId: payment.paymentMethodId,
@@ -383,20 +364,17 @@ export class PaymentService extends BaseCrudService<
 
     const refundMethodCode = originalPayment.paymentMethodEntity?.code || 'CASH';
 
-    const refundNumber = await this.settingsService.generateDocumentNumber('Payments');
-
     // Create a refund payment record (negative amount)
     const refundPayment = this.paymentRepository.create({
       customerId: originalPayment.customerId,
       salesOrderId: originalPayment.salesOrderId,
       paymentDate: new Date(),
       amount: -refundDto.amount,
-      paymentNumber: refundNumber,
       status: PaymentStatus.REFUNDED,
       paymentMethodId: originalPayment.paymentMethodId,
       notes: refundDto.reason
         ? `Refund: ${refundDto.reason}`
-        : `Refund of ${originalPayment.paymentNumber}`,
+        : `Refund of ${Number(originalPayment.amount).toFixed(2)} payment dated ${this.toDateOnly(originalPayment.paymentDate)}`,
     });
 
     const savedRefund = await this.paymentRepository.save(refundPayment);
@@ -409,7 +387,7 @@ export class PaymentService extends BaseCrudService<
     await this.auditLogService.log(
       'CREATE',
       'Payment',
-      `Created refund for payment ${originalPayment.paymentNumber}`,
+      `Created refund for ${this.toDateOnly(originalPayment.paymentDate)} payment of ${Number(originalPayment.amount).toFixed(2)}`,
       {
         entityId: savedRefund.id,
         userId: userId || 'system',
@@ -467,59 +445,6 @@ export class PaymentService extends BaseCrudService<
     await this.customerRepository.save(customer);
   }
 
-  async searchGlobal(query: string, user: JwtPayload): Promise<GlobalSearchResultDto[]> {
-    if (!canSearchCustomerPayments(user.role as UserRole)) return [];
-
-    const trimmed = query.trim();
-    const q = trimmed.toLowerCase();
-
-    const results = await this.paymentRepository
-      .createQueryBuilder('payment')
-      .where('payment.deletedAt IS NULL')
-      .andWhere('payment.paymentNumber ILIKE :q', { q: `%${trimmed}%` })
-      .take(SEARCH_CANDIDATE_LIMIT)
-      .getMany();
-
-    if (results.length > 0) {
-      return results.map((p) => this.mapPayment(p, q, false));
-    }
-
-    const fuzzyResults = await this.paymentRepository
-      .createQueryBuilder('payment')
-      .addSelect('similarity(payment.paymentNumber, :q)', 'sim')
-      .where('payment.deletedAt IS NULL')
-      .andWhere('similarity(payment.paymentNumber, :q) > 0.3')
-      .orderBy('sim', 'DESC')
-      .setParameter('q', trimmed)
-      .take(SEARCH_CANDIDATE_LIMIT)
-      .getMany();
-
-    return fuzzyResults.map((p) => this.mapPayment(p, q, true));
-  }
-
-  private mapPayment(p: Payment, q: string, fuzzy: boolean): GlobalSearchResultDto {
-    const num = p.paymentNumber?.toLowerCase() ?? '';
-    const baseScore = fuzzy
-      ? SCORE_FUZZY
-      : num === q
-        ? SCORE_EXACT_CODE
-        : num.startsWith(q)
-          ? SCORE_STARTSWITH_CODE
-          : SCORE_CONTAINS;
-
-    return {
-      type: 'customer_payment',
-      id: p.id,
-      label: p.paymentNumber,
-      description: undefined,
-      route: `/sales/payments/${p.id}`,
-      score:
-        baseScore +
-        BOOST_CUSTOMER_PAYMENT +
-        (baseScore === SCORE_EXACT_CODE ? BOOST_EXACT_MATCH : 0),
-    };
-  }
-
   async restore(id: string, userId?: string, username?: string): Promise<PaymentResponseDto> {
     const payment = await this.paymentRepository.findOne({
       where: { id },
@@ -532,7 +457,7 @@ export class PaymentService extends BaseCrudService<
     }
 
     if (!payment.deletedAt) {
-      throw new ConflictException(`Payment ${payment.paymentNumber} is not deleted`);
+      throw new ConflictException(`Payment is not deleted`);
     }
 
     // Restore the payment
@@ -541,13 +466,12 @@ export class PaymentService extends BaseCrudService<
     await this.auditLogService.log(
       'RESTORE',
       'Payment',
-      `Restored payment: ${payment.paymentNumber}`,
+      `Restored payment: ${Number(payment.amount).toFixed(2)} on ${this.toDateOnly(payment.paymentDate)}`,
       {
         entityId: id,
         userId: userId || 'system',
         username,
         newValues: {
-          paymentNumber: payment.paymentNumber,
           amount: payment.amount,
           status: payment.status,
         },
@@ -566,7 +490,6 @@ export class PaymentService extends BaseCrudService<
   private mapToResponseDto(payment: Payment): PaymentResponseDto {
     return {
       id: payment.id,
-      paymentNumber: payment.paymentNumber,
       status: payment.status,
       paymentMethodId: payment.paymentMethodId,
       paymentMethodEntity: payment.paymentMethodEntity
@@ -631,5 +554,22 @@ export class PaymentService extends BaseCrudService<
       relatedSalesOrderId: payment.salesOrder?.id,
       relatedSalesOrderNumber: payment.salesOrder?.orderNumber,
     };
+  }
+
+  /**
+   * Formats a payment date as YYYY-MM-DD for human-readable audit text.
+   *
+   * paymentDate is a `date` column, which the pg driver parses to a Date at
+   * *local* midnight. toISOString() would convert that to UTC and report the
+   * previous day for any timezone east of UTC (e.g. 2026-07-27 → 2026-07-26 in
+   * UTC+8), so read the local date parts instead. A plain YYYY-MM-DD string is
+   * passed through untouched, per the calendar-date contract.
+   */
+  private toDateOnly(value: Date | string): string {
+    if (typeof value === 'string') return value.slice(0, 10);
+    const d = new Date(value);
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${month}-${day}`;
   }
 }
