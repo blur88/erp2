@@ -4,6 +4,7 @@ import {
   canSearchProducts,
   canSearchSalesOrders,
   canSearchPurchaseOrders,
+  ACCOUNTING_ROLES,
   ALL_ROLES,
   SALES_ROLES,
   PROCUREMENT_ROLES,
@@ -32,6 +33,10 @@ describe('search.permissions', () => {
       );
       expect(SALES_ROLES).not.toContain(UserRole.INVENTORY_STAFF);
       expect(SALES_ROLES).not.toContain(UserRole.PROCUREMENT_STAFF);
+    });
+
+    it('ACCOUNTING_ROLES matches ALL_ROLES until accounting access is deliberately narrowed', () => {
+      expect(ACCOUNTING_ROLES).toEqual(ALL_ROLES);
     });
 
     it('other role-set constants match the expected roles', () => {

@@ -8,6 +8,7 @@ import { PurchaseOrderService } from '../purchasing/services/purchase-order.serv
 import { SearchAnalyticsService } from './search-analytics.service';
 import { GlobalSearchResultDto } from './dto/global-search-result.dto';
 import { UserRole } from '../../database/entities/user.entity';
+import { ACCOUNTING_ROLES } from './search.permissions';
 
 describe('SearchService', () => {
   let module: TestingModule;
@@ -213,14 +214,6 @@ describe('SearchService', () => {
       expect(page?.description).toBe('Sales');
     });
 
-    it('returns "Report" for /reports routes (not "Sales")', async () => {
-      const result = await service.search('product summary', {
-        role: UserRole.ADMIN,
-      } as any);
-      const page = result.results.find((r) => r.route?.startsWith('/reports/sales/'));
-      expect(page?.description).toBe('Report');
-    });
-
     it('returns "Audit" for /audit-logs', async () => {
       const result = await service.search('audit', {
         role: UserRole.ADMIN,
@@ -277,6 +270,108 @@ describe('SearchService', () => {
       }
     });
 
+  });
+
+  describe('dead route removal (issue #948)', () => {
+    it.each([
+      ['grn'],
+      ['goods received'],
+      ['receiving'],
+    ])('search %s returns no /purchasing/goods-received result', async (query) => {
+      const result = await service.search(query, { role: UserRole.ADMIN } as any);
+      expect(
+        result.results.some((r) => r.route === '/purchasing/goods-received'),
+      ).toBe(false);
+    });
+
+    it.each([
+      ['product summary'],
+      ['order profit'],
+      ['vendor payment'],
+      ['historical inventory'],
+      ['price list'],
+    ])('search %s returns no /reports/* result', async (query) => {
+      const result = await service.search(query, { role: UserRole.ADMIN } as any);
+      expect(result.results.some((r) => r.route?.startsWith('/reports'))).toBe(false);
+    });
+  });
+
+  describe('accounting pages', () => {
+    const ACCOUNTING_PAGES: Array<[string, string, string]> = [
+      ['chart of accounts', 'Chart of Accounts', '/accounting/chart-of-accounts'],
+      ['journal entries', 'Journal Entries', '/accounting/journal-entries'],
+      ['expenses', 'Expenses', '/accounting/expenses'],
+      ['general ledger', 'General Ledger', '/accounting/general-ledger'],
+      ['trial balance', 'Trial Balance', '/accounting/trial-balance'],
+      ['accounting settings', 'Accounting Settings', '/accounting/settings'],
+    ];
+
+    const cases = ACCOUNTING_PAGES.flatMap(([query, label, route]) =>
+      ACCOUNTING_ROLES.map((role) => [role, query, label, route] as const),
+    );
+
+    it.each(cases)(
+      'role %s searching "%s" finds %s at its route, categorized Accounting',
+      async (role, query, label, route) => {
+        const result = await service.search(query, { role } as any);
+        const page = result.results.find((r) => r.label === label);
+        expect(page).toBeDefined();
+        expect(page?.route).toBe(route);
+        expect(page?.description).toBe('Accounting');
+      },
+    );
+
+    // Other modules catch their own name via an overview entry; /accounting is
+    // not a mounted route, so each page carries the module name instead.
+    it('searching "accounting" finds every accounting page', async () => {
+      const result = await service.search('accounting', {
+        role: UserRole.ADMIN,
+      } as any);
+      const labels = result.results.map((r) => r.label);
+
+      for (const [, label] of ACCOUNTING_PAGES) {
+        expect(labels).toContain(label);
+      }
+    });
+
+    // Matching is keyword.includes(query), so a singular query cannot match a
+    // plural-only keyword.
+    it.each([
+      ['entry', 'Journal Entries'],
+      ['ledgers', 'General Ledger'],
+    ])('searching "%s" finds %s', async (query, label) => {
+      const result = await service.search(query, {
+        role: UserRole.ADMIN,
+      } as any);
+      expect(result.results.map((r) => r.label)).toContain(label);
+    });
+
+    // 'account' is a substring of the 'accounting' keyword, so this narrower
+    // query matches all six pages — accepted deliberately, since every result
+    // is relevant. Accounting Settings leads on SCORE_PAGE_STARTSWITH (its
+    // label begins with "Account"); the rest tie on SCORE_PAGE_KEYWORD, so
+    // only the top two positions are pinned.
+    //
+    // Ranks are taken among accounting pages, not the merged list: entity hits
+    // legitimately interleave by score (a customer matching at
+    // SCORE_CONTAINS + BOOST_CUSTOMER = 68 sits between 75 and 50), so
+    // indexing the raw results would only pass because this suite mocks every
+    // entity source empty.
+    it('searching "account" returns every accounting page, settings first', async () => {
+      const result = await service.search('account', {
+        role: UserRole.ADMIN,
+      } as any);
+      const labels = result.results.map((r) => r.label);
+      const pageLabels = result.results
+        .filter((r) => r.description === 'Accounting')
+        .map((r) => r.label);
+
+      for (const [, label] of ACCOUNTING_PAGES) {
+        expect(labels).toContain(label);
+      }
+      expect(pageLabels[0]).toBe('Accounting Settings');
+      expect(pageLabels[1]).toBe('Chart of Accounts');
+    });
   });
 
   describe('searchQueryId', () => {

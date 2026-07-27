@@ -10,6 +10,7 @@ import { GlobalSearchResponseDto } from './dto/global-search-response.dto';
 import { GlobalSearchResultDto } from './dto/global-search-result.dto';
 import {
   ALL_ROLES,
+  ACCOUNTING_ROLES,
   SALES_ROLES,
   PROCUREMENT_ROLES,
   INVENTORY_ROLES,
@@ -27,7 +28,7 @@ import { SearchAnalyticsService } from './search-analytics.service';
 function getPageCategory(route: string): string {
   const r = route.toLowerCase().trim();
   if (r === '/dashboard') return 'Dashboard';
-  if (r === '/reports' || r.startsWith('/reports/')) return 'Report';
+  if (r === '/accounting' || r.startsWith('/accounting/')) return 'Accounting';
   if (r === '/sales' || r.startsWith('/sales/')) return 'Sales';
   if (r === '/purchasing' || r.startsWith('/purchasing/')) return 'Purchasing';
   if (r === '/inventory' || r.startsWith('/inventory/')) return 'Inventory';
@@ -85,12 +86,6 @@ const STATIC_PAGES: Array<{
     roles: PROCUREMENT_ROLES,
   },
   {
-    label: 'Goods Received',
-    keywords: ['grn', 'goods received', 'receiving'],
-    route: '/purchasing/goods-received',
-    roles: PROCUREMENT_ROLES,
-  },
-  {
     label: 'Inventory',
     keywords: ['inventory', 'overview'],
     route: '/inventory',
@@ -115,119 +110,44 @@ const STATIC_PAGES: Array<{
     roles: INVENTORY_ROLES,
   },
 
+  // Other modules catch their own name via an overview entry keyworded
+  // ['<module>', 'overview']. Accounting has no such entry because /accounting
+  // is not a mounted route, so each page carries 'accounting' instead.
   {
-    label: 'Product Summary Report',
-    keywords: ['sales report', 'product summary'],
-    route: '/reports/sales/product-summary',
-    roles: SALES_ROLES,
+    label: 'Chart of Accounts',
+    keywords: ['coa', 'chart of accounts', 'accounts', 'accounting'],
+    route: '/accounting/chart-of-accounts',
+    roles: ACCOUNTING_ROLES,
   },
   {
-    label: 'Product Details Report',
-    keywords: ['sales report', 'product details'],
-    route: '/reports/sales/product-details',
-    roles: SALES_ROLES,
+    label: 'Journal Entries',
+    keywords: ['journal', 'je', 'entry', 'entries', 'accounting'],
+    route: '/accounting/journal-entries',
+    roles: ACCOUNTING_ROLES,
   },
   {
-    label: 'Sales Order Summary',
-    keywords: ['order summary', 'sales report'],
-    route: '/reports/sales/order-summary',
-    roles: SALES_ROLES,
+    label: 'Expenses',
+    keywords: ['expense', 'spending', 'bills', 'accounting'],
+    route: '/accounting/expenses',
+    roles: ACCOUNTING_ROLES,
   },
   {
-    label: 'Order Profit Report',
-    keywords: ['profit', 'order profit'],
-    route: '/reports/sales/order-profit',
-    roles: SALES_ROLES,
+    label: 'General Ledger',
+    keywords: ['gl', 'general ledger', 'ledger', 'ledgers', 'accounting'],
+    route: '/accounting/general-ledger',
+    roles: ACCOUNTING_ROLES,
   },
   {
-    label: 'Customer Payment Summary',
-    keywords: ['payment summary', 'customer payment'],
-    route: '/reports/sales/customer-payment-summary',
-    roles: SALES_ROLES,
+    label: 'Trial Balance',
+    keywords: ['trial balance', 'tb', 'accounting'],
+    route: '/accounting/trial-balance',
+    roles: ACCOUNTING_ROLES,
   },
   {
-    label: 'Payment by Order',
-    keywords: ['payment by order'],
-    route: '/reports/sales/payment-by-order',
-    roles: SALES_ROLES,
-  },
-  {
-    label: 'Customer Payment Details',
-    keywords: ['payment details', 'customer payment'],
-    route: '/reports/sales/payment-details',
-    roles: SALES_ROLES,
-  },
-  {
-    label: 'Customer Order History',
-    keywords: ['order history', 'customer history'],
-    route: '/reports/sales/order-history',
-    roles: SALES_ROLES,
-  },
-  {
-    label: 'Product Customers Report',
-    keywords: ['product customer', 'customer report'],
-    route: '/reports/sales/product-customer',
-    roles: SALES_ROLES,
-  },
-  {
-    label: 'Purchase Order Summary',
-    keywords: ['purchase report', 'order summary'],
-    route: '/reports/purchasing/order-summary',
-    roles: PROCUREMENT_ROLES,
-  },
-  {
-    label: 'Purchase Order Details',
-    keywords: ['purchase report', 'order details'],
-    route: '/reports/purchasing/order-details',
-    roles: PROCUREMENT_ROLES,
-  },
-  {
-    label: 'Purchase Order Status',
-    keywords: ['order status', 'purchase report'],
-    route: '/reports/purchasing/order-status',
-    roles: PROCUREMENT_ROLES,
-  },
-  {
-    label: 'Vendor Payment Details',
-    keywords: ['vendor payment', 'purchase report'],
-    route: '/reports/purchasing/payment-details',
-    roles: PROCUREMENT_ROLES,
-  },
-  {
-    label: 'Vendor Products Report',
-    keywords: ['vendor products', 'purchase report'],
-    route: '/reports/purchasing/vendor-purchase-list',
-    roles: PROCUREMENT_ROLES,
-  },
-  {
-    label: 'Inventory Summary Report',
-    keywords: ['inventory report', 'summary'],
-    route: '/reports/inventory/summary',
-    roles: INVENTORY_ROLES,
-  },
-  {
-    label: 'Historical Inventory Report',
-    keywords: ['historical inventory', 'inventory report'],
-    route: '/reports/inventory/historical',
-    roles: INVENTORY_ROLES,
-  },
-  {
-    label: 'Inventory Movement Summary',
-    keywords: ['movement', 'inventory report'],
-    route: '/reports/inventory/movement-summary',
-    roles: INVENTORY_ROLES,
-  },
-  {
-    label: 'Product Price List Report',
-    keywords: ['price list', 'inventory report'],
-    route: '/reports/inventory/price-list',
-    roles: INVENTORY_ROLES,
-  },
-  {
-    label: 'Product Cost Report',
-    keywords: ['product cost', 'inventory report'],
-    route: '/reports/inventory/product-cost',
-    roles: INVENTORY_ROLES,
+    label: 'Accounting Settings',
+    keywords: ['accounting settings', 'posting'],
+    route: '/accounting/settings',
+    roles: ACCOUNTING_ROLES,
   },
 
   {
