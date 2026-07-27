@@ -1,5 +1,14 @@
 import { UserRole } from '../../database/entities/user.entity';
 
+/** Roles that may see Accounting pages in global search. */
+export const ACCOUNTING_ROLES: UserRole[] = [
+  UserRole.ADMIN,
+  UserRole.MANAGER,
+  UserRole.SALES_STAFF,
+  UserRole.INVENTORY_STAFF,
+  UserRole.PROCUREMENT_STAFF,
+];
+
 export const ALL_ROLES: UserRole[] = [
   UserRole.ADMIN,
   UserRole.MANAGER,
