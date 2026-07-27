@@ -41,23 +41,37 @@ function staticPageRoutes(source: string): string[] {
     true,
   )
 
-  let declaration: ts.VariableDeclaration | undefined
+  // Collect every binding rather than keeping the last one seen: a shadowing
+  // declaration inside a helper would otherwise silently replace the
+  // module-level array, leaving the real list unchecked while both assertions
+  // below still passed.
+  const declarations: ts.VariableDeclaration[] = []
 
-  const findDeclaration = (node: ts.Node): void => {
+  const findDeclarations = (node: ts.Node): void => {
     if (
       ts.isVariableDeclaration(node) &&
       ts.isIdentifier(node.name) &&
       node.name.text === 'STATIC_PAGES'
     ) {
-      declaration = node
+      declarations.push(node)
       return
     }
-    ts.forEachChild(node, findDeclaration)
+    ts.forEachChild(node, findDeclarations)
   }
-  findDeclaration(sourceFile)
+  findDeclarations(sourceFile)
 
-  if (!declaration?.initializer) {
+  if (declarations.length === 0) {
     throw new Error('STATIC_PAGES declaration not found in search.service.ts')
+  }
+  if (declarations.length > 1) {
+    throw new Error(
+      `search.service.ts has ${declarations.length} STATIC_PAGES declarations; expected exactly one`,
+    )
+  }
+
+  const [declaration] = declarations
+  if (!declaration.initializer) {
+    throw new Error('STATIC_PAGES has no initializer')
   }
   if (!ts.isArrayLiteralExpression(declaration.initializer)) {
     throw new Error('STATIC_PAGES is not an array literal')
@@ -177,6 +191,7 @@ describe('staticPageRoutes extraction', () => {
     ['a spread element', `const STATIC_PAGES = [...OTHER_PAGES];`],
     ['a spread inside an entry', `const STATIC_PAGES = [{ ...base, label: 'A' }];`],
     ['no route at all', `const STATIC_PAGES = [{ label: 'A' }];`],
+    ['a computed property name', `const STATIC_PAGES = [{ ['route']: '/a' }];`],
   ])('throws rather than skipping %s', (_form, source) => {
     expect(() => staticPageRoutes(source)).toThrow()
   })
@@ -184,6 +199,17 @@ describe('staticPageRoutes extraction', () => {
   it('throws when the declaration is missing', () => {
     expect(() => staticPageRoutes(`const OTHER = [{ route: '/a' }];`)).toThrow(
       /STATIC_PAGES declaration not found/,
+    )
+  })
+
+  it('throws rather than picking one of several STATIC_PAGES declarations', () => {
+    const source = [
+      `const STATIC_PAGES = [{ route: '/outer' }];`,
+      `function scoped() { const STATIC_PAGES = [{ route: '/inner' }]; return STATIC_PAGES }`,
+    ].join('\n')
+
+    expect(() => staticPageRoutes(source)).toThrow(
+      /2 STATIC_PAGES declarations; expected exactly one/,
     )
   })
 })
