@@ -183,17 +183,53 @@ describe('staticPageRoutes extraction', () => {
 
   // Each of these silently produced no route under the previous permissive
   // walk, so the entry went unchecked while the length floor still passed.
+  //
+  // Every row pins the specific message so a case cannot pass via a different
+  // branch than the one it names: deleting the spread or shorthand guard would
+  // leave these inputs still throwing, but from the route-count check instead.
   it.each([
-    ['an identifier reference', `const STATIC_PAGES = [{ route: SOME_CONST }];`],
-    ['a concatenation', `const STATIC_PAGES = [{ route: '/a' + suffix }];`],
-    ['a substituted template', 'const STATIC_PAGES = [{ route: `/a/${id}` }];'],
-    ['shorthand', `const STATIC_PAGES = [{ route }];`],
-    ['a spread element', `const STATIC_PAGES = [...OTHER_PAGES];`],
-    ['a spread inside an entry', `const STATIC_PAGES = [{ ...base, label: 'A' }];`],
-    ['no route at all', `const STATIC_PAGES = [{ label: 'A' }];`],
-    ['a computed property name', `const STATIC_PAGES = [{ ['route']: '/a' }];`],
-  ])('throws rather than skipping %s', (_form, source) => {
-    expect(() => staticPageRoutes(source)).toThrow()
+    [
+      'an identifier reference',
+      `const STATIC_PAGES = [{ route: SOME_CONST }];`,
+      /has a non-static route: SOME_CONST/,
+    ],
+    [
+      'a concatenation',
+      `const STATIC_PAGES = [{ route: '/a' + suffix }];`,
+      /has a non-static route: '\/a' \+ suffix/,
+    ],
+    [
+      'a substituted template',
+      'const STATIC_PAGES = [{ route: `/a/${id}` }];',
+      /has a non-static route: `\/a\/\$\{id\}`/,
+    ],
+    [
+      'shorthand',
+      `const STATIC_PAGES = [{ route }];`,
+      /uses shorthand for route: route/,
+    ],
+    [
+      'a spread element',
+      `const STATIC_PAGES = [...OTHER_PAGES];`,
+      /is not an object literal: \.\.\.OTHER_PAGES/,
+    ],
+    [
+      'a spread inside an entry',
+      `const STATIC_PAGES = [{ ...base, label: 'A' }];`,
+      /spreads into the entry: \.\.\.base/,
+    ],
+    [
+      'no route at all',
+      `const STATIC_PAGES = [{ label: 'A' }];`,
+      /must define exactly one route, found 0/,
+    ],
+    [
+      'a computed property name',
+      `const STATIC_PAGES = [{ ['route']: '/a' }];`,
+      /must define exactly one route, found 0/,
+    ],
+  ])('throws rather than skipping %s', (_form, source, expected) => {
+    expect(() => staticPageRoutes(source)).toThrow(expected)
   })
 
   it('throws when the declaration is missing', () => {
