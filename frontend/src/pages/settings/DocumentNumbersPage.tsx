@@ -128,6 +128,14 @@ const DocumentNumbersPage: React.FC = () => {
   };
 
   const handleCancel = () => {
+    // Reset from the memoised cache value directly. Relying on refetch() alone
+    // does not work: RTK Query's structural sharing returns the *same* array
+    // reference when the refetched data is deeply equal, so activeConfigurations
+    // never changes, the populate effect never re-runs, and the discarded edits
+    // stay on screen. Unchanged settings are the normal case here.
+    if (activeConfigurations) {
+      setConfigurations(activeConfigurations);
+    }
     refetch();
   };
 

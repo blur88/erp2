@@ -40,6 +40,7 @@ vi.mock('@/hooks/useNotification', () => ({
 describe('DocumentNumbersPage', () => {
   beforeEach(() => {
     mockUpdateSettings.mockClear()
+    mockQueryResult.refetch.mockClear()
   })
 
   it('renders exactly the five active document types', () => {
@@ -89,6 +90,24 @@ describe('DocumentNumbersPage', () => {
       configurations: Array<{ documentName: string; prefix: string }>
     }
     expect(configurations.find((c) => c.documentName === 'Sales Orders')?.prefix).toBe('SORD')
+  })
+
+  it('discards edits on Cancel even when refetch returns the same data', async () => {
+    render(<DocumentNumbersPage />)
+
+    const prefixInput = screen.getAllByRole('textbox')[0] as HTMLInputElement
+    expect(prefixInput.value).toBe('SO')
+
+    fireEvent.change(prefixInput, { target: { value: 'SORD' } })
+    await waitFor(() => expect(prefixInput.value).toBe('SORD'))
+
+    // mockQueryResult is a stable object, so refetch() yields an identical
+    // array reference — exactly what RTK Query's structural sharing produces
+    // when nothing changed server-side. Cancel must still revert.
+    fireEvent.click(screen.getByRole('button', { name: /Cancel/i }))
+
+    await waitFor(() => expect(prefixInput.value).toBe('SO'))
+    expect(mockQueryResult.refetch).toHaveBeenCalled()
   })
 
   it('does not resubmit legacy rows that are hidden from the table', async () => {
