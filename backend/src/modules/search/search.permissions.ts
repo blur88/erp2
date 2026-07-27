@@ -47,5 +47,3 @@ export function canSearchPurchaseOrders(role: UserRole): boolean {
 export function canSearchSuppliers(role: UserRole): boolean {
   return PROCUREMENT_ROLES.includes(role);
 }
-
-

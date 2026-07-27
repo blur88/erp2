@@ -31,6 +31,9 @@ const MODULE_GROUPS: Record<string, string[]> = {
   Accounting: ['Journal Entries', 'Expenses'],
 };
 
+/** Document types this page owns. Anything else the API returns is legacy. */
+const ACTIVE_DOCUMENT_NAMES = new Set(Object.values(MODULE_GROUPS).flat());
+
 const DocumentNumbersPage: React.FC = () => {
   const { showSuccess, showError } = useNotification();
   const [submitting, setSubmitting] = useState(false);
@@ -45,12 +48,28 @@ const DocumentNumbersPage: React.FC = () => {
   } = useGetDocumentNumberSettingsQuery();
   const [updateDocumentNumberSettings] = useUpdateDocumentNumberSettingsMutation();
 
+  // Legacy rows the API may still return (Payments, Goods Received) are dropped
+  // here rather than at render time: the row indices this produces are what
+  // handleConfigChange edits and what handleSubmit validates and saves, so
+  // filtering anywhere later would let a hidden row be resubmitted — and
+  // recreate settings the migration deleted (issue #946).
+  //
+  // Memoised on the raw array: filter() allocates a new array each call, and
+  // feeding an unstable reference into setConfigurations below re-fires the
+  // previews effect on every render, which loops forever.
+  const activeConfigurations = React.useMemo(
+    () =>
+      settingsData?.configurations?.filter((c) => ACTIVE_DOCUMENT_NAMES.has(c.documentName)) ??
+      null,
+    [settingsData?.configurations],
+  );
+
   // Populate local configurations state when RTK data loads
   useEffect(() => {
-    if (settingsData && settingsData.configurations) {
-      setConfigurations(settingsData.configurations);
+    if (activeConfigurations) {
+      setConfigurations(activeConfigurations);
     }
-  }, [settingsData]);
+  }, [activeConfigurations]);
 
   useEffect(() => {
     const currentYY = String(new Date().getFullYear() % 100).padStart(2, '0');

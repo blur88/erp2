@@ -1,6 +1,10 @@
-import { render, screen } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import DocumentNumbersPage from '../DocumentNumbersPage'
+
+const { mockUpdateSettings } = vi.hoisted(() => ({
+  mockUpdateSettings: vi.fn(() => ({ unwrap: () => Promise.resolve({}) })),
+}))
 
 const mockConfigurations = [
   { documentName: 'Sales Orders', prefix: 'SO', nextNumber: 1, paddingDigits: 3 },
@@ -12,14 +16,18 @@ const mockConfigurations = [
   { documentName: 'Expenses', prefix: 'EXP', nextNumber: 1, paddingDigits: 3 },
 ]
 
+// Stable across renders, mirroring RTK Query: a fresh object literal per call
+// would hand the component a new `configurations` reference every render.
+const mockQueryResult = {
+  data: { configurations: mockConfigurations },
+  isLoading: false,
+  error: undefined,
+  refetch: vi.fn(),
+}
+
 vi.mock('@/store/api/settingsApi', () => ({
-  useGetDocumentNumberSettingsQuery: () => ({
-    data: { configurations: mockConfigurations },
-    isLoading: false,
-    error: undefined,
-    refetch: vi.fn(),
-  }),
-  useUpdateDocumentNumberSettingsMutation: () => [vi.fn(), {}],
+  useGetDocumentNumberSettingsQuery: () => mockQueryResult,
+  useUpdateDocumentNumberSettingsMutation: () => [mockUpdateSettings, {}],
 }))
 
 vi.mock('@/hooks/useNotification', () => ({
@@ -27,6 +35,10 @@ vi.mock('@/hooks/useNotification', () => ({
 }))
 
 describe('DocumentNumbersPage', () => {
+  beforeEach(() => {
+    mockUpdateSettings.mockClear()
+  })
+
   it('renders exactly the five active document types', () => {
     render(<DocumentNumbersPage />)
     for (const name of [
@@ -51,5 +63,24 @@ describe('DocumentNumbersPage', () => {
     render(<DocumentNumbersPage />)
     expect(screen.queryByText('Payments')).not.toBeInTheDocument()
     expect(screen.queryByText('Goods Received')).not.toBeInTheDocument()
+  })
+
+  it('does not resubmit legacy rows that are hidden from the table', async () => {
+    render(<DocumentNumbersPage />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }))
+
+    await waitFor(() => expect(mockUpdateSettings).toHaveBeenCalled())
+
+    const { configurations } = mockUpdateSettings.mock.calls[0][0] as {
+      configurations: Array<{ documentName: string }>
+    }
+    expect(configurations.map((c) => c.documentName)).toEqual([
+      'Sales Orders',
+      'Purchase Orders',
+      'Stock Adjustment',
+      'Journal Entries',
+      'Expenses',
+    ])
   })
 })

@@ -130,8 +130,8 @@ export class QueryPaymentsDto {
   status?: PaymentStatus;
 
   @ApiPropertyOptional({
-    description: 'Search by payment number or customer name',
-    example: 'PAY-000001',
+    description: 'Search by customer name',
+    example: 'Acme Corp',
   })
   @IsOptional()
   @IsString()
