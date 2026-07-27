@@ -8,6 +8,7 @@ import { PurchaseOrderService } from '../purchasing/services/purchase-order.serv
 import { SearchAnalyticsService } from './search-analytics.service';
 import { GlobalSearchResultDto } from './dto/global-search-result.dto';
 import { UserRole } from '../../database/entities/user.entity';
+import { ACCOUNTING_ROLES } from './search.permissions';
 
 describe('SearchService', () => {
   let module: TestingModule;
@@ -293,6 +294,32 @@ describe('SearchService', () => {
       const result = await service.search(query, { role: UserRole.ADMIN } as any);
       expect(result.results.some((r) => r.route?.startsWith('/reports'))).toBe(false);
     });
+  });
+
+  describe('accounting pages', () => {
+    const ACCOUNTING_PAGES: Array<[string, string, string]> = [
+      ['chart of accounts', 'Chart of Accounts', '/accounting/chart-of-accounts'],
+      ['journal entries', 'Journal Entries', '/accounting/journal-entries'],
+      ['expenses', 'Expenses', '/accounting/expenses'],
+      ['general ledger', 'General Ledger', '/accounting/general-ledger'],
+      ['trial balance', 'Trial Balance', '/accounting/trial-balance'],
+      ['accounting settings', 'Accounting Settings', '/accounting/settings'],
+    ];
+
+    const cases = ACCOUNTING_PAGES.flatMap(([query, label, route]) =>
+      ACCOUNTING_ROLES.map((role) => [role, query, label, route] as const),
+    );
+
+    it.each(cases)(
+      'role %s searching "%s" finds %s at its route, categorized Accounting',
+      async (role, query, label, route) => {
+        const result = await service.search(query, { role } as any);
+        const page = result.results.find((r) => r.label === label);
+        expect(page).toBeDefined();
+        expect(page?.route).toBe(route);
+        expect(page?.description).toBe('Accounting');
+      },
+    );
   });
 
   describe('searchQueryId', () => {

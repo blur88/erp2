@@ -10,6 +10,7 @@ import { GlobalSearchResponseDto } from './dto/global-search-response.dto';
 import { GlobalSearchResultDto } from './dto/global-search-result.dto';
 import {
   ALL_ROLES,
+  ACCOUNTING_ROLES,
   SALES_ROLES,
   PROCUREMENT_ROLES,
   INVENTORY_ROLES,
@@ -27,6 +28,7 @@ import { SearchAnalyticsService } from './search-analytics.service';
 function getPageCategory(route: string): string {
   const r = route.toLowerCase().trim();
   if (r === '/dashboard') return 'Dashboard';
+  if (r === '/accounting' || r.startsWith('/accounting/')) return 'Accounting';
   if (r === '/sales' || r.startsWith('/sales/')) return 'Sales';
   if (r === '/purchasing' || r.startsWith('/purchasing/')) return 'Purchasing';
   if (r === '/inventory' || r.startsWith('/inventory/')) return 'Inventory';
@@ -106,6 +108,43 @@ const STATIC_PAGES: Array<{
     keywords: ['adjustment', 'stock', 'inventory'],
     route: '/inventory/stock-adjustments',
     roles: INVENTORY_ROLES,
+  },
+
+  {
+    label: 'Chart of Accounts',
+    keywords: ['coa', 'chart of accounts', 'accounts'],
+    route: '/accounting/chart-of-accounts',
+    roles: ACCOUNTING_ROLES,
+  },
+  {
+    label: 'Journal Entries',
+    keywords: ['journal', 'je', 'entries'],
+    route: '/accounting/journal-entries',
+    roles: ACCOUNTING_ROLES,
+  },
+  {
+    label: 'Expenses',
+    keywords: ['expense', 'spending', 'bills'],
+    route: '/accounting/expenses',
+    roles: ACCOUNTING_ROLES,
+  },
+  {
+    label: 'General Ledger',
+    keywords: ['gl', 'general ledger', 'ledger'],
+    route: '/accounting/general-ledger',
+    roles: ACCOUNTING_ROLES,
+  },
+  {
+    label: 'Trial Balance',
+    keywords: ['trial balance', 'tb'],
+    route: '/accounting/trial-balance',
+    roles: ACCOUNTING_ROLES,
+  },
+  {
+    label: 'Accounting Settings',
+    keywords: ['accounting settings', 'posting'],
+    route: '/accounting/settings',
+    roles: ACCOUNTING_ROLES,
   },
 
   {
