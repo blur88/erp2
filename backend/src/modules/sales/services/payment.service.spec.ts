@@ -206,7 +206,10 @@ describe('PaymentService', () => {
       const original = {
         ...createMockPayment(),
         amount: 5000,
-        paymentDate: new Date('2026-07-27'),
+        // Local midnight, which is what the pg driver produces for a `date`
+        // column. Using new Date('2026-07-27') here would be UTC midnight and
+        // would mask an off-by-one in the formatter east of UTC.
+        paymentDate: new Date(2026, 6, 27),
         status: PaymentStatus.COMPLETED,
         paymentMethodEntity: { code: 'CASH' },
       };
@@ -221,6 +224,26 @@ describe('PaymentService', () => {
       expect(created.notes).toBe('Refund of 5000.00 payment dated 2026-07-27');
       expect(created.notes).not.toMatch(/PAY-/);
       expect(created).not.toHaveProperty('paymentNumber');
+    });
+
+    it('formats a YYYY-MM-DD string payment date without shifting it', async () => {
+      const original = {
+        ...createMockPayment(),
+        amount: 250,
+        // TypeORM can hand back the raw string for a `date` column.
+        paymentDate: '2026-01-01' as any,
+        status: PaymentStatus.COMPLETED,
+        paymentMethodEntity: { code: 'CASH' },
+      };
+      paymentRepository.findOne.mockResolvedValue(original as any);
+      paymentRepository.create.mockImplementation((v) => v as Payment);
+      paymentRepository.save.mockImplementation((v) => Promise.resolve(v as Payment));
+      auditLogService.log.mockResolvedValue(undefined);
+
+      await service.refund({ paymentId: original.id, amount: 50 } as any);
+
+      const created = paymentRepository.create.mock.calls[0][0] as any;
+      expect(created.notes).toBe('Refund of 250.00 payment dated 2026-01-01');
     });
 
     it('omits paymentNumber from restore audit newValues', async () => {

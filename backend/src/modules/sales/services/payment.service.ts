@@ -556,8 +556,20 @@ export class PaymentService extends BaseCrudService<
     };
   }
 
-  /** Formats a payment date as YYYY-MM-DD for human-readable audit text. */
+  /**
+   * Formats a payment date as YYYY-MM-DD for human-readable audit text.
+   *
+   * paymentDate is a `date` column, which the pg driver parses to a Date at
+   * *local* midnight. toISOString() would convert that to UTC and report the
+   * previous day for any timezone east of UTC (e.g. 2026-07-27 → 2026-07-26 in
+   * UTC+8), so read the local date parts instead. A plain YYYY-MM-DD string is
+   * passed through untouched, per the calendar-date contract.
+   */
   private toDateOnly(value: Date | string): string {
-    return new Date(value).toISOString().slice(0, 10);
+    if (typeof value === 'string') return value.slice(0, 10);
+    const d = new Date(value);
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${month}-${day}`;
   }
 }
