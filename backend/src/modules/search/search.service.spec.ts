@@ -213,14 +213,6 @@ describe('SearchService', () => {
       expect(page?.description).toBe('Sales');
     });
 
-    it('returns "Report" for /reports routes (not "Sales")', async () => {
-      const result = await service.search('product summary', {
-        role: UserRole.ADMIN,
-      } as any);
-      const page = result.results.find((r) => r.route?.startsWith('/reports/sales/'));
-      expect(page?.description).toBe('Report');
-    });
-
     it('returns "Audit" for /audit-logs', async () => {
       const result = await service.search('audit', {
         role: UserRole.ADMIN,
@@ -277,6 +269,30 @@ describe('SearchService', () => {
       }
     });
 
+  });
+
+  describe('dead route removal (issue #948)', () => {
+    it.each([
+      ['grn'],
+      ['goods received'],
+      ['receiving'],
+    ])('search %s returns no /purchasing/goods-received result', async (query) => {
+      const result = await service.search(query, { role: UserRole.ADMIN } as any);
+      expect(
+        result.results.some((r) => r.route === '/purchasing/goods-received'),
+      ).toBe(false);
+    });
+
+    it.each([
+      ['product summary'],
+      ['order profit'],
+      ['vendor payment'],
+      ['historical inventory'],
+      ['price list'],
+    ])('search %s returns no /reports/* result', async (query) => {
+      const result = await service.search(query, { role: UserRole.ADMIN } as any);
+      expect(result.results.some((r) => r.route?.startsWith('/reports'))).toBe(false);
+    });
   });
 
   describe('searchQueryId', () => {
