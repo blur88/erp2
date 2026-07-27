@@ -88,13 +88,19 @@ const DocumentNumbersPage: React.FC = () => {
     field: 'prefix' | 'nextNumber',
     value: string | number,
   ) => {
-    const newConfigurations = [...configurations];
-    if (field === 'nextNumber') {
-      newConfigurations[index][field] = parseInt(value as string) || 1;
-    } else {
-      newConfigurations[index][field] = value as any;
-    }
-    setConfigurations(newConfigurations);
+    // Replace the edited row rather than mutating it: these objects come
+    // straight from RTK Query's cache, which is frozen in development, so an
+    // in-place write throws — and would corrupt the cache where it doesn't.
+    setConfigurations((current) =>
+      current.map((config, i) =>
+        i === index
+          ? {
+              ...config,
+              [field]: field === 'nextNumber' ? parseInt(value as string) || 1 : (value as any),
+            }
+          : config,
+      ),
+    );
   };
 
   const handleSubmit = async () => {
