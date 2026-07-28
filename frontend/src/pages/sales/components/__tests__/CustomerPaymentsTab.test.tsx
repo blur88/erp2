@@ -145,4 +145,59 @@ describe('CustomerPaymentsTab', () => {
     expect(screen.queryByText('Payment #')).not.toBeInTheDocument();
     expect(screen.queryByText('PAY-001')).not.toBeInTheDocument();
   });
+
+  it('renders the sales order number in the Invoice # column', () => {
+    mockGetPayments.mockReturnValue({
+      data: {
+        data: [
+          {
+            id: 'p1',
+            paymentDate: '2026-01-25',
+            amount: 1000,
+            salesOrderId: '3f2504e0-4f89-11d3-9a0c-0305e82c3301',
+            salesOrder: { id: '3f2504e0-4f89-11d3-9a0c-0305e82c3301', orderNumber: 'SO-26-001' },
+            paymentMethodEntity: { id: 'pm1', name: 'Cash', isActive: true },
+            status: 'completed',
+            customerId: 'c1',
+            createdAt: '2026-01-25',
+            updatedAt: '2026-01-25',
+          },
+        ],
+        meta: { total: 1 },
+      },
+      isLoading: false,
+    });
+    renderTab('c1');
+    expect(screen.getByText('SO-26-001')).toBeInTheDocument();
+    expect(
+      screen.queryByText('3f2504e0-4f89-11d3-9a0c-0305e82c3301'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders an em dash for a payment with no linked sales order', () => {
+    mockGetPayments.mockReturnValue({
+      data: {
+        data: [
+          {
+            id: 'p2',
+            paymentDate: '2026-02-01',
+            amount: 500,
+            salesOrderId: '9c858901-8a57-4791-81fe-4c455b099bc9',
+            paymentMethodEntity: { id: 'pm1', name: 'Cash', isActive: true },
+            status: 'completed',
+            customerId: 'c1',
+            createdAt: '2026-02-01',
+            updatedAt: '2026-02-01',
+          },
+        ],
+        meta: { total: 1 },
+      },
+      isLoading: false,
+    });
+    renderTab('c1');
+    expect(
+      screen.queryByText('9c858901-8a57-4791-81fe-4c455b099bc9'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
+  });
 });
