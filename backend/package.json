@@ -26,7 +26,7 @@
     "migration:run": "npm run typeorm -- -d ./src/config/database.config.ts migration:run",
     "migration:revert": "npm run typeorm -- -d ./src/config/database.config.ts migration:revert",
     "schema:drop": "npm run typeorm -- -d ./src/config/database.config.ts schema:drop",
-    "seed:run": "ts-node ./src/database/seeds/seed.ts"
+    "admin:create": "ts-node ./src/database/cli/create-admin.ts"
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.4",
@@ -140,8 +140,7 @@
       "!src/**/*.module.ts",
       "!src/**/*.dto.ts",
       "!src/**/*.entity.ts",
-      "!src/database/migrations/**",
-      "!src/database/seeds/**"
+      "!src/database/migrations/**"
     ],
     "coverageDirectory": "coverage",
     "coverageProvider": "v8",
