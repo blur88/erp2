@@ -1,5 +1,5 @@
 import { STANDARD_COA_GROUPS, STANDARD_COA_CHILDREN, SETTINGS_CODE_MAP } from './standard-coa';
-import { CreateAccountingV11772100000001 as MigrationClass } from '../../../database/migrations/1772100000001-CreateAccountingV1';
+import { InitialSchema1785238045705 as MigrationClass } from '../../../database/migrations/1785238045705-InitialSchema';
 
 interface NormRow {
   code: string;
@@ -75,7 +75,7 @@ function expectedCoa(): NormRow[] {
   ].sort((a, b) => a.code.localeCompare(b.code));
 }
 
-describe('standard-coa constant exactly matches frozen migration 1772100000001', () => {
+describe('standard-coa constant exactly matches the genesis migration', () => {
   const calls: Call[] = [];
   beforeAll(async () => {
     await new MigrationClass().up(makeCapturingRunner(calls));

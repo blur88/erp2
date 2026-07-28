@@ -8,6 +8,10 @@
   "include": [
     "src/config/**/*",
     "src/database/entities/**/*",
-    "src/database/migrations/**/*"
+    "src/database/migrations/**/*",
+    "src/database/cli/**/*"
+  ],
+  "exclude": [
+    "src/**/*.spec.ts"
   ]
 }
