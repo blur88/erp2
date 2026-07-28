@@ -289,6 +289,10 @@ export interface SalesOrderPayment {
 export interface Payment {
   id: string;
   salesOrderId?: string;
+  salesOrder?: {
+    id: string;
+    orderNumber: string;
+  };
   customer?: Customer;
   customerId?: string;
   customerName?: string;

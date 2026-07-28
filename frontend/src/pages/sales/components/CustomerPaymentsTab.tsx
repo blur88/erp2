@@ -23,7 +23,7 @@ export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabP
 
   const columns: Column<(typeof payments)[number]>[] = [
     { header: 'Date', width: '25%', render: (p) => formatDate(p.paymentDate) },
-    { header: 'Invoice #', width: '25%', render: (p) => p.salesOrderId ?? '—' },
+    { header: 'Invoice #', width: '25%', render: (p) => p.salesOrder?.orderNumber ?? '—' },
     { header: 'Method', width: '25%', render: (p) => p.paymentMethodEntity?.name ?? '—' },
     { header: 'Amount', align: 'right', width: '25%', render: (p) => formatCurrency(p.amount) },
   ]
