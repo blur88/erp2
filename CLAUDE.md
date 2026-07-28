@@ -108,6 +108,6 @@ Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and me
 
 **Dead-code sweeps**: `maintain.sh do_knip()` wraps `npx knip` in `|| true`, so it always exits 0 and cannot be used as a gate — run `npx knip` directly per directory when you need pass/fail. Knip also reports false positives for backend service methods called by a *sibling service* rather than an HTTP route; grep the method name across `backend/src` before deleting anything.
 
-**Migrations can't be tested from an empty DB**: the dev database's `migrations` table is empty because the schema is built by `schema:sync`. The migration chain breaks at the second migration when run from scratch, so a new migration cannot be validated end-to-end with `migration:run` locally. Validate by inspection plus querying the live `pg_tables` / `pg_type`.
+**Migration baseline**: the chain starts from a single `InitialSchema` genesis migration (#950). `npm run migration:run` works against an empty database, so a new migration can be validated end-to-end locally. Migration failure is fatal — there is no `schema:sync` fallback in the entrypoint or E2E setup. Verify a schema change with `backend/scripts/verify-baseline.sh` and `backend/scripts/verify-seeds.sh`.
 
 **Pulling main**: Always use `git pull --ff-only` on `main` (or set globally: `git config --global pull.ff only`). A regular `git pull` with `merge.ff = false` creates a merge commit that re-triggers the Release workflow unnecessarily.
