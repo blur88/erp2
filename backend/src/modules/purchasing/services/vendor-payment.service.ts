@@ -1,32 +1,19 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
-import { BaseCrudService } from '../../../common/services/base-crud.service';
 import {
   VendorPayment,
   PurchaseOrder,
   PaymentMethodEntity,
 } from '../../../database/entities';
 import {
-  PurchaseOrderPaymentStatus,
-  PurchaseOrderStatus,
-} from '../../../database/entities/purchase-order.entity';
-import {
   CreateVendorPaymentDto,
-  UpdateVendorPaymentDto,
-  QueryVendorPaymentsDto,
-  PaginatedResponse,
 } from '../dto';
 import { AuditLogService } from '../../audit-logs/services';
 import { repoFor } from '../../../common/db/tx-helpers';
 
 @Injectable()
-export class VendorPaymentService extends BaseCrudService<
-  VendorPayment,
-  CreateVendorPaymentDto,
-  UpdateVendorPaymentDto,
-  QueryVendorPaymentsDto
-> {
+export class VendorPaymentService {
   private readonly logger = new Logger(VendorPaymentService.name);
 
   constructor(
@@ -36,31 +23,8 @@ export class VendorPaymentService extends BaseCrudService<
     private purchaseOrderRepository: Repository<PurchaseOrder>,
     @InjectRepository(PaymentMethodEntity)
     private paymentMethodRepository: Repository<PaymentMethodEntity>,
-    auditLogService: AuditLogService,
-  ) {
-    super(vendorPaymentRepository, auditLogService);
-  }
-
-  getEntityType(): string {
-    return 'VendorPayment';
-  }
-
-  buildWhereClause(query: QueryVendorPaymentsDto) {
-    const where: Record<string, unknown> = {};
-    if (query.supplierId) where.supplierId = query.supplierId;
-    if (query.status) where.status = query.status;
-    if (query.paymentMethodId) where.paymentMethodId = query.paymentMethodId;
-    return where as any;
-  }
-
-  protected async afterDelete(vendorPayment: VendorPayment): Promise<void> {
-    vendorPayment.isActive = false;
-    await this.vendorPaymentRepository.save(vendorPayment);
-
-    if (vendorPayment.purchaseOrderId) {
-      await this.purchaseOrderRepository.update(vendorPayment.purchaseOrderId, {});
-    }
-  }
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   /**
    * Create a new vendor payment
@@ -115,90 +79,6 @@ export class VendorPaymentService extends BaseCrudService<
   }
 
   /**
-   * Find all vendor payments with filters (no pagination)
-   */
-  async findAll(
-    query: QueryVendorPaymentsDto,
-  ): Promise<PaginatedResponse<VendorPayment>> {
-    const {
-      supplierId,
-      status,
-      paymentMethodId,
-      startDate,
-      endDate,
-      sortBy = 'paymentDate',
-      sortOrder = 'DESC',
-      search,
-    } = query;
-
-    const queryBuilder = this.vendorPaymentRepository
-      .createQueryBuilder('vendorPayment')
-      .leftJoinAndSelect('vendorPayment.supplier', 'supplier')
-      .leftJoinAndSelect('vendorPayment.purchaseOrder', 'purchaseOrder')
-      .leftJoinAndSelect('purchaseOrder.items', 'purchaseOrderItems')
-      .leftJoinAndSelect('purchaseOrderItems.product', 'product')
-      .leftJoinAndSelect('vendorPayment.paymentMethodEntity', 'paymentMethodEntity')
-      .where('vendorPayment.isActive = :isActive', { isActive: true });
-
-    // Apply search
-    if (search) {
-      queryBuilder.andWhere(
-        '(vendorPayment.referenceNumber ILIKE :search OR supplier.companyName ILIKE :search)',
-        { search: `%${search}%` },
-      );
-    }
-
-    // Apply filters
-    if (supplierId) {
-      queryBuilder.andWhere('vendorPayment.supplierId = :supplierId', {
-        supplierId,
-      });
-    }
-
-    if (status) {
-      queryBuilder.andWhere('vendorPayment.status = :status', { status });
-    }
-
-    if (paymentMethodId) {
-      queryBuilder.andWhere('vendorPayment.paymentMethodId = :paymentMethodId', {
-        paymentMethodId,
-      });
-    }
-
-    if (startDate && endDate) {
-      queryBuilder.andWhere(
-        'vendorPayment.paymentDate BETWEEN :startDate AND :endDate',
-        { startDate, endDate },
-      );
-    } else if (startDate) {
-      queryBuilder.andWhere('vendorPayment.paymentDate >= :startDate', {
-        startDate,
-      });
-    } else if (endDate) {
-      queryBuilder.andWhere('vendorPayment.paymentDate <= :endDate', {
-        endDate,
-      });
-    }
-
-    // Dynamic sorting
-    const order = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    queryBuilder.orderBy(`vendorPayment.${sortBy}`, order);
-
-    const data = await queryBuilder.getMany();
-    const total = data.length;
-
-    return {
-      data,
-      total,
-      page: 1,
-      limit: total,
-      totalPages: 1,
-      hasNext: false,
-      hasPrev: false,
-    };
-  }
-
-  /**
    * Find one vendor payment by ID
    */
   async findOne(id: string): Promise<VendorPayment> {
@@ -219,182 +99,6 @@ export class VendorPaymentService extends BaseCrudService<
   }
 
   /**
-   * Update a vendor payment
-   */
-  async update(
-    id: string,
-    updateDto: UpdateVendorPaymentDto,
-    userId?: string,
-    username?: string,
-  ): Promise<VendorPayment> {
-    const vendorPayment = await this.findOne(id);
-
-    Object.assign(vendorPayment, {
-      ...updateDto,
-      updatedBy: userId || 'system',
-    });
-
-    const savedPayment = await this.vendorPaymentRepository.save(vendorPayment);
-
-    // Touch the purchase order to update its updatedAt timestamp
-    if (vendorPayment.purchaseOrderId) {
-      // Force TypeORM to update by using the update query
-      await this.purchaseOrderRepository.update(vendorPayment.purchaseOrderId, {});
-    }
-
-    // Log audit trail for update
-    await this.auditLogService.log(
-      'UPDATE',
-      'VendorPayment',
-      `Updated vendor payment: ${id}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        newValues: {
-          amount: savedPayment.amount,
-          status: savedPayment.status,
-        },
-      }
-    );
-
-    return savedPayment;
-  }
-
-  /**
-   * Find deleted vendor payments with filters (no pagination)
-   */
-  async findDeleted(
-    query: QueryVendorPaymentsDto,
-  ): Promise<PaginatedResponse<VendorPayment>> {
-    const {
-      supplierId,
-      status,
-      paymentMethodId,
-      startDate,
-      endDate,
-    } = query;
-
-    const queryBuilder = this.vendorPaymentRepository
-      .createQueryBuilder('vendorPayment')
-      .leftJoinAndSelect('vendorPayment.supplier', 'supplier')
-      .leftJoinAndSelect('vendorPayment.purchaseOrder', 'purchaseOrder')
-      .leftJoinAndSelect('vendorPayment.paymentMethodEntity', 'paymentMethodEntity')
-      .where('vendorPayment.isActive = :isActive', { isActive: false });
-
-    // Apply filters
-    if (supplierId) {
-      queryBuilder.andWhere('vendorPayment.supplierId = :supplierId', {
-        supplierId,
-      });
-    }
-
-    if (status) {
-      queryBuilder.andWhere('vendorPayment.status = :status', { status });
-    }
-
-    if (paymentMethodId) {
-      queryBuilder.andWhere('vendorPayment.paymentMethodId = :paymentMethodId', {
-        paymentMethodId,
-      });
-    }
-
-    if (startDate && endDate) {
-      queryBuilder.andWhere(
-        'vendorPayment.paymentDate BETWEEN :startDate AND :endDate',
-        { startDate, endDate },
-      );
-    } else if (startDate) {
-      queryBuilder.andWhere('vendorPayment.paymentDate >= :startDate', {
-        startDate,
-      });
-    } else if (endDate) {
-      queryBuilder.andWhere('vendorPayment.paymentDate <= :endDate', {
-        endDate,
-      });
-    }
-
-    // Order by payment date descending
-    queryBuilder.orderBy('vendorPayment.paymentDate', 'DESC');
-
-    const data = await queryBuilder.getMany();
-    const total = data.length;
-
-    return {
-      data,
-      total,
-      page: 1,
-      limit: total,
-      totalPages: 1,
-      hasNext: false,
-      hasPrev: false,
-    };
-  }
-
-  /**
-   * Restore a soft deleted vendor payment
-   */
-  async restore(id: string, userId?: string, username?: string): Promise<VendorPayment> {
-    const vendorPayment = await this.vendorPaymentRepository.findOne({
-      where: { id, isActive: false },
-      withDeleted: true,
-    });
-
-    if (!vendorPayment) {
-      throw new NotFoundException(`Deleted vendor payment with ID ${id} not found`);
-    }
-
-    vendorPayment.isActive = true;
-
-    await this.vendorPaymentRepository.restore(id);
-    const restoredPayment = await this.vendorPaymentRepository.save(vendorPayment);
-
-    // Log audit trail for restore
-    await this.auditLogService.log(
-      'RESTORE',
-      'VendorPayment',
-      `Restored vendor payment: ${id}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        newValues: {
-          amount: restoredPayment.amount,
-          status: restoredPayment.status,
-        },
-      }
-    );
-
-    return restoredPayment;
-  }
-
-  /**
-   * Bulk restore soft deleted vendor payments
-   */
-  async bulkRestore(
-    ids: string[],
-    userId?: string,
-    username?: string,
-  ): Promise<{ restoredCount: number; failedIds: string[] }> {
-    const failedIds: string[] = [];
-    let restoredCount = 0;
-
-    for (const id of ids) {
-      try {
-        await this.restore(id, userId, username);
-        restoredCount++;
-      } catch (error) {
-        failedIds.push(id);
-      }
-    }
-
-    return { restoredCount, failedIds };
-  }
-
-  /**
-   * Soft delete a vendor payment
-   */
-  /**
    * Soft delete a vendor payment during unpay without additional audit logging.
    */
   async softDeleteForUnpay(id: string, manager?: EntityManager): Promise<void> {
@@ -408,89 +112,6 @@ export class VendorPaymentService extends BaseCrudService<
   }
 
   /**
-   * Create vendor payment for a purchase order
-   */
-  async createForPurchaseOrder(poId: string, userId?: string, username?: string, manager?: EntityManager): Promise<VendorPayment> {
-    const poRepo = repoFor(manager, PurchaseOrder, this.purchaseOrderRepository);
-    const paymentRepo = repoFor(manager, VendorPayment, this.vendorPaymentRepository);
-    const methodRepo = repoFor(manager, PaymentMethodEntity, this.paymentMethodRepository);
-
-    const purchaseOrder = await poRepo.findOne({
-      where: { id: poId },
-      relations: { supplier: true },
-    });
-
-    if (!purchaseOrder) {
-      throw new NotFoundException('Purchase order not found');
-    }
-
-    const existingPayment = await paymentRepo.findOne({
-      where: {
-        purchaseOrderId: poId,
-        isActive: true
-      },
-    });
-
-    if (existingPayment) {
-      throw new BadRequestException('Vendor payment already exists for this purchase order');
-    }
-
-    const defaultPaymentMethod = await methodRepo.findOne({
-      where: { code: 'BANK', isActive: true },
-    });
-
-    const vendorPayment = paymentRepo.create({
-      supplierId: purchaseOrder.supplierId,
-      purchaseOrderId: poId,
-      amount: Number(purchaseOrder.totalAmount),
-      paymentDate: new Date(),
-      paymentMethodId: defaultPaymentMethod?.id || null,
-      status: 'completed',
-      notes: `Auto-generated payment for PO ${purchaseOrder.orderNumber}`,
-    });
-
-    const savedPayment = await paymentRepo.save(vendorPayment);
-
-    purchaseOrder.paidAmount = Number(purchaseOrder.totalAmount);
-    purchaseOrder.paymentStatus = PurchaseOrderPaymentStatus.PAID;
-    if (purchaseOrder.status === PurchaseOrderStatus.DRAFT) {
-      purchaseOrder.status = PurchaseOrderStatus.READY;
-    }
-    await poRepo.save(purchaseOrder);
-
-    await this.auditLogService.log(
-      'CREATE',
-      'VendorPayment',
-      `Created vendor payment for PO ${purchaseOrder.orderNumber}`,
-      {
-        entityId: savedPayment.id,
-        userId: userId || 'system',
-        username,
-        newValues: {
-          purchaseOrderId: poId,
-          amount: savedPayment.amount,
-          status: savedPayment.status,
-        },
-      }
-    );
-
-    return savedPayment;
-  }
-
-  /**
-   * Find vendor payment by purchase order ID
-   */
-  async findByPurchaseOrder(poId: string): Promise<VendorPayment | null> {
-    return this.vendorPaymentRepository.findOne({
-      where: {
-        purchaseOrderId: poId,
-        isActive: true,
-      },
-      relations: { supplier: true, purchaseOrder: true, paymentMethodEntity: true },
-    });
-  }
-
-  /**
    * Find all vendor payments for a purchase order
    */
   async findAllByPurchaseOrder(poId: string, manager?: EntityManager): Promise<VendorPayment[]> {
@@ -500,39 +121,6 @@ export class VendorPaymentService extends BaseCrudService<
         isActive: true,
       },
     });
-  }
-
-  /**
-   * Hard delete vendor payment
-   */
-  async permanentDelete(id: string, userId?: string, username?: string): Promise<void> {
-    const vendorPayment = await this.vendorPaymentRepository.findOne({
-      where: { id },
-      withDeleted: true,
-    });
-
-    if (!vendorPayment) {
-      throw new NotFoundException('Vendor payment not found');
-    }
-
-    // Log audit trail for permanent delete
-    await this.auditLogService.log(
-      'PERMANENT_DELETE',
-      'VendorPayment',
-      `Permanently deleted vendor payment: ${id}`,
-      {
-        entityId: id,
-        userId: userId || 'system',
-        username,
-        oldValues: {
-          amount: vendorPayment.amount,
-          status: vendorPayment.status,
-          paymentMethodId: vendorPayment.paymentMethodId,
-        },
-      }
-    );
-
-    await this.vendorPaymentRepository.remove(vendorPayment);
   }
 
 }

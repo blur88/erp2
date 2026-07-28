@@ -155,8 +155,6 @@ describe('PurchaseOrderService', () => {
             softDeleteForUnpay: jest.fn(),
             create: jest.fn(),
             findOne: jest.fn(),
-            findByPurchaseOrder: jest.fn(),
-            createForPurchaseOrder: jest.fn(),
           },
         },
         {
