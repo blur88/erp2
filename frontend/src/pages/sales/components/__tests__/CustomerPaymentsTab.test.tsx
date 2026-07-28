@@ -29,6 +29,15 @@ function renderTab(customerId: string) {
   );
 }
 
+// Columns are Date | Invoice # | Method | Amount, so the Invoice # cell of the
+// first body row is index 1. Reading it directly keeps these assertions tied to
+// the column under test instead of to page-wide text.
+const INVOICE_COLUMN_INDEX = 1;
+
+function invoiceCellText() {
+  return screen.getAllByRole('cell')[INVOICE_COLUMN_INDEX].textContent;
+}
+
 describe('CustomerPaymentsTab', () => {
   it('shows loading state', () => {
     mockGetPayments.mockReturnValue({ data: undefined, isLoading: true });
@@ -168,7 +177,7 @@ describe('CustomerPaymentsTab', () => {
       isLoading: false,
     });
     renderTab('c1');
-    expect(screen.getByText('SO-26-001')).toBeInTheDocument();
+    expect(invoiceCellText()).toBe('SO-26-001');
     expect(
       screen.queryByText('3f2504e0-4f89-11d3-9a0c-0305e82c3301'),
     ).not.toBeInTheDocument();
@@ -198,6 +207,9 @@ describe('CustomerPaymentsTab', () => {
     expect(
       screen.queryByText('9c858901-8a57-4791-81fe-4c455b099bc9'),
     ).not.toBeInTheDocument();
-    expect(screen.getByText('—')).toBeInTheDocument();
+    // Assert on the Invoice # cell by position rather than on the page's only
+    // em dash: other columns fall back to '—' too, so a text-wide query would
+    // pass for the wrong reason if this fixture ever loses paymentMethodEntity.
+    expect(invoiceCellText()).toBe('—');
   });
 });
