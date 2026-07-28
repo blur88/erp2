@@ -40,17 +40,17 @@ ALLOWLIST="${ALLOWLIST:-none}"
 
 psql_admin() {
   docker compose -f ../docker-compose.yml exec -T postgres \
-    psql -U erp_user -d postgres -c "$1"
+    psql -U "$DB_USERNAME" -d postgres -c "$1"
 }
 
 dump_schema() {
   docker compose -f ../docker-compose.yml exec -T postgres \
-    pg_dump -U erp_user --schema-only --no-owner --no-privileges "$1"
+    pg_dump -U "$DB_USERNAME" --schema-only --no-owner --no-privileges "$1"
 }
 
 for db in "$REF_DB" "$CAND_DB"; do
   psql_admin "DROP DATABASE IF EXISTS $db;"
-  psql_admin "CREATE DATABASE $db OWNER erp_user;"
+  psql_admin "CREATE DATABASE $db OWNER \"$DB_USERNAME\";"
 done
 
 echo "==> Building reference via schema:sync"
@@ -70,10 +70,18 @@ DB_DATABASE=$CAND_DB npm run migration:run >/dev/null
 # Verified against the deployed schema: removes all 5 migrations-related
 # statements with 0 residue, preserving 36 CREATE TABLE statements (37
 # public tables minus `migrations` itself).
+# PostgreSQL 18 wraps dumps in `\restrict <random-token>` / `\unrestrict
+# <random-token>` psql meta-commands. The token differs per dump, so these
+# two lines must be stripped or every diff is spuriously non-empty.
+#
+# Match them ANCHORED and by full command name. A substring filter on '\r'
+# or '\u' would also delete any legitimate line containing those escape
+# sequences — e.g. a column DEFAULT of E'\r\n' or a COMMENT containing
+# '\u' — silently hiding real schema differences from the gate.
 normalize() {
   awk 'BEGIN{RS="";FS="\n"} !/public\.migrations/ {print $0 "\n"}' \
     | grep -vE '^--' | grep -vE '^$' \
-    | grep -vF '\r' | grep -vF '\u'
+    | grep -vE '^\\(un)?restrict '
 }
 
 dump_schema "$REF_DB"  | normalize > "$OUT/reference.sql"
@@ -116,7 +124,7 @@ fi
 # candidate's catalog, by exact name.
 q_cand() {
   docker compose -f ../docker-compose.yml exec -T postgres \
-    psql -U erp_user -d "$CAND_DB" -tAc "$1" | tr -d '\r'
+    psql -U "$DB_USERNAME" -d "$CAND_DB" -tAc "$1" | tr -d '\r'
 }
 
 EXT=$(q_cand "SELECT count(*) FROM pg_extension WHERE extname = 'pg_trgm';")

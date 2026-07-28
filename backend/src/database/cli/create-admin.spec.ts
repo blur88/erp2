@@ -14,6 +14,90 @@ describe('resolveAdminInput', () => {
     });
   });
 
+  it('trims and lowercases username and email', () => {
+    const result = resolveAdminInput(
+      ['--username', '  Root.Admin  ', '--email', '  Root@Example.COM '],
+      { ADMIN_PASSWORD: 'S3cret!pass' } as NodeJS.ProcessEnv,
+    );
+    expect(result.username).toBe('root.admin');
+    expect(result.email).toBe('root@example.com');
+  });
+
+  describe('rejects credentials that violate CreateUserDto policy', () => {
+    const call = (username: string, email: string, password: string) => () =>
+      resolveAdminInput(['--username', username, '--email', email], {
+        ADMIN_PASSWORD: password,
+      } as NodeJS.ProcessEnv);
+
+    const OK_USER = 'root';
+    const OK_EMAIL = 'root@example.com';
+    const OK_PASS = 'S3cret!pass';
+
+    it('rejects a username shorter than 3 characters', () => {
+      expect(call('ab', OK_EMAIL, OK_PASS)).toThrow('between 3 and 50');
+    });
+
+    it('rejects a username longer than 50 characters', () => {
+      expect(call('a'.repeat(51), OK_EMAIL, OK_PASS)).toThrow(
+        'between 3 and 50',
+      );
+    });
+
+    it('rejects a username with illegal characters', () => {
+      expect(call('root admin', OK_EMAIL, OK_PASS)).toThrow(
+        'letters, numbers, dots',
+      );
+      expect(call('root$admin', OK_EMAIL, OK_PASS)).toThrow(
+        'letters, numbers, dots',
+      );
+    });
+
+    it('rejects a malformed email', () => {
+      expect(call(OK_USER, 'not-an-email', OK_PASS)).toThrow('valid email');
+      expect(call(OK_USER, 'missing@domain', OK_PASS)).toThrow('valid email');
+      expect(call(OK_USER, '@example.com', OK_PASS)).toThrow('valid email');
+    });
+
+    it('rejects an email longer than 100 characters', () => {
+      const long = `${'a'.repeat(95)}@example.com`;
+      expect(call(OK_USER, long, OK_PASS)).toThrow('exceed 100');
+    });
+
+    it('rejects a password shorter than 8 characters', () => {
+      expect(call(OK_USER, OK_EMAIL, 'S3c!a')).toThrow('between 8 and 128');
+    });
+
+    it('rejects a password longer than 128 characters', () => {
+      expect(call(OK_USER, OK_EMAIL, `S3cret!${'a'.repeat(130)}`)).toThrow(
+        'between 8 and 128',
+      );
+    });
+
+    it('rejects a password missing an uppercase letter', () => {
+      expect(call(OK_USER, OK_EMAIL, 's3cret!pass')).toThrow(
+        'uppercase letter',
+      );
+    });
+
+    it('rejects a password missing a lowercase letter', () => {
+      expect(call(OK_USER, OK_EMAIL, 'S3CRET!PASS')).toThrow(
+        'uppercase letter',
+      );
+    });
+
+    it('rejects a password missing a digit', () => {
+      expect(call(OK_USER, OK_EMAIL, 'Secret!pass')).toThrow(
+        'uppercase letter',
+      );
+    });
+
+    it('rejects a password missing a special character', () => {
+      expect(call(OK_USER, OK_EMAIL, 'S3cretpass')).toThrow(
+        'uppercase letter',
+      );
+    });
+  });
+
   it('throws when password env var is absent', () => {
     expect(() =>
       resolveAdminInput(

@@ -6,15 +6,24 @@
 # verify-baseline.sh.
 set -euo pipefail
 
-# psql runs inside the postgres container as erp_user via docker compose
-# exec, so no password is needed here — and none is hardcoded. The database
-# name is overridable for reuse against other candidates.
+# psql runs inside the postgres container via docker compose exec, so no
+# password is needed here — and none is hardcoded. The role comes from the
+# configured DB_USERNAME (backend/.env or the environment) so any deployment
+# not using the erp_user default can still run this gate.
+ENV_FILE="${ENV_FILE:-.env}"
+if [ -f "$ENV_FILE" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "$ENV_FILE"
+  set +a
+fi
+DB_USERNAME="${DB_USERNAME:-erp_user}"
 CAND_DB="${CAND_DB:-erp_gate_candidate}"
 FAILED=0
 
 q() {
   docker compose -f ../docker-compose.yml exec -T postgres \
-    psql -U erp_user -d "$CAND_DB" -tAc "$1" | tr -d '\r'
+    psql -U "$DB_USERNAME" -d "$CAND_DB" -tAc "$1" | tr -d '\r'
 }
 
 check() {
