@@ -57,6 +57,14 @@ describe('BackfillVendorPaymentReferenceNumber', () => {
     const nullNotes = await seedPayment(null, null);
     const emptyNotes = await seedPayment(null, '');
     const autoGen = await seedPayment(null, 'Auto-generated payment for PO PO-1001');
+    // referenceNumber is varchar(100) and Postgres errors on overflow rather
+    // than truncating, so the length guard is what keeps this migration from
+    // aborting on long historical notes. Both sides of the boundary are pinned:
+    // 100 must fill, 101 must be skipped.
+    const exactly100 = 'a'.repeat(100);
+    const over100 = 'b'.repeat(101);
+    const atLimitNotes = await seedPayment(null, exactly100);
+    const longNotes = await seedPayment(null, over100);
 
     const queryRunner = dataSource.createQueryRunner();
     try {
@@ -75,10 +83,20 @@ describe('BackfillVendorPaymentReferenceNumber', () => {
 
     expect((await readPayment(autoGen)).referenceNumber).toBeNull();
 
+    // Exactly at the column limit: filled, not skipped (guard is <=, not <).
+    expect((await readPayment(atLimitNotes)).referenceNumber).toBe(exactly100);
+
+    // Over the limit: skipped rather than truncated. A >100-char note is prose,
+    // not a reference number, so a fragment would be worse than nothing.
+    expect((await readPayment(longNotes)).referenceNumber).toBeNull();
+
     expect((await readPayment(positive)).notes).toBe('WIRE-001');
     expect((await readPayment(existing)).notes).toBe('other');
     expect((await readPayment(nullNotes)).notes).toBeNull();
     expect((await readPayment(emptyNotes)).notes).toBe('');
     expect((await readPayment(autoGen)).notes).toBe('Auto-generated payment for PO PO-1001');
+    // Full text is retained in both length cases — nothing is lost.
+    expect((await readPayment(atLimitNotes)).notes).toBe(exactly100);
+    expect((await readPayment(longNotes)).notes).toBe(over100);
   });
 });
