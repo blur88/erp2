@@ -58,6 +58,26 @@ describe('resolveAdminInput', () => {
       expect(call(OK_USER, '@example.com', OK_PASS)).toThrow('valid email');
     });
 
+    // Regression: these pass a naive /^[^\s@]+@[^\s@]+\.[^\s@]+$/ but are
+    // rejected by class-validator's isEmail(), which @IsEmail() uses in
+    // CreateUserDto. The CLI must reject exactly what the HTTP API rejects.
+    it.each([
+      ['consecutive dots in local part', 'a..b@example.com'],
+      ['leading dot in local part', '.a@example.com'],
+      ['hyphen-prefixed domain label', 'a@-example.com'],
+      ['consecutive dots in domain', 'a@example..com'],
+    ])('rejects %s (%s)', (_label, email) => {
+      expect(call(OK_USER, email, OK_PASS)).toThrow('valid email');
+    });
+
+    it('still accepts valid addresses that look unusual', () => {
+      expect(() =>
+        resolveAdminInput(['--username', OK_USER, '--email', 'a-b@example.co'], {
+          ADMIN_PASSWORD: OK_PASS,
+        } as NodeJS.ProcessEnv),
+      ).not.toThrow();
+    });
+
     it('rejects an email longer than 100 characters', () => {
       const long = `${'a'.repeat(95)}@example.com`;
       expect(call(OK_USER, long, OK_PASS)).toThrow('exceed 100');

@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import { isEmail } from 'class-validator';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole, UserStatus } from '../entities/user.entity';
 import connectionSource from '../../config/cli-datasource';
@@ -16,7 +17,6 @@ export interface AdminInput {
 // without these checks a malformed email or a one-character password could
 // create a production admin that the HTTP API would have rejected.
 const USERNAME_PATTERN = /^[a-zA-Z0-9._-]+$/;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_PATTERN =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.])[A-Za-z\d@$!%*?&.]/;
 
@@ -56,7 +56,11 @@ export function resolveAdminInput(
   if (email.length > 100) {
     throw new Error('Email must not exceed 100 characters');
   }
-  if (!EMAIL_PATTERN.test(email)) {
+  // Use class-validator's own isEmail() rather than a hand-rolled regex, so
+  // this matches @IsEmail() in CreateUserDto exactly. A permissive pattern
+  // accepted addresses the HTTP API rejects (a..b@x.com, .a@x.com,
+  // a@-x.com, a@x..com), which is the divergence this check exists to close.
+  if (!isEmail(email)) {
     throw new Error('Please provide a valid email address');
   }
 
