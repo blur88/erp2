@@ -6,8 +6,11 @@ export class RemoveStaleVendorPaymentDocumentNumber1785400000000 implements Migr
     public async up(queryRunner: QueryRunner): Promise<void> {
         // PR #941 (#939) retired vendor payment numbering, and its migration
         // 1784600000000 deleted this row — but that migration never ran
-        // anywhere (#950) and was removed with the other 83 by the
-        // InitialSchema baseline (PR #955).
+        // through the affected legacy chain (#950), so the row survived on
+        // databases built by schema:sync. It did execute during PR validation
+        // against a disposable database; what never happened was its
+        // application to the long-lived ones. It was then removed with the
+        // other 83 by the InitialSchema baseline (PR #955).
         //
         // The baseline does not resolve it. PR #955's documented upgrade path
         // runs `migration:run --fake`, which records genesis as applied without

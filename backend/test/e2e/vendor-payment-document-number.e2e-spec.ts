@@ -34,13 +34,23 @@ async function readVendorPaymentRows() {
   );
 }
 
-/** documentName -> nextNumber, for the five canonical types. */
+/**
+ * documentName -> nextNumber, for the five canonical types only.
+ *
+ * Scoped to ACTIVE_TYPES rather than "everything except Vendor Payments":
+ * e2e suites share one database and run size-ordered, and
+ * test/e2e/helpers/seed.ts seeds an extra 'Goods Received' row. Selecting
+ * every non-VP row would make this suite's assertions depend on which other
+ * suites happened to run first — green locally, red in CI. Rows this suite
+ * does not own are neither asserted on nor touched.
+ */
 async function readActiveTypes(): Promise<Record<string, number>> {
   const rows = await dataSource.query(
     `SELECT "documentName", "nextNumber"
        FROM document_number_settings
-      WHERE "documentName" <> 'Vendor Payments'
+      WHERE "documentName" = ANY($1)
       ORDER BY "documentName"`,
+    [ACTIVE_TYPES],
   );
   return Object.fromEntries(
     rows.map((r: { documentName: string; nextNumber: number }) => [
