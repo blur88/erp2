@@ -795,7 +795,7 @@ export class PurchaseOrderService extends BaseCrudService<
           paymentMethodId: line.paymentMethodId,
           paymentDate: new Date(),
           amount: -Number(line.amount),
-          notes: line.reference,
+          referenceNumber: line.reference,
           status: 'completed',
         } as any);
         const saved = await repo.save(refundRow);
@@ -898,7 +898,7 @@ export class PurchaseOrderService extends BaseCrudService<
           isActive: true,
           paymentMethodId: firstLine.paymentMethodId,
           amount: firstLine.amount,
-          notes: firstLine.reference || previousPayment.notes,
+          referenceNumber: firstLine.reference || previousPayment.referenceNumber,
           paymentDate: new Date() as any,
         });
         const restoredPayment = await vpRepo.findOne({
@@ -927,7 +927,7 @@ export class PurchaseOrderService extends BaseCrudService<
               paymentDate: new Date().toISOString().split('T')[0],
               paymentMethodId: line.paymentMethodId,
               status: 'completed',
-              notes: line.reference || undefined,
+              referenceNumber: line.reference || undefined,
             },
             actor,
             username,
@@ -955,7 +955,7 @@ export class PurchaseOrderService extends BaseCrudService<
               paymentDate: new Date().toISOString().split('T')[0],
               paymentMethodId: line.paymentMethodId,
               status: 'completed',
-              notes: line.reference || undefined,
+              referenceNumber: line.reference || undefined,
             },
             actor,
             username,

@@ -70,6 +70,8 @@ describe('PurchaseOrderService', () => {
       find: jest.fn().mockResolvedValue(existing ?? []),
       findOne: jest.fn().mockResolvedValue(undefined),
       create: jest.fn((row) => row),
+      restore: jest.fn().mockResolvedValue(undefined),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
       save: jest.fn(async (row) => {
         const persisted = { id: `refund-${saved.length + 1}`, ...row }
         saved.push(persisted)
@@ -84,6 +86,13 @@ describe('PurchaseOrderService', () => {
       getRepository: jest.fn((entity) => (entity === PurchaseOrder ? poRepo : vpRepo)),
     }
     return { manager, vpRepo, poRepo, saved }
+  }
+
+  function wireTx(opts: { lockedPO: any; existing?: any[] }) {
+    const { lockedPO, existing } = opts
+    const ctx = mockTxManager({ lockedPO, existing: existing ?? [{ id: 'vp-1', amount: '100', paymentMethodId: 'pm-1', status: 'completed', isActive: true }] })
+    ;(dataSource.transaction as jest.Mock).mockImplementation(async (cb) => cb(ctx.manager))
+    return ctx
   }
 
   beforeEach(async () => {
@@ -146,8 +155,6 @@ describe('PurchaseOrderService', () => {
             softDeleteForUnpay: jest.fn(),
             create: jest.fn(),
             findOne: jest.fn(),
-            findByPurchaseOrder: jest.fn(),
-            createForPurchaseOrder: jest.fn(),
           },
         },
         {
@@ -941,15 +948,8 @@ describe('PurchaseOrderService', () => {
       jest.spyOn(service as any, 'findOne').mockResolvedValue({ id: 'po-1' } as any)
     })
 
-    function wireTx(opts: { existing?: any[] } = {}) {
-      const { existing } = opts
-      const ctx = mockTxManager({ lockedPO, existing: existing ?? [{ id: 'vp-1', amount: '100', paymentMethodId: 'pm-1', status: 'completed', isActive: true }] })
-      ;(dataSource.transaction as jest.Mock).mockImplementation(async (cb) => cb(ctx.manager))
-      return ctx
-    }
-
-    it('inserts a negative VP row (status completed) with paymentMethodId and reference->notes', async () => {
-      const ctx = wireTx()
+    it('inserts a negative VP row (status completed) with paymentMethodId and reference->referenceNumber', async () => {
+      const ctx = wireTx({ lockedPO })
       jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
 
       await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: 40, reference: 'damaged goods' }], 'user-1', 'admin')
@@ -961,21 +961,21 @@ describe('PurchaseOrderService', () => {
         paymentMethodId: 'pm-1',
         amount: -40,
         status: 'completed',
-        notes: 'damaged goods',
+        referenceNumber: 'damaged goods',
       })
       expect(ctx.saved[0].paymentDate).toBeDefined()
       expect(generateSpy).not.toHaveBeenCalled()
     })
 
     it('rejects total refund exceeding net paid across ACTIVE rows (aggregate guard)', async () => {
-      wireTx({ existing: [{ amount: '100', isActive: true }] })
+      wireTx({ lockedPO, existing: [{ amount: '100', isActive: true }] })
       await expect(
         service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: 150 }], 'u'),
       ).rejects.toThrow(/exceeds net paid/i)
     })
 
     it('computes netPaid from ACTIVE rows only (guard query filters isActive: true)', async () => {
-      const ctx = wireTx()
+      const ctx = wireTx({ lockedPO })
       jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
 
       await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: 40 }], 'u')
@@ -986,7 +986,7 @@ describe('PurchaseOrderService', () => {
     })
 
     it('reconciles payment state INSIDE the transaction with the manager', async () => {
-      wireTx()
+      wireTx({ lockedPO })
       const reconcileSpy = jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
 
       await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: 40 }], 'u')
@@ -995,7 +995,7 @@ describe('PurchaseOrderService', () => {
     })
 
     it('audit-logs each refund row with its id and paymentMethodId', async () => {
-      wireTx()
+      wireTx({ lockedPO })
       jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
 
       await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: 40 }], 'u')
@@ -1037,6 +1037,138 @@ describe('PurchaseOrderService', () => {
       await expect(
         service.recordRefunds('po-1', [{ paymentMethodId: 'bad', amount: 10 }], 'u'),
       ).rejects.toThrow(/not found or inactive/i)
+    })
+  })
+
+  describe('payment reference persistence', () => {
+    const lockedPO = {
+      id: 'po-1',
+      orderNumber: 'PO-001',
+      status: 'DRAFT',
+      supplierId: 'sup-1',
+      totalAmount: '100',
+    }
+
+    beforeEach(() => {
+      paymentMethodRepository.findOne.mockResolvedValue({
+        id: 'pm-1',
+        isActive: true,
+        accountingChannel: 'BANK',
+      } as any)
+      ;(vendorPaymentService.create as jest.Mock).mockResolvedValue({ id: 'vp-new' })
+      jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
+      jest.spyOn(service as any, 'findOne').mockResolvedValue({ id: 'po-1' } as any)
+    })
+
+    it('records a refund reference into referenceNumber, not notes (line 798)', async () => {
+      const ctx = wireTx({ lockedPO })
+
+      await service.recordRefunds(
+        'po-1',
+        [{ paymentMethodId: 'pm-1', amount: 40, reference: 'RFND-77' }],
+        'user-1',
+        'admin',
+      )
+
+      expect(ctx.saved).toHaveLength(1)
+      expect(ctx.saved[0]).toMatchObject({ referenceNumber: 'RFND-77' })
+      expect(ctx.saved[0].notes).toBeUndefined()
+    })
+
+    it('records a fresh payment reference into referenceNumber (line 958)', async () => {
+      const ctx = wireTx({ lockedPO, existing: [] })
+
+      await service.recordOrderPayments(
+        'po-1',
+        [{ paymentMethodId: 'pm-1', amount: 100, reference: 'WIRE-001' }],
+        'user-1',
+        'admin',
+      )
+
+      expect(vendorPaymentService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ referenceNumber: 'WIRE-001' }),
+        'user-1',
+        'admin',
+        ctx.manager,
+      )
+    })
+
+    it('records remaining-line references into referenceNumber (line 930)', async () => {
+      const ctx = wireTx({ lockedPO, existing: [] })
+      ctx.vpRepo.findOne
+        .mockResolvedValueOnce({
+          id: 'vp-old',
+          deletedAt: new Date(),
+          referenceNumber: null,
+          notes: null,
+        })
+        .mockResolvedValue({ id: 'vp-old' })
+
+      await service.recordOrderPayments(
+        'po-1',
+        [
+          { paymentMethodId: 'pm-1', amount: 60, reference: 'FIRST-1' },
+          { paymentMethodId: 'pm-1', amount: 40, reference: 'SECOND-2' },
+        ],
+        'user-1',
+        'admin',
+      )
+
+      expect(vendorPaymentService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ referenceNumber: 'SECOND-2' }),
+        'user-1',
+        'admin',
+        ctx.manager,
+      )
+    })
+
+    it('restores a payment writing referenceNumber (line 901)', async () => {
+      const ctx = wireTx({ lockedPO, existing: [] })
+      ctx.vpRepo.findOne
+        .mockResolvedValueOnce({
+          id: 'vp-old',
+          deletedAt: new Date(),
+          referenceNumber: null,
+          notes: null,
+        })
+        .mockResolvedValue({ id: 'vp-old' })
+
+      await service.recordOrderPayments(
+        'po-1',
+        [{ paymentMethodId: 'pm-1', amount: 60, reference: 'RESTORED-1' }],
+        'user-1',
+        'admin',
+      )
+
+      expect(ctx.vpRepo.restore).toHaveBeenCalledWith('vp-old')
+      expect(ctx.vpRepo.update).toHaveBeenCalledWith(
+        'vp-old',
+        expect.objectContaining({ referenceNumber: 'RESTORED-1' }),
+      )
+    })
+
+    it('preserves the prior referenceNumber when a restore supplies none (line 901)', async () => {
+      const ctx = wireTx({ lockedPO, existing: [] })
+      ctx.vpRepo.findOne
+        .mockResolvedValueOnce({
+          id: 'vp-old',
+          deletedAt: new Date(),
+          referenceNumber: 'OLD-REF',
+          notes: 'some note',
+        })
+        .mockResolvedValue({ id: 'vp-old' })
+
+      await service.recordOrderPayments(
+        'po-1',
+        [{ paymentMethodId: 'pm-1', amount: 60 }],
+        'user-1',
+        'admin',
+      )
+
+      expect(ctx.vpRepo.update).toHaveBeenCalledWith(
+        'vp-old',
+        expect.objectContaining({ referenceNumber: 'OLD-REF' }),
+      )
     })
   })
 });

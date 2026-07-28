@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Logger, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -154,38 +154,24 @@ describe('VendorPaymentService', () => {
         }),
       );
     });
-  });
 
-  describe('createForPurchaseOrder', () => {
-    beforeEach(() => {
-      purchaseOrderRepository.findOne.mockResolvedValue({
-        ...mockPurchaseOrder,
-        supplier: mockSupplier,
-      } as PurchaseOrder);
-      paymentMethodRepository.findOne.mockResolvedValue({
-        id: 'pm-bank-id',
-      } as PaymentMethodEntity);
-      vendorPaymentRepository.findOne.mockResolvedValue(null);
-      vendorPaymentRepository.create.mockReturnValue(mockVendorPayment as VendorPayment);
-      vendorPaymentRepository.save.mockResolvedValue(mockVendorPayment as VendorPayment);
-      purchaseOrderRepository.save.mockResolvedValue({
-        ...mockPurchaseOrder,
-        paidAmount: 1000,
-        paymentStatus: PurchaseOrderPaymentStatus.PAID,
-        status: PurchaseOrderStatus.READY,
-      } as PurchaseOrder);
-      auditLogService.log.mockResolvedValue(undefined);
-    });
+    it('still logs through the injected AuditLogService after dropping the base class', async () => {
+      const dto = { ...createDto, referenceNumber: 'WIRE-001' };
 
-    it('updates purchase order totals when paying in full', async () => {
-      await service.createForPurchaseOrder('po-123', 'test-user');
+      vendorPaymentRepository.create.mockReturnValue({ ...dto } as any);
+      vendorPaymentRepository.save.mockResolvedValue({
+        id: 'payment-123',
+        ...dto,
+      } as any);
 
-      expect(purchaseOrderRepository.save).toHaveBeenCalledWith(
+      await service.create(dto, 'user-1', 'tester');
+
+      expect(auditLogService.log).toHaveBeenCalledWith(
+        'CREATE',
+        'VendorPayment',
+        expect.any(String),
         expect.objectContaining({
-          id: 'po-123',
-          paidAmount: 1000,
-          paymentStatus: PurchaseOrderPaymentStatus.PAID,
-          status: PurchaseOrderStatus.READY,
+          newValues: expect.objectContaining({ referenceNumber: 'WIRE-001' }),
         }),
       );
     });
@@ -232,6 +218,30 @@ describe('VendorPaymentService', () => {
         expect.objectContaining({ isActive: false }),
       );
       expect(vendorPaymentRepository.softDelete).toHaveBeenCalledWith('vp-1');
+    });
+  });
+
+  describe('findOne', () => {
+    it('returns an active payment with its relations', async () => {
+      const payment = { id: 'payment-123', isActive: true } as VendorPayment;
+      vendorPaymentRepository.findOne.mockResolvedValue(payment);
+
+      await expect(service.findOne('payment-123')).resolves.toBe(payment);
+
+      expect(vendorPaymentRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 'payment-123', isActive: true },
+        relations: {
+          supplier: true,
+          purchaseOrder: { items: { product: true } },
+          paymentMethodEntity: true,
+        },
+      });
+    });
+
+    it('throws NotFoundException when the payment does not exist', async () => {
+      vendorPaymentRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.findOne('missing')).rejects.toThrow(NotFoundException);
     });
   });
 });

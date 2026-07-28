@@ -383,8 +383,10 @@ export class RecordOrderPaymentLineDto {
   @Min(0.01)
   amount: number;
 
+  // Persisted to vendor_payments.referenceNumber, which is varchar(100).
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   reference?: string;
 }
 
@@ -408,9 +410,11 @@ export class RefundLineDto {
   @Min(0.01)
   amount: number;
 
-  @ApiPropertyOptional({ description: 'Refund reference / note' })
+  // Persisted to vendor_payments.referenceNumber, which is varchar(100).
+  @ApiPropertyOptional({ description: 'Refund reference / note', maxLength: 100 })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   reference?: string;
 }
 
