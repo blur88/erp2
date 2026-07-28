@@ -4,6 +4,7 @@ export class InitialSchema1785238045705 implements MigrationInterface {
     name = 'InitialSchema1785238045705'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
         await queryRunner.query(`CREATE TYPE "public"."chart_of_account_type_enum" AS ENUM('Asset', 'Liability', 'Equity', 'Income', 'Expense')`);
         await queryRunner.query(`CREATE TABLE "chart_of_account" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deletedAt" TIMESTAMP WITH TIME ZONE, "isActive" boolean NOT NULL DEFAULT true, "code" character varying(20) NOT NULL, "name" character varying(120) NOT NULL, "type" "public"."chart_of_account_type_enum" NOT NULL, "parentId" uuid, "description" text, "createdBy" character varying(120), "isSystem" boolean NOT NULL DEFAULT false, "isPostable" boolean NOT NULL DEFAULT true, "openingBalance" numeric(18,4) NOT NULL DEFAULT '0', CONSTRAINT "PK_365a21e0767428d1ca45472f57c" PRIMARY KEY ("id")); COMMENT ON COLUMN "chart_of_account"."isActive" IS 'Soft delete flag for performance queries'`);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_de745245954d5662abfe10a466" ON "chart_of_account"  ("code") `);
@@ -187,6 +188,128 @@ export class InitialSchema1785238045705 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "search_clicks" ADD CONSTRAINT "FK_2ccac1b7ddd1b101f17845a6ced" FOREIGN KEY ("search_query_id") REFERENCES "search_queries"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "stock_adjustment_items" ADD CONSTRAINT "FK_a23bf8737a4dd516f5736376e90" FOREIGN KEY ("stockAdjustmentId") REFERENCES "stock_adjustments"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "stock_adjustment_items" ADD CONSTRAINT "FK_89f7d0e12b07146088771d9292a" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`);
+
+        // ---- Canonical seed data -------------------------------------------
+        // Values are fixed literals: migrations must be deterministic, so no
+        // new Date() anywhere. lastResetYear is -1, an unambiguous non-year
+        // sentinel; settings.service.ts:389 tests `lastResetYear !== currentYY`,
+        // so the first document issued in any year triggers the annual reset and
+        // writes the true year.
+        await queryRunner.query(`
+      INSERT INTO "document_number_settings"
+        ("documentName", "prefix", "paddingDigits", "nextNumber", "lastResetYear")
+      VALUES
+        ('Sales Orders',     'SO',  3, 1, -1),
+        ('Purchase Orders',  'PO',  3, 1, -1),
+        ('Stock Adjustment', 'SA',  3, 1, -1),
+        ('Expenses',         'EXP', 3, 1, -1),
+        ('Journal Entries',  'JE',  3, 1, -1)
+    `);
+
+        // requiresSettlement is deliberately absent: RemoveAccountingModule
+        // (#884) dropped that column and the v1 rebuild never restored it.
+        await queryRunner.query(`
+      INSERT INTO "payment_methods"
+        ("code", "name", "sortOrder", "useForPurchases", "accountingChannel")
+      VALUES
+        ('CASH',   'Cash',          1, true, 'CASH'),
+        ('BANK',   'Bank Transfer', 2, true, 'BANK'),
+        ('TNG',    'Touch n Go',    3, true, 'BANK'),
+        ('CC',     'Credit Card',   4, true, 'BANK'),
+        ('ATOME',  'Atome',         5, true, 'BANK'),
+        ('SHOPEE', 'Shopee',        6, true, 'BANK'),
+        ('TIKTOK', 'TikTok',        7, true, 'BANK')
+    `);
+
+        // Chart of accounts and settings wiring are FROZEN local constants.
+        //
+        // Deliberately NOT imported from src/modules/accounting/data/standard-coa.ts:
+        // a migration must describe a fixed historical change. If it read live
+        // application constants, editing those constants later would silently
+        // change what a fresh database receives while already-migrated databases
+        // kept the old data — divergence with no migration recording it. Changing
+        // the seeded chart of accounts must require a NEW migration.
+        //
+        // standard-coa.spec.ts compares this frozen dataset against the current
+        // constants, so a drift between them fails the build.
+        //
+        // Type is passed as text; Postgres coerces it to the generated enum type,
+        // so this does not hardcode the enum type name.
+        const COA_GROUPS: Array<[string, string, string]> = [
+          ['1000', 'Assets', 'Asset'],
+          ['2000', 'Liabilities', 'Liability'],
+          ['3000', 'Equity', 'Equity'],
+          ['4000', 'Income', 'Income'],
+          ['5000', 'Cost of Sales', 'Expense'],
+          ['6000', 'Expenses', 'Expense'],
+        ];
+
+        const COA_CHILDREN: Array<[string, string, string, string]> = [
+          ['1100', 'Cash', 'Asset', '1000'],
+          ['1200', 'Bank', 'Asset', '1000'],
+          ['1300', 'Inventory', 'Asset', '1000'],
+          ['1400', 'Supplier Deposit', 'Asset', '1000'],
+          ['2100', 'Customer Deposit', 'Liability', '2000'],
+          ['3100', 'Owner Capital', 'Equity', '3000'],
+          ['3200', 'Opening Balance Equity', 'Equity', '3000'],
+          ['4100', 'Sales Revenue', 'Income', '4000'],
+          ['5100', 'Cost of Goods Sold', 'Expense', '5000'],
+          ['6990', 'Other Expenses', 'Expense', '6000'],
+        ];
+
+        // settings column -> COA code. Frozen for the same reason.
+        const SETTINGS_ACCOUNTS: Array<[string, string]> = [
+          ['cashAccountId', '1100'],
+          ['bankAccountId', '1200'],
+          ['inventoryAccountId', '1300'],
+          ['supplierDepositAccountId', '1400'],
+          ['customerDepositAccountId', '2100'],
+          ['openingBalanceEquityAccountId', '3200'],
+          ['salesRevenueAccountId', '4100'],
+          ['cogsAccountId', '5100'],
+          ['defaultExpenseAccountId', '6990'],
+        ];
+
+        for (const [code, name, type] of COA_GROUPS) {
+          await queryRunner.query(
+            `INSERT INTO "chart_of_account" ("code", "name", "type", "isSystem", "isPostable")
+         VALUES ($1, $2, $3, true, false)`,
+            [code, name, type],
+          );
+        }
+
+        for (const [code, name, type, parentCode] of COA_CHILDREN) {
+          await queryRunner.query(
+            `INSERT INTO "chart_of_account"
+           ("code", "name", "type", "parentId", "isSystem", "isPostable")
+         VALUES ($1, $2, $3,
+                 (SELECT id FROM chart_of_account WHERE code = $4), true, true)`,
+            [code, name, type, parentCode],
+          );
+        }
+
+        await queryRunner.query(`
+      INSERT INTO "accounting_settings" ("id", ${SETTINGS_ACCOUNTS.map(
+        ([col]) => `"${col}"`,
+      ).join(', ')})
+      SELECT true, ${SETTINGS_ACCOUNTS.map(
+        ([, code]) =>
+          `(SELECT id FROM chart_of_account WHERE code='${code}')`,
+      ).join(', ')}
+    `);
+
+        // regional_settings is the only singleton with meaningful entity defaults.
+        // company_settings and print_settings are deliberately NOT seeded: their
+        // services create the row on first read (settings.service.ts:58,
+        // print-settings.service.ts:25), and company_settings' NOT NULL columns
+        // would force duplicating the service's placeholder strings here.
+        await queryRunner.query(`
+      INSERT INTO "regional_settings"
+        ("currency", "costingMethod", "dateFormat", "timeFormat",
+         "numberFormat", "timezone", "lowStockThreshold", "startOfWeek")
+      VALUES ('MYR', 'AVERAGE', 'DD/MM/YYYY', '24h', '1,234.56',
+              'Asia/Kuala_Lumpur', 10, 1)
+    `);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
