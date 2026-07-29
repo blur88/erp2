@@ -49,7 +49,10 @@ describe("trigram % operator compiles correctly (e2e)", () => {
   // The % predicates inherit pg_trgm's session similarity limit rather than
   // stating a threshold themselves, so the rewrite preserves the old
   // `similarity(...) > 0.3` result sets only while that limit is 0.3.
-  // Nothing calls set_limit() today; this fails loudly if that ever changes.
+  // Nothing calls set_limit() today. This catches a durable change (ALTER
+  // DATABASE/ROLE or postgresql.conf), which is how the limit would realistically
+  // move; it samples one pooled connection, so it would not reliably catch
+  // per-connection set_limit() pollution.
   // PostgreSQL 18 removed the pg_trgm.similarity_threshold GUC name — the
   // limit is unchanged and is read with show_limit().
   it("uses the assumed 0.3 similarity limit", async () => {
