@@ -415,7 +415,8 @@ export class ProductService extends BaseCrudService<
       .createQueryBuilder('product')
       .addSelect('GREATEST(similarity(product.name, :q), similarity(product.barcode, :q))', 'sim')
       .where('product.deletedAt IS NULL')
-      .andWhere('(similarity(product.name, :q) > 0.3 OR similarity(product.barcode, :q) > 0.3)')
+      // Threshold comes from pg_trgm.similarity_threshold (default 0.3).
+      .andWhere('(product.name % :q OR product.barcode % :q)')
       .orderBy('sim', 'DESC')
       .setParameter('q', trimmed)
       .take(SEARCH_CANDIDATE_LIMIT)

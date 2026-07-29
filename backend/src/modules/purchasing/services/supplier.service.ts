@@ -235,7 +235,8 @@ export class SupplierService extends BaseCrudService<
       .createQueryBuilder('supplier')
       .addSelect('similarity(supplier.companyName, :q)', 'sim')
       .where('supplier.deletedAt IS NULL')
-      .andWhere('similarity(supplier.companyName, :q) > 0.3')
+      // Threshold comes from pg_trgm.similarity_threshold (default 0.3).
+      .andWhere('supplier.companyName % :q')
       .orderBy('sim', 'DESC')
       .setParameter('q', trimmed)
       .take(SEARCH_CANDIDATE_LIMIT)

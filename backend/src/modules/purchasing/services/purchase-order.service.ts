@@ -423,7 +423,8 @@ export class PurchaseOrderService extends BaseCrudService<
       .addSelect('similarity(order.orderNumber, :q)', 'sim')
       .leftJoinAndSelect('order.supplier', 'supplier')
       .where('order.deletedAt IS NULL')
-      .andWhere('similarity(order.orderNumber, :q) > 0.3')
+      // Threshold comes from pg_trgm.similarity_threshold (default 0.3).
+      .andWhere('order.orderNumber % :q')
       .orderBy('sim', 'DESC')
       .setParameter('q', trimmed)
       .take(SEARCH_CANDIDATE_LIMIT)

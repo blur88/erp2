@@ -228,7 +228,8 @@ export class CustomerService extends BaseCrudService<
       .createQueryBuilder('customer')
       .addSelect('GREATEST(similarity(customer.name, :q), similarity(customer.phone, :q))', 'sim')
       .where('customer.deletedAt IS NULL')
-      .andWhere('(similarity(customer.name, :q) > 0.3 OR similarity(customer.phone, :q) > 0.3)')
+      // Threshold comes from pg_trgm.similarity_threshold (default 0.3).
+      .andWhere('(customer.name % :q OR customer.phone % :q)')
       .orderBy('sim', 'DESC')
       .setParameter('q', trimmed)
       .take(SEARCH_CANDIDATE_LIMIT)
