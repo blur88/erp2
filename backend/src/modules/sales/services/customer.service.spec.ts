@@ -181,6 +181,74 @@ describe('CustomerService', () => {
     });
   });
 
+  describe('sort resolution', () => {
+    const createSortQb = () => ({
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      withDeleted: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    });
+
+    it('findAll orders by the name collation when sortBy is absent', async () => {
+      const qb = createSortQb();
+      customerRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({} as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('customer.name', 'ASC', 'NULLS LAST');
+    });
+
+    it('findDeleted orders by UPPER(name) when sortBy is absent', async () => {
+      const qb = createSortQb();
+      customerRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findDeleted({} as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('UPPER(customer.name)', 'ASC');
+    });
+
+    it('findAll falls back to the name collation for an invalid sortBy', async () => {
+      const qb = createSortQb();
+      customerRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({ sortBy: 'bogus', sortOrder: 'DESC' } as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('customer.name', 'DESC', 'NULLS LAST');
+    });
+
+    it('findAll passes an allow-listed sortBy through unchanged', async () => {
+      const qb = createSortQb();
+      customerRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({ sortBy: 'totalSales', sortOrder: 'DESC' } as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('customer.totalSales', 'DESC');
+    });
+
+    it('findDeleted falls back to the UPPER(name) ordering for an invalid sortBy', async () => {
+      const qb = createSortQb();
+      customerRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findDeleted({ sortBy: 'bogus', sortOrder: 'ASC' } as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('UPPER(customer.name)', 'ASC');
+    });
+
+    it('findDeleted passes an allow-listed sortBy through unchanged', async () => {
+      const qb = createSortQb();
+      customerRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findDeleted({ sortBy: 'createdAt', sortOrder: 'ASC' } as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('customer.createdAt', 'ASC');
+    });
+  });
+
   describe('searchGlobal', () => {
     it('returns matching customers as GlobalSearchResultDto', async () => {
       const customer = {

@@ -39,6 +39,26 @@ import { TransactionManager, Transactional } from '../../../common/utils/transac
 import { AuditLogService } from '../../audit-logs/services';
 import { generateBaseSlug } from '../../../common/utils/slug.util';
 
+/**
+ * Fields the customer lists may be ordered by. `QueryCustomersDto` does not
+ * constrain `sortBy`, so an invalid value reaches this service from HTTP as
+ * well as from internal callers; resolving here keeps it out of the ORDER BY
+ * clause. Deliberately not enforced as @IsIn — that would turn today's
+ * fallback into a 400 and change the HTTP contract.
+ */
+const CUSTOMER_SORTABLE_FIELDS = [
+  'name',
+  'phone',
+  'email',
+  'type',
+  'totalSales',
+  'totalOrders',
+  'lastPurchaseDate',
+  'firstPurchaseDate',
+  'createdAt',
+  'updatedAt',
+] as const;
+
 @Injectable()
 export class CustomerService extends BaseCrudService<
   Customer,
@@ -185,10 +205,11 @@ export class CustomerService extends BaseCrudService<
     }
 
     // Apply sorting - use COLLATE for case-insensitive name sorting
-    if (sortBy === 'name') {
+    const sortField = CUSTOMER_SORTABLE_FIELDS.find((field) => field === sortBy) ?? 'name';
+    if (sortField === 'name') {
       queryBuilder.orderBy('customer.name', sortOrder, 'NULLS LAST');
     } else {
-      queryBuilder.orderBy(`customer.${sortBy}`, sortOrder);
+      queryBuilder.orderBy(`customer.${sortField}`, sortOrder);
     }
 
     const shouldPaginate = page !== undefined && limit !== undefined;
@@ -284,10 +305,11 @@ export class CustomerService extends BaseCrudService<
     }
 
     // Add case-insensitive ordering for name field, regular ordering for others
-    if (sortBy === 'name') {
+    const sortField = CUSTOMER_SORTABLE_FIELDS.find((field) => field === sortBy) ?? 'name';
+    if (sortField === 'name') {
       queryBuilder.orderBy('UPPER(customer.name)', sortOrder);
     } else {
-      queryBuilder.orderBy(`customer.${sortBy}`, sortOrder);
+      queryBuilder.orderBy(`customer.${sortField}`, sortOrder);
     }
 
     const customers = await queryBuilder.getMany();
