@@ -35,6 +35,8 @@ export enum ProductType {
 @Index(['categoryId'])
 @Index(['type'])
 @Index(['isActive'])
+@Index('idx_products_name_trgm', ['name'], { synchronize: false } as any)
+@Index('idx_products_barcode_trgm', ['barcode'], { synchronize: false } as any)
 export class Product extends BaseEntity {
 
   @Column({

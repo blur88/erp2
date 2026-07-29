@@ -31,6 +31,8 @@ export enum CustomerType {
 @Index(['type'])
 @Index(['priceListId'])
 @Index(['isActive'])
+@Index('idx_customers_name_trgm', ['name'], { synchronize: false } as any)
+@Index('idx_customers_phone_trgm', ['phone'], { synchronize: false } as any)
 export class Customer extends BaseEntity {
   @Column({
     type: 'enum',

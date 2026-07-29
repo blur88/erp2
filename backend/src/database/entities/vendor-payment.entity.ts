@@ -7,6 +7,7 @@ import { PaymentMethodEntity } from './payment-method.entity';
 @Entity('vendor_payments')
 @Index(['supplierId', 'status'])
 @Index(['paymentDate'])
+@Index('idx_vendor_payments_referencenumber_trgm', ['referenceNumber'], { synchronize: false } as any)
 export class VendorPayment extends BaseEntity {
   @Column({ type: 'uuid' })
   supplierId: string;

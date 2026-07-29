@@ -46,6 +46,7 @@ export enum PurchaseOrderPaymentStatus {
 @Index(['orderDate'])
 @Index(['status'])
 @Index(['paymentStatus'])
+@Index('idx_purchase_orders_ordernumber_trgm', ['orderNumber'], { synchronize: false } as any)
 export class PurchaseOrder extends BaseEntity {
   @Column({
     type: 'varchar',

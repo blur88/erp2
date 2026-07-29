@@ -30,6 +30,7 @@ export enum SupplierType {
 @Index(['phone'])
 @Index(['type'])
 @Index(['isActive'])
+@Index('idx_suppliers_companyname_trgm', ['companyName'], { synchronize: false } as any)
 export class Supplier extends BaseEntity {
   @Column({
     type: 'enum',
