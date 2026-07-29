@@ -45,4 +45,16 @@ describe("trigram % operator compiles correctly (e2e)", () => {
 
     expect(rows[0].matched).toBe(true);
   });
+
+  // The % predicates inherit pg_trgm's session similarity limit rather than
+  // stating a threshold themselves, so the rewrite preserves the old
+  // `similarity(...) > 0.3` result sets only while that limit is 0.3.
+  // Nothing calls set_limit() today; this fails loudly if that ever changes.
+  // PostgreSQL 18 removed the pg_trgm.similarity_threshold GUC name — the
+  // limit is unchanged and is read with show_limit().
+  it("uses the assumed 0.3 similarity limit", async () => {
+    const [row] = await dataSource.query(`SELECT show_limit() AS limit`);
+
+    expect(Number(row.limit)).toBeCloseTo(0.3);
+  });
 });

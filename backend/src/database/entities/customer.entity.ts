@@ -31,6 +31,8 @@ export enum CustomerType {
 @Index(['type'])
 @Index(['priceListId'])
 @Index(['isActive'])
+// Trigram index for fuzzy search (#960) — see product.entity.ts for why
+// synchronize:false and the `as any` cast are required.
 @Index('idx_customers_name_trgm', ['name'], { synchronize: false } as any)
 @Index('idx_customers_phone_trgm', ['phone'], { synchronize: false } as any)
 export class Customer extends BaseEntity {
