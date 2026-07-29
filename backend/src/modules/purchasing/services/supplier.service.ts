@@ -18,6 +18,19 @@ import {
 } from '../dto';
 import { AuditLogService } from '../../audit-logs/services';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
+import { canSearchSuppliers } from '../../search/search.permissions';
+import {
+  SEARCH_CANDIDATE_LIMIT,
+  SCORE_EXACT_NAME,
+  SCORE_STARTSWITH_NAME,
+  SCORE_CONTAINS,
+  SCORE_FUZZY,
+  BOOST_SUPPLIER,
+  BOOST_EXACT_MATCH,
+} from '../../search/search.constants';
+import { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import { UserRole } from '../../../database/entities/user.entity';
+import { generateBaseSlug } from '../../../common/utils/slug.util';
 
 /**
  * Fields the supplier list may be ordered by — exactly the set this service
@@ -32,19 +45,6 @@ const SUPPLIER_SORTABLE_FIELDS = [
   'createdAt',
   'lastPurchaseDate',
 ] as const;
-import { canSearchSuppliers } from '../../search/search.permissions';
-import {
-  SEARCH_CANDIDATE_LIMIT,
-  SCORE_EXACT_NAME,
-  SCORE_STARTSWITH_NAME,
-  SCORE_CONTAINS,
-  SCORE_FUZZY,
-  BOOST_SUPPLIER,
-  BOOST_EXACT_MATCH,
-} from '../../search/search.constants';
-import { JwtPayload } from '../../auth/strategies/jwt.strategy';
-import { UserRole } from '../../../database/entities/user.entity';
-import { generateBaseSlug } from '../../../common/utils/slug.util';
 
 @Injectable()
 export class SupplierService extends BaseCrudService<
@@ -198,6 +198,12 @@ export class SupplierService extends BaseCrudService<
     // Apply sorting
     const sortField = SUPPLIER_SORTABLE_FIELDS.find((field) => field === sortBy) ?? 'companyName';
 
+    // Compare against `sortBy`, NOT against 'companyName'. This distinguishes
+    // "the caller asked for a valid field" (honour sortOrder) from "input was
+    // invalid and resolved to the fallback" (force ASC, long-standing
+    // behavior). Simplifying this to `sortField === 'companyName'` would force
+    // ASC on an explicit ?sortBy=companyName&sortOrder=DESC — a silent
+    // regression covered by the 'honours sortOrder for a valid sortBy' test.
     if (sortField === sortBy) {
       queryBuilder.orderBy(`supplier.${sortField}`, sortOrder);
     } else {
