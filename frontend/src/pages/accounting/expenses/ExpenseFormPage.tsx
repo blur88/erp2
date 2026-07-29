@@ -33,7 +33,7 @@ import {
   useUpdateExpenseMutation,
 } from '@/store/api/accountingApi'
 import type { AccountTreeNode } from '@/types'
-import { getCurrentDate } from '@/utils/formatters'
+import { getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 
 interface ExpenseFormData {
@@ -124,6 +124,9 @@ const ExpenseFormPage: React.FC = () => {
       notes: '',
     },
   })
+
+  const storedFormat = useMemo(() => localStorage.getItem('dateFormat') || 'DD/MM/YYYY', [])
+  const pickerFormat = useMemo(() => toMuiDatePickerFormat(storedFormat), [storedFormat])
 
   useEffect(() => {
     if (isEdit && expense && !loadingExpense) {
@@ -253,6 +256,7 @@ const ExpenseFormPage: React.FC = () => {
                         <DatePicker
                           label="Expense Date"
                           value={field.value ? parseISO(field.value) : null}
+                          format={pickerFormat}
                           onChange={(date) =>
                             field.onChange(
                               // Guard: the picker emits Invalid Date mid-typing.
