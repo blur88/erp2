@@ -18,6 +18,7 @@ const {
   mockGetExpense,
   mockGetAccountTree,
   mockGetAccountingSettings,
+  mockGetDocumentNumberSettings,
 } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockCreateExpense: vi.fn(),
@@ -27,6 +28,7 @@ const {
   mockGetExpense: vi.fn(),
   mockGetAccountTree: vi.fn(),
   mockGetAccountingSettings: vi.fn(),
+  mockGetDocumentNumberSettings: vi.fn(),
 }))
 
 const { mockBlockerState, mockBlockerProceed, mockBlockerReset } = vi.hoisted(() => ({
@@ -60,6 +62,15 @@ vi.mock('@/store/api/accountingApi', async (importOriginal) => {
   }
 })
 
+vi.mock('@/store/api/settingsApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/store/api/settingsApi')>()
+  return {
+    ...actual,
+    useGetDocumentNumberSettingsQuery: (arg: unknown, opts?: { skip?: boolean }) =>
+      mockGetDocumentNumberSettings(arg, opts),
+  }
+})
+
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: mockShowSuccess, showError: mockShowError }),
 }))
@@ -67,6 +78,17 @@ vi.mock('@/hooks/useNotification', () => ({
 beforeEach(() => {
   localStorage.removeItem('dateFormat')
 })
+
+const yy = String(new Date().getFullYear() % 100).padStart(2, '0')
+
+const EXPENSE_DOC_SETTINGS = {
+  data: {
+    configurations: [
+      { documentName: 'Expenses', prefix: 'EXP', nextNumber: 1, paddingDigits: 3, lastResetYear: 26 },
+    ],
+  },
+  isLoading: false,
+}
 
 const defaultAccounts = [
   { id: 'exp-acc-1', code: '5000', name: 'Office Supplies', type: 'Expense', isActive: true, isPostable: true, balance: '0', children: [] },
@@ -133,6 +155,7 @@ describe('ExpenseFormPage - Create mode', () => {
     mockGetExpense.mockReturnValue({ data: defaultExpense, isLoading: false, isFetching: false })
     mockGetAccountTree.mockReturnValue({ data: defaultAccounts, isLoading: false, isFetching: false })
     mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1' }, isLoading: false, isFetching: false })
+    mockGetDocumentNumberSettings.mockReturnValue(EXPENSE_DOC_SETTINGS)
   })
 
   it('renders New Expense heading', () => {
@@ -140,11 +163,36 @@ describe('ExpenseFormPage - Create mode', () => {
     expect(screen.getByText('New Expense')).toBeInTheDocument()
   })
 
-  it('shows Auto-generated for expense number on create', () => {
+  it('previews the next configured expense number on create', () => {
     renderCreatePage()
     const expenseNoField = screen.getByLabelText(/expense no/i)
     expect(expenseNoField).toBeDisabled()
-    expect(expenseNoField).toHaveValue('Auto-generated')
+    expect(expenseNoField).toHaveValue(`EXP-${yy}-001`)
+  })
+
+  it('reflects a custom prefix and padding in the preview', () => {
+    mockGetDocumentNumberSettings.mockReturnValue({
+      data: {
+        configurations: [
+          { documentName: 'Expenses', prefix: 'COST', nextNumber: 42, paddingDigits: 5, lastResetYear: 26 },
+        ],
+      },
+      isLoading: false,
+    })
+    renderCreatePage()
+    expect(screen.getByLabelText(/expense no/i)).toHaveValue(`COST-${yy}-00042`)
+  })
+
+  it('shows a loading state while document number settings load', () => {
+    mockGetDocumentNumberSettings.mockReturnValue({ data: undefined, isLoading: true })
+    renderCreatePage()
+    expect(screen.getByLabelText(/expense no/i)).toHaveValue('Loading...')
+  })
+
+  it('falls back to Auto-generated when no Expenses configuration exists', () => {
+    mockGetDocumentNumberSettings.mockReturnValue({ data: { configurations: [] }, isLoading: false })
+    renderCreatePage()
+    expect(screen.getByLabelText(/expense no/i)).toHaveValue('Auto-generated')
   })
 
   it('renders account selector with options from tree', () => {
@@ -259,6 +307,7 @@ describe('ExpenseFormPage - Edit mode', () => {
     mockGetExpense.mockReturnValue({ data: defaultExpense, isLoading: false, isFetching: false })
     mockGetAccountTree.mockReturnValue({ data: defaultAccounts, isLoading: false, isFetching: false })
     mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1' }, isLoading: false, isFetching: false })
+    mockGetDocumentNumberSettings.mockReturnValue(EXPENSE_DOC_SETTINGS)
   })
 
   it('shows Edit Expense heading and pre-fills fields', async () => {
@@ -302,6 +351,13 @@ describe('ExpenseFormPage - Edit mode', () => {
     })
   })
 
+  it('shows the saved expense number in edit mode', async () => {
+    renderEditPage()
+    await waitFor(() => {
+      expect(screen.getByLabelText(/expense no/i)).toHaveValue(defaultExpense.expenseNumber)
+    })
+  })
+
   it('calls updateExpense and navigates on successful submit', async () => {
     const user = userEvent.setup()
     renderEditPage()
@@ -331,6 +387,7 @@ describe('ExpenseFormPage - Edit locks', () => {
     mockUpdateExpense.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'exp-1' }) })
     mockGetAccountTree.mockReturnValue({ data: defaultAccounts, isLoading: false, isFetching: false })
     mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1' }, isLoading: false, isFetching: false })
+    mockGetDocumentNumberSettings.mockReturnValue(EXPENSE_DOC_SETTINGS)
   })
 
   it('disables account select when expense has payments', async () => {
@@ -382,6 +439,7 @@ describe('ExpenseFormPage - Dirty cancel', () => {
     mockGetExpense.mockReturnValue({ data: defaultExpense, isLoading: false, isFetching: false })
     mockGetAccountTree.mockReturnValue({ data: defaultAccounts, isLoading: false, isFetching: false })
     mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1' }, isLoading: false, isFetching: false })
+    mockGetDocumentNumberSettings.mockReturnValue(EXPENSE_DOC_SETTINGS)
   })
 
   it('shows discard dialog when blocker intercepts navigation on dirty form', () => {
@@ -399,6 +457,7 @@ describe('ExpenseFormPage - PAID/CANCELLED redirect', () => {
     vi.clearAllMocks()
     mockGetAccountTree.mockReturnValue({ data: defaultAccounts, isLoading: false, isFetching: false })
     mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1' }, isLoading: false, isFetching: false })
+    mockGetDocumentNumberSettings.mockReturnValue(EXPENSE_DOC_SETTINGS)
   })
 
   it('redirects to detail page for PAID expense edit URL', async () => {
