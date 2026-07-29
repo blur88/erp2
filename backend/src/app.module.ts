@@ -39,7 +39,12 @@ import { AppService } from './app.service';
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: process.env.NODE_ENV === 'test' ? '.env.test' : '.env',
+      // In Docker every DB_*/REDIS_* var is injected by docker-compose.yml, so
+      // no file is read. These paths are the host-side fallback: .env.local is
+      // gitignored, points at a scratch database, and is tried first. Earlier
+      // entries win — dotenv never overwrites an already-set variable.
+      envFilePath:
+        process.env.NODE_ENV === 'test' ? ['.env.test'] : ['.env.local'],
     }),
 
     // Database
