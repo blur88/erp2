@@ -43,7 +43,7 @@ import {
   useUpdateSalesOrderMutation,
 } from '@/store/api/salesApi'
 import { patchSalesOrderCaches } from '@/store/api/salesOrderCache'
-import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
+import { useDocumentNumberPreview } from '@/hooks/useDocumentNumberPreview'
 import { setSelectedOrder } from '@/store/slices/salesSlice'
 import type { RootState } from '@/store'
 import { LINE_ITEM_TABLE_SX } from '@/components/transactions/transactionTableStyles'
@@ -174,9 +174,6 @@ const CreateSalesOrderPage: React.FC = () => {
 
   const { data: customersData } = useGetCustomersQuery({})
   const customers = useMemo(() => customersData?.data ?? [], [customersData])
-  const { data: docNumberSettings, isLoading: loadingDocNumbers } =
-    useGetDocumentNumberSettingsQuery()
-
   const [createSalesOrder, createState = { isLoading: false }] =
     useCreateSalesOrderMutation() as any
   const [updateSalesOrder, updateState = { isLoading: false }] =
@@ -189,17 +186,7 @@ const CreateSalesOrderPage: React.FC = () => {
   const storedFormat = useMemo(() => localStorage.getItem('dateFormat') || 'DD/MM/YYYY', [])
   const pickerFormat = useMemo(() => toMuiDatePickerFormat(storedFormat), [storedFormat])
 
-  const orderNumberPreview = useMemo(() => {
-    if (isEditMode) return null
-    if (loadingDocNumbers) return 'Loading...'
-    const config = docNumberSettings?.configurations?.find(
-      (c: any) => c.documentName === 'Sales Orders',
-    )
-    if (!config) return 'Auto-generated'
-    const yy = String(new Date().getFullYear() % 100).padStart(2, '0')
-    const seq = String(config.nextNumber).padStart(config.paddingDigits, '0')
-    return `${config.prefix}-${yy}-${seq}`
-  }, [docNumberSettings, isEditMode, loadingDocNumbers])
+  const orderNumberPreview = useDocumentNumberPreview('Sales Orders', !isEditMode)
 
   const {
     control,
