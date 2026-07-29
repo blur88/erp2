@@ -18,6 +18,20 @@ import {
 } from '../dto';
 import { AuditLogService } from '../../audit-logs/services';
 import { GlobalSearchResultDto } from '../../search/dto/global-search-result.dto';
+
+/**
+ * Fields the supplier list may be ordered by — exactly the set this service
+ * has always accepted. SupplierQueryDto does not constrain sortBy, so anything
+ * outside this list falls back rather than reaching the ORDER BY clause.
+ */
+const SUPPLIER_SORTABLE_FIELDS = [
+  'companyName',
+  'type',
+  'totalPurchases',
+  'totalOrders',
+  'createdAt',
+  'lastPurchaseDate',
+] as const;
 import { canSearchSuppliers } from '../../search/search.permissions';
 import {
   SEARCH_CANDIDATE_LIMIT,
@@ -182,20 +196,16 @@ export class SupplierService extends BaseCrudService<
     }
 
     // Apply sorting
-    const validSortFields = [
-      'companyName', 'type',
-      'totalPurchases', 'totalOrders',
-      'createdAt', 'lastPurchaseDate'
-    ];
+    const sortField = SUPPLIER_SORTABLE_FIELDS.find((field) => field === sortBy) ?? 'companyName';
 
-    if (validSortFields.includes(sortBy)) {
-      queryBuilder.orderBy(`supplier.${sortBy}`, sortOrder);
+    if (sortField === sortBy) {
+      queryBuilder.orderBy(`supplier.${sortField}`, sortOrder);
     } else {
       queryBuilder.orderBy('supplier.companyName', 'ASC');
     }
 
     // Add secondary sort by companyName if not primary sort
-    if (sortBy !== 'companyName') {
+    if (sortField !== 'companyName') {
       queryBuilder.addOrderBy('supplier.companyName', 'ASC');
     }
 
