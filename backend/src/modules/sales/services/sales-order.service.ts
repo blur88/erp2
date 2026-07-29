@@ -295,7 +295,9 @@ export class SalesOrderService extends BaseCrudService<
       .addSelect('similarity(order.orderNumber, :q)', 'sim')
       .leftJoinAndSelect('order.customer', 'customer')
       .where('order.deletedAt IS NULL')
-      // Threshold comes from pg_trgm.similarity_threshold (default 0.3).
+      // Threshold is pg_trgm's similarity limit, default 0.3 — read it with
+      // show_limit(). PostgreSQL 18 removed the pg_trgm.similarity_threshold
+      // GUC name; the limit and its default are unchanged.
       .andWhere('order.orderNumber % :q')
       .orderBy('sim', 'DESC')
       .setParameter('q', trimmed)
