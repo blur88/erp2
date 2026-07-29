@@ -18,6 +18,7 @@ import {
   UserResponseDto,
   PaginatedUsersResponseDto,
   QueryUsersDto,
+  USER_SORTABLE_FIELDS,
 } from './dto';
 
 /**
@@ -154,7 +155,12 @@ export class UsersService {
       // this.applyRoleBasedFiltering(queryBuilder, requestingUser.role);
 
       // Apply sorting
-      queryBuilder.orderBy(`user.${sortBy}`, sortOrder);
+      // Resolve against the allow-list before interpolating: `sortBy` is
+      // undefined whenever the caller passes a plain object rather than a
+      // class-transformer instance, which emitted `ORDER BY user.undefined`
+      // and failed the request outright (issue #961).
+      const sortField = USER_SORTABLE_FIELDS.find((field) => field === sortBy) ?? 'createdAt';
+      queryBuilder.orderBy(`user.${sortField}`, sortOrder);
 
       // Apply pagination
       const shouldPaginate = page !== undefined && limit !== undefined;

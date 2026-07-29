@@ -57,6 +57,44 @@ describe('UsersService', () => {
     });
   });
 
+  describe('findAll sort resolution (#961)', () => {
+    const createSortQb = () => ({
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    });
+
+    const runFindAll = async (query: Record<string, unknown>) => {
+      const qb = createSortQb();
+      jest.spyOn(service as any, 'createQueryBuilder').mockReturnValue(qb);
+      jest.spyOn(userRepository, 'update').mockResolvedValue({ affected: 0 } as any);
+      await service.findAll(query as any);
+      return qb;
+    };
+
+    it('never emits user.undefined when sortBy is absent', async () => {
+      const qb = await runFindAll({});
+
+      const orderByFields = qb.orderBy.mock.calls.map((call: unknown[]) => call[0]);
+      expect(orderByFields).not.toContain('user.undefined');
+      expect(orderByFields).toEqual(['user.createdAt']);
+    });
+
+    it('falls back to createdAt when sortBy is not in the allow-list', async () => {
+      const qb = await runFindAll({ sortBy: 'bogus; DROP TABLE users', sortOrder: 'ASC' });
+
+      expect(qb.orderBy).toHaveBeenCalledWith('user.createdAt', 'ASC');
+    });
+
+    it('passes an allow-listed sortBy through unchanged', async () => {
+      const qb = await runFindAll({ sortBy: 'username', sortOrder: 'ASC' });
+
+      expect(qb.orderBy).toHaveBeenCalledWith('user.username', 'ASC');
+    });
+  });
+
   describe('findAll() lazy lock self-heal (issue #710)', () => {
     const createQueryBuilderMock = () => ({
       andWhere: jest.fn().mockReturnThis(),
