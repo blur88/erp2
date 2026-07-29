@@ -64,6 +64,10 @@ vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: mockShowSuccess, showError: mockShowError }),
 }))
 
+beforeEach(() => {
+  localStorage.removeItem('dateFormat')
+})
+
 const defaultAccounts = [
   { id: 'exp-acc-1', code: '5000', name: 'Office Supplies', type: 'Expense', isActive: true, isPostable: true, balance: '0', children: [] },
   { id: 'exp-acc-2', code: '5010', name: 'Utilities', type: 'Expense', isActive: true, balance: '0', children: [] },
@@ -195,6 +199,9 @@ describe('ExpenseFormPage - Create mode', () => {
     process.env.TZ = 'Asia/Kuala_Lumpur'
     try {
     const user = userEvent.setup()
+    // Pin the regional format: the picker's section order follows it, and the
+    // fixed Month-first keystrokes below are only valid under MM/DD/YYYY.
+    localStorage.setItem('dateFormat', 'MM/DD/YYYY')
     renderCreatePage()
     await user.type(screen.getByLabelText(/description/i), 'Dated expense')
     await user.click(screen.getByRole('combobox', { name: /account/i }))
@@ -261,6 +268,29 @@ describe('ExpenseFormPage - Edit mode', () => {
     })
     expect(screen.getByLabelText(/description/i)).toHaveValue('Office supplies purchase')
     expect(screen.getByLabelText(/payee/i)).toHaveValue('Vendor Corp')
+  })
+
+  describe('regional date format', () => {
+    const cases: [string, string][] = [
+      ['DD/MM/YYYY', '27/07/2026'],
+      ['MM/DD/YYYY', '07/27/2026'],
+      ['YYYY-MM-DD', '2026-07-27'],
+    ]
+
+    cases.forEach(([stored, expected]) => {
+      it(`displays the expense date as ${stored}`, async () => {
+        localStorage.setItem('dateFormat', stored)
+        mockGetExpense.mockReturnValue({
+          data: { ...defaultExpense, expenseDate: '2026-07-27' },
+          isLoading: false,
+          isFetching: false,
+        })
+        renderEditPage()
+        await waitFor(() => {
+          expect(screen.getByRole('group', { name: /expense date/i })).toHaveTextContent(expected)
+        })
+      })
+    })
   })
 
   it('shows expense number as read-only on edit', async () => {
