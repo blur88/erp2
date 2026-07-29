@@ -24,6 +24,7 @@ import * as yup from 'yup'
 import { AppButton } from '@/components/common/AppButton'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import PageHeader from '@/components/common/PageHeader'
+import { useDocumentNumberPreview } from '@/hooks/useDocumentNumberPreview'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCreateExpenseMutation,
@@ -69,6 +70,8 @@ const ExpenseFormPage: React.FC = () => {
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
   const isEdit = !!id
+
+  const expenseNumberPreview = useDocumentNumberPreview('Expenses', !isEdit)
 
   const { data: expense, isLoading: loadingExpense, isError: expenseLoadFailed } = useGetExpenseQuery(id!, { skip: !isEdit })
   const { data: accountTreeData = [], isLoading: loadingAccounts } = useGetAccountTreeQuery({ type: 'Expense', isActive: true })
@@ -287,7 +290,7 @@ const ExpenseFormPage: React.FC = () => {
                       render={() => (
                         <TextField
                           label="Expense No."
-                          value={isEdit ? (expense?.expenseNumber ?? '') : 'Auto-generated'}
+                          value={isEdit ? (expense?.expenseNumber ?? '') : (expenseNumberPreview ?? '')}
                           disabled
                           fullWidth
                           size="small"
