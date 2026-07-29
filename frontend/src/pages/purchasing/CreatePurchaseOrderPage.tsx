@@ -28,6 +28,7 @@ import * as yup from 'yup'
 
 import { AppButton } from '@/components/common/AppButton'
 import { useCurrency } from '@/hooks/useCurrency'
+import { useDocumentNumberPreview } from '@/hooks/useDocumentNumberPreview'
 import { useLineItemKeyNav } from '@/hooks/useLineItemKeyNav'
 import { useNotification } from '@/hooks/useNotification'
 import { useProductSearch } from '@/hooks/useProductSearch'
@@ -38,7 +39,6 @@ import {
   useLazyGetPurchaseOrderByNumberQuery,
   useUpdatePurchaseOrderMutation,
 } from '@/store/api/purchasingApi'
-import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
 import { LINE_ITEM_TABLE_SX } from '@/components/transactions/transactionTableStyles'
 import { formatNum, parseNum } from '@/components/transactions/numberFormat'
 import ShippingField from '@/components/transactions/ShippingField'
@@ -134,9 +134,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
 
   const { data: suppliersResponse } = useGetSuppliersQuery({})
   const suppliers = useMemo(() => suppliersResponse?.data ?? [], [suppliersResponse])
-  const { data: docNumberSettings, isLoading: loadingDocNumbers } =
-    useGetDocumentNumberSettingsQuery()
-
   const [createPurchaseOrder] = useCreatePurchaseOrderMutation()
   const [updatePurchaseOrder] = useUpdatePurchaseOrderMutation()
   const [fetchPurchaseOrderByNumber] = useLazyGetPurchaseOrderByNumberQuery()
@@ -144,17 +141,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const storedFormat = useMemo(() => localStorage.getItem('dateFormat') || 'DD/MM/YYYY', [])
   const pickerFormat = useMemo(() => toMuiDatePickerFormat(storedFormat), [storedFormat])
 
-  const orderNumberPreview = useMemo(() => {
-    if (isEditMode) return null
-    if (loadingDocNumbers) return 'Loading...'
-    const config = docNumberSettings?.configurations?.find(
-      (c: any) => c.documentName === 'Purchase Orders',
-    )
-    if (!config) return 'Auto-generated'
-    const yy = String(new Date().getFullYear() % 100).padStart(2, '0')
-    const seq = String(config.nextNumber).padStart(config.paddingDigits, '0')
-    return `${config.prefix}-${yy}-${seq}`
-  }, [docNumberSettings, isEditMode, loadingDocNumbers])
+  const orderNumberPreview = useDocumentNumberPreview('Purchase Orders', !isEditMode)
 
   const {
     control,
