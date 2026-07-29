@@ -97,7 +97,7 @@ export class UsersController {
   })
   @ApiQuery({ type: QueryUsersDto })
   async findAll(
-    @Query(ValidationPipe) queryDto: QueryUsersDto,
+    @Query() queryDto: QueryUsersDto,
     @CurrentUser('userId') currentUserId: string,
   ): Promise<PaginatedUsersResponseDto> {
     try {

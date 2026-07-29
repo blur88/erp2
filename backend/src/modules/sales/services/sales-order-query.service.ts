@@ -15,6 +15,27 @@ import { SalesOrderPayment } from '../../../database/entities/sales-order-paymen
 import { QuerySalesOrdersDto, SalesOrderResponseDto } from '../dto/sales-order.dto';
 import { mapSalesOrderToResponseDto } from './sales-order.mapper';
 
+/**
+ * Fields the sales-order lists may be ordered by. Scalar columns only —
+ * relation properties (customer, items, payments) are not orderable scalars.
+ * QuerySalesOrdersDto does not constrain sortBy, so this is the only guard
+ * between caller input and the ORDER BY clause.
+ */
+const SALES_ORDER_SORTABLE_FIELDS = [
+  'orderNumber',
+  'orderDate',
+  'status',
+  'paymentStatus',
+  'subtotal',
+  'shippingAmount',
+  'totalAmount',
+  'paidAmount',
+  'balanceDue',
+  'fulfilledAt',
+  'createdAt',
+  'updatedAt',
+] as const;
+
 @Injectable()
 export class SalesOrderQueryService {
   constructor(
@@ -118,14 +139,15 @@ export class SalesOrderQueryService {
     }
 
     const shouldPaginate = page !== undefined && limit !== undefined;
+    const sortField = SALES_ORDER_SORTABLE_FIELDS.find((field) => field === sortBy) ?? 'orderNumber';
     queryBuilder = queryBuilder
-      .orderBy(`order.${sortBy}`, sortOrder as 'ASC' | 'DESC');
+      .orderBy(`order.${sortField}`, sortOrder as 'ASC' | 'DESC');
     applyPagination(queryBuilder, page, limit);
 
     // Deterministic tiebreaker: orders sharing the same primary sort value
     // (e.g. same orderDate) fall back to newest order number first, so a
     // freshly created/duplicated order reliably appears at the top.
-    if (sortBy !== 'orderNumber') {
+    if (sortField !== 'orderNumber') {
       queryBuilder = queryBuilder.addOrderBy('order.orderNumber', 'DESC');
     }
 
@@ -149,10 +171,12 @@ export class SalesOrderQueryService {
       sortOrder = 'ASC',
     } = query;
 
+    const sortField = SALES_ORDER_SORTABLE_FIELDS.find((field) => field === sortBy) ?? 'orderNumber';
+
     const findOptions: any = {
       relations: { customer: true, items: { product: true } },
       where: { deletedAt: IsNull() },
-      order: { [sortBy]: sortOrder },
+      order: { [sortField]: sortOrder },
     };
 
     if (customerId) {

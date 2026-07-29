@@ -32,6 +32,20 @@ import { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { UserRole } from '../../../database/entities/user.entity';
 import { generateBaseSlug } from '../../../common/utils/slug.util';
 
+/**
+ * Fields the supplier list may be ordered by — exactly the set this service
+ * has always accepted. SupplierQueryDto does not constrain sortBy, so anything
+ * outside this list falls back rather than reaching the ORDER BY clause.
+ */
+const SUPPLIER_SORTABLE_FIELDS = [
+  'companyName',
+  'type',
+  'totalPurchases',
+  'totalOrders',
+  'createdAt',
+  'lastPurchaseDate',
+] as const;
+
 @Injectable()
 export class SupplierService extends BaseCrudService<
   Supplier,
@@ -182,20 +196,22 @@ export class SupplierService extends BaseCrudService<
     }
 
     // Apply sorting
-    const validSortFields = [
-      'companyName', 'type',
-      'totalPurchases', 'totalOrders',
-      'createdAt', 'lastPurchaseDate'
-    ];
+    const sortField = SUPPLIER_SORTABLE_FIELDS.find((field) => field === sortBy) ?? 'companyName';
 
-    if (validSortFields.includes(sortBy)) {
-      queryBuilder.orderBy(`supplier.${sortBy}`, sortOrder);
+    // Compare against `sortBy`, NOT against 'companyName'. This distinguishes
+    // "the caller asked for a valid field" (honour sortOrder) from "input was
+    // invalid and resolved to the fallback" (force ASC, long-standing
+    // behavior). Simplifying this to `sortField === 'companyName'` would force
+    // ASC on an explicit ?sortBy=companyName&sortOrder=DESC — a silent
+    // regression covered by the 'honours sortOrder for a valid sortBy' test.
+    if (sortField === sortBy) {
+      queryBuilder.orderBy(`supplier.${sortField}`, sortOrder);
     } else {
       queryBuilder.orderBy('supplier.companyName', 'ASC');
     }
 
     // Add secondary sort by companyName if not primary sort
-    if (sortBy !== 'companyName') {
+    if (sortField !== 'companyName') {
       queryBuilder.addOrderBy('supplier.companyName', 'ASC');
     }
 

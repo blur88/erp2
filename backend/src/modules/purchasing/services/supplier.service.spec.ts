@@ -131,6 +131,65 @@ describe('SupplierService', () => {
     });
   });
 
+  describe('sort resolution', () => {
+    const createSortQb = () => ({
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    });
+
+    it('orders by companyName ASC when sortBy is absent', async () => {
+      const qb = createSortQb();
+      supplierRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({} as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('supplier.companyName', 'ASC');
+      expect(qb.addOrderBy).not.toHaveBeenCalled();
+    });
+
+    it('forces companyName ASC for an invalid sortBy, ignoring the requested order', async () => {
+      const qb = createSortQb();
+      supplierRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({ sortBy: 'bogus', sortOrder: 'DESC' } as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('supplier.companyName', 'ASC');
+    });
+
+    it('does not add a redundant tiebreaker when an invalid sortBy falls back', async () => {
+      const qb = createSortQb();
+      supplierRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({ sortBy: 'bogus', sortOrder: 'DESC' } as any);
+
+      expect(qb.addOrderBy).not.toHaveBeenCalled();
+    });
+
+    it('still adds the companyName tiebreaker for a valid non-companyName sortBy', async () => {
+      const qb = createSortQb();
+      supplierRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({ sortBy: 'totalPurchases', sortOrder: 'DESC' } as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('supplier.totalPurchases', 'DESC');
+      expect(qb.addOrderBy).toHaveBeenCalledWith('supplier.companyName', 'ASC');
+    });
+
+    it('honours sortOrder for a valid sortBy', async () => {
+      const qb = createSortQb();
+      supplierRepository.createQueryBuilder.mockReturnValue(qb as any);
+
+      await service.findAll({ sortBy: 'companyName', sortOrder: 'DESC' } as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('supplier.companyName', 'DESC');
+      expect(qb.addOrderBy).not.toHaveBeenCalled();
+    });
+  });
+
   describe('searchGlobal', () => {
     it('exact supplier name match scores SCORE_EXACT_NAME + BOOST_SUPPLIER + BOOST_EXACT_MATCH', async () => {
       supplierRepository.createQueryBuilder.mockReturnValue({

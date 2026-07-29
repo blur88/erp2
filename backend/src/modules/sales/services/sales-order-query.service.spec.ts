@@ -193,6 +193,24 @@ describe('SalesOrderQueryService', () => {
       expect(qb.addOrderBy).not.toHaveBeenCalled();
     });
 
+    it('falls back to orderNumber for an invalid sortBy', async () => {
+      const { qb } = buildQbMock();
+      salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll({ sortBy: 'bogus', sortOrder: 'DESC' } as any);
+
+      expect(qb.orderBy).toHaveBeenCalledWith('order.orderNumber', 'DESC');
+    });
+
+    it('does not add a redundant tiebreaker when an invalid sortBy falls back', async () => {
+      const { qb } = buildQbMock();
+      salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
+
+      await service.findAll({ sortBy: 'bogus', sortOrder: 'DESC' } as any);
+
+      expect(qb.addOrderBy).not.toHaveBeenCalled();
+    });
+
     it('applies a paymentStatus param independently of READY', async () => {
       const { qb, andWhereCalls } = buildQbMock();
       salesOrderRepository.createQueryBuilder.mockReturnValue(qb);
@@ -298,6 +316,31 @@ describe('SalesOrderQueryService', () => {
           params: { excludePs: SalesOrderPaymentStatus.PAID },
         });
       });
+    });
+  });
+
+  describe('findSummaries sort resolution', () => {
+    const stubSummaryRepo = () => {
+      salesOrderRepository.count = jest.fn().mockResolvedValue(0);
+      salesOrderRepository.find = jest.fn().mockResolvedValue([]);
+    };
+
+    it('falls back to orderNumber for an invalid sortBy', async () => {
+      stubSummaryRepo();
+
+      await service.findSummaries({ sortBy: 'bogus', sortOrder: 'ASC' } as any);
+
+      const findOptions = (salesOrderRepository.find as jest.Mock).mock.calls[0][0];
+      expect(findOptions.order).toEqual({ orderNumber: 'ASC' });
+    });
+
+    it('passes an allow-listed sortBy through unchanged', async () => {
+      stubSummaryRepo();
+
+      await service.findSummaries({ sortBy: 'orderDate', sortOrder: 'ASC' } as any);
+
+      const findOptions = (salesOrderRepository.find as jest.Mock).mock.calls[0][0];
+      expect(findOptions.order).toEqual({ orderDate: 'ASC' });
     });
   });
 
