@@ -12,7 +12,10 @@ services:
 
   backend:
     environment:
-      - DB_SYNCHRONIZE=true
+      # DB_SYNCHRONIZE is deliberately absent. Letting TypeORM reshape the
+      # schema on boot is what left the migrations table empty, which made the
+      # #950 baseline transition destructive (#962). Change entities via
+      # `npm run migration:generate --name=X` instead.
       - LOG_LEVEL=debug
       - DEBUG_MODE=true
       - ENABLE_SWAGGER=true
