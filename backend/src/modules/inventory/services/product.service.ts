@@ -415,7 +415,10 @@ export class ProductService extends BaseCrudService<
       .createQueryBuilder('product')
       .addSelect('GREATEST(similarity(product.name, :q), similarity(product.barcode, :q))', 'sim')
       .where('product.deletedAt IS NULL')
-      .andWhere('(similarity(product.name, :q) > 0.3 OR similarity(product.barcode, :q) > 0.3)')
+      // Threshold is pg_trgm's similarity limit, default 0.3 — read it with
+      // show_limit(). PostgreSQL 18 removed the pg_trgm.similarity_threshold
+      // GUC name; the limit and its default are unchanged.
+      .andWhere('(product.name % :q OR product.barcode % :q)')
       .orderBy('sim', 'DESC')
       .setParameter('q', trimmed)
       .take(SEARCH_CANDIDATE_LIMIT)

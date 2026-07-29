@@ -7,6 +7,9 @@ import { PaymentMethodEntity } from './payment-method.entity';
 @Entity('vendor_payments')
 @Index(['supplierId', 'status'])
 @Index(['paymentDate'])
+// Trigram index for fuzzy search (#960) — see product.entity.ts for why
+// synchronize:false and the `as any` cast are required.
+@Index('idx_vendor_payments_referencenumber_trgm', ['referenceNumber'], { synchronize: false } as any)
 export class VendorPayment extends BaseEntity {
   @Column({ type: 'uuid' })
   supplierId: string;

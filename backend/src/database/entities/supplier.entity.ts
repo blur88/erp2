@@ -30,6 +30,9 @@ export enum SupplierType {
 @Index(['phone'])
 @Index(['type'])
 @Index(['isActive'])
+// Trigram index for fuzzy search (#960) — see product.entity.ts for why
+// synchronize:false and the `as any` cast are required.
+@Index('idx_suppliers_companyname_trgm', ['companyName'], { synchronize: false } as any)
 export class Supplier extends BaseEntity {
   @Column({
     type: 'enum',

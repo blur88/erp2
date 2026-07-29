@@ -26,6 +26,9 @@ export enum SalesOrderPaymentStatus {
 @Index(['orderDate'])
 @Index(['status'])
 @Index(['paymentStatus'])
+// Trigram index for fuzzy search (#960) — see product.entity.ts for why
+// synchronize:false and the `as any` cast are required.
+@Index('idx_sales_orders_ordernumber_trgm', ['orderNumber'], { synchronize: false } as any)
 export class SalesOrder extends BaseEntity {
   @Column({ type: 'varchar', length: 30, unique: true })
   @IsString()

@@ -35,6 +35,14 @@ export enum ProductType {
 @Index(['categoryId'])
 @Index(['type'])
 @Index(['isActive'])
+// Trigram indexes for fuzzy search (#960), created by migration 1785500000000.
+// synchronize:false keeps them in metadata so the schema builder won't drop them;
+// IndexOptions omits the field, but the decorator and IndexMetadata both honour it.
+// Do NOT replace this with @Index({ type: 'GIN' }): TypeORM can express the index
+// type but not the gin_trgm_ops operator class, so it would emit USING gin ("name")
+// and silently stop accelerating the % operator.
+@Index('idx_products_name_trgm', ['name'], { synchronize: false } as any)
+@Index('idx_products_barcode_trgm', ['barcode'], { synchronize: false } as any)
 export class Product extends BaseEntity {
 
   @Column({

@@ -228,7 +228,10 @@ export class CustomerService extends BaseCrudService<
       .createQueryBuilder('customer')
       .addSelect('GREATEST(similarity(customer.name, :q), similarity(customer.phone, :q))', 'sim')
       .where('customer.deletedAt IS NULL')
-      .andWhere('(similarity(customer.name, :q) > 0.3 OR similarity(customer.phone, :q) > 0.3)')
+      // Threshold is pg_trgm's similarity limit, default 0.3 — read it with
+      // show_limit(). PostgreSQL 18 removed the pg_trgm.similarity_threshold
+      // GUC name; the limit and its default are unchanged.
+      .andWhere('(customer.name % :q OR customer.phone % :q)')
       .orderBy('sim', 'DESC')
       .setParameter('q', trimmed)
       .take(SEARCH_CANDIDATE_LIMIT)
