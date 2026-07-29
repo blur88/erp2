@@ -11,10 +11,10 @@
 #   re-run with ALLOWLIST=trigram.
 set -euo pipefail
 
-# Credentials come from backend/.env (gitignored) or the caller's
+# Credentials come from backend/.env.local (gitignored) or the caller's
 # environment. Never hardcode them here: this file IS committed, and
 # .gitignore:17 marks committing real credentials as critical.
-ENV_FILE="${ENV_FILE:-.env}"
+ENV_FILE="${ENV_FILE:-.env.local}"
 if [ -f "$ENV_FILE" ]; then
   set -a
   # shellcheck disable=SC1090
@@ -27,7 +27,7 @@ export DB_PORT="${DB_PORT:-5432}"
 export DB_USERNAME="${DB_USERNAME:-erp_user}"
 
 if [ -z "${DB_PASSWORD:-}" ]; then
-  echo "DB_PASSWORD is not set. Provide it via backend/.env or the environment." >&2
+  echo "DB_PASSWORD is not set. Provide it via backend/.env.local or the environment." >&2
   exit 2
 fi
 export DB_PASSWORD

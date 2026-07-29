@@ -8,9 +8,9 @@ set -euo pipefail
 
 # psql runs inside the postgres container via docker compose exec, so no
 # password is needed here — and none is hardcoded. The role comes from the
-# configured DB_USERNAME (backend/.env or the environment) so any deployment
-# not using the erp_user default can still run this gate.
-ENV_FILE="${ENV_FILE:-.env}"
+# configured DB_USERNAME (backend/.env.local or the environment) so any
+# deployment not using the erp_user default can still run this gate.
+ENV_FILE="${ENV_FILE:-.env.local}"
 if [ -f "$ENV_FILE" ]; then
   set -a
   # shellcheck disable=SC1090

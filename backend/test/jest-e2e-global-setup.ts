@@ -11,6 +11,15 @@ export default async function globalSetup() {
     process.env;
 
   // Connect to default 'postgres' maintenance DB to create erp_db_test
+  // Same guard as globalTeardown: DB_DATABASE resolves to the live erp_db if
+  // backend/.env wins the dotenv race, and this function drops it outright.
+  if (!DB_DATABASE || !DB_DATABASE.endsWith("_test")) {
+    throw new Error(
+      `Refusing to drop database "${DB_DATABASE}": e2e setup only drops ` +
+        `databases whose name ends in "_test". Check backend/.env.test.`,
+    );
+  }
+
   const client = new Client({
     host: DB_HOST || "localhost",
     port: parseInt(DB_PORT || "5432", 10),
