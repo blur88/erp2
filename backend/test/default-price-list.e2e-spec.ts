@@ -365,8 +365,24 @@ describe("Default price list (e2e)", () => {
 
       // Both must SUCCEED. Asserting only "one default remains" would pass even
       // if the loser died on a unique-constraint violation — the two-success
-      // assertion is what proves the advisory lock serialises the transfers
-      // rather than the index rejecting one of them.
+      // assertion is what proves the transfers serialise rather than the index
+      // rejecting one of them.
+      //
+      // KNOWN LIMITATION: this test does NOT fail if acquireLock is removed from
+      // assignDefault. The transfers really do overlap (instrumented: both start
+      // before either ends, on a 10-connection pool), but assignDefault ends with
+      // manager.save(entity), which emits `UPDATE ... WHERE id = ...`; under
+      // READ COMMITTED the second transaction blocks on the row lock the first
+      // already holds and re-reads after it commits. Postgres row locking
+      // serialises this particular write shape on its own.
+      //
+      // The advisory lock is still load-bearing — a variant writing via
+      // `update({ id }, ...)` instead of `save(entity)` fails BOTH transfers with
+      // "duplicate key value violates unique constraint
+      // UQ_price_lists_single_default". So do not conclude from a green run here
+      // that the lock is removable; it guards write shapes this test does not
+      // exercise, and the read-then-guard races in
+      // PriceListsService.update/remove that row locking cannot cover at all.
       const results = await Promise.allSettled([
         service.setDefault(a.id),
         service.setDefault(b.id),

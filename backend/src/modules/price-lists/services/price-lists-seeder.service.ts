@@ -8,6 +8,8 @@ export const DEFAULT_PRICE_LIST_CODE = 'DEFAULT';
 export const DEFAULT_PRICE_LIST_NAME = 'Default Price List';
 export const DEFAULT_PRICE_LIST_DESCRIPTION = 'Standard price list for regular sales';
 
+// Data-access surface. Production adapter wraps a TypeORM EntityManager; the
+// unit test supplies a fake with the same methods.
 export interface PriceListsSeederManager {
   acquireLock(key: number): Promise<void>;
   findActiveDefault(): Promise<PriceList | null>;
@@ -22,12 +24,31 @@ export interface PriceListsSeederDb {
   transaction(body: (m: PriceListsSeederManager) => Promise<void>): Promise<void>;
 }
 
+/**
+ * Guarantees AT LEAST ONE ACTIVE default price list (#968).
+ *
+ * Without this, a fresh installation has no price list at all: the user cannot
+ * enter a selling price on a product (the Create Product form renders one price
+ * field per active price list) and GET /price-lists/default returns 404.
+ *
+ * Runs on every boot, so a database that later loses its active default
+ * self-heals. Branch 1 of runCore makes repeat boots a no-op.
+ *
+ * The partial unique index added by
+ * AddSingleDefaultPriceListConstraint1785600000000 guarantees AT MOST ONE.
+ * Together: exactly one.
+ */
 @Injectable()
 export class PriceListsSeederService implements OnModuleInit {
   private readonly logger = new Logger(PriceListsSeederService.name);
 
   constructor(
     @InjectDataSource() private readonly source: DataSource | PriceListsSeederDb,
+    // Optional so the unit test can construct this with only a fake db; the
+    // fake manager supplies its own assignDefault and never reaches the real
+    // one. In the app it is always provided (price-lists.module.ts), so the `!`
+    // in the adapter is safe — but note this defers a missing registration from
+    // a startup DI error to a runtime TypeError on first boot.
     private readonly defaults?: PriceListDefaultService,
   ) {}
 
@@ -38,6 +59,7 @@ export class PriceListsSeederService implements OnModuleInit {
   async seed(): Promise<void> {
     try {
       await this.runInTransaction(async (m) => {
+        // Serialise concurrent boots (multiple replicas) so only one writes.
         await m.acquireLock(PRICE_LIST_LOCK_KEY);
         await this.runCore(m);
       });
@@ -68,13 +90,29 @@ export class PriceListsSeederService implements OnModuleInit {
         em.findOne(PriceList, {
           where: { isDefault: true, isActive: true, deletedAt: IsNull() },
         }),
+      // Deterministic: oldest createdAt, then lowest id as a stable tie-breaker.
       findOldestActive: () =>
         em.findOne(PriceList, {
           where: { isActive: true, deletedAt: IsNull() },
           order: { createdAt: 'ASC', id: 'ASC' } as any,
         }),
+      // withDeleted: a soft-deleted row still occupies the unique code (the
+      // constraint on `code` is unconditional, unlike the partial index on
+      // isDefault), so treating it as absent would make the insert fail.
       findByCodeWithDeleted: () =>
         em.findOne(PriceList, { where: { code: DEFAULT_PRICE_LIST_CODE }, withDeleted: true } as any),
+      // Clears isDefault as well as deletedAt, and sets isActive. A
+      // soft-deleted row may carry a STALE isDefault = true: it sat outside the
+      // partial index precisely because it was deleted. Clearing deletedAt alone
+      // would drag that stale flag back into the governed set, and if any other
+      // live row is already default the UPDATE violates
+      // UQ_price_lists_single_default before assignDefault ever runs. Reachable
+      // whenever an INACTIVE live default exists (branch 1 passes it over,
+      // branch 2 finds no active list) at the same time as a soft-deleted
+      // DEFAULT-coded row.
+      //
+      // Demoting here is safe: assignDefault promotes this exact row two lines
+      // later, so the row ends up default either way.
       reactivate: async (id) => {
         await em.update(PriceList, id, {
           isActive: true,
@@ -89,10 +127,14 @@ export class PriceListsSeederService implements OnModuleInit {
   }
 
   private async runCore(m: PriceListsSeederManager): Promise<void> {
+    // Branch 1: already correct. Return before any write.
     if (await m.findActiveDefault()) {
       return;
     }
 
+    // Branch 2: usable lists exist — promote rather than create. An inactive,
+    // non-deleted default is demoted by assignDefault's unset step. A
+    // soft-deleted one is not: it sits outside the governed set.
     const oldest = await m.findOldestActive();
     if (oldest) {
       await m.assignDefault(oldest.id);
@@ -102,6 +144,10 @@ export class PriceListsSeederService implements OnModuleInit {
       return;
     }
 
+    // Branch 3a: the DEFAULT code is taken (possibly by a soft-deleted row).
+    // Restore it rather than inserting, which is non-destructive and avoids the
+    // unique-code collision. Reachable only when no active list exists, so this
+    // can never resurrect a deleted list while a usable one is present.
     const squatter = await m.findByCodeWithDeleted(DEFAULT_PRICE_LIST_CODE);
     if (squatter) {
       await m.reactivate(squatter.id);
@@ -112,6 +158,11 @@ export class PriceListsSeederService implements OnModuleInit {
       return;
     }
 
+    // Branch 3b: nothing usable. Create the canonical row.
+    //
+    // isDefault is deliberately absent: promotion goes through assignDefault so
+    // the invariant has exactly one implementation. No price items are created —
+    // the user enters each product's price on the Create Product form.
     const created = await m.insertPriceList({
       code: DEFAULT_PRICE_LIST_CODE,
       name: DEFAULT_PRICE_LIST_NAME,
