@@ -4,6 +4,7 @@ import {
   IsString,
   IsEnum,
   IsOptional,
+  ValidateIf,
   MinLength,
   MaxLength,
   Matches,
@@ -98,6 +99,7 @@ export class CreateUserDto {
     enum: UserRole,
     example: UserRole.SALES_STAFF,
   })
+  @ValidateIf((_object, value) => value !== undefined)
   @IsEnum(UserRole, { message: 'Please provide a valid user role' })
   role: UserRole;
 
