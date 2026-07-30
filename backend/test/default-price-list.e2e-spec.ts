@@ -358,6 +358,115 @@ describe("Default price list (e2e)", () => {
     });
   });
 
+  describe("seeder branch 2: promote the oldest active list", () => {
+    it("promotes the OLDEST active list, not merely any active list", async () => {
+      // Guards the deterministic tie-break rule (active > oldest createdAt >
+      // lowest id). The unit test cannot cover this: its fake manager returns a
+      // canned findOldestActive result and never sorts, so the ordering lives
+      // entirely in the adapter's SQL and only an integration test can verify
+      // it. Reversing `order` in findOldestActive must fail THIS test.
+      const seeder = app.get(PriceListsSeederService);
+
+      // Demote (do not soft-delete) the boot default, so branch 1 falls through
+      // while afterEach's setDefault(originalDefaultId) still has a live target.
+      await dataSource.query(
+        `UPDATE price_lists SET "isDefault" = false WHERE id = $1`,
+        [originalDefaultId],
+      );
+
+      // Deliberately inserted newest-first, so insertion order cannot be
+      // mistaken for the thing under test. The boot default (created before all
+      // three) is deactivated below, leaving E2E-DEF-C the oldest ACTIVE row.
+      const mk = async (code: string, createdAt: string) => {
+        const [row] = await dataSource.query(
+          `INSERT INTO price_lists (code, name, "isDefault", "isActive", priority, "createdAt")
+           VALUES ($1, $2, false, true, 0, $3) RETURNING id`,
+          [code, code, createdAt],
+        );
+        return row.id as string;
+      };
+      const newest = await mk("E2E-DEF-A", "2024-03-01T00:00:00Z");
+      const middle = await mk("E2E-DEF-B", "2024-02-01T00:00:00Z");
+      const oldest = await mk("E2E-DEF-C", "2024-01-01T00:00:00Z");
+
+      // The boot default predates all three; deactivating it keeps it out of
+      // findOldestActive's candidate set without soft-deleting it.
+      await dataSource.query(
+        `UPDATE price_lists SET "isActive" = false WHERE id = $1`,
+        [originalDefaultId],
+      );
+
+      try {
+        await seeder.seed();
+
+        const rows = await dataSource.query(
+          `SELECT id, "isDefault" FROM price_lists WHERE id = ANY($1)`,
+          [[newest, middle, oldest]],
+        );
+        const promoted = rows.filter((r: any) => r.isDefault).map((r: any) => r.id);
+
+        expect(promoted).toEqual([oldest]);
+        expect(await countLiveDefaults()).toBe(1);
+      } finally {
+        // Reactivate the boot default so afterEach can transfer back to it.
+        await dataSource.query(
+          `UPDATE price_lists SET "isActive" = true WHERE id = $1`,
+          [originalDefaultId],
+        );
+      }
+    });
+
+    it("breaks a createdAt tie on the lowest id", async () => {
+      // The second clause of the tie-break rule. Covered separately because the
+      // test above cannot reach it: with distinct createdAt values the `id: ASC`
+      // term never decides anything, so dropping it leaves that test green.
+      const seeder = app.get(PriceListsSeederService);
+
+      await dataSource.query(
+        `UPDATE price_lists SET "isDefault" = false WHERE id = $1`,
+        [originalDefaultId],
+      );
+
+      // Identical createdAt on both rows, so ONLY the id ordering can decide.
+      const tie = "2024-05-01T00:00:00Z";
+      const ids: string[] = [];
+      for (const code of ["E2E-DEF-A", "E2E-DEF-B"]) {
+        const [row] = await dataSource.query(
+          `INSERT INTO price_lists (code, name, "isDefault", "isActive", priority, "createdAt")
+           VALUES ($1, $1, false, true, 0, $2) RETURNING id`,
+          [code, tie],
+        );
+        ids.push(row.id);
+      }
+      // uuid_generate_v4 gives no ordering guarantee, so derive the expected
+      // winner from the ids actually generated rather than assuming insert order.
+      const lowest = [...ids].sort()[0];
+
+      await dataSource.query(
+        `UPDATE price_lists SET "isActive" = false WHERE id = $1`,
+        [originalDefaultId],
+      );
+
+      try {
+        await seeder.seed();
+
+        const rows = await dataSource.query(
+          `SELECT id, "isDefault" FROM price_lists WHERE id = ANY($1)`,
+          [ids],
+        );
+        const promoted = rows.filter((r: any) => r.isDefault).map((r: any) => r.id);
+
+        expect(promoted).toEqual([lowest]);
+        expect(await countLiveDefaults()).toBe(1);
+      } finally {
+        await dataSource.query(
+          `UPDATE price_lists SET "isActive" = true WHERE id = $1`,
+          [originalDefaultId],
+        );
+      }
+    });
+  });
+
   describe("concurrency", () => {
     it("serialises competing transfers instead of failing one on the constraint", async () => {
       const a = await makeList("E2E-DEF-B");
