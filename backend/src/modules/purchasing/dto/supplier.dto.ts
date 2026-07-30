@@ -12,6 +12,7 @@ import {
   Min,
   IsDateString,
   IsUUID,
+  ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
@@ -21,6 +22,7 @@ import { BaseQueryDto } from '../../../common/dto/base-query.dto';
 
 export class CreateSupplierDto extends BaseContactDto {
   @ApiProperty({ description: 'Supplier type', enum: SupplierType })
+  @ValidateIf((_object, value) => value !== undefined)
   @IsEnum(SupplierType)
   type!: SupplierType;
 
