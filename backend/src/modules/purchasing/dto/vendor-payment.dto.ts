@@ -7,7 +7,6 @@ import {
   IsIn,
   Min,
   MaxLength,
-  ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -22,7 +21,6 @@ export class CreateVendorPaymentDto {
   purchaseOrderId?: string;
 
   @ApiProperty({ description: 'Payment amount', example: 1000.0 })
-  @ValidateIf((_object, value) => value !== undefined)
   @IsNumber()
   @Min(0)
   amount: number;

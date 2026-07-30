@@ -2,7 +2,10 @@ import { IsOptional, IsString, IsUUID, IsObject } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateAuditLogDto {
-  @ApiProperty({ description: 'User ID performing the action', example: 'system' })
+  @ApiPropertyOptional({
+    description: "User ID performing the action (defaults to 'system' if omitted)",
+    example: 'system',
+  })
   @IsOptional()
   @IsString()
   userId?: string;
