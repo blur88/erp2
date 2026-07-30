@@ -3,8 +3,9 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateAuditLogDto {
   @ApiProperty({ description: 'User ID performing the action', example: 'system' })
+  @IsOptional()
   @IsString()
-  userId: string;
+  userId?: string;
 
   @ApiPropertyOptional({ description: 'Username for display', example: 'admin' })
   @IsOptional()
