@@ -209,18 +209,13 @@ describe("Authentication (e2e)", () => {
       expect(user.lastLoginAt).toBeDefined();
     });
 
-    // Known gap (#973): the global pipe runs with skipMissingProperties: true, so
-    // an omitted `password` bypasses @IsNotEmpty entirely and the request reaches
-    // the auth service, which rejects it as bad credentials. 401 is the behavior
-    // observed today, NOT the intended API contract — a missing required field
-    // should be a 400. When #973 is resolved, this expectation becomes 400.
-    it("returns 401 when password is omitted (see #973)", async () => {
+    it("returns 400 when password is omitted", async () => {
       const response = await request(app.getHttpServer())
         .post("/auth/login")
         .send({})
-        .expect(401);
+        .expect(400);
 
-      expect(response.body.message).toContain("Invalid credentials");
+      expect(response.body.message).toContain("Validation failed");
     });
   });
 

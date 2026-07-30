@@ -1,9 +1,10 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail,
   IsString,
   IsEnum,
   IsOptional,
+  ValidateIf,
   MinLength,
   MaxLength,
   Matches,
@@ -93,13 +94,14 @@ export class CreateUserDto {
   @IsPhoneNumber(undefined, { message: 'Please provide a valid phone number' })
   phoneNumber?: string;
 
-  @ApiProperty({
-    description: 'User role for access control',
+  @ApiPropertyOptional({
+    description: 'User role for access control (defaults to sales staff if omitted)',
     enum: UserRole,
     example: UserRole.SALES_STAFF,
   })
+  @ValidateIf((_object, value) => value !== undefined)
   @IsEnum(UserRole, { message: 'Please provide a valid user role' })
-  role: UserRole;
+  role?: UserRole;
 
   @ApiProperty({
     description: 'Additional notes or description (optional)',

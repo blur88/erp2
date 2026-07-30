@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsEmail, IsNotEmpty, MinLength, MaxLength, Matches, IsEnum } from 'class-validator';
+import { IsString, IsEmail, IsNotEmpty, MinLength, MaxLength, Matches, IsEnum, ValidateIf } from 'class-validator';
 import { UserRole } from '@/database/entities/user.entity';
 
 export class RegisterDto {
@@ -70,7 +70,9 @@ export class RegisterDto {
     description: 'User role',
     enum: UserRole,
     example: UserRole.SALES_STAFF,
+    required: false,
   })
+  @ValidateIf((_object, value) => value !== undefined)
   @IsEnum(UserRole, { message: 'Invalid user role' })
-  role: UserRole;
+  role?: UserRole;
 }
