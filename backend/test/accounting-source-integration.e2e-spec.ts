@@ -11,6 +11,7 @@ import { TrialBalanceService } from '../src/modules/accounting/services/trial-ba
 import { GeneralLedgerService } from '../src/modules/accounting/services/general-ledger.service';
 import { AccountingSourceType } from '../src/modules/accounting/entities/source-type.enum';
 import { PostingType } from '../src/modules/accounting/entities/posting-type.enum';
+import { configureTestAppValidation } from './utils/configure-test-app-validation';
 
 const PO_ID = '00000000-0000-0000-0000-000000000010';
 const ADJ_ID = '00000000-0000-0000-0000-000000000020';
@@ -63,6 +64,7 @@ describe('Accounting Source Integration (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureTestAppValidation(app);
     await app.init();
     ds = moduleFixture.get(DataSource);
     posting = moduleFixture.get(ACCOUNTING_POSTING_PORT);
