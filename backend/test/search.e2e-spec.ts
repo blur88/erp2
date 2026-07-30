@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { INestApplication, ValidationPipe } from "@nestjs/common";
+import { INestApplication } from "@nestjs/common";
 import request from "supertest";
+import { configureTestAppValidation } from "./utils/configure-test-app-validation";
 import { DataSource, Repository } from "typeorm";
 import * as bcrypt from "bcrypt";
 import { AppModule } from "../src/app.module";
@@ -23,7 +24,7 @@ describe("GET /search/global - role-based filtering (e2e)", () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+    configureTestAppValidation(app);
     await app.init();
 
     dataSource = moduleFixture.get(DataSource);

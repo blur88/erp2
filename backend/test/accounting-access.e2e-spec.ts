@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { configureTestAppValidation } from './utils/configure-test-app-validation';
 import * as bcrypt from 'bcrypt';
 import { DataSource, Repository } from 'typeorm';
 import { AppModule } from '../src/app.module';
@@ -73,14 +74,7 @@ describe('Accounting access (e2e)', () => {
       imports: [AppModule],
     }).compile();
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({
-        transform: true,
-        whitelist: true,
-        forbidNonWhitelisted: false,
-        skipMissingProperties: true,
-      }),
-    );
+    configureTestAppValidation(app);
     await app.init();
     ds = moduleFixture.get(DataSource);
     users = ds.getRepository(User);
