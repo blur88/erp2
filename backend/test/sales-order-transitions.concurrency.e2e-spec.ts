@@ -2,6 +2,8 @@ import { INestApplication } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
 import { DataSource } from "typeorm";
 
+import { configureTestAppValidation } from "./utils/configure-test-app-validation";
+
 import { AppModule } from "../src/app.module";
 import { Category } from "../src/database/entities/category.entity";
 import {
@@ -48,6 +50,7 @@ describe("Sales order transition concurrency (e2e)", () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureTestAppValidation(app);
     await app.init();
 
     dataSource = app.get(DataSource);
