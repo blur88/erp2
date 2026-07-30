@@ -1,10 +1,11 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import { RegionalSettings } from '../../src/database/entities/regional-settings.entity';
 import { truncateAll, seedAdmin } from './helpers/seed';
+import { configureTestAppValidation } from '../utils/configure-test-app-validation';
 
 let app: INestApplication;
 let dataSource: DataSource;
@@ -16,7 +17,7 @@ let createdRegional: RegionalSettings | null = null;
 beforeAll(async () => {
   const moduleFixture = await Test.createTestingModule({ imports: [AppModule] }).compile();
   app = moduleFixture.createNestApplication();
-  app.useGlobalPipes(new ValidationPipe({ transform: true }));
+  configureTestAppValidation(app);
   await app.init();
   dataSource = app.get(DataSource);
 

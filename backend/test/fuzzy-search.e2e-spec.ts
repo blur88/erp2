@@ -8,6 +8,7 @@ import { CustomerService } from "../src/modules/sales/services/customer.service"
 import { SupplierService } from "../src/modules/purchasing/services/supplier.service";
 import { SalesOrderService } from "../src/modules/sales/services/sales-order.service";
 import { PurchaseOrderService } from "../src/modules/purchasing/services/purchase-order.service";
+import { configureTestAppValidation } from "./utils/configure-test-app-validation";
 
 describe("fuzzy search fallback (e2e)", () => {
   let app: INestApplication;
@@ -30,6 +31,7 @@ describe("fuzzy search fallback (e2e)", () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureTestAppValidation(app);
     await app.init();
 
     dataSource = moduleFixture.get(DataSource);

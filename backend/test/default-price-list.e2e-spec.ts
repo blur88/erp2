@@ -10,6 +10,7 @@ import {
   PriceListsSeederService,
 } from "../src/modules/price-lists/services/price-lists-seeder.service";
 import { AddSingleDefaultPriceListConstraint1785600000000 } from "../src/database/migrations/1785600000000-AddSingleDefaultPriceListConstraint";
+import { configureTestAppValidation } from "./utils/configure-test-app-validation";
 
 describe("Default price list (e2e)", () => {
   let app: INestApplication;
@@ -45,6 +46,7 @@ describe("Default price list (e2e)", () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureTestAppValidation(app);
     await app.init();
 
     dataSource = app.get(DataSource);

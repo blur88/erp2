@@ -4,6 +4,8 @@ import { DataSource } from "typeorm";
 import { AppModule } from "../src/app.module";
 import { Product } from "../src/database/entities/product.entity";
 
+import { configureTestAppValidation } from "./utils/configure-test-app-validation";
+
 describe("trigram % operator compiles correctly (e2e)", () => {
   let app: INestApplication;
   let dataSource: DataSource;
@@ -14,6 +16,7 @@ describe("trigram % operator compiles correctly (e2e)", () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureTestAppValidation(app);
     await app.init();
     dataSource = moduleFixture.get(DataSource);
   });

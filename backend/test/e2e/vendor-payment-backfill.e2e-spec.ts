@@ -2,6 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+
+import { configureTestAppValidation } from '../utils/configure-test-app-validation';
 import { BackfillVendorPaymentReferenceNumber1785300000000 } from '../../src/database/migrations/1785300000000-BackfillVendorPaymentReferenceNumber';
 
 let app: INestApplication;
@@ -34,6 +36,7 @@ async function readPayment(id: string) {
 beforeAll(async () => {
   const moduleFixture = await Test.createTestingModule({ imports: [AppModule] }).compile();
   app = moduleFixture.createNestApplication();
+  configureTestAppValidation(app);
   await app.init();
   dataSource = app.get(DataSource);
 

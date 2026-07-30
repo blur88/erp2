@@ -16,6 +16,7 @@ import { AccountingSourceType } from '../src/modules/accounting/entities/source-
 import { PostingType } from '../src/modules/accounting/entities/posting-type.enum';
 import { AccountType } from '../src/modules/accounting/entities/account-type.enum';
 import { CreateExpenseDto, PayExpenseDto, RefundExpenseDto, UpdateExpenseDto } from '../src/modules/accounting/dto/create-expense.dto';
+import { configureTestAppValidation } from './utils/configure-test-app-validation';
 
 async function seedAccounting(ds: DataSource) {
   const coa = ds.getRepository(ChartOfAccount);
@@ -126,6 +127,7 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureTestAppValidation(app);
     await app.init();
     ds = moduleFixture.get(DataSource);
     expenseService = moduleFixture.get(ExpenseService);

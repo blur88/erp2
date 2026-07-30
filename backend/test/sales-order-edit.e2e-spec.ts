@@ -18,6 +18,7 @@ import {
 import { SalesOrderPaymentService } from "../src/modules/sales/services/sales-order-payment.service";
 import { SalesOrderService } from "../src/modules/sales/services/sales-order.service";
 import { seedCategory, seedProduct, truncateAll } from "./e2e/helpers/seed";
+import { configureTestAppValidation } from "./utils/configure-test-app-validation";
 
 describe("Sales order edit transaction (e2e)", () => {
   let app: INestApplication;
@@ -30,6 +31,7 @@ describe("Sales order edit transaction (e2e)", () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureTestAppValidation(app);
     await app.init();
 
     dataSource = app.get(DataSource);

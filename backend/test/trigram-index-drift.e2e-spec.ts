@@ -3,6 +3,8 @@ import { INestApplication } from "@nestjs/common";
 import { DataSource } from "typeorm";
 import { AppModule } from "../src/app.module";
 
+import { configureTestAppValidation } from "./utils/configure-test-app-validation";
+
 const TRIGRAM_INDEXES = [
   "idx_products_name_trgm",
   "idx_products_barcode_trgm",
@@ -24,6 +26,7 @@ describe("trigram indexes produce no schema drift (e2e)", () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureTestAppValidation(app);
     await app.init();
     dataSource = moduleFixture.get(DataSource);
   });

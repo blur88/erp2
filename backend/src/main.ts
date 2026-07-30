@@ -1,12 +1,12 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger, BadRequestException } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { SecurityApplicationService, SecurityMonitoringMiddleware } from './common/security';
-import { extractValidationMessages } from './common/utils/validation-errors.util';
+import { createGlobalValidationPipe } from './common/validation/global-validation-pipe';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -29,25 +29,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // Enhanced Global Validation Pipe with Security Features
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true, // Remove non-whitelisted properties
-      forbidNonWhitelisted: false, // Allow unknown query parameters (changed from true)
-      skipMissingProperties: true, // Allow optional properties to be missing
-      skipNullProperties: false,
-      skipUndefinedProperties: false,
-      disableErrorMessages: false, // Always show detailed validation errors for debugging
-      validationError: {
-        target: false, // Don't expose the target object in error messages
-        value: false, // Don't expose the invalid value in error messages
-      },
-      exceptionFactory: (errors) => {
-        const messages = extractValidationMessages(errors);
-        return new BadRequestException(`Validation failed: ${messages.join(', ')}`);
-      },
-    }),
-  );
+  app.useGlobalPipes(createGlobalValidationPipe());
 
 
   // Swagger documentation setup
