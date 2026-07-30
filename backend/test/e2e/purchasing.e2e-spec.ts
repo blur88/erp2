@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { INestApplication, ValidationPipe } from "@nestjs/common";
+import { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { DataSource, Repository } from "typeorm";
 import { getRepositoryToken } from "@nestjs/typeorm";
@@ -12,6 +12,7 @@ import {
   seedPaymentMethod,
   seedDocumentNumberSettings,
 } from "./helpers/seed";
+import { configureTestAppValidation } from "../utils/configure-test-app-validation";
 
 describe("Purchasing (e2e)", () => {
   let app: INestApplication;
@@ -29,7 +30,7 @@ describe("Purchasing (e2e)", () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ transform: true }));
+    configureTestAppValidation(app);
     await app.init();
 
     dataSource = app.get(DataSource);

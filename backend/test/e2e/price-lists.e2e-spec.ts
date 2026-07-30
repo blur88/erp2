@@ -1,6 +1,6 @@
 import { Module, Global } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
-import { INestApplication, ValidationPipe } from "@nestjs/common";
+import { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { getRepositoryToken, TypeOrmModule } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
@@ -10,6 +10,7 @@ import { PriceListItem } from "../../src/database/entities/price-list-item.entit
 import { Product } from "../../src/database/entities/product.entity";
 import { SettingsService } from "../../src/modules/settings/settings.service";
 import { SettingsModule } from "../../src/modules/settings/settings.module";
+import { configureTestAppValidation } from "../utils/configure-test-app-validation";
 
 @Module({
   providers: [{ provide: SettingsService, useValue: { getRegionalSettings: async () => ({ timezone: 'Asia/Kuala_Lumpur' }) } }],
@@ -132,7 +133,7 @@ describe("PriceListsController (e2e)", () => {
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix("api");
-    app.useGlobalPipes(new ValidationPipe({ transform: true }));
+    configureTestAppValidation(app);
     await app.init();
   });
 
