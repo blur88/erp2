@@ -311,10 +311,11 @@ export class BulkStockAdjustmentItemDto {
   @Min(0)
   newQuantity: number;
 
-  @ApiProperty({ description: 'Old quantity before adjustment' })
+  @ApiPropertyOptional({ description: 'Old quantity before adjustment (service uses current stock if omitted)' })
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
-  oldQuantity: number;
+  oldQuantity?: number;
 
   @ApiProperty({ description: 'Difference (newQuantity - oldQuantity)' })
   @IsNumber({ maxDecimalPlaces: 4 })
@@ -322,10 +323,11 @@ export class BulkStockAdjustmentItemDto {
 }
 
 export class CreateBulkStockAdjustmentDto {
-  @ApiProperty({ description: 'Adjustment date' })
+  @ApiPropertyOptional({ description: 'Adjustment date (defaults to now if omitted)' })
+  @IsOptional()
   @Transform(({ value }) => value ? new Date(value) : new Date())
   @IsDate()
-  adjustmentDate: Date;
+  adjustmentDate?: Date;
 
   @ApiPropertyOptional({ description: 'Additional notes' })
   @IsOptional()
