@@ -5,7 +5,9 @@ import {
   BadRequestException,
   ConflictException,
 } from "@nestjs/common";
+import { DataSource, IsNull } from "typeorm";
 import { PriceListsService } from "../../src/modules/price-lists/services/price-lists.service";
+import { PriceListDefaultService } from "../../src/modules/price-lists/services/price-list-default.service";
 import { PriceList } from "../../src/database/entities/price-list.entity";
 import { PriceListItem } from "../../src/database/entities/price-list-item.entity";
 import { Product } from "../../src/database/entities/product.entity";
@@ -112,6 +114,25 @@ describe("PriceListsService", () => {
         {
           provide: SettingsService,
           useValue: { getRegionalSettings: jest.fn().mockResolvedValue({ timezone: 'Asia/Kuala_Lumpur' }) },
+        },
+        PriceListDefaultService,
+        {
+          provide: DataSource,
+          useValue: {
+            transaction: jest.fn(async (cb: any) =>
+              cb({
+                query: jest.fn(),
+                findOne: (...args: any[]) => mockPriceListRepository.findOne(args[1]),
+                create: (_entityClass: any, plain: any) => plain,
+                save: (_entityClass: any, entity: any) =>
+                  mockPriceListRepository.save(entity),
+                update: (_entityClass: any, criteria: any, data: any) =>
+                  mockPriceListRepository.update(criteria, data),
+                softDelete: (_entityClass: any, criteria: any) =>
+                  mockPriceListRepository.softDelete(criteria),
+              }),
+            ),
+          },
         },
       ],
     }).compile();
@@ -246,7 +267,16 @@ describe("PriceListsService", () => {
 
     it("should set existing default to false when creating new default", async () => {
       const defaultDto = { ...createDto, isDefault: true };
-      mockPriceListRepository.findOne.mockResolvedValue(null);
+      // Sequence: 1) code-duplicate check → null, 2) assignDefault findById → created row
+      mockPriceListRepository.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          id: "new-id",
+          isActive: true,
+          isDefault: false,
+          name: defaultDto.name,
+          code: defaultDto.code,
+        });
       mockPriceListRepository.create.mockReturnValue(defaultDto);
       mockPriceListRepository.save.mockResolvedValue({
         ...defaultDto,
@@ -257,7 +287,7 @@ describe("PriceListsService", () => {
       await service.create(defaultDto);
 
       expect(mockPriceListRepository.update).toHaveBeenCalledWith(
-        { isDefault: true },
+        { isDefault: true, deletedAt: IsNull() },
         { isDefault: false },
       );
     });
@@ -315,10 +345,11 @@ describe("PriceListsService", () => {
 
   describe("setDefault", () => {
     it("should set a price list as default", async () => {
-      mockPriceListRepository.findOne.mockResolvedValue(mockPriceList);
+      const nonDefaultList = { ...mockPriceList, isDefault: false };
+      mockPriceListRepository.findOne.mockResolvedValue(nonDefaultList);
       mockPriceListRepository.update.mockResolvedValue({ affected: 1 });
       mockPriceListRepository.save.mockResolvedValue({
-        ...mockPriceList,
+        ...nonDefaultList,
         isDefault: true,
       });
 
@@ -326,7 +357,7 @@ describe("PriceListsService", () => {
 
       expect(result.isDefault).toBe(true);
       expect(mockPriceListRepository.update).toHaveBeenCalledWith(
-        { isDefault: true },
+        { isDefault: true, deletedAt: IsNull() },
         { isDefault: false },
       );
     });

@@ -1,8 +1,9 @@
-import { Module } from "@nestjs/common";
+import { Module, Global } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
 import { INestApplication, ValidationPipe } from "@nestjs/common";
 import request from "supertest";
-import { getRepositoryToken } from "@nestjs/typeorm";
+import { getRepositoryToken, TypeOrmModule } from "@nestjs/typeorm";
+import { DataSource } from "typeorm";
 import { PriceListsModule } from "../../src/modules/price-lists/price-lists.module";
 import { PriceList } from "../../src/database/entities/price-list.entity";
 import { PriceListItem } from "../../src/database/entities/price-list-item.entity";
@@ -73,9 +74,51 @@ describe("PriceListsController (e2e)", () => {
     findOneBy: jest.fn(),
   };
 
+  // Helper: build a mock EntityManager that delegates to the mock repositories
+  // so service code running inside dataSource.transaction still gets the
+  // values the test expectations were written against.
+  const mockEntityManager = () => ({
+    findOne: (_entityClass: any, options: any) =>
+      mockPriceListRepository.findOne(options),
+    save: (_entityClass: any, entity: any) =>
+      mockPriceListRepository.save(entity),
+    create: (_entityClass: any, plainObject: any) => plainObject,
+    softDelete: (_entityClass: any, criteria: any) =>
+      mockPriceListRepository.softDelete(criteria),
+    update: (_entityClass: any, criteria: any, partialEntity: any) =>
+      mockPriceListRepository.update(criteria, partialEntity),
+    query: jest.fn().mockResolvedValue([]),
+    softRemove: jest.fn().mockResolvedValue({}),
+    findOneBy: (_entityClass: any, options: any) =>
+      mockPriceListRepository.findOneBy(options),
+  });
+
+  // Seeder / service code branches on `instanceof DataSource`, so the mock
+  // must inherit from the DataSource prototype to take the real em→adapter
+  // path instead of the bare PriceListsSeederDb.transaction path.
+  const mockDataSource = Object.setPrototypeOf(
+    {
+      transaction: jest.fn().mockImplementation(async (cb: Function) =>
+        cb(mockEntityManager()),
+      ),
+    },
+    DataSource.prototype,
+  );
+
   beforeAll(async () => {
+    // A @Global() module makes its exported providers visible to all modules,
+    // including PriceListsModule's own components. This is the only way to
+    // introduce a mock DataSource into the DI scope of PriceListsModule's
+    // services without modifying the module itself.
+    @Global()
+    @Module({
+      providers: [{ provide: DataSource, useValue: mockDataSource }],
+      exports: [DataSource],
+    })
+    class GlobalMockDataSourceModule {}
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [PriceListsModule],
+      imports: [GlobalMockDataSourceModule, PriceListsModule],
     })
       .overrideModule(SettingsModule)
       .useModule(MockSettingsModule)

@@ -1,3 +1,5 @@
+import { PriceListDefaultService } from './services/price-list-default.service';
+import { PriceListsSeederService } from './services/price-lists-seeder.service';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PriceList, PriceListItem } from '@/database/entities';
@@ -8,7 +10,7 @@ import { PriceListsService } from './services/price-lists.service';
 @Module({
   imports: [TypeOrmModule.forFeature([PriceList, PriceListItem]), SettingsModule],
   controllers: [PriceListsController],
-  providers: [PriceListsService],
+  providers: [PriceListsService, PriceListDefaultService, PriceListsSeederService],
   exports: [PriceListsService],
 })
 export class PriceListsModule {}

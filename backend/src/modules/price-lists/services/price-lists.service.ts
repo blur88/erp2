@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { Repository, DataSource, IsNull } from 'typeorm';
 import { applyPagination } from '@/common/pagination/apply-pagination';
 import { formatDateInTimezone } from '@/common/utils/date-in-timezone';
 import { PriceList, PriceListItem } from '@/database/entities';
 import { SettingsService } from '../../settings/settings.service';
+import { PriceListDefaultService } from './price-list-default.service';
 import { CreatePriceListDto, UpdatePriceListDto, QueryPriceListsDto, BulkUpdatePricesDto, ApplyPercentageAdjustmentDto } from '../dto';
 
 export interface PaginatedResponse<T> {
@@ -25,6 +27,9 @@ export class PriceListsService {
     @InjectRepository(PriceListItem)
     private readonly priceListItemRepository: Repository<PriceListItem>,
     private readonly settingsService: SettingsService,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
+    private readonly defaults: PriceListDefaultService,
   ) {}
 
   /**
@@ -110,92 +115,133 @@ export class PriceListsService {
   }
 
   /**
-   * Create a new price list
+   * Create a new price list.
+   *
+   * `isDefault: true` performs creation and promotion in ONE transaction. This
+   * preserves the existing API (no frontend follow-up request) and prevents a
+   * two-request partial outcome, while keeping all transfer logic in
+   * PriceListDefaultService.
    */
   async create(createDto: CreatePriceListDto): Promise<PriceList> {
-    // Check for duplicate code
-    const existing = await this.priceListRepository.findOne({
-      where: { code: createDto.code },
-    });
-
-    if (existing) {
-      throw new ConflictException(`Price list with code ${createDto.code} already exists`);
-    }
-
-    // If this is set as default, unset other defaults
-    if (createDto.isDefault) {
-      await this.priceListRepository.update(
-        { isDefault: true },
-        { isDefault: false }
-      );
-    }
-
-    const priceList = this.priceListRepository.create({
-      ...createDto,
-    });
-
-    return this.priceListRepository.save(priceList);
-  }
-
-  /**
-   * Update a price list
-   */
-  async update(id: string, updateDto: UpdatePriceListDto): Promise<PriceList> {
-    const priceList = await this.findOne(id, false);
-
-    // Check for duplicate code if code is being changed
-    if (updateDto.code && updateDto.code !== priceList.code) {
-      const existing = await this.priceListRepository.findOne({
-        where: { code: updateDto.code },
+    return this.dataSource.transaction(async (manager) => {
+      const existing = await manager.findOne(PriceList, {
+        where: { code: createDto.code },
       });
 
       if (existing) {
-        throw new ConflictException(`Price list with code ${updateDto.code} already exists`);
+        throw new ConflictException(
+          `Price list with code ${createDto.code} already exists`,
+        );
       }
-    }
 
-    // If this is being set as default, unset other defaults
-    if (updateDto.isDefault && !priceList.isDefault) {
-      await this.priceListRepository.update(
-        { isDefault: true },
-        { isDefault: false }
+      const { isDefault, ...rest } = createDto as any;
+      const created = await manager.save(
+        PriceList,
+        manager.create(PriceList, rest) as any,
       );
-    }
 
-    Object.assign(priceList, updateDto);
+      if (isDefault) {
+        return this.defaults.assignDefault(manager, created.id);
+      }
 
-    return this.priceListRepository.save(priceList);
+      return created;
+    });
   }
 
   /**
-   * Soft delete a price list
+   * Update a price list.
+   *
+   * Locks and RELOADS before evaluating the guards. Reading isDefault outside
+   * the lock allows: load A as non-default -> concurrent setDefault(A)
+   * completes -> deactivate A on stale state -> zero defaults. The partial
+   * index cannot prevent this.
+   *
+   * Default ownership never changes here; it changes only through
+   * PriceListDefaultService (via setDefault or create).
+   */
+  async update(id: string, updateDto: UpdatePriceListDto): Promise<PriceList> {
+    return this.dataSource.transaction(async (manager) => {
+      await this.defaults.acquireLock(manager);
+
+      const priceList = await manager.findOne(PriceList, {
+        where: { id, deletedAt: IsNull() },
+      });
+
+      if (!priceList) {
+        throw new NotFoundException(`Price list with ID ${id} not found`);
+      }
+
+      if (priceList.isDefault && updateDto.isDefault === false) {
+        throw new BadRequestException(
+          'Cannot unset the default price list. Set another active price list as default instead.',
+        );
+      }
+
+      if (priceList.isDefault && (updateDto as any).isActive === false) {
+        throw new BadRequestException(
+          'Cannot deactivate the default price list. Set another active price list as default first.',
+        );
+      }
+
+      if (!priceList.isDefault && updateDto.isDefault === true) {
+        throw new BadRequestException(
+          'Use the set-default action to change the default price list.',
+        );
+      }
+
+      if (updateDto.code && updateDto.code !== priceList.code) {
+        const existing = await manager.findOne(PriceList, {
+          where: { code: updateDto.code },
+        });
+
+        if (existing) {
+          throw new ConflictException(
+            `Price list with code ${updateDto.code} already exists`,
+          );
+        }
+      }
+
+      // isDefault is either absent or an idempotent `true` on the list that is
+      // already default; assigning it is a no-op either way.
+      Object.assign(priceList, updateDto);
+
+      return manager.save(PriceList, priceList);
+    });
+  }
+
+  /**
+   * Soft delete a price list.
+   *
+   * Locks and RELOADS before checking isDefault: without the lock a list can
+   * become the default between the load and the delete.
    */
   async remove(id: string): Promise<void> {
-    const priceList = await this.findOne(id, false);
+    await this.dataSource.transaction(async (manager) => {
+      await this.defaults.acquireLock(manager);
 
-    if (priceList.isDefault) {
-      throw new BadRequestException('Cannot delete the default price list');
-    }
+      const priceList = await manager.findOne(PriceList, {
+        where: { id, deletedAt: IsNull() },
+      });
 
-    await this.priceListRepository.softDelete(id);
+      if (!priceList) {
+        throw new NotFoundException(`Price list with ID ${id} not found`);
+      }
+
+      if (priceList.isDefault) {
+        throw new BadRequestException('Cannot delete the default price list');
+      }
+
+      await manager.softDelete(PriceList, id);
+    });
   }
 
   /**
-   * Set a price list as default
+   * Set a price list as default. The atomic transfer: promoting B demotes A.
    */
   async setDefault(id: string): Promise<PriceList> {
-    const priceList = await this.findOne(id, false);
-
-    // Unset other defaults
-    await this.priceListRepository.update(
-      { isDefault: true },
-      { isDefault: false }
+    return this.dataSource.transaction((manager) =>
+      this.defaults.assignDefault(manager, id),
     );
-
-    // Set this as default
-    priceList.isDefault = true;
-
-    return this.priceListRepository.save(priceList);
   }
 
   private async getAppToday(): Promise<string> {
@@ -225,7 +271,7 @@ export class PriceListsService {
    */
   async getDefaultPriceList(): Promise<PriceList> {
     const priceList = await this.priceListRepository.findOne({
-      where: { isDefault: true, deletedAt: IsNull() },
+      where: { isDefault: true, isActive: true, deletedAt: IsNull() },
       relations: { items: { product: true } },
     });
 
