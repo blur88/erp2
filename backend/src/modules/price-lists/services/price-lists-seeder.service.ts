@@ -4,8 +4,15 @@ import { DataSource, EntityManager, IsNull } from 'typeorm';
 import { PriceList } from '@/database/entities';
 import { PriceListDefaultService, PRICE_LIST_LOCK_KEY } from './price-list-default.service';
 
-export const DEFAULT_PRICE_LIST_CODE = 'DEFAULT';
-export const DEFAULT_PRICE_LIST_NAME = 'Default Price List';
+// The canonical seeded row. Named "Retail" rather than "Default Price List"
+// because CreateProductPage composes its field label as `${name} Price`, which
+// turned the latter into "Default Price List Price".
+//
+// The constant names keep the DEFAULT_ prefix: they identify the row the seeder
+// creates and reconciles against, which is a separate concept from its
+// user-facing name. Nothing outside this file hardcodes these values.
+export const DEFAULT_PRICE_LIST_CODE = 'RETAIL';
+export const DEFAULT_PRICE_LIST_NAME = 'Retail';
 export const DEFAULT_PRICE_LIST_DESCRIPTION = 'Standard price list for regular sales';
 
 // Data-access surface. Production adapter wraps a TypeORM EntityManager; the
@@ -109,7 +116,7 @@ export class PriceListsSeederService implements OnModuleInit {
       // UQ_price_lists_single_default before assignDefault ever runs. Reachable
       // whenever an INACTIVE live default exists (branch 1 passes it over,
       // branch 2 finds no active list) at the same time as a soft-deleted
-      // DEFAULT-coded row.
+      // canonically-coded row.
       //
       // Demoting here is safe: assignDefault promotes this exact row two lines
       // later, so the row ends up default either way.
@@ -144,7 +151,7 @@ export class PriceListsSeederService implements OnModuleInit {
       return;
     }
 
-    // Branch 3a: the DEFAULT code is taken (possibly by a soft-deleted row).
+    // Branch 3a: the canonical code is taken (possibly by a soft-deleted row).
     // Restore it rather than inserting, which is non-destructive and avoids the
     // unique-code collision. Reachable only when no active list exists, so this
     // can never resurrect a deleted list while a usable one is present.

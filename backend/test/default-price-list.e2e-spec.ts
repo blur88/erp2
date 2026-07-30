@@ -94,8 +94,8 @@ describe("Default price list (e2e)", () => {
       expect(found.isDefault).toBe(true);
     });
 
-    it("seeded a DEFAULT-coded list when the table was otherwise empty", async () => {
-      // Allow-listed: asserts the DEFAULT row exists, not that it is the ONLY row.
+    it("seeded the canonically-coded list when the table was otherwise empty", async () => {
+      // Allow-listed: asserts the canonical row exists, not that it is the ONLY row.
       const row = await dataSource
         .getRepository(PriceList)
         .findOne({ where: { code: DEFAULT_PRICE_LIST_CODE } });
@@ -231,13 +231,13 @@ describe("Default price list (e2e)", () => {
   });
 
   describe("seeder restore path against the real index", () => {
-    it("restores the soft-deleted DEFAULT row and makes it the sole active default", async () => {
+    it("restores the soft-deleted canonical row and makes it the sole active default", async () => {
       // The collision case, staged with the REAL canonical code so the seeder's
       // findByCodeWithDeleted actually selects it:
       //
       //   - an INACTIVE live default  -> branch 1 finds no ACTIVE default
       //   - no other active list      -> branch 2 finds nothing to promote
-      //   - a soft-deleted DEFAULT row carrying a STALE isDefault = true
+      //   - a soft-deleted canonical row carrying a STALE isDefault = true
       //
       // The seeder therefore reaches the restore path, where clearing deletedAt
       // without clearing isDefault would drag the stale flag into the governed
@@ -256,7 +256,7 @@ describe("Default price list (e2e)", () => {
 
       // PriceList.code is `unique: true` (price-list.entity.ts:26) — an
       // UNCONDITIONAL constraint that still covers soft-deleted rows. Inserting
-      // a second row with code DEFAULT therefore fails on duplicate key no
+      // a second row with the canonical code therefore fails on duplicate key no
       // matter what is done to the existing one. So the canonical row IS the
       // squatter: snapshot it, degrade it into the state under test, and
       // restore the snapshot afterwards.
@@ -326,7 +326,7 @@ describe("Default price list (e2e)", () => {
         expect(await countLiveDefaults()).toBe(1);
       } finally {
         // Cleanup is explicit here rather than deferred to afterEach, because
-        // this test degrades the canonical DEFAULT row itself — afterEach's
+        // this test degrades the canonical row itself — afterEach's
         // setDefault(originalDefaultId) would reject it while soft-deleted.
         //
         // Order matters: drop staged rows first so no live isDefault row
