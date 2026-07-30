@@ -6,6 +6,7 @@ import {
   IsEnum,
   MaxLength,
   Matches,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
@@ -19,6 +20,7 @@ export class CreateCustomerDto extends BaseContactDto {
     enum: CustomerType,
     example: CustomerType.BUSINESS,
   })
+  @ValidateIf((_object, value) => value !== undefined)
   @IsEnum(CustomerType)
   type: CustomerType;
 
