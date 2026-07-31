@@ -1,7 +1,7 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository, Not } from 'typeorm';
+import { Repository, Not, DataSource, EntityManager } from 'typeorm';
 import { ProductService } from './product.service';
 import { Product, ProductType } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
@@ -17,6 +17,24 @@ import { BaseCostCalculatorService } from './base-cost-calculator.service';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { UserRole } from '../../../database/entities/user.entity';
+
+/**
+ * Mock DataSource whose `transaction()` runs the callback with a stub EntityManager.
+ * `getRepository` returns whatever repo stub the caller registers, so tests can assert
+ * that writes went through the manager-owned repository rather than the injected one.
+ */
+const createMockDataSource = (repos: Map<any, any> = new Map()) => {
+  const manager = {
+    getRepository: jest.fn((entity: any) => repos.get(entity) ?? {}),
+  } as unknown as EntityManager;
+
+  return {
+    manager,
+    dataSource: {
+      transaction: jest.fn(async (cb: (m: EntityManager) => Promise<any>) => cb(manager)),
+    },
+  };
+};
 
 describe('ProductService pagination removal', () => {
   let service: ProductService;
@@ -85,6 +103,7 @@ describe('ProductService pagination removal', () => {
         { provide: StockMovementService, useValue: {} },
         { provide: BaseCostCalculatorService, useValue: {} },
         { provide: SettingsService, useValue: {} },
+        { provide: DataSource, useValue: createMockDataSource().dataSource },
         { provide: AuditLogService, useValue: { log: jest.fn() } },
       ],
     }).compile();
@@ -594,6 +613,7 @@ describe('checkProductDependencies', () => {
         { provide: StockMovementService, useValue: {} },
         { provide: BaseCostCalculatorService, useValue: {} },
         { provide: SettingsService, useValue: {} },
+        { provide: DataSource, useValue: createMockDataSource().dataSource },
         { provide: AuditLogService, useValue: { log: jest.fn() } },
       ],
     }).compile();
@@ -725,6 +745,7 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
         { provide: StockMovementService, useValue: {} },
         { provide: BaseCostCalculatorService, useValue: {} },
         { provide: SettingsService, useValue: {} },
+        { provide: DataSource, useValue: createMockDataSource().dataSource },
         { provide: AuditLogService, useValue: { log: jest.fn() } },
       ],
     }).compile();
@@ -763,5 +784,198 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
     const cleanupOrder = stockMovementRepo.delete.mock.invocationCallOrder[0];
     const deleteOrder = productRepo.delete.mock.invocationCallOrder[0];
     expect(cleanupOrder).toBeLessThan(deleteOrder);
+  });
+});
+
+describe('create() transaction wrap (#978)', () => {
+  let service: ProductService;
+  let managerProductRepo: any;
+  let stockMovementService: { recordInitialStock: jest.Mock };
+  let baseCostCalculator: { addStock: jest.Mock };
+  let auditLogService: { log: jest.Mock };
+  let mockManager: EntityManager;
+  let mockDataSource: { transaction: jest.Mock };
+
+  const category = { id: 'category-1', name: 'Category' } as Category;
+
+  const baseDto = {
+    name: 'Widget',
+    barcode: 'SKU-1',
+    categoryId: 'category-1',
+    baseCost: 10,
+    stockQuantity: 5,
+  } as any;
+
+  beforeEach(async () => {
+    managerProductRepo = {
+      save: jest.fn(async (p: any) => ({ ...p, id: 'product-1' })),
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const repos = new Map<any, any>([[Product, managerProductRepo]]);
+    const mocked = createMockDataSource(repos);
+    mockManager = mocked.manager;
+    mockDataSource = mocked.dataSource;
+
+    stockMovementService = { recordInitialStock: jest.fn().mockResolvedValue({}) };
+    baseCostCalculator = { addStock: jest.fn().mockResolvedValue({}) };
+    auditLogService = { log: jest.fn().mockResolvedValue(undefined) };
+
+    // Injected (non-transactional) product repo: serves the pre-checks only.
+    const injectedProductRepo = {
+      createQueryBuilder: jest.fn(() => ({
+        where: jest.fn().mockReturnThis(),
+        withDeleted: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      })),
+      create: jest.fn((p: any) => p),
+      findOne: jest.fn().mockResolvedValue(null),
+      save: jest.fn(),
+      update: jest.fn(),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ProductService,
+        { provide: getRepositoryToken(Product), useValue: injectedProductRepo },
+        {
+          provide: getRepositoryToken(Category),
+          useValue: { findOne: jest.fn().mockResolvedValue(category) },
+        },
+        { provide: getRepositoryToken(SalesOrderItem), useValue: {} },
+        { provide: getRepositoryToken(PurchaseOrderItem), useValue: {} },
+        { provide: getRepositoryToken(StockMovement), useValue: {} },
+        { provide: getRepositoryToken(StockAdjustmentItem), useValue: {} },
+        { provide: getRepositoryToken(PurchaseCostHistory), useValue: {} },
+        {
+          provide: CategoryService,
+          useValue: { resolveFullPaths: jest.fn().mockResolvedValue(new Map()) },
+        },
+        { provide: StockMovementService, useValue: stockMovementService },
+        { provide: BaseCostCalculatorService, useValue: baseCostCalculator },
+        { provide: SettingsService, useValue: {} },
+        { provide: DataSource, useValue: mockDataSource },
+        { provide: AuditLogService, useValue: auditLogService },
+      ],
+    }).compile();
+
+    service = module.get<ProductService>(ProductService);
+    // generateUniqueSlug hits the repository; stub it to keep these tests focused.
+    jest.spyOn(service as any, 'generateUniqueSlug').mockResolvedValue('widget');
+  });
+
+  it('aborts the transaction and reports a stable code when the stock movement fails', async () => {
+    stockMovementService.recordInitialStock.mockRejectedValue(new Error('movement exploded'));
+
+    await expect(service.create(baseDto, 'user-1', 'tester')).rejects.toMatchObject({
+      response: {
+        error: 'INITIAL_INVENTORY_SETUP_FAILED',
+        message:
+          "Product couldn't be created because the initial inventory setup failed. " +
+          'No changes were saved. Please try again.',
+      },
+    });
+
+    // The transaction callback rejected, so cost history never ran and nothing was committed.
+    expect(baseCostCalculator.addStock).not.toHaveBeenCalled();
+    // Post-commit work must not run.
+    expect(auditLogService.log).not.toHaveBeenCalled();
+  });
+
+  it('propagates domain errors from collaborators instead of masking them as a 500', async () => {
+    // StockMovementService throws this for real (stock-movement.service.ts:86). Masking it
+    // as INITIAL_INVENTORY_SETUP_FAILED would discard an actionable 400.
+    stockMovementService.recordInitialStock.mockRejectedValue(
+      new BadRequestException('Insufficient stock. Available: 0, Requested: 5'),
+    );
+
+    const rejection = service.create(baseDto, 'user-1', 'tester');
+
+    await expect(rejection).rejects.toThrow(BadRequestException);
+    await expect(rejection).rejects.toThrow('Insufficient stock. Available: 0, Requested: 5');
+
+    // Rollback still applies: the transaction aborted, so nothing downstream ran.
+    expect(baseCostCalculator.addStock).not.toHaveBeenCalled();
+    expect(auditLogService.log).not.toHaveBeenCalled();
+  });
+
+  it('aborts the transaction when the cost history write fails', async () => {
+    baseCostCalculator.addStock.mockRejectedValue(new Error('cost history exploded'));
+
+    await expect(service.create(baseDto, 'user-1', 'tester')).rejects.toMatchObject({
+      response: { error: 'INITIAL_INVENTORY_SETUP_FAILED' },
+    });
+
+    expect(auditLogService.log).not.toHaveBeenCalled();
+  });
+
+  it('issues every write against the transactional manager', async () => {
+    await service.create(baseDto, 'user-1', 'tester');
+
+    // The product save runs on the manager-owned repository, not the injected one.
+    expect(mockManager.getRepository).toHaveBeenCalledWith(Product);
+    expect(managerProductRepo.save).toHaveBeenCalled();
+
+    // The collaborators receive the manager as their trailing argument.
+    expect(stockMovementService.recordInitialStock).toHaveBeenCalledWith(
+      'product-1',
+      5,
+      10,
+      'user-1',
+      mockManager,
+    );
+    expect(baseCostCalculator.addStock).toHaveBeenCalledWith(
+      'product-1',
+      null,
+      5,
+      10,
+      0,
+      expect.any(Date),
+      mockManager,
+    );
+  });
+
+  it('writes the audit log only after the transaction resolves', async () => {
+    const order: string[] = [];
+    mockDataSource.transaction.mockImplementation(async (cb: any) => {
+      const result = await cb(mockManager);
+      order.push('transaction');
+      return result;
+    });
+    auditLogService.log.mockImplementation(async () => {
+      order.push('audit');
+    });
+
+    await service.create(baseDto, 'user-1', 'tester');
+
+    expect(order).toEqual(['transaction', 'audit']);
+  });
+
+  it('passes pre-check failures through untranslated', async () => {
+    const productRepo = (service as any).productRepository;
+    productRepo.createQueryBuilder = jest.fn(() => ({
+      where: jest.fn().mockReturnThis(),
+      withDeleted: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue({ id: 'existing', deletedAt: null }),
+    }));
+
+    await expect(service.create(baseDto, 'user-1', 'tester')).rejects.toThrow(ConflictException);
+    // The pre-check throws before any write, so the transaction never opened.
+    expect(mockDataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('sets stockQuantity directly and records no movement for system users', async () => {
+    await service.create(baseDto, undefined, undefined);
+
+    expect(stockMovementService.recordInitialStock).not.toHaveBeenCalled();
+    expect(managerProductRepo.update).toHaveBeenCalledWith('product-1', { stockQuantity: 5 });
+  });
+
+  it('preserves category and stockQuantity on the response', async () => {
+    const result = await service.create(baseDto, 'user-1', 'tester');
+
+    expect(result.category).not.toBeNull();
+    expect(result.category).toMatchObject({ id: 'category-1', name: 'Category' });
+    expect(result.stockQuantity).toBe(5);
   });
 });

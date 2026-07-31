@@ -318,6 +318,7 @@ export class StockMovementService {
     quantity: number,
     unitCost?: number,
     userId?: string,
+    manager?: EntityManager,
   ): Promise<StockMovementResponseDto> {
     const createMovementDto: CreateStockMovementDto = {
       productId,
@@ -328,7 +329,7 @@ export class StockMovementService {
       referenceType: 'initial_stock',
     };
 
-    return this.create(createMovementDto, userId);
+    return this.create(createMovementDto, userId, manager);
   }
 
   /**
