@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository, Not } from 'typeorm';
+import { Repository, Not, DataSource, EntityManager } from 'typeorm';
 import { ProductService } from './product.service';
 import { Product, ProductType } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
@@ -17,6 +17,24 @@ import { BaseCostCalculatorService } from './base-cost-calculator.service';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { UserRole } from '../../../database/entities/user.entity';
+
+/**
+ * Mock DataSource whose `transaction()` runs the callback with a stub EntityManager.
+ * `getRepository` returns whatever repo stub the caller registers, so tests can assert
+ * that writes went through the manager-owned repository rather than the injected one.
+ */
+const createMockDataSource = (repos: Map<any, any> = new Map()) => {
+  const manager = {
+    getRepository: jest.fn((entity: any) => repos.get(entity) ?? {}),
+  } as unknown as EntityManager;
+
+  return {
+    manager,
+    dataSource: {
+      transaction: jest.fn(async (cb: (m: EntityManager) => Promise<any>) => cb(manager)),
+    },
+  };
+};
 
 describe('ProductService pagination removal', () => {
   let service: ProductService;
@@ -85,6 +103,7 @@ describe('ProductService pagination removal', () => {
         { provide: StockMovementService, useValue: {} },
         { provide: BaseCostCalculatorService, useValue: {} },
         { provide: SettingsService, useValue: {} },
+        { provide: DataSource, useValue: createMockDataSource().dataSource },
         { provide: AuditLogService, useValue: { log: jest.fn() } },
       ],
     }).compile();
@@ -594,6 +613,7 @@ describe('checkProductDependencies', () => {
         { provide: StockMovementService, useValue: {} },
         { provide: BaseCostCalculatorService, useValue: {} },
         { provide: SettingsService, useValue: {} },
+        { provide: DataSource, useValue: createMockDataSource().dataSource },
         { provide: AuditLogService, useValue: { log: jest.fn() } },
       ],
     }).compile();
@@ -725,6 +745,7 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
         { provide: StockMovementService, useValue: {} },
         { provide: BaseCostCalculatorService, useValue: {} },
         { provide: SettingsService, useValue: {} },
+        { provide: DataSource, useValue: createMockDataSource().dataSource },
         { provide: AuditLogService, useValue: { log: jest.fn() } },
       ],
     }).compile();
