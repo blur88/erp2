@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
 import { validate } from 'class-validator';
 import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -344,6 +345,43 @@ describe('updateNotes', () => {
       expect(adjustment.status).toBe('completed');
       expect(result.notes).toBe('new');
       findOneSpy.mockRestore();
+    });
+  });
+
+  describe('deriveNewQuantityMinor', () => {
+    const derive = (old: number, diff: number): bigint =>
+      (service as any).deriveNewQuantityMinor(old, diff);
+
+    it('adds operands at scale-4 precision', () => {
+      expect(derive(100, 10)).toBe(1100000n);
+    });
+
+    it('returns exactly zero at the scale-4 boundary', () => {
+      // 0.0001 + (-0.0001) must land on 0, not a float near-zero.
+      expect(derive(0.0001, -0.0001)).toBe(0n);
+    });
+
+    it('allows a negative result (the caller owns that rule, not the helper)', () => {
+      expect(derive(10, -50)).toBe(-400000n);
+    });
+
+    it('accepts a negative oldQuantity snapshot (oversell)', () => {
+      expect(derive(-5, 15)).toBe(100000n);
+    });
+
+    it('throws a plain Error, not an HttpException, on unconvertible input', () => {
+      // 1e21 stringifies to "1e+21", which toMinorUnits' regex rejects.
+      expect(() => derive(1e21, 0)).toThrow(Error);
+      expect(() => derive(1e21, 0)).not.toThrow(BadRequestException);
+    });
+
+    it('rejects an operand beyond NUMERIC(15,4)', () => {
+      expect(() => derive(100000000000, 0)).toThrow(/exceeds the supported range/);
+    });
+
+    it('rejects a sum beyond NUMERIC(15,4) built from two in-range operands', () => {
+      // Each operand fits 11 integer digits; the sum does not.
+      expect(() => derive(99999999999, 1)).toThrow(/exceeds the supported range/);
     });
   });
 });

@@ -134,6 +134,41 @@ export class StockAdjustmentService extends BaseCrudService<
     }
   }
 
+  /** Largest magnitude representable by the NUMERIC(15, 4) quantity columns. */
+  private static readonly QUANTITY_MINOR_LIMIT = 10n ** 15n;
+
+  /**
+   * newQuantity is derived, never client-supplied: difference is the command.
+   *
+   * Scale-4 BigInt arithmetic — the quantity columns are NUMERIC(15, 4) and float
+   * addition can't be trusted to land on the stored value.
+   *
+   * Converts both operands, bounds-checks them and their sum, and returns the sum
+   * in minor units. Throws ordinary `Error` on conversion or range failure — never
+   * an HTTP exception — and does NOT apply the non-negative business rule. Both
+   * belong to the caller, so error presentation stays where the item index and
+   * productId are in scope.
+   */
+  private deriveNewQuantityMinor(oldQuantity: number, difference: number): bigint {
+    const oldMinor = toMinorUnits(String(oldQuantity));
+    const differenceMinor = toMinorUnits(String(difference));
+    this.assertQuantityInRange(oldMinor);
+    this.assertQuantityInRange(differenceMinor);
+
+    const derivedMinor = oldMinor + differenceMinor;
+    this.assertQuantityInRange(derivedMinor);
+    return derivedMinor;
+  }
+
+  private assertQuantityInRange(minor: bigint): void {
+    const magnitude = minor < 0n ? -minor : minor;
+    if (magnitude >= StockAdjustmentService.QUANTITY_MINOR_LIMIT) {
+      throw new Error(
+        `Quantity ${formatScale4(minor)} exceeds the supported range for a stock adjustment`,
+      );
+    }
+  }
+
   /**
    * Create a new stock adjustment (as draft)
    */
