@@ -274,7 +274,7 @@ describe('ExpenseFormPage - Create mode', () => {
     }
   })
 
-  it('calls createExpense and navigates to detail on submit', async () => {
+  it('calls createExpense and navigates to the list on submit', async () => {
     const user = userEvent.setup()
     renderCreatePage()
 
@@ -294,7 +294,62 @@ describe('ExpenseFormPage - Create mode', () => {
       )
     })
     expect(mockShowSuccess).toHaveBeenCalled()
-    expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses/new-exp-1')
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith(
+        '/accounting/expenses?highlight=new-exp-1',
+      )
+    })
+  })
+
+  it('does not navigate to the Expense Detail page after create', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+
+    await user.type(screen.getByLabelText(/description/i), 'Office supplies')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), '250.00')
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalled()
+    })
+    expect(mockNavigate).not.toHaveBeenCalledWith('/accounting/expenses/new-exp-1')
+  })
+
+  it('shows the unchanged success notification after create', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+
+    await user.type(screen.getByLabelText(/description/i), 'Office supplies')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), '250.00')
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+
+    await waitFor(() => {
+      expect(mockShowSuccess).toHaveBeenCalledWith('Expense created successfully')
+    })
+  })
+
+  it('stays on the form and surfaces an error when create fails', async () => {
+    mockCreateExpense.mockReturnValue({
+      unwrap: vi.fn().mockRejectedValue({ data: { message: 'Server exploded' } }),
+    })
+    const user = userEvent.setup()
+    renderCreatePage()
+
+    await user.type(screen.getByLabelText(/description/i), 'Office supplies')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), '250.00')
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+
+    await waitFor(() => {
+      expect(mockShowError).toHaveBeenCalledWith('Server exploded')
+    })
+    expect(mockNavigate).not.toHaveBeenCalled()
+    expect(mockShowSuccess).not.toHaveBeenCalled()
   })
 })
 
