@@ -882,6 +882,23 @@ describe('create() transaction wrap (#978)', () => {
     expect(auditLogService.log).not.toHaveBeenCalled();
   });
 
+  it('propagates domain errors from collaborators instead of masking them as a 500', async () => {
+    // StockMovementService throws this for real (stock-movement.service.ts:86). Masking it
+    // as INITIAL_INVENTORY_SETUP_FAILED would discard an actionable 400.
+    stockMovementService.recordInitialStock.mockRejectedValue(
+      new BadRequestException('Insufficient stock. Available: 0, Requested: 5'),
+    );
+
+    const rejection = service.create(baseDto, 'user-1', 'tester');
+
+    await expect(rejection).rejects.toThrow(BadRequestException);
+    await expect(rejection).rejects.toThrow('Insufficient stock. Available: 0, Requested: 5');
+
+    // Rollback still applies: the transaction aborted, so nothing downstream ran.
+    expect(baseCostCalculator.addStock).not.toHaveBeenCalled();
+    expect(auditLogService.log).not.toHaveBeenCalled();
+  });
+
   it('aborts the transaction when the cost history write fails', async () => {
     baseCostCalculator.addStock.mockRejectedValue(new Error('cost history exploded'));
 

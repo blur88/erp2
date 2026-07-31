@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  HttpException,
   InternalServerErrorException,
   Logger,
   Inject,
@@ -345,6 +346,14 @@ export class ProductService extends BaseCrudService<
         return saved;
       });
     } catch (error) {
+      // Domain errors from the collaborators (e.g. "Insufficient stock" from
+      // StockMovementService) are already precise and actionable — masking them as a
+      // generic 500 would discard a 400/404 the client can act on. The transaction has
+      // already rolled back either way, so re-throwing is safe.
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       // Rollback has already completed here, so "No changes were saved" is literally true.
       this.logger.error(
         `Initial inventory setup failed for product '${createProductDto.name}': ${error.message}`,
