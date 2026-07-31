@@ -1,13 +1,13 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { CreateStockAdjustmentDto, QueryStockAdjustmentsDto } from './stock-adjustment.dto';
+import { createGlobalValidationPipe } from '../../../common/validation/global-validation-pipe';
+import { CreateStockAdjustmentDto, QueryStockAdjustmentsDto, StockAdjustmentItemDto } from './stock-adjustment.dto';
 
 describe('CreateStockAdjustmentDto.adjustmentDate', () => {
   const base = {
     items: [{
       productId: '11111111-1111-4111-8111-111111111111',
       oldQuantity: 0,
-      newQuantity: 1,
       difference: 1,
     }],
   };
@@ -36,5 +36,42 @@ describe('QueryStockAdjustmentsDto date filters', () => {
     expect(await validate(dto)).toHaveLength(0);
     expect(dto.fromDate).toBe('2026-07-01');
     expect(dto.toDate).toBe('2026-07-20');
+  });
+});
+
+describe('StockAdjustmentItemDto through the global validation pipe', () => {
+  const pipe = createGlobalValidationPipe();
+  const meta = { type: 'body' as const, metatype: CreateStockAdjustmentDto };
+
+  const item = {
+    productId: '11111111-1111-4111-8111-111111111111',
+    oldQuantity: 100,
+    difference: 10,
+  };
+
+  it('strips a client-supplied newQuantity instead of rejecting it', async () => {
+    const result: any = await pipe.transform(
+      { adjustmentDate: '2026-07-31', items: [{ ...item, newQuantity: 999 }] },
+      meta,
+    );
+
+    expect(result.items[0]).not.toHaveProperty('newQuantity');
+    expect(result.items[0].difference).toBe(10);
+  });
+
+  it('accepts an item without newQuantity', async () => {
+    const result: any = await pipe.transform(
+      { adjustmentDate: '2026-07-31', items: [item] },
+      meta,
+    );
+
+    expect(result.items[0].oldQuantity).toBe(100);
+  });
+
+  it('still requires difference', async () => {
+    const { difference, ...withoutDifference } = item;
+    await expect(
+      pipe.transform({ adjustmentDate: '2026-07-31', items: [withoutDifference] }, meta),
+    ).rejects.toThrow(/difference/);
   });
 });

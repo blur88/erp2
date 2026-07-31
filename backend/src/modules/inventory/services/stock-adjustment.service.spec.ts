@@ -248,7 +248,7 @@ describe('StockAdjustmentService', () => {
   it('create() rejects service products', async () => {
     productRepository.findBy.mockResolvedValue([serviceProduct])
     await expect(
-      service.create({ adjustmentDate: '2026-07-05', items: [{ productId: 'svc-1', oldQuantity: 0, newQuantity: 1, difference: 1 }] } as any),
+      service.create({ adjustmentDate: '2026-07-05', items: [{ productId: 'svc-1', oldQuantity: 0, difference: 1 }] } as any),
     ).rejects.toThrow('Service products are not valid for stock adjustments')
   })
 
@@ -256,7 +256,7 @@ describe('StockAdjustmentService', () => {
     stockAdjustmentRepository.findOne.mockResolvedValue({ id: 'sa-1', isEditable: () => true, items: [] } as any)
     productRepository.findBy.mockResolvedValue([serviceProduct])
     await expect(
-      service.update('sa-1', { items: [{ productId: 'svc-1', oldQuantity: 0, newQuantity: 1, difference: 1 }] } as any),
+      service.update('sa-1', { items: [{ productId: 'svc-1', oldQuantity: 0, difference: 1 }] } as any),
     ).rejects.toThrow('Service products are not valid for stock adjustments')
   })
 
@@ -264,7 +264,7 @@ describe('StockAdjustmentService', () => {
     stockAdjustmentRepository.findOne.mockResolvedValue({ id: 'sa-1', isEditable: () => true, items: [] } as any)
     productRepository.findBy.mockResolvedValue([serviceProduct])
     await expect(
-      service.update('sa-1', { items: [{ productId: 'svc-1', oldQuantity: 0, newQuantity: 1, difference: 1 }] } as any),
+      service.update('sa-1', { items: [{ productId: 'svc-1', oldQuantity: 0, difference: 1 }] } as any),
     ).rejects.toThrow()
     expect(stockAdjustmentItemRepository.delete).not.toHaveBeenCalled()
     expect(stockAdjustmentItemRepository.save).not.toHaveBeenCalled()
@@ -525,21 +525,8 @@ describe('StockAdjustmentItemDto', () => {
     const dto = new StockAdjustmentItemDto();
     dto.productId = '123e4567-e89b-42d3-a456-426614174000';
     dto.oldQuantity = -5;
-    dto.newQuantity = 10;
     dto.difference = 15;
 
     await expect(validate(dto)).resolves.toHaveLength(0);
-  });
-
-  it('rejects negative newQuantity because target stock must be non-negative', async () => {
-    const dto = new StockAdjustmentItemDto();
-    dto.productId = '123e4567-e89b-42d3-a456-426614174000';
-    dto.oldQuantity = -5;
-    dto.newQuantity = -1;
-    dto.difference = 4;
-
-    const errors = await validate(dto);
-    expect(errors.length).toBeGreaterThan(0);
-    expect(errors.some(e => e.property === 'newQuantity')).toBe(true);
   });
 });
