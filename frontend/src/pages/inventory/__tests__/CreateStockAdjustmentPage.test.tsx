@@ -198,6 +198,83 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
     })
   })
 
+  describe('submitted payload', () => {
+    it('omits newQuantity and sends difference on create', async () => {
+      const user = userEvent.setup()
+      renderPage()
+
+      const input = screen.getByPlaceholderText('Search product...')
+      await user.click(input)
+      const listbox = await screen.findByRole('listbox')
+      await user.click(within(listbox).getByText('Alpha Widget'))
+      await waitFor(() => {
+        expect(input).toHaveValue('Alpha Widget')
+      })
+
+      const diffInput = screen.getByTestId('items.0.difference') as HTMLInputElement
+      fireEvent.change(diffInput, { target: { value: '10' } })
+      await waitFor(() => {
+        expect(diffInput.value).toBe('10')
+      })
+
+      await user.click(screen.getByRole('button', { name: /create adjustment/i }))
+
+      await waitFor(() => {
+        expect(mockCreateAdjustment).toHaveBeenCalledTimes(1)
+      })
+      const payload = mockCreateAdjustment.mock.calls[0][0] as any
+      expect(payload.items[0]).not.toHaveProperty('newQuantity')
+      expect(payload.items[0]).toMatchObject({
+        productId: 'p1',
+        oldQuantity: 10,
+        difference: 10,
+      })
+    })
+
+    it('omits newQuantity on update', async () => {
+      mockParams.mockReturnValue({ id: 'abc-123' })
+      mockAdjustmentQuery.mockImplementation((id: string) =>
+        id === 'abc-123'
+          ? {
+              data: {
+                id: 'abc-123',
+                adjustmentNumber: 'SA-001',
+                adjustmentDate: '2026-03-15T00:00:00.000Z',
+                notes: '',
+                items: [{
+                  product: { id: 'p1', name: 'Alpha Widget', barcode: 'A1' },
+                  difference: 5, unitCost: 5, oldQuantity: 10, newQuantity: 15, liveStock: 10,
+                }],
+              },
+              isLoading: false,
+              isError: false,
+            }
+          : stableAdjNull,
+      )
+
+      const user = userEvent.setup()
+      renderPage()
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Search product...')).toHaveValue('Alpha Widget')
+      })
+
+      const diffInput = screen.getByTestId('items.0.difference') as HTMLInputElement
+      fireEvent.change(diffInput, { target: { value: '4' } })
+      await waitFor(() => {
+        expect(diffInput.value).toBe('4')
+      })
+
+      await user.click(screen.getByRole('button', { name: /update adjustment/i }))
+
+      await waitFor(() => {
+        expect(mockUpdateAdjustment).toHaveBeenCalledTimes(1)
+      })
+      const { data } = mockUpdateAdjustment.mock.calls[0][0] as any
+      expect(data.items[0]).not.toHaveProperty('newQuantity')
+      expect(data.items[0].difference).toBe(4)
+    })
+  })
+
   describe('clear Qty Change (#864)', () => {
     // Products come from the beforeEach default (stableAllProducts, which
     // already includes 'Low Stock Widget'). Don't re-mock products after render:

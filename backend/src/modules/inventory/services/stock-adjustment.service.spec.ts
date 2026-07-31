@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException } from '@nestjs/common';
 import { validate } from 'class-validator';
 import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -23,6 +24,7 @@ describe('StockAdjustmentService', () => {
   let productRepository: jest.Mocked<Repository<Product>>;
   let stockAdjustmentItemRepository: jest.Mocked<Repository<StockAdjustmentItem>>;
   let accountingPort: { postStockAdjustment: jest.Mock; reverseEntriesForDocument: jest.Mock };
+  let settingsService: { generateDocumentNumber: jest.Mock };
 
   const createMockStockAdjustment = (status: StockAdjustmentStatus = StockAdjustmentStatus.DRAFT): Partial<StockAdjustment> => ({
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -166,6 +168,7 @@ describe('StockAdjustmentService', () => {
     productRepository = module.get(getRepositoryToken(Product));
     stockAdjustmentItemRepository = module.get(getRepositoryToken(StockAdjustmentItem));
     accountingPort = module.get(ACCOUNTING_POSTING_PORT) as any;
+    settingsService = module.get(SettingsService) as any;
   });
 
   it('should be defined', () => {
@@ -177,8 +180,8 @@ describe('StockAdjustmentService', () => {
       const dto = {
         adjustmentDate: '2026-07-20',
         items: [
-          { productId: 'p1', oldQuantity: 0, newQuantity: 1, difference: 1 },
-          { productId: 'p1', oldQuantity: 0, newQuantity: 2, difference: 2 },
+          { productId: 'p1', oldQuantity: 0, difference: 1 },
+          { productId: 'p1', oldQuantity: 0, difference: 2 },
         ],
       } as any;
       await expect(service.create(dto)).rejects.toThrow('Duplicate product');
@@ -247,7 +250,7 @@ describe('StockAdjustmentService', () => {
   it('create() rejects service products', async () => {
     productRepository.findBy.mockResolvedValue([serviceProduct])
     await expect(
-      service.create({ adjustmentDate: '2026-07-05', items: [{ productId: 'svc-1', oldQuantity: 0, newQuantity: 1, difference: 1 }] } as any),
+      service.create({ adjustmentDate: '2026-07-05', items: [{ productId: 'svc-1', oldQuantity: 0, difference: 1 }] } as any),
     ).rejects.toThrow('Service products are not valid for stock adjustments')
   })
 
@@ -255,7 +258,7 @@ describe('StockAdjustmentService', () => {
     stockAdjustmentRepository.findOne.mockResolvedValue({ id: 'sa-1', isEditable: () => true, items: [] } as any)
     productRepository.findBy.mockResolvedValue([serviceProduct])
     await expect(
-      service.update('sa-1', { items: [{ productId: 'svc-1', oldQuantity: 0, newQuantity: 1, difference: 1 }] } as any),
+      service.update('sa-1', { items: [{ productId: 'svc-1', oldQuantity: 0, difference: 1 }] } as any),
     ).rejects.toThrow('Service products are not valid for stock adjustments')
   })
 
@@ -263,11 +266,159 @@ describe('StockAdjustmentService', () => {
     stockAdjustmentRepository.findOne.mockResolvedValue({ id: 'sa-1', isEditable: () => true, items: [] } as any)
     productRepository.findBy.mockResolvedValue([serviceProduct])
     await expect(
-      service.update('sa-1', { items: [{ productId: 'svc-1', oldQuantity: 0, newQuantity: 1, difference: 1 }] } as any),
+      service.update('sa-1', { items: [{ productId: 'svc-1', oldQuantity: 0, difference: 1 }] } as any),
     ).rejects.toThrow()
     expect(stockAdjustmentItemRepository.delete).not.toHaveBeenCalled()
     expect(stockAdjustmentItemRepository.save).not.toHaveBeenCalled()
     expect(stockAdjustmentRepository.save).not.toHaveBeenCalled()
+  })
+
+  describe('create() derives newQuantity', () => {
+    // Matches the `serviceProduct` fixture style above — the property is
+    // `type`, and the stocked-goods member is GOODS ('Stocked Product').
+    const stockProduct = { id: 'p-1', type: ProductType.GOODS, baseCost: 10 } as any;
+
+    beforeEach(() => {
+      productRepository.findBy.mockResolvedValue([stockProduct]);
+      stockAdjustmentRepository.create.mockImplementation((dto: any) => dto);
+      stockAdjustmentItemRepository.create.mockImplementation((dto: any) => dto as any);
+      stockAdjustmentRepository.save.mockImplementation(async (entity: any) => ({
+        ...entity,
+        id: 'sa-new',
+      }));
+      jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'sa-new' } as any);
+    });
+
+    it('derives newQuantity from oldQuantity + difference', async () => {
+      await service.create({
+        adjustmentDate: '2026-07-31',
+        items: [{ productId: 'p-1', oldQuantity: 100, difference: 10 }],
+      } as any);
+
+      const saved = stockAdjustmentRepository.save.mock.calls[0][0] as any;
+      expect(saved.items[0].newQuantity).toBe('110.0000');
+    });
+
+    it('ignores a client-supplied newQuantity', async () => {
+      await service.create({
+        adjustmentDate: '2026-07-31',
+        items: [{ productId: 'p-1', oldQuantity: 100, difference: 10, newQuantity: 999 }],
+      } as any);
+
+      const saved = stockAdjustmentRepository.save.mock.calls[0][0] as any;
+      expect(saved.items[0].newQuantity).toBe('110.0000');
+    });
+
+    it('rejects a negative derived quantity, naming the item one-based', async () => {
+      await expect(
+        service.create({
+          adjustmentDate: '2026-07-31',
+          items: [{ productId: 'p-1', oldQuantity: 10, difference: -50 }],
+        } as any),
+      ).rejects.toThrow(/Item 1 \(product p-1\).*negative quantity/);
+    });
+
+    it('accepts a derived quantity of exactly zero', async () => {
+      await service.create({
+        adjustmentDate: '2026-07-31',
+        items: [{ productId: 'p-1', oldQuantity: 0.0001, difference: -0.0001 }],
+      } as any);
+
+      const saved = stockAdjustmentRepository.save.mock.calls[0][0] as any;
+      expect(saved.items[0].newQuantity).toBe('0.0000');
+    });
+
+    it('does not consume an SA number when derivation rejects', async () => {
+      // generateDocumentNumber commits its sequence increment independently of
+      // this request, so an invalid item must never reach it — otherwise a
+      // rejected create permanently burns an SA number.
+      await expect(
+        service.create({
+          adjustmentDate: '2026-07-31',
+          items: [{ productId: 'p-1', oldQuantity: 10, difference: -50 }],
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(settingsService.generateDocumentNumber).not.toHaveBeenCalled();
+    });
+
+    it('converts a helper range failure into a 400, not a 500', async () => {
+      await expect(
+        service.create({
+          adjustmentDate: '2026-07-31',
+          items: [{ productId: 'p-1', oldQuantity: 99999999999, difference: 1 }],
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  })
+
+  describe('update() derives newQuantity', () => {
+    // Matches the `serviceProduct` fixture style above — the property is
+    // `type`, and the stocked-goods member is GOODS ('Stocked Product').
+    const stockProduct = { id: 'p-1', type: ProductType.GOODS, baseCost: 10 } as any;
+
+    beforeEach(() => {
+      stockAdjustmentRepository.findOne.mockResolvedValue({
+        id: 'sa-1', isEditable: () => true, items: [],
+      } as any);
+      productRepository.findBy.mockResolvedValue([stockProduct]);
+      stockAdjustmentItemRepository.create.mockImplementation((dto: any) => dto as any);
+      stockAdjustmentRepository.save.mockImplementation(async (entity: any) => entity);
+      jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'sa-1' } as any);
+    });
+
+    it('derives newQuantity from oldQuantity + difference', async () => {
+      await service.update('sa-1', {
+        items: [{ productId: 'p-1', oldQuantity: 50, difference: -5 }],
+      } as any);
+
+      const saved = stockAdjustmentRepository.save.mock.calls[0][0] as any;
+      expect(saved.items[0].newQuantity).toBe('45.0000');
+    });
+
+    it('ignores a client-supplied newQuantity', async () => {
+      await service.update('sa-1', {
+        items: [{ productId: 'p-1', oldQuantity: 50, difference: -5, newQuantity: 999 }],
+      } as any);
+
+      const saved = stockAdjustmentRepository.save.mock.calls[0][0] as any;
+      expect(saved.items[0].newQuantity).toBe('45.0000');
+    });
+
+    it('rejects a negative derived quantity, naming the item one-based', async () => {
+      await expect(
+        service.update('sa-1', {
+          items: [{ productId: 'p-1', oldQuantity: 10, difference: -50 }],
+        } as any),
+      ).rejects.toThrow(/Item 1 \(product p-1\).*negative quantity/);
+    });
+
+    it('does not delete existing items when derivation is rejected', async () => {
+      await expect(
+        service.update('sa-1', {
+          items: [{ productId: 'p-1', oldQuantity: 10, difference: -50 }],
+        } as any),
+      ).rejects.toThrow();
+
+      expect(stockAdjustmentItemRepository.delete).not.toHaveBeenCalled();
+      expect(stockAdjustmentRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('reports the failing item position across multiple items', async () => {
+      productRepository.findBy.mockResolvedValue([
+        stockProduct,
+        { id: 'p-2', type: ProductType.GOODS, baseCost: 10 } as any,
+      ]);
+
+      await expect(
+        service.update('sa-1', {
+          items: [
+            { productId: 'p-1', oldQuantity: 100, difference: 10 },
+            { productId: 'p-2', oldQuantity: 1, difference: -9 },
+          ],
+        } as any),
+      ).rejects.toThrow(/Item 2 \(product p-2\)/);
+    });
   })
 })
 
@@ -346,6 +497,43 @@ describe('updateNotes', () => {
       findOneSpy.mockRestore();
     });
   });
+
+  describe('deriveNewQuantityMinor', () => {
+    const derive = (old: number, diff: number): bigint =>
+      (service as any).deriveNewQuantityMinor(old, diff);
+
+    it('adds operands at scale-4 precision', () => {
+      expect(derive(100, 10)).toBe(1100000n);
+    });
+
+    it('returns exactly zero at the scale-4 boundary', () => {
+      // 0.0001 + (-0.0001) must land on 0, not a float near-zero.
+      expect(derive(0.0001, -0.0001)).toBe(0n);
+    });
+
+    it('allows a negative result (the caller owns that rule, not the helper)', () => {
+      expect(derive(10, -50)).toBe(-400000n);
+    });
+
+    it('accepts a negative oldQuantity snapshot (oversell)', () => {
+      expect(derive(-5, 15)).toBe(100000n);
+    });
+
+    it('throws a plain Error, not an HttpException, on unconvertible input', () => {
+      // 1e21 stringifies to "1e+21", which toMinorUnits' regex rejects.
+      expect(() => derive(1e21, 0)).toThrow(Error);
+      expect(() => derive(1e21, 0)).not.toThrow(BadRequestException);
+    });
+
+    it('rejects an operand beyond NUMERIC(15,4)', () => {
+      expect(() => derive(100000000000, 0)).toThrow(/exceeds the supported range/);
+    });
+
+    it('rejects a sum beyond NUMERIC(15,4) built from two in-range operands', () => {
+      // Each operand fits 11 integer digits; the sum does not.
+      expect(() => derive(99999999999, 1)).toThrow(/exceeds the supported range/);
+    });
+  });
 });
 
 describe('StockAdjustmentItemDto', () => {
@@ -353,21 +541,8 @@ describe('StockAdjustmentItemDto', () => {
     const dto = new StockAdjustmentItemDto();
     dto.productId = '123e4567-e89b-42d3-a456-426614174000';
     dto.oldQuantity = -5;
-    dto.newQuantity = 10;
     dto.difference = 15;
 
     await expect(validate(dto)).resolves.toHaveLength(0);
-  });
-
-  it('rejects negative newQuantity because target stock must be non-negative', async () => {
-    const dto = new StockAdjustmentItemDto();
-    dto.productId = '123e4567-e89b-42d3-a456-426614174000';
-    dto.oldQuantity = -5;
-    dto.newQuantity = -1;
-    dto.difference = 4;
-
-    const errors = await validate(dto);
-    expect(errors.length).toBeGreaterThan(0);
-    expect(errors.some(e => e.property === 'newQuantity')).toBe(true);
   });
 });

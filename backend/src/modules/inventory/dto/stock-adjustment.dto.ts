@@ -24,12 +24,13 @@ export class StockAdjustmentItemDto {
   @IsNumber({ maxDecimalPlaces: 4 })
   oldQuantity: number;
 
-  @ApiProperty({ description: 'Quantity after adjustment' })
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0)
-  newQuantity: number;
-
-  @ApiProperty({ description: 'Difference (newQuantity - oldQuantity)' })
+  @ApiProperty({
+    description:
+      'Signed quantity change and the sole source of truth for the adjustment. ' +
+      'The server derives newQuantity as oldQuantity + difference and rejects a ' +
+      'negative result. Any newQuantity supplied in the request is ignored, so the ' +
+      'response value may differ from what was sent.',
+  })
   @IsNumber({ maxDecimalPlaces: 4 })
   difference: number;
 

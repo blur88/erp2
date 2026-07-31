@@ -23,6 +23,7 @@ import {
   StockAdjustmentResponseDto,
   StockAdjustmentListResponseDto,
   StockAdjustmentItemResponseDto,
+  StockAdjustmentItemDto,
 } from '../dto/stock-adjustment.dto';
 import { StockMovementService } from './stock-movement.service';
 import { StockMovementType, StockMovement } from '../../../database/entities/stock-movement.entity';
@@ -134,6 +135,66 @@ export class StockAdjustmentService extends BaseCrudService<
     }
   }
 
+  /** Largest magnitude representable by the NUMERIC(15, 4) quantity columns. */
+  private static readonly QUANTITY_MINOR_LIMIT = 10n ** 15n;
+
+  /**
+   * newQuantity is derived, never client-supplied: difference is the command.
+   *
+   * Scale-4 BigInt arithmetic — the quantity columns are NUMERIC(15, 4) and float
+   * addition can't be trusted to land on the stored value.
+   *
+   * Converts both operands, bounds-checks them and their sum, and returns the sum
+   * in minor units. Throws ordinary `Error` on conversion or range failure — never
+   * an HTTP exception — and does NOT apply the non-negative business rule. Both
+   * belong to the caller, so error presentation stays where the item index and
+   * productId are in scope.
+   */
+  private deriveNewQuantityMinor(oldQuantity: number, difference: number): bigint {
+    const oldMinor = toMinorUnits(String(oldQuantity));
+    const differenceMinor = toMinorUnits(String(difference));
+    this.assertQuantityInRange(oldMinor);
+    this.assertQuantityInRange(differenceMinor);
+
+    const derivedMinor = oldMinor + differenceMinor;
+    this.assertQuantityInRange(derivedMinor);
+    return derivedMinor;
+  }
+
+  private assertQuantityInRange(minor: bigint): void {
+    const magnitude = minor < 0n ? -minor : minor;
+    if (magnitude >= StockAdjustmentService.QUANTITY_MINOR_LIMIT) {
+      throw new Error(
+        `Quantity ${formatScale4(minor)} exceeds the supported range for a stock adjustment`,
+      );
+    }
+  }
+
+  /**
+   * Caller-side wrapper: turns the helper's plain Errors into line-specific
+   * BadRequestExceptions, applies the non-negative rule, and formats for storage.
+   * Returns a scale-4 string written straight to the NUMERIC column.
+   */
+  private deriveItemNewQuantity(itemDto: StockAdjustmentItemDto, index: number): string {
+    const position = `Item ${index + 1} (product ${itemDto.productId})`;
+
+    let derivedMinor: bigint;
+    try {
+      derivedMinor = this.deriveNewQuantityMinor(itemDto.oldQuantity, itemDto.difference);
+    } catch (error) {
+      throw new BadRequestException(`${position}: ${(error as Error).message}`);
+    }
+
+    if (derivedMinor < 0n) {
+      throw new BadRequestException(
+        `${position}: difference ${itemDto.difference} applied to stock ${itemDto.oldQuantity} ` +
+        `would result in negative quantity ${formatScale4(derivedMinor)}.`,
+      );
+    }
+
+    return formatScale4(derivedMinor);
+  }
+
   /**
    * Create a new stock adjustment (as draft)
    */
@@ -158,6 +219,13 @@ export class StockAdjustmentService extends BaseCrudService<
     }
     this.assertNoServiceProducts(products);
 
+    // Derive every quantity BEFORE generating the SA number: generateSANumber
+    // commits its sequence increment independently of this request, so a
+    // rejection after it would permanently consume an adjustment number.
+    const derivedNewQuantities = createDto.items.map((itemDto, index) =>
+      this.deriveItemNewQuantity(itemDto, index),
+    );
+
     // Generate SA number
     const adjustmentNumber = await this.generateSANumber();
 
@@ -165,9 +233,11 @@ export class StockAdjustmentService extends BaseCrudService<
     let totalValue = 0;
     const items: StockAdjustmentItem[] = [];
 
-    for (const itemDto of createDto.items) {
+    for (const [index, itemDto] of createDto.items.entries()) {
       const product = products.find(p => p.id === itemDto.productId);
       if (!product) continue;
+
+      const newQuantity = derivedNewQuantities[index];
 
       const unitCost = itemDto.unitCost ?? Number(product.baseCost);
       const itemTotalValue = Math.abs(itemDto.difference) * unitCost;
@@ -176,7 +246,7 @@ export class StockAdjustmentService extends BaseCrudService<
       const item = this.stockAdjustmentItemRepository.create({
         productId: itemDto.productId,
         oldQuantity: itemDto.oldQuantity,
-        newQuantity: itemDto.newQuantity,
+        newQuantity: newQuantity as any, // scale-4 string; entity types it as number
         difference: itemDto.difference,
         unitCost,
         totalValue: itemTotalValue,
@@ -392,6 +462,12 @@ export class StockAdjustmentService extends BaseCrudService<
       }
       this.assertNoServiceProducts(products);
 
+      // Derive every quantity BEFORE deleting anything: a rejection here must
+      // leave the existing items intact (#871).
+      const derivedNewQuantities = updateDto.items.map((itemDto, index) =>
+        this.deriveItemNewQuantity(itemDto, index),
+      );
+
       // Safe to remove old items now that validation passed
       await this.stockAdjustmentItemRepository.delete({
         stockAdjustmentId: id,
@@ -401,7 +477,7 @@ export class StockAdjustmentService extends BaseCrudService<
       let totalValue = 0;
       const items: StockAdjustmentItem[] = [];
 
-      for (const itemDto of updateDto.items) {
+      for (const [index, itemDto] of updateDto.items.entries()) {
         const product = products.find(p => p.id === itemDto.productId);
         if (!product) continue;
 
@@ -413,7 +489,7 @@ export class StockAdjustmentService extends BaseCrudService<
           stockAdjustmentId: id,
           productId: itemDto.productId,
           oldQuantity: itemDto.oldQuantity,
-          newQuantity: itemDto.newQuantity,
+          newQuantity: derivedNewQuantities[index] as any, // scale-4 string
           difference: itemDto.difference,
           unitCost,
           totalValue: itemTotalValue,
