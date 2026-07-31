@@ -1,6 +1,6 @@
 import { createApi } from '@reduxjs/toolkit/query/react'
 
-import type { Category, PaginatedResponse, Product, StockAdjustment, StockMovement } from '@/types'
+import type { Category, CreateStockAdjustmentRequest, PaginatedResponse, Product, StockAdjustment, StockMovement, UpdateStockAdjustmentRequest } from '@/types'
 
 import { axiosBaseQuery } from './baseQuery'
 import { normalizePaginated, normalizeSingle } from './normalizers'
@@ -173,12 +173,12 @@ export const inventoryApiSlice = createApi({
       transformResponse: normalizeSingle<StockAdjustment>,
       providesTags: (result) => result ? [{ type: 'StockAdjustment', id: result.id }] : [],
     }),
-    createStockAdjustment: builder.mutation<StockAdjustment, Record<string, unknown>>({
+    createStockAdjustment: builder.mutation<StockAdjustment, CreateStockAdjustmentRequest>({
       query: (body) => ({ url: '/inventory/stock-adjustments', method: 'POST', data: body }),
       transformResponse: normalizeSingle<StockAdjustment>,
       invalidatesTags: ['StockAdjustment'],
     }),
-    updateStockAdjustment: builder.mutation<StockAdjustment, { id: string; data: Record<string, unknown> }>({
+    updateStockAdjustment: builder.mutation<StockAdjustment, { id: string; data: UpdateStockAdjustmentRequest }>({
       query: ({ id, data }) => ({ url: `/inventory/stock-adjustments/${id}`, method: 'PUT', data }),
       transformResponse: normalizeSingle<StockAdjustment>,
       invalidatesTags: ['StockAdjustment'],

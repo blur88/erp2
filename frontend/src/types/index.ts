@@ -137,6 +137,31 @@ export interface StockAdjustmentItem {
   stockAfter?: number | null;
 }
 
+/**
+ * Request-side item shape. Distinct from StockAdjustmentItem (the response),
+ * which also carries the server-derived newQuantity. `difference` is the
+ * command; the server derives newQuantity as oldQuantity + difference.
+ */
+export interface StockAdjustmentItemRequest {
+  productId: string;
+  oldQuantity: number;
+  difference: number;
+  unitCost?: number;
+  notes?: string;
+}
+
+export interface CreateStockAdjustmentRequest {
+  adjustmentDate: string;
+  notes?: string;
+  items: StockAdjustmentItemRequest[];
+}
+
+export interface UpdateStockAdjustmentRequest {
+  adjustmentDate?: string;
+  notes?: string;
+  items?: StockAdjustmentItemRequest[];
+}
+
 export interface StockAdjustment {
   id: string;
   adjustmentNumber: string;
