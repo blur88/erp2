@@ -304,7 +304,6 @@ const CreateStockAdjustmentPage: React.FC = () => {
         .map((item) => ({
           productId: item.productId,
           oldQuantity: Number(item.liveStock),
-          newQuantity: Number(item.liveStock) + Number(item.difference),
           difference: Number(item.difference),
           unitCost: Number(item.unitCost),
         }))
