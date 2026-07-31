@@ -270,6 +270,71 @@ describe('StockAdjustmentService', () => {
     expect(stockAdjustmentItemRepository.save).not.toHaveBeenCalled()
     expect(stockAdjustmentRepository.save).not.toHaveBeenCalled()
   })
+
+  describe('create() derives newQuantity', () => {
+    // Matches the `serviceProduct` fixture style above — the property is
+    // `type`, and the stocked-goods member is GOODS ('Stocked Product').
+    const stockProduct = { id: 'p-1', type: ProductType.GOODS, baseCost: 10 } as any;
+
+    beforeEach(() => {
+      productRepository.findBy.mockResolvedValue([stockProduct]);
+      stockAdjustmentRepository.create.mockImplementation((dto: any) => dto);
+      stockAdjustmentItemRepository.create.mockImplementation((dto: any) => dto as any);
+      stockAdjustmentRepository.save.mockImplementation(async (entity: any) => ({
+        ...entity,
+        id: 'sa-new',
+      }));
+      jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'sa-new' } as any);
+    });
+
+    it('derives newQuantity from oldQuantity + difference', async () => {
+      await service.create({
+        adjustmentDate: '2026-07-31',
+        items: [{ productId: 'p-1', oldQuantity: 100, difference: 10 }],
+      } as any);
+
+      const saved = stockAdjustmentRepository.save.mock.calls[0][0] as any;
+      expect(saved.items[0].newQuantity).toBe('110.0000');
+    });
+
+    it('ignores a client-supplied newQuantity', async () => {
+      await service.create({
+        adjustmentDate: '2026-07-31',
+        items: [{ productId: 'p-1', oldQuantity: 100, difference: 10, newQuantity: 999 }],
+      } as any);
+
+      const saved = stockAdjustmentRepository.save.mock.calls[0][0] as any;
+      expect(saved.items[0].newQuantity).toBe('110.0000');
+    });
+
+    it('rejects a negative derived quantity, naming the item one-based', async () => {
+      await expect(
+        service.create({
+          adjustmentDate: '2026-07-31',
+          items: [{ productId: 'p-1', oldQuantity: 10, difference: -50 }],
+        } as any),
+      ).rejects.toThrow(/Item 1 \(product p-1\).*negative quantity/);
+    });
+
+    it('accepts a derived quantity of exactly zero', async () => {
+      await service.create({
+        adjustmentDate: '2026-07-31',
+        items: [{ productId: 'p-1', oldQuantity: 0.0001, difference: -0.0001 }],
+      } as any);
+
+      const saved = stockAdjustmentRepository.save.mock.calls[0][0] as any;
+      expect(saved.items[0].newQuantity).toBe('0.0000');
+    });
+
+    it('converts a helper range failure into a 400, not a 500', async () => {
+      await expect(
+        service.create({
+          adjustmentDate: '2026-07-31',
+          items: [{ productId: 'p-1', oldQuantity: 99999999999, difference: 1 }],
+        } as any),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  })
 })
 
 describe('complete and revert', () => {

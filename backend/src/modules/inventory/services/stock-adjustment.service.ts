@@ -23,6 +23,7 @@ import {
   StockAdjustmentResponseDto,
   StockAdjustmentListResponseDto,
   StockAdjustmentItemResponseDto,
+  StockAdjustmentItemDto,
 } from '../dto/stock-adjustment.dto';
 import { StockMovementService } from './stock-movement.service';
 import { StockMovementType, StockMovement } from '../../../database/entities/stock-movement.entity';
@@ -170,6 +171,31 @@ export class StockAdjustmentService extends BaseCrudService<
   }
 
   /**
+   * Caller-side wrapper: turns the helper's plain Errors into line-specific
+   * BadRequestExceptions, applies the non-negative rule, and formats for storage.
+   * Returns a scale-4 string written straight to the NUMERIC column.
+   */
+  private deriveItemNewQuantity(itemDto: StockAdjustmentItemDto, index: number): string {
+    const position = `Item ${index + 1} (product ${itemDto.productId})`;
+
+    let derivedMinor: bigint;
+    try {
+      derivedMinor = this.deriveNewQuantityMinor(itemDto.oldQuantity, itemDto.difference);
+    } catch (error) {
+      throw new BadRequestException(`${position}: ${(error as Error).message}`);
+    }
+
+    if (derivedMinor < 0n) {
+      throw new BadRequestException(
+        `${position}: difference ${itemDto.difference} applied to stock ${itemDto.oldQuantity} ` +
+        `would result in negative quantity ${formatScale4(derivedMinor)}.`,
+      );
+    }
+
+    return formatScale4(derivedMinor);
+  }
+
+  /**
    * Create a new stock adjustment (as draft)
    */
   async create(
@@ -200,9 +226,11 @@ export class StockAdjustmentService extends BaseCrudService<
     let totalValue = 0;
     const items: StockAdjustmentItem[] = [];
 
-    for (const itemDto of createDto.items) {
+    for (const [index, itemDto] of createDto.items.entries()) {
       const product = products.find(p => p.id === itemDto.productId);
       if (!product) continue;
+
+      const newQuantity = this.deriveItemNewQuantity(itemDto, index);
 
       const unitCost = itemDto.unitCost ?? Number(product.baseCost);
       const itemTotalValue = Math.abs(itemDto.difference) * unitCost;
@@ -211,7 +239,7 @@ export class StockAdjustmentService extends BaseCrudService<
       const item = this.stockAdjustmentItemRepository.create({
         productId: itemDto.productId,
         oldQuantity: itemDto.oldQuantity,
-        newQuantity: itemDto.newQuantity,
+        newQuantity: newQuantity as any, // scale-4 string; entity types it as number
         difference: itemDto.difference,
         unitCost,
         totalValue: itemTotalValue,
