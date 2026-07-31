@@ -3,13 +3,14 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  InternalServerErrorException,
   Logger,
   Inject,
   forwardRef,
   StreamableFile,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository, UpdateResult, In, IsNull, FindOptionsWhere, Not } from 'typeorm';
+import { DataSource, EntityManager, Repository, UpdateResult, In, IsNull, FindOptionsWhere, Not } from 'typeorm';
 import { BaseCrudService } from '../../../common/services/base-crud.service';
 import { Product, ProductType } from '../../../database/entities/product.entity';
 import { Category } from '../../../database/entities/category.entity';
@@ -89,6 +90,7 @@ export class ProductService extends BaseCrudService<
     private readonly stockMovementService: StockMovementService,
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly settingsService: SettingsService,
+    private readonly dataSource: DataSource,
     auditLogService: AuditLogService,
   ) {
     super(productRepository, auditLogService);
@@ -293,58 +295,67 @@ export class ProductService extends BaseCrudService<
     });
     product.slug = await this.generateUniqueSlug(createProductDto.name);
 
-    const savedProduct = await this.productRepository.save(product);
+    let savedProduct: Product;
+    try {
+      savedProduct = await this.dataSource.transaction(async (manager: EntityManager) => {
+        const productRepo = manager.getRepository(Product);
+        const saved = await productRepo.save(product);
 
-    // Set the category relationship for the response DTO
-    savedProduct.category = category;
+        // Create initial stock movement if current stock provided.
+        // The movement updates stockQuantity via updateStockQuantity, so the product is saved with 0 above.
+        // For system users (no userId), skip the movement but set stockQuantity directly so the value isn't lost.
+        if (createProductDto.stockQuantity && createProductDto.stockQuantity > 0) {
+          if (userId) {
+            await this.stockMovementService.recordInitialStock(
+              saved.id,
+              createProductDto.stockQuantity,
+              createProductDto.baseCost,
+              userId,
+              manager,
+            );
+          } else {
+            await productRepo.update(saved.id, {
+              stockQuantity: createProductDto.stockQuantity,
+            });
+          }
 
-    // Create initial stock movement if current stock provided.
-    // The movement updates stockQuantity via updateStockQuantity, so the product is saved with 0 above.
-    // For system users (no userId), skip the movement but set stockQuantity directly so the value isn't lost.
-    if (createProductDto.stockQuantity && createProductDto.stockQuantity > 0) {
-      if (userId) {
-        try {
-          await this.stockMovementService.recordInitialStock(
-            savedProduct.id,
-            createProductDto.stockQuantity,
-            createProductDto.baseCost,
-            userId,
-          );
-        } catch (error) {
-          this.logger.warn(`Failed to create initial stock movement: ${error.message}`);
+          // Both branches write stockQuantity to the DB without touching `saved`: the
+          // movement path goes through productService.updateStockQuantity(). Sync the
+          // in-memory object so the response doesn't report 0.
+          saved.stockQuantity = createProductDto.stockQuantity;
+
+          // Create initial cost history for products with stock
+          if (createProductDto.baseCost) {
+            await this.baseCostCalculator.addStock(
+              saved.id,
+              null, // No GRN for initial stock
+              createProductDto.stockQuantity,
+              createProductDto.baseCost,
+              0, // No shipping for initial stock
+              new Date(), // Current date as received date
+              manager,
+            );
+          }
         }
-      } else {
-        await this.productRepository.update(savedProduct.id, {
-          stockQuantity: createProductDto.stockQuantity,
-        });
-        savedProduct.stockQuantity = createProductDto.stockQuantity;
-      }
-    }
 
-    // Create initial cost history for products with stock
-    if (
-      createProductDto.stockQuantity &&
-      createProductDto.stockQuantity > 0 &&
-      createProductDto.baseCost
-    ) {
-      try {
-        this.logger.log(
-          `Creating initial cost history for product ${savedProduct.id}: ${createProductDto.stockQuantity} units @ RM ${createProductDto.baseCost}`,
-        );
+        // Set the category relationship for the response DTO — toResponseDto emits
+        // `category: null` unless the relation is present on the entity.
+        saved.category = category;
 
-        await this.baseCostCalculator.addStock(
-          savedProduct.id,
-          null, // No GRN for initial stock
-          createProductDto.stockQuantity,
-          createProductDto.baseCost,
-          0, // No shipping for initial stock
-          new Date(), // Current date as received date
-        );
-
-        this.logger.log(`Initial cost history created for product ${savedProduct.id}`);
-      } catch (error) {
-        this.logger.warn(`Failed to create initial cost history: ${error.message}`);
-      }
+        return saved;
+      });
+    } catch (error) {
+      // Rollback has already completed here, so "No changes were saved" is literally true.
+      this.logger.error(
+        `Initial inventory setup failed for product '${createProductDto.name}': ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException({
+        message:
+          "Product couldn't be created because the initial inventory setup failed. " +
+          'No changes were saved. Please try again.',
+        error: 'INITIAL_INVENTORY_SETUP_FAILED',
+      });
     }
 
     // Log audit trail
