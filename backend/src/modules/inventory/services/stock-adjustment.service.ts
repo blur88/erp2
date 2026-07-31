@@ -455,6 +455,12 @@ export class StockAdjustmentService extends BaseCrudService<
       }
       this.assertNoServiceProducts(products);
 
+      // Derive every quantity BEFORE deleting anything: a rejection here must
+      // leave the existing items intact (#871).
+      const derivedNewQuantities = updateDto.items.map((itemDto, index) =>
+        this.deriveItemNewQuantity(itemDto, index),
+      );
+
       // Safe to remove old items now that validation passed
       await this.stockAdjustmentItemRepository.delete({
         stockAdjustmentId: id,
@@ -464,7 +470,7 @@ export class StockAdjustmentService extends BaseCrudService<
       let totalValue = 0;
       const items: StockAdjustmentItem[] = [];
 
-      for (const itemDto of updateDto.items) {
+      for (const [index, itemDto] of updateDto.items.entries()) {
         const product = products.find(p => p.id === itemDto.productId);
         if (!product) continue;
 
@@ -476,7 +482,7 @@ export class StockAdjustmentService extends BaseCrudService<
           stockAdjustmentId: id,
           productId: itemDto.productId,
           oldQuantity: itemDto.oldQuantity,
-          newQuantity: itemDto.newQuantity,
+          newQuantity: derivedNewQuantities[index] as any, // scale-4 string
           difference: itemDto.difference,
           unitCost,
           totalValue: itemTotalValue,
