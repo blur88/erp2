@@ -24,6 +24,7 @@ describe('StockAdjustmentService', () => {
   let productRepository: jest.Mocked<Repository<Product>>;
   let stockAdjustmentItemRepository: jest.Mocked<Repository<StockAdjustmentItem>>;
   let accountingPort: { postStockAdjustment: jest.Mock; reverseEntriesForDocument: jest.Mock };
+  let settingsService: { generateDocumentNumber: jest.Mock };
 
   const createMockStockAdjustment = (status: StockAdjustmentStatus = StockAdjustmentStatus.DRAFT): Partial<StockAdjustment> => ({
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -167,6 +168,7 @@ describe('StockAdjustmentService', () => {
     productRepository = module.get(getRepositoryToken(Product));
     stockAdjustmentItemRepository = module.get(getRepositoryToken(StockAdjustmentItem));
     accountingPort = module.get(ACCOUNTING_POSTING_PORT) as any;
+    settingsService = module.get(SettingsService) as any;
   });
 
   it('should be defined', () => {
@@ -178,8 +180,8 @@ describe('StockAdjustmentService', () => {
       const dto = {
         adjustmentDate: '2026-07-20',
         items: [
-          { productId: 'p1', oldQuantity: 0, newQuantity: 1, difference: 1 },
-          { productId: 'p1', oldQuantity: 0, newQuantity: 2, difference: 2 },
+          { productId: 'p1', oldQuantity: 0, difference: 1 },
+          { productId: 'p1', oldQuantity: 0, difference: 2 },
         ],
       } as any;
       await expect(service.create(dto)).rejects.toThrow('Duplicate product');
@@ -324,6 +326,20 @@ describe('StockAdjustmentService', () => {
 
       const saved = stockAdjustmentRepository.save.mock.calls[0][0] as any;
       expect(saved.items[0].newQuantity).toBe('0.0000');
+    });
+
+    it('does not consume an SA number when derivation rejects', async () => {
+      // generateDocumentNumber commits its sequence increment independently of
+      // this request, so an invalid item must never reach it — otherwise a
+      // rejected create permanently burns an SA number.
+      await expect(
+        service.create({
+          adjustmentDate: '2026-07-31',
+          items: [{ productId: 'p-1', oldQuantity: 10, difference: -50 }],
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(settingsService.generateDocumentNumber).not.toHaveBeenCalled();
     });
 
     it('converts a helper range failure into a 400, not a 500', async () => {

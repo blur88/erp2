@@ -219,6 +219,13 @@ export class StockAdjustmentService extends BaseCrudService<
     }
     this.assertNoServiceProducts(products);
 
+    // Derive every quantity BEFORE generating the SA number: generateSANumber
+    // commits its sequence increment independently of this request, so a
+    // rejection after it would permanently consume an adjustment number.
+    const derivedNewQuantities = createDto.items.map((itemDto, index) =>
+      this.deriveItemNewQuantity(itemDto, index),
+    );
+
     // Generate SA number
     const adjustmentNumber = await this.generateSANumber();
 
@@ -230,7 +237,7 @@ export class StockAdjustmentService extends BaseCrudService<
       const product = products.find(p => p.id === itemDto.productId);
       if (!product) continue;
 
-      const newQuantity = this.deriveItemNewQuantity(itemDto, index);
+      const newQuantity = derivedNewQuantities[index];
 
       const unitCost = itemDto.unitCost ?? Number(product.baseCost);
       const itemTotalValue = Math.abs(itemDto.difference) * unitCost;
