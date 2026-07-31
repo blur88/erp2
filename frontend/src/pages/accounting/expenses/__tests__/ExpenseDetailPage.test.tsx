@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { act, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Expense } from '@/types'
 
@@ -87,15 +87,17 @@ function makeExpense(overrides: Partial<Expense> = {}): Expense {
 
 function renderPage() {
   const store = configureStore({ reducer: {} })
-  return render(
+  const tree = () => (
     <Provider store={store}>
       <MemoryRouter initialEntries={['/accounting/expenses/exp-1']}>
         <Routes>
           <Route path="/accounting/expenses/:id" element={<ExpenseDetailPage />} />
         </Routes>
       </MemoryRouter>
-    </Provider>,
+    </Provider>
   )
+  const utils = render(tree())
+  return { ...utils, rerenderPage: () => utils.rerender(tree()) }
 }
 
 describe('ExpenseDetailPage', () => {
@@ -389,6 +391,52 @@ describe('ExpenseDetailPage', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
       await userEvent.click(screen.getByRole('button', { name: /cancel expense/i }))
       await waitFor(() => expect(mockShowError).toHaveBeenCalled())
+    })
+  })
+
+  describe('query state transitions', () => {
+    let errorSpy: ReturnType<typeof vi.spyOn> | undefined
+
+    afterEach(() => {
+      errorSpy?.mockRestore()
+      errorSpy = undefined
+    })
+
+    it('transitions from loading to loaded without a hook-order error', () => {
+      mockGetExpense.mockReturnValue({ data: undefined, isLoading: true })
+      const { rerenderPage } = renderPage()
+      expect(screen.getByRole('progressbar')).toBeInTheDocument()
+
+      mockGetExpense.mockReturnValue({ data: makeExpense(), isLoading: false })
+      rerenderPage()
+
+      expect(screen.getByText('EXP-001')).toBeInTheDocument()
+      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+    })
+
+    it('transitions from loading to error without a hook-order error', () => {
+      mockGetExpense.mockReturnValue({ data: undefined, isLoading: true })
+      const { rerenderPage } = renderPage()
+      expect(screen.getByRole('progressbar')).toBeInTheDocument()
+
+      mockGetExpense.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+      rerenderPage()
+
+      expect(screen.getByText(/Expense not found/)).toBeInTheDocument()
+    })
+
+    it('logs no hook-order diagnostic across the loading to loaded transition', () => {
+      errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      mockGetExpense.mockReturnValue({ data: undefined, isLoading: true })
+      const { rerenderPage } = renderPage()
+      mockGetExpense.mockReturnValue({ data: makeExpense(), isLoading: false })
+      rerenderPage()
+
+      const hookComplaints = errorSpy.mock.calls.filter((call) =>
+        call.some((arg) => typeof arg === 'string' && /hook/i.test(arg)),
+      )
+      expect(hookComplaints).toEqual([])
     })
   })
 })
