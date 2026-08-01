@@ -152,7 +152,7 @@ describe('SupplierFormPage - Create mode', () => {
         expect.objectContaining({ companyName: 'Acme Supplies' }),
       )
     })
-    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/suppliers?highlight=new-sup')
+    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/suppliers')
   })
 
   it('navigates back on Cancel click', async () => {
@@ -234,7 +234,7 @@ describe('SupplierFormPage - Edit mode', () => {
         data: expect.objectContaining({ companyName: 'Global Parts Updated' }),
       })
     })
-    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/suppliers?highlight=sup-1')
+    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/suppliers')
   })
 })
 

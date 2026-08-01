@@ -315,11 +315,11 @@ const CreateStockAdjustmentPage: React.FC = () => {
       if (isEditMode && id) {
         const updated = await updateStockAdjustment({ id, data: payload }).unwrap()
         showSuccess(`Stock adjustment ${updated.adjustmentNumber || ''} updated successfully`)
-        navigate(editReturnPath ?? `/inventory/stock-adjustments?highlight=${updated.id}`)
+        navigate(editReturnPath ?? '/inventory/stock-adjustments')
       } else {
         const created = await createStockAdjustment(payload).unwrap()
         showSuccess(`Stock adjustment ${created.adjustmentNumber || ''} created successfully`)
-        navigate(`/inventory/stock-adjustments?highlight=${created.id}`)
+        navigate('/inventory/stock-adjustments')
       }
     } catch (err: any) {
       const msg = err?.data?.message || err?.message || 'Failed to save stock adjustment'

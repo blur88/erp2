@@ -151,6 +151,16 @@ export class StockAdjustmentItemResponseDto {
   @ApiProperty({ description: 'Quantity before adjustment' })
   oldQuantity: number;
 
+  @ApiPropertyOptional({
+    description:
+      'Stock quantity shown when the adjustment was drafted. Differs from oldQuantity ' +
+      'when stock moved between draft creation and completion. Distinct from liveStock ' +
+      '(the product current balance) and stockBefore/stockAfter (derived from the posted ' +
+      'movement at read time). Undefined for drafts, zero-difference lines, and rows ' +
+      'completed before this field existed.',
+  })
+  requestedOldQuantity?: number;
+
   @ApiProperty({ description: 'Quantity after adjustment' })
   newQuantity: number;
 

@@ -14,9 +14,9 @@ export class DetailedErrorFilter implements ExceptionFilter {
     if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
       const detailedResponse = exceptionResponse as any;
       if (
-        detailedResponse.error &&
-        (detailedResponse.error === 'DELETION_PREVENTED_BY_DEPENDENCIES' ||
-          detailedResponse.error === 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES')
+        detailedResponse.code &&
+        (detailedResponse.code === 'DELETION_PREVENTED_BY_DEPENDENCIES' ||
+          detailedResponse.code === 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES')
       ) {
         return response.status(status).json({
           statusCode: status,

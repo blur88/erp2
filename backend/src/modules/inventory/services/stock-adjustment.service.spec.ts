@@ -483,6 +483,114 @@ describe('complete and revert', () => {
   });
 });
 
+describe('complete() reconciles audit values with live stock (#982)', () => {
+  const buildDraft = (items: any[]) => ({
+    id: 'sa-982',
+    adjustmentNumber: 'SA-000982',
+    status: StockAdjustmentStatus.DRAFT,
+    itemCount: items.length,
+    canComplete: () => true,
+  });
+
+  const buildManager = (adjustment: any, items: any[]) => ({
+    findOne: jest.fn().mockResolvedValue(adjustment),
+    find: jest.fn().mockResolvedValue(items),
+    save: jest.fn().mockImplementation((arg: any) => Promise.resolve(arg)),
+  });
+
+  it('overwrites oldQuantity/newQuantity with the real movement balances and preserves the draft snapshot', async () => {
+    // Draft was created when stock was 100. Stock has since moved to 130.
+    const items = [{
+      id: 'i1', stockAdjustmentId: 'sa-982', productId: 'p1',
+      oldQuantity: 100, newQuantity: 110, difference: 10,
+      unitCost: 5, totalValue: 50, notes: null,
+      product: { id: 'p1', name: 'Widget' },
+    }];
+    const adjustment = buildDraft(items);
+    const manager = buildManager(adjustment, items);
+    (dataSource.transaction as jest.Mock).mockImplementation((cb: any) => cb(manager));
+
+    // The real movement applies +10 to LIVE stock of 130 -> 140.
+    stockMovementService.create.mockResolvedValue({
+      previousBalance: 130, newBalance: 140,
+    } as any);
+    jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'sa-982' } as any);
+
+    await service.complete('sa-982', 'user-1', 'admin');
+
+    // difference is the command and is never rewritten.
+    expect(items[0].difference).toBe(10);
+    // Audit values now describe the movement that actually happened.
+    expect(items[0].oldQuantity).toBe(130);
+    expect(items[0].newQuantity).toBe(140);
+    // The stale form-load snapshot survives for audit.
+    expect((items[0] as any).requestedOldQuantity).toBe(100);
+    // Reconciled rows are saved on the transaction manager, not a default repo.
+    expect(manager.save).toHaveBeenCalled();
+  });
+
+  it('leaves zero-difference lines untouched and creates no movement', async () => {
+    const items = [{
+      id: 'i2', stockAdjustmentId: 'sa-982', productId: 'p2',
+      oldQuantity: 50, newQuantity: 50, difference: 0,
+      unitCost: 5, totalValue: 0, notes: null,
+      product: { id: 'p2', name: 'Gadget' },
+    }];
+    const adjustment = buildDraft(items);
+    const manager = buildManager(adjustment, items);
+    (dataSource.transaction as jest.Mock).mockImplementation((cb: any) => cb(manager));
+    jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'sa-982' } as any);
+
+    await service.complete('sa-982', 'user-1', 'admin');
+
+    expect(stockMovementService.create).not.toHaveBeenCalled();
+    expect(items[0].oldQuantity).toBe(50);
+    expect(items[0].newQuantity).toBe(50);
+    expect((items[0] as any).requestedOldQuantity).toBeUndefined();
+  });
+
+  // NOTE: this test mocks the rejection, so it proves complete() PROPAGATES the
+  // guard rather than swallowing it or half-writing reconciled values. It does
+  // NOT exercise the real guard — Task 6a covers that end-to-end.
+  it('propagates the rejection when the movement would drive stock negative', async () => {
+    const items = [{
+      id: 'i3', stockAdjustmentId: 'sa-982', productId: 'p3',
+      oldQuantity: 10, newQuantity: 0, difference: -10,
+      unitCost: 5, totalValue: 50, notes: null,
+      product: { id: 'p3', name: 'Sprocket' },
+    }];
+    const adjustment = buildDraft(items);
+    const manager = buildManager(adjustment, items);
+    (dataSource.transaction as jest.Mock).mockImplementation((cb: any) => cb(manager));
+
+    // Live stock fell to 2; stockMovementService guards the negative result.
+    stockMovementService.create.mockRejectedValue(
+      new BadRequestException('Insufficient stock. Available: 2, Requested: 10'),
+    );
+
+    await expect(service.complete('sa-982', 'user-1', 'admin')).rejects.toThrow(BadRequestException);
+  });
+
+  it('maps requestedOldQuantity through the response DTO, including a legitimate zero', async () => {
+    const map = (service as any).toItemResponseDto.bind(service);
+
+    const withZero = map({
+      id: 'i4', productId: 'p4', oldQuantity: 5, newQuantity: 5, difference: 0,
+      requestedOldQuantity: 0, isIncrease: false, isDecrease: false, absoluteDifference: 0,
+      product: { id: 'p4', name: 'Zero', barcode: 'B4' },
+    });
+    // 0 is a real snapshot value and must NOT collapse to undefined.
+    expect(withZero.requestedOldQuantity).toBe(0);
+
+    const withNull = map({
+      id: 'i5', productId: 'p5', oldQuantity: 5, newQuantity: 6, difference: 1,
+      requestedOldQuantity: null, isIncrease: true, isDecrease: false, absoluteDifference: 1,
+      product: { id: 'p5', name: 'Null', barcode: 'B5' },
+    });
+    expect(withNull.requestedOldQuantity).toBeUndefined();
+  });
+});
+
 describe('updateNotes', () => {
     it('updates notes on a completed adjustment without changing status/items', async () => {
       const adjustment: any = { id: 'a1', adjustmentNumber: 'SA-1', status: 'completed', notes: 'old', items: [] };

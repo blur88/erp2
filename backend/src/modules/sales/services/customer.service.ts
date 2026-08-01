@@ -110,7 +110,7 @@ export class CustomerService extends BaseCrudService<
     if (activeOrderCount > 0) {
       throw new BadRequestException({
         message: `Cannot delete customer '${entity.name}' because they have ${activeOrderCount} order${activeOrderCount === 1 ? '' : 's'}.`,
-        error: 'DELETION_PREVENTED_BY_DEPENDENCIES',
+        code: 'DELETION_PREVENTED_BY_DEPENDENCIES',
         customerName: entity.name,
         customerId: entity.id,
         dependencies: {
@@ -688,7 +688,7 @@ export class CustomerService extends BaseCrudService<
     if (orderCount > 0) {
       const errorResponse = {
         message: `Cannot permanently delete customer '${customer.name}' due to active business relationships`,
-        error: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES',
+        code: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES',
         customerName: customer.name,
         customerId: customer.id,
         dependencies: {

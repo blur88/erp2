@@ -295,9 +295,7 @@ describe('ExpenseFormPage - Create mode', () => {
     })
     expect(mockShowSuccess).toHaveBeenCalled()
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith(
-        '/accounting/expenses?highlight=new-exp-1',
-      )
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses')
     })
   })
 

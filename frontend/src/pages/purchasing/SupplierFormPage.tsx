@@ -304,7 +304,7 @@ const SupplierFormPage: React.FC = () => {
       } else if (returnTo === 'profile' && profilePath) {
         navigate(profilePath)
       } else {
-        navigate(`/purchasing/suppliers?highlight=${savedSupplier.id}`)
+        navigate('/purchasing/suppliers')
       }
     } catch {
       showError(`Failed to ${isEdit ? 'update' : 'create'} supplier`)

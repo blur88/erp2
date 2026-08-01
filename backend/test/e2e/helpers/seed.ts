@@ -9,6 +9,8 @@ import { Product } from "../../../src/database/entities/product.entity";
 import { PaymentMethodEntity } from "../../../src/database/entities/payment-method.entity";
 import * as bcrypt from "bcrypt";
 
+let productSeedCounter = 0;
+
 /**
  * Truncates all business tables in dependency order so any spec can start clean.
  * Uses CASCADE so FK chains are handled automatically.
@@ -73,7 +75,10 @@ export async function seedProduct(
   const productRepo = dataSource.getRepository(Product);
   return productRepo.save(
     productRepo.create({
-      name: overrides.name ?? "Test Product",
+      // Products are case-insensitively unique by name (UQ_products_lower_name),
+      // so the default must be unique per call or any spec that seeds twice
+      // within one truncation window collides.
+      name: overrides.name ?? `Test Product ${++productSeedCounter}`,
       categoryId,
       baseCost: overrides.baseCost ?? 100,
       stockQuantity: overrides.stockQuantity ?? 0,

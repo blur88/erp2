@@ -381,7 +381,7 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
     })
   })
 
-  it('navigates to the orders list with a highlight after creating an order', async () => {
+  it('navigates to the orders list after creating an order', async () => {
     const createdOrder = { id: 'new-po-id', orderNumber: 'PO-NEW' }
     mockCreatePurchaseOrder.mockReturnValue({
       unwrap: vi.fn().mockResolvedValue(createdOrder),
@@ -406,7 +406,7 @@ describe('CreatePurchaseOrderPage', { timeout: 60000 }, () => {
     await userEvent.click(screen.getByRole('button', { name: /create order/i }))
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders?highlight=new-po-id')
+      expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders')
     })
   })
 

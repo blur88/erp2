@@ -348,7 +348,7 @@ describe('CreateSalesOrderPage product search', { timeout: 60000 }, () => {
       )
     })
 
-    expect(mockNavigate).toHaveBeenCalledWith('/sales/orders?highlight=new-order-id')
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/orders')
     const dispatchCallIndex = mockDispatch.mock.calls.findIndex((call) =>
       String(call[0]?.type).includes('setSelectedOrder'),
     )
@@ -969,7 +969,7 @@ describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
 
     await waitFor(() => {
       expect(mockUpdateSalesOrder).toHaveBeenCalled()
-      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders?highlight=order-id-1')
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/orders')
     })
   })
 

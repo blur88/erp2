@@ -322,16 +322,16 @@ const CreatePurchaseOrderPage: React.FC = () => {
       }
 
       if (isEditMode && editingOrderId) {
-        const updated = await updatePurchaseOrder({
+        await updatePurchaseOrder({
           id: editingOrderId,
           data: orderData as any,
         }).unwrap()
         showSuccess('Purchase order updated successfully')
-        navigate(`/purchasing/orders?highlight=${updated.id}`)
+        navigate('/purchasing/orders')
       } else {
-        const created = await createPurchaseOrder(orderData as any).unwrap()
+        await createPurchaseOrder(orderData as any).unwrap()
         showSuccess('Purchase order created successfully')
-        navigate(`/purchasing/orders?highlight=${(created as any).id}`)
+        navigate('/purchasing/orders')
       }
     } catch (err: any) {
       showError(

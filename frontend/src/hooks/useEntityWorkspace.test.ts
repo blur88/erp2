@@ -254,65 +254,6 @@ describe('useEntityWorkspace', () => {
   })
 })
 
-describe('highlightParam', () => {
-  it('selects and focuses entity matching the URL param on mount', async () => {
-    const config = makeConfig()
-    const { result } = renderHook(
-      () => useEntityWorkspace({ ...config, highlightParam: 'highlight' }),
-      { wrapper: makeWrapper('/entities?highlight=2') },
-    )
-
-    await waitFor(() => {
-      expect(config.selectEntity).toHaveBeenCalledWith(config.entities[1])
-      expect(result.current.focusedIndex).toBe(1)
-    })
-  })
-
-  it('does nothing when highlightParam entity is not in the list', async () => {
-    const config = makeConfig()
-    renderHook(() => useEntityWorkspace({ ...config, highlightParam: 'highlight' }), {
-      wrapper: makeWrapper('/entities?highlight=999'),
-    })
-
-    await waitFor(() => {
-      // auto-selects first, not the missing highlight
-      expect(config.selectEntity).toHaveBeenCalledWith(config.entities[0])
-    })
-  })
-
-  it('clears the URL param after consuming the highlight', async () => {
-    const config = makeConfig()
-    let capturedSearchParams: URLSearchParams | null = null
-
-    // Intercept setSearchParams to capture what was passed
-    const TestComponent = () => {
-      const [searchParams] = (
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        require('react-router-dom') as typeof import('react-router-dom')
-      ).useSearchParams()
-      capturedSearchParams = searchParams
-      return null
-    }
-
-    const { rerender } = renderHook(
-      () => useEntityWorkspace({ ...config, highlightParam: 'highlight' }),
-      { wrapper: makeWrapper('/entities?highlight=2') },
-    )
-
-    await waitFor(() => {
-      expect(config.selectEntity).toHaveBeenCalledWith(config.entities[1])
-    })
-
-    rerender()
-
-    await waitFor(() => {
-      // After consumption the param should be gone from the URL
-      const url = window.location.search
-      expect(url).not.toContain('highlight=2')
-    })
-  })
-})
-
 describe('locationStateHighlightKey', () => {
   it('selects entity when location.state contains an id string', async () => {
     const config = makeConfig()

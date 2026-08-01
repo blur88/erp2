@@ -191,9 +191,9 @@ const ExpenseFormPage: React.FC = () => {
         showSuccess('Expense updated successfully')
         navigate(`/accounting/expenses/${expense.id}`)
       } else {
-        const saved = await createExpense(cleanedData).unwrap()
+        await createExpense(cleanedData).unwrap()
         showSuccess('Expense created successfully')
-        navigate(`/accounting/expenses?highlight=${saved.id}`)
+        navigate('/accounting/expenses')
       }
     } catch (error: any) {
       const message = error?.data?.message
