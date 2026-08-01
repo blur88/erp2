@@ -22,6 +22,7 @@ import {
   type ExpenseListParams,
 } from '@/store/api/accountingApi'
 import { formatCurrency } from '@/utils/currency'
+import { formatDate } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
@@ -307,7 +308,7 @@ export default function ExpensesPage() {
 
   const columns: ColumnConfig<Expense>[] = [
     { key: 'expenseNumber', render: (row) => row.expenseNumber },
-    { key: 'expenseDate', render: (row) => row.expenseDate },
+    { key: 'expenseDate', render: (row) => formatDate(row.expenseDate) },
     { key: 'description', render: (row) => row.description ?? '-' },
     {
       key: 'account',

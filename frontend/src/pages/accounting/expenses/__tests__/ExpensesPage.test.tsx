@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { mockExpenses } = vi.hoisted(() => ({
   mockExpenses: [
@@ -294,5 +294,54 @@ describe('ExpensesPage - refund detail loading', () => {
       expect(mockShowError).toHaveBeenCalledWith('Failed to load expense payments for refund')
     })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+})
+
+describe('ExpensesPage - regional date format', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockLocation.current = {
+      pathname: '/accounting/expenses',
+      search: '',
+      hash: '',
+      key: 'test',
+      state: null,
+    }
+  })
+
+  afterEach(() => {
+    localStorage.removeItem('dateFormat')
+  })
+
+  const cases: [string, string][] = [
+    ['DD/MM/YYYY', '01/07/2026'],
+    ['MM/DD/YYYY', '07/01/2026'],
+    ['YYYY-MM-DD', '2026-07-01'],
+  ]
+
+  cases.forEach(([stored, expected]) => {
+    it(`renders the expense date as ${stored}`, () => {
+      localStorage.setItem('dateFormat', stored)
+      renderPage()
+      expect(screen.getByText(expected)).toBeInTheDocument()
+    })
+  })
+
+  it('does not shift a date-only value under a behind-UTC timezone', () => {
+    // Pacific/Niue is UTC-11, the extreme that actually exposes UTC parsing:
+    // `new Date('2026-07-01')` is UTC midnight, which is 2026-06-30 13:00 local —
+    // the *previous* calendar day. (UTC+14 would move it to 14:00 on the same day
+    // and prove nothing.) formatDate must build a local midnight from the parts.
+    const originalTZ = process.env.TZ
+    process.env.TZ = 'Pacific/Niue'
+    try {
+      localStorage.setItem('dateFormat', 'YYYY-MM-DD')
+      renderPage()
+      expect(screen.getByText('2026-07-01')).toBeInTheDocument()
+    } finally {
+      // Restore precisely: assigning `undefined` would set the string "undefined".
+      if (originalTZ === undefined) delete process.env.TZ
+      else process.env.TZ = originalTZ
+    }
   })
 })
