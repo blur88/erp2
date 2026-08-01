@@ -18,7 +18,7 @@ import { DatePicker } from '@mui/x-date-pickers'
 import { yupResolver } from '@hookform/resolvers/yup'
 import { format, parseISO } from 'date-fns'
 import { Controller, useForm } from 'react-hook-form'
-import { useBlocker, useNavigate, useParams } from 'react-router-dom'
+import { useBlocker, useLocation, useNavigate, useParams } from 'react-router-dom'
 import * as yup from 'yup'
 
 import { AppButton } from '@/components/common/AppButton'
@@ -70,6 +70,13 @@ const ExpenseFormPage: React.FC = () => {
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
   const isEdit = !!id
+
+  // Edit can be opened from the Expenses list or from Expense Detail. The list
+  // marks its origin explicitly; everything else — including a directly typed or
+  // shared /edit URL — falls back to Detail, which is the historical behaviour.
+  const location = useLocation()
+  const isListOrigin =
+    (location.state as { expenseEditOrigin?: string } | null)?.expenseEditOrigin === 'list'
 
   const expenseNumberPreview = useDocumentNumberPreview('Expenses', !isEdit)
 
@@ -152,6 +159,23 @@ const ExpenseFormPage: React.FC = () => {
 
   const blocker = useBlocker(() => isDirty && !isSubmitting)
 
+  // `expense?.id ?? id` is string | undefined: `id` comes from useParams and the
+  // load-failure early return doesn't narrow it for the compiler. Handle the gap
+  // explicitly rather than asserting with `id!`.
+  const returnAfterEdit = (expenseId: string | undefined) => {
+    if (isListOrigin) {
+      navigate('/accounting/expenses', {
+        // Omit the highlight when the id is unknown rather than sending undefined;
+        // the list just skips highlighting, which is already best-effort.
+        state: expenseId ? { highlightExpenseId: expenseId } : null,
+      })
+    } else if (expenseId) {
+      navigate(`/accounting/expenses/${expenseId}`)
+    } else {
+      navigate('/accounting/expenses')
+    }
+  }
+
   const UnsavedChangesDialog = (
     <ConfirmationDialog
       open={blocker.state === 'blocked'}
@@ -166,7 +190,11 @@ const ExpenseFormPage: React.FC = () => {
   )
 
   const handleCancel = () => {
-    navigate(isEdit ? `/accounting/expenses/${expense?.id ?? id}` : '/accounting/expenses')
+    if (isEdit) {
+      returnAfterEdit(expense?.id ?? id)
+    } else {
+      navigate('/accounting/expenses')
+    }
   }
 
   const handleFormSubmit = async (data: ExpenseFormData) => {
@@ -189,7 +217,7 @@ const ExpenseFormPage: React.FC = () => {
         }
         await updateExpense({ id: expense.id, data: cleanedData }).unwrap()
         showSuccess('Expense updated successfully')
-        navigate(`/accounting/expenses/${expense.id}`)
+        returnAfterEdit(expense.id)
       } else {
         await createExpense(cleanedData).unwrap()
         showSuccess('Expense created successfully')
