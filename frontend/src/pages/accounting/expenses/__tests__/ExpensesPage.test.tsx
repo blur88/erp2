@@ -66,9 +66,27 @@ vi.mock('@/store/api/accountingApi', () => ({
   useRefundExpenseMutation: vi.fn().mockReturnValue([vi.fn(), { isLoading: false }]),
 }))
 
+const { mockNavigate, mockLocation } = vi.hoisted(() => ({
+  mockNavigate: vi.fn(),
+  mockLocation: {
+    current: {
+      pathname: '/accounting/expenses',
+      search: '',
+      hash: '',
+      key: 'test',
+      state: null as Record<string, unknown> | null,
+    },
+  },
+}))
+
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')
-  return { ...actual, useNavigate: () => vi.fn(), useSearchParams: () => [new URLSearchParams(), vi.fn()] }
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    useLocation: () => mockLocation.current,
+    useSearchParams: () => [new URLSearchParams(), vi.fn()],
+  }
 })
 
 const { mockShowSuccess, mockShowError } = vi.hoisted(() => ({
@@ -95,6 +113,17 @@ function renderPage() {
 }
 
 describe('ExpensesPage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockLocation.current = {
+      pathname: '/accounting/expenses',
+      search: '',
+      hash: '',
+      key: 'test',
+      state: null,
+    }
+  })
+
   it('renders expense numbers from mocked data', () => {
     renderPage()
     expect(screen.getByText('EXP-001')).toBeInTheDocument()
@@ -136,6 +165,19 @@ describe('ExpensesPage', () => {
     expect(filters.getByRole('combobox', { name: 'Payment' })).toBeInTheDocument()
     expect(filters.getByRole('combobox', { name: 'Status' })).toBeInTheDocument()
   })
+
+  it('opens Edit with explicit list-origin state', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const menuButtons = screen.getAllByRole('button', { name: /row actions/i })
+    await user.click(menuButtons[0])
+    await user.click(await screen.findByRole('menuitem', { name: /^edit$/i }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses/exp-1/edit', {
+      state: { expenseEditOrigin: 'list' },
+    })
+  })
 })
 
 describe('ExpensesPage - refund detail loading', () => {
@@ -167,6 +209,13 @@ describe('ExpensesPage - refund detail loading', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockLocation.current = {
+      pathname: '/accounting/expenses',
+      search: '',
+      hash: '',
+      key: 'test',
+      state: null,
+    }
   })
 
   it('opens the refund dialog with sources once the detail record loads', async () => {

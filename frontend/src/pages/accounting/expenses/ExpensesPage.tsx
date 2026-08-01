@@ -267,7 +267,11 @@ export default function ExpensesPage() {
             meta.action.charAt(0).toUpperCase() + meta.action.slice(1),
           onClick: () => {
             if (meta.action === 'edit') {
-              navigate(`/accounting/expenses/${row.id}/edit`)
+              // Tell the form where Edit was opened from so Save/Cancel/Back
+              // can come back here instead of falling through to Detail.
+              navigate(`/accounting/expenses/${row.id}/edit`, {
+                state: { expenseEditOrigin: 'list' },
+              })
             } else if (meta.action === 'pay') {
               setPayExpenseRow(row)
             } else if (meta.action === 'refund') {
