@@ -98,7 +98,9 @@ vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: mockShowSuccess, showError: mockShowError }),
 }))
 
+import { alpha } from '@mui/material'
 import { useGetExpensesQuery, useGetExpenseQuery } from '@/store/api/accountingApi'
+import { darkTheme } from '@/styles/theme'
 import ExpensesPage from '../ExpensesPage'
 
 function renderPage() {
@@ -177,6 +179,46 @@ describe('ExpensesPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses/exp-1/edit', {
       state: { expenseEditOrigin: 'list' },
     })
+  })
+
+  it('highlights the expense named by incoming location state', async () => {
+    mockLocation.current = {
+      pathname: '/accounting/expenses',
+      search: '',
+      hash: '',
+      key: 'test',
+      state: { highlightExpenseId: 'exp-2' },
+    }
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByText('EXP-002').closest('tr')).toHaveStyle({
+        backgroundColor: alpha(darkTheme.palette.primary.main, 0.2),
+      })
+    })
+  })
+
+  it('clears the highlight state while preserving the query string', async () => {
+    mockLocation.current = {
+      pathname: '/accounting/expenses',
+      search: '?tab=open',
+      hash: '',
+      key: 'test',
+      state: { highlightExpenseId: 'exp-2' },
+    }
+    renderPage()
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses?tab=open', {
+        replace: true,
+        state: null,
+      })
+    })
+  })
+
+  it('does not clear history state when no highlight arrives', () => {
+    renderPage()
+    expect(mockNavigate).not.toHaveBeenCalled()
   })
 })
 
