@@ -273,6 +273,19 @@ describe('Accounting Source Integration (e2e)', () => {
         [ADJ_ID],
       );
       expect(movCount[0].n).toBe(1);
+
+      // #982: exactly one completion posted, so the item carries that
+      // movement's real balances plus the preserved draft snapshot.
+      const reconciled = await ds.query(
+        `SELECT "oldQuantity", "newQuantity", "requestedOldQuantity", difference
+           FROM stock_adjustment_items WHERE "stockAdjustmentId" = $1`,
+        [ADJ_ID],
+      );
+      expect(reconciled).toHaveLength(1);
+      expect(Number(reconciled[0].oldQuantity)).toBe(10);
+      expect(Number(reconciled[0].newQuantity)).toBe(20);
+      expect(Number(reconciled[0].requestedOldQuantity)).toBe(10);
+      expect(Number(reconciled[0].difference)).toBe(10);
     });
   });
 });

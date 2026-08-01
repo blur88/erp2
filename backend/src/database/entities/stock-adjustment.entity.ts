@@ -131,7 +131,6 @@ export class StockAdjustmentItem extends BaseEntity {
     comment: 'Quantity before adjustment',
   })
   @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
   oldQuantity: number;
 
   @Column({
@@ -141,8 +140,21 @@ export class StockAdjustmentItem extends BaseEntity {
     comment: 'Quantity after adjustment',
   })
   @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
   newQuantity: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 4,
+    nullable: true,
+    comment:
+      'Stock quantity shown to the user when the adjustment was drafted. ' +
+      'Preserved at completion so drift against the real movement balance is auditable. ' +
+      'NULL for rows completed before this column existed, and for zero-difference lines.',
+  })
+  @IsOptional()
+  @IsDecimal({ decimal_digits: '0,4' })
+  requestedOldQuantity?: number;
 
   @Column({
     type: 'decimal',

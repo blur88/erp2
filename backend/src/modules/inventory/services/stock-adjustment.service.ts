@@ -592,6 +592,7 @@ export class StockAdjustmentService extends BaseCrudService<
 
       let increaseMinor = 0n;
       let decreaseMinor = 0n;
+      const reconciledItems: StockAdjustmentItem[] = [];
 
       // Create stock movements for each item using the manager.
       for (const item of items) {
@@ -603,7 +604,7 @@ export class StockAdjustmentService extends BaseCrudService<
           ? StockMovementType.ADJUSTMENT_INCREASE
           : StockMovementType.ADJUSTMENT_DECREASE;
 
-        await this.stockMovementService.create(
+        const movement = await this.stockMovementService.create(
           {
             productId: item.productId,
             movementType,
@@ -618,6 +619,14 @@ export class StockAdjustmentService extends BaseCrudService<
           manager,
         );
 
+        // #982: the draft's oldQuantity is a form-load snapshot that may be
+        // stale. Preserve it, then record what the movement actually did.
+        // `difference` is the user's command and is never rewritten.
+        item.requestedOldQuantity = item.oldQuantity;
+        item.oldQuantity = Number(movement.previousBalance) as any;
+        item.newQuantity = Number(movement.newBalance) as any;
+        reconciledItems.push(item);
+
         // Accumulate value from the persisted totalValue (option A).
         const valueMinor = item.totalValue != null
           ? toMinorUnits(String(item.totalValue))
@@ -627,6 +636,12 @@ export class StockAdjustmentService extends BaseCrudService<
               return (qtyAbs * cost + 5000n) / 10000n;
             })();
         if (diffMinor > 0n) increaseMinor += valueMinor; else decreaseMinor += valueMinor;
+      }
+
+      // Save reconciled audit values on THIS transaction's manager so they
+      // commit atomically with the movements, the JE and the status flip.
+      if (reconciledItems.length > 0) {
+        await manager.save(reconciledItems);
       }
 
       // Post the stock adjustment JE (both directional pairs in one balanced entry).
@@ -798,6 +813,9 @@ export class StockAdjustmentService extends BaseCrudService<
         barcode: item.product.barcode,
       },
       oldQuantity: Number(item.oldQuantity),
+      // `!= null`, not a truthy check: a legitimate snapshot of 0 must survive.
+      requestedOldQuantity:
+        item.requestedOldQuantity != null ? Number(item.requestedOldQuantity) : undefined,
       newQuantity: Number(item.newQuantity),
       difference: Number(item.difference),
       unitCost: item.unitCost ? Number(item.unitCost) : undefined,

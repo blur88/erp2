@@ -219,6 +219,62 @@ describe("Inventory (e2e)", () => {
 
       expect(Number(res.body.stockQuantity)).toBe(60);
     });
+
+    it("POST .../complete — rejects a completion that would drive stock negative, leaving no partial write (#982)", async () => {
+      const product = await seedProduct(dataSource, categoryId, {
+        name: `Oversell ${Date.now()}`,
+        stockQuantity: 2,
+      });
+
+      // Draft says stock is 10 (a stale snapshot) and removes 10. Live stock is 2.
+      const draft = await request(app.getHttpServer())
+        .post("/inventory/stock-adjustments")
+        .set("Authorization", `Bearer ${accessToken}`)
+        .send({
+          adjustmentDate: new Date().toISOString().slice(0, 10),
+          notes: "negative guard",
+          items: [{ productId: product.id, oldQuantity: 10, difference: -10, unitCost: 5 }],
+        })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .post(`/inventory/stock-adjustments/${draft.body.id}/complete`)
+        .set("Authorization", `Bearer ${accessToken}`)
+        .expect(400);
+
+      // Stock untouched.
+      const after = await dataSource.query(
+        `SELECT "stockQuantity" FROM products WHERE id = $1`,
+        [product.id],
+      );
+      expect(Number(after[0].stockQuantity)).toBe(2);
+
+      // The whole transaction rolled back: the item keeps its draft values and
+      // no reconciliation was persisted.
+      const items = await dataSource.query(
+        `SELECT "oldQuantity", "requestedOldQuantity" FROM stock_adjustment_items
+          WHERE "stockAdjustmentId" = $1`,
+        [draft.body.id],
+      );
+      expect(Number(items[0].oldQuantity)).toBe(10);
+      expect(items[0].requestedOldQuantity).toBeNull();
+
+      // The status flip is part of the same transaction and must have rolled
+      // back too — a COMPLETED adjustment with no movement would be corrupt.
+      const header = await dataSource.query(
+        `SELECT status FROM stock_adjustments WHERE id = $1`,
+        [draft.body.id],
+      );
+      expect(header[0].status).toBe("draft");
+
+      // No stock movement was left behind for this adjustment.
+      const movements = await dataSource.query(
+        `SELECT count(*)::int AS n FROM stock_movements
+          WHERE "referenceType" = 'stock_adjustment' AND "referenceId" = $1`,
+        [draft.body.id],
+      );
+      expect(movements[0].n).toBe(0);
+    });
   });
 
   // ─── Edge cases ───────────────────────────────────────────────────────────
