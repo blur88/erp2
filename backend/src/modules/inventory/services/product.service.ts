@@ -372,7 +372,7 @@ export class ProductService extends BaseCrudService<
         message:
           "Product couldn't be created because the initial inventory setup failed. " +
           'No changes were saved. Please try again.',
-        error: 'INITIAL_INVENTORY_SETUP_FAILED',
+        code: 'INITIAL_INVENTORY_SETUP_FAILED',
       });
     }
 

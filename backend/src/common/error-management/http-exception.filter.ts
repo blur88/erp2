@@ -38,7 +38,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let requestId: string | undefined;
 
     if (exception instanceof HttpException) {
-      ({ status, message, error } = this.handleHttp(exception));
+      ({ status, message, error, errorCode } = this.handleHttp(exception));
     } else if (exception instanceof QueryFailedError) {
       ({ status, message, error, errorCode, requestId } = this.handleDatabase(exception, isProduction, request));
     } else {
@@ -68,22 +68,31 @@ export class HttpExceptionFilter implements ExceptionFilter {
     response.status(status).json(errorResponse);
   }
 
-  private handleHttp(exception: HttpException): { status: number; message: string | object; error: string } {
+  private handleHttp(exception: HttpException): {
+    status: number;
+    message: string | object;
+    error: string;
+    errorCode?: string;
+  } {
     const status = exception.getStatus();
     const exceptionResponse = exception.getResponse();
     let message: string | object;
     let error: string;
+    let errorCode: string | undefined;
 
     if (typeof exceptionResponse === 'object') {
       const responseObj = exceptionResponse as HttpExceptionResponse;
       message = responseObj.message || exceptionResponse;
       error = responseObj.error || exception.name;
+      // #985: services throw { message, code } so the machine-readable value
+      // lands in `code` instead of overloading `error`.
+      errorCode = typeof responseObj.code === 'string' ? responseObj.code : undefined;
     } else {
       message = exceptionResponse;
       error = exception.name;
     }
 
-    return { status, message, error };
+    return { status, message, error, errorCode };
   }
 
   private handleDatabase(

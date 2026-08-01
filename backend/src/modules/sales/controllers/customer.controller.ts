@@ -181,7 +181,7 @@ export class CustomerController {
           type: 'string',
           example: "Cannot delete customer 'John Doe' because they have 3 orders and 2 invoices.",
         },
-        error: {
+        code: {
           type: 'string',
           example: 'DELETION_PREVENTED_BY_DEPENDENCIES',
         },
@@ -373,7 +373,7 @@ export class CustomerController {
           example:
             "Cannot permanently delete customer 'John Doe' due to active business relationships",
         },
-        error: {
+        code: {
           type: 'string',
           example: 'PERMANENT_DELETE_PREVENTED_BY_DEPENDENCIES',
         },

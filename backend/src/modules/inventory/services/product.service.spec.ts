@@ -1012,7 +1012,7 @@ describe('create() transaction wrap (#978)', () => {
 
     await expect(service.create(baseDto, 'user-1', 'tester')).rejects.toMatchObject({
       response: {
-        error: 'INITIAL_INVENTORY_SETUP_FAILED',
+        code: 'INITIAL_INVENTORY_SETUP_FAILED',
         message:
           "Product couldn't be created because the initial inventory setup failed. " +
           'No changes were saved. Please try again.',
@@ -1046,7 +1046,7 @@ describe('create() transaction wrap (#978)', () => {
     baseCostCalculator.addStock.mockRejectedValue(new Error('cost history exploded'));
 
     await expect(service.create(baseDto, 'user-1', 'tester')).rejects.toMatchObject({
-      response: { error: 'INITIAL_INVENTORY_SETUP_FAILED' },
+      response: { code: 'INITIAL_INVENTORY_SETUP_FAILED' },
     });
 
     expect(auditLogService.log).not.toHaveBeenCalled();
@@ -1155,11 +1155,8 @@ describe('create() transaction wrap (#978)', () => {
   it('#984: a non-unique failure still reports INITIAL_INVENTORY_SETUP_FAILED', async () => {
     managerProductRepo.save.mockRejectedValue(new Error('disk on fire'));
 
-    // `error:` is correct AT THIS COMMIT — Group C (#985) has not run yet.
-    // Task 15 migrates this key to `code:` along with the two pre-existing
-    // assertions in this file.
     await expect(service.create(baseDto, 'user-1', 'tester')).rejects.toMatchObject({
-      response: { error: 'INITIAL_INVENTORY_SETUP_FAILED' },
+      response: { code: 'INITIAL_INVENTORY_SETUP_FAILED' },
     });
   });
 });

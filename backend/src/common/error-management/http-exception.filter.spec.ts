@@ -173,3 +173,77 @@ describe('HttpExceptionFilter', () => {
     expect(errorLogger.logSecurityError).toHaveBeenCalled();
   });
 });
+
+describe('service error codes in the dedicated `code` field (#985)', () => {
+  let filter: HttpExceptionFilter;
+
+  beforeEach(() => {
+    const configService = { get: jest.fn().mockReturnValue('test') } as any;
+    const securityDetector = { isSecurityRelated: jest.fn().mockReturnValue(false) } as any;
+    const errorLogger = {
+      logUnexpectedError: jest.fn(),
+      logSecurityError: jest.fn(),
+      logApplicationError: jest.fn(),
+      logDatabaseError: jest.fn(),
+    } as any;
+
+    filter = new HttpExceptionFilter(
+      configService,
+      securityDetector,
+      errorLogger,
+      new ErrorClassifierService(),
+      new ErrorSanitizerService(),
+      new IdGeneratorService(),
+    );
+  });
+
+  it('promotes a structured payload `code` and keeps `error` as the exception name', () => {
+    const res = mockResponse();
+    const req = mockRequest();
+
+    filter.catch(
+      new HttpException(
+        { message: 'Setup failed. No changes were saved.', code: 'INITIAL_INVENTORY_SETUP_FAILED' },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      ),
+      mockHost(req, res) as any,
+    );
+
+    const body = res.json.mock.calls[0][0];
+    expect(body.code).toBe('INITIAL_INVENTORY_SETUP_FAILED');
+    expect(body.error).toBe('HttpException');
+    expect(body.message).toBe('Setup failed. No changes were saved.');
+  });
+
+  it('leaves a plain string-payload HttpException exactly as it behaves today', () => {
+    const res = mockResponse();
+    const req = mockRequest();
+
+    filter.catch(
+      new HttpException('Plain message', HttpStatus.BAD_REQUEST),
+      mockHost(req, res) as any,
+    );
+
+    const body = res.json.mock.calls[0][0];
+    expect(body.message).toBe('Plain message');
+    expect(body.error).toBe('HttpException');
+    expect(body.code).toBeUndefined();
+  });
+
+  it('still honours an explicit `error` in a structured payload without inventing a code', () => {
+    const res = mockResponse();
+    const req = mockRequest();
+
+    filter.catch(
+      new HttpException(
+        { message: 'Not found', error: 'NotFoundException' },
+        HttpStatus.NOT_FOUND,
+      ),
+      mockHost(req, res) as any,
+    );
+
+    const body = res.json.mock.calls[0][0];
+    expect(body.error).toBe('NotFoundException');
+    expect(body.code).toBeUndefined();
+  });
+});
