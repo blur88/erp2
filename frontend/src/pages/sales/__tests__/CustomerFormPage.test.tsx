@@ -158,7 +158,7 @@ describe('CustomerFormPage - Create mode', () => {
         expect.objectContaining({ name: 'Test Corp' }),
       )
     })
-    expect(mockNavigate).toHaveBeenCalledWith('/sales/customers?highlight=new-cust')
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
   })
 
   it('navigates back on Cancel click', async () => {
@@ -279,7 +279,7 @@ describe('CustomerFormPage - Edit mode', () => {
         data: expect.objectContaining({ name: 'Acme Corp Updated' }),
       })
     })
-    expect(mockNavigate).toHaveBeenCalledWith('/sales/customers?highlight=cust-1')
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
   })
 })
 

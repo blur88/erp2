@@ -107,7 +107,7 @@ describe('CustomerWorkspaceCard', () => {
     expect(screen.getByText('SO-001')).toBeInTheDocument();
   });
 
-  it('clicking an order navigates to sales orders list with highlight param', () => {
+  it('clicking an order navigates to the sales orders list', () => {
     mockUseGetCustomerSalesHistoryQuery.mockReturnValue({
       data: {
         orders: [
@@ -129,7 +129,7 @@ describe('CustomerWorkspaceCard', () => {
     render(<CustomerWorkspaceCard selectedCustomer={mockCustomer} />);
 
     fireEvent.click(screen.getByText('SO-001').closest('tr')!);
-    expect(mockNavigate).toHaveBeenCalledWith('/sales/orders?highlight=o-1');
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/orders');
   });
 
   it('shows payments empty state when Payments tab clicked with no data', async () => {

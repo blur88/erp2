@@ -322,7 +322,7 @@ const CreateProductPage: React.FC = () => {
 
       showSuccess(isEditMode ? 'Product updated successfully' : 'Product created successfully')
 
-      navigate(`/inventory/products?highlight=${productId}`)
+      navigate('/inventory/products')
     } catch (err: any) {
       console.error('Error saving product:', err)
       setError(err?.message || 'Failed to save product')
@@ -333,10 +333,6 @@ const CreateProductPage: React.FC = () => {
   }
 
   const handleCancel = () => {
-    if (isEditMode && editingProductId) {
-      navigate(`/inventory/products?highlight=${editingProductId}`)
-      return
-    }
     navigate('/inventory/products')
   }
 
@@ -375,13 +371,7 @@ const CreateProductPage: React.FC = () => {
         variant="workflow"
         title={isEditMode ? 'Edit Product' : 'Create Product'}
         subtitle={isEditMode ? 'Update product details, pricing, and inventory settings' : 'Add a new product with details, pricing, and inventory settings'}
-        backAction={() => {
-          if (isEditMode && editingProductId) {
-            navigate(`/inventory/products?highlight=${editingProductId}`)
-          } else {
-            navigate('/inventory/products')
-          }
-        }}
+        backAction={() => navigate('/inventory/products')}
       />
       {isFetchingProduct ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>

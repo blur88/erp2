@@ -393,12 +393,12 @@ const CreateSalesOrderPage: React.FC = () => {
         patchSalesOrderCaches(dispatch, () => store.getState() as RootState, updated)
         dispatch(setSelectedOrder(updated))
         showSuccess('Sales order updated successfully')
-        navigate(`/sales/orders?highlight=${updated.id}`)
+        navigate('/sales/orders')
       } else {
         const created = await createSalesOrder(payload as any).unwrap()
         dispatch(setSelectedOrder(created as any))
         showSuccess('Sales order created successfully')
-        navigate(`/sales/orders?highlight=${(created as any).id}`)
+        navigate('/sales/orders')
       }
     } catch (err: any) {
       showError(

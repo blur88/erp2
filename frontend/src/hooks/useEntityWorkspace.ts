@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import type { NavigateFunction } from 'react-router-dom'
-import { useLocation, useSearchParams } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 
 import { useKeyboardShortcuts } from '@/hooks/useSearchAndFilter'
 
@@ -22,7 +22,6 @@ export interface UseEntityWorkspaceConfig<T extends { id: string }> {
   deleteMutation?: (id: string) => Promise<void>
   onEnter?: () => void
   onEscape?: () => void
-  highlightParam?: string
   locationStateHighlightKey?: string
   locationStateHighlightKeys?: string[]
   isLoading?: boolean
@@ -65,7 +64,6 @@ export function useEntityWorkspace<T extends { id: string }>(
     deleteMutation,
     onEnter,
     onEscape,
-    highlightParam,
     locationStateHighlightKey,
     locationStateHighlightKeys,
     isLoading = false,
@@ -76,13 +74,11 @@ export function useEntityWorkspace<T extends { id: string }>(
   const [deletedEntitiesDialogOpen, setDeletedEntitiesDialogOpen] = useState(false)
   const [shouldPreserveSearchFocus, setShouldPreserveSearchFocus] = useState(false)
 
-  const [searchParams, setSearchParams] = useSearchParams()
   const location = useLocation()
 
   const listRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const hasAutoSelected = useRef(false)
-  const highlightConsumedRef = useRef<string | null>(null)
   const locationStateConsumedRef = useRef(false)
 
   useEffect(() => {
@@ -94,12 +90,6 @@ export function useEntityWorkspace<T extends { id: string }>(
       }
       return
     }
-
-    // Don't auto-select first if we're about to highlight a specific entity from URL/state
-    const pendingHighlightId = highlightParam ? searchParams.get(highlightParam) : null
-    const hasPendingHighlight = pendingHighlightId
-      ? entities.some((e) => e.id === pendingHighlightId)
-      : false
 
     const pendingStateHighlight = (() => {
       const keys = [
@@ -117,12 +107,12 @@ export function useEntityWorkspace<T extends { id: string }>(
       })
     })()
 
-    if (!selectedEntity && focusedIndex === -1 && !hasAutoSelected.current && !hasPendingHighlight && !pendingStateHighlight) {
+    if (!selectedEntity && focusedIndex === -1 && !hasAutoSelected.current && !pendingStateHighlight) {
       hasAutoSelected.current = true
       setFocusedIndex(0)
       selectEntity(entities[0])
     }
-  }, [entities, focusedIndex, highlightParam, isLoading, location.state, locationStateHighlightKey, locationStateHighlightKeys, searchParams, selectedEntity, selectEntity])
+  }, [entities, focusedIndex, isLoading, location.state, locationStateHighlightKey, locationStateHighlightKeys, selectedEntity, selectEntity])
 
   useEffect(() => {
     if (focusedIndex < 0 || !listRef.current) {
@@ -153,33 +143,6 @@ export function useEntityWorkspace<T extends { id: string }>(
       setShouldPreserveSearchFocus(false)
     }
   }, [shouldPreserveSearchFocus])
-
-  useEffect(() => {
-    if (!highlightParam || entities.length === 0) {
-      return
-    }
-
-    const highlightId = searchParams.get(highlightParam)
-    if (!highlightId || highlightConsumedRef.current === highlightId) {
-      return
-    }
-
-    const index = entities.findIndex((e) => e.id === highlightId)
-    if (index < 0) {
-      return
-    }
-
-    highlightConsumedRef.current = highlightId
-    setFocusedIndex(index)
-    selectEntity(entities[index])
-    setSearchParams(
-      (prev) => {
-        prev.delete(highlightParam)
-        return prev
-      },
-      { replace: true },
-    )
-  }, [entities, highlightParam, searchParams, selectEntity, setSearchParams])
 
   useEffect(() => {
     const keys = [

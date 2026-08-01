@@ -143,7 +143,7 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
                     key={order.id}
                     hover
                     sx={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`/sales/orders?highlight=${order.id}`)}
+                    onClick={() => navigate('/sales/orders')}
                   >
                     <TableCell>
                       <Typography

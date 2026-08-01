@@ -374,7 +374,7 @@ const CustomerFormPage: React.FC = () => {
       } else if (returnTo === 'profile' && profilePath) {
         navigate(profilePath)
       } else {
-        navigate(`/sales/customers?highlight=${savedCustomer.id}`)
+        navigate('/sales/customers')
       }
     } catch (error: any) {
       const message = error?.data?.message
