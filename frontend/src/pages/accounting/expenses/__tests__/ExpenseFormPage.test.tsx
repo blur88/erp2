@@ -31,10 +31,11 @@ const {
   mockGetDocumentNumberSettings: vi.fn(),
 }))
 
-const { mockBlockerState, mockBlockerProceed, mockBlockerReset } = vi.hoisted(() => ({
+const { mockBlockerState, mockBlockerProceed, mockBlockerReset, mockLocationState } = vi.hoisted(() => ({
   mockBlockerState: { current: 'idle' as 'idle' | 'blocked' },
   mockBlockerProceed: vi.fn(),
   mockBlockerReset: vi.fn(),
+  mockLocationState: { current: null as Record<string, unknown> | null },
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -42,6 +43,13 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return {
     ...actual,
     useNavigate: () => mockNavigate,
+    useLocation: () => ({
+      pathname: '/accounting/expenses/exp-1/edit',
+      search: '',
+      hash: '',
+      key: 'test',
+      state: mockLocationState.current,
+    }),
     useBlocker: () => ({
       state: mockBlockerState.current,
       proceed: mockBlockerProceed,
@@ -146,9 +154,15 @@ function renderEditPage(expenseId = 'exp-1') {
   )
 }
 
+function renderEditPageFromList(expenseId = 'exp-1') {
+  mockLocationState.current = { expenseEditOrigin: 'list' }
+  return renderEditPage(expenseId)
+}
+
 describe('ExpenseFormPage - Create mode', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockLocationState.current = null
     mockBlockerState.current = 'idle'
     mockCreateExpense.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-exp-1', expenseNumber: 'EXP-002' }) })
     mockUpdateExpense.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'exp-1' }) })
@@ -354,6 +368,7 @@ describe('ExpenseFormPage - Create mode', () => {
 describe('ExpenseFormPage - Edit mode', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockLocationState.current = null
     mockBlockerState.current = 'idle'
     mockCreateExpense.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-exp-1' }) })
     mockUpdateExpense.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'exp-1' }) })
@@ -436,6 +451,7 @@ describe('ExpenseFormPage - Edit mode', () => {
 describe('ExpenseFormPage - Edit locks', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockLocationState.current = null
     mockBlockerState.current = 'idle'
     mockUpdateExpense.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'exp-1' }) })
     mockGetAccountTree.mockReturnValue({ data: defaultAccounts, isLoading: false, isFetching: false })
@@ -488,6 +504,7 @@ describe('ExpenseFormPage - Edit locks', () => {
 describe('ExpenseFormPage - Dirty cancel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockLocationState.current = null
     mockCreateExpense.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-exp-1' }) })
     mockGetExpense.mockReturnValue({ data: defaultExpense, isLoading: false, isFetching: false })
     mockGetAccountTree.mockReturnValue({ data: defaultAccounts, isLoading: false, isFetching: false })
@@ -503,11 +520,28 @@ describe('ExpenseFormPage - Dirty cancel', () => {
     expect(screen.getByRole('button', { name: /keep editing/i })).toBeInTheDocument()
     mockBlockerState.current = 'idle'
   })
+
+  it('delegates to the blocker when the discard is confirmed', async () => {
+    const user = userEvent.setup()
+    mockBlockerState.current = 'blocked'
+    renderCreatePage()
+
+    await user.click(screen.getByRole('button', { name: /discard/i }))
+
+    // The component's responsibility ends at calling proceed(). Do NOT assert that
+    // a navigation then completes: with useNavigate and useBlocker both mocked,
+    // proceed() cannot resume a pending router navigation — resumption is React
+    // Router's own behaviour. The destination itself is covered by the
+    // list-origin and detail-origin Cancel tests in the Edit origin block.
+    expect(mockBlockerProceed).toHaveBeenCalled()
+    mockBlockerState.current = 'idle'
+  })
 })
 
 describe('ExpenseFormPage - PAID/CANCELLED redirect', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockLocationState.current = null
     mockGetAccountTree.mockReturnValue({ data: defaultAccounts, isLoading: false, isFetching: false })
     mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1' }, isLoading: false, isFetching: false })
     mockGetDocumentNumberSettings.mockReturnValue(EXPENSE_DOC_SETTINGS)
@@ -539,5 +573,145 @@ describe('ExpenseFormPage - PAID/CANCELLED redirect', () => {
       expect(screen.getByText('Edit Expense')).toBeInTheDocument()
     })
     expect(mockNavigate).not.toHaveBeenCalled()
+  })
+})
+
+describe('ExpenseFormPage - Edit origin', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockLocationState.current = null
+    mockBlockerState.current = 'idle'
+    mockUpdateExpense.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'exp-1' }) })
+    mockGetExpense.mockReturnValue({ data: defaultExpense, isLoading: false, isFetching: false })
+    mockGetAccountTree.mockReturnValue({ data: defaultAccounts, isLoading: false, isFetching: false })
+    mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1' }, isLoading: false, isFetching: false })
+    mockGetDocumentNumberSettings.mockReturnValue(EXPENSE_DOC_SETTINGS)
+  })
+
+  it('returns to the list with highlight state after a list-origin Save', async () => {
+    const user = userEvent.setup()
+    renderEditPageFromList()
+    await waitFor(() => {
+      expect(screen.getByLabelText(/description/i)).toHaveValue('Office supplies purchase')
+    })
+
+    await user.clear(screen.getByLabelText(/description/i))
+    await user.type(screen.getByLabelText(/description/i), 'Updated description')
+    await user.click(screen.getByRole('button', { name: /save expense/i }))
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses', {
+        state: { highlightExpenseId: 'exp-1' },
+      })
+    })
+  })
+
+  it('returns to the list after a list-origin Cancel', async () => {
+    const user = userEvent.setup()
+    renderEditPageFromList()
+    await waitFor(() => {
+      expect(screen.getByLabelText(/description/i)).toHaveValue('Office supplies purchase')
+    })
+
+    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses', {
+      state: { highlightExpenseId: 'exp-1' },
+    })
+  })
+
+  it('returns to the list when Back is used from a list-origin edit', async () => {
+    const user = userEvent.setup()
+    renderEditPageFromList()
+    await waitFor(() => {
+      expect(screen.getByLabelText(/description/i)).toHaveValue('Office supplies purchase')
+    })
+
+    // Back is an icon-only IconButton in PageHeader (PageHeader.tsx:67) with no
+    // aria-label, so it has no accessible name — getByRole('button', { name: /back/i })
+    // will NOT find it. Reach it through the icon, as other suites do.
+    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses', {
+      state: { highlightExpenseId: 'exp-1' },
+    })
+  })
+
+  it('returns to Detail after a detail-origin Save', async () => {
+    const user = userEvent.setup()
+    renderEditPage()
+    await waitFor(() => {
+      expect(screen.getByLabelText(/description/i)).toHaveValue('Office supplies purchase')
+    })
+
+    await user.clear(screen.getByLabelText(/description/i))
+    await user.type(screen.getByLabelText(/description/i), 'Updated description')
+    await user.click(screen.getByRole('button', { name: /save expense/i }))
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses/exp-1')
+    })
+  })
+
+  it('returns to Detail after a detail-origin Cancel', async () => {
+    const user = userEvent.setup()
+    renderEditPage()
+    await waitFor(() => {
+      expect(screen.getByLabelText(/description/i)).toHaveValue('Office supplies purchase')
+    })
+
+    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses/exp-1')
+  })
+
+  it('returns to Detail when Back is used from a direct edit URL', async () => {
+    const user = userEvent.setup()
+    renderEditPage()
+    await waitFor(() => {
+      expect(screen.getByLabelText(/description/i)).toHaveValue('Office supplies purchase')
+    })
+
+    // See the list-origin Back test above: the PageHeader back button is icon-only
+    // and has no accessible name.
+    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses/exp-1')
+  })
+
+  it('does not navigate when a list-origin Save fails', async () => {
+    const user = userEvent.setup()
+    mockUpdateExpense.mockReturnValue({
+      unwrap: vi.fn().mockRejectedValue({ data: { message: 'Server error' } }),
+    })
+    renderEditPageFromList()
+    await waitFor(() => {
+      expect(screen.getByLabelText(/description/i)).toHaveValue('Office supplies purchase')
+    })
+
+    await user.clear(screen.getByLabelText(/description/i))
+    await user.type(screen.getByLabelText(/description/i), 'Updated description')
+    await user.click(screen.getByRole('button', { name: /save expense/i }))
+
+    await waitFor(() => {
+      expect(mockShowError).toHaveBeenCalled()
+    })
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('leaves create navigation unchanged', async () => {
+    const user = userEvent.setup()
+    mockCreateExpense.mockReturnValue({
+      unwrap: vi.fn().mockResolvedValue({ id: 'new-exp-1', expenseNumber: 'EXP-002' }),
+    })
+    renderCreatePage()
+
+    await user.type(screen.getByLabelText(/description/i), 'New expense')
+    await user.type(screen.getByLabelText(/amount/i), '25')
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses')
+    })
   })
 })

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Box, Button } from '@mui/material'
 import { skipToken } from '@reduxjs/toolkit/query'
 
@@ -22,6 +22,7 @@ import {
   type ExpenseListParams,
 } from '@/store/api/accountingApi'
 import { formatCurrency } from '@/utils/currency'
+import { formatDate } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
@@ -81,6 +82,8 @@ function getFilterConfig(
 
 export default function ExpensesPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const [highlightId, setHighlightId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
   const sortBy = 'expenseDate' as const
@@ -170,6 +173,20 @@ export default function ExpensesPage() {
       setRefundExpenseRow(null)
     }
   }, [refundExpenseRow, refundDetailError, showError])
+
+  // An Edit that started from this list hands the row back in location.state.
+  // Copy it into local state and drop it from history immediately: the tint is a
+  // one-shot confirmation of the return trip, not persistent list state, so it
+  // must not survive a reload or a Back/Forward into this entry. The replace
+  // target keeps location.search so clearing can't discard query parameters.
+  const highlightExpenseId = (location.state as { highlightExpenseId?: string } | null)
+    ?.highlightExpenseId
+
+  useEffect(() => {
+    if (!highlightExpenseId) return
+    setHighlightId(highlightExpenseId)
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+  }, [highlightExpenseId, location.pathname, location.search, navigate])
 
   const refundSources: RefundSource[] = useMemo(() => {
     if (!refundExpenseDetail?.payments) return []
@@ -267,7 +284,11 @@ export default function ExpensesPage() {
             meta.action.charAt(0).toUpperCase() + meta.action.slice(1),
           onClick: () => {
             if (meta.action === 'edit') {
-              navigate(`/accounting/expenses/${row.id}/edit`)
+              // Tell the form where Edit was opened from so Save/Cancel/Back
+              // can come back here instead of falling through to Detail.
+              navigate(`/accounting/expenses/${row.id}/edit`, {
+                state: { expenseEditOrigin: 'list' },
+              })
             } else if (meta.action === 'pay') {
               setPayExpenseRow(row)
             } else if (meta.action === 'refund') {
@@ -287,7 +308,7 @@ export default function ExpensesPage() {
 
   const columns: ColumnConfig<Expense>[] = [
     { key: 'expenseNumber', render: (row) => row.expenseNumber },
-    { key: 'expenseDate', render: (row) => row.expenseDate },
+    { key: 'expenseDate', render: (row) => formatDate(row.expenseDate) },
     { key: 'description', render: (row) => row.description ?? '-' },
     {
       key: 'account',
@@ -355,6 +376,7 @@ export default function ExpensesPage() {
             emptyLabel="expenses"
             showHeader={false}
             focusedIndex={-1}
+            selectedId={highlightId ?? undefined}
             onSelect={handleView}
             listRef={searchInputRef}
             headers={[
