@@ -180,6 +180,34 @@ describe("Inventory (e2e)", () => {
 
       expect(res.body.id).toBe(productId);
     });
+
+    it("POST /inventory/products — concurrent case-variant creates: one 201, one 409 (#984)", async () => {
+      const base = `Widget ${Date.now()}`;
+      const post = (name: string) =>
+        request(app.getHttpServer())
+          .post("/inventory/products")
+          .set("Authorization", `Bearer ${accessToken}`)
+          .send({ name, categoryId, baseCost: 5, stockQuantity: 0 });
+
+      const [a, b] = await Promise.all([
+        post(base.toUpperCase()),
+        post(base.toLowerCase()),
+      ]);
+
+      const statuses = [a.status, b.status].sort();
+      // Exactly one wins. The loser is a 409 — never a raw 500, which is what
+      // an untranslated unique violation would produce.
+      expect(statuses).toEqual([201, 409]);
+
+      // Behavioural assertion: holds regardless of WHICH unique index
+      // PostgreSQL reported (lower-name or the slug index, nondeterministic
+      // under concurrency).
+      const rows = await dataSource.query(
+        `SELECT count(*)::int AS n FROM products WHERE lower(name) = lower($1)`,
+        [base],
+      );
+      expect(rows[0].n).toBe(1);
+    });
   });
 
   // ─── Stock Adjustments ────────────────────────────────────────────────────

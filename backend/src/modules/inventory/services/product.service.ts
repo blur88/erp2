@@ -354,6 +354,15 @@ export class ProductService extends BaseCrudService<
         throw error;
       }
 
+      // #984: a concurrent create can lose at the unique index even though the
+      // pre-flight check passed. That is a 409, not an inventory-setup failure.
+      if (error?.code === '23505') {
+        await this.translateUniqueViolation(error, {
+          name: createProductDto.name,
+          barcode: createProductDto.barcode,
+        });
+      }
+
       // Rollback has already completed here, so "No changes were saved" is literally true.
       this.logger.error(
         `Initial inventory setup failed for product '${createProductDto.name}': ${error.message}`,
@@ -614,6 +623,80 @@ export class ProductService extends BaseCrudService<
     }
 
     return result;
+  }
+
+  /**
+   * Translates a PostgreSQL unique violation into the same ConflictException
+   * wording the pre-flight checks produce (#984).
+   *
+   * The pre-flight LOWER(...) checks in create()/update() run outside any lock,
+   * so a concurrent request can still lose at the index. Without this, that
+   * request gets a raw 500 instead of a 409.
+   *
+   * Always throws. Unknown constraints and non-unique errors rethrow unchanged.
+   */
+  private async translateUniqueViolation(
+    error: any,
+    dto: { name?: string; barcode?: string },
+  ): Promise<never> {
+    if (error?.code !== '23505') {
+      throw error;
+    }
+
+    const constraint: string = error.constraint ?? '';
+
+    const conflictFor = async (
+      field: 'name' | 'barcode',
+      value: string,
+    ): Promise<Product | null> =>
+      this.productRepository
+        .createQueryBuilder('product')
+        .where(`LOWER(product.${field}) = LOWER(:value)`, { value: value.trim() })
+        .withDeleted()
+        .getOne();
+
+    if (constraint === 'UQ_products_lower_name' && dto.name) {
+      const existing = await conflictFor('name', dto.name);
+      if (existing?.deletedAt) {
+        throw new ConflictException(
+          `Product with name '${dto.name}' was previously deleted but cannot be reused. ` +
+            `Please choose a different name or restore the deleted product.`,
+        );
+      }
+      throw new ConflictException(`Product with name '${dto.name}' already exists`);
+    }
+
+    if (constraint === 'UQ_products_lower_barcode' && dto.barcode) {
+      const existing = await conflictFor('barcode', dto.barcode);
+      if (existing?.deletedAt) {
+        throw new ConflictException(
+          `Product with barcode '${dto.barcode}' was previously deleted but cannot be reused. ` +
+            `Please choose a different barcode.`,
+        );
+      }
+      throw new ConflictException(`Product with barcode '${dto.barcode}' already exists`);
+    }
+
+    // Slug is derived from name, so "Widget" and "widget" also collide on the
+    // slug index — and PostgreSQL reports whichever index it checks first.
+    // Translate it as a name conflict ONLY when a case-insensitive name match
+    // actually exists: slug collisions can also arise from names that are not
+    // case-variants ("My Product" vs "my-product"), which must not be
+    // mislabelled.
+    if (constraint === 'IDX_464f927ae360106b783ed0b410' && dto.name) {
+      const existing = await conflictFor('name', dto.name);
+      if (existing) {
+        if (existing.deletedAt) {
+          throw new ConflictException(
+            `Product with name '${dto.name}' was previously deleted but cannot be reused. ` +
+              `Please choose a different name or restore the deleted product.`,
+          );
+        }
+        throw new ConflictException(`Product with name '${dto.name}' already exists`);
+      }
+    }
+
+    throw error;
   }
 
   /**
@@ -1066,10 +1149,18 @@ export class ProductService extends BaseCrudService<
     // Stock status is computed automatically in the entity
 
     // Use direct update with ID string for better control over what gets updated
-    await this.productRepository.update(
-      id, // Use the ID parameter directly, not product.id
-      updateData,
-    );
+    try {
+      await this.productRepository.update(
+        id, // Use the ID parameter directly, not product.id
+        updateData,
+      );
+    } catch (error) {
+      // #984: same race as create(), reached by a rename.
+      await this.translateUniqueViolation(error, {
+        name: updateProductDto.name ?? product.name,
+        barcode: updateProductDto.barcode ?? product.barcode,
+      });
+    }
 
     // Reload the product with category and price list relations to ensure fresh data
     const productWithCategory = await this.productRepository.findOne({

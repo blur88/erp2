@@ -30,11 +30,14 @@ export enum ProductType {
  * Contains only essential fields: name, barcode, type, category, pricing, stock, description, notes
  */
 @Entity('products')
-@Index(['barcode'], { unique: true })
 @Index(['name'])
 @Index(['categoryId'])
 @Index(['type'])
 @Index(['isActive'])
+// Name and barcode uniqueness is CASE-INSENSITIVE and enforced by expression
+// indexes (lower(name), lower(barcode)) that TypeORM cannot express as
+// decorators. Source of truth:
+// migrations/1785800000000-AddProductCaseInsensitiveUniqueIndexes.ts (#984).
 // Trigram indexes for fuzzy search (#960), created by migration 1785500000000.
 // synchronize:false keeps them in metadata so the schema builder won't drop them;
 // IndexOptions omits the field, but the decorator and IndexMetadata both honour it.
@@ -75,7 +78,6 @@ export class Product extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 100,
-    unique: true,
     nullable: true,
     comment: 'Product barcode - unique product identifier',
   })

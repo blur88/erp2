@@ -569,6 +569,149 @@ describe('ProductService pagination removal', () => {
       });
       expect(result.type).toBe(ProductType.SERVICE);
     });
+
+    const pgUnique = (constraint: string) => {
+      const err: any = new Error(`duplicate key value violates unique constraint "${constraint}"`);
+      err.code = '23505';
+      err.constraint = constraint;
+      return err;
+    };
+
+    it('#984: a 23505 from productRepository.update becomes a 409', async () => {
+      productRepository.findOne.mockResolvedValue(
+        createProduct('p1', { type: ProductType.GOODS, stockQuantity: 0 }),
+      );
+      // The pre-flight duplicate check must PASS so the failure comes from the
+      // index — that is the race under test.
+      productRepository.createQueryBuilder = jest.fn(() => ({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        withDeleted: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      })) as any;
+      // generateUniqueSlug walks the repository; stub it so its loop cannot
+      // interfere with the mocked query builder above.
+      jest.spyOn(service as any, 'generateUniqueSlug').mockResolvedValue('widget');
+      productRepository.update = jest.fn().mockRejectedValue(
+        pgUnique('UQ_products_lower_name'),
+      );
+
+      await expect(
+        service.update('p1', { name: 'Widget' } as any),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('#984: a non-unique database error propagates unchanged', async () => {
+      productRepository.findOne.mockResolvedValue(
+        createProduct('p1', { type: ProductType.GOODS, stockQuantity: 0 }),
+      );
+      productRepository.createQueryBuilder = jest.fn(() => ({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        withDeleted: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      })) as any;
+      jest.spyOn(service as any, 'generateUniqueSlug').mockResolvedValue('widget');
+
+      const notUnique: any = new Error('deadlock detected');
+      notUnique.code = '40P01';
+      productRepository.update = jest.fn().mockRejectedValue(notUnique);
+
+      await expect(service.update('p1', { name: 'Widget' } as any)).rejects.toBe(notUnique);
+    });
+  });
+
+  describe('unique-violation translation (#984)', () => {
+    const pgUnique = (constraint: string) => {
+      const err: any = new Error(`duplicate key value violates unique constraint "${constraint}"`);
+      err.code = '23505';
+      err.constraint = constraint;
+      return err;
+    };
+
+    it('maps a lower(name) violation to the existing-product ConflictException', async () => {
+      const translate = (service as any).translateUniqueViolation.bind(service);
+      jest.spyOn(productRepository, 'createQueryBuilder').mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        withDeleted: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({ id: 'p1', name: 'Widget', deletedAt: null }),
+      } as any);
+
+      await expect(
+        translate(pgUnique('UQ_products_lower_name'), { name: 'widget' }),
+      ).rejects.toThrow(/already exists/);
+    });
+
+    it('maps a lower(name) violation against a soft-deleted row to the previously-deleted message', async () => {
+      const translate = (service as any).translateUniqueViolation.bind(service);
+      jest.spyOn(productRepository, 'createQueryBuilder').mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        withDeleted: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({ id: 'p1', name: 'Widget', deletedAt: new Date() }),
+      } as any);
+
+      await expect(
+        translate(pgUnique('UQ_products_lower_name'), { name: 'widget' }),
+      ).rejects.toThrow(/previously deleted/);
+    });
+
+    it('maps a lower(barcode) violation to the barcode ConflictException', async () => {
+      const translate = (service as any).translateUniqueViolation.bind(service);
+      jest.spyOn(productRepository, 'createQueryBuilder').mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        withDeleted: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({ id: 'p1', barcode: 'ABC', deletedAt: null }),
+      } as any);
+
+      await expect(
+        translate(pgUnique('UQ_products_lower_barcode'), { barcode: 'abc' }),
+      ).rejects.toThrow(/barcode 'abc' already exists/);
+    });
+
+    it('translates a slug-index violation ONLY when a matching product exists', async () => {
+      const translate = (service as any).translateUniqueViolation.bind(service);
+      // Concurrent "Widget"/"widget" also collide on slug "widget"; PostgreSQL may
+      // report the slug index before the new lower-name index.
+      jest.spyOn(productRepository, 'createQueryBuilder').mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        withDeleted: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({ id: 'p1', name: 'Widget', deletedAt: null }),
+      } as any);
+
+      await expect(
+        translate(pgUnique('IDX_464f927ae360106b783ed0b410'), { name: 'widget' }),
+      ).rejects.toThrow(/already exists/);
+    });
+
+    it('rethrows a slug-index violation unchanged when no name match exists', async () => {
+      const translate = (service as any).translateUniqueViolation.bind(service);
+      // e.g. "My Product" vs "my-product" — a slug collision that is NOT a
+      // case-variant name conflict and must not be mislabelled as one.
+      jest.spyOn(productRepository, 'createQueryBuilder').mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        withDeleted: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      } as any);
+
+      const original = pgUnique('IDX_464f927ae360106b783ed0b410');
+      await expect(translate(original, { name: 'my-product' })).rejects.toBe(original);
+    });
+
+    it('rethrows unknown constraints and non-23505 errors unchanged', async () => {
+      const translate = (service as any).translateUniqueViolation.bind(service);
+
+      const unknownConstraint = pgUnique('SOME_OTHER_INDEX');
+      await expect(translate(unknownConstraint, {})).rejects.toBe(unknownConstraint);
+
+      const notUnique: any = new Error('null value violates not-null constraint');
+      notUnique.code = '23502';
+      await expect(translate(notUnique, {})).rejects.toBe(notUnique);
+    });
   });
 });
 
@@ -977,5 +1120,46 @@ describe('create() transaction wrap (#978)', () => {
     expect(result.category).not.toBeNull();
     expect(result.category).toMatchObject({ id: 'category-1', name: 'Category' });
     expect(result.stockQuantity).toBe(5);
+  });
+
+  const pgUnique = (constraint: string) => {
+    const err: any = new Error(`duplicate key value violates unique constraint "${constraint}"`);
+    err.code = '23505';
+    err.constraint = constraint;
+    return err;
+  };
+
+  it('#984: a 23505 at product save becomes a 409, not INITIAL_INVENTORY_SETUP_FAILED', async () => {
+    // Pre-flight checks passed (injectedProductRepo.getOne resolves null), then a
+    // concurrent create won the race at the index.
+    managerProductRepo.save.mockRejectedValue(pgUnique('UQ_products_lower_name'));
+
+    await expect(service.create(baseDto, 'user-1', 'tester')).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    await expect(service.create(baseDto, 'user-1', 'tester')).rejects.toThrow(
+      /already exists/,
+    );
+    // The pre-existing catch must NOT mask it as a 500.
+    expect(auditLogService.log).not.toHaveBeenCalled();
+  });
+
+  it('#984: a barcode 23505 maps to the barcode conflict message', async () => {
+    managerProductRepo.save.mockRejectedValue(pgUnique('UQ_products_lower_barcode'));
+
+    await expect(service.create(baseDto, 'user-1', 'tester')).rejects.toThrow(
+      /barcode 'SKU-1' already exists/,
+    );
+  });
+
+  it('#984: a non-unique failure still reports INITIAL_INVENTORY_SETUP_FAILED', async () => {
+    managerProductRepo.save.mockRejectedValue(new Error('disk on fire'));
+
+    // `error:` is correct AT THIS COMMIT — Group C (#985) has not run yet.
+    // Task 15 migrates this key to `code:` along with the two pre-existing
+    // assertions in this file.
+    await expect(service.create(baseDto, 'user-1', 'tester')).rejects.toMatchObject({
+      response: { error: 'INITIAL_INVENTORY_SETUP_FAILED' },
+    });
   });
 });

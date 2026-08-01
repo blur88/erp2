@@ -7,8 +7,9 @@
 # identity sequence; the reference has neither).
 #
 # Release 1 (genesis only): expects an EMPTY normalized diff.
-# Release 2 (adds AddTrigramIndexes): expects exactly the trigram allowlist;
-#   re-run with ALLOWLIST=trigram.
+# Release 2+ (trigram, price-list partial unique, product case-insensitive
+# expression indexes): expects exactly the migration-indexes allowlist;
+#   re-run with ALLOWLIST=migration-indexes.
 set -euo pipefail
 
 # Credentials come from backend/.env.local (gitignored) or the caller's
@@ -78,8 +79,46 @@ DB_DATABASE=$CAND_DB npm run migration:run >/dev/null
 # or '\u' would also delete any legitimate line containing those escape
 # sequences — e.g. a column DEFAULT of E'\r\n' or a COMMENT containing
 # '\u' — silently hiding real schema differences from the gate.
+#
+# Order-insensitive: pg_dump emits CREATE TABLE columns and COMMENT ON COLUMN
+# statements in catalog/column order. An ALTER TABLE ADD COLUMN migration
+# therefore shifts the added column to the end of its table (and its comment
+# with it), producing pure ordering noise against a schema:sync reference.
+# Sorting column lines within each CREATE TABLE paragraph (trailing commas
+# stripped, since the last column has none) and collecting COMMENT ON COLUMN
+# lines into a sorted set makes the comparison order-insensitive while every
+# real difference — a missing/extra column, wrong type, changed constraint —
+# still surfaces in the diff.
 normalize() {
-  awk 'BEGIN{RS="";FS="\n"} !/public\.migrations/ {print $0 "\n"}' \
+  awk '
+    BEGIN { RS=""; FS="\n" }
+    /public\.migrations/ { next }
+    $1 ~ /^CREATE TABLE public\./ {
+      print $1
+      cnt = 0
+      for (i = 2; i <= NF - 1; i++) {
+        line = $i
+        sub(/,$/, "", line)
+        j = cnt
+        while (j > 0 && cols[j - 1] > line) { cols[j] = cols[j - 1]; j-- }
+        cols[j] = line
+        cnt++
+      }
+      for (i = 0; i < cnt; i++) print cols[i]
+      print $NF
+      next
+    }
+    NF == 1 && $1 ~ /^COMMENT ON COLUMN public\./ {
+      line = $1
+      j = ncomments
+      while (j > 0 && comments[j - 1] > line) { comments[j] = comments[j - 1]; j-- }
+      comments[j] = line
+      ncomments++
+      next
+    }
+    { print $0 }
+    END { for (i = 0; i < ncomments; i++) print comments[i] }
+  ' \
     | grep -vE '^--' | grep -vE '^$' \
     | grep -vE '^\\(un)?restrict '
 }
@@ -104,24 +143,35 @@ if [ "$ALLOWLIST" = "none" ]; then
   exit 1
 fi
 
-# Release 2 has two halves. A diff-only check is not sufficient: an empty
-# or partial diff would pass it while pg_trgm and the indexes were missing,
-# which is exactly the divergence this release exists to fix.
+# ALLOWLIST=migration-indexes (formerly "trigram") has two halves. A diff-only
+# check is not sufficient: an empty or partial diff would pass it while the
+# indexes were missing, which is exactly the divergence this mode exists to fix.
+#
+# Allowed migration-only objects (created by migrations, NOT expressible by
+# schema:sync because TypeORM decorators cannot emit expression/partial
+# indexes or gin_trgm_ops):
+#   - pg_trgm extension
+#   - 8 trigram GIN indexes (Release 2, migration 1785500000000)
+#   - UQ_price_lists_single_default (partial unique, migration 1785600000000)
+#   - UQ_products_lower_name / UQ_products_lower_barcode (expression unique,
+#     migration 1785800000000)
+# Anything else in the diff fails the gate.
 
-# (a) Negative: nothing outside the allowlist may appear.
+# (a) Negative: only the allowlisted statements may appear as differences.
 UNEXPECTED=$(grep -E '^[+-]' "$OUT/diff.txt" \
   | grep -vE '^(\+\+\+|---)' \
-  | grep -viE 'pg_trgm|gin_trgm_ops|idx_(products|customers|sales_orders|purchase_orders|suppliers|vendor_payments)_[a-z]+_trgm' \
+  | grep -vE \
+'^\+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;|^\+COMMENT ON EXTENSION pg_trgm IS|^\+CREATE UNIQUE INDEX "UQ_price_lists_single_default"|^\+CREATE UNIQUE INDEX "UQ_products_lower_(name|barcode)"|^\+CREATE INDEX idx_(customers|products|sales_orders|purchase_orders|suppliers|vendor_payments)_[a-z]+_trgm' \
   || true)
 
 if [ -n "$UNEXPECTED" ]; then
-  echo "FAIL: differences outside the trigram allowlist:"
+  echo "FAIL: differences outside the migration-indexes allowlist:"
   echo "$UNEXPECTED"
   exit 1
 fi
 
-# (b) Positive: the extension and all 8 indexes must actually exist in the
-# candidate's catalog, by exact name.
+# (b) Positive: the extension and all 11 indexes must actually exist in the
+# candidate's catalog, with exact table, uniqueness, and definition.
 q_cand() {
   docker compose -f ../docker-compose.yml exec -T postgres \
     psql -U "$DB_USERNAME" -d "$CAND_DB" -tAc "$1" | tr -d '\r'
@@ -133,54 +183,45 @@ if [ "$EXT" != "1" ]; then
   exit 1
 fi
 
-EXPECTED_INDEXES="idx_customers_name_trgm
-idx_customers_phone_trgm
-idx_products_barcode_trgm
-idx_products_name_trgm
-idx_purchase_orders_ordernumber_trgm
-idx_sales_orders_ordernumber_trgm
-idx_suppliers_companyname_trgm
-idx_vendor_payments_referencenumber_trgm"
-
-ACTUAL_INDEXES=$(q_cand "
-  SELECT indexname FROM pg_indexes
-   WHERE schemaname = 'public' AND indexname LIKE '%_trgm'
-   ORDER BY indexname;")
-
-if [ "$ACTUAL_INDEXES" != "$EXPECTED_INDEXES" ]; then
-  echo "FAIL: trigram index set does not match exactly."
-  echo "--- expected ---"; echo "$EXPECTED_INDEXES"
-  echo "--- actual ---";   echo "$ACTUAL_INDEXES"
-  exit 1
-fi
-
 # Names alone are not enough: an index with the right name on the wrong
-# table or column would pass. Compare full normalized definitions, so table,
-# column, access method, and operator class are all pinned.
-EXPECTED_DEFS="idx_customers_name_trgm|customers|USING gin (name gin_trgm_ops)
-idx_customers_phone_trgm|customers|USING gin (phone gin_trgm_ops)
-idx_products_barcode_trgm|products|USING gin (barcode gin_trgm_ops)
-idx_products_name_trgm|products|USING gin (name gin_trgm_ops)
-idx_purchase_orders_ordernumber_trgm|purchase_orders|USING gin (\"orderNumber\" gin_trgm_ops)
-idx_sales_orders_ordernumber_trgm|sales_orders|USING gin (\"orderNumber\" gin_trgm_ops)
-idx_suppliers_companyname_trgm|suppliers|USING gin (\"companyName\" gin_trgm_ops)
-idx_vendor_payments_referencenumber_trgm|vendor_payments|USING gin (\"referenceNumber\" gin_trgm_ops)"
+# table or column would pass. Compare name|table|unique|full definition, so
+# table, expression, uniqueness, and predicate are all pinned.
+EXPECTED_DEFS="UQ_price_lists_single_default|price_lists|true|CREATE UNIQUE INDEX \"UQ_price_lists_single_default\" ON public.price_lists USING btree (\"isDefault\") WHERE ((\"isDefault\" = true) AND (\"deletedAt\" IS NULL))
+UQ_products_lower_barcode|products|true|CREATE UNIQUE INDEX \"UQ_products_lower_barcode\" ON public.products USING btree (lower((barcode)::text)) WHERE (barcode IS NOT NULL)
+UQ_products_lower_name|products|true|CREATE UNIQUE INDEX \"UQ_products_lower_name\" ON public.products USING btree (lower((name)::text))
+idx_customers_name_trgm|customers|false|CREATE INDEX idx_customers_name_trgm ON public.customers USING gin (name gin_trgm_ops)
+idx_customers_phone_trgm|customers|false|CREATE INDEX idx_customers_phone_trgm ON public.customers USING gin (phone gin_trgm_ops)
+idx_products_barcode_trgm|products|false|CREATE INDEX idx_products_barcode_trgm ON public.products USING gin (barcode gin_trgm_ops)
+idx_products_name_trgm|products|false|CREATE INDEX idx_products_name_trgm ON public.products USING gin (name gin_trgm_ops)
+idx_purchase_orders_ordernumber_trgm|purchase_orders|false|CREATE INDEX idx_purchase_orders_ordernumber_trgm ON public.purchase_orders USING gin (\"orderNumber\" gin_trgm_ops)
+idx_sales_orders_ordernumber_trgm|sales_orders|false|CREATE INDEX idx_sales_orders_ordernumber_trgm ON public.sales_orders USING gin (\"orderNumber\" gin_trgm_ops)
+idx_suppliers_companyname_trgm|suppliers|false|CREATE INDEX idx_suppliers_companyname_trgm ON public.suppliers USING gin (\"companyName\" gin_trgm_ops)
+idx_vendor_payments_referencenumber_trgm|vendor_payments|false|CREATE INDEX idx_vendor_payments_referencenumber_trgm ON public.vendor_payments USING gin (\"referenceNumber\" gin_trgm_ops)"
 
-# Strip the leading "CREATE INDEX <name> ON public.<table> " prefix so only the
-# access-method clause remains, then join name|table|clause.
 ACTUAL_DEFS=$(q_cand "
-  SELECT indexname || '|' || tablename || '|' ||
-         regexp_replace(indexdef, '^CREATE INDEX .* ON public\.[a-z_]+ ', '')
-    FROM pg_indexes
-   WHERE schemaname = 'public' AND indexname LIKE '%_trgm'
-   ORDER BY indexname;")
+  SELECT x.indexname || '|' || x.tablename || '|' || x.isunique || '|' || x.def
+    FROM (
+      SELECT i.relname AS indexname, t.relname AS tablename,
+             ix.indisunique AS isunique, pg_get_indexdef(ix.indexrelid) AS def
+        FROM pg_index ix
+        JOIN pg_class i ON i.oid = ix.indexrelid
+        JOIN pg_class t ON t.oid = ix.indrelid
+       WHERE i.relname IN (
+         'idx_customers_name_trgm','idx_customers_phone_trgm',
+         'idx_products_barcode_trgm','idx_products_name_trgm',
+         'idx_purchase_orders_ordernumber_trgm','idx_sales_orders_ordernumber_trgm',
+         'idx_suppliers_companyname_trgm','idx_vendor_payments_referencenumber_trgm',
+         'UQ_products_lower_name','UQ_products_lower_barcode',
+         'UQ_price_lists_single_default'
+       )
+    ) x ORDER BY x.indexname;")
 
 if [ "$ACTUAL_DEFS" != "$EXPECTED_DEFS" ]; then
-  echo "FAIL: trigram index definitions do not match exactly."
+  echo "FAIL: migration-indexes definitions do not match exactly."
   echo "--- expected ---"; echo "$EXPECTED_DEFS"
   echo "--- actual ---";   echo "$ACTUAL_DEFS"
   exit 1
 fi
 
-echo "PASS: pg_trgm installed, all 8 trigram index definitions exact, no other differences"
+echo "PASS: pg_trgm installed, all 11 migration-index definitions exact, no other differences"
 exit 0
