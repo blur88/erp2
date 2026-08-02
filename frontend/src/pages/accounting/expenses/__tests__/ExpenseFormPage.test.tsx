@@ -516,6 +516,45 @@ describe('ExpenseFormPage - Edit mode', () => {
     await user.click(screen.getByRole('combobox', { name: /account/i }))
     expect(within(screen.getByRole('listbox')).queryByText('5100 Cost of Goods Sold')).not.toBeInTheDocument()
   })
+
+  it('displays a NUMERIC(18,4) amount without its trailing zeros', async () => {
+    mockGetExpense.mockReturnValue({
+      data: { ...defaultExpense, totalAmount: '1000.0000', paidAmount: '0.00', balance: '1000.0000' },
+      isLoading: false,
+      isFetching: false,
+    })
+    renderEditPage()
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/amount/i)).toHaveValue('1000')
+    })
+  })
+
+  it('submits the normalized amount when the field is left untouched', async () => {
+    const user = userEvent.setup()
+    mockGetExpense.mockReturnValue({
+      data: { ...defaultExpense, totalAmount: '1000.0000', paidAmount: '0.00', balance: '1000.0000' },
+      isLoading: false,
+      isFetching: false,
+    })
+    renderEditPage()
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/amount/i)).toHaveValue('1000')
+    })
+
+    // Dirty a different field so Save is enabled; Amount is never touched.
+    await user.clear(screen.getByLabelText(/description/i))
+    await user.type(screen.getByLabelText(/description/i), 'Updated description')
+    await user.click(screen.getByRole('button', { name: /save expense/i }))
+
+    await waitFor(() => {
+      expect(mockUpdateExpense).toHaveBeenCalledWith({
+        id: 'exp-1',
+        data: expect.objectContaining({ totalAmount: '1000' }),
+      })
+    })
+  })
 })
 
 describe('ExpenseFormPage - Edit locks', () => {

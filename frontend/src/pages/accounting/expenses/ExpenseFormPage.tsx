@@ -36,6 +36,7 @@ import {
 import type { AccountTreeNode } from '@/types'
 import { getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
+import { toAmountInputValue } from '@/utils/currency'
 
 interface ExpenseFormData {
   expenseDate: string
@@ -155,7 +156,7 @@ const ExpenseFormPage: React.FC = () => {
         payee: expense.payee ?? '',
         description: expense.description,
         expenseAccountId: expense.expenseAccountId,
-        totalAmount: expense.totalAmount,
+        totalAmount: toAmountInputValue(expense.totalAmount),
         notes: expense.notes ?? '',
       })
     }
