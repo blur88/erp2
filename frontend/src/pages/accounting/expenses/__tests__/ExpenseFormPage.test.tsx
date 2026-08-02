@@ -526,7 +526,7 @@ describe('ExpenseFormPage - Edit mode', () => {
     renderEditPage()
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/amount/i)).toHaveValue('1000')
+      expect(screen.getByLabelText(/amount/i)).toHaveValue('1000.00')
     })
   })
 
@@ -540,10 +540,10 @@ describe('ExpenseFormPage - Edit mode', () => {
     renderEditPage()
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/amount/i)).toHaveValue('1000')
+      expect(screen.getByLabelText(/amount/i)).toHaveValue('1000.00')
     })
 
-    // Dirty a different field so Save is enabled; Amount is never touched.
+    // Edit a different field to make "Amount was never touched" explicit.
     await user.clear(screen.getByLabelText(/description/i))
     await user.type(screen.getByLabelText(/description/i), 'Updated description')
     await user.click(screen.getByRole('button', { name: /save expense/i }))
@@ -551,7 +551,7 @@ describe('ExpenseFormPage - Edit mode', () => {
     await waitFor(() => {
       expect(mockUpdateExpense).toHaveBeenCalledWith({
         id: 'exp-1',
-        data: expect.objectContaining({ totalAmount: '1000' }),
+        data: expect.objectContaining({ totalAmount: '1000.00' }),
       })
     })
   })

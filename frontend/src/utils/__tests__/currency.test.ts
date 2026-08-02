@@ -73,20 +73,25 @@ describe('formatCurrency', () => {
 })
 
 describe('toAmountInputValue', () => {
-  it('strips trailing fractional zeros and the bare decimal point', () => {
-    expect(toAmountInputValue('1000.0000')).toBe('1000')
+  it('trims storage precision down to the two-decimal floor', () => {
+    expect(toAmountInputValue('1000.0000')).toBe('1000.00')
   })
 
-  it('keeps significant fractional digits', () => {
-    expect(toAmountInputValue('1000.5000')).toBe('1000.5')
+  it('keeps significant fractional digits, padded to the floor', () => {
+    expect(toAmountInputValue('1000.5000')).toBe('1000.50')
+    expect(toAmountInputValue('1000.1000')).toBe('1000.10')
   })
 
-  it('preserves scale-4 values', () => {
+  it('preserves scale-4 values rather than rounding to the floor', () => {
     expect(toAmountInputValue('0.0001')).toBe('0.0001')
   })
 
-  it('leaves integer strings untouched', () => {
-    expect(toAmountInputValue('1000')).toBe('1000')
+  it('never truncates precision beyond two decimals', () => {
+    expect(toAmountInputValue('1000.12345')).toBe('1000.12345')
+  })
+
+  it('pads bare integers up to the floor', () => {
+    expect(toAmountInputValue('1000')).toBe('1000.00')
   })
 
   it('returns an empty string for empty, null and undefined', () => {
@@ -104,11 +109,11 @@ describe('toAmountInputValue', () => {
   })
 
   it('handles negative canonical decimals', () => {
-    expect(toAmountInputValue('-25.5000')).toBe('-25.5')
+    expect(toAmountInputValue('-25.5000')).toBe('-25.50')
   })
 
   it('handles an explicit positive sign', () => {
-    expect(toAmountInputValue('+25.5000')).toBe('+25.5')
+    expect(toAmountInputValue('+25.5000')).toBe('+25.50')
   })
 
   it('does not round or lose digits on large high-precision values', () => {
@@ -116,6 +121,6 @@ describe('toAmountInputValue', () => {
   })
 
   it('accepts numbers by converting through their string form', () => {
-    expect(toAmountInputValue(1000)).toBe('1000')
+    expect(toAmountInputValue(1000)).toBe('1000.00')
   })
 })
