@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { formatCurrency } from '../currency'
+import { formatCurrency, toAmountInputValue } from '../currency'
 
 describe('formatCurrency', () => {
   beforeEach(() => {
@@ -69,5 +69,53 @@ describe('formatCurrency', () => {
         maximumFractionDigits: 0,
       }),
     ).toBe('RM 5,000')
+  })
+})
+
+describe('toAmountInputValue', () => {
+  it('strips trailing fractional zeros and the bare decimal point', () => {
+    expect(toAmountInputValue('1000.0000')).toBe('1000')
+  })
+
+  it('keeps significant fractional digits', () => {
+    expect(toAmountInputValue('1000.5000')).toBe('1000.5')
+  })
+
+  it('preserves scale-4 values', () => {
+    expect(toAmountInputValue('0.0001')).toBe('0.0001')
+  })
+
+  it('leaves integer strings untouched', () => {
+    expect(toAmountInputValue('1000')).toBe('1000')
+  })
+
+  it('returns an empty string for empty, null and undefined', () => {
+    expect(toAmountInputValue('')).toBe('')
+    expect(toAmountInputValue(null)).toBe('')
+    expect(toAmountInputValue(undefined)).toBe('')
+  })
+
+  it('passes non-numeric text through unchanged', () => {
+    expect(toAmountInputValue('abc')).toBe('abc')
+  })
+
+  it('passes decimal-like non-numeric text through unchanged', () => {
+    expect(toAmountInputValue('abc.0000')).toBe('abc.0000')
+  })
+
+  it('handles negative canonical decimals', () => {
+    expect(toAmountInputValue('-25.5000')).toBe('-25.5')
+  })
+
+  it('handles an explicit positive sign', () => {
+    expect(toAmountInputValue('+25.5000')).toBe('+25.5')
+  })
+
+  it('does not round or lose digits on large high-precision values', () => {
+    expect(toAmountInputValue('99999999999999.9900')).toBe('99999999999999.99')
+  })
+
+  it('accepts numbers by converting through their string form', () => {
+    expect(toAmountInputValue(1000)).toBe('1000')
   })
 })

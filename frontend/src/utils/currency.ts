@@ -62,6 +62,33 @@ export const formatCurrency = (
 }
 
 /**
+ * Normalizes a persisted decimal string for display in a numeric text input.
+ *
+ * The backend stores money as NUMERIC(18,4) and serializes it as '1000.0000',
+ * which would otherwise expose storage precision in the form field (issue #993).
+ *
+ * The transform is purely lexical — the value is never parsed into a JS number,
+ * because binary64 spacing loses fractional cents on large NUMERIC(18,4) values
+ * (see the note on formatCurrency above). Only canonical decimal strings are
+ * normalized; anything else (including decimal-like text such as 'abc.0000') is
+ * returned unchanged, so this can never mangle an unexpected value.
+ */
+const CANONICAL_DECIMAL = /^[+-]?\d+\.\d+$/
+
+export const toAmountInputValue = (
+  value: string | number | null | undefined
+): string => {
+  if (value === null || value === undefined) return ''
+
+  const raw = String(value)
+  if (!CANONICAL_DECIMAL.test(raw)) return raw
+
+  // Fractional part only: the guard above guarantees digits on both sides of a
+  // single '.', so trimming the tail can never reach the integer digits.
+  return raw.replace(/0+$/, '').replace(/\.$/, '')
+}
+
+/**
  * Formats currency for input fields (without symbol)
  */
 const formatCurrencyInput = (amount: number | string | null | undefined): string => {
