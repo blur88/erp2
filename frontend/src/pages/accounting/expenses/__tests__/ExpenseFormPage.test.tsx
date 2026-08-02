@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
@@ -101,6 +101,8 @@ const EXPENSE_DOC_SETTINGS = {
 const defaultAccounts = [
   { id: 'exp-acc-1', code: '5000', name: 'Office Supplies', type: 'Expense', isActive: true, isPostable: true, balance: '0', children: [] },
   { id: 'exp-acc-2', code: '5010', name: 'Utilities', type: 'Expense', isActive: true, balance: '0', children: [] },
+  { id: 'cogs-acc', code: '5100', name: 'Cost of Goods Sold', type: 'Expense', isActive: true, isPostable: true, balance: '0', children: [] },
+  { id: 'exp-acc-3', code: '6990', name: 'Other Expenses', type: 'Expense', isActive: true, isPostable: true, balance: '0', children: [] },
 ]
 
 const defaultExpense = {
@@ -168,7 +170,7 @@ describe('ExpenseFormPage - Create mode', () => {
     mockUpdateExpense.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'exp-1' }) })
     mockGetExpense.mockReturnValue({ data: defaultExpense, isLoading: false, isFetching: false })
     mockGetAccountTree.mockReturnValue({ data: defaultAccounts, isLoading: false, isFetching: false })
-    mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1' }, isLoading: false, isFetching: false })
+    mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1', cogsAccountId: 'cogs-acc' }, isLoading: false, isFetching: false })
     mockGetDocumentNumberSettings.mockReturnValue(EXPENSE_DOC_SETTINGS)
   })
 
@@ -212,6 +214,47 @@ describe('ExpenseFormPage - Create mode', () => {
   it('renders account selector with options from tree', () => {
     renderCreatePage()
     expect(screen.getByRole('combobox', { name: /account/i })).toBeInTheDocument()
+  })
+
+  it('omits the configured COGS account from the account selector', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    const listbox = within(screen.getByRole('listbox'))
+    expect(listbox.queryByText('5100 Cost of Goods Sold')).not.toBeInTheDocument()
+  })
+
+  it('keeps other active postable operating expense accounts selectable', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    const listbox = within(screen.getByRole('listbox'))
+    expect(listbox.getByText('6990 Other Expenses')).toBeInTheDocument()
+    expect(listbox.getByText('5000 Office Supplies')).toBeInTheDocument()
+  })
+
+  it('excludes by configured id, not by the 5100 code', async () => {
+    mockGetAccountingSettings.mockReturnValue({
+      data: { defaultExpenseAccountId: 'exp-acc-1', cogsAccountId: 'exp-acc-3' },
+      isLoading: false, isFetching: false,
+    })
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    const listbox = within(screen.getByRole('listbox'))
+    expect(listbox.queryByText('6990 Other Expenses')).not.toBeInTheDocument()
+    expect(listbox.getByText('5100 Cost of Goods Sold')).toBeInTheDocument()
+  })
+
+  it('keeps 6990 Other Expenses selected by default when it is the configured default', async () => {
+    mockGetAccountingSettings.mockReturnValue({
+      data: { defaultExpenseAccountId: 'exp-acc-3', cogsAccountId: 'cogs-acc' },
+      isLoading: false, isFetching: false,
+    })
+    renderCreatePage()
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /account/i })).toHaveTextContent('6990 Other Expenses')
+    })
   })
 
   it('shows validation error for empty description on submit', async () => {
@@ -374,7 +417,7 @@ describe('ExpenseFormPage - Edit mode', () => {
     mockUpdateExpense.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'exp-1' }) })
     mockGetExpense.mockReturnValue({ data: defaultExpense, isLoading: false, isFetching: false })
     mockGetAccountTree.mockReturnValue({ data: defaultAccounts, isLoading: false, isFetching: false })
-    mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1' }, isLoading: false, isFetching: false })
+    mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1', cogsAccountId: 'cogs-acc' }, isLoading: false, isFetching: false })
     mockGetDocumentNumberSettings.mockReturnValue(EXPENSE_DOC_SETTINGS)
   })
 
@@ -446,6 +489,33 @@ describe('ExpenseFormPage - Edit mode', () => {
     expect(mockShowSuccess).toHaveBeenCalled()
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses/exp-1')
   })
+
+  it('still displays a legacy COGS account on an expense already booked to it', async () => {
+    mockGetExpense.mockReturnValue({
+      data: { ...defaultExpense, expenseAccountId: 'cogs-acc', expenseAccount: { id: 'cogs-acc', code: '5100', name: 'Cost of Goods Sold' } },
+      isLoading: false, isFetching: false,
+    })
+    renderEditPage()
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /account/i })).toHaveTextContent('5100 Cost of Goods Sold')
+    })
+  })
+
+  it('drops the legacy COGS option once the user switches away from it', async () => {
+    mockGetExpense.mockReturnValue({
+      data: { ...defaultExpense, expenseAccountId: 'cogs-acc', expenseAccount: { id: 'cogs-acc', code: '5100', name: 'Cost of Goods Sold' } },
+      isLoading: false, isFetching: false,
+    })
+    const user = userEvent.setup()
+    renderEditPage()
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /account/i })).toHaveTextContent('5100 Cost of Goods Sold')
+    })
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(within(screen.getByRole('listbox')).getByText('6990 Other Expenses'))
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    expect(within(screen.getByRole('listbox')).queryByText('5100 Cost of Goods Sold')).not.toBeInTheDocument()
+  })
 })
 
 describe('ExpenseFormPage - Edit locks', () => {
@@ -455,7 +525,7 @@ describe('ExpenseFormPage - Edit locks', () => {
     mockBlockerState.current = 'idle'
     mockUpdateExpense.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'exp-1' }) })
     mockGetAccountTree.mockReturnValue({ data: defaultAccounts, isLoading: false, isFetching: false })
-    mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1' }, isLoading: false, isFetching: false })
+    mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1', cogsAccountId: 'cogs-acc' }, isLoading: false, isFetching: false })
     mockGetDocumentNumberSettings.mockReturnValue(EXPENSE_DOC_SETTINGS)
   })
 
@@ -508,7 +578,7 @@ describe('ExpenseFormPage - Dirty cancel', () => {
     mockCreateExpense.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-exp-1' }) })
     mockGetExpense.mockReturnValue({ data: defaultExpense, isLoading: false, isFetching: false })
     mockGetAccountTree.mockReturnValue({ data: defaultAccounts, isLoading: false, isFetching: false })
-    mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1' }, isLoading: false, isFetching: false })
+    mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1', cogsAccountId: 'cogs-acc' }, isLoading: false, isFetching: false })
     mockGetDocumentNumberSettings.mockReturnValue(EXPENSE_DOC_SETTINGS)
   })
 
@@ -543,7 +613,7 @@ describe('ExpenseFormPage - PAID/CANCELLED redirect', () => {
     vi.clearAllMocks()
     mockLocationState.current = null
     mockGetAccountTree.mockReturnValue({ data: defaultAccounts, isLoading: false, isFetching: false })
-    mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1' }, isLoading: false, isFetching: false })
+    mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1', cogsAccountId: 'cogs-acc' }, isLoading: false, isFetching: false })
     mockGetDocumentNumberSettings.mockReturnValue(EXPENSE_DOC_SETTINGS)
   })
 
@@ -584,7 +654,7 @@ describe('ExpenseFormPage - Edit origin', () => {
     mockUpdateExpense.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'exp-1' }) })
     mockGetExpense.mockReturnValue({ data: defaultExpense, isLoading: false, isFetching: false })
     mockGetAccountTree.mockReturnValue({ data: defaultAccounts, isLoading: false, isFetching: false })
-    mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1' }, isLoading: false, isFetching: false })
+    mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1', cogsAccountId: 'cogs-acc' }, isLoading: false, isFetching: false })
     mockGetDocumentNumberSettings.mockReturnValue(EXPENSE_DOC_SETTINGS)
   })
 
