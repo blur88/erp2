@@ -5,6 +5,7 @@ import { PaymentMethodEntity } from '../../../database/entities/payment-method.e
 import { Expense, ExpenseDocumentStatus, ExpensePaymentStatus } from '../entities/expense.entity';
 import { ExpensePayment } from '../entities/expense-payment.entity';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
+import { AccountingSettings } from '../entities/accounting-settings.entity';
 import { AccountType } from '../entities/account-type.enum';
 import { AuditLogService } from '../../audit-logs/services';
 import { SettingsService } from '../../settings/settings.service';
@@ -175,6 +176,13 @@ export class ExpenseService {
     }
     if (acc.type !== AccountType.EXPENSE) {
       throw new BadRequestException('Expense account must be an Expense-type account');
+    }
+    const settings = await manager.getRepository(AccountingSettings)
+      .findOne({ where: { id: true } as any });
+    if (settings?.cogsAccountId && settings.cogsAccountId === accountId) {
+      throw new BadRequestException(
+        'Cost of Goods Sold is reserved for automatic Sales Order postings and cannot be used for a manual expense',
+      );
     }
   }
 
