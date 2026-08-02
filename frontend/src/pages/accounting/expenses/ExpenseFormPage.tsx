@@ -87,7 +87,6 @@ const ExpenseFormPage: React.FC = () => {
   const [updateExpense, { isLoading: isUpdating }] = useUpdateExpenseMutation()
 
   const isSaving = isCreating || isUpdating
-  const accountOptions = useMemo(() => flattenAccountTree(accountTreeData), [accountTreeData])
   const hasPayments = (expense?.payments?.length ?? 0) > 0
   const paidAmountNum = parseFloat(expense?.paidAmount ?? '0')
   // No arbitrary 0.01 floor — backend accepts any positive scale-4 amount
@@ -122,6 +121,7 @@ const ExpenseFormPage: React.FC = () => {
     handleSubmit,
     reset,
     setError,
+    watch,
     formState: { errors, isDirty, isSubmitting },
   } = useForm<ExpenseFormData>({
     resolver: yupResolver(schema, { abortEarly: false }) as any,
@@ -134,6 +134,16 @@ const ExpenseFormPage: React.FC = () => {
       notes: '',
     },
   })
+
+  const selectedExpenseAccountId = watch('expenseAccountId')
+  const accountOptions = useMemo(() => {
+    const all = flattenAccountTree(accountTreeData)
+    const cogsId = settings?.cogsAccountId
+    if (!cogsId) return all
+    return all.filter(
+      (o) => o.value !== cogsId || (isEdit && selectedExpenseAccountId === cogsId),
+    )
+  }, [accountTreeData, settings?.cogsAccountId, isEdit, selectedExpenseAccountId])
 
   const storedFormat = useMemo(() => localStorage.getItem('dateFormat') || 'DD/MM/YYYY', [])
   const pickerFormat = useMemo(() => toMuiDatePickerFormat(storedFormat), [storedFormat])

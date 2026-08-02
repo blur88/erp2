@@ -6,6 +6,7 @@ import { ExpenseService } from './expense.service';
 import { Expense, ExpenseDocumentStatus, ExpensePaymentStatus } from '../entities/expense.entity';
 import { ExpensePayment } from '../entities/expense-payment.entity';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
+import { AccountingSettings } from '../entities/accounting-settings.entity';
 import { AccountType } from '../entities/account-type.enum';
 import { AuditLogService } from '../../audit-logs/services';
 import { SettingsService } from '../../settings/settings.service';
@@ -49,22 +50,28 @@ describe('ExpenseService', () => {
   let txAccount: any;
   let txManager: any;
 
-  function setupTxAccount(overrides?: Partial<any>) {
+  function setupTxAccount(overrides?: Partial<any>, settingsRow?: any) {
     const defaults = { id: 'acc-1', isActive: true, isPostable: true, type: AccountType.EXPENSE };
     txAccount = { ...defaults, ...overrides };
+    const row = settingsRow === undefined
+      ? { id: true, cogsAccountId: 'cogs-1', defaultExpenseAccountId: 'acc-1' }
+      : settingsRow;
     const expenseRepoObj = { findOne: jest.fn(), create: (x: any) => x, save: async (x: any) => ({ ...x, id: 'exp-1' }) };
     const coaRepoObj = { findOne: jest.fn().mockImplementation(() => { if (txAccount === null) return null; return txAccount; }) };
     const paymentRepoObj = { count: jest.fn().mockResolvedValue(0), find: jest.fn().mockResolvedValue([]) };
+    const settingsRepoObj = { findOne: jest.fn().mockResolvedValue(row) };
     txManager = {
       getRepository: jest.fn().mockImplementation((entity: any) => {
         if (entity === Expense) return expenseRepoObj;
         if (entity === ChartOfAccount) return coaRepoObj;
         if (entity === ExpensePayment) return paymentRepoObj;
+        if (entity === AccountingSettings) return settingsRepoObj;
         return {};
       }),
     };
     txManager._expenseRepo = expenseRepoObj;
     txManager._paymentRepo = paymentRepoObj;
+    txManager._settingsRepo = settingsRepoObj;
     (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(txManager));
     return { manager: txManager, account: txAccount };
   }
@@ -108,6 +115,26 @@ describe('ExpenseService', () => {
       setupTxAccount({ type: AccountType.ASSET });
       await expect(service.create(validDto, 'user-1', 'admin'))
         .rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects the configured COGS account', async () => {
+      setupTxAccount({ id: 'cogs-1' });
+      await expect(service.create({ ...validDto, expenseAccountId: 'cogs-1' }, 'user-1', 'admin'))
+        .rejects.toThrow('Cost of Goods Sold is reserved for automatic Sales Order postings and cannot be used for a manual expense');
+    });
+
+    it('allows any expense account when no settings row exists', async () => {
+      settings.generateDocumentNumber.mockResolvedValue('EXP-26-001');
+      setupTxAccount({ id: 'cogs-1' }, null);
+      await expect(service.create({ ...validDto, expenseAccountId: 'cogs-1' }, 'user-1', 'admin'))
+        .resolves.toBeDefined();
+    });
+
+    it('excludes by configured id, not by account code', async () => {
+      settings.generateDocumentNumber.mockResolvedValue('EXP-26-001');
+      setupTxAccount({ id: 'acc-1', code: '5100' }, { id: true, cogsAccountId: 'other-cogs', defaultExpenseAccountId: 'acc-1' });
+      await expect(service.create({ ...validDto, expenseAccountId: 'acc-1' }, 'user-1', 'admin'))
+        .resolves.toBeDefined();
     });
 
     it('creates expense with correct fields inside transaction', async () => {
@@ -449,6 +476,18 @@ describe('ExpenseService', () => {
       txAccount = { id: 'acc-2', isActive: false, isPostable: true, type: AccountType.EXPENSE };
       await expect(service.update('exp-1', { expenseAccountId: 'acc-2' }, 'user-1', 'admin'))
         .rejects.toThrow('Expense account is not active');
+    });
+
+    it('allows editing a COGS-linked expense when the account is unchanged', async () => {
+      setupUpdateTest({ expenseAccountId: 'cogs-1' });
+      await expect(service.update('exp-1', { description: 'Changed' }, 'user-1', 'admin'))
+        .resolves.toBeDefined();
+    });
+
+    it('rejects changing an expense account to the configured COGS account', async () => {
+      setupUpdateTest({ expenseAccountId: 'acc-1' });
+      await expect(service.update('exp-1', { expenseAccountId: 'cogs-1' }, 'user-1', 'admin'))
+        .rejects.toThrow('Cost of Goods Sold is reserved for automatic Sales Order postings and cannot be used for a manual expense');
     });
 
     it('recomputes aggregates when totalAmount decreases from PARTIAL to PAID', async () => {
