@@ -62,6 +62,43 @@ export const formatCurrency = (
 }
 
 /**
+ * Normalizes a persisted decimal string for display in a numeric text input.
+ *
+ * The backend stores money as NUMERIC(18,4) and serializes it as '1000.0000',
+ * which would otherwise expose storage precision in the form field (issue #993).
+ * Trailing fractional zeros are trimmed down to a floor of two decimals, so
+ * money reads conventionally ('1000.00', '1000.10') without inventing a maximum
+ * precision: significant digits beyond two are always kept, so a scale-4 value
+ * like '0.0001' survives intact and nothing is ever rounded away.
+ *
+ * The transform is purely lexical — the value is never parsed into a JS number,
+ * because binary64 spacing loses fractional cents on large NUMERIC(18,4) values
+ * (see the note on formatCurrency above). Only canonical numeric strings are
+ * normalized; anything else (including decimal-like text such as 'abc.0000') is
+ * returned unchanged, so this can never mangle an unexpected value.
+ */
+const CANONICAL_NUMBER = /^[+-]?\d+(\.\d+)?$/
+const MIN_FRACTION_DIGITS = 2
+
+export const toAmountInputValue = (
+  value: string | number | null | undefined
+): string => {
+  if (value === null || value === undefined) return ''
+
+  const raw = String(value)
+  if (!CANONICAL_NUMBER.test(raw)) return raw
+
+  const [integerPart, fractionPart = ''] = raw.split('.')
+
+  // Trim only the zeros past the floor, so '1000.0000' -> '1000.00' while
+  // '0.0001' keeps every significant digit. Padding covers bare integers.
+  const trimmed = fractionPart.replace(/0+$/, '')
+  const fraction = trimmed.padEnd(MIN_FRACTION_DIGITS, '0')
+
+  return `${integerPart}.${fraction}`
+}
+
+/**
  * Formats currency for input fields (without symbol)
  */
 const formatCurrencyInput = (amount: number | string | null | undefined): string => {

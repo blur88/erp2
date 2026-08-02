@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { formatCurrency } from '../currency'
+import { formatCurrency, toAmountInputValue } from '../currency'
 
 describe('formatCurrency', () => {
   beforeEach(() => {
@@ -69,5 +69,58 @@ describe('formatCurrency', () => {
         maximumFractionDigits: 0,
       }),
     ).toBe('RM 5,000')
+  })
+})
+
+describe('toAmountInputValue', () => {
+  it('trims storage precision down to the two-decimal floor', () => {
+    expect(toAmountInputValue('1000.0000')).toBe('1000.00')
+  })
+
+  it('keeps significant fractional digits, padded to the floor', () => {
+    expect(toAmountInputValue('1000.5000')).toBe('1000.50')
+    expect(toAmountInputValue('1000.1000')).toBe('1000.10')
+  })
+
+  it('preserves scale-4 values rather than rounding to the floor', () => {
+    expect(toAmountInputValue('0.0001')).toBe('0.0001')
+  })
+
+  it('never truncates precision beyond two decimals', () => {
+    expect(toAmountInputValue('1000.12345')).toBe('1000.12345')
+  })
+
+  it('pads bare integers up to the floor', () => {
+    expect(toAmountInputValue('1000')).toBe('1000.00')
+  })
+
+  it('returns an empty string for empty, null and undefined', () => {
+    expect(toAmountInputValue('')).toBe('')
+    expect(toAmountInputValue(null)).toBe('')
+    expect(toAmountInputValue(undefined)).toBe('')
+  })
+
+  it('passes non-numeric text through unchanged', () => {
+    expect(toAmountInputValue('abc')).toBe('abc')
+  })
+
+  it('passes decimal-like non-numeric text through unchanged', () => {
+    expect(toAmountInputValue('abc.0000')).toBe('abc.0000')
+  })
+
+  it('handles negative canonical decimals', () => {
+    expect(toAmountInputValue('-25.5000')).toBe('-25.50')
+  })
+
+  it('handles an explicit positive sign', () => {
+    expect(toAmountInputValue('+25.5000')).toBe('+25.50')
+  })
+
+  it('does not round or lose digits on large high-precision values', () => {
+    expect(toAmountInputValue('99999999999999.9900')).toBe('99999999999999.99')
+  })
+
+  it('accepts numbers by converting through their string form', () => {
+    expect(toAmountInputValue(1000)).toBe('1000.00')
   })
 })
