@@ -130,7 +130,7 @@ export class PurchaseOrder extends BaseEntity {
   })
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
-  totalAmount: number;
+  totalAmount: string;
 
   @Column({
     type: 'decimal',
@@ -141,7 +141,7 @@ export class PurchaseOrder extends BaseEntity {
   })
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
-  paidAmount: number;
+  paidAmount: string;
 
   @Column({
     type: 'enum',
@@ -237,7 +237,7 @@ export class PurchaseOrder extends BaseEntity {
 
     // Calculate total (subtotal - discount + shipping)
     const subtotalAfterDiscount = Number(this.subtotal || 0) - Number(this.discountAmount || 0);
-    this.totalAmount = subtotalAfterDiscount + Number(this.shippingAmount || 0);
+    this.totalAmount = (subtotalAfterDiscount + Number(this.shippingAmount || 0)).toFixed(4);
   }
 
 

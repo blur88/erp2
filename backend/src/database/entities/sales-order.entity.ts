@@ -73,15 +73,15 @@ export class SalesOrder extends BaseEntity {
   @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
   @IsDecimal({ decimal_digits: '0,4' })
   @Min(0)
-  totalAmount: number;
+  totalAmount: string;
 
   @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
   @Min(0)
-  paidAmount: number;
+  paidAmount: string;
 
   // = totalAmount - paidAmount; negative value means the order is overpaid (surplus). No @Min(0).
   @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
-  balanceDue: number;
+  balanceDue: string;
 
   @Column({ type: 'text', nullable: true })
   @IsOptional()

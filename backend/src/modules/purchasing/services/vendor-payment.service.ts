@@ -11,6 +11,7 @@ import {
 } from '../dto';
 import { AuditLogService } from '../../audit-logs/services';
 import { repoFor } from '../../../common/db/tx-helpers';
+import { formatScale4 } from '@/common/utils/money';
 
 @Injectable()
 export class VendorPaymentService {
@@ -51,6 +52,7 @@ export class VendorPaymentService {
     const vendorPayment = paymentRepo.create({
       ...createDto,
       paymentMethodId,
+      amount: formatScale4(createDto.amount),
     });
 
     const savedPayment = await paymentRepo.save(vendorPayment);

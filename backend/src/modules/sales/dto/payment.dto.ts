@@ -3,16 +3,17 @@ import {
   IsOptional,
   IsEnum,
   IsUUID,
-  IsNumber,
-  Min,
   IsDate,
   MaxLength,
   IsInt,
   IsIn,
+  Matches,
+  Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { PaymentStatus } from '../../../database/entities/payment.entity';
+import { IsMoneyAtLeast } from '../../../common/validators/is-money-at-least.validator';
 
 /**
  * Columns a client may sort payments by. `sortBy` is interpolated into an
@@ -59,12 +60,13 @@ export class CreatePaymentDto {
 
   @ApiProperty({
     description: 'Payment amount',
-    example: 1500.5,
+    example: '1500.50',
   })
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0.01)
-  @Transform(({ value }) => parseFloat(value))
-  amount: number;
+  @Matches(/^\d+(\.\d{1,4})?$/, {
+    message: 'amount must be a positive decimal string with at most 4 decimal places',
+  })
+  @IsMoneyAtLeast('0.0100')
+  amount: string;
 
   @ApiPropertyOptional({
     description: 'Payment notes or description',
@@ -200,8 +202,8 @@ export class PaymentResponseDto {
   @ApiProperty({ example: '2023-12-01T00:00:00Z' })
   paymentDate: Date;
 
-  @ApiProperty({ example: 1500.5 })
-  amount: number;
+  @ApiProperty({ example: '1500.50' })
+  amount: string;
 
   @ApiProperty({ example: 'Payment for invoice INV-2023-001', nullable: true })
   notes?: string;
@@ -297,12 +299,13 @@ export class ProcessPaymentDto {
 
   @ApiProperty({
     description: 'Payment amount',
-    example: 1500.5,
+    example: '1500.50',
   })
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0.01)
-  @Transform(({ value }) => parseFloat(value))
-  amount: number;
+  @Matches(/^\d+(\.\d{1,4})?$/, {
+    message: 'amount must be a positive decimal string with at most 4 decimal places',
+  })
+  @IsMoneyAtLeast('0.0100')
+  amount: string;
 
   @ApiPropertyOptional({
     description: 'Payment notes or description',
@@ -323,12 +326,13 @@ export class AllocationDto {
 
   @ApiProperty({
     description: 'Amount to allocate to this sales order',
-    example: 750.25,
+    example: '750.25',
   })
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0.01)
-  @Transform(({ value }) => parseFloat(value))
-  amount: number;
+  @Matches(/^\d+(\.\d{1,4})?$/, {
+    message: 'amount must be a positive decimal string with at most 4 decimal places',
+  })
+  @IsMoneyAtLeast('0.0100')
+  amount: string;
 }
 
 export class AllocatePaymentDto {
@@ -343,8 +347,8 @@ export class AllocatePaymentDto {
     description: 'Sales order allocations',
     type: [AllocationDto],
     example: [
-      { salesOrderId: 'uuid-1', amount: 750.25 },
-      { salesOrderId: 'uuid-2', amount: 750.25 },
+      { salesOrderId: 'uuid-1', amount: '750.25' },
+      { salesOrderId: 'uuid-2', amount: '750.25' },
     ],
   })
   @Type(() => AllocationDto)
@@ -358,8 +362,8 @@ export class PaymentSummaryDto {
   @ApiProperty({ example: '2023-12-01T00:00:00Z' })
   paymentDate: Date;
 
-  @ApiProperty({ example: 1500.5 })
-  amount: number;
+  @ApiProperty({ example: '1500.50' })
+  amount: string;
 
   @ApiProperty({ example: 'uuid-string' })
   paymentMethodId: string;
@@ -378,12 +382,13 @@ export class RefundPaymentDto {
 
   @ApiProperty({
     description: 'Refund amount',
-    example: 1500.5,
+    example: '1500.50',
   })
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0.01)
-  @Transform(({ value }) => parseFloat(value))
-  amount: number;
+  @Matches(/^\d+(\.\d{1,4})?$/, {
+    message: 'amount must be a positive decimal string with at most 4 decimal places',
+  })
+  @IsMoneyAtLeast('0.0100')
+  amount: string;
 
   @ApiPropertyOptional({
     description: 'Reason for refund',

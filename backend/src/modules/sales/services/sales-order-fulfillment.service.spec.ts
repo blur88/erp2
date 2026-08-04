@@ -22,7 +22,7 @@ const mockOrder = (overrides: Partial<SalesOrder> = {}): SalesOrder =>
     orderNumber: 'SO-000001',
     status: SalesOrderStatus.DRAFT,
     paymentStatus: SalesOrderPaymentStatus.PAID,
-    totalAmount: 1000,
+    totalAmount: '1000.0000',
     customerId: 'customer-1',
     items: [
       {
@@ -277,7 +277,7 @@ describe('SalesOrderFulfillmentService', () => {
     it('posts fulfillment revenue+COGS JEs after stock depletion', async () => {
       const order = mockOrder({
         status: SalesOrderStatus.READY,
-        totalAmount: 1000,
+        totalAmount: '1000.0000',
       });
       wireTransaction(order);
       inventoryService.adjustStock.mockResolvedValue(349_995_000n);

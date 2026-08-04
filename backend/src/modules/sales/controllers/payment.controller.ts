@@ -173,8 +173,11 @@ export class PaymentController {
   })
   @ApiResponse({ status: 404, description: 'Payment or invoice not found' })
   @ApiResponse({ status: 400, description: 'Invalid allocation amounts' })
-  async allocatePayment(@Body() allocationDto: AllocatePaymentDto): Promise<PaymentResponseDto> {
-    return this.paymentService.allocatePayment(allocationDto);
+  async allocatePayment(
+    @Param('id', ParseUUIDPipe) paymentId: string,
+    @Body() allocationDto: AllocatePaymentDto,
+  ): Promise<PaymentResponseDto> {
+    return this.paymentService.allocatePayment(paymentId, allocationDto);
   }
 
   @Get('customer/:customerId')

@@ -15,13 +15,13 @@ describe('PurchaseOrder.calculateTotals', () => {
     const order = makeOrder({ discountPercent: 10, shippingAmount: 5 });
     order.calculateTotals();
     expect(order.discountAmount).toBe(10);
-    expect(order.totalAmount).toBe(95);
+    expect(order.totalAmount).toBe('95.0000');
   });
 
   it('clears a previously derived discount when discountPercent drops to 0', () => {
     const order = makeOrder({ discountPercent: 0, discountAmount: 10 });
     order.calculateTotals();
     expect(order.discountAmount).toBe(0);
-    expect(order.totalAmount).toBe(100);
+    expect(order.totalAmount).toBe('100.0000');
   });
 });

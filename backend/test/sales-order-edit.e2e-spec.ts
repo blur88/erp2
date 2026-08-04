@@ -68,9 +68,9 @@ describe("Sales order edit transaction (e2e)", () => {
         paymentStatus: SalesOrderPaymentStatus.UNPAID,
         subtotal: 100,
         shippingAmount: 0,
-        totalAmount: 100,
-        paidAmount: 0,
-        balanceDue: 100,
+        totalAmount: '100.0000',
+        paidAmount: '0.0000',
+        balanceDue: '100.0000',
       }),
     );
     const itemRepo = dataSource.getRepository(SalesOrderItem);
@@ -140,9 +140,9 @@ describe("Sales order edit transaction (e2e)", () => {
         paymentStatus: SalesOrderPaymentStatus.UNPAID,
         subtotal: 100,
         shippingAmount: 0,
-        totalAmount: 100,
-        paidAmount: 0,
-        balanceDue: 100,
+        totalAmount: '100.0000',
+        paidAmount: '0.0000',
+        balanceDue: '100.0000',
       }),
     );
     const itemRepo = dataSource.getRepository(SalesOrderItem);

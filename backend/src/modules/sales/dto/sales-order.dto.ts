@@ -4,7 +4,6 @@ import {
   IsUUID,
   MaxLength,
   Min,
-  IsNumber,
   IsArray,
   ValidateNested,
   IsInt,
@@ -14,6 +13,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { DiscountType } from '../../../database/entities/sales-order-item.entity';
 import { BaseQueryDto } from '../../../common/dto/base-query.dto';
+import { IsMoneyAtLeast } from '../../../common/validators/is-money-at-least.validator';
 import {
   SalesOrderStatus,
   SalesOrderPaymentStatus,
@@ -331,11 +331,12 @@ export class RecordPaymentDto {
   @IsUUID()
   paymentMethodId: string;
 
-  @ApiProperty({ example: 500.0 })
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @Min(0.01)
-  @Transform(({ value }) => parseFloat(value))
-  amount: number;
+  @ApiProperty({ example: '500.00', description: 'Payment amount' })
+  @Matches(/^\d+(\.\d{1,4})?$/, {
+    message: 'amount must be a positive decimal string with at most 4 decimal places',
+  })
+  @IsMoneyAtLeast('0.0100')
+  amount: string;
 
   @ApiProperty({ example: '2026-05-26' })
   @Matches(/^\d{4}-\d{2}-\d{2}$/, {

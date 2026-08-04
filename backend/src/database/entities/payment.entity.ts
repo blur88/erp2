@@ -1,5 +1,5 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
-import { IsString, IsOptional, IsEnum, IsDecimal, Min, IsDate } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsDecimal, IsDate } from 'class-validator';
 import { BaseEntity } from './base.entity';
 import { Customer } from './customer.entity';
 import { SalesOrder } from './sales-order.entity';
@@ -54,8 +54,7 @@ export class Payment extends BaseEntity {
     comment: 'Payment amount',
   })
   @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  amount: number;
+  amount: string;
 
   // Additional Information
   @Column({

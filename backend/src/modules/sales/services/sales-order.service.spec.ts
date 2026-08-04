@@ -169,7 +169,7 @@ describe('SalesOrderService', () => {
   it('delegates recordPayment then reloads the response', async () => {
     const dto = {
       paymentMethodId: 'method-1',
-      amount: 100,
+      amount: '100.0000',
       paymentDate: '2026-05-26',
     };
 
@@ -187,7 +187,7 @@ describe('SalesOrderService', () => {
   it('delegates recordRefund then reloads the response', async () => {
     const dto = {
       paymentMethodId: 'method-1',
-      amount: 100,
+      amount: '100.0000',
       paymentDate: '2026-05-26',
     };
 
@@ -229,7 +229,7 @@ describe('SalesOrderService', () => {
       status: SalesOrderStatus.DRAFT,
       paymentStatus: SalesOrderPaymentStatus.PAID,
       subtotal: 1000,
-      totalAmount: 1000,
+      totalAmount: '1000.0000',
     } as Partial<SalesOrder>;
 
     expect(order.status).toBe(SalesOrderStatus.DRAFT);
@@ -244,7 +244,7 @@ describe('SalesOrderService', () => {
         status: SalesOrderStatus.DRAFT,
         shippingAmount: 0,
         subtotal: 100,
-        totalAmount: 100,
+        totalAmount: '100.0000',
         items: undefined,
       };
 
@@ -256,7 +256,7 @@ describe('SalesOrderService', () => {
       salesOrderQueryService.findById.mockResolvedValue({
         ...mockOrder,
         shippingAmount: 15,
-        totalAmount: 115,
+        totalAmount: '115.0000',
       } as any);
       salesOrderLifecycleService.assertEditAllowed.mockResolvedValue(undefined);
 
@@ -270,7 +270,7 @@ describe('SalesOrderService', () => {
         expect.objectContaining({
           shippingAmount: 15,
           subtotal: 100,
-          totalAmount: 115,
+          totalAmount: '115.0000',
         }),
       );
     });
@@ -281,8 +281,8 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         customerId: 'customer-1',
         status: SalesOrderStatus.DRAFT,
-        paidAmount: 400,
-        totalAmount: 1000,
+        paidAmount: '400.0000',
+        totalAmount: '1000.0000',
         shippingAmount: 0,
       } as any;
 
@@ -291,8 +291,8 @@ describe('SalesOrderService', () => {
       salesOrderRepository.update = jest.fn().mockResolvedValue({ affected: 1 });
       salesOrderQueryService.findById.mockResolvedValue({
         ...existing,
-        totalAmount: 1100,
-        balanceDue: 700,
+        totalAmount: '1100.0000',
+        balanceDue: '700.0000',
       } as any);
       salesOrderLifecycleService.assertEditAllowed.mockResolvedValue(undefined);
 
@@ -301,7 +301,7 @@ describe('SalesOrderService', () => {
       expect(salesOrderRepository.update).toHaveBeenCalledWith(
         'order-1',
         expect.objectContaining({
-          totalAmount: 1100,
+          totalAmount: '1100.0000',
         }),
       );
       expect(salesOrderPaymentService.reconcileOrderState).toHaveBeenCalledWith(
@@ -318,11 +318,11 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 0,
         subtotal: 100,
-        totalAmount: 100,
-        balanceDue: 100,
+        totalAmount: '100.0000',
+        balanceDue: '100.0000',
         notes: null,
         customerId: 'c1',
       });
@@ -333,11 +333,11 @@ describe('SalesOrderService', () => {
           orderNumber: 'SO-1',
           status: 'DRAFT',
           paymentStatus: 'UNPAID',
-          paidAmount: 0,
+          paidAmount: '0.0000',
           shippingAmount: 0,
           subtotal: 100,
-          totalAmount: 100,
-          balanceDue: 100,
+          totalAmount: '100.0000',
+          balanceDue: '100.0000',
           notes: null,
           customerId: 'c1',
         }),
@@ -372,11 +372,11 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 0,
         subtotal: 100,
-        totalAmount: 100,
-        balanceDue: 100,
+        totalAmount: '100.0000',
+        balanceDue: '100.0000',
         notes: null,
         customerId: 'c1',
       });
@@ -387,11 +387,11 @@ describe('SalesOrderService', () => {
           orderNumber: 'SO-1',
           status: SalesOrderStatus.FULFILLED,
           paymentStatus: 'PAID',
-          paidAmount: 100,
+          paidAmount: '100.0000',
           shippingAmount: 0,
           subtotal: 100,
-          totalAmount: 100,
-          balanceDue: 0,
+          totalAmount: '100.0000',
+          balanceDue: '0.0000',
           notes: null,
           customerId: 'c1',
         }),
@@ -425,11 +425,11 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 0,
         subtotal: 100,
-        totalAmount: 100,
-        balanceDue: 100,
+        totalAmount: '100.0000',
+        balanceDue: '100.0000',
         notes: null,
         customerId: 'c1',
       });
@@ -451,11 +451,11 @@ describe('SalesOrderService', () => {
           orderNumber: 'SO-1',
           status: 'DRAFT',
           paymentStatus: 'UNPAID',
-          paidAmount: 0,
+          paidAmount: '0.0000',
           shippingAmount: 0,
           subtotal: 100,
-          totalAmount: 100,
-          balanceDue: 100,
+          totalAmount: '100.0000',
+          balanceDue: '100.0000',
           notes: null,
           customerId: 'c1',
         }),
@@ -491,11 +491,11 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 0,
         subtotal: 140,
-        totalAmount: 140,
-        balanceDue: 140,
+        totalAmount: '140.0000',
+        balanceDue: '140.0000',
         notes: null,
         customerId: 'cust-NEW',
       });
@@ -511,7 +511,7 @@ describe('SalesOrderService', () => {
         expect.objectContaining({
           customerId: 'cust-NEW',
           subtotal: 140,
-          totalAmount: 140,
+          totalAmount: '140.0000',
         }),
       );
       expect(reconcileSpy).toHaveBeenCalledWith('order-1', manager);
@@ -523,11 +523,11 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 0,
         subtotal: 0,
-        totalAmount: 0,
-        balanceDue: 0,
+        totalAmount: '0.0000',
+        balanceDue: '0.0000',
         notes: null,
         customerId: 'old',
       });
@@ -548,11 +548,11 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 0,
         subtotal: 55,
-        totalAmount: 55,
-        balanceDue: 55,
+        totalAmount: '55.0000',
+        balanceDue: '55.0000',
         notes: null,
         customerId: 'cust-DTO',
       };
@@ -562,11 +562,11 @@ describe('SalesOrderService', () => {
           orderNumber: 'SO-1',
           status: 'DRAFT',
           paymentStatus: 'UNPAID',
-          paidAmount: 0,
+          paidAmount: '0.0000',
           shippingAmount: 0,
           subtotal: 0,
-          totalAmount: 0,
-          balanceDue: 0,
+          totalAmount: '0.0000',
+          balanceDue: '0.0000',
           notes: null,
           customerId: 'cust-DTO',
         }),
@@ -605,11 +605,11 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 0,
         subtotal: 0,
-        totalAmount: 0,
-        balanceDue: 0,
+        totalAmount: '0.0000',
+        balanceDue: '0.0000',
         notes: null,
         customerId: 'old',
       });
@@ -630,11 +630,11 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 0,
         subtotal: 55,
-        totalAmount: 55,
-        balanceDue: 55,
+        totalAmount: '55.0000',
+        balanceDue: '55.0000',
         notes: null,
         customerId: 'cust-DTO',
       };
@@ -644,11 +644,11 @@ describe('SalesOrderService', () => {
           orderNumber: 'SO-1',
           status: 'DRAFT',
           paymentStatus: 'UNPAID',
-          paidAmount: 0,
+          paidAmount: '0.0000',
           shippingAmount: 0,
           subtotal: 0,
-          totalAmount: 0,
-          balanceDue: 0,
+          totalAmount: '0.0000',
+          balanceDue: '0.0000',
           notes: null,
           customerId: 'cust-DTO',
         }),
@@ -699,11 +699,11 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 0,
         subtotal: 100,
-        totalAmount: 100,
-        balanceDue: 100,
+        totalAmount: '100.0000',
+        balanceDue: '100.0000',
         notes: 'old note',
         customerId: 'c1',
       };
@@ -742,7 +742,7 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 0,
         customerId: 'cust-STALE',
       });
@@ -752,7 +752,7 @@ describe('SalesOrderService', () => {
           orderNumber: 'SO-1',
           status: 'DRAFT',
           paymentStatus: 'UNPAID',
-          paidAmount: 0,
+          paidAmount: '0.0000',
           shippingAmount: 0,
           customerId: 'cust-FRESH',
         }),
@@ -797,11 +797,11 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 0,
         subtotal: 70,
-        totalAmount: 70,
-        balanceDue: 70,
+        totalAmount: '70.0000',
+        balanceDue: '70.0000',
         notes: null,
         customerId: 'cust-FRESH',
       });
@@ -833,7 +833,7 @@ describe('SalesOrderService', () => {
       );
       expect(mgrOrderRepo.update).toHaveBeenCalledWith(
         'order-1',
-        expect.objectContaining({ subtotal: 70, totalAmount: 70 }),
+        expect.objectContaining({ subtotal: 70, totalAmount: '70.0000' }),
       );
     });
 
@@ -843,7 +843,7 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 0,
         customerId: 'cust-FRESH',
       });
@@ -865,7 +865,7 @@ describe('SalesOrderService', () => {
           orderNumber: 'SO-1',
           status: 'DRAFT',
           paymentStatus: 'UNPAID',
-          paidAmount: 0,
+          paidAmount: '0.0000',
           shippingAmount: 0,
           customerId: 'cust-FRESH',
         }),
@@ -891,11 +891,11 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 0,
         subtotal: 70,
-        totalAmount: 70,
-        balanceDue: 70,
+        totalAmount: '70.0000',
+        balanceDue: '70.0000',
         notes: null,
         customerId: 'cust-FRESH',
       });
@@ -922,7 +922,7 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 0,
         customerId: 'gone',
       });
@@ -933,7 +933,7 @@ describe('SalesOrderService', () => {
           orderNumber: 'SO-1',
           status: 'DRAFT',
           paymentStatus: 'UNPAID',
-          paidAmount: 0,
+          paidAmount: '0.0000',
           shippingAmount: 0,
           customerId: 'gone',
         }),
@@ -967,11 +967,11 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 20,
         subtotal: 80,
-        totalAmount: 100,
-        balanceDue: 100,
+        totalAmount: '100.0000',
+        balanceDue: '100.0000',
         customerId: 'c1',
       };
       const reconciledAfter = {
@@ -979,11 +979,11 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'READY',
         paymentStatus: 'PAID',
-        paidAmount: 120,
+        paidAmount: '120.0000',
         shippingAmount: 20,
         subtotal: 100,
-        totalAmount: 120,
-        balanceDue: 0,
+        totalAmount: '120.0000',
+        balanceDue: '0.0000',
         customerId: 'c1',
       };
       salesOrderRepository.findOne = jest.fn().mockResolvedValue(lockedBefore);
@@ -1038,7 +1038,7 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 5,
         customerId: 'c1',
       });
@@ -1049,7 +1049,7 @@ describe('SalesOrderService', () => {
           orderNumber: 'SO-1',
           status: 'DRAFT',
           paymentStatus: 'UNPAID',
-          paidAmount: 0,
+          paidAmount: '0.0000',
           shippingAmount: 20,
           customerId: 'c1',
         }),
@@ -1082,11 +1082,11 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 20,
         subtotal: 100,
-        totalAmount: 120,
-        balanceDue: 120,
+        totalAmount: '120.0000',
+        balanceDue: '120.0000',
         notes: null,
         customerId: 'c1',
       });
@@ -1109,7 +1109,7 @@ describe('SalesOrderService', () => {
       // Total used the LOCKED shipping (20), not the stale root value (5): 100 + 20 = 120.
       expect(mgrOrderRepo.update).toHaveBeenCalledWith(
         'order-1',
-        expect.objectContaining({ shippingAmount: 20, totalAmount: 120 }),
+        expect.objectContaining({ shippingAmount: 20, totalAmount: '120.0000' }),
       );
       // Reconcile joined the same transaction.
       expect(reconcileSpy).toHaveBeenCalledWith('order-1', manager);
@@ -1121,7 +1121,7 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         customerId: 'c1',
       });
       const mgrOrderRepo = {
@@ -1130,7 +1130,7 @@ describe('SalesOrderService', () => {
           orderNumber: 'SO-1',
           status: 'DRAFT',
           paymentStatus: 'UNPAID',
-          paidAmount: 0,
+          paidAmount: '0.0000',
           customerId: 'c1',
         }),
         update: jest.fn().mockResolvedValue({ affected: 1 }),
@@ -1149,11 +1149,11 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 50,
         subtotal: 300,
-        totalAmount: 350,
-        balanceDue: 350,
+        totalAmount: '350.0000',
+        balanceDue: '350.0000',
         notes: null,
         customerId: 'c1',
       });
@@ -1166,7 +1166,7 @@ describe('SalesOrderService', () => {
       expect(salesOrderItemRepository.find).not.toHaveBeenCalled();
       expect(mgrOrderRepo.update).toHaveBeenCalledWith(
         'order-1',
-        expect.objectContaining({ subtotal: 300, totalAmount: 350 }),
+        expect.objectContaining({ subtotal: 300, totalAmount: '350.0000' }),
       );
     });
 
@@ -1176,7 +1176,7 @@ describe('SalesOrderService', () => {
         orderNumber: 'SO-1',
         status: 'DRAFT',
         paymentStatus: 'UNPAID',
-        paidAmount: 0,
+        paidAmount: '0.0000',
         shippingAmount: 0,
         customerId: 'c1',
       });
@@ -1186,7 +1186,7 @@ describe('SalesOrderService', () => {
           orderNumber: 'SO-1',
           status: 'DRAFT',
           paymentStatus: 'UNPAID',
-          paidAmount: 0,
+          paidAmount: '0.0000',
           shippingAmount: 0,
           customerId: 'c1',
         }),
@@ -1241,7 +1241,7 @@ describe('SalesOrderService', () => {
       const mgrOrderRepo = {
         findOne: jest.fn().mockResolvedValue({
           id: 'order-1', orderNumber: 'SO-1', status: 'DRAFT', paymentStatus: 'UNPAID',
-          paidAmount: 0, shippingAmount: 0, subtotal: 0, totalAmount: 0, balanceDue: 0,
+          paidAmount: '0.0000', shippingAmount: 0, subtotal: 0, totalAmount: '0.0000', balanceDue: '0.0000',
           notes: null, customerId: 'old',
         }),
         update: jest.fn().mockResolvedValue({ affected: 1 }),

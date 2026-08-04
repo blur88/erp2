@@ -32,7 +32,7 @@ export class SalesOrderPayment {
 
   @Column({ type: 'decimal', precision: 15, scale: 4 })
   @IsDecimal({ decimal_digits: '0,4' })
-  amount: number;
+  amount: string;
 
   @Column({ type: 'date' })
   paymentDate: string;

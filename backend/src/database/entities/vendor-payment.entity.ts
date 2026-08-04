@@ -18,7 +18,7 @@ export class VendorPayment extends BaseEntity {
   purchaseOrderId: string;
 
   @Column({ type: 'decimal', precision: 12, scale: 4, default: 0 })
-  amount: number;
+  amount: string;
 
   @Column({ type: 'date' })
   paymentDate: Date;

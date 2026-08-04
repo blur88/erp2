@@ -41,7 +41,11 @@ import { lockRowForUpdate, repoFor } from '../../../common/db/tx-helpers';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
-import { formatScale4 } from '@/common/utils/money';
+import {
+  formatScale4,
+  sumMinor,
+  toMinorUnits,
+} from '@/common/utils/money';
 
 @Injectable()
 export class PurchaseOrderService extends BaseCrudService<
@@ -215,15 +219,12 @@ export class PurchaseOrderService extends BaseCrudService<
   }
 
   private derivePaymentStatus(
-    paidAmount: number,
-    totalAmount: number,
+    paidAmount: bigint,
+    totalAmount: bigint,
   ): PurchaseOrderPaymentStatus {
-    const paid = Number(paidAmount || 0);
-    const total = Number(totalAmount || 0);
-
-    if (paid <= 0) return PurchaseOrderPaymentStatus.UNPAID;
-    if (paid < total) return PurchaseOrderPaymentStatus.PARTIAL;
-    if (paid === total) return PurchaseOrderPaymentStatus.PAID;
+    if (paidAmount <= 0n) return PurchaseOrderPaymentStatus.UNPAID;
+    if (paidAmount < totalAmount) return PurchaseOrderPaymentStatus.PARTIAL;
+    if (paidAmount === totalAmount) return PurchaseOrderPaymentStatus.PAID;
     return PurchaseOrderPaymentStatus.OVERPAID;
   }
 
@@ -697,7 +698,7 @@ export class PurchaseOrderService extends BaseCrudService<
 
   async recordVendorPayments(
     id: string,
-    payments: { paymentMethodId: string; amount: number; reference?: string }[],
+    payments: { paymentMethodId: string; amount: string; reference?: string }[],
     userId?: string,
     username?: string,
   ): Promise<PurchaseOrderResponseDto> {
@@ -741,7 +742,7 @@ export class PurchaseOrderService extends BaseCrudService<
 
   async recordRefunds(
     orderId: string,
-    refunds: { paymentMethodId: string; amount: number; reference?: string }[],
+    refunds: { paymentMethodId: string; amount: string; reference?: string }[],
     userId?: string,
     username?: string,
   ): Promise<PurchaseOrderResponseDto> {
@@ -751,7 +752,7 @@ export class PurchaseOrderService extends BaseCrudService<
       throw new BadRequestException('At least one refund line is required');
     }
     for (const line of refunds) {
-      if (!(Number(line.amount) > 0)) {
+      if (toMinorUnits(line.amount) <= 0n) {
         throw new BadRequestException('Each refund amount must be greater than zero');
       }
     }
@@ -783,11 +784,11 @@ export class PurchaseOrderService extends BaseCrudService<
       const repo = manager.getRepository(VendorPayment);
 
       const existing = await repo.find({ where: { purchaseOrderId: orderId, isActive: true } });
-      const netPaid = existing.reduce((sum, r) => sum + Number(r.amount), 0);
-      const totalRefund = refunds.reduce((sum, l) => sum + Number(l.amount), 0);
-      if (totalRefund > netPaid + 0.001) {
+      const netPaidMinor = sumMinor(existing.map((r) => r.amount));
+      const totalRefundMinor = sumMinor(refunds.map((l) => l.amount));
+      if (totalRefundMinor > netPaidMinor) {
         throw new BadRequestException(
-          `Total refund amount (${totalRefund}) exceeds net paid (${netPaid.toFixed(4)})`,
+          `Total refund amount (${formatScale4(totalRefundMinor)}) exceeds net paid (${formatScale4(netPaidMinor)})`,
         );
       }
 
@@ -797,7 +798,7 @@ export class PurchaseOrderService extends BaseCrudService<
           purchaseOrderId: orderId,
           paymentMethodId: line.paymentMethodId,
           paymentDate: new Date(),
-          amount: -Number(line.amount),
+          amount: formatScale4(-toMinorUnits(line.amount)),
           referenceNumber: line.reference,
           status: 'completed',
         } as any);
@@ -808,7 +809,7 @@ export class PurchaseOrderService extends BaseCrudService<
           sourceRef: purchaseOrder.orderNumber,
           refundRowId: (saved as any).id,
           channel: method.accountingChannel,
-          amount: formatScale4(String(line.amount)),
+          amount: formatScale4(toMinorUnits(line.amount)),
           entryDate: new Date().toISOString().slice(0, 10),
           createdBy: username,
         }, manager);
@@ -845,7 +846,7 @@ export class PurchaseOrderService extends BaseCrudService<
    */
   async recordOrderPayments(
     id: string,
-    payments: { paymentMethodId: string; amount: number; reference?: string }[],
+    payments: { paymentMethodId: string; amount: string; reference?: string }[],
     userId?: string,
     username?: string,
   ): Promise<PurchaseOrderResponseDto> {
@@ -881,7 +882,7 @@ export class PurchaseOrderService extends BaseCrudService<
         throw new BadRequestException('At least one payment line is required');
       }
 
-      if (payments.some((p) => !(Number(p.amount) > 0))) {
+      if (payments.some((p) => toMinorUnits(p.amount) <= 0n)) {
         throw new BadRequestException('Each payment line amount must be greater than zero');
       }
 
@@ -915,7 +916,7 @@ export class PurchaseOrderService extends BaseCrudService<
           sourceRef: purchaseOrder.orderNumber,
           paymentRowId: restoredPayment.id,
           channel: method.accountingChannel,
-          amount: formatScale4(String(firstLine.amount)),
+          amount: formatScale4(toMinorUnits(firstLine.amount)),
           entryDate: new Date().toISOString().slice(0, 10),
           createdBy: username,
         }, manager);
@@ -942,7 +943,7 @@ export class PurchaseOrderService extends BaseCrudService<
             sourceRef: purchaseOrder.orderNumber,
             paymentRowId: savedPayment.id,
             channel: m.accountingChannel,
-            amount: formatScale4(String(line.amount)),
+            amount: formatScale4(toMinorUnits(line.amount)),
             entryDate: new Date().toISOString().slice(0, 10),
             createdBy: username,
           }, manager);
@@ -970,7 +971,7 @@ export class PurchaseOrderService extends BaseCrudService<
             sourceRef: purchaseOrder.orderNumber,
             paymentRowId: savedPayment.id,
             channel: method.accountingChannel,
-            amount: formatScale4(String(line.amount)),
+            amount: formatScale4(toMinorUnits(line.amount)),
             entryDate: new Date().toISOString().slice(0, 10),
             createdBy: username,
           }, manager);
@@ -993,11 +994,11 @@ export class PurchaseOrderService extends BaseCrudService<
    */
   private async reconcilePaymentState(purchaseOrder: PurchaseOrder, manager?: EntityManager): Promise<void> {
     const activePayments = await this.vendorPaymentService.findAllByPurchaseOrder(purchaseOrder.id, manager);
-    const paidAmount = activePayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-    const total = Number(purchaseOrder.totalAmount);
+    const paidAmountMinor = sumMinor(activePayments.map((p) => p.amount || '0'));
+    const totalMinor = toMinorUnits(purchaseOrder.totalAmount);
 
-    purchaseOrder.paidAmount = paidAmount;
-    purchaseOrder.paymentStatus = this.derivePaymentStatus(paidAmount, total);
+    purchaseOrder.paidAmount = formatScale4(paidAmountMinor);
+    purchaseOrder.paymentStatus = this.derivePaymentStatus(paidAmountMinor, totalMinor);
 
     // OVERPAID is not fulfillable. Only exact payment (PAID) promotes to READY,
     // matching the sales-order rule in sales-order-payment.service.ts.
@@ -1041,7 +1042,7 @@ export class PurchaseOrderService extends BaseCrudService<
 
       const now = new Date();
       const entryDate = now.toISOString().slice(0, 10);
-      purchaseOrder.paidAmount = 0;
+      purchaseOrder.paidAmount = '0.0000';
       purchaseOrder.paymentStatus = PurchaseOrderPaymentStatus.UNPAID;
       purchaseOrder.status = PurchaseOrderStatus.DRAFT;
       await manager.getRepository(PurchaseOrder).save(purchaseOrder);

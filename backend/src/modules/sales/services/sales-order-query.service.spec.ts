@@ -56,7 +56,7 @@ describe('SalesOrderQueryService', () => {
       paymentStatus: SalesOrderPaymentStatus.PARTIAL,
       subtotal: 200,
       shippingAmount: 0,
-      totalAmount: 200,
+      totalAmount: '200.0000',
       items: [],
       customer: { id: 'customer-1', name: 'Acme' } as Customer,
     } as SalesOrder;
@@ -66,7 +66,7 @@ describe('SalesOrderQueryService', () => {
       paymentRepository.find.mockResolvedValue([
         {
           id: 'pay-1',
-          amount: 100,
+          amount: '100.0000',
           paymentDate: '2026-01-02',
           paymentMethodId: 'method-1',
         } as SalesOrderPayment,

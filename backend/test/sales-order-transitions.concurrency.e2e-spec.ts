@@ -102,9 +102,9 @@ describe("Sales order transition concurrency (e2e)", () => {
         paymentStatus: SalesOrderPaymentStatus.UNPAID,
         subtotal: total,
         shippingAmount: 0,
-        totalAmount: total,
-        paidAmount: 0,
-        balanceDue: total,
+        totalAmount: `${total}.0000`,
+        paidAmount: '0.0000',
+        balanceDue: `${total}.0000`,
       }),
     );
 
@@ -134,7 +134,7 @@ describe("Sales order transition concurrency (e2e)", () => {
     const order = await seedDraftOrder(orderNumber, qty);
     await payment.recordPayment(order.id, {
       paymentMethodId: paymentMethod.id,
-      amount: qty * 100,
+      amount: `${qty * 100}.0000`,
       paymentDate: new Date(),
     } as any);
 
@@ -186,7 +186,7 @@ describe("Sales order transition concurrency (e2e)", () => {
       lifecycle.cancel(order.id),
       payment.recordPayment(order.id, {
         paymentMethodId: paymentMethod.id,
-        amount: 100,
+        amount: '100.0000',
         paymentDate: new Date(),
       } as any),
     ]);
@@ -251,12 +251,12 @@ describe("Sales order transition concurrency (e2e)", () => {
     const results = await Promise.allSettled([
       payment.recordPayment(order.id, {
         paymentMethodId: paymentMethod.id,
-        amount: 100,
+        amount: '100.0000',
         paymentDate: new Date(),
       } as any),
       payment.recordPayment(order.id, {
         paymentMethodId: paymentMethod.id,
-        amount: 100,
+        amount: '100.0000',
         paymentDate: new Date(),
       } as any),
     ]);

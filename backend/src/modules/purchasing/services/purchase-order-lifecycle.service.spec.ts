@@ -45,8 +45,8 @@ describe('PurchaseOrderLifecycleService', () => {
     id: 'po-1',
     orderNumber: 'PO-000001',
     supplierId: 'supplier-1',
-    totalAmount: 100,
-    paidAmount: 0,
+    totalAmount: '100.0000',
+    paidAmount: '0.0000',
     status: PurchaseOrderStatus.DRAFT,
     paymentStatus: PurchaseOrderPaymentStatus.UNPAID,
   } as PurchaseOrder;
@@ -54,7 +54,7 @@ describe('PurchaseOrderLifecycleService', () => {
   const mockVendorPayment = {
     id: 'vp-1',
     purchaseOrderId: 'po-1',
-    amount: 50,
+    amount: '50.0000',
   } as VendorPayment;
 
   beforeEach(async () => {
