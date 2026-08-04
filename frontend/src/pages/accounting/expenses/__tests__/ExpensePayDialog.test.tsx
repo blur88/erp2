@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import ExpensePayDialog from '../ExpensePayDialog'
 
@@ -89,7 +89,7 @@ describe('ExpensePayDialog', () => {
     expect(payload).toHaveLength(1)
     expect(payload[0]).toMatchObject({
       paymentMethodId: expect.any(String),
-      amount: 100,
+      amount: '100',
       paymentDate: expect.any(String),
     })
   })
@@ -116,5 +116,86 @@ describe('ExpensePayDialog', () => {
       btn.querySelector('svg[data-testid="DeleteIcon"]'),
     )
     expect(removeButtons[0]).toBeDisabled()
+  })
+})
+
+describe('money formatting and precision', () => {
+  afterEach(() => {
+    localStorage.removeItem('defaultCurrency')
+  })
+
+  it('seeds the default amount at the two-decimal floor', () => {
+    renderDialog({ expense: { ...defaultExpense, balance: '1000.0000' } })
+    // type="number" inputs: toHaveValue normalizes to Number; assert the raw
+    // DOM value to check the two-decimal lexical normalization.
+    const input = screen.getByPlaceholderText('Amount') as HTMLInputElement
+    expect(input.value).toBe('1000.00')
+  })
+
+  it('formats summaries with the configured currency, not a hard-coded MYR', () => {
+    localStorage.setItem('defaultCurrency', 'USD')
+    renderDialog({
+      expense: { ...defaultExpense, totalAmount: '1000.0000', paidAmount: '0.0000', balance: '1000.0000' },
+    })
+    expect(screen.getAllByText('USD 1,000.00').length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText(/RM|MYR/)).not.toBeInTheDocument()
+  })
+
+  it('submits the exact decimal string, not a coerced number', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    // Balance is 1000.0001 so a 1000.0001 payment is within it.
+    renderDialog({ onSubmit, expense: { ...defaultExpense, balance: '1000.0001' } })
+
+    const input = screen.getByPlaceholderText('Amount')
+    await userEvent.clear(input)
+    await userEvent.type(input, '1000.0001')
+    await userEvent.click(screen.getByRole('button', { name: /record payment/i }))
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith([
+        expect.objectContaining({ amount: '1000.0001' }),
+      ]),
+    )
+  })
+
+  it('preserves four decimals above the floor on a small partial payment', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    renderDialog({ onSubmit, expense: { ...defaultExpense, balance: '1000.0000' } })
+
+    const input = screen.getByPlaceholderText('Amount')
+    await userEvent.clear(input)
+    await userEvent.type(input, '0.0101')
+    await userEvent.click(screen.getByRole('button', { name: /record payment/i }))
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith([
+        expect.objectContaining({ amount: '0.0101' }),
+      ]),
+    )
+  })
+
+  it('disables submit for a malformed amount instead of counting it as zero', async () => {
+    renderDialog({ expense: { ...defaultExpense, balance: '1000.0000' } })
+    const input = screen.getByPlaceholderText('Amount')
+    await userEvent.clear(input)
+    await userEvent.type(input, '1.00001')
+    expect(screen.getByRole('button', { name: /record payment/i })).toBeDisabled()
+  })
+
+  // Unlike the sales/vendor dialogs, this one blocks over-balance by design.
+  it('still blocks submit one minor unit over the balance', async () => {
+    renderDialog({ expense: { ...defaultExpense, balance: '100.0000' } })
+    const input = screen.getByPlaceholderText('Amount')
+    await userEvent.clear(input)
+    await userEvent.type(input, '100.0001')
+    expect(screen.getByRole('button', { name: /record payment/i })).toBeDisabled()
+  })
+
+  it('still blocks submit on a zero amount', async () => {
+    renderDialog({ expense: { ...defaultExpense, balance: '100.0000' } })
+    const input = screen.getByPlaceholderText('Amount')
+    await userEvent.clear(input)
+    await userEvent.type(input, '0')
+    expect(screen.getByRole('button', { name: /record payment/i })).toBeDisabled()
   })
 })

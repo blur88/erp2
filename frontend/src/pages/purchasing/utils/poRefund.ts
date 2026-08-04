@@ -1,30 +1,31 @@
 import type { RefundSource } from '@/components/common/RefundDialog'
 import type { VendorPayment } from '@/types'
+import { toScaledAmount, fromScaledAmount } from '@/utils/currency'
 
 export function buildPoRefundSources(payments: VendorPayment[]): RefundSource[] {
-  const netByMethod: Record<string, { paid: number; refunded: number; label: string }> = {}
+  const netByMethod: Record<string, { paid: bigint; refunded: bigint; label: string }> = {}
   for (const p of payments ?? []) {
     if (!p.paymentMethodId) continue
     const key = p.paymentMethodId
     const entry = (netByMethod[key] ??= {
-      paid: 0,
-      refunded: 0,
+      paid: 0n,
+      refunded: 0n,
       label: p.paymentMethodEntity?.name ?? 'Payment',
     })
-    const amt = Number(p.amount)
-    if (amt >= 0) entry.paid += amt
-    else entry.refunded += Math.abs(amt)
+    const amt = toScaledAmount(p.amount) ?? 0n
+    if (amt >= 0n) entry.paid += amt
+    else entry.refunded += -amt
   }
   return Object.entries(netByMethod).map(([id, v]) => ({
     id,
     label: v.label,
-    paidAmount: v.paid,
-    alreadyRefunded: v.refunded,
+    paidAmount: fromScaledAmount(v.paid),
+    alreadyRefunded: fromScaledAmount(v.refunded),
   }))
 }
 
 export function toPoRefundPayload(
-  lines: { sourceId: string; amount: number; reference?: string }[],
-): { paymentMethodId: string; amount: number; reference?: string }[] {
+  lines: { sourceId: string; amount: string; reference?: string }[],
+): { paymentMethodId: string; amount: string; reference?: string }[] {
   return lines.map((l) => ({ paymentMethodId: l.sourceId, amount: l.amount, reference: l.reference }))
 }

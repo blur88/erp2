@@ -118,7 +118,7 @@ export default function PurchaseOrderDetailPage() {
   }
 
   const handlePaySubmit = async (
-    paymentLines: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[],
+    paymentLines: { paymentMethodId: string; amount: string; paymentDate: string; reference?: string }[],
   ) => {
     try {
       await recordPayments({ purchaseOrderId: order.id, payments: paymentLines }).unwrap()
@@ -180,7 +180,7 @@ export default function PurchaseOrderDetailPage() {
   }
 
   const handleSubmitRefund = async (
-    lines: { sourceId: string; amount: number; reference?: string }[],
+    lines: { sourceId: string; amount: string; reference?: string }[],
   ) => {
     try {
       await recordRefunds({
@@ -248,7 +248,7 @@ export default function PurchaseOrderDetailPage() {
         <PurchaseOrderOverviewTab order={order} />
       </TabPanel>
       <TabPanel value={tabValue} index={1}>
-        <PurchaseOrderPaymentsTab orderId={order.id} totalAmount={order.totalAmount ?? 0} />
+        <PurchaseOrderPaymentsTab orderId={order.id} totalAmount={order.totalAmount ?? '0.0000'} />
       </TabPanel>
 
       <ConfirmationDialog
@@ -298,7 +298,7 @@ export default function PurchaseOrderDetailPage() {
         onSubmit={handleSubmitRefund}
         sources={refundSources}
         orderNumber={order.orderNumber}
-        totalAmount={order.totalAmount ?? 0}
+        totalAmount={order.totalAmount ?? '0.0000'}
       />
 
       {activeDialog === 'pay' && (
@@ -307,8 +307,8 @@ export default function PurchaseOrderDetailPage() {
           onClose={() => setActiveDialog(null)}
           onSubmit={handlePaySubmit}
           orderNumber={order.orderNumber}
-          totalAmount={order.totalAmount ?? 0}
-          paidAmount={order.paidAmount ?? 0}
+          totalAmount={order.totalAmount ?? '0.0000'}
+          paidAmount={order.paidAmount ?? '0.0000'}
         />
       )}
 

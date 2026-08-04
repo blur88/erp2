@@ -11,6 +11,7 @@ import SalesOrderPrintDialog from './components/SalesOrderPrintDialog';
 import PaymentDialog from '@/components/sales/PaymentDialog';
 import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog';
 import { getCurrentDate } from '@/utils/formatters';
+import { toScaledAmount, fromScaledAmount } from '@/utils/currency';
 import { TABLE_STYLES } from '@/constants/tableStyles';
 import { useNotification } from '@/hooks/useNotification';
 import {
@@ -102,20 +103,20 @@ export default function SalesOrderDetailPage() {
 
   // Build RefundSource[] from SO payments (net by payment method)
   const netByMethod = (paymentRecords ?? []).reduce<
-    Record<string, { paid: number; refunded: number; label: string }>
+    Record<string, { paid: bigint; refunded: bigint; label: string }>
   >((acc, p: any) => {
     const key = p.paymentMethodId
-    const entry = (acc[key] ??= { paid: 0, refunded: 0, label: p.paymentMethod?.name ?? 'Payment' })
-    const amt = Number(p.amount)
-    if (amt >= 0) entry.paid += amt
-    else entry.refunded += Math.abs(amt)
+    const entry = (acc[key] ??= { paid: 0n, refunded: 0n, label: p.paymentMethod?.name ?? 'Payment' })
+    const amt = toScaledAmount(p.amount) ?? 0n
+    if (amt >= 0n) entry.paid += amt
+    else entry.refunded += -amt
     return acc
   }, {})
   const refundSources: RefundSource[] = Object.entries(netByMethod).map(([id, v]) => ({
     id,
     label: v.label,
-    paidAmount: v.paid,
-    alreadyRefunded: v.refunded,
+    paidAmount: fromScaledAmount(v.paid),
+    alreadyRefunded: fromScaledAmount(v.refunded),
   }))
 
   if (isLoading) {
@@ -199,7 +200,7 @@ export default function SalesOrderDetailPage() {
   const handleSubmitPayment = async (
     payments: {
       paymentMethodId: string;
-      amount: number;
+      amount: string;
       paymentDate: string;
       reference?: string;
     }[],
@@ -215,7 +216,7 @@ export default function SalesOrderDetailPage() {
   };
 
   const handleSubmitRefund = async (
-    lines: { sourceId: string; amount: number; reference?: string }[],
+    lines: { sourceId: string; amount: string; reference?: string }[],
   ) => {
     try {
       await recordRefunds({

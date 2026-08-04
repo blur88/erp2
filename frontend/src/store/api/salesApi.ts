@@ -241,7 +241,7 @@ export const salesApiSlice = createApi({
         id: string;
         payments: {
           paymentMethodId: string;
-          amount: number;
+          amount: string;
           paymentDate: string;
           reference?: string;
         }[];
@@ -262,7 +262,7 @@ export const salesApiSlice = createApi({
         id: string;
         refunds: {
           paymentMethodId: string;
-          amount: number;
+          amount: string;
           paymentDate: string;
           reference?: string;
         }[];

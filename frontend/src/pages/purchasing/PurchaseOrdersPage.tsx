@@ -171,7 +171,7 @@ const PurchaseOrdersPage: React.FC = () => {
   }, [])
 
   const handleSubmitPayment = useCallback(async (
-    payments: { paymentMethodId: string; amount: number; reference?: string }[],
+    payments: { paymentMethodId: string; amount: string; reference?: string }[],
   ) => {
     if (!paymentOrder) return
 
@@ -285,7 +285,7 @@ const PurchaseOrdersPage: React.FC = () => {
   }, [])
 
   const handleSubmitRefund = useCallback(async (
-    lines: { sourceId: string; amount: number; reference?: string }[],
+    lines: { sourceId: string; amount: string; reference?: string }[],
   ) => {
     if (!refundOrder) return
     try {
@@ -356,8 +356,8 @@ const PurchaseOrdersPage: React.FC = () => {
                 onClose={() => setPaymentOrder(null)}
                 onSubmit={handleSubmitPayment}
                 orderNumber={paymentOrder.orderNumber}
-                totalAmount={paymentOrder.totalAmount ?? 0}
-                paidAmount={paymentOrder.paidAmount ?? 0}
+                totalAmount={paymentOrder.totalAmount ?? '0.0000'}
+                paidAmount={paymentOrder.paidAmount ?? '0.0000'}
               />
             )}
 
@@ -377,7 +377,7 @@ const PurchaseOrdersPage: React.FC = () => {
                 onSubmit={handleSubmitRefund}
                 sources={refundSources}
                 orderNumber={refundOrder.orderNumber}
-                totalAmount={refundOrder.totalAmount ?? 0}
+                totalAmount={refundOrder.totalAmount ?? '0.0000'}
               />
             )}
 

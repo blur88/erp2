@@ -19,6 +19,13 @@ import {
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as AddIcon } from '@mui/icons-material/Add'
 import { getCurrentDate } from '@/utils/formatters'
+import {
+  formatCurrency,
+  toAmountInputValue,
+  toScaledAmount,
+  fromScaledAmount,
+  sumScaledAmounts,
+} from '@/utils/currency'
 
 const newId = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -28,14 +35,14 @@ const newId = () =>
 export interface RefundSource {
   id: string
   label: string
-  paidAmount: number
-  alreadyRefunded: number
+  paidAmount: string
+  alreadyRefunded: string
 }
 
 interface RefundLine {
   id: string
   sourceId: string
-  amount: number | string
+  amount: string
   reference: string
   date: string
 }
@@ -43,16 +50,13 @@ interface RefundLine {
 interface RefundDialogProps {
   open: boolean
   onClose: () => void
-  onSubmit: (lines: { sourceId: string; amount: number; reference?: string; date?: string }[]) => Promise<void>
+  onSubmit: (lines: { sourceId: string; amount: string; reference?: string; date?: string }[]) => Promise<void>
   sources: RefundSource[]
   orderNumber: string
-  totalAmount: number
+  totalAmount: string
   title?: string
   showDateField?: boolean
 }
-
-const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(amount)
 
 export default function RefundDialog({
   open,
@@ -64,19 +68,22 @@ export default function RefundDialog({
   title,
   showDateField,
 }: RefundDialogProps) {
-  const totalPaid = sources.reduce((sum, s) => sum + s.paidAmount, 0)
-  const alreadyRefunded = sources.reduce((sum, s) => sum + s.alreadyRefunded, 0)
+  const totalPaidMinor = sumScaledAmounts(sources.map((s) => s.paidAmount)) ?? 0n
+  const alreadyRefundedMinor = sumScaledAmounts(sources.map((s) => s.alreadyRefunded)) ?? 0n
 
-  const availableForRefund = Math.max(0, totalPaid - alreadyRefunded)
-  const netPaid = totalPaid - alreadyRefunded
-  const surplus = Math.max(0, netPaid - Number(totalAmount))
-  const hasSurplus = surplus > 0
+  const netPaidMinor = totalPaidMinor - alreadyRefundedMinor
+  const availableMinor = netPaidMinor > 0n ? netPaidMinor : 0n
+  const surplusMinor = netPaidMinor - (toScaledAmount(totalAmount) ?? 0n)
+  const hasSurplus = surplusMinor > 0n
 
   // Per-source amount still available to refund (paid minus what was already refunded).
-  const sourceAvailable = useCallback(
-    (sourceId: string) => {
-      const s = sources.find((src) => src.id === sourceId)
-      return s ? Math.max(0, s.paidAmount - s.alreadyRefunded) : 0
+  const sourceAvailableMinor = useCallback(
+    (sourceId: string): bigint => {
+      const source = sources.find((s) => s.id === sourceId)
+      if (!source) return 0n
+      const available =
+        (toScaledAmount(source.paidAmount) ?? 0n) - (toScaledAmount(source.alreadyRefunded) ?? 0n)
+      return available > 0n ? available : 0n
     },
     [sources],
   )
@@ -100,20 +107,22 @@ export default function RefundDialog({
     if (!open || lines.length > 0) return
     if (sources.length === 0) return
     // Default one line per source with availableForRefund > 0
-    const positiveSources = sources.filter((s) => s.paidAmount - s.alreadyRefunded > 0)
+    const positiveSources = sources.filter((s) => sourceAvailableMinor(s.id) > 0n)
     if (positiveSources.length > 0) {
-      const refundTarget = hasSurplus ? surplus : availableForRefund
-      const netTotal = positiveSources.reduce((sum, s) => sum + (s.paidAmount - s.alreadyRefunded), 0)
+      const refundTargetMinor = hasSurplus ? surplusMinor : availableMinor
+      const netTotalMinor = positiveSources.reduce((sum, s) => sum + sourceAvailableMinor(s.id), 0n)
       setLines(
         positiveSources.map((s) => {
-          const net = s.paidAmount - s.alreadyRefunded
-          const scaledAmount =
-            netTotal > 0 ? Math.round((net / netTotal) * refundTarget * 100) / 100 : 0
+          const netMinor = sourceAvailableMinor(s.id)
+          const scaledMinor =
+            netTotalMinor > 0n
+              ? (netMinor * refundTargetMinor + netTotalMinor / 2n) / netTotalMinor
+              : 0n
           const defaultDate = showDateField ? getCurrentDate() : ''
           return {
             id: newId(),
             sourceId: s.id,
-            amount: scaledAmount > 0 ? scaledAmount : '',
+            amount: scaledMinor > 0n ? toAmountInputValue(fromScaledAmount(scaledMinor)) : '',
             reference: '',
             date: defaultDate,
           }
@@ -126,20 +135,19 @@ export default function RefundDialog({
         {
           id: newId(),
           sourceId: sources[0].id,
-          amount: availableForRefund > 0 ? availableForRefund : '',
+          amount: availableMinor > 0n ? toAmountInputValue(fromScaledAmount(availableMinor)) : '',
           reference: '',
           date: defaultDate,
         },
       ])
     }
-  }, [open, sources, lines.length, availableForRefund, surplus, hasSurplus])
+  }, [open, sources, lines.length, availableMinor, surplusMinor, hasSurplus])
 
-  const totalEntered = lines.reduce(
-    (sum, l) => sum + (typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string) || 0),
-    0,
-  )
-  const remainingAfterRefund = availableForRefund - totalEntered
-  const exceedsAvailable = totalEntered > availableForRefund
+  const enteredMinor = sumScaledAmounts(lines.map((l) => l.amount))
+  const hasInvalidAmount = enteredMinor === null
+  const totalEnteredMinor = enteredMinor ?? 0n
+  const remainingAfterRefundMinor = availableMinor - totalEnteredMinor
+  const exceedsAvailable = totalEnteredMinor > availableMinor
 
   const updateLine = useCallback((index: number, field: keyof RefundLine, value: string | number) => {
     setUserHasEdited(true)
@@ -158,12 +166,12 @@ export default function RefundDialog({
       {
         id: newId(),
         sourceId: sources[0]?.id || '',
-        amount: remainingAfterRefund > 0 ? remainingAfterRefund : '',
+        amount: remainingAfterRefundMinor > 0n ? toAmountInputValue(fromScaledAmount(remainingAfterRefundMinor)) : '',
         reference: '',
         date: defaultDate,
       },
     ])
-  }, [sources, remainingAfterRefund, showDateField])
+  }, [sources, remainingAfterRefundMinor, showDateField])
 
   const removeLine = useCallback((index: number) => {
     setUserHasEdited(true)
@@ -172,9 +180,13 @@ export default function RefundDialog({
 
   const handleSubmit = async () => {
     setError(null)
+    if (hasInvalidAmount) {
+      setError('Every refund amount must be a number with at most 4 decimal places.')
+      return
+    }
     const validLines = lines.filter((l) => {
-      const amt = typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string)
-      return l.sourceId && amt > 0
+      const units = toScaledAmount(l.amount)
+      return l.sourceId && units !== null && units > 0n
     })
     if (validLines.length === 0) {
       setError('At least one refund line with a valid amount is required.')
@@ -184,26 +196,25 @@ export default function RefundDialog({
       setError('Refund date is required on every line.')
       return
     }
-    if (totalEntered > availableForRefund) {
+    if (totalEnteredMinor > availableMinor) {
       setError(
-        `Total refund (${formatCurrency(totalEntered)}) exceeds available for refund (${formatCurrency(availableForRefund)}).`,
+        `Total refund (${formatCurrency(fromScaledAmount(totalEnteredMinor))}) exceeds available for refund (${formatCurrency(fromScaledAmount(availableMinor))}).`,
       )
       return
     }
     // Per-source guard: each source can only be refunded up to its own available
     // amount. The aggregate check above can pass while a single source is
     // over-refunded (offset by surplus on another), which the backend rejects.
-    const enteredBySource = validLines.reduce<Record<string, number>>((acc, l) => {
-      const amt = typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string)
-      acc[l.sourceId] = (acc[l.sourceId] ?? 0) + amt
+    const enteredBySource = validLines.reduce<Record<string, bigint>>((acc, l) => {
+      acc[l.sourceId] = (acc[l.sourceId] ?? 0n) + (toScaledAmount(l.amount) ?? 0n)
       return acc
     }, {})
     for (const [sourceId, entered] of Object.entries(enteredBySource)) {
-      const available = sourceAvailable(sourceId)
+      const available = sourceAvailableMinor(sourceId)
       if (entered > available) {
         const label = sources.find((s) => s.id === sourceId)?.label || 'source'
         setError(
-          `Refund for ${label} (${formatCurrency(entered)}) exceeds its available amount (${formatCurrency(available)}).`,
+          `Refund for ${label} (${formatCurrency(fromScaledAmount(entered))}) exceeds its available amount (${formatCurrency(fromScaledAmount(available))}).`,
         )
         return
       }
@@ -213,7 +224,7 @@ export default function RefundDialog({
       await onSubmit(
         validLines.map((l) => ({
           sourceId: l.sourceId,
-          amount: typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string),
+          amount: l.amount,
           reference: l.reference || undefined,
           ...(showDateField && l.date ? { date: l.date } : {}),
         })),
@@ -249,7 +260,7 @@ export default function RefundDialog({
                 Surplus over total
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                {formatCurrency(surplus)}
+                {formatCurrency(fromScaledAmount(surplusMinor))}
               </Typography>
             </Box>
           )}
@@ -265,7 +276,7 @@ export default function RefundDialog({
               Available for Refund
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-              {formatCurrency(availableForRefund)}
+              {formatCurrency(fromScaledAmount(availableMinor))}
             </Typography>
           </Box>
 
@@ -288,7 +299,7 @@ export default function RefundDialog({
                     // Only offer sources with something left to refund, but always
                     // keep the line's current selection renderable (avoids an
                     // out-of-range Select value).
-                    .filter((s) => s.paidAmount - s.alreadyRefunded > 0 || s.id === line.sourceId)
+                    .filter((s) => sourceAvailableMinor(s.id) > 0n || s.id === line.sourceId)
                     .map((s) => (
                       <MenuItem key={s.id} value={s.id} sx={{ fontSize: '0.85rem' }}>
                         {s.label}
@@ -362,7 +373,7 @@ export default function RefundDialog({
               Total Refund
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-              {formatCurrency(totalEntered)}
+              {formatCurrency(fromScaledAmount(totalEnteredMinor))}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -374,14 +385,14 @@ export default function RefundDialog({
               color={exceedsAvailable ? 'error.main' : 'text.secondary'}
             >
               {exceedsAvailable
-                ? `${formatCurrency(Math.abs(remainingAfterRefund))} (exceeds available)`
-                : formatCurrency(remainingAfterRefund)}
+                ? `${formatCurrency(fromScaledAmount(remainingAfterRefundMinor < 0n ? -remainingAfterRefundMinor : remainingAfterRefundMinor))} (exceeds available)`
+                : formatCurrency(fromScaledAmount(remainingAfterRefundMinor))}
             </Typography>
           </Box>
 
           {exceedsAvailable && (
             <Alert severity="error" sx={{ mt: 2 }}>
-              Total refund exceeds available for refund by {formatCurrency(Math.abs(remainingAfterRefund))}.
+              Total refund exceeds available for refund by {formatCurrency(fromScaledAmount(remainingAfterRefundMinor < 0n ? -remainingAfterRefundMinor : remainingAfterRefundMinor))}.
             </Alert>
           )}
 
@@ -400,7 +411,7 @@ export default function RefundDialog({
           variant="contained"
           color="error"
           onClick={handleSubmit}
-          disabled={submitting || totalEntered <= 0 || exceedsAvailable}
+          disabled={submitting || hasInvalidAmount || totalEnteredMinor <= 0n || exceedsAvailable}
           startIcon={submitting ? <CircularProgress size={16} /> : undefined}
         >
           {submitting ? 'Refunding...' : 'Refund'}
