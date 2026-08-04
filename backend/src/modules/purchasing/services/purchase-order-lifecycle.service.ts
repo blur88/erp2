@@ -20,7 +20,7 @@ import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
-import { formatScale4, toMinorUnits } from '../../accounting/utils/money';
+import { formatScale4, toMinorUnits } from '@/common/utils/money';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
 import { AuditLogService } from '../../audit-logs/services';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';

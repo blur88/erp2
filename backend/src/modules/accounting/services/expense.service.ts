@@ -11,7 +11,7 @@ import { AuditLogService } from '../../audit-logs/services';
 import { SettingsService } from '../../settings/settings.service';
 import { CreateExpenseDto, ListExpensesParams, UpdateExpenseDto } from '../dto/create-expense.dto';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
-import { toMinorUnits, formatScale4, sumMinor } from '../utils/money';
+import { toMinorUnits, formatScale4, sumMinor } from '@/common/utils/money';
 
 @Injectable()
 export class ExpenseService {

@@ -10,7 +10,7 @@ import { AccountingSettings } from '../entities/accounting-settings.entity';
 import { AccountType } from '../entities/account-type.enum';
 import { AuditLogService } from '../../audit-logs/services';
 import { SettingsService } from '../../settings/settings.service';
-import { formatScale4 } from '../utils/money';
+import { formatScale4 } from '@/common/utils/money';
 
 describe('ExpenseService', () => {
   let service: ExpenseService;

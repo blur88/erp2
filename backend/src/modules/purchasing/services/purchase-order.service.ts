@@ -41,7 +41,7 @@ import { lockRowForUpdate, repoFor } from '../../../common/db/tx-helpers';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
-import { formatScale4 } from '../../accounting/utils/money';
+import { formatScale4 } from '@/common/utils/money';
 
 @Injectable()
 export class PurchaseOrderService extends BaseCrudService<

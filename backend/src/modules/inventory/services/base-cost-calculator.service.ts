@@ -5,7 +5,7 @@ import { Product } from '../../../database/entities/product.entity';
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import { CostingStrategyFactory } from './costing/costing-strategy-factory.service';
 import { repoFor } from '../../../common/db/tx-helpers';
-import { toMinorUnits, formatScale4 } from '../../accounting/utils/money';
+import { toMinorUnits, formatScale4 } from '@/common/utils/money';
 
 @Injectable()
 export class BaseCostCalculatorService {

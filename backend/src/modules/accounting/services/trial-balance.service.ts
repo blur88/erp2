@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
 import { AccountBalanceService } from './account-balance.service';
-import { formatScale4 } from '../utils/money';
+import { formatScale4 } from '@/common/utils/money';
 
 export interface TrialBalanceRow {
   accountId: string;

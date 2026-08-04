@@ -32,7 +32,7 @@ import { AuditLogService } from '../../audit-logs/services';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
-import { formatScale4, toMinorUnits } from '../../accounting/utils/money';
+import { formatScale4, toMinorUnits } from '@/common/utils/money';
 
 @Injectable()
 export class StockAdjustmentService extends BaseCrudService<

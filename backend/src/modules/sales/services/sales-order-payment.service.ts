@@ -15,7 +15,7 @@ import { RecordPaymentDto } from '../dto/sales-order.dto';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
-import { formatScale4 } from '../../accounting/utils/money';
+import { formatScale4 } from '@/common/utils/money';
 
 const AMOUNT_TOLERANCE = 0.001;
 

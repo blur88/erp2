@@ -4,7 +4,7 @@ import { Expense, ExpenseDocumentStatus, ExpensePaymentStatus } from '../entitie
 import { ExpensePayment } from '../entities/expense-payment.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
-import { toMinorUnits, formatScale4, sumMinor } from '../utils/money';
+import { toMinorUnits, formatScale4, sumMinor } from '@/common/utils/money';
 import { ExpenseService } from './expense.service';
 import { AccountingPostingService } from './accounting-posting.service';
 import { AuditLogService } from '../../audit-logs/services';
