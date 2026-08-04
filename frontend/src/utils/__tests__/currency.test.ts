@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { formatCurrency, toAmountInputValue } from '../currency'
+import { formatCurrency, toAmountInputValue, toScaledAmount, fromScaledAmount, sumScaledAmounts } from '../currency'
 
 describe('formatCurrency', () => {
   beforeEach(() => {
@@ -122,5 +122,78 @@ describe('toAmountInputValue', () => {
 
   it('accepts numbers by converting through their string form', () => {
     expect(toAmountInputValue(1000)).toBe('1000.00')
+  })
+})
+
+describe('toScaledAmount', () => {
+  it('converts canonical decimals to scale-4 minor units', () => {
+    expect(toScaledAmount('1000.0000')).toBe(10000000n)
+    expect(toScaledAmount('1000')).toBe(10000000n)
+    expect(toScaledAmount('0.0001')).toBe(1n)
+    expect(toScaledAmount('1000.5')).toBe(10005000n)
+  })
+
+  it('does not lose digits on the largest decimal(15,4) value', () => {
+    // 11 integer digits; Number() would drop the trailing cent.
+    expect(toScaledAmount('99999999999.9900')).toBe(999999999999900n)
+  })
+
+  it('returns null for empty and nullish input', () => {
+    expect(toScaledAmount('')).toBeNull()
+    expect(toScaledAmount(null)).toBeNull()
+    expect(toScaledAmount(undefined)).toBeNull()
+  })
+
+  it('returns null for malformed input', () => {
+    expect(toScaledAmount('abc')).toBeNull()
+    expect(toScaledAmount('1e3')).toBeNull()
+    expect(toScaledAmount('1.2.3')).toBeNull()
+    expect(toScaledAmount('1..2')).toBeNull()
+  })
+
+  it('returns null for more than 4 fractional digits', () => {
+    expect(toScaledAmount('1.00001')).toBeNull()
+  })
+
+  it('handles negative values', () => {
+    expect(toScaledAmount('-25.5000')).toBe(-255000n)
+  })
+})
+
+describe('fromScaledAmount', () => {
+  it('formats minor units as a scale-4 decimal string', () => {
+    expect(fromScaledAmount(10000000n)).toBe('1000.0000')
+    expect(fromScaledAmount(1n)).toBe('0.0001')
+    expect(fromScaledAmount(0n)).toBe('0.0000')
+    expect(fromScaledAmount(-255000n)).toBe('-25.5000')
+  })
+
+  it('round-trips with toScaledAmount', () => {
+    expect(fromScaledAmount(toScaledAmount('1234.5678')!)).toBe('1234.5678')
+  })
+})
+
+describe('sumScaledAmounts', () => {
+  it('sums exactly where binary64 would drift', () => {
+    // 0.1 + 0.2 === 0.30000000000000004 as JS numbers.
+    expect(sumScaledAmounts(['0.1', '0.2'])).toBe(3000n)
+    expect(fromScaledAmount(sumScaledAmounts(['0.1', '0.2'])!)).toBe('0.3000')
+  })
+
+  it('skips empty and nullish entries', () => {
+    expect(sumScaledAmounts(['1.0000', '', null, undefined])).toBe(10000n)
+  })
+
+  it('returns 0n when no valid entries remain', () => {
+    expect(sumScaledAmounts([])).toBe(0n)
+    expect(sumScaledAmounts(['', null])).toBe(0n)
+  })
+
+  it('returns null when any non-empty value is malformed', () => {
+    // Must never treat garbage as zero: that turns a typo into an under-total
+    // that passes the balance check.
+    expect(sumScaledAmounts(['1.0000', 'abc'])).toBeNull()
+    expect(sumScaledAmounts(['1.0000', '1e3'])).toBeNull()
+    expect(sumScaledAmounts(['1.0000', '1.00001'])).toBeNull()
   })
 })

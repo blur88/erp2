@@ -99,6 +99,82 @@ export const toAmountInputValue = (
 }
 
 /**
+ * Scale-4 money arithmetic, mirroring backend/src/common/utils/money.ts.
+ *
+ * Persisted money is NUMERIC(_,4). Parsing it into a JS number loses fractional
+ * cents once binary64 spacing exceeds 0.0001 (see the note on formatCurrency),
+ * so all arithmetic here runs on bigint minor units — 1 unit = 0.0001 — and only
+ * ever converts back to a decimal string.
+ *
+ * These take `string`, never `number`: accepting a number would admit a value
+ * that has already lost precision, defeating the lexical contract.
+ *
+ * decimal.js is deliberately not used: it is a transitive package, not a direct
+ * frontend dependency.
+ */
+const AMOUNT_SCALE = 4
+const AMOUNT_DIVISOR = 10n ** BigInt(AMOUNT_SCALE)
+const CANONICAL_AMOUNT = /^[+-]?\d+(\.\d+)?$/
+
+export const toScaledAmount = (
+  value: string | null | undefined
+): bigint | null => {
+  if (value === null || value === undefined) return null
+
+  const raw = value.trim()
+  if (raw === '' || !CANONICAL_AMOUNT.test(raw)) return null
+
+  const negative = raw.startsWith('-')
+  const unsigned = raw.replace(/^[+-]/, '')
+  const [integerPart, fractionPart = ''] = unsigned.split('.')
+
+  // More precision than the column can hold would be silently truncated.
+  if (fractionPart.length > AMOUNT_SCALE) return null
+
+  const units =
+    BigInt(integerPart) * AMOUNT_DIVISOR +
+    BigInt(fractionPart.padEnd(AMOUNT_SCALE, '0'))
+
+  return negative ? -units : units
+}
+
+export const fromScaledAmount = (units: bigint): string => {
+  const negative = units < 0n
+  const absolute = negative ? -units : units
+  const integerPart = absolute / AMOUNT_DIVISOR
+  const fractionPart = (absolute % AMOUNT_DIVISOR)
+    .toString()
+    .padStart(AMOUNT_SCALE, '0')
+
+  return `${negative ? '-' : ''}${integerPart}.${fractionPart}`
+}
+
+/**
+ * Sums amounts in minor units.
+ *
+ * Empty and nullish entries are skipped — an untouched payment line is not an
+ * error. A malformed non-empty entry returns null rather than counting as zero,
+ * so callers must treat "invalid" as its own state and block submission instead
+ * of silently under-totalling.
+ */
+export const sumScaledAmounts = (
+  values: (string | null | undefined)[]
+): bigint | null => {
+  let total = 0n
+
+  for (const value of values) {
+    if (value === null || value === undefined || value.trim() === '') continue
+
+    const units = toScaledAmount(value)
+    if (units === null) return null
+
+    total += units
+  }
+
+  return total
+}
+
+/**
  * Formats currency for input fields (without symbol)
  */
 const formatCurrencyInput = (amount: number | string | null | undefined): string => {
