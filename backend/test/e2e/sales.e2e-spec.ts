@@ -198,7 +198,7 @@ describe("Sales (e2e)", () => {
       await request(app.getHttpServer())
         .post(`/sales-orders/${salesOrderId}/payments`)
         .set("Authorization", `Bearer ${accessToken}`)
-        .send({ amount: 100, paymentMethodId, paymentDate: "2026-05-26" })
+        .send({ amount: '100.0000', paymentMethodId, paymentDate: "2026-05-26" })
         .expect(200);
     });
 
@@ -210,7 +210,7 @@ describe("Sales (e2e)", () => {
 
       const payments: any[] = res.body.data ?? res.body;
       expect(payments.length).toBeGreaterThan(0);
-      expect(Number(payments[0].amount)).toBe(100);
+      expect(payments[0].amount).toBe('100.0000');
     });
 
     it("GET /sales-orders/:id — paymentStatus is PARTIAL after partial payment", async () => {

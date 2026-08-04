@@ -82,7 +82,7 @@ describe('SalesOrderQueryService', () => {
         id: 'order-1',
         status: SalesOrderStatus.DRAFT,
         paymentStatus: SalesOrderPaymentStatus.PARTIAL,
-        payments: [expect.objectContaining({ id: 'pay-1', amount: 100 })],
+        payments: [expect.objectContaining({ id: 'pay-1', amount: '100.0000' })],
       });
     });
 

@@ -233,11 +233,11 @@ export class PurchaseOrderResponseDto {
   @ApiProperty({ description: 'Shipping amount' })
   shippingAmount: number;
 
-  @ApiProperty({ description: 'Total amount' })
-  totalAmount: number;
+  @ApiProperty({ description: 'Total amount', example: '1000.0000' })
+  totalAmount: string;
 
-  @ApiProperty({ description: 'Total amount paid' })
-  paidAmount: number;
+  @ApiProperty({ description: 'Total amount paid', example: '0.0000' })
+  paidAmount: string;
 
   @ApiProperty({ description: 'Lifecycle status' })
   status: PurchaseOrderStatus;
@@ -263,7 +263,7 @@ export class PurchaseOrderResponseDto {
   @ApiPropertyOptional({ description: 'Vendor Payments associated with this order' })
   vendorPayments?: Array<{
     id: string;
-    amount: number;
+    amount: string;
     paymentDate: Date;
     paymentMethodId?: string;
     status: string;

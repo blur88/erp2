@@ -615,11 +615,11 @@ export class SalesOrderService extends BaseCrudService<
       notes: order.notes ?? null,
       subtotal: Number(order.subtotal),
       shippingAmount: Number(order.shippingAmount),
-      totalAmount: Number(order.totalAmount),
+      totalAmount: order.totalAmount,
       status: order.status,
       paymentStatus: order.paymentStatus,
-      paidAmount: Number(order.paidAmount),
-      balanceDue: Number(order.balanceDue),
+      paidAmount: order.paidAmount,
+      balanceDue: order.balanceDue,
     };
   }
 

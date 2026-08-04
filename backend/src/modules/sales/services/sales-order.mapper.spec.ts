@@ -11,7 +11,7 @@ describe('mapSalesOrderToResponseDto', () => {
       paymentStatus: SalesOrderPaymentStatus.PARTIAL,
       subtotal: 100,
       shippingAmount: 10,
-      totalAmount: 110,
+      totalAmount: '110.0000',
       notes: null,
       customerId: 'customer-1',
       customer: null,
@@ -23,7 +23,7 @@ describe('mapSalesOrderToResponseDto', () => {
     const payments = [
       {
         id: 'payment-1',
-        amount: '100.00',
+        amount: '100.0000',
         paymentDate: '2026-04-01',
         paymentMethodId: 'method-1',
         referenceNumber: 'REF-1',
@@ -38,7 +38,7 @@ describe('mapSalesOrderToResponseDto', () => {
       payments: [
         {
           id: 'payment-1',
-          amount: 100,
+          amount: '100.0000',
           paymentDate: '2026-04-01',
           paymentMethodId: 'method-1',
           referenceNumber: 'REF-1',
@@ -56,7 +56,7 @@ describe('mapSalesOrderToResponseDto', () => {
       paymentStatus: SalesOrderPaymentStatus.PARTIAL,
       subtotal: 100,
       shippingAmount: 10,
-      totalAmount: 110,
+      totalAmount: '110.0000',
       customerId: 'customer-1',
       customer: null,
       items: [
@@ -100,7 +100,7 @@ describe('mapSalesOrderToResponseDto', () => {
       paymentStatus: SalesOrderPaymentStatus.PAID,
       subtotal: 40,
       shippingAmount: 0,
-      totalAmount: 40,
+      totalAmount: '40.0000',
       customerId: 'customer-1',
       customer: null,
       items: [
@@ -136,7 +136,7 @@ describe('mapSalesOrderToResponseDto', () => {
       paymentStatus: SalesOrderPaymentStatus.PAID,
       subtotal: 40,
       shippingAmount: 0,
-      totalAmount: 40,
+      totalAmount: '40.0000',
       fulfilledAt,
       customerId: 'c1',
       items: [],
@@ -158,9 +158,9 @@ describe('mapSalesOrderToResponseDto', () => {
       paymentStatus: SalesOrderPaymentStatus.PARTIAL,
       subtotal: 1000,
       shippingAmount: 0,
-      totalAmount: 1000,
-      paidAmount: 400,
-      balanceDue: 600,
+      totalAmount: '1000.0000',
+      paidAmount: '400.0000',
+      balanceDue: '600.0000',
       customerId: 'c1',
       items: [],
       createdAt: new Date(),
@@ -169,8 +169,8 @@ describe('mapSalesOrderToResponseDto', () => {
 
     const dto = mapSalesOrderToResponseDto(order as any);
 
-    expect(dto.paidAmount).toBe(400);
-    expect(dto.balanceDue).toBe(600);
+    expect(dto.paidAmount).toBe('400.0000');
+    expect(dto.balanceDue).toBe('600.0000');
   });
 
   it('emits negative balanceDue for an overpaid order', () => {
@@ -182,9 +182,9 @@ describe('mapSalesOrderToResponseDto', () => {
       paymentStatus: SalesOrderPaymentStatus.OVERPAID,
       subtotal: 1000,
       shippingAmount: 0,
-      totalAmount: 1000,
-      paidAmount: 1200,
-      balanceDue: -200,
+      totalAmount: '1000.0000',
+      paidAmount: '1200.0000',
+      balanceDue: '-200.0000',
       customerId: 'c1',
       items: [],
       createdAt: new Date(),
@@ -193,7 +193,7 @@ describe('mapSalesOrderToResponseDto', () => {
 
     const dto = mapSalesOrderToResponseDto(order as any);
 
-    expect(dto.paidAmount).toBe(1200);
-    expect(dto.balanceDue).toBe(-200);
+    expect(dto.paidAmount).toBe('1200.0000');
+    expect(dto.balanceDue).toBe('-200.0000');
   });
 });

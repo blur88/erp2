@@ -251,17 +251,17 @@ export class SalesOrderResponseDto {
   @ApiProperty({ example: 50.0 })
   shippingAmount: number;
 
-  @ApiProperty({ example: 991.5 })
-  totalAmount: number;
+  @ApiProperty({ example: '991.5000' })
+  totalAmount: string;
 
-  @ApiProperty({ example: 400.0 })
-  paidAmount: number;
+  @ApiProperty({ example: '400.0000' })
+  paidAmount: string;
 
   @ApiProperty({
-    example: 591.5,
+    example: '591.5000',
     description: 'totalAmount - paidAmount; negative means overpaid (surplus)',
   })
-  balanceDue: number;
+  balanceDue: string;
 
   @ApiProperty({ example: 'Fragile items, handle with care', nullable: true })
   notes?: string;
@@ -294,7 +294,7 @@ export class SalesOrderResponseDto {
   @ApiProperty({ type: 'array', items: { type: 'object' } })
   payments: {
     id: string;
-    amount: number;
+    amount: string;
     paymentDate: string;
     referenceNumber?: string;
     notes?: string;

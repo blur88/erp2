@@ -3,6 +3,7 @@ import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderPayment } from '../../../database/entities/sales-order-payment.entity';
 import { CustomerPrintDto } from '../dto/customer.dto';
 import { SalesOrderResponseDto } from '../dto/sales-order.dto';
+import { formatScale4, toMinorUnits } from '../../../common/utils/money';
 
 export function mapSalesOrderToResponseDto(
   order: SalesOrder,
@@ -17,11 +18,11 @@ export function mapSalesOrderToResponseDto(
     paymentStatus: order.paymentStatus,
     subtotal: Number(order.subtotal || 0),
     shippingAmount: Number(order.shippingAmount || 0),
-    totalAmount: Number(order.totalAmount),
-    paidAmount: Number(order.paidAmount || 0),
-    balanceDue: Number(
-      order.balanceDue ?? Number(order.totalAmount) - Number(order.paidAmount || 0),
-    ),
+    totalAmount: order.totalAmount,
+    paidAmount: order.paidAmount || '0.0000',
+    balanceDue:
+      order.balanceDue ??
+      formatScale4(toMinorUnits(order.totalAmount) - toMinorUnits(order.paidAmount || '0.0000')),
     notes: order.notes,
     customerId: order.customerId,
     customer: order.customer
@@ -67,7 +68,7 @@ export function mapSalesOrderToResponseDto(
       })) || [],
     payments: payments.map((p) => ({
       id: p.id,
-      amount: Number(p.amount),
+      amount: p.amount,
       paymentDate: p.paymentDate,
       referenceNumber: p.referenceNumber,
       notes: p.notes,

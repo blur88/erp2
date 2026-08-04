@@ -203,11 +203,11 @@ describe("Purchasing (e2e)", () => {
       const res = await request(app.getHttpServer())
         .post(`/purchasing/orders/${purchaseOrderId}/payments`)
         .set("Authorization", `Bearer ${accessToken}`)
-        .send({ payments: [{ paymentMethodId, amount: 550 }] })
+        .send({ payments: [{ paymentMethodId, amount: '550.0000' }] })
         .expect(200);
 
       const body = res.body.data ?? res.body;
-      expect(Number(body.paidAmount)).toBe(550);
+      expect(body.paidAmount).toBe('550.0000');
       expect(body.status).toBe("READY");
       expect(body.paymentStatus).toBe("PAID");
     });
@@ -233,7 +233,7 @@ describe("Purchasing (e2e)", () => {
         .set("Authorization", `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(Number((res.body.data ?? res.body).paidAmount)).toBe(550);
+      expect((res.body.data ?? res.body).paidAmount).toBe('550.0000');
     });
   });
 
