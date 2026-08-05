@@ -52,9 +52,9 @@ vi.mock('@/store/api/paymentMethodsApi', () => ({
   useGetActivePaymentMethodsForPurchasesQuery: () => ({ data: [] }),
 }))
 
-vi.mock('../ExpensePayDialog', () => ({
+vi.mock('@/components/common/PaymentDialog', () => ({
   default: ({ open, onSubmit }: any) =>
-    open ? <div data-testid="expense-pay-dialog" onClick={() => onSubmit([{ paymentMethodId: 'pm-1', amount: 100, paymentDate: '2024-01-01' }])}>ExpensePayDialog</div> : null,
+    open ? <div data-testid="expense-pay-dialog" onClick={() => onSubmit([{ paymentMethodId: 'pm-1', amount: '100.0000', paymentDate: '2024-01-01' }])}>PaymentDialog</div> : null,
 }))
 
 vi.mock('@/components/common/RefundDialog', () => ({
