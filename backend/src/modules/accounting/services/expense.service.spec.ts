@@ -473,6 +473,15 @@ describe('ExpenseService', () => {
         .rejects.toThrow('Fully paid expenses cannot be edited');
     });
 
+    it('refuses to edit an OVERPAID expense, like a PAID one', async () => {
+      // Arrange an expense whose paymentStatus is OVERPAID using the suite's
+      // existing lockRowForUpdate mock, then attempt an update.
+      setupUpdateTest({ paymentStatus: ExpensePaymentStatus.OVERPAID });
+      await expect(
+        service.update('exp-overpaid', { totalAmount: '200.0000' } as any),
+      ).rejects.toThrow('Fully paid expenses cannot be edited');
+    });
+
     it('rejects totalAmount <= 0', async () => {
       setupUpdateTest();
       await expect(service.update('exp-1', { totalAmount: '0.0000' }, 'user-1', 'admin'))

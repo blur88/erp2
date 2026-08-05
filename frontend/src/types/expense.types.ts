@@ -1,5 +1,5 @@
 export type ExpenseDocumentStatus = 'DRAFT' | 'CANCELLED'
-export type ExpensePaymentStatus = 'UNPAID' | 'PARTIAL' | 'PAID'
+export type ExpensePaymentStatus = 'UNPAID' | 'PARTIAL' | 'PAID' | 'OVERPAID'
 
 export interface ExpensePaymentRow {
   id: string

@@ -78,7 +78,10 @@ export class ExpenseService {
       if (expense.documentStatus === ExpenseDocumentStatus.CANCELLED) {
         throw new BadRequestException('Cancelled expenses cannot be edited');
       }
-      if (expense.paymentStatus === ExpensePaymentStatus.PAID) {
+      if (
+        expense.paymentStatus === ExpensePaymentStatus.PAID ||
+        expense.paymentStatus === ExpensePaymentStatus.OVERPAID
+      ) {
         throw new BadRequestException('Fully paid expenses cannot be edited');
       }
 
