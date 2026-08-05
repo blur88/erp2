@@ -8,12 +8,13 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import ConfirmationDialog from '@/components/common/ConfirmationDialog';
 import PageHeader from '@/components/common/PageHeader';
 import SalesOrderPrintDialog from './components/SalesOrderPrintDialog';
-import PaymentDialog from '@/components/sales/PaymentDialog';
+import PaymentDialog from '@/components/common/PaymentDialog';
 import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog';
 import { getCurrentDate } from '@/utils/formatters';
 import { toScaledAmount, fromScaledAmount } from '@/utils/currency';
 import { TABLE_STYLES } from '@/constants/tableStyles';
 import { useNotification } from '@/hooks/useNotification';
+import { useGetActivePaymentMethodsQuery } from '@/store/api/paymentMethodsApi';
 import {
   useCancelSalesOrderMutation,
   useDuplicateSalesOrderMutation,
@@ -95,6 +96,9 @@ export default function SalesOrderDetailPage() {
   const [duplicateOrder] = useDuplicateSalesOrderMutation();
   const [recordPayments] = useRecordOrderPaymentsMutation();
   const [recordRefunds] = useRecordOrderRefundsMutation();
+
+  const { data: paymentMethods = [], isLoading: methodsLoading } =
+    useGetActivePaymentMethodsQuery(undefined, { skip: activeDialog !== 'pay' });
 
   // Fetch payments for refund dialog only when needed
   const { data: paymentRecords = [] } = useGetSalesOrderPaymentsQuery(
@@ -345,9 +349,11 @@ export default function SalesOrderDetailPage() {
           open
           onClose={() => setActiveDialog(null)}
           onSubmit={handleSubmitPayment}
-          orderId={order.id}
-          orderNumber={order.orderNumber}
+          documentNumber={order.orderNumber}
           totalAmount={order.totalAmount}
+          paidAmount={order.paidAmount}
+          paymentMethods={paymentMethods}
+          loading={methodsLoading}
         />
       )}
 

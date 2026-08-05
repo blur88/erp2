@@ -252,7 +252,7 @@ export default function PurchaseOrderDetailPage() {
         <PurchaseOrderOverviewTab order={order} />
       </TabPanel>
       <TabPanel value={tabValue} index={1}>
-        <PurchaseOrderPaymentsTab orderId={order.id} totalAmount={order.totalAmount ?? '0.0000'} />
+        <PurchaseOrderPaymentsTab orderId={order.id} totalAmount={order.totalAmount} />
       </TabPanel>
 
       <ConfirmationDialog
@@ -302,7 +302,7 @@ export default function PurchaseOrderDetailPage() {
         onSubmit={handleSubmitRefund}
         sources={refundSources}
         orderNumber={order.orderNumber}
-        totalAmount={order.totalAmount ?? '0.0000'}
+        totalAmount={order.totalAmount}
       />
 
       {activeDialog === 'pay' && (

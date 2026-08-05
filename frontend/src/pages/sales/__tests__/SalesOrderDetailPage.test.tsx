@@ -63,8 +63,11 @@ vi.mock('@/store/api/salesApi', async (importOriginal) => {
 
 vi.mock('../components/OrderOverviewTab', () => ({ default: () => <div>OverviewTab</div> }))
 vi.mock('../components/OrderPaymentsTab', () => ({ default: () => <div>PaymentsTab</div> }))
-vi.mock('@/components/sales/PaymentDialog', () => ({ default: () => <div>PaymentDialog</div> }))
+vi.mock('@/components/common/PaymentDialog', () => ({ default: () => <div>PaymentDialog</div> }))
 vi.mock('@/components/common/RefundDialog', () => ({ default: () => <div>RefundDialog</div> }))
+vi.mock('@/store/api/paymentMethodsApi', () => ({
+  useGetActivePaymentMethodsQuery: () => ({ data: [], isLoading: false }),
+}))
 
 function makeOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   return {

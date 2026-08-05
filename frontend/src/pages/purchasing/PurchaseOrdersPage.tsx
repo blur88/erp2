@@ -383,7 +383,7 @@ const PurchaseOrdersPage: React.FC = () => {
                 onSubmit={handleSubmitRefund}
                 sources={refundSources}
                 orderNumber={refundOrder.orderNumber}
-                totalAmount={refundOrder.totalAmount ?? '0.0000'}
+                totalAmount={refundOrder.totalAmount}
               />
             )}
 
