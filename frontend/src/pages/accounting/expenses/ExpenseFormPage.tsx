@@ -139,6 +139,7 @@ const ExpenseFormPage: React.FC = () => {
 
   const {
     control,
+    getValues,
     handleSubmit,
     reset,
     setError,
@@ -294,6 +295,21 @@ const ExpenseFormPage: React.FC = () => {
     )
   }
 
+  // Enter with the Amount field still focused submits without firing blur, so
+  // the blur-time repair never runs. Normalizing here keeps mouse and keyboard
+  // submission consistent (#1001). shouldValidate is omitted deliberately —
+  // handleSubmit validates on the next line, and requesting both would run the
+  // resolver twice. The setValue write is synchronous, so handleSubmit reads
+  // the normalized value.
+  const normalizeBeforeValidate = (e: React.FormEvent) => {
+    const current = getValues('totalAmount')
+    const normalized = normalizeAmountInput(current ?? '')
+    if (normalized !== current) {
+      setValue('totalAmount', normalized, { shouldDirty: true })
+    }
+    return handleSubmit(handleFormSubmit)(e)
+  }
+
   return (
     <>
       <PageHeader
@@ -303,7 +319,7 @@ const ExpenseFormPage: React.FC = () => {
         backAction={handleCancel}
       />
 
-      <form noValidate onSubmit={handleSubmit(handleFormSubmit)}>
+      <form noValidate onSubmit={normalizeBeforeValidate}>
         <Grid container spacing={3}>
 
           <Grid size={12}>

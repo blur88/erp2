@@ -414,6 +414,35 @@ describe('ExpenseFormPage - Create mode', () => {
     })
   })
 
+  it('normalizes a trailing decimal point on Enter without blur', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Office supplies')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    // Enter while Amount still has focus — no blur fires.
+    await user.type(screen.getByLabelText(/amount/i), '1000.{Enter}')
+    await waitFor(() => {
+      expect(mockCreateExpense).toHaveBeenCalledWith(
+        expect.objectContaining({ totalAmount: '1000.00' }),
+      )
+    })
+    expect(screen.queryByText('Enter a valid amount (up to 4 decimal places)')).not.toBeInTheDocument()
+  })
+
+  it('still blocks a malformed value submitted with Enter', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Office supplies')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), '1e3{Enter}')
+    await waitFor(() => {
+      expect(screen.getByText('Enter a valid amount (up to 4 decimal places)')).toBeInTheDocument()
+    })
+    expect(mockCreateExpense).not.toHaveBeenCalled()
+  })
+
   it('accepts a sub-cent scale-4 amount such as 0.0001', async () => {
     const user = userEvent.setup()
     renderCreatePage()
