@@ -89,6 +89,33 @@ describe('Required field validation (e2e) — #973', () => {
     });
   });
 
+  describe('expense amount grammar (#1001)', () => {
+    const validExpense = () => ({
+      expenseDate: '2026-07-15',
+      description: 'Amount grammar probe',
+      expenseAccountId: randomUUID(),
+      totalAmount: '1000.00',
+    });
+
+    it.each([
+      ['1000.'],
+      ['1e3'],
+      ['.5'],
+      ['+1000'],
+      ['-5'],
+      ['1.00000'],
+      [' 1000 '],
+    ])('POST /accounting/expenses rejects totalAmount %j', async (totalAmount) => {
+      const response = await request(app.getHttpServer())
+        .post('/accounting/expenses')
+        .set(auth())
+        .send({ ...validExpense(), totalAmount });
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toContain('Validation failed');
+    });
+  });
+
   describe('explicit null on a required property', () => {
     it('POST /inventory/products with null name returns 400', async () => {
       const response = await request(app.getHttpServer())
