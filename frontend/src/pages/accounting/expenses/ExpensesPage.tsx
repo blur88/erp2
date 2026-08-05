@@ -21,7 +21,7 @@ import {
   useRefundExpenseMutation,
   type ExpenseListParams,
 } from '@/store/api/accountingApi'
-import { formatCurrency } from '@/utils/currency'
+import { formatCurrency, toScaledAmount, fromScaledAmount } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
@@ -191,14 +191,16 @@ export default function ExpensesPage() {
   const refundSources: RefundSource[] = useMemo(() => {
     if (!refundExpenseDetail?.payments) return []
     return refundExpenseDetail.payments
-      .filter((p) => Number(p.amount) > 0)
+      .filter((p) => (toScaledAmount(p.amount) ?? 0n) > 0n)
       .map((p) => ({
         id: p.id,
         label: p.paymentMethod?.name ?? 'Payment',
-        paidAmount: Number(p.amount),
-        alreadyRefunded: p.remainingRefundable
-          ? Number(p.amount) - Number(p.remainingRefundable)
-          : 0,
+        paidAmount: fromScaledAmount(toScaledAmount(p.amount) ?? 0n),
+        alreadyRefunded: fromScaledAmount(
+          p.remainingRefundable
+            ? (toScaledAmount(p.amount) ?? 0n) - (toScaledAmount(p.remainingRefundable) ?? 0n)
+            : 0n,
+        ),
       }))
   }, [refundExpenseDetail])
 
@@ -217,13 +219,13 @@ export default function ExpensesPage() {
   }
 
   const handlePaySubmit = useCallback(
-    async (payments: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[]) => {
+    async (payments: { paymentMethodId: string; amount: string; paymentDate: string; reference?: string }[]) => {
       if (!payExpenseRow) return
       try {
         await doPayExpense({
           id: payExpenseRow.id,
           data: {
-            payments: payments.map((p) => ({ ...p, amount: String(p.amount) })),
+            payments,
           },
         }).unwrap()
         showSuccess(`Payment recorded for ${payExpenseRow.expenseNumber}`)
@@ -237,7 +239,7 @@ export default function ExpensesPage() {
   )
 
   const handleRefundSubmit = useCallback(
-    async (lines: { sourceId: string; amount: number; reference?: string; date?: string }[]) => {
+    async (lines: { sourceId: string; amount: string; reference?: string; date?: string }[]) => {
       if (!refundExpenseRow) return
       try {
         await doRefundExpense({
@@ -245,7 +247,7 @@ export default function ExpensesPage() {
           data: {
             refunds: lines.map((l) => ({
               sourcePaymentId: l.sourceId,
-              amount: String(l.amount),
+              amount: l.amount,
               reference: l.reference,
               refundDate: l.date as string,
             })),
@@ -424,7 +426,7 @@ export default function ExpensesPage() {
               onSubmit={handleRefundSubmit}
               sources={refundSources}
               orderNumber={refundExpenseRow.expenseNumber}
-              totalAmount={Number(refundExpenseRow.totalAmount)}
+              totalAmount={refundExpenseRow.totalAmount}
               showDateField
             />
           )}

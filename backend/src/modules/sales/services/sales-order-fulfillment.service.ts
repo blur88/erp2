@@ -11,7 +11,7 @@ import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/acco
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { AccountingSourceType } from '../../../common/accounting-posting/enums';
 import { PostingType } from '../../../common/accounting-posting/enums';
-import { formatScale4 } from '../../accounting/utils/money';
+import { formatScale4 } from '@/common/utils/money';
 
 @Injectable()
 export class SalesOrderFulfillmentService {

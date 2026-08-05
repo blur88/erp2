@@ -21,6 +21,7 @@ import InvoicePrint from '@/components/print/InvoicePrint';
 import { useGetPrintSettingsQuery } from '@/store/api/printSettingsApi';
 import { useCurrency } from '@/hooks/useCurrency';
 import { formatDate } from '@/utils/formatters';
+import { toScaledAmount, fromScaledAmount } from '@/utils/currency';
 import type { SalesOrder } from '@/types';
 
 interface SalesOrderPrintDialogProps {
@@ -72,7 +73,12 @@ const SalesOrderPrintDialog: React.FC<SalesOrderPrintDialogProps> = ({
   const { data: printSettings, isLoading } = useGetPrintSettingsQuery();
 
   const isFulfilled = salesOrder.status === 'FULFILLED';
-  const paidAmount = salesOrder.paidAmount ?? 0;
+  const paidMinor = toScaledAmount(salesOrder.paidAmount) ?? 0n;
+  const totalMinor = toScaledAmount(salesOrder.totalAmount) ?? 0n;
+  const balanceMinor = totalMinor - paidMinor;
+  // Legacy print pipe is display-only and already coerces to Number (toFixed(2)).
+  const paidValue = Number(fromScaledAmount(paidMinor));
+  const invoiceTotal = Number(fromScaledAmount(totalMinor));
 
   const handlePrint = () => {
     window.print();
@@ -140,8 +146,8 @@ const SalesOrderPrintDialog: React.FC<SalesOrderPrintDialogProps> = ({
       subtotal,
       shipping,
       total,
-      paid: paidAmount,
-      balance: total - paidAmount,
+      paid: fromScaledAmount(paidMinor),
+      balance: fromScaledAmount(balanceMinor),
     };
 
     const recipient = {
@@ -194,9 +200,9 @@ const SalesOrderPrintDialog: React.FC<SalesOrderPrintDialogProps> = ({
         salesOrder={{
           orderNumber: salesOrder.orderNumber,
           fulfilledAt: (salesOrder.fulfilledAt || salesOrder.fulfilledDate || '') as string,
-          subtotalAmount: salesOrder.subtotal ?? salesOrder.totalAmount ?? 0,
+          subtotalAmount: salesOrder.subtotal ?? invoiceTotal,
           shippingAmount: salesOrder.shippingAmount ?? 0,
-          totalAmount: salesOrder.totalAmount ?? 0,
+          totalAmount: invoiceTotal,
           customerName: salesOrder.customer?.name ?? '',
           customerAddress:
             salesOrder.customer?.shippingStreetAddress ||
@@ -214,7 +220,7 @@ const SalesOrderPrintDialog: React.FC<SalesOrderPrintDialogProps> = ({
           customerPhone: salesOrder.customer?.phone || '',
           items,
         }}
-        paidTotal={paidAmount}
+        paidTotal={paidValue}
       />
     );
   };
@@ -242,13 +248,13 @@ const SalesOrderPrintDialog: React.FC<SalesOrderPrintDialogProps> = ({
                 />
               </span>
             </Tooltip>
-            <Tooltip title={paidAmount <= 0 ? 'Available after payment recorded' : ''}>
+            <Tooltip title={paidMinor <= 0n ? 'Available after payment recorded' : ''}>
               <span>
                 <FormControlLabel
                   value="payment_receipt"
                   control={<Radio />}
                   label="Payment Receipt"
-                  disabled={paidAmount <= 0}
+                  disabled={paidMinor <= 0n}
                 />
               </span>
             </Tooltip>

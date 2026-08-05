@@ -18,6 +18,7 @@ import {
   useRefundExpenseMutation,
 } from '@/store/api/accountingApi'
 import type { Expense, ExpensePaymentRow } from '@/types'
+import { toScaledAmount, fromScaledAmount } from '@/utils/currency'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
 import ExpensePayDialog from './ExpensePayDialog'
@@ -74,24 +75,26 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
   const refundSources: RefundSource[] = useMemo(() => {
     if (!expense.payments) return []
     return expense.payments
-      .filter((p) => Number(p.amount) > 0)
+      .filter((p) => (toScaledAmount(p.amount) ?? 0n) > 0n)
       .map((p) => ({
         id: p.id,
         label: p.paymentMethod?.name ?? 'Payment',
-        paidAmount: Number(p.amount),
-        alreadyRefunded: p.remainingRefundable
-          ? Number(p.amount) - Number(p.remainingRefundable)
-          : 0,
+        paidAmount: fromScaledAmount(toScaledAmount(p.amount) ?? 0n),
+        alreadyRefunded: fromScaledAmount(
+          p.remainingRefundable
+            ? (toScaledAmount(p.amount) ?? 0n) - (toScaledAmount(p.remainingRefundable) ?? 0n)
+            : 0n,
+        ),
       }))
   }, [expense])
 
   const handlePaySubmit = useCallback(
-    async (payments: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[]) => {
+    async (payments: { paymentMethodId: string; amount: string; paymentDate: string; reference?: string }[]) => {
       try {
         await payExpense({
           id: expense.id,
           data: {
-            payments: payments.map((p) => ({ ...p, amount: String(p.amount) })),
+            payments,
           },
         }).unwrap()
         showSuccess(`Payment recorded for ${expense.expenseNumber}`)
@@ -105,14 +108,14 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
   )
 
   const handleRefundSubmit = useCallback(
-    async (lines: { sourceId: string; amount: number; reference?: string; date?: string }[]) => {
+    async (lines: { sourceId: string; amount: string; reference?: string; date?: string }[]) => {
       try {
         await refundExpense({
           id: expense.id,
           data: {
             refunds: lines.map((l) => ({
               sourcePaymentId: l.sourceId,
-              amount: String(l.amount),
+              amount: l.amount,
               reference: l.reference,
               refundDate: l.date as string,
             })),
@@ -325,7 +328,7 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
           onSubmit={handleRefundSubmit}
           sources={refundSources}
           orderNumber={expense.expenseNumber}
-          totalAmount={Number(expense.totalAmount)}
+          totalAmount={expense.totalAmount}
           showDateField
         />
       )}

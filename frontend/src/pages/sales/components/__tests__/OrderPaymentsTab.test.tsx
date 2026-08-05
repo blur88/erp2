@@ -24,7 +24,7 @@ function makePayment(overrides: Partial<SalesOrderPayment> = {}): SalesOrderPaym
     paymentMethodId: 'pm1',
     paymentMethod: { id: 'pm1', name: 'Cash' },
     referenceNumber: 'REF-001',
-    amount: 200,
+    amount: '200.0000',
     paymentDate: '2026-01-20',
     createdAt: '2026-01-20',
     updatedAt: '2026-01-20',
@@ -32,7 +32,7 @@ function makePayment(overrides: Partial<SalesOrderPayment> = {}): SalesOrderPaym
   }
 }
 
-function renderTab(orderId: string, totalAmount: number) {
+function renderTab(orderId: string, totalAmount: string) {
   const store = configureStore({ reducer: { sales: (state = {}) => state } })
   return render(
     <Provider store={store}>
@@ -46,19 +46,19 @@ function renderTab(orderId: string, totalAmount: number) {
 describe('OrderPaymentsTab', () => {
   it('shows loading state', () => {
     mockGetSalesOrderPayments.mockReturnValue({ data: undefined, isLoading: true })
-    renderTab('o1', 200)
+    renderTab('o1', '200.0000')
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
   })
 
   it('shows empty state when no payments', () => {
     mockGetSalesOrderPayments.mockReturnValue({ data: [], isLoading: false })
-    renderTab('o1', 200)
+    renderTab('o1', '200.0000')
     expect(screen.getByText(/No payments recorded/)).toBeInTheDocument()
   })
 
   it('renders payment row with method and reference', () => {
     mockGetSalesOrderPayments.mockReturnValue({ data: [makePayment()], isLoading: false })
-    renderTab('o1', 200)
+    renderTab('o1', '200.0000')
     expect(screen.getByText('Cash')).toBeInTheDocument()
     expect(screen.getByText('REF-001')).toBeInTheDocument()
   })
@@ -68,37 +68,37 @@ describe('OrderPaymentsTab', () => {
       data: [makePayment({ paymentMethod: undefined, referenceNumber: undefined })],
       isLoading: false,
     })
-    renderTab('o1', 200)
+    renderTab('o1', '200.0000')
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(1)
   })
 
   it('shows negative amount in red for refunds', () => {
     mockGetSalesOrderPayments.mockReturnValue({
-      data: [makePayment({ amount: -50 })],
+      data: [makePayment({ amount: '-50.0000' })],
       isLoading: false,
     })
-    renderTab('o1', 200)
+    renderTab('o1', '200.0000')
     const amountCell = screen.getByTestId('payment-amount-pay1')
     expect(amountCell).toHaveStyle({ color: 'rgb(211, 47, 47)' })
     expect(amountCell.textContent).toMatch(/-/)
   })
 
   it('renders summary row with Total Paid and Balance', () => {
-    mockGetSalesOrderPayments.mockReturnValue({ data: [makePayment({ amount: 150 })], isLoading: false })
-    renderTab('o1', 200)
+    mockGetSalesOrderPayments.mockReturnValue({ data: [makePayment({ amount: '150.0000' })], isLoading: false })
+    renderTab('o1', '200.0000')
     expect(screen.getByText('Total Paid')).toBeInTheDocument()
     expect(screen.getByText('Balance')).toBeInTheDocument()
   })
 
   it('passes orderId to query', () => {
     mockGetSalesOrderPayments.mockReturnValue({ data: [], isLoading: false })
-    renderTab('order-99', 100)
+    renderTab('order-99', '100.0000')
     expect(mockGetSalesOrderPayments).toHaveBeenCalledWith('order-99')
   })
 
   it('renders a gold-standard grey header (DataTable)', () => {
     mockGetSalesOrderPayments.mockReturnValue({ data: [makePayment()], isLoading: false })
-    const { container } = renderTab('o1', 200)
+    const { container } = renderTab('o1', '200.0000')
     const headerCell = container.querySelector('.MuiTableCell-head')
     expect(headerCell).not.toBeNull()
     expect(headerCell).toHaveStyle({ backgroundColor: 'rgb(250, 250, 250)' })

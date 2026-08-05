@@ -19,7 +19,7 @@ describe('PaymentService', () => {
 
   const createMockPayment = (): Partial<Payment> => ({
     id: '123e4567-e89b-12d3-a456-426614174000',
-    amount: 1000,
+    amount: '1000.0000',
     paymentDate: new Date('2024-01-15'),
     status: PaymentStatus.COMPLETED,
     paymentMethodId: 'pm-1',
@@ -193,7 +193,7 @@ describe('PaymentService', () => {
       await service.create({
         customerId: 'customer-1',
         paymentMethodId: 'pm-1',
-        amount: 1000,
+        amount: '1000.0000',
         paymentDate: new Date('2024-01-15'),
       } as any);
 
@@ -205,7 +205,7 @@ describe('PaymentService', () => {
     it('writes a currency-neutral refund note referencing amount and date', async () => {
       const original = {
         ...createMockPayment(),
-        amount: 5000,
+        amount: '5000.0000',
         // Local midnight, which is what the pg driver produces for a `date`
         // column. Using new Date('2026-07-27') here would be UTC midnight and
         // would mask an off-by-one in the formatter east of UTC.
@@ -218,10 +218,10 @@ describe('PaymentService', () => {
       paymentRepository.save.mockImplementation((v) => Promise.resolve(v as Payment));
       auditLogService.log.mockResolvedValue(undefined);
 
-      await service.refund({ paymentId: original.id, amount: 100 } as any);
+      await service.refund({ paymentId: original.id, amount: '100.0000' } as any);
 
       const created = paymentRepository.create.mock.calls[0][0] as any;
-      expect(created.notes).toBe('Refund of 5000.00 payment dated 2026-07-27');
+      expect(created.notes).toBe('Refund of 5000.0000 payment dated 2026-07-27');
       expect(created.notes).not.toMatch(/PAY-/);
       expect(created).not.toHaveProperty('paymentNumber');
     });
@@ -229,7 +229,7 @@ describe('PaymentService', () => {
     it('formats a YYYY-MM-DD string payment date without shifting it', async () => {
       const original = {
         ...createMockPayment(),
-        amount: 250,
+        amount: '250.0000',
         // TypeORM can hand back the raw string for a `date` column.
         paymentDate: '2026-01-01' as any,
         status: PaymentStatus.COMPLETED,
@@ -240,10 +240,10 @@ describe('PaymentService', () => {
       paymentRepository.save.mockImplementation((v) => Promise.resolve(v as Payment));
       auditLogService.log.mockResolvedValue(undefined);
 
-      await service.refund({ paymentId: original.id, amount: 50 } as any);
+      await service.refund({ paymentId: original.id, amount: '50.0000' } as any);
 
       const created = paymentRepository.create.mock.calls[0][0] as any;
-      expect(created.notes).toBe('Refund of 250.00 payment dated 2026-01-01');
+      expect(created.notes).toBe('Refund of 250.0000 payment dated 2026-01-01');
     });
 
     it('omits paymentNumber from restore audit newValues', async () => {
@@ -263,7 +263,7 @@ describe('PaymentService', () => {
       // Local midnight, as the pg driver returns for a `date` column.
       const deleted = {
         ...createMockPayment(),
-        amount: 750,
+        amount: '750.0000',
         paymentDate: new Date(2026, 6, 27),
         deletedAt: new Date(),
       };
@@ -274,7 +274,7 @@ describe('PaymentService', () => {
       await service.restore(deleted.id as string);
 
       const [, , message] = auditLogService.log.mock.calls[0];
-      expect(message).toBe('Restored payment: 750.00 on 2026-07-27');
+      expect(message).toBe('Restored payment: 750.0000 on 2026-07-27');
     });
 
     it('returns customer payment summaries without paymentNumber', async () => {
@@ -296,7 +296,7 @@ describe('PaymentService', () => {
       const createDto = {
         customerId: 'customer-1',
         paymentMethodId: 'pm-1',
-        amount: 1000,
+        amount: '1000.0000',
         paymentDate: new Date('2024-01-15'),
       };
       const mockCustomer = createMockCustomer();
@@ -329,7 +329,7 @@ describe('PaymentService', () => {
       const createDto = {
         customerId: 'customer-1',
         paymentMethodId: 'pm-1',
-        amount: 1000,
+        amount: '1000.0000',
         paymentDate: new Date('2024-01-15'),
       };
       const mockCustomer = createMockCustomer();
@@ -369,7 +369,7 @@ describe('PaymentService', () => {
       const createDto = {
         customerId: 'non-existent-customer',
         paymentMethodId: 'pm-1',
-        amount: 1000,
+        amount: '1000.0000',
         paymentDate: new Date('2024-01-15'),
       };
       customerRepository.findOne.mockResolvedValue(null);
@@ -379,18 +379,165 @@ describe('PaymentService', () => {
     });
   });
 
+  describe('exact scale-4 money handling', () => {
+    it('allocates a payment exactly equal to the payment amount', async () => {
+      const payment = createMockPayment();
+      const order = {
+        id: 'so-1',
+        customerId: 'customer-1',
+        totalAmount: '1000.0000',
+        paidAmount: '0.0000',
+        balanceDue: '1000.0000',
+      };
+      paymentRepository.findOne.mockResolvedValue(payment as Payment);
+      salesOrderRepository.findOne.mockResolvedValue(order as any);
+      salesOrderRepository.save.mockResolvedValue(order as any);
+      paymentRepository.save.mockResolvedValue(payment as Payment);
+
+      await service.allocatePayment(payment.id as string, {
+        paymentId: payment.id as string,
+        allocations: [{ salesOrderId: 'so-1', amount: '1000.0000' }],
+      });
+
+      expect(salesOrderRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ paidAmount: '1000.0000', balanceDue: '0.0000' }),
+      );
+    });
+
+    it('rejects allocation exceeding the payment amount by one minor unit', async () => {
+      const payment = createMockPayment();
+      paymentRepository.findOne.mockResolvedValue(payment as Payment);
+
+      await expect(
+        service.allocatePayment(payment.id as string, {
+          paymentId: payment.id as string,
+          allocations: [{ salesOrderId: 'so-1', amount: '1000.0001' }],
+        }),
+      ).rejects.toThrow('Total allocation amount exceeds payment amount');
+    });
+
+    // Number('0.1') + Number('0.2') === 0.30000000000000004, so under the old
+    // float arithmetic this allocation exceeded a 0.3000 payment and threw.
+    it('sums split allocations without binary64 drift', async () => {
+      const payment = { ...createMockPayment(), amount: '0.3000' };
+      const order = {
+        id: 'so-1',
+        customerId: 'customer-1',
+        totalAmount: '0.3000',
+        paidAmount: '0.0000',
+        balanceDue: '0.3000',
+      };
+      paymentRepository.findOne.mockResolvedValue(payment as Payment);
+      salesOrderRepository.findOne.mockResolvedValue(order as any);
+      salesOrderRepository.save.mockResolvedValue(order as any);
+      paymentRepository.save.mockResolvedValue(payment as Payment);
+
+      await service.allocatePayment(payment.id as string, {
+        paymentId: payment.id as string,
+        allocations: [
+          { salesOrderId: 'so-1', amount: '0.1000' },
+          { salesOrderId: 'so-1', amount: '0.2000' },
+        ],
+      });
+
+      // Exactly 0.3000 paid, exactly 0.0000 left — no 0.30000000000000004.
+      expect(salesOrderRepository.save).toHaveBeenLastCalledWith(
+        expect.objectContaining({ paidAmount: '0.3000', balanceDue: '0.0000' }),
+      );
+    });
+
+    // 11 integer digits is the maximum decimal(15,4) holds. At this magnitude
+    // binary64 spacing exceeds 0.0001, so Number() could not tell these apart.
+    it('compares at the maximum decimal(15,4) magnitude without losing a minor unit', async () => {
+      const payment = { ...createMockPayment(), amount: '99999999999.9900' };
+      paymentRepository.findOne.mockResolvedValue(payment as Payment);
+
+      await expect(
+        service.allocatePayment(payment.id as string, {
+          paymentId: payment.id as string,
+          allocations: [{ salesOrderId: 'so-1', amount: '99999999999.9901' }],
+        }),
+      ).rejects.toThrow('Total allocation amount exceeds payment amount');
+    });
+
+    it('accepts an allocation at the maximum decimal(15,4) magnitude', async () => {
+      const payment = { ...createMockPayment(), amount: '99999999999.9900' };
+      const order = {
+        id: 'so-1',
+        customerId: 'customer-1',
+        totalAmount: '99999999999.9900',
+        paidAmount: '0.0000',
+        balanceDue: '99999999999.9900',
+      };
+      paymentRepository.findOne.mockResolvedValue(payment as Payment);
+      salesOrderRepository.findOne.mockResolvedValue(order as any);
+      salesOrderRepository.save.mockResolvedValue(order as any);
+      paymentRepository.save.mockResolvedValue(payment as Payment);
+
+      await service.allocatePayment(payment.id as string, {
+        paymentId: payment.id as string,
+        allocations: [{ salesOrderId: 'so-1', amount: '99999999999.9900' }],
+      });
+
+      expect(salesOrderRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ paidAmount: '99999999999.9900', balanceDue: '0.0000' }),
+      );
+    });
+
+    it('refunds a payment exactly equal to the payment amount', async () => {
+      const original = {
+        ...createMockPayment(),
+        paymentMethodEntity: { code: 'CASH' },
+      };
+      paymentRepository.findOne.mockResolvedValue(original as any);
+      paymentRepository.create.mockImplementation((v) => v as Payment);
+      paymentRepository.save.mockImplementation((v) => Promise.resolve(v as Payment));
+      auditLogService.log.mockResolvedValue(undefined);
+
+      await service.refund({ paymentId: original.id as string, amount: '1000.0000' });
+
+      const created = paymentRepository.create.mock.calls[0][0] as any;
+      expect(created.amount).toBe('-1000.0000');
+      expect(created.status).toBe(PaymentStatus.REFUNDED);
+    });
+
+    it('rejects refund exceeding the payment amount by one minor unit', async () => {
+      const original = {
+        ...createMockPayment(),
+        paymentMethodEntity: { code: 'CASH' },
+      };
+      paymentRepository.findOne.mockResolvedValue(original as any);
+
+      await expect(
+        service.refund({ paymentId: original.id as string, amount: '1000.0001' }),
+      ).rejects.toThrow('Refund amount cannot exceed original payment amount');
+    });
+
+    it('rejects a zero refund amount', async () => {
+      const original = {
+        ...createMockPayment(),
+        paymentMethodEntity: { code: 'CASH' },
+      };
+      paymentRepository.findOne.mockResolvedValue(original as any);
+
+      await expect(
+        service.refund({ paymentId: original.id as string, amount: '0.0000' }),
+      ).rejects.toThrow('Refund amount must be greater than zero');
+    });
+  });
+
   describe('getPaidTotalForSalesOrder', () => {
     it('should return sum of completed payment amounts for a sales order', async () => {
       const mockPayments = [
         {
           id: 'p1',
-          amount: 200,
+          amount: '200.0000',
           status: PaymentStatus.COMPLETED,
           salesOrderId: 'so-1',
         },
         {
           id: 'p2',
-          amount: 300,
+          amount: '300.0000',
           status: PaymentStatus.COMPLETED,
           salesOrderId: 'so-1',
         },
@@ -399,7 +546,7 @@ describe('PaymentService', () => {
 
       const total = await service.getPaidTotalForSalesOrder('so-1');
 
-      expect(total).toBe(500);
+      expect(total).toBe('500.0000');
     });
 
     it('should return 0 when no completed payments exist', async () => {
@@ -407,15 +554,15 @@ describe('PaymentService', () => {
 
       const total = await service.getPaidTotalForSalesOrder('so-1');
 
-      expect(total).toBe(0);
+      expect(total).toBe('0.0000');
     });
 
     it('should net out a partial refund (original 100, refund -30 => 70)', async () => {
       // A refund flips the original payment to REFUNDED and adds a negative row,
       // both REFUNDED. Net paid must be the remaining amount, not 0.
       const mockPayments = [
-        { id: 'orig', amount: 100, status: PaymentStatus.REFUNDED, salesOrderId: 'so-1' },
-        { id: 'refund', amount: -30, status: PaymentStatus.REFUNDED, salesOrderId: 'so-1' },
+        { id: 'orig', amount: '100.0000', status: PaymentStatus.REFUNDED, salesOrderId: 'so-1' },
+        { id: 'refund', amount: '-30.0000', status: PaymentStatus.REFUNDED, salesOrderId: 'so-1' },
       ];
       const findSpy = jest
         .spyOn(paymentRepository, 'find')
@@ -423,7 +570,7 @@ describe('PaymentService', () => {
 
       const total = await service.getPaidTotalForSalesOrder('so-1');
 
-      expect(total).toBe(70);
+      expect(total).toBe('70.0000');
       // Query must include REFUNDED rows, not just COMPLETED.
       const whereArg = (findSpy.mock.calls[0][0] as any).where;
       expect(whereArg.status.value).toEqual([

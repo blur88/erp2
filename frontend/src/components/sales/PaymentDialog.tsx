@@ -21,11 +21,18 @@ import { default as AddIcon } from '@mui/icons-material/Add'
 import { useGetActivePaymentMethodsQuery } from '@/store/api/paymentMethodsApi'
 import { useGetSalesOrderPaymentsQuery } from '@/store/api/salesApi'
 import { getCurrentDate } from '@/utils/formatters'
+import {
+  formatCurrency,
+  toAmountInputValue,
+  toScaledAmount,
+  fromScaledAmount,
+  sumScaledAmounts,
+} from '@/utils/currency'
 
 interface PaymentLine {
   id: string
   paymentMethodId: string
-  amount: number | string
+  amount: string
   paymentDate: string
   reference: string
 }
@@ -33,10 +40,10 @@ interface PaymentLine {
 interface PaymentDialogProps {
   open: boolean
   onClose: () => void
-  onSubmit: (payments: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[]) => Promise<void>
+  onSubmit: (payments: { paymentMethodId: string; amount: string; paymentDate: string; reference?: string }[]) => Promise<void>
   orderId: string
   orderNumber: string
-  totalAmount: number
+  totalAmount: string
   title?: string
 }
 
@@ -44,10 +51,6 @@ const newId = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2)
-
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(amount)
-}
 
 export default function PaymentDialog({
   open,
@@ -61,14 +64,17 @@ export default function PaymentDialog({
   const { data: paymentMethods = [] } = useGetActivePaymentMethodsQuery(undefined, { skip: !open })
   const { data: paymentRecords = [], isLoading: loadingPayments } = useGetSalesOrderPaymentsQuery(orderId, { skip: !open })
 
-  const paidAmount = paymentRecords
-    .filter((r) => Number(r.amount) > 0)
-    .reduce((sum, r) => sum + Number(r.amount), 0)
-  const alreadyRefunded = paymentRecords
-    .filter((r) => Number(r.amount) < 0)
-    .reduce((sum, r) => sum + Math.abs(Number(r.amount)), 0)
-  const netPaid = paidAmount - alreadyRefunded
-  const outstandingBalance = Math.max(0, totalAmount - netPaid)
+  const paidMinor = (paymentRecords ?? []).reduce((sum, r) => {
+    const units = toScaledAmount(r.amount) ?? 0n
+    return units > 0n ? sum + units : sum
+  }, 0n)
+  const refundedMinor = (paymentRecords ?? []).reduce((sum, r) => {
+    const units = toScaledAmount(r.amount) ?? 0n
+    return units < 0n ? sum + -units : sum
+  }, 0n)
+  const netPaidMinor = paidMinor - refundedMinor
+  const totalMinor = toScaledAmount(totalAmount) ?? 0n
+  const outstandingMinor = totalMinor - netPaidMinor > 0n ? totalMinor - netPaidMinor : 0n
   const [lines, setLines] = useState<PaymentLine[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -92,14 +98,16 @@ export default function PaymentDialog({
     setLines([{
       id: newId(),
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
-      amount: outstandingBalance > 0 ? outstandingBalance : '',
+      amount: outstandingMinor > 0n ? toAmountInputValue(fromScaledAmount(outstandingMinor)) : '',
       paymentDate: getCurrentDate(),
       reference: '',
     }])
-  }, [open, paymentMethods, lines.length, loadingPayments, outstandingBalance])
+  }, [open, paymentMethods, lines.length, loadingPayments, outstandingMinor])
 
-  const totalEntered = lines.reduce((sum, l) => sum + (typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string) || 0), 0)
-  const remaining = outstandingBalance - totalEntered
+  const enteredMinor = sumScaledAmounts(lines.map((l) => l.amount))
+  const hasInvalidAmount = enteredMinor === null
+  const totalEnteredMinor = enteredMinor ?? 0n
+  const remainingMinor = outstandingMinor - totalEnteredMinor
 
   const updateLine = useCallback((index: number, field: keyof PaymentLine, value: any) => {
     setUserHasEdited(true)
@@ -116,11 +124,11 @@ export default function PaymentDialog({
     setLines(prev => [...prev, {
       id: newId(),
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
-      amount: remaining > 0 ? remaining : '',
+      amount: remainingMinor > 0n ? toAmountInputValue(fromScaledAmount(remainingMinor)) : '',
       paymentDate: getCurrentDate(),
       reference: '',
     }])
-  }, [paymentMethods, remaining])
+  }, [paymentMethods, remainingMinor])
 
   const removeLine = useCallback((index: number) => {
     setUserHasEdited(true)
@@ -130,9 +138,13 @@ export default function PaymentDialog({
   const handleSubmit = async () => {
     setError(null)
     // Validate
+    if (hasInvalidAmount) {
+      setError('Every payment amount must be a number with at most 4 decimal places.')
+      return
+    }
     const validLines = lines.filter(l => {
-      const amt = typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string)
-      return l.paymentMethodId && amt > 0
+      const units = toScaledAmount(l.amount)
+      return l.paymentMethodId && units !== null && units > 0n
     })
     if (validLines.length === 0) {
       setError('At least one payment line with a valid amount is required.')
@@ -143,7 +155,7 @@ export default function PaymentDialog({
     try {
       await onSubmit(validLines.map(l => ({
         paymentMethodId: l.paymentMethodId,
-        amount: typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string),
+        amount: l.amount,
         paymentDate: l.paymentDate,
         reference: l.reference || undefined,
       })))
@@ -155,7 +167,7 @@ export default function PaymentDialog({
     }
   }
 
-  const isOverpaying = totalEntered > outstandingBalance && outstandingBalance > 0
+  const isOverpaying = totalEnteredMinor > outstandingMinor && outstandingMinor > 0n
 
   const handleRequestClose = () => {
     if (userHasEdited) {
@@ -182,11 +194,11 @@ export default function PaymentDialog({
           }}>Order Total</Typography>
           <Typography variant="body2">{formatCurrency(totalAmount)}</Typography>
         </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1}}>
           <Typography variant="body2" sx={{
             color: "text.secondary"
           }}>Previously Paid</Typography>
-          <Typography variant="body2">{formatCurrency(netPaid)}</Typography>
+          <Typography variant="body2">{formatCurrency(fromScaledAmount(netPaidMinor))}</Typography>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
           <Typography variant="body2" sx={{
@@ -194,7 +206,7 @@ export default function PaymentDialog({
           }}>Outstanding Balance</Typography>
           <Typography variant="body2" sx={{
             fontWeight: "bold"
-          }}>{formatCurrency(outstandingBalance)}</Typography>
+          }}>{formatCurrency(fromScaledAmount(outstandingMinor))}</Typography>
         </Box>
 
         <Divider sx={{ mb: 2 }} />
@@ -278,20 +290,20 @@ export default function PaymentDialog({
           }}>Total Payment</Typography>
           <Typography variant="body2" sx={{
             fontWeight: "bold"
-          }}>{formatCurrency(totalEntered)}</Typography>
+          }}>{formatCurrency(fromScaledAmount(totalEnteredMinor))}</Typography>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
           <Typography variant="body2" sx={{
             color: "text.secondary"
           }}>Remaining</Typography>
-          <Typography variant="body2" color={remaining < 0 ? 'error.main' : 'text.secondary'}>
-            {formatCurrency(Math.abs(remaining))}{remaining < 0 ? ' (overpayment)' : ''}
+          <Typography variant="body2" color={remainingMinor < 0n ? 'error.main' : 'text.secondary'}>
+            {formatCurrency(fromScaledAmount(remainingMinor < 0n ? -remainingMinor : remainingMinor))}{remainingMinor < 0n ? ' (overpayment)' : ''}
           </Typography>
         </Box>
 
         {isOverpaying && (
           <Alert severity="warning" sx={{ mt: 2 }}>
-            Total payment exceeds outstanding balance by {formatCurrency(Math.abs(remaining))}.
+            Total payment exceeds outstanding balance by {formatCurrency(fromScaledAmount(remainingMinor < 0n ? -remainingMinor : remainingMinor))}.
           </Alert>
         )}
 
@@ -308,7 +320,7 @@ export default function PaymentDialog({
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={submitting || totalEntered <= 0}
+          disabled={submitting || hasInvalidAmount || totalEnteredMinor <= 0n}
           startIcon={submitting ? <CircularProgress size={16} /> : undefined}
         >
           {submitting ? 'Recording...' : 'Record Payment'}

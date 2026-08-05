@@ -238,9 +238,9 @@ export interface SalesOrder {
   customer?: Customer;
   customerId: string;
   items?: SalesOrderItem[];
-  totalAmount: number;
-  paidAmount?: number;
-  balanceDue?: number;
+  totalAmount: string;
+  paidAmount?: string;
+  balanceDue?: string;
   isFulfilled?: boolean;
   isPaidInFull?: boolean;
   canFulfill?: boolean;
@@ -276,7 +276,7 @@ export interface SalesOrder {
   deliveryDate?: Date;
   payments?: {
     id: string;
-    amount: number;
+    amount: string;
     paymentDate: Date | string;
   }[];
 }
@@ -304,7 +304,7 @@ export interface SalesOrderPayment {
     name: string;
   };
   referenceNumber?: string;
-  amount: number;
+  amount: string;
   paymentDate: string;
   notes?: string;
   createdAt: string;
@@ -321,7 +321,7 @@ export interface Payment {
   customer?: Customer;
   customerId?: string;
   customerName?: string;
-  amount: number;
+  amount: string;
   method?: 'cash' | 'card' | 'bank_transfer' | 'cheque';
   paymentMethodId?: string;
   paymentMethodEntity?: PaymentMethodConfig;
@@ -395,11 +395,11 @@ export interface PurchaseOrder {
   paymentStatus: PurchaseOrderPaymentStatus;
   items?: PurchaseOrderItem[];
   total?: number;
-  paidAmount?: number;
+  paidAmount?: string;
   subtotal?: number;
   discountAmount?: number;
   shippingAmount?: number;
-  totalAmount?: number;
+  totalAmount?: string;
   orderDate: Date;
   deletedAt?: Date | string;
   expectedDate?: Date;
@@ -432,7 +432,7 @@ export interface VendorPayment {
   supplierId: string;
   purchaseOrder?: PurchaseOrder;
   purchaseOrderId?: string;
-  amount: number;
+  amount: string;
   paymentDate: Date | string;
   paymentMethodId?: string;
   paymentMethodEntity?: PaymentMethodConfig;

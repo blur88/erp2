@@ -19,6 +19,7 @@ import { Link as RouterLink } from 'react-router-dom'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
+import { toScaledAmount, fromScaledAmount } from '@/utils/currency'
 
 import { StatusChip } from '@/components/common/StatusChip'
 
@@ -59,11 +60,13 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
   const items = getItems(order)
   const subtotal = order.subtotal ?? order.totalAmount
   const shippingAmount = order.shippingAmount ?? 0
-  const paidAmount = order.paidAmount ?? 0
-  const balance = order.balanceDue ?? order.totalAmount - paidAmount
-  const isSurplus = balance < 0
+  const paidMinor = toScaledAmount(order.paidAmount) ?? 0n
+  const balanceMinor = order.balanceDue
+    ? (toScaledAmount(order.balanceDue) ?? 0n)
+    : (toScaledAmount(order.totalAmount) ?? 0n) - paidMinor
+  const isSurplus = balanceMinor < 0n
   const balanceLabel = isSurplus ? 'Surplus' : 'Balance Due'
-  const balanceValue = formatCurrency(isSurplus ? -balance : balance)
+  const balanceValue = formatCurrency(fromScaledAmount(isSurplus ? -balanceMinor : balanceMinor))
 
   return (
     <Box>
@@ -108,7 +111,7 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
               />
               <Field label="Total Amount" value={formatCurrency(order.totalAmount)} />
               <Field label="Shipping Fee" value={formatCurrency(shippingAmount)} />
-              <Field label="Paid Amount" value={formatCurrency(paidAmount)} />
+              <Field label="Paid Amount" value={formatCurrency(fromScaledAmount(paidMinor))} />
               <Field label={balanceLabel} value={balanceValue} />
             </CardContent>
           </Card>
@@ -146,7 +149,7 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
             { label: 'Subtotal', value: formatCurrency(subtotal) },
             { label: 'Shipping', value: formatCurrency(shippingAmount) },
             { label: 'Total', value: formatCurrency(order.totalAmount), bold: true },
-            { label: 'Paid', value: formatCurrency(paidAmount) },
+            { label: 'Paid', value: formatCurrency(fromScaledAmount(paidMinor)) },
             { label: isSurplus ? 'Surplus' : 'Balance', value: balanceValue, bold: true },
           ].map(({ label, value, bold }) => (
             <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>

@@ -8,7 +8,7 @@ import { JournalEntryLine } from '../entities/journal-entry-line.entity';
 import { AccountType } from '../entities/account-type.enum';
 import { PostingType } from '../entities/posting-type.enum';
 import { AccountingSourceType } from '../entities/source-type.enum';
-import { formatScale4, toMinorUnits } from '../utils/money';
+import { formatScale4, toMinorUnits } from '@/common/utils/money';
 import {
   AccountingPostingPort, PostResult,
 } from '../../../common/accounting-posting/accounting-posting.port';

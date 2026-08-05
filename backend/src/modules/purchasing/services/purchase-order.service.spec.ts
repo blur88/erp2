@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
-import { Logger } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import { PurchaseOrderService } from './purchase-order.service';
 import {
   PurchaseOrder,
@@ -90,7 +90,7 @@ describe('PurchaseOrderService', () => {
 
   function wireTx(opts: { lockedPO: any; existing?: any[] }) {
     const { lockedPO, existing } = opts
-    const ctx = mockTxManager({ lockedPO, existing: existing ?? [{ id: 'vp-1', amount: '100', paymentMethodId: 'pm-1', status: 'completed', isActive: true }] })
+    const ctx = mockTxManager({ lockedPO, existing: existing ?? [{ id: 'vp-1', amount: '100.0000', paymentMethodId: 'pm-1', status: 'completed', isActive: true }] })
     ;(dataSource.transaction as jest.Mock).mockImplementation(async (cb) => cb(ctx.manager))
     return ctx
   }
@@ -315,7 +315,7 @@ describe('PurchaseOrderService', () => {
     function setupTxMocks(opts: {
       lockedStatus: PurchaseOrderStatus;
       lockedOverrides?: Partial<PurchaseOrder>;
-      payments?: { amount: number }[];
+      payments?: { amount: string }[];
     }) {
       const savedOrders: PurchaseOrder[] = [];
       const poManagerRepo = {
@@ -341,8 +341,8 @@ describe('PurchaseOrderService', () => {
         discountPercent: 0,
         discountAmount: 0,
         shippingAmount: 0,
-        totalAmount: 100,
-        paidAmount: 0,
+        totalAmount: '100.0000',
+        paidAmount: '0.0000',
         paymentStatus: PurchaseOrderPaymentStatus.UNPAID,
         orderDate: new Date('2024-01-01'),
         ...opts.lockedOverrides,
@@ -403,14 +403,14 @@ describe('PurchaseOrderService', () => {
     it('recomputes totals and reconciles on a shipping-only update (no items)', async () => {
       const { savedOrders } = setupTxMocks({
         lockedStatus: PurchaseOrderStatus.READY,
-        payments: [{ amount: 100 }], // fully paid against old total of 100
+        payments: [{ amount: '100.0000' }], // fully paid against old total of 100
       });
 
       await service.update('po-1', { shippingAmount: 20 } as any);
 
       // total recomputed to 120, paid is only 100 -> PARTIAL, demoted to DRAFT
       const finalSave = savedOrders[savedOrders.length - 1];
-      expect(finalSave.totalAmount).toBe(120);
+      expect(finalSave.totalAmount).toBe('120.0000');
       expect(finalSave.paymentStatus).toBe(PurchaseOrderPaymentStatus.PARTIAL);
       expect(finalSave.status).toBe(PurchaseOrderStatus.DRAFT);
     });
@@ -420,13 +420,13 @@ describe('PurchaseOrderService', () => {
       // now fully paid -> PAID + promoted to READY.
       const { savedOrders } = setupTxMocks({
         lockedStatus: PurchaseOrderStatus.DRAFT,
-        payments: [{ amount: 80 }],
+        payments: [{ amount: '80.0000' }],
       });
 
       await service.update('po-1', { discountPercent: 20 } as any);
 
       const finalSave = savedOrders[savedOrders.length - 1];
-      expect(finalSave.totalAmount).toBe(80);
+      expect(finalSave.totalAmount).toBe('80.0000');
       expect(finalSave.paymentStatus).toBe(PurchaseOrderPaymentStatus.PAID);
       expect(finalSave.status).toBe(PurchaseOrderStatus.READY);
     });
@@ -439,7 +439,7 @@ describe('PurchaseOrderService', () => {
         lockedOverrides: {
           discountPercent: 10,
           discountAmount: 10,
-          totalAmount: 90,
+          totalAmount: '90.0000',
         },
       });
 
@@ -447,7 +447,7 @@ describe('PurchaseOrderService', () => {
 
       const finalSave = savedOrders[savedOrders.length - 1];
       expect(finalSave.discountAmount).toBe(0);
-      expect(finalSave.totalAmount).toBe(100);
+      expect(finalSave.totalAmount).toBe('100.0000');
     });
   });
 
@@ -495,8 +495,8 @@ describe('PurchaseOrderService', () => {
         discountPercent: 0,
         discountAmount: 0,
         shippingAmount: 0,
-        totalAmount: 100,
-        paidAmount: 0,
+        totalAmount: '100.0000',
+        paidAmount: '0.0000',
         status: PurchaseOrderStatus.DRAFT,
         paymentStatus: PurchaseOrderPaymentStatus.UNPAID,
         notes: '',
@@ -515,7 +515,7 @@ describe('PurchaseOrderService', () => {
 
     it('adds unpaid paymentStatus filter', async () => {
       const queryBuilder = createFindAllQueryBuilder([
-        createFindAllOrder({ paidAmount: 0, totalAmount: 100 }),
+        createFindAllOrder({ paidAmount: '0.0000', totalAmount: '100.0000' }),
       ]);
       purchaseOrderRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
 
@@ -531,7 +531,7 @@ describe('PurchaseOrderService', () => {
 
     it('adds partial paymentStatus filter', async () => {
       const queryBuilder = createFindAllQueryBuilder([
-        createFindAllOrder({ paidAmount: 40, totalAmount: 100 }),
+        createFindAllOrder({ paidAmount: '40.0000', totalAmount: '100.0000' }),
       ]);
       purchaseOrderRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
 
@@ -548,7 +548,7 @@ describe('PurchaseOrderService', () => {
 
     it('adds paid paymentStatus filter', async () => {
       const queryBuilder = createFindAllQueryBuilder([
-        createFindAllOrder({ paidAmount: 100, totalAmount: 100 }),
+        createFindAllOrder({ paidAmount: '100.0000', totalAmount: '100.0000' }),
       ]);
       purchaseOrderRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
 
@@ -564,7 +564,7 @@ describe('PurchaseOrderService', () => {
 
     it('adds overpaid paymentStatus filter', async () => {
       const queryBuilder = createFindAllQueryBuilder([
-        createFindAllOrder({ paidAmount: 120, totalAmount: 100 }),
+        createFindAllOrder({ paidAmount: '120.0000', totalAmount: '100.0000' }),
       ]);
       purchaseOrderRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
 
@@ -651,7 +651,7 @@ describe('PurchaseOrderService', () => {
       deletedAt: new Date('2026-02-19'),
       isActive: false,
       paymentMethodId: 'pm-bank',
-      amount: 100,
+      amount: '100.0000',
     } as unknown as VendorPayment;
 
     const mockRestoredPayment = {
@@ -663,7 +663,8 @@ describe('PurchaseOrderService', () => {
     const mockPurchaseOrderForPayment = {
       ...mockPurchaseOrder,
       supplierId: 'supplier-1',
-      paidAmount: 0,
+      totalAmount: '100.0000',
+      paidAmount: '0.0000',
     } as unknown as PurchaseOrder;
 
     beforeEach(() => {
@@ -672,7 +673,7 @@ describe('PurchaseOrderService', () => {
       vendorPaymentService.findOne.mockResolvedValue(mockRestoredPayment);
       paymentMethodRepository.findOne.mockResolvedValue({ id: 'pm-cash', isActive: true, accountingChannel: 'BANK' });
       vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
-        { id: 'vp-active', amount: 200 } as unknown as VendorPayment,
+        { id: 'vp-active', amount: '200.0000' } as unknown as VendorPayment,
       ]);
       const vpFind = jest.fn().mockResolvedValue([]);
       const vpFindOne = jest.fn().mockImplementation((...args) => (vendorPaymentRepository.findOne as any)(...args));
@@ -698,11 +699,11 @@ describe('PurchaseOrderService', () => {
       // DB reports two active payments (120 + 80 = 200) regardless of the single
       // line passed in — paidAmount must reflect the DB sum.
       vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
-        { id: 'vp-a', amount: 120 } as unknown as VendorPayment,
-        { id: 'vp-b', amount: 80 } as unknown as VendorPayment,
+        { id: 'vp-a', amount: '120.0000' } as unknown as VendorPayment,
+        { id: 'vp-b', amount: '80.0000' } as unknown as VendorPayment,
       ]);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 200 }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000' }]);
 
       const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
       expect(Number(saved.paidAmount)).toBe(200);
@@ -714,7 +715,7 @@ describe('PurchaseOrderService', () => {
 
       await service.recordOrderPayments(
         'po-1',
-        [{ paymentMethodId: 'pm-cash', amount: 200 }],
+        [{ paymentMethodId: 'pm-cash', amount: '200.0000' }],
         'user-42',
         'alice',
       );
@@ -731,7 +732,7 @@ describe('PurchaseOrderService', () => {
       vendorPaymentRepository.findOne.mockResolvedValue(null);
       vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 200 }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000' }]);
 
       expect(vendorPaymentService.create).toHaveBeenCalled();
       expect(vendorPaymentRepository.restore).not.toHaveBeenCalled();
@@ -744,7 +745,7 @@ describe('PurchaseOrderService', () => {
       vendorPaymentRepository.restore.mockResolvedValue({} as any);
       vendorPaymentRepository.update.mockResolvedValue({} as any);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 200 }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000' }]);
 
       expect(vendorPaymentRepository.restore).toHaveBeenCalledWith('vp-old-1');
     });
@@ -756,11 +757,11 @@ describe('PurchaseOrderService', () => {
       vendorPaymentRepository.restore.mockResolvedValue({} as any);
       vendorPaymentRepository.update.mockResolvedValue({} as any);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 300 }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '300.0000' }]);
 
       expect(vendorPaymentRepository.update).toHaveBeenCalledWith(
         'vp-old-1',
-        expect.objectContaining({ paymentMethodId: 'pm-cash', amount: 300, isActive: true }),
+        expect.objectContaining({ paymentMethodId: 'pm-cash', amount: '300.0000', isActive: true }),
       );
     });
 
@@ -771,7 +772,7 @@ describe('PurchaseOrderService', () => {
       } as unknown as PurchaseOrder);
 
       await expect(
-        service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 200 }]),
+        service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000' }]),
       ).rejects.toThrow(/CANCELLED/);
       expect(vendorPaymentService.create).not.toHaveBeenCalled();
     });
@@ -783,7 +784,7 @@ describe('PurchaseOrderService', () => {
       } as unknown as PurchaseOrder);
 
       await expect(
-        service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 200 }]),
+        service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000' }]),
       ).rejects.toThrow(/RECEIVED/);
     });
 
@@ -791,24 +792,24 @@ describe('PurchaseOrderService', () => {
       vendorPaymentRepository.findOne.mockResolvedValue(null);
 
       await expect(
-        service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 0 }]),
+        service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '0.0000' }]),
       ).rejects.toThrow(/greater than zero/);
     });
 
     it('keeps an overpaid DRAFT order in DRAFT (does not promote to READY)', async () => {
       purchaseOrderRepository.findOne.mockResolvedValue({
         ...mockPurchaseOrderForPayment,
-        totalAmount: 100,
+        totalAmount: '100.0000',
         status: PurchaseOrderStatus.DRAFT,
       } as unknown as PurchaseOrder);
       vendorPaymentRepository.findOne.mockResolvedValue(null);
       vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
       // Persisted active payments sum to 120 against a 100 total => OVERPAID.
       vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
-        { id: 'vp-over', amount: 120 } as unknown as VendorPayment,
+        { id: 'vp-over', amount: '120.0000' } as unknown as VendorPayment,
       ]);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 120 }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '120.0000' }]);
 
       const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
       expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.OVERPAID);
@@ -818,18 +819,18 @@ describe('PurchaseOrderService', () => {
     it('reverts a READY order to DRAFT when it becomes overpaid', async () => {
       purchaseOrderRepository.findOne.mockResolvedValue({
         ...mockPurchaseOrderForPayment,
-        totalAmount: 100,
+        totalAmount: '100.0000',
         status: PurchaseOrderStatus.READY,
       } as unknown as PurchaseOrder);
       vendorPaymentRepository.findOne.mockResolvedValue(null);
       vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
       // Already-fully-paid READY order receives an extra payment => 150 vs 100 total => OVERPAID.
       vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
-        { id: 'vp-a', amount: 100 } as unknown as VendorPayment,
-        { id: 'vp-b', amount: 50 } as unknown as VendorPayment,
+        { id: 'vp-a', amount: '100.0000' } as unknown as VendorPayment,
+        { id: 'vp-b', amount: '50.0000' } as unknown as VendorPayment,
       ]);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 50 }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '50.0000' }]);
 
       const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
       expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.OVERPAID);
@@ -839,17 +840,17 @@ describe('PurchaseOrderService', () => {
     it('promotes a DRAFT order to READY on exact full payment', async () => {
       purchaseOrderRepository.findOne.mockResolvedValue({
         ...mockPurchaseOrderForPayment,
-        totalAmount: 100,
+        totalAmount: '100.0000',
         status: PurchaseOrderStatus.DRAFT,
       } as unknown as PurchaseOrder);
       vendorPaymentRepository.findOne.mockResolvedValue(null);
       vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
       // Persisted active payments sum to exactly 100 => PAID.
       vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
-        { id: 'vp-exact', amount: 100 } as unknown as VendorPayment,
+        { id: 'vp-exact', amount: '100.0000' } as unknown as VendorPayment,
       ]);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: 100 }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '100.0000' }]);
 
       const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
       expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.PAID);
@@ -864,12 +865,12 @@ describe('PurchaseOrderService', () => {
       const order = {
         ...mockPurchaseOrderForPayment,
         id: 'po-1',
-        totalAmount: 100,
+        totalAmount: '100.0000',
         status: PurchaseOrderStatus.DRAFT,
       } as unknown as PurchaseOrder;
       // Active payment set sums to exactly 100 against a 100 total => PAID.
       vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
-        { id: 'vp-exact', amount: 100 } as unknown as VendorPayment,
+        { id: 'vp-exact', amount: '100.0000' } as unknown as VendorPayment,
       ]);
 
       await (service as any).reconcilePaymentState(order);
@@ -931,7 +932,7 @@ describe('PurchaseOrderService', () => {
       orderNumber: 'PO-001',
       status: 'DRAFT',
       supplierId: 'sup-1',
-      totalAmount: '100',
+      totalAmount: '100.0000',
     }
     let generateSpy: jest.Mock;
 
@@ -941,7 +942,7 @@ describe('PurchaseOrderService', () => {
       ;(service as any).settingsService = { generateDocumentNumber: generateSpy }
       vendorPaymentRepository.findOne.mockResolvedValue({
         id: 'refund-1',
-        amount: -40,
+        amount: '-40.0000',
         supplier: { companyName: 'Acme' },
         paymentMethodEntity: { code: 'CASH' },
       } as any)
@@ -952,14 +953,14 @@ describe('PurchaseOrderService', () => {
       const ctx = wireTx({ lockedPO })
       jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
 
-      await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: 40, reference: 'damaged goods' }], 'user-1', 'admin')
+      await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '40.0000', reference: 'damaged goods' }], 'user-1', 'admin')
 
       expect(ctx.saved).toHaveLength(1)
       expect(ctx.saved[0]).toMatchObject({
         supplierId: 'sup-1',
         purchaseOrderId: 'po-1',
         paymentMethodId: 'pm-1',
-        amount: -40,
+        amount: '-40.0000',
         status: 'completed',
         referenceNumber: 'damaged goods',
       })
@@ -968,9 +969,9 @@ describe('PurchaseOrderService', () => {
     })
 
     it('rejects total refund exceeding net paid across ACTIVE rows (aggregate guard)', async () => {
-      wireTx({ lockedPO, existing: [{ amount: '100', isActive: true }] })
+      wireTx({ lockedPO, existing: [{ amount: '100.0000', isActive: true }] })
       await expect(
-        service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: 150 }], 'u'),
+        service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '150.0000' }], 'u'),
       ).rejects.toThrow(/exceeds net paid/i)
     })
 
@@ -978,7 +979,7 @@ describe('PurchaseOrderService', () => {
       const ctx = wireTx({ lockedPO })
       jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
 
-      await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: 40 }], 'u')
+      await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '40.0000' }], 'u')
 
       expect(ctx.vpRepo.find).toHaveBeenCalledWith({
         where: { purchaseOrderId: 'po-1', isActive: true },
@@ -989,7 +990,7 @@ describe('PurchaseOrderService', () => {
       wireTx({ lockedPO })
       const reconcileSpy = jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
 
-      await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: 40 }], 'u')
+      await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '40.0000' }], 'u')
 
       expect(reconcileSpy).toHaveBeenCalledWith(lockedPO, expect.anything())
     })
@@ -998,7 +999,7 @@ describe('PurchaseOrderService', () => {
       wireTx({ lockedPO })
       jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
 
-      await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: 40 }], 'u')
+      await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '40.0000' }], 'u')
 
       expect(auditLogService.log).toHaveBeenCalledWith(
         'CREATE',
@@ -1014,7 +1015,7 @@ describe('PurchaseOrderService', () => {
       const ctx = mockTxManager({ lockedPO: { ...lockedPO, status: 'RECEIVED' } })
       ;(dataSource.transaction as jest.Mock).mockImplementation(async (cb) => cb(ctx.manager))
       await expect(
-        service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: 10 }], 'u'),
+        service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '10.0000' }], 'u'),
       ).rejects.toThrow('Cannot refund a RECEIVED purchase order.')
     })
 
@@ -1022,22 +1023,128 @@ describe('PurchaseOrderService', () => {
       const ctx = mockTxManager({ lockedPO: { ...lockedPO, status: 'CANCELLED' } })
       ;(dataSource.transaction as jest.Mock).mockImplementation(async (cb) => cb(ctx.manager))
       await expect(
-        service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: 10 }], 'u'),
+        service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '10.0000' }], 'u'),
       ).rejects.toThrow('Cannot refund a CANCELLED purchase order.')
     })
 
     it('rejects a non-positive amount', async () => {
       await expect(
-        service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: 0 }], 'u'),
+        service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '0.0000' }], 'u'),
       ).rejects.toThrow('greater than zero')
     })
 
     it('rejects an inactive / unknown payment method', async () => {
       paymentMethodRepository.findOne.mockResolvedValue(null)
       await expect(
-        service.recordRefunds('po-1', [{ paymentMethodId: 'bad', amount: 10 }], 'u'),
+        service.recordRefunds('po-1', [{ paymentMethodId: 'bad', amount: '10.0000' }], 'u'),
       ).rejects.toThrow(/not found or inactive/i)
     })
+  })
+
+  describe('money exactness (scale-4 string amounts)', () => {
+    const lockedPO = {
+      id: 'po-1',
+      orderNumber: 'PO-001',
+      status: 'DRAFT',
+      supplierId: 'sup-1',
+      totalAmount: '100.0000',
+    }
+    const mockPOForPayment = {
+      ...mockPurchaseOrder,
+      supplierId: 'supplier-1',
+      paidAmount: '0.0000',
+    } as unknown as PurchaseOrder;
+
+    beforeEach(() => {
+      purchaseOrderRepository.findOne.mockResolvedValue(mockPOForPayment);
+      purchaseOrderRepository.save.mockResolvedValue(mockPOForPayment);
+      vendorPaymentService.findOne.mockResolvedValue({ id: 'vp-old-1' } as VendorPayment);
+      paymentMethodRepository.findOne.mockResolvedValue({ id: 'pm-cash', isActive: true, accountingChannel: 'BANK' });
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { id: 'vp-active', amount: '200.0000' } as unknown as VendorPayment,
+      ]);
+      const vpFind = jest.fn().mockResolvedValue([]);
+      const vpFindOne = jest.fn().mockImplementation((...args) => (vendorPaymentRepository.findOne as any)(...args));
+      const vpRestore = jest.fn((...args) => (vendorPaymentRepository.restore as any)(...args));
+      const vpUpdate = jest.fn((...args) => (vendorPaymentRepository.update as any)(...args));
+      const vpCreate = jest.fn((r) => r);
+      const vpSave = jest.fn(async (r) => r);
+      const manager = {
+        getRepository: jest.fn((entity) => {
+          if (entity === PurchaseOrder) return {
+            findOne: jest.fn((...args) => (purchaseOrderRepository.findOne as any)(...args)),
+            save: jest.fn(async (row) => { await purchaseOrderRepository.save(row); return row; }),
+          };
+          return { find: vpFind, findOne: vpFindOne, restore: vpRestore, update: vpUpdate, create: vpCreate, save: vpSave };
+        }),
+      } as unknown as EntityManager;
+      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+      jest.spyOn(service as any, 'findOne').mockResolvedValue({ id: 'po-1' } as any);
+    });
+
+    it('allows a refund exactly equal to net paid and resets the order to UNPAID', async () => {
+      paymentMethodRepository.findOne.mockResolvedValue({ id: 'pm-1', isActive: true, accountingChannel: 'BANK' });
+      const ctx = wireTx({ lockedPO, existing: [{ id: 'vp-paid', amount: '100.0000', isActive: true }] });
+      // Net paid after the refund = 100.0000 - 100.0000 = 0.
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { id: 'vp-paid', amount: '100.0000' } as unknown as VendorPayment,
+        { id: 'vp-refund', amount: '-100.0000' } as unknown as VendorPayment,
+      ]);
+
+      await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '100.0000' }], 'u');
+
+      expect(ctx.saved[0]).toMatchObject({ amount: '-100.0000' });
+      const saved = ctx.poRepo.save.mock.calls.at(-1)?.[0] as PurchaseOrder;
+      expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.UNPAID);
+      expect(saved.paidAmount).toBe('0.0000');
+    });
+
+    it('rejects a refund that exceeds net paid by one minor unit', async () => {
+      paymentMethodRepository.findOne.mockResolvedValue({ id: 'pm-1', isActive: true, accountingChannel: 'BANK' });
+      wireTx({ lockedPO, existing: [{ id: 'vp-paid', amount: '100.0000', isActive: true }] });
+
+      await expect(
+        service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '100.0001' }], 'u'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('marks the order PAID and promotes DRAFT to READY when payments equal the total', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValue({
+        ...mockPOForPayment,
+        totalAmount: '100.0000',
+        status: PurchaseOrderStatus.DRAFT,
+      } as unknown as PurchaseOrder);
+      vendorPaymentRepository.findOne.mockResolvedValue(null);
+      vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { id: 'vp-exact', amount: '100.0000' } as unknown as VendorPayment,
+      ]);
+
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '100.0000' }]);
+
+      const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
+      expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.PAID);
+      expect(saved.status).toBe(PurchaseOrderStatus.READY);
+    });
+
+    it('marks the order OVERPAID and keeps DRAFT when payments exceed the total', async () => {
+      purchaseOrderRepository.findOne.mockResolvedValue({
+        ...mockPOForPayment,
+        totalAmount: '100.0000',
+        status: PurchaseOrderStatus.DRAFT,
+      } as unknown as PurchaseOrder);
+      vendorPaymentRepository.findOne.mockResolvedValue(null);
+      vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { id: 'vp-over', amount: '120.0000' } as unknown as VendorPayment,
+      ]);
+
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '120.0000' }]);
+
+      const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
+      expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.OVERPAID);
+      expect(saved.status).toBe(PurchaseOrderStatus.DRAFT);
+    });
   })
 
   describe('payment reference persistence', () => {
@@ -1046,7 +1153,7 @@ describe('PurchaseOrderService', () => {
       orderNumber: 'PO-001',
       status: 'DRAFT',
       supplierId: 'sup-1',
-      totalAmount: '100',
+      totalAmount: '100.0000',
     }
 
     beforeEach(() => {
@@ -1065,7 +1172,7 @@ describe('PurchaseOrderService', () => {
 
       await service.recordRefunds(
         'po-1',
-        [{ paymentMethodId: 'pm-1', amount: 40, reference: 'RFND-77' }],
+        [{ paymentMethodId: 'pm-1', amount: '40.0000', reference: 'RFND-77' }],
         'user-1',
         'admin',
       )
@@ -1080,7 +1187,7 @@ describe('PurchaseOrderService', () => {
 
       await service.recordOrderPayments(
         'po-1',
-        [{ paymentMethodId: 'pm-1', amount: 100, reference: 'WIRE-001' }],
+        [{ paymentMethodId: 'pm-1', amount: '100.0000', reference: 'WIRE-001' }],
         'user-1',
         'admin',
       )
@@ -1107,8 +1214,8 @@ describe('PurchaseOrderService', () => {
       await service.recordOrderPayments(
         'po-1',
         [
-          { paymentMethodId: 'pm-1', amount: 60, reference: 'FIRST-1' },
-          { paymentMethodId: 'pm-1', amount: 40, reference: 'SECOND-2' },
+          { paymentMethodId: 'pm-1', amount: '60.0000', reference: 'FIRST-1' },
+          { paymentMethodId: 'pm-1', amount: '40.0000', reference: 'SECOND-2' },
         ],
         'user-1',
         'admin',
@@ -1135,7 +1242,7 @@ describe('PurchaseOrderService', () => {
 
       await service.recordOrderPayments(
         'po-1',
-        [{ paymentMethodId: 'pm-1', amount: 60, reference: 'RESTORED-1' }],
+        [{ paymentMethodId: 'pm-1', amount: '60.0000', reference: 'RESTORED-1' }],
         'user-1',
         'admin',
       )
@@ -1160,7 +1267,7 @@ describe('PurchaseOrderService', () => {
 
       await service.recordOrderPayments(
         'po-1',
-        [{ paymentMethodId: 'pm-1', amount: 60 }],
+        [{ paymentMethodId: 'pm-1', amount: '60.0000' }],
         'user-1',
         'admin',
       )
@@ -1171,4 +1278,104 @@ describe('PurchaseOrderService', () => {
       )
     })
   })
+
+  // derivePaymentStatus decides PAID by exact equality. Under Number() a fully
+  // paid order could miss that equality and stay PARTIAL, silently failing to
+  // promote DRAFT -> READY. These pin the exact bigint comparison.
+  describe('exact payment reconciliation', () => {
+    const reconcile = (order: any) =>
+      (service as any).reconcilePaymentState(order as PurchaseOrder);
+
+    beforeEach(() => {
+      purchaseOrderRepository.save.mockImplementation((v: any) => Promise.resolve(v));
+    });
+
+    it('sums split payments exactly and promotes DRAFT to READY when fully paid', async () => {
+      // Number('0.1') + Number('0.2') === 0.30000000000000004 !== 0.3
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { amount: '0.1000' },
+        { amount: '0.2000' },
+      ] as any);
+      const order: any = {
+        id: 'po-1',
+        totalAmount: '0.3000',
+        paidAmount: '0.0000',
+        status: PurchaseOrderStatus.DRAFT,
+      };
+
+      await reconcile(order);
+
+      expect(order.paidAmount).toBe('0.3000');
+      expect(order.paymentStatus).toBe(PurchaseOrderPaymentStatus.PAID);
+      expect(order.status).toBe(PurchaseOrderStatus.READY);
+    });
+
+    it('derives PARTIAL one minor unit below the total and stays DRAFT', async () => {
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { amount: '99.9999' },
+      ] as any);
+      const order: any = {
+        id: 'po-1',
+        totalAmount: '100.0000',
+        paidAmount: '0.0000',
+        status: PurchaseOrderStatus.DRAFT,
+      };
+
+      await reconcile(order);
+
+      expect(order.paymentStatus).toBe(PurchaseOrderPaymentStatus.PARTIAL);
+      expect(order.status).toBe(PurchaseOrderStatus.DRAFT);
+    });
+
+    it('derives OVERPAID one minor unit above the total and does not promote', async () => {
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { amount: '100.0001' },
+      ] as any);
+      const order: any = {
+        id: 'po-1',
+        totalAmount: '100.0000',
+        paidAmount: '0.0000',
+        status: PurchaseOrderStatus.DRAFT,
+      };
+
+      await reconcile(order);
+
+      // OVERPAID is a supported state and is not fulfillable.
+      expect(order.paymentStatus).toBe(PurchaseOrderPaymentStatus.OVERPAID);
+      expect(order.status).toBe(PurchaseOrderStatus.DRAFT);
+    });
+
+    it('derives UNPAID with no payments and reverts READY to DRAFT', async () => {
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([] as any);
+      const order: any = {
+        id: 'po-1',
+        totalAmount: '100.0000',
+        paidAmount: '100.0000',
+        status: PurchaseOrderStatus.READY,
+      };
+
+      await reconcile(order);
+
+      expect(order.paidAmount).toBe('0.0000');
+      expect(order.paymentStatus).toBe(PurchaseOrderPaymentStatus.UNPAID);
+      expect(order.status).toBe(PurchaseOrderStatus.DRAFT);
+    });
+
+    it('stays exact at the maximum decimal(15,4) magnitude', async () => {
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { amount: '99999999999.9900' },
+      ] as any);
+      const order: any = {
+        id: 'po-1',
+        totalAmount: '99999999999.9900',
+        paidAmount: '0.0000',
+        status: PurchaseOrderStatus.DRAFT,
+      };
+
+      await reconcile(order);
+
+      expect(order.paidAmount).toBe('99999999999.9900');
+      expect(order.paymentStatus).toBe(PurchaseOrderPaymentStatus.PAID);
+    });
+  });
 });

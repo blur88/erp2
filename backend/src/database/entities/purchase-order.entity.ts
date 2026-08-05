@@ -128,9 +128,11 @@ export class PurchaseOrder extends BaseEntity {
     default: 0,
     comment: 'Total order amount',
   })
+  // Scale-4 decimal string; @Min cannot apply to a string (class-validator's min
+  // returns false unconditionally), so the floor lives in the DTOs via
+  // IsMoneyAtLeast. See common/utils/money.ts.
   @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  totalAmount: number;
+  totalAmount: string;
 
   @Column({
     type: 'decimal',
@@ -140,8 +142,7 @@ export class PurchaseOrder extends BaseEntity {
     comment: 'Total amount paid',
   })
   @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
-  paidAmount: number;
+  paidAmount: string;
 
   @Column({
     type: 'enum',
@@ -237,7 +238,7 @@ export class PurchaseOrder extends BaseEntity {
 
     // Calculate total (subtotal - discount + shipping)
     const subtotalAfterDiscount = Number(this.subtotal || 0) - Number(this.discountAmount || 0);
-    this.totalAmount = subtotalAfterDiscount + Number(this.shippingAmount || 0);
+    this.totalAmount = (subtotalAfterDiscount + Number(this.shippingAmount || 0)).toFixed(4);
   }
 
 

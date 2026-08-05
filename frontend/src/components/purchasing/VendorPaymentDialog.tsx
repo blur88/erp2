@@ -19,24 +19,27 @@ import {
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as AddIcon } from '@mui/icons-material/Add'
 import { useGetActivePaymentMethodsForPurchasesQuery } from '@/store/api/paymentMethodsApi'
+import {
+  formatCurrency,
+  toAmountInputValue,
+  toScaledAmount,
+  fromScaledAmount,
+  sumScaledAmounts,
+} from '@/utils/currency'
 
 interface PaymentLine {
   paymentMethodId: string
-  amount: number | string
+  amount: string
   reference: string
 }
 
 interface VendorPaymentDialogProps {
   open: boolean
   onClose: () => void
-  onSubmit: (payments: { paymentMethodId: string; amount: number; reference?: string }[]) => Promise<void>
+  onSubmit: (payments: { paymentMethodId: string; amount: string; reference?: string }[]) => Promise<void>
   orderNumber: string
-  totalAmount: number
-  paidAmount: number
-}
-
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(amount)
+  totalAmount: string
+  paidAmount: string
 }
 
 export default function VendorPaymentDialog({
@@ -47,7 +50,9 @@ export default function VendorPaymentDialog({
   totalAmount,
   paidAmount,
 }: VendorPaymentDialogProps) {
-  const outstandingBalance = Math.max(0, totalAmount - paidAmount)
+  const totalMinor = toScaledAmount(totalAmount) ?? 0n
+  const paidMinor = toScaledAmount(paidAmount) ?? 0n
+  const outstandingMinor = totalMinor - paidMinor > 0n ? totalMinor - paidMinor : 0n
   const { data: paymentMethods = [] } = useGetActivePaymentMethodsForPurchasesQuery(undefined, { skip: !open })
   const [lines, setLines] = useState<PaymentLine[]>([])
   const [submitting, setSubmitting] = useState(false)
@@ -60,13 +65,15 @@ export default function VendorPaymentDialog({
     const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines([{
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
-      amount: outstandingBalance > 0 ? outstandingBalance : '',
+      amount: outstandingMinor > 0n ? toAmountInputValue(fromScaledAmount(outstandingMinor)) : '',
       reference: '',
     }])
-  }, [open, paymentMethods, outstandingBalance])
+  }, [open, paymentMethods, outstandingMinor])
 
-  const totalEntered = lines.reduce((sum, l) => sum + (typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string) || 0), 0)
-  const remaining = outstandingBalance - totalEntered
+  const enteredMinor = sumScaledAmounts(lines.map((l) => l.amount))
+  const hasInvalidAmount = enteredMinor === null
+  const totalEnteredMinor = enteredMinor ?? 0n
+  const remainingMinor = outstandingMinor - totalEnteredMinor
 
   const updateLine = useCallback((index: number, field: keyof PaymentLine, value: any) => {
     setLines(prev => {
@@ -80,10 +87,10 @@ export default function VendorPaymentDialog({
     const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
     setLines(prev => [...prev, {
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
-      amount: remaining > 0 ? remaining : '',
+      amount: remainingMinor > 0n ? toAmountInputValue(fromScaledAmount(remainingMinor)) : '',
       reference: '',
     }])
-  }, [paymentMethods, remaining])
+  }, [paymentMethods, remainingMinor])
 
   const removeLine = useCallback((index: number) => {
     setLines(prev => prev.length > 1 ? prev.filter((_, i) => i !== index) : prev)
@@ -91,9 +98,13 @@ export default function VendorPaymentDialog({
 
   const handleSubmit = async () => {
     setError(null)
+    if (hasInvalidAmount) {
+      setError('Every payment amount must be a number with at most 4 decimal places.')
+      return
+    }
     const validLines = lines.filter(l => {
-      const amt = typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string)
-      return l.paymentMethodId && amt > 0
+      const units = toScaledAmount(l.amount)
+      return l.paymentMethodId && units !== null && units > 0n
     })
     if (validLines.length === 0) {
       setError('At least one payment line with a valid amount is required.')
@@ -104,7 +115,7 @@ export default function VendorPaymentDialog({
     try {
       await onSubmit(validLines.map(l => ({
         paymentMethodId: l.paymentMethodId,
-        amount: typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string),
+        amount: l.amount,
         reference: l.reference || undefined,
       })))
       onClose()
@@ -115,7 +126,7 @@ export default function VendorPaymentDialog({
     }
   }
 
-  const isOverpaying = totalEntered > outstandingBalance && outstandingBalance > 0
+  const isOverpaying = totalEnteredMinor > outstandingMinor && outstandingMinor > 0n
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -139,7 +150,7 @@ export default function VendorPaymentDialog({
           }}>Outstanding Balance</Typography>
           <Typography variant="body2" sx={{
             fontWeight: "bold"
-          }}>{formatCurrency(outstandingBalance)}</Typography>
+          }}>{formatCurrency(fromScaledAmount(outstandingMinor))}</Typography>
         </Box>
 
         <Divider sx={{ mb: 2 }} />
@@ -212,20 +223,20 @@ export default function VendorPaymentDialog({
           }}>Total Payment</Typography>
           <Typography variant="body2" sx={{
             fontWeight: "bold"
-          }}>{formatCurrency(totalEntered)}</Typography>
+          }}>{formatCurrency(fromScaledAmount(totalEnteredMinor))}</Typography>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
           <Typography variant="body2" sx={{
             color: "text.secondary"
           }}>Remaining</Typography>
-          <Typography variant="body2" color={remaining < 0 ? 'error.main' : 'text.secondary'}>
-            {formatCurrency(Math.abs(remaining))}{remaining < 0 ? ' (overpayment)' : ''}
+          <Typography variant="body2" color={remainingMinor < 0n ? 'error.main' : 'text.secondary'}>
+            {formatCurrency(fromScaledAmount(remainingMinor < 0n ? -remainingMinor : remainingMinor))}{remainingMinor < 0n ? ' (overpayment)' : ''}
           </Typography>
         </Box>
 
         {isOverpaying && (
           <Alert severity="warning" sx={{ mt: 2 }}>
-            Total payment exceeds outstanding balance by {formatCurrency(Math.abs(remaining))}.
+            Total payment exceeds outstanding balance by {formatCurrency(fromScaledAmount(remainingMinor < 0n ? -remainingMinor : remainingMinor))}.
           </Alert>
         )}
 
@@ -238,7 +249,7 @@ export default function VendorPaymentDialog({
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={submitting || totalEntered <= 0}
+          disabled={submitting || hasInvalidAmount || totalEnteredMinor <= 0n}
           startIcon={submitting ? <CircularProgress size={16} /> : undefined}
         >
           {submitting ? 'Recording...' : 'Record Payment'}

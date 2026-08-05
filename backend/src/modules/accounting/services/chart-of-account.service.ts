@@ -8,7 +8,7 @@ import { AccountingPostingService } from './accounting-posting.service';
 import { AccountBalanceService } from './account-balance.service';
 import { CreateAccountDto } from '../dto/create-account.dto';
 import { UpdateAccountDto } from '../dto/update-account.dto';
-import { toMinorUnits, formatScale4 } from '../utils/money';
+import { toMinorUnits, formatScale4 } from '@/common/utils/money';
 
 @Injectable()
 export class ChartOfAccountService {

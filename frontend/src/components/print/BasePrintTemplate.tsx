@@ -40,8 +40,8 @@ interface PrintTotals {
   subtotal: number
   shipping?: number
   total: number
-  paid?: number
-  balance?: number
+  paid?: number | string
+  balance?: number | string
 }
 
 interface RecipientInfo {

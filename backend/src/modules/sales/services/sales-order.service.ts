@@ -161,7 +161,7 @@ export class SalesOrderService extends BaseCrudService<
     const orderItems = await this.validateAndProcessItems(items, customer);
     const subtotal = SalesOrderService.sumItemTotals(orderItems);
     const shippingAmount = Number(createSalesOrderDto.shippingAmount || 0);
-    const totalAmount = subtotal + shippingAmount;
+    const totalAmount = (subtotal + shippingAmount).toFixed(4);
 
     // Note: Credit limit check removed - customerService not available
 
@@ -249,7 +249,7 @@ export class SalesOrderService extends BaseCrudService<
     await this.auditLogService.log(
       'CREATE',
       'SalesOrder',
-      `Created sales order: ${savedOrder.orderNumber} for ${customer.name} (RM ${totalAmount.toFixed(2)})`,
+      `Created sales order: ${savedOrder.orderNumber} for ${customer.name} (RM ${totalAmount})`,
       {
         entityId: savedOrder.id,
         userId: userId || 'system',
@@ -469,7 +469,7 @@ export class SalesOrderService extends BaseCrudService<
             : Number(locked.shippingAmount || 0);
         updateData.shippingAmount = shippingAmount;
         updateData.subtotal = subtotal;
-        updateData.totalAmount = subtotal + shippingAmount;
+        updateData.totalAmount = (subtotal + shippingAmount).toFixed(4);
       } else if (updateSalesOrderDto.shippingAmount !== undefined) {
         // Shipping-only edits read existing items through the transaction manager.
         const existingItems = await manager.getRepository(SalesOrderItem).find({
@@ -479,7 +479,7 @@ export class SalesOrderService extends BaseCrudService<
         const newShipping = Number(updateSalesOrderDto.shippingAmount);
         updateData.shippingAmount = newShipping;
         updateData.subtotal = currentSubtotal;
-        updateData.totalAmount = currentSubtotal + newShipping;
+        updateData.totalAmount = (currentSubtotal + newShipping).toFixed(4);
       }
 
       const hasChanges = Object.keys(updateData).length > 0;
@@ -615,11 +615,11 @@ export class SalesOrderService extends BaseCrudService<
       notes: order.notes ?? null,
       subtotal: Number(order.subtotal),
       shippingAmount: Number(order.shippingAmount),
-      totalAmount: Number(order.totalAmount),
+      totalAmount: order.totalAmount,
       status: order.status,
       paymentStatus: order.paymentStatus,
-      paidAmount: Number(order.paidAmount),
-      balanceDue: Number(order.balanceDue),
+      paidAmount: order.paidAmount,
+      balanceDue: order.balanceDue,
     };
   }
 

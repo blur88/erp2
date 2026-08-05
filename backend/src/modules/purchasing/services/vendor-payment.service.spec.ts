@@ -30,8 +30,8 @@ describe('VendorPaymentService', () => {
     id: 'po-123',
     orderNumber: 'PO-000001',
     supplierId: 'supplier-123',
-    totalAmount: 1000,
-    paidAmount: 0,
+    totalAmount: '1000.0000',
+    paidAmount: '0.0000',
     status: PurchaseOrderStatus.DRAFT,
     paymentStatus: PurchaseOrderPaymentStatus.UNPAID,
   } as Partial<PurchaseOrder>;
@@ -40,7 +40,7 @@ describe('VendorPaymentService', () => {
     id: 'payment-123',
     supplierId: 'supplier-123',
     purchaseOrderId: 'po-123',
-    amount: 1000,
+    amount: '1000.0000',
     paymentDate: new Date('2024-01-15'),
     paymentMethodId: 'pm-bank-id',
     status: 'completed',
@@ -105,7 +105,7 @@ describe('VendorPaymentService', () => {
     const createDto: CreateVendorPaymentDto = {
       supplierId: 'supplier-123',
       purchaseOrderId: 'po-123',
-      amount: 1000,
+      amount: '1000.0000',
       paymentDate: '2024-01-15',
       paymentMethodId: 'pm-bank-id',
       status: 'completed',
@@ -172,6 +172,56 @@ describe('VendorPaymentService', () => {
         expect.any(String),
         expect.objectContaining({
           newValues: expect.objectContaining({ referenceNumber: 'WIRE-001' }),
+        }),
+      );
+    });
+
+    it('persists the exact amount string given on the saved entity', async () => {
+      const dto = { ...createDto, amount: '1000.0000' };
+      vendorPaymentRepository.create.mockReturnValue({ ...dto } as any);
+      vendorPaymentRepository.save.mockResolvedValue({
+        id: 'payment-123',
+        ...dto,
+      } as any);
+
+      const result = await service.create(dto, 'user-1', 'tester');
+
+      expect(vendorPaymentRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: '1000.0000' }),
+      );
+      expect(result.amount).toBe('1000.0000');
+    });
+
+    it('normalizes a shorter amount string to scale 4 on the created entity', async () => {
+      const dto = { ...createDto, amount: '1000' };
+      vendorPaymentRepository.create.mockImplementation((row: any) => ({ ...row }) as any);
+      vendorPaymentRepository.save.mockImplementation(
+        async (row: any) => ({ id: 'payment-123', ...row }) as any,
+      );
+
+      const result = await service.create(dto, 'user-1', 'tester');
+
+      expect(vendorPaymentRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: '1000.0000' }),
+      );
+      expect(result.amount).toBe('1000.0000');
+    });
+
+    it('logs the normalized amount string in the audit trail', async () => {
+      const dto = { ...createDto, amount: '1000' };
+      vendorPaymentRepository.create.mockImplementation((row: any) => ({ ...row }) as any);
+      vendorPaymentRepository.save.mockImplementation(
+        async (row: any) => ({ id: 'payment-123', ...row }) as any,
+      );
+
+      await service.create(dto, 'user-1', 'tester');
+
+      expect(auditLogService.log).toHaveBeenCalledWith(
+        'CREATE',
+        'VendorPayment',
+        expect.any(String),
+        expect.objectContaining({
+          newValues: expect.objectContaining({ amount: '1000.0000' }),
         }),
       );
     });

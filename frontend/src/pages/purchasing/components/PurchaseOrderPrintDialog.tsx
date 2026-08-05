@@ -20,6 +20,7 @@ import BasePrintTemplate from '@/components/print/BasePrintTemplate'
 import { useGetPrintSettingsQuery } from '@/store/api/printSettingsApi'
 import { useCurrency } from '@/hooks/useCurrency'
 import { formatDate } from '@/utils/formatters'
+import { toScaledAmount, fromScaledAmount } from '@/utils/currency'
 import type { PurchaseOrder, VendorPayment } from '@/types'
 
 // Supplier payloads reaching this dialog come in two shapes:
@@ -172,18 +173,22 @@ const PurchaseOrderPrintDialog: React.FC<PurchaseOrderPrintDialogProps> = ({
       }
     })
 
-    const total = Number(po?.totalAmount ?? 0)
+    // Subtract in scale-4 minor units, then coerce once for presentation. Doing
+    // Number(total) - Number(paid) would reintroduce binary64 loss on the
+    // printed balance, which is the defect this path exists to avoid.
+    const totalMinor = toScaledAmount(po?.totalAmount) ?? 0n
     // Use the order's cumulative paidAmount (matches the SO payment receipt),
     // not a single payment's amount — otherwise a PO paid across multiple
     // payments shows a wrong, non-zero balance. Fall back to this payment's
     // amount only when the order does not carry paidAmount.
-    const paid = Number(po?.paidAmount ?? printablePayment?.amount ?? 0)
+    const paidMinor = toScaledAmount(po?.paidAmount ?? printablePayment?.amount) ?? 0n
     const totals = {
       subtotal: Number(po?.subtotal ?? 0),
       shipping: Number(po?.shippingAmount ?? 0),
-      total,
-      paid,
-      balance: total - paid,
+      // totals.total is typed number on the template; coerce only for display.
+      total: Number(fromScaledAmount(totalMinor)),
+      paid: fromScaledAmount(paidMinor),
+      balance: fromScaledAmount(totalMinor - paidMinor),
     }
 
     return (

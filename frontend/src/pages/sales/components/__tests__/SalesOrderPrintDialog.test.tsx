@@ -38,7 +38,7 @@ function makeSalesOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
     status: 'DRAFT',
     paymentStatus: 'UNPAID',
     customerId: 'c-1',
-    totalAmount: 100,
+    totalAmount: '100.0000',
     orderDate: new Date('2026-06-01'),
     createdAt: new Date('2026-06-01'),
     updatedAt: new Date('2026-06-01'),
@@ -126,7 +126,7 @@ describe('SalesOrderPrintDialog', () => {
     render(
       <SalesOrderPrintDialog
         open
-        salesOrder={makeSalesOrder({ paidAmount: 0 })}
+        salesOrder={makeSalesOrder({ paidAmount: '0.0000' })}
         onClose={() => {}}
       />,
     );
@@ -139,7 +139,7 @@ describe('SalesOrderPrintDialog', () => {
     render(
       <SalesOrderPrintDialog
         open
-        salesOrder={makeSalesOrder({ paidAmount: 50 })}
+        salesOrder={makeSalesOrder({ paidAmount: '50.0000' })}
         onClose={() => {}}
       />,
     );
@@ -155,9 +155,9 @@ describe('SalesOrderPrintDialog', () => {
       <SalesOrderPrintDialog
         open
         salesOrder={makeSalesOrder({
-          paidAmount: 50,
+          paidAmount: '50.0000',
           subtotal: 100,
-          totalAmount: 100,
+          totalAmount: '100.0000',
           status: 'FULFILLED',
         })}
         onClose={() => {}}
@@ -179,9 +179,9 @@ describe('SalesOrderPrintDialog', () => {
       <SalesOrderPrintDialog
         open
         salesOrder={makeSalesOrder({
-          paidAmount: 150,
+          paidAmount: '150.0000',
           subtotal: 100,
-          totalAmount: 100,
+          totalAmount: '100.0000',
           status: 'FULFILLED',
           items: [
             {

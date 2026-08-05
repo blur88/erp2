@@ -1,13 +1,14 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import RefundDialog, { type RefundSource } from '../RefundDialog'
+import { toScaledAmount, fromScaledAmount } from '@/utils/currency'
 
 const sources: RefundSource[] = [
-  { id: 'pm-1', label: 'Cash', paidAmount: 500, alreadyRefunded: 0 },
-  { id: 'pm-2', label: 'Bank Transfer', paidAmount: 0, alreadyRefunded: 0 },
+  { id: 'pm-1', label: 'Cash', paidAmount: '500.0000', alreadyRefunded: '0.0000' },
+  { id: 'pm-2', label: 'Bank Transfer', paidAmount: '0.0000', alreadyRefunded: '0.0000' },
 ]
 
 function renderDialog(props: Partial<ComponentProps<typeof RefundDialog>> = {}) {
@@ -17,7 +18,7 @@ function renderDialog(props: Partial<ComponentProps<typeof RefundDialog>> = {}) 
     onSubmit: vi.fn().mockResolvedValue(undefined),
     sources,
     orderNumber: 'SO-26-001',
-    totalAmount: 500,
+    totalAmount: '500.0000',
   }
   return render(<RefundDialog {...defaults} {...props} />)
 }
@@ -29,14 +30,14 @@ beforeEach(() => {
 describe('RefundDialog', () => {
   it('displays Available for Refund in summary', () => {
     renderDialog({
-      sources: [{ id: 'pm-1', label: 'Cash', paidAmount: 500, alreadyRefunded: 100 }],
+      sources: [{ id: 'pm-1', label: 'Cash', paidAmount: '500.0000', alreadyRefunded: '100.0000' }],
     })
     expect(screen.getByText('Available for Refund')).toBeInTheDocument()
   })
 
   it('Available for Refund shows net paid minus prior refunds', () => {
     renderDialog({
-      sources: [{ id: 'pm-1', label: 'Cash', paidAmount: 500, alreadyRefunded: 100 }],
+      sources: [{ id: 'pm-1', label: 'Cash', paidAmount: '500.0000', alreadyRefunded: '100.0000' }],
     })
     // Available = 500 - 100 = 400
     expect(screen.getAllByText(/400/).length).toBeGreaterThan(0)
@@ -45,22 +46,22 @@ describe('RefundDialog', () => {
   it('pre-fills first refund line with Available for Refund amount', () => {
     renderDialog()
     const amountInput = screen.getByPlaceholderText('Amount') as HTMLInputElement
-    expect(amountInput.value).toBe('500')
+    expect(amountInput.value).toBe('500.00')
   })
 
   it('defaults refund amount to the surplus on an overpaid order', () => {
-    renderDialog({ totalAmount: 300 })
+    renderDialog({ totalAmount: '300.0000' })
     const amountInput = screen.getByPlaceholderText('Amount') as HTMLInputElement
-    expect(amountInput.value).toBe('200')
+    expect(amountInput.value).toBe('200.00')
   })
 
   it('shows a Surplus over total row when the order is overpaid', () => {
-    renderDialog({ totalAmount: 300 })
+    renderDialog({ totalAmount: '300.0000' })
     expect(screen.getByText('Surplus over total')).toBeInTheDocument()
   })
 
   it('hides the Surplus over total row when the order is exactly paid', () => {
-    renderDialog({ totalAmount: 500 })
+    renderDialog({ totalAmount: '500.0000' })
     expect(screen.queryByText('Surplus over total')).not.toBeInTheDocument()
   })
 
@@ -80,14 +81,14 @@ describe('RefundDialog', () => {
 
   it('Refund button is disabled when total entered is 0', () => {
     renderDialog({
-      sources: [{ id: 'pm-1', label: 'Cash', paidAmount: 500, alreadyRefunded: 500 }],
+      sources: [{ id: 'pm-1', label: 'Cash', paidAmount: '500.0000', alreadyRefunded: '500.0000' }],
     })
     expect(screen.getByRole('button', { name: /^refund$/i })).toBeDisabled()
   })
 
   it('Refund button is disabled when total exceeds available', async () => {
     renderDialog({
-      sources: [{ id: 'pm-1', label: 'Cash', paidAmount: 300, alreadyRefunded: 0 }],
+      sources: [{ id: 'pm-1', label: 'Cash', paidAmount: '300.0000', alreadyRefunded: '0.0000' }],
     })
     const amountInput = screen.getByPlaceholderText('Amount')
     await userEvent.clear(amountInput)
@@ -97,7 +98,7 @@ describe('RefundDialog', () => {
 
   it('shows error alert when total exceeds available', async () => {
     renderDialog({
-      sources: [{ id: 'pm-1', label: 'Cash', paidAmount: 300, alreadyRefunded: 0 }],
+      sources: [{ id: 'pm-1', label: 'Cash', paidAmount: '300.0000', alreadyRefunded: '0.0000' }],
     })
     const amountInput = screen.getByPlaceholderText('Amount')
     await userEvent.clear(amountInput)
@@ -132,7 +133,7 @@ describe('RefundDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: /^refund$/i }))
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce())
     expect(onSubmit).toHaveBeenCalledWith([
-      expect.objectContaining({ sourceId: 'pm-1', amount: 200 }),
+      expect.objectContaining({ sourceId: 'pm-1', amount: '200' }),
     ])
   })
 
@@ -151,8 +152,8 @@ describe('RefundDialog', () => {
   it('pre-fills multiple refund lines when multiple sources have positive net', async () => {
     renderDialog({
       sources: [
-        { id: 'pm-1', label: 'Cash', paidAmount: 300, alreadyRefunded: 0 },
-        { id: 'pm-2', label: 'Bank Transfer', paidAmount: 200, alreadyRefunded: 0 },
+        { id: 'pm-1', label: 'Cash', paidAmount: '300.0000', alreadyRefunded: '0.0000' },
+        { id: 'pm-2', label: 'Bank Transfer', paidAmount: '200.0000', alreadyRefunded: '0.0000' },
       ],
     })
     await waitFor(() => {
@@ -164,8 +165,8 @@ describe('RefundDialog', () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined)
     renderDialog({
       sources: [
-        { id: 'src-a', label: 'Cash', paidAmount: 300, alreadyRefunded: 0 },
-        { id: 'src-b', label: 'Bank Transfer', paidAmount: 200, alreadyRefunded: 0 },
+        { id: 'src-a', label: 'Cash', paidAmount: '300.0000', alreadyRefunded: '0.0000' },
+        { id: 'src-b', label: 'Bank Transfer', paidAmount: '200.0000', alreadyRefunded: '0.0000' },
       ],
       onSubmit,
     })
@@ -181,8 +182,8 @@ describe('RefundDialog', () => {
     // pm-2 has paidAmount 0 -> nothing left to refund -> must not be selectable.
     renderDialog({
       sources: [
-        { id: 'pm-1', label: 'Cash', paidAmount: 500, alreadyRefunded: 0 },
-        { id: 'pm-2', label: 'Bank Transfer', paidAmount: 0, alreadyRefunded: 0 },
+        { id: 'pm-1', label: 'Cash', paidAmount: '500.0000', alreadyRefunded: '0.0000' },
+        { id: 'pm-2', label: 'Bank Transfer', paidAmount: '0.0000', alreadyRefunded: '0.0000' },
       ],
     })
     // Open the source Select (first combobox).
@@ -199,10 +200,10 @@ describe('RefundDialog', () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined)
     renderDialog({
       sources: [
-        { id: 'src-a', label: 'Cash', paidAmount: 300, alreadyRefunded: 0 },
-        { id: 'src-b', label: 'Bank Transfer', paidAmount: 200, alreadyRefunded: 0 },
+        { id: 'src-a', label: 'Cash', paidAmount: '300.0000', alreadyRefunded: '0.0000' },
+        { id: 'src-b', label: 'Bank Transfer', paidAmount: '200.0000', alreadyRefunded: '0.0000' },
       ],
-      totalAmount: 500,
+    totalAmount: '500.0000',
       onSubmit,
     })
     // Two lines pre-fill (300 + 200). Zero out the second (src-b) so it is
@@ -249,5 +250,175 @@ describe('RefundDialog', () => {
       expect(submittedLines[0]).toHaveProperty('date')
       expect(typeof submittedLines[0].date).toBe('string')
     })
+  })
+})
+
+describe('money formatting and precision', () => {
+  afterEach(() => {
+    localStorage.removeItem('defaultCurrency')
+  })
+
+  it('seeds the available amount at the two-decimal floor', () => {
+    renderDialog()
+    // type="number" inputs: toHaveValue normalizes to Number; assert the raw
+    // DOM value to check the two-decimal lexical normalization.
+    const input = screen.getByPlaceholderText('Amount') as HTMLInputElement
+    expect(input.value).toBe('500.00')
+  })
+
+  it('computes available for refund exactly', () => {
+    // 0.3 - 0.1 drifts under Number(); must be exactly 0.2000.
+    renderDialog({
+      totalAmount: '0.3000',
+      sources: [{ id: 'pm-1', label: 'Cash', paidAmount: '0.3000', alreadyRefunded: '0.1000' }],
+    })
+    const input = screen.getByPlaceholderText('Amount') as HTMLInputElement
+    expect(input.value).toBe('0.20')
+  })
+
+  it('formats summaries with the configured currency, not a hard-coded MYR', () => {
+    localStorage.setItem('defaultCurrency', 'USD')
+    renderDialog()
+    expect(screen.queryByText(/RM|MYR/)).not.toBeInTheDocument()
+    expect(screen.getAllByText(/USD/).length).toBeGreaterThan(0)
+  })
+
+  it('submits the exact decimal string, not a coerced number', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    renderDialog({ onSubmit })
+
+    const input = screen.getByPlaceholderText('Amount')
+    await userEvent.clear(input)
+    await userEvent.type(input, '499.0001')
+    await userEvent.click(screen.getByRole('button', { name: /^refund$/i }))
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith([
+        expect.objectContaining({ amount: '499.0001' }),
+      ]),
+    )
+  })
+
+  it('preserves four decimals above the floor on a small value', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    renderDialog({ onSubmit })
+
+    const input = screen.getByPlaceholderText('Amount')
+    await userEvent.clear(input)
+    await userEvent.type(input, '0.0101')
+    await userEvent.click(screen.getByRole('button', { name: /^refund$/i }))
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith([
+        expect.objectContaining({ amount: '0.0101' }),
+      ]),
+    )
+  })
+
+  it('disables submit for a malformed amount instead of counting it as zero', async () => {
+    renderDialog()
+    const input = screen.getByPlaceholderText('Amount')
+    await userEvent.clear(input)
+    await userEvent.type(input, '1.00001')
+    expect(screen.getByRole('button', { name: /^refund$/i })).toBeDisabled()
+  })
+
+  it('blocks an aggregate refund one minor unit above the available amount', async () => {
+    renderDialog()
+    const input = screen.getByPlaceholderText('Amount')
+    await userEvent.clear(input)
+    await userEvent.type(input, '500.0001')
+    expect(screen.getByRole('button', { name: /^refund$/i })).toBeDisabled()
+  })
+
+  // The aggregate check can pass while one source is over-refunded, offset by
+  // surplus on another. The backend rejects that, so the dialog must too.
+  it('rejects a per-source over-refund even when the aggregate passes', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    renderDialog({
+      onSubmit,
+      totalAmount: '100.0000',
+      sources: [
+        { id: 'pm-1', label: 'Cash', paidAmount: '50.0000', alreadyRefunded: '0.0000' },
+        { id: 'pm-2', label: 'Bank Transfer', paidAmount: '50.0000', alreadyRefunded: '0.0000' },
+      ],
+    })
+
+    // Two sources auto-seed two correctly-keyed rows (see the existing
+    // 'two-source order produces two correctly-keyed lines' test).
+    await waitFor(() => expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(2))
+
+    // Aggregate 100.0000 == available 100.0000, but Cash alone exceeds its 50.0000.
+    const inputs = screen.getAllByPlaceholderText('Amount')
+    await userEvent.clear(inputs[0])
+    await userEvent.type(inputs[0], '60.0000')
+    await userEvent.clear(inputs[1])
+    await userEvent.type(inputs[1], '40.0000')
+    await userEvent.click(screen.getByRole('button', { name: /^refund$/i }))
+
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(screen.getByText(/exceeds its available amount/i)).toBeInTheDocument()
+  })
+
+  // Half-up per line seeded 16.6667 x3 = 50.0001 against a 50.0000 surplus, so a
+  // user clicking straight through pre-filled an over-refund by one minor unit.
+  it('seeds an indivisible surplus so the lines sum to exactly the surplus', async () => {
+    renderDialog({
+      totalAmount: '250.0000',
+      sources: [
+        { id: 'pm-1', label: 'Cash', paidAmount: '100.0000', alreadyRefunded: '0.0000' },
+        { id: 'pm-2', label: 'Bank Transfer', paidAmount: '100.0000', alreadyRefunded: '0.0000' },
+        { id: 'pm-3', label: 'Card', paidAmount: '100.0000', alreadyRefunded: '0.0000' },
+      ],
+    })
+
+    await waitFor(() => expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(3))
+    const values = (screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]).map(
+      (i) => i.value,
+    )
+
+    // Significant scale-4 digits stay visible rather than being rounded to cents.
+    expect(values).toEqual(['16.6667', '16.6667', '16.6666'])
+
+    const totalMinor = values.reduce((sum, v) => sum + (toScaledAmount(v) ?? 0n), 0n)
+    expect(fromScaledAmount(totalMinor)).toBe('50.0000')
+  })
+
+  it('seeds each source at its own amount when refunding the full available', async () => {
+    renderDialog({
+      totalAmount: '300.0000',
+      sources: [
+        { id: 'pm-1', label: 'Cash', paidAmount: '100.0000', alreadyRefunded: '0.0000' },
+        { id: 'pm-2', label: 'Bank Transfer', paidAmount: '200.0000', alreadyRefunded: '0.0000' },
+      ],
+    })
+
+    await waitFor(() => expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(2))
+    const values = (screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]).map(
+      (i) => i.value,
+    )
+
+    // Exactly paid, so no surplus: each line seeds its full per-source available.
+    expect(values).toEqual(['100.00', '200.00'])
+  })
+
+  it('never seeds a source above its own available amount', async () => {
+    renderDialog({
+      totalAmount: '0.0000',
+      sources: [
+        { id: 'pm-1', label: 'Cash', paidAmount: '0.0001', alreadyRefunded: '0.0000' },
+        { id: 'pm-2', label: 'Bank Transfer', paidAmount: '100.0000', alreadyRefunded: '0.0000' },
+      ],
+    })
+
+    await waitFor(() => expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(2))
+    const values = (screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]).map(
+      (i) => i.value,
+    )
+
+    expect(toScaledAmount(values[0])).toBeLessThanOrEqual(1n)
+    expect(toScaledAmount(values[1])).toBeLessThanOrEqual(1000000n)
+    // Seeded form must pass its own per-source guard.
+    expect(screen.getByRole('button', { name: /^refund$/i })).toBeEnabled()
   })
 })

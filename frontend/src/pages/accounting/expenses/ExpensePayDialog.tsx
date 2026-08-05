@@ -22,11 +22,18 @@ import { useGetActivePaymentMethodsForPurchasesQuery } from '@/store/api/payment
 import { getCurrentDate } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import type { Expense } from '@/types'
+import {
+  formatCurrency,
+  toAmountInputValue,
+  toScaledAmount,
+  fromScaledAmount,
+  sumScaledAmounts,
+} from '@/utils/currency'
 
 interface PaymentLine {
   id: string
   paymentMethodId: string
-  amount: number | string
+  amount: string
   paymentDate: string
   reference: string
 }
@@ -34,7 +41,7 @@ interface PaymentLine {
 interface ExpensePayDialogProps {
   open: boolean
   onClose: () => void
-  onSubmit: (payments: { paymentMethodId: string; amount: number; paymentDate: string; reference?: string }[]) => Promise<void>
+  onSubmit: (payments: { paymentMethodId: string; amount: string; paymentDate: string; reference?: string }[]) => Promise<void>
   expense: Pick<Expense, 'id' | 'expenseNumber' | 'totalAmount' | 'paidAmount' | 'balance'>
 }
 
@@ -42,9 +49,6 @@ const newId = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2)
-
-const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(amount)
 
 export default function ExpensePayDialog({
   open,
@@ -54,9 +58,9 @@ export default function ExpensePayDialog({
 }: ExpensePayDialogProps) {
   const { data: paymentMethods = [] } = useGetActivePaymentMethodsForPurchasesQuery(undefined, { skip: !open })
 
-  const totalAmount = Number(expense.totalAmount)
-  const paidAmount = Number(expense.paidAmount)
-  const balance = Number(expense.balance)
+  const totalAmount = expense.totalAmount
+  const paidAmount = expense.paidAmount
+  const balanceMinor = toScaledAmount(expense.balance) ?? 0n
 
   const [lines, setLines] = useState<PaymentLine[]>([])
   const [submitting, setSubmitting] = useState(false)
@@ -79,17 +83,16 @@ export default function ExpensePayDialog({
     setLines([{
       id: newId(),
       paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
-      amount: balance > 0 ? balance : '',
+      amount: balanceMinor > 0n ? toAmountInputValue(expense.balance) : '',
       paymentDate: getCurrentDate(),
       reference: '',
     }])
-  }, [open, paymentMethods, lines.length, balance])
+  }, [open, paymentMethods, lines.length, expense.balance])
 
-  const totalEntered = lines.reduce(
-    (sum, l) => sum + (typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string) || 0),
-    0,
-  )
-  const exceedsBalance = totalEntered > balance
+  const enteredMinor = sumScaledAmounts(lines.map((l) => l.amount))
+  const hasInvalidAmount = enteredMinor === null
+  const totalEnteredMinor = enteredMinor ?? 0n
+  const exceedsBalance = totalEnteredMinor > balanceMinor
 
   const updateLine = useCallback((index: number, field: keyof PaymentLine, value: any) => {
     setUserHasEdited(true)
@@ -122,9 +125,13 @@ export default function ExpensePayDialog({
 
   const handleSubmit = async () => {
     setError(null)
+    if (hasInvalidAmount) {
+      setError('Every payment amount must be a number with at most 4 decimal places.')
+      return
+    }
     const validLines = lines.filter((l) => {
-      const amt = typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string)
-      return l.paymentMethodId && amt > 0
+      const units = toScaledAmount(l.amount)
+      return l.paymentMethodId && units !== null && units > 0n
     })
     if (validLines.length === 0) {
       setError('At least one payment line with a valid amount is required.')
@@ -140,7 +147,7 @@ export default function ExpensePayDialog({
       await onSubmit(
         validLines.map((l) => ({
           paymentMethodId: l.paymentMethodId,
-          amount: typeof l.amount === 'number' ? l.amount : parseFloat(l.amount as string),
+          amount: l.amount,
           paymentDate: l.paymentDate,
           reference: l.reference || undefined,
         })),
@@ -175,7 +182,7 @@ export default function ExpensePayDialog({
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
           <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Balance</Typography>
-          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{formatCurrency(balance)}</Typography>
+          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{formatCurrency(expense.balance)}</Typography>
         </Box>
 
         <Divider sx={{ mb: 2 }} />
@@ -254,20 +261,28 @@ export default function ExpensePayDialog({
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
           <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Total Payment</Typography>
-          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{formatCurrency(totalEntered)}</Typography>
+          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{formatCurrency(fromScaledAmount(totalEnteredMinor))}</Typography>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>Remaining After Payment</Typography>
           <Typography variant="body2" color={exceedsBalance ? 'error.main' : 'text.secondary'}>
             {exceedsBalance
-              ? `${formatCurrency(Math.abs(balance - totalEntered))} (exceeds balance)`
-              : formatCurrency(balance - totalEntered)}
+              ? `${formatCurrency(fromScaledAmount(
+                  totalEnteredMinor > balanceMinor
+                    ? totalEnteredMinor - balanceMinor
+                    : balanceMinor - totalEnteredMinor,
+                ))} (exceeds balance)`
+              : formatCurrency(fromScaledAmount(balanceMinor - totalEnteredMinor))}
           </Typography>
         </Box>
 
         {exceedsBalance && (
           <Alert severity="error" sx={{ mt: 2 }}>
-            Total payment exceeds balance by {formatCurrency(Math.abs(balance - totalEntered))}.
+            Total payment exceeds balance by {formatCurrency(fromScaledAmount(
+              totalEnteredMinor > balanceMinor
+                ? totalEnteredMinor - balanceMinor
+                : balanceMinor - totalEnteredMinor,
+            ))}.
           </Alert>
         )}
 
@@ -280,7 +295,7 @@ export default function ExpensePayDialog({
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={submitting || totalEntered <= 0 || exceedsBalance}
+          disabled={submitting || hasInvalidAmount || totalEnteredMinor <= 0n || exceedsBalance}
           startIcon={submitting ? <CircularProgress size={16} /> : undefined}
         >
           {submitting ? 'Recording...' : 'Record Payment'}

@@ -16,10 +16,12 @@ import {
   IsUUID,
   ValidateNested,
   ArrayMinSize,
+  Matches,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { BaseQueryDto } from '../../../common/dto/base-query.dto';
+import { IsMoneyAtLeast } from '../../../common/validators/is-money-at-least.validator';
 import {
   PurchaseOrderPaymentStatus,
   PurchaseOrderStatus,
@@ -231,11 +233,11 @@ export class PurchaseOrderResponseDto {
   @ApiProperty({ description: 'Shipping amount' })
   shippingAmount: number;
 
-  @ApiProperty({ description: 'Total amount' })
-  totalAmount: number;
+  @ApiProperty({ description: 'Total amount', example: '1000.0000' })
+  totalAmount: string;
 
-  @ApiProperty({ description: 'Total amount paid' })
-  paidAmount: number;
+  @ApiProperty({ description: 'Total amount paid', example: '0.0000' })
+  paidAmount: string;
 
   @ApiProperty({ description: 'Lifecycle status' })
   status: PurchaseOrderStatus;
@@ -261,7 +263,7 @@ export class PurchaseOrderResponseDto {
   @ApiPropertyOptional({ description: 'Vendor Payments associated with this order' })
   vendorPayments?: Array<{
     id: string;
-    amount: number;
+    amount: string;
     paymentDate: Date;
     paymentMethodId?: string;
     status: string;
@@ -379,9 +381,12 @@ export class RecordOrderPaymentLineDto {
   @IsNotEmpty()
   paymentMethodId: string;
 
-  @IsNumber()
-  @Min(0.01)
-  amount: number;
+  @ApiProperty({ description: 'Payment amount', example: '500.00' })
+  @Matches(/^\d+(\.\d{1,4})?$/, {
+    message: 'amount must be a positive decimal string with at most 4 decimal places',
+  })
+  @IsMoneyAtLeast('0.0100')
+  amount: string;
 
   // Persisted to vendor_payments.referenceNumber, which is varchar(100).
   @IsOptional()
@@ -404,11 +409,12 @@ export class RefundLineDto {
   @IsUUID()
   paymentMethodId: string;
 
-  @ApiProperty({ description: 'Refund amount (positive)' })
-  @Transform(({ value }) => parseFloat(value))
-  @IsNumber()
-  @Min(0.01)
-  amount: number;
+  @ApiProperty({ description: 'Refund amount (positive)', example: '100.00' })
+  @Matches(/^\d+(\.\d{1,4})?$/, {
+    message: 'amount must be a positive decimal string with at most 4 decimal places',
+  })
+  @IsMoneyAtLeast('0.0100')
+  amount: string;
 
   // Persisted to vendor_payments.referenceNumber, which is varchar(100).
   @ApiPropertyOptional({ description: 'Refund reference / note', maxLength: 100 })

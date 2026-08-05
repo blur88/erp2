@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
 import { JournalEntryLine } from '../entities/journal-entry-line.entity';
 import { AccountType } from '../entities/account-type.enum';
-import { toMinorUnits } from '../utils/money';
+import { toMinorUnits } from '@/common/utils/money';
 
 const CREDIT_NORMAL = new Set([AccountType.LIABILITY, AccountType.EQUITY, AccountType.INCOME]);
 

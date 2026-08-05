@@ -28,6 +28,11 @@ import {
   PAYMENT_SORT_FIELDS,
 } from '../dto/payment.dto';
 import { CustomerPrintDto } from '../dto/customer.dto';
+import {
+  formatScale4,
+  sumMinor,
+  toMinorUnits,
+} from '../../../common/utils/money';
 
 @Injectable()
 export class PaymentService extends BaseCrudService<
@@ -227,19 +232,22 @@ export class PaymentService extends BaseCrudService<
     });
   }
 
-  async allocatePayment(allocationDto: AllocatePaymentDto): Promise<PaymentResponseDto> {
-    const payment = await this.findPaymentWithRelations(allocationDto.paymentId);
+  async allocatePayment(
+    paymentId: string,
+    allocationDto: AllocatePaymentDto,
+  ): Promise<PaymentResponseDto> {
+    const payment = await this.findPaymentWithRelations(paymentId);
 
     if (payment.status !== PaymentStatus.COMPLETED) {
       throw new BadRequestException('Only completed payments can be allocated');
     }
 
-    const totalAllocationAmount = allocationDto.allocations.reduce(
-      (sum, allocation) => sum + allocation.amount,
-      0,
+    const paymentAmountMinor = toMinorUnits(payment.amount);
+    const totalAllocationMinor = sumMinor(
+      allocationDto.allocations.map((a) => a.amount),
     );
 
-    if (totalAllocationAmount > Number(payment.amount)) {
+    if (totalAllocationMinor > paymentAmountMinor) {
       throw new BadRequestException('Total allocation amount exceeds payment amount');
     }
 
@@ -258,9 +266,12 @@ export class PaymentService extends BaseCrudService<
       }
 
       // Update sales order paid amount and balance
-      const allocatedAmount = Number(allocation.amount);
-      salesOrder.paidAmount = Number(salesOrder.paidAmount) + allocatedAmount;
-      salesOrder.balanceDue = Number(salesOrder.totalAmount) - Number(salesOrder.paidAmount);
+      const allocatedMinor = toMinorUnits(allocation.amount);
+      const paidMinor = toMinorUnits(salesOrder.paidAmount) + allocatedMinor;
+      salesOrder.paidAmount = formatScale4(paidMinor);
+      salesOrder.balanceDue = formatScale4(
+        toMinorUnits(salesOrder.totalAmount) - paidMinor,
+      );
       await this.salesOrderRepository.save(salesOrder);
     }
 
@@ -280,7 +291,7 @@ export class PaymentService extends BaseCrudService<
     return payments.map((payment) => ({
       id: payment.id,
       paymentDate: payment.paymentDate,
-      amount: Number(payment.amount),
+      amount: payment.amount,
       paymentMethodId: payment.paymentMethodId,
       status: payment.status,
     }));
@@ -295,7 +306,7 @@ export class PaymentService extends BaseCrudService<
     return payments.map((payment) => ({
       id: payment.id,
       paymentDate: payment.paymentDate,
-      amount: Number(payment.amount),
+      amount: payment.amount,
       paymentMethodId: payment.paymentMethodId,
       status: payment.status,
     }));
@@ -330,7 +341,7 @@ export class PaymentService extends BaseCrudService<
     };
   }
 
-  async getPaidTotalForSalesOrder(salesOrderId: string): Promise<number> {
+  async getPaidTotalForSalesOrder(salesOrderId: string): Promise<string> {
     // Include REFUNDED rows: a refund flips the original payment to REFUNDED and
     // adds a negative-amount REFUNDED row. Summing COMPLETED + REFUNDED nets the
     // refunded amount out correctly (full refund -> 0, partial -> remaining paid).
@@ -340,13 +351,13 @@ export class PaymentService extends BaseCrudService<
         status: In([PaymentStatus.COMPLETED, PaymentStatus.REFUNDED]),
       },
     });
-    return payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    return formatScale4(sumMinor(payments.map((p) => p.amount)));
   }
 
   async refund(
     refundDto: {
       paymentId: string;
-      amount: number;
+      amount: string;
       reason?: string;
     },
     userId?: string,
@@ -358,7 +369,12 @@ export class PaymentService extends BaseCrudService<
       throw new BadRequestException('Can only refund completed payments');
     }
 
-    if (refundDto.amount > Number(originalPayment.amount)) {
+    const refundMinor = toMinorUnits(refundDto.amount);
+    if (refundMinor <= 0n) {
+      throw new BadRequestException('Refund amount must be greater than zero');
+    }
+
+    if (refundMinor > toMinorUnits(originalPayment.amount)) {
       throw new BadRequestException('Refund amount cannot exceed original payment amount');
     }
 
@@ -369,12 +385,12 @@ export class PaymentService extends BaseCrudService<
       customerId: originalPayment.customerId,
       salesOrderId: originalPayment.salesOrderId,
       paymentDate: new Date(),
-      amount: -refundDto.amount,
+      amount: formatScale4(-refundMinor),
       status: PaymentStatus.REFUNDED,
       paymentMethodId: originalPayment.paymentMethodId,
       notes: refundDto.reason
         ? `Refund: ${refundDto.reason}`
-        : `Refund of ${Number(originalPayment.amount).toFixed(2)} payment dated ${this.toDateOnly(originalPayment.paymentDate)}`,
+        : `Refund of ${formatScale4(originalPayment.amount)} payment dated ${this.toDateOnly(originalPayment.paymentDate)}`,
     });
 
     const savedRefund = await this.paymentRepository.save(refundPayment);
@@ -387,7 +403,7 @@ export class PaymentService extends BaseCrudService<
     await this.auditLogService.log(
       'CREATE',
       'Payment',
-      `Created refund for ${this.toDateOnly(originalPayment.paymentDate)} payment of ${Number(originalPayment.amount).toFixed(2)}`,
+      `Created refund for ${this.toDateOnly(originalPayment.paymentDate)} payment of ${formatScale4(originalPayment.amount)}`,
       {
         entityId: savedRefund.id,
         userId: userId || 'system',
@@ -431,10 +447,12 @@ export class PaymentService extends BaseCrudService<
 
     // Update sales order if payment is allocated to specific order
     if (payment.salesOrder) {
-      const allocatedAmount = Number(payment.amount);
-      payment.salesOrder.paidAmount = Number(payment.salesOrder.paidAmount) + allocatedAmount;
-      payment.salesOrder.balanceDue =
-        Number(payment.salesOrder.totalAmount) - Number(payment.salesOrder.paidAmount);
+      const allocatedMinor = toMinorUnits(payment.amount);
+      const paidMinor = toMinorUnits(payment.salesOrder.paidAmount) + allocatedMinor;
+      payment.salesOrder.paidAmount = formatScale4(paidMinor);
+      payment.salesOrder.balanceDue = formatScale4(
+        toMinorUnits(payment.salesOrder.totalAmount) - paidMinor,
+      );
       await this.salesOrderRepository.save(payment.salesOrder);
     }
   }
@@ -466,7 +484,7 @@ export class PaymentService extends BaseCrudService<
     await this.auditLogService.log(
       'RESTORE',
       'Payment',
-      `Restored payment: ${Number(payment.amount).toFixed(2)} on ${this.toDateOnly(payment.paymentDate)}`,
+      `Restored payment: ${formatScale4(payment.amount)} on ${this.toDateOnly(payment.paymentDate)}`,
       {
         entityId: id,
         userId: userId || 'system',
@@ -500,7 +518,7 @@ export class PaymentService extends BaseCrudService<
           }
         : undefined,
       paymentDate: payment.paymentDate,
-      amount: Number(payment.amount),
+      amount: payment.amount,
       notes: payment.notes,
       customerId: payment.customerId,
       salesOrderId: payment.salesOrderId,

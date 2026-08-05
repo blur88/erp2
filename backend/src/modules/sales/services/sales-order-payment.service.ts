@@ -15,9 +15,11 @@ import { RecordPaymentDto } from '../dto/sales-order.dto';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
-import { formatScale4 } from '../../accounting/utils/money';
-
-const AMOUNT_TOLERANCE = 0.001;
+import {
+  formatScale4,
+  sumMinor,
+  toMinorUnits,
+} from '@/common/utils/money';
 
 @Injectable()
 export class SalesOrderPaymentService {
@@ -36,13 +38,13 @@ export class SalesOrderPaymentService {
 
   computePaymentStatus(
     records: SalesOrderPayment[],
-    totalAmount: number,
+    totalAmount: string,
   ): SalesOrderPaymentStatus {
-    const netPaid = records.reduce((sum, r) => sum + Number(r.amount), 0);
-    const total = Number(totalAmount);
-    if (netPaid <= 0) return SalesOrderPaymentStatus.UNPAID;
-    if (Math.abs(netPaid - total) < AMOUNT_TOLERANCE) return SalesOrderPaymentStatus.PAID;
-    if (netPaid < total) return SalesOrderPaymentStatus.PARTIAL;
+    const netPaidMinor = sumMinor(records.map((r) => r.amount));
+    const totalMinor = toMinorUnits(totalAmount);
+    if (netPaidMinor <= 0n) return SalesOrderPaymentStatus.UNPAID;
+    if (netPaidMinor === totalMinor) return SalesOrderPaymentStatus.PAID;
+    if (netPaidMinor < totalMinor) return SalesOrderPaymentStatus.PARTIAL;
     return SalesOrderPaymentStatus.OVERPAID;
   }
 
@@ -67,7 +69,8 @@ export class SalesOrderPaymentService {
   }
 
   async recordPayment(orderId: string, dto: RecordPaymentDto, userId?: string, username?: string): Promise<SalesOrderPayment> {
-    if (dto.amount <= 0) {
+    const amountMinor = toMinorUnits(dto.amount);
+    if (amountMinor <= 0n) {
       throw new BadRequestException('Payment amount must be positive');
     }
 
@@ -98,7 +101,7 @@ export class SalesOrderPaymentService {
         sourceRef: order.orderNumber,
         paymentRowId: savedRecord.id,
         channel: method.accountingChannel,
-        amount: formatScale4(String(dto.amount)),
+        amount: formatScale4(amountMinor),
         entryDate: dto.paymentDate,
         createdBy: username,
       }, manager);
@@ -117,7 +120,8 @@ export class SalesOrderPaymentService {
   }
 
   async recordRefund(orderId: string, dto: RecordPaymentDto, userId?: string, username?: string): Promise<SalesOrderPayment> {
-    if (dto.amount <= 0) {
+    const amountMinor = toMinorUnits(dto.amount);
+    if (amountMinor <= 0n) {
       throw new BadRequestException('Refund amount must be positive');
     }
 
@@ -135,15 +139,15 @@ export class SalesOrderPaymentService {
       }
 
       const existing = await manager.getRepository(SalesOrderPayment).find({ where: { salesOrderId: orderId } });
-      const netPaid = existing.reduce((sum, r) => sum + Number(r.amount), 0);
-      if (dto.amount > netPaid + AMOUNT_TOLERANCE) {
-        throw new BadRequestException(`Refund amount (${dto.amount}) exceeds net paid (${netPaid.toFixed(4)})`);
+      const netPaidMinor = sumMinor(existing.map((r) => r.amount));
+      if (amountMinor > netPaidMinor) {
+        throw new BadRequestException(`Refund amount (${dto.amount}) exceeds net paid (${formatScale4(netPaidMinor)})`);
       }
 
       const record = manager.getRepository(SalesOrderPayment).create({
         salesOrderId: orderId,
         paymentMethodId: dto.paymentMethodId,
-        amount: -dto.amount,
+        amount: formatScale4(-amountMinor),
         paymentDate: dto.paymentDate,
         referenceNumber: dto.referenceNumber,
         notes: dto.notes,
@@ -154,7 +158,7 @@ export class SalesOrderPaymentService {
         sourceRef: order.orderNumber,
         refundRowId: savedRecord.id,
         channel: method.accountingChannel,
-        amount: formatScale4(String(dto.amount)),
+        amount: formatScale4(amountMinor),
         entryDate: dto.paymentDate,
         createdBy: username,
       }, manager);
@@ -176,7 +180,7 @@ export class SalesOrderPaymentService {
     if (dtos.length === 0) return [];
 
     for (const dto of dtos) {
-      if (dto.amount <= 0) throw new BadRequestException('Payment amount must be positive');
+      if (toMinorUnits(dto.amount) <= 0n) throw new BadRequestException('Payment amount must be positive');
     }
     const methodMap = new Map<string, PaymentMethodEntity>();
     for (const dto of dtos) {
@@ -213,7 +217,7 @@ export class SalesOrderPaymentService {
           sourceRef: order.orderNumber,
           paymentRowId: savedRecord.id,
           channel: method.accountingChannel,
-          amount: formatScale4(String(dto.amount)),
+          amount: formatScale4(toMinorUnits(dto.amount)),
           entryDate: dto.paymentDate,
           createdBy: username,
         }, manager);
@@ -239,7 +243,7 @@ export class SalesOrderPaymentService {
     if (dtos.length === 0) return [];
 
     for (const dto of dtos) {
-      if (dto.amount <= 0) throw new BadRequestException('Refund amount must be positive');
+      if (toMinorUnits(dto.amount) <= 0n) throw new BadRequestException('Refund amount must be positive');
     }
     const methodMap = new Map<string, PaymentMethodEntity>();
     for (const dto of dtos) {
@@ -260,10 +264,10 @@ export class SalesOrderPaymentService {
       }
 
       const existing = await manager.getRepository(SalesOrderPayment).find({ where: { salesOrderId: orderId } });
-      const netPaid = existing.reduce((sum, r) => sum + Number(r.amount), 0);
-      const totalRefundAmount = dtos.reduce((sum, dto) => sum + dto.amount, 0);
-      if (totalRefundAmount > netPaid + AMOUNT_TOLERANCE) {
-        throw new BadRequestException(`Total refund amount (${totalRefundAmount}) exceeds net paid (${netPaid.toFixed(4)})`);
+      const netPaidMinor = sumMinor(existing.map((r) => r.amount));
+      const totalRefundMinor = sumMinor(dtos.map((d) => d.amount));
+      if (totalRefundMinor > netPaidMinor) {
+        throw new BadRequestException(`Total refund amount (${formatScale4(totalRefundMinor)}) exceeds net paid (${formatScale4(netPaidMinor)})`);
       }
 
       const saved: SalesOrderPayment[] = [];
@@ -271,7 +275,7 @@ export class SalesOrderPaymentService {
         const record = manager.getRepository(SalesOrderPayment).create({
           salesOrderId: orderId,
           paymentMethodId: dto.paymentMethodId,
-          amount: -dto.amount,
+          amount: formatScale4(-toMinorUnits(dto.amount)),
           paymentDate: dto.paymentDate,
           referenceNumber: dto.referenceNumber,
           notes: dto.notes,
@@ -283,7 +287,7 @@ export class SalesOrderPaymentService {
           sourceRef: order.orderNumber,
           refundRowId: savedRecord.id,
           channel: method.accountingChannel,
-          amount: formatScale4(String(dto.amount)),
+          amount: formatScale4(toMinorUnits(dto.amount)),
           entryDate: dto.paymentDate,
           createdBy: username,
         }, manager);
@@ -318,15 +322,15 @@ export class SalesOrderPaymentService {
 
   private async updatePaymentStatusInTx(order: SalesOrder, manager: EntityManager): Promise<SalesOrderPaymentStatus> {
     const all = await manager.getRepository(SalesOrderPayment).find({ where: { salesOrderId: order.id } });
-    const netPaid = all.reduce((sum, r) => sum + Number(r.amount), 0);
+    const netPaidMinor = sumMinor(all.map((r) => r.amount));
     const newStatus = this.computePaymentStatus(all, order.totalAmount);
     // OVERPAID is not fulfillable. Only exact payment (PAID) promotes to READY.
     const paidInFull = newStatus === SalesOrderPaymentStatus.PAID;
 
     const update: Partial<SalesOrder> = {
       paymentStatus: newStatus,
-      paidAmount: netPaid,
-      balanceDue: Number(order.totalAmount) - netPaid,
+      paidAmount: formatScale4(netPaidMinor),
+      balanceDue: formatScale4(toMinorUnits(order.totalAmount) - netPaidMinor),
     };
 
     // Reconcile order status with payment, only within the DRAFT <-> READY band.

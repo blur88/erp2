@@ -13,7 +13,7 @@ vi.mock('@/store/api/purchasingApi', async (importOriginal) => {
 
 import PurchaseOrderPaymentsTab from '../PurchaseOrderPaymentsTab'
 
-function renderTab(totalAmount = 500) {
+function renderTab(totalAmount = '500.0000') {
   return render(
     <ThemeProvider theme={darkTheme}>
       <PurchaseOrderPaymentsTab orderId="o1" totalAmount={totalAmount} />
@@ -25,7 +25,7 @@ describe('PurchaseOrderPaymentsTab', () => {
   it('renders status as a StatusChip (not raw text) and totals footer', () => {
     mockQuery.mockReturnValue({
       data: [
-        { id: 'pp1', paymentDate: '2026-01-01', referenceNumber: 'R1', status: 'completed', amount: 200 },
+        { id: 'pp1', paymentDate: '2026-01-01', referenceNumber: 'R1', status: 'completed', amount: '200.0000' },
       ],
       isLoading: false,
       isError: false,
@@ -42,7 +42,7 @@ describe('PurchaseOrderPaymentsTab', () => {
   it('keeps the negative-amount data-testid and error.main color', () => {
     mockQuery.mockReturnValue({
       data: [
-        { id: 'pp2', paymentDate: '2026-01-02', status: 'completed', amount: -50 },
+        { id: 'pp2', paymentDate: '2026-01-02', status: 'completed', amount: '-50.0000' },
       ],
       isLoading: false,
       isError: false,

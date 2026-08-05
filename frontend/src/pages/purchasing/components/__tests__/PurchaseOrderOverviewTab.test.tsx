@@ -23,8 +23,8 @@ describe('PurchaseOrderOverviewTab items table', () => {
       orderDate: '2026-01-01',
       status: 'draft',
       paymentStatus: 'unpaid',
-      totalAmount: 100,
-      paidAmount: 0,
+      totalAmount: '100.0000',
+      paidAmount: '0.0000',
       items: [
         {
           id: 'i1',
@@ -46,8 +46,8 @@ describe('PurchaseOrderOverviewTab items table', () => {
       orderDate: '2026-01-01',
       status: 'draft',
       paymentStatus: 'unpaid',
-      totalAmount: 100,
-      paidAmount: 0,
+      totalAmount: '100.0000',
+      paidAmount: '0.0000',
       items: [
         { id: 'i2', product: { name: 'Gadget' }, quantity: 1, unitCost: 100, totalAmount: 100 },
       ],
@@ -68,8 +68,8 @@ describe('PurchaseOrderOverviewTab items table', () => {
       orderDate: '2026-01-01',
       status: 'draft',
       paymentStatus: 'unpaid',
-      totalAmount: 100,
-      paidAmount: 0,
+      totalAmount: '100.0000',
+      paidAmount: '0.0000',
       items: [],
     })
     // DataTable shows the centered empty state instead of a header-only table.

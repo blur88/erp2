@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
 import { JournalEntryLine } from '../entities/journal-entry-line.entity';
 import { AccountBalanceService } from './account-balance.service';
-import { formatScale4, toMinorUnits } from '../utils/money';
+import { formatScale4, toMinorUnits } from '@/common/utils/money';
 
 @Injectable()
 export class GeneralLedgerService {

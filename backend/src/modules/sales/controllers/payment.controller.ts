@@ -173,8 +173,14 @@ export class PaymentController {
   })
   @ApiResponse({ status: 404, description: 'Payment or invoice not found' })
   @ApiResponse({ status: 400, description: 'Invalid allocation amounts' })
-  async allocatePayment(@Body() allocationDto: AllocatePaymentDto): Promise<PaymentResponseDto> {
-    return this.paymentService.allocatePayment(allocationDto);
+  async allocatePayment(
+    // The route is POST /payments/allocate — there is no :id segment, so the
+    // payment id comes from the validated body (@IsUUID on AllocatePaymentDto).
+    // Reading it from @Param('id') would resolve to undefined and make every
+    // request fail ParseUUIDPipe with a 400.
+    @Body() allocationDto: AllocatePaymentDto,
+  ): Promise<PaymentResponseDto> {
+    return this.paymentService.allocatePayment(allocationDto.paymentId, allocationDto);
   }
 
   @Get('customer/:customerId')

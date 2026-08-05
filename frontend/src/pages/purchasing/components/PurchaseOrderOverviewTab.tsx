@@ -5,6 +5,7 @@ import { Link as RouterLink } from 'react-router-dom'
 import { DataTable, type Column } from '@/components/common/DataTable'
 import type { PurchaseOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
+import { toScaledAmount, fromScaledAmount } from '@/utils/currency'
 
 import { StatusChip } from '@/components/common/StatusChip'
 
@@ -29,11 +30,11 @@ export default function PurchaseOrderOverviewTab({ order }: PurchaseOrderOvervie
   const items = order.items ?? []
   const subtotal = order.subtotal ?? order.totalAmount ?? 0
   const shippingAmount = order.shippingAmount ?? 0
-  const paidAmount = order.paidAmount ?? 0
-  const balance = (order.totalAmount ?? 0) - paidAmount
-  const isSurplus = balance < 0
+  const paidMinor = toScaledAmount(order.paidAmount) ?? 0n
+  const balanceMinor = (toScaledAmount(order.totalAmount) ?? 0n) - paidMinor
+  const isSurplus = balanceMinor < 0n
   const balanceLabel = isSurplus ? 'Surplus' : 'Balance Due'
-  const balanceValue = formatCurrency(isSurplus ? -balance : balance)
+  const balanceValue = formatCurrency(fromScaledAmount(isSurplus ? -balanceMinor : balanceMinor))
 
   return (
     <Box>
@@ -78,7 +79,7 @@ export default function PurchaseOrderOverviewTab({ order }: PurchaseOrderOvervie
               />
               <Field label="Total Amount" value={formatCurrency(order.totalAmount ?? 0)} />
               <Field label="Shipping Fee" value={formatCurrency(shippingAmount)} />
-              <Field label="Paid Amount" value={formatCurrency(paidAmount)} />
+              <Field label="Paid Amount" value={formatCurrency(fromScaledAmount(paidMinor))} />
               <Field label={balanceLabel} value={balanceValue} />
             </CardContent>
           </Card>
@@ -124,7 +125,7 @@ export default function PurchaseOrderOverviewTab({ order }: PurchaseOrderOvervie
             { label: 'Subtotal', value: formatCurrency(subtotal) },
             { label: 'Shipping', value: formatCurrency(shippingAmount) },
             { label: 'Total', value: formatCurrency(order.totalAmount ?? 0), bold: true },
-            { label: 'Paid', value: formatCurrency(paidAmount) },
+            { label: 'Paid', value: formatCurrency(fromScaledAmount(paidMinor)) },
             { label: isSurplus ? 'Surplus' : 'Balance', value: balanceValue, bold: true },
           ].map(({ label, value, bold }) => (
             <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>

@@ -8,7 +8,7 @@ import { PaymentMethodEntity } from '../../../database/entities/payment-method.e
 import { ExpenseService } from './expense.service';
 import { AccountingPostingService } from './accounting-posting.service';
 import { AuditLogService } from '../../audit-logs/services';
-import { toMinorUnits, formatScale4 } from '../utils/money';
+import { toMinorUnits, formatScale4 } from '@/common/utils/money';
 
 describe('ExpensePaymentService', () => {
   let service: ExpensePaymentService;

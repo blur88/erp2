@@ -51,9 +51,9 @@ function makeOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
       createdAt: new Date(),
       updatedAt: new Date(),
     },
-    totalAmount: 100,
-    paidAmount: 0,
-    balanceDue: 100,
+    totalAmount: '100.0000',
+    paidAmount: '0.0000',
+    balanceDue: '100.0000',
     shippingAmount: 10,
     subtotal: 90,
     orderDate: new Date('2026-01-15'),
@@ -131,9 +131,9 @@ describe('OrderOverviewTab', () => {
   it('shows the real partial balance due', () => {
     renderTab(makeOrder({
       paymentStatus: 'PARTIAL',
-      totalAmount: 1000,
-      paidAmount: 400,
-      balanceDue: 600,
+      totalAmount: '1000.0000',
+      paidAmount: '400.0000',
+      balanceDue: '600.0000',
     }))
 
     expect(screen.getAllByText('Balance Due').length).toBeGreaterThan(0)
@@ -143,9 +143,9 @@ describe('OrderOverviewTab', () => {
   it('shows Surplus for an overpaid order', () => {
     renderTab(makeOrder({
       paymentStatus: 'OVERPAID',
-      totalAmount: 1000,
-      paidAmount: 1200,
-      balanceDue: -200,
+      totalAmount: '1000.0000',
+      paidAmount: '1200.0000',
+      balanceDue: '-200.0000',
     }))
 
     expect(screen.getAllByText('Surplus').length).toBeGreaterThan(0)

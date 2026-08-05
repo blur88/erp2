@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { JournalEntry } from '../entities/journal-entry.entity';
 import { JournalEntryLine } from '../entities/journal-entry-line.entity';
 import { ListJournalEntriesDto } from '../dto/list-journal-entries.dto';
-import { formatScale4, toMinorUnits } from '../utils/money';
+import { formatScale4, toMinorUnits } from '@/common/utils/money';
 
 @Injectable()
 export class JournalEntryService {
