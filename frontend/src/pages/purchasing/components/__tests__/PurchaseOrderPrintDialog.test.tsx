@@ -67,7 +67,8 @@ function makePurchaseOrder(
     supplier: flatSupplier,
     subtotal: 100,
     shippingAmount: 0,
-    totalAmount: 100,
+    // Order-level money is a scale-4 decimal string; line-item money stays numeric.
+    totalAmount: '100.0000',
     orderDate: new Date('2026-06-01'),
     items,
     createdAt: new Date('2026-06-01'),
@@ -186,7 +187,7 @@ describe('PurchaseOrderPrintDialog', () => {
       <PurchaseOrderPrintDialog
         open
         purchaseOrder={makePurchaseOrder()}
-        payment={{ id: 'vp-1', amount: 40 } as Partial<VendorPayment>}
+        payment={{ id: 'vp-1', amount: '40.0000' } as Partial<VendorPayment>}
         onClose={() => {}}
       />,
     );
@@ -200,7 +201,7 @@ describe('PurchaseOrderPrintDialog', () => {
         open
         purchaseOrder={makePurchaseOrder()}
         payment={
-          { id: 'vp-1', amount: 40, paymentDate: '2026-06-05' } as Partial<VendorPayment>
+          { id: 'vp-1', amount: '40.0000', paymentDate: '2026-06-05' } as Partial<VendorPayment>
         }
         onClose={() => {}}
       />,
@@ -230,8 +231,8 @@ describe('PurchaseOrderPrintDialog', () => {
         open
         purchaseOrder={makePurchaseOrder({
           subtotal: 50,
-          totalAmount: 50,
-          paidAmount: 50,
+          totalAmount: '50.0000',
+          paidAmount: '50.0000',
           items: [
             {
               id: 'poi-50',
@@ -243,7 +244,7 @@ describe('PurchaseOrderPrintDialog', () => {
           ],
         })}
         payment={
-          { id: 'vp-20', amount: 20, paymentDate: '2026-06-13' } as Partial<VendorPayment>
+          { id: 'vp-20', amount: '20.0000', paymentDate: '2026-06-13' } as Partial<VendorPayment>
         }
         onClose={() => {}}
       />,
@@ -260,6 +261,43 @@ describe('PurchaseOrderPrintDialog', () => {
     expect(printRoot).not.toHaveTextContent(/30\.00/);
   });
 
+  // Number(0.3) - Number(0.1) === 0.19999999999999998 in binary64. The balance
+  // must be subtracted in scale-4 minor units and coerced only for display.
+  it('subtracts the printed balance exactly, without binary64 drift', async () => {
+    const user = userEvent.setup();
+    render(
+      <PurchaseOrderPrintDialog
+        open
+        purchaseOrder={makePurchaseOrder({
+          subtotal: 0.3,
+          totalAmount: '0.3000',
+          paidAmount: '0.1000',
+          items: [
+            {
+              id: 'poi-03',
+              quantity: 1,
+              unitPrice: 0.3,
+              totalAmount: 0.3,
+              product: { id: 'p-03', name: 'Widget' },
+            },
+          ],
+        })}
+        payment={
+          { id: 'vp-01', amount: '0.1000', paymentDate: '2026-06-13' } as Partial<VendorPayment>
+        }
+        onClose={() => {}}
+      />,
+    );
+
+    await user.click(screen.getByRole('radio', { name: /Vendor Payment/i }));
+
+    const printRoot = screen.getByTestId('print-root');
+    // Exactly 0.2000 — never 0.1999... or a 0.2000000000000000x artifact.
+    expect(printRoot).toHaveTextContent(/0\.20/);
+    expect(printRoot).not.toHaveTextContent(/0\.19/);
+    expect(printRoot).not.toHaveTextContent(/1999999/);
+  });
+
   it('falls back to PO supplier when payment carries a PO without a supplier', async () => {
     const user = userEvent.setup();
     render(
@@ -269,7 +307,7 @@ describe('PurchaseOrderPrintDialog', () => {
         payment={
           {
             id: 'vp-2',
-            amount: 40,
+            amount: '40.0000',
             paymentDate: '2026-06-05',
             // Nested PO present but missing a supplier — recipient must fall
             // back to the outer purchaseOrder's flattened supplier.
@@ -322,7 +360,7 @@ describe('PurchaseOrderPrintDialog', () => {
             },
           ],
         })}
-        payment={{ id: 'vp-3', amount: 10 } as Partial<VendorPayment>}
+        payment={{ id: 'vp-3', amount: '10.0000' } as Partial<VendorPayment>}
         onClose={() => {}}
       />,
     );

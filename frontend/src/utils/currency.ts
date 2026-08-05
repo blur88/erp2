@@ -121,6 +121,12 @@ export const toScaledAmount = (
 ): bigint | null => {
   if (value === null || value === undefined) return null
 
+  // The signature is string-only on purpose — a number here has already lost
+  // precision. But untyped runtime data (legacy API shapes, `as` casts) can
+  // still reach this, and a thrown TypeError in a print or dialog render is
+  // worse than returning null: guard rather than assume.
+  if (typeof value !== 'string') return null
+
   const raw = value.trim()
   if (raw === '' || !CANONICAL_AMOUNT.test(raw)) return null
 
@@ -172,6 +178,64 @@ export const sumScaledAmounts = (
   }
 
   return total
+}
+
+/**
+ * Distributes `targetMinor` across `weightsMinor` proportionally, in minor units,
+ * so the allocations sum to **exactly** the target.
+ *
+ * Largest-remainder (Hare quota) method:
+ *   1. floor each proportional share,
+ *   2. rank sources by the remainder they gave up,
+ *   3. hand the leftover units to the largest remainders, breaking ties by the
+ *      caller's source order so the result is stable across renders.
+ *
+ * Rounding each share half-up independently and then patching the largest line
+ * does not work: with three equal sources sharing 50.0000, half-up yields three
+ * 16.6667 seeds summing to 50.0001, and patching hides the error in one line
+ * rather than distributing it. Flooring first can only under-distribute, and the
+ * leftover is then handed out one unit at a time, so the sum is exact by
+ * construction and no allocation ever exceeds its own weight (its cap).
+ *
+ * Every allocation is capped at its weight, so a source can never be assigned
+ * more than it has available. Returns all zeros when the weights sum to zero.
+ */
+export const allocateByLargestRemainder = (
+  weightsMinor: bigint[],
+  targetMinor: bigint
+): bigint[] => {
+  const weightTotal = weightsMinor.reduce((sum, w) => sum + w, 0n)
+  if (weightTotal <= 0n || targetMinor <= 0n) return weightsMinor.map(() => 0n)
+
+  // Never distribute more than the weights can absorb: each share is capped at
+  // its own weight, so a target above the total would leave units unassignable.
+  const distributable = targetMinor > weightTotal ? weightTotal : targetMinor
+
+  const floored = weightsMinor.map((weight) => (weight * distributable) / weightTotal)
+  const remainders = weightsMinor.map(
+    (weight, index) => weight * distributable - floored[index] * weightTotal
+  )
+
+  let leftover = distributable - floored.reduce((sum, share) => sum + share, 0n)
+
+  // Largest remainder first; equal remainders keep the caller's source order.
+  const order = weightsMinor
+    .map((_, index) => index)
+    .sort((a, b) => {
+      if (remainders[a] === remainders[b]) return a - b
+      return remainders[a] > remainders[b] ? -1 : 1
+    })
+
+  const allocations = [...floored]
+  for (const index of order) {
+    if (leftover <= 0n) break
+    // Respect each source's cap; skip any already at its weight.
+    if (allocations[index] >= weightsMinor[index]) continue
+    allocations[index] += 1n
+    leftover -= 1n
+  }
+
+  return allocations
 }
 
 /**

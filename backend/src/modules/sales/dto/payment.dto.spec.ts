@@ -28,6 +28,17 @@ describe("CreatePaymentDto amount", () => {
     expect(dto.amount).toBe("1000.0001");
   });
 
+  // 11 integer digits is the maximum decimal(15,4) holds. Validation is lexical,
+  // so the value passes through with every digit intact — no binary64 rounding.
+  it("accepts and preserves the maximum decimal(15,4) magnitude", async () => {
+    expect(await validateAmount("99999999999.9900")).toHaveLength(0);
+
+    const dto = plainToInstance(CreatePaymentDto, {
+      amount: "99999999999.9999",
+    } as any);
+    expect(dto.amount).toBe("99999999999.9999");
+  });
+
   it("rejects zero", async () => {
     expect(await validateAmount("0")).not.toHaveLength(0);
   });

@@ -416,6 +416,74 @@ describe('PaymentService', () => {
       ).rejects.toThrow('Total allocation amount exceeds payment amount');
     });
 
+    // Number('0.1') + Number('0.2') === 0.30000000000000004, so under the old
+    // float arithmetic this allocation exceeded a 0.3000 payment and threw.
+    it('sums split allocations without binary64 drift', async () => {
+      const payment = { ...createMockPayment(), amount: '0.3000' };
+      const order = {
+        id: 'so-1',
+        customerId: 'customer-1',
+        totalAmount: '0.3000',
+        paidAmount: '0.0000',
+        balanceDue: '0.3000',
+      };
+      paymentRepository.findOne.mockResolvedValue(payment as Payment);
+      salesOrderRepository.findOne.mockResolvedValue(order as any);
+      salesOrderRepository.save.mockResolvedValue(order as any);
+      paymentRepository.save.mockResolvedValue(payment as Payment);
+
+      await service.allocatePayment(payment.id as string, {
+        paymentId: payment.id as string,
+        allocations: [
+          { salesOrderId: 'so-1', amount: '0.1000' },
+          { salesOrderId: 'so-1', amount: '0.2000' },
+        ],
+      });
+
+      // Exactly 0.3000 paid, exactly 0.0000 left — no 0.30000000000000004.
+      expect(salesOrderRepository.save).toHaveBeenLastCalledWith(
+        expect.objectContaining({ paidAmount: '0.3000', balanceDue: '0.0000' }),
+      );
+    });
+
+    // 11 integer digits is the maximum decimal(15,4) holds. At this magnitude
+    // binary64 spacing exceeds 0.0001, so Number() could not tell these apart.
+    it('compares at the maximum decimal(15,4) magnitude without losing a minor unit', async () => {
+      const payment = { ...createMockPayment(), amount: '99999999999.9900' };
+      paymentRepository.findOne.mockResolvedValue(payment as Payment);
+
+      await expect(
+        service.allocatePayment(payment.id as string, {
+          paymentId: payment.id as string,
+          allocations: [{ salesOrderId: 'so-1', amount: '99999999999.9901' }],
+        }),
+      ).rejects.toThrow('Total allocation amount exceeds payment amount');
+    });
+
+    it('accepts an allocation at the maximum decimal(15,4) magnitude', async () => {
+      const payment = { ...createMockPayment(), amount: '99999999999.9900' };
+      const order = {
+        id: 'so-1',
+        customerId: 'customer-1',
+        totalAmount: '99999999999.9900',
+        paidAmount: '0.0000',
+        balanceDue: '99999999999.9900',
+      };
+      paymentRepository.findOne.mockResolvedValue(payment as Payment);
+      salesOrderRepository.findOne.mockResolvedValue(order as any);
+      salesOrderRepository.save.mockResolvedValue(order as any);
+      paymentRepository.save.mockResolvedValue(payment as Payment);
+
+      await service.allocatePayment(payment.id as string, {
+        paymentId: payment.id as string,
+        allocations: [{ salesOrderId: 'so-1', amount: '99999999999.9900' }],
+      });
+
+      expect(salesOrderRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ paidAmount: '99999999999.9900', balanceDue: '0.0000' }),
+      );
+    });
+
     it('refunds a payment exactly equal to the payment amount', async () => {
       const original = {
         ...createMockPayment(),

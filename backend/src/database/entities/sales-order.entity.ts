@@ -70,13 +70,14 @@ export class SalesOrder extends BaseEntity {
   @Min(0)
   shippingAmount: number;
 
+  // Scale-4 decimal string; @Min cannot apply to a string (class-validator's min
+  // returns false unconditionally), so the floor lives in the DTOs via
+  // IsMoneyAtLeast. See common/utils/money.ts.
   @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
   @IsDecimal({ decimal_digits: '0,4' })
-  @Min(0)
   totalAmount: string;
 
   @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
-  @Min(0)
   paidAmount: string;
 
   // = totalAmount - paidAmount; negative value means the order is overpaid (surplus). No @Min(0).

@@ -4,6 +4,7 @@ import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import RefundDialog, { type RefundSource } from '../RefundDialog'
+import { toScaledAmount, fromScaledAmount } from '@/utils/currency'
 
 const sources: RefundSource[] = [
   { id: 'pm-1', label: 'Cash', paidAmount: '500.0000', alreadyRefunded: '0.0000' },
@@ -357,5 +358,67 @@ describe('money formatting and precision', () => {
 
     expect(onSubmit).not.toHaveBeenCalled()
     expect(screen.getByText(/exceeds its available amount/i)).toBeInTheDocument()
+  })
+
+  // Half-up per line seeded 16.6667 x3 = 50.0001 against a 50.0000 surplus, so a
+  // user clicking straight through pre-filled an over-refund by one minor unit.
+  it('seeds an indivisible surplus so the lines sum to exactly the surplus', async () => {
+    renderDialog({
+      totalAmount: '250.0000',
+      sources: [
+        { id: 'pm-1', label: 'Cash', paidAmount: '100.0000', alreadyRefunded: '0.0000' },
+        { id: 'pm-2', label: 'Bank Transfer', paidAmount: '100.0000', alreadyRefunded: '0.0000' },
+        { id: 'pm-3', label: 'Card', paidAmount: '100.0000', alreadyRefunded: '0.0000' },
+      ],
+    })
+
+    await waitFor(() => expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(3))
+    const values = (screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]).map(
+      (i) => i.value,
+    )
+
+    // Significant scale-4 digits stay visible rather than being rounded to cents.
+    expect(values).toEqual(['16.6667', '16.6667', '16.6666'])
+
+    const totalMinor = values.reduce((sum, v) => sum + (toScaledAmount(v) ?? 0n), 0n)
+    expect(fromScaledAmount(totalMinor)).toBe('50.0000')
+  })
+
+  it('seeds each source at its own amount when refunding the full available', async () => {
+    renderDialog({
+      totalAmount: '300.0000',
+      sources: [
+        { id: 'pm-1', label: 'Cash', paidAmount: '100.0000', alreadyRefunded: '0.0000' },
+        { id: 'pm-2', label: 'Bank Transfer', paidAmount: '200.0000', alreadyRefunded: '0.0000' },
+      ],
+    })
+
+    await waitFor(() => expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(2))
+    const values = (screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]).map(
+      (i) => i.value,
+    )
+
+    // Exactly paid, so no surplus: each line seeds its full per-source available.
+    expect(values).toEqual(['100.00', '200.00'])
+  })
+
+  it('never seeds a source above its own available amount', async () => {
+    renderDialog({
+      totalAmount: '0.0000',
+      sources: [
+        { id: 'pm-1', label: 'Cash', paidAmount: '0.0001', alreadyRefunded: '0.0000' },
+        { id: 'pm-2', label: 'Bank Transfer', paidAmount: '100.0000', alreadyRefunded: '0.0000' },
+      ],
+    })
+
+    await waitFor(() => expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(2))
+    const values = (screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]).map(
+      (i) => i.value,
+    )
+
+    expect(toScaledAmount(values[0])).toBeLessThanOrEqual(1n)
+    expect(toScaledAmount(values[1])).toBeLessThanOrEqual(1000000n)
+    // Seeded form must pass its own per-source guard.
+    expect(screen.getByRole('button', { name: /^refund$/i })).toBeEnabled()
   })
 })

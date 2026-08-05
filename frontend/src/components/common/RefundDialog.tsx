@@ -25,6 +25,7 @@ import {
   toScaledAmount,
   fromScaledAmount,
   sumScaledAmounts,
+  allocateByLargestRemainder,
 } from '@/utils/currency'
 
 const newId = () =>
@@ -110,14 +111,16 @@ export default function RefundDialog({
     const positiveSources = sources.filter((s) => sourceAvailableMinor(s.id) > 0n)
     if (positiveSources.length > 0) {
       const refundTargetMinor = hasSurplus ? surplusMinor : availableMinor
-      const netTotalMinor = positiveSources.reduce((sum, s) => sum + sourceAvailableMinor(s.id), 0n)
+      // Largest-remainder so the seeded lines sum to exactly the target: half-up
+      // per line would overshoot a surplus (three equal sources sharing 50.0000
+      // seed 16.6667 each = 50.0001) and silently pre-fill an over-refund.
+      const allocations = allocateByLargestRemainder(
+        positiveSources.map((s) => sourceAvailableMinor(s.id)),
+        refundTargetMinor,
+      )
       setLines(
-        positiveSources.map((s) => {
-          const netMinor = sourceAvailableMinor(s.id)
-          const scaledMinor =
-            netTotalMinor > 0n
-              ? (netMinor * refundTargetMinor + netTotalMinor / 2n) / netTotalMinor
-              : 0n
+        positiveSources.map((s, index) => {
+          const scaledMinor = allocations[index]
           const defaultDate = showDateField ? getCurrentDate() : ''
           return {
             id: newId(),

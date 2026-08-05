@@ -1278,4 +1278,104 @@ describe('PurchaseOrderService', () => {
       )
     })
   })
+
+  // derivePaymentStatus decides PAID by exact equality. Under Number() a fully
+  // paid order could miss that equality and stay PARTIAL, silently failing to
+  // promote DRAFT -> READY. These pin the exact bigint comparison.
+  describe('exact payment reconciliation', () => {
+    const reconcile = (order: any) =>
+      (service as any).reconcilePaymentState(order as PurchaseOrder);
+
+    beforeEach(() => {
+      purchaseOrderRepository.save.mockImplementation((v: any) => Promise.resolve(v));
+    });
+
+    it('sums split payments exactly and promotes DRAFT to READY when fully paid', async () => {
+      // Number('0.1') + Number('0.2') === 0.30000000000000004 !== 0.3
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { amount: '0.1000' },
+        { amount: '0.2000' },
+      ] as any);
+      const order: any = {
+        id: 'po-1',
+        totalAmount: '0.3000',
+        paidAmount: '0.0000',
+        status: PurchaseOrderStatus.DRAFT,
+      };
+
+      await reconcile(order);
+
+      expect(order.paidAmount).toBe('0.3000');
+      expect(order.paymentStatus).toBe(PurchaseOrderPaymentStatus.PAID);
+      expect(order.status).toBe(PurchaseOrderStatus.READY);
+    });
+
+    it('derives PARTIAL one minor unit below the total and stays DRAFT', async () => {
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { amount: '99.9999' },
+      ] as any);
+      const order: any = {
+        id: 'po-1',
+        totalAmount: '100.0000',
+        paidAmount: '0.0000',
+        status: PurchaseOrderStatus.DRAFT,
+      };
+
+      await reconcile(order);
+
+      expect(order.paymentStatus).toBe(PurchaseOrderPaymentStatus.PARTIAL);
+      expect(order.status).toBe(PurchaseOrderStatus.DRAFT);
+    });
+
+    it('derives OVERPAID one minor unit above the total and does not promote', async () => {
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { amount: '100.0001' },
+      ] as any);
+      const order: any = {
+        id: 'po-1',
+        totalAmount: '100.0000',
+        paidAmount: '0.0000',
+        status: PurchaseOrderStatus.DRAFT,
+      };
+
+      await reconcile(order);
+
+      // OVERPAID is a supported state and is not fulfillable.
+      expect(order.paymentStatus).toBe(PurchaseOrderPaymentStatus.OVERPAID);
+      expect(order.status).toBe(PurchaseOrderStatus.DRAFT);
+    });
+
+    it('derives UNPAID with no payments and reverts READY to DRAFT', async () => {
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([] as any);
+      const order: any = {
+        id: 'po-1',
+        totalAmount: '100.0000',
+        paidAmount: '100.0000',
+        status: PurchaseOrderStatus.READY,
+      };
+
+      await reconcile(order);
+
+      expect(order.paidAmount).toBe('0.0000');
+      expect(order.paymentStatus).toBe(PurchaseOrderPaymentStatus.UNPAID);
+      expect(order.status).toBe(PurchaseOrderStatus.DRAFT);
+    });
+
+    it('stays exact at the maximum decimal(15,4) magnitude', async () => {
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { amount: '99999999999.9900' },
+      ] as any);
+      const order: any = {
+        id: 'po-1',
+        totalAmount: '99999999999.9900',
+        paidAmount: '0.0000',
+        status: PurchaseOrderStatus.DRAFT,
+      };
+
+      await reconcile(order);
+
+      expect(order.paidAmount).toBe('99999999999.9900');
+      expect(order.paymentStatus).toBe(PurchaseOrderPaymentStatus.PAID);
+    });
+  });
 });
