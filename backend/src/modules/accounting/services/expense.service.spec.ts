@@ -400,6 +400,34 @@ describe('ExpenseService', () => {
     });
   });
 
+  describe('computeAggregates payment status bands', () => {
+    it('returns UNPAID when nothing is paid', () => {
+      const r = ExpenseService.computeAggregates('100.0000', []);
+      expect(r.paymentStatus).toBe(ExpensePaymentStatus.UNPAID);
+      expect(r.paidAmount).toBe('0.0000');
+      expect(r.balance).toBe('100.0000');
+    });
+
+    it('returns PARTIAL when paid is below total', () => {
+      const r = ExpenseService.computeAggregates('100.0000', [{ amount: '40.0000' }]);
+      expect(r.paymentStatus).toBe(ExpensePaymentStatus.PARTIAL);
+      expect(r.balance).toBe('60.0000');
+    });
+
+    it('returns PAID on exact payment', () => {
+      const r = ExpenseService.computeAggregates('100.0000', [{ amount: '100.0000' }]);
+      expect(r.paymentStatus).toBe(ExpensePaymentStatus.PAID);
+      expect(r.balance).toBe('0.0000');
+    });
+
+    it('returns OVERPAID with a negative balance when paid exceeds total', () => {
+      const r = ExpenseService.computeAggregates('100.0000', [{ amount: '130.0000' }]);
+      expect(r.paymentStatus).toBe(ExpensePaymentStatus.OVERPAID);
+      expect(r.paidAmount).toBe('130.0000');
+      expect(r.balance).toBe('-30.0000');
+    });
+  });
+
   describe('update', () => {
     function mockLockedExpense(overrides: Partial<any> = {}) {
       return {

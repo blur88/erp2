@@ -63,8 +63,9 @@ export class ExpenseService {
     const paid = payments.reduce((a, p) => a + toMinorUnits(p.amount), 0n);
     const paymentStatus =
       paid <= 0n ? ExpensePaymentStatus.UNPAID
-      : paid >= total ? ExpensePaymentStatus.PAID
-      : ExpensePaymentStatus.PARTIAL;
+      : paid < total ? ExpensePaymentStatus.PARTIAL
+      : paid === total ? ExpensePaymentStatus.PAID
+      : ExpensePaymentStatus.OVERPAID;
     return { paidAmount: formatScale4(paid), balance: formatScale4(total - paid), paymentStatus };
   }
 
