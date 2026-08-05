@@ -63,8 +63,19 @@ vi.mock('@/store/api/salesApi', async (importOriginal) => {
 
 vi.mock('../components/OrderOverviewTab', () => ({ default: () => <div>OverviewTab</div> }))
 vi.mock('../components/OrderPaymentsTab', () => ({ default: () => <div>PaymentsTab</div> }))
-vi.mock('@/components/sales/PaymentDialog', () => ({ default: () => <div>PaymentDialog</div> }))
+vi.mock('@/components/common/PaymentDialog', () => ({
+  default: ({ open, paidAmount }: any) =>
+    open ? (
+      <div data-testid="payment-dialog-paid-amount">
+        {paidAmount}
+        PaymentDialog
+      </div>
+    ) : null,
+}))
 vi.mock('@/components/common/RefundDialog', () => ({ default: () => <div>RefundDialog</div> }))
+vi.mock('@/store/api/paymentMethodsApi', () => ({
+  useGetActivePaymentMethodsQuery: () => ({ data: [], isLoading: false }),
+}))
 
 function makeOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   return {
@@ -187,7 +198,18 @@ describe('SalesOrderDetailPage', () => {
     mockGetSalesOrderByNumber.mockReturnValue({ data: makeOrder(), isLoading: false })
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: 'Pay' }))
-    expect(screen.getByText('PaymentDialog')).toBeInTheDocument()
+    expect(screen.getByTestId('payment-dialog-paid-amount')).toBeInTheDocument()
+  })
+
+  it('passes order.paidAmount to the payment dialog without refetching payment history', async () => {
+    mockGetSalesOrderByNumber.mockReturnValue({
+      data: makeOrder({ paidAmount: '200.0000' }),
+      isLoading: false,
+    })
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: 'Pay' }))
+    expect(screen.getByTestId('payment-dialog-paid-amount')).toHaveTextContent('200.0000')
+    expect(mockGetSalesOrderPayments).not.toHaveBeenCalledWith('o1')
   })
 
   it('opens RefundDialog when Refund is clicked', async () => {

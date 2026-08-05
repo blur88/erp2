@@ -21,13 +21,14 @@ import {
   useRefundExpenseMutation,
   type ExpenseListParams,
 } from '@/store/api/accountingApi'
+import { useGetActivePaymentMethodsForPurchasesQuery } from '@/store/api/paymentMethodsApi'
 import { formatCurrency, toScaledAmount, fromScaledAmount } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
 import { getExpenseActionMetas } from '@/pages/accounting/expenses/expenseActions'
-import ExpensePayDialog from '@/pages/accounting/expenses/ExpensePayDialog'
+import PaymentDialog from '@/components/common/PaymentDialog'
 import type { Expense, ExpenseDocumentStatus, ExpensePaymentStatus } from '@/types'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 
@@ -150,6 +151,9 @@ export default function ExpensesPage() {
   const [doPayExpense] = usePayExpenseMutation()
   const [doRefundExpense] = useRefundExpenseMutation()
   const [doCancelExpense, { isLoading: isCancelling }] = useCancelExpenseMutation()
+
+  const { data: paymentMethods = [], isLoading: methodsLoading } =
+    useGetActivePaymentMethodsForPurchasesQuery(undefined, { skip: !payExpenseRow })
 
   const { data: cancelExpenseDetail } = useGetExpenseQuery(
     cancelExpenseRow ? cancelExpenseRow.id : skipToken,
@@ -411,11 +415,15 @@ export default function ExpensesPage() {
       dialogs={
         <>
           {payExpenseRow && (
-            <ExpensePayDialog
+            <PaymentDialog
               open
               onClose={() => setPayExpenseRow(null)}
               onSubmit={handlePaySubmit}
-              expense={payExpenseRow}
+              documentNumber={payExpenseRow.expenseNumber}
+              totalAmount={payExpenseRow.totalAmount}
+              paidAmount={payExpenseRow.paidAmount}
+              paymentMethods={paymentMethods}
+              loading={methodsLoading}
             />
           )}
 

@@ -54,13 +54,6 @@ export class ExpensePaymentService {
         }
       }
 
-      const sum = sumMinor(dto.payments.map((p) => p.amount));
-      if (sum > toMinorUnits(expense.balance)) {
-        throw new BadRequestException(
-          `Payment total exceeds the outstanding balance of ${expense.balance}`,
-        );
-      }
-
       const payRepo = manager.getRepository(ExpensePayment);
       for (const p of dto.payments) {
         const row = (await payRepo.save(

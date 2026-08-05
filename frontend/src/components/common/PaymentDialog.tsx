@@ -1,0 +1,345 @@
+import { useState, useEffect, useCallback } from 'react'
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Box,
+  Typography,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  IconButton,
+  Divider,
+  Alert,
+  CircularProgress,
+} from '@mui/material'
+import { default as DeleteIcon } from '@mui/icons-material/Delete'
+import { default as AddIcon } from '@mui/icons-material/Add'
+import { getCurrentDate } from '@/utils/formatters'
+import { rtkErrorMessage } from '@/utils/errorMessage'
+import {
+  formatCurrency,
+  toAmountInputValue,
+  toScaledAmount,
+  fromScaledAmount,
+  sumScaledAmounts,
+} from '@/utils/currency'
+
+export interface PaymentLineInput {
+  paymentMethodId: string
+  amount: string
+  paymentDate: string
+  reference?: string
+}
+
+export interface PaymentMethodOption {
+  id: string
+  code: string
+  name: string
+}
+
+export interface PaymentDialogProps {
+  open: boolean
+  documentNumber: string
+  totalAmount: string
+  paidAmount: string
+  paymentMethods: PaymentMethodOption[]
+  loading: boolean
+  onClose: () => void
+  onSubmit: (payments: PaymentLineInput[]) => Promise<void>
+}
+
+interface PaymentLine extends PaymentLineInput {
+  id: string
+  reference: string
+}
+
+const newId = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2)
+
+export default function PaymentDialog({
+  open,
+  documentNumber,
+  totalAmount,
+  paidAmount,
+  paymentMethods,
+  loading,
+  onClose,
+  onSubmit,
+}: PaymentDialogProps) {
+  const totalMinor = toScaledAmount(totalAmount) ?? 0n
+  const paidMinor = toScaledAmount(paidAmount) ?? 0n
+  const outstandingMinor = totalMinor - paidMinor > 0n ? totalMinor - paidMinor : 0n
+
+  const [lines, setLines] = useState<PaymentLine[]>([])
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const [userHasEdited, setUserHasEdited] = useState(false)
+
+  const noMethods = !loading && paymentMethods.length === 0
+
+  // Reset every time the dialog opens.
+  useEffect(() => {
+    if (!open) return
+    setError(null)
+    setSubmitting(false)
+    setConfirmDiscard(false)
+    setUserHasEdited(false)
+    setLines([])
+  }, [open])
+
+  // Seed the first line only once loading has settled AND methods exist, so no
+  // line is ever prefilled from a not-yet-loaded amount.
+  useEffect(() => {
+    if (!open || loading || lines.length > 0 || paymentMethods.length === 0) return
+    const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
+    setLines([{
+      id: newId(),
+      paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
+      amount: outstandingMinor > 0n ? toAmountInputValue(fromScaledAmount(outstandingMinor)) : '',
+      paymentDate: getCurrentDate(),
+      reference: '',
+    }])
+  }, [open, loading, paymentMethods, lines.length, outstandingMinor])
+
+  const enteredMinor = sumScaledAmounts(lines.map((l) => l.amount))
+  const hasInvalidAmount = enteredMinor === null
+  const totalEnteredMinor = enteredMinor ?? 0n
+  const remainingMinor = outstandingMinor - totalEnteredMinor
+  const isOverpaying = totalEnteredMinor > outstandingMinor && outstandingMinor > 0n
+  const absRemaining = remainingMinor < 0n ? -remainingMinor : remainingMinor
+
+  const updateLine = useCallback((index: number, field: keyof PaymentLine, value: any) => {
+    setUserHasEdited(true)
+    setLines((prev) => {
+      const updated = [...prev]
+      updated[index] = { ...updated[index], [field]: value }
+      return updated
+    })
+  }, [])
+
+  const addLine = useCallback(() => {
+    setUserHasEdited(true)
+    const cashMethod = paymentMethods.find((m) => m.code === 'CASH')
+    setLines((prev) => [...prev, {
+      id: newId(),
+      paymentMethodId: cashMethod?.id || paymentMethods[0]?.id || '',
+      amount: remainingMinor > 0n ? toAmountInputValue(fromScaledAmount(remainingMinor)) : '',
+      paymentDate: getCurrentDate(),
+      reference: '',
+    }])
+  }, [paymentMethods, remainingMinor])
+
+  const removeLine = useCallback((index: number) => {
+    setUserHasEdited(true)
+    setLines((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev))
+  }, [])
+
+  const handleSubmit = async () => {
+    setError(null)
+    if (hasInvalidAmount) {
+      setError('Every payment amount must be a number with at most 4 decimal places.')
+      return
+    }
+    const validLines = lines.filter((l) => {
+      const units = toScaledAmount(l.amount)
+      return l.paymentMethodId && units !== null && units > 0n
+    })
+    if (validLines.length === 0) {
+      setError('At least one payment line with a valid amount is required.')
+      return
+    }
+    if (validLines.some((l) => !l.paymentDate)) {
+      setError('Payment date is required on every line.')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      await onSubmit(
+        validLines.map((l) => ({
+          paymentMethodId: l.paymentMethodId,
+          amount: l.amount,
+          paymentDate: l.paymentDate,
+          reference: l.reference || undefined,
+        })),
+      )
+      onClose()
+    } catch (err: any) {
+      setError(rtkErrorMessage(err, 'Failed to record payments.'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleRequestClose = () => {
+    if (userHasEdited) {
+      setConfirmDiscard(true)
+    } else {
+      onClose()
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={handleRequestClose} maxWidth="md" fullWidth>
+      <DialogTitle>Record Payment — {documentNumber}</DialogTitle>
+      <DialogContent>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : (
+          <>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, mt: 1 }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>Total</Typography>
+              <Typography variant="body2">{formatCurrency(totalAmount)}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>Previously Paid</Typography>
+              <Typography variant="body2">{formatCurrency(paidAmount)}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Outstanding Balance</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                {formatCurrency(fromScaledAmount(outstandingMinor))}
+              </Typography>
+            </Box>
+
+            <Divider sx={{ mb: 2 }} />
+
+            {noMethods && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                No active payment methods are available.
+              </Alert>
+            )}
+
+            {lines.map((line, index) => (
+              <Box
+                key={line.id}
+                sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1.5, alignItems: 'center' }}
+              >
+                <FormControl size="small" sx={{ minWidth: 130 }}>
+                  <Select
+                    value={line.paymentMethodId}
+                    onChange={(e) => updateLine(index, 'paymentMethodId', e.target.value)}
+                    displayEmpty
+                    sx={{ fontSize: '0.85rem' }}
+                  >
+                    <MenuItem value="" disabled>Method</MenuItem>
+                    {paymentMethods.map((pm) => (
+                      <MenuItem key={pm.id} value={pm.id} sx={{ fontSize: '0.85rem' }}>
+                        {pm.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <TextField
+                  size="small"
+                  type="number"
+                  placeholder="Amount"
+                  value={line.amount}
+                  onChange={(e) => updateLine(index, 'amount', e.target.value)}
+                  slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+                  sx={{
+                    width: 120,
+                    '& input[type=number]': { MozAppearance: 'textfield' },
+                    '& input[type=number]::-webkit-outer-spin-button, & input[type=number]::-webkit-inner-spin-button':
+                      { WebkitAppearance: 'none', margin: 0 },
+                  }}
+                />
+
+                <TextField
+                  size="small"
+                  type="date"
+                  value={line.paymentDate}
+                  onChange={(e) => updateLine(index, 'paymentDate', e.target.value)}
+                  sx={{ width: 140 }}
+                  slotProps={{ htmlInput: { max: '2099-12-31' } }}
+                />
+
+                {/* Reference + Delete are ONE flex child so they wrap together.
+                    248px = ~200px reference minimum (#999) + ~40px button + 8px gap. */}
+                <Box sx={{ flex: 1, minWidth: 248, display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <TextField
+                    size="small"
+                    placeholder="Reference"
+                    value={line.reference}
+                    onChange={(e) => updateLine(index, 'reference', e.target.value)}
+                    sx={{ flex: 1 }}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={() => removeLine(index)}
+                    disabled={lines.length <= 1}
+                    color="error"
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </Box>
+            ))}
+
+            <Button
+              startIcon={<AddIcon />}
+              size="small"
+              onClick={addLine}
+              disabled={noMethods}
+              sx={{ mt: 0.5, mb: 2 }}
+            >
+              Add Payment Line
+            </Button>
+
+            <Divider sx={{ mb: 2 }} />
+
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Total Payment</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                {formatCurrency(fromScaledAmount(totalEnteredMinor))}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>Remaining</Typography>
+              <Typography variant="body2" color={remainingMinor < 0n ? 'error.main' : 'text.secondary'}>
+                {formatCurrency(fromScaledAmount(absRemaining))}
+                {remainingMinor < 0n ? ' (overpayment)' : ''}
+              </Typography>
+            </Box>
+
+            {isOverpaying && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                Total payment exceeds outstanding balance by {formatCurrency(fromScaledAmount(absRemaining))}.
+              </Alert>
+            )}
+
+            {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+          </>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleRequestClose} disabled={submitting}>Cancel</Button>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={submitting || noMethods || hasInvalidAmount || totalEnteredMinor <= 0n}
+          startIcon={submitting ? <CircularProgress size={16} /> : undefined}
+        >
+          {submitting ? 'Recording...' : 'Record Payment'}
+        </Button>
+      </DialogActions>
+      <Dialog open={confirmDiscard} onClose={() => setConfirmDiscard(false)} transitionDuration={0}>
+        <DialogTitle>Discard this payment?</DialogTitle>
+        <DialogActions>
+          <Button onClick={() => setConfirmDiscard(false)}>Keep Editing</Button>
+          <Button color="error" onClick={onClose}>Discard</Button>
+        </DialogActions>
+      </Dialog>
+    </Dialog>
+  )
+}

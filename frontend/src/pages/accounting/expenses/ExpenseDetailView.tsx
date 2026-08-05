@@ -7,6 +7,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { DataTable, type Column } from '@/components/common/DataTable'
 import PageHeader from '@/components/common/PageHeader'
+import PaymentDialog from '@/components/common/PaymentDialog'
 import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
 import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
@@ -17,11 +18,11 @@ import {
   usePayExpenseMutation,
   useRefundExpenseMutation,
 } from '@/store/api/accountingApi'
+import { useGetActivePaymentMethodsForPurchasesQuery } from '@/store/api/paymentMethodsApi'
 import type { Expense, ExpensePaymentRow } from '@/types'
 import { toScaledAmount, fromScaledAmount } from '@/utils/currency'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
-import ExpensePayDialog from './ExpensePayDialog'
 import { getExpenseActionMetas } from './expenseActions'
 
 interface TabPanelProps {
@@ -71,6 +72,9 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
   const [cancelExpense, { isLoading: isCancelling }] = useCancelExpenseMutation()
   const [payExpense] = usePayExpenseMutation()
   const [refundExpense] = useRefundExpenseMutation()
+
+  const { data: paymentMethods = [], isLoading: methodsLoading } =
+    useGetActivePaymentMethodsForPurchasesQuery(undefined, { skip: !payDialogOpen })
 
   const refundSources: RefundSource[] = useMemo(() => {
     if (!expense.payments) return []
@@ -313,11 +317,15 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
       />
 
       {payDialogOpen && (
-        <ExpensePayDialog
+        <PaymentDialog
           open
           onClose={() => setPayDialogOpen(false)}
           onSubmit={handlePaySubmit}
-          expense={expense}
+          documentNumber={expense.expenseNumber}
+          totalAmount={expense.totalAmount}
+          paidAmount={expense.paidAmount}
+          paymentMethods={paymentMethods}
+          loading={methodsLoading}
         />
       )}
 

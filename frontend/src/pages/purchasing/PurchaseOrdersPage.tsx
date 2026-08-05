@@ -4,8 +4,8 @@ import { skipToken } from '@reduxjs/toolkit/query'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import PagePagination from '@/components/common/PagePagination'
+import PaymentDialog from '@/components/common/PaymentDialog'
 import SimpleListPage from '@/components/common/SimpleListPage'
-import VendorPaymentDialog from '@/components/purchasing/VendorPaymentDialog'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
 import {
@@ -19,6 +19,7 @@ import {
   useReturnGoodsMutation,
   useUncancelPurchaseOrderMutation,
 } from '@/store/api/purchasingApi'
+import { useGetActivePaymentMethodsForPurchasesQuery } from '@/store/api/paymentMethodsApi'
 import type { PurchaseOrder } from '@/types'
 import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
 import { PURCHASE_ORDER_STATUS_OPTIONS } from '@/constants/filterOptions'
@@ -134,6 +135,9 @@ const PurchaseOrdersPage: React.FC = () => {
   const [recordPurchaseOrderRefunds] = useRecordPurchaseOrderRefundsMutation()
   const [recordVendorPayments] = useRecordVendorPaymentsMutation()
 
+  const { data: paymentMethods = [], isLoading: methodsLoading } =
+    useGetActivePaymentMethodsForPurchasesQuery(undefined, { skip: !paymentOrder })
+
   // Fetch payments for refund dialog only when needed
   const { data: refundPaymentRecords = [] } = useGetPurchaseOrderPaymentsQuery(
     refundOrder ? refundOrder.id : skipToken,
@@ -171,7 +175,7 @@ const PurchaseOrdersPage: React.FC = () => {
   }, [])
 
   const handleSubmitPayment = useCallback(async (
-    payments: { paymentMethodId: string; amount: string; reference?: string }[],
+    payments: { paymentMethodId: string; amount: string; paymentDate: string; reference?: string }[],
   ) => {
     if (!paymentOrder) return
 
@@ -351,13 +355,15 @@ const PurchaseOrdersPage: React.FC = () => {
         dialogs={(
           <>
             {paymentOrder && (
-              <VendorPaymentDialog
+              <PaymentDialog
                 open
                 onClose={() => setPaymentOrder(null)}
                 onSubmit={handleSubmitPayment}
-                orderNumber={paymentOrder.orderNumber}
-                totalAmount={paymentOrder.totalAmount ?? '0.0000'}
-                paidAmount={paymentOrder.paidAmount ?? '0.0000'}
+                documentNumber={paymentOrder.orderNumber}
+                totalAmount={paymentOrder.totalAmount}
+                paidAmount={paymentOrder.paidAmount}
+                paymentMethods={paymentMethods}
+                loading={methodsLoading}
               />
             )}
 
@@ -377,7 +383,7 @@ const PurchaseOrdersPage: React.FC = () => {
                 onSubmit={handleSubmitRefund}
                 sources={refundSources}
                 orderNumber={refundOrder.orderNumber}
-                totalAmount={refundOrder.totalAmount ?? '0.0000'}
+                totalAmount={refundOrder.totalAmount}
               />
             )}
 

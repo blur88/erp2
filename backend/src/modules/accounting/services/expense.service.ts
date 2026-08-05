@@ -63,8 +63,9 @@ export class ExpenseService {
     const paid = payments.reduce((a, p) => a + toMinorUnits(p.amount), 0n);
     const paymentStatus =
       paid <= 0n ? ExpensePaymentStatus.UNPAID
-      : paid >= total ? ExpensePaymentStatus.PAID
-      : ExpensePaymentStatus.PARTIAL;
+      : paid < total ? ExpensePaymentStatus.PARTIAL
+      : paid === total ? ExpensePaymentStatus.PAID
+      : ExpensePaymentStatus.OVERPAID;
     return { paidAmount: formatScale4(paid), balance: formatScale4(total - paid), paymentStatus };
   }
 
@@ -77,7 +78,10 @@ export class ExpenseService {
       if (expense.documentStatus === ExpenseDocumentStatus.CANCELLED) {
         throw new BadRequestException('Cancelled expenses cannot be edited');
       }
-      if (expense.paymentStatus === ExpensePaymentStatus.PAID) {
+      if (
+        expense.paymentStatus === ExpensePaymentStatus.PAID ||
+        expense.paymentStatus === ExpensePaymentStatus.OVERPAID
+      ) {
         throw new BadRequestException('Fully paid expenses cannot be edited');
       }
 

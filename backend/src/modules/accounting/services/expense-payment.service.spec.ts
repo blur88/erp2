@@ -169,10 +169,21 @@ describe('ExpensePaymentService', () => {
         .rejects.toThrow('Payment method pm-1 not found, inactive, or not enabled for purchases');
     });
 
-    it('rejects sum > balance', async () => {
+    it('accepts an overpayment, recording a negative balance and OVERPAID status', async () => {
+      // Arrange the same expense the previous rejection test used (total 1500.0000),
+      // then pay more than the outstanding balance.
       setupTx();
-      await expect(service.pay('exp-1', { payments: [{ paymentMethodId: 'pm-1', amount: '2000.0000', paymentDate: '2026-07-20' }] }, 'user-1', 'admin'))
-        .rejects.toThrow('Payment total exceeds the outstanding balance of 1500.0000');
+      expenseService.findOne.mockResolvedValue({ id: 'exp-1' } as any);
+
+      await service.pay('exp-1', { payments: [{ paymentMethodId: 'pm-1', amount: '1600.0000', paymentDate: '2026-08-05' }] }, 'user-1', 'admin');
+
+      const agg = ExpenseService.computeAggregates('1500.0000', [{ amount: '1600.0000' }]);
+      expect(agg.paidAmount).toBe('1600.0000');
+      expect(agg.balance).toBe('-100.0000');
+      expect(agg.paymentStatus).toBe(ExpensePaymentStatus.OVERPAID);
+      expect(txExpenseRepo.update).toHaveBeenCalledWith('exp-1', {
+        paidAmount: '1600.0000', balance: '-100.0000', paymentStatus: ExpensePaymentStatus.OVERPAID,
+      });
     });
 
     it('happy path: persists payments, posts JE once per row, recomputes aggregates', async () => {

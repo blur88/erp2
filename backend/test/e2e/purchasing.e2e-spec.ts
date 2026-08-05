@@ -203,7 +203,7 @@ describe("Purchasing (e2e)", () => {
       const res = await request(app.getHttpServer())
         .post(`/purchasing/orders/${purchaseOrderId}/payments`)
         .set("Authorization", `Bearer ${accessToken}`)
-        .send({ payments: [{ paymentMethodId, amount: '550.0000' }] })
+        .send({ payments: [{ paymentMethodId, amount: '550.0000', paymentDate: new Date().toISOString().split("T")[0] }] })
         .expect(200);
 
       const body = res.body.data ?? res.body;

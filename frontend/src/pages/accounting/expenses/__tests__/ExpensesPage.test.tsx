@@ -66,6 +66,10 @@ vi.mock('@/store/api/accountingApi', () => ({
   useRefundExpenseMutation: vi.fn().mockReturnValue([vi.fn(), { isLoading: false }]),
 }))
 
+vi.mock('@/store/api/paymentMethodsApi', () => ({
+  useGetActivePaymentMethodsForPurchasesQuery: () => ({ data: [] }),
+}))
+
 const { mockNavigate, mockLocation } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockLocation: {

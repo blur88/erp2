@@ -1,8 +1,9 @@
 import { skipToken } from '@reduxjs/toolkit/query'
-import PaymentDialog from '@/components/sales/PaymentDialog'
+import PaymentDialog, { type PaymentLineInput } from '@/components/common/PaymentDialog'
 import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
 import SalesOrderPrintDialog from './SalesOrderPrintDialog'
 import { useGetSalesOrderPaymentsQuery } from '@/store/api/salesApi'
+import { useGetActivePaymentMethodsQuery } from '@/store/api/paymentMethodsApi'
 import { getCurrentDate } from '@/utils/formatters'
 import { toScaledAmount, fromScaledAmount } from '@/utils/currency'
 import type { SalesOrder } from '@/types'
@@ -12,9 +13,7 @@ interface SalesOrdersDialogsProps {
   onClosePrint: () => void
   paymentOrder: SalesOrder | null
   onClosePayment: () => void
-  onSubmitPayment: (
-    payments: { paymentMethodId: string; amount: string; reference?: string }[],
-  ) => Promise<void>
+  onSubmitPayment: (payments: PaymentLineInput[]) => Promise<void>
   refundOrder: SalesOrder | null
   onCloseRefund: () => void
   onSubmitRefund: (
@@ -36,6 +35,9 @@ export default function SalesOrdersDialogs({
   const { data: paymentRecords = [] } = useGetSalesOrderPaymentsQuery(
     refundOrder ? refundOrder.id : skipToken,
   )
+
+  const { data: paymentMethods = [], isLoading: methodsLoading } =
+    useGetActivePaymentMethodsQuery(undefined, { skip: !paymentOrder })
 
   // Build RefundSource[] from SO payments (net by payment method)
   const netByMethod = (paymentRecords ?? []).reduce<
@@ -76,9 +78,11 @@ export default function SalesOrdersDialogs({
           open
           onClose={onClosePayment}
           onSubmit={onSubmitPayment}
-          orderId={paymentOrder.id}
-          orderNumber={paymentOrder.orderNumber}
+          documentNumber={paymentOrder.orderNumber}
           totalAmount={paymentOrder.totalAmount}
+          paidAmount={paymentOrder.paidAmount}
+          paymentMethods={paymentMethods}
+          loading={methodsLoading}
         />
       )}
       {refundOrder && (

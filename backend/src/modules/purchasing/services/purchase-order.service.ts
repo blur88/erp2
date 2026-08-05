@@ -698,7 +698,7 @@ export class PurchaseOrderService extends BaseCrudService<
 
   async recordVendorPayments(
     id: string,
-    payments: { paymentMethodId: string; amount: string; reference?: string }[],
+    payments: { paymentMethodId: string; amount: string; paymentDate: string; reference?: string }[],
     userId?: string,
     username?: string,
   ): Promise<PurchaseOrderResponseDto> {
@@ -846,7 +846,7 @@ export class PurchaseOrderService extends BaseCrudService<
    */
   async recordOrderPayments(
     id: string,
-    payments: { paymentMethodId: string; amount: string; reference?: string }[],
+    payments: { paymentMethodId: string; amount: string; paymentDate: string; reference?: string }[],
     userId?: string,
     username?: string,
   ): Promise<PurchaseOrderResponseDto> {
@@ -903,7 +903,7 @@ export class PurchaseOrderService extends BaseCrudService<
           paymentMethodId: firstLine.paymentMethodId,
           amount: firstLine.amount,
           referenceNumber: firstLine.reference || previousPayment.referenceNumber,
-          paymentDate: new Date() as any,
+          paymentDate: firstLine.paymentDate as any,
         });
         const restoredPayment = await vpRepo.findOne({
           where: { id: previousPayment.id },
@@ -917,7 +917,7 @@ export class PurchaseOrderService extends BaseCrudService<
           paymentRowId: restoredPayment.id,
           channel: method.accountingChannel,
           amount: formatScale4(toMinorUnits(firstLine.amount)),
-          entryDate: new Date().toISOString().slice(0, 10),
+          entryDate: firstLine.paymentDate,
           createdBy: username,
         }, manager);
 
@@ -928,7 +928,7 @@ export class PurchaseOrderService extends BaseCrudService<
               supplierId: purchaseOrder.supplierId,
               purchaseOrderId: id,
               amount: line.amount,
-              paymentDate: new Date().toISOString().split('T')[0],
+              paymentDate: line.paymentDate,
               paymentMethodId: line.paymentMethodId,
               status: 'completed',
               referenceNumber: line.reference || undefined,
@@ -944,7 +944,7 @@ export class PurchaseOrderService extends BaseCrudService<
             paymentRowId: savedPayment.id,
             channel: m.accountingChannel,
             amount: formatScale4(toMinorUnits(line.amount)),
-            entryDate: new Date().toISOString().slice(0, 10),
+            entryDate: line.paymentDate,
             createdBy: username,
           }, manager);
         }
@@ -956,7 +956,7 @@ export class PurchaseOrderService extends BaseCrudService<
               supplierId: purchaseOrder.supplierId,
               purchaseOrderId: id,
               amount: line.amount,
-              paymentDate: new Date().toISOString().split('T')[0],
+              paymentDate: line.paymentDate,
               paymentMethodId: line.paymentMethodId,
               status: 'completed',
               referenceNumber: line.reference || undefined,
@@ -972,7 +972,7 @@ export class PurchaseOrderService extends BaseCrudService<
             paymentRowId: savedPayment.id,
             channel: method.accountingChannel,
             amount: formatScale4(toMinorUnits(line.amount)),
-            entryDate: new Date().toISOString().slice(0, 10),
+            entryDate: line.paymentDate,
             createdBy: username,
           }, manager);
         }

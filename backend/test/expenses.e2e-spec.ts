@@ -465,18 +465,21 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
       await expect(updateExpense(expense.id, { totalAmount: '500.0000' })).rejects.toThrow('Amount cannot be less than the amount already paid');
     });
 
-    it('overpay (sum > balance): rejects', async () => {
+    it('overpay (sum > balance): accepted, records OVERPAID status', async () => {
       const expense = await createExpense({ totalAmount: '1000.0000' });
       await payExpense(expense.id, [{
         paymentMethodId: cashMethod.id,
         amount: '600.0000',
         paymentDate: '2026-07-16',
       }]);
-      await expect(payExpense(expense.id, [{
+      await payExpense(expense.id, [{
         paymentMethodId: bankMethod.id,
         amount: '500.0000',
         paymentDate: '2026-07-17',
-      }])).rejects.toThrow('Payment total exceeds the outstanding balance');
+      }]);
+      const final = await getExpense(expense.id);
+      expect(final.paymentStatus).toBe(ExpensePaymentStatus.OVERPAID);
+      expect(final.paidAmount).toBe('1100.0000');
     });
 
     it('refund > source remaining: rejects', async () => {
@@ -587,7 +590,7 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
   });
 
   describe('Concurrency races via Promise.allSettled', () => {
-    it('two payments vs remaining balance: exactly one succeeds', async () => {
+    it('two payments vs remaining balance: both succeed, status OVERPAID', async () => {
       const exp = await createExpense({ totalAmount: '1000.0000' });
       await payExpense(exp.id, [{
         paymentMethodId: cashMethod.id,
@@ -609,19 +612,18 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
       ]);
 
       const { fulfilled, rejected } = partition(results);
-      expect(fulfilled).toHaveLength(1);
-      expect(rejected).toHaveLength(1);
-      expect((rejected[0].reason as Error).message).toMatch(/exceeds the outstanding balance/i);
+      expect(fulfilled).toHaveLength(2);
+      expect(rejected).toHaveLength(0);
 
       const final = await getExpense(exp.id);
-      expect(final.paymentStatus).toBe(ExpensePaymentStatus.PARTIAL);
-      expect(final.paidAmount).toBe('800.0000');
+      expect(final.paymentStatus).toBe(ExpensePaymentStatus.OVERPAID);
+      expect(final.paidAmount).toBe('1100.0000');
 
       const paymentRows = await ds.query(`SELECT id FROM expense_payments WHERE "expenseId" = $1 AND "sourcePaymentId" IS NULL`, [exp.id]);
-      expect(paymentRows.length).toBe(2);
+      expect(paymentRows.length).toBe(3);
 
       const jeCount = await ds.query(`SELECT COUNT(*)::int AS n FROM journal_entry WHERE "sourceType" = $1 AND "sourceDocumentId" = $2 AND "postingType" = $3`, [AccountingSourceType.EXPENSE, exp.id, PostingType.EXPENSE_PAYMENT]);
-      expect(jeCount[0].n).toBe(2);
+      expect(jeCount[0].n).toBe(3);
     });
 
     it('two refunds vs same source remainder: exactly one succeeds', async () => {

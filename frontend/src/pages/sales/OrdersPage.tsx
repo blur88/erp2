@@ -189,6 +189,7 @@ const OrdersPage: React.FC = () => {
       showSuccess(`Payment recorded for ${paymentOrder.orderNumber}`)
     } catch (e: any) {
       showError(e?.data?.message || `Failed to record payment for ${paymentOrder.orderNumber}`)
+      throw e
     }
   }, [paymentOrder, recordPayments, showError, showSuccess])
 

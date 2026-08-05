@@ -214,7 +214,7 @@ export const purchasingApiSlice = createApi({
     }),
     recordVendorPayments: builder.mutation<
       PurchaseOrder,
-      { purchaseOrderId: string; payments: { paymentMethodId: string; amount: string; reference?: string }[] }
+      { purchaseOrderId: string; payments: { paymentMethodId: string; amount: string; paymentDate: string; reference?: string }[] }
     >({
       query: ({ purchaseOrderId, payments }) => ({
         url: `/purchasing/orders/${purchaseOrderId}/payments`,
