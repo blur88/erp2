@@ -7,6 +7,7 @@ import {
   fromScaledAmount,
   sumScaledAmounts,
   allocateByLargestRemainder,
+  normalizeAmountInput,
 } from '../currency'
 
 describe('formatCurrency', () => {
@@ -286,5 +287,48 @@ describe('allocateByLargestRemainder', () => {
     const allocations = allocateByLargestRemainder(weights, 999999999999901n)
 
     expect(sum(allocations)).toBe(999999999999901n)
+  })
+})
+
+describe('normalizeAmountInput', () => {
+  it('repairs a trailing decimal point by appending two zeros', () => {
+    expect(normalizeAmountInput('1000.')).toBe('1000.00')
+  })
+
+  it('repairs a zero with a trailing decimal point', () => {
+    expect(normalizeAmountInput('0.')).toBe('0.00')
+  })
+
+  it('leaves already-valid amounts unchanged', () => {
+    expect(normalizeAmountInput('1000')).toBe('1000')
+    expect(normalizeAmountInput('1000.00')).toBe('1000.00')
+    expect(normalizeAmountInput('1000.0001')).toBe('1000.0001')
+  })
+
+  it('does not repair a leading decimal point', () => {
+    expect(normalizeAmountInput('.5')).toBe('.5')
+  })
+
+  it('does not expand exponent notation', () => {
+    expect(normalizeAmountInput('1e3')).toBe('1e3')
+  })
+
+  it('does not strip a leading sign', () => {
+    expect(normalizeAmountInput('+1000')).toBe('+1000')
+    expect(normalizeAmountInput('-5.')).toBe('-5.')
+  })
+
+  it('does not round excess precision', () => {
+    expect(normalizeAmountInput('1.00000')).toBe('1.00000')
+  })
+
+  it('passes through malformed and empty text unchanged', () => {
+    expect(normalizeAmountInput('abc')).toBe('abc')
+    expect(normalizeAmountInput('')).toBe('')
+    expect(normalizeAmountInput('1000..')).toBe('1000..')
+  })
+
+  it('does not trim surrounding whitespace', () => {
+    expect(normalizeAmountInput(' 1000 ')).toBe(' 1000 ')
   })
 })
