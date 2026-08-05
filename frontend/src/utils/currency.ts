@@ -99,6 +99,27 @@ export const toAmountInputValue = (
 }
 
 /**
+ * Repairs a trailing decimal point in a user-typed amount.
+ *
+ * The Expense form's Yup schema enforces the backend DTO grammar
+ * (^\d+(\.\d{1,4})?$) verbatim, which rejects '1000.' — a shape users
+ * legitimately produce mid-typing (issue #1001). Appending '00' makes it
+ * canonical without changing its value.
+ *
+ * The repair is deliberately narrow: only /^\d+\.$/ is touched. Whitespace,
+ * signs, leading decimals ('.5'), exponent notation ('1e3') and excess
+ * precision are returned unchanged so the schema reports them, because
+ * silently repairing them could conceal unintended input.
+ *
+ * Purely lexical — the value is never parsed into a JS number, matching the
+ * money contract documented above.
+ */
+const TRAILING_DECIMAL_POINT = /^\d+\.$/
+
+export const normalizeAmountInput = (value: string): string =>
+  TRAILING_DECIMAL_POINT.test(value) ? `${value}00` : value
+
+/**
  * Scale-4 money arithmetic, mirroring backend/src/common/utils/money.ts.
  *
  * Persisted money is NUMERIC(_,4). Parsing it into a JS number loses fractional

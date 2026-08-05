@@ -281,6 +281,168 @@ describe('ExpenseFormPage - Create mode', () => {
     expect(mockCreateExpense).not.toHaveBeenCalled()
   })
 
+  it.each([
+    ['1e3'],
+    ['.5'],
+    ['+1000'],
+    ['-5'],
+    ['1.00000'],
+    ['abc'],
+    [' 1000 '],
+  ])('rejects malformed amount %j with a format error and no API call', async (amount) => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Test expense')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), amount)
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+    await waitFor(() => {
+      expect(screen.getByText('Enter a valid amount (up to 4 decimal places)')).toBeInTheDocument()
+    })
+    expect(mockCreateExpense).not.toHaveBeenCalled()
+  })
+
+  // `' 1000 '` above is the whitespace case: the grammar has no \s, and
+  // normalizeAmountInput deliberately does not trim, so it must surface a format
+  // error rather than being silently repaired. userEvent.type enters the spaces
+  // literally, so the field value really is ' 1000 '.
+
+  it('reports only the required message for a blank amount', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Test expense')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+    await waitFor(() => {
+      expect(screen.getByText('Amount is required')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Enter a valid amount (up to 4 decimal places)')).not.toBeInTheDocument()
+    expect(mockCreateExpense).not.toHaveBeenCalled()
+  })
+
+  it('reports only the format message for a negative amount', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Test expense')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), '-5')
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+    await waitFor(() => {
+      expect(screen.getByText('Enter a valid amount (up to 4 decimal places)')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Amount must be greater than 0')).not.toBeInTheDocument()
+  })
+
+  it('normalizes a trailing decimal point on blur', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    const amountField = screen.getByLabelText(/amount/i)
+    await user.type(amountField, '1000.')
+    await user.tab()
+    await waitFor(() => {
+      expect(amountField).toHaveValue('1000.00')
+    })
+  })
+
+  it('submits the normalized amount after blur', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Office supplies')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), '1000.')
+    await user.tab()
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+    await waitFor(() => {
+      expect(mockCreateExpense).toHaveBeenCalledWith(
+        expect.objectContaining({ totalAmount: '1000.00' }),
+      )
+    })
+    expect(screen.queryByText('Enter a valid amount (up to 4 decimal places)')).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['1000', '1000'],
+    ['1000.00', '1000.00'],
+  ])('submits a valid amount %s unchanged as %s', async (typed, submitted) => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Office supplies')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), typed)
+    await user.tab()
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+    await waitFor(() => {
+      expect(mockCreateExpense).toHaveBeenCalledWith(
+        expect.objectContaining({ totalAmount: submitted }),
+      )
+    })
+  })
+
+  // Note the asymmetry: '1000' submits as '1000', NOT padded to '1000.00'.
+  // normalizeAmountInput repairs a trailing dot only, so a bare integer passes
+  // through untouched — valid against the DTO regex either way.
+
+  it('leaves a malformed value untouched on blur', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    const amountField = screen.getByLabelText(/amount/i)
+    await user.type(amountField, '1e3')
+    await user.tab()
+    await waitFor(() => {
+      expect(amountField).toHaveValue('1e3')
+    })
+  })
+
+  it('preserves a scale-4 amount exactly through submission', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Rounding adjustment')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), '1000.0001')
+    await user.tab()
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+    await waitFor(() => {
+      expect(mockCreateExpense).toHaveBeenCalledWith(
+        expect.objectContaining({ totalAmount: '1000.0001' }),
+      )
+    })
+  })
+
+  it('normalizes a trailing decimal point on Enter without blur', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Office supplies')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    // Enter while Amount still has focus — no blur fires.
+    await user.type(screen.getByLabelText(/amount/i), '1000.{Enter}')
+    await waitFor(() => {
+      expect(mockCreateExpense).toHaveBeenCalledWith(
+        expect.objectContaining({ totalAmount: '1000.00' }),
+      )
+    })
+    expect(screen.queryByText('Enter a valid amount (up to 4 decimal places)')).not.toBeInTheDocument()
+  })
+
+  it('still blocks a malformed value submitted with Enter', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Office supplies')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), '1e3{Enter}')
+    await waitFor(() => {
+      expect(screen.getByText('Enter a valid amount (up to 4 decimal places)')).toBeInTheDocument()
+    })
+    expect(mockCreateExpense).not.toHaveBeenCalled()
+  })
+
   it('accepts a sub-cent scale-4 amount such as 0.0001', async () => {
     const user = userEvent.setup()
     renderCreatePage()
@@ -555,6 +717,33 @@ describe('ExpenseFormPage - Edit mode', () => {
       })
     })
   })
+
+  it('rejects an amount below a large paid amount that parseFloat cannot distinguish', async () => {
+    const user = userEvent.setup()
+    mockGetExpense.mockReturnValue({
+      data: {
+        ...defaultExpense,
+        totalAmount: '99999999999999.9900',
+        paidAmount: '99999999999999.9900',
+        balance: '0.0000',
+        paymentStatus: 'PARTIAL' as const,
+      },
+      isLoading: false,
+      isFetching: false,
+    })
+    renderEditPage()
+    const amountField = screen.getByLabelText(/amount/i)
+    await user.clear(amountField)
+    // One ten-thousandth below the paid amount. parseFloat collapses both this
+    // and the paid amount to 99999999999999.98, so the old numeric comparison
+    // accepted it; the bigint comparison rejects it.
+    await user.type(amountField, '99999999999999.9899')
+    await user.click(screen.getByRole('button', { name: /save expense/i }))
+    await waitFor(() => {
+      expect(screen.getByText('Amount cannot be less than paid amount')).toBeInTheDocument()
+    })
+    expect(mockUpdateExpense).not.toHaveBeenCalled()
+  })
 })
 
 describe('ExpenseFormPage - Edit locks', () => {
@@ -823,4 +1012,109 @@ describe('ExpenseFormPage - Edit origin', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses')
     })
   })
+})
+
+describe('ExpenseFormPage - Amount normalization in Edit mode', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockLocationState.current = null
+    mockBlockerState.current = 'idle'
+    mockCreateExpense.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-exp-1' }) })
+    mockUpdateExpense.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'exp-1' }) })
+    mockGetExpense.mockReturnValue({ data: defaultExpense, isLoading: false, isFetching: false })
+    mockGetAccountTree.mockReturnValue({ data: defaultAccounts, isLoading: false, isFetching: false })
+    mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1', cogsAccountId: 'cogs-acc' }, isLoading: false, isFetching: false })
+    mockGetDocumentNumberSettings.mockReturnValue(EXPENSE_DOC_SETTINGS)
+  })
+
+  it('normalizes a trailing decimal point on blur and submits the canonical value', async () => {
+    const user = userEvent.setup()
+    renderEditPage()
+    const amountField = screen.getByLabelText(/amount/i)
+    await user.clear(amountField)
+    await user.type(amountField, '1000.')
+    await user.tab()
+    await waitFor(() => {
+      expect(amountField).toHaveValue('1000.00')
+    })
+    await user.click(screen.getByRole('button', { name: /save expense/i }))
+    await waitFor(() => {
+      expect(mockUpdateExpense).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'exp-1',
+          data: expect.objectContaining({ totalAmount: '1000.00' }),
+        }),
+      )
+    })
+  })
+
+  it('normalizes on Enter without blur', async () => {
+    const user = userEvent.setup()
+    renderEditPage()
+    const amountField = screen.getByLabelText(/amount/i)
+    await user.clear(amountField)
+    await user.type(amountField, '1000.{Enter}')
+    await waitFor(() => {
+      expect(mockUpdateExpense).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ totalAmount: '1000.00' }),
+        }),
+      )
+    })
+  })
+
+  it('rejects a malformed amount with a format error and no API call', async () => {
+    const user = userEvent.setup()
+    renderEditPage()
+    const amountField = screen.getByLabelText(/amount/i)
+    await user.clear(amountField)
+    await user.type(amountField, '1e3')
+    await user.click(screen.getByRole('button', { name: /save expense/i }))
+    await waitFor(() => {
+      expect(screen.getByText('Enter a valid amount (up to 4 decimal places)')).toBeInTheDocument()
+    })
+    expect(mockUpdateExpense).not.toHaveBeenCalled()
+  })
+
+  it('still rejects an amount below the paid amount', async () => {
+    const user = userEvent.setup()
+    mockGetExpense.mockReturnValue({
+      data: { ...defaultExpense, totalAmount: '1000.00', paidAmount: '400.0000', balance: '600.0000', paymentStatus: 'PARTIAL' as const },
+      isLoading: false,
+      isFetching: false,
+    })
+    renderEditPage()
+    const amountField = screen.getByLabelText(/amount/i)
+    await user.clear(amountField)
+    await user.type(amountField, '300.')
+    await user.tab()
+    await user.click(screen.getByRole('button', { name: /save expense/i }))
+    await waitFor(() => {
+      expect(screen.getByText('Amount cannot be less than paid amount')).toBeInTheDocument()
+    })
+    expect(mockUpdateExpense).not.toHaveBeenCalled()
+  })
+
+  it('accepts an amount exactly equal to the paid amount', async () => {
+    const user = userEvent.setup()
+    mockGetExpense.mockReturnValue({
+      data: { ...defaultExpense, totalAmount: '1000.00', paidAmount: '400.0000', balance: '600.0000', paymentStatus: 'PARTIAL' as const },
+      isLoading: false,
+      isFetching: false,
+    })
+    renderEditPage()
+    const amountField = screen.getByLabelText(/amount/i)
+    await user.clear(amountField)
+    await user.type(amountField, '400.')
+    await user.tab()
+    await user.click(screen.getByRole('button', { name: /save expense/i }))
+    await waitFor(() => {
+      expect(mockUpdateExpense).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ totalAmount: '400.00' }),
+        }),
+      )
+    })
+  })
+
 })
