@@ -1013,3 +1013,108 @@ describe('ExpenseFormPage - Edit origin', () => {
     })
   })
 })
+
+describe('ExpenseFormPage - Amount normalization in Edit mode', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockLocationState.current = null
+    mockBlockerState.current = 'idle'
+    mockCreateExpense.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'new-exp-1' }) })
+    mockUpdateExpense.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'exp-1' }) })
+    mockGetExpense.mockReturnValue({ data: defaultExpense, isLoading: false, isFetching: false })
+    mockGetAccountTree.mockReturnValue({ data: defaultAccounts, isLoading: false, isFetching: false })
+    mockGetAccountingSettings.mockReturnValue({ data: { defaultExpenseAccountId: 'exp-acc-1', cogsAccountId: 'cogs-acc' }, isLoading: false, isFetching: false })
+    mockGetDocumentNumberSettings.mockReturnValue(EXPENSE_DOC_SETTINGS)
+  })
+
+  it('normalizes a trailing decimal point on blur and submits the canonical value', async () => {
+    const user = userEvent.setup()
+    renderEditPage()
+    const amountField = screen.getByLabelText(/amount/i)
+    await user.clear(amountField)
+    await user.type(amountField, '1000.')
+    await user.tab()
+    await waitFor(() => {
+      expect(amountField).toHaveValue('1000.00')
+    })
+    await user.click(screen.getByRole('button', { name: /save expense/i }))
+    await waitFor(() => {
+      expect(mockUpdateExpense).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'exp-1',
+          data: expect.objectContaining({ totalAmount: '1000.00' }),
+        }),
+      )
+    })
+  })
+
+  it('normalizes on Enter without blur', async () => {
+    const user = userEvent.setup()
+    renderEditPage()
+    const amountField = screen.getByLabelText(/amount/i)
+    await user.clear(amountField)
+    await user.type(amountField, '1000.{Enter}')
+    await waitFor(() => {
+      expect(mockUpdateExpense).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ totalAmount: '1000.00' }),
+        }),
+      )
+    })
+  })
+
+  it('rejects a malformed amount with a format error and no API call', async () => {
+    const user = userEvent.setup()
+    renderEditPage()
+    const amountField = screen.getByLabelText(/amount/i)
+    await user.clear(amountField)
+    await user.type(amountField, '1e3')
+    await user.click(screen.getByRole('button', { name: /save expense/i }))
+    await waitFor(() => {
+      expect(screen.getByText('Enter a valid amount (up to 4 decimal places)')).toBeInTheDocument()
+    })
+    expect(mockUpdateExpense).not.toHaveBeenCalled()
+  })
+
+  it('still rejects an amount below the paid amount', async () => {
+    const user = userEvent.setup()
+    mockGetExpense.mockReturnValue({
+      data: { ...defaultExpense, totalAmount: '1000.00', paidAmount: '400.0000', balance: '600.0000', paymentStatus: 'PARTIAL' as const },
+      isLoading: false,
+      isFetching: false,
+    })
+    renderEditPage()
+    const amountField = screen.getByLabelText(/amount/i)
+    await user.clear(amountField)
+    await user.type(amountField, '300.')
+    await user.tab()
+    await user.click(screen.getByRole('button', { name: /save expense/i }))
+    await waitFor(() => {
+      expect(screen.getByText('Amount cannot be less than paid amount')).toBeInTheDocument()
+    })
+    expect(mockUpdateExpense).not.toHaveBeenCalled()
+  })
+
+  it('accepts an amount exactly equal to the paid amount', async () => {
+    const user = userEvent.setup()
+    mockGetExpense.mockReturnValue({
+      data: { ...defaultExpense, totalAmount: '1000.00', paidAmount: '400.0000', balance: '600.0000', paymentStatus: 'PARTIAL' as const },
+      isLoading: false,
+      isFetching: false,
+    })
+    renderEditPage()
+    const amountField = screen.getByLabelText(/amount/i)
+    await user.clear(amountField)
+    await user.type(amountField, '400.')
+    await user.tab()
+    await user.click(screen.getByRole('button', { name: /save expense/i }))
+    await waitFor(() => {
+      expect(mockUpdateExpense).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ totalAmount: '400.00' }),
+        }),
+      )
+    })
+  })
+
+})
