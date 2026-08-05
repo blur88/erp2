@@ -29,6 +29,10 @@ vi.mock('@/store/api/purchasingApi', () => ({
   useGetPurchaseOrderPaymentsQuery: vi.fn(() => ({ data: [], isLoading: false })),
 }))
 
+vi.mock('@/store/api/paymentMethodsApi', () => ({
+  useGetActivePaymentMethodsForPurchasesQuery: () => ({ data: [] }),
+}))
+
 vi.mock('@/components/filters', () => ({
   FilterBar: (props: unknown) => {
     filterBarSpy(props)

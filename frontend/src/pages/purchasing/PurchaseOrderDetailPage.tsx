@@ -7,7 +7,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import PageHeader from '@/components/common/PageHeader'
-import VendorPaymentDialog from '@/components/purchasing/VendorPaymentDialog'
+import PaymentDialog from '@/components/common/PaymentDialog'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelPurchaseOrderMutation,
@@ -20,6 +20,7 @@ import {
   useReturnGoodsMutation,
   useUncancelPurchaseOrderMutation,
 } from '@/store/api/purchasingApi'
+import { useGetActivePaymentMethodsForPurchasesQuery } from '@/store/api/paymentMethodsApi'
 import type { VendorPayment } from '@/types'
 import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
 
@@ -94,6 +95,9 @@ export default function PurchaseOrderDetailPage() {
   const [duplicateOrder] = useDuplicatePurchaseOrderMutation()
   const [recordRefunds] = useRecordPurchaseOrderRefundsMutation()
   const [recordPayments] = useRecordVendorPaymentsMutation()
+
+  const { data: paymentMethods = [], isLoading: methodsLoading } =
+    useGetActivePaymentMethodsForPurchasesQuery(undefined, { skip: activeDialog !== 'pay' })
 
   // Build RefundSource[] from vendor payments (grouped by payment method)
   const refundSources: RefundSource[] = useMemo(
@@ -302,13 +306,15 @@ export default function PurchaseOrderDetailPage() {
       />
 
       {activeDialog === 'pay' && (
-        <VendorPaymentDialog
+        <PaymentDialog
           open
           onClose={() => setActiveDialog(null)}
           onSubmit={handlePaySubmit}
-          orderNumber={order.orderNumber}
-          totalAmount={order.totalAmount ?? '0.0000'}
-          paidAmount={order.paidAmount ?? '0.0000'}
+          documentNumber={order.orderNumber}
+          totalAmount={order.totalAmount}
+          paidAmount={order.paidAmount}
+          paymentMethods={paymentMethods}
+          loading={methodsLoading}
         />
       )}
 

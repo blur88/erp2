@@ -239,7 +239,7 @@ export interface SalesOrder {
   customerId: string;
   items?: SalesOrderItem[];
   totalAmount: string;
-  paidAmount?: string;
+  paidAmount: string;
   balanceDue?: string;
   isFulfilled?: boolean;
   isPaidInFull?: boolean;
@@ -395,11 +395,11 @@ export interface PurchaseOrder {
   paymentStatus: PurchaseOrderPaymentStatus;
   items?: PurchaseOrderItem[];
   total?: number;
-  paidAmount?: string;
+  paidAmount: string;
   subtotal?: number;
   discountAmount?: number;
   shippingAmount?: number;
-  totalAmount?: string;
+  totalAmount: string;
   orderDate: Date;
   deletedAt?: Date | string;
   expectedDate?: Date;
