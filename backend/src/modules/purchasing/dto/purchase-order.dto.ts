@@ -22,6 +22,7 @@ import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { BaseQueryDto } from '../../../common/dto/base-query.dto';
 import { IsMoneyAtLeast } from '../../../common/validators/is-money-at-least.validator';
+import { IsCalendarDate } from '../../../common/validators/is-calendar-date.validator';
 import {
   PurchaseOrderPaymentStatus,
   PurchaseOrderStatus,
@@ -380,6 +381,10 @@ export class RecordOrderPaymentLineDto {
   @IsString()
   @IsNotEmpty()
   paymentMethodId: string;
+
+  @ApiProperty({ description: 'Payment date (YYYY-MM-DD)', example: '2026-08-05' })
+  @IsCalendarDate()
+  paymentDate: string;
 
   @ApiProperty({ description: 'Payment amount', example: '500.00' })
   @Matches(/^\d+(\.\d{1,4})?$/, {

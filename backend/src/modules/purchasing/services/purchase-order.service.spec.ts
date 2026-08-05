@@ -703,7 +703,7 @@ describe('PurchaseOrderService', () => {
         { id: 'vp-b', amount: '80.0000' } as unknown as VendorPayment,
       ]);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000' }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000', paymentDate: '2026-01-15' }]);
 
       const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
       expect(Number(saved.paidAmount)).toBe(200);
@@ -715,7 +715,7 @@ describe('PurchaseOrderService', () => {
 
       await service.recordOrderPayments(
         'po-1',
-        [{ paymentMethodId: 'pm-cash', amount: '200.0000' }],
+        [{ paymentMethodId: 'pm-cash', amount: '200.0000', paymentDate: '2026-01-15' }],
         'user-42',
         'alice',
       );
@@ -728,11 +728,48 @@ describe('PurchaseOrderService', () => {
       );
     });
 
+    it('persists the supplied paymentDate instead of today', async () => {
+      vendorPaymentRepository.findOne.mockResolvedValue(null);
+      vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
+
+      await service.recordOrderPayments(
+        'po-1',
+        [{ paymentMethodId: 'pm-cash', amount: '50.0000', paymentDate: '2026-01-15' }],
+        'user-1',
+        'admin',
+      );
+
+      expect(vendorPaymentService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ paymentDate: '2026-01-15' }),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+      );
+    });
+
+    it('posts the journal entry on the supplied paymentDate', async () => {
+      vendorPaymentRepository.findOne.mockResolvedValue(null);
+      vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
+      const accounting = module.get<{ postPurchasePayment: jest.Mock }>(ACCOUNTING_POSTING_PORT);
+
+      await service.recordOrderPayments(
+        'po-1',
+        [{ paymentMethodId: 'pm-cash', amount: '50.0000', paymentDate: '2026-01-15' }],
+        'user-1',
+        'admin',
+      );
+
+      expect(accounting.postPurchasePayment).toHaveBeenCalledWith(
+        expect.objectContaining({ entryDate: '2026-01-15' }),
+        expect.anything(),
+      );
+    });
+
     it('creates a new vendor payment when no previous soft-deleted payment exists', async () => {
       vendorPaymentRepository.findOne.mockResolvedValue(null);
       vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000' }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000', paymentDate: '2026-01-15' }]);
 
       expect(vendorPaymentService.create).toHaveBeenCalled();
       expect(vendorPaymentRepository.restore).not.toHaveBeenCalled();
@@ -745,7 +782,7 @@ describe('PurchaseOrderService', () => {
       vendorPaymentRepository.restore.mockResolvedValue({} as any);
       vendorPaymentRepository.update.mockResolvedValue({} as any);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000' }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000', paymentDate: '2026-01-15' }]);
 
       expect(vendorPaymentRepository.restore).toHaveBeenCalledWith('vp-old-1');
     });
@@ -757,7 +794,7 @@ describe('PurchaseOrderService', () => {
       vendorPaymentRepository.restore.mockResolvedValue({} as any);
       vendorPaymentRepository.update.mockResolvedValue({} as any);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '300.0000' }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '300.0000', paymentDate: '2026-01-15' }]);
 
       expect(vendorPaymentRepository.update).toHaveBeenCalledWith(
         'vp-old-1',
@@ -772,7 +809,7 @@ describe('PurchaseOrderService', () => {
       } as unknown as PurchaseOrder);
 
       await expect(
-        service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000' }]),
+        service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000', paymentDate: '2026-01-15' }]),
       ).rejects.toThrow(/CANCELLED/);
       expect(vendorPaymentService.create).not.toHaveBeenCalled();
     });
@@ -784,7 +821,7 @@ describe('PurchaseOrderService', () => {
       } as unknown as PurchaseOrder);
 
       await expect(
-        service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000' }]),
+        service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000', paymentDate: '2026-01-15' }]),
       ).rejects.toThrow(/RECEIVED/);
     });
 
@@ -792,7 +829,7 @@ describe('PurchaseOrderService', () => {
       vendorPaymentRepository.findOne.mockResolvedValue(null);
 
       await expect(
-        service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '0.0000' }]),
+        service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '0.0000', paymentDate: '2026-01-15' }]),
       ).rejects.toThrow(/greater than zero/);
     });
 
@@ -809,7 +846,7 @@ describe('PurchaseOrderService', () => {
         { id: 'vp-over', amount: '120.0000' } as unknown as VendorPayment,
       ]);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '120.0000' }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '120.0000', paymentDate: '2026-01-15' }]);
 
       const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
       expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.OVERPAID);
@@ -830,7 +867,7 @@ describe('PurchaseOrderService', () => {
         { id: 'vp-b', amount: '50.0000' } as unknown as VendorPayment,
       ]);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '50.0000' }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '50.0000', paymentDate: '2026-01-15' }]);
 
       const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
       expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.OVERPAID);
@@ -850,7 +887,7 @@ describe('PurchaseOrderService', () => {
         { id: 'vp-exact', amount: '100.0000' } as unknown as VendorPayment,
       ]);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '100.0000' }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '100.0000', paymentDate: '2026-01-15' }]);
 
       const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
       expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.PAID);
@@ -1120,7 +1157,7 @@ describe('PurchaseOrderService', () => {
         { id: 'vp-exact', amount: '100.0000' } as unknown as VendorPayment,
       ]);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '100.0000' }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '100.0000', paymentDate: '2026-01-15' }]);
 
       const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
       expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.PAID);
@@ -1139,7 +1176,7 @@ describe('PurchaseOrderService', () => {
         { id: 'vp-over', amount: '120.0000' } as unknown as VendorPayment,
       ]);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '120.0000' }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '120.0000', paymentDate: '2026-01-15' }]);
 
       const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
       expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.OVERPAID);
@@ -1187,7 +1224,7 @@ describe('PurchaseOrderService', () => {
 
       await service.recordOrderPayments(
         'po-1',
-        [{ paymentMethodId: 'pm-1', amount: '100.0000', reference: 'WIRE-001' }],
+        [{ paymentMethodId: 'pm-1', amount: '100.0000', paymentDate: '2026-01-15', reference: 'WIRE-001' }],
         'user-1',
         'admin',
       )
@@ -1214,8 +1251,8 @@ describe('PurchaseOrderService', () => {
       await service.recordOrderPayments(
         'po-1',
         [
-          { paymentMethodId: 'pm-1', amount: '60.0000', reference: 'FIRST-1' },
-          { paymentMethodId: 'pm-1', amount: '40.0000', reference: 'SECOND-2' },
+          { paymentMethodId: 'pm-1', amount: '60.0000', paymentDate: '2026-01-15', reference: 'FIRST-1' },
+          { paymentMethodId: 'pm-1', amount: '40.0000', paymentDate: '2026-01-15', reference: 'SECOND-2' },
         ],
         'user-1',
         'admin',
@@ -1242,7 +1279,7 @@ describe('PurchaseOrderService', () => {
 
       await service.recordOrderPayments(
         'po-1',
-        [{ paymentMethodId: 'pm-1', amount: '60.0000', reference: 'RESTORED-1' }],
+        [{ paymentMethodId: 'pm-1', amount: '60.0000', paymentDate: '2026-01-15', reference: 'RESTORED-1' }],
         'user-1',
         'admin',
       )
@@ -1267,7 +1304,7 @@ describe('PurchaseOrderService', () => {
 
       await service.recordOrderPayments(
         'po-1',
-        [{ paymentMethodId: 'pm-1', amount: '60.0000' }],
+        [{ paymentMethodId: 'pm-1', amount: '60.0000', paymentDate: '2026-01-15' }],
         'user-1',
         'admin',
       )
