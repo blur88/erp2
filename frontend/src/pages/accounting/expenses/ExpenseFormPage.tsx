@@ -36,7 +36,7 @@ import {
 import type { AccountTreeNode } from '@/types'
 import { getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
-import { toAmountInputValue } from '@/utils/currency'
+import { toAmountInputValue, toScaledAmount } from '@/utils/currency'
 
 interface ExpenseFormData {
   expenseDate: string
@@ -66,6 +66,9 @@ const fieldSx = {
   '& .MuiInputLabel-root': { fontSize: '0.875rem' },
 }
 
+// Mirrors backend/src/modules/accounting/dto/expense.dto.ts — keep in sync.
+const AMOUNT_GRAMMAR = /^\d+(\.\d{1,4})?$/
+
 const ExpenseFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -89,10 +92,11 @@ const ExpenseFormPage: React.FC = () => {
 
   const isSaving = isCreating || isUpdating
   const hasPayments = (expense?.payments?.length ?? 0) > 0
-  const paidAmountNum = parseFloat(expense?.paidAmount ?? '0')
   // No arbitrary 0.01 floor — backend accepts any positive scale-4 amount
   // (e.g. 0.0001); the only lower bound is the net paid amount when editing.
-  const minAmount = isEdit ? paidAmountNum : 0
+  // Compared in scale-4 minor units: paidAmount is NUMERIC(18,4) and parsing a
+  // large one into binary64 loses fractional cents.
+  const minPaidUnits = isEdit ? (toScaledAmount(expense?.paidAmount ?? '0') ?? 0n) : 0n
 
   useEffect(() => {
     if (isEdit && expense) {
@@ -110,10 +114,26 @@ const ExpenseFormPage: React.FC = () => {
     totalAmount: yup
       .string()
       .required('Amount is required')
-      .test('is-positive', 'Amount must be greater than 0', (v) => parseFloat(v ?? '0') > 0)
-      .test('min-paid', 'Amount cannot be less than paid amount', (v) => parseFloat(v ?? '0') >= minAmount),
+      // The DTO regex verbatim (backend expense.dto.ts) — the frontend must
+      // accept exactly what the API accepts, not an approximation (#1001).
+      // Blank yields to `required`, which owns empty input; without this guard
+      // a blank field reports two messages under abortEarly: false.
+      .test('format', 'Enter a valid amount (up to 4 decimal places)',
+        (v) => !v || AMOUNT_GRAMMAR.test(v))
+      // The resolver runs with abortEarly: false, so every test runs regardless
+      // of order. These two yield to `format` so a malformed value reports one
+      // message, and so toScaledAmount — which trims whitespace and accepts
+      // signs — only ever sees strings already matching the grammar.
+      .test('is-positive', 'Amount must be greater than 0', (v) => {
+        if (!v || !AMOUNT_GRAMMAR.test(v)) return true
+        return (toScaledAmount(v) ?? 0n) > 0n
+      })
+      .test('min-paid', 'Amount cannot be less than paid amount', (v) => {
+        if (!v || !AMOUNT_GRAMMAR.test(v)) return true
+        return (toScaledAmount(v) ?? 0n) >= minPaidUnits
+      }),
     notes: yup.string().nullable().transform((v) => v?.trim() || null),
-  }), [minAmount])
+  }), [minPaidUnits])
 
   const defaultExpenseAccountId = settings?.defaultExpenseAccountId ?? ''
 

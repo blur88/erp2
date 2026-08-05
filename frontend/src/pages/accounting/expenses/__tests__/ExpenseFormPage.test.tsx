@@ -281,6 +281,61 @@ describe('ExpenseFormPage - Create mode', () => {
     expect(mockCreateExpense).not.toHaveBeenCalled()
   })
 
+  it.each([
+    ['1e3'],
+    ['.5'],
+    ['+1000'],
+    ['-5'],
+    ['1.00000'],
+    ['abc'],
+    [' 1000 '],
+  ])('rejects malformed amount %j with a format error and no API call', async (amount) => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Test expense')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), amount)
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+    await waitFor(() => {
+      expect(screen.getByText('Enter a valid amount (up to 4 decimal places)')).toBeInTheDocument()
+    })
+    expect(mockCreateExpense).not.toHaveBeenCalled()
+  })
+
+  // `' 1000 '` above is the whitespace case: the grammar has no \s, and
+  // normalizeAmountInput deliberately does not trim, so it must surface a format
+  // error rather than being silently repaired. userEvent.type enters the spaces
+  // literally, so the field value really is ' 1000 '.
+
+  it('reports only the required message for a blank amount', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Test expense')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+    await waitFor(() => {
+      expect(screen.getByText('Amount is required')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Enter a valid amount (up to 4 decimal places)')).not.toBeInTheDocument()
+    expect(mockCreateExpense).not.toHaveBeenCalled()
+  })
+
+  it('reports only the format message for a negative amount', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Test expense')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), '-5')
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+    await waitFor(() => {
+      expect(screen.getByText('Enter a valid amount (up to 4 decimal places)')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Amount must be greater than 0')).not.toBeInTheDocument()
+  })
+
   it('accepts a sub-cent scale-4 amount such as 0.0001', async () => {
     const user = userEvent.setup()
     renderCreatePage()
@@ -554,6 +609,33 @@ describe('ExpenseFormPage - Edit mode', () => {
         data: expect.objectContaining({ totalAmount: '1000.00' }),
       })
     })
+  })
+
+  it('rejects an amount below a large paid amount that parseFloat cannot distinguish', async () => {
+    const user = userEvent.setup()
+    mockGetExpense.mockReturnValue({
+      data: {
+        ...defaultExpense,
+        totalAmount: '99999999999999.9900',
+        paidAmount: '99999999999999.9900',
+        balance: '0.0000',
+        paymentStatus: 'PARTIAL' as const,
+      },
+      isLoading: false,
+      isFetching: false,
+    })
+    renderEditPage()
+    const amountField = screen.getByLabelText(/amount/i)
+    await user.clear(amountField)
+    // One ten-thousandth below the paid amount. parseFloat collapses both this
+    // and the paid amount to 99999999999999.98, so the old numeric comparison
+    // accepted it; the bigint comparison rejects it.
+    await user.type(amountField, '99999999999999.9899')
+    await user.click(screen.getByRole('button', { name: /save expense/i }))
+    await waitFor(() => {
+      expect(screen.getByText('Amount cannot be less than paid amount')).toBeInTheDocument()
+    })
+    expect(mockUpdateExpense).not.toHaveBeenCalled()
   })
 })
 
