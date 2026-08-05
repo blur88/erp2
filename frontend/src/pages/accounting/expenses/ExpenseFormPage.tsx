@@ -36,7 +36,7 @@ import {
 import type { AccountTreeNode } from '@/types'
 import { getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
-import { toAmountInputValue, toScaledAmount } from '@/utils/currency'
+import { normalizeAmountInput, toAmountInputValue, toScaledAmount } from '@/utils/currency'
 
 interface ExpenseFormData {
   expenseDate: string
@@ -142,6 +142,7 @@ const ExpenseFormPage: React.FC = () => {
     handleSubmit,
     reset,
     setError,
+    setValue,
     watch,
     formState: { errors, isDirty, isSubmitting },
   } = useForm<ExpenseFormData>({
@@ -434,6 +435,17 @@ const ExpenseFormPage: React.FC = () => {
                       render={({ field }) => (
                         <TextField
                           {...field}
+                          onBlur={() => {
+                            // RHF defaults to onSubmit validation, so field.onBlur
+                            // only marks the field touched — setValue with
+                            // shouldValidate is what clears a stale format error
+                            // once the value has been repaired (#1001).
+                            setValue('totalAmount', normalizeAmountInput(field.value ?? ''), {
+                              shouldValidate: true,
+                              shouldDirty: true,
+                            })
+                            field.onBlur()
+                          }}
                           fullWidth
                           size="small"
                           label="Amount"

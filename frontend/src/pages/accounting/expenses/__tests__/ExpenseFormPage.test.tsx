@@ -336,6 +336,84 @@ describe('ExpenseFormPage - Create mode', () => {
     expect(screen.queryByText('Amount must be greater than 0')).not.toBeInTheDocument()
   })
 
+  it('normalizes a trailing decimal point on blur', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    const amountField = screen.getByLabelText(/amount/i)
+    await user.type(amountField, '1000.')
+    await user.tab()
+    await waitFor(() => {
+      expect(amountField).toHaveValue('1000.00')
+    })
+  })
+
+  it('submits the normalized amount after blur', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Office supplies')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), '1000.')
+    await user.tab()
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+    await waitFor(() => {
+      expect(mockCreateExpense).toHaveBeenCalledWith(
+        expect.objectContaining({ totalAmount: '1000.00' }),
+      )
+    })
+    expect(screen.queryByText('Enter a valid amount (up to 4 decimal places)')).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['1000', '1000'],
+    ['1000.00', '1000.00'],
+  ])('submits a valid amount %s unchanged as %s', async (typed, submitted) => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Office supplies')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), typed)
+    await user.tab()
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+    await waitFor(() => {
+      expect(mockCreateExpense).toHaveBeenCalledWith(
+        expect.objectContaining({ totalAmount: submitted }),
+      )
+    })
+  })
+
+  // Note the asymmetry: '1000' submits as '1000', NOT padded to '1000.00'.
+  // normalizeAmountInput repairs a trailing dot only, so a bare integer passes
+  // through untouched — valid against the DTO regex either way.
+
+  it('leaves a malformed value untouched on blur', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    const amountField = screen.getByLabelText(/amount/i)
+    await user.type(amountField, '1e3')
+    await user.tab()
+    await waitFor(() => {
+      expect(amountField).toHaveValue('1e3')
+    })
+  })
+
+  it('preserves a scale-4 amount exactly through submission', async () => {
+    const user = userEvent.setup()
+    renderCreatePage()
+    await user.type(screen.getByLabelText(/description/i), 'Rounding adjustment')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), '1000.0001')
+    await user.tab()
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+    await waitFor(() => {
+      expect(mockCreateExpense).toHaveBeenCalledWith(
+        expect.objectContaining({ totalAmount: '1000.0001' }),
+      )
+    })
+  })
+
   it('accepts a sub-cent scale-4 amount such as 0.0001', async () => {
     const user = userEvent.setup()
     renderCreatePage()
