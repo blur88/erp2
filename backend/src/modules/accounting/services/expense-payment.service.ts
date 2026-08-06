@@ -202,7 +202,12 @@ export class ExpensePaymentService {
 
       const allRows = await payRepo.find({ where: { expenseId } as any });
       const agg = ExpenseService.computeAggregates(expense.totalAmount, allRows);
-      await manager.getRepository(Expense).update(expenseId, agg as any);
+      const documentStatus = ExpenseService.deriveDocumentStatus(
+        expense.documentStatus,
+        agg.paymentStatus,
+      );
+      const patch: QueryDeepPartialEntity<Expense> = { ...agg, documentStatus };
+      await manager.getRepository(Expense).update(expenseId, patch);
       return expenseId;
     });
 

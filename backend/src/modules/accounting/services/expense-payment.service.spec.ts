@@ -498,6 +498,7 @@ describe('ExpensePaymentService', () => {
 
       expect(txExpenseRepo.update).toHaveBeenCalledWith('exp-1', {
         paidAmount: '0.0000', balance: '1500.0000', paymentStatus: ExpensePaymentStatus.UNPAID,
+        documentStatus: ExpenseDocumentStatus.DRAFT,
       });
     });
 
@@ -529,6 +530,108 @@ describe('ExpensePaymentService', () => {
       expect(auditLogService.log).toHaveBeenCalledWith(
         'REFUND', 'Expense', expect.any(String),
         expect.objectContaining({ userId: 'system', username: undefined }),
+      );
+    });
+
+    it('stays COMPLETED + OVERPAID when the refund leaves net paid above total', async () => {
+      // Source 1500 on a 1000 expense; refund 200 → net paid 1300, still above total.
+      setupRefundTx({
+        expenseOverrides: {
+          totalAmount: '1000.0000',
+          documentStatus: ExpenseDocumentStatus.COMPLETED,
+          paymentStatus: ExpensePaymentStatus.OVERPAID,
+        },
+        sourceOverrides: { amount: '1500.0000' },
+      });
+      expenseService.findOne.mockResolvedValue({ id: 'exp-1' } as any);
+
+      await service.refund('exp-1', {
+        refunds: [{ sourcePaymentId: 'p1', amount: '200.0000', refundDate: '2026-07-25' }],
+      } as any, 'user-1', 'admin');
+
+      expect(txExpenseRepo.update).toHaveBeenCalledWith(
+        'exp-1',
+        expect.objectContaining({
+          paymentStatus: ExpensePaymentStatus.OVERPAID,
+          documentStatus: ExpenseDocumentStatus.COMPLETED,
+        }),
+      );
+    });
+
+    it('stays COMPLETED and becomes PAID when the refund lands net paid exactly on total', async () => {
+      // Source 1500 on a 1000 expense; refund 500 → net paid exactly 1000.
+      setupRefundTx({
+        expenseOverrides: {
+          totalAmount: '1000.0000',
+          documentStatus: ExpenseDocumentStatus.COMPLETED,
+          paymentStatus: ExpensePaymentStatus.OVERPAID,
+        },
+        sourceOverrides: { amount: '1500.0000' },
+      });
+      expenseService.findOne.mockResolvedValue({ id: 'exp-1' } as any);
+
+      await service.refund('exp-1', {
+        refunds: [{ sourcePaymentId: 'p1', amount: '500.0000', refundDate: '2026-07-25' }],
+      } as any, 'user-1', 'admin');
+
+      expect(txExpenseRepo.update).toHaveBeenCalledWith(
+        'exp-1',
+        expect.objectContaining({
+          paymentStatus: ExpensePaymentStatus.PAID,
+          documentStatus: ExpenseDocumentStatus.COMPLETED,
+        }),
+      );
+    });
+
+    it('reopens to DRAFT + PARTIAL when net paid falls between zero and total', async () => {
+      // Source 1000 on a 1000 expense; refund 400 → net paid 600.
+      setupRefundTx({
+        expenseOverrides: {
+          totalAmount: '1000.0000',
+          documentStatus: ExpenseDocumentStatus.COMPLETED,
+          paymentStatus: ExpensePaymentStatus.PAID,
+        },
+        sourceOverrides: { amount: '1000.0000' },
+      });
+      expenseService.findOne.mockResolvedValue({ id: 'exp-1' } as any);
+
+      await service.refund('exp-1', {
+        refunds: [{ sourcePaymentId: 'p1', amount: '400.0000', refundDate: '2026-07-25' }],
+      } as any, 'user-1', 'admin');
+
+      expect(txExpenseRepo.update).toHaveBeenCalledWith(
+        'exp-1',
+        expect.objectContaining({
+          paidAmount: '600.0000',
+          paymentStatus: ExpensePaymentStatus.PARTIAL,
+          documentStatus: ExpenseDocumentStatus.DRAFT,
+        }),
+      );
+    });
+
+    it('reopens to DRAFT + UNPAID when the refund returns net paid to zero', async () => {
+      // Source 1000 on a 1000 expense; refund the whole 1000 → net paid 0.
+      setupRefundTx({
+        expenseOverrides: {
+          totalAmount: '1000.0000',
+          documentStatus: ExpenseDocumentStatus.COMPLETED,
+          paymentStatus: ExpensePaymentStatus.PAID,
+        },
+        sourceOverrides: { amount: '1000.0000' },
+      });
+      expenseService.findOne.mockResolvedValue({ id: 'exp-1' } as any);
+
+      await service.refund('exp-1', {
+        refunds: [{ sourcePaymentId: 'p1', amount: '1000.0000', refundDate: '2026-07-25' }],
+      } as any, 'user-1', 'admin');
+
+      expect(txExpenseRepo.update).toHaveBeenCalledWith(
+        'exp-1',
+        expect.objectContaining({
+          paidAmount: '0.0000',
+          paymentStatus: ExpensePaymentStatus.UNPAID,
+          documentStatus: ExpenseDocumentStatus.DRAFT,
+        }),
       );
     });
   });
