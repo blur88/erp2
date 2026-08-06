@@ -208,10 +208,7 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
         subtitle={expense.description}
         titleBadge={
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <StatusChip
-              status={expense.documentStatus}
-              label={expense.documentStatus === 'DRAFT' ? 'Draft' : 'Cancelled'}
-            />
+            <StatusChip status={expense.documentStatus} />
             <StatusChip status={expense.paymentStatus} />
           </Box>
         }

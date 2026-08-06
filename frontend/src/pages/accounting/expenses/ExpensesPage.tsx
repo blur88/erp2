@@ -68,6 +68,7 @@ function getFilterConfig(
       { field: 'documentStatus', label: 'Status', type: 'select',
         options: [
           { value: 'DRAFT', label: 'Draft' },
+          { value: 'COMPLETED', label: 'Completed' },
           { value: 'CANCELLED', label: 'Cancelled' },
         ] as const },
     ],
@@ -329,12 +330,7 @@ export default function ExpensesPage() {
     {
       key: 'documentStatus',
       raw: true,
-      render: (row) => (
-        <StatusChip
-          status={row.documentStatus}
-          label={row.documentStatus === 'DRAFT' ? 'Draft' : 'Cancelled'}
-        />
-      ),
+      render: (row) => <StatusChip status={row.documentStatus} />,
     },
     {
       key: 'paymentStatus',
