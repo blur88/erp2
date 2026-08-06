@@ -24,7 +24,7 @@ export interface ListExpensesParams {
   fromDate?: string;
   toDate?: string;
   expenseAccountId?: string;
-  documentStatus?: 'DRAFT' | 'CANCELLED';
+  documentStatus?: 'DRAFT' | 'COMPLETED' | 'CANCELLED';
   paymentStatus?: 'UNPAID' | 'PARTIAL' | 'PAID' | 'OVERPAID';
   sortBy?: 'expenseNumber' | 'expenseDate' | 'totalAmount';
   sortOrder?: 'ASC' | 'DESC';

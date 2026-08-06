@@ -291,7 +291,7 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
         paymentDate: '2026-07-17',
         reference: 'BANK-001',
       }]);
-      await assertExpenseStatus(expense.id, ExpenseDocumentStatus.DRAFT, ExpensePaymentStatus.PAID, '1000.0000', '0.0000');
+      await assertExpenseStatus(expense.id, ExpenseDocumentStatus.COMPLETED, ExpensePaymentStatus.PAID, '1000.0000', '0.0000');
 
       paymentRows = await ds.query(`SELECT id FROM expense_payments WHERE "expenseId" = $1 AND "sourcePaymentId" IS NULL ORDER BY "paymentDate"`, [expense.id]);
       expect(paymentRows.length).toBe(2);
@@ -397,6 +397,42 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
       tb = await trial.getTrialBalance({ asOfDate: '2026-07-31' });
       expect(tb.balanced).toBe(true);
     });
+
+    it('round-trips COMPLETED through pay → refund → re-pay', async () => {
+      const expense = await createExpense({ totalAmount: '500' });
+
+      await payExpense(expense.id, [
+        { paymentMethodId: cashMethod.id, amount: '500', paymentDate: '2026-08-06' },
+      ]);
+      await assertExpenseStatus(expense.id, ExpenseDocumentStatus.COMPLETED, ExpensePaymentStatus.PAID, '500.0000', '0.0000');
+
+      const rows = await ds.query(
+        `SELECT id FROM expense_payments WHERE "expenseId" = $1 AND "sourcePaymentId" IS NULL`,
+        [expense.id],
+      );
+      await refundExpense(expense.id, [
+        { sourcePaymentId: rows[0].id, amount: '200', refundDate: '2026-08-06' },
+      ]);
+      await assertExpenseStatus(expense.id, ExpenseDocumentStatus.DRAFT, ExpensePaymentStatus.PARTIAL, '300.0000', '200.0000');
+
+      await payExpense(expense.id, [
+        { paymentMethodId: cashMethod.id, amount: '200', paymentDate: '2026-08-06' },
+      ]);
+      await assertExpenseStatus(expense.id, ExpenseDocumentStatus.COMPLETED, ExpensePaymentStatus.PAID, '500.0000', '0.0000');
+    });
+
+    it('rejects a further payment once settled', async () => {
+      const expense = await createExpense({ totalAmount: '500' });
+      await payExpense(expense.id, [
+        { paymentMethodId: cashMethod.id, amount: '500', paymentDate: '2026-08-06' },
+      ]);
+
+      await expect(
+        payExpense(expense.id, [
+          { paymentMethodId: cashMethod.id, amount: '10', paymentDate: '2026-08-06' },
+        ]),
+      ).rejects.toThrow('Settled expenses cannot receive further payments');
+    });
   });
 
   describe('Action-matrix rejections', () => {
@@ -408,7 +444,7 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
         paymentDate: '2026-07-16',
         reference: 'PAY-001',
       }]);
-      await expect(updateExpense(expense.id, { description: 'Updated' })).rejects.toThrow('Fully paid expenses cannot be edited');
+      await expect(updateExpense(expense.id, { description: 'Updated' })).rejects.toThrow('Settled expenses cannot be edited');
     });
 
     it('cancel partial expense: rejects', async () => {
@@ -429,7 +465,7 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
         paymentDate: '2026-07-16',
         reference: 'PAY-001',
       }]);
-      await expect(cancelExpense(expense.id)).rejects.toThrow('Refund all payments before cancelling this expense');
+      await expect(cancelExpense(expense.id)).rejects.toThrow('Only draft expenses can be cancelled');
     });
 
     it('pay cancelled expense: rejects', async () => {
