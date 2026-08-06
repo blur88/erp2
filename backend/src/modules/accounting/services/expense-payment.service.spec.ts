@@ -183,6 +183,7 @@ describe('ExpensePaymentService', () => {
       expect(agg.paymentStatus).toBe(ExpensePaymentStatus.OVERPAID);
       expect(txExpenseRepo.update).toHaveBeenCalledWith('exp-1', {
         paidAmount: '1600.0000', balance: '-100.0000', paymentStatus: ExpensePaymentStatus.OVERPAID,
+        documentStatus: ExpenseDocumentStatus.COMPLETED,
       });
     });
 
@@ -224,6 +225,7 @@ describe('ExpensePaymentService', () => {
       expect(txPayRepo.find).toHaveBeenCalledWith({ where: { expenseId: 'exp-1' } as any });
       expect(txExpenseRepo.update).toHaveBeenCalledWith('exp-1', {
         paidAmount: '1500.0000', balance: '0.0000', paymentStatus: ExpensePaymentStatus.PAID,
+        documentStatus: ExpenseDocumentStatus.COMPLETED,
       });
 
       expect(auditLogService.log).toHaveBeenCalledWith(
@@ -244,6 +246,7 @@ describe('ExpensePaymentService', () => {
 
       expect(txExpenseRepo.update).toHaveBeenCalledWith('exp-1', {
         paidAmount: '600.0000', balance: '900.0000', paymentStatus: ExpensePaymentStatus.PARTIAL,
+        documentStatus: ExpenseDocumentStatus.DRAFT,
       });
     });
 
@@ -272,6 +275,72 @@ describe('ExpensePaymentService', () => {
         'PAYMENT', 'Expense', expect.any(String),
         expect.objectContaining({ userId: 'system', username: undefined }),
       );
+    });
+
+    it('sets COMPLETED when a payment settles the expense exactly', async () => {
+      setupTx({ expenseOverrides: { totalAmount: '1000.0000' } });
+
+      await service.pay('exp-1', {
+        payments: [{ paymentMethodId: 'pm-1', amount: '1000', paymentDate: '2026-08-06' }],
+      } as any);
+
+      expect(txExpenseRepo.update).toHaveBeenCalledWith(
+        'exp-1',
+        expect.objectContaining({
+          paymentStatus: ExpensePaymentStatus.PAID,
+          documentStatus: ExpenseDocumentStatus.COMPLETED,
+        }),
+      );
+    });
+
+    it('sets COMPLETED + OVERPAID when a single batch exceeds the total', async () => {
+      setupTx({ expenseOverrides: { totalAmount: '1000.0000' } });
+
+      await service.pay('exp-1', {
+        payments: [{ paymentMethodId: 'pm-1', amount: '1200', paymentDate: '2026-08-06' }],
+      } as any);
+
+      expect(txExpenseRepo.update).toHaveBeenCalledWith(
+        'exp-1',
+        expect.objectContaining({
+          paymentStatus: ExpensePaymentStatus.OVERPAID,
+          documentStatus: ExpenseDocumentStatus.COMPLETED,
+        }),
+      );
+    });
+
+    it('stays DRAFT when the payment leaves a balance', async () => {
+      setupTx({ expenseOverrides: { totalAmount: '1000.0000' } });
+
+      await service.pay('exp-1', {
+        payments: [{ paymentMethodId: 'pm-1', amount: '300', paymentDate: '2026-08-06' }],
+      } as any);
+
+      expect(txExpenseRepo.update).toHaveBeenCalledWith(
+        'exp-1',
+        expect.objectContaining({
+          paymentStatus: ExpensePaymentStatus.PARTIAL,
+          documentStatus: ExpenseDocumentStatus.DRAFT,
+        }),
+      );
+    });
+
+    it('rejects a further payment on an already-settled expense', async () => {
+      setupTx({
+        expenseOverrides: {
+          totalAmount: '1000.0000',
+          documentStatus: ExpenseDocumentStatus.COMPLETED,
+          paymentStatus: ExpensePaymentStatus.PAID,
+        },
+      });
+
+      await expect(
+        service.pay('exp-1', {
+          payments: [{ paymentMethodId: 'pm-1', amount: '50', paymentDate: '2026-08-06' }],
+        } as any),
+      ).rejects.toThrow('Settled expenses cannot receive further payments');
+
+      expect(txExpenseRepo.update).not.toHaveBeenCalled();
     });
   });
 
