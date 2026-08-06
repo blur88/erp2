@@ -127,6 +127,10 @@ export function createDatabaseConfig(
       JournalEntryLine,
     ],
     migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
+    // 'each' (not the TypeORM default 'all') so a migration that appends an
+    // enum value commits before a later migration uses that value. Postgres
+    // forbids ALTER TYPE ... ADD VALUE and its use inside one transaction.
+    migrationsTransactionMode: 'each',
 
     // Security: Disable auto-synchronization in production
     synchronize:
