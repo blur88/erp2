@@ -3,7 +3,7 @@ import { BaseEntity } from '../../../database/entities/base.entity';
 import { ChartOfAccount } from './chart-of-account.entity';
 import { ExpensePayment } from './expense-payment.entity';
 
-export enum ExpenseDocumentStatus { DRAFT = 'DRAFT', CANCELLED = 'CANCELLED' }
+export enum ExpenseDocumentStatus { DRAFT = 'DRAFT', COMPLETED = 'COMPLETED', CANCELLED = 'CANCELLED' }
 export enum ExpensePaymentStatus { UNPAID = 'UNPAID', PARTIAL = 'PARTIAL', PAID = 'PAID', OVERPAID = 'OVERPAID' }
 
 @Entity('expenses')

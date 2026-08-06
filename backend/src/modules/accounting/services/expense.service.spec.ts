@@ -621,4 +621,38 @@ describe('ExpenseService', () => {
       );
     });
   });
+
+  describe('deriveDocumentStatus', () => {
+    const D = ExpenseDocumentStatus;
+    const P = ExpensePaymentStatus;
+
+    it('settles to COMPLETED when fully paid', () => {
+      expect(ExpenseService.deriveDocumentStatus(D.DRAFT, P.PAID)).toBe(D.COMPLETED);
+    });
+
+    it('settles to COMPLETED when overpaid', () => {
+      expect(ExpenseService.deriveDocumentStatus(D.DRAFT, P.OVERPAID)).toBe(D.COMPLETED);
+    });
+
+    it('reopens to DRAFT when no longer fully settled', () => {
+      expect(ExpenseService.deriveDocumentStatus(D.COMPLETED, P.PARTIAL)).toBe(D.DRAFT);
+      expect(ExpenseService.deriveDocumentStatus(D.COMPLETED, P.UNPAID)).toBe(D.DRAFT);
+    });
+
+    it('keeps COMPLETED while still fully settled', () => {
+      expect(ExpenseService.deriveDocumentStatus(D.COMPLETED, P.PAID)).toBe(D.COMPLETED);
+      expect(ExpenseService.deriveDocumentStatus(D.COMPLETED, P.OVERPAID)).toBe(D.COMPLETED);
+    });
+
+    it('keeps DRAFT while unsettled', () => {
+      expect(ExpenseService.deriveDocumentStatus(D.DRAFT, P.UNPAID)).toBe(D.DRAFT);
+      expect(ExpenseService.deriveDocumentStatus(D.DRAFT, P.PARTIAL)).toBe(D.DRAFT);
+    });
+
+    it('preserves CANCELLED against every payment status', () => {
+      for (const p of [P.UNPAID, P.PARTIAL, P.PAID, P.OVERPAID]) {
+        expect(ExpenseService.deriveDocumentStatus(D.CANCELLED, p)).toBe(D.CANCELLED);
+      }
+    });
+  });
 });
