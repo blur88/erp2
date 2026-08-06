@@ -101,7 +101,7 @@ export class ExpenseService {
         expense.paymentStatus === ExpensePaymentStatus.PAID ||
         expense.paymentStatus === ExpensePaymentStatus.OVERPAID
       ) {
-        throw new BadRequestException('Fully paid expenses cannot be edited');
+        throw new BadRequestException('Settled expenses cannot be edited');
       }
 
       if (dto.totalAmount !== undefined) {
@@ -140,6 +140,10 @@ export class ExpenseService {
         expense.paidAmount = aggregates.paidAmount;
         expense.balance = aggregates.balance;
         expense.paymentStatus = aggregates.paymentStatus;
+        expense.documentStatus = ExpenseService.deriveDocumentStatus(
+          expense.documentStatus,
+          aggregates.paymentStatus,
+        );
       }
 
       const repo = manager.getRepository(Expense);
