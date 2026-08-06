@@ -37,7 +37,7 @@ const { mockExpenses } = vi.hoisted(() => ({
       totalAmount: '500.0000',
       paidAmount: '500.0000',
       balance: '0.0000',
-      documentStatus: 'DRAFT' as const,
+      documentStatus: 'COMPLETED' as const,
       paymentStatus: 'PAID' as const,
       notes: null,
       createdAt: '2026-07-02T00:00:00Z',
@@ -146,6 +146,20 @@ describe('ExpensesPage', () => {
     renderPage()
     expect(screen.getByText('Unpaid')).toBeInTheDocument()
     expect(screen.getAllByText('Paid').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('renders the Completed document status on a settled row', async () => {
+    renderPage()
+    expect(await screen.findByText('Completed')).toBeInTheDocument()
+  })
+
+  it('offers Completed in the document status filter', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByLabelText('Status'))
+    expect(await screen.findByRole('option', { name: 'Completed' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Draft' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Cancelled' })).toBeInTheDocument()
   })
 
   it('shows empty state when no expenses', () => {

@@ -100,7 +100,14 @@ const ExpenseFormPage: React.FC = () => {
 
   useEffect(() => {
     if (isEdit && expense) {
-      if (expense.documentStatus === 'CANCELLED' || expense.paymentStatus === 'PAID') {
+      // Mirrors the backend: settled expenses are non-editable. Keyed to both
+      // lifecycle and settlement so a temporarily inconsistent DRAFT + PAID /
+      // OVERPAID row is still refused.
+      const isNonEditable =
+        expense.documentStatus !== 'DRAFT' ||
+        expense.paymentStatus === 'PAID' ||
+        expense.paymentStatus === 'OVERPAID'
+      if (isNonEditable) {
         navigate(`/accounting/expenses/${expense.id}`, { replace: true })
       }
     }
