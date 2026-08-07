@@ -229,6 +229,7 @@ export default function PaymentDialog({
                     value={line.paymentMethodId}
                     onChange={(e) => updateLine(index, 'paymentMethodId', e.target.value)}
                     displayEmpty
+                    inputProps={{ 'aria-label': `Payment method, line ${index + 1}` }}
                     sx={{ fontSize: '0.85rem' }}
                   >
                     <MenuItem value="" disabled>Method</MenuItem>
@@ -246,7 +247,7 @@ export default function PaymentDialog({
                   placeholder="Amount"
                   value={line.amount}
                   onChange={(e) => updateLine(index, 'amount', e.target.value)}
-                  slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+                  slotProps={{ htmlInput: { min: 0, step: 0.01, 'aria-label': `Amount, line ${index + 1}` } }}
                   sx={{
                     width: 120,
                     '& input[type=number]': { MozAppearance: 'textfield' },
@@ -261,7 +262,7 @@ export default function PaymentDialog({
                   value={line.paymentDate}
                   onChange={(e) => updateLine(index, 'paymentDate', e.target.value)}
                   sx={{ width: 140 }}
-                  slotProps={{ htmlInput: { max: '2099-12-31' } }}
+                  slotProps={{ htmlInput: { max: '2099-12-31', 'aria-label': `Payment date, line ${index + 1}` } }}
                 />
 
                 {/* Reference + Delete are ONE flex child so they wrap together.
@@ -272,10 +273,12 @@ export default function PaymentDialog({
                     placeholder="Reference"
                     value={line.reference}
                     onChange={(e) => updateLine(index, 'reference', e.target.value)}
+                    slotProps={{ htmlInput: { 'aria-label': `Reference, line ${index + 1}` } }}
                     sx={{ flex: 1 }}
                   />
                   <IconButton
                     size="small"
+                    aria-label={`Remove line ${index + 1}`}
                     onClick={() => removeLine(index)}
                     disabled={lines.length <= 1}
                     color="error"

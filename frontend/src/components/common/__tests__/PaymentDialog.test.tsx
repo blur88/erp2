@@ -230,3 +230,32 @@ describe('PaymentDialog delete action', () => {
     expect(deleteButtons()[0].closest('button')).toBeEnabled()
   })
 })
+
+describe('PaymentDialog accessible names (#1006)', () => {
+  it('names every control on the sole line with index 1', () => {
+    renderDialog()
+    expect(screen.getByLabelText('Payment method, line 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Amount, line 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Payment date, line 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Reference, line 1')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove line 1' })).toBeInTheDocument()
+  })
+
+  it('gives a second line distinct indexed names', async () => {
+    renderDialog()
+    await userEvent.click(screen.getByRole('button', { name: /Add Payment Line/i }))
+    expect(screen.getByLabelText('Amount, line 2')).toBeInTheDocument()
+    expect(screen.getByLabelText('Reference, line 2')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove line 2' })).toBeInTheDocument()
+    // Distinct from line 1, which is the point of indexing.
+    expect(screen.getByLabelText('Amount, line 1')).not.toBe(
+      screen.getByLabelText('Amount, line 2'),
+    )
+  })
+
+  it('keeps the placeholders that 43 existing assertions rely on', () => {
+    renderDialog()
+    expect(screen.getByPlaceholderText('Amount')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Reference')).toBeInTheDocument()
+  })
+})
