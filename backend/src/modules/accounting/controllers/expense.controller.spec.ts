@@ -8,6 +8,7 @@ describe('ExpenseController', () => {
       findOne: jest.fn().mockResolvedValue({ id: 'exp-1', payments: [] }),
       list: jest.fn().mockResolvedValue({ data: [], meta: { total: 0, page: 1, limit: 25 } }),
       cancel: jest.fn().mockResolvedValue({ id: 'exp-1' }),
+      uncancel: jest.fn().mockResolvedValue({ id: 'exp-1' }),
     };
     const paymentService = {
       pay: jest.fn().mockResolvedValue({ id: 'exp-1' }),
@@ -48,6 +49,12 @@ describe('ExpenseController', () => {
     const { service, controller } = makeMocks();
     await controller.cancel('exp-1', 'u1', 'admin');
     expect(service.cancel).toHaveBeenCalledWith('exp-1', 'u1', 'admin');
+  });
+
+  it('uncancel() delegates to service.uncancel with id, userId, username', async () => {
+    const { service, controller } = makeMocks();
+    await controller.uncancel('exp-1', 'u1', 'admin');
+    expect(service.uncancel).toHaveBeenCalledWith('exp-1', 'u1', 'admin');
   });
 
   it('pay() delegates to paymentService.pay with id, dto, userId, username', async () => {
