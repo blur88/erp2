@@ -15,6 +15,7 @@ import { useNotification } from '@/hooks/useNotification'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import {
   useCancelExpenseMutation,
+  useUncancelExpenseMutation,
   usePayExpenseMutation,
   useRefundExpenseMutation,
 } from '@/store/api/accountingApi'
@@ -65,11 +66,13 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 1)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [uncancelDialogOpen, setUncancelDialogOpen] = useState(false)
   const [payDialogOpen, setPayDialogOpen] = useState(false)
   const [refundDialogOpen, setRefundDialogOpen] = useState(false)
   const { showSuccess, showError } = useNotification()
 
   const [cancelExpense, { isLoading: isCancelling }] = useCancelExpenseMutation()
+  const [uncancelExpense, { isLoading: isUncancelling }] = useUncancelExpenseMutation()
   const [payExpense] = usePayExpenseMutation()
   const [refundExpense] = useRefundExpenseMutation()
 
@@ -145,6 +148,16 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
     }
   }
 
+  const handleUncancelConfirm = async () => {
+    try {
+      await uncancelExpense(expense.id).unwrap()
+      showSuccess(`Expense ${expense.expenseNumber} uncancelled`)
+      setUncancelDialogOpen(false)
+    } catch (error) {
+      showError(rtkErrorMessage(error, 'Failed to uncancel expense'))
+    }
+  }
+
   const actionMetas = getExpenseActionMetas(expense)
 
   const actionLabels: Record<string, string> = {
@@ -152,6 +165,7 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
     refund: 'Refund',
     edit: 'Edit',
     cancel: 'Cancel',
+    uncancel: 'Uncancel',
   }
 
   const actionVariants: Record<string, 'contained' | 'outlined'> = {
@@ -159,6 +173,7 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
     refund: 'outlined',
     edit: 'outlined',
     cancel: 'outlined',
+    uncancel: 'contained',
   }
 
   const handleAction = (action: string) => {
@@ -174,6 +189,9 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
         break
       case 'cancel':
         setCancelDialogOpen(true)
+        break
+      case 'uncancel':
+        setUncancelDialogOpen(true)
         break
     }
   }
@@ -311,6 +329,17 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
         onConfirm={handleCancelConfirm}
         onCancel={() => setCancelDialogOpen(false)}
         loading={isCancelling}
+      />
+
+      <ConfirmationDialog
+        open={uncancelDialogOpen}
+        title="Uncancel Expense"
+        message={`Uncancel this expense? (${expense.expenseNumber})`}
+        confirmText="Uncancel Expense"
+        severity="warning"
+        onConfirm={handleUncancelConfirm}
+        onCancel={() => setUncancelDialogOpen(false)}
+        loading={isUncancelling}
       />
 
       {payDialogOpen && (

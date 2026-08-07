@@ -14,6 +14,7 @@ const {
   mockNavigate,
   mockGetExpense,
   mockCancelExpense,
+  mockUncancelExpense,
   mockPayExpense,
   mockRefundExpense,
   mockShowSuccess,
@@ -22,6 +23,7 @@ const {
   mockNavigate: vi.fn(),
   mockGetExpense: vi.fn(),
   mockCancelExpense: vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) })),
+  mockUncancelExpense: vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) })),
   mockPayExpense: vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) })),
   mockRefundExpense: vi.fn(() => ({ unwrap: vi.fn().mockResolvedValue(undefined) })),
   mockShowSuccess: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock('@/store/api/accountingApi', async (importOriginal) => {
     ...actual,
     useGetExpenseQuery: mockGetExpense,
     useCancelExpenseMutation: () => [mockCancelExpense, { isLoading: false }],
+    useUncancelExpenseMutation: () => [mockUncancelExpense, { isLoading: false }],
     usePayExpenseMutation: () => [mockPayExpense, { isLoading: false }],
     useRefundExpenseMutation: () => [mockRefundExpense, { isLoading: false }],
   }
@@ -313,6 +316,39 @@ describe('ExpenseDetailPage', () => {
       expect(screen.queryByRole('button', { name: 'Refund' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
+    })
+
+    it('shows only Uncancel for a cancelled expense', () => {
+      mockGetExpense.mockReturnValue({
+        data: makeExpense({ documentStatus: 'CANCELLED', paymentStatus: 'UNPAID' }),
+        isLoading: false,
+        isError: false,
+      })
+      renderPage()
+
+      expect(screen.getByRole('button', { name: /uncancel/i })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^pay$/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^edit$/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^cancel$/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^refund$/i })).not.toBeInTheDocument()
+    })
+
+    it('uncancels the expense and reports success', async () => {
+      const user = userEvent.setup()
+      mockGetExpense.mockReturnValue({
+        data: makeExpense({ documentStatus: 'CANCELLED', paymentStatus: 'UNPAID' }),
+        isLoading: false,
+        isError: false,
+      })
+      renderPage()
+
+      await user.click(screen.getByRole('button', { name: /uncancel/i }))
+      await user.click(await screen.findByRole('button', { name: /uncancel expense/i }))
+
+      await waitFor(() => {
+        expect(mockUncancelExpense).toHaveBeenCalledWith('exp-1')
+      })
+      expect(mockShowSuccess).toHaveBeenCalledWith('Expense EXP-001 uncancelled')
     })
 
     it('Edit navigates to edit route', async () => {
