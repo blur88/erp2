@@ -190,6 +190,33 @@ export class ExpenseService {
     });
   }
 
+  async uncancel(id: string, userId?: string, username?: string): Promise<Expense> {
+    return this.dataSource.transaction(async (manager) => {
+      const expense = await lockRowForUpdate(manager, Expense, id, {
+        notFoundMessage: 'Expense not found',
+      });
+
+      if (expense.documentStatus !== ExpenseDocumentStatus.CANCELLED) {
+        throw new BadRequestException('Only cancelled expenses can be uncancelled');
+      }
+
+      expense.documentStatus = ExpenseDocumentStatus.DRAFT;
+
+      const repo = manager.getRepository(Expense);
+      const saved = await repo.save(expense);
+
+      await this.auditLogService.log('UPDATE', 'Expense', `Uncancelled expense: ${expense.expenseNumber}`, {
+        entityId: id,
+        userId: userId || 'system',
+        username,
+        oldValues: { documentStatus: ExpenseDocumentStatus.CANCELLED },
+        newValues: { documentStatus: ExpenseDocumentStatus.DRAFT },
+      });
+
+      return saved;
+    });
+  }
+
   private async assertValidExpenseAccount(accountId: string, manager: EntityManager): Promise<void> {
     const acc = await manager.getRepository(ChartOfAccount).findOne({ where: { id: accountId } as any });
     if (!acc) {

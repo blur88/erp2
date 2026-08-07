@@ -631,6 +631,106 @@ describe('ExpenseService', () => {
     });
   });
 
+  describe('uncancel', () => {
+    function setupUncancelTest(overrides: Partial<any> = {}) {
+      const expense = {
+        id: 'exp-1',
+        expenseNumber: 'EXP-26-001',
+        totalAmount: '1000.0000',
+        paidAmount: '0.0000',
+        balance: '1000.0000',
+        documentStatus: ExpenseDocumentStatus.CANCELLED,
+        paymentStatus: ExpensePaymentStatus.UNPAID,
+        expenseAccountId: 'acc-1',
+        expenseDate: '2026-07-20',
+        payee: 'Vendor A',
+        description: 'Office supplies',
+        notes: null,
+        ...overrides,
+      };
+      setupTxAccount();
+      txManager.getRepository(Expense).findOne.mockResolvedValue(expense);
+      return expense;
+    }
+
+    it('throws NotFoundException when expense does not exist', async () => {
+      setupTxAccount();
+      txManager.getRepository(Expense).findOne.mockResolvedValue(null);
+      await expect(service.uncancel('nonexistent', 'user-1', 'admin'))
+        .rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects a DRAFT expense with BadRequestException', async () => {
+      setupUncancelTest({ documentStatus: ExpenseDocumentStatus.DRAFT });
+      // Asserts the exception CLASS, not just the message: the spec deliberately
+      // chose BadRequestException (400) over PO's ConflictException (409), and a
+      // message-only assertion would not catch a regression to 409.
+      await expect(service.uncancel('exp-1', 'user-1', 'admin'))
+        .rejects.toThrow(BadRequestException);
+      await expect(service.uncancel('exp-1', 'user-1', 'admin'))
+        .rejects.toThrow('Only cancelled expenses can be uncancelled');
+    });
+
+    it('rejects a COMPLETED expense', async () => {
+      setupUncancelTest({
+        documentStatus: ExpenseDocumentStatus.COMPLETED,
+        paymentStatus: ExpensePaymentStatus.PAID,
+        paidAmount: '1000.0000',
+        balance: '0.0000',
+      });
+      await expect(service.uncancel('exp-1', 'user-1', 'admin'))
+        .rejects.toThrow('Only cancelled expenses can be uncancelled');
+    });
+
+    it('sets documentStatus to DRAFT and writes audit log', async () => {
+      setupUncancelTest();
+      const repo = txManager.getRepository(Expense);
+      repo.save = jest.fn().mockImplementation(async (x: any) => x);
+      const result = await service.uncancel('exp-1', 'user-1', 'admin');
+      expect(result.documentStatus).toBe(ExpenseDocumentStatus.DRAFT);
+      expect(auditLogService.log).toHaveBeenCalledWith(
+        'UPDATE', 'Expense', expect.stringContaining('EXP-26-001'),
+        expect.objectContaining({
+          entityId: 'exp-1',
+          userId: 'user-1',
+          username: 'admin',
+          oldValues: { documentStatus: ExpenseDocumentStatus.CANCELLED },
+          newValues: { documentStatus: ExpenseDocumentStatus.DRAFT },
+        }),
+      );
+    });
+
+    it('leaves money fields untouched', async () => {
+      setupUncancelTest();
+      const repo = txManager.getRepository(Expense);
+      repo.save = jest.fn().mockImplementation(async (x: any) => x);
+      const result = await service.uncancel('exp-1', 'user-1', 'admin');
+      expect(result.paidAmount).toBe('0.0000');
+      expect(result.balance).toBe('1000.0000');
+      expect(result.paymentStatus).toBe(ExpensePaymentStatus.UNPAID);
+    });
+
+    it('does not read payment rows', async () => {
+      setupUncancelTest();
+      const repo = txManager.getRepository(Expense);
+      repo.save = jest.fn().mockImplementation(async (x: any) => x);
+      await service.uncancel('exp-1', 'user-1', 'admin');
+      expect(txManager._paymentRepo.find).not.toHaveBeenCalled();
+      expect(txManager._paymentRepo.count).not.toHaveBeenCalled();
+    });
+
+    it('uses system as default userId when not provided', async () => {
+      setupUncancelTest();
+      const repo = txManager.getRepository(Expense);
+      repo.save = jest.fn().mockImplementation(async (x: any) => x);
+      await service.uncancel('exp-1');
+      expect(auditLogService.log).toHaveBeenCalledWith(
+        'UPDATE', 'Expense', expect.any(String),
+        expect.objectContaining({ userId: 'system', username: undefined }),
+      );
+    });
+  });
+
   describe('deriveDocumentStatus', () => {
     const D = ExpenseDocumentStatus;
     const P = ExpensePaymentStatus;
