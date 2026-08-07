@@ -21,8 +21,13 @@ describe('getExpenseActionMetas', () => {
     expect(metas.map((m) => m.action)).toEqual(['pay', 'refund', 'edit'])
   })
 
-  it('DRAFT + PAID → refund', () => {
-    const metas = getExpenseActionMetas(makeExpense('DRAFT', 'PAID'))
+  it('COMPLETED + PAID → refund only', () => {
+    const metas = getExpenseActionMetas(makeExpense('COMPLETED', 'PAID'))
+    expect(metas.map((m) => m.action)).toEqual(['refund'])
+  })
+
+  it('COMPLETED + OVERPAID → refund only', () => {
+    const metas = getExpenseActionMetas(makeExpense('COMPLETED', 'OVERPAID'))
     expect(metas.map((m) => m.action)).toEqual(['refund'])
   })
 

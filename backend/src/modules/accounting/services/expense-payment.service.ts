@@ -1,4 +1,4 @@
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, QueryDeepPartialEntity } from 'typeorm';
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { Expense, ExpenseDocumentStatus, ExpensePaymentStatus } from '../entities/expense.entity';
 import { ExpensePayment } from '../entities/expense-payment.entity';
@@ -36,6 +36,9 @@ export class ExpensePaymentService {
       });
       if (expense.documentStatus === ExpenseDocumentStatus.CANCELLED) {
         throw new BadRequestException('Cancelled expenses cannot receive payments');
+      }
+      if (expense.documentStatus === ExpenseDocumentStatus.COMPLETED) {
+        throw new BadRequestException('Settled expenses cannot receive further payments');
       }
       expenseNumber = expense.expenseNumber;
 
@@ -84,7 +87,12 @@ export class ExpensePaymentService {
 
       const allRows = await payRepo.find({ where: { expenseId } as any });
       const agg = ExpenseService.computeAggregates(expense.totalAmount, allRows);
-      await manager.getRepository(Expense).update(expenseId, agg as any);
+      const documentStatus = ExpenseService.deriveDocumentStatus(
+        expense.documentStatus,
+        agg.paymentStatus,
+      );
+      const patch: QueryDeepPartialEntity<Expense> = { ...agg, documentStatus };
+      await manager.getRepository(Expense).update(expenseId, patch);
       return expenseId;
     });
 
@@ -194,7 +202,12 @@ export class ExpensePaymentService {
 
       const allRows = await payRepo.find({ where: { expenseId } as any });
       const agg = ExpenseService.computeAggregates(expense.totalAmount, allRows);
-      await manager.getRepository(Expense).update(expenseId, agg as any);
+      const documentStatus = ExpenseService.deriveDocumentStatus(
+        expense.documentStatus,
+        agg.paymentStatus,
+      );
+      const patch: QueryDeepPartialEntity<Expense> = { ...agg, documentStatus };
+      await manager.getRepository(Expense).update(expenseId, patch);
       return expenseId;
     });
 

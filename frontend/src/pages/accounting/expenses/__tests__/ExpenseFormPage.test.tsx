@@ -845,8 +845,8 @@ describe('ExpenseFormPage - PAID/CANCELLED redirect', () => {
     mockGetDocumentNumberSettings.mockReturnValue(EXPENSE_DOC_SETTINGS)
   })
 
-  it('redirects to detail page for PAID expense edit URL', async () => {
-    const paidExpense = { ...defaultExpense, paymentStatus: 'PAID' as const, documentStatus: 'DRAFT' as const }
+  it('redirects to detail page for a settled expense edit URL', async () => {
+    const paidExpense = { ...defaultExpense, paymentStatus: 'PAID' as const, documentStatus: 'COMPLETED' as const }
     mockGetExpense.mockReturnValue({ data: paidExpense, isLoading: false, isFetching: false })
     renderEditPage()
     await waitFor(() => {
@@ -857,6 +857,32 @@ describe('ExpenseFormPage - PAID/CANCELLED redirect', () => {
   it('redirects to detail page for CANCELLED expense edit URL', async () => {
     const cancelledExpense = { ...defaultExpense, documentStatus: 'CANCELLED' as const, paymentStatus: 'UNPAID' as const }
     mockGetExpense.mockReturnValue({ data: cancelledExpense, isLoading: false, isFetching: false })
+    renderEditPage()
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses/exp-1', { replace: true })
+    })
+  })
+
+  it('redirects to detail page for a COMPLETED expense edit URL', async () => {
+    const expense = {
+      ...defaultExpense,
+      documentStatus: 'COMPLETED' as const,
+      paymentStatus: 'PAID' as const,
+    }
+    mockGetExpense.mockReturnValue({ data: expense, isLoading: false, isFetching: false })
+    renderEditPage()
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses/exp-1', { replace: true })
+    })
+  })
+
+  it('redirects to detail page for a DRAFT + OVERPAID expense edit URL', async () => {
+    const expense = {
+      ...defaultExpense,
+      documentStatus: 'DRAFT' as const,
+      paymentStatus: 'OVERPAID' as const,
+    }
+    mockGetExpense.mockReturnValue({ data: expense, isLoading: false, isFetching: false })
     renderEditPage()
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses/exp-1', { replace: true })

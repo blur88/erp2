@@ -110,8 +110,8 @@ export class ListExpensesQueryDto {
   expenseAccountId?: string;
 
   @IsOptional()
-  @IsIn(['DRAFT', 'CANCELLED'])
-  documentStatus?: 'DRAFT' | 'CANCELLED';
+  @IsIn(['DRAFT', 'COMPLETED', 'CANCELLED'])
+  documentStatus?: 'DRAFT' | 'COMPLETED' | 'CANCELLED';
 
   @IsOptional()
   @IsIn(['UNPAID', 'PARTIAL', 'PAID', 'OVERPAID'])

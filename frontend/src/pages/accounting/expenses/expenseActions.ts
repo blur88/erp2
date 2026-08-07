@@ -12,6 +12,7 @@ export function getExpenseActionMetas(
   e: Pick<Expense, 'documentStatus' | 'paymentStatus'>,
 ): ExpenseActionMeta[] {
   if (e.documentStatus === 'CANCELLED') return []
+  if (e.documentStatus === 'COMPLETED') return [{ action: 'refund' }]
 
   const metas: ExpenseActionMeta[] = []
 

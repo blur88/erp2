@@ -69,6 +69,25 @@ export class ExpenseService {
     return { paidAmount: formatScale4(paid), balance: formatScale4(total - paid), paymentStatus };
   }
 
+  /**
+   * Lifecycle policy: derives the document status from the current status and
+   * the settlement facts. CANCELLED is absorbing. Kept separate from
+   * computeAggregates so the aggregate calculator owns money only.
+   *
+   * Callers MUST persist this alongside the aggregates in the same locked
+   * transaction — see the reconciliation invariant in the design doc.
+   */
+  static deriveDocumentStatus(
+    current: ExpenseDocumentStatus,
+    paymentStatus: ExpensePaymentStatus,
+  ): ExpenseDocumentStatus {
+    if (current === ExpenseDocumentStatus.CANCELLED) return ExpenseDocumentStatus.CANCELLED;
+    return paymentStatus === ExpensePaymentStatus.PAID ||
+      paymentStatus === ExpensePaymentStatus.OVERPAID
+      ? ExpenseDocumentStatus.COMPLETED
+      : ExpenseDocumentStatus.DRAFT;
+  }
+
   async update(id: string, dto: UpdateExpenseDto, userId?: string, username?: string): Promise<Expense> {
     return this.dataSource.transaction(async (manager) => {
       const expense = await lockRowForUpdate(manager, Expense, id, {
@@ -82,7 +101,7 @@ export class ExpenseService {
         expense.paymentStatus === ExpensePaymentStatus.PAID ||
         expense.paymentStatus === ExpensePaymentStatus.OVERPAID
       ) {
-        throw new BadRequestException('Fully paid expenses cannot be edited');
+        throw new BadRequestException('Settled expenses cannot be edited');
       }
 
       if (dto.totalAmount !== undefined) {
@@ -121,6 +140,10 @@ export class ExpenseService {
         expense.paidAmount = aggregates.paidAmount;
         expense.balance = aggregates.balance;
         expense.paymentStatus = aggregates.paymentStatus;
+        expense.documentStatus = ExpenseService.deriveDocumentStatus(
+          expense.documentStatus,
+          aggregates.paymentStatus,
+        );
       }
 
       const repo = manager.getRepository(Expense);

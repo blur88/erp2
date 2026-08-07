@@ -470,7 +470,7 @@ describe('ExpenseService', () => {
     it('rejects PAID paymentStatus', async () => {
       setupUpdateTest({ paymentStatus: ExpensePaymentStatus.PAID });
       await expect(service.update('exp-1', { description: 'Changed' }, 'user-1', 'admin'))
-        .rejects.toThrow('Fully paid expenses cannot be edited');
+        .rejects.toThrow('Settled expenses cannot be edited');
     });
 
     it('refuses to edit an OVERPAID expense, like a PAID one', async () => {
@@ -479,7 +479,7 @@ describe('ExpenseService', () => {
       setupUpdateTest({ paymentStatus: ExpensePaymentStatus.OVERPAID });
       await expect(
         service.update('exp-overpaid', { totalAmount: '200.0000' } as any),
-      ).rejects.toThrow('Fully paid expenses cannot be edited');
+      ).rejects.toThrow('Settled expenses cannot be edited');
     });
 
     it('rejects totalAmount <= 0', async () => {
@@ -535,6 +535,15 @@ describe('ExpenseService', () => {
       expect(result.paidAmount).toBe('500.0000');
       expect(result.balance).toBe('0.0000');
       expect(result.paymentStatus).toBe(ExpensePaymentStatus.PAID);
+      expect(result.documentStatus).toBe(ExpenseDocumentStatus.COMPLETED);
+    });
+
+    it('stays DRAFT when the lowered total still leaves a balance', async () => {
+      setupUpdateTest({ totalAmount: '1000.0000', paidAmount: '400.0000', balance: '600.0000', paymentStatus: ExpensePaymentStatus.PARTIAL });
+      txManager.getRepository(ExpensePayment).find.mockResolvedValue([{ amount: '400.0000' }]);
+      const result = await service.update('exp-1', { totalAmount: '800.0000' }, 'user-1', 'admin');
+      expect(result.paymentStatus).toBe(ExpensePaymentStatus.PARTIAL);
+      expect(result.documentStatus).toBe(ExpenseDocumentStatus.DRAFT);
     });
 
     it('updates allowed fields and writes audit log', async () => {
@@ -619,6 +628,40 @@ describe('ExpenseService', () => {
         'CANCEL', 'Expense', expect.any(String),
         expect.objectContaining({ userId: 'system', username: undefined }),
       );
+    });
+  });
+
+  describe('deriveDocumentStatus', () => {
+    const D = ExpenseDocumentStatus;
+    const P = ExpensePaymentStatus;
+
+    it('settles to COMPLETED when fully paid', () => {
+      expect(ExpenseService.deriveDocumentStatus(D.DRAFT, P.PAID)).toBe(D.COMPLETED);
+    });
+
+    it('settles to COMPLETED when overpaid', () => {
+      expect(ExpenseService.deriveDocumentStatus(D.DRAFT, P.OVERPAID)).toBe(D.COMPLETED);
+    });
+
+    it('reopens to DRAFT when no longer fully settled', () => {
+      expect(ExpenseService.deriveDocumentStatus(D.COMPLETED, P.PARTIAL)).toBe(D.DRAFT);
+      expect(ExpenseService.deriveDocumentStatus(D.COMPLETED, P.UNPAID)).toBe(D.DRAFT);
+    });
+
+    it('keeps COMPLETED while still fully settled', () => {
+      expect(ExpenseService.deriveDocumentStatus(D.COMPLETED, P.PAID)).toBe(D.COMPLETED);
+      expect(ExpenseService.deriveDocumentStatus(D.COMPLETED, P.OVERPAID)).toBe(D.COMPLETED);
+    });
+
+    it('keeps DRAFT while unsettled', () => {
+      expect(ExpenseService.deriveDocumentStatus(D.DRAFT, P.UNPAID)).toBe(D.DRAFT);
+      expect(ExpenseService.deriveDocumentStatus(D.DRAFT, P.PARTIAL)).toBe(D.DRAFT);
+    });
+
+    it('preserves CANCELLED against every payment status', () => {
+      for (const p of [P.UNPAID, P.PARTIAL, P.PAID, P.OVERPAID]) {
+        expect(ExpenseService.deriveDocumentStatus(D.CANCELLED, p)).toBe(D.CANCELLED);
+      }
     });
   });
 });

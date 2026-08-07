@@ -265,9 +265,9 @@ describe('ExpenseDetailPage', () => {
       expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
     })
 
-    it('DRAFT+PAID shows Refund only (no Pay, Edit, Cancel)', () => {
+    it('COMPLETED+PAID shows Refund only (no Pay, Edit, Cancel)', () => {
       mockGetExpense.mockReturnValue({
-        data: makeExpense({ documentStatus: 'DRAFT', paymentStatus: 'PAID' }),
+        data: makeExpense({ documentStatus: 'COMPLETED', paymentStatus: 'PAID' }),
         isLoading: false,
       })
       renderPage()
@@ -275,6 +275,32 @@ describe('ExpenseDetailPage', () => {
       expect(screen.queryByRole('button', { name: 'Pay' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
+    })
+
+    it('renders Completed and Paid chips for a settled expense', () => {
+      const chipTexts = () =>
+        Array.from(document.querySelectorAll('.MuiChip-root'))
+          .map((c) => c.textContent)
+      mockGetExpense.mockReturnValue({
+        data: makeExpense({ documentStatus: 'COMPLETED', paymentStatus: 'PAID' }),
+        isLoading: false,
+      })
+      renderPage()
+      expect(chipTexts()).toContain('Completed')
+      expect(chipTexts()).toContain('Paid')
+    })
+
+    it('renders Completed and Overpaid chips for an overpaid expense', () => {
+      const chipTexts = () =>
+        Array.from(document.querySelectorAll('.MuiChip-root'))
+          .map((c) => c.textContent)
+      mockGetExpense.mockReturnValue({
+        data: makeExpense({ documentStatus: 'COMPLETED', paymentStatus: 'OVERPAID' }),
+        isLoading: false,
+      })
+      renderPage()
+      expect(chipTexts()).toContain('Completed')
+      expect(chipTexts()).toContain('Overpaid')
     })
 
     it('CANCELLED shows no action buttons', () => {
@@ -317,7 +343,7 @@ describe('ExpenseDetailPage', () => {
 
     it('opens RefundDialog when Refund is clicked', async () => {
       mockGetExpense.mockReturnValue({
-        data: makeExpense({ documentStatus: 'DRAFT', paymentStatus: 'PAID', payments: [{ id: 'pmt-1', expenseId: 'exp-1', paymentMethodId: 'pm-1', paymentDate: '2024-06-15', amount: '500.00', reference: null, sourcePaymentId: null, paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' } }] }),
+        data: makeExpense({ documentStatus: 'COMPLETED', paymentStatus: 'PAID', payments: [{ id: 'pmt-1', expenseId: 'exp-1', paymentMethodId: 'pm-1', paymentDate: '2024-06-15', amount: '500.00', reference: null, sourcePaymentId: null, paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' } }] }),
         isLoading: false,
       })
       renderPage()
@@ -369,7 +395,7 @@ describe('ExpenseDetailPage', () => {
       const unwrap = vi.fn().mockResolvedValue(undefined)
       mockRefundExpense.mockReturnValue({ unwrap })
       mockGetExpense.mockReturnValue({
-        data: makeExpense({ documentStatus: 'DRAFT', paymentStatus: 'PAID', payments: [{ id: 'pmt-1', expenseId: 'exp-1', paymentMethodId: 'pm-1', paymentDate: '2024-06-15', amount: '500.00', reference: null, sourcePaymentId: null, paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' } }] }),
+        data: makeExpense({ documentStatus: 'COMPLETED', paymentStatus: 'PAID', payments: [{ id: 'pmt-1', expenseId: 'exp-1', paymentMethodId: 'pm-1', paymentDate: '2024-06-15', amount: '500.00', reference: null, sourcePaymentId: null, paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' } }] }),
         isLoading: false,
       })
       renderPage()
