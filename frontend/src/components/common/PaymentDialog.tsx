@@ -22,7 +22,10 @@ import {
   fromScaledAmount,
   sumScaledAmounts,
 } from '@/utils/currency'
-import TransactionLineDialogShell, { DialogLineRow } from './TransactionLineDialogShell'
+import TransactionLineDialogShell, {
+  DialogLineRow,
+  TransactionDateField,
+} from './TransactionLineDialogShell'
 
 export interface PaymentLineInput {
   paymentMethodId: string
@@ -316,15 +319,10 @@ export default function PaymentDialog({
             }}
           />
 
-          <TextField
-            size="small"
-            type="date"
+          <TransactionDateField
             value={line.paymentDate}
-            onChange={(e) => updateLine(index, 'paymentDate', e.target.value)}
-            sx={{ width: 140 }}
-            slotProps={{
-              htmlInput: { max: '2099-12-31', 'aria-label': `Payment date, line ${index + 1}` },
-            }}
+            onChange={(value) => updateLine(index, 'paymentDate', value)}
+            label={`Payment date, line ${index + 1}`}
           />
         </DialogLineRow>
       ))}

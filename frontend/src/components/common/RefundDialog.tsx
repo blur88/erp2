@@ -23,7 +23,10 @@ import {
   sumScaledAmounts,
   allocateByLargestRemainder,
 } from '@/utils/currency'
-import TransactionLineDialogShell, { DialogLineRow } from './TransactionLineDialogShell'
+import TransactionLineDialogShell, {
+  DialogLineRow,
+  TransactionDateField,
+} from './TransactionLineDialogShell'
 
 const newId = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -385,15 +388,10 @@ export default function RefundDialog({
           />
 
           {showDateField && (
-            <TextField
-              size="small"
-              type="date"
+            <TransactionDateField
               value={line.date}
-              onChange={(e) => updateLine(index, 'date', e.target.value)}
-              sx={{ width: 140 }}
-              slotProps={{
-                htmlInput: { max: '2099-12-31', 'aria-label': `Refund date, line ${index + 1}` },
-              }}
+              onChange={(value) => updateLine(index, 'date', value)}
+              label={`Refund date, line ${index + 1}`}
             />
           )}
         </DialogLineRow>
