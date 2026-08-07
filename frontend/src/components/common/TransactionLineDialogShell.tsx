@@ -8,6 +8,7 @@ import {
   Box,
   Divider,
   CircularProgress,
+  TextField,
 } from '@mui/material'
 
 export interface TransactionLineDialogShellProps {
@@ -115,5 +116,47 @@ export function DialogLineRow({ children, trailing }: DialogLineRowProps) {
         {trailing}
       </Box>
     </Box>
+  )
+}
+
+export interface TransactionDateFieldProps {
+  value: string
+  onChange: (value: string) => void
+  /** Complete accessible name, e.g. "Payment date, line 1". */
+  label: string
+  /** Upper bound for the native picker. */
+  max?: string
+}
+
+/**
+ * The line date input shared by the Payment and Refund dialogs (#1008).
+ *
+ * 165px, not the 140px both dialogs used before: `size="small"` leaves ~8.5px of
+ * padding per side, the native `mm/dd/yyyy` value needs ~110px and the calendar
+ * button ~20px, so 140px was borderline and clipped the value's last characters
+ * under larger font or zoom settings. Do not tidy this width back down.
+ *
+ * `flexShrink: 0` is deliberate. Inside DialogLineRow's wrapping flex container
+ * the field wraps to the next line instead of compressing — a compressed date
+ * input is precisely the bug this fixes.
+ *
+ * `onChange` hands back the raw YYYY-MM-DD string: no Date is constructed here,
+ * so the calendar-date payload cannot pick up a timezone shift.
+ */
+export function TransactionDateField({
+  value,
+  onChange,
+  label,
+  max = '2099-12-31',
+}: TransactionDateFieldProps) {
+  return (
+    <TextField
+      size="small"
+      type="date"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      sx={{ width: 165, flexShrink: 0 }}
+      slotProps={{ htmlInput: { max, 'aria-label': label } }}
+    />
   )
 }
