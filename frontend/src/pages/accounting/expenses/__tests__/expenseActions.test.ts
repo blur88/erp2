@@ -31,8 +31,8 @@ describe('getExpenseActionMetas', () => {
     expect(metas.map((m) => m.action)).toEqual(['refund'])
   })
 
-  it('CANCELLED → empty array', () => {
+  it('CANCELLED → uncancel only', () => {
     const metas = getExpenseActionMetas(makeExpense('CANCELLED', 'UNPAID'))
-    expect(metas).toEqual([])
+    expect(metas.map((m) => m.action)).toEqual(['uncancel'])
   })
 })

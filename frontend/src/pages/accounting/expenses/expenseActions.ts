@@ -1,6 +1,6 @@
 import type { Expense } from '@/types'
 
-export type ExpenseAction = 'pay' | 'refund' | 'edit' | 'cancel'
+export type ExpenseAction = 'pay' | 'refund' | 'edit' | 'cancel' | 'uncancel'
 
 export interface ExpenseActionMeta {
   action: ExpenseAction
@@ -11,7 +11,7 @@ export interface ExpenseActionMeta {
 export function getExpenseActionMetas(
   e: Pick<Expense, 'documentStatus' | 'paymentStatus'>,
 ): ExpenseActionMeta[] {
-  if (e.documentStatus === 'CANCELLED') return []
+  if (e.documentStatus === 'CANCELLED') return [{ action: 'uncancel' }]
   if (e.documentStatus === 'COMPLETED') return [{ action: 'refund' }]
 
   const metas: ExpenseActionMeta[] = []
