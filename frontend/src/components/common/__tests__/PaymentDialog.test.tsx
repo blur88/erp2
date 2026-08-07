@@ -254,3 +254,14 @@ describe('PaymentDialog accessible names (#1006)', () => {
     expect(screen.getByPlaceholderText('Reference')).toBeInTheDocument()
   })
 })
+
+describe('PaymentDialog date field (#1008)', () => {
+  // jsdom has no layout engine: this asserts the shared CSS configuration is in
+  // use, NOT that the value renders unclipped. Browser-verified separately.
+  it('renders the date through the shared content-sized field', () => {
+    renderDialog()
+    const input = screen.getByLabelText('Payment date, line 1')
+    expect(input).toHaveStyle({ width: 'max-content', minWidth: '150px' })
+    expect(input.closest('.MuiFormControl-root')).toHaveStyle({ flexShrink: '0' })
+  })
+})
