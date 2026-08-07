@@ -19,6 +19,7 @@ import {
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as AddIcon } from '@mui/icons-material/Add'
 import { getCurrentDate } from '@/utils/formatters'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 import {
   formatCurrency,
   toAmountInputValue,
@@ -234,7 +235,7 @@ export default function RefundDialog({
       )
       onClose()
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'Failed to record refund.')
+      setError(rtkErrorMessage(err, 'Failed to record refund.'))
     } finally {
       setSubmitting(false)
     }
