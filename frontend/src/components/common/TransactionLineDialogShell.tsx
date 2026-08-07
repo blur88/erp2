@@ -131,10 +131,18 @@ export interface TransactionDateFieldProps {
 /**
  * The line date input shared by the Payment and Refund dialogs (#1008).
  *
- * 165px, not the 140px both dialogs used before: `size="small"` leaves ~8.5px of
- * padding per side, the native `mm/dd/yyyy` value needs ~110px and the calendar
- * button ~20px, so 140px was borderline and clipped the value's last characters
- * under larger font or zoom settings. Do not tidy this width back down.
+ * The input sizes itself with `width: max-content` rather than a fixed pixel
+ * width. A native `type="date"` control renders its value in the browser/OS
+ * locale, so the space it needs is not knowable from here: `8/7/2026` and
+ * `07/08/2026` differ in width, and both grow with the user's font size and
+ * zoom. Two successive fixed widths (140px, then 165px) were each confirmed in
+ * a browser to clip the value behind the calendar icon for exactly that reason.
+ * `max-content` hands the measurement to the browser, the only party that knows
+ * the answer. Do not replace this with a pixel width — it will be wrong for
+ * some locale or font size, and the unit tests cannot detect that.
+ *
+ * `minWidth` is a floor for the empty state, where there is no value to measure
+ * and `max-content` would otherwise collapse to just the calendar button.
  *
  * `flexShrink: 0` is deliberate. Inside DialogLineRow's wrapping flex container
  * the field wraps to the next line instead of compressing — a compressed date
@@ -155,7 +163,12 @@ export function TransactionDateField({
       type="date"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      sx={{ width: 165, flexShrink: 0 }}
+      sx={{
+        flexShrink: 0,
+        // The sizing lives on the inner input: `max-content` on the FormControl
+        // root would measure the notched-outline legend, not the value text.
+        '& .MuiInputBase-input': { width: 'max-content', minWidth: 150 },
+      }}
       slotProps={{ htmlInput: { max, 'aria-label': label } }}
     />
   )

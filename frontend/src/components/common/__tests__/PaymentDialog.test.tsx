@@ -258,11 +258,10 @@ describe('PaymentDialog accessible names (#1006)', () => {
 describe('PaymentDialog date field (#1008)', () => {
   // jsdom has no layout engine: this asserts the shared CSS configuration is in
   // use, NOT that the value renders unclipped. Browser-verified separately.
-  it('renders the date through the shared non-shrinking 165px field', () => {
+  it('renders the date through the shared content-sized field', () => {
     renderDialog()
-    const root = screen
-      .getByLabelText('Payment date, line 1')
-      .closest('.MuiFormControl-root') as HTMLElement
-    expect(root).toHaveStyle({ width: '165px', flexShrink: '0' })
+    const input = screen.getByLabelText('Payment date, line 1')
+    expect(input).toHaveStyle({ width: 'max-content', minWidth: '150px' })
+    expect(input.closest('.MuiFormControl-root')).toHaveStyle({ flexShrink: '0' })
   })
 })

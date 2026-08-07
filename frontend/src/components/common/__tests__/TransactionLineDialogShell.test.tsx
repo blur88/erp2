@@ -161,14 +161,22 @@ describe('TransactionDateField', () => {
     expect(onChange).toHaveBeenCalledWith('2026-08-07')
   })
 
-  // jsdom has no layout engine: this asserts the CSS configuration that keeps the
-  // value clear of the native calendar icon, NOT that clipping is absent. Real
-  // layout is browser-verified (#1008).
-  it('sizes the field at a non-shrinking 165px', () => {
+  // jsdom has no layout engine: this asserts the CSS configuration that lets the
+  // browser size the field to its own locale rendering, NOT that clipping is
+  // absent. Only a real browser can confirm that (#1008).
+  it('sizes the input to its content above a minimum, and does not shrink', () => {
     renderField()
-    const root = screen
-      .getByLabelText('Payment date, line 1')
-      .closest('.MuiFormControl-root') as HTMLElement
-    expect(root).toHaveStyle({ width: '165px', flexShrink: '0' })
+    const input = screen.getByLabelText('Payment date, line 1')
+    expect(input).toHaveStyle({ width: 'max-content', minWidth: '150px' })
+    expect(input.closest('.MuiFormControl-root')).toHaveStyle({ flexShrink: '0' })
+  })
+
+  it('does not pin a fixed pixel width, which cannot fit every locale', () => {
+    renderField()
+    const input = screen.getByLabelText('Payment date, line 1')
+    // Guards the regression this component exists to fix: two successive fixed
+    // widths (140px, then 165px) were each confirmed in a browser to clip the
+    // value behind the calendar icon. Any fixed width is locale-dependent.
+    expect(input.style.width).not.toMatch(/^\d+px$/)
   })
 })
