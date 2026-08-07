@@ -1,9 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
   Box,
   Typography,
@@ -12,13 +8,13 @@ import {
   MenuItem,
   FormControl,
   IconButton,
-  Divider,
   Alert,
   CircularProgress,
 } from '@mui/material'
 import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as AddIcon } from '@mui/icons-material/Add'
 import { getCurrentDate } from '@/utils/formatters'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 import {
   formatCurrency,
   toAmountInputValue,
@@ -27,6 +23,7 @@ import {
   sumScaledAmounts,
   allocateByLargestRemainder,
 } from '@/utils/currency'
+import TransactionLineDialogShell, { DialogLineRow } from './TransactionLineDialogShell'
 
 const newId = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
@@ -57,6 +54,10 @@ interface RefundDialogProps {
   totalAmount: string
   title?: string
   showDateField?: boolean
+  /** Optional: no consumer needs it today (sources come from the already-loaded
+   *  parent entity), but the shared spinner presentation is ready if refund
+   *  sources ever become async. */
+  loading?: boolean
 }
 
 export default function RefundDialog({
@@ -68,6 +69,7 @@ export default function RefundDialog({
   totalAmount,
   title,
   showDateField,
+  loading = false,
 }: RefundDialogProps) {
   const totalPaidMinor = sumScaledAmounts(sources.map((s) => s.paidAmount)) ?? 0n
   const alreadyRefundedMinor = sumScaledAmounts(sources.map((s) => s.alreadyRefunded)) ?? 0n
@@ -234,7 +236,7 @@ export default function RefundDialog({
       )
       onClose()
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'Failed to record refund.')
+      setError(rtkErrorMessage(err, 'Failed to record refund.'))
     } finally {
       setSubmitting(false)
     }
@@ -248,187 +250,158 @@ export default function RefundDialog({
     }
   }
 
-  const findSourceLabel = (sourceId: string) =>
-    sources.find((s) => s.id === sourceId)?.label || 'Unknown'
-
   return (
-    <Dialog open={open} onClose={handleRequestClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{title || `Refund — ${orderNumber}`}</DialogTitle>
-      <DialogContent>
+    <TransactionLineDialogShell
+      open={open}
+      title={title || `Refund — ${orderNumber}`}
+      onRequestClose={handleRequestClose}
+      loading={loading}
+      discardOpen={confirmDiscard}
+      discardTitle="Discard this refund?"
+      onKeepEditing={() => setConfirmDiscard(false)}
+      onDiscard={onClose}
+      summary={
         <>
-          {/* Refund Summary */}
           {hasSurplus && (
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, mt: 1 }}>
-              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                Surplus over total
-              </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Surplus over total</Typography>
               <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                 {formatCurrency(fromScaledAmount(surplusMinor))}
               </Typography>
             </Box>
           )}
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              mb: 2,
-              mt: hasSurplus ? 0 : 1,
-            }}
-          >
-            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-              Available for Refund
-            </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Available for Refund</Typography>
             <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
               {formatCurrency(fromScaledAmount(availableMinor))}
             </Typography>
           </Box>
-
-          <Divider sx={{ mb: 2 }} />
-
-          {/* Refund Lines */}
-          {lines.map((line, index) => (
-            <Box key={line.id} sx={{ display: 'flex', gap: 1, mb: 1.5, alignItems: 'center' }}>
-              <FormControl size="small" sx={{ minWidth: 130 }}>
-                <Select
-                  value={line.sourceId}
-                  onChange={(e) => updateLine(index, 'sourceId', e.target.value)}
-                  displayEmpty
-                  sx={{ fontSize: '0.85rem' }}
-                >
-                  <MenuItem value="" disabled>
-                    Source
-                  </MenuItem>
-                  {sources
-                    // Only offer sources with something left to refund, but always
-                    // keep the line's current selection renderable (avoids an
-                    // out-of-range Select value).
-                    .filter((s) => sourceAvailableMinor(s.id) > 0n || s.id === line.sourceId)
-                    .map((s) => (
-                      <MenuItem key={s.id} value={s.id} sx={{ fontSize: '0.85rem' }}>
-                        {s.label}
-                      </MenuItem>
-                    ))}
-                </Select>
-              </FormControl>
-
-              <TextField
-                size="small"
-                type="number"
-                placeholder="Amount"
-                value={line.amount}
-                onChange={(e) => updateLine(index, 'amount', e.target.value)}
-                slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
-                sx={{
-                  width: 120,
-                  '& input[type=number]': { MozAppearance: 'textfield' },
-                  '& input[type=number]::-webkit-outer-spin-button, & input[type=number]::-webkit-inner-spin-button':
-                    {
-                      WebkitAppearance: 'none',
-                      margin: 0,
-                    },
-                }}
-              />
-
-              {showDateField && (
-                <TextField
-                  size="small"
-                  type="date"
-                  value={line.date}
-                  onChange={(e) => updateLine(index, 'date', e.target.value)}
-                  sx={{ width: 140 }}
-                  slotProps={{ htmlInput: { max: '2099-12-31' } }}
-                />
-              )}
-
+        </>
+      }
+      totals={
+        <>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Total Refund</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+              {formatCurrency(fromScaledAmount(totalEnteredMinor))}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>Remaining After Refund</Typography>
+            <Typography variant="body2" color={exceedsAvailable ? 'error.main' : 'text.secondary'}>
+              {exceedsAvailable
+                ? `${formatCurrency(fromScaledAmount(remainingAfterRefundMinor < 0n ? -remainingAfterRefundMinor : remainingAfterRefundMinor))} (exceeds available)`
+                : formatCurrency(fromScaledAmount(remainingAfterRefundMinor))}
+            </Typography>
+          </Box>
+        </>
+      }
+      alerts={
+        <>
+          {exceedsAvailable && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              Total refund exceeds available for refund by {formatCurrency(fromScaledAmount(remainingAfterRefundMinor < 0n ? -remainingAfterRefundMinor : remainingAfterRefundMinor))}.
+            </Alert>
+          )}
+          {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+        </>
+      }
+      actions={
+        <>
+          <Button onClick={handleRequestClose} disabled={submitting}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleSubmit}
+            disabled={submitting || loading || hasInvalidAmount || totalEnteredMinor <= 0n || exceedsAvailable}
+            startIcon={submitting ? <CircularProgress size={16} /> : undefined}
+          >
+            {submitting ? 'Refunding...' : 'Refund'}
+          </Button>
+        </>
+      }
+    >
+      {lines.map((line, index) => (
+        <DialogLineRow
+          key={line.id}
+          trailing={
+            <>
               <TextField
                 size="small"
                 placeholder="Reference"
                 value={line.reference}
                 onChange={(e) => updateLine(index, 'reference', e.target.value)}
+                slotProps={{ htmlInput: { 'aria-label': `Reference, line ${index + 1}` } }}
                 sx={{ flex: 1 }}
               />
-
               <IconButton
                 size="small"
+                aria-label={`Remove line ${index + 1}`}
                 onClick={() => removeLine(index)}
                 disabled={lines.length <= 1}
                 color="error"
               >
                 <DeleteIcon fontSize="small" />
               </IconButton>
-            </Box>
-          ))}
-
-          <Button
-            startIcon={<AddIcon />}
-            size="small"
-            onClick={addLine}
-            sx={{ mt: 0.5, mb: 2 }}
-          >
-            Add Refund Row
-          </Button>
-
-          <Divider sx={{ mb: 2 }} />
-
-          {/* Totals */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-              Total Refund
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-              {formatCurrency(fromScaledAmount(totalEnteredMinor))}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Remaining After Refund
-            </Typography>
-            <Typography
-              variant="body2"
-              color={exceedsAvailable ? 'error.main' : 'text.secondary'}
-            >
-              {exceedsAvailable
-                ? `${formatCurrency(fromScaledAmount(remainingAfterRefundMinor < 0n ? -remainingAfterRefundMinor : remainingAfterRefundMinor))} (exceeds available)`
-                : formatCurrency(fromScaledAmount(remainingAfterRefundMinor))}
-            </Typography>
-          </Box>
-
-          {exceedsAvailable && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              Total refund exceeds available for refund by {formatCurrency(fromScaledAmount(remainingAfterRefundMinor < 0n ? -remainingAfterRefundMinor : remainingAfterRefundMinor))}.
-            </Alert>
-          )}
-
-          {error && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {error}
-            </Alert>
-          )}
-        </>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleRequestClose} disabled={submitting}>
-          Cancel
-        </Button>
-        <Button
-          variant="contained"
-          color="error"
-          onClick={handleSubmit}
-          disabled={submitting || hasInvalidAmount || totalEnteredMinor <= 0n || exceedsAvailable}
-          startIcon={submitting ? <CircularProgress size={16} /> : undefined}
+            </>
+          }
         >
-          {submitting ? 'Refunding...' : 'Refund'}
-        </Button>
-      </DialogActions>
-      <Dialog open={confirmDiscard} onClose={() => setConfirmDiscard(false)} transitionDuration={0}>
-        <DialogTitle>Discard this refund?</DialogTitle>
-        <DialogActions>
-          <Button onClick={() => setConfirmDiscard(false)}>Keep Editing</Button>
-          <Button color="error" onClick={onClose}>
-            Discard
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Dialog>
+          <FormControl size="small" sx={{ minWidth: 130 }}>
+            <Select
+              value={line.sourceId}
+              onChange={(e) => updateLine(index, 'sourceId', e.target.value)}
+              displayEmpty
+              inputProps={{ 'aria-label': `Refund source, line ${index + 1}` }}
+              sx={{ fontSize: '0.85rem' }}
+            >
+              <MenuItem value="" disabled>Source</MenuItem>
+              {sources
+                // Only offer sources with something left to refund, but always keep
+                // the line's current selection renderable (avoids an out-of-range value).
+                .filter((s) => sourceAvailableMinor(s.id) > 0n || s.id === line.sourceId)
+                .map((s) => (
+                  <MenuItem key={s.id} value={s.id} sx={{ fontSize: '0.85rem' }}>
+                    {s.label}
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
+
+          <TextField
+            size="small"
+            type="number"
+            placeholder="Amount"
+            value={line.amount}
+            onChange={(e) => updateLine(index, 'amount', e.target.value)}
+            slotProps={{
+              htmlInput: { min: 0, step: 0.01, 'aria-label': `Amount, line ${index + 1}` },
+            }}
+            sx={{
+              width: 120,
+              '& input[type=number]': { MozAppearance: 'textfield' },
+              '& input[type=number]::-webkit-outer-spin-button, & input[type=number]::-webkit-inner-spin-button':
+                { WebkitAppearance: 'none', margin: 0 },
+            }}
+          />
+
+          {showDateField && (
+            <TextField
+              size="small"
+              type="date"
+              value={line.date}
+              onChange={(e) => updateLine(index, 'date', e.target.value)}
+              sx={{ width: 140 }}
+              slotProps={{
+                htmlInput: { max: '2099-12-31', 'aria-label': `Refund date, line ${index + 1}` },
+              }}
+            />
+          )}
+        </DialogLineRow>
+      ))}
+
+      <Button startIcon={<AddIcon />} size="small" onClick={addLine} sx={{ mt: 0.5, mb: 2 }}>
+        Add Refund Row
+      </Button>
+    </TransactionLineDialogShell>
   )
 }

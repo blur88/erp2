@@ -422,3 +422,78 @@ describe('money formatting and precision', () => {
     expect(screen.getByRole('button', { name: /^refund$/i })).toBeEnabled()
   })
 })
+
+describe('RefundDialog server errors (#1006)', () => {
+  it('surfaces an RTK Query error message instead of the generic fallback', async () => {
+    // RTK Query rejects with { status, data: { message } } — NOT the Axios
+    // { response: { data: { message } } } shape the dialog used to read.
+    const onSubmit = vi.fn().mockRejectedValue({
+      status: 400,
+      data: { message: 'Refund exceeds the refundable amount for this payment.' },
+    })
+    renderDialog({ onSubmit })
+    await userEvent.click(screen.getByRole('button', { name: 'Refund' }))
+    expect(
+      await screen.findByText('Refund exceeds the refundable amount for this payment.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Failed to record refund.')).not.toBeInTheDocument()
+  })
+})
+
+describe('RefundDialog shared shell (#1006)', () => {
+  it('renders at maxWidth md, matching PaymentDialog', () => {
+    const { container } = renderDialog()
+    expect(container.ownerDocument.querySelector('.MuiDialog-paperWidthMd')).toBeTruthy()
+  })
+
+  it('labels the dialog by its rendered title', () => {
+    renderDialog()
+    const dialog = screen.getByRole('dialog')
+    const labelledBy = dialog.getAttribute('aria-labelledby')
+    const titleEl = dialog.ownerDocument.getElementById(labelledBy as string)
+    expect(titleEl).toHaveTextContent('Refund — SO-26-001')
+  })
+
+  it('names every control on the sole line with index 1', () => {
+    renderDialog({ showDateField: true })
+    expect(screen.getByLabelText('Refund source, line 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Amount, line 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Refund date, line 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Reference, line 1')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove line 1' })).toBeInTheDocument()
+  })
+
+  it('gives a second line distinct indexed names', async () => {
+    renderDialog()
+    await userEvent.click(screen.getByRole('button', { name: /Add Refund Row/i }))
+    expect(screen.getByLabelText('Amount, line 2')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove line 2' })).toBeInTheDocument()
+  })
+
+  it('keeps the placeholders existing assertions rely on', () => {
+    renderDialog()
+    expect(screen.getByPlaceholderText('Amount')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Reference')).toBeInTheDocument()
+  })
+
+  it('keeps the destructive error styling on the submit button', () => {
+    renderDialog()
+    // MUI v9 emits MuiButton-colorError (the v5-style containedError class was
+    // removed in v6); color="error" is what asserts the destructive styling.
+    expect(screen.getByRole('button', { name: 'Refund' }).className).toMatch(/MuiButton-colorError/)
+  })
+})
+
+describe('RefundDialog loading (#1006)', () => {
+  it('shows a spinner instead of the content region', () => {
+    renderDialog({ loading: true })
+    expect(screen.getByRole('progressbar')).toBeInTheDocument()
+    expect(screen.queryByText('Available for Refund')).not.toBeInTheDocument()
+  })
+
+  it('keeps Cancel reachable but disables submit while loading', () => {
+    renderDialog({ loading: true })
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Refund' })).toBeDisabled()
+  })
+})
