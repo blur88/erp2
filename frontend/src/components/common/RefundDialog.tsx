@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Button,
   Box,
@@ -249,9 +249,6 @@ export default function RefundDialog({
       onClose()
     }
   }
-
-  const findSourceLabel = (sourceId: string) =>
-    sources.find((s) => s.id === sourceId)?.label || 'Unknown'
 
   return (
     <TransactionLineDialogShell
