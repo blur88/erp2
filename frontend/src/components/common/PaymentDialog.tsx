@@ -1,9 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
   Box,
   Typography,
@@ -12,7 +8,6 @@ import {
   MenuItem,
   FormControl,
   IconButton,
-  Divider,
   Alert,
   CircularProgress,
 } from '@mui/material'
@@ -27,6 +22,7 @@ import {
   fromScaledAmount,
   sumScaledAmounts,
 } from '@/utils/currency'
+import TransactionLineDialogShell, { DialogLineRow } from './TransactionLineDialogShell'
 
 export interface PaymentLineInput {
   paymentMethodId: string
@@ -187,162 +183,161 @@ export default function PaymentDialog({
   }
 
   return (
-    <Dialog open={open} onClose={handleRequestClose} maxWidth="md" fullWidth>
-      <DialogTitle>Record Payment — {documentNumber}</DialogTitle>
-      <DialogContent>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-            <CircularProgress size={24} />
+    <TransactionLineDialogShell
+      open={open}
+      title={`Record Payment — ${documentNumber}`}
+      onRequestClose={handleRequestClose}
+      loading={loading}
+      discardOpen={confirmDiscard}
+      discardTitle="Discard this payment?"
+      onKeepEditing={() => setConfirmDiscard(false)}
+      onDiscard={onClose}
+      summary={
+        <>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>Total</Typography>
+            <Typography variant="body2">{formatCurrency(totalAmount)}</Typography>
           </Box>
-        ) : (
-          <>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, mt: 1 }}>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>Total</Typography>
-              <Typography variant="body2">{formatCurrency(totalAmount)}</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>Previously Paid</Typography>
-              <Typography variant="body2">{formatCurrency(paidAmount)}</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Outstanding Balance</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                {formatCurrency(fromScaledAmount(outstandingMinor))}
-              </Typography>
-            </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>Previously Paid</Typography>
+            <Typography variant="body2">{formatCurrency(paidAmount)}</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Outstanding Balance</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+              {formatCurrency(fromScaledAmount(outstandingMinor))}
+            </Typography>
+          </Box>
+        </>
+      }
+      totals={
+        <>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Total Payment</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+              {formatCurrency(fromScaledAmount(totalEnteredMinor))}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>Remaining</Typography>
+            <Typography variant="body2" color={remainingMinor < 0n ? 'error.main' : 'text.secondary'}>
+              {formatCurrency(fromScaledAmount(absRemaining))}
+              {remainingMinor < 0n ? ' (overpayment)' : ''}
+            </Typography>
+          </Box>
+        </>
+      }
+      alerts={
+        <>
+          {isOverpaying && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              Total payment exceeds outstanding balance by {formatCurrency(fromScaledAmount(absRemaining))}.
+            </Alert>
+          )}
+          {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+        </>
+      }
+      actions={
+        <>
+          <Button onClick={handleRequestClose} disabled={submitting}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleSubmit}
+            disabled={submitting || loading || noMethods || hasInvalidAmount || totalEnteredMinor <= 0n}
+            startIcon={submitting ? <CircularProgress size={16} /> : undefined}
+          >
+            {submitting ? 'Recording...' : 'Record Payment'}
+          </Button>
+        </>
+      }
+    >
+      {noMethods && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          No active payment methods are available.
+        </Alert>
+      )}
 
-            <Divider sx={{ mb: 2 }} />
-
-            {noMethods && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                No active payment methods are available.
-              </Alert>
-            )}
-
-            {lines.map((line, index) => (
-              <Box
-                key={line.id}
-                sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1.5, alignItems: 'center' }}
+      {lines.map((line, index) => (
+        <DialogLineRow
+          key={line.id}
+          trailing={
+            <>
+              <TextField
+                size="small"
+                placeholder="Reference"
+                value={line.reference}
+                onChange={(e) => updateLine(index, 'reference', e.target.value)}
+                slotProps={{ htmlInput: { 'aria-label': `Reference, line ${index + 1}` } }}
+                sx={{ flex: 1 }}
+              />
+              <IconButton
+                size="small"
+                aria-label={`Remove line ${index + 1}`}
+                onClick={() => removeLine(index)}
+                disabled={lines.length <= 1}
+                color="error"
               >
-                <FormControl size="small" sx={{ minWidth: 130 }}>
-                  <Select
-                    value={line.paymentMethodId}
-                    onChange={(e) => updateLine(index, 'paymentMethodId', e.target.value)}
-                    displayEmpty
-                    inputProps={{ 'aria-label': `Payment method, line ${index + 1}` }}
-                    sx={{ fontSize: '0.85rem' }}
-                  >
-                    <MenuItem value="" disabled>Method</MenuItem>
-                    {paymentMethods.map((pm) => (
-                      <MenuItem key={pm.id} value={pm.id} sx={{ fontSize: '0.85rem' }}>
-                        {pm.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <TextField
-                  size="small"
-                  type="number"
-                  placeholder="Amount"
-                  value={line.amount}
-                  onChange={(e) => updateLine(index, 'amount', e.target.value)}
-                  slotProps={{ htmlInput: { min: 0, step: 0.01, 'aria-label': `Amount, line ${index + 1}` } }}
-                  sx={{
-                    width: 120,
-                    '& input[type=number]': { MozAppearance: 'textfield' },
-                    '& input[type=number]::-webkit-outer-spin-button, & input[type=number]::-webkit-inner-spin-button':
-                      { WebkitAppearance: 'none', margin: 0 },
-                  }}
-                />
-
-                <TextField
-                  size="small"
-                  type="date"
-                  value={line.paymentDate}
-                  onChange={(e) => updateLine(index, 'paymentDate', e.target.value)}
-                  sx={{ width: 140 }}
-                  slotProps={{ htmlInput: { max: '2099-12-31', 'aria-label': `Payment date, line ${index + 1}` } }}
-                />
-
-                {/* Reference + Delete are ONE flex child so they wrap together.
-                    248px = ~200px reference minimum (#999) + ~40px button + 8px gap. */}
-                <Box sx={{ flex: 1, minWidth: 248, display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <TextField
-                    size="small"
-                    placeholder="Reference"
-                    value={line.reference}
-                    onChange={(e) => updateLine(index, 'reference', e.target.value)}
-                    slotProps={{ htmlInput: { 'aria-label': `Reference, line ${index + 1}` } }}
-                    sx={{ flex: 1 }}
-                  />
-                  <IconButton
-                    size="small"
-                    aria-label={`Remove line ${index + 1}`}
-                    onClick={() => removeLine(index)}
-                    disabled={lines.length <= 1}
-                    color="error"
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              </Box>
-            ))}
-
-            <Button
-              startIcon={<AddIcon />}
-              size="small"
-              onClick={addLine}
-              disabled={noMethods}
-              sx={{ mt: 0.5, mb: 2 }}
-            >
-              Add Payment Line
-            </Button>
-
-            <Divider sx={{ mb: 2 }} />
-
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Total Payment</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                {formatCurrency(fromScaledAmount(totalEnteredMinor))}
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>Remaining</Typography>
-              <Typography variant="body2" color={remainingMinor < 0n ? 'error.main' : 'text.secondary'}>
-                {formatCurrency(fromScaledAmount(absRemaining))}
-                {remainingMinor < 0n ? ' (overpayment)' : ''}
-              </Typography>
-            </Box>
-
-            {isOverpaying && (
-              <Alert severity="warning" sx={{ mt: 2 }}>
-                Total payment exceeds outstanding balance by {formatCurrency(fromScaledAmount(absRemaining))}.
-              </Alert>
-            )}
-
-            {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
-          </>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleRequestClose} disabled={submitting}>Cancel</Button>
-        <Button
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={submitting || noMethods || hasInvalidAmount || totalEnteredMinor <= 0n}
-          startIcon={submitting ? <CircularProgress size={16} /> : undefined}
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </>
+          }
         >
-          {submitting ? 'Recording...' : 'Record Payment'}
-        </Button>
-      </DialogActions>
-      <Dialog open={confirmDiscard} onClose={() => setConfirmDiscard(false)} transitionDuration={0}>
-        <DialogTitle>Discard this payment?</DialogTitle>
-        <DialogActions>
-          <Button onClick={() => setConfirmDiscard(false)}>Keep Editing</Button>
-          <Button color="error" onClick={onClose}>Discard</Button>
-        </DialogActions>
-      </Dialog>
-    </Dialog>
+          <FormControl size="small" sx={{ minWidth: 130 }}>
+            <Select
+              value={line.paymentMethodId}
+              onChange={(e) => updateLine(index, 'paymentMethodId', e.target.value)}
+              displayEmpty
+              inputProps={{ 'aria-label': `Payment method, line ${index + 1}` }}
+              sx={{ fontSize: '0.85rem' }}
+            >
+              <MenuItem value="" disabled>Method</MenuItem>
+              {paymentMethods.map((pm) => (
+                <MenuItem key={pm.id} value={pm.id} sx={{ fontSize: '0.85rem' }}>
+                  {pm.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <TextField
+            size="small"
+            type="number"
+            placeholder="Amount"
+            value={line.amount}
+            onChange={(e) => updateLine(index, 'amount', e.target.value)}
+            slotProps={{
+              htmlInput: { min: 0, step: 0.01, 'aria-label': `Amount, line ${index + 1}` },
+            }}
+            sx={{
+              width: 120,
+              '& input[type=number]': { MozAppearance: 'textfield' },
+              '& input[type=number]::-webkit-outer-spin-button, & input[type=number]::-webkit-inner-spin-button':
+                { WebkitAppearance: 'none', margin: 0 },
+            }}
+          />
+
+          <TextField
+            size="small"
+            type="date"
+            value={line.paymentDate}
+            onChange={(e) => updateLine(index, 'paymentDate', e.target.value)}
+            sx={{ width: 140 }}
+            slotProps={{
+              htmlInput: { max: '2099-12-31', 'aria-label': `Payment date, line ${index + 1}` },
+            }}
+          />
+        </DialogLineRow>
+      ))}
+
+      <Button
+        startIcon={<AddIcon />}
+        size="small"
+        onClick={addLine}
+        disabled={noMethods}
+        sx={{ mt: 0.5, mb: 2 }}
+      >
+        Add Payment Line
+      </Button>
+    </TransactionLineDialogShell>
   )
 }

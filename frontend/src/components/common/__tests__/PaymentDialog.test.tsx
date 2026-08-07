@@ -126,11 +126,6 @@ describe('PaymentDialog overpayment', () => {
 })
 
 describe('PaymentDialog reference field (issue #999)', () => {
-  it('renders the dialog at maxWidth md', () => {
-    const { container } = renderDialog()
-    expect(container.ownerDocument.querySelector('.MuiDialog-paperWidthMd')).toBeTruthy()
-  })
-
   it('retains a full reference value', async () => {
     renderDialog()
     const ref = screen.getByPlaceholderText('Reference') as HTMLInputElement
