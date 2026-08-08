@@ -170,6 +170,8 @@ export class ExpenseService {
         throw new BadRequestException('Only draft expenses can be cancelled');
       }
 
+      // uncancel() relies on cancelled expenses having zero paid balance.
+      // If this guard changes, revisit the explicit CANCELLED → DRAFT transition.
       if (toMinorUnits(expense.paidAmount) !== 0n) {
         throw new BadRequestException('Refund all payments before cancelling this expense');
       }
@@ -200,6 +202,8 @@ export class ExpenseService {
         throw new BadRequestException('Only cancelled expenses can be uncancelled');
       }
 
+      // Safe because cancel() only permits a zero-paid expense into CANCELLED;
+      // restore explicitly to DRAFT rather than deriving from payment aggregates.
       expense.documentStatus = ExpenseDocumentStatus.DRAFT;
 
       const repo = manager.getRepository(Expense);
