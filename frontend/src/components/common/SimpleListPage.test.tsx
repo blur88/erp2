@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import SimpleListPage from './SimpleListPage'
@@ -85,5 +85,16 @@ describe('SimpleListPage', () => {
   it('does not show a loading spinner when isFetching is false', () => {
     render(<SimpleListPage {...baseProps} isFetching={false} />)
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+  })
+
+  it('renders filterExtra inside the filter toolbar', () => {
+    render(
+      <SimpleListPage
+        {...baseProps}
+        filterExtra={<div data-testid="filter-extra">Sort by</div>}
+      />,
+    )
+    const toolbar = screen.getByTestId('page-header-toolbar')
+    expect(within(toolbar).getByTestId('filter-extra')).toBeInTheDocument()
   })
 })
