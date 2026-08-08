@@ -352,12 +352,12 @@ describe('ExpenseService', () => {
       expect(qb.calls.some((c: any) => c.params?.paymentStatus === 'UNPAID')).toBe(true);
     });
 
-    it('defaults to expenseDate DESC, createdAt DESC', async () => {
+    it('defaults to expenseNumber DESC with no secondary order', async () => {
       const qb = makeQb();
       buildQb(qb);
       await service.list({});
-      expect(qb._orderBy).toEqual({ col: 'e.expenseDate', dir: 'DESC' });
-      expect(qb._addOrderBy).toEqual({ col: 'e.createdAt', dir: 'DESC' });
+      expect(qb._orderBy).toEqual({ col: 'e.expenseNumber', dir: 'DESC' });
+      expect(qb._addOrderBy).toBeUndefined();
     });
 
     it('applies custom sortBy and sortOrder', async () => {
@@ -372,6 +372,40 @@ describe('ExpenseService', () => {
       buildQb(qb);
       await service.list({ sortBy: 'expenseNumber' });
       expect(qb._orderBy).toEqual({ col: 'e.expenseNumber', dir: 'DESC' });
+    });
+
+    it('adds expenseNumber DESC as the secondary order when sorting by expenseDate', async () => {
+      const qb = makeQb();
+      buildQb(qb);
+      await service.list({ sortBy: 'expenseDate', sortOrder: 'ASC' });
+      expect(qb._orderBy).toEqual({ col: 'e.expenseDate', dir: 'ASC' });
+      expect(qb._addOrderBy).toEqual({ col: 'e.expenseNumber', dir: 'DESC' });
+    });
+
+    it('adds expenseNumber DESC as the secondary order when sorting by totalAmount', async () => {
+      const qb = makeQb();
+      buildQb(qb);
+      await service.list({ sortBy: 'totalAmount', sortOrder: 'DESC' });
+      expect(qb._addOrderBy).toEqual({ col: 'e.expenseNumber', dir: 'DESC' });
+    });
+
+    it('omits the secondary order when the primary field is expenseNumber', async () => {
+      const qb = makeQb();
+      buildQb(qb);
+      await service.list({ sortBy: 'expenseNumber', sortOrder: 'ASC' });
+      expect(qb._orderBy).toEqual({ col: 'e.expenseNumber', dir: 'ASC' });
+      expect(qb._addOrderBy).toBeUndefined();
+    });
+
+    // A direct service call can bypass the controller's @IsIn validation. The
+    // secondary order must be decided from the RESOLVED field, not the raw
+    // input, or the fallback emits expenseNumber DESC twice.
+    it('falls back to expenseNumber and adds no secondary order for an unknown sortBy', async () => {
+      const qb = makeQb();
+      buildQb(qb);
+      await service.list({ sortBy: 'payee' as any });
+      expect(qb._orderBy).toEqual({ col: 'e.expenseNumber', dir: 'DESC' });
+      expect(qb._addOrderBy).toBeUndefined();
     });
   });
 

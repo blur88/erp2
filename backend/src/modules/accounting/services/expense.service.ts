@@ -301,12 +301,17 @@ export class ExpenseService {
       expenseDate: 'e.expenseDate',
       totalAmount: 'e.totalAmount',
     };
-    const sortBy = params.sortBy ?? 'expenseDate';
+    // Resolve first: an unrecognised sortBy falls back to expenseNumber, and the
+    // secondary order must be decided from the resolved field so the fallback
+    // cannot emit "expenseNumber DESC, expenseNumber DESC".
+    const sortBy =
+      params.sortBy && sortColumns[params.sortBy] ? params.sortBy : 'expenseNumber';
     const sortOrder = params.sortOrder ?? 'DESC';
-    const column = sortColumns[sortBy] ?? 'e.expenseDate';
-    qb.orderBy(column, sortOrder as 'ASC' | 'DESC');
-    if (sortBy === 'expenseDate' && !params.sortBy) {
-      qb.addOrderBy('e.createdAt', 'DESC');
+    qb.orderBy(sortColumns[sortBy], sortOrder as 'ASC' | 'DESC');
+    // expenseDate and totalAmount tie freely; without a stable tiebreaker rows
+    // can repeat or vanish across pages. expenseNumber is effectively unique.
+    if (sortBy !== 'expenseNumber') {
+      qb.addOrderBy('e.expenseNumber', 'DESC');
     }
 
     if (params.page !== undefined && params.limit !== undefined) {
