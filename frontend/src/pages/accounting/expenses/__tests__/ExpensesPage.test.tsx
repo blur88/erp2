@@ -202,6 +202,9 @@ describe('ExpensesPage', () => {
 
   it('offers View and Uncancel on a cancelled row', async () => {
     const user = userEvent.setup()
+    // mockReturnValueOnce is required here: vi.clearAllMocks() does not reset
+    // implementations set on this module-factory mock, so a persistent
+    // mockReturnValue leaks the cancelled fixture into every later test.
     vi.mocked(useGetExpensesQuery).mockReturnValueOnce({
       data: {
         data: [
