@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Box, Button } from '@mui/material'
+import { Box, Button, MenuItem, TextField } from '@mui/material'
 import { skipToken } from '@reduxjs/toolkit/query'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -82,6 +82,12 @@ function getFilterConfig(
     },
   }
 }
+
+const SORT_FIELDS = [
+  { value: 'expenseNumber', label: 'Expense No.' },
+  { value: 'expenseDate', label: 'Date' },
+  { value: 'totalAmount', label: 'Total' },
+] as const
 
 export default function ExpensesPage() {
   const navigate = useNavigate()
@@ -376,6 +382,22 @@ export default function ExpensesPage() {
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={searchInputRef}
+      filterExtra={
+        <TextField
+          select
+          size="small"
+          label="Sort by"
+          value={sortBy}
+          onChange={(event) => handleSort(event.target.value)}
+          sx={{ minWidth: 150 }}
+        >
+          {SORT_FIELDS.map((field) => (
+            <MenuItem key={field.value} value={field.value}>
+              {field.label}
+            </MenuItem>
+          ))}
+        </TextField>
+      }
       sort={{ field: sortBy, sortBy, sortOrder, onSort: handleSort }}
       isFetching={isFetching}
       error={error ? 'Failed to load expenses.' : null}
