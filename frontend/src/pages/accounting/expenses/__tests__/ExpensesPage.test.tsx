@@ -276,6 +276,29 @@ describe('ExpensesPage', () => {
     renderPage()
     expect(mockNavigate).not.toHaveBeenCalled()
   })
+
+  function lastQueryParams() {
+    const calls = vi.mocked(useGetExpensesQuery).mock.calls
+    return calls[calls.length - 1][0] as Record<string, unknown>
+  }
+
+  it('requests expense number descending by default', () => {
+    renderPage()
+    expect(lastQueryParams()).toMatchObject({
+      sortBy: 'expenseNumber',
+      sortOrder: 'DESC',
+    })
+  })
+
+  it('toggles the active field direction when Sort is clicked', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(screen.getByRole('button', { name: /^sort$/i }))
+    expect(lastQueryParams()).toMatchObject({
+      sortBy: 'expenseNumber',
+      sortOrder: 'ASC',
+    })
+  })
 })
 
 describe('ExpensesPage - refund detail loading', () => {

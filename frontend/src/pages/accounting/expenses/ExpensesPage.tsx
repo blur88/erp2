@@ -89,7 +89,7 @@ export default function ExpensesPage() {
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
-  const sortBy = 'expenseDate' as const
+  const [sortBy, setSortBy] = useState('expenseNumber')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [payExpenseRow, setPayExpenseRow] = useState<Expense | null>(null)
   const [refundExpenseRow, setRefundExpenseRow] = useState<Expense | null>(null)
@@ -134,7 +134,7 @@ export default function ExpensesPage() {
     const params: ExpenseListParams = {
       page,
       limit,
-      sortBy,
+      sortBy: sortBy as ExpenseListParams['sortBy'],
       sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
     }
     const search = appliedFilters.search.trim()
@@ -217,10 +217,11 @@ export default function ExpensesPage() {
     setPage(1)
   }
 
-  const handleSort = useCallback(() => {
-    setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))
+  const handleSort = useCallback((field: string) => {
+    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
+    setSortBy(field)
     setPage(1)
-  }, [])
+  }, [sortBy])
 
   const handleView = (row: Expense) => {
     navigate(`/accounting/expenses/${row.id}`)
@@ -375,12 +376,7 @@ export default function ExpensesPage() {
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={searchInputRef}
-      sort={{
-        field: 'expenseDate',
-        sortBy,
-        sortOrder,
-        onSort: handleSort,
-      }}
+      sort={{ field: sortBy, sortBy, sortOrder, onSort: handleSort }}
       isFetching={isFetching}
       error={error ? 'Failed to load expenses.' : null}
       tableSlot={
