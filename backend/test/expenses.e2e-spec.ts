@@ -183,6 +183,18 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
     return expenseService.cancel(id, 'e2e', 'e2e');
   }
 
+  async function uncancelExpense(id: string): Promise<Expense> {
+    return expenseService.uncancel(id, 'e2e', 'e2e');
+  }
+
+  async function expenseJeCount(expenseId: string): Promise<number> {
+    const rows = await ds.query(
+      `SELECT COUNT(*)::int AS n FROM journal_entry WHERE "sourceType" = $1 AND "sourceDocumentId" = $2`,
+      [AccountingSourceType.EXPENSE, expenseId],
+    );
+    return rows[0].n;
+  }
+
   async function getExpense(id: string): Promise<Expense> {
     return expenseService.findOne(id);
   }
@@ -396,6 +408,45 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
 
       tb = await trial.getTrialBalance({ asOfDate: '2026-07-31' });
       expect(tb.balanced).toBe(true);
+
+      // 7. Uncancel — restores DRAFT + UNPAID without touching settlement facts.
+      const beforeUncancel = await getExpense(expense.id);
+      const paymentRowsBefore = await ds.query(
+        `SELECT id, amount, "paymentDate", "sourcePaymentId" FROM expense_payments
+         WHERE "expenseId" = $1 ORDER BY id`,
+        [expense.id],
+      );
+      const jeBefore = await expenseJeCount(expense.id);
+
+      expense = await uncancelExpense(expense.id);
+
+      // Asserted BEFORE any new payment: a later payment would legitimately move
+      // these values and mask a regression.
+      expect(expense.documentStatus).toBe(ExpenseDocumentStatus.DRAFT);
+      expect(expense.paymentStatus).toBe(ExpensePaymentStatus.UNPAID);
+      expect(expense.paidAmount).toBe(beforeUncancel.paidAmount);
+      expect(expense.balance).toBe(beforeUncancel.balance);
+
+      const paymentRowsAfter = await ds.query(
+        `SELECT id, amount, "paymentDate", "sourcePaymentId" FROM expense_payments
+         WHERE "expenseId" = $1 ORDER BY id`,
+        [expense.id],
+      );
+      expect(paymentRowsAfter).toEqual(paymentRowsBefore);
+
+      // Uncancel posts nothing. Compared before/after rather than asserting zero,
+      // because this expense already has pay/refund JEs.
+      expect(await expenseJeCount(expense.id)).toBe(jeBefore);
+
+      // 8. The restored DRAFT genuinely accepts payment again.
+      expense = await payExpense(expense.id, [{
+        paymentMethodId: cashMethod.id,
+        amount: '1000.0000',
+        paymentDate: '2026-07-22',
+        reference: 'PAY-AFTER-UNCANCEL',
+      }]);
+      expect(expense.paymentStatus).toBe(ExpensePaymentStatus.PAID);
+      expect(expense.documentStatus).toBe(ExpenseDocumentStatus.COMPLETED);
     });
 
     it('round-trips COMPLETED through pay → refund → re-pay', async () => {
@@ -466,6 +517,11 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
         reference: 'PAY-001',
       }]);
       await expect(cancelExpense(expense.id)).rejects.toThrow('Only draft expenses can be cancelled');
+    });
+
+    it('uncancel a draft expense: rejects', async () => {
+      const exp = await createExpense({ totalAmount: '500.0000' });
+      await expect(uncancelExpense(exp.id)).rejects.toThrow('Only cancelled expenses can be uncancelled');
     });
 
     it('pay cancelled expense: rejects', async () => {
@@ -555,6 +611,14 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
       await cancelExpense(exp.id);
       const count = await ds.query(`SELECT COUNT(*)::int AS n FROM journal_entry WHERE "sourceType" = $1 AND "sourceDocumentId" = $2`, [AccountingSourceType.EXPENSE, exp.id]);
       expect(count[0].n).toBe(0);
+    });
+
+    it('uncancel does not post JE', async () => {
+      const exp = await createExpense({ totalAmount: '500.0000' });
+      await cancelExpense(exp.id);
+      const before = await expenseJeCount(exp.id);
+      await uncancelExpense(exp.id);
+      expect(await expenseJeCount(exp.id)).toBe(before);
     });
 
     it('each payment row gets exactly one balanced JE with correct accounts and date', async () => {

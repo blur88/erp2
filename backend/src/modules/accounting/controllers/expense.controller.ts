@@ -51,6 +51,15 @@ export class ExpenseController {
     return this.service.cancel(id, userId, username);
   }
 
+  @Post(':id/uncancel')
+  async uncancel(
+    @Param('id') id: string,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('username') username: string,
+  ) {
+    return this.service.uncancel(id, userId, username);
+  }
+
   @Post(':id/pay')
   async pay(
     @Param('id') id: string,

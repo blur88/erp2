@@ -156,6 +156,11 @@ export const accountingApiSlice = createApi({
        transformResponse: normalizeSingle<Expense>,
        invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance'],
      }),
+     uncancelExpense: builder.mutation<Expense, string>({
+       query: (id) => ({ url: `/accounting/expenses/${id}/uncancel`, method: 'POST' }),
+       transformResponse: normalizeSingle<Expense>,
+       invalidatesTags: ['Expense'],
+     }),
      payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown> }>({
        query: ({ id, data }) => ({
          url: `/accounting/expenses/${id}/pay`,
@@ -195,6 +200,7 @@ export const {
   useCreateExpenseMutation,
   useUpdateExpenseMutation,
   useCancelExpenseMutation,
+  useUncancelExpenseMutation,
   usePayExpenseMutation,
   useRefundExpenseMutation,
 } = accountingApiSlice

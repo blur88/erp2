@@ -14,6 +14,7 @@ import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelExpenseMutation,
+  useUncancelExpenseMutation,
   useGetExpensesQuery,
   useGetAccountTreeQuery,
   useGetExpenseQuery,
@@ -93,6 +94,7 @@ export default function ExpensesPage() {
   const [payExpenseRow, setPayExpenseRow] = useState<Expense | null>(null)
   const [refundExpenseRow, setRefundExpenseRow] = useState<Expense | null>(null)
   const [cancelExpenseRow, setCancelExpenseRow] = useState<Expense | null>(null)
+  const [uncancelExpenseRow, setUncancelExpenseRow] = useState<Expense | null>(null)
 
   const { showSuccess, showError } = useNotification()
 
@@ -152,6 +154,7 @@ export default function ExpensesPage() {
   const [doPayExpense] = usePayExpenseMutation()
   const [doRefundExpense] = useRefundExpenseMutation()
   const [doCancelExpense, { isLoading: isCancelling }] = useCancelExpenseMutation()
+  const [doUncancelExpense, { isLoading: isUncancelling }] = useUncancelExpenseMutation()
 
   const { data: paymentMethods = [], isLoading: methodsLoading } =
     useGetActivePaymentMethodsForPurchasesQuery(undefined, { skip: !payExpenseRow })
@@ -279,6 +282,17 @@ export default function ExpensesPage() {
     }
   }, [cancelExpenseRow, doCancelExpense, showSuccess, showError])
 
+  const handleUncancelConfirm = useCallback(async () => {
+    if (!uncancelExpenseRow) return
+    try {
+      await doUncancelExpense(uncancelExpenseRow.id).unwrap()
+      showSuccess(`Expense ${uncancelExpenseRow.expenseNumber} uncancelled`)
+      setUncancelExpenseRow(null)
+    } catch (error) {
+      showError(rtkErrorMessage(error, 'Failed to uncancel expense'))
+    }
+  }, [uncancelExpenseRow, doUncancelExpense, showSuccess, showError])
+
   const buildRowActions = useCallback(
     (row: Expense): RowAction[] => {
       const metas = getExpenseActionMetas(row)
@@ -302,6 +316,8 @@ export default function ExpensesPage() {
               setRefundExpenseRow(row)
             } else if (meta.action === 'cancel') {
               setCancelExpenseRow(row)
+            } else if (meta.action === 'uncancel') {
+              setUncancelExpenseRow(row)
             }
           },
           disabled: meta.disabled,
@@ -445,6 +461,19 @@ export default function ExpensesPage() {
               onConfirm={handleCancelConfirm}
               onCancel={() => setCancelExpenseRow(null)}
               loading={isCancelling}
+            />
+          )}
+
+          {uncancelExpenseRow && (
+            <ConfirmationDialog
+              open
+              title="Uncancel Expense"
+              message={`Uncancel this expense? (${uncancelExpenseRow.expenseNumber})`}
+              confirmText="Uncancel Expense"
+              severity="warning"
+              onConfirm={handleUncancelConfirm}
+              onCancel={() => setUncancelExpenseRow(null)}
+              loading={isUncancelling}
             />
           )}
         </>

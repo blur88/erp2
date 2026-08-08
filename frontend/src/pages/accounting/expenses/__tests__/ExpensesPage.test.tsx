@@ -62,6 +62,7 @@ vi.mock('@/store/api/accountingApi', () => ({
   useCreateExpenseMutation: vi.fn().mockReturnValue([vi.fn(), { isLoading: false }]),
   useUpdateExpenseMutation: vi.fn().mockReturnValue([vi.fn(), { isLoading: false }]),
   useCancelExpenseMutation: vi.fn().mockReturnValue([vi.fn(), { isLoading: false }]),
+  useUncancelExpenseMutation: vi.fn().mockReturnValue([vi.fn(), { isLoading: false }]),
   usePayExpenseMutation: vi.fn().mockReturnValue([vi.fn(), { isLoading: false }]),
   useRefundExpenseMutation: vi.fn().mockReturnValue([vi.fn(), { isLoading: false }]),
 }))
@@ -197,6 +198,43 @@ describe('ExpensesPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses/exp-1/edit', {
       state: { expenseEditOrigin: 'list' },
     })
+  })
+
+  it('offers View and Uncancel on a cancelled row', async () => {
+    const user = userEvent.setup()
+    // mockReturnValueOnce is required here: vi.clearAllMocks() does not reset
+    // implementations set on this module-factory mock, so a persistent
+    // mockReturnValue leaks the cancelled fixture into every later test.
+    vi.mocked(useGetExpensesQuery).mockReturnValueOnce({
+      data: {
+        data: [
+          {
+            id: 'exp-1',
+            expenseNumber: 'EXP-001',
+            expenseDate: '2026-07-15',
+            description: 'Cancelled expense',
+            payee: 'Vendor A',
+            totalAmount: '1000.0000',
+            paidAmount: '0.0000',
+            balance: '1000.0000',
+            documentStatus: 'CANCELLED',
+            paymentStatus: 'UNPAID',
+          },
+        ],
+        meta: { total: 1, page: 1, limit: 25 },
+      },
+      isFetching: false,
+      error: undefined,
+    } as any)
+    renderPage()
+
+    const menuButtons = screen.getAllByRole('button', { name: /row actions/i })
+    await user.click(menuButtons[0])
+
+    expect(await screen.findByRole('menuitem', { name: /^view$/i })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /^uncancel$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /^pay$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /^cancel$/i })).not.toBeInTheDocument()
   })
 
   it('highlights the expense named by incoming location state', async () => {

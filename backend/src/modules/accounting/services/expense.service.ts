@@ -170,6 +170,8 @@ export class ExpenseService {
         throw new BadRequestException('Only draft expenses can be cancelled');
       }
 
+      // uncancel() relies on cancelled expenses having zero paid balance.
+      // If this guard changes, revisit the explicit CANCELLED → DRAFT transition.
       if (toMinorUnits(expense.paidAmount) !== 0n) {
         throw new BadRequestException('Refund all payments before cancelling this expense');
       }
@@ -184,6 +186,35 @@ export class ExpenseService {
         userId: userId || 'system',
         username,
         newValues: { documentStatus: ExpenseDocumentStatus.CANCELLED },
+      });
+
+      return saved;
+    });
+  }
+
+  async uncancel(id: string, userId?: string, username?: string): Promise<Expense> {
+    return this.dataSource.transaction(async (manager) => {
+      const expense = await lockRowForUpdate(manager, Expense, id, {
+        notFoundMessage: 'Expense not found',
+      });
+
+      if (expense.documentStatus !== ExpenseDocumentStatus.CANCELLED) {
+        throw new BadRequestException('Only cancelled expenses can be uncancelled');
+      }
+
+      // Safe because cancel() only permits a zero-paid expense into CANCELLED;
+      // restore explicitly to DRAFT rather than deriving from payment aggregates.
+      expense.documentStatus = ExpenseDocumentStatus.DRAFT;
+
+      const repo = manager.getRepository(Expense);
+      const saved = await repo.save(expense);
+
+      await this.auditLogService.log('UPDATE', 'Expense', `Uncancelled expense: ${expense.expenseNumber}`, {
+        entityId: id,
+        userId: userId || 'system',
+        username,
+        oldValues: { documentStatus: ExpenseDocumentStatus.CANCELLED },
+        newValues: { documentStatus: ExpenseDocumentStatus.DRAFT },
       });
 
       return saved;
