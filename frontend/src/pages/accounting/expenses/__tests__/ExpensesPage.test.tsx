@@ -431,6 +431,19 @@ describe('ExpensesPage', () => {
           data: undefined, isLoading: true, isError: false, isFetching: true, error: undefined,
         } as any)
       }],
+    ])('disables the Account control while %s', async (_label, primeMocks) => {
+      primeMocks()
+      renderPage()
+
+      // Loading disables the control (optionsLoading): the user must not pick
+      // against an empty list mid-fetch, so the listbox can never open.
+      expect(screen.getByRole('combobox', { name: 'Account' })).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      )
+    })
+
+    it.each([
       ['the account tree errored', () => {
         vi.mocked(useGetAccountTreeQuery).mockReturnValue({
           data: undefined, isLoading: false, isError: true, isFetching: false, error: { status: 500 },
@@ -484,6 +497,72 @@ describe('ExpensesPage', () => {
       })
 
       expect(screen.getByRole('combobox', { name: 'Account' })).toHaveTextContent('All accounts')
+    })
+
+    // The sibling above mounts with SETTLED mocks, so it never exercised an
+    // unresolved option set — the actual defect in #1017. Here the tree is still
+    // in flight at mount: the URL value must reach the query anyway, and only be
+    // judged once the authoritative list lands.
+    it('applies a URL account param that arrives before the account tree', async () => {
+      mockLocation.current = {
+        pathname: '/accounting/expenses',
+        search: '?expenseAccountId=acct-office',
+        hash: '',
+        key: 'test',
+        state: null,
+      }
+
+      vi.mocked(useGetAccountTreeQuery).mockReturnValue({
+        data: undefined, isLoading: true, isError: false, isFetching: true, error: undefined,
+      } as any)
+
+      renderPage()
+
+      await waitFor(() => {
+        const calls = vi.mocked(useGetExpensesQuery).mock.calls
+        expect(calls[calls.length - 1][0]).toMatchObject({ expenseAccountId: 'acct-office' })
+      })
+    })
+
+    it('clears a URL account param once the tree resolves without it', async () => {
+      mockLocation.current = {
+        pathname: '/accounting/expenses',
+        search: '?expenseAccountId=acct-gone',
+        hash: '',
+        key: 'test',
+        state: null,
+      }
+
+      vi.mocked(useGetAccountTreeQuery).mockReturnValue({
+        data: undefined, isLoading: true, isError: false, isFetching: true, error: undefined,
+      } as any)
+
+      const { rerender } = renderPage()
+
+      // In flight: the unjudgeable value is applied rather than discarded.
+      await waitFor(() => {
+        const calls = vi.mocked(useGetExpensesQuery).mock.calls
+        expect(calls[calls.length - 1][0]).toMatchObject({ expenseAccountId: 'acct-gone' })
+      })
+
+      // Tree lands and does not contain acct-gone — now it is judgeable, and stale.
+      vi.mocked(useGetAccountTreeQuery).mockReturnValue(settled(TREE) as any)
+
+      // Fresh JSX, not a stored element: React 19's RTL `rerender` no-ops when
+      // handed the identical element reference. This matches the inline-JSX idiom
+      // the sibling two-phase tests in this file already use.
+      rerender(
+        <Provider store={configureStore({ reducer: { empty: (s = null) => s } })}>
+          <MemoryRouter initialEntries={['/accounting/expenses?expenseAccountId=acct-gone']}>
+            <ExpensesPage />
+          </MemoryRouter>
+        </Provider>,
+      )
+
+      await waitFor(() => {
+        const calls = vi.mocked(useGetExpensesQuery).mock.calls
+        expect(calls[calls.length - 1][0]).not.toHaveProperty('expenseAccountId')
+      })
     })
 
     // The applied filter must survive unresolved queries. parseFilters only
