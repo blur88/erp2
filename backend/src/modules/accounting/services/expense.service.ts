@@ -311,8 +311,10 @@ export class ExpenseService {
       params.sortBy && Object.hasOwn(sortColumns, params.sortBy)
         ? params.sortBy
         : 'expenseNumber';
-    const sortOrder = params.sortOrder ?? 'DESC';
-    qb.orderBy(sortColumns[sortBy], sortOrder as 'ASC' | 'DESC');
+    // Allow-list the direction too, symmetric with sortBy above: TypeORM does
+    // not sanitise the direction string, and a direct caller skips the DTO.
+    const sortOrder = params.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+    qb.orderBy(sortColumns[sortBy], sortOrder);
     // expenseDate and totalAmount tie freely; without a stable tiebreaker rows
     // can repeat or vanish across pages. expenseNumber is effectively unique.
     if (sortBy !== 'expenseNumber') {

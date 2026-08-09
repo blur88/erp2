@@ -408,6 +408,19 @@ describe('ExpenseService', () => {
       expect(qb._addOrderBy).toBeUndefined();
     });
 
+    // Same direct-call bypass as the sortBy guard below: the DTO's @IsIn keeps
+    // this clean over HTTP, but the service must not hand TypeORM an arbitrary
+    // direction string, which it does not sanitise.
+    it.each(['; DROP TABLE expenses--', 'asc', ''])(
+      'coerces an invalid sortOrder %p to DESC',
+      async (order) => {
+        const qb = makeQb();
+        buildQb(qb);
+        await service.list({ sortOrder: order as any });
+        expect(qb._orderBy).toEqual({ col: 'e.expenseNumber', dir: 'DESC' });
+      },
+    );
+
     // sortColumns is an object literal, so every Object.prototype key is a
     // truthy lookup. A truthiness guard admits them and hands orderBy a
     // function instead of a column string. Own-property checks only.
