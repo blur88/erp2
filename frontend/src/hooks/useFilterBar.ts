@@ -84,6 +84,62 @@ export function useFilterBar<TFilters extends object>(
     }
   }, [appliedFilters, config, location.pathname])
 
+  // Revalidate select values once their options become authoritative.
+  //
+  // parseFilters deliberately lets a URL value through while a field's options are
+  // unresolved (#1017) — an in-flight query yields `[]`, and allow-listing against
+  // an empty array silently dropped valid filters. That preserved value has to be
+  // judged once the real option set lands, and dropped if it is not in it.
+  //
+  // Dependency-driven, not edge-triggered on a false -> true transition: because it
+  // also depends on the option arrays and the current values, it equally covers a
+  // value that becomes ineligible mid-session (an account deactivated, or an admin
+  // repointing cogsAccountId). That is why consumers do not need their own clearing
+  // effect.
+  //
+  // `optionsReady === false` means "not authoritative", which includes an errored
+  // query — never clear then, an error is not evidence the value is invalid. An
+  // authoritative EMPTY array, by contrast, does clear the value.
+  useEffect(() => {
+    const stale: string[] = []
+
+    for (const field of config.fields) {
+      if (field.type !== 'select') continue
+      if (field.optionsReady === false) continue
+
+      const fieldKey = String(field.field)
+      const allowed = field.options.map((option) => option.value)
+      const defaultValue = (defaults as Record<string, unknown>)[fieldKey] ?? null
+
+      for (const source of [appliedFilters, draftFilters]) {
+        const value = (source as Record<string, unknown>)[fieldKey]
+        // Null/default values need no validation.
+        if (value === null || value === undefined) continue
+        if (value === defaultValue) continue
+        if (allowed.includes(value as string)) continue
+        if (!stale.includes(fieldKey)) stale.push(fieldKey)
+      }
+    }
+
+    if (stale.length === 0) return
+
+    // The same state transition `onClearField` performs — reset to default in both
+    // applied and draft state, then notify — but applied to every stale field in one
+    // atomic update rather than one call (and one onApply) per field. The URL-sync
+    // effect above then drops the params.
+    setAppliedFilters((prev) => {
+      const next = { ...prev } as Record<string, unknown>
+      for (const key of stale) next[key] = (defaults as Record<string, unknown>)[key] ?? null
+      return next as TFilters
+    })
+    setDraftFilters((prev) => {
+      const next = { ...prev } as Record<string, unknown>
+      for (const key of stale) next[key] = (defaults as Record<string, unknown>)[key] ?? null
+      return next as TFilters
+    })
+    onApplyRef.current?.()
+  }, [config, defaults, appliedFilters, draftFilters])
+
   useEffect(() => {
     return () => {
       if (debounceRef.current) {
