@@ -23,9 +23,6 @@ interface SimpleListPageProps<F extends object> {
   // Optional: a list with no user-selectable sort order omits this so FilterBar
   // does not render a Sort button that cannot do anything.
   sort?: FilterBarSortConfig
-  // Extra controls rendered inside the FilterBar, before the Sort button.
-  // Mirrors GenericListPage.filterExtra.
-  filterExtra?: ReactNode
   isFetching?: boolean
   error?: string | null
   onErrorClose?: () => void
@@ -45,7 +42,6 @@ export default function SimpleListPage<F extends object>({
   hasActiveFilters,
   searchInputRef,
   sort,
-  filterExtra,
   isFetching,
   error,
   onErrorClose,
@@ -69,7 +65,6 @@ export default function SimpleListPage<F extends object>({
             hasActiveFilters={hasActiveFilters}
             searchInputRef={searchInputRef}
             sort={sort}
-            extra={filterExtra}
             isFetching={isFetching}
           />
         }
