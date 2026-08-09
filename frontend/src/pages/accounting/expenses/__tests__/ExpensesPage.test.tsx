@@ -298,66 +298,10 @@ describe('ExpensesPage', () => {
     })
   })
 
-  it('toggles the active field direction when Sort is clicked', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(screen.getByRole('button', { name: /^sort$/i }))
-    expect(lastQueryParams()).toMatchObject({
-      sortBy: 'expenseNumber',
-      sortOrder: 'ASC',
-    })
-  })
-
-  it('offers the three sortable fields', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(screen.getByRole('combobox', { name: 'Sort by' }))
-    expect(await screen.findByRole('option', { name: 'Expense No.' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Date' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Total' })).toBeInTheDocument()
-  })
-
-  it('sorts by date descending when Date is selected', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(screen.getByRole('combobox', { name: 'Sort by' }))
-    await user.click(await screen.findByRole('option', { name: 'Date' }))
-    expect(lastQueryParams()).toMatchObject({
-      sortBy: 'expenseDate',
-      sortOrder: 'DESC',
-    })
-  })
-
-  it('sorts by total descending when Total is selected', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(screen.getByRole('combobox', { name: 'Sort by' }))
-    await user.click(await screen.findByRole('option', { name: 'Total' }))
-    expect(lastQueryParams()).toMatchObject({
-      sortBy: 'totalAmount',
-      sortOrder: 'DESC',
-    })
-  })
-
-  // Regression: the Sort button must toggle the SELECTED field's direction.
-  // With a constant sort.field, AppButton would read as inactive here and this
-  // click would switch back to expenseNumber instead of toggling expenseDate.
-  it('toggles the selected field rather than reverting to expense number', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await user.click(screen.getByRole('combobox', { name: 'Sort by' }))
-    await user.click(await screen.findByRole('option', { name: 'Date' }))
-    await user.click(screen.getByRole('button', { name: /^sort$/i }))
-    expect(lastQueryParams()).toMatchObject({
-      sortBy: 'expenseDate',
-      sortOrder: 'ASC',
-    })
-  })
-
-  // Must start from page 2, or the assertion passes with setPage(1) deleted.
-  // The default mock reports total: 2, which renders no second page — raise the
-  // total so PagePagination offers one.
-  it('returns to the first page when the sort field changes', async () => {
+  // Must start from page 2, or the page assertion passes with setPage(1)
+  // deleted. The default mock reports total: 2, which renders no second page —
+  // raise the total so PagePagination offers one.
+  it('toggles the direction and returns to the first page when Sort is clicked', async () => {
     const user = userEvent.setup()
     vi.mocked(useGetExpensesQuery).mockReturnValue({
       data: { data: mockExpenses, meta: { total: 60, page: 1, limit: 25 } },
@@ -369,9 +313,34 @@ describe('ExpensesPage', () => {
     await user.click(screen.getByRole('button', { name: /go to next page/i }))
     expect(lastQueryParams()).toMatchObject({ page: 2 })
 
-    await user.click(screen.getByRole('combobox', { name: 'Sort by' }))
-    await user.click(await screen.findByRole('option', { name: 'Total' }))
-    expect(lastQueryParams()).toMatchObject({ sortBy: 'totalAmount', page: 1 })
+    await user.click(screen.getByRole('button', { name: /^sort$/i }))
+    expect(lastQueryParams()).toMatchObject({
+      sortBy: 'expenseNumber',
+      sortOrder: 'ASC',
+      page: 1,
+    })
+
+    // Click again to prove the handler toggles rather than assigning: a
+    // setSortOrder('asc') mutation survives a single-click assertion.
+    await user.click(screen.getByRole('button', { name: /^sort$/i }))
+    expect(lastQueryParams()).toMatchObject({
+      sortBy: 'expenseNumber',
+      sortOrder: 'DESC',
+      page: 1,
+    })
+  })
+
+  it('renders no Sort by field-picker in the filter section', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(
+      screen.queryByRole('combobox', { name: 'Sort by' }),
+    ).not.toBeInTheDocument()
+
+    // The fixed-field Sort button is still the sort affordance.
+    await user.click(screen.getByRole('button', { name: /^sort$/i }))
+    expect(lastQueryParams()).toMatchObject({ sortBy: 'expenseNumber' })
   })
 })
 
