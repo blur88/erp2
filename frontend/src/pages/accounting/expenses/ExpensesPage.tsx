@@ -83,11 +83,17 @@ function getFilterConfig(
   }
 }
 
-const SORT_FIELDS = [
+// Narrowed to the API's union so an invalid option is a compile error, not a
+// runtime 400. handleSort must stay (field: string) to satisfy the shared
+// FilterBarSortConfig contract, so the widening is cast there — once — rather
+// than at every consumer of sortBy.
+type SortField = NonNullable<ExpenseListParams['sortBy']>
+
+const SORT_FIELDS: { value: SortField; label: string }[] = [
   { value: 'expenseNumber', label: 'Expense No.' },
   { value: 'expenseDate', label: 'Date' },
   { value: 'totalAmount', label: 'Total' },
-] as const
+]
 
 export default function ExpensesPage() {
   const navigate = useNavigate()
@@ -95,7 +101,7 @@ export default function ExpensesPage() {
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
-  const [sortBy, setSortBy] = useState('expenseNumber')
+  const [sortBy, setSortBy] = useState<SortField>('expenseNumber')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [payExpenseRow, setPayExpenseRow] = useState<Expense | null>(null)
   const [refundExpenseRow, setRefundExpenseRow] = useState<Expense | null>(null)
@@ -140,7 +146,7 @@ export default function ExpensesPage() {
     const params: ExpenseListParams = {
       page,
       limit,
-      sortBy: sortBy as ExpenseListParams['sortBy'],
+      sortBy,
       sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
     }
     const search = appliedFilters.search.trim()
@@ -225,7 +231,7 @@ export default function ExpensesPage() {
 
   const handleSort = useCallback((field: string) => {
     setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
-    setSortBy(field)
+    setSortBy(field as SortField)
     setPage(1)
   }, [sortBy])
 
