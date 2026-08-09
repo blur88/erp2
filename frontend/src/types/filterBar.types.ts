@@ -32,6 +32,30 @@ export interface SelectFilterFieldConfig<TFilters, K extends keyof TFilters>
   options: readonly Readonly<FilterOption>[]
   emptyLabel?: string
   minWidth?: number
+  /**
+   * `options` is the complete, authoritative set — including when it is empty.
+   * Default `true`, so static-option consumers need no change.
+   *
+   * While `false`, a non-empty URL value is preserved without allow-list
+   * validation (issue #1017: an in-flight options query yields `[]`, and an
+   * empty allow-list rejects every value, silently dropping valid filters).
+   *
+   * A query ERROR keeps this `false` — an error is not evidence that a value is
+   * invalid. The value is retained until some later fetch succeeds.
+   *
+   * Validation only. For "is a fetch in flight", use `optionsLoading`.
+   */
+  optionsReady?: boolean
+  /**
+   * A fetch is in flight. Default `false`. Presentation only — it disables the
+   * control and shows a placeholder.
+   *
+   * Deliberately independent of `optionsReady`: an errored query is
+   * `optionsReady: false, optionsLoading: false`. Driving the disabled state off
+   * `optionsReady` alone would leave an errored control permanently dead and
+   * permanently reading "Loading…".
+   */
+  optionsLoading?: boolean
 }
 
 export interface PeriodFilterFieldConfig<TFilters, K extends keyof TFilters>
