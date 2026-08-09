@@ -304,8 +304,13 @@ export class ExpenseService {
     // Resolve first: an unrecognised sortBy falls back to expenseNumber, and the
     // secondary order must be decided from the resolved field so the fallback
     // cannot emit "expenseNumber DESC, expenseNumber DESC".
+    // Own-property check, not truthiness: sortColumns is an object literal, so
+    // prototype keys ('constructor', 'toString', ...) are truthy lookups that
+    // would otherwise pass a function to orderBy instead of a column string.
     const sortBy =
-      params.sortBy && sortColumns[params.sortBy] ? params.sortBy : 'expenseNumber';
+      params.sortBy && Object.hasOwn(sortColumns, params.sortBy)
+        ? params.sortBy
+        : 'expenseNumber';
     const sortOrder = params.sortOrder ?? 'DESC';
     qb.orderBy(sortColumns[sortBy], sortOrder as 'ASC' | 'DESC');
     // expenseDate and totalAmount tie freely; without a stable tiebreaker rows

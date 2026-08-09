@@ -407,6 +407,20 @@ describe('ExpenseService', () => {
       expect(qb._orderBy).toEqual({ col: 'e.expenseNumber', dir: 'DESC' });
       expect(qb._addOrderBy).toBeUndefined();
     });
+
+    // sortColumns is an object literal, so every Object.prototype key is a
+    // truthy lookup. A truthiness guard admits them and hands orderBy a
+    // function instead of a column string. Own-property checks only.
+    it.each(['constructor', 'toString', 'valueOf', 'hasOwnProperty'])(
+      'falls back to expenseNumber for the prototype key %s',
+      async (key) => {
+        const qb = makeQb();
+        buildQb(qb);
+        await service.list({ sortBy: key as any });
+        expect(qb._orderBy).toEqual({ col: 'e.expenseNumber', dir: 'DESC' });
+        expect(qb._addOrderBy).toBeUndefined();
+      },
+    );
   });
 
   describe('computeAggregates', () => {
