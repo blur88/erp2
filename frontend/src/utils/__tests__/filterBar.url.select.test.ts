@@ -51,3 +51,56 @@ describe('filterBar.url select handling', () => {
     expect(parseFilters(params, config).status).toBe('active')
   })
 })
+
+describe('filterBar.url select with async options', () => {
+  const notReady: FilterBarConfig<TestFilters> = {
+    fields: [
+      {
+        field: 'status',
+        label: 'Status',
+        type: 'select',
+        options: [],
+        optionsReady: false,
+      },
+    ],
+    defaults: { status: null },
+  }
+
+  const readyEmpty: FilterBarConfig<TestFilters> = {
+    fields: [
+      {
+        field: 'status',
+        label: 'Status',
+        type: 'select',
+        options: [],
+        optionsReady: true,
+      },
+    ],
+    defaults: { status: null },
+  }
+
+  it('preserves a non-empty value while options are not ready', () => {
+    const parsed = parseFilters(new URLSearchParams('status=acct-1'), notReady)
+    expect(parsed.status).toBe('acct-1')
+  })
+
+  it('normalizes an explicitly empty param even while not ready', () => {
+    const parsed = parseFilters(new URLSearchParams('status='), notReady)
+    expect(parsed.status).toBeNull()
+  })
+
+  it('rejects a value when ready with an authoritative empty option set', () => {
+    const parsed = parseFilters(new URLSearchParams('status=acct-1'), readyEmpty)
+    expect(parsed.status).toBeNull()
+  })
+
+  it('still rejects an invalid value when options are ready', () => {
+    const parsed = parseFilters(new URLSearchParams('status=bogus'), config)
+    expect(parsed.status).toBeNull()
+  })
+
+  it('treats an omitted optionsReady as ready (static-option default)', () => {
+    const parsed = parseFilters(new URLSearchParams('status=bogus'), config)
+    expect(parsed.status).toBeNull()
+  })
+})
