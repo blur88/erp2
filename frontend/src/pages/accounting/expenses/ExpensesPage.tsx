@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Box, Button, MenuItem, TextField } from '@mui/material'
+import { Box, Button } from '@mui/material'
 import { skipToken } from '@reduxjs/toolkit/query'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -83,17 +83,10 @@ function getFilterConfig(
   }
 }
 
-// Narrowed to the API's union so an invalid option is a compile error, not a
-// runtime 400. handleSort must stay (field: string) to satisfy the shared
-// FilterBarSortConfig contract, so the widening is cast there — once — rather
-// than at every consumer of sortBy.
-type SortField = NonNullable<ExpenseListParams['sortBy']>
-
-const SORT_FIELDS: { value: SortField; label: string }[] = [
-  { value: 'expenseNumber', label: 'Expense No.' },
-  { value: 'expenseDate', label: 'Date' },
-  { value: 'totalAmount', label: 'Total' },
-]
+// Sorting matches the Sales/Purchase Order list pattern: one fixed field with a
+// direction toggle in the filter bar, no field picker. Const, not state, because
+// ExpenseListParams.sortBy is a literal union that useState would widen to string.
+const EXPENSE_SORT_FIELD = 'expenseNumber' as const
 
 export default function ExpensesPage() {
   const navigate = useNavigate()
@@ -101,7 +94,6 @@ export default function ExpensesPage() {
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
-  const [sortBy, setSortBy] = useState<SortField>('expenseNumber')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [payExpenseRow, setPayExpenseRow] = useState<Expense | null>(null)
   const [refundExpenseRow, setRefundExpenseRow] = useState<Expense | null>(null)
@@ -146,7 +138,7 @@ export default function ExpensesPage() {
     const params: ExpenseListParams = {
       page,
       limit,
-      sortBy,
+      sortBy: EXPENSE_SORT_FIELD,
       sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
     }
     const search = appliedFilters.search.trim()
@@ -157,7 +149,7 @@ export default function ExpensesPage() {
     if (dateRange.fromDate) params.fromDate = dateRange.fromDate
     if (dateRange.toDate) params.toDate = dateRange.toDate
     return params
-  }, [page, limit, appliedFilters, dateRange, sortBy, sortOrder])
+  }, [page, limit, appliedFilters, dateRange, sortOrder])
 
   const { data: response, isFetching, error } = useGetExpensesQuery(queryParams)
   const rows = response?.data ?? []
@@ -229,11 +221,10 @@ export default function ExpensesPage() {
     setPage(1)
   }
 
-  const handleSort = useCallback((field: string) => {
-    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
-    setSortBy(field as SortField)
+  const handleSort = useCallback(() => {
+    setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))
     setPage(1)
-  }, [sortBy])
+  }, [])
 
   const handleView = (row: Expense) => {
     navigate(`/accounting/expenses/${row.id}`)
@@ -388,23 +379,12 @@ export default function ExpensesPage() {
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={searchInputRef}
-      filterExtra={
-        <TextField
-          select
-          size="small"
-          label="Sort by"
-          value={sortBy}
-          onChange={(event) => handleSort(event.target.value)}
-          sx={{ minWidth: 150 }}
-        >
-          {SORT_FIELDS.map((field) => (
-            <MenuItem key={field.value} value={field.value}>
-              {field.label}
-            </MenuItem>
-          ))}
-        </TextField>
-      }
-      sort={{ field: sortBy, sortBy, sortOrder, onSort: handleSort }}
+      sort={{
+        field: EXPENSE_SORT_FIELD,
+        sortBy: EXPENSE_SORT_FIELD,
+        sortOrder,
+        onSort: handleSort,
+      }}
       isFetching={isFetching}
       error={error ? 'Failed to load expenses.' : null}
       tableSlot={
