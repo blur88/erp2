@@ -25,15 +25,14 @@ import { AppButton } from '@/components/common/AppButton'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import PageHeader from '@/components/common/PageHeader'
 import { useDocumentNumberPreview } from '@/hooks/useDocumentNumberPreview'
+import { useExpenseAccountOptions } from '@/hooks/useExpenseAccountOptions'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCreateExpenseMutation,
   useGetAccountingSettingsQuery,
-  useGetAccountTreeQuery,
   useGetExpenseQuery,
   useUpdateExpenseMutation,
 } from '@/store/api/accountingApi'
-import type { AccountTreeNode } from '@/types'
 import { getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { normalizeAmountInput, toAmountInputValue, toScaledAmount } from '@/utils/currency'
@@ -45,20 +44,6 @@ interface ExpenseFormData {
   expenseAccountId: string
   totalAmount: string
   notes: string
-}
-
-function flattenAccountTree(nodes: AccountTreeNode[]): { value: string; label: string }[] {
-  const options: { value: string; label: string }[] = []
-  const flatten = (items: AccountTreeNode[]) => {
-    for (const item of items) {
-      if (item.isPostable) {
-        options.push({ value: item.id, label: `${item.code} ${item.name}` })
-      }
-      if (item.children?.length) flatten(item.children)
-    }
-  }
-  flatten(nodes)
-  return options
 }
 
 const fieldSx = {
@@ -85,7 +70,6 @@ const ExpenseFormPage: React.FC = () => {
   const expenseNumberPreview = useDocumentNumberPreview('Expenses', !isEdit)
 
   const { data: expense, isLoading: loadingExpense, isError: expenseLoadFailed } = useGetExpenseQuery(id!, { skip: !isEdit })
-  const { data: accountTreeData = [], isLoading: loadingAccounts } = useGetAccountTreeQuery({ type: 'Expense', isActive: true })
   const { data: settings } = useGetAccountingSettingsQuery()
   const [createExpense, { isLoading: isCreating }] = useCreateExpenseMutation()
   const [updateExpense, { isLoading: isUpdating }] = useUpdateExpenseMutation()
@@ -166,14 +150,9 @@ const ExpenseFormPage: React.FC = () => {
   })
 
   const selectedExpenseAccountId = watch('expenseAccountId')
-  const accountOptions = useMemo(() => {
-    const all = flattenAccountTree(accountTreeData)
-    const cogsId = settings?.cogsAccountId
-    if (!cogsId) return all
-    return all.filter(
-      (o) => o.value !== cogsId || (isEdit && selectedExpenseAccountId === cogsId),
-    )
-  }, [accountTreeData, settings?.cogsAccountId, isEdit, selectedExpenseAccountId])
+  const { options: accountOptions } = useExpenseAccountOptions({
+    keepId: isEdit ? selectedExpenseAccountId : null,
+  })
 
   const storedFormat = useMemo(() => localStorage.getItem('dateFormat') || 'DD/MM/YYYY', [])
   const pickerFormat = useMemo(() => toMuiDatePickerFormat(storedFormat), [storedFormat])
