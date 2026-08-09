@@ -10,13 +10,13 @@ import PagePagination from '@/components/common/PagePagination'
 import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
 import { StatusChip } from '@/components/common/StatusChip'
 import RowActionMenu, { type RowAction } from '@/components/common/RowActionMenu'
+import { useExpenseAccountOptions } from '@/hooks/useExpenseAccountOptions'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelExpenseMutation,
   useUncancelExpenseMutation,
   useGetExpensesQuery,
-  useGetAccountTreeQuery,
   useGetExpenseQuery,
   usePayExpenseMutation,
   useRefundExpenseMutation,
@@ -39,20 +39,6 @@ interface ExpenseFilters {
   expenseAccountId: string | null
   paymentStatus: ExpensePaymentStatus | null
   documentStatus: ExpenseDocumentStatus | null
-}
-
-function buildAccountOptions(tree: { id: string; code: string; name: string; isPostable?: boolean; children?: unknown[] }[]): { value: string; label: string }[] {
-  const options: { value: string; label: string }[] = []
-  const flatten = (nodes: typeof tree) => {
-    for (const node of nodes) {
-      if (node.isPostable) {
-        options.push({ value: node.id, label: `${node.code} ${node.name}` })
-      }
-      if (node.children?.length) flatten(node.children as typeof tree)
-    }
-  }
-  flatten(tree)
-  return options
 }
 
 function getFilterConfig(
@@ -104,15 +90,7 @@ export default function ExpensesPage() {
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
-  const { data: accountTreeData = [] } = useGetAccountTreeQuery({
-    type: 'Expense',
-    isActive: true,
-  })
-
-  const accountOptions = useMemo(
-    () => buildAccountOptions(accountTreeData),
-    [accountTreeData],
-  )
+  const { options: accountOptions, isReady: accountsReady } = useExpenseAccountOptions()
 
   const filterConfig = useMemo(
     () => getFilterConfig(accountOptions),
@@ -121,6 +99,34 @@ export default function ExpensesPage() {
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } =
     useFilterBar(filterConfig, { onApply: () => setPage(1) })
+
+  // Clears an account filter that was eligible when applied and stopped being
+  // eligible afterward — an admin repointing cogsAccountId in Accounting Settings,
+  // or the account being deactivated mid-session. Without this the control renders
+  // blank (no matching MenuItem) while the query keeps filtering by it.
+  //
+  // This does NOT handle an ineligible id arriving in the URL: parseFilters
+  // allow-lists URL values against field.options (filterBar.url.ts:146) before they
+  // ever reach applied state, so such an id is never applied in the first place.
+  //
+  // Gate on `accountsReady`, not `!isLoading` — an errored query also yields zero
+  // options, and clearing then would discard a filter we cannot yet judge.
+  //
+  // Depend on the destructured `onClearField`, never on `handlers`: that object is a
+  // fresh literal every render (useFilterBar.ts:161). `onClearField` already resets
+  // both draft and applied state, the URL-sync effect drops the param via
+  // history.replaceState, and queryParams omits the key when null — so the
+  // unfiltered refetch follows automatically.
+  const { onClearField } = handlers
+
+  useEffect(() => {
+    if (!accountsReady) return
+
+    const applied = appliedFilters.expenseAccountId
+    if (applied && !accountOptions.some(({ value }) => value === applied)) {
+      onClearField('expenseAccountId')
+    }
+  }, [accountsReady, accountOptions, appliedFilters.expenseAccountId, onClearField])
 
   const weekStartsOn = getStartOfWeek()
 

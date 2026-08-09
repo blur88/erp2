@@ -55,6 +55,26 @@ vi.mock('@/store/api/accountingApi', () => ({
   }),
   useGetAccountTreeQuery: vi.fn().mockReturnValue({
     data: [],
+    isLoading: false,
+    isError: false,
+    isFetching: false,
+    error: undefined,
+  }),
+  useGetAccountingSettingsQuery: vi.fn().mockReturnValue({
+    data: {
+      id: true,
+      cashAccountId: 'acct-cash',
+      bankAccountId: 'acct-bank',
+      inventoryAccountId: 'acct-inv',
+      supplierDepositAccountId: 'acct-sdep',
+      customerDepositAccountId: 'acct-cdep',
+      openingBalanceEquityAccountId: 'acct-obe',
+      salesRevenueAccountId: 'acct-rev',
+      cogsAccountId: 'acct-cogs',
+      defaultExpenseAccountId: 'acct-office',
+    },
+    isLoading: false,
+    isError: false,
     isFetching: false,
     error: undefined,
   }),
@@ -104,7 +124,7 @@ vi.mock('@/hooks/useNotification', () => ({
 }))
 
 import { alpha } from '@mui/material'
-import { useGetExpensesQuery, useGetExpenseQuery } from '@/store/api/accountingApi'
+import { useGetExpensesQuery, useGetExpenseQuery, useGetAccountTreeQuery, useGetAccountingSettingsQuery } from '@/store/api/accountingApi'
 import { darkTheme } from '@/styles/theme'
 import ExpensesPage from '../ExpensesPage'
 
@@ -341,6 +361,235 @@ describe('ExpensesPage', () => {
     // The fixed-field Sort button is still the sort affordance.
     await user.click(screen.getByRole('button', { name: /^sort$/i }))
     expect(lastQueryParams()).toMatchObject({ sortBy: 'expenseNumber' })
+  })
+
+  describe('Account filter eligibility (#1016)', () => {
+    const SETTINGS = {
+      id: true,
+      cashAccountId: 'acct-cash',
+      bankAccountId: 'acct-bank',
+      inventoryAccountId: 'acct-inv',
+      supplierDepositAccountId: 'acct-sdep',
+      customerDepositAccountId: 'acct-cdep',
+      openingBalanceEquityAccountId: 'acct-obe',
+      salesRevenueAccountId: 'acct-rev',
+      cogsAccountId: 'acct-cogs',
+      defaultExpenseAccountId: 'acct-office',
+    }
+
+    // 5000 Operating Expenses (parent) → 5010 Office, 5100 COGS; plus 6990 Other
+    const TREE = [
+      {
+        id: 'acct-parent',
+        code: '5000',
+        name: 'Operating Expenses',
+        isPostable: false,
+        children: [
+          { id: 'acct-office', code: '5010', name: 'Office Expenses', isPostable: true, children: [] },
+          { id: 'acct-cogs', code: '5100', name: 'Cost of Goods Sold', isPostable: true, children: [] },
+        ],
+      },
+      { id: 'acct-other', code: '6990', name: 'Other Expenses', isPostable: true, children: [] },
+    ]
+
+    const settled = <T,>(data: T) => ({
+      data,
+      isLoading: false,
+      isError: false,
+      isFetching: false,
+      error: undefined,
+    })
+
+    beforeEach(() => {
+      vi.mocked(useGetAccountTreeQuery).mockReturnValue(settled(TREE) as any)
+      vi.mocked(useGetAccountingSettingsQuery).mockReturnValue(settled(SETTINGS) as any)
+    })
+
+    it('omits the configured COGS account and keeps other expense accounts', async () => {
+      const user = userEvent.setup()
+      renderPage()
+
+      await user.click(screen.getByRole('combobox', { name: 'Account' }))
+
+      const listbox = await screen.findByRole('listbox')
+      expect(within(listbox).getByRole('option', { name: 'All accounts' })).toBeInTheDocument()
+      expect(within(listbox).getByRole('option', { name: '5010 Office Expenses' })).toBeInTheDocument()
+      expect(within(listbox).getByRole('option', { name: '6990 Other Expenses' })).toBeInTheDocument()
+      expect(within(listbox).queryByRole('option', { name: '5100 Cost of Goods Sold' })).toBeNull()
+      // The non-postable parent is a container, never selectable.
+      expect(within(listbox).queryByRole('option', { name: '5000 Operating Expenses' })).toBeNull()
+    })
+
+    it.each([
+      ['the account tree is loading', () => {
+        vi.mocked(useGetAccountTreeQuery).mockReturnValue({
+          data: undefined, isLoading: true, isError: false, isFetching: true, error: undefined,
+        } as any)
+      }],
+      ['settings are loading', () => {
+        vi.mocked(useGetAccountingSettingsQuery).mockReturnValue({
+          data: undefined, isLoading: true, isError: false, isFetching: true, error: undefined,
+        } as any)
+      }],
+      ['the account tree errored', () => {
+        vi.mocked(useGetAccountTreeQuery).mockReturnValue({
+          data: undefined, isLoading: false, isError: true, isFetching: false, error: { status: 500 },
+        } as any)
+      }],
+      ['settings errored', () => {
+        vi.mocked(useGetAccountingSettingsQuery).mockReturnValue({
+          data: undefined, isLoading: false, isError: true, isFetching: false, error: { status: 500 },
+        } as any)
+      }],
+    ])('offers no account options while %s', async (_label, primeMocks) => {
+      primeMocks()
+      const user = userEvent.setup()
+      renderPage()
+
+      await user.click(screen.getByRole('combobox', { name: 'Account' }))
+
+      const listbox = await screen.findByRole('listbox')
+      // Only the "All accounts" empty entry — never a partially-filtered list.
+      expect(within(listbox).getAllByRole('option')).toHaveLength(1)
+      expect(within(listbox).getByRole('option', { name: 'All accounts' })).toBeInTheDocument()
+    })
+
+    // Documents parseFilters' behaviour, NOT the coercion effect — this passes with
+    // that effect deleted. parseFilters (filterBar.url.ts:141-147) allow-lists URL
+    // values against the option list present at mount and drops anything absent, so
+    // the param never reaches applied state and the list loads unfiltered.
+    //
+    // Note this test's mocks are settled at mount, so options are populated and COGS
+    // is rejected specifically for being ineligible. In production both queries are
+    // still in flight on first render, options are [], and parseFilters therefore
+    // drops EVERY account id — see the follow-up issue on preserving URL-backed
+    // select values while async options load.
+    //
+    // The coercion effect covers the other case: ids that become ineligible AFTER
+    // being validly applied. That is exercised by the transition test below.
+    it('drops an unavailable URL account param at mount (owned by parseFilters)', async () => {
+      mockLocation.current = {
+        pathname: '/accounting/expenses',
+        search: '?expenseAccountId=acct-cogs',
+        hash: '',
+        key: 'test',
+        state: null,
+      }
+
+      renderPage()
+
+      await waitFor(() => {
+        const calls = vi.mocked(useGetExpensesQuery).mock.calls
+        expect(calls[calls.length - 1][0]).not.toHaveProperty('expenseAccountId')
+      })
+
+      expect(screen.getByRole('combobox', { name: 'Account' })).toHaveTextContent('All accounts')
+    })
+
+    // The applied filter must survive unresolved queries. parseFilters only
+    // accepts values present in the option list, so the URL can never seed an
+    // ineligible value — to reach the coercion's guard with the filter applied,
+    // mount with an ELIGIBLE account (acct-office), let useFilterBar adopt the
+    // param, and only then flip a query to loading/errored on the SAME mount.
+    it.each([
+      ['the account tree is loading', () => {
+        vi.mocked(useGetAccountTreeQuery).mockReturnValue({
+          data: undefined, isLoading: true, isError: false, isFetching: true, error: undefined,
+        } as any)
+      }],
+      ['settings are loading', () => {
+        vi.mocked(useGetAccountingSettingsQuery).mockReturnValue({
+          data: undefined, isLoading: true, isError: false, isFetching: true, error: undefined,
+        } as any)
+      }],
+      ['the account tree errored', () => {
+        vi.mocked(useGetAccountTreeQuery).mockReturnValue({
+          data: undefined, isLoading: false, isError: true, isFetching: false, error: { status: 500 },
+        } as any)
+      }],
+      ['settings errored', () => {
+        vi.mocked(useGetAccountingSettingsQuery).mockReturnValue({
+          data: undefined, isLoading: false, isError: true, isFetching: false, error: { status: 500 },
+        } as any)
+      }],
+    ])('keeps the applied account filter while %s', async (_label, primeMocks) => {
+      mockLocation.current = {
+        pathname: '/accounting/expenses',
+        search: '?expenseAccountId=acct-office',
+        hash: '',
+        key: 'test',
+        state: null,
+      }
+
+      const { rerender } = renderPage()
+
+      // Phase 1: settled queries, acct-office is eligible, so parseFilters seeds
+      // the applied filter and the query carries it.
+      await waitFor(() => {
+        const calls = vi.mocked(useGetExpensesQuery).mock.calls
+        expect(calls[calls.length - 1][0]).toMatchObject({ expenseAccountId: 'acct-office' })
+      })
+
+      // Phase 2: flip a query on the SAME mount. The guard is `isReady`, not
+      // `!isLoading`: an errored query also yields zero options, so clearing on
+      // "not loading" would drop a filter we cannot yet judge.
+      primeMocks()
+      rerender(
+        <Provider store={configureStore({ reducer: { empty: (s = null) => s } })}>
+          <MemoryRouter initialEntries={['/accounting/expenses?expenseAccountId=acct-office']}>
+            <ExpensesPage />
+          </MemoryRouter>
+        </Provider>,
+      )
+
+      await waitFor(() => {
+        const calls = vi.mocked(useGetExpensesQuery).mock.calls
+        expect(calls[calls.length - 1][0]).toMatchObject({ expenseAccountId: 'acct-office' })
+      })
+    })
+
+    it('clears an applied filter once the account becomes the COGS account', async () => {
+      mockLocation.current = {
+        pathname: '/accounting/expenses',
+        search: '?expenseAccountId=acct-office',
+        hash: '',
+        key: 'test',
+        state: null,
+      }
+
+      const { rerender } = renderPage()
+
+      await waitFor(() => {
+        const calls = vi.mocked(useGetExpensesQuery).mock.calls
+        expect(calls[calls.length - 1][0]).toMatchObject({ expenseAccountId: 'acct-office' })
+      })
+
+      // The settings flip mid-session: acct-office is now the COGS account, so it
+      // leaves the eligible set. Driven on the SAME mount: a live component with
+      // existing useFilterBar state must drop the filter once the queries resolve
+      // with the new eligibility — remounting would only prove two independent
+      // mounts behave, and would miss a broken transition entirely.
+      //
+      // React 19 + RTL: rerender(sameElementRef) no-ops, so pass a freshly created
+      // JSX tree rather than reusing the element renderPage() built.
+      vi.mocked(useGetAccountingSettingsQuery).mockReturnValue(
+        settled({ ...SETTINGS, cogsAccountId: 'acct-office' }) as any,
+      )
+      rerender(
+        <Provider store={configureStore({ reducer: { empty: (s = null) => s } })}>
+          <MemoryRouter initialEntries={['/accounting/expenses?expenseAccountId=acct-office']}>
+            <ExpensesPage />
+          </MemoryRouter>
+        </Provider>,
+      )
+
+      await waitFor(() => {
+        const calls = vi.mocked(useGetExpensesQuery).mock.calls
+        expect(calls[calls.length - 1][0]).not.toHaveProperty('expenseAccountId')
+      })
+
+      expect(screen.getByRole('combobox', { name: 'Account' })).toHaveTextContent('All accounts')
+    })
   })
 })
 
