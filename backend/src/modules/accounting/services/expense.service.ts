@@ -301,12 +301,24 @@ export class ExpenseService {
       expenseDate: 'e.expenseDate',
       totalAmount: 'e.totalAmount',
     };
-    const sortBy = params.sortBy ?? 'expenseDate';
-    const sortOrder = params.sortOrder ?? 'DESC';
-    const column = sortColumns[sortBy] ?? 'e.expenseDate';
-    qb.orderBy(column, sortOrder as 'ASC' | 'DESC');
-    if (sortBy === 'expenseDate' && !params.sortBy) {
-      qb.addOrderBy('e.createdAt', 'DESC');
+    // Resolve first: an unrecognised sortBy falls back to expenseNumber, and the
+    // secondary order must be decided from the resolved field so the fallback
+    // cannot emit "expenseNumber DESC, expenseNumber DESC".
+    // Own-property check, not truthiness: sortColumns is an object literal, so
+    // prototype keys ('constructor', 'toString', ...) are truthy lookups that
+    // would otherwise pass a function to orderBy instead of a column string.
+    const sortBy =
+      params.sortBy && Object.hasOwn(sortColumns, params.sortBy)
+        ? params.sortBy
+        : 'expenseNumber';
+    // Allow-list the direction too, symmetric with sortBy above: TypeORM does
+    // not sanitise the direction string, and a direct caller skips the DTO.
+    const sortOrder = params.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+    qb.orderBy(sortColumns[sortBy], sortOrder);
+    // expenseDate and totalAmount tie freely; without a stable tiebreaker rows
+    // can repeat or vanish across pages. expenseNumber is effectively unique.
+    if (sortBy !== 'expenseNumber') {
+      qb.addOrderBy('e.expenseNumber', 'DESC');
     }
 
     if (params.page !== undefined && params.limit !== undefined) {

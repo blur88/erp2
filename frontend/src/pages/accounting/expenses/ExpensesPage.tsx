@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Box, Button } from '@mui/material'
+import { Box, Button, MenuItem, TextField } from '@mui/material'
 import { skipToken } from '@reduxjs/toolkit/query'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -83,13 +83,25 @@ function getFilterConfig(
   }
 }
 
+// Narrowed to the API's union so an invalid option is a compile error, not a
+// runtime 400. handleSort must stay (field: string) to satisfy the shared
+// FilterBarSortConfig contract, so the widening is cast there — once — rather
+// than at every consumer of sortBy.
+type SortField = NonNullable<ExpenseListParams['sortBy']>
+
+const SORT_FIELDS: { value: SortField; label: string }[] = [
+  { value: 'expenseNumber', label: 'Expense No.' },
+  { value: 'expenseDate', label: 'Date' },
+  { value: 'totalAmount', label: 'Total' },
+]
+
 export default function ExpensesPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
-  const sortBy = 'expenseDate' as const
+  const [sortBy, setSortBy] = useState<SortField>('expenseNumber')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [payExpenseRow, setPayExpenseRow] = useState<Expense | null>(null)
   const [refundExpenseRow, setRefundExpenseRow] = useState<Expense | null>(null)
@@ -217,10 +229,11 @@ export default function ExpensesPage() {
     setPage(1)
   }
 
-  const handleSort = useCallback(() => {
-    setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))
+  const handleSort = useCallback((field: string) => {
+    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
+    setSortBy(field as SortField)
     setPage(1)
-  }, [])
+  }, [sortBy])
 
   const handleView = (row: Expense) => {
     navigate(`/accounting/expenses/${row.id}`)
@@ -375,12 +388,23 @@ export default function ExpensesPage() {
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={searchInputRef}
-      sort={{
-        field: 'expenseDate',
-        sortBy,
-        sortOrder,
-        onSort: handleSort,
-      }}
+      filterExtra={
+        <TextField
+          select
+          size="small"
+          label="Sort by"
+          value={sortBy}
+          onChange={(event) => handleSort(event.target.value)}
+          sx={{ minWidth: 150 }}
+        >
+          {SORT_FIELDS.map((field) => (
+            <MenuItem key={field.value} value={field.value}>
+              {field.label}
+            </MenuItem>
+          ))}
+        </TextField>
+      }
+      sort={{ field: sortBy, sortBy, sortOrder, onSort: handleSort }}
       isFetching={isFetching}
       error={error ? 'Failed to load expenses.' : null}
       tableSlot={
