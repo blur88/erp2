@@ -319,6 +319,15 @@ describe('ExpensesPage', () => {
       sortOrder: 'ASC',
       page: 1,
     })
+
+    // Click again to prove the handler toggles rather than assigning: a
+    // setSortOrder('asc') mutation survives a single-click assertion.
+    await user.click(screen.getByRole('button', { name: /^sort$/i }))
+    expect(lastQueryParams()).toMatchObject({
+      sortBy: 'expenseNumber',
+      sortOrder: 'DESC',
+      page: 1,
+    })
   })
 
   it('renders no Sort by field-picker in the filter section', async () => {
