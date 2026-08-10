@@ -17,7 +17,7 @@ interface Props {
   value: string | null
   onChange: (value: string | null) => void
   includeOverpaid?: boolean
-  valueCase?: 'lower' | 'upper'
+  valueCase: 'lower' | 'upper'
 }
 
 export function FilterPaymentStatus({
@@ -25,7 +25,7 @@ export function FilterPaymentStatus({
   value,
   onChange,
   includeOverpaid = true,
-  valueCase = 'lower',
+  valueCase,
 }: Props) {
   const sourceOptions = valueCase === 'upper' ? UPPER_PAYMENT_STATUS_OPTIONS : PAYMENT_STATUS_OPTIONS
   const options = includeOverpaid

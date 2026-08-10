@@ -670,6 +670,82 @@ describe('ExpensesPage', () => {
       expect(screen.getByRole('combobox', { name: 'Account' })).toHaveTextContent('All accounts')
     })
   })
+
+  // #1019: FilterPaymentStatus defaulted to lowercase values, but the Expenses
+  // API validates @IsIn(['UNPAID','PARTIAL','PAID','OVERPAID']) — so a lowercase
+  // value 400s and the list renders "Failed to load expenses". Driving the real
+  // dropdown (FilterBar is not mocked in this file) is what exercises the case
+  // conversion; a URL-param test carrying 'UNPAID' would pass even when broken.
+  describe('Payment filter value case (#1019)', () => {
+    it.each([
+      ['Unpaid', 'UNPAID'],
+      ['Partial', 'PARTIAL'],
+      ['Paid', 'PAID'],
+      ['Overpaid', 'OVERPAID'],
+    ])('sends %s to the query as uppercase %s', async (optionLabel, expected) => {
+      const user = userEvent.setup()
+      renderPage()
+
+      const toolbar = within(screen.getByTestId('page-header-toolbar'))
+      await user.click(toolbar.getByRole('combobox', { name: 'Payment' }))
+      await user.click(await screen.findByRole('option', { name: optionLabel }))
+
+      await waitFor(() => {
+        const calls = vi.mocked(useGetExpensesQuery).mock.calls
+        expect(calls[calls.length - 1][0]).toMatchObject({ paymentStatus: expected })
+      })
+    })
+
+    // The spec's config-shape assertion, adapted. The PO reference test
+    // (PurchaseOrdersPage.filterbar.test.tsx:105) reads the config off a
+    // FilterBar spy, but FilterBar is NOT mocked in this file and
+    // getFilterConfig() is module-private (ExpensesPage.tsx:44) — so the config
+    // object is not reachable here. Exporting an internal purely for a test
+    // would be worse than asserting the rendered result.
+    //
+    // So this asserts the config's observable consequence: with valueCase
+    // 'upper' the options carry uppercase values, which is what the config
+    // exists to produce. Weaker than the emitted-query tests above on its own;
+    // kept because it fails at the option level and localizes a regression.
+    it('renders Payment options whose values are uppercase', async () => {
+      const user = userEvent.setup()
+      renderPage()
+
+      const toolbar = within(screen.getByTestId('page-header-toolbar'))
+      await user.click(toolbar.getByRole('combobox', { name: 'Payment' }))
+
+      for (const label of ['Unpaid', 'Partial', 'Paid', 'Overpaid']) {
+        expect(await screen.findByRole('option', { name: label })).toHaveAttribute(
+          'data-value',
+          label.toUpperCase(),
+        )
+      }
+    })
+
+
+
+    it('drops the payment param from the query when the filter is cleared', async () => {
+      const user = userEvent.setup()
+      renderPage()
+
+      const toolbar = within(screen.getByTestId('page-header-toolbar'))
+      await user.click(toolbar.getByRole('combobox', { name: 'Payment' }))
+      await user.click(await screen.findByRole('option', { name: 'Paid' }))
+
+      await waitFor(() => {
+        const calls = vi.mocked(useGetExpensesQuery).mock.calls
+        expect(calls[calls.length - 1][0]).toMatchObject({ paymentStatus: 'PAID' })
+      })
+
+      await user.click(toolbar.getByRole('combobox', { name: 'Payment' }))
+      await user.click(await screen.findByRole('option', { name: 'All' }))
+
+      await waitFor(() => {
+        const calls = vi.mocked(useGetExpensesQuery).mock.calls
+        expect(calls[calls.length - 1][0]).not.toHaveProperty('paymentStatus')
+      })
+    })
+  })
 })
 
 describe('ExpensesPage - refund detail loading', () => {

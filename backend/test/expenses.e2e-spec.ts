@@ -17,6 +17,9 @@ import { PostingType } from '../src/modules/accounting/entities/posting-type.enu
 import { AccountType } from '../src/modules/accounting/entities/account-type.enum';
 import { CreateExpenseDto, PayExpenseDto, RefundExpenseDto, UpdateExpenseDto } from '../src/modules/accounting/dto/create-expense.dto';
 import { configureTestAppValidation } from './utils/configure-test-app-validation';
+import request from 'supertest';
+import * as bcrypt from 'bcrypt';
+import { User, UserRole, UserStatus } from '../src/database/entities/user.entity';
 
 async function seedAccounting(ds: DataSource) {
   const coa = ds.getRepository(ChartOfAccount);
@@ -121,6 +124,10 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
   let cashMethod: PaymentMethodEntity;
   let bankMethod: PaymentMethodEntity;
 
+  // Logged in ONCE below: /auth/login is throttled to 5 req/min
+  // (auth.controller.ts:41), so a per-test login would 403 under CI timing.
+  let token: string;
+
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -140,6 +147,28 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
     cashMethod = methods.cash;
     bankMethod = methods.bank;
     expenseAccount = await ds.getRepository(ChartOfAccount).findOneByOrFail({ code: '6990' });
+
+    const username = `exp-filter-admin-${Date.now()}`;
+    const userRepo = ds.getRepository(User);
+    await userRepo.save(
+      userRepo.create({
+        username,
+        email: `${username}@test.com`,
+        password: await bcrypt.hash('Admin@123!', 12),
+        firstName: 'Exp',
+        lastName: 'Filter',
+        role: UserRole.ADMIN,
+        status: UserStatus.ACTIVE,
+        isActive: true,
+        failedLoginAttempts: 0,
+      }),
+    );
+
+    const loginRes = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ username, password: 'Admin@123!' });
+    token = loginRes.body?.data?.accessToken ?? loginRes.body?.accessToken;
+    expect(token).toBeTruthy();
   });
 
   afterAll(async () => {
@@ -687,6 +716,109 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
       await assertJEAccounts(refundRows[0].id, PostingType.EXPENSE_REFUND, '1100', '6990');
       await assertJEAccounts(refundRows[1].id, PostingType.EXPENSE_REFUND, '1200', '6990');
     });
+  });
+
+  describe('List paymentStatus filter (#1019)', () => {
+    // Seeds one expense in each of the four payment states and returns the ids
+    // we own. Assertions below are scoped strictly to these ids: the e2e
+    // database is shared and suites run size-ordered, so asserting a total
+    // count or exact response length breaks CI-only when an unrelated suite
+    // leaves expenses behind.
+    async function seedOnePerPaymentStatus() {
+      const unpaid = await createExpense({ totalAmount: '1000.0000' });
+
+      const partial = await createExpense({ totalAmount: '1000.0000' });
+      await payExpense(partial.id, [
+        { paymentMethodId: cashMethod.id, amount: '400.0000', paymentDate: '2026-07-16' },
+      ]);
+
+      const paid = await createExpense({ totalAmount: '1000.0000' });
+      await payExpense(paid.id, [
+        { paymentMethodId: cashMethod.id, amount: '1000.0000', paymentDate: '2026-07-16' },
+      ]);
+
+      const overpaid = await createExpense({ totalAmount: '1000.0000' });
+      await payExpense(overpaid.id, [
+        { paymentMethodId: cashMethod.id, amount: '1200.0000', paymentDate: '2026-07-16' },
+      ]);
+
+      return {
+        [ExpensePaymentStatus.UNPAID]: unpaid.id,
+        [ExpensePaymentStatus.PARTIAL]: partial.id,
+        [ExpensePaymentStatus.PAID]: paid.id,
+        [ExpensePaymentStatus.OVERPAID]: overpaid.id,
+      } as Record<ExpensePaymentStatus, string>;
+    }
+
+    // Goes through the controller + ValidationPipe + ListExpensesQueryDto —
+    // the boundary that actually 400s on a lowercase value in #1019.
+    // The body is {data, meta} when paginated and a bare array when page/limit
+    // are omitted (expense.service.ts:283), so normalize both shapes.
+    async function listByPaymentStatus(paymentStatus: string) {
+      const res = await request(app.getHttpServer())
+        .get('/accounting/expenses')
+        .query({ paymentStatus })
+        .set('Authorization', `Bearer ${token}`);
+      return res;
+    }
+
+    function rowsOf(body: any): Array<{ id: string; paymentStatus: string }> {
+      return Array.isArray(body) ? body : body.data;
+    }
+
+    // ONE seed, all four statuses asserted in a single test. clearJournal wipes
+    // expenses between tests, so seeding per-case would mean 20 expenses and
+    // four logins' worth of setup for no extra coverage.
+    it('filters by each payment status through the HTTP endpoint', async () => {
+      const owned = await seedOnePerPaymentStatus();
+      const allStatuses = Object.keys(owned) as ExpensePaymentStatus[];
+
+      for (const status of allStatuses) {
+        const res = await listByPaymentStatus(status);
+        expect(res.status).toBe(200);
+
+        const returnedIds = rowsOf(res.body).map((r) => r.id);
+
+        // 1. the owned row with the requested status is present
+        expect(returnedIds).toContain(owned[status]);
+
+        // 2. the other three owned rows are absent
+        for (const other of allStatuses.filter((s) => s !== status)) {
+          expect(returnedIds).not.toContain(owned[other]);
+        }
+
+        // 3. every row that came back reports the requested status. Safe on a
+        //    shared DB: constrains the shape of whatever returned, not how many.
+        for (const row of rowsOf(res.body)) {
+          expect(row.paymentStatus).toBe(status);
+        }
+      }
+    });
+
+    it('returns all four owned expenses when no paymentStatus filter is applied', async () => {
+      const owned = await seedOnePerPaymentStatus();
+
+      const res = await request(app.getHttpServer())
+        .get('/accounting/expenses')
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(200);
+
+      const returnedIds = rowsOf(res.body).map((r) => r.id);
+      for (const id of Object.values(owned)) {
+        expect(returnedIds).toContain(id);
+      }
+    });
+
+    // The #1019 defect itself, pinned at the boundary: the DTO's uppercase
+    // @IsIn (expense.dto.ts:117) must reject the lowercase value the shared
+    // filter used to emit. This is why the frontend has to send uppercase.
+    it.each(['unpaid', 'partial', 'paid', 'overpaid'])(
+      'rejects the lowercase value %s with 400',
+      async (lowercase) => {
+        const res = await listByPaymentStatus(lowercase);
+        expect(res.status).toBe(400);
+      },
+    );
   });
 
   describe('Concurrency races via Promise.allSettled', () => {

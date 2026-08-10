@@ -77,7 +77,8 @@ export const purchasingFilterConfig: FilterBarConfig<PurchasingDashboardFilters>
     { field: 'compareWith', label: 'Compare', type: 'compare' },
     { field: 'supplierId', label: 'Supplier', type: 'supplier', paramKey: 'supplier' },
     { field: 'status', label: 'Order Status', type: 'select', options: PURCHASING_ACTIVITY_STATUS_OPTIONS, paramKey: 'status' },
-    { field: 'paymentStatus', label: 'Payment Status', type: 'payment-status', paramKey: 'payment' },
+    // Analytics endpoint: purchasing-analytics.dto.ts declares a lowercase union.
+    { field: 'paymentStatus', label: 'Payment Status', type: 'payment-status', paramKey: 'payment', valueCase: 'lower' },
   ],
   defaults: {
     period: { key: null, from: null, to: null },
