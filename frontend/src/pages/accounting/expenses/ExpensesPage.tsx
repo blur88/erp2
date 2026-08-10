@@ -43,6 +43,8 @@ interface ExpenseFilters {
 
 function getFilterConfig(
   accountOptions: { value: string; label: string }[],
+  accountsReady: boolean,
+  accountsLoading: boolean,
 ): FilterBarConfig<ExpenseFilters> {
   return {
     search: { placeholder: 'Search by expense no., description...' },
@@ -50,6 +52,8 @@ function getFilterConfig(
       { field: 'period', label: 'Period', type: 'period' },
       { field: 'expenseAccountId', label: 'Account', type: 'select',
         options: accountOptions,
+        optionsReady: accountsReady,
+        optionsLoading: accountsLoading,
         emptyLabel: 'All accounts' },
       { field: 'paymentStatus', label: 'Payment', type: 'payment-status' },
       { field: 'documentStatus', label: 'Status', type: 'select',
@@ -90,43 +94,19 @@ export default function ExpensesPage() {
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
-  const { options: accountOptions, isReady: accountsReady } = useExpenseAccountOptions()
+  const {
+    options: accountOptions,
+    isReady: accountsReady,
+    isLoading: accountsLoading,
+  } = useExpenseAccountOptions()
 
   const filterConfig = useMemo(
-    () => getFilterConfig(accountOptions),
-    [accountOptions],
+    () => getFilterConfig(accountOptions, accountsReady, accountsLoading),
+    [accountOptions, accountsReady, accountsLoading],
   )
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } =
     useFilterBar(filterConfig, { onApply: () => setPage(1) })
-
-  // Clears an account filter that was eligible when applied and stopped being
-  // eligible afterward — an admin repointing cogsAccountId in Accounting Settings,
-  // or the account being deactivated mid-session. Without this the control renders
-  // blank (no matching MenuItem) while the query keeps filtering by it.
-  //
-  // This does NOT handle an ineligible id arriving in the URL: parseFilters
-  // allow-lists URL values against field.options (filterBar.url.ts:146) before they
-  // ever reach applied state, so such an id is never applied in the first place.
-  //
-  // Gate on `accountsReady`, not `!isLoading` — an errored query also yields zero
-  // options, and clearing then would discard a filter we cannot yet judge.
-  //
-  // Depend on the destructured `onClearField`, never on `handlers`: that object is a
-  // fresh literal every render (useFilterBar.ts:161). `onClearField` already resets
-  // both draft and applied state, the URL-sync effect drops the param via
-  // history.replaceState, and queryParams omits the key when null — so the
-  // unfiltered refetch follows automatically.
-  const { onClearField } = handlers
-
-  useEffect(() => {
-    if (!accountsReady) return
-
-    const applied = appliedFilters.expenseAccountId
-    if (applied && !accountOptions.some(({ value }) => value === applied)) {
-      onClearField('expenseAccountId')
-    }
-  }, [accountsReady, accountOptions, appliedFilters.expenseAccountId, onClearField])
 
   const weekStartsOn = getStartOfWeek()
 

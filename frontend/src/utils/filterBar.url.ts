@@ -143,8 +143,19 @@ export function parseFilters<TFilters extends object>(
       if (raw === null) {
         result[fieldKey] = defaultValue ?? null
       } else if (field.type === 'select') {
-        const allowed = field.options.map((option) => option.value)
-        result[fieldKey] = allowed.includes(raw) ? raw : (defaultValue ?? null)
+        // An in-flight options query yields `options: []`, and an empty allow-list
+        // rejects every value — which silently dropped valid URL filters (#1017).
+        // While the option set is not authoritative, preserve a non-empty value and
+        // let useFilterBar revalidate it once the real list arrives.
+        //
+        // `raw === ''` is normalized immediately regardless: there is nothing to
+        // preserve, so it does not wait on options.
+        if (field.optionsReady === false && raw !== '') {
+          result[fieldKey] = raw
+        } else {
+          const allowed = field.options.map((option) => option.value)
+          result[fieldKey] = allowed.includes(raw) ? raw : (defaultValue ?? null)
+        }
       } else if (field.type === 'payment-status') {
         const VALID_PAYMENT_STATUS = ['unpaid', 'partial', 'paid', 'overpaid', 'UNPAID', 'PARTIAL', 'PAID', 'OVERPAID']
         result[fieldKey] = VALID_PAYMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)

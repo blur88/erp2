@@ -49,6 +49,8 @@ function renderQuickField<TFilters extends object>(
         onChange={onChange}
         emptyLabel={field.emptyLabel}
         minWidth={field.minWidth}
+        optionsReady={field.optionsReady}
+        optionsLoading={field.optionsLoading}
       />
     )
   }

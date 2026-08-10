@@ -32,6 +32,39 @@ export interface SelectFilterFieldConfig<TFilters, K extends keyof TFilters>
   options: readonly Readonly<FilterOption>[]
   emptyLabel?: string
   minWidth?: number
+  /**
+   * `options` is the complete, authoritative set — including when it is empty.
+   * Default `true`, so static-option consumers need no change.
+   *
+   * While `false`, a non-empty URL value is preserved without allow-list
+   * validation (issue #1017: an in-flight options query yields `[]`, and an
+   * empty allow-list rejects every value, silently dropping valid filters).
+   *
+   * A query ERROR keeps this `false` — an error is not evidence that a value is
+   * invalid. The value is retained until some later fetch succeeds.
+   *
+   * Validation only. For "is a fetch in flight", use `optionsLoading`.
+   *
+   * REQUIRED if `options` is derived from a query. It stays optional only so the
+   * static-option consumers compile unchanged — the type system cannot tell the
+   * two apart, so this comment is the only guard.
+   *
+   * Omitting it on a query-backed field does not merely disable preservation: it
+   * declares an in-flight empty array authoritative, and useFilterBar's
+   * revalidation effect will then actively clear the applied value and fire
+   * `onApply` (resetting pagination) on every options transition.
+   */
+  optionsReady?: boolean
+  /**
+   * A fetch is in flight. Default `false`. Presentation only — it disables the
+   * control and shows a placeholder.
+   *
+   * Deliberately independent of `optionsReady`: an errored query is
+   * `optionsReady: false, optionsLoading: false`. Driving the disabled state off
+   * `optionsReady` alone would leave an errored control permanently dead and
+   * permanently reading "Loading…".
+   */
+  optionsLoading?: boolean
 }
 
 export interface PeriodFilterFieldConfig<TFilters, K extends keyof TFilters>
