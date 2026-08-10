@@ -86,7 +86,13 @@ export interface PaymentStatusFilterFieldConfig<TFilters, K extends keyof TFilte
   extends BaseFilterFieldConfig<TFilters, K> {
   type: 'payment-status'
   includeOverpaid?: boolean
-  valueCase?: 'lower' | 'upper'
+  /**
+   * REQUIRED, no default (#1019). Analytics dashboard endpoints validate
+   * lowercase unions; list endpoints validate uppercase enums. A default here
+   * silently 400s any list page that forgets to opt in — which is exactly how
+   * the Expenses Payment filter shipped broken. Declare it explicitly.
+   */
+  valueCase: 'lower' | 'upper'
 }
 
 export interface SupplierFilterFieldConfig<TFilters, K extends keyof TFilters>

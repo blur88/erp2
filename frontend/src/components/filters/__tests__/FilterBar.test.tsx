@@ -339,7 +339,7 @@ describe('FilterBar — custom filter field types', () => {
     }
 
     const paymentConfig: FilterBarConfig<PaymentFilters> = {
-      fields: [{ field: 'paymentStatus', label: 'Payment', type: 'payment-status' }],
+      fields: [{ field: 'paymentStatus', label: 'Payment', type: 'payment-status', valueCase: 'upper' }],
     }
 
     render(

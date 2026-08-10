@@ -55,7 +55,7 @@ function getFilterConfig(
         optionsReady: accountsReady,
         optionsLoading: accountsLoading,
         emptyLabel: 'All accounts' },
-      { field: 'paymentStatus', label: 'Payment', type: 'payment-status' },
+      { field: 'paymentStatus', label: 'Payment', type: 'payment-status', valueCase: 'upper' },
       { field: 'documentStatus', label: 'Status', type: 'select',
         options: [
           { value: 'DRAFT', label: 'Draft' },

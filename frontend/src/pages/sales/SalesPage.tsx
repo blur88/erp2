@@ -81,6 +81,8 @@ const SalesPage: React.FC = () => {
         label: 'Payment Status',
         type: 'payment-status',
         paramKey: 'payment',
+        // Analytics endpoint: sales-analytics.dto.ts declares a lowercase union.
+        valueCase: 'lower',
       },
     ],
     defaults: {
