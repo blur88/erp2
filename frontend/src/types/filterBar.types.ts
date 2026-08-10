@@ -44,6 +44,15 @@ export interface SelectFilterFieldConfig<TFilters, K extends keyof TFilters>
    * invalid. The value is retained until some later fetch succeeds.
    *
    * Validation only. For "is a fetch in flight", use `optionsLoading`.
+   *
+   * REQUIRED if `options` is derived from a query. It stays optional only so the
+   * static-option consumers compile unchanged — the type system cannot tell the
+   * two apart, so this comment is the only guard.
+   *
+   * Omitting it on a query-backed field does not merely disable preservation: it
+   * declares an in-flight empty array authoritative, and useFilterBar's
+   * revalidation effect will then actively clear the applied value and fire
+   * `onApply` (resetting pagination) on every options transition.
    */
   optionsReady?: boolean
   /**

@@ -105,10 +105,12 @@ describe('useFilterBar with async select options', () => {
     rerender({ config: makeConfig([], false) })
     expect(result.current.appliedFilters.accountId).toBe('acct-office')
 
-    // Successful retry: now authoritative and containing the value.
-    rerender({ config: makeConfig(OPTIONS, true) })
+    // Successful retry, resolving to a set that EXCLUDES the value. Asserting
+    // against an option set that contained it would pass whether validation ran
+    // or not — indistinguishable from the retention assertion above.
+    rerender({ config: makeConfig([{ value: 'acct-rent', label: '5200 Rent' }], true) })
     await waitFor(() => {
-      expect(result.current.appliedFilters.accountId).toBe('acct-office')
+      expect(result.current.appliedFilters.accountId).toBeNull()
     })
   })
 
