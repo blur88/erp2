@@ -360,7 +360,7 @@ describe('Sidebar', () => {
 
     expect(buttonStyles.height).toBe('40px')
     expect(buttonStyles.transform).toBe('translateX(0)')
-    expect(labelStyles.fontSize).toBe('0.875rem')
+    expect(labelStyles.fontSize).toBe('14px')
   })
 
   it('closes flyout when Escape is pressed', async () => {
