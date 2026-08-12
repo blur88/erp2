@@ -110,4 +110,17 @@ Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and me
 
 **Migration baseline**: the chain starts from a single `InitialSchema` genesis migration (#950). `npm run migration:run` works against an empty database, so a new migration can be validated end-to-end locally. Migration failure is fatal — there is no `schema:sync` fallback in the entrypoint or E2E setup. Verify a schema change with `backend/scripts/verify-baseline.sh` and `backend/scripts/verify-seeds.sh`.
 
+**BullMQ deploys (no mixed majors)**: All v5 backend processes must be fully stopped before the first v6 process initializes. `BackupSchedulerService.removeLegacyRepeatables()` is a point-in-time reconciliation, not a standing guard — a v5 process still running will recreate hashed repeatable entries that then run *alongside* the v6 job schedulers, producing duplicate backups.
+
+`./deploy.sh restart` is **not** the upgrade path: it runs bare `docker compose restart` (deploy.sh:190), which neither rebuilds nor replaces the image. Upgrade with an explicit build, then stop-old-before-start-new so the two majors never overlap:
+
+```bash
+docker compose build backend        # build the v6 image first
+docker compose stop backend         # no v5 process remains
+docker compose up -d backend        # v6 starts; cleanup runs on init
+docker compose logs -f backend      # confirm "Removed N legacy repeatable entries"
+```
+
+Postgres is the source of truth and `initializeSchedules()` re-registers every enabled schedule on boot, so the stop window loses no schedule state. If the backend runs as more than one replica, scale to zero before starting the new image.
+
 **Pulling main**: Always use `git pull --ff-only` on `main` (or set globally: `git config --global pull.ff only`). A regular `git pull` with `merge.ff = false` creates a merge commit that re-triggers the Release workflow unnecessarily.
