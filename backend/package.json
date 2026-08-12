@@ -1,6 +1,6 @@
 {
   "name": "erp-backend",
-  "version": "2.35.5",
+  "version": "2.35.6",
   "engines": {
     "node": ">=24.0.0"
   },
