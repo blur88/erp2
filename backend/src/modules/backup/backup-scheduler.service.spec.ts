@@ -28,7 +28,8 @@ describe('BackupSchedulerService', () => {
 
     backupQueue = {
       add: jest.fn().mockResolvedValue(undefined),
-      removeRepeatable: jest.fn().mockResolvedValue(undefined),
+      upsertJobScheduler: jest.fn().mockResolvedValue(undefined),
+      removeJobScheduler: jest.fn().mockResolvedValue(true),
     } as unknown as jest.Mocked<Queue>;
 
     service = new BackupSchedulerService(
@@ -38,7 +39,7 @@ describe('BackupSchedulerService', () => {
     );
   });
 
-  it('registers enabled schedules with BullMQ repeat.pattern', async () => {
+  it('registers enabled schedules as a BullMQ job scheduler', async () => {
     await service.createSchedule({
       name: 'Nightly',
       enabled: true,
@@ -48,29 +49,24 @@ describe('BackupSchedulerService', () => {
       includeSettings: true,
     });
 
-    expect(backupQueue.add).toHaveBeenCalledWith(
-      'create-backup',
+    expect(backupQueue.upsertJobScheduler).toHaveBeenCalledWith(
+      'schedule-schedule-1',
+      { pattern: '30 02 * * *' },
       expect.objectContaining({
-        scheduleId: 'schedule-1',
+        name: 'create-backup',
+        data: expect.objectContaining({ scheduleId: 'schedule-1' }),
       }),
-      {
-        repeat: {
-          pattern: '30 02 * * *',
-        },
-        jobId: 'schedule-schedule-1',
-      },
     );
   });
 
-  it('removes schedule from queue using removeRepeatable with matching pattern and jobId', async () => {
+  it('removes a schedule using removeJobScheduler with the scheduler id', async () => {
     scheduleRepository.findOne = jest.fn().mockResolvedValue(schedule);
     scheduleRepository.remove = jest.fn().mockResolvedValue(undefined);
 
     await service.remove('schedule-1');
 
-    expect(backupQueue.removeRepeatable).toHaveBeenCalledWith('create-backup', {
-      pattern: '30 02 * * *',
-      jobId: 'schedule-schedule-1',
-    });
+    expect(backupQueue.removeJobScheduler).toHaveBeenCalledWith(
+      'schedule-schedule-1',
+    );
   });
 });

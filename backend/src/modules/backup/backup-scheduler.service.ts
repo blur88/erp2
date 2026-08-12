@@ -146,23 +146,21 @@ export class BackupSchedulerService {
     const cronExpression =
       schedule.cronExpression || this.buildCronExpression(schedule);
 
-    await this.backupQueue.add(
-      'create-backup',
+    await this.backupQueue.upsertJobScheduler(
+      this.getSchedulerId(schedule),
+      { pattern: cronExpression },
       {
-        scheduleId: schedule.id,
-        backupDto: {
-          backupType: 'scheduled',
-          databases: schedule.databases,
-          includeSettings: schedule.includeSettings,
-          createdBy: 'scheduler',
-          description: `Scheduled backup: ${schedule.name}`,
+        name: 'create-backup',
+        data: {
+          scheduleId: schedule.id,
+          backupDto: {
+            backupType: 'scheduled',
+            databases: schedule.databases,
+            includeSettings: schedule.includeSettings,
+            createdBy: 'scheduler',
+            description: `Scheduled backup: ${schedule.name}`,
+          },
         },
-      },
-      {
-        repeat: {
-          pattern: cronExpression,
-        },
-        jobId: `schedule-${schedule.id}`,
       },
     );
 
@@ -174,15 +172,13 @@ export class BackupSchedulerService {
   private async removeScheduleFromQueue(
     schedule: BackupSchedule,
   ): Promise<void> {
-    const cronExpression =
-      schedule.cronExpression || this.buildCronExpression(schedule);
-
-    await this.backupQueue.removeRepeatable('create-backup', {
-      pattern: cronExpression,
-      jobId: `schedule-${schedule.id}`,
-    });
+    await this.backupQueue.removeJobScheduler(this.getSchedulerId(schedule));
 
     this.logger.log(`Removed schedule from queue: ${schedule.name}`);
+  }
+
+  private getSchedulerId(schedule: BackupSchedule): string {
+    return `schedule-${schedule.id}`;
   }
 
   private buildCronExpression(schedule: BackupSchedule): string {
