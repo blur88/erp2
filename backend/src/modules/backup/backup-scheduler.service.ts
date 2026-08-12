@@ -161,7 +161,15 @@ export class BackupSchedulerService {
    */
   private async removeLegacyRepeatables(): Promise<void> {
     // Queue types getBackend() as RedisQueueBackend, so .client needs no cast.
-    // BullMQ's IRedisClient omits zscan, so extend just that one method.
+    //
+    // zscan is NOT in BullMQ's IRedisClient and NOT in the ioredis proxy's
+    // override table — IRedisClient deliberately declares scan/hscan/sscan
+    // with structured options ({ MATCH, COUNT }) so non-ioredis adapters can
+    // map them, and omits zscan entirely. This call therefore falls through
+    // the proxy to the raw ioredis client's positional-arg zscan, which makes
+    // it ioredis-only. If this project ever adopts one of v6's other backends
+    // (node-redis, bun-redis, valkey-glide), rewrite this using scan-style
+    // structured options or zrange(repeatKey, 0, -1).
     const client = (await this.backupQueue.getBackend()
       .client) as IRedisClient & {
       zscan(key: string, cursor: string): Promise<[string, string[]]>;
@@ -200,6 +208,12 @@ export class BackupSchedulerService {
       stale.push(member);
     }
 
+    // Sequential and non-atomic across members by design: if a removal throws
+    // partway, init fails and the next boot retries. That is safe because each
+    // removal is idempotent (an already-removed member simply won't appear in
+    // the next ZSCAN) and Postgres holds the durable schedule state. Correct
+    // by recovery rather than by atomicity — don't "fix" it into a pipeline
+    // that could mask a mid-run failure.
     for (const member of stale) {
       await this.backupQueue.removeJobScheduler(member);
       this.logger.log(`Removed legacy repeatable entry: ${member}`);

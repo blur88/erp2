@@ -112,11 +112,26 @@ describe('BullMQ v5 → v6 upgrade (real Redis)', () => {
 
     // 4c. Exactly one scheduler remains — no duplicate.
     expect(repeatMembers).toEqual(['schedule-schedule-1']);
+
+    // 5. Idempotent: a second init must leave the now-v6 scheduler alone.
+    // This is the only assertion that exercises the ic-present branch against
+    // REAL Redis (a genuine v6-written scheduler, not a mocked hexists), so it
+    // catches a future regression that inverts the ic check and deletes live
+    // schedules.
+    await service.onModuleInit();
+
+    expect(await client.zrange(repeatKey, 0, -1)).toEqual([
+      'schedule-schedule-1',
+    ]);
+    expect(
+      await client.hexists(`${repeatKey}:schedule-schedule-1`, 'ic'),
+    ).toBe(1);
   });
 
   it('fires exactly one job after migration', async () => {
     // A fully-specified six-field cron matches ONE instant; its next match is
-    // a year later. So within the test window a correct migration fires
+    // a year later (four years, if this runs on Feb 29 — either way far
+    // outside the window). So within the test window a correct migration fires
     // exactly once, and a second execution can only mean a duplicate
     // scheduler survived. (An every-second pattern would legitimately fire
     // 2-3 times in the same window and could not distinguish the two.)
