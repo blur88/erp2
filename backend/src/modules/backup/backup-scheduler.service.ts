@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
+import { IRedisClient, Queue } from 'bullmq';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
 import {
@@ -131,6 +131,10 @@ export class BackupSchedulerService {
   }
 
   private async initializeSchedules(): Promise<void> {
+    // Must precede every upsertJobScheduler call: a surviving v5 entry would
+    // run alongside the scheduler we are about to register.
+    await this.removeLegacyRepeatables();
+
     const schedules = await this.scheduleRepository.find({
       where: { enabled: true },
     });
@@ -140,6 +144,70 @@ export class BackupSchedulerService {
     }
 
     this.logger.log(`Initialized ${schedules.length} backup schedules`);
+  }
+
+  /**
+   * Matches the md5 hex digest BullMQ 5.81.3 stores as the repeat ZSET member
+   * (see repeat.js:46 — `this.hash(legacyRepeatKey)`).
+   */
+  private static readonly HASHED_MEMBER = /^[0-9a-f]{32}$/;
+
+  /**
+   * Removes BullMQ v5 repeatable entries left in Redis so they cannot run
+   * alongside the v6 job schedulers we register below.
+   *
+   * `ic` marks a scheduler-format entry (written by both v5's and v6's
+   * scheduler path); only the old repeatable API omits it.
+   */
+  private async removeLegacyRepeatables(): Promise<void> {
+    // Queue types getBackend() as RedisQueueBackend, so .client needs no cast.
+    // BullMQ's IRedisClient omits zscan, so extend just that one method.
+    const client = (await this.backupQueue.getBackend()
+      .client) as IRedisClient & {
+      zscan(key: string, cursor: string): Promise<[string, string[]]>;
+    };
+    const repeatKey = this.backupQueue.toKey('repeat');
+
+    // Snapshot the whole ZSET first: Redis does not guarantee stable SCAN
+    // iteration if members are removed while the cursor is open.
+    const members: string[] = [];
+    let cursor = '0';
+    do {
+      const [next, flat] = await client.zscan(repeatKey, cursor);
+      cursor = next;
+      for (let i = 0; i < flat.length; i += 2) {
+        members.push(flat[i]);
+      }
+    } while (cursor !== '0');
+
+    const stale: string[] = [];
+    for (const member of members) {
+      // hexists is the discriminator BullMQ itself uses — field presence,
+      // not value. A scheduler whose ic is "0" must still be preserved.
+      const isScheduler = await client.hexists(`${repeatKey}:${member}`, 'ic');
+      if (isScheduler) {
+        continue; // scheduler-format entry — leave it alone
+      }
+      if (!BackupSchedulerService.HASHED_MEMBER.test(member)) {
+        throw new Error(
+          `Unsupported legacy repeatable entry in backup-queue: "${member}". ` +
+            `BullMQ 6 cannot safely remove pre-hashing repeatable jobs — ` +
+            `removeJobScheduler would delete its metadata but leave the ` +
+            `delayed occurrence live. Remove this entry with BullMQ 5 ` +
+            `(queue.removeRepeatableByKey) before deploying v6.`,
+        );
+      }
+      stale.push(member);
+    }
+
+    for (const member of stale) {
+      await this.backupQueue.removeJobScheduler(member);
+      this.logger.log(`Removed legacy repeatable entry: ${member}`);
+    }
+
+    if (stale.length) {
+      this.logger.log(`Removed ${stale.length} legacy repeatable entries`);
+    }
   }
 
   private async addScheduleToQueue(schedule: BackupSchedule): Promise<void> {
