@@ -123,4 +123,6 @@ docker compose logs -f backend      # confirm "Removed N legacy repeatable entri
 
 Postgres is the source of truth and `initializeSchedules()` re-registers every enabled schedule on boot, so the stop window loses no schedule state. If the backend runs as more than one replica, scale to zero before starting the new image.
 
+`bullmq-v5` (`npm:bullmq@5.81.3`, backend devDependencies) is **not** leftover cruft from that upgrade — it is an exact-pinned, test-only fixture generator for `test/bullmq-v6-upgrade.redis-spec.ts`, which needs both majors in one process to seed genuinely hashed v5 entries and assert `removeLegacyRepeatables()` clears them. It is on CI's critical path (`npm run test:redis`), so keep it exact-pinned. Keep it while `removeLegacyRepeatables()` ships; remove both together — plus the spec, the CI step, and this note — once the gate in issue #1033 passes.
+
 **Pulling main**: Always use `git pull --ff-only` on `main` (or set globally: `git config --global pull.ff only`). A regular `git pull` with `merge.ff = false` creates a merge commit that re-triggers the Release workflow unnecessarily.
