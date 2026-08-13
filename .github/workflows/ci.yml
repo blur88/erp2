@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   test-backend:
-    name: Backend - Lint, Unit Tests, E2E Tests
+    name: Backend - Lint, Type Check, Unit Tests, E2E Tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -88,6 +88,14 @@ jobs:
 
       - name: Lint
         run: npx eslint "{src,apps,libs,test}/**/*.ts"
+
+      # ts-jest transpiles per file, so cross-file declaration errors (TS4053 and
+      # friends) pass the unit suite and fail only at `docker compose build`.
+      # Runs against tsconfig.build.json — the config `nest build` uses — so this
+      # gate mirrors the build that would otherwise catch it. Placed before the
+      # tests to report a type error in seconds rather than after the suite.
+      - name: Type check
+        run: npm run type-check
 
       - name: Unit tests
         run: npm run test -- --no-coverage

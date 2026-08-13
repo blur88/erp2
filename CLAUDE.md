@@ -87,10 +87,10 @@ Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and me
 
 `AGENTS.md` defines these as **required**, scoped to the files touched (not a default set). PRs must state the exact commands run and whether they passed.
 
-- Backend `src/**`: `cd backend && npm run lint && npm run test`
+- Backend `src/**`: `cd backend && npm run lint && npm run type-check && npm run test`
 - Backend entities/migrations: also `npm run migration:run && npm run test:e2e`
 - Frontend `src/**`: `cd frontend && npm run lint && npm run type-check && npm run test` (full suite required even for one-line changes)
-- Cross-app DTO/interface changes: both backend and frontend suites
+- Cross-app DTO/interface changes: both backend and frontend suites, plus `cd backend && npm run type-check` — an exported DTO or interface whose declaration no longer resolves is exactly what this gate catches
 
 ## Gotchas
 
@@ -141,7 +141,9 @@ Pass requires **both**: `Initialized N backup schedules` present (it cannot prin
 
 The 256 MiB cap is unchanged and stays **pending production measurement** — the ~2.8M peak (~1.1%) was measured on the local development stack only; production queue depth is unverified. Re-evaluating the cap against captured production values is a mandatory rollout gate, not an optional follow-up. The cap matters more now that `noeviction` makes hitting it a hard `OOM command not allowed` failure rather than silent eviction.
 
-**Backend has no `type-check` script**: `npm run test` uses per-file ts-jest transpilation and will not catch cross-file declaration errors (e.g. TS4053, a public method whose inferred return type names a non-exported interface). `docker compose build backend` is the first place those surface. Run `npx tsc -p tsconfig.build.json --noEmit` before pushing backend changes that add exported types or change public method signatures.
+**Cross-file type errors need `npm run type-check`**: `npm run test` uses per-file ts-jest transpilation and will not catch cross-file declaration errors (e.g. TS4053, a public method whose inferred return type names a non-exported interface). Before issue #1039 those surfaced first at `docker compose build backend`, after every pre-PR gate had passed; `cd backend && npm run type-check` is now a required backend gate and runs in CI ahead of the unit tests.
+
+It compiles `tsconfig.build.json` — the config `nest build` uses — deliberately, so the gate mirrors the image build that would otherwise be the first failure. That config excludes specs, so **spec-only type errors are not covered by this gate**; they remain caught by ts-jest at test time. Type-checking specs as a whole program would need a second `tsc -p tsconfig.json --noEmit` pass, which is a separate change gated on assessing the pre-existing errors it would surface.
 
 **BullMQ deploys (no mixed majors)**: All v5 backend processes must be fully stopped before the first v6 process initializes. `BackupSchedulerService.removeLegacyRepeatables()` is a point-in-time reconciliation, not a standing guard — a v5 process still running will recreate hashed repeatable entries that then run *alongside* the v6 job schedulers, producing duplicate backups.
 
