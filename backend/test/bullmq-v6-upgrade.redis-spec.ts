@@ -4,6 +4,11 @@ import { Repository } from 'typeorm';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
 import { BackupSchedulerService } from '@modules/backup/backup-scheduler.service';
 import { BackupService } from '@modules/backup/backup.service';
+import {
+  OrphanedSchedulerReconciler,
+  ReconcileExecutionError,
+  EmptyResultGuardError,
+} from '@modules/backup/orphaned-scheduler-reconciler.service';
 
 const connection = {
   host: process.env.REDIS_TEST_HOST || '127.0.0.1',
@@ -12,19 +17,6 @@ const connection = {
 
 const QUEUE = 'backup-queue';
 const PATTERN = '30 02 * * *';
-
-/**
- * Issue #1044 probe expectation. Set from the FIRST observed run against Redis
- * 8.6.1 (CI/prod parity) and then held, so a later change in v6's behavior
- * surfaces as a failure rather than silently redefining the branch. Change this
- * only alongside a decision recorded on #1044.
- */
-const PROBE_EXPECTATION = {
-  orphanPresent: true,
-  metaExists: 1,
-  orphanDelayedCount: 1,
-  runnableDelayedCount: 1,
-};
 
 /**
  * BullMQ's IRedisClient declares del/zrange/zcard/zscore/hexists but omits
@@ -202,29 +194,12 @@ describe('BullMQ v5 → v6 upgrade (real Redis)', () => {
   });
 
   /**
-   * PROBE (issue #1044) — provisional, not yet a behavioral contract.
-   *
-   * Determines what BullMQ v6 actually does with a v5 SCHEDULER-format repeat
-   * entry (bare-hex member, `ic` present) whose backing `backup_schedules` row
-   * is gone. No code path in this repo removes such an entry:
-   * `removeLegacyRepeatables()` skips it on the `ic` hit, `initializeSchedules()`
-   * never reaches it (no DB row), and `removeScheduleFromQueue()` needs a live
-   * entity. The one production entry observed on 2026-08-13 vanished across a
-   * restart by an UNCONFIRMED mechanism; this pins down whether v6 is
-   * responsible.
-   *
-   * State is captured at three checkpoints and the orphan-only projections are
-   * compared for equality, so "v6 initialization" is never conflated with this
-   * service's own behavior:
-   *   1. after the v5 scheduler-format entry is seeded
-   *   2. after the v6 queue becomes ready (v6 init alone, no service code)
-   *   3. after the real onModuleInit() sequence
-   *
-   * v5's `upsertJobScheduler` stores the jobSchedulerId VERBATIM as the ZSET
-   * member (job-scheduler.js — no hashing on the scheduler path), so passing a
-   * bare 32-char hex id reproduces the observed shape exactly.
+   * Issue #1045 contract (was the #1044 probe). v6 does not reconcile an
+   * orphaned v5 scheduler-format entry on its own — #1044 established that —
+   * so removal is the reconciler's job. This is the execute-removal contract:
+   * member, metadata hash, delayed occurrence, and delayed job hash all gone.
    */
-  it('PROBE #1044: v6 behavior on an orphaned v5 scheduler-format entry', async () => {
+  it('reconciliation fully removes an orphaned v5 scheduler-format entry', async () => {
     const ORPHAN_MEMBER = '60f88ec415a02b45f5c02094f3aca23d';
     const ORPHAN_SCHEDULE_ID = 'a556cb35-6161-4033-8779-880b60cda72a';
 
@@ -232,43 +207,11 @@ describe('BullMQ v5 → v6 upgrade (real Redis)', () => {
     const repeatKey = `${prefix}:${QUEUE}:repeat`;
     const delayedKey = `${prefix}:${QUEUE}:delayed`;
 
-    /**
-     * The ORPHAN-ONLY projection. Deliberately excludes members belonging to
-     * other schedules: checkpoint 3 legitimately adds the unrelated live
-     * scheduler, so a whole-ZSET comparison would differ for a reason that has
-     * nothing to do with the orphan. This projection is therefore directly
-     * comparable across all three checkpoints.
-     */
-    const snapshot = async (label: string) => {
-      const repeatMembers = await client.zrange(repeatKey, 0, -1);
-      const delayed = await client.zrange(delayedKey, 0, -1);
-      const orphanDelayed = delayed.filter((d) =>
-        d.startsWith(`repeat:${ORPHAN_MEMBER}:`),
-      );
-      const delayedJobHashes: Record<string, number> = {};
-      for (const d of orphanDelayed) {
-        delayedJobHashes[d] = await client.exists(`${prefix}:${QUEUE}:${d}`);
-      }
-      return {
-        label,
-        repeatMembers,
-        orphan: {
-          present: repeatMembers.includes(ORPHAN_MEMBER),
-          metaExists: await client.exists(`${repeatKey}:${ORPHAN_MEMBER}`),
-          ic: await client.hexists(`${repeatKey}:${ORPHAN_MEMBER}`, 'ic'),
-          data: await client.hget(`${repeatKey}:${ORPHAN_MEMBER}`, 'data'),
-          delayed: orphanDelayed,
-          delayedJobHashes,
-        },
-      };
-    };
-
-    // The repository mock returns a genuinely UNRELATED live schedule, so the
-    // orphan is never the thing being upserted.
+    // A genuinely UNRELATED live schedule, so the orphan is never the thing
+    // being upserted — and so the empty-result guard is not what protects it.
     schedule.id = 'live-unrelated-1';
     schedule.name = 'Live Unrelated';
 
-    // --- Checkpoint 1: seed the v5 scheduler-format entry -----------------
     await v5.upsertJobScheduler(
       ORPHAN_MEMBER,
       { pattern: '00 02 * * *' },
@@ -278,72 +221,50 @@ describe('BullMQ v5 → v6 upgrade (real Redis)', () => {
       },
     );
 
-    const cp1 = await snapshot('checkpoint-1: after v5 seed');
-    // Preconditions: the fixture genuinely reproduces the observed shape.
-    expect(cp1.orphan.present).toBe(true);
-    expect(cp1.orphan.ic).toBe(1); // scheduler-format ⇒ removeLegacyRepeatables skips it
-    expect(ORPHAN_MEMBER).toMatch(/^[0-9a-f]{32}$/); // bare hex, as observed
-    expect(JSON.parse(cp1.orphan.data as string).scheduleId).toBe(
-      ORPHAN_SCHEDULE_ID,
+    // Preconditions: the fixture reproduces the observed production shape.
+    expect(await client.zrange(repeatKey, 0, -1)).toContain(ORPHAN_MEMBER);
+    expect(await client.hexists(`${repeatKey}:${ORPHAN_MEMBER}`, 'ic')).toBe(1);
+    expect(ORPHAN_MEMBER).toMatch(/^[0-9a-f]{32}$/);
+    const delayedBefore = (await client.zrange(delayedKey, 0, -1)).filter((d) =>
+      d.startsWith(`repeat:${ORPHAN_MEMBER}:`),
     );
-    // The seeded occurrence is runnable — otherwise "it survives" would be a
-    // claim about inert leftovers.
-    expect(cp1.orphan.delayed).toHaveLength(1);
-    expect(Object.values(cp1.orphan.delayedJobHashes)).toEqual([1]);
+    expect(delayedBefore).toHaveLength(1);
+    expect(await client.exists(`${prefix}:${QUEUE}:${delayedBefore[0]}`)).toBe(1);
 
-    // --- Checkpoint 2: v6 queue ready, no service code run ----------------
-    const v6Fresh = new QueueV6(QUEUE, { connection, prefix });
-    await v6Fresh.waitUntilReady();
-    const cp2 = await snapshot('checkpoint-2: after v6 waitUntilReady');
-    await v6Fresh.close();
+    const repo = {
+      find: jest.fn().mockResolvedValue([schedule]),
+    } as unknown as Repository<BackupSchedule>;
+    const reconciler = new OrphanedSchedulerReconciler(repo, v6 as any);
 
-    // --- Checkpoint 3: the real service init sequence ---------------------
-    // legacy cleanup -> unrelated scheduler upsert -> orphan diagnostic
-    await service.onModuleInit();
-    const cp3 = await snapshot('checkpoint-3: after onModuleInit');
+    await service.onModuleInit(); // registers the live scheduler
+    const result = await reconciler.reconcileOrphanedSchedulers({
+      dryRun: false,
+      allowEmpty: false,
+    });
 
-    // The unrelated live schedule must be registered regardless of branch —
-    // proves the orphan is not merely surviving a failed/no-op init.
-    expect(cp3.repeatMembers).toContain('schedule-live-unrelated-1');
+    expect(result.removals).toEqual([
+      { member: ORPHAN_MEMBER, scheduleId: ORPHAN_SCHEDULE_ID, removed: true },
+    ]);
 
-    // THE CENTRAL FINDING: the orphan's state is untouched at every stage.
-    // Comparing the projections directly (rather than re-asserting fields at
-    // cp3 alone) is what separates "v6 queue init did it" from "the service
-    // sequence did it" — if either mutated the entry, one of these differs and
-    // the failure names the responsible stage.
-    expect(cp2.orphan).toEqual(cp1.orphan);
-    expect(cp3.orphan).toEqual(cp1.orphan);
+    // Fully gone: member, metadata, delayed occurrence, delayed job hash.
+    expect(await client.zrange(repeatKey, 0, -1)).not.toContain(ORPHAN_MEMBER);
+    expect(await client.exists(`${repeatKey}:${ORPHAN_MEMBER}`)).toBe(0);
+    expect(await client.zscore(delayedKey, delayedBefore[0])).toBeNull();
+    expect(await client.exists(`${prefix}:${QUEUE}:${delayedBefore[0]}`)).toBe(0);
 
-    // Branch criterion, evaluated at cp3:
-    //   - entry OR a runnable delayed occurrence survives  => branch B
-    //   - complete removal/reconciliation                  => branch A
-    //   - PARTIAL mutation (meta gone, delayed alive)      => branch B, riskiest
-    const runnableDelayed = cp3.orphan.delayed.filter(
-      (d) => cp3.orphan.delayedJobHashes[d] === 1,
+    // The live scheduler is untouched.
+    expect(await client.zrange(repeatKey, 0, -1)).toContain(
+      'schedule-live-unrelated-1',
     );
-
-    // Provisional pin: asserts the CURRENT observed behavior so the branch is
-    // recorded, not assumed. Update deliberately once #1044 picks a policy.
-    expect({
-      orphanPresent: cp3.orphan.present,
-      metaExists: cp3.orphan.metaExists,
-      orphanDelayedCount: cp3.orphan.delayed.length,
-      runnableDelayedCount: runnableDelayed.length,
-    }).toEqual(PROBE_EXPECTATION);
   });
 
   /**
-   * The branch-B companion (issue #1044). The probe above proves the orphan's
-   * KEYS survive; it cannot prove they still RUN, because the seeded entry's
-   * next occurrence is hours away. Survival of inert leftovers and survival of
-   * a live scheduler have very different severities, so this pins the severity:
-   * an orphaned v5 scheduler-format entry keeps enqueuing `create-backup`
-   * against a schedule the operator already deleted.
-   *
-   * Uses a due-now pattern (every second) so the occurrence lands inside the
-   * test window.
+   * Issue #1045 contract (was the #1044 probe). Key removal is not enough —
+   * #1044 proved the orphan actively fires a deleted schedule's backup. A
+   * due-now pattern puts the occurrence inside the test window, so this fails
+   * if removal leaves anything runnable behind.
    */
-  it('PROBE #1044: the orphaned entry still FIRES after v6 init', async () => {
+  it('a reconciled orphan never fires', async () => {
     const ORPHAN_MEMBER = '60f88ec415a02b45f5c02094f3aca23d';
     const ORPHAN_SCHEDULE_ID = 'a556cb35-6161-4033-8779-880b60cda72a';
 
@@ -359,6 +280,18 @@ describe('BullMQ v5 → v6 upgrade (real Redis)', () => {
       },
     );
 
+    const repo = {
+      find: jest.fn().mockResolvedValue([schedule]),
+    } as unknown as Repository<BackupSchedule>;
+    const reconciler = new OrphanedSchedulerReconciler(repo, v6 as any);
+
+    // Reconcile BEFORE the worker starts, so nothing can fire in the gap.
+    await service.onModuleInit();
+    await reconciler.reconcileOrphanedSchedulers({
+      dryRun: false,
+      allowEmpty: false,
+    });
+
     const fired: string[] = [];
     worker = new Worker(
       QUEUE,
@@ -369,17 +302,11 @@ describe('BullMQ v5 → v6 upgrade (real Redis)', () => {
     );
     await worker.waitUntilReady();
 
-    await service.onModuleInit();
-
     await new Promise((resolve) => setTimeout(resolve, 4000));
 
-    // The deleted schedule's backup ran anyway — this is the operator-visible
-    // harm, and the reason branch B needs an explicit cleanup policy.
-    //
-    // toContain, not a count: the observed run fired 4x in 4s, but the exact
-    // number depends on worker warm-up and cron edge alignment. One execution
-    // is the whole finding; asserting a count would add flakiness and no signal.
-    expect(fired).toContain(ORPHAN_SCHEDULE_ID);
+    // The deleted schedule's backup must never run again. The pre-fix
+    // behavior fired ~4x in this window.
+    expect(fired).not.toContain(ORPHAN_SCHEDULE_ID);
   });
 
   it('does not touch other queue namespaces', async () => {
@@ -397,5 +324,249 @@ describe('BullMQ v5 → v6 upgrade (real Redis)', () => {
     await service.onModuleInit();
 
     expect(await client.zscore(sentinel, 'sentinel-member')).toBe('1');
+  });
+
+  describe('OrphanedSchedulerReconciler (issue #1045)', () => {
+    const ORPHAN_MEMBER = '60f88ec415a02b45f5c02094f3aca23d';
+    const ORPHAN_SCHEDULE_ID = 'a556cb35-6161-4033-8779-880b60cda72a';
+    const LIVE_ID = 'live-unrelated-1';
+
+    let repo: Repository<BackupSchedule>;
+    let reconciler: OrphanedSchedulerReconciler;
+    let repeatKey: string;
+    let delayedKey: string;
+
+    /** Seeds a genuine v5 scheduler-format entry (ic present, bare-hex member). */
+    const seedOrphan = async (pattern = '00 02 * * *', member = ORPHAN_MEMBER) => {
+      await v5.upsertJobScheduler(
+        member,
+        { pattern },
+        {
+          name: 'create-backup',
+          data: { scheduleId: ORPHAN_SCHEDULE_ID, type: 'full' },
+        },
+      );
+    };
+
+    /** Registers a live v6 scheduler so scans have a confirmed-live row. */
+    const seedLive = async () => {
+      await v6.upsertJobScheduler(
+        `schedule-${LIVE_ID}`,
+        { pattern: '00 03 * * *' },
+        { name: 'create-backup', data: { scheduleId: LIVE_ID } },
+      );
+    };
+
+    /** True when member, metadata hash, and a delayed occurrence all exist. */
+    const orphanIntact = async (member = ORPHAN_MEMBER) => {
+      const client = await testClient(v6);
+      const members = await client.zrange(repeatKey, 0, -1);
+      const delayed = await client.zrange(delayedKey, 0, -1);
+      return {
+        member: members.includes(member),
+        meta: await client.exists(`${repeatKey}:${member}`),
+        delayed: delayed.filter((d) => d.startsWith(`repeat:${member}:`)).length,
+      };
+    };
+
+    beforeEach(() => {
+      repeatKey = `${prefix}:${QUEUE}:repeat`;
+      delayedKey = `${prefix}:${QUEUE}:delayed`;
+      schedule.id = LIVE_ID;
+      schedule.name = 'Live Unrelated';
+      repo = {
+        find: jest.fn().mockResolvedValue([schedule]),
+      } as unknown as Repository<BackupSchedule>;
+      reconciler = new OrphanedSchedulerReconciler(repo, v6 as any);
+    });
+
+    // In afterEach, not at the end of the test that spies: an assertion that
+    // throws would otherwise skip the restore and leak the spy into siblings.
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('dry-run reports the orphan without mutating', async () => {
+      await seedLive();
+      await seedOrphan();
+
+      const result = await reconciler.reconcileOrphanedSchedulers({
+        dryRun: true,
+        allowEmpty: false,
+      });
+
+      expect(result.mode).toBe('dry-run');
+      expect(result.candidates).toEqual([
+        { member: ORPHAN_MEMBER, scheduleId: ORPHAN_SCHEDULE_ID },
+      ]);
+      expect(result.removals).toEqual([]);
+      expect(result.emptyGuard).toBe('not-triggered');
+      expect(await orphanIntact()).toEqual({ member: true, meta: 1, delayed: 1 });
+    });
+
+    // NOTE: execute-removal is NOT tested here. It is the inverted probe in
+    // this same task (Step 6), which asserts the full four-way teardown —
+    // member, metadata, delayed occurrence, delayed job hash. Duplicating it
+    // here would give two tests one job.
+
+    it('never removes a live scheduler when no orphan exists', async () => {
+      await seedLive();
+
+      const result = await reconciler.reconcileOrphanedSchedulers({
+        dryRun: false,
+        allowEmpty: false,
+      });
+
+      expect(result.candidates).toEqual([]);
+      expect(result.removals).toEqual([]);
+      const client = await testClient(v6);
+      expect(await client.zrange(repeatKey, 0, -1)).toEqual([
+        `schedule-${LIVE_ID}`,
+      ]);
+    });
+
+    it('aborts without mutating when the DB read throws', async () => {
+      await seedLive();
+      await seedOrphan();
+      (repo.find as jest.Mock).mockRejectedValue(new Error('connection refused'));
+
+      await expect(
+        reconciler.reconcileOrphanedSchedulers({
+          dryRun: false,
+          allowEmpty: false,
+        }),
+      ).rejects.toThrow('connection refused');
+
+      expect(await orphanIntact()).toEqual({ member: true, meta: 1, delayed: 1 });
+    });
+
+    it('blocks execution when every candidate looks orphaned', async () => {
+      await seedOrphan();
+      (repo.find as jest.Mock).mockResolvedValue([]);
+
+      await expect(
+        reconciler.reconcileOrphanedSchedulers({
+          dryRun: false,
+          allowEmpty: false,
+        }),
+      ).rejects.toBeInstanceOf(EmptyResultGuardError);
+
+      expect(await orphanIntact()).toEqual({ member: true, meta: 1, delayed: 1 });
+    });
+
+    it('dry-run reports an all-orphan scan instead of aborting', async () => {
+      await seedOrphan();
+      (repo.find as jest.Mock).mockResolvedValue([]);
+
+      const result = await reconciler.reconcileOrphanedSchedulers({
+        dryRun: true,
+        allowEmpty: false,
+      });
+
+      expect(result.emptyGuard).toBe('reported');
+      expect(result.candidates).toEqual([
+        { member: ORPHAN_MEMBER, scheduleId: ORPHAN_SCHEDULE_ID },
+      ]);
+      expect(await orphanIntact()).toEqual({ member: true, meta: 1, delayed: 1 });
+    });
+
+    it('allowEmpty permits the all-orphan execution', async () => {
+      await seedOrphan();
+      (repo.find as jest.Mock).mockResolvedValue([]);
+
+      const result = await reconciler.reconcileOrphanedSchedulers({
+        dryRun: false,
+        allowEmpty: true,
+      });
+
+      expect(result.emptyGuard).toBe('overridden');
+      expect(result.removals).toEqual([
+        { member: ORPHAN_MEMBER, scheduleId: ORPHAN_SCHEDULE_ID, removed: true },
+      ]);
+      expect(await orphanIntact()).toEqual({ member: false, meta: 0, delayed: 0 });
+    });
+
+    it('never removes a non-ic legacy entry, even with allowEmpty', async () => {
+      // The legacy API: hashed member, NO ic field, but data carries a
+      // scheduleId — the exact shape an unfiltered scan would misclassify.
+      await v5.add(
+        'create-backup',
+        { scheduleId: ORPHAN_SCHEDULE_ID },
+        { repeat: { pattern: '00 02 * * *' }, jobId: 'legacy-1' },
+      );
+      (repo.find as jest.Mock).mockResolvedValue([]);
+
+      const client = await testClient(v6);
+      const [legacyMember] = await client.zrange(repeatKey, 0, -1);
+      expect(await client.hexists(`${repeatKey}:${legacyMember}`, 'ic')).toBe(0);
+
+      const result = await reconciler.reconcileOrphanedSchedulers({
+        dryRun: false,
+        allowEmpty: true,
+      });
+
+      expect(result.scan.legacySkipped).toEqual([legacyMember]);
+      expect(result.candidates).toEqual([]);
+      expect(result.removals).toEqual([]);
+      expect(await orphanIntact(legacyMember)).toEqual({
+        member: true,
+        meta: 1,
+        delayed: 1,
+      });
+    });
+
+    it('reports prior successes when a removal fails mid-loop', async () => {
+      const SECOND_MEMBER = '70f88ec415a02b45f5c02094f3aca23e';
+      await seedLive();
+      await seedOrphan('00 02 * * *', ORPHAN_MEMBER);
+      await seedOrphan('00 04 * * *', SECOND_MEMBER);
+
+      // ZSCAN order is not guaranteed, so which orphan is reached first is not
+      // knowable in advance. Fail on the SECOND removal attempt whatever its
+      // member, then read the identities back off the error. Asserting a fixed
+      // member order here would be a flaky test dressed as a strict one.
+      const real = v6.removeJobScheduler.bind(v6);
+      let attempts = 0;
+      jest
+        .spyOn(v6, 'removeJobScheduler')
+        .mockImplementation(async (member: string) => {
+          attempts++;
+          if (attempts === 2) throw new Error('redis unavailable');
+          return real(member);
+        });
+
+      const error = await reconciler
+        .reconcileOrphanedSchedulers({ dryRun: false, allowEmpty: false })
+        .catch((e) => e);
+
+      expect(error).toBeInstanceOf(ReconcileExecutionError);
+      expect(error.completed).toHaveLength(1);
+      expect(error.completed[0].removed).toBe(true);
+      expect(error.remaining).toEqual([]);
+      expect((error.cause as Error).message).toBe('redis unavailable');
+
+      // Both orphans belong to the same deleted schedule.
+      expect(error.failed.scheduleId).toBe(ORPHAN_SCHEDULE_ID);
+      expect(error.completed[0].scheduleId).toBe(ORPHAN_SCHEDULE_ID);
+
+      // The two members are the seeded pair, in whichever order was scanned.
+      expect([error.completed[0].member, error.failed.member].sort()).toEqual(
+        [ORPHAN_MEMBER, SECOND_MEMBER].sort(),
+      );
+
+      // The error's report must match the actual store, not just its own
+      // bookkeeping: the one it claims to have removed is gone, the one it
+      // claims failed is fully intact.
+      expect(await orphanIntact(error.completed[0].member)).toEqual({
+        member: false,
+        meta: 0,
+        delayed: 0,
+      });
+      expect(await orphanIntact(error.failed.member)).toEqual({
+        member: true,
+        meta: 1,
+        delayed: 1,
+      });
+    });
   });
 });

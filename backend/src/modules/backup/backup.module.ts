@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { BackupController } from './backup.controller';
 import { BackupService } from './backup.service';
 import { BackupSchedulerService } from './backup-scheduler.service';
+import { OrphanedSchedulerReconciler } from './orphaned-scheduler-reconciler.service';
 import { BackupProcessor } from './backup.processor';
 import { BackupLog } from '@database/entities/backup-log.entity';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
@@ -29,7 +30,7 @@ import { PrintSettings } from '@database/entities/print-settings.entity';
     }),
   ],
   controllers: [BackupController],
-  providers: [BackupService, BackupSchedulerService, BackupProcessor],
-  exports: [BackupService, BackupSchedulerService],
+  providers: [BackupService, BackupSchedulerService, BackupProcessor, OrphanedSchedulerReconciler],
+  exports: [BackupService, BackupSchedulerService, OrphanedSchedulerReconciler],
 })
 export class BackupModule {}
