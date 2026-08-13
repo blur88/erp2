@@ -110,6 +110,39 @@ Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and me
 
 **Migration baseline**: the chain starts from a single `InitialSchema` genesis migration (#950). `npm run migration:run` works against an empty database, so a new migration can be validated end-to-end locally. Migration failure is fatal — there is no `schema:sync` fallback in the entrypoint or E2E setup. Verify a schema change with `backend/scripts/verify-baseline.sh` and `backend/scripts/verify-seeds.sh`.
 
+**Redis is `noeviction`, and BullMQ requires it**: The Redis instance is the BullMQ queue backing store *only* — no cache, no sessions, despite what older comments claimed. `--maxmemory-policy noeviction` (issue #1036) is a correctness requirement, not a tuning preference: BullMQ has no recovery path for evicted keys, so under an eviction policy Redis can silently drop job hashes, queue state, or scheduler metadata and jobs vanish with no error.
+
+Never add cache or session keys to this instance. Cache workloads want eviction, queue workloads must never be evicted, and the two are irreconcilable on one instance — introducing a cache requires a *separate* Redis service, never a policy revert. `users.module.ts` carries a dormant `CacheModule.register()` that is the concrete way this gets violated.
+
+`--maxmemory-policy` is a start-time flag on the `redis-server` command, so the container must be **recreated** (`docker compose up -d redis`), not merely restarted; a runtime `CONFIG SET` is reverted on the next recreate. The compose files are the source of truth.
+
+*Mandatory pre-rollout baseline capture* — run per environment from the deployment directory (wherever that environment's compose files live), **before** switching the policy. A non-zero `evicted_keys` means eviction has already damaged queue state and must be investigated before any change:
+
+```bash
+redis_password="$(docker compose exec -T backend printenv REDIS_PASSWORD)"
+redis_cli() { docker compose exec -T -e REDISCLI_AUTH="$redis_password" redis redis-cli --raw "$@"; }
+
+redis_cli CONFIG GET maxmemory-policy
+redis_cli INFO memory | grep -E "^used_memory_peak_human:|^maxmemory_human:"
+redis_cli INFO stats | grep -E "^evicted_keys:"   # MUST be 0
+redis_cli INFO keyspace
+```
+
+Extract the password from the container as shown — `$REDIS_PASSWORD` is generally *not* exported in the host shell, and an unset var makes `REDISCLI_AUTH=""` fail with `NOAUTH`. `REDISCLI_AUTH` also keeps the password out of the process argument list, unlike `-a`.
+
+*Verification after rollout* needs a restart-bounded window plus a positive marker — `docker compose logs` retains pre-change history, so a naive grep still finds the old warning, and a backend that fails to start produces an empty window that reads as success:
+
+```bash
+docker compose up -d redis && docker compose restart backend
+docker compose logs backend --since 90s 2>&1 | grep -E "Initialized [0-9]+ backup schedules|Eviction policy"
+```
+
+Pass requires **both**: `Initialized N backup schedules` present (it cannot print unless BullMQ initialized against Redis) and `Eviction policy` absent.
+
+The 256 MiB cap is unchanged and stays **pending production measurement** — the ~2.8M peak (~1.1%) was measured on the local development stack only; production queue depth is unverified. Re-evaluating the cap against captured production values is a mandatory rollout gate, not an optional follow-up. The cap matters more now that `noeviction` makes hitting it a hard `OOM command not allowed` failure rather than silent eviction.
+
+**Backend has no `type-check` script**: `npm run test` uses per-file ts-jest transpilation and will not catch cross-file declaration errors (e.g. TS4053, a public method whose inferred return type names a non-exported interface). `docker compose build backend` is the first place those surface. Run `npx tsc -p tsconfig.build.json --noEmit` before pushing backend changes that add exported types or change public method signatures.
+
 **BullMQ deploys (no mixed majors)**: All v5 backend processes must be fully stopped before the first v6 process initializes. `BackupSchedulerService.removeLegacyRepeatables()` is a point-in-time reconciliation, not a standing guard — a v5 process still running will recreate hashed repeatable entries that then run *alongside* the v6 job schedulers, producing duplicate backups.
 
 `./deploy.sh restart` is **not** the upgrade path: it runs bare `docker compose restart` (deploy.sh:190), which neither rebuilds nor replaces the image. Upgrade with an explicit build, then stop-old-before-start-new so the two majors never overlap:
