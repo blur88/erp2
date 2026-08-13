@@ -121,10 +121,14 @@ describe('BullMQ v5 → v6 upgrade (real Redis)', () => {
     // that fires, not the assertions below. Inverting the check stops
     // 'schedule-schedule-1' being skipped, it fails the 32-char-hex test, and
     // onModuleInit REJECTS on the line below. The zrange/hexists assertions
-    // only do independent work if that guard is also weakened — and they do
-    // not detect cleanup being deleted outright, since upsertJobScheduler
-    // rewrites ic unconditionally. Deleted-cleanup is covered by step 4a/4c.
-    expect(await client.exists(`${repeatKey}:schedule-schedule-1`)).toBe(1);
+    // only do independent work if that guard is also weakened, and they add no
+    // signal beyond step 4a/4c, which fails first if cleanup is deleted.
+    //
+    // Pin the precondition the second init depends on — ic present BEFORE
+    // re-init — so the assertion after it is a genuine before/after pair.
+    expect(
+      await client.hexists(`${repeatKey}:schedule-schedule-1`, 'ic'),
+    ).toBe(1);
 
     await service.onModuleInit();
 
