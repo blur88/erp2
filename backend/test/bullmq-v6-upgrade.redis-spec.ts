@@ -67,7 +67,12 @@ describe('BullMQ v5 → v6 upgrade (real Redis)', () => {
       find: jest.fn().mockResolvedValue([schedule]),
     } as unknown as Repository<BackupSchedule>;
 
-    service = new BackupSchedulerService(repo, v6 as any, {} as BackupService);
+    service = new BackupSchedulerService(
+      repo,
+      v6 as any,
+      {} as BackupService,
+      new OrphanedSchedulerReconciler(repo, v6 as any),
+    );
   });
 
   afterEach(async () => {
@@ -567,6 +572,25 @@ describe('BullMQ v5 → v6 upgrade (real Redis)', () => {
         meta: 1,
         delayed: 1,
       });
+    });
+
+    it('ordinary boot stays report-only and never deletes the orphan', async () => {
+      await seedOrphan();
+
+      const bootRepo = {
+        find: jest.fn().mockResolvedValue([schedule]),
+      } as unknown as Repository<BackupSchedule>;
+      const bootService = new BackupSchedulerService(
+        bootRepo,
+        v6 as any,
+        {} as BackupService,
+        new OrphanedSchedulerReconciler(bootRepo, v6 as any),
+      );
+
+      await bootService.onModuleInit();
+
+      // Diagnostic only: the orphan is warned about, never removed.
+      expect(await orphanIntact()).toEqual({ member: true, meta: 1, delayed: 1 });
     });
   });
 });
