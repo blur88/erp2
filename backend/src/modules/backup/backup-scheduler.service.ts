@@ -316,7 +316,8 @@ export class BackupSchedulerService {
               `backup_schedules row for scheduleId ${scheduleId}. It will ` +
               `keep enqueuing create-backup. Remove it with ` +
               `queue.removeJobScheduler("${member}") — never ZREM, which ` +
-              `would orphan the delayed occurrence and its job hash.`,
+              `would orphan the delayed occurrence and its job hash. ` +
+              `That call returns true when removed, false if already absent.`,
           );
         }
       }
