@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
+import { IRedisClient, Queue } from 'bullmq';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
 import {
@@ -131,6 +131,10 @@ export class BackupSchedulerService {
   }
 
   private async initializeSchedules(): Promise<void> {
+    // Must precede every upsertJobScheduler call: a surviving v5 entry would
+    // run alongside the scheduler we are about to register.
+    await this.removeLegacyRepeatables();
+
     const schedules = await this.scheduleRepository.find({
       where: { enabled: true },
     });
@@ -142,27 +146,103 @@ export class BackupSchedulerService {
     this.logger.log(`Initialized ${schedules.length} backup schedules`);
   }
 
+  /**
+   * Matches the md5 hex digest BullMQ 5.81.3 stores as the repeat ZSET member
+   * (see repeat.js:46 — `this.hash(legacyRepeatKey)`).
+   */
+  private static readonly HASHED_MEMBER = /^[0-9a-f]{32}$/;
+
+  /**
+   * Removes BullMQ v5 repeatable entries left in Redis so they cannot run
+   * alongside the v6 job schedulers we register below.
+   *
+   * `ic` marks a scheduler-format entry (written by both v5's and v6's
+   * scheduler path); only the old repeatable API omits it.
+   */
+  private async removeLegacyRepeatables(): Promise<void> {
+    // Queue types getBackend() as RedisQueueBackend, so .client needs no cast.
+    //
+    // zscan is NOT in BullMQ's IRedisClient and NOT in the ioredis proxy's
+    // override table — IRedisClient deliberately declares scan/hscan/sscan
+    // with structured options ({ MATCH, COUNT }) so non-ioredis adapters can
+    // map them, and omits zscan entirely. This call therefore falls through
+    // the proxy to the raw ioredis client's positional-arg zscan, which makes
+    // it ioredis-only. If this project ever adopts one of v6's other backends
+    // (node-redis, bun-redis, valkey-glide), rewrite this using scan-style
+    // structured options or zrange(repeatKey, 0, -1).
+    const client = (await this.backupQueue.getBackend()
+      .client) as IRedisClient & {
+      zscan(key: string, cursor: string): Promise<[string, string[]]>;
+    };
+    const repeatKey = this.backupQueue.toKey('repeat');
+
+    // Snapshot the whole ZSET first: Redis does not guarantee stable SCAN
+    // iteration if members are removed while the cursor is open.
+    const members: string[] = [];
+    let cursor = '0';
+    do {
+      const [next, flat] = await client.zscan(repeatKey, cursor);
+      cursor = next;
+      for (let i = 0; i < flat.length; i += 2) {
+        members.push(flat[i]);
+      }
+    } while (cursor !== '0');
+
+    const stale: string[] = [];
+    for (const member of members) {
+      // hexists is the discriminator BullMQ itself uses — field presence,
+      // not value. A scheduler whose ic is "0" must still be preserved.
+      const isScheduler = await client.hexists(`${repeatKey}:${member}`, 'ic');
+      if (isScheduler) {
+        continue; // scheduler-format entry — leave it alone
+      }
+      if (!BackupSchedulerService.HASHED_MEMBER.test(member)) {
+        throw new Error(
+          `Unsupported legacy repeatable entry in backup-queue: "${member}". ` +
+            `BullMQ 6 cannot safely remove pre-hashing repeatable jobs — ` +
+            `removeJobScheduler would delete its metadata but leave the ` +
+            `delayed occurrence live. Remove this entry with BullMQ 5 ` +
+            `(queue.removeRepeatableByKey) before deploying v6.`,
+        );
+      }
+      stale.push(member);
+    }
+
+    // Sequential and non-atomic across members by design: if a removal throws
+    // partway, init fails and the next boot retries. That is safe because each
+    // removal is idempotent (an already-removed member simply won't appear in
+    // the next ZSCAN) and Postgres holds the durable schedule state. Correct
+    // by recovery rather than by atomicity — don't "fix" it into a pipeline
+    // that could mask a mid-run failure.
+    for (const member of stale) {
+      await this.backupQueue.removeJobScheduler(member);
+      this.logger.log(`Removed legacy repeatable entry: ${member}`);
+    }
+
+    if (stale.length) {
+      this.logger.log(`Removed ${stale.length} legacy repeatable entries`);
+    }
+  }
+
   private async addScheduleToQueue(schedule: BackupSchedule): Promise<void> {
     const cronExpression =
       schedule.cronExpression || this.buildCronExpression(schedule);
 
-    await this.backupQueue.add(
-      'create-backup',
+    await this.backupQueue.upsertJobScheduler(
+      this.getSchedulerId(schedule),
+      { pattern: cronExpression },
       {
-        scheduleId: schedule.id,
-        backupDto: {
-          backupType: 'scheduled',
-          databases: schedule.databases,
-          includeSettings: schedule.includeSettings,
-          createdBy: 'scheduler',
-          description: `Scheduled backup: ${schedule.name}`,
+        name: 'create-backup',
+        data: {
+          scheduleId: schedule.id,
+          backupDto: {
+            backupType: 'scheduled',
+            databases: schedule.databases,
+            includeSettings: schedule.includeSettings,
+            createdBy: 'scheduler',
+            description: `Scheduled backup: ${schedule.name}`,
+          },
         },
-      },
-      {
-        repeat: {
-          pattern: cronExpression,
-        },
-        jobId: `schedule-${schedule.id}`,
       },
     );
 
@@ -174,15 +254,13 @@ export class BackupSchedulerService {
   private async removeScheduleFromQueue(
     schedule: BackupSchedule,
   ): Promise<void> {
-    const cronExpression =
-      schedule.cronExpression || this.buildCronExpression(schedule);
-
-    await this.backupQueue.removeRepeatable('create-backup', {
-      pattern: cronExpression,
-      jobId: `schedule-${schedule.id}`,
-    });
+    await this.backupQueue.removeJobScheduler(this.getSchedulerId(schedule));
 
     this.logger.log(`Removed schedule from queue: ${schedule.name}`);
+  }
+
+  private getSchedulerId(schedule: BackupSchedule): string {
+    return `schedule-${schedule.id}`;
   }
 
   private buildCronExpression(schedule: BackupSchedule): string {
