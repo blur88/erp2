@@ -116,10 +116,9 @@ Never add cache or session keys to this instance. Cache workloads want eviction,
 
 `--maxmemory-policy` is a start-time flag on the `redis-server` command, so the container must be **recreated** (`docker compose up -d redis`), not merely restarted; a runtime `CONFIG SET` is reverted on the next recreate. The compose files are the source of truth.
 
-*Mandatory pre-rollout baseline capture* — run per environment **before** switching the policy. A non-zero `evicted_keys` means eviction has already damaged queue state and must be investigated before any change:
+*Mandatory pre-rollout baseline capture* — run per environment from the deployment directory (wherever that environment's compose files live), **before** switching the policy. A non-zero `evicted_keys` means eviction has already damaged queue state and must be investigated before any change:
 
 ```bash
-cd /home/blur/erp2
 redis_password="$(docker compose exec -T backend printenv REDIS_PASSWORD)"
 redis_cli() { docker compose exec -T -e REDISCLI_AUTH="$redis_password" redis redis-cli --raw "$@"; }
 
@@ -140,7 +139,7 @@ docker compose logs backend --since 90s 2>&1 | grep -E "Initialized [0-9]+ backu
 
 Pass requires **both**: `Initialized N backup schedules` present (it cannot print unless BullMQ initialized against Redis) and `Eviction policy` absent.
 
-The 256 MiB cap is unchanged and stays **pending production measurement** — local peak is ~2.8M (~1.1%), but production queue depth is unverified. The cap matters more now that `noeviction` makes hitting it a hard `OOM command not allowed` failure rather than silent eviction.
+The 256 MiB cap is unchanged and stays **pending production measurement** — the ~2.8M peak (~1.1%) was measured on the local development stack only; production queue depth is unverified. Re-evaluating the cap against captured production values is a mandatory rollout gate, not an optional follow-up. The cap matters more now that `noeviction` makes hitting it a hard `OOM command not allowed` failure rather than silent eviction.
 
 **Backend has no `type-check` script**: `npm run test` uses per-file ts-jest transpilation and will not catch cross-file declaration errors (e.g. TS4053, a public method whose inferred return type names a non-exported interface). `docker compose build backend` is the first place those surface. Run `npx tsc -p tsconfig.build.json --noEmit` before pushing backend changes that add exported types or change public method signatures.
 

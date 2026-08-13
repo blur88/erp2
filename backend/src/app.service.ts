@@ -7,9 +7,11 @@ import Redis from 'ioredis';
  * Redis utilization at or above which the health check reports `degraded`.
  *
  * 80% leaves headroom to react before `noeviction` turns memory pressure into
- * hard `OOM command not allowed` write failures (issue #1036). At the measured
- * baseline (~2.8MB of 256MiB, ~1%) this threshold is dormant by design — it is
- * a floor for future growth, not an expected-to-fire signal.
+ * hard `OOM command not allowed` write failures (issue #1036). At the local
+ * development baseline (~2.8MB of 256MiB, ~1%) this threshold is dormant by
+ * design — it is a floor for future growth, not an expected-to-fire signal.
+ * Production utilization is unverified; see CLAUDE.md for the mandatory
+ * pre-rollout capture.
  */
 const REDIS_MEMORY_DEGRADED_PERCENT = 80;
 
