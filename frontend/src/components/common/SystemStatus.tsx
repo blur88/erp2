@@ -24,9 +24,19 @@ import { ApiService } from '@/services/api'
 import TopBarUtilityPanel from './TopBarUtilityPanel'
 import { StatusChip } from '@/components/common/StatusChip'
 
+interface RedisMemory {
+  usedBytes: number
+  /** null when Redis runs uncapped (`maxmemory:0`). */
+  maxBytes: number | null
+  /** null when no cap makes utilization undefined. */
+  utilizationPercent: number | null
+}
+
 interface ServiceHealth {
-  status: 'healthy' | 'unhealthy' | 'unknown'
+  status: 'healthy' | 'degraded' | 'unhealthy' | 'unknown'
   message: string
+  /** Present on the redis service only; interim memory-pressure signal (#1036). */
+  memory?: RedisMemory | null
 }
 
 interface HealthResponse {

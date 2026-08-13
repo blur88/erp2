@@ -36,7 +36,20 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Redis for caching and sessions
+  # Redis — BullMQ queue backing store ONLY (no cache, no sessions).
+  #
+  # maxmemory-policy MUST stay `noeviction` (issue #1036). BullMQ has no recovery
+  # path for evicted keys: under an eviction policy Redis may silently drop job
+  # hashes, queue state, or scheduler metadata, and jobs vanish without an error.
+  # `noeviction` converts memory pressure into loud failed writes ("OOM command
+  # not allowed"), which is the correct trade for a queue.
+  #
+  # SHARED-INSTANCE CONSTRAINT: cache/session keys must NOT be added to this
+  # instance. Cache workloads want eviction; queue workloads must never be
+  # evicted, and the two requirements are irreconcilable on one instance.
+  # Introducing a cache or session store requires a SEPARATE Redis service —
+  # never a policy change back to allkeys-lru. See users.module.ts (dormant
+  # CacheModule.register()) for the concrete way this constraint gets violated.
   redis:
     image: redis:8.6.1-alpine3.23
     container_name: erp_redis
@@ -45,7 +58,7 @@ services:
       redis-server
       --requirepass ${REDIS_PASSWORD}
       --maxmemory 256mb
-      --maxmemory-policy allkeys-lru
+      --maxmemory-policy noeviction
       --save 900 1
       --save 300 10
       --save 60 10000
