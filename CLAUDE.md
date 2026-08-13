@@ -104,7 +104,11 @@ Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and me
 
 **Frontend Docker**: Changes to frontend source require a rebuild — `docker compose build frontend && docker compose up -d frontend`. The Vite dev server (`npm run dev`) is for local-only development.
 
-**Path aliases**: Frontend uses `@/` as alias for `src/`. Backend uses `@/*` → `src/*` and `@modules/*` → `src/modules/*`.
+**Path aliases**: Frontend uses `@/` as alias for `src/`. Backend uses `@/*` → `src/*`, `@modules/*` → `src/modules/*`, `@common/*` → `src/common/*`, `@config/*` → `src/config/*`, and `@database/*` → `src/database/*`.
+
+TypeScript CLI scripts that directly or transitively import configured path aliases such as `@database/*` must preload `tsconfig-paths/register` in their npm script (for example, `ts-node -r tsconfig-paths/register ...`). TypeScript type-checking resolves these aliases, but Node runtime loading does not.
+
+`backup:reconcile-schedulers` needs this; `admin:create` does not, only because it uses relative imports throughout. The failure is runtime-only — it passes `npm run type-check` and surfaces as an unresolvable module when the script actually runs — and it arrives transitively, so a script whose own imports are all relative can still need the flag via what it pulls in.
 
 **Dead-code sweeps**: `maintain.sh do_knip()` wraps `npx knip` in `|| true`, so it always exits 0 and cannot be used as a gate — run `npx knip` directly per directory when you need pass/fail. Knip also reports false positives for backend service methods called by a *sibling service* rather than an HTTP route; grep the method name across `backend/src` before deleting anything.
 
