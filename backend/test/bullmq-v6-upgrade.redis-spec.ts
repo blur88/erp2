@@ -113,11 +113,19 @@ describe('BullMQ v5 → v6 upgrade (real Redis)', () => {
     // 4c. Exactly one scheduler remains — no duplicate.
     expect(repeatMembers).toEqual(['schedule-schedule-1']);
 
-    // 5. Idempotent: a second init must leave the now-v6 scheduler alone.
-    // This is the only assertion that exercises the ic-present branch against
-    // REAL Redis (a genuine v6-written scheduler, not a mocked hexists), so it
-    // catches a future regression that inverts the ic check and deletes live
-    // schedules.
+    // 5. Idempotent: a second init must be a no-op against a genuinely
+    // v6-written scheduler (real ic field, not a mocked hexists) — coverage
+    // the unit tests cannot provide.
+    //
+    // On how an inverted ic check is caught: it is the HASHED_MEMBER guard
+    // that fires, not the assertions below. Inverting the check stops
+    // 'schedule-schedule-1' being skipped, it fails the 32-char-hex test, and
+    // onModuleInit REJECTS on the line below. The zrange/hexists assertions
+    // only do independent work if that guard is also weakened — and they do
+    // not detect cleanup being deleted outright, since upsertJobScheduler
+    // rewrites ic unconditionally. Deleted-cleanup is covered by step 4a/4c.
+    expect(await client.exists(`${repeatKey}:schedule-schedule-1`)).toBe(1);
+
     await service.onModuleInit();
 
     expect(await client.zrange(repeatKey, 0, -1)).toEqual([
