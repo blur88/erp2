@@ -10,6 +10,7 @@
   "license": "MIT",
   "scripts": {
     "build": "nest build",
+    "type-check": "tsc -p tsconfig.build.json --noEmit",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
