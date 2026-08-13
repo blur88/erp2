@@ -53,6 +53,12 @@ jobs:
       REDIS_HOST: localhost
       REDIS_PORT: 6379
       REDIS_PASSWORD: ""
+      # The BullMQ upgrade suite connects directly rather than through the app
+      # config, so it reads its own pair. Same service as REDIS_HOST/PORT; the
+      # spec's own defaults point at 6399 for local runs against a throwaway
+      # Redis, which does not exist here.
+      REDIS_TEST_HOST: localhost
+      REDIS_TEST_PORT: 6379
       NODE_ENV: test
       JWT_SECRET: test-secret-key-minimum-32chars-long-for-testing-only
       JWT_REFRESH_SECRET: test-refresh-secret-minimum-32chars-long-for-testing
@@ -88,6 +94,14 @@ jobs:
 
       - name: E2E tests
         run: npm run test:e2e
+
+      # Guards the no-mixed-majors invariant in CLAUDE.md: a v5 queue seeds
+      # genuinely hashed repeatable entries, then v6's removeLegacyRepeatables()
+      # is asserted to clean them up. Needs both BullMQ majors in one process,
+      # which is what the `bullmq-v5` alias in devDependencies is for. Runs last
+      # because it is the cheapest gate and must not delay E2E feedback.
+      - name: BullMQ v5 to v6 upgrade tests
+        run: npm run test:redis
 
   test-frontend:
     name: Frontend - Lint, Type Check, Tests
