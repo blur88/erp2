@@ -104,7 +104,11 @@ Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and me
 
 **Frontend Docker**: Changes to frontend source require a rebuild — `docker compose build frontend && docker compose up -d frontend`. The Vite dev server (`npm run dev`) is for local-only development.
 
-**Path aliases**: Frontend uses `@/` as alias for `src/`. Backend uses `@/*` → `src/*` and `@modules/*` → `src/modules/*`.
+**Path aliases**: Frontend uses `@/` as alias for `src/`. Backend uses `@/*` → `src/*`, `@modules/*` → `src/modules/*`, `@common/*` → `src/common/*`, `@config/*` → `src/config/*`, and `@database/*` → `src/database/*`.
+
+TypeScript CLI scripts that directly or transitively import configured path aliases such as `@database/*` must preload `tsconfig-paths/register` in their npm script (for example, `ts-node -r tsconfig-paths/register ...`). TypeScript type-checking resolves these aliases, but Node runtime loading does not.
+
+`backup:reconcile-schedulers` needs this; `admin:create` does not, only because it uses relative imports throughout. The failure is runtime-only — it passes `npm run type-check` and surfaces as an unresolvable module when the script actually runs — and it arrives transitively, so a script whose own imports are all relative can still need the flag via what it pulls in.
 
 **Dead-code sweeps**: `maintain.sh do_knip()` wraps `npx knip` in `|| true`, so it always exits 0 and cannot be used as a gate — run `npx knip` directly per directory when you need pass/fail. Knip also reports false positives for backend service methods called by a *sibling service* rather than an HTTP route; grep the method name across `backend/src` before deleting anything.
 
@@ -162,7 +166,32 @@ Postgres is the source of truth and `initializeSchedules()` re-registers every e
 
 **Orphaned backup-queue repeat entries (report-only)**: `BackupSchedulerService.reportOrphanedSchedulers()` runs last in `initializeSchedules()` and `logger.warn`s any `bull:backup-queue:repeat` member whose `data.scheduleId` has no `backup_schedules` row (issue #1035). It **never deletes** — making Redis contents depend on a DB read means a transient read failure or a partially-migrated deploy could destroy live schedulers. Keep it free of mutating calls; auto-reconciliation is a separate design discussion that needs explicit safeguards. The whole body is wrapped in a catch-all because a diagnostic must never fail boot (unlike `removeLegacyRepeatables()`, whose throw is a deliberate deploy gate). It is a sibling method, not part of that scan, so it survives the v5→v6 retirement in #1033. Entries with no `data`, unparseable JSON, or a non-string/empty `scheduleId` are logged as *unclassifiable*, never as orphans.
 
-Remediate a reported orphan with `removeJobScheduler(<bare member>)` — **never `ZREM`**. `ZREM` strips the ZSET member but leaves `repeat:<member>:<millis>` live in `bull:backup-queue:delayed` with no metadata, which is worse than the orphan. The member is passed verbatim (no `getSchedulerId()` prefixing), so a bare-hex member is addressed correctly. Preflight is read-only; extract the password from the container as in the Redis section above:
+Remediate a reported orphan with the CLI, which is dry-run by default:
+
+```bash
+docker compose exec -T backend npm run backup:reconcile-schedulers            # report only
+docker compose exec -T backend npm run backup:reconcile-schedulers -- --execute
+```
+
+It scans `bull:backup-queue:repeat`, classifies each `ic` (scheduler-format)
+entry against `backup_schedules`, and removes only confirmed orphans via
+`removeJobScheduler(<bare member>)` — **never `ZREM`**, which strips the ZSET
+member but leaves `repeat:<member>:<millis>` live in `bull:backup-queue:delayed`
+with no metadata.
+
+Guards, all fail-safe toward keeping the entry:
+
+- A failed DB read aborts before any removal.
+- If every classifiable entry looks orphaned (zero confirmed live rows), it
+  aborts — that is indistinguishable from a broken read. Override with
+  `--execute --allow-empty` only when you intend to remove every remaining
+  scheduler (e.g. you deleted the last schedule).
+- Non-`ic` legacy entries are never touched; `removeLegacyRepeatables()` owns
+  that class.
+- Do not run it during a deploy window.
+
+A mid-run failure stops immediately and reports which entries were already
+removed. Nothing is rolled back — re-run to finish.
 
 ```bash
 redis_cli ZRANGE bull:backup-queue:repeat 0 -1 WITHSCORES

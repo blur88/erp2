@@ -1,5 +1,5 @@
 import { Queue } from 'bullmq';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
 import { BackupSchedulerService } from './backup-scheduler.service';
 import { BackupService } from './backup.service';
@@ -12,11 +12,11 @@ describe('BackupSchedulerService', () => {
     zscan: jest.Mock;
     hexists: jest.Mock;
     // Assigned per-test. The cleanup path must never consult it (the
-    // field-presence test primes it to prove that); the orphan diagnostic
-    // reads the `data` field through it.
+    // field-presence test primes it to prove that).
     hget?: jest.Mock;
   };
   let service: BackupSchedulerService;
+  let reconciler: { scanOrphanedSchedulers: jest.Mock };
 
   beforeEach(() => {
     schedule = {
@@ -50,10 +50,22 @@ describe('BackupSchedulerService', () => {
     (backupQueue as any).toKey = jest.fn((type: string) => `bull:backup-queue:${type}`);
     scheduleRepository.find = jest.fn().mockResolvedValue([]);
 
+    reconciler = {
+      scanOrphanedSchedulers: jest.fn().mockResolvedValue({
+        orphans: [],
+        unclassifiable: [],
+        legacySkipped: [],
+        scanned: 0,
+        classified: 0,
+        liveCount: 0,
+      }),
+    };
+
     service = new BackupSchedulerService(
       scheduleRepository,
       backupQueue,
       {} as BackupService,
+      reconciler as any,
     );
   });
 
@@ -105,15 +117,14 @@ describe('BackupSchedulerService', () => {
 
       await service.onModuleInit();
 
-      // Two cleanup pages, then a single-page scan from the orphan diagnostic
-      // (issue #1035), which runs last and falls through to the default
-      // empty-ZSET mock. Counting all three would silently absorb a lost
-      // cleanup page, so assert the cleanup pages by their cursor arguments.
+      // Two cleanup pages, then the mock above restores the default. The
+      // orphan diagnostic no longer scans here — it is delegated to the
+      // reconciler — so counting exactly two proves no cleanup page was lost.
       expect(redisClient.zscan.mock.calls.slice(0, 2)).toEqual([
         ['bull:backup-queue:repeat', '0'],
         ['bull:backup-queue:repeat', '42'],
       ]);
-      expect(redisClient.zscan).toHaveBeenCalledTimes(3);
+      expect(redisClient.zscan).toHaveBeenCalledTimes(2);
       expect(backupQueue.removeJobScheduler).toHaveBeenCalledWith(HASHED);
       expect(backupQueue.removeJobScheduler).toHaveBeenCalledWith('b'.repeat(32));
       expect(backupQueue.removeJobScheduler).toHaveBeenCalledTimes(2);
@@ -196,17 +207,17 @@ describe('BackupSchedulerService', () => {
 
   describe('orphaned scheduler diagnostic', () => {
     const MEMBER = '60f88ec415a02b45f5c02094f3aca23d';
-    const OTHER = 'c'.repeat(32);
-    const REPEAT_KEY = 'bull:backup-queue:repeat';
     let warn: jest.SpyInstance;
     let error: jest.SpyInstance;
 
-    /** Data payload as BullMQ stores it on the repeat metadata hash. */
-    const dataFor = (scheduleId: unknown) =>
-      JSON.stringify({
-        scheduleId,
-        backupDto: { backupType: 'scheduled', createdBy: 'scheduler' },
-      });
+    const emptyScan = {
+      orphans: [],
+      unclassifiable: [],
+      legacySkipped: [],
+      scanned: 0,
+      classified: 0,
+      liveCount: 0,
+    };
 
     beforeEach(() => {
       warn = jest
@@ -215,9 +226,6 @@ describe('BackupSchedulerService', () => {
       error = jest
         .spyOn(service['logger'], 'error')
         .mockImplementation(() => undefined);
-      // No enabled rows, so the only find() the diagnostic sees is its own.
-      scheduleRepository.find = jest.fn().mockResolvedValue([]);
-      redisClient.hexists.mockResolvedValue(1); // scheduler-format: skip cleanup
     });
 
     afterEach(() => {
@@ -225,138 +233,32 @@ describe('BackupSchedulerService', () => {
       error.mockRestore();
     });
 
-    /** Cleanup scans nothing; the diagnostic scan returns `members`. */
-    const primeScans = (members: string[]) => {
-      redisClient.zscan
-        .mockResolvedValueOnce(['0', []])
-        .mockResolvedValueOnce([
-          '0',
-          members.flatMap((m, i) => [m, String(i)]),
-        ]);
-    };
-
     const warnings = () => warn.mock.calls.map((c) => String(c[0]));
 
-    it('warns about a repeat entry with no backing schedule row', async () => {
-      primeScans([MEMBER]);
-      redisClient.hget = jest.fn().mockResolvedValue(dataFor('a556cb35'));
+    it('warns about each orphan and never removes it', async () => {
+      reconciler.scanOrphanedSchedulers.mockResolvedValue({
+        ...emptyScan,
+        orphans: [{ member: MEMBER, scheduleId: 'a556cb35' }],
+        scanned: 1,
+        classified: 1,
+      });
 
       await service.onModuleInit();
 
-      expect(scheduleRepository.find).toHaveBeenCalledWith({
-        where: { id: In(['a556cb35']) },
-        select: { id: true },
-      });
       expect(warnings()).toEqual([
-        expect.stringContaining(`Orphaned backup-queue repeat entry "${MEMBER}"`),
+        expect.stringContaining(
+          `Orphaned backup-queue repeat entry "${MEMBER}"`,
+        ),
         expect.stringContaining('Found 1 orphaned backup-queue repeat entries'),
       ]);
-      expect(warnings()[0]).toContain(`removeJobScheduler("${MEMBER}")`);
+      // Report-only: the diagnostic must never mutate queue state.
       expect(backupQueue.removeJobScheduler).not.toHaveBeenCalled();
     });
 
-    it('does not warn when the backing schedule row still exists', async () => {
-      primeScans([MEMBER]);
-      redisClient.hget = jest.fn().mockResolvedValue(dataFor('a556cb35'));
-      // Only the diagnostic's lookup (the one using `select`) returns the row;
-      // the enabled-schedules query must stay empty or initializeSchedules()
-      // would try to build a cron from this id-only stub.
-      scheduleRepository.find = jest.fn().mockImplementation((opts: any) =>
-        Promise.resolve(
-          opts?.select ? [{ id: 'a556cb35' } as BackupSchedule] : [],
-        ),
+    it('does not fail boot when the scan throws', async () => {
+      reconciler.scanOrphanedSchedulers.mockRejectedValue(
+        new Error('redis unavailable'),
       );
-
-      await service.onModuleInit();
-
-      // Nonzero-only: a clean stack must stay silent, including the summary.
-      expect(warn).not.toHaveBeenCalled();
-      expect(backupQueue.removeJobScheduler).not.toHaveBeenCalled();
-    });
-
-    it.each([
-      ['a missing data field', null],
-      ['unparseable JSON', '{not json'],
-      ['a non-object payload', '"just a string"'],
-      ['a non-string scheduleId', dataFor(42)],
-      ['an empty scheduleId', dataFor('')],
-      ['an absent scheduleId', JSON.stringify({ backupDto: {} })],
-    ])('treats %s as unclassifiable, not an orphan', async (_label, raw) => {
-      primeScans([MEMBER]);
-      redisClient.hget = jest.fn().mockResolvedValue(raw);
-
-      await service.onModuleInit();
-
-      // No DB lookup at all: nothing was classifiable, so In([]) never runs.
-      expect(scheduleRepository.find).not.toHaveBeenCalledWith(
-        expect.objectContaining({ select: { id: true } }),
-      );
-      expect(warnings()).toEqual([
-        expect.stringContaining('has no usable scheduleId'),
-      ]);
-      expect(warnings()[0]).not.toContain('Orphaned');
-      expect(backupQueue.removeJobScheduler).not.toHaveBeenCalled();
-    });
-
-    it('deduplicates scheduleIds shared by several members', async () => {
-      primeScans([MEMBER, OTHER]);
-      redisClient.hget = jest.fn().mockResolvedValue(dataFor('a556cb35'));
-
-      await service.onModuleInit();
-
-      expect(scheduleRepository.find).toHaveBeenCalledWith({
-        where: { id: In(['a556cb35']) },
-        select: { id: true },
-      });
-      // One row, two orphaned members — both must be reported.
-      expect(warnings()).toEqual([
-        expect.stringContaining(MEMBER),
-        expect.stringContaining(OTHER),
-        expect.stringContaining('Found 2 orphaned'),
-      ]);
-    });
-
-    it('counts a duplicate ZSCAN member once', async () => {
-      // ZSCAN guarantees each member is seen at least once, not exactly once.
-      redisClient.zscan
-        .mockResolvedValueOnce(['0', []])
-        .mockResolvedValueOnce(['7', [MEMBER, '0']])
-        .mockResolvedValueOnce(['0', [MEMBER, '0']]);
-      redisClient.hget = jest.fn().mockResolvedValue(dataFor('a556cb35'));
-
-      await service.onModuleInit();
-
-      expect(warnings()).toEqual([
-        expect.stringContaining(MEMBER),
-        expect.stringContaining('Found 1 orphaned'),
-      ]);
-    });
-
-    it('reports nothing and logs one error when the DB lookup fails', async () => {
-      primeScans([MEMBER]);
-      redisClient.hget = jest.fn().mockResolvedValue(dataFor('a556cb35'));
-      scheduleRepository.find = jest.fn().mockImplementation((opts: any) => {
-        if (opts?.select) {
-          return Promise.reject(new Error('connection terminated'));
-        }
-        return Promise.resolve([]);
-      });
-
-      await service.onModuleInit();
-
-      // A transient read failure must not produce a partial orphan report.
-      expect(warn).not.toHaveBeenCalled();
-      expect(error).toHaveBeenCalledWith(
-        expect.stringContaining('connection terminated'),
-        expect.anything(),
-      );
-      expect(backupQueue.removeJobScheduler).not.toHaveBeenCalled();
-    });
-
-    it('does not fail boot when the diagnostic scan throws', async () => {
-      redisClient.zscan
-        .mockResolvedValueOnce(['0', []])
-        .mockRejectedValueOnce(new Error('redis unavailable'));
 
       await expect(service.onModuleInit()).resolves.toBeUndefined();
 

@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan, In } from 'typeorm';
+import { Repository, LessThan } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { IRedisClient, Queue } from 'bullmq';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -10,6 +10,7 @@ import {
   UpdateBackupScheduleDto,
 } from './dto/backup-schedule.dto';
 import { BackupService } from './backup.service';
+import { OrphanedSchedulerReconciler } from './orphaned-scheduler-reconciler.service';
 
 @Injectable()
 export class BackupSchedulerService {
@@ -20,6 +21,7 @@ export class BackupSchedulerService {
     private readonly scheduleRepository: Repository<BackupSchedule>,
     @InjectQueue('backup-queue') private readonly backupQueue: Queue,
     private readonly backupService: BackupService,
+    private readonly reconciler: OrphanedSchedulerReconciler,
   ) {}
 
   async onModuleInit() {
@@ -250,89 +252,40 @@ export class BackupSchedulerService {
    */
   private async reportOrphanedSchedulers(): Promise<void> {
     try {
-      const client = (await this.backupQueue.getBackend()
-        .client) as IRedisClient & {
-        zscan(key: string, cursor: string): Promise<[string, string[]]>;
-      };
-      const repeatKey = this.backupQueue.toKey('repeat');
+      const scan = await this.reconciler.scanOrphanedSchedulers();
 
-      // A Set because ZSCAN may return the same member more than once across
-      // pages — the cursor guarantees every member is seen at least once, not
-      // exactly once.
-      const members = new Set<string>();
-      let cursor = '0';
-      do {
-        const [next, flat] = await client.zscan(repeatKey, cursor);
-        cursor = next;
-        for (let i = 0; i < flat.length; i += 2) {
-          members.add(flat[i]);
-        }
-      } while (cursor !== '0');
-
-      // Collected, not emitted: a failure anywhere below must produce one
-      // diagnostic error rather than a partial orphan report that reads as
-      // complete.
-      const unclassifiable: string[] = [];
-      const byScheduleId = new Map<string, string[]>();
-
-      for (const member of members) {
-        const raw = await client.hget(`${repeatKey}:${member}`, 'data');
-        const scheduleId = this.extractScheduleId(raw);
-        if (!scheduleId) {
-          unclassifiable.push(member);
-          continue;
-        }
-        const existing = byScheduleId.get(scheduleId);
-        if (existing) {
-          existing.push(member);
-        } else {
-          byScheduleId.set(scheduleId, [member]);
-        }
+      for (const { member, scheduleId } of scan.orphans) {
+        this.logger.warn(
+          `Orphaned backup-queue repeat entry "${member}": no ` +
+            `backup_schedules row for scheduleId ${scheduleId}. It will ` +
+            `keep enqueuing create-backup. Remove it with ` +
+            `npm run backup:reconcile-schedulers -- --execute (dry-run by ` +
+            `default), or queue.removeJobScheduler("${member}") — never ZREM, ` +
+            `which would orphan the delayed occurrence and its job hash.`,
+        );
       }
 
-      // Deduplicated by the Map; skip the query entirely when nothing is
-      // classifiable, so an empty In([]) never reaches the database.
-      const scheduleIds = [...byScheduleId.keys()];
-      const live = new Set<string>();
-      if (scheduleIds.length) {
-        const rows = await this.scheduleRepository.find({
-          where: { id: In(scheduleIds) },
-          select: { id: true },
-        });
-        for (const row of rows) {
-          live.add(row.id);
-        }
-      }
-
-      let orphanCount = 0;
-      for (const [scheduleId, orphanMembers] of byScheduleId) {
-        if (live.has(scheduleId)) {
-          continue;
-        }
-        for (const member of orphanMembers) {
-          orphanCount++;
-          this.logger.warn(
-            `Orphaned backup-queue repeat entry "${member}": no ` +
-              `backup_schedules row for scheduleId ${scheduleId}. It will ` +
-              `keep enqueuing create-backup. Remove it with ` +
-              `queue.removeJobScheduler("${member}") — never ZREM, which ` +
-              `would orphan the delayed occurrence and its job hash. ` +
-              `That call returns true when removed, false if already absent.`,
-          );
-        }
-      }
-
-      for (const member of unclassifiable) {
+      for (const member of scan.unclassifiable) {
         this.logger.warn(
           `Backup-queue repeat entry "${member}" has no usable scheduleId in ` +
             `its data field; skipped by the orphan check (not an orphan).`,
         );
       }
 
-      // Only when nonzero — a clean stack should not warn on every boot.
-      if (orphanCount) {
+      // Expected to be empty here: removeLegacyRepeatables() runs first and
+      // clears non-ic entries. A non-empty list means one survived that step.
+      for (const member of scan.legacySkipped) {
         this.logger.warn(
-          `Found ${orphanCount} orphaned backup-queue repeat entries`,
+          `Legacy (non-scheduler) repeat entry "${member}" survived legacy ` +
+            `cleanup; it is excluded from the orphan check and must be ` +
+            `removed with BullMQ 5's removeRepeatableByKey.`,
+        );
+      }
+
+      // Only when nonzero — a clean stack should not warn on every boot.
+      if (scan.orphans.length) {
+        this.logger.warn(
+          `Found ${scan.orphans.length} orphaned backup-queue repeat entries`,
         );
       }
     } catch (error) {
@@ -341,27 +294,6 @@ export class BackupSchedulerService {
         error.stack,
       );
     }
-  }
-
-  /**
-   * Returns the scheduleId only when it is a non-empty string. Anything else
-   * — absent hash field, unparseable JSON, non-object payload, or a
-   * non-string/empty scheduleId — is unclassifiable, never an orphan.
-   */
-  private extractScheduleId(raw: string | null): string | null {
-    if (!raw) {
-      return null;
-    }
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return null;
-    }
-    const scheduleId = (parsed as { scheduleId?: unknown } | null)?.scheduleId;
-    return typeof scheduleId === 'string' && scheduleId.length
-      ? scheduleId
-      : null;
   }
 
   private async addScheduleToQueue(schedule: BackupSchedule): Promise<void> {
