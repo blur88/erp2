@@ -158,4 +158,32 @@ Postgres is the source of truth and `initializeSchedules()` re-registers every e
 
 `bullmq-v5` (`npm:bullmq@5.81.3`, backend devDependencies) is **not** leftover cruft from that upgrade — it is an exact-pinned, test-only fixture generator for `test/bullmq-v6-upgrade.redis-spec.ts`, which needs both majors in one process to seed genuinely hashed v5 entries and assert `removeLegacyRepeatables()` clears them. It is on CI's critical path (`npm run test:redis`), so keep it exact-pinned. Keep it while `removeLegacyRepeatables()` ships; remove both together — plus the spec, the CI step, and this note — once the gate in issue #1033 passes.
 
+**Orphaned backup-queue repeat entries (report-only)**: `BackupSchedulerService.reportOrphanedSchedulers()` runs last in `initializeSchedules()` and `logger.warn`s any `bull:backup-queue:repeat` member whose `data.scheduleId` has no `backup_schedules` row (issue #1035). It **never deletes** — making Redis contents depend on a DB read means a transient read failure or a partially-migrated deploy could destroy live schedulers. Keep it free of mutating calls; auto-reconciliation is a separate design discussion that needs explicit safeguards. The whole body is wrapped in a catch-all because a diagnostic must never fail boot (unlike `removeLegacyRepeatables()`, whose throw is a deliberate deploy gate). It is a sibling method, not part of that scan, so it survives the v5→v6 retirement in #1033. Entries with no `data`, unparseable JSON, or a non-string/empty `scheduleId` are logged as *unclassifiable*, never as orphans.
+
+Remediate a reported orphan with `removeJobScheduler(<bare member>)` — **never `ZREM`**. `ZREM` strips the ZSET member but leaves `repeat:<member>:<millis>` live in `bull:backup-queue:delayed` with no metadata, which is worse than the orphan. The member is passed verbatim (no `getSchedulerId()` prefixing), so a bare-hex member is addressed correctly. Preflight is read-only; extract the password from the container as in the Redis section above:
+
+```bash
+redis_cli ZRANGE bull:backup-queue:repeat 0 -1 WITHSCORES
+redis_cli HGETALL bull:backup-queue:repeat:<member>     # read data.scheduleId
+redis_cli ZRANGE bull:backup-queue:delayed 0 -1
+docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "SELECT id FROM backup_schedules WHERE id = '<scheduleId>';"   # 0 rows ⇒ orphan
+```
+
+Then remove it, closing the queue so the command exits instead of hanging on the open connection:
+
+```bash
+docker compose exec -T backend node -e '
+const { Queue } = require("bullmq");
+const q = new Queue("backup-queue", { connection: {
+  host: process.env.REDIS_HOST, port: +process.env.REDIS_PORT,
+  password: process.env.REDIS_PASSWORD } });
+q.removeJobScheduler(process.argv[1])
+  .then((r) => console.log("removed:", r))
+  .finally(() => q.close());
+' <member>
+```
+
+The printed result is inverted from the usual convention — `removeJobScheduler` returns **`0` on success** and `1` if the member was already absent (`removeJobScheduler-3.lua`), so `removed: 0` is the good outcome. Re-run the preflight to verify: the member is gone from `repeat`, and its `repeat:<member>:<millis>` occurrence is gone from `delayed`.
+
 **Pulling main**: Always use `git pull --ff-only` on `main` (or set globally: `git config --global pull.ff only`). A regular `git pull` with `merge.ff = false` creates a merge commit that re-triggers the Release workflow unnecessarily.

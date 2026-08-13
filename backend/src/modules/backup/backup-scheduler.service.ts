@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
+import { Repository, LessThan, In } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { IRedisClient, Queue } from 'bullmq';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -144,6 +144,11 @@ export class BackupSchedulerService {
     }
 
     this.logger.log(`Initialized ${schedules.length} backup schedules`);
+
+    // Last, so the schedulers we just upserted are fully written before the
+    // diagnostic reads them back — otherwise a live schedule could be read
+    // mid-write and reported as an orphan.
+    await this.reportOrphanedSchedulers();
   }
 
   /**
@@ -222,6 +227,140 @@ export class BackupSchedulerService {
     if (stale.length) {
       this.logger.log(`Removed ${stale.length} legacy repeatable entries`);
     }
+  }
+
+  /**
+   * Reports repeat entries whose backing `backup_schedules` row no longer
+   * exists (issue #1035). Such an entry keeps enqueuing `create-backup`
+   * against a schedule the operator believes they deleted, and no code path
+   * removes it: `removeLegacyRepeatables()` skips it (it has `ic`),
+   * `initializeSchedules()` never reaches it (no DB row), and
+   * `removeScheduleFromQueue()` needs an entity that is gone.
+   *
+   * REPORT-ONLY, deliberately. This must never delete queue state: doing so
+   * would make Redis contents depend on a DB read, so a transient read
+   * failure or a partially-migrated deploy could destroy live schedulers.
+   * Auto-reconciliation is explicitly deferred to its own design discussion.
+   * Keep this method free of any mutating call.
+   *
+   * Unlike `removeLegacyRepeatables()`, whose throw is a deliberate deploy
+   * gate, a diagnostic must never be able to fail boot — hence the catch-all.
+   * This also survives the eventual retirement of the v5→v6 machinery in
+   * #1033, which is why it is a sibling method and not folded into that scan.
+   */
+  private async reportOrphanedSchedulers(): Promise<void> {
+    try {
+      const client = (await this.backupQueue.getBackend()
+        .client) as IRedisClient & {
+        zscan(key: string, cursor: string): Promise<[string, string[]]>;
+      };
+      const repeatKey = this.backupQueue.toKey('repeat');
+
+      // A Set because ZSCAN may return the same member more than once across
+      // pages — the cursor guarantees every member is seen at least once, not
+      // exactly once.
+      const members = new Set<string>();
+      let cursor = '0';
+      do {
+        const [next, flat] = await client.zscan(repeatKey, cursor);
+        cursor = next;
+        for (let i = 0; i < flat.length; i += 2) {
+          members.add(flat[i]);
+        }
+      } while (cursor !== '0');
+
+      // Collected, not emitted: a failure anywhere below must produce one
+      // diagnostic error rather than a partial orphan report that reads as
+      // complete.
+      const unclassifiable: string[] = [];
+      const byScheduleId = new Map<string, string[]>();
+
+      for (const member of members) {
+        const raw = await client.hget(`${repeatKey}:${member}`, 'data');
+        const scheduleId = this.extractScheduleId(raw);
+        if (!scheduleId) {
+          unclassifiable.push(member);
+          continue;
+        }
+        const existing = byScheduleId.get(scheduleId);
+        if (existing) {
+          existing.push(member);
+        } else {
+          byScheduleId.set(scheduleId, [member]);
+        }
+      }
+
+      // Deduplicated by the Map; skip the query entirely when nothing is
+      // classifiable, so an empty In([]) never reaches the database.
+      const scheduleIds = [...byScheduleId.keys()];
+      const live = new Set<string>();
+      if (scheduleIds.length) {
+        const rows = await this.scheduleRepository.find({
+          where: { id: In(scheduleIds) },
+          select: { id: true },
+        });
+        for (const row of rows) {
+          live.add(row.id);
+        }
+      }
+
+      let orphanCount = 0;
+      for (const [scheduleId, orphanMembers] of byScheduleId) {
+        if (live.has(scheduleId)) {
+          continue;
+        }
+        for (const member of orphanMembers) {
+          orphanCount++;
+          this.logger.warn(
+            `Orphaned backup-queue repeat entry "${member}": no ` +
+              `backup_schedules row for scheduleId ${scheduleId}. It will ` +
+              `keep enqueuing create-backup. Remove it with ` +
+              `queue.removeJobScheduler("${member}") — never ZREM, which ` +
+              `would orphan the delayed occurrence and its job hash.`,
+          );
+        }
+      }
+
+      for (const member of unclassifiable) {
+        this.logger.warn(
+          `Backup-queue repeat entry "${member}" has no usable scheduleId in ` +
+            `its data field; skipped by the orphan check (not an orphan).`,
+        );
+      }
+
+      // Only when nonzero — a clean stack should not warn on every boot.
+      if (orphanCount) {
+        this.logger.warn(
+          `Found ${orphanCount} orphaned backup-queue repeat entries`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Orphaned-scheduler diagnostic failed: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  /**
+   * Returns the scheduleId only when it is a non-empty string. Anything else
+   * — absent hash field, unparseable JSON, non-object payload, or a
+   * non-string/empty scheduleId — is unclassifiable, never an orphan.
+   */
+  private extractScheduleId(raw: string | null): string | null {
+    if (!raw) {
+      return null;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+    const scheduleId = (parsed as { scheduleId?: unknown } | null)?.scheduleId;
+    return typeof scheduleId === 'string' && scheduleId.length
+      ? scheduleId
+      : null;
   }
 
   private async addScheduleToQueue(schedule: BackupSchedule): Promise<void> {
