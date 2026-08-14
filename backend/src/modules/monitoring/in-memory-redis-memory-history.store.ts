@@ -3,6 +3,10 @@ import {
   RedisMemoryHistoryStats,
   RedisMemorySample,
 } from './redis-memory.types';
+import {
+  RedisMemoryHistoryStore,
+  SampleQuery,
+} from './redis-memory-history.store';
 
 /**
  * Bounded in-memory ring buffer of the most recent scheduled samples.
@@ -13,7 +17,7 @@ import {
  * it later through the `RedisMemoryHistoryStore` contract without touching
  * the sampler or controller.
  */
-export class InMemoryRedisMemoryHistoryStore {
+export class InMemoryRedisMemoryHistoryStore implements RedisMemoryHistoryStore {
   private readonly samples: RedisMemorySample[] = [];
 
   constructor(private readonly capacity: number = REDIS_HISTORY_CAPACITY) {
@@ -22,21 +26,22 @@ export class InMemoryRedisMemoryHistoryStore {
     }
   }
 
-  append(sample: RedisMemorySample): void {
+  async append(sample: RedisMemorySample): Promise<void> {
     this.samples.push(sample);
     if (this.samples.length > this.capacity) {
       this.samples.shift();
     }
   }
 
-  recent(count?: number): RedisMemorySample[] {
+  async recent(query?: SampleQuery | number): Promise<RedisMemorySample[]> {
+    const count = typeof query === 'number' ? query : query?.limit;
     if (count === undefined) {
       return [...this.samples];
     }
     return this.samples.slice(-count);
   }
 
-  stats(): RedisMemoryHistoryStats {
+  async stats(): Promise<RedisMemoryHistoryStats> {
     const sampleCount = this.samples.length;
     const validSampleCount = this.samples.filter((sample) => sample.ok).length;
     return {

@@ -47,8 +47,8 @@ describe('RedisMemorySamplerService', () => {
   it('samples immediately on module init and cleans up on destroy', async () => {
     await service.onModuleInit();
     expect(redisMock.info).toHaveBeenCalledWith('memory');
-    expect(store.stats().sampleCount).toBe(1);
-    expect(service.getLatestSample()).toMatchObject({ ok: true });
+    expect((await store.stats()).sampleCount).toBe(1);
+    expect(await service.getLatestSample()).toMatchObject({ ok: true });
 
     await service.onModuleDestroy();
     expect(redisMock.disconnect).toHaveBeenCalled();
@@ -63,7 +63,7 @@ describe('RedisMemorySamplerService', () => {
     });
 
     await service.sampleNow();
-    expect(service.getLatestSample()).toMatchObject({
+    expect(await service.getLatestSample()).toMatchObject({
       ok: true,
       usedBytes: 80,
       maxBytes: 100,
@@ -72,7 +72,7 @@ describe('RedisMemorySamplerService', () => {
       oomErrors: null,
     });
 
-    const detail = service.getDetail();
+    const detail = await service.getDetail();
     // Parsed zero is distinguishable from an unavailable counter.
     expect(detail.counters.evictedKeys).toEqual({
       available: true,
@@ -101,7 +101,7 @@ describe('RedisMemorySamplerService', () => {
     await jest.advanceTimersByTimeAsync(REDIS_COMMAND_TIMEOUT_MS + 1);
     await pending;
 
-    expect(service.getLatestSample()).toMatchObject({
+    expect(await service.getLatestSample()).toMatchObject({
       ok: true,
       usedBytes: 80,
       evictedKeys: null,
@@ -134,7 +134,7 @@ describe('RedisMemorySamplerService', () => {
     releaseFirst!();
     await Promise.all([first, skipped]);
 
-    const [inFlight, overlapRecord] = store.recent(2);
+    const [inFlight, overlapRecord] = await store.recent(2);
     expect(inFlight).toMatchObject({ ok: true });
     expect(overlapRecord).toMatchObject({
       ok: false,
@@ -152,7 +152,7 @@ describe('RedisMemorySamplerService', () => {
     await jest.advanceTimersByTimeAsync(REDIS_COMMAND_TIMEOUT_MS + 1);
     await pending;
 
-    expect(service.getLatestSample()).toMatchObject({
+    expect(await service.getLatestSample()).toMatchObject({
       ok: false,
       failureReason: 'timeout',
       usedBytes: null,
@@ -165,19 +165,19 @@ describe('RedisMemorySamplerService', () => {
 
     redisMock.ping.mockRejectedValueOnce(new Error('ECONNREFUSED'));
     await service.sampleNow();
-    expect(service.getLatestSample()).toMatchObject({
+    expect(await service.getLatestSample()).toMatchObject({
       ok: false,
       failureReason: 'connection-failed',
     });
-    expect(JSON.stringify(service.getLatestSample())).not.toContain('ECONNREFUSED');
+    expect(JSON.stringify(await service.getLatestSample())).not.toContain('ECONNREFUSED');
 
     redisMock.info.mockRejectedValueOnce(new Error('OOM command not allowed'));
     await service.sampleNow();
-    expect(service.getLatestSample()).toMatchObject({
+    expect(await service.getLatestSample()).toMatchObject({
       ok: false,
       failureReason: 'connection-failed',
     });
-    expect(JSON.stringify(service.getLatestSample())).not.toContain('OOM command');
+    expect(JSON.stringify(await service.getLatestSample())).not.toContain('OOM command');
   });
 
   it('marks a sample parse-failed when INFO memory is malformed', async () => {
@@ -189,7 +189,7 @@ describe('RedisMemorySamplerService', () => {
     );
 
     await service.sampleNow();
-    expect(service.getLatestSample()).toMatchObject({
+    expect(await service.getLatestSample()).toMatchObject({
       ok: false,
       failureReason: 'parse-failed',
     });
@@ -250,7 +250,7 @@ describe('RedisMemorySamplerService', () => {
     await service.sampleNow(); // +4 evicted, +4 oom
     expect(logger.warn).toHaveBeenCalledTimes(4);
 
-    const detail = service.getDetail();
+    const detail = await service.getDetail();
     expect(detail.counters.evictedKeys.lastDelta).toBe(4);
     expect(detail.counters.oomErrors.lastDelta).toBe(4);
     expect(detail.counters.evictedKeys.available).toBe(true);

@@ -113,7 +113,7 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
     if (this.inFlight) {
       const inFlight = this.inFlight;
       await inFlight;
-      this.recordSample(this.failedSample(new Date().toISOString(), 'overlap-skipped'));
+      await this.recordSample(this.failedSample(new Date().toISOString(), 'overlap-skipped'));
       return;
     }
 
@@ -126,23 +126,23 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
     }
   }
 
-  getLatestSample(): RedisMemorySample | null {
-    return this.historyStore.recent(1)[0] ?? null;
+  async getLatestSample(): Promise<RedisMemorySample | null> {
+    return (await this.historyStore.recent(1))[0] ?? null;
   }
 
   getPressureSnapshot(): RedisPressureSnapshot {
     return this.evaluator.snapshot(new Date().toISOString());
   }
 
-  getHealthView(): RedisMemoryHealthView {
+  async getHealthView(): Promise<RedisMemoryHealthView> {
     return {
-      latestSample: this.getLatestSample(),
-      history: this.historyStore.stats(),
+      latestSample: await this.getLatestSample(),
+      history: await this.historyStore.stats(),
       pressure: this.getPressureSnapshot(),
     };
   }
 
-  getDetail(): RedisMemoryDetail {
+  async getDetail(): Promise<RedisMemoryDetail> {
     const trackerStatus = (tracker: CounterTracker): RedisCounterStatus => ({
       available: tracker.value !== null,
       value: tracker.value,
@@ -150,8 +150,8 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
       lastChangedAt: tracker.lastChangedAt,
     });
     return {
-      ...this.getHealthView(),
-      samples: this.historyStore.recent(),
+      ...(await this.getHealthView()),
+      samples: await this.historyStore.recent(),
       configuration: {
         intervalMs: REDIS_SAMPLE_INTERVAL_MS,
         capacity: REDIS_HISTORY_CAPACITY,
@@ -196,7 +196,7 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
       }
       await this.redisClient.ping();
     } catch {
-      this.recordSample(this.failedSample(at, 'connection-failed'));
+      await this.recordSample(this.failedSample(at, 'connection-failed'));
       return;
     }
 
@@ -242,7 +242,7 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
       }
     }
 
-    this.recordSample({
+    await this.recordSample({
       at,
       ok: failureReason === null,
       failureReason,
@@ -254,8 +254,8 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
     });
   }
 
-  private recordSample(sample: RedisMemorySample): void {
-    this.historyStore.append(sample);
+  private async recordSample(sample: RedisMemorySample): Promise<void> {
+    await this.historyStore.append(sample);
 
     const before = this.evaluator.snapshot(sample.at).state;
     this.evaluator.record(sample);
