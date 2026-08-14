@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Stub for `docker`. Logs every invocation, then answers the specific psql
+# query it was handed. Fixture behaviour is driven entirely by STUB_* env vars
+# so specs stay declarative.
+printf '%s\n' "docker $*" >> "$STUB_LOG"
+
+# The gate scripts always call: docker compose -f ... exec -T postgres <cmd> ...
+# The SQL is the argument after -tAc (psql) — find it.
+sql=''
+prev=''
+for arg in "$@"; do
+  if [ "$prev" = "-tAc" ] || [ "$prev" = "-c" ]; then
+    sql="$arg"
+    break
+  fi
+  prev="$arg"
+done
+
+case "$sql" in
+  *pg_database*)
+    # Existence probe.
+    printf '%s\n' "${STUB_DB_EXISTS:-1}"
+    ;;
+  *"count(*) FROM migrations"*)
+    if [ "${STUB_MIGRATION_COUNT}" = "ERROR" ]; then
+      # Candidate exists but has no migrations table.
+      echo 'psql: error: ERROR:  relation "migrations" does not exist' >&2
+      exit 1
+    fi
+    printf '%s\n' "${STUB_MIGRATION_COUNT}"
+    ;;
+  *"FROM migrations ORDER BY"*)
+    printf '%s\n' "${STUB_LATEST_MIGRATION}"
+    ;;
+  *)
+    # Any other query is seed-content machinery, which these specs do not
+    # cover. Emit nothing; the fresh-candidate spec only asserts the preflight
+    # was passed, not that seed checks succeed.
+    printf '\n'
+    ;;
+esac
+exit 0
