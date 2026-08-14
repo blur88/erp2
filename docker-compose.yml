@@ -122,6 +122,10 @@ services:
       - REDIS_DB=${REDIS_DB:-0}
       - REDIS_TTL=${REDIS_TTL:-3600}
 
+      # Monitoring — MUST be stable across restarts and unique per running
+      # sampler. HOSTNAME is the container ID here and changes on recreation.
+      - MONITORING_INSTANCE_ID=${MONITORING_INSTANCE_ID:-erp_backend}
+
       # JWT
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-15m}
