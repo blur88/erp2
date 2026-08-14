@@ -3,11 +3,13 @@ import { getDataSourceToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 
 import { AppService } from './app.service';
+import { RedisMemorySamplerService } from './modules/monitoring/redis-memory-sampler.service';
 
 /**
  * AppService talks to Redis through a client it constructs itself in the
- * constructor, so the ioredis module is mocked wholesale. Each test drives the
- * shared mock instance's `info` / `ping` behaviour.
+ * constructor, so the ioredis module is mocked wholesale. Memory-pressure
+ * state comes from the sampler, which is mocked here; `info` must never be
+ * called by `getHealth()`.
  */
 const redisMock = {
   connect: jest.fn(),
@@ -21,19 +23,26 @@ jest.mock('ioredis', () => ({
   default: jest.fn(() => redisMock),
 }));
 
-/** Build a realistic `INFO memory` payload with the fields AppService parses. */
-const infoMemory = (usedMemory: number, maxMemory: number): string =>
-  [
-    '# Memory',
-    `used_memory:${usedMemory}`,
-    `used_memory_human:${(usedMemory / 1024 / 1024).toFixed(2)}M`,
-    `maxmemory:${maxMemory}`,
-    `maxmemory_policy:noeviction`,
-    'mem_fragmentation_ratio:1.20',
-    '',
-  ].join('\r\n');
+const samplerMock = {
+  getHealthView: jest.fn(),
+  getDetail: jest.fn(),
+};
 
-const MAX_256_MIB = 268435456;
+const healthyView = {
+  latestSample: {
+    at: '2026-08-14T09:12:00.000Z', ok: true, failureReason: null,
+    usedBytes: 2_850_000, maxBytes: 268_435_456, utilizationPercent: 1,
+    evictedKeys: 0, oomErrors: 0,
+  },
+  history: {
+    bufferStartedAt: '2026-08-14T09:03:00.000Z', sampleCount: 10,
+    validSampleCount: 10, capacity: 1_440, latestSampleAt: '2026-08-14T09:12:00.000Z',
+  },
+  pressure: {
+    state: 'healthy', reason: null,
+    stateSince: '2026-08-14T09:12:00.000Z', streakSamples: 10,
+  },
+};
 
 describe('AppService', () => {
   let service: AppService;
@@ -45,7 +54,6 @@ describe('AppService', () => {
     redisMock.connect.mockResolvedValue(undefined);
     redisMock.ping.mockResolvedValue('PONG');
     redisMock.disconnect.mockReturnValue(undefined);
-    redisMock.info.mockResolvedValue(infoMemory(2_850_000, MAX_256_MIB));
 
     dataSource = { query: jest.fn().mockResolvedValue([{ '?column?': 1 }]) };
 
@@ -53,114 +61,112 @@ describe('AppService', () => {
       providers: [
         AppService,
         { provide: getDataSourceToken(), useValue: dataSource as unknown as DataSource },
+        { provide: RedisMemorySamplerService, useValue: samplerMock },
       ],
     }).compile();
 
     service = module.get<AppService>(AppService);
   });
 
-  describe('getHealth — Redis memory pressure signal', () => {
-    it('reports healthy with utilization well below the threshold', async () => {
-      // ~2.85MB of 256MiB is ~1%, matching the measured local baseline.
+  describe('getHealth — Redis memory pressure state mapping', () => {
+    it('reports healthy from a healthy sampler state without sampling itself', async () => {
+      samplerMock.getHealthView.mockReturnValue(healthyView);
+
       const health = await service.getHealth();
 
+      expect(redisMock.info).not.toHaveBeenCalled();
       expect(health.services.redis.status).toBe('healthy');
       expect(health.services.redis.memory).toEqual({
         usedBytes: 2_850_000,
-        maxBytes: MAX_256_MIB,
+        maxBytes: 268_435_456,
         utilizationPercent: 1,
       });
-      expect(health.status).toBe('healthy');
-    });
-
-    it('marks redis and overall status degraded at or above 80% utilization', async () => {
-      redisMock.info.mockResolvedValue(infoMemory(Math.round(MAX_256_MIB * 0.85), MAX_256_MIB));
-
-      const health = await service.getHealth();
-
-      expect(health.services.redis.status).toBe('degraded');
-      expect(health.services.redis.memory?.utilizationPercent).toBe(85);
-      expect(health.services.redis.message).toContain('85%');
-      // The overall `degraded` branch becomes reachable for the first time.
-      expect(health.status).toBe('degraded');
-    });
-
-    it('treats exactly 80% as degraded (boundary is inclusive)', async () => {
-      redisMock.info.mockResolvedValue(infoMemory(MAX_256_MIB * 0.8, MAX_256_MIB));
-
-      const health = await service.getHealth();
-
-      expect(health.services.redis.status).toBe('degraded');
-      expect(health.services.redis.memory?.utilizationPercent).toBe(80);
-    });
-
-    it('stays healthy just below the threshold', async () => {
-      redisMock.info.mockResolvedValue(infoMemory(Math.round(MAX_256_MIB * 0.79), MAX_256_MIB));
-
-      const health = await service.getHealth();
-
-      expect(health.services.redis.status).toBe('healthy');
-      expect(health.status).toBe('healthy');
-    });
-
-    it('reports healthy with null utilization when maxmemory is unlimited (0)', async () => {
-      // maxmemory:0 means no cap — utilization is not computable, and the
-      // absence of a cap is not evidence of memory pressure.
-      redisMock.info.mockResolvedValue(infoMemory(2_850_000, 0));
-
-      const health = await service.getHealth();
-
-      expect(health.services.redis.status).toBe('healthy');
-      expect(health.services.redis.memory).toEqual({
-        usedBytes: 2_850_000,
-        maxBytes: null,
-        utilizationPercent: null,
+      expect(health.services.redis.pressure).toEqual({
+        state: 'healthy',
+        reason: null,
+        sampleCount: 10,
+        validSampleCount: 10,
+        latestSampleAt: '2026-08-14T09:12:00.000Z',
       });
       expect(health.status).toBe('healthy');
     });
 
-    it('stays healthy with a null memory block when INFO output is malformed', async () => {
-      // A parse gap is missing visibility, not evidence of pressure; degrading
-      // here would false-alarm on any INFO shape change.
-      redisMock.info.mockResolvedValue('# Memory\r\ngarbage-without-fields\r\n');
+    it.each(['sustained-pressure', 'unknown', 'insufficient-samples'])(
+      'reports degraded for pressure state %s without throwing',
+      async (state) => {
+        samplerMock.getHealthView.mockReturnValue({
+          ...healthyView,
+          pressure: {
+            state,
+            reason: state === 'unknown' ? 'sampling-failed' : null,
+            stateSince: '2026-08-14T09:12:00.000Z',
+            streakSamples: 0,
+          },
+        });
+
+        const health = await service.getHealth();
+
+        expect(health.services.redis.status).toBe('degraded');
+        expect(health.services.redis.pressure?.state).toBe(state);
+        expect(health.status).toBe('degraded');
+      },
+    );
+
+    it('explains sustained pressure in the message', async () => {
+      samplerMock.getHealthView.mockReturnValue({
+        ...healthyView,
+        pressure: { state: 'sustained-pressure', reason: null, stateSince: '2026-08-14T09:12:00.000Z', streakSamples: 10 },
+      });
 
       const health = await service.getHealth();
 
-      expect(health.services.redis.status).toBe('healthy');
-      expect(health.services.redis.memory).toBeNull();
-      expect(health.status).toBe('healthy');
+      expect(health.services.redis.message).toContain('sustained');
+      expect(health.services.redis.message).toContain('10');
     });
 
-    it('stays healthy with a null memory block when INFO returns a non-string', async () => {
-      redisMock.info.mockResolvedValue(undefined);
+    it('explains insufficient post-restart samples in the message', async () => {
+      samplerMock.getHealthView.mockReturnValue({
+        ...healthyView,
+        pressure: { state: 'insufficient-samples', reason: null, stateSince: '2026-08-14T09:12:00.000Z', streakSamples: 5 },
+      });
 
       const health = await service.getHealth();
 
-      expect(health.services.redis.status).toBe('healthy');
+      expect(health.services.redis.message).toContain('insufficient');
+      expect(health.services.redis.message).toContain('restart');
+    });
+
+    it('drops the memory block when the latest sample failed', async () => {
+      samplerMock.getHealthView.mockReturnValue({
+        latestSample: {
+          at: '2026-08-14T09:12:00.000Z', ok: false, failureReason: 'timeout',
+          usedBytes: null, maxBytes: null, utilizationPercent: null,
+          evictedKeys: null, oomErrors: null,
+        },
+        history: healthyView.history,
+        pressure: { state: 'unknown', reason: 'sampling-failed', stateSince: '2026-08-14T09:12:00.000Z', streakSamples: 0 },
+      });
+
+      const health = await service.getHealth();
+
+      expect(health.services.redis.status).toBe('degraded');
       expect(health.services.redis.memory).toBeNull();
     });
 
     it('marks redis unhealthy when the connection fails', async () => {
-      redisMock.connect.mockRejectedValue(new Error('ECONNREFUSED'));
+      redisMock.ping.mockRejectedValue(new Error('ECONNREFUSED'));
 
       const health = await service.getHealth();
 
       expect(health.services.redis.status).toBe('unhealthy');
       expect(health.services.redis.message).toContain('ECONNREFUSED');
       expect(health.services.redis.memory).toBeNull();
+      expect(health.services.redis.pressure).toBeNull();
       expect(health.status).toBe('unhealthy');
     });
 
-    it('marks redis unhealthy when INFO itself fails', async () => {
-      redisMock.info.mockRejectedValue(new Error('OOM command not allowed'));
-
-      const health = await service.getHealth();
-
-      expect(health.services.redis.status).toBe('unhealthy');
-      expect(health.services.redis.message).toContain('OOM command not allowed');
-    });
-
     it('disconnects after a successful check', async () => {
+      samplerMock.getHealthView.mockReturnValue(healthyView);
       await service.getHealth();
 
       expect(redisMock.disconnect).toHaveBeenCalled();
@@ -170,7 +176,10 @@ describe('AppService', () => {
   describe('getHealth — overall status precedence', () => {
     it('reports unhealthy when the database is down even if redis is degraded', async () => {
       dataSource.query.mockRejectedValue(new Error('connection terminated'));
-      redisMock.info.mockResolvedValue(infoMemory(Math.round(MAX_256_MIB * 0.9), MAX_256_MIB));
+      samplerMock.getHealthView.mockReturnValue({
+        ...healthyView,
+        pressure: { state: 'sustained-pressure', reason: null, stateSince: '2026-08-14T09:12:00.000Z', streakSamples: 10 },
+      });
 
       const health = await service.getHealth();
 
