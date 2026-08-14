@@ -33,6 +33,66 @@ if [ -z "${DB_PASSWORD:-}" ]; then
 fi
 export DB_PASSWORD
 
+# Preflight the HOST/TCP connection before touching any database.
+#
+# This script reaches Postgres two different ways, and only one of them
+# exercises the host credentials:
+#
+#   1. psql_admin() / dump_schema() / q_cand() run via `docker compose exec`,
+#      i.e. INSIDE the container as a trusted local user. These succeed no
+#      matter what DB_PASSWORD resolves to on the host.
+#   2. schema:sync and migration:run run TypeORM ON THE HOST, over TCP to
+#      DB_HOST:DB_PORT. These are the only steps the host credentials gate.
+#
+# Without this preflight, wrong host credentials print four lines of healthy
+# DROP/CREATE DATABASE output before failing inside a pg-protocol stack trace
+# — which reads like a schema:sync, TypeORM, or entity-metadata bug rather
+# than a credentials problem (#1059).
+#
+# The probe must therefore NOT go through `docker compose exec`: that would
+# reproduce the same blind spot. It connects over TCP as DB_USERNAME and runs
+# a real authenticated query. There is no host psql in at least one dev setup,
+# so it uses the `pg` client already present in backend/node_modules.
+#
+# ssl mirrors ssl.config.ts's non-production branch (DB_SSL === 'true',
+# default false) so the probe negotiates the way the TypeORM steps will.
+# stderr is discarded: the pg stack trace is half of what makes the original
+# failure unreadable, and suppressing it also guarantees no connection string
+# reaches the output.
+if ! node -e '
+  const { Client } = require("pg");
+  const client = new Client({
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT),
+    user: process.env.DB_USERNAME,
+    password: process.env.DB_PASSWORD,
+    database: "postgres",
+    ssl: process.env.DB_SSL === "true",
+    connectionTimeoutMillis: 5000,
+  });
+  client
+    .connect()
+    .then(() => client.query("SELECT 1"))
+    .then(() => client.end())
+    .then(() => process.exit(0))
+    .catch(() => process.exit(1));
+' 2>/dev/null; then
+  # Deliberately does NOT claim "authentication failed": this probe cannot
+  # distinguish bad credentials from DNS, wrong port, TLS, or Postgres simply
+  # being down. Naming a cause it did not establish is the same class of
+  # misleading diagnostic this preflight exists to remove.
+  cat >&2 <<EOF
+Cannot connect to PostgreSQL as '$DB_USERNAME' at $DB_HOST:$DB_PORT.
+
+The schema:sync and migration:run steps run on the host over TCP, so
+container-side access succeeding does not mean these credentials work.
+
+Check ENV_FILE ($ENV_FILE) against the credentials the running Postgres was
+initialized with, and confirm it is reachable at that host and port.
+EOF
+  exit 2
+fi
+
 REF_DB=erp_gate_reference
 CAND_DB=erp_gate_candidate
 OUT=$(mktemp -d)
