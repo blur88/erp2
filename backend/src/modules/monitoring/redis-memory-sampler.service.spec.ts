@@ -322,6 +322,53 @@ describe('RedisMemorySamplerService', () => {
     expect(detail.samples).toEqual([otherInstanceSample]);
     expect(detail.latestSample).toEqual(sampleFixture);
   });
+
+  describe('getDetail windowStats', () => {
+    it('passes the same filter to the aggregate as to the sample read', async () => {
+      store.windowStats = jest.fn().mockResolvedValue({ from: null, to: null, perInstance: [] });
+      const from = new Date('2026-08-01T00:00:00.000Z');
+      const to = new Date('2026-08-08T00:00:00.000Z');
+
+      await service.getDetail({ from, to, instanceId: 'erp_backend', limit: 10 });
+
+      expect(store.windowStats).toHaveBeenCalledWith(
+        expect.objectContaining({ from, to, instanceId: 'erp_backend' }),
+      );
+    });
+
+    it('includes windowStats in the response', async () => {
+      store.windowStats = jest.fn().mockResolvedValue({
+        from: null,
+        to: null,
+        perInstance: [
+          {
+            instanceId: 'erp_backend',
+            sampleCount: 1440,
+            validSampleCount: 1440,
+            peakUsedBytes: 2_800_000,
+            peakUtilizationPercent: 1.04,
+            firstSampleAt: '2026-08-01T00:00:00.000Z',
+            lastSampleAt: '2026-08-02T00:00:00.000Z',
+            distinctMaxBytes: [268435456],
+            evictedKeys: { delta: 0, resetObserved: false },
+            oomErrors: { delta: 0, resetObserved: false },
+          },
+        ],
+      });
+
+      const detail = await service.getDetail({});
+
+      expect(detail.windowStats.perInstance[0].peakUsedBytes).toBe(2_800_000);
+    });
+
+    it('still returns a windowStats shape when the aggregate read fails', async () => {
+      store.windowStats = jest.fn().mockRejectedValue(new Error('db down'));
+
+      const detail = await service.getDetail({});
+
+      expect(detail.windowStats).toEqual({ from: null, to: null, perInstance: [] });
+    });
+  });
 });
 
 describe('RedisMemorySamplerService alert wiring', () => {
