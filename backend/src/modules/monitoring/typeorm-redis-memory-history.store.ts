@@ -102,15 +102,15 @@ export class TypeOrmRedisMemoryHistoryStore implements RedisMemoryHistoryStore {
     const parameters: unknown[] = [];
 
     if (!normalized.allInstances) {
-      conditions.push(`instance_id = $${parameters.length + 1}`);
+      conditions.push(`"instanceId" = $${parameters.length + 1}`);
       parameters.push(normalized.instanceId ?? this.instanceId);
     }
     if (normalized.from) {
-      conditions.push(`sampled_at >= $${parameters.length + 1}`);
+      conditions.push(`"sampledAt" >= $${parameters.length + 1}`);
       parameters.push(normalized.from);
     }
     if (normalized.to) {
-      conditions.push(`sampled_at <= $${parameters.length + 1}`);
+      conditions.push(`"sampledAt" <= $${parameters.length + 1}`);
       parameters.push(normalized.to);
     }
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -118,53 +118,53 @@ export class TypeOrmRedisMemoryHistoryStore implements RedisMemoryHistoryStore {
     const sql = `
       WITH windowed AS (
         SELECT
-          instance_id, sampled_at, id, ok, used_bytes, max_bytes,
-          utilization_percent, evicted_keys, oom_errors
+          "instanceId", "sampledAt", "id", ok, "usedBytes", "maxBytes",
+          "utilizationPercent", "evictedKeys", "oomErrors"
         FROM redis_memory_samples
         ${whereClause}
       ),
       stepped AS (
         SELECT
-          instance_id, sampled_at, id, ok, used_bytes, max_bytes, utilization_percent,
-          evicted_keys,
-          LAG(evicted_keys) OVER (
-            PARTITION BY instance_id ORDER BY sampled_at, id
+          "instanceId", "sampledAt", "id", ok, "usedBytes", "maxBytes", "utilizationPercent",
+          "evictedKeys",
+          LAG("evictedKeys") OVER (
+            PARTITION BY "instanceId" ORDER BY "sampledAt", "id"
           ) AS prev_evicted,
-          oom_errors,
-          LAG(oom_errors) OVER (
-            PARTITION BY instance_id ORDER BY sampled_at, id
+          "oomErrors",
+          LAG("oomErrors") OVER (
+            PARTITION BY "instanceId" ORDER BY "sampledAt", "id"
           ) AS prev_oom
         FROM windowed
       )
       SELECT
-        instance_id,
+        "instanceId" AS instance_id,
         COUNT(*)                                        AS sample_count,
         COUNT(*) FILTER (WHERE ok)                      AS valid_sample_count,
-        MAX(used_bytes)                                 AS peak_used_bytes,
-        MAX(utilization_percent)                        AS peak_utilization_percent,
-        MIN(sampled_at)                                 AS first_sample_at,
-        MAX(sampled_at)                                 AS last_sample_at,
+        MAX("usedBytes")                                AS peak_used_bytes,
+        MAX("utilizationPercent")                       AS peak_utilization_percent,
+        MIN("sampledAt")                                AS first_sample_at,
+        MAX("sampledAt")                                AS last_sample_at,
         COALESCE(
-          ARRAY_AGG(DISTINCT max_bytes) FILTER (WHERE max_bytes IS NOT NULL),
+          ARRAY_AGG(DISTINCT "maxBytes") FILTER (WHERE "maxBytes" IS NOT NULL),
           '{}'
         )                                               AS distinct_max_bytes,
-        COUNT(evicted_keys)                             AS evicted_readings,
-        SUM(GREATEST(evicted_keys - prev_evicted, 0))
+        COUNT("evictedKeys")                            AS evicted_readings,
+        SUM(GREATEST("evictedKeys" - prev_evicted, 0))
           FILTER (WHERE prev_evicted IS NOT NULL)       AS evicted_delta,
         COALESCE(
-          BOOL_OR(evicted_keys < prev_evicted) FILTER (WHERE prev_evicted IS NOT NULL),
+          BOOL_OR("evictedKeys" < prev_evicted) FILTER (WHERE prev_evicted IS NOT NULL),
           false
         )                                               AS evicted_reset,
-        COUNT(oom_errors)                               AS oom_readings,
-        SUM(GREATEST(oom_errors - prev_oom, 0))
+        COUNT("oomErrors")                              AS oom_readings,
+        SUM(GREATEST("oomErrors" - prev_oom, 0))
           FILTER (WHERE prev_oom IS NOT NULL)           AS oom_delta,
         COALESCE(
-          BOOL_OR(oom_errors < prev_oom) FILTER (WHERE prev_oom IS NOT NULL),
+          BOOL_OR("oomErrors" < prev_oom) FILTER (WHERE prev_oom IS NOT NULL),
           false
         )                                               AS oom_reset
       FROM stepped
-      GROUP BY instance_id
-      ORDER BY instance_id ASC
+      GROUP BY "instanceId"
+      ORDER BY "instanceId" ASC
     `;
 
     const rows: RawWindowStatsRow[] = await this.repository.query(sql, parameters);
