@@ -171,6 +171,17 @@ Never add cache or session keys to this instance (see Prohibitions below) —
 `users.module.ts` carries a dormant `CacheModule.register()` that is the
 concrete way this gets violated.
 
+### History view is the first stop
+
+For peak and trend, start at `/settings/redis-monitoring` (admin). It renders
+`/api/health/redis-memory`'s `windowStats`, which are computed in SQL over the
+full filtered window and are exact even when the sample list is truncated. The
+chart beside them plots only the newest `REDIS_DETAIL_MAX_ROWS` samples, so at
+the 60s interval it may cover a recent slice (roughly the newest 3.5 days on a
+7-day request) while the statistics describe the whole window — do not
+interpret the chart's visible range as the statistics' coverage. The SQL in
+#1057 remains valid for offline analysis.
+
 ## OOM occurrences
 
 A positive `oomErrors` delta means Redis rejected at least one command with

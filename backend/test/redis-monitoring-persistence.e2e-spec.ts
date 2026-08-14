@@ -2,7 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, INestApplication } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { DataSource } from 'typeorm';
+import request from 'supertest';
+import * as bcrypt from 'bcrypt';
 import { AppModule } from '../src/app.module';
+import { User, UserRole, UserStatus } from '../src/database/entities/user.entity';
 import { RedisAlertStateEntity } from '../src/database/entities/redis-alert-state.entity';
 import { RedisMemorySampleEntity } from '../src/database/entities/redis-memory-sample.entity';
 import { RedisAlertStateRepository } from '../src/modules/monitoring/redis-alert-state.repository';
@@ -20,9 +23,41 @@ describe('Redis monitoring persistence (e2e)', () => {
   let app: INestApplication;
   let ds: DataSource;
   let repository: RedisAlertStateRepository;
+  let adminToken: string;
 
   const uniqueRun = () => `run-${randomUUID()}`;
   const uniqueInstance = () => `instance-${randomUUID()}`;
+
+  const WINDOW_STATS_USER = 'redis_mon_admin';
+  const WINDOW_STATS_PASSWORD = 'Str0ng@Pass!';
+
+  async function ensureAdmin(): Promise<void> {
+    const users = ds.getRepository(User);
+    if (!(await users.findOneBy({ username: WINDOW_STATS_USER }))) {
+      await users.save(
+        users.create({
+          username: WINDOW_STATS_USER,
+          email: `${WINDOW_STATS_USER}@test.example`,
+          password: await bcrypt.hash(WINDOW_STATS_PASSWORD, 12),
+          firstName: 'Test',
+          lastName: 'Admin',
+          role: UserRole.ADMIN,
+          status: UserStatus.ACTIVE,
+          isActive: true,
+          failedLoginAttempts: 0,
+        }),
+      );
+    }
+  }
+
+  // Log in ONCE and reuse the token; /auth/login is throttled to 5 req/min.
+  async function loginAdmin(): Promise<string> {
+    const res = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ usernameOrEmail: WINDOW_STATS_USER, password: WINDOW_STATS_PASSWORD })
+      .expect(200);
+    return res.body.accessToken as string;
+  }
 
   /**
    * Timestamps are relative to execution time, never fixed dates.
@@ -65,6 +100,8 @@ describe('Redis monitoring persistence (e2e)', () => {
     await app.init();
     ds = app.get(DataSource);
     repository = new RedisAlertStateRepository(ds);
+    await ensureAdmin();
+    adminToken = await loginAdmin();
   });
 
   afterAll(async () => {
@@ -229,5 +266,98 @@ describe('Redis monitoring persistence (e2e)', () => {
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
     const rejected = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
     expect(rejected.reason).toBeInstanceOf(ConflictException);
+  });
+
+  describe('windowStats over real rows', () => {
+    const INSTANCE = 'e2e-window-stats';
+
+    // Relative timestamps, per this suite's convention: `recent()` defaults to
+    // a 24-hour window, so fixed dates would silently stop appearing.
+    // The peak sits at index 0 — outside the newest REDIS_DETAIL_MAX_ROWS.
+    const base = Date.now() - 5_100 * 60_000;
+
+    beforeAll(async () => {
+      const sampleRepository = ds.getRepository(RedisMemorySampleEntity);
+      await sampleRepository.delete({ instanceId: INSTANCE });
+
+      // 5,100 samples: more than REDIS_DETAIL_MAX_ROWS, so the newest-anchored
+      // sample read cannot see the oldest rows.
+      const rows: Partial<RedisMemorySampleEntity>[] = [];
+      for (let index = 0; index < 5_100; index += 1) {
+        rows.push({
+          instanceId: INSTANCE,
+          sampledAt: new Date(base + index * 60_000),
+          ok: true,
+          failureReason: null,
+          usedBytes: index === 0 ? 250_000_000 : 1_000_000,
+          maxBytes: 268435456,
+          utilizationPercent: index === 0 ? 93.13 : 0.37,
+          evictedKeys: 0,
+          oomErrors: index < 5_000 ? 0 : 1,
+        });
+      }
+      await sampleRepository.insert(rows);
+    });
+
+    afterAll(async () => {
+      await ds.getRepository(RedisMemorySampleEntity).delete({ instanceId: INSTANCE });
+    });
+
+    it('reports a peak that the capped sample list cannot see', async () => {
+      // `recent()` defaults to a 24-hour window; passing `from` spanning the
+      // whole seed keeps the 5,100 rows in scope so the cap on the sample
+      // list is what truncates, not the default window.
+      const from = new Date(base).toISOString();
+      const response = await request(app.getHttpServer())
+        .get('/health/redis-memory')
+        .query({ instanceId: INSTANCE, limit: 5000, from })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const stats = response.body.windowStats.perInstance.find(
+        (entry: { instanceId: string }) => entry.instanceId === INSTANCE,
+      );
+
+      // The regression this design exists to prevent: the returned samples
+      // start after the peak, so a client-side max would report 1_000_000.
+      expect(response.body.samples[0].usedBytes).toBe(1_000_000);
+      expect(response.body.truncated).toBe(true);
+      expect(stats.peakUsedBytes).toBe(250_000_000);
+      expect(stats.sampleCount).toBe(5_100);
+    });
+
+    it('sums the oom counter increase across the full window', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/health/redis-memory')
+        .query({ instanceId: INSTANCE })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const stats = response.body.windowStats.perInstance.find(
+        (entry: { instanceId: string }) => entry.instanceId === INSTANCE,
+      );
+
+      expect(stats.oomErrors).toEqual({ delta: 1, resetObserved: false });
+      expect(stats.evictedKeys).toEqual({ delta: 0, resetObserved: false });
+      expect(stats.distinctMaxBytes).toEqual([268435456]);
+    });
+
+    it('honours a narrowed range in the aggregate', async () => {
+      const from = new Date(base + 60 * 60_000).toISOString();
+
+      const response = await request(app.getHttpServer())
+        .get('/health/redis-memory')
+        .query({ instanceId: INSTANCE, from })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const stats = response.body.windowStats.perInstance.find(
+        (entry: { instanceId: string }) => entry.instanceId === INSTANCE,
+      );
+
+      expect(response.body.windowStats.from).toBe(from);
+      // The peak at index 0 is now outside the window.
+      expect(stats.peakUsedBytes).toBe(1_000_000);
+    });
   });
 });

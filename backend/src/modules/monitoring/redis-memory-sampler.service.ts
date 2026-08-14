@@ -214,7 +214,7 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
     };
 
     try {
-      const [samples, totalMatching, knownInstances, history, latestSample] =
+      const [samples, totalMatching, knownInstances, history, latestSample, windowStats] =
         await Promise.all([
           this.historyStore.recent(storeQuery),
           this.historyStore.countMatching(storeQuery),
@@ -226,6 +226,7 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
           // change that meaning whenever an operator widened the range or
           // asked for all instances.
           this.getLatestSample(),
+          this.historyStore.windowStats(storeQuery),
         ]);
 
       return {
@@ -240,6 +241,7 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
         truncated: totalMatching > samples.length,
         totalMatching,
         knownInstances,
+        windowStats,
       };
     } catch (error) {
       // A storage failure degrades the view; it never 500s a monitoring read.
@@ -260,6 +262,9 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
         truncated: false,
         totalMatching: 0,
         knownInstances: [],
+        // A failed aggregate must not blank the whole detail response; an empty
+        // window is reported as empty, never as a peak of zero.
+        windowStats: { from: null, to: null, perInstance: [] },
       };
     }
   }

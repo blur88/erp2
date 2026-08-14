@@ -309,6 +309,15 @@ const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, onOpen, onClose }
                   </ListItem>
                 ))}
               </List>
+              <Box sx={{ mt: 1 }}>
+                <a
+                  href="/settings/redis-monitoring"
+                  onClick={onClose}
+                  style={{ fontSize: '0.75rem', color: 'inherit' }}
+                >
+                  View history
+                </a>
+              </Box>
             </>
           )}
 

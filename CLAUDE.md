@@ -147,6 +147,17 @@ The 256 MiB cap is unchanged and stays **pending production measurement** — th
 
 **Redis memory monitoring persists to Postgres, never to Redis**: the sampler writes samples (`redis_memory_samples`) and alert state (`redis_alert_state`) through TypeORM; Redis itself is only ever *read* (INFO) by the monitoring module. Alert state is keyed by the Redis `run_id`, so a Redis restart yields a **new** row rather than clearing a watermark — the old row is retained for diagnostics and simply no longer consulted. Samples are keyed by `MONITORING_INSTANCE_ID`, which **must be stable across restarts and unique per running sampler** (compose pins `erp_backend`; `HOSTNAME` is the container ID and changes on recreation). The `bigint` columns on these tables need `SafeIntegerTransformer` (`safe-integer.transformer.ts`), which throws rather than silently truncating values past `MAX_SAFE_INTEGER`.
 
+The detail route also returns `windowStats` — an **exact** aggregate over the
+full filtered window, computed in SQL and grouped by instance. It exists because
+`samples` is capped at `REDIS_DETAIL_MAX_ROWS` (5000) and newest-anchored: at the
+60s interval a 7-day request returns roughly the newest 3.5 days, so any peak
+computed from `samples` describes that slice, not the window. Read peaks from
+`windowStats`, never from `samples`. Counter deltas there are the **sum of
+positive consecutive increases**, not `max - min`, which is wrong in both
+directions across a `CONFIG RESETSTAT`; `delta: null` means fewer than two
+comparable readings and is distinct from a measured `0`. `/settings/redis-monitoring`
+renders this.
+
 **Cross-file type errors need `npm run type-check`**: `npm run test` uses per-file ts-jest transpilation and will not catch cross-file declaration errors (e.g. TS4053, a public method whose inferred return type names a non-exported interface). Before issue #1039 those surfaced first at `docker compose build backend`, after every pre-PR gate had passed; `cd backend && npm run type-check` is now a required backend gate and runs in CI ahead of the unit tests.
 
 It compiles `tsconfig.build.json` — the config `nest build` uses — deliberately, so the gate mirrors the image build that would otherwise be the first failure. That config excludes specs, so **spec-only type errors are not covered by this gate**; they remain caught by ts-jest at test time. Type-checking specs as a whole program would need a second `tsc -p tsconfig.json --noEmit` pass, which is a separate change gated on assessing the pre-existing errors it would surface.

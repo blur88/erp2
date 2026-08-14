@@ -32,6 +32,7 @@ import { paymentMethodsApiSlice } from './api/paymentMethodsApi'
 import { printSettingsApiSlice } from './api/printSettingsApi'
 import { searchApiSlice } from './api/searchApi'
 import { accountingApiSlice } from './api/accountingApi'
+import { redisMonitoringApiSlice } from './api/redisMonitoringApi'
 import { PERSIST_KEY } from './persistKey'
 
 const rootReducer = combineReducers({
@@ -54,6 +55,7 @@ const rootReducer = combineReducers({
   [printSettingsApiSlice.reducerPath]: printSettingsApiSlice.reducer,
   [searchApiSlice.reducerPath]: searchApiSlice.reducer,
   [accountingApiSlice.reducerPath]: accountingApiSlice.reducer,
+  [redisMonitoringApiSlice.reducerPath]: redisMonitoringApiSlice.reducer,
 })
 
 // Persist configuration
@@ -108,8 +110,8 @@ export const store = configureStore({
     printSettingsApiSlice.middleware as any,
     searchApiSlice.middleware as any,
     accountingApiSlice.middleware as any,
+    redisMonitoringApiSlice.middleware as any,
   ),
-  devTools: import.meta.env.MODE !== 'production',
 })
 
 export const persistor = persistStore(store)

@@ -40,6 +40,7 @@ const detail = {
     oomErrors: { available: false, value: null, lastDelta: 0, lastChangedAt: null },
     evictedKeys: { available: false, value: null, lastDelta: 0, lastChangedAt: null },
   },
+  windowStats: { from: null, to: null, perInstance: [] },
 } satisfies RedisMemoryDetail;
 
 describe('AppController', () => {
