@@ -9,8 +9,12 @@ FROM node:24.15.0-alpine3.23 AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# verify:dist runs AFTER the cli compile, because that second pass is what can
+# overwrite nest build's alias-rewritten output with unresolvable aliases. It
+# fails the image build rather than shipping a dist/ that cannot boot.
 RUN npm run build && \
     npx tsc -p tsconfig.cli.json && \
+    npm run verify:dist && \
     npm prune --omit=dev && npm cache clean --force
 
 # Stage 3: Production image — only compiled output + prod deps
