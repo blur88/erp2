@@ -9,6 +9,7 @@ import { REDIS_MEMORY_HISTORY_STORE } from './redis-memory-history.store';
 import { RedisAlertService } from './redis-alert.service';
 import { RedisAlertStateRepository } from './redis-alert-state.repository';
 import { RedisMemorySamplerService } from './redis-memory-sampler.service';
+import { RedisMemorySamplePruneService } from './redis-memory-sample-prune.service';
 import { TypeOrmRedisMemoryHistoryStore } from './typeorm-redis-memory-history.store';
 
 export const MONITORING_INSTANCE_ID = Symbol('MONITORING_INSTANCE_ID');
@@ -43,6 +44,7 @@ export const MONITORING_INSTANCE_ID = Symbol('MONITORING_INSTANCE_ID');
     RedisAlertStateRepository,
     RedisAlertService,
     RedisMemorySamplerService,
+    RedisMemorySamplePruneService,
   ],
   exports: [RedisMemorySamplerService, RedisAlertService],
 })
