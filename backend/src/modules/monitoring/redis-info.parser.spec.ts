@@ -1,4 +1,4 @@
-import { parseOomErrors, parseEvictedKeys, parseRedisMemory } from './redis-info.parser';
+import { parseOomErrors, parseEvictedKeys, parseRedisMemory, parseRunId } from './redis-info.parser';
 
 describe('parseRedisMemory', () => {
   it.each([
@@ -31,5 +31,19 @@ describe('parseEvictedKeys', () => {
   });
   it('returns null for a missing or malformed counter', () => {
     expect(parseEvictedKeys('# Stats\r\n')).toBeNull();
+  });
+});
+
+describe('parseRunId', () => {
+  it('parses run_id from an INFO server payload', () => {
+    expect(parseRunId('# Server\r\nrun_id:abc123\r\nredis_version:8.6.2\r\n')).toBe(
+      'abc123',
+    );
+  });
+  it('returns null when run_id is missing', () => {
+    expect(parseRunId('# Server\r\nredis_version:8.6.2\r\n')).toBeNull();
+  });
+  it('returns null for non-string input', () => {
+    expect(parseRunId(undefined)).toBeNull();
   });
 });

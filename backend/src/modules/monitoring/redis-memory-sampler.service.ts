@@ -12,10 +12,10 @@ import {
   REDIS_MEMORY_HISTORY_STORE,
   RedisMemoryHistoryStore,
 } from './redis-memory-history.store';
-import { parseEvictedKeys, parseOomErrors, parseRedisMemory } from './redis-info.parser';
+import { parseEvictedKeys, parseOomErrors, parseRedisMemory, parseRunId } from './redis-info.parser';
 import { RedisMemoryPressureEvaluator } from './redis-memory-pressure.evaluator';
 import { RedisAlertService } from './redis-alert.service';
-import { RedisOomCounterEvent } from './redis-alert.types';
+import { RedisAlertUnavailableReason } from './redis-alert.types';
 import {
   REDIS_COMMAND_TIMEOUT_MS,
   REDIS_HISTORY_CAPACITY,
@@ -57,6 +57,8 @@ interface CounterTracker {
 export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy {
   private readonly redisClient: Redis;
   private inFlight: Promise<void> | null = null;
+  private lastIdentity: { runId: string; observedAt: string } | null = null;
+  private lastIdentityAttempt: 'ok' | 'failed' | 'never' = 'never';
   private readonly oomTracker: CounterTracker = {
     value: null,
     lastDelta: 0,
@@ -130,6 +132,27 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
     return (await this.historyStore.recent(1))[0] ?? null;
   }
 
+  /**
+   * Attempt status is checked BEFORE freshness so the two rules cannot
+   * disagree: after a tick fails to read run_id, a still-fresh previous
+   * success must not keep serving a row the write path has stopped
+   * maintaining.
+   *
+   * `lastIdentity.runId` survives a failure for diagnostics and to let a
+   * recovered tick resume against the same row — it never decides identity
+   * novelty, which comes only from the repository insert's affected-row count.
+   */
+  getIdentity(): { runId: string | null; reason: RedisAlertUnavailableReason | null } {
+    if (this.lastIdentityAttempt === 'failed' || this.lastIdentityAttempt === 'never') {
+      return { runId: null, reason: 'redis-identity-unknown' };
+    }
+    const observedAt = this.lastIdentity ? Date.parse(this.lastIdentity.observedAt) : 0;
+    if (!this.lastIdentity || Date.now() - observedAt > REDIS_STALE_AFTER_MS) {
+      return { runId: null, reason: 'redis-identity-stale' };
+    }
+    return { runId: this.lastIdentity.runId, reason: null };
+  }
+
   getPressureSnapshot(): RedisPressureSnapshot {
     return this.evaluator.snapshot(new Date().toISOString());
   }
@@ -190,6 +213,12 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
   private async performSample(): Promise<void> {
     const at = new Date().toISOString();
 
+    // Pessimistic by default: any path that leaves this method without
+    // parsing a run_id — including the connection-failed early return below —
+    // must leave identity invalid. Promoting only on success means no failure
+    // path can be forgotten.
+    this.lastIdentityAttempt = 'failed';
+
     try {
       if (this.redisClient.status === 'wait' || this.redisClient.status === 'end') {
         await this.redisClient.connect();
@@ -197,7 +226,17 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
       await this.redisClient.ping();
     } catch {
       await this.recordSample(this.failedSample(at, 'connection-failed'));
-      return;
+      return;   // identity stays 'failed'
+    }
+
+    try {
+      const runId = parseRunId(await this.withTimeout(this.redisClient.info('server')));
+      if (runId !== null) {
+        this.lastIdentityAttempt = 'ok';
+        this.lastIdentity = { runId, observedAt: at };
+      }
+    } catch {
+      // stays 'failed'
     }
 
     let usedBytes: number | null = null;
@@ -255,7 +294,12 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
   }
 
   private async recordSample(sample: RedisMemorySample): Promise<void> {
-    await this.historyStore.append(sample);
+    try {
+      await this.historyStore.append(sample);
+    } catch (error) {
+      // A diagnostic must never fail a sample or boot.
+      this.logger.warn(`Failed to persist Redis memory sample: ${error.message}`);
+    }
 
     const before = this.evaluator.snapshot(sample.at).state;
     this.evaluator.record(sample);
@@ -269,17 +313,24 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
       );
     }
 
-    this.alerts?.onPressureState({
-      state: after,
-      utilizationPercent: sample.utilizationPercent,
-      at: sample.at,
-    });
+    const { runId } = this.getIdentity();
+    try {
+      // ONE call, therefore one transaction and one lock per tick.
+      await this.alerts?.applySample(
+        {
+          pressure: { state: after, utilizationPercent: sample.utilizationPercent, at: sample.at },
+          rawOomCounter: sample.ok ? sample.oomErrors : null,
+          at: sample.at,
+        },
+        runId,
+      );
+    } catch (error) {
+      this.logger.warn(`Failed to persist Redis alert state: ${error.message}`);
+    }
 
     if (sample.ok) {
-      this.trackCounter(this.oomTracker, 'OOM errors', sample.oomErrors, sample.at, (event) =>
-        this.alerts?.onOomCounter(event),
-      );
       this.trackCounter(this.evictedTracker, 'evicted_keys', sample.evictedKeys, sample.at);
+      this.trackCounter(this.oomTracker, 'OOM errors', sample.oomErrors, sample.at);
     }
   }
 
@@ -287,20 +338,22 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
    * Cumulative-counter handling: the first observation baselines silently, an
    * increase reports an occurrence with the delta, and a decrease (Redis
    * restart or `CONFIG RESETSTAT`) re-baselines silently.
+   *
+   * Kept for `RedisCounterStatus` reporting and warn logging only — it no
+   * longer emits alert events; alert transitions consume the raw counter
+   * through `RedisAlertService.applySample`.
    */
   private trackCounter(
     tracker: CounterTracker,
     label: string,
     value: number | null,
     at: string,
-    emit?: (event: RedisOomCounterEvent) => void,
   ): void {
     if (value === null) {
       return;
     }
     if (tracker.value === null) {
       tracker.value = value;
-      emit?.({ previousValue: null, value, delta: 0, kind: 'baseline', at });
       return;
     }
     if (value > tracker.value) {
@@ -308,11 +361,9 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
       tracker.lastDelta = delta;
       tracker.lastChangedAt = at;
       this.logger.warn(`Redis ${label} counter increased by ${delta} (now ${value}) at ${at}`);
-      emit?.({ previousValue: tracker.value, value, delta, kind: 'increase', at });
     } else if (value < tracker.value) {
       tracker.lastDelta = 0;
       tracker.lastChangedAt = null;
-      emit?.({ previousValue: tracker.value, value, delta: 0, kind: 'reset', at });
     }
     tracker.value = value;
   }

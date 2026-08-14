@@ -4,6 +4,10 @@ export const REDIS_PRESSURE_WINDOW_SAMPLES = 10;
 export const REDIS_PRESSURE_THRESHOLD_PERCENT = 80;
 export const REDIS_COMMAND_TIMEOUT_MS = 5_000;
 export const REDIS_STALE_AFTER_MS = REDIS_SAMPLE_INTERVAL_MS * 3;
+export const REDIS_SAMPLE_RETENTION_DAYS = 90;
+export const REDIS_PRUNE_BATCH_SIZE = 5_000;
+export const REDIS_PRUNE_MAX_BATCHES = 20;
+export const REDIS_DETAIL_MAX_ROWS = 5_000;
 
 export type SampleFailureReason =
   | 'overlap-skipped'
