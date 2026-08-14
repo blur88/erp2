@@ -105,9 +105,10 @@ jobs:
 
       # Covers OrphanedSchedulerReconciler (#1045) against a real Redis: a v5
       # queue seeds genuine scheduler-format orphans and non-ic legacy entries
-      # — shapes only BullMQ 5 can write, which is what the `bullmq-v5` alias
-      # in devDependencies is for. The unit tests mock hexists and so cannot
-      # catch an inverted ic check. Runs last because it is the cheapest gate
+      # — the shapes BullMQ 5 produced in the migration scenario, which is what
+      # the `bullmq-v5` alias in devDependencies is for (v6 cannot write the
+      # non-ic shape at all). The unit tests mock hexists and so cannot catch
+      # an inverted ic check. Runs last because it is the cheapest gate
       # and must not delay E2E feedback.
       - name: Orphaned scheduler reconciliation tests
         run: npm run test:redis

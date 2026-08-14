@@ -19,13 +19,12 @@ const QUEUE = 'backup-queue';
 
 /**
  * BullMQ's IRedisClient declares del/zrange/zcard/zscore/hexists but omits
- * keys/exists/zadd, which this test needs. Extend narrowly rather than
- * casting the whole client to any.
+ * keys/exists, which this test needs. Extend narrowly rather than casting
+ * the whole client to any.
  */
 type TestRedisClient = IRedisClient & {
   keys(pattern: string): Promise<string[]>;
   exists(key: string): Promise<number>;
-  zadd(key: string, score: number, member: string): Promise<number>;
 };
 
 const testClient = async (q: QueueV6): Promise<TestRedisClient> =>
