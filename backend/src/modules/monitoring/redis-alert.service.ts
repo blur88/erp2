@@ -1,191 +1,164 @@
 import { ConflictException, Injectable } from '@nestjs/common';
-import { RedisPressureState } from './redis-memory.types';
 import {
   OomAlert,
-  PressureEpisode,
-  REDIS_ALERT_EPISODE_CAPACITY,
-  RedisAlertSeverity,
+  RedisAlertUnavailableReason,
   RedisAlertView,
-  RedisOomCounterEvent,
   RedisPressureStateEvent,
 } from './redis-alert.types';
+import { RedisAlertStateRepository } from './redis-alert-state.repository';
+import {
+  AlertState,
+  applyOomCounter,
+  applyPressureState,
+  isOomActive,
+  severityFor,
+} from './redis-alert.transitions';
+
+/** One tick's worth of state, applied under a single lock. */
+export interface ApplySampleInput {
+  pressure: RedisPressureStateEvent;
+  /** Raw cumulative OOM counter; null when the read failed or the sample failed. */
+  rawOomCounter: number | null;
+  at: string;
+}
 
 /**
- * Owns operator-visible alert state derived from sampler events.
+ * Alert state lives in Postgres, not in this process.
  *
- * Holds state in process memory only — it never writes a Redis key, honouring
- * the diagnostic-only precedent set by `reportOrphanedSchedulers`. All state
- * resets on restart; durable retention is a separate slice.
+ * A `null` runId means Redis identity could not be read: no durable state can
+ * be safely keyed or rebased, so the transition is skipped and reads report
+ * `unavailable` rather than serving a row we cannot confirm belongs to the
+ * Redis we are talking to.
  */
 @Injectable()
 export class RedisAlertService {
-  private activeEpisode: PressureEpisode | null = null;
-  private readonly episodes: PressureEpisode[] = [];
-  private pressureState: RedisPressureState = 'insufficient-samples';
-  private oomBaselineValue: number | null = null;
-  private oomObservedValue: number | null = null;
-  private oomAcknowledgedValue: number | null = null;
-  private oomIncidentStartedAt: string | null = null;
-  private oomLastIncreaseAt: string | null = null;
-  private oomUnacknowledgedDelta = 0;
-  private oomLastAcknowledgedAt: string | null = null;
-  private oomLastAcknowledgedBy: string | null = null;
-  private oomLastAcknowledgedByLabel: string | null = null;
+  constructor(private readonly repository: RedisAlertStateRepository) {}
 
   /**
-   * Called on every sample, not only on transitions: this service decides what
-   * constitutes a change, keeping transition logic in one place.
+   * Applies one tick's pressure state and counter reading in ONE locked
+   * read-modify-write cycle.
    *
-   * Idempotent by construction — an episode starts only when none is active
-   * and recovers only on `healthy`, so `sustained-pressure -> unknown ->
-   * sustained-pressure` continues one episode instead of duplicating it.
+   * Deliberately a single method rather than two: separate calls would open
+   * two transactions per tick, so a failure between them leaves the row with
+   * the pressure transition applied and the counter transition not — a
+   * partial update of state that is meant to describe one instant. It also
+   * doubles the lock acquisitions for no benefit.
    */
-  onPressureState(event: RedisPressureStateEvent): void {
-    this.pressureState = event.state;
-
-    if (event.state === 'sustained-pressure' && this.activeEpisode === null) {
-      this.activeEpisode = {
-        startedAt: event.at,
-        recoveredAt: null,
-        peakUtilizationPercent: event.utilizationPercent,
-      };
+  async applySample(input: ApplySampleInput, runId: string | null): Promise<void> {
+    if (runId === null) {
+      // No identity: no durable state can be safely keyed or rebased.
       return;
     }
-
-    if (event.state === 'healthy' && this.activeEpisode !== null) {
-      this.activeEpisode.recoveredAt = event.at;
-      this.episodes.push(this.activeEpisode);
-      if (this.episodes.length > REDIS_ALERT_EPISODE_CAPACITY) {
-        this.episodes.shift();
+    await this.repository.mutate(runId, (state, isNewIdentity) => {
+      let next = applyPressureState(state, input.pressure);
+      if (input.rawOomCounter !== null) {
+        next = applyOomCounter(next, input.rawOomCounter, input.at, isNewIdentity);
       }
-      this.activeEpisode = null;
-      return;
-    }
-
-    // `unknown` and `insufficient-samples` never start or recover an episode;
-    // losing visibility is not recovery. Peak still updates from valid reads.
-    if (this.activeEpisode !== null && event.utilizationPercent !== null) {
-      const peak = this.activeEpisode.peakUtilizationPercent;
-      if (peak === null || event.utilizationPercent > peak) {
-        this.activeEpisode.peakUtilizationPercent = event.utilizationPercent;
-      }
-    }
+      return next;
+    });
   }
 
-  /**
-   * Both directions matter. An increase-only stream cannot implement the
-   * reset guard: a watermark from before a Redis restart or `CONFIG RESETSTAT`
-   * would exceed every post-restart value and suppress all future alerts.
-   */
-  onOomCounter(event: RedisOomCounterEvent): void {
-    this.oomObservedValue = event.value;
-
-    if (event.kind === 'baseline') {
-      // A counter already non-zero at startup predates this process and is
-      // not attributable to the current run, so it must not alert.
-      this.oomBaselineValue = event.value;
-      return;
-    }
-
-    if (event.kind === 'reset') {
-      this.oomBaselineValue = event.value;
-      this.oomAcknowledgedValue = null;
-      this.oomIncidentStartedAt = null;
-      this.oomLastIncreaseAt = null;
-      this.oomUnacknowledgedDelta = 0;
-      this.oomLastAcknowledgedAt = null;
-      this.oomLastAcknowledgedBy = null;
-      this.oomLastAcknowledgedByLabel = null;
-      return;
-    }
-
-    if (this.oomIncidentStartedAt === null) {
-      // A new incident supersedes any resolved acknowledgement, which must not
-      // render beside a live alert.
-      this.oomIncidentStartedAt = event.at;
-      this.oomUnacknowledgedDelta = event.delta;
-      this.oomLastAcknowledgedAt = null;
-      this.oomLastAcknowledgedBy = null;
-      this.oomLastAcknowledgedByLabel = null;
-    } else {
-      this.oomUnacknowledgedDelta += event.delta;
-    }
-    this.oomLastIncreaseAt = event.at;
-  }
-
-  acknowledgeOom(
+  async acknowledgeOom(
     observedValue: number,
     userId: string,
     userLabel: string | null,
+    runId: string | null,
     now: string = new Date().toISOString(),
+  ): Promise<RedisAlertView> {
+    if (runId === null) {
+      // Acknowledging an alert whose current value cannot be confirmed is
+      // exactly the blind acknowledgement the mismatch check prevents.
+      throw new ConflictException('Redis identity unavailable; cannot acknowledge');
+    }
+
+    const next = await this.repository.mutate(runId, (state) => {
+      if (!isOomActive(state)) {
+        throw new ConflictException('No active Redis OOM alert to acknowledge');
+      }
+      if (observedValue !== state.oomObservedValue) {
+        // The counter moved between render and click; acknowledging blind
+        // here would mark a newer, unseen OOM as handled.
+        throw new ConflictException(
+          'Redis OOM counter changed since it was read; re-read before acknowledging',
+        );
+      }
+      return {
+        ...state,
+        oomAcknowledgedValue: observedValue,
+        oomLastAcknowledgedAt: now,
+        oomLastAcknowledgedBy: userId,
+        oomLastAcknowledgedByLabel: userLabel,
+        oomUnacknowledgedDelta: 0,
+        oomIncidentStartedAt: null,
+      };
+    });
+
+    return this.viewOf(next, now);
+  }
+
+  async getView(
+    runId: string | null,
+    unavailableReason: RedisAlertUnavailableReason | null,
+    now: string = new Date().toISOString(),
+  ): Promise<RedisAlertView> {
+    if (runId === null) {
+      return this.unavailableView(unavailableReason ?? 'redis-identity-unknown', now);
+    }
+    try {
+      const state = await this.repository.read(runId);
+      if (state === null) {
+        return this.unavailableView('storage-unavailable', now);
+      }
+      return this.viewOf(state, now);
+    } catch {
+      return this.unavailableView('storage-unavailable', now);
+    }
+  }
+
+  private unavailableView(
+    reason: RedisAlertUnavailableReason,
+    now: string,
   ): RedisAlertView {
-    if (!this.isOomActive()) {
-      throw new ConflictException('No active Redis OOM alert to acknowledge');
-    }
-    if (observedValue !== this.oomObservedValue) {
-      // The counter moved between render and click; acknowledging blind here
-      // would mark a newer, unseen OOM as handled.
-      throw new ConflictException(
-        'Redis OOM counter changed since it was read; re-read before acknowledging',
-      );
-    }
-
-    this.oomAcknowledgedValue = observedValue;
-    this.oomLastAcknowledgedAt = now;
-    this.oomLastAcknowledgedBy = userId;
-    this.oomLastAcknowledgedByLabel = userLabel;
-    this.oomUnacknowledgedDelta = 0;
-    this.oomIncidentStartedAt = null;
-    return this.getView(now);
-  }
-
-  private isOomActive(): boolean {
-    if (this.oomObservedValue === null) {
-      return false;
-    }
-    const watermark = this.oomAcknowledgedValue ?? this.oomBaselineValue ?? 0;
-    return this.oomObservedValue > watermark;
-  }
-
-  getView(now: string = new Date().toISOString()): RedisAlertView {
-    const active = this.activeEpisode !== null;
-    const stale =
-      active &&
-      (this.pressureState === 'unknown' ||
-        this.pressureState === 'insufficient-samples');
-
     return {
-      pressure: {
-        active,
-        stale,
-        currentEpisode: this.activeEpisode ? { ...this.activeEpisode } : null,
-        recentEpisodes: this.episodes.map((episode) => ({ ...episode })),
-        state: this.pressureState,
-      },
-      oom: this.buildOomAlert(),
-      severity: this.severity(active),
+      pressure: null,
+      oom: null,
+      severity: 'unavailable',
+      unavailableReason: reason,
       generatedAt: now,
     };
   }
 
-  private severity(pressureActive: boolean): RedisAlertSeverity {
-    if (this.isOomActive()) {
-      return 'critical';
-    }
-    return pressureActive ? 'warning' : 'none';
+  private viewOf(state: AlertState, now: string): RedisAlertView {
+    const active = state.activeEpisode !== null;
+    return {
+      pressure: {
+        active,
+        stale:
+          active &&
+          (state.pressureState === 'unknown' ||
+            state.pressureState === 'insufficient-samples'),
+        currentEpisode: state.activeEpisode ? { ...state.activeEpisode } : null,
+        recentEpisodes: state.recentEpisodes.map((episode) => ({ ...episode })),
+        state: state.pressureState,
+      },
+      oom: this.oomAlert(state),
+      severity: severityFor(state),
+      unavailableReason: null,
+      generatedAt: now,
+    };
   }
 
-  private buildOomAlert(): OomAlert {
+  private oomAlert(state: AlertState): OomAlert {
     return {
-      active: this.isOomActive(),
-      observedValue: this.oomObservedValue,
-      acknowledgedValue: this.oomAcknowledgedValue,
-      incidentStartedAt: this.oomIncidentStartedAt,
-      lastIncreaseAt: this.oomLastIncreaseAt,
-      unacknowledgedDelta: this.oomUnacknowledgedDelta,
-      lastAcknowledgedAt: this.oomLastAcknowledgedAt,
-      lastAcknowledgedBy: this.oomLastAcknowledgedBy,
-      lastAcknowledgedByLabel: this.oomLastAcknowledgedByLabel,
+      active: isOomActive(state),
+      observedValue: state.oomObservedValue,
+      acknowledgedValue: state.oomAcknowledgedValue,
+      incidentStartedAt: state.oomIncidentStartedAt,
+      lastIncreaseAt: state.oomLastIncreaseAt,
+      unacknowledgedDelta: state.oomUnacknowledgedDelta,
+      lastAcknowledgedAt: state.oomLastAcknowledgedAt,
+      lastAcknowledgedBy: state.oomLastAcknowledgedBy,
+      lastAcknowledgedByLabel: state.oomLastAcknowledgedByLabel,
     };
   }
 }
