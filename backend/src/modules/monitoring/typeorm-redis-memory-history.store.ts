@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { Between, FindOptionsWhere, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
 import { RedisMemorySampleEntity } from '@/database/entities/redis-memory-sample.entity';
 import { RedisMemoryHistoryStore, SampleQuery } from './redis-memory-history.store';
+import { normalizeSampleQuery } from './normalize-sample-query';
 import {
   KNOWN_INSTANCES_LIMIT,
-  REDIS_DETAIL_MAX_ROWS,
   REDIS_HISTORY_CAPACITY,
   REDIS_SAMPLE_RETENTION_DAYS,
   KnownInstance,
@@ -41,9 +41,8 @@ export class TypeOrmRedisMemoryHistoryStore implements RedisMemoryHistoryStore {
   }
 
   async recent(query?: SampleQuery | number): Promise<RedisMemorySample[]> {
-    const normalized: SampleQuery =
-      typeof query === 'number' ? { limit: query } : (query ?? {});
-    const take = clampLimit(normalized.limit);
+    const normalized = normalizeSampleQuery(query);
+    const take = normalized.limit;
 
     // Newest-anchored: take the most recent `take` rows in the window, then
     // emit ascending so a truncated window is a recent slice, not an old one.
@@ -133,13 +132,6 @@ export class TypeOrmRedisMemoryHistoryStore implements RedisMemoryHistoryStore {
     }
     return where;
   }
-}
-
-function clampLimit(limit?: number): number {
-  if (limit === undefined || !Number.isFinite(limit)) {
-    return REDIS_HISTORY_CAPACITY;
-  }
-  return Math.min(Math.max(Math.trunc(limit), 1), REDIS_DETAIL_MAX_ROWS);
 }
 
 /** Clamps rather than erroring; `from` after `to` yields an empty window. */
