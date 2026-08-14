@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Stub for `node`, used only by verify-baseline.sh's TCP pg probe.
+# Real verify-baseline.sh runs: node -e '<pg client script>'
+printf '%s\n' "node $*" >> "$STUB_LOG"
+exit "${STUB_NODE_EXIT:-0}"

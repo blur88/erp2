@@ -113,6 +113,15 @@ jobs:
       - name: Orphaned scheduler reconciliation tests
         run: npm run test:redis
 
+      # Shell orchestration tests for the migration-baseline gate scripts
+      # (#1061). Bats stubs `docker` and `node` on PATH, so these run the real
+      # scripts end-to-end with no live Postgres — covering the preflight
+      # boundaries of both verify-seeds.sh and verify-baseline.sh, including
+      # PR #1060's previously untested credential probe. Runs last: cheapest
+      # gate, and must not delay E2E feedback.
+      - name: Gate script tests
+        run: npm run test:scripts
+
   test-frontend:
     name: Frontend - Lint, Type Check, Tests
     runs-on: ubuntu-latest
