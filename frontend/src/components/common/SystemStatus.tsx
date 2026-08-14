@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { keyframes } from '@emotion/react'
 import {
   Box,
+  Button,
   CircularProgress,
   Divider,
   IconButton,
@@ -21,8 +22,43 @@ import { default as RedisIcon } from '@mui/icons-material/Memory'
 import { default as DatabaseIcon } from '@mui/icons-material/Storage'
 
 import { ApiService } from '@/services/api'
+import { useAppSelector } from '@/hooks/useRedux'
+import { selectCurrentUser } from '@/store/slices/authSlice'
 import TopBarUtilityPanel from './TopBarUtilityPanel'
 import { StatusChip } from '@/components/common/StatusChip'
+
+interface PressureEpisode {
+  startedAt: string
+  recoveredAt: string | null
+  peakUtilizationPercent: number | null
+}
+
+interface OomAlert {
+  active: boolean
+  observedValue: number | null
+  acknowledgedValue: number | null
+  incidentStartedAt: string | null
+  lastIncreaseAt: string | null
+  unacknowledgedDelta: number
+  lastAcknowledgedAt: string | null
+  lastAcknowledgedBy: string | null
+  lastAcknowledgedByLabel: string | null
+}
+
+interface RedisAlertView {
+  pressure: {
+    active: boolean
+    stale: boolean
+    currentEpisode: PressureEpisode | null
+    recentEpisodes: PressureEpisode[]
+    state: string
+  }
+  oom: OomAlert
+  severity: 'none' | 'warning' | 'critical'
+  generatedAt: string
+}
+
+const ALERT_POLL_MS = 60000
 
 interface RedisMemory {
   usedBytes: number
@@ -64,8 +100,14 @@ const statusPulse = keyframes`
 
 const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, onOpen, onClose }) => {
   const theme = useTheme()
+  const currentUser = useAppSelector(selectCurrentUser)
+  const isAdmin = currentUser?.role === 'admin'
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [loading, setLoading] = useState(false)
+  const [alerts, setAlerts] = useState<RedisAlertView | null>(null)
+  const [alertsUnavailable, setAlertsUnavailable] = useState(false)
+  const [acknowledging, setAcknowledging] = useState(false)
+  const [ackError, setAckError] = useState<string | null>(null)
   const frontendStatus = 'healthy' as const
 
   const checkHealth = async () => {
@@ -87,14 +129,78 @@ const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, onOpen, onClose }
     return () => clearInterval(interval)
   }, [])
 
+  const fetchAlerts = async () => {
+    if (!isAdmin) return
+    try {
+      const response = await ApiService.get<RedisAlertView>('/health/redis-alerts')
+      setAlerts(response as RedisAlertView)
+      setAlertsUnavailable(false)
+    } catch {
+      // Preserve the last known alert state. Clearing it would make a sticky
+      // red OOM indicator vanish on a single transient request failure —
+      // exactly the disappearance stickiness exists to prevent. The staleness
+      // is surfaced instead.
+      setAlertsUnavailable(true)
+    }
+  }
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setAlerts(null)
+      return
+    }
+    void fetchAlerts()
+    const interval = setInterval(() => {
+      // Polling pauses while the tab is hidden; visibility change refetches.
+      if (document.visibilityState === 'visible') void fetchAlerts()
+    }, ALERT_POLL_MS)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void fetchAlerts()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [isAdmin])
+
+  const handleAcknowledge = async () => {
+    if (!alerts?.oom.active || alerts.oom.observedValue === null) return
+    setAcknowledging(true)
+    setAckError(null)
+    try {
+      const response = await ApiService.post<RedisAlertView>(
+        '/health/redis-alerts/oom/acknowledge',
+        { observedValue: alerts.oom.observedValue },
+      )
+      setAlerts(response as RedisAlertView)
+    } catch (error) {
+      const status = (error as { response?: { status?: number } })?.response?.status
+      if (status === 409) {
+        // The counter moved between render and click. Re-read so the operator
+        // sees the newer incident rather than a raw error.
+        await fetchAlerts()
+      } else {
+        // Any other failure (network, 500, 403) did NOT acknowledge anything.
+        // Keep the alert visible and offer a retry; treating these as 409
+        // would silently discard a still-unacknowledged incident.
+        setAckError('Acknowledgement failed. Please retry.')
+      }
+    } finally {
+      setAcknowledging(false)
+    }
+  }
+
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     onOpen(event)
     void checkHealth()
   }
 
   const getOverallStatus = (): 'healthy' | 'degraded' | 'unhealthy' | 'unknown' => {
+    if (alerts?.severity === 'critical') return 'unhealthy'
     if (loading && !health) return 'unknown'
     if (!health) return 'unknown'
+    if (alerts?.severity === 'warning' && health.status === 'healthy') return 'degraded'
     return health.status
   }
 
@@ -141,6 +247,8 @@ const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, onOpen, onClose }
           <Box sx={{ position: 'relative', display: 'inline-flex' }}>
             <DnsRoundedIcon sx={{ fontSize: 22 }} />
             <Box
+              data-testid="system-status-dot"
+              data-status={overallStatus}
               sx={{
                 position: 'absolute',
                 top: 2,
@@ -201,6 +309,103 @@ const SystemStatus: React.FC<SystemStatusProps> = ({ anchorEl, onOpen, onClose }
                   </ListItem>
                 ))}
               </List>
+            </>
+          )}
+
+          {isAdmin && alerts && (
+            <>
+              <Divider sx={{ my: 1.5 }} />
+              <Box>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  Redis Alerts
+                </Typography>
+
+                {alertsUnavailable && (
+                  <Typography variant="caption" sx={{ display: 'block', color: 'warning.main' }}>
+                    Alert state may be out of date — last update{' '}
+                    {new Date(alerts.generatedAt).toLocaleTimeString()}
+                  </Typography>
+                )}
+
+                {alerts.pressure.active ? (
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    Sustained memory pressure since{' '}
+                    {new Date(alerts.pressure.currentEpisode?.startedAt ?? '').toLocaleString()}
+                    {alerts.pressure.currentEpisode?.peakUtilizationPercent !== null &&
+                      ` — peak ${alerts.pressure.currentEpisode?.peakUtilizationPercent}%`}
+                    {alerts.pressure.stale && ' — stale, no live confirmation'}
+                  </Typography>
+                ) : (
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    No active memory pressure
+                  </Typography>
+                )}
+
+                {alerts.oom.active ? (
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="body2">
+                      {alerts.oom.unacknowledgedDelta} OOM error
+                      {alerts.oom.unacknowledgedDelta === 1 ? '' : 's'} since{' '}
+                      {new Date(alerts.oom.incidentStartedAt ?? '').toLocaleString()}
+                    </Typography>
+                    <Button
+                      size="small"
+                      onClick={handleAcknowledge}
+                      disabled={acknowledging}
+                      sx={{ mt: 0.5 }}
+                    >
+                      Acknowledge
+                    </Button>
+                    {ackError && (
+                      <Typography variant="caption" sx={{ display: 'block', color: 'error.main' }}>
+                        {ackError}
+                      </Typography>
+                    )}
+                  </Box>
+                ) : (
+                  alerts.oom.lastAcknowledgedAt && (
+                    // "Acknowledged", never "recovered": an OOM event cannot
+                    // recover, only be acknowledged.
+                    <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
+                      OOM errors acknowledged{' '}
+                      {new Date(alerts.oom.lastAcknowledgedAt).toLocaleString()}
+                      {alerts.oom.lastAcknowledgedByLabel &&
+                        ` by ${alerts.oom.lastAcknowledgedByLabel}`}
+                    </Typography>
+                  )
+                )}
+
+                {alerts.pressure.recentEpisodes.length > 0 && (
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                      Recent pressure episodes
+                    </Typography>
+                    <List dense disablePadding>
+                      {[...alerts.pressure.recentEpisodes]
+                        .reverse()
+                        .slice(0, 5)
+                        .map((episode) => (
+                          <ListItem key={episode.startedAt} disablePadding>
+                            <ListItemText
+                              slotProps={{ primary: { variant: 'caption' } }}
+                              // Pressure "recovers"; the OOM wording above is
+                              // deliberately different.
+                              primary={`${new Date(episode.startedAt).toLocaleString()} — recovered ${
+                                episode.recoveredAt
+                                  ? new Date(episode.recoveredAt).toLocaleTimeString()
+                                  : 'n/a'
+                              }${
+                                episode.peakUtilizationPercent !== null
+                                  ? ` (peak ${episode.peakUtilizationPercent}%)`
+                                  : ''
+                              }`}
+                            />
+                          </ListItem>
+                        ))}
+                    </List>
+                  </Box>
+                )}
+              </Box>
             </>
           )}
 
