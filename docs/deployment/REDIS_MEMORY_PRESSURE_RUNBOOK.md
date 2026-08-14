@@ -203,3 +203,46 @@ OOM occurrence, or any `evicted_keys` delta is a finding that should reach
 the operator. Notification routing is explicitly out of scope for this
 increment; until it exists, treat the transition warnings in `docker
 compose logs backend` as the signal to investigate.
+
+## In-app alerting
+
+Administrators see Redis alert state without touching a terminal — the
+TopBar status dot and the System Status panel surface the same signals the
+sampler computes:
+
+| Endpoint | Auth | Purpose |
+|---|---|---|
+| `GET /api/health/redis-alerts` | `@Auth(UserRole.ADMIN)` | Current pressure and OOM alert state, with severity |
+| `POST /api/health/redis-alerts/oom/acknowledge` | `@Auth(UserRole.ADMIN)` | Acknowledge the observed OOM counter value |
+
+The status dot next to the system icon drives its colour from the server
+computed `severity`: a `critical` OOM incident turns the dot red even when
+every service reports healthy, and an active `sustained-pressure` episode
+turns it amber (degraded). The System Status panel (admin accounts only)
+shows the detail: the pressure episode's start and peak utilization, the
+unacknowledged OOM count, and the last five recovered episodes.
+
+### How the two alert kinds behave
+
+- **Pressure is a condition.** An episode opens when the sampler establishes
+  `sustained-pressure` and auto-closes on `healthy` — no operator action
+  needed. While the state is `unknown` or `insufficient-samples`, the panel
+  marks the reading stale ("no live confirmation") rather than claiming a
+  recovery that has not been measured.
+- **An OOM is an event.** It stays active until an operator acknowledges it.
+  The acknowledge action sends the counter value the operator actually saw;
+  a later increase opens a **new** incident, so an acknowledgement can never
+  suppress future errors. A 409 means the counter moved between render and
+  click — the panel re-reads and shows the newer incident instead of an
+  error.
+
+### Operational notes
+
+- A non-zero OOM counter inherited at backend startup does **not** alert —
+  it predates the current process and is not attributable to it.
+- A counter reset (Redis restart or `CONFIG RESETSTAT`) clears the alert
+  watermark, so post-restart increases alert normally.
+- Alert and acknowledgement state is held **in process memory** and resets
+  on backend restart; there is no durable alert history. Treat the panel as
+  a live view, and rely on the log-based escalation above for anything that
+  must survive a restart.

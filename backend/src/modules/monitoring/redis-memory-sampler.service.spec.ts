@@ -257,3 +257,110 @@ describe('RedisMemorySamplerService', () => {
     expect(detail.counters.evictedKeys.value).toBe(5);
   });
 });
+
+describe('RedisMemorySamplerService alert wiring', () => {
+  let store: InMemoryRedisMemoryHistoryStore;
+  let evaluator: RedisMemoryPressureEvaluator;
+  let logger: { warn: jest.Mock; error: jest.Mock; log: jest.Mock };
+  let alerts: { onPressureState: jest.Mock; onOomCounter: jest.Mock };
+  let service: RedisMemorySamplerService;
+
+  const infoWithOom = (used: number, max: number, oom: number): string =>
+    `used_memory:${used}\r\nmaxmemory:${max}\r\n`;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    redisMock.status = 'wait';
+    redisMock.connect.mockResolvedValue(undefined);
+    redisMock.ping.mockResolvedValue('PONG');
+    redisMock.disconnect.mockReturnValue(undefined);
+
+    store = new InMemoryRedisMemoryHistoryStore();
+    evaluator = new RedisMemoryPressureEvaluator();
+    logger = { warn: jest.fn(), error: jest.fn(), log: jest.fn() };
+    alerts = { onPressureState: jest.fn(), onOomCounter: jest.fn() };
+    service = new RedisMemorySamplerService(
+      store,
+      logger as unknown as Logger,
+      evaluator,
+      alerts as any,
+    );
+  });
+
+  const mockInfo = (used: number, max: number, oom: number | null) => {
+    redisMock.info.mockImplementation((section: string) => {
+      if (section === 'memory') return Promise.resolve(infoWithOom(used, max, 0));
+      if (section === 'stats') return Promise.resolve('evicted_keys:0\r\n');
+      if (section === 'errorstats') {
+        return Promise.resolve(
+          oom === null ? '' : `# Errorstats\r\nerrorstat_OOM:count=${oom}\r\n`,
+        );
+      }
+      return Promise.resolve('');
+    });
+  };
+
+  it('emits a pressure event carrying the sample utilization', async () => {
+    mockInfo(100, 1000, 0);
+    await service.sampleNow();
+    expect(alerts.onPressureState).toHaveBeenCalledTimes(1);
+    const event = alerts.onPressureState.mock.calls[0][0];
+    expect(event.utilizationPercent).toBe(10);
+    expect(typeof event.at).toBe('string');
+    expect(event.state).toBeDefined();
+  });
+
+  it('emits a null utilization for a failed sample', async () => {
+    redisMock.ping.mockRejectedValue(new Error('down'));
+    await service.sampleNow();
+    const event = alerts.onPressureState.mock.calls[0][0];
+    expect(event.utilizationPercent).toBeNull();
+  });
+
+  it('emits a baseline OOM event on first observation', async () => {
+    mockInfo(100, 1000, 4);
+    await service.sampleNow();
+    expect(alerts.onOomCounter).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'baseline', value: 4, previousValue: null, delta: 0 }),
+    );
+  });
+
+  it('emits an increase OOM event with the delta', async () => {
+    mockInfo(100, 1000, 4);
+    await service.sampleNow();
+    mockInfo(100, 1000, 9);
+    await service.sampleNow();
+    expect(alerts.onOomCounter).toHaveBeenLastCalledWith(
+      expect.objectContaining({ kind: 'increase', previousValue: 4, value: 9, delta: 5 }),
+    );
+  });
+
+  it('emits a reset OOM event when the counter decreases', async () => {
+    mockInfo(100, 1000, 9);
+    await service.sampleNow();
+    mockInfo(100, 1000, 2);
+    await service.sampleNow();
+    expect(alerts.onOomCounter).toHaveBeenLastCalledWith(
+      expect.objectContaining({ kind: 'reset', previousValue: 9, value: 2, delta: 0 }),
+    );
+  });
+
+  it('emits nothing for an unchanged OOM counter', async () => {
+    mockInfo(100, 1000, 4);
+    await service.sampleNow();
+    alerts.onOomCounter.mockClear();
+    await service.sampleNow();
+    expect(alerts.onOomCounter).not.toHaveBeenCalled();
+  });
+
+  it('does not route evicted_keys to the alert service', async () => {
+    mockInfo(100, 1000, null);
+    redisMock.info.mockImplementation((section: string) => {
+      if (section === 'memory') return Promise.resolve(infoWithOom(100, 1000, 0));
+      if (section === 'stats') return Promise.resolve('evicted_keys:7\r\n');
+      return Promise.resolve('');
+    });
+    await service.sampleNow();
+    expect(alerts.onOomCounter).not.toHaveBeenCalled();
+  });
+});
