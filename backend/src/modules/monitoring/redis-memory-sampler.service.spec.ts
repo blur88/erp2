@@ -2,7 +2,8 @@ import { Logger } from '@nestjs/common';
 import { InMemoryRedisMemoryHistoryStore } from './in-memory-redis-memory-history.store';
 import { RedisMemoryPressureEvaluator } from './redis-memory-pressure.evaluator';
 import { RedisMemorySamplerService } from './redis-memory-sampler.service';
-import { REDIS_COMMAND_TIMEOUT_MS } from './redis-memory.types';
+import { SampleQuery } from './redis-memory-history.store';
+import { REDIS_COMMAND_TIMEOUT_MS, RedisMemorySample } from './redis-memory.types';
 
 const redisMock = {
   status: 'wait',
@@ -41,6 +42,8 @@ describe('RedisMemorySamplerService', () => {
       store,
       logger as unknown as Logger,
       evaluator,
+      undefined,
+      { instanceId: 'erp_backend', source: 'configured' },
     );
   });
 
@@ -213,7 +216,6 @@ describe('RedisMemorySamplerService', () => {
       await service.sampleNow();
     }
     expect(logger.warn).toHaveBeenCalledTimes(1);
-
     redisMock.info.mockImplementation((section: string) => {
       if (section === 'memory') return Promise.resolve('used_memory:20\r\nmaxmemory:100\r\n');
       if (section === 'stats') return Promise.resolve('# Stats\r\nevicted_keys:0\r\n');
@@ -261,6 +263,64 @@ describe('RedisMemorySamplerService', () => {
     expect(detail.counters.oomErrors.lastDelta).toBe(4);
     expect(detail.counters.evictedKeys.available).toBe(true);
     expect(detail.counters.evictedKeys.value).toBe(5);
+  });
+
+  const sampleFixture: RedisMemorySample = {
+    at: '2026-08-14T10:00:00.000Z',
+    ok: true,
+    failureReason: null,
+    usedBytes: 1_000,
+    maxBytes: 2_000,
+    utilizationPercent: 50,
+    evictedKeys: 0,
+    oomErrors: 0,
+  };
+  const otherInstanceSample: RedisMemorySample = {
+    ...sampleFixture,
+    at: '2026-08-14T10:01:00.000Z',
+    instanceId: 'other-instance',
+  };
+
+  it('reports truncation when more rows match than are returned', async () => {
+    store.recent = jest.fn().mockResolvedValue([sampleFixture]);
+    store.countMatching = jest.fn().mockResolvedValue(4200);
+    const detail = await service.getDetail({});
+    expect(detail.truncated).toBe(true);
+    expect(detail.totalMatching).toBe(4200);
+  });
+
+  it('reports no truncation when the window fits', async () => {
+    store.recent = jest.fn().mockResolvedValue([sampleFixture]);
+    store.countMatching = jest.fn().mockResolvedValue(1);
+    const detail = await service.getDetail({});
+    expect(detail.truncated).toBe(false);
+  });
+
+  it('echoes allInstances precedence over instanceId', async () => {
+    const detail = await service.getDetail({ allInstances: true, instanceId: 'other' });
+    expect(detail.appliedInstanceFilter).toBe('all');
+  });
+
+  it('degrades to historyAvailable false when the store throws', async () => {
+    store.recent = jest.fn().mockRejectedValue(new Error('db down'));
+    const detail = await service.getDetail({});
+    expect(detail.historyAvailable).toBe(false);
+    expect(detail.samples).toEqual([]);
+    // Configuration is still present so an operator can see the resolved id.
+    expect(detail.configuration.instanceId).toBe('erp_backend');
+  });
+
+  it('keeps latestSample scoped to the current instance under allInstances', async () => {
+    // latestSample feeds the health view; widening the query must not change
+    // which instance's reading /health reports.
+    store.recent = jest
+      .fn()
+      .mockImplementation(async (q: SampleQuery | number | undefined) =>
+        typeof q === 'object' && q?.allInstances ? [otherInstanceSample] : [sampleFixture],
+      );
+    const detail = await service.getDetail({ allInstances: true });
+    expect(detail.samples).toEqual([otherInstanceSample]);
+    expect(detail.latestSample).toEqual(sampleFixture);
   });
 });
 

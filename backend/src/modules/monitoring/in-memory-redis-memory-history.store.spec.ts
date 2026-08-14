@@ -1,4 +1,4 @@
-import { InMemoryRedisMemoryHistoryStore } from './in-memory-redis-memory-history.store';
+import { InMemoryRedisMemoryHistoryStore, IN_MEMORY_INSTANCE_ID } from './in-memory-redis-memory-history.store';
 import { RedisMemorySample } from './redis-memory.types';
 
 const sample = (minute: number, ok = true): RedisMemorySample => ({
@@ -12,13 +12,22 @@ const sample = (minute: number, ok = true): RedisMemorySample => ({
   oomErrors: ok ? 0 : null,
 });
 
+const withInstanceId = (s: RedisMemorySample): RedisMemorySample => ({
+  ...s,
+  instanceId: IN_MEMORY_INSTANCE_ID,
+});
+
 describe('InMemoryRedisMemoryHistoryStore', () => {
   it('evicts the oldest sample at capacity while preserving order', async () => {
     const store = new InMemoryRedisMemoryHistoryStore(3);
     for (const minute of [0, 1, 2, 3]) {
       await store.append(sample(minute));
     }
-    expect(await store.recent()).toEqual([sample(1), sample(2), sample(3)]);
+    expect(await store.recent()).toEqual([
+      withInstanceId(sample(1)),
+      withInstanceId(sample(2)),
+      withInstanceId(sample(3)),
+    ]);
     expect(await store.stats()).toMatchObject({ sampleCount: 3, capacity: 3 });
   });
 

@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import Redis from 'ioredis';
 
 import { RedisMemorySamplerService } from './modules/monitoring/redis-memory-sampler.service';
+import { RedisMemoryDetailQueryDto } from './modules/monitoring/dto/redis-memory-detail-query.dto';
 import {
   REDIS_PRESSURE_THRESHOLD_PERCENT,
   REDIS_PRESSURE_WINDOW_SAMPLES,
@@ -166,8 +167,10 @@ export class AppService implements OnModuleDestroy {
   }
 
   /** Administrator-only detail view of the sampler's history and state. */
-  async getRedisMemoryDetail(): Promise<RedisMemoryDetail> {
-    return this.sampler.getDetail();
+  async getRedisMemoryDetail(
+    query: RedisMemoryDetailQueryDto = {},
+  ): Promise<RedisMemoryDetail> {
+    return this.sampler.getDetail(query);
   }
 
   private redisMessage(

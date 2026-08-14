@@ -3,16 +3,23 @@ import { Reflector } from '@nestjs/core';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { MonitoringController } from './monitoring.controller';
+import { RedisMemorySamplerService } from './redis-memory-sampler.service';
 import { RedisAlertService } from './redis-alert.service';
+import { RedisAlertView } from './redis-alert.types';
 import { UserRole } from '@/database/entities/user.entity';
 
 describe('MonitoringController', () => {
-  let alerts: RedisAlertService;
+  let alerts: { getView: jest.Mock; acknowledgeOom: jest.Mock };
+  let sampler: { getIdentity: jest.Mock };
   let controller: MonitoringController;
 
   beforeEach(() => {
-    alerts = new RedisAlertService();
-    controller = new MonitoringController(alerts);
+    alerts = { getView: jest.fn(), acknowledgeOom: jest.fn() };
+    sampler = { getIdentity: jest.fn() };
+    controller = new MonitoringController(
+      alerts as unknown as RedisAlertService,
+      sampler as unknown as RedisMemorySamplerService,
+    );
   });
 
   // Calling a controller method directly bypasses guards entirely, so
@@ -43,55 +50,76 @@ describe('MonitoringController', () => {
     });
   });
 
-  it('returns the current alert view', () => {
-    const view = controller.getRedisAlerts();
-    expect(view.pressure.active).toBe(false);
-    expect(view.oom.active).toBe(false);
-    expect(view.severity).toBe('none');
-    expect(typeof view.generatedAt).toBe('string');
+  const identity = { runId: 'run-1', reason: null as string | null };
+  const viewFixture = (severity: RedisAlertView['severity']): RedisAlertView => ({
+    pressure: null,
+    oom: null,
+    severity,
+    unavailableReason: severity === 'unavailable' ? 'redis-identity-unknown' : null,
+    generatedAt: '2026-08-14T10:00:00.000Z',
   });
 
-  it('acknowledges an active OOM alert', () => {
-    alerts.onOomCounter({
-      previousValue: null, value: 0, delta: 0, kind: 'baseline', at: '2026-08-14T10:00:00.000Z',
-    });
-    alerts.onOomCounter({
-      previousValue: 0, value: 2, delta: 2, kind: 'increase', at: '2026-08-14T10:01:00.000Z',
-    });
+  it('resolves identity from the sampler and passes both parts to getView', async () => {
+    sampler.getIdentity.mockReturnValue(identity);
+    alerts.getView.mockResolvedValue(viewFixture('none'));
 
-    const view = controller.acknowledgeOom(
+    const view = await controller.getRedisAlerts();
+
+    expect(sampler.getIdentity).toHaveBeenCalledTimes(1);
+    expect(alerts.getView).toHaveBeenCalledWith('run-1', null);
+    expect(view.severity).toBe('none');
+  });
+
+  it('returns the unavailable variant when identity is unknown', async () => {
+    sampler.getIdentity.mockReturnValue({
+      runId: null,
+      reason: 'redis-identity-unknown',
+    });
+    alerts.getView.mockResolvedValue(viewFixture('unavailable'));
+
+    const view = await controller.getRedisAlerts();
+
+    expect(alerts.getView).toHaveBeenCalledWith(null, 'redis-identity-unknown');
+    expect(view.severity).toBe('unavailable');
+  });
+
+  it('rejects acknowledgement while identity is unavailable', async () => {
+    sampler.getIdentity.mockReturnValue({
+      runId: null,
+      reason: 'redis-identity-unknown',
+    });
+    alerts.acknowledgeOom.mockRejectedValue(new ConflictException('x'));
+
+    await expect(
+      controller.acknowledgeOom({ observedValue: 9 }, 'user-1', { username: 'ada' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('acknowledges with the identity run id and a display label', async () => {
+    sampler.getIdentity.mockReturnValue(identity);
+    alerts.acknowledgeOom.mockResolvedValue(viewFixture('none'));
+
+    const view = await controller.acknowledgeOom(
       { observedValue: 2 },
       'user-1',
       { username: 'ada', firstName: 'Ada', lastName: 'L' } as any,
     );
 
-    expect(view.oom.active).toBe(false);
-    expect(view.oom.lastAcknowledgedBy).toBe('user-1');
-    expect(view.oom.lastAcknowledgedByLabel).toBe('Ada L');
-  });
-
-  it('propagates a 409 for a stale acknowledgement', () => {
-    alerts.onOomCounter({
-      previousValue: null, value: 0, delta: 0, kind: 'baseline', at: '2026-08-14T10:00:00.000Z',
-    });
-    alerts.onOomCounter({
-      previousValue: 0, value: 5, delta: 5, kind: 'increase', at: '2026-08-14T10:01:00.000Z',
-    });
-    expect(() =>
-      controller.acknowledgeOom({ observedValue: 2 }, 'user-1', { username: 'ada' } as any),
-    ).toThrow(ConflictException);
-  });
-
-  it('falls back to the username when no name is set', () => {
-    alerts.onOomCounter({
-      previousValue: null, value: 0, delta: 0, kind: 'baseline', at: '2026-08-14T10:00:00.000Z',
-    });
-    alerts.onOomCounter({
-      previousValue: 0, value: 1, delta: 1, kind: 'increase', at: '2026-08-14T10:01:00.000Z',
-    });
-    const view = controller.acknowledgeOom(
-      { observedValue: 1 }, 'user-1', { username: 'ada' } as any,
+    expect(alerts.acknowledgeOom).toHaveBeenCalledWith(
+      2,
+      'user-1',
+      'Ada L',
+      'run-1',
     );
-    expect(view.oom.lastAcknowledgedByLabel).toBe('ada');
+    expect(view.severity).toBe('none');
+  });
+
+  it('falls back to the username when no name is set', async () => {
+    sampler.getIdentity.mockReturnValue(identity);
+    alerts.acknowledgeOom.mockResolvedValue(viewFixture('none'));
+
+    await controller.acknowledgeOom({ observedValue: 1 }, 'user-1', { username: 'ada' } as any);
+
+    expect(alerts.acknowledgeOom).toHaveBeenCalledWith(1, 'user-1', 'ada', 'run-1');
   });
 });

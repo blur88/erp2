@@ -3,9 +3,11 @@ import { Between, FindOptionsWhere, LessThanOrEqual, MoreThanOrEqual, Repository
 import { RedisMemorySampleEntity } from '@/database/entities/redis-memory-sample.entity';
 import { RedisMemoryHistoryStore, SampleQuery } from './redis-memory-history.store';
 import {
+  KNOWN_INSTANCES_LIMIT,
   REDIS_DETAIL_MAX_ROWS,
   REDIS_HISTORY_CAPACITY,
   REDIS_SAMPLE_RETENTION_DAYS,
+  KnownInstance,
   RedisMemoryHistoryStats,
   RedisMemorySample,
   SampleFailureReason,
@@ -63,6 +65,7 @@ export class TypeOrmRedisMemoryHistoryStore implements RedisMemoryHistoryStore {
           row.utilizationPercent === null ? null : Number(row.utilizationPercent),
         evictedKeys: row.evictedKeys,
         oomErrors: row.oomErrors,
+        instanceId: row.instanceId,
       }));
   }
 
@@ -76,6 +79,38 @@ export class TypeOrmRedisMemoryHistoryStore implements RedisMemoryHistoryStore {
       capacity: REDIS_HISTORY_CAPACITY,
       latestSampleAt: samples[samples.length - 1]?.at ?? null,
     };
+  }
+
+  async countMatching(query: SampleQuery = {}): Promise<number> {
+    return this.repository.count({ where: this.whereFor(query) });
+  }
+
+  async knownInstances(): Promise<KnownInstance[]> {
+    const floor = new Date(Date.now() - REDIS_SAMPLE_RETENTION_DAYS * 86_400_000);
+    const rows = await this.repository
+      .createQueryBuilder('sample')
+      .select('sample.instanceId', 'instanceId')
+      .addSelect('MIN(sample.sampledAt)', 'firstSampleAt')
+      .addSelect('MAX(sample.sampledAt)', 'lastSampleAt')
+      .addSelect('COUNT(*)', 'sampleCount')
+      .where('sample.sampledAt >= :floor', { floor })
+      .groupBy('sample.instanceId')
+      .orderBy('MAX(sample.sampledAt)', 'DESC')
+      .limit(KNOWN_INSTANCES_LIMIT)
+      .getRawMany<{
+        instanceId: string;
+        firstSampleAt: Date;
+        lastSampleAt: Date;
+        sampleCount: string;
+      }>();
+
+    return rows.map((row) => ({
+      instanceId: row.instanceId,
+      firstSampleAt: row.firstSampleAt.toISOString(),
+      lastSampleAt: row.lastSampleAt.toISOString(),
+      sampleCount: Number(row.sampleCount),
+      current: row.instanceId === this.instanceId,
+    }));
   }
 
   private whereFor(query: SampleQuery): FindOptionsWhere<RedisMemorySampleEntity> {

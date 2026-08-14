@@ -1,4 +1,4 @@
-import { RedisMemoryHistoryStats, RedisMemorySample } from './redis-memory.types';
+import { KnownInstance, RedisMemoryHistoryStats, RedisMemorySample } from './redis-memory.types';
 
 export const REDIS_MEMORY_HISTORY_STORE = Symbol('REDIS_MEMORY_HISTORY_STORE');
 
@@ -22,4 +22,8 @@ export interface RedisMemoryHistoryStore {
   append(sample: RedisMemorySample): Promise<void>;
   recent(query?: SampleQuery | number): Promise<RedisMemorySample[]>;
   stats(): Promise<RedisMemoryHistoryStats>;
+  /** Distinct instance ids within the retention window, newest activity first. */
+  knownInstances(): Promise<KnownInstance[]>;
+  /** Rows matching `query` ignoring `limit` — powers `truncated`/`totalMatching`. */
+  countMatching(query?: SampleQuery): Promise<number>;
 }

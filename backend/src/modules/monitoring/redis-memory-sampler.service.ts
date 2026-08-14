@@ -11,18 +11,24 @@ import Redis from 'ioredis';
 import {
   REDIS_MEMORY_HISTORY_STORE,
   RedisMemoryHistoryStore,
+  SampleQuery,
 } from './redis-memory-history.store';
 import { parseEvictedKeys, parseOomErrors, parseRedisMemory, parseRunId } from './redis-info.parser';
 import { RedisMemoryPressureEvaluator } from './redis-memory-pressure.evaluator';
 import { RedisAlertService } from './redis-alert.service';
 import { RedisAlertUnavailableReason } from './redis-alert.types';
+import { ResolvedInstanceId } from './instance-identity';
+import { MONITORING_INSTANCE_ID } from './monitoring.module';
+import { RedisMemoryDetailQueryDto } from './dto/redis-memory-detail-query.dto';
 import {
   REDIS_COMMAND_TIMEOUT_MS,
   REDIS_HISTORY_CAPACITY,
   REDIS_PRESSURE_THRESHOLD_PERCENT,
   REDIS_PRESSURE_WINDOW_SAMPLES,
   REDIS_SAMPLE_INTERVAL_MS,
+  REDIS_SAMPLE_RETENTION_DAYS,
   REDIS_STALE_AFTER_MS,
+  REDIS_DETAIL_MAX_ROWS,
   RedisCounterStatus,
   RedisMemoryDetail,
   RedisMemoryHealthView,
@@ -79,6 +85,9 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
     private readonly evaluator: RedisMemoryPressureEvaluator = new RedisMemoryPressureEvaluator(),
     @Optional()
     private readonly alerts: RedisAlertService | null = null,
+    @Optional()
+    @Inject(MONITORING_INSTANCE_ID)
+    private readonly instanceIdentity: ResolvedInstanceId | null = null,
   ) {
     this.redisClient = new Redis({
       host: process.env.REDIS_HOST || 'localhost',
@@ -165,16 +174,26 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
     };
   }
 
-  async getDetail(): Promise<RedisMemoryDetail> {
-    const trackerStatus = (tracker: CounterTracker): RedisCounterStatus => ({
-      available: tracker.value !== null,
-      value: tracker.value,
-      lastDelta: tracker.lastDelta,
-      lastChangedAt: tracker.lastChangedAt,
-    });
-    return {
-      ...(await this.getHealthView()),
-      samples: await this.historyStore.recent(),
+  async getDetail(query: RedisMemoryDetailQueryDto = {}): Promise<RedisMemoryDetail> {
+    const identity =
+      this.instanceIdentity ?? { instanceId: 'unknown', source: 'generated' as const };
+    const storeQuery: SampleQuery = {
+      from: query.from ? new Date(query.from) : undefined,
+      to: query.to ? new Date(query.to) : undefined,
+      limit: query.limit,
+      instanceId: query.instanceId,
+      allInstances: query.allInstances,
+    };
+
+    // allInstances wins over instanceId (see spec: a client with a stale
+    // instanceId in its query state must not silently get a narrower result).
+    const appliedInstanceFilter: 'current' | 'specific' | 'all' = query.allInstances
+      ? 'all'
+      : query.instanceId
+        ? 'specific'
+        : 'current';
+
+    const base = {
       configuration: {
         intervalMs: REDIS_SAMPLE_INTERVAL_MS,
         capacity: REDIS_HISTORY_CAPACITY,
@@ -182,11 +201,75 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
         thresholdPercent: REDIS_PRESSURE_THRESHOLD_PERCENT,
         commandTimeoutMs: REDIS_COMMAND_TIMEOUT_MS,
         staleAfterMs: REDIS_STALE_AFTER_MS,
+        retentionDays: REDIS_SAMPLE_RETENTION_DAYS,
+        maxRows: REDIS_DETAIL_MAX_ROWS,
+        instanceId: identity.instanceId,
+        instanceIdSource: identity.source,
       },
       counters: {
-        oomErrors: trackerStatus(this.oomTracker),
-        evictedKeys: trackerStatus(this.evictedTracker),
+        oomErrors: this.trackerStatus(this.oomTracker),
+        evictedKeys: this.trackerStatus(this.evictedTracker),
       },
+      appliedInstanceFilter,
+    };
+
+    try {
+      const [samples, totalMatching, knownInstances, history, latestSample] =
+        await Promise.all([
+          this.historyStore.recent(storeQuery),
+          this.historyStore.countMatching(storeQuery),
+          this.historyStore.knownInstances(),
+          this.historyStore.stats(),
+          // Fetched INDEPENDENTLY of the filtered query. `latestSample` feeds
+          // the health view, whose meaning is "this instance's most recent
+          // reading". Taking it from the filtered result set would silently
+          // change that meaning whenever an operator widened the range or
+          // asked for all instances.
+          this.getLatestSample(),
+        ]);
+
+      return {
+        ...base,
+        latestSample,
+        history,
+        pressure: this.getPressureSnapshot(),
+        samples,
+        historyAvailable: true,
+        // Truncation is reported so a clipped window is never mistaken for a
+        // quiet one.
+        truncated: totalMatching > samples.length,
+        totalMatching,
+        knownInstances,
+      };
+    } catch (error) {
+      // A storage failure degrades the view; it never 500s a monitoring read.
+      this.logger.warn(`Redis memory detail unavailable: ${error.message}`);
+      return {
+        ...base,
+        latestSample: null,
+        history: {
+          bufferStartedAt: null,
+          sampleCount: 0,
+          validSampleCount: 0,
+          capacity: REDIS_HISTORY_CAPACITY,
+          latestSampleAt: null,
+        },
+        pressure: this.getPressureSnapshot(),
+        samples: [],
+        historyAvailable: false,
+        truncated: false,
+        totalMatching: 0,
+        knownInstances: [],
+      };
+    }
+  }
+
+  private trackerStatus(tracker: CounterTracker): RedisCounterStatus {
+    return {
+      available: tracker.value !== null,
+      value: tracker.value,
+      lastDelta: tracker.lastDelta,
+      lastChangedAt: tracker.lastChangedAt,
     };
   }
 
