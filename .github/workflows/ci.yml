@@ -103,12 +103,13 @@ jobs:
       - name: E2E tests
         run: npm run test:e2e
 
-      # Guards the no-mixed-majors invariant in CLAUDE.md: a v5 queue seeds
-      # genuinely hashed repeatable entries, then v6's removeLegacyRepeatables()
-      # is asserted to clean them up. Needs both BullMQ majors in one process,
-      # which is what the `bullmq-v5` alias in devDependencies is for. Runs last
-      # because it is the cheapest gate and must not delay E2E feedback.
-      - name: BullMQ v5 to v6 upgrade tests
+      # Covers OrphanedSchedulerReconciler (#1045) against a real Redis: a v5
+      # queue seeds genuine scheduler-format orphans and non-ic legacy entries
+      # — shapes only BullMQ 5 can write, which is what the `bullmq-v5` alias
+      # in devDependencies is for. The unit tests mock hexists and so cannot
+      # catch an inverted ic check. Runs last because it is the cheapest gate
+      # and must not delay E2E feedback.
+      - name: Orphaned scheduler reconciliation tests
         run: npm run test:redis
 
   test-frontend:

@@ -16,7 +16,6 @@ const connection = {
 };
 
 const QUEUE = 'backup-queue';
-const PATTERN = '30 02 * * *';
 
 /**
  * BullMQ's IRedisClient declares del/zrange/zcard/zscore/hexists but omits
@@ -32,7 +31,7 @@ type TestRedisClient = IRedisClient & {
 const testClient = async (q: QueueV6): Promise<TestRedisClient> =>
   (await q.getBackend().client) as TestRedisClient;
 
-describe('BullMQ v5 → v6 upgrade (real Redis)', () => {
+describe('Orphaned scheduler reconciliation (real Redis)', () => {
   let prefix: string;
   let v5: QueueV5;
   let v6: QueueV6;
@@ -41,11 +40,9 @@ describe('BullMQ v5 → v6 upgrade (real Redis)', () => {
   // Declared here so afterEach can always close it — an assertion that throws
   // mid-test would otherwise leak the worker and hang Jest.
   let worker: Worker | undefined;
-  let processed: string[];
 
   beforeEach(async () => {
     worker = undefined;
-    processed = [];
     // Unique prefix per test — never the persistent dev queue.
     prefix = `test-bullmq-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     v5 = new QueueV5(QUEUE, { connection, prefix });
@@ -83,119 +80,6 @@ describe('BullMQ v5 → v6 upgrade (real Redis)', () => {
     if (keys.length) await client.del(...keys);
     await v5.close();
     await v6.close();
-  });
-
-  it('removes the v5 repeatable and its delayed occurrence, leaving one scheduler', async () => {
-    // 1. Seed with the REAL v5 API so the entry is genuinely hashed.
-    await v5.add(
-      'create-backup',
-      { scheduleId: 'schedule-1' },
-      { repeat: { pattern: PATTERN }, jobId: 'schedule-schedule-1' },
-    );
-
-    const client = await testClient(v6);
-    const repeatKey = `${prefix}:${QUEUE}:repeat`;
-    const delayedKey = `${prefix}:${QUEUE}:delayed`;
-
-    const [member] = await client.zrange(repeatKey, 0, -1);
-    expect(member).toMatch(/^[0-9a-f]{32}$/); // hashed, not colon-shaped
-    expect(await client.hexists(`${repeatKey}:${member}`, 'ic')).toBe(0);
-
-    // 2. Capture the delayed occurrence before migrating.
-    const delayedBefore = await client.zrange(delayedKey, 0, -1);
-    expect(delayedBefore).toHaveLength(1);
-    const delayedId = delayedBefore[0];
-    const score = await client.zscore(repeatKey, member);
-    expect(delayedId).toBe(`repeat:${member}:${score}`);
-
-    // 3. Migrate via the REAL service entry point.
-    await service.onModuleInit();
-
-    // 4a. Old repeat member and its metadata are gone.
-    const repeatMembers = await client.zrange(repeatKey, 0, -1);
-    expect(repeatMembers).not.toContain(member);
-    expect(await client.exists(`${repeatKey}:${member}`)).toBe(0);
-
-    // 4b. THE ORPHAN CASE: the old delayed occurrence and its job hash are gone.
-    expect(await client.zscore(delayedKey, delayedId)).toBeNull();
-    expect(await client.exists(`${prefix}:${QUEUE}:${delayedId}`)).toBe(0);
-
-    // 4c. Exactly one scheduler remains — no duplicate.
-    expect(repeatMembers).toEqual(['schedule-schedule-1']);
-
-    // 5. Idempotent: a second init must be a no-op against a genuinely
-    // v6-written scheduler (real ic field, not a mocked hexists) — coverage
-    // the unit tests cannot provide.
-    //
-    // On how an inverted ic check is caught: it is the HASHED_MEMBER guard
-    // that fires, not the assertions below. Inverting the check stops
-    // 'schedule-schedule-1' being skipped, it fails the 32-char-hex test, and
-    // onModuleInit REJECTS on the line below. The zrange/hexists assertions
-    // only do independent work if that guard is also weakened, and they add no
-    // signal beyond step 4a/4c, which fails first if cleanup is deleted.
-    //
-    // Pin the precondition the second init depends on — ic present BEFORE
-    // re-init — so the assertion after it is a genuine before/after pair.
-    expect(
-      await client.hexists(`${repeatKey}:schedule-schedule-1`, 'ic'),
-    ).toBe(1);
-
-    await service.onModuleInit();
-
-    expect(await client.zrange(repeatKey, 0, -1)).toEqual([
-      'schedule-schedule-1',
-    ]);
-    expect(
-      await client.hexists(`${repeatKey}:schedule-schedule-1`, 'ic'),
-    ).toBe(1);
-  });
-
-  it('fires exactly one job after migration', async () => {
-    // A fully-specified six-field cron matches ONE instant; its next match is
-    // a year later (four years, if this runs on Feb 29 — either way far
-    // outside the window). So within the test window a correct migration fires
-    // exactly once, and a second execution can only mean a duplicate
-    // scheduler survived. (An every-second pattern would legitimately fire
-    // 2-3 times in the same window and could not distinguish the two.)
-    // ~20s headroom so a cold worker or slow init cannot miss the sole
-    // occurrence — if it were missed, the annual next match would never
-    // arrive in-window and the test would fail for the wrong reason.
-    const target = new Date(Date.now() + 20000);
-    const pattern = [
-      target.getSeconds(),
-      target.getMinutes(),
-      target.getHours(),
-      target.getDate(),
-      target.getMonth() + 1,
-      '*',
-    ].join(' ');
-
-    schedule.cronExpression = pattern;
-
-    await v5.add(
-      'create-backup',
-      { scheduleId: 'schedule-1' },
-      { repeat: { pattern }, jobId: 'schedule-schedule-1' },
-    );
-
-    // Worker ready BEFORE init so no execution can be missed.
-    worker = new Worker(
-      QUEUE,
-      async (job: Job) => {
-        processed.push(job.name);
-      },
-      { connection, prefix },
-    );
-    await worker.waitUntilReady();
-
-    await service.onModuleInit();
-
-    // Wait past the target instant plus margin, measured from now so setup
-    // time is not double-counted.
-    const waitMs = target.getTime() - Date.now() + 2000;
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
-
-    expect(processed).toEqual(['create-backup']);
   });
 
   /**
@@ -312,23 +196,6 @@ describe('BullMQ v5 → v6 upgrade (real Redis)', () => {
     // The deleted schedule's backup must never run again. The pre-fix
     // behavior fired ~4x in this window.
     expect(fired).not.toContain(ORPHAN_SCHEDULE_ID);
-  });
-
-  it('does not touch other queue namespaces', async () => {
-    const client = await testClient(v6);
-    const sentinel = `${prefix}:other-queue:repeat`;
-    await client.zadd(sentinel, 1, 'sentinel-member');
-
-    // Seed a removable legacy entry so cleanup actually does work.
-    await v5.add(
-      'create-backup',
-      { scheduleId: 'schedule-1' },
-      { repeat: { pattern: PATTERN }, jobId: 'schedule-schedule-1' },
-    );
-
-    await service.onModuleInit();
-
-    expect(await client.zscore(sentinel, 'sentinel-member')).toBe('1');
   });
 
   describe('OrphanedSchedulerReconciler (issue #1045)', () => {

@@ -112,8 +112,7 @@ export class OrphanedSchedulerReconciler {
     const byScheduleId = new Map<string, string[]>();
 
     for (const member of members) {
-      // MANDATORY: unlike the boot-time diagnostic, this runs without
-      // removeLegacyRepeatables() having cleared non-ic entries first. A legacy
+      // MANDATORY: nothing clears non-ic entries before this runs. A legacy
       // repeatable whose data carries a scheduleId would otherwise be
       // classified as an orphan and passed to removeJobScheduler, which for a
       // non-ic entry deletes metadata but leaves the delayed occurrence live.

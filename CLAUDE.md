@@ -149,31 +149,13 @@ The 256 MiB cap is unchanged and stays **pending production measurement** — th
 
 It compiles `tsconfig.build.json` — the config `nest build` uses — deliberately, so the gate mirrors the image build that would otherwise be the first failure. That config excludes specs, so **spec-only type errors are not covered by this gate**; they remain caught by ts-jest at test time. Type-checking specs as a whole program would need a second `tsc -p tsconfig.json --noEmit` pass, which is a separate change gated on assessing the pre-existing errors it would surface.
 
-**BullMQ deploys (no mixed majors)**: All v5 backend processes must be fully stopped before the first v6 process initializes. `BackupSchedulerService.removeLegacyRepeatables()` is a point-in-time reconciliation, not a standing guard — a v5 process still running will recreate hashed repeatable entries that then run *alongside* the v6 job schedulers, producing duplicate backups.
+**BullMQ v5→v6 migration: complete (#1033)**. `removeLegacyRepeatables()` and the three v5-migration tests were removed once the gate passed — no environment held a blocking entry (a bare-hex member with no `ic` field). Nothing in the codebase cleans up v5 repeatables any more, so a v5 process must never write to this Redis again.
 
-`./deploy.sh restart` is **not** the upgrade path: it runs bare `docker compose restart` (deploy.sh:190), which neither rebuilds nor replaces the image. Upgrade with an explicit build, then stop-old-before-start-new so the two majors never overlap:
+`bullmq-v5` (`npm:bullmq@5.81.3`, backend devDependencies) **survives that removal and is still load-bearing** — do not delete it as leftover cruft. It is an exact-pinned, test-only fixture generator for `test/orphaned-scheduler-reconciliation.redis-spec.ts`: `seedOrphan()` uses `v5.upsertJobScheduler` to feed the whole `OrphanedSchedulerReconciler` describe block, and a separate `v5.add` seeds the non-`ic` legacy entry for the test asserting the reconciler leaves that shape alone. Both are shapes only BullMQ 5 can write, and the unit tests mock `hexists` so they cannot catch an inverted `ic` check. It is on CI's critical path (`npm run test:redis`), so keep it exact-pinned. Hand-rolling those fixtures with raw `zadd`/`hset` to drop the alias is a downgrade, not a cleanup: the tests would then assert against our belief about v5's on-disk format rather than v5's actual output.
 
-```bash
-docker compose build backend        # build the v6 image first
-docker compose stop backend         # no v5 process remains
-docker compose up -d backend        # v6 starts; cleanup runs on init
-docker compose logs -f backend      # confirm "Removed N legacy repeatable entries"
-```
+If a `Legacy (non-scheduler) repeat entry` warning ever appears at boot, an environment is holding pre-v6 state that predates the removal. BullMQ 6 cannot remove it safely — `removeJobScheduler` would delete its metadata but leave the delayed occurrence live — so it needs BullMQ 5's `removeRepeatableByKey`.
 
-Postgres is the source of truth and `initializeSchedules()` re-registers every enabled schedule on boot, so the stop window loses no schedule state. If the backend runs as more than one replica, scale to zero before starting the new image.
-
-`bullmq-v5` (`npm:bullmq@5.81.3`, backend devDependencies) is **not** leftover cruft from that upgrade — it is an exact-pinned, test-only fixture generator for `test/bullmq-v6-upgrade.redis-spec.ts`, which needs both majors in one process to write genuine v5-format entries. It is on CI's critical path (`npm run test:redis`), so keep it exact-pinned.
-
-**It outlives `removeLegacyRepeatables()` — do not remove the two together.** The alias started as coverage for that method, but issue #1045's `OrphanedSchedulerReconciler` tests now depend on it too: `seedOrphan()` calls `v5.upsertJobScheduler` to feed the whole reconciler describe block, and a separate `v5.add` seeds the non-`ic` legacy entry for the test asserting the reconciler leaves that shape alone — a shape only v5 can produce. Deleting the alias breaks `npm run test:redis`.
-
-When the issue #1033 gate passes, the retirement removes **two** things, not five:
-
-- `removeLegacyRepeatables()`, its `HASHED_MEMBER` regex, its call site, and the `zscan`-extended `IRedisClient` cast that exists only for that scan
-- the three v5-migration tests in `test/bullmq-v6-upgrade.redis-spec.ts` (`removes the v5 repeatable…`, `fires exactly one job after migration`, `does not touch other queue namespaces`)
-
-The `bullmq-v5` alias, the spec file, and the `test:redis` CI step all **stay** — after those deletions the spec is predominantly #1045 reconciler coverage. The CI step's name becomes inaccurate and wants rewording; `test:redis` runs inside an existing job, so changing the step text does not touch a required-check job name. Hand-rolling the v5 fixtures with raw `zadd`/`hset` to drop the alias is a downgrade, not a cleanup: it would make the tests assert against our belief about v5's on-disk format rather than v5's actual output.
-
-**Orphaned backup-queue repeat entries (report-only)**: `BackupSchedulerService.reportOrphanedSchedulers()` runs last in `initializeSchedules()` and `logger.warn`s any `bull:backup-queue:repeat` member whose `data.scheduleId` has no `backup_schedules` row (issue #1035). It **never deletes** — making Redis contents depend on a DB read means a transient read failure or a partially-migrated deploy could destroy live schedulers. Keep it free of mutating calls; auto-reconciliation is a separate design discussion that needs explicit safeguards. The whole body is wrapped in a catch-all because a diagnostic must never fail boot (unlike `removeLegacyRepeatables()`, whose throw is a deliberate deploy gate). It is a sibling method, not part of that scan, so it survives the v5→v6 retirement in #1033. Entries with no `data`, unparseable JSON, or a non-string/empty `scheduleId` are logged as *unclassifiable*, never as orphans.
+**Orphaned backup-queue repeat entries (report-only)**: `BackupSchedulerService.reportOrphanedSchedulers()` runs last in `initializeSchedules()` and `logger.warn`s any `bull:backup-queue:repeat` member whose `data.scheduleId` has no `backup_schedules` row (issue #1035). It **never deletes** — making Redis contents depend on a DB read means a transient read failure or a partially-migrated deploy could destroy live schedulers. Keep it free of mutating calls; auto-reconciliation is a separate design discussion that needs explicit safeguards. The whole body is wrapped in a catch-all because a diagnostic must never fail boot. It survived the v5→v6 retirement in #1033, which is why it was written as a sibling method rather than folded into that scan. Entries with no `data`, unparseable JSON, or a non-string/empty `scheduleId` are logged as *unclassifiable*, never as orphans.
 
 Remediate a reported orphan with the CLI, which is dry-run by default:
 
@@ -195,8 +177,8 @@ Guards, all fail-safe toward keeping the entry:
   aborts — that is indistinguishable from a broken read. Override with
   `--execute --allow-empty` only when you intend to remove every remaining
   scheduler (e.g. you deleted the last schedule).
-- Non-`ic` legacy entries are never touched; `removeLegacyRepeatables()` owns
-  that class.
+- Non-`ic` legacy entries are never touched. Nothing removes that class any
+  more (#1033); they need BullMQ 5's `removeRepeatableByKey`.
 - Do not run it during a deploy window.
 
 A mid-run failure stops immediately and reports which entries were already
@@ -224,6 +206,6 @@ q.removeJobScheduler(process.argv[1])
 ' <member>
 ```
 
-On BullMQ 6.1.0 the public API returns a **boolean**: `removed: true` on success, `false` if the member was already absent. (The underlying `removeJobScheduler-3.lua` still returns `0`/`1` with `0` meaning removed, but the TypeScript wrapper inverts it — read the boolean, not the Lua convention. Verified against 6.1.0 in `backend/test/bullmq-v6-upgrade.redis-spec.ts`; earlier revisions of this file documented the Lua numbers, which was wrong for v6 and inverted the pass/fail reading.) Re-run the preflight to verify: the member is gone from `repeat`, and its `repeat:<member>:<millis>` occurrence is gone from `delayed`.
+On BullMQ 6.1.0 the public API returns a **boolean**: `removed: true` on success, `false` if the member was already absent. (The underlying `removeJobScheduler-3.lua` still returns `0`/`1` with `0` meaning removed, but the TypeScript wrapper inverts it — read the boolean, not the Lua convention. Verified against 6.1.0 in `backend/test/orphaned-scheduler-reconciliation.redis-spec.ts`; earlier revisions of this file documented the Lua numbers, which was wrong for v6 and inverted the pass/fail reading.) Re-run the preflight to verify: the member is gone from `repeat`, and its `repeat:<member>:<millis>` occurrence is gone from `delayed`.
 
 **Pulling main**: Always use `git pull --ff-only` on `main` (or set globally: `git config --global pull.ff only`). A regular `git pull` with `merge.ff = false` creates a merge commit that re-triggers the Release workflow unnecessarily.
