@@ -91,6 +91,39 @@ export interface RedisCounterStatus {
   lastChangedAt: string | null;
 }
 
+/** A cumulative counter's movement across one window. */
+export interface RedisWindowCounter {
+  /**
+   * Sum of positive consecutive increases — NOT max - min, which is wrong in
+   * both directions across a reset. null when fewer than two comparable
+   * (non-null) readings exist; that is missing evidence, not "did not move".
+   */
+  delta: number | null;
+  /** True if any reading was lower than its predecessor. */
+  resetObserved: boolean;
+}
+
+export interface RedisInstanceWindowStats {
+  instanceId: string;
+  sampleCount: number;
+  validSampleCount: number;
+  peakUsedBytes: number | null;
+  peakUtilizationPercent: number | null;
+  firstSampleAt: string | null;
+  lastSampleAt: string | null;
+  /** Distinct caps observed in-window, ascending. More than one ⇒ cap changed. */
+  distinctMaxBytes: number[];
+  evictedKeys: RedisWindowCounter;
+  oomErrors: RedisWindowCounter;
+}
+
+export interface RedisWindowStats {
+  /** Resolved bounds actually queried; null means unbounded on that side. */
+  from: string | null;
+  to: string | null;
+  perInstance: RedisInstanceWindowStats[];
+}
+
 export interface RedisMemoryHealthView {
   latestSample: RedisMemorySample | null;
   history: RedisMemoryHistoryStats;
@@ -120,4 +153,5 @@ export interface RedisMemoryDetail extends RedisMemoryHealthView {
     oomErrors: RedisCounterStatus;
     evictedKeys: RedisCounterStatus;
   };
+  windowStats: RedisWindowStats;
 }
