@@ -2,12 +2,15 @@ import {
   REDIS_HISTORY_CAPACITY,
   RedisMemoryHistoryStats,
   RedisMemorySample,
+  RedisWindowStats,
   KnownInstance,
 } from './redis-memory.types';
 import {
   RedisMemoryHistoryStore,
   SampleQuery,
 } from './redis-memory-history.store';
+import { foldInstanceWindowStats } from './window-stats';
+import { normalizeSampleQuery } from './normalize-sample-query';
 
 export const IN_MEMORY_INSTANCE_ID = 'in-memory';
 
@@ -102,5 +105,25 @@ export class InMemoryRedisMemoryHistoryStore implements RedisMemoryHistoryStore 
         current: true,
       },
     ];
+  }
+
+  /**
+   * Same semantics as the durable store's aggregate, over the buffer.
+   *
+   * Deliberately ignores `limit`: the aggregate describes the whole window,
+   * which is the entire reason it exists separately from `recent()`.
+   */
+  async windowStats(query: SampleQuery = {}): Promise<RedisWindowStats> {
+    const normalized = normalizeSampleQuery(query);
+    const rows = this.matching(normalized).map((sample) => ({
+      ...sample,
+      instanceId: IN_MEMORY_INSTANCE_ID,
+    }));
+    return {
+      from: normalized.from?.toISOString() ?? null,
+      to: normalized.to?.toISOString() ?? null,
+      perInstance:
+        rows.length === 0 ? [] : [foldInstanceWindowStats(IN_MEMORY_INSTANCE_ID, rows)],
+    };
   }
 }

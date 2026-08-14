@@ -1,4 +1,9 @@
-import { KnownInstance, RedisMemoryHistoryStats, RedisMemorySample } from './redis-memory.types';
+import {
+  KnownInstance,
+  RedisMemoryHistoryStats,
+  RedisMemorySample,
+  RedisWindowStats,
+} from './redis-memory.types';
 
 export const REDIS_MEMORY_HISTORY_STORE = Symbol('REDIS_MEMORY_HISTORY_STORE');
 
@@ -26,4 +31,13 @@ export interface RedisMemoryHistoryStore {
   knownInstances(): Promise<KnownInstance[]>;
   /** Rows matching `query` ignoring `limit` — powers `truncated`/`totalMatching`. */
   countMatching(query?: SampleQuery): Promise<number>;
+  /**
+   * Exact aggregate over the FULL filtered window, ignoring `limit`.
+   *
+   * The sample list is capped at REDIS_DETAIL_MAX_ROWS and newest-anchored, so
+   * statistics computed from it would describe only the newest slice — at the
+   * 60s interval a 30-day request returns roughly the newest 3.5 days. Peak
+   * decisions (#1057) need the whole window.
+   */
+  windowStats(query?: SampleQuery): Promise<RedisWindowStats>;
 }
