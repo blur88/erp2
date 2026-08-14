@@ -9,6 +9,7 @@ const RegionalSettingsPage = React.lazy(() => import('./RegionalSettingsPage'))
 const PrintSettingsPage = React.lazy(() => import('./PrintSettingsPage'))
 const DocumentNumbersPage = React.lazy(() => import('./DocumentNumbersPage'))
 const BackupManagement = React.lazy(() => import('./BackupManagement'))
+const RedisMonitoringPage = React.lazy(() => import('./RedisMonitoringPage'))
 const UserManagementPage = React.lazy(() => import('./UserManagementPage'))
 const RoleManagementPage = React.lazy(() => import('./RoleManagementPage'))
 const SecuritySettingsPage = React.lazy(() => import('./SecuritySettingsPage'))
@@ -31,4 +32,5 @@ export const settingsRoutes: RouteObject[] = [
   { path: '/settings/roles', element: <RoleManagementPage />, handle: { title: 'Roles & Permissions' } },
   { path: '/settings/security', element: <SecuritySettingsPage />, handle: { title: 'Security' } },
   { path: '/settings/backup', element: <BackupManagement />, handle: { title: 'Backup & Restore' } },
+  { path: '/settings/redis-monitoring', element: <RedisMonitoringPage />, handle: { title: 'Redis Monitoring' } },
 ]

@@ -23,6 +23,7 @@ import { default as BalanceIcon } from '@mui/icons-material/Balance';
 import { default as PrintIcon } from '@mui/icons-material/Print';
 import { default as DocumentNumberIcon } from '@mui/icons-material/FormatListNumbered';
 import { default as BackupIcon } from '@mui/icons-material/Backup';
+import { default as MemoryIcon } from '@mui/icons-material/Memory';
 import { default as AuditIcon } from '@mui/icons-material/ManageSearch';
 import { default as PeopleIcon } from '@mui/icons-material/People';
 import { default as SecurityIcon } from '@mui/icons-material/Security';
@@ -355,6 +356,14 @@ export const menuSections: MenuSection[] = [
             icon: <BackupIcon />,
             group: 'System',
             path: '/settings/backup',
+            roles: ADMIN_ONLY,
+          },
+          {
+            id: 'redis-monitoring',
+            title: 'Redis Monitoring',
+            icon: <MemoryIcon />,
+            group: 'System',
+            path: '/settings/redis-monitoring',
             roles: ADMIN_ONLY,
           },
         ],
