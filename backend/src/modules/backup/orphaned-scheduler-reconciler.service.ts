@@ -3,7 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { In, Repository } from 'typeorm';
 import { IRedisClient, Queue } from 'bullmq';
-import { BackupSchedule } from '@database/entities/backup-schedule.entity';
+// Relative, not the `@database/*` alias: this file is reachable from
+// `src/database/cli/reconcile-schedulers.ts`, so `npx tsc -p tsconfig.cli.json`
+// recompiles it into dist/ after `nest build` has already emitted it. Plain tsc
+// does not rewrite path aliases, so an alias here survives verbatim into the
+// compiled output and Node throws MODULE_NOT_FOUND for the whole app at boot.
+import { BackupSchedule } from '../../database/entities/backup-schedule.entity';
 
 export interface OrphanCandidate {
   member: string;
