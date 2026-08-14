@@ -27,6 +27,7 @@ import { BackupModule } from './modules/backup/backup.module';
 import { PriceListsModule } from './modules/price-lists/price-lists.module';
 import { SearchModule } from './modules/search/search.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
+import { MonitoringModule } from './modules/monitoring/monitoring.module';
 
 // Auth Guards
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
@@ -74,6 +75,7 @@ import { AppService } from './app.service';
     BackupModule, // Backup and restore functionality
     PriceListsModule, // Price list management (Phase 3)
     SearchModule,
+    MonitoringModule, // Redis memory-pressure sampling and state
   ],
   controllers: [AppController],
   providers: [
