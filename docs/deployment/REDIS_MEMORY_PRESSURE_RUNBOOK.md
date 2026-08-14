@@ -3,7 +3,7 @@
 This runbook covers detecting, diagnosing, and remediating Redis memory
 pressure on the ERP's queue-only Redis instance. It describes the signal
 produced by the `MonitoringModule` sampler (one `INFO` sample per minute,
-24 hours of bounded in-memory history), how to read it, and what to do when
+retained in Postgres for 90 days), how to read it, and what to do when
 it says something is wrong.
 
 ## Prerequisites and access
@@ -14,7 +14,7 @@ administrator account:
 | Endpoint | Auth | Purpose |
 |---|---|---|
 | `GET /api/health` | public | Live ping plus the sampler's latest pressure summary |
-| `GET /api/health/redis-memory` | `@Auth(UserRole.ADMIN)` | Full 24h sample series, counters, and configuration |
+| `GET /api/health/redis-memory` | `@Auth(UserRole.ADMIN)` | Up to 90 days of samples, counters, and configuration |
 
 ```bash
 # From the deployment directory, with an admin token:
@@ -51,22 +51,94 @@ An established state is retained while the opposite streak accumulates and
 is replaced only after 10 consecutive opposite samples — transient spikes
 do not flap the state.
 
+## What survives a restart — and what does not
+
+Samples and alert state are stored in **Postgres**, never in Redis. Redis
+itself remains the BullMQ queue backing store only; the monitoring module
+only ever *reads* it.
+
+| State | Survives a backend restart? |
+|---|---|
+| Sample history (`redis_memory_samples`) | Yes — the detail view keeps its full window |
+| OOM watermark (baseline, observed, acknowledged values) | Yes — keyed by the Redis `run_id` row |
+| Pressure/OOM episode history | Yes |
+| The sampler's live pressure streak | No — it rebuilds from new samples (see `insufficient-samples` below) |
+
+A **Redis** restart (which changes `run_id`) starts a new alert-state row
+rather than clearing the watermark: the old row is retained for diagnostics
+and simply no longer consulted. This satisfies "a Redis restart clears the
+watermark" — the alert does not carry across to the new identity — without
+destroying the evidence.
+
 ## Recognizing partial post-restart history
 
-The buffer is **in-memory only** and starts empty on every restart. A
-post-restart `insufficient-samples` state is expected and is *not* evidence
-of health or pressure. On the detail endpoint:
+The pressure *streak* is recomputed from recent samples, so a post-restart
+`insufficient-samples` state is expected and is *not* evidence of health or
+pressure. On the detail endpoint:
 
-- `history.bufferStartedAt` — the oldest retained sample. Compare with the
-  backend's boot time to see how much of the 24h window exists.
+- `history.bufferStartedAt` — the oldest retained sample. It survives
+  restarts, so compare it with the backend's boot time to see how much
+  history the current process was not alive for.
 - `history.sampleCount` vs `history.validSampleCount` — failed attempts
   remain in the series, so a gap between the two means some ticks failed or
   were skipped; they are counted separately so failed samples cannot
   inflate the apparent quality of the record.
 
-Full history: 1,440 samples at 60s intervals = 24 hours. After restart the
-sampler takes an immediate startup sample, so the buffer is never empty for
-a full interval.
+The default detail view covers the last 24 hours. To see deeper history
+(e.g. to compare a current reading with last month's baseline), pass the
+range explicitly — rows are emitted oldest-first and the window is clamped
+to the 90-day retention floor:
+
+```bash
+curl -s -H "Authorization: Bearer <admin-token>" \
+  "http://<host>/api/health/redis-memory?from=2026-07-01T00:00:00.000Z&limit=5000" | jq '.samples | length, .[0].at, .[-1].at'
+```
+
+`truncated: true` in the response means more rows matched than were
+returned; `totalMatching` says how many. `allInstances=true` widens the
+read across every sampler that ever wrote to this database (see the
+identity contract below), and every returned sample carries its
+`instanceId` so mixed reads are never merged into one bogus trend line.
+
+## The unreadable-run_id gap
+
+When the sampler cannot read `run_id` (Redis flapping, network partition),
+identity is reported as `unknown`, transitions are **skipped**, and the
+alert state is left untouched. An OOM occurring during that window is not
+alerted at the time — but the counter is cumulative, so it surfaces as a
+delta on the next successful sample and opens the incident then. Pressure
+samples still record normally during the gap; only alert-state transitions
+pause.
+
+## Retention and pruning
+
+Samples are retained for 90 days (`REDIS_SAMPLE_RETENTION_DAYS`). A nightly
+prune (`EVERY_DAY_AT_3AM`) deletes expired rows in bounded batches of 5,000
+(up to 20 batches per run), each committing independently so a
+long-neglected table drains incrementally and a failure keeps progress.
+
+A `Redis sample prune hit the 20-batch ceiling` warning means growth is
+outpacing one night's budget (≈100k rows/day above 3AM, which implies
+sub-minute sampling or multiple samplers): the work is not lost, it
+finishes the next night, but sustained ceiling hits are worth a look. A
+failed prune logs `Redis sample prune failed` and retries tomorrow; it is
+a diagnostic warning, never an outage.
+
+## Instance identity contract
+
+The sampler stamps every row with `MONITORING_INSTANCE_ID` (falling back
+to `HOSTNAME`, then to a random id with a startup warning). In Docker this
+**must** be pinned: `container_name` does not make the hostname stable —
+`docker compose up -d` after a rebuild recreates the container and assigns
+a new one. Both compose files set `MONITORING_INSTANCE_ID=erp_backend` by
+default; the variable must be **stable across restarts** and **unique per
+running sampler** (multi-replica deployments need one value per replica).
+
+If it is not pinned, the sampler generates a new id per boot and the
+operator sees: short default history (each boot starts a new series), extra
+entries in `knownInstances` (one per boot), and the startup fallback
+warning in the backend logs. The alert state is unaffected — it is keyed
+by the Redis `run_id`, not the instance id.
 
 ## Distinguishing a genuine backlog from a leak
 
@@ -173,10 +245,11 @@ eviction can silently drop job hashes or queue state.
 
 ## Raising the cap — when it is correct, when it masks a leak
 
-The 256 MiB cap stays pending production measurement. The 24-hour volatile
-in-memory history **cannot justify changing it**: capacity re-evaluation
-needs durable, longer-term data that this monitoring increment deliberately
-does not collect.
+The 256 MiB cap stays pending production measurement. The durable 90-day
+history is exactly the dataset a cap decision needs: sample utilization at
+peak queue load over weeks, then decide. The detail route serves it with
+`from`, `to`, `limit`, and `allInstances` parameters (see the deep-history
+query above).
 
 - Raising the cap is a defensible response to a **measured, legitimate
   backlog** at the cap — more queue capacity is the point of the instance.
@@ -238,11 +311,13 @@ unacknowledged OOM count, and the last five recovered episodes.
 
 ### Operational notes
 
-- A non-zero OOM counter inherited at backend startup does **not** alert —
-  it predates the current process and is not attributable to it.
+- A counter increase that happened while the backend was down is compared
+  against the **persisted baseline** (keyed by the Redis `run_id`), so the
+  delta — and the incident — is reported on the first sample after the
+  backend returns, exactly as if it had been observed live.
 - A counter reset (Redis restart or `CONFIG RESETSTAT`) clears the alert
-  watermark, so post-restart increases alert normally.
-- Alert and acknowledgement state is held **in process memory** and resets
-  on backend restart; there is no durable alert history. Treat the panel as
-  a live view, and rely on the log-based escalation above for anything that
-  must survive a restart.
+  watermark: a restarted Redis gets a **new** `run_id` row, so
+  post-restart increases alert normally against a fresh baseline.
+- Alert and acknowledgement state is durable in Postgres and survives
+  backend restarts; the panel is a live view over persisted state, and the
+  log-based escalation above remains the signal to watch.

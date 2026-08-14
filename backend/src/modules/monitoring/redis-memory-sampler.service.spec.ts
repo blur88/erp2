@@ -2,7 +2,8 @@ import { Logger } from '@nestjs/common';
 import { InMemoryRedisMemoryHistoryStore } from './in-memory-redis-memory-history.store';
 import { RedisMemoryPressureEvaluator } from './redis-memory-pressure.evaluator';
 import { RedisMemorySamplerService } from './redis-memory-sampler.service';
-import { REDIS_COMMAND_TIMEOUT_MS } from './redis-memory.types';
+import { SampleQuery } from './redis-memory-history.store';
+import { REDIS_COMMAND_TIMEOUT_MS, RedisMemorySample } from './redis-memory.types';
 
 const redisMock = {
   status: 'wait',
@@ -41,14 +42,16 @@ describe('RedisMemorySamplerService', () => {
       store,
       logger as unknown as Logger,
       evaluator,
+      undefined,
+      { instanceId: 'erp_backend', source: 'configured' },
     );
   });
 
   it('samples immediately on module init and cleans up on destroy', async () => {
     await service.onModuleInit();
     expect(redisMock.info).toHaveBeenCalledWith('memory');
-    expect(store.stats().sampleCount).toBe(1);
-    expect(service.getLatestSample()).toMatchObject({ ok: true });
+    expect((await store.stats()).sampleCount).toBe(1);
+    expect(await service.getLatestSample()).toMatchObject({ ok: true });
 
     await service.onModuleDestroy();
     expect(redisMock.disconnect).toHaveBeenCalled();
@@ -63,7 +66,7 @@ describe('RedisMemorySamplerService', () => {
     });
 
     await service.sampleNow();
-    expect(service.getLatestSample()).toMatchObject({
+    expect(await service.getLatestSample()).toMatchObject({
       ok: true,
       usedBytes: 80,
       maxBytes: 100,
@@ -72,7 +75,7 @@ describe('RedisMemorySamplerService', () => {
       oomErrors: null,
     });
 
-    const detail = service.getDetail();
+    const detail = await service.getDetail();
     // Parsed zero is distinguishable from an unavailable counter.
     expect(detail.counters.evictedKeys).toEqual({
       available: true,
@@ -101,7 +104,7 @@ describe('RedisMemorySamplerService', () => {
     await jest.advanceTimersByTimeAsync(REDIS_COMMAND_TIMEOUT_MS + 1);
     await pending;
 
-    expect(service.getLatestSample()).toMatchObject({
+    expect(await service.getLatestSample()).toMatchObject({
       ok: true,
       usedBytes: 80,
       evictedKeys: null,
@@ -134,7 +137,7 @@ describe('RedisMemorySamplerService', () => {
     releaseFirst!();
     await Promise.all([first, skipped]);
 
-    const [inFlight, overlapRecord] = store.recent(2);
+    const [inFlight, overlapRecord] = await store.recent(2);
     expect(inFlight).toMatchObject({ ok: true });
     expect(overlapRecord).toMatchObject({
       ok: false,
@@ -146,13 +149,15 @@ describe('RedisMemorySamplerService', () => {
   it('records a timeout sample when INFO hangs', async () => {
     await service.onModuleInit();
     jest.useFakeTimers();
-    redisMock.info.mockImplementationOnce(() => new Promise(() => {})); // never settles
+    redisMock.info.mockImplementation((section: string) =>
+      section === 'memory' ? new Promise(() => {}) : Promise.resolve('used_memory:10\r\nmaxmemory:100\r\n'),
+    ); // memory never settles
 
     const pending = service.sampleNow();
     await jest.advanceTimersByTimeAsync(REDIS_COMMAND_TIMEOUT_MS + 1);
     await pending;
 
-    expect(service.getLatestSample()).toMatchObject({
+    expect(await service.getLatestSample()).toMatchObject({
       ok: false,
       failureReason: 'timeout',
       usedBytes: null,
@@ -165,19 +170,23 @@ describe('RedisMemorySamplerService', () => {
 
     redisMock.ping.mockRejectedValueOnce(new Error('ECONNREFUSED'));
     await service.sampleNow();
-    expect(service.getLatestSample()).toMatchObject({
+    expect(await service.getLatestSample()).toMatchObject({
       ok: false,
       failureReason: 'connection-failed',
     });
-    expect(JSON.stringify(service.getLatestSample())).not.toContain('ECONNREFUSED');
+    expect(JSON.stringify(await service.getLatestSample())).not.toContain('ECONNREFUSED');
 
-    redisMock.info.mockRejectedValueOnce(new Error('OOM command not allowed'));
+    redisMock.info.mockImplementation((section: string) =>
+      section === 'memory'
+        ? Promise.reject(new Error('OOM command not allowed'))
+        : Promise.resolve('used_memory:10\r\nmaxmemory:100\r\n'),
+    );
     await service.sampleNow();
-    expect(service.getLatestSample()).toMatchObject({
+    expect(await service.getLatestSample()).toMatchObject({
       ok: false,
       failureReason: 'connection-failed',
     });
-    expect(JSON.stringify(service.getLatestSample())).not.toContain('OOM command');
+    expect(JSON.stringify(await service.getLatestSample())).not.toContain('OOM command');
   });
 
   it('marks a sample parse-failed when INFO memory is malformed', async () => {
@@ -189,7 +198,7 @@ describe('RedisMemorySamplerService', () => {
     );
 
     await service.sampleNow();
-    expect(service.getLatestSample()).toMatchObject({
+    expect(await service.getLatestSample()).toMatchObject({
       ok: false,
       failureReason: 'parse-failed',
     });
@@ -207,7 +216,6 @@ describe('RedisMemorySamplerService', () => {
       await service.sampleNow();
     }
     expect(logger.warn).toHaveBeenCalledTimes(1);
-
     redisMock.info.mockImplementation((section: string) => {
       if (section === 'memory') return Promise.resolve('used_memory:20\r\nmaxmemory:100\r\n');
       if (section === 'stats') return Promise.resolve('# Stats\r\nevicted_keys:0\r\n');
@@ -250,11 +258,69 @@ describe('RedisMemorySamplerService', () => {
     await service.sampleNow(); // +4 evicted, +4 oom
     expect(logger.warn).toHaveBeenCalledTimes(4);
 
-    const detail = service.getDetail();
+    const detail = await service.getDetail();
     expect(detail.counters.evictedKeys.lastDelta).toBe(4);
     expect(detail.counters.oomErrors.lastDelta).toBe(4);
     expect(detail.counters.evictedKeys.available).toBe(true);
     expect(detail.counters.evictedKeys.value).toBe(5);
+  });
+
+  const sampleFixture: RedisMemorySample = {
+    at: '2026-08-14T10:00:00.000Z',
+    ok: true,
+    failureReason: null,
+    usedBytes: 1_000,
+    maxBytes: 2_000,
+    utilizationPercent: 50,
+    evictedKeys: 0,
+    oomErrors: 0,
+  };
+  const otherInstanceSample: RedisMemorySample = {
+    ...sampleFixture,
+    at: '2026-08-14T10:01:00.000Z',
+    instanceId: 'other-instance',
+  };
+
+  it('reports truncation when more rows match than are returned', async () => {
+    store.recent = jest.fn().mockResolvedValue([sampleFixture]);
+    store.countMatching = jest.fn().mockResolvedValue(4200);
+    const detail = await service.getDetail({});
+    expect(detail.truncated).toBe(true);
+    expect(detail.totalMatching).toBe(4200);
+  });
+
+  it('reports no truncation when the window fits', async () => {
+    store.recent = jest.fn().mockResolvedValue([sampleFixture]);
+    store.countMatching = jest.fn().mockResolvedValue(1);
+    const detail = await service.getDetail({});
+    expect(detail.truncated).toBe(false);
+  });
+
+  it('echoes allInstances precedence over instanceId', async () => {
+    const detail = await service.getDetail({ allInstances: true, instanceId: 'other' });
+    expect(detail.appliedInstanceFilter).toBe('all');
+  });
+
+  it('degrades to historyAvailable false when the store throws', async () => {
+    store.recent = jest.fn().mockRejectedValue(new Error('db down'));
+    const detail = await service.getDetail({});
+    expect(detail.historyAvailable).toBe(false);
+    expect(detail.samples).toEqual([]);
+    // Configuration is still present so an operator can see the resolved id.
+    expect(detail.configuration.instanceId).toBe('erp_backend');
+  });
+
+  it('keeps latestSample scoped to the current instance under allInstances', async () => {
+    // latestSample feeds the health view; widening the query must not change
+    // which instance's reading /health reports.
+    store.recent = jest
+      .fn()
+      .mockImplementation(async (q: SampleQuery | number | undefined) =>
+        typeof q === 'object' && q?.allInstances ? [otherInstanceSample] : [sampleFixture],
+      );
+    const detail = await service.getDetail({ allInstances: true });
+    expect(detail.samples).toEqual([otherInstanceSample]);
+    expect(detail.latestSample).toEqual(sampleFixture);
   });
 });
 
@@ -262,7 +328,7 @@ describe('RedisMemorySamplerService alert wiring', () => {
   let store: InMemoryRedisMemoryHistoryStore;
   let evaluator: RedisMemoryPressureEvaluator;
   let logger: { warn: jest.Mock; error: jest.Mock; log: jest.Mock };
-  let alerts: { onPressureState: jest.Mock; onOomCounter: jest.Mock };
+  let alerts: { applySample: jest.Mock };
   let service: RedisMemorySamplerService;
 
   const infoWithOom = (used: number, max: number, oom: number): string =>
@@ -274,11 +340,15 @@ describe('RedisMemorySamplerService alert wiring', () => {
     redisMock.connect.mockResolvedValue(undefined);
     redisMock.ping.mockResolvedValue('PONG');
     redisMock.disconnect.mockReturnValue(undefined);
+    redisMock.info.mockImplementation((section: string) => {
+      if (section === 'server') return Promise.resolve('# Server\r\nrun_id:abc123\r\n');
+      return Promise.resolve(infoWithOom(100, 1000, 0));
+    });
 
     store = new InMemoryRedisMemoryHistoryStore();
     evaluator = new RedisMemoryPressureEvaluator();
     logger = { warn: jest.fn(), error: jest.fn(), log: jest.fn() };
-    alerts = { onPressureState: jest.fn(), onOomCounter: jest.fn() };
+    alerts = { applySample: jest.fn().mockResolvedValue(undefined) };
     service = new RedisMemorySamplerService(
       store,
       logger as unknown as Logger,
@@ -289,6 +359,7 @@ describe('RedisMemorySamplerService alert wiring', () => {
 
   const mockInfo = (used: number, max: number, oom: number | null) => {
     redisMock.info.mockImplementation((section: string) => {
+      if (section === 'server') return Promise.resolve('# Server\r\nrun_id:abc123\r\n');
       if (section === 'memory') return Promise.resolve(infoWithOom(used, max, 0));
       if (section === 'stats') return Promise.resolve('evicted_keys:0\r\n');
       if (section === 'errorstats') {
@@ -300,67 +371,59 @@ describe('RedisMemorySamplerService alert wiring', () => {
     });
   };
 
-  it('emits a pressure event carrying the sample utilization', async () => {
-    mockInfo(100, 1000, 0);
-    await service.sampleNow();
-    expect(alerts.onPressureState).toHaveBeenCalledTimes(1);
-    const event = alerts.onPressureState.mock.calls[0][0];
-    expect(event.utilizationPercent).toBe(10);
-    expect(typeof event.at).toBe('string');
-    expect(event.state).toBeDefined();
-  });
-
-  it('emits a null utilization for a failed sample', async () => {
-    redisMock.ping.mockRejectedValue(new Error('down'));
-    await service.sampleNow();
-    const event = alerts.onPressureState.mock.calls[0][0];
-    expect(event.utilizationPercent).toBeNull();
-  });
-
-  it('emits a baseline OOM event on first observation', async () => {
+  it('passes the raw counter and pressure state to a single applySample call', async () => {
     mockInfo(100, 1000, 4);
     await service.sampleNow();
-    expect(alerts.onOomCounter).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'baseline', value: 4, previousValue: null, delta: 0 }),
-    );
+    expect(alerts.applySample).toHaveBeenCalledTimes(1);
+    const [input, runId] = alerts.applySample.mock.calls[0];
+    expect(input.rawOomCounter).toBe(4);
+    expect(input.pressure.utilizationPercent).toBe(10);
+    expect(runId).toBe('abc123');
   });
 
-  it('emits an increase OOM event with the delta', async () => {
-    mockInfo(100, 1000, 4);
-    await service.sampleNow();
-    mockInfo(100, 1000, 9);
-    await service.sampleNow();
-    expect(alerts.onOomCounter).toHaveBeenLastCalledWith(
-      expect.objectContaining({ kind: 'increase', previousValue: 4, value: 9, delta: 5 }),
-    );
-  });
-
-  it('emits a reset OOM event when the counter decreases', async () => {
-    mockInfo(100, 1000, 9);
-    await service.sampleNow();
-    mockInfo(100, 1000, 2);
-    await service.sampleNow();
-    expect(alerts.onOomCounter).toHaveBeenLastCalledWith(
-      expect.objectContaining({ kind: 'reset', previousValue: 9, value: 2, delta: 0 }),
-    );
-  });
-
-  it('emits nothing for an unchanged OOM counter', async () => {
-    mockInfo(100, 1000, 4);
-    await service.sampleNow();
-    alerts.onOomCounter.mockClear();
-    await service.sampleNow();
-    expect(alerts.onOomCounter).not.toHaveBeenCalled();
-  });
-
-  it('does not route evicted_keys to the alert service', async () => {
+  it('passes a null counter when the OOM read failed', async () => {
     mockInfo(100, 1000, null);
+    await service.sampleNow();
+    const [input] = alerts.applySample.mock.calls[0];
+    expect(input.rawOomCounter).toBeNull();
+  });
+
+  it('passes the retained runId after an identity read failure', async () => {
+    mockInfo(100, 1000, 4);
+    await service.sampleNow();
     redisMock.info.mockImplementation((section: string) => {
+      if (section === 'server') return Promise.reject(new Error('down'));
       if (section === 'memory') return Promise.resolve(infoWithOom(100, 1000, 0));
-      if (section === 'stats') return Promise.resolve('evicted_keys:7\r\n');
       return Promise.resolve('');
     });
     await service.sampleNow();
-    expect(alerts.onOomCounter).not.toHaveBeenCalled();
+    const [input, runId] = alerts.applySample.mock.calls[1];
+    // No errorstats section in the fallback payload, so the counter read
+    // yields null.
+    expect(input.rawOomCounter).toBeNull();
+    // Identity is INVALID (diagnostic only) — applySample must be skipped
+    // because the sampler reports runId: null.
+    expect(runId).toBeNull();
+  });
+
+  it('invalidates identity when the connection fails after a recent success', async () => {
+    redisMock.info.mockResolvedValue('# Server\r\nrun_id:abc123\r\n');
+    await service.sampleNow();
+    expect(service.getIdentity().runId).toBe('abc123');
+
+    redisMock.ping.mockRejectedValueOnce(new Error('ECONNREFUSED'));
+    await service.sampleNow();
+
+    // A still-fresh previous success must not keep serving a row the write
+    // path has stopped maintaining.
+    expect(service.getIdentity()).toEqual({
+      runId: null,
+      reason: 'redis-identity-unknown',
+    });
+  });
+
+  it('never lets a failed persist escape a sample', async () => {
+    store.append = jest.fn().mockRejectedValue(new Error('db down'));
+    await expect(service.sampleNow()).resolves.toBeUndefined();
   });
 });

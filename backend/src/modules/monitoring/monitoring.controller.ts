@@ -5,6 +5,7 @@ import { Auth } from '../auth/decorators/auth.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UserRole } from '@/database/entities/user.entity';
 import { RedisAlertService } from './redis-alert.service';
+import { RedisMemorySamplerService } from './redis-memory-sampler.service';
 import { RedisAlertView } from './redis-alert.types';
 
 export class AcknowledgeOomDto {
@@ -21,7 +22,10 @@ export class AcknowledgeOomDto {
 @ApiTags('Health')
 @Controller('health/redis-alerts')
 export class MonitoringController {
-  constructor(private readonly alerts: RedisAlertService) {}
+  constructor(
+    private readonly alerts: RedisAlertService,
+    private readonly sampler: RedisMemorySamplerService,
+  ) {}
 
   @Get()
   @Auth(UserRole.ADMIN)
@@ -29,8 +33,9 @@ export class MonitoringController {
   @ApiResponse({ status: 200, description: 'Current alert state' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Administrator role required' })
-  getRedisAlerts(): RedisAlertView {
-    return this.alerts.getView();
+  async getRedisAlerts(): Promise<RedisAlertView> {
+    const { runId, reason } = this.sampler.getIdentity();
+    return this.alerts.getView(runId, reason);
   }
 
   @Post('oom/acknowledge')
@@ -38,12 +43,13 @@ export class MonitoringController {
   @ApiOperation({ summary: 'Acknowledge the observed Redis OOM counter value' })
   @ApiResponse({ status: 201, description: 'Updated alert state' })
   @ApiResponse({ status: 409, description: 'Counter changed, or no active alert' })
-  acknowledgeOom(
+  async acknowledgeOom(
     @Body() dto: AcknowledgeOomDto,
     @CurrentUser('userId') userId: string,
     @CurrentUser() user: { username?: string; firstName?: string; lastName?: string },
-  ): RedisAlertView {
-    return this.alerts.acknowledgeOom(dto.observedValue, userId, this.labelFor(user));
+  ): Promise<RedisAlertView> {
+    const { runId } = this.sampler.getIdentity();
+    return this.alerts.acknowledgeOom(dto.observedValue, userId, this.labelFor(user), runId);
   }
 
   /**

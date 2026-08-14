@@ -27,6 +27,8 @@ import { Product } from '../database/entities/product.entity';
 import { PurchaseCostHistory } from '../database/entities/purchase-cost-history.entity';
 import { PurchaseOrder } from '../database/entities/purchase-order.entity';
 import { PurchaseOrderItem } from '../database/entities/purchase-order-item.entity';
+import { RedisAlertStateEntity } from '../database/entities/redis-alert-state.entity';
+import { RedisMemorySampleEntity } from '../database/entities/redis-memory-sample.entity';
 import { RefreshToken } from '../database/entities/refresh-token.entity';
 import { SalesOrder } from '../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../database/entities/sales-order-item.entity';
@@ -91,6 +93,8 @@ export function createDatabaseConfig(
     entities: [
       AuditLog,
       BackupLog,
+      RedisMemorySampleEntity,
+      RedisAlertStateEntity,
       BackupSchedule,
       BackupRetentionSettings,
       Category,

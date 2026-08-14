@@ -1,8 +1,9 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AppService } from './app.service';
 import { Public } from './modules/auth/decorators/public.decorator';
 import { Auth } from './modules/auth/decorators/auth.decorator';
+import { RedisMemoryDetailQueryDto } from './modules/monitoring/dto/redis-memory-detail-query.dto';
 import { UserRole } from '@/database/entities/user.entity';
 
 @ApiTags('Health')
@@ -87,8 +88,8 @@ export class AppController {
   @ApiResponse({ status: 200, description: 'Redis memory-pressure detail' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Administrator role required' })
-  async getRedisMemoryDetail() {
-    return this.appService.getRedisMemoryDetail();
+  async getRedisMemoryDetail(@Query() query: RedisMemoryDetailQueryDto) {
+    return this.appService.getRedisMemoryDetail(query);
   }
 
   @Public()

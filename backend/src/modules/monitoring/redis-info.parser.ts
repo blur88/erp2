@@ -75,3 +75,16 @@ export function parseOomErrors(info: unknown): number | null {
 export function parseEvictedKeys(info: unknown): number | null {
   return readDecimalField(info, 'evicted_keys');
 }
+
+/**
+ * Parse `run_id` out of an `INFO server` payload. It identifies the Redis
+ * instance across sampler restarts; a restarted Redis presents a new run_id.
+ * Returns null when the field is missing or the payload is not a string.
+ */
+export function parseRunId(info: unknown): string | null {
+  if (typeof info !== 'string') {
+    return null;
+  }
+  const match = info.match(/^run_id:(\S+)$/m);
+  return match ? match[1] : null;
+}

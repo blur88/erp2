@@ -3,7 +3,12 @@ import { RedisPressureState } from './redis-memory.types';
 /** Bounded episode history. Oldest evicted first. */
 export const REDIS_ALERT_EPISODE_CAPACITY = 20;
 
-export type RedisAlertSeverity = 'none' | 'warning' | 'critical';
+export type RedisAlertSeverity = 'none' | 'warning' | 'critical' | 'unavailable';
+
+export type RedisAlertUnavailableReason =
+  | 'redis-identity-unknown'
+  | 'redis-identity-stale'
+  | 'storage-unavailable';
 
 export interface PressureEpisode {
   startedAt: string;
@@ -44,9 +49,11 @@ export interface RedisAlertView {
     currentEpisode: PressureEpisode | null;
     recentEpisodes: PressureEpisode[];
     state: RedisPressureState;
-  };
-  oom: OomAlert;
+  } | null;
+  oom: OomAlert | null;
   severity: RedisAlertSeverity;
+  /** Populated only when `severity` is 'unavailable'. */
+  unavailableReason: RedisAlertUnavailableReason | null;
   generatedAt: string;
 }
 

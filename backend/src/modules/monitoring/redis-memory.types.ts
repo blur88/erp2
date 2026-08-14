@@ -4,6 +4,11 @@ export const REDIS_PRESSURE_WINDOW_SAMPLES = 10;
 export const REDIS_PRESSURE_THRESHOLD_PERCENT = 80;
 export const REDIS_COMMAND_TIMEOUT_MS = 5_000;
 export const REDIS_STALE_AFTER_MS = REDIS_SAMPLE_INTERVAL_MS * 3;
+export const REDIS_SAMPLE_RETENTION_DAYS = 90;
+export const REDIS_PRUNE_BATCH_SIZE = 5_000;
+export const REDIS_PRUNE_MAX_BATCHES = 20;
+export const REDIS_DETAIL_MAX_ROWS = 5_000;
+export const KNOWN_INSTANCES_LIMIT = 50;
 
 export type SampleFailureReason =
   | 'overlap-skipped'
@@ -31,6 +36,19 @@ export interface RedisMemorySample {
   utilizationPercent: number | null;
   evictedKeys: number | null;
   oomErrors: number | null;
+  /**
+   * Set by the store on READ only. The sampler constructs samples without it
+   * — the store owns the value and supplies it on the way back out.
+   */
+  instanceId?: string;
+}
+
+export interface KnownInstance {
+  instanceId: string;
+  firstSampleAt: string;
+  lastSampleAt: string;
+  sampleCount: number;
+  current: boolean;
 }
 
 export interface RedisMemoryHistoryStats {
@@ -81,6 +99,11 @@ export interface RedisMemoryHealthView {
 
 export interface RedisMemoryDetail extends RedisMemoryHealthView {
   samples: RedisMemorySample[];
+  historyAvailable: boolean;
+  truncated: boolean;
+  totalMatching: number;
+  appliedInstanceFilter: 'current' | 'specific' | 'all';
+  knownInstances: KnownInstance[];
   configuration: {
     intervalMs: number;
     capacity: number;
@@ -88,6 +111,10 @@ export interface RedisMemoryDetail extends RedisMemoryHealthView {
     thresholdPercent: number;
     commandTimeoutMs: number;
     staleAfterMs: number;
+    retentionDays: number;
+    maxRows: number;
+    instanceId: string;
+    instanceIdSource: 'configured' | 'hostname' | 'generated';
   };
   counters: {
     oomErrors: RedisCounterStatus;

@@ -70,7 +70,7 @@ describe('AppService', () => {
 
   describe('getHealth — Redis memory pressure state mapping', () => {
     it('reports healthy from a healthy sampler state without sampling itself', async () => {
-      samplerMock.getHealthView.mockReturnValue(healthyView);
+      samplerMock.getHealthView.mockResolvedValue(healthyView);
 
       const health = await service.getHealth();
 
@@ -94,7 +94,7 @@ describe('AppService', () => {
     it.each(['sustained-pressure', 'unknown', 'insufficient-samples'])(
       'reports degraded for pressure state %s without throwing',
       async (state) => {
-        samplerMock.getHealthView.mockReturnValue({
+        samplerMock.getHealthView.mockResolvedValue({
           ...healthyView,
           pressure: {
             state,
@@ -113,7 +113,7 @@ describe('AppService', () => {
     );
 
     it('explains sustained pressure in the message', async () => {
-      samplerMock.getHealthView.mockReturnValue({
+      samplerMock.getHealthView.mockResolvedValue({
         ...healthyView,
         pressure: { state: 'sustained-pressure', reason: null, stateSince: '2026-08-14T09:12:00.000Z', streakSamples: 10 },
       });
@@ -125,7 +125,7 @@ describe('AppService', () => {
     });
 
     it('explains insufficient post-restart samples in the message', async () => {
-      samplerMock.getHealthView.mockReturnValue({
+      samplerMock.getHealthView.mockResolvedValue({
         ...healthyView,
         pressure: { state: 'insufficient-samples', reason: null, stateSince: '2026-08-14T09:12:00.000Z', streakSamples: 5 },
       });
@@ -137,7 +137,7 @@ describe('AppService', () => {
     });
 
     it('drops the memory block when the latest sample failed', async () => {
-      samplerMock.getHealthView.mockReturnValue({
+      samplerMock.getHealthView.mockResolvedValue({
         latestSample: {
           at: '2026-08-14T09:12:00.000Z', ok: false, failureReason: 'timeout',
           usedBytes: null, maxBytes: null, utilizationPercent: null,
@@ -165,8 +165,22 @@ describe('AppService', () => {
       expect(health.status).toBe('unhealthy');
     });
 
+    it('reports degraded — never unhealthy — when the monitoring history read fails', async () => {
+      samplerMock.getHealthView.mockRejectedValue(new Error('db down'));
+
+      const health = await service.getHealth();
+
+      // Redis itself answered PING; the failure is monitoring storage.
+      expect(health.services.redis.status).toBe('degraded');
+      expect(health.services.redis.message).toContain('monitoring history unavailable');
+      expect(health.services.redis.memory).toBeNull();
+      expect(health.services.redis.pressure).toBeNull();
+      expect(health.status).toBe('degraded');
+      expect(health.uptime).toBeDefined();
+    });
+
     it('disconnects after a successful check', async () => {
-      samplerMock.getHealthView.mockReturnValue(healthyView);
+      samplerMock.getHealthView.mockResolvedValue(healthyView);
       await service.getHealth();
 
       expect(redisMock.disconnect).toHaveBeenCalled();
@@ -176,7 +190,7 @@ describe('AppService', () => {
   describe('getHealth — overall status precedence', () => {
     it('reports unhealthy when the database is down even if redis is degraded', async () => {
       dataSource.query.mockRejectedValue(new Error('connection terminated'));
-      samplerMock.getHealthView.mockReturnValue({
+      samplerMock.getHealthView.mockResolvedValue({
         ...healthyView,
         pressure: { state: 'sustained-pressure', reason: null, stateSince: '2026-08-14T09:12:00.000Z', streakSamples: 10 },
       });

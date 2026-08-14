@@ -26,7 +26,16 @@ const detail = {
     thresholdPercent: 80,
     commandTimeoutMs: 5_000,
     staleAfterMs: 180_000,
+    retentionDays: 90,
+    maxRows: 5_000,
+    instanceId: 'erp_backend',
+    instanceIdSource: 'configured',
   },
+  historyAvailable: true,
+  truncated: false,
+  totalMatching: 0,
+  appliedInstanceFilter: 'current',
+  knownInstances: [],
   counters: {
     oomErrors: { available: false, value: null, lastDelta: 0, lastChangedAt: null },
     evictedKeys: { available: false, value: null, lastDelta: 0, lastChangedAt: null },
@@ -47,8 +56,9 @@ describe('AppController', () => {
   });
 
   it('delegates Redis memory detail to AppService', async () => {
-    appService.getRedisMemoryDetail.mockReturnValue(detail);
-    await expect(controller.getRedisMemoryDetail()).resolves.toBe(detail);
+    appService.getRedisMemoryDetail.mockResolvedValue(detail);
+    await expect(controller.getRedisMemoryDetail({})).resolves.toBe(detail);
+    expect(appService.getRedisMemoryDetail).toHaveBeenCalledWith({});
   });
 
   it('restricts Redis memory detail to administrators', () => {

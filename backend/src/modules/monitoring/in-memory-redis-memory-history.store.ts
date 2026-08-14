@@ -2,7 +2,14 @@ import {
   REDIS_HISTORY_CAPACITY,
   RedisMemoryHistoryStats,
   RedisMemorySample,
+  KnownInstance,
 } from './redis-memory.types';
+import {
+  RedisMemoryHistoryStore,
+  SampleQuery,
+} from './redis-memory-history.store';
+
+export const IN_MEMORY_INSTANCE_ID = 'in-memory';
 
 /**
  * Bounded in-memory ring buffer of the most recent scheduled samples.
@@ -13,7 +20,7 @@ import {
  * it later through the `RedisMemoryHistoryStore` contract without touching
  * the sampler or controller.
  */
-export class InMemoryRedisMemoryHistoryStore {
+export class InMemoryRedisMemoryHistoryStore implements RedisMemoryHistoryStore {
   private readonly samples: RedisMemorySample[] = [];
 
   constructor(private readonly capacity: number = REDIS_HISTORY_CAPACITY) {
@@ -22,21 +29,25 @@ export class InMemoryRedisMemoryHistoryStore {
     }
   }
 
-  append(sample: RedisMemorySample): void {
+  async append(sample: RedisMemorySample): Promise<void> {
     this.samples.push(sample);
     if (this.samples.length > this.capacity) {
       this.samples.shift();
     }
   }
 
-  recent(count?: number): RedisMemorySample[] {
-    if (count === undefined) {
-      return [...this.samples];
-    }
-    return this.samples.slice(-count);
+  async recent(query?: SampleQuery | number): Promise<RedisMemorySample[]> {
+    const normalized: SampleQuery =
+      typeof query === 'number' ? { limit: query } : (query ?? {});
+    const rows = this.matching(normalized).map((sample) => ({
+      ...sample,
+      instanceId: IN_MEMORY_INSTANCE_ID,
+    }));
+    const count = normalized.limit;
+    return count === undefined ? rows : rows.slice(-count);
   }
 
-  stats(): RedisMemoryHistoryStats {
+  async stats(): Promise<RedisMemoryHistoryStats> {
     const sampleCount = this.samples.length;
     const validSampleCount = this.samples.filter((sample) => sample.ok).length;
     return {
@@ -46,5 +57,50 @@ export class InMemoryRedisMemoryHistoryStore {
       capacity: this.capacity,
       latestSampleAt: this.samples[sampleCount - 1]?.at ?? null,
     };
+  }
+
+  /**
+   * Honours the same query contract as `recent()` minus `limit`, so
+   * `truncated`/`totalMatching` mean the same thing on this implementation as
+   * on the durable one. Returning the whole buffer regardless of the query
+   * would report spurious truncation for any narrowed window.
+   */
+  async countMatching(query: SampleQuery = {}): Promise<number> {
+    return this.matching(query).length;
+  }
+
+  private matching(query: SampleQuery): RedisMemorySample[] {
+    const wantsOtherInstance =
+      !query.allInstances &&
+      query.instanceId !== undefined &&
+      query.instanceId !== IN_MEMORY_INSTANCE_ID;
+    if (wantsOtherInstance) {
+      return [];
+    }
+    return this.samples.filter((sample) => {
+      const at = Date.parse(sample.at);
+      if (query.from && at < query.from.getTime()) {
+        return false;
+      }
+      if (query.to && at > query.to.getTime()) {
+        return false;
+      }
+      return true;
+    });
+  }
+
+  async knownInstances(): Promise<KnownInstance[]> {
+    if (this.samples.length === 0) {
+      return [];
+    }
+    return [
+      {
+        instanceId: IN_MEMORY_INSTANCE_ID,
+        firstSampleAt: this.samples[0].at,
+        lastSampleAt: this.samples[this.samples.length - 1].at,
+        sampleCount: this.samples.length,
+        current: true,
+      },
+    ];
   }
 }

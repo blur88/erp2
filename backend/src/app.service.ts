@@ -4,10 +4,12 @@ import { DataSource } from 'typeorm';
 import Redis from 'ioredis';
 
 import { RedisMemorySamplerService } from './modules/monitoring/redis-memory-sampler.service';
+import { RedisMemoryDetailQueryDto } from './modules/monitoring/dto/redis-memory-detail-query.dto';
 import {
   REDIS_PRESSURE_THRESHOLD_PERCENT,
   REDIS_PRESSURE_WINDOW_SAMPLES,
   RedisMemoryDetail,
+  RedisMemoryHealthView,
   RedisPressureState,
   RedisPressureUnknownReason,
 } from './modules/monitoring/redis-memory.types';
@@ -89,35 +91,52 @@ export class AppService implements OnModuleDestroy {
       await this.redisClient.connect();
       await this.redisClient.ping();
 
-      const view = this.sampler.getHealthView();
-      const { pressure, history } = view;
-      const latest = view.latestSample;
-      const memory =
-        latest?.ok && latest.usedBytes !== null
-          ? {
-              usedBytes: latest.usedBytes,
-              maxBytes: latest.maxBytes,
-              utilizationPercent: latest.utilizationPercent,
-            }
-          : null;
+      let view: RedisMemoryHealthView | null = null;
+      try {
+        view = await this.sampler.getHealthView();
+      } catch {
+        // Monitoring storage is unreachable. Redis itself just answered PING,
+        // so this is degraded visibility, never a Redis fault.
+        view = null;
+      }
 
-      const redisStatus: string =
-        pressure.state === 'healthy' ? 'healthy' : 'degraded';
+      if (view === null) {
+        services.redis = {
+          status: 'degraded',
+          message: 'Redis connected — monitoring history unavailable',
+          memory: null,
+          pressure: null,
+        };
+      } else {
+        const { pressure, history } = view;
+        const latest = view.latestSample;
+        const memory =
+          latest?.ok && latest.usedBytes !== null
+            ? {
+                usedBytes: latest.usedBytes,
+                maxBytes: latest.maxBytes,
+                utilizationPercent: latest.utilizationPercent,
+              }
+            : null;
 
-      const message = this.redisMessage(pressure, memory);
+        const redisStatus: string =
+          pressure.state === 'healthy' ? 'healthy' : 'degraded';
 
-      services.redis = {
-        status: redisStatus,
-        message,
-        memory,
-        pressure: {
-          state: pressure.state,
-          reason: pressure.reason,
-          sampleCount: history.sampleCount,
-          validSampleCount: history.validSampleCount,
-          latestSampleAt: history.latestSampleAt,
-        },
-      };
+        const message = this.redisMessage(pressure, memory);
+
+        services.redis = {
+          status: redisStatus,
+          message,
+          memory,
+          pressure: {
+            state: pressure.state,
+            reason: pressure.reason,
+            sampleCount: history.sampleCount,
+            validSampleCount: history.validSampleCount,
+            latestSampleAt: history.latestSampleAt,
+          },
+        };
+      }
 
       await this.redisClient.disconnect();
     } catch (error) {
@@ -148,8 +167,10 @@ export class AppService implements OnModuleDestroy {
   }
 
   /** Administrator-only detail view of the sampler's history and state. */
-  getRedisMemoryDetail(): RedisMemoryDetail {
-    return this.sampler.getDetail();
+  async getRedisMemoryDetail(
+    query: RedisMemoryDetailQueryDto = {},
+  ): Promise<RedisMemoryDetail> {
+    return this.sampler.getDetail(query);
   }
 
   private redisMessage(
