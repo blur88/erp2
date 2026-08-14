@@ -3,7 +3,14 @@ import { BaseEntity } from '../../../database/entities/base.entity';
 import { ChartOfAccount } from './chart-of-account.entity';
 import { ExpensePayment } from './expense-payment.entity';
 
-export enum ExpenseDocumentStatus { DRAFT = 'DRAFT', COMPLETED = 'COMPLETED', CANCELLED = 'CANCELLED' }
+// Member order is pinned to the migration chain, NOT to the logical lifecycle
+// (#1056). Genesis created the type as ('DRAFT', 'CANCELLED'); COMPLETED was
+// appended later by 1786000000000-AddExpenseCompletedStatus via `ALTER TYPE
+// ... ADD VALUE`, which has no BEFORE/AFTER clause and therefore lands last.
+// verify-baseline.sh compares a migrated schema against a schema:sync
+// reference built from this declaration, so reordering these into lifecycle
+// order (DRAFT, COMPLETED, CANCELLED) re-breaks that gate.
+export enum ExpenseDocumentStatus { DRAFT = 'DRAFT', CANCELLED = 'CANCELLED', COMPLETED = 'COMPLETED' }
 export enum ExpensePaymentStatus { UNPAID = 'UNPAID', PARTIAL = 'PARTIAL', PAID = 'PAID', OVERPAID = 'OVERPAID' }
 
 @Entity('expenses')
