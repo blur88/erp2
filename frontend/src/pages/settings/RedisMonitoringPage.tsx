@@ -162,7 +162,7 @@ export default function RedisMonitoringPage() {
   return (
     <Box sx={{ p: 3 }} data-testid="redis-monitoring-page">
       <Stack spacing={3}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel>Range</InputLabel>
             <Select
@@ -246,7 +246,7 @@ export default function RedisMonitoringPage() {
           />
         </Paper>
 
-        <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: '1fr 1fr' }} gap={2}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
           {perInstance.map((stats) => (
             <InstanceStatsCard
               key={stats.instanceId}
@@ -288,7 +288,7 @@ function InstanceStatsCard({ stats, isCurrent, configuration }: InstanceStatsCar
   return (
     <Card data-testid={`instance-stats-${stats.instanceId}`}>
       <CardContent>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           <Typography variant="h6">
             {stats.instanceId}
             {isCurrent ? ' (current)' : ''}
