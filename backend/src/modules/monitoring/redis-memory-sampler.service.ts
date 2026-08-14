@@ -14,6 +14,8 @@ import {
 } from './redis-memory-history.store';
 import { parseEvictedKeys, parseOomErrors, parseRedisMemory } from './redis-info.parser';
 import { RedisMemoryPressureEvaluator } from './redis-memory-pressure.evaluator';
+import { RedisAlertService } from './redis-alert.service';
+import { RedisOomCounterEvent } from './redis-alert.types';
 import {
   REDIS_COMMAND_TIMEOUT_MS,
   REDIS_HISTORY_CAPACITY,
@@ -73,6 +75,8 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
     private readonly logger: Logger = new Logger(RedisMemorySamplerService.name),
     @Optional()
     private readonly evaluator: RedisMemoryPressureEvaluator = new RedisMemoryPressureEvaluator(),
+    @Optional()
+    private readonly alerts: RedisAlertService | null = null,
   ) {
     this.redisClient = new Redis({
       host: process.env.REDIS_HOST || 'localhost',
@@ -265,8 +269,16 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
       );
     }
 
+    this.alerts?.onPressureState({
+      state: after,
+      utilizationPercent: sample.utilizationPercent,
+      at: sample.at,
+    });
+
     if (sample.ok) {
-      this.trackCounter(this.oomTracker, 'OOM errors', sample.oomErrors, sample.at);
+      this.trackCounter(this.oomTracker, 'OOM errors', sample.oomErrors, sample.at, (event) =>
+        this.alerts?.onOomCounter(event),
+      );
       this.trackCounter(this.evictedTracker, 'evicted_keys', sample.evictedKeys, sample.at);
     }
   }
@@ -281,12 +293,14 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
     label: string,
     value: number | null,
     at: string,
+    emit?: (event: RedisOomCounterEvent) => void,
   ): void {
     if (value === null) {
       return;
     }
     if (tracker.value === null) {
       tracker.value = value;
+      emit?.({ previousValue: null, value, delta: 0, kind: 'baseline', at });
       return;
     }
     if (value > tracker.value) {
@@ -294,9 +308,11 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
       tracker.lastDelta = delta;
       tracker.lastChangedAt = at;
       this.logger.warn(`Redis ${label} counter increased by ${delta} (now ${value}) at ${at}`);
+      emit?.({ previousValue: tracker.value, value, delta, kind: 'increase', at });
     } else if (value < tracker.value) {
       tracker.lastDelta = 0;
       tracker.lastChangedAt = null;
+      emit?.({ previousValue: tracker.value, value, delta: 0, kind: 'reset', at });
     }
     tracker.value = value;
   }
