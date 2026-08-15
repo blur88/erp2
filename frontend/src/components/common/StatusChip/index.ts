@@ -1,6 +1,2 @@
 export { StatusChip } from './StatusChip'
-export type { StatusChipProps } from './StatusChip'
-export { EntityTypeChip, ENTRY_TYPE_MAP } from './entryTypeChip'
-export type { EntityTypeChipProps, EntryTypeColor } from './entryTypeChip'
-export { STATUS_MAP, resolveStatusColor, resolveStatusConfig, toTitleCase } from './statusColors'
-export type { MuiChipColor } from './statusColors'
+export { resolveStatusColor } from './statusColors'
