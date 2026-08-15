@@ -18,6 +18,16 @@ export enum PostingType {
   STOCK_ADJUSTMENT = 'STOCK_ADJUSTMENT',
   EXPENSE_PAYMENT = 'EXPENSE_PAYMENT',
   EXPENSE_REFUND = 'EXPENSE_REFUND',
+
+  // Appended for Owner Equity (#1022). ALTER TYPE ... ADD VALUE has no
+  // BEFORE/AFTER clause, so these land last on migrated databases. Declaration
+  // order here must match that, or verify-baseline.sh fails comparing a
+  // migrated schema against a schema:sync reference.
+  OWNER_CAPITAL_INJECTION = 'OWNER_CAPITAL_INJECTION',
+  OWNER_CAPITAL_INJECTION_REFUND = 'OWNER_CAPITAL_INJECTION_REFUND',
+  OWNER_CASH_DRAWING = 'OWNER_CASH_DRAWING',
+  OWNER_CASH_DRAWING_REFUND = 'OWNER_CASH_DRAWING_REFUND',
+  OWNER_STOCK_DRAWING = 'OWNER_STOCK_DRAWING',
 }
 
 export enum AccountingSourceType {
@@ -26,6 +36,7 @@ export enum AccountingSourceType {
   STOCK_ADJUSTMENT = 'STOCK_ADJUSTMENT',
   OPENING_BALANCE = 'OPENING_BALANCE',
   EXPENSE = 'EXPENSE',
+  OWNER_EQUITY = 'OWNER_EQUITY',   // appended — see PostingType comment above
 }
 
 export type PaymentChannel = 'CASH' | 'BANK';
