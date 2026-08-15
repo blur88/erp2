@@ -9,9 +9,13 @@ import {
   EmptyResultGuardError,
 } from '@modules/backup/orphaned-scheduler-reconciler.service';
 
+// `protocol: 2` mirrors createBullOptions(): ioredis 6 defaults to RESP3, and
+// this suite is the only gate that runs against real Redis, so it must exercise
+// the same wire protocol production uses.
 const connection = {
   host: process.env.REDIS_TEST_HOST || '127.0.0.1',
   port: parseInt(process.env.REDIS_TEST_PORT || '6399'),
+  protocol: 2 as const,
 };
 
 const QUEUE = 'backup-queue';

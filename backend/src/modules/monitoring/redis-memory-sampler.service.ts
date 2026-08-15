@@ -97,6 +97,10 @@ export class RedisMemorySamplerService implements OnModuleInit, OnModuleDestroy 
       retryStrategy: () => null,
       lazyConnect: true,
       commandTimeout: REDIS_COMMAND_TIMEOUT_MS,
+      // ioredis 6 defaults to RESP3 (`protocol: 3`); v5 used RESP2. Pinned to 2
+      // so the ioredis 6 upgrade changed only the dependency, not the wire
+      // protocol. Matters here because INFO parsing reads raw reply text.
+      protocol: 2,
     });
   }
 
