@@ -73,6 +73,10 @@ export class BackupService implements OnModuleDestroy {
       port: parseInt(this.configService.get<string>('REDIS_PORT', '6379')),
       password: this.configService.get<string>('REDIS_PASSWORD'),
       maxRetriesPerRequest: 3,
+      // ioredis 6 defaults to RESP3 (`protocol: 3`); v5 used RESP2. Pinned to 2
+      // so the ioredis 6 upgrade changed only the dependency, not the wire
+      // protocol. Matters here because this client reads raw BullMQ queue state.
+      protocol: 2,
     });
   }
 
@@ -316,7 +320,9 @@ export class BackupService implements OnModuleDestroy {
           backup[key].value = await this.redis.smembers(key);
           break;
         case 'zset':
-          const zsetData = await this.redis.zrange(key, 0, -1, 'WITHSCORES');
+          // ioredis 6 types `stop` as string | Buffer (only `start` takes a
+          // number), so -1 must be passed as a string. Same command on the wire.
+          const zsetData = await this.redis.zrange(key, 0, '-1', 'WITHSCORES');
           // Convert from [member, score, member, score] to [score, member, score, member] for ZADD
           const zaddFormat = [];
           for (let i = 0; i < zsetData.length; i += 2) {
