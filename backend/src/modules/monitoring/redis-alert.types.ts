@@ -63,12 +63,3 @@ export interface RedisPressureStateEvent {
   utilizationPercent: number | null;
   at: string;
 }
-
-export interface RedisOomCounterEvent {
-  previousValue: number | null;
-  value: number;
-  /** 0 for 'baseline' and 'reset'. */
-  delta: number;
-  kind: 'baseline' | 'increase' | 'reset';
-  at: string;
-}

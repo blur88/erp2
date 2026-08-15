@@ -4,10 +4,12 @@
     "src/main.ts",
     "src/config/database.config.ts",
     "src/config/cli-datasource.ts",
+    "src/database/check-baseline.ts",
     "src/modules/audit-logs/dto/query-audit-logs.dto.ts"
   ],
   "project": ["src/**/*.ts"],
   "ignore": ["src/database/migrations/**"],
-  "ignoreDependencies": ["ts-loader"],
+  "ignoreDependencies": ["ts-loader", "bats"],
+  "ignoreBinaries": ["bats"],
   "ignoreExportsUsedInFile": true
 }
