@@ -1,4 +1,3 @@
-import { Queue as QueueV5 } from 'bullmq-v5';
 import { IRedisClient, Queue as QueueV6, Worker, Job } from 'bullmq';
 import { Repository } from 'typeorm';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
@@ -21,10 +20,15 @@ const QUEUE = 'backup-queue';
  * BullMQ's IRedisClient declares del/zrange/zcard/zscore/hexists but omits
  * keys/exists, which this test needs. Extend narrowly rather than casting
  * the whole client to any.
+ *
+ * zadd/hset are here for seedLegacyRepeatable() only — BullMQ 6 cannot write
+ * the pre-scheduler repeatable shape, so that fixture is hand-rolled.
  */
 type TestRedisClient = IRedisClient & {
   keys(pattern: string): Promise<string[]>;
   exists(key: string): Promise<number>;
+  zadd(key: string, score: number | string, member: string): Promise<number>;
+  hset(key: string, values: Record<string, string>): Promise<number>;
 };
 
 const testClient = async (q: QueueV6): Promise<TestRedisClient> =>
@@ -32,7 +36,6 @@ const testClient = async (q: QueueV6): Promise<TestRedisClient> =>
 
 describe('Orphaned scheduler reconciliation (real Redis)', () => {
   let prefix: string;
-  let v5: QueueV5;
   let v6: QueueV6;
   let service: BackupSchedulerService;
   let schedule: BackupSchedule;
@@ -44,9 +47,7 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
     worker = undefined;
     // Unique prefix per test — never the persistent dev queue.
     prefix = `test-bullmq-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    v5 = new QueueV5(QUEUE, { connection, prefix });
     v6 = new QueueV6(QUEUE, { connection, prefix });
-    await v5.waitUntilReady();
     await v6.waitUntilReady();
 
     schedule = {
@@ -77,7 +78,6 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
     const client = await testClient(v6);
     const keys = await client.keys(`${prefix}:*`);
     if (keys.length) await client.del(...keys);
-    await v5.close();
     await v6.close();
   });
 
@@ -100,7 +100,7 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
     schedule.id = 'live-unrelated-1';
     schedule.name = 'Live Unrelated';
 
-    await v5.upsertJobScheduler(
+    await v6.upsertJobScheduler(
       ORPHAN_MEMBER,
       { pattern: '00 02 * * *' },
       {
@@ -159,7 +159,7 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
     schedule.id = 'live-unrelated-1';
     schedule.name = 'Live Unrelated';
 
-    await v5.upsertJobScheduler(
+    await v6.upsertJobScheduler(
       ORPHAN_MEMBER,
       { pattern: '* * * * * *' }, // every second — due inside the window
       {
@@ -209,7 +209,7 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
 
     /** Seeds a genuine v5 scheduler-format entry (ic present, bare-hex member). */
     const seedOrphan = async (pattern = '00 02 * * *', member = ORPHAN_MEMBER) => {
-      await v5.upsertJobScheduler(
+      await v6.upsertJobScheduler(
         member,
         { pattern },
         {
@@ -226,6 +226,62 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
         { pattern: '00 03 * * *' },
         { name: 'create-backup', data: { scheduleId: LIVE_ID } },
       );
+    };
+
+    /**
+     * Seeds a pre-scheduler ("legacy") repeatable — hashed member, NO `ic`
+     * field on the metadata hash — which BullMQ 6 has no code path to write.
+     *
+     * Hand-rolled because the `bullmq-v5` fixture alias was retired (#1050).
+     * The shape below was captured byte-for-byte from a real
+     * `bullmq@5.81.3` `Queue.add(..., { repeat: { pattern } })` against Redis
+     * 8.6.2 before the alias was removed, not reconstructed from docs:
+     *
+     *   ZSET  <prefix>:backup-queue:repeat
+     *           member 7ee15ebb1093b2ffa05b0f607cb36e64  score <nextMillis>
+     *   HASH  <prefix>:backup-queue:repeat:<member>
+     *           { name, pattern }          <- exactly two fields, NO `ic`
+     *   ZSET  <prefix>:backup-queue:delayed
+     *           member repeat:<member>:<nextMillis>
+     *   HASH  <prefix>:backup-queue:repeat:<member>:<nextMillis>
+     *           { rjk, delay, opts, data, priority, name, timestamp }
+     *
+     * Note `data` (and so the scheduleId) lives on the DELAYED job hash, not
+     * on the metadata hash — v5 never put `data` there. The reconciler's `ic`
+     * check short-circuits before its `data` read, which is why the legacy
+     * entry is skipped rather than misclassified.
+     */
+    const seedLegacyRepeatable = async (
+      member = '7ee15ebb1093b2ffa05b0f607cb36e64',
+      nextMillis = 1786816800000,
+    ) => {
+      const client = await testClient(v6);
+      const jobId = `repeat:${member}:${nextMillis}`;
+
+      await client.zadd(repeatKey, nextMillis, member);
+      await client.hset(`${repeatKey}:${member}`, {
+        name: 'create-backup',
+        pattern: '00 02 * * *',
+      });
+
+      await client.zadd(delayedKey, nextMillis, jobId);
+      await client.hset(`${repeatKey}:${member}:${nextMillis}`, {
+        rjk: member,
+        delay: '13854248',
+        opts: JSON.stringify({
+          prevMillis: nextMillis,
+          jobId,
+          repeat: { jobId: 'legacy-1', pattern: '00 02 * * *', count: 1 },
+          delay: 13854248,
+          attempts: 0,
+        }),
+        data: JSON.stringify({ scheduleId: ORPHAN_SCHEDULE_ID }),
+        priority: '0',
+        name: 'create-backup',
+        timestamp: '1786802945752',
+      });
+
+      return member;
     };
 
     /** True when member, metadata hash, and a delayed occurrence all exist. */
@@ -360,15 +416,10 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
     it('never removes a non-ic legacy entry, even with allowEmpty', async () => {
       // The legacy API: hashed member, NO ic field, but data carries a
       // scheduleId — the exact shape an unfiltered scan would misclassify.
-      await v5.add(
-        'create-backup',
-        { scheduleId: ORPHAN_SCHEDULE_ID },
-        { repeat: { pattern: '00 02 * * *' }, jobId: 'legacy-1' },
-      );
+      const legacyMember = await seedLegacyRepeatable();
       (repo.find as jest.Mock).mockResolvedValue([]);
 
       const client = await testClient(v6);
-      const [legacyMember] = await client.zrange(repeatKey, 0, -1);
       expect(await client.hexists(`${repeatKey}:${legacyMember}`, 'ic')).toBe(0);
 
       const result = await reconciler.reconcileOrphanedSchedulers({

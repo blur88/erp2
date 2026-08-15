@@ -88,7 +88,6 @@
     "@typescript-eslint/eslint-plugin": "^8.58.0",
     "@typescript-eslint/parser": "^8.58.0",
     "bats": "^1.13.0",
-    "bullmq-v5": "npm:bullmq@5.81.3",
     "dotenv": "^17.3.1",
     "eslint": "^10.2.0",
     "eslint-config-prettier": "^10.1.8",

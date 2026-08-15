@@ -103,13 +103,15 @@ jobs:
       - name: E2E tests
         run: npm run test:e2e
 
-      # Covers OrphanedSchedulerReconciler (#1045) against a real Redis: a v5
-      # queue seeds genuine scheduler-format orphans and non-ic legacy entries
-      # — the shapes BullMQ 5 produced in the migration scenario, which is what
-      # the `bullmq-v5` alias in devDependencies is for (v6 cannot write the
-      # non-ic shape at all). The unit tests mock hexists and so cannot catch
-      # an inverted ic check. Runs last because it is the cheapest gate
-      # and must not delay E2E feedback.
+      # Covers OrphanedSchedulerReconciler (#1045) against a real Redis:
+      # scheduler-format orphans are seeded with v6 (explicit bare-hex ids),
+      # and the non-ic legacy entry — which v6 has no code path to write — is
+      # hand-rolled via raw zadd/hset from a shape captured byte-for-byte from
+      # bullmq@5.81.3 before the `bullmq-v5` alias was retired (#1050). The
+      # unit tests mock hexists and so cannot catch an inverted ic check, so
+      # a "Tests: 0 total" here is a FAILURE, not a pass — the suite must
+      # report 11. Runs last because it is the cheapest gate and must not
+      # delay E2E feedback.
       - name: Orphaned scheduler reconciliation tests
         run: npm run test:redis
 
