@@ -14,17 +14,6 @@ export * from './purchase-order.dto';
 // Vendor Payment DTOs
 export * from './vendor-payment.dto';
 
-// Common response types
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-  hasNext: boolean;
-  hasPrev: boolean;
-}
-
 interface ApiResponse<T> {
   success: boolean;
   message: string;

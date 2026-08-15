@@ -1,4 +1,4 @@
-import { AccountType, AccountingSourceType, PostingType, PaymentChannel } from './enums';
+import { AccountingSourceType, PostingType, PaymentChannel } from './enums';
 
 interface Base { sourceRef: string; entryDate: string; createdBy?: string; }
 
@@ -14,5 +14,5 @@ export interface PostExpensePaymentCmd extends Base { expenseId: string; payment
 export interface PostExpenseRefundCmd extends Base { expenseId: string; refundRowId: string; expenseAccountId: string; channel: PaymentChannel; amount: string; }
 export interface ReverseEntryCmd { originalEntryId: string; entryDate: string; createdBy?: string; }
 
-export { AccountType, AccountingSourceType, PostingType };
+export { AccountingSourceType, PostingType };
 export type { PaymentChannel };

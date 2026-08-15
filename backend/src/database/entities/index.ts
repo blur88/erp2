@@ -10,7 +10,5 @@ export { StockMovement } from './stock-movement.entity';
 export { Supplier } from './supplier.entity';
 export { PurchaseOrder, PurchaseOrderStatus, PurchaseOrderPaymentStatus } from './purchase-order.entity';
 export { PurchaseOrderItem } from './purchase-order-item.entity';
-export { SearchClick } from './search-click.entity';
-export { SearchQuery } from './search-query.entity';
 export { VendorPayment } from './vendor-payment.entity';
 export { PaymentMethodEntity } from './payment-method.entity';

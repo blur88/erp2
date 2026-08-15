@@ -46,5 +46,3 @@ export const SETTINGS_CODE_MAP = {
   cogsAccountId: '5100',
   defaultExpenseAccountId: '6990',
 } as const;
-
-export type SettingsCodeMap = typeof SETTINGS_CODE_MAP;
