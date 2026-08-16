@@ -4,6 +4,10 @@ import {
   IsEnum,
   IsUUID,
   IsArray,
+  IsInt,
+  Min,
+  Max,
+  IsIn,
   MaxLength,
   ValidateNested,
   ValidateIf,
@@ -157,5 +161,62 @@ export interface ListOwnerEquityParams {
   documentStatus?: OwnerEquityDocumentStatus;
   settlementStatus?: OwnerEquitySettlementStatus;
   sortBy?: 'referenceNumber' | 'equityDate' | 'totalAmount';
+  sortOrder?: 'ASC' | 'DESC';
+}
+
+export class ListOwnerEquityQueryDto implements ListOwnerEquityParams {
+  @ApiPropertyOptional({ description: 'Page number', example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ description: 'Items per page', example: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  limit?: number;
+
+  @ApiPropertyOptional({ description: 'Search by reference number or description' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ description: 'From equity date', example: '2026-01-01' })
+  @IsOptional()
+  @IsCalendarDate()
+  fromDate?: string;
+
+  @ApiPropertyOptional({ description: 'To equity date', example: '2026-12-31' })
+  @IsOptional()
+  @IsCalendarDate()
+  toDate?: string;
+
+  @ApiPropertyOptional({ enum: OwnerEquityType })
+  @IsOptional()
+  @IsEnum(OwnerEquityType)
+  type?: OwnerEquityType;
+
+  @ApiPropertyOptional({ enum: OwnerEquityDocumentStatus })
+  @IsOptional()
+  @IsEnum(OwnerEquityDocumentStatus)
+  documentStatus?: OwnerEquityDocumentStatus;
+
+  @ApiPropertyOptional({ enum: OwnerEquitySettlementStatus })
+  @IsOptional()
+  @IsEnum(OwnerEquitySettlementStatus)
+  settlementStatus?: OwnerEquitySettlementStatus;
+
+  @ApiPropertyOptional({ enum: ['referenceNumber', 'equityDate', 'totalAmount'] })
+  @IsOptional()
+  @IsIn(['referenceNumber', 'equityDate', 'totalAmount'])
+  sortBy?: 'referenceNumber' | 'equityDate' | 'totalAmount';
+
+  @ApiPropertyOptional({ enum: ['ASC', 'DESC'] })
+  @IsOptional()
+  @IsIn(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC';
 }
