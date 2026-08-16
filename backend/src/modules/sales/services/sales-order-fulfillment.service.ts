@@ -44,6 +44,17 @@ export class SalesOrderFulfillmentService {
         );
       }
 
+      // NOTE (#1076): this reads item.product, hydrated as a relation before
+      // any product lock was taken, so it is a snapshot and can be stale under
+      // concurrency. It is the ONLY stock-sufficiency gate on this path —
+      // adjustStock() deliberately permits negative stock for GOODS and does
+      // not re-check. The #1076 locking therefore guarantees that the recorded
+      // balances are correct and no update is lost; it does NOT make this
+      // oversell check race-free. Two concurrent fulfilments of the last unit
+      // can still both pass here and drive stock negative, which this codebase
+      // treats as allowed for GOODS. Making the check authoritative means
+      // moving it inside the lock and deciding whether negative stock stays
+      // permitted — a product decision, tracked separately.
       const offenders = order.items
         .filter(
           (item) =>

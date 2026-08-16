@@ -13,7 +13,7 @@ import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { SalesOrderItem } from '../../../database/entities/sales-order-item.entity';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { SettingsService } from '../../settings/settings.service';
-import { repoFor } from '../../../common/db/tx-helpers';
+import { repoFor, lockProductForStockUpdate } from '../../../common/db/tx-helpers';
 
 export interface StockItem {
   productId: string;
@@ -144,88 +144,13 @@ export class InventoryIntegrationService {
     }
   }
 
-  async releaseReservation(salesOrderId: string): Promise<void> {
-    const orderReservations = this.reservations.get(salesOrderId);
-    if (!orderReservations) {
-      return; // No reservations to release
-    }
-
-    // Release all reservations for this order
-    // Note: We don't create stock movement records for releasing reservations
-    // Stock movements are only created for actual stock changes (fulfillment)
-
-    // Remove from reservations map
-    this.reservations.delete(salesOrderId);
-  }
-
-  async fulfillOrder(salesOrderId: string, userId?: string): Promise<void> {
-    const order = await this.salesOrderRepository.findOne({
-      where: { id: salesOrderId },
-      relations: { items: true },
-    });
-
-    if (!order) {
-      throw new NotFoundException('Sales order not found');
-    }
-
-    const orderReservations = this.reservations.get(salesOrderId);
-    if (!orderReservations) {
-      throw new BadRequestException('No reservations found for this order');
-    }
-
-    // Fulfill each item
-    for (const item of order.items) {
-      const product = await this.productRepository.findOne({
-        where: { id: item.productId },
-      });
-
-      if (!product) {
-        throw new NotFoundException(`Product ${item.productId} not found`);
-      }
-
-      // Check if we have enough reserved stock
-      const reservedQuantity = orderReservations.get(item.productId) || 0;
-      if (reservedQuantity < item.quantity) {
-        throw new BadRequestException(
-          `Insufficient reserved stock for product ${product.barcode || product.name}. Reserved: ${reservedQuantity}, Required: ${item.quantity}`
-        );
-      }
-
-      // Create stock movement for fulfillment BEFORE updating stock
-      // This ensures previousBalance and newBalance are calculated correctly
-      const previousStock = Number(product.stockQuantity);
-      const newStockQuantity = previousStock - item.quantity;
-
-      await this.createStockMovementWithBalances(
-        item.productId,
-        -item.quantity, // Negative for sales (outward movement)
-        previousStock,
-        newStockQuantity,
-        StockMovementType.SALE,
-        `Fulfilled for sales order ${order.orderNumber}`,
-        salesOrderId,
-        userId,
-      );
-
-      // Update product stock (allow negative for GOODS products)
-      product.stockQuantity = newStockQuantity; // Allow negative stock for GOODS
-      await this.productRepository.save(product);
-
-      // Remove from reservations
-      orderReservations.set(item.productId, reservedQuantity - item.quantity);
-    }
-
-    // Clean up empty reservations
-    for (const [productId, quantity] of orderReservations.entries()) {
-      if (quantity <= 0) {
-        orderReservations.delete(productId);
-      }
-    }
-
-    if (orderReservations.size === 0) {
-      this.reservations.delete(salesOrderId);
-    }
-  }
+  // NOTE: releaseReservation() and fulfillOrder() were removed in #1076. Both
+  // were unreachable (no callers anywhere in src/), and fulfillOrder() wrote
+  // product.stockQuantity directly on this.productRepository — outside any
+  // transaction and bypassing the stock-mutation contract. The in-memory
+  // reservations map is deliberately KEPT: reserveStock() and
+  // getOrderFulfillmentStatus() below are live (SalesOrderService:240 and :571).
+  // Its single-instance design is tracked separately.
 
   async getOrderFulfillmentStatus(salesOrderId: string): Promise<OrderFulfillmentStatus> {
     const order = await this.salesOrderRepository.findOne({
@@ -426,12 +351,22 @@ export class InventoryIntegrationService {
   ): Promise<bigint> {
     const productRepo = repoFor(manager, Product, this.productRepository);
 
-    const product = await productRepo.findOne({ where: { id: productId } });
-    if (!product) {
-      throw new NotFoundException(`Product ${productId} not found`);
+    // Stock-mutation contract (#1076): lock before reading stockQuantity so the
+    // movement, the FIFO consumption and the product save below are atomic
+    // against concurrent movements from other workflows. The caller
+    // (SalesOrderFulfillmentService) already runs in a transaction and passes
+    // its manager; without one there is no lock to take, so refuse rather than
+    // silently racing.
+    if (!manager) {
+      throw new Error(
+        'adjustStock requires an EntityManager: the product lock is only ' +
+          'meaningful inside a transaction (stock-mutation contract, #1076).',
+      );
     }
+    const product = await lockProductForStockUpdate(manager, Product, productId);
 
-    // Calculate stock changes BEFORE updating
+    // Calculate stock changes BEFORE updating. `product` above is lock-held and
+    // is the authoritative source of the current quantity — do not re-read it.
     const currentStock = Number(product.stockQuantity);
     const changeAmount = Number(quantityChange);
     const newStockQuantity = currentStock + changeAmount;
@@ -495,34 +430,6 @@ export class InventoryIntegrationService {
     }, 0);
   }
 
-  private async createStockMovement(
-    productId: string,
-    quantity: number,
-    movementType: StockMovementType,
-    reason: string,
-    referenceId?: string,
-    userId?: string,
-  ): Promise<StockMovement> {
-    // Get current product stock to calculate previous balance
-    const product = await this.productRepository.findOne({ where: { id: productId } });
-    if (!product) {
-      throw new NotFoundException(`Product ${productId} not found`);
-    }
-
-    const previousBalance = Number(product.stockQuantity);
-    const newBalance = previousBalance + quantity; // quantity is negative for sales
-
-    return this.createStockMovementWithBalances(
-      productId,
-      quantity,
-      previousBalance,
-      newBalance,
-      movementType,
-      reason,
-      referenceId,
-      userId,
-    );
-  }
 
   private async createStockMovementWithBalances(
     productId: string,

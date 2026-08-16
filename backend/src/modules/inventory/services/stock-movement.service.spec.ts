@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { StockMovementService } from './stock-movement.service';
 import { StockMovement } from '../../../database/entities/stock-movement.entity';
 import { Product } from '../../../database/entities/product.entity';
@@ -50,6 +50,24 @@ describe('StockMovementService', () => {
           provide: ProductService,
           useValue: {
             updateStockQuantity: jest.fn(),
+          },
+        },
+        {
+          // #1076: create()/deleteByReference()/reverseMovement() open their own
+          // transaction when no manager is supplied, so the service now needs a
+          // DataSource. The stub runs the callback against a manager whose
+          // getRepository() returns the same mocks the tests already assert on,
+          // and whose lock-read resolves to the mocked product.
+          provide: DataSource,
+          useValue: {
+            transaction: jest.fn((cb: any) =>
+              cb({
+                getRepository: (entity: any) =>
+                  entity === StockMovement
+                    ? stockMovementRepository
+                    : productRepository,
+              }),
+            ),
           },
         },
       ],
