@@ -36,6 +36,15 @@ vi.mock('../expenses/ExpenseFormPage', () => ({
 vi.mock('../expenses/ExpenseDetailPage', () => ({
   default: () => <div>ACCOUNTING_PAGE</div>,
 }))
+vi.mock('../owner-equity/OwnerEquityPage', () => ({
+  default: () => <div>ACCOUNTING_PAGE</div>,
+}))
+vi.mock('../owner-equity/OwnerEquityFormPage', () => ({
+  default: () => <div>ACCOUNTING_PAGE</div>,
+}))
+vi.mock('../owner-equity/OwnerEquityDetailPage', () => ({
+  default: () => <div>ACCOUNTING_PAGE</div>,
+}))
 
 function storeWithRole(role: string) {
   return configureStore({
@@ -72,7 +81,7 @@ describe('accounting routes are reachable by any authenticated role', () => {
   ] as const
 
   it('defines every accounting route', () => {
-    expect(accountingRoutes).toHaveLength(10)
+    expect(accountingRoutes).toHaveLength(14)
   })
 
   it.each(

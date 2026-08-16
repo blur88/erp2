@@ -1,0 +1,488 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Box } from '@mui/material'
+import { skipToken } from '@reduxjs/toolkit/query'
+
+import ConfirmationDialog from '@/components/common/ConfirmationDialog'
+import SimpleListPage from '@/components/common/SimpleListPage'
+import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
+import PagePagination from '@/components/common/PagePagination'
+import PaymentDialog from '@/components/common/PaymentDialog'
+import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
+import { StatusChip } from '@/components/common/StatusChip'
+import RowActionMenu, { type RowAction } from '@/components/common/RowActionMenu'
+import { useFilterBar } from '@/hooks/useFilterBar'
+import { useNotification } from '@/hooks/useNotification'
+import {
+  useCancelOwnerEquityMutation,
+  useCompleteOwnerEquityMutation,
+  useGetOwnerEquityListQuery,
+  useGetOwnerEquityQuery,
+  useRefundOwnerEquityMutation,
+  useSettleOwnerEquityMutation,
+  useUncancelOwnerEquityMutation,
+  useUncompleteOwnerEquityMutation,
+} from '@/store/api/accountingApi'
+import { useGetActivePaymentMethodsForPurchasesQuery } from '@/store/api/paymentMethodsApi'
+import type {
+  OwnerEquityDocument,
+  OwnerEquityListParams,
+  OwnerEquityType,
+} from '@/types'
+import type { FilterBarConfig } from '@/types/filterBar.types'
+import { fromScaledAmount, toScaledAmount } from '@/utils/currency'
+import { formatCurrency, formatDate } from '@/utils/formatters'
+import { rtkErrorMessage } from '@/utils/errorMessage'
+import { PAGINATION } from '@/constants/tableStyles'
+import { getOwnerEquityActionMetas } from './ownerEquityActions'
+
+export const OWNER_EQUITY_TYPE_LABELS: Record<OwnerEquityType, string> = {
+  CAPITAL_INJECTION: 'Capital Injection',
+  CASH_DRAWING: 'Cash Drawing',
+  STOCK_DRAWING: 'Stock Drawing',
+}
+
+interface EquityFilters {
+  search: string
+  period: { key: string | null; from: string | null; to: string | null }
+  type: OwnerEquityType | null
+  documentStatus: OwnerEquityDocument['documentStatus'] | null
+  settlementStatus: OwnerEquityDocument['settlementStatus'] | null
+}
+
+const EQUITY_SORT_FIELD = 'referenceNumber' as const
+
+const filterConfig: FilterBarConfig<EquityFilters> = {
+  search: { placeholder: 'Search by equity no., description...' },
+  fields: [
+    { field: 'period', label: 'Period', type: 'period' },
+    {
+      field: 'type',
+      label: 'Type',
+      type: 'select',
+      options: [
+        { value: 'CAPITAL_INJECTION', label: 'Capital Injection' },
+        { value: 'CASH_DRAWING', label: 'Cash Drawing' },
+        { value: 'STOCK_DRAWING', label: 'Stock Drawing' },
+      ],
+      emptyLabel: 'All types',
+    },
+    {
+      field: 'documentStatus',
+      label: 'Status',
+      type: 'select',
+      options: [
+        { value: 'DRAFT', label: 'Draft' },
+        { value: 'READY', label: 'Ready' },
+        { value: 'COMPLETED', label: 'Completed' },
+        { value: 'CANCELLED', label: 'Cancelled' },
+      ],
+      emptyLabel: 'All statuses',
+    },
+    {
+      field: 'settlementStatus',
+      label: 'Settlement',
+      type: 'select',
+      options: [
+        { value: 'UNSETTLED', label: 'Unsettled' },
+        { value: 'PARTIAL', label: 'Partial' },
+        { value: 'SETTLED', label: 'Settled' },
+        { value: 'OVERSETTLED', label: 'OversettLED' },
+      ],
+      emptyLabel: 'All settlements',
+    },
+  ],
+  defaults: {
+    search: '',
+    period: { key: null, from: null, to: null },
+    type: null,
+    documentStatus: null,
+    settlementStatus: null,
+  },
+}
+
+export default function OwnerEquityPage() {
+  const navigate = useNavigate()
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [settleRow, setSettleRow] = useState<OwnerEquityDocument | null>(null)
+  const [refundRow, setRefundRow] = useState<OwnerEquityDocument | null>(null)
+  const [completeRow, setCompleteRow] = useState<OwnerEquityDocument | null>(null)
+  const [cancelRow, setCancelRow] = useState<OwnerEquityDocument | null>(null)
+  const [uncancelRow, setUncancelRow] = useState<OwnerEquityDocument | null>(null)
+
+  const { showSuccess, showError } = useNotification()
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
+
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig, {
+    onApply: () => setPage(1),
+  })
+
+  const queryParams = useMemo(() => {
+    const params: OwnerEquityListParams = {
+      page,
+      limit,
+      sortBy: EQUITY_SORT_FIELD,
+      sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
+    }
+    const search = appliedFilters.search.trim()
+    if (search) params.search = search
+    if (appliedFilters.type) params.type = appliedFilters.type
+    if (appliedFilters.documentStatus) params.documentStatus = appliedFilters.documentStatus
+    if (appliedFilters.settlementStatus) params.settlementStatus = appliedFilters.settlementStatus
+    return params
+  }, [page, limit, appliedFilters, sortOrder])
+
+  const { data: response, isFetching, error } = useGetOwnerEquityListQuery(queryParams)
+  const rows = response?.data ?? []
+  const total = response?.meta?.total ?? 0
+
+  const [doSettleOwnerEquity] = useSettleOwnerEquityMutation()
+  const [doRefundOwnerEquity] = useRefundOwnerEquityMutation()
+  const [doComplete, { isLoading: isCompleting }] = useCompleteOwnerEquityMutation()
+  const [doCancel, { isLoading: isCancelling }] = useCancelOwnerEquityMutation()
+  const [doUncancel, { isLoading: isUncancelling }] = useUncancelOwnerEquityMutation()
+
+  const { data: paymentMethods = [], isLoading: methodsLoading } =
+    useGetActivePaymentMethodsForPurchasesQuery(undefined, { skip: !settleRow })
+
+  const {
+    currentData: refundDetail,
+    isError: refundDetailError,
+  } = useGetOwnerEquityQuery(refundRow ? refundRow.id : skipToken)
+
+  useEffect(() => {
+    if (refundRow && refundDetailError) {
+      showError('Failed to load equity settlements for refund')
+      setRefundRow(null)
+    }
+  }, [refundRow, refundDetailError, showError])
+
+  const refundSources: RefundSource[] = useMemo(() => {
+    if (!refundDetail?.settlements) return []
+    return refundDetail.settlements
+      .filter((s) => (toScaledAmount(s.amount) ?? 0n) > 0n)
+      .map((s) => ({
+        id: s.id,
+        label: s.paymentMethod?.name ?? 'Payment',
+        paidAmount: fromScaledAmount(toScaledAmount(s.amount) ?? 0n),
+        alreadyRefunded: fromScaledAmount(
+          s.remainingRefundable
+            ? (toScaledAmount(s.amount) ?? 0n) - (toScaledAmount(s.remainingRefundable) ?? 0n)
+            : 0n,
+        ),
+      }))
+  }, [refundDetail])
+
+  const settleTerminology = useMemo(() => {
+    if (!settleRow) return undefined
+    // Capital injections are received; cash drawings are paid.
+    return settleRow.type === 'CAPITAL_INJECTION'
+      ? { noun: 'Receipt', verbPast: 'Received', submitLabel: 'Record Receipt', lineNoun: 'Receipt' }
+      : { noun: 'Payment', verbPast: 'Paid', submitLabel: 'Record Payment', lineNoun: 'Payment' }
+  }, [settleRow])
+
+  const handleLimitChange = (newLimit: number) => {
+    setLimit(newLimit)
+    setPage(1)
+  }
+
+  const handleSort = useCallback(() => {
+    setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))
+    setPage(1)
+  }, [])
+
+  const handleView = (row: OwnerEquityDocument) => {
+    navigate(`/accounting/owner-equity/${row.referenceNumber}/view`)
+  }
+
+  const handleSettleSubmit = useCallback(
+    async (payments: { paymentMethodId: string; amount: string; paymentDate: string; reference?: string }[]) => {
+      if (!settleRow) return
+      try {
+        await doSettleOwnerEquity({
+          referenceNumber: settleRow.referenceNumber,
+          data: {
+            settlements: payments.map((p) => ({
+              paymentMethodId: p.paymentMethodId,
+              amount: p.amount,
+              settlementDate: p.paymentDate,
+              reference: p.reference,
+            })),
+          },
+        }).unwrap()
+        showSuccess(`Settlement recorded for ${settleRow.referenceNumber}`)
+        setSettleRow(null)
+      } catch (error) {
+        showError(rtkErrorMessage(error, 'Failed to record settlement'))
+        throw error
+      }
+    },
+    [settleRow, doSettleOwnerEquity, showSuccess, showError],
+  )
+
+  const handleRefundSubmit = useCallback(
+    async (lines: { sourceId: string; amount: string; reference?: string; date?: string }[]) => {
+      if (!refundRow) return
+      try {
+        await doRefundOwnerEquity({
+          referenceNumber: refundRow.referenceNumber,
+          data: {
+            refunds: lines.map((l) => ({
+              sourceSettlementId: l.sourceId,
+              amount: l.amount,
+              reference: l.reference,
+              refundDate: l.date as string,
+            })),
+          },
+        }).unwrap()
+        showSuccess(`Refund recorded for ${refundRow.referenceNumber}`)
+        setRefundRow(null)
+      } catch (error) {
+        showError(rtkErrorMessage(error, 'Failed to record refund'))
+        throw error
+      }
+    },
+    [refundRow, doRefundOwnerEquity, showSuccess, showError],
+  )
+
+  const handleCompleteConfirm = useCallback(async () => {
+    if (!completeRow) return
+    try {
+      await doComplete({ referenceNumber: completeRow.referenceNumber }).unwrap()
+      showSuccess(`${OWNER_EQUITY_TYPE_LABELS[completeRow.type]} ${completeRow.referenceNumber} completed`)
+      setCompleteRow(null)
+    } catch (error) {
+      showError(rtkErrorMessage(error, 'Failed to complete'))
+    }
+  }, [completeRow, doComplete, showSuccess, showError])
+
+  const handleCancelConfirm = useCallback(async () => {
+    if (!cancelRow) return
+    try {
+      await doCancel({ referenceNumber: cancelRow.referenceNumber }).unwrap()
+      showSuccess(`${OWNER_EQUITY_TYPE_LABELS[cancelRow.type]} ${cancelRow.referenceNumber} cancelled`)
+      setCancelRow(null)
+    } catch (error) {
+      showError(rtkErrorMessage(error, 'Failed to cancel'))
+    }
+  }, [cancelRow, doCancel, showSuccess, showError])
+
+  const handleUncancelConfirm = useCallback(async () => {
+    if (!uncancelRow) return
+    try {
+      await doUncancel({ referenceNumber: uncancelRow.referenceNumber }).unwrap()
+      showSuccess(`${OWNER_EQUITY_TYPE_LABELS[uncancelRow.type]} ${uncancelRow.referenceNumber} uncancelled`)
+      setUncancelRow(null)
+    } catch (error) {
+      showError(rtkErrorMessage(error, 'Failed to uncancel'))
+    }
+  }, [uncancelRow, doUncancel, showSuccess, showError])
+
+  const buildRowActions = useCallback(
+    (row: OwnerEquityDocument): RowAction[] => {
+      const metas = getOwnerEquityActionMetas(row)
+      const actions: RowAction[] = [{ label: 'View', onClick: () => handleView(row) }]
+      for (const meta of metas) {
+        actions.push({
+          label: meta.action.charAt(0).toUpperCase() + meta.action.slice(1),
+          onClick: () => {
+            if (meta.action === 'edit') {
+              navigate(`/accounting/owner-equity/${row.referenceNumber}/edit`)
+            } else if (meta.action === 'complete') {
+              setCompleteRow(row)
+            } else if (meta.action === 'uncomplete') {
+              navigate(`/accounting/owner-equity/${row.referenceNumber}/view`)
+            } else if (meta.action === 'settle') {
+              setSettleRow(row)
+            } else if (meta.action === 'refund') {
+              setRefundRow(row)
+            } else if (meta.action === 'cancel') {
+              setCancelRow(row)
+            } else if (meta.action === 'uncancel') {
+              setUncancelRow(row)
+            }
+          },
+          disabled: meta.disabled,
+          tooltip: meta.tooltip,
+        })
+      }
+      return actions
+    },
+    [],
+  )
+
+  const isMonetary = (row: OwnerEquityDocument) =>
+    row.type === 'CAPITAL_INJECTION' || row.type === 'CASH_DRAWING'
+
+  const columns: ColumnConfig<OwnerEquityDocument>[] = [
+    { key: 'referenceNumber', render: (row) => row.referenceNumber },
+    { key: 'equityDate', render: (row) => formatDate(row.equityDate) },
+    { key: 'type', render: (row) => OWNER_EQUITY_TYPE_LABELS[row.type] },
+    { key: 'description', render: (row) => row.description ?? '-' },
+    {
+      key: 'amountOrCost',
+      raw: true,
+      render: (row) =>
+        isMonetary(row) ? formatCurrency(row.totalAmount) : formatCurrency(row.totalCost),
+    },
+    {
+      key: 'settled',
+      render: (row) => (isMonetary(row) ? formatCurrency(row.settledAmount) : '—'),
+    },
+    {
+      key: 'balance',
+      render: (row) => (isMonetary(row) ? formatCurrency(row.balance) : '—'),
+    },
+    {
+      key: 'documentStatus',
+      raw: true,
+      render: (row) => <StatusChip status={row.documentStatus} />,
+    },
+    {
+      key: 'settlementStatus',
+      raw: true,
+      render: (row) =>
+        isMonetary(row) ? <StatusChip status={row.settlementStatus ?? 'UNSETTLED'} /> : '—',
+    },
+    {
+      key: 'actions',
+      raw: true,
+      render: (row) => <RowActionMenu actions={buildRowActions(row)} />,
+    },
+  ]
+
+  return (
+    <SimpleListPage
+      title="Owner Equity"
+      subtitle="Capital injections, cash drawings and stock drawings"
+      primaryAction={{
+        label: '+ New Owner Equity',
+        onClick: () => navigate('/accounting/owner-equity/create'),
+      }}
+      filterConfig={filterConfig}
+      draftFilters={draftFilters}
+      handlers={handlers}
+      hasActiveFilters={hasActiveFilters}
+      searchInputRef={searchInputRef}
+      sort={{
+        field: EQUITY_SORT_FIELD,
+        sortBy: EQUITY_SORT_FIELD,
+        sortOrder,
+        onSort: handleSort,
+      }}
+      isFetching={isFetching}
+      error={error ? 'Failed to load owner equity documents.' : null}
+      tableSlot={
+        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          <EntityTable
+            rows={rows}
+            columns={columns}
+            loading={isFetching}
+            total={total}
+            label="Owner Equity"
+            emptyLabel="owner equity documents"
+            showHeader={false}
+            focusedIndex={-1}
+            selectedId={undefined}
+            onSelect={handleView}
+            listRef={searchInputRef}
+            headers={[
+              'Equity No.',
+              'Date',
+              'Type',
+              'Description',
+              'Amount/Cost',
+              'Received/Paid',
+              'Balance',
+              'Doc Status',
+              'Settlement',
+              'Actions',
+            ]}
+            paginationSlot={
+              total > 0 ? (
+                <PagePagination
+                  total={total}
+                  page={page}
+                  limit={limit}
+                  onPageChange={setPage}
+                  onLimitChange={handleLimitChange}
+                  pageSizeOptions={PAGINATION.options}
+                />
+              ) : undefined
+            }
+          />
+        </Box>
+      }
+      dialogs={
+        <>
+          {settleRow && (
+            <PaymentDialog
+              open
+              onClose={() => setSettleRow(null)}
+              onSubmit={handleSettleSubmit}
+              documentNumber={settleRow.referenceNumber}
+              totalAmount={settleRow.totalAmount ?? '0'}
+              paidAmount={settleRow.settledAmount ?? '0'}
+              paymentMethods={paymentMethods}
+              loading={methodsLoading}
+              terminology={settleTerminology}
+            />
+          )}
+
+          {refundRow && refundDetail && (
+            <RefundDialog
+              open
+              onClose={() => setRefundRow(null)}
+              onSubmit={handleRefundSubmit}
+              sources={refundSources}
+              orderNumber={refundRow.referenceNumber}
+              totalAmount={refundRow.totalAmount ?? '0'}
+              showDateField
+            />
+          )}
+
+          {completeRow && (
+            <ConfirmationDialog
+              open
+              title="Complete Owner Equity"
+              message={`Mark ${OWNER_EQUITY_TYPE_LABELS[completeRow.type]} ${completeRow.referenceNumber} as completed?`}
+              confirmText="Complete"
+              severity="info"
+              onConfirm={handleCompleteConfirm}
+              onCancel={() => setCompleteRow(null)}
+              loading={isCompleting}
+            />
+          )}
+
+          {cancelRow && (
+            <ConfirmationDialog
+              open
+              title="Cancel Owner Equity"
+              message={`Cancel this document? (${cancelRow.referenceNumber})`}
+              confirmText="Cancel"
+              severity="error"
+              onConfirm={handleCancelConfirm}
+              onCancel={() => setCancelRow(null)}
+              loading={isCancelling}
+            />
+          )}
+
+          {uncancelRow && (
+            <ConfirmationDialog
+              open
+              title="Uncancel Owner Equity"
+              message={`Uncancel this document? (${uncancelRow.referenceNumber})`}
+              confirmText="Uncancel"
+              severity="warning"
+              onConfirm={handleUncancelConfirm}
+              onCancel={() => setUncancelRow(null)}
+              loading={isUncancelling}
+            />
+          )}
+        </>
+      }
+    />
+  )
+}
