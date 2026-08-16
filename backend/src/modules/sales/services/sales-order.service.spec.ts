@@ -83,7 +83,6 @@ describe('SalesOrderService', () => {
         {
           provide: InventoryIntegrationService,
           useValue: {
-            checkAvailability: jest.fn(),
             reserveStock: jest.fn(),
             getOrderFulfillmentStatus: jest.fn(),
           },
