@@ -124,9 +124,9 @@ if [ "$APPLIED_LATEST" != "$EXPECTED_LATEST" ]; then
 fi
 
 echo "==> Row counts"
-check "document_number_settings" 5  "$(q 'SELECT count(*) FROM document_number_settings;')"
+check "document_number_settings" 6  "$(q 'SELECT count(*) FROM document_number_settings;')"
 check "payment_methods"          7  "$(q 'SELECT count(*) FROM payment_methods;')"
-check "chart_of_account"         16 "$(q 'SELECT count(*) FROM chart_of_account;')"
+check "chart_of_account"         17 "$(q 'SELECT count(*) FROM chart_of_account;')"
 check "accounting_settings"      1  "$(q 'SELECT count(*) FROM accounting_settings;')"
 check "regional_settings"        1  "$(q 'SELECT count(*) FROM regional_settings;')"
 check "company_settings (lazy)"  0  "$(q 'SELECT count(*) FROM company_settings;')"
@@ -135,7 +135,7 @@ check "users (no default admin)" 0  "$(q 'SELECT count(*) FROM users;')"
 
 echo "==> document_number_settings values"
 check "doc numbers" \
-  "Expenses|EXP|3|1|-1;Journal Entries|JE|3|1|-1;Purchase Orders|PO|3|1|-1;Sales Orders|SO|3|1|-1;Stock Adjustment|SA|3|1|-1" \
+  "Expenses|EXP|3|1|-1;Journal Entries|JE|3|1|-1;Owner Equity|EQ|3|1|26;Purchase Orders|PO|3|1|-1;Sales Orders|SO|3|1|-1;Stock Adjustment|SA|3|1|-1" \
   "$(q "SELECT string_agg(\"documentName\"||'|'||prefix||'|'||\"paddingDigits\"||'|'||\"nextNumber\"||'|'||\"lastResetYear\", ';' ORDER BY \"documentName\") FROM document_number_settings;")"
 
 echo "==> payment_methods values"
@@ -145,12 +145,12 @@ check "payment methods" \
 
 echo "==> chart_of_account exact tuples"
 check "COA tuples" \
-  "1000|Assets|Asset|-|true|false;1100|Cash|Asset|1000|true|true;1200|Bank|Asset|1000|true|true;1300|Inventory|Asset|1000|true|true;1400|Supplier Deposit|Asset|1000|true|true;2000|Liabilities|Liability|-|true|false;2100|Customer Deposit|Liability|2000|true|true;3000|Equity|Equity|-|true|false;3100|Owner Capital|Equity|3000|true|true;3200|Opening Balance Equity|Equity|3000|true|true;4000|Income|Income|-|true|false;4100|Sales Revenue|Income|4000|true|true;5000|Cost of Sales|Expense|-|true|false;5100|Cost of Goods Sold|Expense|5000|true|true;6000|Expenses|Expense|-|true|false;6990|Other Expenses|Expense|6000|true|true" \
+  "1000|Assets|Asset|-|true|false;1100|Cash|Asset|1000|true|true;1200|Bank|Asset|1000|true|true;1300|Inventory|Asset|1000|true|true;1400|Supplier Deposit|Asset|1000|true|true;2000|Liabilities|Liability|-|true|false;2100|Customer Deposit|Liability|2000|true|true;3000|Equity|Equity|-|true|false;3100|Owner Capital|Equity|3000|true|true;3200|Opening Balance Equity|Equity|3000|true|true;3300|Owner Drawings|Equity|3000|true|true;4000|Income|Income|-|true|false;4100|Sales Revenue|Income|4000|true|true;5000|Cost of Sales|Expense|-|true|false;5100|Cost of Goods Sold|Expense|5000|true|true;6000|Expenses|Expense|-|true|false;6990|Other Expenses|Expense|6000|true|true" \
   "$(q "SELECT string_agg(c.code||'|'||c.name||'|'||c.type::text||'|'||coalesce((SELECT p.code FROM chart_of_account p WHERE p.id = c.\"parentId\"), '-')||'|'||c.\"isSystem\"||'|'||c.\"isPostable\", ';' ORDER BY c.code) FROM chart_of_account c;")"
 
 echo "==> accounting_settings column-to-code mappings"
-check "settings mappings (cash,bank,inventory,supplierDeposit,customerDeposit,openingBalanceEquity,salesRevenue,cogs,defaultExpense)" \
-  "1100,1200,1300,1400,2100,3200,4100,5100,6990" \
+check "settings mappings (cash,bank,inventory,supplierDeposit,customerDeposit,openingBalanceEquity,ownerCapital,ownerDrawings,salesRevenue,cogs,defaultExpense)" \
+  "1100,1200,1300,1400,2100,3200,3100,3300,4100,5100,6990" \
   "$(q "SELECT
      (SELECT code FROM chart_of_account WHERE id = s.\"cashAccountId\")||','||
      (SELECT code FROM chart_of_account WHERE id = s.\"bankAccountId\")||','||
@@ -158,6 +158,8 @@ check "settings mappings (cash,bank,inventory,supplierDeposit,customerDeposit,op
      (SELECT code FROM chart_of_account WHERE id = s.\"supplierDepositAccountId\")||','||
      (SELECT code FROM chart_of_account WHERE id = s.\"customerDepositAccountId\")||','||
      (SELECT code FROM chart_of_account WHERE id = s.\"openingBalanceEquityAccountId\")||','||
+     (SELECT code FROM chart_of_account WHERE id = s.\"ownerCapitalAccountId\")||','||
+     (SELECT code FROM chart_of_account WHERE id = s.\"ownerDrawingsAccountId\")||','||
      (SELECT code FROM chart_of_account WHERE id = s.\"salesRevenueAccountId\")||','||
      (SELECT code FROM chart_of_account WHERE id = s.\"cogsAccountId\")||','||
      (SELECT code FROM chart_of_account WHERE id = s.\"defaultExpenseAccountId\")

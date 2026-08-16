@@ -40,7 +40,7 @@ run_seeds() {
   [ "$status" -eq 2 ]
   [[ "$output" == *"verify-baseline.sh"* ]]
   # Message must report both sides, not a bare "stale".
-  [[ "$output" == *"11"* ]]
+  [[ "$output" == *"12"* ]]
   [[ "$output" == *"8"* ]]
   [[ "$output" != *"  ok "* ]]
   assert_no_sentinel
@@ -49,13 +49,13 @@ run_seeds() {
 @test "verify-seeds: stale candidate — correct count but wrong latest migration" {
   # Count MATCHES the repository, so this can only fail via the latest-name
   # signal. That is the whole reason this spec is separate from the one above.
-  export STUB_MIGRATION_COUNT=11
+  export STUB_MIGRATION_COUNT=12
   export STUB_LATEST_MIGRATION='SomeOtherMigration1700000000000'
   run_seeds
 
   [ "$status" -eq 2 ]
   [[ "$output" == *"verify-baseline.sh"* ]]
-  [[ "$output" == *"AddRedisMonitoringTables1786712086437"* ]]
+  [[ "$output" == *"AddOwnerEquity1786862759868"* ]]
   [[ "$output" == *"SomeOtherMigration1700000000000"* ]]
   [[ "$output" != *"  ok "* ]]
   assert_no_sentinel
@@ -63,8 +63,8 @@ run_seeds() {
 
 @test "verify-seeds: fresh candidate passes preflight and reaches the row counts" {
   export STUB_DB_EXISTS=1
-  export STUB_MIGRATION_COUNT=11
-  export STUB_LATEST_MIGRATION='AddRedisMonitoringTables1786712086437'
+  export STUB_MIGRATION_COUNT=12
+  export STUB_LATEST_MIGRATION='AddOwnerEquity1786862759868'
   run_seeds
 
   # Preflight passed, so the script proceeds into its content checks. Those

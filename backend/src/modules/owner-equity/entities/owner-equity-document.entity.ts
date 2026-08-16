@@ -1,4 +1,4 @@
-import { Entity, Column, Index, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, Index, OneToMany, ManyToOne, JoinColumn, Check } from 'typeorm';
 import { BaseEntity } from '../../../database/entities/base.entity';
 import { Product } from '../../../database/entities/product.entity';
 import { OwnerEquitySettlement } from './owner-equity-settlement.entity';
@@ -21,6 +21,27 @@ export enum OwnerEquitySettlementStatus {
 }
 
 @Entity('owner_equity_documents')
+@Check(
+  'CHK_oe_monetary_shape',
+  `type = 'STOCK_DRAWING' OR ("totalAmount" IS NOT NULL AND "settledAmount" IS NOT NULL AND balance IS NOT NULL AND "settlementStatus" IS NOT NULL AND "productId" IS NULL AND quantity IS NULL AND "unitCost" IS NULL AND "totalCost" IS NULL)`,
+)
+@Check(
+  'CHK_oe_stock_shape',
+  `type <> 'STOCK_DRAWING' OR ("productId" IS NOT NULL AND quantity IS NOT NULL AND "totalAmount" IS NULL AND "settledAmount" IS NULL AND balance IS NULL AND "settlementStatus" IS NULL)`,
+)
+@Check(
+  'CHK_oe_stock_cost_on_complete',
+  `type <> 'STOCK_DRAWING' OR "documentStatus" <> 'COMPLETED' OR ("unitCost" IS NOT NULL AND "totalCost" IS NOT NULL)`,
+)
+@Check('CHK_oe_stock_no_ready', `type <> 'STOCK_DRAWING' OR "documentStatus" <> 'READY'`)
+@Check(
+  'CHK_oe_completion_metadata',
+  `("documentStatus" = 'COMPLETED' AND "completedAt" IS NOT NULL AND "completedBy" IS NOT NULL) OR ("documentStatus" <> 'COMPLETED' AND "completedAt" IS NULL AND "completedBy" IS NULL)`,
+)
+@Check(
+  'CHK_oe_values',
+  `("totalAmount" IS NULL OR "totalAmount" > 0) AND (quantity IS NULL OR quantity > 0) AND ("unitCost" IS NULL OR "unitCost" >= 0) AND ("totalCost" IS NULL OR "totalCost" >= 0)`,
+)
 @Index(['equityDate'])
 @Index(['type'])
 @Index(['documentStatus'])
