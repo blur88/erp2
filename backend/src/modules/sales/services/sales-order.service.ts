@@ -165,17 +165,11 @@ export class SalesOrderService extends BaseCrudService<
 
     // Note: Credit limit check removed - customerService not available
 
-    // Check inventory availability
-    const inventoryCheck = await this.inventoryIntegrationService.checkAvailability(
-      items.map((item) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-      })),
-    );
-
-    if (!inventoryCheck.available) {
-      throw new ConflictException(`Insufficient inventory: ${inventoryCheck.message}`);
-    }
+    // No stock gate at order entry, by design: a short order may be created and
+    // simply cannot be fulfilled until stock arrives (#1078). The previous
+    // checkAvailability() call here fed a guard that could never fire — the flag
+    // it tested was hard-coded true — and did no other work, so it was removed
+    // rather than left as a decorative query.
 
     // Retry logic for handling duplicate order numbers (race condition)
     let savedOrder: SalesOrder;

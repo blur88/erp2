@@ -22,9 +22,20 @@ export interface StockItem {
   salesOrderId?: string;
 }
 
-export interface AvailabilityCheck {
-  available: boolean;
-  message: string;
+/**
+ * A point-in-time stock snapshot for a set of requested items. This is a
+ * QUERY, not a gate: it reports what stock exists and where a request falls
+ * short, and deliberately renders no verdict on whether an operation may
+ * proceed.
+ *
+ * It previously carried `available: boolean` and a `message`, but `available`
+ * was hard-coded `true`, so all three `if (!available)` guards against it were
+ * unreachable and the message claimed negative stock was permitted — which
+ * stopped being true at fulfilment in #1078. Callers now read `shortfall` and
+ * decide for themselves; order entry accepts shorts by design, fulfilment
+ * refuses them under the product lock.
+ */
+export interface StockAvailability {
   items: {
     productId: string;
     productSku: string;
@@ -73,8 +84,16 @@ export class InventoryIntegrationService {
     private readonly settingsService: SettingsService,
   ) {}
 
-  async checkAvailability(items: StockItem[]): Promise<AvailabilityCheck> {
-    let allAvailable = true; // Always true now - we allow negative stock for GOODS
+  /**
+   * Report current stock and shortfall for the requested items.
+   *
+   * Reports only — it never throws on insufficiency and never decides whether a
+   * caller may proceed. Sufficiency is enforced at fulfilment, inside
+   * `adjustStock()` under the product lock (#1078), which is the only place a
+   * verdict can be made race-free. A check here would be a pre-lock snapshot
+   * and stale by the time anyone acted on it.
+   */
+  async getStockAvailability(items: StockItem[]): Promise<StockAvailability> {
     const availabilityItems = [];
 
     for (const item of items) {
@@ -91,12 +110,6 @@ export class InventoryIntegrationService {
       const effectiveAvailable = availableQuantity - reservedQuantity;
       const shortfall = Math.max(0, item.quantity - effectiveAvailable);
 
-      // Allow negative stock for GOODS products (stocked products)
-      // Service products should not have stock issues
-      // For GOODS, we allow negative stock, so always available
-      // For SERVICE, they don't have stock constraints, so always available
-      // Both types are always available now
-
       availabilityItems.push({
         productId: item.productId,
         productSku: product.barcode || '',
@@ -108,19 +121,13 @@ export class InventoryIntegrationService {
       });
     }
 
-    return {
-      available: allAvailable, // Always true now - allowing negative stock
-      message: 'All items are available (negative stock allowed for stocked products)',
-      items: availabilityItems,
-    };
+    return { items: availabilityItems };
   }
 
   async reserveStock(items: StockItem[]): Promise<void> {
-    // Check availability first (now allows negative stock for GOODS)
-    const availabilityCheck = await this.checkAvailability(items);
-    if (!availabilityCheck.available) {
-      throw new BadRequestException('Insufficient stock for reservation');
-    }
+    // Reservations are advisory and deliberately do NOT gate on stock: a short
+    // item may be reserved, exactly as a short order may be entered. Fulfilment
+    // is where sufficiency is enforced (#1078).
 
     // Reserve stock for each item
     for (const item of items) {
@@ -271,18 +278,7 @@ export class InventoryIntegrationService {
       return; // No change needed
     }
 
-    // Check availability if increasing reservation
-    if (difference > 0) {
-      const availabilityCheck = await this.checkAvailability([{
-        productId,
-        quantity: difference,
-        salesOrderId,
-      }]);
-
-      if (!availabilityCheck.available) {
-        throw new BadRequestException('Insufficient stock for increased reservation');
-      }
-    }
+    // Increasing a reservation is not gated on stock either — see reserveStock().
 
     // Update reservation
     if (newQuantity <= 0) {
