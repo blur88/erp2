@@ -16,6 +16,7 @@ import { AccountingSourceType } from '../src/modules/accounting/entities/source-
 import { PostingType } from '../src/modules/accounting/entities/posting-type.enum';
 import { AccountType } from '../src/modules/accounting/entities/account-type.enum';
 import { CreateExpenseDto, PayExpenseDto, RefundExpenseDto, UpdateExpenseDto } from '../src/modules/accounting/dto/create-expense.dto';
+import { SettingsService } from '../src/modules/settings/settings.service';
 import { configureTestAppValidation } from './utils/configure-test-app-validation';
 import request from 'supertest';
 import * as bcrypt from 'bcrypt';
@@ -898,6 +899,38 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
 
       const jeCount = await ds.query(`SELECT COUNT(*)::int AS n FROM journal_entry WHERE "sourceType" = $1 AND "sourceDocumentId" = $2 AND "postingType" = $3`, [AccountingSourceType.EXPENSE, exp.id, PostingType.EXPENSE_REFUND]);
       expect(jeCount[0].n).toBe(1);
+    });
+
+    it('reconciliation reads the maximum NUMERIC suffix, not the lexical maximum', async () => {
+      // paddingDigits is 3, so the real sequence emits EXP-YY-999 and then
+      // EXP-YY-1000. '999' sorts ABOVE '1000' lexically ('9' > '1'), so a
+      // textual max reads 999 and the next issued number collides with the
+      // existing 1000 on expenses.expenseNumber's UNIQUE constraint (#1075).
+      // NOTE: a zero-padded '0999' fixture does NOT reproduce this — '0999'
+      // sorts below '1000' and the lexical query accidentally returns the right
+      // row. The unpadded 3-digit form is what the generator actually issues.
+      // Expenses is the representative case for the four types converted here;
+      // the same shared query serves Sales/Purchase Orders and Stock Adjustment.
+      const yy = String(new Date().getFullYear() % 100).padStart(2, '0');
+      const repo = ds.getRepository(Expense);
+      for (const seq of ['999', '1000']) {
+        await repo.save(
+          repo.create({
+            expenseNumber: `EXP-${yy}-${seq}`,
+            expenseDate: '2026-07-15',
+            description: 'numbering fixture',
+            expenseAccountId: expenseAccount.id,
+            totalAmount: '1.0000',
+            paidAmount: '0.0000',
+            balance: '1.0000',
+          } as any),
+        );
+      }
+
+      const settings = app.get(SettingsService);
+      await settings.syncDocumentNumbersWithDatabase();
+
+      expect(await settings.generateDocumentNumber('Expenses')).toBe(`EXP-${yy}-1001`);
     });
 
     it('two creates: distinct expenseNumbers', async () => {
