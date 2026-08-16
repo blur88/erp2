@@ -20,46 +20,71 @@ describe('SettingsService', () => {
     expect(dataSourceMock.transaction).not.toHaveBeenCalled();
   });
 
-  const createQueryBuilderMock = (result: unknown) => ({
-    select: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    getOne: jest.fn().mockResolvedValue(result),
-  });
+  // Every reconciled document type must read its max sequence numerically, not
+  // lexically: at paddingDigits 3 the generator emits <PREFIX>-26-999, which sorts
+  // ABOVE <PREFIX>-26-1000 as text, so an ORDER BY ... DESC LIMIT 1 reads 999 and
+  // the next issued number collides with the row already at 1000 (issue #1075,
+  // same class as #901).
+  describe.each([
+    ['Sales Orders', 'SO', 'sales_orders', 'orderNumber'],
+    ['Purchase Orders', 'PO', 'purchase_orders', 'orderNumber'],
+    ['Stock Adjustment', 'SA', 'stock_adjustments', 'adjustmentNumber'],
+    ['Expenses', 'EXP', 'expenses', 'expenseNumber'],
+  ])('syncDocumentNumbersWithDatabase for %s', (documentName, prefix, table, column) => {
+    const currentYY = new Date().getFullYear() % 100;
 
-  it('syncDocumentNumbersWithDatabase parses PO sequence and sets nextNumber', async () => {
-    const documentNumberSettingRepository = {
-      find: jest.fn().mockResolvedValue([
-        { documentName: 'Purchase Orders', prefix: 'PO' },
-      ]),
-      update: jest.fn().mockResolvedValue(undefined),
+    const setup = (max: number | null) => {
+      const documentNumberSettingRepository = {
+        find: jest.fn().mockResolvedValue([{ documentName, prefix }]),
+        update: jest.fn().mockResolvedValue(undefined),
+      };
+      const dataSource = { query: jest.fn().mockResolvedValue([{ max }]) };
+      const service = new SettingsService(
+        {} as any, {} as any,
+        documentNumberSettingRepository as any,
+        {} as any, {} as any, {} as any,
+        {} as any,
+        dataSource as any,
+      );
+      return { service, documentNumberSettingRepository, dataSource };
     };
-    const queryBuilder = createQueryBuilderMock({ orderNumber: 'PO-26-123456' });
-    const purchaseOrderRepository = {
-      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
-    };
 
-    const service = new SettingsService(
-      {} as any, {} as any,
-      documentNumberSettingRepository as any,
-      {} as any,
-      purchaseOrderRepository as any,
-      {} as any,
-      {} as any,
-      {} as any,
-    );
+    it('queries the right table and column with a numeric-suffix max', async () => {
+      const { service, dataSource } = setup(1000);
 
-    await service.syncDocumentNumbersWithDatabase();
+      await service.syncDocumentNumbersWithDatabase();
 
-    expect(queryBuilder.where).toHaveBeenCalledWith(
-      'po.orderNumber LIKE :p',
-      expect.objectContaining({ p: expect.stringMatching(/^PO-\d{2}-%$/) }),
-    );
-    expect(documentNumberSettingRepository.update).toHaveBeenCalledWith(
-      { documentName: 'Purchase Orders' },
-      { nextNumber: 123457, lastResetYear: expect.any(Number) },
-    );
+      expect(dataSource.query).toHaveBeenCalledTimes(1);
+      const [sql, params] = dataSource.query.mock.calls[0];
+      expect(sql).toContain(`FROM ${table}`);
+      expect(sql).toContain(`split_part("${column}", '-', 3)`);
+      expect(sql).toContain('MAX(');
+      expect(sql).not.toMatch(/ORDER BY[\s\S]*LIMIT/i);
+      // Prefix and year are parameterized; only the identifiers are inlined.
+      expect(params).toEqual([prefix, String(currentYY).padStart(2, '0')]);
+    });
+
+    it('sets nextNumber past a four-digit sequence', async () => {
+      const { service, documentNumberSettingRepository } = setup(1000);
+
+      await service.syncDocumentNumbersWithDatabase();
+
+      expect(documentNumberSettingRepository.update).toHaveBeenCalledWith(
+        { documentName },
+        { nextNumber: 1001, lastResetYear: currentYY },
+      );
+    });
+
+    it('sets nextNumber to 1 when the table holds no current-year rows', async () => {
+      const { service, documentNumberSettingRepository } = setup(null);
+
+      await service.syncDocumentNumbersWithDatabase();
+
+      expect(documentNumberSettingRepository.update).toHaveBeenCalledWith(
+        { documentName },
+        { nextNumber: 1, lastResetYear: currentYY },
+      );
+    });
   });
 
   it('syncDocumentNumbersWithDatabase leaves unknown document types (e.g. Journal Entries) unchanged', async () => {
@@ -94,7 +119,9 @@ describe('SettingsService', () => {
       save: jest.fn(async (row) => { saved.push(row); return row; }),
       update: jest.fn().mockResolvedValue(undefined),
     };
-    const dataSource = { query: jest.fn().mockResolvedValue([{ next: 8 }]) };
+    // Serves both nextJournalEntrySequence() ({ next }) and the per-type
+    // reconciliation max ({ max }) — seeded rows are reconciled in the same call.
+    const dataSource = { query: jest.fn().mockResolvedValue([{ next: 8, max: 0 }]) };
 
     const service = new SettingsService(
       {} as any, {} as any,
@@ -196,39 +223,6 @@ describe('SettingsService', () => {
     );
   });
 
-  it('syncDocumentNumbersWithDatabase parses EXP sequence and sets nextNumber', async () => {
-    const documentNumberSettingRepository = {
-      find: jest.fn().mockResolvedValue([
-        { documentName: 'Expenses', prefix: 'EXP' },
-      ]),
-      update: jest.fn().mockResolvedValue(undefined),
-    };
-    const queryBuilder = createQueryBuilderMock({ expenseNumber: 'EXP-26-123456' });
-    const expenseRepository = {
-      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
-    };
-
-    const service = new SettingsService(
-      {} as any, {} as any,
-      documentNumberSettingRepository as any,
-      {} as any,
-      {} as any, {} as any,
-      expenseRepository as any,
-      {} as any,
-    );
-
-    await service.syncDocumentNumbersWithDatabase();
-
-    expect(queryBuilder.where).toHaveBeenCalledWith(
-      'e.expenseNumber LIKE :p',
-      expect.objectContaining({ p: expect.stringMatching(/^EXP-\d{2}-%$/) }),
-    );
-    expect(documentNumberSettingRepository.update).toHaveBeenCalledWith(
-      { documentName: 'Expenses' },
-      { nextNumber: 123457, lastResetYear: expect.any(Number) },
-    );
-  });
-
   it('createDefaultDocumentNumberSettings includes Expenses in defaults', async () => {
     const saved: any[] = [];
     const documentNumberSettingRepository = {
@@ -238,14 +232,15 @@ describe('SettingsService', () => {
       save: jest.fn(async (row) => { saved.push(row); return row; }),
       update: jest.fn().mockResolvedValue(undefined),
     };
-    const expenseRepository = { createQueryBuilder: jest.fn() };
-    const dataSource = { query: jest.fn().mockResolvedValue([{ next: 1 }]) };
+    // Serves both nextJournalEntrySequence() ({ next }) and the per-type
+    // reconciliation max ({ max }) — the seeded rows are reconciled in the same call.
+    const dataSource = { query: jest.fn().mockResolvedValue([{ next: 1, max: 0 }]) };
 
     const service = new SettingsService(
       {} as any, {} as any,
       documentNumberSettingRepository as any,
       {} as any, {} as any, {} as any,
-      expenseRepository as any,
+      {} as any,
       dataSource as any,
     );
 

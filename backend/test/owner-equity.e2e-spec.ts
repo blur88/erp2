@@ -446,10 +446,14 @@ describe('Owner Equity (e2e)', () => {
     const yy = String(new Date().getFullYear() % 100).padStart(2, '0');
 
     it('reads the maximum NUMERIC suffix, not the lexical maximum', async () => {
-      // EQ-YY-0999 sorts ABOVE EQ-YY-1000 lexically. A textual max reads 999,
-      // and the next issued number then collides with the existing 1000.
+      // paddingDigits is 3, so the real sequence emits EQ-YY-999 then EQ-YY-1000.
+      // '999' sorts ABOVE '1000' lexically ('9' > '1'), so a textual max reads
+      // 999 and the next issued number collides with the existing 1000.
+      // NOTE: a zero-padded '0999' fixture does NOT reproduce this — '0999'
+      // sorts below '1000', so the lexical query accidentally returns the right
+      // row and this test passes even against the bug it guards (#1075).
       const repo = ds.getRepository(OwnerEquityDocument);
-      for (const seq of ['0999', '1000']) {
+      for (const seq of ['999', '1000']) {
         const row = (await repo.save(
           repo.create({
             referenceNumber: `EQ-${yy}-${seq}`,

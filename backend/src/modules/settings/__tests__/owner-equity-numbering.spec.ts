@@ -68,9 +68,10 @@ describe('Owner Equity document numbering', () => {
 
     const eqQuery = queries.find((q) => q.includes('owner_equity_documents'));
     expect(eqQuery).toBeDefined();
-    // The whole point: cast the suffix to int and MAX it. EQ-26-0999 sorts above
-    // EQ-26-1000 lexically, so an ORDER BY ... DESC LIMIT 1 reads 999 and the
-    // next issued number collides with the row already at 1000.
+    // The whole point: cast the suffix to int and MAX it. At paddingDigits 3 the
+    // generator emits EQ-26-999, which sorts above EQ-26-1000 lexically, so an
+    // ORDER BY ... DESC LIMIT 1 reads 999 and the next issued number collides
+    // with the row already at 1000.
     expect(eqQuery).toContain('split_part');
     expect(eqQuery).toContain('MAX(');
     expect(eqQuery).not.toMatch(/ORDER BY[\s\S]*LIMIT/i);

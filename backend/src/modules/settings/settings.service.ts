@@ -452,6 +452,51 @@ export class SettingsService {
   }
 
   /**
+   * Source tables for document types whose sequence can be reconciled from the
+   * rows they issued. SQL identifiers cannot be parameterized, so table and
+   * column are restricted to this mapping and never derived from a DB value —
+   * only `prefix` and `yy` are bound as parameters in maxDocumentSequence().
+   */
+  private static readonly RECONCILABLE_DOCUMENTS: Readonly<
+    Record<string, { readonly table: string; readonly column: string }>
+  > = {
+    'Sales Orders': { table: 'sales_orders', column: 'orderNumber' },
+    'Purchase Orders': { table: 'purchase_orders', column: 'orderNumber' },
+    'Stock Adjustment': { table: 'stock_adjustments', column: 'adjustmentNumber' },
+    Expenses: { table: 'expenses', column: 'expenseNumber' },
+    'Owner Equity': { table: 'owner_equity_documents', column: 'referenceNumber' },
+  };
+
+  /**
+   * Highest current-year sequence already issued for a document type, or 0.
+   *
+   * Numeric, not lexical: at paddingDigits 3 the generator emits SO-26-999,
+   * which sorts ABOVE SO-26-1000 as text, so an
+   * `ORDER BY "orderNumber" DESC LIMIT 1` reads 999 once a type passes three
+   * digits, and the next issued number collides with the row already at 1000
+   * (issue #1075 — same class of failure as #901). Mirrors the shape of
+   * nextJournalEntrySequence(); the regex bounds the segment to 1-9 digits so
+   * the ::int cast can never overflow.
+   */
+  private async maxDocumentSequence(
+    documentName: string,
+    prefix: string,
+    currentYY: number,
+  ): Promise<number> {
+    const source = SettingsService.RECONCILABLE_DOCUMENTS[documentName];
+    if (!source) {
+      throw new Error(`No reconciliation source table for document type '${documentName}'`);
+    }
+    const rows = await this.dataSource.query(
+      `SELECT COALESCE(MAX((split_part("${source.column}", '-', 3))::int), 0) AS max
+         FROM ${source.table}
+        WHERE "${source.column}" ~ ('^' || $1 || '-' || $2 || '-[0-9]{1,9}$')`,
+      [prefix, String(currentYY).padStart(2, '0')],
+    );
+    return Number(rows[0]?.max ?? 0);
+  }
+
+  /**
    * Create default document number settings
    */
   private async createDefaultDocumentNumberSettings(): Promise<void> {
@@ -506,84 +551,24 @@ export class SettingsService {
       }
 
       const currentYY = new Date().getFullYear() % 100;
-      const pattern = (prefix: string) => `${prefix}-${String(currentYY).padStart(2, '0')}-%`;
 
       for (const row of rows) {
-        let maxNumber = 0;
         try {
-          switch (row.documentName) {
-            case 'Sales Orders': {
-              const r = await this.salesOrderRepository
-                .createQueryBuilder('so')
-                .select('so.orderNumber')
-                .where('so.orderNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('so.orderNumber', 'DESC')
-                .limit(1)
-                .getOne();
-              if (r?.orderNumber) maxNumber = parseInt(r.orderNumber.split('-')[2], 10) || 0;
-              break;
-            }
-            case 'Purchase Orders': {
-              const r = await this.purchaseOrderRepository
-                .createQueryBuilder('po')
-                .select('po.orderNumber')
-                .where('po.orderNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('po.orderNumber', 'DESC')
-                .limit(1)
-                .getOne();
-              if (r?.orderNumber) maxNumber = parseInt(r.orderNumber.split('-')[2], 10) || 0;
-              break;
-            }
-            case 'Stock Adjustment': {
-              const r = await this.stockAdjustmentRepository
-                .createQueryBuilder('sa')
-                .select('sa.adjustmentNumber')
-                .where('sa.adjustmentNumber LIKE :p', {
-                  p: pattern(row.prefix),
-                })
-                .orderBy('sa.adjustmentNumber', 'DESC')
-                .limit(1)
-                .getOne();
-              if (r?.adjustmentNumber) {
-                maxNumber = parseInt(r.adjustmentNumber.split('-')[2], 10) || 0;
-              }
-              break;
-            }
-
-            case 'Expenses': {
-              const r = await this.expenseRepository
-                .createQueryBuilder('e')
-                .select('e.expenseNumber')
-                .where('e.expenseNumber LIKE :p', { p: pattern(row.prefix) })
-                .orderBy('e.expenseNumber', 'DESC')
-                .limit(1)
-                .getOne();
-              if (r?.expenseNumber) maxNumber = parseInt(r.expenseNumber.split('-')[2], 10) || 0;
-              break;
-            }
-
-            case 'Owner Equity': {
-              // Numeric suffix, not lexical: EQ-26-999 sorts above EQ-26-1000,
-              // so ORDER BY ... DESC LIMIT 1 would read 999 and collide.
-              const rows = await this.dataSource.query(
-                `SELECT COALESCE(MAX((split_part("referenceNumber", '-', 3))::int), 0) AS max
-                 FROM owner_equity_documents
-                 WHERE "referenceNumber" ~ ('^' || $1 || '-' || $2 || '-[0-9]{1,9}$')`,
-                [row.prefix, String(currentYY).padStart(2, '0')],
-              );
-              maxNumber = Number(rows[0]?.max ?? 0);
-              break;
-            }
-
-            default:
-              // Document types this sync can't compute a max for (Journal Entries,
-              // Invoices, Settlements — their sequences live in other modules'
-              // tables). Do NOT reset their nextNumber to 1: that would collide
-              // with already-issued numbers on the next post (issue #901, where
-              // AccountingSeederService owns the Journal Entries sequence).
-              this.logger.warn(`Skipping sync for document type '${row.documentName}': no source-table max available, leaving nextNumber unchanged.`);
-              continue;
+          if (!SettingsService.RECONCILABLE_DOCUMENTS[row.documentName]) {
+            // Document types this sync can't compute a max for (Journal Entries,
+            // Invoices, Settlements — their sequences live in other modules'
+            // tables). Do NOT reset their nextNumber to 1: that would collide
+            // with already-issued numbers on the next post (issue #901, where
+            // AccountingSeederService owns the Journal Entries sequence).
+            this.logger.warn(`Skipping sync for document type '${row.documentName}': no source-table max available, leaving nextNumber unchanged.`);
+            continue;
           }
+
+          const maxNumber = await this.maxDocumentSequence(
+            row.documentName,
+            row.prefix,
+            currentYY,
+          );
 
           await this.documentNumberSettingRepository.update(
             { documentName: row.documentName },
