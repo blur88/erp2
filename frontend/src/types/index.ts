@@ -711,3 +711,17 @@ export {
   type ExpensePaymentStatus,
   type ExpensePaymentRow,
 } from './expense.types'
+export {
+  type OwnerEquityDocument,
+  type OwnerEquityDocumentStatus,
+  type OwnerEquitySettlement,
+  type OwnerEquitySettlementStatus,
+  type OwnerEquityType,
+  type OwnerEquityListParams,
+  type CreateOwnerEquityRequest,
+  type UpdateOwnerEquityRequest,
+  type OwnerEquitySettlementLine,
+  type SettleOwnerEquityRequest,
+  type OwnerEquityRefundLine,
+  type RefundOwnerEquityRequest,
+} from './ownerEquity.types'

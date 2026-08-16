@@ -6,16 +6,23 @@ import type {
   AccountType,
   AccountingSourceType,
   AccountingSettings,
+  CreateOwnerEquityRequest,
   Expense,
   JournalEntry,
   JournalEntryDetail,
   JournalEntryStatus,
   GeneralLedgerResponse,
+  OwnerEquityDocument,
+  OwnerEquityListParams,
+  RefundOwnerEquityRequest,
+  SettleOwnerEquityRequest,
   TrialBalanceResponse,
   PaginatedResponse,
+  UpdateOwnerEquityRequest,
 } from '@/types'
 
 import { axiosBaseQuery } from './baseQuery'
+import { inventoryApiSlice } from './inventoryApi'
 import { normalizePaginated, normalizeSingle } from './normalizers'
 
 export interface JournalEntryListParams {
@@ -52,7 +59,7 @@ export interface ExpenseListParams {
 export const accountingApiSlice = createApi({
   reducerPath: 'accountingApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance'],
+  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance', 'OwnerEquity'],
   endpoints: (builder) => ({
     getAccountTree: builder.query<AccountTreeNode[], AccountTreeParams>({
       query: ({ search, type, isActive }) => {
@@ -170,17 +177,116 @@ export const accountingApiSlice = createApi({
        transformResponse: normalizeSingle<Expense>,
        invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance'],
      }),
-     refundExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown> }>({
-       query: ({ id, data }) => ({
-         url: `/accounting/expenses/${id}/refund`,
-         method: 'POST',
-         data,
-       }),
-       transformResponse: normalizeSingle<Expense>,
-       invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance'],
-     }),
-   }),
- })
+refundExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown> }>({
+        query: ({ id, data }) => ({
+          url: `/accounting/expenses/${id}/refund`,
+          method: 'POST',
+          data,
+        }),
+        transformResponse: normalizeSingle<Expense>,
+        invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance'],
+      }),
+      getOwnerEquityList: builder.query<
+        PaginatedResponse<OwnerEquityDocument>,
+        OwnerEquityListParams | undefined
+      >({
+        query: (params) => ({
+          url: '/accounting/owner-equity',
+          params: params as Record<string, unknown> | undefined,
+        }),
+        transformResponse: normalizePaginated<OwnerEquityDocument>,
+        providesTags: ['OwnerEquity'],
+      }),
+      getOwnerEquity: builder.query<OwnerEquityDocument, string>({
+        query: (referenceNumber) => ({ url: `/accounting/owner-equity/${referenceNumber}` }),
+        transformResponse: normalizeSingle<OwnerEquityDocument>,
+        providesTags: (_r, _e, referenceNumber) => [{ type: 'OwnerEquity', id: referenceNumber }],
+      }),
+      createOwnerEquity: builder.mutation<OwnerEquityDocument, CreateOwnerEquityRequest>({
+        query: (body) => ({ url: '/accounting/owner-equity', method: 'POST', data: body }),
+        transformResponse: normalizeSingle<OwnerEquityDocument>,
+        invalidatesTags: ['OwnerEquity'],
+      }),
+      updateOwnerEquity: builder.mutation<
+        OwnerEquityDocument,
+        { referenceNumber: string; data: UpdateOwnerEquityRequest }
+      >({
+        query: ({ referenceNumber, data }) => ({
+          url: `/accounting/owner-equity/${referenceNumber}`,
+          method: 'PATCH',
+          data,
+        }),
+        transformResponse: normalizeSingle<OwnerEquityDocument>,
+        invalidatesTags: ['OwnerEquity'],
+      }),
+      settleOwnerEquity: builder.mutation<
+        OwnerEquityDocument,
+        { referenceNumber: string; data: SettleOwnerEquityRequest }
+      >({
+        query: ({ referenceNumber, data }) => ({
+          url: `/accounting/owner-equity/${referenceNumber}/settle`,
+          method: 'POST',
+          data,
+        }),
+        transformResponse: normalizeSingle<OwnerEquityDocument>,
+        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance'],
+      }),
+      refundOwnerEquity: builder.mutation<
+        OwnerEquityDocument,
+        { referenceNumber: string; data: RefundOwnerEquityRequest }
+      >({
+        query: ({ referenceNumber, data }) => ({
+          url: `/accounting/owner-equity/${referenceNumber}/refund`,
+          method: 'POST',
+          data,
+        }),
+        transformResponse: normalizeSingle<OwnerEquityDocument>,
+        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance'],
+      }),
+      completeOwnerEquity: builder.mutation<OwnerEquityDocument, { referenceNumber: string }>({
+        query: ({ referenceNumber }) => ({
+          url: `/accounting/owner-equity/${referenceNumber}/complete`,
+          method: 'POST',
+        }),
+        transformResponse: normalizeSingle<OwnerEquityDocument>,
+        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance'],
+        async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+          await queryFulfilled;
+          // Separate createApi instance — accountingApi tags cannot reach it.
+          dispatch(inventoryApiSlice.util.invalidateTags(['Product', 'StockMovement']));
+        },
+      }),
+      uncompleteOwnerEquity: builder.mutation<OwnerEquityDocument, { referenceNumber: string }>({
+        query: ({ referenceNumber }) => ({
+          url: `/accounting/owner-equity/${referenceNumber}/uncomplete`,
+          method: 'POST',
+        }),
+        transformResponse: normalizeSingle<OwnerEquityDocument>,
+        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance'],
+        async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+          await queryFulfilled;
+          // Separate createApi instance — accountingApi tags cannot reach it.
+          dispatch(inventoryApiSlice.util.invalidateTags(['Product', 'StockMovement']));
+        },
+      }),
+      cancelOwnerEquity: builder.mutation<OwnerEquityDocument, { referenceNumber: string }>({
+        query: ({ referenceNumber }) => ({
+          url: `/accounting/owner-equity/${referenceNumber}/cancel`,
+          method: 'POST',
+        }),
+        transformResponse: normalizeSingle<OwnerEquityDocument>,
+        invalidatesTags: ['OwnerEquity'],
+      }),
+      uncancelOwnerEquity: builder.mutation<OwnerEquityDocument, { referenceNumber: string }>({
+        query: ({ referenceNumber }) => ({
+          url: `/accounting/owner-equity/${referenceNumber}/uncancel`,
+          method: 'POST',
+        }),
+        transformResponse: normalizeSingle<OwnerEquityDocument>,
+        invalidatesTags: ['OwnerEquity'],
+      }),
+    }),
+  })
 
 export const {
   useGetAccountTreeQuery,
@@ -203,4 +309,14 @@ export const {
   useUncancelExpenseMutation,
   usePayExpenseMutation,
   useRefundExpenseMutation,
+  useGetOwnerEquityListQuery,
+  useGetOwnerEquityQuery,
+  useCreateOwnerEquityMutation,
+  useUpdateOwnerEquityMutation,
+  useSettleOwnerEquityMutation,
+  useRefundOwnerEquityMutation,
+  useCompleteOwnerEquityMutation,
+  useUncompleteOwnerEquityMutation,
+  useCancelOwnerEquityMutation,
+  useUncancelOwnerEquityMutation,
 } = accountingApiSlice
