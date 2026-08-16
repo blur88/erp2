@@ -67,8 +67,40 @@ export class AccountingPostingService implements AccountingPostingPort {
       createdBy: params.createdBy ?? 'system', reversalOfEntryId: params.reversalOfEntryId ?? null,
       lines: params.lines.map((l) => lineRepo.create({ accountId: l.account.id, debit: l.debit, credit: l.credit })),
     } as any);
-    const saved = await entryRepo.save(entry as any);
-    return { journalEntryId: (saved as any).id };
+    // Event-keyed entries race: findExistingEntry() is a check-then-act, so two
+    // concurrent identical commands can both find nothing and both insert.
+    // UQ_journal_entry_source_event makes the DB the authority; here we absorb
+    // the conflict and return the winner.
+    //
+    // The insert runs inside a SAVEPOINT because a unique violation marks the
+    // whole transaction as failed in PostgreSQL — querying for the winning row
+    // afterwards on the same transaction would itself error. Rolling back to
+    // the savepoint restores a usable transaction without discarding the
+    // caller's earlier work (the movement insert, the settlement row, ...).
+    const isEventKeyed = params.sourceEventId != null && params.reversalOfEntryId == null;
+    if (!isEventKeyed) {
+      const saved = await entryRepo.save(entry as any);
+      return { journalEntryId: (saved as any).id };
+    }
+
+    await manager.query('SAVEPOINT je_insert');
+    try {
+      const saved = await entryRepo.save(entry as any);
+      await manager.query('RELEASE SAVEPOINT je_insert');
+      return { journalEntryId: (saved as any).id };
+    } catch (err) {
+      if ((err as { code?: string })?.code !== '23505') throw err;
+      await manager.query('ROLLBACK TO SAVEPOINT je_insert');
+      const winner = await this.findExistingEntry(
+        params.sourceType, params.sourceEventId as string, params.postingType, manager,
+      );
+      if (!winner) {
+        // A 23505 on some other unique index (journalNo, most likely) — not our
+        // idempotency conflict. Re-throw rather than silently returning nothing.
+        throw err;
+      }
+      return winner;
+    }
   }
 
   async postSalesPayment(cmd: PostSalesPaymentCmd, manager: EntityManager): Promise<PostResult> {

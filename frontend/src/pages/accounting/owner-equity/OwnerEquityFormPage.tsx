@@ -415,7 +415,10 @@ const OwnerEquityFormPage: React.FC = () => {
                           <FormControl
                             fullWidth
                             size="small"
-                            disabled={isEdit || isSaving}
+                            // Only `type` is immutable after create; the backend
+                            // revalidates and accepts a product change on a draft
+                            // (owner-equity.service.ts:127).
+                            disabled={isSaving}
                             sx={fieldSx}
                             error={!!errors.productId}
                           >

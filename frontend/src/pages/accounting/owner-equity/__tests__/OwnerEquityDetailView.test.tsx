@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
@@ -28,6 +28,9 @@ vi.mock('@/store/api/accountingApi', () => ({
 
 vi.mock('@/store/api/paymentMethodsApi', () => ({
   useGetActivePaymentMethodsForPurchasesQuery: () => ({ data: [] }),
+  // Capital Injection accepts any active method, Cash Drawing only
+  // purchase-enabled ones — both hooks are mounted, one is always skipped.
+  useGetActivePaymentMethodsQuery: () => ({ data: [] }),
 }))
 
 vi.mock('@/hooks/useNotification', () => ({
@@ -101,5 +104,25 @@ describe('OwnerEquityDetailView', () => {
     renderDetail({ type: 'CAPITAL_INJECTION', documentStatus: 'COMPLETED' })
     expect(screen.getByRole('button', { name: /Uncomplete/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Delete/ })).not.toBeInTheDocument()
+  })
+
+  // Asserting the button renders is not enough: the button existed while its
+  // confirmation dialog was never rendered, so clicking it did nothing.
+  it('opens a confirmation dialog when Uncomplete is clicked', async () => {
+    renderDetail({ type: 'CAPITAL_INJECTION', documentStatus: 'COMPLETED' })
+
+    await userEvent.click(screen.getByRole('button', { name: /Uncomplete/ }))
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText(/Uncomplete Owner Equity/)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: /Uncomplete/ })).toBeInTheDocument()
+  })
+
+  it('explains the stock and journal effect when uncompleting a stock drawing', async () => {
+    renderDetail({ type: 'STOCK_DRAWING', documentStatus: 'COMPLETED' })
+
+    await userEvent.click(screen.getByRole('button', { name: /Uncomplete/ }))
+
+    expect(await screen.findByText(/restores the drawn stock/i)).toBeInTheDocument()
   })
 })

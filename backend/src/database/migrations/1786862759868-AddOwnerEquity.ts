@@ -99,26 +99,36 @@ export class AddOwnerEquity1786862759868 implements MigrationInterface {
         //    what schema:sync emits from the entity. See spec §3.2 for the full table.
     }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        // Tables are dropped child-first; each DROP TABLE removes its own
-        // indexes, foreign keys, and CHECK constraints, so no explicit
-        // DROP CONSTRAINT / DROP INDEX statements are needed.
-        await queryRunner.query(`DROP TABLE "owner_equity_settlements"`);
-        await queryRunner.query(`DROP TABLE "owner_equity_documents"`);
-        await queryRunner.query(`DROP TYPE "public"."owner_equity_documents_settlementstatus_enum"`);
-        await queryRunner.query(`DROP TYPE "public"."owner_equity_documents_documentstatus_enum"`);
-        await queryRunner.query(`DROP TYPE "public"."owner_equity_documents_type_enum"`);
-        await queryRunner.query(`ALTER TABLE accounting_settings DROP COLUMN IF EXISTS "ownerDrawingsAccountId"`);
-        await queryRunner.query(`ALTER TABLE accounting_settings DROP COLUMN IF EXISTS "ownerCapitalAccountId"`);
-        await queryRunner.query(`DELETE FROM document_number_settings WHERE "documentName" = 'Owner Equity'`);
-
-        // ALTER TYPE ... ADD VALUE cannot be reverted — PostgreSQL has no
-        // ALTER TYPE ... DROP VALUE. The appended enum members
-        // (owner_drawing, owner_drawing_reversal, the five OWNER_* posting
-        // types, and OWNER_EQUITY) remain valid labels after a revert; they
-        // are simply never written. Rebuilding the types to strip them would
-        // require rewriting every referencing column and is deliberately not
-        // attempted.
+    /**
+     * Deliberately irreversible — it aborts before mutating anything.
+     *
+     * A partial revert here produces a schema that neither migration can
+     * rebuild, which is strictly worse than refusing:
+     *
+     * 1. `accounting_settings.ownerCapitalAccountId` / `ownerDrawingsAccountId`
+     *    are created by 1785238045705-InitialSchema (the genesis migration owns
+     *    them, see its CREATE TABLE). Dropping them here would remove columns
+     *    this migration does not own, leaving genesis' schema incomplete while
+     *    genesis still believes it created them.
+     * 2. `ALTER TYPE ... ADD VALUE` cannot be undone — PostgreSQL has no
+     *    ALTER TYPE ... DROP VALUE. The appended members (owner_drawing,
+     *    owner_drawing_reversal, the five OWNER_* posting types and
+     *    OWNER_EQUITY) survive any revert.
+     * 3. Journal entries and stock movements written against those values
+     *    remain in `journal_entry` and `stock_movements` after the owner-equity
+     *    tables are dropped, so the ledger would reference documents that no
+     *    longer exist.
+     *
+     * To unwind Owner Equity, restore from a backup taken before this migration
+     * ran. See CLAUDE.md on the migration baseline: the chain runs from the
+     * genesis migration and migration failure is fatal by design.
+     */
+    public async down(): Promise<void> {
+        throw new Error(
+            'AddOwnerEquity is irreversible: accounting_settings owner columns belong to InitialSchema, ' +
+            'appended enum values cannot be dropped in PostgreSQL, and journal/stock history would be ' +
+            'orphaned. Restore from a pre-migration backup instead.',
+        );
     }
 
 }

@@ -23,16 +23,20 @@ import {
   useUncancelOwnerEquityMutation,
   useUncompleteOwnerEquityMutation,
 } from '@/store/api/accountingApi'
-import { useGetActivePaymentMethodsForPurchasesQuery } from '@/store/api/paymentMethodsApi'
+import {
+  useGetActivePaymentMethodsForPurchasesQuery,
+  useGetActivePaymentMethodsQuery,
+} from '@/store/api/paymentMethodsApi'
 import type {
   OwnerEquityDocument,
   OwnerEquityListParams,
   OwnerEquityType,
 } from '@/types'
-import type { FilterBarConfig } from '@/types/filterBar.types'
+import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { fromScaledAmount, toScaledAmount } from '@/utils/currency'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
+import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
 import { getOwnerEquityActionMetas } from './ownerEquityActions'
 
@@ -44,7 +48,7 @@ export const OWNER_EQUITY_TYPE_LABELS: Record<OwnerEquityType, string> = {
 
 interface EquityFilters {
   search: string
-  period: { key: string | null; from: string | null; to: string | null }
+  period: PeriodValue
   type: OwnerEquityType | null
   documentStatus: OwnerEquityDocument['documentStatus'] | null
   settlementStatus: OwnerEquityDocument['settlementStatus'] | null
@@ -119,6 +123,18 @@ export default function OwnerEquityPage() {
     onApply: () => setPage(1),
   })
 
+  const weekStartsOn = getStartOfWeek()
+
+  const dateRange = useMemo(() => {
+    const period = appliedFilters.period
+    if (!period || period.key === null) return { fromDate: undefined, toDate: undefined }
+    if (period.key === 'custom') {
+      return { fromDate: period.from ?? undefined, toDate: period.to ?? undefined }
+    }
+    const range = getPeriodDateRange(period.key, weekStartsOn)
+    return { fromDate: range.from, toDate: range.to }
+  }, [appliedFilters.period, weekStartsOn])
+
   const queryParams = useMemo(() => {
     const params: OwnerEquityListParams = {
       page,
@@ -131,8 +147,10 @@ export default function OwnerEquityPage() {
     if (appliedFilters.type) params.type = appliedFilters.type
     if (appliedFilters.documentStatus) params.documentStatus = appliedFilters.documentStatus
     if (appliedFilters.settlementStatus) params.settlementStatus = appliedFilters.settlementStatus
+    if (dateRange.fromDate) params.fromDate = dateRange.fromDate
+    if (dateRange.toDate) params.toDate = dateRange.toDate
     return params
-  }, [page, limit, appliedFilters, sortOrder])
+  }, [page, limit, appliedFilters, sortOrder, dateRange])
 
   const { data: response, isFetching, error } = useGetOwnerEquityListQuery(queryParams)
   const rows = response?.data ?? []
@@ -144,13 +162,27 @@ export default function OwnerEquityPage() {
   const [doCancel, { isLoading: isCancelling }] = useCancelOwnerEquityMutation()
   const [doUncancel, { isLoading: isUncancelling }] = useUncancelOwnerEquityMutation()
 
-  const { data: paymentMethods = [], isLoading: methodsLoading } =
-    useGetActivePaymentMethodsForPurchasesQuery(undefined, { skip: !settleRow })
+  // Capital Injection receives money and may use any active method; Cash
+  // Drawing pays money out and is restricted to purchase-enabled methods,
+  // matching the backend guard in OwnerEquitySettlementService.
+  const settleNeedsPurchaseMethods = settleRow?.type === 'CASH_DRAWING'
+  const { data: purchaseMethods = [], isLoading: purchaseMethodsLoading } =
+    useGetActivePaymentMethodsForPurchasesQuery(undefined, {
+      skip: !settleRow || !settleNeedsPurchaseMethods,
+    })
+  const { data: allActiveMethods = [], isLoading: allMethodsLoading } =
+    useGetActivePaymentMethodsQuery(undefined, {
+      skip: !settleRow || settleNeedsPurchaseMethods,
+    })
+  const paymentMethods = settleNeedsPurchaseMethods ? purchaseMethods : allActiveMethods
+  const methodsLoading = settleNeedsPurchaseMethods ? purchaseMethodsLoading : allMethodsLoading
 
   const {
     currentData: refundDetail,
     isError: refundDetailError,
-  } = useGetOwnerEquityQuery(refundRow ? refundRow.id : skipToken)
+    // Keyed on referenceNumber, not id — the detail endpoint routes on the
+    // document number (/accounting/owner-equity/:referenceNumber).
+  } = useGetOwnerEquityQuery(refundRow ? refundRow.referenceNumber : skipToken)
 
   useEffect(() => {
     if (refundRow && refundDetailError) {

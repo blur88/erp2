@@ -30,7 +30,10 @@ import {
   useUncancelOwnerEquityMutation,
   useUncompleteOwnerEquityMutation,
 } from '@/store/api/accountingApi'
-import { useGetActivePaymentMethodsForPurchasesQuery } from '@/store/api/paymentMethodsApi'
+import {
+  useGetActivePaymentMethodsForPurchasesQuery,
+  useGetActivePaymentMethodsQuery,
+} from '@/store/api/paymentMethodsApi'
 import type { OwnerEquityDocument, OwnerEquitySettlement } from '@/types'
 
 import { getOwnerEquityActionMetas } from './ownerEquityActions'
@@ -93,8 +96,20 @@ export default function OwnerEquityDetailView({ document: doc }: { document: Own
   const [settleOwnerEquity] = useSettleOwnerEquityMutation()
   const [refundOwnerEquity] = useRefundOwnerEquityMutation()
 
-  const { data: paymentMethods = [], isLoading: methodsLoading } =
-    useGetActivePaymentMethodsForPurchasesQuery(undefined, { skip: !settleOpen })
+  // Capital Injection receives money and may use any active method; Cash
+  // Drawing pays money out and is restricted to purchase-enabled methods,
+  // matching the backend guard in OwnerEquitySettlementService.
+  const needsPurchaseMethods = doc.type === 'CASH_DRAWING'
+  const { data: purchaseMethods = [], isLoading: purchaseMethodsLoading } =
+    useGetActivePaymentMethodsForPurchasesQuery(undefined, {
+      skip: !settleOpen || !needsPurchaseMethods,
+    })
+  const { data: allActiveMethods = [], isLoading: allMethodsLoading } =
+    useGetActivePaymentMethodsQuery(undefined, {
+      skip: !settleOpen || needsPurchaseMethods,
+    })
+  const paymentMethods = needsPurchaseMethods ? purchaseMethods : allActiveMethods
+  const methodsLoading = needsPurchaseMethods ? purchaseMethodsLoading : allMethodsLoading
 
   const refundSources: RefundSource[] = useMemo(() => {
     if (!doc.settlements) return []
@@ -407,6 +422,21 @@ export default function OwnerEquityDetailView({ document: doc }: { document: Own
         onConfirm={handleCompleteConfirm}
         onCancel={() => setCompleteOpen(false)}
         loading={isCompleting}
+      />
+
+      <ConfirmationDialog
+        open={uncompleteOpen}
+        title="Uncomplete Owner Equity"
+        message={
+          doc.type === 'STOCK_DRAWING'
+            ? `Uncomplete ${doc.referenceNumber}? This restores the drawn stock and reverses its journal entry.`
+            : `Uncomplete ${doc.referenceNumber}? The document returns to Ready so settlements can be refunded.`
+        }
+        confirmText="Uncomplete"
+        severity="warning"
+        onConfirm={handleUncompleteConfirm}
+        onCancel={() => setUncompleteOpen(false)}
+        loading={isUncompleting}
       />
 
       {settleOpen && (

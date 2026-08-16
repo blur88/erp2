@@ -9,10 +9,11 @@ import {
   Max,
   IsIn,
   MaxLength,
+  IsNotEmpty,
   ValidateNested,
   ValidateIf,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   OwnerEquityType,
@@ -35,7 +36,11 @@ export class CreateOwnerEquityDto {
   equityDate: string;
 
   @ApiProperty({ description: 'Description' })
+  // Trim before validating so a whitespace-only description fails IsNotEmpty
+  // rather than persisting as blank.
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
+  @IsNotEmpty({ message: 'Description is required' })
   @MaxLength(500)
   description: string;
 
@@ -68,7 +73,9 @@ export class UpdateOwnerEquityDto {
 
   @ApiPropertyOptional({ description: 'Description' })
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
+  @IsNotEmpty({ message: 'Description cannot be blank' })
   @MaxLength(500)
   description?: string;
 

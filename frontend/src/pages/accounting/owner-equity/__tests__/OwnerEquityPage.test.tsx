@@ -63,6 +63,9 @@ vi.mock('@/store/api/accountingApi', () => ({
 
 vi.mock('@/store/api/paymentMethodsApi', () => ({
   useGetActivePaymentMethodsForPurchasesQuery: () => ({ data: [] }),
+  // Capital Injection accepts any active method, Cash Drawing only
+  // purchase-enabled ones — both hooks are mounted, one is always skipped.
+  useGetActivePaymentMethodsQuery: () => ({ data: [] }),
 }))
 
 vi.mock('@/hooks/useNotification', () => ({
