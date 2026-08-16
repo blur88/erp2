@@ -38,6 +38,13 @@ export enum StockMovementType {
   EXPIRY = 'expiry',
   THEFT = 'theft',
   LOSS = 'loss',
+
+  // Appended for Owner Equity (#1022) — declaration order must match the
+  // migration's ALTER TYPE ... ADD VALUE order. Values are lowercase to match
+  // every other member of this enum. Paired: the reversal is a normal positive
+  // compensating movement, NOT reverseMovement().
+  OWNER_DRAWING = 'owner_drawing',
+  OWNER_DRAWING_REVERSAL = 'owner_drawing_reversal',
 }
 
 /**
@@ -183,6 +190,7 @@ export class StockMovement extends BaseEntity {
       StockMovementType.TRANSFER_IN,
       StockMovementType.ADJUSTMENT_INCREASE,
       StockMovementType.INITIAL_STOCK,
+      StockMovementType.OWNER_DRAWING_REVERSAL,
     ].includes(this.movementType);
   }
 
@@ -197,6 +205,7 @@ export class StockMovement extends BaseEntity {
       StockMovementType.EXPIRY,
       StockMovementType.THEFT,
       StockMovementType.LOSS,
+      StockMovementType.OWNER_DRAWING,
     ].includes(this.movementType);
   }
 
@@ -255,6 +264,8 @@ export class StockMovement extends BaseEntity {
       [StockMovementType.EXPIRY]: StockMovementType.ADJUSTMENT_INCREASE,
       [StockMovementType.THEFT]: StockMovementType.ADJUSTMENT_INCREASE,
       [StockMovementType.LOSS]: StockMovementType.ADJUSTMENT_INCREASE,
+      [StockMovementType.OWNER_DRAWING]: StockMovementType.OWNER_DRAWING_REVERSAL,
+      [StockMovementType.OWNER_DRAWING_REVERSAL]: StockMovementType.OWNER_DRAWING,
     };
 
     return reversalMap[this.movementType] || StockMovementType.ADJUSTMENT_INCREASE;
@@ -332,6 +343,8 @@ export class StockMovement extends BaseEntity {
       [StockMovementType.EXPIRY]: 'Expiry',
       [StockMovementType.THEFT]: 'Theft',
       [StockMovementType.LOSS]: 'Loss',
+      [StockMovementType.OWNER_DRAWING]: 'Owner Drawing',
+      [StockMovementType.OWNER_DRAWING_REVERSAL]: 'Owner Drawing Reversal',
     };
 
     return typeDescriptions[this.movementType] || 'Unknown Movement';
