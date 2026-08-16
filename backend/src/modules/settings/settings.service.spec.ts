@@ -164,6 +164,7 @@ describe('SettingsService', () => {
       'Stock Adjustment',
       'Journal Entries',
       'Expenses',
+      'Owner Equity',
     ]);
     expect(names).not.toContain('Payments');
     expect(names).not.toContain('Goods Received');
