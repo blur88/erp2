@@ -56,7 +56,7 @@ import {
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { generateBaseSlug } from '../../../common/utils/slug.util';
-import { repoFor } from '../../../common/db/tx-helpers';
+import { repoFor, lockProductForStockUpdate } from '../../../common/db/tx-helpers';
 
 @Injectable()
 export class ProductService extends BaseCrudService<
@@ -1400,18 +1400,25 @@ export class ProductService extends BaseCrudService<
   /**
    * Reserve stock for a product
    */
-  async reserveStock(productId: string, quantity: number): Promise<boolean> {
-    const product = await this.productRepository.findOne({
-      where: { id: productId },
-    });
-
-    if (!product) {
-      throw new NotFoundException(`Product with ID '${productId}' not found`);
+  async reserveStock(
+    productId: string,
+    quantity: number,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    // Stock-mutation contract (#1076): this is a read-compute-write on
+    // stockQuantity, so it must hold the product lock. Without a manager there
+    // is no transaction to lock in, so open one (this is a public entry point).
+    if (!manager) {
+      return this.dataSource.transaction((txManager) =>
+        this.reserveStock(productId, quantity, txManager),
+      );
     }
+
+    const product = await lockProductForStockUpdate(manager, Product, productId);
 
     if (product.stockQuantity >= quantity) {
       product.stockQuantity = Number(product.stockQuantity) - quantity;
-      await this.productRepository.save(product);
+      await manager.getRepository(Product).save(product);
       return true;
     }
 
@@ -1420,6 +1427,16 @@ export class ProductService extends BaseCrudService<
 
   /**
    * Update stock quantity for a product (internal use by stock movement service)
+   */
+  /**
+   * Set a product's absolute stock quantity.
+   *
+   * Stock-mutation contract (#1076): callers MUST already hold the product lock
+   * (via lockProductForStockUpdate) and MUST have computed `newQuantity` from
+   * the locked instance. This method does not lock, because doing so here would
+   * be too late — the caller's read-compute step is what has to be protected.
+   * Re-locking is harmless but pointless; racing callers that never locked are
+   * the bug this contract exists to prevent.
    */
   async updateStockQuantity(
     productId: string,

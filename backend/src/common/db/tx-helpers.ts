@@ -75,3 +75,39 @@ export async function lockRowForUpdate<T extends ObjectLiteral>(
 
   return locked;
 }
+
+/**
+ * Lock a product row before reading or writing its `stockQuantity`.
+ *
+ * **This is the stock-mutation contract (#1076).** Every writer that changes
+ * `products.stockQuantity` MUST call this first and then treat the returned
+ * instance as the single authoritative source of the current quantity — no
+ * unlocked re-read afterwards, and no reuse of a product loaded earlier
+ * (for example one hydrated as a relation on an order, which is a snapshot
+ * from before the lock was taken).
+ *
+ * Why: stock writers historically read `stockQuantity` without a lock and then
+ * wrote an *absolute* new value. Two concurrent movements would both read the
+ * same starting balance and the later commit would silently discard the
+ * earlier one, while both `stock_movements` rows persisted — so the ledger
+ * disagreed with the product. Serialising on the product row makes
+ * read-compute-write atomic across every workflow (sales fulfilment, purchase
+ * receipt, stock adjustment, owner drawing).
+ *
+ * `manager` is mandatory: a lock only means something inside a transaction. A
+ * public entry point that has no manager must open a transaction and pass its
+ * manager down rather than calling this on the default connection.
+ *
+ * Lock order: product rows are locked AFTER the owning document row (sales
+ * order, adjustment, equity document) and in ascending product-id order when a
+ * caller touches several, so concurrent multi-item operations cannot deadlock.
+ */
+export async function lockProductForStockUpdate<T extends ObjectLiteral>(
+  manager: EntityManager,
+  productEntity: EntityTarget<T>,
+  productId: string,
+): Promise<T> {
+  return lockRowForUpdate(manager, productEntity, productId, {
+    notFoundMessage: `Product with ID '${productId}' not found`,
+  });
+}

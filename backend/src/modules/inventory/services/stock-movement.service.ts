@@ -9,6 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Repository,
+  DataSource,
   FindManyOptions,
   SelectQueryBuilder,
   Between,
@@ -23,7 +24,7 @@ import {
 import { Product } from '../../../database/entities/product.entity';
 import { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
-import { repoFor } from '../../../common/db/tx-helpers';
+import { repoFor, lockProductForStockUpdate } from '../../../common/db/tx-helpers';
 import {
   CreateStockMovementDto,
   QueryStockMovementsDto,
@@ -51,6 +52,7 @@ export class StockMovementService {
     private readonly salesOrderRepository: Repository<SalesOrder>,
     @Inject(forwardRef(() => ProductService))
     private readonly productService: ProductService,
+    private readonly dataSource: DataSource,
   ) {}
 
 
@@ -62,12 +64,30 @@ export class StockMovementService {
     userId?: string,
     manager?: EntityManager,
   ): Promise<StockMovementResponseDto> {
+    // Stock-mutation contract (#1076): the product must be locked before
+    // stockQuantity is read, so the read-compute-write below is atomic against
+    // concurrent movements from any other workflow. A lock only means something
+    // inside a transaction, so a caller that supplied no manager gets one here
+    // (public entry points such as StockController.createMovement). This must
+    // precede the repoFor() calls, which would otherwise bind to the default
+    // connection and escape the transaction entirely.
+    if (!manager) {
+      return this.dataSource.transaction((txManager) =>
+        this.create(createMovementDto, userId, txManager),
+      );
+    }
+
     const stockMovementRepo = repoFor(manager, StockMovement, this.stockMovementRepository);
     const productRepo = repoFor(manager, Product, this.productRepository);
     this.logger.log(
       `Creating stock movement for product ${createMovementDto.productId}: ${createMovementDto.quantity} units`,
     );
 
+    await lockProductForStockUpdate(manager, Product, createMovementDto.productId);
+
+    // Re-read WITH relations (category) now that the row is lock-held. The
+    // locked instance above is the authority for stockQuantity; this read is
+    // consistent because the lock is held for the rest of the transaction.
     const product = await productRepo.findOne({
       where: { id: createMovementDto.productId },
       relations: { category: true },
@@ -92,12 +112,6 @@ export class StockMovementService {
     // Calculate previous and new balances
     const previousBalance = Number(product.stockQuantity);
     const newBalance = previousBalance + Number(createMovementDto.quantity);
-
-    // DEBUG: Log stock values to trace the bug
-    console.log(`🔍 [stockMovementService.create] Product ${createMovementDto.productId}:`);
-    console.log(`  Current stock in DB: ${previousBalance}`);
-    console.log(`  Quantity change: ${createMovementDto.quantity}`);
-    console.log(`  New balance will be: ${newBalance}`);
 
     // Validate new balance is not negative
     if (newBalance < 0) {
@@ -275,6 +289,19 @@ export class StockMovementService {
     userId?: string,
     manager?: EntityManager,
   ): Promise<StockMovementResponseDto> {
+    // Stock-mutation contract (#1076): this writes an ABSOLUTE balance derived
+    // from the original movement's recorded newBalance, so it must hold the
+    // product lock for the whole read-compute-write. Note this remains an
+    // absolute set and therefore still discards any movement recorded between
+    // the original and this reversal — the lock prevents interleaving, not the
+    // semantic. Prefer a compensating movement over reverseMovement() when the
+    // product may have moved since.
+    if (!manager) {
+      return this.dataSource.transaction((txManager) =>
+        this.reverseMovement(id, reason, userId, txManager),
+      );
+    }
+
     const stockMovementRepo = repoFor(manager, StockMovement, this.stockMovementRepository);
     this.logger.log(`Reversing stock movement: ${id}`);
 
@@ -286,6 +313,10 @@ export class StockMovementService {
     if (!movement) {
       throw new NotFoundException(`Stock movement with ID '${id}' not found`);
     }
+
+    // Serialise against other writers before computing and applying the
+    // reversal balance (see the contract note above).
+    await lockProductForStockUpdate(manager, Product, movement.productId);
 
     // Create reversal movement
     const reversalMovement = movement.reverse(reason);
@@ -647,25 +678,54 @@ export class StockMovementService {
   }
 
   /**
-   * Create bulk stock adjustment with multiple products in one transaction
+   * Create bulk stock adjustment with multiple products in one transaction.
+   *
+   * Stock-mutation contract (#1076): the whole batch runs in ONE transaction
+   * with every product locked, so a partial failure cannot leave some items
+   * applied. Items are processed in ascending product-id order so concurrent
+   * bulk adjustments over overlapping product sets acquire locks in the same
+   * order and cannot deadlock.
+   *
+   * (Before #1076 this method wrote through the default repositories with no
+   * transaction at all, despite the "in one transaction" claim in this comment.)
    */
   async createBulkStockAdjustment(
     createBulkDto: CreateBulkStockAdjustmentDto,
     userId?: string,
   ): Promise<BulkStockAdjustmentResponseDto> {
+    return this.dataSource.transaction((manager) =>
+      this.createBulkStockAdjustmentInTx(createBulkDto, manager, userId),
+    );
+  }
+
+  private async createBulkStockAdjustmentInTx(
+    createBulkDto: CreateBulkStockAdjustmentDto,
+    manager: EntityManager,
+    userId?: string,
+  ): Promise<BulkStockAdjustmentResponseDto> {
     this.logger.log(`Creating bulk stock adjustment with ${createBulkDto.items.length} items`);
 
     const movementIds: string[] = [];
+    const productRepo = manager.getRepository(Product);
+    const movementRepo = manager.getRepository(StockMovement);
+
+    // Ascending product-id order — see the deadlock note above.
+    const orderedItems = [...createBulkDto.items].sort((a, b) =>
+      a.productId < b.productId ? -1 : a.productId > b.productId ? 1 : 0,
+    );
 
     // Process each item
-    for (const item of createBulkDto.items) {
+    for (const item of orderedItems) {
       // Skip items with no difference
       if (item.difference === 0) {
         continue;
       }
 
+      // Lock before reading stockQuantity (stock-mutation contract).
+      await lockProductForStockUpdate(manager, Product, item.productId);
+
       // Fetch product to get current stock
-      const product = await this.productRepository.findOne({
+      const product = await productRepo.findOne({
         where: { id: item.productId },
         relations: { category: true },
       });
@@ -693,7 +753,7 @@ export class StockMovementService {
       }
 
       // Create stock movement
-      const stockMovement = this.stockMovementRepository.create({
+      const stockMovement = movementRepo.create({
         productId: item.productId,
         movementType,
         quantity: Math.abs(item.difference),
@@ -704,14 +764,16 @@ export class StockMovementService {
         notes: createBulkDto.notes || undefined,
       });
 
-      const savedMovement = await this.stockMovementRepository.save(stockMovement);
+      const savedMovement = await movementRepo.save(stockMovement);
       movementIds.push(savedMovement.id);
 
-      // Update product stock quantity
+      // Update product stock quantity — on the transaction manager, so the
+      // movement and the balance commit together.
       await this.productService.updateStockQuantity(
         product.id,
         newBalance,
         userId,
+        manager,
       );
 
       this.logger.log(
@@ -814,6 +876,16 @@ export class StockMovementService {
     referenceId: string,
     manager?: EntityManager,
   ): Promise<{ deletedCount: number }> {
+    // Stock-mutation contract (#1076): this reverts stock quantities, so it
+    // needs the product locks — and therefore a transaction. Both live callers
+    // (PurchaseOrderLifecycleService, SalesOrderFulfillmentService) already
+    // supply one; open our own if some future caller does not.
+    if (!manager) {
+      return this.dataSource.transaction((txManager) =>
+        this.deleteByReference(referenceType, referenceId, txManager),
+      );
+    }
+
     const stockMovementRepo = repoFor(manager, StockMovement, this.stockMovementRepository);
     const productRepo = repoFor(manager, Product, this.productRepository);
 
@@ -851,11 +923,16 @@ export class StockMovementService {
       );
     }
 
-    // Update product stock quantities
-    for (const [productId, adjustment] of productUpdates.entries()) {
-      const product = await productRepo.findOne({
-        where: { id: productId },
-      });
+    // Update product stock quantities.
+    //
+    // Stock-mutation contract (#1076): lock each product before reading its
+    // quantity. Products are locked in ascending id order so two concurrent
+    // reverts touching overlapping product sets cannot deadlock by acquiring
+    // the same locks in opposite orders.
+    const orderedProductIds = [...productUpdates.keys()].sort();
+    for (const productId of orderedProductIds) {
+      const adjustment = productUpdates.get(productId)!;
+      const product = await lockProductForStockUpdate(manager, Product, productId);
 
       if (product) {
         const oldStock = Number(product.stockQuantity);
