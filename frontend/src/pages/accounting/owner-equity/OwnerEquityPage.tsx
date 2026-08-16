@@ -87,7 +87,7 @@ const filterConfig: FilterBarConfig<EquityFilters> = {
         { value: 'UNSETTLED', label: 'Unsettled' },
         { value: 'PARTIAL', label: 'Partial' },
         { value: 'SETTLED', label: 'Settled' },
-        { value: 'OVERSETTLED', label: 'OversettLED' },
+        { value: 'OVERSETTLED', label: 'Oversettled' },
       ],
       emptyLabel: 'All settlements',
     },

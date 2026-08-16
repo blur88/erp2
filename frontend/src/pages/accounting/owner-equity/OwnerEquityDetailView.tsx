@@ -252,7 +252,7 @@ export default function OwnerEquityDetailView({ document: doc }: { document: Own
         <Typography
           variant="body2"
           component="span"
-          sx={{ color: Number(s.amount) < 0 ? 'error.main' : 'text.primary' }}
+          sx={{ color: (toScaledAmount(s.amount) ?? 0n) < 0n ? 'error.main' : 'text.primary' }}
         >
           {formatCurrency(s.amount)}
         </Typography>
