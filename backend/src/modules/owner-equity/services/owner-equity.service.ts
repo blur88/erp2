@@ -192,6 +192,162 @@ export class OwnerEquityService {
     });
   }
 
+  /**
+   * Monetary lifecycle. COMPLETED stamps completion metadata and posts nothing;
+   * the money was already journaled by the settle/refund postings (spec §4.1).
+   */
+  async complete(
+    referenceNumber: string,
+    userId?: string,
+    username?: string,
+  ): Promise<OwnerEquityDocument> {
+    const saved = await this.dataSource.transaction(
+      async (manager: EntityManager) => {
+        const doc = await this.lockByReference(manager, referenceNumber);
+        if (doc.documentStatus !== OwnerEquityDocumentStatus.READY) {
+          throw new BadRequestException(
+            'Only fully settled documents can be completed',
+          );
+        }
+        doc.documentStatus = OwnerEquityDocumentStatus.COMPLETED;
+        doc.completedAt = new Date();
+        doc.completedBy = username ?? 'system';
+        return manager.getRepository(OwnerEquityDocument).save(doc);
+      },
+    );
+
+    await this.auditLogService.log(
+      'COMPLETE',
+      'OwnerEquity',
+      `Completed owner equity: ${saved.referenceNumber}`,
+      {
+        entityId: saved.id,
+        userId: userId || 'system',
+        username,
+        newValues: { documentStatus: OwnerEquityDocumentStatus.COMPLETED },
+      },
+    );
+
+    return saved;
+  }
+
+  /**
+   * Returns to READY, not DRAFT: the money is still fully settled (spec §4.1).
+   */
+  async uncomplete(
+    referenceNumber: string,
+    userId?: string,
+    username?: string,
+  ): Promise<OwnerEquityDocument> {
+    const saved = await this.dataSource.transaction(
+      async (manager: EntityManager) => {
+        const doc = await this.lockByReference(manager, referenceNumber);
+        if (doc.documentStatus !== OwnerEquityDocumentStatus.COMPLETED) {
+          throw new BadRequestException(
+            'Only completed documents can be uncompleted',
+          );
+        }
+        doc.documentStatus = OwnerEquityDocumentStatus.READY;
+        doc.completedAt = null;
+        doc.completedBy = null;
+        return manager.getRepository(OwnerEquityDocument).save(doc);
+      },
+    );
+
+    await this.auditLogService.log(
+      'UNCOMPLETE',
+      'OwnerEquity',
+      `Uncompleted owner equity: ${saved.referenceNumber}`,
+      {
+        entityId: saved.id,
+        userId: userId || 'system',
+        username,
+        oldValues: { documentStatus: OwnerEquityDocumentStatus.COMPLETED },
+        newValues: { documentStatus: OwnerEquityDocumentStatus.READY },
+      },
+    );
+
+    return saved;
+  }
+
+  async cancel(
+    referenceNumber: string,
+    userId?: string,
+    username?: string,
+  ): Promise<OwnerEquityDocument> {
+    const saved = await this.dataSource.transaction(
+      async (manager: EntityManager) => {
+        const doc = await this.lockByReference(manager, referenceNumber);
+        if (doc.documentStatus !== OwnerEquityDocumentStatus.DRAFT) {
+          throw new BadRequestException(
+            'Only draft documents can be cancelled',
+          );
+        }
+        // Stock drawings carry no settledAmount; a NULL settledAmount is zero
+        // by construction. uncancel() relies on cancelled documents having zero
+        // settlement. If this guard changes, revisit the explicit
+        // CANCELLED → DRAFT transition.
+        if (toMinorUnits(doc.settledAmount ?? '0.0000') !== 0n) {
+          throw new BadRequestException(
+            'Refund all settlements before cancelling this document',
+          );
+        }
+        doc.documentStatus = OwnerEquityDocumentStatus.CANCELLED;
+        return manager.getRepository(OwnerEquityDocument).save(doc);
+      },
+    );
+
+    await this.auditLogService.log(
+      'CANCEL',
+      'OwnerEquity',
+      `Cancelled owner equity: ${saved.referenceNumber}`,
+      {
+        entityId: saved.id,
+        userId: userId || 'system',
+        username,
+        newValues: { documentStatus: OwnerEquityDocumentStatus.CANCELLED },
+      },
+    );
+
+    return saved;
+  }
+
+  async uncancel(
+    referenceNumber: string,
+    userId?: string,
+    username?: string,
+  ): Promise<OwnerEquityDocument> {
+    const saved = await this.dataSource.transaction(
+      async (manager: EntityManager) => {
+        const doc = await this.lockByReference(manager, referenceNumber);
+        if (doc.documentStatus !== OwnerEquityDocumentStatus.CANCELLED) {
+          throw new BadRequestException(
+            'Only cancelled documents can be uncancelled',
+          );
+        }
+        // Safe because cancel() only permits a zero-settlement document into
+        // CANCELLED; restore explicitly to DRAFT.
+        doc.documentStatus = OwnerEquityDocumentStatus.DRAFT;
+        return manager.getRepository(OwnerEquityDocument).save(doc);
+      },
+    );
+
+    await this.auditLogService.log(
+      'UNCANCEL',
+      'OwnerEquity',
+      `Uncancelled owner equity: ${saved.referenceNumber}`,
+      {
+        entityId: saved.id,
+        userId: userId || 'system',
+        username,
+        oldValues: { documentStatus: OwnerEquityDocumentStatus.CANCELLED },
+        newValues: { documentStatus: OwnerEquityDocumentStatus.DRAFT },
+      },
+    );
+
+    return saved;
+  }
+
   static computeAggregates(
     totalAmount: string,
     settlements: { amount: string }[],
