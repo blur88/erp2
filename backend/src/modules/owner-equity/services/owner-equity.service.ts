@@ -2,30 +2,30 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, DataSource, EntityManager, In } from "typeorm";
-import { PaymentMethodEntity } from "../../../database/entities/payment-method.entity";
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, DataSource, EntityManager, In } from 'typeorm';
+import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import {
   Product,
   ProductType,
-} from "../../../database/entities/product.entity";
+} from '../../../database/entities/product.entity';
 import {
   OwnerEquityDocument,
   OwnerEquityDocumentStatus,
   OwnerEquitySettlementStatus,
   OwnerEquityType,
-} from "../entities/owner-equity-document.entity";
-import { OwnerEquitySettlement } from "../entities/owner-equity-settlement.entity";
-import { AuditLogService } from "../../audit-logs/services";
-import { SettingsService } from "../../settings/settings.service";
+} from '../entities/owner-equity-document.entity';
+import { OwnerEquitySettlement } from '../entities/owner-equity-settlement.entity';
+import { AuditLogService } from '../../audit-logs/services';
+import { SettingsService } from '../../settings/settings.service';
 import {
   CreateOwnerEquityDto,
   UpdateOwnerEquityDto,
   ListOwnerEquityParams,
-} from "../dto/create-owner-equity.dto";
-import { lockRowForUpdate } from "../../../common/db/tx-helpers";
-import { toMinorUnits, formatScale4, sumMinor } from "@/common/utils/money";
+} from '../dto/create-owner-equity.dto';
+import { lockRowForUpdate } from '../../../common/db/tx-helpers';
+import { toMinorUnits, formatScale4, sumMinor } from '@/common/utils/money';
 
 @Injectable()
 export class OwnerEquityService {
@@ -44,10 +44,10 @@ export class OwnerEquityService {
   ): Promise<OwnerEquityDocument> {
     if (dto.type === OwnerEquityType.STOCK_DRAWING) {
       if (toMinorUnits(dto.quantity) <= 0n) {
-        throw new BadRequestException("Quantity must be greater than zero");
+        throw new BadRequestException('Quantity must be greater than zero');
       }
     } else if (toMinorUnits(dto.totalAmount) <= 0n) {
-      throw new BadRequestException("Amount must be greater than zero");
+      throw new BadRequestException('Amount must be greater than zero');
     }
 
     const saved = await this.dataSource.transaction(
@@ -56,7 +56,7 @@ export class OwnerEquityService {
           await this.assertDrawableProduct(dto.productId, manager);
         }
         const referenceNumber = await this.settings.generateDocumentNumber(
-          "Owner Equity",
+          'Owner Equity',
           manager,
         );
         const repo = manager.getRepository(OwnerEquityDocument);
@@ -73,7 +73,7 @@ export class OwnerEquityService {
           doc.quantity = formatScale4(dto.quantity);
         } else {
           doc.totalAmount = formatScale4(dto.totalAmount);
-          doc.settledAmount = "0.0000";
+          doc.settledAmount = '0.0000';
           doc.balance = formatScale4(dto.totalAmount);
           doc.settlementStatus = OwnerEquitySettlementStatus.UNSETTLED;
         }
@@ -82,12 +82,12 @@ export class OwnerEquityService {
     );
 
     await this.auditLogService.log(
-      "CREATE",
-      "OwnerEquity",
+      'CREATE',
+      'OwnerEquity',
       `Created owner equity: ${saved.referenceNumber}`,
       {
         entityId: saved.id,
-        userId: userId || "system",
+        userId: userId || 'system',
         username,
         newValues: {
           type: dto.type,
@@ -110,7 +110,7 @@ export class OwnerEquityService {
       const doc = await this.lockByReference(manager, referenceNumber);
 
       if (doc.documentStatus !== OwnerEquityDocumentStatus.DRAFT) {
-        throw new BadRequestException("Only draft documents can be edited");
+        throw new BadRequestException('Only draft documents can be edited');
       }
 
       // Type is immutable; the shape guards below are keyed off the persisted
@@ -118,11 +118,11 @@ export class OwnerEquityService {
       if (doc.type === OwnerEquityType.STOCK_DRAWING) {
         if (dto.totalAmount !== undefined) {
           throw new BadRequestException(
-            "Stock drawings do not carry a total amount",
+            'Stock drawings do not carry a total amount',
           );
         }
         if (dto.quantity !== undefined && toMinorUnits(dto.quantity) <= 0n) {
-          throw new BadRequestException("Quantity must be greater than zero");
+          throw new BadRequestException('Quantity must be greater than zero');
         }
         if (dto.productId !== undefined && dto.productId !== doc.productId) {
           await this.assertDrawableProduct(dto.productId, manager);
@@ -130,12 +130,12 @@ export class OwnerEquityService {
       } else {
         if (dto.productId !== undefined || dto.quantity !== undefined) {
           throw new BadRequestException(
-            "Only stock drawings carry a product and quantity",
+            'Only stock drawings carry a product and quantity',
           );
         }
         if (dto.totalAmount !== undefined) {
           if (toMinorUnits(dto.totalAmount) <= 0n) {
-            throw new BadRequestException("Amount must be greater than zero");
+            throw new BadRequestException('Amount must be greater than zero');
           }
           if (toMinorUnits(dto.totalAmount) < toMinorUnits(doc.settledAmount)) {
             throw new BadRequestException(
@@ -177,12 +177,12 @@ export class OwnerEquityService {
       const saved = await manager.getRepository(OwnerEquityDocument).save(doc);
 
       await this.auditLogService.log(
-        "UPDATE",
-        "OwnerEquity",
+        'UPDATE',
+        'OwnerEquity',
         `Updated owner equity: ${doc.referenceNumber}`,
         {
           entityId: doc.id,
-          userId: userId || "system",
+          userId: userId || 'system',
           username,
           newValues: dto as any,
         },
@@ -244,9 +244,7 @@ export class OwnerEquityService {
     return this.loadWithSettlements({ referenceNumber });
   }
 
-  async list(
-    params: ListOwnerEquityParams,
-  ): Promise<
+  async list(params: ListOwnerEquityParams): Promise<
     | {
         data: OwnerEquityDocument[];
         meta: { total: number; page: number; limit: number };
@@ -254,8 +252,8 @@ export class OwnerEquityService {
     | OwnerEquityDocument[]
   > {
     const qb = this.docRepo
-      .createQueryBuilder("d")
-      .leftJoinAndSelect("d.product", "product");
+      .createQueryBuilder('d')
+      .leftJoinAndSelect('d.product', 'product');
 
     if (params.search) {
       qb.andWhere(
@@ -267,7 +265,7 @@ export class OwnerEquityService {
       qb.andWhere('d."equityDate" >= :fromDate', { fromDate: params.fromDate });
     if (params.toDate)
       qb.andWhere('d."equityDate" <= :toDate', { toDate: params.toDate });
-    if (params.type) qb.andWhere("d.type = :type", { type: params.type });
+    if (params.type) qb.andWhere('d.type = :type', { type: params.type });
     if (params.documentStatus)
       qb.andWhere('d."documentStatus" = :documentStatus', {
         documentStatus: params.documentStatus,
@@ -278,9 +276,9 @@ export class OwnerEquityService {
       });
 
     const sortColumns: Record<string, string> = {
-      referenceNumber: "d.referenceNumber",
-      equityDate: "d.equityDate",
-      totalAmount: "d.totalAmount",
+      referenceNumber: 'd.referenceNumber',
+      equityDate: 'd.equityDate',
+      totalAmount: 'd.totalAmount',
     };
     // Resolve first: an unrecognised sortBy falls back to referenceNumber, and the
     // secondary order must be decided from the resolved field so the fallback
@@ -291,15 +289,15 @@ export class OwnerEquityService {
     const sortBy =
       params.sortBy && Object.hasOwn(sortColumns, params.sortBy)
         ? params.sortBy
-        : "referenceNumber";
+        : 'referenceNumber';
     // Allow-list the direction too, symmetric with sortBy above: TypeORM does
     // not sanitise the direction string, and a direct caller skips the DTO.
-    const sortOrder = params.sortOrder === "ASC" ? "ASC" : "DESC";
+    const sortOrder = params.sortOrder === 'ASC' ? 'ASC' : 'DESC';
     qb.orderBy(sortColumns[sortBy], sortOrder);
     // equityDate and totalAmount tie freely; without a stable tiebreaker rows
     // can repeat or vanish across pages. referenceNumber is effectively unique.
-    if (sortBy !== "referenceNumber") {
-      qb.addOrderBy("d.referenceNumber", "DESC");
+    if (sortBy !== 'referenceNumber') {
+      qb.addOrderBy('d.referenceNumber', 'DESC');
     }
 
     if (params.page !== undefined && params.limit !== undefined) {
@@ -320,9 +318,9 @@ export class OwnerEquityService {
     const repo = manager.getRepository(OwnerEquityDocument);
     const existing = await repo.findOne({ where: { referenceNumber } } as any);
     if (!existing)
-      throw new NotFoundException("Owner equity document not found");
+      throw new NotFoundException('Owner equity document not found');
     return lockRowForUpdate(manager, OwnerEquityDocument, existing.id, {
-      notFoundMessage: "Owner equity document not found",
+      notFoundMessage: 'Owner equity document not found',
     });
   }
 
@@ -334,10 +332,10 @@ export class OwnerEquityService {
       .getRepository(Product)
       .findOne({ where: { id: productId } } as any);
     if (!product) {
-      throw new BadRequestException("Product not found");
+      throw new BadRequestException('Product not found');
     }
     if (product.type !== ProductType.GOODS) {
-      throw new BadRequestException("Stock drawings require a stocked product");
+      throw new BadRequestException('Stock drawings require a stocked product');
     }
   }
 
@@ -346,15 +344,15 @@ export class OwnerEquityService {
     referenceNumber?: string;
   }): Promise<OwnerEquityDocument> {
     const doc = await this.docRepo
-      .createQueryBuilder("d")
-      .leftJoinAndSelect("d.settlements", "settlements")
-      .leftJoinAndSelect("d.product", "product")
+      .createQueryBuilder('d')
+      .leftJoinAndSelect('d.settlements', 'settlements')
+      .leftJoinAndSelect('d.product', 'product')
       .where(where)
-      .orderBy("settlements.settlementDate", "ASC")
-      .addOrderBy("settlements.createdAt", "ASC")
+      .orderBy('settlements.settlementDate', 'ASC')
+      .addOrderBy('settlements.createdAt', 'ASC')
       .getOne();
 
-    if (!doc) throw new NotFoundException("Owner equity document not found");
+    if (!doc) throw new NotFoundException('Owner equity document not found');
 
     const settlements = doc.settlements ?? [];
     // Load methods separately with withDeleted so soft-deleted methods still
