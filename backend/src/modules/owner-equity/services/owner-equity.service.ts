@@ -242,6 +242,11 @@ export class OwnerEquityService {
     const saved = await this.dataSource.transaction(
       async (manager: EntityManager) => {
         const doc = await this.lockByReference(manager, referenceNumber);
+        if (doc.type === OwnerEquityType.STOCK_DRAWING) {
+          throw new BadRequestException(
+            'Stock drawings have no settlement lifecycle',
+          );
+        }
         if (doc.documentStatus !== OwnerEquityDocumentStatus.COMPLETED) {
           throw new BadRequestException(
             'Only completed documents can be uncompleted',
