@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   Inject,
   forwardRef,
 } from '@nestjs/common';
@@ -339,6 +340,10 @@ export class InventoryIntegrationService {
    * Adjust stock for a product.
    * For depletions (negative quantityChange), returns the consumed value as an
    * unrounded scale-8 bigint from reduceStock. For non-depletions, returns 0n.
+   *
+   * Throws ConflictException when a depletion would drive the lock-held balance
+   * negative (#1078). This is the authoritative oversell gate for sales
+   * fulfilment; see the check below.
    */
   async adjustStock(
     productId: string,
@@ -371,6 +376,23 @@ export class InventoryIntegrationService {
     const changeAmount = Number(quantityChange);
     const newStockQuantity = currentStock + changeAmount;
 
+    // Authoritative stock-sufficiency gate (#1078). The caller's pre-flight runs
+    // on a pre-lock snapshot and cannot be race-free; this one reads the
+    // lock-held row, so a concurrent depletion that already committed is
+    // visible here. Two fulfilments of the last unit used to both pass the
+    // caller's check and land the product at -1 — the loser now fails and its
+    // whole transaction rolls back.
+    //
+    // The caller keeps its pre-flight because it aggregates every short item
+    // into one message; this check is necessarily per-product, since it can
+    // only speak for the row it holds.
+    if (newStockQuantity < 0) {
+      throw new ConflictException(
+        `Cannot fulfill — insufficient stock for ${(product as any).name ?? productId} ` +
+          `(need ${Math.abs(changeAmount)}, have ${currentStock})`,
+      );
+    }
+
     // Create stock movement record BEFORE updating product
     const movementType = movementTypeOverride || (quantityChange > 0
       ? StockMovementType.ADJUSTMENT_INCREASE
@@ -396,7 +418,7 @@ export class InventoryIntegrationService {
       consumedScale8 = await this.baseCostCalculator.reduceStock(productId, quantitySold, manager);
     }
 
-    // Update product stock quantity (allow negative for GOODS products)
+    // Update product stock quantity. Guaranteed >= 0 by the check above.
     product.stockQuantity = Number(newStockQuantity);
     await productRepo.save(product);
 

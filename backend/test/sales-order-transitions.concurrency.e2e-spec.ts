@@ -21,6 +21,10 @@ import {
   DiscountType,
   SalesOrderItem,
 } from "../src/database/entities/sales-order-item.entity";
+import {
+  StockMovement,
+  StockMovementType,
+} from "../src/database/entities/stock-movement.entity";
 import { SalesOrderFulfillmentService } from "../src/modules/sales/services/sales-order-fulfillment.service";
 import { SalesOrderLifecycleService } from "../src/modules/sales/services/sales-order-lifecycle.service";
 import { SalesOrderPaymentService } from "../src/modules/sales/services/sales-order-payment.service";
@@ -243,6 +247,60 @@ describe("Sales order transition concurrency (e2e)", () => {
     } else {
       expect(Number(persistedProduct.stockQuantity)).toBe(1000);
     }
+  });
+
+  it("two orders for the last unit: exactly one fulfils, stock never goes negative", async () => {
+    // #1078. The pre-flight sufficiency check in fulfillOrder() reads
+    // item.product, hydrated as a relation before any product lock is taken, so
+    // it is a snapshot. Both fulfilments used to read stockQuantity = 1, both
+    // passed the check, and adjustStock() applied both depletions without
+    // re-checking — landing the product at -1. The authoritative check lives
+    // inside adjustStock(), after lockProductForStockUpdate(), so the loser of
+    // the race sees the winner's committed write and is refused.
+    //
+    // Two DISTINCT orders is what makes this a stock race rather than the
+    // order-status race already covered by "fulfill vs fulfill": each order row
+    // takes its own lock, so nothing serialises them except the product.
+    await dataSource
+      .getRepository(Product)
+      .update(product.id, { stockQuantity: 1 });
+
+    const first = await seedReadyOrder("SO-CC-OS-001", 1);
+    const second = await seedReadyOrder("SO-CC-OS-002", 1);
+
+    const results = await Promise.allSettled([
+      fulfillment.fulfillOrder(first.id),
+      fulfillment.fulfillOrder(second.id),
+    ]);
+    const { fulfilled, rejected } = partition(results);
+
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0].reason as Error).message).toMatch(
+      /insufficient stock|out of stock/i,
+    );
+
+    const persistedProduct = await dataSource
+      .getRepository(Product)
+      .findOneOrFail({ where: { id: product.id } });
+    expect(Number(persistedProduct.stockQuantity)).toBe(0);
+
+    // The refused fulfilment must roll back whole: no movement row, and its
+    // order stays READY. A partial commit here would be worse than the oversell.
+    const orders = await dataSource.getRepository(SalesOrder).find({
+      where: [{ id: first.id }, { id: second.id }],
+    });
+    expect(
+      orders.filter((o) => o.status === SalesOrderStatus.FULFILLED),
+    ).toHaveLength(1);
+    expect(
+      orders.filter((o) => o.status === SalesOrderStatus.READY),
+    ).toHaveLength(1);
+
+    const saleMovements = await dataSource.getRepository(StockMovement).find({
+      where: { productId: product.id, movementType: StockMovementType.SALE },
+    });
+    expect(saleMovements).toHaveLength(1);
   });
 
   it("concurrent partial payments: both apply, paidAmount is the sum (no lost update)", async () => {
