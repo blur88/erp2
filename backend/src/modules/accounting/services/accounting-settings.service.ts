@@ -10,6 +10,7 @@ const REQUIRED_TYPE: Record<string, AccountType> = {
   cashAccountId: AccountType.ASSET, bankAccountId: AccountType.ASSET,
   inventoryAccountId: AccountType.ASSET, supplierDepositAccountId: AccountType.ASSET,
   customerDepositAccountId: AccountType.LIABILITY, openingBalanceEquityAccountId: AccountType.EQUITY,
+  ownerCapitalAccountId: AccountType.EQUITY, ownerDrawingsAccountId: AccountType.EQUITY,
   salesRevenueAccountId: AccountType.INCOME, cogsAccountId: AccountType.EXPENSE,
   defaultExpenseAccountId: AccountType.EXPENSE,
 };

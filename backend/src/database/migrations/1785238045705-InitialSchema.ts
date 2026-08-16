@@ -8,7 +8,7 @@ export class InitialSchema1785238045705 implements MigrationInterface {
         await queryRunner.query(`CREATE TYPE "public"."chart_of_account_type_enum" AS ENUM('Asset', 'Liability', 'Equity', 'Income', 'Expense')`);
         await queryRunner.query(`CREATE TABLE "chart_of_account" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deletedAt" TIMESTAMP WITH TIME ZONE, "isActive" boolean NOT NULL DEFAULT true, "code" character varying(20) NOT NULL, "name" character varying(120) NOT NULL, "type" "public"."chart_of_account_type_enum" NOT NULL, "parentId" uuid, "description" text, "createdBy" character varying(120), "isSystem" boolean NOT NULL DEFAULT false, "isPostable" boolean NOT NULL DEFAULT true, "openingBalance" numeric(18,4) NOT NULL DEFAULT '0', CONSTRAINT "PK_365a21e0767428d1ca45472f57c" PRIMARY KEY ("id")); COMMENT ON COLUMN "chart_of_account"."isActive" IS 'Soft delete flag for performance queries'`);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_de745245954d5662abfe10a466" ON "chart_of_account"  ("code") `);
-        await queryRunner.query(`CREATE TABLE "accounting_settings" ("id" boolean NOT NULL DEFAULT true, "cashAccountId" uuid NOT NULL, "bankAccountId" uuid NOT NULL, "inventoryAccountId" uuid NOT NULL, "supplierDepositAccountId" uuid NOT NULL, "customerDepositAccountId" uuid NOT NULL, "openingBalanceEquityAccountId" uuid NOT NULL, "salesRevenueAccountId" uuid NOT NULL, "cogsAccountId" uuid NOT NULL, "defaultExpenseAccountId" uuid NOT NULL, CONSTRAINT "PK_25b7d2f4a7d4b10aa42422df298" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "accounting_settings" ("id" boolean NOT NULL DEFAULT true, "cashAccountId" uuid NOT NULL, "bankAccountId" uuid NOT NULL, "inventoryAccountId" uuid NOT NULL, "supplierDepositAccountId" uuid NOT NULL, "customerDepositAccountId" uuid NOT NULL, "openingBalanceEquityAccountId" uuid NOT NULL, "ownerCapitalAccountId" uuid NOT NULL, "ownerDrawingsAccountId" uuid NOT NULL, "salesRevenueAccountId" uuid NOT NULL, "cogsAccountId" uuid NOT NULL, "defaultExpenseAccountId" uuid NOT NULL, CONSTRAINT "PK_25b7d2f4a7d4b10aa42422df298" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE TABLE "payment_methods" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deletedAt" TIMESTAMP WITH TIME ZONE, "isActive" boolean NOT NULL DEFAULT true, "code" character varying(20) NOT NULL, "name" character varying(100) NOT NULL, "sortOrder" integer NOT NULL DEFAULT '0', "useForPurchases" boolean NOT NULL DEFAULT true, "accountingChannel" character varying(4) NOT NULL DEFAULT 'BANK', CONSTRAINT "UQ_f8aad3eab194dfdae604ca11125" UNIQUE ("code"), CONSTRAINT "PK_34f9b8c6dfb4ac3559f7e2820d1" PRIMARY KEY ("id")); COMMENT ON COLUMN "payment_methods"."isActive" IS 'Soft delete flag for performance queries'; COMMENT ON COLUMN "payment_methods"."code" IS 'Unique code e.g. CASH, TNG, SHOPEE'; COMMENT ON COLUMN "payment_methods"."name" IS 'Display name e.g. Touch n Go, Shopee'; COMMENT ON COLUMN "payment_methods"."sortOrder" IS 'Display order in dropdowns'; COMMENT ON COLUMN "payment_methods"."useForPurchases" IS 'Whether this method is used for purchase order payments'; COMMENT ON COLUMN "payment_methods"."accountingChannel" IS 'Accounting channel: CASH or BANK'`);
         await queryRunner.query(`CREATE INDEX "IDX_c6243f21a7c99c9558984c267e" ON "payment_methods"  ("isActive") `);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_f8aad3eab194dfdae604ca1112" ON "payment_methods"  ("code") `);
@@ -252,6 +252,7 @@ export class InitialSchema1785238045705 implements MigrationInterface {
           ['2100', 'Customer Deposit', 'Liability', '2000'],
           ['3100', 'Owner Capital', 'Equity', '3000'],
           ['3200', 'Opening Balance Equity', 'Equity', '3000'],
+          ['3300', 'Owner Drawings', 'Equity', '3000'],
           ['4100', 'Sales Revenue', 'Income', '4000'],
           ['5100', 'Cost of Goods Sold', 'Expense', '5000'],
           ['6990', 'Other Expenses', 'Expense', '6000'],
@@ -265,6 +266,8 @@ export class InitialSchema1785238045705 implements MigrationInterface {
           ['supplierDepositAccountId', '1400'],
           ['customerDepositAccountId', '2100'],
           ['openingBalanceEquityAccountId', '3200'],
+          ['ownerCapitalAccountId', '3100'],
+          ['ownerDrawingsAccountId', '3300'],
           ['salesRevenueAccountId', '4100'],
           ['cogsAccountId', '5100'],
           ['defaultExpenseAccountId', '6990'],

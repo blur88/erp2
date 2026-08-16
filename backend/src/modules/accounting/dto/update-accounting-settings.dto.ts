@@ -7,6 +7,8 @@ export class UpdateAccountingSettingsDto {
   @IsOptional() @IsUUID() supplierDepositAccountId?: string;
   @IsOptional() @IsUUID() customerDepositAccountId?: string;
   @IsOptional() @IsUUID() openingBalanceEquityAccountId?: string;
+  @IsOptional() @IsUUID() ownerCapitalAccountId?: string;
+  @IsOptional() @IsUUID() ownerDrawingsAccountId?: string;
   @IsOptional() @IsUUID() salesRevenueAccountId?: string;
   @IsOptional() @IsUUID() cogsAccountId?: string;
   @IsOptional() @IsUUID() defaultExpenseAccountId?: string;
