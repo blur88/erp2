@@ -136,11 +136,16 @@ check "users (no default admin)" 0  "$(q 'SELECT count(*) FROM users;')"
 echo "==> document_number_settings values"
 # The five genesis rows store a literal -1 for lastResetYear. Owner Equity's row
 # is seeded by 1786862759868-AddOwnerEquity, which derives the year from
-# CURRENT_DATE, so its expected value must be computed here rather than hardcoded
-# (a literal would start failing on 1 Jan). `sed` strips the leading zero from
-# `date +%y` so e.g. 06 compares as 6, matching the integer column.
+# PostgreSQL's CURRENT_DATE, so its expected value must be computed rather than
+# hardcoded (a literal would start failing on 1 Jan).
+#
+# The expected year is read through q() — i.e. from the SAME PostgreSQL clock the
+# migration used. Deriving it from the host (`date +%y`) compares two different
+# clocks: if the database container's timezone differs from the host's, the two
+# disagree for a few hours either side of New Year and the gate fails falsely.
+EXPECTED_YY=$(q "SELECT EXTRACT(YEAR FROM CURRENT_DATE)::int % 100;")
 check "doc numbers" \
-  "Expenses|EXP|3|1|-1;Journal Entries|JE|3|1|-1;Owner Equity|EQ|3|1|$(date +%y | sed 's/^0*//');Purchase Orders|PO|3|1|-1;Sales Orders|SO|3|1|-1;Stock Adjustment|SA|3|1|-1" \
+  "Expenses|EXP|3|1|-1;Journal Entries|JE|3|1|-1;Owner Equity|EQ|3|1|${EXPECTED_YY};Purchase Orders|PO|3|1|-1;Sales Orders|SO|3|1|-1;Stock Adjustment|SA|3|1|-1" \
   "$(q "SELECT string_agg(\"documentName\"||'|'||prefix||'|'||\"paddingDigits\"||'|'||\"nextNumber\"||'|'||\"lastResetYear\", ';' ORDER BY \"documentName\") FROM document_number_settings;")"
 
 echo "==> payment_methods values"

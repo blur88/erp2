@@ -27,10 +27,15 @@ vi.mock('@/store/api/accountingApi', () => ({
 }))
 
 vi.mock('@/store/api/paymentMethodsApi', () => ({
-  useGetActivePaymentMethodsForPurchasesQuery: () => ({ data: [] }),
-  // Capital Injection accepts any active method, Cash Drawing only
-  // purchase-enabled ones — both hooks are mounted, one is always skipped.
-  useGetActivePaymentMethodsQuery: () => ({ data: [] }),
+  // Distinguishable payloads so a test can prove WHICH hook feeds the settle
+  // dialog: Capital Injection accepts any active method, Cash Drawing only
+  // purchase-enabled ones. Both hooks are mounted; one is always skipped.
+  useGetActivePaymentMethodsForPurchasesQuery: () => ({
+    data: [{ id: 'pm-purchases', code: 'BANK', name: 'Purchases Only Method', accountingChannel: 'BANK' }],
+  }),
+  useGetActivePaymentMethodsQuery: () => ({
+    data: [{ id: 'pm-all', code: 'CASH', name: 'Any Active Method', accountingChannel: 'CASH' }],
+  }),
 }))
 
 vi.mock('@/hooks/useNotification', () => ({
@@ -38,8 +43,17 @@ vi.mock('@/hooks/useNotification', () => ({
 }))
 
 vi.mock('@/components/common/PaymentDialog', () => ({
-  default: ({ open, onSubmit }: any) =>
-    open ? <div data-testid="oe-settle-dialog" onClick={() => onSubmit([])}>SettleDialog</div> : null,
+  // Renders the names of the paymentMethods it was handed, so a test can assert
+  // WHICH query fed the dialog without depending on PaymentDialog's internals.
+  default: ({ open, onSubmit, paymentMethods = [] }: any) =>
+    open ? (
+      <div data-testid="oe-settle-dialog" onClick={() => onSubmit([])}>
+        SettleDialog
+        {paymentMethods.map((m: any) => (
+          <span key={m.id}>{m.name}</span>
+        ))}
+      </div>
+    ) : null,
 }))
 
 vi.mock('@/components/common/RefundDialog', () => ({
@@ -116,6 +130,30 @@ describe('OwnerEquityDetailView', () => {
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByText(/Uncomplete Owner Equity/)).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: /Uncomplete/ })).toBeInTheDocument()
+  })
+
+  // Regression: both call sites used the purchases-only query unconditionally,
+  // so a Capital Injection could not be settled with a method that is valid for
+  // receipts but not enabled for purchases — those methods were simply missing
+  // from the dialog.
+  it('offers ALL active payment methods when settling a capital injection', async () => {
+    renderDetail({ type: 'CAPITAL_INJECTION', documentStatus: 'DRAFT', settlementStatus: 'UNSETTLED' })
+
+    await userEvent.click(screen.getByRole('button', { name: /Settle|Receive/i }))
+    const dialog = await screen.findByTestId('oe-settle-dialog')
+
+    expect(within(dialog).getByText('Any Active Method')).toBeInTheDocument()
+    expect(within(dialog).queryByText('Purchases Only Method')).not.toBeInTheDocument()
+  })
+
+  it('restricts a cash drawing to purchase-enabled payment methods', async () => {
+    renderDetail({ type: 'CASH_DRAWING', documentStatus: 'DRAFT', settlementStatus: 'UNSETTLED' })
+
+    await userEvent.click(screen.getByRole('button', { name: /Settle|Pay/i }))
+    const dialog = await screen.findByTestId('oe-settle-dialog')
+
+    expect(within(dialog).getByText('Purchases Only Method')).toBeInTheDocument()
+    expect(within(dialog).queryByText('Any Active Method')).not.toBeInTheDocument()
   })
 
   it('explains the stock and journal effect when uncompleting a stock drawing', async () => {

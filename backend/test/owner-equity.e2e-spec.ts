@@ -419,6 +419,27 @@ describe('Owner Equity (e2e)', () => {
     const doc = (await get(`/accounting/owner-equity/${injection}`)).body.data;
     expect(doc.settledAmount).toBe('100.0000');
     expect(doc.settlementStatus).toBe('SETTLED');
+
+    // The money side is only half the invariant: exactly ONE settlement row and
+    // exactly ONE unreversed journal entry must exist. UQ_journal_entry_source_event
+    // is what guarantees the second — findExistingEntry() alone is check-then-act
+    // and can be raced. This asserts the real database behaviour rather than the
+    // simulated 23505 the unit test injects.
+    const settlementRows = await ds.query(
+      `SELECT id FROM owner_equity_settlements
+        WHERE "equityDocumentId" = (SELECT id FROM owner_equity_documents WHERE "referenceNumber" = $1)`,
+      [injection],
+    );
+    expect(settlementRows).toHaveLength(1);
+
+    const entries = await ds.query(
+      `SELECT id FROM journal_entry
+        WHERE "sourceType" = 'OWNER_EQUITY'
+          AND "sourceEventId" = $1
+          AND "reversalOfEntryId" IS NULL`,
+      [settlementRows[0].id],
+    );
+    expect(entries).toHaveLength(1);
   });
 
   describe('document numbering', () => {

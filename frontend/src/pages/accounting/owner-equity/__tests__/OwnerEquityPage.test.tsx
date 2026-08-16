@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter } from 'react-router-dom'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { OwnerEquityDocument } from '@/types'
@@ -77,11 +79,15 @@ import { useGetOwnerEquityListQuery } from '@/store/api/accountingApi'
 function renderPage() {
   const store = configureStore({ reducer: { empty: (s = null) => s } })
   return render(
-    <Provider store={store}>
-      <MemoryRouter initialEntries={['/accounting/owner-equity']}>
-        <OwnerEquityPage />
-      </MemoryRouter>
-    </Provider>,
+    // LocalizationProvider is required: selecting a period reveals the custom
+    // From/To date pickers, which throw without an adapter in context.
+    <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <Provider store={store}>
+        <MemoryRouter initialEntries={['/accounting/owner-equity']}>
+          <OwnerEquityPage />
+        </MemoryRouter>
+      </Provider>
+    </LocalizationProvider>,
   )
 }
 
@@ -122,5 +128,37 @@ describe('OwnerEquityPage', () => {
       sortBy: 'referenceNumber',
       sortOrder: 'DESC',
     })
+  })
+
+  it('sends no date bounds while the period filter is unset', () => {
+    renderPage()
+    const calls = vi.mocked(useGetOwnerEquityListQuery).mock.calls
+    const params = calls[calls.length - 1][0] as Record<string, unknown>
+    expect(params.fromDate).toBeUndefined()
+    expect(params.toDate).toBeUndefined()
+  })
+
+  // Regression: the Period filter rendered but was never mapped to
+  // fromDate/toDate, so selecting a period silently returned the unfiltered
+  // list. It type-checked because the page redefined `period` locally as
+  // `{ key: string | null; ... }` instead of the shared PeriodValue.
+  it('maps a selected period to fromDate/toDate query params', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    // FilterPeriod renders a MUI Select (combobox), not a labelled input, and
+    // this page has several (Period, Type, Document Status, Settlement Status).
+    // Period is declared first in filterConfig.fields, so it is combobox 0.
+    await user.click(screen.getAllByRole('combobox')[0])
+    // FilterPeriod's presets are plain MenuItems, so they carry role
+    // "menuitem" rather than "option".
+    // Selecting a preset applies immediately via onChange — there is no Apply
+    // button on this filter bar.
+    await user.click(await screen.findByRole('menuitem', { name: 'This Month' }))
+
+    const calls = vi.mocked(useGetOwnerEquityListQuery).mock.calls
+    const params = calls[calls.length - 1][0] as Record<string, unknown>
+    expect(params.fromDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(params.toDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
   })
 })
