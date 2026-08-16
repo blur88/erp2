@@ -16,5 +16,7 @@ export function buildSourceLink(
         : null
     case 'OPENING_BALANCE':
       return null
+    case 'OWNER_EQUITY':
+      return sourceRef ? `/accounting/owner-equity/${sourceRef}/view` : null
   }
 }

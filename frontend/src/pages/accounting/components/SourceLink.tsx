@@ -10,6 +10,7 @@ const TYPE_LABELS: Record<AccountingSourceType, string> = {
   PURCHASE_ORDER: 'Purchase Order',
   STOCK_ADJUSTMENT: 'Stock Adjustment',
   OPENING_BALANCE: 'Opening Balance',
+  OWNER_EQUITY: 'Owner Equity',
 }
 
 export default function SourceLink({

@@ -79,6 +79,7 @@ export const JOURNAL_SOURCE_TYPE_OPTIONS: Options = [
   { value: 'PURCHASE_ORDER', label: 'Purchase Order' },
   { value: 'STOCK_ADJUSTMENT', label: 'Stock Adjustment' },
   { value: 'OPENING_BALANCE', label: 'Opening Balance' },
+  { value: 'OWNER_EQUITY', label: 'Owner Equity' },
 ] as const
 
 export const JOURNAL_STATUS_OPTIONS: Options = [

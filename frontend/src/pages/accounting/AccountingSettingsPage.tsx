@@ -32,6 +32,8 @@ interface FormValues {
   supplierDepositAccountId: string
   customerDepositAccountId: string
   openingBalanceEquityAccountId: string
+  ownerCapitalAccountId: string
+  ownerDrawingsAccountId: string
   salesRevenueAccountId: string
   cogsAccountId: string
   defaultExpenseAccountId: string
@@ -44,6 +46,8 @@ const schema = yup.object({
   supplierDepositAccountId: yup.string().required('Supplier deposit account is required'),
   customerDepositAccountId: yup.string().required('Customer deposit account is required'),
   openingBalanceEquityAccountId: yup.string().required('Opening balance equity account is required'),
+  ownerCapitalAccountId: yup.string().required('Owner capital account is required'),
+  ownerDrawingsAccountId: yup.string().required('Owner drawings account is required'),
   salesRevenueAccountId: yup.string().required('Sales revenue account is required'),
   cogsAccountId: yup.string().required('COGS account is required'),
   defaultExpenseAccountId: yup.string().required('Default expense account is required'),
@@ -73,6 +77,8 @@ const INVENTORY_PURCHASING_FIELDS: SectionField[] = [
 
 const SYSTEM_FIELDS: SectionField[] = [
   { name: 'openingBalanceEquityAccountId', label: 'Opening Balance Equity Account', accountType: 'Equity' },
+  { name: 'ownerCapitalAccountId', label: 'Owner Capital Account', accountType: 'Equity' },
+  { name: 'ownerDrawingsAccountId', label: 'Owner Drawings Account', accountType: 'Equity' },
   { name: 'defaultExpenseAccountId', label: 'Default Expense Account', accountType: 'Expense' },
 ]
 
@@ -84,6 +90,8 @@ function toFormValues(settings: AccountingSettings): FormValues {
     supplierDepositAccountId: settings.supplierDepositAccountId,
     customerDepositAccountId: settings.customerDepositAccountId,
     openingBalanceEquityAccountId: settings.openingBalanceEquityAccountId,
+    ownerCapitalAccountId: settings.ownerCapitalAccountId,
+    ownerDrawingsAccountId: settings.ownerDrawingsAccountId,
     salesRevenueAccountId: settings.salesRevenueAccountId,
     cogsAccountId: settings.cogsAccountId,
     defaultExpenseAccountId: settings.defaultExpenseAccountId,
@@ -183,6 +191,8 @@ export default function AccountingSettingsPage() {
       supplierDepositAccountId: '',
       customerDepositAccountId: '',
       openingBalanceEquityAccountId: '',
+      ownerCapitalAccountId: '',
+      ownerDrawingsAccountId: '',
       salesRevenueAccountId: '',
       cogsAccountId: '',
       defaultExpenseAccountId: '',

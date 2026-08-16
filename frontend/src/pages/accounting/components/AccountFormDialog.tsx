@@ -59,7 +59,6 @@ interface AccountFormData {
   name: string
   type: AccountType
   parentId: string
-  openingBalance: string
   description: string
 }
 
@@ -80,7 +79,6 @@ const accountSchema = yup.object({
   name: yup.string().required('Name is required').max(120, 'Name must be 120 characters or less'),
   type: yup.string().oneOf(ACCOUNT_TYPES.map((t) => t.value)).required('Type is required'),
   parentId: yup.string().nullable().default(''),
-  openingBalance: yup.string().nullable().default(''),
   description: yup.string().nullable().default(''),
 })
 
@@ -100,7 +98,7 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
     formState: { errors },
   } = useForm<AccountFormData>({
     resolver: yupResolver(accountSchema) as any,
-    defaultValues: { code: '', name: '', type: 'Asset', parentId: '', openingBalance: '', description: '' },
+    defaultValues: { code: '', name: '', type: 'Asset', parentId: '', description: '' },
   })
 
   const selectedType = watch('type')
@@ -114,7 +112,6 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
           name: account.name,
           type: account.type,
           parentId: account.parentId ?? '',
-          openingBalance: account.openingBalance,
           description: account.description ?? '',
         })
       } else {
@@ -124,7 +121,6 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
           // A child must share its parent's type — the backend rejects it otherwise.
           type: parent?.type ?? 'Asset',
           parentId: parent?.id ?? '',
-          openingBalance: '',
           description: '',
         })
       }
@@ -152,7 +148,6 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
         name: data.name,
         type: data.type,
         parentId: data.parentId || undefined,
-        openingBalance: data.openingBalance || undefined,
         description: data.description?.trim() || undefined,
       }
 
@@ -253,24 +248,6 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
                       </MenuItem>
                     ))}
                   </TextField>
-                )}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Controller
-                name="openingBalance"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    label="Opening Balance"
-                    type="number"
-                    disabled={isEdit}
-                    slotProps={{ htmlInput: { step: '0.0001' } }}
-                    error={!!errors.openingBalance}
-                    helperText={errors.openingBalance?.message || 'Initial balance amount'}
-                  />
                 )}
               />
             </Grid>

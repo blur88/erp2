@@ -144,8 +144,38 @@ const { mockAccounts, mockSettings, mockUpdateSettings } = vi.hoisted(() => ({
         createdAt: '',
         updatedAt: '',
       },
+      {
+        id: 'owner-cap-1',
+        code: '3200',
+        name: 'Owner Capital',
+        type: 'Equity' as const,
+        parentId: null,
+        description: null,
+        isActive: true,
+        createdBy: null,
+        isSystem: false,
+        isPostable: true,
+        openingBalance: '0.0000',
+        createdAt: '',
+        updatedAt: '',
+      },
+      {
+        id: 'owner-draw-1',
+        code: '3300',
+        name: 'Owner Drawings',
+        type: 'Equity' as const,
+        parentId: null,
+        description: null,
+        isActive: true,
+        createdBy: null,
+        isSystem: false,
+        isPostable: true,
+        openingBalance: '0.0000',
+        createdAt: '',
+        updatedAt: '',
+      },
     ],
-    meta: { total: 9 },
+    meta: { total: 11 },
   },
   mockSettings: {
     id: true,
@@ -155,6 +185,8 @@ const { mockAccounts, mockSettings, mockUpdateSettings } = vi.hoisted(() => ({
     supplierDepositAccountId: 'supp-dep-1',
     customerDepositAccountId: 'cust-dep-1',
     openingBalanceEquityAccountId: 'obe-1',
+    ownerCapitalAccountId: 'owner-cap-1',
+    ownerDrawingsAccountId: 'owner-draw-1',
     salesRevenueAccountId: 'sales-rev-1',
     cogsAccountId: 'cogs-1',
     defaultExpenseAccountId: 'expense-1',
@@ -244,7 +276,7 @@ describe('AccountingSettingsPage', () => {
     }
   })
 
-  it('Save calls update mutation with all 9 ids', async () => {
+  it('Save calls update mutation with all 11 ids', async () => {
     mockUpdateSettings.mockClear()
     renderPage()
     const user = userEvent.setup()
@@ -259,6 +291,8 @@ describe('AccountingSettingsPage', () => {
         supplierDepositAccountId: 'supp-dep-1',
         customerDepositAccountId: 'cust-dep-1',
         openingBalanceEquityAccountId: 'obe-1',
+        ownerCapitalAccountId: 'owner-cap-1',
+        ownerDrawingsAccountId: 'owner-draw-1',
         salesRevenueAccountId: 'sales-rev-1',
         cogsAccountId: 'cogs-1',
         defaultExpenseAccountId: 'expense-1',
@@ -437,4 +471,35 @@ describe('AccountingSettingsPage', () => {
       })
     },
   )
+})
+
+describe('AccountingSettingsPage - Owner Equity', () => {
+  it('renders owner capital and owner drawings selectors', async () => {
+    renderPage()
+    expect(await screen.findByLabelText(/Owner Capital Account/)).toBeInTheDocument()
+    expect(await screen.findByLabelText(/Owner Drawings Account/)).toBeInTheDocument()
+  })
+
+  it('requires both owner accounts before saving settings', async () => {
+    const { useGetAccountingSettingsQuery } = await import('@/store/api/accountingApi')
+    const mockFn = vi.mocked(useGetAccountingSettingsQuery)
+    mockFn.mockReturnValue({
+      data: {
+        ...mockSettings,
+        ownerCapitalAccountId: '',
+        ownerDrawingsAccountId: '',
+      },
+      isLoading: false,
+      error: undefined,
+    } as any)
+
+    try {
+      renderPage()
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: /Save/i }))
+      expect(await screen.findByText(/Owner capital account is required/)).toBeInTheDocument()
+    } finally {
+      mockFn.mockReturnValue({ data: mockSettings, isLoading: false, error: undefined } as any)
+    }
+  })
 })
