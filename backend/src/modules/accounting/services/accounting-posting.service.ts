@@ -16,6 +16,8 @@ import {
   PostSalesPaymentCmd, PostSalesRefundCmd, PostSalesFulfillmentCmd,
   PostPurchasePaymentCmd, PostPurchaseRefundCmd, PostPurchaseReceiveCmd,
   PostStockAdjustmentCmd, PostOpeningBalanceCmd, PostExpensePaymentCmd, PostExpenseRefundCmd,
+  PostOwnerCapitalInjectionCmd, PostOwnerCapitalInjectionRefundCmd,
+  PostOwnerCashDrawingCmd, PostOwnerCashDrawingRefundCmd, PostOwnerStockDrawingCmd,
   ReverseEntryCmd,
 } from '../../../common/accounting-posting/posting-commands';
 
@@ -65,8 +67,40 @@ export class AccountingPostingService implements AccountingPostingPort {
       createdBy: params.createdBy ?? 'system', reversalOfEntryId: params.reversalOfEntryId ?? null,
       lines: params.lines.map((l) => lineRepo.create({ accountId: l.account.id, debit: l.debit, credit: l.credit })),
     } as any);
-    const saved = await entryRepo.save(entry as any);
-    return { journalEntryId: (saved as any).id };
+    // Event-keyed entries race: findExistingEntry() is a check-then-act, so two
+    // concurrent identical commands can both find nothing and both insert.
+    // UQ_journal_entry_source_event makes the DB the authority; here we absorb
+    // the conflict and return the winner.
+    //
+    // The insert runs inside a SAVEPOINT because a unique violation marks the
+    // whole transaction as failed in PostgreSQL — querying for the winning row
+    // afterwards on the same transaction would itself error. Rolling back to
+    // the savepoint restores a usable transaction without discarding the
+    // caller's earlier work (the movement insert, the settlement row, ...).
+    const isEventKeyed = params.sourceEventId != null && params.reversalOfEntryId == null;
+    if (!isEventKeyed) {
+      const saved = await entryRepo.save(entry as any);
+      return { journalEntryId: (saved as any).id };
+    }
+
+    await manager.query('SAVEPOINT je_insert');
+    try {
+      const saved = await entryRepo.save(entry as any);
+      await manager.query('RELEASE SAVEPOINT je_insert');
+      return { journalEntryId: (saved as any).id };
+    } catch (err) {
+      if ((err as { code?: string })?.code !== '23505') throw err;
+      await manager.query('ROLLBACK TO SAVEPOINT je_insert');
+      const winner = await this.findExistingEntry(
+        params.sourceType, params.sourceEventId as string, params.postingType, manager,
+      );
+      if (!winner) {
+        // A 23505 on some other unique index (journalNo, most likely) — not our
+        // idempotency conflict. Re-throw rather than silently returning nothing.
+        throw err;
+      }
+      return winner;
+    }
   }
 
   async postSalesPayment(cmd: PostSalesPaymentCmd, manager: EntityManager): Promise<PostResult> {
@@ -216,6 +250,92 @@ export class AccountingPostingService implements AccountingPostingPort {
       sourceRef: cmd.sourceRef, postingType: PostingType.EXPENSE_REFUND, description: 'Expense payment refund',
       entryDate: cmd.entryDate, createdBy: cmd.createdBy,
       lines: [this.debitLine(channelAcc, cmd.amount), this.creditLine(expenseAcc, cmd.amount)],
+    }, manager);
+  }
+
+  async postOwnerCapitalInjection(cmd: PostOwnerCapitalInjectionCmd, manager: EntityManager): Promise<PostResult> {
+    // Idempotency guard, same shape as postExpensePayment (:195). A retried
+    // settlement must return the first entry, never post a second.
+    const existing = await this.findExistingEntry(
+      AccountingSourceType.OWNER_EQUITY, cmd.settlementRowId,
+      PostingType.OWNER_CAPITAL_INJECTION, manager);
+    if (existing) return existing;
+    const channelAcc = await this.lookup.resolveChannelAccount(cmd.channel, manager);
+    const ownerCapital = await this.lookup.resolveAccount('ownerCapital', manager);
+    return this.build({
+      sourceType: AccountingSourceType.OWNER_EQUITY, sourceDocumentId: cmd.equityDocumentId,
+      sourceEventId: cmd.settlementRowId, sourceRef: cmd.sourceRef,
+      postingType: PostingType.OWNER_CAPITAL_INJECTION, description: 'Owner capital injection',
+      entryDate: cmd.entryDate, createdBy: cmd.createdBy,
+      lines: [this.debitLine(channelAcc, cmd.amount), this.creditLine(ownerCapital, cmd.amount)],
+    }, manager);
+  }
+
+  async postOwnerCapitalInjectionRefund(cmd: PostOwnerCapitalInjectionRefundCmd, manager: EntityManager): Promise<PostResult> {
+    const existing = await this.findExistingEntry(
+      AccountingSourceType.OWNER_EQUITY, cmd.settlementRowId,
+      PostingType.OWNER_CAPITAL_INJECTION_REFUND, manager);
+    if (existing) return existing;
+    const channelAcc = await this.lookup.resolveChannelAccount(cmd.channel, manager);
+    const ownerCapital = await this.lookup.resolveAccount('ownerCapital', manager);
+    return this.build({
+      sourceType: AccountingSourceType.OWNER_EQUITY, sourceDocumentId: cmd.equityDocumentId,
+      sourceEventId: cmd.settlementRowId, sourceRef: cmd.sourceRef,
+      postingType: PostingType.OWNER_CAPITAL_INJECTION_REFUND, description: 'Owner capital injection refund',
+      entryDate: cmd.entryDate, createdBy: cmd.createdBy,
+      lines: [this.debitLine(ownerCapital, cmd.amount), this.creditLine(channelAcc, cmd.amount)],
+    }, manager);
+  }
+
+  async postOwnerCashDrawing(cmd: PostOwnerCashDrawingCmd, manager: EntityManager): Promise<PostResult> {
+    const existing = await this.findExistingEntry(
+      AccountingSourceType.OWNER_EQUITY, cmd.settlementRowId,
+      PostingType.OWNER_CASH_DRAWING, manager);
+    if (existing) return existing;
+    const channelAcc = await this.lookup.resolveChannelAccount(cmd.channel, manager);
+    const ownerDrawings = await this.lookup.resolveAccount('ownerDrawings', manager);
+    return this.build({
+      sourceType: AccountingSourceType.OWNER_EQUITY, sourceDocumentId: cmd.equityDocumentId,
+      sourceEventId: cmd.settlementRowId, sourceRef: cmd.sourceRef,
+      postingType: PostingType.OWNER_CASH_DRAWING, description: 'Owner cash drawing',
+      entryDate: cmd.entryDate, createdBy: cmd.createdBy,
+      lines: [this.debitLine(ownerDrawings, cmd.amount), this.creditLine(channelAcc, cmd.amount)],
+    }, manager);
+  }
+
+  async postOwnerCashDrawingRefund(cmd: PostOwnerCashDrawingRefundCmd, manager: EntityManager): Promise<PostResult> {
+    const existing = await this.findExistingEntry(
+      AccountingSourceType.OWNER_EQUITY, cmd.settlementRowId,
+      PostingType.OWNER_CASH_DRAWING_REFUND, manager);
+    if (existing) return existing;
+    const channelAcc = await this.lookup.resolveChannelAccount(cmd.channel, manager);
+    const ownerDrawings = await this.lookup.resolveAccount('ownerDrawings', manager);
+    return this.build({
+      sourceType: AccountingSourceType.OWNER_EQUITY, sourceDocumentId: cmd.equityDocumentId,
+      sourceEventId: cmd.settlementRowId, sourceRef: cmd.sourceRef,
+      postingType: PostingType.OWNER_CASH_DRAWING_REFUND, description: 'Owner cash drawing refund',
+      entryDate: cmd.entryDate, createdBy: cmd.createdBy,
+      lines: [this.debitLine(channelAcc, cmd.amount), this.creditLine(ownerDrawings, cmd.amount)],
+    }, manager);
+  }
+
+  async postOwnerStockDrawing(cmd: PostOwnerStockDrawingCmd, manager: EntityManager): Promise<PostResult> {
+    // Keyed on the movement id, so a re-completion after uncomplete presents a
+    // NEW key and correctly posts a fresh original (spec §5.2), while a retry
+    // of the same completion is deduplicated.
+    const existing = await this.findExistingEntry(
+      AccountingSourceType.OWNER_EQUITY, cmd.stockMovementId,
+      PostingType.OWNER_STOCK_DRAWING, manager);
+    if (existing) return existing;
+    const ownerDrawings = await this.lookup.resolveAccount('ownerDrawings', manager);
+    const inventory = await this.lookup.resolveAccount('inventory', manager);
+    return this.build({
+      sourceType: AccountingSourceType.OWNER_EQUITY, sourceDocumentId: cmd.equityDocumentId,
+      // Freshly minted movement id — see PostOwnerStockDrawingCmd for why.
+      sourceEventId: cmd.stockMovementId, sourceRef: cmd.sourceRef,
+      postingType: PostingType.OWNER_STOCK_DRAWING, description: 'Owner stock drawing',
+      entryDate: cmd.entryDate, createdBy: cmd.createdBy,
+      lines: [this.debitLine(ownerDrawings, cmd.amount), this.creditLine(inventory, cmd.amount)],
     }, manager);
   }
 

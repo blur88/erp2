@@ -26,6 +26,7 @@ async function seedAccounting(ds: DataSource) {
   const children = [['1100','Cash','Asset','1000'],['1200','Bank','Asset','1000'],['1300','Inventory','Asset','1000'],
     ['1400','Supplier Deposit','Asset','1000'],['2100','Customer Deposit','Liability','2000'],
     ['3100','Owner Capital','Equity','3000'],['3200','Opening Balance Equity','Equity','3000'],
+    ['3300','Owner Drawings','Equity','3000'],
     ['4100','Sales Revenue','Income','4000'],['5100','Cost of Goods Sold','Expense','5000'],
     ['6990','Other Expenses','Expense','6000']] as const;
   for (const [code, name, type, parentCode] of children) {
@@ -41,6 +42,7 @@ async function seedAccounting(ds: DataSource) {
       id: true, cashAccountId: await id('1100'), bankAccountId: await id('1200'),
       inventoryAccountId: await id('1300'), supplierDepositAccountId: await id('1400'),
       customerDepositAccountId: await id('2100'), openingBalanceEquityAccountId: await id('3200'),
+      ownerCapitalAccountId: await id('3100'), ownerDrawingsAccountId: await id('3300'),
       salesRevenueAccountId: await id('4100'), cogsAccountId: await id('5100'),
       defaultExpenseAccountId: await id('6990'),
     } as any));

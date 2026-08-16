@@ -465,6 +465,7 @@ export class SettingsService {
       // nextNumber is derived collision-safe below, not the literal 1 above.
       { documentName: 'Journal Entries', prefix: 'JE' },
       { documentName: 'Expenses', prefix: 'EXP' },
+      { documentName: 'Owner Equity', prefix: 'EQ' },
     ];
 
     for (const d of defaults) {
@@ -561,12 +562,25 @@ export class SettingsService {
               break;
             }
 
+            case 'Owner Equity': {
+              // Numeric suffix, not lexical: EQ-26-999 sorts above EQ-26-1000,
+              // so ORDER BY ... DESC LIMIT 1 would read 999 and collide.
+              const rows = await this.dataSource.query(
+                `SELECT COALESCE(MAX((split_part("referenceNumber", '-', 3))::int), 0) AS max
+                 FROM owner_equity_documents
+                 WHERE "referenceNumber" ~ ('^' || $1 || '-' || $2 || '-[0-9]{1,9}$')`,
+                [row.prefix, String(currentYY).padStart(2, '0')],
+              );
+              maxNumber = Number(rows[0]?.max ?? 0);
+              break;
+            }
+
             default:
               // Document types this sync can't compute a max for (Journal Entries,
-              // Invoices, Settlements, Owner Equity — their sequences live
-              // in other modules' tables). Do NOT reset their nextNumber to 1: that
-              // would collide with already-issued numbers on the next post (issue #901,
-              // where AccountingSeederService owns the Journal Entries sequence).
+              // Invoices, Settlements — their sequences live in other modules'
+              // tables). Do NOT reset their nextNumber to 1: that would collide
+              // with already-issued numbers on the next post (issue #901, where
+              // AccountingSeederService owns the Journal Entries sequence).
               this.logger.warn(`Skipping sync for document type '${row.documentName}': no source-table max available, leaving nextNumber unchanged.`);
               continue;
           }

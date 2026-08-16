@@ -9,6 +9,8 @@ import { Expense } from '../modules/accounting/entities/expense.entity';
 import { ExpensePayment } from '../modules/accounting/entities/expense-payment.entity';
 import { JournalEntry } from '../modules/accounting/entities/journal-entry.entity';
 import { JournalEntryLine } from '../modules/accounting/entities/journal-entry-line.entity';
+import { OwnerEquityDocument } from '../modules/owner-equity/entities/owner-equity-document.entity';
+import { OwnerEquitySettlement } from '../modules/owner-equity/entities/owner-equity-settlement.entity';
 import { AuditLog } from '../database/entities/audit-log.entity';
 import { BackupLog } from '../database/entities/backup-log.entity';
 import { BackupSchedule } from '../database/entities/backup-schedule.entity';
@@ -129,6 +131,8 @@ export function createDatabaseConfig(
       ExpensePayment,
       JournalEntry,
       JournalEntryLine,
+      OwnerEquityDocument,
+      OwnerEquitySettlement,
     ],
     migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
     // 'each' (not the TypeORM default 'all') so a migration that appends an

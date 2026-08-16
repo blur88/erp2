@@ -3,6 +3,8 @@ import {
   PostSalesPaymentCmd, PostSalesRefundCmd, PostSalesFulfillmentCmd,
   PostPurchasePaymentCmd, PostPurchaseRefundCmd, PostPurchaseReceiveCmd,
   PostStockAdjustmentCmd, PostOpeningBalanceCmd, PostExpensePaymentCmd, PostExpenseRefundCmd,
+  PostOwnerCapitalInjectionCmd, PostOwnerCapitalInjectionRefundCmd,
+  PostOwnerCashDrawingCmd, PostOwnerCashDrawingRefundCmd, PostOwnerStockDrawingCmd,
   ReverseEntryCmd, AccountingSourceType, PostingType,
 } from './posting-commands';
 
@@ -21,6 +23,11 @@ export interface AccountingPostingPort {
   postOpeningBalance(cmd: PostOpeningBalanceCmd, manager: EntityManager): Promise<PostResult>;
   postExpensePayment(cmd: PostExpensePaymentCmd, manager: EntityManager): Promise<PostResult>;
   postExpenseRefund(cmd: PostExpenseRefundCmd, manager: EntityManager): Promise<PostResult>;
+  postOwnerCapitalInjection(cmd: PostOwnerCapitalInjectionCmd, manager: EntityManager): Promise<PostResult>;
+  postOwnerCapitalInjectionRefund(cmd: PostOwnerCapitalInjectionRefundCmd, manager: EntityManager): Promise<PostResult>;
+  postOwnerCashDrawing(cmd: PostOwnerCashDrawingCmd, manager: EntityManager): Promise<PostResult>;
+  postOwnerCashDrawingRefund(cmd: PostOwnerCashDrawingRefundCmd, manager: EntityManager): Promise<PostResult>;
+  postOwnerStockDrawing(cmd: PostOwnerStockDrawingCmd, manager: EntityManager): Promise<PostResult>;
   reverseEntry(cmd: ReverseEntryCmd, manager: EntityManager): Promise<PostResult>;
   reverseEntriesForDocument(
     sourceType: AccountingSourceType,

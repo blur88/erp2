@@ -40,6 +40,13 @@ export interface PaymentMethodOption {
   name: string
 }
 
+export interface PaymentDialogTerminology {
+  noun?: string
+  verbPast?: string
+  submitLabel?: string
+  lineNoun?: string
+}
+
 export interface PaymentDialogProps {
   open: boolean
   documentNumber: string
@@ -49,6 +56,14 @@ export interface PaymentDialogProps {
   loading: boolean
   onClose: () => void
   onSubmit: (payments: PaymentLineInput[]) => Promise<void>
+  terminology?: PaymentDialogTerminology
+}
+
+const DEFAULT_TERMINOLOGY: Required<PaymentDialogTerminology> = {
+  noun: 'Payment',
+  verbPast: 'Paid',
+  submitLabel: 'Record Payment',
+  lineNoun: 'Payment',
 }
 
 interface PaymentLine extends PaymentLineInput {
@@ -70,7 +85,12 @@ export default function PaymentDialog({
   loading,
   onClose,
   onSubmit,
+  terminology = DEFAULT_TERMINOLOGY,
 }: PaymentDialogProps) {
+  const terms: Required<PaymentDialogTerminology> = {
+    ...DEFAULT_TERMINOLOGY,
+    ...terminology,
+  }
   const totalMinor = toScaledAmount(totalAmount) ?? 0n
   const paidMinor = toScaledAmount(paidAmount) ?? 0n
   const outstandingMinor = totalMinor - paidMinor > 0n ? totalMinor - paidMinor : 0n
@@ -188,7 +208,7 @@ export default function PaymentDialog({
   return (
     <TransactionLineDialogShell
       open={open}
-      title={`Record Payment — ${documentNumber}`}
+      title={`Record ${terms.noun} — ${documentNumber}`}
       onRequestClose={handleRequestClose}
       loading={loading}
       discardOpen={confirmDiscard}
@@ -202,7 +222,7 @@ export default function PaymentDialog({
             <Typography variant="body2">{formatCurrency(totalAmount)}</Typography>
           </Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>Previously Paid</Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>Previously {terms.verbPast}</Typography>
             <Typography variant="body2">{formatCurrency(paidAmount)}</Typography>
           </Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
@@ -216,7 +236,7 @@ export default function PaymentDialog({
       totals={
         <>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Total Payment</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Total {terms.noun}</Typography>
             <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
               {formatCurrency(fromScaledAmount(totalEnteredMinor))}
             </Typography>
@@ -249,7 +269,7 @@ export default function PaymentDialog({
             disabled={submitting || loading || noMethods || hasInvalidAmount || totalEnteredMinor <= 0n}
             startIcon={submitting ? <CircularProgress size={16} /> : undefined}
           >
-            {submitting ? 'Recording...' : 'Record Payment'}
+            {submitting ? 'Recording...' : terms.submitLabel}
           </Button>
         </>
       }
@@ -290,7 +310,7 @@ export default function PaymentDialog({
               value={line.paymentMethodId}
               onChange={(e) => updateLine(index, 'paymentMethodId', e.target.value)}
               displayEmpty
-              inputProps={{ 'aria-label': `Payment method, line ${index + 1}` }}
+              inputProps={{ 'aria-label': `${terms.lineNoun} method, line ${index + 1}` }}
               sx={{ fontSize: '0.85rem' }}
             >
               <MenuItem value="" disabled>Method</MenuItem>
@@ -322,7 +342,7 @@ export default function PaymentDialog({
           <TransactionDateField
             value={line.paymentDate}
             onChange={(value) => updateLine(index, 'paymentDate', value)}
-            label={`Payment date, line ${index + 1}`}
+            label={`${terms.lineNoun} date, line ${index + 1}`}
           />
         </DialogLineRow>
       ))}
@@ -334,7 +354,7 @@ export default function PaymentDialog({
         disabled={noMethods}
         sx={{ mt: 0.5, mb: 2 }}
       >
-        Add Payment Line
+        Add {terms.lineNoun} Line
       </Button>
     </TransactionLineDialogShell>
   )

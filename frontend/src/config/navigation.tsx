@@ -229,6 +229,13 @@ export const menuSections: MenuSection[] = [
             roles: ALL_ROLES,
           },
           {
+            id: 'owner-equity',
+            title: 'Owner Equity',
+            icon: <AccountBalanceWalletIcon />,
+            path: '/accounting/owner-equity',
+            roles: ALL_ROLES,
+          },
+          {
             id: 'general-ledger',
             title: 'General Ledger',
             icon: <MenuBookIcon />,

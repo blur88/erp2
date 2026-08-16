@@ -12,6 +12,8 @@ export class AccountingSettings {
   @Column({ type: 'uuid' }) supplierDepositAccountId: string;
   @Column({ type: 'uuid' }) customerDepositAccountId: string;
   @Column({ type: 'uuid' }) openingBalanceEquityAccountId: string;
+  @Column({ type: 'uuid' }) ownerCapitalAccountId: string;
+  @Column({ type: 'uuid' }) ownerDrawingsAccountId: string;
   @Column({ type: 'uuid' }) salesRevenueAccountId: string;
   @Column({ type: 'uuid' }) cogsAccountId: string;
   @Column({ type: 'uuid' }) defaultExpenseAccountId: string;

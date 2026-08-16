@@ -255,6 +255,35 @@ describe('PaymentDialog accessible names (#1006)', () => {
   })
 })
 
+describe('PaymentDialog terminology props', () => {
+  it('defaults to payment wording so existing consumers are unchanged', () => {
+    renderDialog({ documentNumber: 'SO-26-001' })
+    expect(screen.getByText(/Record Payment — SO-26-001/)).toBeInTheDocument()
+    expect(screen.getByText('Previously Paid')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add Payment Line' })).toBeInTheDocument()
+  })
+
+  it('renders receipt wording when terminology is supplied', () => {
+    renderDialog({
+      documentNumber: 'SO-26-001',
+      terminology: {
+        noun: 'Receipt',
+        verbPast: 'Received',
+        submitLabel: 'Record Receipt',
+        lineNoun: 'Receipt',
+      },
+    })
+    expect(screen.getByText(/Record Receipt — SO-26-001/)).toBeInTheDocument()
+    expect(screen.getByText('Previously Received')).toBeInTheDocument()
+  })
+
+  it('applies terminology to accessible names, not just visible text', () => {
+    renderDialog({ terminology: { noun: 'Receipt', lineNoun: 'Receipt' } })
+    expect(screen.getByLabelText('Receipt method, line 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Receipt date, line 1')).toBeInTheDocument()
+  })
+})
+
 describe('PaymentDialog date field (#1008)', () => {
   // jsdom has no layout engine: this asserts the shared CSS configuration is in
   // use, NOT that the value renders unclipped. Browser-verified separately.

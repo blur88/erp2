@@ -75,4 +75,13 @@ describe('SourceLink', () => {
     // MUI Tooltip sets the native HTML title attribute as a fallback (visible in JSDOM).
     expect(span).toHaveAttribute('title', 'Opening Balance')
   })
+
+  it('labels an owner equity journal source', () => {
+    renderLink(
+      <SourceLink sourceType="OWNER_EQUITY" sourceDocumentId="uuid-1" sourceRef="EQ-26-001" />,
+    )
+    const link = screen.getByRole('link', { name: 'EQ-26-001' })
+    expect(link).toHaveAccessibleDescription('Owner Equity')
+    expect(link).toHaveAttribute('title', 'Owner Equity')
+  })
 })

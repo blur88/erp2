@@ -18,6 +18,10 @@ function makeService(saved: any[], findOneMap?: Record<string, any>) {
   const docNumbers = { generateDocumentNumber: async () => 'JE-26-001' } as any;
   const svc = new AccountingPostingService(lookup, docNumbers);
   const manager = {
+    // Event-keyed posts wrap their insert in a SAVEPOINT so a unique-violation
+    // from UQ_journal_entry_source_event can be absorbed without poisoning the
+    // caller's transaction. The mock only needs to accept the statements.
+    query: async () => undefined,
     getRepository: (entity: any) => {
       const name = entity.name;
       return {

@@ -43,4 +43,14 @@ describe('buildSourceLink', () => {
       '/sales/orders/SO-0007/view',
     )
   })
+
+  it('links an owner equity entry by reference number', () => {
+    expect(buildSourceLink('OWNER_EQUITY', 'uuid-1', 'EQ-26-001')).toBe(
+      '/accounting/owner-equity/EQ-26-001/view',
+    )
+  })
+
+  it('returns null when the reference is missing', () => {
+    expect(buildSourceLink('OWNER_EQUITY', 'uuid-1', null)).toBeNull()
+  })
 })

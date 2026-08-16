@@ -27,6 +27,7 @@ import { BackupModule } from './modules/backup/backup.module';
 import { PriceListsModule } from './modules/price-lists/price-lists.module';
 import { SearchModule } from './modules/search/search.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
+import { OwnerEquityModule } from './modules/owner-equity/owner-equity.module';
 import { MonitoringModule } from './modules/monitoring/monitoring.module';
 
 // Auth Guards
@@ -76,6 +77,8 @@ import { AppService } from './app.service';
     PriceListsModule, // Price list management (Phase 3)
     SearchModule,
     MonitoringModule, // Redis memory-pressure sampling and state
+    AccountingModule,
+    OwnerEquityModule,
   ],
   controllers: [AppController],
   providers: [

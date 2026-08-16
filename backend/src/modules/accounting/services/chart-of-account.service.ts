@@ -77,6 +77,7 @@ export class ChartOfAccountService {
       s.cashAccountId, s.bankAccountId, s.inventoryAccountId, s.supplierDepositAccountId,
       s.customerDepositAccountId, s.openingBalanceEquityAccountId, s.salesRevenueAccountId,
       s.cogsAccountId, s.defaultExpenseAccountId,
+      s.ownerCapitalAccountId, s.ownerDrawingsAccountId,
     ].includes(id);
   }
 

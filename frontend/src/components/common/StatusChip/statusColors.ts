@@ -18,6 +18,8 @@ export const STATUS_MAP: Record<string, StatusConfig> = {
   posted: { color: 'success', label: 'Posted' },
   active: { color: 'success', label: 'Active' },
   paid: { color: 'success', label: 'Paid' },
+  settled: { color: 'success', label: 'Settled' },
+  unsettled: { color: 'warning', label: 'Unsettled' },
   healthy: { color: 'success', label: 'Healthy' },
   in_stock: { color: 'success', label: 'In Stock' },
   low_stock: { color: 'warning', label: 'Low Stock' },

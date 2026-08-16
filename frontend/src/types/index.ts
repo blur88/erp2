@@ -618,13 +618,15 @@ export interface AccountingSettings {
   supplierDepositAccountId: string;
   customerDepositAccountId: string;
   openingBalanceEquityAccountId: string;
+  ownerCapitalAccountId: string;
+  ownerDrawingsAccountId: string;
   salesRevenueAccountId: string;
   cogsAccountId: string;
   defaultExpenseAccountId: string;
 }
 
 export type JournalEntryStatus = 'Posted' | 'Reversed';
-export type AccountingSourceType = 'SALES_ORDER' | 'PURCHASE_ORDER' | 'STOCK_ADJUSTMENT' | 'OPENING_BALANCE';
+export type AccountingSourceType = 'SALES_ORDER' | 'PURCHASE_ORDER' | 'STOCK_ADJUSTMENT' | 'OPENING_BALANCE' | 'OWNER_EQUITY';
 
 export interface JournalEntry {
   id: string;
@@ -711,3 +713,17 @@ export {
   type ExpensePaymentStatus,
   type ExpensePaymentRow,
 } from './expense.types'
+export {
+  type OwnerEquityDocument,
+  type OwnerEquityDocumentStatus,
+  type OwnerEquitySettlement,
+  type OwnerEquitySettlementStatus,
+  type OwnerEquityType,
+  type OwnerEquityListParams,
+  type CreateOwnerEquityRequest,
+  type UpdateOwnerEquityRequest,
+  type OwnerEquitySettlementLine,
+  type SettleOwnerEquityRequest,
+  type OwnerEquityRefundLine,
+  type RefundOwnerEquityRequest,
+} from './ownerEquity.types'

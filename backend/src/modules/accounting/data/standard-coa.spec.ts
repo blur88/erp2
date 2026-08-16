@@ -89,3 +89,15 @@ describe('standard-coa constant exactly matches the genesis migration', () => {
     expect(capturedSettings(calls)).toEqual({ ...SETTINGS_CODE_MAP });
   });
 });
+
+describe('owner equity accounts', () => {
+  it('includes 3300 Owner Drawings under Equity', () => {
+    const row = STANDARD_COA_CHILDREN.find((c) => c.code === '3300');
+    expect(row).toEqual({ code: '3300', name: 'Owner Drawings', type: 'Equity', parentCode: '3000' });
+  });
+
+  it('maps both owner settings columns to their COA codes', () => {
+    expect(SETTINGS_CODE_MAP.ownerCapitalAccountId).toBe('3100');
+    expect(SETTINGS_CODE_MAP.ownerDrawingsAccountId).toBe('3300');
+  });
+});

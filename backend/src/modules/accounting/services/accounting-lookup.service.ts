@@ -7,13 +7,15 @@ import { AccountingSettings } from '../entities/accounting-settings.entity';
 
 export type MappingKey =
   | 'cash' | 'bank' | 'inventory' | 'supplierDeposit' | 'customerDeposit'
-  | 'openingBalanceEquity' | 'salesRevenue' | 'cogs' | 'defaultExpense';
+  | 'openingBalanceEquity' | 'salesRevenue' | 'cogs' | 'defaultExpense'
+  | 'ownerCapital' | 'ownerDrawings';
 
 const KEY_TO_COLUMN: Record<MappingKey, keyof AccountingSettings> = {
   cash: 'cashAccountId', bank: 'bankAccountId', inventory: 'inventoryAccountId',
   supplierDeposit: 'supplierDepositAccountId', customerDeposit: 'customerDepositAccountId',
   openingBalanceEquity: 'openingBalanceEquityAccountId', salesRevenue: 'salesRevenueAccountId',
   cogs: 'cogsAccountId', defaultExpense: 'defaultExpenseAccountId',
+  ownerCapital: 'ownerCapitalAccountId', ownerDrawings: 'ownerDrawingsAccountId',
 };
 
 @Injectable()

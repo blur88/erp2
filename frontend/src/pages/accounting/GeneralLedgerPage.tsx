@@ -32,6 +32,7 @@ const SOURCE_TYPES: { value: AccountingSourceType | ''; label: string }[] = [
   { value: 'PURCHASE_ORDER', label: 'Purchase Order' },
   { value: 'STOCK_ADJUSTMENT', label: 'Stock Adjustment' },
   { value: 'OPENING_BALANCE', label: 'Opening Balance' },
+  { value: 'OWNER_EQUITY', label: 'Owner Equity' },
 ]
 
 const VALID_SOURCE_TYPES = new Set<AccountingSourceType>([
@@ -39,6 +40,7 @@ const VALID_SOURCE_TYPES = new Set<AccountingSourceType>([
   'PURCHASE_ORDER',
   'STOCK_ADJUSTMENT',
   'OPENING_BALANCE',
+  'OWNER_EQUITY',
 ])
 
 export default function GeneralLedgerPage() {
