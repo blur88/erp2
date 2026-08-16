@@ -23,8 +23,8 @@ setup_harness() {
 
   # Hermetic defaults. Individual specs override before running the script.
   export STUB_DB_EXISTS=1
-  export STUB_MIGRATION_COUNT=11
-  export STUB_LATEST_MIGRATION='AddRedisMonitoringTables1786712086437'
+  export STUB_MIGRATION_COUNT=12
+  export STUB_LATEST_MIGRATION='AddOwnerEquity1786862759868'
   export STUB_SEED_MODE=pass
   export STUB_NODE_EXIT=0
 }
