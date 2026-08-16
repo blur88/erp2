@@ -168,16 +168,16 @@ export const accountingApiSlice = createApi({
        transformResponse: normalizeSingle<Expense>,
        invalidatesTags: ['Expense'],
      }),
-     payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown> }>({
-       query: ({ id, data }) => ({
-         url: `/accounting/expenses/${id}/pay`,
-         method: 'POST',
-         data,
-       }),
-       transformResponse: normalizeSingle<Expense>,
-       invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance'],
-     }),
-refundExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown> }>({
+payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown> }>({
+        query: ({ id, data }) => ({
+          url: `/accounting/expenses/${id}/pay`,
+          method: 'POST',
+          data,
+        }),
+        transformResponse: normalizeSingle<Expense>,
+        invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance'],
+      }),
+      refundExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown> }>({
         query: ({ id, data }) => ({
           url: `/accounting/expenses/${id}/refund`,
           method: 'POST',
@@ -251,9 +251,16 @@ refundExpense: builder.mutation<Expense, { id: string; data: Record<string, unkn
         transformResponse: normalizeSingle<OwnerEquityDocument>,
         invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance'],
         async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
-          await queryFulfilled;
-          // Separate createApi instance — accountingApi tags cannot reach it.
-          dispatch(inventoryApiSlice.util.invalidateTags(['Product', 'StockMovement']));
+          try {
+            const { data } = await queryFulfilled;
+            // Separate createApi instance — accountingApi tags cannot reach it.
+            // Only stock drawings move stock; skip inventory invalidation otherwise.
+            if (data.type === 'STOCK_DRAWING') {
+              dispatch(inventoryApiSlice.util.invalidateTags(['Product', 'StockMovement']));
+            }
+          } catch {
+            // Mutation failed — nothing to invalidate.
+          }
         },
       }),
       uncompleteOwnerEquity: builder.mutation<OwnerEquityDocument, { referenceNumber: string }>({
@@ -264,9 +271,16 @@ refundExpense: builder.mutation<Expense, { id: string; data: Record<string, unkn
         transformResponse: normalizeSingle<OwnerEquityDocument>,
         invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance'],
         async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
-          await queryFulfilled;
-          // Separate createApi instance — accountingApi tags cannot reach it.
-          dispatch(inventoryApiSlice.util.invalidateTags(['Product', 'StockMovement']));
+          try {
+            const { data } = await queryFulfilled;
+            // Separate createApi instance — accountingApi tags cannot reach it.
+            // Only stock drawings move stock; skip inventory invalidation otherwise.
+            if (data.type === 'STOCK_DRAWING') {
+              dispatch(inventoryApiSlice.util.invalidateTags(['Product', 'StockMovement']));
+            }
+          } catch {
+            // Mutation failed — nothing to invalidate.
+          }
         },
       }),
       cancelOwnerEquity: builder.mutation<OwnerEquityDocument, { referenceNumber: string }>({
