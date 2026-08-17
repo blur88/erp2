@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import DocumentNumbersPage from '../DocumentNumbersPage'
 
@@ -17,6 +17,7 @@ const mockConfigurations = [
   { documentName: 'Stock Adjustment', prefix: 'SA', nextNumber: 1, paddingDigits: 3 },
   { documentName: 'Journal Entries', prefix: 'JE', nextNumber: 1, paddingDigits: 3 },
   { documentName: 'Expenses', prefix: 'EXP', nextNumber: 1, paddingDigits: 3 },
+  { documentName: 'Owner Equity', prefix: 'EQ', nextNumber: 7, paddingDigits: 3 },
 ].map((c) => Object.freeze(c))
 
 // Stable across renders, mirroring RTK Query: a fresh object literal per call
@@ -43,7 +44,7 @@ describe('DocumentNumbersPage', () => {
     mockQueryResult.refetch.mockClear()
   })
 
-  it('renders exactly the five active document types', () => {
+  it('renders exactly the six active document types', () => {
     render(<DocumentNumbersPage />)
     for (const name of [
       'Sales Orders',
@@ -51,6 +52,7 @@ describe('DocumentNumbersPage', () => {
       'Stock Adjustment',
       'Journal Entries',
       'Expenses',
+      'Owner Equity',
     ]) {
       expect(screen.getByText(name)).toBeInTheDocument()
     }
@@ -126,6 +128,23 @@ describe('DocumentNumbersPage', () => {
       'Stock Adjustment',
       'Journal Entries',
       'Expenses',
+      'Owner Equity',
     ])
+  })
+
+  // Issue #1081 defect 2: the backend already seeded Owner Equity/EQ, but the
+  // frontend MODULE_GROUPS list omitted it, so the row was invisible and its
+  // prefix/next-number unconfigurable.
+  it('shows the Owner Equity row under Accounting with its prefix and preview', () => {
+    render(<DocumentNumbersPage />)
+
+    const row = screen.getByText('Owner Equity').closest('tr')
+    expect(row).not.toBeNull()
+
+    const inputs = within(row as HTMLElement).getAllByRole('textbox') as HTMLInputElement[]
+    expect(inputs[0].value).toBe('EQ')
+
+    const yy = String(new Date().getFullYear() % 100).padStart(2, '0')
+    expect(within(row as HTMLElement).getByText(`EQ-${yy}-007`)).toBeInTheDocument()
   })
 })
