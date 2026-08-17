@@ -28,8 +28,15 @@ export default function ProductList({
   const navigate = useNavigate()
 
   const columns: ColumnConfig<Product>[] = [
-    { key: 'name', width: '38%', render: (p) => p.name },
-    { key: 'category', width: '20%', render: (p) => p.category?.name ?? '—' },
+    { key: 'name', width: '30%', render: (p) => p.name },
+    { key: 'category', width: '16%', render: (p) => p.category?.name ?? '—' },
+    {
+      key: 'baseCost',
+      width: '12%',
+      // A zero base cost reads as "not costed yet" rather than a real RM 0.00,
+      // unlike the selling price below which shows a genuine zero as currency.
+      render: (p) => (p.baseCost > 0 ? formatCurrency(p.baseCost) : '—'),
+    },
     {
       key: 'price',
       width: '16%',
@@ -71,7 +78,15 @@ export default function ProductList({
       total={total}
       label="Products"
       showHeader={false}
-      headers={['Name', 'Category', 'Default Selling Price', 'Stock Qty', 'Active', 'Actions']}
+      headers={[
+        'Name',
+        'Category',
+        'Base Cost',
+        'Default Selling Price',
+        'Stock Qty',
+        'Active',
+        'Actions',
+      ]}
       selectedId={undefined}
       focusedIndex={-1}
       onSelect={(p) => navigate(`/inventory/products/${p.slug}/view`)}
