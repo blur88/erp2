@@ -8,8 +8,8 @@ import {
   FormControl,
   Grid,
   InputLabel,
+  MenuItem,
   Select,
-  Input,
   TextField,
   Typography,
 } from '@mui/material'
@@ -264,23 +264,20 @@ const OwnerEquityFormPage: React.FC = () => {
                           sx={fieldSx}
                           error={!!errors.type}
                         >
-                          <InputLabel htmlFor="type-select" id="type-label">
+                          <InputLabel id="type-label">
                             Type
                           </InputLabel>
                           <Select
-                            native
                             labelId="type-label"
                             id="type-select"
                             label="Type"
                             value={field.value ?? ''}
                             onChange={(e) => field.onChange(e.target.value as string)}
-                            input={<Input id="type-select" />}
                             disabled={isEdit || isSaving}
                           >
-                            <option value="" disabled>Select a type</option>
-                            <option value="CAPITAL_INJECTION">Capital Injection</option>
-                            <option value="CASH_DRAWING">Cash Drawing</option>
-                            <option value="STOCK_DRAWING">Stock Drawing</option>
+                            <MenuItem value="CAPITAL_INJECTION">Capital Injection</MenuItem>
+                            <MenuItem value="CASH_DRAWING">Cash Drawing</MenuItem>
+                            <MenuItem value="STOCK_DRAWING">Stock Drawing</MenuItem>
                           </Select>
                         </FormControl>
                       )}
@@ -422,21 +419,18 @@ const OwnerEquityFormPage: React.FC = () => {
                             sx={fieldSx}
                             error={!!errors.productId}
                           >
-                              <InputLabel htmlFor="product-select" id="product-label">
+                              <InputLabel id="product-label">
                                 Product
                               </InputLabel>
                               <Select
-                                native
                                 labelId="product-label"
                                 id="product-select"
                                 label="Product"
                                 value={field.value ?? ''}
                                 onChange={(e) => field.onChange(e.target.value as string)}
-                                input={<Input id="product-select" />}
                               >
-                              <option value="" disabled>Select a product</option>
                               {stockedProducts.map((p) => (
-                                <option key={p.id} value={p.id}>{p.name}</option>
+                                <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
                               ))}
                             </Select>
                           </FormControl>

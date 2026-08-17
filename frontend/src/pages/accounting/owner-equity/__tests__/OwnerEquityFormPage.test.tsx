@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -117,6 +117,22 @@ function buildDoc(type: OwnerEquityType, overrides: Partial<OwnerEquityDocument>
   }
 }
 
+const TYPE_LABELS: Record<OwnerEquityType, string> = {
+  CAPITAL_INJECTION: 'Capital Injection',
+  CASH_DRAWING: 'Cash Drawing',
+  STOCK_DRAWING: 'Stock Drawing',
+}
+
+/**
+ * Pick an option from a standard (non-native) MUI Select. These render a button
+ * combobox plus a portalled listbox, so there is no <option> to fire a change
+ * event at — the control must be opened and the option clicked (issue #1081).
+ */
+function selectOption(fieldLabel: RegExp, optionLabel: string) {
+  fireEvent.mouseDown(screen.getByLabelText(fieldLabel))
+  fireEvent.click(within(screen.getByRole('listbox')).getByText(optionLabel))
+}
+
 function renderForm({
   type,
   mode = 'create' as 'create' | 'edit',
@@ -149,10 +165,12 @@ function renderForm({
   )
 
   if (mode === 'create' && type) {
-    fireEvent.change(screen.getByLabelText(/Type/), { target: { value: type } })
+    selectOption(/Type/, TYPE_LABELS[type])
   }
   if (mode === 'create' && productId && type === 'STOCK_DRAWING') {
-    fireEvent.change(screen.getByLabelText(/Product/), { target: { value: productId } })
+    const product = PRODUCTS.data.data.find((p) => p.id === productId)
+    if (!product) throw new Error(`No product fixture for id ${productId}`)
+    selectOption(/Product/, product.name)
   }
   return result
 }
@@ -189,6 +207,39 @@ describe('OwnerEquityFormPage', () => {
   it('locks the type control in edit mode', () => {
     mockGetOwnerEquity.mockReturnValue({ data: buildDoc('CASH_DRAWING'), isLoading: false })
     renderForm({ mode: 'edit', type: 'CASH_DRAWING' })
-    expect(screen.getByLabelText(/Type/)).toBeDisabled()
+    // A non-native MUI Select is a div combobox: it marks disablement with
+    // aria-disabled, not the `disabled` attribute toBeDisabled() looks for.
+    expect(screen.getByLabelText(/Type/)).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  // Issue #1081 defect 1: Type and Product rendered as native selects with a raw
+  // `Input`, which skips the outlined border and label notch every other field
+  // on this form uses. jsdom has no layout engine, so the visual match itself
+  // needs a browser pass — what is assertable is the control shape that
+  // produces it: a MUI combobox with MenuItem options, not a native <select>.
+  it('renders Type as a standard MUI select offering exactly the three equity types', () => {
+    renderForm({})
+
+    const typeField = screen.getByLabelText(/Type/)
+    expect(typeField.closest('.MuiOutlinedInput-root')).not.toBeNull()
+
+    fireEvent.mouseDown(screen.getByLabelText(/Type/))
+    const options = within(screen.getByRole('listbox')).getAllByRole('option')
+    expect(options.map((o) => o.textContent)).toEqual([
+      'Capital Injection',
+      'Cash Drawing',
+      'Stock Drawing',
+    ])
+    expect(document.querySelector('select')).toBeNull()
+  })
+
+  it('renders Product as a standard MUI select listing stocked products', () => {
+    renderForm({ type: 'STOCK_DRAWING' })
+
+    expect(screen.getByLabelText(/Product/).closest('.MuiOutlinedInput-root')).not.toBeNull()
+
+    fireEvent.mouseDown(screen.getByLabelText(/Product/))
+    expect(within(screen.getByRole('listbox')).getByText('Widget')).toBeInTheDocument()
+    expect(document.querySelector('select')).toBeNull()
   })
 })
