@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react'
 import {
   Alert,
+  Autocomplete,
   Box,
   Card,
   CardContent,
@@ -24,12 +25,13 @@ import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import { useDocumentNumberPreview } from '@/hooks/useDocumentNumberPreview'
 import { useNotification } from '@/hooks/useNotification'
+import { useProductSearch } from '@/hooks/useProductSearch'
 import {
   useCreateOwnerEquityMutation,
   useGetOwnerEquityQuery,
   useUpdateOwnerEquityMutation,
 } from '@/store/api/accountingApi'
-import { useGetProductQuery, useGetProductsQuery } from '@/store/api/inventoryApi'
+import { useGetProductQuery } from '@/store/api/inventoryApi'
 import { getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { normalizeAmountInput, toAmountInputValue, toScaledAmount } from '@/utils/currency'
@@ -143,14 +145,34 @@ const OwnerEquityFormPage: React.FC = () => {
   const selectedType = watch('type')
   const selectedProductId = watch('productId')
 
-  const { data: productsData } = useGetProductsQuery({ isActive: true })
-  const stockedProducts = useMemo(
-    () => (productsData?.data ?? []).filter((p) => p.type === 'Stocked Product'),
-    [productsData],
-  )
+  // Products are searched server-side (name/barcode ILIKE) rather than fetched
+  // as a whole catalogue, so the option list stays bounded. The active +
+  // Stocked Product filters are applied by the backend, which is what keeps
+  // Service products out of the selector. Issue #1086.
+  const { products, loadProducts, seedProducts } = useProductSearch({
+    onlyActive: true,
+    type: 'Stocked Product',
+  })
+
+  useEffect(() => {
+    loadProducts()
+    // Initial unfiltered page only; later loads are driven by typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const { data: selectedProduct } = useGetProductQuery(selectedProductId, {
     skip: !selectedProductId,
   })
+
+  // A saved product is not guaranteed to appear in the current search results
+  // (edit mode opens with an unfiltered page, and typing narrows it away), so
+  // seed it into the option list to keep the Autocomplete showing its name.
+  useEffect(() => {
+    if (selectedProduct) {
+      seedProducts([selectedProduct as unknown as { id: string }])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProduct])
 
   useEffect(() => {
     if (isEdit && document && !loadingDocument) {
@@ -409,38 +431,49 @@ const OwnerEquityFormPage: React.FC = () => {
                         name="productId"
                         control={control}
                         render={({ field }) => (
-                          <FormControl
+                          <Autocomplete
+                            options={products}
+                            getOptionLabel={(option: any) => option?.name || ''}
+                            isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
+                            // The selectedProduct fallback covers a saved id that
+                            // the current search results do not contain, but it
+                            // must stay gated on field.value: RTK Query keeps the
+                            // last result after the query is skipped, so an
+                            // ungated fallback re-displays a cleared product.
+                            value={
+                              field.value
+                                ? (products.find((p: any) => p.id === field.value) ??
+                                  (selectedProduct as any) ??
+                                  null)
+                                : null
+                            }
+                            onChange={(_, value: any) => field.onChange(value?.id ?? '')}
+                            onInputChange={(_, value, reason) => {
+                              if (reason === 'input') loadProducts(value.trim())
+                            }}
+                            // The backend already applied the search; re-filtering
+                            // client-side would hide matches it returned.
+                            filterOptions={(options) => options}
+                            noOptionsText="No matching products"
                             fullWidth
                             size="small"
                             // Only `type` is immutable after create; the backend
                             // revalidates and accepts a product change on a draft
                             // (owner-equity.service.ts:127).
                             disabled={isSaving}
-                            sx={fieldSx}
-                            error={!!errors.productId}
-                          >
-                              <InputLabel id="product-label">
-                                Product
-                              </InputLabel>
-                              <Select
-                                labelId="product-label"
-                                id="product-select"
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
                                 label="Product"
-                                value={field.value ?? ''}
-                                onChange={(e) => field.onChange(e.target.value as string)}
-                              >
-                              {stockedProducts.map((p) => (
-                                <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
+                                placeholder="Search by name or barcode..."
+                                error={!!errors.productId}
+                                helperText={errors.productId?.message}
+                                sx={fieldSx}
+                              />
+                            )}
+                          />
                         )}
                       />
-                      {errors.productId && (
-                        <Typography color="error" variant="caption">
-                          {errors.productId.message}
-                        </Typography>
-                      )}
                     </Grid>
                     <Grid size={{ xs: 12, md: 3 }}>
                       <Controller

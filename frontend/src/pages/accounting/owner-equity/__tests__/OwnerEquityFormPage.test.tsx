@@ -17,7 +17,9 @@ const {
   mockUpdateOwnerEquity,
   mockGetOwnerEquity,
   mockGetDocumentNumberSettings,
-  mockGetProducts,
+  mockUseProductSearch,
+  mockLoadProducts,
+  mockSeedProducts,
   mockGetProduct,
   mockShowSuccess,
   mockShowError,
@@ -27,7 +29,9 @@ const {
   mockUpdateOwnerEquity: vi.fn(),
   mockGetOwnerEquity: vi.fn(),
   mockGetDocumentNumberSettings: vi.fn(),
-  mockGetProducts: vi.fn(),
+  mockUseProductSearch: vi.fn(),
+  mockLoadProducts: vi.fn(),
+  mockSeedProducts: vi.fn(),
   mockGetProduct: vi.fn(),
   mockShowSuccess: vi.fn(),
   mockShowError: vi.fn(),
@@ -60,8 +64,11 @@ vi.mock('@/store/api/settingsApi', async (importOriginal) => {
 })
 
 vi.mock('@/store/api/inventoryApi', () => ({
-  useGetProductsQuery: vi.fn(() => mockGetProducts()),
   useGetProductQuery: vi.fn((id) => mockGetProduct(id)),
+}))
+
+vi.mock('@/hooks/useProductSearch', () => ({
+  useProductSearch: (options?: unknown) => mockUseProductSearch(options),
 }))
 
 vi.mock('@/hooks/useNotification', () => ({
@@ -77,16 +84,12 @@ const DOC_SETTINGS = {
   isLoading: false,
 }
 
-const PRODUCTS = {
-  data: {
-    data: [
-      { id: 'p1', name: 'Widget', type: 'Stocked Product' as const, isActive: true, stockQuantity: 12 },
-      { id: 'p2', name: 'Gadget', type: 'Service' as const, isActive: true, stockQuantity: 0 },
-    ],
-    meta: { total: 2, page: 1, limit: 25 },
-  },
-  isFetching: false,
-}
+// What useProductSearch yields: a flat array already narrowed by the backend to
+// active Stocked Product rows, so no Service product can appear here.
+const PRODUCTS = [
+  { id: 'p1', name: 'Widget', type: 'Stocked Product' as const, isActive: true, stockQuantity: 12 },
+  { id: 'p3', name: 'Sprocket', type: 'Stocked Product' as const, isActive: true, stockQuantity: 4 },
+]
 
 const PRODUCT_P1 = { id: 'p1', name: 'Widget', type: 'Stocked Product' as const, stockQuantity: 12 }
 
@@ -133,6 +136,16 @@ function selectOption(fieldLabel: RegExp, optionLabel: string) {
   fireEvent.click(within(screen.getByRole('listbox')).getByText(optionLabel))
 }
 
+/**
+ * Pick an option from the Product Autocomplete. Unlike a MUI Select it has a
+ * real text input: opening it renders the (server-supplied) options, which are
+ * then clicked by name. Issue #1086.
+ */
+function selectProduct(optionLabel: string) {
+  fireEvent.mouseDown(screen.getByLabelText(/Product/))
+  fireEvent.click(within(screen.getByRole('listbox')).getByText(optionLabel))
+}
+
 function renderForm({
   type,
   mode = 'create' as 'create' | 'edit',
@@ -168,9 +181,9 @@ function renderForm({
     selectOption(/Type/, TYPE_LABELS[type])
   }
   if (mode === 'create' && productId && type === 'STOCK_DRAWING') {
-    const product = PRODUCTS.data.data.find((p) => p.id === productId)
+    const product = PRODUCTS.find((p) => p.id === productId)
     if (!product) throw new Error(`No product fixture for id ${productId}`)
-    selectOption(/Product/, product.name)
+    selectProduct(product.name)
   }
   return result
 }
@@ -180,7 +193,13 @@ describe('OwnerEquityFormPage', () => {
     vi.clearAllMocks()
     mockGetOwnerEquity.mockReturnValue({ data: undefined, isLoading: false, isFetching: false })
     mockGetDocumentNumberSettings.mockReturnValue(DOC_SETTINGS)
-    mockGetProducts.mockReturnValue(PRODUCTS)
+    mockLoadProducts.mockReset()
+    mockSeedProducts.mockReset()
+    mockUseProductSearch.mockReturnValue({
+      products: PRODUCTS,
+      loadProducts: mockLoadProducts,
+      seedProducts: mockSeedProducts,
+    })
     mockGetProduct.mockReturnValue({ data: PRODUCT_P1, isFetching: false })
     mockCreateOwnerEquity.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(buildDoc('CAPITAL_INJECTION')) })
     mockUpdateOwnerEquity.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({}) })
@@ -233,13 +252,83 @@ describe('OwnerEquityFormPage', () => {
     expect(document.querySelector('select')).toBeNull()
   })
 
-  it('renders Product as a standard MUI select listing stocked products', () => {
+  // Issue #1086: Product moved from a plain Select over the whole catalogue to a
+  // searchable Autocomplete backed by a server-side query.
+  it('renders Product as a searchable Autocomplete listing stocked products', () => {
     renderForm({ type: 'STOCK_DRAWING' })
 
-    expect(screen.getByLabelText(/Product/).closest('.MuiOutlinedInput-root')).not.toBeNull()
+    const productField = screen.getByLabelText(/Product/)
+    expect(productField.closest('.MuiOutlinedInput-root')).not.toBeNull()
+    expect(productField.tagName).toBe('INPUT')
+    expect(productField).toHaveAttribute('placeholder', 'Search by name or barcode...')
 
-    fireEvent.mouseDown(screen.getByLabelText(/Product/))
+    fireEvent.mouseDown(productField)
     expect(within(screen.getByRole('listbox')).getByText('Widget')).toBeInTheDocument()
     expect(document.querySelector('select')).toBeNull()
+  })
+
+  it('restricts the search to active stocked products so services cannot be picked', () => {
+    renderForm({ type: 'STOCK_DRAWING' })
+
+    expect(mockUseProductSearch).toHaveBeenCalledWith({
+      onlyActive: true,
+      type: 'Stocked Product',
+    })
+  })
+
+  it('queries the backend with the typed search term', () => {
+    renderForm({ type: 'STOCK_DRAWING' })
+
+    fireEvent.change(screen.getByLabelText(/Product/), { target: { value: 'spro' } })
+
+    expect(mockLoadProducts).toHaveBeenCalledWith('spro')
+  })
+
+  it('selecting a searched product records it and shows its available stock', () => {
+    renderForm({ type: 'STOCK_DRAWING' })
+    selectProduct('Widget')
+
+    expect(screen.getByLabelText(/Product/)).toHaveValue('Widget')
+    expect(screen.getByText(/Available: 12/)).toBeInTheDocument()
+  })
+
+  it('tells the user when a search matches nothing', () => {
+    mockUseProductSearch.mockReturnValue({
+      products: [],
+      loadProducts: mockLoadProducts,
+      seedProducts: mockSeedProducts,
+    })
+    renderForm({ type: 'STOCK_DRAWING' })
+
+    fireEvent.change(screen.getByLabelText(/Product/), { target: { value: 'zzz' } })
+
+    expect(screen.getByText('No matching products')).toBeInTheDocument()
+  })
+
+  // Edit mode opens with an unfiltered page that need not contain the saved
+  // product, so it is seeded into the option list from useGetProductQuery.
+  it('keeps the saved product visible in edit mode', () => {
+    mockGetOwnerEquity.mockReturnValue({ data: buildDoc('STOCK_DRAWING'), isLoading: false })
+    mockUseProductSearch.mockReturnValue({
+      products: [],
+      loadProducts: mockLoadProducts,
+      seedProducts: mockSeedProducts,
+    })
+    renderForm({ mode: 'edit', type: 'STOCK_DRAWING' })
+
+    expect(mockSeedProducts).toHaveBeenCalledWith([expect.objectContaining({ id: 'p1' })])
+    expect(screen.getByLabelText(/Product/)).toHaveValue('Widget')
+  })
+
+  // RTK Query retains the last result once useGetProductQuery is skipped, so the
+  // selectedProduct fallback must stay gated on the form value or clearing the
+  // field silently re-displays the product the user just removed.
+  it('clearing the product does not resurrect the previous selection', () => {
+    renderForm({ type: 'STOCK_DRAWING', productId: 'p1' })
+    expect(screen.getByLabelText(/Product/)).toHaveValue('Widget')
+
+    fireEvent.change(screen.getByLabelText(/Product/), { target: { value: '' } })
+
+    expect(screen.getByLabelText(/Product/)).toHaveValue('')
   })
 })
