@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
+import { formatCurrency } from '@/utils/currency'
 import type { Product } from '@/types'
 
 import ProductList from '../ProductList'
@@ -46,6 +47,40 @@ describe('ProductList', () => {
     expect(screen.getByText('Widget')).toBeInTheDocument()
     expect(screen.getByText('Tools')).toBeInTheDocument()
     expect(screen.getByText('1,234')).toBeInTheDocument()
+  })
+
+  it('renders the base cost as currency', () => {
+    renderList()
+    expect(screen.getByText(formatCurrency(5))).toBeInTheDocument()
+  })
+
+  it('renders an em dash when the base cost is zero', () => {
+    renderList({ products: [{ ...product, baseCost: 0 }] })
+    expect(screen.queryByText(formatCurrency(0))).not.toBeInTheDocument()
+    expect(screen.getByText('—')).toBeInTheDocument()
+  })
+
+  it('labels each column header in the same order as the rendered cells', () => {
+    renderList()
+    const headers = screen.getAllByRole('columnheader').map((h) => h.textContent)
+    expect(headers).toEqual([
+      'Name',
+      'Category',
+      'Base Cost',
+      'Default Selling Price',
+      'Stock Qty',
+      'Active',
+      'Actions',
+    ])
+
+    const cells = screen.getAllByRole('cell').map((c) => c.textContent)
+    expect(cells.slice(0, 5)).toEqual([
+      'Widget',
+      'Tools',
+      formatCurrency(5),
+      formatCurrency(99),
+      '1,234',
+    ])
   })
 
   it('navigates to view page on row select', () => {
