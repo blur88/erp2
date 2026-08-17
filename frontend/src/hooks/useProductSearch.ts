@@ -23,7 +23,10 @@ const getProductsFromResponse = (response: unknown): Product[] => {
   return []
 }
 
-export function useProductSearch({ onlyActive = false }: { onlyActive?: boolean } = {}) {
+export function useProductSearch({
+  onlyActive = false,
+  type,
+}: { onlyActive?: boolean; type?: string } = {}) {
   const [products, setProducts] = useState<Product[]>([])
   const latestRequestRef = useRef(0)
 
@@ -40,6 +43,13 @@ export function useProductSearch({ onlyActive = false }: { onlyActive?: boolean 
 
       if (onlyActive) {
         params.isActive = 'true'
+      }
+
+      // Filtering by type server-side keeps callers that only care about one
+      // product kind (e.g. owner-equity stock drawings) from paging through
+      // the whole catalogue client-side. Issue #1086.
+      if (type) {
+        params.type = type
       }
 
       const trimmedSearchTerm = searchTerm.trim()

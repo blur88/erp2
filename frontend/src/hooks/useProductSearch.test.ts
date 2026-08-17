@@ -75,6 +75,37 @@ describe('useProductSearch', () => {
     })
   })
 
+  // Default (no option) intentionally omits type so callers that want every
+  // product kind keep working. Opt-in is tested below.
+  it('does not send a type filter by default', async () => {
+    mockGet.mockResolvedValue(makeResponse([]))
+    const { result } = renderHook(() => useProductSearch())
+
+    await act(() => result.current.loadProducts())
+
+    const callConfig = mockGet.mock.calls[0][1] as { params: Record<string, unknown> }
+    expect(callConfig.params).not.toHaveProperty('type')
+  })
+
+  it('sends type when the type option is set (issue #1086)', async () => {
+    mockGet.mockResolvedValue(makeResponse([]))
+    const { result } = renderHook(() =>
+      useProductSearch({ onlyActive: true, type: 'Stocked Product' }),
+    )
+
+    await act(() => result.current.loadProducts('widget'))
+
+    expect(mockGet).toHaveBeenCalledWith('/inventory/products', {
+      params: {
+        sortBy: 'name',
+        sortOrder: 'ASC',
+        search: 'widget',
+        isActive: 'true',
+        type: 'Stocked Product',
+      },
+    })
+  })
+
   it('loadProducts replaces the list, not merges', async () => {
     mockGet
       .mockResolvedValueOnce(makeResponse([makeProduct('1', 'Alpha')]))
