@@ -26,6 +26,7 @@ import PageHeader from '@/components/common/PageHeader'
 import { useDocumentNumberPreview } from '@/hooks/useDocumentNumberPreview'
 import { useNotification } from '@/hooks/useNotification'
 import { useProductSearch } from '@/hooks/useProductSearch'
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 import {
   useCreateOwnerEquityMutation,
   useGetOwnerEquityQuery,
@@ -137,7 +138,7 @@ const OwnerEquityFormPage: React.FC = () => {
     reset,
     setValue,
     watch,
-    formState: { errors, isSubmitting },
+    formState: { errors, isDirty, isSubmitting },
   } = useForm<OwnerEquityFormData>({
     resolver: yupResolver(schema, { abortEarly: false }) as any,
     defaultValues: {
@@ -150,6 +151,12 @@ const OwnerEquityFormPage: React.FC = () => {
       notes: '',
     },
   })
+
+  // Cancel, the PageHeader back arrow and any sidebar navigation all go
+  // through the router, so one blocker covers every exit. The hook's saved
+  // latch is what keeps the post-save navigate() in handleFormSubmit from
+  // being blocked by the still-dirty form. Issue #1092.
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSubmitting)
 
   const selectedType = watch('type')
   const selectedProductId = watch('productId')
@@ -587,6 +594,8 @@ const OwnerEquityFormPage: React.FC = () => {
           </Grid>
         </Grid>
       </form>
+
+      {UnsavedChangesDialog}
     </>
   )
 }
