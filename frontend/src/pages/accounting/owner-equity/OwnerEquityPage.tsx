@@ -121,8 +121,8 @@ export default function OwnerEquityPage() {
   const { showSuccess, showError } = useNotification()
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
-  // A Create that returned to this list hands the new row back in
-  // location.state. Copy it into local state and drop it from history
+  // A Create — or a list-origin Edit (#1090) — that returned to this list hands
+  // the affected row back in location.state. Copy it into local state and drop it from history
   // immediately: the tint is a one-shot confirmation of the return trip, not
   // persistent list state, so it must not survive a reload or a Back/Forward
   // into this entry. The replace target keeps location.search so clearing
@@ -338,7 +338,12 @@ export default function OwnerEquityPage() {
           label: meta.action.charAt(0).toUpperCase() + meta.action.slice(1),
           onClick: () => {
             if (meta.action === 'edit') {
-              navigate(`/accounting/owner-equity/${row.referenceNumber}/edit`)
+              // Tell the form where Edit was opened from so Save/Cancel/Back
+              // can come back here instead of falling through to Detail.
+              // Issue #1090.
+              navigate(`/accounting/owner-equity/${row.referenceNumber}/edit`, {
+                state: { ownerEquityEditOrigin: 'list' },
+              })
             } else if (meta.action === 'complete') {
               setCompleteRow(row)
             } else if (meta.action === 'uncomplete') {

@@ -18,7 +18,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { yupResolver } from '@hookform/resolvers/yup'
 import { format, parseISO } from 'date-fns'
 import { Controller, useForm } from 'react-hook-form'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import * as yup from 'yup'
 
 import { AppButton } from '@/components/common/AppButton'
@@ -69,6 +69,15 @@ const OwnerEquityFormPage: React.FC = () => {
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
   const isEdit = !!referenceNumber
+
+  // Edit can be opened from the Owner Equity list or from Owner Equity Detail.
+  // The list marks its origin explicitly; everything else — including a
+  // directly typed or shared /edit URL, which is indistinguishable from a
+  // Detail-opened one here — falls back to Detail, the historical behaviour.
+  // Issue #1090, mirroring ExpenseFormPage's expenseEditOrigin.
+  const location = useLocation()
+  const isListOrigin =
+    (location.state as { ownerEquityEditOrigin?: string } | null)?.ownerEquityEditOrigin === 'list'
 
   const equityNumberPreview = useDocumentNumberPreview('Owner Equity', !isEdit)
 
@@ -199,8 +208,16 @@ const OwnerEquityFormPage: React.FC = () => {
     })
   }
 
+  // List-origin Save/Cancel/Back go back to the list, handing the edited row
+  // back the way create does — the id, not the reference number, since
+  // EntityTable matches selectedId against row.id. Omit the highlight when the
+  // id is unknown rather than sending undefined.
   const returnAfterEdit = (ref?: string) => {
-    if (ref) {
+    if (isListOrigin) {
+      navigate('/accounting/owner-equity', {
+        state: document?.id ? { highlightOwnerEquityId: document.id } : null,
+      })
+    } else if (ref) {
       navigate(`/accounting/owner-equity/${ref}/view`)
     } else {
       navigate('/accounting/owner-equity')
