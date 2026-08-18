@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -144,6 +144,19 @@ function selectOption(fieldLabel: RegExp, optionLabel: string) {
 function selectProduct(optionLabel: string) {
   fireEvent.mouseDown(screen.getByLabelText(/Product/))
   fireEvent.click(within(screen.getByRole('listbox')).getByText(optionLabel))
+}
+
+/**
+ * Fill and submit the minimum valid Capital Injection. The Type is already
+ * chosen by renderForm, which is what reveals the Amount field.
+ */
+async function submitCapitalInjection() {
+  fireEvent.change(screen.getByLabelText(/Description/), {
+    target: { value: 'QA Capital Injection' },
+  })
+  fireEvent.change(screen.getByLabelText(/Amount/), { target: { value: '1000' } })
+  fireEvent.click(screen.getByRole('button', { name: /Create Owner Equity/ }))
+  await waitFor(() => expect(mockCreateOwnerEquity).toHaveBeenCalled())
 }
 
 function renderForm({
@@ -330,5 +343,61 @@ describe('OwnerEquityFormPage', () => {
     fireEvent.change(screen.getByLabelText(/Product/), { target: { value: '' } })
 
     expect(screen.getByLabelText(/Product/)).toHaveValue('')
+  })
+
+  describe('navigation after submit', () => {
+    // Create returns to the list with the new row's id in history state, the
+    // way Expenses does (ExpenseFormPage.tsx). The id, not the reference
+    // number: EntityTable matches selectedId against row.id. Issue #1088.
+    it('returns to the list with highlight state after a create', async () => {
+      renderForm({ type: 'CAPITAL_INJECTION' })
+      await submitCapitalInjection()
+
+      expect(mockShowSuccess).toHaveBeenCalledWith('Owner equity document created successfully')
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity', {
+        state: { highlightOwnerEquityId: 'eq-1' },
+      })
+    })
+
+    it('does not open the detail page after a create', async () => {
+      renderForm({ type: 'CAPITAL_INJECTION' })
+      await submitCapitalInjection()
+
+      expect(mockNavigate).toHaveBeenCalledTimes(1)
+      expect(mockNavigate).not.toHaveBeenCalledWith('/accounting/owner-equity/EQ-26-001/view')
+    })
+
+    // Omit the highlight rather than sending undefined when the response has no
+    // id; the list just skips highlighting, which is already best-effort.
+    it('returns to the list without highlight state when the response carries no id', async () => {
+      mockCreateOwnerEquity.mockReturnValue({
+        unwrap: vi.fn().mockResolvedValue(buildDoc('CAPITAL_INJECTION', { id: undefined as any })),
+      })
+      renderForm({ type: 'CAPITAL_INJECTION' })
+      await submitCapitalInjection()
+
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity', { state: null })
+    })
+
+    it('still returns to the detail page after an edit', async () => {
+      mockGetOwnerEquity.mockReturnValue({ data: buildDoc('CAPITAL_INJECTION'), isLoading: false })
+      renderForm({ mode: 'edit' })
+
+      fireEvent.click(screen.getByRole('button', { name: /Save Owner Equity/ }))
+      await waitFor(() => expect(mockUpdateOwnerEquity).toHaveBeenCalled())
+
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity/EQ-26-001/view')
+    })
+
+    it('stays on the form when the create fails', async () => {
+      mockCreateOwnerEquity.mockReturnValue({
+        unwrap: vi.fn().mockRejectedValue({ data: { message: 'nope' } }),
+      })
+      renderForm({ type: 'CAPITAL_INJECTION' })
+      await submitCapitalInjection()
+
+      expect(mockNavigate).not.toHaveBeenCalled()
+      expect(mockShowError).toHaveBeenCalled()
+    })
   })
 })

@@ -1,13 +1,15 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter } from 'react-router-dom'
+import { alpha } from '@mui/material'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import { describe, expect, it, vi } from 'vitest'
 
+import { darkTheme } from '@/styles/theme'
 import type { OwnerEquityDocument } from '@/types'
 
 import OwnerEquityPage from '../OwnerEquityPage'
@@ -38,6 +40,29 @@ const { mockNavigate, mockRows } = vi.hoisted(() => ({
       settlements: [],
       product: null,
     },
+    {
+      id: 'eq-2',
+      referenceNumber: 'EQ-26-002',
+      equityDate: '2026-08-03',
+      type: 'CASH_DRAWING',
+      description: 'Owner cash withdrawal',
+      notes: null,
+      documentStatus: 'DRAFT',
+      settlementStatus: 'UNSETTLED',
+      totalAmount: '250.0000',
+      settledAmount: '0.0000',
+      balance: '250.0000',
+      productId: null,
+      quantity: null,
+      unitCost: null,
+      totalCost: null,
+      completedAt: null,
+      completedBy: null,
+      createdAt: '2026-08-03T00:00:00Z',
+      updatedAt: '2026-08-03T00:00:00Z',
+      settlements: [],
+      product: null,
+    },
   ] as OwnerEquityDocument[],
 }))
 
@@ -48,7 +73,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 
 vi.mock('@/store/api/accountingApi', () => ({
   useGetOwnerEquityListQuery: vi.fn().mockReturnValue({
-    data: { data: mockRows, meta: { total: 1, page: 1, limit: 25 } },
+    data: { data: mockRows, meta: { total: 2, page: 1, limit: 25 } },
     isFetching: false,
     error: undefined,
   }),
@@ -76,14 +101,20 @@ vi.mock('@/hooks/useNotification', () => ({
 
 import { useGetOwnerEquityListQuery } from '@/store/api/accountingApi'
 
-function renderPage() {
+// The router is real here (only useNavigate is mocked), so an incoming
+// highlight is driven the way the app delivers one: a history entry carrying
+// state, rather than a mocked useLocation.
+function renderPage(
+  initialEntry: string | { pathname: string; search?: string; state?: unknown } =
+    '/accounting/owner-equity',
+) {
   const store = configureStore({ reducer: { empty: (s = null) => s } })
   return render(
     // LocalizationProvider is required: selecting a period reveals the custom
     // From/To date pickers, which throw without an adapter in context.
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Provider store={store}>
-        <MemoryRouter initialEntries={['/accounting/owner-equity']}>
+        <MemoryRouter initialEntries={[initialEntry as any]}>
           <OwnerEquityPage />
         </MemoryRouter>
       </Provider>
@@ -160,5 +191,47 @@ describe('OwnerEquityPage', () => {
     const params = calls[calls.length - 1][0] as Record<string, unknown>
     expect(params.fromDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(params.toDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  // Issue #1088: Create returns here and hands the new row's id back in
+  // history state. The tint is a one-shot confirmation of the return trip, so
+  // it is copied into local state and dropped from history immediately.
+  describe('create highlight', () => {
+    it('highlights the row named by incoming location state', async () => {
+      renderPage({
+        pathname: '/accounting/owner-equity',
+        search: '',
+        state: { highlightOwnerEquityId: 'eq-2' },
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('EQ-26-002').closest('tr')).toHaveStyle({
+          backgroundColor: alpha(darkTheme.palette.primary.main, 0.2),
+        })
+      })
+      expect(screen.getByText('EQ-26-001').closest('tr')).not.toHaveStyle({
+        backgroundColor: alpha(darkTheme.palette.primary.main, 0.2),
+      })
+    })
+
+    it('clears the highlight state while preserving the query string', async () => {
+      renderPage({
+        pathname: '/accounting/owner-equity',
+        search: '?documentStatus=DRAFT',
+        state: { highlightOwnerEquityId: 'eq-2' },
+      })
+
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith(
+          '/accounting/owner-equity?documentStatus=DRAFT',
+          { replace: true, state: null },
+        )
+      })
+    })
+
+    it('does not clear history state when no highlight arrives', () => {
+      renderPage()
+      expect(mockNavigate).not.toHaveBeenCalled()
+    })
   })
 })

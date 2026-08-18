@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Box } from '@mui/material'
 import { skipToken } from '@reduxjs/toolkit/query'
 
@@ -107,6 +107,8 @@ const filterConfig: FilterBarConfig<EquityFilters> = {
 
 export default function OwnerEquityPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const [highlightId, setHighlightId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
@@ -118,6 +120,21 @@ export default function OwnerEquityPage() {
 
   const { showSuccess, showError } = useNotification()
   const searchInputRef = useRef<HTMLInputElement | null>(null)
+
+  // A Create that returned to this list hands the new row back in
+  // location.state. Copy it into local state and drop it from history
+  // immediately: the tint is a one-shot confirmation of the return trip, not
+  // persistent list state, so it must not survive a reload or a Back/Forward
+  // into this entry. The replace target keeps location.search so clearing
+  // can't discard query parameters. Issue #1088.
+  const highlightOwnerEquityId = (location.state as { highlightOwnerEquityId?: string } | null)
+    ?.highlightOwnerEquityId
+
+  useEffect(() => {
+    if (!highlightOwnerEquityId) return
+    setHighlightId(highlightOwnerEquityId)
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+  }, [highlightOwnerEquityId, location.pathname, location.search, navigate])
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig, {
     onApply: () => setPage(1),
@@ -417,7 +434,7 @@ export default function OwnerEquityPage() {
             emptyLabel="owner equity documents"
             showHeader={false}
             focusedIndex={-1}
-            selectedId={undefined}
+            selectedId={highlightId ?? undefined}
             onSelect={handleView}
             listRef={searchInputRef}
             headers={[
