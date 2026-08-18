@@ -37,11 +37,22 @@ const {
   mockShowError: vi.fn(),
 }))
 
+const { mockLocationState } = vi.hoisted(() => ({
+  mockLocationState: { current: null as Record<string, unknown> | null },
+}))
+
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
   return {
     ...actual,
     useNavigate: () => mockNavigate,
+    useLocation: () => ({
+      pathname: '/accounting/owner-equity/EQ-26-001/edit',
+      search: '',
+      hash: '',
+      key: 'test',
+      state: mockLocationState.current,
+    }),
   }
 })
 
@@ -217,6 +228,9 @@ describe('OwnerEquityFormPage', () => {
     mockCreateOwnerEquity.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(buildDoc('CAPITAL_INJECTION')) })
     mockUpdateOwnerEquity.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({}) })
     mockNavigate.mockReset()
+    // Default to no origin state: that is what a Detail-opened Edit and a
+    // directly typed /edit URL both look like to the form.
+    mockLocationState.current = null
   })
 
   it('shows Amount for a capital injection', () => {
@@ -379,15 +393,6 @@ describe('OwnerEquityFormPage', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity', { state: null })
     })
 
-    it('still returns to the detail page after an edit', async () => {
-      mockGetOwnerEquity.mockReturnValue({ data: buildDoc('CAPITAL_INJECTION'), isLoading: false })
-      renderForm({ mode: 'edit' })
-
-      fireEvent.click(screen.getByRole('button', { name: /Save Owner Equity/ }))
-      await waitFor(() => expect(mockUpdateOwnerEquity).toHaveBeenCalled())
-
-      expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity/EQ-26-001/view')
-    })
 
     it('stays on the form when the create fails', async () => {
       mockCreateOwnerEquity.mockReturnValue({
@@ -398,6 +403,90 @@ describe('OwnerEquityFormPage', () => {
 
       expect(mockNavigate).not.toHaveBeenCalled()
       expect(mockShowError).toHaveBeenCalled()
+    })
+  })
+
+  describe('edit navigation origin', () => {
+    // Edit can be opened from the Owner Equity list or from Owner Equity
+    // Detail. The list marks its origin in history state; everything else —
+    // Detail, plus a directly typed or shared /edit URL, which are the same
+    // stateless entry as far as this form can observe — falls back to Detail.
+    // Issue #1090, mirroring ExpenseFormPage's expenseEditOrigin.
+    const renderEdit = () => {
+      mockGetOwnerEquity.mockReturnValue({ data: buildDoc('CAPITAL_INJECTION'), isLoading: false })
+      renderForm({ mode: 'edit' })
+    }
+
+    const save = async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Save Owner Equity/ }))
+      await waitFor(() => expect(mockUpdateOwnerEquity).toHaveBeenCalled())
+    }
+
+    describe('opened from the list', () => {
+      beforeEach(() => {
+        mockLocationState.current = { ownerEquityEditOrigin: 'list' }
+      })
+
+      // The highlight carries the document id, not the reference number:
+      // EntityTable matches selectedId against row.id.
+      it('returns to the list with highlight state after Save', async () => {
+        renderEdit()
+        await save()
+
+        expect(mockShowSuccess).toHaveBeenCalledWith('Owner equity document updated successfully')
+        expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity', {
+          state: { highlightOwnerEquityId: 'eq-1' },
+        })
+      })
+
+      it('returns to the list with highlight state on Cancel, without saving', () => {
+        renderEdit()
+        fireEvent.click(screen.getByRole('button', { name: /^Cancel$/ }))
+
+        expect(mockUpdateOwnerEquity).not.toHaveBeenCalled()
+        expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity', {
+          state: { highlightOwnerEquityId: 'eq-1' },
+        })
+      })
+
+      it('returns to the list with highlight state on Back, without saving', () => {
+        renderEdit()
+        // The PageHeader back control is an icon-only IconButton with no
+        // aria-label, so it has no accessible name to query by role.
+        fireEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+        expect(mockUpdateOwnerEquity).not.toHaveBeenCalled()
+        expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity', {
+          state: { highlightOwnerEquityId: 'eq-1' },
+        })
+      })
+    })
+
+    describe('opened without origin state', () => {
+      it('returns to the detail page after Save', async () => {
+        renderEdit()
+        await save()
+
+        expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity/EQ-26-001/view')
+      })
+
+      it('returns to the detail page on Cancel, without saving', () => {
+        renderEdit()
+        fireEvent.click(screen.getByRole('button', { name: /^Cancel$/ }))
+
+        expect(mockUpdateOwnerEquity).not.toHaveBeenCalled()
+        expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity/EQ-26-001/view')
+      })
+
+      it('returns to the detail page on Back, without saving', () => {
+        renderEdit()
+        // The PageHeader back control is an icon-only IconButton with no
+        // aria-label, so it has no accessible name to query by role.
+        fireEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+        expect(mockUpdateOwnerEquity).not.toHaveBeenCalled()
+        expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity/EQ-26-001/view')
+      })
     })
   })
 })

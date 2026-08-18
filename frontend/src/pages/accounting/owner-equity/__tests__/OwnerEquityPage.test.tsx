@@ -134,6 +134,22 @@ describe('OwnerEquityPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity/EQ-26-001/view')
   })
 
+  // Edit must tell the form it was opened from the list, so the form's
+  // Save/Cancel/Back come back here instead of falling through to Detail.
+  // EQ-26-002 is the DRAFT row, the one that offers Edit. Issue #1090.
+  it('opens Edit with explicit list-origin state', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const menuButtons = screen.getAllByRole('button', { name: /row actions/i })
+    await user.click(menuButtons[1])
+    await user.click(await screen.findByRole('menuitem', { name: /^edit$/i }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity/EQ-26-002/edit', {
+      state: { ownerEquityEditOrigin: 'list' },
+    })
+  })
+
   it('renders the reference number and description', () => {
     renderPage()
     expect(screen.getByText('EQ-26-001')).toBeInTheDocument()
