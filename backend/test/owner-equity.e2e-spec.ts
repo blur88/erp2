@@ -291,11 +291,15 @@ describe('Owner Equity (e2e)', () => {
     await post(`/accounting/owner-equity/${ref}/settle`, {
       settlements: [{ paymentMethodId: cashMethodId, settlementDate: '2026-08-16', amount: '12000.0000' }],
     }).expect(201);
-    const ready = (await get(`/accounting/owner-equity/${ref}`)).body.data;
-    expect(ready.documentStatus).toBe('READY');
-    expect(ready.settlementStatus).toBe('SETTLED');
+    // #1094: the settling call itself completes the document — there is no
+    // intermediate READY and no Complete action for monetary documents.
+    const settled = (await get(`/accounting/owner-equity/${ref}`)).body.data;
+    expect(settled.documentStatus).toBe('COMPLETED');
+    expect(settled.settlementStatus).toBe('SETTLED');
+    expect(settled.completedAt).toBeTruthy();
+    expect(settled.completedBy).toBeTruthy();
 
-    await post(`/accounting/owner-equity/${ref}/complete`, {}).expect(201);
+    await post(`/accounting/owner-equity/${ref}/complete`, {}).expect(400);
 
     // Owner Capital carries the full credit; the split across bank and cash is
     // visible on the asset side. Deltas over this suite's own postings keep the
@@ -312,13 +316,22 @@ describe('Owner Equity (e2e)', () => {
     }).expect(400);
   });
 
-  it('blocks refund while completed and allows it after uncomplete', async () => {
+  it('allows refund while completed, demoting it and clearing the stamp', async () => {
+    // #1094: refund is the ONLY reversal for a completed monetary document,
+    // and Uncomplete is rejected for it.
+    await post(`/accounting/owner-equity/${ref}/uncomplete`, {}).expect(400);
+
     const doc = (await get(`/accounting/owner-equity/${ref}`)).body.data;
+    expect(doc.documentStatus).toBe('COMPLETED');
     const source = doc.settlements.find((s: any) => toMinorUnits(s.amount) > 0n);
     oneRefund.refunds = [{ sourceSettlementId: source.id, amount: '1000.0000', refundDate: '2026-08-16' }];
-    await post(`/accounting/owner-equity/${ref}/refund`, oneRefund).expect(400);
-    await post(`/accounting/owner-equity/${ref}/uncomplete`, {}).expect(201);
     await post(`/accounting/owner-equity/${ref}/refund`, oneRefund).expect(201);
+
+    const refunded = (await get(`/accounting/owner-equity/${ref}`)).body.data;
+    expect(refunded.documentStatus).toBe('DRAFT');
+    expect(refunded.settlementStatus).toBe('PARTIAL');
+    expect(refunded.completedAt).toBeNull();
+    expect(refunded.completedBy).toBeNull();
   });
 
   it('completes a stock drawing, moves stock and posts at cost', async () => {

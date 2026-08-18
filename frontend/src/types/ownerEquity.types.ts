@@ -1,5 +1,5 @@
 export type OwnerEquityType = 'CAPITAL_INJECTION' | 'CASH_DRAWING' | 'STOCK_DRAWING'
-export type OwnerEquityDocumentStatus = 'DRAFT' | 'READY' | 'COMPLETED' | 'CANCELLED'
+export type OwnerEquityDocumentStatus = 'DRAFT' | 'COMPLETED' | 'CANCELLED'
 export type OwnerEquitySettlementStatus = 'UNSETTLED' | 'PARTIAL' | 'SETTLED' | 'OVERSETTLED'
 
 export interface OwnerEquitySettlement {

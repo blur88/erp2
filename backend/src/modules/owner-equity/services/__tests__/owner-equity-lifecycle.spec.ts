@@ -30,7 +30,6 @@ describe('OwnerEquity lifecycle', () => {
   let txManager: any;
 
   const draftRef = 'EQ-26-001';
-  const readyRef = 'EQ-26-002';
   const completedRef = 'EQ-26-003';
   const partialRef = 'EQ-26-004';
   const cancelledRef = 'EQ-26-005';
@@ -158,49 +157,115 @@ describe('OwnerEquity lifecycle', () => {
   }
 
   describe('monetary lifecycle guards', () => {
-    it('rejects complete when not READY', async () => {
-      setDoc({ referenceNumber: draftRef, documentStatus: OwnerEquityDocumentStatus.DRAFT });
-      await expect(svc.complete(draftRef)).rejects.toThrow('Only fully settled');
-    });
-    it('completes from READY and stamps metadata', async () => {
+    it('promotes to COMPLETED and stamps metadata when fully settled', async () => {
       setDoc({
-        referenceNumber: readyRef,
-        documentStatus: OwnerEquityDocumentStatus.READY,
-        settlementStatus: OwnerEquitySettlementStatus.SETTLED,
-        settledAmount: '1000.0000',
-        balance: '0.0000',
+        referenceNumber: ref,
+        totalAmount: '100.0000',
+        balance: '100.0000',
       });
-      const doc = await svc.complete(readyRef, 'u1', 'alice');
-      expect(doc.documentStatus).toBe('COMPLETED');
-      expect(doc.completedBy).toBe('alice');
-      expect(doc.completedAt).toBeInstanceOf(Date);
+      await settle.settle(ref, oneLine, 'u1', 'alice');
+
+      const patch = txDocRepo.update.mock.calls.at(-1)[1];
+      expect(patch.settlementStatus).toBe('SETTLED');
+      expect(patch.documentStatus).toBe('COMPLETED');
+      expect(patch.completedBy).toBe('alice');
+      expect(patch.completedAt).toBeInstanceOf(Date);
     });
-    it('completes without posting any journal entry', async () => {
+
+    it('stays DRAFT with no metadata on a partial settlement', async () => {
+      setDoc({ referenceNumber: ref, totalAmount: '1000.0000' });
+      await settle.settle(ref, oneLine, 'u1', 'alice');
+
+      const patch = txDocRepo.update.mock.calls.at(-1)[1];
+      expect(patch.settlementStatus).toBe('PARTIAL');
+      expect(patch.documentStatus).toBe('DRAFT');
+      expect(patch.completedAt).toBeNull();
+      expect(patch.completedBy).toBeNull();
+    });
+
+    it('completes without posting a settlement-completion journal entry', async () => {
+      // Completion itself posts nothing; the money was already journaled by
+      // the settle posting, which fires exactly once for the one line.
       setDoc({
-        referenceNumber: readyRef,
-        documentStatus: OwnerEquityDocumentStatus.READY,
-        settlementStatus: OwnerEquitySettlementStatus.SETTLED,
-        settledAmount: '1000.0000',
-        balance: '0.0000',
+        referenceNumber: ref,
+        totalAmount: '100.0000',
+        balance: '100.0000',
       });
-      await svc.complete(readyRef, 'u1', 'alice');
-      expect(postingMock.postOwnerCapitalInjection).not.toHaveBeenCalled();
+      await settle.settle(ref, oneLine, 'u1', 'alice');
+      expect(postingMock.postOwnerCapitalInjection).toHaveBeenCalledTimes(1);
     });
-    it('uncompletes to READY, not DRAFT, and clears metadata', async () => {
+
+    it('demotes COMPLETED to DRAFT and clears metadata on a full refund', async () => {
       setDoc({
-        referenceNumber: completedRef,
+        referenceNumber: ref,
+        totalAmount: '100.0000',
+        balance: '100.0000',
+      });
+      await settle.settle(ref, oneLine, 'u1', 'alice');
+      setDoc({
+        referenceNumber: ref,
+        totalAmount: '100.0000',
+        settledAmount: '100.0000',
+        balance: '0.0000',
         documentStatus: OwnerEquityDocumentStatus.COMPLETED,
         settlementStatus: OwnerEquitySettlementStatus.SETTLED,
-        settledAmount: '1000.0000',
-        balance: '0.0000',
         completedAt: new Date('2026-08-10'),
         completedBy: 'alice',
       });
-      const doc = await svc.uncomplete(completedRef);
-      expect(doc.documentStatus).toBe('READY');
-      expect(doc.completedAt).toBeNull();
-      expect(doc.completedBy).toBeNull();
+
+      await settle.refund(ref, oneRefund, 'u1', 'alice');
+
+      const patch = txDocRepo.update.mock.calls.at(-1)[1];
+      expect(patch.settlementStatus).toBe('UNSETTLED');
+      expect(patch.documentStatus).toBe('DRAFT');
+      expect(patch.completedAt).toBeNull();
+      expect(patch.completedBy).toBeNull();
     });
+
+    it('demotes COMPLETED to DRAFT and clears metadata on a partial refund', async () => {
+      setDoc({
+        referenceNumber: ref,
+        totalAmount: '100.0000',
+        balance: '100.0000',
+      });
+      await settle.settle(ref, oneLine, 'u1', 'alice');
+      setDoc({
+        referenceNumber: ref,
+        totalAmount: '100.0000',
+        settledAmount: '100.0000',
+        balance: '0.0000',
+        documentStatus: OwnerEquityDocumentStatus.COMPLETED,
+        settlementStatus: OwnerEquitySettlementStatus.SETTLED,
+        completedAt: new Date('2026-08-10'),
+        completedBy: 'alice',
+      });
+
+      await settle.refund(ref, {
+        refunds: [
+          { sourceSettlementId: 'stl-1', refundDate: '2026-08-16', amount: '40.0000' },
+        ],
+      }, 'u1', 'alice');
+
+      const patch = txDocRepo.update.mock.calls.at(-1)[1];
+      expect(patch.settlementStatus).toBe('PARTIAL');
+      expect(patch.documentStatus).toBe('DRAFT');
+      expect(patch.completedAt).toBeNull();
+      expect(patch.completedBy).toBeNull();
+    });
+
+    it('preserves the original stamp when re-settling an already-complete document', async () => {
+      // Not reachable through settle() (it rejects COMPLETED), but the helper
+      // must not rewrite who completed a document if any other path recomputes.
+      const original = new Date('2026-08-10T00:00:00.000Z');
+      expect(
+        OwnerEquityService.stampCompletionMetadata(
+          OwnerEquityDocumentStatus.COMPLETED,
+          { completedAt: original, completedBy: 'alice' },
+          'bob',
+        ),
+      ).toEqual({ completedAt: original, completedBy: 'alice' });
+    });
+
     it('rejects cancel once any settlement exists', async () => {
       setDoc({
         referenceNumber: partialRef,
@@ -257,15 +322,21 @@ describe('OwnerEquity lifecycle', () => {
       });
       await expect(settle.settle(completedRef, oneLine)).rejects.toThrow('Completed');
     });
-    it('rejects refund while COMPLETED, directing to uncomplete first', async () => {
+    it('ALLOWS refund while COMPLETED — it is the only reversal (#1094)', async () => {
+      setDoc({ referenceNumber: ref, totalAmount: '100.0000', balance: '100.0000' });
+      await settle.settle(ref, oneLine, 'u1', 'alice');
       setDoc({
         referenceNumber: completedRef,
         documentStatus: OwnerEquityDocumentStatus.COMPLETED,
         settlementStatus: OwnerEquitySettlementStatus.SETTLED,
-        settledAmount: '1000.0000',
+        totalAmount: '100.0000',
+        settledAmount: '100.0000',
         balance: '0.0000',
+        completedAt: new Date('2026-08-10'),
+        completedBy: 'alice',
       });
-      await expect(settle.refund(completedRef, oneRefund)).rejects.toThrow('Uncomplete');
+      await expect(settle.refund(completedRef, oneRefund, 'u1', 'alice')).resolves.toBeDefined();
+      expect(postingMock.postOwnerCapitalInjectionRefund).toHaveBeenCalled();
     });
     it('requires useForPurchases on a cash drawing method', async () => {
       setDoc({

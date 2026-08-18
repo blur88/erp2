@@ -127,7 +127,7 @@ export class OwnerEquitySettlementService {
           }
         }
 
-        return this.persistAggregates(manager, doc);
+        return this.persistAggregates(manager, doc, username);
       },
     );
 
@@ -170,11 +170,9 @@ export class OwnerEquitySettlementService {
         if (doc.type === OwnerEquityType.STOCK_DRAWING) {
           throw new BadRequestException('Stock drawings have no settlement');
         }
-        if (doc.documentStatus === OwnerEquityDocumentStatus.COMPLETED) {
-          throw new BadRequestException(
-            'Uncomplete the document before refunding it',
-          );
-        }
+        // COMPLETED is deliberately refundable (#1094): monetary completion is
+        // derived from settlement, so refund is the ONLY reversal available and
+        // persistAggregates() demotes the document as the money comes back out.
         if (doc.documentStatus === OwnerEquityDocumentStatus.CANCELLED) {
           throw new BadRequestException('Cancelled documents cannot be refunded');
         }
@@ -267,7 +265,7 @@ export class OwnerEquitySettlementService {
           }
         }
 
-        return this.persistAggregates(manager, doc);
+        return this.persistAggregates(manager, doc, username);
       },
     );
 
@@ -289,12 +287,14 @@ export class OwnerEquitySettlementService {
   /**
    * Recompute settled/balance/status from the full settlement set (refund rows
    * net against settled rows — their amounts are negative) and derive the
-   * document status, persisting both in the same locked transaction
-   * (spec §4.1, the computeAggregates/deriveDocumentStatus split).
+   * document status, persisting both — plus the completion metadata that the
+   * status implies — in the same locked transaction (spec §4.1, the
+   * computeAggregates/deriveDocumentStatus split).
    */
   private async persistAggregates(
     manager: EntityManager,
     doc: OwnerEquityDocument,
+    username?: string,
   ): Promise<OwnerEquityDocument> {
     const rows = await manager.getRepository(OwnerEquitySettlement).find({
       where: { equityDocumentId: doc.id },
@@ -307,7 +307,14 @@ export class OwnerEquitySettlementService {
       doc.documentStatus,
       aggregates.settlementStatus,
     );
-    const patch = { ...aggregates, documentStatus };
+    // Completion metadata must move with the derived status inside this same
+    // locked transaction, or CHK_oe_completion_metadata rejects the write.
+    const completion = OwnerEquityService.stampCompletionMetadata(
+      documentStatus,
+      { completedAt: doc.completedAt, completedBy: doc.completedBy },
+      username,
+    );
+    const patch = { ...aggregates, documentStatus, ...completion };
     await manager.getRepository(OwnerEquityDocument).update(doc.id, patch);
     return { ...doc, ...patch } as unknown as OwnerEquityDocument;
   }

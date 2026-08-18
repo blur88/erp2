@@ -115,15 +115,31 @@ describe('OwnerEquityDetailView', () => {
   })
 
   it('drives its action bar from getOwnerEquityActionMetas', () => {
-    renderDetail({ type: 'CAPITAL_INJECTION', documentStatus: 'COMPLETED' })
+    renderDetail({ type: 'STOCK_DRAWING', documentStatus: 'COMPLETED' })
     expect(screen.getByRole('button', { name: /Uncomplete/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Delete/ })).not.toBeInTheDocument()
+  })
+
+  // #1094: a completed monetary document offers Refund and nothing else — no
+  // Complete/Uncomplete, and no Edit/Settle/Cancel.
+  it('offers only Refund on a completed monetary document', () => {
+    renderDetail({
+      type: 'CAPITAL_INJECTION',
+      documentStatus: 'COMPLETED',
+      settlementStatus: 'SETTLED',
+    })
+    expect(screen.getByRole('button', { name: /Refund/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Uncomplete/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Complete/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Edit/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Settle|Receive/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Cancel/ })).not.toBeInTheDocument()
   })
 
   // Asserting the button renders is not enough: the button existed while its
   // confirmation dialog was never rendered, so clicking it did nothing.
   it('opens a confirmation dialog when Uncomplete is clicked', async () => {
-    renderDetail({ type: 'CAPITAL_INJECTION', documentStatus: 'COMPLETED' })
+    renderDetail({ type: 'STOCK_DRAWING', documentStatus: 'COMPLETED' })
 
     await userEvent.click(screen.getByRole('button', { name: /Uncomplete/ }))
 

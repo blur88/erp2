@@ -172,6 +172,16 @@ export class OwnerEquityService {
           doc.documentStatus,
           aggregates.settlementStatus,
         );
+        // Only DRAFT documents reach here (guarded above), but lowering the
+        // total to exactly what is already settled promotes to COMPLETED, so
+        // the metadata still has to follow the derived status.
+        const completion = OwnerEquityService.stampCompletionMetadata(
+          doc.documentStatus,
+          { completedAt: doc.completedAt, completedBy: doc.completedBy },
+          username,
+        );
+        doc.completedAt = completion.completedAt;
+        doc.completedBy = completion.completedBy;
       }
 
       const saved = await manager.getRepository(OwnerEquityDocument).save(doc);
@@ -190,89 +200,6 @@ export class OwnerEquityService {
 
       return saved;
     });
-  }
-
-  /**
-   * Monetary lifecycle. COMPLETED stamps completion metadata and posts nothing;
-   * the money was already journaled by the settle/refund postings (spec §4.1).
-   */
-  async complete(
-    referenceNumber: string,
-    userId?: string,
-    username?: string,
-  ): Promise<OwnerEquityDocument> {
-    const saved = await this.dataSource.transaction(
-      async (manager: EntityManager) => {
-        const doc = await this.lockByReference(manager, referenceNumber);
-        if (doc.documentStatus !== OwnerEquityDocumentStatus.READY) {
-          throw new BadRequestException(
-            'Only fully settled documents can be completed',
-          );
-        }
-        doc.documentStatus = OwnerEquityDocumentStatus.COMPLETED;
-        doc.completedAt = new Date();
-        doc.completedBy = username ?? 'system';
-        return manager.getRepository(OwnerEquityDocument).save(doc);
-      },
-    );
-
-    await this.auditLogService.log(
-      'COMPLETE',
-      'OwnerEquity',
-      `Completed owner equity: ${saved.referenceNumber}`,
-      {
-        entityId: saved.id,
-        userId: userId || 'system',
-        username,
-        newValues: { documentStatus: OwnerEquityDocumentStatus.COMPLETED },
-      },
-    );
-
-    return saved;
-  }
-
-  /**
-   * Returns to READY, not DRAFT: the money is still fully settled (spec §4.1).
-   */
-  async uncomplete(
-    referenceNumber: string,
-    userId?: string,
-    username?: string,
-  ): Promise<OwnerEquityDocument> {
-    const saved = await this.dataSource.transaction(
-      async (manager: EntityManager) => {
-        const doc = await this.lockByReference(manager, referenceNumber);
-        if (doc.type === OwnerEquityType.STOCK_DRAWING) {
-          throw new BadRequestException(
-            'Stock drawings have no settlement lifecycle',
-          );
-        }
-        if (doc.documentStatus !== OwnerEquityDocumentStatus.COMPLETED) {
-          throw new BadRequestException(
-            'Only completed documents can be uncompleted',
-          );
-        }
-        doc.documentStatus = OwnerEquityDocumentStatus.READY;
-        doc.completedAt = null;
-        doc.completedBy = null;
-        return manager.getRepository(OwnerEquityDocument).save(doc);
-      },
-    );
-
-    await this.auditLogService.log(
-      'UNCOMPLETE',
-      'OwnerEquity',
-      `Uncompleted owner equity: ${saved.referenceNumber}`,
-      {
-        entityId: saved.id,
-        userId: userId || 'system',
-        username,
-        oldValues: { documentStatus: OwnerEquityDocumentStatus.COMPLETED },
-        newValues: { documentStatus: OwnerEquityDocumentStatus.READY },
-      },
-    );
-
-    return saved;
   }
 
   async cancel(
@@ -378,23 +305,60 @@ export class OwnerEquityService {
   }
 
   /**
-   * COMPLETED and CANCELLED are protected from automatic derivation: settlement
-   * recomputation never rewrites them. They are not absorbing — uncomplete()
-   * and uncancel() move them explicitly. Same shape as ExpenseService.
+   * Monetary completion is DERIVED from settlement, not an explicit action
+   * (#1094): exact settlement promotes to COMPLETED and any refund that drops
+   * the document below full demotes it back to DRAFT. Refund is therefore the
+   * only reversal, which is why COMPLETED is not protected here — protecting it
+   * would leave a completed document with no way back. CANCELLED stays
+   * absorbing for automatic derivation; uncancel() moves it explicitly.
+   *
+   * Callers MUST persist this alongside the aggregates in the same locked
+   * transaction, and must keep the completion metadata (completedAt/
+   * completedBy) in step with it — see stampCompletionMetadata().
+   *
+   * Same shape as ExpenseService.deriveDocumentStatus, except that OVERSETTLED
+   * does not count as complete: it is unreachable through the settle guards
+   * (spec §4.1) and exists for imported/repair data, so if it ever appears the
+   * balance is wrong and the document must stay in DRAFT for correction.
+   *
+   * NOTE: this does not apply to stock drawings, which have no settlement
+   * lifecycle and reach COMPLETED only through OwnerEquityStockService.
    */
   static deriveDocumentStatus(
     current: OwnerEquityDocumentStatus,
     settlementStatus: OwnerEquitySettlementStatus,
   ): OwnerEquityDocumentStatus {
-    if (current === OwnerEquityDocumentStatus.COMPLETED) return current;
     if (current === OwnerEquityDocumentStatus.CANCELLED) return current;
-    // ONLY exact settlement reaches READY. OVERSETTLED is unreachable through
-    // the settle guards (spec §4.1) and exists for imported/repair data; if it
-    // ever appears it means the balance is wrong, so the document must stay in
-    // DRAFT for correction rather than become completable.
     return settlementStatus === OwnerEquitySettlementStatus.SETTLED
-      ? OwnerEquityDocumentStatus.READY
+      ? OwnerEquityDocumentStatus.COMPLETED
       : OwnerEquityDocumentStatus.DRAFT;
+  }
+
+  /**
+   * Keeps completion metadata in step with a derived document status.
+   *
+   * CHK_oe_completion_metadata is two-sided: a COMPLETED row MUST carry both
+   * completedAt and completedBy, and a non-COMPLETED row MUST carry neither.
+   * Because monetary completion is now derived (#1094), every write that runs
+   * deriveDocumentStatus has to apply this in the same locked transaction or
+   * the settle that completes a document — and the refund that un-completes it
+   * — violate the constraint.
+   *
+   * Entering COMPLETED stamps; leaving it clears; staying COMPLETED preserves
+   * the original stamp so a later settle on an already-complete document does
+   * not rewrite who completed it.
+   */
+  static stampCompletionMetadata(
+    documentStatus: OwnerEquityDocumentStatus,
+    current: { completedAt: Date | null; completedBy: string | null },
+    username?: string,
+    now: Date = new Date(),
+  ): { completedAt: Date | null; completedBy: string | null } {
+    if (documentStatus !== OwnerEquityDocumentStatus.COMPLETED) {
+      return { completedAt: null, completedBy: null };
+    }
+    if (current.completedAt && current.completedBy) return { ...current };
+    return { completedAt: now, completedBy: username ?? 'system' };
   }
 
   async findOne(id: string): Promise<OwnerEquityDocument> {

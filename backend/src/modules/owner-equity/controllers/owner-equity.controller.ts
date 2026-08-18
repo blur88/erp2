@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Patch, Body, Param, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Query,
+  BadRequestException,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { Auth } from '../../auth/decorators/auth.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
@@ -96,14 +105,20 @@ export class OwnerEquityController {
     @CurrentUser('userId') userId: string,
     @CurrentUser('username') username: string,
   ) {
-    // Complete lives in two services split by type: monetary documents must be
-    // READY and post nothing, stock drawings move inventory at cost. Dispatch
-    // on the immutable type so one route serves both (spec §6).
+    // Stock drawings only (#1094). Monetary documents complete implicitly when
+    // settlement reaches the full amount, so they have no Complete action —
+    // this route rejects them rather than silently doing nothing.
     const doc = await this.service.findByReference(referenceNumber);
-    const data =
-      doc.type === OwnerEquityType.STOCK_DRAWING
-        ? await this.stockService.complete(referenceNumber, userId, username)
-        : await this.service.complete(referenceNumber, userId, username);
+    if (doc.type !== OwnerEquityType.STOCK_DRAWING) {
+      throw new BadRequestException(
+        'Monetary owner equity documents complete automatically when fully settled',
+      );
+    }
+    const data = await this.stockService.complete(
+      referenceNumber,
+      userId,
+      username,
+    );
     return { data };
   }
 
@@ -115,11 +130,19 @@ export class OwnerEquityController {
     @CurrentUser('userId') userId: string,
     @CurrentUser('username') username: string,
   ) {
+    // Stock drawings only (#1094); a monetary document is un-completed by
+    // refunding its settlements, which demotes it back to DRAFT.
     const doc = await this.service.findByReference(referenceNumber);
-    const data =
-      doc.type === OwnerEquityType.STOCK_DRAWING
-        ? await this.stockService.uncomplete(referenceNumber, userId, username)
-        : await this.service.uncomplete(referenceNumber, userId, username);
+    if (doc.type !== OwnerEquityType.STOCK_DRAWING) {
+      throw new BadRequestException(
+        'Refund the settlements to reopen a monetary owner equity document',
+      );
+    }
+    const data = await this.stockService.uncomplete(
+      referenceNumber,
+      userId,
+      username,
+    );
     return { data };
   }
 
