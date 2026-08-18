@@ -188,6 +188,17 @@ const OwnerEquityFormPage: React.FC = () => {
     }
   }, [isEdit, document, loadingDocument, reset])
 
+  // Create returns to the list and hands the new row back in history state, the
+  // way Expenses does. The id, not the reference number: EntityTable matches
+  // selectedId against row.id. Omit the highlight when the response carries no
+  // id rather than sending undefined — the list just skips highlighting, which
+  // is already best-effort. Issue #1088.
+  const returnAfterCreate = (id?: string) => {
+    navigate('/accounting/owner-equity', {
+      state: id ? { highlightOwnerEquityId: id } : null,
+    })
+  }
+
   const returnAfterEdit = (ref?: string) => {
     if (ref) {
       navigate(`/accounting/owner-equity/${ref}/view`)
@@ -223,7 +234,7 @@ const OwnerEquityFormPage: React.FC = () => {
       } else {
         const created = await createEquity(cleanedData).unwrap()
         showSuccess('Owner equity document created successfully')
-        returnAfterEdit(created?.referenceNumber)
+        returnAfterCreate(created?.id)
       }
     } catch (error: any) {
       showError(rtkErrorMessage(error, `Failed to ${isEdit ? 'update' : 'create'} owner equity document`))
