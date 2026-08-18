@@ -46,6 +46,12 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return {
     ...actual,
     useNavigate: () => mockNavigate,
+    // Navigation here is mocked, so it never reaches the router and the guard
+    // could never legitimately block it. Stub useBlocker to the unblocked state
+    // it would always report — the real blocking behaviour is covered by
+    // OwnerEquityFormPage.unsaved-changes.test.tsx, which uses a data router
+    // and no navigation mock (the two cannot coexist). Issue #1092.
+    useBlocker: () => ({ state: 'unblocked', proceed: vi.fn(), reset: vi.fn() }),
     useLocation: () => ({
       pathname: '/accounting/owner-equity/EQ-26-001/edit',
       search: '',
