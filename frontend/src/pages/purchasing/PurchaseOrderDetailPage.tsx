@@ -20,11 +20,15 @@ import {
   useReturnGoodsMutation,
   useUncancelPurchaseOrderMutation,
 } from '@/store/api/purchasingApi'
-import { useGetActivePaymentMethodsForPurchasesQuery } from '@/store/api/paymentMethodsApi'
+import {
+  useGetActivePaymentMethodsForPurchasesQuery,
+  useGetActivePaymentMethodsQuery,
+} from '@/store/api/paymentMethodsApi'
 import type { VendorPayment } from '@/types'
-import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
+import RefundDialog from '@/components/common/RefundDialog'
+import { fromScaledAmount, toScaledAmount } from '@/utils/currency'
 
-import { buildPoRefundSources, toPoRefundPayload } from './utils/poRefund'
+import { buildPoRefundSeed, poNetPaidMinor, toPoRefundPayload } from './utils/poRefund'
 import PurchaseOrderActionBar from './components/PurchaseOrderActionBar'
 import PurchaseOrderOverviewTab from './components/PurchaseOrderOverviewTab'
 import PurchaseOrderPaymentsTab from './components/PurchaseOrderPaymentsTab'
@@ -99,10 +103,19 @@ export default function PurchaseOrderDetailPage() {
   const { data: paymentMethods = [], isLoading: methodsLoading } =
     useGetActivePaymentMethodsForPurchasesQuery(undefined, { skip: activeDialog !== 'pay' })
 
-  // Build RefundSource[] from vendor payments (grouped by payment method)
-  const refundSources: RefundSource[] = useMemo(
-    () => buildPoRefundSources(payments ?? []),
-    [payments],
+  // Refunds may use ANY active method regardless of useForPurchases (#1096),
+  // so this is a second, unfiltered query — it cannot share the Pay one.
+  const { data: refundMethods = [], isLoading: refundMethodsLoading } =
+    useGetActivePaymentMethodsQuery(undefined, { skip: activeDialog !== 'refund' })
+
+  // Gross payments grouped by method — seed weights only. Refund rows (negative)
+  // are excluded; prior refunds reduce the aggregate cap instead (#1096).
+  const seedAllocations = useMemo(() => buildPoRefundSeed(payments ?? []), [payments])
+  const netPaidMinor = useMemo(() => poNetPaidMinor(payments ?? []), [payments])
+  const availableForRefund = fromScaledAmount(netPaidMinor > 0n ? netPaidMinor : 0n)
+  const surplusMinor = netPaidMinor - (toScaledAmount(order?.totalAmount ?? '0') ?? 0n)
+  const seedTarget = fromScaledAmount(
+    surplusMinor > 0n ? surplusMinor : netPaidMinor > 0n ? netPaidMinor : 0n,
   )
 
   if (isLoading) {
@@ -184,7 +197,7 @@ export default function PurchaseOrderDetailPage() {
   }
 
   const handleSubmitRefund = async (
-    lines: { sourceId: string; amount: string; reference?: string }[],
+    lines: { paymentMethodId: string; amount: string; reference?: string }[],
   ) => {
     try {
       await recordRefunds({
@@ -300,9 +313,12 @@ export default function PurchaseOrderDetailPage() {
         open={activeDialog === 'refund'}
         onClose={() => setActiveDialog(null)}
         onSubmit={handleSubmitRefund}
-        sources={refundSources}
+        methods={refundMethods.map((m) => ({ id: m.id, label: m.name }))}
+        seedAllocations={seedAllocations}
+        availableForRefund={availableForRefund}
+        seedTarget={seedTarget}
+        loading={refundMethodsLoading}
         orderNumber={order.orderNumber}
-        totalAmount={order.totalAmount}
       />
 
       {activeDialog === 'pay' && (

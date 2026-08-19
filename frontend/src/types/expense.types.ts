@@ -10,7 +10,6 @@ export interface ExpensePaymentRow {
   reference: string | null
   sourcePaymentId: string | null
   paymentMethod?: { id: string; code: string; name: string }
-  remainingRefundable?: string
 }
 
 export interface Expense {

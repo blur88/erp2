@@ -31,6 +31,7 @@ vi.mock('@/store/api/purchasingApi', () => ({
 
 vi.mock('@/store/api/paymentMethodsApi', () => ({
   useGetActivePaymentMethodsForPurchasesQuery: () => ({ data: [] }),
+  useGetActivePaymentMethodsQuery: () => ({ data: [] }),
 }))
 
 vi.mock('@/components/filters', () => ({

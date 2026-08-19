@@ -19,15 +19,19 @@ import {
   useReturnGoodsMutation,
   useUncancelPurchaseOrderMutation,
 } from '@/store/api/purchasingApi'
-import { useGetActivePaymentMethodsForPurchasesQuery } from '@/store/api/paymentMethodsApi'
+import {
+  useGetActivePaymentMethodsForPurchasesQuery,
+  useGetActivePaymentMethodsQuery,
+} from '@/store/api/paymentMethodsApi'
 import type { PurchaseOrder } from '@/types'
-import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
+import RefundDialog from '@/components/common/RefundDialog'
+import { fromScaledAmount, toScaledAmount } from '@/utils/currency'
 import { PURCHASE_ORDER_STATUS_OPTIONS } from '@/constants/filterOptions'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
 
-import { buildPoRefundSources, toPoRefundPayload } from './utils/poRefund'
+import { buildPoRefundSeed, poNetPaidMinor, toPoRefundPayload } from './utils/poRefund'
 import PurchaseOrderList from './components/PurchaseOrderList'
 import PurchaseOrderPrintDialog from './components/PurchaseOrderPrintDialog'
 
@@ -138,16 +142,28 @@ const PurchaseOrdersPage: React.FC = () => {
   const { data: paymentMethods = [], isLoading: methodsLoading } =
     useGetActivePaymentMethodsForPurchasesQuery(undefined, { skip: !paymentOrder })
 
+  // Refunds may use ANY active method regardless of useForPurchases (#1096),
+  // so this is a second, unfiltered query — it cannot share the Pay one.
+  const { data: refundMethods = [], isLoading: refundMethodsLoading } =
+    useGetActivePaymentMethodsQuery(undefined, { skip: !refundOrder })
+
   // Fetch payments for refund dialog only when needed
   const { data: refundPaymentRecords = [] } = useGetPurchaseOrderPaymentsQuery(
     refundOrder ? refundOrder.id : skipToken,
   )
 
-  // Build RefundSource[] from vendor payments (grouped by payment method)
-  const refundSources: RefundSource[] = useMemo(() => {
-    if (!refundOrder) return []
-    return buildPoRefundSources(refundPaymentRecords ?? [])
-  }, [refundOrder, refundPaymentRecords])
+  // Gross payments grouped by method — seed weights only. Refund rows (negative)
+  // are excluded; prior refunds reduce the aggregate cap instead (#1096).
+  const seedAllocations = useMemo(
+    () => (refundOrder ? buildPoRefundSeed(refundPaymentRecords ?? []) : []),
+    [refundOrder, refundPaymentRecords],
+  )
+  const netPaidMinor = useMemo(() => poNetPaidMinor(refundPaymentRecords ?? []), [refundPaymentRecords])
+  const availableForRefund = fromScaledAmount(netPaidMinor > 0n ? netPaidMinor : 0n)
+  const surplusMinor = netPaidMinor - (toScaledAmount(refundOrder?.totalAmount ?? '0') ?? 0n)
+  const seedTarget = fromScaledAmount(
+    surplusMinor > 0n ? surplusMinor : netPaidMinor > 0n ? netPaidMinor : 0n,
+  )
 
   const handleSort = useCallback((field: string) => {
     setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
@@ -289,7 +305,7 @@ const PurchaseOrdersPage: React.FC = () => {
   }, [])
 
   const handleSubmitRefund = useCallback(async (
-    lines: { sourceId: string; amount: string; reference?: string }[],
+    lines: { paymentMethodId: string; amount: string; reference?: string }[],
   ) => {
     if (!refundOrder) return
     try {
@@ -378,12 +394,15 @@ const PurchaseOrdersPage: React.FC = () => {
 
             {refundOrder && (
               <RefundDialog
+                methods={refundMethods.map((m) => ({ id: m.id, label: m.name }))}
+                seedAllocations={seedAllocations}
+                availableForRefund={availableForRefund}
+                seedTarget={seedTarget}
+                loading={refundMethodsLoading}
                 open
                 onClose={() => setRefundOrder(null)}
                 onSubmit={handleSubmitRefund}
-                sources={refundSources}
                 orderNumber={refundOrder.orderNumber}
-                totalAmount={refundOrder.totalAmount}
               />
             )}
 
