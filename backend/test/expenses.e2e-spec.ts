@@ -494,14 +494,14 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
     });
 
     it('refunds entirely through a method that never paid (#1096)', async () => {
-      // The acceptance case from the issue: paid 100 Cash + 900 Bank, refunded
-      // 200 wholly through Cash — more Cash than Cash ever paid. Every other e2e
-      // refund uses a method that also paid, so none of them exercise this.
+      // Paid entirely by Bank, refunded entirely by Cash: Cash paid NOTHING here,
+      // which is strictly stronger than refunding more through a method that also
+      // paid. It also makes the channel assertion below discriminating — a refund
+      // inheriting its channel from a source row would post BANK (1200), not CASH.
       const expense = await createExpense({ totalAmount: '1000' });
 
       await payExpense(expense.id, [
-        { paymentMethodId: cashMethod.id, amount: '100', paymentDate: '2026-08-06' },
-        { paymentMethodId: bankMethod.id, amount: '900', paymentDate: '2026-08-06' },
+        { paymentMethodId: bankMethod.id, amount: '1000', paymentDate: '2026-08-06' },
       ]);
       await assertExpenseStatus(expense.id, ExpenseDocumentStatus.COMPLETED, ExpensePaymentStatus.PAID, '1000.0000', '0.0000');
 
@@ -521,13 +521,15 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
       expect(toMinorUnits(rows[0].amount)).toBe(toMinorUnits('-200.0000'));
 
       // The reversing JE debits CASH (1100) — the submitted method's channel.
-      // Inheriting from a source row would have produced a BANK-weighted split.
+      // The only payment was Bank, so inheriting the channel from a source row
+      // would post BANK (1200) here and fail this assertion.
       await assertJEBalanced(rows[0].id, PostingType.EXPENSE_REFUND);
       await assertJEAccounts(rows[0].id, PostingType.EXPENSE_REFUND, '1100', '6990');
 
       await assertExpenseStatus(expense.id, ExpenseDocumentStatus.DRAFT, ExpensePaymentStatus.PARTIAL, '800.0000', '200.0000');
 
-      // A second refund through a third method, capped by the aggregate only.
+      // The remainder back through Bank: refunds may be split across methods
+      // freely, capped only by the aggregate.
       await refundExpense(expense.id, [
         { paymentMethodId: bankMethod.id, amount: '800', refundDate: '2026-08-07', reference: 'XM-BANK' },
       ]);
