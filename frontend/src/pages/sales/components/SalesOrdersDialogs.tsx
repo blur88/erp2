@@ -1,6 +1,6 @@
 import { skipToken } from '@reduxjs/toolkit/query'
 import PaymentDialog, { type PaymentLineInput } from '@/components/common/PaymentDialog'
-import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
+import RefundDialog, { type RefundSeed } from '@/components/common/RefundDialog'
 import SalesOrderPrintDialog from './SalesOrderPrintDialog'
 import { useGetSalesOrderPaymentsQuery } from '@/store/api/salesApi'
 import { useGetActivePaymentMethodsQuery } from '@/store/api/paymentMethodsApi'
@@ -37,32 +37,40 @@ export default function SalesOrdersDialogs({
   )
 
   const { data: paymentMethods = [], isLoading: methodsLoading } =
-    useGetActivePaymentMethodsQuery(undefined, { skip: !paymentOrder })
+    useGetActivePaymentMethodsQuery(undefined, { skip: !paymentOrder && !refundOrder })
 
-  // Build RefundSource[] from SO payments (net by payment method)
-  const netByMethod = (paymentRecords ?? []).reduce<
-    Record<string, { paid: bigint; refunded: bigint; label: string }>
-  >((acc, p: any) => {
-    const key = p.paymentMethodId
-    const entry = (acc[key] ??= { paid: 0n, refunded: 0n, label: p.paymentMethod?.name ?? 'Payment' })
-    const amt = toScaledAmount(p.amount) ?? 0n
-    if (amt >= 0n) entry.paid += amt
-    else entry.refunded += -amt
-    return acc
-  }, {})
-  const refundSources: RefundSource[] = Object.entries(netByMethod).map(([id, v]) => ({
-    id,
-    label: v.label,
-    paidAmount: fromScaledAmount(v.paid),
-    alreadyRefunded: fromScaledAmount(v.refunded),
+  // Gross payments by method: seed weights only. Prior refunds reduce the
+  // aggregate cap, never a per-method weight (#1096).
+  const grossByMethod = (paymentRecords ?? []).reduce<Record<string, { gross: bigint; label: string }>>(
+    (acc, p: any) => {
+      const amt = toScaledAmount(p.amount) ?? 0n
+      if (amt <= 0n) return acc
+      const entry = (acc[p.paymentMethodId] ??= { gross: 0n, label: p.paymentMethod?.name ?? 'Payment' })
+      entry.gross += amt
+      return acc
+    },
+    {},
+  )
+  const seedAllocations: RefundSeed[] = Object.entries(grossByMethod).map(([methodId, v]) => ({
+    methodId,
+    amount: fromScaledAmount(v.gross),
   }))
 
+  const netPaidMinor = (paymentRecords ?? []).reduce(
+    (s, p: any) => s + (toScaledAmount(p.amount) ?? 0n), 0n,
+  )
+  const availableForRefund = fromScaledAmount(netPaidMinor > 0n ? netPaidMinor : 0n)
+  const surplusMinor = netPaidMinor - (toScaledAmount(refundOrder?.totalAmount ?? '0') ?? 0n)
+  const seedTarget = fromScaledAmount(
+    surplusMinor > 0n ? surplusMinor : netPaidMinor > 0n ? netPaidMinor : 0n,
+  )
+
   const handleRefundSubmit = async (
-    lines: { sourceId: string; amount: string; reference?: string }[],
+    lines: { paymentMethodId: string; amount: string; reference?: string }[],
   ) => {
     await onSubmitRefund(
       lines.map((l) => ({
-        paymentMethodId: l.sourceId,
+        paymentMethodId: l.paymentMethodId,
         amount: l.amount,
         paymentDate: getCurrentDate(),
         reference: l.reference,
@@ -87,12 +95,15 @@ export default function SalesOrdersDialogs({
       )}
       {refundOrder && (
         <RefundDialog
+          methods={paymentMethods.map((m) => ({ id: m.id, label: m.name }))}
+          seedAllocations={seedAllocations}
+          availableForRefund={availableForRefund}
+          seedTarget={seedTarget}
+          loading={methodsLoading}
           open
           onClose={onCloseRefund}
           onSubmit={handleRefundSubmit}
-          sources={refundSources}
           orderNumber={refundOrder.orderNumber}
-          totalAmount={refundOrder.totalAmount}
         />
       )}
     </>
