@@ -11,7 +11,6 @@ export interface OwnerEquitySettlement {
   reference: string | null
   sourceSettlementId: string | null
   paymentMethod?: { id: string; code: string; name: string }
-  remainingRefundable?: string
   createdAt: string
   updatedAt: string
 }
@@ -84,7 +83,7 @@ export interface SettleOwnerEquityRequest {
 }
 
 export interface OwnerEquityRefundLine {
-  sourceSettlementId: string
+  paymentMethodId: string
   amount: string
   refundDate: string
   reference?: string

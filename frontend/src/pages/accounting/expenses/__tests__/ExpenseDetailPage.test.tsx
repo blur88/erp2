@@ -53,6 +53,7 @@ vi.mock('@/store/api/accountingApi', async (importOriginal) => {
 
 vi.mock('@/store/api/paymentMethodsApi', () => ({
   useGetActivePaymentMethodsForPurchasesQuery: () => ({ data: [] }),
+  useGetActivePaymentMethodsQuery: () => ({ data: [] }),
 }))
 
 vi.mock('@/components/common/PaymentDialog', () => ({

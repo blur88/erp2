@@ -345,39 +345,22 @@ describe('ExpensePaymentService', () => {
   });
 
   describe('refund', () => {
-    const sourcePayment = { id: 'p1', expenseId: 'exp-1', amount: '1000.0000', paymentDate: '2026-07-20', sourcePaymentId: null, paymentMethodId: 'pm-1' };
+    const cashPayment  = { id: 'p1', expenseId: 'exp-1', amount: '1000.0000', paymentDate: '2026-07-20', sourcePaymentId: null, paymentMethodId: 'pm-1' };
 
     const validDto = {
       refunds: [
-        { sourcePaymentId: 'p1', amount: '300.0000', refundDate: '2026-07-25', reference: 'REF-R1' },
+        { paymentMethodId: 'pm-1', amount: '300.0000', refundDate: '2026-07-25', reference: 'REF-R1' },
       ],
     };
 
-    function setupRefundTx(overrides: {
-      expenseOverrides?: Partial<any>;
-      sourceOverrides?: Partial<any>;
-      priorRefunds?: any[];
-    } = {}) {
-      const prior = overrides.priorRefunds ?? [];
-      const source = { ...sourcePayment, ...(overrides.sourceOverrides ?? {}) };
-
+    /** rows: every ExpensePayment on the document, refunds already negative. */
+    function setupRefundTx(overrides: { expenseOverrides?: Partial<any>; rows?: any[] } = {}) {
+      const rows = overrides.rows ?? [cashPayment];
       setupTx({
         expenseOverrides: overrides.expenseOverrides,
-        paymentMethods: { 'pm-1': cashMethod() },
+        paymentMethods: { 'pm-1': cashMethod(), 'pm-2': bankMethod() },
       });
-
-      txPayRepo.findOne = jest.fn().mockImplementation(async (opts: any) => {
-        const id = opts?.where?.id;
-        if (id === 'p1') return source;
-        const found = [...savedPayments].find((p: any) => p.id === id);
-        return found ?? null;
-      });
-
-      txPayRepo.find = jest.fn().mockImplementation(async (opts: any) => {
-        const spId = opts?.where?.sourcePaymentId;
-        if (spId) return prior;
-        return [source, ...savedPayments];
-      });
+      txPayRepo.find = jest.fn().mockImplementation(async () => [...rows, ...savedPayments]);
     }
 
     it('rejects empty refunds array', async () => {
@@ -391,10 +374,10 @@ describe('ExpensePaymentService', () => {
     });
 
     it('rejects any row amount <= 0', async () => {
-      await expect(service.refund('exp-1', { refunds: [{ sourcePaymentId: 'p1', amount: '0.0000', refundDate: '2026-07-25' }] }, 'user-1', 'admin'))
+      await expect(service.refund('exp-1', { refunds: [{ paymentMethodId: 'pm-1', amount: '0.0000', refundDate: '2026-07-25' }] }, 'user-1', 'admin'))
         .rejects.toThrow('Refund amount must be greater than zero');
 
-      await expect(service.refund('exp-1', { refunds: [{ sourcePaymentId: 'p1', amount: '-50.0000', refundDate: '2026-07-25' }] }, 'user-1', 'admin'))
+      await expect(service.refund('exp-1', { refunds: [{ paymentMethodId: 'pm-1', amount: '-50.0000', refundDate: '2026-07-25' }] }, 'user-1', 'admin'))
         .rejects.toThrow('Refund amount must be greater than zero');
     });
 
@@ -404,49 +387,94 @@ describe('ExpensePaymentService', () => {
         .rejects.toThrow('Cancelled expenses cannot be refunded');
     });
 
-    it('rejects source not found', async () => {
-      setupRefundTx();
-      txPayRepo.findOne = jest.fn().mockResolvedValue(null);
-      await expect(service.refund('exp-1', validDto, 'user-1', 'admin'))
-        .rejects.toThrow('Refund source must be a payment on this expense');
+    it('allows refunding more through one method than that method ever paid', async () => {
+      // Paid 100 Cash + 900 Bank; refund 200 entirely through Cash.
+      setupRefundTx({
+        rows: [
+          { ...cashPayment, amount: '100.0000' },
+          { id: 'p2', expenseId: 'exp-1', amount: '900.0000', paymentDate: '2026-07-20', sourcePaymentId: null, paymentMethodId: 'pm-2' },
+        ],
+      });
+      expenseService.findOne.mockResolvedValue({ id: 'exp-1' } as any);
+
+      await service.refund('exp-1', {
+        refunds: [{ paymentMethodId: 'pm-1', amount: '200.0000', refundDate: '2026-07-25' }],
+      }, 'user-1', 'admin');
+
+      expect(txPayRepo.save).toHaveBeenCalledWith(expect.objectContaining({
+        paymentMethodId: 'pm-1',
+        amount: '-200.0000',
+        sourcePaymentId: null,
+      }));
     });
 
-    it('rejects source belonging to another expense', async () => {
-      setupRefundTx({ sourceOverrides: { expenseId: 'exp-other' } });
-      await expect(service.refund('exp-1', validDto, 'user-1', 'admin'))
-        .rejects.toThrow('Refund source must be a payment on this expense');
+    it('rejects a refund above net paid', async () => {
+      setupRefundTx({ rows: [{ ...cashPayment, amount: '100.0000' }] });
+
+      await expect(service.refund('exp-1', {
+        refunds: [{ paymentMethodId: 'pm-1', amount: '150.0000', refundDate: '2026-07-25' }],
+      }, 'user-1', 'admin')).rejects.toThrow(/exceeds net paid/);
     });
 
-    it('rejects source that is itself a refund (sourcePaymentId is set)', async () => {
-      setupRefundTx({ sourceOverrides: { sourcePaymentId: 'prev-pay' } });
-      await expect(service.refund('exp-1', validDto, 'user-1', 'admin'))
-        .rejects.toThrow('Refund source must be a payment on this expense');
+    it('counts legacy linked refunds and new unlinked refunds alike in the cap', async () => {
+      // Paid 1000; a legacy refund of -600 carries lineage, a newer one of -200 does not.
+      // Net paid = 200, so 250 must be rejected and 200 accepted.
+      const rows = [
+        cashPayment,
+        { id: 'r-old', expenseId: 'exp-1', amount: '-600.0000', paymentDate: '2026-07-22', sourcePaymentId: 'p1',  paymentMethodId: 'pm-1' },
+        { id: 'r-new', expenseId: 'exp-1', amount: '-200.0000', paymentDate: '2026-07-23', sourcePaymentId: null, paymentMethodId: 'pm-2' },
+      ];
+      setupRefundTx({ rows });
+
+      await expect(service.refund('exp-1', {
+        refunds: [{ paymentMethodId: 'pm-1', amount: '250.0000', refundDate: '2026-07-25' }],
+      }, 'user-1', 'admin')).rejects.toThrow(/exceeds net paid/);
+
+      setupRefundTx({ rows });
+      expenseService.findOne.mockResolvedValue({ id: 'exp-1' } as any);
+      await expect(service.refund('exp-1', {
+        refunds: [{ paymentMethodId: 'pm-1', amount: '200.0000', refundDate: '2026-07-25' }],
+      }, 'user-1', 'admin')).resolves.toBeDefined();
     });
 
-    it('rejects source with non-positive amount', async () => {
-      setupRefundTx({ sourceOverrides: { amount: '-500.0000' } });
-      await expect(service.refund('exp-1', validDto, 'user-1', 'admin'))
-        .rejects.toThrow('Refund source must be a payment on this expense');
-    });
-
-    it('rejects batch grouped by source that exceeds source - prior refunds', async () => {
-      setupRefundTx({ priorRefunds: [{ id: 'r0', expenseId: 'exp-1', amount: '-800.0000', sourcePaymentId: 'p1' }] });
-      await expect(service.refund('exp-1', validDto, 'user-1', 'admin'))
-        .rejects.toThrow('Refund total exceeds the refundable amount for source payment p1');
-    });
-
-    it('rejects two refund lines for same source that individually fit but collectively exceed', async () => {
+    it('rejects a nonexistent payment method', async () => {
       setupRefundTx();
       await expect(service.refund('exp-1', {
-        refunds: [
-          { sourcePaymentId: 'p1', amount: '600.0000', refundDate: '2026-07-25' },
-          { sourcePaymentId: 'p1', amount: '500.0000', refundDate: '2026-07-26' },
-        ],
-      }, 'user-1', 'admin'))
-        .rejects.toThrow('Refund total exceeds the refundable amount for source payment p1');
+        refunds: [{ paymentMethodId: 'pm-missing', amount: '100.0000', refundDate: '2026-07-25' }],
+      }, 'user-1', 'admin')).rejects.toThrow(/not found or inactive/);
     });
 
-    it('happy path: persists negative row, inherits method, posts JE, recomputes aggregates', async () => {
+    it('rejects an inactive payment method', async () => {
+      setupRefundTx();
+      txPmRepo.findOne = jest.fn().mockResolvedValue(null); // isActive:true filter matches nothing
+      await expect(service.refund('exp-1', validDto, 'user-1', 'admin'))
+        .rejects.toThrow(/not found or inactive/);
+    });
+
+    it('accepts an active method that is not enabled for purchases', async () => {
+      setupRefundTx();
+      txPmRepo.findOne = jest.fn().mockResolvedValue({ ...cashMethod(), useForPurchases: false });
+      expenseService.findOne.mockResolvedValue({ id: 'exp-1' } as any);
+
+      await expect(service.refund('exp-1', validDto, 'user-1', 'admin')).resolves.toBeDefined();
+    });
+
+    it('posts the reversing JE on the submitted method channel, not a source row channel', async () => {
+      // Paid entirely by Cash; refund through Bank must post on BANK.
+      setupRefundTx();
+      expenseService.findOne.mockResolvedValue({ id: 'exp-1' } as any);
+
+      await service.refund('exp-1', {
+        refunds: [{ paymentMethodId: 'pm-2', amount: '300.0000', refundDate: '2026-07-25' }],
+      }, 'user-1', 'admin');
+
+      expect(posting.postExpenseRefund).toHaveBeenCalledWith(
+        expect.objectContaining({ channel: 'BANK', amount: '300.0000' }),
+        txManager,
+      );
+    });
+
+    it('happy path: persists negative row with the submitted method, posts JE, recomputes aggregates', async () => {
       setupRefundTx();
       expenseService.findOne.mockResolvedValue({ id: 'exp-1', expenseNumber: 'EXP-26-001', payments: [] } as any);
 
@@ -465,7 +493,7 @@ describe('ExpensePaymentService', () => {
         amount: '-300.0000',
         paymentDate: '2026-07-25',
         reference: 'REF-R1',
-        sourcePaymentId: 'p1',
+        sourcePaymentId: null,
       }));
 
       expect(posting.postExpenseRefund).toHaveBeenCalledTimes(1);
@@ -493,32 +521,13 @@ describe('ExpensePaymentService', () => {
       expenseService.findOne.mockResolvedValue({ id: 'exp-1' } as any);
 
       await service.refund('exp-1', {
-        refunds: [{ sourcePaymentId: 'p1', amount: '1000.0000', refundDate: '2026-07-25' }],
+        refunds: [{ paymentMethodId: 'pm-1', amount: '1000.0000', refundDate: '2026-07-25' }],
       }, 'user-1', 'admin');
 
       expect(txExpenseRepo.update).toHaveBeenCalledWith('exp-1', {
         paidAmount: '0.0000', balance: '1500.0000', paymentStatus: ExpensePaymentStatus.UNPAID,
         documentStatus: ExpenseDocumentStatus.DRAFT,
       });
-    });
-
-    it('loads source method with withDeleted: true', async () => {
-      setupRefundTx();
-      expenseService.findOne.mockResolvedValue({ id: 'exp-1' } as any);
-
-      txPmRepo.findOne = jest.fn().mockImplementation((opts: any) => {
-        if (opts.withDeleted === true && opts.where.id === 'pm-1') {
-          return Promise.resolve(cashMethod());
-        }
-        return Promise.resolve(null);
-      });
-
-      await service.refund('exp-1', validDto, 'user-1', 'admin');
-
-      expect(txPmRepo.findOne).toHaveBeenCalledWith(expect.objectContaining({
-        where: { id: 'pm-1' },
-        withDeleted: true,
-      }));
     });
 
     it('uses system as default userId when not provided', async () => {
@@ -534,19 +543,19 @@ describe('ExpensePaymentService', () => {
     });
 
     it('stays COMPLETED + OVERPAID when the refund leaves net paid above total', async () => {
-      // Source 1500 on a 1000 expense; refund 200 → net paid 1300, still above total.
+      // Net paid 1500 on a 1000 expense; refund 200 → net paid 1300, still above total.
       setupRefundTx({
         expenseOverrides: {
           totalAmount: '1000.0000',
           documentStatus: ExpenseDocumentStatus.COMPLETED,
           paymentStatus: ExpensePaymentStatus.OVERPAID,
         },
-        sourceOverrides: { amount: '1500.0000' },
+        rows: [{ ...cashPayment, amount: '1500.0000' }],
       });
       expenseService.findOne.mockResolvedValue({ id: 'exp-1' } as any);
 
       await service.refund('exp-1', {
-        refunds: [{ sourcePaymentId: 'p1', amount: '200.0000', refundDate: '2026-07-25' }],
+        refunds: [{ paymentMethodId: 'pm-1', amount: '200.0000', refundDate: '2026-07-25' }],
       } as any, 'user-1', 'admin');
 
       expect(txExpenseRepo.update).toHaveBeenCalledWith(
@@ -559,19 +568,19 @@ describe('ExpensePaymentService', () => {
     });
 
     it('stays COMPLETED and becomes PAID when the refund lands net paid exactly on total', async () => {
-      // Source 1500 on a 1000 expense; refund 500 → net paid exactly 1000.
+      // Net paid 1500 on a 1000 expense; refund 500 → net paid exactly 1000.
       setupRefundTx({
         expenseOverrides: {
           totalAmount: '1000.0000',
           documentStatus: ExpenseDocumentStatus.COMPLETED,
           paymentStatus: ExpensePaymentStatus.OVERPAID,
         },
-        sourceOverrides: { amount: '1500.0000' },
+        rows: [{ ...cashPayment, amount: '1500.0000' }],
       });
       expenseService.findOne.mockResolvedValue({ id: 'exp-1' } as any);
 
       await service.refund('exp-1', {
-        refunds: [{ sourcePaymentId: 'p1', amount: '500.0000', refundDate: '2026-07-25' }],
+        refunds: [{ paymentMethodId: 'pm-1', amount: '500.0000', refundDate: '2026-07-25' }],
       } as any, 'user-1', 'admin');
 
       expect(txExpenseRepo.update).toHaveBeenCalledWith(
@@ -584,19 +593,19 @@ describe('ExpensePaymentService', () => {
     });
 
     it('reopens to DRAFT + PARTIAL when net paid falls between zero and total', async () => {
-      // Source 1000 on a 1000 expense; refund 400 → net paid 600.
+      // Net paid 1000 on a 1000 expense; refund 400 → net paid 600.
       setupRefundTx({
         expenseOverrides: {
           totalAmount: '1000.0000',
           documentStatus: ExpenseDocumentStatus.COMPLETED,
           paymentStatus: ExpensePaymentStatus.PAID,
         },
-        sourceOverrides: { amount: '1000.0000' },
+        rows: [{ ...cashPayment, amount: '1000.0000' }],
       });
       expenseService.findOne.mockResolvedValue({ id: 'exp-1' } as any);
 
       await service.refund('exp-1', {
-        refunds: [{ sourcePaymentId: 'p1', amount: '400.0000', refundDate: '2026-07-25' }],
+        refunds: [{ paymentMethodId: 'pm-1', amount: '400.0000', refundDate: '2026-07-25' }],
       } as any, 'user-1', 'admin');
 
       expect(txExpenseRepo.update).toHaveBeenCalledWith(
@@ -610,19 +619,19 @@ describe('ExpensePaymentService', () => {
     });
 
     it('reopens to DRAFT + UNPAID when the refund returns net paid to zero', async () => {
-      // Source 1000 on a 1000 expense; refund the whole 1000 → net paid 0.
+      // Net paid 1000 on a 1000 expense; refund the whole 1000 → net paid 0.
       setupRefundTx({
         expenseOverrides: {
           totalAmount: '1000.0000',
           documentStatus: ExpenseDocumentStatus.COMPLETED,
           paymentStatus: ExpensePaymentStatus.PAID,
         },
-        sourceOverrides: { amount: '1000.0000' },
+        rows: [{ ...cashPayment, amount: '1000.0000' }],
       });
       expenseService.findOne.mockResolvedValue({ id: 'exp-1' } as any);
 
       await service.refund('exp-1', {
-        refunds: [{ sourcePaymentId: 'p1', amount: '1000.0000', refundDate: '2026-07-25' }],
+        refunds: [{ paymentMethodId: 'pm-1', amount: '1000.0000', refundDate: '2026-07-25' }],
       } as any, 'user-1', 'admin');
 
       expect(txExpenseRepo.update).toHaveBeenCalledWith(

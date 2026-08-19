@@ -89,6 +89,9 @@ vi.mock('@/store/api/accountingApi', () => ({
 
 vi.mock('@/store/api/paymentMethodsApi', () => ({
   useGetActivePaymentMethodsForPurchasesQuery: () => ({ data: [] }),
+  useGetActivePaymentMethodsQuery: () => ({
+    data: [{ id: 'pm-1', code: 'CASH', name: 'Cash' }],
+  }),
 }))
 
 const { mockNavigate, mockLocation } = vi.hoisted(() => ({
@@ -761,7 +764,6 @@ describe('ExpensesPage - refund detail loading', () => {
         reference: null,
         sourcePaymentId: null,
         paymentMethod: { id: 'pm-1', code: 'CASH', name: 'Cash' },
-        remainingRefundable: '500.0000',
       },
     ],
   }

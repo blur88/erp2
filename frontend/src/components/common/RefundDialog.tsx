@@ -33,16 +33,19 @@ const newId = () =>
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2)
 
-export interface RefundSource {
+export interface RefundMethodOption {
   id: string
   label: string
-  paidAmount: string
-  alreadyRefunded: string
+}
+
+export interface RefundSeed {
+  methodId: string
+  amount: string
 }
 
 interface RefundLine {
   id: string
-  sourceId: string
+  paymentMethodId: string
   amount: string
   reference: string
   date: string
@@ -51,15 +54,14 @@ interface RefundLine {
 interface RefundDialogProps {
   open: boolean
   onClose: () => void
-  onSubmit: (lines: { sourceId: string; amount: string; reference?: string; date?: string }[]) => Promise<void>
-  sources: RefundSource[]
+  onSubmit: (lines: { paymentMethodId: string; amount: string; reference?: string; date?: string }[]) => Promise<void>
+  methods: RefundMethodOption[]
+  seedAllocations: RefundSeed[]
+  availableForRefund: string
+  seedTarget: string
   orderNumber: string
-  totalAmount: string
   title?: string
   showDateField?: boolean
-  /** Optional: no consumer needs it today (sources come from the already-loaded
-   *  parent entity), but the shared spinner presentation is ready if refund
-   *  sources ever become async. */
   loading?: boolean
 }
 
@@ -67,32 +69,31 @@ export default function RefundDialog({
   open,
   onClose,
   onSubmit,
-  sources,
+  methods,
+  seedAllocations,
+  availableForRefund,
+  seedTarget,
   orderNumber,
-  totalAmount,
   title,
   showDateField,
   loading = false,
 }: RefundDialogProps) {
-  const totalPaidMinor = sumScaledAmounts(sources.map((s) => s.paidAmount)) ?? 0n
-  const alreadyRefundedMinor = sumScaledAmounts(sources.map((s) => s.alreadyRefunded)) ?? 0n
+  const availableMinor0 = toScaledAmount(availableForRefund) ?? 0n
+  const availableMinor = availableMinor0 > 0n ? availableMinor0 : 0n
 
-  const netPaidMinor = totalPaidMinor - alreadyRefundedMinor
-  const availableMinor = netPaidMinor > 0n ? netPaidMinor : 0n
-  const surplusMinor = netPaidMinor - (toScaledAmount(totalAmount) ?? 0n)
-  const hasSurplus = surplusMinor > 0n
-
-  // Per-source amount still available to refund (paid minus what was already refunded).
-  const sourceAvailableMinor = useCallback(
-    (sourceId: string): bigint => {
-      const source = sources.find((s) => s.id === sourceId)
-      if (!source) return 0n
-      const available =
-        (toScaledAmount(source.paidAmount) ?? 0n) - (toScaledAmount(source.alreadyRefunded) ?? 0n)
-      return available > 0n ? available : 0n
-    },
-    [sources],
-  )
+  // seedTarget is the amount the preset sums to: the surplus on an overpaid
+  // document, otherwise the full available. Callers compute it because they hold
+  // the document total. Clamped defensively — a caller passing more than the cap
+  // must not pre-fill an over-refund.
+  const seedTargetRaw = toScaledAmount(seedTarget) ?? availableMinor
+  const seedTargetMinor =
+    seedTargetRaw < 0n ? 0n : seedTargetRaw > availableMinor ? availableMinor : seedTargetRaw
+  // The surplus IS the seed target on an overpaid document — callers compute it
+  // from the document total, which the dialog no longer receives. Deriving it as
+  // (available - target) yields the complement instead: a 300 document paid 400
+  // has a 100 surplus, not 300.
+  const hasSurplus = seedTargetMinor < availableMinor
+  const surplusMinor = seedTargetMinor
 
   const [lines, setLines] = useState<RefundLine[]>([])
   const [submitting, setSubmitting] = useState(false)
@@ -111,45 +112,57 @@ export default function RefundDialog({
 
   useEffect(() => {
     if (!open || lines.length > 0) return
-    if (sources.length === 0) return
-    // Default one line per source with availableForRefund > 0
-    const positiveSources = sources.filter((s) => sourceAvailableMinor(s.id) > 0n)
-    if (positiveSources.length > 0) {
-      const refundTargetMinor = hasSurplus ? surplusMinor : availableMinor
-      // Largest-remainder so the seeded lines sum to exactly the target: half-up
-      // per line would overshoot a surplus (three equal sources sharing 50.0000
-      // seed 16.6667 each = 50.0001) and silently pre-fill an over-refund.
-      const allocations = allocateByLargestRemainder(
-        positiveSources.map((s) => sourceAvailableMinor(s.id)),
-        refundTargetMinor,
-      )
+    // Seeding is one-shot (guarded by lines.length above), so seeding before the
+    // payment records arrive locks in a blank line forever. Methods are cached
+    // across rows and resolve first, so this is the common path, not a rare race.
+    if (loading) return
+    if (seedAllocations.length === 0 && methods.length === 0) return
+
+    const defaultDate = showDateField ? getCurrentDate() : ''
+
+    // A method used historically may since have been deactivated or deleted, and
+    // the picker only lists active ones. Seeding its id would preselect an
+    // out-of-range value and submit an id the backend rejects as inactive, so
+    // fold that weight onto the first active method instead.
+    const activeIds = new Set(methods.map((m) => m.id))
+    const fallbackId = methods[0]?.id ?? ''
+    const mergedWeights = new Map<string, bigint>()
+    for (const s of seedAllocations) {
+      const amount = toScaledAmount(s.amount) ?? 0n
+      if (amount <= 0n) continue
+      const methodId = activeIds.has(s.methodId) ? s.methodId : fallbackId
+      if (!methodId) continue
+      mergedWeights.set(methodId, (mergedWeights.get(methodId) ?? 0n) + amount)
+    }
+    const reconciled = [...mergedWeights].map(([methodId, amount]) => ({ methodId, amount }))
+    const weights = reconciled.map((s) => s.amount)
+
+    // Gross weights are a SHAPE, not caps: they always sum to >= seedTargetMinor
+    // (gross paid >= net available >= seed target), so allocateByLargestRemainder's
+    // per-weight cap never engages here. Prior refunds are deliberately excluded —
+    // netting them per method can go negative and is not a valid preset (#1096).
+    const allocations = allocateByLargestRemainder(weights, seedTargetMinor)
+
+    if (reconciled.length > 0) {
       setLines(
-        positiveSources.map((s, index) => {
-          const scaledMinor = allocations[index]
-          const defaultDate = showDateField ? getCurrentDate() : ''
-          return {
-            id: newId(),
-            sourceId: s.id,
-            amount: scaledMinor > 0n ? toAmountInputValue(fromScaledAmount(scaledMinor)) : '',
-            reference: '',
-            date: defaultDate,
-          }
-        }),
-      )
-    } else {
-      const defaultDate = showDateField ? getCurrentDate() : ''
-      // Default a single line for the first source
-      setLines([
-        {
+        reconciled.map((s, index) => ({
           id: newId(),
-          sourceId: sources[0].id,
-          amount: availableMinor > 0n ? toAmountInputValue(fromScaledAmount(availableMinor)) : '',
+          paymentMethodId: s.methodId,
+          amount: allocations[index] > 0n ? toAmountInputValue(fromScaledAmount(allocations[index])) : '',
           reference: '',
           date: defaultDate,
-        },
-      ])
+        })),
+      )
+    } else {
+      setLines([{
+        id: newId(),
+        paymentMethodId: methods[0]?.id ?? '',
+        amount: seedTargetMinor > 0n ? toAmountInputValue(fromScaledAmount(seedTargetMinor)) : '',
+        reference: '',
+        date: defaultDate,
+      }])
     }
-  }, [open, sources, lines.length, availableMinor, surplusMinor, hasSurplus])
+  }, [open, seedAllocations, methods, lines.length, seedTargetMinor, showDateField, loading])
 
   const enteredMinor = sumScaledAmounts(lines.map((l) => l.amount))
   const hasInvalidAmount = enteredMinor === null
@@ -173,13 +186,13 @@ export default function RefundDialog({
       ...prev,
       {
         id: newId(),
-        sourceId: sources[0]?.id || '',
+        paymentMethodId: methods[0]?.id || '',
         amount: remainingAfterRefundMinor > 0n ? toAmountInputValue(fromScaledAmount(remainingAfterRefundMinor)) : '',
         reference: '',
         date: defaultDate,
       },
     ])
-  }, [sources, remainingAfterRefundMinor, showDateField])
+  }, [methods, remainingAfterRefundMinor, showDateField])
 
   const removeLine = useCallback((index: number) => {
     setUserHasEdited(true)
@@ -194,7 +207,7 @@ export default function RefundDialog({
     }
     const validLines = lines.filter((l) => {
       const units = toScaledAmount(l.amount)
-      return l.sourceId && units !== null && units > 0n
+      return l.paymentMethodId && units !== null && units > 0n
     })
     if (validLines.length === 0) {
       setError('At least one refund line with a valid amount is required.')
@@ -204,34 +217,27 @@ export default function RefundDialog({
       setError('Refund date is required on every line.')
       return
     }
+    // Guard the id itself, not just the amount: a method deactivated while the
+    // dialog is open would otherwise submit an id the backend rejects as
+    // inactive, surfacing as an opaque server error.
+    const activeMethodIds = new Set(methods.map((m) => m.id))
+    if (validLines.some((l) => !activeMethodIds.has(l.paymentMethodId))) {
+      setError('Every refund line must use an active payment method.')
+      return
+    }
     if (totalEnteredMinor > availableMinor) {
       setError(
         `Total refund (${formatCurrency(fromScaledAmount(totalEnteredMinor))}) exceeds available for refund (${formatCurrency(fromScaledAmount(availableMinor))}).`,
       )
       return
     }
-    // Per-source guard: each source can only be refunded up to its own available
-    // amount. The aggregate check above can pass while a single source is
-    // over-refunded (offset by surplus on another), which the backend rejects.
-    const enteredBySource = validLines.reduce<Record<string, bigint>>((acc, l) => {
-      acc[l.sourceId] = (acc[l.sourceId] ?? 0n) + (toScaledAmount(l.amount) ?? 0n)
-      return acc
-    }, {})
-    for (const [sourceId, entered] of Object.entries(enteredBySource)) {
-      const available = sourceAvailableMinor(sourceId)
-      if (entered > available) {
-        const label = sources.find((s) => s.id === sourceId)?.label || 'source'
-        setError(
-          `Refund for ${label} (${formatCurrency(fromScaledAmount(entered))}) exceeds its available amount (${formatCurrency(fromScaledAmount(available))}).`,
-        )
-        return
-      }
-    }
+    // The aggregate check above is the only monetary validation: refunds may
+    // exceed any single method's paid amount as long as the total fits (#1096).
     setSubmitting(true)
     try {
       await onSubmit(
         validLines.map((l) => ({
-          sourceId: l.sourceId,
+          paymentMethodId: l.paymentMethodId,
           amount: l.amount,
           reference: l.reference || undefined,
           ...(showDateField && l.date ? { date: l.date } : {}),
@@ -351,22 +357,18 @@ export default function RefundDialog({
         >
           <FormControl size="small" sx={{ minWidth: 130 }}>
             <Select
-              value={line.sourceId}
-              onChange={(e) => updateLine(index, 'sourceId', e.target.value)}
+              value={line.paymentMethodId}
+              onChange={(e) => updateLine(index, 'paymentMethodId', e.target.value)}
               displayEmpty
-              inputProps={{ 'aria-label': `Refund source, line ${index + 1}` }}
+              inputProps={{ 'aria-label': `Refund method, line ${index + 1}` }}
               sx={{ fontSize: '0.85rem' }}
             >
-              <MenuItem value="" disabled>Source</MenuItem>
-              {sources
-                // Only offer sources with something left to refund, but always keep
-                // the line's current selection renderable (avoids an out-of-range value).
-                .filter((s) => sourceAvailableMinor(s.id) > 0n || s.id === line.sourceId)
-                .map((s) => (
-                  <MenuItem key={s.id} value={s.id} sx={{ fontSize: '0.85rem' }}>
-                    {s.label}
-                  </MenuItem>
-                ))}
+              <MenuItem value="" disabled>Method</MenuItem>
+              {methods.map((m) => (
+                <MenuItem key={m.id} value={m.id} sx={{ fontSize: '0.85rem' }}>
+                  {m.label}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
 

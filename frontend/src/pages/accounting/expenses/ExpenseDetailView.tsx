@@ -8,7 +8,7 @@ import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { DataTable, type Column } from '@/components/common/DataTable'
 import PageHeader from '@/components/common/PageHeader'
 import PaymentDialog from '@/components/common/PaymentDialog'
-import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
+import RefundDialog, { type RefundSeed } from '@/components/common/RefundDialog'
 import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useNotification } from '@/hooks/useNotification'
@@ -19,7 +19,10 @@ import {
   usePayExpenseMutation,
   useRefundExpenseMutation,
 } from '@/store/api/accountingApi'
-import { useGetActivePaymentMethodsForPurchasesQuery } from '@/store/api/paymentMethodsApi'
+import {
+  useGetActivePaymentMethodsQuery,
+  useGetActivePaymentMethodsForPurchasesQuery,
+} from '@/store/api/paymentMethodsApi'
 import type { Expense, ExpensePaymentRow } from '@/types'
 import { toScaledAmount, fromScaledAmount } from '@/utils/currency'
 import { formatCurrency, formatDate } from '@/utils/formatters'
@@ -79,21 +82,35 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
   const { data: paymentMethods = [], isLoading: methodsLoading } =
     useGetActivePaymentMethodsForPurchasesQuery(undefined, { skip: !payDialogOpen })
 
-  const refundSources: RefundSource[] = useMemo(() => {
-    if (!expense.payments) return []
-    return expense.payments
-      .filter((p) => (toScaledAmount(p.amount) ?? 0n) > 0n)
-      .map((p) => ({
-        id: p.id,
-        label: p.paymentMethod?.name ?? 'Payment',
-        paidAmount: fromScaledAmount(toScaledAmount(p.amount) ?? 0n),
-        alreadyRefunded: fromScaledAmount(
-          p.remainingRefundable
-            ? (toScaledAmount(p.amount) ?? 0n) - (toScaledAmount(p.remainingRefundable) ?? 0n)
-            : 0n,
-        ),
-      }))
+  // Refunds may use ANY active method regardless of useForPurchases (#1096),
+  // so this is a second, unfiltered query — it cannot share the Pay one.
+  const { data: refundMethods = [], isLoading: refundMethodsLoading } =
+    useGetActivePaymentMethodsQuery(undefined, { skip: !refundDialogOpen })
+
+  // Gross payments grouped by method — refunds (negative rows) are excluded, and
+  // prior refunds reduce only the aggregate cap (#1096).
+  const seedAllocations: RefundSeed[] = useMemo(() => {
+    const grossByMethod = new Map<string, bigint>()
+    for (const p of expense.payments ?? []) {
+      const amt = toScaledAmount(p.amount) ?? 0n
+      if (amt <= 0n) continue
+      grossByMethod.set(p.paymentMethodId, (grossByMethod.get(p.paymentMethodId) ?? 0n) + amt)
+    }
+    return [...grossByMethod].map(([methodId, amount]) => ({
+      methodId,
+      amount: fromScaledAmount(amount),
+    }))
   }, [expense])
+
+  const netPaidMinor = useMemo(
+    () => (expense.payments ?? []).reduce((sum, p) => sum + (toScaledAmount(p.amount) ?? 0n), 0n),
+    [expense],
+  )
+  const availableForRefund = fromScaledAmount(netPaidMinor > 0n ? netPaidMinor : 0n)
+  const surplusMinor = netPaidMinor - (toScaledAmount(expense.totalAmount) ?? 0n)
+  const seedTarget = fromScaledAmount(
+    surplusMinor > 0n ? surplusMinor : netPaidMinor > 0n ? netPaidMinor : 0n,
+  )
 
   const handlePaySubmit = useCallback(
     async (payments: { paymentMethodId: string; amount: string; paymentDate: string; reference?: string }[]) => {
@@ -115,13 +132,13 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
   )
 
   const handleRefundSubmit = useCallback(
-    async (lines: { sourceId: string; amount: string; reference?: string; date?: string }[]) => {
+    async (lines: { paymentMethodId: string; amount: string; reference?: string; date?: string }[]) => {
       try {
         await refundExpense({
           id: expense.id,
           data: {
             refunds: lines.map((l) => ({
-              sourcePaymentId: l.sourceId,
+              paymentMethodId: l.paymentMethodId,
               amount: l.amount,
               reference: l.reference,
               refundDate: l.date as string,
@@ -357,12 +374,16 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
 
       {refundDialogOpen && (
         <RefundDialog
+          methods={refundMethods.map((m) => ({ id: m.id, label: m.name }))}
+          seedAllocations={seedAllocations}
+          availableForRefund={availableForRefund}
+          seedTarget={seedTarget}
+          loading={refundMethodsLoading}
           open
           onClose={() => setRefundDialogOpen(false)}
           onSubmit={handleRefundSubmit}
-          sources={refundSources}
           orderNumber={expense.expenseNumber}
-          totalAmount={expense.totalAmount}
+          title={`Refund — ${expense.expenseNumber}`}
           showDateField
         />
       )}

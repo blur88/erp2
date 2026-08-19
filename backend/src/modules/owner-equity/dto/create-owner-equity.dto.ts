@@ -131,9 +131,9 @@ export class SettleOwnerEquityDto {
 }
 
 export class RefundOwnerEquityLineDto {
-  @ApiProperty({ description: 'Source settlement row this refund offsets' })
+  @ApiProperty({ description: 'Active payment method this refund is paid through' })
   @IsUUID()
-  sourceSettlementId: string;
+  paymentMethodId: string;
 
   @ApiProperty({ description: 'Refund amount', example: '100.0000' })
   @IsMoneyAtLeast('0.0000')

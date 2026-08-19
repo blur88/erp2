@@ -1,31 +1,26 @@
-import type { RefundSource } from '@/components/common/RefundDialog'
+import type { RefundSeed } from '@/components/common/RefundDialog'
 import type { VendorPayment } from '@/types'
 import { toScaledAmount, fromScaledAmount } from '@/utils/currency'
 
-export function buildPoRefundSources(payments: VendorPayment[]): RefundSource[] {
-  const netByMethod: Record<string, { paid: bigint; refunded: bigint; label: string }> = {}
+/** Gross payments grouped by method — seed weights only. Refund rows (negative)
+ *  are excluded; prior refunds reduce the aggregate cap instead (#1096). */
+export function buildPoRefundSeed(payments: VendorPayment[]): RefundSeed[] {
+  const grossByMethod = new Map<string, bigint>()
   for (const p of payments ?? []) {
     if (!p.paymentMethodId) continue
-    const key = p.paymentMethodId
-    const entry = (netByMethod[key] ??= {
-      paid: 0n,
-      refunded: 0n,
-      label: p.paymentMethodEntity?.name ?? 'Payment',
-    })
     const amt = toScaledAmount(p.amount) ?? 0n
-    if (amt >= 0n) entry.paid += amt
-    else entry.refunded += -amt
+    if (amt <= 0n) continue
+    grossByMethod.set(p.paymentMethodId, (grossByMethod.get(p.paymentMethodId) ?? 0n) + amt)
   }
-  return Object.entries(netByMethod).map(([id, v]) => ({
-    id,
-    label: v.label,
-    paidAmount: fromScaledAmount(v.paid),
-    alreadyRefunded: fromScaledAmount(v.refunded),
-  }))
+  return [...grossByMethod].map(([methodId, amount]) => ({ methodId, amount: fromScaledAmount(amount) }))
+}
+
+export function poNetPaidMinor(payments: VendorPayment[]): bigint {
+  return (payments ?? []).reduce((s, p) => s + (toScaledAmount(p.amount) ?? 0n), 0n)
 }
 
 export function toPoRefundPayload(
-  lines: { sourceId: string; amount: string; reference?: string }[],
+  lines: { paymentMethodId: string; amount: string; reference?: string }[],
 ): { paymentMethodId: string; amount: string; reference?: string }[] {
-  return lines.map((l) => ({ paymentMethodId: l.sourceId, amount: l.amount, reference: l.reference }))
+  return lines.map((l) => ({ paymentMethodId: l.paymentMethodId, amount: l.amount, reference: l.reference }))
 }

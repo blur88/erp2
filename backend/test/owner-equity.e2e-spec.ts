@@ -142,7 +142,7 @@ describe('Owner Equity (e2e)', () => {
 
   let ref: string;
   let stockRef: string;
-  const oneRefund: { refunds: Array<{ sourceSettlementId: string; amount: string; refundDate: string }> } = { refunds: [] };
+  const oneRefund: { refunds: Array<{ paymentMethodId: string; amount: string; refundDate: string }> } = { refunds: [] };
 
   // Logged in ONCE below: /auth/login is throttled to 5 req/min
   // (auth.controller.ts:41), so a per-test login would 403 under CI timing.
@@ -324,7 +324,7 @@ describe('Owner Equity (e2e)', () => {
     const doc = (await get(`/accounting/owner-equity/${ref}`)).body.data;
     expect(doc.documentStatus).toBe('COMPLETED');
     const source = doc.settlements.find((s: any) => toMinorUnits(s.amount) > 0n);
-    oneRefund.refunds = [{ sourceSettlementId: source.id, amount: '1000.0000', refundDate: '2026-08-16' }];
+    oneRefund.refunds = [{ paymentMethodId: cashMethodId, amount: '1000.0000', refundDate: '2026-08-16' }];
     await post(`/accounting/owner-equity/${ref}/refund`, oneRefund).expect(201);
 
     const refunded = (await get(`/accounting/owner-equity/${ref}`)).body.data;

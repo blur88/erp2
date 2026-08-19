@@ -1,14 +1,15 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import RefundDialog, { type RefundSource } from '../RefundDialog'
+import RefundDialog, { type RefundMethodOption, type RefundSeed } from '../RefundDialog'
 import { toScaledAmount, fromScaledAmount } from '@/utils/currency'
 
-const sources: RefundSource[] = [
-  { id: 'pm-1', label: 'Cash', paidAmount: '500.0000', alreadyRefunded: '0.0000' },
-  { id: 'pm-2', label: 'Bank Transfer', paidAmount: '0.0000', alreadyRefunded: '0.0000' },
+const methods: RefundMethodOption[] = [
+  { id: 'pm-1', label: 'Cash' },
+  { id: 'pm-2', label: 'Bank Transfer' },
+  { id: 'pm-3', label: 'Card' },
 ]
 
 function renderDialog(props: Partial<ComponentProps<typeof RefundDialog>> = {}) {
@@ -16,9 +17,11 @@ function renderDialog(props: Partial<ComponentProps<typeof RefundDialog>> = {}) 
     open: true,
     onClose: vi.fn(),
     onSubmit: vi.fn().mockResolvedValue(undefined),
-    sources,
+    methods,
+    seedAllocations: [{ methodId: 'pm-1', amount: '500.0000' }] as RefundSeed[],
+    availableForRefund: '500.0000',
+    seedTarget: '500.0000',
     orderNumber: 'SO-26-001',
-    totalAmount: '500.0000',
   }
   return render(<RefundDialog {...defaults} {...props} />)
 }
@@ -29,17 +32,13 @@ beforeEach(() => {
 
 describe('RefundDialog', () => {
   it('displays Available for Refund in summary', () => {
-    renderDialog({
-      sources: [{ id: 'pm-1', label: 'Cash', paidAmount: '500.0000', alreadyRefunded: '100.0000' }],
-    })
+    renderDialog()
     expect(screen.getByText('Available for Refund')).toBeInTheDocument()
   })
 
-  it('Available for Refund shows net paid minus prior refunds', () => {
-    renderDialog({
-      sources: [{ id: 'pm-1', label: 'Cash', paidAmount: '500.0000', alreadyRefunded: '100.0000' }],
-    })
-    // Available = 500 - 100 = 400
+  it('Available for Refund shows the aggregate passed by the caller', () => {
+    renderDialog({ availableForRefund: '400.0000', seedTarget: '400.0000' })
+    // Available = 400, passed straight through (no per-method netting).
     expect(screen.getAllByText(/400/).length).toBeGreaterThan(0)
   })
 
@@ -50,18 +49,18 @@ describe('RefundDialog', () => {
   })
 
   it('defaults refund amount to the surplus on an overpaid order', () => {
-    renderDialog({ totalAmount: '300.0000' })
+    renderDialog({ availableForRefund: '500.0000', seedTarget: '200.0000' })
     const amountInput = screen.getByPlaceholderText('Amount') as HTMLInputElement
     expect(amountInput.value).toBe('200.00')
   })
 
   it('shows a Surplus over total row when the order is overpaid', () => {
-    renderDialog({ totalAmount: '300.0000' })
+    renderDialog({ availableForRefund: '500.0000', seedTarget: '200.0000' })
     expect(screen.getByText('Surplus over total')).toBeInTheDocument()
   })
 
   it('hides the Surplus over total row when the order is exactly paid', () => {
-    renderDialog({ totalAmount: '500.0000' })
+    renderDialog()
     expect(screen.queryByText('Surplus over total')).not.toBeInTheDocument()
   })
 
@@ -80,16 +79,12 @@ describe('RefundDialog', () => {
   })
 
   it('Refund button is disabled when total entered is 0', () => {
-    renderDialog({
-      sources: [{ id: 'pm-1', label: 'Cash', paidAmount: '500.0000', alreadyRefunded: '500.0000' }],
-    })
+    renderDialog({ availableForRefund: '0.0000', seedTarget: '0.0000' })
     expect(screen.getByRole('button', { name: /^refund$/i })).toBeDisabled()
   })
 
   it('Refund button is disabled when total exceeds available', async () => {
-    renderDialog({
-      sources: [{ id: 'pm-1', label: 'Cash', paidAmount: '300.0000', alreadyRefunded: '0.0000' }],
-    })
+    renderDialog({ availableForRefund: '300.0000', seedTarget: '300.0000' })
     const amountInput = screen.getByPlaceholderText('Amount')
     await userEvent.clear(amountInput)
     await userEvent.type(amountInput, '400')
@@ -97,9 +92,7 @@ describe('RefundDialog', () => {
   })
 
   it('shows error alert when total exceeds available', async () => {
-    renderDialog({
-      sources: [{ id: 'pm-1', label: 'Cash', paidAmount: '300.0000', alreadyRefunded: '0.0000' }],
-    })
+    renderDialog({ availableForRefund: '300.0000', seedTarget: '300.0000' })
     const amountInput = screen.getByPlaceholderText('Amount')
     await userEvent.clear(amountInput)
     await userEvent.type(amountInput, '400')
@@ -133,7 +126,7 @@ describe('RefundDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: /^refund$/i }))
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce())
     expect(onSubmit).toHaveBeenCalledWith([
-      expect.objectContaining({ sourceId: 'pm-1', amount: '200' }),
+      expect.objectContaining({ paymentMethodId: 'pm-1', amount: '200' }),
     ])
   })
 
@@ -149,74 +142,72 @@ describe('RefundDialog', () => {
     expect(onClose).not.toHaveBeenCalled()
   })
 
-  it('pre-fills multiple refund lines when multiple sources have positive net', async () => {
+  it('pre-fills multiple refund lines when multiple methods have positive gross', async () => {
     renderDialog({
-      sources: [
-        { id: 'pm-1', label: 'Cash', paidAmount: '300.0000', alreadyRefunded: '0.0000' },
-        { id: 'pm-2', label: 'Bank Transfer', paidAmount: '200.0000', alreadyRefunded: '0.0000' },
+      seedAllocations: [
+        { methodId: 'pm-1', amount: '300.0000' },
+        { methodId: 'pm-2', amount: '200.0000' },
       ],
+      availableForRefund: '500.0000',
+      seedTarget: '500.0000',
     })
     await waitFor(() => {
       expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(2)
     })
   })
 
-  it('two-source order produces two correctly-keyed lines', async () => {
+  it('two-method order produces two correctly-keyed lines', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined)
     renderDialog({
-      sources: [
-        { id: 'src-a', label: 'Cash', paidAmount: '300.0000', alreadyRefunded: '0.0000' },
-        { id: 'src-b', label: 'Bank Transfer', paidAmount: '200.0000', alreadyRefunded: '0.0000' },
+      seedAllocations: [
+        { methodId: 'pm-1', amount: '300.0000' },
+        { methodId: 'pm-2', amount: '200.0000' },
       ],
+      availableForRefund: '500.0000',
+      seedTarget: '500.0000',
       onSubmit,
     })
     await userEvent.click(screen.getByRole('button', { name: /^refund$/i }))
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
     const lines = onSubmit.mock.calls[0][0]
     expect(lines).toHaveLength(2)
-    expect(lines[0]).toHaveProperty('sourceId', 'src-a')
-    expect(lines[1]).toHaveProperty('sourceId', 'src-b')
+    expect(lines[0]).toHaveProperty('paymentMethodId', 'pm-1')
+    expect(lines[1]).toHaveProperty('paymentMethodId', 'pm-2')
   })
 
-  it('does not offer a zero-available source in the picker', async () => {
-    // pm-2 has paidAmount 0 -> nothing left to refund -> must not be selectable.
-    renderDialog({
-      sources: [
-        { id: 'pm-1', label: 'Cash', paidAmount: '500.0000', alreadyRefunded: '0.0000' },
-        { id: 'pm-2', label: 'Bank Transfer', paidAmount: '0.0000', alreadyRefunded: '0.0000' },
-      ],
-    })
-    // Open the source Select (first combobox).
-    await userEvent.click(screen.getAllByRole('combobox')[0])
-    const options = await screen.findAllByRole('option')
-    const labels = options.map((o) => o.textContent)
-    expect(labels).toContain('Cash')
-    expect(labels).not.toContain('Bank Transfer')
-  })
-
-  it('rejects a line that exceeds its own source available even if total fits', async () => {
-    // Two sources, 300 + 200 = 500 total available. A single 400 refund against
-    // the 300 source fits the aggregate (400 <= 500) but over-refunds that source.
+  it('allows refunding more through one method than that method paid', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined)
+    // Paid 100 Cash + 900 Bank. Refund 200 entirely through Cash.
     renderDialog({
-      sources: [
-        { id: 'src-a', label: 'Cash', paidAmount: '300.0000', alreadyRefunded: '0.0000' },
-        { id: 'src-b', label: 'Bank Transfer', paidAmount: '200.0000', alreadyRefunded: '0.0000' },
-      ],
-    totalAmount: '500.0000',
       onSubmit,
+      methods,
+      seedAllocations: [
+        { methodId: 'pm-1', amount: '100.0000' },
+        { methodId: 'pm-2', amount: '900.0000' },
+      ],
+      availableForRefund: '1000.0000',
+      seedTarget: '1000.0000',
     })
-    // Two lines pre-fill (300 + 200). Zero out the second (src-b) so it is
-    // filtered as an invalid line and the aggregate becomes just src-a's 400
-    // (<= 500 total), but 400 > src-a's own 300 available.
-    const amounts = screen.getAllByPlaceholderText('Amount')
+
+    const amounts = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]
     await userEvent.clear(amounts[0])
-    await userEvent.type(amounts[0], '400')
+    await userEvent.type(amounts[0], '200')
     await userEvent.clear(amounts[1])
-    await userEvent.click(screen.getByRole('button', { name: /^refund$/i }))
-    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
-    expect(screen.getByRole('alert').textContent).toMatch(/exceeds its available amount/i)
-    expect(onSubmit).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Refund' }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith([
+      { paymentMethodId: 'pm-1', amount: '200', reference: undefined },
+    ]))
+  })
+
+  it('offers every active method, including ones absent from the seed', async () => {
+    // MUI renders Select options only once the popover is open, so click first.
+    // (Popover hit-testing is unreliable in jsdom; the browser pass in Task 11
+    //  re-checks the picker for real.)
+    renderDialog({ seedAllocations: [{ methodId: 'pm-1', amount: '500.0000' }] })
+    await userEvent.click(screen.getByLabelText('Refund method, line 1'))
+    expect(await screen.findByRole('option', { name: 'Card' })).toBeInTheDocument()
   })
 
   describe('showDateField', () => {
@@ -277,12 +268,10 @@ describe('money formatting and precision', () => {
     expect(input.value).toBe('500.00')
   })
 
-  it('computes available for refund exactly', () => {
-    // 0.3 - 0.1 drifts under Number(); must be exactly 0.2000.
-    renderDialog({
-      totalAmount: '0.3000',
-      sources: [{ id: 'pm-1', label: 'Cash', paidAmount: '0.3000', alreadyRefunded: '0.1000' }],
-    })
+  it('passes the available amount through exactly', () => {
+    // 0.3 - 0.1 drifts under Number(); the caller computes it with bigints and
+    // the dialog must not re-derive it.
+    renderDialog({ availableForRefund: '0.2000', seedTarget: '0.2000' })
     const input = screen.getByPlaceholderText('Amount') as HTMLInputElement
     expect(input.value).toBe('0.20')
   })
@@ -334,53 +323,25 @@ describe('money formatting and precision', () => {
     expect(screen.getByRole('button', { name: /^refund$/i })).toBeDisabled()
   })
 
-  it('blocks an aggregate refund one minor unit above the available amount', async () => {
-    renderDialog()
-    const input = screen.getByPlaceholderText('Amount')
-    await userEvent.clear(input)
-    await userEvent.type(input, '500.0001')
-    expect(screen.getByRole('button', { name: /^refund$/i })).toBeDisabled()
-  })
-
-  // The aggregate check can pass while one source is over-refunded, offset by
-  // surplus on another. The backend rejects that, so the dialog must too.
-  it('rejects a per-source over-refund even when the aggregate passes', async () => {
-    const onSubmit = vi.fn().mockResolvedValue(undefined)
-    renderDialog({
-      onSubmit,
-      totalAmount: '100.0000',
-      sources: [
-        { id: 'pm-1', label: 'Cash', paidAmount: '50.0000', alreadyRefunded: '0.0000' },
-        { id: 'pm-2', label: 'Bank Transfer', paidAmount: '50.0000', alreadyRefunded: '0.0000' },
-      ],
-    })
-
-    // Two sources auto-seed two correctly-keyed rows (see the existing
-    // 'two-source order produces two correctly-keyed lines' test).
-    await waitFor(() => expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(2))
-
-    // Aggregate 100.0000 == available 100.0000, but Cash alone exceeds its 50.0000.
-    const inputs = screen.getAllByPlaceholderText('Amount')
-    await userEvent.clear(inputs[0])
-    await userEvent.type(inputs[0], '60.0000')
-    await userEvent.clear(inputs[1])
-    await userEvent.type(inputs[1], '40.0000')
-    await userEvent.click(screen.getByRole('button', { name: /^refund$/i }))
-
-    expect(onSubmit).not.toHaveBeenCalled()
-    expect(screen.getByText(/exceeds its available amount/i)).toBeInTheDocument()
+  it('still blocks an aggregate refund above available', async () => {
+    renderDialog({ availableForRefund: '500.0000', seedTarget: '500.0000' })
+    const amount = screen.getByPlaceholderText('Amount') as HTMLInputElement
+    await userEvent.clear(amount)
+    await userEvent.type(amount, '500.01')
+    expect(screen.getByRole('button', { name: 'Refund' })).toBeDisabled()
   })
 
   // Half-up per line seeded 16.6667 x3 = 50.0001 against a 50.0000 surplus, so a
   // user clicking straight through pre-filled an over-refund by one minor unit.
   it('seeds an indivisible surplus so the lines sum to exactly the surplus', async () => {
     renderDialog({
-      totalAmount: '250.0000',
-      sources: [
-        { id: 'pm-1', label: 'Cash', paidAmount: '100.0000', alreadyRefunded: '0.0000' },
-        { id: 'pm-2', label: 'Bank Transfer', paidAmount: '100.0000', alreadyRefunded: '0.0000' },
-        { id: 'pm-3', label: 'Card', paidAmount: '100.0000', alreadyRefunded: '0.0000' },
+      seedAllocations: [
+        { methodId: 'pm-1', amount: '100.0000' },
+        { methodId: 'pm-2', amount: '100.0000' },
+        { methodId: 'pm-3', amount: '100.0000' },
       ],
+      availableForRefund: '300.0000',
+      seedTarget: '50.0000',
     })
 
     await waitFor(() => expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(3))
@@ -395,42 +356,139 @@ describe('money formatting and precision', () => {
     expect(fromScaledAmount(totalMinor)).toBe('50.0000')
   })
 
-  it('seeds each source at its own amount when refunding the full available', async () => {
+  it('seeds gross weights scaled to seedTarget, ignoring prior refunds by method', () => {
+    // Gross 100 Cash + 200 Bank; 150 already refunded by Card => available 150.
     renderDialog({
-      totalAmount: '300.0000',
-      sources: [
-        { id: 'pm-1', label: 'Cash', paidAmount: '100.0000', alreadyRefunded: '0.0000' },
-        { id: 'pm-2', label: 'Bank Transfer', paidAmount: '200.0000', alreadyRefunded: '0.0000' },
+      seedAllocations: [
+        { methodId: 'pm-1', amount: '100.0000' },
+        { methodId: 'pm-2', amount: '200.0000' },
       ],
+      availableForRefund: '150.0000',
+      seedTarget: '150.0000',
     })
-
-    await waitFor(() => expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(2))
-    const values = (screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]).map(
-      (i) => i.value,
-    )
-
-    // Exactly paid, so no surplus: each line seeds its full per-source available.
-    expect(values).toEqual(['100.00', '200.00'])
+    const amounts = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]
+    expect(amounts[0].value).toBe('50.00')
+    expect(amounts[1].value).toBe('100.00')
   })
 
-  it('never seeds a source above its own available amount', async () => {
+  it('displays the surplus amount, not its complement (#1097 review)', () => {
+    // Document totalling 300 paid 400: surplus is 100. Deriving the display as
+    // (available - seedTarget) showed 300 — the complement — while the seed was
+    // correct, so a row-presence-only assertion could not catch it.
     renderDialog({
-      totalAmount: '0.0000',
-      sources: [
-        { id: 'pm-1', label: 'Cash', paidAmount: '0.0001', alreadyRefunded: '0.0000' },
-        { id: 'pm-2', label: 'Bank Transfer', paidAmount: '100.0000', alreadyRefunded: '0.0000' },
-      ],
+      seedAllocations: [{ methodId: 'pm-1', amount: '400.0000' }],
+      availableForRefund: '400.0000',
+      seedTarget: '100.0000',
     })
+    const surplusRow = screen.getByText('Surplus over total').closest('div')!
+    expect(within(surplusRow).getByText(/100/)).toBeInTheDocument()
+    expect(within(surplusRow).queryByText(/300/)).not.toBeInTheDocument()
+  })
 
-    await waitFor(() => expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(2))
-    const values = (screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]).map(
-      (i) => i.value,
+  it('does not seed a blank line when methods arrive before payments (#1097 review)', async () => {
+    // Methods are cached across rows and resolve first; payments refetch per
+    // document. Seeding is one-shot, so seeding during that window locked in a
+    // blank line permanently.
+    const { rerender } = render(
+      <RefundDialog
+        open
+        onClose={vi.fn()}
+        onSubmit={vi.fn().mockResolvedValue(undefined)}
+        methods={methods}
+        seedAllocations={[]}
+        availableForRefund="0.0000"
+        seedTarget="0.0000"
+        orderNumber="SO-26-001"
+        loading
+      />,
     )
 
-    expect(toScaledAmount(values[0])).toBeLessThanOrEqual(1n)
-    expect(toScaledAmount(values[1])).toBeLessThanOrEqual(1000000n)
-    // Seeded form must pass its own per-source guard.
-    expect(screen.getByRole('button', { name: /^refund$/i })).toBeEnabled()
+    // Payments land: fresh JSX, not a reused element ref (React 19 no-ops on the same ref).
+    rerender(
+      <RefundDialog
+        open
+        onClose={vi.fn()}
+        onSubmit={vi.fn().mockResolvedValue(undefined)}
+        methods={methods}
+        seedAllocations={[{ methodId: 'pm-1', amount: '500.0000' }]}
+        availableForRefund="500.0000"
+        seedTarget="500.0000"
+        orderNumber="SO-26-001"
+        loading={false}
+      />,
+    )
+
+    const amount = (await screen.findByPlaceholderText('Amount')) as HTMLInputElement
+    expect(amount.value).toBe('500.00')
+  })
+
+  it('folds a retired historical method onto an active one (#1097 review)', async () => {
+    // pm-retired paid historically but is no longer active, so it is absent from
+    // the picker. Seeding its id would preselect an out-of-range value and submit
+    // an id the backend rejects as inactive.
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    renderDialog({
+      onSubmit,
+      methods: [{ id: 'pm-1', label: 'Cash' }],
+      seedAllocations: [
+        { methodId: 'pm-retired', amount: '100.0000' },
+        { methodId: 'pm-1', amount: '100.0000' },
+      ],
+      availableForRefund: '200.0000',
+      seedTarget: '200.0000',
+    })
+
+    // Both weights land on the sole active method as one merged line.
+    const amounts = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]
+    expect(amounts).toHaveLength(1)
+    expect(amounts[0].value).toBe('200.00')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Refund' }))
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith([
+        { paymentMethodId: 'pm-1', amount: '200.00', reference: undefined },
+      ]),
+    )
+  })
+
+  it('seeds only the surplus on an overpaid document', () => {
+    // Total 300, gross paid 100 Cash + 300 Bank => available 400, surplus 100.
+    renderDialog({
+      seedAllocations: [
+        { methodId: 'pm-1', amount: '100.0000' },
+        { methodId: 'pm-2', amount: '300.0000' },
+      ],
+      availableForRefund: '400.0000',
+      seedTarget: '100.0000',
+    })
+    const amounts = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]
+    expect(amounts[0].value).toBe('25.00')
+    expect(amounts[1].value).toBe('75.00')
+  })
+
+  it('clamps a seedTarget above availableForRefund', () => {
+    renderDialog({
+      seedAllocations: [{ methodId: 'pm-1', amount: '500.0000' }],
+      availableForRefund: '200.0000',
+      seedTarget: '900.0000',
+    })
+    const amount = screen.getByPlaceholderText('Amount') as HTMLInputElement
+    expect(amount.value).toBe('200.00')
+  })
+
+  it('still allows editing up to the full available on an overpaid document', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    renderDialog({
+      onSubmit,
+      seedAllocations: [{ methodId: 'pm-1', amount: '400.0000' }],
+      availableForRefund: '400.0000',
+      seedTarget: '100.0000',
+    })
+    const amount = screen.getByPlaceholderText('Amount') as HTMLInputElement
+    await userEvent.clear(amount)
+    await userEvent.type(amount, '400')
+    await userEvent.click(screen.getByRole('button', { name: 'Refund' }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
   })
 })
 
@@ -467,7 +525,7 @@ describe('RefundDialog shared shell (#1006)', () => {
 
   it('names every control on the sole line with index 1', () => {
     renderDialog({ showDateField: true })
-    expect(screen.getByLabelText('Refund source, line 1')).toBeInTheDocument()
+    expect(screen.getByLabelText('Refund method, line 1')).toBeInTheDocument()
     expect(screen.getByLabelText('Amount, line 1')).toBeInTheDocument()
     expect(screen.getByLabelText('Refund date, line 1')).toBeInTheDocument()
     expect(screen.getByLabelText('Reference, line 1')).toBeInTheDocument()

@@ -206,7 +206,7 @@ describe('ExpenseService', () => {
       await expect(service.findOne('nonexistent')).rejects.toThrow(NotFoundException);
     });
 
-    it('returns expense with remainingRefundable on positive payment rows', async () => {
+    it('returns expense with payment method entities loaded on rows', async () => {
       const payment1 = { id: 'p1', expenseId: 'exp-1', amount: '1000.0000', paymentDate: '2026-07-20', createdAt: new Date('2026-07-20T10:00:00Z'), sourcePaymentId: null, paymentMethodId: 'pm-1', paymentMethod: { id: 'pm-1', name: 'Cash' } };
       const payment2 = { id: 'p2', expenseId: 'exp-1', amount: '500.0000', paymentDate: '2026-07-21', createdAt: new Date('2026-07-21T10:00:00Z'), sourcePaymentId: null, paymentMethodId: 'pm-2', paymentMethod: { id: 'pm-2', name: 'Bank' } };
       const refund = { id: 'r1', expenseId: 'exp-1', amount: '-200.0000', paymentDate: '2026-07-22', createdAt: new Date('2026-07-22T10:00:00Z'), sourcePaymentId: 'p1', paymentMethodId: 'pm-1', paymentMethod: { id: 'pm-1', name: 'Cash' } };
@@ -236,31 +236,11 @@ describe('ExpenseService', () => {
         expect.objectContaining({ withDeleted: true }),
       );
       const p1: any = result.payments.find((p: any) => p.id === 'p1');
-      expect(p1.remainingRefundable).toBe('800.0000');
       expect(p1.paymentMethod).toEqual(expect.objectContaining({ id: 'pm-1', name: 'Cash' }));
       const p2: any = result.payments.find((p: any) => p.id === 'p2');
-      expect(p2.remainingRefundable).toBe('500.0000');
       expect(p2.paymentMethod).toEqual(expect.objectContaining({ id: 'pm-2', name: 'Bank' }));
       const r1: any = result.payments.find((p: any) => p.id === 'r1');
-      expect(r1.remainingRefundable).toBeUndefined();
-    });
-
-    it('computes remainingRefundable as zero when fully refunded', async () => {
-      const payment = { id: 'p1', expenseId: 'exp-1', amount: '500.0000', paymentDate: '2026-07-20', createdAt: new Date('2026-07-20T10:00:00Z'), sourcePaymentId: null, paymentMethodId: 'pm-1', paymentMethod: { id: 'pm-1', name: 'Cash' } };
-      const refund1 = { id: 'r1', expenseId: 'exp-1', amount: '-300.0000', paymentDate: '2026-07-21', createdAt: new Date('2026-07-21T10:00:00Z'), sourcePaymentId: 'p1', paymentMethodId: 'pm-1', paymentMethod: { id: 'pm-1', name: 'Cash' } };
-      const refund2 = { id: 'r2', expenseId: 'exp-1', amount: '-200.0000', paymentDate: '2026-07-22', createdAt: new Date('2026-07-22T10:00:00Z'), sourcePaymentId: 'p1', paymentMethodId: 'pm-1', paymentMethod: { id: 'pm-1', name: 'Cash' } };
-      expenseRepo.createQueryBuilder = jest.fn().mockReturnValue({
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue({
-          id: 'exp-1', expenseNumber: 'EXP-26-001', payments: [payment, refund1, refund2], expenseAccount: { id: 'acc-1' },
-        }),
-      });
-      const result = await service.findOne('exp-1');
-      const p1: any = result.payments.find((p: any) => p.id === 'p1');
-      expect(p1.remainingRefundable).toBe('0.0000');
+      expect(r1.paymentMethod).toEqual(expect.objectContaining({ id: 'pm-1', name: 'Cash' }));
     });
   });
 

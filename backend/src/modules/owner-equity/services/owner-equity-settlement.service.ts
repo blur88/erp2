@@ -179,89 +179,62 @@ export class OwnerEquitySettlementService {
 
         const settleRepo = manager.getRepository(OwnerEquitySettlement);
 
-        // Group by source so each settled row is validated against its own
-        // refundable remainder.
-        const groups = new Map<string, typeof dto.refunds>();
-        for (const line of dto.refunds) {
-          if (!groups.has(line.sourceSettlementId)) {
-            groups.set(line.sourceSettlementId, []);
-          }
-          groups.get(line.sourceSettlementId)!.push(line);
-        }
-
-        for (const [sourceId] of groups) {
-          const source = await settleRepo.findOne({
-            where: { id: sourceId },
-          } as any);
-          if (
-            !source ||
-            source.equityDocumentId !== doc.id ||
-            source.sourceSettlementId !== null
-          ) {
-            throw new BadRequestException(
-              'Refund source must be a settlement on this document',
-            );
-          }
-        }
-
-        for (const [sourceId, rows] of groups) {
-          const source = (await settleRepo.findOne({
-            where: { id: sourceId },
-          } as any)) as OwnerEquitySettlement;
-
-          const existingRefunds = await settleRepo.find({
-            where: { sourceSettlementId: sourceId },
-          } as any);
-          const priorRefunded = sumMinor(
-            existingRefunds.map((r: any) => r.amount),
+        // Aggregate cap: refunds are negative rows, so the signed sum is net
+        // settled. Counts legacy linked and new unlinked refunds alike.
+        const existingRows = await settleRepo.find({
+          where: { equityDocumentId: doc.id },
+        } as any);
+        const netSettledMinor = sumMinor(existingRows.map((r: any) => r.amount));
+        const totalRefundMinor = sumMinor(dto.refunds.map((r) => r.amount));
+        if (totalRefundMinor > netSettledMinor) {
+          throw new BadRequestException(
+            `Total refund amount (${formatScale4(totalRefundMinor)}) exceeds net settled (${formatScale4(netSettledMinor)})`,
           );
-          const refundedSoFar =
-            priorRefunded < 0n ? -priorRefunded : priorRefunded;
-          const batchSum = sumMinor(rows.map((r) => r.amount));
-          if (refundedSoFar + batchSum > toMinorUnits(source.amount)) {
-            throw new BadRequestException(
-              `Refund total exceeds the refundable amount for settlement ${sourceId}`,
-            );
-          }
+        }
 
-          const method = await manager
-            .getRepository(PaymentMethodEntity)
-            .findOne({
-              where: { id: source.paymentMethodId },
-              withDeleted: true,
-            } as any);
+        // Any active method (#1096) — no useForPurchases filter (that guard stays
+        // on the settle path only), and no withDeleted.
+        const methodCache = new Map<string, PaymentMethodEntity>();
+        for (const line of dto.refunds) {
+          if (methodCache.has(line.paymentMethodId)) continue;
+          const method = await manager.getRepository(PaymentMethodEntity).findOne({
+            where: { id: line.paymentMethodId, isActive: true },
+          } as any);
           if (!method) {
             throw new BadRequestException(
-              `Payment method ${source.paymentMethodId} not found`,
+              `Payment method ${line.paymentMethodId} not found or inactive`,
             );
           }
+          methodCache.set(line.paymentMethodId, method);
+        }
 
-          for (const line of rows) {
-            const refundRow = (await settleRepo.save(
-              settleRepo.create({
-                equityDocumentId: doc.id,
-                paymentMethodId: source.paymentMethodId,
-                settlementDate: line.refundDate,
-                amount: '-' + formatScale4(line.amount),
-                reference: line.reference ?? null,
-                sourceSettlementId: sourceId,
-              } as any),
-            )) as unknown as OwnerEquitySettlement;
-
-            const cmd = {
+        for (const line of dto.refunds) {
+          const method = methodCache.get(line.paymentMethodId)!;
+          const refundRow = (await settleRepo.save(
+            settleRepo.create({
               equityDocumentId: doc.id,
-              settlementRowId: refundRow.id,
-              channel: method.accountingChannel,
-              amount: formatScale4(line.amount),
-              sourceRef: doc.referenceNumber,
-              entryDate: line.refundDate,
-              createdBy: username,
-            };
-            if (doc.type === OwnerEquityType.CAPITAL_INJECTION) {
-              await this.posting.postOwnerCapitalInjectionRefund(cmd, manager);
-            } else {
-              await this.posting.postOwnerCashDrawingRefund(cmd, manager);
-            }
+              paymentMethodId: line.paymentMethodId,
+              settlementDate: line.refundDate,
+              amount: '-' + formatScale4(line.amount),
+              reference: line.reference ?? null,
+              // NULL by design: refunds are identified by amount < 0.
+              sourceSettlementId: null,
+            } as any),
+          )) as unknown as OwnerEquitySettlement;
+
+          const cmd = {
+            equityDocumentId: doc.id,
+            settlementRowId: refundRow.id,
+            channel: method.accountingChannel,
+            amount: formatScale4(line.amount),
+            sourceRef: doc.referenceNumber,
+            entryDate: line.refundDate,
+            createdBy: username,
+          };
+          if (doc.type === OwnerEquityType.CAPITAL_INJECTION) {
+            await this.posting.postOwnerCapitalInjectionRefund(cmd, manager);
+          } else {
+            await this.posting.postOwnerCashDrawingRefund(cmd, manager);
           }
         }
 

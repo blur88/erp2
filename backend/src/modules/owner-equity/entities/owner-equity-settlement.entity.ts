@@ -25,6 +25,10 @@ export class OwnerEquitySettlement extends BaseEntity {
 
   // Self-FK, RESTRICT: a settled row must not be removable while refunds
   // reference it. Indexed above for the refundable-remaining lookup.
+  // Legacy lineage: the settlement a refund offset, for refunds recorded
+  // before cross-method refunds (#1096). NULL on all new rows — a refund is
+  // identified by `amount < 0`, never by this column. Retained for historical
+  // display/audit.
   @Column({ type: 'uuid', nullable: true })
   sourceSettlementId: string | null;
 
