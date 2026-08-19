@@ -25,7 +25,7 @@ import {
   ListOwnerEquityParams,
 } from '../dto/create-owner-equity.dto';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
-import { toMinorUnits, formatScale4, sumMinor } from '@/common/utils/money';
+import { toMinorUnits, formatScale4 } from '@/common/utils/money';
 
 @Injectable()
 export class OwnerEquityService {
@@ -492,20 +492,9 @@ export class OwnerEquityService {
         (s as any).paymentMethod = byId.get(s.paymentMethodId) ?? null;
       }
     }
-    const refunds = settlements.filter((s) => s.sourceSettlementId);
-    for (const s of settlements) {
-      if (!s.sourceSettlementId) {
-        const refunded = sumMinor(
-          refunds
-            .filter((r) => r.sourceSettlementId === s.id)
-            .map((r) => r.amount),
-        );
-        const remaining = toMinorUnits(s.amount) + refunded;
-        (s as any).remainingRefundable = formatScale4(
-          remaining < 0n ? 0n : remaining,
-        );
-      }
-    }
+    // (deleted) remainingRefundable — per-settlement refundable is meaningless
+    // once refunds are not tied to a source settlement (#1096). The aggregate
+    // available-for-refund is computed by the caller from net settled.
 
     return doc;
   }

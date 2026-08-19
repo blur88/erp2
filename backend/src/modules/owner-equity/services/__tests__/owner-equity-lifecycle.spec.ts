@@ -45,7 +45,7 @@ describe('OwnerEquity lifecycle', () => {
   };
   const oneRefund = {
     refunds: [
-      { sourceSettlementId: 'stl-1', refundDate: '2026-08-16', amount: '100.0000' },
+      { paymentMethodId: 'pm-1', refundDate: '2026-08-16', amount: '100.0000' },
     ],
   };
 
@@ -53,9 +53,17 @@ describe('OwnerEquity lifecycle', () => {
     id: 'pm-1', code: 'CASH', name: 'Cash', isActive: true,
     useForPurchases: true, accountingChannel: 'CASH',
   });
+  const bankMethod = () => ({
+    id: 'pm-2', code: 'BANK', name: 'Bank Transfer', isActive: true,
+    useForPurchases: true, accountingChannel: 'BANK',
+  });
   const salesOnlyMethod = () => ({
     id: 'pm-3', code: 'TNG', name: 'TNG', isActive: true,
     useForPurchases: false, accountingChannel: 'CASH',
+  });
+  const retiredMethod = () => ({
+    id: 'pm-9', code: 'OLD', name: 'Retired', isActive: false,
+    useForPurchases: true, accountingChannel: 'CASH',
   });
 
   beforeEach(async () => {
@@ -109,7 +117,10 @@ describe('OwnerEquity lifecycle', () => {
         return savedRows.find((r) => r.id === opts?.where?.id) ?? null;
       }),
     };
-    const pmMap: Record<string, any> = { 'pm-1': cashMethod(), 'pm-3': salesOnlyMethod() };
+    const pmMap: Record<string, any> = {
+      'pm-1': cashMethod(), 'pm-2': bankMethod(),
+      'pm-3': salesOnlyMethod(), 'pm-9': retiredMethod(),
+    };
     txPmRepo = {
       findOne: jest.fn().mockImplementation(async (opts: any) => {
         const method = pmMap[opts.where.id];
@@ -242,7 +253,7 @@ describe('OwnerEquity lifecycle', () => {
 
       await settle.refund(ref, {
         refunds: [
-          { sourceSettlementId: 'stl-1', refundDate: '2026-08-16', amount: '40.0000' },
+          { paymentMethodId: 'pm-1', refundDate: '2026-08-16', amount: '40.0000' },
         ],
       }, 'u1', 'alice');
 
@@ -371,6 +382,96 @@ describe('OwnerEquity lifecycle', () => {
       });
       expect(postingMock.postOwnerCapitalInjection).toHaveBeenCalled();
       expect(postingMock.postOwnerCashDrawing).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('refund guards (#1096)', () => {
+    it('allows refunding more through one method than that method ever settled', async () => {
+      // Settle 100 via pm-1, then refund 100 via pm-3 — a method that settled nothing.
+      await settle.settle(ref, oneLine, 'u1', 'alice');
+      savedRows.length && expect(savedRows[0].paymentMethodId).toBe('pm-1');
+
+      await settle.refund(ref, {
+        refunds: [{ paymentMethodId: 'pm-3', refundDate: '2026-08-16', amount: '100.0000' }],
+      }, 'u1', 'alice');
+
+      const refundRow = savedRows.find((r) => r.amount === '-100.0000');
+      expect(refundRow).toMatchObject({
+        paymentMethodId: 'pm-3',
+        sourceSettlementId: null,
+      });
+    });
+
+    it('rejects a refund above net settled', async () => {
+      await settle.settle(ref, oneLine, 'u1', 'alice');   // settles 100
+
+      await expect(settle.refund(ref, {
+        refunds: [{ paymentMethodId: 'pm-1', refundDate: '2026-08-16', amount: '150.0000' }],
+      }, 'u1', 'alice')).rejects.toThrow(/exceeds net settled/);
+    });
+
+    it('counts legacy linked refunds and new unlinked refunds alike in the cap', async () => {
+      await settle.settle(ref, oneLine, 'u1', 'alice');   // savedRows[0] = +100, id stl-1
+      // A legacy refund carrying lineage, as pre-#1096 rows do.
+      savedRows.push({
+        id: 'stl-legacy', equityDocumentId: currentDoc.id, amount: '-60.0000',
+        sourceSettlementId: 'stl-1', paymentMethodId: 'pm-1',
+      });
+
+      // Net settled is now 40: 50 must fail, 40 must pass.
+      await expect(settle.refund(ref, {
+        refunds: [{ paymentMethodId: 'pm-3', refundDate: '2026-08-16', amount: '50.0000' }],
+      }, 'u1', 'alice')).rejects.toThrow(/exceeds net settled/);
+
+      await expect(settle.refund(ref, {
+        refunds: [{ paymentMethodId: 'pm-3', refundDate: '2026-08-16', amount: '40.0000' }],
+      }, 'u1', 'alice')).resolves.toBeDefined();
+    });
+
+    it('rejects a nonexistent method', async () => {
+      await settle.settle(ref, oneLine, 'u1', 'alice');
+
+      // pm-missing is absent from pmMap; txPmRepo.findOne returns null.
+      await expect(settle.refund(ref, {
+        refunds: [{ paymentMethodId: 'pm-missing', refundDate: '2026-08-16', amount: '50.0000' }],
+      }, 'u1', 'alice')).rejects.toThrow(/not found or inactive/);
+    });
+
+    it('rejects an inactive method', async () => {
+      await settle.settle(ref, oneLine, 'u1', 'alice');
+
+      // pm-9 exists in pmMap but has isActive:false, so the { id, isActive: true }
+      // lookup returns null. Distinct from the missing-method case above: this
+      // proves the isActive filter is actually applied, not just id resolution.
+      await expect(settle.refund(ref, {
+        refunds: [{ paymentMethodId: 'pm-9', refundDate: '2026-08-16', amount: '50.0000' }],
+      }, 'u1', 'alice')).rejects.toThrow(/not found or inactive/);
+    });
+
+    it('accepts an active method that is not enabled for purchases', async () => {
+      // pm-3 (salesOnlyMethod) has useForPurchases:false. The refund lookup must
+      // NOT filter on it, so this resolves where the settle path would reject.
+      await settle.settle(ref, oneLine, 'u1', 'alice');
+
+      await expect(settle.refund(ref, {
+        refunds: [{ paymentMethodId: 'pm-3', refundDate: '2026-08-16', amount: '100.0000' }],
+      }, 'u1', 'alice')).resolves.toBeDefined();
+    });
+
+    it('posts the refund JE on the submitted method channel, not the settled one', async () => {
+      // Settle through pm-1 (CASH), refund through pm-2 (BANK). The channels must
+      // differ or this proves nothing: inheriting from the source row would also
+      // yield CASH. Asserting BANK is what fails if the old behavior survives.
+      await settle.settle(ref, oneLine, 'u1', 'alice');
+
+      await settle.refund(ref, {
+        refunds: [{ paymentMethodId: 'pm-2', refundDate: '2026-08-16', amount: '100.0000' }],
+      }, 'u1', 'alice');
+
+      expect(postingMock.postOwnerCapitalInjectionRefund).toHaveBeenCalledWith(
+        expect.objectContaining({ channel: 'BANK', amount: '100.0000' }),
+        txManager,
+      );
     });
   });
 });

@@ -355,19 +355,16 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
       tb = await trial.getTrialBalance({ asOfDate: '2026-07-31' });
       expect(tb.balanced).toBe(true);
 
-      // 4. Refund partial (200 from first payment)
-      paymentRows = await ds.query(`SELECT id, amount FROM expense_payments WHERE "expenseId" = $1 AND "sourcePaymentId" IS NULL ORDER BY "paymentDate"`, [expense.id]);
-      const firstPaymentId = paymentRows[0].id;
-
+      // 4. Refund partial (200 via Cash, the method that paid)
       expense = await refundExpense(expense.id, [{
-        sourcePaymentId: firstPaymentId,
+        paymentMethodId: cashMethod.id,
         amount: '200.0000',
         refundDate: '2026-07-18',
         reference: 'REF-001',
       }]);
       await assertExpenseStatus(expense.id, ExpenseDocumentStatus.DRAFT, ExpensePaymentStatus.PARTIAL, '800.0000', '200.0000');
 
-      let refundRows = await ds.query(`SELECT id FROM expense_payments WHERE "expenseId" = $1 AND "sourcePaymentId" = $2`, [expense.id, firstPaymentId]);
+      let refundRows = await ds.query(`SELECT id FROM expense_payments WHERE "expenseId" = $1 AND "reference" = 'REF-001'`, [expense.id]);
       expect(refundRows.length).toBe(1);
       let refundRowId = refundRows[0].id;
 
@@ -385,19 +382,15 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
       tb = await trial.getTrialBalance({ asOfDate: '2026-07-31' });
       expect(tb.balanced).toBe(true);
 
-       // 5. Refund to zero (100 remaining from first + 700 from second = 800 total)
-       paymentRows = await ds.query(`SELECT id FROM expense_payments WHERE "expenseId" = $1 AND "sourcePaymentId" IS NULL ORDER BY "paymentDate"`, [expense.id]);
-       const p1Id = paymentRows[0].id;
-       const p2Id = paymentRows[1].id;
-
+       // 5. Refund to zero (100 via Cash + 700 via Bank = 800 total)
        expense = await refundExpense(expense.id, [
-         { sourcePaymentId: p1Id, amount: '100.0000', refundDate: '2026-07-19', reference: 'REF-002a' },
-         { sourcePaymentId: p2Id, amount: '700.0000', refundDate: '2026-07-19', reference: 'REF-002b' },
+         { paymentMethodId: cashMethod.id, amount: '100.0000', refundDate: '2026-07-19', reference: 'REF-002a' },
+         { paymentMethodId: bankMethod.id, amount: '700.0000', refundDate: '2026-07-19', reference: 'REF-002b' },
        ]);
        await assertExpenseStatus(expense.id, ExpenseDocumentStatus.DRAFT, ExpensePaymentStatus.UNPAID, '0.0000', '1000.0000');
 
-       refundRows = await ds.query(`SELECT id, "sourcePaymentId" FROM expense_payments WHERE "expenseId" = $1 AND "sourcePaymentId" = $2 ORDER BY "paymentDate"`, [expense.id, p1Id]);
-       expect(refundRows.length).toBe(2);
+       refundRows = await ds.query(`SELECT id, "paymentDate" FROM expense_payments WHERE "expenseId" = $1 AND "amount" < 0 ORDER BY "paymentDate"`, [expense.id]);
+       expect(refundRows.length).toBe(3);
        refundRowId = refundRows[0].id;
        await assertJECount(refundRowId, PostingType.EXPENSE_REFUND, 1);
        await assertJEBalanced(refundRowId, PostingType.EXPENSE_REFUND);
@@ -410,7 +403,7 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
        await assertJEAccounts(refundRowId, PostingType.EXPENSE_REFUND, '1100', '6990');
        await assertJEDate(refundRowId, PostingType.EXPENSE_REFUND, '2026-07-19');
 
-       refundRows = await ds.query(`SELECT id FROM expense_payments WHERE "expenseId" = $1 AND "sourcePaymentId" = $2`, [expense.id, p2Id]);
+       refundRows = await ds.query(`SELECT id FROM expense_payments WHERE "expenseId" = $1 AND "reference" = 'REF-002b'`, [expense.id]);
        expect(refundRows.length).toBe(1);
        refundRowId = refundRows[0].id;
        await assertJECount(refundRowId, PostingType.EXPENSE_REFUND, 1);
@@ -489,12 +482,8 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
       ]);
       await assertExpenseStatus(expense.id, ExpenseDocumentStatus.COMPLETED, ExpensePaymentStatus.PAID, '500.0000', '0.0000');
 
-      const rows = await ds.query(
-        `SELECT id FROM expense_payments WHERE "expenseId" = $1 AND "sourcePaymentId" IS NULL`,
-        [expense.id],
-      );
       await refundExpense(expense.id, [
-        { sourcePaymentId: rows[0].id, amount: '200', refundDate: '2026-08-06' },
+        { paymentMethodId: cashMethod.id, amount: '200', refundDate: '2026-08-06' },
       ]);
       await assertExpenseStatus(expense.id, ExpenseDocumentStatus.DRAFT, ExpensePaymentStatus.PARTIAL, '300.0000', '200.0000');
 
@@ -606,7 +595,7 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
       expect(final.paidAmount).toBe('1100.0000');
     });
 
-    it('refund > source remaining: rejects', async () => {
+    it('refund > net paid: rejects', async () => {
       const expense = await createExpense({ totalAmount: '1000.0000' });
       await payExpense(expense.id, [{
         paymentMethodId: cashMethod.id,
@@ -614,13 +603,11 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
         paymentDate: '2026-07-16',
         reference: 'PAY-001',
       }]);
-      const paymentRows = await ds.query(`SELECT id FROM expense_payments WHERE "expenseId" = $1 AND "sourcePaymentId" IS NULL`, [expense.id]);
-      const paymentRowId = paymentRows[0].id;
       await expect(refundExpense(expense.id, [{
-        sourcePaymentId: paymentRowId,
+        paymentMethodId: cashMethod.id,
         amount: '1500.0000',
         refundDate: '2026-07-17',
-      }])).rejects.toThrow('Refund total exceeds the refundable amount for source payment');
+      }])).rejects.toThrow('exceeds net paid');
     });
   });
 
@@ -692,22 +679,18 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
         paymentDate: '2026-07-21',
       }]);
 
-      const paymentRows = await ds.query(`SELECT id FROM expense_payments WHERE "expenseId" = $1 AND "sourcePaymentId" IS NULL ORDER BY "paymentDate"`, [exp.id]);
-      const firstPaymentId = paymentRows[0].id;
-      const secondPaymentId = paymentRows[1].id;
-
       await refundExpense(exp.id, [{
-        sourcePaymentId: firstPaymentId,
+        paymentMethodId: cashMethod.id,
         amount: '300.0000',
         refundDate: '2026-07-22',
       }]);
       await refundExpense(exp.id, [{
-        sourcePaymentId: secondPaymentId,
+        paymentMethodId: bankMethod.id,
         amount: '400.0000',
         refundDate: '2026-07-23',
       }]);
 
-      const refundRows = await ds.query(`SELECT id, "paymentDate" FROM expense_payments WHERE "expenseId" = $1 AND "sourcePaymentId" IS NOT NULL ORDER BY "paymentDate"`, [exp.id]);
+      const refundRows = await ds.query(`SELECT id, "paymentDate" FROM expense_payments WHERE "expenseId" = $1 AND "amount" < 0 ORDER BY "paymentDate"`, [exp.id]);
       expect(refundRows.length).toBe(2);
 
       for (const row of refundRows) {
@@ -861,7 +844,7 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
       expect(jeCount[0].n).toBe(3);
     });
 
-    it('two refunds vs same source remainder: exactly one succeeds', async () => {
+    it('two refunds vs the aggregate net-paid cap: exactly one succeeds', async () => {
       const exp = await createExpense({ totalAmount: '1000.0000' });
       await payExpense(exp.id, [{
         paymentMethodId: cashMethod.id,
@@ -869,17 +852,14 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
         paymentDate: '2026-07-20',
       }]);
 
-      const paymentRows = await ds.query(`SELECT id FROM expense_payments WHERE "expenseId" = $1 AND "sourcePaymentId" IS NULL`, [exp.id]);
-      const sourcePaymentId = paymentRows[0].id;
-
       const results = await Promise.allSettled([
         refundExpense(exp.id, [{
-          sourcePaymentId,
+          paymentMethodId: cashMethod.id,
           amount: '600.0000',
           refundDate: '2026-07-21',
         }]),
         refundExpense(exp.id, [{
-          sourcePaymentId,
+          paymentMethodId: cashMethod.id,
           amount: '600.0000',
           refundDate: '2026-07-21',
         }]),
@@ -888,13 +868,13 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
       const { fulfilled, rejected } = partition(results);
       expect(fulfilled).toHaveLength(1);
       expect(rejected).toHaveLength(1);
-      expect((rejected[0].reason as Error).message).toMatch(/exceeds the refundable amount/i);
+      expect((rejected[0].reason as Error).message).toMatch(/exceeds net paid/i);
 
       const final = await getExpense(exp.id);
       expect(final.paymentStatus).toBe(ExpensePaymentStatus.PARTIAL);
       expect(final.paidAmount).toBe('400.0000');
 
-      const refundRows = await ds.query(`SELECT id FROM expense_payments WHERE "expenseId" = $1 AND "sourcePaymentId" = $2`, [exp.id, sourcePaymentId]);
+      const refundRows = await ds.query(`SELECT id FROM expense_payments WHERE "expenseId" = $1 AND "amount" < 0`, [exp.id]);
       expect(refundRows.length).toBe(1);
 
       const jeCount = await ds.query(`SELECT COUNT(*)::int AS n FROM journal_entry WHERE "sourceType" = $1 AND "sourceDocumentId" = $2 AND "postingType" = $3`, [AccountingSourceType.EXPENSE, exp.id, PostingType.EXPENSE_REFUND]);
