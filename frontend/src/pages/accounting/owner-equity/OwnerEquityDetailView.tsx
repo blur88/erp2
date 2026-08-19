@@ -15,7 +15,7 @@ import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { DataTable, type Column } from '@/components/common/DataTable'
 import PageHeader from '@/components/common/PageHeader'
 import PaymentDialog from '@/components/common/PaymentDialog'
-import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
+import RefundDialog, { type RefundSeed } from '@/components/common/RefundDialog'
 import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useNotification } from '@/hooks/useNotification'
@@ -106,26 +106,36 @@ export default function OwnerEquityDetailView({ document: doc }: { document: Own
     })
   const { data: allActiveMethods = [], isLoading: allMethodsLoading } =
     useGetActivePaymentMethodsQuery(undefined, {
-      skip: !settleOpen || needsPurchaseMethods,
+      // Live for Capital Injection settle OR for any refund (#1096).
+      skip: (!settleOpen || needsPurchaseMethods) && !refundOpen,
     })
   const paymentMethods = needsPurchaseMethods ? purchaseMethods : allActiveMethods
   const methodsLoading = needsPurchaseMethods ? purchaseMethodsLoading : allMethodsLoading
 
-  const refundSources: RefundSource[] = useMemo(() => {
-    if (!doc.settlements) return []
-    return doc.settlements
-      .filter((s) => (toScaledAmount(s.amount) ?? 0n) > 0n)
-      .map((s) => ({
-        id: s.id,
-        label: s.paymentMethod?.name ?? 'Payment',
-        paidAmount: fromScaledAmount(toScaledAmount(s.amount) ?? 0n),
-        alreadyRefunded: fromScaledAmount(
-          s.remainingRefundable
-            ? (toScaledAmount(s.amount) ?? 0n) - (toScaledAmount(s.remainingRefundable) ?? 0n)
-            : 0n,
-        ),
-      }))
+  // Gross settlements grouped by method — refunds (negative rows) are excluded,
+  // and prior refunds reduce only the aggregate cap (#1096).
+  const seedAllocations: RefundSeed[] = useMemo(() => {
+    const grossByMethod = new Map<string, bigint>()
+    for (const s of doc.settlements ?? []) {
+      const amt = toScaledAmount(s.amount) ?? 0n
+      if (amt <= 0n) continue
+      grossByMethod.set(s.paymentMethodId, (grossByMethod.get(s.paymentMethodId) ?? 0n) + amt)
+    }
+    return [...grossByMethod].map(([methodId, amount]) => ({
+      methodId,
+      amount: fromScaledAmount(amount),
+    }))
   }, [doc])
+
+  const netSettledMinor = useMemo(
+    () => (doc.settlements ?? []).reduce((s, r) => s + (toScaledAmount(r.amount) ?? 0n), 0n),
+    [doc],
+  )
+  const availableForRefund = fromScaledAmount(netSettledMinor > 0n ? netSettledMinor : 0n)
+  const surplusMinor = netSettledMinor - (toScaledAmount(doc.totalAmount ?? '0') ?? 0n)
+  const seedTarget = fromScaledAmount(
+    surplusMinor > 0n ? surplusMinor : netSettledMinor > 0n ? netSettledMinor : 0n,
+  )
 
   const settleTerminology = useMemo(() => {
     return doc.type === 'CAPITAL_INJECTION'
@@ -158,13 +168,13 @@ export default function OwnerEquityDetailView({ document: doc }: { document: Own
   )
 
   const handleRefundSubmit = useCallback(
-    async (lines: { sourceId: string; amount: string; reference?: string; date?: string }[]) => {
+    async (lines: { paymentMethodId: string; amount: string; reference?: string; date?: string }[]) => {
       try {
         await refundOwnerEquity({
           referenceNumber: doc.referenceNumber,
           data: {
             refunds: lines.map((l) => ({
-              sourceSettlementId: l.sourceId,
+              paymentMethodId: l.paymentMethodId,
               amount: l.amount,
               reference: l.reference,
               refundDate: l.date as string,
@@ -454,12 +464,16 @@ export default function OwnerEquityDetailView({ document: doc }: { document: Own
 
       {refundOpen && (
         <RefundDialog
+          methods={allActiveMethods.map((m) => ({ id: m.id, label: m.name }))}
+          seedAllocations={seedAllocations}
+          availableForRefund={availableForRefund}
+          seedTarget={seedTarget}
+          loading={allMethodsLoading}
           open
           onClose={() => setRefundOpen(false)}
           onSubmit={handleRefundSubmit}
-          sources={refundSources}
           orderNumber={doc.referenceNumber}
-          totalAmount={doc.totalAmount ?? '0'}
+          title={`Refund — ${doc.referenceNumber}`}
           showDateField
         />
       )}
