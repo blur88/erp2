@@ -89,6 +89,9 @@ vi.mock('@/store/api/accountingApi', () => ({
 
 vi.mock('@/store/api/paymentMethodsApi', () => ({
   useGetActivePaymentMethodsForPurchasesQuery: () => ({ data: [] }),
+  useGetActivePaymentMethodsQuery: () => ({
+    data: [{ id: 'pm-1', code: 'CASH', name: 'Cash' }],
+  }),
 }))
 
 const { mockNavigate, mockLocation } = vi.hoisted(() => ({

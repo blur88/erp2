@@ -7,7 +7,7 @@ import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 import PagePagination from '@/components/common/PagePagination'
-import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
+import RefundDialog, { type RefundSeed } from '@/components/common/RefundDialog'
 import { StatusChip } from '@/components/common/StatusChip'
 import RowActionMenu, { type RowAction } from '@/components/common/RowActionMenu'
 import { useExpenseAccountOptions } from '@/hooks/useExpenseAccountOptions'
@@ -22,7 +22,10 @@ import {
   useRefundExpenseMutation,
   type ExpenseListParams,
 } from '@/store/api/accountingApi'
-import { useGetActivePaymentMethodsForPurchasesQuery } from '@/store/api/paymentMethodsApi'
+import {
+  useGetActivePaymentMethodsQuery,
+  useGetActivePaymentMethodsForPurchasesQuery,
+} from '@/store/api/paymentMethodsApi'
 import { formatCurrency, toScaledAmount, fromScaledAmount } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
@@ -149,6 +152,11 @@ export default function ExpensesPage() {
   const { data: paymentMethods = [], isLoading: methodsLoading } =
     useGetActivePaymentMethodsForPurchasesQuery(undefined, { skip: !payExpenseRow })
 
+  // Refunds may use ANY active method regardless of useForPurchases (#1096),
+  // so this is a second, unfiltered query — it cannot share the Pay one.
+  const { data: refundMethods = [], isLoading: refundMethodsLoading } =
+    useGetActivePaymentMethodsQuery(undefined, { skip: !refundExpenseRow })
+
   const { data: cancelExpenseDetail } = useGetExpenseQuery(
     cancelExpenseRow ? cancelExpenseRow.id : skipToken,
   )
@@ -158,6 +166,7 @@ export default function ExpensesPage() {
   // leak into another row's refund dialog; guard the id to be safe.
   const {
     currentData: refundExpenseData,
+    isLoading: refundDetailLoading,
     isError: refundDetailError,
   } = useGetExpenseQuery(refundExpenseRow ? refundExpenseRow.id : skipToken)
   const refundExpenseDetail =
@@ -186,21 +195,30 @@ export default function ExpensesPage() {
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
   }, [highlightExpenseId, location.pathname, location.search, navigate])
 
-  const refundSources: RefundSource[] = useMemo(() => {
-    if (!refundExpenseDetail?.payments) return []
-    return refundExpenseDetail.payments
-      .filter((p) => (toScaledAmount(p.amount) ?? 0n) > 0n)
-      .map((p) => ({
-        id: p.id,
-        label: p.paymentMethod?.name ?? 'Payment',
-        paidAmount: fromScaledAmount(toScaledAmount(p.amount) ?? 0n),
-        alreadyRefunded: fromScaledAmount(
-          p.remainingRefundable
-            ? (toScaledAmount(p.amount) ?? 0n) - (toScaledAmount(p.remainingRefundable) ?? 0n)
-            : 0n,
-        ),
-      }))
+  // Gross payments grouped by method — refunds (negative rows) are excluded, and
+  // prior refunds reduce only the aggregate cap (#1096).
+  const seedAllocations: RefundSeed[] = useMemo(() => {
+    const grossByMethod = new Map<string, bigint>()
+    for (const p of refundExpenseDetail?.payments ?? []) {
+      const amt = toScaledAmount(p.amount) ?? 0n
+      if (amt <= 0n) continue
+      grossByMethod.set(p.paymentMethodId, (grossByMethod.get(p.paymentMethodId) ?? 0n) + amt)
+    }
+    return [...grossByMethod].map(([methodId, amount]) => ({
+      methodId,
+      amount: fromScaledAmount(amount),
+    }))
   }, [refundExpenseDetail])
+
+  const netPaidMinor = useMemo(
+    () => (refundExpenseDetail?.payments ?? []).reduce((s, p) => s + (toScaledAmount(p.amount) ?? 0n), 0n),
+    [refundExpenseDetail],
+  )
+  const availableForRefund = fromScaledAmount(netPaidMinor > 0n ? netPaidMinor : 0n)
+  const surplusMinor = netPaidMinor - (toScaledAmount(refundExpenseDetail?.totalAmount ?? '0') ?? 0n)
+  const seedTarget = fromScaledAmount(
+    surplusMinor > 0n ? surplusMinor : netPaidMinor > 0n ? netPaidMinor : 0n,
+  )
 
   const handleLimitChange = (newLimit: number) => {
     setLimit(newLimit)
@@ -237,14 +255,14 @@ export default function ExpensesPage() {
   )
 
   const handleRefundSubmit = useCallback(
-    async (lines: { sourceId: string; amount: string; reference?: string; date?: string }[]) => {
+    async (lines: { paymentMethodId: string; amount: string; reference?: string; date?: string }[]) => {
       if (!refundExpenseRow) return
       try {
         await doRefundExpense({
           id: refundExpenseRow.id,
           data: {
             refunds: lines.map((l) => ({
-              sourcePaymentId: l.sourceId,
+              paymentMethodId: l.paymentMethodId,
               amount: l.amount,
               reference: l.reference,
               refundDate: l.date as string,
@@ -431,12 +449,16 @@ export default function ExpensesPage() {
 
           {refundExpenseRow && refundExpenseDetail && (
             <RefundDialog
+              methods={refundMethods.map((m) => ({ id: m.id, label: m.name }))}
+              seedAllocations={seedAllocations}
+              availableForRefund={availableForRefund}
+              seedTarget={seedTarget}
+              loading={refundDetailLoading || refundMethodsLoading}
               open
               onClose={() => setRefundExpenseRow(null)}
               onSubmit={handleRefundSubmit}
-              sources={refundSources}
               orderNumber={refundExpenseRow.expenseNumber}
-              totalAmount={refundExpenseRow.totalAmount}
+              title={`Refund — ${refundExpenseRow.expenseNumber}`}
               showDateField
             />
           )}
