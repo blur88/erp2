@@ -23,6 +23,11 @@ export class ExpensePayment extends BaseEntity {
   @Column({ type: 'varchar', length: 100, nullable: true })
   reference: string | null;
 
+  /**
+   * Legacy lineage: the payment a refund offset, for refunds recorded before
+   * cross-method refunds (#1096). NULL on all new rows — a refund is identified
+   * by `amount < 0`, never by this column. Retained for historical display/audit.
+   */
   @Column({ type: 'uuid', nullable: true })
   sourcePaymentId: string | null;
 
