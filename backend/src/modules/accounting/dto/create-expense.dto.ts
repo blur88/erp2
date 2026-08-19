@@ -14,7 +14,7 @@ export interface PayExpenseDto {
 }
 
 export interface RefundExpenseDto {
-  refunds: { sourcePaymentId: string; amount: string; refundDate: string; reference?: string }[];
+  refunds: { paymentMethodId: string; amount: string; refundDate: string; reference?: string }[];
 }
 
 export interface ListExpensesParams {

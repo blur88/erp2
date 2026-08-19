@@ -11,7 +11,7 @@ import { AuditLogService } from '../../audit-logs/services';
 import { SettingsService } from '../../settings/settings.service';
 import { CreateExpenseDto, ListExpensesParams, UpdateExpenseDto } from '../dto/create-expense.dto';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
-import { toMinorUnits, formatScale4, sumMinor } from '@/common/utils/money';
+import { toMinorUnits, formatScale4 } from '@/common/utils/money';
 
 @Injectable()
 export class ExpenseService {
@@ -268,14 +268,9 @@ export class ExpenseService {
         (p as any).paymentMethod = byId.get(p.paymentMethodId) ?? null;
       }
     }
-    const refunds = payments.filter(p => p.sourcePaymentId);
-    for (const p of payments) {
-      if (!p.sourcePaymentId) {
-        const refunded = sumMinor(refunds.filter(r => r.sourcePaymentId === p.id).map(r => r.amount));
-        const remaining = toMinorUnits(p.amount) + refunded;
-        (p as any).remainingRefundable = formatScale4(remaining < 0n ? 0n : remaining);
-      }
-    }
+    // (deleted) remainingRefundable — per-payment refundable is meaningless once
+    // refunds are not tied to a source payment (#1096). The aggregate
+    // available-for-refund is computed by the caller from net paid.
 
     return expense;
   }

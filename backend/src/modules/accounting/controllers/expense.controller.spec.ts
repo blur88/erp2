@@ -66,7 +66,7 @@ describe('ExpenseController', () => {
 
   it('refund() delegates to paymentService.refund with id, dto, userId, username', async () => {
     const { paymentService, controller } = makeMocks();
-    const dto = { refunds: [{ sourcePaymentId: 'sp-1', amount: '50.0000', refundDate: '2026-07-21' }] };
+    const dto = { refunds: [{ paymentMethodId: 'pm-1', amount: '50.0000', refundDate: '2026-07-21' }] };
     await controller.refund('exp-1', dto as any, 'u1', 'admin');
     expect(paymentService.refund).toHaveBeenCalledWith('exp-1', dto, 'u1', 'admin');
   });

@@ -128,76 +128,61 @@ export class ExpensePaymentService {
 
       const payRepo = manager.getRepository(ExpensePayment);
 
-      const groups = new Map<string, typeof dto.refunds>();
+      // Aggregate cap: refunds are stored as negative rows, so the signed sum is
+      // net paid. This counts legacy linked refunds and new unlinked ones alike.
+      const existingRows = await payRepo.find({ where: { expenseId } as any });
+      const netPaidMinor = sumMinor(existingRows.map((r: any) => r.amount));
+      const totalRefundMinor = sumMinor(dto.refunds.map((r) => r.amount));
+      if (totalRefundMinor > netPaidMinor) {
+        throw new BadRequestException(
+          `Total refund amount (${formatScale4(totalRefundMinor)}) exceeds net paid (${formatScale4(netPaidMinor)})`,
+        );
+      }
+
+      // Refunds may use ANY active method, independent of what paid (#1096).
+      // No useForPurchases filter, and no withDeleted — the user picks from the
+      // active list, so a soft-deleted method must not resolve.
+      const methodCache = new Map<string, PaymentMethodEntity>();
       for (const r of dto.refunds) {
-        if (!groups.has(r.sourcePaymentId)) {
-          groups.set(r.sourcePaymentId, []);
-        }
-        groups.get(r.sourcePaymentId)!.push(r);
-      }
-
-      for (const [sourceId] of groups) {
-        const source = await payRepo.findOne({ where: { id: sourceId } as any });
-        if (
-          !source ||
-          source.expenseId !== expenseId ||
-          source.sourcePaymentId !== null ||
-          toMinorUnits(source.amount) <= 0n
-        ) {
-          throw new BadRequestException('Refund source must be a payment on this expense');
-        }
-      }
-
-      for (const [sourceId, rows] of groups) {
-        const source = await payRepo.findOne({ where: { id: sourceId } as any });
-
-        const existingRefunds = await payRepo.find({ where: { sourcePaymentId: sourceId } as any });
-        const priorRefunded = sumMinor(existingRefunds.map((r: any) => r.amount));
-        const refundedSoFar = priorRefunded < 0n ? -priorRefunded : priorRefunded;
-
-        const batchSum = sumMinor(rows.map((r) => r.amount));
-        const sourceMinor = toMinorUnits(source.amount);
-
-        if (refundedSoFar + batchSum > sourceMinor) {
-          throw new BadRequestException(
-            `Refund total exceeds the refundable amount for source payment ${sourceId}`,
-          );
-        }
-
+        if (methodCache.has(r.paymentMethodId)) continue;
         const method = await manager.getRepository(PaymentMethodEntity).findOne({
-          where: { id: source.paymentMethodId } as any,
-          withDeleted: true,
+          where: { id: r.paymentMethodId, isActive: true } as any,
         } as any);
         if (!method) {
-          throw new BadRequestException(`Payment method ${source.paymentMethodId} not found`);
-        }
-
-        for (const r of rows) {
-          const refundRow = (await payRepo.save(
-            payRepo.create({
-              expenseId,
-              paymentMethodId: source.paymentMethodId,
-              paymentDate: r.refundDate,
-              amount: '-' + formatScale4(r.amount),
-              reference: r.reference ?? null,
-              sourcePaymentId: sourceId,
-            } as any),
-          )) as unknown as ExpensePayment;
-
-          await this.posting.postExpenseRefund(
-            {
-              expenseId,
-              refundRowId: refundRow.id,
-              expenseAccountId: expense.expenseAccountId,
-              channel: method.accountingChannel,
-              amount: formatScale4(r.amount),
-              sourceRef: expense.expenseNumber,
-              entryDate: r.refundDate,
-              createdBy: username,
-            },
-            manager,
+          throw new BadRequestException(
+            `Payment method ${r.paymentMethodId} not found or inactive`,
           );
         }
+        methodCache.set(r.paymentMethodId, method);
+      }
+
+      for (const r of dto.refunds) {
+        const method = methodCache.get(r.paymentMethodId)!;
+        const refundRow = (await payRepo.save(
+          payRepo.create({
+            expenseId,
+            paymentMethodId: r.paymentMethodId,
+            paymentDate: r.refundDate,
+            amount: '-' + formatScale4(r.amount),
+            reference: r.reference ?? null,
+            // NULL by design: a refund is identified by amount < 0, not lineage.
+            sourcePaymentId: null,
+          } as any),
+        )) as unknown as ExpensePayment;
+
+        await this.posting.postExpenseRefund(
+          {
+            expenseId,
+            refundRowId: refundRow.id,
+            expenseAccountId: expense.expenseAccountId,
+            channel: method.accountingChannel,
+            amount: formatScale4(r.amount),
+            sourceRef: expense.expenseNumber,
+            entryDate: r.refundDate,
+            createdBy: username,
+          },
+          manager,
+        );
       }
 
       const allRows = await payRepo.find({ where: { expenseId } as any });

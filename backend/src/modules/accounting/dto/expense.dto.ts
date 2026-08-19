@@ -57,7 +57,7 @@ export class PayExpenseDto {
 
 export class ExpenseRefundRowDto {
   @IsUUID()
-  sourcePaymentId: string;
+  paymentMethodId: string;
 
   @IsString()
   @Matches(/^\d+(\.\d{1,4})?$/)
