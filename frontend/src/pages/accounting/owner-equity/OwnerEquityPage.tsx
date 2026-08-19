@@ -77,7 +77,6 @@ const filterConfig: FilterBarConfig<EquityFilters> = {
       type: 'select',
       options: [
         { value: 'DRAFT', label: 'Draft' },
-        { value: 'READY', label: 'Ready' },
         { value: 'COMPLETED', label: 'Completed' },
         { value: 'CANCELLED', label: 'Cancelled' },
       ],

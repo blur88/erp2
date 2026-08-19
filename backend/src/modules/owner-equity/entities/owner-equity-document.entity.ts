@@ -14,7 +14,7 @@ export enum OwnerEquityType {
   STOCK_DRAWING = 'STOCK_DRAWING',
 }
 export enum OwnerEquityDocumentStatus {
-  DRAFT = 'DRAFT', READY = 'READY', COMPLETED = 'COMPLETED', CANCELLED = 'CANCELLED',
+  DRAFT = 'DRAFT', COMPLETED = 'COMPLETED', CANCELLED = 'CANCELLED',
 }
 export enum OwnerEquitySettlementStatus {
   UNSETTLED = 'UNSETTLED', PARTIAL = 'PARTIAL', SETTLED = 'SETTLED', OVERSETTLED = 'OVERSETTLED',
@@ -33,7 +33,6 @@ export enum OwnerEquitySettlementStatus {
   'CHK_oe_stock_cost_on_complete',
   `type <> 'STOCK_DRAWING' OR "documentStatus" <> 'COMPLETED' OR ("unitCost" IS NOT NULL AND "totalCost" IS NOT NULL)`,
 )
-@Check('CHK_oe_stock_no_ready', `type <> 'STOCK_DRAWING' OR "documentStatus" <> 'READY'`)
 @Check(
   'CHK_oe_completion_metadata',
   `("documentStatus" = 'COMPLETED' AND "completedAt" IS NOT NULL AND "completedBy" IS NOT NULL) OR ("documentStatus" <> 'COMPLETED' AND "completedAt" IS NULL AND "completedBy" IS NULL)`,

@@ -15,13 +15,25 @@ describe('monetary actions', () => {
     const metas = getOwnerEquityActionMetas(injection({ settlementStatus: 'PARTIAL' }))
     expect(metas.map((m) => m.action)).toEqual(['settle', 'refund', 'edit'])
   })
-  it('offers complete and refund when READY', () => {
-    expect(getOwnerEquityActionMetas(injection({ documentStatus: 'READY', settlementStatus: 'SETTLED' }))
-      .map((m) => m.action)).toEqual(['refund', 'complete'])
-  })
-  it('offers only uncomplete when COMPLETED', () => {
+  it('offers only refund when COMPLETED — refund is the sole reversal (#1094)', () => {
     expect(getOwnerEquityActionMetas(injection({ documentStatus: 'COMPLETED', settlementStatus: 'SETTLED' }))
-      .map((m) => m.action)).toEqual(['uncomplete'])
+      .map((m) => m.action)).toEqual(['refund'])
+  })
+  it('never offers complete or uncomplete on a monetary document', () => {
+    const every = (['DRAFT', 'COMPLETED', 'CANCELLED'] as const).flatMap((d) =>
+      (['UNSETTLED', 'PARTIAL', 'SETTLED', 'OVERSETTLED'] as const).flatMap((s) =>
+        (['CAPITAL_INJECTION', 'CASH_DRAWING'] as const).flatMap((t) =>
+          getOwnerEquityActionMetas({ type: t, documentStatus: d, settlementStatus: s } as Doc))))
+    expect(every.map((m) => m.action)).not.toContain('complete')
+    expect(every.map((m) => m.action)).not.toContain('uncomplete')
+  })
+  it('never offers edit, settle or cancel once COMPLETED', () => {
+    const metas = getOwnerEquityActionMetas(
+      injection({ documentStatus: 'COMPLETED', settlementStatus: 'SETTLED' }),
+    ).map((m) => m.action)
+    expect(metas).not.toContain('edit')
+    expect(metas).not.toContain('settle')
+    expect(metas).not.toContain('cancel')
   })
   it('offers only uncancel when CANCELLED', () => {
     expect(getOwnerEquityActionMetas(injection({ documentStatus: 'CANCELLED' }))
@@ -48,7 +60,7 @@ describe('stock drawing actions', () => {
 })
 
 it('never offers a delete action in any state', () => {
-  const every = ['DRAFT', 'READY', 'COMPLETED', 'CANCELLED'].flatMap((s) =>
+  const every = ['DRAFT', 'COMPLETED', 'CANCELLED'].flatMap((s) =>
     ['CAPITAL_INJECTION', 'CASH_DRAWING', 'STOCK_DRAWING'].flatMap((t) =>
       getOwnerEquityActionMetas({ type: t, documentStatus: s, settlementStatus: null } as Doc)))
   expect(every.map((m) => m.action)).not.toContain('delete')

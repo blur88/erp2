@@ -424,14 +424,13 @@ export default function OwnerEquityDetailView({ document: doc }: { document: Own
         loading={isCompleting}
       />
 
+      {/* Complete/Uncomplete are stock-drawing-only (#1094): monetary documents
+          complete implicitly on full settlement, so monetaryMetas() never emits
+          either action and neither dialog can open for them. */}
       <ConfirmationDialog
         open={uncompleteOpen}
         title="Uncomplete Owner Equity"
-        message={
-          doc.type === 'STOCK_DRAWING'
-            ? `Uncomplete ${doc.referenceNumber}? This restores the drawn stock and reverses its journal entry.`
-            : `Uncomplete ${doc.referenceNumber}? The document returns to Ready so settlements can be refunded.`
-        }
+        message={`Uncomplete ${doc.referenceNumber}? This restores the drawn stock and reverses its journal entry.`}
         confirmText="Uncomplete"
         severity="warning"
         onConfirm={handleUncompleteConfirm}
