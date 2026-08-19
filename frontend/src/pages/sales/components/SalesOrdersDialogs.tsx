@@ -32,9 +32,11 @@ export default function SalesOrdersDialogs({
   onSubmitRefund,
 }: SalesOrdersDialogsProps) {
   // Fetch payments for refund dialog only when needed
-  const { data: paymentRecords = [] } = useGetSalesOrderPaymentsQuery(
-    refundOrder ? refundOrder.id : skipToken,
-  )
+  // currentData, not data: switching between list rows would otherwise briefly
+  // expose the previous order's cached payments. isFetching gates the dialog's
+  // one-shot seeding until this document's records actually arrive.
+  const { currentData: paymentRecords = [], isFetching: paymentsFetching } =
+    useGetSalesOrderPaymentsQuery(refundOrder ? refundOrder.id : skipToken)
 
   const { data: paymentMethods = [], isLoading: methodsLoading } =
     useGetActivePaymentMethodsQuery(undefined, { skip: !paymentOrder && !refundOrder })
@@ -99,7 +101,7 @@ export default function SalesOrdersDialogs({
           seedAllocations={seedAllocations}
           availableForRefund={availableForRefund}
           seedTarget={seedTarget}
-          loading={methodsLoading}
+          loading={methodsLoading || paymentsFetching}
           open
           onClose={onCloseRefund}
           onSubmit={handleRefundSubmit}

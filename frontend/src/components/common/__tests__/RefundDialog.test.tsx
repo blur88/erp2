@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -369,6 +369,86 @@ describe('money formatting and precision', () => {
     const amounts = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]
     expect(amounts[0].value).toBe('50.00')
     expect(amounts[1].value).toBe('100.00')
+  })
+
+  it('displays the surplus amount, not its complement (#1097 review)', () => {
+    // Document totalling 300 paid 400: surplus is 100. Deriving the display as
+    // (available - seedTarget) showed 300 — the complement — while the seed was
+    // correct, so a row-presence-only assertion could not catch it.
+    renderDialog({
+      seedAllocations: [{ methodId: 'pm-1', amount: '400.0000' }],
+      availableForRefund: '400.0000',
+      seedTarget: '100.0000',
+    })
+    const surplusRow = screen.getByText('Surplus over total').closest('div')!
+    expect(within(surplusRow).getByText(/100/)).toBeInTheDocument()
+    expect(within(surplusRow).queryByText(/300/)).not.toBeInTheDocument()
+  })
+
+  it('does not seed a blank line when methods arrive before payments (#1097 review)', async () => {
+    // Methods are cached across rows and resolve first; payments refetch per
+    // document. Seeding is one-shot, so seeding during that window locked in a
+    // blank line permanently.
+    const { rerender } = render(
+      <RefundDialog
+        open
+        onClose={vi.fn()}
+        onSubmit={vi.fn().mockResolvedValue(undefined)}
+        methods={methods}
+        seedAllocations={[]}
+        availableForRefund="0.0000"
+        seedTarget="0.0000"
+        orderNumber="SO-26-001"
+        loading
+      />,
+    )
+
+    // Payments land: fresh JSX, not a reused element ref (React 19 no-ops on the same ref).
+    rerender(
+      <RefundDialog
+        open
+        onClose={vi.fn()}
+        onSubmit={vi.fn().mockResolvedValue(undefined)}
+        methods={methods}
+        seedAllocations={[{ methodId: 'pm-1', amount: '500.0000' }]}
+        availableForRefund="500.0000"
+        seedTarget="500.0000"
+        orderNumber="SO-26-001"
+        loading={false}
+      />,
+    )
+
+    const amount = (await screen.findByPlaceholderText('Amount')) as HTMLInputElement
+    expect(amount.value).toBe('500.00')
+  })
+
+  it('folds a retired historical method onto an active one (#1097 review)', async () => {
+    // pm-retired paid historically but is no longer active, so it is absent from
+    // the picker. Seeding its id would preselect an out-of-range value and submit
+    // an id the backend rejects as inactive.
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    renderDialog({
+      onSubmit,
+      methods: [{ id: 'pm-1', label: 'Cash' }],
+      seedAllocations: [
+        { methodId: 'pm-retired', amount: '100.0000' },
+        { methodId: 'pm-1', amount: '100.0000' },
+      ],
+      availableForRefund: '200.0000',
+      seedTarget: '200.0000',
+    })
+
+    // Both weights land on the sole active method as one merged line.
+    const amounts = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]
+    expect(amounts).toHaveLength(1)
+    expect(amounts[0].value).toBe('200.00')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Refund' }))
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith([
+        { paymentMethodId: 'pm-1', amount: '200.00', reference: undefined },
+      ]),
+    )
   })
 
   it('seeds only the surplus on an overpaid document', () => {

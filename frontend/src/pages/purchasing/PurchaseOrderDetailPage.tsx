@@ -81,7 +81,10 @@ export default function PurchaseOrderDetailPage() {
     isLoading,
     isError,
   } = useGetPurchaseOrderByNumberQuery(orderNumber ?? skipToken)
-  const { data: payments = [] } = useGetPurchaseOrderPaymentsQuery(order?.id ?? skipToken)
+  // isFetching gates the refund dialog's one-shot seeding: methods are cached
+  // and resolve first, so seeding before payments arrive locks in a blank line.
+  const { data: payments = [], isFetching: paymentsFetching } =
+    useGetPurchaseOrderPaymentsQuery(order?.id ?? skipToken)
 
   useEffect(() => {
     if (order?.orderNumber) {
@@ -317,7 +320,7 @@ export default function PurchaseOrderDetailPage() {
         seedAllocations={seedAllocations}
         availableForRefund={availableForRefund}
         seedTarget={seedTarget}
-        loading={refundMethodsLoading}
+        loading={refundMethodsLoading || paymentsFetching}
         orderNumber={order.orderNumber}
       />
 

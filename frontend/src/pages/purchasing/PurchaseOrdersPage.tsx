@@ -148,7 +148,11 @@ const PurchaseOrdersPage: React.FC = () => {
     useGetActivePaymentMethodsQuery(undefined, { skip: !refundOrder })
 
   // Fetch payments for refund dialog only when needed
-  const { data: refundPaymentRecords = [] } = useGetPurchaseOrderPaymentsQuery(
+  // currentData, not data: switching between list rows would otherwise briefly
+  // expose the previous order's cached payments. isFetching gates the dialog's
+  // one-shot seeding until this document's records actually arrive.
+  const { currentData: refundPaymentRecords = [], isFetching: paymentsFetching } =
+    useGetPurchaseOrderPaymentsQuery(
     refundOrder ? refundOrder.id : skipToken,
   )
 
@@ -398,7 +402,7 @@ const PurchaseOrdersPage: React.FC = () => {
                 seedAllocations={seedAllocations}
                 availableForRefund={availableForRefund}
                 seedTarget={seedTarget}
-                loading={refundMethodsLoading}
+                loading={refundMethodsLoading || paymentsFetching}
                 open
                 onClose={() => setRefundOrder(null)}
                 onSubmit={handleSubmitRefund}

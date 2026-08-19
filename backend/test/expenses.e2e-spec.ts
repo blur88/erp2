@@ -493,6 +493,52 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
       await assertExpenseStatus(expense.id, ExpenseDocumentStatus.COMPLETED, ExpensePaymentStatus.PAID, '500.0000', '0.0000');
     });
 
+    it('refunds entirely through a method that never paid (#1096)', async () => {
+      // The acceptance case from the issue: paid 100 Cash + 900 Bank, refunded
+      // 200 wholly through Cash — more Cash than Cash ever paid. Every other e2e
+      // refund uses a method that also paid, so none of them exercise this.
+      const expense = await createExpense({ totalAmount: '1000' });
+
+      await payExpense(expense.id, [
+        { paymentMethodId: cashMethod.id, amount: '100', paymentDate: '2026-08-06' },
+        { paymentMethodId: bankMethod.id, amount: '900', paymentDate: '2026-08-06' },
+      ]);
+      await assertExpenseStatus(expense.id, ExpenseDocumentStatus.COMPLETED, ExpensePaymentStatus.PAID, '1000.0000', '0.0000');
+
+      await refundExpense(expense.id, [
+        { paymentMethodId: cashMethod.id, amount: '200', refundDate: '2026-08-07', reference: 'XM-CASH' },
+      ]);
+
+      // Persisted method id is the SUBMITTED one, and lineage is NULL.
+      const rows = await ds.query(
+        `SELECT id, amount, "paymentMethodId", "sourcePaymentId" FROM expense_payments
+         WHERE "expenseId" = $1 AND "reference" = 'XM-CASH'`,
+        [expense.id],
+      );
+      expect(rows.length).toBe(1);
+      expect(rows[0].paymentMethodId).toBe(cashMethod.id);
+      expect(rows[0].sourcePaymentId).toBeNull();
+      expect(toMinorUnits(rows[0].amount)).toBe(toMinorUnits('-200.0000'));
+
+      // The reversing JE debits CASH (1100) — the submitted method's channel.
+      // Inheriting from a source row would have produced a BANK-weighted split.
+      await assertJEBalanced(rows[0].id, PostingType.EXPENSE_REFUND);
+      await assertJEAccounts(rows[0].id, PostingType.EXPENSE_REFUND, '1100', '6990');
+
+      await assertExpenseStatus(expense.id, ExpenseDocumentStatus.DRAFT, ExpensePaymentStatus.PARTIAL, '800.0000', '200.0000');
+
+      // A second refund through a third method, capped by the aggregate only.
+      await refundExpense(expense.id, [
+        { paymentMethodId: bankMethod.id, amount: '800', refundDate: '2026-08-07', reference: 'XM-BANK' },
+      ]);
+      await assertExpenseStatus(expense.id, ExpenseDocumentStatus.DRAFT, ExpensePaymentStatus.UNPAID, '0.0000', '1000.0000');
+
+      // Net paid is now zero: any further refund must be rejected.
+      await expect(refundExpense(expense.id, [
+        { paymentMethodId: cashMethod.id, amount: '1', refundDate: '2026-08-07' },
+      ])).rejects.toThrow(/exceeds net paid/);
+    });
+
     it('rejects a further payment once settled', async () => {
       const expense = await createExpense({ totalAmount: '500' });
       await payExpense(expense.id, [

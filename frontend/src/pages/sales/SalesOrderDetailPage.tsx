@@ -103,9 +103,10 @@ export default function SalesOrderDetailPage() {
     });
 
   // Fetch payments for refund dialog only when needed
-  const { data: paymentRecords = [] } = useGetSalesOrderPaymentsQuery(
-    activeDialog === 'refund' && order ? order.id : skipToken,
-  )
+  // isFetching gates the refund dialog's one-shot seeding: methods are cached
+  // and resolve first, so seeding before payments arrive locks in a blank line.
+  const { data: paymentRecords = [], isFetching: paymentsFetching } =
+    useGetSalesOrderPaymentsQuery(activeDialog === 'refund' && order ? order.id : skipToken)
 
   // Gross payments by method: seed weights only. Prior refunds reduce the
   // aggregate cap, never a per-method weight (#1096).
@@ -373,7 +374,7 @@ export default function SalesOrderDetailPage() {
           seedAllocations={seedAllocations}
           availableForRefund={availableForRefund}
           seedTarget={seedTarget}
-          loading={methodsLoading}
+          loading={methodsLoading || paymentsFetching}
           open
           onClose={() => setActiveDialog(null)}
           onSubmit={handleSubmitRefund}

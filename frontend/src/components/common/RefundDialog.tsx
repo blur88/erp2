@@ -88,8 +88,12 @@ export default function RefundDialog({
   const seedTargetRaw = toScaledAmount(seedTarget) ?? availableMinor
   const seedTargetMinor =
     seedTargetRaw < 0n ? 0n : seedTargetRaw > availableMinor ? availableMinor : seedTargetRaw
+  // The surplus IS the seed target on an overpaid document — callers compute it
+  // from the document total, which the dialog no longer receives. Deriving it as
+  // (available - target) yields the complement instead: a 300 document paid 400
+  // has a 100 surplus, not 300.
   const hasSurplus = seedTargetMinor < availableMinor
-  const surplusMinor = availableMinor - seedTargetMinor
+  const surplusMinor = seedTargetMinor
 
   const [lines, setLines] = useState<RefundLine[]>([])
   const [submitting, setSubmitting] = useState(false)
@@ -108,10 +112,30 @@ export default function RefundDialog({
 
   useEffect(() => {
     if (!open || lines.length > 0) return
+    // Seeding is one-shot (guarded by lines.length above), so seeding before the
+    // payment records arrive locks in a blank line forever. Methods are cached
+    // across rows and resolve first, so this is the common path, not a rare race.
+    if (loading) return
     if (seedAllocations.length === 0 && methods.length === 0) return
 
     const defaultDate = showDateField ? getCurrentDate() : ''
-    const weights = seedAllocations.map((s) => toScaledAmount(s.amount) ?? 0n)
+
+    // A method used historically may since have been deactivated or deleted, and
+    // the picker only lists active ones. Seeding its id would preselect an
+    // out-of-range value and submit an id the backend rejects as inactive, so
+    // fold that weight onto the first active method instead.
+    const activeIds = new Set(methods.map((m) => m.id))
+    const fallbackId = methods[0]?.id ?? ''
+    const mergedWeights = new Map<string, bigint>()
+    for (const s of seedAllocations) {
+      const amount = toScaledAmount(s.amount) ?? 0n
+      if (amount <= 0n) continue
+      const methodId = activeIds.has(s.methodId) ? s.methodId : fallbackId
+      if (!methodId) continue
+      mergedWeights.set(methodId, (mergedWeights.get(methodId) ?? 0n) + amount)
+    }
+    const reconciled = [...mergedWeights].map(([methodId, amount]) => ({ methodId, amount }))
+    const weights = reconciled.map((s) => s.amount)
 
     // Gross weights are a SHAPE, not caps: they always sum to >= seedTargetMinor
     // (gross paid >= net available >= seed target), so allocateByLargestRemainder's
@@ -119,9 +143,9 @@ export default function RefundDialog({
     // netting them per method can go negative and is not a valid preset (#1096).
     const allocations = allocateByLargestRemainder(weights, seedTargetMinor)
 
-    if (seedAllocations.length > 0) {
+    if (reconciled.length > 0) {
       setLines(
-        seedAllocations.map((s, index) => ({
+        reconciled.map((s, index) => ({
           id: newId(),
           paymentMethodId: s.methodId,
           amount: allocations[index] > 0n ? toAmountInputValue(fromScaledAmount(allocations[index])) : '',
@@ -138,7 +162,7 @@ export default function RefundDialog({
         date: defaultDate,
       }])
     }
-  }, [open, seedAllocations, methods, lines.length, seedTargetMinor, showDateField])
+  }, [open, seedAllocations, methods, lines.length, seedTargetMinor, showDateField, loading])
 
   const enteredMinor = sumScaledAmounts(lines.map((l) => l.amount))
   const hasInvalidAmount = enteredMinor === null
@@ -191,6 +215,14 @@ export default function RefundDialog({
     }
     if (showDateField && validLines.some((l) => !l.date)) {
       setError('Refund date is required on every line.')
+      return
+    }
+    // Guard the id itself, not just the amount: a method deactivated while the
+    // dialog is open would otherwise submit an id the backend rejects as
+    // inactive, surfacing as an opaque server error.
+    const activeMethodIds = new Set(methods.map((m) => m.id))
+    if (validLines.some((l) => !activeMethodIds.has(l.paymentMethodId))) {
+      setError('Every refund line must use an active payment method.')
       return
     }
     if (totalEnteredMinor > availableMinor) {
