@@ -8,7 +8,7 @@ import SimpleListPage from '@/components/common/SimpleListPage'
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 import PagePagination from '@/components/common/PagePagination'
 import PaymentDialog from '@/components/common/PaymentDialog'
-import RefundDialog, { type RefundSource } from '@/components/common/RefundDialog'
+import RefundDialog, { type RefundSeed } from '@/components/common/RefundDialog'
 import { StatusChip } from '@/components/common/StatusChip'
 import RowActionMenu, { type RowAction } from '@/components/common/RowActionMenu'
 import { useFilterBar } from '@/hooks/useFilterBar'
@@ -188,13 +188,15 @@ export default function OwnerEquityPage() {
     })
   const { data: allActiveMethods = [], isLoading: allMethodsLoading } =
     useGetActivePaymentMethodsQuery(undefined, {
-      skip: !settleRow || settleNeedsPurchaseMethods,
+      // Live for Capital Injection settle OR for any refund (#1096).
+      skip: (!settleRow || settleNeedsPurchaseMethods) && !refundRow,
     })
   const paymentMethods = settleNeedsPurchaseMethods ? purchaseMethods : allActiveMethods
   const methodsLoading = settleNeedsPurchaseMethods ? purchaseMethodsLoading : allMethodsLoading
 
   const {
     currentData: refundDetail,
+    isLoading: refundDetailLoading,
     isError: refundDetailError,
     // Keyed on referenceNumber, not id — the detail endpoint routes on the
     // document number (/accounting/owner-equity/:referenceNumber).
@@ -207,21 +209,30 @@ export default function OwnerEquityPage() {
     }
   }, [refundRow, refundDetailError, showError])
 
-  const refundSources: RefundSource[] = useMemo(() => {
-    if (!refundDetail?.settlements) return []
-    return refundDetail.settlements
-      .filter((s) => (toScaledAmount(s.amount) ?? 0n) > 0n)
-      .map((s) => ({
-        id: s.id,
-        label: s.paymentMethod?.name ?? 'Payment',
-        paidAmount: fromScaledAmount(toScaledAmount(s.amount) ?? 0n),
-        alreadyRefunded: fromScaledAmount(
-          s.remainingRefundable
-            ? (toScaledAmount(s.amount) ?? 0n) - (toScaledAmount(s.remainingRefundable) ?? 0n)
-            : 0n,
-        ),
-      }))
+  // Gross settlements grouped by method — refunds (negative rows) are excluded,
+  // and prior refunds reduce only the aggregate cap (#1096).
+  const seedAllocations: RefundSeed[] = useMemo(() => {
+    const grossByMethod = new Map<string, bigint>()
+    for (const s of refundDetail?.settlements ?? []) {
+      const amt = toScaledAmount(s.amount) ?? 0n
+      if (amt <= 0n) continue
+      grossByMethod.set(s.paymentMethodId, (grossByMethod.get(s.paymentMethodId) ?? 0n) + amt)
+    }
+    return [...grossByMethod].map(([methodId, amount]) => ({
+      methodId,
+      amount: fromScaledAmount(amount),
+    }))
   }, [refundDetail])
+
+  const netSettledMinor = useMemo(
+    () => (refundDetail?.settlements ?? []).reduce((s, r) => s + (toScaledAmount(r.amount) ?? 0n), 0n),
+    [refundDetail],
+  )
+  const availableForRefund = fromScaledAmount(netSettledMinor > 0n ? netSettledMinor : 0n)
+  const surplusMinor = netSettledMinor - (toScaledAmount(refundDetail?.totalAmount ?? '0') ?? 0n)
+  const seedTarget = fromScaledAmount(
+    surplusMinor > 0n ? surplusMinor : netSettledMinor > 0n ? netSettledMinor : 0n,
+  )
 
   const settleTerminology = useMemo(() => {
     if (!settleRow) return undefined
@@ -271,14 +282,14 @@ export default function OwnerEquityPage() {
   )
 
   const handleRefundSubmit = useCallback(
-    async (lines: { sourceId: string; amount: string; reference?: string; date?: string }[]) => {
+    async (lines: { paymentMethodId: string; amount: string; reference?: string; date?: string }[]) => {
       if (!refundRow) return
       try {
         await doRefundOwnerEquity({
           referenceNumber: refundRow.referenceNumber,
           data: {
             refunds: lines.map((l) => ({
-              sourceSettlementId: l.sourceId,
+              paymentMethodId: l.paymentMethodId,
               amount: l.amount,
               reference: l.reference,
               refundDate: l.date as string,
@@ -486,12 +497,16 @@ export default function OwnerEquityPage() {
 
           {refundRow && refundDetail && (
             <RefundDialog
+              methods={allActiveMethods.map((m) => ({ id: m.id, label: m.name }))}
+              seedAllocations={seedAllocations}
+              availableForRefund={availableForRefund}
+              seedTarget={seedTarget}
+              loading={refundDetailLoading || allMethodsLoading}
               open
               onClose={() => setRefundRow(null)}
               onSubmit={handleRefundSubmit}
-              sources={refundSources}
               orderNumber={refundRow.referenceNumber}
-              totalAmount={refundRow.totalAmount ?? '0'}
+              title={`Refund — ${refundRow.referenceNumber}`}
               showDateField
             />
           )}
