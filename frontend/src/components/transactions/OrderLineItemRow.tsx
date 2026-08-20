@@ -265,16 +265,7 @@ export default function OrderLineItemRow({
                 disabled={isSaving}
                 sx={{
                   width: '60px',
-                  '& .MuiInputBase-input': { fontSize: '0.875rem', padding: '2px 4px' },
-                }}
-                slotProps={{
-                  select: {
-                    MenuProps: {
-                      slotProps: {
-                        paper: { sx: { '& .MuiMenuItem-root': { fontSize: '0.875rem' } } },
-                      },
-                    },
-                  },
+                  '& .MuiInputBase-input': { padding: '2px 4px' },
                 }}
               >
                 <MenuItem value="percentage">%</MenuItem>

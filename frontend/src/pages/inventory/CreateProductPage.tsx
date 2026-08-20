@@ -99,12 +99,8 @@ const PriceListPriceField: React.FC<{
           }}
           sx={{
             '& .MuiInputBase-input': {
-              fontSize: '0.875rem',
               textAlign: 'right',
             },
-            '& .MuiInputLabel-root': {
-              fontSize: '0.875rem',
-            }
           }}
         />
         {value > 0 && baseCost > 0 && (
@@ -412,12 +408,6 @@ const CreateProductPage: React.FC = () => {
                             fullWidth
                             size="small"
                             sx={{
-                              '& .MuiInputBase-input': {
-                                fontSize: '0.875rem',
-                              },
-                              '& .MuiInputLabel-root': {
-                                fontSize: '0.875rem',
-                              },
                               '& .MuiFormHelperText-root': {
                                 color: hasNameDuplicate ? 'error.main' :
                                   (watchedName && watchedName.trim().length >= 2 && hasCheckedName && !hasNameDuplicate ?
@@ -441,14 +431,6 @@ const CreateProductPage: React.FC = () => {
                             rows={3}
                             fullWidth
                             size="small"
-                            sx={{
-                              '& .MuiInputBase-input': {
-                                fontSize: '0.875rem',
-                              },
-                              '& .MuiInputLabel-root': {
-                                fontSize: '0.875rem',
-                              }
-                            }}
                           />
                         )}
                       />
@@ -475,12 +457,6 @@ const CreateProductPage: React.FC = () => {
                             fullWidth
                             size="small"
                             sx={{
-                              '& .MuiInputBase-input': {
-                                fontSize: '0.875rem',
-                              },
-                              '& .MuiInputLabel-root': {
-                                fontSize: '0.875rem',
-                              },
                               '& .MuiFormHelperText-root': {
                                 color: hasBarcodeDuplicate ? 'error.main' :
                                   (watchedBarcode && watchedBarcode.trim().length >= 1 && hasCheckedBarcode && !hasBarcodeDuplicate ?
@@ -516,14 +492,6 @@ const CreateProductPage: React.FC = () => {
                                 setPendingType(next)
                               } else {
                                 field.onChange(next)
-                              }
-                            }}
-                            sx={{
-                              '& .MuiInputBase-input': {
-                                fontSize: '0.875rem',
-                              },
-                              '& .MuiInputLabel-root': {
-                                fontSize: '0.875rem',
                               }
                             }}
                           >
@@ -607,12 +575,8 @@ const CreateProductPage: React.FC = () => {
                               }}
                               sx={{
                                 '& .MuiInputBase-input': {
-                                  fontSize: '0.875rem',
                                   textAlign: 'right',
                                 },
-                                '& .MuiInputLabel-root': {
-                                  fontSize: '0.875rem',
-                                }
                               }}
                             />
                           );
@@ -705,12 +669,8 @@ const CreateProductPage: React.FC = () => {
                                 }}
                                 sx={{
                                   '& .MuiInputBase-input': {
-                                    fontSize: '0.875rem',
                                     textAlign: 'right',
                                   },
-                                  '& .MuiInputLabel-root': {
-                                    fontSize: '0.875rem',
-                                  }
                                 }}
                               />
                             );
@@ -761,11 +721,9 @@ const CreateProductPage: React.FC = () => {
                             flexGrow: 1,
                             '& .MuiInputBase-root': { height: '100%', alignItems: 'flex-start' },
                             '& .MuiInputBase-input': {
-                              fontSize: '0.875rem',
                               height: '100% !important',
                               overflow: 'auto !important',
                             },
-                            '& .MuiInputLabel-root': { fontSize: '0.875rem' },
                           }}
                         />
                       )}

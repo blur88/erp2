@@ -170,18 +170,14 @@ describe('CustomerFormPage - Create mode', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
   })
 
-  it('renders Price List selector with compact field styling', () => {
+  it('renders Price List selector without inline font styling', () => {
     renderCreatePage()
 
-    expect(mockPriceListSelectorProps.at(-1)).toEqual(
-      expect.objectContaining({
-        size: 'small',
-        sx: expect.objectContaining({
-          '& .MuiInputBase-input': expect.objectContaining({ fontSize: '0.875rem' }),
-          '& .MuiInputLabel-root': expect.objectContaining({ fontSize: '0.875rem' }),
-        }),
-      }),
-    )
+    const props = mockPriceListSelectorProps.at(-1)
+    expect(props).toEqual(expect.objectContaining({ size: 'small' }))
+    // Font size is inherited from the theme (MuiInputBase/MuiInputLabel
+    // overrides) — it must not be passed inline.
+    expect(props.sx).toBeUndefined()
   })
 
   it('renders Notes textarea without a fixed row count', () => {

@@ -40,11 +40,6 @@ interface FormData {
   parentId: string | null
 }
 
-const fieldSx = {
-  '& .MuiInputBase-input': { fontSize: '0.875rem' },
-  '& .MuiInputLabel-root': { fontSize: '0.875rem' },
-}
-
 const CategoryFormPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>()
   const [searchParams] = useSearchParams()
@@ -188,7 +183,6 @@ const CategoryFormPage: React.FC = () => {
                             errors.name?.message ||
                             (hasNameDuplicate ? nameError : '')
                           }
-                          sx={fieldSx}
                         />
                       )}
                     />

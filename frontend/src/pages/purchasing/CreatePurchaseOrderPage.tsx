@@ -99,11 +99,6 @@ const schema = yup.object({
     .min(1, 'At least one item is required'),
 })
 
-const fieldSx = {
-  '& .MuiInputBase-input': { fontSize: '0.875rem' },
-  '& .MuiInputLabel-root': { fontSize: '0.875rem' },
-}
-
 const emptyItem = (): PurchaseOrderItem => ({
   productId: '',
   quantity: 1,
@@ -376,7 +371,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
                     label="Order Number"
                     value={isEditMode ? (orderNumber ?? '') : (orderNumberPreview ?? '')}
                     slotProps={{ input: { readOnly: true } }}
-                    sx={fieldSx}
                   />
                 </Grid>
 
@@ -400,7 +394,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
                             size: 'small',
                             error: !!errors.orderDate,
                             helperText: errors.orderDate?.message,
-                            sx: fieldSx,
                           },
                         }}
                       />
@@ -430,7 +423,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
                                 size="small"
                                 error={!!errors.supplierId}
                                 helperText={errors.supplierId?.message}
-                                sx={fieldSx}
                               />
                             )}
                             slotProps={{
@@ -575,7 +567,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
                         ),
                       },
                     }}
-                    sx={fieldSx}
                   />
                 </Grid>
               </Grid>
@@ -601,7 +592,6 @@ const CreatePurchaseOrderPage: React.FC = () => {
                     size="small"
                     label="Notes"
                     disabled={loading}
-                    sx={fieldSx}
                   />
                 )}
               />

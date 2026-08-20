@@ -81,11 +81,6 @@ interface CustomerFormData {
   notes?: string | null
 }
 
-const fieldSx = {
-  '& .MuiInputBase-input': { fontSize: '0.875rem' },
-  '& .MuiInputLabel-root': { fontSize: '0.875rem' },
-}
-
 interface DuplicateNameResult {
   exists: boolean
   isInactive?: boolean
@@ -432,7 +427,7 @@ const CustomerFormPage: React.FC = () => {
                       name="type"
                       control={control}
                       render={({ field }) => (
-                        <FormControl fullWidth size="small" error={!!errors.type} disabled={isSaving} sx={fieldSx}>
+                        <FormControl fullWidth size="small" error={!!errors.type} disabled={isSaving}>
                           <InputLabel>Customer Type</InputLabel>
                           <Select {...field} label="Customer Type">
                             <MenuItem value={CustomerType.INDIVIDUAL}>Individual</MenuItem>
@@ -466,7 +461,6 @@ const CustomerFormPage: React.FC = () => {
                               ) : undefined,
                             },
                           }}
-                          sx={fieldSx}
                         />
                       )}
                     />
@@ -525,7 +519,6 @@ const CustomerFormPage: React.FC = () => {
                             },
                           }}
                           sx={{
-                            ...fieldSx,
                             '& .MuiFormHelperText-root': {
                               color: hasPhoneDuplicate
                                 ? 'error.main'
@@ -554,7 +547,6 @@ const CustomerFormPage: React.FC = () => {
                           disabled={isSaving}
                           error={!!errors.email}
                           helperText={errors.email?.message}
-                          sx={fieldSx}
                         />
                       )}
                     />
@@ -581,7 +573,6 @@ const CustomerFormPage: React.FC = () => {
                           label="Price List"
                           disabled={isSaving}
                           size="small"
-                          sx={fieldSx}
                         />
                       )}
                     />
@@ -604,11 +595,9 @@ const CustomerFormPage: React.FC = () => {
                         error={!!errors.notes}
                         helperText={errors.notes?.message}
                         sx={{
-                          ...fieldSx,
                           flexGrow: 1,
                           '& .MuiInputBase-root': { height: '100%', alignItems: 'flex-start' },
                           '& .MuiInputBase-input': {
-                            ...fieldSx['& .MuiInputBase-input'],
                             height: '100% !important',
                             overflow: 'auto !important',
                           },

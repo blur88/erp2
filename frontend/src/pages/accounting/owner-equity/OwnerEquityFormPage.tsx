@@ -53,11 +53,6 @@ interface OwnerEquityFormData {
   quantity: string
 }
 
-const fieldSx = {
-  '& .MuiInputBase-input': { fontSize: '0.875rem' },
-  '& .MuiInputLabel-root': { fontSize: '0.875rem' },
-}
-
 const AMOUNT_GRAMMAR = /^\d+(\.\d{1,4})?$/
 
 const isMonetaryType = (type: OwnerEquityType | undefined) =>
@@ -318,7 +313,6 @@ const OwnerEquityFormPage: React.FC = () => {
                           fullWidth
                           size="small"
                           disabled={isSaving}
-                          sx={fieldSx}
                           error={!!errors.type}
                         >
                           <InputLabel id="type-label">
@@ -371,7 +365,6 @@ const OwnerEquityFormPage: React.FC = () => {
                               error: !!errors.equityDate,
                               helperText: errors.equityDate?.message,
                               disabled: isSaving,
-                              sx: fieldSx,
                             },
                           }}
                         />
@@ -385,7 +378,6 @@ const OwnerEquityFormPage: React.FC = () => {
                       disabled
                       fullWidth
                       size="small"
-                      sx={fieldSx}
                     />
                   </Grid>
                   <Grid size={12}>
@@ -403,7 +395,6 @@ const OwnerEquityFormPage: React.FC = () => {
                           disabled={isSaving}
                           error={!!errors.description}
                           helperText={errors.description?.message}
-                          sx={fieldSx}
                         />
                       )}
                     />
@@ -444,7 +435,6 @@ const OwnerEquityFormPage: React.FC = () => {
                             error={!!errors.totalAmount}
                             helperText={errors.totalAmount?.message}
                             slotProps={{ htmlInput: { inputMode: 'decimal' as const } }}
-                            sx={fieldSx}
                           />
                         )}
                       />
@@ -503,7 +493,6 @@ const OwnerEquityFormPage: React.FC = () => {
                                 placeholder="Search by name or barcode..."
                                 error={!!errors.productId}
                                 helperText={errors.productId?.message}
-                                sx={fieldSx}
                               />
                             )}
                           />
@@ -527,7 +516,6 @@ const OwnerEquityFormPage: React.FC = () => {
                             error={!!errors.quantity}
                             helperText={errors.quantity?.message}
                             slotProps={{ htmlInput: { inputMode: 'decimal' as const } }}
-                            sx={fieldSx}
                           />
                         )}
                       />
@@ -568,7 +556,6 @@ const OwnerEquityFormPage: React.FC = () => {
                       error={!!errors.notes}
                       helperText={errors.notes?.message}
                       minRows={3}
-                      sx={fieldSx}
                     />
                   )}
                 />

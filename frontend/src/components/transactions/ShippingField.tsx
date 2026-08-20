@@ -6,11 +6,6 @@ import type { Control } from 'react-hook-form'
 
 import { formatNum } from './numberFormat'
 
-const fieldSx = {
-  '& .MuiInputBase-input': { fontSize: '0.875rem' },
-  '& .MuiInputLabel-root': { fontSize: '0.875rem' },
-}
-
 interface ShippingFieldProps {
   control: Control<any>
   currency: string
@@ -64,7 +59,6 @@ export default function ShippingField({ control, currency, theme, isSaving }: Sh
             },
             htmlInput: { style: { textAlign: 'right', fontSize: '0.875rem' } },
           }}
-          sx={fieldSx}
         />
       )}
     />

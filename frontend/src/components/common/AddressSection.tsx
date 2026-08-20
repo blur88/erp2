@@ -51,11 +51,6 @@ export default function AddressSection<T extends FieldValues>({
   const postalCodeField = postalCodeKey as Path<T>
   const countryField = countryKey as Path<T>
 
-  const fieldSx = {
-    '& .MuiInputBase-input': { fontSize: '0.875rem' },
-    '& .MuiInputLabel-root': { fontSize: '0.875rem' },
-  }
-
   return (
     <>
       {title && (
@@ -78,7 +73,6 @@ export default function AddressSection<T extends FieldValues>({
               disabled={disabled}
               error={!!(errors as any)[streetKey]}
               helperText={(errors as any)[streetKey]?.message}
-              sx={fieldSx}
             />
           )}
         />
@@ -98,7 +92,6 @@ export default function AddressSection<T extends FieldValues>({
               disabled={disabled}
               error={!!(errors as any)[street2Key]}
               helperText={(errors as any)[street2Key]?.message}
-              sx={fieldSx}
             />
           )}
         />
@@ -118,7 +111,6 @@ export default function AddressSection<T extends FieldValues>({
               disabled={disabled}
               error={!!(errors as any)[cityKey]}
               helperText={(errors as any)[cityKey]?.message}
-              sx={fieldSx}
             />
           )}
         />
@@ -138,7 +130,6 @@ export default function AddressSection<T extends FieldValues>({
               disabled={disabled}
               error={!!(errors as any)[stateKey]}
               helperText={(errors as any)[stateKey]?.message}
-              sx={fieldSx}
             />
           )}
         />
@@ -158,7 +149,6 @@ export default function AddressSection<T extends FieldValues>({
               disabled={disabled}
               error={!!(errors as any)[postalCodeKey]}
               helperText={(errors as any)[postalCodeKey]?.message}
-              sx={fieldSx}
             />
           )}
         />
@@ -169,7 +159,7 @@ export default function AddressSection<T extends FieldValues>({
           name={countryField}
           control={control}
           render={({ field }) => (
-            <FormControl fullWidth size="small" disabled={disabled} error={!!(errors as any)[countryKey]} sx={fieldSx}>
+            <FormControl fullWidth size="small" disabled={disabled} error={!!(errors as any)[countryKey]}>
               <InputLabel>{prefix ? `${prefix.charAt(0).toUpperCase() + prefix.slice(1)} Country` : 'Country'}</InputLabel>
               <Select
                 {...field}
