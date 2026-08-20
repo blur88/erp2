@@ -2,8 +2,13 @@ import { render, screen } from '@testing-library/react'
 import { ThemeProvider } from '@mui/material/styles'
 import { Menu, MenuItem, Select } from '@mui/material'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { darkTheme } from '@/styles/theme'
+import ExportButton from '@/pages/audit-logs/components/ExportButton'
+
+vi.mock('xlsx', () => ({ utils: { book_new: vi.fn(), aoa_to_sheet: vi.fn(), book_append_sheet: vi.fn() }, writeFile: vi.fn() }))
+vi.mock('jspdf', () => ({ default: vi.fn(() => ({ save: vi.fn() })) }))
+vi.mock('jspdf-autotable', () => ({ default: vi.fn() }))
 
 const FIELD_FONT = '0.875rem'
 const LISTBOX_SELECTOR = ':where(.MuiMenu-list[role="listbox"]) &'
@@ -83,5 +88,33 @@ describe('select/action-menu structural boundary', () => {
     expect(screen.getByRole('menu')).toBeInTheDocument()
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: 'Log out' })).toBeInTheDocument()
+  })
+
+  it('keeps a real action menu (ExportButton) on role="menu"', async () => {
+    const user = userEvent.setup()
+    // ExportButton disables itself when logs.length === 0, so an empty array
+    // would render a disabled button and the menu would never open.
+    renderThemed(
+      <ExportButton
+        logs={[
+          {
+            id: '1',
+            action: 'CREATE',
+            entityType: 'Product',
+            entityId: 'p1',
+            userId: 'u1',
+            username: 'admin',
+            description: 'created',
+            ipAddress: '127.0.0.1',
+            createdAt: '2026-08-20T00:00:00.000Z',
+          } as never,
+        ]}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /export/i }))
+
+    expect(await screen.findByRole('menuitem', { name: 'Export as CSV' })).toBeInTheDocument()
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 })
