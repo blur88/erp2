@@ -361,11 +361,10 @@ export default function RefundDialog({
               onChange={(e) => updateLine(index, 'paymentMethodId', e.target.value)}
               displayEmpty
               inputProps={{ 'aria-label': `Refund method, line ${index + 1}` }}
-              sx={{ fontSize: '0.85rem' }}
             >
               <MenuItem value="" disabled>Method</MenuItem>
               {methods.map((m) => (
-                <MenuItem key={m.id} value={m.id} sx={{ fontSize: '0.85rem' }}>
+                <MenuItem key={m.id} value={m.id}>
                   {m.label}
                 </MenuItem>
               ))}

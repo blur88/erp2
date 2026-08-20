@@ -311,11 +311,10 @@ export default function PaymentDialog({
               onChange={(e) => updateLine(index, 'paymentMethodId', e.target.value)}
               displayEmpty
               inputProps={{ 'aria-label': `${terms.lineNoun} method, line ${index + 1}` }}
-              sx={{ fontSize: '0.85rem' }}
             >
               <MenuItem value="" disabled>Method</MenuItem>
               {paymentMethods.map((pm) => (
-                <MenuItem key={pm.id} value={pm.id} sx={{ fontSize: '0.85rem' }}>
+                <MenuItem key={pm.id} value={pm.id}>
                   {pm.name}
                 </MenuItem>
               ))}
