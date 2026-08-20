@@ -123,6 +123,19 @@ describe('AccountFormDialog', () => {
     mockUpdateAccount.mockClear()
   })
 
+  it('renders its fields at the compact size, multiline included (#1100)', () => {
+    renderDialog({ open: true, onClose: vi.fn(), onSuccess: vi.fn() })
+
+    const roots = document.querySelectorAll('.MuiInputBase-root')
+    expect(roots.length).toBeGreaterThan(0)
+    roots.forEach((root) => {
+      expect(root.classList.contains('MuiInputBase-sizeSmall')).toBe(true)
+    })
+    // The Description field is multiline: its height comes from `rows`, not
+    // from `size`, so it must still render a textarea.
+    expect(document.querySelector('textarea')).not.toBeNull()
+  })
+
   it('no longer renders an opening balance field', () => {
     renderDialog({ open: true, onClose: vi.fn(), onSuccess: vi.fn() })
     expect(screen.queryByLabelText(/Opening Balance/)).not.toBeInTheDocument()

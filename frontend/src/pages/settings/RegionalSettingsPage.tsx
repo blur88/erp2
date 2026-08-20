@@ -245,6 +245,7 @@ const RegionalSettingsPage: React.FC = () => {
                     select
                     label="Default Currency"
                     fullWidth
+                    size="small"
                     required
                     error={!!errors.currency}
                     helperText={errors.currency?.message || 'Select the default currency for your business'}
@@ -273,6 +274,7 @@ const RegionalSettingsPage: React.FC = () => {
                     select
                     label="Date Format"
                     fullWidth
+                    size="small"
                     required
                     error={!!errors.dateFormat}
                     helperText={errors.dateFormat?.message || 'How dates are displayed throughout the system'}
@@ -294,6 +296,7 @@ const RegionalSettingsPage: React.FC = () => {
                     select
                     label="Time Format"
                     fullWidth
+                    size="small"
                     required
                     error={!!errors.timeFormat}
                     helperText={errors.timeFormat?.message || 'How times are displayed throughout the system'}
@@ -315,6 +318,7 @@ const RegionalSettingsPage: React.FC = () => {
                     select
                     label="Start of Week"
                     fullWidth
+                    size="small"
                     required
                     error={!!errors.startOfWeek}
                     helperText={errors.startOfWeek?.message || 'Which day the week starts on'}
@@ -342,6 +346,7 @@ const RegionalSettingsPage: React.FC = () => {
                     select
                     label="Number Format"
                     fullWidth
+                    size="small"
                     required
                     error={!!errors.numberFormat}
                     helperText={errors.numberFormat?.message || 'How numbers are displayed throughout the system'}
@@ -370,6 +375,7 @@ const RegionalSettingsPage: React.FC = () => {
                     select
                     label="Timezone"
                     fullWidth
+                    size="small"
                     required
                     error={!!errors.timezone}
                     helperText={errors.timezone?.message || 'The timezone used for date-based reports and analytics'}

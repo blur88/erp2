@@ -304,6 +304,7 @@ const CompanySettingsPage: React.FC = () => {
                     label="Company Name"
                     placeholder="Enter company name"
                     fullWidth
+                    size="small"
                     required
                     error={!!errors.name}
                     helperText={errors.name?.message}
@@ -334,6 +335,7 @@ const CompanySettingsPage: React.FC = () => {
                     label="Street Address"
                     placeholder="Enter street address"
                     fullWidth
+                    size="small"
                     required
                     multiline
                     rows={2}
@@ -359,6 +361,7 @@ const CompanySettingsPage: React.FC = () => {
                     label="City"
                     placeholder="Enter city"
                     fullWidth
+                    size="small"
                     required
                     error={!!errors.city}
                     helperText={errors.city?.message}
@@ -382,6 +385,7 @@ const CompanySettingsPage: React.FC = () => {
                     label="State/Province"
                     placeholder="Enter state or province"
                     fullWidth
+                    size="small"
                     error={!!errors.state}
                     helperText={errors.state?.message}
                   />
@@ -404,6 +408,7 @@ const CompanySettingsPage: React.FC = () => {
                     label="Postal Code"
                     placeholder="Enter postal code"
                     fullWidth
+                    size="small"
                     error={!!errors.postalCode}
                     helperText={errors.postalCode?.message}
                   />
@@ -426,6 +431,7 @@ const CompanySettingsPage: React.FC = () => {
                     label="Country"
                     placeholder="Enter country"
                     fullWidth
+                    size="small"
                     required
                     error={!!errors.country}
                     helperText={errors.country?.message}
@@ -460,6 +466,7 @@ const CompanySettingsPage: React.FC = () => {
                     label="Phone"
                     placeholder="Enter phone number"
                     fullWidth
+                    size="small"
                     error={!!errors.phone}
                     helperText={errors.phone?.message}
                   />
@@ -483,6 +490,7 @@ const CompanySettingsPage: React.FC = () => {
                     placeholder="Enter email address"
                     type="email"
                     fullWidth
+                    size="small"
                     error={!!errors.email}
                     helperText={errors.email?.message}
                   />
@@ -501,6 +509,7 @@ const CompanySettingsPage: React.FC = () => {
                     label="Website"
                     placeholder="https://www.example.com"
                     fullWidth
+                    size="small"
                     error={!!errors.website}
                     helperText={errors.website?.message}
                   />
@@ -530,6 +539,7 @@ const CompanySettingsPage: React.FC = () => {
                     label="Misc Info"
                     placeholder="Enter any additional information"
                     fullWidth
+                    size="small"
                     multiline
                     rows={4}
                     error={!!errors.miscInfo}

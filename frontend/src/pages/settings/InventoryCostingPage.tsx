@@ -166,6 +166,7 @@ const InventoryCostingPage: React.FC = () => {
                     select
                     label="Inventory Costing Method"
                     fullWidth
+                    size="small"
                     required
                     error={!!errors.costingMethod}
                     helperText={errors.costingMethod?.message || 'Select the method for inventory valuation'}
