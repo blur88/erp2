@@ -74,11 +74,6 @@ const schema = yup.object({
   ).min(1, 'At least one item is required'),
 })
 
-const fieldSx = {
-  '& .MuiInputBase-input': { fontSize: '0.875rem' },
-  '& .MuiInputLabel-root': { fontSize: '0.875rem' },
-}
-
 const calculateQtyAfter = (
   liveStock: number | string,
   difference: number | string,
@@ -364,7 +359,6 @@ const CreateStockAdjustmentPage: React.FC = () => {
                     label="Adjustment Number"
                     value={isEditMode ? (adjustment?.adjustmentNumber ?? '') : (adjustmentNumberPreview ?? '')}
                     slotProps={{ input: { readOnly: true }, inputLabel: { shrink: true } }}
-                    sx={fieldSx}
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
@@ -386,7 +380,6 @@ const CreateStockAdjustmentPage: React.FC = () => {
                             size: 'small',
                             error: !!errors.adjustmentDate,
                             helperText: errors.adjustmentDate?.message,
-                            sx: fieldSx,
                           },
                         }}
                       />
@@ -635,7 +628,6 @@ const CreateStockAdjustmentPage: React.FC = () => {
                     multiline
                     rows={3}
                     fullWidth
-                    sx={fieldSx}
                   />
                 )}
               />

@@ -46,11 +46,6 @@ interface ExpenseFormData {
   notes: string
 }
 
-const fieldSx = {
-  '& .MuiInputBase-input': { fontSize: '0.875rem' },
-  '& .MuiInputLabel-root': { fontSize: '0.875rem' },
-}
-
 // Mirrors backend/src/modules/accounting/dto/expense.dto.ts — keep in sync.
 const AMOUNT_GRAMMAR = /^\d+(\.\d{1,4})?$/
 
@@ -338,7 +333,6 @@ const ExpenseFormPage: React.FC = () => {
                               error: !!errors.expenseDate,
                               helperText: errors.expenseDate?.message,
                               disabled: isSaving,
-                              sx: fieldSx,
                             },
                           }}
                         />
@@ -356,7 +350,6 @@ const ExpenseFormPage: React.FC = () => {
                           disabled
                           fullWidth
                           size="small"
-                          sx={fieldSx}
                         />
                       )}
                     />
@@ -373,7 +366,6 @@ const ExpenseFormPage: React.FC = () => {
                           size="small"
                           label="Payee"
                           disabled={isSaving}
-                          sx={fieldSx}
                         />
                       )}
                     />
@@ -392,7 +384,6 @@ const ExpenseFormPage: React.FC = () => {
                           disabled={isSaving}
                           error={!!errors.description}
                           helperText={errors.description?.message}
-                          sx={fieldSx}
                         />
                       )}
                     />
@@ -413,7 +404,7 @@ const ExpenseFormPage: React.FC = () => {
                       control={control}
                       render={({ field }) => {
                         const selectField = (
-                          <FormControl fullWidth size="small" error={!!errors.expenseAccountId} disabled={hasPayments || isSaving} sx={fieldSx}>
+                          <FormControl fullWidth size="small" error={!!errors.expenseAccountId} disabled={hasPayments || isSaving}>
                             <InputLabel id="account-label">Account</InputLabel>
                             <Select labelId="account-label" id="account-select" label="Account" {...field}>
                               {accountOptions.map((opt) => (
@@ -456,7 +447,6 @@ const ExpenseFormPage: React.FC = () => {
                           error={!!errors.totalAmount}
                           helperText={errors.totalAmount?.message}
                           slotProps={{ htmlInput: { inputMode: 'decimal' as const } }}
-                          sx={fieldSx}
                         />
                       )}
                     />
@@ -485,7 +475,6 @@ const ExpenseFormPage: React.FC = () => {
                       error={!!errors.notes}
                       helperText={errors.notes?.message}
                       minRows={3}
-                      sx={fieldSx}
                     />
                   )}
                 />

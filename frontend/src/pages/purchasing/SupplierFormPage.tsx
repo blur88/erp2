@@ -87,11 +87,6 @@ interface DuplicateNameResult {
   message?: string
 }
 
-const fieldSx = {
-  '& .MuiInputBase-input': { fontSize: '0.875rem' },
-  '& .MuiInputLabel-root': { fontSize: '0.875rem' },
-}
-
 const SupplierFormPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
@@ -344,7 +339,7 @@ const SupplierFormPage: React.FC = () => {
                       name="type"
                       control={control}
                       render={({ field }) => (
-                        <FormControl fullWidth size="small" error={!!errors.type} disabled={isSaving} sx={fieldSx}>
+                        <FormControl fullWidth size="small" error={!!errors.type} disabled={isSaving}>
                           <InputLabel>Supplier Type</InputLabel>
                           <Select {...field} label="Supplier Type">
                             <MenuItem value={SupplierType.LOCAL}>Local</MenuItem>
@@ -378,7 +373,6 @@ const SupplierFormPage: React.FC = () => {
                               ) : undefined,
                             },
                           }}
-                          sx={fieldSx}
                         />
                       )}
                     />
@@ -423,7 +417,6 @@ const SupplierFormPage: React.FC = () => {
                           disabled={isSaving}
                           error={!!errors.contactPerson}
                           helperText={errors.contactPerson?.message}
-                          sx={fieldSx}
                         />
                       )}
                     />
@@ -443,7 +436,6 @@ const SupplierFormPage: React.FC = () => {
                           disabled={isSaving}
                           error={!!errors.phone}
                           helperText={errors.phone?.message}
-                          sx={fieldSx}
                         />
                       )}
                     />
@@ -464,7 +456,6 @@ const SupplierFormPage: React.FC = () => {
                           disabled={isSaving}
                           error={!!errors.email}
                           helperText={errors.email?.message}
-                          sx={fieldSx}
                         />
                       )}
                     />
@@ -494,11 +485,9 @@ const SupplierFormPage: React.FC = () => {
                         error={!!errors.notes}
                         helperText={errors.notes?.message}
                         sx={{
-                          ...fieldSx,
                           flexGrow: 1,
                           '& .MuiInputBase-root': { height: '100%', alignItems: 'flex-start' },
                           '& .MuiInputBase-input': {
-                            ...fieldSx['& .MuiInputBase-input'],
                             height: '100% !important',
                             overflow: 'auto !important',
                           },
