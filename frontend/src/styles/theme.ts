@@ -1,5 +1,6 @@
 import { createTheme, ThemeOptions } from '@mui/material/styles'
 import { alpha } from '@mui/material/styles'
+import type {} from '@mui/x-date-pickers/themeAugmentation'
 
 declare module '@mui/material/styles' {
   interface TypeBackground {
@@ -330,11 +331,35 @@ const baseThemeOptions: ThemeOptions = {
     MuiInputLabel: {
       styleOverrides: {
         root: {
+          fontSize: '0.875rem',
           // outlined unshrunk: MUI default is translate(14px,9px); 32px field center is 4px higher
           '&.MuiInputLabel-outlined.MuiInputLabel-sizeXs:not(.MuiInputLabel-shrink)': {
             transform: 'translate(14px, 5px) scale(1)',
           },
         },
+      },
+    },
+    MuiInputBase: {
+      styleOverrides: {
+        input: { fontSize: '0.875rem' },
+      },
+    },
+    // Select dropdown options only. SelectInput applies role="listbox" to a
+    // Select's menu list (SelectInput.js:785); a plain MenuList is role="menu"
+    // (MenuList.js:241), so standalone action menus are excluded structurally.
+    // :where() holds specificity at 0 so explicit sx overrides still win.
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          ':where(.MuiMenu-list[role="listbox"]) &': { fontSize: '0.875rem' },
+        },
+      },
+    },
+    // MUI X v9 pickers render the date into MuiPickersInputBase-sectionContent
+    // spans, NOT an <input>, so .MuiInputBase-input never matched them.
+    MuiPickersInputBase: {
+      styleOverrides: {
+        root: { fontSize: '0.875rem' },
       },
     },
   },
