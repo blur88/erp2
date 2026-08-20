@@ -11,7 +11,14 @@ vi.mock('jspdf', () => ({ default: vi.fn(() => ({ save: vi.fn() })) }))
 vi.mock('jspdf-autotable', () => ({ default: vi.fn() }))
 
 const FIELD_FONT = '0.875rem'
-const LISTBOX_SELECTOR = ':where(.MuiMenu-list[role="listbox"]) &'
+const LISTBOX_SELECTOR = '&[role="listbox"] .MuiMenuItem-root'
+
+// Emitted-CSS helper. Computed styles are unobservable here (Emotion), but the
+// generated stylesheet IS readable — and it is what caught the original bug.
+const emittedCss = () =>
+  Array.from(document.querySelectorAll('style'))
+    .map((el) => el.textContent ?? '')
+    .join('\n')
 
 const components = () => darkTheme.components as Record<string, any>
 
@@ -35,12 +42,16 @@ describe('form-control typography theme rules', () => {
     ).toBe('translate(14px, 5px) scale(1)')
   })
 
-  it('scopes the option rule to the listbox selector exactly', () => {
-    const root = components().MuiMenuItem.styleOverrides.root
-    expect(Object.keys(root)).toContain(LISTBOX_SELECTOR)
-    expect(root[LISTBOX_SELECTOR].fontSize).toBe(FIELD_FONT)
+  it('scopes the option rule from the LIST side, not from MuiMenuItem.root', () => {
+    const list = components().MuiMenu.styleOverrides.list
+    expect(Object.keys(list)).toContain(LISTBOX_SELECTOR)
+    expect(list[LISTBOX_SELECTOR].fontSize).toBe(FIELD_FONT)
     // Must NOT set a bare fontSize, which would hit action menus too.
-    expect(root.fontSize).toBeUndefined()
+    expect(list.fontSize).toBeUndefined()
+    // The rule must NOT live on MuiMenuItem.root: Emotion substitutes `&` with
+    // the element's own generated class, so ':where(.MuiMenu-list[role=listbox]) &'
+    // compiles to `.item:where(...) .item` and never matches. See #1098.
+    expect(components().MuiMenuItem?.styleOverrides?.root).toBeUndefined()
   })
 
   it('covers MUI X pickers, which .MuiInputBase-input never matched', () => {
@@ -51,6 +62,28 @@ describe('form-control typography theme rules', () => {
 // Layer 2 — DOM structure. The selector above is only correct while these roles
 // hold; if they change, the rule silently stops matching.
 describe('select/action-menu structural boundary', () => {
+  it('emits a descendant option rule that can actually match', async () => {
+    const user = userEvent.setup()
+    renderThemed(
+      <Select value="a" onChange={() => {}}>
+        <MenuItem value="a">Alpha</MenuItem>
+      </Select>,
+    )
+    await user.click(screen.getByRole('combobox'))
+    await screen.findByRole('option', { name: 'Alpha' })
+
+    // Regression guard for the original bug: the emitted rule must be a real
+    // DESCENDANT selector (list then item), never item-then-item.
+    const rules = emittedCss()
+      .split('}')
+      .filter((r) => r.includes('listbox') && r.includes('font-size'))
+    expect(rules.length).toBeGreaterThan(0)
+    rules.forEach((rule) => {
+      expect(rule).toMatch(/\[role="listbox"\]\s+\.MuiMenuItem-root\s*\{/)
+      expect(rule).not.toMatch(/MuiMenuItem-root:where/)
+    })
+  })
+
   it('gives a Select menu list role="listbox"', async () => {
     const user = userEvent.setup()
     renderThemed(
@@ -85,8 +118,11 @@ describe('select/action-menu structural boundary', () => {
         <MenuItem>Log out</MenuItem>
       </Menu>,
     )
-    expect(screen.getByRole('menu')).toBeInTheDocument()
+    const list = screen.getByRole('menu')
+    expect(list).toBeInTheDocument()
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    // The option rule keys off [role="listbox"]; prove this list cannot match.
+    expect(list.matches('[role="listbox"]')).toBe(false)
     expect(screen.getByRole('menuitem', { name: 'Log out' })).toBeInTheDocument()
   })
 

@@ -347,11 +347,17 @@ const baseThemeOptions: ThemeOptions = {
     // Select dropdown options only. SelectInput applies role="listbox" to a
     // Select's menu list (SelectInput.js:785); a plain MenuList is role="menu"
     // (MenuList.js:241), so standalone action menus are excluded structurally.
-    // :where() holds specificity at 0 so explicit sx overrides still win.
-    MuiMenuItem: {
+    //
+    // This MUST be scoped from the LIST side, not from MuiMenuItem.root.
+    // Emotion substitutes `&` with the element's own generated class, so a
+    // MuiMenuItem rule written as `':where(.MuiMenu-list[role=listbox]) &'`
+    // compiles to `.item:where(...) .item` — a MenuItem containing a MenuItem,
+    // which never matches. Styling the list's descendants is the correct
+    // direction. :where() keeps specificity at 0 so per-item sx still wins.
+    MuiMenu: {
       styleOverrides: {
-        root: {
-          ':where(.MuiMenu-list[role="listbox"]) &': { fontSize: '0.875rem' },
+        list: {
+          '&[role="listbox"] .MuiMenuItem-root': { fontSize: '0.875rem' },
         },
       },
     },
