@@ -151,7 +151,6 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
       <InputLabel
         required={required}
         sx={{
-          fontSize: '0.875rem',
           '&.MuiInputLabel-shrunk': {
             fontSize: '0.75rem'
           }
@@ -178,14 +177,6 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({
           }
           // If no value selected, show placeholder or empty
           return selected ? String(selected) : ''
-        }}
-        sx={{
-          '& .MuiInputBase-input': {
-            fontSize: '0.875rem',
-          },
-          '& .MuiSelect-select': {
-            fontSize: '0.875rem',
-          }
         }}
         MenuProps={{
           slotProps: {
