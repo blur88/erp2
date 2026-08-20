@@ -180,6 +180,7 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
                   <TextField
                     {...field}
                     fullWidth
+                    size="small"
                     label="Code"
                     disabled={isEdit}
                     error={!!errors.code}
@@ -196,6 +197,7 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
                   <TextField
                     {...field}
                     fullWidth
+                    size="small"
                     label="Name"
                     error={!!errors.name}
                     helperText={errors.name?.message}
@@ -211,6 +213,7 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
                   <TextField
                     {...field}
                     fullWidth
+                    size="small"
                     select
                     label="Type"
                     // A child's type is dictated by its parent; letting the user
@@ -236,6 +239,7 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
                   <TextField
                     {...field}
                     fullWidth
+                    size="small"
                     select
                     label="Parent Account"
                     disabled={isEdit}
@@ -260,6 +264,7 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
                     {...field}
                     value={field.value || ''}
                     fullWidth
+                    size="small"
                     label="Description"
                     multiline
                     rows={3}

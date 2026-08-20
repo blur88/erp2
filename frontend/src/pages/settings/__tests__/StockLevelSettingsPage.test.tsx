@@ -61,7 +61,14 @@ describe('StockLevelSettingsPage', () => {
 
     render(<StockLevelSettingsPage />)
 
-    expect(screen.getByLabelText(/low stock threshold/i)).toBeInTheDocument()
+    const input = screen.getByLabelText(/low stock threshold/i)
+    expect(input).toBeInTheDocument()
+    // Compact field size (#1100). Structural only: MUI puts
+    // MuiInputBase-sizeSmall on the InputBase root for size="small" and omits
+    // it for the medium default. Pixel height is browser-only (no jsdom layout).
+    expect(
+      input.closest('.MuiInputBase-root')?.classList.contains('MuiInputBase-sizeSmall'),
+    ).toBe(true)
   })
 
   it('renders error alert when fetch fails', () => {

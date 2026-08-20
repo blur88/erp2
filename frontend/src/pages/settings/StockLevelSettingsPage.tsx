@@ -116,6 +116,7 @@ const StockLevelSettingsPage: React.FC = () => {
                     label="Low Stock Threshold"
                     type="number"
                     fullWidth
+                    size="small"
                     required
                     slotProps={{ htmlInput: { min: 0, step: 1 } }}
                     error={!!errors.lowStockThreshold}

@@ -120,6 +120,7 @@ function FieldGrid({ fields, accounts, control, errors, disabled }: FieldGridPro
                 <TextField
                   {...field}
                   select
+                  size="small"
                   fullWidth
                   disabled={disabled}
                   label={fieldConfig.label}

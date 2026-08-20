@@ -230,6 +230,19 @@ function renderPage(role = 'admin') {
 }
 
 describe('AccountingSettingsPage', () => {
+  it('renders every account dropdown at the compact field size (#1100)', () => {
+    renderPage()
+
+    // Structural only: MUI puts MuiInputBase-sizeSmall on the InputBase root
+    // for size="small" and omits it for the medium default. Pixel height is not
+    // assertable in jsdom (no layout engine) — verified in a browser instead.
+    const roots = document.querySelectorAll('.MuiInputBase-root')
+    expect(roots.length).toBeGreaterThan(0)
+    roots.forEach((root) => {
+      expect(root.classList.contains('MuiInputBase-sizeSmall')).toBe(true)
+    })
+  })
+
   it('renders 4 section cards', () => {
     renderPage()
     expect(screen.getByText('Payment')).toBeInTheDocument()
