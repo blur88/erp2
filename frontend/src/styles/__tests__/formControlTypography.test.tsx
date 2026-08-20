@@ -11,7 +11,6 @@ vi.mock('jspdf', () => ({ default: vi.fn(() => ({ save: vi.fn() })) }))
 vi.mock('jspdf-autotable', () => ({ default: vi.fn() }))
 
 const FIELD_FONT = '0.875rem'
-const LISTBOX_SELECTOR = '&[role="listbox"] .MuiMenuItem-root'
 
 // Emitted-CSS helper. Computed styles are unobservable here (Emotion), but the
 // generated stylesheet IS readable — and it is what caught the original bug.
@@ -42,16 +41,19 @@ describe('form-control typography theme rules', () => {
     ).toBe('translate(14px, 5px) scale(1)')
   })
 
-  it('scopes the option rule from the LIST side, not from MuiMenuItem.root', () => {
-    const list = components().MuiMenu.styleOverrides.list
-    expect(Object.keys(list)).toContain(LISTBOX_SELECTOR)
-    expect(list[LISTBOX_SELECTOR].fontSize).toBe(FIELD_FONT)
-    // Must NOT set a bare fontSize, which would hit action menus too.
-    expect(list.fontSize).toBeUndefined()
-    // The rule must NOT live on MuiMenuItem.root: Emotion substitutes `&` with
-    // the element's own generated class, so ':where(.MuiMenu-list[role=listbox]) &'
-    // compiles to `.item:where(...) .item` and never matches. See #1098.
-    expect(components().MuiMenuItem?.styleOverrides?.root).toBeUndefined()
+  it('applies the option rule via ownerState.role, not a descendant selector', () => {
+    const root = components().MuiMenuItem.styleOverrides.root
+    expect(typeof root).toBe('function')
+    // Select options carry role="option" in ownerState; a plain <Menu>'s items
+    // carry no role, so action menus are excluded by construction.
+    expect(root({ ownerState: { role: 'option' } })).toEqual({ fontSize: FIELD_FONT })
+    expect(root({ ownerState: { dense: false } })).toEqual({})
+    expect(root({ ownerState: {} })).toEqual({})
+    // MuiMenu must NOT carry a descendant font rule: MUI merges base styles and
+    // `sx` into one class, so no descendant specificity can beat the base while
+    // losing to `sx` — measured in a browser, all variants clobbered one or the
+    // other (#1098).
+    expect(components().MuiMenu?.styleOverrides?.list).toBeUndefined()
   })
 
   it('covers MUI X pickers, which .MuiInputBase-input never matched', () => {
@@ -62,7 +64,7 @@ describe('form-control typography theme rules', () => {
 // Layer 2 — DOM structure. The selector above is only correct while these roles
 // hold; if they change, the rule silently stops matching.
 describe('select/action-menu structural boundary', () => {
-  it('emits a descendant option rule that can actually match', async () => {
+  it('emits the option size into the item class, not a descendant rule', async () => {
     const user = userEvent.setup()
     renderThemed(
       <Select value="a" onChange={() => {}}>
@@ -70,18 +72,17 @@ describe('select/action-menu structural boundary', () => {
       </Select>,
     )
     await user.click(screen.getByRole('combobox'))
-    await screen.findByRole('option', { name: 'Alpha' })
+    const option = await screen.findByRole('option', { name: 'Alpha' })
 
-    // Regression guard for the original bug: the emitted rule must be a real
-    // DESCENDANT selector (list then item), never item-then-item.
-    const rules = emittedCss()
+    // The size must land on the option's own generated class. A descendant rule
+    // keyed off [role="listbox"] is the regression this guards against.
+    const cls = Array.from(option.classList).find((c) => c.startsWith('css-'))
+    expect(cls).toBeDefined()
+    const own = emittedCss()
       .split('}')
-      .filter((r) => r.includes('listbox') && r.includes('font-size'))
-    expect(rules.length).toBeGreaterThan(0)
-    rules.forEach((rule) => {
-      expect(rule).toMatch(/\[role="listbox"\]\s+\.MuiMenuItem-root\s*\{/)
-      expect(rule).not.toMatch(/MuiMenuItem-root:where/)
-    })
+      .filter((r) => r.includes(`.${cls}`) && r.includes('font-size'))
+    expect(own.join(' ')).toContain('font-size:0.875rem')
+    expect(emittedCss()).not.toMatch(/\[role="listbox"\][^{]*MuiMenuItem-root\s*\{/)
   })
 
   it('gives a Select menu list role="listbox"', async () => {
