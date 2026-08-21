@@ -1,4 +1,6 @@
-import { useId, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
+import { DatePicker } from '@mui/x-date-pickers'
+import { format, parseISO } from 'date-fns'
 import {
   Dialog,
   DialogTitle,
@@ -8,8 +10,8 @@ import {
   Box,
   Divider,
   CircularProgress,
-  TextField,
 } from '@mui/material'
+import { toMuiDatePickerFormat } from '@/utils/formatters'
 
 export interface TransactionLineDialogShellProps {
   open: boolean
@@ -124,32 +126,37 @@ export interface TransactionDateFieldProps {
   onChange: (value: string) => void
   /** Complete accessible name, e.g. "Payment date, line 1". */
   label: string
-  /** Upper bound for the native picker. */
+  /** Upper bound, as a YYYY-MM-DD calendar date. */
   max?: string
 }
 
 /**
- * The line date input shared by the Payment and Refund dialogs (#1008).
+ * The line date input shared by the Payment and Refund dialogs (#1008, #1103).
  *
- * The input sizes itself with `width: max-content` rather than a fixed pixel
- * width. A native `type="date"` control renders its value in the browser/OS
- * locale, so the space it needs is not knowable from here: `8/7/2026` and
- * `07/08/2026` differ in width, and both grow with the user's font size and
- * zoom. Two successive fixed widths (140px, then 165px) were each confirmed in
- * a browser to clip the value behind the calendar icon for exactly that reason.
- * `max-content` hands the measurement to the browser, the only party that knows
- * the answer. Do not replace this with a pixel width — it will be wrong for
- * some locale or font size, and the unit tests cannot detect that.
+ * The field sizes itself intrinsically rather than to a fixed pixel width. The
+ * space a formatted date needs is not knowable from here: it depends on the
+ * user's stored date format, the theme font, and browser zoom. Two successive
+ * fixed widths (140px, then 165px) were each confirmed in a browser to clip the
+ * value behind the calendar icon, which is why a pixel width must not come back.
  *
- * `minWidth` is a floor for the empty state, where there is no value to measure
- * and `max-content` would otherwise collapse to just the calendar button.
+ * MUI X v9 renders the value into `.MuiPickersInputBase-sectionContent` spans,
+ * NOT an `<input>` — the pre-#1103 rule targeted `.MuiInputBase-input`, which
+ * silently stopped matching. `minWidth` is a floor for the empty state, where
+ * there is no value to measure.
  *
  * `flexShrink: 0` is deliberate. Inside DialogLineRow's wrapping flex container
  * the field wraps to the next line instead of compressing — a compressed date
- * input is precisely the bug this fixes.
+ * field is precisely the bug this fixes.
  *
- * `onChange` hands back the raw YYYY-MM-DD string: no Date is constructed here,
- * so the calendar-date payload cannot pick up a timezone shift.
+ * `onChange` hands back the raw YYYY-MM-DD string: the emitted value is read
+ * from local calendar fields, so the payload cannot pick up a timezone shift.
+ *
+ * The field keeps an internal draft mirroring every picker commit. MUI X resets
+ * all sections whenever a committed candidate is not echoed back into its
+ * controlled `value`, and mid-typing commits are complete-but-implausible
+ * (the first year keystroke is e.g. 0002-08-15) that callers must not persist.
+ * Echoing into the draft keeps typing stable; when `value` changes externally
+ * the draft follows it.
  */
 export function TransactionDateField({
   value,
@@ -157,19 +164,42 @@ export function TransactionDateField({
   label,
   max = '2099-12-31',
 }: TransactionDateFieldProps) {
+  const [draft, setDraft] = useState(value)
+  useEffect(() => {
+    setDraft(value)
+  }, [value])
+
+  const storedFormat = useMemo(() => localStorage.getItem('dateFormat') || 'DD/MM/YYYY', [])
+  const pickerFormat = useMemo(() => toMuiDatePickerFormat(storedFormat), [storedFormat])
+
   return (
-    <TextField
-      size="small"
-      type="date"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      sx={{
-        flexShrink: 0,
-        // The sizing lives on the inner input: `max-content` on the FormControl
-        // root would measure the notched-outline legend, not the value text.
-        '& .MuiInputBase-input': { width: 'max-content', minWidth: 150 },
+    <DatePicker
+      label={label}
+      value={draft ? parseISO(draft) : null}
+      format={pickerFormat}
+      maxDate={parseISO(max)}
+      onChange={(d) => {
+        if (d === null) {
+          setDraft('')
+          onChange('')
+          return
+        }
+        if (Number.isNaN(d.getTime())) return
+        const next = format(d, 'yyyy-MM-dd')
+        setDraft(next)
+        onChange(next)
       }}
-      slotProps={{ htmlInput: { max, 'aria-label': label } }}
+      slotProps={{
+        textField: {
+          size: 'small',
+          sx: {
+            flexShrink: 0,
+            '& .MuiPickersInputBase-sectionContent': { width: 'max-content' },
+            '& .MuiPickersInputBase-root': { minWidth: 150 },
+          },
+        },
+        field: { clearable: true },
+      }}
     />
   )
 }
