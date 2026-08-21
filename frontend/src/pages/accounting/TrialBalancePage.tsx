@@ -1,5 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { DatePicker } from '@mui/x-date-pickers'
+import { format, parseISO } from 'date-fns'
 import {
   Alert,
   Box,
@@ -23,7 +25,7 @@ import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetTrialBalanceQuery } from '@/store/api/accountingApi'
 import { formatCurrency } from '@/utils/currency'
-import { getCurrentDate, isValidIsoDate } from '@/utils/formatters'
+import { getCurrentDate, isValidIsoDate, toMuiDatePickerFormat } from '@/utils/formatters'
 import type { TrialBalanceResponse } from '@/types'
 
 export default function TrialBalancePage() {
@@ -34,6 +36,22 @@ export default function TrialBalancePage() {
   // Trial Balance always needs a date, so an absent or impossible value means
   // today — unlike the General Ledger, where an absent account skips the query.
   const effectiveAsOfDate = isValidIsoDate(rawAsOfDate) ? rawAsOfDate : getCurrentDate()
+
+  // The picker is controlled, and MUI X resets every section whenever the
+  // committed candidate is not echoed back into `value`. Mid-typing commits
+  // are complete-but-implausible (the first year keystroke is e.g. 0002-03-01)
+  // and must never reach the URL — the read path would reject them and the
+  // cleanup effect below would delete the key, desyncing the value again.
+  // So the field keeps a draft mirroring every commit verbatim; the URL only
+  // receives plausible dates, and the draft follows the URL when it changes
+  // externally (including the today fallback after a clear).
+  const [asOfDraft, setAsOfDraft] = useState(effectiveAsOfDate)
+  useEffect(() => {
+    setAsOfDraft(effectiveAsOfDate)
+  }, [effectiveAsOfDate])
+
+  const storedFormat = useMemo(() => localStorage.getItem('dateFormat') || 'DD/MM/YYYY', [])
+  const pickerFormat = useMemo(() => toMuiDatePickerFormat(storedFormat), [storedFormat])
   // Only the exact string 'true' is truthy. Anything else (?showZero=1, an empty
   // value) is false and gets cleaned out of the URL below.
   const showZero = searchParams.get('showZero') === 'true'
@@ -95,14 +113,25 @@ export default function TrialBalancePage() {
         alignItems: 'center',
       }}
     >
-      <TextField
-        size="small"
+      <DatePicker
         label="As of Date"
-        type="date"
-        value={effectiveAsOfDate}
-        onChange={(e) => setFilter('asOfDate', e.target.value)}
-        slotProps={{ inputLabel: { shrink: true } }}
-        sx={{ flex: '0 0 160px' }}
+        value={asOfDraft ? parseISO(asOfDraft) : null}
+        format={pickerFormat}
+        onChange={(d) => {
+          // Null means cleared (Clear button or keyboard deletion): fall back
+          // to today via the URL. Invalid Date is a mid-entry transient — the
+          // picker owns the pending sections, so hands off entirely.
+          if (d === null) {
+            setAsOfDraft('')
+            setFilter('asOfDate', '')
+            return
+          }
+          if (Number.isNaN(d.getTime())) return
+          const next = format(d, 'yyyy-MM-dd')
+          setAsOfDraft(next)
+          if (isValidIsoDate(next)) setFilter('asOfDate', next)
+        }}
+        slotProps={{ textField: { size: 'small', sx: { flex: '0 0 160px' } } }}
       />
       <FormControlLabel
         control={

@@ -1,6 +1,14 @@
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
@@ -81,7 +89,9 @@ function renderPage(initialUrl = '/accounting/trial-balance') {
   )
   const utils = render(
     <Provider store={store}>
-      <RouterProvider router={router} />
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <RouterProvider router={router} />
+      </LocalizationProvider>
     </Provider>,
   )
   return { ...utils, router }
@@ -110,9 +120,9 @@ describe('TrialBalancePage default As of Date', () => {
 
   it('defaults to the app-timezone local date, not the UTC date', () => {
     renderPage()
-    const input = screen.getByLabelText(/as of date/i) as HTMLInputElement
-    expect(input.value).toBe('2026-07-20')
-    expect(input.value).not.toBe('2026-07-19')
+    // 2026-07-19T17:00Z is 2026-07-20 in the app timezone.
+    expect(screen.getByRole('group', { name: /as of date/i })).toHaveTextContent('20/07/2026')
+    expect(screen.getByRole('group', { name: /as of date/i })).not.toHaveTextContent('19/07/2026')
   })
 })
 
@@ -242,8 +252,7 @@ describe('TrialBalancePage URL filters', () => {
 
   it('hydrates the input and the query from a valid asOfDate param and keeps it', async () => {
     const { router } = renderPage('/accounting/trial-balance?asOfDate=2026-03-01')
-    const input = screen.getByLabelText(/as of date/i) as HTMLInputElement
-    expect(input.value).toBe('2026-03-01')
+    expect(screen.getByRole('group', { name: /as of date/i })).toHaveTextContent('01/03/2026')
     const lastArgs = mockUseGetTrialBalanceQuery.mock.calls.at(-1)![0]
     expect(lastArgs).toMatchObject({ asOfDate: '2026-03-01' })
     await waitFor(() => {
@@ -251,10 +260,15 @@ describe('TrialBalancePage URL filters', () => {
     })
   })
 
+  it('offers no clear affordance — the date always falls back to today', () => {
+    renderPage('/accounting/trial-balance?asOfDate=2026-03-01')
+    const field = screen.getByRole('group', { name: /as of date/i })
+    expect(within(field).queryByRole('button', { name: /clear/i })).toBeNull()
+  })
+
   it('falls back to today and removes an impossible asOfDate from the URL', async () => {
     const { router } = renderPage('/accounting/trial-balance?asOfDate=2026-02-31')
-    const input = screen.getByLabelText(/as of date/i) as HTMLInputElement
-    expect(input.value).toBe('2026-07-20')
+    expect(screen.getByRole('group', { name: /as of date/i })).toHaveTextContent('20/07/2026')
     await waitFor(() => {
       expect(searchOf(router).has('asOfDate')).toBe(false)
     })
@@ -302,15 +316,37 @@ describe('TrialBalancePage URL filters', () => {
   })
 
   it('writes asOfDate when the date changes and reverts to today when cleared', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     const { router } = renderPage()
-    const input = screen.getByLabelText(/as of date/i) as HTMLInputElement
+    const field = screen.getByRole('group', { name: /as of date/i })
 
-    fireEvent.change(input, { target: { value: '2026-01-15' } })
+    await user.click(within(field).getByRole('spinbutton', { name: /day/i }))
+    for (const ch of ['1', '5', '0', '1', '2', '0', '2', '6']) {
+      await user.keyboard(ch)
+      console.log(
+        'TB',
+        ch,
+        '|',
+        within(field)
+          .queryAllByRole('spinbutton')
+          .map((s) => `${s.getAttribute('aria-label')}=${s.textContent}`)
+          .join(' '),
+        '| url=',
+        searchOf(router).get('asOfDate'),
+      )
+    }
     await waitFor(() => {
       expect(searchOf(router).get('asOfDate')).toBe('2026-01-15')
     })
 
-    fireEvent.change(input, { target: { value: '' } })
+    // Keyboard deletion empties every section; an empty value re-triggers the
+    // today fallback (the field itself is not clearable by design).
+    await user.click(within(field).getByRole('spinbutton', { name: /day/i }))
+    await user.keyboard('{Delete}')
+    await user.click(within(field).getByRole('spinbutton', { name: /month/i }))
+    await user.keyboard('{Delete}')
+    await user.click(within(field).getByRole('spinbutton', { name: /year/i }))
+    await user.keyboard('{Delete}')
     await waitFor(() => {
       expect(searchOf(router).has('asOfDate')).toBe(false)
     })
