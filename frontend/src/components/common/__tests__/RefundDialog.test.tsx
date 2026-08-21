@@ -342,6 +342,8 @@ describe('money formatting and precision', () => {
 
   // Half-up per line seeded 16.6667 x3 = 50.0001 against a 50.0000 surplus, so a
   // user clicking straight through pre-filled an over-refund by one minor unit.
+  // Fill-in-order (#1107) replaces that proportional split: the first method's
+  // capacity absorbs the whole surplus, so no fractional cent is ever produced.
   it('seeds an indivisible surplus so the lines sum to exactly the surplus', async () => {
     renderDialog({
       seedAllocations: [
@@ -353,31 +355,141 @@ describe('money formatting and precision', () => {
       seedTarget: '50.0000',
     })
 
-    await waitFor(() => expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(3))
+    await waitFor(() => expect(screen.getAllByPlaceholderText('Amount')).toHaveLength(1))
     const values = (screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]).map(
       (i) => i.value,
     )
 
-    // Significant scale-4 digits stay visible rather than being rounded to cents.
-    expect(values).toEqual(['16.6667', '16.6667', '16.6666'])
+    // Whole cents, not 16.6667 x3 -- the surplus fits inside pm-1's capacity.
+    expect(values).toEqual(['50.00'])
 
     const totalMinor = values.reduce((sum, v) => sum + (toScaledAmount(v) ?? 0n), 0n)
     expect(fromScaledAmount(totalMinor)).toBe('50.0000')
   })
 
-  it('seeds gross weights scaled to seedTarget, ignoring prior refunds by method', () => {
-    // Gross 100 Cash + 200 Bank; 150 already refunded by Card => available 150.
+  // #1107: seeds are per-method NET capacity (gross payments minus prior refunds
+  // for that method), filled in order -- not proportional gross weights.
+  it('auto-fills by net capacity, not gross proportion (#1107)', () => {
+    // Paid Cash 100 + Bank 200; Cash 50 already refunded.
+    // Net capacity: Cash 50, Bank 200. Refunding the remaining 250 must give
+    // Cash 50.00 / Bank 200.00 -- never the gross split 83.3333 / 166.6667.
     renderDialog({
       seedAllocations: [
-        { methodId: 'pm-1', amount: '100.0000' },
+        { methodId: 'pm-1', amount: '50.0000' },
         { methodId: 'pm-2', amount: '200.0000' },
       ],
-      availableForRefund: '150.0000',
-      seedTarget: '150.0000',
+      availableForRefund: '250.0000',
+      seedTarget: '250.0000',
     })
     const amounts = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]
+    expect(amounts.map((a) => a.value)).toEqual(['50.00', '200.00'])
+    expect(screen.queryByDisplayValue('83.3333')).not.toBeInTheDocument()
+    expect(screen.queryByDisplayValue('166.6667')).not.toBeInTheDocument()
+  })
+
+  it('omits a method whose net capacity is exhausted (#1107)', () => {
+    // Paid Cash 100 + Bank 200, then a cross-method refund of Cash 250 (legal
+    // under #1096) leaves Cash net negative -> clamped to 0 by the caller, so it
+    // is absent from the seed entirely. Aggregate available is still 50.
+    renderDialog({
+      seedAllocations: [{ methodId: 'pm-2', amount: '200.0000' }],
+      availableForRefund: '50.0000',
+      seedTarget: '50.0000',
+    })
+    const amounts = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]
+    expect(amounts).toHaveLength(1)
     expect(amounts[0].value).toBe('50.00')
-    expect(amounts[1].value).toBe('100.00')
+  })
+
+  it('caps each line at its net capacity and stops once the target is met (#1107)', () => {
+    // Target 120 against capacities 50 / 200: first line fills to its cap, the
+    // second takes the remainder, and no third line is seeded.
+    renderDialog({
+      seedAllocations: [
+        { methodId: 'pm-1', amount: '50.0000' },
+        { methodId: 'pm-2', amount: '200.0000' },
+        { methodId: 'pm-3', amount: '75.0000' },
+      ],
+      availableForRefund: '120.0000',
+      seedTarget: '120.0000',
+    })
+    const values = (screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]).map(
+      (a) => a.value,
+    )
+    expect(values).toEqual(['50.00', '70.00'])
+  })
+
+  it('auto-filled lines sum to exactly the requested target (#1107)', () => {
+    renderDialog({
+      seedAllocations: [
+        { methodId: 'pm-1', amount: '33.3300' },
+        { methodId: 'pm-2', amount: '66.6700' },
+      ],
+      availableForRefund: '100.0000',
+      seedTarget: '100.0000',
+    })
+    const values = (screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]).map(
+      (a) => a.value,
+    )
+    const totalMinor = values.reduce((sum, v) => sum + (toScaledAmount(v) ?? 0n), 0n)
+    expect(fromScaledAmount(totalMinor)).toBe('100.0000')
+  })
+
+  // Defensive: with complete, valid payment data sum(max(net, 0)) >= aggregate
+  // net, so capacities always cover seedTarget. Reachable only through
+  // incomplete caps, which is why it is exercised at the dialog boundary.
+  it('spills a remainder the capacities cannot absorb onto the first method (#1107)', () => {
+    // Capacities total 60 but the caller asks for 100: the 40 shortfall MERGES
+    // into the existing pm-1 line rather than appending a duplicate pm-1 row.
+    renderDialog({
+      seedAllocations: [
+        { methodId: 'pm-1', amount: '20.0000' },
+        { methodId: 'pm-2', amount: '40.0000' },
+      ],
+      availableForRefund: '100.0000',
+      seedTarget: '100.0000',
+    })
+    const values = (screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]).map(
+      (a) => a.value,
+    )
+    // pm-1: 20 capacity + 40 spill = 60; pm-2: 40. Two lines, not three.
+    expect(values).toEqual(['60.00', '40.00'])
+    const totalMinor = values.reduce((sum, v) => sum + (toScaledAmount(v) ?? 0n), 0n)
+    expect(fromScaledAmount(totalMinor)).toBe('100.0000')
+  })
+
+  it('appends a spill line when the first method is absent from the seed (#1107)', () => {
+    // No pm-1 capacity at all, so the spill has no line to merge into and is
+    // appended as its own row on methods[0].
+    renderDialog({
+      seedAllocations: [{ methodId: 'pm-2', amount: '40.0000' }],
+      availableForRefund: '100.0000',
+      seedTarget: '100.0000',
+    })
+    const values = (screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]).map(
+      (a) => a.value,
+    )
+    expect(values).toEqual(['40.00', '60.00'])
+  })
+
+  it('keeps a manually edited line after the user changes it (#1107)', async () => {
+    renderDialog({
+      seedAllocations: [
+        { methodId: 'pm-1', amount: '50.0000' },
+        { methodId: 'pm-2', amount: '200.0000' },
+      ],
+      availableForRefund: '250.0000',
+      seedTarget: '250.0000',
+    })
+    const amounts = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]
+    await userEvent.clear(amounts[0])
+    await userEvent.type(amounts[0], '10')
+    // Re-seeding is one-shot, so the edit must survive.
+    await waitFor(() => {
+      const after = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]
+      expect(after[0].value).toBe('10')
+      expect(after[1].value).toBe('200.00')
+    })
   })
 
   it('displays the surplus amount, not its complement (#1097 review)', () => {
@@ -461,7 +573,10 @@ describe('money formatting and precision', () => {
   })
 
   it('seeds only the surplus on an overpaid document', () => {
-    // Total 300, gross paid 100 Cash + 300 Bank => available 400, surplus 100.
+    // Total 300, net capacity 100 Cash + 300 Bank => available 400, surplus 100.
+    // Fill-in-order (#1107) exhausts pm-1's capacity first, so the surplus seeds
+    // one whole-cent line instead of the former 25 / 75 proportional split. What
+    // this test guards is that only the surplus is seeded, not the full 400.
     renderDialog({
       seedAllocations: [
         { methodId: 'pm-1', amount: '100.0000' },
@@ -471,8 +586,8 @@ describe('money formatting and precision', () => {
       seedTarget: '100.0000',
     })
     const amounts = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[]
-    expect(amounts[0].value).toBe('25.00')
-    expect(amounts[1].value).toBe('75.00')
+    expect(amounts).toHaveLength(1)
+    expect(amounts[0].value).toBe('100.00')
   })
 
   it('clamps a seedTarget above availableForRefund', () => {

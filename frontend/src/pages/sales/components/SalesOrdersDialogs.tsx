@@ -41,22 +41,18 @@ export default function SalesOrdersDialogs({
   const { data: paymentMethods = [], isLoading: methodsLoading } =
     useGetActivePaymentMethodsQuery(undefined, { skip: !paymentOrder && !refundOrder })
 
-  // Gross payments by method: seed weights only. Prior refunds reduce the
-  // aggregate cap, never a per-method weight (#1096).
-  const grossByMethod = (paymentRecords ?? []).reduce<Record<string, { gross: bigint; label: string }>>(
-    (acc, p: any) => {
-      const amt = toScaledAmount(p.amount) ?? 0n
-      if (amt <= 0n) return acc
-      const entry = (acc[p.paymentMethodId] ??= { gross: 0n, label: p.paymentMethod?.name ?? 'Payment' })
-      entry.gross += amt
-      return acc
-    },
-    {},
-  )
-  const seedAllocations: RefundSeed[] = Object.entries(grossByMethod).map(([methodId, v]) => ({
-    methodId,
-    amount: fromScaledAmount(v.gross),
-  }))
+  // Per-method NET capacity for the refund preset: gross payments minus prior
+  // refunds through the same method (refunds are negative rows on the same
+  // paymentMethodId). Sum ALL signed rows first, then emit only methods with a
+  // positive balance — a cross-method refund can drive one negative, which is
+  // not a valid preset line (#1107).
+  const netByMethod = (paymentRecords ?? []).reduce<Record<string, bigint>>((acc, p: any) => {
+    acc[p.paymentMethodId] = (acc[p.paymentMethodId] ?? 0n) + (toScaledAmount(p.amount) ?? 0n)
+    return acc
+  }, {})
+  const seedAllocations: RefundSeed[] = Object.entries(netByMethod)
+    .filter(([, amount]) => amount > 0n)
+    .map(([methodId, amount]) => ({ methodId, amount: fromScaledAmount(amount) }))
 
   const netPaidMinor = (paymentRecords ?? []).reduce(
     (s, p: any) => s + (toScaledAmount(p.amount) ?? 0n), 0n,

@@ -578,6 +578,117 @@ describe('SalesOrderPaymentService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    // #1107 made the FRONTEND preset per-method net capacity. That must never
+    // become a server-side per-method ceiling: cross-method refunds (#1096) are
+    // limited by aggregate net paid alone. This test fails the moment a
+    // per-method cap is reintroduced here.
+    it('accepts a refund exceeding one method\'s paid amount but within net paid (#1096, #1107)', async () => {
+      const order = mockOrder({ paymentStatus: SalesOrderPaymentStatus.PAID });
+      orderRepo.findOne.mockResolvedValue(order);
+      // The method id must match the refund DTO's, or a per-method cap would
+      // compare against an empty set and pass vacuously.
+      methodRepo.findOne.mockResolvedValue(mockMethod({ id: 'method-cash' }));
+
+      // Paid Cash 100 + Bank 200 => net paid 300. Refund 250 entirely through
+      // Cash: 2.5x what Cash itself received, but well inside the aggregate.
+      const mockManager = buildMockManager([
+        { paymentMethodId: 'method-cash', amount: '100.0000' },
+        { paymentMethodId: 'method-bank', amount: '200.0000' },
+      ] as SalesOrderPayment[]);
+      (dataSource.transaction as jest.Mock).mockImplementation(
+        async (cb: (m: EntityManager) => Promise<any>) => cb(mockManager),
+      );
+
+      await expect(
+        service.recordRefund('order-1', {
+          paymentMethodId: 'method-cash',
+          amount: '250.0000',
+          paymentDate: '2026-01-01',
+        }),
+      ).resolves.toBeDefined();
+    });
+
+    it('still rejects a refund above aggregate net paid after a prior refund (#1107)', async () => {
+      methodRepo.findOne.mockResolvedValue(mockMethod({ id: 'method-bank' }));
+      // Paid Cash 100 + Bank 200, already refunded Cash 50 => net paid 250.
+      const manager = buildMockManager(
+        [
+          { paymentMethodId: 'method-cash', amount: '100.0000' },
+          { paymentMethodId: 'method-bank', amount: '200.0000' },
+          { paymentMethodId: 'method-cash', amount: '-50.0000' },
+        ] as SalesOrderPayment[],
+        jest.fn(),
+        mockOrder({ paymentStatus: SalesOrderPaymentStatus.PARTIAL }),
+      );
+      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+
+      await expect(
+        service.recordRefund('order-1', {
+          paymentMethodId: 'method-bank',
+          amount: '250.0100',
+          paymentDate: '2026-01-01',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    // recordRefunds is the path the refund DIALOG actually submits to (it sends
+    // an array), and it carries its own copy of the aggregate check. The
+    // singular-path test above cannot lock this one.
+    it('accepts multi-line cross-method refunds within aggregate net paid (#1096, #1107)', async () => {
+      const order = mockOrder({ paymentStatus: SalesOrderPaymentStatus.PAID });
+      orderRepo.findOne.mockResolvedValue(order);
+      // recordRefunds resolves each distinct method id, so answer by id rather
+      // than returning one fixed method for every lookup.
+      methodRepo.findOne.mockImplementation(({ where }: any) =>
+        Promise.resolve(mockMethod({ id: where.id })),
+      );
+
+      // Paid Cash 100 + Bank 200 => net paid 300. Refund Cash 250 + Bank 50:
+      // Cash's line alone is 2.5x what Cash received, and the total is 300.
+      const mockManager = buildMockManager([
+        { paymentMethodId: 'method-cash', amount: '100.0000' },
+        { paymentMethodId: 'method-bank', amount: '200.0000' },
+      ] as SalesOrderPayment[]);
+      (dataSource.transaction as jest.Mock).mockImplementation(
+        async (cb: (m: EntityManager) => Promise<any>) => cb(mockManager),
+      );
+
+      const results = await service.recordRefunds('order-1', [
+        { paymentMethodId: 'method-cash', amount: '250.0000', paymentDate: '2026-01-01' },
+        { paymentMethodId: 'method-bank', amount: '50.0000', paymentDate: '2026-01-01' },
+      ] as any);
+
+      expect(results).toHaveLength(2);
+      // Refunds are stored as negative rows on the selected method.
+      expect(results[0]).toMatchObject({ paymentMethodId: 'method-cash', amount: '-250.0000' });
+      expect(results[1]).toMatchObject({ paymentMethodId: 'method-bank', amount: '-50.0000' });
+    });
+
+    it('rejects multi-line refunds whose TOTAL exceeds net paid (#1107)', async () => {
+      const order = mockOrder({ paymentStatus: SalesOrderPaymentStatus.PAID });
+      orderRepo.findOne.mockResolvedValue(order);
+      methodRepo.findOne.mockImplementation(({ where }: any) =>
+        Promise.resolve(mockMethod({ id: where.id })),
+      );
+
+      // Net paid 300; the lines total 300.01. Each line on its own would pass a
+      // naive per-line check, so this pins the check to the SUM.
+      const mockManager = buildMockManager([
+        { paymentMethodId: 'method-cash', amount: '100.0000' },
+        { paymentMethodId: 'method-bank', amount: '200.0000' },
+      ] as SalesOrderPayment[]);
+      (dataSource.transaction as jest.Mock).mockImplementation(
+        async (cb: (m: EntityManager) => Promise<any>) => cb(mockManager),
+      );
+
+      await expect(
+        service.recordRefunds('order-1', [
+          { paymentMethodId: 'method-cash', amount: '150.0000', paymentDate: '2026-01-01' },
+          { paymentMethodId: 'method-bank', amount: '150.0100', paymentDate: '2026-01-01' },
+        ] as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('creates negative payment record inside a transaction', async () => {
       const order = mockOrder({ paymentStatus: SalesOrderPaymentStatus.PAID });
       orderRepo.findOne.mockResolvedValue(order);
