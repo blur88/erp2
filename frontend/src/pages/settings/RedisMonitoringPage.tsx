@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react'
+import { DateTimePicker } from '@mui/x-date-pickers'
 import {
   Alert,
   Box,
@@ -85,16 +86,24 @@ function renderCounter(delta: number | null): string {
   return delta === null ? 'No data' : delta.toLocaleString()
 }
 
+// Genuine instants: local wall clock → UTC is the intended semantic.
+// A picker can hold an Invalid Date, whose .toISOString() throws RangeError
+// rather than failing soft — guard before converting.
+// Exported for direct unit testing: the NaN branch is unreachable through the
+// picker, which clamps every section to its legal range.
+export const toInstant = (d: Date | null): string | undefined =>
+  d && !Number.isNaN(d.getTime()) ? d.toISOString() : undefined
+
 export default function RedisMonitoringPage() {
   const [range, setRange] = useState<RangeKey>('24h')
   const [selectedInstance, setSelectedInstance] = useState<string | 'all'>('all')
-  const [customFrom, setCustomFrom] = useState('')
-  const [customTo, setCustomTo] = useState('')
+  const [customFrom, setCustomFrom] = useState<Date | null>(null)
+  const [customTo, setCustomTo] = useState<Date | null>(null)
 
   const queryArgs = useMemo(() => {
     const rangeArgs = range === 'custom' ? {} : rangeQuery(range)
-    const from = customFrom ? new Date(customFrom).toISOString() : rangeArgs.from
-    const to = customTo ? new Date(customTo).toISOString() : rangeArgs.to
+    const from = toInstant(customFrom) ?? rangeArgs.from
+    const to = toInstant(customTo) ?? rangeArgs.to
     return {
       from,
       to,
@@ -164,8 +173,9 @@ export default function RedisMonitoringPage() {
       <Stack spacing={3}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { xs: 'stretch', sm: 'center' } }}>
           <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Range</InputLabel>
+            <InputLabel id="redis-range-label">Range</InputLabel>
             <Select
+              labelId="redis-range-label"
               label="Range"
               value={range}
               onChange={(event) => setRange(event.target.value as RangeKey)}
@@ -195,17 +205,23 @@ export default function RedisMonitoringPage() {
           </FormControl>
           {range === 'custom' && (
             <Stack direction="row" spacing={1}>
-              <input
-                type="datetime-local"
+              <DateTimePicker
+                label="From"
                 value={customFrom}
-                onChange={(event) => setCustomFrom(event.target.value)}
-                aria-label="From"
+                onChange={setCustomFrom}
+                slotProps={{
+                  textField: { size: 'small' },
+                  field: { clearable: true },
+                }}
               />
-              <input
-                type="datetime-local"
+              <DateTimePicker
+                label="To"
                 value={customTo}
-                onChange={(event) => setCustomTo(event.target.value)}
-                aria-label="To"
+                onChange={setCustomTo}
+                slotProps={{
+                  textField: { size: 'small' },
+                  field: { clearable: true },
+                }}
               />
             </Stack>
           )}
