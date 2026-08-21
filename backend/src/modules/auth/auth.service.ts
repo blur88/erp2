@@ -13,6 +13,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { User, UserStatus } from '@/database/entities/user.entity';
 import { RefreshToken } from '@/database/entities/refresh-token.entity';
+import { bcryptRounds } from '@/common/security/bcrypt-rounds';
 import {
   LoginDto,
   RegisterDto,
@@ -21,7 +22,6 @@ import {
   ChangePasswordDto,
 } from './dto';
 
-const BCRYPT_ROUNDS = 12;
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MINUTES = 30;
 
@@ -161,7 +161,7 @@ export class AuthService {
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    const hashedPassword = await bcrypt.hash(password, bcryptRounds());
 
     // Create user
     const user = this.userRepository.create({
@@ -291,7 +291,7 @@ export class AuthService {
     }
 
     // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+    const hashedPassword = await bcrypt.hash(newPassword, bcryptRounds());
 
     // Update password and clear password change requirement
     user.password = hashedPassword;

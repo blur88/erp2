@@ -3,8 +3,7 @@ import { isEmail } from 'class-validator';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole, UserStatus } from '../entities/user.entity';
 import connectionSource from '../../config/cli-datasource';
-
-const BCRYPT_ROUNDS = 12;
+import { bcryptRounds } from '../../common/security/bcrypt-rounds';
 
 export interface AdminInput {
   username: string;
@@ -120,7 +119,7 @@ export async function createAdmin(
   const user = repo.create({
     username: input.username,
     email: input.email,
-    password: await bcrypt.hash(input.password, BCRYPT_ROUNDS),
+    password: await bcrypt.hash(input.password, bcryptRounds()),
     role: UserRole.ADMIN,
     status: UserStatus.ACTIVE,
     isActive: true,

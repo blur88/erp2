@@ -9,6 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder, Like, ILike, LessThanOrEqual } from 'typeorm';
 import { applyPagination } from '@/common/pagination/apply-pagination';
+import { bcryptRounds } from '@/common/security/bcrypt-rounds';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole, UserStatus } from '../../database/entities/user.entity';
 import {
@@ -60,7 +61,7 @@ export class UsersService {
       }
 
       // Hash password before saving
-      const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
+      const hashedPassword = await bcrypt.hash(createUserDto.password, bcryptRounds());
 
       // Create new user
       const user = this.userRepository.create({

@@ -4,14 +4,11 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole, UserStatus } from '../../database/entities/user.entity';
+import { bcryptRounds } from '../../common/security/bcrypt-rounds';
 
 // Distinct from the accounting seeder's key (891891) so the two advisory
 // locks can never block each other during a parallel boot.
 const SEED_LOCK_KEY = 891892;
-
-// Must match auth.service.ts BCRYPT_ROUNDS so a seeded password verifies at
-// the same cost as one set through the app.
-const BCRYPT_ROUNDS = 12;
 
 export const DEFAULT_ADMIN_USERNAME = 'admin';
 export const DEFAULT_ADMIN_EMAIL = 'admin@example.com';
@@ -109,7 +106,7 @@ export class UsersSeederService implements OnModuleInit {
     await m.insertUser({
       username,
       email,
-      password: await bcrypt.hash(plainPassword, BCRYPT_ROUNDS),
+      password: await bcrypt.hash(plainPassword, bcryptRounds()),
       firstName: 'System',
       lastName: 'Administrator',
       role: UserRole.ADMIN,
