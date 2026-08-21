@@ -523,7 +523,20 @@ const OwnerEquityFormPage: React.FC = () => {
                     <Grid size={{ xs: 12, md: 3 }}>
                       <Typography
                         variant="body2"
-                        sx={{ color: 'text.secondary', pb: 1 }}
+                        // Mirrors a size="small" OutlinedInput's layout height:
+                        // 1.4375em content + 8.5px padding top and bottom. The
+                        // border is absolutely positioned and adds nothing. The
+                        // em resolves against body2's own 0.875rem, which is the
+                        // same size the theme gives the input, so this tracks the
+                        // compact-control standard instead of hardcoding px.
+                        // Centering here rather than padding the bottom keeps the
+                        // text on the input row whether or not helper text shows.
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          minHeight: 'calc(1.4375em + 17px)',
+                          color: 'text.secondary',
+                        }}
                         data-testid="available-stock"
                       >
                         {selectedProductId
