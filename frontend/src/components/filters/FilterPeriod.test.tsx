@@ -173,4 +173,20 @@ describe('FilterPeriod', () => {
     expect(onChange).toHaveBeenCalledWith('custom', '2024-01-15', '2024-01-31')
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
+
+  // Preset items are role="menuitem", which the theme's Select-option font rule
+  // excludes by construction, so FilterPeriod scopes the size from the MenuList.
+  // A parent's descendant selector emits a standalone CSS rule that jsdom's
+  // cascade applies -- unlike an element's own sx, which Emotion merges into the
+  // element class and getComputedStyle never sees. Verified by removing the
+  // rule: this reads 16px.
+  it('renders preset options at the filter-bar font size', async () => {
+    const user = userEvent.setup()
+    renderFilterPeriod('today')
+
+    await user.click(getTrigger())
+
+    const allOption = screen.getByRole('menuitem', { name: 'All' })
+    expect(window.getComputedStyle(allOption).fontSize).toBe('14px')
+  })
 })

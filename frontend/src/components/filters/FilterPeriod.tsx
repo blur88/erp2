@@ -131,7 +131,14 @@ export function FilterPeriod({ value, customFrom, customTo, onChange }: FilterPe
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
       >
-        <MenuList id="period-listbox" disablePadding sx={{ minWidth: 260 }}>
+        {/* Presets are plain menu items (role="menuitem"), so the theme's
+            Select-option font rule excludes them by construction — see the
+            MuiMenuItem note in theme.ts. Scope the filter-bar size here. */}
+        <MenuList
+          id="period-listbox"
+          disablePadding
+          sx={{ minWidth: 260, '& .MuiMenuItem-root': { fontSize: '0.875rem' } }}
+        >
           <MenuItem selected={value === null} onClick={handleAllClick}>
             All
           </MenuItem>
