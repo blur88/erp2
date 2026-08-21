@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { DatePicker } from '@mui/x-date-pickers'
 import {
   Box, Button, Chip, Collapse, Divider, IconButton, MenuItem,
   Paper, Stack, TextField, Tooltip, Typography, Autocomplete,
@@ -9,11 +10,12 @@ import { default as ChevronRight } from '@mui/icons-material/ChevronRight'
 import { default as FilterList } from '@mui/icons-material/FilterList'
 import { default as Save } from '@mui/icons-material/Save'
 import { default as Clear } from '@mui/icons-material/Clear'
-import { format, subDays, startOfMonth } from 'date-fns'
+import { format, parseISO, subDays, startOfMonth } from 'date-fns'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import {
   setFilters, clearFilters, setSidebarCollapsed,
 } from '@/store/slices/auditLogSlice'
+import { toMuiDatePickerFormat } from '@/utils/formatters'
 import { AuditAction } from '@/types'
 
 const STORAGE_KEY_COLLAPSED = 'audit-logs-sidebar-collapsed'
@@ -46,6 +48,11 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ entityTypes, onApply }) =
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [presetName, setPresetName] = useState('')
   const [activeDatePreset, setActiveDatePreset] = useState<string | null>(null)
+
+  // Regional format, memoised — dateFormat only changes via Settings, which
+  // re-renders the app.
+  const storedFormat = useMemo(() => localStorage.getItem('dateFormat') || 'DD/MM/YYYY', [])
+  const pickerFormat = useMemo(() => toMuiDatePickerFormat(storedFormat), [storedFormat])
 
   // Load saved presets and sidebar state from localStorage on mount
   useEffect(() => {
@@ -237,17 +244,41 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ entityTypes, onApply }) =
       </Box>
       {(activeDatePreset === 'Custom' || (!activeDatePreset && (filters.startDate || filters.endDate))) && (
         <Stack spacing={1} sx={{ mb: 2 }}>
-          <TextField
-            fullWidth size="small" type="date" label="Start Date"
-            value={filters.startDate || ''}
-            onChange={(e) => handleFilter({ startDate: e.target.value })}
-            slotProps={{ inputLabel: { shrink: true } }}
+          <DatePicker
+            label="Start Date"
+            value={filters.startDate ? parseISO(filters.startDate) : null}
+            format={pickerFormat}
+            onChange={(d) => {
+              // Null clears the bound; Invalid Date is a mid-entry transient
+              // and must not remove a populated filter.
+              if (d === null) {
+                handleFilter({ startDate: undefined })
+                return
+              }
+              if (Number.isNaN(d.getTime())) return
+              handleFilter({ startDate: format(d, 'yyyy-MM-dd') })
+            }}
+            slotProps={{
+              textField: { fullWidth: true, size: 'small' },
+              field: { clearable: true },
+            }}
           />
-          <TextField
-            fullWidth size="small" type="date" label="End Date"
-            value={filters.endDate || ''}
-            onChange={(e) => handleFilter({ endDate: e.target.value })}
-            slotProps={{ inputLabel: { shrink: true } }}
+          <DatePicker
+            label="End Date"
+            value={filters.endDate ? parseISO(filters.endDate) : null}
+            format={pickerFormat}
+            onChange={(d) => {
+              if (d === null) {
+                handleFilter({ endDate: undefined })
+                return
+              }
+              if (Number.isNaN(d.getTime())) return
+              handleFilter({ endDate: format(d, 'yyyy-MM-dd') })
+            }}
+            slotProps={{
+              textField: { fullWidth: true, size: 'small' },
+              field: { clearable: true },
+            }}
           />
         </Stack>
       )}

@@ -1,5 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import type { ComponentProps } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -10,7 +12,9 @@ const methods = [
   { id: 'pm-bank', code: 'BANK', name: 'Bank Transfer' },
 ]
 
-function renderDialog(props: Partial<ComponentProps<typeof PaymentDialog>> = {}) {
+// Wrap every render — the line date field is a MUI X DatePicker, which throws
+// without a localization context.
+const renderDialog = (props: Partial<ComponentProps<typeof PaymentDialog>> = {}) => {
   const defaults: ComponentProps<typeof PaymentDialog> = {
     open: true,
     documentNumber: 'EXP-001',
@@ -21,7 +25,14 @@ function renderDialog(props: Partial<ComponentProps<typeof PaymentDialog>> = {})
     onClose: vi.fn(),
     onSubmit: vi.fn().mockResolvedValue(undefined),
   }
-  return { ...render(<PaymentDialog {...defaults} {...props} />), props: { ...defaults, ...props } }
+  return {
+    ...render(
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <PaymentDialog {...defaults} {...props} />
+      </LocalizationProvider>,
+    ),
+    props: { ...defaults, ...props },
+  }
 }
 
 beforeEach(() => {
@@ -62,16 +73,18 @@ describe('PaymentDialog line seeding', () => {
     expect(screen.queryByPlaceholderText('Amount')).not.toBeInTheDocument()
     // React 19: pass fresh JSX, never a captured element reference.
     rerender(
-      <PaymentDialog
-        open
-        documentNumber="EXP-001"
-        totalAmount="500.0000"
-        paidAmount="200.0000"
-        paymentMethods={methods}
-        loading={false}
-        onClose={vi.fn()}
-        onSubmit={vi.fn().mockResolvedValue(undefined)}
-      />,
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <PaymentDialog
+          open
+          documentNumber="EXP-001"
+          totalAmount="500.0000"
+          paidAmount="200.0000"
+          paymentMethods={methods}
+          loading={false}
+          onClose={vi.fn()}
+          onSubmit={vi.fn().mockResolvedValue(undefined)}
+        />
+      </LocalizationProvider>,
     )
     await waitFor(() => expect(screen.getByPlaceholderText('Amount')).toBeInTheDocument())
   })
@@ -231,7 +244,7 @@ describe('PaymentDialog accessible names (#1006)', () => {
     renderDialog()
     expect(screen.getByLabelText('Payment method, line 1')).toBeInTheDocument()
     expect(screen.getByLabelText('Amount, line 1')).toBeInTheDocument()
-    expect(screen.getByLabelText('Payment date, line 1')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Payment date, line 1' })).toBeInTheDocument()
     expect(screen.getByLabelText('Reference, line 1')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove line 1' })).toBeInTheDocument()
   })
@@ -280,17 +293,17 @@ describe('PaymentDialog terminology props', () => {
   it('applies terminology to accessible names, not just visible text', () => {
     renderDialog({ terminology: { noun: 'Receipt', lineNoun: 'Receipt' } })
     expect(screen.getByLabelText('Receipt method, line 1')).toBeInTheDocument()
-    expect(screen.getByLabelText('Receipt date, line 1')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Receipt date, line 1' })).toBeInTheDocument()
   })
 })
 
 describe('PaymentDialog date field (#1008)', () => {
   // jsdom has no layout engine: this asserts the shared CSS configuration is in
   // use, NOT that the value renders unclipped. Browser-verified separately.
-  it('renders the date through the shared content-sized field', () => {
+  it('renders the date through the shared MUI X picker field', () => {
     renderDialog()
-    const input = screen.getByLabelText('Payment date, line 1')
-    expect(input).toHaveStyle({ width: 'max-content', minWidth: '150px' })
-    expect(input.closest('.MuiFormControl-root')).toHaveStyle({ flexShrink: '0' })
+    const field = screen.getByRole('group', { name: 'Payment date, line 1' })
+    expect(field).toHaveStyle({ minWidth: '150px' })
+    expect(field.closest('.MuiFormControl-root')).toHaveStyle({ flexShrink: '0' })
   })
 })

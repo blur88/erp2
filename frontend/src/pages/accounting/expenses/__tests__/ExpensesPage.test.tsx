@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom/vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter } from 'react-router-dom'
@@ -135,9 +137,13 @@ function renderPage() {
   const store = configureStore({ reducer: { empty: (s = null) => s } })
   return render(
     <Provider store={store}>
-      <MemoryRouter initialEntries={['/accounting/expenses']}>
-        <ExpensesPage />
-      </MemoryRouter>
+      {/* The refund dialog's line date field is a MUI X DatePicker, which
+          throws without a localization context. */}
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <MemoryRouter initialEntries={['/accounting/expenses']}>
+          <ExpensesPage />
+        </MemoryRouter>
+      </LocalizationProvider>
     </Provider>,
   )
 }
@@ -556,9 +562,11 @@ describe('ExpensesPage', () => {
       // the sibling two-phase tests in this file already use.
       rerender(
         <Provider store={configureStore({ reducer: { empty: (s = null) => s } })}>
-          <MemoryRouter initialEntries={['/accounting/expenses?expenseAccountId=acct-gone']}>
-            <ExpensesPage />
-          </MemoryRouter>
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <MemoryRouter initialEntries={['/accounting/expenses?expenseAccountId=acct-gone']}>
+              <ExpensesPage />
+            </MemoryRouter>
+          </LocalizationProvider>
         </Provider>,
       )
 
@@ -618,9 +626,11 @@ describe('ExpensesPage', () => {
       primeMocks()
       rerender(
         <Provider store={configureStore({ reducer: { empty: (s = null) => s } })}>
-          <MemoryRouter initialEntries={['/accounting/expenses?expenseAccountId=acct-office']}>
-            <ExpensesPage />
-          </MemoryRouter>
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <MemoryRouter initialEntries={['/accounting/expenses?expenseAccountId=acct-office']}>
+              <ExpensesPage />
+            </MemoryRouter>
+          </LocalizationProvider>
         </Provider>,
       )
 
@@ -659,9 +669,11 @@ describe('ExpensesPage', () => {
       )
       rerender(
         <Provider store={configureStore({ reducer: { empty: (s = null) => s } })}>
-          <MemoryRouter initialEntries={['/accounting/expenses?expenseAccountId=acct-office']}>
-            <ExpensesPage />
-          </MemoryRouter>
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <MemoryRouter initialEntries={['/accounting/expenses?expenseAccountId=acct-office']}>
+              <ExpensesPage />
+            </MemoryRouter>
+          </LocalizationProvider>
         </Provider>,
       )
 

@@ -1,5 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -12,6 +14,8 @@ const methods: RefundMethodOption[] = [
   { id: 'pm-3', label: 'Card' },
 ]
 
+// Wrap every render — the line date field is a MUI X DatePicker, which throws
+// without a localization context.
 function renderDialog(props: Partial<ComponentProps<typeof RefundDialog>> = {}) {
   const defaults = {
     open: true,
@@ -23,7 +27,11 @@ function renderDialog(props: Partial<ComponentProps<typeof RefundDialog>> = {}) 
     seedTarget: '500.0000',
     orderNumber: 'SO-26-001',
   }
-  return render(<RefundDialog {...defaults} {...props} />)
+  return render(
+    <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <RefundDialog {...defaults} {...props} />
+    </LocalizationProvider>,
+  )
 }
 
 beforeEach(() => {
@@ -211,22 +219,23 @@ describe('RefundDialog', () => {
   })
 
   describe('showDateField', () => {
-    it('renders date inputs when showDateField is true', () => {
+    it('renders a date picker when showDateField is true', () => {
       renderDialog({ showDateField: true })
-      const dateInputs = document.querySelectorAll('input[type="date"]')
-      expect(dateInputs.length).toBeGreaterThan(0)
+      expect(screen.getByRole('group', { name: 'Refund date, line 1' })).toBeInTheDocument()
     })
 
-    it('does not render date inputs when showDateField is false/undefined', () => {
+    it('does not render a date picker when showDateField is false/undefined', () => {
       renderDialog({ showDateField: false })
-      const dateInputs = document.querySelectorAll('input[type="date"]')
-      expect(dateInputs.length).toBe(0)
+      expect(
+        screen.queryByRole('group', { name: 'Refund date, line 1' }),
+      ).not.toBeInTheDocument()
     })
 
     it('defaults to no date fields when showDateField is not provided', () => {
       renderDialog()
-      const dateInputs = document.querySelectorAll('input[type="date"]')
-      expect(dateInputs.length).toBe(0)
+      expect(
+        screen.queryByRole('group', { name: 'Refund date, line 1' }),
+      ).not.toBeInTheDocument()
     })
 
     it('submits date value when showDateField is true', async () => {
@@ -246,11 +255,11 @@ describe('RefundDialog', () => {
   describe('date field (#1008)', () => {
     // jsdom has no layout engine: this asserts the shared CSS configuration is
     // in use, NOT that the value renders unclipped. Browser-verified separately.
-    it('renders the date through the shared content-sized field', () => {
+    it('renders the date through the shared MUI X picker field', () => {
       renderDialog({ showDateField: true })
-      const input = screen.getByLabelText('Refund date, line 1')
-      expect(input).toHaveStyle({ width: 'max-content', minWidth: '150px' })
-      expect(input.closest('.MuiFormControl-root')).toHaveStyle({ flexShrink: '0' })
+      const field = screen.getByRole('group', { name: 'Refund date, line 1' })
+      expect(field).toHaveStyle({ minWidth: '150px' })
+      expect(field.closest('.MuiFormControl-root')).toHaveStyle({ flexShrink: '0' })
     })
   })
 })
@@ -527,7 +536,7 @@ describe('RefundDialog shared shell (#1006)', () => {
     renderDialog({ showDateField: true })
     expect(screen.getByLabelText('Refund method, line 1')).toBeInTheDocument()
     expect(screen.getByLabelText('Amount, line 1')).toBeInTheDocument()
-    expect(screen.getByLabelText('Refund date, line 1')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Refund date, line 1' })).toBeInTheDocument()
     expect(screen.getByLabelText('Reference, line 1')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove line 1' })).toBeInTheDocument()
   })

@@ -1,4 +1,6 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo } from 'react'
+import { DatePicker } from '@mui/x-date-pickers'
+import { format, parseISO } from 'date-fns'
 import {
   Dialog,
   DialogTitle,
@@ -17,7 +19,7 @@ import * as yup from 'yup'
 import { useNotification } from '@/hooks/useNotification'
 import { useCreatePriceListMutation, useUpdatePriceListMutation } from '@/store/api/priceListApi'
 import type { PriceList } from '@/types'
-import { toDateInputValue } from '@/utils/formatters'
+import { toDateInputValue, toMuiDatePickerFormat } from '@/utils/formatters'
 
 // Form validation schema
 const priceListSchema = yup.object({
@@ -70,6 +72,11 @@ const PriceListFormDialog: React.FC<PriceListFormDialogProps> = ({ open, priceLi
   const [submitting, setSubmitting] = React.useState(false)
 
   const isEdit = !!priceList
+
+  // Regional format, memoised — dateFormat only changes via Settings, which
+  // re-renders the app.
+  const storedFormat = useMemo(() => localStorage.getItem('dateFormat') || 'DD/MM/YYYY', [])
+  const pickerFormat = useMemo(() => toMuiDatePickerFormat(storedFormat), [storedFormat])
 
   const {
     control,
@@ -233,19 +240,31 @@ const PriceListFormDialog: React.FC<PriceListFormDialogProps> = ({ open, priceLi
                 name="effectiveFrom"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
-                    value={field.value || ''}
-                    fullWidth
+                  <DatePicker
                     label="Effective From"
-                    type="date"
-                    slotProps={{
-                      inputLabel: {
-                        shrink: true,
-                      },
+                    value={field.value ? parseISO(field.value) : null}
+                    format={pickerFormat}
+                    onChange={(d) => {
+                      // Null is a real clear. Invalid Date is a mid-entry
+                      // transient — the picker owns the pending sections, so
+                      // leave the committed value alone rather than wiping a
+                      // populated date while the user overwrites it.
+                      if (d === null) {
+                        field.onChange(null)
+                        return
+                      }
+                      if (Number.isNaN(d.getTime())) return
+                      field.onChange(format(d, 'yyyy-MM-dd'))
                     }}
-                    error={!!errors.effectiveFrom}
-                    helperText={errors.effectiveFrom?.message || 'When this price list becomes active'}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        error: !!errors.effectiveFrom,
+                        helperText:
+                          errors.effectiveFrom?.message || 'When this price list becomes active',
+                      },
+                      field: { clearable: true },
+                    }}
                   />
                 )}
               />
@@ -256,19 +275,31 @@ const PriceListFormDialog: React.FC<PriceListFormDialogProps> = ({ open, priceLi
                 name="effectiveTo"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
-                    value={field.value || ''}
-                    fullWidth
+                  <DatePicker
                     label="Effective To"
-                    type="date"
-                    slotProps={{
-                      inputLabel: {
-                        shrink: true,
-                      },
+                    value={field.value ? parseISO(field.value) : null}
+                    format={pickerFormat}
+                    onChange={(d) => {
+                      // Null is a real clear. Invalid Date is a mid-entry
+                      // transient — the picker owns the pending sections, so
+                      // leave the committed value alone rather than wiping a
+                      // populated date while the user overwrites it.
+                      if (d === null) {
+                        field.onChange(null)
+                        return
+                      }
+                      if (Number.isNaN(d.getTime())) return
+                      field.onChange(format(d, 'yyyy-MM-dd'))
                     }}
-                    error={!!errors.effectiveTo}
-                    helperText={errors.effectiveTo?.message || 'When this price list expires (optional)'}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        error: !!errors.effectiveTo,
+                        helperText:
+                          errors.effectiveTo?.message || 'When this price list expires (optional)',
+                      },
+                      field: { clearable: true },
+                    }}
                   />
                 )}
               />

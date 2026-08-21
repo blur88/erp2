@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom/vitest'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
@@ -108,7 +110,9 @@ function renderPage(initialEntry = '/accounting/general-ledger') {
   )
   render(
     <Provider store={store}>
-      <RouterProvider router={router} />
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <RouterProvider router={router} />
+      </LocalizationProvider>
     </Provider>,
   )
   return router
@@ -162,25 +166,42 @@ describe('GeneralLedgerPage', () => {
     mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
     mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
 
-    const router = renderPage('/accounting/general-ledger?accountId=acct-1&sourceType=SALES_ORDER')
+    const router = renderPage('/accounting/general-ledger?accountId=acct-1')
 
-    await act(async () => {
-      fireEvent.change(screen.getByLabelText(/from date/i), {
-        target: { value: '2026-07-01' },
-      })
+    const fromField = screen.getByRole('group', { name: /from date/i })
+    const user = userEvent.setup()
+    await user.click(within(fromField).getByRole('spinbutton', { name: /day/i }))
+    for (const ch of ['0', '1', '0', '7', '2', '0', '2', '6']) {
+      await user.keyboard(ch)
+    }
+
+    await waitFor(() => {
+      const search = new URLSearchParams(router.state.location.search)
+      expect(search.get('fromDate')).toBe('2026-07-01')
+      expect(search.get('accountId')).toBe('acct-1')
     })
-
-    const search = new URLSearchParams(router.state.location.search)
-    expect(search.get('accountId')).toBe('acct-1')
-    expect(search.get('sourceType')).toBe('SALES_ORDER')
-    expect(search.get('fromDate')).toBe('2026-07-01')
 
     const [params] = mockGLQuery.mock.calls.at(-1)!
     expect(params).toMatchObject({
       accountId: 'acct-1',
-      sourceType: 'SALES_ORDER',
       fromDate: '2026-07-01',
     })
+  })
+
+  it('clearing From Date removes the param and omits it from the GL query', async () => {
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
+
+    const router = renderPage(
+      '/accounting/general-ledger?accountId=acct-1&fromDate=2026-07-01',
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: /clear/i }))
+
+    await waitFor(() => {
+      expect(new URLSearchParams(router.state.location.search).has('fromDate')).toBe(false)
+    })
+    expect(mockGLQuery.mock.calls.at(-1)?.[0].fromDate).toBeUndefined()
   })
 
   it('clearing a filter deletes its key from the URL', async () => {

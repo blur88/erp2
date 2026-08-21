@@ -1,5 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import type { ComponentProps } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -125,58 +127,104 @@ describe('DialogLineRow', () => {
 describe('TransactionDateField', () => {
   function renderField(props: Partial<ComponentProps<typeof TransactionDateField>> = {}) {
     const defaults = {
-      value: '2026-08-07',
+      value: '2026-07-01',
       onChange: vi.fn(),
       label: 'Payment date, line 1',
     }
-    return render(<TransactionDateField {...defaults} {...props} />)
+    return render(
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <TransactionDateField {...defaults} {...props} />
+      </LocalizationProvider>,
+    )
   }
 
-  it('renders a native date input carrying the supplied accessible name and value', () => {
+  it('renders a picker carrying the supplied accessible name and value', () => {
     renderField()
-    const input = screen.getByLabelText('Payment date, line 1') as HTMLInputElement
-    expect(input).toHaveAttribute('type', 'date')
-    expect(input.value).toBe('2026-08-07')
+    expect(screen.getByRole('group', { name: 'Payment date, line 1' })).toHaveTextContent(
+      '01/07/2026',
+    )
   })
 
-  it('defaults max to 2099-12-31', () => {
-    renderField()
-    expect(screen.getByLabelText('Payment date, line 1')).toHaveAttribute('max', '2099-12-31')
-  })
-
-  it('lets a caller override max', () => {
-    renderField({ max: '2030-01-01' })
-    expect(screen.getByLabelText('Payment date, line 1')).toHaveAttribute('max', '2030-01-01')
-  })
-
-  // fireEvent.change with one complete valid value, not userEvent.type: typing a
-  // native date input fires a change per segment against a controlled value that
-  // never advances, so the resulting calls are not a reliable assertion target.
-  it('forwards the raw YYYY-MM-DD string to onChange without constructing a Date', () => {
+  it('emits a raw YYYY-MM-DD string, never a Date or an ISO instant', async () => {
     const onChange = vi.fn()
     renderField({ value: '', onChange })
-    const input = screen.getByLabelText('Payment date, line 1')
-    fireEvent.change(input, { target: { value: '2026-08-07' } })
-    expect(onChange).toHaveBeenCalledTimes(1)
-    expect(onChange).toHaveBeenCalledWith('2026-08-07')
+    const field = screen.getByRole('group', { name: 'Payment date, line 1' })
+    await userEvent.click(within(field).getByRole('spinbutton', { name: /day/i }))
+    await userEvent.keyboard('15082026')
+    await waitFor(() => {
+      expect(onChange).toHaveBeenLastCalledWith('2026-08-15')
+    })
+    // The payload must never carry a time component — that is the timezone bug.
+    onChange.mock.calls.forEach(([v]) => expect(v).toMatch(/^(\d{4}-\d{2}-\d{2})?$/))
   })
 
-  // jsdom has no layout engine: this asserts the CSS configuration that lets the
-  // browser size the field to its own locale rendering, NOT that clipping is
-  // absent. Only a real browser can confirm that (#1008).
-  it('sizes the input to its content above a minimum, and does not shrink', () => {
-    renderField()
-    const input = screen.getByLabelText('Payment date, line 1')
-    expect(input).toHaveStyle({ width: 'max-content', minWidth: '150px' })
-    expect(input.closest('.MuiFormControl-root')).toHaveStyle({ flexShrink: '0' })
+  it('does not emit a value while the date is only partly typed', async () => {
+    const onChange = vi.fn()
+    renderField({ value: '', onChange })
+    const field = screen.getByRole('group', { name: 'Payment date, line 1' })
+    await userEvent.click(within(field).getByRole('spinbutton', { name: /day/i }))
+    await userEvent.keyboard('15')
+    expect(onChange).not.toHaveBeenCalledWith(expect.stringMatching(/^\d{4}/))
   })
 
-  it('does not pin a fixed pixel width, which cannot fit every locale', () => {
-    renderField()
-    const input = screen.getByLabelText('Payment date, line 1')
-    // Guards the regression this component exists to fix: two successive fixed
-    // widths (140px, then 165px) were each confirmed in a browser to clip the
-    // value behind the calendar icon. Any fixed width is locale-dependent.
-    expect(input.style.width).not.toMatch(/^\d+px$/)
+  it('never emits an implausible intermediate year while the year is typed', async () => {
+    const onChange = vi.fn()
+    renderField({ value: '', onChange })
+    const field = screen.getByRole('group', { name: 'Payment date, line 1' })
+    await userEvent.click(within(field).getByRole('spinbutton', { name: /day/i }))
+    await userEvent.keyboard('15082026')
+    await waitFor(() => {
+      expect(onChange).toHaveBeenLastCalledWith('2026-08-15')
+    })
+    // Typing the year commits 0002-08-15, then 0020-, then 0202- before
+    // landing on 2026. PaymentDialog only checks the date is non-empty, so a
+    // leaked intermediate would be submittable.
+    onChange.mock.calls.forEach(([v]) => {
+      if (v) expect(Number(v.slice(0, 4))).toBeGreaterThan(1000)
+    })
+  })
+
+  it('keeps the committed value when an existing date is overwritten mid-entry', async () => {
+    const onChange = vi.fn()
+    renderField({ value: '2026-07-01', onChange })
+    const field = screen.getByRole('group', { name: 'Payment date, line 1' })
+    await userEvent.click(within(field).getByRole('spinbutton', { name: /day/i }))
+    await userEvent.keyboard('15')
+    // Mid-overwrite the picker may report Invalid Date; that must never be
+    // forwarded as a clear.
+    expect(onChange).not.toHaveBeenCalledWith('')
+  })
+
+  it('marks a date past max as out of range', async () => {
+    const onChange = vi.fn()
+    renderField({ value: '', onChange, max: '2030-01-01' })
+    const field = screen.getByRole('group', { name: 'Payment date, line 1' })
+    await userEvent.click(within(field).getByRole('spinbutton', { name: /day/i }))
+    await userEvent.keyboard('01012031')
+    // MUI X does NOT suppress onChange past maxDate — it reports the value and
+    // flags the field invalid, leaving submit-time validation to the caller.
+    // Verified against MUI X v9; asserting suppression here would be wrong.
+    await waitFor(() => {
+      expect(field).toHaveAttribute('aria-invalid', 'true')
+    })
+  })
+
+  it('accepts a date within max', async () => {
+    const onChange = vi.fn()
+    renderField({ value: '', onChange, max: '2030-01-01' })
+    const field = screen.getByRole('group', { name: 'Payment date, line 1' })
+    await userEvent.click(within(field).getByRole('spinbutton', { name: /day/i }))
+    await userEvent.keyboard('15082029')
+    await waitFor(() => {
+      expect(onChange).toHaveBeenLastCalledWith('2029-08-15')
+    })
+  })
+
+  it('is clearable and reports the empty string when cleared', async () => {
+    const onChange = vi.fn()
+    renderField({ onChange })
+    const field = screen.getByRole('group', { name: 'Payment date, line 1' })
+    await userEvent.click(within(field).getByRole('button', { name: /clear/i }))
+    expect(onChange).toHaveBeenLastCalledWith('')
   })
 })

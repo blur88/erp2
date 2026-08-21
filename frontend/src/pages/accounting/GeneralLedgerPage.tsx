@@ -1,4 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { DatePicker } from '@mui/x-date-pickers'
+import { format, parseISO } from 'date-fns'
 import { Link as RouterLink, useSearchParams } from 'react-router-dom'
 import {
   Alert,
@@ -23,7 +25,7 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetAccountsQuery, useGetGeneralLedgerQuery } from '@/store/api/accountingApi'
 import type { AccountingSourceType } from '@/types'
 import { formatCurrency } from '@/utils/currency'
-import { formatDate, isValidIsoDate } from '@/utils/formatters'
+import { formatDate, isValidIsoDate, toMuiDatePickerFormat } from '@/utils/formatters'
 import SourceLink from './components/SourceLink'
 
 const SOURCE_TYPES: { value: AccountingSourceType | ''; label: string }[] = [
@@ -67,6 +69,26 @@ export default function GeneralLedgerPage() {
       : ''
   const effectiveFromDate = isValidIsoDate(rawFromDate) ? rawFromDate : ''
   const effectiveToDate = isValidIsoDate(rawToDate) ? rawToDate : ''
+
+  // The pickers are controlled, and MUI X resets every section whenever the
+  // committed candidate is not echoed back into `value`. Mid-typing commits
+  // are complete-but-implausible (the first year keystroke is e.g. 0002-07-01)
+  // and must never reach the URL — the read path would reject them and the
+  // cleanup effect below would delete the key, desyncing the value again.
+  // So each field keeps a draft that mirrors every commit verbatim, while the
+  // URL only ever receives plausible dates. When the URL changes externally
+  // (back/forward navigation, cleanup), the draft follows it.
+  const [fromDraft, setFromDraft] = useState(effectiveFromDate)
+  const [toDraft, setToDraft] = useState(effectiveToDate)
+  useEffect(() => {
+    setFromDraft(effectiveFromDate)
+  }, [effectiveFromDate])
+  useEffect(() => {
+    setToDraft(effectiveToDate)
+  }, [effectiveToDate])
+
+  const storedFormat = useMemo(() => localStorage.getItem('dateFormat') || 'DD/MM/YYYY', [])
+  const pickerFormat = useMemo(() => toMuiDatePickerFormat(storedFormat), [storedFormat])
 
   const setFilter = (key: string, value: string) => {
     setSearchParams(
@@ -126,25 +148,52 @@ export default function GeneralLedgerPage() {
           </MenuItem>
         ))}
       </TextField>
-      <TextField
-        size="small"
+      <DatePicker
         label="From Date"
-        type="date"
-        value={effectiveFromDate}
-        onChange={(e) => setFilter('fromDate', e.target.value)}
-        slotProps={{ inputLabel: { shrink: true } }}
-        sx={{ flex: '0 0 160px' }}
+        value={fromDraft ? parseISO(fromDraft) : null}
+        format={pickerFormat}
+        onChange={(d) => {
+          // Null means cleared; Invalid Date is a mid-entry transient the
+          // picker owns — hands off so the pending sections survive.
+          if (d === null) {
+            setFromDraft('')
+            setFilter('fromDate', '')
+            return
+          }
+          if (Number.isNaN(d.getTime())) return
+          const next = format(d, 'yyyy-MM-dd')
+          setFromDraft(next)
+          if (isValidIsoDate(next)) setFilter('fromDate', next)
+        }}
+        slotProps={{
+          textField: { size: 'small', sx: { flex: '0 0 160px' } },
+          field: { clearable: true },
+        }}
       />
-      <TextField
-        size="small"
+      <DatePicker
         label="To Date"
-        type="date"
-        value={effectiveToDate}
-        onChange={(e) => setFilter('toDate', e.target.value)}
-        error={dateRangeInvalid}
-        helperText={dateRangeInvalid ? 'To Date is before From Date' : undefined}
-        slotProps={{ inputLabel: { shrink: true } }}
-        sx={{ flex: '0 0 160px' }}
+        value={toDraft ? parseISO(toDraft) : null}
+        format={pickerFormat}
+        onChange={(d) => {
+          if (d === null) {
+            setToDraft('')
+            setFilter('toDate', '')
+            return
+          }
+          if (Number.isNaN(d.getTime())) return
+          const next = format(d, 'yyyy-MM-dd')
+          setToDraft(next)
+          if (isValidIsoDate(next)) setFilter('toDate', next)
+        }}
+        slotProps={{
+          textField: {
+            size: 'small',
+            error: dateRangeInvalid,
+            helperText: dateRangeInvalid ? 'To Date is before From Date' : undefined,
+            sx: { flex: '0 0 160px' },
+          },
+          field: { clearable: true },
+        }}
       />
       <TextField
         select
