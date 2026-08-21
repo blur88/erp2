@@ -122,7 +122,12 @@ export default function TrialBalancePage() {
           // to today via the URL. Invalid Date is a mid-entry transient — the
           // picker owns the pending sections, so hands off entirely.
           if (d === null) {
-            setAsOfDraft('')
+            // Restore today directly rather than relying on the URL round trip.
+            // When the URL is already bare — the canonical form for today —
+            // deleting the key changes nothing, so effectiveAsOfDate never
+            // changes, the resync effect never fires, and the field would sit
+            // visually empty while the query silently used today.
+            setAsOfDraft(getCurrentDate())
             setFilter('asOfDate', '')
             return
           }

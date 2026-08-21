@@ -46,6 +46,20 @@ describe('FilterSidebar date pickers', () => {
     expect(screen.getByRole('group', { name: /start date/i })).toHaveTextContent('01/07/2026')
   })
 
+  it('keeps the stored bound when an impossible day/month pair is typed', async () => {
+    const store = renderSidebar({ startDate: '2026-07-01' })
+    const field = screen.getByRole('group', { name: /start date/i })
+    // 31 February emits Invalid Date (verified against MUI X v9). Treating
+    // that as a clear silently drops the filter mid-typing; the user has not
+    // asked to remove the bound, only typed a day the next month lacks.
+    await userEvent.click(within(field).getByRole('spinbutton', { name: /day/i }))
+    await userEvent.keyboard('31')
+    await userEvent.click(within(field).getByRole('spinbutton', { name: /month/i }))
+    await userEvent.keyboard('02')
+
+    expect(store.getState().auditLogs.filters.startDate).not.toBeUndefined()
+  })
+
   it('clearing Start Date removes the filter rather than storing an empty string', async () => {
     const store = renderSidebar({ startDate: '2026-07-01' })
     const field = screen.getByRole('group', { name: /start date/i })

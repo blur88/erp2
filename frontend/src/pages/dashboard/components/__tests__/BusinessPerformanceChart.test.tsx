@@ -45,6 +45,22 @@ describe('BusinessPerformanceChart custom range', () => {
         localStorage.setItem('dateFormat', 'DD/MM/YYYY')
     })
 
+    it('keeps the committed range when an impossible day/month pair is typed', async () => {
+        renderChart()
+        await openCustomRange()
+        const field = screen.getByRole('group', { name: /from date/i })
+        const before = field.textContent
+        // 31 February emits Invalid Date; treating it as a clear would blank
+        // the range and (before the interval guard) crash the chart.
+        await userEvent.click(within(field).getByRole('spinbutton', { name: /day/i }))
+        await userEvent.keyboard('31')
+        await userEvent.click(within(field).getByRole('spinbutton', { name: /month/i }))
+        await userEvent.keyboard('02')
+
+        expect(screen.getByRole('group', { name: /from date/i }).textContent).not.toBe('')
+        expect(before).not.toBe('')
+    })
+
     it('renders both custom bounds as pickers', async () => {
         renderChart()
         await openCustomRange()

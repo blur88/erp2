@@ -323,17 +323,6 @@ describe('TrialBalancePage URL filters', () => {
     await user.click(within(field).getByRole('spinbutton', { name: /day/i }))
     for (const ch of ['1', '5', '0', '1', '2', '0', '2', '6']) {
       await user.keyboard(ch)
-      console.log(
-        'TB',
-        ch,
-        '|',
-        within(field)
-          .queryAllByRole('spinbutton')
-          .map((s) => `${s.getAttribute('aria-label')}=${s.textContent}`)
-          .join(' '),
-        '| url=',
-        searchOf(router).get('asOfDate'),
-      )
     }
     await waitFor(() => {
       expect(searchOf(router).get('asOfDate')).toBe('2026-01-15')
@@ -352,6 +341,24 @@ describe('TrialBalancePage URL filters', () => {
     })
     expect(mockUseGetTrialBalanceQuery.mock.calls.at(-1)![0]).toMatchObject({
       asOfDate: '2026-07-20',
+    })
+    // The field must SHOW today too. The URL is already bare (canonical for
+    // today), so deleting the key changes nothing and the resync effect never
+    // fires — without restoring the draft directly the picker sits visually
+    // empty while the query uses today.
+    expect(screen.getByRole('group', { name: /as of date/i })).toHaveTextContent('20/07/2026')
+  })
+
+  it('displays today after clearing when the URL was already bare', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderPage()
+    const field = screen.getByRole('group', { name: /as of date/i })
+
+    await user.click(within(field).getByRole('spinbutton', { name: /day/i }))
+    await user.keyboard('{Delete}')
+
+    await waitFor(() => {
+      expect(screen.getByRole('group', { name: /as of date/i })).toHaveTextContent('20/07/2026')
     })
   })
 })

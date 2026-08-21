@@ -534,12 +534,20 @@ const BusinessPerformanceChart: React.FC<BusinessPerformanceChartProps> = ({ raw
                             label="From Date"
                             value={chartFilters.customFromDate ? parseISO(chartFilters.customFromDate) : null}
                             format={pickerFormat}
-                            onChange={(d) =>
+                            onChange={(d) => {
+                                // Null clears the bound; Invalid Date is a
+                                // mid-entry transient and must not blank a
+                                // populated range while the user retypes it.
+                                if (d === null) {
+                                    setChartFilters(prev => ({ ...prev, customFromDate: '' }))
+                                    return
+                                }
+                                if (Number.isNaN(d.getTime())) return
                                 setChartFilters(prev => ({
                                     ...prev,
-                                    customFromDate: d && !Number.isNaN(d.getTime()) ? format(d, 'yyyy-MM-dd') : '',
+                                    customFromDate: format(d, 'yyyy-MM-dd'),
                                 }))
-                            }
+                            }}
                             slotProps={{
                                 textField: { size: 'small', sx: DENSE_PICKER_SX },
                                 field: { clearable: true },
@@ -549,12 +557,20 @@ const BusinessPerformanceChart: React.FC<BusinessPerformanceChartProps> = ({ raw
                             label="To Date"
                             value={chartFilters.customToDate ? parseISO(chartFilters.customToDate) : null}
                             format={pickerFormat}
-                            onChange={(d) =>
+                            onChange={(d) => {
+                                // Null clears the bound; Invalid Date is a
+                                // mid-entry transient and must not blank a
+                                // populated range while the user retypes it.
+                                if (d === null) {
+                                    setChartFilters(prev => ({ ...prev, customToDate: '' }))
+                                    return
+                                }
+                                if (Number.isNaN(d.getTime())) return
                                 setChartFilters(prev => ({
                                     ...prev,
-                                    customToDate: d && !Number.isNaN(d.getTime()) ? format(d, 'yyyy-MM-dd') : '',
+                                    customToDate: format(d, 'yyyy-MM-dd'),
                                 }))
-                            }
+                            }}
                             slotProps={{
                                 textField: { size: 'small', sx: DENSE_PICKER_SX },
                                 field: { clearable: true },

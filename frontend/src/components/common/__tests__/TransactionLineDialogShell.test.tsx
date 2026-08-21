@@ -167,6 +167,59 @@ describe('TransactionDateField', () => {
     expect(onChange).not.toHaveBeenCalledWith(expect.stringMatching(/^\d{4}/))
   })
 
+  it('never emits an implausible intermediate year while the year is typed', async () => {
+    const onChange = vi.fn()
+    renderField({ value: '', onChange })
+    const field = screen.getByRole('group', { name: 'Payment date, line 1' })
+    await userEvent.click(within(field).getByRole('spinbutton', { name: /day/i }))
+    await userEvent.keyboard('15082026')
+    await waitFor(() => {
+      expect(onChange).toHaveBeenLastCalledWith('2026-08-15')
+    })
+    // Typing the year commits 0002-08-15, then 0020-, then 0202- before
+    // landing on 2026. PaymentDialog only checks the date is non-empty, so a
+    // leaked intermediate would be submittable.
+    onChange.mock.calls.forEach(([v]) => {
+      if (v) expect(Number(v.slice(0, 4))).toBeGreaterThan(1000)
+    })
+  })
+
+  it('keeps the committed value when an existing date is overwritten mid-entry', async () => {
+    const onChange = vi.fn()
+    renderField({ value: '2026-07-01', onChange })
+    const field = screen.getByRole('group', { name: 'Payment date, line 1' })
+    await userEvent.click(within(field).getByRole('spinbutton', { name: /day/i }))
+    await userEvent.keyboard('15')
+    // Mid-overwrite the picker may report Invalid Date; that must never be
+    // forwarded as a clear.
+    expect(onChange).not.toHaveBeenCalledWith('')
+  })
+
+  it('marks a date past max as out of range', async () => {
+    const onChange = vi.fn()
+    renderField({ value: '', onChange, max: '2030-01-01' })
+    const field = screen.getByRole('group', { name: 'Payment date, line 1' })
+    await userEvent.click(within(field).getByRole('spinbutton', { name: /day/i }))
+    await userEvent.keyboard('01012031')
+    // MUI X does NOT suppress onChange past maxDate — it reports the value and
+    // flags the field invalid, leaving submit-time validation to the caller.
+    // Verified against MUI X v9; asserting suppression here would be wrong.
+    await waitFor(() => {
+      expect(field).toHaveAttribute('aria-invalid', 'true')
+    })
+  })
+
+  it('accepts a date within max', async () => {
+    const onChange = vi.fn()
+    renderField({ value: '', onChange, max: '2030-01-01' })
+    const field = screen.getByRole('group', { name: 'Payment date, line 1' })
+    await userEvent.click(within(field).getByRole('spinbutton', { name: /day/i }))
+    await userEvent.keyboard('15082029')
+    await waitFor(() => {
+      expect(onChange).toHaveBeenLastCalledWith('2029-08-15')
+    })
+  })
+
   it('is clearable and reports the empty string when cleared', async () => {
     const onChange = vi.fn()
     renderField({ onChange })

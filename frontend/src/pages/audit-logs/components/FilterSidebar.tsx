@@ -248,11 +248,16 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ entityTypes, onApply }) =
             label="Start Date"
             value={filters.startDate ? parseISO(filters.startDate) : null}
             format={pickerFormat}
-            onChange={(d) =>
-              handleFilter({
-                startDate: d && !Number.isNaN(d.getTime()) ? format(d, 'yyyy-MM-dd') : undefined,
-              })
-            }
+            onChange={(d) => {
+              // Null clears the bound; Invalid Date is a mid-entry transient
+              // and must not remove a populated filter.
+              if (d === null) {
+                handleFilter({ startDate: undefined })
+                return
+              }
+              if (Number.isNaN(d.getTime())) return
+              handleFilter({ startDate: format(d, 'yyyy-MM-dd') })
+            }}
             slotProps={{
               textField: { fullWidth: true, size: 'small' },
               field: { clearable: true },
@@ -262,11 +267,14 @@ const FilterSidebar: React.FC<FilterSidebarProps> = ({ entityTypes, onApply }) =
             label="End Date"
             value={filters.endDate ? parseISO(filters.endDate) : null}
             format={pickerFormat}
-            onChange={(d) =>
-              handleFilter({
-                endDate: d && !Number.isNaN(d.getTime()) ? format(d, 'yyyy-MM-dd') : undefined,
-              })
-            }
+            onChange={(d) => {
+              if (d === null) {
+                handleFilter({ endDate: undefined })
+                return
+              }
+              if (Number.isNaN(d.getTime())) return
+              handleFilter({ endDate: format(d, 'yyyy-MM-dd') })
+            }}
             slotProps={{
               textField: { fullWidth: true, size: 'small' },
               field: { clearable: true },

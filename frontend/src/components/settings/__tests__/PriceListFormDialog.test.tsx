@@ -71,6 +71,26 @@ describe('PriceListFormDialog effective dates', () => {
     })
   })
 
+  it('keeps the committed date when an impossible day/month pair is typed', async () => {
+    renderDialog(existingPriceList)
+    const fromField = await screen.findByRole('group', { name: /effective from/i })
+    // 31 February emits Invalid Date; treating it as a clear would wipe a
+    // populated form value while the user is still typing.
+    await userEvent.click(within(fromField).getByRole('spinbutton', { name: /day/i }))
+    await userEvent.keyboard('31')
+    await userEvent.click(within(fromField).getByRole('spinbutton', { name: /month/i }))
+    await userEvent.keyboard('02')
+
+    await userEvent.click(screen.getByRole('button', { name: /update|save/i }))
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ effectiveFrom: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) }),
+        }),
+      )
+    })
+  })
+
   it('does not mark Effective From required', async () => {
     renderDialog()
     const fromField = await screen.findByRole('group', { name: /effective from/i })

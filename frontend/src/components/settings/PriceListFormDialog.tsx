@@ -244,11 +244,18 @@ const PriceListFormDialog: React.FC<PriceListFormDialogProps> = ({ open, priceLi
                     label="Effective From"
                     value={field.value ? parseISO(field.value) : null}
                     format={pickerFormat}
-                    onChange={(d) =>
-                      field.onChange(
-                        d && !Number.isNaN(d.getTime()) ? format(d, 'yyyy-MM-dd') : null,
-                      )
-                    }
+                    onChange={(d) => {
+                      // Null is a real clear. Invalid Date is a mid-entry
+                      // transient — the picker owns the pending sections, so
+                      // leave the committed value alone rather than wiping a
+                      // populated date while the user overwrites it.
+                      if (d === null) {
+                        field.onChange(null)
+                        return
+                      }
+                      if (Number.isNaN(d.getTime())) return
+                      field.onChange(format(d, 'yyyy-MM-dd'))
+                    }}
                     slotProps={{
                       textField: {
                         fullWidth: true,
@@ -272,11 +279,18 @@ const PriceListFormDialog: React.FC<PriceListFormDialogProps> = ({ open, priceLi
                     label="Effective To"
                     value={field.value ? parseISO(field.value) : null}
                     format={pickerFormat}
-                    onChange={(d) =>
-                      field.onChange(
-                        d && !Number.isNaN(d.getTime()) ? format(d, 'yyyy-MM-dd') : null,
-                      )
-                    }
+                    onChange={(d) => {
+                      // Null is a real clear. Invalid Date is a mid-entry
+                      // transient — the picker owns the pending sections, so
+                      // leave the committed value alone rather than wiping a
+                      // populated date while the user overwrites it.
+                      if (d === null) {
+                        field.onChange(null)
+                        return
+                      }
+                      if (Number.isNaN(d.getTime())) return
+                      field.onChange(format(d, 'yyyy-MM-dd'))
+                    }}
                     slotProps={{
                       textField: {
                         fullWidth: true,

@@ -11,7 +11,7 @@ import {
   Divider,
   CircularProgress,
 } from '@mui/material'
-import { toMuiDatePickerFormat } from '@/utils/formatters'
+import { isValidIsoDate, toMuiDatePickerFormat } from '@/utils/formatters'
 
 export interface TransactionLineDialogShellProps {
   open: boolean
@@ -131,6 +131,15 @@ export interface TransactionDateFieldProps {
 }
 
 /**
+ * Guards against the intermediate years a 4-digit year entry commits on its
+ * way to the real value. MIN_PLAUSIBLE_YEAR is deliberately loose — this is a
+ * typing-transient filter, not business validation.
+ */
+const MIN_PLAUSIBLE_YEAR = 1000
+const isPlausibleYear = (isoDate: string): boolean =>
+  Number(isoDate.slice(0, 4)) >= MIN_PLAUSIBLE_YEAR
+
+/**
  * The line date input shared by the Payment and Refund dialogs (#1008, #1103).
  *
  * The field sizes itself intrinsically rather than to a fixed pixel width. The
@@ -186,8 +195,16 @@ export function TransactionDateField({
         }
         if (Number.isNaN(d.getTime())) return
         const next = format(d, 'yyyy-MM-dd')
+        // Echo every candidate into the draft so MUI X does not reset the
+        // sections mid-typing, but notify the parent only for a plausible
+        // calendar date. Typing a 4-digit year commits one value per keystroke
+        // — 0002-08-15, 0020-, 0202- — before landing on 2026. isValidIsoDate
+        // alone is NOT enough: it rejects 0002 (Date.UTC maps years 0-99 into
+        // 1900+, failing the round trip) but ACCEPTS 0202, which is a real
+        // calendar date. PaymentDialog only checks the date is non-empty
+        // (PaymentDialog.tsx:177), so a leaked 0202-08-15 is submittable.
         setDraft(next)
-        onChange(next)
+        if (isValidIsoDate(next) && isPlausibleYear(next)) onChange(next)
       }}
       slotProps={{
         textField: {

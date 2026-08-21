@@ -173,17 +173,6 @@ describe('GeneralLedgerPage', () => {
     await user.click(within(fromField).getByRole('spinbutton', { name: /day/i }))
     for (const ch of ['0', '1', '0', '7', '2', '0', '2', '6']) {
       await user.keyboard(ch)
-      console.log(
-        'KEY',
-        ch,
-        '|',
-        within(fromField)
-          .queryAllByRole('spinbutton')
-          .map((s) => `${s.getAttribute('aria-label')}=${s.textContent}`)
-          .join(' '),
-        '| focused:',
-        document.activeElement?.getAttribute('aria-label'),
-      )
     }
 
     await waitFor(() => {
