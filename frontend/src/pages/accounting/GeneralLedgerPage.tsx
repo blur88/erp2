@@ -153,11 +153,14 @@ export default function GeneralLedgerPage() {
         value={fromDraft ? parseISO(fromDraft) : null}
         format={pickerFormat}
         onChange={(d) => {
-          if (!d || Number.isNaN(d.getTime())) {
+          // Null means cleared; Invalid Date is a mid-entry transient the
+          // picker owns — hands off so the pending sections survive.
+          if (d === null) {
             setFromDraft('')
             setFilter('fromDate', '')
             return
           }
+          if (Number.isNaN(d.getTime())) return
           const next = format(d, 'yyyy-MM-dd')
           setFromDraft(next)
           if (isValidIsoDate(next)) setFilter('fromDate', next)
@@ -172,11 +175,12 @@ export default function GeneralLedgerPage() {
         value={toDraft ? parseISO(toDraft) : null}
         format={pickerFormat}
         onChange={(d) => {
-          if (!d || Number.isNaN(d.getTime())) {
+          if (d === null) {
             setToDraft('')
             setFilter('toDate', '')
             return
           }
+          if (Number.isNaN(d.getTime())) return
           const next = format(d, 'yyyy-MM-dd')
           setToDraft(next)
           if (isValidIsoDate(next)) setFilter('toDate', next)
