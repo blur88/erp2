@@ -233,7 +233,7 @@ export const isValidIsoDate = (value: string): boolean => {
 
 /**
  * Convert a backend calendar-date value into a YYYY-MM-DD string for a
- * <input type="date"> / MUI date picker. Calendar dates are timezone-free:
+ * MUI X date picker. Calendar dates are timezone-free:
  * a date-only string is passed through unchanged (NEVER reparsed via
  * `new Date()`, which would apply the runtime timezone). A Date/timestamp
  * (legacy rows written as UTC midnight) is reduced to its UTC calendar date.
