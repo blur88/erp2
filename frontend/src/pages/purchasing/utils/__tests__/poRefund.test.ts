@@ -14,15 +14,52 @@ describe('buildPoRefundSeed', () => {
     ])
   })
 
-  it('excludes refund rows from the seed instead of netting them (#1096)', () => {
-    // Pre-#1096 this returned paid 100 / refunded 25.50 for m1. Seeds are gross
-    // weights now: a prior refund reduces only the aggregate cap.
+  it('nets prior refunds against the same method (#1107)', () => {
+    // #1096 made seeds gross weights and excluded refund rows, which ignored a
+    // prior refund when presetting. Seeds are per-method net capacity now.
     const seed = buildPoRefundSeed([
       { paymentMethodId: 'pm-1', amount: '100.0000', paymentMethodEntity: { name: 'Cash' } },
       { paymentMethodId: 'pm-1', amount: '-25.5000', paymentMethodEntity: { name: 'Cash' } },
     ] as any)
 
-    expect(seed).toEqual([{ methodId: 'pm-1', amount: '100.0000' }])
+    expect(seed).toEqual([{ methodId: 'pm-1', amount: '74.5000' }])
+  })
+
+  it('omits a method a cross-method refund drove negative (#1107)', () => {
+    // Paid Cash 100 / Bank 200, then refunded 250 through Cash (legal under
+    // #1096): Cash net is -150, which is not a valid preset line.
+    const seed = buildPoRefundSeed([
+      { paymentMethodId: 'pm-1', amount: '100.0000' },
+      { paymentMethodId: 'pm-2', amount: '200.0000' },
+      { paymentMethodId: 'pm-1', amount: '-250.0000' },
+    ] as any)
+
+    expect(seed).toEqual([{ methodId: 'pm-2', amount: '200.0000' }])
+  })
+
+  it('omits a method refunded down to exactly zero (#1107)', () => {
+    const seed = buildPoRefundSeed([
+      { paymentMethodId: 'pm-1', amount: '100.0000' },
+      { paymentMethodId: 'pm-1', amount: '-100.0000' },
+      { paymentMethodId: 'pm-2', amount: '10.0000' },
+    ] as any)
+
+    expect(seed).toEqual([{ methodId: 'pm-2', amount: '10.0000' }])
+  })
+
+  it('groups the issue #1107 scenario into whole-cent capacities', () => {
+    // Cash 100 + Bank 200, Cash 50 refunded => Cash 50 / Bank 200, which the
+    // dialog fills in order for a 250 refund (never 83.3333 / 166.6667).
+    const seed = buildPoRefundSeed([
+      { paymentMethodId: 'pm-1', amount: '100.0000' },
+      { paymentMethodId: 'pm-2', amount: '200.0000' },
+      { paymentMethodId: 'pm-1', amount: '-50.0000' },
+    ] as any)
+
+    expect(seed).toEqual([
+      { methodId: 'pm-1', amount: '50.0000' },
+      { methodId: 'pm-2', amount: '200.0000' },
+    ])
   })
 
   it('skips payments with a falsy paymentMethodId (legacy null-method rows)', () => {

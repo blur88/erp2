@@ -21,7 +21,6 @@ import {
   toScaledAmount,
   fromScaledAmount,
   sumScaledAmounts,
-  allocateByLargestRemainder,
 } from '@/utils/currency'
 import TransactionLineDialogShell, {
   DialogLineRow,
@@ -38,6 +37,12 @@ export interface RefundMethodOption {
   label: string
 }
 
+/** One method's *preferred net capacity* for the auto-fill preset: gross
+ *  payments through that method minus prior refunds through it, clamped at zero
+ *  by the caller. It shapes the preset only — it is not an enforced cap. A
+ *  remainder the capacities cannot absorb spills past one (see the seeding
+ *  effect), and manual edits are limited only by the aggregate
+ *  `availableForRefund` (#1096, #1107). */
 export interface RefundSeed {
   methodId: string
   amount: string
@@ -135,20 +140,51 @@ export default function RefundDialog({
       mergedWeights.set(methodId, (mergedWeights.get(methodId) ?? 0n) + amount)
     }
     const reconciled = [...mergedWeights].map(([methodId, amount]) => ({ methodId, amount }))
-    const weights = reconciled.map((s) => s.amount)
 
-    // Gross weights are a SHAPE, not caps: they always sum to >= seedTargetMinor
-    // (gross paid >= net available >= seed target), so allocateByLargestRemainder's
-    // per-weight cap never engages here. Prior refunds are deliberately excluded —
-    // netting them per method can go negative and is not a valid preset (#1096).
-    const allocations = allocateByLargestRemainder(weights, seedTargetMinor)
+    // Seeds are per-method NET capacity (gross minus prior refunds through that
+    // method), so fill them in order rather than splitting the target by gross
+    // ratio (#1107). Proportional splitting ignored prior refunds and produced
+    // repeating decimals: Cash 100 / Bank 200 with Cash 50 already refunded
+    // presented 83.3333 / 166.6667 for a 250 refund instead of 50 / 200.
+    // Because both the capacities and the target are whole scale-4 units, taking
+    // min(remaining, capacity) can never land between units — there is no
+    // sub-unit remainder, hence no largest-remainder tie-break.
+    let remaining = seedTargetMinor
+    const allocations = reconciled.map(({ amount }) => {
+      if (remaining <= 0n) return 0n
+      const take = amount < remaining ? amount : remaining
+      remaining -= take
+      return take
+    })
 
-    if (reconciled.length > 0) {
+    // Defensive: with complete payment data sum(max(net, 0)) >= aggregate net
+    // >= seedTargetMinor, so the capacities cover the target. Incomplete data
+    // must still preset the exact requested total, so any shortfall goes to the
+    // first active method — merged into its existing line when it has one, to
+    // avoid presenting two rows for the same method.
+    let spillMinor = remaining > 0n ? remaining : 0n
+    if (spillMinor > 0n && fallbackId) {
+      const existing = reconciled.findIndex((s) => s.methodId === fallbackId)
+      if (existing >= 0) {
+        allocations[existing] += spillMinor
+        spillMinor = 0n
+      }
+    }
+
+    const seeded = reconciled
+      .map((s, index) => ({ methodId: s.methodId, amount: allocations[index] }))
+      .filter((s) => s.amount > 0n)
+
+    if (spillMinor > 0n && fallbackId) {
+      seeded.push({ methodId: fallbackId, amount: spillMinor })
+    }
+
+    if (seeded.length > 0) {
       setLines(
-        reconciled.map((s, index) => ({
+        seeded.map((s) => ({
           id: newId(),
           paymentMethodId: s.methodId,
-          amount: allocations[index] > 0n ? toAmountInputValue(fromScaledAmount(allocations[index])) : '',
+          amount: toAmountInputValue(fromScaledAmount(s.amount)),
           reference: '',
           date: defaultDate,
         })),

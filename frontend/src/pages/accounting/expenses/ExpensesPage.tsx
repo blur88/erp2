@@ -195,19 +195,22 @@ export default function ExpensesPage() {
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
   }, [highlightExpenseId, location.pathname, location.search, navigate])
 
-  // Gross payments grouped by method — refunds (negative rows) are excluded, and
-  // prior refunds reduce only the aggregate cap (#1096).
+  // Per-method NET capacity for the refund preset: gross payments minus prior
+  // refunds through the same method (refunds are negative rows on the same
+  // paymentMethodId). Sum ALL signed rows first, then emit only methods with a
+  // positive balance — a cross-method refund can drive one negative, which is
+  // not a valid preset line (#1107).
   const seedAllocations: RefundSeed[] = useMemo(() => {
-    const grossByMethod = new Map<string, bigint>()
+    const netByMethod = new Map<string, bigint>()
     for (const p of refundExpenseDetail?.payments ?? []) {
-      const amt = toScaledAmount(p.amount) ?? 0n
-      if (amt <= 0n) continue
-      grossByMethod.set(p.paymentMethodId, (grossByMethod.get(p.paymentMethodId) ?? 0n) + amt)
+      netByMethod.set(
+        p.paymentMethodId,
+        (netByMethod.get(p.paymentMethodId) ?? 0n) + (toScaledAmount(p.amount) ?? 0n),
+      )
     }
-    return [...grossByMethod].map(([methodId, amount]) => ({
-      methodId,
-      amount: fromScaledAmount(amount),
-    }))
+    return [...netByMethod]
+      .filter(([, amount]) => amount > 0n)
+      .map(([methodId, amount]) => ({ methodId, amount: fromScaledAmount(amount) }))
   }, [refundExpenseDetail])
 
   const netPaidMinor = useMemo(
