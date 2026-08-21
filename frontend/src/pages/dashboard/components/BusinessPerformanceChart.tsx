@@ -1,4 +1,5 @@
 import React, { useRef, useMemo } from 'react'
+import { DatePicker } from '@mui/x-date-pickers'
 import {
     Box,
     Paper,
@@ -32,8 +33,8 @@ import {
 import 'chartjs-adapter-date-fns'
 import zoomPlugin from 'chartjs-plugin-zoom'
 import { Line } from 'react-chartjs-2'
-import { format, startOfWeek, startOfMonth, startOfYear, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, eachYearOfInterval, endOfDay, endOfWeek, endOfMonth, endOfYear, isWithinInterval, subDays } from 'date-fns'
-import { formatCurrency, formatDate } from '@/utils/formatters'
+import { format, parseISO, startOfWeek, startOfMonth, startOfYear, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, eachYearOfInterval, endOfDay, endOfWeek, endOfMonth, endOfYear, isWithinInterval, subDays } from 'date-fns'
+import { formatCurrency, formatDate, isValidIsoDate, toMuiDatePickerFormat } from '@/utils/formatters'
 
 ChartJS.register(
     CategoryScale,
@@ -102,9 +103,23 @@ interface BusinessPerformanceChartProps {
     rawData: RawData
 }
 
+// This toolbar runs at 0.75rem throughout; the theme's picker rule is
+// 0.875rem, which would leave these two fields larger than their neighbours.
+const DENSE_PICKER_SX = {
+    minWidth: 130,
+    '& .MuiPickersInputBase-root': { fontSize: '0.75rem' },
+    '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+}
+
 const BusinessPerformanceChart: React.FC<BusinessPerformanceChartProps> = ({ rawData }) => {
     const theme = useTheme()
     const chartRef = useRef<any>(null)
+
+    // Regional format, memoised — dateFormat only changes via Settings, which
+    // re-renders the app.
+    const storedFormat = useMemo(() => localStorage.getItem('dateFormat') || 'DD/MM/YYYY', [])
+    const pickerFormat = useMemo(() => toMuiDatePickerFormat(storedFormat), [storedFormat])
+
     const lineColors: Record<string, string> = {
         sales_completed: theme.palette.success.main,
         cogs: theme.palette.error.main,
@@ -168,6 +183,21 @@ const BusinessPerformanceChart: React.FC<BusinessPerformanceChartProps> = ({ raw
         const dateRange = getDateRange(chartFilters.dateFilter)
         const start = new Date(dateRange.startDate)
         const end = new Date(dateRange.endDate)
+
+        // A cleared or partly typed custom bound reaches here as Invalid Date,
+        // and date-fns interval helpers throw RangeError rather than returning
+        // empty — which blanks the dashboard. A complete-but-implausible bound
+        // (a first year keystroke commits e.g. 0002-07-01) would not throw but
+        // would iterate hundreds of thousands of days. Produce no interval
+        // until both bounds are real, plausible calendar dates.
+        if (
+            !isValidIsoDate(String(dateRange.startDate)) ||
+            !isValidIsoDate(String(dateRange.endDate)) ||
+            Number.isNaN(start.getTime()) ||
+            Number.isNaN(end.getTime())
+        ) {
+            return { labels: [], datasets: [] }
+        }
 
         const linesToShow = selectedLines.includes('all')
             ? LINE_OPTIONS.filter(o => o.value !== 'all').map(o => o.value)
@@ -476,8 +506,10 @@ const BusinessPerformanceChart: React.FC<BusinessPerformanceChartProps> = ({ raw
 
                 {/* Date Filter */}
                 <FormControl size="small" sx={{ minWidth: 130 }}>
-                    <InputLabel sx={{ fontSize: '0.75rem' }}>Date Filter</InputLabel>
+                    <InputLabel id="chart-date-filter-label" sx={{ fontSize: '0.75rem' }}>Date Filter</InputLabel>
                     <Select
+                        labelId="chart-date-filter-label"
+                        id="chart-date-filter"
                         value={chartFilters.dateFilter}
                         onChange={(e) => setChartFilters(prev => ({ ...prev, dateFilter: e.target.value }))}
                         label="Date Filter"
@@ -498,29 +530,35 @@ const BusinessPerformanceChart: React.FC<BusinessPerformanceChartProps> = ({ raw
                 {/* Custom Date Range */}
                 {chartFilters.dateFilter === 'custom' && (
                     <>
-                        <TextField
+                        <DatePicker
                             label="From Date"
-                            type="date"
-                            size="small"
-                            value={chartFilters.customFromDate}
-                            onChange={(e) => setChartFilters(prev => ({ ...prev, customFromDate: e.target.value }))}
+                            value={chartFilters.customFromDate ? parseISO(chartFilters.customFromDate) : null}
+                            format={pickerFormat}
+                            onChange={(d) =>
+                                setChartFilters(prev => ({
+                                    ...prev,
+                                    customFromDate: d && !Number.isNaN(d.getTime()) ? format(d, 'yyyy-MM-dd') : '',
+                                }))
+                            }
                             slotProps={{
-                                inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
-                                input: { sx: { fontSize: '0.75rem', '& input': { py: 0.75 } } },
+                                textField: { size: 'small', sx: DENSE_PICKER_SX },
+                                field: { clearable: true },
                             }}
-                            sx={{ minWidth: 130 }}
                         />
-                        <TextField
+                        <DatePicker
                             label="To Date"
-                            type="date"
-                            size="small"
-                            value={chartFilters.customToDate}
-                            onChange={(e) => setChartFilters(prev => ({ ...prev, customToDate: e.target.value }))}
+                            value={chartFilters.customToDate ? parseISO(chartFilters.customToDate) : null}
+                            format={pickerFormat}
+                            onChange={(d) =>
+                                setChartFilters(prev => ({
+                                    ...prev,
+                                    customToDate: d && !Number.isNaN(d.getTime()) ? format(d, 'yyyy-MM-dd') : '',
+                                }))
+                            }
                             slotProps={{
-                                inputLabel: { shrink: true, sx: { fontSize: '0.75rem' } },
-                                input: { sx: { fontSize: '0.75rem', '& input': { py: 0.75 } } },
+                                textField: { size: 'small', sx: DENSE_PICKER_SX },
+                                field: { clearable: true },
                             }}
-                            sx={{ minWidth: 130 }}
                         />
                     </>
                 )}
