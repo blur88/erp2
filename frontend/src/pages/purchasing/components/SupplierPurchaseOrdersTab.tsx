@@ -44,7 +44,7 @@ export default function SupplierPurchaseOrdersTab({ supplierId }: SupplierPurcha
       getRowKey={(o) => o.id}
       emptyText="No purchase orders yet for this supplier."
       isLoading={isLoading}
-      footer={<PagePagination total={total} {...paginationProps} />}
+      paginationSlot={<PagePagination total={total} {...paginationProps} />}
     />
   )
 }

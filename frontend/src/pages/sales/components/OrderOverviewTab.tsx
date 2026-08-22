@@ -1,27 +1,13 @@
-import {
-  Box,
-  Card,
-  CardContent,
-  Grid,
-  Link,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Typography,
-} from '@mui/material'
+import { Box, Card, CardContent, Grid, Link, Typography } from '@mui/material'
 import type { ReactNode } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 
-import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { SalesOrder } from '@/types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { toScaledAmount, fromScaledAmount } from '@/utils/currency'
 
 import { StatusChip } from '@/components/common/StatusChip'
+import { DataTable, type Column } from '@/components/common/DataTable'
 
 interface OrderOverviewTabProps {
   order: SalesOrder
@@ -118,30 +104,20 @@ export default function OrderOverviewTab({ order }: OrderOverviewTabProps) {
         </Grid>
       </Grid>
 
-      <TableContainer component={Paper} variant="outlined">
-        <Table size={TABLE_STYLES.size}>
-          <TableHead>
-            <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600 } }}>
-              <TableCell>Product</TableCell>
-              <TableCell align="right">Quantity</TableCell>
-              <TableCell align="right">Unit Price</TableCell>
-              <TableCell align="right">Discount</TableCell>
-              <TableCell align="right">Subtotal</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {items.map((item) => (
-              <TableRow key={item.id} hover>
-                <TableCell>{item.product?.name ?? '—'}</TableCell>
-                <TableCell align="right">{item.quantity}</TableCell>
-                <TableCell align="right">{formatCurrency(item.unitPrice)}</TableCell>
-                <TableCell align="right">{formatDiscount(item)}</TableCell>
-                <TableCell align="right">{formatCurrency(item.totalAmount)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <DataTable
+        columns={
+          [
+            { header: 'Product', render: (item) => item.product?.name ?? '—' },
+            { header: 'Quantity', align: 'right', render: (item) => item.quantity },
+            { header: 'Unit Price', align: 'right', render: (item) => formatCurrency(item.unitPrice) },
+            { header: 'Discount', align: 'right', render: (item) => formatDiscount(item) },
+            { header: 'Subtotal', align: 'right', render: (item) => formatCurrency(item.totalAmount) },
+          ] as Column<(typeof items)[number]>[]
+        }
+        rows={items}
+        getRowKey={(item) => item.id}
+        emptyText="No items on this sales order."
+      />
 
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
         <Box sx={{ minWidth: 240 }}>

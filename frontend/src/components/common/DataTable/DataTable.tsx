@@ -29,7 +29,18 @@ export interface DataTableProps<T> {
   isLoading?: boolean
   isError?: boolean
   errorText?: string
-  sticky?: boolean
+  /**
+   * Rendered inside the card, directly under the last row — the placement
+   * `PagePagination`'s own `borderTop` is designed for, matching how
+   * `EntityTable` list pages compose table and pagination into one card.
+   * Pagination belongs here, not in `footer`.
+   */
+  paginationSlot?: ReactNode
+  /**
+   * Rendered outside the card, below it. For detached blocks that are not part
+   * of the table — e.g. the right-aligned Total Paid / Balance summary on the
+   * Payments tabs. For pagination use `paginationSlot`.
+   */
   footer?: ReactNode
 }
 
@@ -45,67 +56,57 @@ export function DataTable<T>({
   isLoading,
   isError,
   errorText,
-  sticky,
+  paginationSlot,
   footer,
 }: DataTableProps<T>) {
-  if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-        <CircularProgress />
-      </Box>
-    )
-  }
+  // Stale rows can coexist with isLoading/isError, so neither slot may key off
+  // rows.length alone — both belong to the populated state only.
+  const hasContent = !isLoading && !isError && rows.length > 0
 
-  if (isError) {
-    return centeredText(errorText ?? 'Failed to load.')
-  }
-
-  if (rows.length === 0) {
-    return centeredText(emptyText)
-  }
-
-  const container = (
-    <Table stickyHeader={sticky} size={TABLE_STYLES.size}>
-      <TableHead>
-        <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
-          {columns.map((col, i) => (
-            <TableCell key={i} align={col.align} sx={col.width ? { width: col.width } : undefined}>
-              {col.header}
-            </TableCell>
-          ))}
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {rows.map((row) => (
-          <TableRow key={getRowKey(row)} hover>
+  const content = isLoading ? (
+    <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+      <CircularProgress />
+    </Box>
+  ) : isError ? (
+    centeredText(errorText ?? 'Failed to load.')
+  ) : rows.length === 0 ? (
+    centeredText(emptyText)
+  ) : (
+    <TableContainer>
+      <Table size={TABLE_STYLES.size}>
+        <TableHead>
+          <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
             {columns.map((col, i) => (
-              <TableCell key={i} align={col.align}>
-                {col.render(row)}
+              <TableCell key={i} align={col.align} sx={col.width ? { width: col.width } : undefined}>
+                {col.header}
               </TableCell>
             ))}
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHead>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={getRowKey(row)} hover>
+              {columns.map((col, i) => (
+                <TableCell key={i} align={col.align}>
+                  {col.render(row)}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   )
-
-  if (sticky) {
-    return (
-      <>
-        <TableContainer component={Paper} variant="outlined" sx={{ flex: 1, overflow: 'auto' }}>
-          {container}
-        </TableContainer>
-        {footer}
-      </>
-    )
-  }
 
   return (
     <>
-      <TableContainer component={Paper} variant="outlined">
-        {container}
-      </TableContainer>
-      {footer}
+      {/* overflow:hidden clips the square grey.50 header background to the
+          card's rounded corners — the same technique EntityTable uses. */}
+      <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+        {content}
+        {hasContent && paginationSlot}
+      </Paper>
+      {hasContent && footer}
     </>
   )
 }

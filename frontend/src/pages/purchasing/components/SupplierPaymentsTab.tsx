@@ -45,7 +45,7 @@ export default function SupplierPaymentsTab({ supplierId }: SupplierPaymentsTabP
       getRowKey={(p) => p.id}
       emptyText="No payments yet for this supplier."
       isLoading={isLoading}
-      footer={<PagePagination total={total} {...paginationProps} />}
+      paginationSlot={<PagePagination total={total} {...paginationProps} />}
     />
   )
 }

@@ -74,10 +74,7 @@ export default function StockMovementsTab({ productId }: { productId: string }) 
       isLoading={isLoading}
       isError={isError}
       errorText="Failed to load stock movements."
-      sticky
-      footer={
-        <PagePagination total={total} {...paginationProps} />
-      }
+      paginationSlot={<PagePagination total={total} {...paginationProps} />}
     />
   )
 }
