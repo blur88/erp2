@@ -6,6 +6,7 @@ import { StockMovement } from '../../../database/entities/stock-movement.entity'
 import { Product } from '../../../database/entities/product.entity';
 import { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
+import { OwnerEquityDocument } from '../../owner-equity/entities/owner-equity-document.entity';
 import { ProductService } from './product.service';
 
 describe('StockMovementService', () => {
@@ -14,6 +15,7 @@ describe('StockMovementService', () => {
   let productRepository: jest.Mocked<Repository<Product>>;
   let purchaseOrderRepository: jest.Mocked<Repository<PurchaseOrder>>;
   let salesOrderRepository: jest.Mocked<Repository<SalesOrder>>;
+  let ownerEquityDocumentRepository: jest.Mocked<Repository<OwnerEquityDocument>>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -44,6 +46,10 @@ describe('StockMovementService', () => {
         },
         {
           provide: getRepositoryToken(SalesOrder),
+          useValue: { find: jest.fn(), findOne: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(OwnerEquityDocument),
           useValue: { find: jest.fn(), findOne: jest.fn() },
         },
         {
@@ -78,6 +84,9 @@ describe('StockMovementService', () => {
     productRepository = module.get(getRepositoryToken(Product));
     purchaseOrderRepository = module.get(getRepositoryToken(PurchaseOrder));
     salesOrderRepository = module.get(getRepositoryToken(SalesOrder));
+    ownerEquityDocumentRepository = module.get(
+      getRepositoryToken(OwnerEquityDocument),
+    );
 
     // Silence logger output during tests
     jest.spyOn(service['logger'], 'log').mockImplementation(() => undefined);
@@ -187,11 +196,13 @@ describe('StockMovementService', () => {
         { id: 'po-2', orderNumber: 'PO-2' } as any,
       ]);
       (salesOrderRepository.find as jest.Mock).mockResolvedValue([]);
+      (ownerEquityDocumentRepository.find as jest.Mock).mockResolvedValue([]);
 
       await service.findAll({ page: 1, limit: 20 } as any);
 
       expect(purchaseOrderRepository.find).toHaveBeenCalledTimes(1);
       expect(salesOrderRepository.find).not.toHaveBeenCalled();
+      expect(ownerEquityDocumentRepository.find).not.toHaveBeenCalled();
     });
 
     it('falls back to undefined when the referenced order is missing', async () => {
@@ -226,6 +237,54 @@ describe('StockMovementService', () => {
 
       expect(purchaseOrderRepository.findOne).toHaveBeenCalled();
       expect(result).toBe('PO-NOTX');
+    });
+
+    it('populates referenceNumber from the Owner Equity document for owner_equity movements', async () => {
+      // Both an owner drawing and its reversal carry referenceType
+      // 'owner_equity' and point at the same document (#1022) — the frontend
+      // View action needs this number, since the Owner Equity API is keyed by
+      // reference number and has no by-id endpoint.
+      const movements = [
+        makeMovement({ id: 'm1', referenceType: 'owner_equity', referenceId: 'oe-1' }),
+        makeMovement({ id: 'm2', referenceType: 'owner_equity', referenceId: 'oe-1' }),
+      ];
+      mockQueryBuilder(movements, 2);
+      (purchaseOrderRepository.find as jest.Mock).mockResolvedValue([]);
+      (salesOrderRepository.find as jest.Mock).mockResolvedValue([]);
+      (ownerEquityDocumentRepository.find as jest.Mock).mockResolvedValue([
+        { id: 'oe-1', referenceNumber: 'OE-26-004' } as any,
+      ]);
+
+      const result = await service.findAll({ page: 1, limit: 20 } as any);
+
+      expect(result.data[0].referenceNumber).toBe('OE-26-004');
+      expect(result.data[1].referenceNumber).toBe('OE-26-004');
+      expect(ownerEquityDocumentRepository.find).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves referenceNumber undefined when the Owner Equity document is missing', async () => {
+      const movements = [
+        makeMovement({ id: 'm1', referenceType: 'owner_equity', referenceId: 'gone' }),
+      ];
+      mockQueryBuilder(movements, 1);
+      (purchaseOrderRepository.find as jest.Mock).mockResolvedValue([]);
+      (salesOrderRepository.find as jest.Mock).mockResolvedValue([]);
+      (ownerEquityDocumentRepository.find as jest.Mock).mockResolvedValue([]);
+
+      const result = await service.findAll({ page: 1, limit: 20 } as any);
+
+      expect(result.data[0].referenceNumber).toBeUndefined();
+    });
+
+    it('resolveReferenceNumber resolves an owner_equity reference', async () => {
+      (ownerEquityDocumentRepository.findOne as jest.Mock).mockResolvedValue({
+        id: 'oe-1',
+        referenceNumber: 'OE-26-004',
+      } as any);
+
+      const result = await (service as any).resolveReferenceNumber('owner_equity', 'oe-1');
+
+      expect(result).toBe('OE-26-004');
     });
 
     it('findOne returns referenceNumber resolved from the related order', async () => {

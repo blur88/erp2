@@ -9,7 +9,12 @@ import { useGetStockMovementsQuery } from '@/store/api/inventoryApi'
 import type { StockMovement } from '@/types'
 import { formatDate, formatNumber } from '@/utils/formatters'
 
-import { getMovementLabel, getMovementNavTarget, getReferenceLabel } from '../utils/stockMovementDisplay'
+import {
+  getMovementLabel,
+  getMovementNavTarget,
+  getReferenceLabel,
+  isMovementNavigable,
+} from '../utils/stockMovementDisplay'
 
 export default function StockMovementsTab({ productId }: { productId: string }) {
   const navigate = useNavigate()
@@ -27,14 +32,18 @@ export default function StockMovementsTab({ productId }: { productId: string }) 
   const [fetchPurchaseOrder] = useLazyGetPurchaseOrderQuery()
 
   const handleView = async (movement: StockMovement) => {
+    if (!isMovementNavigable(movement)) return
     const target = getMovementNavTarget(movement.referenceType)
-    if (!target || !movement.referenceId) return
     try {
-      if (target === 'sales_order') {
-        const order = await fetchSalesOrder(movement.referenceId).unwrap()
+      if (target === 'owner_equity') {
+        // The route is keyed by reference number, which the list response
+        // already carries — no lookup, and no by-id endpoint to make one.
+        navigate(`/accounting/owner-equity/${movement.referenceNumber}/view`)
+      } else if (target === 'sales_order') {
+        const order = await fetchSalesOrder(movement.referenceId!).unwrap()
         navigate(`/sales/orders/${order.orderNumber}/view`)
       } else {
-        const order = await fetchPurchaseOrder(movement.referenceId).unwrap()
+        const order = await fetchPurchaseOrder(movement.referenceId!).unwrap()
         navigate(`/purchasing/orders/${order.orderNumber}/view`)
       }
     } catch {
@@ -58,10 +67,7 @@ export default function StockMovementsTab({ productId }: { productId: string }) 
       header: 'Action',
       align: 'right',
       width: '10%',
-      render: (m) => {
-        const navigable = getMovementNavTarget(m.referenceType) != null && m.referenceId != null
-        return viewAction(() => void handleView(m), !navigable)
-      },
+      render: (m) => viewAction(() => void handleView(m), !isMovementNavigable(m)),
     },
   ]
 

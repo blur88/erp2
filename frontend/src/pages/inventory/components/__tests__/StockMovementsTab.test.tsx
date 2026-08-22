@@ -114,6 +114,61 @@ describe('StockMovementsTab', () => {
     )
   })
 
+  it('navigates to the owner equity detail without any order lookup', async () => {
+    movements = [
+      makeMovement({
+        movementType: StockMovementType.OWNER_DRAWING,
+        isInward: false,
+        isOutward: true,
+        referenceType: 'owner_equity',
+        referenceId: 'oe-uuid',
+        referenceNumber: 'OE-2026-0004',
+        notes: 'owner took stock',
+      }),
+    ]
+    renderTab()
+    expect(screen.getByText('Owner Drawing')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /view/i }))
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity/OE-2026-0004/view'),
+    )
+    expect(mockFetchSalesOrder).not.toHaveBeenCalled()
+    expect(mockFetchPurchaseOrder).not.toHaveBeenCalled()
+  })
+
+  it('navigates for an owner drawing reversal too — nav keys off referenceType', async () => {
+    movements = [
+      makeMovement({
+        movementType: StockMovementType.OWNER_DRAWING_REVERSAL,
+        referenceType: 'owner_equity',
+        referenceId: 'oe-uuid',
+        referenceNumber: 'OE-2026-0004',
+      }),
+    ]
+    renderTab()
+    expect(screen.getByText('Owner Drawing Reversal')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /view/i }))
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity/OE-2026-0004/view'),
+    )
+  })
+
+  it('disables View for an owner equity movement whose referenceNumber is unresolved', () => {
+    movements = [
+      makeMovement({
+        movementType: StockMovementType.OWNER_DRAWING,
+        referenceType: 'owner_equity',
+        referenceId: 'oe-uuid',
+        referenceNumber: undefined,
+      }),
+    ]
+    renderTab()
+    const viewBtn = screen.getByRole('button', { name: /view/i })
+    expect(viewBtn).toBeDisabled()
+    fireEvent.click(viewBtn)
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
   it('disables View for a non-order referenceType and fires no lookup', () => {
     movements = [
       makeMovement({
