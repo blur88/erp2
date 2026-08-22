@@ -11,6 +11,8 @@ const { mockNavigate, mockFetchSalesOrder, mockFetchPurchaseOrder } = vi.hoisted
 }))
 
 let movements: Partial<StockMovement>[] = []
+let isLoading = false
+let isError = false
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
@@ -22,9 +24,10 @@ vi.mock('@/store/api/inventoryApi', async (importOriginal) => {
   return {
     ...actual,
     useGetStockMovementsQuery: () => ({
-      data: { data: movements, meta: { total: movements.length } },
-      isLoading: false,
-      isFetching: false,
+      data: isLoading || isError ? undefined : { data: movements, meta: { total: movements.length } },
+      isLoading,
+      isError,
+      isFetching: isLoading,
     }),
   }
 })
@@ -69,6 +72,8 @@ function renderTab() {
 afterEach(() => {
   vi.clearAllMocks()
   movements = []
+  isLoading = false
+  isError = false
 })
 
 describe('StockMovementsTab', () => {
@@ -154,11 +159,29 @@ describe('StockMovementsTab', () => {
     expect(screen.getByText('Sales Order')).toBeInTheDocument()
   })
 
+  it('renders the loading state while the query is in flight', () => {
+    isLoading = true
+    renderTab()
+    expect(screen.getByRole('progressbar')).toBeInTheDocument()
+    expect(
+      screen.queryByText('No stock movements recorded for this product'),
+    ).not.toBeInTheDocument()
+  })
+
   it('renders the empty state when there are no movements', () => {
     movements = []
     renderTab()
     expect(
       screen.getByText('No stock movements recorded for this product'),
     ).toBeInTheDocument()
+  })
+
+  it('renders the error state when the query fails', () => {
+    isError = true
+    renderTab()
+    expect(screen.getByText('Failed to load stock movements.')).toBeInTheDocument()
+    expect(
+      screen.queryByText('No stock movements recorded for this product'),
+    ).not.toBeInTheDocument()
   })
 })

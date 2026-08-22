@@ -11,6 +11,19 @@ export interface CategoryProduct {
   stockQuantity: number
 }
 
+export interface ProductOrderHistoryItem {
+  id: string
+  type: 'sales_order' | 'purchase_order'
+  orderNumber: string
+  customerOrVendor: string
+  date: Date | string
+  paymentStatus?: string
+  fulfillmentStatus?: string
+  receivedStatus?: string
+  quantity: number
+  subTotal: number
+}
+
 export const inventoryApiSlice = createApi({
   reducerPath: 'inventoryApi',
   baseQuery: axiosBaseQuery(),
@@ -147,6 +160,17 @@ export const inventoryApiSlice = createApi({
       query: () => ({ url: '/inventory/products/dashboard-stats' }),
       providesTags: ['Product'],
     }),
+    getProductOrderHistory: builder.query<
+      PaginatedResponse<ProductOrderHistoryItem>,
+      { productId: string; page: number; limit: number }
+    >({
+      query: ({ productId, ...params }) => ({
+        url: `/inventory/products/${productId}/order-history`,
+        params,
+      }),
+      transformResponse: normalizePaginated<ProductOrderHistoryItem>,
+      providesTags: ['Product'],
+    }),
     getStockMovements: builder.query<PaginatedResponse<StockMovement>, Record<string, unknown> | undefined>({
       query: (params) => ({ url: '/inventory/stock/movements', params: params ?? {} }),
       transformResponse: normalizePaginated<StockMovement>,
@@ -233,6 +257,7 @@ export const {
   useGetCategoryBySlugQuery,
   useSetCategoryEnabledMutation,
   useGetDashboardStatsQuery,
+  useGetProductOrderHistoryQuery,
   useGetStockMovementsQuery,
   useGetOutOfStockProductsQuery,
   useGetStockAdjustmentsQuery,
