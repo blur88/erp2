@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { formatDate, formatDateTime, formatSalesPeriodLabel, formatWholeQuantity, isValidIsoDate, toDateInputValue, toMuiDatePickerFormat } from './formatters'
+import { formatDate, formatDateTime, formatQuantity, formatSalesPeriodLabel, formatWholeQuantity, isValidIsoDate, toDateInputValue, toMuiDatePickerFormat } from './formatters'
 
 describe('formatWholeQuantity', () => {
   it('removes decimal places from numeric quantities', () => {
@@ -13,6 +13,43 @@ describe('formatWholeQuantity', () => {
   it('returns whole-number quantities unchanged', () => {
     expect(formatWholeQuantity(5)).toBe('5')
     expect(formatWholeQuantity('0')).toBe('0')
+  })
+})
+
+describe('formatQuantity', () => {
+  it('drops insignificant trailing zeros', () => {
+    expect(formatQuantity('1.0000')).toBe('1')
+    expect(formatQuantity('1.5000')).toBe('1.5')
+    expect(formatQuantity('1.2500')).toBe('1.25')
+  })
+
+  it('preserves significant four-decimal precision', () => {
+    expect(formatQuantity('1.0001')).toBe('1.0001')
+    expect(formatQuantity('0.0001')).toBe('0.0001')
+  })
+
+  it('returns integer quantities unchanged', () => {
+    expect(formatQuantity('7')).toBe('7')
+    expect(formatQuantity(7)).toBe('7')
+  })
+
+  it('handles negative quantities', () => {
+    expect(formatQuantity('-2.5000')).toBe('-2.5')
+  })
+
+  it('keeps a zero integer part when all decimals are dropped', () => {
+    expect(formatQuantity('0.0000')).toBe('0')
+  })
+
+  it('returns an em dash for empty input', () => {
+    expect(formatQuantity(null)).toBe('\u2014')
+    expect(formatQuantity(undefined)).toBe('\u2014')
+    expect(formatQuantity('')).toBe('\u2014')
+    expect(formatQuantity('   ')).toBe('\u2014')
+  })
+
+  it('passes non-numeric input through untouched', () => {
+    expect(formatQuantity('N/A')).toBe('N/A')
   })
 })
 

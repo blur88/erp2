@@ -179,4 +179,16 @@ describe('OwnerEquityDetailView', () => {
 
     expect(await screen.findByText(/restores the drawn stock/i)).toBeInTheDocument()
   })
+  // #1113: quantities are stored with four-decimal precision; the Stock Details
+  // field must show the normalized value, not the storage precision.
+  it('normalizes the Stock Details quantity for display', async () => {
+    renderDetail({ type: 'STOCK_DRAWING', quantity: '1.0000' })
+
+    await userEvent.click(screen.getByRole('tab', { name: /Stock Details/ }))
+
+    const label = await screen.findByText('Quantity')
+    const value = label.nextElementSibling
+
+    expect(value).toHaveTextContent(/^1$/)
+  })
 })

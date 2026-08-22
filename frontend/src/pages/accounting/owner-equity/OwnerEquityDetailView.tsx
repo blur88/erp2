@@ -21,7 +21,7 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useNotification } from '@/hooks/useNotification'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { fromScaledAmount, toScaledAmount } from '@/utils/currency'
-import { formatCurrency, formatDate } from '@/utils/formatters'
+import { formatCurrency, formatDate, formatQuantity } from '@/utils/formatters'
 import {
   useCancelOwnerEquityMutation,
   useCompleteOwnerEquityMutation,
@@ -394,7 +394,7 @@ export default function OwnerEquityDetailView({ document: doc }: { document: Own
                 <CardContent>
                   <Typography variant="h6" gutterBottom>Stock Movement</Typography>
                   <Field label="Product" value={doc.product?.name ?? doc.productId ?? '—'} />
-                  <Field label="Quantity" value={doc.quantity} />
+                  <Field label="Quantity" value={formatQuantity(doc.quantity)} />
                   <Field label="Unit Cost" value={formatCurrency(doc.unitCost)} />
                   <Field label="Total Cost" value={formatCurrency(doc.totalCost)} />
                 </CardContent>
