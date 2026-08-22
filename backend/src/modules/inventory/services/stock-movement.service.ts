@@ -24,6 +24,7 @@ import {
 import { Product } from '../../../database/entities/product.entity';
 import { PurchaseOrder } from '../../../database/entities/purchase-order.entity';
 import { SalesOrder } from '../../../database/entities/sales-order.entity';
+import { OwnerEquityDocument } from '../../owner-equity/entities/owner-equity-document.entity';
 import { repoFor, lockProductForStockUpdate } from '../../../common/db/tx-helpers';
 import {
   CreateStockMovementDto,
@@ -50,6 +51,11 @@ export class StockMovementService {
     private readonly purchaseOrderRepository: Repository<PurchaseOrder>,
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepository: Repository<SalesOrder>,
+    // Entity-only dependency (repository, never OwnerEquityModule or its
+    // services) — Owner Equity already imports InventoryModule (#1022), so
+    // importing the module back would close a provider cycle.
+    @InjectRepository(OwnerEquityDocument)
+    private readonly ownerEquityDocumentRepository: Repository<OwnerEquityDocument>,
     @Inject(forwardRef(() => ProductService))
     private readonly productService: ProductService,
     private readonly dataSource: DataSource,
@@ -597,12 +603,26 @@ export class StockMovementService {
       });
       return so?.orderNumber;
     }
+    if (referenceType === 'owner_equity') {
+      const repo = repoFor(
+        manager,
+        OwnerEquityDocument,
+        this.ownerEquityDocumentRepository,
+      );
+      const doc = await repo.findOne({
+        where: { id: referenceId },
+        select: { id: true, referenceNumber: true },
+        loadEagerRelations: false,
+      });
+      return doc?.referenceNumber;
+    }
     return undefined;
   }
 
   /**
-   * Batch-resolve order numbers for a page of movements: one PO query + one SO
-   * query (skipped when empty). Returns a map keyed `${referenceType}:${referenceId}`.
+   * Batch-resolve reference numbers for a page of movements: one PO query, one
+   * SO query and one Owner Equity query (each skipped when empty). Returns a
+   * map keyed `${referenceType}:${referenceId}`.
    */
   private async buildReferenceNumberMap(
     movements: StockMovement[],
@@ -610,11 +630,13 @@ export class StockMovementService {
     const map = new Map<string, string>();
     const poIds = new Set<string>();
     const soIds = new Set<string>();
+    const oeIds = new Set<string>();
 
     for (const m of movements) {
       if (!m.referenceId) continue;
       if (m.referenceType === 'purchase_order') poIds.add(m.referenceId);
       else if (m.referenceType === 'sales_order') soIds.add(m.referenceId);
+      else if (m.referenceType === 'owner_equity') oeIds.add(m.referenceId);
     }
 
     if (poIds.size > 0) {
@@ -636,6 +658,17 @@ export class StockMovementService {
       });
       for (const so of sos) {
         map.set(this.referenceKey('sales_order', so.id), so.orderNumber);
+      }
+    }
+
+    if (oeIds.size > 0) {
+      const docs = await this.ownerEquityDocumentRepository.find({
+        where: { id: In([...oeIds]) },
+        select: { id: true, referenceNumber: true },
+        loadEagerRelations: false,
+      });
+      for (const doc of docs) {
+        map.set(this.referenceKey('owner_equity', doc.id), doc.referenceNumber);
       }
     }
 

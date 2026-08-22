@@ -91,6 +91,10 @@ export enum StockMovementType {
   EXPIRY = 'expiry',
   THEFT = 'theft',
   LOSS = 'loss',
+  // Owner Equity (#1022). Paired: the reversal is a positive compensating
+  // movement, not a reverseMovement(). Both carry referenceType 'owner_equity'.
+  OWNER_DRAWING = 'owner_drawing',
+  OWNER_DRAWING_REVERSAL = 'owner_drawing_reversal',
 }
 
 export interface StockMovement {

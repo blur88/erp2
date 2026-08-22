@@ -19,6 +19,7 @@ import { SalesOrderItem } from '../../database/entities/sales-order-item.entity'
 import { Supplier } from '../../database/entities/supplier.entity';
 import { PurchaseOrder } from '../../database/entities/purchase-order.entity';
 import { PurchaseOrderItem } from '../../database/entities/purchase-order-item.entity';
+import { OwnerEquityDocument } from '../owner-equity/entities/owner-equity-document.entity';
 
 
 // Controllers
@@ -73,6 +74,10 @@ import { ExportModule } from '../../common/export.module';
       Supplier,
       PurchaseOrder,
       PurchaseOrderItem,
+      // Repository only — StockMovementService resolves an owner_equity
+      // movement's referenceNumber for display. Importing OwnerEquityModule
+      // would cycle: it already imports InventoryModule (#1022).
+      OwnerEquityDocument,
     ]),
     // Import users module for user-related operations
     forwardRef(() => UsersModule),
