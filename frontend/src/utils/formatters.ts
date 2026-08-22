@@ -184,6 +184,27 @@ export const formatWholeQuantity = (quantity: number | string | null | undefined
 }
 
 /**
+ * Normalize a stored quantity for display, removing only insignificant
+ * trailing zeros (`1.0000` -> `1`, `1.2500` -> `1.25`).
+ *
+ * Operates purely lexically on the string form: quantities are stored with
+ * four-decimal precision and arrive from the backend as strings, so parsing
+ * through a JS number would risk precision loss on values like `0.0001`.
+ * Non-numeric input is passed through untouched.
+ */
+export const formatQuantity = (quantity: string | number | null | undefined): string => {
+  if (quantity === null || quantity === undefined) return '\u2014'
+
+  const raw = String(quantity).trim()
+  if (raw === '') return '\u2014'
+
+  if (!/^-?\d+(\.\d+)?$/.test(raw)) return raw
+  if (!raw.includes('.')) return raw
+
+  return raw.replace(/0+$/, '').replace(/\.$/, '')
+}
+
+/**
  * Format percentage
  */
 const formatPercentage = (value: number | string | null | undefined, decimals = 2): string => {
