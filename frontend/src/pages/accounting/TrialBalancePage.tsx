@@ -8,11 +8,9 @@ import {
   Checkbox,
   Chip,
   FormControlLabel,
-  Paper,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableFooter,
   TableHead,
   TableRow,
@@ -20,6 +18,7 @@ import {
   Typography,
 } from '@mui/material'
 
+import { TableCard } from '@/components/common/TableCard'
 import PageHeader from '@/components/common/PageHeader'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { TABLE_STYLES } from '@/constants/tableStyles'
@@ -219,7 +218,7 @@ export default function TrialBalancePage() {
           <>
             {summaryStrip}
 
-            <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
+            <TableCard sx={{ mb: 3 }}>
               <Table
                 size={TABLE_STYLES.size}
                 sx={{
@@ -228,9 +227,7 @@ export default function TrialBalancePage() {
                     px: TABLE_STYLES.cell.padding.px,
                   },
                   '& .MuiTableCell-head': {
-                    fontWeight: 600,
                     py: TABLE_STYLES.header.padding.py,
-                    backgroundColor: TABLE_STYLES.header.backgroundColor,
                   },
                 }}
               >
@@ -300,7 +297,7 @@ export default function TrialBalancePage() {
                   </TableFooter>
                 )}
               </Table>
-            </TableContainer>
+            </TableCard>
           </>
         ) : null}
       </Box>

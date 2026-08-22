@@ -107,7 +107,7 @@ describe('CustomerWorkspaceCard', () => {
     expect(screen.getByText('SO-001')).toBeInTheDocument();
   });
 
-  it('clicking an order navigates to the sales orders list', () => {
+  it('clicking an order number navigates to the sales orders list', () => {
     mockUseGetCustomerSalesHistoryQuery.mockReturnValue({
       data: {
         orders: [
@@ -128,7 +128,9 @@ describe('CustomerWorkspaceCard', () => {
 
     render(<CustomerWorkspaceCard selectedCustomer={mockCustomer} />);
 
-    fireEvent.click(screen.getByText('SO-001').closest('tr')!);
+    // The order number itself is the navigation target (#1118): converting this
+    // table to DataTable moved the click off the row and onto an explicit link.
+    fireEvent.click(screen.getByRole('button', { name: 'SO-001' }));
     expect(mockNavigate).toHaveBeenCalledWith('/sales/orders');
   });
 

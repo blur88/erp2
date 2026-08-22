@@ -75,7 +75,14 @@ export function DataTable<T>({
     <TableContainer>
       <Table size={TABLE_STYLES.size}>
         <TableHead>
-          <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}>
+          <TableRow
+            sx={{
+              '& .MuiTableCell-head': {
+                fontWeight: 600,
+                backgroundColor: TABLE_STYLES.header.backgroundColor,
+              },
+            }}
+          >
             {columns.map((col, i) => (
               <TableCell key={i} align={col.align} sx={col.width ? { width: col.width } : undefined}>
                 {col.header}
@@ -100,8 +107,8 @@ export function DataTable<T>({
 
   return (
     <>
-      {/* overflow:hidden clips the square grey.50 header background to the
-          card's rounded corners — the same technique EntityTable uses. */}
+      {/* overflow:hidden clips the square header background to the card's
+          rounded corners — the same technique EntityTable and TableCard use. */}
       <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
         {content}
         {hasContent && paginationSlot}

@@ -19,15 +19,14 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
-  Paper,
   IconButton,
   Collapse,
   useTheme,
   useMediaQuery,
 } from '@mui/material';
+import { TableCard } from '@/components/common/TableCard'
 import { default as CloudUploadIcon } from '@mui/icons-material/CloudUpload'
 import { default as CheckCircleIcon } from '@mui/icons-material/CheckCircle'
 import { default as ErrorIcon } from '@mui/icons-material/Error'
@@ -251,7 +250,7 @@ const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
               {importResult.errors.length} Error{importResult.errors.length !== 1 ? 's' : ''}
             </Button>
             <Collapse in={showErrors}>
-              <TableContainer component={Paper} sx={{ mt: 1, maxHeight: 200 }}>
+              <TableCard maxHeight={200} sx={{ mt: 1 }}>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
@@ -272,7 +271,7 @@ const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
                     ))}
                   </TableBody>
                 </Table>
-              </TableContainer>
+              </TableCard>
             </Collapse>
           </Box>
         )}
@@ -288,7 +287,7 @@ const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
               {importResult.warnings.length} Warning{importResult.warnings.length !== 1 ? 's' : ''}
             </Button>
             <Collapse in={showWarnings}>
-              <TableContainer component={Paper} sx={{ mt: 1, maxHeight: 200 }}>
+              <TableCard maxHeight={200} sx={{ mt: 1 }}>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
@@ -305,7 +304,7 @@ const ProductImportDialog: React.FC<ProductImportDialogProps> = ({
                     ))}
                   </TableBody>
                 </Table>
-              </TableContainer>
+              </TableCard>
             </Collapse>
           </Box>
         )}
