@@ -8,17 +8,16 @@ import {
   CardContent,
   Grid,
   IconButton,
-  Paper,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   TextField,
   Typography,
   useTheme,
 } from '@mui/material'
+import { TableCard } from '@/components/common/TableCard'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { useForm, useFieldArray, Controller } from 'react-hook-form'
@@ -411,7 +410,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                 </Alert>
               )}
 
-              <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
+              <TableCard>
                 <Table size="small" sx={LINE_ITEM_TABLE_SX(theme)}>
                   <TableHead>
                     <TableRow>
@@ -591,7 +590,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
                     ))}
                   </TableBody>
                 </Table>
-              </TableContainer>
+              </TableCard>
 
               <Box sx={{ mt: 2 }}>
                 <AppButton

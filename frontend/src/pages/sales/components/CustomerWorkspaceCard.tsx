@@ -1,22 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Box,
-  CircularProgress,
-  Paper,
-  Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Tabs,
-  Typography,
-} from '@mui/material';
+import { Box, Link, Paper, Tab, Tabs, Typography } from '@mui/material';
 import { default as PaymentIcon } from '@mui/icons-material/Payment';
 import { default as OrdersIcon } from '@mui/icons-material/ShoppingCart';
 import { useNavigate } from 'react-router-dom';
 
+import { DataTable, type Column } from '@/components/common/DataTable/DataTable';
 import { TABLE_STYLES } from '@/constants/tableStyles';
 import { useGetCustomerPaymentsQuery, useGetCustomerSalesHistoryQuery } from '@/store/api/salesApi';
 import type { Customer } from '@/types';
@@ -77,6 +65,48 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
   const orders = ordersData?.orders ?? [];
   const payments = paymentsData ?? [];
 
+  const orderColumns: Column<(typeof orders)[number]>[] = [
+    {
+      header: 'Order #',
+      render: (order) => (
+        <Link
+          component="button"
+          type="button"
+          variant="body2"
+          onClick={() => navigate('/sales/orders')}
+          sx={{ fontWeight: 600, textAlign: 'left' }}
+        >
+          {order.orderNumber}
+        </Link>
+      ),
+    },
+    { header: 'Date', render: (order) => formatDate(order.orderDate) },
+    {
+      header: 'Status',
+      render: (order) => (
+        <Typography
+          variant="body2"
+          sx={{
+            color: order.isFulfilled
+              ? 'success.main'
+              : order.isPaid
+                ? 'primary.main'
+                : 'text.secondary',
+          }}
+        >
+          {order.isFulfilled ? 'Fulfilled' : order.isPaid ? 'Paid' : 'Pending'}
+        </Typography>
+      ),
+    },
+    { header: 'Total', align: 'right', render: (order) => formatCurrency(order.totalAmount) },
+  ];
+
+  const paymentColumns: Column<(typeof payments)[number]>[] = [
+    { header: 'Date', render: (payment) => formatDate(payment.paymentDate) },
+    { header: 'Status', render: (payment) => payment.status },
+    { header: 'Amount', align: 'right', render: (payment) => formatCurrency(payment.amount) },
+  ];
+
   if (!selectedCustomer) {
     return <Paper sx={{ flex: 1 }} />;
   }
@@ -100,137 +130,26 @@ const CustomerWorkspaceCard: React.FC<CustomerWorkspaceCardProps> = ({ selectedC
         </Tabs>
       </Box>
       <TabPanel value={tabValue} index={0}>
-        {ordersLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : ordersError ? (
-          <Typography
-            sx={{
-              color: 'error.main',
-              py: 4,
-              textAlign: 'center',
-            }}
-          >
-            Failed to load orders.
-          </Typography>
-        ) : orders.length === 0 ? (
-          <Typography
-            sx={{
-              color: 'text.secondary',
-              py: 4,
-              textAlign: 'center',
-            }}
-          >
-            No orders found.
-          </Typography>
-        ) : (
-          <TableContainer component={Paper} variant="outlined">
-            <Table size={TABLE_STYLES.size}>
-              <TableHead>
-                <TableRow
-                  sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}
-                >
-                  <TableCell>Order #</TableCell>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Total</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {orders.map((order) => (
-                  <TableRow
-                    key={order.id}
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => navigate('/sales/orders')}
-                  >
-                    <TableCell>
-                      <Typography
-                        variant="body2"
-                        color="primary"
-                        sx={{
-                          fontWeight: 600,
-                        }}
-                      >
-                        {order.orderNumber}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{formatDate(order.orderDate)}</TableCell>
-                    <TableCell>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          color: order.isFulfilled
-                            ? 'success.main'
-                            : order.isPaid
-                              ? 'primary.main'
-                              : 'text.secondary',
-                        }}
-                      >
-                        {order.isFulfilled ? 'Fulfilled' : order.isPaid ? 'Paid' : 'Pending'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">{formatCurrency(order.totalAmount)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+        <DataTable
+          columns={orderColumns}
+          rows={orders}
+          getRowKey={(order) => order.id}
+          emptyText="No orders found."
+          isLoading={ordersLoading}
+          isError={ordersError}
+          errorText="Failed to load orders."
+        />
       </TabPanel>
       <TabPanel value={tabValue} index={1}>
-        {paymentsLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : paymentsError ? (
-          <Typography
-            sx={{
-              color: 'error.main',
-              py: 4,
-              textAlign: 'center',
-            }}
-          >
-            Failed to load payments.
-          </Typography>
-        ) : payments.length === 0 ? (
-          <Typography
-            sx={{
-              color: 'text.secondary',
-              py: 4,
-              textAlign: 'center',
-            }}
-          >
-            No payments found.
-          </Typography>
-        ) : (
-          <TableContainer component={Paper} variant="outlined">
-            <Table size={TABLE_STYLES.size}>
-              <TableHead>
-                <TableRow
-                  sx={{ '& .MuiTableCell-head': { fontWeight: 600, backgroundColor: 'grey.50' } }}
-                >
-                  <TableCell>Date</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Amount</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {payments.map((payment) => (
-                  <TableRow
-                    key={payment.id}
-                    hover
-                  >
-                    <TableCell>{formatDate(payment.paymentDate)}</TableCell>
-                    <TableCell>{payment.status}</TableCell>
-                    <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+        <DataTable
+          columns={paymentColumns}
+          rows={payments}
+          getRowKey={(payment) => payment.id}
+          emptyText="No payments found."
+          isLoading={paymentsLoading}
+          isError={paymentsError}
+          errorText="Failed to load payments."
+        />
       </TabPanel>
     </Paper>
   );

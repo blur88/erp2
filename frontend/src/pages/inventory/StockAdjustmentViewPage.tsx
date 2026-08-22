@@ -10,13 +10,6 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
 } from '@mui/material'
@@ -25,9 +18,11 @@ import { useNavigate, useParams } from 'react-router-dom'
 
 import { AppButton } from '@/components/common/AppButton'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
+import { DataTable, type Column } from '@/components/common/DataTable/DataTable'
 import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import type { StockAdjustmentItem } from '@/types'
 import { useGetStockAdjustmentQuery, useRevertStockAdjustmentMutation, useUpdateStockAdjustmentNotesMutation } from '@/store/api/inventoryApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate, formatNumber } from '@/utils/formatters'
@@ -78,6 +73,37 @@ export default function StockAdjustmentViewPage() {
   const isDraft = adj.status === 'draft'
   const isCompleted = adj.status === 'completed'
   const items = adj.items ?? []
+
+  const itemColumns: Column<StockAdjustmentItem>[] = [
+    { header: 'Product', render: (item) => item.product.name },
+    {
+      header: isCompleted ? 'Stock Before' : 'Current Stock',
+      align: 'right',
+      render: (item) => formatNumber(isCompleted ? item.stockBefore ?? 0 : item.liveStock ?? 0),
+    },
+    {
+      header: 'Qty Change',
+      align: 'right',
+      render: (item) => (
+        <Typography
+          component="span"
+          variant="body2"
+          sx={{ color: item.difference > 0 ? 'success.main' : 'error.main', fontWeight: 600 }}
+        >
+          {item.difference > 0 ? '+' : ''}
+          {formatNumber(item.difference)}
+        </Typography>
+      ),
+    },
+    {
+      header: 'Stock After',
+      align: 'right',
+      render: (item) =>
+        isCompleted ? (item.stockAfter != null ? formatNumber(item.stockAfter) : '—') : '—',
+    },
+    { header: 'Unit Cost', align: 'right', render: (item) => formatCurrency(item.unitCost ?? 0) },
+    { header: 'Total', align: 'right', render: (item) => formatCurrency(item.totalValue ?? 0) },
+  ]
 
   const handleEdit = () => {
     if (isDraft) {
@@ -153,38 +179,12 @@ export default function StockAdjustmentViewPage() {
           </Grid>
         </Grid>
 
-        <TableContainer component={Paper} variant="outlined">
-          <Table size={TABLE_STYLES.size}>
-            <TableHead>
-              <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 600 } }}>
-                <TableCell>Product</TableCell>
-                <TableCell align="right">{isCompleted ? 'Stock Before' : 'Current Stock'}</TableCell>
-                <TableCell align="right">Qty Change</TableCell>
-                <TableCell align="right">Stock After</TableCell>
-                <TableCell align="right">Unit Cost</TableCell>
-                <TableCell align="right">Total</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {items.map((item) => (
-                <TableRow key={item.id} hover>
-                  <TableCell>{item.product.name}</TableCell>
-                  <TableCell align="right">
-                    {formatNumber(isCompleted ? item.stockBefore ?? 0 : item.liveStock ?? 0)}
-                  </TableCell>
-                  <TableCell align="right" sx={{ color: item.difference > 0 ? 'success.main' : 'error.main', fontWeight: 600 }}>
-                    {item.difference > 0 ? '+' : ''}{formatNumber(item.difference)}
-                  </TableCell>
-                  <TableCell align="right">
-                    {isCompleted ? (item.stockAfter != null ? formatNumber(item.stockAfter) : '—') : '—'}
-                  </TableCell>
-                  <TableCell align="right">{formatCurrency(item.unitCost ?? 0)}</TableCell>
-                  <TableCell align="right">{formatCurrency(item.totalValue ?? 0)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <DataTable
+          columns={itemColumns}
+          rows={items}
+          getRowKey={(item) => item.id}
+          emptyText="No items on this adjustment."
+        />
 
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
           <Box sx={{ minWidth: 240 }}>
