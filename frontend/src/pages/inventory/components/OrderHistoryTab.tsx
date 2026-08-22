@@ -1,12 +1,10 @@
-import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import PagePagination from '@/components/common/PagePagination'
-import { ApiService } from '@/services/api'
-import { useNotification } from '@/hooks/useNotification'
 import { StatusChip } from '@/components/common/StatusChip'
 import { usePagination } from '@/hooks/usePagination'
 import { DataTable, type Column, bold, statusGroup, viewAction } from '@/components/common/DataTable'
+import { useGetProductOrderHistoryQuery, type ProductOrderHistoryItem } from '@/store/api/inventoryApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
 
@@ -14,24 +12,15 @@ interface OrderHistoryTabProps {
   productId: string
 }
 
-interface OrderHistoryItem {
-  id: string
-  type: 'sales_order' | 'purchase_order'
-  orderNumber: string
-  customerOrVendor: string
-  date: Date | string
-  paymentStatus?: string
-  fulfillmentStatus?: string
-  receivedStatus?: string
-  quantity: number
-  subTotal: number
-}
-
-const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
-  const { showError } = useNotification()
+export default function OrderHistoryTab({ productId }: OrderHistoryTabProps) {
   const navigate = useNavigate()
+  const { page, limit, paginationProps } = usePagination()
 
-  const goToOrder = (order: OrderHistoryItem) => {
+  const { data, isLoading, isError } = useGetProductOrderHistoryQuery({ productId, page, limit })
+  const orders = data?.data ?? []
+  const total = data?.meta?.total ?? 0
+
+  const goToOrder = (order: ProductOrderHistoryItem) => {
     if (order.type === 'sales_order') {
       navigate(`/sales/orders/${order.orderNumber}/view`)
     } else {
@@ -39,38 +28,10 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
     }
   }
 
-  const { page, limit, paginationProps } = usePagination()
-  const [orders, setOrders] = useState<OrderHistoryItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [total, setTotal] = useState(0)
-
-  useEffect(() => {
-    const fetchOrderHistory = async () => {
-      try {
-        setLoading(true)
-        const response = (await ApiService.get(`/inventory/products/${productId}/order-history`, {
-          params: { page, limit },
-        })) as any
-        const data = response.data?.data || response.data || []
-        const meta = response.data?.meta || response.meta || {}
-        setOrders(data)
-        setTotal(meta.total || 0)
-      } catch (error: any) {
-        console.error('Failed to fetch order history:', error)
-        showError(error?.message || 'Failed to load order history')
-      } finally {
-        setLoading(false)
-      }
-    }
-    if (productId) {
-      fetchOrderHistory()
-    }
-  }, [productId, page, limit, showError])
-
   const getOrderTypeLabel = (type: string): string =>
     type === 'sales_order' ? 'Sales Order' : 'Purchase Order'
 
-  const renderStatus = (order: OrderHistoryItem) => {
+  const renderStatus = (order: ProductOrderHistoryItem) => {
     const payment = (
       <StatusChip
         key="payment"
@@ -101,7 +62,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
     return statusGroup([payment, secondary])
   }
 
-  const columns: Column<OrderHistoryItem>[] = [
+  const columns: Column<ProductOrderHistoryItem>[] = [
     { header: 'Type', width: '12%', render: (o) => getOrderTypeLabel(o.type) },
     { header: 'Order #', width: '12%', render: (o) => bold(o.orderNumber) },
     { header: 'Customer/Vendor', width: '18%', render: (o) => o.customerOrVendor },
@@ -118,7 +79,9 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
       rows={orders}
       getRowKey={(o) => o.id}
       emptyText="No order history found for this product"
-      isLoading={loading}
+      isLoading={isLoading}
+      isError={isError}
+      errorText="Failed to load order history."
       sticky
       footer={
         <PagePagination total={total} {...paginationProps} />
@@ -126,5 +89,3 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ productId }) => {
     />
   )
 }
-
-export default OrderHistoryTab

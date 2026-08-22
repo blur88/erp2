@@ -7,11 +7,11 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
-import OrderHistoryTab from '@/components/inventory/OrderHistoryTab'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetProductBySlugQuery } from '@/store/api/inventoryApi'
 
 import ProductOverviewTab from './components/ProductOverviewTab'
+import OrderHistoryTab from './components/OrderHistoryTab'
 import StockMovementsTab from './components/StockMovementsTab'
 
 interface TabPanelProps {

@@ -15,7 +15,7 @@ export default function StockMovementsTab({ productId }: { productId: string }) 
   const navigate = useNavigate()
   const { page, limit, paginationProps } = usePagination()
 
-  const { data, isLoading } = useGetStockMovementsQuery({
+  const { data, isLoading, isError } = useGetStockMovementsQuery({
     productId,
     page,
     limit,
@@ -72,6 +72,8 @@ export default function StockMovementsTab({ productId }: { productId: string }) 
       getRowKey={(m) => m.id}
       emptyText="No stock movements recorded for this product"
       isLoading={isLoading}
+      isError={isError}
+      errorText="Failed to load stock movements."
       sticky
       footer={
         <PagePagination total={total} {...paginationProps} />
