@@ -16,6 +16,8 @@ const columns: Column<Row>[] = [
 
 const rows: Row[] = [{ id: '1', name: 'Alpha', amount: 10 }]
 
+const card = (container: HTMLElement) => container.querySelector('.MuiPaper-outlined')
+
 describe('DataTable', () => {
   it('renders headers and rows', () => {
     render(<DataTable columns={columns} rows={rows} getRowKey={(r) => r.id} emptyText="Nothing" />)
@@ -49,24 +51,124 @@ describe('DataTable', () => {
     expect(screen.getByText('Boom')).toBeInTheDocument()
   })
 
-  it('wraps a populated sticky table in an outlined Paper card', () => {
+  it('wraps a populated table in an outlined Paper card', () => {
     const { container } = render(
-      <DataTable columns={columns} rows={rows} getRowKey={(r) => r.id} emptyText="Nothing" sticky />,
+      <DataTable columns={columns} rows={rows} getRowKey={(r) => r.id} emptyText="Nothing" />,
     )
-    expect(container.querySelector('.MuiPaper-outlined')).not.toBeNull()
+    expect(card(container)).not.toBeNull()
     expect(screen.getByText('Alpha')).toBeInTheDocument()
   })
 
-  it('renders a footer below the table', () => {
-    render(
-      <DataTable
-        columns={columns}
-        rows={rows}
-        getRowKey={(r) => r.id}
-        emptyText="Nothing"
-        footer={<div>FOOTER</div>}
-      />,
-    )
-    expect(screen.getByText('FOOTER')).toBeInTheDocument()
+  describe('request states share the populated card frame', () => {
+    it.each([
+      ['loading', { isLoading: true }, () => screen.getByRole('progressbar')],
+      ['error', { isError: true, errorText: 'Boom' }, () => screen.getByText('Boom')],
+      ['empty', {}, () => screen.getByText('Nothing here')],
+    ] as const)('renders the %s state inside the card', (_label, props, getNode) => {
+      const { container } = render(
+        <DataTable
+          columns={columns}
+          rows={[]}
+          getRowKey={(r) => r.id}
+          emptyText="Nothing here"
+          {...props}
+        />,
+      )
+      const paper = card(container)
+      expect(paper).not.toBeNull()
+      expect(paper).toContainElement(getNode())
+    })
+  })
+
+  describe('paginationSlot', () => {
+    it('renders inside the card when rows are present', () => {
+      const { container } = render(
+        <DataTable
+          columns={columns}
+          rows={rows}
+          getRowKey={(r) => r.id}
+          emptyText="Nothing"
+          paginationSlot={<div>PAGINATION</div>}
+        />,
+      )
+      expect(card(container)).toContainElement(screen.getByText('PAGINATION'))
+    })
+
+    it('is hidden when there are no rows', () => {
+      render(
+        <DataTable
+          columns={columns}
+          rows={[]}
+          getRowKey={(r) => r.id}
+          emptyText="Nothing"
+          paginationSlot={<div>PAGINATION</div>}
+        />,
+      )
+      expect(screen.queryByText('PAGINATION')).not.toBeInTheDocument()
+    })
+
+    it.each([
+      ['isLoading', { isLoading: true }],
+      ['isError', { isError: true }],
+    ] as const)('is hidden when %s even with stale rows', (_label, props) => {
+      render(
+        <DataTable
+          columns={columns}
+          rows={rows}
+          getRowKey={(r) => r.id}
+          emptyText="Nothing"
+          paginationSlot={<div>PAGINATION</div>}
+          {...props}
+        />,
+      )
+      expect(screen.queryByText('PAGINATION')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('footer', () => {
+    it('renders outside the card, below the table', () => {
+      const { container } = render(
+        <DataTable
+          columns={columns}
+          rows={rows}
+          getRowKey={(r) => r.id}
+          emptyText="Nothing"
+          footer={<div>FOOTER</div>}
+        />,
+      )
+      const node = screen.getByText('FOOTER')
+      expect(node).toBeInTheDocument()
+      expect(card(container)).not.toContainElement(node)
+    })
+
+    it('is hidden when there are no rows', () => {
+      render(
+        <DataTable
+          columns={columns}
+          rows={[]}
+          getRowKey={(r) => r.id}
+          emptyText="Nothing"
+          footer={<div>FOOTER</div>}
+        />,
+      )
+      expect(screen.queryByText('FOOTER')).not.toBeInTheDocument()
+    })
+
+    it.each([
+      ['isLoading', { isLoading: true }],
+      ['isError', { isError: true }],
+    ] as const)('is hidden when %s even with stale rows', (_label, props) => {
+      render(
+        <DataTable
+          columns={columns}
+          rows={rows}
+          getRowKey={(r) => r.id}
+          emptyText="Nothing"
+          footer={<div>FOOTER</div>}
+          {...props}
+        />,
+      )
+      expect(screen.queryByText('FOOTER')).not.toBeInTheDocument()
+    })
   })
 })

@@ -35,7 +35,7 @@ export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabP
       getRowKey={(p) => p.id}
       emptyText="No payments yet for this customer."
       isLoading={isLoading}
-      footer={<PagePagination total={total} {...paginationProps} />}
+      paginationSlot={<PagePagination total={total} {...paginationProps} />}
     />
   )
 }

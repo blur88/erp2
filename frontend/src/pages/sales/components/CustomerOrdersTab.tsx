@@ -43,7 +43,7 @@ export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps
       getRowKey={(o) => o.id}
       emptyText="No orders yet for this customer."
       isLoading={isLoading}
-      footer={<PagePagination total={total} {...paginationProps} />}
+      paginationSlot={<PagePagination total={total} {...paginationProps} />}
     />
   )
 }

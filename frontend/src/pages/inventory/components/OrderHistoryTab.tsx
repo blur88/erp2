@@ -82,10 +82,7 @@ export default function OrderHistoryTab({ productId }: OrderHistoryTabProps) {
       isLoading={isLoading}
       isError={isError}
       errorText="Failed to load order history."
-      sticky
-      footer={
-        <PagePagination total={total} {...paginationProps} />
-      }
+      paginationSlot={<PagePagination total={total} {...paginationProps} />}
     />
   )
 }
