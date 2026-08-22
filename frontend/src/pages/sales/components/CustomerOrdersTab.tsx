@@ -15,7 +15,7 @@ interface CustomerOrdersTabProps {
 export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps) {
   const navigate = useNavigate()
   const { page, limit, paginationProps } = usePagination()
-  const { data, isLoading } = useGetSalesOrdersQuery({ customerId, page, limit })
+  const { data, isLoading, isError } = useGetSalesOrdersQuery({ customerId, page, limit })
   const orders = data?.data ?? []
   const total = data?.meta?.total ?? 0
 
@@ -43,6 +43,8 @@ export default function CustomerOrdersTab({ customerId }: CustomerOrdersTabProps
       getRowKey={(o) => o.id}
       emptyText="No orders yet for this customer."
       isLoading={isLoading}
+      isError={isError}
+      errorText="Failed to load orders."
       paginationSlot={<PagePagination total={total} {...paginationProps} />}
     />
   )

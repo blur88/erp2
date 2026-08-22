@@ -44,3 +44,25 @@ export function mulMinor(aMinor: bigint, bMinor: bigint): bigint {
   const rounded = (abs + scale / 2n) / scale; // half-up
   return neg ? -rounded : rounded;
 }
+
+/**
+ * Normalize a stored scale-4 value for *display*, removing only insignificant
+ * trailing zeros (`2.0000` -> `2`, `1.2500` -> `1.25`).
+ *
+ * Operates purely lexically on the string form. Money and quantities are stored
+ * at four-decimal precision, so parsing through a JS number would risk precision
+ * loss on values like `0.0001`. Input that is not a plain decimal literal is
+ * passed through untouched.
+ *
+ * Display only — never use this to derive a value that is compared, summed, or
+ * persisted. `toMinorUnits`/`formatScale4` own those paths.
+ */
+export function trimTrailingZeros(value: string): string {
+  if (typeof value !== 'string') return value;
+
+  const str = value.trim();
+  if (!/^-?\d+(\.\d+)?$/.test(str)) return value;
+  if (!str.includes('.')) return str;
+
+  return str.replace(/0+$/, '').replace(/\.$/, '');
+}

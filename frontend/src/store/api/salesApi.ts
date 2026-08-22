@@ -6,16 +6,6 @@ import { axiosBaseQuery } from './baseQuery';
 import { normalizeSingle } from './normalizers';
 import { invalidateAccountingReportsOnSuccess } from './invalidateAccountingReports';
 
-export interface SalesOrderItem {
-  id: string;
-  orderNumber: string;
-  orderDate: string;
-  isFulfilled: boolean;
-  isPaid: boolean;
-  totalAmount: number;
-  itemsCount: number;
-}
-
 const defaultMeta = {
   total: 0,
   page: undefined as number | undefined,
@@ -344,21 +334,6 @@ export const salesApiSlice = createApi({
       transformResponse: (response: any) => normalizeNamedCollection<Payment>(response, 'payments'),
       providesTags: ['Payment'],
     }),
-    getCustomerPayments: builder.query<Payment[], string>({
-      query: (id) => ({ url: `/payments/customer/${id}` }),
-      transformResponse: (response: any): Payment[] => {
-        if (Array.isArray(response)) return response;
-        return response?.data ?? [];
-      },
-      providesTags: ['Payment'],
-    }),
-    getCustomerSalesHistory: builder.query<{ orders: SalesOrderItem[] }, string>({
-      query: (id) => ({ url: `/customers/${id}/sales-history` }),
-      transformResponse: (response: any) => ({
-        orders: response?.orders ?? [],
-      }),
-      providesTags: (_result, _error, id) => [{ type: 'Customer', id }, 'SalesOrder'],
-    }),
   }),
 });
 
@@ -403,6 +378,4 @@ export const {
   usePermanentDeleteSalesOrderMutation,
   useBulkPermanentDeleteSalesOrdersMutation,
   useGetPaymentsQuery,
-  useGetCustomerPaymentsQuery,
-  useGetCustomerSalesHistoryQuery,
 } = salesApiSlice;

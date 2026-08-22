@@ -45,12 +45,23 @@ function TabPanel({ children, value, index }: TabPanelProps) {
   )
 }
 
+/**
+ * Single source of truth for the tab strip. The `?tab=` clamp derives its upper
+ * bound from this array's length, so adding or removing a tab cannot drift out
+ * of sync with the bound the way a hardcoded literal did (issue #1125).
+ */
+const TABS = [
+  { label: 'Overview', icon: <StoreIcon sx={{ fontSize: 16 }} /> },
+  { label: 'Purchase Orders', icon: <LocalShippingIcon sx={{ fontSize: 16 }} /> },
+  { label: 'Vendor Payments', icon: <PaymentIcon sx={{ fontSize: 16 }} /> },
+]
+
 export default function SupplierProfilePage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { showSuccess, showError } = useNotification()
-  const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 2)
+  const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), TABS.length - 1)
 
   const { data: supplier, isLoading, isError } = useGetSupplierBySlugQuery(slug ?? skipToken)
   const [updateSupplier] = useUpdateSupplierMutation()
@@ -111,9 +122,15 @@ export default function SupplierProfilePage() {
           onChange={(_, value: number) => setSearchParams({ tab: String(value) }, { replace: true })}
           sx={{ minHeight: 36 }}
         >
-          <Tab icon={<StoreIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Overview" sx={{ minHeight: 36 }} />
-          <Tab icon={<LocalShippingIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Purchase Orders" sx={{ minHeight: 36 }} />
-          <Tab icon={<PaymentIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Vendor Payments" sx={{ minHeight: 36 }} />
+          {TABS.map((tab) => (
+            <Tab
+              key={tab.label}
+              icon={tab.icon}
+              iconPosition="start"
+              label={tab.label}
+              sx={{ minHeight: 36 }}
+            />
+          ))}
         </Tabs>
       </Box>
 

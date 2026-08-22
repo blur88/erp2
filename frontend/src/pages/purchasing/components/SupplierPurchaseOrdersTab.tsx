@@ -15,7 +15,7 @@ interface SupplierPurchaseOrdersTabProps {
 export default function SupplierPurchaseOrdersTab({ supplierId }: SupplierPurchaseOrdersTabProps) {
   const navigate = useNavigate()
   const { page, limit, paginationProps } = usePagination()
-  const { data, isLoading } = useGetSupplierPurchaseOrdersQuery({ supplierId, page, limit })
+  const { data, isLoading, isError } = useGetSupplierPurchaseOrdersQuery({ supplierId, page, limit })
   const orders = data?.data ?? []
   const total = data?.meta?.total ?? 0
 
@@ -44,6 +44,8 @@ export default function SupplierPurchaseOrdersTab({ supplierId }: SupplierPurcha
       getRowKey={(o) => o.id}
       emptyText="No purchase orders yet for this supplier."
       isLoading={isLoading}
+      isError={isError}
+      errorText="Failed to load purchase orders."
       paginationSlot={<PagePagination total={total} {...paginationProps} />}
     />
   )

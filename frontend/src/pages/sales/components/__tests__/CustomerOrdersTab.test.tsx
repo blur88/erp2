@@ -128,4 +128,11 @@ describe('CustomerOrdersTab', () => {
     renderTab('c1')
     expect(screen.getByText(/of 42 records/)).toBeInTheDocument()
   })
+
+  it('shows the error state, not the empty state, when the query fails', () => {
+    mockGetSalesOrders.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+    renderTab('c1')
+    expect(screen.getByText('Failed to load orders.')).toBeInTheDocument()
+    expect(screen.queryByText(/No orders yet/)).not.toBeInTheDocument()
+  })
 })
