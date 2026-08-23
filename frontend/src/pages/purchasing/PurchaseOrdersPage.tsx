@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { skipToken } from '@reduxjs/toolkit/query'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -8,6 +8,7 @@ import PaymentDialog from '@/components/common/PaymentDialog'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
+import { withListQuery } from '@/utils/listQuery'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelPurchaseOrderMutation,
@@ -74,6 +75,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 const PurchaseOrdersPage: React.FC = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { showSuccess, showError } = useNotification()
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -322,7 +324,7 @@ const PurchaseOrdersPage: React.FC = () => {
       <SimpleListPage
         title="Purchase Orders"
         subtitle="Track supplier orders, receipts, and payment status"
-        primaryAction={{ label: '+ New Purchase Order', onClick: () => navigate('/purchasing/orders/create') }}
+        primaryAction={{ label: '+ New Purchase Order', onClick: () => navigate(withListQuery('/purchasing/orders/create', location.search)) }}
         filterConfig={filterConfig}
         draftFilters={draftFilters}
         handlers={handlers}
@@ -342,8 +344,8 @@ const PurchaseOrdersPage: React.FC = () => {
             orders={purchaseOrders}
             loading={isFetching}
             total={pagination?.total ?? 0}
-            onView={(order) => navigate(`/purchasing/orders/${order.orderNumber}/view`)}
-            onEdit={(order) => navigate(`/purchasing/orders/${order.orderNumber}/edit`)}
+            onView={(order) => navigate(withListQuery(`/purchasing/orders/${order.orderNumber}/view`, location.search))}
+            onEdit={(order) => navigate(withListQuery(`/purchasing/orders/${order.orderNumber}/edit`, location.search))}
             onPay={(order) => setPaymentOrder(order)}
             onReceive={(order) => openConfirm(order, 'receive')}
             onReturn={(order) => openConfirm(order, 'return')}

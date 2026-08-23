@@ -3,7 +3,7 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import { Alert, Box, CircularProgress, Tab, Tabs, Typography } from '@mui/material';
 import { skipToken } from '@reduxjs/toolkit/query';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog';
 import PageHeader from '@/components/common/PageHeader';
@@ -11,6 +11,7 @@ import SalesOrderPrintDialog from './components/SalesOrderPrintDialog';
 import PaymentDialog from '@/components/common/PaymentDialog';
 import RefundDialog, { type RefundSeed } from '@/components/common/RefundDialog';
 import { getCurrentDate } from '@/utils/formatters';
+import { listPathWithQuery } from '@/utils/listQuery';
 import { toScaledAmount, fromScaledAmount } from '@/utils/currency';
 import { TABLE_STYLES } from '@/constants/tableStyles';
 import { useNotification } from '@/hooks/useNotification';
@@ -69,6 +70,7 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 export default function SalesOrderDetailPage() {
   const { orderNumber } = useParams<{ orderNumber: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 1);
   const [activeDialog, setActiveDialog] = useState<Dialog>(null);
@@ -257,7 +259,7 @@ export default function SalesOrderDetailPage() {
             <StatusChip status={order.paymentStatus} />
           </Box>
         }
-        backAction={() => navigate('/sales/orders')}
+        backAction={() => navigate(listPathWithQuery('/sales/orders', location.search))}
       />
 
       <OrderActionBar

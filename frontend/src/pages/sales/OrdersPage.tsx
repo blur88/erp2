@@ -1,10 +1,11 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import PagePagination from '@/components/common/PagePagination'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
+import { withListQuery } from '@/utils/listQuery'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelSalesOrderMutation,
@@ -52,6 +53,7 @@ const filterConfig: FilterBarConfig<SalesOrderFilters> = {
 
 const OrdersPage: React.FC = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { showSuccess, showError } = useNotification()
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -186,7 +188,7 @@ const OrdersPage: React.FC = () => {
       <SimpleListPage
         title="Sales Orders"
         subtitle="Track sales orders and delivery status"
-        primaryAction={{ label: '+ New Sales Order', onClick: () => navigate('/sales/orders/create') }}
+        primaryAction={{ label: '+ New Sales Order', onClick: () => navigate(withListQuery('/sales/orders/create', location.search)) }}
         filterConfig={filterConfig}
         draftFilters={draftFilters}
         handlers={handlers}
@@ -200,8 +202,8 @@ const OrdersPage: React.FC = () => {
             orders={orders}
             loading={isFetching}
             total={total}
-            onView={(order) => navigate(`/sales/orders/${order.orderNumber}/view`)}
-            onEdit={(order) => navigate(`/sales/orders/${order.orderNumber}/edit`)}
+            onView={(order) => navigate(withListQuery(`/sales/orders/${order.orderNumber}/view`, location.search))}
+            onEdit={(order) => navigate(withListQuery(`/sales/orders/${order.orderNumber}/edit`, location.search))}
             onPay={(order) => setPaymentOrder(order)}
             onFulfill={handleFulfill}
             onUnfulfill={handleUnfulfill}

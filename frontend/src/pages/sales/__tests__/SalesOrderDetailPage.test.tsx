@@ -93,11 +93,11 @@ function makeOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   } as SalesOrder
 }
 
-function renderPage(orderNumber = 'SO-26-001') {
+function renderPage(orderNumber = 'SO-26-001', search = '') {
   const store = configureStore({ reducer: { sales: (state = {}) => state } })
   return render(
     <Provider store={store}>
-      <MemoryRouter initialEntries={[`/sales/orders/${orderNumber}/view`]}>
+      <MemoryRouter initialEntries={[`/sales/orders/${orderNumber}/view${search}`]}>
         <Routes>
           <Route path="/sales/orders/:orderNumber/view" element={<SalesOrderDetailPage />} />
         </Routes>
@@ -177,6 +177,15 @@ describe('SalesOrderDetailPage', () => {
     renderPage()
     await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
     expect(mockNavigate).toHaveBeenCalledWith('/sales/orders')
+  })
+
+  it('returns to the list with the ticket decoded', async () => {
+    mockGetSalesOrderByNumber.mockReturnValue({ data: makeOrder(), isLoading: false })
+    renderPage('SO-26-001', '?listQuery=page%3D2')
+
+    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/orders?page=2')
   })
 
   it('navigates to edit page when Edit is clicked', async () => {

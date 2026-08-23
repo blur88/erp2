@@ -107,4 +107,26 @@ describe('PurchaseOrderDetailPage', () => {
     expect(new URLSearchParams(search).get('probe')).toBe('keepme')
     expect(new URLSearchParams(search).get('tab')).toBe('1')
   })
+
+  it('returns to the list with the ticket decoded', async () => {
+    mockGetPurchaseOrderByNumber.mockReturnValue({ data: order, isLoading: false })
+    mockGetPurchaseOrderPayments.mockReturnValue({ data: [], isLoading: false })
+    renderPage('?listQuery=page%3D2')
+
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders?page=2')
+  })
+
+  it('returns to the bare list when there is no ticket', async () => {
+    mockGetPurchaseOrderByNumber.mockReturnValue({ data: order, isLoading: false })
+    mockGetPurchaseOrderPayments.mockReturnValue({ data: [], isLoading: false })
+    renderPage()
+
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders')
+  })
 })
