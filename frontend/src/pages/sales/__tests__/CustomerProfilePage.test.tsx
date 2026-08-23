@@ -46,11 +46,11 @@ const customer: Customer = {
   updatedAt: new Date('2026-01-01'),
 }
 
-function renderPage(slug = 'acme-corp') {
+function renderPage(slug = 'acme-corp', search = '') {
   const store = configureStore({ reducer: { sales: (state = {}) => state } })
   return render(
     <Provider store={store}>
-      <MemoryRouter initialEntries={[`/sales/customers/${slug}/view`]}>
+      <MemoryRouter initialEntries={[`/sales/customers/${slug}/view${search}`]}>
         <Routes>
           <Route path="/sales/customers/:slug/view" element={<CustomerProfilePage />} />
         </Routes>
@@ -122,5 +122,20 @@ describe('CustomerProfilePage', () => {
     mockGetCustomerBySlug.mockReturnValue({ data: undefined, isLoading: false, isError: false })
     renderPage()
     expect(screen.getByText('Customer not found.')).toBeInTheDocument()
+  })
+
+  it('clamps an out-of-range ?tab= to the last real tab instead of an empty panel', () => {
+    mockGetCustomerBySlug.mockReturnValue({ data: customer, isLoading: false })
+    renderPage('acme-corp', '?tab=3')
+
+    // Three tabs exist (0-2); ?tab=3 must not leave the content area blank.
+    expect(screen.getByText('PaymentsTab')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { selected: true })).toHaveAccessibleName(/Payments/i)
+  })
+
+  it('honours an in-range ?tab= deep link', () => {
+    mockGetCustomerBySlug.mockReturnValue({ data: customer, isLoading: false })
+    renderPage('acme-corp', '?tab=1')
+    expect(screen.getByText('OrdersTab')).toBeInTheDocument()
   })
 })

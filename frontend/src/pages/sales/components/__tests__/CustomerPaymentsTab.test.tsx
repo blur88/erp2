@@ -29,9 +29,9 @@ function renderTab(customerId: string) {
   );
 }
 
-// Columns are Date | Invoice # | Method | Amount, so the Invoice # cell of the
-// first body row is index 1. Reading it directly keeps these assertions tied to
-// the column under test instead of to page-wide text.
+// Columns are Date | Invoice # | Status | Method | Amount, so the Invoice #
+// cell of the first body row is index 1. Reading it directly keeps these
+// assertions tied to the column under test instead of to page-wide text.
 const INVOICE_COLUMN_INDEX = 1;
 
 function invoiceCellText() {
@@ -211,5 +211,36 @@ describe('CustomerPaymentsTab', () => {
     // em dash: other columns fall back to '—' too, so a text-wide query would
     // pass for the wrong reason if this fixture ever loses paymentMethodEntity.
     expect(invoiceCellText()).toBe('—');
+  });
+
+  it('renders a Status column so a voided payment is distinguishable', () => {
+    mockGetPayments.mockReturnValue({
+      data: {
+        data: [
+          {
+            id: 'p1',
+            paymentDate: '2026-01-25',
+            amount: 1000,
+            paymentMethodEntity: { id: 'pm1', name: 'Cash', isActive: true },
+            status: 'cancelled',
+            customerId: 'c1',
+            createdAt: '2026-01-25',
+            updatedAt: '2026-01-25',
+          },
+        ],
+        meta: { total: 1 },
+      },
+      isLoading: false,
+    });
+    renderTab('c1');
+    expect(screen.getByRole('columnheader', { name: 'Status' })).toBeInTheDocument();
+    expect(screen.getByText('Cancelled')).toBeInTheDocument();
+  });
+
+  it('shows the error state, not the empty state, when the query fails', () => {
+    mockGetPayments.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+    renderTab('c1');
+    expect(screen.getByText('Failed to load payments.')).toBeInTheDocument();
+    expect(screen.queryByText(/No payments yet/)).not.toBeInTheDocument();
   });
 });

@@ -36,11 +36,22 @@ function TabPanel({ children, value, index }: TabPanelProps) {
   );
 }
 
+/**
+ * Single source of truth for the tab strip. The `?tab=` clamp derives its upper
+ * bound from this array's length, so adding or removing a tab cannot drift out
+ * of sync with the bound the way a hardcoded literal did (issue #1125).
+ */
+const TABS = [
+  { label: 'Overview', icon: <PersonIcon sx={{ fontSize: 16 }} /> },
+  { label: 'Orders', icon: <ShoppingCartIcon sx={{ fontSize: 16 }} /> },
+  { label: 'Payments', icon: <PaymentIcon sx={{ fontSize: 16 }} /> },
+];
+
 export default function CustomerProfilePage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 3);
+  const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), TABS.length - 1);
 
   const { data: customer, isLoading, isError } = useGetCustomerBySlugQuery(slug ?? skipToken);
 
@@ -85,24 +96,15 @@ export default function CustomerProfilePage() {
           }
           sx={{ minHeight: 36 }}
         >
-          <Tab
-            icon={<PersonIcon sx={{ fontSize: 16 }} />}
-            iconPosition="start"
-            label="Overview"
-            sx={{ minHeight: 36 }}
-          />
-          <Tab
-            icon={<ShoppingCartIcon sx={{ fontSize: 16 }} />}
-            iconPosition="start"
-            label="Orders"
-            sx={{ minHeight: 36 }}
-          />
-          <Tab
-            icon={<PaymentIcon sx={{ fontSize: 16 }} />}
-            iconPosition="start"
-            label="Payments"
-            sx={{ minHeight: 36 }}
-          />
+          {TABS.map((tab) => (
+            <Tab
+              key={tab.label}
+              icon={tab.icon}
+              iconPosition="start"
+              label={tab.label}
+              sx={{ minHeight: 36 }}
+            />
+          ))}
         </Tabs>
       </Box>
 

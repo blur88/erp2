@@ -14,7 +14,7 @@ interface SupplierPaymentsTabProps {
 export default function SupplierPaymentsTab({ supplierId }: SupplierPaymentsTabProps) {
   const navigate = useNavigate()
   const { page, limit, paginationProps } = usePagination()
-  const { data, isLoading } = useGetSupplierPaymentsQuery({ supplierId, page, limit })
+  const { data, isLoading, isError } = useGetSupplierPaymentsQuery({ supplierId, page, limit })
   const payments = data?.data ?? []
   const total = data?.meta?.total ?? 0
 
@@ -45,6 +45,8 @@ export default function SupplierPaymentsTab({ supplierId }: SupplierPaymentsTabP
       getRowKey={(p) => p.id}
       emptyText="No payments yet for this supplier."
       isLoading={isLoading}
+      isError={isError}
+      errorText="Failed to load payments."
       paginationSlot={<PagePagination total={total} {...paginationProps} />}
     />
   )

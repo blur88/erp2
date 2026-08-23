@@ -127,6 +127,26 @@ describe('OwnerEquityStockService', () => {
       product.stockQuantity = 3;
       await expect(stock.complete(refWithQty(5))).rejects.toThrow('exceeds available stock');
     });
+    it('normalizes whole-number quantities in the insufficient-stock message', async () => {
+      product.stockQuantity = 1;
+      await expect(stock.complete(refWithQty(2))).rejects.toThrow(
+        'Quantity 2 exceeds available stock 1',
+      );
+    });
+    it('keeps meaningful decimals in the insufficient-stock message', async () => {
+      product.stockQuantity = 1.25;
+      setDoc({ referenceNumber: 'EQ-26-250', quantity: '2.5000' });
+      await expect(stock.complete('EQ-26-250')).rejects.toThrow(
+        'Quantity 2.5 exceeds available stock 1.25',
+      );
+    });
+    it('keeps scale-4 precision in the insufficient-stock message', async () => {
+      product.stockQuantity = 1.0001;
+      setDoc({ referenceNumber: 'EQ-26-251', quantity: '2.0001' });
+      await expect(stock.complete('EQ-26-251')).rejects.toThrow(
+        'Quantity 2.0001 exceeds available stock 1.0001',
+      );
+    });
     it('snapshots unitCost from baseCost at complete time', async () => {
       product.baseCost = 12.5;               // changed AFTER the draft was created
       const doc = await stock.complete(ref);

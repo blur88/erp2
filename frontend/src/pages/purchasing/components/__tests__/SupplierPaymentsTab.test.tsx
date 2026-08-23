@@ -80,4 +80,11 @@ describe('SupplierPaymentsTab', () => {
     expect(screen.queryByText('Payment #')).not.toBeInTheDocument()
     expect(screen.getByText(/of 55 records/)).toBeInTheDocument()
   })
+
+  it('shows the error state, not the empty state, when the query fails', () => {
+    mockQuery.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+    renderTab()
+    expect(screen.getByText('Failed to load payments.')).toBeInTheDocument()
+    expect(screen.queryByText(/No payments yet/)).not.toBeInTheDocument()
+  })
 })

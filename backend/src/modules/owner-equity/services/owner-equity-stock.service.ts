@@ -20,7 +20,12 @@ import {
   PostingType,
 } from '../../../common/accounting-posting/enums';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
-import { toMinorUnits, formatScale4, mulMinor } from '@/common/utils/money';
+import {
+  toMinorUnits,
+  formatScale4,
+  mulMinor,
+  trimTrailingZeros,
+} from '@/common/utils/money';
 import {
   OwnerEquityDocument,
   OwnerEquityDocumentStatus,
@@ -64,7 +69,8 @@ export class OwnerEquityStockService {
       const stockMinor = toMinorUnits(String(product.stockQuantity));
       if (qtyMinor > stockMinor) {
         throw new BadRequestException(
-          `Quantity ${doc.quantity} exceeds available stock ${product.stockQuantity}`,
+          `Quantity ${trimTrailingZeros(String(doc.quantity))} exceeds available stock ` +
+            `${trimTrailingZeros(String(product.stockQuantity))}`,
         );
       }
       const unitCostMinor = toMinorUnits(String(product.baseCost ?? 0));

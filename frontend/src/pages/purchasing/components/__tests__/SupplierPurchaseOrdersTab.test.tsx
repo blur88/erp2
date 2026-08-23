@@ -46,4 +46,11 @@ describe('SupplierPurchaseOrdersTab', () => {
     renderTab('sup-1')
     expect(screen.getByText(/No purchase orders yet/)).toBeInTheDocument()
   })
+
+  it('shows the error state, not the empty state, when the query fails', () => {
+    mockQuery.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+    renderTab('s1')
+    expect(screen.getByText('Failed to load purchase orders.')).toBeInTheDocument()
+    expect(screen.queryByText(/No purchase orders yet/)).not.toBeInTheDocument()
+  })
 })

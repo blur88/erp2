@@ -1,4 +1,10 @@
-import { toMinorUnits, formatScale4, sumMinor, mulMinor } from './money';
+import {
+  toMinorUnits,
+  formatScale4,
+  sumMinor,
+  mulMinor,
+  trimTrailingZeros,
+} from './money';
 
 describe('money helpers', () => {
   it('parses decimal string to minor units', () => {
@@ -41,5 +47,39 @@ describe('money helpers', () => {
     expect(mulMinor(toMinorUnits('1.0001'), toMinorUnits('1.0001'))).toBe(10002n);
     // 0.0001 × 0.0001 = 0.00000001 → rounds to 0.0000
     expect(mulMinor(toMinorUnits('0.0001'), toMinorUnits('0.0001'))).toBe(0n);
+  });
+
+  describe('trimTrailingZeros', () => {
+    it('drops insignificant trailing zeros', () => {
+      expect(trimTrailingZeros('2.0000')).toBe('2');
+      expect(trimTrailingZeros('2.5000')).toBe('2.5');
+      expect(trimTrailingZeros('1.2500')).toBe('1.25');
+      expect(trimTrailingZeros('0.0010')).toBe('0.001');
+    });
+
+    it('preserves meaningful scale-4 precision', () => {
+      expect(trimTrailingZeros('2.0001')).toBe('2.0001');
+      expect(trimTrailingZeros('0.0001')).toBe('0.0001');
+      expect(trimTrailingZeros('1.0001')).toBe('1.0001');
+    });
+
+    it('leaves integers and negatives intact', () => {
+      expect(trimTrailingZeros('1')).toBe('1');
+      expect(trimTrailingZeros('0')).toBe('0');
+      expect(trimTrailingZeros('100')).toBe('100');
+      expect(trimTrailingZeros('-1.5000')).toBe('-1.5');
+      expect(trimTrailingZeros('-2.0000')).toBe('-2');
+    });
+
+    it('never collapses a whole value to an empty or bare-dot string', () => {
+      expect(trimTrailingZeros('0.0000')).toBe('0');
+      expect(trimTrailingZeros('10.0000')).toBe('10');
+    });
+
+    it('passes non-numeric input through untouched', () => {
+      expect(trimTrailingZeros('')).toBe('');
+      expect(trimTrailingZeros('abc')).toBe('abc');
+      expect(trimTrailingZeros('1.2.3')).toBe('1.2.3');
+    });
   });
 });
