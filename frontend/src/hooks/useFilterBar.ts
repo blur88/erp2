@@ -80,7 +80,9 @@ export function useFilterBar<TFilters extends object>(
       const nextUrl = nextSearch
         ? `${location.pathname}?${nextSearch}`
         : location.pathname
-      window.history.replaceState(null, '', nextUrl)
+      // Preserve history state — React Router 7 keeps its own bookkeeping
+      // (key/usr/idx) there, and passing null destroys it on every filter change.
+      window.history.replaceState(window.history.state, '', nextUrl)
     }
   }, [appliedFilters, config, location.pathname])
 
