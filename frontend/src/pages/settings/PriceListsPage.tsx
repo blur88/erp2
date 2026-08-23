@@ -28,10 +28,9 @@ import PagePagination from '@/components/common/PagePagination'
 import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import { StatusChip } from '@/components/common/StatusChip'
 import { FilterBar } from '@/components/filters'
-import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useListUrlState } from '@/hooks/useListUrlState'
 import { useNotification } from '@/hooks/useNotification'
-import { setPagination } from '@/store/slices/priceListSlice'
 import {
   useDeletePriceListMutation,
   useGetPriceListsQuery,
@@ -53,8 +52,8 @@ interface PriceListFilters {
 
 const PriceListsPage: React.FC = () => {
   const navigate = useNavigate()
-  const dispatch = useAppDispatch()
   const { showSuccess, showError } = useNotification()
+  const { page, limit, setPage, setLimit, resetPage } = useListUrlState()
   const filterConfig = useMemo<FilterBarConfig<PriceListFilters>>(
     () => ({
       search: { placeholder: 'Search by code or name...' },
@@ -68,38 +67,13 @@ const PriceListsPage: React.FC = () => {
     }),
     [],
   )
-  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
-  const filterHandlers = useMemo(
-    () => ({
-      ...handlers,
-      onSearchChange: (value: string) => {
-        dispatch(setPagination({ page: 1 }))
-        handlers.onSearchChange(value)
-      },
-      onSearchCommit: () => {
-        dispatch(setPagination({ page: 1 }))
-        handlers.onSearchCommit()
-      },
-      onQuickFilterChange: (field: keyof PriceListFilters, value: unknown) => {
-        dispatch(setPagination({ page: 1 }))
-        handlers.onQuickFilterChange(field, value)
-      },
-      onClearField: (field: keyof PriceListFilters) => {
-        dispatch(setPagination({ page: 1 }))
-        handlers.onClearField(field)
-      },
-      onClearAll: () => {
-        dispatch(setPagination({ page: 1 }))
-        handlers.onClearAll()
-      },
-    }),
-    [dispatch, handlers],
-  )
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig, {
+    onApply: resetPage,
+  })
 
-  const pagination = useAppSelector((state) => state.priceLists.pagination)
   const { data: priceListResponse, isLoading: loading, error, refetch } = useGetPriceListsQuery({
-    page: pagination.page,
-    limit: pagination.limit,
+    page,
+    limit,
     search: appliedFilters.search || undefined,
     isActive:
       appliedFilters.status === 'active'
@@ -130,14 +104,6 @@ const PriceListsPage: React.FC = () => {
   })
 
   // Handlers
-  const handlePageChange = (newPage: number) => {
-    dispatch(setPagination({ page: newPage }))
-  }
-
-  const handleLimitChange = (newLimit: number) => {
-    dispatch(setPagination({ limit: newLimit, page: 1 }))
-  }
-
   const handleAddPriceList = () => {
     setSelectedPriceList(null)
     setFormDialogOpen(true)
@@ -244,7 +210,7 @@ const PriceListsPage: React.FC = () => {
           <FilterBar
             config={filterConfig}
             draftFilters={draftFilters}
-            handlers={filterHandlers}
+            handlers={handlers}
             hasActiveFilters={hasActiveFilters}
           />
         )}
@@ -584,10 +550,10 @@ const PriceListsPage: React.FC = () => {
         </TableContainer>
         <PagePagination
           total={total}
-          page={pagination.page}
-          limit={pagination.limit}
-          onPageChange={handlePageChange}
-          onLimitChange={handleLimitChange}
+          page={page}
+          limit={limit}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
         />
       </Paper>
       {/* Price List Form Dialog */}
