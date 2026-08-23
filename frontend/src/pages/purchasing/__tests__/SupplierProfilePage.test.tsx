@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { Supplier } from '@/types'
@@ -84,5 +85,34 @@ describe('SupplierProfilePage', () => {
     // Three tabs exist (0-2); ?tab=3 must not leave the content area blank.
     expect(screen.getByText('PaymentsTab')).toBeInTheDocument()
     expect(screen.getByRole('tab', { selected: true })).toHaveAccessibleName(/Vendor Payments/i)
+  })
+
+  it('preserves other query params when the tab changes', async () => {
+    mockGetSupplierBySlug.mockReturnValue({ data: supplier, isLoading: false })
+
+    function LocationProbe() {
+      const location = useLocation()
+      return <span data-testid="probe-search">{location.search}</span>
+    }
+
+    const store = configureStore({ reducer: { purchasing: (state = {}) => state } })
+    render(
+      <Provider store={store}>
+        <MemoryRouter initialEntries={['/purchasing/suppliers/globex-supply/view?tab=0&probe=keepme']}>
+          <Routes>
+            <Route path="/purchasing/suppliers/:slug/view" element={<SupplierProfilePage />} />
+          </Routes>
+          <LocationProbe />
+        </MemoryRouter>
+      </Provider>,
+    )
+
+    const user = userEvent.setup()
+    const tabs = await screen.findAllByRole('tab')
+    await user.click(tabs[1])
+
+    const search = screen.getByTestId('probe-search').textContent ?? ''
+    expect(new URLSearchParams(search).get('probe')).toBe('keepme')
+    expect(new URLSearchParams(search).get('tab')).toBe('1')
   })
 })

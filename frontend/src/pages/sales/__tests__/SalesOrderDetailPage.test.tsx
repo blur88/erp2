@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { SalesOrder } from '@/types'
@@ -134,6 +134,35 @@ describe('SalesOrderDetailPage', () => {
     mockGetSalesOrderByNumber.mockReturnValue({ data: makeOrder(), isLoading: false })
     renderPage()
     expect(screen.getByText('OverviewTab')).toBeInTheDocument()
+  })
+
+  it('preserves other query params when the tab changes', async () => {
+    mockGetSalesOrderByNumber.mockReturnValue({ data: makeOrder(), isLoading: false })
+
+    function LocationProbe() {
+      const location = useLocation()
+      return <span data-testid="probe-search">{location.search}</span>
+    }
+
+    const store = configureStore({ reducer: { sales: (state = {}) => state } })
+    render(
+      <Provider store={store}>
+        <MemoryRouter initialEntries={['/sales/orders/SO-26-001/view?tab=0&probe=keepme']}>
+          <Routes>
+            <Route path="/sales/orders/:orderNumber/view" element={<SalesOrderDetailPage />} />
+          </Routes>
+          <LocationProbe />
+        </MemoryRouter>
+      </Provider>,
+    )
+
+    const user = userEvent.setup()
+    const tabs = await screen.findAllByRole('tab')
+    await user.click(tabs[1])
+
+    const search = screen.getByTestId('probe-search').textContent ?? ''
+    expect(new URLSearchParams(search).get('probe')).toBe('keepme')
+    expect(new URLSearchParams(search).get('tab')).toBe('1')
   })
 
   it('switches to Payments tab', async () => {

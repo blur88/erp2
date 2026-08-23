@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { act, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -365,6 +365,35 @@ describe('ExpenseDetailPage', () => {
     renderPage()
     await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses')
+  })
+
+  it('preserves other query params when the tab changes', async () => {
+    mockGetExpense.mockReturnValue({ data: makeExpense(), isLoading: false })
+
+    function LocationProbe() {
+      const location = useLocation()
+      return <span data-testid="probe-search">{location.search}</span>
+    }
+
+    const store = configureStore({ reducer: {} })
+    render(
+      <Provider store={store}>
+        <MemoryRouter initialEntries={['/accounting/expenses/exp-1?tab=0&probe=keepme']}>
+          <Routes>
+            <Route path="/accounting/expenses/:id" element={<ExpenseDetailPage />} />
+          </Routes>
+          <LocationProbe />
+        </MemoryRouter>
+      </Provider>,
+    )
+
+    const user = userEvent.setup()
+    const tabs = await screen.findAllByRole('tab')
+    await user.click(tabs[1])
+
+    const search = screen.getByTestId('probe-search').textContent ?? ''
+    expect(new URLSearchParams(search).get('probe')).toBe('keepme')
+    expect(new URLSearchParams(search).get('tab')).toBe('1')
   })
 
   describe('action wiring', () => {

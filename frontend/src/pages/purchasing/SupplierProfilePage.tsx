@@ -119,7 +119,15 @@ export default function SupplierProfilePage() {
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs
           value={tabValue}
-          onChange={(_, value: number) => setSearchParams({ tab: String(value) }, { replace: true })}
+          onChange={(_, value: number) =>
+            setSearchParams(
+              (prev) => {
+                const next = new URLSearchParams(prev)
+                next.set('tab', String(value))
+                return next
+              },
+              { replace: true },
+            )}
           sx={{ minHeight: 36 }}
         >
           {TABS.map((tab) => (

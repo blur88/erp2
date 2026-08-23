@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { OwnerEquityDocument, OwnerEquityType } from '@/types'
@@ -190,5 +190,30 @@ describe('OwnerEquityDetailView', () => {
     const value = label.nextElementSibling
 
     expect(value).toHaveTextContent(/^1$/)
+  })
+
+  it('preserves other query params when the tab changes', async () => {
+    function LocationProbe() {
+      const location = useLocation()
+      return <span data-testid="probe-search">{location.search}</span>
+    }
+
+    const store = configureStore({ reducer: { empty: (s = null) => s } })
+    render(
+      <Provider store={store}>
+        <MemoryRouter initialEntries={['/accounting/owner-equity/EQ-1/view?tab=0&probe=keepme']}>
+          <LocationProbe />
+          <OwnerEquityDetailView document={buildDoc()} />
+        </MemoryRouter>
+      </Provider>,
+    )
+
+    const user = userEvent.setup()
+    const tabs = await screen.findAllByRole('tab')
+    await user.click(tabs[1])
+
+    const search = screen.getByTestId('probe-search').textContent ?? ''
+    expect(new URLSearchParams(search).get('probe')).toBe('keepme')
+    expect(new URLSearchParams(search).get('tab')).toBe('1')
   })
 })

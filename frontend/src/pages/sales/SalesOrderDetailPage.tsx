@@ -284,8 +284,14 @@ export default function SalesOrderDetailPage() {
         <Tabs
           value={tabValue}
           onChange={(_, value: number) =>
-            setSearchParams({ tab: String(value) }, { replace: true })
-          }
+            setSearchParams(
+              (prev) => {
+                const next = new URLSearchParams(prev)
+                next.set('tab', String(value))
+                return next
+              },
+              { replace: true },
+            )}
           sx={{ minHeight: 36 }}
         >
           <Tab

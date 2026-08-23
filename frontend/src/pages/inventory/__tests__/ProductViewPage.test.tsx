@@ -1,7 +1,8 @@
 import { configureStore } from '@reduxjs/toolkit'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/store/api/inventoryApi', async () => {
@@ -50,5 +51,38 @@ describe('ProductViewPage', () => {
     expect(screen.getByText('Overview')).toBeInTheDocument()
     expect(screen.getByText('Stock Movements')).toBeInTheDocument()
     expect(screen.getByText('Order History')).toBeInTheDocument()
+  })
+
+  it('preserves other query params when the tab changes', async () => {
+    function LocationProbe() {
+      const location = useLocation()
+      return <span data-testid="probe-search">{location.search}</span>
+    }
+
+    const store = configureStore({
+      reducer: {
+        [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
+        [settingsApiSlice.reducerPath]: settingsApiSlice.reducer,
+      },
+      middleware: (gdm) => gdm().concat(inventoryApiSlice.middleware, settingsApiSlice.middleware),
+    })
+    render(
+      <Provider store={store}>
+        <MemoryRouter initialEntries={['/inventory/products/widget/view?tab=0&probe=keepme']}>
+          <Routes>
+            <Route path="/inventory/products/:slug/view" element={<ProductViewPage />} />
+          </Routes>
+          <LocationProbe />
+        </MemoryRouter>
+      </Provider>,
+    )
+
+    const user = userEvent.setup()
+    const tabs = await screen.findAllByRole('tab')
+    await user.click(tabs[1])
+
+    const search = screen.getByTestId('probe-search').textContent ?? ''
+    expect(new URLSearchParams(search).get('probe')).toBe('keepme')
+    expect(new URLSearchParams(search).get('tab')).toBe('1')
   })
 })

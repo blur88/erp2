@@ -332,7 +332,15 @@ export default function OwnerEquityDetailView({ document: doc }: { document: Own
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs
           value={tabValue}
-          onChange={(_, v: number) => setSearchParams({ tab: String(v) }, { replace: true })}
+          onChange={(_, v: number) =>
+            setSearchParams(
+              (prev) => {
+                const next = new URLSearchParams(prev)
+                next.set('tab', String(v))
+                return next
+              },
+              { replace: true },
+            )}
           sx={{ minHeight: 36 }}
         >
           {tabs.map((t) => (
