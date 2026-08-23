@@ -12,6 +12,7 @@ import RefundDialog, { type RefundSeed } from '@/components/common/RefundDialog'
 import { StatusChip } from '@/components/common/StatusChip'
 import RowActionMenu, { type RowAction } from '@/components/common/RowActionMenu'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useListUrlState } from '@/hooks/useListUrlState'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelOwnerEquityMutation,
@@ -108,9 +109,14 @@ export default function OwnerEquityPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [highlightId, setHighlightId] = useState<string | null>(null)
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const { page, limit, sortBy, sortOrder, setPage, setLimit, setSort, resetPage } =
+    useListUrlState({
+      sort: {
+        fields: [EQUITY_SORT_FIELD],
+        defaultField: EQUITY_SORT_FIELD,
+        defaultOrder: 'desc',
+      },
+    })
   const [settleRow, setSettleRow] = useState<OwnerEquityDocument | null>(null)
   const [refundRow, setRefundRow] = useState<OwnerEquityDocument | null>(null)
   const [completeRow, setCompleteRow] = useState<OwnerEquityDocument | null>(null)
@@ -136,7 +142,7 @@ export default function OwnerEquityPage() {
   }, [highlightOwnerEquityId, location.pathname, location.search, navigate])
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig, {
-    onApply: () => setPage(1),
+    onApply: resetPage,
   })
 
   const weekStartsOn = getStartOfWeek()
@@ -155,7 +161,7 @@ export default function OwnerEquityPage() {
     const params: OwnerEquityListParams = {
       page,
       limit,
-      sortBy: EQUITY_SORT_FIELD,
+      sortBy,
       sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
     }
     const search = appliedFilters.search.trim()
@@ -166,7 +172,7 @@ export default function OwnerEquityPage() {
     if (dateRange.fromDate) params.fromDate = dateRange.fromDate
     if (dateRange.toDate) params.toDate = dateRange.toDate
     return params
-  }, [page, limit, appliedFilters, sortOrder, dateRange])
+  }, [page, limit, appliedFilters, sortBy, sortOrder, dateRange])
 
   const { data: response, isFetching, error } = useGetOwnerEquityListQuery(queryParams)
   const rows = response?.data ?? []
@@ -244,16 +250,6 @@ export default function OwnerEquityPage() {
       ? { noun: 'Receipt', verbPast: 'Received', submitLabel: 'Record Receipt', lineNoun: 'Receipt' }
       : { noun: 'Payment', verbPast: 'Paid', submitLabel: 'Record Payment', lineNoun: 'Payment' }
   }, [settleRow])
-
-  const handleLimitChange = (newLimit: number) => {
-    setLimit(newLimit)
-    setPage(1)
-  }
-
-  const handleSort = useCallback(() => {
-    setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))
-    setPage(1)
-  }, [])
 
   const handleView = (row: OwnerEquityDocument) => {
     navigate(`/accounting/owner-equity/${row.referenceNumber}/view`)
@@ -437,7 +433,7 @@ export default function OwnerEquityPage() {
         field: EQUITY_SORT_FIELD,
         sortBy: EQUITY_SORT_FIELD,
         sortOrder,
-        onSort: handleSort,
+        onSort: setSort,
       }}
       isFetching={isFetching}
       error={error ? 'Failed to load owner equity documents.' : null}
@@ -474,7 +470,7 @@ export default function OwnerEquityPage() {
                   page={page}
                   limit={limit}
                   onPageChange={setPage}
-                  onLimitChange={handleLimitChange}
+                  onLimitChange={setLimit}
                   pageSizeOptions={PAGINATION.options}
                 />
               ) : undefined

@@ -7,7 +7,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { alpha } from '@mui/material'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { darkTheme } from '@/styles/theme'
 import type { OwnerEquityDocument } from '@/types'
@@ -127,6 +127,12 @@ describe('OwnerEquityPage', () => {
     vi.clearAllMocks()
   })
 
+  afterEach(() => {
+    // useListUrlState hydrates from the live window.location, which jsdom
+    // persists across tests in this file.
+    window.history.replaceState(null, '', '/')
+  })
+
   it('navigates to the detail route on row click', async () => {
     const user = userEvent.setup()
     renderPage()
@@ -174,6 +180,19 @@ describe('OwnerEquityPage', () => {
     expect(calls[calls.length - 1][0]).toMatchObject({
       sortBy: 'referenceNumber',
       sortOrder: 'DESC',
+    })
+  })
+
+  it('hydrates page, limit and sort order from the URL', async () => {
+    // useListUrlState hydrates from window.location.search, which MemoryRouter
+    // never populates — set the real URL before rendering.
+    window.history.replaceState(null, '', '/accounting/owner-equity?page=2&limit=50&sortOrder=asc')
+    renderPage('/accounting/owner-equity')
+
+    await waitFor(() => {
+      expect(vi.mocked(useGetOwnerEquityListQuery)).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 2, limit: 50, sortOrder: 'ASC' }),
+      )
     })
   })
 
