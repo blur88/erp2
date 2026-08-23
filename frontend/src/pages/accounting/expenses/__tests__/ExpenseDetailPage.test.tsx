@@ -89,11 +89,11 @@ function makeExpense(overrides: Partial<Expense> = {}): Expense {
   }
 }
 
-function renderPage() {
+function renderPage(search = '') {
   const store = configureStore({ reducer: {} })
   const tree = () => (
     <Provider store={store}>
-      <MemoryRouter initialEntries={['/accounting/expenses/exp-1']}>
+      <MemoryRouter initialEntries={[`/accounting/expenses/exp-1${search}`]}>
         <Routes>
           <Route path="/accounting/expenses/:id" element={<ExpenseDetailPage />} />
         </Routes>
@@ -356,7 +356,9 @@ describe('ExpenseDetailPage', () => {
       mockGetExpense.mockReturnValue({ data: makeExpense(), isLoading: false })
       renderPage()
       await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
-      expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses/exp-1/edit')
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses/exp-1/edit', {
+        state: { expenseEditOrigin: 'detail' },
+      })
     })
   })
 
@@ -364,6 +366,24 @@ describe('ExpenseDetailPage', () => {
     mockGetExpense.mockReturnValue({ data: makeExpense(), isLoading: false })
     renderPage()
     await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses')
+  })
+
+  it('returns to the list with the ticket decoded', async () => {
+    mockGetExpense.mockReturnValue({ data: makeExpense(), isLoading: false })
+    renderPage('?listQuery=page%3D2')
+
+    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses?page=2')
+  })
+
+  it('returns to the bare list when there is no ticket', async () => {
+    mockGetExpense.mockReturnValue({ data: makeExpense(), isLoading: false })
+    renderPage()
+
+    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses')
   })
 

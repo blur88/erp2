@@ -1,5 +1,5 @@
 import { useMemo, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Box, Button } from '@mui/material'
 
 import SimpleListPage from '@/components/common/SimpleListPage'
@@ -10,6 +10,7 @@ import { JOURNAL_SOURCE_TYPE_OPTIONS, JOURNAL_STATUS_OPTIONS } from '@/constants
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
 import { useGetJournalEntriesQuery, type JournalEntryListParams } from '@/store/api/accountingApi'
+import { withListQuery } from '@/utils/listQuery'
 import { formatCurrency } from '@/utils/currency'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
@@ -42,6 +43,7 @@ const filterConfig: FilterBarConfig<JEFilters> = {
 
 export default function JournalEntriesPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { page, limit, sortBy, sortOrder, setPage, setLimit, setSort, resetPage } =
     useListUrlState({
       sort: { fields: ['journalNo'], defaultField: 'journalNo', defaultOrder: 'desc' },
@@ -81,7 +83,7 @@ export default function JournalEntriesPage() {
   const total = response?.meta?.total ?? 0
 
   const handleView = (row: JournalEntry) => {
-    navigate(`/accounting/journal-entries/${row.id}`)
+    navigate(withListQuery(`/accounting/journal-entries/${row.id}`, location.search))
   }
 
   const columns: ColumnConfig<JournalEntry>[] = [

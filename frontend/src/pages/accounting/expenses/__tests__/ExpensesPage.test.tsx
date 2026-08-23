@@ -195,6 +195,26 @@ describe('ExpensesPage', () => {
     expect(screen.getByText('EXP-002')).toBeInTheDocument()
   })
 
+  it('carries the list query to Detail', async () => {
+    // location.search is what the page tickets into Detail; the suite drives it
+    // through its useLocation mock rather than window.history.
+    mockLocation.current = {
+      pathname: '/accounting/expenses',
+      search: '?page=2&status=PAID',
+      hash: '',
+      key: 'test',
+      state: null,
+    }
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByText('EXP-001'))
+
+    const target = mockNavigate.mock.calls.at(-1)?.[0] as string
+    const query = new URLSearchParams(target.slice(target.indexOf('?')))
+    expect(query.get('listQuery')).toBe('page=2&status=PAID')
+  })
+
   it('renders expense descriptions', () => {
     renderPage()
     expect(screen.getByText('Office supplies')).toBeInTheDocument()

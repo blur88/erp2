@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import PaymentIcon from '@mui/icons-material/Payment'
 import ReceiptIcon from '@mui/icons-material/Receipt'
 import { Box, Button, Card, CardContent, Grid, Tab, Tabs, Typography } from '@mui/material'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { DataTable, type Column } from '@/components/common/DataTable'
@@ -25,6 +25,7 @@ import {
 } from '@/store/api/paymentMethodsApi'
 import type { Expense, ExpensePaymentRow } from '@/types'
 import { toScaledAmount, fromScaledAmount } from '@/utils/currency'
+import { extractListQuery, listPathWithQuery, withListQuery } from '@/utils/listQuery'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
 import { getExpenseActionMetas } from './expenseActions'
@@ -66,6 +67,10 @@ function Field({ label, value }: { label: string; value?: React.ReactNode }) {
 
 export default function ExpenseDetailView({ expense }: { expense: Expense }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  // The ticket carried from the list. Detail→Edit forwards ONLY this — never
+  // the whole detail search, which carries ?tab=.
+  const listQuery = extractListQuery(location.search)
   const [searchParams, setSearchParams] = useSearchParams()
   const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 1)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
@@ -205,7 +210,10 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
         setRefundDialogOpen(true)
         break
       case 'edit':
-        navigate(`/accounting/expenses/${expense.id}/edit`)
+        navigate(
+          withListQuery(`/accounting/expenses/${expense.id}/edit`, listQuery ? `?${listQuery}` : ''),
+          { state: { expenseEditOrigin: 'detail' } },
+        )
         break
       case 'cancel':
         setCancelDialogOpen(true)
@@ -250,7 +258,7 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
             <StatusChip status={expense.paymentStatus} />
           </Box>
         }
-        backAction={() => navigate('/accounting/expenses')}
+        backAction={() => navigate(listPathWithQuery('/accounting/expenses', location.search))}
       />
 
       {actionMetas.length > 0 && (

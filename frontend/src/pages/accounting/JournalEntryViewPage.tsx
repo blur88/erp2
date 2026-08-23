@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import {
   Box,
@@ -13,6 +13,7 @@ import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
 import { DataTable, type Column } from '@/components/common/DataTable'
 import { useGetJournalEntryQuery } from '@/store/api/accountingApi'
+import { listPathWithQuery } from '@/utils/listQuery'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import SourceLink from './components/SourceLink'
 
@@ -39,6 +40,7 @@ function lineCell(value: string) {
 export default function JournalEntryViewPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const { data: entry, isFetching, error } = useGetJournalEntryQuery(id!)
 
@@ -88,7 +90,7 @@ export default function JournalEntryViewPage() {
       <PageHeader
         title={`Journal Entry ${entry.journalNo}`}
         titleBadge={statusChip}
-        backAction={() => navigate('/accounting/journal-entries')}
+        backAction={() => navigate(listPathWithQuery('/accounting/journal-entries', location.search))}
       />
 
       <Grid container spacing={3} sx={{ mb: 3, alignItems: 'stretch' }}>

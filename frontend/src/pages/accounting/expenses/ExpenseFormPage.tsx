@@ -19,6 +19,8 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import { format, parseISO } from 'date-fns'
 import { Controller, useForm } from 'react-hook-form'
 import { useBlocker, useLocation, useNavigate, useParams } from 'react-router-dom'
+
+import { listPathWithQuery } from '@/utils/listQuery'
 import * as yup from 'yup'
 
 import { AppButton } from '@/components/common/AppButton'
@@ -59,6 +61,8 @@ const ExpenseFormPage: React.FC = () => {
   // marks its origin explicitly; everything else — including a directly typed or
   // shared /edit URL — falls back to Detail, which is the historical behaviour.
   const location = useLocation()
+  // Same-module list returns rebuild the list URL from the carried ticket.
+  const listPath = listPathWithQuery('/accounting/expenses', location.search)
   const isListOrigin =
     (location.state as { expenseEditOrigin?: string } | null)?.expenseEditOrigin === 'list'
 
@@ -178,7 +182,7 @@ const ExpenseFormPage: React.FC = () => {
   // explicitly rather than asserting with `id!`.
   const returnAfterEdit = (expenseId: string | undefined) => {
     if (isListOrigin) {
-      navigate('/accounting/expenses', {
+      navigate(listPath, {
         // Omit the highlight when the id is unknown rather than sending undefined;
         // the list just skips highlighting, which is already best-effort.
         state: expenseId ? { highlightExpenseId: expenseId } : null,
@@ -186,7 +190,7 @@ const ExpenseFormPage: React.FC = () => {
     } else if (expenseId) {
       navigate(`/accounting/expenses/${expenseId}`)
     } else {
-      navigate('/accounting/expenses')
+      navigate(listPath)
     }
   }
 
@@ -207,7 +211,7 @@ const ExpenseFormPage: React.FC = () => {
     if (isEdit) {
       returnAfterEdit(expense?.id ?? id)
     } else {
-      navigate('/accounting/expenses')
+      navigate(listPath)
     }
   }
 
@@ -235,7 +239,7 @@ const ExpenseFormPage: React.FC = () => {
       } else {
         await createExpense(cleanedData).unwrap()
         showSuccess('Expense created successfully')
-        navigate('/accounting/expenses')
+        navigate(listPath)
       }
     } catch (error: any) {
       const message = error?.data?.message
@@ -267,7 +271,7 @@ const ExpenseFormPage: React.FC = () => {
           title="Edit Expense"
           subtitle=""
           variant="workflow"
-          backAction={() => navigate('/accounting/expenses')}
+          backAction={() => navigate(listPath)}
         />
         <Alert severity="error" sx={{ mt: 2 }}>
           Failed to load this expense. Go back and try again.
