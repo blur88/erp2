@@ -1,10 +1,11 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import PagePagination from '@/components/common/PagePagination'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
+import { withListQuery } from '@/utils/listQuery'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useGetCustomersQuery,
@@ -36,6 +37,7 @@ const filterConfig: FilterBarConfig<CustomerFilters> = {
 
 const CustomersPage: React.FC = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { showSuccess, showError } = useNotification()
   const [pageError, setPageError] = useState<string | null>(null)
   const { sortBy, sortOrder, page, limit, setPage, setLimit, setSort, resetPage } =
@@ -90,7 +92,7 @@ const CustomersPage: React.FC = () => {
     <SimpleListPage
       title="Customers"
       subtitle="Manage customer records and active/inactive status."
-      primaryAction={{ label: 'New Customer', onClick: () => navigate('/sales/customers/create') }}
+      primaryAction={{ label: 'New Customer', onClick: () => navigate(withListQuery('/sales/customers/create', location.search)) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}

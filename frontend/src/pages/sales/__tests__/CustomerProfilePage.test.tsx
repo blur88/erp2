@@ -93,6 +93,17 @@ describe('CustomerProfilePage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
   })
 
+  it('returns to the list with the ticket decoded', async () => {
+    mockGetCustomerBySlug.mockReturnValue({ data: customer, isLoading: false })
+    // ?tab= must NOT leak into the restored list URL.
+    renderPage('acme-corp', '?listQuery=page%3D2&tab=1')
+
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/customers?page=2')
+  })
+
   it('navigates to edit with profile return state on Edit Customer click', async () => {
     mockGetCustomerBySlug.mockReturnValue({ data: customer, isLoading: false })
     renderPage()

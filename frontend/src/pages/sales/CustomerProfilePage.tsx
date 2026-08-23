@@ -3,12 +3,13 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import PersonIcon from '@mui/icons-material/Person';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import { skipToken } from '@reduxjs/toolkit/query';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { StatusChip } from '@/components/common/StatusChip';
 import PageHeader from '@/components/common/PageHeader';
 import { TABLE_STYLES } from '@/constants/tableStyles';
 import { useGetCustomerBySlugQuery } from '@/store/api/salesApi';
+import { listPathWithQuery } from '@/utils/listQuery';
 
 import CustomerOrdersTab from './components/CustomerOrdersTab';
 import CustomerOverviewTab from './components/CustomerOverviewTab';
@@ -50,6 +51,7 @@ const TABS = [
 export default function CustomerProfilePage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), TABS.length - 1);
 
@@ -78,7 +80,7 @@ export default function CustomerProfilePage() {
       <PageHeader
         title={customer.name}
         titleBadge={<StatusChip status={customer.isActive ? 'active' : 'inactive'} />}
-        backAction={() => navigate('/sales/customers')}
+        backAction={() => navigate(listPathWithQuery('/sales/customers', location.search))}
         primaryAction={{
           label: 'Edit Customer',
           onClick: () =>

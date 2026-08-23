@@ -22,7 +22,7 @@ import { default as CopyIcon } from '@mui/icons-material/ContentCopy'
 import { default as StarIcon } from '@mui/icons-material/Star'
 import { default as StarBorderIcon } from '@mui/icons-material/StarBorder'
 import { default as ViewIcon } from '@mui/icons-material/Visibility'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import PageHeader from '@/components/common/PageHeader'
 import PagePagination from '@/components/common/PagePagination'
 import GenericOverviewPage from '@/components/common/GenericOverviewPage'
@@ -30,6 +30,7 @@ import { StatusChip } from '@/components/common/StatusChip'
 import { FilterBar } from '@/components/filters'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
+import { withListQuery } from '@/utils/listQuery'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useDeletePriceListMutation,
@@ -52,6 +53,7 @@ interface PriceListFilters {
 
 const PriceListsPage: React.FC = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { showSuccess, showError } = useNotification()
   const { page, limit, setPage, setLimit, resetPage } = useListUrlState()
   const filterConfig = useMemo<FilterBarConfig<PriceListFilters>>(
@@ -120,7 +122,7 @@ const PriceListsPage: React.FC = () => {
   }
 
   const handleViewPriceList = (priceList: PriceList) => {
-    navigate(`/settings/price-lists/${priceList.id}`)
+    navigate(withListQuery(`/settings/price-lists/${priceList.id}`, location.search))
   }
 
   const handleFormClose = () => {

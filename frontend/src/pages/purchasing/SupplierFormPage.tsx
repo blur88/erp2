@@ -28,6 +28,7 @@ import PageHeader from '@/components/common/PageHeader'
 import { useFieldDuplicateCheck } from '@/hooks/useFieldDuplicateCheck'
 import { useNotification } from '@/hooks/useNotification'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
+import { extractListQuery, listPathWithQuery, withListQuery } from '@/utils/listQuery'
 import {
   useCreateSupplierMutation,
   useLazyCheckDuplicateCompanyNameQuery,
@@ -96,6 +97,10 @@ const SupplierFormPage: React.FC = () => {
 
   const returnTo = (location.state as any)?.returnTo as string | undefined
   const profilePath = (location.state as any)?.profilePath as string | undefined
+  // The ticket carried from the list (or forwarded by the profile). The
+  // cross-module purchase-order branch must NOT carry it.
+  const listQuery = extractListQuery(location.search)
+  const listPath = listPathWithQuery('/purchasing/suppliers', location.search)
 
   const [supplier, setSupplier] = useState<Supplier | null>(null)
   const [loadingSupplier, setLoadingSupplier] = useState(isEdit)
@@ -236,10 +241,12 @@ const SupplierFormPage: React.FC = () => {
   }, [hasNameDuplicate])
 
   const cancelDestination = returnTo === 'purchase-order'
+    // Cross-module: NO ticket — a Suppliers ticket would corrupt the Purchase
+    // Order form's return path.
     ? '/purchasing/orders/create'
     : returnTo === 'profile' && profilePath
-      ? profilePath
-      : '/purchasing/suppliers'
+      ? withListQuery(profilePath, listQuery ? `?${listQuery}` : '')
+      : listPath
 
   const handleCancel = () => {
     navigate(cancelDestination)
@@ -297,9 +304,9 @@ const SupplierFormPage: React.FC = () => {
           state: { preselectSupplierId: savedSupplier.id },
         })
       } else if (returnTo === 'profile' && profilePath) {
-        navigate(profilePath)
+        navigate(withListQuery(profilePath, listQuery ? `?${listQuery}` : ''))
       } else {
-        navigate('/purchasing/suppliers')
+        navigate(listPath)
       }
     } catch {
       showError(`Failed to ${isEdit ? 'update' : 'create'} supplier`)

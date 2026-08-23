@@ -1,10 +1,11 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import PagePagination from '@/components/common/PagePagination'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
+import { withListQuery } from '@/utils/listQuery'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useGetSuppliersQuery,
@@ -34,6 +35,7 @@ const filterConfig: FilterBarConfig<SupplierFilters> = {
 
 const SuppliersPage: React.FC = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { showSuccess, showError } = useNotification()
   const [pageError, setPageError] = useState<string | null>(null)
   const { sortBy, sortOrder, page, limit, setPage, setLimit, setSort, resetPage } =
@@ -87,7 +89,7 @@ const SuppliersPage: React.FC = () => {
     <SimpleListPage
       title="Suppliers"
       subtitle="Manage your suppliers and vendor relationships."
-      primaryAction={{ label: 'New Supplier', onClick: () => navigate('/purchasing/suppliers/create') }}
+      primaryAction={{ label: 'New Supplier', onClick: () => navigate(withListQuery('/purchasing/suppliers/create', location.search)) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}

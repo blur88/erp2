@@ -115,4 +115,14 @@ describe('SupplierProfilePage', () => {
     expect(new URLSearchParams(search).get('probe')).toBe('keepme')
     expect(new URLSearchParams(search).get('tab')).toBe('1')
   })
+
+  it('returns to the list with the ticket decoded', async () => {
+    mockGetSupplierBySlug.mockReturnValue({ data: supplier, isLoading: false })
+    renderPage('globex-supply', '?listQuery=page%3D2&tab=1')
+
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/suppliers?page=2')
+  })
 })

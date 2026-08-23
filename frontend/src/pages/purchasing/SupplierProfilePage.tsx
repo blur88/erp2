@@ -4,7 +4,7 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping'
 import PaymentIcon from '@mui/icons-material/Payment'
 import StoreIcon from '@mui/icons-material/Store'
 import { skipToken } from '@reduxjs/toolkit/query'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { StatusChip } from '@/components/common/StatusChip'
 import PageHeader from '@/components/common/PageHeader'
@@ -14,6 +14,7 @@ import {
   useGetSupplierBySlugQuery,
   useUpdateSupplierMutation,
 } from '@/store/api/purchasingApi'
+import { listPathWithQuery } from '@/utils/listQuery'
 
 import SupplierOverviewTab from './components/SupplierOverviewTab'
 import SupplierPaymentsTab from './components/SupplierPaymentsTab'
@@ -59,6 +60,7 @@ const TABS = [
 export default function SupplierProfilePage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const { showSuccess, showError } = useNotification()
   const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), TABS.length - 1)
@@ -103,7 +105,7 @@ export default function SupplierProfilePage() {
       <PageHeader
         title={supplier.companyName}
         titleBadge={<StatusChip status={supplier.isActive ? 'active' : 'inactive'} />}
-        backAction={() => navigate('/purchasing/suppliers')}
+        backAction={() => navigate(listPathWithQuery('/purchasing/suppliers', location.search))}
         primaryAction={{
           label: 'Edit Supplier',
           onClick: () => navigate(`/purchasing/suppliers/${supplier.slug}/edit`, {
