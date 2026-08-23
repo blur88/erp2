@@ -161,11 +161,32 @@ describe('ExpensesPage', () => {
   })
 
   afterEach(() => {
+    window.history.replaceState(null, '', '/')
     vi.mocked(useGetExpensesQuery).mockReturnValue({
       data: { data: mockExpenses, meta: { total: 2, page: 1, limit: 25 } },
       isFetching: false,
       error: undefined,
     } as any)
+  })
+
+  it('hydrates page, limit and sort order from the URL', async () => {
+    // useListUrlState hydrates from window.location.search, which MemoryRouter
+    // never populates — set the real URL and mirror it into the useLocation mock.
+    window.history.replaceState(null, '', '/accounting/expenses?page=2&limit=50&sortOrder=asc')
+    mockLocation.current = {
+      pathname: '/accounting/expenses',
+      search: '?page=2&limit=50&sortOrder=asc',
+      hash: '',
+      key: 'test',
+      state: null,
+    }
+    renderPage()
+
+    await waitFor(() => {
+      expect(vi.mocked(useGetExpensesQuery)).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 2, limit: 50, sortOrder: 'ASC' }),
+      )
+    })
   })
 
   it('renders expense numbers from mocked data', () => {
