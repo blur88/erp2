@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 
 import PagePagination from '@/components/common/PagePagination'
 import { StatusChip } from '@/components/common/StatusChip'
-import { usePagination } from '@/hooks/usePagination'
+import { useListUrlState } from '@/hooks/useListUrlState'
 import { DataTable, type Column, bold, statusGroup, viewAction } from '@/components/common/DataTable'
 import { useGetProductOrderHistoryQuery, type ProductOrderHistoryItem } from '@/store/api/inventoryApi'
 import { formatCurrency } from '@/utils/currency'
@@ -14,7 +14,8 @@ interface OrderHistoryTabProps {
 
 export default function OrderHistoryTab({ productId }: OrderHistoryTabProps) {
   const navigate = useNavigate()
-  const { page, limit, paginationProps } = usePagination()
+  const { page, limit, setPage, setLimit } = useListUrlState({ namespace: 'orderHistory' })
+  const paginationProps = { page, limit, onPageChange: setPage, onLimitChange: setLimit }
 
   const { data, isLoading, isError } = useGetProductOrderHistoryQuery({ productId, page, limit })
   const orders = data?.data ?? []

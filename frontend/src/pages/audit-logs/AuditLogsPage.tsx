@@ -4,9 +4,8 @@ import {
 } from '@mui/material'
 import PageHeader from '@/components/common/PageHeader'
 import { useAppDispatch, useAppSelector } from '@/hooks/useRedux'
+import { useListUrlState } from '@/hooks/useListUrlState'
 import {
-  setPage,
-  setLimit,
   setActiveTab,
 } from '@/store/slices/auditLogSlice'
 import GenericOverviewPage from '@/components/common/GenericOverviewPage'
@@ -19,14 +18,17 @@ import ExportButton from './components/ExportButton'
 
 const AuditLogsPage: React.FC = () => {
   const dispatch = useAppDispatch()
-  const { pagination, filters, activeTab, sidebarCollapsed } = useAppSelector((state) => state.auditLogs)
+  const { filters, activeTab, sidebarCollapsed } = useAppSelector((state) => state.auditLogs)
+  // Namespaced so the logs pagination key can never collide with another
+  // embedded list's page/limit on the same URL.
+  const { page, limit, setPage, setLimit, resetPage } = useListUrlState({ namespace: 'logs' })
   const {
     data: logsResponse,
     isLoading: isLogsLoading,
     error: logsError,
   } = useGetAuditLogsQuery({
-    page: pagination.page,
-    limit: pagination.limit,
+    page,
+    limit,
     ...filters,
     sortBy: 'createdAt',
     sortOrder: 'DESC',
@@ -115,17 +117,16 @@ const AuditLogsPage: React.FC = () => {
   }, [auditLogs, priceListNameById])
 
   const handleApply = () => {
-    dispatch(setPage(1))
+    resetPage()
     // effects above will re-run due to state changes
   }
 
   const handlePageChange = (page: number) => {
-    dispatch(setPage(page))
+    setPage(page)
   }
 
   const handleLimitChange = (limit: number) => {
-    dispatch(setLimit(limit))
-    dispatch(setPage(1))
+    setLimit(limit)
   }
 
   const entityTypes = statistics?.byEntityType.map((e) => e.entityType) ?? []
@@ -168,8 +169,8 @@ const AuditLogsPage: React.FC = () => {
               error={error}
               priceListNameById={priceListNameById}
               total={logsResponse?.meta?.total ?? 0}
-              page={pagination.page}
-              limit={pagination.limit}
+              page={page}
+              limit={limit}
               onPageChange={handlePageChange}
               onLimitChange={handleLimitChange}
             />

@@ -1,9 +1,9 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { BrowserRouter, MemoryRouter } from 'react-router-dom'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import CustomerOrdersTab from '../CustomerOrdersTab'
 
@@ -40,6 +40,12 @@ function renderTab(customerId: string) {
 }
 
 describe('CustomerOrdersTab', () => {
+  afterEach(() => {
+    // useListUrlState hydrates from the live window.location, which jsdom
+    // persists across tests in this file.
+    window.history.replaceState(null, '', '/')
+  })
+
   it('shows loading state', () => {
     mockGetSalesOrders.mockReturnValue({ data: undefined, isLoading: true })
     renderTab('c1')
@@ -134,5 +140,28 @@ describe('CustomerOrdersTab', () => {
     renderTab('c1')
     expect(screen.getByText('Failed to load orders.')).toBeInTheDocument()
     expect(screen.queryByText(/No orders yet/)).not.toBeInTheDocument()
+  })
+
+  it('keeps its pagination on its own namespaced URL key', async () => {
+    // useListUrlState hydrates from window.location.search, which MemoryRouter
+    // never populates — set the real URL and render under BrowserRouter.
+    // The custOrders_ prefix proves sibling tabs cannot clobber this key.
+    window.history.replaceState(null, '', '/sales/customers/c1/view?tab=1&custOrders_page=2')
+    mockGetSalesOrders.mockReturnValue({ data: { data: [], meta: { total: 0 } }, isLoading: false })
+
+    const store = configureStore({ reducer: { sales: (state = {}) => state } })
+    render(
+      <Provider store={store}>
+        <BrowserRouter>
+          <CustomerOrdersTab customerId="c1" />
+        </BrowserRouter>
+      </Provider>,
+    )
+
+    await waitFor(() => {
+      expect(mockGetSalesOrders).toHaveBeenLastCalledWith(
+        expect.objectContaining({ customerId: 'c1', page: 2 }),
+      )
+    })
   })
 })

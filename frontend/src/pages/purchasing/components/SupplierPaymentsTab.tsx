@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 
 import PagePagination from '@/components/common/PagePagination'
 import { DataTable, type Column, bold, viewAction } from '@/components/common/DataTable'
-import { usePagination } from '@/hooks/usePagination'
+import { useListUrlState } from '@/hooks/useListUrlState'
 import { useGetSupplierPaymentsQuery } from '@/store/api/purchasingApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
@@ -13,7 +13,8 @@ interface SupplierPaymentsTabProps {
 
 export default function SupplierPaymentsTab({ supplierId }: SupplierPaymentsTabProps) {
   const navigate = useNavigate()
-  const { page, limit, paginationProps } = usePagination()
+  const { page, limit, setPage, setLimit } = useListUrlState({ namespace: 'supPayments' })
+  const paginationProps = { page, limit, onPageChange: setPage, onLimitChange: setLimit }
   const { data, isLoading, isError } = useGetSupplierPaymentsQuery({ supplierId, page, limit })
   const payments = data?.data ?? []
   const total = data?.meta?.total ?? 0

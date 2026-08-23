@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import PagePagination from '@/components/common/PagePagination'
 import { StatusChip } from '@/components/common/StatusChip'
 import { DataTable, type Column, bold, viewAction } from '@/components/common/DataTable'
-import { usePagination } from '@/hooks/usePagination'
+import { useListUrlState } from '@/hooks/useListUrlState'
 import { useGetSupplierPurchaseOrdersQuery } from '@/store/api/purchasingApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
@@ -14,7 +14,8 @@ interface SupplierPurchaseOrdersTabProps {
 
 export default function SupplierPurchaseOrdersTab({ supplierId }: SupplierPurchaseOrdersTabProps) {
   const navigate = useNavigate()
-  const { page, limit, paginationProps } = usePagination()
+  const { page, limit, setPage, setLimit } = useListUrlState({ namespace: 'supOrders' })
+  const paginationProps = { page, limit, onPageChange: setPage, onLimitChange: setLimit }
   const { data, isLoading, isError } = useGetSupplierPurchaseOrdersQuery({ supplierId, page, limit })
   const orders = data?.data ?? []
   const total = data?.meta?.total ?? 0
