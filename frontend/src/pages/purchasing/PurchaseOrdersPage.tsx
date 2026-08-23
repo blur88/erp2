@@ -7,6 +7,7 @@ import PagePagination from '@/components/common/PagePagination'
 import PaymentDialog from '@/components/common/PaymentDialog'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useListUrlState } from '@/hooks/useListUrlState'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelPurchaseOrderMutation,
@@ -76,17 +77,19 @@ const PurchaseOrdersPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
-  const [sortBy, setSortBy] = useState('orderNumber')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
+  const { sortBy, sortOrder, page, limit, setPage, setLimit, setSort, resetPage } =
+    useListUrlState({
+      sort: { fields: ['orderNumber'], defaultField: 'orderNumber', defaultOrder: 'desc' },
+    })
   const [printOrder, setPrintOrder] = useState<PurchaseOrder | null>(null)
   const [paymentOrder, setPaymentOrder] = useState<PurchaseOrder | null>(null)
   const [refundOrder, setRefundOrder] = useState<PurchaseOrder | null>(null)
   const [confirmOrder, setConfirmOrder] = useState<PurchaseOrder | null>(null)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
 
-  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig, {
+    onApply: resetPage,
+  })
 
   useEffect(() => {
     setPage(1)
@@ -168,17 +171,6 @@ const PurchaseOrdersPage: React.FC = () => {
   const seedTarget = fromScaledAmount(
     surplusMinor > 0n ? surplusMinor : netPaidMinor > 0n ? netPaidMinor : 0n,
   )
-
-  const handleSort = useCallback((field: string) => {
-    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
-    setSortBy(field)
-    setPage(1)
-  }, [sortBy])
-
-  const handleLimitChange = useCallback((nextLimit: number) => {
-    setLimit(nextLimit)
-    setPage(1)
-  }, [])
 
   const loadOrders = useCallback(() => {
     void refetch()
@@ -340,7 +332,7 @@ const PurchaseOrdersPage: React.FC = () => {
           field: 'orderNumber',
           sortBy,
           sortOrder,
-          onSort: handleSort,
+          onSort: setSort,
         }}
         isFetching={isFetching}
         error={error}
@@ -366,7 +358,7 @@ const PurchaseOrdersPage: React.FC = () => {
                 page={page}
                 limit={limit}
                 onPageChange={setPage}
-                onLimitChange={handleLimitChange}
+                onLimitChange={setLimit}
                 pageSizeOptions={PAGINATION.options}
               />
             )}

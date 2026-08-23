@@ -1,8 +1,8 @@
 import { configureStore } from '@reduxjs/toolkit'
-import { render } from '@testing-library/react'
+import { render, waitFor } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import salesReducer from '@/store/slices/salesSlice'
 import { useGetSalesOrdersQuery } from '@/store/api/salesApi'
@@ -54,11 +54,30 @@ describe('OrdersPage default sort', () => {
     vi.clearAllMocks()
   })
 
+  afterEach(() => {
+    // useListUrlState hydrates from the live window.location, which jsdom
+    // persists across tests in this file.
+    window.history.replaceState(null, '', '/')
+  })
+
   it('requests orders sorted by orderNumber DESC by default', () => {
     renderPage()
 
     const firstCallArg = vi.mocked(useGetSalesOrdersQuery).mock.calls[0][0]
     expect(firstCallArg).toMatchObject({ sortBy: 'orderNumber', sortOrder: 'DESC' })
+  })
+
+  it('hydrates page, limit and sort order from the URL', async () => {
+    // useListUrlState hydrates from window.location.search, which MemoryRouter
+    // never populates — set the real URL before rendering.
+    window.history.replaceState(null, '', '/sales/orders?page=2&limit=50&sortOrder=asc')
+    renderPage()
+
+    await waitFor(() => {
+      expect(vi.mocked(useGetSalesOrdersQuery)).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 2, limit: 50, sortOrder: 'ASC' }),
+      )
+    })
   })
 
   it('passes sort.field=orderNumber to the list page so the column highlights', () => {

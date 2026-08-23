@@ -6,6 +6,7 @@ import PagePagination from '@/components/common/PagePagination'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import ProductImportDialog from '@/components/inventory/ProductImportDialog'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useListUrlState } from '@/hooks/useListUrlState'
 import { useNotification } from '@/hooks/useNotification'
 import { useGetProductsQuery, useUpdateProductMutation } from '@/store/api/inventoryApi'
 import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
@@ -45,29 +46,16 @@ export default function ProductsPage() {
   const { showSuccess, showError } = useNotification()
   const [pageError, setPageError] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
-  const [sortBy, setSortBy] = useState('name')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
+  const { sortBy, sortOrder, page, limit, setPage, setLimit, setSort, resetPage } =
+    useListUrlState({
+      sort: { fields: ['name'], defaultField: 'name', defaultOrder: 'asc' },
+    })
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
-  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig, {
+    onApply: resetPage,
+  })
   const [updateProduct] = useUpdateProductMutation()
-
-  useEffect(() => {
-    setPage(1)
-  }, [appliedFilters])
-
-  const handleSort = useCallback((field: string) => {
-    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
-    setSortBy(field)
-    setPage(1)
-  }, [sortBy])
-
-  const handleLimitChange = useCallback((newLimit: number) => {
-    setLimit(newLimit)
-    setPage(1)
-  }, [])
 
   const queryParams = useMemo(() => {
     const params: Record<string, string | number | boolean | undefined> = {
@@ -126,7 +114,7 @@ export default function ProductsPage() {
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={searchInputRef}
-      sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
+      sort={{ field: 'name', sortBy, sortOrder, onSort: setSort }}
       isFetching={isFetching}
       error={pageError || (error ? 'Failed to load products.' : null)}
       onErrorClose={() => setPageError(null)}
@@ -144,7 +132,7 @@ export default function ProductsPage() {
                 page={page}
                 limit={limit}
                 onPageChange={setPage}
-                onLimitChange={handleLimitChange}
+                onLimitChange={setLimit}
                 pageSizeOptions={PAGINATION.options}
               />
             )}
