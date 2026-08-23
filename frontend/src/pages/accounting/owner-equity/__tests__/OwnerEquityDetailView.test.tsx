@@ -90,11 +90,11 @@ function buildDoc(overrides: Partial<OwnerEquityDocument> = {}): OwnerEquityDocu
   }
 }
 
-function renderDetail(overrides: Partial<OwnerEquityDocument> = {}) {
+function renderDetail(overrides: Partial<OwnerEquityDocument> = {}, initialUrl = '/accounting/owner-equity/EQ-26-001/view') {
   const store = configureStore({ reducer: { empty: (s = null) => s } })
   return render(
     <Provider store={store}>
-      <MemoryRouter initialEntries={['/accounting/owner-equity/EQ-26-001/view']}>
+      <MemoryRouter initialEntries={[initialUrl]}>
         <OwnerEquityDetailView document={buildDoc(overrides)} />
       </MemoryRouter>
     </Provider>,
@@ -215,5 +215,21 @@ describe('OwnerEquityDetailView', () => {
     const search = screen.getByTestId('probe-search').textContent ?? ''
     expect(new URLSearchParams(search).get('probe')).toBe('keepme')
     expect(new URLSearchParams(search).get('tab')).toBe('1')
+  })
+
+  it('returns to the list with the ticket decoded', async () => {
+    renderDetail({}, '/accounting/owner-equity/EQ-1/view?listQuery=type%3DX%26page%3D2')
+
+    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity?type=X&page=2')
+  })
+
+  it('returns to the bare list when there is no ticket', async () => {
+    renderDetail({}, '/accounting/owner-equity/EQ-1/view')
+
+    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity')
   })
 })

@@ -140,6 +140,17 @@ describe('OwnerEquityPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity/EQ-26-001/view')
   })
 
+  it('carries the list query to Detail', async () => {
+    const user = userEvent.setup()
+    renderPage('/accounting/owner-equity?type=CASH_DRAWING&page=2')
+
+    await user.click(await screen.findByText('EQ-26-001'))
+
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.stringContaining('listQuery=type%3DCASH_DRAWING%26page%3D2'),
+    )
+  })
+
   // Edit must tell the form it was opened from the list, so the form's
   // Save/Cancel/Back come back here instead of falling through to Detail.
   // EQ-26-002 is the DRAFT row, the one that offers Edit. Issue #1090.
@@ -267,6 +278,21 @@ describe('OwnerEquityPage', () => {
     it('does not clear history state when no highlight arrives', () => {
       renderPage()
       expect(mockNavigate).not.toHaveBeenCalled()
+    })
+
+    it('keeps list params in the URL after clearing the highlight state', async () => {
+      renderPage({
+        pathname: '/accounting/owner-equity',
+        search: '?type=CASH_DRAWING&page=2',
+        state: { highlightOwnerEquityId: 'oe-1' },
+      })
+
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith(
+          '/accounting/owner-equity?type=CASH_DRAWING&page=2',
+          { replace: true, state: null },
+        )
+      })
     })
   })
 })

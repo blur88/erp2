@@ -21,6 +21,8 @@ import { Controller, useForm } from 'react-hook-form'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import * as yup from 'yup'
 
+import { extractListQuery, listPathWithQuery, withListQuery } from '@/utils/listQuery'
+
 import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
 import { useDocumentNumberPreview } from '@/hooks/useDocumentNumberPreview'
@@ -72,6 +74,10 @@ const OwnerEquityFormPage: React.FC = () => {
   // Detail-opened one here — falls back to Detail, the historical behaviour.
   // Issue #1090, mirroring ExpenseFormPage's expenseEditOrigin.
   const location = useLocation()
+  // The ticket carried from the list (or forwarded by Detail). Same-module
+  // returns rebuild the list URL from it; Form→Detail forwards it onward.
+  const listQuery = extractListQuery(location.search)
+  const listPath = listPathWithQuery('/accounting/owner-equity', location.search)
   const isListOrigin =
     (location.state as { ownerEquityEditOrigin?: string } | null)?.ownerEquityEditOrigin === 'list'
 
@@ -205,7 +211,7 @@ const OwnerEquityFormPage: React.FC = () => {
   // id rather than sending undefined — the list just skips highlighting, which
   // is already best-effort. Issue #1088.
   const returnAfterCreate = (id?: string) => {
-    navigate('/accounting/owner-equity', {
+    navigate(listPath, {
       state: id ? { highlightOwnerEquityId: id } : null,
     })
   }
@@ -216,13 +222,13 @@ const OwnerEquityFormPage: React.FC = () => {
   // id is unknown rather than sending undefined.
   const returnAfterEdit = (ref?: string) => {
     if (isListOrigin) {
-      navigate('/accounting/owner-equity', {
+      navigate(listPath, {
         state: document?.id ? { highlightOwnerEquityId: document.id } : null,
       })
     } else if (ref) {
-      navigate(`/accounting/owner-equity/${ref}/view`)
+      navigate(withListQuery(`/accounting/owner-equity/${ref}/view`, listQuery ? `?${listQuery}` : ''))
     } else {
-      navigate('/accounting/owner-equity')
+      navigate(listPath)
     }
   }
 
@@ -230,7 +236,7 @@ const OwnerEquityFormPage: React.FC = () => {
     if (isEdit) {
       returnAfterEdit(document?.referenceNumber ?? referenceNumber)
     } else {
-      navigate('/accounting/owner-equity')
+      navigate(listPath)
     }
   }
 
@@ -275,7 +281,7 @@ const OwnerEquityFormPage: React.FC = () => {
           title="Edit Owner Equity"
           subtitle=""
           variant="workflow"
-          backAction={() => navigate('/accounting/owner-equity')}
+          backAction={() => navigate(listPath)}
         />
         <Alert severity="error" sx={{ mt: 2 }}>
           Failed to load this document. Go back and try again.
