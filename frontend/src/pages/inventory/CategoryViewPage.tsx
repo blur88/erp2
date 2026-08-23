@@ -3,12 +3,13 @@ import { Box, Card, CardContent, CircularProgress, Grid, Link, Tab, Tabs, Typogr
 import InfoIcon from '@mui/icons-material/Info'
 import Inventory2Icon from '@mui/icons-material/Inventory2'
 import { skipToken } from '@reduxjs/toolkit/query'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatDate } from '@/utils/formatters'
+import { listPathWithQuery } from '@/utils/listQuery'
 import { useGetCategoryBySlugQuery } from '@/store/api/inventoryApi'
 
 import CategoryProductsList from './components/CategoryProductsList'
@@ -47,6 +48,7 @@ function Field({ label, value }: { label: string; value?: ReactNode }) {
 export default function CategoryViewPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 1)
 
@@ -73,7 +75,7 @@ export default function CategoryViewPage() {
       <PageHeader
         title={category.name}
         titleBadge={<StatusChip status={category.isEnabled ? 'active' : 'inactive'} />}
-        backAction={() => navigate('/inventory/categories')}
+        backAction={() => navigate(listPathWithQuery('/inventory/categories', location.search))}
         primaryAction={{
           label: 'Edit Category',
           onClick: () => navigate(`/inventory/categories/${category.slug}/edit`),

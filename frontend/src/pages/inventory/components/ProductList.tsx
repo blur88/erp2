@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 import { StatusChip } from '@/components/common/StatusChip'
 import RowActionMenu from '@/components/common/RowActionMenu'
 import { formatCurrency } from '@/utils/currency'
+import { withListQuery } from '@/utils/listQuery'
 import { formatNumber } from '@/utils/formatters'
 import type { Product } from '@/types'
 
@@ -26,6 +27,8 @@ export default function ProductList({
   paginationSlot,
 }: ProductListProps) {
   const navigate = useNavigate()
+  // Rendered by the products list page, so location.search IS the list's query.
+  const { search } = useLocation()
 
   const columns: ColumnConfig<Product>[] = [
     { key: 'name', width: '30%', render: (p) => p.name },
@@ -59,8 +62,8 @@ export default function ProductList({
       render: (p) => (
         <RowActionMenu
           actions={[
-            { label: 'View Product', onClick: () => navigate(`/inventory/products/${p.slug}/view`) },
-            { label: 'Edit Product', onClick: () => navigate(`/inventory/products/${p.slug}/edit`) },
+            { label: 'View Product', onClick: () => navigate(withListQuery(`/inventory/products/${p.slug}/view`, search)) },
+            { label: 'Edit Product', onClick: () => navigate(withListQuery(`/inventory/products/${p.slug}/edit`, search)) },
             p.isActive
               ? { label: 'Set as Inactive', onClick: () => onStatusToggle(p) }
               : { label: 'Reactivate', onClick: () => onStatusToggle(p) },
@@ -89,7 +92,7 @@ export default function ProductList({
       ]}
       selectedId={undefined}
       focusedIndex={-1}
-      onSelect={(p) => navigate(`/inventory/products/${p.slug}/view`)}
+      onSelect={(p) => navigate(withListQuery(`/inventory/products/${p.slug}/view`, search))}
       listRef={{ current: null }}
       dataAttr="product"
       paginationSlot={paginationSlot}

@@ -25,7 +25,7 @@ import { settingsApiSlice } from '@/store/api/settingsApi'
 
 import ProductViewPage from '../ProductViewPage'
 
-function renderPage() {
+function renderPage(search = '') {
   const store = configureStore({
     reducer: {
       [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
@@ -35,7 +35,7 @@ function renderPage() {
   })
   return render(
     <Provider store={store}>
-      <MemoryRouter initialEntries={['/inventory/products/widget/view']}>
+      <MemoryRouter initialEntries={[`/inventory/products/widget/view${search}`]}>
         <Routes>
           <Route path="/inventory/products/:slug/view" element={<ProductViewPage />} />
         </Routes>
@@ -84,5 +84,65 @@ describe('ProductViewPage', () => {
     const search = screen.getByTestId('probe-search').textContent ?? ''
     expect(new URLSearchParams(search).get('probe')).toBe('keepme')
     expect(new URLSearchParams(search).get('tab')).toBe('1')
+  })
+
+  it('returns to the list with the ticket decoded', async () => {
+    function LocationProbe() {
+      const location = useLocation()
+      return <span data-testid="back-search">{location.pathname}{location.search}</span>
+    }
+
+    const store = configureStore({
+      reducer: {
+        [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
+        [settingsApiSlice.reducerPath]: settingsApiSlice.reducer,
+      },
+      middleware: (gdm) => gdm().concat(inventoryApiSlice.middleware, settingsApiSlice.middleware),
+    })
+    render(
+      <Provider store={store}>
+        <MemoryRouter initialEntries={['/inventory/products/widget/view?listQuery=page%3D2']}>
+          <Routes>
+            <Route path="/inventory/products/:slug/view" element={<ProductViewPage />} />
+          </Routes>
+          <LocationProbe />
+        </MemoryRouter>
+      </Provider>,
+    )
+
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(screen.getByTestId('back-search').textContent).toBe('/inventory/products?page=2')
+  })
+
+  it('returns to the bare list when there is no ticket', async () => {
+    function LocationProbe() {
+      const location = useLocation()
+      return <span data-testid="back-search">{location.pathname}{location.search}</span>
+    }
+
+    const store = configureStore({
+      reducer: {
+        [inventoryApiSlice.reducerPath]: inventoryApiSlice.reducer,
+        [settingsApiSlice.reducerPath]: settingsApiSlice.reducer,
+      },
+      middleware: (gdm) => gdm().concat(inventoryApiSlice.middleware, settingsApiSlice.middleware),
+    })
+    render(
+      <Provider store={store}>
+        <MemoryRouter initialEntries={['/inventory/products/widget/view']}>
+          <Routes>
+            <Route path="/inventory/products/:slug/view" element={<ProductViewPage />} />
+          </Routes>
+          <LocationProbe />
+        </MemoryRouter>
+      </Provider>,
+    )
+
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(screen.getByTestId('back-search').textContent).toBe('/inventory/products')
   })
 })

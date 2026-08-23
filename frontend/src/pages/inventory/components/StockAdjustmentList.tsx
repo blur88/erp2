@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 import RowActionMenu from '@/components/common/RowActionMenu'
 import { StatusChip } from '@/components/common/StatusChip'
 import { formatCurrency } from '@/utils/currency'
+import { withListQuery } from '@/utils/listQuery'
 import { formatDate, formatNumber } from '@/utils/formatters'
 import type { StockAdjustment } from '@/types'
 import StockAdjustmentItemsPopover from './StockAdjustmentItemsPopover'
@@ -21,6 +22,8 @@ interface Props {
 
 export default function StockAdjustmentList({ rows, total, loading, paginationSlot, hasActiveFilters, onComplete, onRevert }: Props) {
   const navigate = useNavigate()
+  // Rendered by the stock adjustments list page, so location.search IS the list's query.
+  const { search } = useLocation()
 
   const columns: ColumnConfig<StockAdjustment>[] = [
     { key: 'adjustmentNumber', width: '30%', render: (a) => a.adjustmentNumber },
@@ -34,8 +37,8 @@ export default function StockAdjustmentList({ rows, total, loading, paginationSl
         const isDraft = a.status === 'draft'
         const isCompleted = a.status === 'completed'
         const actions = [
-          { label: 'View', onClick: () => navigate(`/inventory/stock-adjustments/${a.id}/view`) },
-          ...(isDraft ? [{ label: 'Edit', onClick: () => navigate(`/inventory/stock-adjustments/${a.id}/edit`) }] : []),
+          { label: 'View', onClick: () => navigate(withListQuery(`/inventory/stock-adjustments/${a.id}/view`, search)) },
+          ...(isDraft ? [{ label: 'Edit', onClick: () => navigate(withListQuery(`/inventory/stock-adjustments/${a.id}/edit`, search)) }] : []),
           ...(isDraft && onComplete ? [{ label: 'Complete', onClick: () => onComplete(a) }] : []),
           ...(isCompleted && onRevert ? [{ label: 'Revert', onClick: () => onRevert(a) }] : []),
         ]
@@ -58,7 +61,7 @@ export default function StockAdjustmentList({ rows, total, loading, paginationSl
       showHeader={false}
       focusedIndex={-1}
       listRef={{ current: null }}
-      onSelect={(a) => navigate(`/inventory/stock-adjustments/${a.id}/view`)}
+      onSelect={(a) => navigate(withListQuery(`/inventory/stock-adjustments/${a.id}/view`, search))}
       paginationSlot={paginationSlot}
     />
   )

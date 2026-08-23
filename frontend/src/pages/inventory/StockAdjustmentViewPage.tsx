@@ -14,7 +14,7 @@ import {
   Typography,
 } from '@mui/material'
 import { skipToken } from '@reduxjs/toolkit/query'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import { AppButton } from '@/components/common/AppButton'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -25,6 +25,7 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { StockAdjustmentItem } from '@/types'
 import { useGetStockAdjustmentQuery, useRevertStockAdjustmentMutation, useUpdateStockAdjustmentNotesMutation } from '@/store/api/inventoryApi'
 import { formatCurrency } from '@/utils/currency'
+import { extractListQuery, listPathWithQuery, withListQuery } from '@/utils/listQuery'
 import { formatDate, formatNumber } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { rtkErrorMessage } from '@/utils/errorMessage'
@@ -46,6 +47,9 @@ function Field({ label, value }: { label: string; value?: ReactNode }) {
 export default function StockAdjustmentViewPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  // The ticket carried from the list. Edit forwards it alongside ?from=view.
+  const listQuery = extractListQuery(location.search)
   const { data: adj, isLoading, isError } = useGetStockAdjustmentQuery(id ?? skipToken)
   const [updateNotes] = useUpdateStockAdjustmentNotesMutation()
   const [revertAdjustment] = useRevertStockAdjustmentMutation()
@@ -107,7 +111,7 @@ export default function StockAdjustmentViewPage() {
 
   const handleEdit = () => {
     if (isDraft) {
-      navigate(`/inventory/stock-adjustments/${adj.id}/edit?from=view`)
+      navigate(withListQuery(`/inventory/stock-adjustments/${adj.id}/edit?from=view`, listQuery ? `?${listQuery}` : ''))
     } else {
       setNotesDraft(adj.notes || '')
       setNotesOpen(true)
@@ -142,7 +146,7 @@ export default function StockAdjustmentViewPage() {
       <PageHeader
         title={adj.adjustmentNumber}
         titleBadge={<StatusChip status={adj.status} />}
-        backAction={() => navigate('/inventory/stock-adjustments')}
+        backAction={() => navigate(listPathWithQuery('/inventory/stock-adjustments', location.search))}
         primaryAction={{
           label: isDraft ? 'Edit' : 'Edit Notes',
           onClick: handleEdit,

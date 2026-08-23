@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Box,
   Card,
@@ -26,6 +26,7 @@ import {
 import { useCategoryDuplicateCheck } from '@/hooks/useCategoryDuplicateCheck'
 import { useNotification } from '@/hooks/useNotification'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
+import { listPathWithQuery } from '@/utils/listQuery'
 import type { Category } from '@/types'
 
 const schema = yup.object({
@@ -44,6 +45,10 @@ const CategoryFormPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  // Same-module list returns rebuild the list URL from the carried ticket.
+  // The ?parentId= preselection read below is untouched and rides alongside.
+  const listPath = listPathWithQuery('/inventory/categories', location.search)
   const isEditMode = !!slug
 
   const preselectedParentId = searchParams.get('parentId')
@@ -128,14 +133,14 @@ const CategoryFormPage: React.FC = () => {
         showSuccess('Category created successfully')
       }
 
-      navigate('/inventory/categories')
+      navigate(listPath)
     } catch (err: any) {
       showError(err?.data?.message || err?.message || `Failed to ${isEditMode ? 'update' : 'create'} category`)
     }
   }
 
   const handleCancel = () => {
-    navigate('/inventory/categories')
+    navigate(listPath)
   }
 
   if (isFetchingCategory) {

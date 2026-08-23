@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box } from '@mui/material'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import PagePagination from '@/components/common/PagePagination'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import ProductImportDialog from '@/components/inventory/ProductImportDialog'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
+import { withListQuery } from '@/utils/listQuery'
 import { useNotification } from '@/hooks/useNotification'
 import { useGetProductsQuery, useUpdateProductMutation } from '@/store/api/inventoryApi'
 import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
@@ -43,6 +44,7 @@ function getDefaultPrice(product: Product): number | null {
 
 export default function ProductsPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { showSuccess, showError } = useNotification()
   const [pageError, setPageError] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
@@ -107,7 +109,7 @@ export default function ProductsPage() {
     <SimpleListPage
       title="Products"
       subtitle="Manage your product catalog, prices, and stock levels."
-      primaryAction={{ label: 'New Product', onClick: () => navigate('/inventory/products/create') }}
+      primaryAction={{ label: 'New Product', onClick: () => navigate(withListQuery('/inventory/products/create', location.search)) }}
       secondaryAction={{ label: 'Import', onClick: () => setImportOpen(true) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}

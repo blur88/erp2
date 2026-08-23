@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Alert,
   Autocomplete,
@@ -37,6 +37,7 @@ import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
 import { getCurrentDate, toDateInputValue, toMuiDatePickerFormat } from '@/utils/formatters'
 import TransactionFormShell from '@/components/transactions/TransactionFormShell'
 import { formatCurrency } from '@/utils/currency'
+import { extractListQuery, listPathWithQuery, withListQuery } from '@/utils/listQuery'
 import { LINE_ITEM_TABLE_SX } from '@/components/transactions/transactionTableStyles'
 import { useNotification } from '@/hooks/useNotification'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
@@ -84,6 +85,11 @@ const getAdjustmentItemProductId = (item: any): string =>
 const CreateStockAdjustmentPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
+  const location = useLocation()
+  // The ticket carried from the list. The reverted-adjustment Detail return
+  // forwards it; list returns rebuild the list URL from it.
+  const listQuery = extractListQuery(location.search)
+  const listPath = listPathWithQuery('/inventory/stock-adjustments', location.search)
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
   const revertFrom = searchParams.get('revertFrom')
@@ -217,7 +223,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
     if (!revertFrom || !sourceAdjustment || revertAppliedRef.current) return
     if ((sourceAdjustment as any).status !== 'completed') {
       showError('Cannot revert an adjustment that is not completed')
-      navigate(`/inventory/stock-adjustments/${revertFrom}/view`)
+      navigate(withListQuery(`/inventory/stock-adjustments/${revertFrom}/view`, listQuery ? `?${listQuery}` : ''))
       return
     }
     revertAppliedRef.current = true
@@ -309,11 +315,11 @@ const CreateStockAdjustmentPage: React.FC = () => {
       if (isEditMode && id) {
         const updated = await updateStockAdjustment({ id, data: payload }).unwrap()
         showSuccess(`Stock adjustment ${updated.adjustmentNumber || ''} updated successfully`)
-        navigate(editReturnPath ?? '/inventory/stock-adjustments')
+        navigate(editReturnPath ?? listPath)
       } else {
         const created = await createStockAdjustment(payload).unwrap()
         showSuccess(`Stock adjustment ${created.adjustmentNumber || ''} created successfully`)
-        navigate('/inventory/stock-adjustments')
+        navigate(listPath)
       }
     } catch (err: any) {
       const msg = err?.data?.message || err?.message || 'Failed to save stock adjustment'
@@ -337,12 +343,12 @@ const CreateStockAdjustmentPage: React.FC = () => {
       <TransactionFormShell
         title={isEditMode ? 'Edit Stock Adjustment' : revertFrom ? 'Revert Stock Adjustment' : 'Create Stock Adjustment'}
         subtitle={isEditMode ? 'Update adjustment details and quantities' : 'Adjust stock quantities for inventory corrections'}
-        backAction={() => navigate(editReturnPath ?? '/inventory/stock-adjustments')}
+        backAction={() => navigate(editReturnPath ?? listPath)}
         onSubmit={handleSubmit(onSubmit)}
         isSaving={isSaving}
         submitLabel={isEditMode ? 'Update Adjustment' : 'Create Adjustment'}
         submitDisabled={hasNegativeStock}
-        onCancel={() => navigate(editReturnPath ?? '/inventory/stock-adjustments')}
+        onCancel={() => navigate(editReturnPath ?? listPath)}
       >
         <Grid size={12}>
           <Card>

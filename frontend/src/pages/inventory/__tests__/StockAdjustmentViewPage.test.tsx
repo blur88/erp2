@@ -105,4 +105,58 @@ describe('StockAdjustmentViewPage', () => {
       mockAdjustment.status = original
     }
   })
+
+  it('keeps from=view and the ticket when opening Edit', async () => {
+    const original = mockAdjustment.status
+    mockAdjustment.status = 'draft'
+    mockNavigate.mockClear()
+    try {
+      render(
+        <MemoryRouter initialEntries={['/inventory/stock-adjustments/a1/view?listQuery=page%3D2']}>
+          <Routes>
+            <Route path="/inventory/stock-adjustments/:id/view" element={<StockAdjustmentViewPage />} />
+          </Routes>
+        </MemoryRouter>,
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /^edit$/i }))
+
+      const target = mockNavigate.mock.calls.at(-1)?.[0] as string
+      // Exactly one '?' — the merge must not stack a second query string.
+      expect(target.split('?').length).toBe(2)
+      const query = new URLSearchParams(target.slice(target.indexOf('?')))
+      expect(query.get('from')).toBe('view')
+      expect(query.get('listQuery')).toBe('page=2')
+    } finally {
+      mockAdjustment.status = original
+    }
+  })
+
+  it('returns to the list with the ticket decoded', async () => {
+    render(
+      <MemoryRouter initialEntries={['/inventory/stock-adjustments/a1/view?listQuery=page%3D2']}>
+        <Routes>
+          <Route path="/inventory/stock-adjustments/:id/view" element={<StockAdjustmentViewPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/inventory/stock-adjustments?page=2')
+  })
+
+  it('returns to the bare list when there is no ticket', () => {
+    render(
+      <MemoryRouter initialEntries={['/inventory/stock-adjustments/a1/view']}>
+        <Routes>
+          <Route path="/inventory/stock-adjustments/:id/view" element={<StockAdjustmentViewPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/inventory/stock-adjustments')
+  })
 })

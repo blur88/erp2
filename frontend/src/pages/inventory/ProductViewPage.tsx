@@ -3,12 +3,13 @@ import HistoryIcon from '@mui/icons-material/History'
 import InfoIcon from '@mui/icons-material/Info'
 import SwapVertIcon from '@mui/icons-material/SwapVert'
 import { skipToken } from '@reduxjs/toolkit/query'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetProductBySlugQuery } from '@/store/api/inventoryApi'
+import { listPathWithQuery } from '@/utils/listQuery'
 
 import ProductOverviewTab from './components/ProductOverviewTab'
 import OrderHistoryTab from './components/OrderHistoryTab'
@@ -34,6 +35,7 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 export default function ProductViewPage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 2)
 
@@ -60,7 +62,7 @@ export default function ProductViewPage() {
       <PageHeader
         title={product.name}
         titleBadge={<StatusChip status={product.isActive ? 'active' : 'inactive'} />}
-        backAction={() => navigate('/inventory/products')}
+        backAction={() => navigate(listPathWithQuery('/inventory/products', location.search))}
         primaryAction={{
           label: 'Edit Product',
           onClick: () => navigate(`/inventory/products/${product.slug}/edit`),

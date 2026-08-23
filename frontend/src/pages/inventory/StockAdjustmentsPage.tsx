@@ -1,11 +1,12 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { Box } from '@mui/material'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import PagePagination from '@/components/common/PagePagination'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
+import { withListQuery } from '@/utils/listQuery'
 import { useCompleteStockAdjustmentMutation, useGetStockAdjustmentsQuery } from '@/store/api/inventoryApi'
 import { PAGINATION } from '@/constants/tableStyles'
 import { STOCK_ADJUSTMENT_STATUS_OPTIONS } from '@/constants/filterOptions'
@@ -41,6 +42,7 @@ const tidyDecimals = (message: string): string =>
 
 export default function StockAdjustmentsPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { sortBy, sortOrder, page, limit, setPage, setLimit, setSort, resetPage } =
     useListUrlState({
       sort: { fields: ['adjustmentDate'], defaultField: 'adjustmentDate', defaultOrder: 'desc' },
@@ -101,7 +103,7 @@ export default function StockAdjustmentsPage() {
 
   const handleConfirmRevert = useCallback(() => {
     if (!revertTarget) return
-    navigate(`/inventory/stock-adjustments/create?revertFrom=${revertTarget}`)
+    navigate(withListQuery(`/inventory/stock-adjustments/create?revertFrom=${revertTarget}`, location.search))
     setRevertTarget(null)
   }, [revertTarget, navigate])
 
@@ -109,7 +111,7 @@ export default function StockAdjustmentsPage() {
     <SimpleListPage
       title="Stock Adjustments"
       subtitle="View and manage stock adjustment history"
-      primaryAction={{ label: '+ New Adjustment', onClick: () => navigate('/inventory/stock-adjustments/create') }}
+      primaryAction={{ label: '+ New Adjustment', onClick: () => navigate(withListQuery('/inventory/stock-adjustments/create', location.search)) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}

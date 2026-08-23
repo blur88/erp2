@@ -1,10 +1,11 @@
 import { useMemo, useRef } from 'react'
 import { Box } from '@mui/material'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
+import { withListQuery } from '@/utils/listQuery'
 import { useGetCategoriesQuery } from '@/store/api/inventoryApi'
 import type { Category } from '@/types'
 import { STATUS_OPTIONS } from '@/constants/filterOptions'
@@ -39,6 +40,7 @@ const filterConfig: FilterBarConfig<CategoryFilters> = {
 
 export default function CategoriesPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { sortBy, sortOrder, setSort } = useListUrlState({
     pagination: false,
     sort: { fields: ['name'], defaultField: 'name', defaultOrder: 'asc' },
@@ -71,7 +73,7 @@ export default function CategoriesPage() {
     <SimpleListPage
       title="Categories"
       subtitle="Organize your product categories."
-      primaryAction={{ label: 'New Category', onClick: () => navigate('/inventory/categories/create') }}
+      primaryAction={{ label: 'New Category', onClick: () => navigate(withListQuery('/inventory/categories/create', location.search)) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}

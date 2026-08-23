@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   Box,
   Grid,
@@ -32,6 +32,7 @@ import { Category, PriceList } from '@/types'
 import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
 import { useCurrency } from '@/hooks/useCurrency'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
+import { listPathWithQuery } from '@/utils/listQuery'
 
 // Price field component for price list items
 const PriceListPriceField: React.FC<{
@@ -150,6 +151,9 @@ const productSchema = yup.object({
 const CreateProductPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
+  const location = useLocation()
+  // Same-module list returns rebuild the list URL from the carried ticket.
+  const listPath = listPathWithQuery('/inventory/products', location.search)
   const { slug } = useParams<{ slug: string }>()
   const isEditMode = !!slug
   const { showSuccess, showError } = useNotification()
@@ -318,7 +322,7 @@ const CreateProductPage: React.FC = () => {
 
       showSuccess(isEditMode ? 'Product updated successfully' : 'Product created successfully')
 
-      navigate('/inventory/products')
+      navigate(listPath)
     } catch (err: any) {
       console.error('Error saving product:', err)
       setError(err?.message || 'Failed to save product')
@@ -329,7 +333,7 @@ const CreateProductPage: React.FC = () => {
   }
 
   const handleCancel = () => {
-    navigate('/inventory/products')
+    navigate(listPath)
   }
 
   const formatNumberWithCommas = (value: number | string): string => {
@@ -367,7 +371,7 @@ const CreateProductPage: React.FC = () => {
         variant="workflow"
         title={isEditMode ? 'Edit Product' : 'Create Product'}
         subtitle={isEditMode ? 'Update product details, pricing, and inventory settings' : 'Add a new product with details, pricing, and inventory settings'}
-        backAction={() => navigate('/inventory/products')}
+        backAction={() => navigate(listPath)}
       />
       {isFetchingProduct ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
