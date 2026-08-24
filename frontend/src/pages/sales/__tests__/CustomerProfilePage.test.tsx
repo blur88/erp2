@@ -2,8 +2,8 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation  } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi  } from 'vitest'
 
 import type { Customer } from '@/types'
 import { CustomerType } from '@/types'
@@ -47,6 +47,9 @@ const customer: Customer = {
 }
 
 function renderPage(slug = 'acme-corp', search = '') {
+  // Seed the REAL url too: listQuery helpers read window.location.search,
+  // which MemoryRouter never populates (#1131 review).
+  window.history.replaceState(null, '', `/sales/customers/${slug}/view${search}`)
   const store = configureStore({ reducer: { sales: (state = {}) => state } })
   return render(
     <Provider store={store}>
@@ -60,6 +63,12 @@ function renderPage(slug = 'acme-corp', search = '') {
 }
 
 describe('CustomerProfilePage', () => {
+  // jsdom persists window.location across cases; BrowserRouter tests below
+  // read it, so reset between tests (#1131 review).
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
   it('shows loading state', () => {
     mockGetCustomerBySlug.mockReturnValue({ data: undefined, isLoading: true })
     renderPage()
@@ -159,14 +168,15 @@ describe('CustomerProfilePage', () => {
     }
 
     const store = configureStore({ reducer: { sales: (state = {}) => state } })
+    window.history.replaceState(null, '', '/sales/customers/acme-corp/view?tab=0&probe=keepme')
     render(
       <Provider store={store}>
-        <MemoryRouter initialEntries={['/sales/customers/acme-corp/view?tab=0&probe=keepme']}>
+        <BrowserRouter>
           <Routes>
             <Route path="/sales/customers/:slug/view" element={<CustomerProfilePage />} />
           </Routes>
           <LocationProbe />
-        </MemoryRouter>
+        </BrowserRouter>
       </Provider>,
     )
 

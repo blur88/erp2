@@ -2,8 +2,8 @@ import { configureStore } from '@reduxjs/toolkit'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation  } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi  } from 'vitest'
 
 vi.mock('@/store/api/inventoryApi', async () => {
   const actual = await vi.importActual<typeof import('@/store/api/inventoryApi')>('@/store/api/inventoryApi')
@@ -45,6 +45,12 @@ function renderPage(search = '') {
 }
 
 describe('ProductViewPage', () => {
+  // jsdom persists window.location across cases; BrowserRouter tests below
+  // read it, so reset between tests (#1131 review).
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
   it('renders product name and tabs', () => {
     renderPage()
     expect(screen.getByText('Widget')).toBeInTheDocument()
@@ -66,14 +72,15 @@ describe('ProductViewPage', () => {
       },
       middleware: (gdm) => gdm().concat(inventoryApiSlice.middleware, settingsApiSlice.middleware),
     })
+    window.history.replaceState(null, '', '/inventory/products/widget/view?tab=0&probe=keepme')
     render(
       <Provider store={store}>
-        <MemoryRouter initialEntries={['/inventory/products/widget/view?tab=0&probe=keepme']}>
+        <BrowserRouter>
           <Routes>
             <Route path="/inventory/products/:slug/view" element={<ProductViewPage />} />
           </Routes>
           <LocationProbe />
-        </MemoryRouter>
+        </BrowserRouter>
       </Provider>,
     )
 
@@ -99,14 +106,15 @@ describe('ProductViewPage', () => {
       },
       middleware: (gdm) => gdm().concat(inventoryApiSlice.middleware, settingsApiSlice.middleware),
     })
+    window.history.replaceState(null, '', '/inventory/products/widget/view?listQuery=page%3D2')
     render(
       <Provider store={store}>
-        <MemoryRouter initialEntries={['/inventory/products/widget/view?listQuery=page%3D2']}>
+        <BrowserRouter>
           <Routes>
             <Route path="/inventory/products/:slug/view" element={<ProductViewPage />} />
           </Routes>
           <LocationProbe />
-        </MemoryRouter>
+        </BrowserRouter>
       </Provider>,
     )
 

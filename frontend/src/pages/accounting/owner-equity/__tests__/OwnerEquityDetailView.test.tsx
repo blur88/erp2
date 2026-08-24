@@ -3,8 +3,8 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
-import { MemoryRouter, useLocation } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { BrowserRouter, MemoryRouter, useLocation  } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi  } from 'vitest'
 
 import type { OwnerEquityDocument, OwnerEquityType } from '@/types'
 
@@ -91,6 +91,9 @@ function buildDoc(overrides: Partial<OwnerEquityDocument> = {}): OwnerEquityDocu
 }
 
 function renderDetail(overrides: Partial<OwnerEquityDocument> = {}, initialUrl = '/accounting/owner-equity/EQ-26-001/view') {
+  // Seed the REAL url too: listQuery helpers read window.location.search,
+  // which MemoryRouter never populates (#1131 review).
+  window.history.replaceState(null, '', initialUrl)
   const store = configureStore({ reducer: { empty: (s = null) => s } })
   return render(
     <Provider store={store}>
@@ -102,6 +105,12 @@ function renderDetail(overrides: Partial<OwnerEquityDocument> = {}, initialUrl =
 }
 
 describe('OwnerEquityDetailView', () => {
+  // jsdom persists window.location across cases; BrowserRouter tests below
+  // read it, so reset between tests (#1131 review).
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
   it('shows a Settlements tab for monetary documents', () => {
     renderDetail({ type: 'CAPITAL_INJECTION' })
     expect(screen.getByRole('tab', { name: /Settlements/ })).toBeInTheDocument()
@@ -199,12 +208,13 @@ describe('OwnerEquityDetailView', () => {
     }
 
     const store = configureStore({ reducer: { empty: (s = null) => s } })
+    window.history.replaceState(null, '', '/accounting/owner-equity/EQ-1/view?tab=0&probe=keepme')
     render(
       <Provider store={store}>
-        <MemoryRouter initialEntries={['/accounting/owner-equity/EQ-1/view?tab=0&probe=keepme']}>
+        <BrowserRouter>
           <LocationProbe />
           <OwnerEquityDetailView document={buildDoc()} />
-        </MemoryRouter>
+        </BrowserRouter>
       </Provider>,
     )
 

@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { describe, it, vi, expect } from 'vitest'
+import { BrowserRouter, MemoryRouter, Route, Routes  } from 'react-router-dom'
+import { beforeEach, describe, it, vi, expect  } from 'vitest'
 
 const { mockNavigate } = vi.hoisted(() => ({ mockNavigate: vi.fn() }))
 
@@ -50,6 +50,12 @@ vi.mock('@/hooks/useNotification', () => ({
 import StockAdjustmentViewPage from '../StockAdjustmentViewPage'
 
 describe('StockAdjustmentViewPage', () => {
+  // jsdom persists window.location across cases; BrowserRouter tests below
+  // read it, so reset between tests (#1131 review).
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
   it('labels the historical column "Stock Before" and shows stockBefore/stockAfter for completed items', () => {
     render(
       <MemoryRouter initialEntries={['/inventory/stock-adjustments/a1/view']}>
@@ -111,12 +117,13 @@ describe('StockAdjustmentViewPage', () => {
     mockAdjustment.status = 'draft'
     mockNavigate.mockClear()
     try {
-      render(
-        <MemoryRouter initialEntries={['/inventory/stock-adjustments/a1/view?listQuery=page%3D2']}>
+      window.history.replaceState(null, '', '/inventory/stock-adjustments/a1/view?listQuery=page%3D2')
+    render(
+        <BrowserRouter>
           <Routes>
             <Route path="/inventory/stock-adjustments/:id/view" element={<StockAdjustmentViewPage />} />
           </Routes>
-        </MemoryRouter>,
+        </BrowserRouter>,
       )
 
       fireEvent.click(screen.getByRole('button', { name: /^edit$/i }))
@@ -133,12 +140,13 @@ describe('StockAdjustmentViewPage', () => {
   })
 
   it('returns to the list with the ticket decoded', async () => {
+    window.history.replaceState(null, '', '/inventory/stock-adjustments/a1/view?listQuery=page%3D2')
     render(
-      <MemoryRouter initialEntries={['/inventory/stock-adjustments/a1/view?listQuery=page%3D2']}>
+      <BrowserRouter>
         <Routes>
           <Route path="/inventory/stock-adjustments/:id/view" element={<StockAdjustmentViewPage />} />
         </Routes>
-      </MemoryRouter>,
+      </BrowserRouter>,
     )
 
     fireEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)

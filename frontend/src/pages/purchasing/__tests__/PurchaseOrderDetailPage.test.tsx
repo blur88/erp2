@@ -2,8 +2,8 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation  } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi  } from 'vitest'
 
 import type { PurchaseOrder } from '@/types'
 
@@ -65,6 +65,9 @@ const order: Partial<PurchaseOrder> = {
 }
 
 function renderPage(search = '') {
+  // Seed the REAL url too: listQuery helpers read window.location.search,
+  // which MemoryRouter never populates (#1131 review).
+  window.history.replaceState(null, '', `/purchasing/orders/PO-26-001/view${search}`)
   const store = configureStore({ reducer: { purchasing: (state = {}) => state } })
   return render(
     <Provider store={store}>
@@ -78,6 +81,12 @@ function renderPage(search = '') {
 }
 
 describe('PurchaseOrderDetailPage', () => {
+  // jsdom persists window.location across cases; BrowserRouter tests below
+  // read it, so reset between tests (#1131 review).
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
   it('preserves other query params when the tab changes', async () => {
     mockGetPurchaseOrderByNumber.mockReturnValue({ data: order, isLoading: false })
     mockGetPurchaseOrderPayments.mockReturnValue({ data: [], isLoading: false })
@@ -88,14 +97,15 @@ describe('PurchaseOrderDetailPage', () => {
     }
 
     const store = configureStore({ reducer: { purchasing: (state = {}) => state } })
+    window.history.replaceState(null, '', '/purchasing/orders/PO-26-001/view?tab=0&probe=keepme')
     render(
       <Provider store={store}>
-        <MemoryRouter initialEntries={['/purchasing/orders/PO-26-001/view?tab=0&probe=keepme']}>
+        <BrowserRouter>
           <Routes>
             <Route path="/purchasing/orders/:orderNumber/view" element={<PurchaseOrderDetailPage />} />
           </Routes>
           <LocationProbe />
-        </MemoryRouter>
+        </BrowserRouter>
       </Provider>,
     )
 

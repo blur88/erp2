@@ -256,3 +256,39 @@ describe('useListUrlState + useFilterBar co-existence', () => {
     expect(params.get('status')).toBe('active')
   })
 })
+
+describe('post-mount ticket generation (regression: stale useLocation)', () => {
+  it('builds a ticket from state changed AFTER mount, not the mount-time URL', async () => {
+    const { withCurrentListQuery } = await import('@/utils/listQuery')
+    setUrl('/list')
+
+    const { result } = renderHook(() => useListUrlState({ sort: SORT }), { wrapper: makeWrapper() })
+
+    // Change list state after mount, exactly as a user sorting then paging would.
+    // Order matters: setSort() resets page to 1, so sort first, then page.
+    act(() => result.current.setSort())
+    act(() => result.current.setPage(3))
+
+    // The ticket must reflect the CURRENT visible list state. Building it from
+    // React Router's useLocation().search would yield '' here, because native
+    // replaceState does not notify the router.
+    const url = withCurrentListQuery('/list/EQ-1/view')
+    const ticket = new URLSearchParams(url.slice(url.indexOf('?'))).get('listQuery')
+    const inner = new URLSearchParams(ticket ?? '')
+
+    expect(inner.get('page')).toBe('3')
+    expect(inner.get('sortOrder')).toBe('asc')
+  })
+
+  it('round-trips that ticket back to the list', async () => {
+    const { withCurrentListQuery, currentListPath } = await import('@/utils/listQuery')
+    setUrl('/list')
+    const { result } = renderHook(() => useListUrlState({ sort: SORT }), { wrapper: makeWrapper() })
+    act(() => result.current.setPage(2))
+
+    const detailUrl = withCurrentListQuery('/list/EQ-1/view')
+    setUrl(detailUrl)
+
+    expect(currentListPath('/list')).toBe('/list?page=2')
+  })
+})

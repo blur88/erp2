@@ -108,6 +108,15 @@ function renderPage(
   initialEntry: string | { pathname: string; search?: string; state?: unknown } =
     '/accounting/owner-equity',
 ) {
+  // Seed the REAL url too: listQuery helpers read window.location.search,
+  // which MemoryRouter never populates (#1131 review).
+  window.history.replaceState(
+    null,
+    '',
+    typeof initialEntry === 'string'
+      ? initialEntry
+      : `${initialEntry.pathname}${initialEntry.search ?? ''}`,
+  )
   const store = configureStore({ reducer: { empty: (s = null) => s } })
   return render(
     // LocalizationProvider is required: selecting a period reveals the custom
@@ -146,9 +155,14 @@ describe('OwnerEquityPage', () => {
 
     await user.click(await screen.findByText('EQ-26-001'))
 
-    expect(mockNavigate).toHaveBeenCalledWith(
-      expect.stringContaining('listQuery=type%3DCASH_DRAWING%26page%3D2'),
-    )
+    // Assert on the decoded ticket, not a serialized string: useListUrlState
+    // appends its keys after the filter keys, so param ORDER is an
+    // implementation detail.
+    const target = mockNavigate.mock.calls.at(-1)?.[0] as string
+    const ticket = new URLSearchParams(target.slice(target.indexOf('?'))).get('listQuery')
+    const inner = new URLSearchParams(ticket ?? '')
+    expect(inner.get('type')).toBe('CASH_DRAWING')
+    expect(inner.get('page')).toBe('2')
   })
 
   // Edit must tell the form it was opened from the list, so the form's
@@ -195,10 +209,9 @@ describe('OwnerEquityPage', () => {
   })
 
   it('hydrates page, limit and sort order from the URL', async () => {
-    // useListUrlState hydrates from window.location.search, which MemoryRouter
-    // never populates — set the real URL before rendering.
-    window.history.replaceState(null, '', '/accounting/owner-equity?page=2&limit=50&sortOrder=asc')
-    renderPage('/accounting/owner-equity')
+    // renderPage seeds window.location from this argument; useListUrlState
+    // hydrates from it.
+    renderPage('/accounting/owner-equity?page=2&limit=50&sortOrder=asc')
 
     await waitFor(() => {
       expect(vi.mocked(useGetOwnerEquityListQuery)).toHaveBeenLastCalledWith(

@@ -5,7 +5,10 @@ import {
   LIST_QUERY_PARAM,
   encodeListQuery,
   extractListQuery,
+  currentListPath,
+  forwardListQuery,
   listPathWithQuery,
+  withCurrentListQuery,
   withListQuery,
 } from '@/utils/listQuery'
 
@@ -120,5 +123,59 @@ describe('listPathWithQuery', () => {
   it('returns a clean path when there is no ticket', () => {
     expect(listPathWithQuery('/accounting/owner-equity', '?tab=1')).toBe('/accounting/owner-equity')
     expect(listPathWithQuery('/accounting/owner-equity', '')).toBe('/accounting/owner-equity')
+  })
+})
+
+describe('withCurrentListQuery (live read)', () => {
+  it('reads window.location.search at call time, not a stale snapshot', () => {
+    window.history.replaceState(null, '', '/list')
+    // Simulate the hook writing new state natively — React Router's
+    // useLocation() would still report the old (empty) search here.
+    window.history.replaceState(null, '', '/list?page=3&type=X')
+
+    const url = withCurrentListQuery('/list/EQ-1/view')
+    const query = new URLSearchParams(url.slice(url.indexOf('?')))
+    expect(query.get(LIST_QUERY_PARAM)).toBe('page=3&type=X')
+  })
+
+  it('returns a bare path when the live URL is clean', () => {
+    window.history.replaceState(null, '', '/list')
+    expect(withCurrentListQuery('/list/EQ-1/view')).toBe('/list/EQ-1/view')
+  })
+
+  it('preserves destination params', () => {
+    window.history.replaceState(null, '', '/list?page=2')
+    const url = withCurrentListQuery('/sa/7/edit?from=view')
+    expect(url.split('?').length).toBe(2)
+    const q = new URLSearchParams(url.slice(url.indexOf('?')))
+    expect(q.get('from')).toBe('view')
+    expect(q.get(LIST_QUERY_PARAM)).toBe('page=2')
+  })
+})
+
+describe('forwardListQuery (ticket-only forwarding)', () => {
+  it('forwards only the ticket, never foreign detail params like tab', () => {
+    window.history.replaceState(null, '', '/x/view?tab=2&listQuery=page%3D3')
+    const url = forwardListQuery('/x/1/edit')
+    const q = new URLSearchParams(url.slice(url.indexOf('?')))
+    expect(q.get(LIST_QUERY_PARAM)).toBe('page=3')
+    expect(q.get('tab')).toBeNull()
+  })
+
+  it('returns the bare path when there is no ticket', () => {
+    window.history.replaceState(null, '', '/x/view?tab=2')
+    expect(forwardListQuery('/x/1/edit')).toBe('/x/1/edit')
+  })
+})
+
+describe('currentListPath (live return)', () => {
+  it('decodes the live ticket onto the list path', () => {
+    window.history.replaceState(null, '', '/x/view?listQuery=page%3D3%26type%3DX')
+    expect(currentListPath('/list')).toBe('/list?page=3&type=X')
+  })
+
+  it('returns the clean list path with no ticket', () => {
+    window.history.replaceState(null, '', '/x/view?tab=1')
+    expect(currentListPath('/list')).toBe('/list')
   })
 })

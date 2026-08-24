@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation  } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { SalesOrder } from '@/types'
@@ -94,6 +94,9 @@ function makeOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
 }
 
 function renderPage(orderNumber = 'SO-26-001', search = '') {
+  // Seed the REAL url too: listQuery helpers read window.location.search,
+  // which MemoryRouter never populates (#1131 review).
+  window.history.replaceState(null, '', `/sales/orders/${orderNumber}/view${search}`)
   const store = configureStore({ reducer: { sales: (state = {}) => state } })
   return render(
     <Provider store={store}>
@@ -107,6 +110,12 @@ function renderPage(orderNumber = 'SO-26-001', search = '') {
 }
 
 describe('SalesOrderDetailPage', () => {
+  // jsdom persists window.location across cases; BrowserRouter tests below
+  // read it, so reset between tests (#1131 review).
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetSalesOrderPayments.mockReturnValue({ data: [], isLoading: false })
@@ -145,14 +154,15 @@ describe('SalesOrderDetailPage', () => {
     }
 
     const store = configureStore({ reducer: { sales: (state = {}) => state } })
+    window.history.replaceState(null, '', '/sales/orders/SO-26-001/view?tab=0&probe=keepme')
     render(
       <Provider store={store}>
-        <MemoryRouter initialEntries={['/sales/orders/SO-26-001/view?tab=0&probe=keepme']}>
+        <BrowserRouter>
           <Routes>
             <Route path="/sales/orders/:orderNumber/view" element={<SalesOrderDetailPage />} />
           </Routes>
           <LocationProbe />
-        </MemoryRouter>
+        </BrowserRouter>
       </Provider>,
     )
 

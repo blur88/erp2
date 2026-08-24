@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation  } from 'react-router-dom'
 import { act, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -90,6 +90,9 @@ function makeExpense(overrides: Partial<Expense> = {}): Expense {
 }
 
 function renderPage(search = '') {
+  // Seed the REAL url too: listQuery helpers read window.location.search,
+  // which MemoryRouter never populates (#1131 review).
+  window.history.replaceState(null, '', `/accounting/expenses/exp-1${search}`)
   const store = configureStore({ reducer: {} })
   const tree = () => (
     <Provider store={store}>
@@ -105,6 +108,12 @@ function renderPage(search = '') {
 }
 
 describe('ExpenseDetailPage', () => {
+  // jsdom persists window.location across cases; BrowserRouter tests below
+  // read it, so reset between tests (#1131 review).
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -396,14 +405,15 @@ describe('ExpenseDetailPage', () => {
     }
 
     const store = configureStore({ reducer: {} })
+    window.history.replaceState(null, '', '/accounting/expenses/exp-1?tab=0&probe=keepme')
     render(
       <Provider store={store}>
-        <MemoryRouter initialEntries={['/accounting/expenses/exp-1?tab=0&probe=keepme']}>
+        <BrowserRouter>
           <Routes>
             <Route path="/accounting/expenses/:id" element={<ExpenseDetailPage />} />
           </Routes>
           <LocationProbe />
-        </MemoryRouter>
+        </BrowserRouter>
       </Provider>,
     )
 

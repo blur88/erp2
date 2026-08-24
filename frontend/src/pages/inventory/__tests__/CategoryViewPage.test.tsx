@@ -2,8 +2,8 @@ import { configureStore } from '@reduxjs/toolkit'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation  } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi  } from 'vitest'
 
 const CATEGORY = vi.hoisted(() => ({
   id: 'cat-1',
@@ -54,6 +54,12 @@ function renderPage() {
 }
 
 describe('CategoryViewPage', () => {
+  // jsdom persists window.location across cases; BrowserRouter tests below
+  // read it, so reset between tests (#1131 review).
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
   it('renders the category name, status chip, and two tabs', async () => {
     renderPage()
     expect(await screen.findByText('Old')).toBeInTheDocument()
@@ -96,14 +102,15 @@ describe('CategoryViewPage', () => {
       },
       middleware: (gdm) => gdm().concat(inventoryApiSlice.middleware, settingsApiSlice.middleware),
     })
+    window.history.replaceState(null, '', '/inventory/categories/old/view?tab=0&probe=keepme')
     render(
       <Provider store={store}>
-        <MemoryRouter initialEntries={['/inventory/categories/old/view?tab=0&probe=keepme']}>
+        <BrowserRouter>
           <Routes>
             <Route path="/inventory/categories/:slug/view" element={<CategoryViewPage />} />
           </Routes>
           <LocationProbe />
-        </MemoryRouter>
+        </BrowserRouter>
       </Provider>,
     )
 

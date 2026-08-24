@@ -80,6 +80,8 @@ describe('OrdersPage row click navigation', () => {
 
   it('carries the list query to Detail', async () => {
     const store = configureStore({ reducer: { sales: salesReducer } })
+    // Seed the REAL url: withCurrentListQuery reads window.location.search.
+    window.history.replaceState(null, '', '/sales/orders?page=2&sortOrder=asc')
     render(
       <Provider store={store}>
         <MemoryRouter initialEntries={['/sales/orders?page=2&sortOrder=asc']}>
