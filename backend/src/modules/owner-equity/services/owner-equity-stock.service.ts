@@ -20,6 +20,9 @@ import {
   PostingType,
 } from '../../../common/accounting-posting/enums';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
+import { resolveAppTimezone } from '../../../common/utils/app-calendar';
+import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
+import { SettingsService } from '../../settings/settings.service';
 import {
   toMinorUnits,
   formatScale4,
@@ -39,6 +42,7 @@ export class OwnerEquityStockService {
     private readonly stockMovementService: StockMovementService,
     @Inject(ACCOUNTING_POSTING_PORT)
     private readonly posting: AccountingPostingPort,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async complete(
@@ -46,6 +50,9 @@ export class OwnerEquityStockService {
     _userId?: string,
     username?: string,
   ): Promise<OwnerEquityDocument> {
+    // Business calendar resolved before the transaction opens (issue #1134).
+    const timezone = await resolveAppTimezone(this.settingsService);
+
     return this.dataSource.transaction(async (manager: EntityManager) => {
       const doc = await this.lockByReference(manager, referenceNumber);
       if (doc.type !== OwnerEquityType.STOCK_DRAWING) {
@@ -90,8 +97,10 @@ export class OwnerEquityStockService {
       // One instant for both the JE date and completedAt, so the two can never
       // straddle a midnight boundary. The JE takes the completion ACTION date,
       // not doc.equityDate — issue #1132, superseding the original spec §5.4.
+      // That instant is resolved against the configured business calendar, not
+      // UTC — issue #1134.
       const completedAt = new Date();
-      const actionDate = completedAt.toISOString().slice(0, 10);
+      const actionDate = formatDateInTimezone(completedAt, timezone);
 
       // Zero cost: the inventory moved, but a zero-value JE is meaningless and
       // CHK_jel_nonneg-adjacent. Mirrors postSalesFulfillment's COGS gate
@@ -122,6 +131,9 @@ export class OwnerEquityStockService {
     _userId?: string,
     username?: string,
   ): Promise<OwnerEquityDocument> {
+    const timezone = await resolveAppTimezone(this.settingsService);
+    const uncompleteInstant = new Date();
+
     return this.dataSource.transaction(async (manager: EntityManager) => {
       const doc = await this.lockByReference(manager, referenceNumber);
       if (doc.type !== OwnerEquityType.STOCK_DRAWING) {
@@ -158,7 +170,8 @@ export class OwnerEquityStockService {
         AccountingSourceType.OWNER_EQUITY,
         doc.id,
         [PostingType.OWNER_STOCK_DRAWING],
-        new Date().toISOString().slice(0, 10),   // Uncomplete action date (UTC)
+        // Uncomplete action date, in the configured business calendar (#1134).
+        formatDateInTimezone(uncompleteInstant, timezone),
         manager,
         username,
       );

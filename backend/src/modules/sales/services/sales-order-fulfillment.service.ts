@@ -3,9 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { SalesOrder, SalesOrderStatus } from '../../../database/entities/sales-order.entity';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
+import { resolveAppTimezone } from '../../../common/utils/app-calendar';
+import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
 import { StockMovementService } from '../../../modules/inventory/services/stock-movement.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
+import { SettingsService } from '../../settings/settings.service';
 import { InventoryIntegrationService } from './inventory-integration.service';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
@@ -27,9 +30,13 @@ export class SalesOrderFulfillmentService {
     @Inject(ACCOUNTING_POSTING_PORT)
     private readonly accounting: AccountingPostingPort,
     private readonly dataSource: DataSource,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async fulfillOrder(id: string, userId?: string, username?: string): Promise<SalesOrder> {
+    // Business calendar resolved before the transaction opens (issue #1134).
+    const timezone = await resolveAppTimezone(this.settingsService);
+
     const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
       const order = await lockRowForUpdate(manager, SalesOrder, id, {
         relations: { items: { product: true }, customer: true },
@@ -117,7 +124,7 @@ export class SalesOrderFulfillmentService {
         sourceRef: order.orderNumber,
         revenueAmount,
         cogsAmount,
-        entryDate: orderForPosting.fulfilledAt.toISOString().slice(0, 10),
+        entryDate: formatDateInTimezone(orderForPosting.fulfilledAt, timezone),
         createdBy: username,
       }, manager);
 
@@ -141,6 +148,9 @@ export class SalesOrderFulfillmentService {
   }
 
   async unfulfillOrder(id: string, userId?: string, username?: string): Promise<SalesOrder> {
+    const timezone = await resolveAppTimezone(this.settingsService);
+    const unfulfillInstant = new Date();
+
     const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
       const order = await lockRowForUpdate(manager, SalesOrder, id, {
         relations: { items: { product: true } },
@@ -170,7 +180,7 @@ export class SalesOrderFulfillmentService {
       order.status = SalesOrderStatus.READY;
       order.fulfilledAt = undefined;
 
-      const entryDate = new Date().toISOString().slice(0, 10);
+      const entryDate = formatDateInTimezone(unfulfillInstant, timezone);
       await this.accounting.reverseEntriesForDocument(
         AccountingSourceType.SALES_ORDER,
         order.id,

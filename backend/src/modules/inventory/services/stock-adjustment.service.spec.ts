@@ -24,6 +24,7 @@ describe('StockAdjustmentService', () => {
   let productRepository: jest.Mocked<Repository<Product>>;
   let stockAdjustmentItemRepository: jest.Mocked<Repository<StockAdjustmentItem>>;
   let accountingPort: { postStockAdjustment: jest.Mock; reverseEntriesForDocument: jest.Mock };
+  let appTimezone: string;
   let settingsService: { generateDocumentNumber: jest.Mock };
 
   const createMockStockAdjustment = (status: StockAdjustmentStatus = StockAdjustmentStatus.DRAFT): Partial<StockAdjustment> => ({
@@ -74,6 +75,7 @@ describe('StockAdjustmentService', () => {
   });
 
   beforeEach(async () => {
+    appTimezone = 'Asia/Kuala_Lumpur';
     // Mock QueryRunner for transaction support
     const mockQueryRunner = {
       connect: jest.fn(),
@@ -141,6 +143,7 @@ describe('StockAdjustmentService', () => {
           provide: SettingsService,
           useValue: {
             generateDocumentNumber: jest.fn(),
+            getRegionalSettings: jest.fn(async () => ({ timezone: appTimezone })),
           },
         },
         {
@@ -453,6 +456,62 @@ describe('complete and revert', () => {
       mockManager,
     );
     expect(mockManager.save).toHaveBeenCalled();
+  });
+
+  describe('business-calendar entryDate (issue #1134)', () => {
+    // 16:30Z is past the UTC+8 rollover (16:00Z): UTC says the 24th,
+    // Asia/Kuala_Lumpur says the 25th. A mid-UTC-day instant would be inert.
+    const FROZEN_INSTANT = new Date('2026-08-24T16:30:00.000Z');
+
+    const wire = (status: StockAdjustmentStatus) => {
+      const adjustment = createMockStockAdjustment(status);
+      const mockManager = {
+        findOne: jest.fn().mockResolvedValue(adjustment),
+        find: jest.fn().mockResolvedValue(adjustment.items!),
+        save: jest.fn(),
+      };
+      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) =>
+        cb(mockManager),
+      );
+      (stockMovementService.create as jest.Mock).mockResolvedValue({});
+    };
+
+    beforeEach(() => {
+      jest.useFakeTimers().setSystemTime(FROZEN_INSTANT);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it.each([
+      ['Asia/Kuala_Lumpur', '2026-08-25'],
+      ['UTC', '2026-08-24'],
+    ])('complete dates the JE in %s as %s', async (timezone, expected) => {
+      appTimezone = timezone;
+      wire(StockAdjustmentStatus.DRAFT);
+
+      await service.complete('sa-1', 'user-1', 'admin');
+
+      expect(accountingPort.postStockAdjustment).toHaveBeenCalledWith(
+        expect.objectContaining({ entryDate: expected }),
+        expect.anything(),
+      );
+    });
+
+    it.each([
+      ['Asia/Kuala_Lumpur', '2026-08-25'],
+      ['UTC', '2026-08-24'],
+    ])('revert dates the reversal in %s as %s', async (timezone, expected) => {
+      appTimezone = timezone;
+      wire(StockAdjustmentStatus.COMPLETED);
+
+      await service.revert('sa-1', 'user-1', 'admin');
+
+      const [, , , entryDate] =
+        accountingPort.reverseEntriesForDocument.mock.calls[0];
+      expect(entryDate).toBe(expected);
+    });
   });
 
   it('revert reverses stock + JE and sets REVERTED', async () => {

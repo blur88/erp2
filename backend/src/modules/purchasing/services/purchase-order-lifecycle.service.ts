@@ -22,9 +22,12 @@ import type { AccountingPostingPort } from '../../../common/accounting-posting/a
 import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
 import { formatScale4, toMinorUnits } from '@/common/utils/money';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
+import { resolveAppTimezone } from '../../../common/utils/app-calendar';
+import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
 import { AuditLogService } from '../../audit-logs/services';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
+import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class PurchaseOrderLifecycleService {
@@ -39,6 +42,7 @@ export class PurchaseOrderLifecycleService {
     private readonly dataSource: DataSource,
     @Inject(ACCOUNTING_POSTING_PORT)
     private readonly accounting: AccountingPostingPort,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async assertEditAllowed(purchaseOrderId: string): Promise<void> {
@@ -144,6 +148,9 @@ export class PurchaseOrderLifecycleService {
   }
 
   async receive(id: string, userId?: string, username?: string): Promise<PurchaseOrder> {
+    // Business calendar resolved before the transaction opens (issue #1134).
+    const timezone = await resolveAppTimezone(this.settingsService);
+
     const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
       const purchaseOrder = await lockRowForUpdate(manager, PurchaseOrder, id, {
         relations: { items: { product: true }, supplier: true },
@@ -219,7 +226,7 @@ export class PurchaseOrderLifecycleService {
         purchaseOrderId: id,
         sourceRef: purchaseOrder.orderNumber,
         amount: formatScale4(inventoryMinor),
-        entryDate: receiveDate.toISOString().slice(0, 10),
+        entryDate: formatDateInTimezone(receiveDate, timezone),
         createdBy: username,
       }, manager);
 
@@ -245,6 +252,9 @@ export class PurchaseOrderLifecycleService {
   }
 
   async return(id: string, userId?: string, username?: string): Promise<PurchaseOrder> {
+    const timezone = await resolveAppTimezone(this.settingsService);
+    const returnInstant = new Date();
+
     const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
       const purchaseOrder = await lockRowForUpdate(manager, PurchaseOrder, id, {
         relations: { items: { product: true } },
@@ -269,7 +279,7 @@ export class PurchaseOrderLifecycleService {
         AccountingSourceType.PURCHASE_ORDER,
         id,
         [PostingType.PURCHASE_RECEIVE],
-        new Date().toISOString().slice(0, 10),
+        formatDateInTimezone(returnInstant, timezone),
         manager,
         username,
       );

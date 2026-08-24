@@ -34,6 +34,8 @@ import {
 } from '../../search/search.constants';
 import { SupplierService } from './supplier.service';
 import { VendorPaymentService } from './vendor-payment.service';
+import { resolveAppTimezone } from '../../../common/utils/app-calendar';
+import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
@@ -770,6 +772,11 @@ export class PurchaseOrderService extends BaseCrudService<
 
     const savedRefundRows: { id: string; paymentMethodId: string; accountingChannel: 'CASH' | 'BANK' }[] = [];
 
+    // Resolve the business calendar before opening the transaction — the
+    // settings read uses the default DataSource, not this manager (issue #1134).
+    const timezone = await resolveAppTimezone(this.settingsService);
+    const refundInstant = new Date();
+
     await this.dataSource.transaction(async (manager: EntityManager) => {
       const purchaseOrder = await lockRowForUpdate(manager, PurchaseOrder, orderId, {
         notFoundMessage: 'Purchase order not found',
@@ -810,7 +817,7 @@ export class PurchaseOrderService extends BaseCrudService<
           refundRowId: (saved as any).id,
           channel: method.accountingChannel,
           amount: formatScale4(toMinorUnits(line.amount)),
-          entryDate: new Date().toISOString().slice(0, 10),
+          entryDate: formatDateInTimezone(refundInstant, timezone),
           createdBy: username,
         }, manager);
         savedRefundRows.push({
@@ -1020,6 +1027,9 @@ export class PurchaseOrderService extends BaseCrudService<
   async markAsUnpaid(id: string, userId?: string, username?: string): Promise<PurchaseOrderResponseDto> {
     this.logger.log(`Marking purchase order as unpaid: ${id}`);
 
+    const timezone = await resolveAppTimezone(this.settingsService);
+    const now = new Date();
+
     await this.dataSource.transaction(async (manager: EntityManager) => {
       const purchaseOrder = await lockRowForUpdate(manager, PurchaseOrder, id, {
         notFoundMessage: 'Purchase order not found',
@@ -1040,8 +1050,7 @@ export class PurchaseOrderService extends BaseCrudService<
         await this.vendorPaymentService.softDeleteForUnpay(payment.id, manager);
       }
 
-      const now = new Date();
-      const entryDate = now.toISOString().slice(0, 10);
+      const entryDate = formatDateInTimezone(now, timezone);
       purchaseOrder.paidAmount = '0.0000';
       purchaseOrder.paymentStatus = PurchaseOrderPaymentStatus.UNPAID;
       purchaseOrder.status = PurchaseOrderStatus.DRAFT;

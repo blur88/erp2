@@ -17,8 +17,19 @@ function makeService(overrides: any = {}) {
       getRepository: () => ({ create: (x: any) => x, save: async (x: any) => ({ ...x, id: 'new-id' }) }),
     }),
   };
-  const svc = new ChartOfAccountService(coaRepo as any, settingsRepo as any, posting as any, balance as any, dataSource as any);
-  return { svc, posting };
+  const getRegionalSettings = jest.fn(async () => ({
+    timezone: overrides.timezone ?? 'Asia/Kuala_Lumpur',
+  }));
+  const regionalSettingsService = { getRegionalSettings };
+  const svc = new ChartOfAccountService(
+    coaRepo as any,
+    settingsRepo as any,
+    posting as any,
+    balance as any,
+    dataSource as any,
+    regionalSettingsService as any,
+  );
+  return { svc, posting, getRegionalSettings };
 }
 
 describe('ChartOfAccountService.create', () => {
@@ -45,6 +56,72 @@ describe('ChartOfAccountService.create', () => {
     const { svc, posting } = makeService({ accounts: [] });
     await svc.create({ code: '1500', name: 'Petty Cash', type: AccountType.ASSET, openingBalance: '0' } as any, 'admin');
     expect(posting.postOpeningBalance).not.toHaveBeenCalled();
+  });
+
+  describe('opening-balance entryDate fallback (issue #1134)', () => {
+    // 16:30Z is past the UTC+8 rollover (16:00Z), so the UTC calendar date and
+    // the Asia/Kuala_Lumpur one differ. A mid-UTC-day instant would be inert.
+    const FROZEN_INSTANT = new Date('2026-08-24T16:30:00.000Z');
+
+    beforeEach(() => {
+      jest.useFakeTimers().setSystemTime(FROZEN_INSTANT);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    const createWithoutDate = (svc: any) =>
+      svc.create(
+        { code: '1500', name: 'Petty Cash', type: AccountType.ASSET, openingBalance: '250.0000' } as any,
+        'admin',
+      );
+
+    it('falls back to today in the configured timezone, not UTC', async () => {
+      const { svc, posting } = makeService({ accounts: [], timezone: 'Asia/Kuala_Lumpur' });
+      await createWithoutDate(svc);
+      expect(posting.postOpeningBalance).toHaveBeenCalledWith(
+        expect.objectContaining({ entryDate: '2026-08-25' }),
+        expect.anything(),
+      );
+    });
+
+    it('falls back to the UTC date when UTC is the configured timezone', async () => {
+      const { svc, posting } = makeService({ accounts: [], timezone: 'UTC' });
+      await createWithoutDate(svc);
+      expect(posting.postOpeningBalance).toHaveBeenCalledWith(
+        expect.objectContaining({ entryDate: '2026-08-24' }),
+        expect.anything(),
+      );
+    });
+
+    it('leaves a supplied openingBalanceDate untouched and skips the settings read', async () => {
+      const { svc, posting, getRegionalSettings } = makeService({ accounts: [] });
+      await svc.create(
+        {
+          code: '1500',
+          name: 'Petty Cash',
+          type: AccountType.ASSET,
+          openingBalance: '250.0000',
+          openingBalanceDate: '2026-01-15',
+        } as any,
+        'admin',
+      );
+      expect(posting.postOpeningBalance).toHaveBeenCalledWith(
+        expect.objectContaining({ entryDate: '2026-01-15' }),
+        expect.anything(),
+      );
+      expect(getRegionalSettings).not.toHaveBeenCalled();
+    });
+
+    it('skips the settings read when no opening-balance JE is posted', async () => {
+      const { svc, getRegionalSettings } = makeService({ accounts: [] });
+      await svc.create(
+        { code: '1500', name: 'Petty Cash', type: AccountType.ASSET, openingBalance: '0' } as any,
+        'admin',
+      );
+      expect(getRegionalSettings).not.toHaveBeenCalled();
+    });
   });
 });
 

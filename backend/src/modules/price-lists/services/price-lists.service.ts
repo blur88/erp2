@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource, IsNull } from 'typeorm';
 import { applyPagination } from '@/common/pagination/apply-pagination';
-import { formatDateInTimezone } from '@/common/utils/date-in-timezone';
+import { getAppToday } from '@/common/utils/app-calendar';
 import { PriceList, PriceListItem } from '@/database/entities';
 import { SettingsService } from '../../settings/settings.service';
 import { PriceListDefaultService } from './price-list-default.service';
@@ -245,8 +245,7 @@ export class PriceListsService {
   }
 
   private async getAppToday(): Promise<string> {
-    const { timezone } = await this.settingsService.getRegionalSettings();
-    return formatDateInTimezone(new Date(), timezone);
+    return getAppToday(this.settingsService);
   }
 
   /**

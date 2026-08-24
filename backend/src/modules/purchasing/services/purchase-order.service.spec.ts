@@ -37,6 +37,7 @@ describe('PurchaseOrderService', () => {
   let vendorPaymentService: jest.Mocked<VendorPaymentService>;
   let paymentMethodRepository: any;
   let dataSource: jest.Mocked<DataSource>
+  let appTimezone: string;
   const adminUser = { role: UserRole.ADMIN } as any;
 
   const mockPurchaseOrder = {
@@ -96,6 +97,7 @@ describe('PurchaseOrderService', () => {
   }
 
   beforeEach(async () => {
+    appTimezone = 'Asia/Kuala_Lumpur';
     dataSource = { transaction: jest.fn() } as any
     module = await Test.createTestingModule({
       providers: [
@@ -170,7 +172,9 @@ describe('PurchaseOrderService', () => {
         },
         {
           provide: SettingsService,
-          useValue: {},
+          useValue: {
+            getRegionalSettings: jest.fn(async () => ({ timezone: appTimezone })),
+          },
         },
         {
           provide: AuditLogService,
@@ -963,6 +967,41 @@ describe('PurchaseOrderService', () => {
     })
   })
 
+  describe('markAsUnpaid business-calendar entryDate (issue #1134)', () => {
+    // 16:30Z is past the UTC+8 rollover (16:00Z): UTC says the 24th,
+    // Asia/Kuala_Lumpur says the 25th.
+    const FROZEN_INSTANT = new Date('2026-08-24T16:30:00.000Z');
+
+    beforeEach(() => {
+      jest.useFakeTimers().setSystemTime(FROZEN_INSTANT);
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { id: 'vp-1' },
+      ] as any);
+      vendorPaymentService.softDeleteForUnpay.mockResolvedValue(undefined as any);
+      jest.spyOn(service as any, 'findOne').mockResolvedValue({ id: 'po-1' } as any);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it.each([
+      ['Asia/Kuala_Lumpur', '2026-08-25'],
+      ['UTC', '2026-08-24'],
+    ])('dates the reversal in %s as %s', async (timezone, expected) => {
+      appTimezone = timezone;
+      wireTx({ lockedPO: { id: 'po-1', orderNumber: 'PO-001', status: 'DRAFT' } });
+      const accounting = module.get<{ reverseEntriesForDocument: jest.Mock }>(
+        ACCOUNTING_POSTING_PORT,
+      );
+
+      await service.markAsUnpaid('po-1', 'user-1', 'admin');
+
+      const [, , , entryDate] = accounting.reverseEntriesForDocument.mock.calls[0];
+      expect(entryDate).toBe(expected);
+    });
+  });
+
   describe('recordRefunds', () => {
     const lockedPO = {
       id: 'po-1',
@@ -976,7 +1015,10 @@ describe('PurchaseOrderService', () => {
     beforeEach(() => {
       paymentMethodRepository.findOne.mockResolvedValue({ id: 'pm-1', isActive: true, accountingChannel: 'BANK' })
       generateSpy = jest.fn();
-      ;(service as any).settingsService = { generateDocumentNumber: generateSpy }
+      ;(service as any).settingsService = {
+        generateDocumentNumber: generateSpy,
+        getRegionalSettings: jest.fn(async () => ({ timezone: appTimezone })),
+      }
       vendorPaymentRepository.findOne.mockResolvedValue({
         id: 'refund-1',
         amount: '-40.0000',
@@ -1003,6 +1045,40 @@ describe('PurchaseOrderService', () => {
       })
       expect(ctx.saved[0].paymentDate).toBeDefined()
       expect(generateSpy).not.toHaveBeenCalled()
+    })
+
+    describe('business-calendar entryDate (issue #1134)', () => {
+      // 16:30Z is past the UTC+8 rollover (16:00Z): UTC says the 24th,
+      // Asia/Kuala_Lumpur says the 25th.
+      const FROZEN_INSTANT = new Date('2026-08-24T16:30:00.000Z');
+
+      beforeEach(() => {
+        jest.useFakeTimers().setSystemTime(FROZEN_INSTANT);
+      });
+
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      it.each([
+        ['Asia/Kuala_Lumpur', '2026-08-25'],
+        ['UTC', '2026-08-24'],
+      ])('dates the refund JE in %s as %s', async (timezone, expected) => {
+        appTimezone = timezone
+        ;(service as any).settingsService.getRegionalSettings = jest.fn(async () => ({
+          timezone,
+        }))
+        wireTx({ lockedPO })
+        jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
+        const accounting = module.get<{ postPurchaseRefund: jest.Mock }>(ACCOUNTING_POSTING_PORT)
+
+        await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '40.0000' }], 'u', 'admin')
+
+        expect(accounting.postPurchaseRefund).toHaveBeenCalledWith(
+          expect.objectContaining({ entryDate: expected }),
+          expect.anything(),
+        )
+      })
     })
 
     it('rejects total refund exceeding net paid across ACTIVE rows (aggregate guard)', async () => {
