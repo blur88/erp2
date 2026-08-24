@@ -29,6 +29,7 @@ import PriceListSelector from '@/components/price-lists/PriceListSelector'
 import { useFieldDuplicateCheck } from '@/hooks/useFieldDuplicateCheck'
 import { useNotification } from '@/hooks/useNotification'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
+import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 import api from '@/services/api'
 import {
   useCreateCustomerMutation,
@@ -97,6 +98,10 @@ const CustomerFormPage: React.FC = () => {
 
   const returnTo = (location.state as any)?.returnTo as string | undefined
   const profilePath = (location.state as any)?.profilePath as string | undefined
+  // The ticket carried from the list (or forwarded by the profile). The
+  // cross-module sales-order branch must NOT carry it — a ticket belongs to
+  // exactly one list.
+  const listPath = currentListPath('/sales/customers')
 
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [loadingCustomer, setLoadingCustomer] = useState(isEdit)
@@ -299,10 +304,12 @@ const CustomerFormPage: React.FC = () => {
   }, [hasNameDuplicate])
 
   const cancelDestination = returnTo === 'sales-order'
+    // Cross-module: NO ticket — a Customers ticket would corrupt the Sales Order
+    // form's return path.
     ? '/sales/orders/create'
     : returnTo === 'profile' && profilePath
-      ? profilePath
-      : '/sales/customers'
+      ? forwardListQuery(profilePath)
+      : listPath
 
   const handleCancel = () => {
     navigate(cancelDestination)
@@ -367,9 +374,9 @@ const CustomerFormPage: React.FC = () => {
           state: { preselectCustomerId: savedCustomer.id },
         })
       } else if (returnTo === 'profile' && profilePath) {
-        navigate(profilePath)
+        navigate(forwardListQuery(profilePath))
       } else {
-        navigate('/sales/customers')
+        navigate(listPath)
       }
     } catch (error: any) {
       const message = error?.data?.message

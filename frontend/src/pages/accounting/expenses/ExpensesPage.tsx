@@ -12,6 +12,7 @@ import { StatusChip } from '@/components/common/StatusChip'
 import RowActionMenu, { type RowAction } from '@/components/common/RowActionMenu'
 import { useExpenseAccountOptions } from '@/hooks/useExpenseAccountOptions'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useListUrlState } from '@/hooks/useListUrlState'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelExpenseMutation,
@@ -27,6 +28,7 @@ import {
   useGetActivePaymentMethodsForPurchasesQuery,
 } from '@/store/api/paymentMethodsApi'
 import { formatCurrency, toScaledAmount, fromScaledAmount } from '@/utils/currency'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { formatDate } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
@@ -85,9 +87,14 @@ export default function ExpensesPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [highlightId, setHighlightId] = useState<string | null>(null)
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const { page, limit, sortBy, sortOrder, setPage, setLimit, setSort, resetPage } =
+    useListUrlState({
+      sort: {
+        fields: [EXPENSE_SORT_FIELD],
+        defaultField: EXPENSE_SORT_FIELD,
+        defaultOrder: 'desc',
+      },
+    })
   const [payExpenseRow, setPayExpenseRow] = useState<Expense | null>(null)
   const [refundExpenseRow, setRefundExpenseRow] = useState<Expense | null>(null)
   const [cancelExpenseRow, setCancelExpenseRow] = useState<Expense | null>(null)
@@ -109,7 +116,7 @@ export default function ExpensesPage() {
   )
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } =
-    useFilterBar(filterConfig, { onApply: () => setPage(1) })
+    useFilterBar(filterConfig, { onApply: resetPage })
 
   const weekStartsOn = getStartOfWeek()
 
@@ -127,7 +134,7 @@ export default function ExpensesPage() {
     const params: ExpenseListParams = {
       page,
       limit,
-      sortBy: EXPENSE_SORT_FIELD,
+      sortBy,
       sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
     }
     const search = appliedFilters.search.trim()
@@ -138,7 +145,7 @@ export default function ExpensesPage() {
     if (dateRange.fromDate) params.fromDate = dateRange.fromDate
     if (dateRange.toDate) params.toDate = dateRange.toDate
     return params
-  }, [page, limit, appliedFilters, dateRange, sortOrder])
+  }, [page, limit, appliedFilters, dateRange, sortBy, sortOrder])
 
   const { data: response, isFetching, error } = useGetExpensesQuery(queryParams)
   const rows = response?.data ?? []
@@ -223,18 +230,8 @@ export default function ExpensesPage() {
     surplusMinor > 0n ? surplusMinor : netPaidMinor > 0n ? netPaidMinor : 0n,
   )
 
-  const handleLimitChange = (newLimit: number) => {
-    setLimit(newLimit)
-    setPage(1)
-  }
-
-  const handleSort = useCallback(() => {
-    setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))
-    setPage(1)
-  }, [])
-
   const handleView = (row: Expense) => {
-    navigate(`/accounting/expenses/${row.id}`)
+    navigate(withCurrentListQuery(`/accounting/expenses/${row.id}`))
   }
 
   const handlePaySubmit = useCallback(
@@ -318,7 +315,7 @@ export default function ExpensesPage() {
             if (meta.action === 'edit') {
               // Tell the form where Edit was opened from so Save/Cancel/Back
               // can come back here instead of falling through to Detail.
-              navigate(`/accounting/expenses/${row.id}/edit`, {
+              navigate(withCurrentListQuery(`/accounting/expenses/${row.id}/edit`), {
                 state: { expenseEditOrigin: 'list' },
               })
             } else if (meta.action === 'pay') {
@@ -379,7 +376,7 @@ export default function ExpensesPage() {
       subtitle="Track business expenses and payment status"
       primaryAction={{
         label: '+ New Expense',
-        onClick: () => navigate('/accounting/expenses/new'),
+        onClick: () => navigate(withCurrentListQuery('/accounting/expenses/new')),
       }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
@@ -390,7 +387,7 @@ export default function ExpensesPage() {
         field: EXPENSE_SORT_FIELD,
         sortBy: EXPENSE_SORT_FIELD,
         sortOrder,
-        onSort: handleSort,
+        onSort: setSort,
       }}
       isFetching={isFetching}
       error={error ? 'Failed to load expenses.' : null}
@@ -427,7 +424,7 @@ export default function ExpensesPage() {
                   page={page}
                   limit={limit}
                   onPageChange={setPage}
-                  onLimitChange={handleLimitChange}
+                  onLimitChange={setLimit}
                   pageSizeOptions={PAGINATION.options}
                 />
               ) : undefined

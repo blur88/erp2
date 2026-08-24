@@ -54,6 +54,7 @@ import TransactionFormShell from '@/components/transactions/TransactionFormShell
 import { formatCurrency, getCurrentDate, toDateInputValue, toMuiDatePickerFormat } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getStockOffenders } from '@/utils/stockStatus'
+import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 import { getOrderActionMetas } from './utils/orderActions'
 import StockIndicatorChip from './components/StockIndicatorChip'
 
@@ -152,6 +153,9 @@ const CreateSalesOrderPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
+  // The ticket carried from the list. The saved-order Detail return forwards it;
+  // list returns rebuild the list URL from it.
+  const listPath = currentListPath('/sales/orders')
   const dispatch = useAppDispatch()
   const store = useStore()
   const { orderNumber } = useParams<{ orderNumber: string }>()
@@ -287,7 +291,10 @@ const CreateSalesOrderPage: React.FC = () => {
           if (!editMeta || editMeta.disabled) {
             setLoadingOrder(false)
             showError(editMeta?.tooltip ?? 'Cannot edit this sales order')
-            navigate(`/sales/orders/${orderNumber}/view`, { replace: true })
+            navigate(
+              forwardListQuery(`/sales/orders/${orderNumber}/view`),
+              { replace: true },
+            )
             return
           }
 
@@ -359,7 +366,7 @@ const CreateSalesOrderPage: React.FC = () => {
   )
 
   const handleCancel = () => {
-    navigate('/sales/orders')
+    navigate(listPath)
   }
 
   const onSubmit = async (data: CreateOrderFormData) => {
@@ -388,12 +395,12 @@ const CreateSalesOrderPage: React.FC = () => {
         patchSalesOrderCaches(dispatch, () => store.getState() as RootState, updated)
         dispatch(setSelectedOrder(updated))
         showSuccess('Sales order updated successfully')
-        navigate('/sales/orders')
+        navigate(listPath)
       } else {
         const created = await createSalesOrder(payload as any).unwrap()
         dispatch(setSelectedOrder(created as any))
         showSuccess('Sales order created successfully')
-        navigate('/sales/orders')
+        navigate(listPath)
       }
     } catch (err: any) {
       showError(
@@ -416,7 +423,7 @@ const CreateSalesOrderPage: React.FC = () => {
         <PageHeader
           variant="workflow"
           title="Edit Sales Order"
-          backAction={() => navigate('/sales/orders')}
+          backAction={() => navigate(listPath)}
         />
         <Alert severity="error">{loadError}</Alert>
       </>

@@ -5,6 +5,7 @@ import SimpleListPage from '@/components/common/SimpleListPage'
 import { ACCOUNT_TYPE_OPTIONS, STATUS_OPTIONS } from '@/constants/filterOptions'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useAppSelector } from '@/hooks/useRedux'
+import { useListUrlState } from '@/hooks/useListUrlState'
 import { useGetAccountTreeQuery, type AccountTreeParams } from '@/store/api/accountingApi'
 import type { AccountTreeNode, AccountType } from '@/types'
 import type { FilterBarConfig } from '@/types/filterBar.types'
@@ -35,11 +36,13 @@ export default function ChartOfAccountsPage() {
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
   // Code ascending is the accounting convention and matches the backend's own
-  // ORDER BY code ASC (#899). sortBy is kept in state for two consumers — the
-  // FilterBar active-sort indicator and handleSort's direction toggle — but is
+  // ORDER BY code ASC (#899). sortBy is kept in URL state for two consumers —
+  // the FilterBar active-sort indicator and setSort's direction toggle — but is
   // NOT passed to AccountList, which always sorts by code.
-  const [sortBy, setSortBy] = useState('code')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const { sortBy, sortOrder, setSort } = useListUrlState({
+    pagination: false,
+    sort: { fields: ['code'], defaultField: 'code', defaultOrder: 'asc' },
+  })
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingAccount, setEditingAccount] = useState<AccountTreeNode | null>(null)
   const [parentForNew, setParentForNew] = useState<AccountTreeNode | null>(null)
@@ -92,11 +95,6 @@ export default function ChartOfAccountsPage() {
   // valid state and must still allow creating the first account.
   const canWrite = isAdmin && !isFullTreeFetching && !fullTreeError
 
-  const handleSort = (field: string) => {
-    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
-    setSortBy(field)
-  }
-
   const handleAddRoot = () => {
     setParentForNew(null)
     setEditingAccount(null)
@@ -135,7 +133,7 @@ export default function ChartOfAccountsPage() {
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={searchInputRef}
-      sort={{ field: 'code', sortBy, sortOrder, onSort: handleSort }}
+      sort={{ field: 'code', sortBy, sortOrder, onSort: setSort }}
       isFetching={isFetching}
       error={error}
       tableSlot={(

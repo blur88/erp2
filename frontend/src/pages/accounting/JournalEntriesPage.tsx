@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useMemo, useRef } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Box, Button } from '@mui/material'
 
 import SimpleListPage from '@/components/common/SimpleListPage'
@@ -8,7 +8,9 @@ import PagePagination from '@/components/common/PagePagination'
 import { StatusChip } from '@/components/common/StatusChip'
 import { JOURNAL_SOURCE_TYPE_OPTIONS, JOURNAL_STATUS_OPTIONS } from '@/constants/filterOptions'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useListUrlState } from '@/hooks/useListUrlState'
 import { useGetJournalEntriesQuery, type JournalEntryListParams } from '@/store/api/accountingApi'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { formatCurrency } from '@/utils/currency'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
@@ -41,14 +43,15 @@ const filterConfig: FilterBarConfig<JEFilters> = {
 
 export default function JournalEntriesPage() {
   const navigate = useNavigate()
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
-  const sortBy = 'journalNo' as const
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const location = useLocation()
+  const { page, limit, sortBy, sortOrder, setPage, setLimit, setSort, resetPage } =
+    useListUrlState({
+      sort: { fields: ['journalNo'], defaultField: 'journalNo', defaultOrder: 'desc' },
+    })
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } =
-    useFilterBar(filterConfig, { onApply: () => setPage(1) })
+    useFilterBar(filterConfig, { onApply: resetPage })
 
   const weekStartsOn = getStartOfWeek()
 
@@ -79,18 +82,8 @@ export default function JournalEntriesPage() {
   const rows = response?.data ?? []
   const total = response?.meta?.total ?? 0
 
-  const handleLimitChange = (newLimit: number) => {
-    setLimit(newLimit)
-    setPage(1)
-  }
-
-  const handleSort = useCallback(() => {
-    setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))
-    setPage(1)
-  }, [])
-
   const handleView = (row: JournalEntry) => {
-    navigate(`/accounting/journal-entries/${row.id}`)
+    navigate(withCurrentListQuery(`/accounting/journal-entries/${row.id}`))
   }
 
   const columns: ColumnConfig<JournalEntry>[] = [
@@ -137,7 +130,7 @@ export default function JournalEntriesPage() {
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={searchInputRef}
-      sort={{ field: 'journalNo', sortBy, sortOrder, onSort: handleSort }}
+      sort={{ field: 'journalNo', sortBy, sortOrder, onSort: setSort }}
       isFetching={isFetching}
       error={error ? 'Failed to load journal entries.' : null}
       tableSlot={(
@@ -161,7 +154,7 @@ export default function JournalEntriesPage() {
                   page={page}
                   limit={limit}
                   onPageChange={setPage}
-                  onLimitChange={handleLimitChange}
+                  onLimitChange={setLimit}
                   pageSizeOptions={PAGINATION.options}
                 />
               ) : undefined

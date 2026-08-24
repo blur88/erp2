@@ -1,7 +1,7 @@
 import PagePagination from '@/components/common/PagePagination'
 import { StatusChip } from '@/components/common/StatusChip'
 import { DataTable, type Column } from '@/components/common/DataTable'
-import { usePagination } from '@/hooks/usePagination'
+import { useListUrlState } from '@/hooks/useListUrlState'
 import { useGetPaymentsQuery } from '@/store/api/salesApi'
 import { formatCurrency } from '@/utils/currency'
 import { formatDate } from '@/utils/formatters'
@@ -11,7 +11,8 @@ interface CustomerPaymentsTabProps {
 }
 
 export default function CustomerPaymentsTab({ customerId }: CustomerPaymentsTabProps) {
-  const { page, limit, paginationProps } = usePagination()
+  const { page, limit, setPage, setLimit } = useListUrlState({ namespace: 'custPayments' })
+  const paginationProps = { page, limit, onPageChange: setPage, onLimitChange: setLimit }
   const { data, isLoading, isError } = useGetPaymentsQuery({
     customerId,
     page,

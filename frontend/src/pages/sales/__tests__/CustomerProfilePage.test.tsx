@@ -2,8 +2,8 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation  } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi  } from 'vitest'
 
 import type { Customer } from '@/types'
 import { CustomerType } from '@/types'
@@ -47,6 +47,9 @@ const customer: Customer = {
 }
 
 function renderPage(slug = 'acme-corp', search = '') {
+  // Seed the REAL url too: listQuery helpers read window.location.search,
+  // which MemoryRouter never populates (#1131 review).
+  window.history.replaceState(null, '', `/sales/customers/${slug}/view${search}`)
   const store = configureStore({ reducer: { sales: (state = {}) => state } })
   return render(
     <Provider store={store}>
@@ -60,6 +63,12 @@ function renderPage(slug = 'acme-corp', search = '') {
 }
 
 describe('CustomerProfilePage', () => {
+  // jsdom persists window.location across cases; BrowserRouter tests below
+  // read it, so reset between tests (#1131 review).
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
   it('shows loading state', () => {
     mockGetCustomerBySlug.mockReturnValue({ data: undefined, isLoading: true })
     renderPage()
@@ -91,6 +100,17 @@ describe('CustomerProfilePage', () => {
     renderPage()
     await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
     expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
+  })
+
+  it('returns to the list with the ticket decoded', async () => {
+    mockGetCustomerBySlug.mockReturnValue({ data: customer, isLoading: false })
+    // ?tab= must NOT leak into the restored list URL.
+    renderPage('acme-corp', '?listQuery=page%3D2&tab=1')
+
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/customers?page=2')
   })
 
   it('navigates to edit with profile return state on Edit Customer click', async () => {
@@ -137,5 +157,35 @@ describe('CustomerProfilePage', () => {
     mockGetCustomerBySlug.mockReturnValue({ data: customer, isLoading: false })
     renderPage('acme-corp', '?tab=1')
     expect(screen.getByText('OrdersTab')).toBeInTheDocument()
+  })
+
+  it('preserves other query params when the tab changes', async () => {
+    mockGetCustomerBySlug.mockReturnValue({ data: customer, isLoading: false })
+
+    function LocationProbe() {
+      const location = useLocation()
+      return <span data-testid="probe-search">{location.search}</span>
+    }
+
+    const store = configureStore({ reducer: { sales: (state = {}) => state } })
+    window.history.replaceState(null, '', '/sales/customers/acme-corp/view?tab=0&probe=keepme')
+    render(
+      <Provider store={store}>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/sales/customers/:slug/view" element={<CustomerProfilePage />} />
+          </Routes>
+          <LocationProbe />
+        </BrowserRouter>
+      </Provider>,
+    )
+
+    const user = userEvent.setup()
+    const tabs = await screen.findAllByRole('tab')
+    await user.click(tabs[1])
+
+    const search = screen.getByTestId('probe-search').textContent ?? ''
+    expect(new URLSearchParams(search).get('probe')).toBe('keepme')
+    expect(new URLSearchParams(search).get('tab')).toBe('1')
   })
 })

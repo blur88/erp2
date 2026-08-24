@@ -9,7 +9,7 @@ import {
   Tabs,
   Typography,
 } from '@mui/material'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { DataTable, type Column } from '@/components/common/DataTable'
@@ -35,6 +35,7 @@ import {
   useGetActivePaymentMethodsQuery,
 } from '@/store/api/paymentMethodsApi'
 import type { OwnerEquityDocument, OwnerEquitySettlement } from '@/types'
+import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 
 import { getOwnerEquityActionMetas } from './ownerEquityActions'
 import { OWNER_EQUITY_TYPE_LABELS } from './OwnerEquityPage'
@@ -79,6 +80,9 @@ const isMonetary = (doc: OwnerEquityDocument) =>
 
 export default function OwnerEquityDetailView({ document: doc }: { document: OwnerEquityDocument }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  // The ticket carried from the list. Detail→Edit forwards ONLY this — never
+  // the whole detail search, which carries ?tab=.
   const [searchParams, setSearchParams] = useSearchParams()
   const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 1)
   const [settleOpen, setSettleOpen] = useState(false)
@@ -234,7 +238,10 @@ export default function OwnerEquityDetailView({ document: doc }: { document: Own
         setRefundOpen(true)
         break
       case 'edit':
-        navigate(`/accounting/owner-equity/${doc.referenceNumber}/edit`)
+        navigate(
+          forwardListQuery(`/accounting/owner-equity/${doc.referenceNumber}/edit`),
+          { state: { ownerEquityEditOrigin: 'detail' } },
+        )
         break
       case 'complete':
         setCompleteOpen(true)
@@ -309,7 +316,7 @@ export default function OwnerEquityDetailView({ document: doc }: { document: Own
             {isMonetary(doc) && <StatusChip status={doc.settlementStatus ?? 'UNSETTLED'} />}
           </Box>
         }
-        backAction={() => navigate('/accounting/owner-equity')}
+        backAction={() => navigate(currentListPath('/accounting/owner-equity'))}
       />
 
       {actionMetas.length > 0 && (
@@ -332,7 +339,17 @@ export default function OwnerEquityDetailView({ document: doc }: { document: Own
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs
           value={tabValue}
-          onChange={(_, v: number) => setSearchParams({ tab: String(v) }, { replace: true })}
+          onChange={(_, v: number) =>
+            setSearchParams(
+              () => {
+                // Merge against the LIVE URL: embedded tab pagination writes with
+                // native replaceState, so React Router's `prev` can be stale (#1131 review).
+                const next = new URLSearchParams(window.location.search)
+                next.set('tab', String(v))
+                return next
+              },
+              { replace: true },
+            )}
           sx={{ minHeight: 36 }}
         >
           {tabs.map((t) => (

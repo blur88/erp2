@@ -29,7 +29,7 @@ import { default as EditIcon } from '@mui/icons-material/Edit'
 import { default as SaveIcon } from '@mui/icons-material/Save'
 import { default as RefreshIcon } from '@mui/icons-material/Refresh'
 import { default as AdjustIcon } from '@mui/icons-material/TrendingUp'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useApplyPercentageAdjustmentMutation,
@@ -40,11 +40,13 @@ import {
 import type { PriceListItem } from '@/types'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatCurrency } from '@/utils/currency'
+import { currentListPath } from '@/utils/listQuery'
 import { formatDate as formatDisplayDate } from '@/utils/formatters'
 
 const PriceListDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { showSuccess, showError } = useNotification()
 
   const {
@@ -182,7 +184,7 @@ const PriceListDetailsPage: React.FC = () => {
     return (
       <Box>
         <Alert severity="error">Price list not found</Alert>
-        <AppButton variant="secondary" startIcon={<BackIcon />} onClick={() => navigate('/settings/price-lists')} sx={{ mt: 2 }}>
+        <AppButton variant="secondary" startIcon={<BackIcon />} onClick={() => navigate(currentListPath('/settings/price-lists'))} sx={{ mt: 2 }}>
           Back to Price Lists
         </AppButton>
       </Box>
@@ -193,7 +195,7 @@ const PriceListDetailsPage: React.FC = () => {
     <>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <AppButton variant="secondary" startIcon={<BackIcon />} onClick={() => navigate('/settings/price-lists')} sx={{ mb: 2 }}>
+        <AppButton variant="secondary" startIcon={<BackIcon />} onClick={() => navigate(currentListPath('/settings/price-lists'))} sx={{ mb: 2 }}>
           Back to Price Lists
         </AppButton>
 

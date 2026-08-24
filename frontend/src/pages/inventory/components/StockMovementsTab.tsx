@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 
 import PagePagination from '@/components/common/PagePagination'
 import { DataTable, type Column, bold, viewAction } from '@/components/common/DataTable'
-import { usePagination } from '@/hooks/usePagination'
+import { useListUrlState } from '@/hooks/useListUrlState'
 import { useLazyGetPurchaseOrderQuery } from '@/store/api/purchasingApi'
 import { useLazyGetSalesOrderQuery } from '@/store/api/salesApi'
 import { useGetStockMovementsQuery } from '@/store/api/inventoryApi'
@@ -18,7 +18,8 @@ import {
 
 export default function StockMovementsTab({ productId }: { productId: string }) {
   const navigate = useNavigate()
-  const { page, limit, paginationProps } = usePagination()
+  const { page, limit, setPage, setLimit } = useListUrlState({ namespace: 'stockMoves' })
+  const paginationProps = { page, limit, onPageChange: setPage, onLimitChange: setLimit }
 
   const { data, isLoading, isError } = useGetStockMovementsQuery({
     productId,

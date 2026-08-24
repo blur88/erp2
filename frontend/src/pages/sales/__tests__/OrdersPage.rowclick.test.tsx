@@ -77,4 +77,23 @@ describe('OrdersPage row click navigation', () => {
     await userEvent.click(screen.getByText('SO-26-001'))
     expect(navigateMock).toHaveBeenCalledWith('/sales/orders/SO-26-001/view')
   })
+
+  it('carries the list query to Detail', async () => {
+    const store = configureStore({ reducer: { sales: salesReducer } })
+    // Seed the REAL url: withCurrentListQuery reads window.location.search.
+    window.history.replaceState(null, '', '/sales/orders?page=2&sortOrder=asc')
+    render(
+      <Provider store={store}>
+        <MemoryRouter initialEntries={['/sales/orders?page=2&sortOrder=asc']}>
+          <OrdersPage />
+        </MemoryRouter>
+      </Provider>,
+    )
+
+    await userEvent.click(await screen.findByText('SO-26-001'))
+
+    const target = navigateMock.mock.calls.at(-1)?.[0] as string
+    const query = new URLSearchParams(target.slice(target.indexOf('?')))
+    expect(query.get('listQuery')).toBe('page=2&sortOrder=asc')
+  })
 })

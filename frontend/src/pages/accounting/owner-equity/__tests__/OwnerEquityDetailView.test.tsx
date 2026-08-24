@@ -3,8 +3,8 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
-import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { BrowserRouter, MemoryRouter, useLocation  } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi  } from 'vitest'
 
 import type { OwnerEquityDocument, OwnerEquityType } from '@/types'
 
@@ -90,11 +90,14 @@ function buildDoc(overrides: Partial<OwnerEquityDocument> = {}): OwnerEquityDocu
   }
 }
 
-function renderDetail(overrides: Partial<OwnerEquityDocument> = {}) {
+function renderDetail(overrides: Partial<OwnerEquityDocument> = {}, initialUrl = '/accounting/owner-equity/EQ-26-001/view') {
+  // Seed the REAL url too: listQuery helpers read window.location.search,
+  // which MemoryRouter never populates (#1131 review).
+  window.history.replaceState(null, '', initialUrl)
   const store = configureStore({ reducer: { empty: (s = null) => s } })
   return render(
     <Provider store={store}>
-      <MemoryRouter initialEntries={['/accounting/owner-equity/EQ-26-001/view']}>
+      <MemoryRouter initialEntries={[initialUrl]}>
         <OwnerEquityDetailView document={buildDoc(overrides)} />
       </MemoryRouter>
     </Provider>,
@@ -102,6 +105,12 @@ function renderDetail(overrides: Partial<OwnerEquityDocument> = {}) {
 }
 
 describe('OwnerEquityDetailView', () => {
+  // jsdom persists window.location across cases; BrowserRouter tests below
+  // read it, so reset between tests (#1131 review).
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
   it('shows a Settlements tab for monetary documents', () => {
     renderDetail({ type: 'CAPITAL_INJECTION' })
     expect(screen.getByRole('tab', { name: /Settlements/ })).toBeInTheDocument()
@@ -190,5 +199,47 @@ describe('OwnerEquityDetailView', () => {
     const value = label.nextElementSibling
 
     expect(value).toHaveTextContent(/^1$/)
+  })
+
+  it('preserves other query params when the tab changes', async () => {
+    function LocationProbe() {
+      const location = useLocation()
+      return <span data-testid="probe-search">{location.search}</span>
+    }
+
+    const store = configureStore({ reducer: { empty: (s = null) => s } })
+    window.history.replaceState(null, '', '/accounting/owner-equity/EQ-1/view?tab=0&probe=keepme')
+    render(
+      <Provider store={store}>
+        <BrowserRouter>
+          <LocationProbe />
+          <OwnerEquityDetailView document={buildDoc()} />
+        </BrowserRouter>
+      </Provider>,
+    )
+
+    const user = userEvent.setup()
+    const tabs = await screen.findAllByRole('tab')
+    await user.click(tabs[1])
+
+    const search = screen.getByTestId('probe-search').textContent ?? ''
+    expect(new URLSearchParams(search).get('probe')).toBe('keepme')
+    expect(new URLSearchParams(search).get('tab')).toBe('1')
+  })
+
+  it('returns to the list with the ticket decoded', async () => {
+    renderDetail({}, '/accounting/owner-equity/EQ-1/view?listQuery=type%3DX%26page%3D2')
+
+    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity?type=X&page=2')
+  })
+
+  it('returns to the bare list when there is no ticket', async () => {
+    renderDetail({}, '/accounting/owner-equity/EQ-1/view')
+
+    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity')
   })
 })

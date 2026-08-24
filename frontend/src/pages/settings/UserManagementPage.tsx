@@ -21,12 +21,12 @@ import { default as DeleteIcon } from '@mui/icons-material/Delete'
 import { default as UnlockIcon } from '@mui/icons-material/LockOpen'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import PagePagination from '@/components/common/PagePagination'
-import { usePagination } from '@/hooks/usePagination'
 import { FilterBar } from '@/components/filters'
 import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
 import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useListUrlState } from '@/hooks/useListUrlState'
 import { useAppSelector } from '@/hooks/useRedux'
 import { useNotification } from '@/hooks/useNotification'
 import {
@@ -55,7 +55,8 @@ const UserManagementPage: React.FC = () => {
   const { showSuccess, showError } = useNotification()
 
   // State
-  const { page, limit, reset, paginationProps } = usePagination()
+  const { page, limit, setPage, setLimit, resetPage } = useListUrlState()
+  const paginationProps = { page, limit, onPageChange: setPage, onLimitChange: setLimit }
 
   // Dialog states
   const [formDialogOpen, setFormDialogOpen] = useState(false)
@@ -108,27 +109,27 @@ const UserManagementPage: React.FC = () => {
     () => ({
       ...handlers,
       onSearchChange: (value: string) => {
-        reset()
+        resetPage()
         handlers.onSearchChange(value)
       },
       onSearchCommit: () => {
-        reset()
+        resetPage()
         handlers.onSearchCommit()
       },
       onQuickFilterChange: (field: keyof UserFilters, value: unknown) => {
-        reset()
+        resetPage()
         handlers.onQuickFilterChange(field, value)
       },
       onClearField: (field: keyof UserFilters) => {
-        reset()
+        resetPage()
         handlers.onClearField(field)
       },
       onClearAll: () => {
-        reset()
+        resetPage()
         handlers.onClearAll()
       },
     }),
-    [handlers, reset],
+    [handlers, resetPage],
   )
 
   // Check if user is admin

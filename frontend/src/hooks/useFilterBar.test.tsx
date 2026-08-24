@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import React from 'react'
-import { MemoryRouter } from 'react-router-dom'
+import { BrowserRouter, MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 
 import { STATUS_OPTIONS } from '@/constants/filterOptions'
@@ -68,6 +68,24 @@ describe('useFilterBar', () => {
       result.current.handlers.onClearAll()
     })
     expect(result.current.hasActiveFilters).toBe(false)
+  })
+
+  it('preserves window.history.state when syncing filters to the URL', () => {
+    // BrowserRouter + real history: useFilterBar writes to window.history, and
+    // MemoryRouter does not reflect window.location (verified).
+    window.history.replaceState({ idx: 4, key: 'abc' }, '', '/')
+
+    const browserWrapper = ({ children }: { children: React.ReactNode }) => (
+      <BrowserRouter>{children}</BrowserRouter>
+    )
+    const { result } = renderHook(() => useFilterBar(config), { wrapper: browserWrapper })
+
+    act(() => {
+      result.current.handlers.onQuickFilterChange('status', 'active')
+    })
+
+    expect(window.history.state).toEqual({ idx: 4, key: 'abc' })
+    expect(window.location.search).toContain('status=active')
   })
 })
 

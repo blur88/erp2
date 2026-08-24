@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { skipToken } from '@reduxjs/toolkit/query'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -7,6 +7,8 @@ import PagePagination from '@/components/common/PagePagination'
 import PaymentDialog from '@/components/common/PaymentDialog'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useListUrlState } from '@/hooks/useListUrlState'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelPurchaseOrderMutation,
@@ -73,24 +75,23 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 const PurchaseOrdersPage: React.FC = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { showSuccess, showError } = useNotification()
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
-  const [sortBy, setSortBy] = useState('orderNumber')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
+  const { sortBy, sortOrder, page, limit, setPage, setLimit, setSort, resetPage } =
+    useListUrlState({
+      sort: { fields: ['orderNumber'], defaultField: 'orderNumber', defaultOrder: 'desc' },
+    })
   const [printOrder, setPrintOrder] = useState<PurchaseOrder | null>(null)
   const [paymentOrder, setPaymentOrder] = useState<PurchaseOrder | null>(null)
   const [refundOrder, setRefundOrder] = useState<PurchaseOrder | null>(null)
   const [confirmOrder, setConfirmOrder] = useState<PurchaseOrder | null>(null)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
 
-  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
-
-  useEffect(() => {
-    setPage(1)
-  }, [appliedFilters])
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig, {
+    onApply: resetPage,
+  })
 
   const weekStartsOn = getStartOfWeek()
   const dateRange = useMemo(() => {
@@ -168,17 +169,6 @@ const PurchaseOrdersPage: React.FC = () => {
   const seedTarget = fromScaledAmount(
     surplusMinor > 0n ? surplusMinor : netPaidMinor > 0n ? netPaidMinor : 0n,
   )
-
-  const handleSort = useCallback((field: string) => {
-    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
-    setSortBy(field)
-    setPage(1)
-  }, [sortBy])
-
-  const handleLimitChange = useCallback((nextLimit: number) => {
-    setLimit(nextLimit)
-    setPage(1)
-  }, [])
 
   const loadOrders = useCallback(() => {
     void refetch()
@@ -330,7 +320,7 @@ const PurchaseOrdersPage: React.FC = () => {
       <SimpleListPage
         title="Purchase Orders"
         subtitle="Track supplier orders, receipts, and payment status"
-        primaryAction={{ label: '+ New Purchase Order', onClick: () => navigate('/purchasing/orders/create') }}
+        primaryAction={{ label: '+ New Purchase Order', onClick: () => navigate(withCurrentListQuery('/purchasing/orders/create')) }}
         filterConfig={filterConfig}
         draftFilters={draftFilters}
         handlers={handlers}
@@ -340,7 +330,7 @@ const PurchaseOrdersPage: React.FC = () => {
           field: 'orderNumber',
           sortBy,
           sortOrder,
-          onSort: handleSort,
+          onSort: setSort,
         }}
         isFetching={isFetching}
         error={error}
@@ -350,8 +340,8 @@ const PurchaseOrdersPage: React.FC = () => {
             orders={purchaseOrders}
             loading={isFetching}
             total={pagination?.total ?? 0}
-            onView={(order) => navigate(`/purchasing/orders/${order.orderNumber}/view`)}
-            onEdit={(order) => navigate(`/purchasing/orders/${order.orderNumber}/edit`)}
+            onView={(order) => navigate(withCurrentListQuery(`/purchasing/orders/${order.orderNumber}/view`))}
+            onEdit={(order) => navigate(withCurrentListQuery(`/purchasing/orders/${order.orderNumber}/edit`))}
             onPay={(order) => setPaymentOrder(order)}
             onReceive={(order) => openConfirm(order, 'receive')}
             onReturn={(order) => openConfirm(order, 'return')}
@@ -366,7 +356,7 @@ const PurchaseOrdersPage: React.FC = () => {
                 page={page}
                 limit={limit}
                 onPageChange={setPage}
-                onLimitChange={handleLimitChange}
+                onLimitChange={setLimit}
                 pageSizeOptions={PAGINATION.options}
               />
             )}

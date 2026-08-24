@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box } from '@mui/material'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import PagePagination from '@/components/common/PagePagination'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import ProductImportDialog from '@/components/inventory/ProductImportDialog'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useListUrlState } from '@/hooks/useListUrlState'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { useNotification } from '@/hooks/useNotification'
 import { useGetProductsQuery, useUpdateProductMutation } from '@/store/api/inventoryApi'
 import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
@@ -42,32 +44,20 @@ function getDefaultPrice(product: Product): number | null {
 
 export default function ProductsPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { showSuccess, showError } = useNotification()
   const [pageError, setPageError] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
-  const [sortBy, setSortBy] = useState('name')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
+  const { sortBy, sortOrder, page, limit, setPage, setLimit, setSort, resetPage } =
+    useListUrlState({
+      sort: { fields: ['name'], defaultField: 'name', defaultOrder: 'asc' },
+    })
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
-  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig, {
+    onApply: resetPage,
+  })
   const [updateProduct] = useUpdateProductMutation()
-
-  useEffect(() => {
-    setPage(1)
-  }, [appliedFilters])
-
-  const handleSort = useCallback((field: string) => {
-    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
-    setSortBy(field)
-    setPage(1)
-  }, [sortBy])
-
-  const handleLimitChange = useCallback((newLimit: number) => {
-    setLimit(newLimit)
-    setPage(1)
-  }, [])
 
   const queryParams = useMemo(() => {
     const params: Record<string, string | number | boolean | undefined> = {
@@ -119,14 +109,14 @@ export default function ProductsPage() {
     <SimpleListPage
       title="Products"
       subtitle="Manage your product catalog, prices, and stock levels."
-      primaryAction={{ label: 'New Product', onClick: () => navigate('/inventory/products/create') }}
+      primaryAction={{ label: 'New Product', onClick: () => navigate(withCurrentListQuery('/inventory/products/create')) }}
       secondaryAction={{ label: 'Import', onClick: () => setImportOpen(true) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={searchInputRef}
-      sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
+      sort={{ field: 'name', sortBy, sortOrder, onSort: setSort }}
       isFetching={isFetching}
       error={pageError || (error ? 'Failed to load products.' : null)}
       onErrorClose={() => setPageError(null)}
@@ -144,7 +134,7 @@ export default function ProductsPage() {
                 page={page}
                 limit={limit}
                 onPageChange={setPage}
-                onLimitChange={handleLimitChange}
+                onLimitChange={setLimit}
                 pageSizeOptions={PAGINATION.options}
               />
             )}

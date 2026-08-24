@@ -3,7 +3,7 @@ import PaymentIcon from '@mui/icons-material/Payment'
 import ReceiptIcon from '@mui/icons-material/Receipt'
 import { Alert, Box, CircularProgress, Tab, Tabs, Typography } from '@mui/material'
 import { skipToken } from '@reduxjs/toolkit/query'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import PageHeader from '@/components/common/PageHeader'
@@ -27,6 +27,7 @@ import {
 import type { VendorPayment } from '@/types'
 import RefundDialog from '@/components/common/RefundDialog'
 import { fromScaledAmount, toScaledAmount } from '@/utils/currency'
+import { currentListPath, forwardListQuery, withCurrentListQuery } from '@/utils/listQuery'
 
 import { buildPoRefundSeed, poNetPaidMinor, toPoRefundPayload } from './utils/poRefund'
 import PurchaseOrderActionBar from './components/PurchaseOrderActionBar'
@@ -71,6 +72,7 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 export default function PurchaseOrderDetailPage() {
   const { orderNumber } = useParams<{ orderNumber: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 1)
   const [activeDialog, setActiveDialog] = useState<Dialog>(null)
@@ -88,7 +90,7 @@ export default function PurchaseOrderDetailPage() {
 
   useEffect(() => {
     if (order?.orderNumber) {
-      navigate(`/purchasing/orders/${order.orderNumber}/view`, {
+      navigate(withCurrentListQuery(`/purchasing/orders/${order.orderNumber}/view`), {
         replace: true,
         state: { breadcrumbTitle: order.orderNumber },
       })
@@ -227,7 +229,7 @@ export default function PurchaseOrderDetailPage() {
             <StatusChip status={order.paymentStatus} />
           </Box>
         }
-        backAction={() => navigate('/purchasing/orders')}
+        backAction={() => navigate(currentListPath('/purchasing/orders'))}
       />
 
       <PurchaseOrderActionBar
@@ -235,7 +237,7 @@ export default function PurchaseOrderDetailPage() {
         onPay={() => setActiveDialog('pay')}
         onReceive={() => setActiveDialog('receive')}
         onReturn={() => setActiveDialog('return')}
-        onEdit={() => navigate(`/purchasing/orders/${order.orderNumber}/edit`)}
+        onEdit={() => navigate(forwardListQuery(`/purchasing/orders/${order.orderNumber}/edit`))}
         onCancel={() => setActiveDialog('cancel')}
         onUncancel={() => setActiveDialog('uncancel')}
         onDuplicate={handleDuplicateOrder}
@@ -246,7 +248,17 @@ export default function PurchaseOrderDetailPage() {
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs
           value={tabValue}
-          onChange={(_, value: number) => setSearchParams({ tab: String(value) }, { replace: true })}
+          onChange={(_, value: number) =>
+            setSearchParams(
+              () => {
+                // Merge against the LIVE URL: embedded tab pagination writes with
+                // native replaceState, so React Router's `prev` can be stale (#1131 review).
+                const next = new URLSearchParams(window.location.search)
+                next.set('tab', String(value))
+                return next
+              },
+              { replace: true },
+            )}
           sx={{ minHeight: 36 }}
         >
           <Tab

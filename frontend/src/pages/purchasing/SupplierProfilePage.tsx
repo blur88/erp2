@@ -4,7 +4,7 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping'
 import PaymentIcon from '@mui/icons-material/Payment'
 import StoreIcon from '@mui/icons-material/Store'
 import { skipToken } from '@reduxjs/toolkit/query'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { StatusChip } from '@/components/common/StatusChip'
 import PageHeader from '@/components/common/PageHeader'
@@ -14,6 +14,7 @@ import {
   useGetSupplierBySlugQuery,
   useUpdateSupplierMutation,
 } from '@/store/api/purchasingApi'
+import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 
 import SupplierOverviewTab from './components/SupplierOverviewTab'
 import SupplierPaymentsTab from './components/SupplierPaymentsTab'
@@ -59,6 +60,7 @@ const TABS = [
 export default function SupplierProfilePage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const { showSuccess, showError } = useNotification()
   const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), TABS.length - 1)
@@ -103,10 +105,10 @@ export default function SupplierProfilePage() {
       <PageHeader
         title={supplier.companyName}
         titleBadge={<StatusChip status={supplier.isActive ? 'active' : 'inactive'} />}
-        backAction={() => navigate('/purchasing/suppliers')}
+        backAction={() => navigate(currentListPath('/purchasing/suppliers'))}
         primaryAction={{
           label: 'Edit Supplier',
-          onClick: () => navigate(`/purchasing/suppliers/${supplier.slug}/edit`, {
+          onClick: () => navigate(forwardListQuery(`/purchasing/suppliers/${supplier.slug}/edit`), {
             state: { returnTo: 'profile', profilePath, breadcrumbTitle: supplier.companyName },
           }),
         }}
@@ -119,7 +121,17 @@ export default function SupplierProfilePage() {
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs
           value={tabValue}
-          onChange={(_, value: number) => setSearchParams({ tab: String(value) }, { replace: true })}
+          onChange={(_, value: number) =>
+            setSearchParams(
+              () => {
+                // Merge against the LIVE URL: embedded tab pagination writes with
+                // native replaceState, so React Router's `prev` can be stale (#1131 review).
+                const next = new URLSearchParams(window.location.search)
+                next.set('tab', String(value))
+                return next
+              },
+              { replace: true },
+            )}
           sx={{ minHeight: 36 }}
         >
           {TABS.map((tab) => (

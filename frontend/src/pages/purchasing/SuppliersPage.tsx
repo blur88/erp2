@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import PagePagination from '@/components/common/PagePagination'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useListUrlState } from '@/hooks/useListUrlState'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useGetSuppliersQuery,
@@ -33,31 +35,19 @@ const filterConfig: FilterBarConfig<SupplierFilters> = {
 
 const SuppliersPage: React.FC = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { showSuccess, showError } = useNotification()
   const [pageError, setPageError] = useState<string | null>(null)
-  const [sortBy, setSortBy] = useState('companyName')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
+  const { sortBy, sortOrder, page, limit, setPage, setLimit, setSort, resetPage } =
+    useListUrlState({
+      sort: { fields: ['companyName'], defaultField: 'companyName', defaultOrder: 'asc' },
+    })
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
-  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig, {
+    onApply: resetPage,
+  })
   const [updateSupplier] = useUpdateSupplierMutation()
-
-  useEffect(() => {
-    setPage(1)
-  }, [appliedFilters])
-
-  const handleSort = useCallback((field: string) => {
-    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
-    setSortBy(field)
-    setPage(1)
-  }, [sortBy])
-
-  const handleLimitChange = useCallback((newLimit: number) => {
-    setLimit(newLimit)
-    setPage(1)
-  }, [])
 
   const queryParams = useMemo(() => ({
     search: appliedFilters.search || undefined,
@@ -99,13 +89,13 @@ const SuppliersPage: React.FC = () => {
     <SimpleListPage
       title="Suppliers"
       subtitle="Manage your suppliers and vendor relationships."
-      primaryAction={{ label: 'New Supplier', onClick: () => navigate('/purchasing/suppliers/create') }}
+      primaryAction={{ label: 'New Supplier', onClick: () => navigate(withCurrentListQuery('/purchasing/suppliers/create')) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={searchInputRef}
-      sort={{ field: 'companyName', sortBy, sortOrder, onSort: handleSort }}
+      sort={{ field: 'companyName', sortBy, sortOrder, onSort: setSort }}
       isFetching={isFetching}
       error={pageError || (error ? 'Failed to load suppliers.' : null)}
       onErrorClose={() => setPageError(null)}
@@ -121,7 +111,7 @@ const SuppliersPage: React.FC = () => {
               page={page}
               limit={limit}
               onPageChange={setPage}
-              onLimitChange={handleLimitChange}
+              onLimitChange={setLimit}
               pageSizeOptions={PAGINATION.options}
             />
           )}

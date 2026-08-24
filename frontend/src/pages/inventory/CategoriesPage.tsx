@@ -1,9 +1,11 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef } from 'react'
 import { Box } from '@mui/material'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useListUrlState } from '@/hooks/useListUrlState'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { useGetCategoriesQuery } from '@/store/api/inventoryApi'
 import type { Category } from '@/types'
 import { STATUS_OPTIONS } from '@/constants/filterOptions'
@@ -38,16 +40,14 @@ const filterConfig: FilterBarConfig<CategoryFilters> = {
 
 export default function CategoriesPage() {
   const navigate = useNavigate()
-  const [sortBy, setSortBy] = useState('name')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const location = useLocation()
+  const { sortBy, sortOrder, setSort } = useListUrlState({
+    pagination: false,
+    sort: { fields: ['name'], defaultField: 'name', defaultOrder: 'asc' },
+  })
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
-
-  const handleSort = useCallback((field: string) => {
-    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
-    setSortBy(field)
-  }, [sortBy])
 
   const { data: categories = [], isFetching, error } = useGetCategoriesQuery({
     includeProductCount: true,
@@ -73,13 +73,13 @@ export default function CategoriesPage() {
     <SimpleListPage
       title="Categories"
       subtitle="Organize your product categories."
-      primaryAction={{ label: 'New Category', onClick: () => navigate('/inventory/categories/create') }}
+      primaryAction={{ label: 'New Category', onClick: () => navigate(withCurrentListQuery('/inventory/categories/create')) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={searchInputRef}
-      sort={{ field: 'name', sortBy, sortOrder, onSort: handleSort }}
+      sort={{ field: 'name', sortBy, sortOrder, onSort: setSort }}
       isFetching={isFetching}
       error={error ? 'Failed to load categories.' : null}
       tableSlot={(
@@ -88,7 +88,7 @@ export default function CategoriesPage() {
             categories={visibleCategories}
             sortBy={sortBy}
             sortOrder={sortOrder}
-            onSort={handleSort}
+            onSort={setSort}
             flat={statusActive}
           />
         </Box>

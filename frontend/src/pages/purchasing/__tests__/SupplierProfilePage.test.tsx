@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { configureStore } from '@reduxjs/toolkit'
 import { Provider } from 'react-redux'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation  } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi  } from 'vitest'
 
 import type { Supplier } from '@/types'
 
@@ -52,6 +53,9 @@ const supplier: Supplier = {
 }
 
 function renderPage(slug = 'globex-supply', search = '') {
+  // Seed the REAL url too: listQuery helpers read window.location.search,
+  // which MemoryRouter never populates (#1131 review).
+  window.history.replaceState(null, '', `/purchasing/suppliers/${slug}/view${search}`)
   const store = configureStore({ reducer: { purchasing: (state = {}) => state } })
   return render(
     <Provider store={store}>
@@ -65,6 +69,12 @@ function renderPage(slug = 'globex-supply', search = '') {
 }
 
 describe('SupplierProfilePage', () => {
+  // jsdom persists window.location across cases; BrowserRouter tests below
+  // read it, so reset between tests (#1131 review).
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
   it('renders Overview tab content by default', () => {
     mockGetSupplierBySlug.mockReturnValue({ data: supplier, isLoading: false })
     renderPage()
@@ -84,5 +94,45 @@ describe('SupplierProfilePage', () => {
     // Three tabs exist (0-2); ?tab=3 must not leave the content area blank.
     expect(screen.getByText('PaymentsTab')).toBeInTheDocument()
     expect(screen.getByRole('tab', { selected: true })).toHaveAccessibleName(/Vendor Payments/i)
+  })
+
+  it('preserves other query params when the tab changes', async () => {
+    mockGetSupplierBySlug.mockReturnValue({ data: supplier, isLoading: false })
+
+    function LocationProbe() {
+      const location = useLocation()
+      return <span data-testid="probe-search">{location.search}</span>
+    }
+
+    const store = configureStore({ reducer: { purchasing: (state = {}) => state } })
+    window.history.replaceState(null, '', '/purchasing/suppliers/globex-supply/view?tab=0&probe=keepme')
+    render(
+      <Provider store={store}>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/purchasing/suppliers/:slug/view" element={<SupplierProfilePage />} />
+          </Routes>
+          <LocationProbe />
+        </BrowserRouter>
+      </Provider>,
+    )
+
+    const user = userEvent.setup()
+    const tabs = await screen.findAllByRole('tab')
+    await user.click(tabs[1])
+
+    const search = screen.getByTestId('probe-search').textContent ?? ''
+    expect(new URLSearchParams(search).get('probe')).toBe('keepme')
+    expect(new URLSearchParams(search).get('tab')).toBe('1')
+  })
+
+  it('returns to the list with the ticket decoded', async () => {
+    mockGetSupplierBySlug.mockReturnValue({ data: supplier, isLoading: false })
+    renderPage('globex-supply', '?listQuery=page%3D2&tab=1')
+
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/purchasing/suppliers?page=2')
   })
 })

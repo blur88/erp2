@@ -1,10 +1,12 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { Box } from '@mui/material'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import PagePagination from '@/components/common/PagePagination'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useListUrlState } from '@/hooks/useListUrlState'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { useCompleteStockAdjustmentMutation, useGetStockAdjustmentsQuery } from '@/store/api/inventoryApi'
 import { PAGINATION } from '@/constants/tableStyles'
 import { STOCK_ADJUSTMENT_STATUS_OPTIONS } from '@/constants/filterOptions'
@@ -40,15 +42,18 @@ const tidyDecimals = (message: string): string =>
 
 export default function StockAdjustmentsPage() {
   const navigate = useNavigate()
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
-  const [sortBy, setSortBy] = useState('adjustmentDate')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const location = useLocation()
+  const { sortBy, sortOrder, page, limit, setPage, setLimit, setSort, resetPage } =
+    useListUrlState({
+      sort: { fields: ['adjustmentDate'], defaultField: 'adjustmentDate', defaultOrder: 'desc' },
+    })
   const [completeTarget, setCompleteTarget] = useState<string | null>(null)
   const [revertTarget, setRevertTarget] = useState<string | null>(null)
 
   const searchInputRef = useRef<HTMLInputElement | null>(null)
-  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig, {
+    onApply: resetPage,
+  })
   const [completeAdjustment] = useCompleteStockAdjustmentMutation()
   const { showSuccess, showError } = useNotification()
 
@@ -81,17 +86,6 @@ export default function StockAdjustmentsPage() {
   const total = allRows.length
   const pageRows = allRows.slice((page - 1) * limit, page * limit)
 
-  const handleSort = useCallback((field: string) => {
-    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
-    setSortBy(field)
-    setPage(1)
-  }, [sortBy])
-
-  const handleLimitChange = useCallback((newLimit: number) => {
-    setLimit(newLimit)
-    setPage(1)
-  }, [])
-
   const completeTargetRow = allRows.find((r) => r.id === completeTarget) ?? null
   const revertTargetRow = allRows.find((r) => r.id === revertTarget) ?? null
 
@@ -109,7 +103,7 @@ export default function StockAdjustmentsPage() {
 
   const handleConfirmRevert = useCallback(() => {
     if (!revertTarget) return
-    navigate(`/inventory/stock-adjustments/create?revertFrom=${revertTarget}`)
+    navigate(withCurrentListQuery(`/inventory/stock-adjustments/create?revertFrom=${revertTarget}`))
     setRevertTarget(null)
   }, [revertTarget, navigate])
 
@@ -117,13 +111,13 @@ export default function StockAdjustmentsPage() {
     <SimpleListPage
       title="Stock Adjustments"
       subtitle="View and manage stock adjustment history"
-      primaryAction={{ label: '+ New Adjustment', onClick: () => navigate('/inventory/stock-adjustments/create') }}
+      primaryAction={{ label: '+ New Adjustment', onClick: () => navigate(withCurrentListQuery('/inventory/stock-adjustments/create')) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}
       hasActiveFilters={hasActiveFilters}
       searchInputRef={searchInputRef}
-      sort={{ field: 'adjustmentDate', sortBy, sortOrder, onSort: handleSort }}
+      sort={{ field: 'adjustmentDate', sortBy, sortOrder, onSort: setSort }}
       isFetching={isFetching}
       error={error ? 'Failed to load stock adjustments.' : null}
       tableSlot={(
@@ -139,7 +133,7 @@ export default function StockAdjustmentsPage() {
                 page={page}
                 limit={limit}
                 onPageChange={setPage}
-                onLimitChange={handleLimitChange}
+                onLimitChange={setLimit}
                 pageSizeOptions={PAGINATION.options}
               />
             )}

@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 import userEvent from '@testing-library/user-event'
 
 import CategoriesPage from '../CategoriesPage'
@@ -26,11 +26,12 @@ vi.mock('react-router-dom', async (importOriginal) => {
   }
 })
 
-const listProps: { categories?: any[]; flat?: boolean } = {}
+const listProps: { categories?: any[]; flat?: boolean; sortOrder?: string } = {}
 vi.mock('../components/CategoryList', () => ({
   default: (props: any) => {
     listProps.categories = props.categories
     listProps.flat = props.flat
+    listProps.sortOrder = props.sortOrder
     return <div data-testid="category-list" />
   },
 }))
@@ -123,5 +124,32 @@ describe('CategoriesPage status filter', () => {
       const names = listProps.categories!.map((c) => c.name).sort()
       expect(names).toEqual(['Hardware', 'Paint', 'Screws'])
     })
+  })
+})
+
+describe('CategoriesPage sort hydration', () => {
+  beforeEach(() => {
+    fixtureRef.data = [HARDWARE, SCREWS, PAINT]
+    listProps.categories = undefined
+    listProps.flat = undefined
+    listProps.sortOrder = undefined
+  })
+
+  afterEach(() => {
+    // useListUrlState hydrates from the live window.location, which jsdom
+    // persists across tests in this file.
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('hydrates sort order from the URL', async () => {
+    // The page sorts CLIENT-SIDE inside CategoryList (which this suite mocks),
+    // so URL hydration is observable in the sortOrder prop handed to the list —
+    // not in any query args. Descending ordering itself is covered by
+    // CategoryList.flat.test.tsx ("flat mode honors descending order").
+    window.history.replaceState(null, '', '/inventory/categories?sortOrder=desc')
+    renderPage()
+
+    await screen.findByTestId('category-list')
+    expect(listProps.sortOrder).toBe('desc')
   })
 })

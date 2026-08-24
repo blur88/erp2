@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import PagePagination from '@/components/common/PagePagination'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
+import { useListUrlState } from '@/hooks/useListUrlState'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelSalesOrderMutation,
@@ -51,19 +53,22 @@ const filterConfig: FilterBarConfig<SalesOrderFilters> = {
 
 const OrdersPage: React.FC = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { showSuccess, showError } = useNotification()
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
-  const [sortBy, setSortBy] = useState('orderNumber')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
+  const { sortBy, sortOrder, page, limit, setPage, setLimit, setSort, resetPage } =
+    useListUrlState({
+      sort: { fields: ['orderNumber'], defaultField: 'orderNumber', defaultOrder: 'desc' },
+    })
 
   const [printOrder, setPrintOrder] = useState<SalesOrder | null>(null)
   const [paymentOrder, setPaymentOrder] = useState<SalesOrder | null>(null)
   const [refundOrder, setRefundOrder] = useState<SalesOrder | null>(null)
 
-  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig, {
+    onApply: resetPage,
+  })
 
   const weekStartsOn = getStartOfWeek()
   const dateRange = useMemo(() => {
@@ -100,21 +105,6 @@ const OrdersPage: React.FC = () => {
   const [duplicateOrder] = useDuplicateSalesOrderMutation()
   const [recordPayments] = useRecordOrderPaymentsMutation()
   const [recordRefunds] = useRecordOrderRefundsMutation()
-
-  useEffect(() => {
-    setPage(1)
-  }, [appliedFilters])
-
-  const handleSort = useCallback((field: string) => {
-    setSortOrder((prev) => (sortBy === field && prev === 'desc' ? 'asc' : 'desc'))
-    setSortBy(field)
-    setPage(1)
-  }, [sortBy])
-
-  const handleLimitChange = useCallback((newLimit: number) => {
-    setLimit(newLimit)
-    setPage(1)
-  }, [])
 
   const handleFulfill = useCallback(async (order: SalesOrder) => {
     try {
@@ -198,13 +188,13 @@ const OrdersPage: React.FC = () => {
       <SimpleListPage
         title="Sales Orders"
         subtitle="Track sales orders and delivery status"
-        primaryAction={{ label: '+ New Sales Order', onClick: () => navigate('/sales/orders/create') }}
+        primaryAction={{ label: '+ New Sales Order', onClick: () => navigate(withCurrentListQuery('/sales/orders/create')) }}
         filterConfig={filterConfig}
         draftFilters={draftFilters}
         handlers={handlers}
         hasActiveFilters={hasActiveFilters}
         searchInputRef={searchInputRef}
-        sort={{ field: 'orderNumber', sortBy, sortOrder, onSort: handleSort }}
+        sort={{ field: 'orderNumber', sortBy, sortOrder, onSort: setSort }}
         isFetching={isFetching}
         error={error ? 'Failed to load sales orders.' : null}
         tableSlot={(
@@ -212,8 +202,8 @@ const OrdersPage: React.FC = () => {
             orders={orders}
             loading={isFetching}
             total={total}
-            onView={(order) => navigate(`/sales/orders/${order.orderNumber}/view`)}
-            onEdit={(order) => navigate(`/sales/orders/${order.orderNumber}/edit`)}
+            onView={(order) => navigate(withCurrentListQuery(`/sales/orders/${order.orderNumber}/view`))}
+            onEdit={(order) => navigate(withCurrentListQuery(`/sales/orders/${order.orderNumber}/edit`))}
             onPay={(order) => setPaymentOrder(order)}
             onFulfill={handleFulfill}
             onUnfulfill={handleUnfulfill}
@@ -228,7 +218,7 @@ const OrdersPage: React.FC = () => {
                 page={page}
                 limit={limit}
                 onPageChange={setPage}
-                onLimitChange={handleLimitChange}
+                onLimitChange={setLimit}
                 pageSizeOptions={PAGINATION.options}
               />
             )}

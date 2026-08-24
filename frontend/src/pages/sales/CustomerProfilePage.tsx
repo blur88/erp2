@@ -3,12 +3,13 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import PersonIcon from '@mui/icons-material/Person';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import { skipToken } from '@reduxjs/toolkit/query';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { StatusChip } from '@/components/common/StatusChip';
 import PageHeader from '@/components/common/PageHeader';
 import { TABLE_STYLES } from '@/constants/tableStyles';
 import { useGetCustomerBySlugQuery } from '@/store/api/salesApi';
+import { currentListPath, forwardListQuery } from '@/utils/listQuery';
 
 import CustomerOrdersTab from './components/CustomerOrdersTab';
 import CustomerOverviewTab from './components/CustomerOverviewTab';
@@ -50,6 +51,7 @@ const TABS = [
 export default function CustomerProfilePage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), TABS.length - 1);
 
@@ -78,11 +80,11 @@ export default function CustomerProfilePage() {
       <PageHeader
         title={customer.name}
         titleBadge={<StatusChip status={customer.isActive ? 'active' : 'inactive'} />}
-        backAction={() => navigate('/sales/customers')}
+        backAction={() => navigate(currentListPath('/sales/customers'))}
         primaryAction={{
           label: 'Edit Customer',
           onClick: () =>
-            navigate(`/sales/customers/${customer.slug}/edit`, {
+            navigate(forwardListQuery(`/sales/customers/${customer.slug}/edit`), {
               state: { returnTo: 'profile', profilePath, breadcrumbTitle: customer.name },
             }),
         }}
@@ -92,8 +94,16 @@ export default function CustomerProfilePage() {
         <Tabs
           value={tabValue}
           onChange={(_, value: number) =>
-            setSearchParams({ tab: String(value) }, { replace: true })
-          }
+            setSearchParams(
+              () => {
+                // Merge against the LIVE URL: embedded tab pagination writes with
+                // native replaceState, so React Router's `prev` can be stale (#1131 review).
+                const next = new URLSearchParams(window.location.search)
+                next.set('tab', String(value))
+                return next
+              },
+              { replace: true },
+            )}
           sx={{ minHeight: 36 }}
         >
           {TABS.map((tab) => (

@@ -46,6 +46,7 @@ import OrderLineItemRow from '@/components/transactions/OrderLineItemRow'
 import TransactionFormShell from '@/components/transactions/TransactionFormShell'
 import { formatCurrency, getCurrentDate, toDateInputValue, toMuiDatePickerFormat } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
+import { currentListPath } from '@/utils/listQuery'
 
 interface PurchaseOrderItem {
   productId: string
@@ -116,6 +117,8 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const theme = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
+  // Same-module list returns rebuild the list URL from the carried ticket.
+  const listPath = currentListPath('/purchasing/orders')
   const { orderNumber } = useParams<{ orderNumber: string }>()
   const isEditMode = !!orderNumber
   const { showSuccess, showError } = useNotification()
@@ -291,7 +294,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
   )
 
   const handleCancel = () => {
-    navigate('/purchasing/orders')
+    navigate(listPath)
   }
 
   const onSubmit = async (data: CreatePurchaseOrderFormData) => {
@@ -322,11 +325,11 @@ const CreatePurchaseOrderPage: React.FC = () => {
           data: orderData as any,
         }).unwrap()
         showSuccess('Purchase order updated successfully')
-        navigate('/purchasing/orders')
+        navigate(listPath)
       } else {
         await createPurchaseOrder(orderData as any).unwrap()
         showSuccess('Purchase order created successfully')
-        navigate('/purchasing/orders')
+        navigate(listPath)
       }
     } catch (err: any) {
       showError(

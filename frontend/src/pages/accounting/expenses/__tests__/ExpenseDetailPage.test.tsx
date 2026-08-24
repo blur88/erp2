@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation  } from 'react-router-dom'
 import { act, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -89,11 +89,14 @@ function makeExpense(overrides: Partial<Expense> = {}): Expense {
   }
 }
 
-function renderPage() {
+function renderPage(search = '') {
+  // Seed the REAL url too: listQuery helpers read window.location.search,
+  // which MemoryRouter never populates (#1131 review).
+  window.history.replaceState(null, '', `/accounting/expenses/exp-1${search}`)
   const store = configureStore({ reducer: {} })
   const tree = () => (
     <Provider store={store}>
-      <MemoryRouter initialEntries={['/accounting/expenses/exp-1']}>
+      <MemoryRouter initialEntries={[`/accounting/expenses/exp-1${search}`]}>
         <Routes>
           <Route path="/accounting/expenses/:id" element={<ExpenseDetailPage />} />
         </Routes>
@@ -105,6 +108,12 @@ function renderPage() {
 }
 
 describe('ExpenseDetailPage', () => {
+  // jsdom persists window.location across cases; BrowserRouter tests below
+  // read it, so reset between tests (#1131 review).
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -356,7 +365,9 @@ describe('ExpenseDetailPage', () => {
       mockGetExpense.mockReturnValue({ data: makeExpense(), isLoading: false })
       renderPage()
       await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
-      expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses/exp-1/edit')
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses/exp-1/edit', {
+        state: { expenseEditOrigin: 'detail' },
+      })
     })
   })
 
@@ -365,6 +376,54 @@ describe('ExpenseDetailPage', () => {
     renderPage()
     await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses')
+  })
+
+  it('returns to the list with the ticket decoded', async () => {
+    mockGetExpense.mockReturnValue({ data: makeExpense(), isLoading: false })
+    renderPage('?listQuery=page%3D2')
+
+    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses?page=2')
+  })
+
+  it('returns to the bare list when there is no ticket', async () => {
+    mockGetExpense.mockReturnValue({ data: makeExpense(), isLoading: false })
+    renderPage()
+
+    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses')
+  })
+
+  it('preserves other query params when the tab changes', async () => {
+    mockGetExpense.mockReturnValue({ data: makeExpense(), isLoading: false })
+
+    function LocationProbe() {
+      const location = useLocation()
+      return <span data-testid="probe-search">{location.search}</span>
+    }
+
+    const store = configureStore({ reducer: {} })
+    window.history.replaceState(null, '', '/accounting/expenses/exp-1?tab=0&probe=keepme')
+    render(
+      <Provider store={store}>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/accounting/expenses/:id" element={<ExpenseDetailPage />} />
+          </Routes>
+          <LocationProbe />
+        </BrowserRouter>
+      </Provider>,
+    )
+
+    const user = userEvent.setup()
+    const tabs = await screen.findAllByRole('tab')
+    await user.click(tabs[1])
+
+    const search = screen.getByTestId('probe-search').textContent ?? ''
+    expect(new URLSearchParams(search).get('probe')).toBe('keepme')
+    expect(new URLSearchParams(search).get('tab')).toBe('1')
   })
 
   describe('action wiring', () => {

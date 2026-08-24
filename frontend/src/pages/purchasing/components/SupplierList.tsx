@@ -1,11 +1,12 @@
 import React from 'react'
 import type { ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 import { StatusChip } from '@/components/common/StatusChip'
 import RowActionMenu from '@/components/common/RowActionMenu'
 import type { Supplier } from '@/types'
+import { withCurrentListQuery } from '@/utils/listQuery'
 
 function formatSupplierType(type: string): string {
   return type === 'local' ? 'Local' : 'International'
@@ -27,6 +28,8 @@ export default function SupplierList({
   paginationSlot,
 }: SupplierListProps) {
   const navigate = useNavigate()
+  // Rendered by the suppliers list page, so location.search IS the list's query.
+  const { search } = useLocation()
 
   const columns: ColumnConfig<Supplier>[] = [
     { key: 'companyName', width: '30%', render: (supplier) => supplier.companyName },
@@ -49,11 +52,11 @@ export default function SupplierList({
           actions={[
             {
               label: 'View Supplier',
-              onClick: () => navigate(`/purchasing/suppliers/${supplier.slug}/view`),
+              onClick: () => navigate(withCurrentListQuery(`/purchasing/suppliers/${supplier.slug}/view`)),
             },
             {
               label: 'Edit Supplier',
-              onClick: () => navigate(`/purchasing/suppliers/${supplier.slug}/edit`),
+              onClick: () => navigate(withCurrentListQuery(`/purchasing/suppliers/${supplier.slug}/edit`)),
             },
             supplier.isActive
               ? { label: 'Set as Inactive', onClick: () => onStatusToggle(supplier) }
@@ -75,7 +78,7 @@ export default function SupplierList({
       headers={['Company Name', 'Contact Person', 'Type', 'Status', 'Actions']}
       selectedId={undefined}
       focusedIndex={-1}
-      onSelect={(supplier) => navigate(`/purchasing/suppliers/${supplier.slug}/view`)}
+      onSelect={(supplier) => navigate(withCurrentListQuery(`/purchasing/suppliers/${supplier.slug}/view`))}
       listRef={{ current: null }}
       dataAttr="supplier"
       paginationSlot={paginationSlot}

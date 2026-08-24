@@ -133,14 +133,17 @@ import { useGetExpensesQuery, useGetExpenseQuery, useGetAccountTreeQuery, useGet
 import { darkTheme } from '@/styles/theme'
 import ExpensesPage from '../ExpensesPage'
 
-function renderPage() {
+function renderPage(initialUrl = '/accounting/expenses') {
+  // Seed the REAL url too: listQuery helpers and useListUrlState read
+  // window.location.search, which MemoryRouter never populates (#1131 review).
+  window.history.replaceState(null, '', initialUrl)
   const store = configureStore({ reducer: { empty: (s = null) => s } })
   return render(
     <Provider store={store}>
       {/* The refund dialog's line date field is a MUI X DatePicker, which
           throws without a localization context. */}
       <LocalizationProvider dateAdapter={AdapterDateFns}>
-        <MemoryRouter initialEntries={['/accounting/expenses']}>
+        <MemoryRouter initialEntries={[initialUrl]}>
           <ExpensesPage />
         </MemoryRouter>
       </LocalizationProvider>
@@ -161,6 +164,7 @@ describe('ExpensesPage', () => {
   })
 
   afterEach(() => {
+    window.history.replaceState(null, '', '/')
     vi.mocked(useGetExpensesQuery).mockReturnValue({
       data: { data: mockExpenses, meta: { total: 2, page: 1, limit: 25 } },
       isFetching: false,
@@ -168,10 +172,40 @@ describe('ExpensesPage', () => {
     } as any)
   })
 
+  it('hydrates page, limit and sort order from the URL', async () => {
+    // renderPage seeds window.location from this argument; useListUrlState
+    // hydrates from it.
+    renderPage('/accounting/expenses?page=2&limit=50&sortOrder=asc')
+
+    await waitFor(() => {
+      expect(vi.mocked(useGetExpensesQuery)).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 2, limit: 50, sortOrder: 'ASC' }),
+      )
+    })
+  })
+
   it('renders expense numbers from mocked data', () => {
     renderPage()
     expect(screen.getByText('EXP-001')).toBeInTheDocument()
     expect(screen.getByText('EXP-002')).toBeInTheDocument()
+  })
+
+  it('carries the list query to Detail', async () => {
+    // The page tickets from the LIVE url (window.location.search), not from
+    // useLocation() — native replaceState writes never reach React Router
+    // (#1131 review), so a mocked useLocation would not exercise the real path.
+    const user = userEvent.setup()
+    renderPage('/accounting/expenses?page=2&status=PAID')
+
+    await user.click(await screen.findByText('EXP-001'))
+
+    const target = mockNavigate.mock.calls.at(-1)?.[0] as string
+    const query = new URLSearchParams(target.slice(target.indexOf('?')))
+    // Parse the ticket rather than compare a serialized string: param ORDER is
+    // an implementation detail of the two URL writers.
+    const inner = new URLSearchParams(query.get('listQuery') ?? '')
+    expect(inner.get('page')).toBe('2')
+    expect(inner.get('status')).toBe('PAID')
   })
 
   it('renders expense descriptions', () => {

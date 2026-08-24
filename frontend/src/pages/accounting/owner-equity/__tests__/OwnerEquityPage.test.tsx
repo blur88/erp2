@@ -7,7 +7,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { alpha } from '@mui/material'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { darkTheme } from '@/styles/theme'
 import type { OwnerEquityDocument } from '@/types'
@@ -108,6 +108,15 @@ function renderPage(
   initialEntry: string | { pathname: string; search?: string; state?: unknown } =
     '/accounting/owner-equity',
 ) {
+  // Seed the REAL url too: listQuery helpers read window.location.search,
+  // which MemoryRouter never populates (#1131 review).
+  window.history.replaceState(
+    null,
+    '',
+    typeof initialEntry === 'string'
+      ? initialEntry
+      : `${initialEntry.pathname}${initialEntry.search ?? ''}`,
+  )
   const store = configureStore({ reducer: { empty: (s = null) => s } })
   return render(
     // LocalizationProvider is required: selecting a period reveals the custom
@@ -127,11 +136,33 @@ describe('OwnerEquityPage', () => {
     vi.clearAllMocks()
   })
 
+  afterEach(() => {
+    // useListUrlState hydrates from the live window.location, which jsdom
+    // persists across tests in this file.
+    window.history.replaceState(null, '', '/')
+  })
+
   it('navigates to the detail route on row click', async () => {
     const user = userEvent.setup()
     renderPage()
     await user.click(screen.getByText('EQ-26-001'))
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity/EQ-26-001/view')
+  })
+
+  it('carries the list query to Detail', async () => {
+    const user = userEvent.setup()
+    renderPage('/accounting/owner-equity?type=CASH_DRAWING&page=2')
+
+    await user.click(await screen.findByText('EQ-26-001'))
+
+    // Assert on the decoded ticket, not a serialized string: useListUrlState
+    // appends its keys after the filter keys, so param ORDER is an
+    // implementation detail.
+    const target = mockNavigate.mock.calls.at(-1)?.[0] as string
+    const ticket = new URLSearchParams(target.slice(target.indexOf('?'))).get('listQuery')
+    const inner = new URLSearchParams(ticket ?? '')
+    expect(inner.get('type')).toBe('CASH_DRAWING')
+    expect(inner.get('page')).toBe('2')
   })
 
   // Edit must tell the form it was opened from the list, so the form's
@@ -174,6 +205,18 @@ describe('OwnerEquityPage', () => {
     expect(calls[calls.length - 1][0]).toMatchObject({
       sortBy: 'referenceNumber',
       sortOrder: 'DESC',
+    })
+  })
+
+  it('hydrates page, limit and sort order from the URL', async () => {
+    // renderPage seeds window.location from this argument; useListUrlState
+    // hydrates from it.
+    renderPage('/accounting/owner-equity?page=2&limit=50&sortOrder=asc')
+
+    await waitFor(() => {
+      expect(vi.mocked(useGetOwnerEquityListQuery)).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 2, limit: 50, sortOrder: 'ASC' }),
+      )
     })
   })
 
@@ -248,6 +291,21 @@ describe('OwnerEquityPage', () => {
     it('does not clear history state when no highlight arrives', () => {
       renderPage()
       expect(mockNavigate).not.toHaveBeenCalled()
+    })
+
+    it('keeps list params in the URL after clearing the highlight state', async () => {
+      renderPage({
+        pathname: '/accounting/owner-equity',
+        search: '?type=CASH_DRAWING&page=2',
+        state: { highlightOwnerEquityId: 'oe-1' },
+      })
+
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith(
+          '/accounting/owner-equity?type=CASH_DRAWING&page=2',
+          { replace: true, state: null },
+        )
+      })
     })
   })
 })

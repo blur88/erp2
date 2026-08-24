@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Box, Typography } from '@mui/material'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -9,6 +9,7 @@ import RowActionMenu from '@/components/common/RowActionMenu'
 import { StatusChip } from '@/components/common/StatusChip'
 import { useNotification } from '@/hooks/useNotification'
 import { useSetCategoryEnabledMutation } from '@/store/api/inventoryApi'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import type { Category } from '@/types'
 
 interface CategoryListProps {
@@ -44,6 +45,8 @@ function flattenTree(cats: Category[], sortBy: string, order: 'asc' | 'desc'): C
 
 export default function CategoryList({ categories, sortBy, sortOrder, flat = false }: CategoryListProps) {
   const navigate = useNavigate()
+  // Rendered by the categories list page, so location.search IS the list's query.
+  const { search } = useLocation()
   const { showSuccess, showError } = useNotification()
   const [setCategoryEnabled, { isLoading: toggling }] = useSetCategoryEnabledMutation()
   const [pendingToggle, setPendingToggle] = useState<Category | null>(null)
@@ -105,9 +108,9 @@ export default function CategoryList({ categories, sortBy, sortOrder, flat = fal
       render: (c) => (
         <RowActionMenu
           actions={[
-            { label: 'View', onClick: () => navigate(`/inventory/categories/${c.slug}/view`) },
-            { label: 'Edit', onClick: () => navigate(`/inventory/categories/${c.slug}/edit`) },
-            { label: 'Add Subcategory', onClick: () => navigate(`/inventory/categories/create?parentId=${c.id}`) },
+            { label: 'View', onClick: () => navigate(withCurrentListQuery(`/inventory/categories/${c.slug}/view`)) },
+            { label: 'Edit', onClick: () => navigate(withCurrentListQuery(`/inventory/categories/${c.slug}/edit`)) },
+            { label: 'Add Subcategory', onClick: () => navigate(withCurrentListQuery(`/inventory/categories/create?parentId=${c.id}`)) },
             c.isEnabled
               ? { label: 'Set as Inactive', onClick: () => setPendingToggle(c) }
               : { label: 'Reactivate', onClick: () => setPendingToggle(c) },
@@ -129,7 +132,7 @@ export default function CategoryList({ categories, sortBy, sortOrder, flat = fal
         headers={['Name', 'Product Count', 'Status', 'Actions']}
         selectedId={undefined}
         focusedIndex={-1}
-        onSelect={(c) => navigate(`/inventory/categories/${c.slug}/view`)}
+        onSelect={(c) => navigate(withCurrentListQuery(`/inventory/categories/${c.slug}/view`))}
         listRef={{ current: null }}
         dataAttr="category"
         paginationSlot={<Box sx={{ borderTop: TABLE_STYLES.cell.border }} />}

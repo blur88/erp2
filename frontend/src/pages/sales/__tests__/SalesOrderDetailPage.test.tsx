@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation  } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { SalesOrder } from '@/types'
@@ -93,11 +93,14 @@ function makeOrder(overrides: Partial<SalesOrder> = {}): SalesOrder {
   } as SalesOrder
 }
 
-function renderPage(orderNumber = 'SO-26-001') {
+function renderPage(orderNumber = 'SO-26-001', search = '') {
+  // Seed the REAL url too: listQuery helpers read window.location.search,
+  // which MemoryRouter never populates (#1131 review).
+  window.history.replaceState(null, '', `/sales/orders/${orderNumber}/view${search}`)
   const store = configureStore({ reducer: { sales: (state = {}) => state } })
   return render(
     <Provider store={store}>
-      <MemoryRouter initialEntries={[`/sales/orders/${orderNumber}/view`]}>
+      <MemoryRouter initialEntries={[`/sales/orders/${orderNumber}/view${search}`]}>
         <Routes>
           <Route path="/sales/orders/:orderNumber/view" element={<SalesOrderDetailPage />} />
         </Routes>
@@ -107,6 +110,12 @@ function renderPage(orderNumber = 'SO-26-001') {
 }
 
 describe('SalesOrderDetailPage', () => {
+  // jsdom persists window.location across cases; BrowserRouter tests below
+  // read it, so reset between tests (#1131 review).
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetSalesOrderPayments.mockReturnValue({ data: [], isLoading: false })
@@ -136,6 +145,36 @@ describe('SalesOrderDetailPage', () => {
     expect(screen.getByText('OverviewTab')).toBeInTheDocument()
   })
 
+  it('preserves other query params when the tab changes', async () => {
+    mockGetSalesOrderByNumber.mockReturnValue({ data: makeOrder(), isLoading: false })
+
+    function LocationProbe() {
+      const location = useLocation()
+      return <span data-testid="probe-search">{location.search}</span>
+    }
+
+    const store = configureStore({ reducer: { sales: (state = {}) => state } })
+    window.history.replaceState(null, '', '/sales/orders/SO-26-001/view?tab=0&probe=keepme')
+    render(
+      <Provider store={store}>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/sales/orders/:orderNumber/view" element={<SalesOrderDetailPage />} />
+          </Routes>
+          <LocationProbe />
+        </BrowserRouter>
+      </Provider>,
+    )
+
+    const user = userEvent.setup()
+    const tabs = await screen.findAllByRole('tab')
+    await user.click(tabs[1])
+
+    const search = screen.getByTestId('probe-search').textContent ?? ''
+    expect(new URLSearchParams(search).get('probe')).toBe('keepme')
+    expect(new URLSearchParams(search).get('tab')).toBe('1')
+  })
+
   it('switches to Payments tab', async () => {
     mockGetSalesOrderByNumber.mockReturnValue({ data: makeOrder(), isLoading: false })
     renderPage()
@@ -148,6 +187,15 @@ describe('SalesOrderDetailPage', () => {
     renderPage()
     await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
     expect(mockNavigate).toHaveBeenCalledWith('/sales/orders')
+  })
+
+  it('returns to the list with the ticket decoded', async () => {
+    mockGetSalesOrderByNumber.mockReturnValue({ data: makeOrder(), isLoading: false })
+    renderPage('SO-26-001', '?listQuery=page%3D2')
+
+    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/orders?page=2')
   })
 
   it('navigates to edit page when Edit is clicked', async () => {
