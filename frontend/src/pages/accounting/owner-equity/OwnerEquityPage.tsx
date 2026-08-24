@@ -122,6 +122,7 @@ export default function OwnerEquityPage() {
   const [refundRow, setRefundRow] = useState<OwnerEquityDocument | null>(null)
   const [completeRow, setCompleteRow] = useState<OwnerEquityDocument | null>(null)
   const [cancelRow, setCancelRow] = useState<OwnerEquityDocument | null>(null)
+  const [uncompleteRow, setUncompleteRow] = useState<OwnerEquityDocument | null>(null)
   const [uncancelRow, setUncancelRow] = useState<OwnerEquityDocument | null>(null)
 
   const { showSuccess, showError } = useNotification()
@@ -183,6 +184,7 @@ export default function OwnerEquityPage() {
   const [doRefundOwnerEquity] = useRefundOwnerEquityMutation()
   const [doComplete, { isLoading: isCompleting }] = useCompleteOwnerEquityMutation()
   const [doCancel, { isLoading: isCancelling }] = useCancelOwnerEquityMutation()
+  const [doUncomplete, { isLoading: isUncompleting }] = useUncompleteOwnerEquityMutation()
   const [doUncancel, { isLoading: isUncancelling }] = useUncancelOwnerEquityMutation()
 
   // Capital Injection receives money and may use any active method; Cash
@@ -328,6 +330,19 @@ export default function OwnerEquityPage() {
     }
   }, [cancelRow, doCancel, showSuccess, showError])
 
+  const handleUncompleteConfirm = useCallback(async () => {
+    if (!uncompleteRow) return
+    try {
+      await doUncomplete({ referenceNumber: uncompleteRow.referenceNumber }).unwrap()
+      showSuccess(
+        `${OWNER_EQUITY_TYPE_LABELS[uncompleteRow.type]} ${uncompleteRow.referenceNumber} uncompleted`,
+      )
+      setUncompleteRow(null)
+    } catch (error) {
+      showError(rtkErrorMessage(error, 'Failed to uncomplete'))
+    }
+  }, [uncompleteRow, doUncomplete, showSuccess, showError])
+
   const handleUncancelConfirm = useCallback(async () => {
     if (!uncancelRow) return
     try {
@@ -358,7 +373,7 @@ export default function OwnerEquityPage() {
             } else if (meta.action === 'complete') {
               setCompleteRow(row)
             } else if (meta.action === 'uncomplete') {
-              navigate(withCurrentListQuery(`/accounting/owner-equity/${row.referenceNumber}/view`))
+              setUncompleteRow(row)
             } else if (meta.action === 'settle') {
               setSettleRow(row)
             } else if (meta.action === 'refund') {
@@ -535,6 +550,19 @@ export default function OwnerEquityPage() {
               onConfirm={handleCancelConfirm}
               onCancel={() => setCancelRow(null)}
               loading={isCancelling}
+            />
+          )}
+
+          {uncompleteRow && (
+            <ConfirmationDialog
+              open
+              title="Uncomplete Owner Equity"
+              message={`Uncomplete ${uncompleteRow.referenceNumber}? This restores the drawn stock and reverses its journal entry.`}
+              confirmText="Uncomplete"
+              severity="warning"
+              onConfirm={handleUncompleteConfirm}
+              onCancel={() => setUncompleteRow(null)}
+              loading={isUncompleting}
             />
           )}
 

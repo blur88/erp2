@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
@@ -14,8 +14,10 @@ import type { OwnerEquityDocument } from '@/types'
 
 import OwnerEquityPage from '../OwnerEquityPage'
 
-const { mockNavigate, mockRows } = vi.hoisted(() => ({
+const { mockNavigate, mockShowSuccess, mockShowError, mockRows } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
+  mockShowSuccess: vi.fn(),
+  mockShowError: vi.fn(),
   mockRows: [
     {
       id: 'eq-1',
@@ -63,6 +65,32 @@ const { mockNavigate, mockRows } = vi.hoisted(() => ({
       settlements: [],
       product: null,
     },
+    // Uncomplete is stock-drawing-only and COMPLETED-only (getOwnerEquityActionMetas),
+    // so this is the only row shape whose action menu offers it. Appended last so
+    // the existing menuButtons[1] assertions still address EQ-26-002.
+    {
+      id: 'eq-3',
+      referenceNumber: 'EQ-26-003',
+      equityDate: '2026-08-05',
+      type: 'STOCK_DRAWING',
+      description: 'Owner took stock',
+      notes: null,
+      documentStatus: 'COMPLETED',
+      settlementStatus: 'UNSETTLED',
+      totalAmount: null,
+      settledAmount: '0.0000',
+      balance: '0.0000',
+      productId: 'prod-1',
+      quantity: '2.0000',
+      unitCost: '10.0000',
+      totalCost: '20.0000',
+      completedAt: '2026-08-06T00:00:00Z',
+      completedBy: null,
+      createdAt: '2026-08-05T00:00:00Z',
+      updatedAt: '2026-08-06T00:00:00Z',
+      settlements: [],
+      product: null,
+    },
   ] as OwnerEquityDocument[],
 }))
 
@@ -73,7 +101,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 
 vi.mock('@/store/api/accountingApi', () => ({
   useGetOwnerEquityListQuery: vi.fn().mockReturnValue({
-    data: { data: mockRows, meta: { total: 2, page: 1, limit: 25 } },
+    data: { data: mockRows, meta: { total: 3, page: 1, limit: 25 } },
     isFetching: false,
     error: undefined,
   }),
@@ -96,10 +124,13 @@ vi.mock('@/store/api/paymentMethodsApi', () => ({
 }))
 
 vi.mock('@/hooks/useNotification', () => ({
-  useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
+  useNotification: () => ({ showSuccess: mockShowSuccess, showError: mockShowError }),
 }))
 
-import { useGetOwnerEquityListQuery } from '@/store/api/accountingApi'
+import {
+  useGetOwnerEquityListQuery,
+  useUncompleteOwnerEquityMutation,
+} from '@/store/api/accountingApi'
 
 // The router is real here (only useNavigate is mocked), so an incoming
 // highlight is driven the way the app delivers one: a history entry carrying
@@ -190,7 +221,9 @@ describe('OwnerEquityPage', () => {
   it('renders type, document status and settlement status chips', () => {
     renderPage()
     expect(screen.getByText('Capital Injection')).toBeInTheDocument()
-    expect(screen.getByText('Completed')).toBeInTheDocument()
+    // Two rows are COMPLETED (EQ-26-001 and the stock drawing EQ-26-003), so
+    // this chip label is no longer unique.
+    expect(screen.getAllByText('Completed')).toHaveLength(2)
     expect(screen.getByText('Settled')).toBeInTheDocument()
   })
 
@@ -306,6 +339,84 @@ describe('OwnerEquityPage', () => {
           { replace: true, state: null },
         )
       })
+    })
+  })
+  // Issue #1136: Uncomplete was the outlier among lifecycle row actions — it
+  // navigated to Detail instead of confirming in place like complete/cancel/
+  // uncancel. EQ-26-003 is the COMPLETED stock drawing, the only row shape
+  // that offers Uncomplete.
+  describe('list-origin Uncomplete', () => {
+    // The file-level mock returns a bare vi.fn(), which has no .unwrap(). Each
+    // test that actually confirms needs its own resolving/rejecting double.
+    function primeUncomplete(unwrap: () => Promise<unknown>) {
+      const trigger = vi.fn(() => ({ unwrap }))
+      vi.mocked(useUncompleteOwnerEquityMutation).mockReturnValue([
+        trigger,
+        { isLoading: false },
+      ] as never)
+      return trigger
+    }
+
+    async function openUncomplete(user: ReturnType<typeof userEvent.setup>) {
+      const menuButtons = screen.getAllByRole('button', { name: /row actions/i })
+      await user.click(menuButtons[2])
+      await user.click(await screen.findByRole('menuitem', { name: /^uncomplete$/i }))
+    }
+
+    it('opens the confirmation dialog in place instead of navigating', async () => {
+      const user = userEvent.setup()
+      renderPage()
+
+      await openUncomplete(user)
+
+      const dialog = await screen.findByRole('dialog')
+      expect(within(dialog).getByText(/Uncomplete Owner Equity/)).toBeInTheDocument()
+      expect(mockNavigate).not.toHaveBeenCalled()
+    })
+
+    it('uncompletes the document and closes the dialog on confirm', async () => {
+      const user = userEvent.setup()
+      const trigger = primeUncomplete(() => Promise.resolve(undefined))
+      renderPage()
+
+      await openUncomplete(user)
+      const dialog = await screen.findByRole('dialog')
+      await user.click(within(dialog).getByRole('button', { name: /^uncomplete$/i }))
+
+      expect(trigger).toHaveBeenCalledWith({ referenceNumber: 'EQ-26-003' })
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(mockNavigate).not.toHaveBeenCalled()
+    })
+
+    it('leaves the document unchanged when the dialog is dismissed', async () => {
+      const user = userEvent.setup()
+      const trigger = primeUncomplete(() => Promise.resolve(undefined))
+      renderPage()
+
+      await openUncomplete(user)
+      const dialog = await screen.findByRole('dialog')
+      await user.click(within(dialog).getByRole('button', { name: /^cancel$/i }))
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(trigger).not.toHaveBeenCalled()
+      expect(mockNavigate).not.toHaveBeenCalled()
+    })
+
+    // A failed uncomplete must report the error and keep the dialog open, so
+    // the user can retry — matching complete/cancel/uncancel, which all clear
+    // their row only on success.
+    it('reports the error and keeps the dialog open when the mutation rejects', async () => {
+      const user = userEvent.setup()
+      primeUncomplete(() => Promise.reject({ data: { message: 'boom' } }))
+      renderPage()
+
+      await openUncomplete(user)
+      const dialog = await screen.findByRole('dialog')
+      await user.click(within(dialog).getByRole('button', { name: /^uncomplete$/i }))
+
+      await waitFor(() => expect(mockShowError).toHaveBeenCalled())
+      expect(mockShowError.mock.calls[0][0]).toMatch(/boom|Failed to uncomplete/)
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
     })
   })
 })
