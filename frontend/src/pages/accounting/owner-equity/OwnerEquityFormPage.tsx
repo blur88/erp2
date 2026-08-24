@@ -21,7 +21,7 @@ import { Controller, useForm } from 'react-hook-form'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import * as yup from 'yup'
 
-import { extractListQuery, listPathWithQuery, withListQuery } from '@/utils/listQuery'
+import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 
 import { AppButton } from '@/components/common/AppButton'
 import PageHeader from '@/components/common/PageHeader'
@@ -76,8 +76,7 @@ const OwnerEquityFormPage: React.FC = () => {
   const location = useLocation()
   // The ticket carried from the list (or forwarded by Detail). Same-module
   // returns rebuild the list URL from it; Form→Detail forwards it onward.
-  const listQuery = extractListQuery(location.search)
-  const listPath = listPathWithQuery('/accounting/owner-equity', location.search)
+  const listPath = currentListPath('/accounting/owner-equity')
   const isListOrigin =
     (location.state as { ownerEquityEditOrigin?: string } | null)?.ownerEquityEditOrigin === 'list'
 
@@ -226,7 +225,7 @@ const OwnerEquityFormPage: React.FC = () => {
         state: document?.id ? { highlightOwnerEquityId: document.id } : null,
       })
     } else if (ref) {
-      navigate(withListQuery(`/accounting/owner-equity/${ref}/view`, listQuery ? `?${listQuery}` : ''))
+      navigate(forwardListQuery(`/accounting/owner-equity/${ref}/view`))
     } else {
       navigate(listPath)
     }

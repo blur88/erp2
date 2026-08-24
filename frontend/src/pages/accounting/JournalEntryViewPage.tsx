@@ -13,7 +13,7 @@ import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
 import { DataTable, type Column } from '@/components/common/DataTable'
 import { useGetJournalEntryQuery } from '@/store/api/accountingApi'
-import { listPathWithQuery } from '@/utils/listQuery'
+import { currentListPath } from '@/utils/listQuery'
 import { formatCurrency, formatDate, formatDateTime } from '@/utils/formatters'
 import SourceLink from './components/SourceLink'
 
@@ -90,7 +90,7 @@ export default function JournalEntryViewPage() {
       <PageHeader
         title={`Journal Entry ${entry.journalNo}`}
         titleBadge={statusChip}
-        backAction={() => navigate(listPathWithQuery('/accounting/journal-entries', location.search))}
+        backAction={() => navigate(currentListPath('/accounting/journal-entries'))}
       />
 
       <Grid container spacing={3} sx={{ mb: 3, alignItems: 'stretch' }}>

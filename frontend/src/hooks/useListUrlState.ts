@@ -199,7 +199,10 @@ export function useListUrlState<const TSortField extends string = string>(
     setPage,
     setLimit,
     resetPage,
-    sortBy: sortBy as TSortField,
+    // `undefined` when no sort is configured — the contract says a disabled
+    // capability's fields are inert, and a cast to TSortField would hide
+    // accidental use behind a lie (#1131 review).
+    sortBy,
     sortOrder,
     setSort,
   }

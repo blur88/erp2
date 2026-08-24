@@ -35,7 +35,7 @@ import {
   useGetActivePaymentMethodsQuery,
 } from '@/store/api/paymentMethodsApi'
 import type { OwnerEquityDocument, OwnerEquitySettlement } from '@/types'
-import { extractListQuery, listPathWithQuery, withListQuery } from '@/utils/listQuery'
+import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 
 import { getOwnerEquityActionMetas } from './ownerEquityActions'
 import { OWNER_EQUITY_TYPE_LABELS } from './OwnerEquityPage'
@@ -83,7 +83,6 @@ export default function OwnerEquityDetailView({ document: doc }: { document: Own
   const location = useLocation()
   // The ticket carried from the list. Detail→Edit forwards ONLY this — never
   // the whole detail search, which carries ?tab=.
-  const listQuery = extractListQuery(location.search)
   const [searchParams, setSearchParams] = useSearchParams()
   const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 1)
   const [settleOpen, setSettleOpen] = useState(false)
@@ -240,7 +239,7 @@ export default function OwnerEquityDetailView({ document: doc }: { document: Own
         break
       case 'edit':
         navigate(
-          withListQuery(`/accounting/owner-equity/${doc.referenceNumber}/edit`, listQuery ? `?${listQuery}` : ''),
+          forwardListQuery(`/accounting/owner-equity/${doc.referenceNumber}/edit`),
           { state: { ownerEquityEditOrigin: 'detail' } },
         )
         break
@@ -317,7 +316,7 @@ export default function OwnerEquityDetailView({ document: doc }: { document: Own
             {isMonetary(doc) && <StatusChip status={doc.settlementStatus ?? 'UNSETTLED'} />}
           </Box>
         }
-        backAction={() => navigate(listPathWithQuery('/accounting/owner-equity', location.search))}
+        backAction={() => navigate(currentListPath('/accounting/owner-equity'))}
       />
 
       {actionMetas.length > 0 && (
@@ -342,8 +341,10 @@ export default function OwnerEquityDetailView({ document: doc }: { document: Own
           value={tabValue}
           onChange={(_, v: number) =>
             setSearchParams(
-              (prev) => {
-                const next = new URLSearchParams(prev)
+              () => {
+                // Merge against the LIVE URL: embedded tab pagination writes with
+                // native replaceState, so React Router's `prev` can be stale (#1131 review).
+                const next = new URLSearchParams(window.location.search)
                 next.set('tab', String(v))
                 return next
               },

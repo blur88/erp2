@@ -40,7 +40,7 @@ import {
 import type { PriceListItem } from '@/types'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatCurrency } from '@/utils/currency'
-import { listPathWithQuery } from '@/utils/listQuery'
+import { currentListPath } from '@/utils/listQuery'
 import { formatDate as formatDisplayDate } from '@/utils/formatters'
 
 const PriceListDetailsPage: React.FC = () => {
@@ -184,7 +184,7 @@ const PriceListDetailsPage: React.FC = () => {
     return (
       <Box>
         <Alert severity="error">Price list not found</Alert>
-        <AppButton variant="secondary" startIcon={<BackIcon />} onClick={() => navigate(listPathWithQuery('/settings/price-lists', location.search))} sx={{ mt: 2 }}>
+        <AppButton variant="secondary" startIcon={<BackIcon />} onClick={() => navigate(currentListPath('/settings/price-lists'))} sx={{ mt: 2 }}>
           Back to Price Lists
         </AppButton>
       </Box>
@@ -195,7 +195,7 @@ const PriceListDetailsPage: React.FC = () => {
     <>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <AppButton variant="secondary" startIcon={<BackIcon />} onClick={() => navigate(listPathWithQuery('/settings/price-lists', location.search))} sx={{ mb: 2 }}>
+        <AppButton variant="secondary" startIcon={<BackIcon />} onClick={() => navigate(currentListPath('/settings/price-lists'))} sx={{ mb: 2 }}>
           Back to Price Lists
         </AppButton>
 

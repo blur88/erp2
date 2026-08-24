@@ -5,7 +5,7 @@ import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 import { StatusChip } from '@/components/common/StatusChip'
 import RowActionMenu from '@/components/common/RowActionMenu'
 import { formatCurrency } from '@/utils/currency'
-import { withListQuery } from '@/utils/listQuery'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { formatNumber } from '@/utils/formatters'
 import type { Product } from '@/types'
 
@@ -62,8 +62,8 @@ export default function ProductList({
       render: (p) => (
         <RowActionMenu
           actions={[
-            { label: 'View Product', onClick: () => navigate(withListQuery(`/inventory/products/${p.slug}/view`, search)) },
-            { label: 'Edit Product', onClick: () => navigate(withListQuery(`/inventory/products/${p.slug}/edit`, search)) },
+            { label: 'View Product', onClick: () => navigate(withCurrentListQuery(`/inventory/products/${p.slug}/view`)) },
+            { label: 'Edit Product', onClick: () => navigate(withCurrentListQuery(`/inventory/products/${p.slug}/edit`)) },
             p.isActive
               ? { label: 'Set as Inactive', onClick: () => onStatusToggle(p) }
               : { label: 'Reactivate', onClick: () => onStatusToggle(p) },
@@ -92,7 +92,7 @@ export default function ProductList({
       ]}
       selectedId={undefined}
       focusedIndex={-1}
-      onSelect={(p) => navigate(withListQuery(`/inventory/products/${p.slug}/view`, search))}
+      onSelect={(p) => navigate(withCurrentListQuery(`/inventory/products/${p.slug}/view`))}
       listRef={{ current: null }}
       dataAttr="product"
       paginationSlot={paginationSlot}

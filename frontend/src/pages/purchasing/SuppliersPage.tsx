@@ -5,7 +5,7 @@ import PagePagination from '@/components/common/PagePagination'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
-import { withListQuery } from '@/utils/listQuery'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useGetSuppliersQuery,
@@ -89,7 +89,7 @@ const SuppliersPage: React.FC = () => {
     <SimpleListPage
       title="Suppliers"
       subtitle="Manage your suppliers and vendor relationships."
-      primaryAction={{ label: 'New Supplier', onClick: () => navigate(withListQuery('/purchasing/suppliers/create', location.search)) }}
+      primaryAction={{ label: 'New Supplier', onClick: () => navigate(withCurrentListQuery('/purchasing/suppliers/create')) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}

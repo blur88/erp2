@@ -54,7 +54,7 @@ import TransactionFormShell from '@/components/transactions/TransactionFormShell
 import { formatCurrency, getCurrentDate, toDateInputValue, toMuiDatePickerFormat } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getStockOffenders } from '@/utils/stockStatus'
-import { extractListQuery, listPathWithQuery, withListQuery } from '@/utils/listQuery'
+import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 import { getOrderActionMetas } from './utils/orderActions'
 import StockIndicatorChip from './components/StockIndicatorChip'
 
@@ -155,8 +155,7 @@ const CreateSalesOrderPage: React.FC = () => {
   const location = useLocation()
   // The ticket carried from the list. The saved-order Detail return forwards it;
   // list returns rebuild the list URL from it.
-  const listQuery = extractListQuery(location.search)
-  const listPath = listPathWithQuery('/sales/orders', location.search)
+  const listPath = currentListPath('/sales/orders')
   const dispatch = useAppDispatch()
   const store = useStore()
   const { orderNumber } = useParams<{ orderNumber: string }>()
@@ -293,7 +292,7 @@ const CreateSalesOrderPage: React.FC = () => {
             setLoadingOrder(false)
             showError(editMeta?.tooltip ?? 'Cannot edit this sales order')
             navigate(
-              withListQuery(`/sales/orders/${orderNumber}/view`, listQuery ? `?${listQuery}` : ''),
+              forwardListQuery(`/sales/orders/${orderNumber}/view`),
               { replace: true },
             )
             return

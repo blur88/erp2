@@ -9,7 +9,7 @@ import { StatusChip } from '@/components/common/StatusChip';
 import PageHeader from '@/components/common/PageHeader';
 import { TABLE_STYLES } from '@/constants/tableStyles';
 import { useGetCustomerBySlugQuery } from '@/store/api/salesApi';
-import { listPathWithQuery } from '@/utils/listQuery';
+import { currentListPath, forwardListQuery } from '@/utils/listQuery';
 
 import CustomerOrdersTab from './components/CustomerOrdersTab';
 import CustomerOverviewTab from './components/CustomerOverviewTab';
@@ -80,11 +80,11 @@ export default function CustomerProfilePage() {
       <PageHeader
         title={customer.name}
         titleBadge={<StatusChip status={customer.isActive ? 'active' : 'inactive'} />}
-        backAction={() => navigate(listPathWithQuery('/sales/customers', location.search))}
+        backAction={() => navigate(currentListPath('/sales/customers'))}
         primaryAction={{
           label: 'Edit Customer',
           onClick: () =>
-            navigate(`/sales/customers/${customer.slug}/edit`, {
+            navigate(forwardListQuery(`/sales/customers/${customer.slug}/edit`), {
               state: { returnTo: 'profile', profilePath, breadcrumbTitle: customer.name },
             }),
         }}
@@ -95,8 +95,10 @@ export default function CustomerProfilePage() {
           value={tabValue}
           onChange={(_, value: number) =>
             setSearchParams(
-              (prev) => {
-                const next = new URLSearchParams(prev)
+              () => {
+                // Merge against the LIVE URL: embedded tab pagination writes with
+                // native replaceState, so React Router's `prev` can be stale (#1131 review).
+                const next = new URLSearchParams(window.location.search)
                 next.set('tab', String(value))
                 return next
               },

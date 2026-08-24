@@ -14,7 +14,7 @@ import {
   useGetSupplierBySlugQuery,
   useUpdateSupplierMutation,
 } from '@/store/api/purchasingApi'
-import { listPathWithQuery } from '@/utils/listQuery'
+import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 
 import SupplierOverviewTab from './components/SupplierOverviewTab'
 import SupplierPaymentsTab from './components/SupplierPaymentsTab'
@@ -105,10 +105,10 @@ export default function SupplierProfilePage() {
       <PageHeader
         title={supplier.companyName}
         titleBadge={<StatusChip status={supplier.isActive ? 'active' : 'inactive'} />}
-        backAction={() => navigate(listPathWithQuery('/purchasing/suppliers', location.search))}
+        backAction={() => navigate(currentListPath('/purchasing/suppliers'))}
         primaryAction={{
           label: 'Edit Supplier',
-          onClick: () => navigate(`/purchasing/suppliers/${supplier.slug}/edit`, {
+          onClick: () => navigate(forwardListQuery(`/purchasing/suppliers/${supplier.slug}/edit`), {
             state: { returnTo: 'profile', profilePath, breadcrumbTitle: supplier.companyName },
           }),
         }}
@@ -123,8 +123,10 @@ export default function SupplierProfilePage() {
           value={tabValue}
           onChange={(_, value: number) =>
             setSearchParams(
-              (prev) => {
-                const next = new URLSearchParams(prev)
+              () => {
+                // Merge against the LIVE URL: embedded tab pagination writes with
+                // native replaceState, so React Router's `prev` can be stale (#1131 review).
+                const next = new URLSearchParams(window.location.search)
                 next.set('tab', String(value))
                 return next
               },

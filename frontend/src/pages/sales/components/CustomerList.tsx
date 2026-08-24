@@ -6,7 +6,7 @@ import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 import { StatusChip } from '@/components/common/StatusChip'
 import RowActionMenu from '@/components/common/RowActionMenu'
 import type { Customer } from '@/types'
-import { withListQuery } from '@/utils/listQuery'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { formatCustomerType } from '@/utils/customerUtils'
 
 interface CustomerListProps {
@@ -50,11 +50,11 @@ export default function CustomerList({
           actions={[
             {
               label: 'View Customer',
-              onClick: () => navigate(withListQuery(`/sales/customers/${customer.slug}/view`, search)),
+              onClick: () => navigate(withCurrentListQuery(`/sales/customers/${customer.slug}/view`)),
             },
             {
               label: 'Edit Customer',
-              onClick: () => navigate(withListQuery(`/sales/customers/${customer.slug}/edit`, search)),
+              onClick: () => navigate(withCurrentListQuery(`/sales/customers/${customer.slug}/edit`)),
             },
             customer.isActive
               ? { label: 'Set as Inactive', onClick: () => onStatusToggle(customer) }
@@ -76,7 +76,7 @@ export default function CustomerList({
       headers={['Name', 'Phone', 'Type', 'Price List', 'Status', 'Actions']}
       selectedId={undefined}
       focusedIndex={-1}
-      onSelect={(customer) => navigate(withListQuery(`/sales/customers/${customer.slug}/view`, search))}
+      onSelect={(customer) => navigate(withCurrentListQuery(`/sales/customers/${customer.slug}/view`))}
       listRef={{ current: null }}
       dataAttr="customer"
       paginationSlot={paginationSlot}

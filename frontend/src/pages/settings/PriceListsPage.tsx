@@ -30,7 +30,7 @@ import { StatusChip } from '@/components/common/StatusChip'
 import { FilterBar } from '@/components/filters'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
-import { withListQuery } from '@/utils/listQuery'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useDeletePriceListMutation,
@@ -122,7 +122,7 @@ const PriceListsPage: React.FC = () => {
   }
 
   const handleViewPriceList = (priceList: PriceList) => {
-    navigate(withListQuery(`/settings/price-lists/${priceList.id}`, location.search))
+    navigate(withCurrentListQuery(`/settings/price-lists/${priceList.id}`))
   }
 
   const handleFormClose = () => {

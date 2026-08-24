@@ -11,7 +11,7 @@ import SalesOrderPrintDialog from './components/SalesOrderPrintDialog';
 import PaymentDialog from '@/components/common/PaymentDialog';
 import RefundDialog, { type RefundSeed } from '@/components/common/RefundDialog';
 import { getCurrentDate } from '@/utils/formatters';
-import { listPathWithQuery } from '@/utils/listQuery';
+import { currentListPath, forwardListQuery, withCurrentListQuery } from '@/utils/listQuery';
 import { toScaledAmount, fromScaledAmount } from '@/utils/currency';
 import { TABLE_STYLES } from '@/constants/tableStyles';
 import { useNotification } from '@/hooks/useNotification';
@@ -84,7 +84,7 @@ export default function SalesOrderDetailPage() {
 
   useEffect(() => {
     if (order?.orderNumber) {
-      navigate(`/sales/orders/${order.orderNumber}/view`, {
+      navigate(withCurrentListQuery(`/sales/orders/${order.orderNumber}/view`), {
         replace: true,
         state: { breadcrumbTitle: order.orderNumber },
       });
@@ -259,7 +259,7 @@ export default function SalesOrderDetailPage() {
             <StatusChip status={order.paymentStatus} />
           </Box>
         }
-        backAction={() => navigate(listPathWithQuery('/sales/orders', location.search))}
+        backAction={() => navigate(currentListPath('/sales/orders'))}
       />
 
       <OrderActionBar
@@ -268,7 +268,7 @@ export default function SalesOrderDetailPage() {
         onFulfill={() => setActiveDialog('fulfill')}
         onUnfulfill={() => setActiveDialog('unfulfill')}
         onRefund={() => setActiveDialog('refund')}
-        onEdit={() => navigate(`/sales/orders/${order.orderNumber}/edit`)}
+        onEdit={() => navigate(forwardListQuery(`/sales/orders/${order.orderNumber}/edit`))}
         onCancel={() => setActiveDialog('cancel')}
         onUncancel={() => setActiveDialog('uncancel')}
         onDuplicate={handleDuplicate}
@@ -287,8 +287,10 @@ export default function SalesOrderDetailPage() {
           value={tabValue}
           onChange={(_, value: number) =>
             setSearchParams(
-              (prev) => {
-                const next = new URLSearchParams(prev)
+              () => {
+                // Merge against the LIVE URL: embedded tab pagination writes with
+                // native replaceState, so React Router's `prev` can be stale (#1131 review).
+                const next = new URLSearchParams(window.location.search)
                 next.set('tab', String(value))
                 return next
               },

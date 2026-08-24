@@ -39,7 +39,7 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
-import { withListQuery } from '@/utils/listQuery'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { getOwnerEquityActionMetas } from './ownerEquityActions'
 
 export const OWNER_EQUITY_TYPE_LABELS: Record<OwnerEquityType, string> = {
@@ -253,7 +253,7 @@ export default function OwnerEquityPage() {
   }, [settleRow])
 
   const handleView = (row: OwnerEquityDocument) => {
-    navigate(withListQuery(`/accounting/owner-equity/${row.referenceNumber}/view`, location.search))
+    navigate(withCurrentListQuery(`/accounting/owner-equity/${row.referenceNumber}/view`))
   }
 
   const handleSettleSubmit = useCallback(
@@ -352,13 +352,13 @@ export default function OwnerEquityPage() {
               // can come back here instead of falling through to Detail.
               // Issue #1090.
               navigate(
-                withListQuery(`/accounting/owner-equity/${row.referenceNumber}/edit`, location.search),
+                withCurrentListQuery(`/accounting/owner-equity/${row.referenceNumber}/edit`),
                 { state: { ownerEquityEditOrigin: 'list' } },
               )
             } else if (meta.action === 'complete') {
               setCompleteRow(row)
             } else if (meta.action === 'uncomplete') {
-              navigate(withListQuery(`/accounting/owner-equity/${row.referenceNumber}/view`, location.search))
+              navigate(withCurrentListQuery(`/accounting/owner-equity/${row.referenceNumber}/view`))
             } else if (meta.action === 'settle') {
               setSettleRow(row)
             } else if (meta.action === 'refund') {
@@ -424,7 +424,7 @@ export default function OwnerEquityPage() {
       subtitle="Capital injections, cash drawings and stock drawings"
       primaryAction={{
         label: '+ New Owner Equity',
-        onClick: () => navigate(withListQuery('/accounting/owner-equity/create', location.search)),
+        onClick: () => navigate(withCurrentListQuery('/accounting/owner-equity/create')),
       }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}

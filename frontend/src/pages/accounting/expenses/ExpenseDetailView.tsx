@@ -25,7 +25,7 @@ import {
 } from '@/store/api/paymentMethodsApi'
 import type { Expense, ExpensePaymentRow } from '@/types'
 import { toScaledAmount, fromScaledAmount } from '@/utils/currency'
-import { extractListQuery, listPathWithQuery, withListQuery } from '@/utils/listQuery'
+import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 
 import { getExpenseActionMetas } from './expenseActions'
@@ -70,7 +70,6 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
   const location = useLocation()
   // The ticket carried from the list. Detail→Edit forwards ONLY this — never
   // the whole detail search, which carries ?tab=.
-  const listQuery = extractListQuery(location.search)
   const [searchParams, setSearchParams] = useSearchParams()
   const tabValue = Math.min(Math.max(Number(searchParams.get('tab') ?? 0), 0), 1)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
@@ -211,7 +210,7 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
         break
       case 'edit':
         navigate(
-          withListQuery(`/accounting/expenses/${expense.id}/edit`, listQuery ? `?${listQuery}` : ''),
+          forwardListQuery(`/accounting/expenses/${expense.id}/edit`),
           { state: { expenseEditOrigin: 'detail' } },
         )
         break
@@ -258,7 +257,7 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
             <StatusChip status={expense.paymentStatus} />
           </Box>
         }
-        backAction={() => navigate(listPathWithQuery('/accounting/expenses', location.search))}
+        backAction={() => navigate(currentListPath('/accounting/expenses'))}
       />
 
       {actionMetas.length > 0 && (
@@ -283,8 +282,10 @@ export default function ExpenseDetailView({ expense }: { expense: Expense }) {
           value={tabValue}
           onChange={(_, value: number) =>
             setSearchParams(
-              (prev) => {
-                const next = new URLSearchParams(prev)
+              () => {
+                // Merge against the LIVE URL: embedded tab pagination writes with
+                // native replaceState, so React Router's `prev` can be stale (#1131 review).
+                const next = new URLSearchParams(window.location.search)
                 next.set('tab', String(value))
                 return next
               },

@@ -9,7 +9,7 @@ import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { formatDate } from '@/utils/formatters'
-import { listPathWithQuery } from '@/utils/listQuery'
+import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 import { useGetCategoryBySlugQuery } from '@/store/api/inventoryApi'
 
 import CategoryProductsList from './components/CategoryProductsList'
@@ -75,10 +75,10 @@ export default function CategoryViewPage() {
       <PageHeader
         title={category.name}
         titleBadge={<StatusChip status={category.isEnabled ? 'active' : 'inactive'} />}
-        backAction={() => navigate(listPathWithQuery('/inventory/categories', location.search))}
+        backAction={() => navigate(currentListPath('/inventory/categories'))}
         primaryAction={{
           label: 'Edit Category',
-          onClick: () => navigate(`/inventory/categories/${category.slug}/edit`),
+          onClick: () => navigate(forwardListQuery(`/inventory/categories/${category.slug}/edit`)),
         }}
       />
 
@@ -87,8 +87,10 @@ export default function CategoryViewPage() {
           value={tabValue}
           onChange={(_, value: number) =>
             setSearchParams(
-              (prev) => {
-                const next = new URLSearchParams(prev)
+              () => {
+                // Merge against the LIVE URL: embedded tab pagination writes with
+                // native replaceState, so React Router's `prev` can be stale (#1131 review).
+                const next = new URLSearchParams(window.location.search)
                 next.set('tab', String(value))
                 return next
               },

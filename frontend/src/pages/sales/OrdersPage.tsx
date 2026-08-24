@@ -5,7 +5,7 @@ import PagePagination from '@/components/common/PagePagination'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
-import { withListQuery } from '@/utils/listQuery'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelSalesOrderMutation,
@@ -188,7 +188,7 @@ const OrdersPage: React.FC = () => {
       <SimpleListPage
         title="Sales Orders"
         subtitle="Track sales orders and delivery status"
-        primaryAction={{ label: '+ New Sales Order', onClick: () => navigate(withListQuery('/sales/orders/create', location.search)) }}
+        primaryAction={{ label: '+ New Sales Order', onClick: () => navigate(withCurrentListQuery('/sales/orders/create')) }}
         filterConfig={filterConfig}
         draftFilters={draftFilters}
         handlers={handlers}
@@ -202,8 +202,8 @@ const OrdersPage: React.FC = () => {
             orders={orders}
             loading={isFetching}
             total={total}
-            onView={(order) => navigate(withListQuery(`/sales/orders/${order.orderNumber}/view`, location.search))}
-            onEdit={(order) => navigate(withListQuery(`/sales/orders/${order.orderNumber}/edit`, location.search))}
+            onView={(order) => navigate(withCurrentListQuery(`/sales/orders/${order.orderNumber}/view`))}
+            onEdit={(order) => navigate(withCurrentListQuery(`/sales/orders/${order.orderNumber}/edit`))}
             onPay={(order) => setPaymentOrder(order)}
             onFulfill={handleFulfill}
             onUnfulfill={handleUnfulfill}

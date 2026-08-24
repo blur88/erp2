@@ -6,7 +6,7 @@ import PagePagination from '@/components/common/PagePagination'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
-import { withListQuery } from '@/utils/listQuery'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { useCompleteStockAdjustmentMutation, useGetStockAdjustmentsQuery } from '@/store/api/inventoryApi'
 import { PAGINATION } from '@/constants/tableStyles'
 import { STOCK_ADJUSTMENT_STATUS_OPTIONS } from '@/constants/filterOptions'
@@ -103,7 +103,7 @@ export default function StockAdjustmentsPage() {
 
   const handleConfirmRevert = useCallback(() => {
     if (!revertTarget) return
-    navigate(withListQuery(`/inventory/stock-adjustments/create?revertFrom=${revertTarget}`, location.search))
+    navigate(withCurrentListQuery(`/inventory/stock-adjustments/create?revertFrom=${revertTarget}`))
     setRevertTarget(null)
   }, [revertTarget, navigate])
 
@@ -111,7 +111,7 @@ export default function StockAdjustmentsPage() {
     <SimpleListPage
       title="Stock Adjustments"
       subtitle="View and manage stock adjustment history"
-      primaryAction={{ label: '+ New Adjustment', onClick: () => navigate(withListQuery('/inventory/stock-adjustments/create', location.search)) }}
+      primaryAction={{ label: '+ New Adjustment', onClick: () => navigate(withCurrentListQuery('/inventory/stock-adjustments/create')) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}

@@ -7,7 +7,7 @@ import SimpleListPage from '@/components/common/SimpleListPage'
 import ProductImportDialog from '@/components/inventory/ProductImportDialog'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
-import { withListQuery } from '@/utils/listQuery'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { useNotification } from '@/hooks/useNotification'
 import { useGetProductsQuery, useUpdateProductMutation } from '@/store/api/inventoryApi'
 import { useGetRegionalSettingsQuery } from '@/store/api/settingsApi'
@@ -109,7 +109,7 @@ export default function ProductsPage() {
     <SimpleListPage
       title="Products"
       subtitle="Manage your product catalog, prices, and stock levels."
-      primaryAction={{ label: 'New Product', onClick: () => navigate(withListQuery('/inventory/products/create', location.search)) }}
+      primaryAction={{ label: 'New Product', onClick: () => navigate(withCurrentListQuery('/inventory/products/create')) }}
       secondaryAction={{ label: 'Import', onClick: () => setImportOpen(true) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}

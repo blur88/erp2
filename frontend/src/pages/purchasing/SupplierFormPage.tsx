@@ -28,7 +28,7 @@ import PageHeader from '@/components/common/PageHeader'
 import { useFieldDuplicateCheck } from '@/hooks/useFieldDuplicateCheck'
 import { useNotification } from '@/hooks/useNotification'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
-import { extractListQuery, listPathWithQuery, withListQuery } from '@/utils/listQuery'
+import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 import {
   useCreateSupplierMutation,
   useLazyCheckDuplicateCompanyNameQuery,
@@ -99,8 +99,7 @@ const SupplierFormPage: React.FC = () => {
   const profilePath = (location.state as any)?.profilePath as string | undefined
   // The ticket carried from the list (or forwarded by the profile). The
   // cross-module purchase-order branch must NOT carry it.
-  const listQuery = extractListQuery(location.search)
-  const listPath = listPathWithQuery('/purchasing/suppliers', location.search)
+  const listPath = currentListPath('/purchasing/suppliers')
 
   const [supplier, setSupplier] = useState<Supplier | null>(null)
   const [loadingSupplier, setLoadingSupplier] = useState(isEdit)
@@ -245,7 +244,7 @@ const SupplierFormPage: React.FC = () => {
     // Order form's return path.
     ? '/purchasing/orders/create'
     : returnTo === 'profile' && profilePath
-      ? withListQuery(profilePath, listQuery ? `?${listQuery}` : '')
+      ? forwardListQuery(profilePath)
       : listPath
 
   const handleCancel = () => {
@@ -304,7 +303,7 @@ const SupplierFormPage: React.FC = () => {
           state: { preselectSupplierId: savedSupplier.id },
         })
       } else if (returnTo === 'profile' && profilePath) {
-        navigate(withListQuery(profilePath, listQuery ? `?${listQuery}` : ''))
+        navigate(forwardListQuery(profilePath))
       } else {
         navigate(listPath)
       }

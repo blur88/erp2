@@ -46,7 +46,7 @@ import OrderLineItemRow from '@/components/transactions/OrderLineItemRow'
 import TransactionFormShell from '@/components/transactions/TransactionFormShell'
 import { formatCurrency, getCurrentDate, toDateInputValue, toMuiDatePickerFormat } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
-import { listPathWithQuery } from '@/utils/listQuery'
+import { currentListPath } from '@/utils/listQuery'
 
 interface PurchaseOrderItem {
   productId: string
@@ -118,7 +118,7 @@ const CreatePurchaseOrderPage: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
   // Same-module list returns rebuild the list URL from the carried ticket.
-  const listPath = listPathWithQuery('/purchasing/orders', location.search)
+  const listPath = currentListPath('/purchasing/orders')
   const { orderNumber } = useParams<{ orderNumber: string }>()
   const isEditMode = !!orderNumber
   const { showSuccess, showError } = useNotification()

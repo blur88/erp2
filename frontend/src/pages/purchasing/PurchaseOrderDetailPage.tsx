@@ -27,7 +27,7 @@ import {
 import type { VendorPayment } from '@/types'
 import RefundDialog from '@/components/common/RefundDialog'
 import { fromScaledAmount, toScaledAmount } from '@/utils/currency'
-import { listPathWithQuery } from '@/utils/listQuery'
+import { currentListPath, forwardListQuery, withCurrentListQuery } from '@/utils/listQuery'
 
 import { buildPoRefundSeed, poNetPaidMinor, toPoRefundPayload } from './utils/poRefund'
 import PurchaseOrderActionBar from './components/PurchaseOrderActionBar'
@@ -90,7 +90,7 @@ export default function PurchaseOrderDetailPage() {
 
   useEffect(() => {
     if (order?.orderNumber) {
-      navigate(`/purchasing/orders/${order.orderNumber}/view`, {
+      navigate(withCurrentListQuery(`/purchasing/orders/${order.orderNumber}/view`), {
         replace: true,
         state: { breadcrumbTitle: order.orderNumber },
       })
@@ -229,7 +229,7 @@ export default function PurchaseOrderDetailPage() {
             <StatusChip status={order.paymentStatus} />
           </Box>
         }
-        backAction={() => navigate(listPathWithQuery('/purchasing/orders', location.search))}
+        backAction={() => navigate(currentListPath('/purchasing/orders'))}
       />
 
       <PurchaseOrderActionBar
@@ -237,7 +237,7 @@ export default function PurchaseOrderDetailPage() {
         onPay={() => setActiveDialog('pay')}
         onReceive={() => setActiveDialog('receive')}
         onReturn={() => setActiveDialog('return')}
-        onEdit={() => navigate(`/purchasing/orders/${order.orderNumber}/edit`)}
+        onEdit={() => navigate(forwardListQuery(`/purchasing/orders/${order.orderNumber}/edit`))}
         onCancel={() => setActiveDialog('cancel')}
         onUncancel={() => setActiveDialog('uncancel')}
         onDuplicate={handleDuplicateOrder}
@@ -250,8 +250,10 @@ export default function PurchaseOrderDetailPage() {
           value={tabValue}
           onChange={(_, value: number) =>
             setSearchParams(
-              (prev) => {
-                const next = new URLSearchParams(prev)
+              () => {
+                // Merge against the LIVE URL: embedded tab pagination writes with
+                // native replaceState, so React Router's `prev` can be stale (#1131 review).
+                const next = new URLSearchParams(window.location.search)
                 next.set('tab', String(value))
                 return next
               },

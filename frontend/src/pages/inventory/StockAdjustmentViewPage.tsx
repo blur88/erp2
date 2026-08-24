@@ -25,7 +25,7 @@ import { TABLE_STYLES } from '@/constants/tableStyles'
 import type { StockAdjustmentItem } from '@/types'
 import { useGetStockAdjustmentQuery, useRevertStockAdjustmentMutation, useUpdateStockAdjustmentNotesMutation } from '@/store/api/inventoryApi'
 import { formatCurrency } from '@/utils/currency'
-import { extractListQuery, listPathWithQuery, withListQuery } from '@/utils/listQuery'
+import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 import { formatDate, formatNumber } from '@/utils/formatters'
 import { useNotification } from '@/hooks/useNotification'
 import { rtkErrorMessage } from '@/utils/errorMessage'
@@ -49,7 +49,6 @@ export default function StockAdjustmentViewPage() {
   const navigate = useNavigate()
   const location = useLocation()
   // The ticket carried from the list. Edit forwards it alongside ?from=view.
-  const listQuery = extractListQuery(location.search)
   const { data: adj, isLoading, isError } = useGetStockAdjustmentQuery(id ?? skipToken)
   const [updateNotes] = useUpdateStockAdjustmentNotesMutation()
   const [revertAdjustment] = useRevertStockAdjustmentMutation()
@@ -111,7 +110,7 @@ export default function StockAdjustmentViewPage() {
 
   const handleEdit = () => {
     if (isDraft) {
-      navigate(withListQuery(`/inventory/stock-adjustments/${adj.id}/edit?from=view`, listQuery ? `?${listQuery}` : ''))
+      navigate(forwardListQuery(`/inventory/stock-adjustments/${adj.id}/edit?from=view`))
     } else {
       setNotesDraft(adj.notes || '')
       setNotesOpen(true)
@@ -146,7 +145,7 @@ export default function StockAdjustmentViewPage() {
       <PageHeader
         title={adj.adjustmentNumber}
         titleBadge={<StatusChip status={adj.status} />}
-        backAction={() => navigate(listPathWithQuery('/inventory/stock-adjustments', location.search))}
+        backAction={() => navigate(currentListPath('/inventory/stock-adjustments'))}
         primaryAction={{
           label: isDraft ? 'Edit' : 'Edit Notes',
           onClick: handleEdit,

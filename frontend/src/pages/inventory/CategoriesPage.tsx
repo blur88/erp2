@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
-import { withListQuery } from '@/utils/listQuery'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { useGetCategoriesQuery } from '@/store/api/inventoryApi'
 import type { Category } from '@/types'
 import { STATUS_OPTIONS } from '@/constants/filterOptions'
@@ -73,7 +73,7 @@ export default function CategoriesPage() {
     <SimpleListPage
       title="Categories"
       subtitle="Organize your product categories."
-      primaryAction={{ label: 'New Category', onClick: () => navigate(withListQuery('/inventory/categories/create', location.search)) }}
+      primaryAction={{ label: 'New Category', onClick: () => navigate(withCurrentListQuery('/inventory/categories/create')) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}

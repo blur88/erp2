@@ -37,7 +37,7 @@ import { useGetDocumentNumberSettingsQuery } from '@/store/api/settingsApi'
 import { getCurrentDate, toDateInputValue, toMuiDatePickerFormat } from '@/utils/formatters'
 import TransactionFormShell from '@/components/transactions/TransactionFormShell'
 import { formatCurrency } from '@/utils/currency'
-import { extractListQuery, listPathWithQuery, withListQuery } from '@/utils/listQuery'
+import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 import { LINE_ITEM_TABLE_SX } from '@/components/transactions/transactionTableStyles'
 import { useNotification } from '@/hooks/useNotification'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
@@ -88,8 +88,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
   const location = useLocation()
   // The ticket carried from the list. The reverted-adjustment Detail return
   // forwards it; list returns rebuild the list URL from it.
-  const listQuery = extractListQuery(location.search)
-  const listPath = listPathWithQuery('/inventory/stock-adjustments', location.search)
+  const listPath = currentListPath('/inventory/stock-adjustments')
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
   const revertFrom = searchParams.get('revertFrom')
@@ -223,7 +222,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
     if (!revertFrom || !sourceAdjustment || revertAppliedRef.current) return
     if ((sourceAdjustment as any).status !== 'completed') {
       showError('Cannot revert an adjustment that is not completed')
-      navigate(withListQuery(`/inventory/stock-adjustments/${revertFrom}/view`, listQuery ? `?${listQuery}` : ''))
+      navigate(forwardListQuery(`/inventory/stock-adjustments/${revertFrom}/view`))
       return
     }
     revertAppliedRef.current = true

@@ -20,7 +20,7 @@ import { format, parseISO } from 'date-fns'
 import { Controller, useForm } from 'react-hook-form'
 import { useBlocker, useLocation, useNavigate, useParams } from 'react-router-dom'
 
-import { listPathWithQuery } from '@/utils/listQuery'
+import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 import * as yup from 'yup'
 
 import { AppButton } from '@/components/common/AppButton'
@@ -62,7 +62,7 @@ const ExpenseFormPage: React.FC = () => {
   // shared /edit URL — falls back to Detail, which is the historical behaviour.
   const location = useLocation()
   // Same-module list returns rebuild the list URL from the carried ticket.
-  const listPath = listPathWithQuery('/accounting/expenses', location.search)
+  const listPath = currentListPath('/accounting/expenses')
   const isListOrigin =
     (location.state as { expenseEditOrigin?: string } | null)?.expenseEditOrigin === 'list'
 
@@ -91,7 +91,7 @@ const ExpenseFormPage: React.FC = () => {
         expense.paymentStatus === 'PAID' ||
         expense.paymentStatus === 'OVERPAID'
       if (isNonEditable) {
-        navigate(`/accounting/expenses/${expense.id}`, { replace: true })
+        navigate(forwardListQuery(`/accounting/expenses/${expense.id}`), { replace: true })
       }
     }
   }, [isEdit, expense, navigate])

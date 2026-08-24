@@ -9,7 +9,7 @@ import RowActionMenu from '@/components/common/RowActionMenu'
 import { StatusChip } from '@/components/common/StatusChip'
 import { useNotification } from '@/hooks/useNotification'
 import { useSetCategoryEnabledMutation } from '@/store/api/inventoryApi'
-import { withListQuery } from '@/utils/listQuery'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import type { Category } from '@/types'
 
 interface CategoryListProps {
@@ -108,9 +108,9 @@ export default function CategoryList({ categories, sortBy, sortOrder, flat = fal
       render: (c) => (
         <RowActionMenu
           actions={[
-            { label: 'View', onClick: () => navigate(withListQuery(`/inventory/categories/${c.slug}/view`, search)) },
-            { label: 'Edit', onClick: () => navigate(withListQuery(`/inventory/categories/${c.slug}/edit`, search)) },
-            { label: 'Add Subcategory', onClick: () => navigate(withListQuery(`/inventory/categories/create?parentId=${c.id}`, search)) },
+            { label: 'View', onClick: () => navigate(withCurrentListQuery(`/inventory/categories/${c.slug}/view`)) },
+            { label: 'Edit', onClick: () => navigate(withCurrentListQuery(`/inventory/categories/${c.slug}/edit`)) },
+            { label: 'Add Subcategory', onClick: () => navigate(withCurrentListQuery(`/inventory/categories/create?parentId=${c.id}`)) },
             c.isEnabled
               ? { label: 'Set as Inactive', onClick: () => setPendingToggle(c) }
               : { label: 'Reactivate', onClick: () => setPendingToggle(c) },
@@ -132,7 +132,7 @@ export default function CategoryList({ categories, sortBy, sortOrder, flat = fal
         headers={['Name', 'Product Count', 'Status', 'Actions']}
         selectedId={undefined}
         focusedIndex={-1}
-        onSelect={(c) => navigate(withListQuery(`/inventory/categories/${c.slug}/view`, search))}
+        onSelect={(c) => navigate(withCurrentListQuery(`/inventory/categories/${c.slug}/view`))}
         listRef={{ current: null }}
         dataAttr="category"
         paginationSlot={<Box sx={{ borderTop: TABLE_STYLES.cell.border }} />}

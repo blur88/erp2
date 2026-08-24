@@ -28,7 +28,7 @@ import {
   useGetActivePaymentMethodsForPurchasesQuery,
 } from '@/store/api/paymentMethodsApi'
 import { formatCurrency, toScaledAmount, fromScaledAmount } from '@/utils/currency'
-import { withListQuery } from '@/utils/listQuery'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { formatDate } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
@@ -231,7 +231,7 @@ export default function ExpensesPage() {
   )
 
   const handleView = (row: Expense) => {
-    navigate(withListQuery(`/accounting/expenses/${row.id}`, location.search))
+    navigate(withCurrentListQuery(`/accounting/expenses/${row.id}`))
   }
 
   const handlePaySubmit = useCallback(
@@ -315,7 +315,7 @@ export default function ExpensesPage() {
             if (meta.action === 'edit') {
               // Tell the form where Edit was opened from so Save/Cancel/Back
               // can come back here instead of falling through to Detail.
-              navigate(withListQuery(`/accounting/expenses/${row.id}/edit`, location.search), {
+              navigate(withCurrentListQuery(`/accounting/expenses/${row.id}/edit`), {
                 state: { expenseEditOrigin: 'list' },
               })
             } else if (meta.action === 'pay') {
@@ -376,7 +376,7 @@ export default function ExpensesPage() {
       subtitle="Track business expenses and payment status"
       primaryAction={{
         label: '+ New Expense',
-        onClick: () => navigate(withListQuery('/accounting/expenses/new', location.search)),
+        onClick: () => navigate(withCurrentListQuery('/accounting/expenses/new')),
       }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}

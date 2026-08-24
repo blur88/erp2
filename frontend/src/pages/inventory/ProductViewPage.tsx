@@ -9,7 +9,7 @@ import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetProductBySlugQuery } from '@/store/api/inventoryApi'
-import { listPathWithQuery } from '@/utils/listQuery'
+import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 
 import ProductOverviewTab from './components/ProductOverviewTab'
 import OrderHistoryTab from './components/OrderHistoryTab'
@@ -62,10 +62,10 @@ export default function ProductViewPage() {
       <PageHeader
         title={product.name}
         titleBadge={<StatusChip status={product.isActive ? 'active' : 'inactive'} />}
-        backAction={() => navigate(listPathWithQuery('/inventory/products', location.search))}
+        backAction={() => navigate(currentListPath('/inventory/products'))}
         primaryAction={{
           label: 'Edit Product',
-          onClick: () => navigate(`/inventory/products/${product.slug}/edit`),
+          onClick: () => navigate(forwardListQuery(`/inventory/products/${product.slug}/edit`)),
         }}
       />
 
@@ -74,8 +74,10 @@ export default function ProductViewPage() {
           value={tabValue}
           onChange={(_, value: number) =>
             setSearchParams(
-              (prev) => {
-                const next = new URLSearchParams(prev)
+              () => {
+                // Merge against the LIVE URL: embedded tab pagination writes with
+                // native replaceState, so React Router's `prev` can be stale (#1131 review).
+                const next = new URLSearchParams(window.location.search)
                 next.set('tab', String(value))
                 return next
               },

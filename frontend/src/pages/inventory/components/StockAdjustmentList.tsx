@@ -5,7 +5,7 @@ import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 import RowActionMenu from '@/components/common/RowActionMenu'
 import { StatusChip } from '@/components/common/StatusChip'
 import { formatCurrency } from '@/utils/currency'
-import { withListQuery } from '@/utils/listQuery'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { formatDate, formatNumber } from '@/utils/formatters'
 import type { StockAdjustment } from '@/types'
 import StockAdjustmentItemsPopover from './StockAdjustmentItemsPopover'
@@ -37,8 +37,8 @@ export default function StockAdjustmentList({ rows, total, loading, paginationSl
         const isDraft = a.status === 'draft'
         const isCompleted = a.status === 'completed'
         const actions = [
-          { label: 'View', onClick: () => navigate(withListQuery(`/inventory/stock-adjustments/${a.id}/view`, search)) },
-          ...(isDraft ? [{ label: 'Edit', onClick: () => navigate(withListQuery(`/inventory/stock-adjustments/${a.id}/edit`, search)) }] : []),
+          { label: 'View', onClick: () => navigate(withCurrentListQuery(`/inventory/stock-adjustments/${a.id}/view`)) },
+          ...(isDraft ? [{ label: 'Edit', onClick: () => navigate(withCurrentListQuery(`/inventory/stock-adjustments/${a.id}/edit`)) }] : []),
           ...(isDraft && onComplete ? [{ label: 'Complete', onClick: () => onComplete(a) }] : []),
           ...(isCompleted && onRevert ? [{ label: 'Revert', onClick: () => onRevert(a) }] : []),
         ]
@@ -61,7 +61,7 @@ export default function StockAdjustmentList({ rows, total, loading, paginationSl
       showHeader={false}
       focusedIndex={-1}
       listRef={{ current: null }}
-      onSelect={(a) => navigate(withListQuery(`/inventory/stock-adjustments/${a.id}/view`, search))}
+      onSelect={(a) => navigate(withCurrentListQuery(`/inventory/stock-adjustments/${a.id}/view`))}
       paginationSlot={paginationSlot}
     />
   )

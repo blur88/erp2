@@ -32,7 +32,7 @@ import { Category, PriceList } from '@/types'
 import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
 import { useCurrency } from '@/hooks/useCurrency'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
-import { listPathWithQuery } from '@/utils/listQuery'
+import { currentListPath } from '@/utils/listQuery'
 
 // Price field component for price list items
 const PriceListPriceField: React.FC<{
@@ -153,7 +153,7 @@ const CreateProductPage: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
   // Same-module list returns rebuild the list URL from the carried ticket.
-  const listPath = listPathWithQuery('/inventory/products', location.search)
+  const listPath = currentListPath('/inventory/products')
   const { slug } = useParams<{ slug: string }>()
   const isEditMode = !!slug
   const { showSuccess, showError } = useNotification()

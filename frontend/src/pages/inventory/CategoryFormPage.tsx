@@ -26,7 +26,7 @@ import {
 import { useCategoryDuplicateCheck } from '@/hooks/useCategoryDuplicateCheck'
 import { useNotification } from '@/hooks/useNotification'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
-import { listPathWithQuery } from '@/utils/listQuery'
+import { currentListPath } from '@/utils/listQuery'
 import type { Category } from '@/types'
 
 const schema = yup.object({
@@ -48,7 +48,7 @@ const CategoryFormPage: React.FC = () => {
   const location = useLocation()
   // Same-module list returns rebuild the list URL from the carried ticket.
   // The ?parentId= preselection read below is untouched and rides alongside.
-  const listPath = listPathWithQuery('/inventory/categories', location.search)
+  const listPath = currentListPath('/inventory/categories')
   const isEditMode = !!slug
 
   const preselectedParentId = searchParams.get('parentId')

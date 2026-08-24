@@ -10,7 +10,7 @@ import { JOURNAL_SOURCE_TYPE_OPTIONS, JOURNAL_STATUS_OPTIONS } from '@/constants
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
 import { useGetJournalEntriesQuery, type JournalEntryListParams } from '@/store/api/accountingApi'
-import { withListQuery } from '@/utils/listQuery'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { formatCurrency } from '@/utils/currency'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
@@ -83,7 +83,7 @@ export default function JournalEntriesPage() {
   const total = response?.meta?.total ?? 0
 
   const handleView = (row: JournalEntry) => {
-    navigate(withListQuery(`/accounting/journal-entries/${row.id}`, location.search))
+    navigate(withCurrentListQuery(`/accounting/journal-entries/${row.id}`))
   }
 
   const columns: ColumnConfig<JournalEntry>[] = [

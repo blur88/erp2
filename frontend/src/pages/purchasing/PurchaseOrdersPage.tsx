@@ -8,7 +8,7 @@ import PaymentDialog from '@/components/common/PaymentDialog'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
-import { withListQuery } from '@/utils/listQuery'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useCancelPurchaseOrderMutation,
@@ -92,10 +92,6 @@ const PurchaseOrdersPage: React.FC = () => {
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig, {
     onApply: resetPage,
   })
-
-  useEffect(() => {
-    setPage(1)
-  }, [appliedFilters])
 
   const weekStartsOn = getStartOfWeek()
   const dateRange = useMemo(() => {
@@ -324,7 +320,7 @@ const PurchaseOrdersPage: React.FC = () => {
       <SimpleListPage
         title="Purchase Orders"
         subtitle="Track supplier orders, receipts, and payment status"
-        primaryAction={{ label: '+ New Purchase Order', onClick: () => navigate(withListQuery('/purchasing/orders/create', location.search)) }}
+        primaryAction={{ label: '+ New Purchase Order', onClick: () => navigate(withCurrentListQuery('/purchasing/orders/create')) }}
         filterConfig={filterConfig}
         draftFilters={draftFilters}
         handlers={handlers}
@@ -344,8 +340,8 @@ const PurchaseOrdersPage: React.FC = () => {
             orders={purchaseOrders}
             loading={isFetching}
             total={pagination?.total ?? 0}
-            onView={(order) => navigate(withListQuery(`/purchasing/orders/${order.orderNumber}/view`, location.search))}
-            onEdit={(order) => navigate(withListQuery(`/purchasing/orders/${order.orderNumber}/edit`, location.search))}
+            onView={(order) => navigate(withCurrentListQuery(`/purchasing/orders/${order.orderNumber}/view`))}
+            onEdit={(order) => navigate(withCurrentListQuery(`/purchasing/orders/${order.orderNumber}/edit`))}
             onPay={(order) => setPaymentOrder(order)}
             onReceive={(order) => openConfirm(order, 'receive')}
             onReturn={(order) => openConfirm(order, 'return')}

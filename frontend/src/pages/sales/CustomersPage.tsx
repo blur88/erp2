@@ -5,7 +5,7 @@ import PagePagination from '@/components/common/PagePagination'
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useListUrlState } from '@/hooks/useListUrlState'
-import { withListQuery } from '@/utils/listQuery'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { useNotification } from '@/hooks/useNotification'
 import {
   useGetCustomersQuery,
@@ -92,7 +92,7 @@ const CustomersPage: React.FC = () => {
     <SimpleListPage
       title="Customers"
       subtitle="Manage customer records and active/inactive status."
-      primaryAction={{ label: 'New Customer', onClick: () => navigate(withListQuery('/sales/customers/create', location.search)) }}
+      primaryAction={{ label: 'New Customer', onClick: () => navigate(withCurrentListQuery('/sales/customers/create')) }}
       filterConfig={filterConfig}
       draftFilters={draftFilters}
       handlers={handlers}

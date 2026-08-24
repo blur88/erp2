@@ -80,3 +80,33 @@ export function listPathWithQuery(listPath: string, search: string): string {
   const inner = extractListQuery(search)
   return inner ? `${listPath}?${inner}` : listPath
 }
+
+/**
+ * Build an outbound Detail/Create/Edit URL from the list's LIVE query string.
+ *
+ * Use this instead of `withListQuery(path, location.search)` at every
+ * list-origin navigation. `useListUrlState` and `useFilterBar` write the URL
+ * with native `window.history.replaceState`, which updates `window.location`
+ * but does NOT notify React Router — so `useLocation().search` still reports the
+ * query as it was at mount. Building a ticket from that stale value yields the
+ * initial query (usually empty) rather than the list state the user can see.
+ */
+export function withCurrentListQuery(path: string): string {
+  return withListQuery(path, window.location.search)
+}
+
+/**
+ * Forward an existing ticket from a Detail/Form page to another Detail/Edit URL.
+ *
+ * Reads the ticket off the live URL and re-attaches ONLY that — never the whole
+ * detail search, which carries page-owned params such as `tab`.
+ */
+export function forwardListQuery(path: string): string {
+  const inner = extractListQuery(window.location.search)
+  return withListQuery(path, inner ? `?${inner}` : '')
+}
+
+/** Build the return URL to a list from the LIVE detail/form URL. */
+export function currentListPath(listPath: string): string {
+  return listPathWithQuery(listPath, window.location.search)
+}

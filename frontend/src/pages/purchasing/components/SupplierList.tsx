@@ -6,7 +6,7 @@ import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
 import { StatusChip } from '@/components/common/StatusChip'
 import RowActionMenu from '@/components/common/RowActionMenu'
 import type { Supplier } from '@/types'
-import { withListQuery } from '@/utils/listQuery'
+import { withCurrentListQuery } from '@/utils/listQuery'
 
 function formatSupplierType(type: string): string {
   return type === 'local' ? 'Local' : 'International'
@@ -52,11 +52,11 @@ export default function SupplierList({
           actions={[
             {
               label: 'View Supplier',
-              onClick: () => navigate(withListQuery(`/purchasing/suppliers/${supplier.slug}/view`, search)),
+              onClick: () => navigate(withCurrentListQuery(`/purchasing/suppliers/${supplier.slug}/view`)),
             },
             {
               label: 'Edit Supplier',
-              onClick: () => navigate(withListQuery(`/purchasing/suppliers/${supplier.slug}/edit`, search)),
+              onClick: () => navigate(withCurrentListQuery(`/purchasing/suppliers/${supplier.slug}/edit`)),
             },
             supplier.isActive
               ? { label: 'Set as Inactive', onClick: () => onStatusToggle(supplier) }
@@ -78,7 +78,7 @@ export default function SupplierList({
       headers={['Company Name', 'Contact Person', 'Type', 'Status', 'Actions']}
       selectedId={undefined}
       focusedIndex={-1}
-      onSelect={(supplier) => navigate(withListQuery(`/purchasing/suppliers/${supplier.slug}/view`, search))}
+      onSelect={(supplier) => navigate(withCurrentListQuery(`/purchasing/suppliers/${supplier.slug}/view`))}
       listRef={{ current: null }}
       dataAttr="supplier"
       paginationSlot={paginationSlot}
