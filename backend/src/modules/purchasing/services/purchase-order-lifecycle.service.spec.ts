@@ -16,6 +16,7 @@ import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/acco
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { BaseCostCalculatorService } from '../../inventory/services/base-cost-calculator.service';
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
+import { SettingsService } from '../../settings/settings.service';
 import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
 
 describe('PurchaseOrderLifecycleService', () => {
@@ -27,6 +28,8 @@ describe('PurchaseOrderLifecycleService', () => {
   let stockMovementService: { deleteByReference: jest.Mock; create: jest.Mock };
   let baseCostCalculator: { addStock: jest.Mock; removeStock: jest.Mock; calculateShippingByValue: jest.Mock };
   let accountingPort: jest.Mocked<AccountingPostingPort>;
+  let settingsService: { getRegionalSettings: jest.Mock };
+  let appTimezone: string;
   const poQueryBuilder = {
     update: jest.fn().mockReturnThis(),
     set: jest.fn().mockReturnThis(),
@@ -58,6 +61,10 @@ describe('PurchaseOrderLifecycleService', () => {
   } as VendorPayment;
 
   beforeEach(async () => {
+    appTimezone = 'Asia/Kuala_Lumpur';
+    settingsService = {
+      getRegionalSettings: jest.fn(async () => ({ timezone: appTimezone })),
+    };
     poRepository = {
       findOne: jest.fn(),
       createQueryBuilder: jest.fn().mockReturnValue(poQueryBuilder),
@@ -113,6 +120,7 @@ describe('PurchaseOrderLifecycleService', () => {
         { provide: DataSource, useValue: dataSource },
         { provide: AuditLogService, useValue: auditLogService },
         { provide: ACCOUNTING_POSTING_PORT, useValue: accountingPort },
+        { provide: SettingsService, useValue: settingsService },
       ],
     }).compile();
 
@@ -198,6 +206,89 @@ describe('PurchaseOrderLifecycleService', () => {
   });
 
   describe('receive and return', () => {
+    describe('business-calendar entryDate (issue #1134)', () => {
+      // 16:30Z is past the UTC+8 rollover (16:00Z): UTC says the 24th,
+      // Asia/Kuala_Lumpur says the 25th.
+      const FROZEN_INSTANT = new Date('2026-08-24T16:30:00.000Z');
+
+      const wireOrder = (status: PurchaseOrderStatus) => {
+        const order = {
+          ...mockOrder,
+          status,
+          items: [
+            {
+              id: 'po-item-1',
+              productId: 'product-1',
+              quantity: 10,
+              unitCost: 5,
+              totalAmount: 50,
+              receivedQuantity: status === PurchaseOrderStatus.RECEIVED ? 10 : 0,
+              product: { id: 'product-1' },
+            },
+          ],
+          subtotal: 50,
+          shippingAmount: 0,
+          supplier: { companyName: 'Acme' },
+        } as any;
+        const poRepo = {
+          findOne: jest.fn().mockResolvedValue(order),
+          update: jest.fn().mockResolvedValue(undefined),
+        } as any;
+        const itemRepo = { update: jest.fn().mockResolvedValue(undefined) } as any;
+        dataSource.transaction.mockImplementation(async (cb: any) =>
+          cb({
+            getRepository: (entity: any) => {
+              if (entity === PurchaseOrder) return poRepo;
+              if (entity === PurchaseOrderItem) return itemRepo;
+              return {};
+            },
+          }),
+        );
+      };
+
+      beforeEach(() => {
+        jest.useFakeTimers().setSystemTime(FROZEN_INSTANT);
+      });
+
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      it.each([
+        ['Asia/Kuala_Lumpur', '2026-08-25'],
+        ['UTC', '2026-08-24'],
+      ])('receive dates the JE by receiveDate in %s as %s', async (timezone, expected) => {
+        appTimezone = timezone;
+        wireOrder(PurchaseOrderStatus.READY);
+
+        await service.receive('po-1', 'user-1', 'admin');
+
+        expect(accountingPort.postPurchaseReceive).toHaveBeenCalledWith(
+          expect.objectContaining({ entryDate: expected }),
+          expect.anything(),
+        );
+        // receiveDate is a meaningful instant persisted as receivedDate; #1134
+        // changes only the calendar it is resolved against.
+        const receiveDate = baseCostCalculator.addStock.mock.calls[0][5];
+        expect(receiveDate).toBeInstanceOf(Date);
+        expect((receiveDate as Date).toISOString()).toBe('2026-08-24T16:30:00.000Z');
+      });
+
+      it.each([
+        ['Asia/Kuala_Lumpur', '2026-08-25'],
+        ['UTC', '2026-08-24'],
+      ])('return dates the reversal in %s as %s', async (timezone, expected) => {
+        appTimezone = timezone;
+        wireOrder(PurchaseOrderStatus.RECEIVED);
+
+        await service.return('po-1', 'user-1', 'admin');
+
+        const [, , , entryDate] =
+          accountingPort.reverseEntriesForDocument.mock.calls[0];
+        expect(entryDate).toBe(expected);
+      });
+    });
+
     it('receive posts stock + cost + GL and sets RECEIVED', async () => {
       const readyOrder = {
         ...mockOrder,

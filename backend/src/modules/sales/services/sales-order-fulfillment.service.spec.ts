@@ -15,6 +15,7 @@ import { BaseCostCalculatorService } from '../../inventory/services/base-cost-ca
 import { AuditLogService } from '../../audit-logs/services';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
+import { SettingsService } from '../../settings/settings.service';
 
 const mockOrder = (overrides: Partial<SalesOrder> = {}): SalesOrder =>
   ({
@@ -44,6 +45,8 @@ describe('SalesOrderFulfillmentService', () => {
   let auditLogService: jest.Mocked<AuditLogService>;
   let dataSource: jest.Mocked<DataSource>;
   let accountingPort: jest.Mocked<AccountingPostingPort>;
+  let settingsService: { getRegionalSettings: jest.Mock };
+  let appTimezone: string;
 
   function wireTransaction(order: SalesOrder | null) {
     const findOne = jest.fn().mockResolvedValue(order);
@@ -56,6 +59,10 @@ describe('SalesOrderFulfillmentService', () => {
   }
 
   beforeEach(async () => {
+    appTimezone = 'Asia/Kuala_Lumpur';
+    settingsService = {
+      getRegionalSettings: jest.fn(async () => ({ timezone: appTimezone })),
+    };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SalesOrderFulfillmentService,
@@ -80,6 +87,7 @@ describe('SalesOrderFulfillmentService', () => {
         { provide: AuditLogService, useValue: { log: jest.fn() } },
         { provide: ACCOUNTING_POSTING_PORT, useValue: { postSalesFulfillment: jest.fn(), reverseEntriesForDocument: jest.fn() } },
         { provide: DataSource, useValue: { transaction: jest.fn() } },
+        { provide: SettingsService, useValue: settingsService },
       ],
     }).compile();
 
@@ -274,6 +282,48 @@ describe('SalesOrderFulfillmentService', () => {
       expect(result.fulfilledAt).toBeInstanceOf(Date);
     });
 
+    describe('business-calendar entryDate (issue #1134)', () => {
+      // 16:30Z is past the UTC+8 rollover (16:00Z), so the UTC and
+      // Asia/Kuala_Lumpur calendar dates differ. fulfilledAt is set from this
+      // frozen instant inside the transaction; the JE must resolve THAT instant
+      // in the configured timezone, not a fresh "today".
+      const FROZEN_INSTANT = new Date('2026-08-24T16:30:00.000Z');
+
+      beforeEach(() => {
+        jest.useFakeTimers().setSystemTime(FROZEN_INSTANT);
+      });
+
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      it("dates the JE by fulfilledAt in the configured timezone, not UTC", async () => {
+        appTimezone = 'Asia/Kuala_Lumpur';
+        wireTransaction(mockOrder({ status: SalesOrderStatus.READY }));
+
+        const result = await service.fulfillOrder('order-1', 'u', 'admin');
+
+        expect(accountingPort.postSalesFulfillment).toHaveBeenCalledWith(
+          expect.objectContaining({ entryDate: '2026-08-25' }),
+          expect.anything(),
+        );
+        // The instant itself is unchanged — only the calendar it resolves against.
+        expect(result.fulfilledAt.toISOString()).toBe('2026-08-24T16:30:00.000Z');
+      });
+
+      it('dates the JE by UTC when UTC is the configured timezone', async () => {
+        appTimezone = 'UTC';
+        wireTransaction(mockOrder({ status: SalesOrderStatus.READY }));
+
+        await service.fulfillOrder('order-1', 'u', 'admin');
+
+        expect(accountingPort.postSalesFulfillment).toHaveBeenCalledWith(
+          expect.objectContaining({ entryDate: '2026-08-24' }),
+          expect.anything(),
+        );
+      });
+    });
+
     it('posts fulfillment revenue+COGS JEs after stock depletion', async () => {
       const order = mockOrder({
         status: SalesOrderStatus.READY,
@@ -349,6 +399,32 @@ describe('SalesOrderFulfillmentService', () => {
         expect.objectContaining({ fulfilledAt: null }),
       );
       expect(result.fulfilledAt).toBeUndefined();
+    });
+
+    describe('business-calendar reversal entryDate (issue #1134)', () => {
+      const FROZEN_INSTANT = new Date('2026-08-24T16:30:00.000Z');
+
+      beforeEach(() => {
+        jest.useFakeTimers().setSystemTime(FROZEN_INSTANT);
+      });
+
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      it.each([
+        ['Asia/Kuala_Lumpur', '2026-08-25'],
+        ['UTC', '2026-08-24'],
+      ])('dates the reversal in %s as %s', async (timezone, expected) => {
+        appTimezone = timezone;
+        wireTransaction(mockOrder({ status: SalesOrderStatus.FULFILLED }));
+
+        await service.unfulfillOrder('order-1', 'u', 'admin');
+
+        const [, , , entryDate] =
+          accountingPort.reverseEntriesForDocument.mock.calls[0];
+        expect(entryDate).toBe(expected);
+      });
     });
 
     it('reverses fulfillment JEs on unfulfill', async () => {

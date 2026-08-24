@@ -9,6 +9,8 @@ import { AccountBalanceService } from './account-balance.service';
 import { CreateAccountDto } from '../dto/create-account.dto';
 import { UpdateAccountDto } from '../dto/update-account.dto';
 import { toMinorUnits, formatScale4 } from '@/common/utils/money';
+import { getAppToday } from '@/common/utils/app-calendar';
+import { SettingsService } from '../../settings/settings.service';
 
 @Injectable()
 export class ChartOfAccountService {
@@ -18,6 +20,7 @@ export class ChartOfAccountService {
     private readonly posting: AccountingPostingService,
     private readonly balance: AccountBalanceService,
     private readonly dataSource: DataSource,
+    private readonly regionalSettingsService: SettingsService,
   ) {}
 
   private async assertParentValid(parentId: string | undefined, type: string): Promise<void> {
@@ -35,6 +38,16 @@ export class ChartOfAccountService {
     await this.assertParentValid(dto.parentId, dto.type);
     const opening = dto.openingBalance ? formatScale4(dto.openingBalance) : '0.0000';
 
+    // Only resolve the business calendar when the UTC-derived fallback would
+    // actually be used: a nonzero opening balance with no supplied date. The
+    // settings read can create a default row on a fresh install, so it is not
+    // free (issue #1134). Resolved before the transaction opens — it reads
+    // through the default DataSource, not this manager.
+    const postsOpeningBalance = toMinorUnits(opening) !== 0n;
+    const entryDate =
+      dto.openingBalanceDate ??
+      (postsOpeningBalance ? await getAppToday(this.regionalSettingsService) : null);
+
     return this.dataSource.transaction(async (manager: EntityManager) => {
       const repo = manager.getRepository(ChartOfAccount);
       const account = await repo.save(repo.create({
@@ -43,11 +56,11 @@ export class ChartOfAccountService {
         openingBalance: opening, createdBy: actor,
       } as any)) as unknown as ChartOfAccount;
 
-      if (toMinorUnits(opening) !== 0n) {
+      if (postsOpeningBalance) {
         await this.posting.postOpeningBalance({
           accountId: account.id, sourceRef: account.code,
           amount: opening,
-          entryDate: dto.openingBalanceDate ?? new Date().toISOString().slice(0, 10),
+          entryDate: entryDate as string,
           createdBy: actor,
         }, manager);
       }

@@ -12,6 +12,7 @@ import {
   ProductType,
 } from '../../../../database/entities/product.entity';
 import { StockMovementService } from '../../../inventory/services/stock-movement.service';
+import { SettingsService } from '../../../settings/settings.service';
 import { formatScale4 } from '@/common/utils/money';
 
 describe('OwnerEquityStockService', () => {
@@ -19,6 +20,8 @@ describe('OwnerEquityStockService', () => {
   let dataSource: jest.Mocked<DataSource>;
   let movementMock: any;
   let postingMock: any;
+  let settingsService: { getRegionalSettings: jest.Mock };
+  let appTimezone: string;
 
   let currentDoc: any;
   let product: any;
@@ -60,6 +63,10 @@ describe('OwnerEquityStockService', () => {
   }
 
   beforeEach(async () => {
+    appTimezone = 'Asia/Kuala_Lumpur';
+    settingsService = {
+      getRegionalSettings: jest.fn(async () => ({ timezone: appTimezone })),
+    };
     movementMock = {
       create: jest.fn().mockResolvedValue({ id: 'mv-1' }),
       reverseMovement: jest.fn().mockResolvedValue({}),
@@ -80,6 +87,7 @@ describe('OwnerEquityStockService', () => {
         { provide: StockMovementService, useValue: movementMock },
         { provide: ACCOUNTING_POSTING_PORT, useValue: postingMock },
         { provide: DataSource, useValue: dataSource },
+        { provide: SettingsService, useValue: settingsService },
       ],
     }).compile();
 
@@ -182,6 +190,50 @@ describe('OwnerEquityStockService', () => {
         jest.useRealTimers();
       }
     });
+    describe('business-calendar entryDate (issue #1134)', () => {
+      // 16:30Z is past the UTC+8 rollover (16:00Z): the UTC calendar date is
+      // the 24th, the Asia/Kuala_Lumpur one the 25th. The #1132 tests above
+      // freeze at 09:30Z, which is mid-UTC-day and therefore inert here.
+      const FROZEN_INSTANT = new Date('2026-08-24T16:30:00.000Z');
+
+      beforeEach(() => {
+        jest.useFakeTimers().setSystemTime(FROZEN_INSTANT);
+      });
+
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      it('dates the journal entry in the configured timezone, not UTC', async () => {
+        appTimezone = 'Asia/Kuala_Lumpur';
+        await stock.complete(ref);
+        expect(postingMock.postOwnerStockDrawing).toHaveBeenCalledWith(
+          expect.objectContaining({ entryDate: '2026-08-25' }),
+          expect.anything(),
+        );
+      });
+
+      it('dates the journal entry by UTC when UTC is the configured timezone', async () => {
+        appTimezone = 'UTC';
+        await stock.complete(ref);
+        expect(postingMock.postOwnerStockDrawing).toHaveBeenCalledWith(
+          expect.objectContaining({ entryDate: '2026-08-24' }),
+          expect.anything(),
+        );
+      });
+
+      it('keeps completedAt the exact instant while entryDate is that instant in the app timezone', async () => {
+        appTimezone = 'Asia/Kuala_Lumpur';
+        const doc = await stock.complete(ref);
+        // #1132: the JE date and completedAt come from ONE instant, so they can
+        // never straddle a midnight boundary. #1134 changes only the calendar
+        // that instant is resolved against — not the instant itself.
+        expect(doc.completedAt.toISOString()).toBe('2026-08-24T16:30:00.000Z');
+        const [cmd] = postingMock.postOwnerStockDrawing.mock.calls[0];
+        expect(cmd.entryDate).toBe('2026-08-25');
+      });
+    });
+
     it('writes the movement but SKIPS the journal entry at zero cost', async () => {
       product.baseCost = 0;
       const doc = await stock.complete(ref);
@@ -245,6 +297,44 @@ describe('OwnerEquityStockService', () => {
         jest.useRealTimers();
       }
     });
+    describe('business-calendar reversal entryDate (issue #1134)', () => {
+      const FROZEN_INSTANT = new Date('2026-08-24T16:30:00.000Z');
+
+      const seedCompleted = () =>
+        setDoc({
+          referenceNumber: completedRef,
+          documentStatus: OwnerEquityDocumentStatus.COMPLETED,
+          unitCost: '12.5000',
+          totalCost: '25.0000',
+          completedAt: new Date('2026-08-10'),
+          completedBy: 'alice',
+        });
+
+      beforeEach(() => {
+        jest.useFakeTimers().setSystemTime(FROZEN_INSTANT);
+      });
+
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      it('dates the reversal in the configured timezone, not UTC', async () => {
+        appTimezone = 'Asia/Kuala_Lumpur';
+        seedCompleted();
+        await stock.uncomplete(completedRef);
+        const [, , , entryDate] = postingMock.reverseEntriesForDocument.mock.calls[0];
+        expect(entryDate).toBe('2026-08-25');
+      });
+
+      it('dates the reversal by UTC when UTC is the configured timezone', async () => {
+        appTimezone = 'UTC';
+        seedCompleted();
+        await stock.uncomplete(completedRef);
+        const [, , , entryDate] = postingMock.reverseEntriesForDocument.mock.calls[0];
+        expect(entryDate).toBe('2026-08-24');
+      });
+    });
+
     it('tolerates a zero-cost document with no journal entry to reverse', async () => {
       setDoc({
         referenceNumber: zeroCostRef,

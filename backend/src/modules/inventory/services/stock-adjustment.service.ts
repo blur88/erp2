@@ -27,6 +27,8 @@ import {
 } from '../dto/stock-adjustment.dto';
 import { StockMovementService } from './stock-movement.service';
 import { StockMovementType, StockMovement } from '../../../database/entities/stock-movement.entity';
+import { resolveAppTimezone } from '../../../common/utils/app-calendar';
+import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
@@ -559,6 +561,10 @@ export class StockAdjustmentService extends BaseCrudService<
    * Complete a stock adjustment (post to stock movements)
    */
   async complete(id: string, userId?: string, username?: string): Promise<StockAdjustmentResponseDto> {
+    // Business calendar resolved before the transaction opens (issue #1134).
+    const timezone = await resolveAppTimezone(this.settingsService);
+    const actionInstant = new Date();
+
     const { manager, auditEntry } = await this.dataSource.transaction(async (manager: EntityManager) => {
       // Load + lock the header row on THIS transaction's manager (a pessimistic
       // lock must run inside the same transaction, not on the default-repo connection).
@@ -651,7 +657,7 @@ export class StockAdjustmentService extends BaseCrudService<
           sourceRef: adjustment.adjustmentNumber,
           increaseAmount: formatScale4(increaseMinor),
           decreaseAmount: formatScale4(decreaseMinor),
-          entryDate: new Date().toISOString().slice(0, 10),
+          entryDate: formatDateInTimezone(actionInstant, timezone),
           createdBy: username,
         }, manager);
       }
@@ -684,6 +690,10 @@ export class StockAdjustmentService extends BaseCrudService<
    * Revert a completed stock adjustment — reverse stock movements + JE and set status REVERTED.
    */
   async revert(id: string, userId?: string, username?: string): Promise<StockAdjustmentResponseDto> {
+    // Business calendar resolved before the transaction opens (issue #1134).
+    const timezone = await resolveAppTimezone(this.settingsService);
+    const actionInstant = new Date();
+
     const { manager, auditEntry } = await this.dataSource.transaction(async (manager: EntityManager) => {
       // Lock the header on this transaction's manager (see complete()).
       const adjustment = await manager.findOne(StockAdjustment, {
@@ -736,7 +746,7 @@ export class StockAdjustmentService extends BaseCrudService<
         AccountingSourceType.STOCK_ADJUSTMENT,
         id,
         [PostingType.STOCK_ADJUSTMENT],
-        new Date().toISOString().slice(0, 10),
+        formatDateInTimezone(actionInstant, timezone),
         manager,
         username,
       );
