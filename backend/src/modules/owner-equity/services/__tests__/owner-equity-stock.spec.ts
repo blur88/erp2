@@ -164,6 +164,24 @@ describe('OwnerEquityStockService', () => {
         expect.anything(),
       );
     });
+    // Issue #1132: the JE takes the completion ACTION date, not doc.equityDate.
+    // The clock is frozen so "today" cannot drift with the machine clock or
+    // straddle midnight mid-test.
+    it('dates the journal entry by the completion action date, not equityDate', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-08-24T09:30:00.000Z'));
+      try {
+        const doc = await stock.complete(ref);
+        expect(postingMock.postOwnerStockDrawing).toHaveBeenCalledWith(
+          expect.objectContaining({ entryDate: '2026-08-24' }),
+          expect.anything(),
+        );
+        const [cmd] = postingMock.postOwnerStockDrawing.mock.calls[0];
+        expect(cmd.entryDate).not.toBe(currentDoc.equityDate);   // '2026-08-01'
+        expect(doc.completedAt.toISOString().slice(0, 10)).toBe('2026-08-24');
+      } finally {
+        jest.useRealTimers();
+      }
+    });
     it('writes the movement but SKIPS the journal entry at zero cost', async () => {
       product.baseCost = 0;
       const doc = await stock.complete(ref);
@@ -205,6 +223,27 @@ describe('OwnerEquityStockService', () => {
       expect(doc.documentStatus).toBe('DRAFT');
       expect(doc.unitCost).toBeNull();
       expect(doc.totalCost).toBeNull();
+    });
+    // Issue #1132: the reversal takes the Uncomplete action date.
+    it('dates the reversal by the uncomplete action date, not equityDate', async () => {
+      setDoc({
+        referenceNumber: completedRef,
+        documentStatus: OwnerEquityDocumentStatus.COMPLETED,
+        unitCost: '12.5000',
+        totalCost: '25.0000',
+        completedAt: new Date('2026-08-10'),
+        completedBy: 'alice',
+      });
+      jest.useFakeTimers().setSystemTime(new Date('2026-08-24T09:30:00.000Z'));
+      try {
+        await stock.uncomplete(completedRef);
+        const [, , , entryDate] =
+          postingMock.reverseEntriesForDocument.mock.calls[0];
+        expect(entryDate).toBe('2026-08-24');
+        expect(entryDate).not.toBe('2026-08-01');   // doc.equityDate
+      } finally {
+        jest.useRealTimers();
+      }
     });
     it('tolerates a zero-cost document with no journal entry to reverse', async () => {
       setDoc({

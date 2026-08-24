@@ -87,6 +87,12 @@ export class OwnerEquityStockService {
         notes: doc.notes,
       }, undefined, manager);
 
+      // One instant for both the JE date and completedAt, so the two can never
+      // straddle a midnight boundary. The JE takes the completion ACTION date,
+      // not doc.equityDate — issue #1132, superseding the original spec §5.4.
+      const completedAt = new Date();
+      const actionDate = completedAt.toISOString().slice(0, 10);
+
       // Zero cost: the inventory moved, but a zero-value JE is meaningless and
       // CHK_jel_nonneg-adjacent. Mirrors postSalesFulfillment's COGS gate
       // (accounting-posting.service.ts:110-121). Uncomplete then legitimately
@@ -97,7 +103,7 @@ export class OwnerEquityStockService {
           stockMovementId: movement.id,
           amount: formatScale4(totalCostMinor),
           sourceRef: doc.referenceNumber,
-          entryDate: doc.equityDate,      // NOT today — spec §5.4
+          entryDate: actionDate,
           createdBy: username,
         }, manager);
       }
@@ -105,7 +111,7 @@ export class OwnerEquityStockService {
       doc.unitCost = formatScale4(unitCostMinor);
       doc.totalCost = formatScale4(totalCostMinor);
       doc.documentStatus = OwnerEquityDocumentStatus.COMPLETED;
-      doc.completedAt = new Date();
+      doc.completedAt = completedAt;
       doc.completedBy = username ?? 'system';
       return manager.getRepository(OwnerEquityDocument).save(doc);
     });
@@ -152,7 +158,7 @@ export class OwnerEquityStockService {
         AccountingSourceType.OWNER_EQUITY,
         doc.id,
         [PostingType.OWNER_STOCK_DRAWING],
-        new Date().toISOString().slice(0, 10),   // action date — spec §5.4
+        new Date().toISOString().slice(0, 10),   // Uncomplete action date (UTC)
         manager,
         username,
       );
