@@ -630,7 +630,7 @@ export interface AccountingSettings {
 }
 
 export type JournalEntryStatus = 'Posted' | 'Reversed';
-export type AccountingSourceType = 'SALES_ORDER' | 'PURCHASE_ORDER' | 'STOCK_ADJUSTMENT' | 'OPENING_BALANCE' | 'OWNER_EQUITY';
+export type AccountingSourceType = 'SALES_ORDER' | 'PURCHASE_ORDER' | 'STOCK_ADJUSTMENT' | 'OPENING_BALANCE' | 'EXPENSE' | 'OWNER_EQUITY';
 
 export interface JournalEntry {
   id: string;
