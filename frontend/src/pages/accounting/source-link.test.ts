@@ -44,6 +44,16 @@ describe('buildSourceLink', () => {
     )
   })
 
+  it('links EXPENSE by sourceDocumentId (UUID)', () => {
+    expect(buildSourceLink('EXPENSE', 'exp-uuid-3', 'EXP-0012')).toBe(
+      '/accounting/expenses/exp-uuid-3',
+    )
+  })
+
+  it('returns null for EXPENSE when sourceDocumentId is missing', () => {
+    expect(buildSourceLink('EXPENSE', null, 'EXP-0012')).toBeNull()
+  })
+
   it('links an owner equity entry by reference number', () => {
     expect(buildSourceLink('OWNER_EQUITY', 'uuid-1', 'EQ-26-001')).toBe(
       '/accounting/owner-equity/EQ-26-001/view',

@@ -162,6 +162,17 @@ describe('GeneralLedgerPage', () => {
     expect(options).toMatchObject({ skip: false })
   })
 
+  it('accepts EXPENSE as a valid sourceType and forwards it to the GL query', () => {
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
+
+    renderPage('/accounting/general-ledger?accountId=acct-1&sourceType=EXPENSE')
+
+    const [params, options] = mockGLQuery.mock.calls.at(-1)!
+    expect(params).toMatchObject({ accountId: 'acct-1', sourceType: 'EXPENSE' })
+    expect(options).toMatchObject({ skip: false })
+  })
+
   it('changing one filter updates the URL and preserves the other query params', async () => {
     mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
     mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })

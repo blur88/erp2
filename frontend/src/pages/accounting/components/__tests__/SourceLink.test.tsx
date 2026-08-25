@@ -76,6 +76,26 @@ describe('SourceLink', () => {
     expect(span).toHaveAttribute('title', 'Opening Balance')
   })
 
+  it('links an EXPENSE by document id and labels it Expense', () => {
+    renderLink(
+      <SourceLink sourceType="EXPENSE" sourceDocumentId="exp-uuid" sourceRef="EXP-26-004" />,
+    )
+    const link = screen.getByRole('link', { name: 'EXP-26-004' })
+    expect(link).toHaveAttribute('href', '/accounting/expenses/exp-uuid')
+    expect(link).toHaveAccessibleDescription('Expense')
+    expect(link).toHaveAttribute('title', 'Expense')
+  })
+
+  it('renders an EXPENSE ref as plain text when the document id is missing', () => {
+    renderLink(
+      <SourceLink sourceType="EXPENSE" sourceDocumentId={null} sourceRef="EXP-26-004" />,
+    )
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    const span = screen.getByText('EXP-26-004')
+    expect(span).toHaveAttribute('tabindex', '0')
+    expect(span).toHaveAccessibleDescription('Expense')
+  })
+
   it('labels an owner equity journal source', () => {
     renderLink(
       <SourceLink sourceType="OWNER_EQUITY" sourceDocumentId="uuid-1" sourceRef="EQ-26-001" />,
