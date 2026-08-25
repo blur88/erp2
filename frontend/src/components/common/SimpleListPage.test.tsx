@@ -86,4 +86,30 @@ describe('SimpleListPage', () => {
     render(<SimpleListPage {...baseProps} isFetching={false} />)
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
   })
+
+  it('renders a titleBadge when one is supplied', () => {
+    render(
+      <SimpleListPage
+        {...baseProps}
+        titleBadge={<span data-testid="title-badge">1000 - Cash</span>}
+      />,
+    )
+    expect(screen.getByTestId('title-badge')).toBeInTheDocument()
+    expect(screen.getByText('1000 - Cash')).toBeInTheDocument()
+  })
+
+  it('renders no titleBadge when the prop is omitted', () => {
+    render(<SimpleListPage {...baseProps} />)
+    expect(screen.queryByTestId('title-badge')).not.toBeInTheDocument()
+  })
+
+  // General Ledger has no search field, so it renders the shell without a ref
+  // (issue #1143). FilterBar already declares searchInputRef optional.
+  it('renders without a searchInputRef', () => {
+    const { searchInputRef: _searchInputRef, ...propsWithoutRef } = baseProps
+    render(<SimpleListPage {...propsWithoutRef} />)
+    expect(screen.getByText('Customers')).toBeInTheDocument()
+    expect(screen.getByTestId('table-slot')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Search...')).toBeInTheDocument()
+  })
 })

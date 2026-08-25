@@ -13,13 +13,17 @@ import PageHeader from './PageHeader'
 interface SimpleListPageProps<F extends object> {
   title: string
   subtitle: string
+  // Optional trailing node beside the title (e.g. General Ledger's selected
+  // account chip). Forwarded verbatim to PageHeader.
+  titleBadge?: ReactNode
   primaryAction?: { label: string; onClick: () => void }
   secondaryAction?: { label: string; onClick: () => void }
   filterConfig: FilterBarConfig<F>
   draftFilters: F
   handlers: FilterBarHandlers<F>
   hasActiveFilters: boolean
-  searchInputRef: RefObject<HTMLInputElement | null>
+  // Optional: a list with no search field (General Ledger) omits this.
+  searchInputRef?: RefObject<HTMLInputElement | null>
   // Optional: a list with no user-selectable sort order omits this so FilterBar
   // does not render a Sort button that cannot do anything.
   sort?: FilterBarSortConfig
@@ -34,6 +38,7 @@ interface SimpleListPageProps<F extends object> {
 export default function SimpleListPage<F extends object>({
   title,
   subtitle,
+  titleBadge,
   primaryAction,
   secondaryAction,
   filterConfig,
@@ -54,6 +59,7 @@ export default function SimpleListPage<F extends object>({
       <PageHeader
         title={title}
         subtitle={subtitle}
+        titleBadge={titleBadge}
         variant="workflow"
         primaryAction={primaryAction}
         secondaryAction={secondaryAction}
