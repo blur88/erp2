@@ -503,16 +503,25 @@ describe('TrialBalancePage drill-through to the General Ledger', () => {
     rows.forEach((row) => expect(row).toHaveAttribute('tabindex', '0'))
   })
 
-  it('navigates to the general ledger for the clicked account, carrying asOfDate as toDate', async () => {
+  it('navigates to the general ledger for the clicked account, carrying asOfDate as the period end', async () => {
     const { router } = renderPage(AT_DATE)
     await userEvent.click(screen.getAllByRole('link')[0])
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/accounting/general-ledger')
     })
     const search = searchOf(router)
-    expect(search.get('accountId')).toBe('acc-1100')
-    expect(search.get('toDate')).toBe('2026-01-31')
-    expect(search.get('fromDate')).toBeNull()
+    // The General Ledger consumes the shared Period filter, so the drill-through
+    // speaks that vocabulary: account + a custom range ending at the as-of date.
+    expect(search.get('account')).toBe('acc-1100')
+    expect(search.get('period')).toBe('custom')
+    expect(search.get('period_to')).toBe('2026-01-31')
+    // A custom range only survives serialization with BOTH bounds present, so an
+    // explicit floor stands in for "no start date" — see the drill-through floor
+    // constant in TrialBalancePage.
+    expect(search.get('period_from')).toBe('1970-01-01')
+    // The pre-filter-bar keys are gone.
+    expect(search.get('accountId')).toBeNull()
+    expect(search.get('toDate')).toBeNull()
   })
 
   it('navigates on Enter but not on Space', async () => {
@@ -527,7 +536,7 @@ describe('TrialBalancePage drill-through to the General Ledger', () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/accounting/general-ledger')
     })
-    expect(searchOf(router).get('accountId')).toBe('acc-2100')
+    expect(searchOf(router).get('account')).toBe('acc-2100')
   })
 
   it('navigates from a zero-balance row shown under showZero', async () => {
@@ -546,7 +555,9 @@ describe('TrialBalancePage drill-through to the General Ledger', () => {
       expect(router.state.location.pathname).toBe('/accounting/general-ledger')
     })
     const search = searchOf(router)
-    expect(search.get('accountId')).toBe('acc-3000')
-    expect(search.get('toDate')).toBe('2026-01-31')
+    expect(search.get('account')).toBe('acc-3000')
+    expect(search.get('period')).toBe('custom')
+    expect(search.get('period_from')).toBe('1970-01-01')
+    expect(search.get('period_to')).toBe('2026-01-31')
   })
 })

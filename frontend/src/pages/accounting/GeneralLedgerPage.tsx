@@ -1,120 +1,108 @@
-import { useEffect, useMemo, useState } from 'react'
-import { DatePicker } from '@mui/x-date-pickers'
-import { format, parseISO } from 'date-fns'
-import { Link as RouterLink, useSearchParams } from 'react-router-dom'
+import { useMemo } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
 import {
   Alert,
   Box,
   Chip,
   Link,
-  MenuItem,
   Paper,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
-  TextField,
   Typography,
 } from '@mui/material'
 
 import { TableCard } from '@/components/common/TableCard'
 import PageHeader from '@/components/common/PageHeader'
+import { FilterBar } from '@/components/filters'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
+import { GENERAL_LEDGER_SOURCE_TYPE_OPTIONS } from '@/constants/filterOptions'
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import { useFilterBar } from '@/hooks/useFilterBar'
 import { useGetAccountsQuery, useGetGeneralLedgerQuery } from '@/store/api/accountingApi'
 import type { AccountingSourceType } from '@/types'
+import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { formatCurrency } from '@/utils/currency'
-import { formatDate, isValidIsoDate, toMuiDatePickerFormat } from '@/utils/formatters'
+import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
+import { formatDate } from '@/utils/formatters'
 import SourceLink from './components/SourceLink'
 
-const SOURCE_TYPES: { value: AccountingSourceType | ''; label: string }[] = [
-  { value: '', label: 'All Sources' },
-  { value: 'SALES_ORDER', label: 'Sales Order' },
-  { value: 'PURCHASE_ORDER', label: 'Purchase Order' },
-  { value: 'STOCK_ADJUSTMENT', label: 'Stock Adjustment' },
-  { value: 'OPENING_BALANCE', label: 'Opening Balance' },
-  { value: 'EXPENSE', label: 'Expense' },
-  { value: 'OWNER_EQUITY', label: 'Owner Equity' },
-]
+interface GLFilters {
+  account: string | null
+  period: PeriodValue
+  sourceType: AccountingSourceType | null
+}
 
-const VALID_SOURCE_TYPES = new Set<AccountingSourceType>([
-  'SALES_ORDER',
-  'PURCHASE_ORDER',
-  'STOCK_ADJUSTMENT',
-  'OPENING_BALANCE',
-  'EXPENSE',
-  'OWNER_EQUITY',
-])
+const GL_DEFAULTS: GLFilters = {
+  account: null,
+  period: { key: null, from: null, to: null },
+  sourceType: null,
+}
 
 export default function GeneralLedgerPage() {
-  const [searchParams, setSearchParams] = useSearchParams()
+  const { data: accountsData, isFetching: accountsFetching } = useGetAccountsQuery({})
+  const accounts = useMemo(() => accountsData?.data ?? [], [accountsData])
 
-  const rawAccountId = searchParams.get('accountId') ?? ''
-  const rawSourceType = searchParams.get('sourceType') ?? ''
-  const rawFromDate = searchParams.get('fromDate') ?? ''
-  const rawToDate = searchParams.get('toDate') ?? ''
+  // Query-backed options, so `optionsReady` is REQUIRED (see filterBar.types.ts):
+  // while accounts are unresolved the empty array is not authoritative, and an
+  // accountId from the URL must be preserved rather than allow-listed away.
+  // Once it lands, useFilterBar's revalidation clears an id that is not a member
+  // and drops the URL key — replacing this page's former hand-rolled membership
+  // check and accountId cleanup effect.
+  const accountsReady = Boolean(accountsData)
 
-  const { data: accountsData } = useGetAccountsQuery({})
-  const accounts = accountsData?.data ?? []
-  const accountsLoaded = Boolean(accountsData)
+  const filterConfig = useMemo<FilterBarConfig<GLFilters>>(
+    () => ({
+      fields: [
+        {
+          field: 'account',
+          label: 'Account',
+          type: 'select',
+          emptyLabel: 'Select an account',
+          minWidth: 240,
+          options: accounts.map((acct) => ({
+            value: acct.id,
+            label: `${acct.code} - ${acct.name}`,
+          })),
+          optionsReady: accountsReady,
+          optionsLoading: accountsFetching,
+        },
+        { field: 'period', label: 'Period', type: 'period' },
+        {
+          field: 'sourceType',
+          label: 'Source Type',
+          type: 'select',
+          options: GENERAL_LEDGER_SOURCE_TYPE_OPTIONS,
+        },
+      ],
+      defaults: GL_DEFAULTS,
+    }),
+    [accounts, accountsReady, accountsFetching],
+  )
 
-  // Account membership can only be confirmed once accounts have loaded. Until then,
-  // and for any id not in the list, the effective account id is '' (GL request skipped).
-  const accountIsMember =
-    accountsLoaded && accounts.some((acct) => acct.id === rawAccountId)
-  const effectiveAccountId = accountIsMember ? rawAccountId : ''
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } =
+    useFilterBar(filterConfig)
 
-  const effectiveSourceType: AccountingSourceType | '' =
-    rawSourceType && VALID_SOURCE_TYPES.has(rawSourceType as AccountingSourceType)
-      ? (rawSourceType as AccountingSourceType)
-      : ''
-  const effectiveFromDate = isValidIsoDate(rawFromDate) ? rawFromDate : ''
-  const effectiveToDate = isValidIsoDate(rawToDate) ? rawToDate : ''
+  const weekStartsOn = getStartOfWeek()
 
-  // The pickers are controlled, and MUI X resets every section whenever the
-  // committed candidate is not echoed back into `value`. Mid-typing commits
-  // are complete-but-implausible (the first year keystroke is e.g. 0002-07-01)
-  // and must never reach the URL — the read path would reject them and the
-  // cleanup effect below would delete the key, desyncing the value again.
-  // So each field keeps a draft that mirrors every commit verbatim, while the
-  // URL only ever receives plausible dates. When the URL changes externally
-  // (back/forward navigation, cleanup), the draft follows it.
-  const [fromDraft, setFromDraft] = useState(effectiveFromDate)
-  const [toDraft, setToDraft] = useState(effectiveToDate)
-  useEffect(() => {
-    setFromDraft(effectiveFromDate)
-  }, [effectiveFromDate])
-  useEffect(() => {
-    setToDraft(effectiveToDate)
-  }, [effectiveToDate])
+  const dateRange = useMemo(() => {
+    const period = appliedFilters.period
+    if (!period || period.key === null) return { fromDate: undefined, toDate: undefined }
+    if (period.key === 'custom') {
+      return { fromDate: period.from ?? undefined, toDate: period.to ?? undefined }
+    }
+    const range = getPeriodDateRange(period.key, weekStartsOn)
+    return { fromDate: range.from, toDate: range.to }
+  }, [appliedFilters.period, weekStartsOn])
 
-  const storedFormat = useMemo(() => localStorage.getItem('dateFormat') || 'DD/MM/YYYY', [])
-  const pickerFormat = useMemo(() => toMuiDatePickerFormat(storedFormat), [storedFormat])
-
-  const setFilter = (key: string, value: string) => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev)
-        if (value) next.set(key, value)
-        else next.delete(key)
-        return next
-      },
-      { replace: true },
-    )
-  }
-
-  // Inverted range (from > to): both dates are individually valid but the window is empty.
-  // Flag it, and drop toDate from the request rather than send a guaranteed-empty query.
-  const dateRangeInvalid =
-    Boolean(effectiveFromDate) &&
-    Boolean(effectiveToDate) &&
-    effectiveFromDate > effectiveToDate
+  const effectiveAccountId = appliedFilters.account ?? ''
 
   const glParams: Record<string, string> = { accountId: effectiveAccountId }
-  if (effectiveFromDate) glParams.fromDate = effectiveFromDate
-  if (effectiveToDate && !dateRangeInvalid) glParams.toDate = effectiveToDate
-  if (effectiveSourceType) glParams.sourceType = effectiveSourceType
+  if (dateRange.fromDate) glParams.fromDate = dateRange.fromDate
+  if (dateRange.toDate) glParams.toDate = dateRange.toDate
+  if (appliedFilters.sourceType) glParams.sourceType = appliedFilters.sourceType
 
   const { data: glData, isFetching, error } = useGetGeneralLedgerQuery(
     glParams as { accountId: string; fromDate?: string; toDate?: string; sourceType?: string },
@@ -124,94 +112,13 @@ export default function GeneralLedgerPage() {
   const hasSelection = Boolean(effectiveAccountId)
 
   const filterToolbar = (
-    <Box
-      sx={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 1.5,
-        alignItems: 'flex-start',
-      }}
-    >
-      <TextField
-        select
-        size="small"
-        label="Account"
-        value={effectiveAccountId}
-        onChange={(e) => setFilter('accountId', e.target.value)}
-        required
-        sx={{ flex: '2 1 260px' }}
-      >
-        <MenuItem value="">
-          <em>Select an account</em>
-        </MenuItem>
-        {accounts.map((acct) => (
-          <MenuItem key={acct.id} value={acct.id}>
-            {acct.code} - {acct.name}
-          </MenuItem>
-        ))}
-      </TextField>
-      <DatePicker
-        label="From Date"
-        value={fromDraft ? parseISO(fromDraft) : null}
-        format={pickerFormat}
-        onChange={(d) => {
-          // Null means cleared; Invalid Date is a mid-entry transient the
-          // picker owns — hands off so the pending sections survive.
-          if (d === null) {
-            setFromDraft('')
-            setFilter('fromDate', '')
-            return
-          }
-          if (Number.isNaN(d.getTime())) return
-          const next = format(d, 'yyyy-MM-dd')
-          setFromDraft(next)
-          if (isValidIsoDate(next)) setFilter('fromDate', next)
-        }}
-        slotProps={{
-          textField: { size: 'small', sx: { flex: '0 0 160px' } },
-          field: { clearable: true },
-        }}
-      />
-      <DatePicker
-        label="To Date"
-        value={toDraft ? parseISO(toDraft) : null}
-        format={pickerFormat}
-        onChange={(d) => {
-          if (d === null) {
-            setToDraft('')
-            setFilter('toDate', '')
-            return
-          }
-          if (Number.isNaN(d.getTime())) return
-          const next = format(d, 'yyyy-MM-dd')
-          setToDraft(next)
-          if (isValidIsoDate(next)) setFilter('toDate', next)
-        }}
-        slotProps={{
-          textField: {
-            size: 'small',
-            error: dateRangeInvalid,
-            helperText: dateRangeInvalid ? 'To Date is before From Date' : undefined,
-            sx: { flex: '0 0 160px' },
-          },
-          field: { clearable: true },
-        }}
-      />
-      <TextField
-        select
-        size="small"
-        label="Source Type"
-        value={effectiveSourceType}
-        onChange={(e) => setFilter('sourceType', e.target.value)}
-        sx={{ flex: '1 1 180px' }}
-      >
-        {SOURCE_TYPES.map((st) => (
-          <MenuItem key={st.value} value={st.value}>
-            {st.label}
-          </MenuItem>
-        ))}
-      </TextField>
-    </Box>
+    <FilterBar
+      config={filterConfig}
+      draftFilters={draftFilters}
+      handlers={handlers}
+      hasActiveFilters={hasActiveFilters}
+      isFetching={isFetching}
+    />
   )
 
   const accountBadge = glData ? (
@@ -250,36 +157,6 @@ export default function GeneralLedgerPage() {
       ))}
     </Box>
   ) : null
-
-  // Single atomic cleanup: clone once, delete every key that is PRESENT in the URL but whose
-  // effective value is empty (covers both invalid values AND present-but-empty keys like
-  // `?sourceType=`), plus (only once accounts have loaded) an accountId not in the loaded list.
-  // At most one setSearchParams, guarded so it only fires when something changed → no loop.
-  // Use searchParams.has(key), NOT truthiness of the raw string, so `?sourceType=` is deleted.
-  useEffect(() => {
-    const next = new URLSearchParams(searchParams)
-
-    if (searchParams.has('sourceType') && !effectiveSourceType) next.delete('sourceType')
-    if (searchParams.has('fromDate') && !effectiveFromDate) next.delete('fromDate')
-    if (searchParams.has('toDate') && !effectiveToDate) next.delete('toDate')
-    // accountId: preserve while membership is unconfirmed (accounts still loading); once loaded,
-    // delete a present accountId that is not a member (or is present-but-empty).
-    if (accountsLoaded && searchParams.has('accountId') && !accountIsMember) {
-      next.delete('accountId')
-    }
-
-    if (next.toString() !== searchParams.toString()) {
-      setSearchParams(next, { replace: true })
-    }
-  }, [
-    searchParams,
-    effectiveSourceType,
-    effectiveFromDate,
-    effectiveToDate,
-    accountsLoaded,
-    accountIsMember,
-    setSearchParams,
-  ])
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
