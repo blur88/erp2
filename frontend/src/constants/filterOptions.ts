@@ -82,6 +82,21 @@ export const JOURNAL_SOURCE_TYPE_OPTIONS: Options = [
   { value: 'OWNER_EQUITY', label: 'Owner Equity' },
 ] as const
 
+/**
+ * General Ledger source types. Deliberately a separate constant from
+ * JOURNAL_SOURCE_TYPE_OPTIONS, which omits EXPENSE: the General Ledger has
+ * always accepted and filtered on EXPENSE movements. Widening the journal
+ * list to match is a Journal Entries change, not a General Ledger one.
+ */
+export const GENERAL_LEDGER_SOURCE_TYPE_OPTIONS: Options = [
+  { value: 'SALES_ORDER', label: 'Sales Order' },
+  { value: 'PURCHASE_ORDER', label: 'Purchase Order' },
+  { value: 'STOCK_ADJUSTMENT', label: 'Stock Adjustment' },
+  { value: 'OPENING_BALANCE', label: 'Opening Balance' },
+  { value: 'EXPENSE', label: 'Expense' },
+  { value: 'OWNER_EQUITY', label: 'Owner Equity' },
+] as const
+
 export const JOURNAL_STATUS_OPTIONS: Options = [
   { value: 'Posted', label: 'Posted' },
   { value: 'Reversed', label: 'Reversed' },

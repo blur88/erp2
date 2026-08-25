@@ -27,6 +27,15 @@ import { formatCurrency } from '@/utils/currency'
 import { getCurrentDate, isValidIsoDate, toMuiDatePickerFormat } from '@/utils/formatters'
 import type { TrialBalanceResponse } from '@/types'
 
+/**
+ * Lower bound for the General Ledger drill-through range. Not a real filter
+ * value the user chose — it stands in for "no start date", which the shared
+ * Period filter has no way to express alongside an end date. Any date safely
+ * before any posting in the system works; the Unix epoch is the conventional
+ * choice.
+ */
+const GENERAL_LEDGER_DRILLDOWN_FLOOR = '1970-01-01'
+
 export default function TrialBalancePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -56,7 +65,17 @@ export default function TrialBalancePage() {
   const showZero = searchParams.get('showZero') === 'true'
 
   const openLedger = (accountId: string) => {
-    const params = new URLSearchParams({ accountId, toDate: effectiveAsOfDate })
+    // The General Ledger uses the shared Period filter, whose only open-ended
+    // shape is `custom` — and `custom` serializes its bounds ONLY when both are
+    // present (filterBar.url.ts), so a to-date-only drill-through cannot be
+    // expressed. Pass an explicit floor far below any bookkeeping date so the
+    // range still reads as "everything up to the as-of date".
+    const params = new URLSearchParams({
+      account: accountId,
+      period: 'custom',
+      period_from: GENERAL_LEDGER_DRILLDOWN_FLOOR,
+      period_to: effectiveAsOfDate,
+    })
     navigate(`/accounting/general-ledger?${params.toString()}`)
   }
 

@@ -96,9 +96,20 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => vi.fn() }
 })
 
+import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
+
 import GeneralLedgerPage from '../GeneralLedgerPage'
 
+// useFilterBar reads and writes the LIVE url via window.history.replaceState,
+// which MemoryRouter never populates or observes (#1131 review). Seed the real
+// url from the same entry the router gets, and read filter state back from
+// window.location — router.state.location only sees router-driven navigation.
+function currentSearch(): URLSearchParams {
+  return new URLSearchParams(window.location.search)
+}
+
 function renderPage(initialEntry = '/accounting/general-ledger') {
+  window.history.replaceState(null, '', initialEntry)
   const store = configureStore({ reducer: { empty: (s = null) => s } })
   const router = createMemoryRouter(
     [
@@ -119,6 +130,10 @@ function renderPage(initialEntry = '/accounting/general-ledger') {
 }
 
 describe('GeneralLedgerPage', () => {
+  afterEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
   beforeEach(() => {
     mockGLQuery.mockReturnValue({ data: undefined, isFetching: false })
     mockAccountsQuery.mockReturnValue({ data: null, isFetching: false })
@@ -136,7 +151,7 @@ describe('GeneralLedgerPage', () => {
     mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
     mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
 
-    renderPage('/accounting/general-ledger?accountId=acct-1')
+    renderPage('/accounting/general-ledger?account=acct-1')
 
     const accountInfoElements = screen.getAllByText('1100 - Cash')
     expect(accountInfoElements.length).toBeGreaterThanOrEqual(1)
@@ -155,7 +170,7 @@ describe('GeneralLedgerPage', () => {
     mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
     mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
 
-    renderPage('/accounting/general-ledger?accountId=acct-1&sourceType=SALES_ORDER')
+    renderPage('/accounting/general-ledger?account=acct-1&sourceType=SALES_ORDER')
 
     const [params, options] = mockGLQuery.mock.calls.at(-1)!
     expect(params).toMatchObject({ accountId: 'acct-1', sourceType: 'SALES_ORDER' })
@@ -166,53 +181,84 @@ describe('GeneralLedgerPage', () => {
     mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
     mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
 
-    renderPage('/accounting/general-ledger?accountId=acct-1&sourceType=EXPENSE')
+    renderPage('/accounting/general-ledger?account=acct-1&sourceType=EXPENSE')
 
     const [params, options] = mockGLQuery.mock.calls.at(-1)!
     expect(params).toMatchObject({ accountId: 'acct-1', sourceType: 'EXPENSE' })
     expect(options).toMatchObject({ skip: false })
   })
 
-  it('changing one filter updates the URL and preserves the other query params', async () => {
+  it('applies a period preset, writing it to the URL and resolving it to a date range', async () => {
     mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
     mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
 
-    const router = renderPage('/accounting/general-ledger?accountId=acct-1')
+    const router = renderPage('/accounting/general-ledger?account=acct-1')
 
-    const fromField = screen.getByRole('group', { name: /from date/i })
     const user = userEvent.setup()
-    await user.click(within(fromField).getByRole('spinbutton', { name: /day/i }))
-    for (const ch of ['0', '1', '0', '7', '2', '0', '2', '6']) {
-      await user.keyboard(ch)
-    }
+    // The Period trigger is a Select whose label is not wired to it, so it has
+    // no accessible name — address it positionally, as the sibling Journal
+    // Entries filter test does. Order: Account, Period, Source Type.
+    const combos = screen.getAllByRole('combobox')
+    await user.click(combos[1])
+    await user.click(await screen.findByRole('menuitem', { name: 'This Year' }))
 
     await waitFor(() => {
-      const search = new URLSearchParams(router.state.location.search)
-      expect(search.get('fromDate')).toBe('2026-07-01')
-      expect(search.get('accountId')).toBe('acct-1')
+      const search = currentSearch()
+      expect(search.get('period')).toBe('this_year')
+      expect(search.get('account')).toBe('acct-1')
     })
+
+    // The preset is resolved to concrete dates before it reaches the query.
+    const expected = getPeriodDateRange('this_year', getStartOfWeek())
+    const [params] = mockGLQuery.mock.calls.at(-1)!
+    expect(params).toMatchObject({
+      accountId: 'acct-1',
+      fromDate: expected.from,
+      toDate: expected.to,
+    })
+  })
+
+  it('reads a custom period range from the URL and forwards both bounds', () => {
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
+
+    renderPage(
+      '/accounting/general-ledger?account=acct-1&period=custom' +
+        '&period_from=2026-07-01&period_to=2026-07-31',
+    )
 
     const [params] = mockGLQuery.mock.calls.at(-1)!
     expect(params).toMatchObject({
       accountId: 'acct-1',
       fromDate: '2026-07-01',
+      toDate: '2026-07-31',
     })
   })
 
-  it('clearing From Date removes the param and omits it from the GL query', async () => {
+  it('resets every filter and clears the managed params from the URL', async () => {
     mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
     mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
 
     const router = renderPage(
-      '/accounting/general-ledger?accountId=acct-1&fromDate=2026-07-01',
+      '/accounting/general-ledger?account=acct-1&period=this_year&sourceType=SALES_ORDER',
     )
 
-    await userEvent.click(screen.getByRole('button', { name: /clear/i }))
+    await userEvent.click(screen.getByRole('button', { name: /reset/i }))
 
     await waitFor(() => {
-      expect(new URLSearchParams(router.state.location.search).has('fromDate')).toBe(false)
+      const search = currentSearch()
+      expect(search.has('account')).toBe(false)
+      expect(search.has('period')).toBe(false)
+      expect(search.has('sourceType')).toBe(false)
     })
-    expect(mockGLQuery.mock.calls.at(-1)?.[0].fromDate).toBeUndefined()
+
+    // With no account the request is skipped and the empty state returns.
+    const [params, options] = mockGLQuery.mock.calls.at(-1)!
+    expect(params.accountId).toBe('')
+    expect(options).toMatchObject({ skip: true })
+    expect(
+      screen.getByText('Select an account to view ledger movements.'),
+    ).toBeInTheDocument()
   })
 
   it('clearing a filter deletes its key from the URL', async () => {
@@ -220,26 +266,49 @@ describe('GeneralLedgerPage', () => {
     mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
 
     const router = renderPage(
-      '/accounting/general-ledger?accountId=acct-1&sourceType=SALES_ORDER',
+      '/accounting/general-ledger?account=acct-1&sourceType=SALES_ORDER',
     )
 
     await act(async () => {
       fireEvent.mouseDown(screen.getByRole('combobox', { name: /source type/i }))
     })
     await act(async () => {
-      fireEvent.click(screen.getByRole('option', { name: /all sources/i }))
+      fireEvent.click(screen.getByRole('option', { name: 'All' }))
     })
 
-    const search = new URLSearchParams(router.state.location.search)
-    expect(search.has('sourceType')).toBe(false)
-    expect(search.get('accountId')).toBe('acct-1')
+    await waitFor(() => {
+      const search = currentSearch()
+      expect(search.has('sourceType')).toBe(false)
+      expect(search.get('account')).toBe('acct-1')
+    })
   })
 
-  it('skips the GL request and drops a bogus accountId not in the loaded accounts', async () => {
+  it('selecting an account from the filter bar drives the URL and the query', async () => {
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
+
+    const router = renderPage()
+
+    await act(async () => {
+      fireEvent.mouseDown(screen.getByRole('combobox', { name: /account/i }))
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('option', { name: '1200 - Bank Account' }))
+    })
+
+    await waitFor(() => {
+      expect(currentSearch().get('account')).toBe('acct-2')
+    })
+    const [params, options] = mockGLQuery.mock.calls.at(-1)!
+    expect(params.accountId).toBe('acct-2')
+    expect(options).toMatchObject({ skip: false })
+  })
+
+  it('skips the GL request and drops a bogus account not in the loaded accounts', async () => {
     mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
     mockGLQuery.mockReturnValue({ data: undefined, isFetching: false })
 
-    const router = renderPage('/accounting/general-ledger?accountId=does-not-exist')
+    const router = renderPage('/accounting/general-ledger?account=does-not-exist')
 
     const [params, options] = mockGLQuery.mock.calls.at(-1)!
     expect(params.accountId).toBe('')
@@ -248,20 +317,33 @@ describe('GeneralLedgerPage', () => {
       screen.getByText('Select an account to view ledger movements.'),
     ).toBeInTheDocument()
     await waitFor(() => {
-      expect(new URLSearchParams(router.state.location.search).has('accountId')).toBe(false)
+      expect(currentSearch().has('account')).toBe(false)
     })
+  })
+
+  it('preserves an account from the URL while the account options are still loading', () => {
+    // An in-flight options query yields no data, and an empty allow-list would
+    // otherwise reject a perfectly valid id (#1017).
+    mockAccountsQuery.mockReturnValue({ data: null, isFetching: true })
+    mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
+
+    renderPage('/accounting/general-ledger?account=acct-1')
+
+    const [params, options] = mockGLQuery.mock.calls.at(-1)!
+    expect(params.accountId).toBe('acct-1')
+    expect(options).toMatchObject({ skip: false })
   })
 
   it('treats an invalid sourceType as empty and removes it from the URL', async () => {
     mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
     mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
 
-    const router = renderPage('/accounting/general-ledger?accountId=acct-1&sourceType=BOGUS')
+    const router = renderPage('/accounting/general-ledger?account=acct-1&sourceType=BOGUS')
 
     const [params] = mockGLQuery.mock.calls.at(-1)!
     expect(params.sourceType).toBeUndefined()
     await waitFor(() => {
-      expect(new URLSearchParams(router.state.location.search).has('sourceType')).toBe(false)
+      expect(currentSearch().has('sourceType')).toBe(false)
     })
   })
 
@@ -269,23 +351,24 @@ describe('GeneralLedgerPage', () => {
     mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
     mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
 
-    const router = renderPage('/accounting/general-ledger?accountId=acct-1&sourceType=')
+    const router = renderPage('/accounting/general-ledger?account=acct-1&sourceType=')
 
     await waitFor(() => {
-      expect(new URLSearchParams(router.state.location.search).has('sourceType')).toBe(false)
+      expect(currentSearch().has('sourceType')).toBe(false)
     })
   })
 
-  it('treats a calendar-impossible date as empty and removes it from the URL', async () => {
+  it('ignores an unrecognised period key and sends no dates', async () => {
     mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
     mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
 
-    const router = renderPage('/accounting/general-ledger?accountId=acct-1&fromDate=2026-02-31')
+    const router = renderPage('/accounting/general-ledger?account=acct-1&period=BOGUS')
 
     const [params] = mockGLQuery.mock.calls.at(-1)!
     expect(params.fromDate).toBeUndefined()
+    expect(params.toDate).toBeUndefined()
     await waitFor(() => {
-      expect(new URLSearchParams(router.state.location.search).has('fromDate')).toBe(false)
+      expect(currentSearch().has('period')).toBe(false)
     })
   })
 
@@ -293,35 +376,18 @@ describe('GeneralLedgerPage', () => {
     mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
     mockGLQuery.mockReturnValue({ data: undefined, isFetching: false, error: { status: 500 } })
 
-    renderPage('/accounting/general-ledger?accountId=acct-1')
+    renderPage('/accounting/general-ledger?account=acct-1')
 
     expect(
       screen.getByText('Unable to load the general ledger. Please try again.'),
     ).toBeInTheDocument()
   })
 
-  it('flags an inverted date range and omits toDate from the GL query', () => {
-    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
-    mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
-
-    renderPage(
-      '/accounting/general-ledger?accountId=acct-1&fromDate=2026-07-10&toDate=2026-07-01',
-    )
-
-    // Both dates are individually valid, so both stay in the URL / controls...
-    const [params] = mockGLQuery.mock.calls.at(-1)!
-    expect(params.fromDate).toBe('2026-07-10')
-    // ...but the inverted toDate is not sent to the backend (guaranteed-empty window).
-    expect(params.toDate).toBeUndefined()
-    // Inline validation surfaced on the To Date field.
-    expect(screen.getByText('To Date is before From Date')).toBeInTheDocument()
-  })
-
   it('renders the account code and name as a header badge', () => {
     mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
     mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
 
-    renderPage('/accounting/general-ledger?accountId=acct-1')
+    renderPage('/accounting/general-ledger?account=acct-1')
 
     // Hyphen form, not a middot. Scoped to the badge so the Account select's
     // selected MenuItem (same string) cannot satisfy this on its own.
@@ -337,7 +403,7 @@ describe('GeneralLedgerPage', () => {
     mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
     mockGLQuery.mockReturnValue({ data: undefined, isFetching: true })
 
-    renderPage('/accounting/general-ledger?accountId=acct-1')
+    renderPage('/accounting/general-ledger?account=acct-1')
 
     expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
     expect(screen.getByTestId('list-skeleton')).toBeInTheDocument()
@@ -353,7 +419,7 @@ describe('GeneralLedgerPage', () => {
       error: { status: 500, data: 'boom' },
     })
 
-    renderPage('/accounting/general-ledger?accountId=acct-1')
+    renderPage('/accounting/general-ledger?account=acct-1')
 
     expect(
       screen.getByText('Unable to load the general ledger. Please try again.'),
@@ -368,7 +434,7 @@ describe('GeneralLedgerPage', () => {
     mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
 
     const router = renderPage(
-      '/accounting/general-ledger?accountId=acct-1&sourceType=SALES_ORDER',
+      '/accounting/general-ledger?account=acct-1&sourceType=SALES_ORDER',
     )
 
     await user.click(screen.getByRole('link', { name: 'SO-001' }))
@@ -378,8 +444,8 @@ describe('GeneralLedgerPage', () => {
       await router.navigate(-1)
     })
 
-    const search = new URLSearchParams(router.state.location.search)
-    expect(search.get('accountId')).toBe('acct-1')
+    const search = currentSearch()
+    expect(search.get('account')).toBe('acct-1')
     expect(search.get('sourceType')).toBe('SALES_ORDER')
     const [params] = mockGLQuery.mock.calls.at(-1)!
     expect(params).toMatchObject({ accountId: 'acct-1', sourceType: 'SALES_ORDER' })
