@@ -31,15 +31,22 @@ vi.mock('@/store/api/accountingApi', async () => {
   }
 })
 
-const wrapper = ({ children }: { children: React.ReactNode }) =>
-  React.createElement(LocalizationProvider, { dateAdapter: AdapterDateFns },
-    React.createElement(Provider as any, { store },
-      React.createElement(MemoryRouter, null, children),
-    ),
-  )
+function makeWrapper(initialEntry: string) {
+  return ({ children }: { children: React.ReactNode }) =>
+    React.createElement(LocalizationProvider, { dateAdapter: AdapterDateFns },
+      React.createElement(Provider as any, { store },
+        React.createElement(MemoryRouter, { initialEntries: [initialEntry] }, children),
+      ),
+    )
+}
 
-function renderPage() {
-  render(React.createElement(JournalEntriesPage), { wrapper: wrapper as any })
+// useFilterBar hydrates from the ROUTER's location, not window.location, so a
+// url under test has to reach MemoryRouter via initialEntries -- seeding
+// window.history alone leaves the router at '/' and the filter unset.
+function renderPage(initialEntry = '/accounting/journal-entries') {
+  render(React.createElement(JournalEntriesPage), {
+    wrapper: makeWrapper(initialEntry) as any,
+  })
 }
 
 beforeEach(() => { listSpy.mockClear() })
@@ -65,6 +72,25 @@ describe('JournalEntriesPage filters', () => {
     await userEvent.click(screen.getByRole('option', { name: 'Sales Order' }))
     expect(listSpy).toHaveBeenLastCalledWith(
       expect.objectContaining({ sourceType: 'SALES_ORDER', page: 1 }),
+    )
+  })
+
+  it('offers Expense as a source type option and passes it into the query', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('combobox', { name: /source type/i }))
+    await userEvent.click(screen.getByRole('option', { name: 'Expense' }))
+    expect(listSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sourceType: 'EXPENSE', page: 1 }),
+    )
+  })
+
+  // useFilterBar revalidates a URL value against the field's options list and
+  // strips anything absent from it, so this fails on the option list alone --
+  // the backend has always accepted sourceType=EXPENSE (#1142).
+  it('hydrates sourceType=EXPENSE from the URL', () => {
+    renderPage('/accounting/journal-entries?sourceType=EXPENSE')
+    expect(listSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sourceType: 'EXPENSE' }),
     )
   })
 
