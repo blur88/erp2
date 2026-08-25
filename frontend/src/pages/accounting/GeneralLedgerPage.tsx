@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import {
-  Alert,
   Box,
   Chip,
   Link,
@@ -15,8 +14,7 @@ import {
 } from '@mui/material'
 
 import { TableCard } from '@/components/common/TableCard'
-import PageHeader from '@/components/common/PageHeader'
-import { FilterBar } from '@/components/filters'
+import SimpleListPage from '@/components/common/SimpleListPage'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { JOURNAL_SOURCE_TYPE_OPTIONS } from '@/constants/filterOptions'
 import { TABLE_STYLES } from '@/constants/tableStyles'
@@ -111,16 +109,6 @@ export default function GeneralLedgerPage() {
 
   const hasSelection = Boolean(effectiveAccountId)
 
-  const filterToolbar = (
-    <FilterBar
-      config={filterConfig}
-      draftFilters={draftFilters}
-      handlers={handlers}
-      hasActiveFilters={hasActiveFilters}
-      isFetching={isFetching}
-    />
-  )
-
   const accountBadge = glData ? (
     <Chip
       size="small"
@@ -159,125 +147,126 @@ export default function GeneralLedgerPage() {
   ) : null
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <PageHeader
-        variant="workflow"
-        title="General Ledger"
-        subtitle="View account movements and balances."
-        toolbar={filterToolbar}
-        titleBadge={accountBadge}
-      />
+    <SimpleListPage
+      title="General Ledger"
+      subtitle="View account movements and balances."
+      titleBadge={accountBadge}
+      filterConfig={filterConfig}
+      draftFilters={draftFilters}
+      handlers={handlers}
+      hasActiveFilters={hasActiveFilters}
+      isFetching={isFetching}
+      error={error ? 'Unable to load the general ledger. Please try again.' : null}
+      // General Ledger is a report, not a list: the endpoint returns the whole
+      // ledger with a per-row running balance, so there is no pagination and no
+      // user-selectable sort (either would break the balance column). The scroll
+      // and padding box below is GL's own -- SimpleListPage's tableSlot container
+      // does not own overflow (issue #1143).
+      tableSlot={(
+        <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
+          {!hasSelection ? (
+            <Paper sx={{ p: 6, textAlign: 'center' }}>
+              <Typography variant="body1" color="text.secondary">
+                Select an account to view ledger movements.
+              </Typography>
+            </Paper>
+          ) : isFetching && !glData ? (
+            <ListSkeleton rows={8} columns={7} />
+          ) : glData ? (
+            <>
+              {summaryStrip}
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          Unable to load the general ledger. Please try again.
-        </Alert>
-      )}
-
-      <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
-        {/* Content */}
-        {!hasSelection ? (
-          <Paper sx={{ p: 6, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              Select an account to view ledger movements.
-            </Typography>
-          </Paper>
-        ) : isFetching && !glData ? (
-          <ListSkeleton rows={8} columns={7} />
-        ) : glData ? (
-          <>
-            {summaryStrip}
-
-            {/* Movements Table */}
-            <TableCard sx={{ mb: 3 }}>
-              <Table
-                size={TABLE_STYLES.size}
-                sx={{
-                  '& .MuiTableCell-root': {
-                    py: TABLE_STYLES.cell.padding.py,
-                    px: TABLE_STYLES.cell.padding.px,
-                  },
-                  '& .MuiTableCell-head': {
-                    py: TABLE_STYLES.header.padding.py,
-                  },
-                }}
-              >
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Journal No.</TableCell>
-                    <TableCell>Description</TableCell>
-                    <TableCell align="right">Debit</TableCell>
-                    <TableCell align="right">Credit</TableCell>
-                    <TableCell align="right">Balance</TableCell>
-                    <TableCell>Source</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {glData.movements.length === 0 ? (
+              {/* Movements Table */}
+              <TableCard sx={{ mb: 3 }}>
+                <Table
+                  size={TABLE_STYLES.size}
+                  sx={{
+                    '& .MuiTableCell-root': {
+                      py: TABLE_STYLES.cell.padding.py,
+                      px: TABLE_STYLES.cell.padding.px,
+                    },
+                    '& .MuiTableCell-head': {
+                      py: TABLE_STYLES.header.padding.py,
+                    },
+                  }}
+                >
+                  <TableHead>
                     <TableRow>
-                      <TableCell colSpan={7} align="center">
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ py: 3 }}
-                        >
-                          No movements found for this account.
-                        </Typography>
-                      </TableCell>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Journal No.</TableCell>
+                      <TableCell>Description</TableCell>
+                      <TableCell align="right">Debit</TableCell>
+                      <TableCell align="right">Credit</TableCell>
+                      <TableCell align="right">Balance</TableCell>
+                      <TableCell>Source</TableCell>
                     </TableRow>
-                  ) : (
-                    glData.movements.map((movement, idx) => {
-                      return (
-                        <TableRow
-                          key={`${movement.journalEntryId}-${idx}`}
-                          hover
-                        >
-                          <TableCell>{formatDate(movement.date)}</TableCell>
-                          <TableCell>
-                            <Link
-                              component={RouterLink}
-                              to={`/accounting/journal-entries/${movement.journalEntryId}`}
-                              underline="hover"
-                            >
-                              {movement.journalNo}
-                            </Link>
-                          </TableCell>
-                          <TableCell>{movement.description ?? '—'}</TableCell>
-                          <TableCell align="right">
-                            {movement.debit !== '0.0000'
-                              ? formatCurrency(movement.debit)
-                              : '—'}
-                          </TableCell>
-                          <TableCell align="right">
-                            {movement.credit !== '0.0000'
-                              ? formatCurrency(movement.credit)
-                              : '—'}
-                          </TableCell>
-                          <TableCell
-                            align="right"
-                            sx={{ fontWeight: 600 }}
+                  </TableHead>
+                  <TableBody>
+                    {glData.movements.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center">
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ py: 3 }}
                           >
-                            {formatCurrency(movement.balance)}
-                          </TableCell>
-                          <TableCell>
-                            <SourceLink
-                              sourceType={movement.sourceType}
-                              sourceDocumentId={movement.sourceDocumentId}
-                              sourceRef={movement.sourceRef}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </TableCard>
+                            No movements found for this account.
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      glData.movements.map((movement, idx) => {
+                        return (
+                          <TableRow
+                            key={`${movement.journalEntryId}-${idx}`}
+                            hover
+                          >
+                            <TableCell>{formatDate(movement.date)}</TableCell>
+                            <TableCell>
+                              <Link
+                                component={RouterLink}
+                                to={`/accounting/journal-entries/${movement.journalEntryId}`}
+                                underline="hover"
+                              >
+                                {movement.journalNo}
+                              </Link>
+                            </TableCell>
+                            <TableCell>{movement.description ?? '—'}</TableCell>
+                            <TableCell align="right">
+                              {movement.debit !== '0.0000'
+                                ? formatCurrency(movement.debit)
+                                : '—'}
+                            </TableCell>
+                            <TableCell align="right">
+                              {movement.credit !== '0.0000'
+                                ? formatCurrency(movement.credit)
+                                : '—'}
+                            </TableCell>
+                            <TableCell
+                              align="right"
+                              sx={{ fontWeight: 600 }}
+                            >
+                              {formatCurrency(movement.balance)}
+                            </TableCell>
+                            <TableCell>
+                              <SourceLink
+                                sourceType={movement.sourceType}
+                                sourceDocumentId={movement.sourceDocumentId}
+                                sourceRef={movement.sourceRef}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </TableCard>
 
-          </>
-        ) : null}
-      </Box>
-    </Box>
+            </>
+          ) : null}
+        </Box>
+      )}
+    />
   )
 }
