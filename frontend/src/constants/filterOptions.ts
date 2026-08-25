@@ -74,21 +74,12 @@ export const ACCOUNT_TYPE_OPTIONS: Options = [
   { value: 'Expense', label: 'Expense' },
 ] as const
 
-export const JOURNAL_SOURCE_TYPE_OPTIONS: Options = [
-  { value: 'SALES_ORDER', label: 'Sales Order' },
-  { value: 'PURCHASE_ORDER', label: 'Purchase Order' },
-  { value: 'STOCK_ADJUSTMENT', label: 'Stock Adjustment' },
-  { value: 'OPENING_BALANCE', label: 'Opening Balance' },
-  { value: 'OWNER_EQUITY', label: 'Owner Equity' },
-] as const
-
 /**
- * General Ledger source types. Deliberately a separate constant from
- * JOURNAL_SOURCE_TYPE_OPTIONS, which omits EXPENSE: the General Ledger has
- * always accepted and filtered on EXPENSE movements. Widening the journal
- * list to match is a Journal Entries change, not a General Ledger one.
+ * Mirrors the backend AccountingSourceType enum, in declaration order. Shared
+ * by Journal Entries and the General Ledger: both filter the same source types,
+ * so a second copy only drifts (#1142 -- EXPENSE was missing here for both).
  */
-export const GENERAL_LEDGER_SOURCE_TYPE_OPTIONS: Options = [
+export const JOURNAL_SOURCE_TYPE_OPTIONS: Options = [
   { value: 'SALES_ORDER', label: 'Sales Order' },
   { value: 'PURCHASE_ORDER', label: 'Purchase Order' },
   { value: 'STOCK_ADJUSTMENT', label: 'Stock Adjustment' },

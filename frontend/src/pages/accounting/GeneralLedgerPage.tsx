@@ -18,7 +18,7 @@ import { TableCard } from '@/components/common/TableCard'
 import PageHeader from '@/components/common/PageHeader'
 import { FilterBar } from '@/components/filters'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
-import { GENERAL_LEDGER_SOURCE_TYPE_OPTIONS } from '@/constants/filterOptions'
+import { JOURNAL_SOURCE_TYPE_OPTIONS } from '@/constants/filterOptions'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import { useGetAccountsQuery, useGetGeneralLedgerQuery } from '@/store/api/accountingApi'
@@ -74,7 +74,7 @@ export default function GeneralLedgerPage() {
           field: 'sourceType',
           label: 'Source Type',
           type: 'select',
-          options: GENERAL_LEDGER_SOURCE_TYPE_OPTIONS,
+          options: JOURNAL_SOURCE_TYPE_OPTIONS,
         },
       ],
       defaults: GL_DEFAULTS,
