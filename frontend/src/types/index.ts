@@ -674,6 +674,8 @@ export interface GeneralLedgerAccount {
 }
 
 export interface GeneralLedgerMovement {
+  /** Journal line id — stable row identity across pages. */
+  id: string;
   date: string;
   journalEntryId: string;
   journalNo: string;
@@ -688,11 +690,17 @@ export interface GeneralLedgerMovement {
 
 export interface GeneralLedgerResponse {
   account: GeneralLedgerAccount;
+  /** Window-scoped: the whole filtered period, unaffected by pagination. */
   openingBalance: string;
   movements: GeneralLedgerMovement[];
   totalDebit: string;
   totalCredit: string;
   closingBalance: string;
+  /** Balance carried into `movements[0]`. Equals openingBalance when unpaginated. */
+  pageOpeningBalance: string;
+  /** Page-scoped totals. Deliberately NOT the window totals. */
+  pageTotals: { debit: string; credit: string };
+  meta: { total: number; page?: number; limit?: number };
 }
 
 export interface TrialBalanceRow {
