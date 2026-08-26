@@ -36,7 +36,7 @@ export class GeneralLedgerService {
     qb.where('l."accountId" = :accountId', { accountId: params.accountId })
       .andWhere('l."deletedAt" IS NULL')
       .andWhere('e."deletedAt" IS NULL');
-    if (params.sourceType && (params.sourceType as string) !== 'All') {
+    if (params.sourceType) {
       qb.andWhere('e."sourceType" = :sourceType', { sourceType: params.sourceType });
     }
     return qb;

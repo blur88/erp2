@@ -550,6 +550,26 @@ describe('GeneralLedgerPage', () => {
     )
   })
 
+  it('opens the journal entry when a NON-linkable Source cell is clicked', async () => {
+    // movements[0] is OPENING_BALANCE with no sourceRef, so buildSourceLink
+    // returns null and SourceLink renders a plain span. That cell must NOT
+    // swallow the row click, or it becomes a dead patch in a clickable row.
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
+    const { container } = { container: document.body }
+    const router = renderPage('/accounting/general-ledger?account=acct-1')
+    const user = userEvent.setup()
+
+    // 'Opening Balance' is also the summary strip's first label, so scope the
+    // lookup to the table body.
+    const firstRow = container.querySelectorAll('tbody tr')[0]
+    await user.click(within(firstRow as HTMLElement).getByText('Opening Balance'))
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/accounting/journal-entries/je-1'),
+    )
+  })
+
   it('does not navigate to the journal entry when a Source link is clicked', async () => {
     // buildSourceLink routes SALES_ORDER by sourceRef, not sourceDocumentId:
     // the fixture's sourceRef 'SO-001' yields /sales/orders/SO-001/view.

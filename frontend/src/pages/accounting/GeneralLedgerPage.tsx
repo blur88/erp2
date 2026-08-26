@@ -27,6 +27,7 @@ import { formatDate } from '@/utils/formatters'
 import { useListUrlState } from '@/hooks/useListUrlState'
 import { withCurrentListQuery } from '@/utils/listQuery'
 import { JOURNAL_ENTRY_ORIGIN_PARAM } from './journal-entry-navigation'
+import { buildSourceLink } from './source-link'
 import SourceLink from './components/SourceLink'
 
 interface GLFilters {
@@ -204,15 +205,26 @@ export default function GeneralLedgerPage() {
     {
       key: 'source',
       raw: true,
-      render: (m) => (
-        <Box onClick={(e) => e.stopPropagation()} sx={{ display: 'inline-flex' }}>
+      render: (m) => {
+        const source = (
           <SourceLink
             sourceType={m.sourceType}
             sourceDocumentId={m.sourceDocumentId}
             sourceRef={m.sourceRef}
           />
-        </Box>
-      ),
+        )
+        // Only a linkable source has its own destination to protect. When
+        // buildSourceLink returns null (OPENING_BALANCE, or a missing ref)
+        // SourceLink renders a plain span, and swallowing the click there would
+        // leave a dead patch in an otherwise clickable row.
+        return buildSourceLink(m.sourceType, m.sourceDocumentId, m.sourceRef) ? (
+          <Box onClick={(e) => e.stopPropagation()} sx={{ display: 'inline-flex' }}>
+            {source}
+          </Box>
+        ) : (
+          source
+        )
+      },
     },
   ]
 
