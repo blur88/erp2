@@ -37,6 +37,15 @@ export interface JournalEntryListParams {
   sortOrder?: 'ASC' | 'DESC'
 }
 
+export interface GeneralLedgerQueryParams {
+  accountId: string
+  fromDate?: string
+  toDate?: string
+  sourceType?: AccountingSourceType
+  page?: number
+  limit?: number
+}
+
 export interface AccountTreeParams {
   search?: string
   type?: AccountType
@@ -113,11 +122,8 @@ export const accountingApiSlice = createApi({
       transformResponse: normalizeSingle<JournalEntryDetail>,
       providesTags: (_result, _error, id) => [{ type: 'JournalEntry' as const, id }],
     }),
-    getGeneralLedger: builder.query<
-      GeneralLedgerResponse,
-      { accountId: string; fromDate?: string; toDate?: string; sourceType?: string }
-    >({
-      query: (params) => ({ url: '/accounting/general-ledger', params }),
+    getGeneralLedger: builder.query<GeneralLedgerResponse, GeneralLedgerQueryParams>({
+      query: (params) => ({ url: '/accounting/general-ledger', params: params as unknown as Record<string, unknown> }),
       transformResponse: normalizeSingle<GeneralLedgerResponse>,
     }),
      getTrialBalance: builder.query<

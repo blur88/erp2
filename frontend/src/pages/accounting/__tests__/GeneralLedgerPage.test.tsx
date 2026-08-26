@@ -8,7 +8,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
-const { mockAccounts, mockGLData, mockAccountsQuery, mockGLQuery, mockListSkeleton } = vi.hoisted(() => ({
+const { mockAccounts, mockGLData, mockAccountsQuery, mockGLQuery } = vi.hoisted(() => ({
   mockAccounts: {
     data: [
       {
@@ -49,6 +49,7 @@ const { mockAccounts, mockGLData, mockAccountsQuery, mockGLQuery, mockListSkelet
     openingBalance: '5000.0000',
     movements: [
       {
+        id: 'line-1',
         date: '2026-07-01',
         journalEntryId: 'je-1',
         journalNo: 'JV-001',
@@ -61,6 +62,7 @@ const { mockAccounts, mockGLData, mockAccountsQuery, mockGLQuery, mockListSkelet
         sourceRef: null,
       },
       {
+        id: 'line-2',
         date: '2026-07-05',
         journalEntryId: 'je-2',
         journalNo: 'JV-002',
@@ -76,25 +78,18 @@ const { mockAccounts, mockGLData, mockAccountsQuery, mockGLQuery, mockListSkelet
     totalDebit: '5000.0000',
     totalCredit: '2000.0000',
     closingBalance: '8000.0000',
+    pageOpeningBalance: '5000.0000',
+    pageTotals: { debit: '5000.0000', credit: '2000.0000' },
+    meta: { total: 2, page: 1, limit: 25 },
   },
   mockAccountsQuery: vi.fn().mockReturnValue({ data: null, isFetching: false }),
   mockGLQuery: vi.fn().mockReturnValue({ data: undefined, isFetching: false }),
-  mockListSkeleton: vi.fn(() => <div data-testid="list-skeleton" />),
 }))
 
 vi.mock('@/store/api/accountingApi', () => ({
   useGetAccountsQuery: mockAccountsQuery,
   useGetGeneralLedgerQuery: mockGLQuery,
 }))
-
-vi.mock('@/components/common/ListSkeleton', () => ({
-  ListSkeleton: mockListSkeleton,
-}))
-
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom')
-  return { ...actual, useNavigate: () => vi.fn() }
-})
 
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 
@@ -137,7 +132,6 @@ describe('GeneralLedgerPage', () => {
   beforeEach(() => {
     mockGLQuery.mockReturnValue({ data: undefined, isFetching: false })
     mockAccountsQuery.mockReturnValue({ data: null, isFetching: false })
-    mockListSkeleton.mockClear()
   })
 
   it('shows empty state when no account is selected', () => {
@@ -399,16 +393,15 @@ describe('GeneralLedgerPage', () => {
     expect(strip).toHaveTextContent(/Closing Balance/)
   })
 
-  it('renders a 7-column skeleton while the initial ledger request is in flight', () => {
+  it('renders EntityTable skeleton rows while the initial ledger request is in flight', () => {
     mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
     mockGLQuery.mockReturnValue({ data: undefined, isFetching: true })
 
     renderPage('/accounting/general-ledger?account=acct-1')
 
-    expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
-    expect(screen.getByTestId('list-skeleton')).toBeInTheDocument()
-    // 7 columns: Date, Journal No., Description, Debit, Credit, Balance, Source.
-    expect(mockListSkeleton.mock.calls[0][0]).toMatchObject({ rows: 8, columns: 7 })
+    // EntityTable owns the loading state: skeleton rows, seven cells each.
+    const firstRow = document.querySelectorAll('tbody tr')[0]
+    expect(firstRow.querySelectorAll('td')).toHaveLength(7)
   })
 
   it('shows the error alert when a refetch fails while stale data is still displayed', () => {
@@ -450,5 +443,146 @@ describe('GeneralLedgerPage', () => {
     const [params] = mockGLQuery.mock.calls.at(-1)!
     expect(params).toMatchObject({ accountId: 'acct-1', sourceType: 'SALES_ORDER' })
     expect(screen.getByText('JV-001')).toBeInTheDocument()
+  })
+
+  it('renders one row per movement with seven columns', () => {
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
+
+    renderPage('/accounting/general-ledger?account=acct-1')
+
+    const bodyRows = document.querySelectorAll('tbody tr')
+    expect(bodyRows).toHaveLength(2)
+    expect(bodyRows[0].querySelectorAll('td')).toHaveLength(7)
+  })
+
+  it('shows pagination reflecting meta.total', () => {
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({
+      data: { ...mockGLData, meta: { total: 42, page: 1, limit: 25 } },
+      isFetching: false,
+    })
+
+    renderPage('/accounting/general-ledger?account=acct-1')
+
+    expect(screen.getByText(/of 42 records/i)).toBeInTheDocument()
+  })
+
+  it('sends page and limit from the URL to the query', () => {
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
+
+    renderPage('/accounting/general-ledger?account=acct-1&page=3&limit=25')
+
+    expect(mockGLQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: 'acct-1', page: 3, limit: 25 }),
+      expect.anything(),
+    )
+  })
+
+  it('renders the window summary strip, not page totals', () => {
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({
+      data: {
+        ...mockGLData,
+        totalDebit: '9999.0000',
+        pageTotals: { debit: '1.0000', credit: '2.0000' },
+      },
+      isFetching: false,
+    })
+
+    renderPage('/accounting/general-ledger?account=acct-1')
+
+    const strip = screen.getByTestId('gl-summary-strip')
+    expect(within(strip).getByText(/9,999\.00/)).toBeInTheDocument()
+  })
+
+  it('resets to page 1 when a filter is applied', async () => {
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
+
+    renderPage('/accounting/general-ledger?account=acct-1&page=3&limit=25')
+
+    const user = userEvent.setup()
+    await user.click(screen.getByLabelText('Source Type'))
+    await user.click(await screen.findByRole('option', { name: 'Sales Order' }))
+    await waitFor(() => expect(currentSearch().get('page')).not.toBe('3'))
+  })
+
+  it('navigates to the journal entry with the general-ledger origin when a row is clicked', async () => {
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
+
+    const router = renderPage('/accounting/general-ledger?account=acct-1')
+
+    const user = userEvent.setup()
+    await user.click(screen.getByText('Initial balance entry'))
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/accounting/journal-entries/je-1')
+      expect(router.state.location.search).toContain('from=general-ledger')
+    })
+  })
+
+  it('pushes exactly one history entry when the Journal No. link is clicked', async () => {
+    // The link and the row handler target the SAME url, so asserting the
+    // destination proves nothing about propagation — both paths land there.
+    // Instead: navigate once, go back once. With propagation stopped there is
+    // one entry to unwind and we return to GL; if the row handler also fired
+    // there would be two, and one back() would still leave us on the detail
+    // route.
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
+
+    const router = renderPage('/accounting/general-ledger?account=acct-1')
+
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('link', { name: 'JV-001' }))
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/accounting/journal-entries/je-1'),
+    )
+
+    await act(async () => {
+      await router.navigate(-1)
+    })
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/accounting/general-ledger'),
+    )
+  })
+
+  it('opens the journal entry when a NON-linkable Source cell is clicked', async () => {
+    // movements[0] is OPENING_BALANCE with no sourceRef, so buildSourceLink
+    // returns null and SourceLink renders a plain span. That cell must NOT
+    // swallow the row click, or it becomes a dead patch in a clickable row.
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
+    const { container } = { container: document.body }
+    const router = renderPage('/accounting/general-ledger?account=acct-1')
+    const user = userEvent.setup()
+
+    // 'Opening Balance' is also the summary strip's first label, so scope the
+    // lookup to the table body.
+    const firstRow = container.querySelectorAll('tbody tr')[0]
+    await user.click(within(firstRow as HTMLElement).getByText('Opening Balance'))
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/accounting/journal-entries/je-1'),
+    )
+  })
+
+  it('does not navigate to the journal entry when a Source link is clicked', async () => {
+    // buildSourceLink routes SALES_ORDER by sourceRef, not sourceDocumentId:
+    // the fixture's sourceRef 'SO-001' yields /sales/orders/SO-001/view.
+    mockAccountsQuery.mockReturnValue({ data: mockAccounts, isFetching: false })
+    mockGLQuery.mockReturnValue({ data: mockGLData, isFetching: false })
+
+    const router = renderPage('/accounting/general-ledger?account=acct-1')
+
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('link', { name: /SO-001/ }))
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/sales/orders/SO-001/view'),
+    )
+    expect(router.state.location.pathname).not.toContain('journal-entries')
   })
 })

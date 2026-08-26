@@ -218,6 +218,173 @@ describe('Accounting v1 (e2e)', () => {
     expect(jes[0].journalNo).toMatch(new RegExp(`^JE-${String(yy).padStart(2, '0')}-[0-9]{1,9}$`));
     expect(parseInt(jes[0].journalNo.split('-')[2], 10)).toBe(priorMax + 1);
   });
+
+  describe('#1146 pagination', () => {
+    // A dedicated account per test keeps row counts independent of suite order.
+    async function seedLedgerAccount(entries: number): Promise<ChartOfAccount> {
+      const coaRepo = ds.getRepository(ChartOfAccount);
+      const assetGroup = await coaRepo.findOneByOrFail({ code: '1000' });
+      const acct: ChartOfAccount = await coaRepo.save(
+        coaRepo.create({
+          code: `PG-${randomUUID().slice(0, 8)}`,
+          name: 'Pagination Test',
+          type: 'Asset' as any,
+          parentId: assetGroup.id,
+          isActive: true, isSystem: false, isPostable: true, openingBalance: '0.0000',
+        }),
+      );
+      // `entries: 0` yields a bare account for tests that seed their own rows.
+      for (let i = 0; i < entries; i++) {
+        await ds.transaction((m) =>
+          posting.postOpeningBalance(
+            {
+              accountId: acct.id,
+              sourceRef: `PG-${i}`,
+              amount: '100.0000',
+              // Distinct ascending dates give a deterministic, readable order.
+              entryDate: `2026-07-${String(i + 1).padStart(2, '0')}`,
+            },
+            m,
+          ),
+        );
+      }
+      return acct;
+    }
+
+    it('returns the requested page and the true filtered total', async () => {
+      const acct = await seedLedgerAccount(7);
+      const gl = await ledger.getLedger({
+        accountId: acct.id, fromDate: '2026-07-01', toDate: '2026-07-31', page: 2, limit: 3,
+      });
+      expect(gl.movements).toHaveLength(3);
+      expect(gl.meta).toEqual({ total: 7, page: 2, limit: 3 });
+    });
+
+    it('continues the running balance across page boundaries', async () => {
+      const acct = await seedLedgerAccount(7);
+      const p1 = await ledger.getLedger({
+        accountId: acct.id, fromDate: '2026-07-01', toDate: '2026-07-31', page: 1, limit: 3,
+      });
+      const p2 = await ledger.getLedger({
+        accountId: acct.id, fromDate: '2026-07-01', toDate: '2026-07-31', page: 2, limit: 3,
+      });
+      const p3 = await ledger.getLedger({
+        accountId: acct.id, fromDate: '2026-07-01', toDate: '2026-07-31', page: 3, limit: 3,
+      });
+
+      // This is the prefix aggregate under test: each page opens exactly where
+      // the previous one closed.
+      expect(toMinorUnits(p2.pageOpeningBalance)).toBe(toMinorUnits(p1.movements.at(-1)!.balance));
+      expect(toMinorUnits(p3.pageOpeningBalance)).toBe(toMinorUnits(p2.movements.at(-1)!.balance));
+
+      // 7 debits of 100 to a debit-normal account.
+      expect(p3.movements.at(-1)!.balance).toBe('700.0000');
+      expect(p3.closingBalance).toBe('700.0000');
+    });
+
+    it('paginated pages concatenate to exactly the unpaginated ledger', async () => {
+      const acct = await seedLedgerAccount(7);
+      const all = await ledger.getLedger({
+        accountId: acct.id, fromDate: '2026-07-01', toDate: '2026-07-31',
+      });
+      const paged: string[] = [];
+      for (const page of [1, 2, 3]) {
+        const gl = await ledger.getLedger({
+          accountId: acct.id, fromDate: '2026-07-01', toDate: '2026-07-31', page, limit: 3,
+        });
+        paged.push(...gl.movements.map((mv) => `${mv.id}:${mv.balance}`));
+      }
+      expect(paged).toEqual(all.movements.map((mv) => `${mv.id}:${mv.balance}`));
+    });
+
+    it('reports window totals and closing balance identically on every page', async () => {
+      const acct = await seedLedgerAccount(7);
+      const p1 = await ledger.getLedger({
+        accountId: acct.id, fromDate: '2026-07-01', toDate: '2026-07-31', page: 1, limit: 3,
+      });
+      const p3 = await ledger.getLedger({
+        accountId: acct.id, fromDate: '2026-07-01', toDate: '2026-07-31', page: 3, limit: 3,
+      });
+      expect(p1.closingBalance).toBe(p3.closingBalance);
+      expect(p1.totalDebit).toBe(p3.totalDebit);
+      expect(p1.totalCredit).toBe(p3.totalCredit);
+      // Page 1's own rows total less than the window.
+      expect(toMinorUnits(p1.pageTotals.debit)).toBeLessThan(toMinorUnits(p1.totalDebit));
+    });
+
+    it('degrades an out-of-range page to the closing balance', async () => {
+      const acct = await seedLedgerAccount(7);
+      const gl = await ledger.getLedger({
+        accountId: acct.id, fromDate: '2026-07-01', toDate: '2026-07-31', page: 99, limit: 10,
+      });
+      expect(gl.movements).toEqual([]);
+      expect(gl.pageTotals).toEqual({ debit: '0.0000', credit: '0.0000' });
+      expect(gl.pageOpeningBalance).toBe(gl.closingBalance);
+    });
+
+    it('#1146: keeps the report invariant under a combined date + sourceType filter', async () => {
+      // The DB-backed half of the opening-balance fix: one pre-window entry
+      // establishes an opening balance, one in-window entry moves it, and the
+      // sourceType filter must apply to BOTH or the invariant breaks.
+      const acct = await seedLedgerAccount(0);
+      await ds.transaction((m) =>
+        posting.postOpeningBalance(
+          { accountId: acct.id, sourceRef: 'PRE', amount: '400.0000', entryDate: '2026-06-15' },
+          m,
+        ),
+      );
+      await ds.transaction((m) =>
+        posting.postOpeningBalance(
+          { accountId: acct.id, sourceRef: 'IN', amount: '150.0000', entryDate: '2026-07-10' },
+          m,
+        ),
+      );
+
+      const gl = await ledger.getLedger({
+        accountId: acct.id,
+        fromDate: '2026-07-01',
+        toDate: '2026-07-31',
+        sourceType: 'OPENING_BALANCE' as never,
+      });
+
+      expect(toMinorUnits(gl.openingBalance)).toBe(toMinorUnits('400.0000'));
+      expect(
+        toMinorUnits(gl.openingBalance) + toMinorUnits(gl.totalDebit) - toMinorUnits(gl.totalCredit),
+      ).toBe(toMinorUnits(gl.closingBalance));
+    });
+
+    it('#1146: excludes non-matching source types from the opening balance', async () => {
+      // Same fixture, a source type that matches nothing: the opening balance
+      // must drop to zero rather than keep counting the unfiltered pre-window
+      // entry, which is exactly the pre-fix bug.
+      const acct = await seedLedgerAccount(0);
+      await ds.transaction((m) =>
+        posting.postOpeningBalance(
+          { accountId: acct.id, sourceRef: 'PRE', amount: '400.0000', entryDate: '2026-06-15' },
+          m,
+        ),
+      );
+
+      const gl = await ledger.getLedger({
+        accountId: acct.id,
+        fromDate: '2026-07-01',
+        toDate: '2026-07-31',
+        sourceType: 'SALES_ORDER' as never,
+      });
+
+      expect(gl.openingBalance).toBe('0.0000');
+      expect(gl.closingBalance).toBe('0.0000');
+    });
+
+    it('omits page and limit from meta when unpaginated', async () => {
+      const acct = await seedLedgerAccount(3);
+      const gl = await ledger.getLedger({
+        accountId: acct.id, fromDate: '2026-07-01', toDate: '2026-07-31',
+      });
+      expect(gl.meta).toEqual({ total: 3 });
+      expect(gl.pageOpeningBalance).toBe(gl.openingBalance);
+    });
+  });
 });
 
 function toMinorUnits(v: string): bigint {
