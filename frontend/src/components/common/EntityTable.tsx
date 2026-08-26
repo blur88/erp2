@@ -21,6 +21,13 @@ export interface ColumnConfig<T> {
   key: string
   render: (row: T) => React.ReactNode
   width?: string | number
+  /**
+   * Cell alignment, applied to the header, body and skeleton cells alike.
+   * Layout only — number formatting stays in the column's `render`, so a
+   * right-aligned count or percentage does not have to opt into currency
+   * formatting to get its alignment.
+   */
+  align?: 'left' | 'center' | 'right'
   raw?: boolean
 }
 
@@ -92,7 +99,7 @@ const EntityRow = memo(function EntityRow<T extends { id: string }>({
       }}
     >
       {columns.map((column) => (
-        <TableCell key={column.key} width={column.width}>
+        <TableCell key={column.key} width={column.width} align={column.align}>
           {column.raw
             ? column.render(row)
             : (
@@ -194,6 +201,7 @@ function EntityTable<T extends { id: string }>({
                     <TableCell
                       key={i}
                       width={columns[i]?.width}
+                      align={columns[i]?.align}
                     >
                       <Typography
                         variant="tableHeader"
@@ -216,7 +224,7 @@ function EntityTable<T extends { id: string }>({
                 ? [...Array(10)].map((_, index) => (
                     <TableRow key={`skeleton-${index}`}>
                       {columns.map((column) => (
-                        <TableCell key={column.key} width={column.width}>
+                        <TableCell key={column.key} width={column.width} align={column.align}>
                           <Skeleton height={40} />
                         </TableCell>
                       ))}

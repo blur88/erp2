@@ -237,3 +237,51 @@ describe('EntityTable', () => {
     expect(screen.getByText('No adjustments match filters')).toBeInTheDocument()
   })
 })
+
+describe('EntityTable column alignment', () => {
+  const alignedColumns = [
+    { key: 'name', render: (row: Item) => row.name },
+    { key: 'amount', render: (row: Item) => `$${row.amount}`, align: 'right' as const },
+  ]
+
+  function renderAligned(overrides: { rows?: Item[]; loading?: boolean } = {}) {
+    return render(
+      <EntityTable
+        rows={overrides.rows ?? rows}
+        columns={alignedColumns}
+        loading={overrides.loading ?? false}
+        total={(overrides.rows ?? rows).length}
+        label="Items"
+        focusedIndex={-1}
+        onSelect={vi.fn()}
+        listRef={{ current: null }}
+        headers={['Name', 'Amount']}
+      />,
+    )
+  }
+
+  it('right-aligns a body cell whose column declares align="right"', () => {
+    renderAligned()
+    const cell = screen.getByText('$100').closest('td')!
+    expect(cell.className).toMatch(/alignRight/)
+  })
+
+  it('right-aligns the matching header cell', () => {
+    renderAligned()
+    const header = screen.getByText('Amount').closest('th')!
+    expect(header.className).toMatch(/alignRight/)
+  })
+
+  it('leaves a column without align at the default alignment', () => {
+    renderAligned()
+    const cell = screen.getByText('Alpha').closest('td')!
+    expect(cell.className).not.toMatch(/alignRight/)
+  })
+
+  it('right-aligns skeleton cells so alignment does not shift when data lands', () => {
+    const { container } = renderAligned({ rows: [], loading: true })
+    const cells = container.querySelectorAll('tbody tr')[0].querySelectorAll('td')
+    expect(cells[1].className).toMatch(/alignRight/)
+    expect(cells[0].className).not.toMatch(/alignRight/)
+  })
+})
