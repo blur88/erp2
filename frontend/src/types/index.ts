@@ -725,6 +725,16 @@ export {
   type ExpensePaymentStatus,
   type ExpensePaymentRow,
 } from './expense.types'
+// The Owner Equity block below is re-exported complete and stays that way.
+// `src/types` is this app's public type surface: 124 files import from
+// '@/types' and none import '@/types/ownerEquity.types' directly, so the
+// barrel — not the source file — is what consumers see. Knip correctly
+// reports that four of these twelve have no external consumer yet; that is an
+// API-design exception, not a false positive, and it is suppressed narrowly
+// via `ignoreIssues: { "src/types/index.ts": ["types"] }` in knip.json rather
+// than by trimming the block. Re-exporting a partial set would leave an
+// arbitrary hole that the next contributor fills back in. Keep this block
+// mirroring ./ownerEquity.types in full.
 export {
   type OwnerEquityDocument,
   type OwnerEquityDocumentStatus,
