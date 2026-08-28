@@ -1,3 +1,5 @@
+import { jest } from '@jest/globals';
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createSSLConfig } from './ssl.config';
 
@@ -12,6 +14,16 @@ describe('createSSLConfig', () => {
     DB_SSL_CERT: 'cert-pem',
     DB_SSL_KEY: 'key-pem',
   };
+
+  let warn: ReturnType<typeof jest.spyOn>;
+
+  beforeEach(() => {
+    warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
+  });
 
   describe('when DB_SSL is not enabled', () => {
     it('returns false when DB_SSL is unset', () => {
@@ -50,20 +62,55 @@ describe('createSSLConfig', () => {
       });
     });
 
-    it('falls back to server validation when the material is incomplete', () => {
-      expect(
-        createSSLConfig(configWith({ DB_SSL: 'true', DB_SSL_CA: 'ca-pem' })),
-      ).toEqual({ rejectUnauthorized: true });
+    // #1159. Server trust and client authentication are independent; an
+    // earlier revision required all three values before honouring any of them,
+    // which silently dropped the CA in the private/managed-CA shape below.
+    it('trusts a CA supplied on its own', () => {
+      expect(createSSLConfig(configWith({ DB_SSL: 'true', DB_SSL_CA: 'ca-pem' }))).toEqual({
+        rejectUnauthorized: true,
+        ca: 'ca-pem',
+      });
+      expect(warn).not.toHaveBeenCalled();
+    });
 
+    it('keeps client credentials supplied without a custom CA', () => {
       expect(
         createSSLConfig(
-          configWith({
-            DB_SSL: 'true',
-            DB_SSL_CA: 'ca-pem',
-            DB_SSL_CERT: 'cert-pem',
-          }),
+          configWith({ DB_SSL: 'true', DB_SSL_CERT: 'cert-pem', DB_SSL_KEY: 'key-pem' }),
         ),
-      ).toEqual({ rejectUnauthorized: true });
+      ).toEqual({
+        rejectUnauthorized: true,
+        cert: 'cert-pem',
+        key: 'key-pem',
+      });
+
+      // Authenticating the client against a publicly-signed server is valid
+      // TLS configuration, not a misconfiguration.
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['key', { DB_SSL_CERT: 'cert-pem' }, 'DB_SSL_CERT is set but DB_SSL_KEY'],
+      ['cert', { DB_SSL_KEY: 'key-pem' }, 'DB_SSL_KEY is set but DB_SSL_CERT'],
+      [
+        'key alongside a CA',
+        { DB_SSL_CA: 'ca-pem', DB_SSL_CERT: 'cert-pem' },
+        'DB_SSL_CERT is set but DB_SSL_KEY',
+      ],
+    ])('omits an incomplete client pair and warns when the %s is missing', (_l, values, message) => {
+      const result = createSSLConfig(configWith({ DB_SSL: 'true', ...values }));
+
+      expect(result).not.toHaveProperty('cert');
+      expect(result).not.toHaveProperty('key');
+      expect(result.rejectUnauthorized).toBe(true);
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      const warning = warn.mock.calls[0][0] as string;
+      expect(warning).toContain(message);
+
+      // The warning names the variables, never their contents.
+      expect(warning).not.toContain('cert-pem');
+      expect(warning).not.toContain('key-pem');
     });
   });
 
@@ -81,7 +128,17 @@ describe('createSSLConfig', () => {
       [
         'DB_SSL=true with certificates',
         { DB_SSL: 'true', ...CERTS },
-        { rejectUnauthorized: true, ...{ ca: 'ca-pem', cert: 'cert-pem', key: 'key-pem' } },
+        { rejectUnauthorized: true, ca: 'ca-pem', cert: 'cert-pem', key: 'key-pem' },
+      ],
+      [
+        'DB_SSL=true with a CA only',
+        { DB_SSL: 'true', DB_SSL_CA: 'ca-pem' },
+        { rejectUnauthorized: true, ca: 'ca-pem' },
+      ],
+      [
+        'DB_SSL=true with client credentials only',
+        { DB_SSL: 'true', DB_SSL_CERT: 'cert-pem', DB_SSL_KEY: 'key-pem' },
+        { rejectUnauthorized: true, cert: 'cert-pem', key: 'key-pem' },
       ],
     ])('resolves %s identically in every environment', (_label, values, expected) => {
       for (const NODE_ENV of ENVIRONMENTS) {

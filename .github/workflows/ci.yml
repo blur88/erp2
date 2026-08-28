@@ -181,11 +181,14 @@ jobs:
 
       - name: Boot the production image against the empty database
         run: |
-          # NODE_ENV matches how this image is actually deployed (compose
-          # defaults to development). Production forces DB SSL on regardless of
-          # DB_SSL — see createSSLConfig — which a plain Postgres service
-          # container cannot serve. Migration discovery, the thing under test,
-          # is identical either way.
+          # DB_SSL=false because the Postgres service container above serves
+          # no TLS. Since #1158 that is the only reason: createSSLConfig reads
+          # DB_SSL alone and never consults NODE_ENV, so production does not
+          # force SSL on. NODE_ENV=development simply matches how this image is
+          # actually deployed (compose defaults to development), and migration
+          # discovery — the thing under test — is identical either way.
+          #
+          # The DB_SSL=true path is covered by the sibling TLS job below.
           docker run -d --name erp_ci_backend --network host \
             -e NODE_ENV=development \
             -e DB_SSL=false \
@@ -260,6 +263,208 @@ jobs:
       - name: Tear down
         if: always()
         run: docker rm -f erp_ci_backend || true
+
+  migrations-tls-db:
+    name: Production Image - TLS Database Connection
+    runs-on: ubuntu-latest
+
+    # No `services:` Postgres here, unlike the job above. Enabling ssl=on needs
+    # the server key mounted into the container owned by the postgres user and
+    # not group/world readable — Postgres refuses to start otherwise — and a
+    # service container gives no control over mounts or file ownership. So
+    # Postgres is started with `docker run` in a step instead.
+    services:
+      redis:
+        image: redis:8.6-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build the production image
+        run: docker build -t erp-backend:ci ./backend
+
+      - name: Generate a private CA and a server certificate
+        run: |
+          mkdir -p "$RUNNER_TEMP/certs"
+          cd "$RUNNER_TEMP/certs"
+
+          # A private CA, so the server certificate is signed by an authority
+          # the system trust store does NOT carry. That is the point of the
+          # gate: it proves DB_SSL_CA is actually honoured. If the CA were
+          # public, the connection would succeed even with the CA ignored, and
+          # the job would pass while testing nothing.
+          openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 1 \
+            -keyout ca.key -out ca.crt -subj "/CN=erp-ci-test-ca"
+
+          # SAN localhost / 127.0.0.1: rejectUnauthorized: true verifies the
+          # hostname as well as the chain, and the backend connects to
+          # DB_HOST=localhost over --network host. Without a matching SAN this
+          # fails hostname verification, which looks like a CA error.
+          openssl req -newkey rsa:2048 -nodes -sha256 \
+            -keyout server.key -out server.csr -subj "/CN=localhost"
+          openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+            -out server.crt -days 1 -sha256 \
+            -extfile <(printf "subjectAltName=DNS:localhost,IP:127.0.0.1")
+
+          # Postgres refuses a key readable by group or other, and requires the
+          # file to be owned by the user the server runs as. That is uid 70 in
+          # postgres:*-alpine (NOT 999, which is the Debian-based image) —
+          # getting it wrong fails at startup with "private key file ... must
+          # be owned by the database user or root".
+          chmod 600 server.key
+          sudo chown 70:70 server.key server.crt
+
+      - name: Start Postgres with TLS enabled
+        run: |
+          docker run -d --name erp_ci_postgres_tls --network host \
+            -e POSTGRES_USER=erp_tls -e POSTGRES_PASSWORD=erp_tls_password \
+            -e POSTGRES_DB=erp_tls \
+            -v "$RUNNER_TEMP/certs/server.crt:/var/lib/postgresql/server.crt:ro" \
+            -v "$RUNNER_TEMP/certs/server.key:/var/lib/postgresql/server.key:ro" \
+            postgres:18.3-alpine \
+            -c ssl=on \
+            -c ssl_cert_file=/var/lib/postgresql/server.crt \
+            -c ssl_key_file=/var/lib/postgresql/server.key
+
+          for i in $(seq 1 60); do
+            if docker exec erp_ci_postgres_tls pg_isready -U erp_tls -d erp_tls >/dev/null 2>&1; then
+              echo "postgres ready after ${i}s"; exit 0
+            fi
+            if ! docker ps --format '{{.Names}}' | grep -q '^erp_ci_postgres_tls$'; then
+              echo "::error::postgres exited before becoming ready" >&2
+              docker logs erp_ci_postgres_tls 2>&1 | tail -60 >&2
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "::error::postgres never became ready" >&2
+          docker logs erp_ci_postgres_tls 2>&1 | tail -60 >&2
+          exit 1
+
+      - name: Boot the production image with DB_SSL=true against the TLS database
+        run: |
+          # NODE_ENV=production with DB_SSL=true: the shape a TLS deployment
+          # actually runs, and the one no gate covered before #1159. DB_SSL_CA
+          # carries the private CA, exercising the certificate branch of
+          # createSSLConfig rather than only bare encryption.
+          docker run -d --name erp_ci_backend_tls --network host \
+            -e NODE_ENV=production \
+            -e DB_SSL=true \
+            -e DB_SSL_CA="$(cat "$RUNNER_TEMP/certs/ca.crt")" \
+            -e DB_HOST=localhost -e DB_PORT=5432 \
+            -e DB_USERNAME=erp_tls -e DB_PASSWORD=erp_tls_password -e DB_DATABASE=erp_tls \
+            -e DB_SYNCHRONIZE=false \
+            -e REDIS_HOST=localhost -e REDIS_PORT=6379 \
+            -e JWT_SECRET=ci_jwt_secret_value_not_used_outside_ci \
+            -e PORT=3001 \
+            erp-backend:ci
+
+      - name: Wait for the application to become healthy
+        run: |
+          for i in $(seq 1 90); do
+            # /api/health, not /health: main.ts sets a global 'api' prefix and
+            # there is no nginx here — this probe talks to the container.
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/api/health || true)
+            if [ "$code" = "200" ]; then echo "healthy after ${i}s"; exit 0; fi
+            if ! docker ps --format '{{.Names}}' | grep -q '^erp_ci_backend_tls$'; then
+              echo "::error::container exited before becoming healthy" >&2
+              docker logs erp_ci_backend_tls 2>&1 | tail -60 >&2
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "::error::application never became healthy over TLS" >&2
+          docker logs erp_ci_backend_tls 2>&1 | tail -60 >&2
+          exit 1
+
+      - name: Assert the application's connections are actually encrypted
+        run: |
+          # Without this the job passes whenever the app connects at all, and a
+          # silent fallback to an unencrypted connection would read as success
+          # — the same "asserted but never proven" gap #1159 exists to close.
+          #
+          # Sessions are identified by the application's dedicated database and
+          # user, and the inspecting connection is excluded by pid rather than
+          # guessed at: this psql runs as the same user, so leaving it in would
+          # count a local socket connection that is legitimately not encrypted.
+          read -r total encrypted <<EOF
+          $(docker exec erp_ci_postgres_tls psql -U erp_tls -d erp_tls -tAF' ' -c \
+            "SELECT count(*), count(*) FILTER (WHERE s.ssl)
+               FROM pg_stat_activity a
+               JOIN pg_stat_ssl s ON s.pid = a.pid
+              WHERE a.datname = 'erp_tls'
+                AND a.usename = 'erp_tls'
+                AND a.pid <> pg_backend_pid();")
+          EOF
+          echo "application sessions: total=$total encrypted=$encrypted"
+
+          case "$total" in ''|*[!0-9]*)
+            echo "::error::could not read session counts (got '$total')" >&2; exit 1 ;;
+          esac
+          case "$encrypted" in ''|*[!0-9]*)
+            echo "::error::could not read encrypted session count (got '$encrypted')" >&2; exit 1 ;;
+          esac
+
+          # A zero total means the pool held no connection at inspection time,
+          # so there was nothing to prove. Fail rather than report a vacuous
+          # pass.
+          if [ "$total" -eq 0 ]; then
+            echo "::error::no application sessions found to inspect" >&2
+            docker logs erp_ci_backend_tls 2>&1 | tail -60 >&2
+            exit 1
+          fi
+          if [ "$encrypted" -ne "$total" ]; then
+            echo "::error::$((total - encrypted)) of $total application sessions are not encrypted" >&2
+            docker logs erp_ci_backend_tls 2>&1 | tail -60 >&2
+            exit 1
+          fi
+
+      - name: Verify migrations were applied over the TLS connection
+        run: |
+          applied=$(docker exec erp_ci_postgres_tls psql -U erp_tls -d erp_tls -tAc \
+            "SELECT count(*) FROM migrations;")
+          compiled=$(docker run --rm erp-backend:ci \
+            sh -c 'ls /app/dist/database/migrations/*.js 2>/dev/null | wc -l')
+          applied=$(echo "$applied" | tr -d '[:space:]')
+          compiled=$(echo "$compiled" | tr -d '[:space:]')
+          echo "applied=$applied compiled=$compiled"
+
+          case "$applied" in ''|*[!0-9]*)
+            echo "::error::could not read applied migration count (got '$applied')" >&2
+            docker logs erp_ci_backend_tls 2>&1 | tail -60 >&2
+            exit 1 ;;
+          esac
+          case "$compiled" in ''|*[!0-9]*)
+            echo "::error::could not read compiled migration count (got '$compiled')" >&2
+            exit 1 ;;
+          esac
+          if [ "$compiled" -eq 0 ]; then
+            echo "::error::image contains no compiled migrations" >&2
+            exit 1
+          fi
+          if [ "$applied" -ne "$compiled" ]; then
+            echo "::error::applied ($applied) != compiled ($compiled) over TLS" >&2
+            docker logs erp_ci_backend_tls 2>&1 | tail -60 >&2
+            exit 1
+          fi
+
+      - name: Container logs on failure
+        if: failure()
+        run: |
+          docker logs erp_ci_backend_tls 2>&1 | tail -200 || true
+          docker logs erp_ci_postgres_tls 2>&1 | tail -100 || true
+
+      - name: Tear down
+        if: always()
+        run: docker rm -f erp_ci_backend_tls erp_ci_postgres_tls || true
 
   test-frontend:
     name: Frontend - Lint, Type Check, Tests
