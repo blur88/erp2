@@ -7,7 +7,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { DashboardService } from '../services/dashboard-service';
-import { 
+import type { 
   DashboardDataRequest, 
   DashboardAlert 
 } from '../interfaces/dashboard-interfaces';

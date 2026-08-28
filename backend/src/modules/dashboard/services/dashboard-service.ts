@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import {
+  AlertType,
+  AlertSeverity
+} from '../interfaces/dashboard-interfaces';
+import type {
   DashboardDataRequest,
   DashboardDataResponse,
   DashboardWidget,
   KPIDefinition,
-  DashboardAlert,
-  AlertType,
-  AlertSeverity
+  DashboardAlert
 } from '../interfaces/dashboard-interfaces';
 
 // Simplified imports - only use available services for now

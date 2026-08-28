@@ -1,12 +1,14 @@
-import { Client } from "pg";
-import { execSync } from "child_process";
-import * as path from "path";
-import * as dotenv from "dotenv";
-import { fileURLToPath } from "node:url";
+const { Client } = require("pg");
+const { execSync } = require("child_process");
+const path = require("path");
+const dotenv = require("dotenv");
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// CJS on purpose: Jest loads globalSetup via require() in its main process.
+// The ESM transform (extensionsToTreatAsEsm) must not apply here — a .ts file
+// would be compiled CJS by ts-jest yet loaded as ESM by Node, which throws
+// "exports is not defined in ES module scope".
 
-export default async function globalSetup() {
+module.exports = async function globalSetup() {
   // Load test env vars
   dotenv.config({ path: path.resolve(__dirname, "../.env.test") });
 
@@ -49,4 +51,4 @@ export default async function globalSetup() {
     stdio: "inherit",
     env: { ...process.env },
   });
-}
+};

@@ -1,5 +1,9 @@
 {
-  "moduleFileExtensions": ["js", "json", "ts"],
+  "moduleFileExtensions": [
+    "js",
+    "json",
+    "ts"
+  ],
   "rootDir": ".",
   "testEnvironment": "node",
   "maxWorkers": 1,
@@ -19,13 +23,16 @@
     "^@modules/(.*)$": "<rootDir>/../src/modules/$1",
     "^@common/(.*)$": "<rootDir>/../src/common/$1",
     "^@config/(.*)$": "<rootDir>/../src/config/$1",
-    "^@database/(.*)$": "<rootDir>/../src/database/$1"
+    "^@database/(.*)$": "<rootDir>/../src/database/$1",
+    "^uuid$": "<rootDir>/../test/__mocks__/uuid.cjs"
   },
-  "globalSetup": "./jest-e2e-global-setup.ts",
-  "globalTeardown": "./jest-e2e-global-teardown.ts",
+  "globalSetup": "./jest-e2e-global-setup.js",
+  "globalTeardown": "./jest-e2e-global-teardown.js",
   "collectCoverageFrom": [
     "../src/**/*.(t|j)s"
   ],
   "coverageDirectory": "../coverage",
-  "extensionsToTreatAsEsm": [".ts"]
+  "extensionsToTreatAsEsm": [
+    ".ts"
+  ]
 }
