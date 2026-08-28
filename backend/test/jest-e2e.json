@@ -9,7 +9,7 @@
     "^.+\\.(t|j)s$": "ts-jest"
   },
   "transformIgnorePatterns": [
-    "node_modules/(?!(uuid)/)"
+    "node_modules/(?!(@nestjs/(bullmq|bull-shared)|uuid)/)"
   ],
   "moduleNameMapper": {
     "^@/(.*)$": "<rootDir>/../src/$1",

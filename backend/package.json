@@ -35,7 +35,7 @@
     "backup:reconcile-schedulers": "ts-node -r tsconfig-paths/register ./src/database/cli/reconcile-schedulers.ts"
   },
   "dependencies": {
-    "@nestjs/bullmq": "^11.0.4",
+    "@nestjs/bullmq": "^12.0.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.0",
@@ -143,7 +143,7 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!(uuid|archiver|is-stream|zip-stream|compress-commons|crc32-stream|sanitize-html|htmlparser2|entities|domhandler|domutils|domelementtype|dom-serializer)/)"
+      "node_modules/(?!(@nestjs/(bullmq|bull-shared)|uuid|archiver|is-stream|zip-stream|compress-commons|crc32-stream|sanitize-html|htmlparser2|entities|domhandler|domutils|domelementtype|dom-serializer)/)"
     ],
     "collectCoverageFrom": [
       "src/**/*.(t|j)s",
