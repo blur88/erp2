@@ -12,9 +12,9 @@ import {
   IsNotEmpty,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
-import { SalesOrder } from './sales-order.entity';
-import { Payment } from './payment.entity';
-import { PriceList } from './price-list.entity';
+import type { SalesOrder } from './sales-order.entity';
+import type { Payment } from './payment.entity';
+import type { PriceList } from './price-list.entity';
 
 export enum CustomerType {
   INDIVIDUAL = 'individual',
@@ -243,7 +243,7 @@ export class Customer extends BaseEntity {
   @IsOptional()
   priceListId?: string;
 
-  @ManyToOne(() => PriceList, (priceList) => priceList.customers, {
+  @ManyToOne('PriceList', 'customers', {
     nullable: true,
     onDelete: 'SET NULL',
   })
@@ -296,12 +296,12 @@ export class Customer extends BaseEntity {
   notes?: string;
 
   // Relationships
-  @OneToMany(() => SalesOrder, (salesOrder) => salesOrder.customer, {
+  @OneToMany('SalesOrder', 'customer', {
     cascade: false,
   })
   salesOrders: SalesOrder[];
 
-  @OneToMany(() => Payment, (payment) => payment.customer, {
+  @OneToMany('Payment', 'customer', {
     cascade: false,
   })
   payments: Payment[];

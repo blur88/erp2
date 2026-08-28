@@ -13,8 +13,8 @@ import {
   IsOptional,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
-import { PriceList } from './price-list.entity';
-import { Product } from './product.entity';
+import type { PriceList } from './price-list.entity';
+import type { Product } from './product.entity';
 
 /**
  * PriceListItem Entity
@@ -66,13 +66,13 @@ export class PriceListItem extends BaseEntity {
   effectiveTo: string;
 
   // Relationships
-  @ManyToOne(() => PriceList, (priceList) => priceList.items, {
+  @ManyToOne('PriceList', 'items', {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'priceListId' })
   priceList: PriceList;
 
-  @ManyToOne(() => Product, (product) => product.priceListItems, {
+  @ManyToOne('Product', 'priceListItems', {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'productId' })

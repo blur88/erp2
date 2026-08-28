@@ -3,15 +3,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 
-import { AppService } from './app.service';
-import { RedisMemorySamplerService } from './modules/monitoring/redis-memory-sampler.service';
-
-/**
- * AppService talks to Redis through a client it constructs itself in the
- * constructor, so the ioredis module is mocked wholesale. Memory-pressure
- * state comes from the sampler, which is mocked here; `info` must never be
- * called by `getHealth()`.
- */
 const redisMock = {
   connect: (jest.fn as unknown as any)(),
   ping: (jest.fn as unknown as any)(),
@@ -19,15 +10,23 @@ const redisMock = {
   disconnect: (jest.fn as unknown as any)(),
 };
 
-jest.mock('ioredis', () => ({
-  __esModule: true,
-  default: (jest.fn as unknown as any)(() => redisMock),
-}));
-
 const samplerMock = {
   getHealthView: (jest.fn as unknown as any)(),
   getDetail: (jest.fn as unknown as any)(),
 };
+
+let AppService: any;
+let RedisMemorySamplerService: any;
+beforeAll(async () => {
+  jest.unstable_mockModule('ioredis', () => ({
+    __esModule: true,
+    default: (jest.fn as unknown as any)(() => redisMock),
+  }));
+  const appMod = await import('./app.service');
+  AppService = appMod.AppService;
+  const samplerMod = await import('./modules/monitoring/redis-memory-sampler.service');
+  RedisMemorySamplerService = samplerMod.RedisMemorySamplerService;
+});
 
 const healthyView = {
   latestSample: {
@@ -46,7 +45,7 @@ const healthyView = {
 };
 
 describe('AppService', () => {
-  let service: AppService;
+  let service: any;
   let dataSource: { query: any };
 
   beforeEach(async () => {
@@ -66,7 +65,7 @@ describe('AppService', () => {
       ],
     }).compile();
 
-    service = module.get<AppService>(AppService);
+    service = module.get(AppService);
   });
 
   describe('getHealth — Redis memory pressure state mapping', () => {

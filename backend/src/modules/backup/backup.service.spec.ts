@@ -1,13 +1,15 @@
+// @ts-nocheck
 import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter } from 'events';
-import { spawn } from 'child_process';
 import * as os from 'os';
 import * as path from 'path';
 import * as fsCb from 'fs';
-import { BackupService } from './backup.service';
+import * as fsPromises from 'fs/promises';
+import * as zlib from 'zlib';
+import * as tarStream from 'tar-stream';
 import { BackupLog } from '@database/entities/backup-log.entity';
 import { BackupRetentionSettings } from '@database/entities/backup-settings.entity';
 import { CompanySettings } from '@database/entities/company-settings.entity';
@@ -15,11 +17,72 @@ import { RegionalSettings } from '@database/entities/regional-settings.entity';
 import { DocumentNumberSetting } from '@database/entities/document-number-settings.entity';
 import { PrintSettings } from '@database/entities/print-settings.entity';
 
-jest.mock('child_process', () => ({
-  spawn: (jest.fn as unknown as any)(),
+const mockSpawn = jest.fn();
+const redisMock = {
+  keys: jest.fn().mockResolvedValue([]),
+  type: jest.fn(),
+  ttl: jest.fn(),
+  get: jest.fn(),
+  hgetall: jest.fn(),
+  lrange: jest.fn(),
+  smembers: jest.fn(),
+  zrange: jest.fn(),
+  set: jest.fn(),
+  hmset: jest.fn(),
+  rpush: jest.fn(),
+  sadd: jest.fn(),
+  zadd: jest.fn(),
+  expire: jest.fn(),
+  flushall: jest.fn(),
+  info: jest.fn().mockResolvedValue('redis_version:8.0.0'),
+  ping: jest.fn().mockResolvedValue('PONG'),
+  quit: jest.fn(),
+  disconnect: jest.fn(),
+  status: 'wait',
+  connect: jest.fn().mockResolvedValue(undefined),
+};
+
+jest.unstable_mockModule('child_process', () => ({
+  spawn: mockSpawn,
+  __esModule: true,
 }));
 
-const mockSpawn = spawn as any as jest.MockedFunction<typeof spawn>;
+jest.unstable_mockModule('ioredis', () => ({
+  __esModule: true,
+  default: jest.fn(() => redisMock),
+}));
+
+const mockFs = {
+  mkdir: jest.fn().mockResolvedValue(undefined),
+  readdir: jest.fn().mockResolvedValue([]),
+  readFile: jest.fn().mockResolvedValue('{}'),
+  stat: jest.fn().mockResolvedValue({ size: 42 } as any),
+  rm: jest.fn().mockResolvedValue(undefined),
+  rename: jest.fn().mockResolvedValue(undefined),
+  writeFile: jest.fn().mockResolvedValue(undefined),
+  copyFile: jest.fn().mockResolvedValue(undefined),
+  access: jest.fn().mockResolvedValue(undefined),
+  unlink: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockRepository = () => ({
+  findOne: jest.fn(),
+  find: jest.fn(),
+  create: jest.fn(),
+  save: jest.fn(),
+  remove: jest.fn(),
+  update: jest.fn(),
+});
+
+const mockConfigService = {
+  get: jest.fn((key: string, defaultVal?: any) => defaultVal ?? null),
+};
+
+let BackupService: any;
+beforeAll(async () => {
+  const mod = await import('./backup.service');
+  BackupService = mod.BackupService;
+});
 
 function mockSuccessfulSpawn(stdout = '') {
   mockSpawn.mockImplementationOnce(() => {
@@ -51,43 +114,14 @@ function mockFailingSpawn(stderr = 'permission denied', code = 1) {
   });
 }
 
-const mockRepository = () => ({
-  findOne: (jest.fn as unknown as any)(),
-  find: (jest.fn as unknown as any)(),
-  create: (jest.fn as unknown as any)(),
-  save: (jest.fn as unknown as any)(),
-  remove: (jest.fn as unknown as any)(),
-  update: (jest.fn as unknown as any)(),
-});
-
-const mockConfigService = {
-  get: (jest.fn as unknown as any)((key: string, defaultVal?: any) => defaultVal ?? null),
-};
-
-jest.mock('ioredis', () => ({
-  __esModule: true,
-  default: (jest.fn as unknown as any)().mockImplementation(() => ({
-    keys: (jest.fn as unknown as any)().mockResolvedValue([]),
-    type: (jest.fn as unknown as any)(),
-    ttl: (jest.fn as unknown as any)(),
-    get: (jest.fn as unknown as any)(),
-    hgetall: (jest.fn as unknown as any)(),
-    lrange: (jest.fn as unknown as any)(),
-    smembers: (jest.fn as unknown as any)(),
-    zrange: (jest.fn as unknown as any)(),
-    set: (jest.fn as unknown as any)(),
-    hmset: (jest.fn as unknown as any)(),
-    rpush: (jest.fn as unknown as any)(),
-    sadd: (jest.fn as unknown as any)(),
-    zadd: (jest.fn as unknown as any)(),
-    expire: (jest.fn as unknown as any)(),
-    flushall: (jest.fn as unknown as any)(),
-    info: (jest.fn as unknown as any)().mockResolvedValue('redis_version:8.0.0'),
-  })),
-}));
+function mockServiceInternals(service: any) {
+  (service as any).fsPromises = mockFs;
+  (service as any).spawn = mockSpawn;
+  (service as any).RedisCtor = jest.fn(() => redisMock);
+}
 
 describe('BackupService - settings backup', () => {
-  let service: BackupService;
+  let service: any;
   let backupLogRepo: ReturnType<typeof mockRepository>;
   let companySettingsRepo: ReturnType<typeof mockRepository>;
   let regionalSettingsRepo: ReturnType<typeof mockRepository>;
@@ -108,7 +142,8 @@ describe('BackupService - settings backup', () => {
       ],
     }).compile();
 
-    service = module.get<BackupService>(BackupService);
+    service = module.get(BackupService);
+    mockServiceInternals(service);
     backupLogRepo = module.get(getRepositoryToken(BackupLog));
     companySettingsRepo = module.get(getRepositoryToken(CompanySettings));
     regionalSettingsRepo = module.get(getRepositoryToken(RegionalSettings));
@@ -122,9 +157,6 @@ describe('BackupService - settings backup', () => {
   });
 
   describe('processUploadedBackup', () => {
-    const fsPromises = require('fs/promises');
-    const nodeCrypto = require('crypto');
-
     beforeEach(() => {
       mockConfigService.get.mockImplementation((key: string, defaultVal?: any) => {
         if (key === 'BACKUP_DIRECTORY') {
@@ -142,17 +174,10 @@ describe('BackupService - settings backup', () => {
 
     it('stores uploaded backups under a generated archive filename and preserves the original name in metadata', async () => {
       jest.spyOn(Date, 'now').mockReturnValue(1770000000000);
-      jest.spyOn(nodeCrypto, 'randomUUID').mockReturnValue('uuid-123');
-      jest.spyOn(fsPromises, 'mkdir').mockResolvedValue(undefined);
-      jest.spyOn(fsPromises, 'rename').mockResolvedValue(undefined);
-      jest.spyOn(fsPromises, 'readFile').mockResolvedValue(
-        JSON.stringify({ description: 'Uploaded backup' }),
-      );
-      jest.spyOn(fsPromises, 'stat').mockResolvedValue({ size: 42 });
-      jest.spyOn(fsPromises, 'readdir').mockResolvedValue([
-        'erp_db_20260430_120000.sql.gz',
-      ]);
-      jest.spyOn(fsPromises, 'rm').mockResolvedValue(undefined);
+      (service as any).crypto = {
+        ...(service as any).crypto,
+        randomUUID: jest.fn().mockReturnValue('uuid-123'),
+      };
       jest.spyOn(service as any, 'extractArchive').mockResolvedValue(undefined);
       jest.spyOn(service as any, 'calculateChecksum').mockResolvedValue('checksum-123');
       backupLogRepo.create.mockImplementation((input) => input);
@@ -163,7 +188,7 @@ describe('BackupService - settings backup', () => {
         path: '/app/backups/uploads/upload_1770000000000_uuid-123.tar.gz',
       } as Express.Multer.File);
 
-      expect(fsPromises.rename).toHaveBeenCalledWith(
+      expect(mockFs.rename).toHaveBeenCalledWith(
         '/app/backups/uploads/upload_1770000000000_uuid-123.tar.gz',
         '/app/backups/archives/uploaded_backup_1770000000000_uuid-123.tar.gz',
       );
@@ -242,7 +267,6 @@ describe('BackupService - settings backup', () => {
     });
 
     it('uses spawn argument arrays for tar extraction', async () => {
-      jest.spyOn(require('fs/promises'), 'mkdir').mockResolvedValue(undefined);
       mockSuccessfulSpawn();
 
       await (service as any).extractArchive('/tmp/backup;rm.tar.gz', '/tmp/restore dir');
@@ -256,7 +280,7 @@ describe('BackupService - settings backup', () => {
     });
 
     it('uses spawn argument arrays for PostgreSQL restore', async () => {
-      jest.spyOn(require('fs/promises'), 'readdir').mockResolvedValue(['erp_db_20260430_120000.sql.gz']);
+      mockFs.readdir.mockResolvedValue(['erp_db_20260430_120000.sql.gz']);
       mockSuccessfulSpawn();
       mockSuccessfulSpawn();
       mockSuccessfulSpawn();
@@ -294,7 +318,6 @@ describe('BackupService - settings backup', () => {
     });
 
     it('rejects when a spawned command is killed by a signal', async () => {
-      jest.spyOn(require('fs/promises'), 'mkdir').mockResolvedValue(undefined);
       mockSpawn.mockImplementationOnce(() => {
         const child = new EventEmitter() as any;
         child.stdout = new EventEmitter();
@@ -370,10 +393,7 @@ describe('BackupService - settings backup', () => {
 
   describe('backupSettings', () => {
     it('writes settings JSON file with all 4 settings types', async () => {
-      const mockFs = {
-        writeFile: (jest.fn as unknown as any)().mockResolvedValue(undefined),
-      };
-      jest.spyOn(require('fs/promises'), 'writeFile').mockImplementation(mockFs.writeFile);
+      const writeFileSpy = mockFs.writeFile.mockResolvedValue(undefined);
 
       companySettingsRepo.findOne.mockResolvedValue({
         name: 'Acme Corp', address: '1 Main St', city: 'KL',
@@ -404,8 +424,8 @@ describe('BackupService - settings backup', () => {
 
       await (service as any).backupSettings('/tmp/test', '20260223_120000');
 
-      expect(mockFs.writeFile).toHaveBeenCalledTimes(1);
-      const [, jsonStr] = mockFs.writeFile.mock.calls[0];
+      expect(writeFileSpy).toHaveBeenCalledTimes(1);
+      const [, jsonStr] = writeFileSpy.mock.calls[0];
       const data = JSON.parse(jsonStr);
 
       expect(data.companySettings.name).toBe('Acme Corp');
@@ -440,8 +460,8 @@ describe('BackupService - settings backup', () => {
     };
 
     beforeEach(() => {
-      jest.spyOn(require('fs/promises'), 'readdir').mockResolvedValue(['settings_20260223_120000.json']);
-      jest.spyOn(require('fs/promises'), 'readFile').mockResolvedValue(
+      mockFs.readdir.mockResolvedValue(['settings_20260223_120000.json']);
+      mockFs.readFile.mockResolvedValue(
         JSON.stringify(mockSettingsJson),
       );
     });
@@ -496,7 +516,7 @@ describe('BackupService - settings backup', () => {
         ...mockSettingsJson,
         companySettings: { ...mockSettingsJson.companySettings, logoUrl: '/uploads/logos/old.png' },
       };
-      jest.spyOn(require('fs/promises'), 'readFile').mockResolvedValue(JSON.stringify(jsonWithLogo));
+      mockFs.readFile.mockResolvedValue(JSON.stringify(jsonWithLogo));
 
       companySettingsRepo.findOne.mockResolvedValue({ id: 'uuid-1', isActive: true });
       companySettingsRepo.save.mockResolvedValue({});
@@ -527,7 +547,7 @@ describe('BackupService - settings backup', () => {
         printSettings: {},
         timestamp: '2025-01-01T00:00:00.000Z',
       };
-      jest.spyOn(require('fs/promises'), 'readFile').mockResolvedValue(JSON.stringify(oldBackupJson));
+      mockFs.readFile.mockResolvedValue(JSON.stringify(oldBackupJson));
 
       companySettingsRepo.findOne.mockResolvedValue({ id: 'uuid-1', isActive: true });
       companySettingsRepo.save.mockResolvedValue({});
@@ -548,7 +568,7 @@ describe('BackupService - settings backup', () => {
     });
 
     it('logs warning and skips if no settings file found', async () => {
-      jest.spyOn(require('fs/promises'), 'readdir').mockResolvedValue(['other_file.json']);
+      mockFs.readdir.mockResolvedValue(['other_file.json']);
       const loggerWarnSpy = jest.spyOn((service as any).logger, 'warn');
 
       await (service as any).restoreSettings('/tmp/restore');
@@ -560,7 +580,7 @@ describe('BackupService - settings backup', () => {
 });
 
 describe('BackupService - createArchive', () => {
-  let service: BackupService;
+  let service: any;
   let tempSourceDir: string;
   let tempOutputPath: string;
 
@@ -570,7 +590,7 @@ describe('BackupService - createArchive', () => {
         BackupService,
         {
           provide: ConfigService,
-          useValue: { get: (jest.fn as unknown as any)((_key, def) => def ?? null) },
+          useValue: { get: jest.fn((_key: string, def: any) => def ?? null) },
         },
         { provide: getRepositoryToken(BackupLog), useFactory: mockRepository },
         { provide: getRepositoryToken(BackupRetentionSettings), useFactory: mockRepository },
@@ -581,14 +601,14 @@ describe('BackupService - createArchive', () => {
       ],
     }).compile();
 
-    service = module.get<BackupService>(BackupService);
+    service = module.get(BackupService);
 
     const uniqueSuffix = `archiver-smoke-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     tempSourceDir = path.join(os.tmpdir(), uniqueSuffix, 'source');
     tempOutputPath = path.join(os.tmpdir(), uniqueSuffix, 'output.tar.gz');
 
-    await require('fs/promises').mkdir(tempSourceDir, { recursive: true });
-    await require('fs/promises').writeFile(
+    await fsPromises.mkdir(tempSourceDir, { recursive: true });
+    await fsPromises.writeFile(
       path.join(tempSourceDir, 'test.txt'),
       'hello archiver v8',
     );
@@ -596,7 +616,7 @@ describe('BackupService - createArchive', () => {
 
   afterEach(async () => {
     const parentDir = path.dirname(tempSourceDir);
-    await require('fs/promises').rm(parentDir, { recursive: true, force: true });
+    await fsPromises.rm(parentDir, { recursive: true, force: true });
   });
 
   it('resolves to the output path and produces a non-empty .tar.gz file', async () => {
@@ -604,7 +624,7 @@ describe('BackupService - createArchive', () => {
 
     expect(result).toBe(tempOutputPath);
 
-    const stats = await require('fs/promises').stat(tempOutputPath);
+    const stats = await fsPromises.stat(tempOutputPath);
     expect(stats.size).toBeGreaterThan(0);
   });
 
@@ -612,8 +632,8 @@ describe('BackupService - createArchive', () => {
     await (service as any).createArchive(tempSourceDir, tempOutputPath);
 
     await new Promise<void>((resolve, reject) => {
-      const gunzip = require('zlib').createGunzip();
-      const extract = require('tar-stream').extract();
+      const gunzip = zlib.createGunzip();
+      const extract = tarStream.extract();
       const foundFiles: string[] = [];
 
       extract.on(

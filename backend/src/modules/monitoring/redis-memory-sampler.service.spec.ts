@@ -2,10 +2,7 @@ import { jest } from '@jest/globals';
 import { Logger } from '@nestjs/common';
 import { InMemoryRedisMemoryHistoryStore } from './in-memory-redis-memory-history.store';
 import { RedisMemoryPressureEvaluator } from './redis-memory-pressure.evaluator';
-import { RedisMemorySamplerService } from './redis-memory-sampler.service';
 import type { SampleQuery } from './redis-memory-history.store';
-import { REDIS_COMMAND_TIMEOUT_MS, RedisMemorySample } from './redis-memory.types';
-
 const redisMock = {
   status: 'wait',
   connect: (jest.fn as unknown as any)(),
@@ -14,10 +11,19 @@ const redisMock = {
   disconnect: (jest.fn as unknown as any)(),
 };
 
-jest.mock('ioredis', () => ({
-  __esModule: true,
-  default: (jest.fn as unknown as any)(() => redisMock),
-}));
+let RedisMemorySamplerService: any;
+beforeAll(async () => {
+  jest.unstable_mockModule('ioredis', () => ({
+    __esModule: true,
+    default: (jest.fn as unknown as any)(() => redisMock),
+  }));
+  const mod = await import('./redis-memory-sampler.service');
+  RedisMemorySamplerService = mod.RedisMemorySamplerService;
+});
+import { REDIS_COMMAND_TIMEOUT_MS, RedisMemorySample } from './redis-memory.types';
+
+
+
 
 const infoMemory = (used: number, max: number): string =>
   `used_memory:${used}\r\nmaxmemory:${max}\r\n`;
@@ -26,7 +32,7 @@ describe('RedisMemorySamplerService', () => {
   let store: InMemoryRedisMemoryHistoryStore;
   let evaluator: RedisMemoryPressureEvaluator;
   let logger: { warn: any; error: any; log: any };
-  let service: RedisMemorySamplerService;
+  let service: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -376,7 +382,7 @@ describe('RedisMemorySamplerService alert wiring', () => {
   let evaluator: RedisMemoryPressureEvaluator;
   let logger: { warn: any; error: any; log: any };
   let alerts: { applySample: any };
-  let service: RedisMemorySamplerService;
+  let service: any;
 
   const infoWithOom = (used: number, max: number, oom: number): string =>
     `used_memory:${used}\r\nmaxmemory:${max}\r\n`;

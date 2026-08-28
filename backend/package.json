@@ -19,12 +19,12 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
+    "test:cov": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "NODE_ENV=test jest --config ./test/jest-e2e.json",
-    "test:redis": "jest --config ./test/jest-redis.json",
+    "test:e2e": "NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-e2e.json",
+    "test:redis": "NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-redis.json",
     "test:scripts": "bats scripts/__tests__",
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:generate": "npm run typeorm -- -d ./src/config/database.config.ts migration:generate ./src/database/migrations/$npm_config_name",
@@ -36,18 +36,18 @@
   },
   "dependencies": {
     "@nestjs/bullmq": "^12.0.0",
-    "@nestjs/common": "^11.0.0",
-    "@nestjs/config": "^4.0.2",
-    "@nestjs/core": "^11.0.0",
-    "@nestjs/jwt": "^11.0.2",
-    "@nestjs/mapped-types": "2.1.1",
-    "@nestjs/passport": "^11.0.5",
-    "@nestjs/platform-express": "^11.0.0",
-    "@nestjs/platform-socket.io": "^11.0.0",
-    "@nestjs/schedule": "^6.0.0",
-    "@nestjs/swagger": "^11.2.0",
-    "@nestjs/typeorm": "^11.0.0",
-    "@nestjs/websockets": "^11.0.0",
+    "@nestjs/common": "12.0.1",
+    "@nestjs/config": "12.0.0",
+    "@nestjs/core": "12.0.1",
+    "@nestjs/jwt": "12.0.1",
+    "@nestjs/mapped-types": "12.0.0",
+    "@nestjs/passport": "12.0.0",
+    "@nestjs/platform-express": "12.0.1",
+    "@nestjs/platform-socket.io": "12.0.1",
+    "@nestjs/schedule": "12.0.1",
+    "@nestjs/swagger": "12.0.0",
+    "@nestjs/typeorm": "12.0.0",
+    "@nestjs/websockets": "12.0.1",
     "@types/archiver": "^8.0.0",
     "@types/bcrypt": "^6.0.0",
     "archiver": "8.0.0",
@@ -74,10 +74,10 @@
     "uuid": "^14.0.0"
   },
   "devDependencies": {
-    "@nestjs/cli": "^11.0.0",
-    "@nestjs/microservices": "^11.0.0",
-    "@nestjs/schematics": "^11.0.0",
-    "@nestjs/testing": "^11.0.0",
+    "@nestjs/cli": "12.0.0",
+    "@nestjs/microservices": "12.0.1",
+    "@nestjs/schematics": "12.0.0",
+    "@nestjs/testing": "12.0.1",
     "@types/compression": "^1.7.2",
     "@types/express": "^5.0.3",
     "@types/jest": "^30.0.0",
@@ -116,7 +116,7 @@
       "ajv": "8.18.0"
     },
     "picomatch": ">=4.0.4",
-    "@nestjs/mapped-types": "2.1.1",
+    "@nestjs/mapped-types": "12.0.0",
     "glob": ">=10",
     "ws": ">=8.20.1",
     "exceljs": {
@@ -139,10 +139,16 @@
     ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
+      "^.+\\.(t|j)s$": [
+        "ts-jest",
+        {
+          "useESM": true,
+          "tsconfig": "tsconfig.spec.json"
+        }
+      ]
     },
-    "transformIgnorePatterns": [
-      "node_modules/(?!(@nestjs/(bullmq|bull-shared)|uuid|archiver|is-stream|zip-stream|compress-commons|crc32-stream|sanitize-html|htmlparser2|entities|domhandler|domutils|domelementtype|dom-serializer)/)"
+    "extensionsToTreatAsEsm": [
+      ".ts"
     ],
     "collectCoverageFrom": [
       "src/**/*.(t|j)s",
@@ -169,7 +175,8 @@
       "^@modules/(.*)$": "<rootDir>/src/modules/$1",
       "^@common/(.*)$": "<rootDir>/src/common/$1",
       "^@config/(.*)$": "<rootDir>/src/config/$1",
-      "^@database/(.*)$": "<rootDir>/src/database/$1"
+      "^@database/(.*)$": "<rootDir>/src/database/$1",
+      "^(\\.{1,2}/.*)\\.js$": "$1"
     }
   }
 }

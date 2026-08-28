@@ -14,8 +14,8 @@ import { parseEvictedKeys, parseOomErrors, parseRedisMemory, parseRunId } from '
 import { RedisMemoryPressureEvaluator } from './redis-memory-pressure.evaluator';
 import { RedisAlertService } from './redis-alert.service';
 import { RedisAlertUnavailableReason } from './redis-alert.types';
-import { ResolvedInstanceId } from './instance-identity';
-import { MONITORING_INSTANCE_ID } from './monitoring.module';
+import type { ResolvedInstanceId } from './instance-identity';
+import { MONITORING_INSTANCE_ID } from './monitoring.constants';
 import { RedisMemoryDetailQueryDto } from './dto/redis-memory-detail-query.dto';
 import {
   REDIS_COMMAND_TIMEOUT_MS,

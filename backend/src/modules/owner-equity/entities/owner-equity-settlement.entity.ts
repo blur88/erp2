@@ -1,7 +1,7 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from '../../../database/entities/base.entity';
-import { OwnerEquityDocument } from './owner-equity-document.entity';
-import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
+import type { OwnerEquityDocument } from './owner-equity-document.entity';
+import type { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 
 @Entity('owner_equity_settlements')
 @Index(['equityDocumentId'])
@@ -32,7 +32,7 @@ export class OwnerEquitySettlement extends BaseEntity {
   @Column({ type: 'uuid', nullable: true })
   sourceSettlementId: string | null;
 
-  @ManyToOne(() => OwnerEquityDocument, (d) => d.settlements, { onDelete: 'CASCADE' })
+  @ManyToOne('OwnerEquityDocument', 'settlements', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'equityDocumentId' })
   document: OwnerEquityDocument;
 
@@ -41,11 +41,11 @@ export class OwnerEquitySettlement extends BaseEntity {
   // Not eager: findByReference loads methods separately with withDeleted so a
   // soft-deleted method still renders on historical rows (ExpenseService.findOne
   // does the same).
-  @ManyToOne(() => PaymentMethodEntity, { onDelete: 'RESTRICT' })
+  @ManyToOne('PaymentMethodEntity', { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'paymentMethodId' })
   paymentMethod: PaymentMethodEntity;
 
-  @ManyToOne(() => OwnerEquitySettlement, { onDelete: 'RESTRICT', nullable: true })
+  @ManyToOne('OwnerEquitySettlement', { onDelete: 'RESTRICT', nullable: true })
   @JoinColumn({ name: 'sourceSettlementId' })
   sourceSettlement: OwnerEquitySettlement | null;
 }

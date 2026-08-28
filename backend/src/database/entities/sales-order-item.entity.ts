@@ -17,8 +17,8 @@ import {
   IsInt,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
-import { SalesOrder } from './sales-order.entity';
-import { Product } from './product.entity';
+import type { SalesOrder } from './sales-order.entity';
+import type { Product } from './product.entity';
 
 export enum DiscountType {
   PERCENTAGE = 'percentage',
@@ -137,13 +137,13 @@ export class SalesOrderItem extends BaseEntity {
   productId: string;
 
   // Relationships
-  @ManyToOne(() => SalesOrder, (salesOrder) => salesOrder.items, {
+  @ManyToOne('SalesOrder', 'items', {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'salesOrderId' })
   salesOrder: SalesOrder;
 
-  @ManyToOne(() => Product, { // Removed back-reference to avoid circular relation issues
+  @ManyToOne('Product', { // Removed back-reference to avoid circular relation issues
     onDelete: 'RESTRICT',
     eager: true, // Eager load product relationship to get product name
   })

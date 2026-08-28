@@ -1,9 +1,9 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { IsString, IsOptional, IsEnum, IsDecimal, IsDate } from 'class-validator';
 import { BaseEntity } from './base.entity';
-import { Customer } from './customer.entity';
-import { SalesOrder } from './sales-order.entity';
-import { PaymentMethodEntity } from './payment-method.entity';
+import type { Customer } from './customer.entity';
+import type { SalesOrder } from './sales-order.entity';
+import type { PaymentMethodEntity } from './payment-method.entity';
 export enum PaymentStatus {
   COMPLETED = 'completed',
   PENDING = 'pending',
@@ -82,14 +82,14 @@ export class Payment extends BaseEntity {
   salesOrderId?: string;
 
   // Relationships
-  @ManyToOne(() => Customer, (customer) => customer.payments, {
+  @ManyToOne('Customer', 'payments', {
     onDelete: 'RESTRICT',
     eager: true,
   })
   @JoinColumn({ name: 'customerId' })
   customer: Customer;
 
-  @ManyToOne(() => SalesOrder, (salesOrder) => salesOrder.payments, {
+  @ManyToOne('SalesOrder', 'payments', {
     onDelete: 'RESTRICT',
     nullable: true,
     eager: false,
@@ -97,7 +97,7 @@ export class Payment extends BaseEntity {
   @JoinColumn({ name: 'salesOrderId' })
   salesOrder?: SalesOrder;
 
-  @ManyToOne(() => PaymentMethodEntity, {
+  @ManyToOne('PaymentMethodEntity', {
     onDelete: 'RESTRICT',
     nullable: true,
     eager: true,

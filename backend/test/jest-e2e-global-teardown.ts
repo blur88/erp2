@@ -1,6 +1,9 @@
 import { Client } from "pg";
 import * as path from "path";
 import * as dotenv from "dotenv";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default async function globalTeardown() {
   dotenv.config({ path: path.resolve(__dirname, "../.env.test") });

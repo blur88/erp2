@@ -1,5 +1,8 @@
 import { readFileSync } from "fs";
-import { join } from "path";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 describe("Backend Dockerfile security hardening", () => {
   const dockerfilePath = join(__dirname, "..", "..", "Dockerfile");

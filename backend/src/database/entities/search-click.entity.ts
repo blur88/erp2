@@ -7,14 +7,14 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { SearchQuery } from './search-query.entity';
+import type { SearchQuery } from './search-query.entity';
 
 @Entity('search_clicks')
 export class SearchClick {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => SearchQuery, { nullable: true, onDelete: 'NO ACTION' })
+  @ManyToOne('SearchQuery', { nullable: true, onDelete: 'NO ACTION' })
   @JoinColumn({ name: 'search_query_id' })
   @Index()
   searchQuery: SearchQuery | null;

@@ -12,7 +12,7 @@ import {
   IsUUID,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
-import { User } from './user.entity';
+import type { User } from './user.entity';
 
 /**
  * RefreshToken entity for JWT refresh token management
@@ -66,7 +66,7 @@ export class RefreshToken extends BaseEntity {
   ipAddress?: string;
 
   // Relationships
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @ManyToOne('User', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user: User;
 

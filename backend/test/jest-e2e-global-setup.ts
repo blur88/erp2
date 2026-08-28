@@ -2,6 +2,9 @@ import { Client } from "pg";
 import { execSync } from "child_process";
 import * as path from "path";
 import * as dotenv from "dotenv";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default async function globalSetup() {
   // Load test env vars

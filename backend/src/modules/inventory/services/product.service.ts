@@ -86,9 +86,9 @@ export class ProductService extends BaseCrudService<
     @InjectRepository(PurchaseCostHistory)
     private readonly purchaseCostHistoryRepository: Repository<PurchaseCostHistory>,
     @Inject(forwardRef(() => CategoryService))
-    private readonly categoryService: CategoryService,
+    private readonly categoryService: any,
     @Inject(forwardRef(() => StockMovementService))
-    private readonly stockMovementService: StockMovementService,
+    private readonly stockMovementService: any,
     private readonly baseCostCalculator: BaseCostCalculatorService,
     private readonly settingsService: SettingsService,
     private readonly dataSource: DataSource,

@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { DataSourceOptions } from 'typeorm';
+import * as path from 'path';
 import { validateAndParseInt } from './validation.utils';
 import { createSSLConfig } from './ssl.config';
 import { validateDatabaseConfig } from './environment.validator';
@@ -134,7 +135,7 @@ export function createDatabaseConfig(
       OwnerEquityDocument,
       OwnerEquitySettlement,
     ],
-    migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
+    migrations: [path.join(process.cwd(), 'src/database/migrations/*{.ts,.js}')],
     // 'each' (not the TypeORM default 'all') so a migration that appends an
     // enum value commits before a later migration uses that value. Postgres
     // forbids ALTER TYPE ... ADD VALUE and its use inside one transaction.

@@ -16,7 +16,7 @@ import {
   Min,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
-import { Product } from './product.entity';
+import type { Product } from './product.entity';
 
 export enum StockAdjustmentStatus {
   DRAFT = 'draft',
@@ -86,7 +86,7 @@ export class StockAdjustment extends BaseEntity {
   totalValue: number;
 
   // Relationships
-  @OneToMany(() => StockAdjustmentItem, (item) => item.stockAdjustment, {
+  @OneToMany('StockAdjustmentItem', 'stockAdjustment', {
     cascade: true,
   })
   items: StockAdjustmentItem[];
@@ -198,13 +198,13 @@ export class StockAdjustmentItem extends BaseEntity {
   notes?: string;
 
   // Relationships
-  @ManyToOne(() => StockAdjustment, (adjustment) => adjustment.items, {
+  @ManyToOne('StockAdjustment', 'items', {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'stockAdjustmentId' })
   stockAdjustment: StockAdjustment;
 
-  @ManyToOne(() => Product, {
+  @ManyToOne('Product', {
     onDelete: 'RESTRICT',
     eager: true,
   })

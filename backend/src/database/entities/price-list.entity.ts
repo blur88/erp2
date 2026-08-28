@@ -11,8 +11,8 @@ import {
   IsNumber,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
-import { PriceListItem } from './price-list-item.entity';
-import { Customer } from './customer.entity';
+import type { PriceListItem } from './price-list-item.entity';
+import type { Customer } from './customer.entity';
 
 /**
  * PriceList Entity
@@ -60,12 +60,12 @@ export class PriceList extends BaseEntity {
   priority: number;
 
   // Relationships
-  @OneToMany(() => PriceListItem, (item) => item.priceList, {
+  @OneToMany('PriceListItem', 'priceList', {
     cascade: true,
   })
   items: PriceListItem[];
 
-  @OneToMany(() => Customer, (customer) => customer.priceList)
+  @OneToMany('Customer', 'priceList')
   customers: Customer[];
 
   constructor() {

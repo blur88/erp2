@@ -6,11 +6,14 @@
   "testTimeout": 120000,
   "testRegex": ".e2e-spec.ts$",
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "^.+\\.(t|j)s$": [
+      "ts-jest",
+      {
+        "useESM": true,
+        "tsconfig": "tsconfig.spec.json"
+      }
+    ]
   },
-  "transformIgnorePatterns": [
-    "node_modules/(?!(@nestjs/(bullmq|bull-shared)|uuid)/)"
-  ],
   "moduleNameMapper": {
     "^@/(.*)$": "<rootDir>/../src/$1",
     "^@modules/(.*)$": "<rootDir>/../src/modules/$1",
@@ -23,5 +26,6 @@
   "collectCoverageFrom": [
     "../src/**/*.(t|j)s"
   ],
-  "coverageDirectory": "../coverage"
+  "coverageDirectory": "../coverage",
+  "extensionsToTreatAsEsm": [".ts"]
 }

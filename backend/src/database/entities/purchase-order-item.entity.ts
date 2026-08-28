@@ -18,8 +18,8 @@ import {
   IsDate,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
-import { PurchaseOrder } from './purchase-order.entity';
-import { Product } from './product.entity';
+import type { PurchaseOrder } from './purchase-order.entity';
+import type { Product } from './product.entity';
 
 export enum PurchaseOrderItemStatus {
   PENDING = 'pending',
@@ -156,13 +156,13 @@ export class PurchaseOrderItem extends BaseEntity {
   productId: string;
 
   // Relationships
-  @ManyToOne(() => PurchaseOrder, (purchaseOrder) => purchaseOrder.items, {
+  @ManyToOne('PurchaseOrder', 'items', {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'purchaseOrderId' })
   purchaseOrder: PurchaseOrder;
 
-  @ManyToOne(() => Product, { // Removed back-reference to avoid circular relation issues
+  @ManyToOne('Product', { // Removed back-reference to avoid circular relation issues
     onDelete: 'RESTRICT',
     eager: false, // Disabled eager loading to prevent automatic relation resolution
   })

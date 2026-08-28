@@ -12,7 +12,7 @@ import {
   IsUUID,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
-import { Product } from './product.entity';
+import type { Product } from './product.entity';
 
 /**
  * Purchase Cost History entity
@@ -97,7 +97,7 @@ export class PurchaseCostHistory extends BaseEntity {
   receivedDate: Date;
 
   // Relationships
-  @ManyToOne(() => Product, {
+  @ManyToOne('Product', {
     onDelete: 'CASCADE',
     eager: false,
   })

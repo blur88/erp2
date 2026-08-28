@@ -16,7 +16,7 @@ import {
   IsUUID,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
-import { Product } from './product.entity';
+import type { Product } from './product.entity';
 
 export enum StockMovementType {
   // Inward movements (increase stock)
@@ -173,7 +173,7 @@ export class StockMovement extends BaseEntity {
   productId: string;
 
   // Relationships
-  @ManyToOne(() => Product, (product) => product.stockMovements, {
+  @ManyToOne('Product', 'stockMovements', {
     onDelete: 'RESTRICT',
     eager: true,
   })

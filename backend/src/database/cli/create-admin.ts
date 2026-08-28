@@ -145,7 +145,7 @@ async function main(): Promise<void> {
   }
 }
 
-if (require.main === module) {
+if (typeof require !== 'undefined' && require.main === module) {
   main().catch((error) => {
     console.error(`create-admin failed: ${error.message}`);
     process.exit(1);

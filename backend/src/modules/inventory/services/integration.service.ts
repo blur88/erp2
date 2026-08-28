@@ -67,9 +67,9 @@ export class IntegrationService {
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepository: Repository<SalesOrder>,
     @Inject(forwardRef(() => StockMovementService))
-    private readonly stockMovementService: StockMovementService,
+    private readonly stockMovementService: any,
     @Inject(forwardRef(() => ProductService))
-    private readonly productService: ProductService,
+    private readonly productService: any,
     private readonly pricingService: PricingService,
     private readonly settingsService: SettingsService,
   ) {}

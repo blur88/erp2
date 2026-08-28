@@ -141,7 +141,7 @@ async function main(): Promise<void> {
   }
 }
 
-if (require.main === module) {
+if (typeof require !== 'undefined' && require.main === module) {
   main().catch((error) => {
     // Only reachable if the context itself failed to boot — runCli catches
     // everything downstream of it.
