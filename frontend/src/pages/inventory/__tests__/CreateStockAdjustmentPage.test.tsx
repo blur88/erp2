@@ -338,6 +338,74 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
     })
   })
 
+  // Row-level error-placement regression test for the line-items field array.
+  //
+  // Scope: this pins where a line-item validation error RENDERS -- on the row
+  // that owns it, versus nested under the field-array root Alert. It is not
+  // tied to any dependency version.
+  //
+  // Why it exists: the sibling test 'blocks submit when Qty Change is left
+  // empty' asserts the message with a bare screen.getByText, which finds it
+  // anywhere on the page and therefore passes under EITHER placement. Nothing
+  // else in this file distinguishes a per-row error from a page-level one, so
+  // a regression that relocated line-item errors to the root would go unnoticed.
+  describe('line-item error placement', () => {
+    const selectProductInRow = async (
+      user: ReturnType<typeof userEvent.setup>,
+      rowIndex: number,
+      productName: string,
+    ) => {
+      const inputs = screen.getAllByPlaceholderText('Search product...')
+      const input = inputs[rowIndex]
+      await user.click(input)
+      const listbox = await screen.findByRole('listbox')
+      await user.click(within(listbox).getByText(productName))
+      await waitFor(() => expect(input).toHaveValue(productName))
+    }
+
+    it('renders an invalid line-item quantity error on its own row, not under the field-array root', async () => {
+      const user = userEvent.setup()
+      renderPage()
+
+      // Two rows, so "on its own row" is a real claim: a single-row form
+      // cannot distinguish per-row placement from page-level placement.
+      await selectProductInRow(user, 0, 'Alpha Widget')
+      await user.click(screen.getByRole('button', { name: /add item/i }))
+      await selectProductInRow(user, 1, 'Beta Gadget')
+
+      const row0Input = screen.getByTestId('items.0.difference') as HTMLInputElement
+      const row1Input = screen.getByTestId('items.1.difference') as HTMLInputElement
+
+      // Row 0 stays valid; only row 1 violates notOneOf([0]).
+      fireEvent.change(row0Input, { target: { value: '5' } })
+      await waitFor(() => expect(row0Input.value).toBe('5'))
+      fireEvent.change(row1Input, { target: { value: '0' } })
+      await waitFor(() => expect(row1Input.value).toBe('0'))
+
+      await user.click(screen.getByRole('button', { name: /create adjustment/i }))
+
+      const row1 = row1Input.closest('tr') as HTMLElement
+      await waitFor(() => {
+        expect(
+          within(row1).getByText(/quantity change cannot be zero/i),
+        ).toBeInTheDocument()
+      })
+
+      // The error belongs to row 1 alone — it must not leak onto the valid row.
+      const row0 = row0Input.closest('tr') as HTMLElement
+      expect(
+        within(row0).queryByText(/quantity change cannot be zero/i),
+      ).not.toBeInTheDocument()
+
+      // The field-array root Alert (CreateStockAdjustmentPage.tsx) renders only
+      // when errors.items is a non-array (root) error. It must stay absent when
+      // the only failure belongs to a specific row.
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+      expect(mockCreateAdjustment).not.toHaveBeenCalled()
+    })
+  })
+
   describe('revert prefill', () => {
     it('prefills negative qty changes from a completed source when ?revertFrom is set', async () => {
       mockSearchParams.mockReturnValue([new URLSearchParams('revertFrom=source-1'), vi.fn()])
