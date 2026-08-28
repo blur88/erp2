@@ -7,6 +7,7 @@
   "testTimeout": 60000,
   "maxWorkers": 1,
   "transform": { "^.+\\.(t|j)s$": "ts-jest" },
+  "transformIgnorePatterns": ["node_modules/(?!(@nestjs/(bullmq|bull-shared))/)"],
   "moduleNameMapper": {
     "^@/(.*)$": "<rootDir>/src/$1",
     "^@modules/(.*)$": "<rootDir>/src/modules/$1",
