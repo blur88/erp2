@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import { InMemoryRedisMemoryHistoryStore } from './in-memory-redis-memory-history.store';
 import { RedisMemoryPressureEvaluator } from './redis-memory-pressure.evaluator';
 import { RedisMemorySamplerService } from './redis-memory-sampler.service';
-import { SampleQuery } from './redis-memory-history.store';
+import type { SampleQuery } from './redis-memory-history.store';
 import { REDIS_COMMAND_TIMEOUT_MS, RedisMemorySample } from './redis-memory.types';
 
 const redisMock = {

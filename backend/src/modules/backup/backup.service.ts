@@ -15,7 +15,7 @@ import { RegionalSettings } from '@database/entities/regional-settings.entity';
 import { DocumentNumberSetting } from '@database/entities/document-number-settings.entity';
 import { PrintSettings } from '@database/entities/print-settings.entity';
 import { CreateBackupDto, BackupDatabase } from './dto/create-backup.dto';
-import { BackupMetadata } from './interfaces/backup-metadata.interface';
+import type { BackupMetadata } from './interfaces/backup-metadata.interface';
 import { UpdateBackupSettingsDto, BackupSettingsResponseDto } from './dto/backup-settings.dto';
 import { plainToInstance } from 'class-transformer';
 

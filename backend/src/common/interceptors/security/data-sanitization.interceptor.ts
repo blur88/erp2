@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { BaseLoggingInterceptor } from '../core/base-logging.interceptor';
 import { DataSanitizerService } from '../utils/sanitizer.service';
 import { BusinessContextMapperService } from '../utils/context-mapper.service';

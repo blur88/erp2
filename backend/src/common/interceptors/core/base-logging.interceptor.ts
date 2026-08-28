@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { BusinessContextMapperService } from '../utils/context-mapper.service';
 
 @Injectable()

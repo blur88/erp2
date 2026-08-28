@@ -17,7 +17,7 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import {
   LoginDto,

@@ -9,10 +9,10 @@ import { AccountType } from '../entities/account-type.enum';
 import { PostingType } from '../entities/posting-type.enum';
 import { AccountingSourceType } from '../entities/source-type.enum';
 import { formatScale4, toMinorUnits } from '@/common/utils/money';
-import {
+import type {
   AccountingPostingPort, PostResult,
 } from '../../../common/accounting-posting/accounting-posting.port';
-import {
+import type {
   PostSalesPaymentCmd, PostSalesRefundCmd, PostSalesFulfillmentCmd,
   PostPurchasePaymentCmd, PostPurchaseRefundCmd, PostPurchaseReceiveCmd,
   PostStockAdjustmentCmd, PostOpeningBalanceCmd, PostExpensePaymentCmd, PostExpenseRefundCmd,

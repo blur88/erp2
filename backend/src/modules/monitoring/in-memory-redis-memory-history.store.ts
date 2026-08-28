@@ -5,7 +5,7 @@ import {
   RedisWindowStats,
   KnownInstance,
 } from './redis-memory.types';
-import {
+import type {
   RedisMemoryHistoryStore,
   SampleQuery,
 } from './redis-memory-history.store';
