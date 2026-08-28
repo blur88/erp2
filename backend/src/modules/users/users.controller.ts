@@ -23,8 +23,6 @@ import {
   ApiConflictResponse,
   ApiQuery,
 } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
-
 import { UsersService } from './users.service';
 import { UserRole } from '../../database/entities/user.entity';
 import { Auth } from '../auth/decorators/auth.decorator';
@@ -54,9 +52,10 @@ export class UsersController {
   /**
    * Create a new user
    */
+  // Rate limiting is enforced by nginx (nginx/nginx.conf: login_limit).
+  // App-layer throttling is tracked in #1154.
   @Post()
   @Auth(UserRole.ADMIN)
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({
     summary: 'Create new user',
     description: 'Create a new user account (Admin only)',

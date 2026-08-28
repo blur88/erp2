@@ -16,7 +16,6 @@ import {
   ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import {
@@ -35,10 +34,11 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // Rate limiting is enforced by nginx (nginx/nginx.conf: login_limit).
+  // App-layer throttling is tracked in #1154.
   @Post('login')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute
   @ApiOperation({
     summary: 'User login',
     description: 'Authenticate user with username/email and password. Returns JWT tokens.',
@@ -68,9 +68,10 @@ export class AuthController {
     return this.authService.login(loginDto, ipAddress, userAgent);
   }
 
+  // Rate limiting is enforced by nginx (nginx/nginx.conf: login_limit).
+  // App-layer throttling is tracked in #1154.
   @Post('register')
   @Public()
-  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 requests per minute
   @ApiOperation({
     summary: 'User registration',
     description: 'Register new user account. Auto-login after successful registration.',
