@@ -5,26 +5,35 @@ import { ConfigService } from '@nestjs/config';
  */
 
 /**
- * Creates secure SSL configuration based on environment
+ * Builds the TypeORM `ssl` option from `DB_SSL`.
+ *
+ * SSL is **opt-in in every environment**, including production. `NODE_ENV` is
+ * deliberately not consulted: the deployed topology runs Postgres as an
+ * in-compose container on a private Docker network, and that endpoint serves
+ * no TLS, so a production-only override made `DB_SSL` a knob the production
+ * code path ignored (#1158). Encryption is selected by the flag, not inferred
+ * from the environment.
+ *
+ * Set `DB_SSL=true` when the database actually serves TLS — a managed
+ * provider, or a Postgres configured with certificates. In the compose files
+ * this flag is fed from the `DATABASE_SSL` variable in `.env`.
+ *
  * @param configService - The NestJS config service
- * @returns SSL configuration object
+ * @returns `false`, or an SSL options object when enabled
  */
 export function createSSLConfig(configService: ConfigService): any {
-  const isProduction = configService.get('NODE_ENV') === 'production';
-  
-  if (!isProduction) {
-    // Development/staging: allow SSL to be optionally enabled
-    const sslEnabled = configService.get<string>('DB_SSL', 'false') === 'true';
-    return sslEnabled;
+  const sslEnabled = configService.get<string>('DB_SSL', 'false') === 'true';
+
+  if (!sslEnabled) {
+    return false;
   }
-  
-  // Production: enforce proper SSL with certificate validation
+
+  // Enabled: always validate the server certificate.
   const sslCA = configService.get<string>('DB_SSL_CA');
   const sslCert = configService.get<string>('DB_SSL_CERT');
   const sslKey = configService.get<string>('DB_SSL_KEY');
-  
-  // Allow production without full SSL certs for Docker environments
-  // but always enforce encryption and certificate validation
+
+  // Full mutual-TLS material supplied.
   if (sslCA && sslCert && sslKey) {
     return {
       rejectUnauthorized: true,
@@ -33,8 +42,8 @@ export function createSSLConfig(configService: ConfigService): any {
       key: sslKey,
     };
   }
-  
-  // Fallback: enforce SSL with server certificate validation
+
+  // Encryption with server certificate validation.
   return {
     rejectUnauthorized: true,
   };

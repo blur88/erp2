@@ -107,6 +107,11 @@ services:
       - DB_PASSWORD=${DATABASE_PASSWORD}
       - DB_LOGGING=false
       - DB_SYNCHRONIZE=false
+      # Opt-in, and off by default: the postgres service above is on the
+      # private erp_network and serves no TLS, so false is correct here.
+      # Set DATABASE_SSL=true in .env only when pointing DB_HOST at a
+      # TLS-serving database (a managed provider, or a Postgres configured
+      # with certificates). Honoured in every environment since #1158.
       - DB_SSL=${DATABASE_SSL:-false}
 
       # Redis
