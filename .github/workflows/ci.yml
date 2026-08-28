@@ -109,9 +109,10 @@ jobs:
       # hand-rolled via raw zadd/hset from a shape captured byte-for-byte from
       # bullmq@5.81.3 before the `bullmq-v5` alias was retired (#1050). The
       # unit tests mock hexists and so cannot catch an inverted ic check, so
-      # a "Tests: 0 total" here is a FAILURE, not a pass — the suite must
-      # report 11. Runs last because it is the cheapest gate and must not
-      # delay E2E feedback.
+      # this suite is the only thing that does. A "Tests: 0 total" here is a
+      # FAILURE, not a pass — Jest exits non-zero on it, which is why no count
+      # is asserted (#1164). Runs last because it is the cheapest gate and must
+      # not delay E2E feedback.
       - name: Orphaned scheduler reconciliation tests
         run: npm run test:redis
 
