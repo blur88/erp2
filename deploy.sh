@@ -1,11 +1,20 @@
 #!/bin/bash
 
-# ERP System Deployment Script
-# This script sets up and deploys the complete ERP system
+# ERP System - Local Development Stack
+#
+# This script builds and runs the stack from local source for DEVELOPMENT.
+# It is NOT the production deploy path.
+#
+#   Production  ->  ./setup.sh          (docker-compose.prod.yml, prebuilt image)
+#   Development ->  ./deploy.sh         (this script, builds from ./backend + ./frontend)
+#
+# Compose files are named explicitly below rather than relying on compose's
+# implicit merge of docker-compose.override.yml, so the selected configuration
+# is visible on every command (#1158).
 
 set -e
 
-echo "🚀 Starting ERP System Deployment..."
+echo "🚀 Starting ERP System (local development stack)..."
 
 # Colors for output
 RED='\033[0;31m'
@@ -13,6 +22,10 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Development stack: base + the local override (ports, debug logging).
+# setup.sh owns the production stack and pins docker-compose.prod.yml.
+COMPOSE_FILES="-f docker-compose.yml -f docker-compose.override.yml"
 
 # Function to print colored output
 print_status() {
@@ -77,13 +90,13 @@ deploy_services() {
     print_status "Building and starting services..."
     
     # Pull latest images
-    docker compose pull
+    docker compose $COMPOSE_FILES pull
     
     # Build custom images
-    docker compose build --no-cache
+    docker compose $COMPOSE_FILES build --no-cache
     
     # Start services
-    docker compose up -d
+    docker compose $COMPOSE_FILES up -d
     
     print_success "Services started successfully"
 }
@@ -94,13 +107,13 @@ wait_for_services() {
     
     # Wait for PostgreSQL
     print_status "Waiting for PostgreSQL..."
-    until docker compose exec postgres pg_isready -U erp_user; do
+    until docker compose $COMPOSE_FILES exec postgres pg_isready -U erp_user; do
         sleep 2
     done
     
     # Wait for Redis
     print_status "Waiting for Redis..."
-    until docker compose exec redis redis-cli ping; do
+    until docker compose $COMPOSE_FILES exec redis redis-cli ping; do
         sleep 2
     done
     
@@ -128,7 +141,7 @@ wait_for_services() {
 # Display service status
 show_status() {
     print_status "Service Status:"
-    docker compose ps
+    docker compose $COMPOSE_FILES ps
     
     echo ""
     print_success "🎉 ERP System deployed successfully!"
@@ -143,17 +156,17 @@ show_status() {
     echo "  ⚠️  Change the default password immediately after first login!"
     echo ""
     echo "Useful Commands:"
-    echo "  📊 View logs: docker compose logs -f"
-    echo "  🔄 Restart services: docker compose restart"
-    echo "  🛑 Stop services: docker compose down"
-    echo "  🧹 Clean up: docker compose down -v --remove-orphans"
+    echo "  📊 View logs: ./deploy.sh logs"
+    echo "  🔄 Restart services: ./deploy.sh restart"
+    echo "  🛑 Stop services: ./deploy.sh stop"
+    echo "  🧹 Clean up: ./deploy.sh clean"
     echo ""
 }
 
 # Cleanup function for errors
 cleanup_on_error() {
     print_error "Deployment failed. Cleaning up..."
-    docker compose down
+    docker compose $COMPOSE_FILES down
     exit 1
 }
 
@@ -182,29 +195,29 @@ case "${1:-deploy}" in
         ;;
     "stop")
         print_status "Stopping ERP System..."
-        docker compose down
+        docker compose $COMPOSE_FILES down
         print_success "ERP System stopped"
         ;;
     "restart")
         print_status "Restarting ERP System..."
-        docker compose restart
+        docker compose $COMPOSE_FILES restart
         print_success "ERP System restarted"
         ;;
     "logs")
-        docker compose logs -f
+        docker compose $COMPOSE_FILES logs -f
         ;;
     "clean")
         print_warning "This will remove all containers, networks, and volumes!"
         read -p "Are you sure? (y/N): " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
-            docker compose down -v --remove-orphans
+            docker compose $COMPOSE_FILES down -v --remove-orphans
             docker system prune -f
             print_success "Cleanup completed"
         fi
         ;;
     "status")
-        docker compose ps
+        docker compose $COMPOSE_FILES ps
         ;;
     *)
         echo "Usage: $0 {deploy|stop|restart|logs|clean|status}"

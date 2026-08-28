@@ -79,7 +79,7 @@ Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and me
 
 **Non-obvious decisions:**
 - `TypeScript strict: false` — use `as any` when TypeORM types resist
-- DB uses `family: 4` (IPv4 force) and SSL disabled for Docker PostgreSQL compatibility
+- DB uses `family: 4` (IPv4 force). Database SSL is **opt-in via `DB_SSL` in every environment, including production** (#1158) — `NODE_ENV` is deliberately not consulted, because the in-compose Postgres is on a private Docker network and serves no TLS. `createSSLConfig` returns `false` unless `DB_SSL=true`, and `{ rejectUnauthorized: true }` (plus CA/cert/key when all three are set) when it is. `ssl.config.spec.ts` asserts the result is identical across environments; a production-only branch is what made the flag inert before.
 - Frontend environment variables injected at runtime via `window.__ENV__` (not build-time) so one Docker image works across environments
 - Backend source changes require `docker compose build backend && docker compose up -d backend` — there is no volume mount for live reload in Docker
 - All API responses go through `ApiService` which wraps them as `{ data: T, meta?: {...} }` — see Gotchas for access patterns
