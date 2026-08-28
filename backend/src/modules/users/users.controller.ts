@@ -52,7 +52,7 @@ export class UsersController {
   /**
    * Create a new user
    */
-  // Rate limiting is enforced by nginx (nginx/nginx.conf: login_limit).
+  // Rate limiting is enforced by nginx (nginx/nginx.conf: user_create_limit).
   // App-layer throttling is tracked in #1154.
   @Post()
   @Auth(UserRole.ADMIN)
