@@ -124,6 +124,126 @@ jobs:
       - name: Gate script tests
         run: npm run test:scripts
 
+  # Proves the PRODUCTION IMAGE applies migrations against an empty database.
+  #
+  # Nothing else covers this. Unit/e2e/redis all run from src/ with ts-node
+  # resolution; verify:dist proves the require graph loads and (statically) that
+  # the compiled migrations pattern targets dist/. Only starting the real image
+  # against a real empty database proves migrations are actually discovered and
+  # applied — the failure mode is silent (a glob matching nothing yields "no
+  # pending migrations", not an error) and is invisible on any already-migrated
+  # database.
+  migrations-fresh-db:
+    name: Production Image - Fresh Database Migrations
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18.3-alpine
+        env:
+          POSTGRES_USER: erp_ci
+          POSTGRES_PASSWORD: erp_ci_password
+          POSTGRES_DB: erp_fresh
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U erp_ci -d erp_fresh"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8.6-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build the production image
+        run: docker build -t erp-backend:ci ./backend
+
+      - name: Assert the database is empty before boot
+        run: |
+          count=$(docker run --rm --network host -e PGPASSWORD=erp_ci_password \
+            postgres:18.3-alpine psql -h localhost -U erp_ci -d erp_fresh -tAc \
+            "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';")
+          echo "public tables before boot: $count"
+          if [ "$count" -ne 0 ]; then
+            echo "::error::database is not empty; this gate must start from a fresh DB" >&2
+            exit 1
+          fi
+
+      - name: Boot the production image against the empty database
+        run: |
+          # NODE_ENV matches how this image is actually deployed (compose
+          # defaults to development). Production forces DB SSL on regardless of
+          # DB_SSL — see createSSLConfig — which a plain Postgres service
+          # container cannot serve. Migration discovery, the thing under test,
+          # is identical either way.
+          docker run -d --name erp_ci_backend --network host \
+            -e NODE_ENV=development \
+            -e DB_SSL=false \
+            -e DB_HOST=localhost -e DB_PORT=5432 \
+            -e DB_USERNAME=erp_ci -e DB_PASSWORD=erp_ci_password -e DB_DATABASE=erp_fresh \
+            -e DB_SYNCHRONIZE=false \
+            -e REDIS_HOST=localhost -e REDIS_PORT=6379 \
+            -e JWT_SECRET=ci_jwt_secret_value_not_used_outside_ci \
+            -e PORT=3001 \
+            erp-backend:ci
+
+      - name: Wait for the application to become healthy
+        run: |
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/health || true)
+            if [ "$code" = "200" ]; then echo "healthy after ${i}s"; exit 0; fi
+            if ! docker ps --format '{{.Names}}' | grep -q '^erp_ci_backend$'; then
+              echo "::error::container exited before becoming healthy" >&2
+              docker logs erp_ci_backend 2>&1 | tail -60 >&2
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "::error::application never became healthy" >&2
+          docker logs erp_ci_backend 2>&1 | tail -60 >&2
+          exit 1
+
+      - name: Verify migrations were applied and match the compiled set
+        run: |
+          applied=$(docker run --rm --network host -e PGPASSWORD=erp_ci_password \
+            postgres:18.3-alpine psql -h localhost -U erp_ci -d erp_fresh -tAc \
+            "SELECT count(*) FROM migrations;")
+          compiled=$(docker run --rm erp-backend:ci \
+            sh -c 'ls /app/dist/database/migrations/*.js 2>/dev/null | wc -l')
+          applied=$(echo "$applied" | tr -d '[:space:]')
+          compiled=$(echo "$compiled" | tr -d '[:space:]')
+          echo "applied=$applied compiled=$compiled"
+
+          # Derived from the image, never hard-coded: the count tracks the
+          # migration set as it grows.
+          if [ "$compiled" -eq 0 ]; then
+            echo "::error::image contains no compiled migrations" >&2
+            exit 1
+          fi
+          if [ "$applied" -ne "$compiled" ]; then
+            echo "::error::applied ($applied) != compiled ($compiled) — migrations were not fully discovered" >&2
+            docker logs erp_ci_backend 2>&1 | tail -60 >&2
+            exit 1
+          fi
+
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs erp_ci_backend 2>&1 | tail -200
+
+      - name: Tear down
+        if: always()
+        run: docker rm -f erp_ci_backend || true
+
   test-frontend:
     name: Frontend - Lint, Type Check, Tests
     runs-on: ubuntu-latest
