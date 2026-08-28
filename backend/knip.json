@@ -9,7 +9,7 @@
   ],
   "project": ["src/**/*.ts"],
   "ignore": ["src/database/migrations/**"],
-  "ignoreDependencies": ["ts-loader", "bats"],
+  "ignoreDependencies": ["bats"],
   "ignoreBinaries": ["bats"],
   "ignoreExportsUsedInFile": true
 }
