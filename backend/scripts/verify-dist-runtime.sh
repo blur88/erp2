@@ -71,8 +71,12 @@ echo "==> Loading $DIST_DIR/main.js to verify the require graph resolves ..."
 
 # This is a load-only check, run in a child process. Requiring main.js executes
 # bootstrap(), which will fail without a DB/Redis — that is fine and expected.
-# We only care about MODULE_NOT_FOUND, which is thrown synchronously while the
-# require graph is being walked, before any connection or listen is attempted.
+# We care about resolution failures, which are thrown synchronously while the
+# require graph is being walked, before any connection or listen is attempted:
+#   - MODULE_NOT_FOUND           (missing module)
+#   - ERR_PACKAGE_PATH_NOT_EXPORTED (bare require of an import-only ESM package —
+#     the NestJS 12 @nestjs/typeorm crash class; treated as "resolved" here
+#     would ship an image that boots to a crash-loop)
 load_status=0
 load_output=$(node -e '
   const path = require("path");
@@ -80,8 +84,8 @@ load_output=$(node -e '
   try {
     require(target);
   } catch (err) {
-    if (err && err.code === "MODULE_NOT_FOUND") {
-      console.error("MODULE_NOT_FOUND: " + err.message);
+    if (err && (err.code === "MODULE_NOT_FOUND" || err.code === "ERR_PACKAGE_PATH_NOT_EXPORTED")) {
+      console.error(err.code + ": " + err.message);
       process.exit(2);
     }
     // Any other error means the module graph resolved; the app simply could not
