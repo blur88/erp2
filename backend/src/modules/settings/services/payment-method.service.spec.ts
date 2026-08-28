@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,9 +10,9 @@ import { ExpensePayment } from '../../../modules/accounting/entities/expense-pay
 
 describe('PaymentMethodService', () => {
   let service: PaymentMethodService;
-  let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
-  let paymentRepository: jest.Mocked<Repository<Payment>>;
-  let expensePaymentRepository: jest.Mocked<Repository<ExpensePayment>>;
+  let paymentMethodRepository: any;
+  let paymentRepository: any;
+  let expensePaymentRepository: any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -20,31 +21,31 @@ describe('PaymentMethodService', () => {
         {
           provide: getRepositoryToken(PaymentMethodEntity),
           useValue: {
-            createQueryBuilder: jest.fn(),
-            findOne: jest.fn(),
-            find: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            softDelete: jest.fn(),
-            restore: jest.fn(),
-            delete: jest.fn(),
+            createQueryBuilder: (jest.fn as unknown as any)(),
+            findOne: (jest.fn as unknown as any)(),
+            find: (jest.fn as unknown as any)(),
+            create: (jest.fn as unknown as any)(),
+            save: (jest.fn as unknown as any)(),
+            softDelete: (jest.fn as unknown as any)(),
+            restore: (jest.fn as unknown as any)(),
+            delete: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(Payment),
           useValue: {
-            count: jest.fn(),
-            createQueryBuilder: jest.fn().mockReturnValue({
-              delete: jest.fn().mockReturnThis(),
-              where: jest.fn().mockReturnThis(),
-              execute: jest.fn().mockResolvedValue({}),
+            count: (jest.fn as unknown as any)(),
+            createQueryBuilder: (jest.fn as unknown as any)().mockReturnValue({
+              delete: (jest.fn as unknown as any)().mockReturnThis(),
+              where: (jest.fn as unknown as any)().mockReturnThis(),
+              execute: (jest.fn as unknown as any)().mockResolvedValue({}),
             }),
           },
         },
         {
           provide: getRepositoryToken(ExpensePayment),
           useValue: {
-            count: jest.fn(),
+            count: (jest.fn as unknown as any)(),
           },
         },
       ],
@@ -62,13 +63,13 @@ describe('PaymentMethodService', () => {
 
   describe('findAll pagination', () => {
     const createQb = () => ({
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      addOrderBy: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      where: (jest.fn as unknown as any)().mockReturnThis(),
+      andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+      orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      skip: (jest.fn as unknown as any)().mockReturnThis(),
+      take: (jest.fn as unknown as any)().mockReturnThis(),
+      getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([[], 0]),
     });
 
     it('returns full set when page/limit absent', async () => {

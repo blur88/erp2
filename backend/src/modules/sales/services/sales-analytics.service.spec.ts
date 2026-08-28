@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { SalesAnalyticsService } from './sales-analytics.service';
@@ -12,10 +13,10 @@ const d = (s: string) => new Date(`${s}T00:00:00.000Z`);
 
 function makeRepoMock() {
   return {
-    createQueryBuilder: jest.fn(),
-    find: jest.fn().mockResolvedValue([]),
-    findOne: jest.fn().mockResolvedValue(null),
-    count: jest.fn().mockResolvedValue(0),
+    createQueryBuilder: (jest.fn as unknown as any)(),
+    find: (jest.fn as unknown as any)().mockResolvedValue([]),
+    findOne: (jest.fn as unknown as any)().mockResolvedValue(null),
+    count: (jest.fn as unknown as any)().mockResolvedValue(0),
   };
 }
 
@@ -27,24 +28,24 @@ function makeRepoMock() {
  */
 function makeChainableQb(rawOneResult: any = {}) {
   const qb: any = {
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    leftJoin: jest.fn().mockReturnThis(),
-    leftJoinAndSelect: jest.fn().mockReturnThis(),
-    select: jest.fn().mockReturnThis(),
-    addSelect: jest.fn().mockReturnThis(),
-    setParameters: jest.fn().mockReturnThis(),
-    setParameter: jest.fn().mockReturnThis(),
-    groupBy: jest.fn().mockReturnThis(),
-    addGroupBy: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    addOrderBy: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    take: jest.fn().mockReturnThis(),
-    getRawMany: jest.fn().mockResolvedValue([]),
-    getRawOne: jest.fn().mockResolvedValue(rawOneResult),
-    getMany: jest.fn().mockResolvedValue([]),
-    getCount: jest.fn().mockResolvedValue(0),
+    where: (jest.fn as unknown as any)().mockReturnThis(),
+    andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+    leftJoin: (jest.fn as unknown as any)().mockReturnThis(),
+    leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+    select: (jest.fn as unknown as any)().mockReturnThis(),
+    addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+    setParameters: (jest.fn as unknown as any)().mockReturnThis(),
+    setParameter: (jest.fn as unknown as any)().mockReturnThis(),
+    groupBy: (jest.fn as unknown as any)().mockReturnThis(),
+    addGroupBy: (jest.fn as unknown as any)().mockReturnThis(),
+    orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+    addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+    limit: (jest.fn as unknown as any)().mockReturnThis(),
+    take: (jest.fn as unknown as any)().mockReturnThis(),
+    getRawMany: (jest.fn as unknown as any)().mockResolvedValue([]),
+    getRawOne: (jest.fn as unknown as any)().mockResolvedValue(rawOneResult),
+    getMany: (jest.fn as unknown as any)().mockResolvedValue([]),
+    getCount: (jest.fn as unknown as any)().mockResolvedValue(0),
   };
   return qb;
 }
@@ -52,7 +53,7 @@ function makeChainableQb(rawOneResult: any = {}) {
 describe('SalesAnalyticsService', () => {
   let service: SalesAnalyticsService;
   const settingsService = {
-    getRegionalSettings: jest.fn().mockResolvedValue({ timezone: 'UTC' }),
+    getRegionalSettings: (jest.fn as unknown as any)().mockResolvedValue({ timezone: 'UTC' }),
   };
 
   beforeEach(async () => {
@@ -263,23 +264,23 @@ describe('SalesAnalyticsService', () => {
   describe('getPeriodData filter propagation', () => {
     function makeQbChain() {
       const qb: any = {};
-      qb.where = jest.fn().mockReturnValue(qb);
-      qb.andWhere = jest.fn().mockReturnValue(qb);
-      qb.leftJoin = jest.fn().mockReturnValue(qb);
-      qb.select = jest.fn().mockReturnValue(qb);
-      qb.groupBy = jest.fn().mockReturnValue(qb);
-      qb.orderBy = jest.fn().mockReturnValue(qb);
-      qb.getRawMany = jest.fn().mockResolvedValue([]);
+      qb.where = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.andWhere = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.leftJoin = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.select = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.groupBy = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.orderBy = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.getRawMany = (jest.fn as unknown as any)().mockResolvedValue([]);
       return qb;
     }
 
     function makeCustomerQbChain() {
       const qb: any = {};
-      qb.where = jest.fn().mockReturnValue(qb);
-      qb.select = jest.fn().mockReturnValue(qb);
-      qb.groupBy = jest.fn().mockReturnValue(qb);
-      qb.orderBy = jest.fn().mockReturnValue(qb);
-      qb.getRawMany = jest.fn().mockResolvedValue([]);
+      qb.where = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.select = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.groupBy = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.orderBy = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.getRawMany = (jest.fn as unknown as any)().mockResolvedValue([]);
       return qb;
     }
 
@@ -289,9 +290,8 @@ describe('SalesAnalyticsService', () => {
     it('applies customerId filter when provided', async () => {
       const qb = makeQbChain();
       const customerQb = makeCustomerQbChain();
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
-      (service as any).customerRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).salesOrderRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
+      (service as any).customerRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(customerQb);
 
       await (service as any).getPeriodData(start, end, 'month', {
@@ -306,9 +306,8 @@ describe('SalesAnalyticsService', () => {
     it('applies salesRepId filter when provided', async () => {
       const qb = makeQbChain();
       const customerQb = makeCustomerQbChain();
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
-      (service as any).customerRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).salesOrderRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
+      (service as any).customerRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(customerQb);
 
       await (service as any).getPeriodData(start, end, 'month', {
@@ -323,9 +322,8 @@ describe('SalesAnalyticsService', () => {
     it('applies no extra andWhere calls when query has no filters', async () => {
       const qb = makeQbChain();
       const customerQb = makeCustomerQbChain();
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
-      (service as any).customerRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).salesOrderRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
+      (service as any).customerRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(customerQb);
 
       await (service as any).getPeriodData(start, end, 'month', {});
@@ -340,15 +338,15 @@ describe('SalesAnalyticsService', () => {
   describe('getTopCustomers filter propagation', () => {
     function makeQbChain() {
       const qb: any = {};
-      qb.leftJoin = jest.fn().mockReturnValue(qb);
-      qb.where = jest.fn().mockReturnValue(qb);
-      qb.andWhere = jest.fn().mockReturnValue(qb);
-      qb.select = jest.fn().mockReturnValue(qb);
-      qb.groupBy = jest.fn().mockReturnValue(qb);
-      qb.addGroupBy = jest.fn().mockReturnValue(qb);
-      qb.orderBy = jest.fn().mockReturnValue(qb);
-      qb.limit = jest.fn().mockReturnValue(qb);
-      qb.getRawMany = jest.fn().mockResolvedValue([]);
+      qb.leftJoin = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.where = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.andWhere = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.select = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.groupBy = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.addGroupBy = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.orderBy = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.limit = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.getRawMany = (jest.fn as unknown as any)().mockResolvedValue([]);
       return qb;
     }
 
@@ -357,7 +355,7 @@ describe('SalesAnalyticsService', () => {
 
     it('applies salesRepId filter when provided', async () => {
       const qb = makeQbChain();
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).salesOrderRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
 
       await (service as any).getTopCustomers(start, end, 10, {
         salesRepId: 'rep-1',
@@ -370,7 +368,7 @@ describe('SalesAnalyticsService', () => {
 
     it('does not add salesRepId andWhere when not provided', async () => {
       const qb = makeQbChain();
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).salesOrderRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
 
       await (service as any).getTopCustomers(start, end, 10, {});
 
@@ -382,15 +380,15 @@ describe('SalesAnalyticsService', () => {
   describe('getTopProducts filter propagation', () => {
     function makeQbChain() {
       const qb: any = {};
-      qb.leftJoin = jest.fn().mockReturnValue(qb);
-      qb.where = jest.fn().mockReturnValue(qb);
-      qb.andWhere = jest.fn().mockReturnValue(qb);
-      qb.select = jest.fn().mockReturnValue(qb);
-      qb.groupBy = jest.fn().mockReturnValue(qb);
-      qb.addGroupBy = jest.fn().mockReturnValue(qb);
-      qb.orderBy = jest.fn().mockReturnValue(qb);
-      qb.limit = jest.fn().mockReturnValue(qb);
-      qb.getRawMany = jest.fn().mockResolvedValue([]);
+      qb.leftJoin = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.where = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.andWhere = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.select = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.groupBy = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.addGroupBy = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.orderBy = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.limit = (jest.fn as unknown as any)().mockReturnValue(qb);
+      qb.getRawMany = (jest.fn as unknown as any)().mockResolvedValue([]);
       return qb;
     }
 
@@ -399,7 +397,7 @@ describe('SalesAnalyticsService', () => {
 
     it('applies customerId filter when provided', async () => {
       const qb = makeQbChain();
-      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).salesOrderItemRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
 
       await (service as any).getTopProducts(start, end, 10, {
         customerId: 'cust-1',
@@ -412,7 +410,7 @@ describe('SalesAnalyticsService', () => {
 
     it('applies salesRepId filter when provided', async () => {
       const qb = makeQbChain();
-      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).salesOrderItemRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
 
       await (service as any).getTopProducts(start, end, 10, {
         salesRepId: 'rep-1',
@@ -425,7 +423,7 @@ describe('SalesAnalyticsService', () => {
 
     it('applies both customerId and salesRepId when both provided', async () => {
       const qb = makeQbChain();
-      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).salesOrderItemRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
 
       await (service as any).getTopProducts(start, end, 10, {
         customerId: 'cust-1',
@@ -442,7 +440,7 @@ describe('SalesAnalyticsService', () => {
 
     it('applies no extra andWhere calls when query has no filters', async () => {
       const qb = makeQbChain();
-      (service as any).salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).salesOrderItemRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
 
       await (service as any).getTopProducts(start, end, 10, {});
 
@@ -657,18 +655,18 @@ describe('SalesAnalyticsService', () => {
   describe('getSalesAnalytics filter propagation', () => {
     function makeChainMock(rawOne: object = {}, rawMany: object[] = []) {
       const chain: any = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        select: jest.fn().mockReturnThis(),
-        addSelect: jest.fn().mockReturnThis(),
-        leftJoin: jest.fn().mockReturnThis(),
-        groupBy: jest.fn().mockReturnThis(),
-        addGroupBy: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockReturnThis(),
-        setParameters: jest.fn().mockReturnThis(),
-        setParameter: jest.fn().mockReturnThis(),
-        getRawOne: jest.fn().mockResolvedValue({
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        select: (jest.fn as unknown as any)().mockReturnThis(),
+        addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        leftJoin: (jest.fn as unknown as any)().mockReturnThis(),
+        groupBy: (jest.fn as unknown as any)().mockReturnThis(),
+        addGroupBy: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        limit: (jest.fn as unknown as any)().mockReturnThis(),
+        setParameters: (jest.fn as unknown as any)().mockReturnThis(),
+        setParameter: (jest.fn as unknown as any)().mockReturnThis(),
+        getRawOne: (jest.fn as unknown as any)().mockResolvedValue({
           totalRevenue: '0',
           totalOrders: '0',
           averageOrderValue: '0',
@@ -680,8 +678,8 @@ describe('SalesAnalyticsService', () => {
           overdueInvoicesAmount: '0',
           ...rawOne,
         }),
-        getRawMany: jest.fn().mockResolvedValue(rawMany),
-        getCount: jest.fn().mockResolvedValue(0),
+        getRawMany: (jest.fn as unknown as any)().mockResolvedValue(rawMany),
+        getCount: (jest.fn as unknown as any)().mockResolvedValue(0),
       };
 
       return chain;
@@ -692,17 +690,13 @@ describe('SalesAnalyticsService', () => {
       const customerChain = makeChainMock();
       const paymentChain = makeChainMock();
 
-      (service as any).salesOrderRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).salesOrderRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(orderChain);
-      (service as any).customerRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).customerRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(customerChain);
-      (service as any).paymentRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).paymentRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(paymentChain);
-      (service as any).salesOrderItemRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).salesOrderItemRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(makeChainMock({}, []));
 
       await service.getSalesAnalytics({
@@ -720,17 +714,13 @@ describe('SalesAnalyticsService', () => {
       const customerChain = makeChainMock({}, []);
       const paymentChain = makeChainMock();
 
-      (service as any).salesOrderRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).salesOrderRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(orderChain);
-      (service as any).customerRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).customerRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(customerChain);
-      (service as any).paymentRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).paymentRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(paymentChain);
-      (service as any).salesOrderItemRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).salesOrderItemRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(makeChainMock({}, []));
 
       await service.getSalesAnalytics({
@@ -749,17 +739,13 @@ describe('SalesAnalyticsService', () => {
       const customerChain = makeChainMock({}, []);
       const paymentChain = makeChainMock();
 
-      (service as any).salesOrderRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).salesOrderRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(orderChain);
-      (service as any).customerRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).customerRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(customerChain);
-      (service as any).paymentRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).paymentRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(paymentChain);
-      (service as any).salesOrderItemRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).salesOrderItemRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(makeChainMock({}, []));
 
       await service.getSalesAnalytics({
@@ -780,8 +766,8 @@ describe('SalesAnalyticsService', () => {
 
     it('applies the stored paymentStatus column in getPeriodData', async () => {
       const qb = makeChainableQb();
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
-      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).salesOrderRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
+      (service as any).customerRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
 
       await (service as any).getPeriodData(start, end, 'month', { paymentStatus: 'paid' });
 
@@ -792,7 +778,7 @@ describe('SalesAnalyticsService', () => {
 
     it('applies paymentStatus in getTopCustomers', async () => {
       const qb = makeChainableQb();
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).salesOrderRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
 
       await (service as any).getTopCustomers(start, end, 10, { paymentStatus: 'paid' });
 
@@ -803,8 +789,7 @@ describe('SalesAnalyticsService', () => {
 
     it('applies paymentStatus in getTopProducts', async () => {
       const qb = makeChainableQb();
-      (service as any).salesOrderItemRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).salesOrderItemRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(qb);
 
       await (service as any).getTopProducts(start, end, 10, { paymentStatus: 'paid' });
@@ -821,8 +806,8 @@ describe('SalesAnalyticsService', () => {
       ['overpaid', 'OVERPAID'],
     ])('maps DTO value %s to enum %s', async (input, expected) => {
       const qb = makeChainableQb();
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
-      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).salesOrderRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
+      (service as any).customerRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
 
       await (service as any).getPeriodData(start, end, 'month', { paymentStatus: input });
 
@@ -833,7 +818,7 @@ describe('SalesAnalyticsService', () => {
 
     it('applies customerId in getTopCustomers (previously missing)', async () => {
       const qb = makeChainableQb();
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).salesOrderRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
 
       await (service as any).getTopCustomers(start, end, 10, { customerId: 'cust-1' });
 
@@ -857,15 +842,12 @@ describe('SalesAnalyticsService', () => {
         overdueInvoicesAmount: '0',
       });
 
-      (service as any).salesOrderRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).salesOrderRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValueOnce(orderQb)
         .mockReturnValueOnce(fulfilledQb);
-      (service as any).customerRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).customerRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(makeChainableQb());
-      (service as any).paymentRepository.createQueryBuilder = jest
-        .fn()
+      (service as any).paymentRepository.createQueryBuilder = (jest.fn as unknown as any)()
         .mockReturnValue(makeChainableQb());
 
       await (service as any).calculateSalesMetrics(start, end, { paymentStatus: 'paid' });
@@ -904,8 +886,8 @@ describe('SalesAnalyticsService', () => {
 
     it('emits no payment predicate when paymentStatus is absent', async () => {
       const qb = makeChainableQb();
-      (service as any).salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
-      (service as any).customerRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      (service as any).salesOrderRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
+      (service as any).customerRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
 
       await (service as any).getPeriodData(start, end, 'month', { customerId: 'cust-1' });
 

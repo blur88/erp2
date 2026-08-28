@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
@@ -6,10 +7,10 @@ import { BackupService } from './backup.service';
 
 describe('BackupSchedulerService', () => {
   let schedule: BackupSchedule;
-  let scheduleRepository: jest.Mocked<Repository<BackupSchedule>>;
-  let backupQueue: jest.Mocked<Queue>;
+  let scheduleRepository: any;
+  let backupQueue: any;
   let service: BackupSchedulerService;
-  let reconciler: { scanOrphanedSchedulers: jest.Mock };
+  let reconciler: { scanOrphanedSchedulers: any };
 
   beforeEach(() => {
     schedule = {
@@ -23,20 +24,20 @@ describe('BackupSchedulerService', () => {
     } as BackupSchedule;
 
     scheduleRepository = {
-      create: jest.fn().mockReturnValue(schedule),
-      save: jest.fn().mockResolvedValue(schedule),
-    } as unknown as jest.Mocked<Repository<BackupSchedule>>;
+      create: (jest.fn as unknown as any)().mockReturnValue(schedule),
+      save: (jest.fn as unknown as any)().mockResolvedValue(schedule),
+    } as unknown as any;
 
     backupQueue = {
-      add: jest.fn().mockResolvedValue(undefined),
-      upsertJobScheduler: jest.fn().mockResolvedValue(undefined),
-      removeJobScheduler: jest.fn().mockResolvedValue(true),
-    } as unknown as jest.Mocked<Queue>;
+      add: (jest.fn as unknown as any)().mockResolvedValue(undefined),
+      upsertJobScheduler: (jest.fn as unknown as any)().mockResolvedValue(undefined),
+      removeJobScheduler: (jest.fn as unknown as any)().mockResolvedValue(true),
+    } as unknown as any;
 
-    scheduleRepository.find = jest.fn().mockResolvedValue([]);
+    scheduleRepository.find = (jest.fn as unknown as any)().mockResolvedValue([]);
 
     reconciler = {
-      scanOrphanedSchedulers: jest.fn().mockResolvedValue({
+      scanOrphanedSchedulers: (jest.fn as unknown as any)().mockResolvedValue({
         orphans: [],
         unclassifiable: [],
         legacySkipped: [],
@@ -75,8 +76,8 @@ describe('BackupSchedulerService', () => {
   });
 
   it('removes a schedule using removeJobScheduler with the scheduler id', async () => {
-    scheduleRepository.findOne = jest.fn().mockResolvedValue(schedule);
-    scheduleRepository.remove = jest.fn().mockResolvedValue(undefined);
+    scheduleRepository.findOne = (jest.fn as unknown as any)().mockResolvedValue(schedule);
+    scheduleRepository.remove = (jest.fn as unknown as any)().mockResolvedValue(undefined);
 
     await service.remove('schedule-1');
 
@@ -87,8 +88,8 @@ describe('BackupSchedulerService', () => {
 
   describe('orphaned scheduler diagnostic', () => {
     const MEMBER = '60f88ec415a02b45f5c02094f3aca23d';
-    let warn: jest.SpyInstance;
-    let error: jest.SpyInstance;
+    let warn: any;
+    let error: any;
 
     const emptyScan = {
       orphans: [],

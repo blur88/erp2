@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { SettingsService } from '../../modules/settings/settings.service';
 
 import { getAppToday, resolveAppTimezone } from './app-calendar';
@@ -13,7 +14,7 @@ const FROZEN_INSTANT = new Date('2026-08-24T16:30:00.000Z');
 
 const settingsServiceWith = (timezone: unknown): SettingsService =>
   ({
-    getRegionalSettings: jest.fn().mockResolvedValue({ timezone }),
+    getRegionalSettings: (jest.fn as unknown as any)().mockResolvedValue({ timezone }),
   }) as unknown as SettingsService;
 
 describe('app-calendar', () => {

@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PriceList } from '@/database/entities';
 import {
@@ -9,19 +10,19 @@ const fakeManager = (found: Partial<PriceList> | null) => {
   const calls: string[] = [];
   return {
     calls,
-    query: jest.fn(async (sql: string) => {
+    query: (jest.fn as unknown as any)(async (sql: string) => {
       calls.push(`query:${sql}`);
       return [];
     }),
-    findOne: jest.fn(async () => {
+    findOne: (jest.fn as unknown as any)(async () => {
       calls.push('findOne');
       return found as PriceList | null;
     }),
-    update: jest.fn(async () => {
+    update: (jest.fn as unknown as any)(async () => {
       calls.push('update');
       return { affected: 1 };
     }),
-    save: jest.fn(async (_entity: any, row: any) => {
+    save: (jest.fn as unknown as any)(async (_entity: any, row: any) => {
       calls.push('save');
       return row;
     }),

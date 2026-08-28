@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { ConflictException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -9,13 +10,13 @@ import { RedisAlertView } from './redis-alert.types';
 import { UserRole } from '@/database/entities/user.entity';
 
 describe('MonitoringController', () => {
-  let alerts: { getView: jest.Mock; acknowledgeOom: jest.Mock };
-  let sampler: { getIdentity: jest.Mock };
+  let alerts: { getView: any; acknowledgeOom: any };
+  let sampler: { getIdentity: any };
   let controller: MonitoringController;
 
   beforeEach(() => {
-    alerts = { getView: jest.fn(), acknowledgeOom: jest.fn() };
-    sampler = { getIdentity: jest.fn() };
+    alerts = { getView: (jest.fn as unknown as any)(), acknowledgeOom: (jest.fn as unknown as any)() };
+    sampler = { getIdentity: (jest.fn as unknown as any)() };
     controller = new MonitoringController(
       alerts as unknown as RedisAlertService,
       sampler as unknown as RedisMemorySamplerService,

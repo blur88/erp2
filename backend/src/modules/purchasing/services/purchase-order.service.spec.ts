@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, DataSource, EntityManager } from 'typeorm';
@@ -28,15 +29,15 @@ import type { AccountingPostingPort } from '../../../common/accounting-posting/a
 describe('PurchaseOrderService', () => {
   let module: TestingModule;
   let service: PurchaseOrderService;
-  let purchaseOrderRepository: jest.Mocked<Repository<PurchaseOrder>>;
-  let purchaseOrderItemRepository: jest.Mocked<Repository<PurchaseOrderItem>>;
-  let productRepository: jest.Mocked<Repository<Product>>;
-  let vendorPaymentRepository: jest.Mocked<Repository<VendorPayment>>;
-  let auditLogService: jest.Mocked<AuditLogService>;
-  let stockMovementService: jest.Mocked<StockMovementService>;
-  let vendorPaymentService: jest.Mocked<VendorPaymentService>;
+  let purchaseOrderRepository: any;
+  let purchaseOrderItemRepository: any;
+  let productRepository: any;
+  let vendorPaymentRepository: any;
+  let auditLogService: any;
+  let stockMovementService: any;
+  let vendorPaymentService: any;
   let paymentMethodRepository: any;
-  let dataSource: jest.Mocked<DataSource>
+  let dataSource: any
   let appTimezone: string;
   const adminUser = { role: UserRole.ADMIN } as any;
 
@@ -68,23 +69,23 @@ describe('PurchaseOrderService', () => {
     const { lockedPO, existing } = opts
     const saved = []
     const vpRepo = {
-      find: jest.fn().mockResolvedValue(existing ?? []),
-      findOne: jest.fn().mockResolvedValue(undefined),
-      create: jest.fn((row) => row),
-      restore: jest.fn().mockResolvedValue(undefined),
-      update: jest.fn().mockResolvedValue({ affected: 1 }),
-      save: jest.fn(async (row) => {
+      find: (jest.fn as unknown as any)().mockResolvedValue(existing ?? []),
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(undefined),
+      create: (jest.fn as unknown as any)((row) => row),
+      restore: (jest.fn as unknown as any)().mockResolvedValue(undefined),
+      update: (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 }),
+      save: (jest.fn as unknown as any)(async (row) => {
         const persisted = { id: `refund-${saved.length + 1}`, ...row }
         saved.push(persisted)
         return persisted
       }),
     }
     const poRepo = {
-      findOne: jest.fn().mockResolvedValue(lockedPO),
-      save: jest.fn(async (row) => row),
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(lockedPO),
+      save: (jest.fn as unknown as any)(async (row) => row),
     }
     const manager = {
-      getRepository: jest.fn((entity) => (entity === PurchaseOrder ? poRepo : vpRepo)),
+      getRepository: (jest.fn as unknown as any)((entity) => (entity === PurchaseOrder ? poRepo : vpRepo)),
     }
     return { manager, vpRepo, poRepo, saved }
   }
@@ -92,31 +93,31 @@ describe('PurchaseOrderService', () => {
   function wireTx(opts: { lockedPO: any; existing?: any[] }) {
     const { lockedPO, existing } = opts
     const ctx = mockTxManager({ lockedPO, existing: existing ?? [{ id: 'vp-1', amount: '100.0000', paymentMethodId: 'pm-1', status: 'completed', isActive: true }] })
-    ;(dataSource.transaction as jest.Mock).mockImplementation(async (cb) => cb(ctx.manager))
+    ;(dataSource.transaction as any).mockImplementation(async (cb) => cb(ctx.manager))
     return ctx
   }
 
   beforeEach(async () => {
     appTimezone = 'Asia/Kuala_Lumpur';
-    dataSource = { transaction: jest.fn() } as any
+    dataSource = { transaction: (jest.fn as unknown as any)() } as any
     module = await Test.createTestingModule({
       providers: [
         PurchaseOrderService,
         {
           provide: getRepositoryToken(PurchaseOrder),
           useValue: {
-            findOne: jest.fn(),
-            update: jest.fn(),
-            save: jest.fn(),
-            remove: jest.fn(),
-            createQueryBuilder: jest.fn(),
+            findOne: (jest.fn as unknown as any)(),
+            update: (jest.fn as unknown as any)(),
+            save: (jest.fn as unknown as any)(),
+            remove: (jest.fn as unknown as any)(),
+            createQueryBuilder: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(PurchaseOrderItem),
           useValue: {
-            save: jest.fn(),
-            delete: jest.fn(),
+            save: (jest.fn as unknown as any)(),
+            delete: (jest.fn as unknown as any)(),
           },
         },
         {
@@ -126,24 +127,24 @@ describe('PurchaseOrderService', () => {
         {
           provide: getRepositoryToken(Product),
           useValue: {
-            findOne: jest.fn(),
+            findOne: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(VendorPayment),
           useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-            save: jest.fn(),
-            update: jest.fn(),
-            restore: jest.fn(),
-            remove: jest.fn(),
+            find: (jest.fn as unknown as any)(),
+            findOne: (jest.fn as unknown as any)(),
+            save: (jest.fn as unknown as any)(),
+            update: (jest.fn as unknown as any)(),
+            restore: (jest.fn as unknown as any)(),
+            remove: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(PaymentMethodEntity),
           useValue: {
-            findOne: jest.fn(),
+            findOne: (jest.fn as unknown as any)(),
           },
         },
         {
@@ -153,10 +154,10 @@ describe('PurchaseOrderService', () => {
         {
           provide: VendorPaymentService,
           useValue: {
-            findAllByPurchaseOrder: jest.fn(),
-            softDeleteForUnpay: jest.fn(),
-            create: jest.fn(),
-            findOne: jest.fn(),
+            findAllByPurchaseOrder: (jest.fn as unknown as any)(),
+            softDeleteForUnpay: (jest.fn as unknown as any)(),
+            create: (jest.fn as unknown as any)(),
+            findOne: (jest.fn as unknown as any)(),
           },
         },
         {
@@ -166,29 +167,29 @@ describe('PurchaseOrderService', () => {
         {
           provide: StockMovementService,
           useValue: {
-            create: jest.fn(),
-            deleteByReference: jest.fn(),
+            create: (jest.fn as unknown as any)(),
+            deleteByReference: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: SettingsService,
           useValue: {
-            getRegionalSettings: jest.fn(async () => ({ timezone: appTimezone })),
+            getRegionalSettings: (jest.fn as unknown as any)(async () => ({ timezone: appTimezone })),
           },
         },
         {
           provide: AuditLogService,
           useValue: {
-            log: jest.fn(),
+            log: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: PurchaseOrderLifecycleService,
           useValue: {
-            cancel: jest.fn(),
-            uncancel: jest.fn(),
-            receive: jest.fn(),
-            return: jest.fn(),
+            cancel: (jest.fn as unknown as any)(),
+            uncancel: (jest.fn as unknown as any)(),
+            receive: (jest.fn as unknown as any)(),
+            return: (jest.fn as unknown as any)(),
           },
         },
         {
@@ -197,7 +198,7 @@ describe('PurchaseOrderService', () => {
         },
         {
           provide: ACCOUNTING_POSTING_PORT,
-          useValue: { postPurchasePayment: jest.fn(), postPurchaseRefund: jest.fn(), reverseEntriesForDocument: jest.fn() },
+          useValue: { postPurchasePayment: (jest.fn as unknown as any)(), postPurchaseRefund: (jest.fn as unknown as any)(), reverseEntriesForDocument: (jest.fn as unknown as any)() },
         },
       ],
     }).compile();
@@ -212,9 +213,9 @@ describe('PurchaseOrderService', () => {
     stockMovementService = module.get(StockMovementService);
     vendorPaymentService = module.get(VendorPaymentService);
     dataSource = module.get(DataSource)
-    jest.spyOn(Logger.prototype, 'log').mockImplementation();
-    jest.spyOn(Logger.prototype, 'error').mockImplementation();
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
 
     jest.spyOn(service, 'findOne').mockResolvedValue(mockReturnDto);
 
@@ -237,12 +238,12 @@ describe('PurchaseOrderService', () => {
       orderNumber: string;
       supplier: { companyName: string };
     }) {
-      purchaseOrderRepository.createQueryBuilder = jest.fn().mockReturnValue({
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([order]),
+      purchaseOrderRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue([order]),
       } as any);
     }
 
@@ -253,12 +254,12 @@ describe('PurchaseOrderService', () => {
         supplier: { companyName: 'Acme Supplies' },
         deletedAt: null,
       };
-      purchaseOrderRepository.createQueryBuilder = jest.fn().mockReturnValue({
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([order]),
+      purchaseOrderRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue([order]),
       } as any);
 
       const results = await service.searchGlobal('PO-000001', {
@@ -323,18 +324,18 @@ describe('PurchaseOrderService', () => {
     }) {
       const savedOrders: PurchaseOrder[] = [];
       const poManagerRepo = {
-        findOne: jest.fn(),
-        save: jest.fn().mockImplementation((o: PurchaseOrder) => {
+        findOne: (jest.fn as unknown as any)(),
+        save: (jest.fn as unknown as any)().mockImplementation((o: PurchaseOrder) => {
           savedOrders.push(Object.assign(new PurchaseOrder(), o));
           return Promise.resolve(o);
         }),
       };
       const itemManagerRepo = {
-        delete: jest.fn().mockResolvedValue(undefined),
-        save: jest.fn().mockResolvedValue([]),
+        delete: (jest.fn as unknown as any)().mockResolvedValue(undefined),
+        save: (jest.fn as unknown as any)().mockResolvedValue([]),
       };
       const productManagerRepo = {
-        findOne: jest.fn().mockResolvedValue({ id: 'product-1' }),
+        findOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'product-1' }),
       };
 
       const lockedOrder = Object.assign(new PurchaseOrder(), {
@@ -355,11 +356,11 @@ describe('PurchaseOrderService', () => {
       poManagerRepo.findOne.mockResolvedValue(lockedOrder);
 
       const manager = {
-        getRepository: jest.fn().mockImplementation((entity: any) => {
+        getRepository: (jest.fn as unknown as any)().mockImplementation((entity: any) => {
           if (entity === PurchaseOrder) return poManagerRepo;
           if (entity === PurchaseOrderItem) return itemManagerRepo;
           if (entity === Product) return productManagerRepo;
-          return { save: jest.fn(), findOne: jest.fn(), delete: jest.fn() };
+          return { save: (jest.fn as unknown as any)(), findOne: (jest.fn as unknown as any)(), delete: (jest.fn as unknown as any)() };
         }),
       };
 
@@ -463,10 +464,10 @@ describe('PurchaseOrderService', () => {
         getTotalReceivedQuantity: () => 0,
         getTotalOrderedQuantity: () => 10,
       } as unknown as PurchaseOrder;
-      purchaseOrderRepository.createQueryBuilder = jest.fn().mockReturnValue({
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue(entityLike),
+      purchaseOrderRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        getOne: (jest.fn as unknown as any)().mockResolvedValue(entityLike),
       } as any);
 
       const dto = await service.findByOrderNumber('PO-000001');
@@ -479,14 +480,14 @@ describe('PurchaseOrderService', () => {
   describe('findAll', () => {
     function createFindAllQueryBuilder(orders: PurchaseOrder[] = []) {
       return {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getCount: jest.fn().mockResolvedValue(orders.length),
-        getMany: jest.fn().mockResolvedValue(orders),
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        skip: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getCount: (jest.fn as unknown as any)().mockResolvedValue(orders.length),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue(orders),
       };
     }
 
@@ -510,9 +511,9 @@ describe('PurchaseOrderService', () => {
         },
         items: [],
         vendorPayments: [],
-        isFullyReceived: jest.fn().mockReturnValue(false),
-        getTotalReceivedQuantity: jest.fn().mockReturnValue(0),
-        getTotalOrderedQuantity: jest.fn().mockReturnValue(0),
+        isFullyReceived: (jest.fn as unknown as any)().mockReturnValue(false),
+        getTotalReceivedQuantity: (jest.fn as unknown as any)().mockReturnValue(0),
+        getTotalOrderedQuantity: (jest.fn as unknown as any)().mockReturnValue(0),
         ...overrides,
       } as unknown as PurchaseOrder;
     }
@@ -679,22 +680,22 @@ describe('PurchaseOrderService', () => {
       vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
         { id: 'vp-active', amount: '200.0000' } as unknown as VendorPayment,
       ]);
-      const vpFind = jest.fn().mockResolvedValue([]);
-      const vpFindOne = jest.fn().mockImplementation((...args) => (vendorPaymentRepository.findOne as any)(...args));
-      const vpRestore = jest.fn((...args) => (vendorPaymentRepository.restore as any)(...args));
-      const vpUpdate = jest.fn((...args) => (vendorPaymentRepository.update as any)(...args));
-      const vpCreate = jest.fn((r) => r);
-      const vpSave = jest.fn(async (r) => r);
+      const vpFind = (jest.fn as unknown as any)().mockResolvedValue([]);
+      const vpFindOne = (jest.fn as unknown as any)().mockImplementation((...args) => (vendorPaymentRepository.findOne as any)(...args));
+      const vpRestore = (jest.fn as unknown as any)((...args) => (vendorPaymentRepository.restore as any)(...args));
+      const vpUpdate = (jest.fn as unknown as any)((...args) => (vendorPaymentRepository.update as any)(...args));
+      const vpCreate = (jest.fn as unknown as any)((r) => r);
+      const vpSave = (jest.fn as unknown as any)(async (r) => r);
       const manager = {
-        getRepository: jest.fn((entity) => {
+        getRepository: (jest.fn as unknown as any)((entity) => {
           if (entity === PurchaseOrder) return {
-            findOne: jest.fn((...args) => (purchaseOrderRepository.findOne as any)(...args)),
-            save: jest.fn(async (row) => { await purchaseOrderRepository.save(row); return row; }),
+            findOne: (jest.fn as unknown as any)((...args) => (purchaseOrderRepository.findOne as any)(...args)),
+            save: (jest.fn as unknown as any)(async (row) => { await purchaseOrderRepository.save(row); return row; }),
           };
           return { find: vpFind, findOne: vpFindOne, restore: vpRestore, update: vpUpdate, create: vpCreate, save: vpSave };
         }),
       } as unknown as EntityManager;
-      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+      (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
     });
 
     it('derives paidAmount from the persisted active payments, not the in-memory total', async () => {
@@ -754,7 +755,7 @@ describe('PurchaseOrderService', () => {
     it('posts the journal entry on the supplied paymentDate', async () => {
       vendorPaymentRepository.findOne.mockResolvedValue(null);
       vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
-      const accounting = module.get<{ postPurchasePayment: jest.Mock }>(ACCOUNTING_POSTING_PORT);
+      const accounting = module.get<{ postPurchasePayment: any }>(ACCOUNTING_POSTING_PORT);
 
       await service.recordOrderPayments(
         'po-1',
@@ -991,7 +992,7 @@ describe('PurchaseOrderService', () => {
     ])('dates the reversal in %s as %s', async (timezone, expected) => {
       appTimezone = timezone;
       wireTx({ lockedPO: { id: 'po-1', orderNumber: 'PO-001', status: 'DRAFT' } });
-      const accounting = module.get<{ reverseEntriesForDocument: jest.Mock }>(
+      const accounting = module.get<{ reverseEntriesForDocument: any }>(
         ACCOUNTING_POSTING_PORT,
       );
 
@@ -1010,14 +1011,14 @@ describe('PurchaseOrderService', () => {
       supplierId: 'sup-1',
       totalAmount: '100.0000',
     }
-    let generateSpy: jest.Mock;
+    let generateSpy: any;
 
     beforeEach(() => {
       paymentMethodRepository.findOne.mockResolvedValue({ id: 'pm-1', isActive: true, accountingChannel: 'BANK' })
-      generateSpy = jest.fn();
+      generateSpy = (jest.fn as unknown as any)();
       ;(service as any).settingsService = {
         generateDocumentNumber: generateSpy,
-        getRegionalSettings: jest.fn(async () => ({ timezone: appTimezone })),
+        getRegionalSettings: (jest.fn as unknown as any)(async () => ({ timezone: appTimezone })),
       }
       vendorPaymentRepository.findOne.mockResolvedValue({
         id: 'refund-1',
@@ -1065,12 +1066,12 @@ describe('PurchaseOrderService', () => {
         ['UTC', '2026-08-24'],
       ])('dates the refund JE in %s as %s', async (timezone, expected) => {
         appTimezone = timezone
-        ;(service as any).settingsService.getRegionalSettings = jest.fn(async () => ({
+        ;(service as any).settingsService.getRegionalSettings = (jest.fn as unknown as any)(async () => ({
           timezone,
         }))
         wireTx({ lockedPO })
         jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
-        const accounting = module.get<{ postPurchaseRefund: jest.Mock }>(ACCOUNTING_POSTING_PORT)
+        const accounting = module.get<{ postPurchaseRefund: any }>(ACCOUNTING_POSTING_PORT)
 
         await service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '40.0000' }], 'u', 'admin')
 
@@ -1126,7 +1127,7 @@ describe('PurchaseOrderService', () => {
 
     it('rejects refund on a RECEIVED purchase order', async () => {
       const ctx = mockTxManager({ lockedPO: { ...lockedPO, status: 'RECEIVED' } })
-      ;(dataSource.transaction as jest.Mock).mockImplementation(async (cb) => cb(ctx.manager))
+      ;(dataSource.transaction as any).mockImplementation(async (cb) => cb(ctx.manager))
       await expect(
         service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '10.0000' }], 'u'),
       ).rejects.toThrow('Cannot refund a RECEIVED purchase order.')
@@ -1134,7 +1135,7 @@ describe('PurchaseOrderService', () => {
 
     it('rejects refund on a CANCELLED purchase order', async () => {
       const ctx = mockTxManager({ lockedPO: { ...lockedPO, status: 'CANCELLED' } })
-      ;(dataSource.transaction as jest.Mock).mockImplementation(async (cb) => cb(ctx.manager))
+      ;(dataSource.transaction as any).mockImplementation(async (cb) => cb(ctx.manager))
       await expect(
         service.recordRefunds('po-1', [{ paymentMethodId: 'pm-1', amount: '10.0000' }], 'u'),
       ).rejects.toThrow('Cannot refund a CANCELLED purchase order.')
@@ -1176,22 +1177,22 @@ describe('PurchaseOrderService', () => {
       vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
         { id: 'vp-active', amount: '200.0000' } as unknown as VendorPayment,
       ]);
-      const vpFind = jest.fn().mockResolvedValue([]);
-      const vpFindOne = jest.fn().mockImplementation((...args) => (vendorPaymentRepository.findOne as any)(...args));
-      const vpRestore = jest.fn((...args) => (vendorPaymentRepository.restore as any)(...args));
-      const vpUpdate = jest.fn((...args) => (vendorPaymentRepository.update as any)(...args));
-      const vpCreate = jest.fn((r) => r);
-      const vpSave = jest.fn(async (r) => r);
+      const vpFind = (jest.fn as unknown as any)().mockResolvedValue([]);
+      const vpFindOne = (jest.fn as unknown as any)().mockImplementation((...args) => (vendorPaymentRepository.findOne as any)(...args));
+      const vpRestore = (jest.fn as unknown as any)((...args) => (vendorPaymentRepository.restore as any)(...args));
+      const vpUpdate = (jest.fn as unknown as any)((...args) => (vendorPaymentRepository.update as any)(...args));
+      const vpCreate = (jest.fn as unknown as any)((r) => r);
+      const vpSave = (jest.fn as unknown as any)(async (r) => r);
       const manager = {
-        getRepository: jest.fn((entity) => {
+        getRepository: (jest.fn as unknown as any)((entity) => {
           if (entity === PurchaseOrder) return {
-            findOne: jest.fn((...args) => (purchaseOrderRepository.findOne as any)(...args)),
-            save: jest.fn(async (row) => { await purchaseOrderRepository.save(row); return row; }),
+            findOne: (jest.fn as unknown as any)((...args) => (purchaseOrderRepository.findOne as any)(...args)),
+            save: (jest.fn as unknown as any)(async (row) => { await purchaseOrderRepository.save(row); return row; }),
           };
           return { find: vpFind, findOne: vpFindOne, restore: vpRestore, update: vpUpdate, create: vpCreate, save: vpSave };
         }),
       } as unknown as EntityManager;
-      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+      (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
       jest.spyOn(service as any, 'findOne').mockResolvedValue({ id: 'po-1' } as any);
     });
 
@@ -1275,7 +1276,7 @@ describe('PurchaseOrderService', () => {
         isActive: true,
         accountingChannel: 'BANK',
       } as any)
-      ;(vendorPaymentService.create as jest.Mock).mockResolvedValue({ id: 'vp-new' })
+      ;(vendorPaymentService.create as any).mockResolvedValue({ id: 'vp-new' })
       jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
       jest.spyOn(service as any, 'findOne').mockResolvedValue({ id: 'po-1' } as any)
     })

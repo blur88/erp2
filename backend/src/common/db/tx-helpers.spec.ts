@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { NotFoundException } from '@nestjs/common';
 import { repoFor, lockRowForUpdate } from './tx-helpers';
 
@@ -14,7 +15,7 @@ describe('tx-helpers', () => {
 
     it("returns the manager's repository when a manager is supplied", () => {
       const managerRepo = { marker: 'manager' } as any;
-      const manager = { getRepository: jest.fn().mockReturnValue(managerRepo) } as any;
+      const manager = { getRepository: (jest.fn as unknown as any)().mockReturnValue(managerRepo) } as any;
       const fallback = { marker: 'fallback' } as any;
 
       expect(repoFor(manager, Dummy, fallback)).toBe(managerRepo);
@@ -25,8 +26,8 @@ describe('tx-helpers', () => {
   describe('lockRowForUpdate', () => {
     it('locks the BARE row FOR UPDATE (no relations join — Postgres rejects FOR UPDATE over an outer join)', async () => {
       const locked = { id: 'x1' };
-      const findOne = jest.fn().mockResolvedValue(locked);
-      const manager = { getRepository: jest.fn().mockReturnValue({ findOne }) } as any;
+      const findOne = (jest.fn as unknown as any)().mockResolvedValue(locked);
+      const manager = { getRepository: (jest.fn as unknown as any)().mockReturnValue({ findOne }) } as any;
 
       const result = await lockRowForUpdate(manager, Dummy, 'x1', { notFoundMessage: 'Dummy not found' });
 
@@ -44,11 +45,10 @@ describe('tx-helpers', () => {
     it('locks bare then hydrates relations in a SEPARATE unlocked read on the same manager', async () => {
       const locked = { id: 'x1' };
       const withRelations = { id: 'x1', foo: { id: 'f1' } };
-      const findOne = jest
-        .fn()
+      const findOne = (jest.fn as unknown as any)()
         .mockResolvedValueOnce(locked) // step 1: bare lock
         .mockResolvedValueOnce(withRelations); // step 2: relations
-      const manager = { getRepository: jest.fn().mockReturnValue({ findOne }) } as any;
+      const manager = { getRepository: (jest.fn as unknown as any)().mockReturnValue({ findOne }) } as any;
 
       const result = await lockRowForUpdate(manager, Dummy, 'x1', {
         relations: { foo: true } as any,
@@ -70,8 +70,8 @@ describe('tx-helpers', () => {
     });
 
     it('throws NotFoundException with the supplied message when the bare row is absent', async () => {
-      const findOne = jest.fn().mockResolvedValue(null);
-      const manager = { getRepository: jest.fn().mockReturnValue({ findOne }) } as any;
+      const findOne = (jest.fn as unknown as any)().mockResolvedValue(null);
+      const manager = { getRepository: (jest.fn as unknown as any)().mockReturnValue({ findOne }) } as any;
 
       await expect(
         lockRowForUpdate(manager, Dummy, 'missing', { notFoundMessage: 'Dummy not found' }),

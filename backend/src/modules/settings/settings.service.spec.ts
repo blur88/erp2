@@ -1,13 +1,14 @@
+import { jest } from '@jest/globals';
 import { SettingsService } from './settings.service';
 
 describe('SettingsService', () => {
   it('reuses the caller transaction manager (no nested transaction)', async () => {
     const manager = {
-      query: jest.fn()
+      query: (jest.fn as unknown as any)()
         .mockResolvedValueOnce([{ prefix: 'JE', paddingDigits: 3, nextNumber: 1, lastResetYear: new Date().getFullYear() % 100 }])
         .mockResolvedValueOnce(undefined),
     } as any;
-    const dataSourceMock = { transaction: jest.fn() };
+    const dataSourceMock = { transaction: (jest.fn as unknown as any)() };
     const service = new SettingsService(
       {} as any, {} as any, {} as any,
       {} as any, {} as any, {} as any,
@@ -35,10 +36,10 @@ describe('SettingsService', () => {
 
     const setup = (max: number | null) => {
       const documentNumberSettingRepository = {
-        find: jest.fn().mockResolvedValue([{ documentName, prefix }]),
-        update: jest.fn().mockResolvedValue(undefined),
+        find: (jest.fn as unknown as any)().mockResolvedValue([{ documentName, prefix }]),
+        update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
       };
-      const dataSource = { query: jest.fn().mockResolvedValue([{ max }]) };
+      const dataSource = { query: (jest.fn as unknown as any)().mockResolvedValue([{ max }]) };
       const service = new SettingsService(
         {} as any, {} as any,
         documentNumberSettingRepository as any,
@@ -89,10 +90,10 @@ describe('SettingsService', () => {
 
   it('syncDocumentNumbersWithDatabase leaves unknown document types (e.g. Journal Entries) unchanged', async () => {
     const documentNumberSettingRepository = {
-      find: jest.fn().mockResolvedValue([
+      find: (jest.fn as unknown as any)().mockResolvedValue([
         { documentName: 'Journal Entries', prefix: 'JE', nextNumber: 42 },
       ]),
-      update: jest.fn().mockResolvedValue(undefined),
+      update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
     };
 
     const service = new SettingsService(
@@ -111,17 +112,17 @@ describe('SettingsService', () => {
   it('createDefaultDocumentNumberSettings seeds Journal Entries collision-safe (max existing +1)', async () => {
     const saved: any[] = [];
     const documentNumberSettingRepository = {
-      find: jest.fn()
+      find: (jest.fn as unknown as any)()
         .mockResolvedValueOnce([])
         .mockResolvedValue(saved),
-      findOne: jest.fn().mockResolvedValue(null),
-      create: jest.fn((row) => row),
-      save: jest.fn(async (row) => { saved.push(row); return row; }),
-      update: jest.fn().mockResolvedValue(undefined),
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(null),
+      create: (jest.fn as unknown as any)((row) => row),
+      save: (jest.fn as unknown as any)(async (row) => { saved.push(row); return row; }),
+      update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
     };
     // Serves both nextJournalEntrySequence() ({ next }) and the per-type
     // reconciliation max ({ max }) — seeded rows are reconciled in the same call.
-    const dataSource = { query: jest.fn().mockResolvedValue([{ next: 8, max: 0 }]) };
+    const dataSource = { query: (jest.fn as unknown as any)().mockResolvedValue([{ next: 8, max: 0 }]) };
 
     const service = new SettingsService(
       {} as any, {} as any,
@@ -143,13 +144,13 @@ describe('SettingsService', () => {
   it('seeds Journal Entries at 1 when journal_entry table is absent (42P01)', async () => {
     const saved: any[] = [];
     const documentNumberSettingRepository = {
-      find: jest.fn().mockResolvedValueOnce([]).mockResolvedValue(saved),
-      findOne: jest.fn().mockResolvedValue(null),
-      create: jest.fn((row) => row),
-      save: jest.fn(async (row) => { saved.push(row); return row; }),
-      update: jest.fn().mockResolvedValue(undefined),
+      find: (jest.fn as unknown as any)().mockResolvedValueOnce([]).mockResolvedValue(saved),
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(null),
+      create: (jest.fn as unknown as any)((row) => row),
+      save: (jest.fn as unknown as any)(async (row) => { saved.push(row); return row; }),
+      update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
     };
-    const dataSource = { query: jest.fn().mockRejectedValue(Object.assign(new Error('relation "journal_entry" does not exist'), { code: '42P01' })) };
+    const dataSource = { query: (jest.fn as unknown as any)().mockRejectedValue(Object.assign(new Error('relation "journal_entry" does not exist'), { code: '42P01' })) };
 
     const service = new SettingsService(
       {} as any, {} as any,
@@ -167,19 +168,19 @@ describe('SettingsService', () => {
   it('creates defaults without Payments or Goods Received', async () => {
     const saved: Array<{ documentName: string }> = [];
     const repo = {
-      findOne: jest.fn().mockResolvedValue(null),
-      create: jest.fn((v: any) => v),
-      save: jest.fn((v: any) => {
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(null),
+      create: (jest.fn as unknown as any)((v: any) => v),
+      save: (jest.fn as unknown as any)((v: any) => {
         saved.push(v);
         return Promise.resolve(v);
       }),
-      find: jest.fn().mockResolvedValue([]),
+      find: (jest.fn as unknown as any)().mockResolvedValue([]),
     };
     const service = new SettingsService(
       {} as any, {} as any,
       repo as any,
       {} as any, {} as any, {} as any, {} as any,
-      { query: jest.fn().mockResolvedValue([{ next: 1 }]) } as any,
+      { query: (jest.fn as unknown as any)().mockResolvedValue([{ next: 1 }]) } as any,
     );
 
     await (service as any).createDefaultDocumentNumberSettings();
@@ -199,13 +200,13 @@ describe('SettingsService', () => {
 
   it('rethrows a non-missing-table DB error instead of masking it as 1', async () => {
     const documentNumberSettingRepository = {
-      find: jest.fn().mockResolvedValueOnce([]).mockResolvedValue([]),
-      findOne: jest.fn().mockResolvedValue(null),
-      create: jest.fn((row) => row),
-      save: jest.fn(async (row) => row),
-      update: jest.fn().mockResolvedValue(undefined),
+      find: (jest.fn as unknown as any)().mockResolvedValueOnce([]).mockResolvedValue([]),
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(null),
+      create: (jest.fn as unknown as any)((row) => row),
+      save: (jest.fn as unknown as any)(async (row) => row),
+      update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
     };
-    const dataSource = { query: jest.fn().mockRejectedValue(Object.assign(new Error('connection reset'), { code: '08006' })) };
+    const dataSource = { query: (jest.fn as unknown as any)().mockRejectedValue(Object.assign(new Error('connection reset'), { code: '08006' })) };
 
     const service = new SettingsService(
       {} as any, {} as any,
@@ -226,15 +227,15 @@ describe('SettingsService', () => {
   it('createDefaultDocumentNumberSettings includes Expenses in defaults', async () => {
     const saved: any[] = [];
     const documentNumberSettingRepository = {
-      find: jest.fn().mockResolvedValueOnce([]).mockResolvedValue(saved),
-      findOne: jest.fn().mockResolvedValue(null),
-      create: jest.fn((row) => row),
-      save: jest.fn(async (row) => { saved.push(row); return row; }),
-      update: jest.fn().mockResolvedValue(undefined),
+      find: (jest.fn as unknown as any)().mockResolvedValueOnce([]).mockResolvedValue(saved),
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(null),
+      create: (jest.fn as unknown as any)((row) => row),
+      save: (jest.fn as unknown as any)(async (row) => { saved.push(row); return row; }),
+      update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
     };
     // Serves both nextJournalEntrySequence() ({ next }) and the per-type
     // reconciliation max ({ max }) — the seeded rows are reconciled in the same call.
-    const dataSource = { query: jest.fn().mockResolvedValue([{ next: 1, max: 0 }]) };
+    const dataSource = { query: (jest.fn as unknown as any)().mockResolvedValue([{ next: 1, max: 0 }]) };
 
     const service = new SettingsService(
       {} as any, {} as any,

@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { ConflictException } from '@nestjs/common';
 import { RedisAlertService } from './redis-alert.service';
 import { AlertState, emptyAlertState } from './redis-alert.transitions';

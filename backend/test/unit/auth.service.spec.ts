@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { JwtService } from "@nestjs/jwt";
@@ -15,8 +16,8 @@ import {
 import { UserRole, UserStatus } from "../../src/database/entities/user.entity";
 
 jest.mock("bcrypt", () => ({
-  compare: jest.fn(),
-  hash: jest.fn(),
+  compare: (jest.fn as unknown as any)(),
+  hash: (jest.fn as unknown as any)(),
 }));
 
 describe("AuthService", () => {
@@ -25,7 +26,7 @@ describe("AuthService", () => {
   let refreshTokenRepository: Repository<RefreshToken>;
   let jwtService: JwtService;
   let configService: ConfigService;
-  const mockedBcrypt = bcrypt as jest.Mocked<typeof bcrypt>;
+  const mockedBcrypt = bcrypt as any;
 
   const mockUser: Partial<User> = {
     id: "123e4567-e89b-12d3-a456-426614174000",
@@ -44,31 +45,31 @@ describe("AuthService", () => {
   };
 
   const mockUserRepository = {
-    findOne: jest.fn(),
-    save: jest.fn(),
-    create: jest.fn(),
+    findOne: (jest.fn as unknown as any)(),
+    save: (jest.fn as unknown as any)(),
+    create: (jest.fn as unknown as any)(),
   };
 
   const mockRefreshTokenRepository = {
-    findOne: jest.fn(),
-    save: jest.fn(),
-    create: jest.fn(),
-    delete: jest.fn(),
-    remove: jest.fn(),
-    createQueryBuilder: jest.fn(() => ({
-      where: jest.fn().mockReturnThis(),
-      delete: jest.fn().mockReturnThis(),
-      execute: jest.fn().mockResolvedValue({ affected: 0 }),
+    findOne: (jest.fn as unknown as any)(),
+    save: (jest.fn as unknown as any)(),
+    create: (jest.fn as unknown as any)(),
+    delete: (jest.fn as unknown as any)(),
+    remove: (jest.fn as unknown as any)(),
+    createQueryBuilder: (jest.fn as unknown as any)(() => ({
+      where: (jest.fn as unknown as any)().mockReturnThis(),
+      delete: (jest.fn as unknown as any)().mockReturnThis(),
+      execute: (jest.fn as unknown as any)().mockResolvedValue({ affected: 0 }),
     })),
   };
 
   const mockJwtService = {
-    sign: jest.fn((payload) => `mock.jwt.token.${payload.sub}`),
-    verify: jest.fn(),
+    sign: (jest.fn as unknown as any)((payload) => `mock.jwt.token.${payload.sub}`),
+    verify: (jest.fn as unknown as any)(),
   };
 
   const mockConfigService = {
-    get: jest.fn((key: string) => {
+    get: (jest.fn as unknown as any)((key: string) => {
       const config = {
         JWT_ACCESS_TOKEN_EXPIRY: "15m",
         JWT_REFRESH_TOKEN_EXPIRY: "7d",

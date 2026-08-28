@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,7 +12,7 @@ import { UserRole } from '../../../database/entities/user.entity';
 describe('CustomerService', () => {
   let module: TestingModule;
   let service: CustomerService;
-  let customerRepository: jest.Mocked<Repository<Customer>>;
+  let customerRepository: any;
   const adminUser = { role: UserRole.ADMIN } as any;
   const createCustomer = (id: string, overrides: Partial<Customer> = {}): Customer =>
     ({
@@ -45,23 +46,23 @@ describe('CustomerService', () => {
         {
           provide: getRepositoryToken(Customer),
           useValue: {
-            findOne: jest.fn(),
-            save: jest.fn(),
-            find: jest.fn(),
-            createQueryBuilder: jest.fn(),
+            findOne: (jest.fn as unknown as any)(),
+            save: (jest.fn as unknown as any)(),
+            find: (jest.fn as unknown as any)(),
+            createQueryBuilder: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(SalesOrder),
-          useValue: { createQueryBuilder: jest.fn() },
+          useValue: { createQueryBuilder: (jest.fn as unknown as any)() },
         },
         {
           provide: TransactionManager,
-          useValue: { runInTransaction: jest.fn() },
+          useValue: { runInTransaction: (jest.fn as unknown as any)() },
         },
         {
           provide: AuditLogService,
-          useValue: { log: jest.fn() },
+          useValue: { log: (jest.fn as unknown as any)() },
         },
       ],
     }).compile();
@@ -73,13 +74,12 @@ describe('CustomerService', () => {
   describe('pagination removal', () => {
     it('findAll returns all matching customers with total-only metadata', async () => {
       const qb = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest
-          .fn()
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        skip: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getManyAndCount: (jest.fn as unknown as any)()
           .mockResolvedValue([[createCustomer('1'), createCustomer('2')], 2]),
       };
       customerRepository.createQueryBuilder.mockReturnValue(qb as any);
@@ -99,12 +99,12 @@ describe('CustomerService', () => {
 
     it('findAll applies skip and take when page and limit are provided', async () => {
       const qb = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[createCustomer('2')], 5]),
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        skip: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([[createCustomer('2')], 5]),
       };
       customerRepository.createQueryBuilder.mockReturnValue(qb as any);
 
@@ -117,13 +117,13 @@ describe('CustomerService', () => {
 
     it('findDeleted returns all deleted customers without offset/limit pagination', async () => {
       const qb = {
-        where: jest.fn().mockReturnThis(),
-        withDeleted: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        offset: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        withDeleted: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        offset: (jest.fn as unknown as any)().mockReturnThis(),
+        limit: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue([
           createCustomer('deleted-1', {
             deletedAt: new Date('2026-04-05T00:00:00.000Z'),
           }),
@@ -150,10 +150,10 @@ describe('CustomerService', () => {
   describe('findAll filters', () => {
     it('applies priceListId filter via query builder', async () => {
       const qb = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([[], 0]),
       };
       customerRepository.createQueryBuilder.mockReturnValue(qb as any);
 
@@ -166,10 +166,10 @@ describe('CustomerService', () => {
 
     it('applies type filter via where condition', async () => {
       const qb = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([[], 0]),
       };
       customerRepository.createQueryBuilder.mockReturnValue(qb as any);
 
@@ -183,15 +183,15 @@ describe('CustomerService', () => {
 
   describe('sort resolution', () => {
     const createSortQb = () => ({
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      withDeleted: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([]),
-      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+      where: (jest.fn as unknown as any)().mockReturnThis(),
+      andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+      withDeleted: (jest.fn as unknown as any)().mockReturnThis(),
+      orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      skip: (jest.fn as unknown as any)().mockReturnThis(),
+      take: (jest.fn as unknown as any)().mockReturnThis(),
+      getMany: (jest.fn as unknown as any)().mockResolvedValue([]),
+      getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([[], 0]),
     });
 
     it('findAll orders by the name collation when sortBy is absent', async () => {
@@ -257,14 +257,14 @@ describe('CustomerService', () => {
         phone: '0123456789',
         deletedAt: null,
       };
-      customerRepository.createQueryBuilder = jest.fn().mockReturnValue({
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        setParameter: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([customer]),
+      customerRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        setParameter: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue([customer]),
       } as any);
 
       const results = await service.searchGlobal('ABC', {
@@ -283,14 +283,14 @@ describe('CustomerService', () => {
     });
 
     it('returns empty array when no matches', async () => {
-      customerRepository.createQueryBuilder = jest.fn().mockReturnValue({
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        setParameter: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([]),
+      customerRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        setParameter: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue([]),
       } as any);
 
       const results = await service.searchGlobal('zzz', {
@@ -306,14 +306,14 @@ describe('CustomerService', () => {
         phone: '0123456789',
       };
 
-      customerRepository.createQueryBuilder = jest.fn().mockReturnValue({
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        setParameter: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([mockCustomer]),
+      customerRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        setParameter: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue([mockCustomer]),
       } as any);
 
       const results = await service.searchGlobal('0123456789', adminUser);
@@ -324,14 +324,14 @@ describe('CustomerService', () => {
     it('exact name match scores SCORE_EXACT_NAME + BOOST_CUSTOMER + BOOST_EXACT_MATCH', async () => {
       const mockCustomer = { id: 'c1', name: 'acme corp', phone: null };
 
-      customerRepository.createQueryBuilder = jest.fn().mockReturnValue({
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        setParameter: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([mockCustomer]),
+      customerRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        setParameter: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue([mockCustomer]),
       } as any);
 
       const results = await service.searchGlobal('acme corp', adminUser);
@@ -342,11 +342,11 @@ describe('CustomerService', () => {
     it('phone exact match outranks name exact match', async () => {
       const mockCustomer = { id: 'c1', name: 'acme corp', phone: 'acme corp' };
 
-      customerRepository.createQueryBuilder = jest.fn().mockReturnValue({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([mockCustomer]),
+      customerRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue([mockCustomer]),
       } as any);
 
       const results = await service.searchGlobal('acme corp', adminUser);
@@ -358,14 +358,14 @@ describe('CustomerService', () => {
       const fuzzyCustomer = { id: 'c2', name: 'Acme Corp', phone: null };
 
       let callCount = 0;
-      customerRepository.createQueryBuilder = jest.fn().mockReturnValue({
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        setParameter: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockImplementation(() => {
+      customerRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        setParameter: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockImplementation(() => {
           callCount++;
           return Promise.resolve(callCount === 1 ? [] : [fuzzyCustomer]);
         }),
@@ -381,14 +381,14 @@ describe('CustomerService', () => {
     });
 
     it('fuzzy fallback returns empty when no fuzzy matches', async () => {
-      customerRepository.createQueryBuilder = jest.fn().mockReturnValue({
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        setParameter: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([]),
+      customerRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        setParameter: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue([]),
       } as any);
 
       const results = await service.searchGlobal('zzzqqq', {
@@ -405,25 +405,25 @@ describe('CustomerService', () => {
         totalOrders: 5,
         totalSales: 500,
       });
-      customerRepository.findOne = jest.fn().mockResolvedValue(customer);
-      customerRepository.save = jest.fn().mockResolvedValue(customer);
+      customerRepository.findOne = (jest.fn as unknown as any)().mockResolvedValue(customer);
+      customerRepository.save = (jest.fn as unknown as any)().mockResolvedValue(customer);
 
-      const salesOrderRepository: jest.Mocked<Repository<SalesOrder>> = module.get(
+      const salesOrderRepository: any = module.get(
         getRepositoryToken(SalesOrder),
       );
 
       const qb = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        select: jest.fn().mockReturnThis(),
-        getRawOne: jest.fn().mockResolvedValue({
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        select: (jest.fn as unknown as any)().mockReturnThis(),
+        getRawOne: (jest.fn as unknown as any)().mockResolvedValue({
           totalorders: '2',
           totalsales: '300',
           firstorderdate: new Date('2026-01-01'),
           lastorderdate: new Date('2026-03-01'),
         }),
       };
-      salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      salesOrderRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
 
       await service.updateCustomerMetrics('c1');
 
@@ -439,17 +439,17 @@ describe('CustomerService', () => {
   describe('getCustomerStatistics', () => {
     it('filters order stats to fulfilled orders only', async () => {
       const customer = createCustomer('c1');
-      customerRepository.findOne = jest.fn().mockResolvedValue(customer);
+      customerRepository.findOne = (jest.fn as unknown as any)().mockResolvedValue(customer);
 
-      const salesOrderRepository: jest.Mocked<Repository<SalesOrder>> = module.get(
+      const salesOrderRepository: any = module.get(
         getRepositoryToken(SalesOrder),
       );
 
       const qb = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        select: jest.fn().mockReturnThis(),
-        getRawOne: jest.fn().mockResolvedValue({
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        select: (jest.fn as unknown as any)().mockReturnThis(),
+        getRawOne: (jest.fn as unknown as any)().mockResolvedValue({
           totalorders: '3',
           averageordervalue: '100',
           totalsales: '300',
@@ -457,7 +457,7 @@ describe('CustomerService', () => {
           lastorderdate: new Date('2026-03-01'),
         }),
       };
-      salesOrderRepository.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      salesOrderRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
 
       await service.getCustomerStatistics('c1');
 

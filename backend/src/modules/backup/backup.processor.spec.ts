@@ -1,21 +1,17 @@
+import { jest } from '@jest/globals';
 import { Job } from 'bullmq';
 import { BackupProcessor } from './backup.processor';
 import { BackupService } from './backup.service';
 
 describe('BackupProcessor', () => {
-  let backupService: jest.Mocked<
-    Pick<
-      BackupService,
-      'createBackup' | 'cleanupOldBackups' | 'cleanupBackupsWithSettings'
-    >
-  >;
+  let backupService: any;
   let processor: BackupProcessor;
 
   beforeEach(() => {
     backupService = {
-      createBackup: jest.fn(),
-      cleanupOldBackups: jest.fn(),
-      cleanupBackupsWithSettings: jest.fn(),
+      createBackup: (jest.fn as unknown as any)(),
+      cleanupOldBackups: (jest.fn as unknown as any)(),
+      cleanupBackupsWithSettings: (jest.fn as unknown as any)(),
     };
 
     processor = new BackupProcessor(backupService as unknown as BackupService);

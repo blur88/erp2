@@ -1,12 +1,13 @@
+import { jest } from '@jest/globals';
 import { BadRequestException } from '@nestjs/common';
 import { ChartOfAccountController } from './chart-of-account.controller';
 
 function makeCtrl() {
   const svc = {
-    findTree: jest.fn(async () => [{ code: '1000' }]),
-    create: jest.fn(async () => ({ id: 'new' })),
-    update: jest.fn(async () => ({ id: 'x' })),
-    list: jest.fn(async () => []),
+    findTree: (jest.fn as unknown as any)(async () => [{ code: '1000' }]),
+    create: (jest.fn as unknown as any)(async () => ({ id: 'new' })),
+    update: (jest.fn as unknown as any)(async () => ({ id: 'x' })),
+    list: (jest.fn as unknown as any)(async () => []),
   };
   return { svc, ctrl: new ChartOfAccountController(svc as any) };
 }

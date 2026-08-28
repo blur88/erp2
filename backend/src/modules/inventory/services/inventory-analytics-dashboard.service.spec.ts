@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { InventoryAnalyticsService } from './inventory-analytics.service';
@@ -9,26 +10,26 @@ import { PriceListItem } from '../../../database/entities/price-list-item.entity
 import { PurchaseOrderItem } from '../../../database/entities/purchase-order-item.entity';
 import { SettingsService } from '../../settings/settings.service';
 
-const mockRepo = () => ({ find: jest.fn(), count: jest.fn(), createQueryBuilder: jest.fn() });
+const mockRepo = () => ({ find: (jest.fn as unknown as any)(), count: (jest.fn as unknown as any)(), createQueryBuilder: (jest.fn as unknown as any)() });
 
 function makeQb(rawResult: any = {}, manyResult: any[] = []) {
   const qb: any = {
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    innerJoin: jest.fn().mockReturnThis(),
-    leftJoin: jest.fn().mockReturnThis(),
-    leftJoinAndSelect: jest.fn().mockReturnThis(),
-    select: jest.fn().mockReturnThis(),
-    addSelect: jest.fn().mockReturnThis(),
-    groupBy: jest.fn().mockReturnThis(),
-    addGroupBy: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    addOrderBy: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    getRawOne: jest.fn().mockResolvedValue(rawResult),
-    getRawMany: jest.fn().mockResolvedValue(manyResult),
-    getMany: jest.fn().mockResolvedValue(manyResult),
-    getRawAndEntities: jest.fn().mockResolvedValue({ entities: manyResult, raw: [] }),
+    where: (jest.fn as unknown as any)().mockReturnThis(),
+    andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+    innerJoin: (jest.fn as unknown as any)().mockReturnThis(),
+    leftJoin: (jest.fn as unknown as any)().mockReturnThis(),
+    leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+    select: (jest.fn as unknown as any)().mockReturnThis(),
+    addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+    groupBy: (jest.fn as unknown as any)().mockReturnThis(),
+    addGroupBy: (jest.fn as unknown as any)().mockReturnThis(),
+    orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+    addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+    limit: (jest.fn as unknown as any)().mockReturnThis(),
+    getRawOne: (jest.fn as unknown as any)().mockResolvedValue(rawResult),
+    getRawMany: (jest.fn as unknown as any)().mockResolvedValue(manyResult),
+    getMany: (jest.fn as unknown as any)().mockResolvedValue(manyResult),
+    getRawAndEntities: (jest.fn as unknown as any)().mockResolvedValue({ entities: manyResult, raw: [] }),
   };
   return qb;
 }
@@ -39,7 +40,7 @@ describe('InventoryAnalyticsService.getInventoryDashboardAnalytics', () => {
   let categoryRepo: any;
   let stockMovementRepo: any;
   let purchaseOrderItemRepo: any;
-  let settingsService: { getRegionalSettings: jest.Mock };
+  let settingsService: { getRegionalSettings: any };
 
   beforeEach(async () => {
     productRepo = mockRepo();
@@ -47,7 +48,7 @@ describe('InventoryAnalyticsService.getInventoryDashboardAnalytics', () => {
     stockMovementRepo = mockRepo();
     purchaseOrderItemRepo = mockRepo();
     settingsService = {
-      getRegionalSettings: jest.fn().mockResolvedValue({ lowStockThreshold: 10, timezone: 'UTC' }),
+      getRegionalSettings: (jest.fn as unknown as any)().mockResolvedValue({ lowStockThreshold: 10, timezone: 'UTC' }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -152,7 +153,7 @@ describe('InventoryAnalyticsService.getInventoryDashboardAnalytics', () => {
 
   describe('dashboard filters', () => {
     function setupDefaultMocksWithFilters() {
-      purchaseOrderItemRepo.createQueryBuilder = jest.fn().mockImplementation(() =>
+      purchaseOrderItemRepo.createQueryBuilder = (jest.fn as unknown as any)().mockImplementation(() =>
         makeQb({}, []),
       );
       productRepo.createQueryBuilder.mockImplementation(() =>
@@ -182,7 +183,7 @@ describe('InventoryAnalyticsService.getInventoryDashboardAnalytics', () => {
     });
 
     it('returns zeroed metrics when supplierId resolves to no products', async () => {
-      purchaseOrderItemRepo.createQueryBuilder = jest.fn().mockImplementation(() =>
+      purchaseOrderItemRepo.createQueryBuilder = (jest.fn as unknown as any)().mockImplementation(() =>
         makeQb({}, []),
       );
       productRepo.createQueryBuilder.mockImplementation(() =>

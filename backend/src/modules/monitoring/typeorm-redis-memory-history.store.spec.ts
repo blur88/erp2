@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { TypeOrmRedisMemoryHistoryStore } from './typeorm-redis-memory-history.store';
 import { REDIS_DETAIL_MAX_ROWS } from './redis-memory.types';
 import { Repository } from 'typeorm';
@@ -16,10 +17,10 @@ describe('TypeOrmRedisMemoryHistoryStore', () => {
   };
 
   const makeRepo = () => ({
-    insert: jest.fn().mockResolvedValue(undefined),
-    find: jest.fn().mockResolvedValue([]),
-    count: jest.fn().mockResolvedValue(0),
-    createQueryBuilder: jest.fn(),
+    insert: (jest.fn as unknown as any)().mockResolvedValue(undefined),
+    find: (jest.fn as unknown as any)().mockResolvedValue([]),
+    count: (jest.fn as unknown as any)().mockResolvedValue(0),
+    createQueryBuilder: (jest.fn as unknown as any)(),
   });
 
   it('writes the resolved instance id with each sample', async () => {
@@ -206,11 +207,11 @@ describe('TypeOrmRedisMemoryHistoryStore', () => {
 
 function buildStore(options: { rawWindowStats: unknown[] }) {
   const repository = {
-    find: jest.fn().mockResolvedValue([]),
-    count: jest.fn().mockResolvedValue(0),
-    insert: jest.fn().mockResolvedValue(undefined),
-    query: jest.fn().mockResolvedValue(options.rawWindowStats),
-    manager: { query: jest.fn().mockResolvedValue(options.rawWindowStats) },
+    find: (jest.fn as unknown as any)().mockResolvedValue([]),
+    count: (jest.fn as unknown as any)().mockResolvedValue(0),
+    insert: (jest.fn as unknown as any)().mockResolvedValue(undefined),
+    query: (jest.fn as unknown as any)().mockResolvedValue(options.rawWindowStats),
+    manager: { query: (jest.fn as unknown as any)().mockResolvedValue(options.rawWindowStats) },
   } as unknown as Repository<RedisMemorySampleEntity>;
   return new TypeOrmRedisMemoryHistoryStore(repository, 'erp_backend');
 }

@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -15,10 +16,10 @@ import { DocumentNumberSetting } from '@database/entities/document-number-settin
 import { PrintSettings } from '@database/entities/print-settings.entity';
 
 jest.mock('child_process', () => ({
-  spawn: jest.fn(),
+  spawn: (jest.fn as unknown as any)(),
 }));
 
-const mockSpawn = spawn as jest.MockedFunction<typeof spawn>;
+const mockSpawn = spawn as any as jest.MockedFunction<typeof spawn>;
 
 function mockSuccessfulSpawn(stdout = '') {
   mockSpawn.mockImplementationOnce(() => {
@@ -51,37 +52,37 @@ function mockFailingSpawn(stderr = 'permission denied', code = 1) {
 }
 
 const mockRepository = () => ({
-  findOne: jest.fn(),
-  find: jest.fn(),
-  create: jest.fn(),
-  save: jest.fn(),
-  remove: jest.fn(),
-  update: jest.fn(),
+  findOne: (jest.fn as unknown as any)(),
+  find: (jest.fn as unknown as any)(),
+  create: (jest.fn as unknown as any)(),
+  save: (jest.fn as unknown as any)(),
+  remove: (jest.fn as unknown as any)(),
+  update: (jest.fn as unknown as any)(),
 });
 
 const mockConfigService = {
-  get: jest.fn((key: string, defaultVal?: any) => defaultVal ?? null),
+  get: (jest.fn as unknown as any)((key: string, defaultVal?: any) => defaultVal ?? null),
 };
 
 jest.mock('ioredis', () => ({
   __esModule: true,
-  default: jest.fn().mockImplementation(() => ({
-    keys: jest.fn().mockResolvedValue([]),
-    type: jest.fn(),
-    ttl: jest.fn(),
-    get: jest.fn(),
-    hgetall: jest.fn(),
-    lrange: jest.fn(),
-    smembers: jest.fn(),
-    zrange: jest.fn(),
-    set: jest.fn(),
-    hmset: jest.fn(),
-    rpush: jest.fn(),
-    sadd: jest.fn(),
-    zadd: jest.fn(),
-    expire: jest.fn(),
-    flushall: jest.fn(),
-    info: jest.fn().mockResolvedValue('redis_version:8.0.0'),
+  default: (jest.fn as unknown as any)().mockImplementation(() => ({
+    keys: (jest.fn as unknown as any)().mockResolvedValue([]),
+    type: (jest.fn as unknown as any)(),
+    ttl: (jest.fn as unknown as any)(),
+    get: (jest.fn as unknown as any)(),
+    hgetall: (jest.fn as unknown as any)(),
+    lrange: (jest.fn as unknown as any)(),
+    smembers: (jest.fn as unknown as any)(),
+    zrange: (jest.fn as unknown as any)(),
+    set: (jest.fn as unknown as any)(),
+    hmset: (jest.fn as unknown as any)(),
+    rpush: (jest.fn as unknown as any)(),
+    sadd: (jest.fn as unknown as any)(),
+    zadd: (jest.fn as unknown as any)(),
+    expire: (jest.fn as unknown as any)(),
+    flushall: (jest.fn as unknown as any)(),
+    info: (jest.fn as unknown as any)().mockResolvedValue('redis_version:8.0.0'),
   })),
 }));
 
@@ -370,7 +371,7 @@ describe('BackupService - settings backup', () => {
   describe('backupSettings', () => {
     it('writes settings JSON file with all 4 settings types', async () => {
       const mockFs = {
-        writeFile: jest.fn().mockResolvedValue(undefined),
+        writeFile: (jest.fn as unknown as any)().mockResolvedValue(undefined),
       };
       jest.spyOn(require('fs/promises'), 'writeFile').mockImplementation(mockFs.writeFile);
 
@@ -569,7 +570,7 @@ describe('BackupService - createArchive', () => {
         BackupService,
         {
           provide: ConfigService,
-          useValue: { get: jest.fn((_key, def) => def ?? null) },
+          useValue: { get: (jest.fn as unknown as any)((_key, def) => def ?? null) },
         },
         { provide: getRepositoryToken(BackupLog), useFactory: mockRepository },
         { provide: getRepositoryToken(BackupRetentionSettings), useFactory: mockRepository },

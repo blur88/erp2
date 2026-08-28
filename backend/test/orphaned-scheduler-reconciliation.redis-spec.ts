@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { IRedisClient, Queue as QueueV6, Worker, Job } from 'bullmq';
 import { Repository } from 'typeorm';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
@@ -65,7 +66,7 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
     } as BackupSchedule;
 
     const repo = {
-      find: jest.fn().mockResolvedValue([schedule]),
+      find: (jest.fn as unknown as any)().mockResolvedValue([schedule]),
     } as unknown as Repository<BackupSchedule>;
 
     service = new BackupSchedulerService(
@@ -124,7 +125,7 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
     expect(await client.exists(`${prefix}:${QUEUE}:${delayedBefore[0]}`)).toBe(1);
 
     const repo = {
-      find: jest.fn().mockResolvedValue([schedule]),
+      find: (jest.fn as unknown as any)().mockResolvedValue([schedule]),
     } as unknown as Repository<BackupSchedule>;
     const reconciler = new OrphanedSchedulerReconciler(repo, v6 as any);
 
@@ -173,7 +174,7 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
     );
 
     const repo = {
-      find: jest.fn().mockResolvedValue([schedule]),
+      find: (jest.fn as unknown as any)().mockResolvedValue([schedule]),
     } as unknown as Repository<BackupSchedule>;
     const reconciler = new OrphanedSchedulerReconciler(repo, v6 as any);
 
@@ -306,7 +307,7 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
       schedule.id = LIVE_ID;
       schedule.name = 'Live Unrelated';
       repo = {
-        find: jest.fn().mockResolvedValue([schedule]),
+        find: (jest.fn as unknown as any)().mockResolvedValue([schedule]),
       } as unknown as Repository<BackupSchedule>;
       reconciler = new OrphanedSchedulerReconciler(repo, v6 as any);
     });
@@ -359,7 +360,7 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
     it('aborts without mutating when the DB read throws', async () => {
       await seedLive();
       await seedOrphan();
-      (repo.find as jest.Mock).mockRejectedValue(new Error('connection refused'));
+      (repo.find as any).mockRejectedValue(new Error('connection refused'));
 
       await expect(
         reconciler.reconcileOrphanedSchedulers({
@@ -373,7 +374,7 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
 
     it('blocks execution when every candidate looks orphaned', async () => {
       await seedOrphan();
-      (repo.find as jest.Mock).mockResolvedValue([]);
+      (repo.find as any).mockResolvedValue([]);
 
       await expect(
         reconciler.reconcileOrphanedSchedulers({
@@ -387,7 +388,7 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
 
     it('dry-run reports an all-orphan scan instead of aborting', async () => {
       await seedOrphan();
-      (repo.find as jest.Mock).mockResolvedValue([]);
+      (repo.find as any).mockResolvedValue([]);
 
       const result = await reconciler.reconcileOrphanedSchedulers({
         dryRun: true,
@@ -403,7 +404,7 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
 
     it('allowEmpty permits the all-orphan execution', async () => {
       await seedOrphan();
-      (repo.find as jest.Mock).mockResolvedValue([]);
+      (repo.find as any).mockResolvedValue([]);
 
       const result = await reconciler.reconcileOrphanedSchedulers({
         dryRun: false,
@@ -421,7 +422,7 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
       // The legacy API: hashed member, NO ic field, but data carries a
       // scheduleId — the exact shape an unfiltered scan would misclassify.
       const legacyMember = await seedLegacyRepeatable();
-      (repo.find as jest.Mock).mockResolvedValue([]);
+      (repo.find as any).mockResolvedValue([]);
 
       const client = await testClient(v6);
       expect(await client.hexists(`${repeatKey}:${legacyMember}`, 'ic')).toBe(0);
@@ -499,7 +500,7 @@ describe('Orphaned scheduler reconciliation (real Redis)', () => {
       await seedOrphan();
 
       const bootRepo = {
-        find: jest.fn().mockResolvedValue([schedule]),
+        find: (jest.fn as unknown as any)().mockResolvedValue([schedule]),
       } as unknown as Repository<BackupSchedule>;
       const bootService = new BackupSchedulerService(
         bootRepo,

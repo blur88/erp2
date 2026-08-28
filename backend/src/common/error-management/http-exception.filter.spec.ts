@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 import { HttpExceptionFilter } from './http-exception.filter';
@@ -8,8 +9,8 @@ import { IdGeneratorService } from './services/id-generator.service';
 
 const mockResponse = () => {
   const res: any = {};
-  res.status = jest.fn().mockReturnValue(res);
-  res.json = jest.fn().mockReturnValue(res);
+  res.status = (jest.fn as unknown as any)().mockReturnValue(res);
+  res.json = (jest.fn as unknown as any)().mockReturnValue(res);
   return res;
 };
 
@@ -17,7 +18,7 @@ const mockRequest = () => ({
   url: '/api/test',
   method: 'GET',
   ip: '127.0.0.1',
-  get: jest.fn().mockReturnValue('TestAgent/1.0'),
+  get: (jest.fn as unknown as any)().mockReturnValue('TestAgent/1.0'),
 });
 
 const mockHost = (req: any, res: any) => ({
@@ -29,19 +30,19 @@ const mockHost = (req: any, res: any) => ({
 
 describe('HttpExceptionFilter', () => {
   let filter: HttpExceptionFilter;
-  let errorLogger: jest.Mocked<ErrorLoggerService>;
+  let errorLogger: any;
   let errorClassifier: ErrorClassifierService;
   let errorSanitizer: ErrorSanitizerService;
   let idGenerator: IdGeneratorService;
 
   beforeEach(() => {
-    const configService = { get: jest.fn().mockReturnValue('test') } as any;
-    const securityDetector = { isSecurityRelated: jest.fn().mockReturnValue(false) } as any;
+    const configService = { get: (jest.fn as unknown as any)().mockReturnValue('test') } as any;
+    const securityDetector = { isSecurityRelated: (jest.fn as unknown as any)().mockReturnValue(false) } as any;
     errorLogger = {
-      logUnexpectedError: jest.fn(),
-      logSecurityError: jest.fn(),
-      logApplicationError: jest.fn(),
-      logDatabaseError: jest.fn(),
+      logUnexpectedError: (jest.fn as unknown as any)(),
+      logSecurityError: (jest.fn as unknown as any)(),
+      logApplicationError: (jest.fn as unknown as any)(),
+      logDatabaseError: (jest.fn as unknown as any)(),
     } as any;
     errorClassifier = new ErrorClassifierService();
     errorSanitizer = new ErrorSanitizerService();
@@ -116,8 +117,8 @@ describe('HttpExceptionFilter', () => {
   });
 
   it('returns production-specific message for unexpected errors when NODE_ENV is production', () => {
-    const configService = { get: jest.fn().mockReturnValue('production') } as any;
-    const securityDetector = { isSecurityRelated: jest.fn().mockReturnValue(false) } as any;
+    const configService = { get: (jest.fn as unknown as any)().mockReturnValue('production') } as any;
+    const securityDetector = { isSecurityRelated: (jest.fn as unknown as any)().mockReturnValue(false) } as any;
     const productionFilter = new HttpExceptionFilter(
       configService,
       securityDetector,
@@ -153,8 +154,8 @@ describe('HttpExceptionFilter', () => {
   });
 
   it('calls logSecurityError when error is security-related', () => {
-    const configService = { get: jest.fn().mockReturnValue('test') } as any;
-    const securityDetector = { isSecurityRelated: jest.fn().mockReturnValue(true) } as any;
+    const configService = { get: (jest.fn as unknown as any)().mockReturnValue('test') } as any;
+    const securityDetector = { isSecurityRelated: (jest.fn as unknown as any)().mockReturnValue(true) } as any;
     const localFilter = new HttpExceptionFilter(
       configService,
       securityDetector,
@@ -178,13 +179,13 @@ describe('service error codes in the dedicated `code` field (#985)', () => {
   let filter: HttpExceptionFilter;
 
   beforeEach(() => {
-    const configService = { get: jest.fn().mockReturnValue('test') } as any;
-    const securityDetector = { isSecurityRelated: jest.fn().mockReturnValue(false) } as any;
+    const configService = { get: (jest.fn as unknown as any)().mockReturnValue('test') } as any;
+    const securityDetector = { isSecurityRelated: (jest.fn as unknown as any)().mockReturnValue(false) } as any;
     const errorLogger = {
-      logUnexpectedError: jest.fn(),
-      logSecurityError: jest.fn(),
-      logApplicationError: jest.fn(),
-      logDatabaseError: jest.fn(),
+      logUnexpectedError: (jest.fn as unknown as any)(),
+      logSecurityError: (jest.fn as unknown as any)(),
+      logApplicationError: (jest.fn as unknown as any)(),
+      logDatabaseError: (jest.fn as unknown as any)(),
     } as any;
 
     filter = new HttpExceptionFilter(

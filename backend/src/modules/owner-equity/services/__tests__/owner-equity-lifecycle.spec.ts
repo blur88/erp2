@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -18,9 +19,9 @@ import { SettingsService } from '../../../settings/settings.service';
 describe('OwnerEquity lifecycle', () => {
   let svc: OwnerEquityService;
   let settle: OwnerEquitySettlementService;
-  let dataSource: jest.Mocked<DataSource>;
+  let dataSource: any;
   let postingMock: any;
-  let auditLogService: jest.Mocked<AuditLogService>;
+  let auditLogService: any;
 
   let currentDoc: any;
   let savedRows: any[];
@@ -68,20 +69,20 @@ describe('OwnerEquity lifecycle', () => {
 
   beforeEach(async () => {
     postingMock = {
-      postOwnerCapitalInjection: jest.fn().mockResolvedValue({ journalEntryId: 'je-1' }),
-      postOwnerCapitalInjectionRefund: jest.fn().mockResolvedValue({ journalEntryId: 'je-2' }),
-      postOwnerCashDrawing: jest.fn().mockResolvedValue({ journalEntryId: 'je-3' }),
-      postOwnerCashDrawingRefund: jest.fn().mockResolvedValue({ journalEntryId: 'je-4' }),
+      postOwnerCapitalInjection: (jest.fn as unknown as any)().mockResolvedValue({ journalEntryId: 'je-1' }),
+      postOwnerCapitalInjectionRefund: (jest.fn as unknown as any)().mockResolvedValue({ journalEntryId: 'je-2' }),
+      postOwnerCashDrawing: (jest.fn as unknown as any)().mockResolvedValue({ journalEntryId: 'je-3' }),
+      postOwnerCashDrawingRefund: (jest.fn as unknown as any)().mockResolvedValue({ journalEntryId: 'je-4' }),
     };
-    dataSource = { transaction: jest.fn() } as any;
-    auditLogService = { log: jest.fn() } as any;
+    dataSource = { transaction: (jest.fn as unknown as any)() } as any;
+    auditLogService = { log: (jest.fn as unknown as any)() } as any;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OwnerEquityService,
         OwnerEquitySettlementService,
-        { provide: getRepositoryToken(OwnerEquityDocument), useValue: { findOne: jest.fn() } },
-        { provide: SettingsService, useValue: { generateDocumentNumber: jest.fn() } },
+        { provide: getRepositoryToken(OwnerEquityDocument), useValue: { findOne: (jest.fn as unknown as any)() } },
+        { provide: SettingsService, useValue: { generateDocumentNumber: (jest.fn as unknown as any)() } },
         { provide: AuditLogService, useValue: auditLogService },
         { provide: DataSource, useValue: dataSource },
         { provide: ACCOUNTING_POSTING_PORT, useValue: postingMock },
@@ -93,27 +94,27 @@ describe('OwnerEquity lifecycle', () => {
 
     savedRows = [];
     txDocRepo = {
-      findOne: jest.fn(),
-      save: jest.fn(async (x: any) => {
+      findOne: (jest.fn as unknown as any)(),
+      save: (jest.fn as unknown as any)(async (x: any) => {
         currentDoc = { ...x };
         return currentDoc;
       }),
-      update: jest.fn().mockResolvedValue({}),
+      update: (jest.fn as unknown as any)().mockResolvedValue({}),
     };
     txSettleRepo = {
-      create: jest.fn((x: any) => ({ ...x })),
-      save: jest.fn(async (x: any) => {
+      create: (jest.fn as unknown as any)((x: any) => ({ ...x })),
+      save: (jest.fn as unknown as any)(async (x: any) => {
         const row = { ...x, id: `stl-${savedRows.length + 1}` };
         savedRows.push(row);
         return row;
       }),
-      find: jest.fn(async (opts: any) => {
+      find: (jest.fn as unknown as any)(async (opts: any) => {
         if (opts?.where?.sourceSettlementId !== undefined) {
           return savedRows.filter((r) => r.sourceSettlementId === opts.where.sourceSettlementId);
         }
         return savedRows;
       }),
-      findOne: jest.fn(async (opts: any) => {
+      findOne: (jest.fn as unknown as any)(async (opts: any) => {
         return savedRows.find((r) => r.id === opts?.where?.id) ?? null;
       }),
     };
@@ -122,7 +123,7 @@ describe('OwnerEquity lifecycle', () => {
       'pm-3': salesOnlyMethod(), 'pm-9': retiredMethod(),
     };
     txPmRepo = {
-      findOne: jest.fn().mockImplementation(async (opts: any) => {
+      findOne: (jest.fn as unknown as any)().mockImplementation(async (opts: any) => {
         const method = pmMap[opts.where.id];
         if (!method) return null;
         if (opts.where.isActive !== undefined && method.isActive !== opts.where.isActive) return null;
@@ -131,14 +132,14 @@ describe('OwnerEquity lifecycle', () => {
       }),
     };
     txManager = {
-      getRepository: jest.fn().mockImplementation((entity: any) => {
+      getRepository: (jest.fn as unknown as any)().mockImplementation((entity: any) => {
         if (entity === OwnerEquityDocument) return txDocRepo;
         if (entity === OwnerEquitySettlement) return txSettleRepo;
         if (entity === PaymentMethodEntity) return txPmRepo;
         return {};
       }),
     };
-    (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(txManager));
+    (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(txManager));
 
     setDoc();
   });

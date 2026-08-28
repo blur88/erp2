@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Queue } from 'bullmq';
 import { In, Repository } from 'typeorm';
 import { BackupSchedule } from '@database/entities/backup-schedule.entity';
@@ -7,12 +8,12 @@ describe('OrphanedSchedulerReconciler scan', () => {
   const MEMBER = '60f88ec415a02b45f5c02094f3aca23d';
   const OTHER = 'c'.repeat(32);
 
-  let scheduleRepository: jest.Mocked<Repository<BackupSchedule>>;
-  let backupQueue: jest.Mocked<Queue>;
+  let scheduleRepository: any;
+  let backupQueue: any;
   let redisClient: {
-    zscan: jest.Mock;
-    hexists: jest.Mock;
-    hget: jest.Mock;
+    zscan: any;
+    hexists: any;
+    hget: any;
   };
   let reconciler: OrphanedSchedulerReconciler;
 
@@ -33,22 +34,22 @@ describe('OrphanedSchedulerReconciler scan', () => {
 
   beforeEach(() => {
     scheduleRepository = {
-      find: jest.fn().mockResolvedValue([]),
-    } as unknown as jest.Mocked<Repository<BackupSchedule>>;
+      find: (jest.fn as unknown as any)().mockResolvedValue([]),
+    } as unknown as any;
 
     redisClient = {
-      zscan: jest.fn().mockResolvedValue(['0', []]),
-      hexists: jest.fn().mockResolvedValue(1), // 1 = ic present (scheduler)
-      hget: jest.fn().mockResolvedValue(null),
+      zscan: (jest.fn as unknown as any)().mockResolvedValue(['0', []]),
+      hexists: (jest.fn as unknown as any)().mockResolvedValue(1), // 1 = ic present (scheduler)
+      hget: (jest.fn as unknown as any)().mockResolvedValue(null),
     };
 
     backupQueue = {
-      removeJobScheduler: jest.fn().mockResolvedValue(true),
-    } as unknown as jest.Mocked<Queue>;
-    (backupQueue as any).getBackend = jest.fn().mockReturnValue({
+      removeJobScheduler: (jest.fn as unknown as any)().mockResolvedValue(true),
+    } as unknown as any;
+    (backupQueue as any).getBackend = (jest.fn as unknown as any)().mockReturnValue({
       client: Promise.resolve(redisClient),
     });
-    (backupQueue as any).toKey = jest.fn(
+    (backupQueue as any).toKey = (jest.fn as unknown as any)(
       (type: string) => `bull:backup-queue:${type}`,
     );
 
@@ -77,8 +78,7 @@ describe('OrphanedSchedulerReconciler scan', () => {
   it('does not classify an entry whose schedule row still exists', async () => {
     primeScan([MEMBER]);
     redisClient.hget.mockResolvedValue(dataFor('a556cb35'));
-    scheduleRepository.find = jest
-      .fn()
+    scheduleRepository.find = (jest.fn as unknown as any)()
       .mockResolvedValue([{ id: 'a556cb35' } as BackupSchedule]);
 
     const scan = await reconciler.scanOrphanedSchedulers();
@@ -154,8 +154,7 @@ describe('OrphanedSchedulerReconciler scan', () => {
   it('propagates a failed DB lookup instead of reporting zero orphans', async () => {
     primeScan([MEMBER]);
     redisClient.hget.mockResolvedValue(dataFor('a556cb35'));
-    scheduleRepository.find = jest
-      .fn()
+    scheduleRepository.find = (jest.fn as unknown as any)()
       .mockRejectedValue(new Error('connection terminated'));
 
     // Deliberately uncaught: a caller must never mistake "the query threw"

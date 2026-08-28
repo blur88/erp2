@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,9 +12,9 @@ import { UserRole } from '../../../database/entities/user.entity';
 
 describe('SupplierService', () => {
   let service: SupplierService;
-  let supplierRepository: jest.Mocked<Repository<Supplier>>;
-  let purchaseOrderRepository: jest.Mocked<Repository<PurchaseOrder>>;
-  let vendorPaymentRepository: jest.Mocked<Repository<VendorPayment>>;
+  let supplierRepository: any;
+  let purchaseOrderRepository: any;
+  let vendorPaymentRepository: any;
 
   const createSupplier = (id: string, overrides: Partial<Supplier> = {}): Supplier =>
     ({
@@ -55,25 +56,25 @@ describe('SupplierService', () => {
         {
           provide: getRepositoryToken(Supplier),
           useValue: {
-            createQueryBuilder: jest.fn(),
+            createQueryBuilder: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(PurchaseOrder),
           useValue: {
-            findAndCount: jest.fn(),
+            findAndCount: (jest.fn as unknown as any)(),
           },
         },
 
         {
           provide: getRepositoryToken(VendorPayment),
           useValue: {
-            findAndCount: jest.fn(),
+            findAndCount: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: AuditLogService,
-          useValue: { log: jest.fn() },
+          useValue: { log: (jest.fn as unknown as any)() },
         },
       ],
     }).compile();
@@ -87,12 +88,12 @@ describe('SupplierService', () => {
   describe('findAll', () => {
     it('returns paginated suppliers with customer-style metadata and billing/shipping fields', async () => {
       const qb = {
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        skip: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([
           [
             createSupplier('1', {
               email: 'supplier@example.com',
@@ -133,12 +134,12 @@ describe('SupplierService', () => {
 
   describe('sort resolution', () => {
     const createSortQb = () => ({
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      addOrderBy: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+      orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      skip: (jest.fn as unknown as any)().mockReturnThis(),
+      take: (jest.fn as unknown as any)().mockReturnThis(),
+      getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([[], 0]),
     });
 
     it('orders by companyName ASC when sortBy is absent', async () => {
@@ -193,13 +194,13 @@ describe('SupplierService', () => {
   describe('searchGlobal', () => {
     it('exact supplier name match scores SCORE_EXACT_NAME + BOOST_SUPPLIER + BOOST_EXACT_MATCH', async () => {
       supplierRepository.createQueryBuilder.mockReturnValue({
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        setParameter: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
+        addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        setParameter: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue([
           {
             id: 'sup-1',
             companyName: 'Acme Supplies',
@@ -225,7 +226,7 @@ describe('SupplierService', () => {
 
   describe('getSupplierPurchaseOrders', () => {
     it('applies skip/take and returns meta.total', async () => {
-      const findAndCount = purchaseOrderRepository.findAndCount as jest.Mock;
+      const findAndCount = purchaseOrderRepository.findAndCount as any;
       findAndCount.mockResolvedValue([[{ id: 'po1' }], 80]);
 
       const result = await service.getSupplierPurchaseOrders('sup-1', { page: 2, limit: 25 } as any);
@@ -237,7 +238,7 @@ describe('SupplierService', () => {
     });
 
     it('omits skip/take when page/limit are absent (full set)', async () => {
-      const findAndCount = purchaseOrderRepository.findAndCount as jest.Mock;
+      const findAndCount = purchaseOrderRepository.findAndCount as any;
       findAndCount.mockResolvedValue([[{ id: 'po1' }], 80]);
 
       const result = await service.getSupplierPurchaseOrders('sup-1');
@@ -251,7 +252,7 @@ describe('SupplierService', () => {
 
   describe('getSupplierPayments', () => {
     it('applies skip/take and returns meta.total', async () => {
-      const findAndCount = vendorPaymentRepository.findAndCount as jest.Mock;
+      const findAndCount = vendorPaymentRepository.findAndCount as any;
       findAndCount.mockResolvedValue([[{ id: 'vp1' }], 60]);
 
       const result = await service.getSupplierPayments('sup-1', { page: 2, limit: 10 } as any);
@@ -263,7 +264,7 @@ describe('SupplierService', () => {
     });
 
     it('omits skip/take when page/limit are absent (full set)', async () => {
-      const findAndCount = vendorPaymentRepository.findAndCount as jest.Mock;
+      const findAndCount = vendorPaymentRepository.findAndCount as any;
       findAndCount.mockResolvedValue([[{ id: 'vp1' }], 60]);
 
       const result = await service.getSupplierPayments('sup-1');

@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
@@ -8,9 +9,9 @@ import { CostingStrategyFactory } from './costing/costing-strategy-factory.servi
 
 describe('CostingRecalculationService', () => {
   let service: CostingRecalculationService;
-  let productRepository: jest.Mocked<Repository<Product>>;
-  let baseCostCalculator: jest.Mocked<BaseCostCalculatorService>;
-  let costingStrategyFactory: jest.Mocked<CostingStrategyFactory>;
+  let productRepository: any;
+  let baseCostCalculator: any;
+  let costingStrategyFactory: any;
 
   const makeProduct = (overrides: Partial<Product> = {}): Product =>
     ({
@@ -28,15 +29,15 @@ describe('CostingRecalculationService', () => {
         CostingRecalculationService,
         {
           provide: getRepositoryToken(Product),
-          useValue: { find: jest.fn(), findOne: jest.fn() },
+          useValue: { find: (jest.fn as unknown as any)(), findOne: (jest.fn as unknown as any)() },
         },
         {
           provide: BaseCostCalculatorService,
-          useValue: { updateProductBaseCost: jest.fn() },
+          useValue: { updateProductBaseCost: (jest.fn as unknown as any)() },
         },
         {
           provide: CostingStrategyFactory,
-          useValue: { getCurrentCostingMethod: jest.fn() },
+          useValue: { getCurrentCostingMethod: (jest.fn as unknown as any)() },
         },
       ],
     }).compile();

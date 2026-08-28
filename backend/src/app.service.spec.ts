@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -12,20 +13,20 @@ import { RedisMemorySamplerService } from './modules/monitoring/redis-memory-sam
  * called by `getHealth()`.
  */
 const redisMock = {
-  connect: jest.fn(),
-  ping: jest.fn(),
-  info: jest.fn(),
-  disconnect: jest.fn(),
+  connect: (jest.fn as unknown as any)(),
+  ping: (jest.fn as unknown as any)(),
+  info: (jest.fn as unknown as any)(),
+  disconnect: (jest.fn as unknown as any)(),
 };
 
 jest.mock('ioredis', () => ({
   __esModule: true,
-  default: jest.fn(() => redisMock),
+  default: (jest.fn as unknown as any)(() => redisMock),
 }));
 
 const samplerMock = {
-  getHealthView: jest.fn(),
-  getDetail: jest.fn(),
+  getHealthView: (jest.fn as unknown as any)(),
+  getDetail: (jest.fn as unknown as any)(),
 };
 
 const healthyView = {
@@ -46,7 +47,7 @@ const healthyView = {
 
 describe('AppService', () => {
   let service: AppService;
-  let dataSource: { query: jest.Mock };
+  let dataSource: { query: any };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -55,7 +56,7 @@ describe('AppService', () => {
     redisMock.ping.mockResolvedValue('PONG');
     redisMock.disconnect.mockReturnValue(undefined);
 
-    dataSource = { query: jest.fn().mockResolvedValue([{ '?column?': 1 }]) };
+    dataSource = { query: (jest.fn as unknown as any)().mockResolvedValue([{ '?column?': 1 }]) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

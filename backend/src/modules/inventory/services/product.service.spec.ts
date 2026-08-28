@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -25,20 +26,20 @@ import { UserRole } from '../../../database/entities/user.entity';
  */
 const createMockDataSource = (repos: Map<any, any> = new Map()) => {
   const manager = {
-    getRepository: jest.fn((entity: any) => repos.get(entity) ?? {}),
+    getRepository: (jest.fn as unknown as any)((entity: any) => repos.get(entity) ?? {}),
   } as unknown as EntityManager;
 
   return {
     manager,
     dataSource: {
-      transaction: jest.fn(async (cb: (m: EntityManager) => Promise<any>) => cb(manager)),
+      transaction: (jest.fn as unknown as any)(async (cb: (m: EntityManager) => Promise<any>) => cb(manager)),
     },
   };
 };
 
 describe('ProductService pagination removal', () => {
   let service: ProductService;
-  let productRepository: jest.Mocked<Repository<Product>>;
+  let productRepository: any;
   const adminUser = { role: UserRole.ADMIN } as any;
 
   const createProduct = (id: string, overrides: Partial<Product> = {}): Product =>
@@ -68,15 +69,15 @@ describe('ProductService pagination removal', () => {
 
   const createQueryBuilder = (products: Product[]) => {
     const qb = {
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      addSelect: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      withDeleted: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValue([products, products.length]),
+      leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+      where: (jest.fn as unknown as any)().mockReturnThis(),
+      andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+      addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+      orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      withDeleted: (jest.fn as unknown as any)().mockReturnThis(),
+      skip: (jest.fn as unknown as any)().mockReturnThis(),
+      take: (jest.fn as unknown as any)().mockReturnThis(),
+      getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([products, products.length]),
     };
 
     return qb;
@@ -89,8 +90,8 @@ describe('ProductService pagination removal', () => {
         {
           provide: getRepositoryToken(Product),
           useValue: {
-            createQueryBuilder: jest.fn(),
-            findOne: jest.fn(),
+            createQueryBuilder: (jest.fn as unknown as any)(),
+            findOne: (jest.fn as unknown as any)(),
           },
         },
         { provide: getRepositoryToken(Category), useValue: {} },
@@ -99,12 +100,12 @@ describe('ProductService pagination removal', () => {
         { provide: getRepositoryToken(StockMovement), useValue: {} },
         { provide: getRepositoryToken(StockAdjustmentItem), useValue: {} },
         { provide: getRepositoryToken(PurchaseCostHistory), useValue: {} },
-        { provide: CategoryService, useValue: { resolveFullPaths: jest.fn().mockResolvedValue(new Map()) } },
+        { provide: CategoryService, useValue: { resolveFullPaths: (jest.fn as unknown as any)().mockResolvedValue(new Map()) } },
         { provide: StockMovementService, useValue: {} },
         { provide: BaseCostCalculatorService, useValue: {} },
         { provide: SettingsService, useValue: {} },
         { provide: DataSource, useValue: createMockDataSource().dataSource },
-        { provide: AuditLogService, useValue: { log: jest.fn() } },
+        { provide: AuditLogService, useValue: { log: (jest.fn as unknown as any)() } },
       ],
     }).compile();
 
@@ -180,7 +181,7 @@ describe('ProductService pagination removal', () => {
 
   it('product list maps category.fullPath from resolved ancestor map', async () => {
     const categoryService = (service as any).categoryService;
-    (categoryService.resolveFullPaths as jest.Mock).mockResolvedValue(
+    (categoryService.resolveFullPaths as any).mockResolvedValue(
       new Map([['cat1', 'Electronics > Phones']]),
     );
     const product = {
@@ -188,16 +189,16 @@ describe('ProductService pagination removal', () => {
       categoryId: 'cat1', category: { id: 'cat1', name: 'Phones' },
     } as any;
     const qb = {
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      addSelect: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      addOrderBy: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      withDeleted: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValue([[product], 1]),
+      leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+      where: (jest.fn as unknown as any)().mockReturnThis(),
+      andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+      addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+      orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      skip: (jest.fn as unknown as any)().mockReturnThis(),
+      take: (jest.fn as unknown as any)().mockReturnThis(),
+      withDeleted: (jest.fn as unknown as any)().mockReturnThis(),
+      getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([[product], 1]),
     };
     productRepository.createQueryBuilder.mockReturnValue(qb as any);
 
@@ -267,14 +268,14 @@ describe('ProductService pagination removal', () => {
         barcode: 'SKU-001',
         deletedAt: null,
       };
-      productRepository.createQueryBuilder = jest.fn().mockReturnValue({
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        setParameter: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([product]),
+      productRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        setParameter: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue([product]),
       } as any);
 
       const results = await service.searchGlobal('Widget', {
@@ -292,14 +293,14 @@ describe('ProductService pagination removal', () => {
     });
 
     it('returns empty array when no matches', async () => {
-      productRepository.createQueryBuilder = jest.fn().mockReturnValue({
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        setParameter: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([]),
+      productRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        setParameter: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue([]),
       } as any);
 
       const results = await service.searchGlobal('zzz', {
@@ -310,14 +311,14 @@ describe('ProductService pagination removal', () => {
 
     it('exact barcode match scores SCORE_EXACT_CODE + BOOST_PRODUCT + BOOST_EXACT_MATCH', async () => {
       const mockProduct = { id: 'p1', name: 'Widget', barcode: 'BC-001' };
-      productRepository.createQueryBuilder = jest.fn().mockReturnValue({
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        setParameter: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([mockProduct]),
+      productRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        setParameter: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue([mockProduct]),
       } as any);
 
       const results = await service.searchGlobal('BC-001', adminUser);
@@ -327,14 +328,14 @@ describe('ProductService pagination removal', () => {
 
     it('exact name match scores SCORE_EXACT_NAME + BOOST_PRODUCT + BOOST_EXACT_MATCH', async () => {
       const mockProduct = { id: 'p1', name: 'Widget', barcode: 'BC-999' };
-      productRepository.createQueryBuilder = jest.fn().mockReturnValue({
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        setParameter: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([mockProduct]),
+      productRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        setParameter: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue([mockProduct]),
       } as any);
 
       const results = await service.searchGlobal('widget', adminUser);
@@ -344,11 +345,11 @@ describe('ProductService pagination removal', () => {
 
     it('barcode exact match outranks name exact match', async () => {
       const mockProduct = { id: 'p1', name: 'widget', barcode: 'widget' };
-      productRepository.createQueryBuilder = jest.fn().mockReturnValue({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([mockProduct]),
+      productRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue([mockProduct]),
       } as any);
 
       const results = await service.searchGlobal('widget', adminUser);
@@ -360,14 +361,14 @@ describe('ProductService pagination removal', () => {
       const fuzzyProduct = { id: 'p2', name: 'Widget Pro', barcode: null };
 
       let callCount = 0;
-      productRepository.createQueryBuilder = jest.fn().mockReturnValue({
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        setParameter: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockImplementation(() => {
+      productRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        setParameter: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockImplementation(() => {
           callCount++;
           return Promise.resolve(callCount === 1 ? [] : [fuzzyProduct]);
         }),
@@ -383,14 +384,14 @@ describe('ProductService pagination removal', () => {
     });
 
     it('fuzzy fallback returns empty when no fuzzy matches', async () => {
-      productRepository.createQueryBuilder = jest.fn().mockReturnValue({
-        addSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        setParameter: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([]),
+      productRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        setParameter: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue([]),
       } as any);
 
       const results = await service.searchGlobal('zzzqqq', {
@@ -403,17 +404,17 @@ describe('ProductService pagination removal', () => {
 
   describe('softDelete', () => {
     it('soft deletes a product with no pending sales orders', async () => {
-      productRepository.findOne = jest.fn().mockResolvedValue(createProduct('soft-1'));
-      productRepository.softDelete = jest.fn().mockResolvedValue({ affected: 1 } as any);
+      productRepository.findOne = (jest.fn as unknown as any)().mockResolvedValue(createProduct('soft-1'));
+      productRepository.softDelete = (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 } as any);
       const itemQb = {
-        leftJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getCount: jest.fn().mockResolvedValue(0),
+        leftJoin: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        getCount: (jest.fn as unknown as any)().mockResolvedValue(0),
       };
 
       const salesOrderItemRepository = (service as any).salesOrderItemRepository;
-      salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(itemQb);
+      salesOrderItemRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(itemQb);
 
       await service.softDelete('soft-1', 'user-1', 'tester');
 
@@ -421,16 +422,16 @@ describe('ProductService pagination removal', () => {
     });
 
     it('rejects soft delete when product is in a pending sales order', async () => {
-      productRepository.findOne = jest.fn().mockResolvedValue(createProduct('soft-2'));
+      productRepository.findOne = (jest.fn as unknown as any)().mockResolvedValue(createProduct('soft-2'));
       const itemQb = {
-        leftJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getCount: jest.fn().mockResolvedValue(2),
+        leftJoin: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        getCount: (jest.fn as unknown as any)().mockResolvedValue(2),
       };
 
       const salesOrderItemRepository = (service as any).salesOrderItemRepository;
-      salesOrderItemRepository.createQueryBuilder = jest.fn().mockReturnValue(itemQb);
+      salesOrderItemRepository.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(itemQb);
 
       await expect(service.softDelete('soft-2', 'user-1', 'tester')).rejects.toThrow(
         'Cannot delete',
@@ -464,7 +465,7 @@ describe('ProductService pagination removal', () => {
     });
 
     it('findBySlug loads priceListItems with priceList relation', async () => {
-      productRepository.findOne = jest.fn().mockResolvedValue(productWithPriceList);
+      productRepository.findOne = (jest.fn as unknown as any)().mockResolvedValue(productWithPriceList);
 
       const result = await service.findBySlug('product-prod-1');
 
@@ -477,7 +478,7 @@ describe('ProductService pagination removal', () => {
     });
 
     it('findByBarcode loads priceListItems with priceList relation', async () => {
-      productRepository.findOne = jest.fn().mockResolvedValue(productWithPriceList);
+      productRepository.findOne = (jest.fn as unknown as any)().mockResolvedValue(productWithPriceList);
 
       const result = await service.findByBarcode('SKU-prod-1');
 
@@ -495,8 +496,8 @@ describe('ProductService pagination removal', () => {
         deletedAt: new Date('2026-03-10T00:00:00.000Z'),
         priceListItems: productWithPriceList.priceListItems,
       });
-      productRepository.findOne = jest.fn().mockResolvedValue(restorable);
-      productRepository.restore = jest.fn().mockResolvedValue(undefined);
+      productRepository.findOne = (jest.fn as unknown as any)().mockResolvedValue(restorable);
+      productRepository.restore = (jest.fn as unknown as any)().mockResolvedValue(undefined);
 
       const result = await service.restore('prod-1');
 
@@ -512,8 +513,8 @@ describe('ProductService pagination removal', () => {
       const existing = createProduct('prod-1', {
         priceListItems: productWithPriceList.priceListItems,
       });
-      productRepository.findOne = jest.fn().mockResolvedValue(existing);
-      productRepository.update = jest.fn().mockResolvedValue(undefined);
+      productRepository.findOne = (jest.fn as unknown as any)().mockResolvedValue(existing);
+      productRepository.update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
 
       // No name/barcode change → no conflict query builders are invoked.
       const result = await service.update('prod-1', {} as any);
@@ -558,7 +559,7 @@ describe('ProductService pagination removal', () => {
       productRepository.findOne
         .mockResolvedValueOnce(loaded)
         .mockResolvedValueOnce(reloaded);
-      productRepository.update = jest.fn().mockResolvedValue({ affected: 1 });
+      productRepository.update = (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 });
 
       const result = await service.update('p1', {
         type: ProductType.SERVICE,
@@ -583,16 +584,16 @@ describe('ProductService pagination removal', () => {
       );
       // The pre-flight duplicate check must PASS so the failure comes from the
       // index — that is the race under test.
-      productRepository.createQueryBuilder = jest.fn(() => ({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        withDeleted: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue(null),
+      productRepository.createQueryBuilder = (jest.fn as unknown as any)(() => ({
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        withDeleted: (jest.fn as unknown as any)().mockReturnThis(),
+        getOne: (jest.fn as unknown as any)().mockResolvedValue(null),
       })) as any;
       // generateUniqueSlug walks the repository; stub it so its loop cannot
       // interfere with the mocked query builder above.
       jest.spyOn(service as any, 'generateUniqueSlug').mockResolvedValue('widget');
-      productRepository.update = jest.fn().mockRejectedValue(
+      productRepository.update = (jest.fn as unknown as any)().mockRejectedValue(
         pgUnique('UQ_products_lower_name'),
       );
 
@@ -605,17 +606,17 @@ describe('ProductService pagination removal', () => {
       productRepository.findOne.mockResolvedValue(
         createProduct('p1', { type: ProductType.GOODS, stockQuantity: 0 }),
       );
-      productRepository.createQueryBuilder = jest.fn(() => ({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        withDeleted: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue(null),
+      productRepository.createQueryBuilder = (jest.fn as unknown as any)(() => ({
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        withDeleted: (jest.fn as unknown as any)().mockReturnThis(),
+        getOne: (jest.fn as unknown as any)().mockResolvedValue(null),
       })) as any;
       jest.spyOn(service as any, 'generateUniqueSlug').mockResolvedValue('widget');
 
       const notUnique: any = new Error('deadlock detected');
       notUnique.code = '40P01';
-      productRepository.update = jest.fn().mockRejectedValue(notUnique);
+      productRepository.update = (jest.fn as unknown as any)().mockRejectedValue(notUnique);
 
       await expect(service.update('p1', { name: 'Widget' } as any)).rejects.toBe(notUnique);
     });
@@ -632,10 +633,10 @@ describe('ProductService pagination removal', () => {
     it('maps a lower(name) violation to the existing-product ConflictException', async () => {
       const translate = (service as any).translateUniqueViolation.bind(service);
       jest.spyOn(productRepository, 'createQueryBuilder').mockReturnValue({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        withDeleted: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue({ id: 'p1', name: 'Widget', deletedAt: null }),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        withDeleted: (jest.fn as unknown as any)().mockReturnThis(),
+        getOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'p1', name: 'Widget', deletedAt: null }),
       } as any);
 
       await expect(
@@ -646,10 +647,10 @@ describe('ProductService pagination removal', () => {
     it('maps a lower(name) violation against a soft-deleted row to the previously-deleted message', async () => {
       const translate = (service as any).translateUniqueViolation.bind(service);
       jest.spyOn(productRepository, 'createQueryBuilder').mockReturnValue({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        withDeleted: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue({ id: 'p1', name: 'Widget', deletedAt: new Date() }),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        withDeleted: (jest.fn as unknown as any)().mockReturnThis(),
+        getOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'p1', name: 'Widget', deletedAt: new Date() }),
       } as any);
 
       await expect(
@@ -660,10 +661,10 @@ describe('ProductService pagination removal', () => {
     it('maps a lower(barcode) violation to the barcode ConflictException', async () => {
       const translate = (service as any).translateUniqueViolation.bind(service);
       jest.spyOn(productRepository, 'createQueryBuilder').mockReturnValue({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        withDeleted: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue({ id: 'p1', barcode: 'ABC', deletedAt: null }),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        withDeleted: (jest.fn as unknown as any)().mockReturnThis(),
+        getOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'p1', barcode: 'ABC', deletedAt: null }),
       } as any);
 
       await expect(
@@ -676,10 +677,10 @@ describe('ProductService pagination removal', () => {
       // Concurrent "Widget"/"widget" also collide on slug "widget"; PostgreSQL may
       // report the slug index before the new lower-name index.
       jest.spyOn(productRepository, 'createQueryBuilder').mockReturnValue({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        withDeleted: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue({ id: 'p1', name: 'Widget', deletedAt: null }),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        withDeleted: (jest.fn as unknown as any)().mockReturnThis(),
+        getOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'p1', name: 'Widget', deletedAt: null }),
       } as any);
 
       await expect(
@@ -692,10 +693,10 @@ describe('ProductService pagination removal', () => {
       // e.g. "My Product" vs "my-product" — a slug collision that is NOT a
       // case-variant name conflict and must not be mislabelled as one.
       jest.spyOn(productRepository, 'createQueryBuilder').mockReturnValue({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        withDeleted: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue(null),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        withDeleted: (jest.fn as unknown as any)().mockReturnThis(),
+        getOne: (jest.fn as unknown as any)().mockResolvedValue(null),
       } as any);
 
       const original = pgUnique('IDX_464f927ae360106b783ed0b410');
@@ -718,16 +719,16 @@ describe('ProductService pagination removal', () => {
 describe('checkProductDependencies', () => {
   let service: ProductService;
 
-  const makeRepo = (countVal: number) => ({ count: jest.fn().mockResolvedValue(countVal) }) as any;
+  const makeRepo = (countVal: number) => ({ count: (jest.fn as unknown as any)().mockResolvedValue(countVal) }) as any;
 
   const buildModule = async (repoOverrides: { token: any; useValue: any }[] = []) => {
     const defaultProviders = [
       {
         provide: getRepositoryToken(Product),
         useValue: {
-          findOne: jest.fn(),
-          delete: jest.fn(),
-          createQueryBuilder: jest.fn(),
+          findOne: (jest.fn as unknown as any)(),
+          delete: (jest.fn as unknown as any)(),
+          createQueryBuilder: (jest.fn as unknown as any)(),
         },
       },
       { provide: getRepositoryToken(Category), useValue: {} },
@@ -752,19 +753,19 @@ describe('checkProductDependencies', () => {
       providers: [
         ProductService,
         ...mergedProviders,
-        { provide: CategoryService, useValue: { resolveFullPaths: jest.fn().mockResolvedValue(new Map()) } },
+        { provide: CategoryService, useValue: { resolveFullPaths: (jest.fn as unknown as any)().mockResolvedValue(new Map()) } },
         { provide: StockMovementService, useValue: {} },
         { provide: BaseCostCalculatorService, useValue: {} },
         { provide: SettingsService, useValue: {} },
         { provide: DataSource, useValue: createMockDataSource().dataSource },
-        { provide: AuditLogService, useValue: { log: jest.fn() } },
+        { provide: AuditLogService, useValue: { log: (jest.fn as unknown as any)() } },
       ],
     }).compile();
     return module.get(ProductService);
   };
 
   it('returns no dependencies when only initial_stock movement and cost history exist', async () => {
-    const stockMovementRepo = { count: jest.fn().mockResolvedValue(0) };
+    const stockMovementRepo = { count: (jest.fn as unknown as any)().mockResolvedValue(0) };
     service = await buildModule([
       { token: getRepositoryToken(StockMovement), useValue: stockMovementRepo },
     ]);
@@ -784,7 +785,7 @@ describe('checkProductDependencies', () => {
   });
 
   it('returns dependency when a non-initial_stock movement exists', async () => {
-    const stockMovementRepo = { count: jest.fn().mockResolvedValue(1) };
+    const stockMovementRepo = { count: (jest.fn as unknown as any)().mockResolvedValue(1) };
     service = await buildModule([
       { token: getRepositoryToken(StockMovement), useValue: stockMovementRepo },
     ]);
@@ -798,7 +799,7 @@ describe('checkProductDependencies', () => {
   });
 
   it('returns dependency when a sales order item exists', async () => {
-    const salesOrderItemRepo = { count: jest.fn().mockResolvedValue(2) };
+    const salesOrderItemRepo = { count: (jest.fn as unknown as any)().mockResolvedValue(2) };
     service = await buildModule([
       {
         token: getRepositoryToken(SalesOrderItem),
@@ -815,7 +816,7 @@ describe('checkProductDependencies', () => {
   });
 
   it('does NOT include purchase_cost_history in dependency check', async () => {
-    const purchaseCostHistoryRepo = { count: jest.fn().mockResolvedValue(5) };
+    const purchaseCostHistoryRepo = { count: (jest.fn as unknown as any)().mockResolvedValue(5) };
     service = await buildModule([
       {
         token: getRepositoryToken(PurchaseCostHistory),
@@ -842,17 +843,17 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
     deletedAt: new Date(),
   } as any;
 
-  const makeCountRepo = (count = 0) => ({ count: jest.fn().mockResolvedValue(count) }) as any;
+  const makeCountRepo = (count = 0) => ({ count: (jest.fn as unknown as any)().mockResolvedValue(count) }) as any;
 
   const buildModule = async (repoOverrides: { token: any; useValue: any }[] = []) => {
     const stockMovementRepo = {
-      count: jest.fn().mockResolvedValue(0),
-      delete: jest.fn().mockResolvedValue({ affected: 1 }),
+      count: (jest.fn as unknown as any)().mockResolvedValue(0),
+      delete: (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 }),
     };
     const productRepo = {
-      findOne: jest.fn().mockResolvedValue(softDeletedProduct),
-      delete: jest.fn().mockResolvedValue({ affected: 1 }),
-      createQueryBuilder: jest.fn(),
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(softDeletedProduct),
+      delete: (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 }),
+      createQueryBuilder: (jest.fn as unknown as any)(),
     };
 
     const defaults = [
@@ -884,12 +885,12 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
       providers: [
         ProductService,
         ...providers,
-        { provide: CategoryService, useValue: { resolveFullPaths: jest.fn().mockResolvedValue(new Map()) } },
+        { provide: CategoryService, useValue: { resolveFullPaths: (jest.fn as unknown as any)().mockResolvedValue(new Map()) } },
         { provide: StockMovementService, useValue: {} },
         { provide: BaseCostCalculatorService, useValue: {} },
         { provide: SettingsService, useValue: {} },
         { provide: DataSource, useValue: createMockDataSource().dataSource },
-        { provide: AuditLogService, useValue: { log: jest.fn() } },
+        { provide: AuditLogService, useValue: { log: (jest.fn as unknown as any)() } },
       ],
     }).compile();
 
@@ -933,11 +934,11 @@ describe('permanentDelete and bulkPermanentDelete cleanup', () => {
 describe('create() transaction wrap (#978)', () => {
   let service: ProductService;
   let managerProductRepo: any;
-  let stockMovementService: { recordInitialStock: jest.Mock };
-  let baseCostCalculator: { addStock: jest.Mock };
-  let auditLogService: { log: jest.Mock };
+  let stockMovementService: { recordInitialStock: any };
+  let baseCostCalculator: { addStock: any };
+  let auditLogService: { log: any };
   let mockManager: EntityManager;
-  let mockDataSource: { transaction: jest.Mock };
+  let mockDataSource: { transaction: any };
 
   const category = { id: 'category-1', name: 'Category' } as Category;
 
@@ -951,8 +952,8 @@ describe('create() transaction wrap (#978)', () => {
 
   beforeEach(async () => {
     managerProductRepo = {
-      save: jest.fn(async (p: any) => ({ ...p, id: 'product-1' })),
-      update: jest.fn().mockResolvedValue(undefined),
+      save: (jest.fn as unknown as any)(async (p: any) => ({ ...p, id: 'product-1' })),
+      update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
     };
 
     const repos = new Map<any, any>([[Product, managerProductRepo]]);
@@ -960,21 +961,21 @@ describe('create() transaction wrap (#978)', () => {
     mockManager = mocked.manager;
     mockDataSource = mocked.dataSource;
 
-    stockMovementService = { recordInitialStock: jest.fn().mockResolvedValue({}) };
-    baseCostCalculator = { addStock: jest.fn().mockResolvedValue({}) };
-    auditLogService = { log: jest.fn().mockResolvedValue(undefined) };
+    stockMovementService = { recordInitialStock: (jest.fn as unknown as any)().mockResolvedValue({}) };
+    baseCostCalculator = { addStock: (jest.fn as unknown as any)().mockResolvedValue({}) };
+    auditLogService = { log: (jest.fn as unknown as any)().mockResolvedValue(undefined) };
 
     // Injected (non-transactional) product repo: serves the pre-checks only.
     const injectedProductRepo = {
-      createQueryBuilder: jest.fn(() => ({
-        where: jest.fn().mockReturnThis(),
-        withDeleted: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue(null),
+      createQueryBuilder: (jest.fn as unknown as any)(() => ({
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        withDeleted: (jest.fn as unknown as any)().mockReturnThis(),
+        getOne: (jest.fn as unknown as any)().mockResolvedValue(null),
       })),
-      create: jest.fn((p: any) => p),
-      findOne: jest.fn().mockResolvedValue(null),
-      save: jest.fn(),
-      update: jest.fn(),
+      create: (jest.fn as unknown as any)((p: any) => p),
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(null),
+      save: (jest.fn as unknown as any)(),
+      update: (jest.fn as unknown as any)(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -983,7 +984,7 @@ describe('create() transaction wrap (#978)', () => {
         { provide: getRepositoryToken(Product), useValue: injectedProductRepo },
         {
           provide: getRepositoryToken(Category),
-          useValue: { findOne: jest.fn().mockResolvedValue(category) },
+          useValue: { findOne: (jest.fn as unknown as any)().mockResolvedValue(category) },
         },
         { provide: getRepositoryToken(SalesOrderItem), useValue: {} },
         { provide: getRepositoryToken(PurchaseOrderItem), useValue: {} },
@@ -992,7 +993,7 @@ describe('create() transaction wrap (#978)', () => {
         { provide: getRepositoryToken(PurchaseCostHistory), useValue: {} },
         {
           provide: CategoryService,
-          useValue: { resolveFullPaths: jest.fn().mockResolvedValue(new Map()) },
+          useValue: { resolveFullPaths: (jest.fn as unknown as any)().mockResolvedValue(new Map()) },
         },
         { provide: StockMovementService, useValue: stockMovementService },
         { provide: BaseCostCalculatorService, useValue: baseCostCalculator },
@@ -1096,10 +1097,10 @@ describe('create() transaction wrap (#978)', () => {
 
   it('passes pre-check failures through untranslated', async () => {
     const productRepo = (service as any).productRepository;
-    productRepo.createQueryBuilder = jest.fn(() => ({
-      where: jest.fn().mockReturnThis(),
-      withDeleted: jest.fn().mockReturnThis(),
-      getOne: jest.fn().mockResolvedValue({ id: 'existing', deletedAt: null }),
+    productRepo.createQueryBuilder = (jest.fn as unknown as any)(() => ({
+      where: (jest.fn as unknown as any)().mockReturnThis(),
+      withDeleted: (jest.fn as unknown as any)().mockReturnThis(),
+      getOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'existing', deletedAt: null }),
     }));
 
     await expect(service.create(baseDto, 'user-1', 'tester')).rejects.toThrow(ConflictException);

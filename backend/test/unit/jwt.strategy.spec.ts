@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
 import { getRepositoryToken } from "@nestjs/typeorm";
@@ -26,11 +27,11 @@ describe("JwtStrategy", () => {
   };
 
   const mockUserRepository = {
-    findOne: jest.fn(),
+    findOne: (jest.fn as unknown as any)(),
   };
 
   const mockConfigService = {
-    get: jest.fn((key: string) => {
+    get: (jest.fn as unknown as any)((key: string) => {
       const config = {
         JWT_SECRET: "test-secret-key",
       };

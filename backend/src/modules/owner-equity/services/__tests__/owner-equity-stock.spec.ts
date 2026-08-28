@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { ACCOUNTING_POSTING_PORT } from '../../../../common/accounting-posting/accounting-posting.port';
@@ -17,10 +18,10 @@ import { formatScale4 } from '@/common/utils/money';
 
 describe('OwnerEquityStockService', () => {
   let stock: OwnerEquityStockService;
-  let dataSource: jest.Mocked<DataSource>;
+  let dataSource: any;
   let movementMock: any;
   let postingMock: any;
-  let settingsService: { getRegionalSettings: jest.Mock };
+  let settingsService: { getRegionalSettings: any };
   let appTimezone: string;
 
   let currentDoc: any;
@@ -65,21 +66,19 @@ describe('OwnerEquityStockService', () => {
   beforeEach(async () => {
     appTimezone = 'Asia/Kuala_Lumpur';
     settingsService = {
-      getRegionalSettings: jest.fn(async () => ({ timezone: appTimezone })),
+      getRegionalSettings: (jest.fn as unknown as any)(async () => ({ timezone: appTimezone })),
     };
     movementMock = {
-      create: jest.fn().mockResolvedValue({ id: 'mv-1' }),
-      reverseMovement: jest.fn().mockResolvedValue({}),
+      create: (jest.fn as unknown as any)().mockResolvedValue({ id: 'mv-1' }),
+      reverseMovement: (jest.fn as unknown as any)().mockResolvedValue({}),
     };
     postingMock = {
-      postOwnerStockDrawing: jest
-        .fn()
+      postOwnerStockDrawing: (jest.fn as unknown as any)()
         .mockResolvedValue({ journalEntryId: 'je-9' }),
-      reverseEntriesForDocument: jest
-        .fn()
+      reverseEntriesForDocument: (jest.fn as unknown as any)()
         .mockResolvedValue([{ journalEntryId: 'je-10' }]),
     };
-    dataSource = { transaction: jest.fn() } as any;
+    dataSource = { transaction: (jest.fn as unknown as any)() } as any;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -101,20 +100,20 @@ describe('OwnerEquityStockService', () => {
       baseCost: 12.5,
     };
     txDocRepo = {
-      findOne: jest.fn(),
-      save: jest.fn(async (x: any) => {
+      findOne: (jest.fn as unknown as any)(),
+      save: (jest.fn as unknown as any)(async (x: any) => {
         currentDoc = { ...x };
         return currentDoc;
       }),
     };
     txManager = {
-      getRepository: jest.fn().mockImplementation((entity: any) => {
+      getRepository: (jest.fn as unknown as any)().mockImplementation((entity: any) => {
         if (entity === OwnerEquityDocument) return txDocRepo;
         return {};
       }),
-      findOne: jest.fn().mockResolvedValue(product),
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(product),
     };
-    (dataSource.transaction as jest.Mock).mockImplementation(
+    (dataSource.transaction as any).mockImplementation(
       async (cb: any) => cb(txManager),
     );
 

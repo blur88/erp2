@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -21,27 +22,27 @@ import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.servic
 
 describe('PurchaseOrderLifecycleService', () => {
   let service: PurchaseOrderLifecycleService;
-  let poRepository: jest.Mocked<Repository<PurchaseOrder>>;
-  let vpRepository: jest.Mocked<Repository<VendorPayment>>;
-  let auditLogService: jest.Mocked<AuditLogService>;
-  let dataSource: { transaction: jest.Mock };
-  let stockMovementService: { deleteByReference: jest.Mock; create: jest.Mock };
-  let baseCostCalculator: { addStock: jest.Mock; removeStock: jest.Mock; calculateShippingByValue: jest.Mock };
-  let accountingPort: jest.Mocked<AccountingPostingPort>;
-  let settingsService: { getRegionalSettings: jest.Mock };
+  let poRepository: any;
+  let vpRepository: any;
+  let auditLogService: any;
+  let dataSource: { transaction: any };
+  let stockMovementService: { deleteByReference: any; create: any };
+  let baseCostCalculator: { addStock: any; removeStock: any; calculateShippingByValue: any };
+  let accountingPort: any;
+  let settingsService: { getRegionalSettings: any };
   let appTimezone: string;
   const poQueryBuilder = {
-    update: jest.fn().mockReturnThis(),
-    set: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    execute: jest.fn().mockResolvedValue(undefined),
+    update: (jest.fn as unknown as any)().mockReturnThis(),
+    set: (jest.fn as unknown as any)().mockReturnThis(),
+    where: (jest.fn as unknown as any)().mockReturnThis(),
+    execute: (jest.fn as unknown as any)().mockResolvedValue(undefined),
   };
 
   const vpQueryBuilder = {
-    update: jest.fn().mockReturnThis(),
-    set: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    execute: jest.fn().mockResolvedValue(undefined),
+    update: (jest.fn as unknown as any)().mockReturnThis(),
+    set: (jest.fn as unknown as any)().mockReturnThis(),
+    where: (jest.fn as unknown as any)().mockReturnThis(),
+    execute: (jest.fn as unknown as any)().mockResolvedValue(undefined),
   };
 
   const mockOrder = {
@@ -63,52 +64,52 @@ describe('PurchaseOrderLifecycleService', () => {
   beforeEach(async () => {
     appTimezone = 'Asia/Kuala_Lumpur';
     settingsService = {
-      getRegionalSettings: jest.fn(async () => ({ timezone: appTimezone })),
+      getRegionalSettings: (jest.fn as unknown as any)(async () => ({ timezone: appTimezone })),
     };
     poRepository = {
-      findOne: jest.fn(),
-      createQueryBuilder: jest.fn().mockReturnValue(poQueryBuilder),
+      findOne: (jest.fn as unknown as any)(),
+      createQueryBuilder: (jest.fn as unknown as any)().mockReturnValue(poQueryBuilder),
       manager: {
-        getRepository: jest.fn().mockReturnValue({
-          count: jest.fn().mockResolvedValue(0),
+        getRepository: (jest.fn as unknown as any)().mockReturnValue({
+          count: (jest.fn as unknown as any)().mockResolvedValue(0),
         }),
       },
-    } as unknown as jest.Mocked<Repository<PurchaseOrder>>;
+    } as unknown as any;
 
     vpRepository = {
-      find: jest.fn(),
-      createQueryBuilder: jest.fn().mockReturnValue(vpQueryBuilder),
-    } as unknown as jest.Mocked<Repository<VendorPayment>>;
+      find: (jest.fn as unknown as any)(),
+      createQueryBuilder: (jest.fn as unknown as any)().mockReturnValue(vpQueryBuilder),
+    } as unknown as any;
 
     dataSource = {
-      transaction: jest.fn(),
+      transaction: (jest.fn as unknown as any)(),
     };
 
     auditLogService = {
-      log: jest.fn().mockResolvedValue(undefined),
-    } as unknown as jest.Mocked<AuditLogService>;
+      log: (jest.fn as unknown as any)().mockResolvedValue(undefined),
+    } as unknown as any;
 
     stockMovementService = {
-      deleteByReference: jest.fn().mockResolvedValue({ deletedCount: 0 }),
-      create: jest.fn().mockResolvedValue({}),
+      deleteByReference: (jest.fn as unknown as any)().mockResolvedValue({ deletedCount: 0 }),
+      create: (jest.fn as unknown as any)().mockResolvedValue({}),
     };
     baseCostCalculator = {
-      addStock: jest.fn().mockResolvedValue({ landedCost: 5, receivedQuantity: 10 }),
-      removeStock: jest.fn(),
-      calculateShippingByValue: jest.fn().mockReturnValue(0),
+      addStock: (jest.fn as unknown as any)().mockResolvedValue({ landedCost: 5, receivedQuantity: 10 }),
+      removeStock: (jest.fn as unknown as any)(),
+      calculateShippingByValue: (jest.fn as unknown as any)().mockReturnValue(0),
     };
     accountingPort = {
-      postSalesPayment: jest.fn(),
-      postSalesRefund: jest.fn(),
-      postSalesFulfillment: jest.fn(),
-      postPurchasePayment: jest.fn(),
-      postPurchaseRefund: jest.fn(),
-      postPurchaseReceive: jest.fn(),
-      postStockAdjustment: jest.fn(),
-      postOpeningBalance: jest.fn(),
-      reverseEntry: jest.fn(),
-      reverseEntriesForDocument: jest.fn(),
-    } as unknown as jest.Mocked<AccountingPostingPort>;
+      postSalesPayment: (jest.fn as unknown as any)(),
+      postSalesRefund: (jest.fn as unknown as any)(),
+      postSalesFulfillment: (jest.fn as unknown as any)(),
+      postPurchasePayment: (jest.fn as unknown as any)(),
+      postPurchaseRefund: (jest.fn as unknown as any)(),
+      postPurchaseReceive: (jest.fn as unknown as any)(),
+      postStockAdjustment: (jest.fn as unknown as any)(),
+      postOpeningBalance: (jest.fn as unknown as any)(),
+      reverseEntry: (jest.fn as unknown as any)(),
+      reverseEntriesForDocument: (jest.fn as unknown as any)(),
+    } as unknown as any;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -136,8 +137,8 @@ describe('PurchaseOrderLifecycleService', () => {
   describe('cancel and uncancel', () => {
     it('cancel sets status CANCELLED when order is draft and unpaid', async () => {
       const orderRepo = {
-        findOne: jest.fn().mockResolvedValue({ ...mockOrder }),
-        update: jest.fn().mockResolvedValue(undefined),
+        findOne: (jest.fn as unknown as any)().mockResolvedValue({ ...mockOrder }),
+        update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
       } as any;
       dataSource.transaction.mockImplementation(async (cb: any) => cb({ getRepository: () => orderRepo }));
 
@@ -150,12 +151,12 @@ describe('PurchaseOrderLifecycleService', () => {
 
     it('cancel rejects when payments were recorded', async () => {
       const orderRepo = {
-        findOne: jest.fn().mockResolvedValue({
+        findOne: (jest.fn as unknown as any)().mockResolvedValue({
           ...mockOrder,
           status: PurchaseOrderStatus.DRAFT,
           paymentStatus: PurchaseOrderPaymentStatus.PARTIAL,
         }),
-        update: jest.fn(),
+        update: (jest.fn as unknown as any)(),
       } as any;
       dataSource.transaction.mockImplementation(async (cb: any) => cb({ getRepository: () => orderRepo }));
 
@@ -164,11 +165,11 @@ describe('PurchaseOrderLifecycleService', () => {
 
     it('uncancel sets status DRAFT when order is cancelled', async () => {
       const orderRepo = {
-        findOne: jest.fn().mockResolvedValue({
+        findOne: (jest.fn as unknown as any)().mockResolvedValue({
           ...mockOrder,
           status: PurchaseOrderStatus.CANCELLED,
         }),
-        update: jest.fn().mockResolvedValue(undefined),
+        update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
       } as any;
       dataSource.transaction.mockImplementation(async (cb: any) => cb({ getRepository: () => orderRepo }));
 
@@ -231,10 +232,10 @@ describe('PurchaseOrderLifecycleService', () => {
           supplier: { companyName: 'Acme' },
         } as any;
         const poRepo = {
-          findOne: jest.fn().mockResolvedValue(order),
-          update: jest.fn().mockResolvedValue(undefined),
+          findOne: (jest.fn as unknown as any)().mockResolvedValue(order),
+          update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
         } as any;
-        const itemRepo = { update: jest.fn().mockResolvedValue(undefined) } as any;
+        const itemRepo = { update: (jest.fn as unknown as any)().mockResolvedValue(undefined) } as any;
         dataSource.transaction.mockImplementation(async (cb: any) =>
           cb({
             getRepository: (entity: any) => {
@@ -310,13 +311,13 @@ describe('PurchaseOrderLifecycleService', () => {
       } as any;
 
       const poRepo = {
-        findOne: jest.fn()
+        findOne: (jest.fn as unknown as any)()
           .mockResolvedValueOnce(readyOrder)
           .mockResolvedValueOnce(readyOrder),
-        update: jest.fn().mockResolvedValue(undefined),
+        update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
       } as any;
       const itemRepo = {
-        update: jest.fn().mockResolvedValue(undefined),
+        update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
       } as any;
       dataSource.transaction.mockImplementation(async (cb: any) =>
         cb({
@@ -392,10 +393,10 @@ describe('PurchaseOrderLifecycleService', () => {
       } as any;
 
       const poRepo = {
-        findOne: jest.fn().mockResolvedValueOnce(discountedOrder).mockResolvedValueOnce(discountedOrder),
-        update: jest.fn().mockResolvedValue(undefined),
+        findOne: (jest.fn as unknown as any)().mockResolvedValueOnce(discountedOrder).mockResolvedValueOnce(discountedOrder),
+        update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
       } as any;
-      const itemRepo = { update: jest.fn().mockResolvedValue(undefined) } as any;
+      const itemRepo = { update: (jest.fn as unknown as any)().mockResolvedValue(undefined) } as any;
       dataSource.transaction.mockImplementation(async (cb: any) =>
         cb({
           getRepository: (entity: any) => {
@@ -443,13 +444,13 @@ describe('PurchaseOrderLifecycleService', () => {
       } as any;
 
       const poRepo = {
-        findOne: jest.fn()
+        findOne: (jest.fn as unknown as any)()
           .mockResolvedValueOnce(receivedOrder)
           .mockResolvedValueOnce(receivedOrder),
-        update: jest.fn().mockResolvedValue(undefined),
+        update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
       } as any;
       const itemRepo = {
-        update: jest.fn().mockResolvedValue(undefined),
+        update: (jest.fn as unknown as any)().mockResolvedValue(undefined),
       } as any;
       dataSource.transaction.mockImplementation(async (cb: any) =>
         cb({

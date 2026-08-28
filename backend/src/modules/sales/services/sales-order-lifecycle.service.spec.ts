@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
@@ -24,9 +25,9 @@ const mockOrder = (overrides: Partial<SalesOrder> = {}): SalesOrder =>
 
 describe('SalesOrderLifecycleService', () => {
   let service: SalesOrderLifecycleService;
-  let orderRepo: jest.Mocked<Repository<SalesOrder>>;
-  let auditLogService: jest.Mocked<AuditLogService>;
-  let dataSource: jest.Mocked<DataSource>;
+  let orderRepo: any;
+  let auditLogService: any;
+  let dataSource: any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -34,17 +35,17 @@ describe('SalesOrderLifecycleService', () => {
         SalesOrderLifecycleService,
         {
           provide: getRepositoryToken(SalesOrder),
-          useValue: { findOne: jest.fn(), save: jest.fn() },
+          useValue: { findOne: (jest.fn as unknown as any)(), save: (jest.fn as unknown as any)() },
         },
-        { provide: AuditLogService, useValue: { log: jest.fn() } },
-        { provide: DataSource, useValue: { transaction: jest.fn() } },
+        { provide: AuditLogService, useValue: { log: (jest.fn as unknown as any)() } },
+        { provide: DataSource, useValue: { transaction: (jest.fn as unknown as any)() } },
       ],
     }).compile();
 
     service = module.get(SalesOrderLifecycleService);
     orderRepo = module.get(getRepositoryToken(SalesOrder));
     auditLogService = module.get(AuditLogService);
-    dataSource = module.get(DataSource) as jest.Mocked<DataSource>;
+    dataSource = module.get(DataSource) as any;
   });
 
   describe('assertEditAllowed', () => {
@@ -90,13 +91,13 @@ describe('SalesOrderLifecycleService', () => {
 
   // Drives the service's dataSource.transaction with a mock EntityManager whose
   // getRepository returns { findOne, update }.
-  const setupTx = (findOneResult: SalesOrder | null): { findOne: jest.Mock; update: jest.Mock } => {
-    const findOne = jest.fn().mockResolvedValue(findOneResult);
-    const update = jest.fn().mockResolvedValue(undefined);
+  const setupTx = (findOneResult: SalesOrder | null): { findOne: any; update: any } => {
+    const findOne = (jest.fn as unknown as any)().mockResolvedValue(findOneResult);
+    const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
     const manager = {
-      getRepository: jest.fn().mockReturnValue({ findOne, update }),
+      getRepository: (jest.fn as unknown as any)().mockReturnValue({ findOne, update }),
     } as unknown as EntityManager;
-    (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+    (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
     return { findOne, update };
   };
 
@@ -129,12 +130,12 @@ describe('SalesOrderLifecycleService', () => {
         status: SalesOrderStatus.DRAFT,
         paymentStatus: SalesOrderPaymentStatus.UNPAID,
       });
-      const findOne = jest.fn().mockResolvedValue(order);
-      const update = jest.fn().mockResolvedValue(undefined);
+      const findOne = (jest.fn as unknown as any)().mockResolvedValue(order);
+      const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
       const manager = {
-        getRepository: jest.fn().mockReturnValue({ findOne, update }),
+        getRepository: (jest.fn as unknown as any)().mockReturnValue({ findOne, update }),
       } as unknown as EntityManager;
-      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+      (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
 
       await service.cancel('order-1');
 
@@ -151,13 +152,12 @@ describe('SalesOrderLifecycleService', () => {
     });
 
     it('throws ConflictException in-lock when the order is already FULFILLED', async () => {
-      const findOne = jest
-        .fn()
+      const findOne = (jest.fn as unknown as any)()
         .mockResolvedValue(mockOrder({ status: SalesOrderStatus.FULFILLED }));
       const manager = {
-        getRepository: jest.fn().mockReturnValue({ findOne, update: jest.fn() }),
+        getRepository: (jest.fn as unknown as any)().mockReturnValue({ findOne, update: (jest.fn as unknown as any)() }),
       } as unknown as EntityManager;
-      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+      (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
 
       await expect(service.cancel('order-1')).rejects.toThrow(ConflictException);
     });
