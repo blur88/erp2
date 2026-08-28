@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { DataSourceOptions } from 'typeorm';
+import * as path from 'path';
 import { validateAndParseInt } from './validation.utils';
 import { createSSLConfig } from './ssl.config';
 import { validateDatabaseConfig } from './environment.validator';
@@ -46,6 +47,30 @@ import { VendorPayment } from '../database/entities/vendor-payment.entity';
 /**
  * Database configuration factory utilities
  */
+
+/**
+ * Resolves the migrations glob for whichever runtime is loading this file.
+ *
+ * This MUST NOT be derived from `process.cwd()`. The production image sets
+ * WORKDIR /app and copies only dist/, node_modules/ and package.json — there is
+ * no /app/src — so a cwd-relative `src/database/migrations` glob matches nothing
+ * and TypeORM reports zero pending migrations *without erroring*. An already
+ * migrated database hides that completely; it surfaces only on a fresh deploy or
+ * when a new migration needs to apply.
+ *
+ * `__dirname` is defined under compiled CommonJS (dist/config -> dist/database/
+ * migrations) and under ts-node CommonJS (src/config -> src/database/
+ * migrations), which covers production, the CLI datasource and the e2e run.
+ * Under Jest's ESM mode it is undefined, so fall back to the repo's src path.
+ * `import.meta` is deliberately not used: the production build is CommonJS and
+ * the token is a syntax error there.
+ */
+function resolveMigrationsGlob(): string {
+  if (typeof __dirname !== 'undefined') {
+    return path.join(__dirname, '../database/migrations/*{.ts,.js}');
+  }
+  return path.join(process.cwd(), 'src/database/migrations/*{.ts,.js}');
+}
 
 /**
  * Creates a security-hardened database configuration object
@@ -134,7 +159,7 @@ export function createDatabaseConfig(
       OwnerEquityDocument,
       OwnerEquitySettlement,
     ],
-    migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
+    migrations: [resolveMigrationsGlob()],
     // 'each' (not the TypeORM default 'all') so a migration that appends an
     // enum value commits before a later migration uses that value. Postgres
     // forbids ALTER TYPE ... ADD VALUE and its use inside one transaction.

@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from "@nestjs/testing";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import {
@@ -53,46 +54,46 @@ describe("PriceListsService", () => {
   };
 
   const mockPriceListRepository = {
-    find: jest.fn(),
-    findOne: jest.fn(),
-    findOneBy: jest.fn(),
-    save: jest.fn(),
-    create: jest.fn(),
-    softDelete: jest.fn(),
-    update: jest.fn(),
-    count: jest.fn(),
-    createQueryBuilder: jest.fn(() => ({
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      addOrderBy: jest.fn().mockReturnThis(),
-      getMany: jest.fn(),
-      getOne: jest.fn(),
-      getManyAndCount: jest.fn(),
+    find: (jest.fn as unknown as any)(),
+    findOne: (jest.fn as unknown as any)(),
+    findOneBy: (jest.fn as unknown as any)(),
+    save: (jest.fn as unknown as any)(),
+    create: (jest.fn as unknown as any)(),
+    softDelete: (jest.fn as unknown as any)(),
+    update: (jest.fn as unknown as any)(),
+    count: (jest.fn as unknown as any)(),
+    createQueryBuilder: (jest.fn as unknown as any)(() => ({
+      where: (jest.fn as unknown as any)().mockReturnThis(),
+      andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+      leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+      skip: (jest.fn as unknown as any)().mockReturnThis(),
+      take: (jest.fn as unknown as any)().mockReturnThis(),
+      orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      getMany: (jest.fn as unknown as any)(),
+      getOne: (jest.fn as unknown as any)(),
+      getManyAndCount: (jest.fn as unknown as any)(),
     })),
   };
 
   const mockPriceListItemRepository = {
-    find: jest.fn(),
-    findOne: jest.fn(),
-    findOneBy: jest.fn(),
-    save: jest.fn(),
-    create: jest.fn(),
-    delete: jest.fn(),
-    createQueryBuilder: jest.fn(() => ({
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      getMany: jest.fn(),
-      getOne: jest.fn(),
+    find: (jest.fn as unknown as any)(),
+    findOne: (jest.fn as unknown as any)(),
+    findOneBy: (jest.fn as unknown as any)(),
+    save: (jest.fn as unknown as any)(),
+    create: (jest.fn as unknown as any)(),
+    delete: (jest.fn as unknown as any)(),
+    createQueryBuilder: (jest.fn as unknown as any)(() => ({
+      where: (jest.fn as unknown as any)().mockReturnThis(),
+      andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+      leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+      getMany: (jest.fn as unknown as any)(),
+      getOne: (jest.fn as unknown as any)(),
     })),
   };
 
   const mockProductRepository = {
-    findOneBy: jest.fn(),
+    findOneBy: (jest.fn as unknown as any)(),
   };
 
   beforeEach(async () => {
@@ -113,15 +114,15 @@ describe("PriceListsService", () => {
         },
         {
           provide: SettingsService,
-          useValue: { getRegionalSettings: jest.fn().mockResolvedValue({ timezone: 'Asia/Kuala_Lumpur' }) },
+          useValue: { getRegionalSettings: (jest.fn as unknown as any)().mockResolvedValue({ timezone: 'Asia/Kuala_Lumpur' }) },
         },
         PriceListDefaultService,
         {
           provide: DataSource,
           useValue: {
-            transaction: jest.fn(async (cb: any) =>
+            transaction: (jest.fn as unknown as any)(async (cb: any) =>
               cb({
-                query: jest.fn(),
+                query: (jest.fn as unknown as any)(),
                 findOne: (...args: any[]) => mockPriceListRepository.findOne(args[1]),
                 create: (_entityClass: any, plain: any) => plain,
                 save: (_entityClass: any, entity: any) =>
@@ -149,16 +150,16 @@ describe("PriceListsService", () => {
   describe("findAll", () => {
     it("should return paginated price lists", async () => {
       mockPriceListRepository.createQueryBuilder.mockReturnValue({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        getMany: jest.fn(),
-        getOne: jest.fn(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockPriceList], 1]),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        skip: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)(),
+        getOne: (jest.fn as unknown as any)(),
+        getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([[mockPriceList], 1]),
       });
 
       const result = await service.findAll({ page: 1, limit: 10 });
@@ -170,18 +171,18 @@ describe("PriceListsService", () => {
     });
 
     it("should filter by active status", async () => {
-      const andWhereSpy = jest.fn().mockReturnThis();
+      const andWhereSpy = (jest.fn as unknown as any)().mockReturnThis();
       mockPriceListRepository.createQueryBuilder.mockReturnValue({
-        where: jest.fn().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
         andWhere: andWhereSpy,
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        getMany: jest.fn(),
-        getOne: jest.fn(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockPriceList], 1]),
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        skip: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)(),
+        getOne: (jest.fn as unknown as any)(),
+        getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([[mockPriceList], 1]),
       });
 
       await service.findAll({ page: 1, limit: 10, isActive: true });
@@ -393,16 +394,16 @@ describe("PriceListsService", () => {
   describe("getEffectivePriceLists", () => {
     it("should return currently effective price lists", async () => {
       mockPriceListRepository.createQueryBuilder.mockReturnValue({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([mockPriceList]),
-        getOne: jest.fn(),
-        getManyAndCount: jest.fn(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        skip: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)().mockResolvedValue([mockPriceList]),
+        getOne: (jest.fn as unknown as any)(),
+        getManyAndCount: (jest.fn as unknown as any)(),
       });
 
       const result = await service.getEffectivePriceLists();

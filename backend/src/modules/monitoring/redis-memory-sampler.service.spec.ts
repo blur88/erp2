@@ -1,22 +1,29 @@
+import { jest } from '@jest/globals';
 import { Logger } from '@nestjs/common';
 import { InMemoryRedisMemoryHistoryStore } from './in-memory-redis-memory-history.store';
 import { RedisMemoryPressureEvaluator } from './redis-memory-pressure.evaluator';
-import { RedisMemorySamplerService } from './redis-memory-sampler.service';
-import { SampleQuery } from './redis-memory-history.store';
-import { REDIS_COMMAND_TIMEOUT_MS, RedisMemorySample } from './redis-memory.types';
-
+import type { SampleQuery } from './redis-memory-history.store';
 const redisMock = {
   status: 'wait',
-  connect: jest.fn(),
-  ping: jest.fn(),
-  info: jest.fn(),
-  disconnect: jest.fn(),
+  connect: (jest.fn as unknown as any)(),
+  ping: (jest.fn as unknown as any)(),
+  info: (jest.fn as unknown as any)(),
+  disconnect: (jest.fn as unknown as any)(),
 };
 
-jest.mock('ioredis', () => ({
-  __esModule: true,
-  default: jest.fn(() => redisMock),
-}));
+let RedisMemorySamplerService: any;
+beforeAll(async () => {
+  jest.unstable_mockModule('ioredis', () => ({
+    __esModule: true,
+    default: (jest.fn as unknown as any)(() => redisMock),
+  }));
+  const mod = await import('./redis-memory-sampler.service');
+  RedisMemorySamplerService = mod.RedisMemorySamplerService;
+});
+import { REDIS_COMMAND_TIMEOUT_MS, RedisMemorySample } from './redis-memory.types';
+
+
+
 
 const infoMemory = (used: number, max: number): string =>
   `used_memory:${used}\r\nmaxmemory:${max}\r\n`;
@@ -24,8 +31,8 @@ const infoMemory = (used: number, max: number): string =>
 describe('RedisMemorySamplerService', () => {
   let store: InMemoryRedisMemoryHistoryStore;
   let evaluator: RedisMemoryPressureEvaluator;
-  let logger: { warn: jest.Mock; error: jest.Mock; log: jest.Mock };
-  let service: RedisMemorySamplerService;
+  let logger: { warn: any; error: any; log: any };
+  let service: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -37,7 +44,7 @@ describe('RedisMemorySamplerService', () => {
 
     store = new InMemoryRedisMemoryHistoryStore();
     evaluator = new RedisMemoryPressureEvaluator();
-    logger = { warn: jest.fn(), error: jest.fn(), log: jest.fn() };
+    logger = { warn: (jest.fn as unknown as any)(), error: (jest.fn as unknown as any)(), log: (jest.fn as unknown as any)() };
     service = new RedisMemorySamplerService(
       store,
       logger as unknown as Logger,
@@ -282,16 +289,16 @@ describe('RedisMemorySamplerService', () => {
   };
 
   it('reports truncation when more rows match than are returned', async () => {
-    store.recent = jest.fn().mockResolvedValue([sampleFixture]);
-    store.countMatching = jest.fn().mockResolvedValue(4200);
+    store.recent = (jest.fn as unknown as any)().mockResolvedValue([sampleFixture]);
+    store.countMatching = (jest.fn as unknown as any)().mockResolvedValue(4200);
     const detail = await service.getDetail({});
     expect(detail.truncated).toBe(true);
     expect(detail.totalMatching).toBe(4200);
   });
 
   it('reports no truncation when the window fits', async () => {
-    store.recent = jest.fn().mockResolvedValue([sampleFixture]);
-    store.countMatching = jest.fn().mockResolvedValue(1);
+    store.recent = (jest.fn as unknown as any)().mockResolvedValue([sampleFixture]);
+    store.countMatching = (jest.fn as unknown as any)().mockResolvedValue(1);
     const detail = await service.getDetail({});
     expect(detail.truncated).toBe(false);
   });
@@ -302,7 +309,7 @@ describe('RedisMemorySamplerService', () => {
   });
 
   it('degrades to historyAvailable false when the store throws', async () => {
-    store.recent = jest.fn().mockRejectedValue(new Error('db down'));
+    store.recent = (jest.fn as unknown as any)().mockRejectedValue(new Error('db down'));
     const detail = await service.getDetail({});
     expect(detail.historyAvailable).toBe(false);
     expect(detail.samples).toEqual([]);
@@ -313,8 +320,7 @@ describe('RedisMemorySamplerService', () => {
   it('keeps latestSample scoped to the current instance under allInstances', async () => {
     // latestSample feeds the health view; widening the query must not change
     // which instance's reading /health reports.
-    store.recent = jest
-      .fn()
+    store.recent = (jest.fn as unknown as any)()
       .mockImplementation(async (q: SampleQuery | number | undefined) =>
         typeof q === 'object' && q?.allInstances ? [otherInstanceSample] : [sampleFixture],
       );
@@ -325,7 +331,7 @@ describe('RedisMemorySamplerService', () => {
 
   describe('getDetail windowStats', () => {
     it('passes the same filter to the aggregate as to the sample read', async () => {
-      store.windowStats = jest.fn().mockResolvedValue({ from: null, to: null, perInstance: [] });
+      store.windowStats = (jest.fn as unknown as any)().mockResolvedValue({ from: null, to: null, perInstance: [] });
       const from = new Date('2026-08-01T00:00:00.000Z');
       const to = new Date('2026-08-08T00:00:00.000Z');
 
@@ -337,7 +343,7 @@ describe('RedisMemorySamplerService', () => {
     });
 
     it('includes windowStats in the response', async () => {
-      store.windowStats = jest.fn().mockResolvedValue({
+      store.windowStats = (jest.fn as unknown as any)().mockResolvedValue({
         from: null,
         to: null,
         perInstance: [
@@ -362,7 +368,7 @@ describe('RedisMemorySamplerService', () => {
     });
 
     it('still returns a windowStats shape when the aggregate read fails', async () => {
-      store.windowStats = jest.fn().mockRejectedValue(new Error('db down'));
+      store.windowStats = (jest.fn as unknown as any)().mockRejectedValue(new Error('db down'));
 
       const detail = await service.getDetail({});
 
@@ -374,9 +380,9 @@ describe('RedisMemorySamplerService', () => {
 describe('RedisMemorySamplerService alert wiring', () => {
   let store: InMemoryRedisMemoryHistoryStore;
   let evaluator: RedisMemoryPressureEvaluator;
-  let logger: { warn: jest.Mock; error: jest.Mock; log: jest.Mock };
-  let alerts: { applySample: jest.Mock };
-  let service: RedisMemorySamplerService;
+  let logger: { warn: any; error: any; log: any };
+  let alerts: { applySample: any };
+  let service: any;
 
   const infoWithOom = (used: number, max: number, oom: number): string =>
     `used_memory:${used}\r\nmaxmemory:${max}\r\n`;
@@ -394,8 +400,8 @@ describe('RedisMemorySamplerService alert wiring', () => {
 
     store = new InMemoryRedisMemoryHistoryStore();
     evaluator = new RedisMemoryPressureEvaluator();
-    logger = { warn: jest.fn(), error: jest.fn(), log: jest.fn() };
-    alerts = { applySample: jest.fn().mockResolvedValue(undefined) };
+    logger = { warn: (jest.fn as unknown as any)(), error: (jest.fn as unknown as any)(), log: (jest.fn as unknown as any)() };
+    alerts = { applySample: (jest.fn as unknown as any)().mockResolvedValue(undefined) };
     service = new RedisMemorySamplerService(
       store,
       logger as unknown as Logger,
@@ -470,7 +476,7 @@ describe('RedisMemorySamplerService alert wiring', () => {
   });
 
   it('never lets a failed persist escape a sample', async () => {
-    store.append = jest.fn().mockRejectedValue(new Error('db down'));
+    store.append = (jest.fn as unknown as any)().mockRejectedValue(new Error('db down'));
     await expect(service.sampleNow()).resolves.toBeUndefined();
   });
 });

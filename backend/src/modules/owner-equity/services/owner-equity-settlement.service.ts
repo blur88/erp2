@@ -1,10 +1,8 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
-import {
-  ACCOUNTING_POSTING_PORT,
-  AccountingPostingPort,
-} from '../../../common/accounting-posting/accounting-posting.port';
+import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
+import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
 import { toMinorUnits, formatScale4, sumMinor } from '@/common/utils/money';
 import { AuditLogService } from '../../audit-logs/services';

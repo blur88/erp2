@@ -20,7 +20,7 @@ import {
   Matches,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
-import { Product } from './product.entity';
+import type { Product } from './product.entity';
 import { generateBaseSlug } from '../../common/utils/slug.util';
 
 /**
@@ -99,18 +99,18 @@ export class Category extends BaseEntity {
 
   // Tree relationships (temporarily disabled due to TypeORM tree issues)
   // @TreeParent()
-  @ManyToOne(() => Category, (category) => category.children, {
+  @ManyToOne('Category', 'children', {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'parentId' })
   parent?: Category;
 
   // @TreeChildren()
-  @OneToMany(() => Category, (category) => category.parent)
+  @OneToMany('Category', 'parent')
   children: Category[];
 
   // Product relationship
-  @OneToMany(() => Product, (product) => product.category, {
+  @OneToMany('Product', 'category', {
     cascade: false,
   })
   products: Product[];

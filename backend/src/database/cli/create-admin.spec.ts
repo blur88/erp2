@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { resolveAdminInput, createAdmin } from './create-admin';
 import { UserRole, UserStatus } from '../entities/user.entity';
 
@@ -155,14 +156,14 @@ describe('createAdmin', () => {
 
   const dataSourceWith = (rows: any[]) => {
     const repo = {
-      findOne: jest.fn(({ where }: any) => {
+      findOne: (jest.fn as unknown as any)(({ where }: any) => {
         const [[field, value]] = Object.entries(where);
         return Promise.resolve(
           rows.find((r) => r[field] === value) ?? null,
         );
       }),
-      create: jest.fn((v: any) => v),
-      save: jest.fn((v: any) => Promise.resolve(v)),
+      create: (jest.fn as unknown as any)((v: any) => v),
+      save: (jest.fn as unknown as any)((v: any) => Promise.resolve(v)),
     };
     return { dataSource: { getRepository: () => repo } as any, repo };
   };

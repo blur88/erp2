@@ -15,7 +15,7 @@ import {
   IsEmail,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
-import { PurchaseOrder } from './purchase-order.entity';
+import type { PurchaseOrder } from './purchase-order.entity';
 
 export enum SupplierType {
   LOCAL = 'local',
@@ -273,7 +273,7 @@ export class Supplier extends BaseEntity {
   notes?: string;
 
   // Relationships
-  @OneToMany(() => PurchaseOrder, (purchaseOrder) => purchaseOrder.supplier, {
+  @OneToMany('PurchaseOrder', 'supplier', {
     cascade: false,
   })
   purchaseOrders: PurchaseOrder[];

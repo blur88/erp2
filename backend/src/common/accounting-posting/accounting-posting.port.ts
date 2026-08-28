@@ -1,11 +1,14 @@
 import { EntityManager } from 'typeorm';
 import {
+  AccountingSourceType, PostingType,
+} from './posting-commands';
+import type {
   PostSalesPaymentCmd, PostSalesRefundCmd, PostSalesFulfillmentCmd,
   PostPurchasePaymentCmd, PostPurchaseRefundCmd, PostPurchaseReceiveCmd,
   PostStockAdjustmentCmd, PostOpeningBalanceCmd, PostExpensePaymentCmd, PostExpenseRefundCmd,
   PostOwnerCapitalInjectionCmd, PostOwnerCapitalInjectionRefundCmd,
   PostOwnerCashDrawingCmd, PostOwnerCashDrawingRefundCmd, PostOwnerStockDrawingCmd,
-  ReverseEntryCmd, AccountingSourceType, PostingType,
+  ReverseEntryCmd,
 } from './posting-commands';
 
 export const ACCOUNTING_POSTING_PORT = 'ACCOUNTING_POSTING_PORT';

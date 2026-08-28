@@ -1,6 +1,6 @@
 import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from './base.entity';
-import { BackupMetadata } from '../../modules/backup/interfaces/backup-metadata.interface';
+import type { BackupMetadata } from '../../modules/backup/interfaces/backup-metadata.interface';
 
 @Entity('backup_logs')
 @Index(['status'])

@@ -2,9 +2,12 @@ import { BadRequestException, Injectable, InternalServerErrorException, Logger, 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import Redis from 'ioredis';
-import { spawn, SpawnOptions } from 'child_process';
+import * as IORedis from 'ioredis';
+import type Redis from 'ioredis';
+import * as childProcess from 'child_process';
+import type { SpawnOptions } from 'child_process';
 import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
@@ -15,7 +18,7 @@ import { RegionalSettings } from '@database/entities/regional-settings.entity';
 import { DocumentNumberSetting } from '@database/entities/document-number-settings.entity';
 import { PrintSettings } from '@database/entities/print-settings.entity';
 import { CreateBackupDto, BackupDatabase } from './dto/create-backup.dto';
-import { BackupMetadata } from './interfaces/backup-metadata.interface';
+import type { BackupMetadata } from './interfaces/backup-metadata.interface';
 import { UpdateBackupSettingsDto, BackupSettingsResponseDto } from './dto/backup-settings.dto';
 import { plainToInstance } from 'class-transformer';
 
@@ -31,14 +34,7 @@ const importArchiver = new Function(
 ) as (specifier: string) => Promise<ArchiverModule>;
 
 async function loadArchiver(): Promise<ArchiverModule> {
-  try {
-    return await importArchiver('archiver');
-  } catch (error) {
-    if (process.env.JEST_WORKER_ID) {
-      return require('archiver') as ArchiverModule;
-    }
-    throw error;
-  }
+  return await importArchiver('archiver');
 }
 
 @Injectable()
@@ -46,6 +42,11 @@ export class BackupService implements OnModuleDestroy {
   private readonly logger = new Logger(BackupService.name);
   private readonly backupDir: string;
   private readonly redis: Redis;
+  private fsPromises = fs;
+  private fsSync = fsSync;
+  private spawn = childProcess.spawn;
+  private RedisCtor = (IORedis as any).default;
+  private crypto = crypto;
 
   constructor(
     @InjectRepository(BackupLog)
@@ -68,7 +69,7 @@ export class BackupService implements OnModuleDestroy {
     );
 
     // Initialize Redis client
-    this.redis = new Redis({
+    this.redis = new this.RedisCtor({
       host: this.configService.get<string>('REDIS_HOST', 'redis'),
       port: parseInt(this.configService.get<string>('REDIS_PORT', '6379')),
       password: this.configService.get<string>('REDIS_PASSWORD'),
@@ -94,7 +95,7 @@ export class BackupService implements OnModuleDestroy {
     options: SpawnOptions = {},
   ): Promise<{ stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
-      const child = spawn(command, args, options);
+      const child = this.spawn(command, args, options);
       let stdout = '';
       let stderr = '';
 
@@ -154,7 +155,7 @@ export class BackupService implements OnModuleDestroy {
       await this.ensureBackupDirectories();
 
       const tempDir = path.join(this.backupDir, 'temp', timestamp);
-      await fs.mkdir(tempDir, { recursive: true });
+      await this.fsPromises.mkdir(tempDir, { recursive: true });
 
       const metadata: BackupMetadata = {
         ...backupLog.metadata,
@@ -185,7 +186,7 @@ export class BackupService implements OnModuleDestroy {
       }
 
       // Create metadata file
-      await fs.writeFile(
+      await this.fsPromises.writeFile(
         path.join(tempDir, 'metadata.json'),
         JSON.stringify(metadata, null, 2),
         'utf-8',
@@ -194,7 +195,7 @@ export class BackupService implements OnModuleDestroy {
       // Create archive
       this.logger.log('Creating compressed archive...');
       const archivePath = await this.createArchive(tempDir, filepath);
-      const stats = await fs.stat(archivePath);
+      const stats = await this.fsPromises.stat(archivePath);
       const checksum = await this.calculateChecksum(archivePath);
 
       // Update backup log
@@ -209,7 +210,7 @@ export class BackupService implements OnModuleDestroy {
       await this.backupLogRepository.save(backupLog);
 
       // Cleanup temp directory
-      await fs.rm(tempDir, { recursive: true, force: true });
+      await this.fsPromises.rm(tempDir, { recursive: true, force: true });
 
       this.logger.log(
         `Backup completed successfully: ${filename} (${this.formatBytes(stats.size)})`,
@@ -240,7 +241,7 @@ export class BackupService implements OnModuleDestroy {
     ];
 
     for (const dir of dirs) {
-      await fs.mkdir(dir, { recursive: true });
+      await this.fsPromises.mkdir(dir, { recursive: true });
     }
   }
 
@@ -334,7 +335,7 @@ export class BackupService implements OnModuleDestroy {
       }
     }
 
-    await fs.writeFile(filepath, JSON.stringify(backup, null, 2));
+    await this.fsPromises.writeFile(filepath, JSON.stringify(backup, null, 2));
 
     this.logger.log(`Redis backup completed: ${keys.length} keys exported to ${filename}`);
 
@@ -364,7 +365,7 @@ export class BackupService implements OnModuleDestroy {
       timestamp: new Date().toISOString(),
     };
 
-    await fs.writeFile(filepath, JSON.stringify(settings, null, 2));
+    await this.fsPromises.writeFile(filepath, JSON.stringify(settings, null, 2));
 
     return filename;
   }
@@ -376,7 +377,7 @@ export class BackupService implements OnModuleDestroy {
     const { TarArchive } = await loadArchiver();
 
     return new Promise((resolve, reject) => {
-      const output = require('fs').createWriteStream(outputPath);
+      const output = this.fsSync.createWriteStream(outputPath);
       const archive = new TarArchive({
         gzip: true,
         gzipOptions: { level: 9 },
@@ -398,7 +399,7 @@ export class BackupService implements OnModuleDestroy {
   }
 
   private async calculateChecksum(filepath: string): Promise<string> {
-    const fileBuffer = await fs.readFile(filepath);
+    const fileBuffer = await this.fsPromises.readFile(filepath);
     const hashSum = crypto.createHash('sha256');
     hashSum.update(fileBuffer);
     return hashSum.digest('hex');
@@ -571,7 +572,7 @@ export class BackupService implements OnModuleDestroy {
 
     // Delete the backup file
     try {
-      await fs.unlink(backup.filepath);
+      await this.fsPromises.unlink(backup.filepath);
     } catch (error) {
       this.logger.warn(`Failed to delete backup file: ${error.message}`);
     }
@@ -607,7 +608,7 @@ export class BackupService implements OnModuleDestroy {
 
       // Read metadata
       const metadataPath = path.join(restoreDir, 'metadata.json');
-      const metadataContent = await fs.readFile(metadataPath, 'utf-8');
+      const metadataContent = await this.fsPromises.readFile(metadataPath, 'utf-8');
       const metadata: BackupMetadata = JSON.parse(metadataContent);
 
       // IMPORTANT: Save all current backup logs BEFORE restoring PostgreSQL
@@ -637,7 +638,7 @@ export class BackupService implements OnModuleDestroy {
       }
 
       // Cleanup temp directory
-      await fs.rm(restoreDir, { recursive: true, force: true });
+      await this.fsPromises.rm(restoreDir, { recursive: true, force: true });
 
       this.logger.log(`Restore completed successfully from: ${backup.filename}`);
 
@@ -689,7 +690,7 @@ export class BackupService implements OnModuleDestroy {
 
       // Cleanup on error
       try {
-        await fs.rm(restoreDir, { recursive: true, force: true });
+        await this.fsPromises.rm(restoreDir, { recursive: true, force: true });
       } catch (cleanupError) {
         this.logger.warn(`Cleanup failed: ${cleanupError.message}`);
       }
@@ -701,7 +702,7 @@ export class BackupService implements OnModuleDestroy {
   private async verifyBackupIntegrity(backup: BackupLog): Promise<void> {
     // Check if file exists
     try {
-      await fs.access(backup.filepath);
+      await this.fsPromises.access(backup.filepath);
     } catch (error) {
       throw new Error(`Backup file not found: ${backup.filepath}`);
     }
@@ -717,7 +718,7 @@ export class BackupService implements OnModuleDestroy {
   }
 
   private async extractArchive(archivePath: string, destDir: string): Promise<void> {
-    await fs.mkdir(destDir, { recursive: true });
+    await this.fsPromises.mkdir(destDir, { recursive: true });
 
     await this.spawnAsync('tar', ['-xzf', archivePath, '-C', destDir]);
 
@@ -726,7 +727,7 @@ export class BackupService implements OnModuleDestroy {
 
   private async restorePostgreSQL(restoreDir: string): Promise<void> {
     // Find the PostgreSQL dump file
-    const files = await fs.readdir(restoreDir);
+    const files = await this.fsPromises.readdir(restoreDir);
     const sqlFile = files.find((f) => f.endsWith('.sql.gz'));
 
     if (!sqlFile) {
@@ -780,7 +781,7 @@ export class BackupService implements OnModuleDestroy {
 
   private async restoreRedis(restoreDir: string): Promise<void> {
     // Find the Redis JSON backup file (supports both old and new formats)
-    const files = await fs.readdir(restoreDir);
+    const files = await this.fsPromises.readdir(restoreDir);
     const redisJsonFile = files.find(
       (f) => (f.startsWith('redis_backup_') || f.startsWith('redis_settings_')) && f.endsWith('.json')
     );
@@ -791,7 +792,7 @@ export class BackupService implements OnModuleDestroy {
     }
 
     const redisJsonPath = path.join(restoreDir, redisJsonFile);
-    const backupContent = await fs.readFile(redisJsonPath, 'utf-8');
+    const backupContent = await this.fsPromises.readFile(redisJsonPath, 'utf-8');
     const backup = JSON.parse(backupContent);
 
     this.logger.log('Starting Redis restore...');
@@ -862,7 +863,7 @@ export class BackupService implements OnModuleDestroy {
   }
 
   private async restoreSettings(restoreDir: string): Promise<void> {
-    const files = await fs.readdir(restoreDir);
+    const files = await this.fsPromises.readdir(restoreDir);
     const settingsFile = files.find((f) => f.startsWith('settings_') && f.endsWith('.json'));
 
     if (!settingsFile) {
@@ -871,7 +872,7 @@ export class BackupService implements OnModuleDestroy {
     }
 
     const settingsPath = path.join(restoreDir, settingsFile);
-    const settingsContent = await fs.readFile(settingsPath, 'utf-8');
+    const settingsContent = await this.fsPromises.readFile(settingsPath, 'utf-8');
     const settings = JSON.parse(settingsContent);
 
     // Restore each settings type independently - failures are non-fatal
@@ -1028,7 +1029,7 @@ export class BackupService implements OnModuleDestroy {
     const originalFilename = path.basename(file.originalname);
     const archivesDir = path.resolve(this.backupDir, 'archives');
     const ext = originalFilename.endsWith('.tar.gz') ? '.tar.gz' : '.tgz';
-    const archiveFilename = `uploaded_backup_${Date.now()}_${crypto.randomUUID()}${ext}`;
+    const archiveFilename = `uploaded_backup_${Date.now()}_${this.crypto.randomUUID()}${ext}`;
     const archivePath = path.resolve(archivesDir, archiveFilename);
 
     if (!archivePath.startsWith(`${archivesDir}${path.sep}`)) {
@@ -1037,10 +1038,10 @@ export class BackupService implements OnModuleDestroy {
 
     try {
       // Ensure archives directory exists
-      await fs.mkdir(archivesDir, { recursive: true });
+      await this.fsPromises.mkdir(archivesDir, { recursive: true });
 
       // Move file from uploads to archives
-      await fs.rename(uploadPath, archivePath);
+      await this.fsPromises.rename(uploadPath, archivePath);
 
       // Extract and verify the backup to read metadata
       const tempDir = path.join(this.backupDir, 'temp', `verify_${Date.now()}`);
@@ -1051,7 +1052,7 @@ export class BackupService implements OnModuleDestroy {
       let metadata: BackupMetadata;
 
       try {
-        const metadataContent = await fs.readFile(metadataPath, 'utf-8');
+        const metadataContent = await this.fsPromises.readFile(metadataPath, 'utf-8');
         metadata = JSON.parse(metadataContent);
       } catch (error) {
         this.logger.warn('Could not read metadata from backup file, using defaults');
@@ -1062,11 +1063,11 @@ export class BackupService implements OnModuleDestroy {
       }
 
       // Calculate file size and checksum
-      const stats = await fs.stat(archivePath);
+      const stats = await this.fsPromises.stat(archivePath);
       const checksum = await this.calculateChecksum(archivePath);
 
       // Determine databases included
-      const files = await fs.readdir(tempDir);
+      const files = await this.fsPromises.readdir(tempDir);
       const databases: string[] = [];
 
       if (files.some((f) => f.endsWith('.sql.gz'))) {
@@ -1077,7 +1078,7 @@ export class BackupService implements OnModuleDestroy {
       }
 
       // Cleanup temp directory
-      await fs.rm(tempDir, { recursive: true, force: true });
+      await this.fsPromises.rm(tempDir, { recursive: true, force: true });
 
       // Create backup log entry
       const backupLog = this.backupLogRepository.create({
@@ -1110,7 +1111,7 @@ export class BackupService implements OnModuleDestroy {
 
       // Cleanup on error
       try {
-        await fs.unlink(archivePath);
+        await this.fsPromises.unlink(archivePath);
       } catch (cleanupError) {
         this.logger.warn(`Failed to cleanup uploaded file: ${cleanupError.message}`);
       }

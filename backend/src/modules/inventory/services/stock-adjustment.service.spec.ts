@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { validate } from 'class-validator';
@@ -16,16 +17,16 @@ import { StockAdjustmentItemDto } from '../dto/stock-adjustment.dto';
 
 describe('StockAdjustmentService', () => {
   let service: StockAdjustmentService;
-  let stockAdjustmentRepository: jest.Mocked<Repository<StockAdjustment>>;
-  let stockMovementService: jest.Mocked<StockMovementService>;
-  let auditLogService: jest.Mocked<AuditLogService>;
-  let dataSource: jest.Mocked<DataSource>;
-  let stockMovementRepository: jest.Mocked<Repository<StockMovement>>;
-  let productRepository: jest.Mocked<Repository<Product>>;
-  let stockAdjustmentItemRepository: jest.Mocked<Repository<StockAdjustmentItem>>;
-  let accountingPort: { postStockAdjustment: jest.Mock; reverseEntriesForDocument: jest.Mock };
+  let stockAdjustmentRepository: any;
+  let stockMovementService: any;
+  let auditLogService: any;
+  let dataSource: any;
+  let stockMovementRepository: any;
+  let productRepository: any;
+  let stockAdjustmentItemRepository: any;
+  let accountingPort: { postStockAdjustment: any; reverseEntriesForDocument: any };
   let appTimezone: string;
-  let settingsService: { generateDocumentNumber: jest.Mock };
+  let settingsService: { generateDocumentNumber: any };
 
   const createMockStockAdjustment = (status: StockAdjustmentStatus = StockAdjustmentStatus.DRAFT): Partial<StockAdjustment> => ({
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -78,19 +79,19 @@ describe('StockAdjustmentService', () => {
     appTimezone = 'Asia/Kuala_Lumpur';
     // Mock QueryRunner for transaction support
     const mockQueryRunner = {
-      connect: jest.fn(),
-      startTransaction: jest.fn(),
-      commitTransaction: jest.fn(),
-      rollbackTransaction: jest.fn(),
-      release: jest.fn(),
+      connect: (jest.fn as unknown as any)(),
+      startTransaction: (jest.fn as unknown as any)(),
+      commitTransaction: (jest.fn as unknown as any)(),
+      rollbackTransaction: (jest.fn as unknown as any)(),
+      release: (jest.fn as unknown as any)(),
       manager: {
-        save: jest.fn(),
+        save: (jest.fn as unknown as any)(),
       },
     };
 
     dataSource = {
-      createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
-      transaction: jest.fn(),
+      createQueryRunner: (jest.fn as unknown as any)().mockReturnValue(mockQueryRunner),
+      transaction: (jest.fn as unknown as any)(),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -99,24 +100,24 @@ describe('StockAdjustmentService', () => {
         {
           provide: getRepositoryToken(StockAdjustment),
           useValue: {
-            findOne: jest.fn(),
-            save: jest.fn(),
-            create: jest.fn(),
-            createQueryBuilder: jest.fn(),
+            findOne: (jest.fn as unknown as any)(),
+            save: (jest.fn as unknown as any)(),
+            create: (jest.fn as unknown as any)(),
+            createQueryBuilder: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(StockAdjustmentItem),
           useValue: {
-            save: jest.fn(),
-            create: jest.fn(),
-            delete: jest.fn(),
+            save: (jest.fn as unknown as any)(),
+            create: (jest.fn as unknown as any)(),
+            delete: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(Product),
           useValue: {
-            findBy: jest.fn(),
+            findBy: (jest.fn as unknown as any)(),
           },
         },
         {
@@ -126,7 +127,7 @@ describe('StockAdjustmentService', () => {
         {
           provide: getRepositoryToken(StockMovement),
           useValue: {
-            findOne: jest.fn(),
+            findOne: (jest.fn as unknown as any)(),
           },
         },
         {
@@ -136,28 +137,28 @@ describe('StockAdjustmentService', () => {
         {
           provide: StockMovementService,
           useValue: {
-            create: jest.fn(),
+            create: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: SettingsService,
           useValue: {
-            generateDocumentNumber: jest.fn(),
-            getRegionalSettings: jest.fn(async () => ({ timezone: appTimezone })),
+            generateDocumentNumber: (jest.fn as unknown as any)(),
+            getRegionalSettings: (jest.fn as unknown as any)(async () => ({ timezone: appTimezone })),
           },
         },
         {
           provide: AuditLogService,
           useValue: {
-            log: jest.fn(),
+            log: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: ACCOUNTING_POSTING_PORT,
           useValue: {
-            postStockAdjustment: jest.fn(),
-            postPurchasePayment: jest.fn(),
-            reverseEntriesForDocument: jest.fn(),
+            postStockAdjustment: (jest.fn as unknown as any)(),
+            postPurchasePayment: (jest.fn as unknown as any)(),
+            reverseEntriesForDocument: (jest.fn as unknown as any)(),
           },
         },
       ],
@@ -195,13 +196,13 @@ describe('StockAdjustmentService', () => {
     it('joins product and adds product.name to search + category filter', async () => {
       const calls: { sql: string; params?: any }[] = [];
       const qb: any = {
-        leftJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn((sql: string, params?: any) => { calls.push({ sql, params }); return qb; }),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        distinct: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+        leftJoin: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)((sql: string, params?: any) => { calls.push({ sql, params }); return qb; }),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        distinct: (jest.fn as unknown as any)().mockReturnThis(),
+        getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([[], 0]),
       };
       jest.spyOn(stockAdjustmentRepository, 'createQueryBuilder').mockReturnValue(qb);
       await service.findAll({ search: 'widget', categoryId: 'cat-1' } as any);
@@ -434,14 +435,14 @@ describe('complete and revert', () => {
     const draft = createMockStockAdjustment(StockAdjustmentStatus.DRAFT);
     const items = draft.items!;
     const mockManager = {
-      findOne: jest.fn().mockResolvedValue(draft), // header lock now runs on the txn manager
-      find: jest.fn().mockResolvedValue(items),
-      save: jest.fn(),
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(draft), // header lock now runs on the txn manager
+      find: (jest.fn as unknown as any)().mockResolvedValue(items),
+      save: (jest.fn as unknown as any)(),
     };
-    (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) =>
+    (dataSource.transaction as any).mockImplementation(async (cb: any) =>
       cb(mockManager),
     );
-    (stockMovementService.create as jest.Mock).mockResolvedValue({});
+    (stockMovementService.create as any).mockResolvedValue({});
 
     await service.complete('sa-1', 'user-1', 'admin');
 
@@ -466,14 +467,14 @@ describe('complete and revert', () => {
     const wire = (status: StockAdjustmentStatus) => {
       const adjustment = createMockStockAdjustment(status);
       const mockManager = {
-        findOne: jest.fn().mockResolvedValue(adjustment),
-        find: jest.fn().mockResolvedValue(adjustment.items!),
-        save: jest.fn(),
+        findOne: (jest.fn as unknown as any)().mockResolvedValue(adjustment),
+        find: (jest.fn as unknown as any)().mockResolvedValue(adjustment.items!),
+        save: (jest.fn as unknown as any)(),
       };
-      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) =>
+      (dataSource.transaction as any).mockImplementation(async (cb: any) =>
         cb(mockManager),
       );
-      (stockMovementService.create as jest.Mock).mockResolvedValue({});
+      (stockMovementService.create as any).mockResolvedValue({});
     };
 
     beforeEach(() => {
@@ -518,14 +519,14 @@ describe('complete and revert', () => {
     const completed = createMockStockAdjustment(StockAdjustmentStatus.COMPLETED);
     const items = completed.items!;
     const mockManager = {
-      findOne: jest.fn().mockResolvedValue(completed), // header lock now runs on the txn manager
-      find: jest.fn().mockResolvedValue(items),
-      save: jest.fn(),
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(completed), // header lock now runs on the txn manager
+      find: (jest.fn as unknown as any)().mockResolvedValue(items),
+      save: (jest.fn as unknown as any)(),
     };
-    (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) =>
+    (dataSource.transaction as any).mockImplementation(async (cb: any) =>
       cb(mockManager),
     );
-    (stockMovementService.create as jest.Mock).mockResolvedValue({});
+    (stockMovementService.create as any).mockResolvedValue({});
 
     await service.revert('sa-1', 'user-1', 'admin');
 
@@ -552,9 +553,9 @@ describe('complete() reconciles audit values with live stock (#982)', () => {
   });
 
   const buildManager = (adjustment: any, items: any[]) => ({
-    findOne: jest.fn().mockResolvedValue(adjustment),
-    find: jest.fn().mockResolvedValue(items),
-    save: jest.fn().mockImplementation((arg: any) => Promise.resolve(arg)),
+    findOne: (jest.fn as unknown as any)().mockResolvedValue(adjustment),
+    find: (jest.fn as unknown as any)().mockResolvedValue(items),
+    save: (jest.fn as unknown as any)().mockImplementation((arg: any) => Promise.resolve(arg)),
   });
 
   it('overwrites oldQuantity/newQuantity with the real movement balances and preserves the draft snapshot', async () => {
@@ -567,7 +568,7 @@ describe('complete() reconciles audit values with live stock (#982)', () => {
     }];
     const adjustment = buildDraft(items);
     const manager = buildManager(adjustment, items);
-    (dataSource.transaction as jest.Mock).mockImplementation((cb: any) => cb(manager));
+    (dataSource.transaction as any).mockImplementation((cb: any) => cb(manager));
 
     // The real movement applies +10 to LIVE stock of 130 -> 140.
     stockMovementService.create.mockResolvedValue({
@@ -597,7 +598,7 @@ describe('complete() reconciles audit values with live stock (#982)', () => {
     }];
     const adjustment = buildDraft(items);
     const manager = buildManager(adjustment, items);
-    (dataSource.transaction as jest.Mock).mockImplementation((cb: any) => cb(manager));
+    (dataSource.transaction as any).mockImplementation((cb: any) => cb(manager));
     jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'sa-982' } as any);
 
     await service.complete('sa-982', 'user-1', 'admin');
@@ -620,7 +621,7 @@ describe('complete() reconciles audit values with live stock (#982)', () => {
     }];
     const adjustment = buildDraft(items);
     const manager = buildManager(adjustment, items);
-    (dataSource.transaction as jest.Mock).mockImplementation((cb: any) => cb(manager));
+    (dataSource.transaction as any).mockImplementation((cb: any) => cb(manager));
 
     // Live stock fell to 2; stockMovementService guards the negative result.
     stockMovementService.create.mockRejectedValue(

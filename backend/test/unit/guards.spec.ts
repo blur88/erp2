@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from "@nestjs/testing";
 import {
   ExecutionContext,
@@ -33,10 +34,10 @@ describe("Auth Guards", () => {
 
     it("should allow access to public routes", () => {
       const mockContext = {
-        getHandler: jest.fn(),
-        getClass: jest.fn(),
-        switchToHttp: jest.fn().mockReturnValue({
-          getRequest: jest.fn().mockReturnValue({}),
+        getHandler: (jest.fn as unknown as any)(),
+        getClass: (jest.fn as unknown as any)(),
+        switchToHttp: (jest.fn as unknown as any)().mockReturnValue({
+          getRequest: (jest.fn as unknown as any)().mockReturnValue({}),
         }),
       } as unknown as ExecutionContext;
 
@@ -53,10 +54,10 @@ describe("Auth Guards", () => {
 
     it("should require authentication for protected routes", () => {
       const mockContext = {
-        getHandler: jest.fn(),
-        getClass: jest.fn(),
-        switchToHttp: jest.fn().mockReturnValue({
-          getRequest: jest.fn().mockReturnValue({ user: null }),
+        getHandler: (jest.fn as unknown as any)(),
+        getClass: (jest.fn as unknown as any)(),
+        switchToHttp: (jest.fn as unknown as any)().mockReturnValue({
+          getRequest: (jest.fn as unknown as any)().mockReturnValue({ user: null }),
         }),
       } as unknown as ExecutionContext;
 
@@ -81,11 +82,10 @@ describe("Auth Guards", () => {
 
     it("should allow access if no roles are required", async () => {
       const mockContext = {
-        getHandler: jest.fn(),
-        getClass: jest.fn(),
-        switchToHttp: jest.fn().mockReturnValue({
-          getRequest: jest
-            .fn()
+        getHandler: (jest.fn as unknown as any)(),
+        getClass: (jest.fn as unknown as any)(),
+        switchToHttp: (jest.fn as unknown as any)().mockReturnValue({
+          getRequest: (jest.fn as unknown as any)()
             .mockReturnValue({ user: { role: UserRole.MANAGER } }),
         }),
       } as unknown as ExecutionContext;
@@ -99,10 +99,10 @@ describe("Auth Guards", () => {
 
     it("should allow access if user has required role", async () => {
       const mockContext = {
-        getHandler: jest.fn(),
-        getClass: jest.fn(),
-        switchToHttp: jest.fn().mockReturnValue({
-          getRequest: jest.fn().mockReturnValue({
+        getHandler: (jest.fn as unknown as any)(),
+        getClass: (jest.fn as unknown as any)(),
+        switchToHttp: (jest.fn as unknown as any)().mockReturnValue({
+          getRequest: (jest.fn as unknown as any)().mockReturnValue({
             user: { userId: "123", role: UserRole.ADMIN },
           }),
         }),
@@ -119,10 +119,10 @@ describe("Auth Guards", () => {
 
     it("should deny access if user does not have required role", async () => {
       const mockContext = {
-        getHandler: jest.fn(),
-        getClass: jest.fn(),
-        switchToHttp: jest.fn().mockReturnValue({
-          getRequest: jest.fn().mockReturnValue({
+        getHandler: (jest.fn as unknown as any)(),
+        getClass: (jest.fn as unknown as any)(),
+        switchToHttp: (jest.fn as unknown as any)().mockReturnValue({
+          getRequest: (jest.fn as unknown as any)().mockReturnValue({
             user: { userId: "123", role: UserRole.SALES_STAFF },
           }),
         }),
@@ -142,10 +142,10 @@ describe("Auth Guards", () => {
 
     it("should deny access if user is not authenticated", async () => {
       const mockContext = {
-        getHandler: jest.fn(),
-        getClass: jest.fn(),
-        switchToHttp: jest.fn().mockReturnValue({
-          getRequest: jest.fn().mockReturnValue({ user: null }),
+        getHandler: (jest.fn as unknown as any)(),
+        getClass: (jest.fn as unknown as any)(),
+        switchToHttp: (jest.fn as unknown as any)().mockReturnValue({
+          getRequest: (jest.fn as unknown as any)().mockReturnValue({ user: null }),
         }),
       } as unknown as ExecutionContext;
 
@@ -163,10 +163,10 @@ describe("Auth Guards", () => {
 
     it("should allow admin role for any required roles", async () => {
       const mockContext = {
-        getHandler: jest.fn(),
-        getClass: jest.fn(),
-        switchToHttp: jest.fn().mockReturnValue({
-          getRequest: jest.fn().mockReturnValue({
+        getHandler: (jest.fn as unknown as any)(),
+        getClass: (jest.fn as unknown as any)(),
+        switchToHttp: (jest.fn as unknown as any)().mockReturnValue({
+          getRequest: (jest.fn as unknown as any)().mockReturnValue({
             user: { userId: "123", role: UserRole.ADMIN },
           }),
         }),
@@ -183,10 +183,10 @@ describe("Auth Guards", () => {
 
     it("should handle multiple required roles correctly", async () => {
       const mockContext = {
-        getHandler: jest.fn(),
-        getClass: jest.fn(),
-        switchToHttp: jest.fn().mockReturnValue({
-          getRequest: jest.fn().mockReturnValue({
+        getHandler: (jest.fn as unknown as any)(),
+        getClass: (jest.fn as unknown as any)(),
+        switchToHttp: (jest.fn as unknown as any)().mockReturnValue({
+          getRequest: (jest.fn as unknown as any)().mockReturnValue({
             user: { userId: "123", role: UserRole.MANAGER },
           }),
         }),
@@ -212,10 +212,10 @@ describe("Auth Guards", () => {
       const rolesGuard = new RolesGuard(reflector);
 
       const mockContext = {
-        getHandler: jest.fn(),
-        getClass: jest.fn(),
-        switchToHttp: jest.fn().mockReturnValue({
-          getRequest: jest.fn().mockReturnValue({
+        getHandler: (jest.fn as unknown as any)(),
+        getClass: (jest.fn as unknown as any)(),
+        switchToHttp: (jest.fn as unknown as any)().mockReturnValue({
+          getRequest: (jest.fn as unknown as any)().mockReturnValue({
             user: { userId: "123", role: UserRole.ADMIN },
           }),
         }),

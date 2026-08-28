@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { SearchService } from './search.service';
 import { CustomerService } from '../sales/services/customer.service';
@@ -13,12 +14,12 @@ import { ACCOUNTING_ROLES } from './search.permissions';
 describe('SearchService', () => {
   let module: TestingModule;
   let service: SearchService;
-  let customerService: jest.Mocked<Pick<CustomerService, 'searchGlobal'>>;
-  let productService: jest.Mocked<Pick<ProductService, 'searchGlobal'>>;
-  let salesOrderService: jest.Mocked<Pick<SalesOrderService, 'searchGlobal'>>;
-  let purchaseOrderService: jest.Mocked<Pick<PurchaseOrderService, 'searchGlobal'>>;
-  let supplierService: jest.Mocked<Pick<SupplierService, 'searchGlobal'>>;
-  let searchAnalyticsService: jest.Mocked<Pick<SearchAnalyticsService, 'logQuery'>>;
+  let customerService: any;
+  let productService: any;
+  let salesOrderService: any;
+  let purchaseOrderService: any;
+  let supplierService: any;
+  let searchAnalyticsService: any;
 
   const mockUser = { userId: 'u1', username: 'admin' } as any;
 
@@ -36,27 +37,27 @@ describe('SearchService', () => {
         SearchService,
         {
           provide: CustomerService,
-          useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
+          useValue: { searchGlobal: (jest.fn as unknown as any)().mockResolvedValue([]) },
         },
         {
           provide: ProductService,
-          useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
+          useValue: { searchGlobal: (jest.fn as unknown as any)().mockResolvedValue([]) },
         },
         {
           provide: SalesOrderService,
-          useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
+          useValue: { searchGlobal: (jest.fn as unknown as any)().mockResolvedValue([]) },
         },
         {
           provide: PurchaseOrderService,
-          useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
+          useValue: { searchGlobal: (jest.fn as unknown as any)().mockResolvedValue([]) },
         },
         {
           provide: SupplierService,
-          useValue: { searchGlobal: jest.fn().mockResolvedValue([]) },
+          useValue: { searchGlobal: (jest.fn as unknown as any)().mockResolvedValue([]) },
         },
         {
           provide: SearchAnalyticsService,
-          useValue: { logQuery: jest.fn() },
+          useValue: { logQuery: (jest.fn as unknown as any)() },
         },
       ],
     }).compile();
@@ -94,8 +95,8 @@ describe('SearchService', () => {
   });
 
   it('sorts merged results by descending score', async () => {
-    (customerService.searchGlobal as jest.Mock).mockResolvedValue([makeResult('Low', 50)]);
-    (productService.searchGlobal as jest.Mock).mockResolvedValue([makeResult('High', 100)]);
+    (customerService.searchGlobal as any).mockResolvedValue([makeResult('Low', 50)]);
+    (productService.searchGlobal as any).mockResolvedValue([makeResult('High', 100)]);
 
     const result = await service.search('test', mockUser);
 
@@ -104,7 +105,7 @@ describe('SearchService', () => {
   });
 
   it('breaks score ties with case-insensitive label ascending order', async () => {
-    (customerService.searchGlobal as jest.Mock).mockResolvedValue([
+    (customerService.searchGlobal as any).mockResolvedValue([
       {
         type: 'customer',
         id: 'a',
@@ -140,8 +141,8 @@ describe('SearchService', () => {
       route: '/dashboard',
     };
     const withScore = makeResult('ABC', 50);
-    (customerService.searchGlobal as jest.Mock).mockResolvedValue([noScore]);
-    (productService.searchGlobal as jest.Mock).mockResolvedValue([withScore]);
+    (customerService.searchGlobal as any).mockResolvedValue([noScore]);
+    (productService.searchGlobal as any).mockResolvedValue([withScore]);
 
     const result = await service.search('dash', mockUser);
 
@@ -150,8 +151,8 @@ describe('SearchService', () => {
 
   it('caps results at 20', async () => {
     const many = Array.from({ length: 15 }, (_, i) => makeResult(`item-${i}`, 50));
-    (customerService.searchGlobal as jest.Mock).mockResolvedValue(many);
-    (productService.searchGlobal as jest.Mock).mockResolvedValue(many);
+    (customerService.searchGlobal as any).mockResolvedValue(many);
+    (productService.searchGlobal as any).mockResolvedValue(many);
 
     const result = await service.search('item', mockUser);
 
@@ -159,8 +160,8 @@ describe('SearchService', () => {
   });
 
   it('returns partial results if one source fails', async () => {
-    (customerService.searchGlobal as jest.Mock).mockRejectedValue(new Error('DB error'));
-    (productService.searchGlobal as jest.Mock).mockResolvedValue([makeResult('Widget', 80)]);
+    (customerService.searchGlobal as any).mockRejectedValue(new Error('DB error'));
+    (productService.searchGlobal as any).mockResolvedValue([makeResult('Widget', 80)]);
 
     const result = await service.search('wi', mockUser);
 

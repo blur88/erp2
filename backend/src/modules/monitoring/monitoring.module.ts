@@ -11,8 +11,7 @@ import { RedisAlertStateRepository } from './redis-alert-state.repository';
 import { RedisMemorySamplerService } from './redis-memory-sampler.service';
 import { RedisMemorySamplePruneService } from './redis-memory-sample-prune.service';
 import { TypeOrmRedisMemoryHistoryStore } from './typeorm-redis-memory-history.store';
-
-export const MONITORING_INSTANCE_ID = Symbol('MONITORING_INSTANCE_ID');
+import { MONITORING_INSTANCE_ID } from './monitoring.constants';
 
 @Module({
   imports: [TypeOrmModule.forFeature([RedisMemorySampleEntity, RedisAlertStateEntity])],

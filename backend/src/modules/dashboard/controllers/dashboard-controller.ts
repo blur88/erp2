@@ -10,7 +10,7 @@ import {
 import { 
   DashboardService 
 } from '../services/dashboard-service';
-import { 
+import type { 
   DashboardDataRequest, 
   UserDashboardLayout 
 } from '../interfaces/dashboard-interfaces';

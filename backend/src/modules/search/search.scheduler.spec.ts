@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { SearchScheduler } from './search.scheduler';
@@ -5,26 +6,26 @@ import { SearchScheduler } from './search.scheduler';
 describe('SearchScheduler', () => {
   let scheduler: SearchScheduler;
   let mockQueryRunner: {
-    connect: jest.Mock;
-    startTransaction: jest.Mock;
-    commitTransaction: jest.Mock;
-    rollbackTransaction: jest.Mock;
-    release: jest.Mock;
-    query: jest.Mock;
+    connect: any;
+    startTransaction: any;
+    commitTransaction: any;
+    rollbackTransaction: any;
+    release: any;
+    query: any;
   };
-  let mockDataSource: { createQueryRunner: jest.Mock };
+  let mockDataSource: { createQueryRunner: any };
 
   beforeEach(async () => {
     mockQueryRunner = {
-      connect: jest.fn().mockResolvedValue(undefined),
-      startTransaction: jest.fn().mockResolvedValue(undefined),
-      commitTransaction: jest.fn().mockResolvedValue(undefined),
-      rollbackTransaction: jest.fn().mockResolvedValue(undefined),
-      release: jest.fn().mockResolvedValue(undefined),
-      query: jest.fn().mockResolvedValue([{ id: 'row-1' }, { id: 'row-2' }]),
+      connect: (jest.fn as unknown as any)().mockResolvedValue(undefined),
+      startTransaction: (jest.fn as unknown as any)().mockResolvedValue(undefined),
+      commitTransaction: (jest.fn as unknown as any)().mockResolvedValue(undefined),
+      rollbackTransaction: (jest.fn as unknown as any)().mockResolvedValue(undefined),
+      release: (jest.fn as unknown as any)().mockResolvedValue(undefined),
+      query: (jest.fn as unknown as any)().mockResolvedValue([{ id: 'row-1' }, { id: 'row-2' }]),
     };
     mockDataSource = {
-      createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
+      createQueryRunner: (jest.fn as unknown as any)().mockReturnValue(mockQueryRunner),
     };
 
     const module: TestingModule = await Test.createTestingModule({

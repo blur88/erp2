@@ -71,8 +71,12 @@ echo "==> Loading $DIST_DIR/main.js to verify the require graph resolves ..."
 
 # This is a load-only check, run in a child process. Requiring main.js executes
 # bootstrap(), which will fail without a DB/Redis — that is fine and expected.
-# We only care about MODULE_NOT_FOUND, which is thrown synchronously while the
-# require graph is being walked, before any connection or listen is attempted.
+# We care about resolution failures, which are thrown synchronously while the
+# require graph is being walked, before any connection or listen is attempted:
+#   - MODULE_NOT_FOUND           (missing module)
+#   - ERR_PACKAGE_PATH_NOT_EXPORTED (bare require of an import-only ESM package —
+#     the NestJS 12 @nestjs/typeorm crash class; treated as "resolved" here
+#     would ship an image that boots to a crash-loop)
 load_status=0
 load_output=$(node -e '
   const path = require("path");
@@ -80,8 +84,8 @@ load_output=$(node -e '
   try {
     require(target);
   } catch (err) {
-    if (err && err.code === "MODULE_NOT_FOUND") {
-      console.error("MODULE_NOT_FOUND: " + err.message);
+    if (err && (err.code === "MODULE_NOT_FOUND" || err.code === "ERR_PACKAGE_PATH_NOT_EXPORTED")) {
+      console.error(err.code + ": " + err.message);
       process.exit(2);
     }
     // Any other error means the module graph resolved; the app simply could not
@@ -99,5 +103,73 @@ if [ "$load_status" -eq 2 ]; then
 fi
 
 echo "    OK: module graph resolves."
+echo ""
+
+# --- Migrations glob ---------------------------------------------------------
+# The compiled datasource must resolve its migrations relative to dist/, not to
+# process.cwd()/src. The production image has no /app/src, so a cwd-relative
+# glob matches nothing and TypeORM reports zero pending migrations WITHOUT
+# erroring — invisible on an already-migrated database, fatal on a fresh deploy.
+#
+# This is asserted STATICALLY, against the pattern the compiled config emits and
+# the files in dist/. It deliberately does not count "migrations discovered at
+# runtime": this script also runs in the builder stage, where src/ still exists,
+# so a runtime count would happily pass against the broken src/ path.
+echo "==> Checking the compiled datasource resolves migrations from dist/ ..."
+mig_status=0
+mig_output=$(node -e '
+  const path = require("path");
+  const fs = require("fs");
+  const distDir = path.resolve(process.argv[1]);
+
+  const factory = require(path.join(distDir, "config/database-config.factory.js"));
+  if (typeof factory.createDatabaseConfig !== "function") {
+    console.error("createDatabaseConfig not exported from the compiled factory");
+    process.exit(2);
+  }
+
+  // allowDefaults=true so this needs no real environment.
+  const cfg = factory.createDatabaseConfig({ get: () => undefined }, true);
+  const patterns = (cfg.migrations || []).filter((m) => typeof m === "string");
+  if (patterns.length === 0) {
+    console.error("compiled datasource declares no string migration patterns");
+    process.exit(2);
+  }
+
+  const migDir = path.join(distDir, "database/migrations");
+  for (const p of patterns) {
+    if (!path.resolve(p).startsWith(migDir + path.sep)) {
+      console.error("migration pattern does not target dist/database/migrations:");
+      console.error("  pattern: " + p);
+      console.error("  expected under: " + migDir);
+      process.exit(2);
+    }
+  }
+
+  if (!fs.existsSync(migDir)) {
+    console.error("dist/database/migrations does not exist: " + migDir);
+    process.exit(2);
+  }
+  const compiled = fs.readdirSync(migDir).filter((f) => f.endsWith(".js"));
+  if (compiled.length === 0) {
+    console.error("no compiled .js migrations in " + migDir);
+    process.exit(2);
+  }
+  console.log("    pattern targets dist/database/migrations (" + compiled.length + " compiled migrations)");
+  process.exit(0);
+' "$DIST_DIR" 2>&1) || mig_status=$?
+
+if [ "$mig_status" -ne 0 ]; then
+  echo "FAIL: compiled datasource would not discover its migrations." >&2
+  echo "" >&2
+  echo "$mig_output" >&2
+  echo "" >&2
+  echo "The production image copies only dist/, so a cwd-relative src/ glob" >&2
+  echo "silently matches nothing and no migration ever runs." >&2
+  exit 1
+fi
+
+echo "$mig_output"
+echo "    OK: migrations resolve from dist/."
 echo ""
 echo "PASS: compiled output is runtime-loadable."

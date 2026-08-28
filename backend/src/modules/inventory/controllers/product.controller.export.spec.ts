@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -7,7 +8,7 @@ import { ProductService } from '../services/product.service';
 import { ProductController } from './product.controller';
 
 const mockProductService = {
-  findAll: jest.fn().mockResolvedValue({
+  findAll: (jest.fn as unknown as any)().mockResolvedValue({
     data: [
       {
         sku: 'P001',
@@ -25,7 +26,7 @@ const mockProductService = {
 const mockPricingService = {};
 
 const mockExportService = {
-  exportFlat: jest.fn().mockResolvedValue(Buffer.from('fake-excel')),
+  exportFlat: (jest.fn as unknown as any)().mockResolvedValue(Buffer.from('fake-excel')),
 };
 
 describe('ProductController /export', () => {

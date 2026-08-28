@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UserRole } from '@/database/entities/user.entity';
@@ -46,9 +47,9 @@ const detail = {
 describe('AppController', () => {
   let controller: AppController;
   const appService = {
-    getHealth: jest.fn(),
-    getInfo: jest.fn(),
-    getRedisMemoryDetail: jest.fn(),
+    getHealth: (jest.fn as unknown as any)(),
+    getInfo: (jest.fn as unknown as any)(),
+    getRedisMemoryDetail: (jest.fn as unknown as any)(),
   };
 
   beforeEach(() => {

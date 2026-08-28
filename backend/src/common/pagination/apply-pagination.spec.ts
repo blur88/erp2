@@ -1,8 +1,9 @@
+import { jest } from '@jest/globals';
 import { applyPagination, paginationOptions } from './apply-pagination';
 
 describe('applyPagination', () => {
   const makeQb = () => {
-    const qb: any = { skip: jest.fn(() => qb), take: jest.fn(() => qb) };
+    const qb: any = { skip: (jest.fn as unknown as any)(() => qb), take: (jest.fn as unknown as any)(() => qb) };
     return qb;
   };
 

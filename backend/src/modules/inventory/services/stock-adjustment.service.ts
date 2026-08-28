@@ -57,7 +57,7 @@ export class StockAdjustmentService extends BaseCrudService<
     @InjectRepository(StockMovement)
     private readonly stockMovementRepository: Repository<StockMovement>,
     @Inject(forwardRef(() => StockMovementService))
-    private readonly stockMovementService: StockMovementService,
+    private readonly stockMovementService: any,
     private readonly dataSource: DataSource,
     private readonly settingsService: SettingsService,
     auditLogService: AuditLogService,

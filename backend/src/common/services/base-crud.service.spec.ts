@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -53,8 +54,8 @@ class TestCrudService extends BaseCrudService<
 
 describe('BaseCrudService', () => {
   let service: TestCrudService;
-  let repo: jest.Mocked<Repository<TestEntity>>;
-  let auditLogService: jest.Mocked<AuditLogService>;
+  let repo: any;
+  let auditLogService: any;
 
   const mockEntity: TestEntity = {
     id: 'uuid-1',
@@ -66,14 +67,14 @@ describe('BaseCrudService', () => {
 
   const makeQb = (rows: TestEntity[] = [], total = 0) => {
     const qb: any = {
-      andWhere: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      withDeleted: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValue([rows, total]),
-      getMany: jest.fn().mockResolvedValue(rows),
+      andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+      where: (jest.fn as unknown as any)().mockReturnThis(),
+      withDeleted: (jest.fn as unknown as any)().mockReturnThis(),
+      orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      skip: (jest.fn as unknown as any)().mockReturnThis(),
+      take: (jest.fn as unknown as any)().mockReturnThis(),
+      getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([rows, total]),
+      getMany: (jest.fn as unknown as any)().mockResolvedValue(rows),
     };
     return qb;
   };
@@ -84,19 +85,19 @@ describe('BaseCrudService', () => {
         {
           provide: getRepositoryToken(TestEntity),
           useValue: {
-            createQueryBuilder: jest.fn(),
-            findOne: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            softDelete: jest.fn(),
-            restore: jest.fn(),
-            delete: jest.fn(),
+            createQueryBuilder: (jest.fn as unknown as any)(),
+            findOne: (jest.fn as unknown as any)(),
+            create: (jest.fn as unknown as any)(),
+            save: (jest.fn as unknown as any)(),
+            softDelete: (jest.fn as unknown as any)(),
+            restore: (jest.fn as unknown as any)(),
+            delete: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: AuditLogService,
           useValue: {
-            log: jest.fn().mockResolvedValue(undefined),
+            log: (jest.fn as unknown as any)().mockResolvedValue(undefined),
           },
         },
         {
@@ -114,13 +115,13 @@ describe('BaseCrudService', () => {
   });
 
   it('findOne throws NotFoundException when entity missing', async () => {
-    (repo.findOne as jest.Mock).mockResolvedValue(null);
+    (repo.findOne as any).mockResolvedValue(null);
 
     await expect(service.findOne('missing-id')).rejects.toThrow(NotFoundException);
   });
 
   it('findOne returns entity when found', async () => {
-    (repo.findOne as jest.Mock).mockResolvedValue(mockEntity);
+    (repo.findOne as any).mockResolvedValue(mockEntity);
 
     const result = await service.findOne('uuid-1');
 
@@ -128,8 +129,8 @@ describe('BaseCrudService', () => {
   });
 
   it('softDelete calls repo.softDelete and logs audit', async () => {
-    (repo.findOne as jest.Mock).mockResolvedValue(mockEntity);
-    (repo.softDelete as jest.Mock).mockResolvedValue(undefined);
+    (repo.findOne as any).mockResolvedValue(mockEntity);
+    (repo.softDelete as any).mockResolvedValue(undefined);
 
     await service.softDelete('uuid-1', 'user-1', 'admin');
 
@@ -147,9 +148,9 @@ describe('BaseCrudService', () => {
   });
 
   it('restore calls repo.restore and logs audit', async () => {
-    (repo.findOne as jest.Mock).mockResolvedValueOnce(mockEntity);
-    (repo.restore as jest.Mock).mockResolvedValue(undefined);
-    (repo.findOne as jest.Mock).mockResolvedValueOnce({ ...mockEntity, isActive: true });
+    (repo.findOne as any).mockResolvedValueOnce(mockEntity);
+    (repo.restore as any).mockResolvedValue(undefined);
+    (repo.findOne as any).mockResolvedValueOnce({ ...mockEntity, isActive: true });
 
     await service.restore('uuid-1', 'user-1', 'admin');
 
@@ -163,11 +164,11 @@ describe('BaseCrudService', () => {
   });
 
   it('bulkRestore returns successCount and failedItems', async () => {
-    (repo.findOne as jest.Mock)
+    (repo.findOne as any)
       .mockResolvedValueOnce(mockEntity)
       .mockResolvedValueOnce({ ...mockEntity, isActive: true })
       .mockResolvedValueOnce(null);
-    (repo.restore as jest.Mock).mockResolvedValue(undefined);
+    (repo.restore as any).mockResolvedValue(undefined);
 
     const result = await service.bulkRestore(['uuid-1', 'uuid-missing'], 'user-1', 'admin');
 
@@ -199,9 +200,9 @@ describe('BaseCrudService', () => {
     const joinedService = new JoinedCrudService(repo as any, auditLogService);
     const qb = {
       ...makeQb([mockEntity]),
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
     };
-    (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+    (repo.createQueryBuilder as any).mockReturnValue(qb);
 
     await joinedService.findDeleted({});
 
@@ -209,8 +210,8 @@ describe('BaseCrudService', () => {
   });
 
   it('permanentDelete calls repo.delete and logs audit', async () => {
-    (repo.findOne as jest.Mock).mockResolvedValue(mockEntity);
-    (repo.delete as jest.Mock).mockResolvedValue(undefined);
+    (repo.findOne as any).mockResolvedValue(mockEntity);
+    (repo.delete as any).mockResolvedValue(undefined);
 
     await service.permanentDelete('uuid-1', 'user-1', 'admin');
 
@@ -226,8 +227,8 @@ describe('BaseCrudService', () => {
   it('create saves entity and logs CREATE audit', async () => {
     const dto: TestCreateDto = { name: 'New Entity' };
     const saved = { ...mockEntity, name: 'New Entity' };
-    (repo.create as jest.Mock).mockReturnValue(saved);
-    (repo.save as jest.Mock).mockResolvedValue(saved);
+    (repo.create as any).mockReturnValue(saved);
+    (repo.save as any).mockResolvedValue(saved);
 
     const result = await service.create(dto, 'user-1', 'admin');
 
@@ -252,8 +253,8 @@ describe('BaseCrudService', () => {
     const original = { ...mockEntity, name: 'Original Name' };
     const saved = { ...mockEntity, name: 'Updated Name' };
 
-    (repo.findOne as jest.Mock).mockResolvedValue(original);
-    (repo.save as jest.Mock).mockResolvedValue(saved);
+    (repo.findOne as any).mockResolvedValue(original);
+    (repo.save as any).mockResolvedValue(saved);
 
     const afterUpdateSpy = jest.spyOn(service as any, 'afterUpdate');
 
@@ -268,7 +269,7 @@ describe('BaseCrudService', () => {
 
   it('findAll returns data and total via getManyAndCount', async () => {
     const qb = makeQb([mockEntity], 1);
-    (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+    (repo.createQueryBuilder as any).mockReturnValue(qb);
 
     const result = await service.findAll({});
 
@@ -279,7 +280,7 @@ describe('BaseCrudService', () => {
 
   it('findAll applies pagination when page and limit provided', async () => {
     const qb = makeQb([mockEntity], 1);
-    (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+    (repo.createQueryBuilder as any).mockReturnValue(qb);
 
     await service.findAll({ page: 2, limit: 10 } as any);
 
@@ -289,7 +290,7 @@ describe('BaseCrudService', () => {
 
   it('findAll does not call applySearch when no search term', async () => {
     const qb = makeQb([mockEntity], 1);
-    (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+    (repo.createQueryBuilder as any).mockReturnValue(qb);
     const applySearchSpy = jest.spyOn(service as any, 'applySearch');
 
     await service.findAll({});
@@ -299,7 +300,7 @@ describe('BaseCrudService', () => {
 
   it('findAll calls applySearch when search term provided', async () => {
     const qb = makeQb([mockEntity], 1);
-    (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+    (repo.createQueryBuilder as any).mockReturnValue(qb);
     const applySearchSpy = jest.spyOn(service as any, 'applySearch').mockReturnValue(qb);
 
     await service.findAll({ search: 'test' });
@@ -309,7 +310,7 @@ describe('BaseCrudService', () => {
 
   it('findAll falls back to createdAt when sortBy is not in allowedSortFields', async () => {
     const qb = makeQb([mockEntity], 1);
-    (repo.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+    (repo.createQueryBuilder as any).mockReturnValue(qb);
 
     await service.findAll({ sortBy: 'injected; DROP TABLE--', sortOrder: 'ASC' });
 
@@ -321,8 +322,8 @@ describe('BaseCrudService', () => {
     const original = { ...mockEntity, name: 'Original Name' };
     const saved = { ...mockEntity, name: 'Updated Name' };
 
-    (repo.findOne as jest.Mock).mockResolvedValue(original);
-    (repo.save as jest.Mock).mockResolvedValue(saved);
+    (repo.findOne as any).mockResolvedValue(original);
+    (repo.save as any).mockResolvedValue(saved);
 
     await service.update('uuid-1', dto, 'user-1', 'admin');
 

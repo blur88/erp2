@@ -1,4 +1,4 @@
-import { SampleQuery } from './redis-memory-history.store';
+import type { SampleQuery } from './redis-memory-history.store';
 import { REDIS_DETAIL_MAX_ROWS } from './redis-memory.types';
 
 /** A `SampleQuery` with the limit resolved and `allInstances` made explicit. */

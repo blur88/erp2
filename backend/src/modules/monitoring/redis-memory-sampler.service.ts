@@ -8,17 +8,14 @@ import {
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import Redis from 'ioredis';
-import {
-  REDIS_MEMORY_HISTORY_STORE,
-  RedisMemoryHistoryStore,
-  SampleQuery,
-} from './redis-memory-history.store';
+import { REDIS_MEMORY_HISTORY_STORE } from './redis-memory-history.store';
+import type { RedisMemoryHistoryStore, SampleQuery } from './redis-memory-history.store';
 import { parseEvictedKeys, parseOomErrors, parseRedisMemory, parseRunId } from './redis-info.parser';
 import { RedisMemoryPressureEvaluator } from './redis-memory-pressure.evaluator';
 import { RedisAlertService } from './redis-alert.service';
 import { RedisAlertUnavailableReason } from './redis-alert.types';
-import { ResolvedInstanceId } from './instance-identity';
-import { MONITORING_INSTANCE_ID } from './monitoring.module';
+import type { ResolvedInstanceId } from './instance-identity';
+import { MONITORING_INSTANCE_ID } from './monitoring.constants';
 import { RedisMemoryDetailQueryDto } from './dto/redis-memory-detail-query.dto';
 import {
   REDIS_COMMAND_TIMEOUT_MS,

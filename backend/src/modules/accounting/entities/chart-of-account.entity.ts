@@ -17,7 +17,7 @@ export class ChartOfAccount extends BaseEntity {
   @Column({ type: 'uuid', nullable: true })
   parentId: string | null;
 
-  @ManyToOne(() => ChartOfAccount, { nullable: true })
+  @ManyToOne('ChartOfAccount', { nullable: true })
   @JoinColumn({ name: 'parentId' })
   parent?: ChartOfAccount | null;
 

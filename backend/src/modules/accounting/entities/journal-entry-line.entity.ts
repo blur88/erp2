@@ -1,7 +1,7 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from '../../../database/entities/base.entity';
-import { JournalEntry } from './journal-entry.entity';
-import { ChartOfAccount } from './chart-of-account.entity';
+import type { JournalEntry } from './journal-entry.entity';
+import type { ChartOfAccount } from './chart-of-account.entity';
 
 @Entity('journal_entry_line')
 export class JournalEntryLine extends BaseEntity {
@@ -9,7 +9,7 @@ export class JournalEntryLine extends BaseEntity {
   @Column({ type: 'uuid' })
   entryId: string;
 
-  @ManyToOne(() => JournalEntry, (entry) => entry.lines, { onDelete: 'CASCADE' })
+  @ManyToOne('JournalEntry', 'lines', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'entryId' })
   entry: JournalEntry;
 
@@ -17,7 +17,7 @@ export class JournalEntryLine extends BaseEntity {
   @Column({ type: 'uuid' })
   accountId: string;
 
-  @ManyToOne(() => ChartOfAccount)
+  @ManyToOne('ChartOfAccount')
   @JoinColumn({ name: 'accountId' })
   account: ChartOfAccount;
 

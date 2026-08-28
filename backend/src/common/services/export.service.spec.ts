@@ -1,10 +1,11 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as ExcelJS from 'exceljs';
 import { ExportService } from './export.service';
 import { SettingsService } from '../../modules/settings/settings.service';
 
 const mockSettingsService = {
-  getCompanySettings: jest.fn().mockResolvedValue({ name: 'Test Corp' }),
+  getCompanySettings: (jest.fn as unknown as any)().mockResolvedValue({ name: 'Test Corp' }),
 };
 
 describe('ExportService', () => {

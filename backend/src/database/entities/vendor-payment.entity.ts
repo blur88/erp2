@@ -1,8 +1,8 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from './base.entity';
-import { Supplier } from './supplier.entity';
-import { PurchaseOrder } from './purchase-order.entity';
-import { PaymentMethodEntity } from './payment-method.entity';
+import type { Supplier } from './supplier.entity';
+import type { PurchaseOrder } from './purchase-order.entity';
+import type { PaymentMethodEntity } from './payment-method.entity';
 
 @Entity('vendor_payments')
 @Index(['supplierId', 'status'])
@@ -36,15 +36,15 @@ export class VendorPayment extends BaseEntity {
   status: string; // 'pending', 'completed', 'cancelled', 'refunded'
 
   // Relations
-  @ManyToOne(() => Supplier, { eager: true })
+  @ManyToOne('Supplier', { eager: true })
   @JoinColumn({ name: 'supplierId' })
   supplier: Supplier;
 
-  @ManyToOne(() => PurchaseOrder, { nullable: true })
+  @ManyToOne('PurchaseOrder', { nullable: true })
   @JoinColumn({ name: 'purchaseOrderId' })
   purchaseOrder: PurchaseOrder;
 
-  @ManyToOne(() => PaymentMethodEntity, { nullable: true, eager: true })
+  @ManyToOne('PaymentMethodEntity', { nullable: true, eager: true })
   @JoinColumn({ name: 'paymentMethodId' })
   paymentMethodEntity: PaymentMethodEntity;
 }

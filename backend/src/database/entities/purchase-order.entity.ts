@@ -18,9 +18,9 @@ import {
   IsDate,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
-import { Supplier } from './supplier.entity';
-import { PurchaseOrderItem } from './purchase-order-item.entity';
-import { VendorPayment } from './vendor-payment.entity';
+import type { Supplier } from './supplier.entity';
+import type { PurchaseOrderItem } from './purchase-order-item.entity';
+import type { VendorPayment } from './vendor-payment.entity';
 
 export enum PurchaseOrderStatus {
   DRAFT = 'DRAFT',
@@ -180,20 +180,20 @@ export class PurchaseOrder extends BaseEntity {
   supplierId: string;
 
   // Relationships
-  @ManyToOne(() => Supplier, (supplier) => supplier.purchaseOrders, {
+  @ManyToOne('Supplier', 'purchaseOrders', {
     onDelete: 'RESTRICT',
     eager: true,
   })
   @JoinColumn({ name: 'supplierId' })
   supplier: Supplier;
 
-  @OneToMany(() => PurchaseOrderItem, (item) => item.purchaseOrder, {
+  @OneToMany('PurchaseOrderItem', 'purchaseOrder', {
     cascade: true,
     eager: false,
   })
   items: PurchaseOrderItem[];
 
-  @OneToMany(() => VendorPayment, (payment) => payment.purchaseOrder, {
+  @OneToMany('VendorPayment', 'purchaseOrder', {
     cascade: false,
   })
   vendorPayments: VendorPayment[];

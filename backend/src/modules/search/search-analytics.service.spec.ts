@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { SearchAnalyticsService } from './search-analytics.service';
@@ -6,12 +7,12 @@ import { SearchClick } from '../../database/entities/search-click.entity';
 
 describe('SearchAnalyticsService', () => {
   let service: SearchAnalyticsService;
-  let queryRepo: { save: jest.Mock };
-  let clickRepo: { save: jest.Mock };
+  let queryRepo: { save: any };
+  let clickRepo: { save: any };
 
   beforeEach(async () => {
-    queryRepo = { save: jest.fn().mockResolvedValue({}) };
-    clickRepo = { save: jest.fn().mockResolvedValue({}) };
+    queryRepo = { save: (jest.fn as unknown as any)().mockResolvedValue({}) };
+    clickRepo = { save: (jest.fn as unknown as any)().mockResolvedValue({}) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

@@ -2,7 +2,7 @@ import { Entity, Column, OneToMany, ManyToOne, JoinColumn, Index } from 'typeorm
 import { BaseEntity } from '../../../database/entities/base.entity';
 import { PostingType } from './posting-type.enum';
 import { AccountingSourceType } from './source-type.enum';
-import { JournalEntryLine } from './journal-entry-line.entity';
+import type { JournalEntryLine } from './journal-entry-line.entity';
 
 // Idempotency is enforced by the database, not only by the read-then-insert
 // guard in AccountingPostingService.findExistingEntry(): that check-then-act
@@ -52,10 +52,10 @@ export class JournalEntry extends BaseEntity {
   @Column({ type: 'uuid', nullable: true })
   reversalOfEntryId: string | null;
 
-  @ManyToOne(() => JournalEntry, { nullable: true })
+  @ManyToOne('JournalEntry', { nullable: true })
   @JoinColumn({ name: 'reversalOfEntryId' })
   reversalOf?: JournalEntry | null;
 
-  @OneToMany(() => JournalEntryLine, (line) => line.entry, { cascade: true })
+  @OneToMany('JournalEntryLine', 'entry', { cascade: true })
   lines: JournalEntryLine[];
 }

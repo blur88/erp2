@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import 'reflect-metadata';
 import { BadRequestException } from '@nestjs/common';
 import { AccountType } from '../entities/account-type.enum';
@@ -19,14 +20,14 @@ function makeQb(tag: string, result: { raw?: unknown; entities?: unknown[] } = {
     'orderBy', 'addOrderBy', 'limit', 'offset', 'take', 'skip', 'groupBy',
     'from', 'setParameters',
   ]) {
-    qb[m] = jest.fn(() => qb);
+    qb[m] = (jest.fn as unknown as any)(() => qb);
   }
-  qb.getQuery = jest.fn(() => `SELECT /* ${tag} */`);
-  qb.getParameters = jest.fn(() => ({}));
-  qb.getRawOne = jest.fn(async () => result.raw);
-  qb.getMany = jest.fn(async () => result.entities ?? []);
+  qb.getQuery = (jest.fn as unknown as any)(() => `SELECT /* ${tag} */`);
+  qb.getParameters = (jest.fn as unknown as any)(() => ({}));
+  qb.getRawOne = (jest.fn as unknown as any)(async () => result.raw);
+  qb.getMany = (jest.fn as unknown as any)(async () => result.entities ?? []);
   // Task 3 only: the pre-rewrite service reads rows via getRawAndEntities.
-  qb.getRawAndEntities = jest.fn(async () => ({ raw: [], entities: result.entities ?? [] }));
+  qb.getRawAndEntities = (jest.fn as unknown as any)(async () => ({ raw: [], entities: result.entities ?? [] }));
   return qb;
 }
 
@@ -58,8 +59,8 @@ describe('GeneralLedgerService', () => {
     };
     let nextLineKind: string[] = [];
     const manager = {
-      findOne: jest.fn(async () => ('account' in opts ? opts.account : account)),
-      createQueryBuilder: jest.fn((...args: unknown[]) => {
+      findOne: (jest.fn as unknown as any)(async () => ('account' in opts ? opts.account : account)),
+      createQueryBuilder: (jest.fn as unknown as any)((...args: unknown[]) => {
         if (args.length === 0) return prefixQb;         // prefix outer wrapper
         const kind = nextLineKind.shift() ?? 'rows';
         return lineBuilders[kind];
@@ -75,7 +76,7 @@ describe('GeneralLedgerService', () => {
     ];
 
     const dataSource = {
-      transaction: jest.fn(async (_level: string, cb: (m: unknown) => Promise<unknown>) => cb(manager)),
+      transaction: (jest.fn as unknown as any)(async (_level: string, cb: (m: unknown) => Promise<unknown>) => cb(manager)),
     };
     const balance = { naturalBalance: (type: AccountType, raw: bigint) =>
       type === AccountType.LIABILITY || type === AccountType.EQUITY || type === AccountType.INCOME ? -raw : raw };
@@ -164,7 +165,7 @@ describe('GeneralLedgerService', () => {
     await service.getLedger({
       accountId: 'acct-1', fromDate: '2026-07-01', sourceType: 'SALES_ORDER' as never,
     });
-    const predicates = (openingQb.andWhere as jest.Mock).mock.calls.map((c) => String(c[0]));
+    const predicates = (openingQb.andWhere as any).mock.calls.map((c) => String(c[0]));
     expect(predicates.some((p) => p.includes('sourceType'))).toBe(true);
   });
 

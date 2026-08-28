@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { ErrorSanitizerService } from './error-sanitizer.service';
 import { LogFormatterService } from './log-formatter.service';
 

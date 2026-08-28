@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Module, Global } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
@@ -34,45 +35,45 @@ describe("PriceListsController (e2e)", () => {
   };
 
   const mockPriceListRepository = {
-    find: jest.fn().mockResolvedValue([mockPriceList]),
-    findOne: jest.fn().mockResolvedValue(mockPriceList),
-    findOneBy: jest.fn().mockResolvedValue(mockPriceList),
-    save: jest.fn().mockResolvedValue(mockPriceList),
-    create: jest.fn().mockReturnValue(mockPriceList),
-    update: jest.fn().mockResolvedValue({ affected: 1 }),
-    softDelete: jest.fn().mockResolvedValue({ affected: 1 }),
-    count: jest.fn().mockResolvedValue(1),
-    createQueryBuilder: jest.fn(() => ({
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      addOrderBy: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([mockPriceList]),
-      getOne: jest.fn().mockResolvedValue(mockPriceList),
-      getManyAndCount: jest.fn().mockResolvedValue([[mockPriceList], 1]),
+    find: (jest.fn as unknown as any)().mockResolvedValue([mockPriceList]),
+    findOne: (jest.fn as unknown as any)().mockResolvedValue(mockPriceList),
+    findOneBy: (jest.fn as unknown as any)().mockResolvedValue(mockPriceList),
+    save: (jest.fn as unknown as any)().mockResolvedValue(mockPriceList),
+    create: (jest.fn as unknown as any)().mockReturnValue(mockPriceList),
+    update: (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 }),
+    softDelete: (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 }),
+    count: (jest.fn as unknown as any)().mockResolvedValue(1),
+    createQueryBuilder: (jest.fn as unknown as any)(() => ({
+      where: (jest.fn as unknown as any)().mockReturnThis(),
+      andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+      leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+      skip: (jest.fn as unknown as any)().mockReturnThis(),
+      take: (jest.fn as unknown as any)().mockReturnThis(),
+      orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      getMany: (jest.fn as unknown as any)().mockResolvedValue([mockPriceList]),
+      getOne: (jest.fn as unknown as any)().mockResolvedValue(mockPriceList),
+      getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([[mockPriceList], 1]),
     })),
   };
 
   const mockPriceListItemRepository = {
-    find: jest.fn().mockResolvedValue([]),
-    findOne: jest.fn().mockResolvedValue({ price: 100 }),
-    save: jest.fn().mockResolvedValue({}),
-    create: jest.fn(),
-    delete: jest.fn(),
-    createQueryBuilder: jest.fn(() => ({
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([]),
-      getOne: jest.fn(),
+    find: (jest.fn as unknown as any)().mockResolvedValue([]),
+    findOne: (jest.fn as unknown as any)().mockResolvedValue({ price: 100 }),
+    save: (jest.fn as unknown as any)().mockResolvedValue({}),
+    create: (jest.fn as unknown as any)(),
+    delete: (jest.fn as unknown as any)(),
+    createQueryBuilder: (jest.fn as unknown as any)(() => ({
+      where: (jest.fn as unknown as any)().mockReturnThis(),
+      andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+      leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+      getMany: (jest.fn as unknown as any)().mockResolvedValue([]),
+      getOne: (jest.fn as unknown as any)(),
     })),
   };
 
   const mockProductRepository = {
-    findOneBy: jest.fn(),
+    findOneBy: (jest.fn as unknown as any)(),
   };
 
   // Helper: build a mock EntityManager that delegates to the mock repositories
@@ -88,8 +89,8 @@ describe("PriceListsController (e2e)", () => {
       mockPriceListRepository.softDelete(criteria),
     update: (_entityClass: any, criteria: any, partialEntity: any) =>
       mockPriceListRepository.update(criteria, partialEntity),
-    query: jest.fn().mockResolvedValue([]),
-    softRemove: jest.fn().mockResolvedValue({}),
+    query: (jest.fn as unknown as any)().mockResolvedValue([]),
+    softRemove: (jest.fn as unknown as any)().mockResolvedValue({}),
     findOneBy: (_entityClass: any, options: any) =>
       mockPriceListRepository.findOneBy(options),
   });
@@ -99,7 +100,7 @@ describe("PriceListsController (e2e)", () => {
   // path instead of the bare PriceListsSeederDb.transaction path.
   const mockDataSource = Object.setPrototypeOf(
     {
-      transaction: jest.fn().mockImplementation(async (cb: Function) =>
+      transaction: (jest.fn as unknown as any)().mockImplementation(async (cb: Function) =>
         cb(mockEntityManager()),
       ),
     },

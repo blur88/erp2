@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Between, FindOptionsWhere, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
 import { RedisMemorySampleEntity } from '@/database/entities/redis-memory-sample.entity';
-import { RedisMemoryHistoryStore, SampleQuery } from './redis-memory-history.store';
+import type { RedisMemoryHistoryStore, SampleQuery } from './redis-memory-history.store';
 import { normalizeSampleQuery } from './normalize-sample-query';
 import {
   KNOWN_INSTANCES_LIMIT,

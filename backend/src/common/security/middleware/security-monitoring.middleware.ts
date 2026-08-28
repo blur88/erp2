@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NestMiddleware } from '@nestjs/common';
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { ThreatDetector } from '../threat-detection/detector';
 import { RequestValidators } from '../threat-detection/validators';
 import { SecurityLogger } from '../logging/security-logger';

@@ -1,11 +1,11 @@
 # Stage 1: Install all dependencies (dev + prod) for building
-FROM node:24.15.0-alpine3.23 AS deps
+FROM node:24.16.0-alpine3.23 AS deps
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci && npm cache clean --force
 
 # Stage 2: Build the application
-FROM node:24.15.0-alpine3.23 AS builder
+FROM node:24.16.0-alpine3.23 AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -18,7 +18,7 @@ RUN npm run build && \
     npm prune --omit=dev && npm cache clean --force
 
 # Stage 3: Production image — only compiled output + prod deps
-FROM node:24.15.0-alpine3.23 AS production
+FROM node:24.16.0-alpine3.23 AS production
 
 # Install security updates and runtime dependencies
 RUN apk update && apk upgrade && \

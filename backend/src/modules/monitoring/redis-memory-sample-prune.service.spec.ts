@@ -1,20 +1,21 @@
+import { jest } from '@jest/globals';
 import { Logger } from '@nestjs/common';
 import { RedisMemorySamplePruneService } from './redis-memory-sample-prune.service';
 import { REDIS_PRUNE_BATCH_SIZE, REDIS_PRUNE_MAX_BATCHES } from './redis-memory.types';
 
 describe('RedisMemorySamplePruneService', () => {
   const makeService = (affectedPerCall: number[], remaining = 0) => {
-    const execute = jest.fn();
+    const execute = (jest.fn as unknown as any)();
     affectedPerCall.forEach((affected) => execute.mockResolvedValueOnce({ affected }));
     execute.mockResolvedValue({ affected: 0 });
-    const count = jest.fn().mockResolvedValue(remaining);
+    const count = (jest.fn as unknown as any)().mockResolvedValue(remaining);
     const dataSource = {
       createQueryBuilder: () => ({
         delete: () => ({ from: () => ({ where: () => ({ execute }) }) }),
       }),
       getRepository: () => ({ count }),
     };
-    const logger = { warn: jest.fn(), log: jest.fn() } as unknown as Logger;
+    const logger = { warn: (jest.fn as unknown as any)(), log: (jest.fn as unknown as any)() } as unknown as Logger;
     return {
       service: new RedisMemorySamplePruneService(dataSource as any, logger),
       execute,
@@ -67,12 +68,12 @@ describe('RedisMemorySamplePruneService', () => {
     const dataSource = {
       createQueryBuilder: () => ({
         delete: () => ({
-          from: () => ({ where: () => ({ execute: jest.fn().mockRejectedValue(new Error('db down')) }) }),
+          from: () => ({ where: () => ({ execute: (jest.fn as unknown as any)().mockRejectedValue(new Error('db down')) }) }),
         }),
       }),
-      getRepository: () => ({ count: jest.fn().mockResolvedValue(0) }),
+      getRepository: () => ({ count: (jest.fn as unknown as any)().mockResolvedValue(0) }),
     };
-    const logger = { warn: jest.fn(), log: jest.fn() } as unknown as Logger;
+    const logger = { warn: (jest.fn as unknown as any)(), log: (jest.fn as unknown as any)() } as unknown as Logger;
     const service = new RedisMemorySamplePruneService(dataSource as any, logger);
     // remaining is -1 (unknown), never 0: a failed delete is not evidence
     // that the table drained.

@@ -1,7 +1,7 @@
 import { Entity, Column, Index, OneToMany, ManyToOne, JoinColumn, Check } from 'typeorm';
 import { BaseEntity } from '../../../database/entities/base.entity';
-import { Product } from '../../../database/entities/product.entity';
-import { OwnerEquitySettlement } from './owner-equity-settlement.entity';
+import type { Product } from '../../../database/entities/product.entity';
+import type { OwnerEquitySettlement } from './owner-equity-settlement.entity';
 
 // These three enum types are CREATEd whole by the Owner Equity migration, so
 // their member order is free at authoring time — but it freezes the moment that
@@ -95,10 +95,10 @@ export class OwnerEquityDocument extends BaseEntity {
   @Column({ type: 'varchar', length: 120, nullable: true })
   completedBy: string | null;
 
-  @ManyToOne(() => Product, { onDelete: 'RESTRICT' })
+  @ManyToOne('Product', { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'productId' })
   product: Product;
 
-  @OneToMany(() => OwnerEquitySettlement, (s) => s.document)
+  @OneToMany('OwnerEquitySettlement', 'document')
   settlements: OwnerEquitySettlement[];
 }

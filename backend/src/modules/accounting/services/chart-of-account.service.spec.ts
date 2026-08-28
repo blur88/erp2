@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { ChartOfAccountService } from './chart-of-account.service';
 import { AccountType } from '../entities/account-type.enum';
 import { BadRequestException, ConflictException } from '@nestjs/common';
@@ -10,14 +11,14 @@ function makeService(overrides: any = {}) {
     find: async () => accounts,
   };
   const settingsRepo = { findOne: async () => overrides.settings ?? { id: true } };
-  const posting = { postOpeningBalance: jest.fn(async () => ({ journalEntryId: 'je-1' })) };
+  const posting = { postOpeningBalance: (jest.fn as unknown as any)(async () => ({ journalEntryId: 'je-1' })) };
   const balance = overrides.balance ?? { getLeafBalances: async () => new Map(), getRollup: () => 0n, naturalBalance: (_t: any, v: bigint) => v };
   const dataSource = {
     transaction: async (cb: any) => cb({
       getRepository: () => ({ create: (x: any) => x, save: async (x: any) => ({ ...x, id: 'new-id' }) }),
     }),
   };
-  const getRegionalSettings = jest.fn(async () => ({
+  const getRegionalSettings = (jest.fn as unknown as any)(async () => ({
     timezone: overrides.timezone ?? 'Asia/Kuala_Lumpur',
   }));
   const regionalSettingsService = { getRegionalSettings };

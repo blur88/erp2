@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Logger, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -16,10 +17,10 @@ import { VendorPaymentService } from './vendor-payment.service';
 
 describe('VendorPaymentService', () => {
   let service: VendorPaymentService;
-  let vendorPaymentRepository: jest.Mocked<Repository<VendorPayment>>;
-  let purchaseOrderRepository: jest.Mocked<Repository<PurchaseOrder>>;
-  let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
-  let auditLogService: jest.Mocked<AuditLogService>;
+  let vendorPaymentRepository: any;
+  let purchaseOrderRepository: any;
+  let paymentMethodRepository: any;
+  let auditLogService: any;
 
   const mockSupplier = {
     id: 'supplier-123',
@@ -53,34 +54,34 @@ describe('VendorPaymentService', () => {
         {
           provide: getRepositoryToken(VendorPayment),
           useValue: {
-            findOne: jest.fn(),
-            find: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            softDelete: jest.fn(),
-            restore: jest.fn(),
-            remove: jest.fn(),
-            createQueryBuilder: jest.fn(),
+            findOne: (jest.fn as unknown as any)(),
+            find: (jest.fn as unknown as any)(),
+            create: (jest.fn as unknown as any)(),
+            save: (jest.fn as unknown as any)(),
+            softDelete: (jest.fn as unknown as any)(),
+            restore: (jest.fn as unknown as any)(),
+            remove: (jest.fn as unknown as any)(),
+            createQueryBuilder: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(PurchaseOrder),
           useValue: {
-            findOne: jest.fn(),
-            update: jest.fn(),
-            save: jest.fn(),
+            findOne: (jest.fn as unknown as any)(),
+            update: (jest.fn as unknown as any)(),
+            save: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(PaymentMethodEntity),
           useValue: {
-            findOne: jest.fn(),
+            findOne: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: AuditLogService,
           useValue: {
-            log: jest.fn(),
+            log: (jest.fn as unknown as any)(),
           },
         },
       ],
@@ -92,9 +93,9 @@ describe('VendorPaymentService', () => {
     paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     auditLogService = module.get(AuditLogService);
 
-    jest.spyOn(Logger.prototype, 'log').mockImplementation();
-    jest.spyOn(Logger.prototype, 'error').mockImplementation();
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -239,8 +240,8 @@ describe('VendorPaymentService', () => {
     });
 
     it('uses the manager repository when a manager is passed', async () => {
-      const managerRepo = { find: jest.fn().mockResolvedValue([]) };
-      const manager = { getRepository: jest.fn().mockReturnValue(managerRepo) } as any;
+      const managerRepo = { find: (jest.fn as unknown as any)().mockResolvedValue([]) };
+      const manager = { getRepository: (jest.fn as unknown as any)().mockReturnValue(managerRepo) } as any;
 
       await service.findAllByPurchaseOrder('po-1', manager);
 

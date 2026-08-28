@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { BadRequestException } from '@nestjs/common';
@@ -12,16 +13,16 @@ import { toMinorUnits, formatScale4 } from '@/common/utils/money';
 
 describe('ExpensePaymentService', () => {
   let service: ExpensePaymentService;
-  let dataSource: jest.Mocked<DataSource>;
-  let expenseService: jest.Mocked<ExpenseService>;
-  let posting: jest.Mocked<AccountingPostingService>;
-  let auditLogService: jest.Mocked<AuditLogService>;
+  let dataSource: any;
+  let expenseService: any;
+  let posting: any;
+  let auditLogService: any;
 
   beforeEach(async () => {
-    dataSource = { transaction: jest.fn() } as any;
-    expenseService = { findOne: jest.fn() } as any;
-    posting = { postExpensePayment: jest.fn().mockResolvedValue({ journalEntryId: 'je-1' }), postExpenseRefund: jest.fn().mockResolvedValue({ journalEntryId: 'je-2' }) } as any;
-    auditLogService = { log: jest.fn() } as any;
+    dataSource = { transaction: (jest.fn as unknown as any)() } as any;
+    expenseService = { findOne: (jest.fn as unknown as any)() } as any;
+    posting = { postExpensePayment: (jest.fn as unknown as any)().mockResolvedValue({ journalEntryId: 'je-1' }), postExpenseRefund: (jest.fn as unknown as any)().mockResolvedValue({ journalEntryId: 'je-2' }) } as any;
+    auditLogService = { log: (jest.fn as unknown as any)() } as any;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -76,13 +77,13 @@ describe('ExpensePaymentService', () => {
     savedPayments = [];
 
     txExpenseRepo = {
-      findOne: jest.fn().mockResolvedValue(exp),
-      update: jest.fn().mockResolvedValue({}),
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(exp),
+      update: (jest.fn as unknown as any)().mockResolvedValue({}),
     };
 
     const pmMap = overrides.paymentMethods ?? { 'pm-1': cashMethod(), 'pm-2': bankMethod() };
     txPmRepo = {
-      findOne: jest.fn().mockImplementation((opts: any) => {
+      findOne: (jest.fn as unknown as any)().mockImplementation((opts: any) => {
         const id = opts.where.id;
         const method = pmMap[id];
         if (!method) return Promise.resolve(null);
@@ -93,13 +94,13 @@ describe('ExpensePaymentService', () => {
     };
 
     txPayRepo = {
-      create: jest.fn((x: any) => ({ ...x })),
-      save: jest.fn(async (x: any) => {
+      create: (jest.fn as unknown as any)((x: any) => ({ ...x })),
+      save: (jest.fn as unknown as any)(async (x: any) => {
         const row = { ...x, id: `pay-${savedPayments.length + 1}` };
         savedPayments.push(row);
         return row;
       }),
-      find: jest.fn(async (opts: any) => {
+      find: (jest.fn as unknown as any)(async (opts: any) => {
         if (opts?.where?.id) {
           return savedPayments.filter(p => p.id === opts.where.id);
         }
@@ -108,7 +109,7 @@ describe('ExpensePaymentService', () => {
     };
 
     txManager = {
-      getRepository: jest.fn().mockImplementation((entity: any) => {
+      getRepository: (jest.fn as unknown as any)().mockImplementation((entity: any) => {
         if (entity === Expense) return txExpenseRepo;
         if (entity === PaymentMethodEntity) return txPmRepo;
         if (entity === ExpensePayment) return txPayRepo;
@@ -116,7 +117,7 @@ describe('ExpensePaymentService', () => {
       }),
     };
 
-    (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(txManager));
+    (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(txManager));
 
     return { manager: txManager, expense: exp };
   }
@@ -360,7 +361,7 @@ describe('ExpensePaymentService', () => {
         expenseOverrides: overrides.expenseOverrides,
         paymentMethods: { 'pm-1': cashMethod(), 'pm-2': bankMethod() },
       });
-      txPayRepo.find = jest.fn().mockImplementation(async () => [...rows, ...savedPayments]);
+      txPayRepo.find = (jest.fn as unknown as any)().mockImplementation(async () => [...rows, ...savedPayments]);
     }
 
     it('rejects empty refunds array', async () => {
@@ -446,14 +447,14 @@ describe('ExpensePaymentService', () => {
 
     it('rejects an inactive payment method', async () => {
       setupRefundTx();
-      txPmRepo.findOne = jest.fn().mockResolvedValue(null); // isActive:true filter matches nothing
+      txPmRepo.findOne = (jest.fn as unknown as any)().mockResolvedValue(null); // isActive:true filter matches nothing
       await expect(service.refund('exp-1', validDto, 'user-1', 'admin'))
         .rejects.toThrow(/not found or inactive/);
     });
 
     it('accepts an active method that is not enabled for purchases', async () => {
       setupRefundTx();
-      txPmRepo.findOne = jest.fn().mockResolvedValue({ ...cashMethod(), useForPurchases: false });
+      txPmRepo.findOne = (jest.fn as unknown as any)().mockResolvedValue({ ...cashMethod(), useForPurchases: false });
       expenseService.findOne.mockResolvedValue({ id: 'exp-1' } as any);
 
       await expect(service.refund('exp-1', validDto, 'user-1', 'admin')).resolves.toBeDefined();

@@ -57,7 +57,7 @@ export class StockMovementService {
     @InjectRepository(OwnerEquityDocument)
     private readonly ownerEquityDocumentRepository: Repository<OwnerEquityDocument>,
     @Inject(forwardRef(() => ProductService))
-    private readonly productService: ProductService,
+    private readonly productService: any,
     private readonly dataSource: DataSource,
   ) {}
 

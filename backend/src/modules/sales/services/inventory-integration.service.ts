@@ -80,7 +80,7 @@ export class InventoryIntegrationService {
     @InjectRepository(SalesOrderItem)
     private readonly salesOrderItemRepository: Repository<SalesOrderItem>,
     @Inject(forwardRef(() => BaseCostCalculatorService))
-    private readonly baseCostCalculator: BaseCostCalculatorService,
+    private readonly baseCostCalculator: any,
     private readonly settingsService: SettingsService,
   ) {}
 

@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { SearchController } from './search.controller';
 import { SearchService } from './search.service';
@@ -6,10 +7,10 @@ import { SearchResultType } from './search-result-type.enum';
 
 describe('SearchController', () => {
   let controller: SearchController;
-  let analyticsService: { logClick: jest.Mock };
+  let analyticsService: { logClick: any };
 
   beforeEach(async () => {
-    analyticsService = { logClick: jest.fn() };
+    analyticsService = { logClick: (jest.fn as unknown as any)() };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SearchController],
@@ -17,7 +18,7 @@ describe('SearchController', () => {
         {
           provide: SearchService,
           useValue: {
-            search: jest.fn().mockResolvedValue({
+            search: (jest.fn as unknown as any)().mockResolvedValue({
               query: '',
               searchQueryId: 'sq-id',
               results: [],

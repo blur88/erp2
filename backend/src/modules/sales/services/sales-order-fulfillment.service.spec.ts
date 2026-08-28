@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
@@ -38,55 +39,55 @@ const mockOrder = (overrides: Partial<SalesOrder> = {}): SalesOrder =>
 
 describe('SalesOrderFulfillmentService', () => {
   let service: SalesOrderFulfillmentService;
-  let orderRepo: jest.Mocked<Repository<SalesOrder>>;
-  let inventoryService: jest.Mocked<InventoryIntegrationService>;
-  let stockMovementService: jest.Mocked<StockMovementService>;
-  let baseCostCalculator: jest.Mocked<BaseCostCalculatorService>;
-  let auditLogService: jest.Mocked<AuditLogService>;
-  let dataSource: jest.Mocked<DataSource>;
-  let accountingPort: jest.Mocked<AccountingPostingPort>;
-  let settingsService: { getRegionalSettings: jest.Mock };
+  let orderRepo: any;
+  let inventoryService: any;
+  let stockMovementService: any;
+  let baseCostCalculator: any;
+  let auditLogService: any;
+  let dataSource: any;
+  let accountingPort: any;
+  let settingsService: { getRegionalSettings: any };
   let appTimezone: string;
 
   function wireTransaction(order: SalesOrder | null) {
-    const findOne = jest.fn().mockResolvedValue(order);
-    const update = jest.fn().mockResolvedValue(undefined);
+    const findOne = (jest.fn as unknown as any)().mockResolvedValue(order);
+    const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
     const manager = {
-      getRepository: jest.fn().mockReturnValue({ findOne, update }),
+      getRepository: (jest.fn as unknown as any)().mockReturnValue({ findOne, update }),
     } as unknown as EntityManager;
-    (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+    (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
     return { findOne, update, manager };
   }
 
   beforeEach(async () => {
     appTimezone = 'Asia/Kuala_Lumpur';
     settingsService = {
-      getRegionalSettings: jest.fn(async () => ({ timezone: appTimezone })),
+      getRegionalSettings: (jest.fn as unknown as any)(async () => ({ timezone: appTimezone })),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SalesOrderFulfillmentService,
         {
           provide: getRepositoryToken(SalesOrder),
-          useValue: { findOne: jest.fn(), save: jest.fn() },
+          useValue: { findOne: (jest.fn as unknown as any)(), save: (jest.fn as unknown as any)() },
         },
         {
           provide: InventoryIntegrationService,
-          useValue: { adjustStock: jest.fn().mockResolvedValue(0n) },
+          useValue: { adjustStock: (jest.fn as unknown as any)().mockResolvedValue(0n) },
         },
         {
           provide: StockMovementService,
           useValue: {
-            deleteByReference: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+            deleteByReference: (jest.fn as unknown as any)().mockResolvedValue({ deletedCount: 1 }),
           },
         },
         {
           provide: BaseCostCalculatorService,
-          useValue: { restoreStock: jest.fn() },
+          useValue: { restoreStock: (jest.fn as unknown as any)() },
         },
-        { provide: AuditLogService, useValue: { log: jest.fn() } },
-        { provide: ACCOUNTING_POSTING_PORT, useValue: { postSalesFulfillment: jest.fn(), reverseEntriesForDocument: jest.fn() } },
-        { provide: DataSource, useValue: { transaction: jest.fn() } },
+        { provide: AuditLogService, useValue: { log: (jest.fn as unknown as any)() } },
+        { provide: ACCOUNTING_POSTING_PORT, useValue: { postSalesFulfillment: (jest.fn as unknown as any)(), reverseEntriesForDocument: (jest.fn as unknown as any)() } },
+        { provide: DataSource, useValue: { transaction: (jest.fn as unknown as any)() } },
         { provide: SettingsService, useValue: settingsService },
       ],
     }).compile();
@@ -98,7 +99,7 @@ describe('SalesOrderFulfillmentService', () => {
     baseCostCalculator = module.get(BaseCostCalculatorService);
     auditLogService = module.get(AuditLogService);
     accountingPort = module.get(ACCOUNTING_POSTING_PORT);
-    dataSource = module.get(DataSource) as jest.Mocked<DataSource>;
+    dataSource = module.get(DataSource) as any;
   });
 
   describe('fulfillOrder', () => {
@@ -166,16 +167,15 @@ describe('SalesOrderFulfillmentService', () => {
         fulfilledAt: new Date('2099-01-01T00:00:00Z'),
       } as Partial<SalesOrder>);
 
-      const findOne = jest
-        .fn()
+      const findOne = (jest.fn as unknown as any)()
         .mockResolvedValueOnce(lockReadOrder) // lockRowForUpdate: bare row lock
         .mockResolvedValueOnce(lockReadOrder) // lockRowForUpdate: relations hydrate
         .mockResolvedValueOnce(repricedOrder); // priced re-read before posting
-      const update = jest.fn().mockResolvedValue(undefined);
+      const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
       const manager = {
-        getRepository: jest.fn().mockReturnValue({ findOne, update }),
+        getRepository: (jest.fn as unknown as any)().mockReturnValue({ findOne, update }),
       } as unknown as EntityManager;
-      (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(manager));
+      (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
 
       await service.fulfillOrder('order-1', 'user-1', 'admin');
 

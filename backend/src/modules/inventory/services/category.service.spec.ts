@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -10,8 +11,8 @@ import { CategoryService } from './category.service';
 
 describe('CategoryService', () => {
   let service: CategoryService;
-  let categoryRepository: jest.Mocked<Repository<Category>>;
-  let productRepository: jest.Mocked<Repository<Product>>;
+  let categoryRepository: any;
+  let productRepository: any;
 
   const createCategory = (id: string, overrides: Partial<Category> = {}): Category =>
     ({
@@ -31,14 +32,14 @@ describe('CategoryService', () => {
     }) as Category;
 
   const createQueryBuilder = (categories: Category[] = []) => ({
-    withDeleted: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    addOrderBy: jest.fn().mockReturnThis(),
-    skip: jest.fn().mockReturnThis(),
-    take: jest.fn().mockReturnThis(),
-    getManyAndCount: jest.fn().mockResolvedValue([categories, categories.length]),
+    withDeleted: (jest.fn as unknown as any)().mockReturnThis(),
+    where: (jest.fn as unknown as any)().mockReturnThis(),
+    andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+    orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+    addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+    skip: (jest.fn as unknown as any)().mockReturnThis(),
+    take: (jest.fn as unknown as any)().mockReturnThis(),
+    getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([categories, categories.length]),
   });
 
   beforeEach(async () => {
@@ -48,28 +49,28 @@ describe('CategoryService', () => {
         {
           provide: getRepositoryToken(Category),
           useValue: {
-            createQueryBuilder: jest.fn(),
-            findAndCount: jest.fn(),
-            findOne: jest.fn(),
-            find: jest.fn(),
-            findBy: jest.fn(),
-            save: jest.fn(),
-            restore: jest.fn(),
-            update: jest.fn(),
+            createQueryBuilder: (jest.fn as unknown as any)(),
+            findAndCount: (jest.fn as unknown as any)(),
+            findOne: (jest.fn as unknown as any)(),
+            find: (jest.fn as unknown as any)(),
+            findBy: (jest.fn as unknown as any)(),
+            save: (jest.fn as unknown as any)(),
+            restore: (jest.fn as unknown as any)(),
+            update: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(Product),
           useValue: {
-            count: jest.fn().mockResolvedValue(0),
-            find: jest.fn(),
-            createQueryBuilder: jest.fn(),
+            count: (jest.fn as unknown as any)().mockResolvedValue(0),
+            find: (jest.fn as unknown as any)(),
+            createQueryBuilder: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: AuditLogService,
           useValue: {
-            log: jest.fn().mockResolvedValue(undefined),
+            log: (jest.fn as unknown as any)().mockResolvedValue(undefined),
           },
         },
       ],
@@ -110,10 +111,10 @@ describe('CategoryService', () => {
       // No clearMocks/resetMocks in jest config — fresh qb per test to avoid
       // call-history bleed between specs.
       qb = {
-        where: jest.fn().mockReturnThis(),
-        select: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        getMany: jest.fn(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        select: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        getMany: (jest.fn as unknown as any)(),
       };
       productRepository.createQueryBuilder.mockReturnValue(qb);
     });

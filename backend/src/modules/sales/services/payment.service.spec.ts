@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,11 +12,11 @@ import { NotFoundException } from '@nestjs/common';
 
 describe('PaymentService', () => {
   let service: PaymentService;
-  let paymentRepository: jest.Mocked<Repository<Payment>>;
-  let customerRepository: jest.Mocked<Repository<Customer>>;
-  let salesOrderRepository: jest.Mocked<Repository<SalesOrder>>;
-  let paymentMethodRepository: jest.Mocked<Repository<PaymentMethodEntity>>;
-  let auditLogService: jest.Mocked<AuditLogService>;
+  let paymentRepository: any;
+  let customerRepository: any;
+  let salesOrderRepository: any;
+  let paymentMethodRepository: any;
+  let auditLogService: any;
 
   const createMockPayment = (): Partial<Payment> => ({
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -42,39 +43,39 @@ describe('PaymentService', () => {
         {
           provide: getRepositoryToken(Payment),
           useValue: {
-            findOne: jest.fn(),
-            find: jest.fn(),
-            save: jest.fn(),
-            create: jest.fn(),
-            createQueryBuilder: jest.fn(),
-            restore: jest.fn(),
+            findOne: (jest.fn as unknown as any)(),
+            find: (jest.fn as unknown as any)(),
+            save: (jest.fn as unknown as any)(),
+            create: (jest.fn as unknown as any)(),
+            createQueryBuilder: (jest.fn as unknown as any)(),
+            restore: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(Customer),
           useValue: {
-            findOne: jest.fn(),
-            save: jest.fn(),
+            findOne: (jest.fn as unknown as any)(),
+            save: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(SalesOrder),
           useValue: {
-            findOne: jest.fn(),
-            save: jest.fn(),
-            find: jest.fn(),
+            findOne: (jest.fn as unknown as any)(),
+            save: (jest.fn as unknown as any)(),
+            find: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(PaymentMethodEntity),
           useValue: {
-            findOne: jest.fn(),
+            findOne: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: AuditLogService,
           useValue: {
-            log: jest.fn(),
+            log: (jest.fn as unknown as any)(),
           },
         },
       ],
@@ -96,11 +97,11 @@ describe('PaymentService', () => {
     it('filters payments by status when status is provided', async () => {
       const mockPayments = [{ id: '1', status: 'completed' }];
       jest.spyOn(paymentRepository, 'createQueryBuilder').mockReturnValue({
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([mockPayments, 1]),
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([mockPayments, 1]),
       } as any);
 
       const result = await service.findAll({ status: 'completed' as any });
@@ -109,16 +110,16 @@ describe('PaymentService', () => {
     });
 
     it('applies skip/take when page and limit are provided', async () => {
-      const skip = jest.fn().mockReturnThis();
-      const take = jest.fn().mockReturnThis();
+      const skip = (jest.fn as unknown as any)().mockReturnThis();
+      const take = (jest.fn as unknown as any)().mockReturnThis();
       jest.spyOn(paymentRepository, 'createQueryBuilder').mockReturnValue({
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
         skip,
         take,
-        getManyAndCount: jest.fn().mockResolvedValue([[], 100]),
+        getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([[], 100]),
       } as any);
 
       const result = await service.findAll({ page: 3, limit: 20 } as any);
@@ -129,16 +130,16 @@ describe('PaymentService', () => {
     });
 
     it('does NOT apply skip/take when page/limit are absent', async () => {
-      const skip = jest.fn().mockReturnThis();
-      const take = jest.fn().mockReturnThis();
+      const skip = (jest.fn as unknown as any)().mockReturnThis();
+      const take = (jest.fn as unknown as any)().mockReturnThis();
       jest.spyOn(paymentRepository, 'createQueryBuilder').mockReturnValue({
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
         skip,
         take,
-        getManyAndCount: jest.fn().mockResolvedValue([[], 5]),
+        getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([[], 5]),
       } as any);
 
       await service.findAll({} as any);
@@ -150,13 +151,13 @@ describe('PaymentService', () => {
 
   describe('findAll sortBy guard', () => {
     const makeQb = () => ({
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+      where: (jest.fn as unknown as any)().mockReturnThis(),
+      andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+      orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      skip: (jest.fn as unknown as any)().mockReturnThis(),
+      take: (jest.fn as unknown as any)().mockReturnThis(),
+      getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([[], 0]),
     });
 
     it('falls back to paymentDate when sortBy is not an allowed column', async () => {

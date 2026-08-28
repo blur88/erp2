@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
@@ -17,19 +18,19 @@ describe('ExpenseService', () => {
   let expenseRepo: any;
   let expensePaymentRepo: any;
   let coaRepo: any;
-  let settings: jest.Mocked<SettingsService>;
-  let auditLogService: jest.Mocked<AuditLogService>;
-  let dataSource: jest.Mocked<DataSource>;
+  let settings: any;
+  let auditLogService: any;
+  let dataSource: any;
 
   beforeEach(async () => {
-    expenseRepo = { findOne: jest.fn(), find: jest.fn(), create: jest.fn(), save: jest.fn(), createQueryBuilder: jest.fn() };
-    expensePaymentRepo = { find: jest.fn() };
-    coaRepo = { findOne: jest.fn() };
-    settings = { generateDocumentNumber: jest.fn() } as any;
-    auditLogService = { log: jest.fn() } as any;
+    expenseRepo = { findOne: (jest.fn as unknown as any)(), find: (jest.fn as unknown as any)(), create: (jest.fn as unknown as any)(), save: (jest.fn as unknown as any)(), createQueryBuilder: (jest.fn as unknown as any)() };
+    expensePaymentRepo = { find: (jest.fn as unknown as any)() };
+    coaRepo = { findOne: (jest.fn as unknown as any)() };
+    settings = { generateDocumentNumber: (jest.fn as unknown as any)() } as any;
+    auditLogService = { log: (jest.fn as unknown as any)() } as any;
     dataSource = {
-      transaction: jest.fn(),
-      getRepository: jest.fn().mockReturnValue({ find: jest.fn().mockResolvedValue([]) }),
+      transaction: (jest.fn as unknown as any)(),
+      getRepository: (jest.fn as unknown as any)().mockReturnValue({ find: (jest.fn as unknown as any)().mockResolvedValue([]) }),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -56,12 +57,12 @@ describe('ExpenseService', () => {
     const row = settingsRow === undefined
       ? { id: true, cogsAccountId: 'cogs-1', defaultExpenseAccountId: 'acc-1' }
       : settingsRow;
-    const expenseRepoObj = { findOne: jest.fn(), create: (x: any) => x, save: async (x: any) => ({ ...x, id: 'exp-1' }) };
-    const coaRepoObj = { findOne: jest.fn().mockImplementation(() => { if (txAccount === null) return null; return txAccount; }) };
-    const paymentRepoObj = { count: jest.fn().mockResolvedValue(0), find: jest.fn().mockResolvedValue([]) };
-    const settingsRepoObj = { findOne: jest.fn().mockResolvedValue(row) };
+    const expenseRepoObj = { findOne: (jest.fn as unknown as any)(), create: (x: any) => x, save: async (x: any) => ({ ...x, id: 'exp-1' }) };
+    const coaRepoObj = { findOne: (jest.fn as unknown as any)().mockImplementation(() => { if (txAccount === null) return null; return txAccount; }) };
+    const paymentRepoObj = { count: (jest.fn as unknown as any)().mockResolvedValue(0), find: (jest.fn as unknown as any)().mockResolvedValue([]) };
+    const settingsRepoObj = { findOne: (jest.fn as unknown as any)().mockResolvedValue(row) };
     txManager = {
-      getRepository: jest.fn().mockImplementation((entity: any) => {
+      getRepository: (jest.fn as unknown as any)().mockImplementation((entity: any) => {
         if (entity === Expense) return expenseRepoObj;
         if (entity === ChartOfAccount) return coaRepoObj;
         if (entity === ExpensePayment) return paymentRepoObj;
@@ -72,7 +73,7 @@ describe('ExpenseService', () => {
     txManager._expenseRepo = expenseRepoObj;
     txManager._paymentRepo = paymentRepoObj;
     txManager._settingsRepo = settingsRepoObj;
-    (dataSource.transaction as jest.Mock).mockImplementation(async (cb: any) => cb(txManager));
+    (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(txManager));
     return { manager: txManager, account: txAccount };
   }
 
@@ -196,12 +197,12 @@ describe('ExpenseService', () => {
 
   describe('findOne', () => {
     it('throws NotFoundException when expense not found', async () => {
-      expenseRepo.createQueryBuilder = jest.fn().mockReturnValue({
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue(null),
+      expenseRepo.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        getOne: (jest.fn as unknown as any)().mockResolvedValue(null),
       });
       await expect(service.findOne('nonexistent')).rejects.toThrow(NotFoundException);
     });
@@ -210,22 +211,22 @@ describe('ExpenseService', () => {
       const payment1 = { id: 'p1', expenseId: 'exp-1', amount: '1000.0000', paymentDate: '2026-07-20', createdAt: new Date('2026-07-20T10:00:00Z'), sourcePaymentId: null, paymentMethodId: 'pm-1', paymentMethod: { id: 'pm-1', name: 'Cash' } };
       const payment2 = { id: 'p2', expenseId: 'exp-1', amount: '500.0000', paymentDate: '2026-07-21', createdAt: new Date('2026-07-21T10:00:00Z'), sourcePaymentId: null, paymentMethodId: 'pm-2', paymentMethod: { id: 'pm-2', name: 'Bank' } };
       const refund = { id: 'r1', expenseId: 'exp-1', amount: '-200.0000', paymentDate: '2026-07-22', createdAt: new Date('2026-07-22T10:00:00Z'), sourcePaymentId: 'p1', paymentMethodId: 'pm-1', paymentMethod: { id: 'pm-1', name: 'Cash' } };
-      expenseRepo.createQueryBuilder = jest.fn().mockReturnValue({
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue({
+      expenseRepo.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue({
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        getOne: (jest.fn as unknown as any)().mockResolvedValue({
           id: 'exp-1', expenseNumber: 'EXP-26-001', payments: [payment1, refund, payment2], expenseAccount: { id: 'acc-1', name: 'Office Expenses' },
         }),
       });
       const methodRepo = {
-        find: jest.fn().mockResolvedValue([
+        find: (jest.fn as unknown as any)().mockResolvedValue([
           { id: 'pm-1', name: 'Cash', deletedAt: null },
           { id: 'pm-2', name: 'Bank', deletedAt: new Date('2026-07-01') },
         ]),
       };
-      (dataSource.getRepository as jest.Mock).mockReturnValue(methodRepo);
+      (dataSource.getRepository as any).mockReturnValue(methodRepo);
       const result = await service.findOne('exp-1');
       expect(result).toBeDefined();
       expect(result.id).toBe('exp-1');
@@ -265,7 +266,7 @@ describe('ExpenseService', () => {
     }
 
     function buildQb(qb: any) {
-      expenseRepo.createQueryBuilder = jest.fn().mockReturnValue(qb);
+      expenseRepo.createQueryBuilder = (jest.fn as unknown as any)().mockReturnValue(qb);
     }
 
     it('returns full data without pagination when no page/limit', async () => {
@@ -653,7 +654,7 @@ describe('ExpenseService', () => {
     it('sets documentStatus to CANCELLED and writes audit log', async () => {
       setupCancelTest();
       const repo = txManager.getRepository(Expense);
-      repo.save = jest.fn().mockImplementation(async (x: any) => x);
+      repo.save = (jest.fn as unknown as any)().mockImplementation(async (x: any) => x);
       const result = await service.cancel('exp-1', 'user-1', 'admin');
       expect(result.documentStatus).toBe(ExpenseDocumentStatus.CANCELLED);
       expect(auditLogService.log).toHaveBeenCalledWith(
@@ -726,7 +727,7 @@ describe('ExpenseService', () => {
     it('sets documentStatus to DRAFT and writes audit log', async () => {
       setupUncancelTest();
       const repo = txManager.getRepository(Expense);
-      repo.save = jest.fn().mockImplementation(async (x: any) => x);
+      repo.save = (jest.fn as unknown as any)().mockImplementation(async (x: any) => x);
       const result = await service.uncancel('exp-1', 'user-1', 'admin');
       expect(result.documentStatus).toBe(ExpenseDocumentStatus.DRAFT);
       expect(auditLogService.log).toHaveBeenCalledWith(
@@ -744,7 +745,7 @@ describe('ExpenseService', () => {
     it('leaves money fields untouched', async () => {
       setupUncancelTest();
       const repo = txManager.getRepository(Expense);
-      repo.save = jest.fn().mockImplementation(async (x: any) => x);
+      repo.save = (jest.fn as unknown as any)().mockImplementation(async (x: any) => x);
       const result = await service.uncancel('exp-1', 'user-1', 'admin');
       expect(result.paidAmount).toBe('0.0000');
       expect(result.balance).toBe('1000.0000');
@@ -754,7 +755,7 @@ describe('ExpenseService', () => {
     it('does not read payment rows', async () => {
       setupUncancelTest();
       const repo = txManager.getRepository(Expense);
-      repo.save = jest.fn().mockImplementation(async (x: any) => x);
+      repo.save = (jest.fn as unknown as any)().mockImplementation(async (x: any) => x);
       await service.uncancel('exp-1', 'user-1', 'admin');
       expect(txManager._paymentRepo.find).not.toHaveBeenCalled();
       expect(txManager._paymentRepo.count).not.toHaveBeenCalled();
@@ -763,7 +764,7 @@ describe('ExpenseService', () => {
     it('uses system as default userId when not provided', async () => {
       setupUncancelTest();
       const repo = txManager.getRepository(Expense);
-      repo.save = jest.fn().mockImplementation(async (x: any) => x);
+      repo.save = (jest.fn as unknown as any)().mockImplementation(async (x: any) => x);
       await service.uncancel('exp-1');
       expect(auditLogService.log).toHaveBeenCalledWith(
         'UPDATE', 'Expense', expect.any(String),

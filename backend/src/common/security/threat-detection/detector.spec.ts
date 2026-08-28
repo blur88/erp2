@@ -1,10 +1,11 @@
+import { jest } from '@jest/globals';
 import { BadRequestException } from '@nestjs/common';
 import { ThreatDetector } from './detector';
 import { SecurityLogger } from '../logging/security-logger';
 
 const mockLogger = {
-  logThreatDetection: jest.fn(),
-  logError: jest.fn(),
+  logThreatDetection: (jest.fn as unknown as any)(),
+  logError: (jest.fn as unknown as any)(),
 } as unknown as SecurityLogger;
 
 const mockReq = {

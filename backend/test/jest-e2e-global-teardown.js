@@ -1,8 +1,11 @@
-import { Client } from "pg";
-import * as path from "path";
-import * as dotenv from "dotenv";
+const { Client } = require("pg");
+const path = require("path");
+const dotenv = require("dotenv");
 
-export default async function globalTeardown() {
+// CJS on purpose: Jest loads globalTeardown via require() in its main process.
+// See jest-e2e-global-setup.js for why this must not be a .ts ESM file.
+
+module.exports = async function globalTeardown() {
   dotenv.config({ path: path.resolve(__dirname, "../.env.test") });
 
   const { DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE } =
@@ -32,4 +35,4 @@ export default async function globalTeardown() {
   await client.connect();
   await client.query(`DROP DATABASE IF EXISTS ${DB_DATABASE}`);
   await client.end();
-}
+};

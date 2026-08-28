@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import {
@@ -14,43 +15,43 @@ import { SettingsService } from '../../settings/settings.service';
 
 function makeChainableQb(rawManyResult: any[] = [], manyResult: any[] = [], rawOneResult: any = {}) {
   const qb: any = {
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    leftJoin: jest.fn().mockReturnThis(),
-    leftJoinAndSelect: jest.fn().mockReturnThis(),
-    select: jest.fn().mockReturnThis(),
-    addSelect: jest.fn().mockReturnThis(),
-    groupBy: jest.fn().mockReturnThis(),
-    addGroupBy: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    getRawMany: jest.fn().mockResolvedValue(rawManyResult),
-    getRawOne: jest.fn().mockResolvedValue(rawOneResult),
-    getMany: jest.fn().mockResolvedValue(manyResult),
-    getOne: jest.fn().mockResolvedValue(null),
+    where: (jest.fn as unknown as any)().mockReturnThis(),
+    andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+    leftJoin: (jest.fn as unknown as any)().mockReturnThis(),
+    leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+    select: (jest.fn as unknown as any)().mockReturnThis(),
+    addSelect: (jest.fn as unknown as any)().mockReturnThis(),
+    groupBy: (jest.fn as unknown as any)().mockReturnThis(),
+    addGroupBy: (jest.fn as unknown as any)().mockReturnThis(),
+    orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+    limit: (jest.fn as unknown as any)().mockReturnThis(),
+    getRawMany: (jest.fn as unknown as any)().mockResolvedValue(rawManyResult),
+    getRawOne: (jest.fn as unknown as any)().mockResolvedValue(rawOneResult),
+    getMany: (jest.fn as unknown as any)().mockResolvedValue(manyResult),
+    getOne: (jest.fn as unknown as any)().mockResolvedValue(null),
   };
   return qb;
 }
 
 describe('PurchasingAnalyticsService', () => {
   let service: PurchasingAnalyticsService;
-  let purchaseOrderRepository: { createQueryBuilder: jest.Mock };
-  let settingsService: { getRegionalSettings: jest.Mock };
+  let purchaseOrderRepository: { createQueryBuilder: any };
+  let settingsService: { getRegionalSettings: any };
 
   beforeEach(async () => {
-    purchaseOrderRepository = { createQueryBuilder: jest.fn() };
+    purchaseOrderRepository = { createQueryBuilder: (jest.fn as unknown as any)() };
     settingsService = {
-      getRegionalSettings: jest.fn().mockResolvedValue({ timezone: 'UTC' }),
+      getRegionalSettings: (jest.fn as unknown as any)().mockResolvedValue({ timezone: 'UTC' }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PurchasingAnalyticsService,
         { provide: getRepositoryToken(PurchaseOrder), useValue: purchaseOrderRepository },
-        { provide: getRepositoryToken(PurchaseOrderItem), useValue: { createQueryBuilder: jest.fn() } },
-        { provide: getRepositoryToken(Supplier), useValue: { createQueryBuilder: jest.fn() } },
-        { provide: getRepositoryToken(Product), useValue: { createQueryBuilder: jest.fn() } },
-        { provide: getRepositoryToken(VendorPayment), useValue: { createQueryBuilder: jest.fn() } },
+        { provide: getRepositoryToken(PurchaseOrderItem), useValue: { createQueryBuilder: (jest.fn as unknown as any)() } },
+        { provide: getRepositoryToken(Supplier), useValue: { createQueryBuilder: (jest.fn as unknown as any)() } },
+        { provide: getRepositoryToken(Product), useValue: { createQueryBuilder: (jest.fn as unknown as any)() } },
+        { provide: getRepositoryToken(VendorPayment), useValue: { createQueryBuilder: (jest.fn as unknown as any)() } },
         { provide: SettingsService, useValue: settingsService },
       ],
     }).compile();

@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -9,7 +10,7 @@ import { PriceListDefaultService } from './price-list-default.service';
 
 describe('PriceListsService', () => {
   let service: PriceListsService;
-  let priceListRepository: jest.Mocked<Repository<PriceList>>;
+  let priceListRepository: any;
   let module: TestingModule;
 
   beforeEach(async () => {
@@ -19,44 +20,44 @@ describe('PriceListsService', () => {
         {
           provide: getRepositoryToken(PriceList),
           useValue: {
-            createQueryBuilder: jest.fn(),
-            findOne: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
-            update: jest.fn(),
-            softDelete: jest.fn(),
+            createQueryBuilder: (jest.fn as unknown as any)(),
+            findOne: (jest.fn as unknown as any)(),
+            create: (jest.fn as unknown as any)(),
+            save: (jest.fn as unknown as any)(),
+            update: (jest.fn as unknown as any)(),
+            softDelete: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(PriceListItem),
           useValue: {
-            findOne: jest.fn(),
-            find: jest.fn(),
-            create: jest.fn(),
-            save: jest.fn(),
+            findOne: (jest.fn as unknown as any)(),
+            find: (jest.fn as unknown as any)(),
+            create: (jest.fn as unknown as any)(),
+            save: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: SettingsService,
-          useValue: { getRegionalSettings: jest.fn().mockResolvedValue({ timezone: 'Asia/Kuala_Lumpur' }) },
+          useValue: { getRegionalSettings: (jest.fn as unknown as any)().mockResolvedValue({ timezone: 'Asia/Kuala_Lumpur' }) },
         },
         {
           provide: PriceListDefaultService,
           useValue: {
-            acquireLock: jest.fn().mockResolvedValue(undefined),
-            assignDefault: jest.fn().mockImplementation(async (_m, id) => ({ id, isDefault: true })),
+            acquireLock: (jest.fn as unknown as any)().mockResolvedValue(undefined),
+            assignDefault: (jest.fn as unknown as any)().mockImplementation(async (_m, id) => ({ id, isDefault: true })),
           },
         },
         {
           provide: DataSource,
           useValue: {
-            transaction: jest.fn(async (cb: any) =>
+            transaction: (jest.fn as unknown as any)(async (cb: any) =>
               cb({
-                query: jest.fn(),
-                findOne: jest.fn(),
-                save: jest.fn(async (_e: any, row: any) => row),
-                update: jest.fn(),
-                softDelete: jest.fn(),
+                query: (jest.fn as unknown as any)(),
+                findOne: (jest.fn as unknown as any)(),
+                save: (jest.fn as unknown as any)(async (_e: any, row: any) => row),
+                update: (jest.fn as unknown as any)(),
+                softDelete: (jest.fn as unknown as any)(),
               }),
             ),
           },
@@ -70,12 +71,12 @@ describe('PriceListsService', () => {
 
   describe('findAll pagination', () => {
     const createQb = () => ({
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      addOrderBy: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+      orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      skip: (jest.fn as unknown as any)().mockReturnThis(),
+      take: (jest.fn as unknown as any)().mockReturnThis(),
+      getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([[], 0]),
     });
 
     it('returns full set when page/limit absent', async () => {
@@ -97,10 +98,10 @@ describe('PriceListsService', () => {
   describe('update guards on the default price list', () => {
     const runUpdate = (existing: any, dto: any) => {
       const manager = {
-        query: jest.fn(),
-        findOne: jest.fn().mockResolvedValue(existing),
-        save: jest.fn(async (_e: any, row: any) => row),
-        update: jest.fn(),
+        query: (jest.fn as unknown as any)(),
+        findOne: (jest.fn as unknown as any)().mockResolvedValue(existing),
+        save: (jest.fn as unknown as any)(async (_e: any, row: any) => row),
+        update: (jest.fn as unknown as any)(),
       };
       const dataSource = module.get(DataSource) as any;
       dataSource.transaction.mockImplementation(async (cb: any) => cb(manager));
@@ -150,13 +151,13 @@ describe('PriceListsService', () => {
     it('acquires the lock before reloading the entity', async () => {
       const calls: string[] = [];
       const manager = {
-        query: jest.fn(),
-        findOne: jest.fn(async () => {
+        query: (jest.fn as unknown as any)(),
+        findOne: (jest.fn as unknown as any)(async () => {
           calls.push('findOne');
           return { id: 'a', isDefault: false, isActive: true };
         }),
-        save: jest.fn(async (_e: any, row: any) => row),
-        update: jest.fn(),
+        save: (jest.fn as unknown as any)(async (_e: any, row: any) => row),
+        update: (jest.fn as unknown as any)(),
       };
       const dataSource = module.get(DataSource) as any;
       dataSource.transaction.mockImplementation(async (cb: any) => cb(manager));
@@ -175,11 +176,11 @@ describe('PriceListsService', () => {
   describe('create', () => {
     it('delegates to assignDefault inside the same transaction when isDefault is true', async () => {
       const manager = {
-        query: jest.fn(),
-        findOne: jest.fn().mockResolvedValue(null),
-        create: jest.fn((_e: any, row: any) => row),
-        save: jest.fn(async (_e: any, row: any) => ({ ...row, id: 'new-id' })),
-        update: jest.fn(),
+        query: (jest.fn as unknown as any)(),
+        findOne: (jest.fn as unknown as any)().mockResolvedValue(null),
+        create: (jest.fn as unknown as any)((_e: any, row: any) => row),
+        save: (jest.fn as unknown as any)(async (_e: any, row: any) => ({ ...row, id: 'new-id' })),
+        update: (jest.fn as unknown as any)(),
       };
       const dataSource = module.get(DataSource) as any;
       dataSource.transaction.mockImplementation(async (cb: any) => cb(manager));
@@ -192,11 +193,11 @@ describe('PriceListsService', () => {
 
     it('does not call assignDefault when isDefault is absent', async () => {
       const manager = {
-        query: jest.fn(),
-        findOne: jest.fn().mockResolvedValue(null),
-        create: jest.fn((_e: any, row: any) => row),
-        save: jest.fn(async (_e: any, row: any) => ({ ...row, id: 'new-id' })),
-        update: jest.fn(),
+        query: (jest.fn as unknown as any)(),
+        findOne: (jest.fn as unknown as any)().mockResolvedValue(null),
+        create: (jest.fn as unknown as any)((_e: any, row: any) => row),
+        save: (jest.fn as unknown as any)(async (_e: any, row: any) => ({ ...row, id: 'new-id' })),
+        update: (jest.fn as unknown as any)(),
       };
       const dataSource = module.get(DataSource) as any;
       dataSource.transaction.mockImplementation(async (cb: any) => cb(manager));
@@ -211,9 +212,9 @@ describe('PriceListsService', () => {
   describe('remove', () => {
     it('rejects deleting the default after reloading under the lock', async () => {
       const manager = {
-        query: jest.fn(),
-        findOne: jest.fn().mockResolvedValue({ id: 'a', isDefault: true }),
-        softDelete: jest.fn(),
+        query: (jest.fn as unknown as any)(),
+        findOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'a', isDefault: true }),
+        softDelete: (jest.fn as unknown as any)(),
       };
       const dataSource = module.get(DataSource) as any;
       dataSource.transaction.mockImplementation(async (cb: any) => cb(manager));

@@ -16,9 +16,9 @@ import {
   IsBoolean,
 } from 'class-validator';
 import { BaseEntity } from './base.entity';
-import { Category } from './category.entity';
-import { StockMovement } from './stock-movement.entity';
-import { PriceListItem } from './price-list-item.entity';
+import type { Category } from './category.entity';
+import type { StockMovement } from './stock-movement.entity';
+import type { PriceListItem } from './price-list-item.entity';
 
 export enum ProductType {
   GOODS = 'Stocked Product',
@@ -143,7 +143,7 @@ export class Product extends BaseEntity {
   })
   categoryId: string;
 
-  @ManyToOne(() => Category, (category) => category.products, {
+  @ManyToOne('Category', 'products', {
     onDelete: 'RESTRICT',
     eager: true,
   })
@@ -153,13 +153,13 @@ export class Product extends BaseEntity {
   // Order relationships removed to prevent TypeORM relation resolution issues
 
   // Stock tracking relationships
-  @OneToMany(() => StockMovement, (stockMovement) => stockMovement.product, {
+  @OneToMany('StockMovement', 'product', {
     cascade: false,
   })
   stockMovements: StockMovement[];
 
   // Price list relationships (new normalized pricing model)
-  @OneToMany(() => PriceListItem, (item) => item.product, {
+  @OneToMany('PriceListItem', 'product', {
     cascade: false,
   })
   priceListItems: PriceListItem[];

@@ -1,18 +1,19 @@
+import { jest } from '@jest/globals';
 import { ExpenseController } from './expense.controller';
 
 describe('ExpenseController', () => {
   const makeMocks = () => {
     const service = {
-      create: jest.fn().mockResolvedValue({ id: 'exp-1' }),
-      update: jest.fn().mockResolvedValue({ id: 'exp-1' }),
-      findOne: jest.fn().mockResolvedValue({ id: 'exp-1', payments: [] }),
-      list: jest.fn().mockResolvedValue({ data: [], meta: { total: 0, page: 1, limit: 25 } }),
-      cancel: jest.fn().mockResolvedValue({ id: 'exp-1' }),
-      uncancel: jest.fn().mockResolvedValue({ id: 'exp-1' }),
+      create: (jest.fn as unknown as any)().mockResolvedValue({ id: 'exp-1' }),
+      update: (jest.fn as unknown as any)().mockResolvedValue({ id: 'exp-1' }),
+      findOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'exp-1', payments: [] }),
+      list: (jest.fn as unknown as any)().mockResolvedValue({ data: [], meta: { total: 0, page: 1, limit: 25 } }),
+      cancel: (jest.fn as unknown as any)().mockResolvedValue({ id: 'exp-1' }),
+      uncancel: (jest.fn as unknown as any)().mockResolvedValue({ id: 'exp-1' }),
     };
     const paymentService = {
-      pay: jest.fn().mockResolvedValue({ id: 'exp-1' }),
-      refund: jest.fn().mockResolvedValue({ id: 'exp-1' }),
+      pay: (jest.fn as unknown as any)().mockResolvedValue({ id: 'exp-1' }),
+      refund: (jest.fn as unknown as any)().mockResolvedValue({ id: 'exp-1' }),
     };
     const controller = new ExpenseController(service as any, paymentService as any);
     return { service, paymentService, controller };

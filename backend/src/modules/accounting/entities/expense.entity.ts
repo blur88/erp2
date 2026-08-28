@@ -1,7 +1,7 @@
 import { Entity, Column, Index, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from '../../../database/entities/base.entity';
-import { ChartOfAccount } from './chart-of-account.entity';
-import { ExpensePayment } from './expense-payment.entity';
+import type { ChartOfAccount } from './chart-of-account.entity';
+import type { ExpensePayment } from './expense-payment.entity';
 
 // Member order is pinned to the migration chain, NOT to the logical lifecycle
 // (#1056). Genesis created the type as ('DRAFT', 'CANCELLED'); COMPLETED was
@@ -52,10 +52,10 @@ export class Expense extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
-  @ManyToOne(() => ChartOfAccount, { onDelete: 'RESTRICT' })
+  @ManyToOne('ChartOfAccount', { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'expenseAccountId' })
   expenseAccount: ChartOfAccount;
 
-  @OneToMany(() => ExpensePayment, (p) => p.expense)
+  @OneToMany('ExpensePayment', 'expense')
   payments: ExpensePayment[];
 }

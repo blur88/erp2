@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { BaseCostCalculatorService } from './base-cost-calculator.service';
@@ -8,33 +9,33 @@ import { CostingStrategyFactory } from './costing/costing-strategy-factory.servi
 describe('BaseCostCalculatorService', () => {
   let service: BaseCostCalculatorService;
   let costHistoryRepository: {
-    find: jest.Mock;
-    findOne: jest.Mock;
-    update: jest.Mock;
-    create: jest.Mock;
-    save: jest.Mock;
-    delete: jest.Mock;
+    find: any;
+    findOne: any;
+    update: any;
+    create: any;
+    save: any;
+    delete: any;
   };
 
   beforeEach(async () => {
     costHistoryRepository = {
-      find: jest.fn(),
-      findOne: jest.fn(),
-      update: jest.fn(),
-      create: jest.fn(),
-      save: jest.fn(),
-      delete: jest.fn(),
+      find: (jest.fn as unknown as any)(),
+      findOne: (jest.fn as unknown as any)(),
+      update: (jest.fn as unknown as any)(),
+      create: (jest.fn as unknown as any)(),
+      save: (jest.fn as unknown as any)(),
+      delete: (jest.fn as unknown as any)(),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BaseCostCalculatorService,
-        { provide: getRepositoryToken(Product), useValue: { findOne: jest.fn(), update: jest.fn() } },
+        { provide: getRepositoryToken(Product), useValue: { findOne: (jest.fn as unknown as any)(), update: (jest.fn as unknown as any)() } },
         { provide: getRepositoryToken(PurchaseCostHistory), useValue: costHistoryRepository },
         {
           provide: CostingStrategyFactory,
           useValue: {
-            getActiveStrategy: jest.fn().mockResolvedValue({ determineBatchReduction: jest.fn().mockReturnValue([]), calculateBaseCost: jest.fn().mockResolvedValue(0) }),
-            getCurrentCostingMethod: jest.fn().mockResolvedValue('FIFO'),
+            getActiveStrategy: (jest.fn as unknown as any)().mockResolvedValue({ determineBatchReduction: (jest.fn as unknown as any)().mockReturnValue([]), calculateBaseCost: (jest.fn as unknown as any)().mockResolvedValue(0) }),
+            getCurrentCostingMethod: (jest.fn as unknown as any)().mockResolvedValue('FIFO'),
           },
         },
       ],
@@ -43,8 +44,8 @@ describe('BaseCostCalculatorService', () => {
   });
 
   it('reduceStock reads cost-history batches through the supplied manager', async () => {
-    const find = jest.fn().mockResolvedValue([]); // empty → early return after find
-    const manager = { getRepository: jest.fn().mockReturnValue({ find, update: jest.fn() }) } as any;
+    const find = (jest.fn as unknown as any)().mockResolvedValue([]); // empty → early return after find
+    const manager = { getRepository: (jest.fn as unknown as any)().mockReturnValue({ find, update: (jest.fn as unknown as any)() }) } as any;
 
     await service.reduceStock('product-1', 5, manager);
 
@@ -71,7 +72,7 @@ describe('BaseCostCalculatorService', () => {
 
   it('removes stock batches through the supplied manager using purchaseOrderId', async () => {
     jest.spyOn(service as any, 'updateProductBaseCost').mockResolvedValue(undefined);
-    const find = jest.fn().mockResolvedValue([
+    const find = (jest.fn as unknown as any)().mockResolvedValue([
       {
         id: 'batch-1',
         productId: 'product-1',
@@ -81,8 +82,8 @@ describe('BaseCostCalculatorService', () => {
         landedCost: 6,
       },
     ]);
-    const deleteFn = jest.fn().mockResolvedValue({ affected: 1 });
-    const manager = { getRepository: jest.fn().mockReturnValue({ find, delete: deleteFn, update: jest.fn() }) } as any;
+    const deleteFn = (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 });
+    const manager = { getRepository: (jest.fn as unknown as any)().mockReturnValue({ find, delete: deleteFn, update: (jest.fn as unknown as any)() }) } as any;
 
     await service.removeStock('product-1', 'po-1', manager);
 

@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { PaymentController } from './payment.controller';
 import { PaymentService } from '../services/payment.service';
 
@@ -7,8 +8,8 @@ describe('PaymentController', () => {
 
   beforeEach(() => {
     paymentService = {
-      getPaymentStatistics: jest.fn().mockResolvedValue({ totalPayments: 0 }),
-      allocatePayment: jest.fn().mockResolvedValue({ id: 'p-1' }),
+      getPaymentStatistics: (jest.fn as unknown as any)().mockResolvedValue({ totalPayments: 0 }),
+      allocatePayment: (jest.fn as unknown as any)().mockResolvedValue({ id: 'p-1' }),
     } as any;
 
     controller = new PaymentController(paymentService as PaymentService);

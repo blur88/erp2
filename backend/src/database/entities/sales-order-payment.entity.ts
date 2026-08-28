@@ -9,8 +9,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { IsDecimal, IsOptional, IsString } from 'class-validator';
-import { SalesOrder } from './sales-order.entity';
-import { PaymentMethodEntity } from './payment-method.entity';
+import type { SalesOrder } from './sales-order.entity';
+import type { PaymentMethodEntity } from './payment-method.entity';
 
 @Entity('sales_order_payments')
 @Index(['salesOrderId'])
@@ -48,11 +48,11 @@ export class SalesOrderPayment {
   @UpdateDateColumn({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
   updatedAt: Date;
 
-  @ManyToOne(() => SalesOrder, (o) => o.salesOrderPayments, { onDelete: 'CASCADE' })
+  @ManyToOne('SalesOrder', 'salesOrderPayments', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'salesOrderId' })
   salesOrder: SalesOrder;
 
-  @ManyToOne(() => PaymentMethodEntity, { eager: false })
+  @ManyToOne('PaymentMethodEntity', { eager: false })
   @JoinColumn({ name: 'paymentMethodId' })
   paymentMethod: PaymentMethodEntity;
 }

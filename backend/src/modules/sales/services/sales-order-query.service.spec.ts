@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -9,8 +10,8 @@ import { SalesOrderQueryService } from './sales-order-query.service';
 
 describe('SalesOrderQueryService', () => {
   let service: SalesOrderQueryService;
-  let salesOrderRepository: jest.Mocked<Repository<SalesOrder>>;
-  let paymentRepository: jest.Mocked<Repository<SalesOrderPayment>>;
+  let salesOrderRepository: any;
+  let paymentRepository: any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -19,22 +20,22 @@ describe('SalesOrderQueryService', () => {
         {
           provide: getRepositoryToken(SalesOrder),
           useValue: {
-            findOne: jest.fn(),
-            find: jest.fn(),
-            count: jest.fn(),
-            createQueryBuilder: jest.fn(),
+            findOne: (jest.fn as unknown as any)(),
+            find: (jest.fn as unknown as any)(),
+            count: (jest.fn as unknown as any)(),
+            createQueryBuilder: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(SalesOrderPayment),
           useValue: {
-            find: jest.fn().mockResolvedValue([]),
+            find: (jest.fn as unknown as any)().mockResolvedValue([]),
           },
         },
         {
           provide: getRepositoryToken(Product),
           useValue: {
-            findOne: jest.fn(),
+            findOne: (jest.fn as unknown as any)(),
           },
         },
       ],
@@ -97,18 +98,18 @@ describe('SalesOrderQueryService', () => {
     function buildQbMock() {
       const andWhereCalls: Array<{ clause: string; params: Record<string, unknown> }> = [];
       const qb: any = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        select: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn((clause: string, params: Record<string, unknown> = {}) => {
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        select: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)((clause: string, params: Record<string, unknown> = {}) => {
           andWhereCalls.push({ clause, params });
           return qb;
         }),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        skip: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([[], 0]),
       };
       return { qb, andWhereCalls };
     }
@@ -321,8 +322,8 @@ describe('SalesOrderQueryService', () => {
 
   describe('findSummaries sort resolution', () => {
     const stubSummaryRepo = () => {
-      salesOrderRepository.count = jest.fn().mockResolvedValue(0);
-      salesOrderRepository.find = jest.fn().mockResolvedValue([]);
+      salesOrderRepository.count = (jest.fn as unknown as any)().mockResolvedValue(0);
+      salesOrderRepository.find = (jest.fn as unknown as any)().mockResolvedValue([]);
     };
 
     it('falls back to orderNumber for an invalid sortBy', async () => {
@@ -330,7 +331,7 @@ describe('SalesOrderQueryService', () => {
 
       await service.findSummaries({ sortBy: 'bogus', sortOrder: 'ASC' } as any);
 
-      const findOptions = (salesOrderRepository.find as jest.Mock).mock.calls[0][0];
+      const findOptions = (salesOrderRepository.find as any).mock.calls[0][0];
       expect(findOptions.order).toEqual({ orderNumber: 'ASC' });
     });
 
@@ -339,7 +340,7 @@ describe('SalesOrderQueryService', () => {
 
       await service.findSummaries({ sortBy: 'orderDate', sortOrder: 'ASC' } as any);
 
-      const findOptions = (salesOrderRepository.find as jest.Mock).mock.calls[0][0];
+      const findOptions = (salesOrderRepository.find as any).mock.calls[0][0];
       expect(findOptions.order).toEqual({ orderDate: 'ASC' });
     });
   });
@@ -348,9 +349,9 @@ describe('SalesOrderQueryService', () => {
     it('counts unfulfilled orders as DRAFT + READY (not DRAFT only)', async () => {
       // Sum queries use a chainable query builder ending in getRawOne().
       const sumQb = {
-        select: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        getRawOne: jest.fn().mockResolvedValue({ total: '0' }),
+        select: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        getRawOne: (jest.fn as unknown as any)().mockResolvedValue({ total: '0' }),
       };
       salesOrderRepository.createQueryBuilder.mockReturnValue(sumQb as any);
       salesOrderRepository.count.mockResolvedValue(0);

@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { BadRequestException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -76,7 +77,7 @@ describe('BackupController - auth guards', () => {
 
 describe('BackupController - upload fileFilter', () => {
   function runFileFilter(originalname: string) {
-    const cb = jest.fn();
+    const cb = (jest.fn as unknown as any)();
 
     backupUploadFileFilter(
       {},

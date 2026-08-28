@@ -1,10 +1,10 @@
 import { Entity, Column, Index, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { IsString, IsOptional, IsEnum, MaxLength, IsDecimal, Min, IsDate } from 'class-validator';
 import { BaseEntity } from './base.entity';
-import { Customer } from './customer.entity';
-import { SalesOrderItem } from './sales-order-item.entity';
-import { SalesOrderPayment } from './sales-order-payment.entity';
-import { Payment } from './payment.entity';
+import type { Customer } from './customer.entity';
+import type { SalesOrderItem } from './sales-order-item.entity';
+import type { SalesOrderPayment } from './sales-order-payment.entity';
+import type { Payment } from './payment.entity';
 
 export enum SalesOrderStatus {
   DRAFT = 'DRAFT',
@@ -99,26 +99,26 @@ export class SalesOrder extends BaseEntity {
   @Column({ type: 'uuid' })
   customerId: string;
 
-  @ManyToOne(() => Customer, (customer) => customer.salesOrders, {
+  @ManyToOne('Customer', 'salesOrders', {
     onDelete: 'RESTRICT',
     eager: false,
   })
   @JoinColumn({ name: 'customerId' })
   customer: Customer;
 
-  @OneToMany(() => SalesOrderItem, (item) => item.salesOrder, {
+  @OneToMany('SalesOrderItem', 'salesOrder', {
     cascade: true,
     eager: false,
   })
   items: SalesOrderItem[];
 
-  @OneToMany(() => SalesOrderPayment, (p) => p.salesOrder, {
+  @OneToMany('SalesOrderPayment', 'salesOrder', {
     cascade: false,
     eager: false,
   })
   salesOrderPayments: SalesOrderPayment[];
 
-  @OneToMany(() => Payment, (payment) => payment.salesOrder, {
+  @OneToMany('Payment', 'salesOrder', {
     cascade: false,
     eager: false,
   })

@@ -11,10 +11,8 @@ import {
 } from '../../../database/entities/product.entity';
 import { StockMovementType } from '../../../database/entities/stock-movement.entity';
 import { StockMovementService } from '../../inventory/services/stock-movement.service';
-import {
-  ACCOUNTING_POSTING_PORT,
-  AccountingPostingPort,
-} from '../../../common/accounting-posting/accounting-posting.port';
+import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
+import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import {
   AccountingSourceType,
   PostingType,

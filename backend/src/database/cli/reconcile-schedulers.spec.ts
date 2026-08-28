@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { resolveReconcileOptions, runCli } from './reconcile-schedulers';
 import {
   EmptyResultGuardError,
@@ -64,10 +65,10 @@ describe('runCli exit codes', () => {
   const candidate = { member: 'abc', scheduleId: 'sched-1' };
 
   const reconcilerReturning = (result: any) => ({
-    reconcileOrphanedSchedulers: jest.fn().mockResolvedValue(result),
+    reconcileOrphanedSchedulers: (jest.fn as unknown as any)().mockResolvedValue(result),
   });
   const reconcilerRejecting = (error: unknown) => ({
-    reconcileOrphanedSchedulers: jest.fn().mockRejectedValue(error),
+    reconcileOrphanedSchedulers: (jest.fn as unknown as any)().mockRejectedValue(error),
   });
 
   it('exits 0 on a clean dry-run', async () => {

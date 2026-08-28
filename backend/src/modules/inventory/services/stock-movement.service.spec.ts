@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -11,11 +12,11 @@ import { ProductService } from './product.service';
 
 describe('StockMovementService', () => {
   let service: StockMovementService;
-  let stockMovementRepository: jest.Mocked<Repository<StockMovement>>;
-  let productRepository: jest.Mocked<Repository<Product>>;
-  let purchaseOrderRepository: jest.Mocked<Repository<PurchaseOrder>>;
-  let salesOrderRepository: jest.Mocked<Repository<SalesOrder>>;
-  let ownerEquityDocumentRepository: jest.Mocked<Repository<OwnerEquityDocument>>;
+  let stockMovementRepository: any;
+  let productRepository: any;
+  let purchaseOrderRepository: any;
+  let salesOrderRepository: any;
+  let ownerEquityDocumentRepository: any;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -24,38 +25,38 @@ describe('StockMovementService', () => {
         {
           provide: getRepositoryToken(StockMovement),
           useValue: {
-            create: jest.fn(),
-            save: jest.fn(),
-            find: jest.fn(),
-            findOne: jest.fn(),
-            createQueryBuilder: jest.fn(),
+            create: (jest.fn as unknown as any)(),
+            save: (jest.fn as unknown as any)(),
+            find: (jest.fn as unknown as any)(),
+            findOne: (jest.fn as unknown as any)(),
+            createQueryBuilder: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(Product),
           useValue: {
-            save: jest.fn(),
-            find: jest.fn(),
-            findOne: jest.fn(),
-            createQueryBuilder: jest.fn(),
+            save: (jest.fn as unknown as any)(),
+            find: (jest.fn as unknown as any)(),
+            findOne: (jest.fn as unknown as any)(),
+            createQueryBuilder: (jest.fn as unknown as any)(),
           },
         },
         {
           provide: getRepositoryToken(PurchaseOrder),
-          useValue: { find: jest.fn(), findOne: jest.fn() },
+          useValue: { find: (jest.fn as unknown as any)(), findOne: (jest.fn as unknown as any)() },
         },
         {
           provide: getRepositoryToken(SalesOrder),
-          useValue: { find: jest.fn(), findOne: jest.fn() },
+          useValue: { find: (jest.fn as unknown as any)(), findOne: (jest.fn as unknown as any)() },
         },
         {
           provide: getRepositoryToken(OwnerEquityDocument),
-          useValue: { find: jest.fn(), findOne: jest.fn() },
+          useValue: { find: (jest.fn as unknown as any)(), findOne: (jest.fn as unknown as any)() },
         },
         {
           provide: ProductService,
           useValue: {
-            updateStockQuantity: jest.fn(),
+            updateStockQuantity: (jest.fn as unknown as any)(),
           },
         },
         {
@@ -66,7 +67,7 @@ describe('StockMovementService', () => {
           // and whose lock-read resolves to the mocked product.
           provide: DataSource,
           useValue: {
-            transaction: jest.fn((cb: any) =>
+            transaction: (jest.fn as unknown as any)((cb: any) =>
               cb({
                 getRepository: (entity: any) =>
                   entity === StockMovement
@@ -111,9 +112,9 @@ describe('StockMovementService', () => {
     });
 
     it('deleteByReference reads movements through the supplied manager', async () => {
-      const find = jest.fn().mockResolvedValue([]); // no movements → early return { deletedCount: 0 }
+      const find = (jest.fn as unknown as any)().mockResolvedValue([]); // no movements → early return { deletedCount: 0 }
       const manager = {
-        getRepository: jest.fn().mockReturnValue({ find }),
+        getRepository: (jest.fn as unknown as any)().mockReturnValue({ find }),
       } as any;
 
       const result = await service.deleteByReference(
@@ -154,16 +155,16 @@ describe('StockMovementService', () => {
 
   function mockQueryBuilder(movements: StockMovement[], total: number) {
     const qb: any = {
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      addOrderBy: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValue([movements, total]),
+      leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+      where: (jest.fn as unknown as any)().mockReturnThis(),
+      andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+      orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+      skip: (jest.fn as unknown as any)().mockReturnThis(),
+      take: (jest.fn as unknown as any)().mockReturnThis(),
+      getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([movements, total]),
     };
-    (stockMovementRepository.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+    (stockMovementRepository.createQueryBuilder as any).mockReturnValue(qb);
     return qb;
   }
 
@@ -174,10 +175,10 @@ describe('StockMovementService', () => {
         makeMovement({ id: 'm2', referenceType: 'initial_stock', referenceId: null }),
       ];
       mockQueryBuilder(movements, 2);
-      (purchaseOrderRepository.find as jest.Mock).mockResolvedValue([
+      (purchaseOrderRepository.find as any).mockResolvedValue([
         { id: 'po-1', orderNumber: 'PO-26-028' } as any,
       ]);
-      (salesOrderRepository.find as jest.Mock).mockResolvedValue([]);
+      (salesOrderRepository.find as any).mockResolvedValue([]);
 
       const result = await service.findAll({ page: 1, limit: 20 } as any);
 
@@ -191,12 +192,12 @@ describe('StockMovementService', () => {
         makeMovement({ id: 'm2', referenceType: 'purchase_order', referenceId: 'po-2' }),
       ];
       mockQueryBuilder(movements, 2);
-      (purchaseOrderRepository.find as jest.Mock).mockResolvedValue([
+      (purchaseOrderRepository.find as any).mockResolvedValue([
         { id: 'po-1', orderNumber: 'PO-1' } as any,
         { id: 'po-2', orderNumber: 'PO-2' } as any,
       ]);
-      (salesOrderRepository.find as jest.Mock).mockResolvedValue([]);
-      (ownerEquityDocumentRepository.find as jest.Mock).mockResolvedValue([]);
+      (salesOrderRepository.find as any).mockResolvedValue([]);
+      (ownerEquityDocumentRepository.find as any).mockResolvedValue([]);
 
       await service.findAll({ page: 1, limit: 20 } as any);
 
@@ -210,8 +211,8 @@ describe('StockMovementService', () => {
         makeMovement({ id: 'm1', referenceType: 'sales_order', referenceId: 'gone' }),
       ];
       mockQueryBuilder(movements, 1);
-      (purchaseOrderRepository.find as jest.Mock).mockResolvedValue([]);
-      (salesOrderRepository.find as jest.Mock).mockResolvedValue([]);
+      (purchaseOrderRepository.find as any).mockResolvedValue([]);
+      (salesOrderRepository.find as any).mockResolvedValue([]);
 
       const result = await service.findAll({ page: 1, limit: 20 } as any);
 
@@ -219,8 +220,8 @@ describe('StockMovementService', () => {
     });
 
     it('resolveReferenceNumber reads through the transaction manager when given one', async () => {
-      const managerPoRepo = { findOne: jest.fn().mockResolvedValue({ id: 'po-1', orderNumber: 'PO-TX' }) };
-      const manager = { getRepository: jest.fn().mockReturnValue(managerPoRepo) } as any;
+      const managerPoRepo = { findOne: (jest.fn as unknown as any)().mockResolvedValue({ id: 'po-1', orderNumber: 'PO-TX' }) };
+      const manager = { getRepository: (jest.fn as unknown as any)().mockReturnValue(managerPoRepo) } as any;
 
       const result = await (service as any).resolveReferenceNumber('purchase_order', 'po-1', manager);
 
@@ -231,7 +232,7 @@ describe('StockMovementService', () => {
     });
 
     it('resolveReferenceNumber falls back to the injected repo when no manager is given', async () => {
-      (purchaseOrderRepository.findOne as jest.Mock).mockResolvedValue({ id: 'po-1', orderNumber: 'PO-NOTX' } as any);
+      (purchaseOrderRepository.findOne as any).mockResolvedValue({ id: 'po-1', orderNumber: 'PO-NOTX' } as any);
 
       const result = await (service as any).resolveReferenceNumber('purchase_order', 'po-1');
 
@@ -249,9 +250,9 @@ describe('StockMovementService', () => {
         makeMovement({ id: 'm2', referenceType: 'owner_equity', referenceId: 'oe-1' }),
       ];
       mockQueryBuilder(movements, 2);
-      (purchaseOrderRepository.find as jest.Mock).mockResolvedValue([]);
-      (salesOrderRepository.find as jest.Mock).mockResolvedValue([]);
-      (ownerEquityDocumentRepository.find as jest.Mock).mockResolvedValue([
+      (purchaseOrderRepository.find as any).mockResolvedValue([]);
+      (salesOrderRepository.find as any).mockResolvedValue([]);
+      (ownerEquityDocumentRepository.find as any).mockResolvedValue([
         { id: 'oe-1', referenceNumber: 'OE-26-004' } as any,
       ]);
 
@@ -267,9 +268,9 @@ describe('StockMovementService', () => {
         makeMovement({ id: 'm1', referenceType: 'owner_equity', referenceId: 'gone' }),
       ];
       mockQueryBuilder(movements, 1);
-      (purchaseOrderRepository.find as jest.Mock).mockResolvedValue([]);
-      (salesOrderRepository.find as jest.Mock).mockResolvedValue([]);
-      (ownerEquityDocumentRepository.find as jest.Mock).mockResolvedValue([]);
+      (purchaseOrderRepository.find as any).mockResolvedValue([]);
+      (salesOrderRepository.find as any).mockResolvedValue([]);
+      (ownerEquityDocumentRepository.find as any).mockResolvedValue([]);
 
       const result = await service.findAll({ page: 1, limit: 20 } as any);
 
@@ -277,7 +278,7 @@ describe('StockMovementService', () => {
     });
 
     it('resolveReferenceNumber resolves an owner_equity reference', async () => {
-      (ownerEquityDocumentRepository.findOne as jest.Mock).mockResolvedValue({
+      (ownerEquityDocumentRepository.findOne as any).mockResolvedValue({
         id: 'oe-1',
         referenceNumber: 'OE-26-004',
       } as any);
@@ -293,8 +294,8 @@ describe('StockMovementService', () => {
         referenceType: 'sales_order',
         referenceId: 'so-1',
       });
-      (stockMovementRepository.findOne as jest.Mock).mockResolvedValue(movement);
-      (salesOrderRepository.findOne as jest.Mock).mockResolvedValue({ id: 'so-1', orderNumber: 'SO-26-027' } as any);
+      (stockMovementRepository.findOne as any).mockResolvedValue(movement);
+      (salesOrderRepository.findOne as any).mockResolvedValue({ id: 'so-1', orderNumber: 'SO-26-027' } as any);
 
       const result = await service.findOne('m1');
 
@@ -305,24 +306,24 @@ describe('StockMovementService', () => {
   describe('pagination', () => {
     function mockQb(movements: StockMovement[], total: number) {
       const qb: any = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        addOrderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([movements, total]),
+        leftJoinAndSelect: (jest.fn as unknown as any)().mockReturnThis(),
+        where: (jest.fn as unknown as any)().mockReturnThis(),
+        andWhere: (jest.fn as unknown as any)().mockReturnThis(),
+        orderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        addOrderBy: (jest.fn as unknown as any)().mockReturnThis(),
+        skip: (jest.fn as unknown as any)().mockReturnThis(),
+        take: (jest.fn as unknown as any)().mockReturnThis(),
+        getManyAndCount: (jest.fn as unknown as any)().mockResolvedValue([movements, total]),
       };
-      (stockMovementRepository.createQueryBuilder as jest.Mock).mockReturnValue(qb);
+      (stockMovementRepository.createQueryBuilder as any).mockReturnValue(qb);
       return qb;
     }
 
     it('returns full set when page/limit absent', async () => {
       const movements = [makeMovement({ id: 'm1' }), makeMovement({ id: 'm2' })];
       const qb = mockQb(movements, 2);
-      (purchaseOrderRepository.find as jest.Mock).mockResolvedValue([]);
-      (salesOrderRepository.find as jest.Mock).mockResolvedValue([]);
+      (purchaseOrderRepository.find as any).mockResolvedValue([]);
+      (salesOrderRepository.find as any).mockResolvedValue([]);
       const result = await service.findAll({} as any);
       expect(qb.skip).not.toHaveBeenCalled();
       expect(qb.take).not.toHaveBeenCalled();
@@ -332,8 +333,8 @@ describe('StockMovementService', () => {
     it('paginates when page/limit present', async () => {
       const movements = [makeMovement({ id: 'm1' })];
       const qb = mockQb(movements, 10);
-      (purchaseOrderRepository.find as jest.Mock).mockResolvedValue([]);
-      (salesOrderRepository.find as jest.Mock).mockResolvedValue([]);
+      (purchaseOrderRepository.find as any).mockResolvedValue([]);
+      (salesOrderRepository.find as any).mockResolvedValue([]);
       await service.findAll({ page: 2, limit: 20 } as any);
       expect(qb.skip).toHaveBeenCalledWith(20);
       expect(qb.take).toHaveBeenCalledWith(20);
