@@ -27,7 +27,9 @@ cd frontend && npm run dev
 cd backend && npm run test
 
 # Run a single backend test file (path relative to backend/)
-cd backend && npx jest src/path/to/file.spec.ts --no-coverage
+# NODE_OPTIONS is required — bare `npx jest` runs without vm-based ESM and
+# every .ts file falls back to CommonJS (see the Jest ESM section below).
+cd backend && NODE_OPTIONS=--experimental-vm-modules npx jest src/path/to/file.spec.ts --no-coverage
 
 # Run backend e2e tests (required after entity/migration changes)
 cd backend && npm run test:e2e
@@ -173,18 +175,20 @@ renders this.
 
 **Cross-file type errors need `npm run type-check`**: `npm run test` uses per-file ts-jest transpilation and will not catch cross-file declaration errors (e.g. TS4053, a public method whose inferred return type names a non-exported interface). Before issue #1039 those surfaced first at `docker compose build backend`, after every pre-PR gate had passed; `cd backend && npm run type-check` is now a required backend gate and runs in CI ahead of the unit tests.
 
-It compiles `tsconfig.build.json` — the config `nest build` uses — deliberately, so the gate mirrors the image build that would otherwise be the first failure. That config excludes specs, so **spec-only type errors are not covered by this gate**; they remain caught by ts-jest at test time. Type-checking specs as a whole program would need a second `tsc -p tsconfig.json --noEmit` pass, which is a separate change gated on assessing the pre-existing errors it would surface.
+It compiles `tsconfig.build.json` — the config `nest build` uses — deliberately, so the gate mirrors the image build that would otherwise be the first failure. That config uses `include: ["src"]`, so the 120 spec files under `src/` **are** type-checked and spec type errors **do** fail this gate; only the 6 specs under `test/` are excluded.
 
-**Jest's `transformIgnorePatterns` allowlist is load-bearing, and half of it is one dependency (#1070)**: the backend `jest.transformIgnorePatterns` entry in `package.json` names thirteen packages. Six of them — `sanitize-html`, `htmlparser2`, `entities`, `domhandler`, `domutils`, `domelementtype`, `dom-serializer` — are **`sanitize-html`'s ESM-only dependency cluster**, not independent choices. `sanitize-html` 2.17.7 moved `htmlparser2` `^10` → `^12`, which pulled `entities` `^7` → `^8`; both dropped their CommonJS builds, so the whole nested cluster under `node_modules/sanitize-html/` is `"type": "module"`.
+**Jest runs in ESM mode; `transformIgnorePatterns` no longer exists**: the backend test suite runs under `NODE_OPTIONS=--experimental-vm-modules` with `extensionsToTreatAsEsm: [".ts"]` and ts-jest `useESM: true` (transform config: `tsconfig.spec.json`, which is test-only and isolated from the build configs). All three configs (unit in `package.json`, `test/jest-e2e.json`, `test/jest-redis.json`) share this shape. The old `transformIgnorePatterns` allowlist — thirteen packages led by the `sanitize-html` ESM cluster — was deleted: it is obsolete in ESM mode. The CJS workaround could not have been extended to NestJS 12 anyway, which uses `import.meta`, invalid in CommonJS — allowlisting fails one level deeper with `SyntaxError: Cannot use 'import.meta' outside a module`.
 
-This is a **test-only** problem. Node 24 (`engines: >=24.0.0`, pinned in the Dockerfile) `require()`s ESM synchronously, so production and `nest build` are unaffected — only Jest's module executor chokes, and it fails at *load* with `SyntaxError: Cannot use import statement outside a module`. That means the suite reports **`Tests: 0 total`**, which is a failure that reads as green to a careless eye (same trap as the `npm run test:redis` note above). A spec importing `sanitize-html` is the tripwire; `detector.spec.ts` is currently the only one.
+Invariants that replaced it:
 
-Two deliberate non-choices, both to keep failure visible:
-
-- **Listed explicitly, never as a wildcard.** A broad pattern would silently absorb the next ESM dependency instead of failing.
-- **No `overrides` forcing `htmlparser2`/`entities` back to their CJS majors.** That would avoid the Jest change entirely, but runs `sanitize-html` against a parser combination upstream never tested — trading a test-config problem for a runtime-correctness unknown.
-
-The cost is that the list encodes a fact living outside the tree: if a future bump restores CJS builds the entries go stale silently, and a newly-added ESM package fails the same way one level deeper. When a dependency bump breaks a spec at import with that `SyntaxError`, check the failing module's `package.json` for `"type": "module"` before assuming the spec is at fault. `@types/sanitize-html` still carries its own `htmlparser2@10.1.0`; it is types-only, has no runtime effect, and cannot be removed by bumping (it is already latest).
+- **Every Jest script carries `NODE_OPTIONS=--experimental-vm-modules`.** Running `npx jest` bare (or `--config ./test/jest-e2e.json` without the npm script prefix) silently disables vm-based ESM: `vm.SyntheticModule`/`SourceTextModule` do not exist without the flag, every `.ts` file is treated as CommonJS, and the first `import` of an ESM-only package (`@nestjs/testing`, `@nestjs/common`, …) throws `Must use import to load ES Module`. Symptoms read as config or import bugs; the cause is the missing flag. Always run through the npm scripts.
+- **Every gate asserts a positive test count.** Both ESM failure modes — a suite that fails to load, and a whole run under the wrong module mode — report **`Tests: 0 total`**, which reads as green. `npm run test` must report 1637 passing / 126 suites, `npm run test:redis` exactly 11 passing, `npm run test:e2e` a positive count with zero failures.
+- **Jest's main-process hooks must not be `.ts`.** `globalSetup`/`globalTeardown` (`test/jest-e2e-global-setup.js`, `test/jest-e2e-global-teardown.js`) are plain CJS `.js` on purpose: Jest loads them via `require()` in its main process, where ts-jest compiles `.ts` to CJS but Node loads it as ESM (`exports is not defined in ES module scope`).
+- **`uuid` is shimmed in the e2e config only.** `test/jest-e2e.json` maps `^uuid$` to `test/__mocks__/uuid.cjs` (a `node:crypto.randomUUID` wrapper). uuid@14 is ESM-only and `exceljs` (CJS) does `require('uuid')`; when the full `AppModule` graph loads under Jest ESM, the CJS→ESM require cycle trips Jest's `ERR_REQUIRE_CYCLE_MODULE`. The unit suite is unaffected and uses the real package.
+- **NestJS 12 packages are ESM-only and the app stays CommonJS** (Node 24 `require(esm)`; `engines: >=24.0.0`). Two landmines surface only at runtime, not in ts-jest or `type-check`:
+  - A package whose `exports` map lacks a `require`/`default` condition cannot be bare-`require`d — `@nestjs/typeorm@12.0.0` was exactly this (`ERR_PACKAGE_PATH_NOT_EXPORTED` at boot); 12.0.1 adds `default` and is pinned.
+  - The Dockerfile pins `node:24.16.0-alpine3.23` — older 24.x lacks the `require(esm)` export-condition fallback that the import-only maps of the remaining packages need.
+  `backend/scripts/verify-dist-runtime.sh` is the gate: it loads `dist/main.js` and now fails on both `MODULE_NOT_FOUND` and `ERR_PACKAGE_PATH_NOT_EXPORTED`. A bare `node dist/main.js` boot check remains the definitive test.
 
 **ioredis is 6.x and RESP2 is pinned deliberately (#1069)**: ioredis 6 defaults to `protocol: 3` (RESP3) where 5.x used RESP2. Every Redis client in this codebase passes **`protocol: 2`**, and that is a correctness pin, not leftover scaffolding.
 
