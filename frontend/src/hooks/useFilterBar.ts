@@ -25,9 +25,12 @@ function getDefaults<TFilters extends object>(
       field.type === 'payment-status' ||
       field.type === 'supplier' ||
       field.type === 'category' ||
-      field.type === 'price-list'
+      field.type === 'price-list' ||
+      field.type === 'date'
     ) {
       defaults[key] = null
+    } else if (field.type === 'boolean') {
+      defaults[key] = false
     }
     else if (field.type === 'period') {
       defaults[key] = { key: null, from: null, to: null } satisfies PeriodValue

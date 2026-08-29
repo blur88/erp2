@@ -17,6 +17,8 @@ export type FilterFieldType =
   | 'supplier'
   | 'category'
   | 'price-list'
+  | 'date'
+  | 'boolean'
 
 interface BaseFilterFieldConfig<TFilters, K extends keyof TFilters> {
   field: K
@@ -110,6 +112,23 @@ export interface PriceListFilterFieldConfig<TFilters, K extends keyof TFilters>
   type: 'price-list'
 }
 
+export interface DateFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'date'
+  /**
+   * Date to restore when the field is cleared. Required in practice for any
+   * report that must always have a date — see FilterDate's `clearTo`. A
+   * function, so a consumer whose fallback is "today" is not frozen to the
+   * date the config object was built.
+   */
+  clearTo?: () => string | null
+}
+
+export interface BooleanFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'boolean'
+}
+
 export type FilterFieldConfig<TFilters> =
   | SelectFilterFieldConfig<TFilters, keyof TFilters>
   | PeriodFilterFieldConfig<TFilters, keyof TFilters>
@@ -119,6 +138,8 @@ export type FilterFieldConfig<TFilters> =
   | SupplierFilterFieldConfig<TFilters, keyof TFilters>
   | CategoryFilterFieldConfig<TFilters, keyof TFilters>
   | PriceListFilterFieldConfig<TFilters, keyof TFilters>
+  | DateFilterFieldConfig<TFilters, keyof TFilters>
+  | BooleanFilterFieldConfig<TFilters, keyof TFilters>
 
 export interface FilterBarConfig<TFilters> {
   search?: {
