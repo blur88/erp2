@@ -22,7 +22,7 @@ export class PriceUpdateItem {
   margin?: number;
 }
 
-export class BulkUpdatePricesDto {
+export class BulkUpdatePriceListPricesDto {
   @ApiProperty({ type: [PriceUpdateItem] })
   @IsArray()
   @ValidateNested({ each: true })

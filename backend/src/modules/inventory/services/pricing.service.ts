@@ -9,7 +9,7 @@ import { Repository, In } from 'typeorm';
 import { Product, PriceList, PriceListItem } from '../../../database/entities';
 import { Category } from '../../../database/entities/category.entity';
 import { Customer } from '../../../database/entities/customer.entity';
-import { BulkUpdatePricesDto, ProductPriceUpdateDto } from '../dto/product.dto';
+import { ProductPriceUpdateDto } from '../dto/product.dto';
 import { SettingsService } from '../../settings/settings.service';
 
 export interface PriceCalculationOptions {

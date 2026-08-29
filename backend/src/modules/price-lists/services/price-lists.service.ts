@@ -7,7 +7,7 @@ import { getAppToday } from '@/common/utils/app-calendar';
 import { PriceList, PriceListItem } from '@/database/entities';
 import { SettingsService } from '../../settings/settings.service';
 import { PriceListDefaultService } from './price-list-default.service';
-import { CreatePriceListDto, UpdatePriceListDto, QueryPriceListsDto, BulkUpdatePricesDto, ApplyPercentageAdjustmentDto } from '../dto';
+import { CreatePriceListDto, UpdatePriceListDto, QueryPriceListsDto, BulkUpdatePriceListPricesDto, ApplyPercentageAdjustmentDto } from '../dto';
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -286,7 +286,7 @@ export class PriceListsService {
    */
   async bulkUpdatePrices(
     priceListId: string,
-    bulkUpdateDto: BulkUpdatePricesDto
+    bulkUpdateDto: BulkUpdatePriceListPricesDto
   ): Promise<PriceListItem[]> {
     // Verify price list exists
     await this.findOne(priceListId, false);

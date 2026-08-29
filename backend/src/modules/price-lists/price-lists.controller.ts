@@ -16,7 +16,7 @@ import {
   CreatePriceListDto,
   UpdatePriceListDto,
   QueryPriceListsDto,
-  BulkUpdatePricesDto,
+  BulkUpdatePriceListPricesDto,
   ApplyPercentageAdjustmentDto,
 } from './dto';
 
@@ -130,7 +130,7 @@ export class PriceListsController {
   @ApiResponse({ status: 404, description: 'Price list not found' })
   async bulkUpdatePrices(
     @Param('id') id: string,
-    @Body() bulkUpdateDto: BulkUpdatePricesDto,
+    @Body() bulkUpdateDto: BulkUpdatePriceListPricesDto,
   ) {
     return this.priceListsService.bulkUpdatePrices(id, bulkUpdateDto);
   }

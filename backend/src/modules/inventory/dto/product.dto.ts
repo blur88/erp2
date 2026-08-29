@@ -218,7 +218,7 @@ export class ProductListResponseDto {
   };
 }
 
-export class BulkUpdatePricesDto {
+export class BulkUpdateProductPricesDto {
   @ApiProperty({ description: 'List of product IDs and their new prices', type: 'array' })
   @IsArray()
   @ArrayMinSize(1)
