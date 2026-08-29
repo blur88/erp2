@@ -20,6 +20,7 @@ import { default as AccountTreeIcon } from '@mui/icons-material/AccountTree';
 import { default as ReceiptLongIcon } from '@mui/icons-material/ReceiptLong';
 import { default as MenuBookIcon } from '@mui/icons-material/MenuBook';
 import { default as BalanceIcon } from '@mui/icons-material/Balance';
+import { default as AssessmentIcon } from '@mui/icons-material/Assessment';
 import { default as PrintIcon } from '@mui/icons-material/Print';
 import { default as DocumentNumberIcon } from '@mui/icons-material/FormatListNumbered';
 import { default as BackupIcon } from '@mui/icons-material/Backup';
@@ -247,6 +248,13 @@ export const menuSections: MenuSection[] = [
             title: 'Trial Balance',
             icon: <BalanceIcon />,
             path: '/accounting/trial-balance',
+            roles: ALL_ROLES,
+          },
+          {
+            id: 'profit-and-loss',
+            title: 'Profit & Loss',
+            icon: <AssessmentIcon />,
+            path: '/accounting/profit-and-loss',
             roles: ALL_ROLES,
           },
           {

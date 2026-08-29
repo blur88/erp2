@@ -1,0 +1,94 @@
+/*
+ * Print rules for analytical accounting reports rendered inside
+ * AccountingReportPrintLayout. Colors mirror `styles/printTokens.ts`
+ * (printColors) — CSS cannot import the TS module, so the values are repeated
+ * here and MUST be kept in step with it.
+ */
+
+/* The print-only header and footer are hidden on screen. */
+.acct-print-header,
+.acct-print-footer {
+  display: none;
+}
+
+@media print {
+  /*
+   * Force black-on-white. A dark UI theme would otherwise print white text on
+   * a dark ground, or drop the background entirely and print white on white.
+   * print-color-adjust keeps the browser from "helpfully" stripping this.
+   */
+  html,
+  body,
+  .acct-print-root {
+    background: #ffffff !important; /* printColors.background */
+    color: #000000 !important; /* printColors.text */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /*
+   * Hide the application shell. These reports render inside the shared
+   * MainLayout, so without this the sidebar, top bar and page toolbar print
+   * alongside the figures.
+   */
+  nav,
+  header,
+  aside,
+  [data-print-hide='true'] {
+    display: none !important;
+  }
+
+  .acct-print-header,
+  .acct-print-footer {
+    display: block !important;
+    color: #000000 !important;
+  }
+
+  .acct-print-root {
+    margin: 0;
+    padding: 0;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* A scroll container must not clip the report to one viewport. */
+  .acct-print-scroll {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    flex: none !important;
+  }
+
+  /*
+   * Summary rows only. Expanded account detail is a screen affordance for
+   * drill-down; printing whatever the user happened to have expanded would
+   * make two printouts of the same period differ.
+   */
+  .acct-print-detail-row,
+  .acct-print-control {
+    display: none !important;
+  }
+
+  .acct-print-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: #000000 !important;
+  }
+
+  .acct-print-table td,
+  .acct-print-table th {
+    padding: 4px 8px;
+    color: #000000 !important;
+    border-color: #ddd !important; /* printColors.tableBorder */
+  }
+
+  /* Never split a row across pages. */
+  .acct-print-table tr {
+    break-inside: avoid;
+  }
+
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+}

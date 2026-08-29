@@ -719,6 +719,65 @@ export interface TrialBalanceResponse {
   balanced: boolean
 }
 
+export type PlSectionKey = 'revenue' | 'cogs' | 'otherIncome' | 'expenses'
+export type PlMovementComponent = 'ordinary' | 'stockAdjustment'
+
+export interface PlAccountRow {
+  rowId: string
+  accountId: string
+  code: string
+  name: string
+  isPostable: boolean
+  amount: string
+  children: PlAccountRow[]
+}
+
+export interface PlSection {
+  rowId: string
+  key: PlSectionKey
+  label: string
+  /** Caption for the total row — "Total Expenses", not "Total Operating Expenses". */
+  totalLabel: string
+  rows: PlAccountRow[]
+  total: string
+  totalRowId: string
+}
+
+export interface PlAssignmentAnomaly {
+  accountId: string
+  code: string
+  name: string
+  component: PlMovementComponent
+  count: number
+}
+
+export interface PlStructuralFault {
+  kind: 'missingConfiguredAccount' | 'danglingParent' | 'parentCycle'
+  settingKey: string | null
+  accounts: Array<{ accountId: string; code: string; name: string }>
+}
+
+export interface PlIntegrity {
+  anomalies: PlAssignmentAnomaly[]
+  structuralFaults: PlStructuralFault[]
+  tieOutOk: boolean
+  independentNetProfit: string
+}
+
+export interface ProfitAndLossResponse {
+  year: number
+  availableYears: number[]
+  sections: PlSection[]
+  inventoryAdjustments: string
+  inventoryAdjustmentsRowId: string
+  /** Cost of Sales section total PLUS adjustments — render THIS, not section.total. */
+  totalCostOfSales: string
+  totalCostOfSalesRowId: string
+  grossProfit: string
+  netProfit: string
+  integrity: PlIntegrity
+}
+
 export {
   type Expense,
   type ExpenseDocumentStatus,

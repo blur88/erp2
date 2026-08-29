@@ -4,6 +4,7 @@ import type { Category, CreateStockAdjustmentRequest, PaginatedResponse, Product
 
 import { axiosBaseQuery } from './baseQuery'
 import { normalizePaginated, normalizeSingle } from './normalizers'
+import { invalidateAccountingReportsOnSuccess } from './invalidateAccountingReports'
 
 export interface CategoryProduct {
   id: string
@@ -215,11 +216,17 @@ export const inventoryApiSlice = createApi({
       query: (id) => ({ url: `/inventory/stock-adjustments/${id}/complete`, method: 'POST' }),
       transformResponse: normalizeSingle<StockAdjustment>,
       invalidatesTags: ['StockAdjustment'],
+      // Posts the STOCK_ADJUSTMENT journal entry, which feeds the Profit &
+      // Loss Inventory Adjustments row. Cross-slice: an inventoryApi mutation
+      // cannot invalidate accountingApi tags on its own.
+      onQueryStarted: invalidateAccountingReportsOnSuccess,
     }),
     revertStockAdjustment: builder.mutation<StockAdjustment, string>({
       query: (id) => ({ url: `/inventory/stock-adjustments/${id}/revert`, method: 'POST' }),
       transformResponse: normalizeSingle<StockAdjustment>,
       invalidatesTags: (_result, _error, id) => ['StockAdjustment', { type: 'StockAdjustment', id }],
+      // Reverses that journal entry.
+      onQueryStarted: invalidateAccountingReportsOnSuccess,
     }),
 
     updateStockAdjustmentNotes: builder.mutation<StockAdjustment, { id: string; notes?: string }>({
