@@ -1,30 +1,22 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { DatePicker } from '@mui/x-date-pickers'
-import { format, parseISO } from 'date-fns'
+import { useMemo, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Alert,
   Box,
-  Checkbox,
   Chip,
-  FormControlLabel,
-  Table,
-  TableBody,
   TableCell,
-  TableFooter,
-  TableHead,
   TableRow,
-  TextField,
   Typography,
 } from '@mui/material'
 
-import { TableCard } from '@/components/common/TableCard'
-import PageHeader from '@/components/common/PageHeader'
+import EntityTable from '@/components/common/EntityTable'
+import SimpleListPage from '@/components/common/SimpleListPage'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
-import { TABLE_STYLES } from '@/constants/tableStyles'
+import { useFilterBar } from '@/hooks/useFilterBar'
+import type { FilterBarConfig } from '@/types/filterBar.types'
 import { useGetTrialBalanceQuery } from '@/store/api/accountingApi'
 import { formatCurrency } from '@/utils/currency'
-import { getCurrentDate, isValidIsoDate, toMuiDatePickerFormat } from '@/utils/formatters'
+import { getCurrentDate } from '@/utils/formatters'
 import type { TrialBalanceResponse } from '@/types'
 
 /**
@@ -36,33 +28,44 @@ import type { TrialBalanceResponse } from '@/types'
  */
 const GENERAL_LEDGER_DRILLDOWN_FLOOR = '1970-01-01'
 
-export default function TrialBalancePage() {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const navigate = useNavigate()
+interface TBFilters {
+  asOfDate: string | null
+  showZero: boolean
+}
 
-  const rawAsOfDate = searchParams.get('asOfDate') ?? ''
+const TB_DEFAULTS: TBFilters = { asOfDate: null, showZero: false }
+
+export default function TrialBalancePage() {
+  const navigate = useNavigate()
+  const listRef = useRef<HTMLDivElement>(null)
+
+  const filterConfig = useMemo<FilterBarConfig<TBFilters>>(
+    () => ({
+      fields: [
+        {
+          field: 'asOfDate',
+          label: 'As of Date',
+          type: 'date',
+          clearTo: getCurrentDate,
+        },
+        {
+          field: 'showZero',
+          label: 'Show zero-balance accounts',
+          type: 'boolean',
+        },
+      ],
+      defaults: TB_DEFAULTS,
+    }),
+    [],
+  )
+
+  const { appliedFilters, draftFilters, handlers, hasActiveFilters } = useFilterBar(filterConfig)
+
   // Trial Balance always needs a date, so an absent or impossible value means
   // today — unlike the General Ledger, where an absent account skips the query.
-  const effectiveAsOfDate = isValidIsoDate(rawAsOfDate) ? rawAsOfDate : getCurrentDate()
-
-  // The picker is controlled, and MUI X resets every section whenever the
-  // committed candidate is not echoed back into `value`. Mid-typing commits
-  // are complete-but-implausible (the first year keystroke is e.g. 0002-03-01)
-  // and must never reach the URL — the read path would reject them and the
-  // cleanup effect below would delete the key, desyncing the value again.
-  // So the field keeps a draft mirroring every commit verbatim; the URL only
-  // receives plausible dates, and the draft follows the URL when it changes
-  // externally (including the today fallback after a clear).
-  const [asOfDraft, setAsOfDraft] = useState(effectiveAsOfDate)
-  useEffect(() => {
-    setAsOfDraft(effectiveAsOfDate)
-  }, [effectiveAsOfDate])
-
-  const storedFormat = useMemo(() => localStorage.getItem('dateFormat') || 'DD/MM/YYYY', [])
-  const pickerFormat = useMemo(() => toMuiDatePickerFormat(storedFormat), [storedFormat])
-  // Only the exact string 'true' is truthy. Anything else (?showZero=1, an empty
-  // value) is false and gets cleaned out of the URL below.
-  const showZero = searchParams.get('showZero') === 'true'
+  // Today is deliberately never written to the URL — a bare URL is the canonical
+  // form for "today".
+  const effectiveAsOfDate = appliedFilters.asOfDate ?? getCurrentDate()
 
   const openLedger = (accountId: string) => {
     // The General Ledger uses the shared Period filter, whose only open-ended
@@ -79,42 +82,10 @@ export default function TrialBalancePage() {
     navigate(`/accounting/general-ledger?${params.toString()}`)
   }
 
-  const setFilter = (key: string, value: string) => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev)
-        if (value) next.set(key, value)
-        else next.delete(key)
-        return next
-      },
-      { replace: true },
-    )
-  }
-
-  // Single atomic cleanup: delete every key PRESENT in the URL whose effective
-  // value is empty or invalid. Guarded on a real string difference so it cannot
-  // loop. Uses searchParams.has(key), not truthiness of the raw value, so
-  // `?showZero=` is deleted too. Today's date is deliberately never written —
-  // a bare URL is the canonical form for "today".
-  useEffect(() => {
-    const next = new URLSearchParams(searchParams)
-
-    if (searchParams.has('asOfDate') && !isValidIsoDate(rawAsOfDate)) {
-      next.delete('asOfDate')
-    }
-    if (searchParams.has('showZero') && searchParams.get('showZero') !== 'true') {
-      next.delete('showZero')
-    }
-
-    if (next.toString() !== searchParams.toString()) {
-      setSearchParams(next, { replace: true })
-    }
-  }, [searchParams, rawAsOfDate, setSearchParams])
-
-  const { currentData, isFetching, error } = useGetTrialBalanceQuery(
-    { asOfDate: effectiveAsOfDate, showZero },
+  const { currentData, isFetching, error, isError } = useGetTrialBalanceQuery(
+    { asOfDate: effectiveAsOfDate, showZero: appliedFilters.showZero },
     { refetchOnFocus: true, refetchOnMountOrArgChange: true },
-  )
+  ) as { currentData: TrialBalanceResponse | undefined; isFetching: boolean; error: unknown; isError: boolean }
 
   // currentData, never data: RTK Query keeps `data` pointing at the PREVIOUS
   // argument's result while a new one is in flight, which would show another
@@ -122,50 +93,24 @@ export default function TrialBalancePage() {
   // new request failed. Every visible element below is gated on this one value.
   const trialBalance = currentData as TrialBalanceResponse | undefined
 
-  const filterToolbar = (
-    <Box
-      sx={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 1.5,
-        alignItems: 'center',
-      }}
-    >
-      <DatePicker
-        label="As of Date"
-        value={asOfDraft ? parseISO(asOfDraft) : null}
-        format={pickerFormat}
-        onChange={(d) => {
-          // Null means cleared (Clear button or keyboard deletion): fall back
-          // to today via the URL. Invalid Date is a mid-entry transient — the
-          // picker owns the pending sections, so hands off entirely.
-          if (d === null) {
-            // Restore today directly rather than relying on the URL round trip.
-            // When the URL is already bare — the canonical form for today —
-            // deleting the key changes nothing, so effectiveAsOfDate never
-            // changes, the resync effect never fires, and the field would sit
-            // visually empty while the query silently used today.
-            setAsOfDraft(getCurrentDate())
-            setFilter('asOfDate', '')
-            return
-          }
-          if (Number.isNaN(d.getTime())) return
-          const next = format(d, 'yyyy-MM-dd')
-          setAsOfDraft(next)
-          if (isValidIsoDate(next)) setFilter('asOfDate', next)
-        }}
-        slotProps={{ textField: { size: 'small', sx: { flex: '0 0 160px' } } }}
-      />
-      <FormControlLabel
-        control={
-          <Checkbox
-            checked={showZero}
-            onChange={(e) => setFilter('showZero', e.target.checked ? 'true' : '')}
-          />
-        }
-        label="Show zero-balance accounts"
-      />
-    </Box>
+  const rows = useMemo(() => (trialBalance?.rows ?? []).map((r) => ({ ...r, id: r.accountId })), [trialBalance])
+
+  const columns = useMemo(
+    () => [
+      { key: 'code', render: (row: (typeof rows)[number]) => row.code },
+      { key: 'name', render: (row: (typeof rows)[number]) => row.name },
+      {
+        key: 'debit',
+        align: 'right' as const,
+        render: (row: (typeof rows)[number]) => (row.debit !== '0.0000' ? formatCurrency(row.debit) : '—'),
+      },
+      {
+        key: 'credit',
+        align: 'right' as const,
+        render: (row: (typeof rows)[number]) => (row.credit !== '0.0000' ? formatCurrency(row.credit) : '—'),
+      },
+    ],
+    [],
   )
 
   const balancedChip = trialBalance ? (
@@ -207,119 +152,73 @@ export default function TrialBalancePage() {
     </Box>
   ) : null
 
+  const unbalancedAlert =
+    trialBalance && !trialBalance.balanced ? (
+      <Alert severity="warning" sx={{ mb: 2 }}>
+        The trial balance is not balanced. Difference: {formatCurrency(trialBalance.difference)}
+      </Alert>
+    ) : null
+
+  const tableFooter = trialBalance ? (
+    <TableRow
+      sx={{
+        '& td': {
+          borderTop: 2,
+          borderTopColor: 'divider',
+          fontWeight: 700,
+          color: 'text.primary',
+          fontSize: '0.875rem',
+        },
+      }}
+    >
+      <TableCell colSpan={2}>Total</TableCell>
+      <TableCell align="right">{formatCurrency(trialBalance.totalDebit)}</TableCell>
+      <TableCell align="right">{formatCurrency(trialBalance.totalCredit)}</TableCell>
+    </TableRow>
+  ) : undefined
+
+  const hasError = Boolean(error) || isError
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      <PageHeader
-        variant="workflow"
-        title="Trial Balance"
-        subtitle="View account balances for a given date."
-        toolbar={filterToolbar}
-        titleBadge={balancedChip}
-      />
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          Unable to load the trial balance. Please try again.
-        </Alert>
-      )}
-
-      {trialBalance && !trialBalance.balanced && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          The trial balance is not balanced. Difference:{' '}
-          {formatCurrency(trialBalance.difference)}
-        </Alert>
-      )}
-
-      <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
-        {isFetching && !trialBalance ? (
-          <ListSkeleton rows={8} columns={4} />
-        ) : trialBalance ? (
-          <>
-            {summaryStrip}
-
-            <TableCard sx={{ mb: 3 }}>
-              <Table
-                size={TABLE_STYLES.size}
-                sx={{
-                  '& .MuiTableCell-root': {
-                    py: TABLE_STYLES.cell.padding.py,
-                    px: TABLE_STYLES.cell.padding.px,
-                  },
-                  '& .MuiTableCell-head': {
-                    py: TABLE_STYLES.header.padding.py,
-                  },
-                }}
-              >
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Account Code</TableCell>
-                    <TableCell>Name</TableCell>
-                    <TableCell align="right">Debit</TableCell>
-                    <TableCell align="right">Credit</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {trialBalance.rows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} align="center">
-                        <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
-                          No accounts found.
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    trialBalance.rows.map((row) => (
-                      <TableRow
-                        key={row.code}
-                        hover
-                        role="link"
-                        tabIndex={0}
-                        onClick={() => openLedger(row.accountId)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') openLedger(row.accountId)
-                        }}
-                        sx={{ cursor: 'pointer' }}
-                      >
-                        <TableCell>{row.code}</TableCell>
-                        <TableCell>{row.name}</TableCell>
-                        <TableCell align="right">
-                          {row.debit !== '0.0000' ? formatCurrency(row.debit) : '—'}
-                        </TableCell>
-                        <TableCell align="right">
-                          {row.credit !== '0.0000' ? formatCurrency(row.credit) : '—'}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-                {trialBalance.rows.length > 0 && (
-                  <TableFooter>
-                    <TableRow
-                      sx={{
-                        '& td': {
-                          borderTop: 2,
-                          borderTopColor: 'divider',
-                          fontWeight: 700,
-                          color: 'text.primary',
-                          fontSize: '0.875rem',
-                        },
-                      }}
-                    >
-                      <TableCell colSpan={2}>Total</TableCell>
-                      <TableCell align="right">
-                        {formatCurrency(trialBalance.totalDebit)}
-                      </TableCell>
-                      <TableCell align="right">
-                        {formatCurrency(trialBalance.totalCredit)}
-                      </TableCell>
-                    </TableRow>
-                  </TableFooter>
-                )}
-              </Table>
-            </TableCard>
-          </>
-        ) : null}
-      </Box>
-    </Box>
+    <SimpleListPage
+      title="Trial Balance"
+      subtitle="View account balances for a given date."
+      titleBadge={balancedChip}
+      filterConfig={filterConfig}
+      draftFilters={draftFilters}
+      handlers={handlers}
+      hasActiveFilters={hasActiveFilters}
+      isFetching={isFetching}
+      error={hasError ? 'Unable to load the trial balance. Please try again.' : null}
+      tableSlot={
+        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          {isFetching && !trialBalance ? (
+            <ListSkeleton rows={8} columns={4} />
+          ) : trialBalance ? (
+            <>
+              {unbalancedAlert}
+              {summaryStrip}
+              <Box sx={{ flex: 1, minHeight: 0 }}>
+                <EntityTable
+                  rows={rows}
+                  columns={columns}
+                  tableFooter={tableFooter}
+                  selectableRowRole="link"
+                  onSelect={(row) => openLedger(row.accountId)}
+                  showHeader={false}
+                  headers={['Account Code', 'Name', 'Debit', 'Credit']}
+                  focusedIndex={-1}
+                  listRef={listRef}
+                  loading={isFetching}
+                  total={rows.length}
+                  label="Accounts"
+                  emptyLabel="accounts"
+                />
+              </Box>
+            </>
+          ) : null}
+        </Box>
+      }
+    />
   )
 }
