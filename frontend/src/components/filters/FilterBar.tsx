@@ -1,6 +1,7 @@
 import { CircularProgress, Stack } from '@mui/material'
 
 import { FilterCategory } from './FilterCategory'
+import { FilterCheckbox } from './FilterCheckbox'
 import { FilterCompare } from './FilterCompare'
 import { FilterCustomer } from './FilterCustomer'
 import { FilterDate } from './FilterDate'
@@ -154,6 +155,18 @@ function renderQuickField<TFilters extends object>(
         // Clearing returns the filter to its default — applied state goes null,
         // the URL key is dropped — while FilterDate keeps displaying clearTo.
         onClear={() => handlers.onClearField(field.field)}
+      />
+    )
+  }
+
+  if (field.type === 'boolean') {
+    return (
+      <FilterCheckbox
+        key={fieldKey}
+        field={fieldKey}
+        label={field.label}
+        value={value === true}
+        onChange={onChange as (value: boolean) => void}
       />
     )
   }
