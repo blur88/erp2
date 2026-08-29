@@ -7,6 +7,7 @@ const JournalEntriesPage = React.lazy(() => import('./JournalEntriesPage'))
 const JournalEntryViewPage = React.lazy(() => import('./JournalEntryViewPage'))
 const GeneralLedgerPage = React.lazy(() => import('./GeneralLedgerPage'))
 const TrialBalancePage = React.lazy(() => import('./TrialBalancePage'))
+const ProfitAndLossPage = React.lazy(() => import('./ProfitAndLossPage'))
 const ExpensesPage = React.lazy(() => import('./expenses/ExpensesPage'))
 const ExpenseFormPage = React.lazy(() => import('./expenses/ExpenseFormPage'))
 const ExpenseDetailPage = React.lazy(() => import('./expenses/ExpenseDetailPage'))
@@ -32,4 +33,5 @@ export const accountingRoutes: RouteObject[] = [
   { path: '/accounting/owner-equity/:referenceNumber/view', element: <OwnerEquityDetailPage />, handle: { title: 'Owner Equity Detail' } },
   { path: '/accounting/general-ledger', element: <GeneralLedgerPage />, handle: { title: 'General Ledger' } },
   { path: '/accounting/trial-balance', element: <TrialBalancePage />, handle: { title: 'Trial Balance' } },
+  { path: '/accounting/profit-and-loss', element: <ProfitAndLossPage />, handle: { title: 'Profit & Loss' } },
 ]
