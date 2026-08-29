@@ -16,12 +16,55 @@ export interface ClassifyInput {
 
 export interface ClassifyResult {
   assignments: Map<SectionKey, Map<string, bigint>>;
+  /** Every classification decision, for auditing. See `auditAssignments`. */
+  claims: ClaimRecord[];
   inventoryAdjustments: bigint;
   anomalies: PlAssignmentAnomaly[];
   structuralFaults: PlStructuralFault[];
 }
 
 const SECTION_KEYS: SectionKey[] = ['revenue', 'cogs', 'otherIncome', 'expenses'];
+
+/**
+ * One classification decision: which account's which component went where.
+ *
+ * `destination` is what makes the audit able to see a double-count. A stock
+ * adjustment leaking into BOTH Inventory Adjustments and an account-derived
+ * section produces two records for the same (accountId, component) with
+ * different destinations — invisible to a bare counter, since the section
+ * assignment maps carry amounts but no component metadata.
+ */
+export interface ClaimRecord {
+  accountId: string;
+  component: MovementComponent;
+  destination: SectionKey | 'inventoryAdjustments';
+}
+
+/**
+ * Which section an account belongs to, or null if this report does not cover
+ * it (Asset, Equity, or absent from the chart).
+ *
+ * Shared by classification and assembly so a zero-movement account lands in
+ * the SAME section it would have landed in with movement. Duplicating this
+ * rule is how a zero row ends up in the wrong section.
+ */
+export function sectionOf(
+  account: PlAccount | undefined,
+  graph: Map<string, GraphNode>,
+  salesRevenueAccountId: string | null,
+  cogsAccountId: string | null,
+): SectionKey | null {
+  if (!account) return null;
+  if (account.type === 'Income') {
+    return salesRevenueAccountId && isDescendantOf(account.id, salesRevenueAccountId, graph)
+      ? 'revenue' : 'otherIncome';
+  }
+  if (account.type === 'Expense') {
+    return cogsAccountId && isDescendantOf(account.id, cogsAccountId, graph)
+      ? 'cogs' : 'expenses';
+  }
+  return null;
+}
 
 /**
  * Audit the COMPLETED assignment maps against the movements that were
@@ -40,19 +83,68 @@ export function auditAssignments(input: {
   accounts: PlAccount[];
   movements: AccountMovement[];
   assignments: Map<SectionKey, Map<string, bigint>>;
-  counts: Map<string, number>;
+  /** Every claim classification made, with where it sent the money. */
+  claims: ClaimRecord[];
   describe: (id: string) => { code: string; name: string };
 }): PlAssignmentAnomaly[] {
-  const { accounts, movements, assignments, counts, describe } = input;
+  const { accounts, movements, assignments, claims, describe } = input;
   const byId = new Map(accounts.map((a) => [a.id, a]));
-  const anomalies: PlAssignmentAnomaly[] = [];
 
-  // How many SECTIONS actually hold a given account, read from the maps.
-  const sectionsHolding = (accountId: string): number =>
-    SECTION_KEYS.reduce(
-      (n, k) => n + (assignments.get(k)?.has(accountId) ? 1 : 0),
-      0,
+  /**
+   * Destinations recorded for each (account, component), counted from the
+   * ledger AND cross-checked against the finished assignment maps.
+   *
+   * The ledger alone would still be site-derived. What makes this independent
+   * is that a `section` destination is only believed when that section's map
+   * actually holds the account: a claim that says "expenses" but left no entry
+   * there is a phantom, and an account sitting in a section that logged no
+   * claim is an unlogged write. Both are counted.
+   */
+  /**
+   * Which component an unexplained section entry is charged to. `ordinary`
+   * owns it whenever the account has ordinary movement; otherwise an
+   * adjustment-only account charges it to `stockAdjustment`, so the leak
+   * surfaces on the one component whose audit actually runs.
+   */
+  const attributionComponentOf = (accountId: string): MovementComponent => {
+    const m = movements.find((x) => x.accountId === accountId);
+    if (m && m.ordinary === 0n && m.stockAdjustment !== 0n) return 'stockAdjustment';
+    return 'ordinary';
+  };
+
+  const destinationsOf = (accountId: string, component: MovementComponent): number => {
+    const logged = claims.filter(
+      (c) => c.accountId === accountId && c.component === component,
     );
+
+    let count = 0;
+    for (const c of logged) {
+      if (c.destination === 'inventoryAdjustments') {
+        count += 1;
+      } else if (assignments.get(c.destination)?.has(accountId)) {
+        count += 1; // logged AND present
+      }
+      // logged but absent from the map: a phantom claim, contributes nothing
+    }
+
+    // Sections holding this account that NO claim accounted for.
+    //
+    // A stray section entry carries no component metadata, so it cannot say
+    // which component leaked. It is attributed to the component being audited
+    // only when that component owns the account's activity: normally
+    // `ordinary`, but `stockAdjustment` when the account has adjustment
+    // movement and no ordinary movement. Without the second case an
+    // adjustment-only account's leak is attributed to a component whose audit
+    // never runs (see the `ordinary !== 0n` guard below), and it escapes.
+    if (component === attributionComponentOf(accountId)) {
+      for (const key of SECTION_KEYS) {
+        if (!assignments.get(key)?.has(accountId)) continue;
+        if (!logged.some((c) => c.destination === key)) count += 1;
+      }
+    }
+    return count;
+  };
+  const anomalies: PlAssignmentAnomaly[] = [];
 
   for (const m of movements) {
     const account = byId.get(m.accountId);
@@ -69,7 +161,7 @@ export function auditAssignments(input: {
           });
         }
       } else {
-        const count = sectionsHolding(m.accountId);
+        const count = destinationsOf(m.accountId, 'ordinary');
         if (count !== 1) {
           anomalies.push({
             accountId: m.accountId, ...describe(m.accountId),
@@ -83,7 +175,7 @@ export function auditAssignments(input: {
     // only on an Expense account. On Asset/Equity accounts it is the balancing
     // leg and is correctly ignored.
     if (m.stockAdjustment !== 0n && account?.type === 'Expense') {
-      const count = counts.get(`${m.accountId}::stockAdjustment`) ?? 0;
+      const count = destinationsOf(m.accountId, 'stockAdjustment');
       if (count !== 1) {
         anomalies.push({
           accountId: m.accountId, ...describe(m.accountId),
@@ -117,18 +209,11 @@ export function classify(input: ClassifyInput): ClassifyResult {
     SECTION_KEYS.map((k) => [k, new Map<string, bigint>()]),
   );
 
-  // (accountId, component) -> times claimed. Counting per ACCOUNT would
-  // false-positive on 6990, which legitimately holds ordinary expenses and
-  // stock adjustments routed to two different rows.
-  //
-  // These counters are only half the audit: incremented at the assignment
-  // site, they can never exceed 1. `auditAssignments` below re-derives the
-  // truth from the COMPLETED assignment maps, which is what can actually
-  // catch a component landing in two sections.
-  const counts = new Map<string, number>();
-  const key = (id: string, c: MovementComponent) => `${id}::${c}`;
-  const bump = (id: string, c: MovementComponent) =>
-    counts.set(key(id, c), (counts.get(key(id, c)) ?? 0) + 1);
+  // Every classification decision, with its destination. Audited AFTER the
+  // loop against the finished assignment maps — see `auditAssignments`, which
+  // believes a logged destination only when the corresponding map actually
+  // holds the account, and counts map entries no claim explains.
+  const claims: ClaimRecord[] = [];
 
   let inventoryAdjustments = 0n;
 
@@ -149,21 +234,21 @@ export function classify(input: ClassifyInput): ClassifyResult {
     // identically zero. Only the Expense leg is a cost.
     if (isExpense && m.stockAdjustment !== 0n) {
       inventoryAdjustments += m.stockAdjustment;
-      bump(m.accountId, 'stockAdjustment');
+      claims.push({
+        accountId: m.accountId,
+        component: 'stockAdjustment',
+        destination: 'inventoryAdjustments',
+      });
     }
 
     if (m.ordinary === 0n) continue;
 
     // 2. Ordinary movement: exactly one section, by type then subtree.
-    const section: SectionKey = isIncome
-      ? (salesRevenueAccountId && isDescendantOf(account.id, salesRevenueAccountId, graph)
-          ? 'revenue' : 'otherIncome')
-      : (cogsAccountId && isDescendantOf(account.id, cogsAccountId, graph)
-          ? 'cogs' : 'expenses');
+    const section = sectionOf(account, graph, salesRevenueAccountId, cogsAccountId)!;
 
     const bucket = assignments.get(section)!;
     bucket.set(account.id, (bucket.get(account.id) ?? 0n) + m.ordinary);
-    bump(account.id, 'ordinary');
+    claims.push({ accountId: account.id, component: 'ordinary', destination: section });
   }
 
   const describe = (id: string) => {
@@ -171,7 +256,7 @@ export function classify(input: ClassifyInput): ClassifyResult {
     return { code: a?.code ?? '(unknown)', name: a?.name ?? '(unknown account)' };
   };
   const anomalies = auditAssignments({
-    accounts, movements, assignments, counts, describe,
+    accounts, movements, assignments, claims, describe,
   });
 
   // Structural faults: configuration problems that tie out cleanly and would
@@ -207,7 +292,7 @@ export function classify(input: ClassifyInput): ClassifyResult {
     });
   }
 
-  return { assignments, inventoryAdjustments, anomalies, structuralFaults };
+  return { assignments, claims, inventoryAdjustments, anomalies, structuralFaults };
 }
 
 const SECTION_LABELS: Record<SectionKey, string> = {
@@ -215,6 +300,15 @@ const SECTION_LABELS: Record<SectionKey, string> = {
   cogs: 'Cost of Sales',
   otherIncome: 'Other Income',
   expenses: 'Operating Expenses',
+};
+
+// Total captions. Not `"Total " + label`: the Operating Expenses section's
+// total reads "Total Expenses" per the approved report structure (spec §4).
+const SECTION_TOTAL_LABELS: Record<SectionKey, string> = {
+  revenue: 'Total Revenue',
+  cogs: 'Total Cost of Sales',
+  otherIncome: 'Total Other Income',
+  expenses: 'Total Expenses',
 };
 
 /**
@@ -230,6 +324,8 @@ const SECTION_LABELS: Record<SectionKey, string> = {
 export function assembleSections(
   accounts: PlAccount[],
   assignments: Map<SectionKey, Map<string, bigint>>,
+  salesRevenueAccountId: string | null = null,
+  cogsAccountId: string | null = null,
 ): PlSection[] {
   const byId = new Map<string, PlAccount>(accounts.map((a) => [a.id, a]));
   const graph = new Map<string, GraphNode>(
@@ -270,9 +366,26 @@ export function assembleSections(
   return SECTION_KEYS.map((key) => {
     const classified = assignments.get(key) ?? new Map<string, bigint>();
 
-    // Group each classified contribution under its category ancestor.
-    const grouped = new Map<string, Map<string, bigint>>();
+    // Zero rows stay VISIBLE and muted (spec §7.2), so seed every postable
+    // account belonging to this section at zero before folding in the
+    // classified amounts. Classification only ever emits accounts with
+    // non-zero movement — it skips `ordinary === 0n`, and an account with no
+    // movement at all never reaches it — so without this seeding an account
+    // that netted to zero, or saw no activity, would silently vanish from the
+    // report rather than render as 0.00.
+    const contributions = new Map<string, bigint>();
+    for (const a of accounts) {
+      if (!a.isPostable) continue;
+      if (sectionOf(a, graph, salesRevenueAccountId, cogsAccountId) !== key) continue;
+      contributions.set(a.id, 0n);
+    }
     for (const [accountId, amount] of classified) {
+      contributions.set(accountId, (contributions.get(accountId) ?? 0n) + amount);
+    }
+
+    // Group each contribution under its category ancestor.
+    const grouped = new Map<string, Map<string, bigint>>();
+    for (const [accountId, amount] of contributions) {
       const categoryId = categoryAncestorOf(accountId);
       if (!grouped.has(categoryId)) grouped.set(categoryId, new Map());
       const bucket = grouped.get(categoryId)!;
@@ -304,6 +417,7 @@ export function assembleSections(
       rowId: `${key}.section`,
       key,
       label: SECTION_LABELS[key],
+      totalLabel: SECTION_TOTAL_LABELS[key],
       rows,
       total: formatScale4(total),
       totalRowId: `${key}.total`,

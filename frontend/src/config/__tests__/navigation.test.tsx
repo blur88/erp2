@@ -81,6 +81,11 @@ describe('navigation structure', () => {
         path: '/accounting/trial-balance',
       },
       {
+        id: 'profit-and-loss',
+        title: 'Profit & Loss',
+        path: '/accounting/profit-and-loss',
+      },
+      {
         id: 'accounting-settings',
         title: 'Accounting Settings',
         path: '/accounting/settings',
@@ -99,7 +104,7 @@ describe('navigation structure', () => {
 
   it('opens every accounting child to all roles', () => {
     const children = accountingParent().children ?? []
-    expect(children).toHaveLength(7)
+    expect(children).toHaveLength(8)
     children.forEach((child) => {
       expect(child.roles).toEqual([
         'admin',

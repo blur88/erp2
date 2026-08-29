@@ -736,6 +736,8 @@ export interface PlSection {
   rowId: string
   key: PlSectionKey
   label: string
+  /** Caption for the total row — "Total Expenses", not "Total Operating Expenses". */
+  totalLabel: string
   rows: PlAccountRow[]
   total: string
   totalRowId: string

@@ -3,6 +3,7 @@ import type { PlSection } from './profit-and-loss.types';
 
 const section = (key: string, total: string): PlSection => ({
   rowId: `${key}.section`, key: key as any, label: key,
+  totalLabel: `Total ${key}`,
   rows: [], total, totalRowId: `${key}.total`,
 });
 

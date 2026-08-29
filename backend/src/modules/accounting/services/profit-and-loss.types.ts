@@ -44,6 +44,12 @@ export interface PlSection {
   rowId: string;
   key: SectionKey;
   label: string;
+  /**
+   * Caption for the section's total row. Carried explicitly rather than
+   * derived as `"Total " + label`, because the two differ: the Operating
+   * Expenses section's total reads "Total Expenses" (spec §4).
+   */
+  totalLabel: string;
   rows: PlAccountRow[];
   total: string;
   totalRowId: string;

@@ -1,4 +1,4 @@
-import './profitAndLoss.print.css'
+import '@/components/print/accountingReportPrint.css'
 import React, { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
@@ -25,7 +25,7 @@ import PageHeader from '@/components/common/PageHeader'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetProfitAndLossQuery } from '@/store/api/accountingApi'
-import { useGetPrintSettingsQuery } from '@/store/api/printSettingsApi'
+import { AccountingReportPrintLayout } from '@/components/print/AccountingReportPrintLayout'
 import { formatCurrency } from '@/utils/currency'
 import type { ProfitAndLossResponse } from '@/types'
 
@@ -36,6 +36,22 @@ export default function ProfitAndLossPage() {
   const rawYear = searchParams.get('year')
   const isFourDigit = /^\d{4}$/.test(rawYear ?? '')
   const year = isFourDigit ? Number(rawYear) : new Date().getFullYear()
+
+  // Normalize an absent or malformed ?year= to the year actually being shown.
+  // Without this the URL keeps saying `?year=abc` while the page renders the
+  // current year, so a refresh or a shared link disagrees with what was on
+  // screen. `replace` keeps the correction out of the history stack.
+  React.useEffect(() => {
+    if (isFourDigit) return
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('year', String(year))
+        return next
+      },
+      { replace: true },
+    )
+  }, [isFourDigit, year, setSearchParams])
 
   const handleYearChange = (newYear: number) => {
     setSearchParams(
@@ -48,8 +64,12 @@ export default function ProfitAndLossPage() {
     )
   }
 
-  const { data, isLoading, isError } = useGetProfitAndLossQuery({ year })
-  const { data: printSettings } = useGetPrintSettingsQuery()
+  // `currentData` is scoped to the CURRENT argument, unlike `data`, which
+  // keeps the previous year's payload while the new year is in flight. Reading
+  // `data` would briefly render last year's figures under the new year's
+  // heading — a wrong report, not merely a stale one.
+  const { currentData, isLoading, isFetching, isError } = useGetProfitAndLossQuery({ year })
+  const data = currentData
 
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
 
@@ -73,6 +93,44 @@ export default function ProfitAndLossPage() {
   }
 
   const isZeroAmount = (amount: string) => amount === '0.0000'
+
+  /**
+   * A computed summary line (Gross Profit, Net Profit). Rendered as its own
+   * one-row table so it can sit between sections — Gross Profit belongs
+   * immediately after Cost of Sales, where the reader expects it, not after
+   * every section has been listed.
+   */
+  const summaryRow = (rowId: string, label: string, amount: string) => (
+    <Table
+      size={TABLE_STYLES.size}
+      className="acct-print-table"
+      sx={{
+        mb: 3,
+        '& .MuiTableCell-root': {
+          py: TABLE_STYLES.cell.padding.py,
+          px: TABLE_STYLES.cell.padding.px,
+        },
+      }}
+    >
+      <TableBody>
+        <TableRow
+          data-testid={`pl-row-${rowId}`}
+          data-zero={isZeroAmount(amount) ? 'true' : 'false'}
+          sx={{
+            '& td': {
+              fontWeight: 700,
+              borderTop: 2,
+              borderTopColor: 'divider',
+              color: isZeroAmount(amount) ? 'text.disabled' : 'text.primary',
+            },
+          }}
+        >
+          <TableCell colSpan={2}>{label}</TableCell>
+          <TableCell align="right">{formatCurrency(amount)}</TableCell>
+        </TableRow>
+      </TableBody>
+    </Table>
+  )
 
   const profitAndLoss = data as ProfitAndLossResponse | undefined
 
@@ -108,43 +166,29 @@ export default function ProfitAndLossPage() {
   )
 
   return (
-    <Box className="pl-print-root" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      {/* Print header */}
-      <Box className="pl-print-header" sx={{ mb: 2 }}>
-        {printSettings?.companyName && <Typography variant="h6">{printSettings.companyName}</Typography>}
-        {printSettings?.address && <Typography variant="body2">{printSettings.address}</Typography>}
-        {printSettings?.phone && <Typography variant="body2">{printSettings.phone}</Typography>}
-        {printSettings?.email && <Typography variant="body2">{printSettings.email}</Typography>}
-        {printSettings?.website && <Typography variant="body2">{printSettings.website}</Typography>}
-        <Typography variant="h6" sx={{ mt: 1, fontWeight: 700 }}>
-          PROFIT & LOSS
-        </Typography>
-        <Typography variant="body2">Year {year}</Typography>
-        <Typography variant="caption" color="text.secondary">
-          Generated {new Date().toLocaleString()}
-        </Typography>
+    <AccountingReportPrintLayout title="PROFIT & LOSS" period={`Year ${year}`}>
+      <Box data-print-hide="true">
+        <PageHeader
+          variant="workflow"
+          title="Profit & Loss"
+          subtitle="Annual profit or loss."
+          toolbar={toolbar}
+        />
       </Box>
 
-      <PageHeader
-        variant="workflow"
-        title="Profit & Loss"
-        subtitle="Annual profit and loss report."
-        toolbar={toolbar}
-      />
-
-      {isLoading && (
+      {(isLoading || isFetching) && (
         <Box data-testid="pl-loading">
           <ListSkeleton rows={8} columns={4} />
         </Box>
       )}
 
-      {isError && !isLoading && (
+      {isError && !isLoading && !isFetching && (
         <Alert severity="error" sx={{ mb: 2 }}>
           Unable to load Profit & Loss. Please try again.
         </Alert>
       )}
 
-      {profitAndLoss && !isLoading && !isError && (
+      {profitAndLoss && !isLoading && !isFetching && !isError && (
         <>
           {/* Integrity warnings */}
           {(profitAndLoss.integrity.anomalies.length > 0 ||
@@ -166,7 +210,7 @@ export default function ProfitAndLossPage() {
             </Alert>
           )}
 
-          <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }} data-print-hide="false">
+          <Box className="acct-print-scroll" sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
             {profitAndLoss.sections.map((section) => {
               const isCogs = section.key === 'cogs'
               const totalAmount = isCogs ? profitAndLoss.totalCostOfSales : section.total
@@ -184,7 +228,7 @@ export default function ProfitAndLossPage() {
                   </Typography>
                   <Table
                     size={TABLE_STYLES.size}
-                    className="pl-table"
+                    className="acct-print-table"
                     sx={{
                       '& .MuiTableCell-root': {
                         py: TABLE_STYLES.cell.padding.py,
@@ -240,6 +284,7 @@ export default function ProfitAndLossPage() {
                                   <IconButton
                                     size="small"
                                     onClick={() => toggle(row.rowId)}
+                                    className="acct-print-control"
                                     data-testid={`pl-expand-${row.rowId}`}
                                   >
                                     {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
@@ -266,6 +311,7 @@ export default function ProfitAndLossPage() {
                                       cursor: 'pointer',
                                       color: childIsZero ? 'text.disabled' : undefined,
                                     }}
+                                    className="acct-print-detail-row"
                                     data-testid={`pl-row-${child.rowId}`}
                                     data-zero={childIsZero ? 'true' : 'false'}
                                   >
@@ -307,65 +353,25 @@ export default function ProfitAndLossPage() {
                           },
                         }}
                       >
-                        <TableCell colSpan={2}>Total {section.label}</TableCell>
+                        <TableCell colSpan={2}>{section.totalLabel}</TableCell>
                         <TableCell align="right">{formatCurrency(totalAmount)}</TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
+
+                  {/* Gross Profit follows Cost of Sales directly (spec §4). */}
+                  {isCogs && summaryRow('grossProfit', 'Gross Profit', profitAndLoss.grossProfit)}
                 </Box>
               )
             })}
 
-            {/* Gross Profit and Net Profit summary */}
-            <Box sx={{ mt: 3 }}>
-              <Table
-                size={TABLE_STYLES.size}
-                className="pl-table"
-                sx={{
-                  '& .MuiTableCell-root': {
-                    py: TABLE_STYLES.cell.padding.py,
-                    px: TABLE_STYLES.cell.padding.px,
-                  },
-                  '& .MuiTableCell-head': {
-                    py: TABLE_STYLES.header.padding.py,
-                  },
-                }}
-              >
-                <TableBody>
-                  <TableRow
-                    data-testid="pl-row-grossProfit"
-                    data-zero={isZeroAmount(profitAndLoss.grossProfit) ? 'true' : 'false'}
-                    sx={{
-                      '& td': { fontWeight: 700, color: isZeroAmount(profitAndLoss.grossProfit) ? 'text.disabled' : 'text.primary' },
-                    }}
-                  >
-                    <TableCell colSpan={2}>Gross Profit</TableCell>
-                    <TableCell align="right">{formatCurrency(profitAndLoss.grossProfit)}</TableCell>
-                  </TableRow>
-                  <TableRow
-                    data-testid="pl-row-netProfit"
-                    data-zero={isZeroAmount(profitAndLoss.netProfit) ? 'true' : 'false'}
-                    sx={{
-                      '& td': { fontWeight: 700, color: isZeroAmount(profitAndLoss.netProfit) ? 'text.disabled' : 'text.primary' },
-                    }}
-                  >
-                    <TableCell colSpan={2}>Net Profit</TableCell>
-                    <TableCell align="right">{formatCurrency(profitAndLoss.netProfit)}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
+            {/* Net Profit closes the report. */}
+            <Box sx={{ mt: 1 }}>
+              {summaryRow('netProfit', 'Net Profit', profitAndLoss.netProfit)}
             </Box>
-
-            {printSettings?.reportEndOfDocFooter && (
-              <Box sx={{ mt: 3, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-                <Typography variant="body2" color="text.secondary">
-                  {printSettings.reportEndOfDocFooter}
-                </Typography>
-              </Box>
-            )}
           </Box>
         </>
       )}
-    </Box>
+    </AccountingReportPrintLayout>
   )
 }

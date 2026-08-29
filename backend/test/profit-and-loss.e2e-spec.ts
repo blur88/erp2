@@ -77,15 +77,13 @@ describe('Profit & Loss (e2e)', () => {
   const SEEDED_INCREASE = '100.0000';
   const SEEDED_DECREASE = '300.0000';
   const SEEDED_ADJUSTMENT_NET = '200.0000'; // 300 - 100 = 200
+  // Posted to Revenue then reversed: must net to zero in the report.
+  const SEEDED_REVERSED = '77.0000';
 
-  const toMinor = (s: string) => BigInt(s.replace('.', '').replace('-', '')) * (s.startsWith('-') ? -1n : 1n);
-  // Alternative robust: parse via toMinorUnits logic: remove dot, handle sign
+  /** Scale-4 decimal string -> minor units. Every figure here is scale-4. */
   const minor = (s: string) => {
     const neg = s.startsWith('-');
-    const clean = s.replace('-', '').replace('.', '');
-    // pad if needed? but s is always 4 decimal places, so clean is without dot.
-    // e.g., "1200.0000" -> "12000000"
-    return neg ? -BigInt(clean) : BigInt(clean);
+    return (neg ? -1n : 1n) * BigInt(s.replace('-', '').replace('.', ''));
   };
   const sectionTotal = (r: any, key: string) => minor(r.sections.find((s: any) => s.key === key)!.total);
 
@@ -154,15 +152,24 @@ describe('Profit & Loss (e2e)', () => {
       }, m),
     );
 
-    // 2. Expense payment
+    // 2. Operating expense.
+    //
+    // Deliberately NOT postExpensePayment: that resolves a CASH/BANK channel
+    // account from settings and so debits/credits the shared 1100 or 1200.
+    // owner-equity.e2e-spec.ts asserts DELTAS on 1100/1200 across its own
+    // beforeAll..it window, so a channel posting from this suite lands inside
+    // that window and shifts its expected figures — the suites share one DB
+    // and are size-ordered, so the interleaving is not stable.
+    //
+    // This report only needs an Expense-account debit; the funding leg is
+    // incidental to every assertion below. Posting an opening balance against
+    // 6990 gives the same P&L movement while touching only 6990 and Opening
+    // Balance Equity (3200), which no other suite asserts on.
     await ds.transaction((m) =>
-      posting.postExpensePayment({
-        expenseId: randomUUID(),
-        paymentRowId: randomUUID(),
-        expenseAccountId: expenseAcc.id,
-        channel: 'CASH' as any,
-        amount: SEEDED_EXPENSE,
+      posting.postOpeningBalance({
+        accountId: expenseAcc.id,
         sourceRef: `PL-E2E-EXP-${Date.now()}`,
+        amount: SEEDED_EXPENSE,
         entryDate: `${year}-04-10`,
       }, m),
     );
@@ -178,53 +185,43 @@ describe('Profit & Loss (e2e)', () => {
       }, m),
     );
 
-    // 4. Reversal: create a dummy opening balance and reverse it (net zero, proves reversal doesn't break tie-out)
-    const assetsGroup = await coaRepo.findOneByOrFail({ code: '1000' });
-    const dummyCode = `PLD-${Date.now().toString().slice(-6)}`;
-    const dummyAcc = await coaRepo.save(coaRepo.create({
-      code: dummyCode,
-      name: 'PL Dummy',
-      type: 'Asset' as any,
-      parentId: assetsGroup.id,
-      isActive: true, isSystem: false, isPostable: true, openingBalance: '0.0000',
-    }));
-    let dummyEntryId: string | null = null;
+    // 4. Reversal of a P&L posting.
+    //
+    // Reversing an ASSET opening balance would prove nothing here: an Asset
+    // account never reaches this report, so the reversal could be broken and
+    // every assertion below would still pass. Reverse an INCOME posting, so
+    // the original and its reversal both land in the Revenue section and must
+    // cancel — that is what makes reversal handling actually tested.
+    const salesAcc = await coaRepo.findOneByOrFail({ code: '4100' });
+    let reversedEntryId: string | null = null;
     await ds.transaction(async (m) => {
       const res = await posting.postOpeningBalance({
-        accountId: dummyAcc.id,
+        accountId: salesAcc.id,
         sourceRef: `PL-E2E-REV-${Date.now()}`,
-        amount: '50.0000',
+        amount: SEEDED_REVERSED,
         entryDate: `${year}-06-01`,
       }, m);
-      dummyEntryId = res.journalEntryId;
+      reversedEntryId = res.journalEntryId;
     });
-    if (dummyEntryId) {
-      await ds.transaction((m) =>
-        posting.reverseEntry({ originalEntryId: dummyEntryId!, entryDate: `${year}-06-02` }, m),
-      );
-    }
+    expect(reversedEntryId).toBeTruthy();
+    await ds.transaction((m) =>
+      posting.reverseEntry({ originalEntryId: reversedEntryId!, entryDate: `${year}-06-02` }, m),
+    );
 
     const after = await readReport(year);
 
     // Deltas match seeded amounts exactly (derived from constants, not response)
+    // Revenue moves by the fulfilment only: the reversed posting and its
+    // reversal both land here and cancel. A delta of
+    // SEEDED_REVENUE + SEEDED_REVERSED would mean the reversal was ignored.
     expect(sectionTotal(after, 'revenue') - sectionTotal(before, 'revenue')).toBe(minor(SEEDED_REVENUE));
     expect(minor(after.inventoryAdjustments) - minor(before.inventoryAdjustments)).toBe(minor(SEEDED_ADJUSTMENT_NET));
     // totalCostOfSales moved by COGS + adjustment net
     expect(minor(after.totalCostOfSales) - minor(before.totalCostOfSales)).toBe(minor(SEEDED_COGS) + minor(SEEDED_ADJUSTMENT_NET));
-    // Operating expenses delta excludes inventory adjustments (only the expense payment)
-    // The expense account 6990's ordinary movement is the expense payment; adjustments are not in expenses section.
-    // So expenses section delta should be SEEDED_EXPENSE
-    // But there is also the stock adjustment's expense leg? Wait: stock adjustment increase is credit to expense (reduces), decrease is debit (adds).
-    // In our case, net adjustment is 200 added to cost, but does it affect expenses section? No, adjustments are excluded from section totals, they go to totalCostOfSales only.
-    // So expenses delta should be just SEEDED_EXPENSE.
-    // However our expense payment of 800 is the only ordinary expense movement seeded. Stock adjustment's expense side is stockAdjustment component, not ordinary, so not in expenses section.
-    // Let's assert expenses delta is SEEDED_EXPENSE
-    // But note: other suites may have seeded other expenses in same year; we use delta so it's safe.
-    // The expense section total should have increased by SEEDED_EXPENSE only, not by adjustment net.
+    // Operating Expenses moves by the ordinary expense only. The stock
+    // adjustment's expense leg is the stockAdjustment component, which §4.2
+    // routes to Inventory Adjustments instead.
     const expensesDelta = sectionTotal(after, 'expenses') - sectionTotal(before, 'expenses');
-    // Use minor comparison with tolerance for other concurrent suites? No, we seeded exactly 800, so delta should be at least 800, but could be more if other suites seeded concurrently during our transaction window.
-    // However our baseline capture is before seeding, and after capture is immediately after seeding, with no other suite running concurrently in same process (maxWorkers=1, serial). So delta should be exactly 800.
-    // But to be safe against shared DB leakage from other suites that seeded earlier (before our before), delta should still be exactly 800 because we are measuring difference.
     expect(expensesDelta).toBe(minor(SEEDED_EXPENSE));
 
     // Net profit delta: revenue - totalCostOfSales - expenses + otherIncome(0)

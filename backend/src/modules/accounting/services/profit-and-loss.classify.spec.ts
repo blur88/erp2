@@ -159,7 +159,7 @@ describe('auditAssignments (spec 7.3)', () => {
       accounts: ACCOUNTS,
       movements: [mv('other-exp', 80000000n)],
       assignments: assignments as any,
-      counts: new Map(),
+      claims: [], // classification dropped it: no claim, no map entry
       describe: describe_,
     });
     expect(anomalies).toEqual([
@@ -176,7 +176,8 @@ describe('auditAssignments (spec 7.3)', () => {
       accounts: ACCOUNTS,
       movements: [mv('other-exp', 80000000n)],
       assignments: assignments as any,
-      counts: new Map(),
+      // Two unexplained map entries: no claim logged either write.
+      claims: [],
       describe: describe_,
     });
     expect(anomalies).toEqual([
@@ -191,11 +192,95 @@ describe('auditAssignments (spec 7.3)', () => {
       accounts: ACCOUNTS,
       movements: [mv('other-exp', 80000000n, 2000000n)],
       assignments: assignments as any,
-      counts: new Map(), // never bumped
+      claims: [],
       describe: describe_,
     });
     expect(anomalies).toEqual([
       { accountId: 'other-exp', code: '6990', name: 'Other Expenses', component: 'stockAdjustment', count: 0 },
+    ]);
+  });
+
+  it('reports a stock-adjustment component claimed TWICE', () => {
+    // The duplicate must be visible from the claim list itself. A counter
+    // written where the claim happens can never exceed 1, so this case would
+    // be undetectable through it.
+    const assignments = emptyMaps();
+    assignments.get('expenses')!.set('other-exp', 80000000n);
+    const anomalies = auditAssignments({
+      accounts: ACCOUNTS,
+      movements: [mv('other-exp', 80000000n, 2000000n)],
+      assignments: assignments as any,
+      claims: [
+        { accountId: 'other-exp', component: 'stockAdjustment' as const, destination: 'inventoryAdjustments' as const },
+        { accountId: 'other-exp', component: 'stockAdjustment' as const, destination: 'expenses' as const },
+      ],
+      describe: describe_,
+    });
+    expect(anomalies).toEqual([
+      { accountId: 'other-exp', code: '6990', name: 'Other Expenses', component: 'stockAdjustment', count: 2 },
+    ]);
+  });
+
+  // Production-level proof, not a hand-fed ledger: the audit must catch a
+  // duplicate that CLASSIFY itself produced. Section maps carry amounts but no
+  // component metadata, so an adjustment leaking into a section is invisible
+  // without the destination ledger.
+  it('detects an adjustment that also reached a section, via classify', () => {
+    const res = classify(base([mv('other-exp', 80000000n, 2000000n)]));
+
+    // Simulate the leak on the real output: the adjustment's money additionally
+    // appears in a section, as a regression in classification would cause.
+    res.assignments.get('cogs')!.set('other-exp', 2000000n);
+    const leaked = auditAssignments({
+      accounts: ACCOUNTS,
+      movements: [mv('other-exp', 80000000n, 2000000n)],
+      assignments: res.assignments,
+      claims: [
+        { accountId: 'other-exp', component: 'ordinary', destination: 'expenses' },
+        { accountId: 'other-exp', component: 'stockAdjustment', destination: 'inventoryAdjustments' },
+      ],
+      describe: describe_,
+    });
+
+    // The unexplained 'cogs' entry is counted against the ordinary component.
+    expect(leaked).toEqual([
+      { accountId: 'other-exp', code: '6990', name: 'Other Expenses', component: 'ordinary', count: 2 },
+    ]);
+  });
+
+  // An adjustment-ONLY account (no ordinary movement) leaking into a section.
+  // The unexplained-entry sweep used to run only for the ordinary component,
+  // and the ordinary audit was skipped entirely when ordinary === 0n — so this
+  // leak passed silently through both.
+  it('detects a section leak on an account with ONLY adjustment movement', () => {
+    const res = classify(base([mv('other-exp', 0n, 2000000n)]));
+    res.assignments.get('cogs')!.set('other-exp', 2000000n);
+
+    const anomalies = auditAssignments({
+      accounts: ACCOUNTS,
+      movements: [mv('other-exp', 0n, 2000000n)],
+      assignments: res.assignments,
+      claims: res.claims,
+      describe: describe_,
+    });
+
+    expect(anomalies).toEqual([
+      { accountId: 'other-exp', code: '6990', name: 'Other Expenses', component: 'stockAdjustment', count: 2 },
+    ]);
+  });
+
+  it('reports a claim whose destination map entry never materialised', () => {
+    // A phantom claim: classification logged 'expenses' but wrote nothing.
+    const assignments = emptyMaps();
+    const anomalies = auditAssignments({
+      accounts: ACCOUNTS,
+      movements: [mv('other-exp', 80000000n)],
+      assignments: assignments as any,
+      claims: [{ accountId: 'other-exp', component: 'ordinary', destination: 'expenses' }],
+      describe: describe_,
+    });
+    expect(anomalies).toEqual([
+      { accountId: 'other-exp', code: '6990', name: 'Other Expenses', component: 'ordinary', count: 0 },
     ]);
   });
 
@@ -206,7 +291,10 @@ describe('auditAssignments (spec 7.3)', () => {
       accounts: ACCOUNTS,
       movements: [mv('other-exp', 80000000n, 2000000n)],
       assignments: assignments as any,
-      counts: new Map([['other-exp::stockAdjustment', 1]]),
+      claims: [
+        { accountId: 'other-exp', component: 'ordinary' as const, destination: 'expenses' as const },
+        { accountId: 'other-exp', component: 'stockAdjustment' as const, destination: 'inventoryAdjustments' as const },
+      ],
       describe: describe_,
     });
     expect(anomalies).toEqual([]);
@@ -295,7 +383,7 @@ describe('assembleSections — category anchoring (spec 4.1.1)', () => {
       ['expenses', new Map([['other-exp', 80000000n]])],
     ] as any);
 
-    const sections = assembleSections(ACCOUNTS, assignments as any);
+    const sections = assembleSections(ACCOUNTS, assignments as any, 'sales', 'cogs');
     const expenses = sections.find((s) => s.key === 'expenses')!;
 
     // 6990, NOT 6000.
@@ -362,6 +450,49 @@ describe('assembleSections — category anchoring (spec 4.1.1)', () => {
     expect(sections.every((s) => s.total === '0.0000')).toBe(true);
   });
 
+  // Spec §7.2: zero rows stay VISIBLE and muted. Classification only ever
+  // emits accounts with non-zero movement, so assembly must seed the section's
+  // postable accounts at zero or they vanish from the report entirely.
+  it('renders a postable account with NO movement at zero', () => {
+    const assignments = new Map([
+      ['revenue', new Map()], ['cogs', new Map()],
+      ['otherIncome', new Map()], ['expenses', new Map()],
+    ] as any);
+
+    const sections = assembleSections(ACCOUNTS, assignments as any, 'sales', 'cogs');
+    const revenue = sections.find((s) => s.key === 'revenue')!;
+    const expenses = sections.find((s) => s.key === 'expenses')!;
+
+    expect(revenue.rows.map((r) => r.code)).toEqual(['4100']);
+    expect(revenue.rows[0].amount).toBe('0.0000');
+    expect(expenses.rows.map((r) => r.code)).toEqual(['6990']);
+    expect(expenses.rows[0].amount).toBe('0.0000');
+  });
+
+  it('renders an account whose movement NETS to zero', () => {
+    const assignments = new Map([
+      ['revenue', new Map()], ['cogs', new Map()], ['otherIncome', new Map()],
+      ['expenses', new Map([['other-exp', 0n]])],
+    ] as any);
+
+    const expenses = assembleSections(ACCOUNTS, assignments as any, 'sales', 'cogs')
+      .find((s) => s.key === 'expenses')!;
+    expect(expenses.rows.map((r) => r.code)).toEqual(['6990']);
+    expect(expenses.rows[0].amount).toBe('0.0000');
+  });
+
+  it('never seeds a non-postable group as its own row', () => {
+    const assignments = new Map([
+      ['revenue', new Map()], ['cogs', new Map()],
+      ['otherIncome', new Map()], ['expenses', new Map()],
+    ] as any);
+    const codes = assembleSections(ACCOUNTS, assignments as any, 'sales', 'cogs')
+      .flatMap((s) => s.rows.map((r) => r.code));
+    expect(codes).not.toContain('6000');
+    expect(codes).not.toContain('4000');
+    expect(codes).not.toContain('5000');
+  });
+
   it('orders rows by account code', () => {
     const accounts: PlAccount[] = [...ACCOUNTS,
       { id: 'aaa', code: '6100', name: 'Aaa', type: 'Expense', parentId: 'exp-root', isPostable: true },
@@ -370,7 +501,7 @@ describe('assembleSections — category anchoring (spec 4.1.1)', () => {
       ['revenue', new Map()], ['cogs', new Map()], ['otherIncome', new Map()],
       ['expenses', new Map([['other-exp', 1n], ['aaa', 1n]])],
     ] as any);
-    const expenses = assembleSections(accounts, assignments as any)
+    const expenses = assembleSections(accounts, assignments as any, 'sales', 'cogs')
       .find((s) => s.key === 'expenses')!;
     expect(expenses.rows.map((r) => r.code)).toEqual(['6100', '6990']);
   });

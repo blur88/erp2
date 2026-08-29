@@ -132,14 +132,25 @@ export class ProfitAndLossService {
       },
     );
 
+    // Bound once: classification and assembly must resolve section membership
+    // from the SAME configured accounts, or a zero-seeded row could land in a
+    // different section than a moved one.
+    const salesRevenueAccountId = (settings as any)?.salesRevenueAccountId ?? null;
+    const cogsAccountId = (settings as any)?.cogsAccountId ?? null;
+
     const result = classify({
       accounts,
       movements,
-      salesRevenueAccountId: (settings as any)?.salesRevenueAccountId ?? null,
-      cogsAccountId: (settings as any)?.cogsAccountId ?? null,
+      salesRevenueAccountId,
+      cogsAccountId,
     });
 
-    const sections = assembleSections(accounts, result.assignments);
+    const sections = assembleSections(
+      accounts,
+      result.assignments,
+      salesRevenueAccountId,
+      cogsAccountId,
+    );
     const { totalCostOfSales, grossProfit, netProfit } =
       this.computeTotals(sections, result.inventoryAdjustments);
 
