@@ -27,7 +27,7 @@ import {
   QueryProductsDto,
   ProductResponseDto,
   ProductListResponseDto,
-  BulkUpdatePricesDto,
+  BulkUpdateProductPricesDto,
   ProductStockSummaryDto,
   ProductImportDto,
   ProductImportResultDto,
@@ -1266,7 +1266,7 @@ export class ProductService extends BaseCrudService<
   /**
    * Bulk update product prices
    */
-  async bulkUpdatePrices(bulkUpdateDto: BulkUpdatePricesDto): Promise<void> {
+  async bulkUpdatePrices(bulkUpdateDto: BulkUpdateProductPricesDto): Promise<void> {
     this.logger.log(`Bulk updating prices for ${bulkUpdateDto.products.length} products`);
 
     const productIds = bulkUpdateDto.products.map((p) => p.productId);

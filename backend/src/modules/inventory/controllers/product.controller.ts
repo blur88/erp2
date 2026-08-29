@@ -36,7 +36,7 @@ import {
   QueryProductsDto,
   ProductResponseDto,
   ProductListResponseDto,
-  BulkUpdatePricesDto,
+  BulkUpdateProductPricesDto,
   ProductStockSummaryDto,
   ProductImportDto,
   ProductImportResultDto,
@@ -312,10 +312,10 @@ export class ProductController {
   })
   @ApiResponse({ status: 400, description: 'Invalid price data' })
   @ApiResponse({ status: 404, description: 'One or more products not found' })
-  @ApiBody({ type: BulkUpdatePricesDto })
+  @ApiBody({ type: BulkUpdateProductPricesDto })
   @HttpCode(HttpStatus.OK)
   async bulkUpdatePrices(
-    @Body() bulkUpdateDto: BulkUpdatePricesDto,
+    @Body() bulkUpdateDto: BulkUpdateProductPricesDto,
   ): Promise<{ message: string }> {
     await this.productService.bulkUpdatePrices(bulkUpdateDto);
     return { message: `Successfully updated prices for ${bulkUpdateDto.products.length} products` };

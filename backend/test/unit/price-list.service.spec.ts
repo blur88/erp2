@@ -15,7 +15,7 @@ import { Product } from "../../src/database/entities/product.entity";
 import { SettingsService } from "../../src/modules/settings/settings.service";
 import { CreatePriceListDto } from "../../src/modules/price-lists/dto/create-price-list.dto";
 import { UpdatePriceListDto } from "../../src/modules/price-lists/dto/update-price-list.dto";
-import { BulkUpdatePricesDto } from "../../src/modules/price-lists/dto/bulk-update-prices.dto";
+import { BulkUpdatePriceListPricesDto } from "../../src/modules/price-lists/dto/bulk-update-prices.dto";
 
 describe("PriceListsService", () => {
   let service: PriceListsService;
@@ -440,7 +440,7 @@ describe("PriceListsService", () => {
   });
 
   describe("bulkUpdatePrices", () => {
-    const bulkDto: BulkUpdatePricesDto = {
+    const bulkDto: BulkUpdatePriceListPricesDto = {
       items: [
         {
           productId: "product-123",
