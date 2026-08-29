@@ -1,4 +1,4 @@
-import { classify, auditAssignments } from './profit-and-loss.classify';
+import { classify, auditAssignments, assembleSections } from './profit-and-loss.classify';
 import type { PlAccount, AccountMovement } from './profit-and-loss.types';
 
 const ACCOUNTS: PlAccount[] = [
@@ -284,4 +284,94 @@ describe('classify — structural validation (spec 7.3)', () => {
     expect(res.structuralFaults.map((f) => f.kind)).toContain('parentCycle');
     expect(res.assignments.get('expenses')!.get('x')).toBe(1000000n);
   }, 5000); // fails by timeout if traversal is not cycle-safe
+});
+
+describe('assembleSections — category anchoring (spec 4.1.1)', () => {
+  it('anchors on the first branch below the root, not the root', () => {
+    const assignments = new Map([
+      ['revenue', new Map()],
+      ['cogs', new Map()],
+      ['otherIncome', new Map()],
+      ['expenses', new Map([['other-exp', 80000000n]])],
+    ] as any);
+
+    const sections = assembleSections(ACCOUNTS, assignments as any);
+    const expenses = sections.find((s) => s.key === 'expenses')!;
+
+    // 6990, NOT 6000.
+    expect(expenses.rows.map((r) => r.code)).toEqual(['6990']);
+    expect(expenses.total).toBe('8000.0000');
+  });
+
+  it('renders a postable category with no children, so it is not shown twice', () => {
+    const assignments = new Map([
+      ['revenue', new Map()], ['cogs', new Map()], ['otherIncome', new Map()],
+      ['expenses', new Map([['other-exp', 80000000n]])],
+    ] as any);
+
+    const expenses = assembleSections(ACCOUNTS, assignments as any)
+      .find((s) => s.key === 'expenses')!;
+
+    expect(expenses.rows[0].isPostable).toBe(true);
+    expect(expenses.rows[0].children).toEqual([]); // 6990 not its own child
+  });
+
+  it('expands a structural category over its postable descendants', () => {
+    const accounts: PlAccount[] = [...ACCOUNTS,
+      { id: 'overheads', code: '6500', name: 'Overheads', type: 'Expense', parentId: 'exp-root', isPostable: false },
+      { id: 'phone', code: '6920', name: 'Telephone', type: 'Expense', parentId: 'overheads', isPostable: true },
+      { id: 'power', code: '6930', name: 'Electricity', type: 'Expense', parentId: 'overheads', isPostable: true },
+    ];
+    const assignments = new Map([
+      ['revenue', new Map()], ['cogs', new Map()], ['otherIncome', new Map()],
+      ['expenses', new Map([['phone', 7300000n], ['power', 2700000n]])],
+    ] as any);
+
+    const expenses = assembleSections(accounts, assignments as any)
+      .find((s) => s.key === 'expenses')!;
+    const overheads = expenses.rows.find((r) => r.code === '6500')!;
+
+    expect(overheads.isPostable).toBe(false);
+    expect(overheads.amount).toBe('1000.0000');
+    expect(overheads.children.map((c) => c.code)).toEqual(['6920', '6930']);
+    expect(expenses.total).toBe('1000.0000');
+  });
+
+  it('sums only classified contributions, never re-walking excluded subtrees', () => {
+    // COGS is classified into its own section; the Expenses section must not
+    // pick it up even though both are Expense-typed.
+    const assignments = new Map([
+      ['revenue', new Map()],
+      ['cogs', new Map([['cogs', 630000000n]])],
+      ['otherIncome', new Map()],
+      ['expenses', new Map([['other-exp', 80000000n]])],
+    ] as any);
+
+    const sections = assembleSections(ACCOUNTS, assignments as any);
+    expect(sections.find((s) => s.key === 'expenses')!.total).toBe('8000.0000');
+    expect(sections.find((s) => s.key === 'cogs')!.total).toBe('63000.0000');
+  });
+
+  it('returns all four sections with zero totals when nothing is classified', () => {
+    const assignments = new Map([
+      ['revenue', new Map()], ['cogs', new Map()],
+      ['otherIncome', new Map()], ['expenses', new Map()],
+    ] as any);
+    const sections = assembleSections(ACCOUNTS, assignments as any);
+    expect(sections.map((s) => s.key)).toEqual(['revenue', 'cogs', 'otherIncome', 'expenses']);
+    expect(sections.every((s) => s.total === '0.0000')).toBe(true);
+  });
+
+  it('orders rows by account code', () => {
+    const accounts: PlAccount[] = [...ACCOUNTS,
+      { id: 'aaa', code: '6100', name: 'Aaa', type: 'Expense', parentId: 'exp-root', isPostable: true },
+    ];
+    const assignments = new Map([
+      ['revenue', new Map()], ['cogs', new Map()], ['otherIncome', new Map()],
+      ['expenses', new Map([['other-exp', 1n], ['aaa', 1n]])],
+    ] as any);
+    const expenses = assembleSections(accounts, assignments as any)
+      .find((s) => s.key === 'expenses')!;
+    expect(expenses.rows.map((r) => r.code)).toEqual(['6100', '6990']);
+  });
 });

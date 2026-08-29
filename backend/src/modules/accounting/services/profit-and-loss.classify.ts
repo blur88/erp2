@@ -1,9 +1,10 @@
 import {
-  detectCycles, detectDanglingParents, isDescendantOf, type GraphNode,
+  detectCycles, detectDanglingParents, isDescendantOf, findRoot, type GraphNode,
 } from './profit-and-loss.graph';
+import { formatScale4 } from '@/common/utils/money';
 import type {
-  AccountMovement, MovementComponent, PlAccount, PlAssignmentAnomaly,
-  PlStructuralFault, SectionKey,
+  AccountMovement, MovementComponent, PlAccount, PlAccountRow, PlAssignmentAnomaly,
+  PlSection, PlStructuralFault, SectionKey,
 } from './profit-and-loss.types';
 
 export interface ClassifyInput {
@@ -207,4 +208,105 @@ export function classify(input: ClassifyInput): ClassifyResult {
   }
 
   return { assignments, inventoryAdjustments, anomalies, structuralFaults };
+}
+
+const SECTION_LABELS: Record<SectionKey, string> = {
+  revenue: 'Revenue',
+  cogs: 'Cost of Sales',
+  otherIncome: 'Other Income',
+  expenses: 'Operating Expenses',
+};
+
+/**
+ * Presentation only (spec §4.1.1 Step 2). Values come from `assignments`,
+ * which classification already computed — this NEVER re-walks account
+ * balances, which is what would let an excluded subtree leak back in.
+ *
+ * A category is the first branch BELOW the section's top-level root. Anchoring
+ * on "the top-most classified account" would be wrong: the six top-level
+ * groups are non-postable (accounting-seeder sets isPostable = parentId !==
+ * null), so they never appear in the classified set.
+ */
+export function assembleSections(
+  accounts: PlAccount[],
+  assignments: Map<SectionKey, Map<string, bigint>>,
+): PlSection[] {
+  const byId = new Map<string, PlAccount>(accounts.map((a) => [a.id, a]));
+  const graph = new Map<string, GraphNode>(
+    accounts.map((a) => [a.id, { id: a.id, parentId: a.parentId }]),
+  );
+
+  /** The ancestor of `id` that sits directly below its root, or `id` itself. */
+  const categoryAncestorOf = (id: string): string => {
+    const { rootId } = findRoot(id, graph);
+    if (rootId === id) return id;
+
+    const seen = new Set<string>();
+    let current = id;
+    for (;;) {
+      if (seen.has(current)) return current; // cycle-safe
+      seen.add(current);
+      const parentId = byId.get(current)?.parentId ?? null;
+      if (parentId === null || parentId === rootId || !byId.has(parentId)) return current;
+      current = parentId;
+    }
+  };
+
+  const toRow = (accountId: string, amount: bigint, children: PlAccountRow[]): PlAccountRow => {
+    const a = byId.get(accountId);
+    return {
+      rowId: `account:${accountId}`,
+      accountId,
+      code: a?.code ?? '(unknown)',
+      name: a?.name ?? '(unknown account)',
+      isPostable: a?.isPostable ?? true,
+      amount: formatScale4(amount),
+      children,
+    };
+  };
+
+  const byCode = (x: { code: string }, y: { code: string }) => x.code.localeCompare(y.code);
+
+  return SECTION_KEYS.map((key) => {
+    const classified = assignments.get(key) ?? new Map<string, bigint>();
+
+    // Group each classified contribution under its category ancestor.
+    const grouped = new Map<string, Map<string, bigint>>();
+    for (const [accountId, amount] of classified) {
+      const categoryId = categoryAncestorOf(accountId);
+      if (!grouped.has(categoryId)) grouped.set(categoryId, new Map());
+      const bucket = grouped.get(categoryId)!;
+      bucket.set(accountId, (bucket.get(accountId) ?? 0n) + amount);
+    }
+
+    let total = 0n;
+    const rows: PlAccountRow[] = [];
+
+    for (const [categoryId, contributions] of grouped) {
+      const categoryTotal = [...contributions.values()].reduce((s, v) => s + v, 0n);
+      total += categoryTotal;
+
+      const category = byId.get(categoryId);
+      // A postable category IS the drill-through row — never list it as its own
+      // child, which would render 6990 twice with the same figure.
+      const children = category?.isPostable
+        ? []
+        : [...contributions.entries()]
+            .map(([id, amt]) => toRow(id, amt, []))
+            .sort(byCode);
+
+      rows.push(toRow(categoryId, categoryTotal, children));
+    }
+
+    rows.sort(byCode);
+
+    return {
+      rowId: `${key}.section`,
+      key,
+      label: SECTION_LABELS[key],
+      rows,
+      total: formatScale4(total),
+      totalRowId: `${key}.total`,
+    };
+  });
 }
