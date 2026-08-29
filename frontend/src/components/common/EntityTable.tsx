@@ -14,6 +14,8 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
+import type { Theme } from '@mui/material'
+import type { SystemStyleObject } from '@mui/system'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
 import { darkTheme } from '@/styles/theme'
@@ -30,6 +32,18 @@ export interface ColumnConfig<T> {
    */
   align?: 'left' | 'center' | 'right'
   raw?: boolean
+}
+
+/**
+ * Presentation-only row attributes. Deliberately a closed whitelist, not a
+ * spread of arbitrary props: an open hook becomes a backdoor for event handlers
+ * that would race `onSelect`, and for `sx` that would bypass `getRowSx`. Add a
+ * key here explicitly if a caller genuinely needs one.
+ */
+export interface RowPresentationProps {
+  className?: string
+  'data-testid'?: string
+  'data-zero'?: string
 }
 
 export interface EntityTableProps<T extends { id: string }> {
@@ -58,6 +72,36 @@ export interface EntityTableProps<T extends { id: string }> {
    * not a lone total line.
    */
   tableFooter?: ReactNode
+  /**
+   * Whether a row can be selected. Default: every row. A row that returns false
+   * gets no click handler, no pointer cursor, no hover highlight, and none of
+   * the `selectableRowRole` accessibility attributes — it is inert content
+   * (a section header or a total line), not a disabled control.
+   */
+  isRowSelectable?: (row: T) => boolean
+  /**
+   * Opt-in keyboard navigation for selectable rows: applies the role,
+   * `tabIndex={0}` and activation. Omitted by default, which keeps the DOM of
+   * existing consumers unchanged. Links activate on Enter only; buttons also
+   * activate on Space.
+   */
+  selectableRowRole?: 'link' | 'button'
+  /**
+   * Row-level styling — full-width borders and backgrounds a column renderer
+   * cannot apply.
+   *
+   * `SystemStyleObject`, NOT `SxProps`: `SxProps` is a union that also admits a
+   * theme callback and a readonly array, neither of which survives the object
+   * spread used to merge this with the row's base styles. Constraining the type
+   * makes the merge below sound. Callers needing theme access can use the
+   * `theme.palette.*` string tokens (`'divider'`, `'text.disabled'`) that MUI
+   * resolves inside a style object.
+   */
+  getRowSx?: (row: T) => SystemStyleObject<Theme>
+  /** Presentation-only row attributes; see RowPresentationProps. */
+  getRowProps?: (row: T) => RowPresentationProps
+  /** Class applied to the inner <Table>, e.g. a print stylesheet hook. */
+  tableClassName?: string
 }
 
 interface RowProps<T extends { id: string }> {
@@ -68,6 +112,10 @@ interface RowProps<T extends { id: string }> {
   focusedIndex: number
   onSelect: (row: T) => void
   dataAttr: string
+  isRowSelectable?: (row: T) => boolean
+  selectableRowRole?: 'link' | 'button'
+  getRowSx?: (row: T) => SystemStyleObject<Theme>
+  getRowProps?: (row: T) => RowPresentationProps
 }
 
 const EntityRow = memo(function EntityRow<T extends { id: string }>({
@@ -78,17 +126,43 @@ const EntityRow = memo(function EntityRow<T extends { id: string }>({
   focusedIndex,
   onSelect,
   dataAttr,
+  isRowSelectable,
+  selectableRowRole,
+  getRowSx,
+  getRowProps,
 }: RowProps<T>) {
   const isSelected = selectedId === row.id
   const isFocused = index === focusedIndex
+  const selectable = isRowSelectable ? isRowSelectable(row) : true
+  const rowSx = getRowSx?.(row)
+  const rowProps = getRowProps?.(row)
+  const role = selectable ? selectableRowRole : undefined
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+    if (!selectable || !role) return
+    if (event.key === 'Enter') {
+      onSelect(row)
+      return
+    }
+    // Space activates a button, never a link — and its default page scroll must
+    // be suppressed before activation.
+    if (role === 'button' && event.key === ' ') {
+      event.preventDefault()
+      onSelect(row)
+    }
+  }
 
   return (
     <TableRow
-      hover
-      onClick={() => onSelect(row)}
+      hover={selectable}
+      onClick={selectable ? () => onSelect(row) : undefined}
+      role={role}
+      tabIndex={role ? 0 : undefined}
+      onKeyDown={role ? handleKeyDown : undefined}
       data-index={index}
+      {...rowProps}
       sx={{
-        cursor: 'pointer',
+        cursor: selectable ? 'pointer' : 'default',
         backgroundColor: isSelected
           ? alpha(darkTheme.palette.primary.main, 0.2)
           : isFocused
@@ -106,6 +180,7 @@ const EntityRow = memo(function EntityRow<T extends { id: string }>({
           outlineColor: 'primary.main',
           outlineOffset: '-2px',
         }),
+        ...rowSx,
       }}
     >
       {columns.map((column) => (
@@ -144,6 +219,11 @@ function EntityTable<T extends { id: string }>({
   headers,
   paginationSlot,
   tableFooter,
+  isRowSelectable,
+  selectableRowRole,
+  getRowSx,
+  getRowProps,
+  tableClassName,
 }: EntityTableProps<T>) {
   const emptyName = hasActiveFilters
     ? emptyFilteredLabel ?? emptyLabel ?? label
@@ -187,6 +267,7 @@ function EntityTable<T extends { id: string }>({
       >
         <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
           <Table
+            className={tableClassName}
             size={TABLE_STYLES.size}
             sx={{
               '& .MuiTableCell-root': {
@@ -264,6 +345,10 @@ function EntityTable<T extends { id: string }>({
                         focusedIndex={focusedIndex}
                         onSelect={onSelect}
                         dataAttr={dataAttr}
+                        isRowSelectable={isRowSelectable}
+                        selectableRowRole={selectableRowRole}
+                        getRowSx={getRowSx}
+                        getRowProps={getRowProps}
                       />
                     ))}
             </TableBody>
