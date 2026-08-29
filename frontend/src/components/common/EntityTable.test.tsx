@@ -238,6 +238,64 @@ describe('EntityTable', () => {
   })
 })
 
+import { TableCell, TableRow } from '@mui/material'
+
+function renderTable(overrides: Partial<React.ComponentProps<typeof EntityTable<Item>>> = {}) {
+  return render(
+    <EntityTable
+      rows={rows}
+      columns={columns}
+      loading={false}
+      total={rows.length}
+      label="Items"
+      selectedId={undefined}
+      focusedIndex={-1}
+      onSelect={vi.fn()}
+      listRef={{ current: null }}
+      {...overrides}
+    />,
+  )
+}
+
+describe('EntityTable tableFooter', () => {
+  it('renders the footer node when there are rows', () => {
+    renderTable({
+      tableFooter: (
+        <TableRow>
+          <TableCell data-testid="footer-cell">Total</TableCell>
+        </TableRow>
+      ),
+    })
+    expect(screen.getByTestId('footer-cell')).toBeInTheDocument()
+  })
+
+  it('does not render the footer when there are no rows', () => {
+    renderTable({
+      rows: [],
+      tableFooter: (
+        <TableRow>
+          <TableCell data-testid="footer-cell">Total</TableCell>
+        </TableRow>
+      ),
+    })
+    expect(screen.queryByTestId('footer-cell')).not.toBeInTheDocument()
+  })
+
+  it('renders the footer inside the table element', () => {
+    renderTable({
+      tableFooter: (
+        <TableRow>
+          <TableCell data-testid="footer-cell">Total</TableCell>
+        </TableRow>
+      ),
+    })
+    // A semantic <tfoot> inside <table> — not a sibling node after the card.
+    const footer = screen.getByTestId('footer-cell').closest('tfoot')
+    expect(footer).not.toBeNull()
+    expect(footer!.closest('table')).not.toBeNull()
+  })
+})
+
 describe('EntityTable column alignment', () => {
   const alignedColumns = [
     { key: 'name', render: (row: Item) => row.name },

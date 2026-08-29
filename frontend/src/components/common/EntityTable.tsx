@@ -9,6 +9,7 @@ import {
   TableBody,
   TableCell,
   TableContainer,
+  TableFooter,
   TableHead,
   TableRow,
   Typography,
@@ -48,6 +49,15 @@ export interface EntityTableProps<T extends { id: string }> {
   showHeader?: boolean
   headers?: string[]
   paginationSlot?: ReactNode
+  /**
+   * Rendered as a semantic <TableFooter> inside <Table>, after <TableBody>, so
+   * footer cells share the body's column grid and alignment. Supply the
+   * <TableRow>/<TableCell> structure yourself.
+   *
+   * Rendered only when there are rows: an empty list must show its empty state,
+   * not a lone total line.
+   */
+  tableFooter?: ReactNode
 }
 
 interface RowProps<T extends { id: string }> {
@@ -133,6 +143,7 @@ function EntityTable<T extends { id: string }>({
   showHeader = true,
   headers,
   paginationSlot,
+  tableFooter,
 }: EntityTableProps<T>) {
   const emptyName = hasActiveFilters
     ? emptyFilteredLabel ?? emptyLabel ?? label
@@ -256,6 +267,7 @@ function EntityTable<T extends { id: string }>({
                       />
                     ))}
             </TableBody>
+            {tableFooter && rows.length > 0 && <TableFooter>{tableFooter}</TableFooter>}
           </Table>
         </TableContainer>
       </Box>
