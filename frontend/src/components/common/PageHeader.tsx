@@ -21,6 +21,7 @@ type PageHeaderProps = {
   backAction?: () => void
   toolbar?: ReactNode
   children?: ReactNode
+  hideOnPrint?: boolean
 }
 
 export default function PageHeader({
@@ -34,6 +35,7 @@ export default function PageHeader({
   backAction,
   toolbar,
   children,
+  hideOnPrint,
 }: PageHeaderProps) {
   const theme = useTheme()
   const hasActions = primaryAction != null || secondaryAction != null
@@ -41,6 +43,7 @@ export default function PageHeader({
   return (
     <Box
       data-testid={showDivider ? 'page-header-divider' : undefined}
+      data-print-hide={hideOnPrint ? 'true' : undefined}
       sx={{
         mb: 2,
         pb: 2,

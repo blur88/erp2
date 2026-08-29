@@ -113,3 +113,17 @@ describe('SimpleListPage', () => {
     expect(screen.getByPlaceholderText('Search...')).toBeInTheDocument()
   })
 })
+
+describe('SimpleListPage hideHeaderOnPrint', () => {
+  it('marks the header as print-hidden when requested', () => {
+    render(<SimpleListPage {...baseProps} hideHeaderOnPrint />)
+    expect(screen.getByTestId('page-header-divider')).toHaveAttribute('data-print-hide', 'true')
+  })
+
+  it('omits the attribute entirely by default', () => {
+    render(<SimpleListPage {...baseProps} />)
+    // Absent, not "false" — the print CSS matches on the attribute's presence,
+    // so data-print-hide="false" would still hide the header.
+    expect(screen.getByTestId('page-header-divider')).not.toHaveAttribute('data-print-hide')
+  })
+})
