@@ -17,6 +17,7 @@ import type {
   RefundOwnerEquityRequest,
   SettleOwnerEquityRequest,
   TrialBalanceResponse,
+  ProfitAndLossResponse,
   PaginatedResponse,
   UpdateOwnerEquityRequest,
 } from '@/types'
@@ -68,7 +69,7 @@ export interface ExpenseListParams {
 export const accountingApiSlice = createApi({
   reducerPath: 'accountingApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance', 'OwnerEquity'],
+  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'OwnerEquity'],
   endpoints: (builder) => ({
     getAccountTree: builder.query<AccountTreeNode[], AccountTreeParams>({
       query: ({ search, type, isActive }) => {
@@ -126,13 +127,18 @@ export const accountingApiSlice = createApi({
       query: (params) => ({ url: '/accounting/general-ledger', params: params as unknown as Record<string, unknown> }),
       transformResponse: normalizeSingle<GeneralLedgerResponse>,
     }),
-     getTrialBalance: builder.query<
-       TrialBalanceResponse,
-       { asOfDate?: string; showZero?: boolean }
-     >({
-       query: (params) => ({ url: '/accounting/trial-balance', params }),
-       transformResponse: normalizeSingle<TrialBalanceResponse>,
-       providesTags: ['TrialBalance'],
+      getTrialBalance: builder.query<
+        TrialBalanceResponse,
+        { asOfDate?: string; showZero?: boolean }
+      >({
+        query: (params) => ({ url: '/accounting/trial-balance', params }),
+        transformResponse: normalizeSingle<TrialBalanceResponse>,
+        providesTags: ['TrialBalance'],
+      }),
+     getProfitAndLoss: builder.query<ProfitAndLossResponse, { year: number }>({
+       query: (params) => ({ url: '/accounting/profit-and-loss', params }),
+       transformResponse: normalizeSingle<ProfitAndLossResponse>,
+       providesTags: ['ProfitAndLoss'],
      }),
      getExpenses: builder.query<
        PaginatedResponse<Expense>,
@@ -321,6 +327,7 @@ export const {
   useGetGeneralLedgerQuery,
   useLazyGetGeneralLedgerQuery,
   useGetTrialBalanceQuery,
+  useGetProfitAndLossQuery,
   useGetExpensesQuery,
   useGetExpenseQuery,
   useCreateExpenseMutation,
