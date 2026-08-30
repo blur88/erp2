@@ -11,8 +11,8 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
-import { createMemoryRouter, RouterProvider } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { BrowserRouter, Routes, Route, createMemoryRouter, RouterProvider } from 'react-router-dom'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 
 const {
   balancedData,
@@ -100,6 +100,26 @@ function renderPage(initialUrl = '/accounting/trial-balance') {
 function searchOf(router: ReturnType<typeof renderPage>['router']) {
   return new URLSearchParams(router.state.location.search)
 }
+
+/** For URL assertions: real history, which is what useFilterBar writes to. */
+function renderPageWithHistory(initialUrl = '/accounting/trial-balance') {
+  window.history.replaceState({}, '', initialUrl)
+  const store = configureStore({ reducer: { empty: (s = null) => s } })
+  return render(
+    <Provider store={store}>
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/accounting/trial-balance" element={<TrialBalancePage />} />
+            <Route path="/accounting/general-ledger" element={<div>GL stub</div>} />
+          </Routes>
+        </BrowserRouter>
+      </LocalizationProvider>
+    </Provider>,
+  )
+}
+
+const currentSearch = () => new URLSearchParams(window.location.search)
 
 describe('TrialBalancePage default As of Date', () => {
   beforeEach(() => {
@@ -189,7 +209,7 @@ describe('TrialBalancePage', () => {
 
     expect(screen.queryByText('Retained Earnings')).not.toBeInTheDocument()
 
-    const checkbox = screen.getByLabelText(/show zero.balance/i)
+    const checkbox = screen.getByRole('checkbox', { name: /show zero-balance accounts/i })
     await user.click(checkbox)
 
     expect(screen.getByText('Retained Earnings')).toBeInTheDocument()
@@ -224,6 +244,9 @@ describe('TrialBalancePage', () => {
 
 describe('TrialBalancePage URL filters', () => {
   beforeEach(() => {
+    window.history.replaceState({}, '', '/accounting/trial-balance')
+  })
+  beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.setSystemTime(new Date('2026-07-20T04:00:00.000Z'))
     localStorage.setItem('timezone', 'Asia/Kuala_Lumpur')
@@ -241,58 +264,58 @@ describe('TrialBalancePage URL filters', () => {
   })
 
   it('queries today and leaves the URL bare when no params are present', () => {
-    const { router } = renderPage()
+    renderPageWithHistory()
     expect(mockUseGetTrialBalanceQuery.mock.calls[0][0]).toMatchObject({
       asOfDate: '2026-07-20',
       showZero: false,
     })
-    expect(searchOf(router).has('asOfDate')).toBe(false)
-    expect(searchOf(router).has('showZero')).toBe(false)
+    expect(currentSearch().has('asOfDate')).toBe(false)
+    expect(currentSearch().has('showZero')).toBe(false)
   })
 
   it('hydrates the input and the query from a valid asOfDate param and keeps it', async () => {
-    const { router } = renderPage('/accounting/trial-balance?asOfDate=2026-03-01')
+    renderPageWithHistory('/accounting/trial-balance?asOfDate=2026-03-01')
     expect(screen.getByRole('group', { name: /as of date/i })).toHaveTextContent('01/03/2026')
     const lastArgs = mockUseGetTrialBalanceQuery.mock.calls.at(-1)![0]
     expect(lastArgs).toMatchObject({ asOfDate: '2026-03-01' })
     await waitFor(() => {
-      expect(searchOf(router).get('asOfDate')).toBe('2026-03-01')
+      expect(currentSearch().get('asOfDate')).toBe('2026-03-01')
     })
   })
 
   it('offers no clear affordance — the date always falls back to today', () => {
-    renderPage('/accounting/trial-balance?asOfDate=2026-03-01')
+    renderPageWithHistory('/accounting/trial-balance?asOfDate=2026-03-01')
     const field = screen.getByRole('group', { name: /as of date/i })
     expect(within(field).queryByRole('button', { name: /clear/i })).toBeNull()
   })
 
   it('falls back to today and removes an impossible asOfDate from the URL', async () => {
-    const { router } = renderPage('/accounting/trial-balance?asOfDate=2026-02-31')
+    renderPageWithHistory('/accounting/trial-balance?asOfDate=2026-02-31')
     expect(screen.getByRole('group', { name: /as of date/i })).toHaveTextContent('20/07/2026')
     await waitFor(() => {
-      expect(searchOf(router).has('asOfDate')).toBe(false)
+      expect(currentSearch().has('asOfDate')).toBe(false)
     })
   })
 
   it('treats showZero=1 as false and removes it from the URL', async () => {
-    const { router } = renderPage('/accounting/trial-balance?showZero=1')
-    const checkbox = screen.getByLabelText(/show zero.balance/i) as HTMLInputElement
+    renderPageWithHistory('/accounting/trial-balance?showZero=1')
+    const checkbox = screen.getByRole('checkbox', { name: /show zero-balance accounts/i }) as HTMLInputElement
     expect(checkbox.checked).toBe(false)
     await waitFor(() => {
-      expect(searchOf(router).has('showZero')).toBe(false)
+      expect(currentSearch().has('showZero')).toBe(false)
     })
   })
 
   it('removes a present-but-empty showZero param', async () => {
-    const { router } = renderPage('/accounting/trial-balance?showZero=')
+    renderPageWithHistory('/accounting/trial-balance?showZero=')
     await waitFor(() => {
-      expect(searchOf(router).has('showZero')).toBe(false)
+      expect(currentSearch().has('showZero')).toBe(false)
     })
   })
 
   it('checks the box and passes showZero from showZero=true', () => {
-    renderPage('/accounting/trial-balance?showZero=true')
-    const checkbox = screen.getByLabelText(/show zero.balance/i) as HTMLInputElement
+    renderPageWithHistory('/accounting/trial-balance?showZero=true')
+    const checkbox = screen.getByRole('checkbox', { name: /show zero-balance accounts/i }) as HTMLInputElement
     expect(checkbox.checked).toBe(true)
     expect(mockUseGetTrialBalanceQuery.mock.calls.at(-1)![0]).toMatchObject({
       showZero: true,
@@ -301,23 +324,23 @@ describe('TrialBalancePage URL filters', () => {
 
   it('writes showZero=true when toggled on and removes the param when toggled off', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    const { router } = renderPage()
-    const checkbox = screen.getByLabelText(/show zero.balance/i)
+    renderPageWithHistory()
+    const checkbox = screen.getByRole('checkbox', { name: /show zero-balance accounts/i })
 
     await user.click(checkbox)
     await waitFor(() => {
-      expect(searchOf(router).get('showZero')).toBe('true')
+      expect(currentSearch().get('showZero')).toBe('true')
     })
 
     await user.click(checkbox)
     await waitFor(() => {
-      expect(searchOf(router).has('showZero')).toBe(false)
+      expect(currentSearch().has('showZero')).toBe(false)
     })
   })
 
   it('writes asOfDate when the date changes and reverts to today when cleared', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    const { router } = renderPage()
+    renderPageWithHistory()
     const field = screen.getByRole('group', { name: /as of date/i })
 
     await user.click(within(field).getByRole('spinbutton', { name: /day/i }))
@@ -325,7 +348,7 @@ describe('TrialBalancePage URL filters', () => {
       await user.keyboard(ch)
     }
     await waitFor(() => {
-      expect(searchOf(router).get('asOfDate')).toBe('2026-01-15')
+      expect(currentSearch().get('asOfDate')).toBe('2026-01-15')
     })
 
     // Keyboard deletion empties every section; an empty value re-triggers the
@@ -337,7 +360,7 @@ describe('TrialBalancePage URL filters', () => {
     await user.click(within(field).getByRole('spinbutton', { name: /year/i }))
     await user.keyboard('{Delete}')
     await waitFor(() => {
-      expect(searchOf(router).has('asOfDate')).toBe(false)
+      expect(currentSearch().has('asOfDate')).toBe(false)
     })
     expect(mockUseGetTrialBalanceQuery.mock.calls.at(-1)![0]).toMatchObject({
       asOfDate: '2026-07-20',
@@ -351,7 +374,7 @@ describe('TrialBalancePage URL filters', () => {
 
   it('displays today after clearing when the URL was already bare', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    renderPage()
+    renderPageWithHistory()
     const field = screen.getByRole('group', { name: /as of date/i })
 
     await user.click(within(field).getByRole('spinbutton', { name: /day/i }))
@@ -360,6 +383,44 @@ describe('TrialBalancePage URL filters', () => {
     await waitFor(() => {
       expect(screen.getByRole('group', { name: /as of date/i })).toHaveTextContent('20/07/2026')
     })
+  })
+
+  it('shows today rather than blanking when the date is cleared', async () => {
+    // The failure this guards: the field empties while the query silently uses
+    // today, so the control and the report disagree on screen.
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-08-30T02:00:00.000Z'))
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    try {
+      renderPageWithHistory('/accounting/trial-balance?asOfDate=2026-01-31')
+      const field = screen.getByRole('group', { name: /as of date/i })
+      for (const name of [/day/i, /month/i, /year/i]) {
+        await user.click(within(field).getByRole('spinbutton', { name }))
+        await user.keyboard('{Delete}')
+      }
+      await waitFor(() => {
+        expect(screen.getByRole('group', { name: /as of date/i })).toHaveTextContent('30/08/2026')
+      })
+      // Today is DISPLAYED, never written — a bare URL is the canonical form.
+      expect(currentSearch().get('asOfDate')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('exposes a Reset control that returns the URL to its canonical bare form', async () => {
+    renderPageWithHistory('/accounting/trial-balance?asOfDate=2026-01-31&showZero=true')
+    await userEvent.click(screen.getByRole('button', { name: /reset/i }))
+    await waitFor(() => {
+      expect(currentSearch().get('showZero')).toBeNull()
+    })
+    expect(currentSearch().get('asOfDate')).toBeNull()
+  })
+
+  it('renders the totals in a table footer, not as a data row', () => {
+    renderPage()
+    const total = screen.getByText('Total').closest('tr')!
+    expect(total.closest('tfoot')).not.toBeNull()
   })
 })
 
@@ -415,7 +476,7 @@ describe('TrialBalancePage presentation', () => {
       error: undefined,
     })
     renderPage()
-    expect(screen.getByText('No accounts found.')).toBeInTheDocument()
+    expect(screen.getByText('No accounts found')).toBeInTheDocument()
     expect(screen.queryByText('Total')).not.toBeInTheDocument()
   })
 

@@ -17,6 +17,8 @@ export type FilterFieldType =
   | 'supplier'
   | 'category'
   | 'price-list'
+  | 'date'
+  | 'boolean'
 
 interface BaseFilterFieldConfig<TFilters, K extends keyof TFilters> {
   field: K
@@ -31,6 +33,18 @@ export interface SelectFilterFieldConfig<TFilters, K extends keyof TFilters>
   type: 'select'
   options: readonly Readonly<FilterOption>[]
   emptyLabel?: string
+  /**
+   * Whether the control offers an empty ("All") choice. Default `true`, so
+   * every existing filter is unchanged.
+   *
+   * Set `false` for a field that has no meaningful empty state — a required
+   * dimension the report always has a value for, such as Profit & Loss's Year.
+   * Without this, selecting "All" stores `null`, the query falls back to a
+   * default the control does not display, and `hasActiveFilters` turns on
+   * because `null` differs from the configured default: the displayed value,
+   * the queried value, the URL and the Reset button all disagree.
+   */
+  showEmptyOption?: boolean
   minWidth?: number
   /**
    * `options` is the complete, authoritative set — including when it is empty.
@@ -110,6 +124,23 @@ export interface PriceListFilterFieldConfig<TFilters, K extends keyof TFilters>
   type: 'price-list'
 }
 
+export interface DateFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'date'
+  /**
+   * Date to restore when the field is cleared. Required in practice for any
+   * report that must always have a date — see FilterDate's `clearTo`. A
+   * function, so a consumer whose fallback is "today" is not frozen to the
+   * date the config object was built.
+   */
+  clearTo?: () => string | null
+}
+
+export interface BooleanFilterFieldConfig<TFilters, K extends keyof TFilters>
+  extends BaseFilterFieldConfig<TFilters, K> {
+  type: 'boolean'
+}
+
 export type FilterFieldConfig<TFilters> =
   | SelectFilterFieldConfig<TFilters, keyof TFilters>
   | PeriodFilterFieldConfig<TFilters, keyof TFilters>
@@ -119,6 +150,8 @@ export type FilterFieldConfig<TFilters> =
   | SupplierFilterFieldConfig<TFilters, keyof TFilters>
   | CategoryFilterFieldConfig<TFilters, keyof TFilters>
   | PriceListFilterFieldConfig<TFilters, keyof TFilters>
+  | DateFilterFieldConfig<TFilters, keyof TFilters>
+  | BooleanFilterFieldConfig<TFilters, keyof TFilters>
 
 export interface FilterBarConfig<TFilters> {
   search?: {

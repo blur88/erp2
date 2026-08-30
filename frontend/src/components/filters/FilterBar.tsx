@@ -1,8 +1,10 @@
 import { CircularProgress, Stack } from '@mui/material'
 
 import { FilterCategory } from './FilterCategory'
+import { FilterCheckbox } from './FilterCheckbox'
 import { FilterCompare } from './FilterCompare'
 import { FilterCustomer } from './FilterCustomer'
+import { FilterDate } from './FilterDate'
 import { FilterPaymentStatus } from './FilterPaymentStatus'
 import { FilterPeriod } from './FilterPeriod'
 import { FilterPriceList } from './FilterPriceList'
@@ -51,6 +53,7 @@ function renderQuickField<TFilters extends object>(
         minWidth={field.minWidth}
         optionsReady={field.optionsReady}
         optionsLoading={field.optionsLoading}
+        showEmptyOption={field.showEmptyOption}
       />
     )
   }
@@ -137,6 +140,34 @@ function renderQuickField<TFilters extends object>(
         field={fieldKey}
         value={(value as string | null) ?? null}
         onChange={onChange}
+      />
+    )
+  }
+
+  if (field.type === 'date') {
+    return (
+      <FilterDate
+        key={fieldKey}
+        field={fieldKey}
+        label={field.label}
+        value={(value as string | null) ?? null}
+        clearTo={field.clearTo?.() ?? null}
+        onChange={onChange as (value: string | null) => void}
+        // Clearing returns the filter to its default — applied state goes null,
+        // the URL key is dropped — while FilterDate keeps displaying clearTo.
+        onClear={() => handlers.onClearField(field.field)}
+      />
+    )
+  }
+
+  if (field.type === 'boolean') {
+    return (
+      <FilterCheckbox
+        key={fieldKey}
+        field={fieldKey}
+        label={field.label}
+        value={value === true}
+        onChange={onChange as (value: boolean) => void}
       />
     )
   }

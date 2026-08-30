@@ -238,6 +238,152 @@ describe('EntityTable', () => {
   })
 })
 
+import { TableCell, TableRow } from '@mui/material'
+
+function renderTable(overrides: Partial<React.ComponentProps<typeof EntityTable<Item>>> = {}) {
+  return render(
+    <EntityTable
+      rows={rows}
+      columns={columns}
+      loading={false}
+      total={rows.length}
+      label="Items"
+      selectedId={undefined}
+      focusedIndex={-1}
+      onSelect={vi.fn()}
+      listRef={{ current: null }}
+      {...overrides}
+    />,
+  )
+}
+
+describe('EntityTable tableFooter', () => {
+  it('renders the footer node when there are rows', () => {
+    renderTable({
+      tableFooter: (
+        <TableRow>
+          <TableCell data-testid="footer-cell">Total</TableCell>
+        </TableRow>
+      ),
+    })
+    expect(screen.getByTestId('footer-cell')).toBeInTheDocument()
+  })
+
+  it('does not render the footer when there are no rows', () => {
+    renderTable({
+      rows: [],
+      tableFooter: (
+        <TableRow>
+          <TableCell data-testid="footer-cell">Total</TableCell>
+        </TableRow>
+      ),
+    })
+    expect(screen.queryByTestId('footer-cell')).not.toBeInTheDocument()
+  })
+
+  it('renders the footer inside the table element', () => {
+    renderTable({
+      tableFooter: (
+        <TableRow>
+          <TableCell data-testid="footer-cell">Total</TableCell>
+        </TableRow>
+      ),
+    })
+    // A semantic <tfoot> inside <table> — not a sibling node after the card.
+    const footer = screen.getByTestId('footer-cell').closest('tfoot')
+    expect(footer).not.toBeNull()
+    expect(footer!.closest('table')).not.toBeNull()
+  })
+})
+
+describe('EntityTable row extensions', () => {
+  it('does not call onSelect when the row is not selectable', async () => {
+    const onSelect = vi.fn()
+    renderTable({ onSelect, isRowSelectable: () => false })
+    await userEvent.click(screen.getByText('Alpha'))
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('still calls onSelect when the row is selectable', async () => {
+    const onSelect = vi.fn()
+    renderTable({ onSelect, isRowSelectable: () => true })
+    await userEvent.click(screen.getByText('Alpha'))
+    expect(onSelect).toHaveBeenCalledTimes(1)
+  })
+
+  it('applies role and tabIndex to selectable rows when selectableRowRole is set', () => {
+    renderTable({ selectableRowRole: 'link' })
+    const row = screen.getByText('Alpha').closest('tr')!
+    expect(row).toHaveAttribute('role', 'link')
+    expect(row).toHaveAttribute('tabindex', '0')
+  })
+
+  it('withholds role and tabIndex from non-selectable rows', () => {
+    renderTable({ selectableRowRole: 'link', isRowSelectable: () => false })
+    const row = screen.getByText('Alpha').closest('tr')!
+    expect(row).not.toHaveAttribute('role', 'link')
+    expect(row).not.toHaveAttribute('tabindex')
+  })
+
+  it('sets no role or tabIndex when selectableRowRole is omitted', () => {
+    // Guards the twelve existing consumers: their DOM must not change.
+    renderTable({})
+    const row = screen.getByText('Alpha').closest('tr')!
+    expect(row).not.toHaveAttribute('role', 'link')
+    expect(row).not.toHaveAttribute('tabindex')
+  })
+
+  it('activates a link row on Enter but not on Space', async () => {
+    const onSelect = vi.fn()
+    renderTable({ onSelect, selectableRowRole: 'link' })
+    const row = screen.getByText('Alpha').closest('tr')!
+    row.focus()
+    await userEvent.keyboard('{Enter}')
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    await userEvent.keyboard(' ')
+    expect(onSelect).toHaveBeenCalledTimes(1)
+  })
+
+  it('activates a button row on Enter and on Space', async () => {
+    const onSelect = vi.fn()
+    renderTable({ onSelect, selectableRowRole: 'button' })
+    const row = screen.getByText('Alpha').closest('tr')!
+    row.focus()
+    await userEvent.keyboard('{Enter}')
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    await userEvent.keyboard(' ')
+    expect(onSelect).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not activate a non-selectable row from the keyboard', async () => {
+    const onSelect = vi.fn()
+    renderTable({ onSelect, selectableRowRole: 'button', isRowSelectable: () => false })
+    const row = screen.getByText('Alpha').closest('tr')!
+    row.focus()
+    await userEvent.keyboard('{Enter}')
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('applies getRowProps attributes to the row element', () => {
+    renderTable({
+      getRowProps: () => ({
+        className: 'my-row-class',
+        'data-testid': 'my-row',
+        'data-zero': 'true',
+      }),
+    })
+    const rows = screen.getAllByTestId('my-row')
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows[0]).toHaveClass('my-row-class')
+    expect(rows[0]).toHaveAttribute('data-zero', 'true')
+  })
+
+  it('applies tableClassName to the inner table element', () => {
+    renderTable({ tableClassName: 'acct-print-table' })
+    expect(screen.getByText('Alpha').closest('table')).toHaveClass('acct-print-table')
+  })
+})
+
 describe('EntityTable column alignment', () => {
   const alignedColumns = [
     { key: 'name', render: (row: Item) => row.name },

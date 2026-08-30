@@ -33,6 +33,7 @@ interface SimpleListPageProps<F extends object> {
   tableSlot: ReactNode
   paginationSlot?: ReactNode
   dialogs?: ReactNode
+  hideHeaderOnPrint?: boolean
 }
 
 export default function SimpleListPage<F extends object>({
@@ -53,6 +54,7 @@ export default function SimpleListPage<F extends object>({
   tableSlot,
   paginationSlot,
   dialogs,
+  hideHeaderOnPrint,
 }: SimpleListPageProps<F>) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
@@ -63,6 +65,7 @@ export default function SimpleListPage<F extends object>({
         variant="workflow"
         primaryAction={primaryAction}
         secondaryAction={secondaryAction}
+        hideOnPrint={hideHeaderOnPrint}
         toolbar={
           <FilterBar
             config={filterConfig}

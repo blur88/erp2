@@ -4,6 +4,7 @@ import type {
   FilterFieldConfig,
   PeriodValue,
 } from '@/types/filterBar.types'
+import { isValidIsoDate } from '@/utils/formatters'
 
 function prefixed(key: string, namespace?: string): string {
   return namespace ? `${namespace}_${key}` : key
@@ -70,11 +71,20 @@ export function serializeFilters<TFilters extends object>(
       field.type === 'payment-status' ||
       field.type === 'supplier' ||
       field.type === 'category' ||
-      field.type === 'price-list'
+      field.type === 'price-list' ||
+      field.type === 'date'
 
     if (isSingleValueField) {
       if (value !== null && value !== undefined && value !== defaultValue) {
         orderedEntries.push([key, String(value)])
+      }
+      continue
+    }
+
+    if (field.type === 'boolean') {
+      // Only `true` is ever written, and only when it differs from the default.
+      if (value === true && value !== defaultValue) {
+        orderedEntries.push([key, 'true'])
       }
       continue
     }
@@ -136,7 +146,8 @@ export function parseFilters<TFilters extends object>(
       field.type === 'payment-status' ||
       field.type === 'supplier' ||
       field.type === 'category' ||
-      field.type === 'price-list'
+      field.type === 'price-list' ||
+      field.type === 'date'
 
     if (isSingleValueField) {
       const raw = searchParams.get(key)
@@ -159,9 +170,23 @@ export function parseFilters<TFilters extends object>(
       } else if (field.type === 'payment-status') {
         const VALID_PAYMENT_STATUS = ['unpaid', 'partial', 'paid', 'overpaid', 'UNPAID', 'PARTIAL', 'PAID', 'OVERPAID']
         result[fieldKey] = VALID_PAYMENT_STATUS.includes(raw) ? raw : (defaultValue ?? null)
+      } else if (field.type === 'date') {
+        // Plausibility as well as validity: 0202-08-15 is a real date that a
+        // hand-edited or truncated URL can carry, and it must not become the
+        // applied filter. Same bound as FilterDate's MIN_PLAUSIBLE_YEAR.
+        const plausible = isValidIsoDate(raw) && Number(raw.slice(0, 4)) >= 1000
+        result[fieldKey] = plausible ? raw : (defaultValue ?? null)
       } else {
         result[fieldKey] = raw
       }
+      continue
+    }
+
+    if (field.type === 'boolean') {
+      const raw = searchParams.get(key)
+      // Only the exact string 'true' is truthy — ?showZero=1 or an empty value
+      // is false, and the URL-sync effect then drops the key.
+      result[fieldKey] = raw === null ? (defaultValue ?? false) : raw === 'true'
       continue
     }
 

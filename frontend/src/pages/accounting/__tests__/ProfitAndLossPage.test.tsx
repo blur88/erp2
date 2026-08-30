@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, useLocation } from 'react-router-dom'
+import { BrowserRouter, MemoryRouter, useLocation } from 'react-router-dom'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 import ProfitAndLossPage from '../ProfitAndLossPage'
 import type { ProfitAndLossResponse } from '@/types'
@@ -254,51 +254,52 @@ describe('ProfitAndLossPage', () => {
     expect(heading.closest('[data-print-hide="true"]')).not.toBeNull()
   })
 
-  it('offers every available year, newest first', async () => {
+  it('offers every available year, newest first, and no empty choice', async () => {
     renderPage()
-    await userEvent.click(within(screen.getByTestId('pl-year-select')).getByRole('combobox'))
+    await userEvent.click(screen.getByRole('combobox', { name: /year/i }))
     const options = screen.getAllByRole('option').map((o) => o.textContent)
+    // No "All": a Profit & Loss is always for some year. Selecting an empty
+    // value would store null, fall back to the current year for the query, yet
+    // display "All" and light up Reset — every piece of state disagreeing.
     expect(options).toEqual(['2026', '2025'])
+  })
+
+  it('normalizes a year below the API minimum instead of querying it', () => {
+    // ?year=0999 is four digits but the API declares @Min(1000), so querying it
+    // would 400. It must fall back to the current year.
+    mockQuery.mockClear()
+    render(
+      <MemoryRouter initialEntries={['/accounting/profit-and-loss?year=0999']}>
+        <ProfitAndLossPage />
+      </MemoryRouter>,
+    )
+    expect(mockQuery).toHaveBeenCalledWith({ year: new Date().getFullYear() })
+    expect(mockQuery).not.toHaveBeenCalledWith({ year: 999 })
   })
 
   it('shows the year taken from the URL', () => {
     renderPage()
-    expect(within(screen.getByTestId('pl-year-select')).getByRole('combobox'))
-      .toHaveTextContent('2026')
+    expect(screen.getByRole('combobox', { name: /year/i })).toHaveTextContent('2026')
   })
 
   it('writes the chosen year to the URL', async () => {
-    // MemoryRouter keeps its history in memory and never touches
-    // window.location, so the URL is observed through a probe component.
-    let search = ''
-    const Probe = () => {
-      search = useLocation().search
-      return null
-    }
-    render(
-      <MemoryRouter initialEntries={['/accounting/profit-and-loss?year=2026']}>
-        <ProfitAndLossPage />
-        <Probe />
-      </MemoryRouter>,
-    )
-    await userEvent.click(within(screen.getByTestId('pl-year-select')).getByRole('combobox'))
+    window.history.replaceState({}, '', '/accounting/profit-and-loss?year=2026')
+    render(<BrowserRouter><ProfitAndLossPage /></BrowserRouter>)
+    await userEvent.click(screen.getByRole('combobox', { name: /year/i }))
     await userEvent.click(screen.getByRole('option', { name: '2025' }))
-    expect(search).toContain('year=2025')
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get('year')).toBe('2025')
+    })
   })
 
   it('normalizes a malformed year in the URL', async () => {
-    let search = ''
-    const Probe = () => {
-      search = useLocation().search
-      return null
-    }
-    render(
-      <MemoryRouter initialEntries={['/accounting/profit-and-loss?year=abc']}>
-        <ProfitAndLossPage />
-        <Probe />
-      </MemoryRouter>,
-    )
-    await waitFor(() => expect(search).toContain(`year=${new Date().getFullYear()}`))
+    window.history.replaceState({}, '', '/accounting/profit-and-loss?year=abc')
+    render(<BrowserRouter><ProfitAndLossPage /></BrowserRouter>)
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get('year')).toBeNull()
+    })
+    // After normalization the query should use the current year
+    expect(mockQuery).toHaveBeenCalledWith({ year: new Date().getFullYear() })
   })
 
   it('requests the year from the URL, not the current year', () => {
@@ -313,5 +314,149 @@ describe('ProfitAndLossPage', () => {
       </MemoryRouter>,
     )
     expect(mockQuery).toHaveBeenCalledWith({ year: new Date().getFullYear() })
+  })
+
+  it('renders the whole statement as a single table', () => {
+    // One column grid down the statement: with a table per section, Revenue's
+    // amount column would not align with Operating Expenses'.
+    const { container } = renderPage()
+    expect(container.querySelectorAll('table')).toHaveLength(1)
+  })
+
+  it('renders Net Profit in the table footer', () => {
+    renderPage()
+    expect(screen.getByTestId('pl-row-netProfit').closest('tfoot')).not.toBeNull()
+  })
+
+  it('marks the page header as print-hidden', () => {
+    renderPage()
+    expect(screen.getByTestId('page-header-divider')).toHaveAttribute('data-print-hide', 'true')
+  })
+
+  it('marks the body so the global print rule does not hide the report', () => {
+    // global.css hides #root when printing, to isolate the PORTALED transactional
+    // document templates. An analytical report is not portaled — it renders
+    // inside #root — so without this opt-out marker, Ctrl-P yields a blank page.
+    const { unmount } = renderPage()
+    expect(document.body).toHaveClass('acct-print-mode')
+    // ...and it must not leak to other pages, which still need the global rule.
+    unmount()
+    expect(document.body).not.toHaveClass('acct-print-mode')
+  })
+
+  it('keeps a valid no-activity year selected instead of resetting it', async () => {
+    // The API accepts any year in 1000-9999 and returns an all-zero statement
+    // for one with no postings — a valid report. But such a year is absent from
+    // availableYears, so unless it is treated as authoritative too, useFilterBar
+    // judges it stale and resets to the current year, discarding the request.
+    const noActivity = { ...RESPONSE, year: 1990, availableYears: [2026, 2025] }
+    mockQuery.mockReturnValue({
+      data: noActivity, currentData: noActivity,
+      isLoading: false, isFetching: false, isError: false,
+    })
+    window.history.replaceState({}, '', '/accounting/profit-and-loss?year=1990')
+    render(<BrowserRouter><ProfitAndLossPage /></BrowserRouter>)
+
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /year/i })).toHaveTextContent('1990')
+    })
+    expect(new URLSearchParams(window.location.search).get('year')).toBe('1990')
+    // And no second query for the current year — the reset would show up here.
+    expect(mockQuery).not.toHaveBeenCalledWith({ year: new Date().getFullYear() })
+  })
+
+  it('exposes every element the print stylesheet must expand', () => {
+    // jsdom has no layout engine and does not evaluate @media print, so this
+    // asserts the SELECTORS exist, not that the printout is correct — the
+    // browser QA pass owns that.
+    //
+    // The wrapper alone is NOT sufficient: EntityTable's own card
+    // (height:100%), frame (overflow:hidden) and scroller (overflow:auto) each
+    // clip the statement to one viewport, and no ancestor rule can undo them.
+    // accountingReportPrint.css targets all four; if any selector here is
+    // renamed without updating that file, the statement silently prints
+    // truncated while looking perfect on screen.
+    const { container } = renderPage()
+    const scroll = container.querySelector('.acct-print-scroll')
+    expect(scroll).not.toBeNull()
+    expect(scroll!.querySelector('table')).not.toBeNull()
+
+    for (const cls of ['entity-table-card', 'entity-table-frame', 'entity-table-scroller']) {
+      expect(scroll!.querySelector(`.${cls}`)).not.toBeNull()
+    }
+  })
+
+  it('emits a bare URL for the current year and ?year= for others', async () => {
+    // Canonical-form convention, per the spec. BrowserRouter is REQUIRED:
+    // useFilterBar writes via window.history.replaceState, which MemoryRouter
+    // never reflects, so a useLocation probe would see nothing and this test
+    // would pass or fail for the wrong reason.
+    const currentYear = new Date().getFullYear()
+    const withYears = { ...RESPONSE, availableYears: [currentYear, 2024] }
+    mockQuery.mockReturnValue({
+      data: withYears, currentData: withYears,
+      isLoading: false, isFetching: false, isError: false,
+    })
+    window.history.replaceState({}, '', '/accounting/profit-and-loss?year=2024')
+    render(<BrowserRouter><ProfitAndLossPage /></BrowserRouter>)
+
+    await userEvent.click(screen.getByRole('combobox', { name: /year/i }))
+    await userEvent.click(screen.getByRole('option', { name: String(currentYear) }))
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get('year')).toBeNull()
+    })
+
+    await userEvent.click(screen.getByRole('combobox', { name: /year/i }))
+    await userEvent.click(screen.getByRole('option', { name: '2024' }))
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get('year')).toBe('2024')
+    })
+  })
+
+  /** A group nested inside a group, to prove the walk recurses. */
+  const deeplyNestedFixture: ProfitAndLossResponse = {
+    ...RESPONSE,
+    sections: RESPONSE.sections.map((s) => s.key !== 'expenses' ? s : {
+      ...s,
+      rows: [{
+        rowId: 'account:admin', accountId: 'admin', code: '6000', name: 'Administrative',
+        isPostable: false, amount: '8730.0000',
+        children: [{
+          rowId: 'account:oh', accountId: 'oh', code: '6500', name: 'Overheads',
+          isPostable: false, amount: '730.0000',
+          children: [{
+            rowId: 'account:phone', accountId: 'phone', code: '6920', name: 'Telephone',
+            isPostable: true, amount: '730.0000', children: [],
+          }],
+        }],
+      }],
+    }),
+  }
+
+  it('expands a group nested inside another group', async () => {
+    mockQuery.mockReturnValue({
+      data: deeplyNestedFixture, currentData: deeplyNestedFixture,
+      isLoading: false, isFetching: false, isError: false,
+    })
+    renderPage()
+
+    // Depth 2 is hidden until both ancestors are expanded.
+    expect(screen.queryByTestId('pl-row-account:phone')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('pl-expand-account:admin'))
+    expect(screen.queryByTestId('pl-row-account:phone')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('pl-expand-account:oh'))
+    expect(screen.getByTestId('pl-row-account:phone')).toBeInTheDocument()
+  })
+
+  it('never makes a nested group row navigable', async () => {
+    mockQuery.mockReturnValue({
+      data: deeplyNestedFixture, currentData: deeplyNestedFixture,
+      isLoading: false, isFetching: false, isError: false,
+    })
+    renderPage()
+    await userEvent.click(screen.getByTestId('pl-expand-account:admin'))
+    const nestedGroup = screen.getByTestId('pl-row-account:oh')
+    expect(nestedGroup).not.toHaveAttribute('role', 'link')
+    expect(nestedGroup).not.toHaveAttribute('tabindex')
   })
 })
