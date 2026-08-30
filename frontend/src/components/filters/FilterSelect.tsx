@@ -18,6 +18,7 @@ interface Props {
   minWidth?: number
   optionsReady?: boolean
   optionsLoading?: boolean
+  showEmptyOption?: boolean
 }
 
 export function FilterSelect({
@@ -30,6 +31,7 @@ export function FilterSelect({
   minWidth,
   optionsReady = true,
   optionsLoading = false,
+  showEmptyOption = true,
 }: Props) {
   const labelId = `filter-${field}-label`
 
@@ -59,7 +61,12 @@ export function FilterSelect({
         input={<OutlinedInput size="xs" label={label} notched />}
         onChange={(event) => onChange(event.target.value === '' ? null : event.target.value)}
       >
-        <MenuItem value="">{emptyLabel ?? 'All'}</MenuItem>
+        {/*
+          Omitted for a field with no meaningful empty state (Profit & Loss's
+          Year): selecting it would store null, and the query would fall back to
+          a default the control does not display.
+        */}
+        {showEmptyOption && <MenuItem value="">{emptyLabel ?? 'All'}</MenuItem>}
         {/*
           Only needed for a non-null unresolved value — with no value the emptyLabel
           above already reads correctly. While loading, the stand-in says so; after a

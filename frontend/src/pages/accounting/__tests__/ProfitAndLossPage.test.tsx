@@ -254,13 +254,27 @@ describe('ProfitAndLossPage', () => {
     expect(heading.closest('[data-print-hide="true"]')).not.toBeNull()
   })
 
-  it('offers every available year, newest first', async () => {
+  it('offers every available year, newest first, and no empty choice', async () => {
     renderPage()
     await userEvent.click(screen.getByRole('combobox', { name: /year/i }))
     const options = screen.getAllByRole('option').map((o) => o.textContent)
-    // FilterSelect always renders an "All" empty option; the year field's real
-    // options are the years themselves.
-    expect(options.filter((o) => o !== 'All')).toEqual(['2026', '2025'])
+    // No "All": a Profit & Loss is always for some year. Selecting an empty
+    // value would store null, fall back to the current year for the query, yet
+    // display "All" and light up Reset — every piece of state disagreeing.
+    expect(options).toEqual(['2026', '2025'])
+  })
+
+  it('normalizes a year below the API minimum instead of querying it', () => {
+    // ?year=0999 is four digits but the API declares @Min(1000), so querying it
+    // would 400. It must fall back to the current year.
+    mockQuery.mockClear()
+    render(
+      <MemoryRouter initialEntries={['/accounting/profit-and-loss?year=0999']}>
+        <ProfitAndLossPage />
+      </MemoryRouter>,
+    )
+    expect(mockQuery).toHaveBeenCalledWith({ year: new Date().getFullYear() })
+    expect(mockQuery).not.toHaveBeenCalledWith({ year: 999 })
   })
 
   it('shows the year taken from the URL', () => {
@@ -319,13 +333,25 @@ describe('ProfitAndLossPage', () => {
     expect(screen.getByTestId('page-header-divider')).toHaveAttribute('data-print-hide', 'true')
   })
 
-  it('keeps the print scroll container around the statement', () => {
-    // Without it EntityTable's internal overflow:auto clips the printout to one
-    // viewport — correct on screen, truncated on paper.
+  it('exposes every element the print stylesheet must expand', () => {
+    // jsdom has no layout engine and does not evaluate @media print, so this
+    // asserts the SELECTORS exist, not that the printout is correct — the
+    // browser QA pass owns that.
+    //
+    // The wrapper alone is NOT sufficient: EntityTable's own card
+    // (height:100%), frame (overflow:hidden) and scroller (overflow:auto) each
+    // clip the statement to one viewport, and no ancestor rule can undo them.
+    // accountingReportPrint.css targets all four; if any selector here is
+    // renamed without updating that file, the statement silently prints
+    // truncated while looking perfect on screen.
     const { container } = renderPage()
     const scroll = container.querySelector('.acct-print-scroll')
     expect(scroll).not.toBeNull()
     expect(scroll!.querySelector('table')).not.toBeNull()
+
+    for (const cls of ['entity-table-card', 'entity-table-frame', 'entity-table-scroller']) {
+      expect(scroll!.querySelector(`.${cls}`)).not.toBeNull()
+    }
   })
 
   it('emits a bare URL for the current year and ?year= for others', async () => {

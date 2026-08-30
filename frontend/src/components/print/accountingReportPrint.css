@@ -60,6 +60,30 @@
   }
 
   /*
+   * ...and neither may EntityTable's internal frame, which is where the real
+   * constraints live: the card is `height: 100%`, the frame is
+   * `overflow: hidden`, and the scroller is `overflow: auto`. Expanding only
+   * the outer `.acct-print-scroll` wrapper leaves all three intact, so the
+   * statement still prints clipped to a single page — correct on screen, and
+   * silently truncated on paper. These class names are defined in
+   * components/common/EntityTable.tsx; keep them in step.
+   */
+  .acct-print-scroll .entity-table-card,
+  .acct-print-scroll .entity-table-frame,
+  .acct-print-scroll .entity-table-scroller {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    flex: none !important;
+    display: block !important;
+  }
+
+  /* Repeat the column headers on every printed page of a long statement. */
+  .acct-print-table thead {
+    display: table-header-group;
+  }
+
+  /*
    * Summary rows only. Expanded account detail is a screen affordance for
    * drill-down; printing whatever the user happened to have expanded would
    * make two printouts of the same period differ.

@@ -168,11 +168,17 @@ const EntityRow = memo(function EntityRow<T extends { id: string }>({
           : isFocused
             ? 'action.focus'
             : 'inherit',
-        '&:hover': {
-          backgroundColor: isSelected
-            ? alpha(darkTheme.palette.primary.main, 0.25)
-            : 'action.hover',
-        },
+        // Only a selectable row highlights. An inert row (a section header or a
+        // total line) that lit up on hover would advertise a click that does
+        // nothing — `hover={selectable}` alone does not cover this, because
+        // this custom rule applies independently of MUI's own hover prop.
+        ...(selectable && {
+          '&:hover': {
+            backgroundColor: isSelected
+              ? alpha(darkTheme.palette.primary.main, 0.25)
+              : 'action.hover',
+          },
+        }),
         transition: 'background-color 0.2s ease',
         height: TABLE_STYLES.row.height,
         ...(isFocused && {
@@ -233,7 +239,10 @@ function EntityTable<T extends { id: string }>({
     : `No ${emptyName} found`
 
   return (
-    <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Paper
+      className="entity-table-card"
+      sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+    >
       {showHeader && (
         <Box sx={{ p: TABLE_STYLES.cell.padding.px, borderBottom: TABLE_STYLES.cell.border }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -261,11 +270,20 @@ function EntityTable<T extends { id: string }>({
           </Box>
         </Box>
       )}
+      {/*
+        The three class hooks here (card / frame / scroller) are the ONLY handle
+        a print stylesheet has on this component's scroll constraints. Between
+        them, `height: 100%`, `overflow: hidden` and `overflow: auto` clip the
+        table to one viewport — correct on screen, silently truncating on paper.
+        A wrapper class on an ancestor cannot undo them. Do not rename without
+        updating accountingReportPrint.css.
+      */}
       <Box
         ref={listRef}
+        className="entity-table-frame"
         sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: 'inherit' }}
       >
-        <TableContainer sx={{ flex: 1, overflow: 'auto' }}>
+        <TableContainer className="entity-table-scroller" sx={{ flex: 1, overflow: 'auto' }}>
           <Table
             className={tableClassName}
             size={TABLE_STYLES.size}

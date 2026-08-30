@@ -33,6 +33,18 @@ export interface SelectFilterFieldConfig<TFilters, K extends keyof TFilters>
   type: 'select'
   options: readonly Readonly<FilterOption>[]
   emptyLabel?: string
+  /**
+   * Whether the control offers an empty ("All") choice. Default `true`, so
+   * every existing filter is unchanged.
+   *
+   * Set `false` for a field that has no meaningful empty state — a required
+   * dimension the report always has a value for, such as Profit & Loss's Year.
+   * Without this, selecting "All" stores `null`, the query falls back to a
+   * default the control does not display, and `hasActiveFilters` turns on
+   * because `null` differs from the configured default: the displayed value,
+   * the queried value, the URL and the Reset button all disagree.
+   */
+  showEmptyOption?: boolean
   minWidth?: number
   /**
    * `options` is the complete, authoritative set — including when it is empty.

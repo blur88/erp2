@@ -53,6 +53,7 @@ function renderQuickField<TFilters extends object>(
         minWidth={field.minWidth}
         optionsReady={field.optionsReady}
         optionsLoading={field.optionsLoading}
+        showEmptyOption={field.showEmptyOption}
       />
     )
   }

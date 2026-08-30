@@ -39,6 +39,9 @@ const CURRENT_YEAR = new Date().getFullYear()
 
 const PL_DEFAULTS: PlFilters = { year: String(CURRENT_YEAR) }
 
+/** Mirrors the API's `@Min(1000)` on ProfitAndLossQueryDto. */
+const MIN_QUERYABLE_YEAR = 1000
+
 type PlRowKind = 'section' | 'account' | 'group' | 'child' | 'adjustments' | 'total' | 'summary'
 
 interface PlTableRow {
@@ -145,6 +148,11 @@ export default function ProfitAndLossPage() {
           // filterBar.types.ts:57-65 warns about. An errored query must be
           // optionsReady: false, optionsLoading: false.
           optionsLoading: yearOptions === null && !isYearOptionsError,
+          // A Profit & Loss is always for some year: there is no "All years"
+          // report. Offering an empty choice would store null, fall back to the
+          // current year for the query, yet display "All" and light up Reset —
+          // control, query, URL and filter state all disagreeing.
+          showEmptyOption: false,
         },
       ],
       defaults: PL_DEFAULTS,
@@ -158,7 +166,12 @@ export default function ProfitAndLossPage() {
   // options are unresolved, so it can be anything the URL carried.
   const rawYear = appliedFilters.year
   const parsedYear = /^\d{4}$/.test(rawYear ?? '') ? Number(rawYear) : NaN
-  const year = Number.isNaN(parsedYear) ? CURRENT_YEAR : parsedYear
+  // Four digits is not enough: 0000-0999 match the pattern but the API declares
+  // @Min(1000) (profit-and-loss-query.dto.ts), so ?year=0999 would 400 rather
+  // than fall back. Normalize to the current year instead of issuing a request
+  // that cannot succeed.
+  const year =
+    Number.isNaN(parsedYear) || parsedYear < MIN_QUERYABLE_YEAR ? CURRENT_YEAR : parsedYear
 
   const { currentData, isLoading, isFetching, isError } = useGetProfitAndLossQuery({ year })
   const profitAndLoss = currentData as ProfitAndLossResponse | undefined
