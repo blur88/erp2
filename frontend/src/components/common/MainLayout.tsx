@@ -34,7 +34,13 @@ const MainLayout: React.FC = () => {
   }
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', height: '100vh' }}>
+    // `app-shell-root` is a print hook, not a style hook. This Box is a
+    // fixed-height flex container (100vh), and a non-portaled print page — an
+    // analytical accounting report — cannot paginate while any ancestor pins a
+    // viewport height. Structural selectors do not reach it: RootLayout's own
+    // Box is `#root > *`, so this sits a level below that and above `main`.
+    // See accountingReportPrint.css; do not rename without updating it.
+    <Box className="app-shell-root" sx={{ display: 'flex', minHeight: '100vh', height: '100vh' }}>
       <TopBar collapsed={collapsed} onMobileMenuOpen={handleDrawerToggle} />
 
       <Box

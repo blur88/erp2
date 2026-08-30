@@ -5,6 +5,12 @@ import type { ReactNode } from 'react'
 import { printColors } from '@/styles/printTokens'
 import { useGetPrintSettingsQuery } from '@/store/api/printSettingsApi'
 
+/**
+ * How many AccountingReportPrintLayout instances are currently mounted.
+ * Module scope, so every instance shares one count — see the effect below.
+ */
+let acctPrintModeOwners = 0
+
 interface AccountingReportPrintLayoutProps {
   /** Report name, e.g. "PROFIT & LOSS". Rendered in caps on the printout. */
   title: string
@@ -51,10 +57,19 @@ export function AccountingReportPrintLayout({
   // rule would hide the report itself and print a blank sheet. This flag lets
   // the global rule stand down for exactly this flow (see global.css and
   // accountingReportPrint.css); everything else still prints as before.
+  // Reference-counted: the class belongs to the document, not to one instance,
+  // so a second report mounting and unmounting must not strip it from the first.
+  // A plain add/remove pair is wrong the moment two owners overlap — including
+  // the mount/unmount/remount that StrictMode performs in development.
   useEffect(() => {
+    acctPrintModeOwners += 1
     document.body.classList.add('acct-print-mode')
     return () => {
-      document.body.classList.remove('acct-print-mode')
+      acctPrintModeOwners -= 1
+      if (acctPrintModeOwners <= 0) {
+        acctPrintModeOwners = 0
+        document.body.classList.remove('acct-print-mode')
+      }
     }
   }, [])
 

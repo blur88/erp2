@@ -66,6 +66,7 @@
    */
   body.acct-print-mode #root,
   body.acct-print-mode #root > *,
+  body.acct-print-mode .app-shell-root,
   body.acct-print-mode #root main {
     display: block !important;
     height: auto !important;
