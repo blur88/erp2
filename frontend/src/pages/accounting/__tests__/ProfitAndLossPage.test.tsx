@@ -333,6 +333,38 @@ describe('ProfitAndLossPage', () => {
     expect(screen.getByTestId('page-header-divider')).toHaveAttribute('data-print-hide', 'true')
   })
 
+  it('marks the body so the global print rule does not hide the report', () => {
+    // global.css hides #root when printing, to isolate the PORTALED transactional
+    // document templates. An analytical report is not portaled — it renders
+    // inside #root — so without this opt-out marker, Ctrl-P yields a blank page.
+    const { unmount } = renderPage()
+    expect(document.body).toHaveClass('acct-print-mode')
+    // ...and it must not leak to other pages, which still need the global rule.
+    unmount()
+    expect(document.body).not.toHaveClass('acct-print-mode')
+  })
+
+  it('keeps a valid no-activity year selected instead of resetting it', async () => {
+    // The API accepts any year in 1000-9999 and returns an all-zero statement
+    // for one with no postings — a valid report. But such a year is absent from
+    // availableYears, so unless it is treated as authoritative too, useFilterBar
+    // judges it stale and resets to the current year, discarding the request.
+    const noActivity = { ...RESPONSE, year: 1990, availableYears: [2026, 2025] }
+    mockQuery.mockReturnValue({
+      data: noActivity, currentData: noActivity,
+      isLoading: false, isFetching: false, isError: false,
+    })
+    window.history.replaceState({}, '', '/accounting/profit-and-loss?year=1990')
+    render(<BrowserRouter><ProfitAndLossPage /></BrowserRouter>)
+
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /year/i })).toHaveTextContent('1990')
+    })
+    expect(new URLSearchParams(window.location.search).get('year')).toBe('1990')
+    // And no second query for the current year — the reset would show up here.
+    expect(mockQuery).not.toHaveBeenCalledWith({ year: new Date().getFullYear() })
+  })
+
   it('exposes every element the print stylesheet must expand', () => {
     // jsdom has no layout engine and does not evaluate @media print, so this
     // asserts the SELECTORS exist, not that the printout is correct — the

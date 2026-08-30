@@ -179,9 +179,18 @@ export default function ProfitAndLossPage() {
   // Feed the options back from each settled response. Guarded on a real change
   // so it cannot loop.
   useEffect(() => {
-    const years = currentData?.availableYears
-    if (!years) return
+    const available = currentData?.availableYears
+    if (!available) return
     setIsYearOptionsError(false)
+    // The year actually reported on is authoritative too, even when it holds no
+    // postings and so is absent from availableYears. The API accepts any year in
+    // 1000-9999 and returns an all-zero statement for one with no activity —
+    // that is a valid report, not an invalid filter. Without this, useFilterBar's
+    // revalidation judges e.g. ?year=1990 stale and resets it to the current
+    // year, silently discarding the report the user asked for.
+    const years = available.includes(currentData.year)
+      ? available
+      : [...available, currentData.year].sort((a, b) => b - a)
     setYearOptions((prev) =>
       prev && prev.length === years.length && prev.every((y, i) => y === years[i]) ? prev : years,
     )

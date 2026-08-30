@@ -106,6 +106,12 @@ Reports are not a module: Sales/Purchasing/Inventory "reports" are routes and me
 
 **Frontend Docker**: Changes to frontend source require a rebuild — `docker compose build frontend && docker compose up -d frontend`. The Vite dev server (`npm run dev`) is for local-only development.
 
+**Two print modes share the global print stylesheet**: Transactional document dialogs render through MUI portals **outside** `#root`, so they rely on `body:not(.acct-print-mode) #root { display: none }` (`styles/global.css`) for isolation — hiding the app shell is what leaves the portaled document alone on the page. Analytical accounting reports (Profit & Loss) render **inside** `#root` as ordinary pages; `AccountingReportPrintLayout` owns `body.acct-print-mode`, which stands that rule down so the report stays visible.
+
+**Never restore unconditional `#root` hiding** — it prints a blank sheet for every non-portaled report. A non-portaled print page must also release the `MainLayout`/root height and overflow constraints (`100vh`, `height: 100%`, `overflow: auto`), or the report is pinned to a single viewport and silently truncates; `accountingReportPrint.css` does this for `#root`, its children and `main`, and separately for `EntityTable`'s own card/frame/scroller, which are the real overflow owners.
+
+jsdom has no layout engine and does not evaluate `@media print`, so **no automated test can validate this path** — the suite can only assert that the marker class and the targeted selectors exist. A **multi-page browser print preview is a required gate** for any change to these files. This failed twice undetected during #1172: the report tree was `display: none` while two rounds of overflow fixes were applied downstream of it.
+
 **Path aliases**: Frontend uses `@/` as alias for `src/`. Backend uses `@/*` → `src/*`, `@modules/*` → `src/modules/*`, `@common/*` → `src/common/*`, `@config/*` → `src/config/*`, and `@database/*` → `src/database/*`.
 
 TypeScript CLI scripts that directly or transitively import configured path aliases such as `@database/*` must preload `tsconfig-paths/register` in their npm script (for example, `ts-node -r tsconfig-paths/register ...`). TypeScript type-checking resolves these aliases, but Node runtime loading does not.

@@ -51,6 +51,30 @@
     height: auto !important;
   }
 
+  /*
+   * Neutralize the app shell's viewport sizing on the way down to the report.
+   *
+   * global.css hides #root when printing, but that rule stands down for this
+   * flow (body.acct-print-mode) because an analytical report is not portaled —
+   * hiding #root would print a blank page. The shell therefore stays in the
+   * tree, and MainLayout's `height: 100vh` / `height: 100%` / `overflow: auto`
+   * would pin the whole report to a single viewport. Releasing every ancestor
+   * of .acct-print-root is what lets a long statement paginate.
+   *
+   * The sidebar, top bar and page chrome are still hidden by the
+   * nav/header/aside and [data-print-hide] rules above.
+   */
+  body.acct-print-mode #root,
+  body.acct-print-mode #root > *,
+  body.acct-print-mode #root main {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    flex: none !important;
+  }
+
   /* A scroll container must not clip the report to one viewport. */
   .acct-print-scroll {
     overflow: visible !important;

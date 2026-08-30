@@ -263,8 +263,14 @@ html {
    document still renders. The print root is left in normal flow (no absolute
    positioning) so multi-page documents paginate instead of clipping. */
 @media print {
-  /* Remove the app shell entirely so it contributes no height. */
-  #root {
+  /* Remove the app shell entirely so it contributes no height.
+     Scoped to NON-accounting print flows: this rule isolates the transactional
+     document templates, which render through a MUI Dialog portal OUTSIDE #root.
+     Analytical accounting reports (Profit & Loss) are not portaled — they live
+     inside #root — so hiding it there prints a blank page. Those flows set
+     body.acct-print-mode and bring their own isolation in
+     components/print/accountingReportPrint.css. */
+  body:not(.acct-print-mode) #root {
     display: none !important;
   }
   /* Remove dialog chrome that sits ABOVE/BELOW the document so it leaves no
