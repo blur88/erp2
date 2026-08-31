@@ -1,0 +1,267 @@
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
+import { describe, it, expect, vi } from 'vitest'
+import FormBTaxView from '../FormBTaxView'
+import type { FormBResponse } from '@/types'
+
+vi.mock('@/store/api/printSettingsApi', () => ({
+  useGetPrintSettingsQuery: () => ({
+    data: { id: '1', companyName: 'Acme Sdn Bhd', address: '1 Test Road' },
+    isLoading: false,
+  }),
+}))
+
+const FORM_DEFS: Array<{ line: string; label: string; formula: string | null }> = [
+  { line: 'N3', label: 'Sales / Turnover', formula: null },
+  { line: 'N4', label: 'Opening Inventory', formula: null },
+  { line: 'N5', label: 'Purchases and Production Costs', formula: null },
+  { line: 'N6', label: 'Closing Inventory', formula: null },
+  { line: 'N7', label: 'Cost of Sales', formula: 'N4 + N5 - N6' },
+  { line: 'N8', label: 'Gross Profit / Loss', formula: 'N3 - N7' },
+  { line: 'N9', label: 'Other Business', formula: null },
+  { line: 'N10', label: 'Dividends', formula: null },
+  { line: 'N11', label: 'Interest and Discounts', formula: null },
+  { line: 'N12', label: 'Rent, Royalties and Premiums', formula: null },
+  { line: 'N13', label: 'Other Income', formula: null },
+  { line: 'N14', label: 'Total Other Income', formula: 'N9 to N13' },
+  { line: 'N15', label: 'Loan Interest', formula: null },
+  { line: 'N16', label: 'Salaries and Wages', formula: null },
+  { line: 'N17', label: 'Rent / Lease', formula: null },
+  { line: 'N18', label: 'Contract and Subcontract', formula: null },
+  { line: 'N19', label: 'Commission', formula: null },
+  { line: 'N20', label: 'Bad Debts', formula: null },
+  { line: 'N21', label: 'Travel and Transportation', formula: null },
+  { line: 'N22', label: 'Repairs and Maintenance', formula: null },
+  { line: 'N23', label: 'Promotion and Advertising', formula: null },
+  { line: 'N24', label: 'Other Expenses', formula: null },
+  { line: 'N25', label: 'Total Expenses', formula: 'N15 to N24' },
+  { line: 'N26', label: 'Net Profit / Loss', formula: 'N8 + N14 - N25' },
+  { line: 'N27', label: 'Disallowed Expenses', formula: null },
+]
+
+const makeRow = (line: string, over: any = {}) => {
+  const def = FORM_DEFS.find((d) => d.line === line) ?? { line, label: `Label ${line}`, formula: null }
+  return {
+    line: def.line,
+    label: def.label,
+    formula: def.formula,
+    amount: '0.0000',
+    accounts: [],
+    cohorts: null,
+    ...over,
+  }
+}
+
+const fullResponse = (): FormBResponse => ({
+  year: 2025,
+  formVersion: 2025,
+  availableYears: [2025],
+  identity: {
+    businessName: { value: 'Acme Sdn Bhd', source: 'formB', override: 'Acme Sdn Bhd' },
+    registrationNumber: { value: '12345', source: 'formB', override: '12345' },
+    businessCode: { value: '12345', source: 'formB', override: '12345' },
+    activityType: { value: 'Trading', source: 'formB', override: 'Trading' },
+  },
+  rows: FORM_DEFS.map((def) => makeRow(def.line)) as any,
+  reconciliation: {
+    n7: '0.0000',
+    accountingTotalCostOfSales: '0.0000',
+    inventoryAdjustments: '0.0000',
+    ownerStockDrawings: '0.0000',
+    residual: '0.0000',
+  },
+  findings: [],
+  readiness: { hasWarnings: false, hasIncomplete: false, hasIntegrity: false, counts: { warning: 0, incomplete: 0, integrity: 0 } },
+})
+
+const responseWith = (over: any): FormBResponse => {
+  const base = fullResponse()
+  const idx = base.rows.findIndex((r: any) => r.line === over.line)
+  if (idx >= 0) {
+    base.rows[idx] = { ...base.rows[idx], ...over } as any
+  } else {
+    base.rows.push(makeRow(over.line, over) as any)
+  }
+  return base
+}
+
+const responseWithFinding = (finding: any): FormBResponse => {
+  const base = fullResponse()
+  const severity = finding.severity
+  base.findings = [finding as any]
+  base.readiness = {
+    hasWarnings: severity === 'warning',
+    hasIncomplete: severity === 'incomplete',
+    hasIntegrity: severity === 'integrity',
+    counts: {
+      warning: severity === 'warning' ? 1 : 0,
+      incomplete: severity === 'incomplete' ? 1 : 0,
+      integrity: severity === 'integrity' ? 1 : 0,
+    },
+  }
+  return base
+}
+
+const responseWithIdentity = (over: any): FormBResponse => {
+  const base = fullResponse()
+  base.identity = {
+    ...base.identity,
+    ...over,
+  } as any
+  // Also merge nested fields if over provides partial
+  for (const key of Object.keys(over)) {
+    base.identity[key as keyof typeof base.identity] = {
+      ...(base.identity[key as keyof typeof base.identity] as any),
+      ...(over[key] as any),
+    } as any
+  }
+  return base
+}
+
+const responseWithReconciliation = (over: any): FormBResponse => {
+  const base = fullResponse()
+  base.reconciliation = { ...base.reconciliation, ...over }
+  return base
+}
+
+const responseWithCohort = (): FormBResponse => {
+  const base = fullResponse()
+  const contributor = {
+    accountId: 'a1',
+    code: '6990',
+    name: 'Sundry',
+    isActive: true,
+    category: null,
+    assignment: 'fallback' as const,
+    amount: '5.0000',
+  }
+  const idx = base.rows.findIndex((r: any) => r.line === 'N24')
+  if (idx >= 0) {
+    base.rows[idx] = {
+      ...base.rows[idx],
+      accounts: [contributor],
+      cohorts: { explicit: [], fallback: [contributor] },
+    } as any
+  }
+  return base
+}
+
+const renderTaxView = (data: FormBResponse, opts?: { onOpenLedger?: any }) => {
+  const onOpenLedger = opts?.onOpenLedger ?? vi.fn()
+  return render(
+    <MemoryRouter>
+      <FormBTaxView data={data} year={data.year} isLoading={false} isError={false} onOpenLedger={onOpenLedger} />
+    </MemoryRouter>,
+  )
+}
+
+describe('FormBTaxView', () => {
+  it('renders every statutory line including zero rows', () => {
+    renderTaxView(fullResponse())
+    for (let n = 3; n <= 27; n++) {
+      expect(screen.getByTestId(`formb-line-N${n}`)).toBeInTheDocument()
+    }
+  })
+
+  it('renders a null amount as an em dash, distinct from 0.00', () => {
+    renderTaxView(responseWith({ line: 'N7', amount: null }))
+    expect(screen.getByTestId('formb-line-N7')).toHaveTextContent('—')
+  })
+
+  it('shows the formula caption on derived lines', () => {
+    renderTaxView(fullResponse())
+    expect(screen.getByTestId('formb-line-N7')).toHaveTextContent('N4 + N5 - N6')
+  })
+
+  it('shows the mismatch header when the year differs from the form version', () => {
+    renderTaxView({ ...fullResponse(), year: 2024, formVersion: 2025 })
+    expect(screen.getByText(/presented using Form B YA 2025/i)).toBeInTheDocument()
+  })
+
+  it('renders warnings with their severity', () => {
+    renderTaxView(
+      responseWithFinding({
+        code: 'UNMAPPED_EXPENSE_ACCOUNTS',
+        severity: 'warning',
+        message: '2 expense account(s) have no Form B category',
+        accounts: [],
+        settingKey: null,
+      }),
+    )
+    expect(screen.getByText(/2 expense account\(s\)/)).toBeInTheDocument()
+  })
+
+  // Every code in the contract must reach the screen. A code the UI silently
+  // drops is a finding the filer never sees.
+  it.each([
+    'UNMAPPED_EXPENSE_ACCOUNTS',
+    'UNMAPPED_INCOME_ACCOUNTS',
+    'MISSING_BUSINESS_IDENTITY',
+    'DISALLOWED_EXPENSES_UNDETERMINED',
+    'FORM_VERSION_MISMATCH',
+    'MISSING_CONFIGURED_ROOT',
+    'INVALID_CONFIGURED_ROOT',
+    'MAPPED_ACCOUNT_INELIGIBLE',
+    'UNEXPLAINED_INVENTORY_RESIDUAL',
+    'ACCOUNTING_VIEW_TIE_OUT_FAILED',
+    'ACCOUNTING_VIEW_ANOMALIES',
+    'ACCOUNTING_VIEW_STRUCTURAL_FAULTS',
+  ])('renders finding code %s', (code) => {
+    renderTaxView(
+      responseWithFinding({
+        code: code as any,
+        severity: 'integrity',
+        message: `message for ${code}`,
+        accounts: [],
+        settingKey: null,
+      }),
+    )
+    expect(screen.getByText(`message for ${code}`)).toBeInTheDocument()
+  })
+
+  it('renders the readiness summary without claiming correctness', () => {
+    renderTaxView(fullResponse())
+    const summary = screen.getByTestId('formb-readiness')
+    expect(summary.textContent).not.toMatch(/correct/i)
+  })
+
+  it('shows the identity source label for a Print Settings fallback', () => {
+    renderTaxView(
+      responseWithIdentity({
+        businessName: { value: 'Acme Trading', source: 'printSettings', override: null },
+      }),
+    )
+    expect(screen.getByText(/from Print Settings/i)).toBeInTheDocument()
+  })
+
+  it('renders the reconciliation panel with surviving terms when one is null', () => {
+    renderTaxView(
+      responseWithReconciliation({
+        n7: '10.0000',
+        accountingTotalCostOfSales: null,
+        inventoryAdjustments: '1.0000',
+        ownerStockDrawings: '2.0000',
+        residual: null,
+      }),
+    )
+    const panel = screen.getByTestId('formb-reconciliation')
+    expect(panel).toHaveTextContent('10.0000')
+    expect(panel).toHaveTextContent('1.0000')
+    expect(panel).toHaveTextContent('—')
+  })
+
+  it('drills a cohort account through to the general ledger', async () => {
+    const user = userEvent.setup()
+    const onOpenLedger = vi.fn()
+    renderTaxView(responseWithCohort(), { onOpenLedger })
+    await user.click(screen.getByTestId('formb-line-N24'))
+    await user.click(screen.getByTestId('formb-cohort-N24-0'))
+    expect(onOpenLedger).toHaveBeenCalledWith('a1', 2025)
+  })
+
+  it('gives expansion controls the print-control class so they do not print', () => {
+    renderTaxView(responseWithCohort())
+    expect(screen.getByTestId('formb-line-N24').querySelector('.acct-print-control')).toBeInTheDocument()
+  })
+})

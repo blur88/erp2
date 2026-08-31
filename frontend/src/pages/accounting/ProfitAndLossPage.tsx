@@ -13,6 +13,7 @@ import { useGetProfitAndLossQuery, useGetFormBQuery } from '@/store/api/accounti
 import { AccountingReportPrintLayout } from '@/components/print/AccountingReportPrintLayout'
 import type { ProfitAndLossResponse } from '@/types'
 import ProfitAndLossAccountingView from './ProfitAndLossAccountingView'
+import FormBTaxView from './FormBTaxView'
 
 type PlView = 'accounting' | 'tax'
 
@@ -193,7 +194,13 @@ export default function ProfitAndLossPage() {
                 onOpenLedger={openLedger}
               />
             ) : (
-              <div data-testid="pl-tax-view">{/* Task 15 renders this */}</div>
+              <FormBTaxView
+                data={taxQuery.currentData}
+                year={year}
+                isLoading={taxQuery.isLoading}
+                isError={taxQuery.isError}
+                onOpenLedger={openLedger}
+              />
             )}
           </>
         }
