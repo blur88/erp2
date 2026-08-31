@@ -295,3 +295,97 @@ describe('FormBService.getFormB', () => {
     expect(res.readiness.hasIncomplete).toBe(true);   // N27 is always undetermined
   });
 });
+
+describe('FormBService — Accounting View integrity relay', () => {
+  it('relays a tie-out failure', async () => {
+    const res = await buildService({
+      plIntegrity: { anomalies: [], structuralFaults: [], tieOutOk: false, independentNetProfit: '1.0000' },
+    }).getFormB({ year: YEAR });
+    expect(codes(res)).toContain('ACCOUNTING_VIEW_TIE_OUT_FAILED');
+  });
+
+  it('relays assignment anomalies', async () => {
+    const res = await buildService({
+      plIntegrity: {
+        anomalies: [{ accountId: 'a1', code: '6100', name: 'Salaries', component: 'ordinary', count: 2 }],
+        structuralFaults: [], tieOutOk: true, independentNetProfit: '0.0000',
+      },
+    }).getFormB({ year: YEAR });
+    expect(codes(res)).toContain('ACCOUNTING_VIEW_ANOMALIES');
+  });
+
+  // structuralFaults gets its OWN code, not a broadened anomalies code: a
+  // structural fault ties out cleanly, so folding the two together would let a
+  // fault hide behind a passing tie-out.
+  it('relays a structural fault with no Form B counterpart', async () => {
+    const res = await buildService({
+      plIntegrity: {
+        anomalies: [],
+        structuralFaults: [{
+          kind: 'parentCycle', settingKey: null,
+          accounts: [{ accountId: 'x9', code: '6500', name: 'Odd' }],
+        }],
+        tieOutOk: true, independentNetProfit: '0.0000',
+      },
+    }).getFormB({ year: YEAR });
+    expect(codes(res)).toContain('ACCOUNTING_VIEW_STRUCTURAL_FAULTS');
+  });
+
+  // Dedup by settingKey: Form B already reported this exact defect, so relaying
+  // it too would inflate readiness.counts and overstate how much is broken.
+  it('suppresses a structural fault whose settingKey Form B already reported', async () => {
+    const res = await buildService({
+      settings: { inventoryAccountId: null },
+      plIntegrity: {
+        anomalies: [],
+        structuralFaults: [{
+          kind: 'missingConfiguredAccount', settingKey: 'inventoryAccountId', accounts: [],
+        }],
+        tieOutOk: true, independentNetProfit: '0.0000',
+      },
+    }).getFormB({ year: YEAR });
+    expect(codes(res)).toContain('MISSING_CONFIGURED_ROOT');
+    expect(codes(res)).not.toContain('ACCOUNTING_VIEW_STRUCTURAL_FAULTS');
+  });
+
+  it('suppresses a structural fault naming an account Form B already reported', async () => {
+    const cyclic = [
+      acc({ id: 'inv', code: '1300', name: 'Inventory', type: 'Asset', parentId: 'c1' }),
+      acc({ id: 'c1', code: '1310', name: 'Child', type: 'Asset', parentId: 'inv' }),
+      acc({ id: 'rev', code: '4100', name: 'Sales Revenue', type: 'Income' }),
+      acc({ id: 'cogs', code: '5100', name: 'COGS', type: 'Expense' }),
+    ];
+    const res = await buildService({
+      accounts: cyclic,
+      plIntegrity: {
+        anomalies: [],
+        structuralFaults: [{
+          kind: 'parentCycle', settingKey: null,
+          accounts: [{ accountId: 'inv', code: '1300', name: 'Inventory' }],
+        }],
+        tieOutOk: true, independentNetProfit: '0.0000',
+      },
+    }).getFormB({ year: YEAR });
+    expect(codes(res)).toContain('INVALID_CONFIGURED_ROOT');
+    expect(codes(res)).not.toContain('ACCOUNTING_VIEW_STRUCTURAL_FAULTS');
+  });
+
+  it('keeps readiness counts equal to the rendered findings list', async () => {
+    const res = await buildService({
+      settings: { inventoryAccountId: null },
+      plIntegrity: {
+        anomalies: [],
+        structuralFaults: [{
+          kind: 'missingConfiguredAccount', settingKey: 'inventoryAccountId', accounts: [],
+        }],
+        tieOutOk: true, independentNetProfit: '0.0000',
+      },
+    }).getFormB({ year: YEAR });
+    const actual = {
+      warning: res.findings.filter((f) => f.severity === 'warning').length,
+      incomplete: res.findings.filter((f) => f.severity === 'incomplete').length,
+      integrity: res.findings.filter((f) => f.severity === 'integrity').length,
+    };
+    expect(res.readiness.counts).toEqual(actual);
+  });
+});

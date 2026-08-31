@@ -16,7 +16,7 @@ import {
   INCOME_CATEGORY_LINE,
 } from './form-b.categories';
 import { detectCycles, detectDanglingParents } from './profit-and-loss.graph';
-import type { PlAccount } from './profit-and-loss.types';
+import type { PlAccount, PlIntegrity } from './profit-and-loss.types';
 import type {
   Amount,
   FormBRow,
@@ -245,6 +245,7 @@ export class FormBService {
     ] as const) {
       const status = roots[key];
       if (status.ok) continue;
+      const id = (settings as any)[settingKey] as string | null;
       findings.push((status as any).kind === 'missing'
         ? {
             code: 'MISSING_CONFIGURED_ROOT', severity: 'incomplete',
@@ -254,7 +255,7 @@ export class FormBService {
         : {
             code: 'INVALID_CONFIGURED_ROOT', severity: 'integrity',
             message: `${settingKey} is ${(status as any).detail}. Rows derived from it are unavailable until the chart is repaired.`,
-            accounts: [], settingKey,
+            accounts: id === null ? [] : [describe(id)], settingKey,
           });
     }
 
@@ -491,9 +492,83 @@ export class FormBService {
     };
   }
 
+  /**
+   * Surface the Accounting View's own integrity findings rather than swallowing
+   * them: this report is built on those numbers, so a fault there is a fault
+   * here.
+   *
+   * structuralFaults gets its OWN code. PlIntegrity keeps it separate from
+   * anomalies (profit-and-loss.types.ts:81) because the two mean different
+   * things — an anomaly is money dropped or double-counted, a structural fault
+   * ties out CLEANLY and is still wrong. Folding them together would let a
+   * fault hide behind a passing tie-out.
+   *
+   * Deduplication: §5.6.1 validates the same configured roots the Accounting
+   * View does, so one broken setting would otherwise raise two findings and
+   * inflate readiness.counts. Form B's own finding wins — it names the setting
+   * the user edits and carries the validation detail.
+   */
   private relayAccountingIntegrity(
-    _view: any, _existing: FormBFinding[], _describe: (id: string) => FormBFindingAccount,
+    view: { integrity: PlIntegrity },
+    existing: FormBFinding[],
+    describe: (id: string) => FormBFindingAccount,
   ): FormBFinding[] {
-    return [];
+    const out: FormBFinding[] = [];
+    const integrity = view.integrity;
+
+    if (!integrity.tieOutOk) {
+      out.push({
+        code: 'ACCOUNTING_VIEW_TIE_OUT_FAILED', severity: 'integrity',
+        message: `The Accounting View does not tie out (independent net profit ${integrity.independentNetProfit}). Form B figures derive from it and may be wrong.`,
+        accounts: [], settingKey: null,
+      });
+    }
+
+    if (integrity.anomalies.length > 0) {
+      out.push({
+        code: 'ACCOUNTING_VIEW_ANOMALIES', severity: 'integrity',
+        message: `The Accounting View reports ${integrity.anomalies.length} assignment anomal${integrity.anomalies.length === 1 ? 'y' : 'ies'}.`,
+        accounts: integrity.anomalies.map((a) => describe(a.accountId)),
+        settingKey: null,
+      });
+    }
+
+    // Defects Form B already reported, by the two keys a fault can carry.
+    const reportedSettings = new Set(
+      existing
+        .filter((f) => f.code === 'MISSING_CONFIGURED_ROOT' || f.code === 'INVALID_CONFIGURED_ROOT')
+        .map((f) => f.settingKey)
+        .filter((k): k is string => k !== null),
+    );
+    const reportedAccounts = new Set(
+      existing
+        .filter((f) => f.code === 'MISSING_CONFIGURED_ROOT' || f.code === 'INVALID_CONFIGURED_ROOT')
+        .flatMap((f) => f.accounts.map((a) => a.accountId)),
+    );
+    // A root fault is reported with settingKey but no accounts, so also treat
+    // the configured root ids themselves as already-reported.
+    for (const f of existing) {
+      if (f.code !== 'INVALID_CONFIGURED_ROOT' && f.code !== 'MISSING_CONFIGURED_ROOT') continue;
+      if (f.settingKey !== null) reportedSettings.add(f.settingKey);
+    }
+
+    const novel = integrity.structuralFaults.filter((fault) => {
+      if (fault.settingKey !== null && reportedSettings.has(fault.settingKey)) return false;
+      if (fault.accounts.some((a) => reportedAccounts.has(a.accountId))) return false;
+      return true;
+    });
+
+    if (novel.length > 0) {
+      out.push({
+        code: 'ACCOUNTING_VIEW_STRUCTURAL_FAULTS', severity: 'integrity',
+        message: `The Accounting View reports ${novel.length} structural fault(s) in the chart of accounts: ${novel.map((f) => f.kind).join(', ')}.`,
+        accounts: novel.flatMap((f) => f.accounts.map((a) => ({
+          accountId: a.accountId, code: a.code, name: a.name,
+        }))),
+        settingKey: novel.find((f) => f.settingKey !== null)?.settingKey ?? null,
+      });
+    }
+
+    return out;
   }
 }
