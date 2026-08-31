@@ -7,14 +7,15 @@ export interface BaseQueryArgs {
   url: string
   method?: Method
   data?: unknown
+  body?: unknown
   params?: Record<string, unknown>
   headers?: Record<string, string>
 }
 
 export const axiosBaseQuery = (): BaseQueryFn<BaseQueryArgs, unknown, { status?: number; data: string }> =>
-  async ({ url, method = 'GET', data, params, headers }) => {
+  async ({ url, method = 'GET', data, body, params, headers }) => {
     try {
-      const config: AxiosRequestConfig = { url, method, data, params, headers }
+      const config: AxiosRequestConfig = { url, method, data: data ?? body, params, headers }
       const result = await api(config)
       return { data: result.data }
     } catch (err: any) {

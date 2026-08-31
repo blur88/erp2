@@ -778,6 +778,131 @@ export interface ProfitAndLossResponse {
   integrity: PlIntegrity
 }
 
+// ---- Form B Tax View (#1174) ----
+
+/** formatScale4 output, or null. NEVER render null as '0.00' — use an em dash. */
+export type FormBAmount = string | null
+
+export type FormBExpenseCategory =
+  | 'LOAN_INTEREST' | 'SALARIES_AND_WAGES' | 'RENT_LEASE'
+  | 'CONTRACT_SUBCONTRACT' | 'COMMISSION' | 'BAD_DEBTS'
+  | 'TRAVEL_TRANSPORT' | 'REPAIRS_MAINTENANCE'
+  | 'PROMOTION_ADVERTISING' | 'OTHER_EXPENSES'
+
+export type FormBIncomeCategory =
+  | 'OTHER_BUSINESS' | 'DIVIDENDS' | 'INTEREST_AND_DISCOUNTS'
+  | 'RENT_ROYALTIES_PREMIUMS' | 'OTHER_INCOME'
+
+export type FormBCategory = FormBExpenseCategory | FormBIncomeCategory
+
+export type FormBEligibilityReason =
+  | 'NOT_EXPENSE_TYPE' | 'NOT_INCOME_TYPE' | 'NOT_POSTABLE' | 'INACTIVE'
+  | 'IS_CONFIGURED_ROOT' | 'DESCENDANT_OF_EXCLUDED_ROOT' | 'GRAPH_FAULT'
+
+export interface FormBAccountRef {
+  accountId: string
+  code: string
+  name: string
+  isActive: boolean
+  category: FormBCategory | null
+  assignment: 'explicit' | 'fallback'
+  amount: string
+}
+
+export interface FormBFindingAccount {
+  accountId: string
+  code: string
+  name: string
+  reason?: FormBEligibilityReason
+}
+
+export interface FormBRow {
+  line: string
+  label: string
+  formula: string | null
+  amount: FormBAmount
+  accounts: FormBAccountRef[]
+  cohorts: { explicit: FormBAccountRef[]; fallback: FormBAccountRef[] } | null
+  productionCost?: null
+  derived?: false
+  status?: 'requiresFilerInput'
+}
+
+export interface FormBIdentityField {
+  value: string | null
+  source: 'formB' | 'printSettings' | null
+  override: string | null
+}
+
+export interface FormBReconciliation {
+  n7: FormBAmount
+  /** Already INCLUDES inventoryAdjustments. Never add the two. */
+  accountingTotalCostOfSales: FormBAmount
+  inventoryAdjustments: FormBAmount
+  ownerStockDrawings: FormBAmount
+  residual: FormBAmount
+}
+
+export type FormBFindingCode =
+  | 'UNMAPPED_EXPENSE_ACCOUNTS' | 'UNMAPPED_INCOME_ACCOUNTS'
+  | 'MISSING_BUSINESS_IDENTITY' | 'DISALLOWED_EXPENSES_UNDETERMINED'
+  | 'FORM_VERSION_MISMATCH' | 'MISSING_CONFIGURED_ROOT' | 'INVALID_CONFIGURED_ROOT'
+  | 'MAPPED_ACCOUNT_INELIGIBLE' | 'UNEXPLAINED_INVENTORY_RESIDUAL'
+  | 'ACCOUNTING_VIEW_TIE_OUT_FAILED' | 'ACCOUNTING_VIEW_ANOMALIES'
+  | 'ACCOUNTING_VIEW_STRUCTURAL_FAULTS'
+
+export interface FormBFinding {
+  code: FormBFindingCode
+  severity: 'warning' | 'incomplete' | 'integrity'
+  message: string
+  accounts: FormBFindingAccount[]
+  settingKey: string | null
+}
+
+export interface FormBReadiness {
+  hasWarnings: boolean
+  hasIncomplete: boolean
+  hasIntegrity: boolean
+  counts: { warning: number; incomplete: number; integrity: number }
+}
+
+export interface FormBResponse {
+  year: number
+  formVersion: number
+  availableYears: number[]
+  identity: {
+    businessName: FormBIdentityField
+    registrationNumber: FormBIdentityField
+    businessCode: FormBIdentityField
+    activityType: FormBIdentityField
+  }
+  rows: FormBRow[]
+  reconciliation: FormBReconciliation
+  findings: FormBFinding[]
+  readiness: FormBReadiness
+}
+
+export type FormBEligibility =
+  | { eligible: true }
+  | { eligible: false; reason: FormBEligibilityReason }
+
+export interface FormBMappingRow {
+  accountId: string
+  code: string
+  name: string
+  type: string
+  isActive: boolean
+  category: FormBCategory | null
+  eligibility: FormBEligibility
+}
+
+export interface UpdateFormBSettingsPayload {
+  businessName?: string
+  registrationNumber?: string
+  businessCode?: string
+  activityType?: string
+}
+
 export {
   type Expense,
   type ExpenseDocumentStatus,
