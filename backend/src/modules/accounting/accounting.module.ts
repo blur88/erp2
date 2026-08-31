@@ -8,6 +8,7 @@ import { JournalEntryLine } from './entities/journal-entry-line.entity';
 import { Expense } from './entities/expense.entity';
 import { ExpensePayment } from './entities/expense-payment.entity';
 import { SettingsModule } from '../settings/settings.module';
+import { PrintSettingsModule } from '../print-settings/print-settings.module';
 import { AccountingLookupService } from './services/accounting-lookup.service';
 import { AccountingPostingService } from './services/accounting-posting.service';
 import { AccountBalanceService } from './services/account-balance.service';
@@ -27,12 +28,14 @@ import { ProfitAndLossController } from './controllers/profit-and-loss.controlle
 import { ExpenseController } from './controllers/expense.controller';
 import { ExpenseService } from './services/expense.service';
 import { ExpensePaymentService } from './services/expense-payment.service';
+import { FormBSettingsService } from './services/form-b-settings.service';
 import { ACCOUNTING_POSTING_PORT } from '../../common/accounting-posting/accounting-posting.port';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([ChartOfAccount, AccountingSettings, FormBSettings, JournalEntry, JournalEntryLine, Expense, ExpensePayment]),
     SettingsModule,
+    PrintSettingsModule,
   ],
   controllers: [
     ChartOfAccountController, AccountingSettingsController, JournalEntryController,
@@ -43,6 +46,7 @@ import { ACCOUNTING_POSTING_PORT } from '../../common/accounting-posting/account
     ChartOfAccountService, AccountingSettingsService, JournalEntryService,
     GeneralLedgerService, TrialBalanceService, ProfitAndLossService, AccountingSeederService,
     ExpenseService, ExpensePaymentService,
+    FormBSettingsService,
     { provide: ACCOUNTING_POSTING_PORT, useExisting: AccountingPostingService },
   ],
   exports: [ACCOUNTING_POSTING_PORT, AccountingLookupService],
