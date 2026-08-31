@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ChartOfAccount } from './entities/chart-of-account.entity';
 import { AccountingSettings } from './entities/accounting-settings.entity';
+import { FormBSettings } from './entities/form-b-settings.entity';
 import { JournalEntry } from './entities/journal-entry.entity';
 import { JournalEntryLine } from './entities/journal-entry-line.entity';
 import { Expense } from './entities/expense.entity';
@@ -30,7 +31,7 @@ import { ACCOUNTING_POSTING_PORT } from '../../common/accounting-posting/account
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ChartOfAccount, AccountingSettings, JournalEntry, JournalEntryLine, Expense, ExpensePayment]),
+    TypeOrmModule.forFeature([ChartOfAccount, AccountingSettings, FormBSettings, JournalEntry, JournalEntryLine, Expense, ExpensePayment]),
     SettingsModule,
   ],
   controllers: [

@@ -1,6 +1,7 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from '../../../database/entities/base.entity';
 import { AccountType } from './account-type.enum';
+import { FormBExpenseCategory, FormBIncomeCategory } from './form-b-category.enum';
 
 @Entity('chart_of_account')
 export class ChartOfAccount extends BaseEntity {
@@ -37,4 +38,18 @@ export class ChartOfAccount extends BaseEntity {
 
   @Column({ type: 'decimal', precision: 18, scale: 4, default: 0 })
   openingBalance: string;
+
+  /**
+   * Form B tax-line mapping (#1174). NULL means unmapped — an unmapped account
+   * with movement falls back to N24 / N13 and is warned about, never dropped.
+   *
+   * Assignment requires write eligibility (form-b.eligibility.ts), but a
+   * mapping is RETAINED through deactivation so historical years keep
+   * classifying the way they were filed.
+   */
+  @Column({ type: 'enum', enum: FormBExpenseCategory, nullable: true })
+  formBExpenseCategory: FormBExpenseCategory | null;
+
+  @Column({ type: 'enum', enum: FormBIncomeCategory, nullable: true })
+  formBIncomeCategory: FormBIncomeCategory | null;
 }
