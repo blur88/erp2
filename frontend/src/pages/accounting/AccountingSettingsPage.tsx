@@ -25,6 +25,9 @@ import {
 } from '@/store/api/accountingApi'
 import type { Account, AccountType, AccountingSettings } from '@/types'
 
+import FormBIdentitySection from './FormBIdentitySection'
+import FormBMappingSection from './FormBMappingSection'
+
 interface FormValues {
   cashAccountId: string
   bankAccountId: string
@@ -304,6 +307,11 @@ export default function AccountingSettingsPage() {
             )}
           </form>
         )}
+
+        <Stack spacing={3} sx={{ mt: 3 }}>
+          <FormBIdentitySection />
+          <FormBMappingSection />
+        </Stack>
       </Box>
     </Box>
   )
