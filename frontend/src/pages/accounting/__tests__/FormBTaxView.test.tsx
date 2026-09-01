@@ -265,6 +265,24 @@ describe('FormBTaxView', () => {
   // The retail production-cost annotation was removed from the UI. The payload
   // still carries productionCost: null on N5 (spec §5.1) — the report never
   // fabricates a production figure — it is simply not captioned on screen.
+  /*
+   * The visual weight of the band (background, rules, tracking) is Emotion sx
+   * and unobservable in jsdom — see project_emotion_styles_unobservable_in_jsdom.
+   * What IS assertable is that the headers reach the page in the right places;
+   * how strongly they read is a browser check.
+   */
+  it('renders a header above each section block', () => {
+    renderTaxView(fullResponse())
+    for (const [line, label] of [
+      ['N3', 'Sales / Revenue'],
+      ['N4', 'Cost of Sales'],
+      ['N9', 'Other Income'],
+      ['N15', 'Expenses'],
+    ]) {
+      expect(screen.getByTestId(`formb-section-${line}`)).toHaveTextContent(label)
+    }
+  })
+
   it('renders no production-cost annotation', () => {
     renderTaxView(fullResponse())
     expect(screen.queryByTestId('formb-annotation-N5')).not.toBeInTheDocument()

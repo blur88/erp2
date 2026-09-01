@@ -30,6 +30,33 @@ const formBRowProps = (row: FormBTableRow): RowPresentationProps => {
 }
 
 const formBRowSx = (row: FormBTableRow): SystemStyleObject<Theme> => {
+  /*
+   * A filled band, not just bold text. On a table where every row is text, a
+   * font-weight change alone does not read as a break — the header looks like
+   * another slightly-bolder line. The background, uppercase tracking and rule
+   * beneath give the eye something to catch when scanning 25 statutory lines.
+   */
+  if (row.kind === 'section') {
+    return {
+      backgroundColor: 'action.hover',
+      '& td': {
+        fontWeight: 700,
+        fontSize: '0.8125rem',
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        color: 'text.primary',
+        // A rule ABOVE as well as below: the band then reads as a divider
+        // between blocks rather than a caption attached to the row under it.
+        borderTop: 2,
+        borderTopColor: 'divider',
+        borderBottom: 2,
+        borderBottomColor: 'divider',
+        pt: 1.25,
+        pb: 1.25,
+        whiteSpace: 'nowrap',
+      },
+    } as SystemStyleObject<Theme>
+  }
   if (row.kind === 'cohortHeading') {
     return { '& td': { fontStyle: 'italic', color: 'text.secondary', borderBottom: 'none', pt: 0.5, pb: 0.5 } } as SystemStyleObject<Theme>
   }

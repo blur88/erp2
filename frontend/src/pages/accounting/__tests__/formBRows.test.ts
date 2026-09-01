@@ -70,7 +70,42 @@ describe('periodLabel', () => {
 describe('buildFormBTableRows', () => {
   it('emits every statutory line, zero rows included', () => {
     const built = buildFormBTableRows(data([row({ line: 'N15', amount: '0.0000' })]))
-    expect(built.map((r) => r.line)).toEqual(['N15'])
+    expect(built.filter((r) => r.kind === 'line').map((r) => r.line)).toEqual(['N15'])
+  })
+
+  /*
+   * Section headers group the 25 lines for scanning. They are presentation
+   * only: the statutory line numbers and their ORDER are untouched, because a
+   * filer transcribes them in sequence onto the form.
+   */
+  it('emits a section header before each block', () => {
+    const lines = ['N3', 'N4', 'N9', 'N15'].map((l) => row({ line: l }))
+    const built = buildFormBTableRows(data(lines))
+    expect(built.filter((r) => r.kind === 'section').map((r) => r.label)).toEqual([
+      'Sales / Revenue', 'Cost of Sales', 'Other Income', 'Expenses',
+    ])
+  })
+
+  it('places each header immediately before its opening line', () => {
+    const built = buildFormBTableRows(data([row({ line: 'N3' }), row({ line: 'N4' })]))
+    // Section rows carry a label and no line; line rows carry the line number.
+    const kinds = built.map((r) => `${r.kind}:${r.kind === 'section' ? r.label : r.line}`)
+    expect(kinds).toEqual([
+      'section:Sales / Revenue', 'line:N3',
+      'section:Cost of Sales', 'line:N4',
+    ])
+  })
+
+  it('gives section rows no amount, so the column stays clean', () => {
+    const built = buildFormBTableRows(data([row({ line: 'N3', amount: '200.0000' })]))
+    expect(built.find((r) => r.kind === 'section')!.amount).toBe('')
+  })
+
+  it('does not reorder or renumber the statutory lines', () => {
+    const all = ['N3', 'N4', 'N9', 'N15', 'N24'].map((l) => row({ line: l }))
+    const built = buildFormBTableRows(data(all))
+    expect(built.filter((r) => r.kind === 'line').map((r) => r.line))
+      .toEqual(['N3', 'N4', 'N9', 'N15', 'N24'])
   })
 
   // Cohorts are PRINT-ONLY now: the screen lists the statutory lines alone,

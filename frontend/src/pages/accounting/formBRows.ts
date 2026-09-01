@@ -1,7 +1,7 @@
 import type { FormBAccountRef, FormBResponse, FormBRow, FormBAmount } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 
-export type FormBRowKind = 'line' | 'cohort' | 'cohortHeading'
+export type FormBRowKind = 'section' | 'line' | 'cohort' | 'cohortHeading'
 
 export interface FormBTableRow {
   id: string
@@ -91,7 +91,39 @@ const cohortRow = (
 export function buildFormBTableRows(data: FormBResponse): FormBTableRow[] {
   const out: FormBTableRow[] = []
 
+  /*
+   * Section headers, keyed by the line that starts each block. Grouping the 25
+   * statutory lines makes the sheet scannable; the Form B line numbers and
+   * their order are untouched, since a filer transcribes them in sequence.
+   *
+   * Derived here rather than in the payload: this is presentation, and the
+   * backend contract already carries everything needed to place them.
+   */
+  const SECTION_AT: Record<string, string> = {
+    N3: 'Sales / Revenue',
+    N4: 'Cost of Sales',
+    N9: 'Other Income',
+    N15: 'Expenses',
+  }
+
   for (const row of data.rows as FormBRow[]) {
+    const sectionLabel = SECTION_AT[row.line]
+    if (sectionLabel) {
+      out.push({
+        id: `section.${row.line}`,
+        kind: 'section',
+        line: '',
+        code: '',
+        label: sectionLabel,
+        amount: '',
+        formula: null,
+        depth: 0,
+        testId: `formb-section-${row.line}`,
+        expandable: false,
+        expanded: false,
+      })
+    }
+
     const contributors = row.accounts ?? []
 
     out.push({
