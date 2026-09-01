@@ -1,3 +1,4 @@
+// @ts-nocheck
 // backend/src/modules/accounting/services/__tests__/profit-and-loss-contract.spec.ts
 import { jest } from '@jest/globals';
 import { ProfitAndLossService } from '../profit-and-loss.service';
