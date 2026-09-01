@@ -348,8 +348,10 @@ describe('FormBTaxView', () => {
       }),
     )
     const panel = screen.getByTestId('formb-reconciliation')
-    expect(panel).toHaveTextContent('10.0000')
-    expect(panel).toHaveTextContent('1.0000')
+    // Formatted per Regional Settings, not the raw scale-4 payload string.
+    expect(panel).toHaveTextContent(/10\.00(?!00)/)
+    expect(panel).toHaveTextContent(/1\.00(?!00)/)
+    expect(panel.textContent).not.toContain('10.0000')
     expect(panel).toHaveTextContent('—')
   })
 

@@ -1,4 +1,5 @@
 import type { FormBAccountRef, FormBResponse, FormBRow, FormBAmount } from '@/types'
+import { formatCurrency } from '@/utils/currency'
 
 export type FormBRowKind = 'line' | 'cohort' | 'cohortHeading'
 
@@ -34,9 +35,24 @@ export interface FormBTableRow {
   hiddenOnScreen?: boolean
 }
 
-/** null is ABSENT, not zero. An em dash is the only correct rendering. */
+/**
+ * Render a Form B amount for display.
+ *
+ * `null` is ABSENT, not zero — an em dash is the only correct rendering, and
+ * this check MUST come before formatCurrency, which treats null as 0.00 and
+ * would silently assert a figure the report does not have.
+ *
+ * Everything else goes through the shared formatCurrency so the Tax View reads
+ * the same as the Accounting View and honours Regional Settings: grouped
+ * thousands, two decimals, and the configured currency symbol. Printing the
+ * raw scale-4 payload string ('200.0000') exposed storage precision on a
+ * statutory form.
+ *
+ * formatCurrency takes the decimal STRING, never a coerced number: binary64
+ * spacing loses fractional cents on large NUMERIC(18,4) values.
+ */
 export function formatFormBAmount(amount: FormBAmount): string {
-  return amount === null ? '—' : amount
+  return amount === null ? '—' : formatCurrency(amount)
 }
 
 export function periodLabel(year: number, formVersion: number): string {
@@ -54,7 +70,10 @@ const cohortRow = (
   line,
   code: ref.code,
   label: ref.isActive ? ref.name : `${ref.name} (inactive)`,
-  amount: ref.amount,
+  // A contributor's amount is never null, but it must be formatted the same
+  // way as the line totals above it — a cohort showing '5.0000' beside a line
+  // showing 'RM 5.00' reads as two different figures.
+  amount: formatFormBAmount(ref.amount),
   formula: null,
   depth: 1,
   accountId: ref.accountId,

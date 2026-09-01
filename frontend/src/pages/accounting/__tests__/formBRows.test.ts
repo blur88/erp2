@@ -23,12 +23,34 @@ const data = (rows: any[]): FormBResponse => ({
 })
 
 describe('formatFormBAmount', () => {
-  // The whole absent-vs-zero discipline lands here.
+  // The whole absent-vs-zero discipline lands here. This check must come
+  // BEFORE formatCurrency, which treats null as 0.00.
   it('renders null as an em dash, never as 0.00', () => {
     expect(formatFormBAmount(null)).toBe('—')
   })
   it('renders a zero amount as a real zero', () => {
     expect(formatFormBAmount('0.0000')).not.toBe('—')
+    expect(formatFormBAmount('0.0000')).toMatch(/0\.00$/)
+  })
+
+  // Regional Settings: grouped thousands, two decimals, currency symbol —
+  // matching the Accounting View. The raw scale-4 payload string exposed
+  // storage precision on a statutory form.
+  it('groups thousands and shows two decimals, not scale-4', () => {
+    expect(formatFormBAmount('1234567.8900')).toMatch(/1,234,567\.89$/)
+    expect(formatFormBAmount('200.0000')).toMatch(/200\.00$/)
+    expect(formatFormBAmount('200.0000')).not.toContain('200.0000')
+  })
+
+  it('renders negatives, which N8 and N26 legitimately are', () => {
+    expect(formatFormBAmount('-1520.0000')).toMatch(/1,520\.00$/)
+    expect(formatFormBAmount('-1520.0000')).toContain('-')
+  })
+
+  // formatCurrency is handed the decimal STRING: coercing to a JS number loses
+  // fractional cents once binary64 spacing exceeds 0.01.
+  it('preserves precision on a large NUMERIC(18,4) value', () => {
+    expect(formatFormBAmount('99999999999999.9900')).toMatch(/99,999,999,999,999\.99$/)
   })
 })
 
