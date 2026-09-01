@@ -100,6 +100,34 @@ describe('buildFormBTableRows', () => {
   // Cohorts are the classification AUDIT TRAIL, so they print regardless of
   // expansion — and must therefore NOT carry .acct-print-detail-row, which the
   // Accounting View uses to hide its (redundant) detail.
+  const ref = (over: any = {}) => ({
+    accountId: 'a1', code: '6990', name: 'Other Expenses', isActive: true,
+    category: null, assignment: 'fallback' as const, amount: '1000.0000', ...over,
+  })
+
+  /*
+   * With one cohort the headings separate nothing, and a chart with a single
+   * expense account then renders three rows for one figure — line, heading,
+   * account — which reads as duplication rather than provenance.
+   */
+  it('omits the cohort headings when only one cohort is present', () => {
+    const only = ref({ accountId: 'e1', assignment: 'explicit', category: 'OTHER_EXPENSES' })
+    const d = data([row({ line: 'N24', accounts: [only],
+      cohorts: { explicit: [only], fallback: [] } })])
+    const built = buildFormBTableRows(d, new Set(['N24']))
+    expect(built.filter((r) => r.kind === 'cohortHeading')).toEqual([])
+    expect(built.filter((r) => r.kind === 'cohort')).toHaveLength(1)
+  })
+
+  it('keeps the headings when BOTH cohorts are present, where they distinguish', () => {
+    const explicit = ref({ accountId: 'e1', assignment: 'explicit', category: 'OTHER_EXPENSES' })
+    const fallback = ref({ accountId: 'f1', code: '6991' })
+    const d = data([row({ line: 'N24', accounts: [explicit, fallback],
+      cohorts: { explicit: [explicit], fallback: [fallback] } })])
+    const built = buildFormBTableRows(d, new Set(['N24']))
+    expect(built.filter((r) => r.kind === 'cohortHeading')).toHaveLength(2)
+  })
+
   it('marks cohort rows with the Form B print class, never the detail-row class', () => {
     const contributor = { accountId: 'a1', code: '6990', name: 'Sundry',
       isActive: true, category: null, assignment: 'fallback' as const, amount: '5.0000' }

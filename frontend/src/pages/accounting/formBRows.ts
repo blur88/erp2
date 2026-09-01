@@ -121,16 +121,29 @@ export function buildFormBTableRows(
     // the screen-hide for `.acct-print-formb-cohort`.
     const hiddenOnScreen = !isExpanded
 
-    // N24 / N13 split into labelled subgroups so an explicitly-mapped account
-    // is visibly distinct from one that merely fell back.
+    /*
+     * N24 / N13 split into labelled subgroups so an explicitly-mapped account
+     * is visibly distinct from one that merely fell back.
+     *
+     * The headings appear ONLY when both cohorts are present. With one cohort
+     * they separate nothing, and on a chart with a single expense account the
+     * line then renders three rows — the form line, a heading, and the one
+     * account — for a single figure, which reads as duplication rather than as
+     * provenance.
+     */
     if (row.cohorts) {
       const { explicit, fallback } = row.cohorts
+      const bothCohorts = explicit.length > 0 && fallback.length > 0
       if (explicit.length > 0) {
-        out.push(headingRow(row.line, 'explicit', 'Mapped to this line', hiddenOnScreen))
+        if (bothCohorts) {
+          out.push(headingRow(row.line, 'explicit', 'Mapped to this line', hiddenOnScreen))
+        }
         explicit.forEach((ref, i) => out.push(cohortRow(ref, row.line, i, 'explicit', hiddenOnScreen)))
       }
       if (fallback.length > 0) {
-        out.push(headingRow(row.line, 'fallback', 'Unmapped — filed here by default', hiddenOnScreen))
+        if (bothCohorts) {
+          out.push(headingRow(row.line, 'fallback', 'Unmapped — filed here by default', hiddenOnScreen))
+        }
         fallback.forEach((ref, i) => out.push(cohortRow(ref, row.line, i, 'fallback', hiddenOnScreen)))
       }
       continue
