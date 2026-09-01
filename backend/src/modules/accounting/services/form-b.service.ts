@@ -473,11 +473,18 @@ export class FormBService {
       });
     }
 
-    findings.push({
-      code: 'DISALLOWED_EXPENSES_UNDETERMINED', severity: 'incomplete',
-      message: 'N27 Disallowed Expenses is not derived from the ledger and must be determined by the filer (Form B worksheet F1).',
-      accounts: [], settingKey: null,
-    });
+    /*
+     * No DISALLOWED_EXPENSES_UNDETERMINED finding.
+     *
+     * N27 is still filer-supplied — the row keeps `derived: false` and
+     * `status: 'requiresFilerInput'`, and renders as an em dash rather than
+     * 0.00 — but it is reported through the ROW, not as a finding. A finding
+     * that fires on every report forever is noise, not information.
+     *
+     * Deriving N27 from the ledger needs expenses to record what portion is
+     * tax-disallowed: issue #1176. The FindingCode is retained in the contract
+     * for that work.
+     */
 
     const missingIdentity = (Object.entries(identity) as [string, FormBIdentityField][])
       .filter(([, f]) => f.value === null)

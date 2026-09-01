@@ -235,24 +235,15 @@ describe('FormBTaxView', () => {
   // Spec §5.1: production cost is never computed, stored, or defaulted to zero.
   // The annotation is what stops a reader inferring it was measured as nil.
   /*
-   * N27 can never be resolved — it has no ledger source — so counting it makes
-   * the summary permanently non-zero and trains people to ignore it.
+   * The N27 notice was removed: N27 is reported through its ROW (em dash,
+   * requiresFilerInput), not as a finding that would fire on every report
+   * forever. Deriving it from the ledger is issue #1176.
+   *
+   * The filter stays as a defensive guard because the FindingCode is retained
+   * in the contract for that work — if it is ever emitted again it must not
+   * inflate the count.
    */
-  it('excludes the permanent N27 finding from the readiness count', () => {
-    renderTaxView(responseWithFinding({
-      code: 'DISALLOWED_EXPENSES_UNDETERMINED', severity: 'incomplete',
-      message: 'N27 requires filer input', accounts: [], settingKey: null,
-    }))
-    // Nothing actionable: the summary box is ABSENT rather than announcing a
-    // clean report. The standing note remains, and drops "not counted above"
-    // since there is no count above it to refer to.
-    expect(screen.queryByTestId('formb-readiness')).not.toBeInTheDocument()
-    const note = screen.getByTestId('formb-standing-note')
-    expect(note).toHaveTextContent(/Always required: N27 Disallowed Expenses/i)
-    expect(note).not.toHaveTextContent(/not counted above/i)
-  })
-
-  it('counts only actionable findings alongside the permanent one', () => {
+  it('never counts the N27 code, should it reappear', () => {
     const base = fullResponse()
     base.findings = [
       { code: 'DISALLOWED_EXPENSES_UNDETERMINED', severity: 'incomplete',
@@ -263,17 +254,12 @@ describe('FormBTaxView', () => {
     renderTaxView(base)
     expect(screen.getByTestId('formb-readiness'))
       .toHaveTextContent(/1 item below needs attention/i)
-    // The count refers to the findings list, never to the standing N27 note.
-    expect(screen.getByTestId('formb-readiness')).not.toHaveTextContent(/N27/i)
   })
 
-  // The finding itself must still be shown — the filer has to supply the figure.
-  it('still lists the N27 finding even though it is not counted', () => {
-    renderTaxView(responseWithFinding({
-      code: 'DISALLOWED_EXPENSES_UNDETERMINED', severity: 'incomplete',
-      message: 'N27 requires filer input', accounts: [], settingKey: null,
-    }))
-    expect(screen.getByText('N27 requires filer input')).toBeInTheDocument()
+  it('renders no standing N27 notice', () => {
+    renderTaxView(fullResponse())
+    expect(screen.queryByTestId('formb-standing-note')).not.toBeInTheDocument()
+    expect(screen.queryByText(/worksheet F1/i)).not.toBeInTheDocument()
   })
 
   it('renders the retail production-cost annotation on N5 only', () => {

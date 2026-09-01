@@ -192,7 +192,6 @@ function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
    */
   const actionable = data.findings.filter((f) => f.code !== 'DISALLOWED_EXPENSES_UNDETERMINED')
   const totalIssues = actionable.length
-  const alwaysRequiredCount = data.findings.length - actionable.length
 
   // Group findings by severity for rendering order: integrity first, then warning, then incomplete
   const grouped = {
@@ -231,25 +230,13 @@ function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
           precisely when it does appear.
         */}
         {totalIssues > 0 && (
-          <Box data-testid="formb-readiness" sx={{ mb: alwaysRequiredCount > 0 ? 1 : 2 }}>
+          <Box data-testid="formb-readiness" sx={{ mb: 2 }}>
             <Alert severity="warning">
               {`${totalIssues} item${totalIssues === 1 ? '' : 's'} below need${totalIssues === 1 ? 's' : ''} attention before filing`}
             </Alert>
           </Box>
         )}
-        {alwaysRequiredCount > 0 && (
-          <Box data-testid="formb-standing-note" sx={{ mb: 2 }}>
-            <Alert severity="info" icon={false}>
-              {/*
-                Wording depends on whether a count is shown above it: "not
-                counted above" refers to a box that is absent on a clean report.
-              */}
-              {totalIssues > 0
-                ? 'Always required, not counted above: N27 Disallowed Expenses is not derived from the ledger — supply it from Form B worksheet F1.'
-                : 'Always required: N27 Disallowed Expenses is not derived from the ledger — supply it from Form B worksheet F1.'}
-            </Alert>
-          </Box>
-        )}
+
 
         {/* Business identity block */}
         <Box data-testid="formb-identity" sx={{ mb: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>

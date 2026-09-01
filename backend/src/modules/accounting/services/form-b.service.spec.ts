@@ -183,13 +183,25 @@ describe('FormBService.getFormB', () => {
     expect(codes(res).includes('FORM_VERSION_MISMATCH')).toBe(expected);
   });
 
-  it('always reports N27 as undetermined, never zero', async () => {
+  /*
+   * N27 stays filer-supplied and is reported through the ROW — null amount,
+   * derived: false, requiresFilerInput — never as a finding. A finding that
+   * fires on every report forever is noise. Deriving it from the ledger is
+   * issue #1176.
+   */
+  it('always reports N27 as undetermined, never zero, and raises no finding', async () => {
     const res = await buildService({}).getFormB({ year: YEAR });
     const n27 = lineOf(res, 'N27');
     expect(n27.amount).toBeNull();
     expect(n27.derived).toBe(false);
     expect(n27.status).toBe('requiresFilerInput');
-    expect(codes(res)).toContain('DISALLOWED_EXPENSES_UNDETERMINED');
+    expect(codes(res)).not.toContain('DISALLOWED_EXPENSES_UNDETERMINED');
+  });
+
+  it('reports no findings at all on a clean, fully configured report', async () => {
+    const res = await buildService({}).getFormB({ year: YEAR });
+    expect(res.findings).toEqual([]);
+    expect(res.readiness.counts).toEqual({ warning: 0, incomplete: 0, integrity: 0 });
   });
 
   it('marks productionCost null on N5 and absent everywhere else', async () => {
@@ -306,7 +318,12 @@ describe('FormBService.getFormB', () => {
     expect(res.readiness.counts.incomplete).toBe(
       res.findings.filter((f) => f.severity === 'incomplete').length,
     );
-    expect(res.readiness.hasIncomplete).toBe(true);   // N27 is always undetermined
+    // Deliberately NOT asserting hasIncomplete is true: with the N27 finding
+    // removed, a fully configured report has no findings at all. What matters
+    // is that readiness agrees with the list, whatever is in it.
+    expect(res.readiness.hasIncomplete).toBe(
+      res.findings.some((f) => f.severity === 'incomplete'),
+    );
   });
 });
 
