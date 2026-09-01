@@ -3,6 +3,9 @@ import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 
 import { printColors } from '@/styles/printTokens'
+// Regional Settings, not the browser locale: a printed report must carry the
+// date format the business configured, the same as every other date in the app.
+import { formatDateTime } from '@/utils/formatters'
 import { useGetPrintSettingsQuery } from '@/store/api/printSettingsApi'
 
 /**
@@ -102,7 +105,7 @@ export function AccountingReportPrintLayout({
         </Typography>
         <Typography variant="body2">{period}</Typography>
         <Typography variant="caption" sx={{ color: printColors.text }}>
-          Generated {new Date().toLocaleString()}
+          Generated {formatDateTime(new Date())}
         </Typography>
       </Box>
 

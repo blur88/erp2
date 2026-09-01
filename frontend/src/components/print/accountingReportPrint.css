@@ -11,6 +11,15 @@
   display: none;
 }
 
+/*
+ * Form B cohorts are emitted even when the screen affordance is collapsed
+ * (so the printed filing is unconditional). On screen those collapsed rows
+ * are hidden; the print rule below overrides this so they still print.
+ */
+.acct-screen-hidden {
+  display: none;
+}
+
 @media print {
   /*
    * Force black-on-white. A dark UI theme would otherwise print white text on
@@ -116,6 +125,34 @@
   .acct-print-detail-row,
   .acct-print-control {
     display: none !important;
+  }
+
+  /*
+   * Form B cohorts print UNCONDITIONALLY — the INVERSE of the detail-row rule
+   * above, deliberately. That rule hides the Accounting View's expanded detail
+   * because its totals already carry the same information, and printing
+   * whatever the user happened to expand would make two printouts of one period
+   * differ.
+   *
+   * Form B cohorts are not redundant detail: they are the classification audit
+   * trail, the evidence for why an amount sits on N17 rather than N24. So they
+   * always print, and the expansion CONTROLS are what get hidden (they carry
+   * .acct-print-control like every other control).
+   *
+   * This class is a print hook, not a style hook. Renaming it silently drops
+   * the audit trail from every printed Form B.
+   */
+  .acct-print-formb-cohort {
+    display: table-row !important;
+  }
+
+  /* Collapsed cohorts carry .acct-screen-hidden on screen; on paper they
+   * must still be visible. The !important print rule above already wins over
+   * the screen rule, but this selector makes the intent explicit and covers
+   * any future `!important` added to .acct-screen-hidden.
+   */
+  .acct-print-formb-cohort.acct-screen-hidden {
+    display: table-row !important;
   }
 
   .acct-print-table {

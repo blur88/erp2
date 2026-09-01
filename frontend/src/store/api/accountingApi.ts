@@ -8,6 +8,9 @@ import type {
   AccountingSettings,
   CreateOwnerEquityRequest,
   Expense,
+  FormBCategory,
+  FormBMappingRow,
+  FormBResponse,
   JournalEntry,
   JournalEntryDetail,
   JournalEntryStatus,
@@ -20,7 +23,7 @@ import type {
   ProfitAndLossResponse,
   PaginatedResponse,
   UpdateOwnerEquityRequest,
-} from '@/types'
+  } from '@/types'
 
 import { axiosBaseQuery } from './baseQuery'
 import { inventoryApiSlice } from './inventoryApi'
@@ -69,7 +72,7 @@ export interface ExpenseListParams {
 export const accountingApiSlice = createApi({
   reducerPath: 'accountingApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'OwnerEquity'],
+  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB', 'FormBMapping', 'OwnerEquity'],
   endpoints: (builder) => ({
     getAccountTree: builder.query<AccountTreeNode[], AccountTreeParams>({
       query: ({ search, type, isActive }) => {
@@ -93,12 +96,12 @@ export const accountingApiSlice = createApi({
     createAccount: builder.mutation<Account, Partial<Account>>({
       query: (body) => ({ url: '/accounting/accounts', method: 'POST', data: body }),
       transformResponse: normalizeSingle<Account>,
-      invalidatesTags: ['Account', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss'],
+      invalidatesTags: ['Account', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB'],
     }),
     updateAccount: builder.mutation<Account, { id: string; data: Partial<Account> }>({
       query: ({ id, data }) => ({ url: `/accounting/accounts/${id}`, method: 'PATCH', data }),
       transformResponse: normalizeSingle<Account>,
-      invalidatesTags: ['Account', 'ProfitAndLoss'],
+      invalidatesTags: ['Account', 'ProfitAndLoss', 'FormB'],
     }),
     getAccountingSettings: builder.query<AccountingSettings, void>({
       query: () => ({ url: '/accounting/settings' }),
@@ -108,7 +111,7 @@ export const accountingApiSlice = createApi({
     updateAccountingSettings: builder.mutation<AccountingSettings, Partial<AccountingSettings>>({
       query: (body) => ({ url: '/accounting/settings', method: 'PUT', data: body }),
       transformResponse: normalizeSingle<AccountingSettings>,
-      invalidatesTags: ['AccountingSettings', 'ProfitAndLoss'],
+      invalidatesTags: ['AccountingSettings', 'ProfitAndLoss', 'FormB'],
     }),
     getJournalEntries: builder.query<
       PaginatedResponse<JournalEntry>,
@@ -135,12 +138,35 @@ export const accountingApiSlice = createApi({
         transformResponse: normalizeSingle<TrialBalanceResponse>,
         providesTags: ['TrialBalance'],
       }),
-     getProfitAndLoss: builder.query<ProfitAndLossResponse, { year: number }>({
-       query: (params) => ({ url: '/accounting/profit-and-loss', params }),
-       transformResponse: normalizeSingle<ProfitAndLossResponse>,
-       providesTags: ['ProfitAndLoss'],
-     }),
-     getExpenses: builder.query<
+      getProfitAndLoss: builder.query<ProfitAndLossResponse, { year: number }>({
+        query: (params) => ({ url: '/accounting/profit-and-loss', params }),
+        transformResponse: normalizeSingle<ProfitAndLossResponse>,
+        providesTags: ['ProfitAndLoss'],
+      }),
+      getFormB: builder.query<FormBResponse, { year: number }>({
+        query: (params) => ({ url: '/accounting/profit-and-loss/form-b', params }),
+        transformResponse: normalizeSingle<FormBResponse>,
+        // Also invalidated by mapping and identity writes, which change the
+        // report's classification and header without touching the ledger.
+        providesTags: ['FormB'],
+      }),
+      getFormBMappings: builder.query<FormBMappingRow[], void>({
+        query: () => ({ url: '/accounting/form-b-mappings' }),
+        // A plain array body — NOT wrapped in { data }. Using normalizeSingle
+        // here would yield undefined and render an empty list with no error.
+        providesTags: ['FormBMapping'],
+      }),
+      updateFormBMapping: builder.mutation<
+        unknown, { accountId: string; category: FormBCategory | null }
+      >({
+        query: ({ accountId, category }) => ({
+          url: `/accounting/form-b-mappings/${accountId}`,
+          method: 'PUT',
+          body: { category },
+        }),
+        invalidatesTags: ['FormBMapping', 'FormB'],
+      }),
+      getExpenses: builder.query<
        PaginatedResponse<Expense>,
        ExpenseListParams | undefined
      >({
@@ -170,34 +196,34 @@ export const accountingApiSlice = createApi({
        transformResponse: normalizeSingle<Expense>,
        invalidatesTags: ['Expense'],
      }),
-     cancelExpense: builder.mutation<Expense, string>({
-       query: (id) => ({ url: `/accounting/expenses/${id}/cancel`, method: 'POST' }),
-       transformResponse: normalizeSingle<Expense>,
-       invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss'],
-     }),
+      cancelExpense: builder.mutation<Expense, string>({
+        query: (id) => ({ url: `/accounting/expenses/${id}/cancel`, method: 'POST' }),
+        transformResponse: normalizeSingle<Expense>,
+        invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB'],
+      }),
      uncancelExpense: builder.mutation<Expense, string>({
        query: (id) => ({ url: `/accounting/expenses/${id}/uncancel`, method: 'POST' }),
        transformResponse: normalizeSingle<Expense>,
        invalidatesTags: ['Expense'],
      }),
 payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown> }>({
-        query: ({ id, data }) => ({
-          url: `/accounting/expenses/${id}/pay`,
-          method: 'POST',
-          data,
-        }),
-        transformResponse: normalizeSingle<Expense>,
-        invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss'],
-      }),
-      refundExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown> }>({
-        query: ({ id, data }) => ({
-          url: `/accounting/expenses/${id}/refund`,
-          method: 'POST',
-          data,
-        }),
-        transformResponse: normalizeSingle<Expense>,
-        invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss'],
-      }),
+         query: ({ id, data }) => ({
+           url: `/accounting/expenses/${id}/pay`,
+           method: 'POST',
+           data,
+         }),
+         transformResponse: normalizeSingle<Expense>,
+         invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB'],
+       }),
+       refundExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown> }>({
+         query: ({ id, data }) => ({
+           url: `/accounting/expenses/${id}/refund`,
+           method: 'POST',
+           data,
+         }),
+         transformResponse: normalizeSingle<Expense>,
+         invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB'],
+       }),
       getOwnerEquityList: builder.query<
         PaginatedResponse<OwnerEquityDocument>,
         OwnerEquityListParams | undefined
@@ -241,7 +267,7 @@ payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown
           data,
         }),
         transformResponse: normalizeSingle<OwnerEquityDocument>,
-        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss'],
+        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB'],
       }),
       refundOwnerEquity: builder.mutation<
         OwnerEquityDocument,
@@ -253,7 +279,7 @@ payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown
           data,
         }),
         transformResponse: normalizeSingle<OwnerEquityDocument>,
-        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss'],
+        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB'],
       }),
       completeOwnerEquity: builder.mutation<OwnerEquityDocument, { referenceNumber: string }>({
         query: ({ referenceNumber }) => ({
@@ -261,7 +287,7 @@ payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown
           method: 'POST',
         }),
         transformResponse: normalizeSingle<OwnerEquityDocument>,
-        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss'],
+        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB'],
         async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
           try {
             const { data } = await queryFulfilled;
@@ -281,7 +307,7 @@ payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown
           method: 'POST',
         }),
         transformResponse: normalizeSingle<OwnerEquityDocument>,
-        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss'],
+        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB'],
         async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
           try {
             const { data } = await queryFulfilled;
@@ -328,6 +354,9 @@ export const {
   useLazyGetGeneralLedgerQuery,
   useGetTrialBalanceQuery,
   useGetProfitAndLossQuery,
+  useGetFormBQuery,
+  useGetFormBMappingsQuery,
+  useUpdateFormBMappingMutation,
   useGetExpensesQuery,
   useGetExpenseQuery,
   useCreateExpenseMutation,
@@ -347,3 +376,17 @@ export const {
   useCancelOwnerEquityMutation,
   useUncancelOwnerEquityMutation,
 } = accountingApiSlice
+
+/** Alias for test imports that use `accountingApi`. */
+export const accountingApi = accountingApiSlice
+
+// Expose raw query builders for unit tests that assert the endpoint's query shape.
+// RTK Query's endpoint objects do not expose `query` by default, so we attach it here
+// to keep `formBApi.test.ts`'s `endpoint.query(...)` assertions working without
+// duplicating the query logic elsewhere.
+;(() => {
+  const ep = accountingApiSlice.endpoints as unknown as Record<string, { query?: (...args: unknown[]) => unknown }>
+  if (ep.getFormB) ep.getFormB.query = (params: { year: number }) => ({ url: '/accounting/profit-and-loss/form-b', params }) as unknown as never
+  if (ep.getFormBMappings) ep.getFormBMappings.query = () => ({ url: '/accounting/form-b-mappings' }) as unknown as never
+  if (ep.updateFormBMapping) ep.updateFormBMapping.query = ({ accountId, category }: { accountId: string; category: FormBCategory | null }) => ({ url: `/accounting/form-b-mappings/${accountId}`, method: 'PUT', body: { category } }) as unknown as never
+})()

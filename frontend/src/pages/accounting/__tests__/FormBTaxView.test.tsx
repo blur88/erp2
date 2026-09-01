@@ -1,0 +1,466 @@
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
+import { describe, it, expect, vi } from 'vitest'
+import FormBTaxView from '../FormBTaxView'
+import { buildFormBTableRows } from '../formBRows'
+import type { FormBResponse } from '@/types'
+
+vi.mock('@/store/api/printSettingsApi', () => ({
+  useGetPrintSettingsQuery: () => ({
+    data: { id: '1', companyName: 'Acme Sdn Bhd', address: '1 Test Road' },
+    isLoading: false,
+  }),
+}))
+
+const FORM_DEFS: Array<{ line: string; label: string; formula: string | null }> = [
+  { line: 'N3', label: 'Sales / Turnover', formula: null },
+  { line: 'N4', label: 'Opening Inventory', formula: null },
+  { line: 'N5', label: 'Purchases and Production Costs', formula: null },
+  { line: 'N6', label: 'Closing Inventory', formula: null },
+  { line: 'N7', label: 'Cost of Sales', formula: 'N4 + N5 - N6' },
+  { line: 'N8', label: 'Gross Profit / Loss', formula: 'N3 - N7' },
+  { line: 'N9', label: 'Other Business', formula: null },
+  { line: 'N10', label: 'Dividends', formula: null },
+  { line: 'N11', label: 'Interest and Discounts', formula: null },
+  { line: 'N12', label: 'Rent, Royalties and Premiums', formula: null },
+  { line: 'N13', label: 'Other Income', formula: null },
+  { line: 'N14', label: 'Total Other Income', formula: 'N9 to N13' },
+  { line: 'N15', label: 'Loan Interest', formula: null },
+  { line: 'N16', label: 'Salaries and Wages', formula: null },
+  { line: 'N17', label: 'Rent / Lease', formula: null },
+  { line: 'N18', label: 'Contract and Subcontract', formula: null },
+  { line: 'N19', label: 'Commission', formula: null },
+  { line: 'N20', label: 'Bad Debts', formula: null },
+  { line: 'N21', label: 'Travel and Transportation', formula: null },
+  { line: 'N22', label: 'Repairs and Maintenance', formula: null },
+  { line: 'N23', label: 'Promotion and Advertising', formula: null },
+  { line: 'N24', label: 'Other Expenses', formula: null },
+  { line: 'N25', label: 'Total Expenses', formula: 'N15 to N24' },
+  { line: 'N26', label: 'Net Profit / Loss', formula: 'N8 + N14 - N25' },
+  { line: 'N27', label: 'Disallowed Expenses', formula: null },
+]
+
+const makeRow = (line: string, over: any = {}) => {
+  const def = FORM_DEFS.find((d) => d.line === line) ?? { line, label: `Label ${line}`, formula: null }
+  return {
+    line: def.line,
+    label: def.label,
+    formula: def.formula,
+    amount: '0.0000',
+    accounts: [],
+    cohorts: null,
+    // Mirrors the service: productionCost is present (and null) on N5 only
+    // (form-b.service.ts:388). A fixture that omits it cannot exercise the
+    // retail annotation.
+    ...(def.line === 'N5' ? { productionCost: null } : {}),
+    ...(def.line === 'N27' ? { derived: false, status: 'requiresFilerInput' } : {}),
+    ...over,
+  }
+}
+
+const fullResponse = (): FormBResponse => ({
+  year: 2025,
+  formVersion: 2025,
+  availableYears: [2025],
+  identity: {
+    businessName: { value: 'Acme Sdn Bhd', source: 'companySettings' },
+    registrationNumber: { value: '201901234567', source: 'companySettings' },
+  },
+  rows: FORM_DEFS.map((def) => makeRow(def.line)) as any,
+  reconciliation: {
+    n7: '0.0000',
+    accountingTotalCostOfSales: '0.0000',
+    inventoryAdjustments: '0.0000',
+    ownerStockDrawings: '0.0000',
+    residual: '0.0000',
+  },
+  findings: [],
+  readiness: { hasWarnings: false, hasIncomplete: false, hasIntegrity: false, counts: { warning: 0, incomplete: 0, integrity: 0 } },
+})
+
+const responseWith = (over: any): FormBResponse => {
+  const base = fullResponse()
+  const idx = base.rows.findIndex((r: any) => r.line === over.line)
+  if (idx >= 0) {
+    base.rows[idx] = { ...base.rows[idx], ...over } as any
+  } else {
+    base.rows.push(makeRow(over.line, over) as any)
+  }
+  return base
+}
+
+const responseWithFinding = (finding: any): FormBResponse => {
+  const base = fullResponse()
+  const severity = finding.severity
+  base.findings = [finding as any]
+  base.readiness = {
+    hasWarnings: severity === 'warning',
+    hasIncomplete: severity === 'incomplete',
+    hasIntegrity: severity === 'integrity',
+    counts: {
+      warning: severity === 'warning' ? 1 : 0,
+      incomplete: severity === 'incomplete' ? 1 : 0,
+      integrity: severity === 'integrity' ? 1 : 0,
+    },
+  }
+  return base
+}
+
+const responseWithIdentity = (over: any): FormBResponse => {
+  const base = fullResponse()
+  base.identity = {
+    ...base.identity,
+    ...over,
+  } as any
+  // Also merge nested fields if over provides partial
+  for (const key of Object.keys(over)) {
+    base.identity[key as keyof typeof base.identity] = {
+      ...(base.identity[key as keyof typeof base.identity] as any),
+      ...(over[key] as any),
+    } as any
+  }
+  return base
+}
+
+const responseWithReconciliation = (over: any): FormBResponse => {
+  const base = fullResponse()
+  base.reconciliation = { ...base.reconciliation, ...over }
+  return base
+}
+
+const responseWithCohort = (): FormBResponse => {
+  const base = fullResponse()
+  const contributor = {
+    accountId: 'a1',
+    code: '6990',
+    name: 'Sundry',
+    isActive: true,
+    category: null,
+    assignment: 'fallback' as const,
+    amount: '5.0000',
+  }
+  const idx = base.rows.findIndex((r: any) => r.line === 'N24')
+  if (idx >= 0) {
+    base.rows[idx] = {
+      ...base.rows[idx],
+      accounts: [contributor],
+      cohorts: { explicit: [], fallback: [contributor] },
+    } as any
+  }
+  return base
+}
+
+const renderTaxView = (data: FormBResponse, opts?: { onOpenLedger?: any }) => {
+  const onOpenLedger = opts?.onOpenLedger ?? vi.fn()
+  return render(
+    <MemoryRouter>
+      <FormBTaxView data={data} year={data.year} isLoading={false} isError={false} onOpenLedger={onOpenLedger} />
+    </MemoryRouter>,
+  )
+}
+
+describe('FormBTaxView — loading transition', () => {
+  /*
+   * The defect this pins: early returns placed ABOVE useMemo/useCallback in one
+   * component change the hook count between the loading render and the first
+   * render with data, and React throws "Rendered more hooks than during the
+   * previous render".
+   *
+   * It is invisible to every test that mocks a settled query, because those
+   * never render the loading state. This test must render loading FIRST and
+   * then rerender with data on the SAME element tree.
+   *
+   * Note React 19: rerender() with the same element reference no-ops, so fresh
+   * JSX is inlined on each call.
+   */
+  it('survives the loading -> loaded transition without a hook-count error', () => {
+    const onOpenLedger = vi.fn()
+    const { rerender } = render(
+      <MemoryRouter>
+        <FormBTaxView data={undefined} year={2025} isLoading isError={false} onOpenLedger={onOpenLedger} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByTestId('formb-loading')).toBeInTheDocument()
+
+    expect(() =>
+      rerender(
+        <MemoryRouter>
+          <FormBTaxView data={fullResponse()} year={2025} isLoading={false} isError={false} onOpenLedger={onOpenLedger} />
+        </MemoryRouter>,
+      ),
+    ).not.toThrow()
+
+    expect(screen.getByTestId('formb-line-N3')).toBeInTheDocument()
+  })
+
+  it('survives the loading -> error transition', () => {
+    const onOpenLedger = vi.fn()
+    const { rerender } = render(
+      <MemoryRouter>
+        <FormBTaxView data={undefined} year={2025} isLoading isError={false} onOpenLedger={onOpenLedger} />
+      </MemoryRouter>,
+    )
+    expect(() =>
+      rerender(
+        <MemoryRouter>
+          <FormBTaxView data={undefined} year={2025} isLoading={false} isError onOpenLedger={onOpenLedger} />
+        </MemoryRouter>,
+      ),
+    ).not.toThrow()
+  })
+})
+
+describe('FormBTaxView', () => {
+  it('renders every statutory line including zero rows', () => {
+    renderTaxView(fullResponse())
+    for (let n = 3; n <= 27; n++) {
+      expect(screen.getByTestId(`formb-line-N${n}`)).toBeInTheDocument()
+    }
+  })
+
+  it('renders a null amount as an em dash, distinct from 0.00', () => {
+    renderTaxView(responseWith({ line: 'N7', amount: null }))
+    expect(screen.getByTestId('formb-line-N7')).toHaveTextContent('—')
+  })
+
+  // Formula captions were removed from the sheet. The payload still carries
+  // `formula` on derived lines, and the service tests still assert the
+  // arithmetic itself (N7 === N4 + N5 - N6); it is just not printed as a hint.
+  /*
+   * All five derived lines are subtotals and must be visually distinct from
+   * the components above them. Pinned as a set: the styling keys off
+   * `formula`, so a taxonomy change that added or removed a derived line would
+   * otherwise shift this silently.
+   */
+  it('renders every derived line as a total row', () => {
+    const built = buildFormBTableRows(fullResponse())
+    const totals = built.filter((r) => r.kind === 'total').map((r) => r.line)
+    expect(totals).toEqual(['N7', 'N8', 'N14', 'N25', 'N26'])
+  })
+
+  it('renders no formula captions', () => {
+    renderTaxView(fullResponse())
+    expect(screen.getByTestId('formb-line-N7')).not.toHaveTextContent('N4 + N5 - N6')
+    expect(screen.queryByText(/N9 to N13/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/N15 to N24/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/N8 \+ N14 - N25/)).not.toBeInTheDocument()
+  })
+
+  // The period line moved to the shell (ProfitAndLossPage owns the single
+  // AccountingReportPrintLayout), so the mismatch header is asserted there —
+  // see ProfitAndLossPage.test.tsx 'derives the print period'.
+
+  // Spec §5.1: production cost is never computed, stored, or defaulted to zero.
+  // The annotation is what stops a reader inferring it was measured as nil.
+  /*
+   * The N27 notice was removed: N27 is reported through its ROW (em dash,
+   * requiresFilerInput), not as a finding that would fire on every report
+   * forever. Deriving it from the ledger is issue #1176.
+   *
+   * The filter stays as a defensive guard because the FindingCode is retained
+   * in the contract for that work — if it is ever emitted again it must not
+   * inflate the count.
+   */
+  it('never counts the N27 code, should it reappear', () => {
+    const base = fullResponse()
+    base.findings = [
+      { code: 'DISALLOWED_EXPENSES_UNDETERMINED', severity: 'incomplete',
+        message: 'N27 requires filer input', accounts: [], settingKey: null },
+      { code: 'MISSING_BUSINESS_IDENTITY', severity: 'incomplete',
+        message: 'Business information is incomplete', accounts: [], settingKey: 'companySettings' },
+    ] as any
+    renderTaxView(base)
+    expect(screen.getByTestId('formb-readiness'))
+      .toHaveTextContent(/1 item below needs attention/i)
+  })
+
+  it('renders no standing N27 notice', () => {
+    renderTaxView(fullResponse())
+    expect(screen.queryByTestId('formb-standing-note')).not.toBeInTheDocument()
+    expect(screen.queryByText(/worksheet F1/i)).not.toBeInTheDocument()
+  })
+
+  // The retail production-cost annotation was removed from the UI. The payload
+  // still carries productionCost: null on N5 (spec §5.1) — the report never
+  // fabricates a production figure — it is simply not captioned on screen.
+  /*
+   * The visual weight of the band (background, rules, tracking) is Emotion sx
+   * and unobservable in jsdom — see project_emotion_styles_unobservable_in_jsdom.
+   * What IS assertable is that the headers reach the page in the right places;
+   * how strongly they read is a browser check.
+   */
+  it('renders a header above each section block', () => {
+    renderTaxView(fullResponse())
+    for (const [line, label] of [
+      ['N3', 'Sales / Revenue'],
+      ['N4', 'Cost of Sales'],
+      ['N9', 'Other Income'],
+      ['N15', 'Expenses'],
+    ]) {
+      expect(screen.getByTestId(`formb-section-${line}`)).toHaveTextContent(label)
+    }
+  })
+
+  it('renders no production-cost annotation', () => {
+    renderTaxView(fullResponse())
+    expect(screen.queryByTestId('formb-annotation-N5')).not.toBeInTheDocument()
+    expect(screen.queryByText(/retail business/i)).not.toBeInTheDocument()
+  })
+
+  it('renders warnings with their severity', () => {
+    renderTaxView(
+      responseWithFinding({
+        code: 'UNMAPPED_EXPENSE_ACCOUNTS',
+        severity: 'warning',
+        message: '2 expense account(s) have no Form B category',
+        accounts: [],
+        settingKey: null,
+      }),
+    )
+    expect(screen.getByText(/2 expense account\(s\)/)).toBeInTheDocument()
+  })
+
+  // Every code in the contract must reach the screen. A code the UI silently
+  // drops is a finding the filer never sees.
+  it.each([
+    'UNMAPPED_EXPENSE_ACCOUNTS',
+    'UNMAPPED_INCOME_ACCOUNTS',
+    'MISSING_BUSINESS_IDENTITY',
+    'DISALLOWED_EXPENSES_UNDETERMINED',
+    'FORM_VERSION_MISMATCH',
+    'MISSING_CONFIGURED_ROOT',
+    'INVALID_CONFIGURED_ROOT',
+    'MAPPED_ACCOUNT_INELIGIBLE',
+    'UNEXPLAINED_INVENTORY_RESIDUAL',
+    'ACCOUNTING_VIEW_TIE_OUT_FAILED',
+    'ACCOUNTING_VIEW_ANOMALIES',
+    'ACCOUNTING_VIEW_STRUCTURAL_FAULTS',
+  ])('renders finding code %s', (code) => {
+    renderTaxView(
+      responseWithFinding({
+        code: code as any,
+        severity: 'integrity',
+        message: `message for ${code}`,
+        accounts: [],
+        settingKey: null,
+      }),
+    )
+    expect(screen.getByText(`message for ${code}`)).toBeInTheDocument()
+  })
+
+  // fullResponse() has no findings at all, so nothing is rendered above the
+  // report — neither a count nor a standing note.
+  it('renders no readiness banner when there is nothing to report', () => {
+    renderTaxView(fullResponse())
+    expect(screen.queryByTestId('formb-readiness')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('formb-standing-note')).not.toBeInTheDocument()
+  })
+
+  it('never claims the report is correct when it does show a count', () => {
+    const base = fullResponse()
+    base.findings = [{
+      code: 'MISSING_BUSINESS_IDENTITY', severity: 'incomplete',
+      message: 'Business information is incomplete', accounts: [], settingKey: 'companySettings',
+    }] as any
+    renderTaxView(base)
+    expect(screen.getByTestId('formb-readiness').textContent).not.toMatch(/correct/i)
+  })
+
+  // The Business Identity section was removed from the report. The payload
+  // still carries identity (the backend contract is unchanged); it simply is
+  // not rendered on the page.
+  it('renders no business identity section', () => {
+    renderTaxView(responseWithIdentity({
+      registrationNumber: { value: null, source: null },
+    }))
+    expect(screen.queryByTestId('formb-identity')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Business Identity/i)).not.toBeInTheDocument()
+  })
+
+  /*
+   * Three states. Hiding whenever the residual is zero would suppress a
+   * legitimate explained difference (owner stock drawings), which is what the
+   * panel exists to document.
+   */
+  it('hides the panel when N7 equals cost of sales with nothing to explain', () => {
+    renderTaxView(responseWithReconciliation({
+      n7: '180.0000', accountingTotalCostOfSales: '180.0000',
+      inventoryAdjustments: '0.0000', ownerStockDrawings: '0.0000', residual: '0.0000',
+    }))
+    expect(screen.queryByTestId('formb-reconciliation')).not.toBeInTheDocument()
+  })
+
+  it('shows a collapsed summary when the difference is explained', () => {
+    renderTaxView(responseWithReconciliation({
+      n7: '720.0000', accountingTotalCostOfSales: '180.0000',
+      inventoryAdjustments: '0.0000', ownerStockDrawings: '540.0000', residual: '0.0000',
+    }))
+    expect(screen.getByTestId('formb-reconciliation-summary'))
+      .toHaveTextContent(/Reconciliation passed; .*540 difference explained/i)
+    // The detail is emitted for print regardless; on screen it is collapsed.
+    // MUI sx compiles to a class, so display is not observable in jsdom (see
+    // project_emotion_styles_unobservable_in_jsdom) — assert the toggle state,
+    // which is, and verify the visual collapse in a browser.
+    expect(document.querySelector('.acct-print-formb-cohort')).toBeTruthy()
+    expect(screen.getByTestId('formb-reconciliation-toggle')
+      .querySelector('[data-testid=\'ExpandMoreIcon\']')).toBeTruthy()
+  })
+
+  it('expands and highlights when the residual is unexplained', () => {
+    renderTaxView(responseWithReconciliation({
+      n7: '720.0000', accountingTotalCostOfSales: '180.0000',
+      inventoryAdjustments: '0.0000', ownerStockDrawings: '0.0000', residual: '540.0000',
+    }))
+    expect(screen.getByTestId('formb-reconciliation-summary'))
+      .toHaveTextContent(/Unexplained difference/i)
+    // Auto-expanded: the collapse icon flips to ExpandLess.
+    expect(screen.getByTestId('formb-reconciliation-toggle')
+      .querySelector('[data-testid=\'ExpandLessIcon\']')).toBeTruthy()
+  })
+
+  it('renders the reconciliation panel with surviving terms when one is null', () => {
+    renderTaxView(
+      responseWithReconciliation({
+        n7: '10.0000',
+        accountingTotalCostOfSales: null,
+        inventoryAdjustments: '1.0000',
+        ownerStockDrawings: '2.0000',
+        residual: null,
+      }),
+    )
+    const panel = screen.getByTestId('formb-reconciliation')
+    // A null term is a difference, so the panel renders (collapsed).
+    // Whole ringgit, no sen: neither the raw scale-4 payload string nor a
+    // 2-decimal rendering — Form B is filed without sen.
+    expect(panel).toHaveTextContent(/\b10\b/)
+    expect(panel).toHaveTextContent(/\b1\b/)
+    expect(panel.textContent).not.toContain('10.0000')
+    expect(panel.textContent).not.toContain('10.00')
+    expect(panel).toHaveTextContent('—')
+  })
+
+  /*
+   * The row drill-down was removed: the tax view lists the statutory lines
+   * alone. Cohort rows are still emitted for PRINT, so the filed sheet keeps
+   * the audit trail from each figure to its ledger accounts.
+   *
+   * Deliberately NOT asserting a click on a cohort row: jsdom applies no CSS,
+   * so such a row is present and clickable in the test DOM while being
+   * invisible in a browser. A passing click test would describe a path no user
+   * can take.
+   */
+  it('renders no expand control on any line', () => {
+    renderTaxView(responseWithCohort())
+    expect(screen.getByTestId('formb-line-N24').querySelector('.acct-print-control'))
+      .not.toBeInTheDocument()
+    expect(screen.queryByTestId('formb-expand-N24')).not.toBeInTheDocument()
+  })
+
+  it('still emits cohort rows, marked for print only', () => {
+    renderTaxView(responseWithCohort())
+    const cohort = screen.getByTestId('formb-cohort-N24-0')
+    expect(cohort).toHaveClass('acct-print-formb-cohort')
+    expect(cohort).toHaveClass('acct-screen-hidden')
+  })
+})

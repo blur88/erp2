@@ -2,6 +2,39 @@ import { jest } from '@jest/globals';
 import { SettingsService } from './settings.service';
 
 describe('SettingsService', () => {
+  /*
+   * The seeded row carries a placeholder registration number, like the other
+   * fields — but the VALUE must stay self-evidently fake.
+   *
+   * This matters MORE now that Form B takes Company Settings at face value: the
+   * seeded string is printed verbatim as N1a with no warning, so it is the only
+   * thing standing between an unconfigured install and a plausible-looking but
+   * fabricated registration number on a filed return. A digit-shaped default
+   * (e.g. '000000000000') would look real; 'Your Registration Number' cannot.
+   */
+  it('seeds company settings with a non-numeric placeholder registration number', async () => {
+    let created: any;
+    const companySettingsRepository = {
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(null),
+      create: (jest.fn as unknown as any)((v: any) => { created = v; return v; }),
+      save: (jest.fn as unknown as any)((v: any) => Promise.resolve({ ...v, id: 'seeded' })),
+    };
+    const service = new SettingsService(
+      companySettingsRepository as any, {} as any, {} as any,
+      {} as any, {} as any, {} as any,
+      {} as any,
+      { transaction: (jest.fn as unknown as any)() } as any,
+    );
+
+    await service.getCompanySettings();
+
+    expect(created.registrationNumber).toBe('Your Registration Number');
+    // Must not resemble a real SSM number — no digit runs at all.
+    expect(created.registrationNumber).not.toMatch(/\d{4,}/);
+    expect(created.name).toBe('Your Company Name');
+  });
+
+
   it('reuses the caller transaction manager (no nested transaction)', async () => {
     const manager = {
       query: (jest.fn as unknown as any)()

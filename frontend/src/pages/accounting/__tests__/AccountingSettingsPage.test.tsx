@@ -6,7 +6,9 @@ import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
-const { mockAccounts, mockSettings, mockUpdateSettings } = vi.hoisted(() => ({
+const { mockAccounts, mockSettings, mockUpdateSettings, mockFormBMappings, mockFormBMappingUpdate } = vi.hoisted(() => ({
+  mockFormBMappings: [] as any[],
+  mockFormBMappingUpdate: vi.fn(() => ({ unwrap: () => Promise.resolve(undefined) })),
   mockAccounts: {
     data: [
       {
@@ -206,6 +208,8 @@ vi.mock('@/store/api/accountingApi', () => ({
   useUpdateAccountingSettingsMutation: vi
     .fn()
     .mockReturnValue([mockUpdateSettings, { isLoading: false }]),
+  useGetFormBMappingsQuery: vi.fn().mockReturnValue({ data: mockFormBMappings, isLoading: false, isError: false }),
+  useUpdateFormBMappingMutation: vi.fn().mockReturnValue([mockFormBMappingUpdate, { isLoading: false }]),
 }))
 
 vi.mock('@/hooks/useNotification', () => ({
@@ -294,7 +298,7 @@ describe('AccountingSettingsPage', () => {
     renderPage()
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
 
     await waitFor(() => {
       expect(mockUpdateSettings).toHaveBeenCalledWith({
@@ -468,7 +472,7 @@ describe('AccountingSettingsPage', () => {
 
       it('hides the Save button and explains why', () => {
         renderPage(role)
-        expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /save changes/i })).not.toBeInTheDocument()
         expect(
           screen.getByText(/read-only. Only an administrator can change them/i),
         ).toBeInTheDocument()
@@ -509,7 +513,7 @@ describe('AccountingSettingsPage - Owner Equity', () => {
     try {
       renderPage()
       const user = userEvent.setup()
-      await user.click(screen.getByRole('button', { name: /Save/i }))
+      await user.click(screen.getByRole('button', { name: /save changes/i }))
       expect(await screen.findByText(/Owner capital account is required/)).toBeInTheDocument()
     } finally {
       mockFn.mockReturnValue({ data: mockSettings, isLoading: false, error: undefined } as any)

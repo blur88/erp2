@@ -24,8 +24,12 @@ import { GeneralLedgerController } from './controllers/general-ledger.controller
 import { TrialBalanceController } from './controllers/trial-balance.controller';
 import { ProfitAndLossController } from './controllers/profit-and-loss.controller';
 import { ExpenseController } from './controllers/expense.controller';
+import { FormBController } from './controllers/form-b.controller';
+import { FormBMappingController } from './controllers/form-b-mapping.controller';
 import { ExpenseService } from './services/expense.service';
 import { ExpensePaymentService } from './services/expense-payment.service';
+import { FormBService } from './services/form-b.service';
+import { FormBMappingService } from './services/form-b-mapping.service';
 import { ACCOUNTING_POSTING_PORT } from '../../common/accounting-posting/accounting-posting.port';
 
 @Module({
@@ -36,12 +40,14 @@ import { ACCOUNTING_POSTING_PORT } from '../../common/accounting-posting/account
   controllers: [
     ChartOfAccountController, AccountingSettingsController, JournalEntryController,
     GeneralLedgerController, TrialBalanceController, ProfitAndLossController, ExpenseController,
+    FormBController, FormBMappingController,
   ],
   providers: [
     AccountingLookupService, AccountingPostingService, AccountBalanceService,
     ChartOfAccountService, AccountingSettingsService, JournalEntryService,
     GeneralLedgerService, TrialBalanceService, ProfitAndLossService, AccountingSeederService,
     ExpenseService, ExpensePaymentService,
+    FormBService, FormBMappingService,
     { provide: ACCOUNTING_POSTING_PORT, useExisting: AccountingPostingService },
   ],
   exports: [ACCOUNTING_POSTING_PORT, AccountingLookupService],

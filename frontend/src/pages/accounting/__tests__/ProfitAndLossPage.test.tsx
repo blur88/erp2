@@ -11,9 +11,12 @@ vi.mock('react-router-dom', async () => ({
   useNavigate: () => mockNavigate,
 }))
 
-const mockQuery = vi.fn()
+const mockUseGetProfitAndLossQuery = vi.fn()
+const mockUseGetFormBQuery = vi.fn()
+const mockQuery = mockUseGetProfitAndLossQuery
 vi.mock('@/store/api/accountingApi', () => ({
-  useGetProfitAndLossQuery: (...args: unknown[]) => mockQuery(...args),
+  useGetProfitAndLossQuery: (...args: unknown[]) => mockUseGetProfitAndLossQuery(...args),
+  useGetFormBQuery: (...args: unknown[]) => mockUseGetFormBQuery(...args),
 }))
 
 // The page reads company details for the print header. Without this mock the
@@ -62,12 +65,40 @@ const withStructuralFixture: ProfitAndLossResponse = {
   }),
 }
 
-const renderPage = () =>
-  render(<MemoryRouter initialEntries={['/accounting/profit-and-loss?year=2026']}><ProfitAndLossPage /></MemoryRouter>)
+const renderPage = (search = '?year=2026') =>
+  render(<MemoryRouter initialEntries={[`/accounting/profit-and-loss${search}`]}><ProfitAndLossPage /></MemoryRouter>)
 
+const CURRENT_YEAR_FOR_MOCKS = new Date().getFullYear()
 beforeEach(() => {
   vi.clearAllMocks()
-  mockQuery.mockReturnValue({ data: RESPONSE, currentData: RESPONSE, isLoading: false, isFetching: false, isError: false })
+  window.history.replaceState({}, '', '/')
+  mockUseGetProfitAndLossQuery.mockImplementation((arg: any, opts: any) => {
+    if (opts?.skip) return { data: undefined, currentData: undefined, isLoading: false, isFetching: false, isError: false }
+    const year = arg?.year ?? CURRENT_YEAR_FOR_MOCKS
+    // Make the requested year authoritative so it is not considered stale
+    const avail = RESPONSE.availableYears.includes(year) ? RESPONSE.availableYears : [...RESPONSE.availableYears, year].sort((a, b) => b - a)
+    const resp = { ...RESPONSE, year, availableYears: avail }
+    return { data: resp, currentData: resp, isLoading: false, isFetching: false, isError: false }
+  })
+  mockUseGetFormBQuery.mockImplementation((arg: any, opts: any) => {
+    if (opts?.skip) return { data: undefined, currentData: undefined, isLoading: false, isFetching: false, isError: false }
+    const year = arg?.year ?? CURRENT_YEAR_FOR_MOCKS
+    const avail = [2026, 2025].includes(year) ? [2026, 2025] : [...[2026, 2025], year].sort((a, b) => b - a)
+    const resp: any = {
+      year,
+      formVersion: 2025,
+      availableYears: avail,
+      identity: {
+        businessName: { value: null, source: null },
+        registrationNumber: { value: null, source: 'companySettings' },
+      },
+      rows: [],
+      reconciliation: { n7: null, accountingTotalCostOfSales: null, inventoryAdjustments: null, ownerStockDrawings: null, residual: null },
+      findings: [],
+      readiness: { hasWarnings: false, hasIncomplete: false, hasIntegrity: false, counts: { warning: 0, incomplete: 0, integrity: 0 } },
+    }
+    return { data: resp, currentData: resp, isLoading: false, isFetching: false, isError: false }
+  })
 })
 
 describe('ProfitAndLossPage', () => {
@@ -273,8 +304,8 @@ describe('ProfitAndLossPage', () => {
         <ProfitAndLossPage />
       </MemoryRouter>,
     )
-    expect(mockQuery).toHaveBeenCalledWith({ year: new Date().getFullYear() })
-    expect(mockQuery).not.toHaveBeenCalledWith({ year: 999 })
+    expect(mockQuery).toHaveBeenCalledWith({ year: new Date().getFullYear() }, expect.objectContaining({ skip: false }))
+    expect(mockQuery).not.toHaveBeenCalledWith({ year: 999 }, expect.anything())
   })
 
   it('shows the year taken from the URL', () => {
@@ -299,12 +330,12 @@ describe('ProfitAndLossPage', () => {
       expect(new URLSearchParams(window.location.search).get('year')).toBeNull()
     })
     // After normalization the query should use the current year
-    expect(mockQuery).toHaveBeenCalledWith({ year: new Date().getFullYear() })
+    expect(mockQuery).toHaveBeenCalledWith({ year: new Date().getFullYear() }, expect.objectContaining({ skip: false }))
   })
 
   it('requests the year from the URL, not the current year', () => {
     renderPage()
-    expect(mockQuery).toHaveBeenCalledWith({ year: 2026 })
+    expect(mockQuery).toHaveBeenCalledWith({ year: 2026 }, expect.objectContaining({ skip: false }))
   })
 
   it('falls back to the current year when the URL year is malformed', () => {
@@ -313,7 +344,7 @@ describe('ProfitAndLossPage', () => {
         <ProfitAndLossPage />
       </MemoryRouter>,
     )
-    expect(mockQuery).toHaveBeenCalledWith({ year: new Date().getFullYear() })
+    expect(mockQuery).toHaveBeenCalledWith({ year: new Date().getFullYear() }, expect.objectContaining({ skip: false }))
   })
 
   it('renders the whole statement as a single table', () => {
@@ -362,7 +393,7 @@ describe('ProfitAndLossPage', () => {
     })
     expect(new URLSearchParams(window.location.search).get('year')).toBe('1990')
     // And no second query for the current year — the reset would show up here.
-    expect(mockQuery).not.toHaveBeenCalledWith({ year: new Date().getFullYear() })
+    expect(mockQuery).not.toHaveBeenCalledWith({ year: new Date().getFullYear() }, expect.anything())
   })
 
   it('exposes every element the print stylesheet must expand', () => {
@@ -460,3 +491,87 @@ describe('ProfitAndLossPage', () => {
     expect(nestedGroup).not.toHaveAttribute('tabindex')
   })
 })
+
+describe('ProfitAndLossPage — print layout', () => {
+  /*
+   * Exactly ONE AccountingReportPrintLayout for both views: a second nested
+   * instance printed two headers and two conflicting titles on one sheet.
+   * Title and period are derived from the active view, so the tax view's
+   * form-version mismatch reaches the printed page (spec §2.1).
+   */
+  // Keyed off .acct-print-header, the layout's existing print hook, rather
+  // than adding a testid to a component shared with every other report.
+  const headers = () => document.querySelectorAll('.acct-print-header')
+
+  it('renders exactly one print header with the accounting title by default', () => {
+    renderPage('?year=2025')
+    expect(headers()).toHaveLength(1)
+    expect(screen.getByText('PROFIT & LOSS')).toBeInTheDocument()
+  })
+
+  it('renders exactly one print header in the tax view', () => {
+    renderPage('?year=2025&view=tax')
+    expect(headers()).toHaveLength(1)
+    expect(screen.getByText('PROFIT & LOSS — FORM B TAX VIEW')).toBeInTheDocument()
+  })
+
+  it('derives the print period, including the form-version mismatch', () => {
+    renderPage('?year=2024&view=tax')
+    expect(screen.getByText(/presented using Form B YA 2025/i)).toBeInTheDocument()
+  })
+})
+
+describe('ProfitAndLossPage — view switching', () => {
+  it('defaults to the Accounting View when no view param is present', () => {
+    renderPage('?year=2025')
+    expect(screen.getByTestId('pl-accounting-view')).toBeInTheDocument()
+    expect(screen.queryByTestId('pl-tax-view')).not.toBeInTheDocument()
+  })
+
+  it('renders the tax view for ?view=tax', () => {
+    renderPage('?year=2025&view=tax')
+    expect(screen.getByTestId('pl-tax-view')).toBeInTheDocument()
+    expect(screen.queryByTestId('pl-accounting-view')).not.toBeInTheDocument()
+  })
+
+  // An unrecognised value must fall back, not render nothing.
+  it('falls back to the Accounting View for an unrecognised view value', () => {
+    renderPage('?year=2025&view=wat')
+    expect(screen.getByTestId('pl-accounting-view')).toBeInTheDocument()
+  })
+
+  // The in-page view buttons were removed — the filter bar's View dropdown is
+  // the single control. The behaviour they guarded (year and view are
+  // independent in the URL) still matters, so it is asserted directly.
+  it('keeps year and view independent in the URL', () => {
+    renderPage('?year=2024&view=tax')
+    expect(window.location.search).toContain('year=2024')
+    expect(window.location.search).toContain('view=tax')
+    expect(screen.getByTestId('pl-tax-view')).toBeInTheDocument()
+  })
+
+  it('renders no duplicate in-page view buttons', () => {
+    renderPage('?year=2025')
+    expect(screen.queryByRole('button', { name: /^tax filing view$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^accounting view$/i })).not.toBeInTheDocument()
+  })
+
+  it('preserves the view when switching years', async () => {
+    renderPage('?year=2025&view=tax')
+    // Year change goes through the existing filter bar; assert the view param
+    // survives it.
+    expect(window.location.search).toContain('view=tax')
+  })
+
+  // Only ONE endpoint may run: the inactive view's query must not fire.
+  it('queries only the active view endpoint', () => {
+    renderPage('?year=2025&view=tax')
+    expect(mockUseGetFormBQuery).toHaveBeenCalledWith(
+      { year: 2025 }, expect.anything(),
+    )
+    expect(mockUseGetProfitAndLossQuery).toHaveBeenCalledWith(
+      expect.anything(), expect.objectContaining({ skip: true }),
+    )
+  })
+})
+

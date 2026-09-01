@@ -170,9 +170,26 @@ export class SettingsService {
   /**
    * Create default company settings
    */
+  /**
+   * Seed placeholder company settings on first read.
+   *
+   * `registrationNumber` gets a placeholder like the other fields, but the
+   * VALUE is chosen to be self-evidently not a real number. Unlike 'Your
+   * Company Name', a plausible-looking registration number would be dangerous:
+   * the Form B tax view prints it as N1a, so a stand-in that resembles a real
+   * SSM number (e.g. '000000000000') could reach a filed return unnoticed.
+   * 'Your Registration Number' cannot be mistaken for one.
+   *
+   * Form B prints whatever is configured here VERBATIM as N1a, with no
+   * placeholder detection, so this string is the last line of defence against a
+   * fabricated-looking registration number reaching a filed return. Keep it
+   * obviously non-numeric — settings.service.spec.ts rejects any value
+   * containing a run of four or more digits.
+   */
   private async createDefaultSettings(): Promise<CompanySettings> {
     const defaultSettings = this.companySettingsRepository.create({
       name: 'Your Company Name',
+      registrationNumber: 'Your Registration Number',
       address: '123 Main Street',
       city: 'City',
       state: '',
