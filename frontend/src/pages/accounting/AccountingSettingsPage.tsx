@@ -76,13 +76,29 @@ const INVENTORY_PURCHASING_FIELDS: SectionField[] = [
   { name: 'inventoryAccountId', label: 'Inventory Account', accountType: 'Asset' },
   { name: 'supplierDepositAccountId', label: 'Supplier Deposit Account', accountType: 'Asset' },
   { name: 'cogsAccountId', label: 'COGS Account', accountType: 'Expense' },
+  // Sits here, not under a catch-all: postStockAdjustment() is its ONLY
+  // consumer — it takes the expense leg of a stock write-off
+  // (accounting-posting.service.ts).
+  { name: 'defaultExpenseAccountId', label: 'Default Expense Account', accountType: 'Expense' },
 ]
 
-const SYSTEM_FIELDS: SectionField[] = [
-  { name: 'openingBalanceEquityAccountId', label: 'Opening Balance Equity Account', accountType: 'Equity' },
+// Consumed only by the Owner Equity module's postings — capital injections,
+// cash/stock drawings, and their refunds.
+const OWNER_EQUITY_FIELDS: SectionField[] = [
   { name: 'ownerCapitalAccountId', label: 'Owner Capital Account', accountType: 'Equity' },
   { name: 'ownerDrawingsAccountId', label: 'Owner Drawings Account', accountType: 'Equity' },
-  { name: 'defaultExpenseAccountId', label: 'Default Expense Account', accountType: 'Expense' },
+]
+
+/*
+ * One field on purpose. Opening Balance Equity is used by exactly one posting
+ * path — postOpeningBalance(), when an account's opening balance is set — which
+ * is a distinct, infrequent setup step rather than day-to-day operation.
+ *
+ * The section it replaces was "System": a leftover bucket holding three Equity
+ * accounts and one Expense account, named after no concept any of them shared.
+ */
+const SETUP_FIELDS: SectionField[] = [
+  { name: 'openingBalanceEquityAccountId', label: 'Opening Balance Equity Account', accountType: 'Equity' },
 ]
 
 function toFormValues(settings: AccountingSettings): FormValues {
@@ -278,9 +294,19 @@ export default function AccountingSettingsPage() {
                 />
               </PageSection>
 
-              <PageSection label="System">
+              <PageSection label="Owner Equity">
                 <FieldGrid
-                  fields={SYSTEM_FIELDS}
+                  fields={OWNER_EQUITY_FIELDS}
+                  accounts={accounts}
+                  control={control}
+                  errors={errors}
+                  disabled={!isAdmin}
+                />
+              </PageSection>
+
+              <PageSection label="Setup">
+                <FieldGrid
+                  fields={SETUP_FIELDS}
                   accounts={accounts}
                   control={control}
                   errors={errors}

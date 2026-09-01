@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
@@ -247,12 +247,38 @@ describe('AccountingSettingsPage', () => {
     })
   })
 
-  it('renders 4 section cards', () => {
+  it('renders 5 section cards', () => {
     renderPage()
     expect(screen.getByText('Payment')).toBeInTheDocument()
     expect(screen.getByText('Sales')).toBeInTheDocument()
     expect(screen.getByText('Inventory & Purchasing')).toBeInTheDocument()
-    expect(screen.getByText('System')).toBeInTheDocument()
+    // "System" was a leftover bucket (3 Equity + 1 Expense) named after no
+    // concept its fields shared. Split by actual consumer (#1177).
+    expect(screen.getByText('Owner Equity')).toBeInTheDocument()
+    expect(screen.getByText('Setup')).toBeInTheDocument()
+    expect(screen.queryByText('System')).not.toBeInTheDocument()
+  })
+
+  // Regrouping must not silently drop a field: all 11 still render and save.
+  it('groups each account field under its consuming workflow', async () => {
+    renderPage()
+    const user = userEvent.setup()
+    const labelOf = (name: string) =>
+      screen.getByText(name).closest('.MuiPaper-root') as HTMLElement
+
+    // Default Expense posts the stock-adjustment expense leg, so it belongs
+    // with Inventory rather than in a catch-all.
+    expect(within(labelOf('Inventory & Purchasing')).getByLabelText(/Default Expense Account/i))
+      .toBeInTheDocument()
+    expect(within(labelOf('Owner Equity')).getByLabelText(/Owner Capital Account/i))
+      .toBeInTheDocument()
+    expect(within(labelOf('Owner Equity')).getByLabelText(/Owner Drawings Account/i))
+      .toBeInTheDocument()
+    expect(within(labelOf('Setup')).getByLabelText(/Opening Balance Equity Account/i))
+      .toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+    await waitFor(() => expect(mockUpdateSettings).toHaveBeenCalled())
+    expect(Object.keys(mockUpdateSettings.mock.calls[0][0])).toHaveLength(11)
   })
 
   it('Cash and Bank dropdowns list only Asset accounts', async () => {
@@ -537,7 +563,7 @@ describe('AccountingSettingsPage — page structure (#1177)', () => {
     const formB = screen.getByText('Form B Tax Filing')
     // Document order: the posting sections sit between the two headings.
     expect(heading.compareDocumentPosition(formB) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    ;['Payment', 'Sales', 'Inventory & Purchasing', 'System'].forEach((label) => {
+    ;['Payment', 'Sales', 'Inventory & Purchasing', 'Owner Equity', 'Setup'].forEach((label) => {
       const section = screen.getByText(label)
       expect(heading.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(formB.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
