@@ -23,6 +23,13 @@ export interface FormBTableRow {
    * year must file the same document.
    */
   printClass?: string
+  /**
+   * When true the row is hidden on screen (collapsed) but still prints —
+   * the audit trail must be unconditional on paper even when the screen
+   * affordance is collapsed. Screen hiding is via `.acct-screen-hidden`
+   * which `@media print` overrides for `.acct-print-formb-cohort`.
+   */
+  hiddenOnScreen?: boolean
 }
 
 /** null is ABSENT, not zero. An em dash is the only correct rendering. */
@@ -38,6 +45,7 @@ export function periodLabel(year: number, formVersion: number): string {
 
 const cohortRow = (
   ref: FormBAccountRef, line: string, index: number, group: string,
+  hiddenOnScreen = false,
 ): FormBTableRow => ({
   id: `${line}.${group}.${ref.accountId}`,
   kind: 'cohort',
@@ -52,6 +60,7 @@ const cohortRow = (
   expandable: false,
   expanded: false,
   printClass: 'acct-print-formb-cohort',
+  ...(hiddenOnScreen ? { hiddenOnScreen: true as const } : {}),
 })
 
 export function buildFormBTableRows(
@@ -78,30 +87,37 @@ export function buildFormBTableRows(
       expanded: isExpanded,
     })
 
-    if (!isExpanded || contributors.length === 0) continue
+    if (contributors.length === 0) continue
+
+    // Cohorts print UNCONDITIONALLY — even when the screen affordance is
+    // collapsed, the printed filing must carry the audit trail. So we always
+    // emit cohort rows when contributors exist, but mark them hiddenOnScreen
+    // when collapsed so the screen still appears collapsed. Print CSS overrides
+    // the screen-hide for `.acct-print-formb-cohort`.
+    const hiddenOnScreen = !isExpanded
 
     // N24 / N13 split into labelled subgroups so an explicitly-mapped account
     // is visibly distinct from one that merely fell back.
     if (row.cohorts) {
       const { explicit, fallback } = row.cohorts
       if (explicit.length > 0) {
-        out.push(headingRow(row.line, 'explicit', 'Mapped to this line'))
-        explicit.forEach((ref, i) => out.push(cohortRow(ref, row.line, i, 'explicit')))
+        out.push(headingRow(row.line, 'explicit', 'Mapped to this line', hiddenOnScreen))
+        explicit.forEach((ref, i) => out.push(cohortRow(ref, row.line, i, 'explicit', hiddenOnScreen)))
       }
       if (fallback.length > 0) {
-        out.push(headingRow(row.line, 'fallback', 'Unmapped — filed here by default'))
-        fallback.forEach((ref, i) => out.push(cohortRow(ref, row.line, i, 'fallback')))
+        out.push(headingRow(row.line, 'fallback', 'Unmapped — filed here by default', hiddenOnScreen))
+        fallback.forEach((ref, i) => out.push(cohortRow(ref, row.line, i, 'fallback', hiddenOnScreen)))
       }
       continue
     }
 
-    contributors.forEach((ref, i) => out.push(cohortRow(ref, row.line, i, 'accounts')))
+    contributors.forEach((ref, i) => out.push(cohortRow(ref, row.line, i, 'accounts', hiddenOnScreen)))
   }
 
   return out
 }
 
-const headingRow = (line: string, group: string, label: string): FormBTableRow => ({
+const headingRow = (line: string, group: string, label: string, hiddenOnScreen = false): FormBTableRow => ({
   id: `${line}.${group}.heading`,
   kind: 'cohortHeading',
   line,
@@ -114,4 +130,5 @@ const headingRow = (line: string, group: string, label: string): FormBTableRow =
   expandable: false,
   expanded: false,
   printClass: 'acct-print-formb-cohort',
+  ...(hiddenOnScreen ? { hiddenOnScreen: true as const } : {}),
 })

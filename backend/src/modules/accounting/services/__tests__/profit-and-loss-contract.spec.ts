@@ -1,4 +1,3 @@
-// @ts-nocheck
 // backend/src/modules/accounting/services/__tests__/profit-and-loss-contract.spec.ts
 import { jest } from '@jest/globals';
 import { ProfitAndLossService } from '../profit-and-loss.service';
@@ -31,21 +30,21 @@ describe('ProfitAndLossService contract (Form B must not disturb it)', () => {
   ];
 
   const build = () => {
-    const coaRepo = { find: jest.fn().mockResolvedValue(chart) };
+    const coaRepo = { find: (jest.fn() as any).mockResolvedValue(chart) };
     const lineRepo = {
       createQueryBuilder: jest.fn(() => {
         const qb: any = {};
         for (const m of ['innerJoin','select','addSelect','where','andWhere','groupBy']) {
           qb[m] = jest.fn(() => qb);
         }
-        qb.getRawMany = jest.fn().mockResolvedValue([
+        qb.getRawMany = (jest.fn() as any).mockResolvedValue([
           { accountId: 'rev', ordDebit: '0', ordCredit: '100.0000', adjDebit: '0', adjCredit: '0' },
           { accountId: 'oth', ordDebit: '0', ordCredit: '10.0000', adjDebit: '0', adjCredit: '0' },
           { accountId: 'cogs', ordDebit: '40.0000', ordCredit: '0', adjDebit: '0', adjCredit: '0' },
           { accountId: 'sal', ordDebit: '20.0000', ordCredit: '0', adjDebit: '0', adjCredit: '0' },
           { accountId: 'sun', ordDebit: '5.0000', ordCredit: '0', adjDebit: '3.0000', adjCredit: '0' },
         ]);
-        qb.getRawOne = jest.fn().mockResolvedValue({ earliest: '2025-01-01' });
+        qb.getRawOne = (jest.fn() as any).mockResolvedValue({ earliest: '2025-01-01' });
         return qb;
       }),
     };
@@ -54,7 +53,7 @@ describe('ProfitAndLossService contract (Form B must not disturb it)', () => {
         type === 'Income' || type === 'Liability' || type === 'Equity' ? -raw : raw),
     };
     const settings = {
-      get: jest.fn().mockResolvedValue({ salesRevenueAccountId: 'rev', cogsAccountId: 'cogs' }),
+      get: (jest.fn() as any).mockResolvedValue({ salesRevenueAccountId: 'rev', cogsAccountId: 'cogs' }),
     };
     return new ProfitAndLossService(
       coaRepo as any, lineRepo as any, balance as any, settings as any,

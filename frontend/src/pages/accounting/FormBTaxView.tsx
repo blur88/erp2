@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { Alert, Box, IconButton, Typography } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
@@ -22,10 +22,13 @@ interface FormBTaxViewProps {
 const isFormBRowSelectable = (row: FormBTableRow) =>
   (row.kind === 'cohort' && Boolean(row.accountId)) || (row.kind === 'line' && row.expandable)
 
-const formBRowProps = (row: FormBTableRow): RowPresentationProps => ({
-  'data-testid': row.testId,
-  ...(row.printClass ? { className: row.printClass } : {}),
-})
+const formBRowProps = (row: FormBTableRow): RowPresentationProps => {
+  const classes = [row.printClass, row.hiddenOnScreen ? 'acct-screen-hidden' : null].filter(Boolean).join(' ')
+  return {
+    'data-testid': row.testId,
+    ...(classes ? { className: classes } : {}),
+  }
+}
 
 const formBRowSx = (row: FormBTableRow): SystemStyleObject<Theme> => {
   if (row.kind === 'cohortHeading') {
@@ -71,6 +74,23 @@ export default function FormBTaxView({ data, year, isLoading, isError, onOpenLed
   }
 
   const rows = useMemo<FormBTableRow[]>(() => buildFormBTableRows(data, expanded), [data, expanded])
+
+  const getRowProps = useCallback(
+    (row: FormBTableRow): RowPresentationProps => {
+      // Cohorts print unconditionally but are hidden on screen when collapsed.
+      // Prefer the row's own hiddenOnScreen flag (set by buildFormBTableRows),
+      // fall back to checking expanded directly so a stale row still hides.
+      const isHidden =
+        row.hiddenOnScreen ??
+        ((row.kind === 'cohort' || row.kind === 'cohortHeading') && !expanded.has(row.line))
+      const classes = [row.printClass, isHidden ? 'acct-screen-hidden' : null].filter(Boolean).join(' ')
+      return {
+        'data-testid': row.testId,
+        ...(classes ? { className: classes } : {}),
+      }
+    },
+    [expanded],
+  )
 
   const columns = useMemo(
     () => [
@@ -215,7 +235,7 @@ export default function FormBTaxView({ data, year, isLoading, isError, onOpenLed
             isRowSelectable={isFormBRowSelectable}
             selectableRowRole="link"
             getRowSx={formBRowSx}
-            getRowProps={formBRowProps}
+            getRowProps={getRowProps}
             onSelect={(row) => {
               if (row.kind === 'line' && row.expandable) toggle(row.line)
               else if (row.accountId) onOpenLedger(row.accountId, data.year)

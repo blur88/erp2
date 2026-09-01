@@ -11,6 +11,15 @@
   display: none;
 }
 
+/*
+ * Form B cohorts are emitted even when the screen affordance is collapsed
+ * (so the printed filing is unconditional). On screen those collapsed rows
+ * are hidden; the print rule below overrides this so they still print.
+ */
+.acct-screen-hidden {
+  display: none;
+}
+
 @media print {
   /*
    * Force black-on-white. A dark UI theme would otherwise print white text on
@@ -134,6 +143,15 @@
    * the audit trail from every printed Form B.
    */
   .acct-print-formb-cohort {
+    display: table-row !important;
+  }
+
+  /* Collapsed cohorts carry .acct-screen-hidden on screen; on paper they
+   * must still be visible. The !important print rule above already wins over
+   * the screen rule, but this selector makes the intent explicit and covers
+   * any future `!important` added to .acct-screen-hidden.
+   */
+  .acct-print-formb-cohort.acct-screen-hidden {
     display: table-row !important;
   }
 

@@ -51,7 +51,7 @@ describe('buildFormBTableRows', () => {
     expect(built.map((r) => r.line)).toEqual(['N15'])
   })
 
-  it('does not emit cohort rows for a collapsed line on screen', () => {
+  it('still emits cohort rows for a collapsed line but marks them hidden on screen so they print unconditionally', () => {
     const d = data([row({
       line: 'N24', accounts: [{ accountId: 'a1', code: '6990', name: 'Sundry',
         isActive: true, category: null, assignment: 'fallback', amount: '5.0000' }],
@@ -59,7 +59,11 @@ describe('buildFormBTableRows', () => {
         isActive: true, category: null, assignment: 'fallback', amount: '5.0000' }] },
     })])
     const built = buildFormBTableRows(d, new Set())
-    expect(built.filter((r) => r.kind === 'cohort')).toEqual([])
+    const cohorts = built.filter((r) => r.kind === 'cohort')
+    expect(cohorts.map((r) => r.accountId)).toEqual(['a1'])
+    expect(cohorts.every((r) => r.hiddenOnScreen === true)).toBe(true)
+    // Print class is still the cohort class so the @media print rule shows them
+    expect(cohorts.every((r) => r.printClass === 'acct-print-formb-cohort')).toBe(true)
   })
 
   it('emits cohort rows for an expanded line', () => {
