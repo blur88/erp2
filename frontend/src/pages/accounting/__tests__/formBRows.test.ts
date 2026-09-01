@@ -70,7 +70,10 @@ describe('periodLabel', () => {
 describe('buildFormBTableRows', () => {
   it('emits every statutory line, zero rows included', () => {
     const built = buildFormBTableRows(data([row({ line: 'N15', amount: '0.0000' })]))
-    expect(built.filter((r) => r.kind === 'line').map((r) => r.line)).toEqual(['N15'])
+    // 'line' and 'total' are both statutory rows — a derived line is styled
+    // differently, not excluded — so match on either.
+    const statutory = (r: { kind: string }) => r.kind === 'line' || r.kind === 'total'
+    expect(built.filter(statutory).map((r) => r.line)).toEqual(['N15'])
   })
 
   /*
@@ -102,10 +105,28 @@ describe('buildFormBTableRows', () => {
   })
 
   it('does not reorder or renumber the statutory lines', () => {
-    const all = ['N3', 'N4', 'N9', 'N15', 'N24'].map((l) => row({ line: l }))
+    // Includes a DERIVED line (N7 carries a formula) so the assertion covers
+    // both row kinds; filtering on 'line' alone would silently skip subtotals.
+    const all = [
+      row({ line: 'N3' }), row({ line: 'N4' }),
+      row({ line: 'N7', formula: 'N4 + N5 - N6' }),
+      row({ line: 'N9' }), row({ line: 'N15' }), row({ line: 'N24' }),
+    ]
     const built = buildFormBTableRows(data(all))
-    expect(built.filter((r) => r.kind === 'line').map((r) => r.line))
-      .toEqual(['N3', 'N4', 'N9', 'N15', 'N24'])
+    const statutory = (r: { kind: string }) => r.kind === 'line' || r.kind === 'total'
+    expect(built.filter(statutory).map((r) => r.line))
+      .toEqual(['N3', 'N4', 'N7', 'N9', 'N15', 'N24'])
+  })
+
+  // Derived lines are subtotals and must be visually distinguishable from the
+  // components above them.
+  it('marks lines carrying a formula as totals', () => {
+    const built = buildFormBTableRows(data([
+      row({ line: 'N5' }),
+      row({ line: 'N7', formula: 'N4 + N5 - N6' }),
+    ]))
+    expect(built.find((r) => r.line === 'N5')!.kind).toBe('line')
+    expect(built.find((r) => r.line === 'N7')!.kind).toBe('total')
   })
 
   // Cohorts are PRINT-ONLY now: the screen lists the statutory lines alone,

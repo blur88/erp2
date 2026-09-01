@@ -57,6 +57,21 @@ const formBRowSx = (row: FormBTableRow): SystemStyleObject<Theme> => {
       },
     } as SystemStyleObject<Theme>
   }
+  /*
+   * Subtotals (N7, N8, N14, N25, N26) close the block above them: a rule on top
+   * and bold weight, matching ProfitAndLossAccountingView. Without it N7 sits
+   * flush with N4/N5/N6 and reads as another component rather than their total.
+   */
+  if (row.kind === 'total') {
+    return {
+      '& td': {
+        borderTop: 2,
+        borderTopColor: 'divider',
+        fontWeight: 700,
+        color: 'text.primary',
+      },
+    } as SystemStyleObject<Theme>
+  }
   if (row.kind === 'cohortHeading') {
     return { '& td': { fontStyle: 'italic', color: 'text.secondary', borderBottom: 'none', pt: 0.5, pb: 0.5 } } as SystemStyleObject<Theme>
   }

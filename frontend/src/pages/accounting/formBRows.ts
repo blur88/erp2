@@ -1,7 +1,7 @@
 import type { FormBAccountRef, FormBResponse, FormBRow, FormBAmount } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 
-export type FormBRowKind = 'section' | 'line' | 'cohort' | 'cohortHeading'
+export type FormBRowKind = 'section' | 'line' | 'total' | 'cohort' | 'cohortHeading'
 
 export interface FormBTableRow {
   id: string
@@ -128,7 +128,16 @@ export function buildFormBTableRows(data: FormBResponse): FormBTableRow[] {
 
     out.push({
       id: row.line,
-      kind: 'line',
+      /*
+       * A derived line (N7, N8, N14, N25, N26) is a SUBTOTAL of the lines above
+       * it, not another input, and must not look like one — N7 sitting flush
+       * with N4/N5/N6 reads as a fourth component rather than their total.
+       *
+       * `formula` is non-null on exactly those lines in the payload, so it is
+       * the signal rather than a hardcoded list of line numbers that would
+       * drift from the taxonomy.
+       */
+      kind: row.formula ? 'total' : 'line',
       line: row.line,
       code: row.line,
       label: row.label,

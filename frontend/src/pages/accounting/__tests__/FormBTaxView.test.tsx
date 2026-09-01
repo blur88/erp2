@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi } from 'vitest'
 import FormBTaxView from '../FormBTaxView'
+import { buildFormBTableRows } from '../formBRows'
 import type { FormBResponse } from '@/types'
 
 vi.mock('@/store/api/printSettingsApi', () => ({
@@ -226,6 +227,18 @@ describe('FormBTaxView', () => {
   // Formula captions were removed from the sheet. The payload still carries
   // `formula` on derived lines, and the service tests still assert the
   // arithmetic itself (N7 === N4 + N5 - N6); it is just not printed as a hint.
+  /*
+   * All five derived lines are subtotals and must be visually distinct from
+   * the components above them. Pinned as a set: the styling keys off
+   * `formula`, so a taxonomy change that added or removed a derived line would
+   * otherwise shift this silently.
+   */
+  it('renders every derived line as a total row', () => {
+    const built = buildFormBTableRows(fullResponse())
+    const totals = built.filter((r) => r.kind === 'total').map((r) => r.line)
+    expect(totals).toEqual(['N7', 'N8', 'N14', 'N25', 'N26'])
+  })
+
   it('renders no formula captions', () => {
     renderTaxView(fullResponse())
     expect(screen.getByTestId('formb-line-N7')).not.toHaveTextContent('N4 + N5 - N6')
