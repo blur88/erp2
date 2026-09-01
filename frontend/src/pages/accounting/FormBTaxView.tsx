@@ -147,6 +147,22 @@ function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
                   {row.formula}
                 </Typography>
               )}
+              {/*
+                N5's statutory label is "Purchases and Production Costs", but
+                this is a retail-only ERP with no production. The annotation
+                says so explicitly rather than letting a reader infer that
+                production cost was computed and happened to be zero.
+              */}
+              {row.annotation && (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  data-testid={`formb-annotation-${row.line}`}
+                  sx={{ whiteSpace: 'normal', wordBreak: 'break-word', fontStyle: 'italic' }}
+                >
+                  {row.annotation}
+                </Typography>
+              )}
             </Box>
           </Box>
         ),

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Box, Button, Stack, TextField, Typography } from '@mui/material'
+import { Alert, Box, Button, Stack, TextField, Typography } from '@mui/material'
 
 import PageSection from '@/components/common/PageSection'
 import { useGetFormBSettingsQuery, useUpdateFormBSettingsMutation } from '@/store/api/accountingApi'
@@ -23,9 +23,10 @@ function helperText(field: FormBIdentityField | undefined): string {
   return ''
 }
 
-export default function FormBIdentitySection() {
-  const { data, isLoading } = useGetFormBSettingsQuery()
-  const [updateSettings, { isLoading: isSaving }] = useUpdateFormBSettingsMutation()
+export default function FormBIdentitySection({ isAdmin = true }: { isAdmin?: boolean }) {
+  const { data, isLoading, isError } = useGetFormBSettingsQuery()
+  const [updateSettings, { isLoading: isSaving, isError: isSaveError, error: saveError }] =
+    useUpdateFormBSettingsMutation()
 
   const [values, setValues] = useState<Record<FieldKey, string>>({
     businessName: '',
@@ -85,14 +86,43 @@ export default function FormBIdentitySection() {
     )
   }
 
+  // A failed load would otherwise render empty inputs, which read as "nothing
+  // is configured" — the same picture as a genuinely blank setup.
+  if (isError) {
+    return (
+      <PageSection label="Form B Business Information">
+        <Box sx={{ p: 2 }}>
+          <Alert severity="error" data-testid="formb-identity-error">
+            Unable to load Form B business information. Please try again.
+          </Alert>
+        </Box>
+      </PageSection>
+    )
+  }
+
   return (
     <PageSection label="Form B Business Information">
+      {isSaveError && (
+        <Box sx={{ px: 2, pt: 2 }}>
+          <Alert severity="error" data-testid="formb-identity-save-error">
+            {(saveError as any)?.data?.message ?? 'Unable to save. Please try again.'}
+          </Alert>
+        </Box>
+      )}
+      {!isAdmin && (
+        <Box sx={{ px: 2, pt: 2 }}>
+          <Alert severity="info" data-testid="formb-identity-readonly">
+            Form B business information is read-only for your role.
+          </Alert>
+        </Box>
+      )}
       <Box sx={{ p: 2 }}>
         <Stack spacing={2}>
           {FIELDS.map(({ key, label }) => {
             const field = data?.[key]
             return (
               <TextField
+                disabled={!isAdmin}
                 key={key}
                 label={label}
                 name={key}
@@ -110,7 +140,7 @@ export default function FormBIdentitySection() {
             <Button
               variant="contained"
               onClick={handleSave}
-              disabled={!hasChanges || isSaving}
+              disabled={!hasChanges || isSaving || !isAdmin}
               data-testid="formb-identity-save"
             >
               {isSaving ? 'Saving...' : 'Save'}

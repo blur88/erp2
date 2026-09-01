@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Box, Button, Chip, Typography } from '@mui/material'
+import { Alert, Box, Button, Chip, Typography } from '@mui/material'
 
 import PageSection from '@/components/common/PageSection'
 import { useGetFormBMappingsQuery, useUpdateFormBMappingMutation } from '@/store/api/accountingApi'
@@ -32,8 +32,14 @@ function optionsForType(type: string) {
   return []
 }
 
-function Row({ row, onUpdate }: { row: FormBMappingRow; onUpdate: ReturnType<typeof useUpdateFormBMappingMutation>[0] }) {
-  const isEligible = row.eligibility.eligible
+function Row({ row, onUpdate, isAdmin }: {
+  row: FormBMappingRow
+  onUpdate: ReturnType<typeof useUpdateFormBMappingMutation>[0]
+  // Writes are admin-only server-side (@Auth(UserRole.ADMIN)); disabling the
+  // controls keeps a non-admin from composing a change that can only 403.
+  isAdmin: boolean
+}) {
+  const isEligible = row.eligibility.eligible && isAdmin
   const familyOptions = optionsForType(row.type)
   const [open, setOpen] = useState(false)
 
@@ -139,6 +145,7 @@ function Row({ row, onUpdate }: { row: FormBMappingRow; onUpdate: ReturnType<typ
                 data-testid={`formb-map-clear-${row.accountId}`}
                 size="small"
                 onClick={handleClear}
+                disabled={!isAdmin}
               >
                 Clear
               </Button>
@@ -149,6 +156,7 @@ function Row({ row, onUpdate }: { row: FormBMappingRow; onUpdate: ReturnType<typ
             data-testid={`formb-map-clear-${row.accountId}`}
             size="small"
             onClick={handleClear}
+            disabled={!isAdmin}
           >
             Clear
           </Button>
@@ -158,9 +166,9 @@ function Row({ row, onUpdate }: { row: FormBMappingRow; onUpdate: ReturnType<typ
   )
 }
 
-export default function FormBMappingSection() {
-  const { data: rows = [], isLoading } = useGetFormBMappingsQuery()
-  const [updateMapping] = useUpdateFormBMappingMutation()
+export default function FormBMappingSection({ isAdmin = true }: { isAdmin?: boolean }) {
+  const { data: rows = [], isLoading, isError } = useGetFormBMappingsQuery()
+  const [updateMapping, { isError: isSaveError, error: saveError }] = useUpdateFormBMappingMutation()
 
   if (isLoading) {
     return (
@@ -169,6 +177,23 @@ export default function FormBMappingSection() {
           <Typography variant="body2" color="text.secondary">
             Loading...
           </Typography>
+        </Box>
+      </PageSection>
+    )
+  }
+
+  /*
+   * A failed load must not render as "No mappable accounts": that is the exact
+   * text a successful empty response produces, so the user would read a server
+   * error as a configuration fact and never retry.
+   */
+  if (isError) {
+    return (
+      <PageSection label="Form B Account Mapping">
+        <Box sx={{ p: 2 }}>
+          <Alert severity="error" data-testid="formb-mapping-error">
+            Unable to load Form B account mappings. Please try again.
+          </Alert>
         </Box>
       </PageSection>
     )
@@ -187,6 +212,22 @@ export default function FormBMappingSection() {
   return (
     <PageSection label="Form B Account Mapping">
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {/*
+          A rejected write (an ineligible assignment, or a lost admin session)
+          previously just closed the control, leaving the old value on screen as
+          though the change had been saved.
+        */}
+        {isSaveError && (
+          <Alert severity="error" data-testid="formb-mapping-save-error">
+            {(saveError as any)?.data?.message ??
+              'Unable to save the mapping. Please try again.'}
+          </Alert>
+        )}
+        {!isAdmin && (
+          <Alert severity="info" data-testid="formb-mapping-readonly">
+            Form B mappings are read-only for your role.
+          </Alert>
+        )}
         {groups.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             No mappable accounts.
@@ -199,7 +240,7 @@ export default function FormBMappingSection() {
               </Typography>
               <Box>
                 {group.rows.map((row) => (
-                  <Row key={row.accountId} row={row} onUpdate={updateMapping} />
+                  <Row key={row.accountId} row={row} onUpdate={updateMapping} isAdmin={isAdmin} />
                 ))}
               </Box>
             </Box>

@@ -49,6 +49,11 @@ const makeRow = (line: string, over: any = {}) => {
     amount: '0.0000',
     accounts: [],
     cohorts: null,
+    // Mirrors the service: productionCost is present (and null) on N5 only
+    // (form-b.service.ts:388). A fixture that omits it cannot exercise the
+    // retail annotation.
+    ...(def.line === 'N5' ? { productionCost: null } : {}),
+    ...(def.line === 'N27' ? { derived: false, status: 'requiresFilerInput' } : {}),
     ...over,
   }
 }
@@ -228,6 +233,15 @@ describe('FormBTaxView', () => {
   // The period line moved to the shell (ProfitAndLossPage owns the single
   // AccountingReportPrintLayout), so the mismatch header is asserted there —
   // see ProfitAndLossPage.test.tsx 'derives the print period'.
+
+  // Spec §5.1: production cost is never computed, stored, or defaulted to zero.
+  // The annotation is what stops a reader inferring it was measured as nil.
+  it('renders the retail production-cost annotation on N5 only', () => {
+    renderTaxView(fullResponse())
+    expect(screen.getByTestId('formb-annotation-N5'))
+      .toHaveTextContent('Production cost: N/A — retail business')
+    expect(screen.queryByTestId('formb-annotation-N7')).not.toBeInTheDocument()
+  })
 
   it('renders warnings with their severity', () => {
     renderTaxView(

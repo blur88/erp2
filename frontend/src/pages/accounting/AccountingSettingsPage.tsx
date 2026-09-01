@@ -309,8 +309,8 @@ export default function AccountingSettingsPage() {
         )}
 
         <Stack spacing={3} sx={{ mt: 3 }}>
-          <FormBIdentitySection />
-          <FormBMappingSection />
+          <FormBIdentitySection isAdmin={isAdmin} />
+          <FormBMappingSection isAdmin={isAdmin} />
         </Stack>
       </Box>
     </Box>

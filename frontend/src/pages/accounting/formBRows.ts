@@ -15,6 +15,8 @@ export interface FormBTableRow {
   testId: string
   expandable: boolean
   expanded: boolean
+  /** N5 only: the statutory retail annotation, rendered under the label. */
+  annotation?: string
   /**
    * Cohorts print UNCONDITIONALLY, so they get their own class. They must never
    * carry `acct-print-detail-row`: that rule hides the Accounting View's detail,
@@ -78,6 +80,13 @@ export function buildFormBTableRows(
       kind: 'line',
       line: row.line,
       code: row.line,
+      // N5 alone carries the retail marker. `productionCost` is `null` on that
+      // row and absent on every other, so `in` distinguishes "declared absent"
+      // from "not applicable here" — a truthiness check would miss it, since
+      // the value IS null by design (spec §5.1).
+      ...('productionCost' in row
+        ? { annotation: 'Production cost: N/A — retail business' }
+        : {}),
       label: row.label,
       amount: formatFormBAmount(row.amount),
       formula: row.formula,

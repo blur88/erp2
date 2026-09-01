@@ -450,7 +450,14 @@ export class FormBService {
 
     // Fallback warnings: non-zero movement only, so a year closed before an
     // account existed does not nag.
-    if (classified.fallbackExpense.length > 0) {
+    /*
+     * Only warn about a fallback when its line actually exists. With the COGS
+     * root unavailable, N15-N25 are null (§5.6), so "these accounts are filed
+     * under N24" would point at a row rendered as an em dash — telling the user
+     * to fix a classification that is not being applied, and burying the
+     * MISSING/INVALID_CONFIGURED_ROOT finding that is the real problem.
+     */
+    if (canClassifyExpense && classified.fallbackExpense.length > 0) {
       findings.push({
         code: 'UNMAPPED_EXPENSE_ACCOUNTS', severity: 'warning',
         message: `${classified.fallbackExpense.length} expense account(s) have no Form B category and are filed under N24 Other Expenses.`,
@@ -458,7 +465,7 @@ export class FormBService {
         settingKey: null,
       });
     }
-    if (classified.fallbackIncome.length > 0) {
+    if (canClassifyIncome && classified.fallbackIncome.length > 0) {
       findings.push({
         code: 'UNMAPPED_INCOME_ACCOUNTS', severity: 'warning',
         message: `${classified.fallbackIncome.length} income account(s) have no Form B category and are filed under N13 Other Income.`,

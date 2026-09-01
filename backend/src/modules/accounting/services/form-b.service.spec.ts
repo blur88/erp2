@@ -296,6 +296,47 @@ describe('FormBService.getFormB', () => {
   });
 });
 
+describe('FormBService — fallback warnings follow row availability', () => {
+  const unmappedExpense = [
+    acc({ id: 'inv', code: '1300', name: 'Inventory', type: 'Asset' }),
+    acc({ id: 'rev', code: '4100', name: 'Sales Revenue', type: 'Income' }),
+    acc({ id: 'cogs', code: '5100', name: 'COGS', type: 'Expense' }),
+    acc({ id: 'sun', code: '6990', name: 'Sundry', type: 'Expense' }),
+  ];
+
+  it('warns about an unmapped expense account when N24 is available', async () => {
+    const svc = buildService({ accounts: unmappedExpense });
+    jest.spyOn(svc as any, 'getMovements')
+      .mockResolvedValue(new Map([['sun', 5_0000n]]));
+    const res = await svc.getFormB({ year: YEAR });
+    expect(codes(res)).toContain('UNMAPPED_EXPENSE_ACCOUNTS');
+  });
+
+  // A warning pointing at a row rendered as an em dash is noise that buries the
+  // configured-root finding, which is the actual problem.
+  it('suppresses the N24 warning when the COGS root is unavailable', async () => {
+    const svc = buildService({
+      accounts: unmappedExpense, settings: { cogsAccountId: null },
+    });
+    jest.spyOn(svc as any, 'getMovements')
+      .mockResolvedValue(new Map([['sun', 5_0000n]]));
+    const res = await svc.getFormB({ year: YEAR });
+    expect(codes(res)).not.toContain('UNMAPPED_EXPENSE_ACCOUNTS');
+    expect(codes(res)).toContain('MISSING_CONFIGURED_ROOT');
+  });
+
+  it('suppresses the N13 warning when the Sales Revenue root is unavailable', async () => {
+    const svc = buildService({
+      accounts: [...unmappedExpense, acc({ id: 'oi', code: '4300', name: 'Other', type: 'Income' })],
+      settings: { salesRevenueAccountId: null },
+    });
+    jest.spyOn(svc as any, 'getMovements')
+      .mockResolvedValue(new Map([['oi', -5_0000n]]));
+    const res = await svc.getFormB({ year: YEAR });
+    expect(codes(res)).not.toContain('UNMAPPED_INCOME_ACCOUNTS');
+  });
+});
+
 describe('FormBService — Accounting View integrity relay', () => {
   it('relays a tie-out failure', async () => {
     const res = await buildService({
