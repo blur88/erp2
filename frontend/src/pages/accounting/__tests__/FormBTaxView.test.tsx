@@ -234,6 +234,41 @@ describe('FormBTaxView', () => {
 
   // Spec §5.1: production cost is never computed, stored, or defaulted to zero.
   // The annotation is what stops a reader inferring it was measured as nil.
+  /*
+   * N27 can never be resolved — it has no ledger source — so counting it makes
+   * the summary permanently non-zero and trains people to ignore it.
+   */
+  it('excludes the permanent N27 finding from the readiness count', () => {
+    renderTaxView(responseWithFinding({
+      code: 'DISALLOWED_EXPENSES_UNDETERMINED', severity: 'incomplete',
+      message: 'N27 requires filer input', accounts: [], settingKey: null,
+    }))
+    const summary = screen.getByTestId('formb-readiness')
+    expect(summary).toHaveTextContent(/No issues detected by these checks/i)
+    expect(summary).toHaveTextContent(/N27 Disallowed Expenses always requires a figure/i)
+  })
+
+  it('counts only actionable findings alongside the permanent one', () => {
+    const base = fullResponse()
+    base.findings = [
+      { code: 'DISALLOWED_EXPENSES_UNDETERMINED', severity: 'incomplete',
+        message: 'N27 requires filer input', accounts: [], settingKey: null },
+      { code: 'MISSING_BUSINESS_IDENTITY', severity: 'incomplete',
+        message: 'Business information is incomplete', accounts: [], settingKey: 'companySettings' },
+    ] as any
+    renderTaxView(base)
+    expect(screen.getByTestId('formb-readiness')).toHaveTextContent(/1 item needs attention/i)
+  })
+
+  // The finding itself must still be shown — the filer has to supply the figure.
+  it('still lists the N27 finding even though it is not counted', () => {
+    renderTaxView(responseWithFinding({
+      code: 'DISALLOWED_EXPENSES_UNDETERMINED', severity: 'incomplete',
+      message: 'N27 requires filer input', accounts: [], settingKey: null,
+    }))
+    expect(screen.getByText('N27 requires filer input')).toBeInTheDocument()
+  })
+
   it('renders the retail production-cost annotation on N5 only', () => {
     renderTaxView(fullResponse())
     expect(screen.getByTestId('formb-annotation-N5'))

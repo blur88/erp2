@@ -179,8 +179,20 @@ function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
     [expanded],
   )
 
-  const totalIssues =
-    data.readiness.counts.warning + data.readiness.counts.incomplete + data.readiness.counts.integrity
+  /*
+   * DISALLOWED_EXPENSES_UNDETERMINED is PERMANENT: N27 has no ledger source
+   * (HASiL worksheet F1), so it is always null and always reported. Counting it
+   * as an outstanding item means the summary can never reach zero, and a
+   * counter that always reads "1 item needs attention" on a correctly
+   * configured system is one people learn to ignore — the exact failure this
+   * summary exists to prevent.
+   *
+   * It is still rendered in the findings list below, because the filer must
+   * supply the figure; it just is not counted as something to fix.
+   */
+  const actionable = data.findings.filter((f) => f.code !== 'DISALLOWED_EXPENSES_UNDETERMINED')
+  const totalIssues = actionable.length
+  const alwaysRequiredCount = data.findings.length - actionable.length
 
   // Group findings by severity for rendering order: integrity first, then warning, then incomplete
   const grouped = {
@@ -207,7 +219,14 @@ function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
         {/* Readiness summary */}
         <Box data-testid="formb-readiness" sx={{ mb: 2 }}>
           <Alert severity={totalIssues > 0 ? 'warning' : 'success'}>
-            {totalIssues === 0 ? 'No issues detected by these checks' : `${totalIssues} items need attention before filing`}
+            {totalIssues === 0
+              ? 'No issues detected by these checks'
+              : `${totalIssues} item${totalIssues === 1 ? '' : 's'} need${totalIssues === 1 ? 's' : ''} attention before filing`}
+            {alwaysRequiredCount > 0 && (
+              <Typography variant="caption" component="div" sx={{ mt: 0.5 }}>
+                N27 Disallowed Expenses always requires a figure from the filer (Form B worksheet F1).
+              </Typography>
+            )}
           </Alert>
         </Box>
 
