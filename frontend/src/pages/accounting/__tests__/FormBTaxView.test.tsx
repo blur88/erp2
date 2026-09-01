@@ -243,9 +243,13 @@ describe('FormBTaxView', () => {
       code: 'DISALLOWED_EXPENSES_UNDETERMINED', severity: 'incomplete',
       message: 'N27 requires filer input', accounts: [], settingKey: null,
     }))
+    // The count and the N27 note must be SEPARATE elements: rendered together
+    // the note reads as the item being counted.
     const summary = screen.getByTestId('formb-readiness')
     expect(summary).toHaveTextContent(/No issues detected by these checks/i)
-    expect(summary).toHaveTextContent(/N27 Disallowed Expenses always requires a figure/i)
+    expect(summary).not.toHaveTextContent(/N27/i)
+    expect(screen.getByTestId('formb-standing-note'))
+      .toHaveTextContent(/Always required, not counted above/i)
   })
 
   it('counts only actionable findings alongside the permanent one', () => {
@@ -257,7 +261,10 @@ describe('FormBTaxView', () => {
         message: 'Business information is incomplete', accounts: [], settingKey: 'companySettings' },
     ] as any
     renderTaxView(base)
-    expect(screen.getByTestId('formb-readiness')).toHaveTextContent(/1 item needs attention/i)
+    expect(screen.getByTestId('formb-readiness'))
+      .toHaveTextContent(/1 item below needs attention/i)
+    // The count refers to the findings list, never to the standing N27 note.
+    expect(screen.getByTestId('formb-readiness')).not.toHaveTextContent(/N27/i)
   })
 
   // The finding itself must still be shown — the filer has to supply the figure.

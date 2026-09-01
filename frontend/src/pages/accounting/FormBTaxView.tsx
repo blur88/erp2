@@ -217,18 +217,28 @@ function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
     <Box data-testid="pl-tax-view" sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
       <>
         {/* Readiness summary */}
-        <Box data-testid="formb-readiness" sx={{ mb: 2 }}>
+        {/*
+          The count and the N27 note are SEPARATE alerts, deliberately.
+          Rendered together they read as one statement — "1 item needs
+          attention" immediately above the N27 caption made N27 look like the
+          item being counted, when the count actually refers to the findings
+          listed below and N27 is explicitly excluded from it.
+        */}
+        <Box data-testid="formb-readiness" sx={{ mb: alwaysRequiredCount > 0 ? 1 : 2 }}>
           <Alert severity={totalIssues > 0 ? 'warning' : 'success'}>
             {totalIssues === 0
               ? 'No issues detected by these checks'
-              : `${totalIssues} item${totalIssues === 1 ? '' : 's'} need${totalIssues === 1 ? 's' : ''} attention before filing`}
-            {alwaysRequiredCount > 0 && (
-              <Typography variant="caption" component="div" sx={{ mt: 0.5 }}>
-                N27 Disallowed Expenses always requires a figure from the filer (Form B worksheet F1).
-              </Typography>
-            )}
+              : `${totalIssues} item${totalIssues === 1 ? '' : 's'} below need${totalIssues === 1 ? 's' : ''} attention before filing`}
           </Alert>
         </Box>
+        {alwaysRequiredCount > 0 && (
+          <Box data-testid="formb-standing-note" sx={{ mb: 2 }}>
+            <Alert severity="info" icon={false}>
+              Always required, not counted above: N27 Disallowed Expenses is not
+              derived from the ledger — supply it from Form B worksheet F1.
+            </Alert>
+          </Box>
+        )}
 
         {/* Business identity block */}
         <Box data-testid="formb-identity" sx={{ mb: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
