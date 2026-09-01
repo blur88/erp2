@@ -234,6 +234,24 @@ describe('Form B (e2e)', () => {
     }
   });
 
+  /*
+   * The placeholder must be PRESENT on the company settings row before anyone
+   * edits it. createDefaultSettings() only seeds when the table is empty, so an
+   * installation that already had a row gets the value solely from the
+   * migration's backfill — drop that and this field silently reads blank in the
+   * UI forever, which is exactly the bug this pins.
+   *
+   * Runs before the write below, which would otherwise mask it.
+   */
+  it('exposes a seeded placeholder registration number before any edit', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/settings/company')
+      .set(authHeader())
+      .expect(200);
+    const company = unwrap(res.body);
+    expect(company.registrationNumber).toBe('Your Registration Number');
+  });
+
   // Identity comes from Company Settings (/settings/company); Form B has no
   // settings routes of its own.
   it('reads business identity from Company Settings', async () => {

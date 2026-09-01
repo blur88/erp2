@@ -13,6 +13,17 @@ export class AddFormBTaxView1788201872664 implements MigrationInterface {
         // a tax form, and a second writable copy would drift from the one the
         // rest of the system shows.
         await queryRunner.query(`ALTER TABLE "company_settings" ADD COLUMN IF NOT EXISTS "registrationNumber" character varying(50)`);
+        // Backfill the placeholder onto EXISTING rows.
+        //
+        // SettingsService.createDefaultSettings() seeds it, but that only runs
+        // when the table is empty (`if (!settings)`), so every installation that
+        // already has a company_settings row would keep a NULL here and show a
+        // blank field forever. A new nullable column reaches existing rows only
+        // through a backfill.
+        //
+        // Scoped to NULL so it can never overwrite a real registration number,
+        // and safe to re-run.
+        await queryRunner.query(`UPDATE "company_settings" SET "registrationNumber" = 'Your Registration Number' WHERE "registrationNumber" IS NULL`);
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
