@@ -339,6 +339,47 @@ describe('FormBTaxView', () => {
     expect(screen.getByText(/Not set in Company Settings/i)).toBeInTheDocument()
   })
 
+  /*
+   * Three states. Hiding whenever the residual is zero would suppress a
+   * legitimate explained difference (owner stock drawings), which is what the
+   * panel exists to document.
+   */
+  it('hides the panel when N7 equals cost of sales with nothing to explain', () => {
+    renderTaxView(responseWithReconciliation({
+      n7: '180.0000', accountingTotalCostOfSales: '180.0000',
+      inventoryAdjustments: '0.0000', ownerStockDrawings: '0.0000', residual: '0.0000',
+    }))
+    expect(screen.queryByTestId('formb-reconciliation')).not.toBeInTheDocument()
+  })
+
+  it('shows a collapsed summary when the difference is explained', () => {
+    renderTaxView(responseWithReconciliation({
+      n7: '720.0000', accountingTotalCostOfSales: '180.0000',
+      inventoryAdjustments: '0.0000', ownerStockDrawings: '540.0000', residual: '0.0000',
+    }))
+    expect(screen.getByTestId('formb-reconciliation-summary'))
+      .toHaveTextContent(/Reconciliation passed; .*540 difference explained/i)
+    // The detail is emitted for print regardless; on screen it is collapsed.
+    // MUI sx compiles to a class, so display is not observable in jsdom (see
+    // project_emotion_styles_unobservable_in_jsdom) — assert the toggle state,
+    // which is, and verify the visual collapse in a browser.
+    expect(document.querySelector('.acct-print-formb-cohort')).toBeTruthy()
+    expect(screen.getByTestId('formb-reconciliation-toggle')
+      .querySelector('[data-testid=\'ExpandMoreIcon\']')).toBeTruthy()
+  })
+
+  it('expands and highlights when the residual is unexplained', () => {
+    renderTaxView(responseWithReconciliation({
+      n7: '720.0000', accountingTotalCostOfSales: '180.0000',
+      inventoryAdjustments: '0.0000', ownerStockDrawings: '0.0000', residual: '540.0000',
+    }))
+    expect(screen.getByTestId('formb-reconciliation-summary'))
+      .toHaveTextContent(/Unexplained difference/i)
+    // Auto-expanded: the collapse icon flips to ExpandLess.
+    expect(screen.getByTestId('formb-reconciliation-toggle')
+      .querySelector('[data-testid=\'ExpandLessIcon\']')).toBeTruthy()
+  })
+
   it('renders the reconciliation panel with surviving terms when one is null', () => {
     renderTaxView(
       responseWithReconciliation({
@@ -350,6 +391,7 @@ describe('FormBTaxView', () => {
       }),
     )
     const panel = screen.getByTestId('formb-reconciliation')
+    // A null term is a difference, so the panel renders (collapsed).
     // Whole ringgit, no sen: neither the raw scale-4 payload string nor a
     // 2-decimal rendering — Form B is filed without sen.
     expect(panel).toHaveTextContent(/\b10\b/)

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Box, IconButton, Typography } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
@@ -84,6 +84,7 @@ interface FormBTaxViewBodyProps {
 
 function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
+  const [reconciliationOpen, setReconciliationOpen] = useState(false)
 
   const toggle = (line: string) => {
     setExpanded((prev) => {
@@ -174,6 +175,33 @@ function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
    * It is still rendered in the findings list below, because the filer must
    * supply the figure; it just is not counted as something to fix.
    */
+  /*
+   * Reconciliation state. See the panel's own comment for why there are three
+   * of these rather than a simple show/hide.
+   */
+  const recNum = (v: string | null): number | null => (v === null ? null : Number(v))
+  const recN7 = recNum(data.reconciliation.n7)
+  const recCos = recNum(data.reconciliation.accountingTotalCostOfSales)
+  const recAdj = recNum(data.reconciliation.inventoryAdjustments)
+  const recDraw = recNum(data.reconciliation.ownerStockDrawings)
+  const recResidual = recNum(data.reconciliation.residual)
+
+  const reconciliationUnexplained = recResidual !== null && recResidual !== 0
+  const reconciliationIdentical =
+    !reconciliationUnexplained &&
+    recN7 !== null && recCos !== null && recN7 === recCos &&
+    (recAdj ?? 0) === 0 && (recDraw ?? 0) === 0
+  const reconciliationDifferenceLabel =
+    recN7 !== null && recCos !== null
+      ? formatFormBAmount(String(recN7 - recCos))
+      : formatFormBAmount(null)
+
+  // An unexplained residual opens the panel on its own: the figure cannot be
+  // trusted, so the detail must be in front of the filer without a click.
+  useEffect(() => {
+    if (reconciliationUnexplained) setReconciliationOpen(true)
+  }, [reconciliationUnexplained])
+
   const actionable = data.findings.filter((f) => f.code !== 'DISALLOWED_EXPENSES_UNDETERMINED')
   const totalIssues = actionable.length
 
@@ -301,47 +329,97 @@ function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
           />
         </Box>
 
-        {/* Reconciliation panel */}
-        <Box
-          data-testid="formb-reconciliation"
-          sx={{ mt: 2, p: 2, border: 1, borderColor: 'divider', borderRadius: 1, display: 'flex', flexDirection: 'column', gap: 1 }}
-        >
-          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-            Reconciliation
-          </Typography>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-            <Typography variant="body2">N7 Cost of Sales</Typography>
-            <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
-              {formatFormBAmount(data.reconciliation.n7)}
+        {/*
+          Three states, not two. Hiding the panel whenever the residual is zero
+          would suppress a legitimate, EXPLAINED difference — owner stock
+          drawings, say — which is exactly what it exists to document (spec
+          §5.3): N7 counts everything that left inventory, the Accounting View
+          counts only what was sold.
+
+            identical   - N7 == Accounting cost of sales and every explanatory
+                          term is zero. Nothing to explain; hidden.
+            explained   - a difference the terms fully account for. Collapsed
+                          one-line summary.
+            unexplained - residual non-zero. Expanded and highlighted.
+
+          It PRINTS whenever there is a difference: the sheet must document why
+          N7 differs. The detail carries .acct-print-formb-cohort so the print
+          stylesheet reveals it even when collapsed, as cohorts do.
+        */}
+        {!reconciliationIdentical && (
+          <Box
+            data-testid="formb-reconciliation"
+            sx={{
+              mt: 2, p: 2, border: 1, borderRadius: 1,
+              borderColor: reconciliationUnexplained ? 'error.main' : 'divider',
+              display: 'flex', flexDirection: 'column', gap: 1,
+            }}
+          >
+            <Box
+              component="button"
+              type="button"
+              className="acct-print-control"
+              data-testid="formb-reconciliation-toggle"
+              onClick={() => setReconciliationOpen((v) => !v)}
+              sx={{
+                display: 'flex', alignItems: 'center', gap: 1, p: 0, border: 0,
+                background: 'none', cursor: 'pointer', textAlign: 'left',
+                font: 'inherit', color: 'inherit',
+              }}
+            >
+              {reconciliationOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                Reconciliation
+              </Typography>
+            </Box>
+            <Typography
+              variant="body2"
+              data-testid="formb-reconciliation-summary"
+              color={reconciliationUnexplained ? 'error' : 'text.secondary'}
+            >
+              {reconciliationUnexplained
+                ? `Unexplained difference of ${formatFormBAmount(data.reconciliation.residual)} — N7 cannot be reconciled to the Accounting View.`
+                : `Reconciliation passed; ${reconciliationDifferenceLabel} difference explained.`}
             </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            <Box
+              className="acct-print-formb-cohort"
+              sx={{ display: reconciliationOpen ? 'flex' : 'none', flexDirection: 'column', gap: 1 }}
+            >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-              <Typography variant="body2">(a) Accounting total cost of sales</Typography>
+              <Typography variant="body2">N7 Cost of Sales</Typography>
               <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
-                {formatFormBAmount(data.reconciliation.accountingTotalCostOfSales)}
+                {formatFormBAmount(data.reconciliation.n7)}
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, pl: 3 }}>
-              <Typography variant="body2">(b) of which: inventory adjustments</Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+                <Typography variant="body2">(a) Accounting total cost of sales</Typography>
+                <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
+                  {formatFormBAmount(data.reconciliation.accountingTotalCostOfSales)}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, pl: 3 }}>
+                <Typography variant="body2">(b) of which: inventory adjustments</Typography>
+                <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
+                  {formatFormBAmount(data.reconciliation.inventoryAdjustments)}
+                </Typography>
+              </Box>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+              <Typography variant="body2">(c) Owner stock drawings</Typography>
               <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
-                {formatFormBAmount(data.reconciliation.inventoryAdjustments)}
+                {formatFormBAmount(data.reconciliation.ownerStockDrawings)}
               </Typography>
             </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+              <Typography variant="body2">Residual</Typography>
+              <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
+                {formatFormBAmount(data.reconciliation.residual)}
+              </Typography>
+            </Box>
+            </Box>
           </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-            <Typography variant="body2">(c) Owner stock drawings</Typography>
-            <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
-              {formatFormBAmount(data.reconciliation.ownerStockDrawings)}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-            <Typography variant="body2">Residual</Typography>
-            <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
-              {formatFormBAmount(data.reconciliation.residual)}
-            </Typography>
-          </Box>
-        </Box>
+        )}
       </>
     </Box>
   )
