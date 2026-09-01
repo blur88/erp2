@@ -180,10 +180,11 @@ export class SettingsService {
    * SSM number (e.g. '000000000000') could reach a filed return unnoticed.
    * 'Your Registration Number' cannot be mistaken for one.
    *
-   * It is still a placeholder, not a value: Form B treats it as unset (see
-   * PLACEHOLDER_REGISTRATION_NUMBER in form-b.service.ts) and keeps raising
-   * MISSING_BUSINESS_IDENTITY until a real number is entered at
-   * /settings/company. Keep the two strings in step.
+   * Form B prints whatever is configured here VERBATIM as N1a, with no
+   * placeholder detection, so this string is the last line of defence against a
+   * fabricated-looking registration number reaching a filed return. Keep it
+   * obviously non-numeric — settings.service.spec.ts rejects any value
+   * containing a run of four or more digits.
    */
   private async createDefaultSettings(): Promise<CompanySettings> {
     const defaultSettings = this.companySettingsRepository.create({

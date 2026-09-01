@@ -329,27 +329,22 @@ describe('FormBService — identity from Company Settings', () => {
   });
 
   /*
-   * Company Settings seeds placeholders so the setup form is self-describing.
-   * Printing one as N1/N1a would put a fabricated identity on a tax return, so
-   * Form B must treat them as unset and keep warning.
+   * Company Settings is authoritative: whatever is configured there is used
+   * verbatim, seeded placeholders included. The report does not second-guess
+   * the configured value.
    */
-  it('treats seeded placeholder identity as unset and warns', async () => {
+  it('uses the configured identity verbatim, including seeded placeholders', async () => {
     const res = await buildService({
       companyName: 'Your Company Name',
       companyRegistrationNumber: 'Your Registration Number',
     }).getFormB({ year: YEAR });
-    expect(res.identity.businessName).toEqual({ value: null, source: null });
-    expect(res.identity.registrationNumber).toEqual({ value: null, source: null });
-    expect(codes(res)).toContain('MISSING_BUSINESS_IDENTITY');
-  });
-
-  it('matches the placeholder regardless of case or padding', async () => {
-    const res = await buildService({
-      companyName: '  YOUR COMPANY NAME  ',
-      companyRegistrationNumber: 'your registration number',
-    }).getFormB({ year: YEAR });
-    expect(res.identity.businessName.value).toBeNull();
-    expect(res.identity.registrationNumber.value).toBeNull();
+    expect(res.identity.businessName).toEqual({
+      value: 'Your Company Name', source: 'companySettings',
+    });
+    expect(res.identity.registrationNumber).toEqual({
+      value: 'Your Registration Number', source: 'companySettings',
+    });
+    expect(codes(res)).not.toContain('MISSING_BUSINESS_IDENTITY');
   });
 
   // A real value that merely resembles the placeholder must still be used.

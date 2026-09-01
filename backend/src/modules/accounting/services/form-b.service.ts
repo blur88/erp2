@@ -32,16 +32,6 @@ export type RootStatus =
   | { ok: false; kind: 'missing' }
   | { ok: false; kind: 'invalid'; detail: 'notFound' | 'wrongType' | 'dangling' | 'cyclic' };
 
-/**
- * Placeholder identity values seeded by SettingsService.createDefaultSettings().
- * Compared case-insensitively after trimming. Keep in step with that method —
- * a drift here silently starts printing a placeholder as real identity.
- */
-const PLACEHOLDER_IDENTITY = new Set([
-  'your company name',
-  'your registration number',
-]);
-
 @Injectable()
 export class FormBService {
   constructor(
@@ -211,21 +201,22 @@ export class FormBService {
    * tax form, so a second writable copy would drift from what the rest of the
    * system shows. Editing them means editing /settings/company.
    *
-   * An empty string is normalised to null — the settings row is created with
-   * blank defaults, so '' means "never filled in", not "deliberately empty",
-   * and it must raise the incomplete finding rather than print as a blank
-   * identity on a filing.
+   * Company Settings is authoritative and taken at face value. Whatever is
+   * configured there is the business identity for the filing — including the
+   * placeholders SettingsService seeds on first run. The report does not
+   * second-guess the configured value.
+   *
+   * Only a genuinely empty (or whitespace-only) value reads as absent and
+   * raises MISSING_BUSINESS_IDENTITY.
    */
   private async resolveIdentity(): Promise<FormBResponse['identity']> {
     const company = await this.companySettings.getCompanySettings();
     const field = (value: string | null | undefined): FormBIdentityField => {
+      // Company Settings is taken at face value: whatever is configured there
+      // IS the business identity, seeded placeholders included. Only a genuinely
+      // empty value reads as absent.
       const trimmed = typeof value === 'string' ? value.trim() : '';
-      // A seeded placeholder is NOT a value. Company Settings seeds these so
-      // the setup form is self-describing, but printing one as N1/N1a would put
-      // a fabricated identity on a tax return, so Form B treats them as unset
-      // and keeps warning until they are replaced.
-      const isPlaceholder = PLACEHOLDER_IDENTITY.has(trimmed.toLowerCase());
-      return trimmed === '' || isPlaceholder
+      return trimmed === ''
         ? { value: null, source: null }
         : { value: trimmed, source: 'companySettings' };
     };

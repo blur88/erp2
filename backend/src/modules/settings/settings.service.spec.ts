@@ -4,12 +4,13 @@ import { SettingsService } from './settings.service';
 describe('SettingsService', () => {
   /*
    * The seeded row carries a placeholder registration number, like the other
-   * fields — but the VALUE must stay self-evidently fake. A plausible-looking
-   * stand-in (e.g. '000000000000') would be dangerous: the Form B tax view
-   * prints this as N1a, so it could reach a filed return unnoticed.
+   * fields — but the VALUE must stay self-evidently fake.
    *
-   * Form B additionally treats this exact string as unset
-   * (PLACEHOLDER_IDENTITY in form-b.service.ts), so the two must stay in step.
+   * This matters MORE now that Form B takes Company Settings at face value: the
+   * seeded string is printed verbatim as N1a with no warning, so it is the only
+   * thing standing between an unconfigured install and a plausible-looking but
+   * fabricated registration number on a filed return. A digit-shaped default
+   * (e.g. '000000000000') would look real; 'Your Registration Number' cannot.
    */
   it('seeds company settings with a non-numeric placeholder registration number', async () => {
     let created: any;
