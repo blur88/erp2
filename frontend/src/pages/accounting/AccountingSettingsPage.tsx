@@ -7,15 +7,16 @@ import {
   MenuItem,
   Stack,
   TextField,
+  Typography,
 } from '@mui/material'
 import { Controller, useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 
+import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import PageHeader from '@/components/common/PageHeader'
 import PageSection from '@/components/common/PageSection'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
-import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppSelector } from '@/hooks/useRedux'
 import {
@@ -219,20 +220,29 @@ export default function AccountingSettingsPage() {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+    <GenericOverviewPage>
       <PageHeader
-        variant="workflow"
         title="Accounting Settings"
-        subtitle="Configure default accounts used by the accounting system."
+        subtitle="Configure the default accounts the system posts to, and map accounts to Form B tax filing lines."
       />
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
 
-      <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
+      <Stack spacing={3}>
+        {/*
+          Two named groups. Default Accounts drives automatic posting; Form B
+          mapping drives a statutory report and nothing else. Keeping them
+          visually separate stops a mapping being read as ordinary posting
+          configuration.
+        */}
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          Default Accounts
+        </Typography>
+
         {loading ? (
           <ListSkeleton rows={8} columns={2} />
         ) : error ? null : (
@@ -307,10 +317,12 @@ export default function AccountingSettingsPage() {
           </form>
         )}
 
-        <Stack spacing={3} sx={{ mt: 3 }}>
-          <FormBMappingSection isAdmin={isAdmin} />
-        </Stack>
-      </Box>
-    </Box>
+        <Typography variant="h6" sx={{ fontWeight: 600, pt: 1 }}>
+          Form B Tax Filing
+        </Typography>
+
+        <FormBMappingSection isAdmin={isAdmin} />
+      </Stack>
+    </GenericOverviewPage>
   )
 }

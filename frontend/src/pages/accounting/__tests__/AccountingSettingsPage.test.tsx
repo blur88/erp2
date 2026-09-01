@@ -520,3 +520,33 @@ describe('AccountingSettingsPage - Owner Equity', () => {
     }
   })
 })
+
+describe('AccountingSettingsPage — page structure (#1177)', () => {
+  it('separates default-account posting config from Form B mapping', () => {
+    renderPage()
+    // Two named groups. A Form B mapping must never read as ordinary posting
+    // configuration: they answer different questions and carry different risk.
+    expect(screen.getByText('Default Accounts')).toBeInTheDocument()
+    expect(screen.getByText('Form B Tax Filing')).toBeInTheDocument()
+    expect(screen.getByText('Form B Account Mapping')).toBeInTheDocument()
+  })
+
+  it('keeps the four posting sections inside the Default Accounts group', () => {
+    renderPage()
+    const heading = screen.getByText('Default Accounts')
+    const formB = screen.getByText('Form B Tax Filing')
+    // Document order: the posting sections sit between the two headings.
+    expect(heading.compareDocumentPosition(formB) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    ;['Payment', 'Sales', 'Inventory & Purchasing', 'System'].forEach((label) => {
+      const section = screen.getByText(label)
+      expect(heading.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(formB.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
+    })
+  })
+
+  it('renders the header and a subtitle naming both halves', () => {
+    renderPage()
+    expect(screen.getByText('Accounting Settings')).toBeInTheDocument()
+    expect(screen.getByText(/default accounts.*Form B/i)).toBeInTheDocument()
+  })
+})
