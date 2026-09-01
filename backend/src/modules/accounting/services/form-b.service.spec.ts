@@ -83,6 +83,8 @@ const buildService = (opts: {
   accountingTotalCostOfSales?: string;
   inventoryAdjustments?: string;
   plIntegrity?: any;
+  companyName?: string | null;
+  companyRegistrationNumber?: string | null;
 }) => {
   const accounts = opts.accounts ?? [
     acc({ id: 'inv', code: '1300', name: 'Inventory', type: 'Asset' }),
@@ -115,19 +117,22 @@ const buildService = (opts: {
       },
     }),
   };
-  const identity = {
-    resolve: (jest.fn as unknown as any)().mockResolvedValue({
-      businessName: { value: 'Acme', source: 'formB', override: 'Acme' },
-      registrationNumber: { value: '201901234567', source: 'formB', override: '201901234567' },
-      businessCode: { value: '47111', source: 'formB', override: '47111' },
-      activityType: { value: 'Retail', source: 'formB', override: 'Retail' },
+  // Identity now comes from Company Settings (/settings/company); Form B has no
+  // identity store of its own.
+  const companySettings = {
+    getCompanySettings: (jest.fn as unknown as any)().mockResolvedValue({
+      // `in` not `??`: an explicit null must override the default, or a test
+      // for the absent case silently exercises the populated one.
+      name: 'companyName' in opts ? opts.companyName : 'Acme Sdn Bhd',
+      registrationNumber:
+        'companyRegistrationNumber' in opts ? opts.companyRegistrationNumber : '201901234567',
     }),
   };
   const lineRepo = {} as any;
 
   const service = new FormBService(
     coaRepo as any, lineRepo, balance as any, settings as any,
-    accountingReport as any, identity as any,
+    accountingReport as any, companySettings as any,
   );
   jest.spyOn(service, 'getInventoryPurchases').mockResolvedValue(opts.purchases ?? 0n);
   jest.spyOn(service, 'getOwnerStockDrawings').mockResolvedValue(opts.drawings ?? 0n);
@@ -293,6 +298,40 @@ describe('FormBService.getFormB', () => {
       res.findings.filter((f) => f.severity === 'incomplete').length,
     );
     expect(res.readiness.hasIncomplete).toBe(true);   // N27 is always undetermined
+  });
+});
+
+describe('FormBService — identity from Company Settings', () => {
+  it('reads N1 and N1a from Company Settings', async () => {
+    const res = await buildService({
+      companyName: 'Acme Sdn Bhd', companyRegistrationNumber: '201901234567',
+    }).getFormB({ year: YEAR });
+    expect(res.identity.businessName).toEqual({
+      value: 'Acme Sdn Bhd', source: 'companySettings',
+    });
+    expect(res.identity.registrationNumber).toEqual({
+      value: '201901234567', source: 'companySettings',
+    });
+    expect(codes(res)).not.toContain('MISSING_BUSINESS_IDENTITY');
+  });
+
+  // The settings row is seeded with blank defaults, so '' means "never filled
+  // in" and must warn rather than print an empty identity on a filing.
+  it('treats a blank company value as absent and warns', async () => {
+    const res = await buildService({
+      companyName: '   ', companyRegistrationNumber: null,
+    }).getFormB({ year: YEAR });
+    expect(res.identity.businessName).toEqual({ value: null, source: null });
+    expect(res.identity.registrationNumber).toEqual({ value: null, source: null });
+    const finding = res.findings.find((f) => f.code === 'MISSING_BUSINESS_IDENTITY')!;
+    expect(finding.settingKey).toBe('companySettings');
+    expect(finding.message).toMatch(/Company Settings/);
+  });
+
+  // N2 and N2a are not modelled at all — nothing in this ERP holds them.
+  it('exposes only N1 and N1a', async () => {
+    const res = await buildService({}).getFormB({ year: YEAR });
+    expect(Object.keys(res.identity).sort()).toEqual(['businessName', 'registrationNumber']);
   });
 });
 

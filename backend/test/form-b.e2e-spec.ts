@@ -216,13 +216,7 @@ describe('Form B (e2e)', () => {
     }
   });
 
-  it('requires admin for mapping and settings writes', async () => {
-    // Settings write must be admin-only
-    await request(app.getHttpServer())
-      .put('/accounting/form-b-settings')
-      .set(nonAdminHeader()).send({ businessName: 'X' }).expect(403);
-
-    // Mappings write must also be admin-only
+  it('requires admin for mapping writes', async () => {
     const listRes = await request(app.getHttpServer())
       .get('/accounting/form-b-mappings').set(adminHeader()).expect(200);
     const listBody = unwrap(listRes.body);
@@ -240,23 +234,40 @@ describe('Form B (e2e)', () => {
     }
   });
 
-  it('round-trips Form B settings with fallback provenance', async () => {
+  // Identity comes from Company Settings (/settings/company); Form B has no
+  // settings routes of its own.
+  it('reads business identity from Company Settings', async () => {
     await request(app.getHttpServer())
-      .put('/accounting/form-b-settings')
-      .set(adminHeader()).send({ businessCode: '47111' }).expect(200);
+      .put('/settings/company')
+      .set(adminHeader())
+      .send({
+        name: 'Acme Sdn Bhd',
+        registrationNumber: '201901234567',
+        address: '1 Test Road',
+        city: 'KL',
+        country: 'Malaysia',
+      })
+      .expect(200);
+
     const res = await request(app.getHttpServer())
-      .get('/accounting/form-b-settings').set(authHeader()).expect(200);
-    const body = unwrap(res.body);
-    // GET returns identity directly, or wrapped in data
-    const identity = body.businessCode ? body : (body.data ?? body);
-    expect(identity.businessCode).toEqual({
-      value: '47111', source: 'formB', override: '47111',
+      .get('/accounting/profit-and-loss/form-b?year=2025')
+      .set(authHeader())
+      .expect(200);
+    const data = unwrap(res.body);
+    expect(data.identity.businessName).toEqual({
+      value: 'Acme Sdn Bhd', source: 'companySettings',
     });
+    expect(data.identity.registrationNumber).toEqual({
+      value: '201901234567', source: 'companySettings',
+    });
+    // N2 / N2a are not modelled at all.
+    expect(Object.keys(data.identity).sort()).toEqual([
+      'businessName', 'registrationNumber',
+    ]);
   });
 
-  it('rejects a malformed business code', async () => {
+  it('exposes no Form B settings routes', async () => {
     await request(app.getHttpServer())
-      .put('/accounting/form-b-settings')
-      .set(adminHeader()).send({ businessCode: '123' }).expect(400);
+      .get('/accounting/form-b-settings').set(authHeader()).expect(404);
   });
 });

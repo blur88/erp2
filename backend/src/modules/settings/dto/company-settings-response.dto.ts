@@ -12,6 +12,10 @@ export class CompanySettingsResponseDto {
   name: string;
 
   @Expose()
+  @ApiProperty({ description: 'Business registration number (SSM)', required: false })
+  registrationNumber?: string;
+
+  @Expose()
   @ApiProperty({ description: 'Company street address' })
   address: string;
 

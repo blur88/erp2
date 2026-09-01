@@ -828,10 +828,10 @@ export interface FormBRow {
   status?: 'requiresFilerInput'
 }
 
+/** Identity comes from Company Settings; Form B has no store of its own. */
 export interface FormBIdentityField {
   value: string | null
-  source: 'formB' | 'printSettings' | null
-  override: string | null
+  source: 'companySettings' | null
 }
 
 export interface FormBReconciliation {
@@ -870,11 +870,10 @@ export interface FormBResponse {
   year: number
   formVersion: number
   availableYears: number[]
+  /** N1 and N1a only — N2/N2a are not modelled (nothing in this ERP holds them). */
   identity: {
     businessName: FormBIdentityField
     registrationNumber: FormBIdentityField
-    businessCode: FormBIdentityField
-    activityType: FormBIdentityField
   }
   rows: FormBRow[]
   reconciliation: FormBReconciliation
@@ -894,13 +893,6 @@ export interface FormBMappingRow {
   isActive: boolean
   category: FormBCategory | null
   eligibility: FormBEligibility
-}
-
-export interface UpdateFormBSettingsPayload {
-  businessName?: string
-  registrationNumber?: string
-  businessCode?: string
-  activityType?: string
 }
 
 export {

@@ -2,13 +2,11 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ChartOfAccount } from './entities/chart-of-account.entity';
 import { AccountingSettings } from './entities/accounting-settings.entity';
-import { FormBSettings } from './entities/form-b-settings.entity';
 import { JournalEntry } from './entities/journal-entry.entity';
 import { JournalEntryLine } from './entities/journal-entry-line.entity';
 import { Expense } from './entities/expense.entity';
 import { ExpensePayment } from './entities/expense-payment.entity';
 import { SettingsModule } from '../settings/settings.module';
-import { PrintSettingsModule } from '../print-settings/print-settings.module';
 import { AccountingLookupService } from './services/accounting-lookup.service';
 import { AccountingPostingService } from './services/accounting-posting.service';
 import { AccountBalanceService } from './services/account-balance.service';
@@ -27,32 +25,29 @@ import { TrialBalanceController } from './controllers/trial-balance.controller';
 import { ProfitAndLossController } from './controllers/profit-and-loss.controller';
 import { ExpenseController } from './controllers/expense.controller';
 import { FormBController } from './controllers/form-b.controller';
-import { FormBSettingsController } from './controllers/form-b-settings.controller';
 import { FormBMappingController } from './controllers/form-b-mapping.controller';
 import { ExpenseService } from './services/expense.service';
 import { ExpensePaymentService } from './services/expense-payment.service';
 import { FormBService } from './services/form-b.service';
 import { FormBMappingService } from './services/form-b-mapping.service';
-import { FormBSettingsService } from './services/form-b-settings.service';
 import { ACCOUNTING_POSTING_PORT } from '../../common/accounting-posting/accounting-posting.port';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ChartOfAccount, AccountingSettings, FormBSettings, JournalEntry, JournalEntryLine, Expense, ExpensePayment]),
+    TypeOrmModule.forFeature([ChartOfAccount, AccountingSettings, JournalEntry, JournalEntryLine, Expense, ExpensePayment]),
     SettingsModule,
-    PrintSettingsModule,
   ],
   controllers: [
     ChartOfAccountController, AccountingSettingsController, JournalEntryController,
     GeneralLedgerController, TrialBalanceController, ProfitAndLossController, ExpenseController,
-    FormBController, FormBSettingsController, FormBMappingController,
+    FormBController, FormBMappingController,
   ],
   providers: [
     AccountingLookupService, AccountingPostingService, AccountBalanceService,
     ChartOfAccountService, AccountingSettingsService, JournalEntryService,
     GeneralLedgerService, TrialBalanceService, ProfitAndLossService, AccountingSeederService,
     ExpenseService, ExpensePaymentService,
-    FormBService, FormBMappingService, FormBSettingsService,
+    FormBService, FormBMappingService,
     { provide: ACCOUNTING_POSTING_PORT, useExisting: AccountingPostingService },
   ],
   exports: [ACCOUNTING_POSTING_PORT, AccountingLookupService],

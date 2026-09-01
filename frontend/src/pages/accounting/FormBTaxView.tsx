@@ -220,8 +220,6 @@ function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
             [
               ['Business Name', data.identity.businessName],
               ['Registration Number', data.identity.registrationNumber],
-              ['Business Code', data.identity.businessCode],
-              ['Activity Type', data.identity.activityType],
             ] as const
           ).map(([label, field]) => (
             <Box key={label} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -229,8 +227,7 @@ function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
                 {label}:
               </Typography>
               <Typography variant="body2">
-                {field.value ?? 'Not set'}
-                {field.source === 'printSettings' ? ' from Print Settings' : ''}
+                {field.value ?? 'Not set in Company Settings'}
               </Typography>
             </Box>
           ))}

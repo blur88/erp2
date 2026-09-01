@@ -9,10 +9,8 @@ const row = (over: any = {}) => ({
 const data = (rows: any[]): FormBResponse => ({
   year: 2025, formVersion: 2025, availableYears: [2025],
   identity: {
-    businessName: { value: 'Acme', source: 'formB', override: 'Acme' },
-    registrationNumber: { value: null, source: null, override: null },
-    businessCode: { value: null, source: null, override: null },
-    activityType: { value: null, source: null, override: null },
+    businessName: { value: 'Acme', source: 'companySettings' },
+    registrationNumber: { value: '201901234567', source: 'companySettings' },
   },
   rows: rows as any,
   reconciliation: {

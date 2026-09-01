@@ -18,6 +18,16 @@ export class UpdateCompanySettingsDto {
   name: string;
 
   @ApiProperty({
+    description: 'Business registration number (SSM)',
+    example: '201901234567',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  registrationNumber?: string;
+
+  @ApiProperty({
     description: 'Company street address',
     example: '123 Main Street',
   })

@@ -89,10 +89,8 @@ beforeEach(() => {
       formVersion: 2025,
       availableYears: avail,
       identity: {
-        businessName: { value: null, source: null, override: null },
-        registrationNumber: { value: null, source: null, override: null },
-        businessCode: { value: null, source: null, override: null },
-        activityType: { value: null, source: null, override: null },
+        businessName: { value: null, source: null },
+        registrationNumber: { value: null, source: 'companySettings' },
       },
       rows: [],
       reconciliation: { n7: null, accountingTotalCostOfSales: null, inventoryAdjustments: null, ownerStockDrawings: null, residual: null },

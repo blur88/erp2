@@ -30,6 +30,7 @@ import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 
 interface CompanyFormData {
   name: string
+  registrationNumber: string
   address: string
   city: string
   state?: string
@@ -43,6 +44,7 @@ interface CompanyFormData {
 
 const schema = yup.object({
   name: yup.string().required('Company name is required'),
+  registrationNumber: yup.string().max(50, 'Registration number must be 50 characters or fewer'),
   address: yup.string().required('Address is required'),
   city: yup.string().required('City is required'),
   state: yup.string(),
@@ -82,6 +84,7 @@ const CompanySettingsPage: React.FC = () => {
     resolver: yupResolver(schema) as any,
     defaultValues: {
       name: '',
+      registrationNumber: '',
       address: '',
       city: '',
       state: '',
@@ -98,6 +101,7 @@ const CompanySettingsPage: React.FC = () => {
   useEffect(() => {
     if (settings) {
       setValue('name', settings.name)
+      setValue('registrationNumber', settings.registrationNumber ?? '')
       setValue('address', settings.address)
       setValue('city', settings.city)
       setValue('state', settings.state || '')
@@ -308,6 +312,31 @@ const CompanySettingsPage: React.FC = () => {
                     required
                     error={!!errors.name}
                     helperText={errors.name?.message}
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Business registration number — structured rather than buried in
+                Misc Info, because the Form B tax view prints it as N1a and
+                parsing it out of free text could emit a wrong statutory
+                identifier on a filing. */}
+            <Grid size={12}>
+              <Controller
+                name="registrationNumber"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Business Registration Number"
+                    placeholder="e.g. 201901234567 or 1234567-A"
+                    fullWidth
+                    size="small"
+                    error={!!errors.registrationNumber}
+                    helperText={
+                      errors.registrationNumber?.message ??
+                      'Used on statutory reports such as the Form B tax view.'
+                    }
                   />
                 )}
               />

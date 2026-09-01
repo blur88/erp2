@@ -6,7 +6,6 @@ import { createSSLConfig } from './ssl.config';
 import { validateDatabaseConfig } from './environment.validator';
 import { ChartOfAccount } from '../modules/accounting/entities/chart-of-account.entity';
 import { AccountingSettings } from '../modules/accounting/entities/accounting-settings.entity';
-import { FormBSettings } from '../modules/accounting/entities/form-b-settings.entity';
 import { Expense } from '../modules/accounting/entities/expense.entity';
 import { ExpensePayment } from '../modules/accounting/entities/expense-payment.entity';
 import { JournalEntry } from '../modules/accounting/entities/journal-entry.entity';
@@ -153,7 +152,6 @@ export function createDatabaseConfig(
       VendorPayment,
       ChartOfAccount,
       AccountingSettings,
-      FormBSettings,
       Expense,
       ExpensePayment,
       JournalEntry,

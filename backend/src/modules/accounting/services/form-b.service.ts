@@ -6,7 +6,7 @@ import { JournalEntryLine } from '../entities/journal-entry-line.entity';
 import { AccountBalanceService } from './account-balance.service';
 import { AccountingSettingsService } from './accounting-settings.service';
 import { ProfitAndLossService } from './profit-and-loss.service';
-import { FormBSettingsService } from './form-b-settings.service';
+import { SettingsService } from '../../settings/settings.service';
 import { toMinorUnits, formatScale4 } from '@/common/utils/money';
 import { classifyFormB } from './form-b.classify';
 import {
@@ -40,7 +40,7 @@ export class FormBService {
     private readonly balance: AccountBalanceService,
     private readonly settings: AccountingSettingsService,
     private readonly accountingReport: ProfitAndLossService,
-    private readonly identity: FormBSettingsService,
+    private readonly companySettings: SettingsService,
   ) {}
 
   /**
@@ -193,6 +193,33 @@ export class FormBService {
     return map;
   }
 
+  /**
+   * Form B business identity (N1, N1a) read from Company Settings.
+   *
+   * There is deliberately no Form B-specific override: business name and
+   * registration number are company identity that happens to be printed on a
+   * tax form, so a second writable copy would drift from what the rest of the
+   * system shows. Editing them means editing /settings/company.
+   *
+   * An empty string is normalised to null — the settings row is created with
+   * blank defaults, so '' means "never filled in", not "deliberately empty",
+   * and it must raise the incomplete finding rather than print as a blank
+   * identity on a filing.
+   */
+  private async resolveIdentity(): Promise<FormBResponse['identity']> {
+    const company = await this.companySettings.getCompanySettings();
+    const field = (value: string | null | undefined): FormBIdentityField => {
+      const trimmed = typeof value === 'string' ? value.trim() : '';
+      return trimmed === ''
+        ? { value: null, source: null }
+        : { value: trimmed, source: 'companySettings' };
+    };
+    return {
+      businessName: field((company as any)?.name),
+      registrationNumber: field((company as any)?.registrationNumber),
+    };
+  }
+
   async getFormB(params: { year: number }): Promise<FormBResponse> {
     const { year } = params;
     const from = `${year}-01-01`;
@@ -204,7 +231,7 @@ export class FormBService {
         this.getMovements(from, to),
         this.settings.get(),
         this.accountingReport.getProfitAndLoss({ year }),
-        this.identity.resolve(),
+        this.resolveIdentity(),
       ]);
 
     const accounts: PlAccount[] = accountEntities.map((a: any) => ({
@@ -443,8 +470,8 @@ export class FormBService {
     if (missingIdentity.length > 0) {
       findings.push({
         code: 'MISSING_BUSINESS_IDENTITY', severity: 'incomplete',
-        message: `Business information is incomplete: ${missingIdentity.join(', ')}.`,
-        accounts: [], settingKey: 'formBSettings',
+        message: `Business information is incomplete: ${missingIdentity.join(', ')}. Set it in Company Settings.`,
+        accounts: [], settingKey: 'companySettings',
       });
     }
 

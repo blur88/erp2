@@ -6,14 +6,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 
-const { mockAccounts, mockSettings, mockUpdateSettings, mockFormBIdentity, mockFormBUpdate, mockFormBMappings, mockFormBMappingUpdate } = vi.hoisted(() => ({
-  mockFormBIdentity: {
-    businessName: { value: 'Acme Sdn Bhd', source: 'formB', override: 'Acme Sdn Bhd' },
-    registrationNumber: { value: '123', source: 'formB', override: '123' },
-    businessCode: { value: '12345', source: 'formB', override: '12345' },
-    activityType: { value: 'Trading', source: 'formB', override: 'Trading' },
-  },
-  mockFormBUpdate: vi.fn(() => ({ unwrap: () => Promise.resolve(undefined) })),
+const { mockAccounts, mockSettings, mockUpdateSettings, mockFormBMappings, mockFormBMappingUpdate } = vi.hoisted(() => ({
   mockFormBMappings: [] as any[],
   mockFormBMappingUpdate: vi.fn(() => ({ unwrap: () => Promise.resolve(undefined) })),
   mockAccounts: {
@@ -215,8 +208,6 @@ vi.mock('@/store/api/accountingApi', () => ({
   useUpdateAccountingSettingsMutation: vi
     .fn()
     .mockReturnValue([mockUpdateSettings, { isLoading: false }]),
-  useGetFormBSettingsQuery: vi.fn().mockReturnValue({ data: mockFormBIdentity, isLoading: false, error: undefined }),
-  useUpdateFormBSettingsMutation: vi.fn().mockReturnValue([mockFormBUpdate, { isLoading: false }]),
   useGetFormBMappingsQuery: vi.fn().mockReturnValue({ data: mockFormBMappings, isLoading: false, isError: false }),
   useUpdateFormBMappingMutation: vi.fn().mockReturnValue([mockFormBMappingUpdate, { isLoading: false }]),
 }))

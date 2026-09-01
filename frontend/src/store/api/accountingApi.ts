@@ -23,8 +23,7 @@ import type {
   ProfitAndLossResponse,
   PaginatedResponse,
   UpdateOwnerEquityRequest,
-  UpdateFormBSettingsPayload,
-} from '@/types'
+  } from '@/types'
 
 import { axiosBaseQuery } from './baseQuery'
 import { inventoryApiSlice } from './inventoryApi'
@@ -73,7 +72,7 @@ export interface ExpenseListParams {
 export const accountingApiSlice = createApi({
   reducerPath: 'accountingApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB', 'FormBSettings', 'FormBMapping', 'OwnerEquity'],
+  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB', 'FormBMapping', 'OwnerEquity'],
   endpoints: (builder) => ({
     getAccountTree: builder.query<AccountTreeNode[], AccountTreeParams>({
       query: ({ search, type, isActive }) => {
@@ -150,15 +149,6 @@ export const accountingApiSlice = createApi({
         // Also invalidated by mapping and identity writes, which change the
         // report's classification and header without touching the ledger.
         providesTags: ['FormB'],
-      }),
-      getFormBSettings: builder.query<FormBResponse['identity'], void>({
-        query: () => ({ url: '/accounting/form-b-settings' }),
-        transformResponse: normalizeSingle<FormBResponse['identity']>,
-        providesTags: ['FormBSettings'],
-      }),
-      updateFormBSettings: builder.mutation<unknown, UpdateFormBSettingsPayload>({
-        query: (body) => ({ url: '/accounting/form-b-settings', method: 'PUT', body }),
-        invalidatesTags: ['FormBSettings', 'FormB'],
       }),
       getFormBMappings: builder.query<FormBMappingRow[], void>({
         query: () => ({ url: '/accounting/form-b-mappings' }),
@@ -365,8 +355,6 @@ export const {
   useGetTrialBalanceQuery,
   useGetProfitAndLossQuery,
   useGetFormBQuery,
-  useGetFormBSettingsQuery,
-  useUpdateFormBSettingsMutation,
   useGetFormBMappingsQuery,
   useUpdateFormBMappingMutation,
   useGetExpensesQuery,
@@ -399,8 +387,6 @@ export const accountingApi = accountingApiSlice
 ;(() => {
   const ep = accountingApiSlice.endpoints as unknown as Record<string, { query?: (...args: unknown[]) => unknown }>
   if (ep.getFormB) ep.getFormB.query = (params: { year: number }) => ({ url: '/accounting/profit-and-loss/form-b', params }) as unknown as never
-  if (ep.getFormBSettings) ep.getFormBSettings.query = () => ({ url: '/accounting/form-b-settings' }) as unknown as never
-  if (ep.updateFormBSettings) ep.updateFormBSettings.query = (body: UpdateFormBSettingsPayload) => ({ url: '/accounting/form-b-settings', method: 'PUT', body }) as unknown as never
   if (ep.getFormBMappings) ep.getFormBMappings.query = () => ({ url: '/accounting/form-b-mappings' }) as unknown as never
   if (ep.updateFormBMapping) ep.updateFormBMapping.query = ({ accountId, category }: { accountId: string; category: FormBCategory | null }) => ({ url: `/accounting/form-b-mappings/${accountId}`, method: 'PUT', body: { category } }) as unknown as never
 })()

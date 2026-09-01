@@ -5,6 +5,8 @@ import { normalizeSingle } from './normalizers'
 export interface CompanySettings {
   id: string
   name: string
+  /** Business registration number (SSM). Printed as Form B N1a. */
+  registrationNumber?: string
   address: string
   city: string
   state?: string
@@ -21,6 +23,7 @@ export interface CompanySettings {
 
 export interface UpdateCompanySettingsDto {
   name: string
+  registrationNumber?: string
   address: string
   city: string
   state?: string

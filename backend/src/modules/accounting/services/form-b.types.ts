@@ -53,11 +53,14 @@ export interface FormBRow {
   status?: 'requiresFilerInput';
 }
 
+/**
+ * An identity value and where it came from. There is no `override`: Form B has
+ * no identity store of its own, so `companySettings` is the only source and
+ * `null` means the field is unset there.
+ */
 export interface FormBIdentityField {
   value: string | null;
-  source: 'formB' | 'printSettings' | null;
-  /** The raw stored override, so the edit form does not pre-fill a fallback. */
-  override: string | null;
+  source: 'companySettings' | null;
 }
 
 /**
@@ -122,11 +125,15 @@ export interface FormBResponse {
   formVersion: number;
   /** Same contract as the Accounting View, so the shell can drive the year filter. */
   availableYears: number[];
+  /**
+   * N1 and N1a only. N2 (business code) and N2a (activity type) are NOT
+   * modelled: nothing in this ERP holds them, and inventing a store for two
+   * fields the filer would have to key in by hand is not identity this system
+   * knows.
+   */
   identity: {
     businessName: FormBIdentityField;
     registrationNumber: FormBIdentityField;
-    businessCode: FormBIdentityField;
-    activityType: FormBIdentityField;
   };
   /** Always all of N3-N27, in order. The frontend never synthesises a line. */
   rows: FormBRow[];

@@ -27,12 +27,4 @@ describe('Form B endpoints', () => {
     expect(write.query({ accountId: 'a1', category: null }).body).toEqual({ category: null })
   })
 
-  it('requests and writes Form B settings', () => {
-    const read = (accountingApi.endpoints as any).getFormBSettings
-    expect(read.query()).toEqual({ url: '/accounting/form-b-settings' })
-    const write = (accountingApi.endpoints as any).updateFormBSettings
-    expect(write.query({ businessName: 'Acme' })).toEqual({
-      url: '/accounting/form-b-settings', method: 'PUT', body: { businessName: 'Acme' },
-    })
-  })
 })

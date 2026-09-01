@@ -63,10 +63,8 @@ const fullResponse = (): FormBResponse => ({
   formVersion: 2025,
   availableYears: [2025],
   identity: {
-    businessName: { value: 'Acme Sdn Bhd', source: 'formB', override: 'Acme Sdn Bhd' },
-    registrationNumber: { value: '12345', source: 'formB', override: '12345' },
-    businessCode: { value: '12345', source: 'formB', override: '12345' },
-    activityType: { value: 'Trading', source: 'formB', override: 'Trading' },
+    businessName: { value: 'Acme Sdn Bhd', source: 'companySettings' },
+    registrationNumber: { value: '201901234567', source: 'companySettings' },
   },
   rows: FORM_DEFS.map((def) => makeRow(def.line)) as any,
   reconciliation: {
@@ -290,13 +288,13 @@ describe('FormBTaxView', () => {
     expect(summary.textContent).not.toMatch(/correct/i)
   })
 
-  it('shows the identity source label for a Print Settings fallback', () => {
-    renderTaxView(
-      responseWithIdentity({
-        businessName: { value: 'Acme Trading', source: 'printSettings', override: null },
-      }),
-    )
-    expect(screen.getByText(/from Print Settings/i)).toBeInTheDocument()
+  // Identity now has one source (Company Settings), so there is no fallback
+  // label to render; an unset value reads as "Not set in Company Settings".
+  it('names Company Settings when an identity field is unset', () => {
+    renderTaxView(responseWithIdentity({
+      registrationNumber: { value: null, source: null },
+    }))
+    expect(screen.getByText(/Not set in Company Settings/i)).toBeInTheDocument()
   })
 
   it('renders the reconciliation panel with surviving terms when one is null', () => {

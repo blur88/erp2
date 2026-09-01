@@ -1,6 +1,5 @@
 import { jest } from '@jest/globals';
 import { FormBController } from './form-b.controller';
-import { FormBSettingsController } from './form-b-settings.controller';
 import { FormBMappingController } from './form-b-mapping.controller';
 
 describe('Form B controllers', () => {
@@ -9,18 +8,6 @@ describe('Form B controllers', () => {
     const controller = new FormBController(service as any);
     await controller.get({ year: 2025 } as any);
     expect(service.getFormB).toHaveBeenCalledWith({ year: 2025 });
-  });
-
-  it('returns resolved identity on GET and forwards the body on PUT', async () => {
-    const service = {
-      resolve: (jest.fn as unknown as any)().mockResolvedValue({}),
-      update: (jest.fn as unknown as any)().mockResolvedValue({}),
-    };
-    const controller = new FormBSettingsController(service as any);
-    await controller.get();
-    expect(service.resolve).toHaveBeenCalled();
-    await controller.update({ businessName: 'Acme' } as any);
-    expect(service.update).toHaveBeenCalledWith({ businessName: 'Acme' });
   });
 
   it('forwards accountId and category on a mapping PUT', async () => {
