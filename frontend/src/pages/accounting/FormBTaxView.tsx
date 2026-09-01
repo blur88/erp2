@@ -140,15 +140,16 @@ function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
         raw: true,
         render: (row: FormBTableRow) => (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: row.depth * 3, minWidth: 0, flexWrap: 'nowrap' }}>
+            {/*
+              Formula captions ("N4 + N5 - N6") are not rendered. The payload
+              still carries `formula` on derived lines — the arithmetic is
+              recorded in the contract and asserted by the service tests — it
+              is simply not shown on the sheet.
+            */}
             <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
               <Typography variant="body2" sx={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
                 {row.label}
               </Typography>
-              {row.formula && (
-                <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                  {row.formula}
-                </Typography>
-              )}
             </Box>
           </Box>
         ),

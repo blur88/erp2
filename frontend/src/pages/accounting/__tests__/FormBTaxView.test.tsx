@@ -223,9 +223,15 @@ describe('FormBTaxView', () => {
     expect(screen.getByTestId('formb-line-N7')).toHaveTextContent('—')
   })
 
-  it('shows the formula caption on derived lines', () => {
+  // Formula captions were removed from the sheet. The payload still carries
+  // `formula` on derived lines, and the service tests still assert the
+  // arithmetic itself (N7 === N4 + N5 - N6); it is just not printed as a hint.
+  it('renders no formula captions', () => {
     renderTaxView(fullResponse())
-    expect(screen.getByTestId('formb-line-N7')).toHaveTextContent('N4 + N5 - N6')
+    expect(screen.getByTestId('formb-line-N7')).not.toHaveTextContent('N4 + N5 - N6')
+    expect(screen.queryByText(/N9 to N13/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/N15 to N24/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/N8 \+ N14 - N25/)).not.toBeInTheDocument()
   })
 
   // The period line moved to the shell (ProfitAndLossPage owns the single
