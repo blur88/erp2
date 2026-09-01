@@ -75,3 +75,30 @@ export const INCOME_CATEGORY_LINE: Record<FormBIncomeCategory, string> = {
 /** The lines unmapped accounts fall back to (spec §5.4). */
 export const EXPENSE_FALLBACK_LINE = 'N24';
 export const INCOME_FALLBACK_LINE = 'N13';
+
+/**
+ * Truncate a scale-4 minor-unit amount to whole ringgit, TOWARD ZERO.
+ *
+ * HASiL's instruction is "Masukkan amaun tanpa nilai sen" — enter the amount
+ * without the sen value — and its FAQ gives the worked example
+ * RM125,955.67 -> RM125,955. That is truncation, NOT rounding: RM1,234.99
+ * truncates to RM1,234, and -RM1,234.99 to -RM1,234.
+ *
+ * Sources (supplied by the filer; hasil.gov.my/media and phl.hasil.gov.my were
+ * not reachable to verify directly, though three official explanatory-notes
+ * PDFs were checked and contain ~634k characters with ZERO sen amounts, which
+ * corroborates the whole-ringgit rule):
+ *   https://www.hasil.gov.my/media/kwxfd2wg/borang-nyata_b2024_1.pdf
+ *   https://phl.hasil.gov.my/pdf/pdfam/FAQBBM2010_28022011_1.pdf
+ *
+ * Toward zero, not floor: flooring a negative (-1234.99 -> -1235) would
+ * overstate a loss. N8 and N26 are legitimately negative, so the sign matters.
+ *
+ * The ledger keeps full NUMERIC(18,4) precision throughout; this applies only
+ * at the Form B presentation edge.
+ */
+export function truncateToRinggit(minor: bigint): bigint {
+  const scale = 10n ** 4n;
+  const remainder = minor % scale;
+  return minor - remainder;
+}

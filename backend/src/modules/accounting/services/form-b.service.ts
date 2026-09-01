@@ -14,6 +14,7 @@ import {
   FORM_VERSION,
   EXPENSE_CATEGORY_LINE,
   INCOME_CATEGORY_LINE,
+  truncateToRinggit,
 } from './form-b.categories';
 import { detectCycles, detectDanglingParents } from './profit-and-loss.graph';
 import type { PlAccount, PlIntegrity } from './profit-and-loss.types';
@@ -363,30 +364,66 @@ export class FormBService {
     const incomeLines = Object.values(INCOME_CATEGORY_LINE);
     const expenseLines = Object.values(EXPENSE_CATEGORY_LINE);
 
-    const n14 = canClassifyIncome
-      ? incomeLines.reduce((t, l) => t + sumOf(l), 0n) : null;
-    const n25 = canClassifyExpense
-      ? expenseLines.reduce((t, l) => t + sumOf(l), 0n) : null;
-    const n8 = n3 !== null && n7 !== null ? n3 - n7 : null;
-    const n26 = n8 !== null && n14 !== null && n25 !== null ? n8 + n14 - n25 : null;
+    /*
+     * Form B is filed in whole ringgit: HASiL's instruction is "Masukkan amaun
+     * tanpa nilai sen", with the worked example RM125,955.67 -> RM125,955.
+     * That is TRUNCATION toward zero, never rounding.
+     *
+     * Applied to the COMPONENTS first, with the totals then derived from the
+     * truncated values. Truncating only the totals would print a form whose own
+     * columns do not add up:
+     *
+     *   N4 10.60 -> 10, N5 20.40 -> 20, N6 4.50 -> 4
+     *   printed:            10 + 20 - 4 = 26
+     *   truncated true N7:  26.50       -> 26   (agrees, but only by luck)
+     *
+     * and with other values it diverges outright. A filer transcribing the
+     * sheet must find that every derived line equals the lines above it.
+     *
+     * The ledger and every calculation upstream keep full NUMERIC(18,4)
+     * precision; this is the presentation edge and nothing beyond it.
+     */
+    const trunc = (v: bigint | null): bigint | null =>
+      v === null ? null : truncateToRinggit(v);
+
+    const n3f = trunc(n3);
+    const n4f = trunc(n4);
+    const n5f = trunc(n5);
+    const n6f = trunc(n6);
+    // N7 is derived from the TRUNCATED components, not truncated after the fact.
+    const n7f = n4f !== null && n5f !== null && n6f !== null ? n4f + n5f - n6f : null;
+    const n8f = n3f !== null && n7f !== null ? n3f - n7f : null;
+
+    // Category lines truncate individually, and their totals sum the truncated
+    // lines — so N14 and N25 equal what is printed above them.
+    const truncSum = (lines: string[]): bigint =>
+      lines.reduce((t, l) => t + truncateToRinggit(sumOf(l)), 0n);
+
+    const n14 = canClassifyIncome ? truncSum(incomeLines) : null;
+    const n25 = canClassifyExpense ? truncSum(expenseLines) : null;
+    const n26 = n8f !== null && n14 !== null && n25 !== null ? n8f + n14 - n25 : null;
 
     const fmt = (v: bigint | null): Amount => (v === null ? null : formatScale4(v));
 
     const amountFor = (line: string): Amount => {
       switch (line) {
-        case 'N3': return fmt(n3);
-        case 'N4': return fmt(n4);
-        case 'N5': return fmt(n5);
-        case 'N6': return fmt(n6);
-        case 'N7': return fmt(n7);
-        case 'N8': return fmt(n8);
+        case 'N3': return fmt(n3f);
+        case 'N4': return fmt(n4f);
+        case 'N5': return fmt(n5f);
+        case 'N6': return fmt(n6f);
+        case 'N7': return fmt(n7f);
+        case 'N8': return fmt(n8f);
         case 'N14': return fmt(n14);
         case 'N25': return fmt(n25);
         case 'N26': return fmt(n26);
         case 'N27': return null;
         default:
-          if (incomeLines.includes(line)) return canClassifyIncome ? fmt(sumOf(line)) : null;
-          if (expenseLines.includes(line)) return canClassifyExpense ? fmt(sumOf(line)) : null;
+          if (incomeLines.includes(line)) {
+            return canClassifyIncome ? fmt(truncateToRinggit(sumOf(line))) : null;
+          }
+          if (expenseLines.includes(line)) {
+            return canClassifyExpense ? fmt(truncateToRinggit(sumOf(line))) : null;
+          }
           return null;
       }
     };

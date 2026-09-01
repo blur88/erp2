@@ -327,6 +327,78 @@ describe('FormBService.getFormB', () => {
   });
 });
 
+describe('FormBService — whole-ringgit truncation', () => {
+  /*
+   * HASiL: "Masukkan amaun tanpa nilai sen" — RM125,955.67 -> RM125,955.
+   * Truncation toward zero, never rounding.
+   */
+  it('drops the sen without rounding up', async () => {
+    const svc = buildService({
+      leafPrior: { inv: 10_9900n },      // 10.99
+      leafClosing: { inv: 4_9900n },     // 4.99
+      purchases: 20_9900n,               // 20.99
+    });
+    // N3 comes from MOVEMENTS, raw debit-minus-credit; naturalBalance negates
+    // it for an Income account, so a credit is entered negative here.
+    jest.spyOn(svc as any, 'getMovements')
+      .mockResolvedValue(new Map([['rev', -200_9900n]]));
+    const res = await svc.getFormB({ year: YEAR });
+    expect(lineOf(res, 'N4').amount).toBe('10.0000');
+    expect(lineOf(res, 'N5').amount).toBe('20.0000');
+    expect(lineOf(res, 'N6').amount).toBe('4.0000');
+    expect(lineOf(res, 'N3').amount).toBe('200.0000');
+  });
+
+  /*
+   * THE property that matters: a filer transcribing the sheet must find every
+   * derived line equals the lines above it. Truncating only the totals would
+   * print columns that do not add up.
+   */
+  it('derives N7 and N8 from the TRUNCATED components so the form reconciles', async () => {
+    const res = await buildService({
+      leafPrior: { inv: 10_6000n },      // 10.60
+      leafClosing: { inv: 4_5000n },     // 4.50
+      purchases: 20_4000n,               // 20.40
+    }).getFormB({ year: YEAR });
+
+    const n = (l: string) => Number(lineOf(res, l).amount);
+    expect(n('N4')).toBe(10);
+    expect(n('N5')).toBe(20);
+    expect(n('N6')).toBe(4);
+    // Printed N7 must equal printed N4 + N5 - N6, not the truncated true total
+    // (10.60 + 20.40 - 4.50 = 26.50, which would truncate to 26 — coincidence
+    // here, but the identity below is what must always hold).
+    expect(n('N7')).toBe(n('N4') + n('N5') - n('N6'));
+    expect(n('N8')).toBe(n('N3') - n('N7'));
+  });
+
+  it('keeps N26 equal to N8 + N14 - N25 as printed', async () => {
+    const svc = buildService({
+      leafPrior: { inv: 10_9900n },
+      leafClosing: { inv: 0n },
+      purchases: 0n,
+    });
+    jest.spyOn(svc as any, 'getMovements')
+      .mockResolvedValue(new Map([['rev', -500_9900n]]));
+    const res = await svc.getFormB({ year: YEAR });
+    const n = (l: string) => Number(lineOf(res, l).amount);
+    expect(n('N26')).toBe(n('N8') + n('N14') - n('N25'));
+  });
+
+  it('truncates a negative result toward zero, never away from it', async () => {
+    // Revenue below cost: N8 is negative. Flooring would overstate the loss.
+    const svc = buildService({
+      leafPrior: { inv: 100_9900n },     // N7 = 100.99 -> 100
+      leafClosing: { inv: 0n },
+      purchases: 0n,
+    });
+    jest.spyOn(svc as any, 'getMovements')
+      .mockResolvedValue(new Map([['rev', -10_0000n]]));   // N3 = 10
+    const res = await svc.getFormB({ year: YEAR });
+    expect(Number(lineOf(res, 'N8').amount)).toBe(-90);    // 10 - 100
+  });
+});
+
 describe('FormBService — identity from Company Settings', () => {
   it('reads N1 and N1a from Company Settings', async () => {
     const res = await buildService({

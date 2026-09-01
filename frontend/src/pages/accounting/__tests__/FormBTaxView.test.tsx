@@ -348,10 +348,12 @@ describe('FormBTaxView', () => {
       }),
     )
     const panel = screen.getByTestId('formb-reconciliation')
-    // Formatted per Regional Settings, not the raw scale-4 payload string.
-    expect(panel).toHaveTextContent(/10\.00(?!00)/)
-    expect(panel).toHaveTextContent(/1\.00(?!00)/)
+    // Whole ringgit, no sen: neither the raw scale-4 payload string nor a
+    // 2-decimal rendering — Form B is filed without sen.
+    expect(panel).toHaveTextContent(/\b10\b/)
+    expect(panel).toHaveTextContent(/\b1\b/)
     expect(panel.textContent).not.toContain('10.0000')
+    expect(panel.textContent).not.toContain('10.00')
     expect(panel).toHaveTextContent('—')
   })
 

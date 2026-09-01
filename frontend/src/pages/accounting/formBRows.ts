@@ -52,7 +52,13 @@ export interface FormBTableRow {
  * spacing loses fractional cents on large NUMERIC(18,4) values.
  */
 export function formatFormBAmount(amount: FormBAmount): string {
-  return amount === null ? '—' : formatCurrency(amount)
+  // ZERO decimal places: Form B is filed in whole ringgit ("Masukkan amaun
+  // tanpa nilai sen"), and the backend has already truncated. Leaving
+  // formatCurrency's 2-decimal default would re-add '.00' — sen the form does
+  // not accept — and imply a precision the filed figure does not have.
+  return amount === null
+    ? '—'
+    : formatCurrency(amount, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }
 
 export function periodLabel(year: number, formVersion: number): string {

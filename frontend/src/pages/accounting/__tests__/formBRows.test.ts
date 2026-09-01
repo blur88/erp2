@@ -30,27 +30,29 @@ describe('formatFormBAmount', () => {
   })
   it('renders a zero amount as a real zero', () => {
     expect(formatFormBAmount('0.0000')).not.toBe('—')
-    expect(formatFormBAmount('0.0000')).toMatch(/0\.00$/)
+    expect(formatFormBAmount('0.0000')).toMatch(/\b0$/)
   })
 
   // Regional Settings: grouped thousands, two decimals, currency symbol —
   // matching the Accounting View. The raw scale-4 payload string exposed
   // storage precision on a statutory form.
-  it('groups thousands and shows two decimals, not scale-4', () => {
-    expect(formatFormBAmount('1234567.8900')).toMatch(/1,234,567\.89$/)
-    expect(formatFormBAmount('200.0000')).toMatch(/200\.00$/)
-    expect(formatFormBAmount('200.0000')).not.toContain('200.0000')
+  // Whole ringgit, no sen: the backend truncates, and the display must not
+  // re-add '.00' — that would show sen the form does not accept.
+  it('groups thousands and shows NO decimals', () => {
+    expect(formatFormBAmount('1234567.0000')).toMatch(/1,234,567$/)
+    expect(formatFormBAmount('200.0000')).toMatch(/200$/)
+    expect(formatFormBAmount('200.0000')).not.toContain('.00')
   })
 
   it('renders negatives, which N8 and N26 legitimately are', () => {
-    expect(formatFormBAmount('-1520.0000')).toMatch(/1,520\.00$/)
+    expect(formatFormBAmount('-1520.0000')).toMatch(/1,520$/)
     expect(formatFormBAmount('-1520.0000')).toContain('-')
   })
 
   // formatCurrency is handed the decimal STRING: coercing to a JS number loses
   // fractional cents once binary64 spacing exceeds 0.01.
   it('preserves precision on a large NUMERIC(18,4) value', () => {
-    expect(formatFormBAmount('99999999999999.9900')).toMatch(/99,999,999,999,999\.99$/)
+    expect(formatFormBAmount('99999999999999.0000')).toMatch(/99,999,999,999,999$/)
   })
 })
 
