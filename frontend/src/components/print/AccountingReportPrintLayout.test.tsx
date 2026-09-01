@@ -14,6 +14,28 @@ const Report = () => (
   </AccountingReportPrintLayout>
 )
 
+describe('AccountingReportPrintLayout generated timestamp', () => {
+  /*
+   * The "Generated ..." line used toLocaleString(), i.e. the BROWSER locale, so
+   * a printed statutory report could carry a date format the business never
+   * configured — and one that differs from every other date in the app.
+   */
+  it('formats the timestamp per Regional Settings, not the browser locale', () => {
+    localStorage.setItem('dateFormat', 'DD/MM/YYYY')
+    localStorage.setItem('timeFormat', '24h')
+    const { container } = render(<Report />)
+    const text = container.textContent ?? ''
+    expect(text).toMatch(/Generated \d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/)
+  })
+
+  it('follows a changed date format', () => {
+    localStorage.setItem('dateFormat', 'YYYY-MM-DD')
+    localStorage.setItem('timeFormat', '24h')
+    const { container } = render(<Report />)
+    expect(container.textContent ?? '').toMatch(/Generated \d{4}-\d{2}-\d{2} \d{2}:\d{2}/)
+  })
+})
+
 describe('AccountingReportPrintLayout print mode', () => {
   it('marks the body while mounted and clears it on unmount', () => {
     const { unmount } = render(<Report />)
