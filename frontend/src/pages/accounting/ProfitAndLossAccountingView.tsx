@@ -227,55 +227,63 @@ export default function ProfitAndLossAccountingView(props: ProfitAndLossAccounti
     ) : null
 
   return (
-    <div data-testid="pl-accounting-view">
-      <>
-        {integrityAlert}
-        {/*
-              Three-way gate, matching the existing tests exactly:
-                - no currentData + fetching  -> pl-loading skeleton, no table
-                - no currentData + error     -> the error Alert alone, no table
-                - currentData                -> the statement
-              Rendering EntityTable unconditionally breaks both: the skeleton
-              testid disappears, and on terminal error an empty table shows
-              "No Statement found" beside the error message.
+    /*
+     * Continues SimpleListPage's flex chain so EntityTable gets a bounded
+     * height and scrolls its own rows. A plain block here let the table grow to
+     * its content, so the PAGE scrolled and the column header went with it —
+     * unlike every other list page. `minHeight: 0` is what allows the flex
+     * child to shrink below its content so the inner scroller engages.
+     */
+    <Box
+      data-testid="pl-accounting-view"
+      sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, minHeight: 0 }}
+    >
+      {integrityAlert}
+      {/*
+            Three-way gate, matching the existing tests exactly:
+              - no currentData + fetching  -> pl-loading skeleton, no table
+              - no currentData + error     -> the error Alert alone, no table
+              - currentData                -> the statement
+            Rendering EntityTable unconditionally breaks both: the skeleton
+            testid disappears, and on terminal error an empty table shows
+            "No Statement found" beside the error message.
 
-              Note the deliberate omission (#1172): a year with NO activity still
-              renders the full statement — every section, every total, all zero —
-              rather than an empty state. The structure is the report. Swapping
-              in EntityTable's "No Statement found" would change report
-              semantics, which that issue's non-goals exclude.
-            */}
-        {!profitAndLoss ? (
-          isLoading || isFetching ? (
-            <Box data-testid="pl-loading">
-              <ListSkeleton rows={8} columns={4} />
-            </Box>
-          ) : null
-        ) : (
-          <Box className="acct-print-scroll" sx={{ flex: 1, minHeight: 0 }}>
-            <EntityTable
-              rows={rows}
-              columns={columns}
-              tableClassName="acct-print-table"
-              isRowSelectable={isPlRowSelectable}
-              selectableRowRole="link"
-              getRowSx={plRowSx}
-              getRowProps={plRowProps}
-              tableFooter={netProfitFooter}
-              onSelect={(row) => row.accountId && onOpenLedger(row.accountId, year)}
-              headers={['Account Code', 'Name', 'Amount']}
-              showHeader={false}
-              focusedIndex={-1}
-              listRef={listRef}
-              // currentData is present here, so this only ever means a
-              // background refetch — never the initial load.
-              loading={false}
-              total={rows.length}
-              label="Statement"
-            />
+            Note the deliberate omission (#1172): a year with NO activity still
+            renders the full statement — every section, every total, all zero —
+            rather than an empty state. The structure is the report. Swapping
+            in EntityTable's "No Statement found" would change report
+            semantics, which that issue's non-goals exclude.
+          */}
+      {!profitAndLoss ? (
+        isLoading || isFetching ? (
+          <Box data-testid="pl-loading">
+            <ListSkeleton rows={8} columns={4} />
           </Box>
-        )}
-      </>
-    </div>
+        ) : null
+      ) : (
+        <Box className="acct-print-scroll" sx={{ flex: 1, minHeight: 0 }}>
+          <EntityTable
+            rows={rows}
+            columns={columns}
+            tableClassName="acct-print-table"
+            isRowSelectable={isPlRowSelectable}
+            selectableRowRole="link"
+            getRowSx={plRowSx}
+            getRowProps={plRowProps}
+            tableFooter={netProfitFooter}
+            onSelect={(row) => row.accountId && onOpenLedger(row.accountId, year)}
+            headers={['Account Code', 'Name', 'Amount']}
+            showHeader={false}
+            focusedIndex={-1}
+            listRef={listRef}
+            // currentData is present here, so this only ever means a
+            // background refetch — never the initial load.
+            loading={false}
+            total={rows.length}
+            label="Statement"
+          />
+        </Box>
+      )}
+    </Box>
   )
 }
