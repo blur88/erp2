@@ -224,18 +224,29 @@ function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
           item being counted, when the count actually refers to the findings
           listed below and N27 is explicitly excluded from it.
         */}
-        <Box data-testid="formb-readiness" sx={{ mb: alwaysRequiredCount > 0 ? 1 : 2 }}>
-          <Alert severity={totalIssues > 0 ? 'warning' : 'success'}>
-            {totalIssues === 0
-              ? 'No issues detected by these checks'
-              : `${totalIssues} item${totalIssues === 1 ? '' : 's'} below need${totalIssues === 1 ? 's' : ''} attention before filing`}
-          </Alert>
-        </Box>
+        {/*
+          Rendered ONLY when there is something to act on. A clean report says
+          nothing rather than announcing its own cleanliness — a banner that is
+          always present is one nobody reads, which would blunt the warning
+          precisely when it does appear.
+        */}
+        {totalIssues > 0 && (
+          <Box data-testid="formb-readiness" sx={{ mb: alwaysRequiredCount > 0 ? 1 : 2 }}>
+            <Alert severity="warning">
+              {`${totalIssues} item${totalIssues === 1 ? '' : 's'} below need${totalIssues === 1 ? 's' : ''} attention before filing`}
+            </Alert>
+          </Box>
+        )}
         {alwaysRequiredCount > 0 && (
           <Box data-testid="formb-standing-note" sx={{ mb: 2 }}>
             <Alert severity="info" icon={false}>
-              Always required, not counted above: N27 Disallowed Expenses is not
-              derived from the ledger — supply it from Form B worksheet F1.
+              {/*
+                Wording depends on whether a count is shown above it: "not
+                counted above" refers to a box that is absent on a clean report.
+              */}
+              {totalIssues > 0
+                ? 'Always required, not counted above: N27 Disallowed Expenses is not derived from the ledger — supply it from Form B worksheet F1.'
+                : 'Always required: N27 Disallowed Expenses is not derived from the ledger — supply it from Form B worksheet F1.'}
             </Alert>
           </Box>
         )}

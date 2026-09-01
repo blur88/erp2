@@ -243,13 +243,13 @@ describe('FormBTaxView', () => {
       code: 'DISALLOWED_EXPENSES_UNDETERMINED', severity: 'incomplete',
       message: 'N27 requires filer input', accounts: [], settingKey: null,
     }))
-    // The count and the N27 note must be SEPARATE elements: rendered together
-    // the note reads as the item being counted.
-    const summary = screen.getByTestId('formb-readiness')
-    expect(summary).toHaveTextContent(/No issues detected by these checks/i)
-    expect(summary).not.toHaveTextContent(/N27/i)
-    expect(screen.getByTestId('formb-standing-note'))
-      .toHaveTextContent(/Always required, not counted above/i)
+    // Nothing actionable: the summary box is ABSENT rather than announcing a
+    // clean report. The standing note remains, and drops "not counted above"
+    // since there is no count above it to refer to.
+    expect(screen.queryByTestId('formb-readiness')).not.toBeInTheDocument()
+    const note = screen.getByTestId('formb-standing-note')
+    expect(note).toHaveTextContent(/Always required: N27 Disallowed Expenses/i)
+    expect(note).not.toHaveTextContent(/not counted above/i)
   })
 
   it('counts only actionable findings alongside the permanent one', () => {
@@ -324,10 +324,22 @@ describe('FormBTaxView', () => {
     expect(screen.getByText(`message for ${code}`)).toBeInTheDocument()
   })
 
-  it('renders the readiness summary without claiming correctness', () => {
+  // fullResponse() has no findings at all, so nothing is rendered above the
+  // report — neither a count nor a standing note.
+  it('renders no readiness banner when there is nothing to report', () => {
     renderTaxView(fullResponse())
-    const summary = screen.getByTestId('formb-readiness')
-    expect(summary.textContent).not.toMatch(/correct/i)
+    expect(screen.queryByTestId('formb-readiness')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('formb-standing-note')).not.toBeInTheDocument()
+  })
+
+  it('never claims the report is correct when it does show a count', () => {
+    const base = fullResponse()
+    base.findings = [{
+      code: 'MISSING_BUSINESS_IDENTITY', severity: 'incomplete',
+      message: 'Business information is incomplete', accounts: [], settingKey: 'companySettings',
+    }] as any
+    renderTaxView(base)
+    expect(screen.getByTestId('formb-readiness').textContent).not.toMatch(/correct/i)
   })
 
   // Identity now has one source (Company Settings), so there is no fallback
