@@ -2,6 +2,41 @@ import { jest } from '@jest/globals';
 import { SettingsService } from './settings.service';
 
 describe('SettingsService', () => {
+  /*
+   * The seeded company settings row must leave registrationNumber ABSENT.
+   *
+   * Every other placeholder here ('Your Company Name', '123 Main Street') is
+   * obviously wrong on sight and gets replaced. A placeholder REGISTRATION
+   * NUMBER is not: it is a plausible-looking identifier of roughly the right
+   * shape, so a stand-in value could reach a filed Form B (N1a) without anyone
+   * noticing. Absent is the only safe default — it makes the Form B report
+   * render "Not set in Company Settings" and raise MISSING_BUSINESS_IDENTITY
+   * until a real number is entered at /settings/company.
+   */
+  it('seeds company settings with no registration number', async () => {
+    let created: any;
+    const companySettingsRepository = {
+      findOne: (jest.fn as unknown as any)().mockResolvedValue(null),
+      create: (jest.fn as unknown as any)((v: any) => { created = v; return v; }),
+      save: (jest.fn as unknown as any)((v: any) => Promise.resolve({ ...v, id: 'seeded' })),
+    };
+    const service = new SettingsService(
+      companySettingsRepository as any, {} as any, {} as any,
+      {} as any, {} as any, {} as any,
+      {} as any,
+      { transaction: (jest.fn as unknown as any)() } as any,
+    );
+
+    const result = await service.getCompanySettings();
+
+    expect(created.registrationNumber ?? null).toBeNull();
+    expect((result as any).registrationNumber ?? null).toBeNull();
+    // The other placeholders are still seeded — this is about the one field
+    // whose placeholder would be dangerous, not about seeding nothing.
+    expect(created.name).toBe('Your Company Name');
+  });
+
+
   it('reuses the caller transaction manager (no nested transaction)', async () => {
     const manager = {
       query: (jest.fn as unknown as any)()

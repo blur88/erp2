@@ -170,6 +170,21 @@ export class SettingsService {
   /**
    * Create default company settings
    */
+  /**
+   * Seed placeholder company settings on first read.
+   *
+   * `registrationNumber` is DELIBERATELY OMITTED, not given a placeholder like
+   * the others. The rest ('Your Company Name', '123 Main Street') are obviously
+   * wrong on sight and get replaced during setup. A stand-in registration
+   * number would not be: it is a plausible-looking statutory identifier, and
+   * the Form B tax view prints it as N1a, so a placeholder could reach a filed
+   * return unnoticed.
+   *
+   * Left absent, the column is NULL, Form B renders "Not set in Company
+   * Settings" and raises MISSING_BUSINESS_IDENTITY until a real number is
+   * entered. Do not add a default here — settings.service.spec.ts fails if you
+   * do.
+   */
   private async createDefaultSettings(): Promise<CompanySettings> {
     const defaultSettings = this.companySettingsRepository.create({
       name: 'Your Company Name',
