@@ -1,9 +1,13 @@
 import { FormBExpenseCategory, FormBIncomeCategory } from '../entities/form-b-category.enum';
 
 /**
- * The taxonomy version this feature encodes. FIXED — never derived from the
- * selected year. A report for another year is still presented using this
- * taxonomy and raises FORM_VERSION_MISMATCH (spec §2.1).
+ * The taxonomy version this feature encodes, and the MINIMUM assessment year it
+ * supports. FIXED — never derived from the selected year.
+ *
+ * The Bahagian N field set carries forward, so this layout applies to
+ * FORM_VERSION and every later year. Only a year EARLIER than this raises
+ * FORM_VERSION_MISMATCH, since that form predates the layout verified here
+ * (spec §2.1).
  */
 export const FORM_VERSION = 2025 as const;
 

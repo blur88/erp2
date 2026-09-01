@@ -164,14 +164,23 @@ describe('FormBService.getFormB', () => {
     expect(lineOf(res, 'N7').amount).toBe('26.0000');   // 10 + 20 - 4
   });
 
-  it('pins formVersion at 2025 and flags a mismatched year', async () => {
-    const match = await buildService({}).getFormB({ year: 2025 });
-    expect(match.formVersion).toBe(2025);
-    expect(codes(match)).not.toContain('FORM_VERSION_MISMATCH');
-
-    const mismatch = await buildService({}).getFormB({ year: 2024 });
-    expect(mismatch.formVersion).toBe(2025);
-    expect(codes(mismatch)).toContain('FORM_VERSION_MISMATCH');
+  /*
+   * FORM_VERSION is a FLOOR, not an exact match: the Bahagian N field set
+   * carries forward, so 2025 and every later year use this layout legitimately
+   * and must not warn. Only an EARLIER year is suspect.
+   *
+   * The 2026 case is the one that matters — under the previous exact-match rule
+   * it warned, which was permanent noise on a correct report.
+   */
+  it.each([
+    [2024, true],
+    [2025, false],
+    [2026, false],
+    [2030, false],
+  ])('year %i raises FORM_VERSION_MISMATCH: %s', async (year, expected) => {
+    const res = await buildService({}).getFormB({ year });
+    expect(res.formVersion).toBe(2025);
+    expect(codes(res).includes('FORM_VERSION_MISMATCH')).toBe(expected);
   });
 
   it('always reports N27 as undetermined, never zero', async () => {

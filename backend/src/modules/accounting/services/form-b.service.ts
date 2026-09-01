@@ -456,10 +456,19 @@ export class FormBService {
     }
 
     // --- remaining findings ---
-    if (year !== FORM_VERSION) {
+    /*
+     * FORM_VERSION is a MINIMUM supported version, not an exact match.
+     *
+     * The Bahagian N field set (N3-N27) carries forward unchanged, so the YA
+     * 2025 layout applies to 2025 and every later year; warning on those would
+     * be permanent noise on a report that is in fact correct. Only a year
+     * EARLIER than the encoded version is suspect, because that layout predates
+     * the one verified here.
+     */
+    if (year < FORM_VERSION) {
       findings.push({
         code: 'FORM_VERSION_MISMATCH', severity: 'incomplete',
-        message: `Presented using the Form B YA ${FORM_VERSION} taxonomy. This is not a verified return for ${year}.`,
+        message: `Presented using the Form B YA ${FORM_VERSION} taxonomy, which is the earliest version this report supports. The ${year} form may differ.`,
         accounts: [], settingKey: null,
       });
     }
