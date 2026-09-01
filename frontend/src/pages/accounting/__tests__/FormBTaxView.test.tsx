@@ -262,11 +262,13 @@ describe('FormBTaxView', () => {
     expect(screen.queryByText(/worksheet F1/i)).not.toBeInTheDocument()
   })
 
-  it('renders the retail production-cost annotation on N5 only', () => {
+  // The retail production-cost annotation was removed from the UI. The payload
+  // still carries productionCost: null on N5 (spec §5.1) — the report never
+  // fabricates a production figure — it is simply not captioned on screen.
+  it('renders no production-cost annotation', () => {
     renderTaxView(fullResponse())
-    expect(screen.getByTestId('formb-annotation-N5'))
-      .toHaveTextContent('Production cost: N/A — retail business')
-    expect(screen.queryByTestId('formb-annotation-N7')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('formb-annotation-N5')).not.toBeInTheDocument()
+    expect(screen.queryByText(/retail business/i)).not.toBeInTheDocument()
   })
 
   it('renders warnings with their severity', () => {
