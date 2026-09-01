@@ -3,17 +3,15 @@ import { SettingsService } from './settings.service';
 
 describe('SettingsService', () => {
   /*
-   * The seeded company settings row must leave registrationNumber ABSENT.
+   * The seeded row carries a placeholder registration number, like the other
+   * fields — but the VALUE must stay self-evidently fake. A plausible-looking
+   * stand-in (e.g. '000000000000') would be dangerous: the Form B tax view
+   * prints this as N1a, so it could reach a filed return unnoticed.
    *
-   * Every other placeholder here ('Your Company Name', '123 Main Street') is
-   * obviously wrong on sight and gets replaced. A placeholder REGISTRATION
-   * NUMBER is not: it is a plausible-looking identifier of roughly the right
-   * shape, so a stand-in value could reach a filed Form B (N1a) without anyone
-   * noticing. Absent is the only safe default — it makes the Form B report
-   * render "Not set in Company Settings" and raise MISSING_BUSINESS_IDENTITY
-   * until a real number is entered at /settings/company.
+   * Form B additionally treats this exact string as unset
+   * (PLACEHOLDER_IDENTITY in form-b.service.ts), so the two must stay in step.
    */
-  it('seeds company settings with no registration number', async () => {
+  it('seeds company settings with a non-numeric placeholder registration number', async () => {
     let created: any;
     const companySettingsRepository = {
       findOne: (jest.fn as unknown as any)().mockResolvedValue(null),
@@ -27,12 +25,11 @@ describe('SettingsService', () => {
       { transaction: (jest.fn as unknown as any)() } as any,
     );
 
-    const result = await service.getCompanySettings();
+    await service.getCompanySettings();
 
-    expect(created.registrationNumber ?? null).toBeNull();
-    expect((result as any).registrationNumber ?? null).toBeNull();
-    // The other placeholders are still seeded — this is about the one field
-    // whose placeholder would be dangerous, not about seeding nothing.
+    expect(created.registrationNumber).toBe('Your Registration Number');
+    // Must not resemble a real SSM number — no digit runs at all.
+    expect(created.registrationNumber).not.toMatch(/\d{4,}/);
     expect(created.name).toBe('Your Company Name');
   });
 

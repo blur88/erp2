@@ -173,21 +173,22 @@ export class SettingsService {
   /**
    * Seed placeholder company settings on first read.
    *
-   * `registrationNumber` is DELIBERATELY OMITTED, not given a placeholder like
-   * the others. The rest ('Your Company Name', '123 Main Street') are obviously
-   * wrong on sight and get replaced during setup. A stand-in registration
-   * number would not be: it is a plausible-looking statutory identifier, and
-   * the Form B tax view prints it as N1a, so a placeholder could reach a filed
-   * return unnoticed.
+   * `registrationNumber` gets a placeholder like the other fields, but the
+   * VALUE is chosen to be self-evidently not a real number. Unlike 'Your
+   * Company Name', a plausible-looking registration number would be dangerous:
+   * the Form B tax view prints it as N1a, so a stand-in that resembles a real
+   * SSM number (e.g. '000000000000') could reach a filed return unnoticed.
+   * 'Your Registration Number' cannot be mistaken for one.
    *
-   * Left absent, the column is NULL, Form B renders "Not set in Company
-   * Settings" and raises MISSING_BUSINESS_IDENTITY until a real number is
-   * entered. Do not add a default here — settings.service.spec.ts fails if you
-   * do.
+   * It is still a placeholder, not a value: Form B treats it as unset (see
+   * PLACEHOLDER_REGISTRATION_NUMBER in form-b.service.ts) and keeps raising
+   * MISSING_BUSINESS_IDENTITY until a real number is entered at
+   * /settings/company. Keep the two strings in step.
    */
   private async createDefaultSettings(): Promise<CompanySettings> {
     const defaultSettings = this.companySettingsRepository.create({
       name: 'Your Company Name',
+      registrationNumber: 'Your Registration Number',
       address: '123 Main Street',
       city: 'City',
       state: '',

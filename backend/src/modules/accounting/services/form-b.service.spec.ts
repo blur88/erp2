@@ -328,6 +328,40 @@ describe('FormBService — identity from Company Settings', () => {
     expect(finding.message).toMatch(/Company Settings/);
   });
 
+  /*
+   * Company Settings seeds placeholders so the setup form is self-describing.
+   * Printing one as N1/N1a would put a fabricated identity on a tax return, so
+   * Form B must treat them as unset and keep warning.
+   */
+  it('treats seeded placeholder identity as unset and warns', async () => {
+    const res = await buildService({
+      companyName: 'Your Company Name',
+      companyRegistrationNumber: 'Your Registration Number',
+    }).getFormB({ year: YEAR });
+    expect(res.identity.businessName).toEqual({ value: null, source: null });
+    expect(res.identity.registrationNumber).toEqual({ value: null, source: null });
+    expect(codes(res)).toContain('MISSING_BUSINESS_IDENTITY');
+  });
+
+  it('matches the placeholder regardless of case or padding', async () => {
+    const res = await buildService({
+      companyName: '  YOUR COMPANY NAME  ',
+      companyRegistrationNumber: 'your registration number',
+    }).getFormB({ year: YEAR });
+    expect(res.identity.businessName.value).toBeNull();
+    expect(res.identity.registrationNumber.value).toBeNull();
+  });
+
+  // A real value that merely resembles the placeholder must still be used.
+  it('does not swallow a real value containing placeholder-like words', async () => {
+    const res = await buildService({
+      companyName: 'Your Company Name Sdn Bhd',
+      companyRegistrationNumber: '201901234567',
+    }).getFormB({ year: YEAR });
+    expect(res.identity.businessName.value).toBe('Your Company Name Sdn Bhd');
+    expect(res.identity.registrationNumber.value).toBe('201901234567');
+  });
+
   // N2 and N2a are not modelled at all — nothing in this ERP holds them.
   it('exposes only N1 and N1a', async () => {
     const res = await buildService({}).getFormB({ year: YEAR });

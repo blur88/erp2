@@ -32,6 +32,16 @@ export type RootStatus =
   | { ok: false; kind: 'missing' }
   | { ok: false; kind: 'invalid'; detail: 'notFound' | 'wrongType' | 'dangling' | 'cyclic' };
 
+/**
+ * Placeholder identity values seeded by SettingsService.createDefaultSettings().
+ * Compared case-insensitively after trimming. Keep in step with that method —
+ * a drift here silently starts printing a placeholder as real identity.
+ */
+const PLACEHOLDER_IDENTITY = new Set([
+  'your company name',
+  'your registration number',
+]);
+
 @Injectable()
 export class FormBService {
   constructor(
@@ -210,7 +220,12 @@ export class FormBService {
     const company = await this.companySettings.getCompanySettings();
     const field = (value: string | null | undefined): FormBIdentityField => {
       const trimmed = typeof value === 'string' ? value.trim() : '';
-      return trimmed === ''
+      // A seeded placeholder is NOT a value. Company Settings seeds these so
+      // the setup form is self-describing, but printing one as N1/N1a would put
+      // a fabricated identity on a tax return, so Form B treats them as unset
+      // and keeps warning until they are replaced.
+      const isPlaceholder = PLACEHOLDER_IDENTITY.has(trimmed.toLowerCase());
+      return trimmed === '' || isPlaceholder
         ? { value: null, source: null }
         : { value: trimmed, source: 'companySettings' };
     };
