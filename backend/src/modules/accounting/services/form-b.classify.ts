@@ -66,15 +66,41 @@ export function classifyFormB(input: {
   };
 
   for (const account of accounts) {
-    const family: CategoryFamily | null =
+    /*
+     * The mapping is read from whichever column is POPULATED, not from the one
+     * the account's current type implies.
+     *
+     * Type-derived selection silently misfiles a corrupted row: an Income
+     * account still holding a formBExpenseCategory (written before a type
+     * change, or by direct SQL) would read its income column as null, be judged
+     * "unmapped", and land in the N13 fallback with no finding at all — the
+     * exact silent misclassification the read-time defence exists to catch. It
+     * also disagreed with the clear path in form-b-mapping.service.ts, which
+     * always nulls both columns regardless of type.
+     *
+     * `family` follows the mapping when one exists, so eligibility is checked
+     * against the family the stored category actually belongs to and the
+     * mismatch surfaces as NOT_INCOME_TYPE / NOT_EXPENSE_TYPE.
+     */
+    const expenseMapping = account.formBExpenseCategory ?? null;
+    const incomeMapping = account.formBIncomeCategory ?? null;
+    const mapped = expenseMapping ?? incomeMapping;
+
+    const typeFamily: CategoryFamily | null =
       account.type === 'Expense' ? 'expense'
       : account.type === 'Income' ? 'income'
       : null;
-    if (family === null) continue;
 
-    const mapped = family === 'expense'
-      ? account.formBExpenseCategory
-      : account.formBIncomeCategory;
+    const mappingFamily: CategoryFamily | null =
+      expenseMapping !== null ? 'expense'
+      : incomeMapping !== null ? 'income'
+      : null;
+
+    // A stored mapping is what must be adjudicated; only an unmapped account
+    // falls back to its type. An account that is neither a P&L type nor mapped
+    // is not this report's business.
+    const family = mappingFamily ?? typeFamily;
+    if (family === null) continue;
 
     const verdict = checkEligibility({
       account,

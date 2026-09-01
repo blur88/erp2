@@ -156,6 +156,57 @@ const renderTaxView = (data: FormBResponse, opts?: { onOpenLedger?: any }) => {
   )
 }
 
+describe('FormBTaxView — loading transition', () => {
+  /*
+   * The defect this pins: early returns placed ABOVE useMemo/useCallback in one
+   * component change the hook count between the loading render and the first
+   * render with data, and React throws "Rendered more hooks than during the
+   * previous render".
+   *
+   * It is invisible to every test that mocks a settled query, because those
+   * never render the loading state. This test must render loading FIRST and
+   * then rerender with data on the SAME element tree.
+   *
+   * Note React 19: rerender() with the same element reference no-ops, so fresh
+   * JSX is inlined on each call.
+   */
+  it('survives the loading -> loaded transition without a hook-count error', () => {
+    const onOpenLedger = vi.fn()
+    const { rerender } = render(
+      <MemoryRouter>
+        <FormBTaxView data={undefined} year={2025} isLoading isError={false} onOpenLedger={onOpenLedger} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByTestId('formb-loading')).toBeInTheDocument()
+
+    expect(() =>
+      rerender(
+        <MemoryRouter>
+          <FormBTaxView data={fullResponse()} year={2025} isLoading={false} isError={false} onOpenLedger={onOpenLedger} />
+        </MemoryRouter>,
+      ),
+    ).not.toThrow()
+
+    expect(screen.getByTestId('formb-line-N3')).toBeInTheDocument()
+  })
+
+  it('survives the loading -> error transition', () => {
+    const onOpenLedger = vi.fn()
+    const { rerender } = render(
+      <MemoryRouter>
+        <FormBTaxView data={undefined} year={2025} isLoading isError={false} onOpenLedger={onOpenLedger} />
+      </MemoryRouter>,
+    )
+    expect(() =>
+      rerender(
+        <MemoryRouter>
+          <FormBTaxView data={undefined} year={2025} isLoading={false} isError onOpenLedger={onOpenLedger} />
+        </MemoryRouter>,
+      ),
+    ).not.toThrow()
+  })
+})
+
 describe('FormBTaxView', () => {
   it('renders every statutory line including zero rows', () => {
     renderTaxView(fullResponse())
@@ -174,10 +225,9 @@ describe('FormBTaxView', () => {
     expect(screen.getByTestId('formb-line-N7')).toHaveTextContent('N4 + N5 - N6')
   })
 
-  it('shows the mismatch header when the year differs from the form version', () => {
-    renderTaxView({ ...fullResponse(), year: 2024, formVersion: 2025 })
-    expect(screen.getByText(/presented using Form B YA 2025/i)).toBeInTheDocument()
-  })
+  // The period line moved to the shell (ProfitAndLossPage owns the single
+  // AccountingReportPrintLayout), so the mismatch header is asserted there —
+  // see ProfitAndLossPage.test.tsx 'derives the print period'.
 
   it('renders warnings with their severity', () => {
     renderTaxView(

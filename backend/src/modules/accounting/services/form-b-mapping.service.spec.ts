@@ -67,6 +67,19 @@ describe('FormBMappingService.list', () => {
     });
   });
 
+  // A cross-family mapping must render clear-only with its reason, not as a
+  // healthy editable row — the list is the repair surface for exactly this.
+  it('reports an Income account holding an expense mapping as ineligible', async () => {
+    const stranded = row({
+      id: 's1', code: '4300', name: 'Stranded', type: 'Income',
+      formBExpenseCategory: FormBExpenseCategory.RENT_LEASE,
+    });
+    const { service } = build([...CHART, stranded]);
+    const found = (await service.list()).find((r: any) => r.accountId === 's1')!;
+    expect(found.category).toBe('RENT_LEASE');
+    expect(found.eligibility).toEqual({ eligible: false, reason: 'NOT_EXPENSE_TYPE' });
+  });
+
   it('omits an UNMAPPED ineligible account', async () => {
     const plain = row({ id: 'p1', code: '5200', name: 'COGS child', parentId: COGS });
     const { service } = build([...CHART, plain]);

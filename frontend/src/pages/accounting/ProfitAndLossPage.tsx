@@ -11,6 +11,7 @@ import { useFilterBar } from '@/hooks/useFilterBar'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 import { useGetProfitAndLossQuery, useGetFormBQuery } from '@/store/api/accountingApi'
 import { AccountingReportPrintLayout } from '@/components/print/AccountingReportPrintLayout'
+import { periodLabel } from './formBRows'
 import type { ProfitAndLossResponse } from '@/types'
 import ProfitAndLossAccountingView from './ProfitAndLossAccountingView'
 import FormBTaxView from './FormBTaxView'
@@ -154,8 +155,24 @@ export default function ProfitAndLossPage() {
     if (active.isError) setIsYearOptionsError(true)
   }, [active.isError])
 
+  /*
+   * The print layout lives HERE, once, for both views. It must not also be
+   * rendered by a view body: two nested instances emit two headers and two
+   * period lines onto the printed page, including two different titles.
+   *
+   * Title and period are therefore derived from the active view. The tax
+   * view's period must carry the form-version mismatch (spec §2.1), so a
+   * hardcoded `Year ${year}` would put a confident wrong year on the filed
+   * sheet.
+   */
+  const printTitle = view === 'tax' ? 'PROFIT & LOSS — FORM B TAX VIEW' : 'PROFIT & LOSS'
+  const printPeriod =
+    view === 'tax' && taxQuery.currentData
+      ? periodLabel(taxQuery.currentData.year, taxQuery.currentData.formVersion)
+      : `Year ${year}`
+
   return (
-    <AccountingReportPrintLayout title="PROFIT & LOSS" period={`Year ${year}`}>
+    <AccountingReportPrintLayout title={printTitle} period={printPeriod}>
       <SimpleListPage
         title="Profit & Loss"
         subtitle="Annual profit or loss."

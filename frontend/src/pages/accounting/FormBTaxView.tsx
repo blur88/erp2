@@ -5,11 +5,10 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 
 import EntityTable, { type RowPresentationProps } from '@/components/common/EntityTable'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
-import { AccountingReportPrintLayout } from '@/components/print/AccountingReportPrintLayout'
 import type { FormBResponse } from '@/types'
 import type { Theme } from '@mui/material'
 import type { SystemStyleObject } from '@mui/system'
-import { buildFormBTableRows, formatFormBAmount, periodLabel, type FormBTableRow } from './formBRows'
+import { buildFormBTableRows, formatFormBAmount, type FormBTableRow } from './formBRows'
 
 interface FormBTaxViewProps {
   data: FormBResponse | undefined
@@ -40,19 +39,18 @@ const formBRowSx = (row: FormBTableRow): SystemStyleObject<Theme> => {
   return {} as SystemStyleObject<Theme>
 }
 
+/**
+ * Loading / error gate. Holds NO hooks, so the loading -> loaded transition
+ * cannot change a hook count.
+ *
+ * The body is a separate component taking non-null `data`. Putting the early
+ * returns above the body's useMemo/useCallback calls in ONE component is the
+ * hook-order trap: React counts hooks per render, so the first render with data
+ * would run three more than the loading render and throw "Rendered more hooks
+ * than during the previous render". A test that mocks a settled query never
+ * sees it, because it never renders the loading state at all.
+ */
 export default function FormBTaxView({ data, year, isLoading, isError, onOpenLedger }: FormBTaxViewProps) {
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
-
-  const toggle = (line: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(line)) next.delete(line)
-      else next.add(line)
-      return next
-    })
-  }
-
-  // Loading / error gates — mirror ProfitAndLossAccountingView's three-way gate.
   if (!data) {
     if (isLoading) {
       return (
@@ -71,6 +69,29 @@ export default function FormBTaxView({ data, year, isLoading, isError, onOpenLed
       )
     }
     return <Box data-testid="pl-tax-view" />
+  }
+
+  return (
+    <FormBTaxViewBody data={data} year={year} onOpenLedger={onOpenLedger} />
+  )
+}
+
+interface FormBTaxViewBodyProps {
+  data: FormBResponse
+  year: number
+  onOpenLedger: (accountId: string, year: number) => void
+}
+
+function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
+
+  const toggle = (line: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(line)) next.delete(line)
+      else next.add(line)
+      return next
+    })
   }
 
   const rows = useMemo<FormBTableRow[]>(() => buildFormBTableRows(data, expanded), [data, expanded])
@@ -159,8 +180,14 @@ export default function FormBTaxView({ data, year, isLoading, isError, onOpenLed
   }
 
   return (
+    /*
+     * NO AccountingReportPrintLayout here. The shell (ProfitAndLossPage) owns
+     * exactly one instance for both views and derives its title and period from
+     * the active view; nesting a second one printed duplicate headers and two
+     * conflicting titles on the same sheet.
+     */
     <Box data-testid="pl-tax-view" sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
-      <AccountingReportPrintLayout title="PROFIT & LOSS — FORM B TAX VIEW" period={periodLabel(data.year, data.formVersion)}>
+      <>
         {/* Readiness summary */}
         <Box data-testid="formb-readiness" sx={{ mb: 2 }}>
           <Alert severity={totalIssues > 0 ? 'warning' : 'success'}>
@@ -291,7 +318,7 @@ export default function FormBTaxView({ data, year, isLoading, isError, onOpenLed
             </Typography>
           </Box>
         </Box>
-      </AccountingReportPrintLayout>
+      </>
     </Box>
   )
 }

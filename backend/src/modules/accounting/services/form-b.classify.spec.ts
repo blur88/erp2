@@ -112,6 +112,38 @@ describe('classifyFormB', () => {
     expect(r.ineligible).toEqual([]);
   });
 
+  /*
+   * A cross-family mapping is corrupted state that validation cannot reach (a
+   * type change after mapping, or direct SQL). It must be EXCLUDED and
+   * reported, never silently swept into the fallback line — a misfiled amount
+   * with no finding is the worst outcome available.
+   */
+  it('excludes an Income account holding an expense mapping, with a reason', () => {
+    const stranded = account({
+      id: 's1', code: '4300', name: 'Stranded', type: 'Income',
+      formBExpenseCategory: FormBExpenseCategory.RENT_LEASE,
+    });
+    const r = run([stranded], [move('s1', 3000n)]);
+    expect(r.byLine.get('N13') ?? []).toEqual([]);
+    expect(r.fallbackIncome).toEqual([]);
+    expect(r.ineligible).toEqual([
+      // Adjudicated as the family the MAPPING belongs to (expense), so the
+      // reason states the account is not an Expense account.
+      { accountId: 's1', code: '4300', name: 'Stranded', reason: 'NOT_EXPENSE_TYPE' },
+    ]);
+  });
+
+  it('excludes an Expense account holding an income mapping, with a reason', () => {
+    const stranded = account({
+      id: 's2', code: '6300', name: 'Stranded', type: 'Expense',
+      formBIncomeCategory: FormBIncomeCategory.DIVIDENDS,
+    });
+    const r = run([stranded], [move('s2', 3000n)]);
+    expect(r.byLine.get('N24') ?? []).toEqual([]);
+    expect(r.fallbackExpense).toEqual([]);
+    expect(r.ineligible[0].reason).toBe('NOT_INCOME_TYPE');
+  });
+
   it('never routes a COGS or Sales Revenue descendant into a mapped line', () => {
     const cogsChild = account({ id: 'c1', code: '5100', name: 'COGS child', parentId: COGS });
     const revChild = account({ id: 'r1', code: '4100', name: 'Sales', type: 'Income', parentId: REV });

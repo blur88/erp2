@@ -494,6 +494,35 @@ describe('ProfitAndLossPage', () => {
   })
 })
 
+describe('ProfitAndLossPage — print layout', () => {
+  /*
+   * Exactly ONE AccountingReportPrintLayout for both views: a second nested
+   * instance printed two headers and two conflicting titles on one sheet.
+   * Title and period are derived from the active view, so the tax view's
+   * form-version mismatch reaches the printed page (spec §2.1).
+   */
+  // Keyed off .acct-print-header, the layout's existing print hook, rather
+  // than adding a testid to a component shared with every other report.
+  const headers = () => document.querySelectorAll('.acct-print-header')
+
+  it('renders exactly one print header with the accounting title by default', () => {
+    renderPage('?year=2025')
+    expect(headers()).toHaveLength(1)
+    expect(screen.getByText('PROFIT & LOSS')).toBeInTheDocument()
+  })
+
+  it('renders exactly one print header in the tax view', () => {
+    renderPage('?year=2025&view=tax')
+    expect(headers()).toHaveLength(1)
+    expect(screen.getByText('PROFIT & LOSS — FORM B TAX VIEW')).toBeInTheDocument()
+  })
+
+  it('derives the print period, including the form-version mismatch', () => {
+    renderPage('?year=2024&view=tax')
+    expect(screen.getByText(/presented using Form B YA 2025/i)).toBeInTheDocument()
+  })
+})
+
 describe('ProfitAndLossPage — view switching', () => {
   it('defaults to the Accounting View when no view param is present', () => {
     renderPage('?year=2025')

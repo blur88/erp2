@@ -75,13 +75,24 @@ export class FormBMappingService {
     const rows: FormBMappingRow[] = [];
 
     for (const account of ctx.accounts as any[]) {
-      const family = this.familyOf(account.type);
       const mapped = this.mappedOf(account);
 
-      // A non-P&L account can still carry a stale mapping; surface it so it can
-      // be cleared, with a reason its family check will supply.
-      const effectiveFamily: CategoryFamily = family
-        ?? (account.formBExpenseCategory ? 'expense' : 'income');
+      /*
+       * Eligibility is judged against the family the STORED mapping belongs to,
+       * falling back to the account's type only when unmapped.
+       *
+       * Deriving it from the type would judge a corrupted row healthy: an
+       * Income account still holding a formBExpenseCategory would be checked as
+       * 'income', pass, and render with an editable category select — hiding
+       * the very defect this list exists to expose. Following the mapping makes
+       * it fail as NOT_INCOME_TYPE, so the row renders clear-only with a reason.
+       *
+       * Matches form-b.classify.ts, which adjudicates the same way.
+       */
+      const effectiveFamily: CategoryFamily =
+        account.formBExpenseCategory ? 'expense'
+        : account.formBIncomeCategory ? 'income'
+        : (this.familyOf(account.type) ?? 'expense');
 
       const eligibility = checkEligibility({
         account: {
