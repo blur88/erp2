@@ -69,18 +69,20 @@ describe('periodLabel', () => {
 
 describe('buildFormBTableRows', () => {
   it('emits every statutory line, zero rows included', () => {
-    const built = buildFormBTableRows(data([row({ line: 'N15', amount: '0.0000' })]), new Set())
+    const built = buildFormBTableRows(data([row({ line: 'N15', amount: '0.0000' })]))
     expect(built.map((r) => r.line)).toEqual(['N15'])
   })
 
-  it('still emits cohort rows for a collapsed line but marks them hidden on screen so they print unconditionally', () => {
+  // Cohorts are PRINT-ONLY now: the screen lists the statutory lines alone,
+  // while the printed sheet keeps the audit trail from figure to ledger.
+  it('emits cohort rows hidden on screen so they print but do not clutter the page', () => {
     const d = data([row({
       line: 'N24', accounts: [{ accountId: 'a1', code: '6990', name: 'Sundry',
         isActive: true, category: null, assignment: 'fallback', amount: '5.0000' }],
       cohorts: { explicit: [], fallback: [{ accountId: 'a1', code: '6990', name: 'Sundry',
         isActive: true, category: null, assignment: 'fallback', amount: '5.0000' }] },
     })])
-    const built = buildFormBTableRows(d, new Set())
+    const built = buildFormBTableRows(d)
     const cohorts = built.filter((r) => r.kind === 'cohort')
     expect(cohorts.map((r) => r.accountId)).toEqual(['a1'])
     expect(cohorts.every((r) => r.hiddenOnScreen === true)).toBe(true)
@@ -88,13 +90,15 @@ describe('buildFormBTableRows', () => {
     expect(cohorts.every((r) => r.printClass === 'acct-print-formb-cohort')).toBe(true)
   })
 
-  it('emits cohort rows for an expanded line', () => {
+  // No drill-down affordance anywhere: the arrow is gone from every line.
+  it('marks no line as expandable', () => {
     const contributor = { accountId: 'a1', code: '6990', name: 'Sundry',
       isActive: true, category: null, assignment: 'fallback' as const, amount: '5.0000' }
     const d = data([row({ line: 'N24', accounts: [contributor],
       cohorts: { explicit: [], fallback: [contributor] } })])
-    const built = buildFormBTableRows(d, new Set(['N24']))
-    expect(built.filter((r) => r.kind === 'cohort').map((r) => r.accountId)).toEqual(['a1'])
+    const built = buildFormBTableRows(d)
+    expect(built.some((r) => r.expandable)).toBe(false)
+    expect(built.some((r) => r.expanded)).toBe(false)
   })
 
   // Cohorts are the classification AUDIT TRAIL, so they print regardless of
@@ -114,7 +118,7 @@ describe('buildFormBTableRows', () => {
     const only = ref({ accountId: 'e1', assignment: 'explicit', category: 'OTHER_EXPENSES' })
     const d = data([row({ line: 'N24', accounts: [only],
       cohorts: { explicit: [only], fallback: [] } })])
-    const built = buildFormBTableRows(d, new Set(['N24']))
+    const built = buildFormBTableRows(d)
     expect(built.filter((r) => r.kind === 'cohortHeading')).toEqual([])
     expect(built.filter((r) => r.kind === 'cohort')).toHaveLength(1)
   })
@@ -124,7 +128,7 @@ describe('buildFormBTableRows', () => {
     const fallback = ref({ accountId: 'f1', code: '6991' })
     const d = data([row({ line: 'N24', accounts: [explicit, fallback],
       cohorts: { explicit: [explicit], fallback: [fallback] } })])
-    const built = buildFormBTableRows(d, new Set(['N24']))
+    const built = buildFormBTableRows(d)
     expect(built.filter((r) => r.kind === 'cohortHeading')).toHaveLength(2)
   })
 
@@ -133,7 +137,7 @@ describe('buildFormBTableRows', () => {
       isActive: true, category: null, assignment: 'fallback' as const, amount: '5.0000' }
     const d = data([row({ line: 'N24', accounts: [contributor],
       cohorts: { explicit: [], fallback: [contributor] } })])
-    const built = buildFormBTableRows(d, new Set(['N24']))
+    const built = buildFormBTableRows(d)
     const cohort = built.find((r) => r.kind === 'cohort')!
     expect(cohort.printClass).toBe('acct-print-formb-cohort')
     expect(cohort.printClass).not.toBe('acct-print-detail-row')

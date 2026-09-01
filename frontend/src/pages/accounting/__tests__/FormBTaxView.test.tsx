@@ -330,13 +330,15 @@ describe('FormBTaxView', () => {
     expect(screen.getByTestId('formb-readiness').textContent).not.toMatch(/correct/i)
   })
 
-  // Identity now has one source (Company Settings), so there is no fallback
-  // label to render; an unset value reads as "Not set in Company Settings".
-  it('names Company Settings when an identity field is unset', () => {
+  // The Business Identity section was removed from the report. The payload
+  // still carries identity (the backend contract is unchanged); it simply is
+  // not rendered on the page.
+  it('renders no business identity section', () => {
     renderTaxView(responseWithIdentity({
       registrationNumber: { value: null, source: null },
     }))
-    expect(screen.getByText(/Not set in Company Settings/i)).toBeInTheDocument()
+    expect(screen.queryByTestId('formb-identity')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Business Identity/i)).not.toBeInTheDocument()
   })
 
   /*
@@ -401,17 +403,27 @@ describe('FormBTaxView', () => {
     expect(panel).toHaveTextContent('—')
   })
 
-  it('drills a cohort account through to the general ledger', async () => {
-    const user = userEvent.setup()
-    const onOpenLedger = vi.fn()
-    renderTaxView(responseWithCohort(), { onOpenLedger })
-    await user.click(screen.getByTestId('formb-line-N24'))
-    await user.click(screen.getByTestId('formb-cohort-N24-0'))
-    expect(onOpenLedger).toHaveBeenCalledWith('a1', 2025)
+  /*
+   * The row drill-down was removed: the tax view lists the statutory lines
+   * alone. Cohort rows are still emitted for PRINT, so the filed sheet keeps
+   * the audit trail from each figure to its ledger accounts.
+   *
+   * Deliberately NOT asserting a click on a cohort row: jsdom applies no CSS,
+   * so such a row is present and clickable in the test DOM while being
+   * invisible in a browser. A passing click test would describe a path no user
+   * can take.
+   */
+  it('renders no expand control on any line', () => {
+    renderTaxView(responseWithCohort())
+    expect(screen.getByTestId('formb-line-N24').querySelector('.acct-print-control'))
+      .not.toBeInTheDocument()
+    expect(screen.queryByTestId('formb-expand-N24')).not.toBeInTheDocument()
   })
 
-  it('gives expansion controls the print-control class so they do not print', () => {
+  it('still emits cohort rows, marked for print only', () => {
     renderTaxView(responseWithCohort())
-    expect(screen.getByTestId('formb-line-N24').querySelector('.acct-print-control')).toBeInTheDocument()
+    const cohort = screen.getByTestId('formb-cohort-N24-0')
+    expect(cohort).toHaveClass('acct-print-formb-cohort')
+    expect(cohort).toHaveClass('acct-screen-hidden')
   })
 })

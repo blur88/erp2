@@ -540,12 +540,20 @@ describe('ProfitAndLossPage — view switching', () => {
     expect(screen.getByTestId('pl-accounting-view')).toBeInTheDocument()
   })
 
-  it('preserves the year when switching views', async () => {
-    const user = userEvent.setup()
-    renderPage('?year=2024')
-    await user.click(screen.getByRole('button', { name: /tax filing view/i }))
+  // The in-page view buttons were removed — the filter bar's View dropdown is
+  // the single control. The behaviour they guarded (year and view are
+  // independent in the URL) still matters, so it is asserted directly.
+  it('keeps year and view independent in the URL', () => {
+    renderPage('?year=2024&view=tax')
     expect(window.location.search).toContain('year=2024')
     expect(window.location.search).toContain('view=tax')
+    expect(screen.getByTestId('pl-tax-view')).toBeInTheDocument()
+  })
+
+  it('renders no duplicate in-page view buttons', () => {
+    renderPage('?year=2025')
+    expect(screen.queryByRole('button', { name: /^tax filing view$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^accounting view$/i })).not.toBeInTheDocument()
   })
 
   it('preserves the view when switching years', async () => {

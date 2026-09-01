@@ -1,10 +1,7 @@
 import '@/components/print/accountingReportPrint.css'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  Box,
-  Button,
-} from '@mui/material'
+import { Box } from '@mui/material'
 
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { useFilterBar } from '@/hooks/useFilterBar'
@@ -186,20 +183,6 @@ export default function ProfitAndLossPage() {
         error={active.isError ? 'Unable to load Profit & Loss. Please try again.' : null}
         tableSlot={
           <>
-            <Box data-print-hide sx={{ display: 'flex', gap: 1, mb: 2 }}>
-              <Button
-                variant={view === 'accounting' ? 'contained' : 'outlined'}
-                onClick={() => handlers.onQuickFilterChange('view', 'accounting')}
-              >
-                Accounting View
-              </Button>
-              <Button
-                variant={view === 'tax' ? 'contained' : 'outlined'}
-                onClick={() => handlers.onQuickFilterChange('view', 'tax')}
-              >
-                Tax Filing View
-              </Button>
-            </Box>
             {view === 'accounting' ? (
               <ProfitAndLossAccountingView
                 data={accountingQuery.currentData as ProfitAndLossResponse | undefined}

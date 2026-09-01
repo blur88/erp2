@@ -83,35 +83,22 @@ interface FormBTaxViewBodyProps {
 }
 
 function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   const [reconciliationOpen, setReconciliationOpen] = useState(false)
 
-  const toggle = (line: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(line)) next.delete(line)
-      else next.add(line)
-      return next
-    })
-  }
-
-  const rows = useMemo<FormBTableRow[]>(() => buildFormBTableRows(data, expanded), [data, expanded])
+  const rows = useMemo<FormBTableRow[]>(() => buildFormBTableRows(data), [data])
 
   const getRowProps = useCallback(
     (row: FormBTableRow): RowPresentationProps => {
-      // Cohorts print unconditionally but are hidden on screen when collapsed.
-      // Prefer the row's own hiddenOnScreen flag (set by buildFormBTableRows),
-      // fall back to checking expanded directly so a stale row still hides.
-      const isHidden =
-        row.hiddenOnScreen ??
-        ((row.kind === 'cohort' || row.kind === 'cohortHeading') && !expanded.has(row.line))
+      // Cohorts are print-only: always hidden on screen, revealed by the print
+      // stylesheet via .acct-print-formb-cohort.
+      const isHidden = row.hiddenOnScreen ?? false
       const classes = [row.printClass, isHidden ? 'acct-screen-hidden' : null].filter(Boolean).join(' ')
       return {
         'data-testid': row.testId,
         ...(classes ? { className: classes } : {}),
       }
     },
-    [expanded],
+    [],
   )
 
   const columns = useMemo(
@@ -126,19 +113,6 @@ function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
         raw: true,
         render: (row: FormBTableRow) => (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: row.depth * 3, minWidth: 0, flexWrap: 'nowrap' }}>
-            {row.expandable && (
-              <IconButton
-                size="small"
-                className="acct-print-control"
-                data-testid={`formb-expand-${row.line}`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  toggle(row.line)
-                }}
-              >
-                {row.expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-              </IconButton>
-            )}
             <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
               <Typography variant="body2" sx={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
                 {row.label}
@@ -161,7 +135,7 @@ function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
         ),
       },
     ],
-    [expanded],
+    [],
   )
 
   /*
@@ -250,27 +224,6 @@ function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
         )}
 
 
-        {/* Business identity block */}
-        <Box data-testid="formb-identity" sx={{ mb: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-            Business Identity
-          </Typography>
-          {(
-            [
-              ['Business Name', data.identity.businessName],
-              ['Registration Number', data.identity.registrationNumber],
-            ] as const
-          ).map(([label, field]) => (
-            <Box key={label} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Typography variant="body2" sx={{ minWidth: 160, fontWeight: 500 }}>
-                {label}:
-              </Typography>
-              <Typography variant="body2">
-                {field.value ?? 'Not set in Company Settings'}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
 
         {/* Findings */}
         {data.findings.length > 0 && (
@@ -316,8 +269,7 @@ function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
             getRowSx={formBRowSx}
             getRowProps={getRowProps}
             onSelect={(row) => {
-              if (row.kind === 'line' && row.expandable) toggle(row.line)
-              else if (row.accountId) onOpenLedger(row.accountId, data.year)
+              if (row.accountId) onOpenLedger(row.accountId, data.year)
             }}
             headers={['Code', 'Description', 'Amount']}
             showHeader={false}

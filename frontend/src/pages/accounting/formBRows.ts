@@ -88,15 +88,11 @@ const cohortRow = (
   ...(hiddenOnScreen ? { hiddenOnScreen: true as const } : {}),
 })
 
-export function buildFormBTableRows(
-  data: FormBResponse,
-  expanded: ReadonlySet<string>,
-): FormBTableRow[] {
+export function buildFormBTableRows(data: FormBResponse): FormBTableRow[] {
   const out: FormBTableRow[] = []
 
   for (const row of data.rows as FormBRow[]) {
     const contributors = row.accounts ?? []
-    const isExpanded = expanded.has(row.line)
 
     out.push({
       id: row.line,
@@ -108,18 +104,25 @@ export function buildFormBTableRows(
       formula: row.formula,
       depth: 0,
       testId: `formb-line-${row.line}`,
-      expandable: contributors.length > 0,
-      expanded: isExpanded,
+      // No drill-down on screen: the tax view lists the statutory lines only.
+      // The contributing accounts are still emitted below for PRINT, where the
+      // filing must justify each figure against the ledger.
+      expandable: false,
+      expanded: false,
     })
 
     if (contributors.length === 0) continue
 
-    // Cohorts print UNCONDITIONALLY — even when the screen affordance is
-    // collapsed, the printed filing must carry the audit trail. So we always
-    // emit cohort rows when contributors exist, but mark them hiddenOnScreen
-    // when collapsed so the screen still appears collapsed. Print CSS overrides
-    // the screen-hide for `.acct-print-formb-cohort`.
-    const hiddenOnScreen = !isExpanded
+    /*
+     * Cohorts are emitted for PRINT only. The screen shows the statutory lines
+     * alone; the printed sheet still carries the audit trail, so a reviewer can
+     * see which ledger accounts produced each figure.
+     *
+     * They are always hiddenOnScreen now — the print stylesheet reveals
+     * `.acct-print-formb-cohort` regardless, the same mechanism as before, so
+     * dropping the on-screen affordance does not change the printout.
+     */
+    const hiddenOnScreen = true
 
     /*
      * N24 / N13 split into labelled subgroups so an explicitly-mapped account
