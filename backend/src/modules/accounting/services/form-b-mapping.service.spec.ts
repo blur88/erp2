@@ -23,7 +23,37 @@ const build = (accounts: any[]) => {
   const settings = {
     get: (jest.fn as unknown as any)().mockResolvedValue({ cogsAccountId: COGS, salesRevenueAccountId: REV }),
   };
-  return { service: new FormBMappingService(repo as any, settings as any), repo };
+  const managerRepo = {
+    update: (jest.fn as unknown as any)().mockResolvedValue({ affected: 1 }),
+  };
+  const manager = {
+    getRepository: (jest.fn as unknown as any)().mockReturnValue(managerRepo),
+  };
+  const dataSource = {
+    transaction: (jest.fn as unknown as any)().mockImplementation(async (cb: any) => cb(manager)),
+  };
+  return {
+    service: new FormBMappingService(repo as any, settings as any, dataSource as any),
+    repo,
+    coaRepo: repo,
+    managerRepo,
+    manager,
+    dataSource,
+    settings,
+  };
+};
+
+const makeService = (accounts?: any[]) => {
+  if (accounts) return build(accounts);
+  // default chart for bulk tests — covers a1 eligible, b1 ineligible descendant, f1 flipped for clear
+  const defaultAccounts = [
+    row({ id: COGS, code: '5000', name: 'Cost of Sales', isPostable: false }),
+    row({ id: REV, code: '4000', name: 'Income', type: 'Income', isPostable: false }),
+    row({ id: 'a1', code: '6100', name: 'Salaries', type: 'Expense', isPostable: true, parentId: null }),
+    row({ id: 'b1', code: '5150', name: 'Bad Map', type: 'Expense', isPostable: true, parentId: COGS }),
+    row({ id: 'f1', code: '6200', name: 'Flipped', type: 'Income', isPostable: true, parentId: null, formBExpenseCategory: FormBExpenseCategory.RENT_LEASE }),
+  ];
+  return build(defaultAccounts);
 };
 
 const CHART = [
@@ -150,5 +180,64 @@ describe('FormBMappingService.setCategory', () => {
   it('rejects an unknown account', async () => {
     const { service } = build([...CHART]);
     await expect(service.setCategory('ghost', null)).rejects.toThrow(BadRequestException);
+  });
+});
+
+describe('FormBMappingService.setCategories', () => {
+  it('builds the context once for a multi-item call', async () => {
+    const { service, coaRepo } = makeService();
+    coaRepo.find.mockClear();
+
+    await service.setCategories([
+      { accountId: 'a1', category: 'SALARIES_AND_WAGES' },
+      { accountId: 'f1', category: null },
+    ]);
+
+    // One full chart-of-accounts read for validation, plus the one list() does
+    // to build the response — never one per item.
+    expect(coaRepo.find).toHaveBeenCalledTimes(2);
+  });
+
+  it('validates every item before writing any', async () => {
+    const { service, managerRepo } = makeService();
+
+    await expect(service.setCategories([
+      { accountId: 'a1', category: 'SALARIES_AND_WAGES' }, // valid
+      { accountId: 'b1', category: 'RENT_LEASE' },         // ineligible
+    ])).rejects.toThrow(BadRequestException);
+
+    // The valid item must not have been written: validation precedes the
+    // write phase entirely.
+    expect(managerRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('names the account code when the account exists', async () => {
+    const { service } = makeService();
+    await expect(service.setCategories([{ accountId: 'b1', category: 'RENT_LEASE' }]))
+      .rejects.toThrow(/Account 5150/);
+  });
+
+  it('names the submitted id when the account does not exist', async () => {
+    const { service } = makeService();
+    await expect(service.setCategories([{ accountId: 'ghost', category: null }]))
+      .rejects.toThrow(/Account ghost not found/);
+  });
+
+  it('writes through the transaction manager, not the injected repository', async () => {
+    const { service, coaRepo, managerRepo } = makeService();
+
+    await service.setCategories([{ accountId: 'a1', category: 'SALARIES_AND_WAGES' }]);
+
+    expect(managerRepo.update).toHaveBeenCalledTimes(1);
+    // The injected repo runs on the default connection; a write through it
+    // would not participate in the transaction and could not roll back.
+    expect(coaRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('returns the refreshed list rather than an echo of the request', async () => {
+    const { service } = makeService();
+    const result = await service.setCategories([{ accountId: 'a1', category: 'SALARIES_AND_WAGES' }]);
+    expect(Array.isArray(result)).toBe(true);
+    expect(result[0]).toHaveProperty('eligibility');
   });
 });

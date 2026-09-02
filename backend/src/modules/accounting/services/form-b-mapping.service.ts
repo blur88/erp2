@@ -1,7 +1,7 @@
 // backend/src/modules/accounting/services/form-b-mapping.service.ts
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
 import { AccountingSettingsService } from './accounting-settings.service';
 import { FormBExpenseCategory, FormBIncomeCategory } from '../entities/form-b-category.enum';
@@ -29,6 +29,7 @@ export class FormBMappingService {
   constructor(
     @InjectRepository(ChartOfAccount) private readonly coaRepo: Repository<ChartOfAccount>,
     private readonly settings: AccountingSettingsService,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   private async context() {
@@ -190,5 +191,30 @@ export class FormBMappingService {
     const ctx = await this.context();
     const { patch } = this.resolveUpdate(ctx, { accountId, category });
     await this.coaRepo.update(accountId, patch as any);
+  }
+
+  /**
+   * Apply many mapping edits atomically.
+   *
+   * Two phases, deliberately separate. Every item is validated against ONE
+   * context snapshot first, so an invalid item aborts before the write phase
+   * opens a transaction at all. The writes then run inside a single
+   * transaction, through the transaction's own manager — the injected coaRepo
+   * runs on the default connection and its writes would not roll back with it.
+   */
+  async setCategories(
+    items: { accountId: string; category: string | null }[],
+  ): Promise<FormBMappingRow[]> {
+    const ctx = await this.context();
+    const resolved = items.map((item) => this.resolveUpdate(ctx, item));
+
+    await this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(ChartOfAccount);
+      for (const { accountId, patch } of resolved) {
+        await repo.update(accountId, patch as any);
+      }
+    });
+
+    return this.list();
   }
 }
