@@ -247,13 +247,14 @@ describe('AccountingSettingsPage', () => {
     })
   })
 
-  it('renders 5 section cards', () => {
+  it('renders 6 section cards', () => {
     renderPage()
     expect(screen.getByText('Payment')).toBeInTheDocument()
     expect(screen.getByText('Sales')).toBeInTheDocument()
     expect(screen.getByText('Inventory & Purchasing')).toBeInTheDocument()
     // "System" was a leftover bucket (3 Equity + 1 Expense) named after no
     // concept its fields shared. Split by actual consumer (#1177).
+    expect(screen.getByText('Expenses')).toBeInTheDocument()
     expect(screen.getByText('Owner Equity')).toBeInTheDocument()
     expect(screen.getByText('Setup')).toBeInTheDocument()
     expect(screen.queryByText('System')).not.toBeInTheDocument()
@@ -266,10 +267,22 @@ describe('AccountingSettingsPage', () => {
     const labelOf = (name: string) =>
       screen.getByText(name).closest('.MuiPaper-root') as HTMLElement
 
-    // Default Expense posts the stock-adjustment expense leg, so it belongs
-    // with Inventory rather than in a catch-all.
-    expect(within(labelOf('Inventory & Purchasing')).getByLabelText(/Default Expense Account/i))
+    // Both Expense-type accounts live together: the COGS/Default split is what
+    // the Form B mapping exclusion turns on.
+    expect(within(labelOf('Expenses')).getByLabelText(/COGS Account/i))
       .toBeInTheDocument()
+    expect(within(labelOf('Expenses')).getByLabelText(/Default Expense Account/i))
+      .toBeInTheDocument()
+    /*
+     * ...and Inventory keeps only its asset accounts. Both Expense fields are
+     * named explicitly: a /Expense/i regex looks like it covers this but is
+     * vacuous, because the COGS field's label is "COGS Account" and contains no
+     * such word — it passes with COGS still sitting in Inventory.
+     */
+    expect(within(labelOf('Inventory & Purchasing')).queryByLabelText(/COGS Account/i))
+      .not.toBeInTheDocument()
+    expect(within(labelOf('Inventory & Purchasing')).queryByLabelText(/Default Expense Account/i))
+      .not.toBeInTheDocument()
     expect(within(labelOf('Owner Equity')).getByLabelText(/Owner Capital Account/i))
       .toBeInTheDocument()
     expect(within(labelOf('Owner Equity')).getByLabelText(/Owner Drawings Account/i))
@@ -563,7 +576,7 @@ describe('AccountingSettingsPage — page structure (#1177)', () => {
     const formB = screen.getByText('Form B Tax Filing')
     // Document order: the posting sections sit between the two headings.
     expect(heading.compareDocumentPosition(formB) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    ;['Payment', 'Sales', 'Inventory & Purchasing', 'Owner Equity', 'Setup'].forEach((label) => {
+    ;['Payment', 'Sales', 'Inventory & Purchasing', 'Expenses', 'Owner Equity', 'Setup'].forEach((label) => {
       const section = screen.getByText(label)
       expect(heading.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(formB.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()

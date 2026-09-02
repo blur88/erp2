@@ -75,10 +75,23 @@ const SALES_FIELDS: SectionField[] = [
 const INVENTORY_PURCHASING_FIELDS: SectionField[] = [
   { name: 'inventoryAccountId', label: 'Inventory Account', accountType: 'Asset' },
   { name: 'supplierDepositAccountId', label: 'Supplier Deposit Account', accountType: 'Asset' },
+]
+
+/*
+ * The two Expense-type accounts, together.
+ *
+ * They are the pair the Form B section below cares about, and the distinction
+ * between them is what the Form B mapping rules turn on: COGS (and everything
+ * beneath it) is EXCLUDED from expense mapping because it already reaches Form
+ * B through N7, while Default Expense is an ordinary mappable expense. Showing
+ * them side by side is what makes that exclusion legible.
+ *
+ * Consumers: cogsAccountId is read on sales/delivery posting;
+ * defaultExpenseAccountId only by postStockAdjustment(), for the expense leg of
+ * a stock write-off (accounting-posting.service.ts).
+ */
+const EXPENSE_FIELDS: SectionField[] = [
   { name: 'cogsAccountId', label: 'COGS Account', accountType: 'Expense' },
-  // Sits here, not under a catch-all: postStockAdjustment() is its ONLY
-  // consumer — it takes the expense leg of a stock write-off
-  // (accounting-posting.service.ts).
   { name: 'defaultExpenseAccountId', label: 'Default Expense Account', accountType: 'Expense' },
 ]
 
@@ -287,6 +300,16 @@ export default function AccountingSettingsPage() {
               <PageSection label="Inventory & Purchasing">
                 <FieldGrid
                   fields={INVENTORY_PURCHASING_FIELDS}
+                  accounts={accounts}
+                  control={control}
+                  errors={errors}
+                  disabled={!isAdmin}
+                />
+              </PageSection>
+
+              <PageSection label="Expenses">
+                <FieldGrid
+                  fields={EXPENSE_FIELDS}
                   accounts={accounts}
                   control={control}
                   errors={errors}
