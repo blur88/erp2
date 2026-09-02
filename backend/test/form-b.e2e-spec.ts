@@ -3,10 +3,12 @@ import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import request from 'supertest';
+import { jest } from '@jest/globals';
 import { AppModule } from '../src/app.module';
 import { User, UserRole, UserStatus } from '../src/database/entities/user.entity';
 import { ChartOfAccount } from '../src/modules/accounting/entities/chart-of-account.entity';
 import { AccountingSettings } from '../src/modules/accounting/entities/accounting-settings.entity';
+import { FormBMappingService } from '../src/modules/accounting/services/form-b-mapping.service';
 import { configureTestAppValidation } from './utils/configure-test-app-validation';
 
 async function seedAccounting(ds: DataSource) {
@@ -287,5 +289,155 @@ describe('Form B (e2e)', () => {
   it('exposes no Form B settings routes', async () => {
     await request(app.getHttpServer())
       .get('/accounting/form-b-settings').set(authHeader()).expect(404);
+  });
+
+  describe('PUT /accounting/form-b-mappings (bulk)', () => {
+    let ownedA: string;
+    let ownedB: string;
+    let cogsChildId: string;
+
+    const mappingOf = async (id: string) => {
+      const res = await request(app.getHttpServer())
+        .get('/accounting/form-b-mappings')
+        .set(adminHeader());
+      const rows = unwrap(res.body) as any[];
+      return rows.find((r) => r.accountId === id)?.category ?? null;
+    };
+
+    beforeAll(async () => {
+      const coa = ds.getRepository(ChartOfAccount);
+      const parent = await coa.findOneByOrFail({ code: '6000' });
+      const stamp = Date.now();
+
+      const a = await coa.save(coa.create({
+        code: `69${stamp % 100}A`, name: 'Bulk Owned A', type: 'Expense',
+        parentId: parent.id, isSystem: false, isPostable: true,
+      } as any));
+      const b = await coa.save(coa.create({
+        code: `69${stamp % 100}B`, name: 'Bulk Owned B', type: 'Expense',
+        parentId: parent.id, isSystem: false, isPostable: true,
+      } as any));
+      ownedA = (a as any).id;
+      ownedB = (b as any).id;
+
+      // A descendant of the COGS root is write-INELIGIBLE: it already reaches
+      // Form B through N7. This is the invalid item the failure tests use.
+      const cogsRoot = await coa.findOneByOrFail({ code: '5100' });
+      const child = await coa.save(coa.create({
+        code: `51${stamp % 100}C`, name: 'Bulk COGS Child', type: 'Expense',
+        parentId: (cogsRoot as any).id, isSystem: false, isPostable: true,
+      } as any));
+      cogsChildId = (child as any).id;
+    });
+
+    it('saves several mappings in one request', async () => {
+      const res = await request(app.getHttpServer())
+        .put('/accounting/form-b-mappings')
+        .set(adminHeader())
+        .send({ mappings: [
+          { accountId: ownedA, category: 'SALARIES_AND_WAGES' },
+          { accountId: ownedB, category: 'RENT_LEASE' },
+        ] });
+
+      expect(res.status).toBe(200);
+      // The response is the refreshed list, not an echo of the request.
+      const rows = unwrap(res.body) as any[];
+      expect(rows.find((r) => r.accountId === ownedA)?.category).toBe('SALARIES_AND_WAGES');
+      expect(await mappingOf(ownedB)).toBe('RENT_LEASE');
+    });
+
+    it('validates every item before writing any', async () => {
+      // ownedA currently holds SALARIES_AND_WAGES from the test above.
+      const res = await request(app.getHttpServer())
+        .put('/accounting/form-b-mappings')
+        .set(adminHeader())
+        .send({ mappings: [
+          { accountId: ownedA, category: 'COMMISSION' },     // valid
+          { accountId: cogsChildId, category: 'RENT_LEASE' }, // ineligible
+        ] });
+
+      expect(res.status).toBe(400);
+      // Prevalidation: the write phase never opened, so the valid item is
+      // untouched. This proves nothing about rollback — see the next test.
+      expect(await mappingOf(ownedA)).toBe('SALARIES_AND_WAGES');
+    });
+
+    it('rolls back an earlier write when a later write throws', async () => {
+      const service = app.get(FormBMappingService);
+      const dataSource = app.get(DataSource);
+      const realTransaction = dataSource.transaction.bind(dataSource);
+
+      /*
+       * Both spies are restored in `finally`. The deliberate-mutation check in
+       * Step 2 makes this test FAIL, and a failure that exits before
+       * mockRestore() would leave dataSource.transaction patched for every
+       * later test in the suite.
+       */
+      let repoSpy: jest.SpyInstance | undefined;
+      const spy = jest
+        .spyOn(dataSource, 'transaction')
+        .mockImplementation(((cb: any) =>
+          realTransaction(async (manager: any) => {
+            const repo = manager.getRepository(ChartOfAccount);
+            let calls = 0;
+            const realUpdate = repo.update.bind(repo);
+            // Fail the SECOND actual update, inside the transaction — a
+            // validation rejection never reaches this phase and could not
+            // test rollback.
+            repoSpy = jest.spyOn(repo, 'update').mockImplementation(async (...args: any[]) => {
+              calls += 1;
+              if (calls === 2) throw new Error('injected write failure');
+              return realUpdate(...args);
+            });
+            return cb(manager);
+          })) as any);
+
+      try {
+        await expect(service.setCategories([
+          { accountId: ownedA, category: 'REPAIRS_MAINTENANCE' },
+          { accountId: ownedB, category: 'COMMISSION' },
+        ])).rejects.toThrow('injected write failure');
+
+        // The first update succeeded inside the transaction and must have been
+        // rolled back. A write issued through the injected coaRepo instead of
+        // manager.getRepository would survive here and fail this assertion.
+        expect(await mappingOf(ownedA)).toBe('SALARIES_AND_WAGES');
+      } finally {
+        repoSpy?.mockRestore();
+        spy.mockRestore();
+      }
+    });
+
+    it('rejects duplicate accountIds', async () => {
+      const res = await request(app.getHttpServer())
+        .put('/accounting/form-b-mappings')
+        .set(adminHeader())
+        .send({ mappings: [
+          { accountId: ownedA, category: 'RENT_LEASE' },
+          { accountId: ownedA, category: null },
+        ] });
+
+      expect(res.status).toBe(400);
+      expect(await mappingOf(ownedA)).toBe('SALARIES_AND_WAGES');
+    });
+
+    it('rejects an empty array', async () => {
+      const res = await request(app.getHttpServer())
+        .put('/accounting/form-b-mappings')
+        .set(adminHeader())
+        .send({ mappings: [] });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('is forbidden for a non-admin', async () => {
+      const res = await request(app.getHttpServer())
+        .put('/accounting/form-b-mappings')
+        .set(nonAdminHeader())
+        .send({ mappings: [{ accountId: ownedA, category: 'RENT_LEASE' }] });
+
+      expect(res.status).toBe(403);
+      expect(await mappingOf(ownedA)).toBe('SALARIES_AND_WAGES');
+    });
   });
 });
