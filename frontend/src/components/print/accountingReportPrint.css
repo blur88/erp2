@@ -118,6 +118,24 @@
   }
 
   /*
+   * EntityTable renders with MUI's `stickyHeader`, which sets
+   * `position: sticky` and an opaque grey background on every head cell. Both
+   * are screen affordances for scrolling inside .entity-table-scroller, and
+   * both are wrong on paper: sticky positioning interacts badly with
+   * `display: table-header-group` above, and the grey ground prints as a band
+   * across a report that is otherwise black-on-white.
+   *
+   * These class names are defined in components/common/EntityTable.tsx; keep
+   * them in step.
+   */
+  .acct-print-table thead th,
+  .acct-print-table .MuiTableCell-head {
+    position: static !important;
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  /*
    * Summary rows only. Expanded account detail is a screen affordance for
    * drill-down; printing whatever the user happened to have expanded would
    * make two printouts of the same period differ.

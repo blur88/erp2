@@ -287,6 +287,15 @@ function EntityTable<T extends { id: string }>({
           <Table
             className={tableClassName}
             size={TABLE_STYLES.size}
+            /*
+              Column headers stay put while the body scrolls inside
+              `.entity-table-scroller`. MUI implements this by switching the
+              table to `border-collapse: separate` and setting
+              `position: sticky; top: 0` on the head cells — which is why the
+              head-cell background below is load-bearing rather than cosmetic:
+              a transparent sticky cell lets the rows scroll through it.
+            */
+            stickyHeader
             sx={{
               '& .MuiTableCell-root': {
                 borderBottom: TABLE_STYLES.cell.border,
@@ -296,6 +305,18 @@ function EntityTable<T extends { id: string }>({
               '& .MuiTableHead-root .MuiTableCell-root': {
                 py: 1,
                 borderBottom: TABLE_STYLES.cell.border,
+                /*
+                  The background must sit on the CELL, not the row: only the
+                  cells are sticky, so a `<TableRow>` background scrolls away
+                  and leaves the labels floating over the data. `grey.50` is
+                  remapped to an opaque `grey[800]` in darkTheme, so it is
+                  solid in both themes.
+
+                  zIndex clears MUI's own sticky-cell stacking against
+                  anything a column renderer places in a body row.
+                */
+                backgroundColor: TABLE_STYLES.header.backgroundColor,
+                zIndex: 2,
               },
               ...(!paginationSlot && {
                 '& tr:last-child .MuiTableCell-root': {
@@ -306,7 +327,9 @@ function EntityTable<T extends { id: string }>({
           >
             {headers && (
               <TableHead>
-                <TableRow sx={{ backgroundColor: TABLE_STYLES.header.backgroundColor }}>
+                {/* Background lives on the head cells, not here — see the note
+                    on the Table's `sx`. A row background would scroll away. */}
+                <TableRow>
                   {headers.map((header, i) => (
                     <TableCell
                       key={i}

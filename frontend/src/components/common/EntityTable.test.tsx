@@ -431,3 +431,54 @@ describe('EntityTable column alignment', () => {
     expect(cells[0].className).not.toMatch(/alignRight/)
   })
 })
+
+describe('EntityTable sticky header', () => {
+  function renderWithHeaders() {
+    return render(
+      <EntityTable
+        rows={rows}
+        columns={columns}
+        loading={false}
+        total={rows.length}
+        label="Items"
+        focusedIndex={-1}
+        onSelect={vi.fn()}
+        listRef={{ current: null }}
+        headers={['Name', 'Amount']}
+      />,
+    )
+  }
+
+  /*
+   * jsdom has no layout engine and never resolves Emotion `sx` into computed
+   * style, so neither the sticky offset nor the head-cell background is
+   * observable here. These assertions pin the two structural facts that DO
+   * reach the DOM — MUI's stickyHeader opt-in, and the head cells being the
+   * element that carries it — and a browser pass remains the real gate.
+   */
+  it('opts the table into MUI stickyHeader', () => {
+    const { container } = renderWithHeaders()
+    const table = container.querySelector('table')!
+    expect(table.className).toMatch(/stickyHeader/)
+  })
+
+  it('marks the column header cells as sticky, not the header row', () => {
+    const { container } = renderWithHeaders()
+    const headerCells = container.querySelectorAll('thead th')
+
+    expect(headerCells).toHaveLength(2)
+    headerCells.forEach((cell) => {
+      expect(cell.className).toMatch(/stickyHeader/)
+    })
+    expect(container.querySelector('thead tr')!.className).not.toMatch(/stickyHeader/)
+  })
+
+  it('keeps the header cells inside the scroll container that owns body scrolling', () => {
+    const { container } = renderWithHeaders()
+    const scroller = container.querySelector('.entity-table-scroller')!
+
+    // Sticky positions against the nearest scrolling ancestor; if the head ever
+    // moved outside this element the header would be static again.
+    expect(scroller.querySelector('thead th')).not.toBeNull()
+  })
+})
