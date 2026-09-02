@@ -1,11 +1,12 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { useGetFormBMappingsQuery, useUpdateFormBMappingMutation } from '@/store/api/accountingApi'
+import { useGetFormBMappingsQuery } from '@/store/api/accountingApi'
 import FormBMappingSection from '../FormBMappingSection'
+import { useFormBMappingDraft } from '../useFormBMappingDraft'
 
 const { mockUpdateMapping, mockShowSuccess } = vi.hoisted(() => ({
   mockUpdateMapping: vi.fn(() => ({ unwrap: () => Promise.resolve(undefined) })),
@@ -61,20 +62,48 @@ function renderSection(
     update?: any
   } = {},
 ) {
+  // Provide a draft for backwards compatibility with old tests that don't pass one
+  const Harness = () => {
+    const draft = useFormBMappingDraft()
+    return (
+      <FormBMappingSection
+        isAdmin={opts.isAdmin ?? true}
+        disabled={false}
+        draft={draft}
+        saveError={opts.saveError ?? null}
+      />
+    )
+  }
   vi.mocked(useGetFormBMappingsQuery).mockReturnValue({
     data: overrideRows,
     isLoading: opts.isLoading ?? false,
     isError: opts.isError ?? false,
   } as any)
-  vi.mocked(useUpdateFormBMappingMutation).mockReturnValue([
-    opts.update ?? mockUpdateMapping,
-    { isLoading: false, isError: Boolean(opts.saveError), error: opts.saveError },
-  ] as any)
+  // keep mockUpdateMapping for old tests that assert not called, but component no longer uses it
+  // we still mock it to avoid errors if some test imports it
   return render(
     <MemoryRouter>
-      <FormBMappingSection isAdmin={opts.isAdmin ?? true} />
+      <Harness />
     </MemoryRouter>,
   )
+}
+
+function renderWithDraft(overrideRows: any = rows, opts: any = {}) {
+  const Harness = () => {
+    const draft = useFormBMappingDraft()
+    return (
+      <FormBMappingSection
+        isAdmin={opts.isAdmin ?? true}
+        disabled={opts.disabled ?? false}
+        draft={draft}
+        saveError={opts.saveError ?? null}
+      />
+    )
+  }
+  vi.mocked(useGetFormBMappingsQuery).mockReturnValue({
+    data: overrideRows, isLoading: false, isError: false,
+  } as any)
+  return render(<MemoryRouter><Harness /></MemoryRouter>)
 }
 
 beforeEach(() => {
@@ -95,7 +124,7 @@ describe('FormBMappingSection — failure and permission states', () => {
     renderSection(
       [{ accountId: 'a1', code: '6100', name: 'Salaries', type: 'Expense',
          isActive: true, category: null, eligibility: { eligible: true } }],
-      { saveError: { data: { message: 'Account 6100 cannot be mapped: INACTIVE' } } },
+      { saveError: 'Account 6100 cannot be mapped: INACTIVE' },
     )
     expect(screen.getByTestId('formb-mapping-save-error'))
       .toHaveTextContent('Account 6100 cannot be mapped: INACTIVE')
@@ -165,34 +194,6 @@ describe('FormBMappingSection', () => {
     expect(screen.getByRole('columnheader', { name: /^status$/i })).toBeInTheDocument()
   })
 
-  it('sends an explicit null when clearing', async () => {
-    const user = userEvent.setup()
-    renderSection(rows)
-    await user.click(screen.getByTestId('formb-map-clear-i1'))
-    expect(mockUpdateMapping).toHaveBeenCalledWith({ accountId: 'i1', category: null })
-  })
-
-  it('sends the chosen category when assigning', async () => {
-    const user = userEvent.setup()
-    renderSection(rows)
-    await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
-    await user.click(screen.getByRole('option', { name: /salaries and wages/i }))
-    expect(mockUpdateMapping).toHaveBeenCalledWith({
-      accountId: 'a1',
-      category: 'SALARIES_AND_WAGES',
-    })
-  })
-
-  it('sends null when the Unmapped option is chosen', async () => {
-    const user = userEvent.setup()
-    renderSection([
-      { accountId: 'm1', code: '6300', name: 'Travel', type: 'Expense',
-        isActive: true, category: 'TRAVEL_TRANSPORT', eligibility: { eligible: true } },
-    ] as any)
-    await user.click(within(screen.getByTestId('formb-map-select-m1')).getByRole('combobox'))
-    await user.click(screen.getByRole('option', { name: /^unmapped$/i }))
-    expect(mockUpdateMapping).toHaveBeenCalledWith({ accountId: 'm1', category: null })
-  })
 })
 
 describe('FormBMappingSection — explaining the rules', () => {
@@ -263,98 +264,69 @@ describe('FormBMappingSection — explaining the rules', () => {
   })
 })
 
-describe('FormBMappingSection — save outcomes', () => {
-  it('confirms a successful save', async () => {
+describe('FormBMappingSection — staged drafts', () => {
+  it('does not call any update API when a mapping changes', async () => {
     const user = userEvent.setup()
-    renderSection(rows)
+    renderWithDraft()
+
     await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
-    await user.click(screen.getByRole('option', { name: /salaries and wages/i }))
-    await waitFor(() => expect(mockShowSuccess).toHaveBeenCalled())
-    expect(mockShowSuccess.mock.calls[0][0]).toMatch(/6100/)
+    await user.click(await screen.findByRole('option', { name: /N15 — Loan Interest/i }))
+
+    expect(mockUpdateMapping).not.toHaveBeenCalled()
   })
 
-  /*
-   * The observable contract, not the mechanism: after a rejected write the
-   * control must show the PERSISTED value again. It holds because the component
-   * keeps no optimistic or local selection — the Select renders the cache-backed
-   * value — and not because of anything about invalidation. (A rejected-with-
-   * value mutation does still invalidate and may refetch; that would land on the
-   * same persisted value.)
-   */
-  it('returns the displayed selection to the persisted value when a save is rejected', async () => {
+  it('marks a changed row and shows the pending line beside the persisted one', async () => {
     const user = userEvent.setup()
-    const rejecting = vi.fn(() => ({
-      unwrap: () => Promise.reject({ data: { message: 'nope' } }),
-    }))
-    renderSection(
-      [{ accountId: 'm1', code: '6300', name: 'Travel', type: 'Expense',
-         isActive: true, category: 'TRAVEL_TRANSPORT', eligibility: { eligible: true } }] as any,
-      { update: rejecting },
-    )
+    renderWithDraft()
 
-    const select = screen.getByTestId('formb-map-select-m1')
-    expect(select).toHaveTextContent(/N21 — Travel and Transportation/)
+    await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: /N16 — Salaries/i }))
 
-    await user.click(within(select).getByRole('combobox'))
-    await user.click(screen.getByRole('option', { name: /N20 — Bad Debts/ }))
-
-    await waitFor(() => expect(rejecting).toHaveBeenCalled())
-    // The cache never changed, so the persisted value is what renders.
-    await waitFor(() =>
-      expect(screen.getByTestId('formb-map-select-m1'))
-        .toHaveTextContent(/N21 — Travel and Transportation/),
-    )
-    expect(screen.getByTestId('formb-map-select-m1')).not.toHaveTextContent(/Bad Debts/)
-    expect(mockShowSuccess).not.toHaveBeenCalled()
+    expect(screen.getByTestId('formb-map-changed-a1')).toBeInTheDocument()
+    // The persisted value keeps the primary voice: a1 is unmapped, so it still
+    // reads as the automatic fallback.
+    const line = screen.getByTestId('formb-map-line-a1')
+    expect(line).toHaveTextContent(/Automatic/)
+    expect(screen.getByTestId('formb-map-pending-a1')).toHaveTextContent(/Pending:.*N16/)
   })
-})
 
-describe('FormBMappingSection — concurrent saves', () => {
-  const twoRows = [
-    { accountId: 'r1', code: '6100', name: 'Salaries', type: 'Expense',
-      isActive: true, category: null, eligibility: { eligible: true } },
-    { accountId: 'r2', code: '6200', name: 'Office Rent', type: 'Expense',
-      isActive: true, category: null, eligibility: { eligible: true } },
-  ] as any
-
-  /*
-   * Two rows saving at once. With a single shared `pendingId`, r2's write
-   * overwrites the marker and r2's `finally` then clears it — re-enabling r1
-   * while r1's request is still in flight. The Set keeps them independent.
-   */
-  it('keeps a row disabled while its own save is in flight, even as another completes', async () => {
+  it('renders a staged clear as a pending fallback, not as the persisted mapping', async () => {
     const user = userEvent.setup()
-    const resolvers: Record<string, () => void> = {}
-    const gated = vi.fn(({ accountId }: any) => ({
-      unwrap: () =>
-        new Promise<void>((resolve) => {
-          resolvers[accountId] = () => resolve()
-        }),
-    }))
-    renderSection(twoRows, { update: gated })
+    // i1 is mapped to RENT_LEASE but ineligible, so it offers Clear only.
+    renderWithDraft()
 
-    const combo = (id: string) =>
-      within(screen.getByTestId(`formb-map-select-${id}`)).getByRole('combobox')
+    await user.click(screen.getByTestId('formb-map-clear-i1'))
 
-    await user.click(combo('r1'))
-    await user.click(screen.getByRole('option', { name: /N16 — Salaries and Wages/ }))
-    await waitFor(() => expect(resolvers.r1).toBeDefined())
+    expect(screen.getByTestId('formb-map-changed-i1')).toBeInTheDocument()
+    // The persisted mapping is still shown as the current truth...
+    expect(screen.getByTestId('formb-map-line-i1')).toHaveTextContent(/RENT_LEASE|N17|Rent/i)
+    // ...and the pending clear is described in words, never as "null".
+    const pending = screen.getByTestId('formb-map-pending-i1')
+    expect(pending).toHaveTextContent(/Pending:/)
+    expect(pending).not.toHaveTextContent(/null/)
+  })
 
-    await user.click(combo('r2'))
-    await user.click(screen.getByRole('option', { name: /N17 — Rent \/ Lease/ }))
-    await waitFor(() => expect(resolvers.r2).toBeDefined())
+  it('leaves an untouched row unmarked', async () => {
+    const user = userEvent.setup()
+    renderWithDraft()
 
-    // Both are in flight and disabled. (MUI OMITS aria-disabled when enabled
-    // rather than setting it to "false", so assert presence/absence.)
-    expect(combo('r1')).toHaveAttribute('aria-disabled', 'true')
-    expect(combo('r2')).toHaveAttribute('aria-disabled', 'true')
+    await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: /N16 — Salaries/i }))
 
-    // Finish r2 only. r1's request has NOT returned, so r1 must stay disabled.
-    resolvers.r2()
-    await waitFor(() => expect(combo('r2')).not.toHaveAttribute('aria-disabled'))
-    expect(combo('r1')).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.queryByTestId('formb-map-changed-b1')).not.toBeInTheDocument()
+  })
 
-    resolvers.r1()
-    await waitFor(() => expect(combo('r1')).not.toHaveAttribute('aria-disabled'))
+  it('disables every control while a page save is in flight', () => {
+    renderWithDraft(rows, { disabled: true })
+
+    expect(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox')).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByTestId('formb-map-clear-i1')).toBeDisabled()
+  })
+
+  it('surfaces a save error passed down from the page', () => {
+    renderWithDraft(rows, { saveError: 'Account 5150 cannot be mapped' })
+
+    expect(screen.getByTestId('formb-mapping-save-error'))
+      .toHaveTextContent('Account 5150 cannot be mapped')
   })
 })
