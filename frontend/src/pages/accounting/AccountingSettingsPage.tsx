@@ -189,7 +189,7 @@ export default function AccountingSettingsPage() {
      * leaves a window where an empty overlay sits over stale rows — and a
      * failed refetch would leave it stale indefinitely.
      */
-    dispatch(
+    ;(dispatch as any)(
       accountingApi.util.updateQueryData('getFormBMappings', undefined, () => rows),
     )
     draft.reset()
