@@ -7,15 +7,16 @@ import {
   MenuItem,
   Stack,
   TextField,
+  Typography,
 } from '@mui/material'
 import { Controller, useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 
+import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import PageHeader from '@/components/common/PageHeader'
 import PageSection from '@/components/common/PageSection'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
-import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppSelector } from '@/hooks/useRedux'
 import {
@@ -74,14 +75,43 @@ const SALES_FIELDS: SectionField[] = [
 const INVENTORY_PURCHASING_FIELDS: SectionField[] = [
   { name: 'inventoryAccountId', label: 'Inventory Account', accountType: 'Asset' },
   { name: 'supplierDepositAccountId', label: 'Supplier Deposit Account', accountType: 'Asset' },
-  { name: 'cogsAccountId', label: 'COGS Account', accountType: 'Expense' },
 ]
 
-const SYSTEM_FIELDS: SectionField[] = [
-  { name: 'openingBalanceEquityAccountId', label: 'Opening Balance Equity Account', accountType: 'Equity' },
+/*
+ * The two Expense-type accounts, together.
+ *
+ * They are the pair the Form B section below cares about, and the distinction
+ * between them is what the Form B mapping rules turn on: COGS (and everything
+ * beneath it) is EXCLUDED from expense mapping because it already reaches Form
+ * B through N7, while Default Expense is an ordinary mappable expense. Showing
+ * them side by side is what makes that exclusion legible.
+ *
+ * Consumers: cogsAccountId is read on sales/delivery posting;
+ * defaultExpenseAccountId only by postStockAdjustment(), for the expense leg of
+ * a stock write-off (accounting-posting.service.ts).
+ */
+const EXPENSE_FIELDS: SectionField[] = [
+  { name: 'cogsAccountId', label: 'COGS Account', accountType: 'Expense' },
+  { name: 'defaultExpenseAccountId', label: 'Default Expense Account', accountType: 'Expense' },
+]
+
+// Consumed only by the Owner Equity module's postings — capital injections,
+// cash/stock drawings, and their refunds.
+const OWNER_EQUITY_FIELDS: SectionField[] = [
   { name: 'ownerCapitalAccountId', label: 'Owner Capital Account', accountType: 'Equity' },
   { name: 'ownerDrawingsAccountId', label: 'Owner Drawings Account', accountType: 'Equity' },
-  { name: 'defaultExpenseAccountId', label: 'Default Expense Account', accountType: 'Expense' },
+]
+
+/*
+ * One field on purpose. Opening Balance Equity is used by exactly one posting
+ * path — postOpeningBalance(), when an account's opening balance is set — which
+ * is a distinct, infrequent setup step rather than day-to-day operation.
+ *
+ * The section it replaces was "System": a leftover bucket holding three Equity
+ * accounts and one Expense account, named after no concept any of them shared.
+ */
+const SETUP_FIELDS: SectionField[] = [
+  { name: 'openingBalanceEquityAccountId', label: 'Opening Balance Equity Account', accountType: 'Equity' },
 ]
 
 function toFormValues(settings: AccountingSettings): FormValues {
@@ -219,20 +249,29 @@ export default function AccountingSettingsPage() {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+    <GenericOverviewPage>
       <PageHeader
-        variant="workflow"
         title="Accounting Settings"
-        subtitle="Configure default accounts used by the accounting system."
+        subtitle="Configure the default accounts the system posts to, and map accounts to Form B tax filing lines."
       />
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
       )}
 
-      <Box sx={{ flex: 1, overflow: 'auto', p: TABLE_STYLES.cell.padding.px }}>
+      <Stack spacing={3}>
+        {/*
+          Two named groups. Default Accounts drives automatic posting; Form B
+          mapping drives a statutory report and nothing else. Keeping them
+          visually separate stops a mapping being read as ordinary posting
+          configuration.
+        */}
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          Default Accounts
+        </Typography>
+
         {loading ? (
           <ListSkeleton rows={8} columns={2} />
         ) : error ? null : (
@@ -268,9 +307,29 @@ export default function AccountingSettingsPage() {
                 />
               </PageSection>
 
-              <PageSection label="System">
+              <PageSection label="Expenses">
                 <FieldGrid
-                  fields={SYSTEM_FIELDS}
+                  fields={EXPENSE_FIELDS}
+                  accounts={accounts}
+                  control={control}
+                  errors={errors}
+                  disabled={!isAdmin}
+                />
+              </PageSection>
+
+              <PageSection label="Owner Equity">
+                <FieldGrid
+                  fields={OWNER_EQUITY_FIELDS}
+                  accounts={accounts}
+                  control={control}
+                  errors={errors}
+                  disabled={!isAdmin}
+                />
+              </PageSection>
+
+              <PageSection label="Setup">
+                <FieldGrid
+                  fields={SETUP_FIELDS}
                   accounts={accounts}
                   control={control}
                   errors={errors}
@@ -307,10 +366,12 @@ export default function AccountingSettingsPage() {
           </form>
         )}
 
-        <Stack spacing={3} sx={{ mt: 3 }}>
-          <FormBMappingSection isAdmin={isAdmin} />
-        </Stack>
-      </Box>
-    </Box>
+        <Typography variant="h6" sx={{ fontWeight: 600, pt: 1 }}>
+          Form B Tax Filing
+        </Typography>
+
+        <FormBMappingSection isAdmin={isAdmin} />
+      </Stack>
+    </GenericOverviewPage>
   )
 }

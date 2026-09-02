@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
@@ -247,12 +247,51 @@ describe('AccountingSettingsPage', () => {
     })
   })
 
-  it('renders 4 section cards', () => {
+  it('renders 6 section cards', () => {
     renderPage()
     expect(screen.getByText('Payment')).toBeInTheDocument()
     expect(screen.getByText('Sales')).toBeInTheDocument()
     expect(screen.getByText('Inventory & Purchasing')).toBeInTheDocument()
-    expect(screen.getByText('System')).toBeInTheDocument()
+    // "System" was a leftover bucket (3 Equity + 1 Expense) named after no
+    // concept its fields shared. Split by actual consumer (#1177).
+    expect(screen.getByText('Expenses')).toBeInTheDocument()
+    expect(screen.getByText('Owner Equity')).toBeInTheDocument()
+    expect(screen.getByText('Setup')).toBeInTheDocument()
+    expect(screen.queryByText('System')).not.toBeInTheDocument()
+  })
+
+  // Regrouping must not silently drop a field: all 11 still render and save.
+  it('groups each account field under its consuming workflow', async () => {
+    renderPage()
+    const user = userEvent.setup()
+    const labelOf = (name: string) =>
+      screen.getByText(name).closest('.MuiPaper-root') as HTMLElement
+
+    // Both Expense-type accounts live together: the COGS/Default split is what
+    // the Form B mapping exclusion turns on.
+    expect(within(labelOf('Expenses')).getByLabelText(/COGS Account/i))
+      .toBeInTheDocument()
+    expect(within(labelOf('Expenses')).getByLabelText(/Default Expense Account/i))
+      .toBeInTheDocument()
+    /*
+     * ...and Inventory keeps only its asset accounts. Both Expense fields are
+     * named explicitly: a /Expense/i regex looks like it covers this but is
+     * vacuous, because the COGS field's label is "COGS Account" and contains no
+     * such word — it passes with COGS still sitting in Inventory.
+     */
+    expect(within(labelOf('Inventory & Purchasing')).queryByLabelText(/COGS Account/i))
+      .not.toBeInTheDocument()
+    expect(within(labelOf('Inventory & Purchasing')).queryByLabelText(/Default Expense Account/i))
+      .not.toBeInTheDocument()
+    expect(within(labelOf('Owner Equity')).getByLabelText(/Owner Capital Account/i))
+      .toBeInTheDocument()
+    expect(within(labelOf('Owner Equity')).getByLabelText(/Owner Drawings Account/i))
+      .toBeInTheDocument()
+    expect(within(labelOf('Setup')).getByLabelText(/Opening Balance Equity Account/i))
+      .toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+    await waitFor(() => expect(mockUpdateSettings).toHaveBeenCalled())
+    expect(Object.keys(mockUpdateSettings.mock.calls[0][0])).toHaveLength(11)
   })
 
   it('Cash and Bank dropdowns list only Asset accounts', async () => {
@@ -518,5 +557,35 @@ describe('AccountingSettingsPage - Owner Equity', () => {
     } finally {
       mockFn.mockReturnValue({ data: mockSettings, isLoading: false, error: undefined } as any)
     }
+  })
+})
+
+describe('AccountingSettingsPage — page structure (#1177)', () => {
+  it('separates default-account posting config from Form B mapping', () => {
+    renderPage()
+    // Two named groups. A Form B mapping must never read as ordinary posting
+    // configuration: they answer different questions and carry different risk.
+    expect(screen.getByText('Default Accounts')).toBeInTheDocument()
+    expect(screen.getByText('Form B Tax Filing')).toBeInTheDocument()
+    expect(screen.getByText('Form B Account Mapping')).toBeInTheDocument()
+  })
+
+  it('keeps the four posting sections inside the Default Accounts group', () => {
+    renderPage()
+    const heading = screen.getByText('Default Accounts')
+    const formB = screen.getByText('Form B Tax Filing')
+    // Document order: the posting sections sit between the two headings.
+    expect(heading.compareDocumentPosition(formB) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    ;['Payment', 'Sales', 'Inventory & Purchasing', 'Expenses', 'Owner Equity', 'Setup'].forEach((label) => {
+      const section = screen.getByText(label)
+      expect(heading.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(formB.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
+    })
+  })
+
+  it('renders the header and a subtitle naming both halves', () => {
+    renderPage()
+    expect(screen.getByText('Accounting Settings')).toBeInTheDocument()
+    expect(screen.getByText(/default accounts.*Form B/i)).toBeInTheDocument()
   })
 })
