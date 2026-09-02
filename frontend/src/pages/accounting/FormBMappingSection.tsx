@@ -170,10 +170,16 @@ export default function FormBMappingSection({ isAdmin = true }: { isAdmin?: bool
   const { data: rows = [], isLoading, isError } = useGetFormBMappingsQuery()
   const [updateMapping, { isError: isSaveError, error: saveError }] = useUpdateFormBMappingMutation()
   const { showSuccess } = useNotification()
-  const [pendingId, setPendingId] = useState<string | null>(null)
+  /*
+   * A SET, not a single id. Each row saves independently, so two can be in
+   * flight at once — and with one shared id the second write overwrites the
+   * first, then its `finally` clears the marker and re-enables a row whose
+   * request has not returned. Keyed by accountId, each row clears only itself.
+   */
+  const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(new Set())
 
   const handleAssign = async (row: TableRow, category: string | null) => {
-    setPendingId(row.accountId)
+    setPendingIds((prev) => new Set(prev).add(row.accountId))
     try {
       await updateMapping({ accountId: row.accountId, category: category as any }).unwrap()
       showSuccess(
@@ -185,12 +191,20 @@ export default function FormBMappingSection({ isAdmin = true }: { isAdmin?: bool
       /*
        * Swallowed deliberately: the Alert below renders from the mutation's own
        * error state, and the Select needs no repair because it never left the
-       * persisted value — it renders `row.category` and this component keeps no
-       * local selection. Note invalidatesTags does NOT run on a rejected
-       * mutation, so relying on invalidation to restore the row would not work.
+       * persisted value — it renders `row.category` straight from the cache and
+       * this component keeps no optimistic or local selection.
+       *
+       * (A rejected-with-value mutation DOES still invalidate: RTK Query 2.12's
+       * `isThunkActionWithTags` matches isFulfilled OR isRejectedWithValue, so a
+       * refetch may follow. That is harmless here — it re-renders the same
+       * persisted value — but it is not what the correctness rests on.)
        */
     } finally {
-      setPendingId(null)
+      setPendingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(row.accountId)
+        return next
+      })
     }
   }
 
@@ -260,10 +274,17 @@ export default function FormBMappingSection({ isAdmin = true }: { isAdmin?: bool
       return a.code.localeCompare(b.code)
     })
 
+  /*
+   * `raw` on every column whose renderer emits anything but plain inline text.
+   * Without it EntityTable wraps the cell in a <Typography variant="body2">,
+   * which renders a <p> — so a Box (<div>), a Select, or a nested Typography
+   * lands inside a paragraph. That is invalid HTML and React warns about it.
+   */
   const columns: ColumnConfig<TableRow>[] = [
     {
       key: 'code',
       width: 110,
+      raw: true,
       render: (row) => (
         <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>
           {row.code}
@@ -272,15 +293,13 @@ export default function FormBMappingSection({ isAdmin = true }: { isAdmin?: bool
     },
     {
       key: 'name',
+      raw: true,
       render: (row) => (
         <Box
           data-testid={`formb-map-row-${row.accountId}`}
           sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="body2">{row.name}</Typography>
-            {!row.isActive && <Chip label="inactive" size="small" />}
-          </Box>
+          <Typography variant="body2">{row.name}</Typography>
           {!row.eligibility.eligible && (
             <Typography variant="caption" color="text.secondary">
               {reasonText((row.eligibility as any).reason)}
@@ -292,6 +311,7 @@ export default function FormBMappingSection({ isAdmin = true }: { isAdmin?: bool
     {
       key: 'type',
       width: 110,
+      raw: true,
       render: (row) => (
         <Typography variant="body2" color="text.secondary">
           {row.type}
@@ -299,20 +319,35 @@ export default function FormBMappingSection({ isAdmin = true }: { isAdmin?: bool
       ),
     },
     {
+      /*
+       * Only INACTIVE is chipped. An "active" chip on every healthy row is
+       * noise that makes the exceptional case harder to spot, not easier.
+       */
+      key: 'status',
+      width: 100,
+      raw: true,
+      render: (row) =>
+        row.isActive ? null : (
+          <Chip label="inactive" size="small" data-testid={`formb-map-status-${row.accountId}`} />
+        ),
+    },
+    {
       key: 'line',
       width: 260,
+      raw: true,
       render: (row) => <LineCell row={row} />,
     },
     {
       key: 'mapping',
       width: 280,
       align: 'right',
+      raw: true,
       render: (row) => (
         <MappingControl
           row={row}
           isAdmin={isAdmin}
           onAssign={handleAssign}
-          pending={pendingId === row.accountId}
+          pending={pendingIds.has(row.accountId)}
         />
       ),
     },
@@ -361,7 +396,7 @@ export default function FormBMappingSection({ isAdmin = true }: { isAdmin?: bool
           <EntityTable
             rows={tableRows}
             columns={columns}
-            headers={['Code', 'Account', 'Type', 'Form B Line', 'Mapping']}
+            headers={['Code', 'Account', 'Type', 'Status', 'Form B Line', 'Mapping']}
             showHeader={false}
             isRowSelectable={isMappingRowSelectable}
             onSelect={() => {}}

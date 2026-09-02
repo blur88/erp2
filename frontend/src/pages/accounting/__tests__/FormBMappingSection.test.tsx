@@ -142,10 +142,27 @@ describe('FormBMappingSection', () => {
     expect(screen.getByTestId('formb-map-clear-b1')).toBeEnabled()
   })
 
-  it('labels an inactive row and still allows clearing it', () => {
+  // The chip lives in its own Status column now, not inside the Account cell.
+  it('labels an inactive row in the Status column and still allows clearing it', () => {
     renderSection(rows)
-    expect(screen.getByTestId('formb-map-row-i1')).toHaveTextContent(/inactive/i)
+    expect(screen.getByTestId('formb-map-status-i1')).toHaveTextContent(/inactive/i)
+    // The CHIP moved out of the Account cell. That cell still legitimately says
+    // "inactive" inside the eligibility sentence, so assert on the chip element
+    // rather than on the word.
+    expect(within(screen.getByTestId('formb-map-row-i1')).queryByTestId('formb-map-status-i1'))
+      .not.toBeInTheDocument()
     expect(screen.getByTestId('formb-map-clear-i1')).toBeEnabled()
+  })
+
+  it('leaves the Status column empty for an active account', () => {
+    renderSection(rows)
+    // An "active" chip on every healthy row is noise; absence is the signal.
+    expect(screen.queryByTestId('formb-map-status-a1')).not.toBeInTheDocument()
+  })
+
+  it('renders a Status column header', () => {
+    renderSection(rows)
+    expect(screen.getByRole('columnheader', { name: /^status$/i })).toBeInTheDocument()
   })
 
   it('sends an explicit null when clearing', async () => {
@@ -258,9 +275,11 @@ describe('FormBMappingSection — save outcomes', () => {
 
   /*
    * The observable contract, not the mechanism: after a rejected write the
-   * control must show the PERSISTED value again. The component holds no local
-   * selection state, so this holds without relying on tag invalidation — which
-   * RTK Query does not even run on a failed mutation.
+   * control must show the PERSISTED value again. It holds because the component
+   * keeps no optimistic or local selection — the Select renders the cache-backed
+   * value — and not because of anything about invalidation. (A rejected-with-
+   * value mutation does still invalidate and may refetch; that would land on the
+   * same persisted value.)
    */
   it('returns the displayed selection to the persisted value when a save is rejected', async () => {
     const user = userEvent.setup()
@@ -287,5 +306,55 @@ describe('FormBMappingSection — save outcomes', () => {
     )
     expect(screen.getByTestId('formb-map-select-m1')).not.toHaveTextContent(/Bad Debts/)
     expect(mockShowSuccess).not.toHaveBeenCalled()
+  })
+})
+
+describe('FormBMappingSection — concurrent saves', () => {
+  const twoRows = [
+    { accountId: 'r1', code: '6100', name: 'Salaries', type: 'Expense',
+      isActive: true, category: null, eligibility: { eligible: true } },
+    { accountId: 'r2', code: '6200', name: 'Office Rent', type: 'Expense',
+      isActive: true, category: null, eligibility: { eligible: true } },
+  ] as any
+
+  /*
+   * Two rows saving at once. With a single shared `pendingId`, r2's write
+   * overwrites the marker and r2's `finally` then clears it — re-enabling r1
+   * while r1's request is still in flight. The Set keeps them independent.
+   */
+  it('keeps a row disabled while its own save is in flight, even as another completes', async () => {
+    const user = userEvent.setup()
+    const resolvers: Record<string, () => void> = {}
+    const gated = vi.fn(({ accountId }: any) => ({
+      unwrap: () =>
+        new Promise<void>((resolve) => {
+          resolvers[accountId] = () => resolve()
+        }),
+    }))
+    renderSection(twoRows, { update: gated })
+
+    const combo = (id: string) =>
+      within(screen.getByTestId(`formb-map-select-${id}`)).getByRole('combobox')
+
+    await user.click(combo('r1'))
+    await user.click(screen.getByRole('option', { name: /N16 — Salaries and Wages/ }))
+    await waitFor(() => expect(resolvers.r1).toBeDefined())
+
+    await user.click(combo('r2'))
+    await user.click(screen.getByRole('option', { name: /N17 — Rent \/ Lease/ }))
+    await waitFor(() => expect(resolvers.r2).toBeDefined())
+
+    // Both are in flight and disabled. (MUI OMITS aria-disabled when enabled
+    // rather than setting it to "false", so assert presence/absence.)
+    expect(combo('r1')).toHaveAttribute('aria-disabled', 'true')
+    expect(combo('r2')).toHaveAttribute('aria-disabled', 'true')
+
+    // Finish r2 only. r1's request has NOT returned, so r1 must stay disabled.
+    resolvers.r2()
+    await waitFor(() => expect(combo('r2')).not.toHaveAttribute('aria-disabled'))
+    expect(combo('r1')).toHaveAttribute('aria-disabled', 'true')
+
+    resolvers.r1()
+    await waitFor(() => expect(combo('r1')).not.toHaveAttribute('aria-disabled'))
   })
 })
