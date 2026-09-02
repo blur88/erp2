@@ -20,6 +20,8 @@ import { useNotification } from '@/hooks/useNotification'
 import { useGetFormBMappingsQuery, useUpdateFormBMappingMutation } from '@/store/api/accountingApi'
 import type { FormBMappingRow } from '@/types'
 
+import SettingsTableFrame from './SettingsTableFrame'
+
 import {
   FALLBACK_LINE,
   categoryOptionFor,
@@ -377,22 +379,7 @@ export default function FormBMappingSection({ isAdmin = true }: { isAdmin?: bool
           </Alert>
         )}
 
-        {/*
-          `showHeader` is off and there is no second PageSection: EntityTable
-          renders its own <Paper> with its own header bar, so either would stack
-          two cards and two titles. The PageSection above owns the heading.
-
-          The height override matters. EntityTable's card is `height: 100%` +
-          `overflow: hidden`, correct inside a bounded flex pane and collapsing
-          to nothing inside GenericOverviewPage's document-flow scroll.
-        */}
-        <Box
-          sx={{
-            '& .entity-table-card': { height: 'auto', boxShadow: 'none' },
-            '& .entity-table-frame': { overflow: 'visible' },
-            '& .entity-table-scroller': { overflow: 'auto' },
-          }}
-        >
+        <SettingsTableFrame>
           <EntityTable
             rows={tableRows}
             columns={columns}
@@ -409,7 +396,7 @@ export default function FormBMappingSection({ isAdmin = true }: { isAdmin?: bool
             // is a noun phrase, not a sentence.
             emptyLabel="mappable accounts"
           />
-        </Box>
+        </SettingsTableFrame>
       </Box>
     </PageSection>
   )

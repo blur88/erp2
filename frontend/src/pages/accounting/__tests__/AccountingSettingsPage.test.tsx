@@ -220,9 +220,17 @@ import AccountingSettingsPage from '../AccountingSettingsPage'
 
 // The page reads state.auth.user.role: PUT /accounting/settings is admin-only, so
 // the Save button only renders for an admin.
-function renderPage(role = 'admin') {
+function renderPage(role: any = 'admin') {
+  let resolvedRole: string = 'admin'
+  if (typeof role === 'string') {
+    resolvedRole = role
+  } else if (role && typeof role === 'object' && 'isAdmin' in role) {
+    resolvedRole = role.isAdmin ? 'admin' : 'manager'
+  } else if (role && typeof role === 'object' && 'role' in role) {
+    resolvedRole = role.role
+  }
   const store = configureStore({
-    reducer: { auth: (s = { user: { role }, isAuthenticated: true }) => s } as any,
+    reducer: { auth: (s = { user: { role: resolvedRole }, isAuthenticated: true }) => s } as any,
   })
   return render(
     <Provider store={store}>
@@ -587,5 +595,33 @@ describe('AccountingSettingsPage — page structure (#1177)', () => {
     renderPage()
     expect(screen.getByText('Accounting Settings')).toBeInTheDocument()
     expect(screen.getByText(/default accounts.*Form B/i)).toBeInTheDocument()
+  })
+})
+
+describe('AccountingSettingsPage — Default Accounts as tables', () => {
+  it('renders each category as a table with Setting, Account Type and Account columns', async () => {
+    renderPage({ isAdmin: true })
+
+    const payment = await screen.findByText('Payment')
+    const card = payment.closest('.MuiPaper-root') as HTMLElement
+    expect(within(card).getByText('Setting')).toBeInTheDocument()
+    expect(within(card).getByText('Account Type')).toBeInTheDocument()
+    expect(within(card).getByText('Account')).toBeInTheDocument()
+  })
+
+  it('shows each field label as a row and its account type as a column value', async () => {
+    renderPage({ isAdmin: true })
+
+    const row = (await screen.findByText('Cash Account')).closest('tr') as HTMLElement
+    expect(within(row).getByText('Asset')).toBeInTheDocument()
+  })
+
+  it('keeps all six categories', async () => {
+    renderPage({ isAdmin: true })
+    for (const label of [
+      'Payment', 'Sales', 'Inventory & Purchasing', 'Expenses', 'Owner Equity', 'Setup',
+    ]) {
+      expect(await screen.findByText(label)).toBeInTheDocument()
+    }
   })
 })

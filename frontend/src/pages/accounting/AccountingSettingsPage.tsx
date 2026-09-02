@@ -3,19 +3,15 @@ import {
   Alert,
   Box,
   Button,
-  Grid,
-  MenuItem,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material'
-import { Controller, useForm } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 
 import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import PageHeader from '@/components/common/PageHeader'
-import PageSection from '@/components/common/PageSection'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { useNotification } from '@/hooks/useNotification'
 import { useAppSelector } from '@/hooks/useRedux'
@@ -24,23 +20,11 @@ import {
   useGetAccountingSettingsQuery,
   useUpdateAccountingSettingsMutation,
 } from '@/store/api/accountingApi'
-import type { Account, AccountType, AccountingSettings } from '@/types'
+import type { AccountingSettings } from '@/types'
 
+import DefaultAccountsSection from './DefaultAccountsSection'
+import type { FormValues } from './DefaultAccountsSection'
 import FormBMappingSection from './FormBMappingSection'
-
-interface FormValues {
-  cashAccountId: string
-  bankAccountId: string
-  inventoryAccountId: string
-  supplierDepositAccountId: string
-  customerDepositAccountId: string
-  openingBalanceEquityAccountId: string
-  ownerCapitalAccountId: string
-  ownerDrawingsAccountId: string
-  salesRevenueAccountId: string
-  cogsAccountId: string
-  defaultExpenseAccountId: string
-}
 
 const schema = yup.object({
   cashAccountId: yup.string().required('Cash account is required'),
@@ -56,64 +40,6 @@ const schema = yup.object({
   defaultExpenseAccountId: yup.string().required('Default expense account is required'),
 })
 
-interface SectionField {
-  name: keyof FormValues
-  label: string
-  accountType: AccountType
-}
-
-const PAYMENT_FIELDS: SectionField[] = [
-  { name: 'cashAccountId', label: 'Cash Account', accountType: 'Asset' },
-  { name: 'bankAccountId', label: 'Bank Account', accountType: 'Asset' },
-]
-
-const SALES_FIELDS: SectionField[] = [
-  { name: 'customerDepositAccountId', label: 'Customer Deposit Account', accountType: 'Liability' },
-  { name: 'salesRevenueAccountId', label: 'Sales Revenue Account', accountType: 'Income' },
-]
-
-const INVENTORY_PURCHASING_FIELDS: SectionField[] = [
-  { name: 'inventoryAccountId', label: 'Inventory Account', accountType: 'Asset' },
-  { name: 'supplierDepositAccountId', label: 'Supplier Deposit Account', accountType: 'Asset' },
-]
-
-/*
- * The two Expense-type accounts, together.
- *
- * They are the pair the Form B section below cares about, and the distinction
- * between them is what the Form B mapping rules turn on: COGS (and everything
- * beneath it) is EXCLUDED from expense mapping because it already reaches Form
- * B through N7, while Default Expense is an ordinary mappable expense. Showing
- * them side by side is what makes that exclusion legible.
- *
- * Consumers: cogsAccountId is read on sales/delivery posting;
- * defaultExpenseAccountId only by postStockAdjustment(), for the expense leg of
- * a stock write-off (accounting-posting.service.ts).
- */
-const EXPENSE_FIELDS: SectionField[] = [
-  { name: 'cogsAccountId', label: 'COGS Account', accountType: 'Expense' },
-  { name: 'defaultExpenseAccountId', label: 'Default Expense Account', accountType: 'Expense' },
-]
-
-// Consumed only by the Owner Equity module's postings — capital injections,
-// cash/stock drawings, and their refunds.
-const OWNER_EQUITY_FIELDS: SectionField[] = [
-  { name: 'ownerCapitalAccountId', label: 'Owner Capital Account', accountType: 'Equity' },
-  { name: 'ownerDrawingsAccountId', label: 'Owner Drawings Account', accountType: 'Equity' },
-]
-
-/*
- * One field on purpose. Opening Balance Equity is used by exactly one posting
- * path — postOpeningBalance(), when an account's opening balance is set — which
- * is a distinct, infrequent setup step rather than day-to-day operation.
- *
- * The section it replaces was "System": a leftover bucket holding three Equity
- * accounts and one Expense account, named after no concept any of them shared.
- */
-const SETUP_FIELDS: SectionField[] = [
-  { name: 'openingBalanceEquityAccountId', label: 'Opening Balance Equity Account', accountType: 'Equity' },
-]
-
 function toFormValues(settings: AccountingSettings): FormValues {
   return {
     cashAccountId: settings.cashAccountId,
@@ -128,53 +54,6 @@ function toFormValues(settings: AccountingSettings): FormValues {
     cogsAccountId: settings.cogsAccountId,
     defaultExpenseAccountId: settings.defaultExpenseAccountId,
   }
-}
-
-interface FieldGridProps {
-  fields: SectionField[]
-  accounts: Account[]
-  control: any
-  errors: Record<string, any>
-  disabled: boolean
-}
-
-function FieldGrid({ fields, accounts, control, errors, disabled }: FieldGridProps) {
-  return (
-    <Grid container spacing={3} sx={{ p: 3 }}>
-      {fields.map((fieldConfig) => {
-        const filtered = accounts.filter((a) => a.type === fieldConfig.accountType)
-        return (
-          <Grid key={fieldConfig.name} size={{ xs: 12, md: 6 }}>
-            <Controller
-              name={fieldConfig.name}
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  select
-                  size="small"
-                  fullWidth
-                  disabled={disabled}
-                  label={fieldConfig.label}
-                  error={!!errors[fieldConfig.name]}
-                  helperText={errors[fieldConfig.name]?.message || ''}
-                >
-                  <MenuItem value="">
-                    <em>Select {fieldConfig.label}</em>
-                  </MenuItem>
-                  {filtered.map((account) => (
-                    <MenuItem key={account.id} value={account.id}>
-                      {account.code} - {account.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              )}
-            />
-          </Grid>
-        )
-      })}
-    </Grid>
-  )
 }
 
 export default function AccountingSettingsPage() {
@@ -276,67 +155,7 @@ export default function AccountingSettingsPage() {
           <ListSkeleton rows={8} columns={2} />
         ) : error ? null : (
           <form onSubmit={handleSubmit(onSubmit)}>
-            <Stack spacing={3}>
-              <PageSection label="Payment">
-                <FieldGrid
-                  fields={PAYMENT_FIELDS}
-                  accounts={accounts}
-                  control={control}
-                  errors={errors}
-                  disabled={!isAdmin}
-                />
-              </PageSection>
-
-              <PageSection label="Sales">
-                <FieldGrid
-                  fields={SALES_FIELDS}
-                  accounts={accounts}
-                  control={control}
-                  errors={errors}
-                  disabled={!isAdmin}
-                />
-              </PageSection>
-
-              <PageSection label="Inventory & Purchasing">
-                <FieldGrid
-                  fields={INVENTORY_PURCHASING_FIELDS}
-                  accounts={accounts}
-                  control={control}
-                  errors={errors}
-                  disabled={!isAdmin}
-                />
-              </PageSection>
-
-              <PageSection label="Expenses">
-                <FieldGrid
-                  fields={EXPENSE_FIELDS}
-                  accounts={accounts}
-                  control={control}
-                  errors={errors}
-                  disabled={!isAdmin}
-                />
-              </PageSection>
-
-              <PageSection label="Owner Equity">
-                <FieldGrid
-                  fields={OWNER_EQUITY_FIELDS}
-                  accounts={accounts}
-                  control={control}
-                  errors={errors}
-                  disabled={!isAdmin}
-                />
-              </PageSection>
-
-              <PageSection label="Setup">
-                <FieldGrid
-                  fields={SETUP_FIELDS}
-                  accounts={accounts}
-                  control={control}
-                  errors={errors}
-                  disabled={!isAdmin}
-                />
-              </PageSection>
-            </Stack>
+            <DefaultAccountsSection accounts={accounts} control={control} errors={errors} disabled={!isAdmin} />
 
             {isAdmin ? (
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
