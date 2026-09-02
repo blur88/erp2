@@ -121,28 +121,35 @@ export class FormBMappingService {
   }
 
   /**
-   * `null` clears; anything else assigns and requires WRITE eligibility.
+   * Resolves one mapping edit against an already-built context into the column
+   * patch it implies, throwing if the edit is not permitted.
    *
-   * Clearing nulls whichever columns are populated rather than resolving the
-   * column from the account's current type — a clear must work on an account
-   * whose type is itself wrong, or an expense category stranded on an account
-   * since flipped to Income would be unremovable.
+   * Split out of setCategory so the bulk path can validate every item against
+   * ONE context snapshot before writing any of them. context() does a full
+   * chart-of-accounts read plus a settings read, so calling setCategory in a
+   * loop would issue N of those.
    */
-  async setCategory(accountId: string, category: string | null): Promise<void> {
-    const ctx = await this.context();
-    const account = (ctx.accounts as any[]).find((a) => a.id === accountId);
-    if (!account) throw new BadRequestException(`Account ${accountId} not found`);
+  private resolveUpdate(
+    ctx: Awaited<ReturnType<FormBMappingService['context']>>,
+    item: { accountId: string; category: string | null },
+  ): { accountId: string; patch: Record<string, string | null> } {
+    const account = (ctx.accounts as any[]).find((a) => a.id === item.accountId);
+    // An unknown account has no code to name, so it is identified by the id
+    // that was submitted — matching the single-row route's wording.
+    if (!account) throw new BadRequestException(`Account ${item.accountId} not found`);
 
-    if (category === null) {
-      await this.coaRepo.update(accountId, {
-        formBExpenseCategory: null, formBIncomeCategory: null,
-      } as any);
-      return;
+    if (item.category === null) {
+      return {
+        accountId: item.accountId,
+        patch: { formBExpenseCategory: null, formBIncomeCategory: null },
+      };
     }
 
-    const family: CategoryFamily | null = EXPENSE_VALUES.has(category) ? 'expense'
-      : INCOME_VALUES.has(category) ? 'income' : null;
-    if (family === null) throw new BadRequestException(`Unknown Form B category: ${category}`);
+    const family: CategoryFamily | null = EXPENSE_VALUES.has(item.category) ? 'expense'
+      : INCOME_VALUES.has(item.category) ? 'income' : null;
+    if (family === null) {
+      throw new BadRequestException(`Unknown Form B category: ${item.category}`);
+    }
 
     const verdict = checkEligibility({
       account: {
@@ -159,12 +166,29 @@ export class FormBMappingService {
 
     if (verdict.eligible === false) {
       throw new BadRequestException(
-        `Account ${account.code} cannot be mapped to ${category}: ${verdict.reason}`,
+        `Account ${account.code} cannot be mapped to ${item.category}: ${verdict.reason}`,
       );
     }
 
-    await this.coaRepo.update(accountId, family === 'expense'
-      ? { formBExpenseCategory: category, formBIncomeCategory: null }
-      : { formBIncomeCategory: category, formBExpenseCategory: null } as any);
+    return {
+      accountId: item.accountId,
+      patch: family === 'expense'
+        ? { formBExpenseCategory: item.category, formBIncomeCategory: null }
+        : { formBIncomeCategory: item.category, formBExpenseCategory: null },
+    };
+  }
+
+  /**
+   * `null` clears; anything else assigns and requires WRITE eligibility.
+   *
+   * Clearing nulls whichever columns are populated rather than resolving the
+   * column from the account's current type — a clear must work on an account
+   * whose type is itself wrong, or an expense category stranded on an account
+   * since flipped to Income would be unremovable.
+   */
+  async setCategory(accountId: string, category: string | null): Promise<void> {
+    const ctx = await this.context();
+    const { patch } = this.resolveUpdate(ctx, { accountId, category });
+    await this.coaRepo.update(accountId, patch as any);
   }
 }
