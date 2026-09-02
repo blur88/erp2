@@ -4,182 +4,49 @@ import userEvent from '@testing-library/user-event'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-const { mockAccounts, mockSettings, mockUpdateSettings, mockFormBMappings, mockFormBMappingUpdate } = vi.hoisted(() => ({
-  mockFormBMappings: [] as any[],
-  mockFormBMappingUpdate: vi.fn(() => ({ unwrap: () => Promise.resolve(undefined) })),
-  mockAccounts: {
+const {
+  mockAccounts,
+  mockSettings,
+  mockUpdateSettings,
+  mockBulkUpdate,
+  formBRows,
+  mockFormBMappings,
+  mockShowSuccess,
+  mockShowError,
+  mockDispatch,
+  mockUpdateQueryData,
+  mockGetAccountingSettingsQuery,
+  mockGetAccountsQuery,
+  mockGetFormBMappingsQuery,
+} = vi.hoisted(() => {
+  const mockShowSuccess = vi.fn()
+  const mockShowError = vi.fn()
+  const mockDispatch = vi.fn()
+  const mockUpdateQueryData = vi.fn()
+  const mockUpdateSettings = vi.fn(() => ({ unwrap: () => Promise.resolve(undefined) }))
+  const mockBulkUpdate = vi.fn(() => ({ unwrap: () => Promise.resolve([] as any[]) }))
+  const mockGetAccountingSettingsQuery = vi.fn()
+  const mockGetAccountsQuery = vi.fn()
+  const mockGetFormBMappingsQuery = vi.fn()
+  const mockAccounts = {
     data: [
-      {
-        id: 'cash-1',
-        code: '1100',
-        name: 'Cash on Hand',
-        type: 'Asset' as const,
-        parentId: null,
-        description: null,
-        isActive: true,
-        createdBy: null,
-        isSystem: false,
-        isPostable: true,
-        openingBalance: '0.0000',
-        createdAt: '',
-        updatedAt: '',
-      },
-      {
-        id: 'bank-1',
-        code: '1200',
-        name: 'Checking Account',
-        type: 'Asset' as const,
-        parentId: null,
-        description: null,
-        isActive: true,
-        createdBy: null,
-        isSystem: false,
-        isPostable: true,
-        openingBalance: '0.0000',
-        createdAt: '',
-        updatedAt: '',
-      },
-      {
-        id: 'supp-dep-1',
-        code: '1300',
-        name: 'Supplier Deposits',
-        type: 'Asset' as const,
-        parentId: null,
-        description: null,
-        isActive: true,
-        createdBy: null,
-        isSystem: false,
-        isPostable: true,
-        openingBalance: '0.0000',
-        createdAt: '',
-        updatedAt: '',
-      },
-      {
-        id: 'inv-1',
-        code: '1400',
-        name: 'Inventory Asset',
-        type: 'Asset' as const,
-        parentId: null,
-        description: null,
-        isActive: true,
-        createdBy: null,
-        isSystem: false,
-        isPostable: true,
-        openingBalance: '0.0000',
-        createdAt: '',
-        updatedAt: '',
-      },
-      {
-        id: 'cust-dep-1',
-        code: '2100',
-        name: 'Customer Deposits',
-        type: 'Liability' as const,
-        parentId: null,
-        description: null,
-        isActive: true,
-        createdBy: null,
-        isSystem: false,
-        isPostable: true,
-        openingBalance: '0.0000',
-        createdAt: '',
-        updatedAt: '',
-      },
-      {
-        id: 'obe-1',
-        code: '3100',
-        name: 'Opening Balance Equity',
-        type: 'Equity' as const,
-        parentId: null,
-        description: null,
-        isActive: true,
-        createdBy: null,
-        isSystem: false,
-        isPostable: true,
-        openingBalance: '0.0000',
-        createdAt: '',
-        updatedAt: '',
-      },
-      {
-        id: 'sales-rev-1',
-        code: '4100',
-        name: 'Sales Revenue',
-        type: 'Income' as const,
-        parentId: null,
-        description: null,
-        isActive: true,
-        createdBy: null,
-        isSystem: false,
-        isPostable: true,
-        openingBalance: '0.0000',
-        createdAt: '',
-        updatedAt: '',
-      },
-      {
-        id: 'cogs-1',
-        code: '5100',
-        name: 'Cost of Goods Sold',
-        type: 'Expense' as const,
-        parentId: null,
-        description: null,
-        isActive: true,
-        createdBy: null,
-        isSystem: false,
-        isPostable: true,
-        openingBalance: '0.0000',
-        createdAt: '',
-        updatedAt: '',
-      },
-      {
-        id: 'expense-1',
-        code: '5200',
-        name: 'Default Expense',
-        type: 'Expense' as const,
-        parentId: null,
-        description: null,
-        isActive: true,
-        createdBy: null,
-        isSystem: false,
-        isPostable: true,
-        openingBalance: '0.0000',
-        createdAt: '',
-        updatedAt: '',
-      },
-      {
-        id: 'owner-cap-1',
-        code: '3200',
-        name: 'Owner Capital',
-        type: 'Equity' as const,
-        parentId: null,
-        description: null,
-        isActive: true,
-        createdBy: null,
-        isSystem: false,
-        isPostable: true,
-        openingBalance: '0.0000',
-        createdAt: '',
-        updatedAt: '',
-      },
-      {
-        id: 'owner-draw-1',
-        code: '3300',
-        name: 'Owner Drawings',
-        type: 'Equity' as const,
-        parentId: null,
-        description: null,
-        isActive: true,
-        createdBy: null,
-        isSystem: false,
-        isPostable: true,
-        openingBalance: '0.0000',
-        createdAt: '',
-        updatedAt: '',
-      },
+      { id: 'cash-1', code: '1100', name: 'Cash on Hand', type: 'Asset' as const, parentId: null, description: null, isActive: true, createdBy: null, isSystem: false, isPostable: true, openingBalance: '0.0000', createdAt: '', updatedAt: '' },
+      { id: 'bank-1', code: '1200', name: 'Checking Account', type: 'Asset' as const, parentId: null, description: null, isActive: true, createdBy: null, isSystem: false, isPostable: true, openingBalance: '0.0000', createdAt: '', updatedAt: '' },
+      { id: 'supp-dep-1', code: '1300', name: 'Supplier Deposits', type: 'Asset' as const, parentId: null, description: null, isActive: true, createdBy: null, isSystem: false, isPostable: true, openingBalance: '0.0000', createdAt: '', updatedAt: '' },
+      { id: 'inv-1', code: '1400', name: 'Inventory Asset', type: 'Asset' as const, parentId: null, description: null, isActive: true, createdBy: null, isSystem: false, isPostable: true, openingBalance: '0.0000', createdAt: '', updatedAt: '' },
+      { id: 'cust-dep-1', code: '2100', name: 'Customer Deposits', type: 'Liability' as const, parentId: null, description: null, isActive: true, createdBy: null, isSystem: false, isPostable: true, openingBalance: '0.0000', createdAt: '', updatedAt: '' },
+      { id: 'obe-1', code: '3100', name: 'Opening Balance Equity', type: 'Equity' as const, parentId: null, description: null, isActive: true, createdBy: null, isSystem: false, isPostable: true, openingBalance: '0.0000', createdAt: '', updatedAt: '' },
+      { id: 'sales-rev-1', code: '4100', name: 'Sales Revenue', type: 'Income' as const, parentId: null, description: null, isActive: true, createdBy: null, isSystem: false, isPostable: true, openingBalance: '0.0000', createdAt: '', updatedAt: '' },
+      { id: 'cogs-1', code: '5100', name: 'Cost of Goods Sold', type: 'Expense' as const, parentId: null, description: null, isActive: true, createdBy: null, isSystem: false, isPostable: true, openingBalance: '0.0000', createdAt: '', updatedAt: '' },
+      { id: 'expense-1', code: '5200', name: 'Default Expense', type: 'Expense' as const, parentId: null, description: null, isActive: true, createdBy: null, isSystem: false, isPostable: true, openingBalance: '0.0000', createdAt: '', updatedAt: '' },
+      { id: 'owner-cap-1', code: '3200', name: 'Owner Capital', type: 'Equity' as const, parentId: null, description: null, isActive: true, createdBy: null, isSystem: false, isPostable: true, openingBalance: '0.0000', createdAt: '', updatedAt: '' },
+      { id: 'owner-draw-1', code: '3300', name: 'Owner Drawings', type: 'Equity' as const, parentId: null, description: null, isActive: true, createdBy: null, isSystem: false, isPostable: true, openingBalance: '0.0000', createdAt: '', updatedAt: '' },
     ],
     meta: { total: 11 },
-  },
-  mockSettings: {
+  }
+  const mockSettings = {
     id: true,
     cashAccountId: 'cash-1',
     bankAccountId: 'bank-1',
@@ -192,45 +59,92 @@ const { mockAccounts, mockSettings, mockUpdateSettings, mockFormBMappings, mockF
     salesRevenueAccountId: 'sales-rev-1',
     cogsAccountId: 'cogs-1',
     defaultExpenseAccountId: 'expense-1',
-  },
-  mockUpdateSettings: vi.fn(() => ({
-    unwrap: () => Promise.resolve(undefined),
-  })),
-}))
+  }
+  const formBRows = [
+    { accountId: 'a1', code: '6100', name: 'Salaries', type: 'Expense', isActive: true, category: null, eligibility: { eligible: true } },
+    { accountId: 'b1', code: '6200', name: 'Office Rent', type: 'Expense', isActive: true, category: null, eligibility: { eligible: true } },
+    { accountId: 'i1', code: '6300', name: 'Old Rent', type: 'Expense', isActive: false, category: 'RENT_LEASE', eligibility: { eligible: false, reason: 'INACTIVE' } },
+  ] as any[]
+  const mockFormBMappings: any[] = []
+  // default return values
+  mockGetAccountingSettingsQuery.mockReturnValue({ data: mockSettings, isLoading: false, error: undefined })
+  mockGetAccountsQuery.mockReturnValue({ data: mockAccounts, isLoading: false, error: undefined })
+  mockGetFormBMappingsQuery.mockReturnValue({ data: mockFormBMappings, isLoading: false, isError: false })
+  return {
+    mockAccounts,
+    mockSettings,
+    mockUpdateSettings,
+    mockBulkUpdate,
+    formBRows,
+    mockFormBMappings,
+    mockShowSuccess,
+    mockShowError,
+    mockDispatch,
+    mockUpdateQueryData,
+    mockGetAccountingSettingsQuery,
+    mockGetAccountsQuery,
+    mockGetFormBMappingsQuery,
+  }
+})
 
 vi.mock('@/store/api/accountingApi', () => ({
-  useGetAccountingSettingsQuery: vi
-    .fn()
-    .mockReturnValue({ data: mockSettings, isLoading: false, error: undefined }),
-  useGetAccountsQuery: vi
-    .fn()
-    .mockReturnValue({ data: mockAccounts, isLoading: false, error: undefined }),
-  useUpdateAccountingSettingsMutation: vi
-    .fn()
-    .mockReturnValue([mockUpdateSettings, { isLoading: false }]),
-  useGetFormBMappingsQuery: vi.fn().mockReturnValue({ data: mockFormBMappings, isLoading: false, isError: false }),
-  useUpdateFormBMappingMutation: vi.fn().mockReturnValue([mockFormBMappingUpdate, { isLoading: false }]),
+  useGetAccountingSettingsQuery: mockGetAccountingSettingsQuery,
+  useGetAccountsQuery: mockGetAccountsQuery,
+  useGetFormBMappingsQuery: mockGetFormBMappingsQuery,
+  useUpdateAccountingSettingsMutation: vi.fn().mockReturnValue([mockUpdateSettings, { isLoading: false }]),
+  useUpdateFormBMappingMutation: vi.fn().mockReturnValue([vi.fn(() => ({ unwrap: () => Promise.resolve(undefined) })), { isLoading: false }]),
+  useBulkUpdateFormBMappingsMutation: vi.fn().mockReturnValue([mockBulkUpdate, { isLoading: false }]),
+  accountingApi: { util: { updateQueryData: mockUpdateQueryData } },
 }))
 
 vi.mock('@/hooks/useNotification', () => ({
-  useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
+  useNotification: () => ({ showSuccess: mockShowSuccess, showError: mockShowError }),
+}))
+
+vi.mock('@/hooks/useRedux', async (importOriginal) => {
+  const actual = await importOriginal() as any
+  return { ...actual, useAppDispatch: () => mockDispatch }
+})
+
+vi.mock('@/hooks/useUnsavedChangesGuard', () => ({
+  useUnsavedChangesGuard: vi.fn().mockReturnValue({ UnsavedChangesDialog: null }),
 }))
 
 import AccountingSettingsPage from '../AccountingSettingsPage'
 
-// The page reads state.auth.user.role: PUT /accounting/settings is admin-only, so
-// the Save button only renders for an admin.
-function renderPage(role: any = 'admin') {
-  let resolvedRole: string = 'admin'
-  if (typeof role === 'string') {
-    resolvedRole = role
-  } else if (role && typeof role === 'object' && 'isAdmin' in role) {
-    resolvedRole = role.isAdmin ? 'admin' : 'manager'
-  } else if (role && typeof role === 'object' && 'role' in role) {
-    resolvedRole = role.role
+function renderPage(opts: any = 'admin') {
+  // normalize opts
+  let isAdmin = true
+  let role = 'admin'
+  let formBMappings: any = undefined
+  let settingsOverride: any = undefined
+  if (typeof opts === 'string') {
+    role = opts
+    isAdmin = opts === 'admin'
+  } else if (opts && typeof opts === 'object') {
+    if ('isAdmin' in opts) {
+      isAdmin = opts.isAdmin
+      role = isAdmin ? 'admin' : 'manager'
+    } else if ('role' in opts) {
+      role = opts.role
+      isAdmin = role === 'admin'
+    }
+    if ('formBMappings' in opts) formBMappings = opts.formBMappings
+    if ('formMappings' in opts) formBMappings = opts.formMappings
+    if ('formBRows' in opts) formBMappings = opts.formBRows
+    if ('settings' in opts) settingsOverride = opts.settings
   }
+
+  // apply mocks for this render
+  if (formBMappings !== undefined) {
+    mockGetFormBMappingsQuery.mockReturnValue({ data: formBMappings, isLoading: false, isError: false } as any)
+  }
+  if (settingsOverride !== undefined) {
+    mockGetAccountingSettingsQuery.mockReturnValue({ data: settingsOverride, isLoading: false, error: undefined } as any)
+  }
+
   const store = configureStore({
-    reducer: { auth: (s = { user: { role: resolvedRole }, isAuthenticated: true }) => s } as any,
+    reducer: { auth: (s = { user: { role }, isAuthenticated: true }) => s } as any,
   })
   return render(
     <Provider store={store}>
@@ -240,6 +154,21 @@ function renderPage(role: any = 'admin') {
     </Provider>,
   )
 }
+
+beforeEach(() => {
+  mockUpdateSettings.mockClear()
+  mockBulkUpdate.mockClear()
+  mockShowSuccess.mockClear()
+  mockShowError.mockClear()
+  mockDispatch.mockClear()
+  mockUpdateQueryData.mockClear()
+  // reset default mocks
+  mockGetAccountingSettingsQuery.mockReturnValue({ data: mockSettings, isLoading: false, error: undefined } as any)
+  mockGetFormBMappingsQuery.mockReturnValue({ data: mockFormBMappings, isLoading: false, isError: false } as any)
+  mockGetAccountsQuery.mockReturnValue({ data: mockAccounts, isLoading: false, error: undefined } as any)
+  // default bulk resolves to empty array (no change)
+  mockBulkUpdate.mockReturnValue({ unwrap: () => Promise.resolve([] as any[]) } as any)
+})
 
 describe('AccountingSettingsPage', () => {
   it('renders every account dropdown at the compact field size (#1100)', () => {
@@ -297,6 +226,9 @@ describe('AccountingSettingsPage', () => {
       .toBeInTheDocument()
     expect(within(labelOf('Setup')).getByLabelText(/Opening Balance Equity Account/i))
       .toBeInTheDocument()
+    // Make dirty to enable Save
+    await user.click(screen.getByLabelText('Cash Account'))
+    await user.click(screen.getByRole('option', { name: /1200 - Checking Account/i }))
     await user.click(screen.getByRole('button', { name: /save changes/i }))
     await waitFor(() => expect(mockUpdateSettings).toHaveBeenCalled())
     expect(Object.keys(mockUpdateSettings.mock.calls[0][0])).toHaveLength(11)
@@ -345,11 +277,13 @@ describe('AccountingSettingsPage', () => {
     renderPage()
     const user = userEvent.setup()
 
+    await user.click(screen.getByLabelText('Cash Account'))
+    await user.click(screen.getByRole('option', { name: /1200 - Checking Account/i }))
     await user.click(screen.getByRole('button', { name: /save changes/i }))
 
     await waitFor(() => {
       expect(mockUpdateSettings).toHaveBeenCalledWith({
-        cashAccountId: 'cash-1',
+        cashAccountId: 'bank-1',
         bankAccountId: 'bank-1',
         inventoryAccountId: 'inv-1',
         supplierDepositAccountId: 'supp-dep-1',
@@ -560,6 +494,9 @@ describe('AccountingSettingsPage - Owner Equity', () => {
     try {
       renderPage()
       const user = userEvent.setup()
+      // Make dirty to enable Save
+      await user.click(screen.getByLabelText('Cash Account'))
+      await user.click(screen.getByRole('option', { name: /1200 - Checking Account/i }))
       await user.click(screen.getByRole('button', { name: /save changes/i }))
       expect(await screen.findByText(/Owner capital account is required/)).toBeInTheDocument()
     } finally {
@@ -623,5 +560,143 @@ describe('AccountingSettingsPage — Default Accounts as tables', () => {
     ]) {
       expect(await screen.findByText(label)).toBeInTheDocument()
     }
+  })
+})
+
+describe('AccountingSettingsPage — page-level save', () => {
+  it('renders one action bar for an admin and none for a non-admin', async () => {
+    const { unmount } = renderPage({ isAdmin: true })
+    expect(await screen.findByTestId('settings-action-bar')).toBeInTheDocument()
+    unmount()
+
+    renderPage({ isAdmin: false })
+    await screen.findByText('Default Accounts')
+    expect(screen.queryByTestId('settings-action-bar')).not.toBeInTheDocument()
+  })
+
+  it('disables Save Changes until something is dirty', async () => {
+    renderPage({ isAdmin: true })
+    expect(await screen.findByRole('button', { name: /save changes/i })).toBeDisabled()
+  })
+
+  it('sends only the modified mappings', async () => {
+    const user = userEvent.setup()
+    renderPage({ isAdmin: true, formBMappings: formBRows })
+
+    await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: /N16 — Salaries/i }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(mockBulkUpdate).toHaveBeenCalledWith({
+      mappings: [{ accountId: 'a1', category: 'SALARIES_AND_WAGES' }],
+    }))
+    // Default Accounts was untouched, so its endpoint must not be called.
+    expect(mockUpdateSettings).not.toHaveBeenCalled()
+  })
+
+  it('clears dirty state and reports success when every request succeeds', async () => {
+    const user = userEvent.setup()
+    renderPage({ isAdmin: true, formBMappings: formBRows })
+
+    await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: /N16 — Salaries/i }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(mockShowSuccess).toHaveBeenCalled())
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /save changes/i })).toBeDisabled())
+    expect(screen.queryByTestId('formb-map-changed-a1')).not.toBeInTheDocument()
+  })
+
+  it('keeps the draft and reports the failure when the save is rejected', async () => {
+    const user = userEvent.setup()
+    mockBulkUpdate.mockReturnValueOnce({
+      unwrap: () => Promise.reject({ data: 'Account 5150 cannot be mapped' }),
+    } as any)
+    renderPage({ isAdmin: true, formBMappings: formBRows })
+
+    await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: /N16 — Salaries/i }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(mockShowError).toHaveBeenCalled())
+    expect(mockShowSuccess).not.toHaveBeenCalled()
+    // The draft survives for retry, and still reads as pending — never as saved.
+    expect(screen.getByTestId('formb-map-changed-a1')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /save changes/i })).toBeEnabled()
+  })
+
+  it('clears only the section that succeeded on a mixed result', async () => {
+    const user = userEvent.setup()
+    mockBulkUpdate.mockReturnValueOnce({
+      unwrap: () => Promise.reject({ data: 'mapping rejected' }),
+    } as any)
+    renderPage({ isAdmin: true, formBMappings: formBRows })
+
+    // Dirty BOTH sections.
+    await user.click(screen.getByLabelText('Cash Account'))
+    await user.click(await screen.findByRole('option', { name: /1200 - Checking Account/i }))
+    await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: /N16 — Salaries/i }))
+
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(mockUpdateSettings).toHaveBeenCalledTimes(1))
+    // Form B stays dirty for retry; Default Accounts does not.
+    await waitFor(() => expect(screen.getByTestId('formb-map-changed-a1')).toBeInTheDocument())
+
+    mockUpdateSettings.mockClear()
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+    // Retry sends ONLY the failed section.
+    await waitFor(() => expect(mockBulkUpdate).toHaveBeenCalledTimes(2))
+    expect(mockUpdateSettings).not.toHaveBeenCalled()
+  })
+
+  it('treats a validation failure as a rejection, not a silent success', async () => {
+    const user = userEvent.setup()
+    renderPage({ isAdmin: true, settings: { ...mockSettings, cashAccountId: '' } })
+
+    await user.click(screen.getByLabelText('Bank Account'))
+    await user.click(await screen.findByRole('option', { name: /1100 - Cash on Hand/i }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(mockShowError).toHaveBeenCalled())
+    expect(mockShowSuccess).not.toHaveBeenCalled()
+  })
+
+  it('restores both sections on Cancel', async () => {
+    const user = userEvent.setup()
+    renderPage({ isAdmin: true, formBMappings: formBRows })
+
+    await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: /N16 — Salaries/i }))
+    expect(screen.getByTestId('formb-map-changed-a1')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+
+    expect(screen.queryByTestId('formb-map-changed-a1')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /save changes/i })).toBeDisabled()
+  })
+
+  it('disables the editable controls in both sections while saving', async () => {
+    const user = userEvent.setup()
+    let release: (v: unknown) => void = () => {}
+    mockBulkUpdate.mockReturnValueOnce({
+      unwrap: () => new Promise((res) => { release = res as any }),
+    } as any)
+    renderPage({ isAdmin: true, formBMappings: formBRows })
+
+    await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: /N16 — Salaries/i }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    // Not just the buttons: an edit made mid-flight would be erased by the
+    // success reset, which applies the snapshot taken at submit time.
+    await waitFor(() =>
+      expect(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox')).toHaveAttribute('aria-disabled', 'true'))
+    expect(screen.getByLabelText('Cash Account')).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled()
+
+    release(formBRows as any)
   })
 })
