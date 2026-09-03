@@ -260,7 +260,7 @@ export default function FormBMappingSection({
 
   if (isLoading) {
     return (
-      <PageSection label="Form B Account Mapping">
+      <PageSection label="Form B Tax Filing">
         <Box sx={{ p: 2 }}>
           {intro}
           <ListSkeleton rows={6} columns={4} />
@@ -276,7 +276,7 @@ export default function FormBMappingSection({
    */
   if (isError) {
     return (
-      <PageSection label="Form B Account Mapping">
+      <PageSection label="Form B Tax Filing">
         <Box sx={{ p: 2 }}>
           {intro}
           <Alert severity="error" data-testid="formb-mapping-error">
@@ -380,7 +380,7 @@ export default function FormBMappingSection({
   ]
 
   return (
-    <PageSection label="Form B Account Mapping">
+    <PageSection label="Form B Tax Filing">
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
         {intro}
 

@@ -318,10 +318,6 @@ export default function AccountingSettingsPage() {
             visually separate stops a mapping being read as ordinary posting
             configuration.
           */}
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Default Accounts
-          </Typography>
-
           {loading ? (
             <ListSkeleton rows={8} columns={2} />
           ) : error ? null : (
@@ -333,10 +329,6 @@ export default function AccountingSettingsPage() {
               Account mappings are read-only. Only an administrator can change them.
             </Alert>
           )}
-
-          <Typography variant="h6" sx={{ fontWeight: 600, pt: 1 }}>
-            Form B Tax Filing
-          </Typography>
 
           <FormBMappingSection isAdmin={isAdmin} disabled={isSaving} draft={draft} saveError={mappingSaveError} />
         </Stack>

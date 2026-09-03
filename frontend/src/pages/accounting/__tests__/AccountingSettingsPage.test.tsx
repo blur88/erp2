@@ -204,31 +204,46 @@ describe('AccountingSettingsPage', () => {
   it('groups each account field under its consuming workflow', async () => {
     renderPage()
     const user = userEvent.setup()
-    const labelOf = (name: string) =>
-      screen.getByText(name).closest('.MuiPaper-root') as HTMLElement
+    /*
+     * The six groups are band ROWS inside one table now, not six cards, so
+     * `.closest('.MuiPaper-root')` would return the same card for every group
+     * and make the exclusion assertions below vacuous.
+     *
+     * Scope by document position instead: a field belongs to the group whose
+     * band precedes it and whose next band follows it.
+     */
+    const BANDS = [
+      'Payment', 'Sales', 'Inventory & Purchasing',
+      'Expenses', 'Owner Equity', 'Setup',
+    ]
+    const fieldsUnder = (group: string): string[] => {
+      const rows = Array.from(document.querySelectorAll('tbody tr'))
+      const start = rows.findIndex((r) => r.textContent?.trim().startsWith(group))
+      expect(start).toBeGreaterThanOrEqual(0)
+      const out: string[] = []
+      for (const row of rows.slice(start + 1)) {
+        const text = row.textContent?.trim() ?? ''
+        if (BANDS.some((b) => text.startsWith(b))) break
+        const control = row.querySelector('[aria-label]')
+        if (control) out.push(control.getAttribute('aria-label') ?? '')
+      }
+      return out
+    }
 
     // Both Expense-type accounts live together: the COGS/Default split is what
     // the Form B mapping exclusion turns on.
-    expect(within(labelOf('Expenses')).getByLabelText(/COGS Account/i))
-      .toBeInTheDocument()
-    expect(within(labelOf('Expenses')).getByLabelText(/Default Expense Account/i))
-      .toBeInTheDocument()
+    expect(fieldsUnder('Expenses')).toEqual(['COGS Account', 'Default Expense Account'])
     /*
      * ...and Inventory keeps only its asset accounts. Both Expense fields are
      * named explicitly: a /Expense/i regex looks like it covers this but is
      * vacuous, because the COGS field's label is "COGS Account" and contains no
      * such word — it passes with COGS still sitting in Inventory.
      */
-    expect(within(labelOf('Inventory & Purchasing')).queryByLabelText(/COGS Account/i))
-      .not.toBeInTheDocument()
-    expect(within(labelOf('Inventory & Purchasing')).queryByLabelText(/Default Expense Account/i))
-      .not.toBeInTheDocument()
-    expect(within(labelOf('Owner Equity')).getByLabelText(/Owner Capital Account/i))
-      .toBeInTheDocument()
-    expect(within(labelOf('Owner Equity')).getByLabelText(/Owner Drawings Account/i))
-      .toBeInTheDocument()
-    expect(within(labelOf('Setup')).getByLabelText(/Opening Balance Equity Account/i))
-      .toBeInTheDocument()
+    expect(fieldsUnder('Inventory & Purchasing'))
+      .toEqual(['Inventory Account', 'Supplier Deposit Account'])
+    expect(fieldsUnder('Owner Equity'))
+      .toEqual(['Owner Capital Account', 'Owner Drawings Account'])
+    expect(fieldsUnder('Setup')).toEqual(['Opening Balance Equity Account'])
     // Make dirty to enable Save
     await user.click(screen.getByLabelText('Cash Account'))
     await user.click(screen.getByRole('option', { name: /1200 - Checking Account/i }))
@@ -513,9 +528,12 @@ describe('AccountingSettingsPage — page structure (#1177)', () => {
     renderPage()
     // Two named groups. A Form B mapping must never read as ordinary posting
     // configuration: they answer different questions and carry different risk.
+    // Each group is now ONE card whose PageSection title carries the group
+    // name, so these were previously a separate h6 heading plus a differently
+    // worded card title ("Form B Account Mapping"). One name each, no
+    // duplication — the separation being asserted is unchanged.
     expect(screen.getByText('Default Accounts')).toBeInTheDocument()
     expect(screen.getByText('Form B Tax Filing')).toBeInTheDocument()
-    expect(screen.getByText('Form B Account Mapping')).toBeInTheDocument()
   })
 
   it('keeps the four posting sections inside the Default Accounts group', () => {

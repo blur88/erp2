@@ -1,6 +1,7 @@
 import { Controller } from 'react-hook-form'
 import type { Control } from 'react-hook-form'
-import { Box, MenuItem, Stack, TextField, Typography } from '@mui/material'
+import { Box, MenuItem, TextField, Typography } from '@mui/material'
+import type { SystemStyleObject, Theme } from '@mui/system'
 
 import EntityTable from '@/components/common/EntityTable'
 import type { ColumnConfig } from '@/components/common/EntityTable'
@@ -81,27 +82,79 @@ export const SETUP_FIELDS: SectionField[] = [
   { name: 'openingBalanceEquityAccountId', label: 'Opening Balance Equity Account', accountType: 'Equity' },
 ]
 
-interface FieldRow extends SectionField {
-  id: string
-}
+/*
+ * One table, two kinds of row.
+ *
+ * A `section` row is a full-width group band (Payment, Sales, ...); a `field`
+ * row is one setting. Keeping both in ONE EntityTable is what lets this
+ * section match FormBMappingSection structurally — one heading, one card, one
+ * table — while preserving the six categories #1182 requires.
+ *
+ * This mirrors FormBTaxView, which discriminates on `kind` and styles the band
+ * through getRowSx rather than a colspan. EntityTable renders every column for
+ * every row, so a band puts its label in the first cell and leaves the rest
+ * empty; the background, rules and tracking are what make it read as a break.
+ */
+type FieldRow =
+  | ({ kind: 'field'; id: string } & SectionField)
+  | { kind: 'section'; id: string; label: string }
 
 /**
  * Rows are inert: the interaction lives in the Select inside the cell, not in
- * the row — the same contract FormBMappingSection uses. A no-op `onSelect`
- * would leave a dead click target that still looks clickable.
+ * the row. `isRowSelectable` returning false is what makes that explicit — a
+ * no-op `onSelect` would leave a dead click target that still looks clickable.
  */
 const isFieldRowSelectable = () => false
 
-interface FieldTableProps {
-  fields: SectionField[]
+/*
+ * The band's styling, lifted from FormBTaxView's `section` rows so the two
+ * accounting tables break their groups the same way. A font-weight change
+ * alone does not read as a break — the background, uppercase tracking and
+ * rules above and below give the eye something to catch when scanning.
+ */
+const rowSxFor = (row: FieldRow): SystemStyleObject<Theme> =>
+  row.kind === 'section'
+    ? {
+        backgroundColor: 'action.hover',
+        '& td': {
+          fontWeight: 700,
+          fontSize: '0.8125rem',
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: 'text.primary',
+          borderTop: 2,
+          borderTopColor: 'divider',
+          borderBottom: 2,
+          borderBottomColor: 'divider',
+          pt: 1.25,
+          pb: 1.25,
+          whiteSpace: 'nowrap',
+        },
+      }
+    : {}
+
+const SECTIONS: { label: string; fields: SectionField[] }[] = [
+  { label: 'Payment', fields: PAYMENT_FIELDS },
+  { label: 'Sales', fields: SALES_FIELDS },
+  { label: 'Inventory & Purchasing', fields: INVENTORY_PURCHASING_FIELDS },
+  { label: 'Expenses', fields: EXPENSE_FIELDS },
+  { label: 'Owner Equity', fields: OWNER_EQUITY_FIELDS },
+  { label: 'Setup', fields: SETUP_FIELDS },
+]
+
+export default function DefaultAccountsSection({
+  accounts, control, errors, disabled,
+}: {
   accounts: Account[]
   control: Control<FormValues>
   errors: Record<string, any>
   disabled: boolean
-}
-
-function FieldTable({ fields, accounts, control, errors, disabled }: FieldTableProps) {
-  const rows: FieldRow[] = fields.map((f) => ({ ...f, id: f.name }))
+}) {
+  // Flatten the six groups into one row list: a band, then its fields.
+  const rows: FieldRow[] = SECTIONS.flatMap(({ label, fields }) => [
+    { kind: 'section' as const, id: `section-${label}`, label },
+    ...fields.map((f) => ({ kind: 'field' as const, id: f.name, ...f })),
+  ])
 
   /*
    * `raw` on every column whose renderer emits anything but plain inline text.
@@ -119,12 +172,14 @@ function FieldTable({ fields, accounts, control, errors, disabled }: FieldTableP
       key: 'accountType',
       width: 140,
       raw: true,
-      // The filter that decides this field's options, made visible.
-      render: (row) => (
-        <Typography variant="body2" color="text.secondary">
-          {row.accountType}
-        </Typography>
-      ),
+      // The filter that decides this field's options, made visible. A band row
+      // has no account type, so it renders nothing here.
+      render: (row) =>
+        row.kind === 'section' ? null : (
+          <Typography variant="body2" color="text.secondary">
+            {row.accountType}
+          </Typography>
+        ),
     },
     {
       key: 'account',
@@ -135,6 +190,7 @@ function FieldTable({ fields, accounts, control, errors, disabled }: FieldTableP
       width: 280,
       raw: true,
       render: (row) => {
+        if (row.kind === 'section') return null
         const filtered = accounts.filter((a) => a.type === row.accountType)
         return (
           <Controller
@@ -168,60 +224,27 @@ function FieldTable({ fields, accounts, control, errors, disabled }: FieldTableP
   ]
 
   return (
-    // The same `p: 2` inset FormBMappingSection puts inside its PageSection.
-    // Without it the table butts against the card border while Form B's does
-    // not, which is the most visible mismatch between the two sections.
-    <Box sx={{ p: 2 }}>
-      <SettingsTableFrame>
-        <EntityTable
-          rows={rows}
-          columns={columns}
-          headers={['Setting', 'Account Type', 'Account']}
-          showHeader={false}
-          isRowSelectable={isFieldRowSelectable}
-          onSelect={() => {}}
-          focusedIndex={-1}
-          listRef={{ current: null } as any}
-          loading={false}
-          total={rows.length}
-          label="Default accounts"
-          emptyLabel="settings"
-        />
-      </SettingsTableFrame>
-    </Box>
-  )
-}
-
-const SECTIONS: { label: string; fields: SectionField[] }[] = [
-  { label: 'Payment', fields: PAYMENT_FIELDS },
-  { label: 'Sales', fields: SALES_FIELDS },
-  { label: 'Inventory & Purchasing', fields: INVENTORY_PURCHASING_FIELDS },
-  { label: 'Expenses', fields: EXPENSE_FIELDS },
-  { label: 'Owner Equity', fields: OWNER_EQUITY_FIELDS },
-  { label: 'Setup', fields: SETUP_FIELDS },
-]
-
-export default function DefaultAccountsSection({
-  accounts, control, errors, disabled,
-}: {
-  accounts: Account[]
-  control: Control<FormValues>
-  errors: Record<string, any>
-  disabled: boolean
-}) {
-  return (
-    <Stack spacing={3}>
-      {SECTIONS.map(({ label, fields }) => (
-        <PageSection key={label} label={label}>
-          <FieldTable
-            fields={fields}
-            accounts={accounts}
-            control={control}
-            errors={errors}
-            disabled={disabled}
+    <PageSection label="Default Accounts">
+      {/* The same `p: 2` inset FormBMappingSection puts inside its PageSection. */}
+      <Box sx={{ p: 2 }}>
+        <SettingsTableFrame>
+          <EntityTable
+            rows={rows}
+            columns={columns}
+            headers={['Setting', 'Account Type', 'Account']}
+            showHeader={false}
+            isRowSelectable={isFieldRowSelectable}
+            onSelect={() => {}}
+            getRowSx={rowSxFor}
+            focusedIndex={-1}
+            listRef={{ current: null } as any}
+            loading={false}
+            total={rows.length}
+            label="Default accounts"
+            emptyLabel="settings"
           />
-        </PageSection>
-      ))}
-    </Stack>
+        </SettingsTableFrame>
+      </Box>
+    </PageSection>
   )
 }
