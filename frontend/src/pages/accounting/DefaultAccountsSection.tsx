@@ -1,6 +1,6 @@
 import { Controller } from 'react-hook-form'
 import type { Control } from 'react-hook-form'
-import { MenuItem, Stack, TextField, Typography } from '@mui/material'
+import { Box, MenuItem, Stack, TextField, Typography } from '@mui/material'
 
 import EntityTable from '@/components/common/EntityTable'
 import type { ColumnConfig } from '@/components/common/EntityTable'
@@ -128,7 +128,11 @@ function FieldTable({ fields, accounts, control, errors, disabled }: FieldTableP
     },
     {
       key: 'account',
-      width: 360,
+      // Matches FormBMappingSection's `mapping` column exactly (width + align)
+      // so the control columns of both sections line up down the page. They
+      // sit on one screen; a differing width reads as two unrelated tables.
+      width: 280,
+      align: 'right' as const,
       raw: true,
       render: (row) => {
         const filtered = accounts.filter((a) => a.type === row.accountType)
@@ -164,22 +168,27 @@ function FieldTable({ fields, accounts, control, errors, disabled }: FieldTableP
   ]
 
   return (
-    <SettingsTableFrame>
-      <EntityTable
-        rows={rows}
-        columns={columns}
-        headers={['Setting', 'Account Type', 'Account']}
-        showHeader={false}
-        isRowSelectable={isFieldRowSelectable}
-        onSelect={() => {}}
-        focusedIndex={-1}
-        listRef={{ current: null } as any}
-        loading={false}
-        total={rows.length}
-        label="Default accounts"
-        emptyLabel="settings"
-      />
-    </SettingsTableFrame>
+    // The same `p: 2` inset FormBMappingSection puts inside its PageSection.
+    // Without it the table butts against the card border while Form B's does
+    // not, which is the most visible mismatch between the two sections.
+    <Box sx={{ p: 2 }}>
+      <SettingsTableFrame>
+        <EntityTable
+          rows={rows}
+          columns={columns}
+          headers={['Setting', 'Account Type', 'Account']}
+          showHeader={false}
+          isRowSelectable={isFieldRowSelectable}
+          onSelect={() => {}}
+          focusedIndex={-1}
+          listRef={{ current: null } as any}
+          loading={false}
+          total={rows.length}
+          label="Default accounts"
+          emptyLabel="settings"
+        />
+      </SettingsTableFrame>
+    </Box>
   )
 }
 
