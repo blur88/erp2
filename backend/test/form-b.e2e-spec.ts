@@ -356,14 +356,24 @@ describe('Form B (e2e)', () => {
     });
 
     it('saves several mappings in one request', async () => {
-      // Move BOTH rows off the baseline, so a no-op endpoint cannot pass.
-      await request(app.getHttpServer())
-        .put('/accounting/form-b-mappings')
-        .set(adminHeader())
-        .send({ mappings: [
-          { accountId: ownedA, category: null },
-          { accountId: ownedB, category: null },
-        ] });
+      /*
+       * Seed both rows to null through the REPOSITORY, not the endpoint.
+       *
+       * The beforeEach baseline is the same pair of values this test asserts,
+       * so without moving off it first a completely no-op endpoint would pass.
+       * Seeding via the endpoint under test does not fix that — its result
+       * would be unasserted, so a no-op would leave the baseline in place and
+       * still satisfy every assertion below.
+       */
+      const coa = ds.getRepository(ChartOfAccount);
+      await coa.update(ownedA, {
+        formBExpenseCategory: null, formBIncomeCategory: null,
+      } as any);
+      await coa.update(ownedB, {
+        formBExpenseCategory: null, formBIncomeCategory: null,
+      } as any);
+      expect(await mappingOf(ownedA)).toBeNull();
+      expect(await mappingOf(ownedB)).toBeNull();
 
       const res = await request(app.getHttpServer())
         .put('/accounting/form-b-mappings')

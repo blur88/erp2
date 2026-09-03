@@ -728,19 +728,28 @@ describe('AccountingSettingsPage — page-level save', () => {
     })
     mockBulkUpdate.mockReturnValueOnce({ unwrap: () => Promise.resolve(saved) } as any)
 
-    renderPage({ isAdmin: true, formBMappings: formBRows })
+    /*
+     * Restored in `finally`, matching the rollback e2e's discipline. This spy
+     * replaces a MODULE export every page render calls, so a failed assertion
+     * that escaped before mockRestore() would corrupt every later test in the
+     * file, not just this one.
+     */
+    try {
+      renderPage({ isAdmin: true, formBMappings: formBRows })
 
-    await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
-    await user.click(await screen.findByRole('option', { name: /N16 — Salaries/i }))
-    await user.click(screen.getByRole('button', { name: /save changes/i }))
+      await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
+      await user.click(await screen.findByRole('option', { name: /N16 — Salaries/i }))
+      await user.click(screen.getByRole('button', { name: /save changes/i }))
 
-    await waitFor(() => expect(order).toContain('draft-reset'))
-    expect(mockUpdateQueryData.mock.calls[0][0]).toBe('getFormBMappings')
-    // Clearing the draft first would leave an empty overlay sitting over stale
-    // rows until an async refetch caught up — or indefinitely if it failed.
-    expect(order).toEqual(['cache-write', 'draft-reset'])
-
-    draftSpy.mockRestore()
+      await waitFor(() => expect(order).toContain('draft-reset'))
+      expect(mockUpdateQueryData.mock.calls[0][0]).toBe('getFormBMappings')
+      // Clearing the draft first would leave an empty overlay sitting over
+      // stale rows until an async refetch caught up — or indefinitely if it
+      // failed.
+      expect(order).toEqual(['cache-write', 'draft-reset'])
+    } finally {
+      draftSpy.mockRestore()
+    }
   })
 
   it('keeps the draft and reports the failure when the save is rejected', async () => {
