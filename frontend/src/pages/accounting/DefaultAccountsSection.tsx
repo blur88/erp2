@@ -112,7 +112,7 @@ const isFieldRowSelectable = () => false
  * alone does not read as a break — the background, uppercase tracking and
  * rules above and below give the eye something to catch when scanning.
  */
-const rowSxFor = (row: FieldRow): SystemStyleObject<Theme> =>
+const rowSxFor = (row: FieldRow, isFirst: boolean): SystemStyleObject<Theme> =>
   row.kind === 'section'
     ? {
         backgroundColor: 'action.hover',
@@ -122,10 +122,21 @@ const rowSxFor = (row: FieldRow): SystemStyleObject<Theme> =>
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
           color: 'text.primary',
-          borderTop: 2,
+          /*
+           * A top rule ONLY. The preceding row already draws its own bottom
+           * border, so a `borderTop` here stacks against it and renders as a
+           * double line — visible between Bank Account and the SALES band.
+           *
+           * FormBTaxView uses both rules because its bands separate dense
+           * numeric blocks; these groups are one or two rows each, where the
+           * background tint and uppercase tracking already do the separating
+           * and a second rule just adds weight.
+           */
+          // The FIRST band needs no top rule either: the table's own top edge
+          // is directly above it, and a rule there doubles against it.
+          borderTop: isFirst ? 'none' : 2,
           borderTopColor: 'divider',
-          borderBottom: 2,
-          borderBottomColor: 'divider',
+          borderBottom: 'none',
           pt: 1.25,
           pb: 1.25,
           whiteSpace: 'nowrap',
@@ -235,7 +246,7 @@ export default function DefaultAccountsSection({
             showHeader={false}
             isRowSelectable={isFieldRowSelectable}
             onSelect={() => {}}
-            getRowSx={rowSxFor}
+            getRowSx={(row) => rowSxFor(row, row.id === rows[0].id)}
             focusedIndex={-1}
             listRef={{ current: null } as any}
             loading={false}
