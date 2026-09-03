@@ -196,27 +196,27 @@ describe('FormBMappingSection', () => {
     expect(screen.queryByTestId('formb-map-pending-b1')).not.toBeInTheDocument()
   })
 
-  // The chip lives in its own Status column now, not inside the Account cell.
-  it('labels an inactive row in the Status column and still allows clearing it', () => {
+  /*
+   * The Status column was removed: it rendered a chip ONLY for an inactive
+   * account and nothing at all otherwise, so on a healthy chart it was a
+   * permanently blank column carrying no information.
+   *
+   * Nothing was lost. An inactive account is ineligible, and the Account cell
+   * already states the reason in words — "Account is inactive, so its mapping
+   * can no longer be changed" — which says strictly more than a chip did.
+   */
+  it('has no Status column', () => {
     renderSection(rows)
-    expect(screen.getByTestId('formb-map-status-i1')).toHaveTextContent(/inactive/i)
-    // The CHIP moved out of the Account cell. That cell still legitimately says
-    // "inactive" inside the eligibility sentence, so assert on the chip element
-    // rather than on the word.
-    expect(within(screen.getByTestId('formb-map-row-i1')).queryByTestId('formb-map-status-i1'))
-      .not.toBeInTheDocument()
-    expect(screen.getByTestId('formb-map-clear-i1')).toBeEnabled()
-  })
-
-  it('leaves the Status column empty for an active account', () => {
-    renderSection(rows)
-    // An "active" chip on every healthy row is noise; absence is the signal.
+    expect(screen.queryByRole('columnheader', { name: /^status$/i })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('formb-map-status-i1')).not.toBeInTheDocument()
     expect(screen.queryByTestId('formb-map-status-a1')).not.toBeInTheDocument()
   })
 
-  it('renders a Status column header', () => {
+  it('still explains an inactive account in the Account cell, and allows clearing it', () => {
     renderSection(rows)
-    expect(screen.getByRole('columnheader', { name: /^status$/i })).toBeInTheDocument()
+    expect(within(screen.getByTestId('formb-map-row-i1')).getByText(/account is inactive/i))
+      .toBeInTheDocument()
+    expect(screen.getByTestId('formb-map-clear-i1')).toBeEnabled()
   })
 
 })

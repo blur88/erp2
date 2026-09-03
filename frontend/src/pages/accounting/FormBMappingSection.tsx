@@ -359,19 +359,6 @@ export default function FormBMappingSection({
       ),
     },
     {
-      /*
-       * Only INACTIVE is chipped. An "active" chip on every healthy row is
-       * noise that makes the exceptional case harder to spot, not easier.
-       */
-      key: 'status',
-      width: 100,
-      raw: true,
-      render: (row) =>
-        row.isActive ? null : (
-          <Chip label="inactive" size="small" data-testid={`formb-map-status-${row.accountId}`} />
-        ),
-    },
-    {
       key: 'line',
       width: 260,
       raw: true,
@@ -415,7 +402,7 @@ export default function FormBMappingSection({
           <EntityTable
             rows={tableRows}
             columns={columns}
-            headers={['Code', 'Account', 'Type', 'Status', 'Form B Line', 'Mapping']}
+            headers={['Code', 'Account', 'Type', 'Form B Line', 'Mapping']}
             showHeader={false}
             isRowSelectable={isMappingRowSelectable}
             onSelect={() => {}}
