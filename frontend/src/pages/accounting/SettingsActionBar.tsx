@@ -1,17 +1,20 @@
 import { Box, Button, Typography } from '@mui/material'
 
 /**
- * Pinned to the bottom of the page's scroll container.
+ * The bottom bar of the page's flex column.
  *
- * Placement is load-bearing: this must be a DIRECT CHILD of
- * GenericOverviewPage, a sibling of the padded content wrapper — never inside
- * the Stack, a PageSection, or SettingsTableFrame. GenericOverviewPage has
- * `overflow: auto` and no `position`, which makes it the scroll container this
- * bar pins against. Nested one level deeper, the containing block changes and
- * the bar pins to that section instead of the page.
+ * NOT sticky. The page follows the SimpleListPage shape: the outer column
+ * never scrolls, so this bar simply stays where it is as a fixed-height flex
+ * sibling below the one scrolling pane. `position: sticky` was needed only
+ * while the whole page scrolled underneath it, and keeping it would pin the
+ * bar against a container that no longer moves.
  *
- * jsdom has no layout engine and does not evaluate sticky positioning, so no
- * automated test can catch that regression — the browser gate is what does.
+ * Placement is still load-bearing: this must be a DIRECT CHILD of the page's
+ * outer flex column, a sibling of the scroll pane — never inside it, or it
+ * scrolls away with the tables.
+ *
+ * jsdom has no layout engine, so no automated test can catch that regression —
+ * the browser gate is what does.
  */
 export default function SettingsActionBar({
   isDirty, isSaving, onCancel, onSave,
@@ -25,9 +28,7 @@ export default function SettingsActionBar({
     <Box
       data-testid="settings-action-bar"
       sx={{
-        position: 'sticky',
-        bottom: 0,
-        zIndex: 2,
+        flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',

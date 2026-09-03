@@ -577,6 +577,27 @@ describe('AccountingSettingsPage — page-level save', () => {
     expect(screen.queryByTestId('settings-action-bar')).not.toBeInTheDocument()
   })
 
+  /*
+   * jsdom has no layout engine, so it cannot verify that the header stays put
+   * or that there is one scrollbar. What it CAN pin is the DOM relationship
+   * those properties depend on: one scroll pane, with the header and action
+   * bar as siblings OUTSIDE it. Move either inside and it scrolls away — the
+   * regression this asserts against. The browser gate covers the rest.
+   */
+  it('keeps the header and action bar outside the single scroll pane', async () => {
+    renderPage({ isAdmin: true })
+
+    const pane = await screen.findByTestId('accounting-settings-scroll-pane')
+    const bar = screen.getByTestId('settings-action-bar')
+    const heading = screen.getByRole('heading', { name: /accounting settings/i })
+
+    expect(pane).not.toContainElement(bar)
+    expect(pane).not.toContainElement(heading)
+    // Both are siblings of the pane within the page's flex column.
+    expect(bar.parentElement).toBe(pane.parentElement)
+    expect(pane).toContainElement(screen.getByText('Form B Tax Filing'))
+  })
+
   it('disables Save Changes until something is dirty', async () => {
     renderPage({ isAdmin: true })
     expect(await screen.findByRole('button', { name: /save changes/i })).toBeDisabled()

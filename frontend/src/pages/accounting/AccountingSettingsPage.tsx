@@ -9,7 +9,6 @@ import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 
-import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import PageHeader from '@/components/common/PageHeader'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { useNotification } from '@/hooks/useNotification'
@@ -271,19 +270,47 @@ export default function AccountingSettingsPage() {
   }
 
   return (
-    <GenericOverviewPage>
-      <Box sx={{ pb: 2 }}>
-        <PageHeader
-          title="Accounting Settings"
-          subtitle="Configure the default accounts the system posts to, and map accounts to Form B tax filing lines."
-        />
+    /*
+     * The SimpleListPage shape, not GenericOverviewPage's document-flow scroll.
+     *
+     * This outer Box deliberately has NO `overflow`: the page itself never
+     * scrolls, so the header and the action bar stay put as fixed-height flex
+     * siblings while only the middle pane moves. That is how the 18 list pages
+     * in this app keep their headers static — they do not use `position:
+     * sticky`, they simply never scroll the element.
+     *
+     * Consequence to preserve: exactly ONE vertical scroller on the page, the
+     * middle Box below. SettingsTableFrame sets each table's own scroller to
+     * `visible` so the seven tables grow to full height inside it rather than
+     * nesting seven more.
+     */
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <PageHeader
+        title="Accounting Settings"
+        subtitle="Configure the default accounts the system posts to, and map accounts to Form B tax filing lines."
+      />
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
-        )}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
+      {/* The only scrolling pane. `minHeight: 0` is what lets it shrink below
+          its content instead of pushing the action bar off-screen. */}
+      <Box
+        data-testid="accounting-settings-scroll-pane"
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          // Matches GenericOverviewPage's old gutter compensation so the
+          // scrollbar sits outside the content rather than over it.
+          mr: { xs: -2, sm: -3 },
+          pr: { xs: 2, sm: 3 },
+          pb: 2,
+        }}
+      >
         <Stack spacing={3}>
           {/*
             Two named groups. Default Accounts drives automatic posting; Form B
@@ -316,6 +343,6 @@ export default function AccountingSettingsPage() {
       </Box>
       {isAdmin && !loading && !error && <SettingsActionBar isDirty={isDirty} isSaving={isSaving} onCancel={handleCancel} onSave={handleSave} />}
       {UnsavedChangesDialog}
-    </GenericOverviewPage>
+    </Box>
   )
 }
