@@ -28,3 +28,26 @@ describe('Form B endpoints', () => {
   })
 
 })
+
+describe('bulkUpdateFormBMappings', () => {
+  it('PUTs the collection route with the mappings array', () => {
+    const endpoint = (accountingApi.endpoints as any).bulkUpdateFormBMappings
+    const result = endpoint.query({
+      mappings: [
+        { accountId: 'a1', category: 'RENT_LEASE' },
+        { accountId: 'b1', category: null },
+      ],
+    })
+
+    expect(result).toEqual({
+      url: '/accounting/form-b-mappings',
+      method: 'PUT',
+      body: {
+        mappings: [
+          { accountId: 'a1', category: 'RENT_LEASE' },
+          { accountId: 'b1', category: null },
+        ],
+      },
+    })
+  })
+})

@@ -166,6 +166,25 @@ export const accountingApiSlice = createApi({
         }),
         invalidatesTags: ['FormBMapping', 'FormB'],
       }),
+      /*
+       * Atomic multi-row save. The response is the server's refreshed mapping
+       * list, which the page writes into the getFormBMappings cache BEFORE
+       * clearing its draft — tag invalidation alone refetches asynchronously,
+       * leaving a window where a cleared draft sits over stale rows.
+       *
+       * `FormB` is still invalidated: the report's classification changes.
+       */
+      bulkUpdateFormBMappings: builder.mutation<
+        FormBMappingRow[],
+        { mappings: { accountId: string; category: FormBCategory | null }[] }
+      >({
+        query: ({ mappings }) => ({
+          url: '/accounting/form-b-mappings',
+          method: 'PUT',
+          body: { mappings },
+        }),
+        invalidatesTags: ['FormBMapping', 'FormB'],
+      }),
       getExpenses: builder.query<
        PaginatedResponse<Expense>,
        ExpenseListParams | undefined
@@ -357,6 +376,7 @@ export const {
   useGetFormBQuery,
   useGetFormBMappingsQuery,
   useUpdateFormBMappingMutation,
+  useBulkUpdateFormBMappingsMutation,
   useGetExpensesQuery,
   useGetExpenseQuery,
   useCreateExpenseMutation,
@@ -389,4 +409,5 @@ export const accountingApi = accountingApiSlice
   if (ep.getFormB) ep.getFormB.query = (params: { year: number }) => ({ url: '/accounting/profit-and-loss/form-b', params }) as unknown as never
   if (ep.getFormBMappings) ep.getFormBMappings.query = () => ({ url: '/accounting/form-b-mappings' }) as unknown as never
   if (ep.updateFormBMapping) ep.updateFormBMapping.query = ({ accountId, category }: { accountId: string; category: FormBCategory | null }) => ({ url: `/accounting/form-b-mappings/${accountId}`, method: 'PUT', body: { category } }) as unknown as never
+  if (ep.bulkUpdateFormBMappings) ep.bulkUpdateFormBMappings.query = ({ mappings }: { mappings: { accountId: string; category: FormBCategory | null }[] }) => ({ url: '/accounting/form-b-mappings', method: 'PUT', body: { mappings } }) as unknown as never
 })()

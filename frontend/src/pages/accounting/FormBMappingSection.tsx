@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import {
   Alert,
   Box,
@@ -10,15 +9,18 @@ import {
   Stack,
   Typography,
 } from '@mui/material'
+import EditIcon from '@mui/icons-material/Edit'
 import { Link as RouterLink } from 'react-router-dom'
 
 import EntityTable from '@/components/common/EntityTable'
 import type { ColumnConfig } from '@/components/common/EntityTable'
 import PageSection from '@/components/common/PageSection'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
-import { useNotification } from '@/hooks/useNotification'
-import { useGetFormBMappingsQuery, useUpdateFormBMappingMutation } from '@/store/api/accountingApi'
-import type { FormBMappingRow } from '@/types'
+import { useGetFormBMappingsQuery } from '@/store/api/accountingApi'
+import type { FormBMappingRow, FormBCategory } from '@/types'
+
+import SettingsTableFrame from './SettingsTableFrame'
+import type { useFormBMappingDraft } from './useFormBMappingDraft'
 
 import {
   FALLBACK_LINE,
@@ -42,18 +44,37 @@ interface TableRow extends FormBMappingRow {
  */
 const isMappingRowSelectable = () => false
 
+/**
+ * The words describing what a category value means for this row — the shared
+ * renderer behind BOTH the persisted line and the pending one.
+ *
+ * Sharing it is what stops a pending clear rendering as "Pending: null": a
+ * cleared mapping is described the same way the persisted column would
+ * describe it, as the automatic fallback or as "Not included".
+ */
+function describeLine(row: TableRow, category: FormBCategory | null): string {
+  const explicit = categoryOptionFor(row.type, category)
+  if (explicit) return `${explicit.line} — ${explicit.label}`
+  if (category !== null) return `${category} (not valid for ${row.type})`
+
+  const fallback = FALLBACK_LINE[row.type]
+  if (!fallback || !row.eligibility.eligible) return 'Not included'
+  return `Automatic — ${fallback.line} ${fallback.label}`
+}
+
 function MappingControl({
   row,
   isAdmin,
-  onAssign,
-  pending,
+  disabled,
+  draft,
 }: {
   row: TableRow
   isAdmin: boolean
-  onAssign: (row: TableRow, category: string | null) => void
-  pending: boolean
+  disabled?: boolean
+  draft: ReturnType<typeof useFormBMappingDraft>
 }) {
   const options = optionsForType(row.type)
+  const draftValue = draft.valueFor(row)
   // Writes are @Auth(UserRole.ADMIN) server-side; a non-admin must not be able
   // to compose a change that can only 403.
   const canEdit = row.eligibility.eligible && isAdmin
@@ -65,14 +86,31 @@ function MappingControl({
      * the backend still accepts on an ineligible account (setCategory nulls both
      * columns without an eligibility check).
      */
+    /*
+     * The button TOGGLES once the clear is staged. Without this it disables
+     * itself the moment it is clicked (draftValue becomes null), and the only
+     * way to undo that one row is Cancel — which discards every other edit on
+     * the page too.
+     *
+     * Undo restores the persisted category rather than a remembered draft:
+     * `setMapping(id, row.category, row.category)` deletes the overlay key, so
+     * the row goes back to genuinely clean rather than to an equal-but-dirty
+     * value.
+     */
+    const staged = draft.isRowDirty(row.accountId)
+
     return (
       <Button
         data-testid={`formb-map-clear-${row.accountId}`}
         size="small"
-        onClick={() => onAssign(row, null)}
-        disabled={!isAdmin || pending || row.category === null}
+        onClick={() =>
+          staged
+            ? draft.setMapping(row.accountId, row.category, row.category)
+            : draft.setMapping(row.accountId, null, row.category)
+        }
+        disabled={!isAdmin || !!disabled || (!staged && draftValue === null)}
       >
-        Clear
+        {staged ? 'Undo clear' : 'Clear'}
       </Button>
     )
   }
@@ -82,15 +120,14 @@ function MappingControl({
       data-testid={`formb-map-select-${row.accountId}`}
       size="small"
       /*
-       * Driven straight from `row.category` — the server's value. This component
-       * holds NO local selection state, so a rejected write cannot leave a
-       * chosen-but-unsaved value on screen looking saved.
+       * Driven from the draft overlay, not straight from `row.category`.
+       * This is what makes a staged edit visible before the page is saved.
        */
-      value={row.category ?? UNMAPPED}
-      disabled={pending}
+      value={draftValue ?? UNMAPPED}
+      disabled={!!disabled}
       onChange={(e) => {
         const next = e.target.value as string
-        onAssign(row, next === UNMAPPED ? null : next)
+        draft.setMapping(row.accountId, next === UNMAPPED ? null : (next as FormBCategory), row.category)
       }}
       sx={{ minWidth: 240 }}
       inputProps={{ 'aria-label': `Form B category for ${row.code} ${row.name}` }}
@@ -116,21 +153,20 @@ function MappingControl({
  * opposite error — that someone chose it. It is therefore labelled "Automatic"
  * and distinguished by text, not by styling alone.
  */
-function LineCell({ row }: { row: TableRow }) {
+function LineCell({ row, draft }: { row: TableRow; draft: ReturnType<typeof useFormBMappingDraft> }) {
   const explicit = categoryOptionFor(row.type, row.category)
 
+  let persistedNode: React.ReactNode
   if (explicit) {
-    return (
+    persistedNode = (
       <Typography variant="body2" data-testid={`formb-map-line-${row.accountId}`}>
         {explicit.line} — {explicit.label}
       </Typography>
     )
-  }
-
-  if (row.category !== null) {
+  } else if (row.category !== null) {
     // A category stored on an account whose type cannot express it. Show the raw
     // value rather than hiding it: this row exists to be repaired.
-    return (
+    persistedNode = (
       <Typography
         variant="body2"
         color="error.main"
@@ -139,74 +175,63 @@ function LineCell({ row }: { row: TableRow }) {
         {row.category} (not valid for {row.type})
       </Typography>
     )
+  } else {
+    const fallback = FALLBACK_LINE[row.type]
+    if (!fallback || !row.eligibility.eligible) {
+      persistedNode = (
+        <Typography
+          variant="body2"
+          color="text.disabled"
+          data-testid={`formb-map-line-${row.accountId}`}
+        >
+          Not included
+        </Typography>
+      )
+    } else {
+      persistedNode = (
+        <Box data-testid={`formb-map-line-${row.accountId}`}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+            Automatic — {fallback.line} {fallback.label}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            No mapping saved; unmapped accounts fall here automatically.
+          </Typography>
+        </Box>
+      )
+    }
   }
 
-  const fallback = FALLBACK_LINE[row.type]
-  if (!fallback || !row.eligibility.eligible) {
-    return (
-      <Typography
-        variant="body2"
-        color="text.disabled"
-        data-testid={`formb-map-line-${row.accountId}`}
-      >
-        Not included
-      </Typography>
-    )
-  }
+  const isDirty = draft.isRowDirty(row.accountId)
+  const draftValue = draft.valueFor(row)
 
   return (
-    <Box data-testid={`formb-map-line-${row.accountId}`}>
-      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-        Automatic — {fallback.line} {fallback.label}
-      </Typography>
-      <Typography variant="caption" color="text.secondary">
-        No mapping saved; unmapped accounts fall here automatically.
-      </Typography>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      {persistedNode}
+      {isDirty && (
+        <Typography
+          variant="caption"
+          color="warning.main"
+          data-testid={`formb-map-pending-${row.accountId}`}
+        >
+          Pending: {describeLine(row, draftValue)}
+        </Typography>
+      )}
     </Box>
   )
 }
 
-export default function FormBMappingSection({ isAdmin = true }: { isAdmin?: boolean }) {
+export default function FormBMappingSection({
+  isAdmin = true,
+  disabled = false,
+  draft,
+  saveError,
+}: {
+  isAdmin?: boolean
+  disabled?: boolean
+  draft: ReturnType<typeof useFormBMappingDraft>
+  saveError?: string | null
+}) {
   const { data: rows = [], isLoading, isError } = useGetFormBMappingsQuery()
-  const [updateMapping, { isError: isSaveError, error: saveError }] = useUpdateFormBMappingMutation()
-  const { showSuccess } = useNotification()
-  /*
-   * A SET, not a single id. Each row saves independently, so two can be in
-   * flight at once — and with one shared id the second write overwrites the
-   * first, then its `finally` clears the marker and re-enables a row whose
-   * request has not returned. Keyed by accountId, each row clears only itself.
-   */
-  const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(new Set())
-
-  const handleAssign = async (row: TableRow, category: string | null) => {
-    setPendingIds((prev) => new Set(prev).add(row.accountId))
-    try {
-      await updateMapping({ accountId: row.accountId, category: category as any }).unwrap()
-      showSuccess(
-        category === null
-          ? `Cleared the Form B mapping for ${row.code}.`
-          : `Saved the Form B mapping for ${row.code}.`,
-      )
-    } catch {
-      /*
-       * Swallowed deliberately: the Alert below renders from the mutation's own
-       * error state, and the Select needs no repair because it never left the
-       * persisted value — it renders `row.category` straight from the cache and
-       * this component keeps no optimistic or local selection.
-       *
-       * (A rejected-with-value mutation DOES still invalidate: RTK Query 2.12's
-       * `isThunkActionWithTags` matches isFulfilled OR isRejectedWithValue, so a
-       * refetch may follow. That is harmless here — it re-renders the same
-       * persisted value — but it is not what the correctness rests on.)
-       */
-    } finally {
-      setPendingIds((prev) => {
-        const next = new Set(prev)
-        next.delete(row.accountId)
-        return next
-      })
-    }
-  }
 
   const intro = (
     <Stack spacing={1} sx={{ mb: 2 }}>
@@ -235,7 +260,7 @@ export default function FormBMappingSection({ isAdmin = true }: { isAdmin?: bool
 
   if (isLoading) {
     return (
-      <PageSection label="Form B Account Mapping">
+      <PageSection label="Form B Tax Filing">
         <Box sx={{ p: 2 }}>
           {intro}
           <ListSkeleton rows={6} columns={4} />
@@ -251,7 +276,7 @@ export default function FormBMappingSection({ isAdmin = true }: { isAdmin?: bool
    */
   if (isError) {
     return (
-      <PageSection label="Form B Account Mapping">
+      <PageSection label="Form B Tax Filing">
         <Box sx={{ p: 2 }}>
           {intro}
           <Alert severity="error" data-testid="formb-mapping-error">
@@ -294,19 +319,34 @@ export default function FormBMappingSection({ isAdmin = true }: { isAdmin?: bool
     {
       key: 'name',
       raw: true,
-      render: (row) => (
-        <Box
-          data-testid={`formb-map-row-${row.accountId}`}
-          sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}
-        >
-          <Typography variant="body2">{row.name}</Typography>
-          {!row.eligibility.eligible && (
-            <Typography variant="caption" color="text.secondary">
-              {reasonText((row.eligibility as any).reason)}
-            </Typography>
-          )}
-        </Box>
-      ),
+      render: (row) => {
+        const isDirty = draft.isRowDirty(row.accountId)
+        return (
+          <Box
+            data-testid={`formb-map-row-${row.accountId}`}
+            sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2">{row.name}</Typography>
+              {isDirty && (
+                <Chip
+                  label="Changed"
+                  size="small"
+                  color="warning"
+                  variant="outlined"
+                  icon={<EditIcon fontSize="small" />}
+                  data-testid={`formb-map-changed-${row.accountId}`}
+                />
+              )}
+            </Box>
+            {!row.eligibility.eligible && (
+              <Typography variant="caption" color="text.secondary">
+                {reasonText((row.eligibility as any).reason)}
+              </Typography>
+            )}
+          </Box>
+        )
+      },
     },
     {
       key: 'type',
@@ -319,54 +359,34 @@ export default function FormBMappingSection({ isAdmin = true }: { isAdmin?: bool
       ),
     },
     {
-      /*
-       * Only INACTIVE is chipped. An "active" chip on every healthy row is
-       * noise that makes the exceptional case harder to spot, not easier.
-       */
-      key: 'status',
-      width: 100,
-      raw: true,
-      render: (row) =>
-        row.isActive ? null : (
-          <Chip label="inactive" size="small" data-testid={`formb-map-status-${row.accountId}`} />
-        ),
-    },
-    {
       key: 'line',
       width: 260,
       raw: true,
-      render: (row) => <LineCell row={row} />,
+      render: (row) => <LineCell row={row} draft={draft} />,
     },
     {
       key: 'mapping',
       width: 280,
-      align: 'right',
       raw: true,
       render: (row) => (
         <MappingControl
           row={row}
           isAdmin={isAdmin}
-          onAssign={handleAssign}
-          pending={pendingIds.has(row.accountId)}
+          disabled={disabled}
+          draft={draft}
         />
       ),
     },
   ]
 
   return (
-    <PageSection label="Form B Account Mapping">
+    <PageSection label="Form B Tax Filing">
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
         {intro}
 
-        {/*
-          A rejected write (an ineligible assignment, or a lost admin session)
-          previously just closed the control, leaving the old value on screen as
-          though the change had been saved.
-        */}
-        {isSaveError && (
+        {saveError && (
           <Alert severity="error" data-testid="formb-mapping-save-error">
-            {(saveError as any)?.data?.message ??
-              'Unable to save the mapping. Please try again.'}
+            {saveError}
           </Alert>
         )}
 
@@ -377,26 +397,11 @@ export default function FormBMappingSection({ isAdmin = true }: { isAdmin?: bool
           </Alert>
         )}
 
-        {/*
-          `showHeader` is off and there is no second PageSection: EntityTable
-          renders its own <Paper> with its own header bar, so either would stack
-          two cards and two titles. The PageSection above owns the heading.
-
-          The height override matters. EntityTable's card is `height: 100%` +
-          `overflow: hidden`, correct inside a bounded flex pane and collapsing
-          to nothing inside GenericOverviewPage's document-flow scroll.
-        */}
-        <Box
-          sx={{
-            '& .entity-table-card': { height: 'auto', boxShadow: 'none' },
-            '& .entity-table-frame': { overflow: 'visible' },
-            '& .entity-table-scroller': { overflow: 'auto' },
-          }}
-        >
+        <SettingsTableFrame>
           <EntityTable
             rows={tableRows}
             columns={columns}
-            headers={['Code', 'Account', 'Type', 'Status', 'Form B Line', 'Mapping']}
+            headers={['Code', 'Account', 'Type', 'Form B Line', 'Mapping']}
             showHeader={false}
             isRowSelectable={isMappingRowSelectable}
             onSelect={() => {}}
@@ -408,8 +413,13 @@ export default function FormBMappingSection({ isAdmin = true }: { isAdmin?: bool
             // Interpolated by EntityTable as `No ${emptyLabel} found`, so this
             // is a noun phrase, not a sentence.
             emptyLabel="mappable accounts"
+            getRowSx={(row) =>
+              draft.isRowDirty(row.accountId)
+                ? { bgcolor: 'warning.light', opacity: 0.99 }
+                : {}
+            }
           />
-        </Box>
+        </SettingsTableFrame>
       </Box>
     </PageSection>
   )

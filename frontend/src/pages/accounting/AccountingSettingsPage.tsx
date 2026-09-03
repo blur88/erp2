@@ -1,46 +1,33 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Alert,
   Box,
-  Button,
-  Grid,
-  MenuItem,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material'
-import { Controller, useForm } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 
-import GenericOverviewPage from '@/components/common/GenericOverviewPage'
 import PageHeader from '@/components/common/PageHeader'
-import PageSection from '@/components/common/PageSection'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { useNotification } from '@/hooks/useNotification'
-import { useAppSelector } from '@/hooks/useRedux'
+import { useAppSelector, useAppDispatch } from '@/hooks/useRedux'
 import {
   useGetAccountsQuery,
   useGetAccountingSettingsQuery,
   useUpdateAccountingSettingsMutation,
+  useBulkUpdateFormBMappingsMutation,
+  accountingApi,
 } from '@/store/api/accountingApi'
-import type { Account, AccountType, AccountingSettings } from '@/types'
+import type { AccountingSettings } from '@/types'
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 
+import DefaultAccountsSection from './DefaultAccountsSection'
+import type { FormValues } from './DefaultAccountsSection'
 import FormBMappingSection from './FormBMappingSection'
-
-interface FormValues {
-  cashAccountId: string
-  bankAccountId: string
-  inventoryAccountId: string
-  supplierDepositAccountId: string
-  customerDepositAccountId: string
-  openingBalanceEquityAccountId: string
-  ownerCapitalAccountId: string
-  ownerDrawingsAccountId: string
-  salesRevenueAccountId: string
-  cogsAccountId: string
-  defaultExpenseAccountId: string
-}
+import { useFormBMappingDraft } from './useFormBMappingDraft'
+import SettingsActionBar from './SettingsActionBar'
 
 const schema = yup.object({
   cashAccountId: yup.string().required('Cash account is required'),
@@ -56,64 +43,6 @@ const schema = yup.object({
   defaultExpenseAccountId: yup.string().required('Default expense account is required'),
 })
 
-interface SectionField {
-  name: keyof FormValues
-  label: string
-  accountType: AccountType
-}
-
-const PAYMENT_FIELDS: SectionField[] = [
-  { name: 'cashAccountId', label: 'Cash Account', accountType: 'Asset' },
-  { name: 'bankAccountId', label: 'Bank Account', accountType: 'Asset' },
-]
-
-const SALES_FIELDS: SectionField[] = [
-  { name: 'customerDepositAccountId', label: 'Customer Deposit Account', accountType: 'Liability' },
-  { name: 'salesRevenueAccountId', label: 'Sales Revenue Account', accountType: 'Income' },
-]
-
-const INVENTORY_PURCHASING_FIELDS: SectionField[] = [
-  { name: 'inventoryAccountId', label: 'Inventory Account', accountType: 'Asset' },
-  { name: 'supplierDepositAccountId', label: 'Supplier Deposit Account', accountType: 'Asset' },
-]
-
-/*
- * The two Expense-type accounts, together.
- *
- * They are the pair the Form B section below cares about, and the distinction
- * between them is what the Form B mapping rules turn on: COGS (and everything
- * beneath it) is EXCLUDED from expense mapping because it already reaches Form
- * B through N7, while Default Expense is an ordinary mappable expense. Showing
- * them side by side is what makes that exclusion legible.
- *
- * Consumers: cogsAccountId is read on sales/delivery posting;
- * defaultExpenseAccountId only by postStockAdjustment(), for the expense leg of
- * a stock write-off (accounting-posting.service.ts).
- */
-const EXPENSE_FIELDS: SectionField[] = [
-  { name: 'cogsAccountId', label: 'COGS Account', accountType: 'Expense' },
-  { name: 'defaultExpenseAccountId', label: 'Default Expense Account', accountType: 'Expense' },
-]
-
-// Consumed only by the Owner Equity module's postings — capital injections,
-// cash/stock drawings, and their refunds.
-const OWNER_EQUITY_FIELDS: SectionField[] = [
-  { name: 'ownerCapitalAccountId', label: 'Owner Capital Account', accountType: 'Equity' },
-  { name: 'ownerDrawingsAccountId', label: 'Owner Drawings Account', accountType: 'Equity' },
-]
-
-/*
- * One field on purpose. Opening Balance Equity is used by exactly one posting
- * path — postOpeningBalance(), when an account's opening balance is set — which
- * is a distinct, infrequent setup step rather than day-to-day operation.
- *
- * The section it replaces was "System": a leftover bucket holding three Equity
- * accounts and one Expense account, named after no concept any of them shared.
- */
-const SETUP_FIELDS: SectionField[] = [
-  { name: 'openingBalanceEquityAccountId', label: 'Opening Balance Equity Account', accountType: 'Equity' },
-]
-
 function toFormValues(settings: AccountingSettings): FormValues {
   return {
     cashAccountId: settings.cashAccountId,
@@ -128,53 +57,6 @@ function toFormValues(settings: AccountingSettings): FormValues {
     cogsAccountId: settings.cogsAccountId,
     defaultExpenseAccountId: settings.defaultExpenseAccountId,
   }
-}
-
-interface FieldGridProps {
-  fields: SectionField[]
-  accounts: Account[]
-  control: any
-  errors: Record<string, any>
-  disabled: boolean
-}
-
-function FieldGrid({ fields, accounts, control, errors, disabled }: FieldGridProps) {
-  return (
-    <Grid container spacing={3} sx={{ p: 3 }}>
-      {fields.map((fieldConfig) => {
-        const filtered = accounts.filter((a) => a.type === fieldConfig.accountType)
-        return (
-          <Grid key={fieldConfig.name} size={{ xs: 12, md: 6 }}>
-            <Controller
-              name={fieldConfig.name}
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  select
-                  size="small"
-                  fullWidth
-                  disabled={disabled}
-                  label={fieldConfig.label}
-                  error={!!errors[fieldConfig.name]}
-                  helperText={errors[fieldConfig.name]?.message || ''}
-                >
-                  <MenuItem value="">
-                    <em>Select {fieldConfig.label}</em>
-                  </MenuItem>
-                  {filtered.map((account) => (
-                    <MenuItem key={account.id} value={account.id}>
-                      {account.code} - {account.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              )}
-            />
-          </Grid>
-        )
-      })}
-    </Grid>
-  )
 }
 
 export default function AccountingSettingsPage() {
@@ -197,7 +79,13 @@ export default function AccountingSettingsPage() {
     activeOnly: true,
   } as Record<string, unknown>)
 
-  const [updateSettings, { isLoading: isSaving }] = useUpdateAccountingSettingsMutation()
+  const [updateSettings] = useUpdateAccountingSettingsMutation()
+
+  const draft = useFormBMappingDraft()
+  const [bulkUpdateMappings] = useBulkUpdateFormBMappingsMutation()
+  const [isSaving, setIsSaving] = useState(false)
+  const [mappingSaveError, setMappingSaveError] = useState<string | null>(null)
+  const dispatch = useAppDispatch()
 
   const accounts = accountsResponse?.data ?? []
   const loading = settingsLoading || accountsLoading
@@ -213,7 +101,7 @@ export default function AccountingSettingsPage() {
   const {
     control,
     handleSubmit,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty: isFormDirty },
     reset,
   } = useForm<FormValues>({
     resolver: yupResolver(schema) as any,
@@ -232,24 +120,171 @@ export default function AccountingSettingsPage() {
     },
   })
 
+  const isDirty = isFormDirty || draft.isDirty
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSaving)
+
   useEffect(() => {
     if (settings) {
       reset(toFormValues(settings))
     }
   }, [settings, reset])
 
-  const onSubmit = async (data: FormValues) => {
-    try {
-      await updateSettings(data).unwrap()
-      reset(data)
-      showSuccess('Accounting settings saved successfully.')
-    } catch (err: any) {
-      showError(err?.data?.message ?? err.message ?? 'Failed to save accounting settings')
+  /*
+   * Normalizes every error shape this page can see into a string.
+   *
+   * axiosBaseQuery returns `{ status, data }` with the message in `data` — a
+   * string for our own 400s, but an object when Nest's ValidationPipe returns
+   * its `message` array. Passing any of those straight into a template literal
+   * renders "[object Object]", which tells the user nothing and hides a real
+   * validation message.
+   */
+  const errorMessage = (err: any, fallback: string): string => {
+    const raw = err?.data?.message ?? err?.data ?? err?.message
+    if (typeof raw === 'string' && raw.trim()) return raw
+    if (Array.isArray(raw) && raw.length) return raw.join('; ')
+    return fallback
+  }
+
+  /*
+   * Rejects on BOTH failure modes. The old onSubmit caught the mutation error
+   * and notified, so handleSubmit(onSubmit)() resolved even on an API failure —
+   * and Promise.allSettled would have classified that as fulfilled.
+   */
+  const saveDefaultAccounts = () =>
+    new Promise<void>((resolve, reject) => {
+      let attempted = false
+      handleSubmit(async (data) => {
+        attempted = true
+        try {
+          await updateSettings(data).unwrap()
+          reset(data)
+          resolve()
+        } catch (err: any) {
+          reject(new Error(errorMessage(err, 'Failed to save accounting settings')))
+        }
+      })()
+        .then(() => {
+          // handleSubmit resolves without ever calling the callback when the
+          // form is invalid. Silence there would read as a successful save.
+          if (!attempted) reject(new Error('Fix the highlighted fields before saving.'))
+        })
+        // Without this, an unexpected throw from handleSubmit itself leaves
+        // the wrapper promise pending forever — and Promise.allSettled would
+        // never settle, hanging the save with the buttons disabled.
+        .catch(reject)
+    })
+
+  const saveMappings = async () => {
+    const rows = await bulkUpdateMappings({ mappings: draft.changedItems() })
+      .unwrap()
+      .catch((err: any) => {
+        // axiosBaseQuery returns { status, data } with the message in `data`.
+        // Rethrowing the raw object would render as "[object Object]".
+        throw new Error(errorMessage(err, 'Unable to save the Form B mappings. Please try again.'))
+      })
+    /*
+     * Write the authoritative response into the cache BEFORE clearing the
+     * draft. Tag invalidation refetches asynchronously, so clearing first
+     * leaves a window where an empty overlay sits over stale rows — and a
+     * failed refetch would leave it stale indefinitely.
+     */
+    ;(dispatch as any)(
+      accountingApi.util.updateQueryData('getFormBMappings', undefined, () => rows),
+    )
+    draft.reset()
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    setMappingSaveError(null)
+
+    /*
+     * SEQUENTIAL, mappings first — not Promise.allSettled over both.
+     *
+     * The two validations read each other's data. A mapping write checks the
+     * account against the CURRENT COGS/Sales roots (form-b-mapping.service
+     * resolveUpdate), while a settings write checks whether its NEW roots would
+     * capture an already-mapped account (accounting-settings.service
+     * assertNoMappedAccountCaptured, added by #1174). Run concurrently, both
+     * validate against pre-change state and both commit, landing a mapped
+     * account inside an excluded subtree — precisely the state that guard
+     * exists to prevent.
+     *
+     * Mappings go first so the settings guard sees them: if the new roots would
+     * capture a just-saved mapping, settings is rejected with its own message
+     * and the mapping stands. The reverse order would let a root move land
+     * first and silently invalidate a mapping the user is still editing.
+     */
+    const jobs: { name: string; run: () => Promise<void> }[] = []
+    if (draft.isDirty) jobs.push({ name: 'Form B mappings', run: saveMappings })
+    if (isFormDirty) jobs.push({ name: 'Default Accounts', run: saveDefaultAccounts })
+
+    const results: PromiseSettledResult<void>[] = []
+    for (const job of jobs) {
+      try {
+        await job.run()
+        results.push({ status: 'fulfilled', value: undefined })
+      } catch (reason) {
+        // Every job still runs: a rejected mappings save must not silently
+        // swallow the user's Default Accounts edit. Ordering is for validation
+        // coherence, not for short-circuiting.
+        results.push({ status: 'rejected', reason })
+      }
     }
+    setIsSaving(false)
+
+    const failed = jobs.filter((_, i) => results[i].status === 'rejected')
+    const succeeded = jobs.filter((_, i) => results[i].status === 'fulfilled')
+
+    const reasonFor = (name: string) => {
+      const i = jobs.findIndex((j) => j.name === name)
+      const r = results[i]
+      return r.status === 'rejected' ? String((r as PromiseRejectedResult).reason?.message ?? (r as PromiseRejectedResult).reason) : ''
+    }
+
+    if (failed.some((j) => j.name === 'Form B mappings')) {
+      setMappingSaveError(reasonFor('Form B mappings'))
+    }
+
+    if (failed.length === 0) {
+      showSuccess('Accounting settings saved successfully.')
+      return
+    }
+
+    if (succeeded.length === 0) {
+      showError(failed.map((j) => `${j.name} failed: ${reasonFor(j.name)}`).join(' '))
+      return
+    }
+
+    // Mixed: name both halves, and say the failed drafts survive for retry.
+    showError(
+      `${succeeded.map((j) => j.name).join(' and ')} saved. ` +
+      `${failed.map((j) => j.name).join(' and ')} failed — your changes are still available to retry.`,
+    )
+  }
+
+  const handleCancel = () => {
+    reset()
+    draft.reset()
+    setMappingSaveError(null)
   }
 
   return (
-    <GenericOverviewPage>
+    /*
+     * The SimpleListPage shape, not GenericOverviewPage's document-flow scroll.
+     *
+     * This outer Box deliberately has NO `overflow`: the page itself never
+     * scrolls, so the header and the action bar stay put as fixed-height flex
+     * siblings while only the middle pane moves. That is how the 18 list pages
+     * in this app keep their headers static — they do not use `position:
+     * sticky`, they simply never scroll the element.
+     *
+     * Consequence to preserve: exactly ONE vertical scroller on the page, the
+     * middle Box below. SettingsTableFrame sets each table's own scroller to
+     * `visible` so the seven tables grow to full height inside it rather than
+     * nesting seven more.
+     */
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <PageHeader
         title="Accounting Settings"
         subtitle="Configure the default accounts the system posts to, and map accounts to Form B tax filing lines."
@@ -261,117 +296,45 @@ export default function AccountingSettingsPage() {
         </Alert>
       )}
 
-      <Stack spacing={3}>
-        {/*
-          Two named groups. Default Accounts drives automatic posting; Form B
-          mapping drives a statutory report and nothing else. Keeping them
-          visually separate stops a mapping being read as ordinary posting
-          configuration.
-        */}
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Default Accounts
-        </Typography>
+      {/* The only scrolling pane. `minHeight: 0` is what lets it shrink below
+          its content instead of pushing the action bar off-screen. */}
+      <Box
+        data-testid="accounting-settings-scroll-pane"
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          // Matches GenericOverviewPage's old gutter compensation so the
+          // scrollbar sits outside the content rather than over it.
+          mr: { xs: -2, sm: -3 },
+          pr: { xs: 2, sm: 3 },
+          pb: 2,
+        }}
+      >
+        <Stack spacing={3}>
+          {/*
+            Two named groups. Default Accounts drives automatic posting; Form B
+            mapping drives a statutory report and nothing else. Keeping them
+            visually separate stops a mapping being read as ordinary posting
+            configuration.
+          */}
+          {loading ? (
+            <ListSkeleton rows={8} columns={2} />
+          ) : error ? null : (
+            <DefaultAccountsSection accounts={accounts} control={control} errors={errors} disabled={!isAdmin || isSaving} />
+          )}
 
-        {loading ? (
-          <ListSkeleton rows={8} columns={2} />
-        ) : error ? null : (
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <Stack spacing={3}>
-              <PageSection label="Payment">
-                <FieldGrid
-                  fields={PAYMENT_FIELDS}
-                  accounts={accounts}
-                  control={control}
-                  errors={errors}
-                  disabled={!isAdmin}
-                />
-              </PageSection>
+          {!isAdmin && !loading && !error && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Account mappings are read-only. Only an administrator can change them.
+            </Alert>
+          )}
 
-              <PageSection label="Sales">
-                <FieldGrid
-                  fields={SALES_FIELDS}
-                  accounts={accounts}
-                  control={control}
-                  errors={errors}
-                  disabled={!isAdmin}
-                />
-              </PageSection>
-
-              <PageSection label="Inventory & Purchasing">
-                <FieldGrid
-                  fields={INVENTORY_PURCHASING_FIELDS}
-                  accounts={accounts}
-                  control={control}
-                  errors={errors}
-                  disabled={!isAdmin}
-                />
-              </PageSection>
-
-              <PageSection label="Expenses">
-                <FieldGrid
-                  fields={EXPENSE_FIELDS}
-                  accounts={accounts}
-                  control={control}
-                  errors={errors}
-                  disabled={!isAdmin}
-                />
-              </PageSection>
-
-              <PageSection label="Owner Equity">
-                <FieldGrid
-                  fields={OWNER_EQUITY_FIELDS}
-                  accounts={accounts}
-                  control={control}
-                  errors={errors}
-                  disabled={!isAdmin}
-                />
-              </PageSection>
-
-              <PageSection label="Setup">
-                <FieldGrid
-                  fields={SETUP_FIELDS}
-                  accounts={accounts}
-                  control={control}
-                  errors={errors}
-                  disabled={!isAdmin}
-                />
-              </PageSection>
-            </Stack>
-
-            {isAdmin ? (
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
-                <Button
-                  variant="outlined"
-                  size="large"
-                  onClick={() => reset()}
-                  disabled={!isDirty || isSaving}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  color="primary"
-                  size="large"
-                  disabled={isSaving}
-                >
-                  {isSaving ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </Box>
-            ) : (
-              <Alert severity="info" sx={{ mt: 2 }}>
-                Account mappings are read-only. Only an administrator can change them.
-              </Alert>
-            )}
-          </form>
-        )}
-
-        <Typography variant="h6" sx={{ fontWeight: 600, pt: 1 }}>
-          Form B Tax Filing
-        </Typography>
-
-        <FormBMappingSection isAdmin={isAdmin} />
-      </Stack>
-    </GenericOverviewPage>
+          <FormBMappingSection isAdmin={isAdmin} disabled={isSaving} draft={draft} saveError={mappingSaveError} />
+        </Stack>
+      </Box>
+      {isAdmin && !loading && !error && <SettingsActionBar isDirty={isDirty} isSaving={isSaving} onCancel={handleCancel} onSave={handleSave} />}
+      {UnsavedChangesDialog}
+    </Box>
   )
 }
