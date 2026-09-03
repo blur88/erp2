@@ -86,14 +86,31 @@ function MappingControl({
      * the backend still accepts on an ineligible account (setCategory nulls both
      * columns without an eligibility check).
      */
+    /*
+     * The button TOGGLES once the clear is staged. Without this it disables
+     * itself the moment it is clicked (draftValue becomes null), and the only
+     * way to undo that one row is Cancel — which discards every other edit on
+     * the page too.
+     *
+     * Undo restores the persisted category rather than a remembered draft:
+     * `setMapping(id, row.category, row.category)` deletes the overlay key, so
+     * the row goes back to genuinely clean rather than to an equal-but-dirty
+     * value.
+     */
+    const staged = draft.isRowDirty(row.accountId)
+
     return (
       <Button
         data-testid={`formb-map-clear-${row.accountId}`}
         size="small"
-        onClick={() => draft.setMapping(row.accountId, null, row.category)}
-        disabled={!isAdmin || !!disabled || draftValue === null}
+        onClick={() =>
+          staged
+            ? draft.setMapping(row.accountId, row.category, row.category)
+            : draft.setMapping(row.accountId, null, row.category)
+        }
+        disabled={!isAdmin || !!disabled || (!staged && draftValue === null)}
       >
-        Clear
+        {staged ? 'Undo clear' : 'Clear'}
       </Button>
     )
   }

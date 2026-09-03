@@ -199,11 +199,39 @@ export default function AccountingSettingsPage() {
     setIsSaving(true)
     setMappingSaveError(null)
 
+    /*
+     * SEQUENTIAL, mappings first — not Promise.allSettled over both.
+     *
+     * The two validations read each other's data. A mapping write checks the
+     * account against the CURRENT COGS/Sales roots (form-b-mapping.service
+     * resolveUpdate), while a settings write checks whether its NEW roots would
+     * capture an already-mapped account (accounting-settings.service
+     * assertNoMappedAccountCaptured, added by #1174). Run concurrently, both
+     * validate against pre-change state and both commit, landing a mapped
+     * account inside an excluded subtree — precisely the state that guard
+     * exists to prevent.
+     *
+     * Mappings go first so the settings guard sees them: if the new roots would
+     * capture a just-saved mapping, settings is rejected with its own message
+     * and the mapping stands. The reverse order would let a root move land
+     * first and silently invalidate a mapping the user is still editing.
+     */
     const jobs: { name: string; run: () => Promise<void> }[] = []
-    if (isFormDirty) jobs.push({ name: 'Default Accounts', run: saveDefaultAccounts })
     if (draft.isDirty) jobs.push({ name: 'Form B mappings', run: saveMappings })
+    if (isFormDirty) jobs.push({ name: 'Default Accounts', run: saveDefaultAccounts })
 
-    const results = await Promise.allSettled(jobs.map((j) => j.run()))
+    const results: PromiseSettledResult<void>[] = []
+    for (const job of jobs) {
+      try {
+        await job.run()
+        results.push({ status: 'fulfilled', value: undefined })
+      } catch (reason) {
+        // Every job still runs: a rejected mappings save must not silently
+        // swallow the user's Default Accounts edit. Ordering is for validation
+        // coherence, not for short-circuiting.
+        results.push({ status: 'rejected', reason })
+      }
+    }
     setIsSaving(false)
 
     const failed = jobs.filter((_, i) => results[i].status === 'rejected')

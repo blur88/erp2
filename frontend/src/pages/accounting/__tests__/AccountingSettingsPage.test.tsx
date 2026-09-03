@@ -611,6 +611,95 @@ describe('AccountingSettingsPage — page-level save', () => {
     expect(screen.queryByTestId('formb-map-changed-a1')).not.toBeInTheDocument()
   })
 
+  it('saves mappings before settings, never concurrently', async () => {
+    const user = userEvent.setup()
+    const order: string[] = []
+
+    /*
+     * The mappings save is held open until released. Under a sequential run
+     * nothing else can start meanwhile; under Promise.allSettled the settings
+     * request fires immediately and 'settings:start' lands before
+     * 'mappings:end'.
+     *
+     * A test that merely resolved both immediately would pass either way —
+     * handleSubmit defers by a tick, so settings loses the race incidentally
+     * even when launched concurrently. Verified by reverting to allSettled.
+     */
+    let releaseMappings: (rows: any) => void = () => {}
+    mockBulkUpdate.mockImplementationOnce(() => ({
+      unwrap: () => {
+        order.push('mappings:start')
+        return new Promise((res) => { releaseMappings = res }).then((r) => {
+          order.push('mappings:end')
+          return r
+        })
+      },
+    }) as any)
+    mockUpdateSettings.mockImplementationOnce(() => ({
+      unwrap: () => {
+        order.push('settings:start')
+        return Promise.resolve({}).then((r) => {
+          order.push('settings:end')
+          return r
+        })
+      },
+    }) as any)
+
+    renderPage({ isAdmin: true, formBMappings: formBRows })
+
+    // Dirty BOTH sections.
+    await user.click(screen.getByLabelText('Cash Account'))
+    await user.click(await screen.findByRole('option', { name: /1200 - Checking Account/i }))
+    await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: /N16 — Salaries/i }))
+
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(order).toContain('mappings:start'))
+    // Give a concurrent implementation every chance to start the settings
+    // request while the mappings one is still in flight.
+    await new Promise((r) => setTimeout(r, 50))
+    expect(order).toEqual(['mappings:start'])
+
+    releaseMappings(formBRows)
+    await waitFor(() => expect(order).toContain('settings:end'))
+
+    /*
+     * Strictly sequential, mappings first. Run concurrently, the two
+     * validations each read the other's pre-change state — a mapping checks
+     * the CURRENT COGS/Sales roots, a settings save checks whether its NEW
+     * roots capture an already-mapped account — so both can pass and both
+     * commit, landing a mapped account inside an excluded subtree.
+     */
+    expect(order).toEqual([
+      'mappings:start', 'mappings:end', 'settings:start', 'settings:end',
+    ])
+  })
+
+  it('still saves settings when the mappings save fails', async () => {
+    const user = userEvent.setup()
+    mockBulkUpdate.mockReturnValueOnce({
+      unwrap: () => Promise.reject({ data: 'mapping rejected' }),
+    } as any)
+
+    renderPage({ isAdmin: true, formBMappings: formBRows })
+
+    await user.click(screen.getByLabelText('Cash Account'))
+    await user.click(await screen.findByRole('option', { name: /1200 - Checking Account/i }))
+    await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: /N16 — Salaries/i }))
+
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    // Ordering is for validation coherence, not short-circuiting: a rejected
+    // first job must not silently swallow the user's other edit.
+    await waitFor(() => expect(mockUpdateSettings).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(mockShowError).toHaveBeenCalled())
+    expect(mockShowSuccess).not.toHaveBeenCalled()
+    // The failed section keeps its draft for retry.
+    expect(screen.getByTestId('formb-map-changed-a1')).toBeInTheDocument()
+  })
+
   it('writes the server response into the cache before clearing the draft', async () => {
     const user = userEvent.setup()
 

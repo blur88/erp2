@@ -171,6 +171,31 @@ describe('FormBMappingSection', () => {
     expect(screen.getByTestId('formb-map-clear-b1')).toBeEnabled()
   })
 
+  it('lets a staged clear be undone without discarding the rest of the page', async () => {
+    const user = userEvent.setup()
+    renderWithDraft(rows)
+
+    const button = screen.getByTestId('formb-map-clear-b1')
+    await user.click(button)
+
+    /*
+     * The button must TOGGLE. Staging the clear sets the draft value to null,
+     * and a button disabled on `draftValue === null` would trap the edit — the
+     * only escape being Cancel, which discards every other edit on the page.
+     */
+    expect(button).toBeEnabled()
+    expect(button).toHaveTextContent(/undo clear/i)
+    expect(screen.getByTestId('formb-map-changed-b1')).toBeInTheDocument()
+
+    await user.click(button)
+
+    // Undo restores the persisted category, so the row is genuinely clean —
+    // not an equal-but-still-dirty overlay entry.
+    expect(button).toHaveTextContent(/^Clear$/i)
+    expect(screen.queryByTestId('formb-map-changed-b1')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('formb-map-pending-b1')).not.toBeInTheDocument()
+  })
+
   // The chip lives in its own Status column now, not inside the Account cell.
   it('labels an inactive row in the Status column and still allows clearing it', () => {
     renderSection(rows)

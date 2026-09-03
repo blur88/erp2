@@ -330,7 +330,41 @@ describe('Form B (e2e)', () => {
       cogsChildId = (child as any).id;
     });
 
+    /*
+     * Each test establishes its own baseline rather than inheriting the
+     * previous one's writes. Without this, every case after the first assumed
+     * ownedA already held SALARIES_AND_WAGES, so running one in isolation
+     * (`-t "rolls back an earlier write"`) failed with `Received: null` — and
+     * a reordering would have broken them in CI for a reason unrelated to the
+     * code under test.
+     *
+     * Written through the repository, not the bulk route: a baseline that goes
+     * through the endpoint under test cannot distinguish "the endpoint works"
+     * from "the baseline was already correct".
+     */
+    beforeEach(async () => {
+      const coa = ds.getRepository(ChartOfAccount);
+      await coa.update(ownedA, {
+        formBExpenseCategory: 'SALARIES_AND_WAGES', formBIncomeCategory: null,
+      } as any);
+      await coa.update(ownedB, {
+        formBExpenseCategory: 'RENT_LEASE', formBIncomeCategory: null,
+      } as any);
+      await coa.update(cogsChildId, {
+        formBExpenseCategory: null, formBIncomeCategory: null,
+      } as any);
+    });
+
     it('saves several mappings in one request', async () => {
+      // Move BOTH rows off the baseline, so a no-op endpoint cannot pass.
+      await request(app.getHttpServer())
+        .put('/accounting/form-b-mappings')
+        .set(adminHeader())
+        .send({ mappings: [
+          { accountId: ownedA, category: null },
+          { accountId: ownedB, category: null },
+        ] });
+
       const res = await request(app.getHttpServer())
         .put('/accounting/form-b-mappings')
         .set(adminHeader())
@@ -347,7 +381,7 @@ describe('Form B (e2e)', () => {
     });
 
     it('validates every item before writing any', async () => {
-      // ownedA currently holds SALARIES_AND_WAGES from the test above.
+      // ownedA holds SALARIES_AND_WAGES from this block's beforeEach.
       const res = await request(app.getHttpServer())
         .put('/accounting/form-b-mappings')
         .set(adminHeader())
