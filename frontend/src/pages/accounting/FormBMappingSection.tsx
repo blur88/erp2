@@ -367,7 +367,6 @@ export default function FormBMappingSection({
     {
       key: 'mapping',
       width: 280,
-      align: 'right',
       raw: true,
       render: (row) => (
         <MappingControl

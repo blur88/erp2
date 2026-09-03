@@ -128,11 +128,11 @@ function FieldTable({ fields, accounts, control, errors, disabled }: FieldTableP
     },
     {
       key: 'account',
-      // Matches FormBMappingSection's `mapping` column exactly (width + align)
-      // so the control columns of both sections line up down the page. They
-      // sit on one screen; a differing width reads as two unrelated tables.
+      // Matches FormBMappingSection's `mapping` column width so the control
+      // columns of both sections line up down the page. Left-aligned in both:
+      // a right-aligned dropdown pushes its label away from the row it belongs
+      // to, and the two sections must agree.
       width: 280,
-      align: 'right' as const,
       raw: true,
       render: (row) => {
         const filtered = accounts.filter((a) => a.type === row.accountType)
