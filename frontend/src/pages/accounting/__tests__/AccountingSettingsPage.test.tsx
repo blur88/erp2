@@ -6,6 +6,9 @@ import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
+// Namespace import so the cache-ordering test can spy on the real hook.
+import * as draftModule from '../useFormBMappingDraft'
+
 const {
   mockAccounts,
   mockSettings,
@@ -606,6 +609,49 @@ describe('AccountingSettingsPage — page-level save', () => {
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /save changes/i })).toBeDisabled())
     expect(screen.queryByTestId('formb-map-changed-a1')).not.toBeInTheDocument()
+  })
+
+  it('writes the server response into the cache before clearing the draft', async () => {
+    const user = userEvent.setup()
+
+    /*
+     * The ordering is observed from the two CALLS, not from rendered output.
+     * Both happen inside one React commit, so any assertion made after an
+     * `await waitFor` sees the same DOM whichever order they ran in — a test
+     * written that way passes with the statements swapped, which was verified
+     * by swapping them.
+     */
+    const order: string[] = []
+    const realUseDraft = draftModule.useFormBMappingDraft
+    const draftSpy = vi.spyOn(draftModule, 'useFormBMappingDraft').mockImplementation(() => {
+      const value = realUseDraft()
+      return { ...value, reset: () => { order.push('draft-reset'); value.reset() } }
+    })
+
+    const saved = [{ ...formBRows[0], category: 'SALARIES_AND_WAGES' }]
+    mockUpdateQueryData.mockImplementation((...args: any[]) => {
+      order.push('cache-write')
+      // The recipe returns a replacement array rather than mutating the draft.
+      // Resolving it here catches a recipe that silently no-ops, which would
+      // ship as a stale-row bug rather than a failure.
+      expect(args[2]([])).toEqual(saved)
+      return { type: 'noop' }
+    })
+    mockBulkUpdate.mockReturnValueOnce({ unwrap: () => Promise.resolve(saved) } as any)
+
+    renderPage({ isAdmin: true, formBMappings: formBRows })
+
+    await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: /N16 — Salaries/i }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(order).toContain('draft-reset'))
+    expect(mockUpdateQueryData.mock.calls[0][0]).toBe('getFormBMappings')
+    // Clearing the draft first would leave an empty overlay sitting over stale
+    // rows until an async refetch caught up — or indefinitely if it failed.
+    expect(order).toEqual(['cache-write', 'draft-reset'])
+
+    draftSpy.mockRestore()
   })
 
   it('keeps the draft and reports the failure when the save is rejected', async () => {
