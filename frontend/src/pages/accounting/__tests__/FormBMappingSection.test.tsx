@@ -185,15 +185,16 @@ describe('FormBMappingSection', () => {
      */
     expect(button).toBeEnabled()
     expect(button).toHaveTextContent(/undo clear/i)
-    expect(screen.getByTestId('formb-map-changed-b1')).toBeInTheDocument()
+    // The staged clear is reported by the button's own label — no row chip and
+    // no pending caption exist to report it (#1184).
+    expect(screen.queryByTestId('formb-map-changed-b1')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('formb-map-pending-b1')).not.toBeInTheDocument()
 
     await user.click(button)
 
     // Undo restores the persisted category, so the row is genuinely clean —
     // not an equal-but-still-dirty overlay entry.
     expect(button).toHaveTextContent(/^Clear$/i)
-    expect(screen.queryByTestId('formb-map-changed-b1')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('formb-map-pending-b1')).not.toBeInTheDocument()
   })
 
   /*
@@ -300,44 +301,55 @@ describe('FormBMappingSection — staged drafts', () => {
     expect(mockUpdateMapping).not.toHaveBeenCalled()
   })
 
-  it('marks a changed row and shows the pending line beside the persisted one', async () => {
+  /*
+   * #1184 removed every per-row dirty decoration: no yellow row background, no
+   * "Changed" chip, no `Pending: …` caption. The staged edit is visible on the
+   * Select itself, and the page's Save/Cancel buttons carry the draft state.
+   *
+   * The row background was an Emotion style and unobservable in jsdom
+   * (CLAUDE.md), so what this pins is the markup that carried the treatment.
+   */
+  it('stages a change with no row-level decoration', async () => {
     const user = userEvent.setup()
     renderWithDraft()
 
     await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
     await user.click(await screen.findByRole('option', { name: /N16 — Salaries/i }))
 
-    expect(screen.getByTestId('formb-map-changed-a1')).toBeInTheDocument()
-    // The persisted value keeps the primary voice: a1 is unmapped, so it still
-    // reads as the automatic fallback.
-    const line = screen.getByTestId('formb-map-line-a1')
-    expect(line).toHaveTextContent(/Automatic/)
-    expect(screen.getByTestId('formb-map-pending-a1')).toHaveTextContent(/Pending:.*N16/)
+    // The staged value lives on the control...
+    expect(screen.getByTestId('formb-map-select-a1')).toHaveTextContent(/N16 — Salaries/)
+    // ...and the persisted column is unchanged: a1 is still unmapped, so it
+    // reads as the automatic fallback until the save lands.
+    expect(screen.getByTestId('formb-map-line-a1')).toHaveTextContent(/Automatic/)
+    expect(screen.queryByTestId('formb-map-changed-a1')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('formb-map-pending-a1')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Pending:/)).not.toBeInTheDocument()
   })
 
-  it('renders a staged clear as a pending fallback, not as the persisted mapping', async () => {
+  it('stages a clear on an ineligible row without decorating it', async () => {
     const user = userEvent.setup()
     // i1 is mapped to RENT_LEASE but ineligible, so it offers Clear only.
     renderWithDraft()
 
     await user.click(screen.getByTestId('formb-map-clear-i1'))
 
-    expect(screen.getByTestId('formb-map-changed-i1')).toBeInTheDocument()
-    // The persisted mapping is still shown as the current truth...
+    // The persisted mapping is still shown as the current truth; the staged
+    // clear is reported by the button label alone (#1184).
     expect(screen.getByTestId('formb-map-line-i1')).toHaveTextContent(/RENT_LEASE|N17|Rent/i)
-    // ...and the pending clear is described in words, never as "null".
-    const pending = screen.getByTestId('formb-map-pending-i1')
-    expect(pending).toHaveTextContent(/Pending:/)
-    expect(pending).not.toHaveTextContent(/null/)
+    expect(screen.getByTestId('formb-map-clear-i1')).toHaveTextContent(/undo clear/i)
+    expect(screen.queryByTestId('formb-map-changed-i1')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('formb-map-pending-i1')).not.toBeInTheDocument()
   })
 
-  it('leaves an untouched row unmarked', async () => {
+  it('leaves an untouched row showing its persisted value', async () => {
     const user = userEvent.setup()
     renderWithDraft()
 
     await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
     await user.click(await screen.findByRole('option', { name: /N16 — Salaries/i }))
 
+    // Editing a1 must not disturb b1, which is ineligible and offers Clear only.
+    expect(screen.getByTestId('formb-map-clear-b1')).toHaveTextContent(/^Clear$/i)
     expect(screen.queryByTestId('formb-map-changed-b1')).not.toBeInTheDocument()
   })
 
