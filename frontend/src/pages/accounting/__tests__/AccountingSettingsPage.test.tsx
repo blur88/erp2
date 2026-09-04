@@ -616,6 +616,34 @@ describe('AccountingSettingsPage — page-level save', () => {
     expect(pane).toContainElement(screen.getByText('Form B Tax Filing'))
   })
 
+  /*
+   * #1184: the action row is the ONLY dirty-state signal. No footer notice, no
+   * row highlight, no `Pending: …` caption, no "Changed" chip.
+   *
+   * The removed row background is an Emotion style and unobservable in jsdom
+   * (CLAUDE.md), so this pins the text and testids that carried the treatment;
+   * the browser gate covers the styling itself.
+   */
+  it('reports a staged edit through the action controls alone', async () => {
+    const user = userEvent.setup()
+    renderPage({ isAdmin: true, formBMappings: formBRows })
+
+    const bar = await screen.findByTestId('settings-action-bar')
+    expect(bar).not.toHaveTextContent(/unsaved changes/i)
+
+    await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: /N16 — Salaries/i }))
+
+    // The staged value is visible on the control itself...
+    expect(screen.getByTestId('formb-map-select-a1')).toHaveTextContent(/N16 — Salaries/)
+    // ...and the draft is reported by enablement, nothing else.
+    expect(screen.getByRole('button', { name: /save changes/i })).toBeEnabled()
+    expect(bar).not.toHaveTextContent(/unsaved changes/i)
+    expect(screen.queryByTestId('formb-map-changed-a1')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('formb-map-pending-a1')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Pending:/)).not.toBeInTheDocument()
+  })
+
   it('disables Save Changes until something is dirty', async () => {
     renderPage({ isAdmin: true })
     expect(await screen.findByRole('button', { name: /save changes/i })).toBeDisabled()
@@ -647,7 +675,7 @@ describe('AccountingSettingsPage — page-level save', () => {
     await waitFor(() => expect(mockShowSuccess).toHaveBeenCalled())
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /save changes/i })).toBeDisabled())
-    expect(screen.queryByTestId('formb-map-changed-a1')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled()
   })
 
   it('saves mappings before settings, never concurrently', async () => {
@@ -735,8 +763,10 @@ describe('AccountingSettingsPage — page-level save', () => {
     await waitFor(() => expect(mockUpdateSettings).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(mockShowError).toHaveBeenCalled())
     expect(mockShowSuccess).not.toHaveBeenCalled()
-    // The failed section keeps its draft for retry.
-    expect(screen.getByTestId('formb-map-changed-a1')).toBeInTheDocument()
+    // The failed section keeps its draft for retry — readable only from the
+    // action controls now that per-row dirty decoration is gone (#1184).
+    expect(screen.getByRole('button', { name: /save changes/i })).toBeEnabled()
+    expect(screen.getByTestId('formb-map-select-a1')).toHaveTextContent(/N16 — Salaries/)
   })
 
   it('writes the server response into the cache before clearing the draft', async () => {
@@ -804,8 +834,9 @@ describe('AccountingSettingsPage — page-level save', () => {
 
     await waitFor(() => expect(mockShowError).toHaveBeenCalled())
     expect(mockShowSuccess).not.toHaveBeenCalled()
-    // The draft survives for retry, and still reads as pending — never as saved.
-    expect(screen.getByTestId('formb-map-changed-a1')).toBeInTheDocument()
+    // The draft survives for retry: the Select still shows the staged value and
+    // Save stays available. No row decoration reports it (#1184).
+    expect(screen.getByTestId('formb-map-select-a1')).toHaveTextContent(/N16 — Salaries/)
     expect(screen.getByRole('button', { name: /save changes/i })).toBeEnabled()
   })
 
@@ -826,7 +857,9 @@ describe('AccountingSettingsPage — page-level save', () => {
 
     await waitFor(() => expect(mockUpdateSettings).toHaveBeenCalledTimes(1))
     // Form B stays dirty for retry; Default Accounts does not.
-    await waitFor(() => expect(screen.getByTestId('formb-map-changed-a1')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /save changes/i })).toBeEnabled())
+    expect(screen.getByTestId('formb-map-select-a1')).toHaveTextContent(/N16 — Salaries/)
 
     mockUpdateSettings.mockClear()
     await user.click(screen.getByRole('button', { name: /save changes/i }))
@@ -853,11 +886,12 @@ describe('AccountingSettingsPage — page-level save', () => {
 
     await user.click(within(screen.getByTestId('formb-map-select-a1')).getByRole('combobox'))
     await user.click(await screen.findByRole('option', { name: /N16 — Salaries/i }))
-    expect(screen.getByTestId('formb-map-changed-a1')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /save changes/i })).toBeEnabled()
 
     await user.click(screen.getByRole('button', { name: /cancel/i }))
 
-    expect(screen.queryByTestId('formb-map-changed-a1')).not.toBeInTheDocument()
+    // Cancel restores the persisted value and clears the draft.
+    expect(screen.getByTestId('formb-map-select-a1')).not.toHaveTextContent(/N16 — Salaries/)
     expect(screen.getByRole('button', { name: /save changes/i })).toBeDisabled()
   })
 

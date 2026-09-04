@@ -2,14 +2,12 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   Link,
   MenuItem,
   Select,
   Stack,
   Typography,
 } from '@mui/material'
-import EditIcon from '@mui/icons-material/Edit'
 import { Link as RouterLink } from 'react-router-dom'
 
 import EntityTable from '@/components/common/EntityTable'
@@ -43,24 +41,6 @@ interface TableRow extends FormBMappingRow {
  * no-op `onSelect` would leave a dead click target that still looks clickable.
  */
 const isMappingRowSelectable = () => false
-
-/**
- * The words describing what a category value means for this row — the shared
- * renderer behind BOTH the persisted line and the pending one.
- *
- * Sharing it is what stops a pending clear rendering as "Pending: null": a
- * cleared mapping is described the same way the persisted column would
- * describe it, as the automatic fallback or as "Not included".
- */
-function describeLine(row: TableRow, category: FormBCategory | null): string {
-  const explicit = categoryOptionFor(row.type, category)
-  if (explicit) return `${explicit.line} — ${explicit.label}`
-  if (category !== null) return `${category} (not valid for ${row.type})`
-
-  const fallback = FALLBACK_LINE[row.type]
-  if (!fallback || !row.eligibility.eligible) return 'Not included'
-  return `Automatic — ${fallback.line} ${fallback.label}`
-}
 
 function MappingControl({
   row,
@@ -153,7 +133,7 @@ function MappingControl({
  * opposite error — that someone chose it. It is therefore labelled "Automatic"
  * and distinguished by text, not by styling alone.
  */
-function LineCell({ row, draft }: { row: TableRow; draft: ReturnType<typeof useFormBMappingDraft> }) {
+function LineCell({ row }: { row: TableRow }) {
   const explicit = categoryOptionFor(row.type, row.category)
 
   let persistedNode: React.ReactNode
@@ -201,23 +181,7 @@ function LineCell({ row, draft }: { row: TableRow; draft: ReturnType<typeof useF
     }
   }
 
-  const isDirty = draft.isRowDirty(row.accountId)
-  const draftValue = draft.valueFor(row)
-
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-      {persistedNode}
-      {isDirty && (
-        <Typography
-          variant="caption"
-          color="warning.main"
-          data-testid={`formb-map-pending-${row.accountId}`}
-        >
-          Pending: {describeLine(row, draftValue)}
-        </Typography>
-      )}
-    </Box>
-  )
+  return persistedNode
 }
 
 export default function FormBMappingSection({
@@ -319,34 +283,19 @@ export default function FormBMappingSection({
     {
       key: 'name',
       raw: true,
-      render: (row) => {
-        const isDirty = draft.isRowDirty(row.accountId)
-        return (
-          <Box
-            data-testid={`formb-map-row-${row.accountId}`}
-            sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="body2">{row.name}</Typography>
-              {isDirty && (
-                <Chip
-                  label="Changed"
-                  size="small"
-                  color="warning"
-                  variant="outlined"
-                  icon={<EditIcon fontSize="small" />}
-                  data-testid={`formb-map-changed-${row.accountId}`}
-                />
-              )}
-            </Box>
-            {!row.eligibility.eligible && (
-              <Typography variant="caption" color="text.secondary">
-                {reasonText((row.eligibility as any).reason)}
-              </Typography>
-            )}
-          </Box>
-        )
-      },
+      render: (row) => (
+        <Box
+          data-testid={`formb-map-row-${row.accountId}`}
+          sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}
+        >
+          <Typography variant="body2">{row.name}</Typography>
+          {!row.eligibility.eligible && (
+            <Typography variant="caption" color="text.secondary">
+              {reasonText((row.eligibility as any).reason)}
+            </Typography>
+          )}
+        </Box>
+      ),
     },
     {
       key: 'type',
@@ -362,7 +311,7 @@ export default function FormBMappingSection({
       key: 'line',
       width: 260,
       raw: true,
-      render: (row) => <LineCell row={row} draft={draft} />,
+      render: (row) => <LineCell row={row} />,
     },
     {
       key: 'mapping',
@@ -413,11 +362,6 @@ export default function FormBMappingSection({
             // Interpolated by EntityTable as `No ${emptyLabel} found`, so this
             // is a noun phrase, not a sentence.
             emptyLabel="mappable accounts"
-            getRowSx={(row) =>
-              draft.isRowDirty(row.accountId)
-                ? { bgcolor: 'warning.light', opacity: 0.99 }
-                : {}
-            }
           />
         </SettingsTableFrame>
       </Box>
