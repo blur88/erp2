@@ -28,6 +28,7 @@
   },
   "globalSetup": "./jest-e2e-global-setup.js",
   "globalTeardown": "./jest-e2e-global-teardown.js",
+  "testSequencer": "./jest-sequencer.js",
   "collectCoverageFrom": [
     "../src/**/*.(t|j)s"
   ],
