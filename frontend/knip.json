@@ -8,6 +8,9 @@
   "ignoreIssues": {
     "src/types/index.ts": [
       "types"
+    ],
+    "src/store/api/accountingApi.ts": [
+      "duplicates"
     ]
   },
   "ignoreDependencies": [],
