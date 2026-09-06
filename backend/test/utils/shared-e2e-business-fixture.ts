@@ -52,6 +52,18 @@ export interface SuiteBusinessScope {
   customerIds?: string[];
   supplierIds?: string[];
   productIds?: string[];
+  /**
+   * Stock-adjustment and price-list HEADERS the suite created.
+   *
+   * Deleting a product removes its `stock_adjustment_items` and
+   * `price_list_items` rows, but the header they belonged to is reachable from
+   * neither the product nor the category, so it survives as an orphan. Both
+   * children CASCADE from their own parent, so deleting the header here is
+   * sufficient — and it must be listed explicitly, because nothing else in this
+   * scope can find it.
+   */
+  stockAdjustmentIds?: string[];
+  priceListIds?: string[];
 }
 
 export async function resetSuiteBusinessRows(
@@ -61,6 +73,8 @@ export async function resetSuiteBusinessRows(
   const categoryIds = scope.categoryIds ?? [];
   const customerIds = scope.customerIds ?? [];
   const supplierIds = scope.supplierIds ?? [];
+  const stockAdjustmentIds = scope.stockAdjustmentIds ?? [];
+  const priceListIds = scope.priceListIds ?? [];
 
   // Resolve every dependent id up front, before anything is deleted.
   const productIds: string[] = [
@@ -141,6 +155,25 @@ export async function resetSuiteBusinessRows(
   if (purchaseOrderIds.length) {
     await ds.query(`DELETE FROM purchase_orders WHERE id = ANY($1)`, [
       purchaseOrderIds,
+    ]);
+  }
+
+  // --- suite-owned headers, before products ---
+  //
+  // Order matters: stock_adjustment_items.productId is RESTRICT, so deleting
+  // the header (which CASCADEs to its items) must happen before the products
+  // DELETE below. Doing it after would leave the header orphaned AND could
+  // block the product delete.
+  if (stockAdjustmentIds.length) {
+    await ds.query(`DELETE FROM stock_adjustments WHERE id = ANY($1)`, [
+      stockAdjustmentIds,
+    ]);
+  }
+  if (priceListIds.length) {
+    // customers.priceListId is SET NULL, so an unrelated customer pointing at
+    // this list is nulled rather than deleted. price_list_items CASCADEs.
+    await ds.query(`DELETE FROM price_lists WHERE id = ANY($1)`, [
+      priceListIds,
     ]);
   }
 

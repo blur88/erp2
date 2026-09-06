@@ -46,6 +46,15 @@ const SENTINEL_USERNAMES = {
   search: "sentinel_isolation_probe_search",
   sharedE2e: "sentinel_isolation_probe_shared_e2e",
 } as const;
+// Admin-shaped names the SENTINEL owns, for exercising seedSuiteAdmin /
+// removeSuiteAdmin. Deliberately NOT entries from E2E_ADMIN_USERNAMES: those
+// belong to real suites, and creating or deleting them here would make this
+// file the very kind of cross-suite fixture owner it exists to catch.
+const SENTINEL_ADMIN_USERNAMES = {
+  kept: "sentinel_isolation_probe_admin_kept",
+  removed: "sentinel_isolation_probe_admin_removed",
+} as const;
+
 const SENTINEL_USERNAME = SENTINEL_USERNAMES.auth;
 const SENTINEL_SEARCH_USERNAME = SENTINEL_USERNAMES.search;
 const SENTINEL_SHARED_E2E_USERNAME = SENTINEL_USERNAMES.sharedE2e;
@@ -58,7 +67,10 @@ for (const [setName, usernames] of [
   ["SEARCH_USERNAMES", SEARCH_USERNAMES],
   ["E2E_ADMIN_USERNAMES", Object.values(E2E_ADMIN_USERNAMES)],
 ] as const) {
-  for (const sentinel of Object.values(SENTINEL_USERNAMES)) {
+  for (const sentinel of [
+    ...Object.values(SENTINEL_USERNAMES),
+    ...Object.values(SENTINEL_ADMIN_USERNAMES),
+  ]) {
     if (usernames.includes(sentinel)) {
       throw new Error(
         `Sentinel "${sentinel}" is inside ${setName}. It must sit outside ` +
@@ -147,8 +159,10 @@ describe("Suite isolation sentinel (e2e)", () => {
       await ds.query(`DELETE FROM users WHERE username = ANY($1)`, [
         Object.values(SENTINEL_USERNAMES),
       ]);
+      // Only sentinel-owned rows. Deleting Object.values(E2E_ADMIN_USERNAMES)
+      // here would destroy six real suites' admins.
       await ds.query(`DELETE FROM users WHERE username = ANY($1)`, [
-        Object.values(E2E_ADMIN_USERNAMES),
+        Object.values(SENTINEL_ADMIN_USERNAMES),
       ]);
       await ds.destroy();
     }
@@ -269,34 +283,92 @@ describe("Suite isolation sentinel (e2e)", () => {
     // 2. Seed rows the helper OWNS, so this case also proves the cleanup
     //    actually cleans. A reset that deleted nothing would satisfy every
     //    survival assertion below trivially.
+    //
+    //    These are POPULATED relationships, not bare roots. An earlier version
+    //    seeded only an empty category and customer, and that is precisely why
+    //    it could not detect four real leaks: a child whose parent is deleted
+    //    proves nothing about a header that no root can reach. Every table the
+    //    helper is responsible for is represented here.
+    const stamp = Date.now();
     const [ownedCategory] = await ds.query(
       `INSERT INTO categories ("name", "slug", "level")
        VALUES ($1, $2, 0) RETURNING id`,
-      ["sentinel-owned-category-1199", "sentinel-owned-category-1199"],
+      [`sentinel-owned-category-${stamp}`, `sentinel-owned-category-${stamp}`],
     );
     const [ownedCustomer] = await ds.query(
       `INSERT INTO customers ("name", "slug", "type")
        VALUES ($1, $2, 'individual') RETURNING id`,
-      ["Sentinel Owned Customer 1199", "sentinel-owned-customer-1199"],
+      [`Sentinel Owned Customer ${stamp}`, `sentinel-owned-customer-${stamp}`],
+    );
+    const [ownedProduct] = await ds.query(
+      `INSERT INTO products ("name", "slug", "categoryId", "baseCost", "stockQuantity")
+       VALUES ($1, $2, $3, 10, 5) RETURNING id`,
+      [
+        `Sentinel Owned Product ${stamp}`,
+        `sentinel-owned-product-${stamp}`,
+        ownedCategory.id,
+      ],
+    );
+    // Header reachable from NEITHER the category nor the product — the exact
+    // shape that survived as an orphan.
+    const [ownedAdjustment] = await ds.query(
+      `INSERT INTO stock_adjustments ("adjustmentNumber", "adjustmentDate", "status")
+       VALUES ($1, '2026-07-20', 'draft') RETURNING id`,
+      [`SA-SENTINEL-${stamp}`],
+    );
+    await ds.query(
+      `INSERT INTO stock_adjustment_items
+         ("stockAdjustmentId", "productId", "oldQuantity", "newQuantity", "difference", "unitCost")
+       VALUES ($1, $2, 0, 1, 1, 10)`,
+      [ownedAdjustment.id, ownedProduct.id],
+    );
+    const [ownedPriceList] = await ds.query(
+      `INSERT INTO price_lists ("code", "name", "effectiveFrom")
+       VALUES ($1, $2, '2026-07-20') RETURNING id`,
+      [`PL-SENTINEL-${stamp}`, `Sentinel Owned Price List ${stamp}`],
+    );
+    await ds.query(
+      `INSERT INTO price_list_items ("priceListId", "productId", "price")
+       VALUES ($1, $2, 12)`,
+      [ownedPriceList.id, ownedProduct.id],
     );
 
     // 3. Run the REAL replacement helper — imported, not a copy.
     await resetSuiteBusinessRows(ds, {
       categoryIds: [ownedCategory.id],
       customerIds: [ownedCustomer.id],
+      stockAdjustmentIds: [ownedAdjustment.id],
+      priceListIds: [ownedPriceList.id],
     });
 
-    // 4a. Cleanup effectiveness: the owned rows must be GONE.
-    expect(
-      await ds.query(`SELECT id FROM categories WHERE id = $1`, [
-        ownedCategory.id,
-      ]),
-    ).toHaveLength(0);
-    expect(
-      await ds.query(`SELECT id FROM customers WHERE id = $1`, [
-        ownedCustomer.id,
-      ]),
-    ).toHaveLength(0);
+    // 4a. Cleanup effectiveness: EVERY owned row must be gone, headers and
+    //     children alike. Asserting only the roots is what let orphaned
+    //     stock-adjustment and price-list headers through.
+    for (const [table, id] of [
+      ["categories", ownedCategory.id],
+      ["customers", ownedCustomer.id],
+      ["products", ownedProduct.id],
+      ["stock_adjustments", ownedAdjustment.id],
+      ["price_lists", ownedPriceList.id],
+    ] as const) {
+      expect({
+        table,
+        rows: await ds.query(`SELECT id FROM ${table} WHERE id = $1`, [id]),
+      }).toEqual({ table, rows: [] });
+    }
+
+    // Children go with their parents; assert rather than assume the CASCADE.
+    for (const [table, col, id] of [
+      ["stock_adjustment_items", "stockAdjustmentId", ownedAdjustment.id],
+      ["price_list_items", "priceListId", ownedPriceList.id],
+    ] as const) {
+      expect({
+        table,
+        rows: await ds.query(`SELECT id FROM ${table} WHERE "${col}" = $1`, [
+          id,
+        ]),
+      }).toEqual({ table, rows: [] });
+    }
 
     // 4b. Isolation: the live credential must still work.
     await request(app.getHttpServer())
@@ -331,10 +403,12 @@ describe("Suite isolation sentinel (e2e)", () => {
     // truncateAll() emptied `users` first: without it, a second caller violates
     // the username unique constraint on the FIRST run (verified 23505). Each
     // suite now owns its own row, and must not touch another's.
-    const other = await seedSuiteAdmin(ds, E2E_ADMIN_USERNAMES.inventory);
-    const mine = await seedSuiteAdmin(ds, E2E_ADMIN_USERNAMES.sales);
+    // Sentinel-owned names, not real suites' admins — see
+    // SENTINEL_ADMIN_USERNAMES. The helpers under test are the real ones.
+    const other = await seedSuiteAdmin(ds, SENTINEL_ADMIN_USERNAMES.kept);
+    const mine = await seedSuiteAdmin(ds, SENTINEL_ADMIN_USERNAMES.removed);
 
-    await removeSuiteAdmin(ds, E2E_ADMIN_USERNAMES.sales);
+    await removeSuiteAdmin(ds, SENTINEL_ADMIN_USERNAMES.removed);
 
     expect(
       await ds.getRepository(User).findOne({ where: { id: mine.id } }),
@@ -343,7 +417,7 @@ describe("Suite isolation sentinel (e2e)", () => {
       await ds.getRepository(User).findOne({ where: { id: other.id } }),
     ).not.toBeNull();
 
-    await removeSuiteAdmin(ds, E2E_ADMIN_USERNAMES.inventory);
+    await removeSuiteAdmin(ds, SENTINEL_ADMIN_USERNAMES.kept);
   });
 
   it("survives fuzzy-search's fixture operations with the unrelated business row intact", async () => {

@@ -30,6 +30,10 @@ describe("Purchasing (e2e)", () => {
   let purchaseOrderNumber: string;
   // Roots this suite owns, for own-rows cleanup (issue #1199).
   let seededCategoryId: string;
+  // The lifecycle block creates a SECOND supplier (poSupplierId) so the CRUD
+  // block's delete/restore cannot disturb it. Both are roots this suite owns —
+  // cleaning only the first left that supplier, its PO and its payments behind.
+  const ownedSupplierIds: string[] = [];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -77,7 +81,12 @@ describe("Purchasing (e2e)", () => {
     if (dataSource?.isInitialized) {
       await resetSuiteBusinessRows(dataSource, {
         categoryIds: [seededCategoryId],
-        supplierIds: supplierId ? [supplierId] : [],
+        supplierIds: [
+          ...new Set([
+            ...(supplierId ? [supplierId] : []),
+            ...ownedSupplierIds,
+          ]),
+        ],
       });
       await removeSuiteAdmin(dataSource, E2E_ADMIN_USERNAMES.purchasing);
       await dataSource.destroy();
@@ -165,6 +174,7 @@ describe("Purchasing (e2e)", () => {
         .send({ type: "local", companyName: "PO Lifecycle Supplier" })
         .expect(201);
       poSupplierId = (res.body.data ?? res.body).id;
+      ownedSupplierIds.push(poSupplierId);
     });
 
     it("POST /purchasing/orders — creates a purchase order", async () => {

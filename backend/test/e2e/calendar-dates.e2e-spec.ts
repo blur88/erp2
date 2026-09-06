@@ -20,7 +20,13 @@ let accessToken: string;
 let productId: string;
 let savedRegionalTz: string | null = null;
 // Roots this suite owns, for own-rows cleanup (issue #1199).
+//
+// Stock-adjustment and price-list HEADERS are reachable from neither the
+// category nor the product, so they must be tracked explicitly or they survive
+// as orphans once the global truncates are gone.
 let categoryId: string;
+const ownedAdjustmentIds: string[] = [];
+const ownedPriceListIds: string[] = [];
 let createdRegional: RegionalSettings | null = null;
 
 beforeAll(async () => {
@@ -86,6 +92,8 @@ afterAll(async () => {
   if (dataSource?.isInitialized) {
     await resetSuiteBusinessRows(dataSource, {
       categoryIds: categoryId ? [categoryId] : [],
+      stockAdjustmentIds: ownedAdjustmentIds,
+      priceListIds: ownedPriceListIds,
     });
     await removeSuiteAdmin(dataSource, E2E_ADMIN_USERNAMES.calendarDates);
     const rsRepo = dataSource.getRepository(RegionalSettings);
@@ -116,6 +124,7 @@ describe("calendar-date round-trip (DataSource-backed)", () => {
         items: [{ productId, oldQuantity: 0, newQuantity: 1, difference: 1 }],
       })
       .expect(201);
+    ownedAdjustmentIds.push(res.body.id);
     expect(res.body.adjustmentDate).toBe("2026-07-20");
 
     const getRes = await request(app.getHttpServer())
@@ -135,6 +144,7 @@ describe("calendar-date round-trip (DataSource-backed)", () => {
         effectiveFrom: "2026-07-20",
       })
       .expect(201);
+    ownedPriceListIds.push(res.body.id);
     expect(res.body.effectiveFrom).toBe("2026-07-20");
 
     const getRes = await request(app.getHttpServer())
@@ -173,7 +183,11 @@ describe("calendar-date effective-list boundary (app-tz)", () => {
         name: "Effective today",
         effectiveTo: "2026-07-20",
       })
-      .expect(201);
+      .expect(201)
+      .then((r) => {
+        ownedPriceListIds.push(r.body.id);
+        return r;
+      });
 
     const res = await request(app.getHttpServer())
       .get("/price-lists/effective")
@@ -196,6 +210,7 @@ describe("calendar-date inclusive filter boundary (real DB)", () => {
         })
         .expect(201);
       ids[d] = r.body.id;
+      ownedAdjustmentIds.push(r.body.id);
     }
     const res = await request(app.getHttpServer())
       .get("/inventory/stock-adjustments?fromDate=2026-07-01&toDate=2026-07-31")

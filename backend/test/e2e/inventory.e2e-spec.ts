@@ -19,6 +19,12 @@ describe("Inventory (e2e)", () => {
   let accessToken: string;
   let categoryId: string;
   let productId: string;
+  // Every category/product/adjustment this suite creates, not just the first of
+  // each: the barcode block seeds its own "Edge Case Category" / "Product A",
+  // and stock-adjustment HEADERS are reachable from neither.
+  const ownedCategoryIds: string[] = [];
+  const ownedProductIds: string[] = [];
+  const ownedAdjustmentIds: string[] = [];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -47,8 +53,9 @@ describe("Inventory (e2e)", () => {
     if (dataSource?.isInitialized) {
       // categoryId/productId are created through the API by the cases below.
       await resetSuiteBusinessRows(dataSource, {
-        categoryIds: categoryId ? [categoryId] : [],
-        productIds: productId ? [productId] : [],
+        categoryIds: ownedCategoryIds,
+        productIds: ownedProductIds,
+        stockAdjustmentIds: ownedAdjustmentIds,
       });
       await removeSuiteAdmin(dataSource, E2E_ADMIN_USERNAMES.inventory);
       await dataSource.destroy();
@@ -69,6 +76,7 @@ describe("Inventory (e2e)", () => {
       expect(res.body).toHaveProperty("id");
       expect(res.body.name).toBe("Electronics");
       categoryId = res.body.id;
+      ownedCategoryIds.push(categoryId);
     });
 
     it("GET /inventory/categories — lists categories", async () => {
@@ -146,6 +154,7 @@ describe("Inventory (e2e)", () => {
       expect(res.body).toHaveProperty("id");
       expect(res.body.name).toBe("Laptop Pro 15");
       productId = res.body.id;
+      ownedProductIds.push(productId);
     });
 
     it("GET /inventory/products — lists products", async () => {
@@ -243,6 +252,7 @@ describe("Inventory (e2e)", () => {
 
       expect(res.body).toHaveProperty("id");
       adjustmentId = res.body.id;
+      ownedAdjustmentIds.push(adjustmentId);
     });
 
     it("POST /inventory/stock-adjustments/:id/complete — completes the adjustment", async () => {
@@ -267,6 +277,8 @@ describe("Inventory (e2e)", () => {
         stockQuantity: 2,
       });
 
+      ownedProductIds.push(product.id);
+
       // Draft says stock is 10 (a stale snapshot) and removes 10. Live stock is 2.
       const draft = await request(app.getHttpServer())
         .post("/inventory/stock-adjustments")
@@ -284,6 +296,7 @@ describe("Inventory (e2e)", () => {
           ],
         })
         .expect(201);
+      ownedAdjustmentIds.push(draft.body.id);
 
       await request(app.getHttpServer())
         .post(`/inventory/stock-adjustments/${draft.body.id}/complete`)
@@ -329,16 +342,25 @@ describe("Inventory (e2e)", () => {
 
   describe("Edge cases", () => {
     it("POST /inventory/products — duplicate barcode returns 409", async () => {
-      const category = await seedCategory(dataSource, "Edge Case Category");
+      // Namespaced: fixed names/barcodes collide once nothing truncates these
+      // tables. Products are unique case-insensitively on BOTH name and
+      // barcode, so the shared barcode must be per-run too — it stays shared
+      // between the two POSTs below, which is what the 409 is testing.
+      const barcode = `BARCODE-${Date.now()}`;
+      const category = await seedCategory(
+        dataSource,
+        `Edge Case Category ${Date.now()}`,
+      );
+      ownedCategoryIds.push(category.id);
 
       await request(app.getHttpServer())
         .post("/inventory/products")
         .set("Authorization", `Bearer ${accessToken}`)
         .send({
-          name: "Product A",
+          name: `Product A ${Date.now()}`,
           categoryId: category.id,
           baseCost: 10,
-          barcode: "BARCODE-001",
+          barcode,
         })
         .expect(201);
 
@@ -346,10 +368,10 @@ describe("Inventory (e2e)", () => {
         .post("/inventory/products")
         .set("Authorization", `Bearer ${accessToken}`)
         .send({
-          name: "Product B",
+          name: `Product B ${Date.now()}`,
           categoryId: category.id,
           baseCost: 10,
-          barcode: "BARCODE-001",
+          barcode,
         })
         .expect(409);
 
