@@ -3,12 +3,14 @@ import { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { DataSource } from "typeorm";
 import { AppModule } from "../../src/app.module";
+import { seedCategory, seedProduct } from "./helpers/seed";
 import {
-  truncateAll,
-  seedAdmin,
-  seedCategory,
-  seedProduct,
-} from "./helpers/seed";
+  E2E_ADMIN_USERNAMES,
+  E2E_ADMIN_PASSWORD,
+  seedSuiteAdmin,
+  removeSuiteAdmin,
+} from "../utils/shared-e2e-fixture";
+import { resetSuiteBusinessRows } from "../utils/shared-e2e-business-fixture";
 import { configureTestAppValidation } from "../utils/configure-test-app-validation";
 
 describe("Inventory (e2e)", () => {
@@ -28,18 +30,29 @@ describe("Inventory (e2e)", () => {
     await app.init();
 
     dataSource = app.get(DataSource);
-    await truncateAll(dataSource);
 
-    await seedAdmin(dataSource);
+    // Suite-owned admin (issue #1199) — see shared-e2e-fixture.ts.
+    await seedSuiteAdmin(dataSource, E2E_ADMIN_USERNAMES.inventory);
 
     const loginRes = await request(app.getHttpServer())
       .post("/auth/login")
-      .send({ usernameOrEmail: "admin", password: "Admin@123!" });
+      .send({
+        usernameOrEmail: E2E_ADMIN_USERNAMES.inventory,
+        password: E2E_ADMIN_PASSWORD,
+      });
     accessToken = loginRes.body.accessToken;
   });
 
   afterAll(async () => {
-    if (dataSource?.isInitialized) await dataSource.destroy();
+    if (dataSource?.isInitialized) {
+      // categoryId/productId are created through the API by the cases below.
+      await resetSuiteBusinessRows(dataSource, {
+        categoryIds: categoryId ? [categoryId] : [],
+        productIds: productId ? [productId] : [],
+      });
+      await removeSuiteAdmin(dataSource, E2E_ADMIN_USERNAMES.inventory);
+      await dataSource.destroy();
+    }
     await app.close();
   });
 
@@ -261,7 +274,14 @@ describe("Inventory (e2e)", () => {
         .send({
           adjustmentDate: new Date().toISOString().slice(0, 10),
           notes: "negative guard",
-          items: [{ productId: product.id, oldQuantity: 10, difference: -10, unitCost: 5 }],
+          items: [
+            {
+              productId: product.id,
+              oldQuantity: 10,
+              difference: -10,
+              unitCost: 5,
+            },
+          ],
         })
         .expect(201);
 
