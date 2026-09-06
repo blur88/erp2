@@ -38,8 +38,10 @@ describe('Accounting access (e2e)', () => {
     ['trial balance', () => '/accounting/trial-balance'],
   ] as const;
 
-  // Distinct usernames so this suite cannot collide with auth/search e2e specs
-  // (which create `admin` / `user_<role>` and TRUNCATE users between tests).
+  // Distinct usernames so this suite cannot collide with the auth/search e2e
+  // specs. Those suites no longer TRUNCATE users — each now resets only its own
+  // namespaced rows (issues #1197, #1199) — but distinct names remain correct:
+  // they are what keeps the suites independent of each other's fixtures.
   const ADMIN_USER = 'acct_access_admin';
   const NONADMIN_USER = 'acct_access_sales';
 
