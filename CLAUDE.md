@@ -179,10 +179,16 @@ whole percentages (`redis-info.parser.ts:50`) and reads `1.00`.
 
 Two limits on that evidence. Zero counters mean **none observed** — `evicted_keys`
 is inert under `noeviction`, and `oomErrors` lives inside the Redis process, so a
-container OOM kill leaves both at zero. And the window's three sampling gaps
-correlate to **Redis process changes** (two, via distinct `redis_alert_state`
-run_id rows plus a cold-start drop in `usedBytes`), not to deployments: no
-deployment evidence was available, so this window spans **zero verified deploys**.
+container OOM kill or Redis restart **can occur without incrementing either
+counter** (the replacement process starts fresh; already-persisted samples and
+alert rows remain). And the window's three sampling gaps identify **sampling
+interruptions**; the restart correlation comes from the retained
+`redis_alert_state` run_id rows, which resolve two of the three to Redis
+restarts. Neither is deployment evidence, so this window spans **zero verified
+deploys**.
+
+The recorded query output is the evidence, not the query: 90-day retention with
+a nightly prune means re-running the bounded query returns fewer rows over time.
 The cap matters more now that `noeviction` makes hitting it a hard `OOM command
 not allowed` failure rather than silent eviction.
 

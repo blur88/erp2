@@ -298,19 +298,39 @@ docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB
          round(max(\"usedBytes\")::numeric / max(\"maxBytes\")::numeric * 100, 3) AS peak_util_exact
   FROM redis_memory_samples
   WHERE \"instanceId\" = '"'"'erp_backend'"'"'
-    AND \"sampledAt\" < '"'"'2026-09-05 00:00:00-07'"'"';"'
+    AND \"sampledAt\" >= '"'"'2026-08-14 13:21:40.63-07'"'"'
+    AND \"sampledAt\" <  '"'"'2026-09-05 00:00:00-07'"'"';"'
 ```
 
 Substitute your own instance id and window bound to re-run it later.
 
-The bound is deliberately a **past midnight**, not the current day: sampling
-is continuous, so a bound inside the present day keeps admitting rows and the
-counts drift between runs. Two consecutive runs of the query above must return
-identical values — if they do not, the bound is not yet closed.
+Output, preserved as the historical record (run 2026-09-06):
+
+```
+ samples | failed |       first_sample        |        last_sample         |         span         | peak_used_bytes | max_bytes |   p50   |    p95    |   p99   | evicted_keys | oom_errors | peak_util_exact
+---------+--------+---------------------------+----------------------------+----------------------+-----------------+-----------+---------+-----------+---------+--------------+------------+-----------------
+   30667 |      0 | 2026-08-14 13:21:40.63-07 | 2026-09-04 23:59:00.003-07 | 21 days 10:37:19.373 |         3008424 | 268435456 | 2820464 | 2961160.8 | 2976896 |            0 |          0 |           1.121
+```
+
+**The output above is the evidence, not the query.** Re-running this will not
+reproduce it indefinitely: retention is 90 days with a nightly 3AM prune, so the
+window's lower end expires and the same bounded query returns fewer rows over
+time. Treat the recorded table as the historical record; the query is provided
+to show how it was derived and to run the equivalent against a fresh window.
+
+Two practices make a window usable while it lasts:
+
+- **Specify both bounds.** An open lower bound drifts as retention prunes; an
+  upper bound inside the current day keeps admitting rows, since sampling is
+  continuous. Any fixed past timestamp works as the upper bound — midnight is
+  a convention here, not a requirement.
+- **Two consecutive identical runs** are a useful check that the upper bound is
+  behind live sampling. They do **not** prove closure: retention can still move
+  the result later, and identical values only mean nothing changed between the
+  two runs.
 
 Separately timestamped observations of the *unbounded* series, for contrast:
-32,020 rows at 2026-09-06 13:35 +08 and 32,024 at 13:36 +08. Those numbers move
-by design; the frozen window's 30,667 does not.
+32,020 rows at 2026-09-06 13:35 +08 and 32,024 at 13:36 +08.
 
 ### What the counters can and cannot tell you
 
@@ -319,19 +339,25 @@ exclude a container-level failure:
 
 - `evicted_keys` is inert under `noeviction` by construction.
 - `oomErrors` is a counter inside the Redis process. A container OOM kill or a
-  Redis restart destroys the process holding it, so the failure that matters
-  most leaves both counters at zero.
+  Redis restart **can occur without incrementing either counter**: the
+  replacement Redis process starts with fresh counters. Observations already
+  persisted to `redis_memory_samples` and `redis_alert_state` remain available
+  — it is the live counter that resets, not the recorded history.
 
 ### Restart correlation
 
-Sampling gaps identify **Redis process changes**, not deployments. In the
-frozen window:
+Sampling gaps identify **sampling interruptions**. Nothing more: a gap alone
+does not say whether Redis restarted, the sampler stalled, or the host slept.
+The **restart correlation comes from the retained `redis_alert_state` run_id
+rows**, not from the gaps. The third gap below is the demonstration — same
+duration class as the first two, but no run_id change, so it is a sampler-side
+interruption only. In the frozen window:
 
 | Gap start | Gap end | Duration | `usedBytes` after | Reading |
 |---|---|---|---|---|
-| 2026-08-15 22:48:00 -07 | 2026-08-15 23:00:15 -07 | 12m 15s | 2,241,888 | Redis restart |
-| 2026-08-23 07:03:00 -07 | 2026-08-23 10:40:54 -07 | 3h 37m 54s | 2,248,392 | Redis restart |
-| 2026-08-28 08:44:00 -07 | 2026-08-28 08:59:13 -07 | 15m 13s | 2,835,392 | sampler-side only |
+| 2026-08-15 22:48:00 -07 | 2026-08-15 23:00:15 -07 | 12m 15s | 2,241,888 | run_id change → Redis restart |
+| 2026-08-23 07:03:00 -07 | 2026-08-23 10:40:54 -07 | 3h 37m 54s | 2,248,392 | run_id change → Redis restart |
+| 2026-08-28 08:44:00 -07 | 2026-08-28 08:59:13 -07 | 15m 13s | 2,835,392 | no run_id change → sampling interruption only |
 
 The first two align with the last-write `updatedAt` of a distinct
 `redis_alert_state.redisRunId` row and show a cold-start drop in `usedBytes`;
@@ -362,6 +388,32 @@ WITH g AS (
 SELECT prev AS gap_start, "sampledAt" AS gap_end, gap, "usedBytes" AS used_after
 FROM g WHERE gap > interval '3 minutes' ORDER BY "sampledAt";
 ```
+
+That query only finds the gaps. The correlation needs the run_id rows as well —
+a gap whose end aligns with the last `updatedAt` of a superseded `redisRunId`
+is a Redis restart; a gap with no such row is a sampling interruption:
+
+```sql
+SELECT "redisRunId", "pressureState", "oomObservedValue", "updatedAt"
+FROM redis_alert_state ORDER BY "updatedAt";
+```
+
+Recorded for the frozen window (the third row post-dates it and is the process
+running at the time of writing):
+
+```
+                redisRunId                | pressureState | oomObservedValue |           updatedAt
+------------------------------------------+---------------+------------------+-------------------------------
+ ef529b85f5bf4414e60495fbc342a50b72490b78 | healthy       |                0 | 2026-08-15 22:48:00.024655-07
+ 50be9cd67236f8bd6c5003261002b0c527eee9ed | healthy       |                0 | 2026-08-23 07:03:00.014122-07
+ 87c03159f673a9d6014e80defdef828ba3b8c780 | healthy       |                0 | 2026-09-06 00:56:00.018418-07
+```
+
+This method depends on `redis_alert_state` retaining one row per `run_id`,
+which is incidental to that table's purpose rather than guaranteed by it. A
+schema change that collapsed those rows would remove the only signal
+distinguishing a Redis restart from a sampling interruption. Documented
+limitation, not a defect to fix here.
 
 ### Container memory margin
 
