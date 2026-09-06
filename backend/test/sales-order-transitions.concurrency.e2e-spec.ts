@@ -33,8 +33,8 @@ import {
   seedDocumentNumberSettings,
   seedPaymentMethod,
   seedProduct,
-  truncateAll,
 } from "./e2e/helpers/seed";
+import { resetSuiteBusinessRows } from "./utils/shared-e2e-business-fixture";
 
 describe("Sales order transition concurrency (e2e)", () => {
   let app: INestApplication;
@@ -47,6 +47,10 @@ describe("Sales order transition concurrency (e2e)", () => {
   let product: Product;
   let paymentMethod: PaymentMethodEntity;
   let customer: Customer;
+  // Roots this suite owns, accumulated across tests for own-rows cleanup
+  // (issue #1199). Each beforeEach seeds a fresh set rather than truncating.
+  const ownedCategoryIds: string[] = [];
+  const ownedCustomerIds: string[] = [];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -65,6 +69,10 @@ describe("Sales order transition concurrency (e2e)", () => {
 
   afterAll(async () => {
     if (dataSource?.isInitialized) {
+      await resetSuiteBusinessRows(dataSource, {
+        categoryIds: ownedCategoryIds,
+        customerIds: ownedCustomerIds,
+      });
       await dataSource.destroy();
     }
 
@@ -72,8 +80,14 @@ describe("Sales order transition concurrency (e2e)", () => {
   });
 
   beforeEach(async () => {
-    await truncateAll(dataSource);
-    category = await seedCategory(dataSource);
+    // No truncate. Every fixture below is namespaced per test, so a populated
+    // shared database is fine — and the suite no longer destroys other suites'
+    // users and refresh tokens (issue #1199).
+    category = await seedCategory(
+      dataSource,
+      `so-concurrency-${Date.now()}-${ownedCategoryIds.length}`,
+    );
+    ownedCategoryIds.push(category.id);
     product = await seedProduct(dataSource, category.id, {
       baseCost: 100,
       stockQuantity: 1000,
@@ -85,10 +99,11 @@ describe("Sales order transition concurrency (e2e)", () => {
     customer = await customerRepo.save(
       customerRepo.create({
         type: CustomerType.BUSINESS,
-        name: "Concurrency Customer",
+        name: `Concurrency Customer ${Date.now()}-${ownedCustomerIds.length}`,
         isActive: true,
       }),
     );
+    ownedCustomerIds.push(customer.id);
   });
 
   async function seedDraftOrder(
@@ -107,7 +122,7 @@ describe("Sales order transition concurrency (e2e)", () => {
         subtotal: total,
         shippingAmount: 0,
         totalAmount: `${total}.0000`,
-        paidAmount: '0.0000',
+        paidAmount: "0.0000",
         balanceDue: `${total}.0000`,
       }),
     );
@@ -190,7 +205,7 @@ describe("Sales order transition concurrency (e2e)", () => {
       lifecycle.cancel(order.id),
       payment.recordPayment(order.id, {
         paymentMethodId: paymentMethod.id,
-        amount: '100.0000',
+        amount: "100.0000",
         paymentDate: new Date(),
       } as any),
     ]);
@@ -309,12 +324,12 @@ describe("Sales order transition concurrency (e2e)", () => {
     const results = await Promise.allSettled([
       payment.recordPayment(order.id, {
         paymentMethodId: paymentMethod.id,
-        amount: '100.0000',
+        amount: "100.0000",
         paymentDate: new Date(),
       } as any),
       payment.recordPayment(order.id, {
         paymentMethodId: paymentMethod.id,
-        amount: '100.0000',
+        amount: "100.0000",
         paymentDate: new Date(),
       } as any),
     ]);

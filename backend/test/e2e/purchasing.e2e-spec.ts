@@ -5,13 +5,18 @@ import { DataSource, Repository } from "typeorm";
 import { getRepositoryToken } from "@nestjs/typeorm";
 import { AppModule } from "../../src/app.module";
 import {
-  truncateAll,
-  seedAdmin,
   seedCategory,
   seedProduct,
   seedPaymentMethod,
   seedDocumentNumberSettings,
 } from "./helpers/seed";
+import {
+  E2E_ADMIN_USERNAMES,
+  E2E_ADMIN_PASSWORD,
+  seedSuiteAdmin,
+  removeSuiteAdmin,
+} from "../utils/shared-e2e-fixture";
+import { resetSuiteBusinessRows } from "../utils/shared-e2e-business-fixture";
 import { configureTestAppValidation } from "../utils/configure-test-app-validation";
 
 describe("Purchasing (e2e)", () => {
@@ -23,6 +28,12 @@ describe("Purchasing (e2e)", () => {
   let paymentMethodId: string;
   let purchaseOrderId: string;
   let purchaseOrderNumber: string;
+  // Roots this suite owns, for own-rows cleanup (issue #1199).
+  let seededCategoryId: string;
+  // The lifecycle block creates a SECOND supplier (poSupplierId) so the CRUD
+  // block's delete/restore cannot disturb it. Both are roots this suite owns —
+  // cleaning only the first left that supplier, its PO and its payments behind.
+  const ownedSupplierIds: string[] = [];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -34,10 +45,14 @@ describe("Purchasing (e2e)", () => {
     await app.init();
 
     dataSource = app.get(DataSource);
-    await truncateAll(dataSource);
 
-    await seedAdmin(dataSource);
-    const category = await seedCategory(dataSource);
+    // Suite-owned admin (issue #1199) — see shared-e2e-fixture.ts.
+    await seedSuiteAdmin(dataSource, E2E_ADMIN_USERNAMES.purchasing);
+    const category = await seedCategory(
+      dataSource,
+      `purchasing-e2e-${Date.now()}`,
+    );
+    seededCategoryId = category.id;
     // Product starts at 0 stock — purchasing receives goods will add stock
     const product = await seedProduct(dataSource, category.id, {
       stockQuantity: 0,
@@ -53,15 +68,29 @@ describe("Purchasing (e2e)", () => {
     // Seed the chart of accounts, the two purchase mappings, and an open
     // fiscal period covering today's date (tests use today for orderDate).
 
-
     const loginRes = await request(app.getHttpServer())
       .post("/auth/login")
-      .send({ usernameOrEmail: "admin", password: "Admin@123!" });
+      .send({
+        usernameOrEmail: E2E_ADMIN_USERNAMES.purchasing,
+        password: E2E_ADMIN_PASSWORD,
+      });
     accessToken = loginRes.body.accessToken;
   });
 
   afterAll(async () => {
-    if (dataSource?.isInitialized) await dataSource.destroy();
+    if (dataSource?.isInitialized) {
+      await resetSuiteBusinessRows(dataSource, {
+        categoryIds: [seededCategoryId],
+        supplierIds: [
+          ...new Set([
+            ...(supplierId ? [supplierId] : []),
+            ...ownedSupplierIds,
+          ]),
+        ],
+      });
+      await removeSuiteAdmin(dataSource, E2E_ADMIN_USERNAMES.purchasing);
+      await dataSource.destroy();
+    }
     await app.close();
   });
 
@@ -145,6 +174,7 @@ describe("Purchasing (e2e)", () => {
         .send({ type: "local", companyName: "PO Lifecycle Supplier" })
         .expect(201);
       poSupplierId = (res.body.data ?? res.body).id;
+      ownedSupplierIds.push(poSupplierId);
     });
 
     it("POST /purchasing/orders — creates a purchase order", async () => {
@@ -203,11 +233,19 @@ describe("Purchasing (e2e)", () => {
       const res = await request(app.getHttpServer())
         .post(`/purchasing/orders/${purchaseOrderId}/payments`)
         .set("Authorization", `Bearer ${accessToken}`)
-        .send({ payments: [{ paymentMethodId, amount: '550.0000', paymentDate: new Date().toISOString().split("T")[0] }] })
+        .send({
+          payments: [
+            {
+              paymentMethodId,
+              amount: "550.0000",
+              paymentDate: new Date().toISOString().split("T")[0],
+            },
+          ],
+        })
         .expect(200);
 
       const body = res.body.data ?? res.body;
-      expect(body.paidAmount).toBe('550.0000');
+      expect(body.paidAmount).toBe("550.0000");
       expect(body.status).toBe("READY");
       expect(body.paymentStatus).toBe("PAID");
     });
@@ -233,7 +271,7 @@ describe("Purchasing (e2e)", () => {
         .set("Authorization", `Bearer ${accessToken}`)
         .expect(200);
 
-      expect((res.body.data ?? res.body).paidAmount).toBe('550.0000');
+      expect((res.body.data ?? res.body).paidAmount).toBe("550.0000");
     });
   });
 

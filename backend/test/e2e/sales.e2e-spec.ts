@@ -3,13 +3,14 @@ import { INestApplication } from "@nestjs/common";
 import request from "supertest";
 import { DataSource } from "typeorm";
 import { AppModule } from "../../src/app.module";
+import { seedCategory, seedProduct, seedPaymentMethod } from "./helpers/seed";
 import {
-  truncateAll,
-  seedAdmin,
-  seedCategory,
-  seedProduct,
-  seedPaymentMethod,
-} from "./helpers/seed";
+  E2E_ADMIN_USERNAMES,
+  E2E_ADMIN_PASSWORD,
+  seedSuiteAdmin,
+  removeSuiteAdmin,
+} from "../utils/shared-e2e-fixture";
+import { resetSuiteBusinessRows } from "../utils/shared-e2e-business-fixture";
 import { configureTestAppValidation } from "../utils/configure-test-app-validation";
 
 describe("Sales (e2e)", () => {
@@ -21,6 +22,8 @@ describe("Sales (e2e)", () => {
   let salesOrderId: string;
   let salesOrderNumber: string;
   let paymentMethodId: string;
+  // Roots this suite owns, for own-rows cleanup (issue #1199).
+  let seededCategoryId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -32,10 +35,12 @@ describe("Sales (e2e)", () => {
     await app.init();
 
     dataSource = app.get(DataSource);
-    await truncateAll(dataSource);
 
-    await seedAdmin(dataSource);
-    const category = await seedCategory(dataSource);
+    // Suite-owned admin. Previously truncateAll() + seedAdmin("admin"), which
+    // destroyed every other suite's users and refresh tokens (issue #1199).
+    await seedSuiteAdmin(dataSource, E2E_ADMIN_USERNAMES.sales);
+    const category = await seedCategory(dataSource, `sales-e2e-${Date.now()}`);
+    seededCategoryId = category.id;
     const product = await seedProduct(dataSource, category.id, {
       stockQuantity: 100,
       baseCost: 100,
@@ -46,12 +51,22 @@ describe("Sales (e2e)", () => {
 
     const loginRes = await request(app.getHttpServer())
       .post("/auth/login")
-      .send({ usernameOrEmail: "admin", password: "Admin@123!" });
+      .send({
+        usernameOrEmail: E2E_ADMIN_USERNAMES.sales,
+        password: E2E_ADMIN_PASSWORD,
+      });
     accessToken = loginRes.body.accessToken;
   });
 
   afterAll(async () => {
-    if (dataSource?.isInitialized) await dataSource.destroy();
+    if (dataSource?.isInitialized) {
+      await resetSuiteBusinessRows(dataSource, {
+        categoryIds: [seededCategoryId],
+        customerIds: customerId ? [customerId] : [],
+      });
+      await removeSuiteAdmin(dataSource, E2E_ADMIN_USERNAMES.sales);
+      await dataSource.destroy();
+    }
     await app.close();
   });
 
@@ -198,7 +213,11 @@ describe("Sales (e2e)", () => {
       await request(app.getHttpServer())
         .post(`/sales-orders/${salesOrderId}/payments`)
         .set("Authorization", `Bearer ${accessToken}`)
-        .send({ amount: '100.0000', paymentMethodId, paymentDate: "2026-05-26" })
+        .send({
+          amount: "100.0000",
+          paymentMethodId,
+          paymentDate: "2026-05-26",
+        })
         .expect(200);
     });
 
@@ -210,7 +229,7 @@ describe("Sales (e2e)", () => {
 
       const payments: any[] = res.body.data ?? res.body;
       expect(payments.length).toBeGreaterThan(0);
-      expect(payments[0].amount).toBe('100.0000');
+      expect(payments[0].amount).toBe("100.0000");
     });
 
     it("GET /sales-orders/:id — paymentStatus is PARTIAL after partial payment", async () => {
