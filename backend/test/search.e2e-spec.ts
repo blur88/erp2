@@ -121,7 +121,28 @@ describe("GET /search/global - role-based filtering (e2e)", () => {
     purchaseOrderId = order.id;
   }
 
+  // One login per role for the whole suite, cached.
+  //
+  // Several roles are searched by more than one test, and logging in per call
+  // meant two logins by the SAME user could land in the same wall-clock second.
+  // The refresh token is a JWT over second-granularity claims (iat/exp) and
+  // refresh_tokens.tokenHash is UNIQUE (UQ_c25bc63d248ca90e8dcc1d92d06), so two
+  // such logins hash identically and the second dies on the unique violation —
+  // observed as a 500 from /auth/login on CI (issue #1201).
+  //
+  // The old global TRUNCATE hid this by clearing refresh_tokens between tests;
+  // scoped cleanup correctly leaves them, so this suite must not re-login as a
+  // user it has already authenticated.
+  //
+  // It is a race, not a deterministic failure: login takes ~240ms, so whether
+  // two of them share a second depends on the machine. It surfaced on CI while
+  // passing locally, which means a green local run is not evidence here.
+  const tokenCache = new Map<UserRole, string>();
+
   async function loginAs(role: UserRole): Promise<string> {
+    const cached = tokenCache.get(role);
+    if (cached) return cached;
+
     const response = await request(app.getHttpServer())
       .post("/auth/login")
       .send({
@@ -130,7 +151,9 @@ describe("GET /search/global - role-based filtering (e2e)", () => {
       })
       .expect(200);
 
-    return response.body.accessToken as string;
+    const token = response.body.accessToken as string;
+    tokenCache.set(role, token);
+    return token;
   }
 
   async function searchAs(role: UserRole, q: string) {
