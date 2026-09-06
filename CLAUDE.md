@@ -251,6 +251,16 @@ That legacy shape was **captured byte-for-byte from a real `bullmq@5.81.3` `Queu
 
 The unit tests mock `hexists`, so they cannot catch an inverted `ic` check — `npm run test:redis` is the only thing that does. It is on CI's critical path. **`Tests: 0 total` there is a failure, not a pass**: a suite that fails to load reports zero and looks green to a careless reading, though Jest's own exit code does catch it (see the zero-discovery note in the Jest ESM section above). Verified by inverting the `ic` discriminator, which turns the legacy test red at the `legacySkipped` assertion.
 
+**`test:redis` requires an explicit opt-in** (#1190). `scripts/preflight-redis-test.sh` aborts unless `REDIS_TEST_ALLOW_WRITES=1`, *before* it opens any connection — so a run pointed at the wrong endpoint never touches it:
+
+```bash
+REDIS_TEST_ALLOW_WRITES=1 npm run test:redis
+```
+
+The address cannot express what matters. `REDIS_TEST_PORT` defaulting to 6399 is a convention, not a guard: the app's Redis can run on any port, and CI deliberately points this suite at 6379 (its own ephemeral service container, where `ci.yml` sets the opt-in). Only an affirmative opt-in keeps a default configuration from writing to an instance nobody provisioned for the suite.
+
+The suite does **not** flush: it writes under a unique `test-bullmq-<ts>-<rand>` prefix and deletes `${prefix}:*` in teardown. So the exposure from a mis-pointed run is stray keys under a random prefix, not destroyed schedulers — but an interrupted run leaves them behind, and this Redis is `noeviction`, so nothing reclaims them. Point it only at a Redis you are willing to lose.
+
 If a `Legacy (non-scheduler) repeat entry` warning ever appears at boot, an environment is holding pre-v6 state that predates the removal. BullMQ 6 cannot remove it safely — `removeJobScheduler` would delete its metadata but leave the delayed occurrence live — so it needs BullMQ 5's `removeRepeatableByKey`.
 
 **Orphaned backup-queue repeat entries (report-only)**: `BackupSchedulerService.reportOrphanedSchedulers()` runs last in `initializeSchedules()` and `logger.warn`s any `bull:backup-queue:repeat` member whose `data.scheduleId` has no `backup_schedules` row (issue #1035). It **never deletes** — making Redis contents depend on a DB read means a transient read failure or a partially-migrated deploy could destroy live schedulers. Keep it free of mutating calls; auto-reconciliation is a separate design discussion that needs explicit safeguards. The whole body is wrapped in a catch-all because a diagnostic must never fail boot. It survived the v5→v6 retirement in #1033, which is why it was written as a sibling method rather than folded into that scan. Entries with no `data`, unparseable JSON, or a non-string/empty `scheduleId` are logged as *unclassifiable*, never as orphans.
