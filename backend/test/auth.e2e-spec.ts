@@ -1,3 +1,5 @@
+import { jest } from "@jest/globals";
+import { createHash } from "crypto";
 import { Test, TestingModule } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import request from "supertest";
@@ -96,16 +98,9 @@ describe("Authentication (e2e)", () => {
     // the UNIQUE index over refresh_tokens.tokenHash and the second login
     // returned 400/DB_001 instead of 200.
     //
-    // The precondition is an equal `iat`, not wall-clock adjacency, and it is
-    // asserted rather than assumed. Driving it over HTTP is not reliable here:
-    // bcrypt at 12 rounds costs more than a second, so SEQUENTIAL requests from
-    // a test cannot land in one second. (Concurrent logins still can — each
-    // hashes in parallel — which is the production trigger; it is just not a
-    // deterministic thing to schedule from a spec.) So this calls
-    // generateTokens directly on the running app's AuthService, where the two
-    // issues share an `iat` by construction. Coverage of the HTTP path lives in
-    // the unit spec's frozen-clock cases; what this adds is the real unique
-    // index.
+    // Pin Date.now for token issuance while leaving database I/O timers real.
+    // Calling the running app's service exercises real signing and the unique
+    // index; the unit cases separately cover login and rotation with a fixed iat.
     it("should persist two refresh tokens issued with the same iat", async () => {
       const authService = app.get(AuthService);
       const userRepository = dataSource.getRepository(User);
@@ -116,20 +111,26 @@ describe("Authentication (e2e)", () => {
           Buffer.from(token.split(".")[1], "base64url").toString("utf8"),
         ).iat;
 
-      // generateTokens is private but is exactly the unit under test; the two
-      // calls are issued back to back so jsonwebtoken stamps one `iat`.
-      const first = await (authService as any).generateTokens(
-        user,
-        false,
-        "127.0.0.1",
-        "agent",
-      );
-      const second = await (authService as any).generateTokens(
-        user,
-        false,
-        "127.0.0.1",
-        "agent",
-      );
+      const issuedAt = Date.now();
+      const clock = jest.spyOn(Date, "now").mockReturnValue(issuedAt);
+      let first: { refreshToken: string };
+      let second: { refreshToken: string };
+      try {
+        first = await (authService as any).generateTokens(
+          user,
+          false,
+          "127.0.0.1",
+          "agent",
+        );
+        second = await (authService as any).generateTokens(
+          user,
+          false,
+          "127.0.0.1",
+          "agent",
+        );
+      } finally {
+        clock.mockRestore();
+      }
 
       // The collision precondition. If these differ the case proves nothing,
       // so fail loudly rather than passing on a technicality.
@@ -144,8 +145,11 @@ describe("Authentication (e2e)", () => {
         where: { userId: testUserId },
       });
       const hashes = new Set(rows.map((row) => row.tokenHash));
-      expect(rows.length).toBeGreaterThanOrEqual(2);
-      expect(hashes.size).toBe(rows.length);
+      expect(rows).toHaveLength(2);
+      expect(hashes).toEqual(new Set([
+        createHash("sha256").update(first.refreshToken).digest("hex"),
+        createHash("sha256").update(second.refreshToken).digest("hex"),
+      ]));
     });
 
     it("should login with email instead of username", async () => {

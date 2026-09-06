@@ -701,7 +701,7 @@ let service: AuthService;
 
       // Rotation removes the old row before inserting the new one, so a repeated
       // token raises no unique-index error — it silently reissues the very token
-      // it just revoked, leaving the client holding a hash that was deleted.
+      // it just revoked, reinserting its hash so the consumed token remains usable.
       expect(rotated.refreshToken).not.toBe(originalRefreshToken);
       expect(savedTokens).toHaveLength(2);
       expect(savedTokens[1].tokenHash).not.toBe(consumedHash);
