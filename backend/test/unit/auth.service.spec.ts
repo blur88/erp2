@@ -588,4 +588,123 @@ let service: AuthService;
       expect(result).toBe(5);
     });
   });
+
+  /**
+   * Regression: issue #1201 — same-second token collision.
+   *
+   * The refresh token is a JWT over second-granularity claims, and its SHA-256
+   * hash is stored under a unique index (refresh-token.entity.ts). Without a
+   * per-issue nonce, two tokens minted for the same user inside one wall-clock
+   * second are byte-identical, so the second insert violates that index and the
+   * request fails with a 400/DB_001 instead of succeeding.
+   *
+   * These cases use a REAL JwtService. The suite-wide mock above signs
+   * `mock.jwt.token.${payload.sub}`, which ignores every other claim — under it
+   * the tokens collide whether or not the fix is present, so it cannot observe
+   * this bug.
+   */
+  describe("token uniqueness within one second (real JwtService)", () => {
+    let realService: AuthService;
+    const savedTokens: any[] = [];
+
+    beforeEach(async () => {
+      savedTokens.length = 0;
+
+      const realRefreshTokenRepository = {
+        findOne: (jest.fn as unknown as any)(),
+        save: (jest.fn as unknown as any)((entity: any) => {
+          savedTokens.push(entity);
+          return Promise.resolve(entity);
+        }),
+        create: (jest.fn as unknown as any)((entity: any) => ({ ...entity })),
+        delete: (jest.fn as unknown as any)(),
+        remove: (jest.fn as unknown as any)(),
+      };
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          AuthService,
+          { provide: getRepositoryToken(User), useValue: mockUserRepository },
+          {
+            provide: getRepositoryToken(RefreshToken),
+            useValue: realRefreshTokenRepository,
+          },
+          {
+            provide: JwtService,
+            useValue: new JwtService({ secret: "test-secret-key" }),
+          },
+          { provide: ConfigService, useValue: mockConfigService },
+        ],
+      }).compile();
+
+      realService = module.get<AuthService>(AuthService);
+
+      // Freeze the clock so both issues share an `iat` by construction, rather
+      // than relying on two calls happening to race inside one second.
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date("2026-09-07T12:00:00.000Z"));
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("issues distinct refresh tokens for two logins in the same second", async () => {
+      mockedBcrypt.compare.mockResolvedValue(true as never);
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockUserRepository.save.mockResolvedValue({ ...mockUser });
+
+      const loginDto = { username: "testuser", password: "Password123!" };
+
+      const first = await realService.login(loginDto, "127.0.0.1", "agent");
+      const second = await realService.login(loginDto, "127.0.0.1", "agent");
+
+      expect(first.refreshToken).not.toBe(second.refreshToken);
+
+      // Both sessions must persist: two rows, two distinct hashes. The unique
+      // index is what fails in production, so the hashes are the property at risk.
+      expect(savedTokens).toHaveLength(2);
+      expect(savedTokens[0].tokenHash).not.toBe(savedTokens[1].tokenHash);
+    });
+
+    it("issues a replacement refresh token that differs from the consumed one during rotation", async () => {
+      const originalRefreshToken = (
+        await (async () => {
+          mockedBcrypt.compare.mockResolvedValue(true as never);
+          mockUserRepository.findOne.mockResolvedValue(mockUser);
+          mockUserRepository.save.mockResolvedValue({ ...mockUser });
+          return realService.login(
+            { username: "testuser", password: "Password123!" },
+            "127.0.0.1",
+            "agent",
+          );
+        })()
+      ).refreshToken;
+
+      const consumedHash = savedTokens[0].tokenHash;
+
+      const refreshTokenRepository = (realService as any).refreshTokenRepository;
+      refreshTokenRepository.findOne.mockResolvedValue({
+        id: "token-id",
+        tokenHash: consumedHash,
+        userId: mockUser.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        isActive: true,
+        user: mockUser,
+        isExpired: false,
+      });
+      refreshTokenRepository.remove.mockResolvedValue({});
+
+      const rotated = await realService.refreshAccessToken({
+        refreshToken: originalRefreshToken,
+      });
+
+      // Rotation removes the old row before inserting the new one, so a repeated
+      // token raises no unique-index error — it silently reissues the very token
+      // it just revoked, reinserting its hash so the consumed token remains usable.
+      expect(rotated.refreshToken).not.toBe(originalRefreshToken);
+      expect(savedTokens).toHaveLength(2);
+      expect(savedTokens[1].tokenHash).not.toBe(consumedHash);
+    });
+  });
 });

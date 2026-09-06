@@ -1,3 +1,5 @@
+import { jest } from "@jest/globals";
+import { createHash } from "crypto";
 import { Test, TestingModule } from "@nestjs/testing";
 import { INestApplication } from "@nestjs/common";
 import request from "supertest";
@@ -10,6 +12,7 @@ import {
   UserStatus,
 } from "../src/database/entities/user.entity";
 import { RefreshToken } from "../src/database/entities/refresh-token.entity";
+import { AuthService } from "../src/modules/auth/auth.service";
 import * as bcrypt from "bcrypt";
 import {
   AUTH_ADMIN_USERNAME,
@@ -88,6 +91,65 @@ describe("Authentication (e2e)", () => {
 
       adminAccessToken = response.body.accessToken;
       adminRefreshToken = response.body.refreshToken;
+    });
+
+    // Regression: issue #1201. Two refresh tokens minted for one user with the
+    // same `iat` used to be byte-identical, so their SHA-256 hashes collided on
+    // the UNIQUE index over refresh_tokens.tokenHash and the second login
+    // returned 400/DB_001 instead of 200.
+    //
+    // Pin Date.now for token issuance while leaving database I/O timers real.
+    // Calling the running app's service exercises real signing and the unique
+    // index; the unit cases separately cover login and rotation with a fixed iat.
+    it("should persist two refresh tokens issued with the same iat", async () => {
+      const authService = app.get(AuthService);
+      const userRepository = dataSource.getRepository(User);
+      const user = await userRepository.findOne({ where: { id: testUserId } });
+
+      const decodeIat = (token: string) =>
+        JSON.parse(
+          Buffer.from(token.split(".")[1], "base64url").toString("utf8"),
+        ).iat;
+
+      const issuedAt = Date.now();
+      const clock = jest.spyOn(Date, "now").mockReturnValue(issuedAt);
+      let first: { refreshToken: string };
+      let second: { refreshToken: string };
+      try {
+        first = await (authService as any).generateTokens(
+          user,
+          false,
+          "127.0.0.1",
+          "agent",
+        );
+        second = await (authService as any).generateTokens(
+          user,
+          false,
+          "127.0.0.1",
+          "agent",
+        );
+      } finally {
+        clock.mockRestore();
+      }
+
+      // The collision precondition. If these differ the case proves nothing,
+      // so fail loudly rather than passing on a technicality.
+      expect(decodeIat(first.refreshToken)).toBe(decodeIat(second.refreshToken));
+
+      expect(first.refreshToken).not.toBe(second.refreshToken);
+
+      // Both sessions survive the unique index — each carries its own device/IP
+      // audit trail and is independently revocable.
+      const refreshTokenRepository = dataSource.getRepository(RefreshToken);
+      const rows = await refreshTokenRepository.find({
+        where: { userId: testUserId },
+      });
+      const hashes = new Set(rows.map((row) => row.tokenHash));
+      expect(rows).toHaveLength(2);
+      expect(hashes).toEqual(new Set([
+        createHash("sha256").update(first.refreshToken).digest("hex"),
+        createHash("sha256").update(second.refreshToken).digest("hex"),
+      ]));
     });
 
     it("should login with email instead of username", async () => {

@@ -27,16 +27,14 @@ import {
 // deletes them. If a suite's cleanup owned these rows, the checks below would
 // prove nothing (issues #1197, #1199).
 //
-// One sentinel user PER CASE. Two reasons, both load bearing:
+// One sentinel user PER CASE, for isolation between the cases themselves — a
+// case cannot be affected by what an earlier case did to a shared row.
 //
-//  1. Isolation between the cases themselves — a case cannot be affected by
-//     what an earlier case did to a shared row.
-//  2. The refresh token is a JWT over second-granularity claims (iat/exp), and
-//     refresh_tokens.tokenHash is UNIQUE. Two logins by the SAME user inside
-//     one second therefore produce the same hash and the second login fails
-//     with a 400 unique violation. The old global TRUNCATE hid this by
-//     cascading those rows away; scoped cleanup correctly leaves them, so each
-//     case needs its own user rather than re-logging-in as a shared one.
+// This pattern originally carried a second reason: two logins by one user
+// inside a single second collided on the UNIQUE refresh_tokens.tokenHash and
+// the second returned 400. That is fixed (issue #1201 — the refresh token now
+// carries a `jti` nonce), so a shared user would no longer break; the isolation
+// reason above stands on its own and the per-case users stay.
 const SENTINEL_USERNAMES = {
   auth: 'sentinel_isolation_probe',
   search: 'sentinel_isolation_probe_search',

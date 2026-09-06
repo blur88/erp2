@@ -370,10 +370,24 @@ export class AuthService {
 
     // Generate refresh token (long-lived)
     // If "Remember me" is checked: 7 days, otherwise: 2 days (covers 12h idle + buffer)
+    //
+    // The `jti` nonce is load-bearing, not decoration (issue #1201): every other
+    // claim is second-granularity, so without it two refresh tokens minted for
+    // one user inside the same wall-clock second are byte-identical. Their
+    // SHA-256 hashes then collide on the unique index over
+    // refresh_tokens.tokenHash, and the second login fails with a 400/DB_001.
+    // Rotation has the same collision without the error, because it deletes the
+    // old row first — it would silently reissue the token it just revoked.
+    // Two logins are two sessions with their own device/IP audit trail and
+    // independent revocation, so they must be distinct rows.
+    // The access token is not persisted and deliberately keeps the bare payload.
     const refreshTokenExpiry = rememberMe ? '7d' : '2d';
-    const refreshToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get('JWT_REFRESH_TOKEN_EXPIRY', refreshTokenExpiry),
-    });
+    const refreshToken = this.jwtService.sign(
+      { ...payload, jti: crypto.randomUUID() },
+      {
+        expiresIn: this.configService.get('JWT_REFRESH_TOKEN_EXPIRY', refreshTokenExpiry),
+      },
+    );
 
     // Store refresh token in database (hashed)
     const tokenHash = this.hashToken(refreshToken);
