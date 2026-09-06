@@ -11,6 +11,12 @@ import {
 } from "../src/database/entities/user.entity";
 import { RefreshToken } from "../src/database/entities/refresh-token.entity";
 import * as bcrypt from "bcrypt";
+import {
+  AUTH_ADMIN_USERNAME,
+  AUTH_MANAGER_USERNAME,
+  AUTH_SALES_USERNAME,
+  resetAuthFixtureUsers,
+} from "./utils/auth-fixture";
 
 describe("Authentication (e2e)", () => {
   let app: INestApplication;
@@ -33,24 +39,24 @@ describe("Authentication (e2e)", () => {
 
   afterAll(async () => {
     if (dataSource?.isInitialized) {
+      // Delete only what this suite owns, via the same shared helper. Deleting
+      // the row removes any lockout state with it — no separate reset needed.
+      await resetAuthFixtureUsers(dataSource);
       await dataSource.destroy();
     }
     await app.close();
   });
 
   beforeEach(async () => {
-    // Clean up database before each test
     const userRepository = dataSource.getRepository(User);
 
-    await dataSource.query(
-      "TRUNCATE TABLE refresh_tokens, users RESTART IDENTITY CASCADE",
-    );
+    // Own-rows reset ONLY, via the shared helper the sentinel also exercises.
+    await resetAuthFixtureUsers(dataSource);
 
-    // Create test admin user
     const hashedPassword = await bcrypt.hash("Admin@123!", 12);
     const adminUser = userRepository.create({
-      username: "admin",
-      email: "admin@test.com",
+      username: AUTH_ADMIN_USERNAME,
+      email: `${AUTH_ADMIN_USERNAME}@test.com`,
       password: hashedPassword,
       firstName: "Admin",
       lastName: "User",
@@ -68,7 +74,7 @@ describe("Authentication (e2e)", () => {
       const response = await request(app.getHttpServer())
         .post("/auth/login")
         .send({
-          usernameOrEmail: "admin",
+          usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "Admin@123!",
         })
         .expect(200);
@@ -76,8 +82,8 @@ describe("Authentication (e2e)", () => {
       expect(response.body).toHaveProperty("accessToken");
       expect(response.body).toHaveProperty("refreshToken");
       expect(response.body).toHaveProperty("user");
-      expect(response.body.user.username).toBe("admin");
-      expect(response.body.user.email).toBe("admin@test.com");
+      expect(response.body.user.username).toBe(AUTH_ADMIN_USERNAME);
+      expect(response.body.user.email).toBe(`${AUTH_ADMIN_USERNAME}@test.com`);
       expect(response.body.user.password).toBeUndefined(); // Password should not be returned
 
       adminAccessToken = response.body.accessToken;
@@ -88,13 +94,13 @@ describe("Authentication (e2e)", () => {
       const response = await request(app.getHttpServer())
         .post("/auth/login")
         .send({
-          usernameOrEmail: "admin@test.com",
+          usernameOrEmail: `${AUTH_ADMIN_USERNAME}@test.com`,
           password: "Admin@123!",
         })
         .expect(200);
 
       expect(response.body).toHaveProperty("accessToken");
-      expect(response.body.user.email).toBe("admin@test.com");
+      expect(response.body.user.email).toBe(`${AUTH_ADMIN_USERNAME}@test.com`);
     });
 
     it("should return 401 for invalid username", async () => {
@@ -113,7 +119,7 @@ describe("Authentication (e2e)", () => {
       const response = await request(app.getHttpServer())
         .post("/auth/login")
         .send({
-          usernameOrEmail: "admin",
+          usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "WrongPassword",
         })
         .expect(401);
@@ -128,13 +134,13 @@ describe("Authentication (e2e)", () => {
       await request(app.getHttpServer())
         .post("/auth/login")
         .send({
-          usernameOrEmail: "admin",
+          usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "WrongPassword",
         })
         .expect(401);
 
       const user = await userRepository.findOne({
-        where: { username: "admin" },
+        where: { username: AUTH_ADMIN_USERNAME },
       });
       expect(user.failedLoginAttempts).toBe(1);
     });
@@ -147,14 +153,14 @@ describe("Authentication (e2e)", () => {
         await request(app.getHttpServer())
           .post("/auth/login")
           .send({
-            usernameOrEmail: "admin",
+            usernameOrEmail: AUTH_ADMIN_USERNAME,
             password: "WrongPassword",
           })
           .expect(401);
       }
 
       const user = await userRepository.findOne({
-        where: { username: "admin" },
+        where: { username: AUTH_ADMIN_USERNAME },
       });
       expect(user.failedLoginAttempts).toBe(5);
       expect(user.lockedUntil).toBeDefined();
@@ -166,7 +172,7 @@ describe("Authentication (e2e)", () => {
 
       // Lock the account manually
       await userRepository.update(
-        { username: "admin" },
+        { username: AUTH_ADMIN_USERNAME },
         {
           failedLoginAttempts: 5,
           lockedUntil: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
@@ -176,7 +182,7 @@ describe("Authentication (e2e)", () => {
       const response = await request(app.getHttpServer())
         .post("/auth/login")
         .send({
-          usernameOrEmail: "admin",
+          usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "Admin@123!",
         })
         .expect(403);
@@ -189,7 +195,7 @@ describe("Authentication (e2e)", () => {
 
       // Set failed attempts
       await userRepository.update(
-        { username: "admin" },
+        { username: AUTH_ADMIN_USERNAME },
         { failedLoginAttempts: 3 },
       );
 
@@ -197,13 +203,13 @@ describe("Authentication (e2e)", () => {
       await request(app.getHttpServer())
         .post("/auth/login")
         .send({
-          usernameOrEmail: "admin",
+          usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "Admin@123!",
         })
         .expect(200);
 
       const user = await userRepository.findOne({
-        where: { username: "admin" },
+        where: { username: AUTH_ADMIN_USERNAME },
       });
       expect(user.failedLoginAttempts).toBe(0);
       expect(user.lastLoginAt).toBeDefined();
@@ -225,7 +231,7 @@ describe("Authentication (e2e)", () => {
       const response = await request(app.getHttpServer())
         .post("/auth/login")
         .send({
-          usernameOrEmail: "admin",
+          usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "Admin@123!",
         });
 
@@ -287,7 +293,7 @@ describe("Authentication (e2e)", () => {
       const response = await request(app.getHttpServer())
         .post("/auth/login")
         .send({
-          usernameOrEmail: "admin",
+          usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "Admin@123!",
         });
 
@@ -300,8 +306,8 @@ describe("Authentication (e2e)", () => {
         .set("Authorization", `Bearer ${adminAccessToken}`)
         .expect(200);
 
-      expect(response.body.username).toBe("admin");
-      expect(response.body.email).toBe("admin@test.com");
+      expect(response.body.username).toBe(AUTH_ADMIN_USERNAME);
+      expect(response.body.email).toBe(`${AUTH_ADMIN_USERNAME}@test.com`);
       expect(response.body.role).toBe(UserRole.ADMIN);
       expect(response.body.password).toBeUndefined();
     });
@@ -324,7 +330,7 @@ describe("Authentication (e2e)", () => {
       const response = await request(app.getHttpServer())
         .post("/auth/login")
         .send({
-          usernameOrEmail: "admin",
+          usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "Admin@123!",
         });
 
@@ -341,9 +347,10 @@ describe("Authentication (e2e)", () => {
         })
         .expect(204);
 
-      // Verify refresh token is deleted
+      // Scoped to this test's own user: an unfiltered count asserts on global
+      // state and breaks the moment another suite holds a token (issue #1197).
       const refreshTokenRepository = dataSource.getRepository(RefreshToken);
-      const count = await refreshTokenRepository.count();
+      const count = await refreshTokenRepository.count({ where: { userId: testUserId } });
       expect(count).toBe(0);
     });
 
@@ -373,7 +380,7 @@ describe("Authentication (e2e)", () => {
       const response = await request(app.getHttpServer())
         .post("/auth/login")
         .send({
-          usernameOrEmail: "admin",
+          usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "Admin@123!",
         });
 
@@ -395,7 +402,7 @@ describe("Authentication (e2e)", () => {
       const response = await request(app.getHttpServer())
         .post("/auth/login")
         .send({
-          usernameOrEmail: "admin",
+          usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "NewPassword@456",
         })
         .expect(200);
@@ -457,9 +464,10 @@ describe("Authentication (e2e)", () => {
         })
         .expect(204);
 
-      // Verify all refresh tokens are deleted
+      // Scoped to this test's own user: an unfiltered count asserts on global
+      // state and breaks the moment another suite holds a token (issue #1197).
       const refreshTokenRepository = dataSource.getRepository(RefreshToken);
-      const count = await refreshTokenRepository.count();
+      const count = await refreshTokenRepository.count({ where: { userId: testUserId } });
       expect(count).toBe(0);
     });
   });
@@ -474,8 +482,8 @@ describe("Authentication (e2e)", () => {
       // Create manager user
       const hashedPassword = await bcrypt.hash("Manager@123!", 12);
       const managerUser = userRepository.create({
-        username: "manager",
-        email: "manager@test.com",
+        username: AUTH_MANAGER_USERNAME,
+        email: `${AUTH_MANAGER_USERNAME}@test.com`,
         password: hashedPassword,
         firstName: "Manager",
         lastName: "User",
@@ -487,8 +495,8 @@ describe("Authentication (e2e)", () => {
 
       // Create sales staff user
       const salesUser = userRepository.create({
-        username: "sales",
-        email: "sales@test.com",
+        username: AUTH_SALES_USERNAME,
+        email: `${AUTH_SALES_USERNAME}@test.com`,
         password: hashedPassword,
         firstName: "Sales",
         lastName: "User",
@@ -502,7 +510,7 @@ describe("Authentication (e2e)", () => {
       const adminResponse = await request(app.getHttpServer())
         .post("/auth/login")
         .send({
-          usernameOrEmail: "admin",
+          usernameOrEmail: AUTH_ADMIN_USERNAME,
           password: "Admin@123!",
         });
       adminAccessToken = adminResponse.body.accessToken;
@@ -511,7 +519,7 @@ describe("Authentication (e2e)", () => {
       const managerResponse = await request(app.getHttpServer())
         .post("/auth/login")
         .send({
-          usernameOrEmail: "manager",
+          usernameOrEmail: AUTH_MANAGER_USERNAME,
           password: "Manager@123!",
         });
       managerAccessToken = managerResponse.body.accessToken;
@@ -520,7 +528,7 @@ describe("Authentication (e2e)", () => {
       const salesResponse = await request(app.getHttpServer())
         .post("/auth/login")
         .send({
-          usernameOrEmail: "sales",
+          usernameOrEmail: AUTH_SALES_USERNAME,
           password: "Manager@123!",
         });
       salesStaffAccessToken = salesResponse.body.accessToken;
