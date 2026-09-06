@@ -347,9 +347,10 @@ describe("Authentication (e2e)", () => {
         })
         .expect(204);
 
-      // Verify refresh token is deleted
+      // Scoped to this test's own user: an unfiltered count asserts on global
+      // state and breaks the moment another suite holds a token (issue #1197).
       const refreshTokenRepository = dataSource.getRepository(RefreshToken);
-      const count = await refreshTokenRepository.count();
+      const count = await refreshTokenRepository.count({ where: { userId: testUserId } });
       expect(count).toBe(0);
     });
 
@@ -463,9 +464,10 @@ describe("Authentication (e2e)", () => {
         })
         .expect(204);
 
-      // Verify all refresh tokens are deleted
+      // Scoped to this test's own user: an unfiltered count asserts on global
+      // state and breaks the moment another suite holds a token (issue #1197).
       const refreshTokenRepository = dataSource.getRepository(RefreshToken);
-      const count = await refreshTokenRepository.count();
+      const count = await refreshTokenRepository.count({ where: { userId: testUserId } });
       expect(count).toBe(0);
     });
   });
