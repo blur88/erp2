@@ -164,7 +164,41 @@ docker compose logs backend --since 90s 2>&1 | grep -E "Initialized [0-9]+ backu
 
 Pass requires **both**: `Initialized N backup schedules` present (it cannot print unless BullMQ initialized against Redis) and `Eviction policy` absent.
 
-The 256 MiB cap is unchanged and stays **pending production measurement** — the ~2.8M peak (~1.1%) was measured on the local development stack only; production queue depth is unverified. Re-evaluating the cap against captured production values is a mandatory rollout gate, not an optional follow-up. The cap matters more now that `noeviction` makes hitting it a hard `OOM command not allowed` failure rather than silent eviction.
+The 256 MiB cap is **retained** (decision recorded 2026-09-05). Local history
+demonstrates persistence across Redis restarts; **production sizing and survival
+across a confirmed deploy remain unverified**, and re-evaluating the cap against
+captured production values is still a mandatory rollout gate, not an optional
+follow-up. Nothing in the local measurement discharges it.
+
+The evidence is one frozen window on the **local development stack only**
+(`instanceId = erp_backend`, `sampledAt < 2026-09-05 00:00:00-07`): 30,667
+samples over 21d 10h, 0 failed, peak `usedBytes` 3,008,424 of 268,435,456 =
+**1.121%**, p95 2,961,160.8, `evictedKeys` and `oomErrors` both 0. Utilization
+is computed from the byte columns; the stored `utilizationPercent` rounds to
+whole percentages (`redis-info.parser.ts:50`) and reads `1.00`.
+
+Two limits on that evidence. Zero counters mean **none observed** — `evicted_keys`
+is inert under `noeviction`, and `oomErrors` lives inside the Redis process, so a
+container OOM kill or Redis restart **can occur without incrementing either
+counter** (the replacement process starts fresh; already-persisted samples and
+alert rows remain). And the window's three sampling gaps identify **sampling
+interruptions**; the restart correlation comes from the retained
+`redis_alert_state` run_id rows, which resolve two of the three to Redis
+restarts. Neither is deployment evidence, so this window spans **zero verified
+deploys**.
+
+The recorded query output is the evidence, not the query: 90-day retention with
+a nightly prune means re-running the bounded query returns fewer rows over time.
+The cap matters more now that `noeviction` makes hitting it a hard `OOM command
+not allowed` failure rather than silent eviction.
+
+`docker-compose.prod.yml` sets the Redis container `limits.memory: 512M` against
+`--maxmemory 256mb` (`reservations.memory: 256M`) — recorded as an unmeasured
+configuration fact, not a defect: Redis needs memory beyond `used_memory` during
+RDB save and AOF rewrite, and this stack runs both. See
+`docs/deployment/REDIS_MEMORY_PRESSURE_RUNBOOK.md` for the full measurement,
+the reproduce query, the restart-correlation method and its caveats, and the
+investigation triggers.
 
 **Redis memory monitoring persists to Postgres, never to Redis**: the sampler writes samples (`redis_memory_samples`) and alert state (`redis_alert_state`) through TypeORM; Redis itself is only ever *read* (INFO) by the monitoring module. Alert state is keyed by the Redis `run_id`, so a Redis restart yields a **new** row rather than clearing a watermark — the old row is retained for diagnostics and simply no longer consulted. Samples are keyed by `MONITORING_INSTANCE_ID`, which **must be stable across restarts and unique per running sampler** (compose pins `erp_backend`; `HOSTNAME` is the container ID and changes on recreation). The `bigint` columns on these tables need `SafeIntegerTransformer` (`safe-integer.transformer.ts`), which throws rather than silently truncating values past `MAX_SAFE_INTEGER`.
 
