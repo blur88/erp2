@@ -12,6 +12,11 @@ SCRIPT="$BATS_TEST_DIRNAME/../preflight-redis-test.sh"
 setup() {
   # Keep the probe fast; these specs never wait on a real Redis handshake.
   export REDIS_TEST_PREFLIGHT_TIMEOUT_MS=1500
+  # The reachability tests below all assume the opt-in gate (issue #1190) has
+  # already been cleared; the gate's own boundary is exercised separately at
+  # the bottom of this file. Without this export every test here would fail at
+  # the gate instead of at the behaviour it is checking.
+  export REDIS_TEST_ALLOW_WRITES=1
 }
 
 teardown() {
@@ -125,4 +130,89 @@ closed_port() {
   # The bug being guarded took ~600s. Ten seconds is a generous ceiling that
   # still fails loudly if the probe ever regains retry behaviour.
   [ "$elapsed" -lt 10 ]
+}
+
+# --- Opt-in gate (issue #1190) ----------------------------------------------
+#
+# The suite writes real BullMQ queue state, so the preflight refuses to run
+# unless REDIS_TEST_ALLOW_WRITES=1. An address cannot express "disposable":
+# the app's Redis can run on any port and CI deliberately uses 6379.
+
+# Like start_listener, but records each accepted connection to a file so a test
+# can assert the probe never dialled. Exports LISTEN_PORT and CONN_LOG.
+start_counting_listener() {
+  local port_file="$BATS_TEST_TMPDIR/counting_port"
+  CONN_LOG="$BATS_TEST_TMPDIR/connections"
+  : > "$CONN_LOG"
+  node -e '
+    const net = require("net");
+    const fs = require("fs");
+    const [portFile, connLog] = [process.argv[1], process.argv[2]];
+    const server = net.createServer(() => {
+      fs.appendFileSync(connLog, "connected\n");
+    });
+    server.listen(0, "127.0.0.1", () => {
+      fs.writeFileSync(portFile, String(server.address().port));
+    });
+  ' "$port_file" "$CONN_LOG" &
+  LISTENER_PID=$!
+
+  local waited=0
+  while [ ! -s "$port_file" ] && [ "$waited" -lt 50 ]; do
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  [ -s "$port_file" ] || return 1
+  LISTEN_PORT="$(cat "$port_file")"
+}
+
+@test "aborts when the opt-in is unset" {
+  start_listener
+  run env -u REDIS_TEST_ALLOW_WRITES \
+    REDIS_TEST_HOST=127.0.0.1 REDIS_TEST_PORT="$LISTEN_PORT" "$SCRIPT"
+  [ "$status" -ne 0 ]
+  echo "$output" | grep -qF 'REDIS_TEST_ALLOW_WRITES'
+}
+
+@test "aborts when the opt-in is set to anything other than 1" {
+  start_listener
+  # Fail closed: only an exact "1" opts in. "0", "true" and "" must not.
+  for value in 0 true yes ""; do
+    REDIS_TEST_ALLOW_WRITES="$value" \
+      REDIS_TEST_HOST=127.0.0.1 REDIS_TEST_PORT="$LISTEN_PORT" run "$SCRIPT"
+    [ "$status" -ne 0 ]
+  done
+}
+
+@test "aborts without opening a connection to the target" {
+  # The point of the gate: an un-opted-in run must not touch whatever is
+  # listening at REDIS_TEST_HOST:REDIS_TEST_PORT. A reachable listener that
+  # records accepts proves the probe never dialled it.
+  start_counting_listener
+  run env -u REDIS_TEST_ALLOW_WRITES \
+    REDIS_TEST_HOST=127.0.0.1 REDIS_TEST_PORT="$LISTEN_PORT" "$SCRIPT"
+  [ "$status" -ne 0 ]
+  # Give a stray connection time to land before asserting its absence.
+  sleep 0.5
+  [ ! -s "$CONN_LOG" ]
+}
+
+@test "the counting listener does record a connection when the probe runs" {
+  # Control for the test above: without it, an inert listener would make the
+  # "no connection" assertion pass for the wrong reason.
+  start_counting_listener
+  REDIS_TEST_ALLOW_WRITES=1 \
+    REDIS_TEST_HOST=127.0.0.1 REDIS_TEST_PORT="$LISTEN_PORT" run "$SCRIPT"
+  [ "$status" -eq 0 ]
+  sleep 0.5
+  [ -s "$CONN_LOG" ]
+}
+
+@test "opt-in failure explains how to opt in and keeps the container recipe" {
+  run env -u REDIS_TEST_ALLOW_WRITES "$SCRIPT"
+  [ "$status" -ne 0 ]
+  echo "$output" | grep -qF 'REDIS_TEST_ALLOW_WRITES=1 npm run test:redis'
+  echo "$output" | grep -qF 'docker run -d --name erp-redis-test-6399'
+  echo "$output" | grep -qF 'redis-server --maxmemory-policy noeviction'
+  echo "$output" | grep -qF 'WARNING'
 }

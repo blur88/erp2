@@ -59,6 +59,10 @@ jobs:
       # Redis, which does not exist here.
       REDIS_TEST_HOST: localhost
       REDIS_TEST_PORT: 6379
+      # The suite refuses to write to Redis without this opt-in (issue #1190).
+      # Safe here: the target is this job's ephemeral service container, which
+      # is destroyed with the runner.
+      REDIS_TEST_ALLOW_WRITES: "1"
       NODE_ENV: test
       JWT_SECRET: test-secret-key-minimum-32chars-long-for-testing-only
       JWT_REFRESH_SECRET: test-refresh-secret-minimum-32chars-long-for-testing

@@ -21,9 +21,46 @@
 # running a test suite should not create Docker state as a side effect. In CI
 # the Redis service is already up, so this probe succeeds silently.
 #
-# Usage: ./scripts/preflight-redis-test.sh
+# It also refuses to run at all unless REDIS_TEST_ALLOW_WRITES=1 (issue #1190).
+# An address cannot express "disposable": the app's Redis can run on any port,
+# and CI deliberately points this suite at 6379. Requiring an affirmative
+# opt-in means no default configuration can write to an instance that was not
+# provisioned for this suite. The check runs BEFORE the TCP probe, so an
+# un-opted-in run never opens a connection to the target at all.
+#
+# Usage: REDIS_TEST_ALLOW_WRITES=1 ./scripts/preflight-redis-test.sh
 
 set -eu
+
+# Fail closed before touching the network. This must stay ahead of the TCP
+# probe: the point is that a run without the opt-in never connects to whatever
+# is listening at REDIS_TEST_HOST:REDIS_TEST_PORT.
+if [ "${REDIS_TEST_ALLOW_WRITES:-}" != "1" ]; then
+  echo "FAIL: refusing to run the Redis integration suite without an explicit opt-in." >&2
+  echo "" >&2
+  echo "This suite writes real BullMQ queue state to the Redis at" >&2
+  echo "REDIS_TEST_HOST:REDIS_TEST_PORT. It confines its keys to a unique" >&2
+  echo "per-run prefix and deletes them afterwards, but a run that is" >&2
+  echo "interrupted leaves them behind, and that Redis is 'noeviction' - stray" >&2
+  echo "keys occupy memory until something removes them." >&2
+  echo "" >&2
+  echo "Point it only at a Redis you are willing to lose, then opt in:" >&2
+  echo "" >&2
+  echo "  REDIS_TEST_ALLOW_WRITES=1 npm run test:redis" >&2
+  echo "" >&2
+  echo "Start a disposable Redis for it:" >&2
+  echo "" >&2
+  echo "  docker run -d --name erp-redis-test-6399 -p 6399:6379 \\" >&2
+  echo "    redis:8.6-alpine redis-server --maxmemory-policy noeviction" >&2
+  echo "" >&2
+  echo "Remove it when you are done:" >&2
+  echo "" >&2
+  echo "  docker rm -f erp-redis-test-6399" >&2
+  echo "" >&2
+  echo "WARNING: do not point this suite at the app's Redis (compose 'redis' on" >&2
+  echo "6379), a shared instance, or anything production-like." >&2
+  exit 1
+fi
 
 HOST="${REDIS_TEST_HOST:-127.0.0.1}"
 PORT="${REDIS_TEST_PORT:-6399}"

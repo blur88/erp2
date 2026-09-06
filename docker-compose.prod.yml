@@ -151,7 +151,10 @@ services:
       - DEBUG_MODE=false
 
     ports:
-      - "${PORT:-3001}:${PORT:-3001}"
+      # Loopback-bound (issue #1193): a short-form publish binds 0.0.0.0 and
+      # reaches NestJS without traversing the ingress nginx that holds the
+      # limit_req zones. nginx reaches this over erp_network by service name.
+      - "127.0.0.1:${PORT:-3001}:${PORT:-3001}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -192,7 +195,10 @@ services:
     container_name: erp_frontend
     restart: unless-stopped
     ports:
-      - "3000:80"
+      # Loopback-bound (issue #1193): this container's own nginx proxies
+      # /api/ straight to backend:3001 with no rate limiting, so a published
+      # 0.0.0.0:3000 is a second unlimited path to the API.
+      - "127.0.0.1:3000:80"
     depends_on:
       backend:
         condition: service_healthy
