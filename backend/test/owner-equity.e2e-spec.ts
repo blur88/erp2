@@ -19,13 +19,12 @@ import { ChartOfAccount } from '../src/modules/accounting/entities/chart-of-acco
 import { AccountingSettings } from '../src/modules/accounting/entities/accounting-settings.entity';
 import { OwnerEquityDocument } from '../src/modules/owner-equity/entities/owner-equity-document.entity';
 import { SettingsService } from '../src/modules/settings/settings.service';
-import { TrialBalanceService } from '../src/modules/accounting/services/trial-balance.service';
 import { configureTestAppValidation } from './utils/configure-test-app-validation';
 
 // Shared-DB discipline: the reference numbers this suite owns, used both for
-// assertions and for afterAll cleanup. Never assert a row count or balance
-// that "every row except mine" could disturb — the trial-balance assertions
-// below are deltas over this suite's own postings (project_e2e_shared_db_exclusion_query_trap).
+// assertions and for afterAll cleanup. Accounting assertions read ABSOLUTE
+// totals for a single owned sourceRef — never a global trial balance, and never
+// a delta across one (issue #1197; project_e2e_shared_db_exclusion_query_trap).
 const ownedRefs: string[] = [];
 
 function toMinorUnits(v: string): bigint {
@@ -131,7 +130,6 @@ async function seedProducts(ds: DataSource): Promise<{ goods: Product; service: 
 describe('Owner Equity (e2e)', () => {
   let app: INestApplication;
   let ds: DataSource;
-  let trial: TrialBalanceService;
   let settings: SettingsService;
   let cashMethodId: string;
   let bankMethodId: string;
@@ -160,7 +158,6 @@ describe('Owner Equity (e2e)', () => {
     configureTestAppValidation(app);
     await app.init();
     ds = moduleFixture.get(DataSource);
-    trial = moduleFixture.get(TrialBalanceService);
     settings = app.get(SettingsService);
     await seedAccounting(ds);
     const methods = await seedPaymentMethods(ds);
@@ -221,13 +218,36 @@ describe('Owner Equity (e2e)', () => {
     await app.close();
   });
 
-  async function accountBalances(): Promise<Map<string, { debit: bigint; credit: bigint }>> {
-    const tb = await trial.getTrialBalance({ showZero: true });
+  // Absolute debit/credit totals for ONE owned document reference, grouped by
+  // account code. Summed columns are additive, so TrialBalanceService.classify()'s
+  // one-sided collapse cannot apply, and totals for a reference this suite owns
+  // are independent of every other suite's rows (project_e2e_shared_db_exclusion_query_trap).
+  async function ownedAccountTotals(
+    sourceRef: string,
+  ): Promise<Map<string, { debit: bigint; credit: bigint }>> {
+    const rows: Array<{ code: string; debit: string; credit: string }> = await ds.query(
+      `SELECT a.code AS code,
+              COALESCE(SUM(l.debit), 0)::text  AS debit,
+              COALESCE(SUM(l.credit), 0)::text AS credit
+         FROM journal_entry_line l
+         JOIN journal_entry e     ON e.id = l."entryId"
+         JOIN chart_of_account a  ON a.id = l."accountId"
+        WHERE e."sourceRef" = $1
+        GROUP BY a.code`,
+      [sourceRef],
+    );
     const map = new Map<string, { debit: bigint; credit: bigint }>();
-    for (const row of tb.rows) {
-      map.set(row.code, { debit: toMinorUnits(row.debit), credit: toMinorUnits(row.credit) });
+    for (const r of rows) {
+      map.set(r.code, { debit: toMinorUnits(r.debit), credit: toMinorUnits(r.credit) });
     }
     return map;
+  }
+
+  function totalsFor(
+    map: Map<string, { debit: bigint; credit: bigint }>,
+    code: string,
+  ): { debit: bigint; credit: bigint } {
+    return map.get(code) ?? { debit: 0n, credit: 0n };
   }
 
   async function productStock(id: string): Promise<number> {
@@ -271,7 +291,6 @@ describe('Owner Equity (e2e)', () => {
   }
 
   it('runs a capital injection from draft to completed', async () => {
-    const before = await accountBalances();
     const created = await post('/accounting/owner-equity', {
       type: 'CAPITAL_INJECTION',
       equityDate: '2026-08-16',
@@ -301,13 +320,13 @@ describe('Owner Equity (e2e)', () => {
 
     await post(`/accounting/owner-equity/${ref}/complete`, {}).expect(400);
 
-    // Owner Capital carries the full credit; the split across bank and cash is
-    // visible on the asset side. Deltas over this suite's own postings keep the
-    // assertions robust to rows other suites leave on the shared DB.
-    const after = await accountBalances();
-    expect(formatScale4(after.get('3100').credit - before.get('3100').credit)).toBe('20000.0000');
-    expect(formatScale4(after.get('1100').debit - before.get('1100').debit)).toBe('12000.0000');
-    expect(formatScale4(after.get('1200').debit - before.get('1200').debit)).toBe('8000.0000');
+    // Absolute totals for THIS document's own postings. Not a delta: a delta can
+    // be right while both endpoints are wrong, and a global delta is corrupted by
+    // any other suite that posts to the same account (issue #1197).
+    const totals = await ownedAccountTotals(ref);
+    expect(formatScale4(totalsFor(totals, '3100').credit)).toBe('20000.0000');
+    expect(formatScale4(totalsFor(totals, '1100').debit)).toBe('12000.0000');
+    expect(formatScale4(totalsFor(totals, '1200').debit)).toBe('8000.0000');
   });
 
   it('rejects over-settlement', async () => {
