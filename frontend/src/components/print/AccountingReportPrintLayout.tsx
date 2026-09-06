@@ -125,4 +125,3 @@ export function AccountingReportPrintLayout({
   )
 }
 
-export default AccountingReportPrintLayout

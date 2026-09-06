@@ -397,7 +397,12 @@ export const {
   useUncancelOwnerEquityMutation,
 } = accountingApiSlice
 
-/** Alias for test imports that use `accountingApi`. */
+/**
+ * Public alias for the slice, used by production code as well as tests:
+ * `AccountingSettingsPage` dispatches `accountingApi.util.updateQueryData`,
+ * and `formBApi.test.ts` imports it by this name. Intentional second name for
+ * the same object — see the `accountingApi.ts` entry in `knip.json`.
+ */
 export const accountingApi = accountingApiSlice
 
 // Expose raw query builders for unit tests that assert the endpoint's query shape.
