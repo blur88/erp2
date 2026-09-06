@@ -10,6 +10,7 @@ import {
   UserStatus,
 } from "../src/database/entities/user.entity";
 import { RefreshToken } from "../src/database/entities/refresh-token.entity";
+import { AuthService } from "../src/modules/auth/auth.service";
 import * as bcrypt from "bcrypt";
 import {
   AUTH_ADMIN_USERNAME,
@@ -88,6 +89,63 @@ describe("Authentication (e2e)", () => {
 
       adminAccessToken = response.body.accessToken;
       adminRefreshToken = response.body.refreshToken;
+    });
+
+    // Regression: issue #1201. Two refresh tokens minted for one user with the
+    // same `iat` used to be byte-identical, so their SHA-256 hashes collided on
+    // the UNIQUE index over refresh_tokens.tokenHash and the second login
+    // returned 400/DB_001 instead of 200.
+    //
+    // The precondition is an equal `iat`, not wall-clock adjacency, and it is
+    // asserted rather than assumed. Driving it over HTTP is not reliable here:
+    // bcrypt at 12 rounds costs more than a second, so SEQUENTIAL requests from
+    // a test cannot land in one second. (Concurrent logins still can — each
+    // hashes in parallel — which is the production trigger; it is just not a
+    // deterministic thing to schedule from a spec.) So this calls
+    // generateTokens directly on the running app's AuthService, where the two
+    // issues share an `iat` by construction. Coverage of the HTTP path lives in
+    // the unit spec's frozen-clock cases; what this adds is the real unique
+    // index.
+    it("should persist two refresh tokens issued with the same iat", async () => {
+      const authService = app.get(AuthService);
+      const userRepository = dataSource.getRepository(User);
+      const user = await userRepository.findOne({ where: { id: testUserId } });
+
+      const decodeIat = (token: string) =>
+        JSON.parse(
+          Buffer.from(token.split(".")[1], "base64url").toString("utf8"),
+        ).iat;
+
+      // generateTokens is private but is exactly the unit under test; the two
+      // calls are issued back to back so jsonwebtoken stamps one `iat`.
+      const first = await (authService as any).generateTokens(
+        user,
+        false,
+        "127.0.0.1",
+        "agent",
+      );
+      const second = await (authService as any).generateTokens(
+        user,
+        false,
+        "127.0.0.1",
+        "agent",
+      );
+
+      // The collision precondition. If these differ the case proves nothing,
+      // so fail loudly rather than passing on a technicality.
+      expect(decodeIat(first.refreshToken)).toBe(decodeIat(second.refreshToken));
+
+      expect(first.refreshToken).not.toBe(second.refreshToken);
+
+      // Both sessions survive the unique index — each carries its own device/IP
+      // audit trail and is independently revocable.
+      const refreshTokenRepository = dataSource.getRepository(RefreshToken);
+      const rows = await refreshTokenRepository.find({
+        where: { userId: testUserId },
+      });
+      const hashes = new Set(rows.map((row) => row.tokenHash));
+      expect(rows.length).toBeGreaterThanOrEqual(2);
+      expect(hashes.size).toBe(rows.length);
     });
 
     it("should login with email instead of username", async () => {
