@@ -9,6 +9,7 @@ import pg from 'pg';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const { Client } = pg;
 
@@ -458,12 +459,133 @@ async function cmdCheck(passLabel) {
   }
 }
 
+// TypeORM records migrations.name as the CLASS name, which is
+// <Name><timestamp> for a file named <timestamp>-<Name>.ts. Verified across
+// all 15 current migrations: every class name ends with its filename
+// timestamp, and the derived set matches the applied set exactly.
+export function expectedMigrationNames(dir) {
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith('.ts'))
+    .map((f) => {
+      const base = f.slice(0, -3);
+      const idx = base.indexOf('-');
+      const timestamp = base.slice(0, idx);
+      const name = base.slice(idx + 1);
+      return `${name}${timestamp}`;
+    })
+    .sort();
+}
+
+export function compareMigrationSets(applied, expected) {
+  const a = new Set(applied);
+  const e = new Set(expected);
+  const pending = expected.filter((n) => !a.has(n)).sort();
+  const unexpected = applied.filter((n) => !e.has(n)).sort();
+  return { ok: pending.length === 0 && unexpected.length === 0, pending, unexpected };
+}
+
+function migrationsDir() {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  return path.resolve(here, '..', 'src', 'database', 'migrations');
+}
+
+async function cmdVerifyReusable() {
+  const client = targetClient();
+  await client.connect();
+  try {
+    const baseline = await loadBaseline(client);
+    if (!baseline.ok) {
+      console.error(`not reusable: ${baseline.reason}. Re-run with --fresh.`);
+      return EXIT_PREREQ;
+    }
+
+    const appliedRows = await appliedMigrations(client);
+
+    // Comparison 1: stored vs applied. Catches a baseline describing a
+    // different schema than the database now has.
+    const currentFp = migrationFingerprint(appliedRows);
+    if (currentFp !== baseline.fingerprint) {
+      console.error(
+        'not reusable: the stored baseline fingerprint does not match the ' +
+          "database's applied migrations. Re-run with --fresh.",
+      );
+      return EXIT_PREREQ;
+    }
+
+    // Comparison 2: applied vs expected-by-checkout. This is the only one
+    // that sees a newly pulled migration — comparison 1 compares the
+    // database to itself and stays green.
+    const cmp = compareMigrationSets(
+      appliedRows.map((r) => r.name),
+      expectedMigrationNames(migrationsDir()),
+    );
+    if (!cmp.ok) {
+      if (cmp.pending.length) {
+        console.error(
+          `not reusable: migrations pending in this checkout but not applied ` +
+            `to the database: ${cmp.pending.join(', ')}. Re-run with --fresh.`,
+        );
+      }
+      if (cmp.unexpected.length) {
+        console.error(
+          `not reusable: migrations applied to the database but absent from ` +
+            `this checkout: ${cmp.unexpected.join(', ')}. Re-run with --fresh.`,
+        );
+      }
+      return EXIT_PREREQ;
+    }
+
+    // Dirty-start: the database must currently match its own baseline.
+    //
+    // Drift here exits 1, NOT 2. The spec assigns exit 1 to every baseline
+    // difference, and this is one — rows really are unaccounted for. It stops
+    // execution all the same (the orchestrator treats any non-zero here as a
+    // hard stop), but the code must not misreport a real finding as a mere
+    // prerequisite problem: 2 reads as "nothing was checked", and something
+    // was.
+    const diff = diffSnapshots(baseline.snapshot, await snapshot(client));
+    if (diff.hasDrift) {
+      const report = formatReport('dirty-start', diff);
+      console.error(report);
+      writeReport('dirty-start', report);
+      console.error('');
+      console.error(
+        'not reusable: the retained database has drifted from its baseline. ' +
+        'Re-run with --fresh. The baseline is NOT being updated.',
+      );
+      return EXIT_FINDING;
+    }
+
+    // An uncomparable table means part of the database is a blind spot, so
+    // this run cannot certify the database as reusable — proceeding would let
+    // both passes report success while leaks in that table stayed invisible.
+    // Abort before either pass. Drift, if also present, has already returned
+    // EXIT_FINDING above, so exit 1 is preserved for a real difference and 2
+    // is reserved for "could not look".
+    if (diff.unsupportedTables.length > 0) {
+      console.error(
+        `not reusable: these tables have no primary key and cannot be ` +
+          `compared, so leaks in them would be invisible: ` +
+          `${diff.unsupportedTables.join(', ')}`,
+      );
+      return EXIT_PREREQ;
+    }
+
+    console.log('database is reusable: baseline and migrations match.');
+    return 0;
+  } finally {
+    await client.end();
+  }
+}
+
 const COMMANDS = {
   'db-exists': cmdDbExists,
   'db-create': cmdDbCreate,
   'db-drop': cmdDbDrop,
   init: cmdInit,
   check: () => cmdCheck(process.argv[3]),
+  'verify-reusable': cmdVerifyReusable,
 };
 
 async function main() {

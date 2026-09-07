@@ -1,10 +1,18 @@
 import {
+  compareMigrationSets,
   diffSnapshots,
+  expectedMigrationNames,
   formatReport,
   identityKey,
   migrationFingerprint,
+  validateSnapshotShape,
   MAX_EXAMPLES,
 } from "../../scripts/e2e-leakcheck.mjs";
+import * as path from "path";
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Snapshot shape: { [table]: { rows: [{ id, label }], unsupported?: true } }
 const snap = (rows: Array<[string, string | null]>) => ({
@@ -129,5 +137,67 @@ describe("formatReport", () => {
     const out = formatReport("pass-1", drift);
     expect(out).toContain("price_lists");
     expect(out).toContain("RT-1757");
+  });
+});
+
+describe("expectedMigrationNames", () => {
+  it("derives the applied name from the filename", () => {
+    // TypeORM records migrations.name as the CLASS name:
+    // 1788201872664-AddFormBTaxView.ts -> AddFormBTaxView1788201872664
+    const names = expectedMigrationNames(
+      path.resolve(__dirname, "../../src/database/migrations"),
+    );
+    expect(names).toContain("AddFormBTaxView1788201872664");
+    expect(names.length).toBeGreaterThan(0);
+  });
+});
+
+describe("compareMigrationSets", () => {
+  it("rejects a migration the checkout expects but the database lacks", () => {
+    // The gap the stored-vs-applied fingerprint cannot see: both fingerprints
+    // match because the database is compared to itself.
+    const result = compareMigrationSets(["A1", "B2"], ["A1", "B2", "C3"]);
+    expect(result.ok).toBe(false);
+    expect(result.pending).toEqual(["C3"]);
+  });
+
+  it("reports a migration applied but absent from the checkout", () => {
+    const result = compareMigrationSets(["A1", "B2", "Z9"], ["A1", "B2"]);
+    expect(result.ok).toBe(false);
+    expect(result.unexpected).toEqual(["Z9"]);
+  });
+
+  it("accepts identical sets regardless of order", () => {
+    expect(compareMigrationSets(["B2", "A1"], ["A1", "B2"]).ok).toBe(true);
+  });
+});
+
+describe("validateSnapshotShape", () => {
+  // A malformed stored snapshot must be a prerequisite failure, never a diff
+  // against garbage: a missing `rows` array would read as an empty table and
+  // report every real row as an addition — a fabricated finding.
+  it("rejects a non-object snapshot", () => {
+    expect(validateSnapshotShape(null).ok).toBe(false);
+    expect(validateSnapshotShape([]).ok).toBe(false);
+    expect(validateSnapshotShape("nope").ok).toBe(false);
+  });
+
+  it("rejects a table whose rows are not an array", () => {
+    const r = validateSnapshotShape({ users: { rows: "nope" } });
+    expect(r.ok).toBe(false);
+    expect(r.reason).toContain("users");
+  });
+
+  it("rejects a row without a string id", () => {
+    const r = validateSnapshotShape({ users: { rows: [{ label: "x" }] } });
+    expect(r.ok).toBe(false);
+    expect(r.reason).toContain("users");
+  });
+
+  it("accepts a well-formed snapshot", () => {
+    expect(
+      validateSnapshotShape({ users: { rows: [{ id: "u1", label: "admin" }] } })
+        .ok,
+    ).toBe(true);
   });
 });
