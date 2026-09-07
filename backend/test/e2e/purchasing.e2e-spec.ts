@@ -17,6 +17,7 @@ import {
   removeSuiteAdmin,
 } from "../utils/shared-e2e-fixture";
 import { resetSuiteBusinessRows } from "../utils/shared-e2e-business-fixture";
+import { removeSuiteTraces } from "../utils/shared-e2e-traces-fixture";
 import { configureTestAppValidation } from "../utils/configure-test-app-validation";
 
 describe("Purchasing (e2e)", () => {
@@ -79,13 +80,78 @@ describe("Purchasing (e2e)", () => {
 
   afterAll(async () => {
     if (dataSource?.isInitialized) {
+      const supplierIds = [
+        ...new Set([
+          ...(supplierId ? [supplierId] : []),
+          ...ownedSupplierIds,
+        ]),
+      ];
+      // Resolve owned POs/payments BEFORE business cleanup deletes them.
+      // receive() + pay post journal_entry rows (PURCHASE_ORDER source) that
+      // neither resetSuiteBusinessRows nor removeSuiteTraces covers.
+      const ownedPurchaseOrderIds: string[] = supplierIds.length
+        ? (
+            await dataSource.query(
+              `SELECT id FROM purchase_orders WHERE "supplierId" = ANY($1)`,
+              [supplierIds],
+            )
+          ).map((r: { id: string }) => r.id)
+        : [];
+      let ownedVendorPaymentIds: string[] = [];
+      if (ownedPurchaseOrderIds.length || supplierIds.length) {
+        const byPo = ownedPurchaseOrderIds.length
+          ? await dataSource.query(
+              `SELECT id FROM vendor_payments WHERE "purchaseOrderId" = ANY($1)`,
+              [ownedPurchaseOrderIds],
+            )
+          : [];
+        const bySupplier = supplierIds.length
+          ? await dataSource.query(
+              `SELECT id FROM vendor_payments WHERE "supplierId" = ANY($1)`,
+              [supplierIds],
+            )
+          : [];
+        ownedVendorPaymentIds = [
+          ...new Set([
+            ...byPo.map((r: { id: string }) => r.id),
+            ...bySupplier.map((r: { id: string }) => r.id),
+          ]),
+        ];
+      }
+      if (ownedPurchaseOrderIds.length || ownedVendorPaymentIds.length) {
+        const docIds = ownedPurchaseOrderIds.length
+          ? ownedPurchaseOrderIds
+          : ["00000000-0000-0000-0000-000000000000"];
+        const evtIds = ownedVendorPaymentIds.length
+          ? ownedVendorPaymentIds
+          : ["00000000-0000-0000-0000-000000000000"];
+        await dataSource.query(
+          `DELETE FROM journal_entry WHERE "sourceDocumentId" = ANY($1) OR "sourceEventId" = ANY($2)`,
+          [docIds, evtIds],
+        );
+      }
       await resetSuiteBusinessRows(dataSource, {
         categoryIds: [seededCategoryId],
-        supplierIds: [
-          ...new Set([
-            ...(supplierId ? [supplierId] : []),
-            ...ownedSupplierIds,
-          ]),
+        supplierIds,
+      });
+      // seedDocumentNumberSettings inserts 'Goods Received' (ON CONFLICT DO
+      // NOTHING). The baseline has no such row, so the suite owns it — remove
+      // it. 'Purchase Orders' already exists in the baseline and is left alone.
+      await dataSource.query(
+        `DELETE FROM document_number_settings WHERE "documentName" = 'Goods Received'`,
+      );
+      const adminRows: { id: string }[] = await dataSource.query(
+        `SELECT id FROM users WHERE username = $1`,
+        [E2E_ADMIN_USERNAMES.purchasing],
+      );
+      await removeSuiteTraces(dataSource, {
+        userIds: adminRows.map((r) => r.id),
+        usernames: [E2E_ADMIN_USERNAMES.purchasing],
+        entityIds: [
+          ...supplierIds,
+          ...ownedPurchaseOrderIds,
+          ...ownedVendorPaymentIds,
+          ...(productId ? [productId] : []),
         ],
       });
       await removeSuiteAdmin(dataSource, E2E_ADMIN_USERNAMES.purchasing);

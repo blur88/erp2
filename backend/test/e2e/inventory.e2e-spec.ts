@@ -11,6 +11,7 @@ import {
   removeSuiteAdmin,
 } from "../utils/shared-e2e-fixture";
 import { resetSuiteBusinessRows } from "../utils/shared-e2e-business-fixture";
+import { removeSuiteTraces } from "../utils/shared-e2e-traces-fixture";
 import { configureTestAppValidation } from "../utils/configure-test-app-validation";
 
 describe("Inventory (e2e)", () => {
@@ -52,10 +53,55 @@ describe("Inventory (e2e)", () => {
   afterAll(async () => {
     if (dataSource?.isInitialized) {
       // categoryId/productId are created through the API by the cases below.
+      // Resolve every owned product (incl. API-created winners like the
+      // case-variant WIDGET and edge-case Product A, which are reachable via
+      // their category but never pushed to ownedProductIds) BEFORE business
+      // cleanup. complete() posts a journal_entry (STOCK_ADJUSTMENT source)
+      // and a system-attributed UPDATE audit — both out of scope for the
+      // business fixture and username-scoped traces respectively.
+      const resolvedProductIds: string[] = ownedCategoryIds.length
+        ? (
+            await dataSource.query(
+              `SELECT id FROM products WHERE "categoryId" = ANY($1)`,
+              [ownedCategoryIds],
+            )
+          ).map((r: { id: string }) => r.id)
+        : [];
+      const allProductIds = [
+        ...new Set([...ownedProductIds, ...resolvedProductIds]),
+      ];
+      let ownedMovementIds: string[] = [];
+      if (ownedAdjustmentIds.length) {
+        const movements = await dataSource.query(
+          `SELECT id FROM stock_movements WHERE "referenceId" = ANY($1)`,
+          [ownedAdjustmentIds],
+        ).catch(() => []);
+        ownedMovementIds = movements.map((r: { id: string }) => r.id);
+      }
+      if (ownedAdjustmentIds.length) {
+        await dataSource.query(
+          `DELETE FROM journal_entry WHERE "sourceDocumentId" = ANY($1)`,
+          [ownedAdjustmentIds],
+        );
+      }
       await resetSuiteBusinessRows(dataSource, {
         categoryIds: ownedCategoryIds,
         productIds: ownedProductIds,
         stockAdjustmentIds: ownedAdjustmentIds,
+      });
+      const adminRows: { id: string }[] = await dataSource.query(
+        `SELECT id FROM users WHERE username = $1`,
+        [E2E_ADMIN_USERNAMES.inventory],
+      );
+      await removeSuiteTraces(dataSource, {
+        userIds: adminRows.map((r) => r.id),
+        usernames: [E2E_ADMIN_USERNAMES.inventory],
+        entityIds: [
+          ...ownedCategoryIds,
+          ...allProductIds,
+          ...ownedAdjustmentIds,
+          ...ownedMovementIds,
+        ],
       });
       await removeSuiteAdmin(dataSource, E2E_ADMIN_USERNAMES.inventory);
       await dataSource.destroy();

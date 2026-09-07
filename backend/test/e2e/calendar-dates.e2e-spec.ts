@@ -12,6 +12,7 @@ import {
   removeSuiteAdmin,
 } from "../utils/shared-e2e-fixture";
 import { resetSuiteBusinessRows } from "../utils/shared-e2e-business-fixture";
+import { removeSuiteTraces } from "../utils/shared-e2e-traces-fixture";
 import { configureTestAppValidation } from "../utils/configure-test-app-validation";
 
 let app: INestApplication;
@@ -90,10 +91,33 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (dataSource?.isInitialized) {
+    // Journal entries are keyed by stock-adjustment id; remove any this suite
+    // posted before the headers disappear (none observed today, but complete()
+    // paths post STOCK_ADJUSTMENT journals elsewhere).
+    if (ownedAdjustmentIds.length) {
+      await dataSource.query(
+        `DELETE FROM journal_entry WHERE "sourceDocumentId" = ANY($1)`,
+        [ownedAdjustmentIds],
+      );
+    }
     await resetSuiteBusinessRows(dataSource, {
       categoryIds: categoryId ? [categoryId] : [],
       stockAdjustmentIds: ownedAdjustmentIds,
       priceListIds: ownedPriceListIds,
+    });
+    const adminRows: { id: string }[] = await dataSource.query(
+      `SELECT id FROM users WHERE username = $1`,
+      [E2E_ADMIN_USERNAMES.calendarDates],
+    );
+    await removeSuiteTraces(dataSource, {
+      userIds: adminRows.map((r) => r.id),
+      usernames: [E2E_ADMIN_USERNAMES.calendarDates],
+      entityIds: [
+        ...(categoryId ? [categoryId] : []),
+        ...(productId ? [productId] : []),
+        ...ownedAdjustmentIds,
+        ...ownedPriceListIds,
+      ],
     });
     await removeSuiteAdmin(dataSource, E2E_ADMIN_USERNAMES.calendarDates);
     const rsRepo = dataSource.getRepository(RegionalSettings);
