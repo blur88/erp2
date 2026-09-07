@@ -64,7 +64,11 @@ describe('Redis monitoring persistence (e2e)', () => {
     }
   }
 
-  // Log in ONCE and reuse the token; /auth/login is throttled to 5 req/min.
+  // Log in ONCE and reuse the token. NOTE: a suite-runtime convention, not a
+  // throttling requirement -- rate limiting is enforced only by nginx
+  // (nginx/nginx.conf:47, login_limit 5r/m) and e2e suites call the Nest app
+  // in-process via supertest, never traversing nginx. There is no app-layer
+  // throttler (#1154 closed not-planned); 30 rapid logins return 200 (#1197).
   async function loginAdmin(): Promise<string> {
     const res = await request(app.getHttpServer())
       .post('/auth/login')

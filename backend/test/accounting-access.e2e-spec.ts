@@ -16,9 +16,13 @@ describe('Accounting access (e2e)', () => {
   let ds: DataSource;
   let users: Repository<User>;
 
-  // Log in each role ONCE and reuse the token. /auth/login is throttled to
-  // 5 req/min (@Throttle in auth.controller); logging in per test case (12+
-  // calls) trips the throttler under CI's serial timing and every login 403s.
+  // Log in each role ONCE and reuse the token. NOTE: this is a suite-runtime
+  // convention, not a throttling requirement. Rate limiting is enforced only by
+  // nginx (nginx/nginx.conf:47, login_limit 5r/m); there is no app-layer
+  // throttler (#1154 closed not-planned, and the @Throttle decorator this
+  // comment once cited was removed as inert in the NestJS 12 migration). e2e
+  // suites call the Nest app in-process via supertest and never traverse nginx,
+  // so no rate limit applies here at all -- 30 rapid logins return 200 (#1197).
   let adminToken: string;
   let nonAdminToken: string;
 
