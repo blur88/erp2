@@ -18,6 +18,8 @@ import { AccountType } from '../src/modules/accounting/entities/account-type.enu
 import { CreateExpenseDto, PayExpenseDto, RefundExpenseDto, UpdateExpenseDto } from '../src/modules/accounting/dto/create-expense.dto';
 import { SettingsService } from '../src/modules/settings/settings.service';
 import { configureTestAppValidation } from './utils/configure-test-app-validation';
+import { removeSuiteAdmin } from './utils/shared-e2e-fixture';
+import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
 import request from 'supertest';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole, UserStatus } from '../src/database/entities/user.entity';
@@ -130,6 +132,14 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
   // Logged in ONCE below: /auth/login is throttled to 5 req/min
   // (auth.controller.ts:41), so a per-test login would 403 under CI timing.
   let token: string;
+  // Own-rows tracking (issue #1204). Audit rows carry entityId = expense id
+  // with userId/username 'e2e', so entityIds scope the traces cleanup without
+  // touching other suites' 'e2e' rows.
+  let expUsername = '';
+  let expUserId = '';
+  const ownedExpenseIds: string[] = [];
+  const ownedCoAIds: string[] = [];
+  let docNumberSnapshot: any[] = [];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -152,8 +162,9 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
     expenseAccount = await ds.getRepository(ChartOfAccount).findOneByOrFail({ code: '6990' });
 
     const username = `exp-filter-admin-${Date.now()}`;
+    expUsername = username;
     const userRepo = ds.getRepository(User);
-    await userRepo.save(
+    const savedUser = await userRepo.save(
       userRepo.create({
         username,
         email: `${username}@test.com`,
@@ -166,6 +177,8 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
         failedLoginAttempts: 0,
       }),
     );
+    expUserId = (savedUser as any).id;
+    docNumberSnapshot = await ds.query(`SELECT * FROM document_number_settings`);
 
     const loginRes = await request(app.getHttpServer())
       .post('/auth/login')
@@ -175,21 +188,84 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
   });
 
   afterAll(async () => {
-    if (ds?.isInitialized) await ds.destroy();
-    await app.close();
+    try {
+      if (ds?.isInitialized) {
+        const expenseIds = [...new Set(ownedExpenseIds)];
+        if (expenseIds.length) {
+          // Journals first (expenseAccountId RESTRICT would block CoA deletes;
+          // journals reference accounts but are keyed here by owned docs).
+          await ds.query(
+            `DELETE FROM journal_entry WHERE "sourceDocumentId" = ANY($1)`,
+            [expenseIds],
+          );
+          // expense_payments CASCADE from expenses, but delete explicitly for
+          // clarity before the header.
+          await ds.query(`DELETE FROM expense_payments WHERE "expenseId" = ANY($1)`, [
+            expenseIds,
+          ]);
+          await ds.query(`DELETE FROM expenses WHERE id = ANY($1)`, [expenseIds]);
+          // Own-traces: CREATE/PAYMENT/REFUND/CANCEL/UPDATE audits with
+          // entityId = expense id (userId/username 'e2e' is shared, so scope
+          // by entityIds, not by username).
+          await removeSuiteTraces(ds, { entityIds: expenseIds });
+        }
+        // Also sweep any journal whose event id is an owned payment row
+        // (sourceEventId = payment row id) in case a posting keyed only there.
+        // Resolved from the DB rather than tracked, scoped to owned docs.
+        if (ownedCoAIds.length) {
+          await ds.query(`DELETE FROM chart_of_account WHERE id = ANY($1)`, [
+            [...new Set(ownedCoAIds)],
+          ]);
+        }
+        if (expUserId || expUsername) {
+          await removeSuiteTraces(ds, {
+            userIds: expUserId ? [expUserId] : [],
+            usernames: expUsername ? [expUsername] : [],
+          });
+        }
+        if (expUsername) {
+          await removeSuiteAdmin(ds, expUsername);
+        }
+        for (const snap of docNumberSnapshot) {
+          await ds.query(
+            `UPDATE document_number_settings SET prefix=$1, "paddingDigits"=$2, "nextNumber"=$3, "lastResetYear"=$4 WHERE "documentName"=$5`,
+            [
+              snap.prefix,
+              snap.paddingDigits,
+              snap.nextNumber,
+              snap.lastResetYear,
+              snap.documentName,
+            ],
+          );
+        }
+      }
+    } finally {
+      if (ds?.isInitialized) await ds.destroy();
+      await app.close();
+    }
   });
 
-  const clearJournal = async () => {
-    await ds.query(`DELETE FROM journal_entry_line`);
-    await ds.query(`DELETE FROM journal_entry`);
-    await ds.query(`DELETE FROM expense_payments`);
-    await ds.query(`DELETE FROM expenses`);
+  // Scoped per-test isolation: only this suite's owned expense docs are
+  // removed, never the whole table (which would destroy other suites' rows).
+  // Journals CASCADE from the header delete via entryId, but are deleted
+  // explicitly first so the intent is clear.
+  const clearOwnExpenses = async () => {
+    const expenseIds = [...new Set(ownedExpenseIds)];
+    if (!expenseIds.length) return;
+    await ds.query(
+      `DELETE FROM journal_entry WHERE "sourceDocumentId" = ANY($1)`,
+      [expenseIds],
+    );
+    await ds.query(`DELETE FROM expense_payments WHERE "expenseId" = ANY($1)`, [
+      expenseIds,
+    ]);
+    await ds.query(`DELETE FROM expenses WHERE id = ANY($1)`, [expenseIds]);
   };
-  beforeEach(clearJournal);
-  afterEach(clearJournal);
+  beforeEach(clearOwnExpenses);
+  afterEach(clearOwnExpenses);
 
   async function createExpense(overrides: Partial<CreateExpenseDto> = {}): Promise<Expense> {
-    return expenseService.create({
+    const exp = await expenseService.create({
       expenseDate: '2026-07-15',
       payee: 'Test Vendor',
       description: 'Test Expense',
@@ -197,6 +273,8 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
       totalAmount: '1000.0000',
       ...overrides,
     }, 'e2e', 'e2e');
+    ownedExpenseIds.push((exp as any).id);
+    return exp;
   }
 
   async function payExpense(expenseId: string, payments: PayExpenseDto['payments']): Promise<Expense> {
@@ -613,6 +691,7 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
       const otherExpenseAccount = await ds.getRepository(ChartOfAccount).save(
         ds.getRepository(ChartOfAccount).create({ code: '6991', name: 'Other Expense', type: AccountType.EXPENSE, parentId: (await ds.getRepository(ChartOfAccount).findOneByOrFail({ code: '6000' })).id, isSystem: true, isPostable: true })
       );
+      ownedCoAIds.push((otherExpenseAccount as any).id);
       await expect(updateExpense(expense.id, { expenseAccountId: otherExpenseAccount.id })).rejects.toThrow('Expense account is locked after the first payment');
     });
 
@@ -942,7 +1021,7 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
       const yy = String(new Date().getFullYear() % 100).padStart(2, '0');
       const repo = ds.getRepository(Expense);
       for (const seq of ['999', '1000']) {
-        await repo.save(
+        const saved = await repo.save(
           repo.create({
             expenseNumber: `EXP-${yy}-${seq}`,
             expenseDate: '2026-07-15',
@@ -953,6 +1032,7 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
             balance: '1.0000',
           } as any),
         );
+        ownedExpenseIds.push((saved as any).id);
       }
 
       const settings = app.get(SettingsService);

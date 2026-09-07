@@ -10,6 +10,8 @@ import { ChartOfAccount } from '../src/modules/accounting/entities/chart-of-acco
 import { AccountingSettings } from '../src/modules/accounting/entities/accounting-settings.entity';
 import { FormBMappingService } from '../src/modules/accounting/services/form-b-mapping.service';
 import { configureTestAppValidation } from './utils/configure-test-app-validation';
+import { removeSuiteAdmin } from './utils/shared-e2e-fixture';
+import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
 
 async function seedAccounting(ds: DataSource) {
   const coa = ds.getRepository(ChartOfAccount);
@@ -67,6 +69,14 @@ describe('Form B (e2e)', () => {
   let ds: DataSource;
   let adminToken: string;
   let nonAdminToken: string;
+  // Own-rows tracking (issue #1204).
+  let adminUsername = '';
+  let nonAdminUsername = '';
+  let adminUserId = '';
+  let nonAdminUserId = '';
+  const ownedCoAIds: string[] = [];
+  let companySnapshot: any[] = [];
+  let docNumberSnapshot: any[] = [];
 
   const authHeader = () => ({ Authorization: `Bearer ${adminToken}` });
   const adminHeader = () => ({ Authorization: `Bearer ${adminToken}` });
@@ -89,8 +99,8 @@ describe('Form B (e2e)', () => {
     const userRepo = ds.getRepository(User);
     const stamp = Date.now();
 
-    const adminUsername = `formb-e2e-admin-${stamp}`;
-    await userRepo.save(userRepo.create({
+    adminUsername = `formb-e2e-admin-${stamp}`;
+    const savedAdmin = await userRepo.save(userRepo.create({
       username: adminUsername,
       email: `${adminUsername}@test.com`,
       password: await bcrypt.hash('Admin@123!', 12),
@@ -101,14 +111,17 @@ describe('Form B (e2e)', () => {
       isActive: true,
       failedLoginAttempts: 0,
     }));
+    adminUserId = (savedAdmin as any).id;
+    companySnapshot = await ds.query(`SELECT * FROM company_settings`);
+    docNumberSnapshot = await ds.query(`SELECT * FROM document_number_settings`);
     const adminLogin = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ username: adminUsername, password: 'Admin@123!' });
     adminToken = adminLogin.body?.data?.accessToken ?? adminLogin.body?.accessToken;
     expect(adminToken).toBeTruthy();
 
-    const nonAdminUsername = `formb-e2e-sales-${stamp}`;
-    await userRepo.save(userRepo.create({
+    nonAdminUsername = `formb-e2e-sales-${stamp}`;
+    const savedSales = await userRepo.save(userRepo.create({
       username: nonAdminUsername,
       email: `${nonAdminUsername}@test.com`,
       password: await bcrypt.hash('Admin@123!', 12),
@@ -119,6 +132,7 @@ describe('Form B (e2e)', () => {
       isActive: true,
       failedLoginAttempts: 0,
     }));
+    nonAdminUserId = (savedSales as any).id;
     const nonAdminLogin = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ username: nonAdminUsername, password: 'Admin@123!' });
@@ -127,8 +141,84 @@ describe('Form B (e2e)', () => {
   });
 
   afterAll(async () => {
-    if (ds?.isInitialized) await ds.destroy();
-    await app.close();
+    try {
+      if (ds?.isInitialized) {
+        // Bulk CoA fixtures (69xxA/B, 51xxC) have no journals/movements, so a
+        // direct scoped delete suffices. Inner block pushes into ownedCoAIds.
+        if (ownedCoAIds.length) {
+          await ds.query(`DELETE FROM chart_of_account WHERE id = ANY($1)`, [
+            [...new Set(ownedCoAIds)],
+          ]);
+        }
+        // Restore company_settings to the snapshotted baseline. Baseline is
+        // empty (0 rows); the suite's PUT creates the Acme row, and the
+        // placeholder test mutates the seeded registration number — both must
+        // be undone so a reuse sees the placeholder again.
+        const currentCompany: any[] = await ds.query(
+          `SELECT * FROM company_settings`,
+        );
+        if (!companySnapshot.length) {
+          if (currentCompany.length) {
+            await ds.query(`DELETE FROM company_settings`);
+          }
+        } else {
+          for (const snap of companySnapshot) {
+            await ds.query(
+              `UPDATE company_settings SET name=$1, "registrationNumber"=$2, address=$3, city=$4, state=$5, "postalCode"=$6, country=$7, phone=$8, email=$9, website=$10, "miscInfo"=$11, "logoUrl"=$12 WHERE id=$13`,
+              [
+                snap.name,
+                snap.registrationNumber,
+                snap.address,
+                snap.city,
+                snap.state,
+                snap.postalCode,
+                snap.country,
+                snap.phone,
+                snap.email,
+                snap.website,
+                snap.miscInfo,
+                snap.logoUrl,
+                snap.id,
+              ],
+            );
+          }
+          const snapIds = new Set(companySnapshot.map((r: any) => r.id));
+          for (const row of currentCompany) {
+            if (!snapIds.has(row.id)) {
+              await ds.query(`DELETE FROM company_settings WHERE id = $1`, [
+                row.id,
+              ]);
+            }
+          }
+        }
+        // Traces (search_queries keyed by user) + users (cascade tokens).
+        const traceUserIds = [adminUserId, nonAdminUserId].filter(Boolean);
+        const traceUsernames = [adminUsername, nonAdminUsername].filter(Boolean);
+        if (traceUserIds.length || traceUsernames.length) {
+          await removeSuiteTraces(ds, {
+            userIds: traceUserIds,
+            usernames: traceUsernames,
+          });
+        }
+        if (adminUsername) await removeSuiteAdmin(ds, adminUsername);
+        if (nonAdminUsername) await removeSuiteAdmin(ds, nonAdminUsername);
+        for (const snap of docNumberSnapshot) {
+          await ds.query(
+            `UPDATE document_number_settings SET prefix=$1, "paddingDigits"=$2, "nextNumber"=$3, "lastResetYear"=$4 WHERE "documentName"=$5`,
+            [
+              snap.prefix,
+              snap.paddingDigits,
+              snap.nextNumber,
+              snap.lastResetYear,
+              snap.documentName,
+            ],
+          );
+        }
+      }
+    } finally {
+      if (ds?.isInitialized) await ds.destroy();
+      await app.close();
+    }
   });
 
   it('GET /accounting/profit-and-loss/form-b returns all of N3-N27', async () => {
@@ -319,6 +409,7 @@ describe('Form B (e2e)', () => {
       } as any));
       ownedA = (a as any).id;
       ownedB = (b as any).id;
+      ownedCoAIds.push(ownedA, ownedB);
 
       // A descendant of the COGS root is write-INELIGIBLE: it already reaches
       // Form B through N7. This is the invalid item the failure tests use.
@@ -328,6 +419,7 @@ describe('Form B (e2e)', () => {
         parentId: (cogsRoot as any).id, isSystem: false, isPostable: true,
       } as any));
       cogsChildId = (child as any).id;
+      ownedCoAIds.push(cogsChildId);
     });
 
     /*
