@@ -6,6 +6,8 @@ import { Product } from '../src/database/entities/product.entity';
 import { StockMovement, StockMovementType } from '../src/database/entities/stock-movement.entity';
 import { StockMovementService } from '../src/modules/inventory/services/stock-movement.service';
 import { seedCategory, seedProduct } from './e2e/helpers/seed';
+import { resetSuiteBusinessRows } from './utils/shared-e2e-business-fixture';
+import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
 
 /**
  * Cross-workflow stock concurrency (#1076).
@@ -25,6 +27,10 @@ describe('Stock concurrency (e2e)', () => {
   let ds: DataSource;
   let movements: StockMovementService;
   let categoryId: string;
+  // Rows this suite owns, for own-rows cleanup (issue #1204). Previously this
+  // suite had no cleanup at all and leaked its category, products and
+  // movements on every run.
+  const ownedProductIds: string[] = [];
 
   // seedProduct()'s default name is a shared counter (`Test Product N`) and this
   // suite runs against the same database as every other e2e spec, so those
@@ -46,6 +52,18 @@ describe('Stock concurrency (e2e)', () => {
   });
 
   afterAll(async () => {
+    if (ds?.isInitialized) {
+      // Own-rows cleanup (issue #1204). Movements are resolved from the owned
+      // products/categories inside resetSuiteBusinessRows; traces covers any
+      // system-attributed audit rows keyed by the acted-on row id.
+      await removeSuiteTraces(ds, {
+        entityIds: [categoryId, ...ownedProductIds].filter(Boolean),
+      });
+      await resetSuiteBusinessRows(ds, {
+        categoryIds: categoryId ? [categoryId] : [],
+        productIds: ownedProductIds,
+      });
+    }
     await app?.close();
   });
 
@@ -62,6 +80,7 @@ describe('Stock concurrency (e2e)', () => {
 
   it('serialises two concurrent decrements without losing an update', async () => {
     const product = await seedProduct(ds, categoryId, { name: uniqueName(), stockQuantity: 100 });
+    ownedProductIds.push(product.id);
 
     // Both start from stockQuantity = 100. Unlocked, both would compute 90 and
     // the final balance would be 90 instead of 80.
@@ -89,6 +108,7 @@ describe('Stock concurrency (e2e)', () => {
 
   it('records a movement ledger that agrees with the final product balance', async () => {
     const product = await seedProduct(ds, categoryId, { name: uniqueName(), stockQuantity: 50 });
+    ownedProductIds.push(product.id);
 
     await Promise.all(
       Array.from({ length: 5 }, (_, i) =>
@@ -122,6 +142,7 @@ describe('Stock concurrency (e2e)', () => {
 
   it('serialises an increase against a decrease (receipt vs adjustment)', async () => {
     const product = await seedProduct(ds, categoryId, { name: uniqueName(), stockQuantity: 20 });
+    ownedProductIds.push(product.id);
 
     await Promise.all([
       movements.create({
@@ -151,6 +172,7 @@ describe('Stock concurrency (e2e)', () => {
     // other, or throughput collapses under load.
     const a = await seedProduct(ds, categoryId, { name: uniqueName(), stockQuantity: 10 });
     const b = await seedProduct(ds, categoryId, { name: uniqueName(), stockQuantity: 10 });
+    ownedProductIds.push(a.id, b.id);
 
     await Promise.all([
       movements.create({
@@ -177,6 +199,7 @@ describe('Stock concurrency (e2e)', () => {
 
   it('rejects a concurrent decrement that would go negative, rather than losing it', async () => {
     const product = await seedProduct(ds, categoryId, { name: uniqueName(), stockQuantity: 5 });
+    ownedProductIds.push(product.id);
 
     const results = await Promise.allSettled([
       movements.create({
