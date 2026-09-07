@@ -104,6 +104,59 @@ describe("migrationFingerprint", () => {
   });
 });
 
+describe("formatReport — excluded sampler tables", () => {
+  // The sampler tables are outside the pass/fail decision, but a blind spot
+  // the report never mentions is one nobody remembers. These assert both
+  // halves: the movement IS reported, and it does NOT make the gate red.
+  const clean = { tables: [], unsupportedTables: [], hasDrift: false };
+
+  const excluded = {
+    baseline: { redis_memory_samples: 30, redis_alert_state: 8 },
+    current: { redis_memory_samples: 62, redis_alert_state: 16 },
+  };
+
+  it("reports both tables with baseline, current and signed delta", () => {
+    const out = formatReport("pass-1", clean, excluded);
+
+    expect(out).toContain("ignored (sampler, not suite-attributable)");
+    expect(out).toContain("redis_memory_samples: baseline 30, now 62 (+32)");
+    expect(out).toContain("redis_alert_state: baseline 8, now 16 (+8)");
+  });
+
+  it("still reports no drift — sampler growth never fails the gate", () => {
+    // hasDrift stays false, so cmdCheck returns 0. The growth is visible
+    // without being a finding.
+    const out = formatReport("pass-1", clean, excluded);
+
+    expect(out).toContain("no baseline drift");
+    expect(clean.hasDrift).toBe(false);
+  });
+
+  it("renders a negative delta signed", () => {
+    const out = formatReport("pass-1", clean, {
+      baseline: { redis_memory_samples: 40 },
+      current: { redis_memory_samples: 12 },
+    });
+    expect(out).toContain("redis_memory_samples: baseline 40, now 12 (-28)");
+  });
+
+  it("says so when no baseline count was recorded", () => {
+    // A baseline captured before excluded_counts existed.
+    const out = formatReport("pass-1", clean, {
+      baseline: {},
+      current: { redis_memory_samples: 5 },
+    });
+    expect(out).toContain("no baseline count recorded");
+  });
+
+  it("omits the section entirely when nothing is excluded", () => {
+    expect(formatReport("pass-1", clean, { baseline: {}, current: {} })).not.toContain(
+      "ignored (sampler",
+    );
+    expect(formatReport("pass-1", clean, undefined)).not.toContain("ignored (sampler");
+  });
+});
+
 describe("formatReport", () => {
   const drift = {
     tables: [
@@ -236,12 +289,26 @@ describe("snapshot", () => {
             ],
           };
         }
+        // Row-count probe for the excluded tables.
+        if (/^SELECT count\(\*\)/.test(sql)) {
+          return { rows: [{ n: sql.includes("redis_memory_samples") ? 30 : 8 }] };
+        }
         return { rows: [] };
       },
     };
 
     const snap = await snapshot(stubClient as never);
 
-    expect(Object.keys(snap).sort()).toEqual(["users"]);
+    // Only diffable tables reach the snapshot: the excluded sampler tables and
+    // the baseline table itself are absent.
+    expect(Object.keys(snap.tables).sort()).toEqual(["users"]);
+
+    // ...but the excluded ones are COUNTED, so the report can show their
+    // movement rather than silently omitting them.
+    expect(snap.excludedCounts).toEqual({
+      redis_memory_samples: 30,
+      redis_alert_state: 8,
+    });
+    expect(snap.excludedCounts).not.toHaveProperty("e2e_leakcheck_baseline");
   });
 });

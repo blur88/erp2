@@ -109,7 +109,8 @@ async function cmdDbDrop() {
 }
 
 export const BASELINE_TABLE = 'e2e_leakcheck_baseline';
-export const BASELINE_FORMAT_VERSION = 1;
+// 2: added excluded_counts (sampler tables reported, not diffed).
+export const BASELINE_FORMAT_VERSION = 2;
 export const MAX_EXAMPLES = 10;
 
 // Tables with background writers that suites cannot prevent from appending.
@@ -230,6 +231,7 @@ async function tableInventory(client) {
 
 export async function snapshot(client) {
   const result = {};
+  const excludedCounts = {};
   for (const t of await tableInventory(client)) {
     // The baseline table describes the snapshot; it is never part of it.
     if (t.table_name === BASELINE_TABLE) continue;
@@ -241,7 +243,16 @@ export async function snapshot(client) {
     // tables would fail every run, so they are excluded and documented as a
     // blind spot (spec Scope limits). No suite asserts global counts on them:
     // the redis-monitoring suite allow-lists only its own instance/run ids.
-    if (EXCLUDED_TABLES.includes(t.table_name)) continue;
+    // Counted, never diffed. A blind spot the report does not mention is one
+    // nobody remembers, so the row count is captured and reported even though
+    // it can never fail the gate.
+    if (EXCLUDED_TABLES.includes(t.table_name)) {
+      const { rows } = await client.query(
+        `SELECT count(*)::int AS n FROM "${t.table_name}"`,
+      );
+      excludedCounts[t.table_name] = rows[0].n;
+      continue;
+    }
 
     if (!t.pk_columns || t.pk_columns.length === 0) {
       // Flagged, never silently skipped — a PK-less table is a blind spot the
@@ -265,7 +276,11 @@ export async function snapshot(client) {
       })),
     };
   }
-  return result;
+  // Two separate values, deliberately not merged: `tables` is what gets stored
+  // in the baseline snapshot and diffed, `excludedCounts` is display-only.
+  // Folding the counts into `tables` would break validateSnapshotShape and put
+  // undiffable data into the diff input.
+  return { tables: result, excludedCounts };
 }
 
 async function appliedMigrations(client) {
@@ -275,7 +290,7 @@ async function appliedMigrations(client) {
   return rows;
 }
 
-export function formatReport(passLabel, diff) {
+export function formatReport(passLabel, diff, excluded) {
   const lines = [];
   if (!diff.hasDrift) {
     lines.push(`${passLabel}: no baseline drift.`);
@@ -311,6 +326,26 @@ export function formatReport(passLabel, diff) {
     lines.push('      already drifted');
   }
 
+  // Always rendered, pass or fail. These tables are outside the pass/fail
+  // decision entirely; showing their movement is what keeps the exclusion
+  // visible to whoever reads a green report six months from now.
+  if (excluded && Object.keys(excluded.current ?? {}).length > 0) {
+    lines.push('');
+    lines.push('  ignored (sampler, not suite-attributable):');
+    for (const table of Object.keys(excluded.current).sort()) {
+      const now = excluded.current[table];
+      const base = excluded.baseline?.[table];
+      if (typeof base === 'number') {
+        const delta = now - base;
+        const signed = delta > 0 ? `+${delta}` : `${delta}`;
+        lines.push(`    ${table}: baseline ${base}, now ${now} (${signed})`);
+      } else {
+        lines.push(`    ${table}: now ${now} (no baseline count recorded)`);
+      }
+    }
+    lines.push('    Excluded from the pass/fail decision by design.');
+  }
+
   if (diff.unsupportedTables.length > 0) {
     lines.push('');
     lines.push(
@@ -338,6 +373,7 @@ async function cmdInit() {
         format_version integer NOT NULL,
         migration_fingerprint text NOT NULL,
         snapshot jsonb NOT NULL,
+        excluded_counts jsonb NOT NULL DEFAULT '{}'::jsonb,
         captured_at timestamptz NOT NULL DEFAULT now()
       )
     `);
@@ -357,7 +393,7 @@ async function cmdInit() {
       return EXIT_PREREQ;
     }
 
-    const snap = await snapshot(client);
+    const { tables: snap, excludedCounts } = await snapshot(client);
 
     // A snapshot containing an unsupported table cannot be a baseline: rows in
     // it would never be compared, so leaks there would be invisible while the
@@ -377,9 +413,14 @@ async function cmdInit() {
     const fp = migrationFingerprint(await appliedMigrations(client));
     await client.query(
       `INSERT INTO ${BASELINE_TABLE}
-         (id, format_version, migration_fingerprint, snapshot)
-       VALUES (1, $1, $2, $3)`,
-      [BASELINE_FORMAT_VERSION, fp, JSON.stringify(snap)],
+         (id, format_version, migration_fingerprint, snapshot, excluded_counts)
+       VALUES (1, $1, $2, $3, $4)`,
+      [
+        BASELINE_FORMAT_VERSION,
+        fp,
+        JSON.stringify(snap),
+        JSON.stringify(excludedCounts),
+      ],
     );
     const tableCount = Object.keys(snap).length;
     console.log(`baseline captured: ${tableCount} tables, fingerprint ${fp.slice(0, 12)}`);
@@ -391,7 +432,7 @@ async function cmdInit() {
 
 export async function loadBaseline(client) {
   const { rows } = await client.query(
-    `SELECT format_version, migration_fingerprint, snapshot
+    `SELECT format_version, migration_fingerprint, snapshot, excluded_counts
        FROM ${BASELINE_TABLE} WHERE id = 1`,
   );
   if (rows.length === 0) return { ok: false, reason: 'no baseline recorded' };
@@ -415,6 +456,7 @@ export async function loadBaseline(client) {
     ok: true,
     fingerprint: row.migration_fingerprint,
     snapshot: row.snapshot,
+    excludedCounts: row.excluded_counts ?? {},
   };
 }
 
@@ -454,8 +496,12 @@ async function cmdCheck(passLabel) {
       console.error(`cannot check: ${baseline.reason}. Re-run with --fresh.`);
       return EXIT_PREREQ;
     }
-    const diff = diffSnapshots(baseline.snapshot, await snapshot(client));
-    const report = formatReport(passLabel, diff);
+    const current = await snapshot(client);
+    const diff = diffSnapshots(baseline.snapshot, current.tables);
+    const report = formatReport(passLabel, diff, {
+      baseline: baseline.excludedCounts,
+      current: current.excludedCounts,
+    });
     console.log(report);
     writeReport(passLabel, report);
 
@@ -561,9 +607,13 @@ async function cmdVerifyReusable() {
     // hard stop), but the code must not misreport a real finding as a mere
     // prerequisite problem: 2 reads as "nothing was checked", and something
     // was.
-    const diff = diffSnapshots(baseline.snapshot, await snapshot(client));
+    const currentSnap = await snapshot(client);
+    const diff = diffSnapshots(baseline.snapshot, currentSnap.tables);
     if (diff.hasDrift) {
-      const report = formatReport('dirty-start', diff);
+      const report = formatReport('dirty-start', diff, {
+        baseline: baseline.excludedCounts,
+        current: currentSnap.excludedCounts,
+      });
       console.error(report);
       writeReport('dirty-start', report);
       console.error('');

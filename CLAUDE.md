@@ -279,8 +279,15 @@ and skips this turns the nightly gate red.
 **Sampler tables are excluded, deliberately.** `redis_memory_samples` and
 `redis_alert_state` are not captured or compared: the sampler writes a startup
 sample on every app boot plus an every-minute cron tick under per-boot
-instanceIds (~30 rows/pass), which no suite can prevent. Documented blind spot
-alongside the scope limits below.
+instanceIds (~30 rows/pass), which no suite can prevent.
+
+They are **counted and reported, never diffed**. Every report ends with an
+`ignored (sampler, not suite-attributable)` section giving each table's
+baseline count, current count and signed delta — e.g.
+`redis_memory_samples: baseline 1, now 55 (+54)`. The counts live in the
+baseline's `excluded_counts` column (format version 2), which is why a delta is
+available at all. Nothing there can turn the gate red; the section exists so a
+green report still says out loud which tables went unchecked.
 
 Two blind spots, both deliberate: value changes on rows whose primary keys
 survive are invisible, and a seeder-code change surfaces mid-run as pass-1
