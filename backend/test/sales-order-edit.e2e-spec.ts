@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { jest } from "@jest/globals";
 import { INestApplication } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
 import { DataSource } from "typeorm";
@@ -18,13 +18,18 @@ import {
 } from "../src/database/entities/sales-order-item.entity";
 import { SalesOrderPaymentService } from "../src/modules/sales/services/sales-order-payment.service";
 import { SalesOrderService } from "../src/modules/sales/services/sales-order.service";
-import { seedCategory, seedProduct, truncateAll } from "./e2e/helpers/seed";
+import { seedCategory, seedProduct } from "./e2e/helpers/seed";
+import { resetSuiteBusinessRows } from "./utils/shared-e2e-business-fixture";
 import { configureTestAppValidation } from "./utils/configure-test-app-validation";
 
 describe("Sales order edit transaction (e2e)", () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let salesOrderService: SalesOrderService;
+  // Roots this suite owns, for own-rows cleanup (issue #1199). Each test seeds
+  // its own category/customer pair and pushes them here.
+  const ownedCategoryIds: string[] = [];
+  const ownedCustomerIds: string[] = [];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -37,16 +42,27 @@ describe("Sales order edit transaction (e2e)", () => {
 
     dataSource = app.get(DataSource);
     salesOrderService = app.get(SalesOrderService);
-    await truncateAll(dataSource);
   });
 
   afterAll(async () => {
-    if (dataSource?.isInitialized) await dataSource.destroy();
+    if (dataSource?.isInitialized) {
+      // Own-rows cleanup. This suite previously called truncateAll(), which
+      // destroyed every other suite's users and refresh tokens (issue #1199).
+      await resetSuiteBusinessRows(dataSource, {
+        categoryIds: ownedCategoryIds,
+        customerIds: ownedCustomerIds,
+      });
+      await dataSource.destroy();
+    }
     await app.close();
   });
 
   it("rolls back deleted items and totals when replacement item insertion fails", async () => {
-    const category = await seedCategory(dataSource);
+    const category = await seedCategory(
+      dataSource,
+      `so-edit-${Date.now()}-${ownedCategoryIds.length}`,
+    );
+    ownedCategoryIds.push(category.id);
     const product = await seedProduct(dataSource, category.id, {
       baseCost: 100,
       stockQuantity: 100,
@@ -55,10 +71,11 @@ describe("Sales order edit transaction (e2e)", () => {
     const customer = await customerRepo.save(
       customerRepo.create({
         type: CustomerType.BUSINESS,
-        name: "Rollback Test Customer",
+        name: `Rollback Test Customer ${Date.now()}`,
         isActive: true,
       }),
     );
+    ownedCustomerIds.push(customer.id);
     const orderRepo = dataSource.getRepository(SalesOrder);
     const order = await orderRepo.save(
       orderRepo.create({
@@ -69,9 +86,9 @@ describe("Sales order edit transaction (e2e)", () => {
         paymentStatus: SalesOrderPaymentStatus.UNPAID,
         subtotal: 100,
         shippingAmount: 0,
-        totalAmount: '100.0000',
-        paidAmount: '0.0000',
-        balanceDue: '100.0000',
+        totalAmount: "100.0000",
+        paidAmount: "0.0000",
+        balanceDue: "100.0000",
       }),
     );
     const itemRepo = dataSource.getRepository(SalesOrderItem);
@@ -118,7 +135,11 @@ describe("Sales order edit transaction (e2e)", () => {
   });
 
   it("rolls back item + total changes when post-write reconciliation fails", async () => {
-    const category = await seedCategory(dataSource);
+    const category = await seedCategory(
+      dataSource,
+      `so-edit-${Date.now()}-${ownedCategoryIds.length}`,
+    );
+    ownedCategoryIds.push(category.id);
     const product = await seedProduct(dataSource, category.id, {
       baseCost: 100,
       stockQuantity: 100,
@@ -127,10 +148,11 @@ describe("Sales order edit transaction (e2e)", () => {
     const customer = await customerRepo.save(
       customerRepo.create({
         type: CustomerType.BUSINESS,
-        name: "Reconcile Fail Customer",
+        name: `Reconcile Fail Customer ${Date.now()}`,
         isActive: true,
       }),
     );
+    ownedCustomerIds.push(customer.id);
     const orderRepo = dataSource.getRepository(SalesOrder);
     const order = await orderRepo.save(
       orderRepo.create({
@@ -141,9 +163,9 @@ describe("Sales order edit transaction (e2e)", () => {
         paymentStatus: SalesOrderPaymentStatus.UNPAID,
         subtotal: 100,
         shippingAmount: 0,
-        totalAmount: '100.0000',
-        paidAmount: '0.0000',
-        balanceDue: '100.0000',
+        totalAmount: "100.0000",
+        paidAmount: "0.0000",
+        balanceDue: "100.0000",
       }),
     );
     const itemRepo = dataSource.getRepository(SalesOrderItem);
