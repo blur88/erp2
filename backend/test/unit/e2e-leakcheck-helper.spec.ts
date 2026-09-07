@@ -1,5 +1,6 @@
 import {
   diffSnapshots,
+  formatReport,
   identityKey,
   migrationFingerprint,
   MAX_EXAMPLES,
@@ -91,5 +92,42 @@ describe("migrationFingerprint", () => {
     ];
     const b = [...a].reverse();
     expect(migrationFingerprint(a)).toBe(migrationFingerprint(b));
+  });
+});
+
+describe("formatReport", () => {
+  const drift = {
+    tables: [
+      {
+        table: "price_lists",
+        added: [{ id: "id-2", label: "RT-1757" }],
+        removed: [],
+        addedTotal: 1,
+        removedTotal: 0,
+      },
+    ],
+    unsupportedTables: [],
+    hasDrift: true,
+  };
+
+  it("reports drift, never suite ownership", () => {
+    const out = formatReport("pass-1", drift);
+    expect(out).toContain("baseline drift");
+    // The tool compares database states; it cannot know which suite made a
+    // row, so it must never claim to.
+    expect(out).not.toMatch(/owning suite|owned by/i);
+  });
+
+  it("always lists all three causes, unconditionally", () => {
+    const out = formatReport("pass-1", drift);
+    expect(out).toContain("left fixtures behind");
+    expect(out).toContain("--fresh");
+    expect(out).toContain("already drifted");
+  });
+
+  it("names the table and the identity with its label", () => {
+    const out = formatReport("pass-1", drift);
+    expect(out).toContain("price_lists");
+    expect(out).toContain("RT-1757");
   });
 });
