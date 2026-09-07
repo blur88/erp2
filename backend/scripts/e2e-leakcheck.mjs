@@ -6,6 +6,7 @@
 // file here would be loaded as CommonJS and `import` would throw.
 
 import pg from 'pg';
+import crypto from 'node:crypto';
 
 const { Client } = pg;
 
@@ -102,6 +103,82 @@ async function cmdDbDrop() {
   } finally {
     await client.end();
   }
+}
+
+export const BASELINE_TABLE = 'e2e_leakcheck_baseline';
+export const BASELINE_FORMAT_VERSION = 1;
+export const MAX_EXAMPLES = 10;
+
+// Best-effort human labels. First match wins, so a row prints as something a
+// person can recognise instead of a bare uuid.
+export const LABEL_COLUMNS = [
+  'code',
+  'number',
+  'username',
+  'sku',
+  'reference',
+  'name',
+];
+
+// Length-prefixed so composite keys cannot collide: ["a","b"] and ["a|b"]
+// must be different identities.
+//
+// The NUL sentinel distinguishes a SQL NULL from the literal string
+// "null". Keep it as the textual escape \u0000 — a raw NUL byte in a
+// source file makes tools treat the file as binary.
+export function identityKey(values) {
+  return values
+    .map((v) => {
+      const s = v === null || v === undefined ? '\u0000null' : String(v);
+      return `${s.length}:${s}`;
+    })
+    .join('|');
+}
+
+// Order-independent: the set of applied migrations is what matters, not the
+// order pg happened to return them in.
+export function migrationFingerprint(rows) {
+  const canonical = rows
+    .map((r) => `${r.timestamp}:${r.name}`)
+    .sort()
+    .join('\n');
+  return crypto.createHash('sha256').update(canonical).digest('hex');
+}
+
+export function diffSnapshots(baseline, current) {
+  const tables = [];
+  const unsupportedTables = [];
+  const names = new Set([...Object.keys(baseline), ...Object.keys(current)]);
+
+  for (const table of [...names].sort()) {
+    const b = baseline[table] ?? { rows: [] };
+    const c = current[table] ?? { rows: [] };
+
+    if (b.unsupported || c.unsupported) {
+      unsupportedTables.push(table);
+      continue;
+    }
+
+    const bById = new Map(b.rows.map((r) => [r.id, r]));
+    const cById = new Map(c.rows.map((r) => [r.id, r]));
+
+    const added = c.rows.filter((r) => !bById.has(r.id));
+    // Labels for removed rows come from the baseline — the row no longer
+    // exists, so a live lookup would return nothing.
+    const removed = b.rows.filter((r) => !cById.has(r.id));
+
+    if (added.length === 0 && removed.length === 0) continue;
+
+    tables.push({
+      table,
+      added: added.slice(0, MAX_EXAMPLES),
+      removed: removed.slice(0, MAX_EXAMPLES),
+      addedTotal: added.length,
+      removedTotal: removed.length,
+    });
+  }
+
+  return { tables, unsupportedTables, hasDrift: tables.length > 0 };
 }
 
 const COMMANDS = {
