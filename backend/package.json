@@ -32,7 +32,8 @@
     "migration:revert": "npm run typeorm -- -d ./src/config/database.config.ts migration:revert",
     "schema:drop": "npm run typeorm -- -d ./src/config/database.config.ts schema:drop",
     "admin:create": "ts-node ./src/database/cli/create-admin.ts",
-    "backup:reconcile-schedulers": "ts-node -r tsconfig-paths/register ./src/database/cli/reconcile-schedulers.ts"
+    "backup:reconcile-schedulers": "ts-node -r tsconfig-paths/register ./src/database/cli/reconcile-schedulers.ts",
+    "test:e2e:leakcheck": "./scripts/verify-e2e-cleanup.sh"
   },
   "dependencies": {
     "@nestjs/bullmq": "^12.0.0",

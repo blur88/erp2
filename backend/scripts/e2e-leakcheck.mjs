@@ -112,6 +112,10 @@ export const BASELINE_TABLE = 'e2e_leakcheck_baseline';
 export const BASELINE_FORMAT_VERSION = 1;
 export const MAX_EXAMPLES = 10;
 
+// Tables with background writers that suites cannot prevent from appending.
+// See snapshot(): excluded from capture, diff, and baseline.
+export const EXCLUDED_TABLES = ['redis_memory_samples', 'redis_alert_state'];
+
 // Best-effort human labels. First match wins, so a row prints as something a
 // person can recognise instead of a bare uuid.
 export const LABEL_COLUMNS = [
@@ -196,21 +200,25 @@ function targetClient() {
 }
 
 async function tableInventory(client) {
+  // jsonb_agg (not array_agg): node-pg returns a Postgres name[] column as
+  // the raw text literal ("{id}") instead of a JS array, so .map on it
+  // throws. jsonb is JSON-parsed by the driver, so these always arrive as
+  // real arrays. Observed on a live database: pk_columns came back string.
   const { rows } = await client.query(`
     SELECT c.relname AS table_name,
            COALESCE(
-             (SELECT array_agg(a.attname ORDER BY k.ord)
+             (SELECT jsonb_agg(a.attname ORDER BY k.ord)
                 FROM pg_constraint pk
                 CROSS JOIN LATERAL unnest(pk.conkey) WITH ORDINALITY AS k(attnum, ord)
                 JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = k.attnum
                WHERE pk.conrelid = c.oid AND pk.contype = 'p'),
-             ARRAY[]::name[]
+             '[]'::jsonb
            ) AS pk_columns,
            COALESCE(
-             (SELECT array_agg(a.attname)
+             (SELECT jsonb_agg(a.attname)
                 FROM pg_attribute a
                WHERE a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped),
-             ARRAY[]::name[]
+             '[]'::jsonb
            ) AS all_columns
       FROM pg_class c
       JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -225,6 +233,15 @@ export async function snapshot(client) {
   for (const t of await tableInventory(client)) {
     // The baseline table describes the snapshot; it is never part of it.
     if (t.table_name === BASELINE_TABLE) continue;
+
+    // Background telemetry no suite can prevent: the Redis sampler writes a
+    // startup sample on every app boot (OnModuleInit) and a @Cron(EVERY_MINUTE)
+    // tick in every long-lived suite app, each under a per-boot instanceId.
+    // Measured: ~30 new rows per pass from ~30 suite boots. Comparing these
+    // tables would fail every run, so they are excluded and documented as a
+    // blind spot (spec Scope limits). No suite asserts global counts on them:
+    // the redis-monitoring suite allow-lists only its own instance/run ids.
+    if (EXCLUDED_TABLES.includes(t.table_name)) continue;
 
     if (!t.pk_columns || t.pk_columns.length === 0) {
       // Flagged, never silently skipped — a PK-less table is a blind spot the

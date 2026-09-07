@@ -5,6 +5,7 @@ import {
   formatReport,
   identityKey,
   migrationFingerprint,
+  snapshot,
   validateSnapshotShape,
   MAX_EXAMPLES,
 } from "../../scripts/e2e-leakcheck.mjs";
@@ -199,5 +200,48 @@ describe("validateSnapshotShape", () => {
       validateSnapshotShape({ users: { rows: [{ id: "u1", label: "admin" }] } })
         .ok,
     ).toBe(true);
+  });
+});
+
+describe("snapshot", () => {
+  // The sampler writes on every app boot and every minute with per-boot
+  // instanceIds — rows no suite can prevent. The snapshot must not capture
+  // them, or every run drifts.
+  it("excludes background-telemetry tables and the baseline table", async () => {
+    const stubClient = {
+      query: async (sql: string) => {
+        if (sql.includes("pg_class")) {
+          return {
+            rows: [
+              {
+                table_name: "users",
+                pk_columns: ["id"],
+                all_columns: ["id", "username"],
+              },
+              {
+                table_name: "redis_memory_samples",
+                pk_columns: ["id"],
+                all_columns: ["id"],
+              },
+              {
+                table_name: "redis_alert_state",
+                pk_columns: ["id"],
+                all_columns: ["id"],
+              },
+              {
+                table_name: "e2e_leakcheck_baseline",
+                pk_columns: ["id"],
+                all_columns: ["id"],
+              },
+            ],
+          };
+        }
+        return { rows: [] };
+      },
+    };
+
+    const snap = await snapshot(stubClient as never);
+
+    expect(Object.keys(snap).sort()).toEqual(["users"]);
   });
 });
