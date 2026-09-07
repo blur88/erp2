@@ -34,8 +34,14 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // Rate limiting is enforced by nginx (nginx/nginx.conf: login_limit).
-  // App-layer throttling is tracked in #1154.
+  // Rate limiting is enforced ONLY by nginx: the login_limit zone
+  // (nginx/nginx.conf:47, 5r/m) applied to ^/api/(auth|login|register)
+  // at :137. There is no app-layer throttler -- #1154 was closed
+  // not-planned, leaving nginx the single documented enforcement point,
+  // and the @Throttle decorators were removed as inert in the NestJS 12
+  // migration. Anything reaching this controller without traversing that
+  // nginx (e2e suites via supertest, start:dev, a future ingress) is
+  // unthrottled; nginx also rejects with 503, not 429 (#1154).
   @Post('login')
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -68,8 +74,14 @@ export class AuthController {
     return this.authService.login(loginDto, ipAddress, userAgent);
   }
 
-  // Rate limiting is enforced by nginx (nginx/nginx.conf: login_limit).
-  // App-layer throttling is tracked in #1154.
+  // Rate limiting is enforced ONLY by nginx: the login_limit zone
+  // (nginx/nginx.conf:47, 5r/m) applied to ^/api/(auth|login|register)
+  // at :137. There is no app-layer throttler -- #1154 was closed
+  // not-planned, leaving nginx the single documented enforcement point,
+  // and the @Throttle decorators were removed as inert in the NestJS 12
+  // migration. Anything reaching this controller without traversing that
+  // nginx (e2e suites via supertest, start:dev, a future ingress) is
+  // unthrottled; nginx also rejects with 503, not 429 (#1154).
   @Post('register')
   @Public()
   @ApiOperation({

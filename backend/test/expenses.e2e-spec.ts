@@ -129,8 +129,13 @@ describe('Expense e2e lifecycle, posting & concurrency', () => {
   let cashMethod: PaymentMethodEntity;
   let bankMethod: PaymentMethodEntity;
 
-  // Logged in ONCE below: /auth/login is throttled to 5 req/min
-  // (auth.controller.ts:41), so a per-test login would 403 under CI timing.
+  // Logged in ONCE below. NOTE: this is a suite-runtime convention, not a
+  // throttling requirement. Rate limiting is enforced only by nginx
+  // (nginx/nginx.conf:47, login_limit 5r/m); there is no app-layer throttler
+  // (#1154 closed not-planned, and the @Throttle decorators these comments
+  // once cited were removed as inert in the NestJS 12 migration). e2e suites
+  // call the Nest app in-process via supertest and never traverse nginx, so
+  // no rate limit applies here at all -- 30 rapid logins return 200 (#1197).
   let token: string;
   // Own-rows tracking (issue #1204). Audit rows carry entityId = expense id
   // with userId/username 'e2e', so entityIds scope the traces cleanup without
