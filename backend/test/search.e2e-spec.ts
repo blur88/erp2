@@ -15,8 +15,10 @@ import {
   SEARCH_TOKEN,
   SEARCH_CUSTOMER_NAME,
   SEARCH_SUPPLIER_NAME,
+  SEARCH_USERNAMES,
   resetSearchFixtures,
 } from "./utils/search-fixture";
+import { removeSuiteTraces } from "./utils/shared-e2e-traces-fixture";
 
 describe("GET /search/global - role-based filtering (e2e)", () => {
   let app: INestApplication;
@@ -53,7 +55,36 @@ describe("GET /search/global - role-based filtering (e2e)", () => {
 
   afterAll(async () => {
     if (dataSource?.isInitialized) {
+      // Capture owned user ids BEFORE resetSearchFixtures deletes the users —
+      // search_queries rows key on user_id, which is unrecoverable afterwards.
+      const ownedUserIds: string[] = (
+        await dataSource.query(
+          `SELECT id FROM users WHERE username = ANY($1)`,
+          [[...SEARCH_USERNAMES]],
+        )
+      ).map((r: { id: string }) => r.id);
       await resetSearchFixtures(dataSource);
+      // Every /search/global request records a search_queries row keyed by the
+      // searching user's id (search.service.ts -> logQuery). The fixture reset
+      // above covers users + business rows only, not this request exhaust.
+      //
+      // logQuery floats its save (fire-and-forget), so a row from the last
+      // search can land AFTER an initial delete. Settle loop: delete, then
+      // require two consecutive clean reads spaced 500ms apart.
+      const traceScope = {
+        userIds: ownedUserIds,
+        usernames: [...SEARCH_USERNAMES],
+        entityIds: [customerId, supplierId, purchaseOrderId].filter(Boolean),
+      };
+      for (let i = 0; i < 6; i++) {
+        await removeSuiteTraces(dataSource, traceScope);
+        const remaining = await dataSource.query(
+          `SELECT count(*)::int AS n FROM search_queries WHERE "user_id" = ANY($1)`,
+          [ownedUserIds.length ? ownedUserIds : ["00000000-0000-0000-0000-000000000000"]],
+        );
+        if (remaining[0].n === 0 && i > 0) break;
+        await new Promise((r) => setTimeout(r, 500));
+      }
       await dataSource.destroy();
     }
     await app.close();

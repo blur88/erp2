@@ -13,6 +13,7 @@ import { RedisAlertService } from '../src/modules/monitoring/redis-alert.service
 import { TypeOrmRedisMemoryHistoryStore } from '../src/modules/monitoring/typeorm-redis-memory-history.store';
 import { applyOomCounter } from '../src/modules/monitoring/redis-alert.transitions';
 import { RedisMemorySample } from '../src/modules/monitoring/redis-memory.types';
+import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
 
 /**
  * E2E suites share one database and run in size order, so this suite
@@ -25,11 +26,24 @@ describe('Redis monitoring persistence (e2e)', () => {
   let repository: RedisAlertStateRepository;
   let adminToken: string;
 
-  const uniqueRun = () => `run-${randomUUID()}`;
-  const uniqueInstance = () => `instance-${randomUUID()}`;
+  const uniqueRun = () => {
+    const id = `run-${randomUUID()}`;
+    ownedRunIds.push(id);
+    return id;
+  };
+  const uniqueInstance = () => {
+    const id = `instance-${randomUUID()}`;
+    ownedInstanceIds.push(id);
+    return id;
+  };
 
   const WINDOW_STATS_USER = 'redis_mon_admin';
   const WINDOW_STATS_PASSWORD = 'Str0ng@Pass!';
+
+  // Every run_/instance_ identity this suite creates, so afterAll deletes
+  // exactly what this suite owns — never a sampler row from another boot.
+  const ownedRunIds: string[] = [];
+  const ownedInstanceIds: string[] = [];
 
   async function ensureAdmin(): Promise<void> {
     const users = ds.getRepository(User);
@@ -105,6 +119,42 @@ describe('Redis monitoring persistence (e2e)', () => {
   });
 
   afterAll(async () => {
+    if (ds?.isInitialized) {
+      // Own-rows cleanup only. The redis_memory_samples / redis_alert_state
+      // tables are excluded from leak comparison (background sampler writes),
+      // but deleting exactly the identities this suite created keeps the
+      // shared database tidy without touching any other boot's rows.
+      if (ownedRunIds.length) {
+        await ds.query(
+          `DELETE FROM redis_alert_state WHERE "redisRunId" = ANY($1)`,
+          [ownedRunIds],
+        );
+      }
+      if (ownedInstanceIds.length) {
+        await ds.query(
+          `DELETE FROM redis_memory_samples WHERE "instanceId" = ANY($1)`,
+          [ownedInstanceIds],
+        );
+      }
+      // Capture the admin id BEFORE deleting the user: the login's audit row
+      // (if any) keys on it. Deleting the user cascades its refresh token
+      // (RefreshToken.userId onDelete CASCADE) — no separate token handling.
+      const adminRows: { id: string }[] = await ds.query(
+        `SELECT id FROM users WHERE username = $1`,
+        [WINDOW_STATS_USER],
+      );
+      const adminIds = adminRows.map((r) => r.id);
+      if (adminIds.length) {
+        await removeSuiteTraces(ds, {
+          userIds: adminIds,
+          usernames: [WINDOW_STATS_USER],
+        });
+        await ds.query(`DELETE FROM users WHERE username = $1`, [
+          WINDOW_STATS_USER,
+        ]);
+      }
+      await ds.destroy();
+    }
     await app.close();
   });
 
