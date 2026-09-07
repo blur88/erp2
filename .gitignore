@@ -208,3 +208,4 @@ docs/test/
 .agents/
 .antigravitycli/
 .superpowers/
+backend/leakcheck-reports/

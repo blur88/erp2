@@ -20,6 +20,7 @@ import { AccountingSettings } from '../src/modules/accounting/entities/accountin
 import { OwnerEquityDocument } from '../src/modules/owner-equity/entities/owner-equity-document.entity';
 import { SettingsService } from '../src/modules/settings/settings.service';
 import { configureTestAppValidation } from './utils/configure-test-app-validation';
+import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
 
 // Shared-DB discipline: the reference numbers this suite owns, used both for
 // assertions and for afterAll cleanup. Accounting assertions read ABSOLUTE
@@ -137,6 +138,8 @@ describe('Owner Equity (e2e)', () => {
   let serviceProductId: string;
   let productCategoryId: string;
   let createdUserId: string;
+  let createdUsername = '';
+  let docNumberSnapshot: any[] = [];
 
   let ref: string;
   let stockRef: string;
@@ -169,6 +172,7 @@ describe('Owner Equity (e2e)', () => {
     productCategoryId = (products.goods as any).categoryId;
 
     const username = `oe-admin-${Date.now()}`;
+    createdUsername = username;
     const userRepo = ds.getRepository(User);
     const user = await userRepo.save(
       userRepo.create({
@@ -184,6 +188,7 @@ describe('Owner Equity (e2e)', () => {
       }),
     );
     createdUserId = user.id;
+    docNumberSnapshot = await ds.query(`SELECT * FROM document_number_settings`);
 
     const loginRes = await request(app.getHttpServer())
       .post('/auth/login')
@@ -199,23 +204,63 @@ describe('Owner Equity (e2e)', () => {
   });
 
   afterAll(async () => {
-    if (ownedRefs.length) {
-      await ds.query(
-        `DELETE FROM journal_entry_line WHERE "entryId" IN (SELECT id FROM journal_entry WHERE "sourceRef" = ANY($1))`,
-        [ownedRefs],
-      );
-      await ds.query(`DELETE FROM journal_entry WHERE "sourceRef" = ANY($1)`, [ownedRefs]);
-      await ds.query(
-        `DELETE FROM stock_movements WHERE "referenceType" = 'owner_equity' AND "referenceId" IN (SELECT id FROM owner_equity_documents WHERE "referenceNumber" = ANY($1))`,
-        [ownedRefs],
-      );
-      await ds.query(`DELETE FROM owner_equity_documents WHERE "referenceNumber" = ANY($1)`, [ownedRefs]);
-      await ds.query(`DELETE FROM products WHERE id = ANY($1)`, [[productId, serviceProductId]]);
-      await ds.query(`DELETE FROM categories WHERE id = $1`, [productCategoryId]);
-      await ds.query(`DELETE FROM users WHERE id = $1`, [createdUserId]);
+    try {
+      if (ds?.isInitialized) {
+        // Resolve owned doc ids BEFORE deleting the headers — audit_logs
+        // reference them in entityId for system-attributed rows.
+        let ownedDocIds: string[] = [];
+        if (ownedRefs.length) {
+          const docRows: Array<{ id: string }> = await ds.query(
+            `SELECT id FROM owner_equity_documents WHERE "referenceNumber" = ANY($1)`,
+            [ownedRefs],
+          );
+          ownedDocIds = docRows.map((r) => r.id);
+        }
+        if (ownedRefs.length) {
+          await ds.query(
+            `DELETE FROM journal_entry_line WHERE "entryId" IN (SELECT id FROM journal_entry WHERE "sourceRef" = ANY($1))`,
+            [ownedRefs],
+          );
+          await ds.query(`DELETE FROM journal_entry WHERE "sourceRef" = ANY($1)`, [ownedRefs]);
+          await ds.query(
+            `DELETE FROM stock_movements WHERE "referenceType" = 'owner_equity' AND "referenceId" IN (SELECT id FROM owner_equity_documents WHERE "referenceNumber" = ANY($1))`,
+            [ownedRefs],
+          );
+          await ds.query(`DELETE FROM owner_equity_documents WHERE "referenceNumber" = ANY($1)`, [ownedRefs]);
+          await ds.query(`DELETE FROM products WHERE id = ANY($1)`, [[productId, serviceProductId]]);
+          await ds.query(`DELETE FROM categories WHERE id = $1`, [productCategoryId]);
+        }
+        // Own-traces cleanup (issue #1204): CREATE/SETTLEMENT/REFUND audits
+        // carry this suite's userId/username + owned doc ids.
+        if (createdUserId || createdUsername || ownedDocIds.length) {
+          await removeSuiteTraces(ds, {
+            userIds: createdUserId ? [createdUserId] : [],
+            usernames: createdUsername ? [createdUsername] : [],
+            entityIds: ownedDocIds,
+          });
+        }
+        if (createdUserId) {
+          await ds.query(`DELETE FROM users WHERE id = $1`, [createdUserId]);
+        }
+        // Restore Owner Equity nextNumber bumped by the numbering test
+        // (EQ-YY-999/1000 fixtures + sync set it to 1001; PKs unchanged).
+        for (const snap of docNumberSnapshot) {
+          await ds.query(
+            `UPDATE document_number_settings SET prefix=$1, "paddingDigits"=$2, "nextNumber"=$3, "lastResetYear"=$4 WHERE "documentName"=$5`,
+            [
+              snap.prefix,
+              snap.paddingDigits,
+              snap.nextNumber,
+              snap.lastResetYear,
+              snap.documentName,
+            ],
+          );
+        }
+      }
+    } finally {
+      if (ds?.isInitialized) await ds.destroy();
+      await app.close();
     }
-    if (ds?.isInitialized) await ds.destroy();
-    await app.close();
   });
 
   // Absolute debit/credit totals for ONE owned document reference, grouped by

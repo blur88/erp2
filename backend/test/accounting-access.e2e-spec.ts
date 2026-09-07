@@ -6,6 +6,8 @@ import * as bcrypt from 'bcrypt';
 import { DataSource, Repository } from 'typeorm';
 import { AppModule } from '../src/app.module';
 import { User, UserRole, UserStatus } from '../src/database/entities/user.entity';
+import { removeSuiteAdmin } from './utils/shared-e2e-fixture';
+import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
 
 const password = 'Str0ng@Pass!';
 
@@ -80,6 +82,10 @@ describe('Accounting access (e2e)', () => {
     await app.init();
     ds = moduleFixture.get(DataSource);
     users = ds.getRepository(User);
+    // Own-rows reset before seeding, so an interrupted previous run cannot
+    // leave stale users (and their refresh tokens) behind (issue #1204).
+    await removeSuiteAdmin(ds, ADMIN_USER);
+    await removeSuiteAdmin(ds, NONADMIN_USER);
     await ensureUser(ADMIN_USER, UserRole.ADMIN);
     await ensureUser(NONADMIN_USER, UserRole.SALES_STAFF);
     adminToken = await login(ADMIN_USER);
@@ -106,7 +112,23 @@ describe('Accounting access (e2e)', () => {
   });
 
   afterAll(async () => {
-    if (ds?.isInitialized) await ds.destroy();
+    if (ds?.isInitialized) {
+      // Own-rows cleanup (issue #1204). Capture owned user ids BEFORE deleting
+      // the users — removeSuiteTraces keys search_queries/audit rows off them.
+      // Deleting the users cascades their refresh_tokens (onDelete: CASCADE).
+      const ownedUserIds: string[] = (
+        await ds.query(`SELECT id FROM users WHERE username = ANY($1)`, [
+          [ADMIN_USER, NONADMIN_USER],
+        ])
+      ).map((r: { id: string }) => r.id);
+      await removeSuiteTraces(ds, {
+        userIds: ownedUserIds,
+        usernames: [ADMIN_USER, NONADMIN_USER],
+      });
+      await removeSuiteAdmin(ds, ADMIN_USER);
+      await removeSuiteAdmin(ds, NONADMIN_USER);
+      await ds.destroy();
+    }
     await app.close();
   });
 

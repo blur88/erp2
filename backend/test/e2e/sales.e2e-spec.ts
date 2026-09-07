@@ -11,6 +11,7 @@ import {
   removeSuiteAdmin,
 } from "../utils/shared-e2e-fixture";
 import { resetSuiteBusinessRows } from "../utils/shared-e2e-business-fixture";
+import { removeSuiteTraces } from "../utils/shared-e2e-traces-fixture";
 import { configureTestAppValidation } from "../utils/configure-test-app-validation";
 
 describe("Sales (e2e)", () => {
@@ -60,9 +61,67 @@ describe("Sales (e2e)", () => {
 
   afterAll(async () => {
     if (dataSource?.isInitialized) {
+      const customerIds = customerId ? [customerId] : [];
+      // Resolve owned orders/payments BEFORE business cleanup deletes them.
+      // Duplicate creates a second order with system attribution (userId
+      // 'system', no username), so usernames alone cannot cover its audit row
+      // — entityIds must include every owned order. Journal entries posted for
+      // suite-owned payments (SALES_ORDER source) are likewise out of scope
+      // for both resetSuiteBusinessRows and removeSuiteTraces.
+      const ownedOrderIds: string[] = customerIds.length
+        ? (
+            await dataSource.query(
+              `SELECT id FROM sales_orders WHERE "customerId" = ANY($1)`,
+              [customerIds],
+            )
+          ).map((r: { id: string }) => r.id)
+        : [];
+      let ownedPaymentIds: string[] = [];
+      if (ownedOrderIds.length) {
+        const sop = await dataSource.query(
+          `SELECT id FROM sales_order_payments WHERE "salesOrderId" = ANY($1)`,
+          [ownedOrderIds],
+        );
+        const pay = await dataSource.query(
+          `SELECT id FROM payments WHERE "salesOrderId" = ANY($1)`,
+          [ownedOrderIds],
+        );
+        ownedPaymentIds = [
+          ...sop.map((r: { id: string }) => r.id),
+          ...pay.map((r: { id: string }) => r.id),
+        ];
+      }
+      if (ownedOrderIds.length || ownedPaymentIds.length) {
+        const docIds = ownedOrderIds.length
+          ? ownedOrderIds
+          : ["00000000-0000-0000-0000-000000000000"];
+        const evtIds = ownedPaymentIds.length
+          ? ownedPaymentIds
+          : ["00000000-0000-0000-0000-000000000000"];
+        await dataSource.query(
+          `DELETE FROM journal_entry WHERE "sourceDocumentId" = ANY($1) OR "sourceEventId" = ANY($2)`,
+          [docIds, evtIds],
+        );
+      }
       await resetSuiteBusinessRows(dataSource, {
         categoryIds: [seededCategoryId],
-        customerIds: customerId ? [customerId] : [],
+        customerIds,
+      });
+      // Capture admin id BEFORE removeSuiteAdmin deletes the user —
+      // search_queries rows key on user_id, unrecoverable afterwards.
+      const adminRows: { id: string }[] = await dataSource.query(
+        `SELECT id FROM users WHERE username = $1`,
+        [E2E_ADMIN_USERNAMES.sales],
+      );
+      await removeSuiteTraces(dataSource, {
+        userIds: adminRows.map((r) => r.id),
+        usernames: [E2E_ADMIN_USERNAMES.sales],
+        entityIds: [
+          ...customerIds,
+          ...ownedOrderIds,
+          ...ownedPaymentIds,
+          ...(productId ? [productId] : []),
+        ],
       });
       await removeSuiteAdmin(dataSource, E2E_ADMIN_USERNAMES.sales);
       await dataSource.destroy();

@@ -60,6 +60,13 @@ describe('Accounting v1 (e2e)', () => {
   let trial: TrialBalanceService;
   let seeder: AccountingSeederService;
   let coaService: ChartOfAccountService;
+  // Own-rows tracking for leak-free cleanup (issue #1204). Journals CASCADE
+  // to lines via journal_entry_line.entryId, so deleting the header suffices.
+  // CUTOFF journals target shared 3100 and are tracked by journal id; all
+  // other journals are reachable via owned CoA ids + SO_ID.
+  const ownedCoAIds: string[] = [];
+  const ownedJournalIds: string[] = [];
+  let docNumberSnapshot: any[] = [];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -76,28 +83,121 @@ describe('Accounting v1 (e2e)', () => {
     seeder = moduleFixture.get(AccountingSeederService);
     coaService = moduleFixture.get(ChartOfAccountService);
     await seedAccounting(ds);
-    // Earlier suites (suite order is jest-size/timing dependent) may leave
-    // journal rows on the shared test DB — e.g. sales payments posted with
-    // today's date land inside this suite's July window. The assertions below
-    // build cumulative balances from a clean journal, so wipe it once here
-    // (tests in this suite intentionally build on each other — no per-test clear).
-    await ds.query(`DELETE FROM journal_entry_line`);
-    await ds.query(`DELETE FROM journal_entry`);
+    docNumberSnapshot = await ds.query(`SELECT * FROM document_number_settings`);
   });
 
   afterAll(async () => {
-    if (ds?.isInitialized) await ds.destroy();
-    await app.close();
+    try {
+      if (ds?.isInitialized) {
+        // Journals first (accountId is NO ACTION — CoA delete would block).
+        const coaAndSoIds = [...new Set([...ownedCoAIds, SO_ID])];
+        let journalIdsToDelete = [...new Set(ownedJournalIds)];
+        if (coaAndSoIds.length) {
+          const rows: Array<{ id: string }> = await ds.query(
+            `SELECT id FROM journal_entry WHERE "sourceDocumentId" = ANY($1)`,
+            [coaAndSoIds],
+          );
+          for (const r of rows) journalIdsToDelete.push(r.id);
+        }
+        journalIdsToDelete = [...new Set(journalIdsToDelete)];
+        if (journalIdsToDelete.length) {
+          await ds.query(`DELETE FROM journal_entry WHERE id = ANY($1)`, [
+            journalIdsToDelete,
+          ]);
+        }
+        if (ownedCoAIds.length) {
+          await ds.query(`DELETE FROM chart_of_account WHERE id = ANY($1)`, [
+            [...new Set(ownedCoAIds)],
+          ]);
+        }
+        // Restore document_number_settings identities + values. The #901 test
+        // deletes the Journal Entries row and the seeder recreates it with a
+        // NEW uuid (+1/-1 drift); postings also bump nextNumber (value-only,
+        // invisible to the gate but restored here for shared-DB reuse).
+        const current: any[] = await ds.query(
+          `SELECT * FROM document_number_settings`,
+        );
+        const snapshotByName = new Map(
+          docNumberSnapshot.map((r: any) => [r.documentName, r]),
+        );
+        const currentByName = new Map(
+          current.map((r: any) => [r.documentName, r]),
+        );
+        for (const row of current) {
+          if (!snapshotByName.has(row.documentName)) {
+            await ds.query(
+              `DELETE FROM document_number_settings WHERE "documentName" = $1`,
+              [row.documentName],
+            );
+          }
+        }
+        for (const snap of docNumberSnapshot) {
+          const cur = currentByName.get(snap.documentName);
+          if (!cur) {
+            await ds.query(
+              `INSERT INTO document_number_settings (id, "createdAt", "updatedAt", "deletedAt", "isActive", "documentName", prefix, "paddingDigits", "nextNumber", "lastResetYear") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+              [
+                snap.id,
+                snap.createdAt,
+                snap.updatedAt,
+                snap.deletedAt,
+                snap.isActive,
+                snap.documentName,
+                snap.prefix,
+                snap.paddingDigits,
+                snap.nextNumber,
+                snap.lastResetYear,
+              ],
+            );
+          } else if (cur.id !== snap.id) {
+            await ds.query(
+              `DELETE FROM document_number_settings WHERE "documentName" = $1`,
+              [snap.documentName],
+            );
+            await ds.query(
+              `INSERT INTO document_number_settings (id, "createdAt", "updatedAt", "deletedAt", "isActive", "documentName", prefix, "paddingDigits", "nextNumber", "lastResetYear") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+              [
+                snap.id,
+                snap.createdAt,
+                snap.updatedAt,
+                snap.deletedAt,
+                snap.isActive,
+                snap.documentName,
+                snap.prefix,
+                snap.paddingDigits,
+                snap.nextNumber,
+                snap.lastResetYear,
+              ],
+            );
+          } else {
+            await ds.query(
+              `UPDATE document_number_settings SET prefix=$1, "paddingDigits"=$2, "nextNumber"=$3, "lastResetYear"=$4 WHERE "documentName"=$5`,
+              [
+                snap.prefix,
+                snap.paddingDigits,
+                snap.nextNumber,
+                snap.lastResetYear,
+                snap.documentName,
+              ],
+            );
+          }
+        }
+      }
+    } finally {
+      if (ds?.isInitialized) await ds.destroy();
+      await app.close();
+    }
   });
 
   it('posts a sales payment JE and reflects it in the ledger and trial balance', async () => {
     const cash = await ds.getRepository(ChartOfAccount).findOneByOrFail({ code: '1100' });
-    await ds.transaction((m) =>
-      posting.postSalesPayment(
+    await ds.transaction(async (m) => {
+      const res = await posting.postSalesPayment(
         { salesOrderId: SO_ID, sourceRef: 'SO-26-001', paymentRowId: PAY_ID, channel: 'CASH', amount: '500.0000', entryDate: '2026-07-10' },
         m,
-      ),
-    );
+      );
+      ownedJournalIds.push(res.journalEntryId);
+    });
 
     const gl = await ledger.getLedger({ accountId: cash.id, fromDate: '2026-07-01', toDate: '2026-07-31' });
     expect(gl.movements.at(-1)!.balance).toBe('500.0000');
@@ -117,10 +217,12 @@ describe('Accounting v1 (e2e)', () => {
         m,
       );
       entryId = res.journalEntryId;
+      ownedJournalIds.push(entryId);
     });
-    await ds.transaction((m) =>
-      posting.reverseEntry({ originalEntryId: entryId!, entryDate: '2026-07-16' }, m),
-    );
+    await ds.transaction(async (m) => {
+      const res = await posting.reverseEntry({ originalEntryId: entryId!, entryDate: '2026-07-16' }, m);
+      ownedJournalIds.push(res.journalEntryId);
+    });
 
     const gl = await ledger.getLedger({ accountId: cash.id, fromDate: '2026-07-01', toDate: '2026-07-31' });
     // 500 (first) + 300 (second) - 300 (reversal) = 500
@@ -141,12 +243,15 @@ describe('Accounting v1 (e2e)', () => {
         isActive: true, isSystem: false, isPostable: true, openingBalance: '0.0000',
       }),
     );
-    await ds.transaction((m) =>
-      posting.postOpeningBalance({ accountId: acct.id, sourceRef: 'ORD-1', amount: '100.0000', entryDate: '2026-07-20' }, m),
-    );
-    await ds.transaction((m) =>
-      posting.postOpeningBalance({ accountId: acct.id, sourceRef: 'ORD-2', amount: '200.0000', entryDate: '2026-07-20' }, m),
-    );
+    ownedCoAIds.push(acct.id);
+    await ds.transaction(async (m) => {
+      const res = await posting.postOpeningBalance({ accountId: acct.id, sourceRef: 'ORD-1', amount: '100.0000', entryDate: '2026-07-20' }, m);
+      ownedJournalIds.push(res.journalEntryId);
+    });
+    await ds.transaction(async (m) => {
+      const res = await posting.postOpeningBalance({ accountId: acct.id, sourceRef: 'ORD-2', amount: '200.0000', entryDate: '2026-07-20' }, m);
+      ownedJournalIds.push(res.journalEntryId);
+    });
 
     const gl = await ledger.getLedger({ accountId: acct.id, fromDate: '2026-07-01', toDate: '2026-07-31' });
     expect(gl.movements.length).toBe(2);
@@ -160,18 +265,20 @@ describe('Accounting v1 (e2e)', () => {
   it('honors the entryDate < fromDate opening-balance cutoff', async () => {
     // Dedicated Owner Capital (equity) account, seeded with one pre-range and one in-range entry.
     const equity = await ds.getRepository(ChartOfAccount).findOneByOrFail({ code: '3100' });
-    await ds.transaction((m) =>
-      posting.postOpeningBalance(
+    await ds.transaction(async (m) => {
+      const res = await posting.postOpeningBalance(
         { accountId: equity.id, sourceRef: 'CUTOFF-PRE', amount: '1000.0000', entryDate: '2026-07-05' },
         m,
-      ),
-    );
-    await ds.transaction((m) =>
-      posting.postOpeningBalance(
+      );
+      ownedJournalIds.push(res.journalEntryId);
+    });
+    await ds.transaction(async (m) => {
+      const res = await posting.postOpeningBalance(
         { accountId: equity.id, sourceRef: 'CUTOFF-IN', amount: '250.0000', entryDate: '2026-07-20' },
         m,
-      ),
-    );
+      );
+      ownedJournalIds.push(res.journalEntryId);
+    });
 
     const gl = await ledger.getLedger({ accountId: equity.id, fromDate: '2026-07-11', toDate: '2026-07-31' });
     // The July 5 entry is before fromDate → opening balance; only the July 20 entry is a movement.
@@ -209,6 +316,14 @@ describe('Accounting v1 (e2e)', () => {
       'e2e',
     );
     expect(account.id).toBeDefined();
+    ownedCoAIds.push(account.id);
+    // coaService.create posts the opening-balance JE internally; track it via
+    // sourceDocumentId so afterAll removes it without touching seed rows.
+    const createdJe: Array<{ id: string }> = await ds.query(
+      `SELECT id FROM journal_entry WHERE "sourceDocumentId" = $1`,
+      [account.id],
+    );
+    for (const r of createdJe) ownedJournalIds.push(r.id);
 
     const jes = await ds.query(
       `SELECT "journalNo" FROM journal_entry
@@ -234,10 +349,11 @@ describe('Accounting v1 (e2e)', () => {
           isActive: true, isSystem: false, isPostable: true, openingBalance: '0.0000',
         }),
       );
+      ownedCoAIds.push(acct.id);
       // `entries: 0` yields a bare account for tests that seed their own rows.
       for (let i = 0; i < entries; i++) {
-        await ds.transaction((m) =>
-          posting.postOpeningBalance(
+        await ds.transaction(async (m) => {
+          const res = await posting.postOpeningBalance(
             {
               accountId: acct.id,
               sourceRef: `PG-${i}`,
@@ -246,8 +362,9 @@ describe('Accounting v1 (e2e)', () => {
               entryDate: `2026-07-${String(i + 1).padStart(2, '0')}`,
             },
             m,
-          ),
-        );
+          );
+          ownedJournalIds.push(res.journalEntryId);
+        });
       }
       return acct;
     }

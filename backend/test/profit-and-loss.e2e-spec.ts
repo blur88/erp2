@@ -10,6 +10,8 @@ import { ChartOfAccount } from '../src/modules/accounting/entities/chart-of-acco
 import { AccountingSettings } from '../src/modules/accounting/entities/accounting-settings.entity';
 import { ACCOUNTING_POSTING_PORT, AccountingPostingPort } from '../src/common/accounting-posting/accounting-posting.port';
 import { configureTestAppValidation } from './utils/configure-test-app-validation';
+import { removeSuiteAdmin } from './utils/shared-e2e-fixture';
+import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
 
 async function seedAccounting(ds: DataSource) {
   const coa = ds.getRepository(ChartOfAccount);
@@ -67,6 +69,13 @@ describe('Profit & Loss (e2e)', () => {
   let ds: DataSource;
   let posting: AccountingPostingPort;
   let token: string;
+  // Own-rows tracking (issue #1204). All journals in this suite carry a
+  // PL-E2E- sourceRef, so the afterAll delete is scoped to that prefix plus
+  // the collected header ids (reversals share the prefix but are also tracked).
+  let plUsername = '';
+  let plUserId = '';
+  const ownedJournalIds: string[] = [];
+  let docNumberSnapshot: any[] = [];
 
   const year = new Date().getFullYear();
 
@@ -108,10 +117,12 @@ describe('Profit & Loss (e2e)', () => {
     ds = moduleFixture.get(DataSource);
     posting = moduleFixture.get(ACCOUNTING_POSTING_PORT);
     await seedAccounting(ds);
+    docNumberSnapshot = await ds.query(`SELECT * FROM document_number_settings`);
 
     const username = `pl-e2e-${Date.now()}`;
+    plUsername = username;
     const userRepo = ds.getRepository(User);
-    await userRepo.save(userRepo.create({
+    const saved = await userRepo.save(userRepo.create({
       username,
       email: `${username}@test.com`,
       password: await bcrypt.hash('Admin@123!', 12),
@@ -122,6 +133,7 @@ describe('Profit & Loss (e2e)', () => {
       isActive: true,
       failedLoginAttempts: 0,
     }));
+    plUserId = (saved as any).id;
     const loginRes = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ username, password: 'Admin@123!' });
@@ -130,8 +142,50 @@ describe('Profit & Loss (e2e)', () => {
   });
 
   afterAll(async () => {
-    if (ds?.isInitialized) await ds.destroy();
-    await app.close();
+    try {
+      if (ds?.isInitialized) {
+        // Journals first (accountId NO ACTION). Scoped to this suite's
+        // PL-E2E- prefix + tracked header ids (covers shared-account postings
+        // to 6990/4100 without touching seed CoA rows).
+        let journalIdsToDelete = [...new Set(ownedJournalIds)];
+        const prefixed: Array<{ id: string }> = await ds.query(
+          `SELECT id FROM journal_entry WHERE "sourceRef" LIKE 'PL-E2E-%'`,
+        );
+        for (const r of prefixed) journalIdsToDelete.push(r.id);
+        journalIdsToDelete = [...new Set(journalIdsToDelete)];
+        if (journalIdsToDelete.length) {
+          await ds.query(`DELETE FROM journal_entry WHERE id = ANY($1)`, [
+            journalIdsToDelete,
+          ]);
+        }
+        if (plUserId || plUsername) {
+          await removeSuiteTraces(ds, {
+            userIds: plUserId ? [plUserId] : [],
+            usernames: plUsername ? [plUsername] : [],
+            entityIds: journalIdsToDelete,
+          });
+        }
+        if (plUsername) {
+          await removeSuiteAdmin(ds, plUsername);
+        }
+        // Restore JE nextNumber bumped by the six postings (PKs unchanged).
+        for (const snap of docNumberSnapshot) {
+          await ds.query(
+            `UPDATE document_number_settings SET prefix=$1, "paddingDigits"=$2, "nextNumber"=$3, "lastResetYear"=$4 WHERE "documentName"=$5`,
+            [
+              snap.prefix,
+              snap.paddingDigits,
+              snap.nextNumber,
+              snap.lastResetYear,
+              snap.documentName,
+            ],
+          );
+        }
+      }
+    } finally {
+      if (ds?.isInitialized) await ds.destroy();
+      await app.close();
+    }
   });
 
   it('tie-out over real postings and stock-adjustment netting (baseline-and-delta)', async () => {
@@ -142,15 +196,17 @@ describe('Profit & Loss (e2e)', () => {
     const expenseAcc = await coaRepo.findOneByOrFail({ code: '6990' });
 
     // 1. Sales fulfilment: revenue + COGS
-    await ds.transaction((m) =>
-      posting.postSalesFulfillment({
+    await ds.transaction(async (m) => {
+      const res = await posting.postSalesFulfillment({
         salesOrderId: randomUUID(),
         sourceRef: `PL-E2E-FUL-${Date.now()}`,
         revenueAmount: SEEDED_REVENUE,
         cogsAmount: SEEDED_COGS,
         entryDate: `${year}-03-15`,
-      }, m),
-    );
+      }, m);
+      ownedJournalIds.push(res.revenueEntryId);
+      if (res.cogsEntryId) ownedJournalIds.push(res.cogsEntryId);
+    });
 
     // 2. Operating expense.
     //
@@ -165,25 +221,27 @@ describe('Profit & Loss (e2e)', () => {
     // incidental to every assertion below. Posting an opening balance against
     // 6990 gives the same P&L movement while touching only 6990 and Opening
     // Balance Equity (3200), which no other suite asserts on.
-    await ds.transaction((m) =>
-      posting.postOpeningBalance({
+    await ds.transaction(async (m) => {
+      const res = await posting.postOpeningBalance({
         accountId: expenseAcc.id,
         sourceRef: `PL-E2E-EXP-${Date.now()}`,
         amount: SEEDED_EXPENSE,
         entryDate: `${year}-04-10`,
-      }, m),
-    );
+      }, m);
+      ownedJournalIds.push(res.journalEntryId);
+    });
 
     // 3. Stock adjustment with both increase and decrease (balanced journal)
-    await ds.transaction((m) =>
-      posting.postStockAdjustment({
+    await ds.transaction(async (m) => {
+      const res = await posting.postStockAdjustment({
         adjustmentId: randomUUID(),
         sourceRef: `PL-E2E-ADJ-${Date.now()}`,
         increaseAmount: SEEDED_INCREASE,
         decreaseAmount: SEEDED_DECREASE,
         entryDate: `${year}-05-20`,
-      }, m),
-    );
+      }, m);
+      ownedJournalIds.push(res.journalEntryId);
+    });
 
     // 4. Reversal of a P&L posting.
     //
@@ -202,11 +260,13 @@ describe('Profit & Loss (e2e)', () => {
         entryDate: `${year}-06-01`,
       }, m);
       reversedEntryId = res.journalEntryId;
+      ownedJournalIds.push(reversedEntryId);
     });
     expect(reversedEntryId).toBeTruthy();
-    await ds.transaction((m) =>
-      posting.reverseEntry({ originalEntryId: reversedEntryId!, entryDate: `${year}-06-02` }, m),
-    );
+    await ds.transaction(async (m) => {
+      const res = await posting.reverseEntry({ originalEntryId: reversedEntryId!, entryDate: `${year}-06-02` }, m);
+      ownedJournalIds.push(res.journalEntryId);
+    });
 
     const after = await readReport(year);
 

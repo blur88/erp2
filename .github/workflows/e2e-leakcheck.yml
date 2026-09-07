@@ -1,0 +1,86 @@
+name: E2E Fixture Leak Check
+
+# Nightly and on-demand, never on PRs: this runs the full e2e suite TWICE.
+# A nightly run would still have caught all four leaks found in PR #1203.
+on:
+  schedule:
+    - cron: "0 8 * * *" # 08:00 UTC — after the working day in America/Los_Angeles
+  workflow_dispatch:
+
+jobs:
+  leakcheck:
+    name: E2E Fixture Leak Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    services:
+      postgres:
+        image: postgres:18.3-alpine
+        env:
+          POSTGRES_USER: erp_user
+          POSTGRES_PASSWORD: DevErpDb2024!Pass
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U erp_user"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:8.6-alpine
+        # noeviction is a correctness requirement for BullMQ, not tuning:
+        # evicted job hashes vanish with no error. See CLAUDE.md.
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.16.0
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run the leak check
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USERNAME: erp_user
+          DB_PASSWORD: DevErpDb2024!Pass
+          DB_SYNCHRONIZE: "false"
+          DB_SSL: "false"
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          REDIS_PASSWORD: ""
+          JWT_SECRET: test-secret-key-minimum-32chars-long-for-development
+          JWT_REFRESH_SECRET: test-refresh-secret-minimum-32chars-long-for-dev
+          LEAKCHECK_REPORT_DIR: ${{ github.workspace }}/leakcheck-reports
+        # Each nightly job starts from nothing, so --fresh is always correct
+        # here; both passes still share the one database.
+        run: npm run test:e2e:leakcheck -- --fresh
+
+      - name: Upload leak-check reports
+        # always(): the reports are most valuable exactly when the gate failed.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: leakcheck-reports
+          path: leakcheck-reports/
+          if-no-files-found: warn

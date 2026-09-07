@@ -222,13 +222,79 @@ It compiles `tsconfig.build.json` — the config `nest build` uses — deliberat
 Invariants that replaced it:
 
 - **Every Jest script carries `NODE_OPTIONS=--experimental-vm-modules`.** Running `npx jest` bare (or `--config ./test/jest-e2e.json` without the npm script prefix) silently disables vm-based ESM: `vm.SyntheticModule`/`SourceTextModule` do not exist without the flag, every `.ts` file is treated as CommonJS, and the first `import` of an ESM-only package (`@nestjs/testing`, `@nestjs/common`, …) throws `Must use import to load ES Module`. Symptoms read as config or import bugs; the cause is the missing flag. Always run through the npm scripts.
-- **A run that discovers zero tests must fail.** Both ESM failure modes — a suite that fails to load, and a whole run under the wrong module mode — report **`Tests: 0 total`**, which reads as green to a careless local reading. Jest itself exits non-zero in both cases (a suite that fails to load counts as a failed suite; a run that finds no tests is an error), so CI already fails on both — via the exit code and nothing else. **`--passWithNoTests` is what would break that**, converting zero-discovery into exit 0. It appears nowhere in this repo, and `scripts/__tests__/no-pass-with-no-tests.bats` (run by `npm run test:scripts`) keeps it that way across `package.json`, both `test/jest-*.json` configs, and `ci.yml`. Exact suite/test counts are deliberately not recorded here: they went stale on every commit that added a spec, and a stale count trains readers to wave through a mismatch — the exact reflex that would miss the real failure (#1164).
+- **A run that discovers zero tests must fail.** Both ESM failure modes — a suite that fails to load, and a whole run under the wrong module mode — report **`Tests: 0 total`**, which reads as green to a careless local reading. Jest itself exits non-zero in both cases (a suite that fails to load counts as a failed suite; a run that finds no tests is an error), so CI already fails on both — via the exit code and nothing else. **`--passWithNoTests` is what would break that**, converting zero-discovery into exit 0. It appears nowhere in this repo, and `scripts/__tests__/no-pass-with-no-tests.bats` (run by `npm run test:scripts`) keeps it that way across `package.json`, all `test/jest-*.json` configs, the leak-check orchestrator, and `ci.yml`. Exact suite/test counts are deliberately not recorded here: they went stale on every commit that added a spec, and a stale count trains readers to wave through a mismatch — the exact reflex that would miss the real failure (#1164).
 - **Jest's main-process hooks must not be `.ts`.** `globalSetup`/`globalTeardown` (`test/jest-e2e-global-setup.js`, `test/jest-e2e-global-teardown.js`) are plain CJS `.js` on purpose: Jest loads them via `require()` in its main process, where ts-jest compiles `.ts` to CJS but Node loads it as ESM (`exports is not defined in ES module scope`).
 - **`uuid` is shimmed in the e2e config only.** `test/jest-e2e.json` maps `^uuid$` to `test/__mocks__/uuid.cjs` (a `node:crypto.randomUUID` wrapper). uuid@14 is ESM-only and `exceljs` (CJS) does `require('uuid')`; when the full `AppModule` graph loads under Jest ESM, the CJS→ESM require cycle trips Jest's `ERR_REQUIRE_CYCLE_MODULE`. The unit suite is unaffected and uses the real package.
 - **NestJS 12 packages are ESM-only and the app stays CommonJS** (Node 24 `require(esm)`; `engines: >=24.0.0`). Two landmines surface only at runtime, not in ts-jest or `type-check`:
   - A package whose `exports` map lacks a `require`/`default` condition cannot be bare-`require`d — `@nestjs/typeorm@12.0.0` was exactly this (`ERR_PACKAGE_PATH_NOT_EXPORTED` at boot); 12.0.1 adds `default` and is pinned.
   - The Dockerfile pins `node:24.16.0-alpine3.23` — older 24.x lacks the `require(esm)` export-condition fallback that the import-only maps of the remaining packages need.
   `backend/scripts/verify-dist-runtime.sh` is the gate: it loads `dist/main.js` and now fails on both `MODULE_NOT_FOUND` and `ERR_PACKAGE_PATH_NOT_EXPORTED`. A bare `node dist/main.js` boot check remains the definitive test.
+
+**E2E fixture leaks are detected only by the nightly leak check** (#1204). The
+normal `npm run test:e2e` drops and recreates `erp_db_test` on every run, so a
+suite that leaves rows behind is indistinguishable from one that cleans up
+perfectly — that is how four real leaks passed every gate in PR #1203.
+
+```bash
+cd backend && npm run test:e2e:leakcheck            # reuse the retained database
+cd backend && npm run test:e2e:leakcheck -- --fresh # rebuild and re-baseline
+```
+
+It runs the suites twice against a persistent `erp_db_leakcheck_test` and
+asserts they restore a captured baseline. **Pass 2 is the point**: a suite whose
+cleanup depends on a clean slate passes pass 1 and fails pass 2.
+
+**The baseline is seeded, not migrated.** `admin` and `RETAIL` come from
+`OnModuleInit` seeders (`users-seeder.service.ts`,
+`price-lists-seeder.service.ts`), not from InitialSchema. After
+`migration:run` both `users` and `price_lists` are **empty**; they hold one row
+each only after the app boots. So `test/e2e-leakcheck-boot.ts` boots AppModule
+once between migrations and baseline capture. Remove that step and the two
+tables the gate is supposed to protect become its first false positives.
+
+That boot entry lives in `test/`, never under `src/database/cli/` — see the
+`tsconfig.cli.json` trap above.
+
+**Reuse is rejected on two migration comparisons, not one.** Stored-vs-applied
+compares the retained database to itself, so a newly pulled migration leaves it
+green; only applied-vs-expected-by-checkout catches that. Both run before any
+pass, and either mismatch requires `--fresh`.
+
+**Findings are reported as baseline drift, never as suite ownership.** The
+check compares database states and cannot know which suite wrote a row, so
+every report lists the same three causes: a suite leaked, the runtime seeds
+changed (re-run with `--fresh`), or the baseline was captured from an
+already-drifted database.
+
+**Every suite cleans its own request exhaust, not just its fixtures.**
+`resetSuiteBusinessRows` covers business rows and `removeSuiteAdmin` covers
+users (refresh tokens cascade), but every HTTP request also leaves
+`audit_logs` rows (domain services log every mutation) and every global search
+leaves a `search_queries` row. `test/utils/shared-e2e-traces-fixture.ts`
+(`removeSuiteTraces`) deletes those scoped to the suite's own user/entity ids —
+call it in `afterAll` before removing users. Scope to ids you own; never a bare
+`username = 'admin'`, which is shared. A new suite that makes audited requests
+and skips this turns the nightly gate red.
+
+**Sampler tables are excluded, deliberately.** `redis_memory_samples` and
+`redis_alert_state` are not captured or compared: the sampler writes a startup
+sample on every app boot plus an every-minute cron tick under per-boot
+instanceIds (~30 rows/pass), which no suite can prevent.
+
+They are **counted and reported, never diffed**. Every report ends with an
+`ignored (sampler, not suite-attributable)` section giving each table's
+baseline count, current count and signed delta — e.g.
+`redis_memory_samples: baseline 1, now 55 (+54)`. The counts live in the
+baseline's `excluded_counts` column (format version 2), which is why a delta is
+available at all. Nothing there can turn the gate red; the section exists so a
+green report still says out loud which tables went unchecked.
+
+Two blind spots, both deliberate: value changes on rows whose primary keys
+survive are invisible, and a seeder-code change surfaces mid-run as pass-1
+drift rather than at the reuse check.
+
+The gate is nightly and on-demand, **not** a required check — it runs the full
+e2e suite twice.
 
 **ioredis is 6.x and RESP2 is pinned deliberately (#1069)**: ioredis 6 defaults to `protocol: 3` (RESP3) where 5.x used RESP2. Every Redis client in this codebase passes **`protocol: 2`**, and that is a correctness pin, not leftover scaffolding.
 

@@ -5,6 +5,9 @@ import { DataSource } from 'typeorm';
 import { randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { configureTestAppValidation } from './utils/configure-test-app-validation';
+import { removeSuiteAdmin } from './utils/shared-e2e-fixture';
+import { resetSuiteBusinessRows } from './utils/shared-e2e-business-fixture';
+import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
 import { AppModule } from '../src/app.module';
 import { User, UserRole, UserStatus } from '../src/database/entities/user.entity';
 
@@ -12,6 +15,9 @@ describe('Required field validation (e2e) — #973', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let token: string;
+  let adminUsername: string;
+  let adminUserId: string;
+  let categoryId: string;
   let productId: string;
   let adjustmentId: string;
 
@@ -27,9 +33,10 @@ describe('Required field validation (e2e) — #973', () => {
     dataSource = moduleFixture.get<DataSource>(DataSource);
 
     // --- auth fixture ---
-    const username = `req-val-admin-${Date.now()}`;
+    adminUsername = `req-val-admin-${Date.now()}`;
+    const username = adminUsername;
     const userRepository = dataSource.getRepository(User);
-    await userRepository.save(
+    const savedUser = await userRepository.save(
       userRepository.create({
         username,
         email: `${username}@test.com`,
@@ -42,6 +49,7 @@ describe('Required field validation (e2e) — #973', () => {
         failedLoginAttempts: 0,
       }),
     );
+    adminUserId = savedUser.id;
 
     const login = await request(app.getHttpServer())
       .post('/auth/login')
@@ -50,7 +58,7 @@ describe('Required field validation (e2e) — #973', () => {
     expect(token).toBeTruthy();
 
     // --- inventory fixture: category + product (raw SQL, per existing e2e suites) ---
-    const categoryId = randomUUID();
+    categoryId = randomUUID();
     await dataSource.query(
       `INSERT INTO categories (id, name, slug, "isActive")
        VALUES ($1, 'ReqVal Cat ${categoryId}', 'reqval-cat-${categoryId}', true)`,
@@ -66,7 +74,49 @@ describe('Required field validation (e2e) — #973', () => {
   });
 
   afterAll(async () => {
-    if (dataSource?.isInitialized) await dataSource.destroy();
+    if (dataSource?.isInitialized) {
+      // Own-rows cleanup (issue #1204). Request exhaust (audit_logs from the
+      // stock-adjustment writes, search_queries from the /search/global probe)
+      // is deleted before the fixture rows it references.
+      const itemIds: string[] = adjustmentId
+        ? (
+            await dataSource.query(
+              `SELECT id FROM stock_adjustment_items WHERE "stockAdjustmentId" = $1`,
+              [adjustmentId],
+            )
+          ).map((r: { id: string }) => r.id)
+        : [];
+      await removeSuiteTraces(dataSource, {
+        userIds: adminUserId ? [adminUserId] : [],
+        usernames: adminUsername ? [adminUsername] : [],
+        entityIds: [categoryId, productId, adjustmentId, ...itemIds].filter(
+          Boolean,
+        ),
+      });
+      // logQuery floats its save (fire-and-forget), so a search row can land
+      // after the delete above — settle loop, same shape as search.e2e-spec.ts.
+      if (adminUserId) {
+        for (let i = 0; i < 6; i++) {
+          await removeSuiteTraces(dataSource, {
+            userIds: [adminUserId],
+            usernames: [adminUsername],
+          });
+          const remaining = await dataSource.query(
+            `SELECT count(*)::int AS n FROM search_queries WHERE "user_id" = $1`,
+            [adminUserId],
+          );
+          if (remaining[0].n === 0 && i > 0) break;
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      }
+      await resetSuiteBusinessRows(dataSource, {
+        categoryIds: categoryId ? [categoryId] : [],
+        stockAdjustmentIds: adjustmentId ? [adjustmentId] : [],
+      });
+      // Deleting the user cascades its refresh_tokens (onDelete: CASCADE).
+      if (adminUsername) await removeSuiteAdmin(dataSource, adminUsername);
+      await dataSource.destroy();
+    }
     await app.close();
   });
 

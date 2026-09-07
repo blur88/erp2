@@ -28,7 +28,9 @@ jest_surface_files() {
   printf '%s\n' \
     "${BACKEND_DIR}/package.json" \
     "${BACKEND_DIR}/test/jest-e2e.json" \
+    "${BACKEND_DIR}/test/jest-e2e-leakcheck.json" \
     "${BACKEND_DIR}/test/jest-redis.json" \
+    "${BACKEND_DIR}/scripts/verify-e2e-cleanup.sh" \
     "${REPO_DIR}/.github/workflows/ci.yml"
 }
 

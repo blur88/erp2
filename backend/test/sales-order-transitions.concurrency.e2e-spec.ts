@@ -35,6 +35,7 @@ import {
   seedProduct,
 } from "./e2e/helpers/seed";
 import { resetSuiteBusinessRows } from "./utils/shared-e2e-business-fixture";
+import { removeSuiteTraces } from "./utils/shared-e2e-traces-fixture";
 
 describe("Sales order transition concurrency (e2e)", () => {
   let app: INestApplication;
@@ -51,6 +52,12 @@ describe("Sales order transition concurrency (e2e)", () => {
   // (issue #1199). Each beforeEach seeds a fresh set rather than truncating.
   const ownedCategoryIds: string[] = [];
   const ownedCustomerIds: string[] = [];
+  // Dependent ids for traces/journal cleanup (issue #1204). Fulfil/payment
+  // calls auto-post journal_entry rows (lines CASCADE) and system-attributed
+  // audit_logs rows keyed by the acted-on row id — neither is covered by
+  // resetSuiteBusinessRows.
+  const ownedProductIds: string[] = [];
+  const ownedSalesOrderIds: string[] = [];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -69,10 +76,60 @@ describe("Sales order transition concurrency (e2e)", () => {
 
   afterAll(async () => {
     if (dataSource?.isInitialized) {
+      // Resolve dependent ids BEFORE anything is deleted.
+      const paymentRowIds: string[] = ownedSalesOrderIds.length
+        ? (
+            await dataSource.query(
+              `SELECT id FROM sales_order_payments WHERE "salesOrderId" = ANY($1)`,
+              [ownedSalesOrderIds],
+            )
+          ).map((r: { id: string }) => r.id)
+        : [];
+      const journalIds: string[] = ownedSalesOrderIds.length
+        ? (
+            await dataSource.query(
+              `SELECT id FROM journal_entry WHERE "sourceDocumentId" = ANY($1)`,
+              [ownedSalesOrderIds],
+            )
+          ).map((r: { id: string }) => r.id)
+        : [];
+      // System-attributed audit rows (userId 'system', null username) keyed by
+      // acted-on row id: orders, payment rows, journals, plus roots.
+      await removeSuiteTraces(dataSource, {
+        entityIds: [
+          ...ownedCategoryIds,
+          ...ownedCustomerIds,
+          ...ownedProductIds,
+          ...ownedSalesOrderIds,
+          ...paymentRowIds,
+          ...journalIds,
+        ],
+      });
+      // Auto-posted GL exhaust. Lines CASCADE from the header (verified FK).
+      // sourceEventId covers journals keyed by payment event rather than order.
+      if (ownedSalesOrderIds.length || paymentRowIds.length) {
+        await dataSource.query(
+          `DELETE FROM journal_entry WHERE "sourceDocumentId" = ANY($1) OR "sourceEventId" = ANY($2)`,
+          [
+            ownedSalesOrderIds.length
+              ? ownedSalesOrderIds
+              : ["00000000-0000-0000-0000-000000000000"],
+            paymentRowIds.length
+              ? paymentRowIds
+              : ["00000000-0000-0000-0000-000000000000"],
+          ],
+        );
+      }
       await resetSuiteBusinessRows(dataSource, {
         categoryIds: ownedCategoryIds,
         customerIds: ownedCustomerIds,
       });
+      // seedDocumentNumberSettings inserts 'Goods Received' (ON CONFLICT DO
+      // NOTHING). The baseline has no such row, so the suite owns it — remove
+      // it. 'Purchase Orders' already exists in the baseline and is left alone.
+      await dataSource.query(
+        `DELETE FROM document_number_settings WHERE "documentName" = 'Goods Received'`,
+      );
       await dataSource.destroy();
     }
 
@@ -92,6 +149,7 @@ describe("Sales order transition concurrency (e2e)", () => {
       baseCost: 100,
       stockQuantity: 1000,
     });
+    ownedProductIds.push(product.id);
     paymentMethod = await seedPaymentMethod(dataSource);
     await seedDocumentNumberSettings(dataSource);
 
@@ -142,6 +200,7 @@ describe("Sales order transition concurrency (e2e)", () => {
         totalAmount: total,
       }),
     );
+    ownedSalesOrderIds.push(order.id);
 
     return order;
   }

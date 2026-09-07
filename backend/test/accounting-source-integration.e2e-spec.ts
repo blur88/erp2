@@ -11,6 +11,8 @@ import { TrialBalanceService } from '../src/modules/accounting/services/trial-ba
 import { GeneralLedgerService } from '../src/modules/accounting/services/general-ledger.service';
 import { AccountingSourceType } from '../src/modules/accounting/entities/source-type.enum';
 import { PostingType } from '../src/modules/accounting/entities/posting-type.enum';
+import { resetSuiteBusinessRows } from './utils/shared-e2e-business-fixture';
+import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
 import { configureTestAppValidation } from './utils/configure-test-app-validation';
 
 const PO_ID = '00000000-0000-0000-0000-000000000010';
@@ -59,6 +61,10 @@ describe('Accounting Source Integration (e2e)', () => {
   let ledger: GeneralLedgerService;
   let trial: TrialBalanceService;
   let stockAdjustmentService: StockAdjustmentService;
+  // Concur fixtures owned by the concurrency test (issue #1204).
+  let concurCategoryId: string | null = null;
+  let concurProductId: string | null = null;
+  let docNumberSnapshot: any[] = [];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -74,22 +80,75 @@ describe('Accounting Source Integration (e2e)', () => {
     trial = moduleFixture.get(TrialBalanceService);
     stockAdjustmentService = moduleFixture.get(StockAdjustmentService);
     await seedAccounting(ds);
+    docNumberSnapshot = await ds.query(`SELECT * FROM document_number_settings`);
   });
 
   afterAll(async () => {
-    if (ds?.isInitialized) await ds.destroy();
-    await app.close();
+    try {
+      if (ds?.isInitialized) {
+        // Scoped journal cleanup (FK entryId CASCADEs to lines). All journals
+        // in this suite use PO_ID or ADJ_ID as sourceDocumentId, so this
+        // isolates tests without touching other suites' rows.
+        await ds.query(
+          `DELETE FROM journal_entry WHERE "sourceDocumentId" = ANY($1)`,
+          [[PO_ID, ADJ_ID]],
+        );
+        if (concurCategoryId || concurProductId || ADJ_ID) {
+          await resetSuiteBusinessRows(ds, {
+            categoryIds: concurCategoryId ? [concurCategoryId] : [],
+            productIds: concurProductId ? [concurProductId] : [],
+            stockAdjustmentIds: [ADJ_ID],
+          });
+          // Journals for ADJ_ID were already removed above; the business reset
+          // also clears stock_movements via productIds. Remove the completion
+          // audit (entityId = ADJ_ID) scoped to what this suite owns.
+          await removeSuiteTraces(ds, { entityIds: [ADJ_ID] });
+        }
+        // Restore doc-number values bumped by postings (PKs unchanged, but
+        // keep shared-DB reuse clean).
+        const current: any[] = await ds.query(
+          `SELECT * FROM document_number_settings`,
+        );
+        const snapByName = new Map(
+          docNumberSnapshot.map((r: any) => [r.documentName, r]),
+        );
+        for (const snap of docNumberSnapshot) {
+          await ds.query(
+            `UPDATE document_number_settings SET prefix=$1, "paddingDigits"=$2, "nextNumber"=$3, "lastResetYear"=$4 WHERE "documentName"=$5`,
+            [
+              snap.prefix,
+              snap.paddingDigits,
+              snap.nextNumber,
+              snap.lastResetYear,
+              snap.documentName,
+            ],
+          );
+        }
+        for (const row of current) {
+          if (!snapByName.has(row.documentName)) {
+            await ds.query(
+              `DELETE FROM document_number_settings WHERE "documentName" = $1`,
+              [row.documentName],
+            );
+          }
+        }
+      }
+    } finally {
+      if (ds?.isInitialized) await ds.destroy();
+      await app.close();
+    }
   });
 
-  // Clean all journal entries BEFORE and after each test, so each scenario starts
-  // from an empty ledger regardless of what other spec files/tests posted first
-  // (the other accounting spec accumulates entries and does not clean up).
-  const clearJournal = async () => {
-    await ds.query(`DELETE FROM journal_entry_line`);
-    await ds.query(`DELETE FROM journal_entry`);
+  // Scoped per-test isolation: only this suite's PO_ID/ADJ_ID journals are
+  // removed, never the whole table (which would destroy other suites' rows).
+  const clearOwnJournals = async () => {
+    await ds.query(
+      `DELETE FROM journal_entry WHERE "sourceDocumentId" = ANY($1)`,
+      [[PO_ID, ADJ_ID]],
+    );
   };
-  beforeEach(clearJournal);
-  afterEach(clearJournal);
+  beforeEach(clearOwnJournals);
+  afterEach(clearOwnJournals);
 
   describe('Purchase receive', () => {
     it('posts a PURCHASE_RECEIVE JE (Inventory ← Supplier Deposit) and stays balanced', async () => {
@@ -223,12 +282,14 @@ describe('Accounting Source Integration (e2e)', () => {
       // not a re-implemented lock, so this test would fail if complete()'s lock
       // were on the wrong connection.
       const categoryId = randomUUID();
+      concurCategoryId = categoryId;
       await ds.query(
         `INSERT INTO categories (id, name, slug, "isActive")
          VALUES ($1, 'Concur Cat ${categoryId}', 'concur-cat-${categoryId}', true)`,
         [categoryId],
       );
       const productId = randomUUID();
+      concurProductId = productId;
       await ds.query(
         `INSERT INTO products (id, name, slug, type, "categoryId", "baseCost", "stockQuantity", "isActive")
          VALUES ($1, 'Concur Product', 'concur-product-${productId}', 'Stocked Product', $2, 5, 10, true)`,
