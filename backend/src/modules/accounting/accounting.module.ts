@@ -16,6 +16,7 @@ import { JournalEntryService } from './services/journal-entry.service';
 import { GeneralLedgerService } from './services/general-ledger.service';
 import { TrialBalanceService } from './services/trial-balance.service';
 import { ProfitAndLossService } from './services/profit-and-loss.service';
+import { BalanceSheetService } from './services/balance-sheet.service';
 import { AccountingSeederService } from './services/accounting-seeder.service';
 import { ChartOfAccountController } from './controllers/chart-of-account.controller';
 import { AccountingSettingsController } from './controllers/accounting-settings.controller';
@@ -23,6 +24,7 @@ import { JournalEntryController } from './controllers/journal-entry.controller';
 import { GeneralLedgerController } from './controllers/general-ledger.controller';
 import { TrialBalanceController } from './controllers/trial-balance.controller';
 import { ProfitAndLossController } from './controllers/profit-and-loss.controller';
+import { BalanceSheetController } from './controllers/balance-sheet.controller';
 import { ExpenseController } from './controllers/expense.controller';
 import { FormBController } from './controllers/form-b.controller';
 import { FormBMappingController } from './controllers/form-b-mapping.controller';
@@ -39,13 +41,13 @@ import { ACCOUNTING_POSTING_PORT } from '../../common/accounting-posting/account
   ],
   controllers: [
     ChartOfAccountController, AccountingSettingsController, JournalEntryController,
-    GeneralLedgerController, TrialBalanceController, ProfitAndLossController, ExpenseController,
+    GeneralLedgerController, TrialBalanceController, ProfitAndLossController, BalanceSheetController, ExpenseController,
     FormBController, FormBMappingController,
   ],
   providers: [
     AccountingLookupService, AccountingPostingService, AccountBalanceService,
     ChartOfAccountService, AccountingSettingsService, JournalEntryService,
-    GeneralLedgerService, TrialBalanceService, ProfitAndLossService, AccountingSeederService,
+    GeneralLedgerService, TrialBalanceService, ProfitAndLossService, BalanceSheetService, AccountingSeederService,
     ExpenseService, ExpensePaymentService,
     FormBService, FormBMappingService,
     { provide: ACCOUNTING_POSTING_PORT, useExisting: AccountingPostingService },
