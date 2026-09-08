@@ -7,6 +7,9 @@ on:
     - cron: "0 8 * * *" # 08:00 UTC — after the working day in America/Los_Angeles
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   leakcheck:
     name: E2E Fixture Leak Check
