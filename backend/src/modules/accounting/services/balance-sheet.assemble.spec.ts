@@ -186,6 +186,38 @@ describe('assembleBalanceSheet', () => {
     expect(f.accounts[0]).toMatchObject({ code: '1900', amount: '120.0000' });
   });
 
+  it('flags a non-zero Opening Balance Equity balance EVEN WHEN it is also mapped', () => {
+    // Regression: OBE detection used to live inside the unmapped-account loop,
+    // after `if (mappedIds.has(a.id)) continue`. A misconfiguration that points
+    // another settings key at the OBE account made it "mapped", so the loop
+    // skipped it and a live clearing balance produced NO warning and a green
+    // "Balanced". A setup/clearing balance is a fact about the account's own
+    // balance, independent of how it happens to be mapped.
+    const out = assembleBalanceSheet(base({
+      // Capital is configured to point AT the Opening Balance Equity account.
+      settingsAccountIds: { ...SETTINGS, ownerCapitalAccountId: OBE },
+      atDate: new Map([[CASH, rm(90)], [OBE, -rm(90)]]),
+    }));
+    expect(out.balanceCheck.status).toBe('unavailable');
+    expect(out.balanceCheck.difference).toBeNull();
+    const obe = out.findings.find((x) => x.code === 'OPENING_BALANCE_EQUITY_NONZERO');
+    expect(obe).toBeDefined();
+    expect(obe!.accounts.map((a) => a.accountId)).toContain(OBE);
+    // Narrow first: the union types `reasons` as [] on settled statuses, so
+    // reading .code without this is a type error — the contract working.
+    if (out.balanceCheck.status !== 'unavailable') throw new Error('expected unavailable');
+    const reason = out.balanceCheck.reasons.find((r) => r.code === 'UNMAPPED_BALANCES')!;
+    expect(reason.accounts.map((a) => a.accountId)).toContain(OBE);
+  });
+
+  it('reports an unmapped OBE account only once', () => {
+    // It qualifies under BOTH scans; the blocking list is deduplicated by id.
+    const out = assembleBalanceSheet(base({ atDate: new Map([[OBE, -rm(50)]]) }));
+    if (out.balanceCheck.status !== 'unavailable') throw new Error('expected unavailable');
+    const reason = out.balanceCheck.reasons.find((r) => r.code === 'UNMAPPED_BALANCES')!;
+    expect(reason.accounts.filter((a) => a.accountId === OBE)).toHaveLength(1);
+  });
+
   it('forces unavailable on a non-zero Opening Balance Equity balance', () => {
     const out = assembleBalanceSheet(base({ atDate: new Map([[OBE, -rm(90)]]) }));
     expect(out.balanceCheck.status).toBe('unavailable');

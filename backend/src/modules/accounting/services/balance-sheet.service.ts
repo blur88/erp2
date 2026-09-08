@@ -65,7 +65,23 @@ export class BalanceSheetService {
     // of its own, so only the shared COA graph can invalidate it; a
     // selected-year tie-out failure leaves it standing.
     const hasFaults = structuralFaults.length > 0;
-    const priorProfitValid = !hasFaults;
+
+    // Only GRAPH faults invalidate N47.
+    //
+    // PlStructuralFault covers two different things. 'danglingParent' and
+    // 'parentCycle' break the account graph, so an account's TYPE membership is
+    // undefined — and N47 is a raw sum over types, so it cannot be trusted.
+    // 'missingConfiguredAccount' is a SETTINGS fault (it carries a settingKey):
+    // sales/COGS configuration is missing, which invalidates the classified
+    // netProfit behind N48 but says nothing about type membership. N47 never
+    // consults those settings and never routes through classify() — that is the
+    // spec's own argument for why N47 has no tie-out of its own — so nulling it
+    // on a settings fault contradicts the per-period rule.
+    const graphFaults = structuralFaults.filter(
+      (f: any) => f?.kind === 'danglingParent' || f?.kind === 'parentCycle',
+    );
+    const hasGraphFaults = graphFaults.length > 0;
+    const priorProfitValid = !hasGraphFaults;
     const netProfit = hasFaults || !tieOutOk ? null : toMinorUnits(plResult.netProfit);
 
     // Carry account identities through from the P&L integrity block. A finding
@@ -75,17 +91,35 @@ export class BalanceSheetService {
     // BalanceSheetAccountRef carries NO amount: a faulted account's
     // contribution is exactly what is undefined.
     const byIdForFindings = new Map(accounts.map((a) => [a.id, a]));
+
+    /**
+     * Flatten P&L integrity items into account refs.
+     *
+     * PlStructuralFault and PlAssignmentAnomaly carry their identities in a
+     * NESTED `accounts: Array<{accountId, code, name}>` — there is no top-level
+     * accountId. Reading `item.accountId` finds nothing and drops every
+     * identity silently, which is exactly what this did before: the faults
+     * surfaced with `accounts: []` and the warning could not name a single
+     * account. Deduplicated by id, since one account can appear in several
+     * faults.
+     */
     const toRefs = (items: unknown[]): BalanceSheetAccountRef[] => {
+      const seen = new Set<string>();
       const refs: BalanceSheetAccountRef[] = [];
       for (const item of items) {
-        const id = (item as any)?.accountId ?? (item as any)?.id ?? null;
-        if (typeof id !== 'string') continue;
-        const a = byIdForFindings.get(id);
-        refs.push({
-          accountId: id,
-          code: a?.code ?? (item as any)?.code ?? '',
-          name: a?.name ?? (item as any)?.name ?? '',
-        });
+        const nested = (item as any)?.accounts;
+        const entries = Array.isArray(nested) ? nested : [item];
+        for (const entry of entries) {
+          const id = (entry as any)?.accountId ?? (entry as any)?.id ?? null;
+          if (typeof id !== 'string' || seen.has(id)) continue;
+          seen.add(id);
+          const a = byIdForFindings.get(id);
+          refs.push({
+            accountId: id,
+            code: a?.code ?? (entry as any)?.code ?? '',
+            name: a?.name ?? (entry as any)?.name ?? '',
+          });
+        }
       }
       return refs;
     };
@@ -98,7 +132,13 @@ export class BalanceSheetService {
       // the spec's per-period rule nulls N47 and N48 together on faults. One
       // 'selectedYear' finding would leave a consumer filtering by scope unable
       // to see why N47 went null.
-      for (const scope of ['priorPeriod', 'selectedYear'] as const) {
+      // Only the scopes actually invalidated. A settings-only fault nulls N48
+      // alone, so emitting a priorPeriod finding would claim N47 is unknown
+      // while it renders a figure.
+      const scopes = hasGraphFaults
+        ? (['priorPeriod', 'selectedYear'] as const)
+        : (['selectedYear'] as const);
+      for (const scope of scopes) {
         profitFindings.push({
           code: 'PROFIT_STRUCTURAL_FAULTS', severity: 'integrity', scope,
           affectedLines: scope === 'priorPeriod' ? ['N47', 'N50'] : ['N48', 'N50'],

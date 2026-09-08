@@ -126,23 +126,51 @@ export function assembleBalanceSheet(input: AssembleInput): AssembleOutput {
   // in ledger reality but in no mapped row, and movement-based detection would
   // miss exactly that case.
   const unmapped: BalanceSheetAccountAmount[] = [];
-  const obeAccounts: BalanceSheetAccountAmount[] = [];
   for (const a of accounts) {
     if (!a.isPostable) continue;
     if (!BALANCE_SHEET_TYPES.has(a.type)) continue;
     if (mappedIds.has(a.id)) continue;
     const bal = naturalAt(a.id, atDate);
     if (bal === 0n) continue;
-    const ref: BalanceSheetAccountAmount = {
+    unmapped.push({
       accountId: a.id, code: a.code, name: a.name, amount: formatScale4(bal),
-    };
-    unmapped.push(ref);
-    // The configured Opening Balance Equity account maps to no LHDN line, so a
-    // non-zero balance there is an unmapped balance BY CONSTRUCTION — and also
-    // earns its own setup/clearing warning.
-    if (openingBalanceEquityAccountId && a.id === openingBalanceEquityAccountId) {
-      obeAccounts.push(ref);
+    });
+  }
+
+  // Opening Balance Equity is checked INDEPENDENTLY of the unmapped scan, not
+  // inside it.
+  //
+  // An earlier version detected it as a side effect of the loop above, on the
+  // reasoning that OBE "maps to no LHDN line, so it is unmapped BY
+  // CONSTRUCTION". That holds only while nothing else maps that account. If a
+  // misconfiguration points another settings key at it — ownerCapitalAccountId,
+  // say — the account becomes mapped, `mappedIds.has(a.id)` skips it before the
+  // OBE check is ever reached, and a live clearing balance silently produces NO
+  // warning and a green "Balanced". A setup/clearing balance is a fact about the
+  // account's own balance; it must not depend on how the account happens to be
+  // mapped.
+  const obeAccounts: BalanceSheetAccountAmount[] = [];
+  if (openingBalanceEquityAccountId) {
+    const obe = byId.get(openingBalanceEquityAccountId);
+    if (obe) {
+      const bal = naturalAt(obe.id, atDate);
+      if (bal !== 0n) {
+        obeAccounts.push({
+          accountId: obe.id, code: obe.code, name: obe.name, amount: formatScale4(bal),
+        });
+      }
     }
+  }
+
+  // The Balance Check is disqualified by EITHER condition. Deduplicated by id,
+  // because an unmapped OBE account legitimately appears in both scans and must
+  // be reported once.
+  const blockingIds = new Set<string>();
+  const blocking: BalanceSheetAccountAmount[] = [];
+  for (const ref of [...unmapped, ...obeAccounts]) {
+    if (blockingIds.has(ref.accountId)) continue;
+    blockingIds.add(ref.accountId);
+    blocking.push(ref);
   }
 
   // ---- Rows ---------------------------------------------------------------
@@ -238,12 +266,12 @@ export function assembleBalanceSheet(input: AssembleInput): AssembleOutput {
       accounts: refsForScope('priorPeriod'),
     });
   }
-  if (unmapped.length > 0) {
+  if (blocking.length > 0) {
     reasons.push({
       code: 'UNMAPPED_BALANCES', scope: null, affectedLines: ['N41', 'N45', 'N46'],
-      message: 'Unmapped account balances leave the official totals incomplete, so ' +
-               'the accounting equation cannot be validated.',
-      accounts: unmapped as [BalanceSheetAccountAmount, ...BalanceSheetAccountAmount[]],
+      message: 'Unmapped or unresolved clearing balances leave the official totals ' +
+               'incomplete, so the accounting equation cannot be validated.',
+      accounts: blocking as [BalanceSheetAccountAmount, ...BalanceSheetAccountAmount[]],
     });
   }
 

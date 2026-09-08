@@ -106,10 +106,19 @@ export default function BalanceSheetPage() {
 
   const query = useGetBalanceSheetQuery({ year })
 
-  // currentData is the report for THIS year; data may still point at the
-  // previous year's result while a refetch is in flight. The `?? data` keeps
-  // mocked responses (which carry only `data`) working.
-  const source = (query.currentData ?? query.data) as BalanceSheetResponse | undefined
+  // currentData is the report for THIS year's arguments; `data` may still hold
+  // the PREVIOUS year's result while a refetch is in flight or after one fails.
+  //
+  // Deliberately NO `?? query.data` fallback. That fallback defeats the guard
+  // it sits next to: when a year change errors, currentData is undefined and
+  // the page would silently render last year's figures under the new year's
+  // heading — the "no stale figures from another year" rule, inverted. Tests
+  // must mock `currentData`, the same field RTK Query populates.
+  const raw = query.currentData as BalanceSheetResponse | undefined
+
+  // Belt and braces: never render a payload whose year disagrees with the one
+  // requested, and never render at all once the query has errored.
+  const source = !query.isError && raw?.year === year ? raw : undefined
 
   // Feed the options back from each settled response. Guarded on a real change
   // so it cannot loop.

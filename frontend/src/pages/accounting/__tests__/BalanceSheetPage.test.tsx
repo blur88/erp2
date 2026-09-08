@@ -53,10 +53,15 @@ const baseResponse = (over: Partial<BalanceSheetResponse> = {}): BalanceSheetRes
 /** Render the page with a mocked query result. */
 const renderPage = (
   data: unknown,
-  opts: { isFetching?: boolean; isError?: boolean } = {},
+  opts: { isFetching?: boolean; isError?: boolean; staleData?: unknown } = {},
 ) => {
   mockUseGetBalanceSheetQuery.mockReturnValue({
-    data,
+    // BOTH fields, mirroring RTK Query: `currentData` is the result for the
+    // CURRENT arguments and is what the page reads; `data` is the last
+    // successful result for any arguments. `staleData` lets a test simulate a
+    // failed or in-flight year change, where they legitimately diverge.
+    data: opts.staleData ?? data,
+    currentData: opts.staleData !== undefined ? undefined : data,
     isFetching: opts.isFetching ?? false,
     isLoading: false,
     isError: opts.isError ?? false,
@@ -85,6 +90,28 @@ const responseWithContributors: BalanceSheetResponse = baseResponse({
 beforeEach(() => {
   vi.clearAllMocks()
   window.history.replaceState({}, '', '/')
+})
+
+describe('BalanceSheetPage — stale-data guards (regression)', () => {
+  it('does NOT render the previous year\'s figures when a year change fails', () => {
+    // currentData undefined (this year's query failed) while `data` still holds
+    // last year's successful result. A `?? data` fallback renders 9,999.00
+    // under the 2026 heading.
+    renderPage(undefined, {
+      isError: true,
+      staleData: baseResponse({ rows: buildRows({ N41: '9999.0000' }) }),
+    })
+    expect(screen.queryByText(/9,999\.00/)).not.toBeInTheDocument()
+    expect(
+      screen.getByText('Unable to load Balance Sheet. Please try again.'),
+    ).toBeInTheDocument()
+  })
+
+  it('does NOT render a payload whose year disagrees with the requested year', () => {
+    // URL asks for 2026; the payload is 2025.
+    renderPage(baseResponse({ year: 2025, rows: buildRows({ N41: '4321.0000' }) }))
+    expect(screen.queryByText(/4,321\.00/)).not.toBeInTheDocument()
+  })
 })
 
 describe('BalanceSheetPage', () => {
