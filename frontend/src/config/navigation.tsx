@@ -16,6 +16,7 @@ import { default as StockAdjustmentIcon } from '@mui/icons-material/SwapVert';
 import { default as SwapHorizIcon } from '@mui/icons-material/SwapHoriz';
 import { default as PriceCostingIcon } from '@mui/icons-material/PriceChange';
 import { default as AccountBalanceWalletIcon } from '@mui/icons-material/AccountBalanceWallet';
+import { default as AccountBalanceIcon } from '@mui/icons-material/AccountBalance';
 import { default as AccountTreeIcon } from '@mui/icons-material/AccountTree';
 import { default as ReceiptLongIcon } from '@mui/icons-material/ReceiptLong';
 import { default as MenuBookIcon } from '@mui/icons-material/MenuBook';
@@ -255,6 +256,13 @@ export const menuSections: MenuSection[] = [
             title: 'Profit & Loss',
             icon: <AssessmentIcon />,
             path: '/accounting/profit-and-loss',
+            roles: ALL_ROLES,
+          },
+          {
+            id: 'balance-sheet',
+            title: 'Balance Sheet',
+            icon: <AccountBalanceIcon />,
+            path: '/accounting/balance-sheet',
             roles: ALL_ROLES,
           },
           {
