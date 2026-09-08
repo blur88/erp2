@@ -6,6 +6,7 @@ import type {
   AccountType,
   AccountingSourceType,
   AccountingSettings,
+  BalanceSheetResponse,
   CreateOwnerEquityRequest,
   Expense,
   FormBCategory,
@@ -72,7 +73,7 @@ export interface ExpenseListParams {
 export const accountingApiSlice = createApi({
   reducerPath: 'accountingApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB', 'FormBMapping', 'OwnerEquity'],
+  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB', 'FormBMapping', 'OwnerEquity'],
   endpoints: (builder) => ({
     getAccountTree: builder.query<AccountTreeNode[], AccountTreeParams>({
       query: ({ search, type, isActive }) => {
@@ -96,12 +97,12 @@ export const accountingApiSlice = createApi({
     createAccount: builder.mutation<Account, Partial<Account>>({
       query: (body) => ({ url: '/accounting/accounts', method: 'POST', data: body }),
       transformResponse: normalizeSingle<Account>,
-      invalidatesTags: ['Account', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB'],
+      invalidatesTags: ['Account', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB'],
     }),
     updateAccount: builder.mutation<Account, { id: string; data: Partial<Account> }>({
       query: ({ id, data }) => ({ url: `/accounting/accounts/${id}`, method: 'PATCH', data }),
       transformResponse: normalizeSingle<Account>,
-      invalidatesTags: ['Account', 'ProfitAndLoss', 'FormB'],
+      invalidatesTags: ['Account', 'ProfitAndLoss', 'BalanceSheet', 'FormB'],
     }),
     getAccountingSettings: builder.query<AccountingSettings, void>({
       query: () => ({ url: '/accounting/settings' }),
@@ -111,7 +112,7 @@ export const accountingApiSlice = createApi({
     updateAccountingSettings: builder.mutation<AccountingSettings, Partial<AccountingSettings>>({
       query: (body) => ({ url: '/accounting/settings', method: 'PUT', data: body }),
       transformResponse: normalizeSingle<AccountingSettings>,
-      invalidatesTags: ['AccountingSettings', 'ProfitAndLoss', 'FormB'],
+      invalidatesTags: ['AccountingSettings', 'ProfitAndLoss', 'BalanceSheet', 'FormB'],
     }),
     getJournalEntries: builder.query<
       PaginatedResponse<JournalEntry>,
@@ -142,6 +143,11 @@ export const accountingApiSlice = createApi({
         query: (params) => ({ url: '/accounting/profit-and-loss', params }),
         transformResponse: normalizeSingle<ProfitAndLossResponse>,
         providesTags: ['ProfitAndLoss'],
+      }),
+      getBalanceSheet: builder.query<BalanceSheetResponse, { year: number }>({
+        query: (params) => ({ url: '/accounting/balance-sheet', params }),
+        transformResponse: normalizeSingle<BalanceSheetResponse>,
+        providesTags: ['BalanceSheet'],
       }),
       getFormB: builder.query<FormBResponse, { year: number }>({
         query: (params) => ({ url: '/accounting/profit-and-loss/form-b', params }),
@@ -218,7 +224,7 @@ export const accountingApiSlice = createApi({
       cancelExpense: builder.mutation<Expense, string>({
         query: (id) => ({ url: `/accounting/expenses/${id}/cancel`, method: 'POST' }),
         transformResponse: normalizeSingle<Expense>,
-        invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB'],
+        invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB'],
       }),
      uncancelExpense: builder.mutation<Expense, string>({
        query: (id) => ({ url: `/accounting/expenses/${id}/uncancel`, method: 'POST' }),
@@ -232,7 +238,7 @@ payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown
            data,
          }),
          transformResponse: normalizeSingle<Expense>,
-         invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB'],
+         invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB'],
        }),
        refundExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown> }>({
          query: ({ id, data }) => ({
@@ -241,7 +247,7 @@ payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown
            data,
          }),
          transformResponse: normalizeSingle<Expense>,
-         invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB'],
+         invalidatesTags: ['Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB'],
        }),
       getOwnerEquityList: builder.query<
         PaginatedResponse<OwnerEquityDocument>,
@@ -286,7 +292,7 @@ payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown
           data,
         }),
         transformResponse: normalizeSingle<OwnerEquityDocument>,
-        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB'],
+        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB'],
       }),
       refundOwnerEquity: builder.mutation<
         OwnerEquityDocument,
@@ -298,7 +304,7 @@ payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown
           data,
         }),
         transformResponse: normalizeSingle<OwnerEquityDocument>,
-        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB'],
+        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB'],
       }),
       completeOwnerEquity: builder.mutation<OwnerEquityDocument, { referenceNumber: string }>({
         query: ({ referenceNumber }) => ({
@@ -306,7 +312,7 @@ payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown
           method: 'POST',
         }),
         transformResponse: normalizeSingle<OwnerEquityDocument>,
-        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB'],
+        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB'],
         async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
           try {
             const { data } = await queryFulfilled;
@@ -326,7 +332,7 @@ payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown
           method: 'POST',
         }),
         transformResponse: normalizeSingle<OwnerEquityDocument>,
-        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'FormB'],
+        invalidatesTags: ['OwnerEquity', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB'],
         async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
           try {
             const { data } = await queryFulfilled;
@@ -373,6 +379,7 @@ export const {
   useLazyGetGeneralLedgerQuery,
   useGetTrialBalanceQuery,
   useGetProfitAndLossQuery,
+  useGetBalanceSheetQuery,
   useGetFormBQuery,
   useGetFormBMappingsQuery,
   useUpdateFormBMappingMutation,
