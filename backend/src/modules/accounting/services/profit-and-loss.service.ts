@@ -100,9 +100,16 @@ export class ProfitAndLossService {
     return years;
   }
 
-  async getProfitAndLoss(params: { year: number }): Promise<ProfitAndLossResponse> {
+  /**
+   * `to` overrides the year-end cutoff. The Balance Sheet passes its own
+   * asOfDate (min(businessToday, Dec 31)) so that N48 and the asset rows are
+   * bounded identically — a profit figure bounded at 31 December while assets
+   * are bounded at today would include future-dated entries on one side of the
+   * accounting equation only.
+   */
+  async getProfitAndLoss(params: { year: number; to?: string }): Promise<ProfitAndLossResponse> {
     const from = `${params.year}-01-01`;
-    const to = `${params.year}-12-31`;
+    const to = params.to ?? `${params.year}-12-31`;
 
     const [accountEntities, movementMap, availableYears, settings] = await Promise.all([
       this.coaRepo.find({ order: { code: 'ASC' } }),

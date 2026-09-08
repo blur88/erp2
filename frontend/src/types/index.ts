@@ -895,6 +895,78 @@ export interface FormBMappingRow {
   eligibility: FormBEligibility
 }
 
+// ---- LHDN Balance Sheet (#1187) ----
+
+/** formatScale4 output, or null. NEVER render null as '0.00' — use an em dash. */
+export type BalanceSheetAmount = string | null
+
+export type BalanceSheetSection =
+  | 'nonCurrentAssets' | 'otherAssets' | 'currentAssets' | 'liabilities' | 'ownersEquity'
+
+export interface BalanceSheetAccountRef {
+  accountId: string
+  code: string
+  name: string
+}
+
+export interface BalanceSheetAccountAmount extends BalanceSheetAccountRef {
+  amount: string
+}
+
+export interface BalanceSheetRow {
+  line: string
+  label: string
+  formula: string | null
+  section: BalanceSheetSection
+  kind: 'mapped' | 'computed' | 'derivedProfit'
+  isTotal: boolean
+  amount: BalanceSheetAmount
+  accounts: BalanceSheetAccountAmount[]
+}
+
+export type BalanceSheetProfitScope = 'priorPeriod' | 'selectedYear'
+
+/**
+ * Mirrors the backend contract EXACTLY, non-empty tuples included. Widening
+ * these to plain arrays would let a consumer construct an unmapped reason with
+ * no accounts — precisely the state the backend union makes unrepresentable.
+ */
+export type BalanceCheckReason =
+  | { code: 'UNMAPPED_BALANCES'; scope: null; affectedLines: string[]
+      message: string
+      accounts: [BalanceSheetAccountAmount, ...BalanceSheetAccountAmount[]] }
+  | { code: 'PROFIT_INTEGRITY'; scope: BalanceSheetProfitScope; affectedLines: string[]
+      message: string; accounts: BalanceSheetAccountRef[] }
+
+export type BalanceCheck =
+  | { status: 'balanced'; totalAssets: string; totalLiabilitiesAndEquity: string
+      difference: string; reasons: [] }
+  | { status: 'outOfBalance'; totalAssets: string; totalLiabilitiesAndEquity: string
+      difference: string; reasons: [] }
+  | { status: 'unavailable'; totalAssets: BalanceSheetAmount
+      totalLiabilitiesAndEquity: BalanceSheetAmount
+      difference: null; reasons: [BalanceCheckReason, ...BalanceCheckReason[]] }
+
+export type BalanceSheetFinding =
+  | { code: 'UNMAPPED_BALANCE_ACCOUNTS' | 'OPENING_BALANCE_EQUITY_NONZERO'
+      severity: 'warning'; scope: null; affectedLines: string[]
+      message: string
+      accounts: [BalanceSheetAccountAmount, ...BalanceSheetAccountAmount[]] }
+  | { code: 'PROFIT_STRUCTURAL_FAULTS' | 'PROFIT_TIE_OUT_FAILED' | 'PROFIT_ANOMALIES'
+      severity: 'integrity' | 'warning'; scope: BalanceSheetProfitScope
+      affectedLines: string[]; message: string; accounts: BalanceSheetAccountRef[] }
+
+export interface BalanceSheetResponse {
+  year: number
+  /** The effective cutoff the server used: min(businessToday, Dec 31). */
+  asOfDate: string
+  availableYears: number[]
+  /** ALWAYS all of N28-N50, in order. Never synthesise or omit a line. */
+  rows: BalanceSheetRow[]
+  balanceCheck: BalanceCheck
+  findings: BalanceSheetFinding[]
+}
+
 export {
   type Expense,
   type ExpenseDocumentStatus,

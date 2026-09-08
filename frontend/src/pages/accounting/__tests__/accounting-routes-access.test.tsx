@@ -30,6 +30,9 @@ vi.mock('../TrialBalancePage', () => ({
 vi.mock('../ProfitAndLossPage', () => ({
   default: () => <div>ACCOUNTING_PAGE</div>,
 }))
+vi.mock('../BalanceSheetPage', () => ({
+  default: () => <div>ACCOUNTING_PAGE</div>,
+}))
 vi.mock('../expenses/ExpensesPage', () => ({
   default: () => <div>ACCOUNTING_PAGE</div>,
 }))
@@ -84,7 +87,7 @@ describe('accounting routes are reachable by any authenticated role', () => {
   ] as const
 
   it('defines every accounting route', () => {
-    expect(accountingRoutes).toHaveLength(15)
+    expect(accountingRoutes).toHaveLength(16)
   })
 
   it.each(

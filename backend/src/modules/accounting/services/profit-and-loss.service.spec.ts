@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { ProfitAndLossService } from './profit-and-loss.service';
 import type { PlSection } from './profit-and-loss.types';
 
@@ -188,5 +189,21 @@ describe('ProfitAndLossService.getProfitAndLoss', () => {
     expect(res.sections.map((s) => s.key)).toEqual(['revenue', 'cogs', 'otherIncome', 'expenses']);
     expect(res.netProfit).toBe('0.0000');
     expect(res.totalCostOfSales).toBe('0.0000');
+  });
+
+  it('bounds the movement query at the supplied `to` date', async () => {
+    const { svc: service } = build([]);
+    const spy = jest.spyOn(service as any, 'getMovements').mockResolvedValue(new Map());
+    jest.spyOn(service as any, 'getAvailableYears').mockResolvedValue([2026]);
+    await service.getProfitAndLoss({ year: 2026, to: '2026-09-08' });
+    expect(spy).toHaveBeenCalledWith('2026-01-01', '2026-09-08');
+  });
+
+  it('defaults `to` to 31 December of the year', async () => {
+    const { svc: service } = build([]);
+    const spy = jest.spyOn(service as any, 'getMovements').mockResolvedValue(new Map());
+    jest.spyOn(service as any, 'getAvailableYears').mockResolvedValue([2026]);
+    await service.getProfitAndLoss({ year: 2026 });
+    expect(spy).toHaveBeenCalledWith('2026-01-01', '2026-12-31');
   });
 });
