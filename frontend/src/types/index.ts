@@ -956,6 +956,18 @@ export type BalanceSheetFinding =
       severity: 'integrity' | 'warning'; scope: BalanceSheetProfitScope
       affectedLines: string[]; message: string; accounts: BalanceSheetAccountRef[] }
 
+/**
+ * Presentation subtotals (#1212). NOT LHDN fields: they carry no N-code and
+ * never appear in `rows`. null means unknown and must render as an em dash.
+ * Mirrors backend BalanceSheetDerivedTotals.
+ */
+export interface BalanceSheetDerivedTotals {
+  /** N46 + N50. */
+  ownersEquity: BalanceSheetAmount
+  /** N45 + ownersEquity. Same value the Balance Check compares against. */
+  liabilitiesAndEquity: BalanceSheetAmount
+}
+
 export interface BalanceSheetResponse {
   year: number
   /** The effective cutoff the server used: min(businessToday, Dec 31). */
@@ -963,6 +975,7 @@ export interface BalanceSheetResponse {
   availableYears: number[]
   /** ALWAYS all of N28-N50, in order. Never synthesise or omit a line. */
   rows: BalanceSheetRow[]
+  derivedTotals: BalanceSheetDerivedTotals
   balanceCheck: BalanceCheck
   findings: BalanceSheetFinding[]
 }
