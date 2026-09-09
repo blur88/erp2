@@ -3,12 +3,6 @@ import path from 'node:path'
 import { expect, type Page, type TestInfo } from '@playwright/test'
 import { PDFDocument } from 'pdf-lib'
 
-/** Selectors whose subtrees are intentionally hidden in print. */
-export const PRINT_HIDDEN_SELECTORS = [
-  '[data-print-hide="true"]',
-  '.acct-print-detail-row',
-] as const
-
 export interface ClampFinding {
   tag: string
   className: string
@@ -16,6 +10,155 @@ export interface ClampFinding {
   height: string
   maxHeight: string
   reason: string
+}
+
+export interface ClipFinding {
+  /** The selector whose subtree the clip was found under. */
+  root: string
+  /** Where the clip actually is: the text element itself, or an ancestor. */
+  where: 'self' | 'ancestor'
+  tag: string
+  className: string
+  testId: string
+  overflowX: string
+  overflowY: string
+  textOverflow: string
+  scrollWidth: number
+  clientWidth: number
+  scrollHeight: number
+  clientHeight: number
+  /** First ~80 chars of the clipped element's text, to identify it in a report. */
+  text: string
+  reason: string
+}
+
+/**
+ * Detect CONTENT CLIPPING inside a report subtree (review finding 1).
+ *
+ * Why text comparison cannot do this. `text-overflow: ellipsis` does not change
+ * `innerText` — the DOM text is intact, only the painted glyphs are cut — and a
+ * Chromium probe confirmed a print-only `width:80px; overflow:hidden;
+ * text-overflow:ellipsis` passed BOTH the screen/print text-equality check and
+ * `toBeVisible()`. The ancestor clamp scan missed it too, because the clip sat
+ * on the text element itself rather than on an ancestor of the print block.
+ *
+ * What this checks instead: the geometric definition of clipping. A box whose
+ * `scrollWidth`/`scrollHeight` exceeds its `clientWidth`/`clientHeight` while
+ * its overflow on that axis is `hidden` or `clip` is painting less than it
+ * holds. Both the element AND its in-report ancestors are walked, so a clip
+ * applied at any level in between is caught.
+ *
+ * Scoped to `root`'s subtree so an app-shell box outside the report cannot
+ * produce a finding, and the walk stops at `root` for the same reason.
+ *
+ * Deliberately runs against the LIVE styled elements under whatever media mode
+ * is currently emulated — never a detached clone, which print CSS cannot reach.
+ */
+export async function scanContentClipping(
+  page: Page,
+  root: string,
+  itemSelector: string,
+): Promise<ClipFinding[]> {
+  return page.evaluate(
+    ({ root, itemSelector }) => {
+      const rootEl = document.querySelector(root)
+      if (!rootEl) return [{ fatal: `root selector ${root} matched nothing` }] as any
+
+      // 1px tolerance: sub-pixel layout rounding routinely makes scrollWidth
+      // exceed clientWidth by a fraction on a box that is not clipping at all.
+      // A real ellipsis truncation overflows by far more than this.
+      const TOLERANCE = 1
+      const CLIPPING = new Set(['hidden', 'clip'])
+      const findings: any[] = []
+      const seen = new Set<Element>()
+
+      const inspect = (el: Element, where: 'self' | 'ancestor') => {
+        if (seen.has(el)) return
+        seen.add(el)
+        const s = getComputedStyle(el)
+        const reasons: string[] = []
+        if (
+          CLIPPING.has(s.overflowX) &&
+          el.scrollWidth - el.clientWidth > TOLERANCE &&
+          el.clientWidth > 0
+        ) {
+          reasons.push(
+            `horizontal: scrollWidth=${el.scrollWidth} > clientWidth=${el.clientWidth} with overflow-x=${s.overflowX}`,
+          )
+        }
+        if (
+          CLIPPING.has(s.overflowY) &&
+          el.scrollHeight - el.clientHeight > TOLERANCE &&
+          el.clientHeight > 0
+        ) {
+          reasons.push(
+            `vertical: scrollHeight=${el.scrollHeight} > clientHeight=${el.clientHeight} with overflow-y=${s.overflowY}`,
+          )
+        }
+        if (reasons.length === 0) return
+        findings.push({
+          root,
+          where,
+          tag: el.tagName.toLowerCase(),
+          className: typeof el.className === 'string' ? el.className : '',
+          testId: el.getAttribute('data-testid') ?? '',
+          overflowX: s.overflowX,
+          overflowY: s.overflowY,
+          textOverflow: s.textOverflow,
+          scrollWidth: el.scrollWidth,
+          clientWidth: el.clientWidth,
+          scrollHeight: el.scrollHeight,
+          clientHeight: el.clientHeight,
+          text: ((el as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim().slice(0, 80),
+          reason: reasons.join('; '),
+        })
+      }
+
+      for (const item of Array.from(rootEl.querySelectorAll(itemSelector))) {
+        inspect(item, 'self')
+        // ...and every box between the text element and the report root. The
+        // clip that hides a long name may well be on a wrapping cell or column
+        // container rather than on the text node's own element.
+        let el: Element | null = item.parentElement
+        while (el && el !== rootEl.parentElement) {
+          inspect(el, 'ancestor')
+          if (el === rootEl) break
+          el = el.parentElement
+        }
+      }
+      return findings
+    },
+    { root, itemSelector },
+  ) as unknown as Promise<ClipFinding[]>
+}
+
+/**
+ * Fail when any print-visible content in `root` is geometrically clipped.
+ *
+ * `itemSelector` must select the text-bearing elements that matter — the rows
+ * and cells whose content is the report. Passing a selector that matches
+ * nothing is itself a failure: a scan over zero elements is exactly the vacuous
+ * green this gate exists to prevent.
+ */
+export async function assertNoContentClipping(
+  page: Page,
+  root: string,
+  itemSelector: string,
+) {
+  const matched = await page.locator(`${root} ${itemSelector}`).count()
+  expect(
+    matched,
+    `clipping scan matched no "${itemSelector}" under ${root}; a scan over zero elements proves nothing`,
+  ).toBeGreaterThan(0)
+
+  const findings = await scanContentClipping(page, root, itemSelector)
+  expect(
+    findings,
+    `print-visible content under ${root} is CLIPPED (scrollWidth/Height exceeds ` +
+      `clientWidth/Height on a hidden-overflow box). text-overflow: ellipsis does ` +
+      `not change innerText, so text equality cannot see this:\n` +
+      JSON.stringify(findings, null, 2),
+  ).toEqual([])
 }
 
 /** A row must be visible with a non-zero box — jsdom can assert neither. */
@@ -113,45 +256,187 @@ export async function liveRowText(page: Page, selector: string): Promise<string>
     .evaluate((el) => ((el as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim())
 }
 
+/** Escape a literal for embedding in a RegExp. */
+const escapeRegExp = (literal: string) => literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
 /**
- * Assert an explicitly expected row is visible with a non-zero box AND renders
- * the expected text, under whichever media mode is currently emulated.
+ * Assert an element renders EXACTLY one signed money figure (review finding 3).
+ *
+ * The previous checks were satisfiable by wrong results. `/^\(|-/` was applied
+ * to a whole Balance Sheet row and its `-` branch was unanchored, so the hyphen
+ * in "Current-year Profit / Loss" satisfied it even when the amount was
+ * positive; `toContain('0.00')` accepts "10.00"; and several rows were asserted
+ * with `expectedText: ''`, which asserts nothing at all.
+ *
+ * `expected` is the signed decimal as `formatCurrency` renders the digits, e.g.
+ * "-1,234.56" or "0.00". The element's text must be exactly that, optionally
+ * preceded by a currency prefix — `formatCurrency` emits
+ * `${symbol} ${Intl.NumberFormat('en-MY').format(v)}`, and the symbol comes from
+ * regional settings (MYR on the gate stack, 'RM' with no settings cached), so
+ * pinning the symbol would make the assertion environment-dependent while
+ * pinning the digits and the SIGN is what actually catches a wrong figure.
+ *
+ * en-MY renders negatives with a LEADING MINUS. Parentheses never occur, so no
+ * parenthesised alternative is accepted: allowing one would let an unexpected
+ * accounting format pass unnoticed.
  */
-export async function assertRowRenders(page: Page, selector: string, expectedText: string) {
+export async function assertExactAmount(page: Page, selector: string, expected: string) {
+  const locator = page.locator(selector)
+  await expect(locator, `${selector} must match exactly one element`).toHaveCount(1)
   await assertVisibleWithBox(page, selector)
   const text = await liveRowText(page, selector)
-  expect(text, `${selector} rendered text`).toContain(expectedText)
+  // Anchored on both ends. `[^\d(-]*` is the optional currency prefix: it can
+  // contain no digit, no minus and no parenthesis, so it can never swallow part
+  // of the figure or hide a sign.
+  const pattern = new RegExp(`^[^\\d(-]*${escapeRegExp(expected)}$`)
+  expect(
+    text,
+    `${selector} must render exactly ${JSON.stringify(expected)} (optionally currency-prefixed); ` +
+      `got ${JSON.stringify(text)}`,
+  ).toMatch(pattern)
   return text
 }
 
 /**
- * Screen/print equality, asserted per expected row on the live page.
+ * One-evaluation read of visibility + text for MANY selectors under the media
+ * mode currently emulated.
  *
- * Each row is read under screen media, then re-read under print media after
- * emulateMedia, and the two must match. Because both reads hit the live,
- * styled element, a print rule that hides or blanks a row makes this fail —
- * which is the whole point.
+ * `assertRowRenders` costs several round trips per row (locator visibility,
+ * bounding box, innerText), which is why the spec previously asserted only a
+ * three-row spread — and why hiding any of the other twelve fixture accounts
+ * passed (review finding 2). This reads every row in a single page.evaluate, so
+ * asserting all of them costs one round trip per media mode instead of per row.
+ *
+ * Visibility is decided in the page from the RENDERED GEOMETRY and computed
+ * style, not from innerText: a Chromium probe confirmed a hidden element's
+ * `innerText` can still return its text, so text alone does not prove a row is
+ * on the page. A row must have a non-zero client box AND a non-`none` display
+ * AND non-`hidden` visibility AND non-zero opacity, on itself and on every
+ * ancestor.
  */
-export async function assertScreenPrintEquality(
+export interface RowRead {
+  selector: string
+  count: number
+  visible: boolean
+  width: number
+  height: number
+  text: string
+  /** Why it was judged invisible, for the failure message. */
+  hiddenBy: string
+}
+
+export async function readRows(page: Page, selectors: string[]): Promise<RowRead[]> {
+  return page.evaluate((sels) => {
+    return sels.map((selector) => {
+      const nodes = document.querySelectorAll(selector)
+      if (nodes.length !== 1) {
+        return {
+          selector,
+          count: nodes.length,
+          visible: false,
+          width: 0,
+          height: 0,
+          text: '',
+          hiddenBy: `selector matched ${nodes.length} elements, expected exactly 1`,
+        }
+      }
+      const el = nodes[0] as HTMLElement
+      const rect = el.getBoundingClientRect()
+      let hiddenBy = ''
+      // Walk self + ancestors: display:none on ANY of them removes the row,
+      // and that is exactly how a print rule hides content.
+      let node: Element | null = el
+      while (node && node !== document.documentElement && !hiddenBy) {
+        const s = getComputedStyle(node)
+        const tag = node.tagName.toLowerCase()
+        const cls = typeof node.className === 'string' ? node.className : ''
+        const id = node.getAttribute('data-testid')
+        const who = id ? `[data-testid="${id}"]` : `${tag}${cls ? '.' + cls.split(/\s+/).join('.') : ''}`
+        if (s.display === 'none') hiddenBy = `${who} has display:none`
+        else if (s.visibility === 'hidden' || s.visibility === 'collapse') {
+          hiddenBy = `${who} has visibility:${s.visibility}`
+        } else if (Number(s.opacity) === 0) hiddenBy = `${who} has opacity:0`
+        node = node.parentElement
+      }
+      if (!hiddenBy && rect.width <= 0) hiddenBy = `zero width (${rect.width})`
+      if (!hiddenBy && rect.height <= 0) hiddenBy = `zero height (${rect.height})`
+      return {
+        selector,
+        count: 1,
+        visible: hiddenBy === '',
+        width: rect.width,
+        height: rect.height,
+        text: (el.innerText ?? '').replace(/\s+/g, ' ').trim(),
+        hiddenBy,
+      }
+    })
+  }, selectors) as unknown as Promise<RowRead[]>
+}
+
+/**
+ * Screen/print equality + visibility for EVERY given row, in two passes.
+ *
+ * Replaces the representative-spread approach: a report is either complete on
+ * paper or it is a defect, and "first, middle and last" left twelve of fifteen
+ * fixture accounts with no print-visibility assertion at all.
+ *
+ * Every failure is COLLECTED and reported together, so one hidden row does not
+ * mask the other fourteen — a partial print is diagnosed in one run.
+ */
+export async function assertAllRowsRenderInBothMedia(
   page: Page,
   rows: { selector: string; expectedText: string }[],
 ) {
+  expect(rows.length, 'no rows given to assert; a zero-row pass proves nothing').toBeGreaterThan(0)
+  const selectors = rows.map((r) => r.selector)
+  const expectedBySelector = new Map(rows.map((r) => [r.selector, r.expectedText]))
+
   await page.emulateMedia({ media: 'screen' })
-  const onScreen: Record<string, string> = {}
-  for (const row of rows) {
-    onScreen[row.selector] = await assertRowRenders(page, row.selector, row.expectedText)
-  }
+  const screenReads = await readRows(page, selectors)
 
   await page.emulateMedia({ media: 'print' })
-  for (const row of rows) {
-    await assertVisibleWithBox(page, row.selector)
-    const printed = await liveRowText(page, row.selector)
-    expect(
-      printed,
-      `${row.selector}: printed text must equal screen text (screen="${onScreen[row.selector]}")`,
-    ).toBe(onScreen[row.selector])
+  const printReads = await readRows(page, selectors)
+
+  const screenBySelector = new Map(screenReads.map((r) => [r.selector, r]))
+  const problems: string[] = []
+
+  for (const read of screenReads) {
+    if (!read.visible) {
+      problems.push(`SCREEN ${read.selector}: not visible — ${read.hiddenBy}`)
+      continue
+    }
+    const expected = expectedBySelector.get(read.selector)!
+    if (expected && !read.text.includes(expected)) {
+      problems.push(
+        `SCREEN ${read.selector}: expected text ${JSON.stringify(expected)} absent from ${JSON.stringify(read.text)}`,
+      )
+    }
   }
-  return onScreen
+
+  for (const read of printReads) {
+    const onScreen = screenBySelector.get(read.selector)!
+    if (!read.visible) {
+      problems.push(
+        `PRINT ${read.selector}: not visible under print media — ${read.hiddenBy} ` +
+          `(screen text was ${JSON.stringify(onScreen.text)})`,
+      )
+      continue
+    }
+    if (read.text !== onScreen.text) {
+      problems.push(
+        `PRINT ${read.selector}: printed text ${JSON.stringify(read.text)} !== ` +
+          `screen text ${JSON.stringify(onScreen.text)}`,
+      )
+    }
+  }
+
+  expect(
+    problems,
+    `${problems.length} of ${rows.length} rows failed print visibility / screen-print equality:\n` +
+      problems.join('\n'),
+  ).toEqual([])
+
+  return { screenReads, printReads }
 }
 
 /**
