@@ -72,7 +72,7 @@ prerequisite.
 
 ## BS-P3 — Print / PDF (#1212) — REQUIRED BEFORE MERGE
 
-**This is the gate no automated test can stand in for.** Do not mark a Balance
+**The jsdom suite alone cannot satisfy this gate.** Do not mark a Balance
 Sheet change verified on the strength of the frontend suite alone.
 
 **Precondition:** BS-P1 passed. Open the browser print preview (Ctrl/Cmd-P) on a
