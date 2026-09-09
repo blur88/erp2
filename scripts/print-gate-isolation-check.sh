@@ -232,40 +232,115 @@ fi
 #    every container and network, and what a divergence would silently split in
 #    two (one stack built, a different one torn down).
 #
-#    Matching is on the project name as an ARGUMENT or string literal, not on
-#    prose: the first version of this check flagged its own explanatory comment,
-#    which is a false positive but also a useful reminder that a grep over
-#    source is matching comments too.
-EXPECTED_PROJECT="erp_print_gate"
+#    EXTRACTION IS USAGE-SHAPED, AND THAT IS THE WHOLE CHECK. The first two
+#    versions asked whether the literal `erp_print_gate` appeared ANYWHERE in
+#    the file. It always did — print-fixture.ts carries it in a docblock at
+#    :291, in GATE_DB_NAME at :296 and as the DB USER at :381, and this script
+#    carries it in its own prose. So renaming the real usage
+#    (`PRINT_GATE_PROJECT ?? 'erp_print_gate'`) left three unrelated
+#    occurrences satisfying the check, and it passed green: `-p erp_gate`,
+#    `-p print_gate` and `-p erp_printgate` were all accepted. A check that
+#    cannot detect the rename it exists to detect is worse than none, because
+#    it reads as coverage.
+#
+#    So: pull the token OUT of the usage with a pattern shaped like the usage
+#    (`-p <token>` for shell/YAML, `PRINT_GATE_PROJECT ?? '<token>'` for TS),
+#    require every site to yield at least one, and require exactly ONE distinct
+#    value across all of them. A comment can no longer answer for a usage, and a
+#    reformat that hides the usage yields zero and FAILS rather than passing.
 project_sites=(
   "scripts/print-gate-isolation-check.sh"
   "scripts/print-gate-up.sh"
   ".github/workflows/ci.yml"
   "frontend/e2e/fixtures/print-fixture.ts"
 )
+
+# Extract every project token a site actually USES, one per line.
+#   shell / YAML : -p <token>   (also `-p` on its own line, as ci.yml renders it)
+#   TypeScript   : PRINT_GATE_PROJECT ?? '<token>'
+#
+# COMMENTS ARE STRIPPED FIRST, per language. Without that the pattern matches
+# prose: this script documents `-p erp_gate` as a value that used to pass, and
+# a bare grep counted it as a usage. That is the same "a grep over source
+# matches comments too" trap as the substring version, arriving from the other
+# direction — there prose stood IN FOR a usage, here prose masqueraded AS one.
+# Stripping comments is what makes the pattern mean "usage".
+#
+# Stripping only ever REMOVES candidate text, so its failure mode is a false
+# "no usage found", which fails closed. An earlier attempt used a
+# `/\/\*/,/\*\//d` sed range for TS block comments; in ci.yml an unmatched `/*`
+# opened a range that never closed and silently deleted the rest of the file,
+# which is exactly the fail-open this check must not have. Language-specific
+# now, and line-oriented only.
+strip_comments() {
+  case "$1" in
+    *.ts|*.tsx)
+      # Line comments, and single-line /* ... */. Multi-line block comments are
+      # left alone deliberately — see above — but their content cannot produce a
+      # false PASS, only a spurious extra token, which the "more than one
+      # project name" branch reports rather than swallowing.
+      sed -e 's://.*$::' -e 's:/\*[^*]*\*/::g' "$1"
+      ;;
+    *)
+      # shell and YAML both comment with #.
+      sed -e 's:#.*$::' "$1"
+      ;;
+  esac
+}
+
+extract_project_tokens() {
+  local stripped
+  stripped="$(strip_comments "$1")"
+  {
+    # `-p <token>`, but only where <token> looks like a compose project name:
+    # lowercase alphanumerics with _ or -. This script's own strings contain
+    # prose like "-p value" and "-p project" inside double-quoted fail()
+    # messages that # -stripping cannot reach, so the token shape carries the
+    # rest of the discrimination. A real project name always contains a
+    # separator, which no English word in those messages does.
+    printf '%s\n' "$stripped" \
+      | grep -oE '(^|[^-[:alnum:]])-p[[:space:]]+[a-z0-9]+[a-z0-9_-]*[_-][a-z0-9_-]*' \
+      | grep -oE '[a-z0-9][a-z0-9_-]*$' || true
+    printf '%s\n' "$stripped" \
+      | grep -oE "PRINT_GATE_PROJECT[[:space:]]*\?\?[[:space:]]*['\"][A-Za-z0-9_-]+" \
+      | grep -oE "[A-Za-z0-9_-]+$" || true
+  } | sort -u
+}
+
+project_values=""
 for site in "${project_sites[@]}"; do
   if [ ! -r "$site" ]; then
     fail "compose-argument site $site is missing or unreadable"
     continue
   fi
-  # Every site must mention -p / PRINT_GATE_PROJECT with the same project name,
-  # and must not mention any OTHER erp_print_gate-like project name.
-  if ! grep -q "$EXPECTED_PROJECT" "$site"; then
-    fail "compose-argument site $site does not mention the gate project name $EXPECTED_PROJECT"
+
+  tokens="$(extract_project_tokens "$site")"
+  if [ -z "$tokens" ]; then
+    # Fail CLOSED. Zero extractions means the usage moved or was reformatted
+    # out of the pattern's reach — never that the site agrees.
+    fail "compose-argument site $site yields no project name from a real usage (\`-p <name>\` or \`PRINT_GATE_PROJECT ?? '<name>'\`); a comment mentioning the name does not count, and a reformat must fail here rather than pass"
+    continue
   fi
-  # Only real usages: -p <name>, PRINT_GATE_PROJECT ?? '<name>', or a quoted
-  # literal. Bare prose mentions are ignored.
-  other="$(grep -oE "(-p +|PRINT_GATE_PROJECT[^']*'|[\"'])erp_print_gate[A-Za-z0-9_]+" "$site" \
-    | grep -oE "erp_print_gate[A-Za-z0-9_]+" | sort -u | paste -sd, - || true)"
-  if [ -n "$other" ]; then
-    fail "compose-argument site $site names a DIFFERENT gate project: $other (expected $EXPECTED_PROJECT)"
+  if [ "$(printf '%s\n' "$tokens" | wc -l)" -gt 1 ]; then
+    fail "compose-argument site $site uses MORE THAN ONE project name: $(printf '%s' "$tokens" | paste -sd, -)"
   fi
-  # Both override files must be named wherever compose files are listed at all.
+  project_values="$project_values$tokens
+"
+
+  # Both compose files must be named wherever compose files are listed at all.
   if grep -q "docker-compose.print-gate.yml" "$site" \
      && ! grep -q "docker-compose.yml" "$site"; then
     fail "compose-argument site $site names docker-compose.print-gate.yml without the base docker-compose.yml; the override would not merge onto the base"
   fi
 done
+
+# Exactly one distinct value across every site.
+distinct_projects="$(printf '%s' "$project_values" | grep -v '^$' | sort -u)"
+distinct_count="$(printf '%s\n' "$distinct_projects" | grep -c . || true)"
+if [ "$distinct_count" -gt 1 ]; then
+  fail "compose-argument sites disagree on the gate project name: $(printf '%s' "$distinct_projects" | paste -sd, -)
+  Every site must pass the same -p value, or one stack is built and a different one torn down."
+fi
 
 # 5. nginx must not be part of the gate's service set.
 if [ "$(read_field has_nginx)" = "True" ]; then

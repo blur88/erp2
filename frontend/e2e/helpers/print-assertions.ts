@@ -134,18 +134,30 @@ export async function scanContentClipping(
         })
       }
 
-      /** True when the element has a non-empty text node of its own. */
-      const holdsText = (el: Element) =>
-        Array.from(el.childNodes).some(
-          (n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim().length > 0,
-        )
+      /**
+       * True when the element renders text ANYWHERE beneath it.
+       *
+       * Deliberately not "has a direct text child". That narrower test left a
+       * real gap: an intermediate wrapper holding no text of its own was in
+       * neither walk — not a descendant that holds text, and not an ancestor,
+       * because the upward walk starts at `item.parentElement`. Concretely the
+       * `flex: 1` Box between `bs-row-*` and its label Typography
+       * (BalanceSheetPage.tsx:257), which is a plausible place to put a clip:
+       * it is the box that owns the label column's width.
+       *
+       * Empty wrappers and icon-only boxes still contribute nothing, because
+       * they render no text — which is the property that actually matters for
+       * "did something get cut off", rather than where the text node sits.
+       */
+      const holdsText = (el: Element) => ((el as HTMLElement).innerText ?? '').trim().length > 0
 
       for (const item of Array.from(rootEl.querySelectorAll(itemSelector))) {
         inspect(item, 'self')
 
-        // DOWNWARD: the text usually lives below the matched element. Limited to
-        // descendants that directly hold text, so the finding names the box that
-        // actually clips content rather than every empty wrapper or icon.
+        // DOWNWARD: the text usually lives below the matched element, and so do
+        // the boxes that size it. Every descendant that renders text is
+        // inspected, so no level between the matched element and the text is
+        // skipped.
         for (const child of Array.from(item.querySelectorAll('*'))) {
           if (holdsText(child)) inspect(child, 'descendant')
         }
@@ -179,7 +191,17 @@ export async function assertNoContentClipping(
   root: string,
   itemSelector: string,
 ) {
-  const matched = await page.locator(`${root} ${itemSelector}`).count()
+  // Every alternative must be root-scoped individually. `${root} ${a}, ${b}`
+  // parses as "${root} ${a}" OR "${b}" — only the FIRST alternative is scoped,
+  // and the rest match document-wide. The in-page scan scopes all of them
+  // (it queries within rootEl), so the two disagreed: inert while every test id
+  // renders inside the block, but it would fail OPEN the moment one did not,
+  // counting an out-of-block element as proof the scan had something to look at.
+  const scopedSelector = itemSelector
+    .split(',')
+    .map((part) => `${root} ${part.trim()}`)
+    .join(', ')
+  const matched = await page.locator(scopedSelector).count()
   expect(
     matched,
     `clipping scan matched no "${itemSelector}" under ${root}; a scan over zero elements proves nothing`,
