@@ -519,3 +519,105 @@ jobs:
           path: frontend/coverage/
           retention-days: 14
           if-no-files-found: warn
+
+  print-gate:
+    name: Accounting Reports - Print/PDF Gate
+    runs-on: ubuntu-latest
+
+    # Every PR, no paths filter. #1172 was a DOWNSTREAM change — a shared
+    # layout component gaining an overflow constraint — so a filter scoped to
+    # print files would have skipped exactly the change that caused it.
+
+    env:
+      COMPOSE_ARGS: >-
+        -p erp_print_gate
+        -f docker-compose.yml
+        -f docker-compose.print-gate.yml
+      PRINT_GATE_FRONTEND_PORT: '3100'
+      PRINT_GATE_API_PORT: '3101'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Verify the gate stack is isolated
+        run: ./scripts/print-gate-isolation-check.sh
+
+      - name: Build the frontend and backend images from this commit
+        # A stale bundle makes every print assertion pass vacuously; there is
+        # no volume mount for live reload.
+        run: docker compose $COMPOSE_ARGS build frontend backend
+
+      - name: Start the stack (selected services only)
+        # Explicitly NOT a bare `up -d`: that starts the top-level nginx on
+        # 80/443. The frontend service's own nginx already proxies /api/.
+        run: docker compose $COMPOSE_ARGS up -d postgres redis backend frontend
+
+      - name: Wait for the stack to become ready
+        run: |
+          # backend healthcheck has start_period: 40s
+          for i in $(seq 1 120); do
+            api=$(curl -s -o /dev/null -w '%{http_code}' \
+              "http://localhost:${PRINT_GATE_API_PORT}/api/health" || true)
+            fe=$(curl -s -o /dev/null -w '%{http_code}' \
+              "http://localhost:${PRINT_GATE_FRONTEND_PORT}/" || true)
+            if [ "$api" = "200" ] && [ "$fe" = "200" ]; then
+              echo "stack ready after ${i}s"; exit 0
+            fi
+            if [ -z "$(docker compose $COMPOSE_ARGS ps -q backend)" ]; then
+              echo "::error::backend container is gone before readiness" >&2
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "::error::stack did not become ready within 120s" >&2
+          exit 1
+
+      - name: Install frontend dependencies
+        # Before invoking the Playwright CLI: it must resolve from the pinned
+        # devDependency, not ad hoc.
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install chromium with system dependencies
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run the print/PDF gate
+        working-directory: frontend
+        env:
+          PRINT_GATE_BASE_URL: http://localhost:3100
+          PRINT_GATE_API_URL: http://localhost:3101/api
+        run: npm run test:print
+
+      - name: Capture stack logs on failure
+        if: failure()
+        run: docker compose $COMPOSE_ARGS logs --no-color --tail 200
+
+      - name: Upload gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: print-gate-results
+          path: |
+            frontend/e2e-results/
+            frontend/playwright-report/
+          # The retained print PDFs (balance-sheet-print.pdf,
+          # profit-and-loss-print.pdf) land in e2e-results/ and are also
+          # attached to the Playwright report, so a failure ships the paper
+          # output rather than only a page count.
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Tear down
+        if: always()
+        run: |
+          docker compose $COMPOSE_ARGS down -v --remove-orphans
+          sudo rm -rf .print-gate-data
