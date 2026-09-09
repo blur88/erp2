@@ -91,12 +91,23 @@ for name, svc in sorted(services.items()):
         if p:
             published.add(str(p))
 
+# The database the gate stack actually creates. Check 6 compares this with the
+# GATE_DB_NAME constant the fixture guards on — see below for why neither side
+# may be hardcoded here.
+pg_env = (services.get("postgres") or {}).get("environment") or {}
+if isinstance(pg_env, list):  # compose can render environment as KEY=VALUE strings
+    pg_env = dict(
+        (item.split("=", 1) + [""])[:2] for item in pg_env if isinstance(item, str)
+    )
+postgres_db = pg_env.get("POSTGRES_DB") or ""
+
 out = {
     "problems": problems,
     "container_names": container_names,
     "latest_images": latest_images,
     "published": sorted(published, key=lambda x: (len(x), x)),
     "has_nginx": has_nginx,
+    "postgres_db": postgres_db,
 }
 print(json.dumps(out))
 ')"
@@ -138,6 +149,42 @@ for p in $published; do
   esac
 done
 
+# 6. The fixture's destructive-write guard must name the database this stack
+#    actually creates.
+#
+#    print-fixture.ts refuses to run its DELETE unless the connected database
+#    equals its GATE_DB_NAME constant, compared against server-side
+#    current_database(). That constant is deliberately hardcoded there — making
+#    it configurable is what made the first version of that guard vacuous — so
+#    it and POSTGRES_DB are a two-place edit with nothing pairing them. Renaming
+#    the stack's database without updating the constant aborts every run.
+#
+#    BOTH sides are READ, neither is written here. A check that hardcoded the
+#    value it verifies would be the same tautology class the guard itself just
+#    had to be fixed for: it would agree with itself and never fail.
+FIXTURE_SRC="frontend/e2e/fixtures/print-fixture.ts"
+compose_db="$(read_field postgres_db)"
+if [ ! -r "$FIXTURE_SRC" ]; then
+  fixture_db=""
+  fixture_db_err="cannot read $FIXTURE_SRC"
+else
+  # `const GATE_DB_NAME = 'erp_print_gate'` — single or double quoted.
+  fixture_db="$(sed -n "s/^const[[:space:]]\+GATE_DB_NAME[[:space:]]*=[[:space:]]*['\"]\([^'\"]*\)['\"].*/\1/p" "$FIXTURE_SRC" | head -1)"
+  fixture_db_err="GATE_DB_NAME not found in $FIXTURE_SRC"
+fi
+
+if [ -z "$compose_db" ]; then
+  fail "could not read POSTGRES_DB for the postgres service from the resolved compose config"
+elif [ -z "$fixture_db" ]; then
+  fail "$fixture_db_err (needed to verify the fixture's destructive-write guard)"
+elif [ "$compose_db" != "$fixture_db" ]; then
+  fail "gate database name disagrees between the stack and the fixture's write guard:
+    POSTGRES_DB  = $compose_db  (postgres service, docker-compose.print-gate.yml, resolved)
+    GATE_DB_NAME = $fixture_db  ($FIXTURE_SRC)
+  The fixture refuses to run unless the CONNECTED database equals GATE_DB_NAME,
+  so a mismatch aborts every print-gate run. Update both together."
+fi
+
 # 5. nginx must not be part of the gate's service set.
 if [ "$(read_field has_nginx)" = "True" ]; then
   echo "note: nginx is defined in the merged config; the CI job MUST select" >&2
@@ -147,5 +194,6 @@ fi
 if [ "$status" -eq 0 ]; then
   echo "print-gate compose isolation: OK"
   echo "published host ports: $(echo "$published" | paste -sd, -)"
+  echo "gate database: $compose_db (matches GATE_DB_NAME in $FIXTURE_SRC)"
 fi
 exit "$status"
