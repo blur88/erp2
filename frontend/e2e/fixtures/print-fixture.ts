@@ -277,6 +277,74 @@ async function ensureBankPaymentMethod(token: string, prefix: string): Promise<s
 }
 
 /**
+ * The database this fixture is allowed to write to, and the ONLY one.
+ *
+ * A CONSTANT, deliberately, and NOT read from PRINT_GATE_DB_NAME.
+ *
+ * The first version of this guard did read the env var, and it was vacuous:
+ * psqlScalar also connects with `-d $PRINT_GATE_DB_NAME`, so the check compared
+ * the variable against a connection made from that same variable and could
+ * never disagree. Pointing PRINT_GATE_DB_NAME at another database moved the
+ * target and the expectation together, and the guard passed. Caught by the
+ * red-team probe, which is the only reason it is not still in the tree.
+ *
+ * `erp_print_gate` is the name the gate's own compose file creates
+ * (docker-compose.print-gate.yml: POSTGRES_DB), so this is the deployment fact,
+ * not a preference. PRINT_GATE_DB_NAME still steers which database psql
+ * CONNECTS to — it simply cannot authorise writing to a different one.
+ */
+const GATE_DB_NAME = 'erp_print_gate'
+
+/** The database psql connects to. Steerable; see GATE_DB_NAME for why that is safe. */
+const CONNECT_DB_NAME = () => process.env.PRINT_GATE_DB_NAME ?? GATE_DB_NAME
+
+/** Set once assertGateDatabase has confirmed the connection, for the whole run. */
+let gateDatabaseConfirmed = false
+
+/**
+ * Refuse to run destructive SQL unless the CONNECTED database really is the
+ * gate database. Checked before any statement that deletes, and cached for the
+ * run.
+ *
+ * Why an assertion and not a parameter. `PRINT_GATE_DB_NAME` has a default, so
+ * it expresses intent, not reality: a mis-pointed run would execute
+ * cleanPreviousFixtureRows' DELETE against whatever it named, and the
+ * `PWPRINT-%` prefix would spare real rows by luck rather than by design. This
+ * repo already has the precedent — `npm run test:redis` refuses to run without
+ * REDIS_TEST_ALLOW_WRITES=1, checked before it opens any connection, because
+ * (CLAUDE.md) "the address cannot express what matters". Same principle.
+ *
+ * The check reads `current_database()` from the SERVER, deliberately, rather
+ * than trusting the `-d` argument this process passed in. Those differ whenever
+ * PRINT_GATE_PSQL supplies its own connection arguments — the case where a
+ * mis-point is most likely and least visible. Comparing the env var to itself
+ * would assert nothing.
+ *
+ * Fail-safe: no successful assertion means no delete. Anything that prevents
+ * reading the name — an unreachable server, a psql error — throws out of
+ * psqlScalar and aborts the fixture before the destructive statement.
+ */
+function assertGateDatabase(): void {
+  if (gateDatabaseConfirmed) return
+  const expected = GATE_DB_NAME
+  // Non-destructive probe. If this cannot run, the fixture aborts here.
+  const actual = psqlScalar('SELECT current_database()')
+  if (actual !== expected) {
+    throw new Error(
+      `print-gate fixture: REFUSING to modify this database.\n` +
+        `  expected database: ${expected}\n` +
+        `  actually connected to: ${actual}\n` +
+        `The fixture deletes its own prior rows before each run, so it will ` +
+        `only ever run against "${GATE_DB_NAME}" — the database the gate's own ` +
+        `compose file creates. Point PRINT_GATE_DB_NAME (and, if set, ` +
+        `PRINT_GATE_PSQL / PRINT_GATE_PROJECT) at the print-gate stack, or start ` +
+        `it with ./scripts/print-gate-up.sh. NOTHING HAS BEEN MODIFIED.`,
+    )
+  }
+  gateDatabaseConfirmed = true
+}
+
+/**
  * Run one SQL statement against the gate's Postgres and return the single
  * scalar it selects.
  *
@@ -312,7 +380,7 @@ function psqlScalar(sql: string): string {
         '-U',
         process.env.PRINT_GATE_DB_USER ?? 'erp_print_gate',
         '-d',
-        process.env.PRINT_GATE_DB_NAME ?? 'erp_print_gate',
+        CONNECT_DB_NAME(),
         '-tAc',
         sql,
       ]
@@ -379,6 +447,10 @@ const FIXTURE_NAME_PREFIX = 'PWPRINT-'
  * references `chart_of_account` with RESTRICT, so the accounts cannot go first.
  */
 function cleanPreviousFixtureRows(): string {
+  // Before ANY destructive statement: prove the connected database is the gate
+  // database. Aborts the fixture if not, having modified nothing.
+  assertGateDatabase()
+
   const marker = sqlLiteral(`${FIXTURE_NAME_PREFIX}%`)
   const scope = `SELECT id FROM chart_of_account WHERE name LIKE ${marker}`
 
@@ -443,6 +515,11 @@ async function createGroupedAccount(
   const groupRootId = psqlScalar(
     `SELECT id FROM chart_of_account WHERE code = ${sqlLiteral(SEEDED_EXPENSE_GROUP_CODE)}`,
   )
+  // Also guarded explicitly, not just transitively via the cleanup that runs
+  // earlier: this is the fixture's other direct write, and a future reordering
+  // must not be able to lose the protection silently. The call is cached, so
+  // this costs nothing after the first check.
+  assertGateDatabase()
   const parentId = psqlScalar(
     `INSERT INTO chart_of_account
        (code, name, type, "parentId", "isActive", "isSystem", "isPostable",
