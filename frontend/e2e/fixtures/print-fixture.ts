@@ -443,8 +443,16 @@ const FIXTURE_NAME_PREFIX = 'PWPRINT-'
  * (1000–6990), the payment method and the admin user are untouched.
  *
  * Deletion order follows the FKs: payments, then expenses, then journal entries
- * (whose lines CASCADE), then the accounts themselves — `journal_entry_line`
- * references `chart_of_account` with RESTRICT, so the accounts cannot go first.
+ * (whose lines CASCADE), then the accounts themselves.
+ *
+ * `journal_entry_line.accountId` references `chart_of_account` with
+ * `ON DELETE NO ACTION` (InitialSchema:164) — NOT RESTRICT, and the difference
+ * is what makes a single statement work at all. RESTRICT is checked
+ * immediately, which would make the CTE's internal ordering load-bearing and
+ * fragile; NO ACTION defers to statement end, so every branch of this CTE sees
+ * a consistent snapshot and the constraint is satisfied once the whole
+ * statement lands. Splitting this into separate statements would reintroduce
+ * the ordering requirement — do not.
  */
 function cleanPreviousFixtureRows(): string {
   // Before ANY destructive statement: prove the connected database is the gate

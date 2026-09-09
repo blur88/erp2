@@ -15,8 +15,8 @@ export interface ClampFinding {
 export interface ClipFinding {
   /** The selector whose subtree the clip was found under. */
   root: string
-  /** Where the clip actually is: the text element itself, or an ancestor. */
-  where: 'self' | 'ancestor'
+  /** Where the clip is, relative to the matched element. */
+  where: 'self' | 'descendant' | 'ancestor'
   tag: string
   className: string
   testId: string
@@ -45,11 +45,26 @@ export interface ClipFinding {
  * What this checks instead: the geometric definition of clipping. A box whose
  * `scrollWidth`/`scrollHeight` exceeds its `clientWidth`/`clientHeight` while
  * its overflow on that axis is `hidden` or `clip` is painting less than it
- * holds. Both the element AND its in-report ancestors are walked, so a clip
- * applied at any level in between is caught.
+ * holds.
+ *
+ * THREE directions are walked, and the downward one is not optional. The
+ * matched element is usually a container, not the text: a P&L account name
+ * lives in a flex `Box` INSIDE the scanned `td`
+ * (ProfitAndLossAccountingView.tsx), and a Balance Sheet row label lives in a
+ * `Typography` INSIDE the scanned `bs-row-*`. An earlier version walked only
+ * the element and its ancestors, so a clip on either of those — the natural
+ * place to put one, since that is where the name column's layout lives — was
+ * invisible, and the red-proof passed only because it injected the clip on the
+ * `td` itself: one of the few surfaces that version did cover. Injecting at the
+ * place the assertion looks at, rather than the place a real defect occurs,
+ * proves nothing.
+ *
+ * Descendants are filtered to elements that DIRECTLY hold text, so the scan
+ * reports the box that actually clips something rather than every empty
+ * wrapper and icon in the subtree.
  *
  * Scoped to `root`'s subtree so an app-shell box outside the report cannot
- * produce a finding, and the walk stops at `root` for the same reason.
+ * produce a finding, and the upward walk stops at `root` for the same reason.
  *
  * Deliberately runs against the LIVE styled elements under whatever media mode
  * is currently emulated — never a detached clone, which print CSS cannot reach.
@@ -62,7 +77,12 @@ export async function scanContentClipping(
   return page.evaluate(
     ({ root, itemSelector }) => {
       const rootEl = document.querySelector(root)
-      if (!rootEl) return [{ fatal: `root selector ${root} matched nothing` }] as any
+      if (!rootEl) {
+        // Reported as a SELECTOR defect, not a clipping one. assertNoContentClipping's
+        // count guard normally fires first, but if this is ever reached the message
+        // must not read as "content is clipped".
+        throw new Error(`scanContentClipping: root selector ${root} matched nothing`)
+      }
 
       // 1px tolerance: sub-pixel layout rounding routinely makes scrollWidth
       // exceed clientWidth by a fraction on a box that is not clipping at all.
@@ -72,7 +92,7 @@ export async function scanContentClipping(
       const findings: any[] = []
       const seen = new Set<Element>()
 
-      const inspect = (el: Element, where: 'self' | 'ancestor') => {
+      const inspect = (el: Element, where: 'self' | 'descendant' | 'ancestor') => {
         if (seen.has(el)) return
         seen.add(el)
         const s = getComputedStyle(el)
@@ -114,9 +134,23 @@ export async function scanContentClipping(
         })
       }
 
+      /** True when the element has a non-empty text node of its own. */
+      const holdsText = (el: Element) =>
+        Array.from(el.childNodes).some(
+          (n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim().length > 0,
+        )
+
       for (const item of Array.from(rootEl.querySelectorAll(itemSelector))) {
         inspect(item, 'self')
-        // ...and every box between the text element and the report root. The
+
+        // DOWNWARD: the text usually lives below the matched element. Limited to
+        // descendants that directly hold text, so the finding names the box that
+        // actually clips content rather than every empty wrapper or icon.
+        for (const child of Array.from(item.querySelectorAll('*'))) {
+          if (holdsText(child)) inspect(child, 'descendant')
+        }
+
+        // UPWARD: and every box between the text element and the report root. The
         // clip that hides a long name may well be on a wrapping cell or column
         // container rather than on the text node's own element.
         let el: Element | null = item.parentElement

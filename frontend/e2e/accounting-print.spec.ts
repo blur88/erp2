@@ -84,7 +84,13 @@ const plRowSelector = (accountId: string) => `[data-testid="pl-row-account:${acc
  */
 const signedAmount = (fourDp: string): string => {
   const negative = fourDp.trim().startsWith('-')
-  const magnitude = Math.abs(parseFloat(fourDp)).toLocaleString('en-US', {
+  // 'en-MY' mirrors formatCurrency's `Intl.NumberFormat('en-MY')` deliberately.
+  // These agree with 'en-US' for every value this fixture produces, so the
+  // previous 'en-US' was not a live defect — but it made the expectation side
+  // and the render side agree by accident of two locales matching, and a locale
+  // change on either would turn every amount assertion red for a formatting
+  // reason rather than a financial one. Stating the coupling costs nothing.
+  const magnitude = Math.abs(parseFloat(fourDp)).toLocaleString('en-MY', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })
@@ -173,11 +179,24 @@ test('Balance Sheet prints N38, N48 and all three balance-check lines', async ({
   // amounts and long labels both live in `bs-amount`'s row, and ellipsis
   // truncation does not change innerText, so the equality pass above cannot
   // see it (review finding 1).
-  await assertNoContentClipping(page, '[data-testid="bs-print-block"]', '[data-testid="bs-amount"]')
+  // Every figure-bearing element on the report, not just the official rows: the
+  // derived subtotals and the three balance-check spans render their amounts
+  // outside both `bs-row-*` and `bs-amount`, so neither of the original two
+  // selectors reached them. The scan now also walks each match's text-bearing
+  // DESCENDANTS, which is where a row's LABEL actually lives (a Typography
+  // inside a nested flex Box, BalanceSheetPage.tsx:270).
   await assertNoContentClipping(
     page,
     '[data-testid="bs-print-block"]',
-    '[data-testid^="bs-row-"]',
+    [
+      '[data-testid^="bs-row-"]',
+      '[data-testid="bs-amount"]',
+      '[data-testid="bs-derived-owners-equity"]',
+      '[data-testid="bs-derived-liabilities-and-equity"]',
+      '[data-testid="bs-check-assets"]',
+      '[data-testid="bs-check-liabilities-equity"]',
+      '[data-testid="bs-difference-value"]',
+    ].join(', '),
   )
 
   await assertPrintableTallerThanViewport(page, '[data-testid="bs-print-block"]')
@@ -226,7 +245,10 @@ test('Profit & Loss prints every fixture account across multiple pages', async (
   // Not "at least one": a partially rendered report is a defect, and the
   // fixture volume exists precisely so all of them must appear.
   const view = page.locator('[data-testid="pl-accounting-view"]')
-  const rendered = (await view.innerText()).replace(/\s+/g, ' ')
+  // Deliberately NO whole-report innerText buffer here any more. The last
+  // consumer was the vacuous `toContain(totalMagnitude)` (see below); a
+  // substring search over the whole report is exactly how one row's figure
+  // comes to satisfy another row's assertion.
 
   // Presence is asserted by exact row locator — one row per fixture account —
   // and each row's own text must carry that account's amount. Substring
@@ -279,8 +301,27 @@ test('Profit & Loss prints every fixture account across multiple pages', async (
   // magnitude alone (the old `total.grouped`) would accept a profit of the
   // same size as the loss — a sign error on the report's headline number.
   const netProfit = signedAmount(negate4dp(descriptor.expected.totalExpense))
-  const totalMagnitude = signedAmount(descriptor.expected.totalExpense)
-  expect(rendered, 'total expense must render').toContain(totalMagnitude)
+  const totalExpenses = signedAmount(descriptor.expected.totalExpense)
+
+  // Total Expenses on its OWN element, exact and signed.
+  //
+  // This line was `expect(rendered, ...).toContain(totalMagnitude)` against the
+  // whole report's innerText, and it could not fail: net profit renders as
+  // "MYR -1,956.03", which CONTAINS "1,956.03", and the very next line asserts
+  // that net-profit figure is present and exact. So Total Expenses could be
+  // absent, blank or carrying a different number and the check still passed —
+  // satisfied by a different row that a different assertion already guaranteed.
+  // It is the one target from finding 3's list that survived the round, with
+  // only its variable renamed.
+  //
+  // The section total has its own id: classify.ts emits
+  // `totalRowId: '${key}.total'` and the view renders
+  // data-testid="pl-row-expenses.total".
+  await assertExactAmount(
+    page,
+    '[data-testid="pl-row-expenses.total"] td:last-child',
+    totalExpenses,
+  )
   await assertExactAmount(page, '[data-testid="pl-row-netProfit"] td:last-child', netProfit)
 
   // ---- Screen/print equality + visibility for EVERY fixture account. -----
@@ -303,6 +344,7 @@ test('Profit & Loss prints every fixture account across multiple pages', async (
     // The grouped parent prints as a summary row; its postable child is
     // intentional print-hidden detail and is asserted in the drill-down test.
     { selector: plRowSelector(descriptor.group.parentId), expectedText: signedAmount(descriptor.group.amount) },
+    { selector: '[data-testid="pl-row-expenses.total"]', expectedText: totalExpenses },
     { selector: '[data-testid="pl-row-netProfit"]', expectedText: netProfit },
   ])
 

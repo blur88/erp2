@@ -149,8 +149,10 @@ Run the gate:
 Tear down:
   docker compose -p erp_print_gate -f docker-compose.yml \\
     -f docker-compose.print-gate.yml down -v --remove-orphans
-  # .print-gate-data holds root/70/999-owned files, so remove it the same way
-  # it was prepared rather than with host sudo:
-  docker run --rm --user 0:0 -v "$REPO_ROOT:/repo" alpine:3.23 \\
-    rm -rf /repo/.print-gate-data
+  # .print-gate-data holds root/70/999-owned files, so clear it the same way it
+  # was prepared rather than with host sudo. Only that directory is mounted —
+  # NOT the repo root — so a typo in the path cannot reach the working tree:
+  docker run --rm --user 0:0 -v "$REPO_ROOT/.print-gate-data:/gate" alpine:3.23 \\
+    sh -c 'rm -rf /gate/..?* /gate/.[!.]* /gate/*'
+  rmdir "$REPO_ROOT/.print-gate-data"
 EOF

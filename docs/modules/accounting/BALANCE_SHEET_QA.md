@@ -43,11 +43,15 @@ the stack **running on failure** so a half-started state can be inspected with
 docker-compose.print-gate.yml logs`. Tear down when finished:
 
     docker compose -p erp_print_gate -f docker-compose.yml -f docker-compose.print-gate.yml down -v --remove-orphans
-    docker run --rm --user 0:0 -v "$PWD:/repo" alpine:3.23 rm -rf /repo/.print-gate-data
+    docker run --rm --user 0:0 -v "$PWD/.print-gate-data:/gate" alpine:3.23 \
+      sh -c 'rm -rf /gate/..?* /gate/.[!.]* /gate/*'
+    rmdir .print-gate-data
 
 `.print-gate-data` holds files owned by root, uid 70 and uid 999, so it is
-removed from a container for the same reason it is prepared from one — the
-procedure must not require host `sudo`.
+cleared from a container for the same reason it is prepared from one — the
+procedure must not require host `sudo`. Note that **only that directory is
+mounted**, not the repository root: the container runs `rm -rf` as root, so a
+typo in the path must not be able to reach the working tree.
 
 **Rebuild before every re-check.** There is no volume mount for live reload, so
 an un-rebuilt frontend image serves a stale bundle and every print assertion

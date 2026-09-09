@@ -33,6 +33,7 @@ import json, os, sys
 repo = os.getcwd()
 cfg = json.load(sys.stdin)
 services = cfg.get("services") or {}
+volumes_cfg = cfg.get("volumes") or {}
 
 # Writable binds are confined to this directory; every other bind source must
 # be BOTH in the allow-list and read-only.
@@ -61,7 +62,27 @@ for name, svc in sorted(services.items()):
         if not isinstance(vol, dict):
             problems.append(f"{name}: unparsed volume entry {vol!r} (short syntax survived resolution)")
             continue
-        if vol.get("type") != "bind":
+        vtype = vol.get("type")
+        target = vol.get("target")
+        if vtype in ("volume", "tmpfs"):
+            # Named volumes and tmpfs are not inspected for a source path, but
+            # they are not waved through either: a named volume declared
+            # `external: true` would escape the -p project prefix and could be
+            # shared with the dev stack. -p prefixes non-external named volumes,
+            # so this is unlikely — but "isolation: OK" must not be printed over
+            # a mount class nobody looked at.
+            vol_name = vol.get("source") or "(anonymous)"
+            if vtype == "volume" and (volumes_cfg.get(vol_name) or {}).get("external"):
+                problems.append(
+                    f"{name}: EXTERNAL named volume {vol_name} -> {target} "
+                    f"escapes the -p project prefix and may be shared with another stack"
+                )
+            continue
+        if vtype != "bind":
+            problems.append(
+                f"{name}: mount of unrecognised type {vtype} -> {target}; "
+                f"this check cannot certify it, so it fails closed"
+            )
             continue
         source = vol.get("source") or ""
         # compose reports read-only as a top-level `read_only: true`.
@@ -86,10 +107,23 @@ for name, svc in sorted(services.items()):
     for port in svc.get("ports") or []:
         if isinstance(port, dict):
             p = port.get("published")
-        else:
-            p = str(port).rsplit(":", 1)[0]
-        if p:
+            if p is None or not str(p).isdigit():
+                problems.append(
+                    f"{name}: published port {port!r} has no numeric host port; "
+                    f"the collision check cannot read it, so it fails closed"
+                )
+                continue
             published.add(str(p))
+        else:
+            # compose renders the dict form from `config --format json` in
+            # practice, so this is a dead branch — but a dead branch that
+            # FAILED OPEN. "3000" (short form, container port) and
+            # "127.0.0.1:3000:80" both used to slip past the collision cases
+            # below, because rsplit(":", 1)[0] returns the wrong field for each.
+            problems.append(
+                f"{name}: published port rendered as {port!r} rather than an object; "
+                f"the host port cannot be identified unambiguously, so it fails closed"
+            )
 
 # The database the gate stack actually creates. Check 6 compares this with the
 # GATE_DB_NAME constant the fixture guards on — see below for why neither side
@@ -184,6 +218,54 @@ elif [ "$compose_db" != "$fixture_db" ]; then
   The fixture refuses to run unless the CONNECTED database equals GATE_DB_NAME,
   so a mismatch aborts every print-gate run. Update both together."
 fi
+
+# 7. Every site that spells out the compose argument set must agree.
+#
+#    The brief asked for ONE compose argument array, and each script honours
+#    that internally — but "identical" is otherwise maintained by hand across
+#    four files in two languages (this script, print-gate-up.sh, ci.yml's
+#    COMPOSE_ARGS, and print-fixture.ts's psqlScalar). Rather than invent a
+#    cross-language shared source, assert agreement the way check 6 does: read
+#    every site, compare, and fail naming the disagreement.
+#
+#    The project name is the discriminator — it is what -p sets, what prefixes
+#    every container and network, and what a divergence would silently split in
+#    two (one stack built, a different one torn down).
+#
+#    Matching is on the project name as an ARGUMENT or string literal, not on
+#    prose: the first version of this check flagged its own explanatory comment,
+#    which is a false positive but also a useful reminder that a grep over
+#    source is matching comments too.
+EXPECTED_PROJECT="erp_print_gate"
+project_sites=(
+  "scripts/print-gate-isolation-check.sh"
+  "scripts/print-gate-up.sh"
+  ".github/workflows/ci.yml"
+  "frontend/e2e/fixtures/print-fixture.ts"
+)
+for site in "${project_sites[@]}"; do
+  if [ ! -r "$site" ]; then
+    fail "compose-argument site $site is missing or unreadable"
+    continue
+  fi
+  # Every site must mention -p / PRINT_GATE_PROJECT with the same project name,
+  # and must not mention any OTHER erp_print_gate-like project name.
+  if ! grep -q "$EXPECTED_PROJECT" "$site"; then
+    fail "compose-argument site $site does not mention the gate project name $EXPECTED_PROJECT"
+  fi
+  # Only real usages: -p <name>, PRINT_GATE_PROJECT ?? '<name>', or a quoted
+  # literal. Bare prose mentions are ignored.
+  other="$(grep -oE "(-p +|PRINT_GATE_PROJECT[^']*'|[\"'])erp_print_gate[A-Za-z0-9_]+" "$site" \
+    | grep -oE "erp_print_gate[A-Za-z0-9_]+" | sort -u | paste -sd, - || true)"
+  if [ -n "$other" ]; then
+    fail "compose-argument site $site names a DIFFERENT gate project: $other (expected $EXPECTED_PROJECT)"
+  fi
+  # Both override files must be named wherever compose files are listed at all.
+  if grep -q "docker-compose.print-gate.yml" "$site" \
+     && ! grep -q "docker-compose.yml" "$site"; then
+    fail "compose-argument site $site names docker-compose.print-gate.yml without the base docker-compose.yml; the override would not merge onto the base"
+  fi
+done
 
 # 5. nginx must not be part of the gate's service set.
 if [ "$(read_field has_nginx)" = "True" ]; then
