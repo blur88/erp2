@@ -535,6 +535,14 @@ jobs:
         -f docker-compose.print-gate.yml
       PRINT_GATE_FRONTEND_PORT: '3100'
       PRINT_GATE_API_PORT: '3101'
+      # Base compose renders `redis-server --requirepass ${REDIS_PASSWORD}`; an
+      # empty value folds away and redis parses --maxmemory as the password
+      # args (FATAL). Non-empty test value flows to both redis and backend.
+      REDIS_PASSWORD: print_gate_redis_password
+      # Backend boot does not validate JWT_SECRET, but auth signs tokens at
+      # runtime (fixture seeding); pin the test-backend convention to avoid a
+      # second red cycle on a blank secret.
+      JWT_SECRET: test-secret-key-minimum-32chars-long-for-testing-only
 
     steps:
       - name: Checkout
