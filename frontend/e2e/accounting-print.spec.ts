@@ -3,13 +3,13 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { readDescriptor } from './fixtures/print-fixture'
 import {
-  assertVisibleWithBox,
   capturePrintPdf,
   assertPrintableTallerThanViewport,
   assertNoAncestorClamps,
+  assertNoContentClipping,
   assertLastElementWithinScrollHeight,
-  assertRowRenders,
-  assertScreenPrintEquality,
+  assertExactAmount,
+  assertAllRowsRenderInBothMedia,
   assertScreenVisiblePrintHidden,
   renderAndAssertPdf,
   renderOrder,
@@ -69,58 +69,116 @@ async function login(page: Page) {
  */
 const plRowSelector = (accountId: string) => `[data-testid="pl-row-account:${accountId}"]`
 
-/** Amounts render grouped and 2dp; match the digits regardless of currency prefix. */
-const displayAmount = (fourDp: string) => {
-  const negative = fourDp.startsWith('-')
-  const n = Math.abs(parseFloat(fourDp))
-  const grouped = n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  return { grouped, negative }
+/**
+ * The exact SIGNED figure `formatCurrency` renders for a 4dp backend amount.
+ *
+ * formatCurrency passes the decimal string straight to
+ * `Intl.NumberFormat('en-MY')` at 2dp, which groups by thousands and renders a
+ * negative with a LEADING MINUS (verified on the gate stack: "MYR -250.00").
+ * Parentheses never occur, so nothing here produces or accepts them.
+ *
+ * The previous helper returned the ABSOLUTE value and a separate `negative`
+ * flag, which is what let the sign be asserted loosely and separately — the
+ * root of review finding 3. This returns one signed string that assertions
+ * match exactly.
+ */
+const signedAmount = (fourDp: string): string => {
+  const negative = fourDp.trim().startsWith('-')
+  const magnitude = Math.abs(parseFloat(fourDp)).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+  // -0.00 is never rendered: Intl formats a zero as "0.00" either way.
+  if (!negative || parseFloat(fourDp) === 0) return magnitude
+  return `-${magnitude}`
 }
+
+/** Negate a 4dp decimal string without going through a float. */
+const negate4dp = (fourDp: string) =>
+  fourDp.trim().startsWith('-') ? fourDp.trim().slice(1) : `-${fourDp.trim()}`
 
 test('Balance Sheet prints N38, N48 and all three balance-check lines', async ({ page }, testInfo) => {
   await login(page)
   await page.goto(`/accounting/balance-sheet?year=${descriptor.year}`)
   await page.waitForSelector('[data-testid="bs-print-block"]', { timeout: 30000 })
 
-  // ---- Anti-vacuity: exact content, per row, BEFORE any print work. ------
+  // ---- Anti-vacuity: EXACT SIGNED amounts, per row, BEFORE print work. ---
   // Explicitly declared expectations; never derived from the components'
   // hiding rules, which would let accidental hiding pass.
-  const n48 = displayAmount(descriptor.expected.currentYearLossN48)
-  const n38 = displayAmount(descriptor.expected.bankMovementN38)
+  //
+  // Every figure on this report is determined by the fixture's total expense
+  // (verified against the live API on the gate stack):
+  //   N38 Bank Balance                = -total   (BANK-channel payments)
+  //   N41 TOTAL ASSETS                = -total
+  //   N45 TOTAL LIABILITIES           =  0.00    (the fixture creates none)
+  //   N48 Current-year Profit / Loss  = -total
+  //   N50 Current Account Carried Fwd = -total
+  //   derived owner's equity          = -total
+  //   derived liabilities and equity  = -total
+  //   check assets / check L&E        = -total
+  //   difference                      =  0.00    (balanced)
+  const loss = signedAmount(descriptor.expected.currentYearLossN48)
+  const bank = signedAmount(descriptor.expected.bankMovementN38)
+  const zero = signedAmount('0.0000')
 
-  // Signed amounts asserted against their OWN rows, not searched for anywhere
-  // in the report. Task 3 recorded how negatives render (leading '-' or
-  // parentheses); assert that exact form.
-  const n48Text = await assertRowRenders(page, '[data-testid="bs-row-N48"]', n48.grouped)
-  expect(n48Text, 'N48 must render as a loss, not an unsigned figure').toMatch(/^\(|-/)
-  const n38Text = await assertRowRenders(page, '[data-testid="bs-row-N38"]', n38.grouped)
-  expect(n38Text, 'N38 bank balance must reflect the fixture payments').toMatch(/^\(|-/)
+  // Amount elements, not whole rows. `[data-testid="bs-row-N48"]` includes the
+  // label "Current-year Profit / Loss", whose hyphen satisfied the old
+  // unanchored `/^\(|-/` sign check even when the amount was POSITIVE. Each
+  // official row carries a child `[data-testid="bs-amount"]`
+  // (BalanceSheetPage.tsx:273) — that is the element the figure lives on.
+  const bsAmount = (line: string) =>
+    `[data-testid="bs-row-${line}"] [data-testid="bs-amount"]`
 
-  // All three balance-check lines, each by its own test id.
-  for (const testId of ['bs-check-assets', 'bs-check-liabilities-equity', 'bs-difference-value']) {
-    await assertVisibleWithBox(page, `[data-testid="${testId}"]`)
-    const text = await page.locator(`[data-testid="${testId}"]`).innerText()
-    expect(text.trim(), `${testId} must render a figure`).not.toBe('')
-  }
-  // A balanced report: difference is zero.
-  await assertRowRenders(page, '[data-testid="bs-difference-value"]', '0.00')
+  await assertExactAmount(page, bsAmount('N38'), bank)
+  await assertExactAmount(page, bsAmount('N41'), bank)
+  await assertExactAmount(page, bsAmount('N45'), zero)
+  await assertExactAmount(page, bsAmount('N48'), loss)
+  await assertExactAmount(page, bsAmount('N50'), loss)
 
-  // Derived subtotals must render their computed amounts, not just be present.
-  await assertVisibleWithBox(page, '[data-testid="bs-derived-owners-equity"]')
-  await assertVisibleWithBox(page, '[data-testid="bs-derived-liabilities-and-equity"]')
+  // The derived subtotals (#1212) render their amount directly in the row —
+  // they deliberately carry no `bs-amount` child, no N-code and no drill-down.
+  // They must show the COMPUTED figure, not merely exist: `expectedText: ''`
+  // on these rows previously asserted nothing whatsoever.
+  await assertExactAmount(page, '[data-testid="bs-derived-owners-equity"]', loss)
+  await assertExactAmount(page, '[data-testid="bs-derived-liabilities-and-equity"]', loss)
 
-  // ---- Screen/print equality, per row, on the LIVE page. -----------------
-  await assertScreenPrintEquality(page, [
-    { selector: '[data-testid="bs-row-N38"]', expectedText: n38.grouped },
-    { selector: '[data-testid="bs-row-N48"]', expectedText: n48.grouped },
-    { selector: '[data-testid="bs-row-N50"]', expectedText: '' },
-    { selector: '[data-testid="bs-derived-owners-equity"]', expectedText: '' },
-    { selector: '[data-testid="bs-derived-liabilities-and-equity"]', expectedText: '' },
-    { selector: '[data-testid="bs-check-assets"]', expectedText: '' },
-    { selector: '[data-testid="bs-check-liabilities-equity"]', expectedText: '' },
-    { selector: '[data-testid="bs-difference-value"]', expectedText: '0.00' },
+  // All three balance-check figures, each by its own test id and its own exact
+  // value. The old loop only asserted the text was non-empty, and the zero
+  // check used `toContain('0.00')` — which accepts "10.00".
+  await assertExactAmount(page, '[data-testid="bs-check-assets"]', bank)
+  await assertExactAmount(page, '[data-testid="bs-check-liabilities-equity"]', bank)
+  await assertExactAmount(page, '[data-testid="bs-difference-value"]', zero)
+
+  // ---- Screen/print equality + visibility, EVERY asserted row. -----------
+  // One pass per media mode, all failures collected, so a print rule that
+  // drops or blanks any of these is named rather than masked by the first.
+  await assertAllRowsRenderInBothMedia(page, [
+    { selector: bsAmount('N38'), expectedText: bank },
+    { selector: bsAmount('N41'), expectedText: bank },
+    { selector: bsAmount('N45'), expectedText: zero },
+    { selector: bsAmount('N48'), expectedText: loss },
+    { selector: bsAmount('N50'), expectedText: loss },
+    { selector: '[data-testid="bs-row-N38"]', expectedText: bank },
+    { selector: '[data-testid="bs-row-N48"]', expectedText: loss },
+    { selector: '[data-testid="bs-row-N50"]', expectedText: loss },
+    { selector: '[data-testid="bs-derived-owners-equity"]', expectedText: loss },
+    { selector: '[data-testid="bs-derived-liabilities-and-equity"]', expectedText: loss },
+    { selector: '[data-testid="bs-check-assets"]', expectedText: bank },
+    { selector: '[data-testid="bs-check-liabilities-equity"]', expectedText: bank },
+    { selector: '[data-testid="bs-difference-value"]', expectedText: zero },
   ])
-  // (assertScreenPrintEquality leaves print media emulated.)
+  // (assertAllRowsRenderInBothMedia leaves print media emulated.)
+
+  // Nothing on the printed Balance Sheet may be geometrically clipped. Long
+  // amounts and long labels both live in `bs-amount`'s row, and ellipsis
+  // truncation does not change innerText, so the equality pass above cannot
+  // see it (review finding 1).
+  await assertNoContentClipping(page, '[data-testid="bs-print-block"]', '[data-testid="bs-amount"]')
+  await assertNoContentClipping(
+    page,
+    '[data-testid="bs-print-block"]',
+    '[data-testid^="bs-row-"]',
+  )
 
   await assertPrintableTallerThanViewport(page, '[data-testid="bs-print-block"]')
 
@@ -187,56 +245,86 @@ test('Profit & Loss prints every fixture account across multiple pages', async (
     }
     const rowText = (await row.innerText()).replace(/\s+/g, ' ')
     if (!rowText.includes(a.name)) missing.push(`${a.code} (name absent from its row)`)
-    if (!rowText.includes(displayAmount(a.amount).grouped)) {
+    if (!rowText.includes(signedAmount(a.amount))) {
       wrongAmount.push(`${a.code}: expected ${a.amount}, row read "${rowText}"`)
     }
   }
+  // The grouped parent must render too, as a summary row carrying the child's
+  // total. Its postable CHILD is intentional print-hidden detail and is
+  // asserted by the drill-down test, not here.
+  const groupRow = page.locator(plRowSelector(descriptor.group.parentId))
+  const groupCount = await groupRow.count()
+  if (groupCount !== 1) {
+    missing.push(`${descriptor.group.parentCode} grouped parent (count=${groupCount})`)
+  } else {
+    const groupText = (await groupRow.innerText()).replace(/\s+/g, ' ')
+    if (!groupText.includes(descriptor.group.parentName)) {
+      missing.push(`${descriptor.group.parentCode} (grouped parent name absent from its row)`)
+    }
+    if (!groupText.includes(signedAmount(descriptor.group.amount))) {
+      wrongAmount.push(
+        `${descriptor.group.parentCode}: expected ${descriptor.group.amount}, row read "${groupText}"`,
+      )
+    }
+  }
+
   expect(
     missing,
-    `every fixture account must render exactly one row; ${missing.length} of ${descriptor.accounts.length} failed`,
+    `every fixture account must render exactly one row; ${missing.length} of ${descriptor.accounts.length + 1} failed`,
   ).toEqual([])
   expect(wrongAmount, 'every fixture account row must render its own amount').toEqual([])
 
-  // Totals, not just rows.
-  const total = displayAmount(descriptor.expected.totalExpense)
-  expect(rendered, 'total expense must render').toContain(total.grouped)
-  await assertRowRenders(page, '[data-testid="pl-row-netProfit"]', total.grouped)
+  // Totals, not just rows. Net profit is the EXACT signed figure: the fixture
+  // creates only expenses, so net profit is the negated total. Asserting the
+  // magnitude alone (the old `total.grouped`) would accept a profit of the
+  // same size as the loss — a sign error on the report's headline number.
+  const netProfit = signedAmount(negate4dp(descriptor.expected.totalExpense))
+  const totalMagnitude = signedAmount(descriptor.expected.totalExpense)
+  expect(rendered, 'total expense must render').toContain(totalMagnitude)
+  await assertExactAmount(page, '[data-testid="pl-row-netProfit"] td:last-child', netProfit)
 
-  // ---- Screen/print equality, per row, on the LIVE page. -----------------
-  // A representative spread plus the total: first, middle and last fixture
-  // account, so a print rule that drops rows mid-report is caught.
-  const spread = [
-    descriptor.accounts[0],
-    descriptor.accounts[Math.floor(descriptor.accounts.length / 2)],
-    descriptor.accounts[descriptor.accounts.length - 1],
-  ]
-
+  // ---- Screen/print equality + visibility for EVERY fixture account. -----
+  // NOT a first/middle/last spread (review finding 2): that left twelve of the
+  // fifteen accounts with no print-visibility assertion, so hiding any of them
+  // under print media passed while the PDF stayed two pages. Chromium also
+  // confirmed a hidden element's innerText can still return its text, so
+  // `assertAllRowsRenderInBothMedia` decides visibility from rendered geometry
+  // and computed style over the whole ancestor chain, not from text.
+  //
   // Each P&L row carries data-testid="pl-row-${node.rowId}" and rowId is
   // `account:${accountId}` (profit-and-loss.classify.ts:354), so the fixture's
   // own account id yields an exact, unique locator. No substring text
   // matching: a code like "9601" is a substring of "96011".
-  for (const a of spread) {
-    const selector = plRowSelector(a.id)
-    await expect(
-      page.locator(selector),
-      `${selector} must match exactly one row`,
-    ).toHaveCount(1)
-  }
-
-  await assertScreenPrintEquality(page, [
-    ...spread.map((a) => ({
+  await assertAllRowsRenderInBothMedia(page, [
+    ...descriptor.accounts.map((a) => ({
       selector: plRowSelector(a.id),
-      expectedText: displayAmount(a.amount).grouped,
+      expectedText: signedAmount(a.amount),
     })),
-    { selector: '[data-testid="pl-row-netProfit"]', expectedText: total.grouped },
+    // The grouped parent prints as a summary row; its postable child is
+    // intentional print-hidden detail and is asserted in the drill-down test.
+    { selector: plRowSelector(descriptor.group.parentId), expectedText: signedAmount(descriptor.group.amount) },
+    { selector: '[data-testid="pl-row-netProfit"]', expectedText: netProfit },
   ])
 
   await assertPrintableTallerThanViewport(page, '[data-testid="pl-accounting-view"]')
 
-  // Long fixture names must survive into print-visible rows.
+  // Long fixture names must survive into print-visible rows — as TEXT...
   const printedText = (await view.innerText()).replace(/\s+/g, ' ')
   expect(printedText, 'long fixture account names must render in print').toContain(
     descriptor.accounts[0].name,
+  )
+  // ...and as PAINTED GLYPHS. The check above is satisfied by a name that is
+  // present in the DOM but ellipsis-truncated on paper: `text-overflow` does
+  // not change innerText, and a Chromium probe with print-only
+  // `width:80px; overflow:hidden; text-overflow:ellipsis` passed both the text
+  // equality and `toBeVisible()` (review finding 1). Clipping is therefore
+  // detected geometrically, on the account-name cells AND their in-report
+  // ancestors — the deliberately long fixture names are what make a clip
+  // overflow far enough to be unambiguous.
+  await assertNoContentClipping(
+    page,
+    '[data-testid="pl-accounting-view"]',
+    'tr[data-testid^="pl-row-"] td',
   )
 
   await assertNoAncestorClamps(page, '[data-testid="pl-accounting-view"]')
@@ -253,35 +341,46 @@ test('drill-down detail is visible on screen and hidden in print', async ({ page
   await page.waitForSelector('[data-testid="pl-accounting-view"]', { timeout: 30000 })
 
   // P&L drill-down detail rows (.acct-print-detail-row) exist only as children
-  // of expanded non-postable groups. The flat print-gate fixture is all
-  // postable leaves — test 2 requires every one of the 15 accounts visible
-  // WITHOUT expanding — so this page normally has no pl-expand-* buttons at
-  // all (verified: zero on a fixture run). When grouped data IS present, assert
-  // the complement directly: screen-visible, print-hidden. This makes
-  // intentional hiding a CHECKED property rather than something the other
-  // tests merely route around.
+  // of an expanded NON-POSTABLE group (ProfitAndLossAccountingView sets
+  // printClass only at depth > 0; assembleSections emits children only under a
+  // non-postable category).
+  //
+  // This leg was previously CONDITIONAL — `if (plHasGroups)` — and the flat
+  // fixture guaranteed the condition was false, so it never ran on any run: a
+  // missing expander read as success, and deleting `.acct-print-detail-row`'s
+  // print rule would have escaped detection entirely (review finding 4). The
+  // fixture now creates a real grouped account, so the expander is
+  // fixture-guaranteed and this is REQUIRED: no skip path remains.
   //
   // NOTE on waiting: locator.count() does NOT auto-wait, so a bare count()
-  // here races the report load and reads 0 on a slow first paint. waitFor on
-  // the first expander settles that race with a bounded wait instead.
-  const plExpander = page.locator('[data-testid^="pl-expand-"]').first()
-  const plHasGroups = await plExpander
-    .waitFor({ state: 'visible', timeout: 5000 })
-    .then(
-      () => true,
-      () => false,
-    )
-  if (plHasGroups) {
-    await plExpander.click()
-    await page
-      .locator('.acct-print-detail-row')
-      .first()
-      .waitFor({ state: 'visible', timeout: 10000 })
-    await assertScreenVisiblePrintHidden(page, '.acct-print-detail-row')
-  }
-  // Else: no P&L drill-downs exist in this report by fixture design (flat
-  // postable accounts). The strict Balance Sheet leg below still checks the
-  // print-hidden complement on real drill-down content every run.
+  // here races the report load and reads 0 on a slow first paint. Playwright's
+  // web-first `toBeVisible` assertion settles that race with a bounded wait.
+  const groupExpander = page.locator(`[data-testid="pl-expand-account:${descriptor.group.parentId}"]`)
+  await expect(
+    groupExpander,
+    `the fixture's grouped expense account (${descriptor.group.parentCode}) must render an ` +
+      `expander; without it there is no .acct-print-detail-row to assert and this test is inert`,
+  ).toBeVisible({ timeout: 30000 })
+
+  await groupExpander.click()
+
+  // The child row must actually appear, and it must be the FIXTURE's child —
+  // a bare `.acct-print-detail-row` count could be satisfied by unrelated
+  // detail from some other group.
+  const childRow = page.locator(plRowSelector(descriptor.group.childId))
+  await expect(
+    childRow,
+    'expanding the grouped account must reveal the fixture child row',
+  ).toBeVisible({ timeout: 10000 })
+  await expect(
+    childRow,
+    'the revealed child row must carry .acct-print-detail-row — that class is the ' +
+      'print hook the hiding rule targets',
+  ).toHaveClass(/(^|\s)acct-print-detail-row(\s|$)/)
+
+  // The property under test: visible on screen, genuinely hidden in print.
+  await assertScreenVisiblePrintHidden(page, plRowSelector(descriptor.group.childId))
+  await assertScreenVisiblePrintHidden(page, '.acct-print-detail-row')
 
   // The generic print-hide hook, asserted on the Balance Sheet where each
   // mapped line's account drill-down carries data-print-hide="true".
