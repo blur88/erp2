@@ -19,15 +19,75 @@ This is a real, previously-costly blind spot: during #1172 the report tree was
 `display: none` while two rounds of overflow fixes were applied downstream of
 it, and every automated gate stayed green throughout.
 
-**A headless browser can cover it.** Playwright's `emulateMedia({ media:
-'print' })` plus `page.pdf()` exercises the genuine print stylesheet, and
-`getComputedStyle` over the ancestor chain detects exactly the height/overflow
-clamp that caused #1172. Playwright is **not** a dependency of this repo, so the
-run below is performed ad hoc against a locally rebuilt stack. Promoting it to a
-committed, CI-run check is a worthwhile follow-up and is not done here.
+**A headless browser covers it, and CI now runs that check.** Playwright's
+`emulateMedia({ media: 'print' })` plus `page.pdf()` exercises the genuine print
+stylesheet, and `getComputedStyle` over the ancestor chain detects exactly the
+height/overflow clamp that caused #1172. The check is committed as
+`frontend/e2e/accounting-print.spec.ts` and runs in the CI job
+**`Accounting Reports - Print/PDF Gate`** on every PR (#1214).
 
-Until then BS-P3 is executed per change — by the browser procedure below, or by
-a human reviewing a multi-page print preview.
+Run it locally with the **same script CI uses** — it performs the isolation
+check, the per-service data-directory ownership prep, the image build, `up` and
+the readiness wait, so a local run cannot silently omit a step CI depends on:
+
+    ./scripts/print-gate-up.sh
+
+    cd frontend && npm ci && npx playwright install --with-deps chromium
+    cd frontend && PRINT_GATE_BASE_URL=http://localhost:3100 \
+      PRINT_GATE_API_URL=http://localhost:3101/api npm run test:print
+
+Dependency/browser install, running the suite and teardown are deliberately
+outside the script (CI caches the first and owns the last). The script leaves
+the stack **running on failure** so a half-started state can be inspected with
+`docker compose -p erp_print_gate -f docker-compose.yml -f
+docker-compose.print-gate.yml logs`. Tear down when finished:
+
+    docker compose -p erp_print_gate -f docker-compose.yml -f docker-compose.print-gate.yml down -v --remove-orphans
+    docker run --rm --user 0:0 -v "$PWD/.print-gate-data:/gate" alpine:3.23 \
+      sh -c 'rm -rf /gate/..?* /gate/.[!.]* /gate/*'
+    rmdir .print-gate-data
+
+`.print-gate-data` holds files owned by root, uid 70 and uid 999, so it is
+cleared from a container for the same reason it is prepared from one — the
+procedure must not require host `sudo`. Note that **only that directory is
+mounted**, not the repository root: the container runs `rm -rf` as root, so a
+typo in the path must not be able to reach the working tree.
+
+**Rebuild before every re-check.** There is no volume mount for live reload, so
+an un-rebuilt frontend image serves a stale bundle and every print assertion
+passes vacuously. `./scripts/print-gate-up.sh` rebuilds on each invocation.
+
+**The gate is re-runnable in place — no teardown needed between runs.** Run
+`npm run test:print` as many times as you like against the same stack and the
+same database. `globalSetup` rotates the admin password only when a rotation is
+actually pending, uses run-scoped account codes, and deletes the previous run's
+fixture rows before creating its own (both reports aggregate over the whole
+database, so without that a second run would read multiplied totals and a P&L
+that grows by 17 rows per run). Only tear down when you are finished, or when a
+run reports that admin login failed with both passwords.
+
+**The fixture refuses to touch anything but the gate database.** Because it
+deletes its prior rows, it first asserts that the *connected* database — read
+live with `SELECT current_database()`, not taken from the environment — is
+`erp_print_gate`, the database the gate's own compose file creates. A run
+pointed anywhere else aborts before the delete with a message naming both the
+expected and the actual database, and modifies nothing. `PRINT_GATE_DB_NAME`
+still steers which database psql connects to; it cannot authorise writing to a
+different one. This mirrors `npm run test:redis`, which likewise refuses to run
+without an explicit opt-in checked before it touches anything.
+
+**BS-P3 below remains REQUIRED BEFORE MERGE for now.** The CI job exists but is
+not yet a *required* check: `main` is protected by ruleset 15609777, whose
+required checks match job-name strings, and a job absent from that ruleset does
+not block a merge. A green non-required job is not a gate.
+
+**Downgrade condition.** BS-P3 may be downgraded to a spot-check once BOTH hold:
+
+1. `Accounting Reports - Print/PDF Gate` is listed in ruleset 15609777's
+   required checks; and
+2. it has passed on `main` at least once.
+
+Until both are true, execute BS-P3 by hand.
 
 ---
 

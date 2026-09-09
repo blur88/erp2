@@ -19,7 +19,7 @@
     "noFallthroughCasesInSwitch": true,
 
     "types": ["node", "react", "react-dom"],
-    "rootDir": "./src",
+    "rootDir": ".",
 
     "paths": {
       "@/*": ["./src/*"],
@@ -34,7 +34,7 @@
       "@/assets/*": ["./src/assets/*"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "e2e/**/*.ts", "playwright.config.ts"],
   "exclude": [
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
