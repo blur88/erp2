@@ -27,6 +27,15 @@ export interface PrintFixtureDescriptor {
   year: number
   prefix: string
   paymentMethodId: string
+  /**
+   * Gate-run admin password. A fresh seed forces a mandatory UI password
+   * rotation (/change-password-required), so the brief's Admin@123! login
+   * never reaches the reports (Task 3 measurement, env-only rotation there).
+   * globalSetup rotates once via PATCH /api/auth/change-password and the
+   * spec logs in with this value. Fixed (not random) so a failed run stays
+   * reproducible from the retained descriptor; the gate DB is disposable.
+   */
+  password: string
   accounts: PrintFixtureAccount[]
   expected: {
     totalExpense: string
@@ -60,11 +69,11 @@ async function api(pathname: string, init: RequestInit & { token?: string } = {}
 
 const unwrap = <T,>(payload: any): T => (payload?.data ?? payload) as T
 
-async function login(): Promise<string> {
+async function login(password = 'Admin@123!'): Promise<string> {
   const token = unwrap<{ accessToken?: string }>(
     await api('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ usernameOrEmail: 'admin', password: 'Admin@123!' }),
+      body: JSON.stringify({ usernameOrEmail: 'admin', password }),
     }),
   )?.accessToken
   if (!token) throw new Error('print-gate fixture: login returned no accessToken')
@@ -118,7 +127,20 @@ export async function createPrintFixture(): Promise<PrintFixtureDescriptor> {
   const runId = randomBytes(4).toString('hex')
   const prefix = `PWPRINT-${runId}`
   const year = Number(process.env.PRINT_GATE_YEAR ?? new Date().getFullYear())
-  const token = await login()
+  // Fresh seed marks admin requiresPasswordChange, which the UI enforces as a
+  // hard redirect to /change-password-required on every route. Rotate once
+  // here (provisioning belongs in globalSetup, which runs once per run) so
+  // the spec's UI login reaches the reports. Re-login after rotation: the
+  // endpoint invalidates refresh tokens, and this also proves the new
+  // password works before the spec depends on it.
+  const password = process.env.PRINT_GATE_PASSWORD ?? 'PrintGate@12345!'
+  const seedToken = await login()
+  await api('/auth/change-password', {
+    method: 'PATCH',
+    token: seedToken,
+    body: JSON.stringify({ currentPassword: 'Admin@123!', newPassword: password, newPasswordConfirmation: password }),
+  })
+  const token = await login(password)
   const paymentMethodId = await ensureBankPaymentMethod(token, prefix)
   const expenseDate = `${year}-01-15`
 
@@ -169,6 +191,7 @@ export async function createPrintFixture(): Promise<PrintFixtureDescriptor> {
     year,
     prefix,
     paymentMethodId,
+    password,
     accounts,
     expected: {
       totalExpense,
