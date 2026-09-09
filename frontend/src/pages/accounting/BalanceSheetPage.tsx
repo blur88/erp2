@@ -12,7 +12,6 @@ import type { FilterBarConfig } from '@/types/filterBar.types'
 import { useGetBalanceSheetQuery } from '@/store/api/accountingApi'
 import { AccountingReportPrintLayout } from '@/components/print/AccountingReportPrintLayout'
 import { buildLedgerLink, formatBalanceAmount, SECTION_LABELS } from './balanceSheetRows'
-import { fromScaledAmount, toScaledAmount } from '@/utils/currency'
 import type { BalanceSheetResponse } from '@/types'
 
 interface BsFilters {
@@ -29,17 +28,22 @@ const MIN_QUERYABLE_YEAR = 1000
 const isZeroAmount = (amount: string | null) => amount === '0.0000'
 
 /**
- * Owner's Equity tile: N46 + N50, null-propagating. If either leg is unknown
- * the tile shows an em dash — summing a substituted zero would assert a false
- * total.
+ * The derived subtotal rows, in render order (#1212). `key` indexes
+ * BalanceSheetResponse['derivedTotals'], so a renamed backend field is a type
+ * error here rather than a silently missing row.
  */
-function equityTotal(n46: string | null, n50: string | null): string | null {
-  if (n46 === null || n50 === null) return null
-  const a = toScaledAmount(n46)
-  const b = toScaledAmount(n50)
-  if (a === null || b === null) return null
-  return fromScaledAmount(a + b)
-}
+const DERIVED_TOTALS = [
+  { testId: 'bs-derived-owners-equity', label: "TOTAL OWNER'S EQUITY", key: 'ownersEquity' },
+  {
+    testId: 'bs-derived-liabilities-and-equity',
+    label: "TOTAL LIABILITIES AND OWNER'S EQUITY",
+    key: 'liabilitiesAndEquity',
+  },
+] as const satisfies readonly {
+  testId: string
+  label: string
+  key: keyof BalanceSheetResponse['derivedTotals']
+}[]
 
 export default function BalanceSheetPage() {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
@@ -178,7 +182,9 @@ export default function BalanceSheetPage() {
     return {
       assets: amountOf('N41'),
       liabilities: amountOf('N45'),
-      equity: equityTotal(amountOf('N46'), amountOf('N50')),
+      // The SAME figure the subtotal row renders. Computing it here again
+      // would reintroduce a second expression that can drift from the backend.
+      equity: report.derivedTotals.ownersEquity,
     }
   }, [report])
 
@@ -290,6 +296,40 @@ export default function BalanceSheetPage() {
         </Box>
       ))}
 
+      {/*
+        Derived presentation subtotals (#1212). NOT LHDN fields: they carry no
+        N-code, no expand control and no ledger drill-down, and they are absent
+        from `rows` — the backend computes them on `derivedTotals` so this row
+        and the summary card cannot disagree. Styled like the isTotal rows.
+        The empty leading Box reserves the N-code column so the labels and
+        amounts stay aligned with the official rows above.
+      */}
+      <Box sx={{ mt: 1 }}>
+        {DERIVED_TOTALS.map(({ testId, label, key }) => (
+          <Box
+            key={testId}
+            data-testid={testId}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              py: 0.5,
+              fontWeight: 600,
+            }}
+          >
+            <Box sx={{ minWidth: 48 }} />
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {label}
+              </Typography>
+            </Box>
+            <Typography variant="body2" sx={{ textAlign: 'right', fontWeight: 600 }}>
+              {formatBalanceAmount(report.derivedTotals[key])}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+
       {report.findings.length > 0 && (
         <Box data-testid="bs-findings" sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {report.findings.map((finding, idx) => (
@@ -316,14 +356,32 @@ export default function BalanceSheetPage() {
           <Typography variant="body2" data-testid="bs-balance-status">
             {balanceStatusText}
           </Typography>
-          {(balanceCheck.status === 'balanced' || balanceCheck.status === 'outOfBalance') && (
-            <Typography variant="body2">
-              Difference{' '}
-              <span data-testid="bs-difference-value">
-                {formatBalanceAmount(balanceCheck.difference)}
-              </span>
-            </Typography>
-          )}
+          {/*
+            All three comparison lines stay visible in EVERY status, including
+            `unavailable` (#1212). An unavailable check can still carry a known
+            totalAssets, and blanking a figure the server did compute hides
+            usable information; only genuinely null amounts become em dashes.
+            `difference` is typed null under `unavailable` by the BalanceCheck
+            union, so it renders as an em dash there without a status check.
+          */}
+          <Typography variant="body2">
+            Total Assets{' '}
+            <span data-testid="bs-check-assets">
+              {formatBalanceAmount(balanceCheck.totalAssets)}
+            </span>
+          </Typography>
+          <Typography variant="body2">
+            Total Liabilities and Owner&apos;s Equity{' '}
+            <span data-testid="bs-check-liabilities-equity">
+              {formatBalanceAmount(balanceCheck.totalLiabilitiesAndEquity)}
+            </span>
+          </Typography>
+          <Typography variant="body2">
+            Difference{' '}
+            <span data-testid="bs-difference-value">
+              {formatBalanceAmount(balanceCheck.difference)}
+            </span>
+          </Typography>
           {balanceCheck.status === 'unavailable' && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
               <Typography variant="body2">

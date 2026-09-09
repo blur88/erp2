@@ -172,7 +172,7 @@ export class BalanceSheetService {
       settingsAccountIds[key] = (acctSettings as any)?.[key] ?? null;
     }
 
-    const { rows, balanceCheck, findings } = assembleBalanceSheet({
+    const { rows, derivedTotals, balanceCheck, findings } = assembleBalanceSheet({
       accounts,
       atDate,
       preYear,
@@ -189,6 +189,7 @@ export class BalanceSheetService {
       asOfDate,
       availableYears: plResult.availableYears,
       rows,
+      derivedTotals,
       balanceCheck,
       findings,
     };

@@ -1,5 +1,8 @@
 // balance-sheet.assemble.spec.ts
-import { assembleBalanceSheet, type AssembleInput, type AssembleAccount } from './balance-sheet.assemble';
+import {
+  assembleBalanceSheet, deriveTotals,
+  type AssembleInput, type AssembleAccount,
+} from './balance-sheet.assemble';
 import type { BalanceCheckReason } from './balance-sheet.types';
 
 const CASH = 'acc-cash', BANK = 'acc-bank', DRAW = 'acc-draw', CAP = 'acc-cap';
@@ -248,5 +251,116 @@ describe('assembleBalanceSheet', () => {
       atDate: new Map([['acc-root', rm(999)]]),
     }));
     expect(out.balanceCheck.status).toBe('balanced');
+  });
+
+  // ---- Derived presentation subtotals (#1212) ------------------------------
+  // These are NOT LHDN fields and carry no N-code. They live on
+  // `derivedTotals`, never in rows[], which stays exactly N28..N50.
+
+  it('computes the derived subtotals from N45, N46 and N50', () => {
+    // Capital 70,000 credit (Equity is credit-normal, so raw is negative),
+    // customer deposit 30,000 credit, profit 0 => N46 70,000, N50 0,
+    // N45 30,000. Assets are cash 100,000 to keep the equation whole.
+    const out = assembleBalanceSheet(base({
+      atDate: new Map([[CASH, rm(100000)], [CUSTDEP, -rm(30000)], [CAP, -rm(70000)]]),
+    }));
+    expect(rowOf(out, 'N45').amount).toBe('30000.0000');
+    expect(rowOf(out, 'N46').amount).toBe('70000.0000');
+    expect(rowOf(out, 'N50').amount).toBe('0.0000');
+
+    expect(out.derivedTotals.ownersEquity).toBe('70000.0000');
+    expect(out.derivedTotals.liabilitiesAndEquity).toBe('100000.0000');
+    // The accounting equation still holds, and the Balance Check reads the
+    // SAME value rather than recomputing it.
+    expect(out.balanceCheck.status).toBe('balanced');
+    expect(out.balanceCheck.totalLiabilitiesAndEquity)
+      .toBe(out.derivedTotals.liabilitiesAndEquity);
+    expect(out.balanceCheck.totalAssets).toBe('100000.0000');
+  });
+
+  it('keeps derived subtotals out of rows[] and gives them no N-code', () => {
+    const out = assembleBalanceSheet(base());
+    expect(out.rows).toHaveLength(23);
+    expect(out.rows.map((r) => r.line)).not.toContain('');
+    expect(out.rows.some((r) => /OWNER.S EQUITY/i.test(r.label) && r.line === '')).toBe(false);
+  });
+
+  it('propagates an unknown N50 to BOTH derived subtotals', () => {
+    // netProfit null => N48 null => N50 null. Neither subtotal may substitute
+    // a zero: a fabricated total is worse than an absent one.
+    const out = assembleBalanceSheet(base({
+      netProfit: null,
+      atDate: new Map([[CASH, rm(100000)], [CUSTDEP, -rm(30000)], [CAP, -rm(70000)]]),
+    }));
+    expect(rowOf(out, 'N50').amount).toBeNull();
+    expect(out.derivedTotals.ownersEquity).toBeNull();
+    expect(out.derivedTotals.liabilitiesAndEquity).toBeNull();
+    // N45 and N46 are still perfectly well known; the unknown does not spread
+    // sideways into the official rows.
+    expect(rowOf(out, 'N45').amount).toBe('30000.0000');
+    expect(rowOf(out, 'N46').amount).toBe('70000.0000');
+  });
+
+  it('propagates an unknown prior period (N47) through N50 to both subtotals', () => {
+    const out = assembleBalanceSheet(base({
+      priorProfitValid: false,
+      atDate: new Map([[CASH, rm(100000)], [CUSTDEP, -rm(30000)], [CAP, -rm(70000)]]),
+    }));
+    expect(rowOf(out, 'N47').amount).toBeNull();
+    expect(rowOf(out, 'N50').amount).toBeNull();
+    expect(out.derivedTotals.ownersEquity).toBeNull();
+    expect(out.derivedTotals.liabilitiesAndEquity).toBeNull();
+  });
+
+  it('propagates an unknown N46 leg to both subtotals', () => {
+    // N46 is a MAPPED line and mappedTotal() returns bigint, so the assembler
+    // cannot currently produce a null N46 from any input — asserting one via a
+    // crafted fixture would be theatre. What #1212 actually requires is that an
+    // unknown LEFT operand is not laundered into a zero, so pin the shared
+    // arithmetic directly: liabilitiesAndEquity must fold through
+    // ownersEquity, so a null equity leg cannot be rescued by a known N45.
+    // toMatchObject, not toEqual: deriveTotals also returns the raw bigints the
+    // Balance Check subtracts. The formatted pair is what this test is about.
+    expect(deriveTotals(null, rm(0), rm(30000))).toMatchObject({
+      ownersEquity: null, liabilitiesAndEquity: null,
+    });
+    // And the mirror case, so the test fails if the operands are swapped.
+    expect(deriveTotals(rm(70000), null, rm(30000))).toMatchObject({
+      ownersEquity: null, liabilitiesAndEquity: null,
+    });
+    // A known pair still produces the sum, so a blanket `return null` fails.
+    expect(deriveTotals(rm(70000), rm(0), rm(30000))).toMatchObject({
+      ownersEquity: '70000.0000', liabilitiesAndEquity: '100000.0000',
+    });
+  });
+
+  it('does not leak raw bigints into the serialized derivedTotals', () => {
+    // deriveTotals() returns the bigints the Balance Check subtracts, but the
+    // RESPONSE must carry only the formatted pair: a bigint throws on
+    // JSON.stringify, so a leak would 500 the endpoint rather than fail quietly.
+    const out = assembleBalanceSheet(base());
+    expect(Object.keys(out.derivedTotals).sort()).toEqual([
+      'liabilitiesAndEquity', 'ownersEquity',
+    ]);
+    expect(() => JSON.stringify(out.derivedTotals)).not.toThrow();
+  });
+
+  it('leaves derived subtotals known when only the Balance Check is disqualified', () => {
+    // An unmapped balance makes the check `unavailable`, but N45/N46/N50 are
+    // each still known — the subtotals must show those values, not an em dash.
+    // This is what lets the UI render all three Balance Check lines when
+    // unavailable.
+    const decoy = acc('acc-decoy', '1900', 'Suspense', 'Asset');
+    const out = assembleBalanceSheet(base({
+      accounts: [...ACCOUNTS, decoy],
+      atDate: new Map([
+        [CASH, rm(100000)], [CUSTDEP, -rm(30000)], [CAP, -rm(70000)],
+        ['acc-decoy', rm(5)],
+      ]),
+    }));
+    expect(out.balanceCheck.status).toBe('unavailable');
+    expect(out.balanceCheck.difference).toBeNull();
+    expect(out.derivedTotals.ownersEquity).toBe('70000.0000');
+    expect(out.derivedTotals.liabilitiesAndEquity).toBe('100000.0000');
   });
 });

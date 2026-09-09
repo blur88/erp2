@@ -3,7 +3,8 @@ import { formatScale4 } from '@/common/utils/money';
 import { BALANCE_SHEET_LINES, SETTINGS_KEY_LINE } from './balance-sheet.lines';
 import type {
   Amount, BalanceCheck, BalanceCheckReason, BalanceSheetAccountAmount,
-  BalanceSheetAccountRef, BalanceSheetFinding, BalanceSheetRow,
+  BalanceSheetAccountRef, BalanceSheetDerivedTotals, BalanceSheetFinding,
+  BalanceSheetRow,
 } from './balance-sheet.types';
 
 export interface AssembleAccount {
@@ -27,6 +28,7 @@ export interface AssembleInput {
 
 export interface AssembleOutput {
   rows: BalanceSheetRow[];
+  derivedTotals: BalanceSheetDerivedTotals;
   balanceCheck: BalanceCheck;
   findings: BalanceSheetFinding[];
 }
@@ -42,6 +44,36 @@ const sumAmounts = (parts: (bigint | null)[]): bigint | null =>
   parts.reduce<bigint | null>((a, b) => (a === null || b === null ? null : a + b), 0n);
 
 const fmt = (v: bigint | null): Amount => (v === null ? null : formatScale4(v));
+
+/**
+ * The presentation subtotals of issue #1212, and the SINGLE place either is
+ * computed. Exported so the propagation contract can be pinned directly.
+ *
+ * liabilitiesAndEquity folds through ownersEquity rather than summing
+ * (N45 + N46 + N50) independently. Arithmetically identical, but it makes an
+ * unknown equity leg structurally incapable of being rescued by a known N45 —
+ * the null cannot be routed around.
+ *
+ * Returns the raw bigints alongside the formatted pair because the Balance
+ * Check still has to SUBTRACT to get its difference. Handing back both means
+ * the panel and the rendered rows share one computation instead of two
+ * expressions that agree today and drift later.
+ */
+export function deriveTotals(
+  n46: bigint | null, n50: bigint | null, n45: bigint | null,
+): BalanceSheetDerivedTotals & {
+  ownersEquityValue: bigint | null;
+  liabilitiesAndEquityValue: bigint | null;
+} {
+  const ownersEquityValue = sumAmounts([n46, n50]);
+  const liabilitiesAndEquityValue = sumAmounts([n45, ownersEquityValue]);
+  return {
+    ownersEquityValue,
+    liabilitiesAndEquityValue,
+    ownersEquity: fmt(ownersEquityValue),
+    liabilitiesAndEquity: fmt(liabilitiesAndEquityValue),
+  };
+}
 
 export function assembleBalanceSheet(input: AssembleInput): AssembleOutput {
   const {
@@ -276,7 +308,14 @@ export function assembleBalanceSheet(input: AssembleInput): AssembleOutput {
   }
 
   const totalAssets = v('N41');
-  const totalLiabEquity = sumAmounts([v('N45'), v('N46'), v('N50')]);
+  // ONE computation, shared by the subtotal rows and the Balance Check.
+  // Formerly an independent sumAmounts([N45, N46, N50]) lived here; both now
+  // come out of deriveTotals(), so there is no second expression to drift.
+  const {
+    ownersEquityValue: _ownersEquityValue,
+    liabilitiesAndEquityValue: totalLiabEquity,
+    ...derivedTotals
+  } = deriveTotals(v('N46'), v('N50'), v('N45'));
 
   let balanceCheck: BalanceCheck;
   if (reasons.length > 0 || totalAssets === null || totalLiabEquity === null) {
@@ -305,5 +344,5 @@ export function assembleBalanceSheet(input: AssembleInput): AssembleOutput {
     } as BalanceCheck;
   }
 
-  return { rows, balanceCheck, findings };
+  return { rows, derivedTotals, balanceCheck, findings };
 }

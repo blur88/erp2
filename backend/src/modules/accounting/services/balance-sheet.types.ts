@@ -88,6 +88,21 @@ export type BalanceSheetFinding =
       accounts: BalanceSheetAccountRef[];
     };
 
+/**
+ * Presentation subtotals, NOT LHDN fields. They deliberately carry no N-code and
+ * never appear in `rows`, which stays exactly N28-N50 (issue #1212).
+ *
+ * Both are Amount: an unknown N47/N48 nulls N50, and an unknown leg must null
+ * the subtotal rather than substitute a zero, which would assert a total the
+ * backend cannot stand behind.
+ */
+export interface BalanceSheetDerivedTotals {
+  /** N46 + N50. */
+  ownersEquity: Amount;
+  /** N45 + ownersEquity. The SAME value the Balance Check compares against. */
+  liabilitiesAndEquity: Amount;
+}
+
 export interface BalanceSheetResponse {
   year: number;
   /** The effective cutoff the server actually used: min(businessToday, Dec 31). */
@@ -95,6 +110,7 @@ export interface BalanceSheetResponse {
   availableYears: number[];
   /** ALWAYS all of N28-N50, in order. */
   rows: BalanceSheetRow[];
+  derivedTotals: BalanceSheetDerivedTotals;
   balanceCheck: BalanceCheck;
   findings: BalanceSheetFinding[];
 }

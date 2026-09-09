@@ -39,6 +39,7 @@ const baseResponse = (over: Partial<BalanceSheetResponse> = {}): BalanceSheetRes
   asOfDate: '2026-09-08',
   availableYears: [2026],
   rows: buildRows(),
+  derivedTotals: { ownersEquity: '0.0000', liabilitiesAndEquity: '0.0000' },
   balanceCheck: {
     status: 'balanced',
     totalAssets: '0.0000',
@@ -174,7 +175,12 @@ describe('BalanceSheetPage', () => {
     )
     const panel = screen.getByTestId('bs-balance-check')
     expect(panel).toHaveTextContent(/unavailable/i)
-    expect(within(panel).queryByTestId('bs-difference-value')).not.toBeInTheDocument()
+    // Since #1212 the Difference line is always rendered so the three-line
+    // comparison stays intact under every status. The guarantee is unchanged in
+    // substance: an unknown difference must never render as a number.
+    const difference = within(panel).getByTestId('bs-difference-value')
+    expect(difference).toHaveTextContent('—')
+    expect(difference.textContent).not.toMatch(/\d/)
   })
 
   it('names every unmapped account in the warning', () => {
@@ -281,8 +287,12 @@ describe('BalanceSheetPage', () => {
     const printBlock = screen.getByTestId('bs-print-block')
     expect(printBlock).toHaveTextContent(/unavailable/i)
     expect(printBlock).toHaveTextContent('Selected-year profit could not be determined.')
-    // No fabricated difference reaches paper.
-    expect(within(printBlock).queryByTestId('bs-difference-value')).not.toBeInTheDocument()
+    // No fabricated difference reaches paper. Since #1212 the Difference LINE
+    // is always present so the three-line comparison stays intact; what must
+    // never appear is a NUMBER standing in for an unknown.
+    const printedDifference = within(printBlock).getByTestId('bs-difference-value')
+    expect(printedDifference).toHaveTextContent('—')
+    expect(printedDifference.textContent).not.toMatch(/\d/)
   })
 
   it('marks expanded ledger detail as print-hidden', async () => {
@@ -293,5 +303,137 @@ describe('BalanceSheetPage', () => {
     expect(detail).toBeInTheDocument()
     // …and excluded from the printout by the attribute the print CSS keys on.
     expect(detail.closest('[data-print-hide]')).not.toBeNull()
+  })
+})
+
+describe("BalanceSheetPage — derived equity subtotals (#1212)", () => {
+  /** A whole, balanced sheet: liabilities 30k, capital 70k, current account 0. */
+  const balanced = baseResponse({
+    rows: buildRows({ N41: '100000.0000', N45: '30000.0000', N46: '70000.0000', N50: '0.0000' }),
+    derivedTotals: { ownersEquity: '70000.0000', liabilitiesAndEquity: '100000.0000' },
+    balanceCheck: {
+      status: 'balanced',
+      totalAssets: '100000.0000',
+      totalLiabilitiesAndEquity: '100000.0000',
+      difference: '0.0000',
+      reasons: [],
+    },
+  })
+
+  it('renders both derived subtotals with the server-computed values', () => {
+    renderPage(balanced)
+    expect(screen.getByTestId('bs-derived-owners-equity')).toHaveTextContent('70,000.00')
+    expect(screen.getByTestId('bs-derived-liabilities-and-equity')).toHaveTextContent('100,000.00')
+  })
+
+  it('gives the derived rows no LHDN N-code', () => {
+    renderPage(balanced)
+    // The N-code column is what distinguishes an official row. Neither derived
+    // row may carry one, or it would read as a filing field.
+    for (const testId of ['bs-derived-owners-equity', 'bs-derived-liabilities-and-equity']) {
+      expect(within(screen.getByTestId(testId)).queryByTestId('bs-line-code')).toBeNull()
+      expect(screen.getByTestId(testId).textContent).not.toMatch(/\bN\d{2}\b/)
+    }
+  })
+
+  it('keeps the summary Owner’s Equity card equal to the subtotal row', () => {
+    renderPage(balanced)
+    expect(screen.getByTestId('bs-summary-equity')).toHaveTextContent('70,000.00')
+    expect(screen.getByTestId('bs-derived-owners-equity')).toHaveTextContent('70,000.00')
+  })
+
+  it('does not add the combined total to the Assets section', () => {
+    renderPage(balanced)
+    // N41 remains the only 100,000 in the asset rows; the combined figure lives
+    // on the liabilities/equity side and in the Balance Check only.
+    expect(screen.getByTestId('bs-row-N41')).toHaveTextContent('100,000.00')
+    expect(screen.getByTestId('bs-row-N41').textContent).not.toMatch(/LIABILITIES/i)
+  })
+
+  it('renders an em dash, never a zero, when a subtotal is unknown', () => {
+    renderPage(
+      baseResponse({
+        rows: buildRows({ N45: '30000.0000', N46: '70000.0000', N48: null, N50: null }),
+        derivedTotals: { ownersEquity: null, liabilitiesAndEquity: null },
+        balanceCheck: {
+          status: 'unavailable',
+          totalAssets: '100000.0000',
+          totalLiabilitiesAndEquity: null,
+          difference: null,
+          reasons: [{
+            code: 'PROFIT_INTEGRITY', scope: 'selectedYear', affectedLines: ['N48', 'N50'],
+            message: 'Selected-year profit could not be determined.', accounts: [],
+          }],
+        },
+      }),
+    )
+    expect(screen.getByTestId('bs-derived-owners-equity')).toHaveTextContent('—')
+    expect(screen.getByTestId('bs-derived-owners-equity').textContent).not.toContain('0.00')
+    expect(screen.getByTestId('bs-derived-liabilities-and-equity')).toHaveTextContent('—')
+    expect(screen.getByTestId('bs-summary-equity')).toHaveTextContent('—')
+  })
+
+  it('shows all three Balance Check lines when balanced', () => {
+    renderPage(balanced)
+    const panel = screen.getByTestId('bs-balance-check')
+    expect(within(panel).getByTestId('bs-check-assets')).toHaveTextContent('100,000.00')
+    expect(within(panel).getByTestId('bs-check-liabilities-equity')).toHaveTextContent('100,000.00')
+    expect(within(panel).getByTestId('bs-difference-value')).toHaveTextContent('0.00')
+    expect(within(panel).getByTestId('bs-balance-status')).toHaveTextContent('Balanced')
+  })
+
+  it('keeps all three Balance Check lines visible when unavailable, showing known values', () => {
+    // An unavailable check can still have a KNOWN totalAssets. That value must
+    // render normally; only the genuinely null figures become em dashes, and
+    // the status and reasons are preserved.
+    renderPage(
+      baseResponse({
+        rows: buildRows({ N41: '100000.0000', N48: null, N50: null }),
+        derivedTotals: { ownersEquity: null, liabilitiesAndEquity: null },
+        balanceCheck: {
+          status: 'unavailable',
+          totalAssets: '100000.0000',
+          totalLiabilitiesAndEquity: null,
+          difference: null,
+          reasons: [{
+            code: 'PROFIT_INTEGRITY', scope: 'selectedYear', affectedLines: ['N48', 'N50'],
+            message: 'Selected-year profit could not be determined.', accounts: [],
+          }],
+        },
+      }),
+    )
+    const panel = screen.getByTestId('bs-balance-check')
+    expect(within(panel).getByTestId('bs-check-assets')).toHaveTextContent('100,000.00')
+    expect(within(panel).getByTestId('bs-check-liabilities-equity')).toHaveTextContent('—')
+    expect(within(panel).getByTestId('bs-difference-value')).toHaveTextContent('—')
+    expect(within(panel).getByTestId('bs-balance-status')).toHaveTextContent('Unavailable')
+    expect(panel).toHaveTextContent('Selected-year profit could not be determined.')
+  })
+
+  it('places the derived rows after N50 and before the Balance Check', () => {
+    const { container } = renderPage(balanced)
+    const order = Array.from(
+      container.querySelectorAll(
+        '[data-testid="bs-row-N50"],[data-testid="bs-derived-owners-equity"],' +
+        '[data-testid="bs-derived-liabilities-and-equity"],[data-testid="bs-balance-check"]',
+      ),
+    ).map((el) => el.getAttribute('data-testid'))
+    expect(order).toEqual([
+      'bs-row-N50',
+      'bs-derived-owners-equity',
+      'bs-derived-liabilities-and-equity',
+      'bs-balance-check',
+    ])
+  })
+
+  it('includes both derived rows in the printable block', () => {
+    renderPage(balanced)
+    // Same DOM subtree the print stylesheet keeps, and neither row is marked
+    // data-print-hide, so Print/PDF gets the identical values.
+    const printBlock = screen.getByTestId('bs-print-block')
+    for (const testId of ['bs-derived-owners-equity', 'bs-derived-liabilities-and-equity']) {
+      const el = within(printBlock).getByTestId(testId)
+      expect(el.closest('[data-print-hide="true"]')).toBeNull()
+    }
   })
 })
