@@ -19,15 +19,31 @@ This is a real, previously-costly blind spot: during #1172 the report tree was
 `display: none` while two rounds of overflow fixes were applied downstream of
 it, and every automated gate stayed green throughout.
 
-**A headless browser can cover it.** Playwright's `emulateMedia({ media:
-'print' })` plus `page.pdf()` exercises the genuine print stylesheet, and
-`getComputedStyle` over the ancestor chain detects exactly the height/overflow
-clamp that caused #1172. Playwright is **not** a dependency of this repo, so the
-run below is performed ad hoc against a locally rebuilt stack. Promoting it to a
-committed, CI-run check is a worthwhile follow-up and is not done here.
+**A headless browser covers it, and CI now runs that check.** Playwright's
+`emulateMedia({ media: 'print' })` plus `page.pdf()` exercises the genuine print
+stylesheet, and `getComputedStyle` over the ancestor chain detects exactly the
+height/overflow clamp that caused #1172. The check is committed as
+`frontend/e2e/accounting-print.spec.ts` and runs in the CI job
+**`Accounting Reports - Print/PDF Gate`** on every PR (#1214).
 
-Until then BS-P3 is executed per change — by the browser procedure below, or by
-a human reviewing a multi-page print preview.
+Run it locally with:
+
+    docker compose -p erp_print_gate -f docker-compose.yml -f docker-compose.print-gate.yml build frontend backend
+    docker compose -p erp_print_gate -f docker-compose.yml -f docker-compose.print-gate.yml up -d postgres redis backend frontend
+    cd frontend && PRINT_GATE_BASE_URL=http://localhost:3100 npm run test:print
+
+**BS-P3 below remains REQUIRED BEFORE MERGE for now.** The CI job exists but is
+not yet a *required* check: `main` is protected by ruleset 15609777, whose
+required checks match job-name strings, and a job absent from that ruleset does
+not block a merge. A green non-required job is not a gate.
+
+**Downgrade condition.** BS-P3 may be downgraded to a spot-check once BOTH hold:
+
+1. `Accounting Reports - Print/PDF Gate` is listed in ruleset 15609777's
+   required checks; and
+2. it has passed on `main` at least once.
+
+Until both are true, execute BS-P3 by hand.
 
 ---
 
