@@ -23,6 +23,34 @@ const FIXTURE_ACCOUNT_COUNT = 15
  */
 const SEEDED_EXPENSE_GROUP_CODE = '6000'
 
+/**
+ * Account codes are RUN-SCOPED, so a second run against the same database does
+ * not collide with the first (`ChartOfAccountService.create` 409s on a
+ * duplicate code, and the SQL insert hits the unique index on `code`).
+ *
+ * Fixed codes made the gate un-re-runnable without `down -v`, which is the
+ * same "you must remember to reset it" failure mode #1214 exists to remove.
+ *
+ * Shape: `9<runId[0:4]><nn>` — 4 hex chars of the run id plus a 2-digit
+ * sequence, e.g. `9a06510`. That is 7 characters against the column's
+ * `varchar(20)`, sorts stably within a run (the P&L sorts rows by code), leads
+ * with 9 so it stays clear of every seeded code (1000–6990), and cannot
+ * collide with the seeded set or with another run except on a runId prefix
+ * collision — which would also have to coincide with the same sequence number.
+ *
+ * Sequences are partitioned so the two creation paths cannot collide with each
+ * other: 00 and 01 are the grouped parent and child, and the flat accounts
+ * start at 10. Stated as named constants rather than left implicit — an overlap
+ * would surface as a mid-fixture 409, not as a wrong report.
+ */
+const runScopedCode = (runId: string, sequence: number) =>
+  `9${runId.slice(0, 4)}${String(sequence).padStart(2, '0')}`
+/** Flat fixture accounts occupy sequences 10..(9 + FIXTURE_ACCOUNT_COUNT). */
+const FLAT_CODE_SEQUENCE_BASE = 10
+/** The grouped parent and its child, deliberately outside the flat range. */
+const GROUP_PARENT_SEQUENCE = 0
+const GROUP_CHILD_SEQUENCE = 1
+
 const DESCRIPTOR_PATH =
   process.env.PRINT_GATE_DESCRIPTOR ??
   path.join(import.meta.dirname, '.print-gate-descriptor.json')
@@ -77,14 +105,24 @@ export interface PrintFixtureDescriptor {
   prefix: string
   paymentMethodId: string
   /**
-   * Gate-run admin password. A fresh seed forces a mandatory UI password
-   * rotation (/change-password-required), so the brief's Admin@123! login
-   * never reaches the reports (Task 3 measurement, env-only rotation there).
-   * globalSetup rotates once via PATCH /api/auth/change-password and the
-   * spec logs in with this value. Fixed (not random) so a failed run stays
-   * reproducible from the retained descriptor; the gate DB is disposable.
+   * Gate-run admin password — the value the spec's UI login uses.
+   *
+   * A fresh seed marks admin `requiresPasswordChange`, which the UI enforces as
+   * a hard redirect to /change-password-required on every route, so the seeded
+   * Admin@123! login never reaches the reports. globalSetup rotates to this
+   * value ONLY when a rotation is actually pending (see authenticate), so a
+   * re-run against an already-rotated database reuses it instead of failing.
+   *
+   * Fixed (not random) so a failed run stays reproducible from the retained
+   * descriptor, and so the re-run path has a known value to fall back to.
    */
   password: string
+  /**
+   * What the pre-run cleanup removed, e.g. "0 accounts, 0 expenses, ...".
+   * Non-zero means this run reused a database an earlier run had populated —
+   * useful when reading a failure from the retained descriptor.
+   */
+  cleaned: string
   accounts: PrintFixtureAccount[]
   /** The grouped drill-down. Always present — the P&L hiding test REQUIRES it. */
   group: PrintFixtureGroup
@@ -121,15 +159,93 @@ async function api(pathname: string, init: RequestInit & { token?: string } = {}
 
 const unwrap = <T,>(payload: any): T => (payload?.data ?? payload) as T
 
-async function login(password = 'Admin@123!'): Promise<string> {
-  const token = unwrap<{ accessToken?: string }>(
+const SEEDED_PASSWORD = 'Admin@123!'
+
+interface LoginResult {
+  accessToken: string
+  /** From the login response — the UI hard-redirects to /change-password-required. */
+  requiresPasswordChange: boolean
+}
+
+/** Login, returning the token AND whether a password change is still pending. */
+async function login(password = SEEDED_PASSWORD): Promise<LoginResult> {
+  const payload = unwrap<{ accessToken?: string; requiresPasswordChange?: boolean }>(
     await api('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ usernameOrEmail: 'admin', password }),
     }),
-  )?.accessToken
-  if (!token) throw new Error('print-gate fixture: login returned no accessToken')
-  return token
+  )
+  if (!payload?.accessToken) throw new Error('print-gate fixture: login returned no accessToken')
+  return {
+    accessToken: payload.accessToken,
+    requiresPasswordChange: payload.requiresPasswordChange === true,
+  }
+}
+
+/** Login that resolves to null on 401 instead of throwing, for the probe below. */
+async function tryLogin(password: string): Promise<LoginResult | null> {
+  try {
+    return await login(password)
+  } catch (err) {
+    if (/-> 401/.test(String(err))) return null
+    throw err
+  }
+}
+
+/**
+ * Authenticate idempotently, so the gate is RE-RUNNABLE against a database a
+ * previous run already used.
+ *
+ * A fresh seed marks admin `requiresPasswordChange`, which the UI enforces as a
+ * hard redirect to /change-password-required on every route — so the rotation
+ * genuinely IS needed on a first run, and is not skipped.
+ *
+ * But it used to be UNCONDITIONAL: the second run's `login()` with the seeded
+ * password returned 401 (the first run had already rotated it) and globalSetup
+ * died before creating anything. Re-running therefore required `down -v` plus
+ * deleting .print-gate-data. A gate people must remember to reset is a gate
+ * people stop running, which is the premise of #1214.
+ *
+ * Order matters: the SEEDED password is tried first, because that is the state
+ * that needs acting on. Falling straight through to the gate password would
+ * leave a fresh seed's pending change unrotated.
+ */
+async function authenticate(gatePassword: string): Promise<string> {
+  const seeded = await tryLogin(SEEDED_PASSWORD)
+  if (seeded) {
+    if (!seeded.requiresPasswordChange) {
+      // Seeded password still valid and no change pending: nothing to rotate,
+      // and rotating anyway would move the password the spec logs in with.
+      // (Only reachable if someone cleared the flag by hand.)
+      return seeded.accessToken
+    }
+    await api('/auth/change-password', {
+      method: 'PATCH',
+      token: seeded.accessToken,
+      body: JSON.stringify({
+        currentPassword: SEEDED_PASSWORD,
+        newPassword: gatePassword,
+        newPasswordConfirmation: gatePassword,
+      }),
+    })
+    // Re-login: change-password invalidates all refresh tokens, and this also
+    // proves the new password works before the spec depends on it.
+    return (await login(gatePassword)).accessToken
+  }
+
+  // Seeded password rejected => an earlier run already rotated it. Proceed on
+  // the gate password without rotating (change-password rejects reusing the
+  // current value, so a second rotation would fail).
+  const rotated = await tryLogin(gatePassword)
+  if (!rotated) {
+    throw new Error(
+      `print-gate fixture: admin login failed with BOTH the seeded password and ` +
+        `the gate password. The database is in an unexpected state — recreate the ` +
+        `gate stack (down -v and remove .print-gate-data), or set ` +
+        `PRINT_GATE_PASSWORD to the value actually in use.`,
+    )
+  }
+  return rotated.accessToken
 }
 
 /**
@@ -228,6 +344,80 @@ function psqlScalar(sql: string): string {
 
 const sqlLiteral = (value: string) => `'${value.replace(/'/g, "''")}'`
 
+/** Marker every fixture account name starts with, and the cleanup's only scope. */
+const FIXTURE_NAME_PREFIX = 'PWPRINT-'
+
+/**
+ * Delete every PREVIOUS run's fixture rows, so each run starts from the same
+ * state and the gate is RE-RUNNABLE in place — no `down -v`, no removing
+ * .print-gate-data.
+ *
+ * Why this is necessary and not merely tidy. Both reports aggregate over the
+ * whole database, so a second run's rows ADD to the first's:
+ *   - Balance Sheet N38/N48 are sums. Verified: run 2 read MYR -5,868.09 where
+ *     the declared expectation was -1,956.03 — exactly 3x, one multiple per run.
+ *   - Profit & Loss is worse. assembleSections seeds EVERY postable expense
+ *     account at zero regardless of year (spec §7.2, zero rows stay visible),
+ *     so a prior run's 17 accounts render as 0.00 rows in every later report.
+ *     Verified against the live API. The report therefore grows by 17 rows per
+ *     run, drifting page count, layout and the clipping scan's element set.
+ *
+ * Two alternatives were rejected:
+ *   - Deriving expectations from the live report. Forbidden by design: expected
+ *     print-visible content is DECLARED, never derived, because deriving lets
+ *     accidental hiding or a wrong figure pass.
+ *   - A run-scoped fiscal year. Fixes the Balance Sheet sums (verified: an
+ *     earlier year is fully isolated, N47 carries prior years forward) but NOT
+ *     the P&L, because the zero-row seeding above ignores the year entirely.
+ *
+ * Scope is `chart_of_account.name LIKE 'PWPRINT-%'` — the marker every fixture
+ * account carries, and nothing else in the database does. Seeded accounts
+ * (1000–6990), the payment method and the admin user are untouched.
+ *
+ * Deletion order follows the FKs: payments, then expenses, then journal entries
+ * (whose lines CASCADE), then the accounts themselves — `journal_entry_line`
+ * references `chart_of_account` with RESTRICT, so the accounts cannot go first.
+ */
+function cleanPreviousFixtureRows(): string {
+  const marker = sqlLiteral(`${FIXTURE_NAME_PREFIX}%`)
+  const scope = `SELECT id FROM chart_of_account WHERE name LIKE ${marker}`
+
+  // One statement, one transaction, so a partial clean cannot leave rows that
+  // would silently skew the next report. `-tAc` runs a single string as one
+  // implicit transaction.
+  return psqlScalar(
+    `WITH scoped AS (${scope}),
+     scoped_expenses AS (
+       SELECT id, "expenseNumber" FROM expenses
+        WHERE "expenseAccountId" IN (SELECT id FROM scoped)
+     ),
+     del_payments AS (
+       DELETE FROM expense_payments
+        WHERE "expenseId" IN (SELECT id FROM scoped_expenses) RETURNING 1
+     ),
+     del_lines AS (
+       DELETE FROM journal_entry_line
+        WHERE "accountId" IN (SELECT id FROM scoped) RETURNING "entryId"
+     ),
+     del_entries AS (
+       DELETE FROM journal_entry
+        WHERE id IN (SELECT "entryId" FROM del_lines) RETURNING 1
+     ),
+     del_expenses AS (
+       DELETE FROM expenses
+        WHERE id IN (SELECT id FROM scoped_expenses) RETURNING 1
+     ),
+     del_accounts AS (
+       DELETE FROM chart_of_account
+        WHERE id IN (SELECT id FROM scoped) RETURNING 1
+     )
+     SELECT (SELECT count(*) FROM del_accounts) || ' accounts, '
+         || (SELECT count(*) FROM del_expenses) || ' expenses, '
+         || (SELECT count(*) FROM del_payments) || ' payments, '
+         || (SELECT count(*) FROM del_entries) || ' journal entries'`,
+  )
+}
+
 /**
  * Insert the non-postable parent (SQL — no API path exists, see
  * PrintFixtureGroup) and create its postable child, expense and payment through
@@ -235,13 +425,14 @@ const sqlLiteral = (value: string) => `'${value.replace(/'/g, "''")}'`
  */
 async function createGroupedAccount(
   token: string,
+  runId: string,
   prefix: string,
   paymentMethodId: string,
   expenseDate: string,
   amount: string,
 ): Promise<PrintFixtureGroup> {
-  const parentCode = '6900'
-  const childCode = '6901'
+  const parentCode = runScopedCode(runId, GROUP_PARENT_SEQUENCE)
+  const childCode = runScopedCode(runId, GROUP_CHILD_SEQUENCE)
   const parentName = `${prefix} grouped parent expense account with a deliberately long descriptive name for print wrapping`
   const childName = `${prefix} grouped CHILD expense account with a deliberately long descriptive name for print wrapping`
 
@@ -321,20 +512,16 @@ export async function createPrintFixture(): Promise<PrintFixtureDescriptor> {
   const runId = randomBytes(4).toString('hex')
   const prefix = `PWPRINT-${runId}`
   const year = Number(process.env.PRINT_GATE_YEAR ?? new Date().getFullYear())
-  // Fresh seed marks admin requiresPasswordChange, which the UI enforces as a
-  // hard redirect to /change-password-required on every route. Rotate once
-  // here (provisioning belongs in globalSetup, which runs once per run) so
-  // the spec's UI login reaches the reports. Re-login after rotation: the
-  // endpoint invalidates refresh tokens, and this also proves the new
-  // password works before the spec depends on it.
+  // Rotates only when a rotation is actually pending, so a second run against
+  // the same database works without any teardown. See authenticate().
   const password = process.env.PRINT_GATE_PASSWORD ?? 'PrintGate@12345!'
-  const seedToken = await login()
-  await api('/auth/change-password', {
-    method: 'PATCH',
-    token: seedToken,
-    body: JSON.stringify({ currentPassword: 'Admin@123!', newPassword: password, newPasswordConfirmation: password }),
-  })
-  const token = await login(password)
+  const token = await authenticate(password)
+
+  // Reset to a known state BEFORE creating anything, so a re-run against a
+  // used database produces the same reports as a first run. See
+  // cleanPreviousFixtureRows for why both reports demand this.
+  const cleaned = cleanPreviousFixtureRows()
+
   const paymentMethodId = await ensureBankPaymentMethod(token, prefix)
   const expenseDate = `${year}-01-15`
 
@@ -342,7 +529,7 @@ export async function createPrintFixture(): Promise<PrintFixtureDescriptor> {
   for (let i = 1; i <= FIXTURE_ACCOUNT_COUNT; i += 1) {
     // Long name: exercises print-visible wrapping in the P&L account column.
     const name = `${prefix} expense account ${String(i).padStart(2, '0')} with a deliberately long descriptive name for print wrapping`
-    const code = `9${String(600 + i).padStart(3, '0')}`
+    const code = runScopedCode(runId, FLAT_CODE_SEQUENCE_BASE + i - 1)
     const amount = amountFor(i)
 
     const account = unwrap<{ id: string }>(
@@ -383,6 +570,7 @@ export async function createPrintFixture(): Promise<PrintFixtureDescriptor> {
   // distinct from every amountFor(i) value so a row swap cannot pass.
   const group = await createGroupedAccount(
     token,
+    runId,
     prefix,
     paymentMethodId,
     expenseDate,
@@ -399,6 +587,7 @@ export async function createPrintFixture(): Promise<PrintFixtureDescriptor> {
     prefix,
     paymentMethodId,
     password,
+    cleaned,
     accounts,
     group,
     expected: {
@@ -425,6 +614,7 @@ export default async function globalSetup() {
     `print-gate fixture ready: prefix=${descriptor.prefix} ` +
       `accounts=${descriptor.accounts.length} ` +
       `group=${descriptor.group.parentCode}/${descriptor.group.childCode}@${descriptor.group.amount} ` +
-      `totalExpense=${descriptor.expected.totalExpense}`,
+      `totalExpense=${descriptor.expected.totalExpense} ` +
+      `(pre-run cleanup removed ${descriptor.cleaned})`,
   )
 }

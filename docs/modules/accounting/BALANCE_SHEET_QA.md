@@ -53,6 +53,15 @@ procedure must not require host `sudo`.
 an un-rebuilt frontend image serves a stale bundle and every print assertion
 passes vacuously. `./scripts/print-gate-up.sh` rebuilds on each invocation.
 
+**The gate is re-runnable in place — no teardown needed between runs.** Run
+`npm run test:print` as many times as you like against the same stack and the
+same database. `globalSetup` rotates the admin password only when a rotation is
+actually pending, uses run-scoped account codes, and deletes the previous run's
+fixture rows before creating its own (both reports aggregate over the whole
+database, so without that a second run would read multiplied totals and a P&L
+that grows by 17 rows per run). Only tear down when you are finished, or when a
+run reports that admin login failed with both passwords.
+
 **BS-P3 below remains REQUIRED BEFORE MERGE for now.** The CI job exists but is
 not yet a *required* check: `main` is protected by ruleset 15609777, whose
 required checks match job-name strings, and a job absent from that ruleset does
