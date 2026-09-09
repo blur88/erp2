@@ -26,11 +26,32 @@ height/overflow clamp that caused #1172. The check is committed as
 `frontend/e2e/accounting-print.spec.ts` and runs in the CI job
 **`Accounting Reports - Print/PDF Gate`** on every PR (#1214).
 
-Run it locally with:
+Run it locally with the **same script CI uses** — it performs the isolation
+check, the per-service data-directory ownership prep, the image build, `up` and
+the readiness wait, so a local run cannot silently omit a step CI depends on:
 
-    docker compose -p erp_print_gate -f docker-compose.yml -f docker-compose.print-gate.yml build frontend backend
-    docker compose -p erp_print_gate -f docker-compose.yml -f docker-compose.print-gate.yml up -d postgres redis backend frontend
-    cd frontend && PRINT_GATE_BASE_URL=http://localhost:3100 npm run test:print
+    ./scripts/print-gate-up.sh
+
+    cd frontend && npm ci && npx playwright install --with-deps chromium
+    cd frontend && PRINT_GATE_BASE_URL=http://localhost:3100 \
+      PRINT_GATE_API_URL=http://localhost:3101/api npm run test:print
+
+Dependency/browser install, running the suite and teardown are deliberately
+outside the script (CI caches the first and owns the last). The script leaves
+the stack **running on failure** so a half-started state can be inspected with
+`docker compose -p erp_print_gate -f docker-compose.yml -f
+docker-compose.print-gate.yml logs`. Tear down when finished:
+
+    docker compose -p erp_print_gate -f docker-compose.yml -f docker-compose.print-gate.yml down -v --remove-orphans
+    docker run --rm --user 0:0 -v "$PWD:/repo" alpine:3.23 rm -rf /repo/.print-gate-data
+
+`.print-gate-data` holds files owned by root, uid 70 and uid 999, so it is
+removed from a container for the same reason it is prepared from one — the
+procedure must not require host `sudo`.
+
+**Rebuild before every re-check.** There is no volume mount for live reload, so
+an un-rebuilt frontend image serves a stale bundle and every print assertion
+passes vacuously. `./scripts/print-gate-up.sh` rebuilds on each invocation.
 
 **BS-P3 below remains REQUIRED BEFORE MERGE for now.** The CI job exists but is
 not yet a *required* check: `main` is protected by ruleset 15609777, whose

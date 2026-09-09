@@ -555,48 +555,14 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Verify the gate stack is isolated
-        run: ./scripts/print-gate-isolation-check.sh
-
-      - name: Prepare gate data directories
-        run: |
-          # Bind dirs are created root-owned on the runner; backend runs as
-          # uid 1001, so pre-create with per-service ownership (blanket 1001
-          # would seize PGDATA — postgres needs 70:70, redis 999:999).
-          mkdir -p .print-gate-data/postgres .print-gate-data/redis .print-gate-data/uploads .print-gate-data/logs .print-gate-data/backups
-          sudo chown -R 70:70 .print-gate-data/postgres
-          sudo chown -R 999:999 .print-gate-data/redis
-          sudo chown -R 1001:1001 .print-gate-data/uploads .print-gate-data/logs .print-gate-data/backups
-
-      - name: Build the frontend and backend images from this commit
-        # A stale bundle makes every print assertion pass vacuously; there is
-        # no volume mount for live reload.
-        run: docker compose $COMPOSE_ARGS build frontend backend
-
-      - name: Start the stack (selected services only)
-        # Explicitly NOT a bare `up -d`: that starts the top-level nginx on
-        # 80/443. The frontend service's own nginx already proxies /api/.
-        run: docker compose $COMPOSE_ARGS up -d postgres redis backend frontend
-
-      - name: Wait for the stack to become ready
-        run: |
-          # backend healthcheck has start_period: 40s
-          for i in $(seq 1 120); do
-            api=$(curl -s -o /dev/null -w '%{http_code}' \
-              "http://localhost:${PRINT_GATE_API_PORT}/api/health" || true)
-            fe=$(curl -s -o /dev/null -w '%{http_code}' \
-              "http://localhost:${PRINT_GATE_FRONTEND_PORT}/" || true)
-            if [ "$api" = "200" ] && [ "$fe" = "200" ]; then
-              echo "stack ready after ${i}s"; exit 0
-            fi
-            if [ -z "$(docker compose $COMPOSE_ARGS ps -q backend)" ]; then
-              echo "::error::backend container is gone before readiness" >&2
-              exit 1
-            fi
-            sleep 1
-          done
-          echo "::error::stack did not become ready within 120s" >&2
-          exit 1
+      # Isolation check, data-dir ownership prep, image build, up and the
+      # readiness wait — ONE script, shared verbatim with the local procedure
+      # in docs/modules/accounting/BALANCE_SHEET_QA.md, so the documented
+      # startup can no longer omit a fix CI depends on (#1214 review).
+      # It preserves the stack on failure; the teardown step below is
+      # `if: always()` and cleans up regardless.
+      - name: Build and start the gate stack
+        run: ./scripts/print-gate-up.sh
 
       - name: Install frontend dependencies
         # Before invoking the Playwright CLI: it must resolve from the pinned
