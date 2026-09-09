@@ -1,4 +1,5 @@
 import { writeFileSync, readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import path from 'node:path'
 
@@ -7,8 +8,20 @@ import path from 'node:path'
  * A4 page in the Task 3 measurement (taken with THIS same paid-expense flow),
  * rounded up to the next multiple of 5 for margin. Recorded in
  * docs/test/print-gate-measurement.md.
+ *
+ * The grouped account below (see createGroupedAccount) adds two further P&L
+ * rows on top of these, so the page count only ever grows.
  */
 const FIXTURE_ACCOUNT_COUNT = 15
+
+/**
+ * The seeded top-level EXPENSE group. accounting-seeder writes
+ * `isPostable = parentId !== null`, so the six root groups — and only they —
+ * are non-postable, and 6000 is the EXPENSE one. It is the sole account the
+ * REST API will accept as a `parentId` (ChartOfAccountService.assertParentValid
+ * rejects a postable parent).
+ */
+const SEEDED_EXPENSE_GROUP_CODE = '6000'
 
 const DESCRIPTOR_PATH =
   process.env.PRINT_GATE_DESCRIPTOR ??
@@ -18,6 +31,42 @@ export interface PrintFixtureAccount {
   id: string
   code: string
   name: string
+  amount: string
+  expenseId: string
+}
+
+/**
+ * A real drill-down: a NON-POSTABLE parent expense account with one POSTABLE
+ * child carrying a paid expense.
+ *
+ * Why this exists (review finding 4). ProfitAndLossAccountingView marks
+ * `printClass = 'acct-print-detail-row'` only at `depth > 0`, and
+ * assembleSections only emits children under a NON-POSTABLE category
+ * (profit-and-loss.classify.ts: `category?.isPostable ? [] : ...`). The flat
+ * 15-account fixture is all top-level postable leaves, so it produced no
+ * `pl-expand-*` control and no `.acct-print-detail-row` at all — the P&L leg of
+ * the intentional-hiding test was skipped on every run, and deleting that
+ * class's print rule would have escaped detection.
+ *
+ * Why one row is inserted with SQL. No REST path creates a non-postable
+ * account: ChartOfAccountService.create hardcodes `isPostable: true` and
+ * accounting-seeder is the only writer of `false` (verified against the live
+ * gate API — POST with a parentId returns a postable account, so the child
+ * still lands at depth 0 as its own category). The child, its expense and its
+ * payment all still go through the ordinary API flow, so the amount and the
+ * cash-basis posting are genuine; only the parent's `isPostable` flag is
+ * unreachable, and that one column is what the SQL sets.
+ */
+export interface PrintFixtureGroup {
+  /** Non-postable parent — renders as a `group` row with a `pl-expand-*` control. */
+  parentId: string
+  parentCode: string
+  parentName: string
+  /** Postable child at depth 1 — carries `.acct-print-detail-row`. */
+  childId: string
+  childCode: string
+  childName: string
+  /** The child's paid amount, 4dp. The parent row shows the same total. */
   amount: string
   expenseId: string
 }
@@ -37,7 +86,10 @@ export interface PrintFixtureDescriptor {
    */
   password: string
   accounts: PrintFixtureAccount[]
+  /** The grouped drill-down. Always present — the P&L hiding test REQUIRES it. */
+  group: PrintFixtureGroup
   expected: {
+    /** Flat accounts + the grouped child. Drives P&L net profit and BS N48/N38. */
     totalExpense: string
     currentYearLossN48: string
     bankMovementN38: string
@@ -106,6 +158,148 @@ async function ensureBankPaymentMethod(token: string, prefix: string): Promise<s
   )
   if (!created?.id) throw new Error('print-gate fixture: payment method returned no id')
   return created.id
+}
+
+/**
+ * Run one SQL statement against the gate's Postgres and return the single
+ * scalar it selects.
+ *
+ * Uses the gate's own compose stack (the same explicit argument set every other
+ * gate command uses) rather than adding a Postgres client to the frontend's
+ * dependency tree for one INSERT. Overridable so a differently-hosted gate DB
+ * can still be reached.
+ *
+ * Failure is TERMINAL and loud: execFileSync throws on a non-zero exit, and the
+ * caller does not catch. A silently skipped group insert would put the P&L
+ * hiding assertion straight back to the vacuous state finding 4 is about.
+ */
+function psqlScalar(sql: string): string {
+  const override = process.env.PRINT_GATE_PSQL
+  const argv = override
+    ? [...override.split(' ').filter(Boolean), '-tAc', sql]
+    : [
+        'compose',
+        '-p',
+        process.env.PRINT_GATE_PROJECT ?? 'erp_print_gate',
+        '-f',
+        'docker-compose.yml',
+        '-f',
+        'docker-compose.print-gate.yml',
+        'exec',
+        '-T',
+        'postgres',
+        'psql',
+        // psql exits 0 on a SQL error without this, so a failed INSERT would
+        // surface as "returned no value" instead of the actual error.
+        '-v',
+        'ON_ERROR_STOP=1',
+        '-U',
+        process.env.PRINT_GATE_DB_USER ?? 'erp_print_gate',
+        '-d',
+        process.env.PRINT_GATE_DB_NAME ?? 'erp_print_gate',
+        '-tAc',
+        sql,
+      ]
+  const bin = override ? argv.shift()! : 'docker'
+  const out = execFileSync(bin, argv, {
+    // Repo root: this file lives at frontend/e2e/fixtures/, and the compose
+    // files are named relative to the root.
+    cwd: path.resolve(import.meta.dirname, '..', '..', '..'),
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  // First non-empty line only. `psql -tAc` prints the RETURNING row AND a
+  // command-status line ("INSERT 0 1") after it, so a bare trim() of the whole
+  // output yields "<uuid>\nINSERT 0 1" — which reaches the API as an invalid
+  // UUID and fails validation rather than anything legible.
+  const lines = out
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+  const value = lines[0]
+  if (!value) throw new Error(`print-gate fixture: psql returned no value for: ${sql}`)
+  // A psql ERROR is written to stderr, so execFileSync would already have
+  // thrown; this catches the case where it lands on stdout instead.
+  if (/^(ERROR|FATAL)\b/.test(value)) {
+    throw new Error(`print-gate fixture: psql failed for: ${sql}\n${out}`)
+  }
+  return value
+}
+
+const sqlLiteral = (value: string) => `'${value.replace(/'/g, "''")}'`
+
+/**
+ * Insert the non-postable parent (SQL — no API path exists, see
+ * PrintFixtureGroup) and create its postable child, expense and payment through
+ * the ordinary API.
+ */
+async function createGroupedAccount(
+  token: string,
+  prefix: string,
+  paymentMethodId: string,
+  expenseDate: string,
+  amount: string,
+): Promise<PrintFixtureGroup> {
+  const parentCode = '6900'
+  const childCode = '6901'
+  const parentName = `${prefix} grouped parent expense account with a deliberately long descriptive name for print wrapping`
+  const childName = `${prefix} grouped CHILD expense account with a deliberately long descriptive name for print wrapping`
+
+  // Parented to the seeded 6000 group so the child lands two levels below the
+  // root — which is what makes it depth 1. A parent at the root itself would
+  // BE the category and render its child flat at depth 0 (verified against the
+  // live API), producing no drill-down at all.
+  const groupRootId = psqlScalar(
+    `SELECT id FROM chart_of_account WHERE code = ${sqlLiteral(SEEDED_EXPENSE_GROUP_CODE)}`,
+  )
+  const parentId = psqlScalar(
+    `INSERT INTO chart_of_account
+       (code, name, type, "parentId", "isActive", "isSystem", "isPostable",
+        "openingBalance", "createdBy")
+     VALUES (${sqlLiteral(parentCode)}, ${sqlLiteral(parentName)}, 'Expense',
+             ${sqlLiteral(groupRootId)}, true, false, false, '0.0000', 'print-gate')
+     RETURNING id`,
+  )
+
+  const child = unwrap<{ id: string; isPostable?: boolean }>(
+    await api('/accounting/accounts', {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ name: childName, code: childCode, type: 'Expense', parentId }),
+    }),
+  )
+  if (!child?.id) throw new Error('print-gate fixture: grouped child returned no id')
+
+  const expense = unwrap<{ id: string }>(
+    await api('/accounting/expenses', {
+      method: 'POST',
+      token,
+      body: JSON.stringify({
+        expenseDate,
+        description: `${prefix} grouped child expense`,
+        expenseAccountId: child.id,
+        totalAmount: amount,
+      }),
+    }),
+  )
+  if (!expense?.id) throw new Error('print-gate fixture: grouped child expense returned no id')
+
+  await api(`/accounting/expenses/${expense.id}/pay`, {
+    method: 'POST',
+    token,
+    body: JSON.stringify({ payments: [{ paymentMethodId, amount, paymentDate: expenseDate }] }),
+  })
+
+  return {
+    parentId,
+    parentCode,
+    parentName,
+    childId: child.id,
+    childCode,
+    childName,
+    amount: to4dp(amount),
+    expenseId: expense.id,
+  }
 }
 
 /** Fixed 2dp inputs so 4dp expectations are exact, never float-derived. */
@@ -185,7 +379,20 @@ export async function createPrintFixture(): Promise<PrintFixtureDescriptor> {
     accounts.push({ id: account.id, code, name, amount: to4dp(amount), expenseId: expense.id })
   }
 
-  const totalExpense = sum4dp(accounts.map((a) => a.amount))
+  // The grouped drill-down (review finding 4). Its amount is deliberately
+  // distinct from every amountFor(i) value so a row swap cannot pass.
+  const group = await createGroupedAccount(
+    token,
+    prefix,
+    paymentMethodId,
+    expenseDate,
+    '333.33',
+  )
+
+  // Both the flat leaves AND the grouped child post real expenses, so the
+  // grouped amount must be in the aggregate totals or every Balance Sheet
+  // expectation is short by it.
+  const totalExpense = sum4dp([...accounts.map((a) => a.amount), group.amount])
   return {
     runId,
     year,
@@ -193,6 +400,7 @@ export async function createPrintFixture(): Promise<PrintFixtureDescriptor> {
     paymentMethodId,
     password,
     accounts,
+    group,
     expected: {
       totalExpense,
       // Signed: expenses reduce profit and BANK-channel payments reduce bank.
@@ -214,6 +422,9 @@ export default async function globalSetup() {
   const descriptor = await createPrintFixture()
   writeFileSync(DESCRIPTOR_PATH, JSON.stringify(descriptor, null, 2))
   console.log(
-    `print-gate fixture ready: prefix=${descriptor.prefix} accounts=${descriptor.accounts.length} totalExpense=${descriptor.expected.totalExpense}`,
+    `print-gate fixture ready: prefix=${descriptor.prefix} ` +
+      `accounts=${descriptor.accounts.length} ` +
+      `group=${descriptor.group.parentCode}/${descriptor.group.childCode}@${descriptor.group.amount} ` +
+      `totalExpense=${descriptor.expected.totalExpense}`,
   )
 }
