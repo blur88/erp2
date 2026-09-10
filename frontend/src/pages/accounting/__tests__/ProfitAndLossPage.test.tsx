@@ -130,19 +130,23 @@ describe('ProfitAndLossPage', () => {
     renderPage()
     const row = screen.getByTestId('pl-row-otherIncome.total')
     expect(row).toBeInTheDocument()
-    // jsdom cannot observe Emotion styles, so assert the data attribute.
-    expect(row).toHaveAttribute('data-zero', 'true')
+    // The muted treatment is now the stmt-row--zero class (spec §4.3), which
+    // jsdom CAN observe, unlike Emotion sx.
+    expect(row).toHaveClass('stmt-row--zero')
   })
 
   it('does not mark non-zero rows as muted', () => {
     renderPage()
-    expect(screen.getByTestId('pl-row-revenue.total')).toHaveAttribute('data-zero', 'false')
+    expect(screen.getByTestId('pl-row-revenue.total')).not.toHaveClass('stmt-row--zero')
   })
 
-  it('drills through to the General Ledger for the selected year', async () => {
+  it('drills through to the General Ledger for the selected year', () => {
     renderPage()
-    await userEvent.click(screen.getByTestId('pl-row-account:sales'))
-    expect(mockNavigate).toHaveBeenCalledWith(
+    // Drill-down is a real <a href> now (spec §4.4), not a row onClick, so
+    // middle-click and copy-link work.
+    const link = within(screen.getByTestId('pl-row-account:sales')).getByRole('link')
+    expect(link).toHaveAttribute(
+      'href',
       '/accounting/general-ledger?account=sales&period=custom&period_from=2026-01-01&period_to=2026-12-31',
     )
   })
@@ -236,8 +240,10 @@ describe('ProfitAndLossPage', () => {
   // every section.
   it('places Gross Profit directly after the Cost of Sales section', () => {
     renderPage()
+    // scope to <tr>: the two figure cells inside each row also carry
+    // pl-row-*-figN-* testids, which would otherwise flood the order list.
     const order = Array.from(
-      document.querySelectorAll('[data-testid^="pl-row-"], [data-testid^="pl-section-"]'),
+      document.querySelectorAll('tr[data-testid^="pl-row-"], tr[data-testid^="pl-section-"]'),
     ).map((el) => el.getAttribute('data-testid'))
 
     const cogsTotal = order.indexOf('pl-row-cogs.total')
@@ -252,7 +258,7 @@ describe('ProfitAndLossPage', () => {
   it('closes with Net Profit after the last section', () => {
     renderPage()
     const order = Array.from(
-      document.querySelectorAll('[data-testid^="pl-row-"], [data-testid^="pl-section-"]'),
+      document.querySelectorAll('tr[data-testid^="pl-row-"], tr[data-testid^="pl-section-"]'),
     ).map((el) => el.getAttribute('data-testid'))
     expect(order.indexOf('pl-row-netProfit')).toBe(order.length - 1)
   })
@@ -266,7 +272,7 @@ describe('ProfitAndLossPage', () => {
     renderPage()
     await userEvent.click(screen.getByTestId('pl-expand-account:oh'))
 
-    expect(screen.getByTestId('pl-row-account:phone')).toHaveClass('acct-print-detail-row')
+    expect(screen.getByTestId('pl-row-account:phone')).toHaveClass('stmt-row--detail')
     expect(screen.getByTestId('pl-expand-account:oh')).toHaveClass('acct-print-control')
   })
 
@@ -354,9 +360,14 @@ describe('ProfitAndLossPage', () => {
     expect(container.querySelectorAll('table')).toHaveLength(1)
   })
 
-  it('renders Net Profit in the table footer', () => {
+  it('renders Net Profit as the closing statement row', () => {
     renderPage()
-    expect(screen.getByTestId('pl-row-netProfit').closest('tfoot')).not.toBeNull()
+    const row = screen.getByTestId('pl-row-netProfit')
+    const body = row.closest('tbody')
+    expect(body).not.toBeNull()
+    // The statement is one table now, so the bottom line closes its tbody
+    // rather than a separate tfoot.
+    expect(body!.lastElementChild).toBe(row)
   })
 
   it('marks the page header as print-hidden', () => {
@@ -396,25 +407,20 @@ describe('ProfitAndLossPage', () => {
     expect(mockQuery).not.toHaveBeenCalledWith({ year: new Date().getFullYear() }, expect.anything())
   })
 
-  it('exposes every element the print stylesheet must expand', () => {
+  it('exposes the statement print hooks the print stylesheet targets', () => {
     // jsdom has no layout engine and does not evaluate @media print, so this
     // asserts the SELECTORS exist, not that the printout is correct — the
     // browser QA pass owns that.
     //
-    // The wrapper alone is NOT sufficient: EntityTable's own card
-    // (height:100%), frame (overflow:hidden) and scroller (overflow:auto) each
-    // clip the statement to one viewport, and no ancestor rule can undo them.
-    // accountingReportPrint.css targets all four; if any selector here is
-    // renamed without updating that file, the statement silently prints
-    // truncated while looking perfect on screen.
+    // statement.css now owns the statement presentation: the thead repeats on
+    // every printed page and each row carries the fragmentation rules. If
+    // these class hooks are renamed without updating statement.css, the
+    // statement silently prints ungrouped while looking perfect on screen.
     const { container } = renderPage()
     const scroll = container.querySelector('.acct-print-scroll')
     expect(scroll).not.toBeNull()
-    expect(scroll!.querySelector('table')).not.toBeNull()
-
-    for (const cls of ['entity-table-card', 'entity-table-frame', 'entity-table-scroller']) {
-      expect(scroll!.querySelector(`.${cls}`)).not.toBeNull()
-    }
+    expect(scroll!.querySelector('table.stmt-table thead')).not.toBeNull()
+    expect(scroll!.querySelector('tr.stmt-row')).not.toBeNull()
   })
 
   it('emits a bare URL for the current year and ?year= for others', async () => {
