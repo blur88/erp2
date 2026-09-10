@@ -211,3 +211,20 @@ Live API cross-check (`/api/accounting/balance-sheet?year=2026`):
 `N46 2800.0000 + N50 -1220.0000 = ownersEquity 1580.0000`;
 `N45 0.0000 + 1580.0000 = liabilitiesAndEquity 1580.0000`, equal to
 `totalAssets 1580.0000` with `difference 0.0000`; `rows` length 23.
+
+## BS-P4 — Statement amount announcement (screen reader)
+
+DOM assertions verify that each amount exposes one accessible value and that it
+sits in a cell in the figure column, but they cannot prove announcement. Confirm
+by ear, once per release that touches the statement:
+
+1. Open Profit & Loss with a screen reader active (NVDA, VoiceOver or Orca).
+2. Navigate the statement by table cell.
+3. Each amount must be announced as ONE value **with its column header** — e.g.
+   "RM, negative 840.00" — not as "840" and ".00" in separate cells, and not
+   with the sign dropped.
+4. A row with no computed figure must announce "not available", never "dash"
+   or "zero".
+
+Record pass/fail and the reader used. A failure here is a defect even when the
+Vitest suite is green.
