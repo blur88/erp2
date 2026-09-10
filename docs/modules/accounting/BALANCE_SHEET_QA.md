@@ -84,10 +84,29 @@ not block a merge. A green non-required job is not a gate.
 **Downgrade condition.** BS-P3 may be downgraded to a spot-check once BOTH hold:
 
 1. `Accounting Reports - Print/PDF Gate` is listed in ruleset 15609777's
-   required checks; and
+   required checks (manual, repo owner — a mistake there blocks every open PR);
+   and
 2. it has passed on `main` at least once.
 
-Until both are true, execute BS-P3 by hand.
+Condition 2 is **not** satisfied by merging. `ci.yml` triggers on
+`pull_request` and `workflow_dispatch` only — there is no `push` trigger, so a
+merge to `main` produces no run at all (#1217). A run on `main` has to be
+dispatched deliberately:
+
+```bash
+gh workflow run ci.yml --ref main
+
+# Confirm the run you just dispatched — not an unrelated one. Filter by event,
+# and check headSha against the main commit you meant to validate.
+git rev-parse origin/main
+gh run list --workflow=ci.yml --branch=main --event=workflow_dispatch --limit 1 \
+  --json databaseId,headSha,conclusion,url
+```
+
+The run is evidence for condition 2 only if its `headSha` matches that `main`
+commit and its `conclusion` is `success`. Record the run URL when downgrading.
+
+Until both conditions are true, execute BS-P3 by hand.
 
 ---
 

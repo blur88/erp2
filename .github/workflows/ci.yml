@@ -3,6 +3,17 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  # Deliberate one-off validation of `main` only — NOT routine coverage.
+  #
+  # There is intentionally no `push: branches: [main]` trigger. A push trigger
+  # would run the whole suite (now including a Docker compose stack for the
+  # print/PDF gate) after every merge. The failure #1172 shipped was *missing
+  # browser print coverage*, not merge-preview-vs-main divergence, and the
+  # required PR checks cover that going forward.
+  #
+  # Consequence worth knowing: merging never produces a run on `main`. To get
+  # one, dispatch it — `gh workflow run ci.yml --ref main` (see #1217).
+  workflow_dispatch:
 
 permissions:
   contents: read
