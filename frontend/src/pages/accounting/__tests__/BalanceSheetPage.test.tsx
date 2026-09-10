@@ -410,20 +410,46 @@ describe("BalanceSheetPage — derived equity subtotals (#1212)", () => {
     expect(panel).toHaveTextContent('Selected-year profit could not be determined.')
   })
 
-  it('places the derived rows after N50 and before the Balance Check', () => {
+  it('places the derived rows between N49 and N50, before the Balance Check', () => {
+    // The #1216 order. querySelectorAll returns DOCUMENT order regardless of the
+    // selector's own order, so this compares real render position — the whole
+    // container, not a per-section query that could not observe a misplacement.
     const { container } = renderPage(balanced)
     const order = Array.from(
       container.querySelectorAll(
-        '[data-testid="bs-row-N50"],[data-testid="bs-derived-owners-equity"],' +
+        '[data-testid="bs-row-N49"],[data-testid="bs-row-N50"],' +
+        '[data-testid="bs-derived-owners-equity"],' +
         '[data-testid="bs-derived-liabilities-and-equity"],[data-testid="bs-balance-check"]',
       ),
     ).map((el) => el.getAttribute('data-testid'))
     expect(order).toEqual([
-      'bs-row-N50',
+      'bs-row-N49',
       'bs-derived-owners-equity',
       'bs-derived-liabilities-and-equity',
+      'bs-row-N50',
       'bs-balance-check',
     ])
+  })
+
+  it('keeps N50 present exactly once, after the grand total', () => {
+    // #1216 moves N50 BELOW the derived pair; it must still be the single
+    // official carried-forward row, not duplicated by the reorder.
+    renderPage(balanced)
+    expect(screen.getAllByTestId('bs-row-N50')).toHaveLength(1)
+    for (const testId of ['bs-derived-owners-equity', 'bs-derived-liabilities-and-equity']) {
+      expect(screen.getAllByTestId(testId)).toHaveLength(1)
+    }
+  })
+
+  it('gives the derived rows no expand control and no ledger link', () => {
+    // Official mapped rows own drill-down; the derived subtotals must not, or
+    // they would read as filing fields with contributing accounts.
+    renderPage(balanced)
+    for (const testId of ['bs-derived-owners-equity', 'bs-derived-liabilities-and-equity']) {
+      const row = within(screen.getByTestId(testId))
+      expect(row.queryByRole('button')).toBeNull()
+      expect(row.queryByRole('link')).toBeNull()
+    }
   })
 
   it('includes both derived rows in the printable block', () => {

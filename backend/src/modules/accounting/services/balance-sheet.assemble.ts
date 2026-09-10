@@ -49,10 +49,18 @@ const fmt = (v: bigint | null): Amount => (v === null ? null : formatScale4(v));
  * The presentation subtotals of issue #1212, and the SINGLE place either is
  * computed. Exported so the propagation contract can be pinned directly.
  *
+ * ownersEquity sums the current-account LEGS (N47 + N48 + N49) alongside N46,
+ * rather than folding through N50. The two are arithmetically identical today,
+ * including under unknowns, because N50 IS that sum — this states the LHDN
+ * formula directly (issue #1216) so the code reads like the spec, and so a
+ * future redefinition of N50 cannot implicitly move total owner's equity.
+ * N50 remains its own row and is NEVER added to either subtotal; doing so
+ * would double-count N47-N49.
+ *
  * liabilitiesAndEquity folds through ownersEquity rather than summing
- * (N45 + N46 + N50) independently. Arithmetically identical, but it makes an
- * unknown equity leg structurally incapable of being rescued by a known N45 —
- * the null cannot be routed around.
+ * (N45 + N46 + N47 + N48 + N49) independently. Arithmetically identical, but it
+ * makes an unknown equity leg structurally incapable of being rescued by a
+ * known N45 — the null cannot be routed around.
  *
  * Returns the raw bigints alongside the formatted pair because the Balance
  * Check still has to SUBTRACT to get its difference. Handing back both means
@@ -60,12 +68,13 @@ const fmt = (v: bigint | null): Amount => (v === null ? null : formatScale4(v));
  * expressions that agree today and drift later.
  */
 export function deriveTotals(
-  n46: bigint | null, n50: bigint | null, n45: bigint | null,
+  n46: bigint | null, n47: bigint | null, n48: bigint | null, n49: bigint | null,
+  n45: bigint | null,
 ): BalanceSheetDerivedTotals & {
   ownersEquityValue: bigint | null;
   liabilitiesAndEquityValue: bigint | null;
 } {
-  const ownersEquityValue = sumAmounts([n46, n50]);
+  const ownersEquityValue = sumAmounts([n46, n47, n48, n49]);
   const liabilitiesAndEquityValue = sumAmounts([n45, ownersEquityValue]);
   return {
     ownersEquityValue,
@@ -315,7 +324,7 @@ export function assembleBalanceSheet(input: AssembleInput): AssembleOutput {
     ownersEquityValue: _ownersEquityValue,
     liabilitiesAndEquityValue: totalLiabEquity,
     ...derivedTotals
-  } = deriveTotals(v('N46'), v('N50'), v('N45'));
+  } = deriveTotals(v('N46'), v('N47'), v('N48'), v('N49'), v('N45'));
 
   let balanceCheck: BalanceCheck;
   if (reasons.length > 0 || totalAssets === null || totalLiabEquity === null) {

@@ -97,7 +97,10 @@ export type BalanceSheetFinding =
  * backend cannot stand behind.
  */
 export interface BalanceSheetDerivedTotals {
-  /** N46 + N50. */
+  /**
+   * N46 + N47 + N48 + N49 (issue #1216). NOT N46 + N50: N50 already IS
+   * N47 + N48 + N49, so adding it would double-count the current account.
+   */
   ownersEquity: Amount;
   /** N45 + ownersEquity. The SAME value the Balance Check compares against. */
   liabilitiesAndEquity: Amount;
