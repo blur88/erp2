@@ -1,7 +1,8 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "project": [
-    "src/**/*.{ts,tsx}"
+    "src/**/*.{ts,tsx}",
+    "e2e/**/*.ts"
   ],
   "ignore": [],
   "ignoreExportsUsedInFile": true,
@@ -20,6 +21,7 @@
     "src/store/api/paymentMethodsApi.ts",
     "src/store/api/purchasingApi.ts",
     "src/store/api/salesApi.ts",
-    "src/store/api/userManagementApi.ts"
+    "src/store/api/userManagementApi.ts",
+    "e2e/**/*.spec.ts"
   ]
 }
