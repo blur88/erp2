@@ -312,26 +312,73 @@ describe('assembleBalanceSheet', () => {
     expect(out.derivedTotals.liabilitiesAndEquity).toBeNull();
   });
 
-  it('propagates an unknown N46 leg to both subtotals', () => {
-    // N46 is a MAPPED line and mappedTotal() returns bigint, so the assembler
-    // cannot currently produce a null N46 from any input — asserting one via a
-    // crafted fixture would be theatre. What #1212 actually requires is that an
-    // unknown LEFT operand is not laundered into a zero, so pin the shared
-    // arithmetic directly: liabilitiesAndEquity must fold through
-    // ownersEquity, so a null equity leg cannot be rescued by a known N45.
+  it('sums TOTAL OWNER\'S EQUITY from N46 + N47 + N48 + N49', () => {
+    // The #1216 formula, pinned on the shared arithmetic directly. Distinct
+    // values per leg, so dropping or duplicating any one of them changes the
+    // result — equal legs would let an operand mix-up pass.
     // toMatchObject, not toEqual: deriveTotals also returns the raw bigints the
     // Balance Check subtracts. The formatted pair is what this test is about.
-    expect(deriveTotals(null, rm(0), rm(30000))).toMatchObject({
-      ownersEquity: null, liabilitiesAndEquity: null,
+    expect(
+      deriveTotals(rm(70000), rm(5000), rm(3000), rm(-1000), rm(30000)),
+    ).toMatchObject({
+      // 70000 + 5000 + 3000 - 1000
+      ownersEquity: '77000.0000',
+      // N45 + ownersEquity
+      liabilitiesAndEquity: '107000.0000',
     });
-    // And the mirror case, so the test fails if the operands are swapped.
-    expect(deriveTotals(rm(70000), null, rm(30000))).toMatchObject({
-      ownersEquity: null, liabilitiesAndEquity: null,
+  });
+
+  it('propagates an unknown value in ANY equity leg to both subtotals', () => {
+    // N46 and N49 are MAPPED lines and mappedTotal() returns bigint, so the
+    // assembler cannot currently produce a null for those from any input —
+    // asserting one via a crafted fixture would be theatre. What #1212/#1216
+    // require is that an unknown operand is never laundered into a zero, so pin
+    // the shared arithmetic directly: liabilitiesAndEquity folds through
+    // ownersEquity, so a null equity leg cannot be rescued by a known N45.
+    //
+    // Each leg is nulled INDIVIDUALLY with the other three known, so a null
+    // reaching only some operands fails here rather than passing on one case.
+    const legs: [bigint | null, bigint | null, bigint | null, bigint | null][] = [
+      [null, rm(5000), rm(3000), rm(-1000)],
+      [rm(70000), null, rm(3000), rm(-1000)],
+      [rm(70000), rm(5000), null, rm(-1000)],
+      [rm(70000), rm(5000), rm(3000), null],
+    ];
+    for (const [n46, n47, n48, n49] of legs) {
+      expect(deriveTotals(n46, n47, n48, n49, rm(30000))).toMatchObject({
+        ownersEquity: null, liabilitiesAndEquity: null,
+      });
+    }
+    // An unknown N45 nulls only the grand total; equity is still known.
+    expect(
+      deriveTotals(rm(70000), rm(5000), rm(3000), rm(-1000), null),
+    ).toMatchObject({
+      ownersEquity: '77000.0000', liabilitiesAndEquity: null,
     });
-    // A known pair still produces the sum, so a blanket `return null` fails.
-    expect(deriveTotals(rm(70000), rm(0), rm(30000))).toMatchObject({
-      ownersEquity: '70000.0000', liabilitiesAndEquity: '100000.0000',
-    });
+  });
+
+  it('never folds N50 into either subtotal', () => {
+    // N50 IS N47 + N48 + N49, so a subtotal that also added it would double the
+    // current account. Assert on the assembled output, where a real N50 exists:
+    // equity must equal N46 + N50 exactly ONCE, not N46 + 2 x N50.
+    //
+    // N50 MUST be non-zero here or the double-count assertion is vacuous:
+    // n46 + n50 + n50 === n46 + n50 when n50 is 0, which is exactly what the
+    // all-zero default fixture produces. netProfit drives N48 and a drawings
+    // balance drives N49, so N50 lands non-zero.
+    const out = assembleBalanceSheet(base({
+      netProfit: rm(8000),
+      atDate: new Map([
+        [CASH, rm(100000)], [CUSTDEP, -rm(30000)], [CAP, -rm(70000)],
+        [DRAW, rm(1000)],
+      ]),
+    }));
+    expect(rowOf(out, 'N50').amount).not.toBe('0.0000');
+    const n46 = BigInt(rowOf(out, 'N46').amount!.replace('.', ''));
+    const n50 = BigInt(rowOf(out, 'N50').amount!.replace('.', ''));
+    const equity = BigInt(out.derivedTotals.ownersEquity!.replace('.', ''));
+    expect(equity).toBe(n46 + n50);
+    expect(equity).not.toBe(n46 + n50 + n50);
   });
 
   it('does not leak raw bigints into the serialized derivedTotals', () => {

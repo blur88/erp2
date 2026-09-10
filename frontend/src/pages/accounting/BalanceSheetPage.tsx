@@ -28,6 +28,14 @@ const MIN_QUERYABLE_YEAR = 1000
 const isZeroAmount = (amount: string | null) => amount === '0.0000'
 
 /**
+ * The official row the derived subtotals are anchored AFTER (#1216). Anchored on
+ * the line id, never on an array index or "last row in the section": N50 follows
+ * the subtotals, so a positional anchor would silently drift if the taxonomy
+ * ever gains a row.
+ */
+const DERIVED_TOTALS_ANCHOR_LINE = 'N49'
+
+/**
  * The derived subtotal rows, in render order (#1212). `key` indexes
  * BalanceSheetResponse['derivedTotals'], so a renamed backend field is a type
  * error here rather than a silently missing row.
@@ -44,6 +52,51 @@ const DERIVED_TOTALS = [
   label: string
   key: keyof BalanceSheetResponse['derivedTotals']
 }[]
+
+/**
+ * Derived presentation subtotals (#1212), rendered between N49 and N50 (#1216).
+ * NOT LHDN fields: they carry no N-code, no expand control and no ledger
+ * drill-down, and they are absent from `rows` — the backend computes them on
+ * `derivedTotals` so these rows and the summary card cannot disagree. Styled to
+ * match the `isTotal` rows (fontWeight 600), per the issue's requirement that
+ * they read like N41 and N45.
+ *
+ * The empty leading Box reserves the N-code column so the labels and amounts
+ * stay aligned with the official rows around them.
+ */
+function DerivedTotalRows({
+  derivedTotals,
+}: {
+  derivedTotals: BalanceSheetResponse['derivedTotals']
+}) {
+  return (
+    <>
+      {DERIVED_TOTALS.map(({ testId, label, key }) => (
+        <Box
+          key={testId}
+          data-testid={testId}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            py: 0.5,
+            fontWeight: 600,
+          }}
+        >
+          <Box sx={{ minWidth: 48 }} />
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {label}
+            </Typography>
+          </Box>
+          <Typography variant="body2" sx={{ textAlign: 'right', fontWeight: 600 }}>
+            {formatBalanceAmount(derivedTotals[key])}
+          </Typography>
+        </Box>
+      ))}
+    </>
+  )
+}
 
 export default function BalanceSheetPage() {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
@@ -290,45 +343,14 @@ export default function BalanceSheetPage() {
                     ))}
                   </Box>
                 )}
+                {row.line === DERIVED_TOTALS_ANCHOR_LINE && (
+                  <DerivedTotalRows derivedTotals={report.derivedTotals} />
+                )}
               </React.Fragment>
             )
           })}
         </Box>
       ))}
-
-      {/*
-        Derived presentation subtotals (#1212). NOT LHDN fields: they carry no
-        N-code, no expand control and no ledger drill-down, and they are absent
-        from `rows` — the backend computes them on `derivedTotals` so this row
-        and the summary card cannot disagree. Styled like the isTotal rows.
-        The empty leading Box reserves the N-code column so the labels and
-        amounts stay aligned with the official rows above.
-      */}
-      <Box sx={{ mt: 1 }}>
-        {DERIVED_TOTALS.map(({ testId, label, key }) => (
-          <Box
-            key={testId}
-            data-testid={testId}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              py: 0.5,
-              fontWeight: 600,
-            }}
-          >
-            <Box sx={{ minWidth: 48 }} />
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                {label}
-              </Typography>
-            </Box>
-            <Typography variant="body2" sx={{ textAlign: 'right', fontWeight: 600 }}>
-              {formatBalanceAmount(report.derivedTotals[key])}
-            </Typography>
-          </Box>
-        ))}
-      </Box>
 
       {report.findings.length > 0 && (
         <Box data-testid="bs-findings" sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

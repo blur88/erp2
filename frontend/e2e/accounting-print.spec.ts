@@ -201,17 +201,36 @@ test('Balance Sheet prints N38, N48 and all three balance-check lines', async ({
 
   await assertPrintableTallerThanViewport(page, '[data-testid="bs-print-block"]')
 
+  // The #1216 print order: the derived pair sits between N49 and N50, and N50
+  // — the memo carried-forward figure — prints AFTER the grand total.
+  //
+  // renderOrder() silently DROPS a selector that matches nothing, so a missing
+  // row would shorten the array rather than fail on order. The toEqual below
+  // pins all five, which catches that — but assert presence first so a missing
+  // element reports as missing rather than as a confusing order mismatch.
+  for (const sel of [
+    '[data-testid="bs-row-N49"]',
+    '[data-testid="bs-row-N50"]',
+    '[data-testid="bs-derived-owners-equity"]',
+    '[data-testid="bs-derived-liabilities-and-equity"]',
+    '[data-testid="bs-balance-check"]',
+  ]) {
+    await expect(page.locator(sel)).toHaveCount(1)
+  }
+
   expect(
     await renderOrder(page, [
+      '[data-testid="bs-row-N49"]',
       '[data-testid="bs-row-N50"]',
       '[data-testid="bs-derived-owners-equity"]',
       '[data-testid="bs-derived-liabilities-and-equity"]',
       '[data-testid="bs-balance-check"]',
     ]),
   ).toEqual([
-    '[data-testid="bs-row-N50"]',
+    '[data-testid="bs-row-N49"]',
     '[data-testid="bs-derived-owners-equity"]',
     '[data-testid="bs-derived-liabilities-and-equity"]',
+    '[data-testid="bs-row-N50"]',
     '[data-testid="bs-balance-check"]',
   ])
 
