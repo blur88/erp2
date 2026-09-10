@@ -89,12 +89,22 @@ export async function scanContentClipping(
       // A real ellipsis truncation overflows by far more than this.
       const TOLERANCE = 1
       const CLIPPING = new Set(['hidden', 'clip'])
+      /*
+       * Deliberately visually-hidden text is clipped ON PURPOSE and is not
+       * content loss: `.stmt-a11y-only` carries the statement amount's complete
+       * accessible value inside the figure cell (statement.css). Scanning it
+       * would report every statement row as clipped.
+       */
+      const VISUALLY_HIDDEN = new Set(['stmt-a11y-only'])
       const findings: any[] = []
       const seen = new Set<Element>()
 
       const inspect = (el: Element, where: 'self' | 'descendant' | 'ancestor') => {
         if (seen.has(el)) return
         seen.add(el)
+        const elClasses =
+          typeof el.className === 'string' ? el.className.split(/\s+/) : []
+        if (elClasses.some((c) => VISUALLY_HIDDEN.has(c))) return
         const s = getComputedStyle(el)
         const reasons: string[] = []
         if (

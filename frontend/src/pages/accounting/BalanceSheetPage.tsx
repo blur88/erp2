@@ -288,6 +288,9 @@ export default function BalanceSheetPage() {
               label: derived.label,
               figures: [report.derivedTotals[derived.key]],
               testId: derived.testId,
+              // Same single-node hook as the official rows, so the print gate
+              // can assert the exact signed figure of a derived subtotal too.
+              amountHook: 'bs-amount',
             })
           }
         }

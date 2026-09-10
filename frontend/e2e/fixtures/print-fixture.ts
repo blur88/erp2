@@ -5,14 +5,16 @@ import path from 'node:path'
 
 /**
  * Fixture volume: the account count at which Profit & Loss first exceeded one
- * A4 page in the Task 3 measurement (taken with THIS same paid-expense flow),
- * rounded up to the next multiple of 5 for margin. Recorded in
- * docs/test/print-gate-measurement.md.
+ * A4 page, re-measured for the Statement redesign's type scale (the previous
+ * measurement, 15, was taken against the old row heights and produced only two
+ * pages). 25 gives three pages, deliberately: a two-page statement can place a
+ * section head at the only break, which makes the grouping assertions
+ * coincidental rather than exercised.
  *
  * The grouped account below (see createGroupedAccount) adds two further P&L
  * rows on top of these, so the page count only ever grows.
  */
-const FIXTURE_ACCOUNT_COUNT = 15
+const FIXTURE_ACCOUNT_COUNT = 25
 
 /**
  * The seeded top-level EXPENSE group. accounting-seeder writes

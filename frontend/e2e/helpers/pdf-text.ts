@@ -265,6 +265,13 @@ interface RowCandidate extends RowIdentity {
   y: number
   /** How many visual lines were joined. 1 for an unwrapped row. */
   lineCount: number
+  /**
+   * Whether the row's FIRST visual line carried a trailing amount. A coded
+   * statement row always has a figure (only section/heading rows are uncoded);
+   * a coded PARAGRAPH with no figure is not a statement row — e.g. Form B's
+   * findings panel, which prints every unmapped account and its code as prose.
+   */
+  hasAmount: boolean
 }
 
 /** x of the first fragment that is not the leading code, i.e. where the label starts. */
@@ -340,10 +347,17 @@ export function rowCandidates(
     }
 
     const identity = parseRowIdentity(text, figureCount)
-    out.push({ ...identity, page: line.page, y: line.y, lineCount: 1 })
+    out.push({ ...identity, page: line.page, y: line.y, lineCount: 1, hasAmount })
   }
 
-  return out
+  /*
+   * A coded row with no figure anywhere in its joined lines is not a statement
+   * row. The Form B findings panel prints every unmapped account as a labelled
+   * paragraph — code, then a wrapped name — which otherwise resolves to the
+   * same identity as that account's cohort row and makes every cohort look
+   * duplicated. Section and cohort headings are uncoded, so they are kept.
+   */
+  return out.filter((c) => c.code === null || c.hasAmount)
 }
 
 /**
