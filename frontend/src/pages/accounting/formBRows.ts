@@ -10,6 +10,13 @@ export interface FormBTableRow {
   code: string
   label: string
   amount: string
+  /**
+   * The RAW payload amount, before the whole-ringgit filing rendering above.
+   * StatementFigure (the shared statement figure formatter) formats from the
+   * raw value so all three reports read the same; `amount` stays the
+   * whole-ringgit rendering used by the reconciliation panel.
+   */
+  rawAmount: FormBAmount
   formula: string | null
   depth: number
   accountId?: string
@@ -78,6 +85,7 @@ const cohortRow = (
   // way as the line totals above it — a cohort showing '5.0000' beside a line
   // showing 'RM 5.00' reads as two different figures.
   amount: formatFormBAmount(ref.amount),
+  rawAmount: ref.amount,
   formula: null,
   depth: 1,
   accountId: ref.accountId,
@@ -116,6 +124,7 @@ export function buildFormBTableRows(data: FormBResponse): FormBTableRow[] {
         code: '',
         label: sectionLabel,
         amount: '',
+        rawAmount: null,
         formula: null,
         depth: 0,
         testId: `formb-section-${row.line}`,
@@ -142,6 +151,7 @@ export function buildFormBTableRows(data: FormBResponse): FormBTableRow[] {
       code: row.line,
       label: row.label,
       amount: formatFormBAmount(row.amount),
+      rawAmount: row.amount,
       formula: row.formula,
       depth: 0,
       testId: `formb-line-${row.line}`,
@@ -206,6 +216,7 @@ const headingRow = (line: string, group: string, label: string, hiddenOnScreen =
   code: '',
   label,
   amount: '',
+  rawAmount: null,
   formula: null,
   depth: 1,
   testId: `formb-cohort-heading-${line}-${group}`,

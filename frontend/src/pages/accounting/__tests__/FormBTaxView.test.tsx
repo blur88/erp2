@@ -460,7 +460,30 @@ describe('FormBTaxView', () => {
   it('still emits cohort rows, marked for print only', () => {
     renderTaxView(responseWithCohort())
     const cohort = screen.getByTestId('formb-cohort-N24-0')
-    expect(cohort).toHaveClass('acct-print-formb-cohort')
+    // The print-always hook moved from .acct-print-formb-cohort to the
+    // statement's own class; the printed outcome is unchanged.
+    expect(cohort).toHaveClass('stmt-row--always')
     expect(cohort).toHaveClass('acct-screen-hidden')
+  })
+
+  describe('Form B cohorts under Statement', () => {
+    it('keeps collapsed cohorts MOUNTED but screen-hidden', () => {
+      // Print CSS cannot reveal an unmounted row. Collapsed cohorts are the
+      // classification audit trail and must print unconditionally, so they have
+      // to exist in the DOM even while hidden on screen.
+      renderTaxView(responseWithCohort())
+      const cohort = screen.getByTestId('formb-cohort-N24-0')
+      expect(cohort).toBeInTheDocument()
+      expect(cohort).toHaveClass('acct-screen-hidden')
+      expect(cohort).toHaveClass('stmt-row--always')
+    })
+
+    it('never marks a cohort as print-detail', () => {
+      // print-detail is the P&L rule (hide expanded detail on paper). Applying
+      // it to a cohort would drop the audit trail from every printed Form B —
+      // the exact inverse of the intended behaviour.
+      renderTaxView(responseWithCohort())
+      expect(screen.getByTestId('formb-cohort-N24-0')).not.toHaveClass('stmt-row--detail')
+    })
   })
 })
