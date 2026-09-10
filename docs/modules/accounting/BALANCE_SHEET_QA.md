@@ -76,37 +76,42 @@ still steers which database psql connects to; it cannot authorise writing to a
 different one. This mirrors `npm run test:redis`, which likewise refuses to run
 without an explicit opt-in checked before it touches anything.
 
-**BS-P3 below remains REQUIRED BEFORE MERGE for now.** The CI job exists but is
-not yet a *required* check: `main` is protected by ruleset 15609777, whose
-required checks match job-name strings, and a job absent from that ruleset does
-not block a merge. A green non-required job is not a gate.
+**BS-P3 is now a spot-check, not a required manual gate** (downgraded
+2026-09-10, #1217). `Accounting Reports - Print/PDF Gate`
+(`frontend/e2e/accounting-print.spec.ts`) is a **required** check on ruleset
+15609777, so a change that breaks printing cannot merge.
 
-**Downgrade condition.** BS-P3 may be downgraded to a spot-check once BOTH hold:
+Both downgrade conditions were satisfied:
 
 1. `Accounting Reports - Print/PDF Gate` is listed in ruleset 15609777's
-   required checks (manual, repo owner — a mistake there blocks every open PR);
-   and
-2. it has passed on `main` at least once.
+   required checks — alongside Frontend, Backend and Fresh Database Migrations.
+2. It passed on `main`: run
+   [34437719336](https://github.com/blur88/erp2/actions/runs/34437719336),
+   `event=workflow_dispatch`, `headSha=59bacbd25bd299655053468dae9aad2e01c8be2f`,
+   `conclusion=success`, with the gate job itself green.
 
-Condition 2 is **not** satisfied by merging. `ci.yml` triggers on
-`pull_request` and `workflow_dispatch` only — there is no `push` trigger, so a
-merge to `main` produces no run at all (#1217). A run on `main` has to be
-dispatched deliberately:
+**What the automated gate does not cover**, and what a spot-check is therefore
+still for: it asserts print-media visibility, screen/print text equality, render
+order, a multi-page PDF and the #1172 ancestor clamp — all against the Balance
+Sheet fixture it builds. It does not look at a report you just changed the shape
+of. Run BS-P3 by hand when a change alters print layout, adds rows or sections,
+or touches the print stylesheet; the parked caveats from #1215 also still apply
+(the clipping assertion carries a 1px tolerance, and P&L sits at exactly 2 pages
+against a `>= 2` contract).
+
+`ci.yml` triggers on `pull_request` and `workflow_dispatch` only — there is no
+`push` trigger, so a merge to `main` produces no run at all. To validate `main`
+deliberately:
 
 ```bash
+git fetch origin && git rev-parse origin/main   # record THIS as the intended SHA
 gh workflow run ci.yml --ref main
 
 # Confirm the run you just dispatched — not an unrelated one. Filter by event,
-# and check headSha against the main commit you meant to validate.
-git rev-parse origin/main
+# and check headSha against the SHA you just recorded.
 gh run list --workflow=ci.yml --branch=main --event=workflow_dispatch --limit 1 \
   --json databaseId,headSha,conclusion,url
 ```
-
-The run is evidence for condition 2 only if its `headSha` matches that `main`
-commit and its `conclusion` is `success`. Record the run URL when downgrading.
-
-Until both conditions are true, execute BS-P3 by hand.
 
 ---
 
@@ -149,10 +154,13 @@ prerequisite.
   Equity` and `Difference` render as em dashes.
 - The Balance Check status remains `Unavailable` and its reason text is listed.
 
-## BS-P3 — Print / PDF (#1212) — REQUIRED BEFORE MERGE
+## BS-P3 — Print / PDF (#1212) — spot-check (CI-gated)
 
 **The jsdom suite alone cannot satisfy this gate.** Do not mark a Balance
-Sheet change verified on the strength of the frontend suite alone.
+Sheet change verified on the strength of the frontend suite alone — jsdom has no
+layout engine and never evaluates `@media print`. The required CI job covers
+this path in a real browser; the procedure below is the manual equivalent, for
+the cases named above.
 
 **Precondition:** BS-P1 passed. Open the browser print preview (Ctrl/Cmd-P) on a
 report long enough to span **more than one page**, and review **every** page.
