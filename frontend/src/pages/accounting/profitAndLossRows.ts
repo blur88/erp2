@@ -120,9 +120,9 @@ export function buildProfitAndLossRows(
     label: 'Net Profit',
     figures: [data.netProfit],
     testId: 'pl-row-netProfit',
-    // Single-node hook so the print gate can assert the complete signed figure
-    // without depending on cell position (`td:last-child` is now the
-    // FRACTIONAL cell).
+    // Single-node amount hook, for consistency with the Balance Sheet rows.
+    // No suite reads `pl-amount` today; it exists so every report exposes its
+    // amounts the same way.
     amountHook: 'pl-amount',
     isZero: isZeroAmount(data.netProfit),
   })

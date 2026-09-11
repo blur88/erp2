@@ -223,8 +223,7 @@ export default function BalanceSheetPage() {
           label: row.label,
           figures: [row.amount],
           testId: `bs-row-${row.line}`,
-          // Preserved hook: existing tests and the print gate read the amount as
-          // ONE node. assertExactAmount requires exactly one match.
+          // Single-node amount hook, read by the suite as one node.
           amountHook: 'bs-amount',
           isZero: row.amount !== null && row.amount === '0.0000',
           ...(row.accounts.length > 0
@@ -281,8 +280,7 @@ export default function BalanceSheetPage() {
               label: derived.label,
               figures: [report.derivedTotals[derived.key]],
               testId: derived.testId,
-              // Same single-node hook as the official rows, so the print gate
-              // can assert the exact signed figure of a derived subtotal too.
+              // Same single-node hook as the official rows.
               amountHook: 'bs-amount',
             })
           }
