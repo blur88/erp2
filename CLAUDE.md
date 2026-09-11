@@ -116,6 +116,17 @@ jsdom has no layout engine and does not evaluate `@media print`, so **the Vitest
 
 SO/PO print remains covered only by the jsdom suite plus a manual browser pass. `ci.yml` triggers on `pull_request` and `workflow_dispatch` only — there is deliberately no `push` trigger, so **merging never produces a run on `main`**; validating main takes a deliberate `gh workflow run ci.yml --ref main`.
 
+**Statement (P&L / Balance Sheet / Form B) has no automated visual coverage**: `components/accounting/Statement/` was aligned to the app theme in #1224 — MUI `Paper` frame, theme palette, sticky header, and one right-aligned figure cell per column in place of the integer/fraction split.
+
+None of that is verifiable by the Vitest suite. jsdom has no layout engine, and Emotion styles (both theme `styleOverrides` and `sx`) never reach `getComputedStyle`/`toHaveStyle`, so **alignment, stickiness, elevation, colour and clipping are all unassertable**. The suite covers structure only: one cell per figure, a single `amountHook` node, the complete signed accessible value, row-kind classes, header cells.
+
+The browser gate that once covered this class of property was removed in #1223 and is not coming back as part of this work. `docs/modules/accounting/STATEMENT_THEME_QA.md` is the substitute — a tracked manual procedure, run by hand, with results recorded in the PR.
+
+Two invariants the suite *cannot* protect, so change them only deliberately:
+
+- **The paren spacer must stay CSS generated content** (`.stmt-paren-spacer::after { content: ')' }`). It reserves the closing-paren width so positive figures' decimals align with parenthesised negatives. A real `)` text node would reserve the same width and look identical in a browser — and silently corrupt every row-level `toHaveTextContent` assertion in the page suites, because `textContent` walks the whole subtree and neither `aria-hidden` nor `visibility: hidden` excludes it.
+- **Every figure must render at the same font size.** The bottom line is distinguished by weight and its double rule. A larger bottom-line figure places its decimal separator at a different x position from every other row, which is the exact misalignment the old two-cell split existed to prevent.
+
 **Path aliases**: Frontend uses `@/` as alias for `src/`. Backend uses `@/*` → `src/*`, `@modules/*` → `src/modules/*`, `@common/*` → `src/common/*`, `@config/*` → `src/config/*`, and `@database/*` → `src/database/*`.
 
 TypeScript CLI scripts that directly or transitively import configured path aliases such as `@database/*` must preload `tsconfig-paths/register` in their npm script (for example, `ts-node -r tsconfig-paths/register ...`). TypeScript type-checking resolves these aliases, but Node runtime loading does not.
