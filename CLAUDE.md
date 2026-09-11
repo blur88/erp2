@@ -120,11 +120,36 @@ SO/PO print remains covered only by the jsdom suite plus a manual browser pass. 
 
 The Vitest suite covers structure, not rendering. jsdom has no layout engine, so **decimal alignment, real sticky scrolling, clipping, elevation and font loading are unassertable**. Imported stylesheet rules are stubbed in this setup (Vitest does not inject `statement.css`), so the sticky, `text-align` and `tabular-nums` rules there are invisible to the suite too.
 
-Emotion styles are a different story: MUI `sx` DOES reach
-`getComputedStyle`/`toHaveStyle` under this repo's jsdom 30 — `MainLayout.test.tsx:40`
-asserts `sx={{ pt: 11 }}` as `paddingTop: 88px` (theme `styleOverrides` use the
-same Emotion pipeline). Theme colours applied through `sx` are therefore
-assertable; the current suite does not rely on that.
+Emotion styles are a different story, and the boundary was **measured**, not
+inferred from the shared pipeline. Probed 2026-09-11 against
+**@mui/material 9.4.0, jsdom 30.0.1, vitest 5.0.0**, each case asserting the
+correct value *and* a deliberately wrong one:
+
+| Applied via | Observable through `toHaveStyle`? |
+|---|---|
+| `sx` on the asserted element itself | **yes** (`MainLayout.test.tsx` reads `sx={{ pt: 11 }}` as `paddingTop: 88px`) |
+| `sx` descendant selector (`'& .stmt-cell-code'`) | **yes** — measured on `Statement` itself: `.stmt-figure-negative` computes `rgb(239, 83, 80)`, `.stmt-cell-code` computes `rgb(189, 189, 189)` |
+| theme `styleOverrides` on a themeable slot | **yes** (`MuiButton` root `paddingTop` computes `88px`) |
+| an imported stylesheet (`statement.css`) | **no** — Vitest does not inject it |
+
+So Statement's themed colours *are* assertable, including the descendant-selector
+ones; the current suite simply does not assert them. What stays out of reach is
+the imported stylesheet and anything needing layout.
+
+Two measurement traps, both of which produced false negatives on the first pass
+here:
+
+- **Render through a `ThemeProvider`.** A component rendered bare computes no
+  themed colour, which reads as "Emotion is unobservable" when it only means the
+  theme was absent.
+- **`toHaveStyle` failing on a wrong value proves nothing by itself.** An element
+  with no rule at all computes `rgb(0, 0, 0)`, so a wrong-colour assertion
+  "fails" there too. Read the actual computed value before concluding a rule did
+  not apply.
+
+An older note (#1098, measured on MUI 9.3.1 / vitest 4.1.10) recorded that a
+pure-`sx` control failed. That does not reproduce on the versions above; treat
+it as superseded rather than as a live constraint.
 
 The browser gate that once covered the rest was removed in #1223 and is not coming back as part of this work. `docs/modules/accounting/STATEMENT_THEME_QA.md` is the substitute — a tracked manual procedure, run by hand, with results recorded in the PR.
 
