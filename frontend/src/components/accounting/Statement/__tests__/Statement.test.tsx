@@ -169,6 +169,51 @@ describe('Statement frame and header', () => {
     expect(scroller?.querySelector('table.stmt-table')).not.toBeNull()
   })
 
+  it('opts the table into MUI stickyHeader', () => {
+    /*
+     * The two things that must reach the DOM for a sticky header: the table's
+     * stickyHeader opt-in, and the head cells being MUI head cells (MUI sets
+     * `position: sticky` on THOSE, not on the row). Whether the header
+     * actually stays put is browser-only — ST-4.
+     */
+    const { container } = renderStatement([row({ id: 'a' })])
+    const table = container.querySelector('table.stmt-table')!
+    expect(table.className).toMatch(/stickyHeader/)
+
+    const heads = [...container.querySelectorAll('thead th')]
+    expect(heads.length).toBeGreaterThan(0)
+    for (const cell of heads) {
+      expect(cell.className).toMatch(/MuiTableCell-stickyHeader/)
+    }
+    // A row background would scroll away, so stickiness must not live there.
+    expect(container.querySelector('thead tr')!.className).not.toMatch(/stickyHeader/)
+  })
+
+  it('renders header cells as MUI head cells so the themed variant applies', () => {
+    /*
+     * This is the #1228 fix itself. Being a `.MuiTableCell-head` is what pulls
+     * in the theme's MuiTableHead override — semibold, uppercase, the app font
+     * — the same treatment EntityTable's headers get.
+     *
+     * It is NOT the whole story: the rendered size and tracking (0.8rem /
+     * 0.5px) are pinned in Statement's `sx`, because EntityTable overrides the
+     * theme variant inline and the theme alone lands at 0.75rem/0.08em. That
+     * gap was invisible here and caught by measurement — see ST-10.
+     *
+     * Asserting the CLASS is what is reachable in jsdom; that the two headers
+     * render identically is browser-measured.
+     *
+     * The old hand-rolled `.stmt-col-head` rule (weight 500, 0.04em, no
+     * uppercase) was the divergence from SO/PO this issue reported.
+     */
+    const { container } = renderStatement([row({ id: 'a' })])
+    const heads = [...container.querySelectorAll('thead th')]
+    expect(heads).toHaveLength(3)
+    for (const cell of heads) {
+      expect(cell.className).toMatch(/MuiTableCell-head/)
+    }
+  })
+
   it('keeps the accessible table name', () => {
     renderStatement([row({ id: 'a' })])
     expect(screen.getByRole('table', { name: 'Statement' })).toBeInTheDocument()

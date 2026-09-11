@@ -1,4 +1,6 @@
 import React from 'react'
+import Box from '@mui/material/Box'
+import TableCell from '@mui/material/TableCell'
 
 import { formatCurrency } from '@/utils/currency'
 
@@ -37,6 +39,57 @@ export function splitFormattedAmount(formatted: string): {
   }
 }
 
+/**
+ * Accessible text that is visually hidden but still announced.
+ *
+ * Must render INSIDE a table cell — a bare element between cells is invalid
+ * table markup and browsers relocate it out of the table, which would cost the
+ * amount its row/column relationship.
+ *
+ * Kept as a local `sx` object rather than MUI's `visuallyHidden` util because
+ * the `.stmt-a11y-only` CLASS is queried directly by the suite
+ * (StatementFigure.test.tsx uses `{ selector: '.stmt-a11y-only' }` in four
+ * places); the class must stay on the element regardless of where the rules
+ * live.
+ */
+const a11yOnlySx = {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+} as const
+
+/**
+ * Reserves the width of one closing parenthesis on positive figures.
+ *
+ * The glyph is GENERATED CONTENT, never a DOM text node: textContent walks the
+ * whole descendant tree, and neither aria-hidden (accessibility tree only) nor
+ * visibility:hidden (style, which jsdom does not apply to textContent) keeps a
+ * real ')' out of it — which would corrupt row-level text assertions in the
+ * page suites (ProfitAndLossPage.test.tsx:113, BalanceSheetPage.test.tsx:316).
+ * Generated content is rendered, not DOM, so it reserves width and stays out of
+ * textContent entirely.
+ *
+ * Note that `toHaveTextContent('56,800.00')` is a SUBSTRING assertion and would
+ * still accept `56,800.00)`. The explicit no-stray-parenthesis checks (exact
+ * textContent equality and `not.toContain(')')`) are what catch a text-node
+ * regression.
+ *
+ * It inherits the cell's typography, so the reserved width is the same glyph in
+ * the same font as a real parenthesis and cannot drift from it.
+ */
+const parenSpacerSx = {
+  '&::after': {
+    content: '")"',
+    visibility: 'hidden',
+  },
+} as const
+
 interface StatementFigureProps {
   amount: string | null
   testId?: string
@@ -53,7 +106,8 @@ interface StatementFigureProps {
 /**
  * One amount rendered as ONE right-aligned table cell.
  *
- * Returns a single <td> — place it directly inside a <tr>.
+ * Returns a single MUI <TableCell> (a real <td>) — place it directly inside a
+ * <TableRow>.
  *
  * Decimal alignment (spec §4.1) comes from three things together: every figure
  * carries exactly two decimals (formatCurrency pins min/maxFractionDigits: 2),
@@ -73,12 +127,12 @@ export function StatementFigure({ amount, testId, amountHook }: StatementFigureP
     // null means UNKNOWN, not zero. Rendering '0.00' would assert a figure the
     // backend explicitly declined to compute.
     return (
-      <td className="stmt-cell-figure" data-testid={testId}>
-        <span className="stmt-a11y-only" data-testid={amountHook}>
+      <TableCell className="stmt-cell-figure" data-testid={testId}>
+        <Box component="span" className="stmt-a11y-only" sx={a11yOnlySx} data-testid={amountHook}>
           not available
-        </span>
+        </Box>
         <span aria-hidden="true">—</span>
-      </td>
+      </TableCell>
     )
   }
 
@@ -87,22 +141,23 @@ export function StatementFigure({ amount, testId, amountHook }: StatementFigureP
   const spoken = negative ? `negative ${formatted.replace(/^-/, '')}` : formatted
 
   return (
-    <td
+    <TableCell
       className={`stmt-cell-figure${negative ? ' stmt-figure-negative' : ''}`}
       data-testid={testId}
     >
-      <span className="stmt-a11y-only" data-testid={amountHook}>
+      <Box component="span" className="stmt-a11y-only" sx={a11yOnlySx} data-testid={amountHook}>
         {spoken}
-      </span>
+      </Box>
       <span aria-hidden="true">{`${int}${frac}`}</span>
       {/*
         Reserves one closing-paren width so a positive figure's decimal
         separator lands where a parenthesised negative's does. The glyph comes
-        from CSS generated content, NOT a text node: textContent walks the whole
-        subtree, so a real ')' here would corrupt every row-level
-        toHaveTextContent assertion (spec §4.2).
+        from CSS generated content, NOT a text node — see parenSpacerSx above
+        for why that distinction is load-bearing (spec §4.2).
       */}
-      {!negative && <span className="stmt-paren-spacer" aria-hidden="true" />}
-    </td>
+      {!negative && (
+        <Box component="span" className="stmt-paren-spacer" sx={parenSpacerSx} aria-hidden="true" />
+      )}
+    </TableCell>
   )
 }

@@ -1,6 +1,8 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import IconButton from '@mui/material/IconButton'
+import TableCell from '@mui/material/TableCell'
+import TableRow from '@mui/material/TableRow'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 
@@ -12,6 +14,12 @@ interface StatementRowProps {
   figureCount: number
 }
 
+/*
+ * The kind class is the hook the row's presentation hangs on: Statement.tsx
+ * carries the matching `sx` descendant selectors, and the page suites assert
+ * these names directly (ProfitAndLossPage.test.tsx:135 reads `stmt-row--zero`).
+ * Renaming one is a breaking change to those suites, not a refactor.
+ */
 const rowClasses = (row: Row): string =>
   [
     'stmt-row',
@@ -31,9 +39,9 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
   )
 
   return (
-    <tr className={rowClasses(row)} data-testid={row.testId}>
-      <td className="stmt-cell-code">{row.code ?? ''}</td>
-      <td className="stmt-cell-label" style={{ paddingLeft: row.depth * 24 }}>
+    <TableRow className={rowClasses(row)} data-testid={row.testId}>
+      <TableCell className="stmt-cell-code">{row.code ?? ''}</TableCell>
+      <TableCell className="stmt-cell-label" sx={{ paddingLeft: `${row.depth * 24}px` }}>
         {row.expand && (
           <IconButton
             size="small"
@@ -49,14 +57,14 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
           </IconButton>
         )}
         {label}
-      </td>
+      </TableCell>
       {/*
         A section head has no figures. Span the figure columns so the table's
         column count stays uniform — a short row would otherwise break the
         shared column grid.
       */}
       {row.figures.length === 0 ? (
-        <td colSpan={figureCount} />
+        <TableCell colSpan={figureCount} />
       ) : (
         row.figures.map((amount, i) => (
           <StatementFigure
@@ -68,7 +76,7 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
           />
         ))
       )}
-    </tr>
+    </TableRow>
   )
 }
 

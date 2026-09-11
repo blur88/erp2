@@ -138,6 +138,81 @@ There should be no sense of two different palettes on screen.
 - Drill-down links (P&L, Balance Sheet expanded accounts) are visible,
   keyboard-focusable with a visible focus ring, and navigate correctly.
 
+## ST-10 — Header typography parity with SO/PO (#1228)
+
+**Precondition:** a Sales Orders or Purchase Orders list open in the same
+session, same theme.
+
+Added for #1228, which migrated the Statement table from native HTML +
+`statement.css` to MUI table components. The header now draws its typography
+from the theme's `MuiTableHead` override rather than a local rule, and this
+check is what proves the two agree.
+
+**Measure, do not eyeball.** Compare computed styles directly:
+
+```js
+getComputedStyle(document.querySelector('.stmt-col-head'))
+// vs a Sales Orders header cell
+getComputedStyle(document.querySelector('.entity-table-card thead th'))
+```
+
+**Expected:** `fontFamily`, `fontSize`, `fontWeight`, `textTransform` and
+`letterSpacing` are **identical** between the two.
+
+**Why it can break:** the old `.stmt-col-head` rule set weight 500, 0.04em and
+no uppercase — the exact divergence #1228 removed. A reintroduced local rule,
+or a `darkTheme` block that shadows `MuiTableHead`, brings it back. Note that
+`darkTheme` currently spreads `...baseThemeOptions.components` and does not
+redefine `MuiTableHead`; if that changes, this check is what catches it.
+
+## ST-11 — Sticky-header opacity under active scroll (#1228)
+
+ST-4 confirms the header stays put. This one confirms it stays **opaque while
+rows pass beneath it**, which is a different failure: MUI puts
+`position: sticky` on the head CELLS, so a background that regressed onto the
+row would scroll away and leave the labels floating over the data.
+
+**Expected, measured mid-scroll (not at rest):**
+
+- Scroll the statement body so rows are actively underneath the header, then
+  read the head cell's computed `backgroundColor`. It must be a fully opaque
+  `rgb(...)` value — **no `rgba(...)` with alpha < 1, and not `transparent`**.
+- Read it from a `th`, not from `thead tr`.
+- No row text is visible through the header at any scroll offset.
+- Repeat on P&L, Balance Sheet and Form B.
+
+## ST-12 — Figure font-size uniformity (#1228)
+
+**Expected:**
+
+- Collect the computed `fontSize` of **every** `.stmt-cell-figure` on the
+  report. The set of distinct values must have **exactly one member**.
+- This includes `subtotal` and `bottomLine` rows. The bottom line is
+  distinguished by weight and its double rule only.
+
+**Why it matters:** a larger bottom-line figure places its decimal separator at
+a different x position from every other row — the exact misalignment the old
+two-cell integer/fraction split existed to prevent. The bottom-line *label* may
+be larger (`1rem`); the *figure* may not. CLAUDE.md records this as an
+invariant the suite cannot protect.
+
+## ST-13 — Paren alignment across the sign boundary (#1228)
+
+A sharper form of ST-1, stated as a measurement rather than a judgement.
+
+**Expected:**
+
+- For every figure in a column, measure the x position of the decimal
+  separator (a `Range` over the separator character gives sub-pixel accuracy).
+  All values must agree to **within 1px**.
+- The set must include at least one parenthesised negative and one positive, so
+  the paren spacer is actually exercised. A column of all-positive figures
+  cannot verify this.
+- Confirm the spacer is doing the work: `getComputedStyle(el, '::after')` on a
+  `.stmt-paren-spacer` reports `content: ")"` and `visibility: hidden`, with a
+  non-zero reserved width. Read the **pseudo-element** — the element itself is
+  a bare empty span and reads `visible`.
+
 ## ST-9 — Nothing else moved
 
 **Expected:**
@@ -341,3 +416,110 @@ convention execution logs live in the gitignored `docs/test/`.
 | `st4-pl.png` / `st4-formb.png` | Sticky header after scrolling, 1440×600 |
 | `r-so.png` | Sales Orders list, for the ST-6 comparison |
 | `r-w1024.png` / `r-w768-final.png` | ST-2 narrow widths |
+
+---
+
+# Recorded run — 2026-09-12 (#1228, MUI table migration)
+
+**Result: BUNDLE + ST-10 … ST-13 all pass (11/11 checks).**
+
+Covers the checks added for #1228, which migrated the Statement table from
+native HTML + `statement.css` to MUI table components. ST-1 … ST-9 were not
+re-run; the 2026-09-11 record above stands for those.
+
+## How this run was performed
+
+**Scripted headless Chromium**, same method as the 2026-09-11 run: every value
+below was measured (`getComputedStyle`, `getBoundingClientRect`, `Range`), not
+eyeballed.
+
+| | |
+|---|---|
+| Driver | `playwright-core` 1.63.0, **fetched on demand** — it is no longer resolvable from `frontend/node_modules`, so it was installed into a scratch directory. Browser binary `chromium-1243`, the same revision as the 2026-09-11 run. |
+| Viewport | 1440×600 (chosen so every report's body overflows; a non-overflowing report cannot exercise stickiness) |
+| Theme | dark (application default — `ThemeWrapper` applies `darkTheme` unconditionally) |
+| App under test | `http://localhost` via `erp_nginx`, frontend image rebuilt from this branch immediately before the run |
+| Branch | `feat/1228-statement-mui-table` |
+
+**Bundle freshness was asserted before any check ran**, otherwise the pass is
+vacuous: the probe counts `thead th.MuiTableCell-head` on a report page and
+fails if it is 0, since the pre-migration build emitted no MUI table markup.
+Measured: **3 MUI head cells**, Statement chunk loaded.
+
+Form B is reached at `/accounting/profit-and-loss?view=tax` — it has no route of
+its own — and the probe waits for `[data-testid="pl-tax-view"]` before
+measuring, so the figures below are Form B's own rows and not the accounting
+view's.
+
+## Results
+
+### ST-10 — Header typography parity vs SO/PO ✅ (found a real defect first)
+
+**This check failed on its first run and is the reason it exists.**
+
+| | fontFamily | fontSize | fontWeight | textTransform | letterSpacing |
+|---|---|---|---|---|---|
+| First run — Statement | Roboto, sans-serif | **12px** | 600 | uppercase | **0.96px** |
+| First run — SO list | Roboto, sans-serif | **12.8px** | 600 | uppercase | **0.5px** |
+| After fix — both | Roboto, sans-serif | 12.8px | 600 | uppercase | 0.5px |
+
+Cause: `EntityTable` does **not** render the theme's `tableHeader` variant
+as-is. It overrides two values inline (`EntityTable.tsx:336-343`):
+`fontSize: '0.8rem'` and `letterSpacing: '0.5px'`, against the theme's
+`0.75rem`/`0.08em`. So the SO/PO header a user sees is the variant *plus* that
+`sx`, and inheriting the `MuiTableHead` override alone lands 0.8px short with
+nearly double the tracking.
+
+Reading the theme object would have argued parity was already achieved. Only
+the measurement disproved it. `Statement.tsx` now pins those two values with a
+comment pointing back here.
+
+### ST-11 — Sticky-header opacity under active scroll ✅
+
+Measured mid-scroll, reading the `th` (not `thead tr`):
+
+| Report | Scrolled | Head-cell background | position | Offset from scroller top |
+|---|---|---|---|---|
+| P&L | 159px | `rgb(66, 66, 66)` | `sticky` | 0.00px |
+| Balance Sheet | 499px | `rgb(66, 66, 66)` | `sticky` | 0.00px |
+| Form B | 444px | `rgb(66, 66, 66)` | `sticky` | 0.00px |
+
+All three opaque — an `rgb()` value with no alpha channel, so rows cannot show
+through as they pass beneath.
+
+### ST-12 — Figure font-size uniformity ✅
+
+| Report | Distinct `.stmt-cell-figure` font sizes |
+|---|---|
+| P&L | **`["14px"]`** |
+| Balance Sheet | **`["14px"]`** |
+| Form B | **`["14px"]`** |
+
+One value each, across `line`, `subtotal` and `bottomLine` rows. This is the
+invariant that keeps the bottom line's decimal separator on the same x position
+as every other row.
+
+### ST-13 — Paren alignment across the sign boundary ✅
+
+| Report | Figures | Decimal-x spread | Signs present |
+|---|---|---|---|
+| P&L | 10 | **0.02px** | 7 positive / 3 negative |
+| Balance Sheet | 25 | **0.02px** | 22 positive / 3 negative |
+| Form B | 24 | **0.02px** | 22 positive / 2 negative |
+
+Every column carries both signs, so the paren spacer is genuinely exercised
+rather than trivially satisfied. Spacer read from the **pseudo-element**:
+`content: ")"`, `visibility: hidden`, reserved width **4.67px**.
+
+## Caveats
+
+- **CSP still blocks the Google Fonts stylesheet**, so Roboto resolves from the
+  local system rather than the network — same as the 2026-09-11 run. ST-10
+  compares both sides in one session, so a shared fallback does not invalidate
+  the *parity* claim; it does mean the check proves "Statement matches SO/PO
+  here", not "both render webfont Roboto".
+- ST-1 … ST-9 were not re-run. The accounting presentation they cover is
+  unchanged by this migration in intent, but that is reasoning, not measurement.
+- Screen-reader announcement remains **unverified**, as recorded in the
+  2026-09-11 run. Nothing in this change affects the accessible-value
+  structure.
