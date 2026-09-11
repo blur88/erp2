@@ -332,7 +332,9 @@ export default function BalanceSheetPage() {
         </Box>
       )}
 
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+      {/* Statement owns its own scroller (spec §3.1); `minHeight: 0` is what
+          lets it shrink so that scroller engages. */}
+      <Box sx={{ flex: 1, minHeight: 0 }}>
         <Statement rows={statementRows} figureHeads={['RM']} label="Balance Sheet statement" />
       </Box>
 

@@ -97,7 +97,10 @@ export default function ProfitAndLossAccountingView(props: ProfitAndLossAccounti
           </Box>
         ) : null
       ) : (
-        <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        // Statement owns its own scroller (spec §3.1), so no overflow here.
+        // `minHeight: 0` stays: without it this flex child refuses to shrink
+        // below its content and Statement's scroller never engages.
+        <Box sx={{ flex: 1, minHeight: 0 }}>
           <Statement rows={rows} figureHeads={['RM']} label="Profit and Loss statement" />
         </Box>
       )}
