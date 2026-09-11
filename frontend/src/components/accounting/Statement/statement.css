@@ -23,18 +23,18 @@
 
 /* ---- Panel ---- */
 
-.stmt-panel {
-  background: var(--stmt-paper);
-  border: 1px solid var(--stmt-paper-edge);
-  border-radius: 2px;
-  padding: 24px 28px;
-  color: var(--stmt-ink);
+/*
+ * Surface, radius and elevation come from the MUI Paper in Statement.tsx.
+ * Only the inner padding lives here.
+ */
+.stmt-root {
+  padding: 16px 20px;
 }
 
 .stmt-table {
   width: 100%;
-  border-collapse: collapse;
-  color: var(--stmt-ink);
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 /* ---- Cells ---- */
@@ -146,18 +146,29 @@
 
 /* ---- Column head ---- */
 
+/*
+ * Sticky, so the header stays put while the rows scroll inside
+ * `.stmt-scroller`.
+ *
+ * The background sits on the CELL, not the row: only cells are sticky, so a
+ * <tr> background scrolls away and leaves the labels floating over the data.
+ * The colour is applied in Statement.tsx from the theme.
+ */
 .stmt-col-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.04em;
-  color: var(--stmt-ink-muted);
   text-align: right;
-  padding: 0 0 6px 0;
+  padding: 8px 0;
   border-bottom: 1px solid var(--stmt-rule);
 }
 
 .stmt-col-head--label {
   text-align: left;
+  padding-right: 12px;
 }
 
 /* ---- Drill-down ---- */

@@ -40,7 +40,8 @@ describe('Statement structure', () => {
 
   it('puts the currency in the column head, not on every row', () => {
     renderStatement([row({ id: 'a' })])
-    expect(screen.getByText('RM')).toBeInTheDocument()
+    const head = screen.getByRole('table', { name: 'Statement' }).querySelector('thead')
+    expect(head).toHaveTextContent('RM')
     expect(screen.getByTestId('row-a')).not.toHaveTextContent('RM')
   })
 
@@ -134,5 +135,38 @@ describe('Statement amounts', () => {
   it('marks zero rows for the muted token', () => {
     renderStatement([row({ id: 'z', figures: ['0.0000'], isZero: true })])
     expect(screen.getByTestId('row-z')).toHaveClass('stmt-row--zero')
+  })
+})
+
+describe('Statement frame and header', () => {
+  it('renders a real header row with Code and Description', () => {
+    renderStatement([row({ id: 'a' })])
+    const table = screen.getByRole('table', { name: 'Statement' })
+    const head = table.querySelector('thead')
+    expect(head).not.toBeNull()
+    expect(head).toHaveTextContent('Code')
+    expect(head).toHaveTextContent('Description')
+    expect(head).toHaveTextContent('RM')
+  })
+
+  it('renders one header cell per column', () => {
+    renderStatement([row({ id: 'a', figures: ['1.0000', '2.0000'] })], ['Debit', 'Credit'])
+    const heads = screen.getByRole('table', { name: 'Statement' }).querySelectorAll('thead th')
+    // Code + Description + Debit + Credit
+    expect(heads).toHaveLength(4)
+  })
+
+  it('owns a scroll container so the header can stick', () => {
+    // Structure only. jsdom has no layout engine, so stickiness itself is
+    // browser-verified (STATEMENT_THEME_QA.md, ST-4).
+    const { container } = renderStatement([row({ id: 'a' })])
+    const scroller = container.querySelector('.stmt-scroller')
+    expect(scroller).not.toBeNull()
+    expect(scroller?.querySelector('table.stmt-table')).not.toBeNull()
+  })
+
+  it('keeps the accessible table name', () => {
+    renderStatement([row({ id: 'a' })])
+    expect(screen.getByRole('table', { name: 'Statement' })).toBeInTheDocument()
   })
 })
