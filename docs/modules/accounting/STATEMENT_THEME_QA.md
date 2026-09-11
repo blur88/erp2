@@ -148,20 +148,40 @@ Added for #1228, which migrated the Statement table from native HTML +
 from the theme's `MuiTableHead` override rather than a local rule, and this
 check is what proves the two agree.
 
-**Measure, do not eyeball.** Compare computed styles directly:
+Extended by #1231, which made the header text a `<Typography
+variant="tableHeader">` carrying the same inline overrides EntityTable uses —
+so the two headers now share one implementation rather than two that merely
+computed alike.
+
+**Measure the TYPOGRAPHY, not the cell.** Since #1231 the glyphs are drawn by
+the span inside the head cell, and the cell keeps its own size/tracking as a
+fallback floor. Measuring the cell therefore reads the floor and would pass
+even if the Typography's `sx` were lost — which is the whole defect this check
+exists to catch:
 
 ```js
-getComputedStyle(document.querySelector('.stmt-col-head'))
-// vs a Sales Orders header cell
-getComputedStyle(document.querySelector('.entity-table-card thead th'))
+getComputedStyle(document.querySelector('.stmt-col-head .MuiTypography-root'))
+// vs a Sales Orders header cell's Typography
+getComputedStyle(
+  document.querySelector('.entity-table-card thead th .MuiTypography-root'),
+)
 ```
 
 **Expected:** `fontFamily`, `fontSize`, `fontWeight`, `textTransform` and
-`letterSpacing` are **identical** between the two.
+`letterSpacing` are **identical** between the two. Expect `12.8px` and
+`0.5px` — NOT the `tableHeader` variant's own 0.75rem/0.08em, which is what a
+Typography stripped of its `sx` would compute.
+
+**Run it on all three reports:** P&L, Balance Sheet **and Form B**. All three
+render the shared `Statement`, so Form B inherits any header change whether or
+not the issue that caused it mentions Form B.
 
 **Why it can break:** the old `.stmt-col-head` rule set weight 500, 0.04em and
 no uppercase — the exact divergence #1228 removed. A reintroduced local rule,
-or a `darkTheme` block that shadows `MuiTableHead`, brings it back. Note that
+or a `darkTheme` block that shadows `MuiTableHead`, brings it back. Since #1231
+there is a second route: dropping `HEADER_TYPOGRAPHY_SX` from the Typography
+(or letting EntityTable's inline values drift from it) silently returns the
+header to the theme variant's smaller size and wider tracking. Note that
 `darkTheme` currently spreads `...baseThemeOptions.components` and does not
 redefine `MuiTableHead`; if that changes, this check is what catches it.
 

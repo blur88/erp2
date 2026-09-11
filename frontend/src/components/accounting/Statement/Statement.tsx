@@ -7,11 +7,39 @@ import TableCell from '@mui/material/TableCell'
 import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
+import Typography from '@mui/material/Typography'
 
 import { TABLE_STYLES } from '@/constants/tableStyles'
 
 import { StatementRowView } from './StatementRow'
 import type { StatementProps } from './types'
+
+/**
+ * The SO/PO header treatment, copied whole.
+ *
+ * These four values are duplicated verbatim from EntityTable.tsx:336-343, and
+ * the duplication is the point: EntityTable does NOT render the theme's
+ * `tableHeader` variant as-is: it overrides the variant's own 0.75rem/0.08em
+ * with 0.8rem/0.5px inline. So `variant="tableHeader"` ALONE does not reproduce
+ * the SO/PO header — it reproduces the variant, which no user has ever seen.
+ *
+ * Why this must sit on the Typography rather than be left to the cell: the head
+ * cell already carries fontSize/letterSpacing (see the Table `sx` below), and
+ * those inherit down to bare text. A nested Typography sets its OWN size and
+ * tracking, and an element's own rule beats an inherited one — so wrapping the
+ * text without carrying these values along would silently land the header back
+ * at 12px/0.96px against SO/PO's 12.8px/0.5px. That is the #1228 divergence,
+ * and it is invisible to jsdom: ST-10's browser measurement is what catches it.
+ *
+ * If EntityTable's inline values ever move into the theme variant, this whole
+ * constant should be DELETED, not edited — along with EntityTable's own sx.
+ */
+const HEADER_TYPOGRAPHY_SX = {
+  fontWeight: 600,
+  fontSize: '0.8rem',
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+} as const
 
 /**
  * A financial statement rendered as a semantic table inside a themed card.
@@ -196,21 +224,22 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
                 zIndex: 2,
                 /*
                   MEASURED PARITY, not inherited parity (#1228, ST-10).
-                  EntityTable does NOT render the theme's `tableHeader` variant
-                  as-is — it overrides two of its values inline
-                  (EntityTable.tsx:336-343): `fontSize: '0.8rem'` and
-                  `letterSpacing: '0.5px'`, against the theme's 0.75rem/0.08em.
-                  So the SO/PO header a user actually sees is the variant PLUS
-                  that sx, and matching the variant alone leaves Statement at
-                  12px/0.96px where SO/PO is 12.8px/0.5px.
 
-                  A browser measurement caught this; the theme object alone
-                  would have argued the opposite. Weight, family and uppercase
-                  still come from the MuiTableHead override.
+                  As of #1231 the header TEXT is a <Typography
+                  variant="tableHeader"> carrying HEADER_TYPOGRAPHY_SX, which is
+                  what actually sizes the rendered glyphs — a child's own rule
+                  beats anything inherited from this cell. See that constant for
+                  why the SO/PO values are duplicated there.
+
+                  These two lines are deliberately KEPT anyway: they hold the
+                  cell itself at the right size/tracking, so a head cell that is
+                  ever given bare text again (or a Typography that loses its sx)
+                  degrades to the correct values instead of to the theme
+                  variant's 0.75rem/0.08em. They are a floor, not the source.
 
                   If EntityTable's inline values ever move into the theme, these
-                  two lines should be deleted, not edited — ST-10 is what would
-                  catch the drift.
+                  two lines and HEADER_TYPOGRAPHY_SX should both be deleted, not
+                  edited — ST-10 is what would catch the drift.
                 */
                 fontSize: '0.8rem',
                 letterSpacing: '0.5px',
@@ -222,27 +251,39 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
                   background would scroll away. */}
               <TableRow>
                 {/*
-                  Header typography has TWO sources, deliberately: weight,
-                  family and uppercase come from the theme's MuiTableHead
-                  override (theme.ts:284, which baseThemeOptions defines and
-                  darkTheme spreads without redefining, so it reaches both
-                  themes); size and tracking are pinned in this Table's `sx`
-                  above to match EntityTable's own inline overrides. See that
-                  comment for why the theme alone is not enough.
+                  Each head cell wraps its text in <Typography
+                  variant="tableHeader"> + HEADER_TYPOGRAPHY_SX — the exact
+                  markup EntityTable uses (EntityTable.tsx:336-345), which is
+                  the point of #1231: same component, same variant, same
+                  overrides, so the two headers share one implementation rather
+                  than two that merely computed alike.
+
+                  The variant supplies family/weight/uppercase from the theme
+                  (theme.ts:205); the sx pins size and tracking to EntityTable's
+                  inline values. The theme's MuiTableHead override (theme.ts:284
+                  — defined on baseThemeOptions, which darkTheme spreads without
+                  redefining) still dresses the CELL, and the Table `sx` above
+                  keeps the cell's own size/tracking as a floor.
 
                   Either way the old `.stmt-col-head` rule is gone — it set
                   weight 500 / 0.04em / no uppercase, which is exactly how the
                   Statement header diverged from SO/PO (#1228).
                 */}
                 <TableCell className="stmt-col-head stmt-col-head--label" scope="col">
-                  Code
+                  <Typography variant="tableHeader" sx={HEADER_TYPOGRAPHY_SX}>
+                    Code
+                  </Typography>
                 </TableCell>
                 <TableCell className="stmt-col-head stmt-col-head--label" scope="col">
-                  Description
+                  <Typography variant="tableHeader" sx={HEADER_TYPOGRAPHY_SX}>
+                    Description
+                  </Typography>
                 </TableCell>
                 {figureHeads.map((head) => (
                   <TableCell key={head} className="stmt-col-head" scope="col" align="right">
-                    {head}
+                    <Typography variant="tableHeader" sx={HEADER_TYPOGRAPHY_SX}>
+                      {head}
+                    </Typography>
                   </TableCell>
                 ))}
               </TableRow>
