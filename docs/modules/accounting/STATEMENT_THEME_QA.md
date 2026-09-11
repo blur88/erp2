@@ -147,3 +147,197 @@ There should be no sense of two different palettes on screen.
   (open a Sales Order, print preview) — unaffected by this change.
 - Trial Balance still renders through `EntityTable` and is unchanged; its
   divergence from the other reports is a known, accepted non-goal.
+
+---
+
+# Recorded run — 2026-09-11
+
+**Result: ST-1 … ST-9 all pass.** One item remains unverified; see
+"Screen-reader announcement" below.
+
+## How this run was performed
+
+**Scripted headless Chromium, not a human at a screen.** Every value below was
+measured by script (`getBoundingClientRect`, `getComputedStyle`, `scrollTop`)
+and the screenshots were captured in the same sessions. This is stronger than
+eyeballing for the geometric checks — a decimal-separator x position is measured
+to 0.01px rather than judged — and weaker for anything requiring human
+perception. Where a check needs a person, it is called out rather than claimed.
+
+| | |
+|---|---|
+| Browser | **Google Chrome for Testing 153.0.8010.12** (Playwright chromium-1243) |
+| Driver | `playwright-core` 1.63.0 (transitive; no Playwright config, spec or CI job was added — see #1223) |
+| Viewports | **1440×900** (primary), **1440×600** (to force P&L overflow), **1024×900** and **768×900** (ST-2) |
+| Theme | dark (application default) |
+| App under test | `http://localhost` via `erp_nginx`, frontend image built 2026-09-11T22:48:48+08:00 |
+| Branch | `feat/1224-statement-theme-alignment` @ `bd40f28f7` |
+
+**The served bundle was confirmed to contain this branch's code before any
+check ran** — otherwise the whole pass is vacuous. The accounting pages are
+lazy-loaded, so the entry chunks do not contain statement markup; the check must
+target the lazy chunk:
+
+```
+/usr/share/nginx/html/assets/Statement-C3WfDAul.js
+  stmt-scroller 1 · stmt-paren-spacer 1 · "Description" 1
+  stmt-cell-figure-int 0 · stmt-cell-figure-frac 0   ← old two-cell markup absent
+```
+
+## Results
+
+### ST-1 — Decimal alignment ✅
+
+Decimal-separator x position measured per figure with a `Range` over the
+separator character, across every figure on each report:
+
+| Report | Distinct x positions | Value |
+|---|---|---|
+| Balance Sheet | **1** | 1368.42 |
+| P&L (Accounting) | **1** | 1368.42 |
+| Form B | **1** | 1368.42 |
+
+One position across positive, negative, `subtotal` and `bottomLine` rows —
+e.g. `200.00`, `(360.00)`, `(180.00)`, `1,000.00`, `(620.00)` all landing on
+1368.42. Computed font `Roboto, sans-serif` with
+`font-variant-numeric: tabular-nums` active.
+
+Note: the app's CSP blocks the Google Fonts stylesheet, so Roboto resolves from
+the local system rather than the network. Alignment holds regardless — the
+fallback face is still Roboto here. A host without a local Roboto is untested.
+
+### ST-2 — Parentheses not clipped ✅
+
+At **1024×900** and **768×900**, all 10 figure cells: `clipped=0`,
+`scrollWidth <= clientWidth`, no horizontal scroll on either the scroller or the
+document.
+
+A first pass reported "6 wrapped" from a naive `height > 30px` threshold. That
+was a probe artifact: every cell measures `textH=17px` against `lineHeight=24px`
+with `white-space: nowrap`, and the height variance is `padding-top` by row kind
+(line 3px / subtotal 5px / bottomLine 8px). **Real text wraps: 0.**
+
+### ST-3 — Paren spacer invisible ✅
+
+Read from the **pseudo-element**, which is where the rule lives:
+
+```
+getComputedStyle(.stmt-paren-spacer, '::after')
+  content: ")"   visibility: hidden   reserved width: 5.33px
+```
+
+Positive figure cells containing a stray `)`: **0**, on all three reports.
+
+An earlier probe read `visibility` on the *element* (`visible`) and looked like
+a failure. The element is a bare empty span; only its `::after` carries the
+hidden glyph.
+
+### ST-4 — Sticky header ✅
+
+| Report | Scrolled | Header offset from scroller top | `position` | Background |
+|---|---|---|---|---|
+| Balance Sheet | 629px | 0.00px | `sticky` | `rgb(66, 66, 66)` |
+| P&L | 182px | <3px | `sticky` | `rgb(66, 66, 66)` |
+| Form B | 724px | <3px | `sticky` | `rgb(66, 66, 66)` |
+
+Opaque in all three — an rgb() value, no alpha channel, so rows cannot show
+through. Header text reads **Code / Description / RM**.
+
+P&L does not overflow at 1440×900; it was re-tested at **1440×600** to force a
+scrollable body. A non-overflowing report cannot exercise stickiness.
+
+### ST-5 — Scroll ownership ✅
+
+| Report | Scroller `scrollTop` after scroll | `window.scrollY` |
+|---|---|---|
+| Balance Sheet | 629 | **0** |
+| P&L | 182 | **0** |
+| Form B | **724** | **0** |
+
+**Form B is the headline.** It previously had no overflow owner, so a long
+filing scrolled the page and carried the column header away. 724px of row
+scrolling with the page fixed confirms the fix.
+
+**Balance Sheet is the other one to note.** Its sticky header was inert until
+`c1c71d0aa` restored `flex: 1, minHeight: 0` on the body Box. This check covers
+the path that fix repaired.
+
+### ST-6 — Theme match vs the SO/PO baseline ✅
+
+`.stmt-root` measured against `.entity-table-card` on `/sales/orders`, same
+session, same theme:
+
+| Property | Statement | SO list | Match |
+|---|---|---|---|
+| background | `rgb(30, 30, 30)` | `rgb(30, 30, 30)` | ✅ |
+| border-radius | `8px` | `8px` | ✅ |
+| box-shadow | `rgba(0,0,0,0.08) 0 2px 4px 0` | same | ✅ |
+| color | `rgb(255, 255, 255)` | same | ✅ |
+| sticky header bg | `rgb(66, 66, 66)` | `rgb(66, 66, 66)` | ✅ |
+
+### ST-7 — Balance Sheet reads as one surface ✅
+
+Summary tiles are transparent (`rgba(0,0,0,0)`) over page background
+`rgb(18, 18, 18)`; the statement card is `rgb(30, 30, 30)` — a themed card on a
+themed page. No light paper panel. The condition that motivated #1224 is gone.
+
+### ST-8 — Accounting presentation intact ✅ (visual/DOM only — see caveat)
+
+| Property | Measured |
+|---|---|
+| Figure font sizes | **`["16px"]`** — one size across every row kind |
+| Subtotal rule | `1px solid`, above the figure cell only |
+| Bottom-line rule | `3px double`, font-weight `500` |
+| Negative colour | `rgb(239, 83, 80)` = theme `error.main` |
+| Zero-row colour | `rgb(189, 189, 189)` = theme `text.secondary` |
+| Link colour | `rgb(66, 165, 245)` = theme `primary.main` |
+
+Negatives render parenthesised — `(360.00)`, `(180.00)`, `(620.00)`, `(1,220.00)`.
+
+The single figure font size is the load-bearing one: it is what disposes of the
+size offset that would otherwise misalign the bottom line (see ST-1).
+
+### ST-9 — Nothing else moved ✅
+
+- Sales Orders list renders normally; card styling identical to before (ST-6).
+- `@media print { #root, .MuiDialogTitle-root, … { display: none !important } }`
+  intact — the rule SO/PO printing depends on.
+- **`acct-print*` rules in the loaded stylesheets: 0** — the removed accounting
+  print path has not returned.
+
+## Screen-reader announcement — NOT VERIFIED
+
+**This is the one outstanding item, and it is distinct from ST-8 above.**
+
+ST-8 passes on *visual presentation* and *DOM structure*. Neither establishes
+what a screen reader actually announces.
+
+What **is** confirmed (Vitest, `StatementFigure.test.tsx`): each amount exposes
+exactly one accessible node carrying the complete signed value (`negative
+840.00`), the visible figure is `aria-hidden`, the accessible value sits inside
+the figure cell so it keeps its column-header association, and `null` announces
+as "not available" rather than a dash or a zero.
+
+What is **not** confirmed: that a real screen reader announces the amount
+**with its column header, in order, as one value** — and that the hidden paren
+spacer is silent in practice. A headless browser cannot produce this evidence;
+it needs NVDA, JAWS or VoiceOver driven by a person.
+
+Treat the accessibility behaviour as structurally correct and audibly
+unverified. See the same caveat in the superseded print-era spec (§4.5.3), which
+also required a manual screen-reader spot-check.
+
+## Screenshots
+
+Captured during the run. Not committed — they are run artifacts, and by repo
+convention execution logs live in the gitignored `docs/test/`.
+
+| File | Shows |
+|---|---|
+| `bs-01-initial.png` | Balance Sheet, top of statement |
+| `bs-02-scrolled.png` / `r-bs.png` | Balance Sheet scrolled 629px, header pinned |
+| `r-pl.png` | P&L Accounting View |
+| `r-formb.png` | Form B tax view |
+| `st4-pl.png` / `st4-formb.png` | Sticky header after scrolling, 1440×600 |
+| `r-so.png` | Sales Orders list, for the ST-6 comparison |
+| `r-w1024.png` / `r-w768-final.png` | ST-2 narrow widths |
