@@ -1,7 +1,10 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { ThemeProvider } from '@mui/material/styles'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+import { darkTheme } from '@/styles/theme'
 
 import { Statement } from '../Statement'
 import type { StatementRow } from '../types'
@@ -217,5 +220,65 @@ describe('Statement frame and header', () => {
   it('keeps the accessible table name', () => {
     renderStatement([row({ id: 'a' })])
     expect(screen.getByRole('table', { name: 'Statement' })).toBeInTheDocument()
+  })
+
+  it('renders every header through a Typography, as EntityTable does', () => {
+    /*
+     * #1231: the header text must be a real <Typography>, not bare text in the
+     * cell. This asserts the WRAPPER exists; the test below asserts it carries
+     * the right values. Both matter — a Typography that lost its sx would pass
+     * this one and still render at the wrong size.
+     */
+    const { container } = renderStatement(
+      [row({ id: 'a', figures: ['1.0000', '2.0000'] })],
+      ['Debit', 'Credit'],
+    )
+    const heads = [...container.querySelectorAll('thead th')]
+    expect(heads).toHaveLength(4)
+    for (const cell of heads) {
+      const typography = cell.querySelector('.MuiTypography-root')
+      expect(typography).not.toBeNull()
+      // The text lives INSIDE the Typography, not beside it.
+      expect(typography).toHaveTextContent(/\S/)
+      expect(cell.textContent).toBe(typography!.textContent)
+    }
+  })
+
+  it('gives header Typography the four SO/PO parity values', () => {
+    /*
+     * The measured half of #1228/#1231 that IS reachable here. Per CLAUDE.md,
+     * `sx` on the asserted element itself IS observable through toHaveStyle
+     * when rendered under a ThemeProvider — these are the values EntityTable
+     * sets inline at EntityTable.tsx:336-343.
+     *
+     * The trap this guards: `variant="tableHeader"` alone computes 0.75rem /
+     * 0.08em (theme.ts:205), NOT what SO/PO renders. jsdom 30 normalizes rem to
+     * px, so 0.8rem reads as 12.8px.
+     *
+     * ONE THEME, deliberately: the app has exactly one. main.tsx wraps
+     * everything in ThemeWrapper, which provides darkTheme unconditionally, and
+     * theme.ts exports no other. darkTheme spreads baseThemeOptions and
+     * redefines neither `typography` nor `MuiTableHead`, so the variant and the
+     * cell override reach it intact. A light-theme case would have to invent a
+     * theme no user ever sees.
+     */
+    const { container } = render(
+      <MemoryRouter>
+        <ThemeProvider theme={darkTheme}>
+          <Statement rows={[row({ id: 'a' })]} figureHeads={['RM']} label="Statement" />
+        </ThemeProvider>
+      </MemoryRouter>,
+    )
+
+    const typographies = [...container.querySelectorAll('thead th .MuiTypography-root')]
+    expect(typographies).toHaveLength(3)
+    for (const el of typographies) {
+      expect(el).toHaveStyle({
+        fontWeight: '600',
+        fontSize: '12.8px',
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px',
+      })
+    }
   })
 })
