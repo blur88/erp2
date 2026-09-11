@@ -3,8 +3,8 @@
  *
  * COLOUR LIVES IN THE THEME, not here. The former `--stmt-*` palette (a light
  * document surface built for the removed print path) was deleted in #1224;
- * colours now resolve from the MUI theme via `sx` in Statement.tsx and
- * StatementRow.tsx. Rules in this file carry structure, spacing and the
+ * colours now resolve from the MUI theme via `sx` in Statement.tsx. Rules in
+ * this file carry structure, spacing and the
  * accounting conventions (subtotal hairline, bottom-line double rule,
  * parenthesised negatives) only.
  */
@@ -83,7 +83,7 @@
   padding-bottom: 2px;
 }
 
-/* Colour applied from the theme in StatementRow; the class is the hook. */
+/* The class is the hook; the colour is applied from the theme in Statement.tsx. */
 .stmt-row--zero > * {
 }
 

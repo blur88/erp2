@@ -89,6 +89,10 @@ describe('Statement structure', () => {
     expect(span(rows[0])).toBe(span(rows[1]))
     // 2 label columns + 2 figure columns.
     expect(span(rows[1])).toBe(4)
+
+    const head = container.querySelector('thead tr')
+    expect(head).not.toBeNull()
+    expect(span(head as Element)).toBe(span(rows[1]))
   })
 })
 

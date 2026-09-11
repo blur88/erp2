@@ -120,7 +120,11 @@ SO/PO print remains covered only by the jsdom suite plus a manual browser pass. 
 
 The Vitest suite covers structure, not rendering. jsdom has no layout engine, so **decimal alignment, real sticky scrolling, clipping, elevation and font loading are unassertable**. Imported stylesheet rules are stubbed in this setup (Vitest does not inject `statement.css`), so the sticky, `text-align` and `tabular-nums` rules there are invisible to the suite too.
 
-Emotion styles are a different story: MUI `sx` and theme `styleOverrides` DO reach `getComputedStyle`/`toHaveStyle` under this repo's jsdom 30 — `MainLayout.test.tsx:40` asserts `sx={{ pt: 11 }}` as `paddingTop: 88px`. Theme colours applied through `sx` are therefore assertable; the current suite does not rely on that.
+Emotion styles are a different story: MUI `sx` DOES reach
+`getComputedStyle`/`toHaveStyle` under this repo's jsdom 30 — `MainLayout.test.tsx:40`
+asserts `sx={{ pt: 11 }}` as `paddingTop: 88px` (theme `styleOverrides` use the
+same Emotion pipeline). Theme colours applied through `sx` are therefore
+assertable; the current suite does not rely on that.
 
 The browser gate that once covered the rest was removed in #1223 and is not coming back as part of this work. `docs/modules/accounting/STATEMENT_THEME_QA.md` is the substitute — a tracked manual procedure, run by hand, with results recorded in the PR.
 

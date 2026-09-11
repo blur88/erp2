@@ -196,8 +196,8 @@ export default function BalanceSheetPage() {
   /**
    * BalanceSheetResponse → StatementRow[]. Statement owns presentation; this
    * keeps the report's own rules: sections grouped by `row.section`, official
-   * rows addressable by `bs-row-<line>`, expanded account links as print
-   * detail, and the derived presentation subtotals anchored after N49.
+   * rows addressable by `bs-row-<line>`, expanded account links as drill-down
+   * rows, and the derived presentation subtotals anchored after N49.
    */
   const statementRows = useMemo<StatementRow[]>(() => {
     if (!report) return []
@@ -306,7 +306,7 @@ export default function BalanceSheetPage() {
       <ListSkeleton rows={8} columns={4} />
     </Box>
   ) : report ? (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
       {summary && (
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           <Box data-testid="bs-summary-assets" sx={{ flex: 1, minWidth: 160 }}>

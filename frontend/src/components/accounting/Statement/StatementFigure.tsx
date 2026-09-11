@@ -3,16 +3,18 @@ import React from 'react'
 import { formatCurrency } from '@/utils/currency'
 
 /**
- * Split an ALREADY-FORMATTED amount into its integer and fractional parts.
+ * Split an ALREADY-FORMATTED amount into its integer and fractional parts,
+ * returning the parenthesised sign convention for negatives.
  *
- * The separator stays with the fractional part, which is left-aligned against
- * the shared table-column boundary — that boundary is the decimal anchor
- * (spec §4.5.2).
+ * `StatementFigure` re-joins `int` and `frac` into ONE string rendered in a
+ * single right-aligned cell; decimal alignment comes from tabular digits, a
+ * shared body font size and `.stmt-paren-spacer` (spec §4.1), not from a
+ * column boundary. This helper is therefore purely a string split.
  *
  * NEVER parses the amount. `formatCurrency` keeps string amounts as strings
  * because amounts are NUMERIC(18,4) and Number()/parseFloat() lose cents once
  * binary64 spacing exceeds 0.01. Stripping the sign with
- * `Math.abs(Number(amount))` would reintroduce exactly that loss (spec §4.5.1).
+ * `Math.abs(Number(amount))` would reintroduce exactly that loss.
  */
 export function splitFormattedAmount(formatted: string): {
   int: string

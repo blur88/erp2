@@ -74,9 +74,13 @@ describe('StatementFigure', () => {
 
   it('hides the visual figure from assistive technology', () => {
     renderFigure('142300.0000')
-    // The visible text is aria-hidden; the accessible value is the
-    // visually-hidden sibling asserted above.
-    expect(screen.getByTestId('fig').querySelector('[aria-hidden="true"]')).not.toBeNull()
+    // Scope to the visible amount span: the paren spacer is also aria-hidden,
+    // so an unscoped query would pass even if this span lost its aria-hidden.
+    const visible = screen
+      .getByTestId('fig')
+      .querySelector('span[aria-hidden="true"]:not(.stmt-paren-spacer)')
+    expect(visible).not.toBeNull()
+    expect(visible).toHaveTextContent('142,300.00')
   })
 
   it('keeps the accessible value inside the figure cell', () => {

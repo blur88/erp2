@@ -121,8 +121,9 @@ export function buildProfitAndLossRows(
     figures: [data.netProfit],
     testId: 'pl-row-netProfit',
     // Single-node amount hook, for consistency with the Balance Sheet rows.
-    // No suite reads `pl-amount` today; it exists so every report exposes its
-    // amounts the same way.
+    // No suite asserts it on a rendered P&L row; StatementFigure's tests
+    // synthesize the hook. It exists so every report exposes its amounts the
+    // same way.
     amountHook: 'pl-amount',
     isZero: isZeroAmount(data.netProfit),
   })

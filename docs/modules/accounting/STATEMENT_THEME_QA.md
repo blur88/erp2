@@ -19,7 +19,7 @@ never reach `getComputedStyle`.
 Emotion styles behave differently: MUI `sx` and theme `styleOverrides` DO
 reach `getComputedStyle`/`toHaveStyle` under this repo's jsdom 30 (see
 `MainLayout.test.tsx:40`). Theme colours applied via `sx` are assertable;
-the current suite does not rely on that.
+the Statement suite does not rely on that.
 
 The Vitest suite therefore proves **structure and themed `sx` values only**:
 one cell per figure, a single `amountHook` node, the complete signed
@@ -67,7 +67,8 @@ figure font size, each shift the separator. Both are invisible to the suite.
 - No closing parenthesis is clipped, wrapped to a second line, or pushed out
   of its cell — at the default window width **and** at the narrowest
   supported width (reduce the window to ~1024px, then to ~768px).
-- No horizontal scrollbar appears on the statement body.
+- No figure needs horizontal scrolling to be read; if a scrollbar appears inside
+  the statement card at narrow widths, no parenthesis is out of reach.
 
 ## ST-3 — The paren spacer is invisible
 
