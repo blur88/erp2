@@ -27,7 +27,27 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
   return (
     <Paper
       className={`stmt-root${className ? ` ${className}` : ''}`}
-      sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      sx={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        color: 'text.primary',
+        // Accounting-specific presentation, themed. Parentheses, hairlines and
+        // the bottom-line rule are kept (spec §1); only their colours change.
+        '& .stmt-cell-code': { color: 'text.secondary' },
+        '& .stmt-col-head': {
+          color: 'text.secondary',
+          borderBottomColor: 'divider',
+          backgroundColor: TABLE_STYLES.header.backgroundColor,
+        },
+        '& .stmt-row--section > *': { color: 'text.secondary' },
+        '& .stmt-row--zero > *': { color: 'text.secondary' },
+        '& .stmt-figure-negative': { color: 'error.main' },
+        '& .stmt-link': { color: 'primary.main' },
+        '& .stmt-row--subtotal .stmt-cell-figure': { borderTopColor: 'divider' },
+        '& .stmt-row--bottomLine .stmt-cell-figure': { borderTopColor: 'text.primary' },
+      }}
     >
       <Box
         className="stmt-frame"
@@ -44,10 +64,6 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
           sx={{
             flex: 1,
             overflow: 'auto',
-            // Opaque, or rows scroll through the sticky header. `grey.50` is
-            // remapped to an opaque grey[800] in darkTheme, so this is solid in
-            // both themes — the same token EntityTable uses.
-            '& .stmt-col-head': { backgroundColor: TABLE_STYLES.header.backgroundColor },
           }}
         >
           <table className="stmt-table" aria-label={label}>
