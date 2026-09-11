@@ -116,15 +116,17 @@ jsdom has no layout engine and does not evaluate `@media print`, so **the Vitest
 
 SO/PO print remains covered only by the jsdom suite plus a manual browser pass. `ci.yml` triggers on `pull_request` and `workflow_dispatch` only — there is deliberately no `push` trigger, so **merging never produces a run on `main`**; validating main takes a deliberate `gh workflow run ci.yml --ref main`.
 
-**Statement (P&L / Balance Sheet / Form B) has no automated visual coverage**: `components/accounting/Statement/` was aligned to the app theme in #1224 — MUI `Paper` frame, theme palette, sticky header, and one right-aligned figure cell per column in place of the integer/fraction split.
+**Statement (P&L / Balance Sheet / Form B) has limited automated visual coverage**: `components/accounting/Statement/` was aligned to the app theme in #1224 — MUI `Paper` frame, theme palette, sticky header, and one right-aligned figure cell per column in place of the integer/fraction split.
 
-None of that is verifiable by the Vitest suite. jsdom has no layout engine, and Emotion styles (both theme `styleOverrides` and `sx`) never reach `getComputedStyle`/`toHaveStyle`, so **alignment, stickiness, elevation, colour and clipping are all unassertable**. The suite covers structure only: one cell per figure, a single `amountHook` node, the complete signed accessible value, row-kind classes, header cells.
+The Vitest suite covers structure, not rendering. jsdom has no layout engine, so **decimal alignment, real sticky scrolling, clipping, elevation and font loading are unassertable**. Imported stylesheet rules are stubbed in this setup (Vitest does not inject `statement.css`), so the sticky, `text-align` and `tabular-nums` rules there are invisible to the suite too.
 
-The browser gate that once covered this class of property was removed in #1223 and is not coming back as part of this work. `docs/modules/accounting/STATEMENT_THEME_QA.md` is the substitute — a tracked manual procedure, run by hand, with results recorded in the PR.
+Emotion styles are a different story: MUI `sx` and theme `styleOverrides` DO reach `getComputedStyle`/`toHaveStyle` under this repo's jsdom 30 — `MainLayout.test.tsx:40` asserts `sx={{ pt: 11 }}` as `paddingTop: 88px`. Theme colours applied through `sx` are therefore assertable; the current suite does not rely on that.
+
+The browser gate that once covered the rest was removed in #1223 and is not coming back as part of this work. `docs/modules/accounting/STATEMENT_THEME_QA.md` is the substitute — a tracked manual procedure, run by hand, with results recorded in the PR.
 
 Two invariants the suite *cannot* protect, so change them only deliberately:
 
-- **The paren spacer must stay CSS generated content** (`.stmt-paren-spacer::after { content: ')' }`). It reserves the closing-paren width so positive figures' decimals align with parenthesised negatives. A real `)` text node would reserve the same width and look identical in a browser — and silently corrupt every row-level `toHaveTextContent` assertion in the page suites, because `textContent` walks the whole subtree and neither `aria-hidden` nor `visibility: hidden` excludes it.
+- **The paren spacer must stay CSS generated content** (`.stmt-paren-spacer::after { content: ')' }`). It reserves the closing-paren width so positive figures' decimals align with parenthesised negatives. A real `)` text node would reserve the same width and look identical in a browser. Note that `toHaveTextContent('56,800.00')` is a substring assertion — it would still accept `56,800.00)`. The explicit no-stray-parenthesis checks (exact `textContent` equality and `not.toContain(')')`) are what catch a text-node regression.
 - **Every figure must render at the same font size.** The bottom line is distinguished by weight and its double rule. A larger bottom-line figure places its decimal separator at a different x position from every other row, which is the exact misalignment the old two-cell split existed to prevent.
 
 **Path aliases**: Frontend uses `@/` as alias for `src/`. Backend uses `@/*` → `src/*`, `@modules/*` → `src/modules/*`, `@common/*` → `src/common/*`, `@config/*` → `src/config/*`, and `@database/*` → `src/database/*`.
