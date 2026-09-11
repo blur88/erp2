@@ -21,8 +21,12 @@ export interface StatementRow {
   expand?: { expanded: boolean; onToggle: () => void }
   /**
    * Testid for a single node carrying the complete formatted amount, e.g.
-   * `bs-amount`. Preserves report-specific amount hooks across the two-cell
-   * split. Applied to the first figure column only.
+   * `bs-amount`. Applied to the first figure column only.
+   *
+   * Kept for the Balance Sheet suite, which reads it as one node
+   * (BalanceSheetPage.test.tsx:251) and asserts exactly one per row (:481).
+   * It predates #1224 and was originally justified by the print gate's
+   * assertExactAmount, which no longer exists.
    */
   amountHook?: string
   /*

@@ -151,18 +151,19 @@ function FormBTaxViewBody({ data }: FormBTaxViewBodyProps) {
 
   return (
     /*
-     * The flex chain must reach EntityTable, or the table has no bounded height:
+     * The flex chain must reach Statement, or the table has no bounded height:
      * it grows to its content and the PAGE scrolls instead of the rows, taking
-     * the column header with it.
+     * the column header with it. That was Form B's behaviour before #1224 —
+     * this wrapper had no overflow owner at all.
      *
      * SimpleListPage supplies `flex: 1, minHeight: 0` on the table area, so this
      * body continues it. `minHeight: 0` is the load-bearing half — without it a
      * flex child refuses to shrink below its content and the inner scroller
      * never engages.
      *
-     * No `overflow` here: EntityTable owns its own scrolling
-     * (`.entity-table-frame` hidden, `.entity-table-scroller` auto), which is
-     * what pins the header while the rows move.
+     * No `overflow` here: Statement owns its own scrolling
+     * (`.stmt-frame` hidden, `.stmt-scroller` auto), which is what pins the
+     * header while the rows move.
      */
     <Box
       data-testid="pl-tax-view"
@@ -227,8 +228,8 @@ function FormBTaxViewBody({ data }: FormBTaxViewBodyProps) {
 
       {/* N3–N27 table */}
       {/*
-        The scroll container stays so a long filing scrolls its rows rather
-        than the page; statement.css owns the table presentation.
+        Statement owns the scroller, so a long filing scrolls its rows rather
+        than the page.
       */}
       <Box sx={{ flex: 1, minHeight: 0, minWidth: 0 }}>
         <Statement

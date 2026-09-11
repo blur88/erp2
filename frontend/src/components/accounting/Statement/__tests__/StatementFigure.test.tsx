@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 
 import { StatementFigure, splitFormattedAmount } from '../StatementFigure'
 
-/** The component renders two <td>s, so every render needs a row context. */
+/** The component renders one <td>, so every render needs a row context. */
 const renderFigure = (amount: string | null) =>
   render(
     <table>
@@ -46,45 +46,51 @@ describe('splitFormattedAmount', () => {
 })
 
 describe('StatementFigure', () => {
-  it('renders the integer and fractional parts in separate cells', () => {
+  it('renders the amount in a single cell', () => {
     renderFigure('142300.0000')
-    expect(screen.getByTestId('fig-int')).toHaveTextContent('142,300')
-    expect(screen.getByTestId('fig-frac')).toHaveTextContent('.00')
+    const cell = screen.getByTestId('fig')
+    expect(cell.tagName).toBe('TD')
+    expect(cell).toHaveTextContent('142,300.00')
   })
 
-  it('renders a negative with parentheses split across the two cells', () => {
+  it('renders a negative in parentheses in that one cell', () => {
     renderFigure('-840.0000')
-    expect(screen.getByTestId('fig-int')).toHaveTextContent('(840')
-    expect(screen.getByTestId('fig-frac')).toHaveTextContent('.00)')
+    expect(screen.getByTestId('fig')).toHaveTextContent('(840.00)')
   })
 
   it('exposes the amount as ONE accessible value including its sign', () => {
     renderFigure('-840.0000')
     // Sign is lexical, never punctuation alone: parentheses are unreliably
-    // announced and here they straddle two cells.
+    // announced by screen readers.
     expect(screen.getByText('negative 840.00')).toBeInTheDocument()
   })
 
   it('exposes a positive amount without a sign word', () => {
     renderFigure('142300.0000')
-    expect(screen.getByText('142,300.00')).toBeInTheDocument()
+    // Scoped: the visible aria-hidden span carries the same text, so an
+    // unscoped getByText matches two nodes (probe-verified).
+    expect(screen.getByText('142,300.00', { selector: '.stmt-a11y-only' })).toBeInTheDocument()
   })
 
-  it('hides the visual cells from assistive technology', () => {
+  it('hides the visual figure from assistive technology', () => {
     renderFigure('142300.0000')
-    expect(screen.getByTestId('fig-frac')).toHaveAttribute('aria-hidden', 'true')
+    // Scope to the visible amount span: the paren spacer is also aria-hidden,
+    // so an unscoped query would pass even if this span lost its aria-hidden.
+    const visible = screen
+      .getByTestId('fig')
+      .querySelector('span[aria-hidden="true"]:not(.stmt-paren-spacer)')
+    expect(visible).not.toBeNull()
+    expect(visible).toHaveTextContent('142,300.00')
   })
 
-  it('keeps the accessible value inside a cell in the figure column', () => {
+  it('keeps the accessible value inside the figure cell', () => {
     renderFigure('142300.0000')
-    const a11y = screen.getByText('142,300.00')
+    const a11y = screen.getByText('142,300.00', { selector: '.stmt-a11y-only' })
     // Must be inside a <td> — a bare element between cells is invalid table
     // markup and browsers relocate it out of the table, losing the
-    // row/column relationship.
-    expect(a11y.closest('td')).not.toBeNull()
-    // And that cell must be a figure cell, so the amount keeps its header
-    // association.
-    expect(a11y.closest('td')).toHaveClass('stmt-cell-figure-int')
+    // row/column relationship. And it must be THE figure cell, so the amount
+    // keeps its column-header association.
+    expect(a11y.closest('td')).toBe(screen.getByTestId('fig'))
   })
 
   it('announces null as unknown, not as a dash or a zero', () => {
@@ -93,19 +99,17 @@ describe('StatementFigure', () => {
     expect(screen.queryByText('0.00')).not.toBeInTheDocument()
   })
 
-  it('renders an em dash for null in the fractional cell', () => {
+  it('renders an em dash for null', () => {
     renderFigure(null)
-    expect(screen.getByTestId('fig-frac')).toHaveTextContent('—')
+    expect(screen.getByTestId('fig')).toHaveTextContent('—')
   })
 
-  it('marks a negative figure for the negative colour token', () => {
+  it('marks a negative figure for the themed negative colour', () => {
     renderFigure('-840.0000')
-    expect(screen.getByTestId('fig-int')).toHaveClass('stmt-figure-negative')
+    expect(screen.getByTestId('fig')).toHaveClass('stmt-figure-negative')
   })
 
   it('exposes amountHook on exactly ONE node carrying the whole amount', () => {
-    // Existing suites and the print gate's assertExactAmount address an amount
-    // as a single hook; the two-cell split must not duplicate or drop it.
     render(
       <table>
         <tbody>
@@ -131,5 +135,85 @@ describe('StatementFigure', () => {
       </table>,
     )
     expect(screen.getByTestId('bs-amount')).toHaveTextContent('not available')
+  })
+})
+
+/**
+ * The paren spacer reserves the closing-parenthesis width on POSITIVE figures
+ * so their decimal separators align with parenthesised negatives (spec §4.1).
+ *
+ * It MUST be CSS generated content (`::after { content: ')' }`), never a DOM
+ * text node: textContent walks the whole descendant tree, and neither
+ * aria-hidden (accessibility tree only) nor visibility:hidden (style, which
+ * jsdom does not apply to textContent) keeps a real ')' out of it. A text node
+ * here corrupts row-level toHaveTextContent assertions such as
+ * ProfitAndLossPage.test.tsx:113 and BalanceSheetPage.test.tsx:316.
+ */
+describe('StatementFigure paren spacer', () => {
+  it('adds NO parenthesis to a positive figure cell text', () => {
+    renderFigure('142300.0000')
+    // The cell's textContent concatenates the accessible and visible spans by
+    // design, so assert the accessible span exactly and the absence of ')'
+    // separately — not cell-text equality.
+    expect(
+      screen.getByText('142,300.00', { selector: '.stmt-a11y-only' }).textContent,
+    ).toBe('142,300.00')
+    expect(screen.getByTestId('fig').textContent).not.toContain(')')
+  })
+
+  it('adds NO parenthesis to the positive row text', () => {
+    // Row-level, because the real suites assert on rows.
+    const { container } = renderFigure('142300.0000')
+    const row = container.querySelector('tr')
+    expect(row?.textContent).not.toContain(')')
+    expect(row?.textContent).not.toContain('(')
+  })
+
+  it('keeps the positive accessible value free of the placeholder', () => {
+    renderFigure('142300.0000')
+    expect(screen.getByText('142,300.00', { selector: '.stmt-a11y-only' }).textContent).toBe(
+      '142,300.00',
+    )
+  })
+
+  it('keeps amountHook text free of the placeholder', () => {
+    render(
+      <table>
+        <tbody>
+          <tr>
+            <StatementFigure amount="142300.0000" testId="fig" amountHook="pl-amount" />
+          </tr>
+        </tbody>
+      </table>,
+    )
+    expect(screen.getByTestId('pl-amount').textContent).toBe('142,300.00')
+  })
+
+  it('renders the spacer element on a positive figure only', () => {
+    const { rerender } = renderFigure('142300.0000')
+    expect(screen.getByTestId('fig').querySelector('.stmt-paren-spacer')).not.toBeNull()
+
+    // A negative already ends in ')', so it needs no reserved width.
+    rerender(
+      <table>
+        <tbody>
+          <tr>
+            <StatementFigure amount="-840.0000" testId="fig" />
+          </tr>
+        </tbody>
+      </table>,
+    )
+    expect(screen.getByTestId('fig').querySelector('.stmt-paren-spacer')).toBeNull()
+  })
+
+  it('hides the spacer from assistive technology', () => {
+    renderFigure('142300.0000')
+    const spacer = screen.getByTestId('fig').querySelector('.stmt-paren-spacer')
+    expect(spacer).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('renders no spacer for a null amount', () => {
+    renderFigure(null)
+    expect(screen.getByTestId('fig').querySelector('.stmt-paren-spacer')).toBeNull()
   })
 })

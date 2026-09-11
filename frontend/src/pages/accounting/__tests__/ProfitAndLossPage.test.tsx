@@ -385,6 +385,19 @@ describe('ProfitAndLossPage', () => {
     const { container } = renderPage()
     expect(container.querySelector('table.stmt-table thead')).not.toBeNull()
     expect(container.querySelector('tr.stmt-row')).not.toBeNull()
+    // Statement owns its scroller now, which is what makes the head sticky.
+    expect(container.querySelector('.stmt-scroller table.stmt-table')).not.toBeNull()
+    // One cell per figure column — no int/frac split.
+    expect(container.querySelector('.stmt-cell-figure-int')).toBeNull()
+    expect(container.querySelector('.stmt-cell-figure-frac')).toBeNull()
+  })
+
+  it('keeps amounts free of the paren spacer placeholder', () => {
+    // The spacer is CSS generated content, so it must not appear in row text.
+    // A regression here would corrupt the amount assertions above (:113, :119).
+    renderPage()
+    expect(screen.getByTestId('pl-row-grossProfit').textContent).not.toContain(')')
+    expect(screen.getByTestId('pl-row-grossProfit')).toHaveTextContent('56,800.00')
   })
 
   it('emits a bare URL for the current year and ?year= for others', async () => {

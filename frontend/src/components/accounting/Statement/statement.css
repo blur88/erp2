@@ -1,47 +1,34 @@
 /*
- * AUTHORITATIVE source for statement colour tokens (spec §3).
+ * Statement structure and accounting presentation.
  *
- * Do NOT duplicate these values in TypeScript. `statementTokens.ts` exports
- * var() references only, so there is exactly one copy of every value and no
- * drift is possible. This is deliberately different from `printTokens.ts`,
- * which is a hand-synced duplicate kept in step by comment.
- *
- * Scoped to `.stmt-root` — the wrapper every analytical report puts around
- * its statement.
+ * COLOUR LIVES IN THE THEME, not here. The former `--stmt-*` palette (a light
+ * document surface built for the removed print path) was deleted in #1224;
+ * colours now resolve from the MUI theme via `sx` in Statement.tsx. Rules in
+ * this file carry structure, spacing and the
+ * accounting conventions (subtotal hairline, bottom-line double rule,
+ * parenthesised negatives) only.
  */
-.stmt-root {
-  --stmt-paper: #faf9f7;
-  --stmt-paper-edge: #edeae4;
-  --stmt-ink: #1a1a1a;
-  --stmt-ink-muted: #6b6560;
-  --stmt-rule: #d8d4ce;
-  --stmt-rule-strong: #1a1a1a;
-  --stmt-accent: #1e4b8f;
-  --stmt-negative: #9f1239;
-  --stmt-figure-font: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
 
 /* ---- Panel ---- */
 
-.stmt-panel {
-  background: var(--stmt-paper);
-  border: 1px solid var(--stmt-paper-edge);
-  border-radius: 2px;
-  padding: 24px 28px;
-  color: var(--stmt-ink);
+/*
+ * Surface, radius and elevation come from the MUI Paper in Statement.tsx.
+ * Only the inner padding lives here.
+ */
+.stmt-root {
+  padding: 16px 20px;
 }
 
 .stmt-table {
   width: 100%;
-  border-collapse: collapse;
-  color: var(--stmt-ink);
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 /* ---- Cells ---- */
 
 .stmt-cell-code {
   font-size: 0.8125rem;
-  color: var(--stmt-ink-muted);
   padding: 3px 12px 3px 0;
   white-space: nowrap;
   vertical-align: baseline;
@@ -56,13 +43,11 @@
 }
 
 /*
- * The figure occupies TWO cells so the decimal separator lands on a shared
- * table-column boundary (spec §4.5.2). The separator travels with the
- * fractional cell, which is left-aligned against that boundary; nothing to its
- * right can displace it.
+ * One right-aligned figure cell. Decimal alignment holds because every figure
+ * has two decimals, renders at the same font size, and uses tabular digits;
+ * `.stmt-paren-spacer` covers the remaining closing-paren offset (spec §4.1).
  */
-.stmt-cell-figure-int {
-  font-family: var(--stmt-figure-font);
+.stmt-cell-figure {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
   text-align: right;
@@ -71,23 +56,21 @@
   vertical-align: baseline;
 }
 
-.stmt-cell-figure-frac {
-  font-family: var(--stmt-figure-font);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum';
-  text-align: left;
-  /*
-   * Sized to content, NOT a fixed width. A `ch`-based custom property would
-   * not work: an unregistered custom property substitutes as a token and
-   * re-resolves against the CONSUMING element's font-size, so the larger
-   * bottom-line row would widen the column. Content sizing sidesteps that.
-   * The anchor is this column's LEFT edge, which is shared across rows however
-   * the column is sized.
-   */
-  width: max-content;
-  white-space: nowrap;
-  padding: 3px 0;
-  vertical-align: baseline;
+/*
+ * Reserves the width of one closing parenthesis on positive figures.
+ *
+ * The glyph is GENERATED CONTENT, never a DOM text node: textContent walks the
+ * whole descendant tree, and neither aria-hidden nor visibility:hidden keeps a
+ * real ')' out of it — which would corrupt row-level text assertions in the
+ * page suites. Generated content is rendered, not DOM, so it reserves width
+ * and stays out of textContent entirely.
+ *
+ * It inherits the cell's typography, so the reserved width is the same glyph in
+ * the same font as a real parenthesis and cannot drift from it.
+ */
+.stmt-paren-spacer::after {
+  content: ')';
+  visibility: hidden;
 }
 
 /* ---- Row kinds (hierarchy by rule weight, not bold-everything) ---- */
@@ -96,24 +79,18 @@
   font-size: 0.8125rem;
   font-weight: 500;
   letter-spacing: 0.06em;
-  color: var(--stmt-ink-muted);
   padding-top: 18px;
   padding-bottom: 2px;
 }
 
-.stmt-row--line > * {
-  color: var(--stmt-ink);
-}
-
+/* The class is the hook; the colour is applied from the theme in Statement.tsx. */
 .stmt-row--zero > * {
-  color: var(--stmt-ink-muted);
 }
 
-/* Hairline above the FIGURE cells only — an accounting convention that keeps
+/* Hairline above the FIGURE cell only — an accounting convention that keeps
    the eye in the numbers column. */
-.stmt-row--subtotal .stmt-cell-figure-int,
-.stmt-row--subtotal .stmt-cell-figure-frac {
-  border-top: 1px solid var(--stmt-rule);
+.stmt-row--subtotal .stmt-cell-figure {
+  border-top: 1px solid currentColor;
 }
 
 .stmt-row--subtotal > * {
@@ -130,11 +107,14 @@
   font-size: 1rem;
 }
 
-.stmt-row--bottomLine .stmt-cell-figure-int,
-.stmt-row--bottomLine .stmt-cell-figure-frac {
-  font-size: 1.125rem;
+/*
+ * Bottom line is distinguished by WEIGHT and the double rule, never by font
+ * size: a larger figure would place its decimal separator at a different x
+ * position from every other row (spec §4.1).
+ */
+.stmt-row--bottomLine .stmt-cell-figure {
   font-weight: 500;
-  border-top: 3px double var(--stmt-rule-strong);
+  border-top: 3px double currentColor;
 }
 
 .stmt-row--spacer > * {
@@ -142,30 +122,40 @@
   height: 10px;
 }
 
+/* Colour applied from the theme in Statement.tsx; the class is the hook. */
 .stmt-figure-negative {
-  color: var(--stmt-negative);
 }
 
 /* ---- Column head ---- */
 
+/*
+ * Sticky, so the header stays put while the rows scroll inside
+ * `.stmt-scroller`.
+ *
+ * The background sits on the CELL, not the row: only cells are sticky, so a
+ * <tr> background scrolls away and leaves the labels floating over the data.
+ * The colour is applied in Statement.tsx from the theme.
+ */
 .stmt-col-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.04em;
-  color: var(--stmt-ink-muted);
   text-align: right;
-  padding: 0 0 6px 0;
-  border-bottom: 1px solid var(--stmt-rule);
+  padding: 8px 0;
+  border-bottom: 1px solid currentColor;
 }
 
 .stmt-col-head--label {
   text-align: left;
+  padding-right: 12px;
 }
 
 /* ---- Drill-down ---- */
 
 .stmt-link {
-  color: var(--stmt-accent);
   text-decoration: underline;
   text-decoration-style: dotted;
   text-underline-offset: 2px;
@@ -176,7 +166,7 @@
 }
 
 .stmt-link:focus-visible {
-  outline: 2px solid var(--stmt-accent);
+  outline: 2px solid currentColor;
   outline-offset: 2px;
 }
 

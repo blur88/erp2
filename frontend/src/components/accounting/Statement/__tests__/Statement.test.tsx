@@ -40,7 +40,8 @@ describe('Statement structure', () => {
 
   it('puts the currency in the column head, not on every row', () => {
     renderStatement([row({ id: 'a' })])
-    expect(screen.getByText('RM')).toBeInTheDocument()
+    const head = screen.getByRole('table', { name: 'Statement' }).querySelector('thead')
+    expect(head).toHaveTextContent('RM')
     expect(screen.getByTestId('row-a')).not.toHaveTextContent('RM')
   })
 
@@ -58,7 +59,7 @@ describe('Statement structure', () => {
   it('renders a section head with no figure cells', () => {
     renderStatement([row({ id: 's', kind: 'section', label: 'Revenue', figures: [] })])
     expect(screen.getByTestId('row-s')).toHaveTextContent('Revenue')
-    expect(screen.queryByTestId('row-s-fig0-frac')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('row-s-fig0')).not.toBeInTheDocument()
   })
 
   it('supports two figure columns without a second code path', () => {
@@ -66,8 +67,32 @@ describe('Statement structure', () => {
       [row({ id: 'a', figures: ['10.0000', '20.0000'] })],
       ['Debit', 'Credit'],
     )
-    expect(screen.getByTestId('row-a-fig0-int')).toHaveTextContent('10')
-    expect(screen.getByTestId('row-a-fig1-int')).toHaveTextContent('20')
+    expect(screen.getByTestId('row-a-fig0')).toHaveTextContent('10.00')
+    expect(screen.getByTestId('row-a-fig1')).toHaveTextContent('20.00')
+  })
+
+  it('gives every row the same column count', () => {
+    // A short row would break the shared column grid the statement depends on.
+    const { container } = renderStatement(
+      [
+        row({ id: 's', kind: 'section', label: 'Revenue', figures: [] }),
+        row({ id: 'a', figures: ['10.0000', '20.0000'] }),
+      ],
+      ['Debit', 'Credit'],
+    )
+    const span = (tr: Element) =>
+      [...tr.querySelectorAll('td, th')].reduce(
+        (n, cell) => n + (Number(cell.getAttribute('colSpan') ?? cell.getAttribute('colspan')) || 1),
+        0,
+      )
+    const rows = [...container.querySelectorAll('tbody tr')]
+    expect(span(rows[0])).toBe(span(rows[1]))
+    // 2 label columns + 2 figure columns.
+    expect(span(rows[1])).toBe(4)
+
+    const head = container.querySelector('thead tr')
+    expect(head).not.toBeNull()
+    expect(span(head as Element)).toBe(span(rows[1]))
   })
 })
 
@@ -114,5 +139,38 @@ describe('Statement amounts', () => {
   it('marks zero rows for the muted token', () => {
     renderStatement([row({ id: 'z', figures: ['0.0000'], isZero: true })])
     expect(screen.getByTestId('row-z')).toHaveClass('stmt-row--zero')
+  })
+})
+
+describe('Statement frame and header', () => {
+  it('renders a real header row with Code and Description', () => {
+    renderStatement([row({ id: 'a' })])
+    const table = screen.getByRole('table', { name: 'Statement' })
+    const head = table.querySelector('thead')
+    expect(head).not.toBeNull()
+    expect(head).toHaveTextContent('Code')
+    expect(head).toHaveTextContent('Description')
+    expect(head).toHaveTextContent('RM')
+  })
+
+  it('renders one header cell per column', () => {
+    renderStatement([row({ id: 'a', figures: ['1.0000', '2.0000'] })], ['Debit', 'Credit'])
+    const heads = screen.getByRole('table', { name: 'Statement' }).querySelectorAll('thead th')
+    // Code + Description + Debit + Credit
+    expect(heads).toHaveLength(4)
+  })
+
+  it('owns a scroll container so the header can stick', () => {
+    // Structure only. jsdom has no layout engine, so stickiness itself is
+    // browser-verified (STATEMENT_THEME_QA.md, ST-4).
+    const { container } = renderStatement([row({ id: 'a' })])
+    const scroller = container.querySelector('.stmt-scroller')
+    expect(scroller).not.toBeNull()
+    expect(scroller?.querySelector('table.stmt-table')).not.toBeNull()
+  })
+
+  it('keeps the accessible table name', () => {
+    renderStatement([row({ id: 'a' })])
+    expect(screen.getByRole('table', { name: 'Statement' })).toBeInTheDocument()
   })
 })

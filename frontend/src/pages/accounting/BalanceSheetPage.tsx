@@ -196,8 +196,8 @@ export default function BalanceSheetPage() {
   /**
    * BalanceSheetResponse → StatementRow[]. Statement owns presentation; this
    * keeps the report's own rules: sections grouped by `row.section`, official
-   * rows addressable by `bs-row-<line>`, expanded account links as print
-   * detail, and the derived presentation subtotals anchored after N49.
+   * rows addressable by `bs-row-<line>`, expanded account links as drill-down
+   * rows, and the derived presentation subtotals anchored after N49.
    */
   const statementRows = useMemo<StatementRow[]>(() => {
     if (!report) return []
@@ -223,8 +223,7 @@ export default function BalanceSheetPage() {
           label: row.label,
           figures: [row.amount],
           testId: `bs-row-${row.line}`,
-          // Preserved hook: existing tests and the print gate read the amount as
-          // ONE node. assertExactAmount requires exactly one match.
+          // Single-node amount hook, read by the suite as one node.
           amountHook: 'bs-amount',
           isZero: row.amount !== null && row.amount === '0.0000',
           ...(row.accounts.length > 0
@@ -281,8 +280,7 @@ export default function BalanceSheetPage() {
               label: derived.label,
               figures: [report.derivedTotals[derived.key]],
               testId: derived.testId,
-              // Same single-node hook as the official rows, so the print gate
-              // can assert the exact signed figure of a derived subtotal too.
+              // Same single-node hook as the official rows.
               amountHook: 'bs-amount',
             })
           }
@@ -308,7 +306,7 @@ export default function BalanceSheetPage() {
       <ListSkeleton rows={8} columns={4} />
     </Box>
   ) : report ? (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
       {summary && (
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           <Box data-testid="bs-summary-assets" sx={{ flex: 1, minWidth: 160 }}>
@@ -332,7 +330,9 @@ export default function BalanceSheetPage() {
         </Box>
       )}
 
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+      {/* Statement owns its own scroller (spec §3.1); `minHeight: 0` is what
+          lets it shrink so that scroller engages. */}
+      <Box sx={{ flex: 1, minHeight: 0 }}>
         <Statement rows={statementRows} figureHeads={['RM']} label="Balance Sheet statement" />
       </Box>
 
