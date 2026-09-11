@@ -1,13 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Box, IconButton, Typography } from '@mui/material'
+import React, { useEffect, useMemo, useState } from 'react'
+import { Alert, Box, Typography } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 
-import EntityTable, { type RowPresentationProps } from '@/components/common/EntityTable'
+import { Statement, type StatementRow } from '@/components/accounting/Statement'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import type { FormBResponse } from '@/types'
-import type { Theme } from '@mui/material'
-import type { SystemStyleObject } from '@mui/system'
 import { buildFormBTableRows, formatFormBAmount, type FormBTableRow } from './formBRows'
 
 interface FormBTaxViewProps {
@@ -18,68 +16,40 @@ interface FormBTaxViewProps {
   onOpenLedger: (accountId: string, year: number) => void
 }
 
-const isFormBRowSelectable = (row: FormBTableRow) =>
-  (row.kind === 'cohort' && Boolean(row.accountId)) || (row.kind === 'line' && row.expandable)
-
-const formBRowProps = (row: FormBTableRow): RowPresentationProps => {
-  const classes = [row.printClass, row.hiddenOnScreen ? 'acct-screen-hidden' : null].filter(Boolean).join(' ')
-  return {
-    'data-testid': row.testId,
-    ...(classes ? { className: classes } : {}),
-  }
+const STATEMENT_KIND: Record<FormBTableRow['kind'], StatementRow['kind']> = {
+  section: 'section',
+  line: 'line',
+  total: 'subtotal',
+  cohort: 'line',
+  cohortHeading: 'line',
 }
 
-const formBRowSx = (row: FormBTableRow): SystemStyleObject<Theme> => {
-  /*
-   * A filled band, not just bold text. On a table where every row is text, a
-   * font-weight change alone does not read as a break — the header looks like
-   * another slightly-bolder line. The background, uppercase tracking and rule
-   * beneath give the eye something to catch when scanning 25 statutory lines.
-   */
-  if (row.kind === 'section') {
-    return {
-      backgroundColor: 'action.hover',
-      '& td': {
-        fontWeight: 700,
-        fontSize: '0.8125rem',
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
-        color: 'text.primary',
-        // A rule ABOVE as well as below: the band then reads as a divider
-        // between blocks rather than a caption attached to the row under it.
-        borderTop: 2,
-        borderTopColor: 'divider',
-        borderBottom: 2,
-        borderBottomColor: 'divider',
-        pt: 1.25,
-        pb: 1.25,
-        whiteSpace: 'nowrap',
-      },
-    } as SystemStyleObject<Theme>
-  }
-  /*
-   * Subtotals (N7, N8, N14, N25, N26) close the block above them: a rule on top
-   * and bold weight, matching ProfitAndLossAccountingView. Without it N7 sits
-   * flush with N4/N5/N6 and reads as another component rather than their total.
-   */
-  if (row.kind === 'total') {
-    return {
-      '& td': {
-        borderTop: 2,
-        borderTopColor: 'divider',
-        fontWeight: 700,
-        color: 'text.primary',
-      },
-    } as SystemStyleObject<Theme>
-  }
-  if (row.kind === 'cohortHeading') {
-    return { '& td': { fontStyle: 'italic', color: 'text.secondary', borderBottom: 'none', pt: 0.5, pb: 0.5 } } as SystemStyleObject<Theme>
-  }
-  if (row.kind === 'cohort') {
-    return { color: 'text.secondary', '& td': { pl: 4 } } as SystemStyleObject<Theme>
-  }
-  return {} as SystemStyleObject<Theme>
-}
+/**
+ * FormBTableRow → StatementRow.
+ *
+ * Cohorts are printAlways, the INVERSE of the P&L's printDetail rule: they are
+ * the classification audit trail — the evidence for why an amount sits on N17
+ * rather than N24 — so they print whether or not the user expanded them. Only
+ * the expansion CONTROLS are hidden on paper.
+ *
+ * `rawAmount` (not the whole-ringgit `amount`) feeds StatementFigure, so every
+ * report shares one figure treatment: two decimals, parens for negatives,
+ * em dash for unknown. The tax view has no on-screen drill-down, so no href.
+ */
+const toStatementRow = (row: FormBTableRow): StatementRow => ({
+  id: row.testId,
+  kind: STATEMENT_KIND[row.kind],
+  depth: row.kind === 'cohort' || row.kind === 'cohortHeading' ? 1 : 0,
+  code: row.code,
+  label: row.label,
+  // Section heads and cohort headings label a block; they carry no figure.
+  figures:
+    row.kind === 'section' || row.kind === 'cohortHeading' ? [] : [row.rawAmount],
+  testId: row.testId,
+  isZero: row.rawAmount === '0.0000',
+  ...(row.printClass === 'acct-print-formb-cohort' ? { printAlways: true } : {}),
+  ...(row.hiddenOnScreen ? { hiddenOnScreen: true } : {}),
+})
 
 /**
  * Loading / error gate. Holds NO hooks, so the loading -> loaded transition
@@ -124,62 +94,17 @@ interface FormBTaxViewBodyProps {
   onOpenLedger: (accountId: string, year: number) => void
 }
 
-function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
+/*
+ * The tax view no longer drills through to the ledger — the statutory lines
+ * are the whole screen, and cohorts print their account provenance. The props
+ * stay on the public interface because ProfitAndLossPage owns the single
+ * `openLedger` callback for both views.
+ */
+function FormBTaxViewBody({ data }: FormBTaxViewBodyProps) {
   const [reconciliationOpen, setReconciliationOpen] = useState(false)
 
   const rows = useMemo<FormBTableRow[]>(() => buildFormBTableRows(data), [data])
-
-  const getRowProps = useCallback(
-    (row: FormBTableRow): RowPresentationProps => {
-      // Cohorts are print-only: always hidden on screen, revealed by the print
-      // stylesheet via .acct-print-formb-cohort.
-      const isHidden = row.hiddenOnScreen ?? false
-      const classes = [row.printClass, isHidden ? 'acct-screen-hidden' : null].filter(Boolean).join(' ')
-      return {
-        'data-testid': row.testId,
-        ...(classes ? { className: classes } : {}),
-      }
-    },
-    [],
-  )
-
-  const columns = useMemo(
-    () => [
-      {
-        key: 'code',
-        render: (row: FormBTableRow) => row.code,
-        width: '80px',
-      },
-      {
-        key: 'label',
-        raw: true,
-        render: (row: FormBTableRow) => (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: row.depth * 3, minWidth: 0, flexWrap: 'nowrap' }}>
-            {/*
-              Formula captions ("N4 + N5 - N6") are not rendered. The payload
-              still carries `formula` on derived lines — the arithmetic is
-              recorded in the contract and asserted by the service tests — it
-              is simply not shown on the sheet.
-            */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-              <Typography variant="body2" sx={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
-                {row.label}
-              </Typography>
-            </Box>
-          </Box>
-        ),
-      },
-      {
-        key: 'amount',
-        align: 'right' as const,
-        raw: true,
-        render: (row: FormBTableRow) => (
-          <Box sx={{ whiteSpace: 'nowrap', textAlign: 'right' }}>{row.amount}</Box>
-        ),
-      },
-    ],
-    [],
-  )
+  const statementRows = useMemo<StatementRow[]>(() => rows.map(toStatementRow), [rows])
 
   /*
    * DISALLOWED_EXPENSES_UNDETERMINED is PERMANENT: N27 has no ledger source
@@ -319,35 +244,16 @@ function FormBTaxViewBody({ data, year, onOpenLedger }: FormBTaxViewBodyProps) {
 
       {/* N3–N27 table */}
       {/*
-        NO `overflow: auto` here. EntityTable owns its own scrolling —
-        `.entity-table-frame` is overflow:hidden and `.entity-table-scroller`
-        is overflow:auto — which is what keeps the column header fixed while
-        the rows scroll. An outer scroll container defeats that: the whole
-        table, header included, scrolls as one block, unlike every other list
-        page. Matches ProfitAndLossAccountingView, which had it right.
-
-        The class stays: accountingReportPrint.css targets it to release the
-        height and overflow constraints when printing.
+        The scroll container stays so a long filing scrolls its rows rather
+        than the page; statement.css owns the table presentation and the print
+        fragmentation rules, and accountingReportPrint.css releases the height
+        and overflow constraints when printing.
       */}
       <Box className="acct-print-scroll" sx={{ flex: 1, minHeight: 0, minWidth: 0 }}>
-        <EntityTable
-          rows={rows}
-          columns={columns}
-          tableClassName="acct-print-table"
-          isRowSelectable={isFormBRowSelectable}
-          selectableRowRole="link"
-          getRowSx={formBRowSx}
-          getRowProps={getRowProps}
-          onSelect={(row) => {
-            if (row.accountId) onOpenLedger(row.accountId, data.year)
-          }}
-          headers={['Code', 'Description', 'Amount']}
-          showHeader={false}
-          focusedIndex={-1}
-          listRef={{ current: null } as any}
-          loading={false}
-          total={rows.length}
-          label="Form B"
+        <Statement
+          rows={statementRows}
+          figureHeads={['RM']}
+          label="Form B tax statement"
         />
       </Box>
 

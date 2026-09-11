@@ -1,0 +1,266 @@
+/*
+ * AUTHORITATIVE source for statement colour tokens (spec §3).
+ *
+ * Do NOT duplicate these values in TypeScript. `statementTokens.ts` exports
+ * var() references only, so there is exactly one copy of every value and no
+ * drift is possible. This is deliberately different from `printTokens.ts`,
+ * which is a hand-synced duplicate kept in step by comment.
+ *
+ * Scoped to `.acct-print-root` — the wrapper AccountingReportPrintLayout puts
+ * on every analytical report.
+ */
+.acct-print-root {
+  --stmt-paper: #faf9f7;
+  --stmt-paper-edge: #edeae4;
+  --stmt-ink: #1a1a1a;
+  --stmt-ink-muted: #6b6560;
+  --stmt-rule: #d8d4ce;
+  --stmt-rule-strong: #1a1a1a;
+  --stmt-accent: #1e4b8f;
+  --stmt-negative: #9f1239;
+  --stmt-figure-font: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* ---- Panel ---- */
+
+.stmt-panel {
+  background: var(--stmt-paper);
+  border: 1px solid var(--stmt-paper-edge);
+  border-radius: 2px;
+  padding: 24px 28px;
+  color: var(--stmt-ink);
+}
+
+.stmt-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--stmt-ink);
+}
+
+/* ---- Cells ---- */
+
+.stmt-cell-code {
+  font-size: 0.8125rem;
+  color: var(--stmt-ink-muted);
+  padding: 3px 12px 3px 0;
+  white-space: nowrap;
+  vertical-align: baseline;
+  text-align: left;
+}
+
+.stmt-cell-label {
+  font-size: 0.875rem;
+  padding: 3px 16px 3px 0;
+  vertical-align: baseline;
+  text-align: left;
+}
+
+/*
+ * The figure occupies TWO cells so the decimal separator lands on a shared
+ * table-column boundary (spec §4.5.2). The separator travels with the
+ * fractional cell, which is left-aligned against that boundary; nothing to its
+ * right can displace it.
+ */
+.stmt-cell-figure-int {
+  font-family: var(--stmt-figure-font);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  text-align: right;
+  padding: 3px 0;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+.stmt-cell-figure-frac {
+  font-family: var(--stmt-figure-font);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  text-align: left;
+  /*
+   * Sized to content, NOT a fixed width. A `ch`-based custom property would
+   * not work: an unregistered custom property substitutes as a token and
+   * re-resolves against the CONSUMING element's font-size, so the larger
+   * bottom-line row would widen the column. Content sizing sidesteps that.
+   * The anchor is this column's LEFT edge, which is shared across rows however
+   * the column is sized.
+   */
+  width: max-content;
+  white-space: nowrap;
+  padding: 3px 0;
+  vertical-align: baseline;
+}
+
+/* ---- Row kinds (hierarchy by rule weight, not bold-everything) ---- */
+
+.stmt-row--section > * {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--stmt-ink-muted);
+  padding-top: 18px;
+  padding-bottom: 2px;
+}
+
+.stmt-row--line > * {
+  color: var(--stmt-ink);
+}
+
+.stmt-row--zero > * {
+  color: var(--stmt-ink-muted);
+}
+
+/* Hairline above the FIGURE cells only — an accounting convention that keeps
+   the eye in the numbers column. */
+.stmt-row--subtotal .stmt-cell-figure-int,
+.stmt-row--subtotal .stmt-cell-figure-frac {
+  border-top: 1px solid var(--stmt-rule);
+}
+
+.stmt-row--subtotal > * {
+  font-weight: 500;
+  padding-top: 5px;
+}
+
+.stmt-row--bottomLine > * {
+  font-weight: 500;
+  padding-top: 8px;
+}
+
+.stmt-row--bottomLine .stmt-cell-label {
+  font-size: 1rem;
+}
+
+.stmt-row--bottomLine .stmt-cell-figure-int,
+.stmt-row--bottomLine .stmt-cell-figure-frac {
+  font-size: 1.125rem;
+  font-weight: 500;
+  border-top: 3px double var(--stmt-rule-strong);
+}
+
+.stmt-row--spacer > * {
+  padding: 0;
+  height: 10px;
+}
+
+.stmt-figure-negative {
+  color: var(--stmt-negative);
+}
+
+/* ---- Column head ---- */
+
+.stmt-col-head {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--stmt-ink-muted);
+  text-align: right;
+  padding: 0 0 6px 0;
+  border-bottom: 1px solid var(--stmt-rule);
+}
+
+.stmt-col-head--label {
+  text-align: left;
+}
+
+/* ---- Drill-down ---- */
+
+.stmt-link {
+  color: var(--stmt-accent);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.stmt-link:hover {
+  text-decoration-style: solid;
+}
+
+.stmt-link:focus-visible {
+  outline: 2px solid var(--stmt-accent);
+  outline-offset: 2px;
+}
+
+/* ---- Screen-only visibility ---- */
+
+/*
+ * Rows that are MOUNTED but hidden on screen (collapsed Form B cohorts).
+ * They must stay in the DOM: print CSS cannot reveal an unmounted row.
+ */
+.acct-screen-hidden {
+  display: none;
+}
+
+/* Accessible text that is visually hidden but still announced. Must live
+   INSIDE a table cell — a bare element between cells is invalid table markup
+   and browsers relocate it out of the table. */
+.stmt-a11y-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media print {
+  /*
+   * Only COLOUR is remapped. Geometry and type are declared once above and
+   * shared by both surfaces — that is what keeps screen and paper from
+   * drifting (spec §3).
+   */
+  .acct-print-root {
+    --stmt-paper: #ffffff;
+    --stmt-ink: #000000;
+    --stmt-negative: #000000;
+    --stmt-accent: #000000;
+  }
+
+  .stmt-panel {
+    border: none;
+    padding: 0;
+  }
+
+  .stmt-link {
+    text-decoration: none;
+  }
+
+  /* Column heads repeat on every printed page of a long statement. */
+  .stmt-table thead {
+    display: table-header-group;
+  }
+
+  .stmt-row {
+    break-inside: avoid;
+  }
+
+  /*
+   * These REQUEST grouping; they do not guarantee it. A user agent may
+   * disregard an avoidance request when honouring it would leave content
+   * unplaceable (https://www.w3.org/TR/css-break-3/#unforced-breaks).
+   * The rendered-PDF gate verifies the outcome the browser actually produced.
+   */
+  .stmt-row--section {
+    break-after: avoid;
+  }
+
+  .stmt-row--subtotal,
+  .stmt-row--bottomLine {
+    break-before: avoid;
+  }
+
+  /* Expanded detail is a screen affordance: printing whatever the user
+     happened to expand would make two printouts of one period differ. */
+  .stmt-row--detail {
+    display: none !important;
+  }
+
+  /* The INVERSE, deliberately: Form B cohorts are the classification audit
+     trail and print unconditionally, including when collapsed on screen. */
+  .stmt-row--always,
+  .stmt-row--always.acct-screen-hidden {
+    display: table-row !important;
+  }
+}

@@ -122,7 +122,9 @@ describe('BalanceSheetPage', () => {
     // label columns); assert presence rather than uniqueness.
     expect(screen.getAllByText('N28').length).toBeGreaterThan(0)
     expect(screen.getAllByText('N50').length).toBeGreaterThan(0)
-    expect(screen.getAllByTestId(/^bs-row-/)).toHaveLength(23)
+    // Scope to <tr>: each row's two figure cells also carry bs-row-*-figN-*
+    // testids, so a bare prefix match would count 69 elements, not 23 rows.
+    expect(document.querySelectorAll('tr[data-testid^="bs-row-"]')).toHaveLength(23)
   })
 
   it('renders a null amount as an em dash, never as 0.00', () => {
@@ -206,7 +208,12 @@ describe('BalanceSheetPage', () => {
   it('expands a mapped row and links each account to the General Ledger', async () => {
     renderPage(responseWithContributors)
     await userEvent.click(screen.getByTestId('bs-expand-N37'))
-    expect(screen.getByRole('link', { name: /1100/ })).toHaveAttribute(
+    // The account code and the account name are separate cells now, so the
+    // link's accessible name is the name alone; the code is asserted on the
+    // contributor row.
+    const accountRow = screen.getByTestId('bs-account-N37-acc-cash')
+    expect(within(accountRow).getByText('1100')).toBeInTheDocument()
+    expect(within(accountRow).getByRole('link', { name: /Cash/ })).toHaveAttribute(
       'href',
       '/accounting/general-ledger?account=acc-cash&period=custom' +
         '&period_from=2026-01-01&period_to=2026-09-08',
@@ -301,8 +308,9 @@ describe('BalanceSheetPage', () => {
     // Present on screen…
     const detail = screen.getByTestId('bs-accounts-N37')
     expect(detail).toBeInTheDocument()
-    // …and excluded from the printout by the attribute the print CSS keys on.
-    expect(detail.closest('[data-print-hide]')).not.toBeNull()
+    // …and excluded from the printout by the class the print CSS keys on
+    // (data-print-hide is superseded by printDetail → stmt-row--detail).
+    expect(detail).toHaveClass('stmt-row--detail')
   })
 })
 
@@ -460,6 +468,77 @@ describe("BalanceSheetPage — derived equity subtotals (#1212)", () => {
     for (const testId of ['bs-derived-owners-equity', 'bs-derived-liabilities-and-equity']) {
       const el = within(printBlock).getByTestId(testId)
       expect(el.closest('[data-print-hide="true"]')).toBeNull()
+    }
+  })
+})
+
+describe('Balance Sheet statement structure', () => {
+  it('renders the statement as a table', () => {
+    renderPage(baseResponse())
+    expect(screen.getByRole('table', { name: /balance sheet/i })).toBeInTheDocument()
+  })
+
+  it('marks expanded account rows as print-detail', async () => {
+    // A printed Balance Sheet must not vary with screen expansion state.
+    // Previously enforced by data-print-hide; now by printDetail.
+    renderPage(responseWithContributors)
+    await userEvent.click(screen.getByTestId('bs-expand-N37'))
+    expect(screen.getByTestId('bs-accounts-N37')).toHaveClass('stmt-row--detail')
+  })
+
+  it('places derived totals after N49', () => {
+    renderPage(baseResponse())
+    const rows = screen.getAllByRole('row').map((r) => r.getAttribute('data-testid'))
+    const n49 = rows.indexOf('bs-row-N49')
+    const derived = rows.indexOf('bs-derived-owners-equity')
+    expect(n49).toBeGreaterThan(-1)
+    expect(derived).toBeGreaterThan(n49)
+  })
+
+  it('gives derived totals no expand control and no drill-down', () => {
+    renderPage(baseResponse())
+    const derived = screen.getByTestId('bs-derived-owners-equity')
+    expect(within(derived).queryByRole('link')).toBeNull()
+    expect(within(derived).queryByRole('button')).toBeNull()
+  })
+
+  it('keeps bs-amount as a single node per row', () => {
+    // The print gate's assertExactAmount requires exactly one match and reads
+    // its whole text, so the two-cell split must not duplicate this hook.
+    renderPage(baseResponse())
+    const row = screen.getByTestId('bs-row-N41')
+    expect(within(row).getAllByTestId('bs-amount')).toHaveLength(1)
+  })
+
+  it('keeps bs-accounts-<line> unique when a line has MANY contributors', async () => {
+    // getByTestId throws on duplicates, so N contributors must not each carry
+    // the group testid.
+    const many = baseResponse({
+      rows: buildRows({ N37: '3000.0000', N41: '3000.0000' }).map((row) =>
+        row.line === 'N37'
+          ? {
+              ...row,
+              accounts: [
+                { accountId: 'acc-a', code: '1100', name: 'Cash', amount: '1000.0000' },
+                { accountId: 'acc-b', code: '1110', name: 'Bank', amount: '1000.0000' },
+                { accountId: 'acc-c', code: '1120', name: 'Petty Cash', amount: '1000.0000' },
+              ],
+            }
+          : row,
+      ),
+    })
+    renderPage(many)
+    await userEvent.click(screen.getByTestId('bs-expand-N37'))
+
+    // One group hook...
+    expect(screen.getByTestId('bs-accounts-N37')).toBeInTheDocument()
+    // ...and one uniquely addressable row per contributor.
+    expect(screen.getByTestId('bs-account-N37-acc-a')).toBeInTheDocument()
+    expect(screen.getByTestId('bs-account-N37-acc-b')).toBeInTheDocument()
+    expect(screen.getByTestId('bs-account-N37-acc-c')).toBeInTheDocument()
+    // Every contributor row is print-detail.
+    for (const id of ['acc-a', 'acc-b', 'acc-c']) {
+      expect(screen.getByTestId(`bs-account-N37-${id}`)).toHaveClass('stmt-row--detail')
     }
   })
 })

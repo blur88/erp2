@@ -1,9 +1,6 @@
 import '@/components/print/accountingReportPrint.css'
-import React, { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Alert, Box, IconButton, Typography } from '@mui/material'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import { useEffect, useMemo, useState } from 'react'
+import { Alert, Box, Typography } from '@mui/material'
 
 import SimpleListPage from '@/components/common/SimpleListPage'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
@@ -11,6 +8,7 @@ import { useFilterBar } from '@/hooks/useFilterBar'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 import { useGetBalanceSheetQuery } from '@/store/api/accountingApi'
 import { AccountingReportPrintLayout } from '@/components/print/AccountingReportPrintLayout'
+import { Statement, type StatementRow } from '@/components/accounting/Statement'
 import { buildLedgerLink, formatBalanceAmount, SECTION_LABELS } from './balanceSheetRows'
 import type { BalanceSheetResponse } from '@/types'
 
@@ -24,8 +22,6 @@ const BS_DEFAULTS: BsFilters = { year: String(CURRENT_YEAR) }
 
 /** Mirrors the API's `@Min(1000)` on the Balance Sheet query DTO. */
 const MIN_QUERYABLE_YEAR = 1000
-
-const isZeroAmount = (amount: string | null) => amount === '0.0000'
 
 /**
  * The official row the derived subtotals are anchored AFTER (#1216). Anchored on
@@ -52,51 +48,6 @@ const DERIVED_TOTALS = [
   label: string
   key: keyof BalanceSheetResponse['derivedTotals']
 }[]
-
-/**
- * Derived presentation subtotals (#1212), rendered between N49 and N50 (#1216).
- * NOT LHDN fields: they carry no N-code, no expand control and no ledger
- * drill-down, and they are absent from `rows` — the backend computes them on
- * `derivedTotals` so these rows and the summary card cannot disagree. Styled to
- * match the `isTotal` rows (fontWeight 600), per the issue's requirement that
- * they read like N41 and N45.
- *
- * The empty leading Box reserves the N-code column so the labels and amounts
- * stay aligned with the official rows around them.
- */
-function DerivedTotalRows({
-  derivedTotals,
-}: {
-  derivedTotals: BalanceSheetResponse['derivedTotals']
-}) {
-  return (
-    <>
-      {DERIVED_TOTALS.map(({ testId, label, key }) => (
-        <Box
-          key={testId}
-          data-testid={testId}
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            py: 0.5,
-            fontWeight: 600,
-          }}
-        >
-          <Box sx={{ minWidth: 48 }} />
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {label}
-            </Typography>
-          </Box>
-          <Typography variant="body2" sx={{ textAlign: 'right', fontWeight: 600 }}>
-            {formatBalanceAmount(derivedTotals[key])}
-          </Typography>
-        </Box>
-      ))}
-    </>
-  )
-}
 
 export default function BalanceSheetPage() {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
@@ -244,6 +195,111 @@ export default function BalanceSheetPage() {
   const asOfDate = report?.asOfDate ?? `${year}-12-31`
   const reportYear = report?.year ?? year
 
+  /**
+   * BalanceSheetResponse → StatementRow[]. Statement owns presentation; this
+   * keeps the report's own rules: sections grouped by `row.section`, official
+   * rows addressable by `bs-row-<line>`, expanded account links as print
+   * detail, and the derived presentation subtotals anchored after N49.
+   */
+  const statementRows = useMemo<StatementRow[]>(() => {
+    if (!report) return []
+    const out: StatementRow[] = []
+
+    for (const group of rowsBySection) {
+      out.push({
+        id: `section-${group.section}`,
+        kind: 'section',
+        depth: 0,
+        label: SECTION_LABELS[group.section],
+        figures: [],
+        testId: `bs-section-${group.section}`,
+      })
+
+      for (const row of group.rows) {
+        const isExpanded = expanded.has(row.line)
+        out.push({
+          id: row.line,
+          kind: row.isTotal ? 'subtotal' : 'line',
+          depth: 0,
+          code: row.line,
+          label: row.label,
+          figures: [row.amount],
+          testId: `bs-row-${row.line}`,
+          // Preserved hook: existing tests and the print gate read the amount as
+          // ONE node. assertExactAmount requires exactly one match.
+          amountHook: 'bs-amount',
+          isZero: row.amount !== null && row.amount === '0.0000',
+          ...(row.accounts.length > 0
+            ? {
+                expand: { expanded: isExpanded, onToggle: () => toggle(row.line) },
+                expandTestId: `bs-expand-${row.line}`,
+              }
+            : {}),
+        })
+
+        /*
+         * Expanded account links are DETAIL: hidden on paper, so a printed
+         * Balance Sheet does not vary with screen expansion state.
+         *
+         * `bs-accounts-<line>` must identify ONE element — the existing suite
+         * does `screen.getByTestId('bs-accounts-N37')`, which throws on
+         * duplicates, and a line can have MANY contributor accounts. So the
+         * group testid goes on a single leading group row and each account row
+         * gets its own unique testid beneath it.
+         */
+        if (isExpanded && row.accounts.length > 0) {
+          out.push({
+            id: `${row.line}-accounts`,
+            kind: 'line',
+            depth: 1,
+            label: row.accounts.length === 1 ? 'Account' : 'Accounts',
+            figures: [],
+            // The one identifiable group hook for this line.
+            testId: `bs-accounts-${row.line}`,
+            printDetail: true,
+          })
+          for (const account of row.accounts) {
+            out.push({
+              id: `${row.line}-${account.accountId}`,
+              kind: 'line',
+              depth: 2,
+              code: account.code,
+              label: account.name,
+              figures: [account.amount ?? null],
+              // Unique per account, so N contributors do not collide.
+              testId: `bs-account-${row.line}-${account.accountId}`,
+              href: buildLedgerLink(account.accountId, reportYear, asOfDate),
+              printDetail: true,
+            })
+          }
+        }
+
+        // Derived presentation subtotals sit between N49 and N50, anchored on
+        // the LINE ID — never an array index or "last row in the section": N50
+        // follows them, so a positional anchor would drift if the taxonomy
+        // gained a row. They are NOT LHDN fields: no N-code, no expand, no
+        // drill-down.
+        if (row.line === DERIVED_TOTALS_ANCHOR_LINE) {
+          for (const derived of DERIVED_TOTALS) {
+            out.push({
+              id: derived.testId,
+              kind: 'subtotal',
+              depth: 0,
+              label: derived.label,
+              figures: [report.derivedTotals[derived.key]],
+              testId: derived.testId,
+              // Same single-node hook as the official rows, so the print gate
+              // can assert the exact signed figure of a derived subtotal too.
+              amountHook: 'bs-amount',
+            })
+          }
+        }
+      }
+    }
+
+    return out
+  }, [report, rowsBySection, expanded, reportYear, asOfDate])
+
   const balanceCheck = report?.balanceCheck
   const balanceStatusText =
     balanceCheck?.status === 'balanced'
@@ -283,74 +339,9 @@ export default function BalanceSheetPage() {
         </Box>
       )}
 
-      {rowsBySection.map((group) => (
-        <Box key={group.section}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-            {SECTION_LABELS[group.section]}
-          </Typography>
-          {group.rows.map((row) => {
-            const isZero = row.amount !== null && isZeroAmount(row.amount)
-            const isExpanded = expanded.has(row.line)
-            return (
-              <React.Fragment key={row.line}>
-                <Box
-                  data-testid={`bs-row-${row.line}`}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  py: 0.5,
-                  fontWeight: row.isTotal ? 600 : undefined,
-                  color: isZero ? 'text.secondary' : undefined,
-                }}
-              >
-                <Typography variant="body2" sx={{ minWidth: 48 }}>
-                  {row.line}
-                </Typography>
-                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  {row.accounts.length > 0 && (
-                    <IconButton
-                      size="small"
-                      data-testid={`bs-expand-${row.line}`}
-                      onClick={() => toggle(row.line)}
-                    >
-                      {isExpanded ? (
-                        <ExpandLessIcon fontSize="small" />
-                      ) : (
-                        <ExpandMoreIcon fontSize="small" />
-                      )}
-                    </IconButton>
-                  )}
-                  <Typography variant="body2">{row.label}</Typography>
-                </Box>
-                <Typography variant="body2" data-testid="bs-amount" sx={{ textAlign: 'right' }}>
-                  {formatBalanceAmount(row.amount)}
-                </Typography>
-                </Box>
-                {isExpanded && row.accounts.length > 0 && (
-                  <Box
-                    data-testid={`bs-accounts-${row.line}`}
-                    data-print-hide="true"
-                    sx={{ pl: 8, pb: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}
-                  >
-                    {row.accounts.map((account) => (
-                      <Link
-                        key={account.accountId}
-                        to={buildLedgerLink(account.accountId, reportYear, asOfDate)}
-                      >
-                        {account.code} {account.name}
-                      </Link>
-                    ))}
-                  </Box>
-                )}
-                {row.line === DERIVED_TOTALS_ANCHOR_LINE && (
-                  <DerivedTotalRows derivedTotals={report.derivedTotals} />
-                )}
-              </React.Fragment>
-            )
-          })}
-        </Box>
-      ))}
+      <Box className="acct-print-scroll" sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <Statement rows={statementRows} figureHeads={['RM']} label="Balance Sheet statement" />
+      </Box>
 
       {report.findings.length > 0 && (
         <Box data-testid="bs-findings" sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
