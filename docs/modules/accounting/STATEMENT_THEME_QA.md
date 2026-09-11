@@ -16,10 +16,11 @@ Imported stylesheet rules are stubbed in this setup as well: Vitest does not
 inject `statement.css`, so its sticky, `text-align` and `tabular-nums` rules
 never reach `getComputedStyle`.
 
-Emotion styles behave differently: MUI `sx` and theme `styleOverrides` DO
-reach `getComputedStyle`/`toHaveStyle` under this repo's jsdom 30 (see
-`MainLayout.test.tsx:40`). Theme colours applied via `sx` are assertable;
-the Statement suite does not rely on that.
+Emotion styles behave differently: MUI `sx` DOES reach
+`getComputedStyle`/`toHaveStyle` under this repo's jsdom 30 (see
+`MainLayout.test.tsx:40`); theme `styleOverrides` use the same Emotion
+pipeline. Theme colours applied via `sx` are assertable; the Statement suite
+does not rely on that.
 
 The Vitest suite therefore proves **structure and themed `sx` values only**:
 one cell per figure, a single `amountHook` node, the complete signed

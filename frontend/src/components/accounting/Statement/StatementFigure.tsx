@@ -29,9 +29,8 @@ export function splitFormattedAmount(formatted: string): {
 
   return {
     // Parentheses are the accounting sign convention and survive monochrome
-    // printing, unlike colour. The opening paren rides with the integer cell
-    // (right-aligned, so it extends leftward); the closing paren rides after
-    // the decimals, on the far side of the anchor where it cannot move it.
+    // printing, unlike colour. The sign wraps the whole formatted value; the
+    // component re-joins int and frac into one right-aligned cell.
     int: negative ? `(${rawInt}` : rawInt,
     frac: negative ? `${rawFrac})` : rawFrac,
     negative,
