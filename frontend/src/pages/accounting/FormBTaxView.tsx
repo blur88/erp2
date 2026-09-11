@@ -20,17 +20,10 @@ const STATEMENT_KIND: Record<FormBTableRow['kind'], StatementRow['kind']> = {
   section: 'section',
   line: 'line',
   total: 'subtotal',
-  cohort: 'line',
-  cohortHeading: 'line',
 }
 
 /**
  * FormBTableRow → StatementRow.
- *
- * Cohorts are printAlways, the INVERSE of the P&L's printDetail rule: they are
- * the classification audit trail — the evidence for why an amount sits on N17
- * rather than N24 — so they print whether or not the user expanded them. Only
- * the expansion CONTROLS are hidden on paper.
  *
  * `rawAmount` (not the whole-ringgit `amount`) feeds StatementFigure, so every
  * report shares one figure treatment: two decimals, parens for negatives,
@@ -39,16 +32,13 @@ const STATEMENT_KIND: Record<FormBTableRow['kind'], StatementRow['kind']> = {
 const toStatementRow = (row: FormBTableRow): StatementRow => ({
   id: row.testId,
   kind: STATEMENT_KIND[row.kind],
-  depth: row.kind === 'cohort' || row.kind === 'cohortHeading' ? 1 : 0,
+  depth: 0,
   code: row.code,
   label: row.label,
-  // Section heads and cohort headings label a block; they carry no figure.
-  figures:
-    row.kind === 'section' || row.kind === 'cohortHeading' ? [] : [row.rawAmount],
+  // Section heads label a block; they carry no figure.
+  figures: row.kind === 'section' ? [] : [row.rawAmount],
   testId: row.testId,
   isZero: row.rawAmount === '0.0000',
-  ...(row.printClass === 'acct-print-formb-cohort' ? { printAlways: true } : {}),
-  ...(row.hiddenOnScreen ? { hiddenOnScreen: true } : {}),
 })
 
 /**
@@ -96,9 +86,8 @@ interface FormBTaxViewBodyProps {
 
 /*
  * The tax view no longer drills through to the ledger — the statutory lines
- * are the whole screen, and cohorts print their account provenance. The props
- * stay on the public interface because ProfitAndLossPage owns the single
- * `openLedger` callback for both views.
+ * are the whole screen. The props stay on the public interface because
+ * ProfitAndLossPage owns the single `openLedger` callback for both views.
  */
 function FormBTaxViewBody({ data }: FormBTaxViewBodyProps) {
   const [reconciliationOpen, setReconciliationOpen] = useState(false)
@@ -161,12 +150,6 @@ function FormBTaxViewBody({ data }: FormBTaxViewBodyProps) {
   }
 
   return (
-    /*
-     * NO AccountingReportPrintLayout here. The shell (ProfitAndLossPage) owns
-     * exactly one instance for both views and derives its title and period from
-     * the active view; nesting a second one printed duplicate headers and two
-     * conflicting titles on the same sheet.
-     */
     /*
      * The flex chain must reach EntityTable, or the table has no bounded height:
      * it grows to its content and the PAGE scrolls instead of the rows, taking
@@ -245,11 +228,9 @@ function FormBTaxViewBody({ data }: FormBTaxViewBodyProps) {
       {/* N3–N27 table */}
       {/*
         The scroll container stays so a long filing scrolls its rows rather
-        than the page; statement.css owns the table presentation and the print
-        fragmentation rules, and accountingReportPrint.css releases the height
-        and overflow constraints when printing.
+        than the page; statement.css owns the table presentation.
       */}
-      <Box className="acct-print-scroll" sx={{ flex: 1, minHeight: 0, minWidth: 0 }}>
+      <Box sx={{ flex: 1, minHeight: 0, minWidth: 0 }}>
         <Statement
           rows={statementRows}
           figureHeads={['RM']}
@@ -270,9 +251,6 @@ function FormBTaxViewBody({ data }: FormBTaxViewBodyProps) {
                         one-line summary.
           unexplained - residual non-zero. Expanded and highlighted.
 
-        It PRINTS whenever there is a difference: the sheet must document why
-        N7 differs. The detail carries .acct-print-formb-cohort so the print
-        stylesheet reveals it even when collapsed, as cohorts do.
       */}
       {!reconciliationIdentical && (
         <Box
@@ -286,7 +264,6 @@ function FormBTaxViewBody({ data }: FormBTaxViewBodyProps) {
           <Box
             component="button"
             type="button"
-            className="acct-print-control"
             data-testid="formb-reconciliation-toggle"
             onClick={() => setReconciliationOpen((v) => !v)}
             sx={{
@@ -310,7 +287,6 @@ function FormBTaxViewBody({ data }: FormBTaxViewBodyProps) {
               : `Reconciliation passed; ${reconciliationDifferenceLabel} difference explained.`}
           </Typography>
           <Box
-            className="acct-print-formb-cohort"
             sx={{ display: reconciliationOpen ? 'flex' : 'none', flexDirection: 'column', gap: 1 }}
           >
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>

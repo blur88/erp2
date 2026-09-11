@@ -247,10 +247,6 @@ describe('FormBTaxView', () => {
     expect(screen.queryByText(/N8 \+ N14 - N25/)).not.toBeInTheDocument()
   })
 
-  // The period line moved to the shell (ProfitAndLossPage owns the single
-  // AccountingReportPrintLayout), so the mismatch header is asserted there —
-  // see ProfitAndLossPage.test.tsx 'derives the print period'.
-
   // Spec §5.1: production cost is never computed, stored, or defaulted to zero.
   // The annotation is what stops a reader inferring it was measured as nil.
   /*
@@ -398,11 +394,9 @@ describe('FormBTaxView', () => {
     }))
     expect(screen.getByTestId('formb-reconciliation-summary'))
       .toHaveTextContent(/Reconciliation passed; .*540 difference explained/i)
-    // The detail is emitted for print regardless; on screen it is collapsed.
     // MUI sx compiles to a class, so display is not observable in jsdom (see
     // project_emotion_styles_unobservable_in_jsdom) — assert the toggle state,
     // which is, and verify the visual collapse in a browser.
-    expect(document.querySelector('.acct-print-formb-cohort')).toBeTruthy()
     expect(screen.getByTestId('formb-reconciliation-toggle')
       .querySelector('[data-testid=\'ExpandMoreIcon\']')).toBeTruthy()
   })
@@ -442,48 +436,16 @@ describe('FormBTaxView', () => {
 
   /*
    * The row drill-down was removed: the tax view lists the statutory lines
-   * alone. Cohort rows are still emitted for PRINT, so the filed sheet keeps
-   * the audit trail from each figure to its ledger accounts.
-   *
-   * Deliberately NOT asserting a click on a cohort row: jsdom applies no CSS,
-   * so such a row is present and clickable in the test DOM while being
-   * invisible in a browser. A passing click test would describe a path no user
-   * can take.
+   * alone. The per-account cohort rows that carried the classification audit
+   * trail onto the printed sheet went with the print path in #1223.
    */
   it('renders no expand control on any line', () => {
     renderTaxView(responseWithCohort())
-    expect(screen.getByTestId('formb-line-N24').querySelector('.acct-print-control'))
-      .not.toBeInTheDocument()
     expect(screen.queryByTestId('formb-expand-N24')).not.toBeInTheDocument()
   })
 
-  it('still emits cohort rows, marked for print only', () => {
+  it('renders no per-account cohort rows', () => {
     renderTaxView(responseWithCohort())
-    const cohort = screen.getByTestId('formb-cohort-N24-0')
-    // The print-always hook moved from .acct-print-formb-cohort to the
-    // statement's own class; the printed outcome is unchanged.
-    expect(cohort).toHaveClass('stmt-row--always')
-    expect(cohort).toHaveClass('acct-screen-hidden')
-  })
-
-  describe('Form B cohorts under Statement', () => {
-    it('keeps collapsed cohorts MOUNTED but screen-hidden', () => {
-      // Print CSS cannot reveal an unmounted row. Collapsed cohorts are the
-      // classification audit trail and must print unconditionally, so they have
-      // to exist in the DOM even while hidden on screen.
-      renderTaxView(responseWithCohort())
-      const cohort = screen.getByTestId('formb-cohort-N24-0')
-      expect(cohort).toBeInTheDocument()
-      expect(cohort).toHaveClass('acct-screen-hidden')
-      expect(cohort).toHaveClass('stmt-row--always')
-    })
-
-    it('never marks a cohort as print-detail', () => {
-      // print-detail is the P&L rule (hide expanded detail on paper). Applying
-      // it to a cohort would drop the audit trail from every printed Form B —
-      // the exact inverse of the intended behaviour.
-      renderTaxView(responseWithCohort())
-      expect(screen.getByTestId('formb-cohort-N24-0')).not.toHaveClass('stmt-row--detail')
-    })
+    expect(screen.queryByTestId('formb-cohort-N24-0')).not.toBeInTheDocument()
   })
 })

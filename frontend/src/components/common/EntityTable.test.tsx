@@ -379,8 +379,8 @@ describe('EntityTable row extensions', () => {
   })
 
   it('applies tableClassName to the inner table element', () => {
-    renderTable({ tableClassName: 'acct-print-table' })
-    expect(screen.getByText('Alpha').closest('table')).toHaveClass('acct-print-table')
+    renderTable({ tableClassName: 'custom-table-class' })
+    expect(screen.getByText('Alpha').closest('table')).toHaveClass('custom-table-class')
   })
 })
 

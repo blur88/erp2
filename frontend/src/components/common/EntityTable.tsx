@@ -271,12 +271,9 @@ function EntityTable<T extends { id: string }>({
         </Box>
       )}
       {/*
-        The three class hooks here (card / frame / scroller) are the ONLY handle
-        a print stylesheet has on this component's scroll constraints. Between
-        them, `height: 100%`, `overflow: hidden` and `overflow: auto` clip the
-        table to one viewport — correct on screen, silently truncating on paper.
-        A wrapper class on an ancestor cannot undo them. Do not rename without
-        updating accountingReportPrint.css.
+        card / frame / scroller together own this component's scroll
+        constraints: `height: 100%`, `overflow: hidden` and `overflow: auto`
+        clip the table to one viewport.
       */}
       <Box
         ref={listRef}

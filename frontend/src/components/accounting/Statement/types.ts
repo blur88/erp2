@@ -32,19 +32,6 @@ export interface StatementRow {
    * inventing one. Falls back to `stmt-expand-<id>` when omitted.
    */
   expandTestId?: string
-
-  /*
-   * THREE INDEPENDENT AXES, not one enum (spec §4.1):
-   *  - printDetail:    mounted and visible on screen, hidden on paper
-   *  - printAlways:    printed unconditionally, even when screen-hidden
-   *  - hiddenOnScreen: MOUNTED but visually hidden on screen
-   *
-   * A collapsed Form B cohort is printAlways AND hiddenOnScreen. It must stay
-   * mounted: print CSS cannot reveal a row that is not in the DOM.
-   */
-  printDetail?: boolean
-  printAlways?: boolean
-  hiddenOnScreen?: boolean
 }
 
 export interface StatementProps {

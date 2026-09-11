@@ -19,7 +19,7 @@ vi.mock('@/store/api/accountingApi', () => ({
   useGetFormBQuery: (...args: unknown[]) => mockUseGetFormBQuery(...args),
 }))
 
-// The page reads company details for the print header. Without this mock the
+// Print Settings is queried by shared chrome. Without this mock the
 // hook has no Redux Provider and every test in this file throws.
 vi.mock('@/store/api/printSettingsApi', () => ({
   useGetPrintSettingsQuery: () => ({
@@ -263,8 +263,7 @@ describe('ProfitAndLossPage', () => {
     expect(order.indexOf('pl-row-netProfit')).toBe(order.length - 1)
   })
 
-  // Finding 5: expanded detail and expand controls must not reach the printout.
-  it('marks expanded child rows and controls as print-excluded', async () => {
+  it('renders nested child rows when a group is expanded', async () => {
     mockQuery.mockReturnValue({
       data: withStructuralFixture, currentData: withStructuralFixture,
       isLoading: false, isFetching: false, isError: false,
@@ -272,8 +271,7 @@ describe('ProfitAndLossPage', () => {
     renderPage()
     await userEvent.click(screen.getByTestId('pl-expand-account:oh'))
 
-    expect(screen.getByTestId('pl-row-account:phone')).toHaveClass('stmt-row--detail')
-    expect(screen.getByTestId('pl-expand-account:oh')).toHaveClass('acct-print-control')
+    expect(screen.getByTestId('pl-row-account:phone')).toBeInTheDocument()
   })
 
   it('captions the expenses total "Total Expenses", not "Total Operating Expenses"', () => {
@@ -281,14 +279,6 @@ describe('ProfitAndLossPage', () => {
     const row = screen.getByTestId('pl-row-expenses.total')
     expect(row).toHaveTextContent('Total Expenses')
     expect(row).not.toHaveTextContent('Total Operating Expenses')
-  })
-
-  it('keeps the app chrome out of the printout', () => {
-    renderPage()
-    // The screen heading must be print-hidden: the print layout renders its
-    // own dedicated header, and both would otherwise appear on paper.
-    const heading = screen.getByText('Profit & Loss')
-    expect(heading.closest('[data-print-hide="true"]')).not.toBeNull()
   })
 
   it('offers every available year, newest first, and no empty choice', async () => {
@@ -370,22 +360,6 @@ describe('ProfitAndLossPage', () => {
     expect(body!.lastElementChild).toBe(row)
   })
 
-  it('marks the page header as print-hidden', () => {
-    renderPage()
-    expect(screen.getByTestId('page-header-divider')).toHaveAttribute('data-print-hide', 'true')
-  })
-
-  it('marks the body so the global print rule does not hide the report', () => {
-    // global.css hides #root when printing, to isolate the PORTALED transactional
-    // document templates. An analytical report is not portaled — it renders
-    // inside #root — so without this opt-out marker, Ctrl-P yields a blank page.
-    const { unmount } = renderPage()
-    expect(document.body).toHaveClass('acct-print-mode')
-    // ...and it must not leak to other pages, which still need the global rule.
-    unmount()
-    expect(document.body).not.toHaveClass('acct-print-mode')
-  })
-
   it('keeps a valid no-activity year selected instead of resetting it', async () => {
     // The API accepts any year in 1000-9999 and returns an all-zero statement
     // for one with no postings — a valid report. But such a year is absent from
@@ -407,20 +381,10 @@ describe('ProfitAndLossPage', () => {
     expect(mockQuery).not.toHaveBeenCalledWith({ year: new Date().getFullYear() }, expect.anything())
   })
 
-  it('exposes the statement print hooks the print stylesheet targets', () => {
-    // jsdom has no layout engine and does not evaluate @media print, so this
-    // asserts the SELECTORS exist, not that the printout is correct — the
-    // browser QA pass owns that.
-    //
-    // statement.css now owns the statement presentation: the thead repeats on
-    // every printed page and each row carries the fragmentation rules. If
-    // these class hooks are renamed without updating statement.css, the
-    // statement silently prints ungrouped while looking perfect on screen.
+  it('renders the statement as a table with a head and rows', () => {
     const { container } = renderPage()
-    const scroll = container.querySelector('.acct-print-scroll')
-    expect(scroll).not.toBeNull()
-    expect(scroll!.querySelector('table.stmt-table thead')).not.toBeNull()
-    expect(scroll!.querySelector('tr.stmt-row')).not.toBeNull()
+    expect(container.querySelector('table.stmt-table thead')).not.toBeNull()
+    expect(container.querySelector('tr.stmt-row')).not.toBeNull()
   })
 
   it('emits a bare URL for the current year and ?year= for others', async () => {
@@ -495,35 +459,6 @@ describe('ProfitAndLossPage', () => {
     const nestedGroup = screen.getByTestId('pl-row-account:oh')
     expect(nestedGroup).not.toHaveAttribute('role', 'link')
     expect(nestedGroup).not.toHaveAttribute('tabindex')
-  })
-})
-
-describe('ProfitAndLossPage — print layout', () => {
-  /*
-   * Exactly ONE AccountingReportPrintLayout for both views: a second nested
-   * instance printed two headers and two conflicting titles on one sheet.
-   * Title and period are derived from the active view, so the tax view's
-   * form-version mismatch reaches the printed page (spec §2.1).
-   */
-  // Keyed off .acct-print-header, the layout's existing print hook, rather
-  // than adding a testid to a component shared with every other report.
-  const headers = () => document.querySelectorAll('.acct-print-header')
-
-  it('renders exactly one print header with the accounting title by default', () => {
-    renderPage('?year=2025')
-    expect(headers()).toHaveLength(1)
-    expect(screen.getByText('PROFIT & LOSS')).toBeInTheDocument()
-  })
-
-  it('renders exactly one print header in the tax view', () => {
-    renderPage('?year=2025&view=tax')
-    expect(headers()).toHaveLength(1)
-    expect(screen.getByText('PROFIT & LOSS — FORM B TAX VIEW')).toBeInTheDocument()
-  })
-
-  it('derives the print period, including the form-version mismatch', () => {
-    renderPage('?year=2024&view=tax')
-    expect(screen.getByText(/presented using Form B YA 2025/i)).toBeInTheDocument()
   })
 })
 
