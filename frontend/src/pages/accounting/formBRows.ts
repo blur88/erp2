@@ -1,7 +1,7 @@
-import type { FormBAccountRef, FormBResponse, FormBRow, FormBAmount } from '@/types'
+import type { FormBResponse, FormBRow, FormBAmount } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 
-export type FormBRowKind = 'section' | 'line' | 'total' | 'cohort' | 'cohortHeading'
+export type FormBRowKind = 'section' | 'line' | 'total'
 
 export interface FormBTableRow {
   id: string
@@ -23,21 +23,6 @@ export interface FormBTableRow {
   testId: string
   expandable: boolean
   expanded: boolean
-  /**
-   * Cohorts print UNCONDITIONALLY, so they get their own class. They must never
-   * carry `acct-print-detail-row`: that rule hides the Accounting View's detail,
-   * whose totals already say the same thing. Form B cohorts ARE the evidence for
-   * why an amount sits on N17 rather than N24, and two people printing the same
-   * year must file the same document.
-   */
-  printClass?: string
-  /**
-   * When true the row is hidden on screen (collapsed) but still prints —
-   * the audit trail must be unconditional on paper even when the screen
-   * affordance is collapsed. Screen hiding is via `.acct-screen-hidden`
-   * which `@media print` overrides for `.acct-print-formb-cohort`.
-   */
-  hiddenOnScreen?: boolean
 }
 
 /**
@@ -71,30 +56,6 @@ export function periodLabel(year: number, formVersion: number): string {
     ? `Year of Assessment ${year}`
     : `Year of Assessment ${year} — presented using Form B YA ${formVersion}`
 }
-
-const cohortRow = (
-  ref: FormBAccountRef, line: string, index: number, group: string,
-  hiddenOnScreen = false,
-): FormBTableRow => ({
-  id: `${line}.${group}.${ref.accountId}`,
-  kind: 'cohort',
-  line,
-  code: ref.code,
-  label: ref.isActive ? ref.name : `${ref.name} (inactive)`,
-  // A contributor's amount is never null, but it must be formatted the same
-  // way as the line totals above it — a cohort showing '5.0000' beside a line
-  // showing 'RM 5.00' reads as two different figures.
-  amount: formatFormBAmount(ref.amount),
-  rawAmount: ref.amount,
-  formula: null,
-  depth: 1,
-  accountId: ref.accountId,
-  testId: `formb-cohort-${line}-${index}`,
-  expandable: false,
-  expanded: false,
-  printClass: 'acct-print-formb-cohort',
-  ...(hiddenOnScreen ? { hiddenOnScreen: true as const } : {}),
-})
 
 export function buildFormBTableRows(data: FormBResponse): FormBTableRow[] {
   const out: FormBTableRow[] = []
@@ -133,8 +94,6 @@ export function buildFormBTableRows(data: FormBResponse): FormBTableRow[] {
       })
     }
 
-    const contributors = row.accounts ?? []
-
     out.push({
       id: row.line,
       /*
@@ -156,72 +115,10 @@ export function buildFormBTableRows(data: FormBResponse): FormBTableRow[] {
       depth: 0,
       testId: `formb-line-${row.line}`,
       // No drill-down on screen: the tax view lists the statutory lines only.
-      // The contributing accounts are still emitted below for PRINT, where the
-      // filing must justify each figure against the ledger.
       expandable: false,
       expanded: false,
     })
-
-    if (contributors.length === 0) continue
-
-    /*
-     * Cohorts are emitted for PRINT only. The screen shows the statutory lines
-     * alone; the printed sheet still carries the audit trail, so a reviewer can
-     * see which ledger accounts produced each figure.
-     *
-     * They are always hiddenOnScreen now — the print stylesheet reveals
-     * `.acct-print-formb-cohort` regardless, the same mechanism as before, so
-     * dropping the on-screen affordance does not change the printout.
-     */
-    const hiddenOnScreen = true
-
-    /*
-     * N24 / N13 split into labelled subgroups so an explicitly-mapped account
-     * is visibly distinct from one that merely fell back.
-     *
-     * The headings appear ONLY when both cohorts are present. With one cohort
-     * they separate nothing, and on a chart with a single expense account the
-     * line then renders three rows — the form line, a heading, and the one
-     * account — for a single figure, which reads as duplication rather than as
-     * provenance.
-     */
-    if (row.cohorts) {
-      const { explicit, fallback } = row.cohorts
-      const bothCohorts = explicit.length > 0 && fallback.length > 0
-      if (explicit.length > 0) {
-        if (bothCohorts) {
-          out.push(headingRow(row.line, 'explicit', 'Mapped to this line', hiddenOnScreen))
-        }
-        explicit.forEach((ref, i) => out.push(cohortRow(ref, row.line, i, 'explicit', hiddenOnScreen)))
-      }
-      if (fallback.length > 0) {
-        if (bothCohorts) {
-          out.push(headingRow(row.line, 'fallback', 'Unmapped — filed here by default', hiddenOnScreen))
-        }
-        fallback.forEach((ref, i) => out.push(cohortRow(ref, row.line, i, 'fallback', hiddenOnScreen)))
-      }
-      continue
-    }
-
-    contributors.forEach((ref, i) => out.push(cohortRow(ref, row.line, i, 'accounts', hiddenOnScreen)))
   }
 
   return out
 }
-
-const headingRow = (line: string, group: string, label: string, hiddenOnScreen = false): FormBTableRow => ({
-  id: `${line}.${group}.heading`,
-  kind: 'cohortHeading',
-  line,
-  code: '',
-  label,
-  amount: '',
-  rawAmount: null,
-  formula: null,
-  depth: 1,
-  testId: `formb-cohort-heading-${line}-${group}`,
-  expandable: false,
-  expanded: false,
-  printClass: 'acct-print-formb-cohort',
-  ...(hiddenOnScreen ? { hiddenOnScreen: true as const } : {}),
-})

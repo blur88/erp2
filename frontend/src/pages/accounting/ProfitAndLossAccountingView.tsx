@@ -97,7 +97,7 @@ export default function ProfitAndLossAccountingView(props: ProfitAndLossAccounti
           </Box>
         ) : null
       ) : (
-        <Box className="acct-print-scroll" sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
           <Statement rows={rows} figureHeads={['RM']} label="Profit and Loss statement" />
         </Box>
       )}

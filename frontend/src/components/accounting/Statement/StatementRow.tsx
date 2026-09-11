@@ -17,11 +17,6 @@ const rowClasses = (row: Row): string =>
     'stmt-row',
     `stmt-row--${row.kind}`,
     row.isZero ? 'stmt-row--zero' : null,
-    row.printDetail ? 'stmt-row--detail' : null,
-    row.printAlways ? 'stmt-row--always' : null,
-    // Print CSS cannot reveal an unmounted row, so a screen-hidden row is
-    // rendered and hidden with a class — never conditionally mounted.
-    row.hiddenOnScreen ? 'acct-screen-hidden' : null,
   ]
     .filter(Boolean)
     .join(' ')
@@ -42,7 +37,6 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
         {row.expand && (
           <IconButton
             size="small"
-            className="acct-print-control"
             data-testid={row.expandTestId ?? `stmt-expand-${row.id}`}
             aria-label={row.expand.expanded ? `Collapse ${row.label}` : `Expand ${row.label}`}
             onClick={row.expand.onToggle}

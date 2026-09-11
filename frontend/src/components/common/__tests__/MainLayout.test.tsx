@@ -52,14 +52,11 @@ describe('MainLayout', () => {
     expect(screen.getByRole('main')).toHaveStyle({ height: '100%' })
   })
 
-  it('exposes the app-shell-root print hook on the outer container', () => {
-    // This Box is a 100vh flex container, and it is the ancestor a non-portaled
-    // print page (an analytical accounting report) must have released before it
-    // can paginate. No structural selector reaches it: RootLayout's own Box is
-    // `#root > *`, so this sits one level below that and above `main`.
-    // accountingReportPrint.css targets `.app-shell-root` by name — renaming it
-    // here silently truncates every printed report to one page, which no test
-    // can catch because jsdom does not evaluate @media print.
+  it('exposes app-shell-root on the outer container', () => {
+    // This Box is the 100vh flex container that owns the app shell's height.
+    // No structural selector reaches it: RootLayout's own Box is `#root > *`,
+    // so this sits one level below that and above `main` — the class is the
+    // only handle anything has on it.
     const { container } = render(
       <Provider store={makeStore()}>
         <MemoryRouter>

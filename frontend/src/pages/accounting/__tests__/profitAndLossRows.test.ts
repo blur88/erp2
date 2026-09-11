@@ -96,7 +96,6 @@ describe('buildProfitAndLossRows', () => {
     const child = rows.find((r) => r.testId === 'pl-row-account:child')
     // Depth > 0 is detail: printing whatever the user expanded would make two
     // printouts of one period differ.
-    expect(child?.printDetail).toBe(true)
     expect(child?.depth).toBe(1)
   })
 

@@ -129,21 +129,21 @@ describe('buildFormBTableRows', () => {
     expect(built.find((r) => r.line === 'N7')!.kind).toBe('total')
   })
 
-  // Cohorts are PRINT-ONLY now: the screen lists the statutory lines alone,
-  // while the printed sheet keeps the audit trail from figure to ledger.
-  it('emits cohort rows hidden on screen so they print but do not clutter the page', () => {
-    const d = data([row({
-      line: 'N24', accounts: [{ accountId: 'a1', code: '6990', name: 'Sundry',
-        isActive: true, category: null, assignment: 'fallback', amount: '5.0000' }],
-      cohorts: { explicit: [], fallback: [{ accountId: 'a1', code: '6990', name: 'Sundry',
-        isActive: true, category: null, assignment: 'fallback', amount: '5.0000' }] },
-    })])
+  /*
+   * Contributing accounts are no longer rendered anywhere (#1223): the screen
+   * lists the statutory lines alone, and the print path that carried the
+   * classification audit trail was removed.
+   */
+  it('emits only the statutory lines, never per-account rows', () => {
+    const contributor = { accountId: 'a1', code: '6990', name: 'Sundry',
+      isActive: true, category: null, assignment: 'fallback' as const, amount: '5.0000' }
+    const d = data([row({ line: 'N24', accounts: [contributor],
+      cohorts: { explicit: [], fallback: [contributor] } })])
     const built = buildFormBTableRows(d)
-    const cohorts = built.filter((r) => r.kind === 'cohort')
-    expect(cohorts.map((r) => r.accountId)).toEqual(['a1'])
-    expect(cohorts.every((r) => r.hiddenOnScreen === true)).toBe(true)
-    // Print class is still the cohort class so the @media print rule shows them
-    expect(cohorts.every((r) => r.printClass === 'acct-print-formb-cohort')).toBe(true)
+    // No row carries an accountId: per-account rows were the only rows that did.
+    expect(built.some((r) => r.accountId !== undefined)).toBe(false)
+    // Exactly one row for the statutory line itself.
+    expect(built.filter((r) => r.line === 'N24')).toHaveLength(1)
   })
 
   // No drill-down affordance anywhere: the arrow is gone from every line.
@@ -155,47 +155,5 @@ describe('buildFormBTableRows', () => {
     const built = buildFormBTableRows(d)
     expect(built.some((r) => r.expandable)).toBe(false)
     expect(built.some((r) => r.expanded)).toBe(false)
-  })
-
-  // Cohorts are the classification AUDIT TRAIL, so they print regardless of
-  // expansion — and must therefore NOT carry .acct-print-detail-row, which the
-  // Accounting View uses to hide its (redundant) detail.
-  const ref = (over: any = {}) => ({
-    accountId: 'a1', code: '6990', name: 'Other Expenses', isActive: true,
-    category: null, assignment: 'fallback' as const, amount: '1000.0000', ...over,
-  })
-
-  /*
-   * With one cohort the headings separate nothing, and a chart with a single
-   * expense account then renders three rows for one figure — line, heading,
-   * account — which reads as duplication rather than provenance.
-   */
-  it('omits the cohort headings when only one cohort is present', () => {
-    const only = ref({ accountId: 'e1', assignment: 'explicit', category: 'OTHER_EXPENSES' })
-    const d = data([row({ line: 'N24', accounts: [only],
-      cohorts: { explicit: [only], fallback: [] } })])
-    const built = buildFormBTableRows(d)
-    expect(built.filter((r) => r.kind === 'cohortHeading')).toEqual([])
-    expect(built.filter((r) => r.kind === 'cohort')).toHaveLength(1)
-  })
-
-  it('keeps the headings when BOTH cohorts are present, where they distinguish', () => {
-    const explicit = ref({ accountId: 'e1', assignment: 'explicit', category: 'OTHER_EXPENSES' })
-    const fallback = ref({ accountId: 'f1', code: '6991' })
-    const d = data([row({ line: 'N24', accounts: [explicit, fallback],
-      cohorts: { explicit: [explicit], fallback: [fallback] } })])
-    const built = buildFormBTableRows(d)
-    expect(built.filter((r) => r.kind === 'cohortHeading')).toHaveLength(2)
-  })
-
-  it('marks cohort rows with the Form B print class, never the detail-row class', () => {
-    const contributor = { accountId: 'a1', code: '6990', name: 'Sundry',
-      isActive: true, category: null, assignment: 'fallback' as const, amount: '5.0000' }
-    const d = data([row({ line: 'N24', accounts: [contributor],
-      cohorts: { explicit: [], fallback: [contributor] } })])
-    const built = buildFormBTableRows(d)
-    const cohort = built.find((r) => r.kind === 'cohort')!
-    expect(cohort.printClass).toBe('acct-print-formb-cohort')
-    expect(cohort.printClass).not.toBe('acct-print-detail-row')
   })
 })

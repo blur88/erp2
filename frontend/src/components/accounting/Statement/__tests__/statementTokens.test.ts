@@ -55,12 +55,4 @@ describe('statement tokens', () => {
       )
     }
   })
-
-  it('remaps colour tokens under print media', () => {
-    const printBlock = /@media print\s*\{([\s\S]*)\}/.exec(CSS)?.[1] ?? ''
-    expect(printBlock).toMatch(/--stmt-paper\s*:/)
-    expect(printBlock).toMatch(/--stmt-ink\s*:/)
-    expect(printBlock).toMatch(/--stmt-negative\s*:/)
-    expect(printBlock).toMatch(/--stmt-accent\s*:/)
-  })
 })

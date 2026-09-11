@@ -1,4 +1,3 @@
-import '@/components/print/accountingReportPrint.css'
 import { useEffect, useMemo, useState } from 'react'
 import { Alert, Box, Typography } from '@mui/material'
 
@@ -7,7 +6,6 @@ import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 import { useGetBalanceSheetQuery } from '@/store/api/accountingApi'
-import { AccountingReportPrintLayout } from '@/components/print/AccountingReportPrintLayout'
 import { Statement, type StatementRow } from '@/components/accounting/Statement'
 import { buildLedgerLink, formatBalanceAmount, SECTION_LABELS } from './balanceSheetRows'
 import type { BalanceSheetResponse } from '@/types'
@@ -238,9 +236,6 @@ export default function BalanceSheetPage() {
         })
 
         /*
-         * Expanded account links are DETAIL: hidden on paper, so a printed
-         * Balance Sheet does not vary with screen expansion state.
-         *
          * `bs-accounts-<line>` must identify ONE element — the existing suite
          * does `screen.getByTestId('bs-accounts-N37')`, which throws on
          * duplicates, and a line can have MANY contributor accounts. So the
@@ -256,7 +251,6 @@ export default function BalanceSheetPage() {
             figures: [],
             // The one identifiable group hook for this line.
             testId: `bs-accounts-${row.line}`,
-            printDetail: true,
           })
           for (const account of row.accounts) {
             out.push({
@@ -269,7 +263,6 @@ export default function BalanceSheetPage() {
               // Unique per account, so N contributors do not collide.
               testId: `bs-account-${row.line}-${account.accountId}`,
               href: buildLedgerLink(account.accountId, reportYear, asOfDate),
-              printDetail: true,
             })
           }
         }
@@ -339,7 +332,7 @@ export default function BalanceSheetPage() {
         </Box>
       )}
 
-      <Box className="acct-print-scroll" sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <Statement rows={statementRows} figureHeads={['RM']} label="Balance Sheet statement" />
       </Box>
 
@@ -418,25 +411,16 @@ export default function BalanceSheetPage() {
   ) : null
 
   return (
-    <Box data-testid="bs-print-block">
-      <AccountingReportPrintLayout
-        title="BALANCE SHEET"
-        period={`LHDN Borang B — Part N · As at ${asOfDate}`}
-      >
-        <SimpleListPage
-          title="Balance Sheet"
-          subtitle="Financial position aligned with LHDN Borang B Part N."
-          hideHeaderOnPrint
-          secondaryAction={{ label: 'Print', onClick: () => window.print() }}
-          filterConfig={filterConfig}
-          draftFilters={draftFilters}
-          handlers={handlers}
-          hasActiveFilters={hasActiveFilters}
-          isFetching={query.isFetching}
-          error={query.isError ? 'Unable to load Balance Sheet. Please try again.' : null}
-          tableSlot={body}
-        />
-      </AccountingReportPrintLayout>
-    </Box>
+    <SimpleListPage
+      title="Balance Sheet"
+      subtitle="Financial position aligned with LHDN Borang B Part N."
+      filterConfig={filterConfig}
+      draftFilters={draftFilters}
+      handlers={handlers}
+      hasActiveFilters={hasActiveFilters}
+      isFetching={query.isFetching}
+      error={query.isError ? 'Unable to load Balance Sheet. Please try again.' : null}
+      tableSlot={body}
+    />
   )
 }

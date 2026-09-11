@@ -42,9 +42,6 @@ export function buildProfitAndLossRows(
     const walk = (nodes: PlAccountRow[], depth: number) => {
       for (const node of nodes) {
         const isZero = isZeroAmount(node.amount)
-        // Depth 0 is a section's own row; anything deeper is detail, which the
-        // print stylesheet hides.
-        const printDetail = depth > 0 ? true : undefined
 
         if (node.isPostable) {
           out.push({
@@ -57,7 +54,6 @@ export function buildProfitAndLossRows(
             testId: `pl-row-${node.rowId}`,
             isZero,
             href: node.accountId ? buildHref(node.accountId) : undefined,
-            printDetail,
           })
           continue
         }
@@ -74,7 +70,6 @@ export function buildProfitAndLossRows(
           isZero,
           expand: { expanded: isExpanded, onToggle: () => toggle(node.rowId) },
           expandTestId: `pl-expand-${node.rowId}`,
-          printDetail,
         })
         if (isExpanded) walk(node.children, depth + 1)
       }

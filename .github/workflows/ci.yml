@@ -6,10 +6,8 @@ on:
   # Deliberate one-off validation of `main` only — NOT routine coverage.
   #
   # There is intentionally no `push: branches: [main]` trigger. A push trigger
-  # would run the whole suite (now including a Docker compose stack for the
-  # print/PDF gate) after every merge. The failure #1172 shipped was *missing
-  # browser print coverage*, not merge-preview-vs-main divergence, and the
-  # required PR checks cover that going forward.
+  # would run the whole suite after every merge, and the required PR checks
+  # already cover what merging can break.
   #
   # Consequence worth knowing: merging never produces a run on `main`. To get
   # one, dispatch it — `gh workflow run ci.yml --ref main` (see #1217).
@@ -530,89 +528,3 @@ jobs:
           path: frontend/coverage/
           retention-days: 14
           if-no-files-found: warn
-
-  print-gate:
-    name: Accounting Reports - Print/PDF Gate
-    runs-on: ubuntu-latest
-
-    # Every PR, no paths filter. #1172 was a DOWNSTREAM change — a shared
-    # layout component gaining an overflow constraint — so a filter scoped to
-    # print files would have skipped exactly the change that caused it.
-
-    env:
-      COMPOSE_ARGS: >-
-        -p erp_print_gate
-        -f docker-compose.yml
-        -f docker-compose.print-gate.yml
-      PRINT_GATE_FRONTEND_PORT: '3100'
-      PRINT_GATE_API_PORT: '3101'
-      # Base compose renders `redis-server --requirepass ${REDIS_PASSWORD}`; an
-      # empty value folds away and redis parses --maxmemory as the password
-      # args (FATAL). Non-empty test value flows to both redis and backend.
-      REDIS_PASSWORD: print_gate_redis_password
-      # Backend boot does not validate JWT_SECRET, but auth signs tokens at
-      # runtime (fixture seeding); pin the test-backend convention to avoid a
-      # second red cycle on a blank secret.
-      JWT_SECRET: test-secret-key-minimum-32chars-long-for-testing-only
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      # Isolation check, data-dir ownership prep, image build, up and the
-      # readiness wait — ONE script, shared verbatim with the local procedure
-      # in docs/modules/accounting/BALANCE_SHEET_QA.md, so the documented
-      # startup can no longer omit a fix CI depends on (#1214 review).
-      # It preserves the stack on failure; the teardown step below is
-      # `if: always()` and cleans up regardless.
-      - name: Build and start the gate stack
-        run: ./scripts/print-gate-up.sh
-
-      - name: Install frontend dependencies
-        # Before invoking the Playwright CLI: it must resolve from the pinned
-        # devDependency, not ad hoc.
-        working-directory: frontend
-        run: npm ci
-
-      - name: Install chromium with system dependencies
-        working-directory: frontend
-        run: npx playwright install --with-deps chromium
-
-      - name: Run the print/PDF gate
-        working-directory: frontend
-        env:
-          PRINT_GATE_BASE_URL: http://localhost:3100
-          PRINT_GATE_API_URL: http://localhost:3101/api
-        run: npm run test:print
-
-      - name: Capture stack logs on failure
-        if: failure()
-        run: docker compose $COMPOSE_ARGS logs --no-color --tail 200
-
-      - name: Upload gate artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: print-gate-results
-          path: |
-            frontend/e2e-results/
-            frontend/playwright-report/
-          # The retained print PDFs (balance-sheet-print.pdf,
-          # profit-and-loss-print.pdf) land in e2e-results/ and are also
-          # attached to the Playwright report, so a failure ships the paper
-          # output rather than only a page count.
-          if-no-files-found: warn
-          retention-days: 7
-
-      - name: Tear down
-        if: always()
-        run: |
-          docker compose $COMPOSE_ARGS down -v --remove-orphans
-          sudo rm -rf .print-gate-data

@@ -209,8 +209,3 @@ docs/test/
 .antigravitycli/
 .superpowers/
 backend/leakcheck-reports/
-
-# Print/PDF gate stack data (#1214)
-.print-gate-data/
-frontend/e2e-results/
-frontend/e2e/.print-gate-descriptor.json

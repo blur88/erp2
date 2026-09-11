@@ -71,36 +71,6 @@ describe('Statement structure', () => {
   })
 })
 
-describe('Statement visibility axes', () => {
-  it('marks print-detail rows so print CSS can hide them', () => {
-    renderStatement([row({ id: 'd', printDetail: true })])
-    expect(screen.getByTestId('row-d')).toHaveClass('stmt-row--detail')
-  })
-
-  it('marks print-always rows so print CSS can reveal them', () => {
-    renderStatement([row({ id: 'c', printAlways: true })])
-    expect(screen.getByTestId('row-c')).toHaveClass('stmt-row--always')
-  })
-
-  it('keeps a screen-hidden row MOUNTED', () => {
-    // Print CSS cannot reveal an unmounted row. A collapsed Form B cohort must
-    // exist in the DOM, only visually hidden.
-    renderStatement([row({ id: 'h', hiddenOnScreen: true, printAlways: true })])
-    const el = screen.getByTestId('row-h')
-    expect(el).toBeInTheDocument()
-    expect(el).toHaveClass('acct-screen-hidden')
-    expect(el).toHaveClass('stmt-row--always')
-  })
-
-  it('treats the three visibility axes as independent', () => {
-    renderStatement([row({ id: 'x', printDetail: true, hiddenOnScreen: true })])
-    const el = screen.getByTestId('row-x')
-    expect(el).toHaveClass('stmt-row--detail')
-    expect(el).toHaveClass('acct-screen-hidden')
-    expect(el).not.toHaveClass('stmt-row--always')
-  })
-})
-
 describe('Statement drill-down', () => {
   it('renders a real link when href is present', () => {
     renderStatement([row({ id: 'a', href: '/accounting/general-ledger?account=1' })])
@@ -118,11 +88,6 @@ describe('Statement drill-down', () => {
     renderStatement([row({ id: 'g', expand: { expanded: false, onToggle } })])
     await userEvent.click(screen.getByTestId('stmt-expand-g'))
     expect(onToggle).toHaveBeenCalledTimes(1)
-  })
-
-  it('marks the expand control so print CSS hides it', () => {
-    renderStatement([row({ id: 'g', expand: { expanded: false, onToggle: vi.fn() } })])
-    expect(screen.getByTestId('stmt-expand-g')).toHaveClass('acct-print-control')
   })
 
   it('honours a report-supplied expand testid', () => {

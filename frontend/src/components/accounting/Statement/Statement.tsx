@@ -15,8 +15,8 @@ import type { StatementProps } from './types'
  */
 export function Statement({ rows, figureHeads, label, className }: StatementProps) {
   return (
-    <div className={`stmt-panel${className ? ` ${className}` : ''}`}>
-      <table className="stmt-table acct-print-table" aria-label={label}>
+    <div className={`stmt-root stmt-panel${className ? ` ${className}` : ''}`}>
+      <table className="stmt-table" aria-label={label}>
         <thead>
           <tr>
             <th className="stmt-col-head stmt-col-head--label" scope="col" />

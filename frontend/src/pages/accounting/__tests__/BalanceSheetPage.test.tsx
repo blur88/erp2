@@ -10,7 +10,7 @@ vi.mock('@/store/api/accountingApi', () => ({
   useGetBalanceSheetQuery: (...args: unknown[]) => mockUseGetBalanceSheetQuery(...args),
 }))
 
-// The page reads company details for the print header. Without this mock the
+// Print Settings is queried by shared chrome. Without this mock the
 // hook has no Redux Provider and every test in this file throws.
 vi.mock('@/store/api/printSettingsApi', () => ({
   useGetPrintSettingsQuery: () => ({
@@ -232,10 +232,7 @@ describe('BalanceSheetPage', () => {
     expect(screen.getByText('Unable to load Balance Sheet. Please try again.')).toBeInTheDocument()
   })
 
-  it('passes the same figures to the print layout as the screen shows', () => {
-    // The print block is rendered in the DOM at all times and revealed by the
-    // print stylesheet, so its CONTENT is assertable in jsdom even though its
-    // print-time VISIBILITY is not.
+  it('renders the report figures and validation state', () => {
     renderPage(
       baseResponse({
         rows: buildRows({ N37: '1000.0000', N41: '1000.0000', N45: '250.0000' }),
@@ -250,25 +247,16 @@ describe('BalanceSheetPage', () => {
       }),
     )
 
-    const printBlock = screen.getByTestId('bs-print-block')
-
-    // The report title and LHDN reference the printed sheet must carry.
-    expect(printBlock).toHaveTextContent('BALANCE SHEET')
-    expect(printBlock).toHaveTextContent('LHDN Borang B — Part N')
-    // The SERVER-supplied cutoff, not a client-derived 31 December.
-    expect(printBlock).toHaveTextContent('2026-09-08')
-
-    // Figures match the on-screen row exactly.
+    // The on-screen row carries its amount as a single node.
     const onScreenN41 = within(screen.getByTestId('bs-row-N41')).getByTestId('bs-amount')
-    expect(printBlock).toHaveTextContent(onScreenN41.textContent!)
+    expect(onScreenN41.textContent).toBeTruthy()
 
-    // The validation state prints, including its difference — a saved PDF must
-    // preserve that this report is NOT ready for LHDN.
-    expect(printBlock).toHaveTextContent('Out of Balance')
-    expect(printBlock).toHaveTextContent('250.00')
+    const balanceCheckPanel = screen.getByTestId('bs-balance-check')
+    expect(balanceCheckPanel).toHaveTextContent('Out of Balance')
+    expect(balanceCheckPanel).toHaveTextContent('250.00')
   })
 
-  it('prints the unavailable validation state with no numeric difference', () => {
+  it('renders the unavailable validation state with no numeric difference', () => {
     renderPage(
       baseResponse({
         rows: buildRows({ N41: '1000.0000', N48: null, N50: null }),
@@ -291,26 +279,21 @@ describe('BalanceSheetPage', () => {
       }),
     )
 
-    const printBlock = screen.getByTestId('bs-print-block')
-    expect(printBlock).toHaveTextContent(/unavailable/i)
-    expect(printBlock).toHaveTextContent('Selected-year profit could not be determined.')
-    // No fabricated difference reaches paper. Since #1212 the Difference LINE
-    // is always present so the three-line comparison stays intact; what must
-    // never appear is a NUMBER standing in for an unknown.
-    const printedDifference = within(printBlock).getByTestId('bs-difference-value')
-    expect(printedDifference).toHaveTextContent('—')
-    expect(printedDifference.textContent).not.toMatch(/\d/)
+    const balanceCheckPanel = screen.getByTestId('bs-balance-check')
+    expect(balanceCheckPanel).toHaveTextContent(/unavailable/i)
+    expect(balanceCheckPanel).toHaveTextContent('Selected-year profit could not be determined.')
+    // Since #1212 the Difference LINE is always present so the three-line
+    // comparison stays intact; what must never appear is a NUMBER standing in
+    // for an unknown.
+    const difference = within(balanceCheckPanel).getByTestId('bs-difference-value')
+    expect(difference).toHaveTextContent('—')
+    expect(difference.textContent).not.toMatch(/\d/)
   })
 
-  it('marks expanded ledger detail as print-hidden', async () => {
+  it('shows expanded ledger detail on screen', async () => {
     renderPage(responseWithContributors)
     await userEvent.click(screen.getByTestId('bs-expand-N37'))
-    // Present on screen…
-    const detail = screen.getByTestId('bs-accounts-N37')
-    expect(detail).toBeInTheDocument()
-    // …and excluded from the printout by the class the print CSS keys on
-    // (data-print-hide is superseded by printDetail → stmt-row--detail).
-    expect(detail).toHaveClass('stmt-row--detail')
+    expect(screen.getByTestId('bs-accounts-N37')).toBeInTheDocument()
   })
 })
 
@@ -460,14 +443,10 @@ describe("BalanceSheetPage — derived equity subtotals (#1212)", () => {
     }
   })
 
-  it('includes both derived rows in the printable block', () => {
+  it('renders both derived rows', () => {
     renderPage(balanced)
-    // Same DOM subtree the print stylesheet keeps, and neither row is marked
-    // data-print-hide, so Print/PDF gets the identical values.
-    const printBlock = screen.getByTestId('bs-print-block')
     for (const testId of ['bs-derived-owners-equity', 'bs-derived-liabilities-and-equity']) {
-      const el = within(printBlock).getByTestId(testId)
-      expect(el.closest('[data-print-hide="true"]')).toBeNull()
+      expect(screen.getByTestId(testId)).toBeInTheDocument()
     }
   })
 })
@@ -476,14 +455,6 @@ describe('Balance Sheet statement structure', () => {
   it('renders the statement as a table', () => {
     renderPage(baseResponse())
     expect(screen.getByRole('table', { name: /balance sheet/i })).toBeInTheDocument()
-  })
-
-  it('marks expanded account rows as print-detail', async () => {
-    // A printed Balance Sheet must not vary with screen expansion state.
-    // Previously enforced by data-print-hide; now by printDetail.
-    renderPage(responseWithContributors)
-    await userEvent.click(screen.getByTestId('bs-expand-N37'))
-    expect(screen.getByTestId('bs-accounts-N37')).toHaveClass('stmt-row--detail')
   })
 
   it('places derived totals after N49', () => {
@@ -503,8 +474,8 @@ describe('Balance Sheet statement structure', () => {
   })
 
   it('keeps bs-amount as a single node per row', () => {
-    // The print gate's assertExactAmount requires exactly one match and reads
-    // its whole text, so the two-cell split must not duplicate this hook.
+    // getByTestId throws on duplicates, so the two-cell figure split must not
+    // duplicate this hook.
     renderPage(baseResponse())
     const row = screen.getByTestId('bs-row-N41')
     expect(within(row).getAllByTestId('bs-amount')).toHaveLength(1)
@@ -536,9 +507,5 @@ describe('Balance Sheet statement structure', () => {
     expect(screen.getByTestId('bs-account-N37-acc-a')).toBeInTheDocument()
     expect(screen.getByTestId('bs-account-N37-acc-b')).toBeInTheDocument()
     expect(screen.getByTestId('bs-account-N37-acc-c')).toBeInTheDocument()
-    // Every contributor row is print-detail.
-    for (const id of ['acc-a', 'acc-b', 'acc-c']) {
-      expect(screen.getByTestId(`bs-account-N37-${id}`)).toHaveClass('stmt-row--detail')
-    }
   })
 })

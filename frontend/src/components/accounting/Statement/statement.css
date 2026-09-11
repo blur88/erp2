@@ -6,10 +6,10 @@
  * drift is possible. This is deliberately different from `printTokens.ts`,
  * which is a hand-synced duplicate kept in step by comment.
  *
- * Scoped to `.acct-print-root` — the wrapper AccountingReportPrintLayout puts
- * on every analytical report.
+ * Scoped to `.stmt-root` — the wrapper every analytical report puts around
+ * its statement.
  */
-.acct-print-root {
+.stmt-root {
   --stmt-paper: #faf9f7;
   --stmt-paper-edge: #edeae4;
   --stmt-ink: #1a1a1a;
@@ -182,14 +182,6 @@
 
 /* ---- Screen-only visibility ---- */
 
-/*
- * Rows that are MOUNTED but hidden on screen (collapsed Form B cohorts).
- * They must stay in the DOM: print CSS cannot reveal an unmounted row.
- */
-.acct-screen-hidden {
-  display: none;
-}
-
 /* Accessible text that is visually hidden but still announced. Must live
    INSIDE a table cell — a bare element between cells is invalid table markup
    and browsers relocate it out of the table. */
@@ -203,64 +195,4 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-
-@media print {
-  /*
-   * Only COLOUR is remapped. Geometry and type are declared once above and
-   * shared by both surfaces — that is what keeps screen and paper from
-   * drifting (spec §3).
-   */
-  .acct-print-root {
-    --stmt-paper: #ffffff;
-    --stmt-ink: #000000;
-    --stmt-negative: #000000;
-    --stmt-accent: #000000;
-  }
-
-  .stmt-panel {
-    border: none;
-    padding: 0;
-  }
-
-  .stmt-link {
-    text-decoration: none;
-  }
-
-  /* Column heads repeat on every printed page of a long statement. */
-  .stmt-table thead {
-    display: table-header-group;
-  }
-
-  .stmt-row {
-    break-inside: avoid;
-  }
-
-  /*
-   * These REQUEST grouping; they do not guarantee it. A user agent may
-   * disregard an avoidance request when honouring it would leave content
-   * unplaceable (https://www.w3.org/TR/css-break-3/#unforced-breaks).
-   * The rendered-PDF gate verifies the outcome the browser actually produced.
-   */
-  .stmt-row--section {
-    break-after: avoid;
-  }
-
-  .stmt-row--subtotal,
-  .stmt-row--bottomLine {
-    break-before: avoid;
-  }
-
-  /* Expanded detail is a screen affordance: printing whatever the user
-     happened to expand would make two printouts of one period differ. */
-  .stmt-row--detail {
-    display: none !important;
-  }
-
-  /* The INVERSE, deliberately: Form B cohorts are the classification audit
-     trail and print unconditionally, including when collapsed on screen. */
-  .stmt-row--always,
-  .stmt-row--always.acct-screen-hidden {
-    display: table-row !important;
-  }
 }
