@@ -82,6 +82,117 @@ async function login(page: Page) {
 const plRowSelector = (accountId: string) => `[data-testid="pl-row-account:${accountId}"]`
 
 /**
+ * Wait for the Form B tax view to be FULLY LOADED before capturing.
+ *
+ * `pl-tax-view` is the view wrapper and renders before the query settles —
+ * the third instance of the same trap as `bs-print-block` and
+ * `pl-accounting-view`. A capture taken then yields a one-page PDF of section
+ * heads, which fails the multi-page assertion intermittently (observed ~1 run
+ * in 4 locally).
+ *
+ * The period line is the discriminator: ProfitAndLossPage renders
+ * `periodLabel(year, formVersion)` ONLY when `taxQuery.currentData` exists and
+ * otherwise falls back to `Year ${year}` (ProfitAndLossPage.tsx:166-169).
+ *
+ * Match "Year of Assessment", which BOTH periodLabel branches emit
+ * (formBRows.ts:69-73) — the "presented using Form B YA N" suffix appears only
+ * when the form version differs from the year, so matching it alone would hang
+ * whenever they agree.
+ */
+async function waitForFormBLoaded(page: Page) {
+  await page.waitForSelector('[data-testid="pl-tax-view"]', { timeout: 30000 })
+  await page.waitForSelector('.stmt-cell-figure-frac', { timeout: 30000 })
+  await expect(
+    page.locator('.acct-print-header'),
+    'the Form B period line must come from the payload (periodLabel), not the ' +
+      '`Year N` fallback that renders before the query settles',
+  ).toContainText(/Year of Assessment \d{4}/, { timeout: 30000 })
+}
+
+/**
+ * Wait for the Balance Sheet to be FULLY LOADED before capturing a PDF.
+ *
+ * `bs-print-block` is the outer wrapper and renders IMMEDIATELY, before the
+ * query settles — so waiting on it proves only that the route mounted. A
+ * capture taken then catches the pre-data state, and BalanceSheetPage renders
+ * `report?.asOfDate ?? `${year}-12-31`` (BalanceSheetPage.tsx:195), so that
+ * state carries a plausible-looking but WRONG period line.
+ *
+ * That is what turned the expansion-invariance test red in CI (run
+ * 34545301311): the collapsed capture produced a 1-line PDF dated 2026-12-31
+ * while the expanded capture had 92 lines dated 2026-09-11. Two captures of
+ * different load states, compared as if they differed only by expansion.
+ *
+ * Two conditions, because either alone is insufficient:
+ *   1. a real report ROW is present — proves rows rendered, not just the shell;
+ *   2. the period line shows the SERVER's as-of date — proves the data is this
+ *      year's report and not the fallback. The backend computes
+ *      `min(businessToday, yearEnd)` (balance-sheet.service.ts:43), so for the
+ *      current year the loaded value is TODAY and provably differs from the
+ *      `${year}-12-31` fallback.
+ */
+async function waitForBalanceSheetLoaded(page: Page, year: number) {
+  // A row that exists on every Balance Sheet regardless of fixture data.
+  await page.waitForSelector('[data-testid="bs-row-N41"]', { timeout: 30000 })
+
+  const expectedAsOf = expectedAsOfDate(year)
+  await expect(
+    page.locator('.acct-print-header'),
+    `Balance Sheet must render the server's as-of date (${expectedAsOf}); ` +
+      'a different date means the capture caught the pre-data fallback',
+  ).toContainText(`As at ${expectedAsOf}`, { timeout: 30000 })
+}
+
+/**
+ * Wait for the Profit & Loss to be FULLY LOADED before measuring or capturing.
+ *
+ * `pl-accounting-view` is the view wrapper and renders before the query
+ * settles — the same trap as the Balance Sheet's `bs-print-block`. Worse here,
+ * because `useFilterBar` revalidates the year against the response's
+ * `availableYears` and REWRITES the URL when the query has not settled: a
+ * capture taken too early can be a different YEAR's report.
+ *
+ * Observed in the font-fallback test, which blocks fonts.googleapis.com and so
+ * shifts load timing: the probe found 0 figure cells and `location.href` had
+ * lost its `?year=` parameter entirely.
+ *
+ * Two conditions:
+ *   1. a real figure cell exists — proves account rows rendered, not just the
+ *      section heads a pre-data render produces;
+ *   2. the print header reports the requested YEAR — proves the render is the
+ *      year we asked for, not one a revalidation reset us to.
+ *
+ * Deliberately NOT a check on the URL's `?year=` parameter. The page strips it
+ * when it equals the default, because a bare URL is the canonical form for the
+ * current year — so asserting the parameter survives fails on correct
+ * behaviour. The rendered period line is the year that was actually used.
+ */
+async function waitForProfitAndLossLoaded(page: Page, year: number) {
+  await page.waitForSelector('[data-testid="pl-accounting-view"]', { timeout: 30000 })
+  await page.waitForSelector('.stmt-cell-figure-frac', { timeout: 30000 })
+  await expect(
+    page.locator('.acct-print-header'),
+    `the P&L must render year ${year}; a different year means the filter ` +
+      'revalidated against an unsettled query',
+  ).toContainText(`Year ${year}`, { timeout: 30000 })
+}
+
+/**
+ * The as-of date the BACKEND will report for `year`: `min(businessToday,
+ * yearEnd)` (balance-sheet.service.ts:43). Computed here independently of the
+ * page, so the wait compares against an expectation rather than against
+ * whatever the page happens to show.
+ */
+function expectedAsOfDate(year: number): string {
+  const yearEnd = `${year}-12-31`
+  const now = new Date()
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+    now.getDate(),
+  ).padStart(2, '0')}`
+  return today < yearEnd ? today : yearEnd
+}
+
+/**
  * The exact SIGNED figure `formatCurrency` renders for a 4dp backend amount.
  *
  * formatCurrency passes the decimal string straight to
@@ -129,7 +240,7 @@ const spokenAmount = (fourDp: string): string => {
 test('Balance Sheet prints N38, N48 and all three balance-check lines', async ({ page }, testInfo) => {
   await login(page)
   await page.goto(`/accounting/balance-sheet?year=${descriptor.year}`)
-  await page.waitForSelector('[data-testid="bs-print-block"]', { timeout: 30000 })
+  await waitForBalanceSheetLoaded(page, descriptor.year)
 
   // ---- Anti-vacuity: EXACT SIGNED amounts, per row, BEFORE print work. ---
   // Explicitly declared expectations; never derived from the components'
@@ -284,7 +395,7 @@ test('Balance Sheet prints N38, N48 and all three balance-check lines', async ({
 test('Profit & Loss prints every fixture account across multiple pages', async ({ page }, testInfo) => {
   await login(page)
   await page.goto(`/accounting/profit-and-loss?year=${descriptor.year}`)
-  await page.waitForSelector('[data-testid="pl-accounting-view"]', { timeout: 30000 })
+  await waitForProfitAndLossLoaded(page, descriptor.year)
   // pl-accounting-view is the outer container: present during the loading
   // skeleton too, so it does NOT prove rows arrived (locator.count() does not
   // auto-wait and would race the load). Rows render in one pass from the
@@ -440,7 +551,7 @@ test('Profit & Loss prints every fixture account across multiple pages', async (
 test('drill-down detail is visible on screen and hidden in print', async ({ page }) => {
   await login(page)
   await page.goto(`/accounting/profit-and-loss?year=${descriptor.year}`)
-  await page.waitForSelector('[data-testid="pl-accounting-view"]', { timeout: 30000 })
+  await waitForProfitAndLossLoaded(page, descriptor.year)
 
   // P&L drill-down detail rows (.stmt-row--detail) exist only as children
   // of an expanded NON-POSTABLE group (profitAndLossRows.ts sets printDetail
@@ -491,7 +602,7 @@ test('drill-down detail is visible on screen and hidden in print', async ({ page
   // expander is fixture-guaranteed — no silent skip when it is absent.
   await page.emulateMedia({ media: 'screen' })
   await page.goto(`/accounting/balance-sheet?year=${descriptor.year}`)
-  await page.waitForSelector('[data-testid="bs-print-block"]', { timeout: 30000 })
+  await waitForBalanceSheetLoaded(page, descriptor.year)
   await expect(page.locator('[data-testid="bs-expand-N38"]'), 'N38 drill-down must exist').toBeVisible({
     timeout: 10000,
   })
@@ -723,7 +834,7 @@ test('Profit & Loss: A4, multi-page, complete, and every promised row stays grou
 }, testInfo) => {
   await login(page)
   await page.goto(`/accounting/profit-and-loss?year=${descriptor.year}`)
-  await page.waitForSelector('[data-testid="pl-accounting-view"]', { timeout: 30000 })
+  await waitForProfitAndLossLoaded(page, descriptor.year)
 
   const { doc, items } = await capturePdfAndText(page, testInfo, 'pl-pagination')
 
@@ -787,7 +898,7 @@ test('Balance Sheet: A4, multi-page, complete taxonomy, and every promised row s
 }, testInfo) => {
   await login(page)
   await page.goto(`/accounting/balance-sheet?year=${descriptor.year}`)
-  await page.waitForSelector('[data-testid="bs-print-block"]', { timeout: 30000 })
+  await waitForBalanceSheetLoaded(page, descriptor.year)
 
   const { doc, items } = await capturePdfAndText(page, testInfo, 'bs-pagination')
 
@@ -802,7 +913,7 @@ test('Form B: A4, multi-page, complete taxonomy, and every promised row stays gr
 }, testInfo) => {
   await login(page)
   await page.goto(`/accounting/profit-and-loss?year=${descriptor.year}&view=tax`)
-  await page.waitForSelector('[data-testid="pl-tax-view"]', { timeout: 30000 })
+  await waitForFormBLoaded(page)
 
   const { doc, items } = await capturePdfAndText(page, testInfo, 'formb-pagination')
 
@@ -904,7 +1015,7 @@ test('Profit & Loss: expanding detail does not change printed content', async ({
 }, testInfo) => {
   await login(page)
   await page.goto(`/accounting/profit-and-loss?year=${descriptor.year}`)
-  await page.waitForSelector('[data-testid="pl-accounting-view"]', { timeout: 30000 })
+  await waitForProfitAndLossLoaded(page, descriptor.year)
 
   const collapsed = await capturePdfAndText(page, testInfo, 'pl-collapsed')
   const collapsedText = collapsed.items.map((i) => i.text).join('\n')
@@ -941,9 +1052,29 @@ test('Balance Sheet: expanding account links does not change printed content', a
   page,
 }, testInfo) => {
   await login(page)
-  await page.goto(`/accounting/balance-sheet?year=${descriptor.year}`)
-  await page.waitForSelector('[data-testid="bs-print-block"]', { timeout: 30000 })
 
+  // INSTRUMENTATION: record every balance-sheet API response so a failure can
+  // be attributed to the payload rather than guessed at.
+  const apiLog: { when: string; url: string; status: number; asOfDate?: string }[] = []
+  page.on('response', async (res) => {
+    if (!res.url().includes('/api/accounting/balance-sheet')) return
+    let asOfDate: string | undefined
+    try {
+      const body = await res.json()
+      asOfDate = (body?.data ?? body)?.asOfDate
+    } catch {
+      /* non-JSON or already consumed */
+    }
+    apiLog.push({ when: new Date().toISOString(), url: res.url(), status: res.status(), asOfDate })
+  })
+
+  await page.goto(`/accounting/balance-sheet?year=${descriptor.year}`)
+  await waitForBalanceSheetLoaded(page, descriptor.year)
+
+  const periodAt = async () =>
+    (await page.locator('.acct-print-header').innerText().catch(() => '')).replace(/\s+/g, ' ').trim()
+
+  const collapsedPeriod = await periodAt()
   const collapsed = await capturePdfAndText(page, testInfo, 'bs-collapsed')
   const collapsedText = collapsed.items.map((i) => i.text).join('\n')
 
@@ -959,8 +1090,33 @@ test('Balance Sheet: expanding account links does not change printed content', a
     'expanding must reveal an account group on screen',
   ).toBeVisible({ timeout: 10000 })
 
+  const expandedPeriod = await periodAt()
   const expanded = await capturePdfAndText(page, testInfo, 'bs-expanded')
   const expandedText = expanded.items.map((i) => i.text).join('\n')
+
+  if (expandedText !== collapsedText) {
+    const collapsedLines = collapsedText.split('\n')
+    const expandedLines = expandedText.split('\n')
+    const onlyExpanded = expandedLines.filter((l) => !collapsedLines.includes(l))
+    const onlyCollapsed = collapsedLines.filter((l) => !expandedLines.includes(l))
+    await testInfo.attach('bs-expansion-diagnosis.json', {
+      body: JSON.stringify(
+        {
+          collapsedPeriod,
+          expandedPeriod,
+          collapsedLineCount: collapsedLines.length,
+          expandedLineCount: expandedLines.length,
+          onlyInExpanded: onlyExpanded.slice(0, 40),
+          onlyInCollapsed: onlyCollapsed.slice(0, 40),
+          apiLog,
+          toggleCount: count,
+        },
+        null,
+        2,
+      ),
+      contentType: 'application/json',
+    })
+  }
 
   // Separate mechanism from the P&L (data-print-hide → printDetail), so the
   // P&L's assertion does not cover this.
@@ -969,12 +1125,64 @@ test('Balance Sheet: expanding account links does not change printed content', a
   )
 })
 
+test('Balance Sheet capture waits for data even when the API is slow', async ({
+  page,
+}, testInfo) => {
+  /*
+   * REGRESSION GUARD for the CI failure in run 34545301311.
+   *
+   * The bug was a race: `bs-print-block` renders before the query settles, so a
+   * capture taken on that signal caught the pre-data fallback. It reproduced
+   * only on the slower CI runner, which makes it exactly the kind of defect
+   * that returns silently.
+   *
+   * This test DELAYS the Balance Sheet response deliberately, so the race is
+   * guaranteed rather than incidental. Against the old wrapper-only wait the
+   * first capture lands on the fallback state and the expansion comparison
+   * fails; against `waitForBalanceSheetLoaded` it cannot.
+   */
+  await page.route('**/api/accounting/balance-sheet**', async (route) => {
+    // Long enough that a wrapper-only wait certainly captures too early, short
+    // enough to stay inside the 30s selector timeouts.
+    await new Promise((resolve) => setTimeout(resolve, 3000))
+    await route.continue()
+  })
+
+  await login(page)
+  await page.goto(`/accounting/balance-sheet?year=${descriptor.year}`)
+
+  // The wrapper is present almost immediately — this is the signal the old
+  // code trusted, and it proves nothing about the data.
+  await page.waitForSelector('[data-testid="bs-print-block"]', { timeout: 30000 })
+
+  // The correct wait blocks until rows AND the server's as-of date are present.
+  await waitForBalanceSheetLoaded(page, descriptor.year)
+
+  const { items } = await capturePdfAndText(page, testInfo, 'bs-delayed')
+  const text = items.map((i) => i.text).join('\n')
+
+  // The capture carries the real report, not the fallback shell.
+  expect(
+    text,
+    'a capture taken after the proper wait must carry the loaded report',
+  ).toContain('TOTAL ASSETS')
+  expect(
+    text,
+    "the capture must show the server's as-of date, not the ${year}-12-31 fallback",
+  ).toContain(`As at ${expectedAsOfDate(descriptor.year)}`)
+  // More than a shell: the full taxonomy rendered.
+  expect(
+    items.length,
+    'a loaded Balance Sheet must produce substantially more than a shell',
+  ).toBeGreaterThan(50)
+})
+
 test('Form B: screen-hidden cohorts still print exactly once each', async ({
   page,
 }, testInfo) => {
   await login(page)
   await page.goto(`/accounting/profit-and-loss?year=${descriptor.year}&view=tax`)
-  await page.waitForSelector('[data-testid="pl-tax-view"]', { timeout: 30000 })
+  await waitForFormBLoaded(page)
 
   /*
    * Expected cohorts come from the FIXTURE, not from the page: reading a token
@@ -1029,7 +1237,7 @@ test('figures stay aligned and unclipped when web fonts fail', async ({ page }) 
 
   await login(page)
   await page.goto(`/accounting/profit-and-loss?year=${descriptor.year}`)
-  await page.waitForSelector('[data-testid="pl-accounting-view"]', { timeout: 30000 })
+  await waitForProfitAndLossLoaded(page, descriptor.year)
 
   // Measure RENDERED TEXT bounds, not cell edges: equal cell right edges prove
   // the cell box and stay equal even when glyphs overflow or digit widths
@@ -1066,7 +1274,7 @@ test('figures stay aligned and unclipped when web fonts fail', async ({ page }) 
 test('a long account name wraps and still resolves as one row', async ({ page }, testInfo) => {
   await login(page)
   await page.goto(`/accounting/profit-and-loss?year=${descriptor.year}`)
-  await page.waitForSelector('[data-testid="pl-accounting-view"]', { timeout: 30000 })
+  await waitForProfitAndLossLoaded(page, descriptor.year)
 
   const { items } = await capturePdfAndText(page, testInfo, 'pl-wrapping')
 
