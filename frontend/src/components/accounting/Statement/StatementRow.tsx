@@ -52,11 +52,11 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
       </td>
       {/*
         A section head has no figures. Span the figure columns so the table's
-        column count stays uniform — a short row would otherwise collapse the
-        shared decimal anchor.
+        column count stays uniform — a short row would otherwise break the
+        shared column grid.
       */}
       {row.figures.length === 0 ? (
-        <td colSpan={figureCount * 2} />
+        <td colSpan={figureCount} />
       ) : (
         row.figures.map((amount, i) => (
           <StatementFigure

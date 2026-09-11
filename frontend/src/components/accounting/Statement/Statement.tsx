@@ -22,8 +22,7 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
             <th className="stmt-col-head stmt-col-head--label" scope="col" />
             <th className="stmt-col-head stmt-col-head--label" scope="col" />
             {figureHeads.map((head) => (
-              // One head spans the integer and fractional cells of its column.
-              <th key={head} className="stmt-col-head" scope="col" colSpan={2}>
+              <th key={head} className="stmt-col-head" scope="col">
                 {head}
               </th>
             ))}

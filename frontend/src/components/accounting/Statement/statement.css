@@ -56,13 +56,11 @@
 }
 
 /*
- * The figure occupies TWO cells so the decimal separator lands on a shared
- * table-column boundary (spec §4.5.2). The separator travels with the
- * fractional cell, which is left-aligned against that boundary; nothing to its
- * right can displace it.
+ * One right-aligned figure cell. Decimal alignment holds because every figure
+ * has two decimals, renders at the same font size, and uses tabular digits;
+ * `.stmt-paren-spacer` covers the remaining closing-paren offset (spec §4.1).
  */
-.stmt-cell-figure-int {
-  font-family: var(--stmt-figure-font);
+.stmt-cell-figure {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
   text-align: right;
@@ -71,23 +69,21 @@
   vertical-align: baseline;
 }
 
-.stmt-cell-figure-frac {
-  font-family: var(--stmt-figure-font);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum';
-  text-align: left;
-  /*
-   * Sized to content, NOT a fixed width. A `ch`-based custom property would
-   * not work: an unregistered custom property substitutes as a token and
-   * re-resolves against the CONSUMING element's font-size, so the larger
-   * bottom-line row would widen the column. Content sizing sidesteps that.
-   * The anchor is this column's LEFT edge, which is shared across rows however
-   * the column is sized.
-   */
-  width: max-content;
-  white-space: nowrap;
-  padding: 3px 0;
-  vertical-align: baseline;
+/*
+ * Reserves the width of one closing parenthesis on positive figures.
+ *
+ * The glyph is GENERATED CONTENT, never a DOM text node: textContent walks the
+ * whole descendant tree, and neither aria-hidden nor visibility:hidden keeps a
+ * real ')' out of it — which would corrupt row-level text assertions in the
+ * page suites. Generated content is rendered, not DOM, so it reserves width
+ * and stays out of textContent entirely.
+ *
+ * It inherits the cell's typography, so the reserved width is the same glyph in
+ * the same font as a real parenthesis and cannot drift from it.
+ */
+.stmt-paren-spacer::after {
+  content: ')';
+  visibility: hidden;
 }
 
 /* ---- Row kinds (hierarchy by rule weight, not bold-everything) ---- */
@@ -109,10 +105,9 @@
   color: var(--stmt-ink-muted);
 }
 
-/* Hairline above the FIGURE cells only — an accounting convention that keeps
+/* Hairline above the FIGURE cell only — an accounting convention that keeps
    the eye in the numbers column. */
-.stmt-row--subtotal .stmt-cell-figure-int,
-.stmt-row--subtotal .stmt-cell-figure-frac {
+.stmt-row--subtotal .stmt-cell-figure {
   border-top: 1px solid var(--stmt-rule);
 }
 
@@ -130,9 +125,12 @@
   font-size: 1rem;
 }
 
-.stmt-row--bottomLine .stmt-cell-figure-int,
-.stmt-row--bottomLine .stmt-cell-figure-frac {
-  font-size: 1.125rem;
+/*
+ * Bottom line is distinguished by WEIGHT and the double rule, never by font
+ * size: a larger figure would place its decimal separator at a different x
+ * position from every other row (spec §4.1).
+ */
+.stmt-row--bottomLine .stmt-cell-figure {
   font-weight: 500;
   border-top: 3px double var(--stmt-rule-strong);
 }

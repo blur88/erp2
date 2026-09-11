@@ -42,47 +42,42 @@ interface StatementFigureProps {
   /**
    * Optional testid for a SINGLE node carrying the complete formatted amount.
    *
-   * Exists because existing suites (and the print gate's `assertExactAmount`,
-   * which requires exactly one matching element and reads its whole text)
-   * address an amount as one hook — `bs-amount`. The split into two cells must
-   * not take that away. Applied to the visually-hidden complete value, which
-   * is the node whose text IS the full signed figure.
+   * Applied to the visually-hidden complete value — the node whose text IS the
+   * full signed figure. BalanceSheetPage.test.tsx:251 reads its textContent and
+   * :481 asserts exactly one per row.
    */
   amountHook?: string
 }
 
 /**
- * One amount rendered as TWO table cells.
+ * One amount rendered as ONE right-aligned table cell.
  *
- * Returns a fragment of two <td>s — place it directly inside a <tr>, never
- * inside a single <td>.
+ * Returns a single <td> — place it directly inside a <tr>.
  *
- * Accessibility (spec §4.5.3): the split is a VISUAL device. Both visual
- * spans are aria-hidden and a single visually-hidden element carries the
- * complete value with a lexical sign. That element lives inside the integer
- * cell so the amount keeps its column-header association — text clipped out
- * of the table's cell structure would lose the row/column relationship the
- * table exists to provide.
+ * Decimal alignment (spec §4.1) comes from three things together: every figure
+ * carries exactly two decimals (formatCurrency pins min/maxFractionDigits: 2),
+ * every figure renders at the SAME font size (a larger bottom line would shift
+ * its decimal), and `tabular-nums` fixes digit advance. The remaining offset is
+ * the closing paren on negatives, which `.stmt-paren-spacer` reserves on
+ * positives.
+ *
+ * Accessibility (spec §4.3): the visible figure is aria-hidden and a single
+ * visually-hidden element carries the complete value with a lexical sign. That
+ * element lives INSIDE this cell so the amount keeps its column-header
+ * association — text clipped out of the table's cell structure would lose the
+ * row/column relationship the table exists to provide.
  */
 export function StatementFigure({ amount, testId, amountHook }: StatementFigureProps) {
   if (amount === null) {
     // null means UNKNOWN, not zero. Rendering '0.00' would assert a figure the
     // backend explicitly declined to compute.
     return (
-      <>
-        <td className="stmt-cell-figure-int" data-testid={testId ? `${testId}-int` : undefined}>
-          <span className="stmt-a11y-only" data-testid={amountHook}>
-            not available
-          </span>
-        </td>
-        <td
-          className="stmt-cell-figure-frac"
-          aria-hidden="true"
-          data-testid={testId ? `${testId}-frac` : undefined}
-        >
-          —
-        </td>
-      </>
+      <td className="stmt-cell-figure" data-testid={testId}>
+        <span className="stmt-a11y-only" data-testid={amountHook}>
+          not available
+        </span>
+        <span aria-hidden="true">—</span>
+      </td>
     )
   }
 
@@ -91,23 +86,22 @@ export function StatementFigure({ amount, testId, amountHook }: StatementFigureP
   const spoken = negative ? `negative ${formatted.replace(/^-/, '')}` : formatted
 
   return (
-    <>
-      <td
-        className={`stmt-cell-figure-int${negative ? ' stmt-figure-negative' : ''}`}
-        data-testid={testId ? `${testId}-int` : undefined}
-      >
-        <span className="stmt-a11y-only" data-testid={amountHook}>
-          {spoken}
-        </span>
-        <span aria-hidden="true">{int}</span>
-      </td>
-      <td
-        className={`stmt-cell-figure-frac${negative ? ' stmt-figure-negative' : ''}`}
-        aria-hidden="true"
-        data-testid={testId ? `${testId}-frac` : undefined}
-      >
-        {frac}
-      </td>
-    </>
+    <td
+      className={`stmt-cell-figure${negative ? ' stmt-figure-negative' : ''}`}
+      data-testid={testId}
+    >
+      <span className="stmt-a11y-only" data-testid={amountHook}>
+        {spoken}
+      </span>
+      <span aria-hidden="true">{`${int}${frac}`}</span>
+      {/*
+        Reserves one closing-paren width so a positive figure's decimal
+        separator lands where a parenthesised negative's does. The glyph comes
+        from CSS generated content, NOT a text node: textContent walks the whole
+        subtree, so a real ')' here would corrupt every row-level
+        toHaveTextContent assertion (spec §4.2).
+      */}
+      {!negative && <span className="stmt-paren-spacer" aria-hidden="true" />}
+    </td>
   )
 }

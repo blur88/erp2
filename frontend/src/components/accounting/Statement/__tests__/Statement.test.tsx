@@ -58,7 +58,7 @@ describe('Statement structure', () => {
   it('renders a section head with no figure cells', () => {
     renderStatement([row({ id: 's', kind: 'section', label: 'Revenue', figures: [] })])
     expect(screen.getByTestId('row-s')).toHaveTextContent('Revenue')
-    expect(screen.queryByTestId('row-s-fig0-frac')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('row-s-fig0')).not.toBeInTheDocument()
   })
 
   it('supports two figure columns without a second code path', () => {
@@ -66,8 +66,28 @@ describe('Statement structure', () => {
       [row({ id: 'a', figures: ['10.0000', '20.0000'] })],
       ['Debit', 'Credit'],
     )
-    expect(screen.getByTestId('row-a-fig0-int')).toHaveTextContent('10')
-    expect(screen.getByTestId('row-a-fig1-int')).toHaveTextContent('20')
+    expect(screen.getByTestId('row-a-fig0')).toHaveTextContent('10.00')
+    expect(screen.getByTestId('row-a-fig1')).toHaveTextContent('20.00')
+  })
+
+  it('gives every row the same column count', () => {
+    // A short row would break the shared column grid the statement depends on.
+    const { container } = renderStatement(
+      [
+        row({ id: 's', kind: 'section', label: 'Revenue', figures: [] }),
+        row({ id: 'a', figures: ['10.0000', '20.0000'] }),
+      ],
+      ['Debit', 'Credit'],
+    )
+    const span = (tr: Element) =>
+      [...tr.querySelectorAll('td, th')].reduce(
+        (n, cell) => n + (Number(cell.getAttribute('colSpan') ?? cell.getAttribute('colspan')) || 1),
+        0,
+      )
+    const rows = [...container.querySelectorAll('tbody tr')]
+    expect(span(rows[0])).toBe(span(rows[1]))
+    // 2 label columns + 2 figure columns.
+    expect(span(rows[1])).toBe(4)
   })
 })
 
