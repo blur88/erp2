@@ -34,7 +34,7 @@
       "@/assets/*": ["./src/assets/*"]
     }
   },
-  "include": ["src", "e2e/**/*.ts", "playwright.config.ts"],
+  "include": ["src"],
   "exclude": [
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
