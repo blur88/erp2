@@ -236,7 +236,7 @@ describe('FormBTaxView', () => {
   it('renders every derived line as a total row', () => {
     const built = buildFormBTableRows(fullResponse())
     const totals = built.filter((r) => r.kind === 'total').map((r) => r.line)
-    expect(totals).toEqual(['N7', 'N8', 'N14', 'N25', 'N26'])
+    expect(totals).toEqual(['', 'N7', 'N8', 'N14', 'N25', 'N26'])
   })
 
   it('renders no formula captions', () => {

@@ -17,6 +17,10 @@ export function buildProfitAndLossRows(
   toggle: (rowId: string) => void,
 ): StatementRow[] {
   const out: StatementRow[] = []
+  const amountFigures = (amount: string, isCalculatedTotal = false) =>
+    isCalculatedTotal
+      ? { figures: [null, amount], blankFigures: [true, false] }
+      : { figures: [amount, null], blankFigures: [false, true] }
 
   for (const section of data.sections) {
     const isCogs = section.key === 'cogs'
@@ -50,7 +54,7 @@ export function buildProfitAndLossRows(
             depth,
             code: node.code,
             label: node.name,
-            figures: [node.amount],
+            ...amountFigures(node.amount),
             testId: `pl-row-${node.rowId}`,
             isZero,
             href: node.accountId ? buildHref(node.accountId) : undefined,
@@ -65,7 +69,7 @@ export function buildProfitAndLossRows(
           depth,
           code: node.code,
           label: node.name,
-          figures: [node.amount],
+          ...amountFigures(node.amount),
           testId: `pl-row-${node.rowId}`,
           isZero,
           expand: { expanded: isExpanded, onToggle: () => toggle(node.rowId) },
@@ -82,7 +86,7 @@ export function buildProfitAndLossRows(
         kind: 'line',
         depth: 0,
         label: 'Inventory Adjustments',
-        figures: [data.inventoryAdjustments],
+        ...amountFigures(data.inventoryAdjustments),
         testId: `pl-row-${data.inventoryAdjustmentsRowId}`,
         isZero: isZeroAmount(data.inventoryAdjustments),
       })
@@ -93,7 +97,7 @@ export function buildProfitAndLossRows(
       kind: 'subtotal',
       depth: 0,
       label: section.totalLabel,
-      figures: [totalAmount],
+      ...amountFigures(totalAmount),
       testId: `pl-row-${totalRowId}`,
       amountHook: 'pl-amount',
       isZero: isZeroAmount(totalAmount),
@@ -106,7 +110,7 @@ export function buildProfitAndLossRows(
         kind: 'subtotal',
         depth: 0,
         label: 'Gross Profit',
-        figures: [data.grossProfit],
+        ...amountFigures(data.grossProfit, true),
         testId: 'pl-row-grossProfit',
         isZero: isZeroAmount(data.grossProfit),
       })
@@ -118,7 +122,7 @@ export function buildProfitAndLossRows(
     kind: 'bottomLine',
     depth: 0,
     label: 'Net Profit',
-    figures: [data.netProfit],
+    ...amountFigures(data.netProfit, true),
     testId: 'pl-row-netProfit',
     // Single-node amount hook, for consistency with the Balance Sheet rows.
     // No suite asserts it on a rendered P&L row; StatementFigure's tests

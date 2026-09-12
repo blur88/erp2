@@ -102,7 +102,14 @@ describe('buildProfitAndLossRows', () => {
   it('uses totalCostOfSales for the cogs total, not section.total', () => {
     const rows = buildProfitAndLossRows(RESPONSE, new Set(), href, vi.fn())
     const total = rows.find((r) => r.testId === 'pl-row-cogs.total')
-    expect(total?.figures).toEqual(['62000.0000'])
+    expect(total?.figures).toEqual(['62000.0000', null])
+  })
+
+  it('places calculated gross profit in the total column', () => {
+    const rows = buildProfitAndLossRows(RESPONSE, new Set(), href, vi.fn())
+    const grossProfit = rows.find((r) => r.testId === 'pl-row-grossProfit')
+    expect(grossProfit?.figures).toEqual([null, RESPONSE.grossProfit])
+    expect(grossProfit?.blankFigures).toEqual([true, false])
   })
 
   it('places Inventory Adjustments before the cogs total', () => {

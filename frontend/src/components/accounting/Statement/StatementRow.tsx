@@ -71,7 +71,6 @@ const SECTION_TOTAL_LABELS = new Set([
   'TOTAL OTHER INCOME',
   'GROSS PROFIT',
   'NET PROFIT',
-  'SALES / TURNOVER',
   'GROSS PROFIT / LOSS',
   'TOTAL EXPENSES',
   'NET PROFIT / LOSS',
@@ -158,8 +157,8 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
             key={i}
             amount={amount}
             testId={`${row.testId}-fig${i}`}
-            // First figure column only: a single hook must match one element.
-            amountHook={i === 0 ? row.amountHook : undefined}
+            amountHook={!row.blankFigures?.[i] ? row.amountHook : undefined}
+            blank={row.blankFigures?.[i]}
             emphasized={emphasized}
           />
         ))

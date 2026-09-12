@@ -118,6 +118,23 @@ export function buildFormBTableRows(data: FormBResponse): FormBTableRow[] {
       expandable: false,
       expanded: false,
     })
+
+    if (row.line === 'N3') {
+      out.push({
+        id: 'N3-total-revenue',
+        kind: 'total',
+        line: '',
+        code: '',
+        label: 'Total Revenue',
+        amount: formatFormBAmount(row.amount),
+        rawAmount: row.amount,
+        formula: null,
+        depth: 0,
+        testId: 'formb-line-total-revenue',
+        expandable: false,
+        expanded: false,
+      })
+    }
   }
 
   return out

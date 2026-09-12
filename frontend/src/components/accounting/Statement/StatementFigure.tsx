@@ -108,6 +108,7 @@ interface StatementFigureProps {
    * :481 asserts exactly one per row.
    */
   amountHook?: string
+  blank?: boolean
   emphasized?: boolean
 }
 
@@ -130,7 +131,16 @@ interface StatementFigureProps {
  * association — text clipped out of the table's cell structure would lose the
  * row/column relationship the table exists to provide.
  */
-export function StatementFigure({ amount, testId, amountHook, emphasized }: StatementFigureProps) {
+export function StatementFigure({ amount, testId, amountHook, blank, emphasized }: StatementFigureProps) {
+  if (blank) {
+    return (
+      <TableCell
+        sx={{ ...FIGURE_CELL_SX, ...(emphasized ? { fontWeight: 700 } : {}) }}
+        data-testid={testId}
+      />
+    )
+  }
+
   if (amount === null) {
     // null means UNKNOWN, not zero. Rendering '0.00' would assert a figure the
     // backend explicitly declined to compute.

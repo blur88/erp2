@@ -34,6 +34,15 @@ const DERIVED_TOTALS_ANCHOR_LINE = 'N49'
  * BalanceSheetResponse['derivedTotals'], so a renamed backend field is a type
  * error here rather than a silently missing row.
  */
+const BALANCE_SHEET_AMOUNT_TOTALS = new Set([
+  'TOTAL NON-CURRENT ASSETS',
+  'TOTAL CURRENT ASSETS',
+  'TOTAL LIABILITIES',
+  "TOTAL OWNER'S EQUITY",
+])
+
+const isAmountColumnTotal = (label: string) => BALANCE_SHEET_AMOUNT_TOTALS.has(label.toUpperCase())
+
 const DERIVED_TOTALS = [
   { testId: 'bs-derived-owners-equity', label: "TOTAL OWNER'S EQUITY", key: 'ownersEquity' },
   {
@@ -215,13 +224,15 @@ export default function BalanceSheetPage() {
 
       for (const row of group.rows) {
         const isExpanded = expanded.has(row.line)
+        const useAmountColumn = !row.isTotal || isAmountColumnTotal(row.label)
         out.push({
           id: row.line,
           kind: row.isTotal ? 'subtotal' : 'line',
           depth: 0,
           code: row.line,
           label: row.label,
-          figures: [row.amount],
+          figures: useAmountColumn ? [row.amount, null] : [null, row.amount],
+          blankFigures: useAmountColumn ? [false, true] : [true, false],
           testId: `bs-row-${row.line}`,
           // Single-node amount hook, read by the suite as one node.
           amountHook: 'bs-amount',
@@ -269,7 +280,10 @@ export default function BalanceSheetPage() {
               kind: 'subtotal',
               depth: 0,
               label: derived.label,
-              figures: [report.derivedTotals[derived.key]],
+              figures: isAmountColumnTotal(derived.label)
+                ? [report.derivedTotals[derived.key], null]
+                : [null, report.derivedTotals[derived.key]],
+              blankFigures: isAmountColumnTotal(derived.label) ? [false, true] : [true, false],
               testId: derived.testId,
               // Same single-node hook as the official rows.
               amountHook: 'bs-amount',
@@ -324,7 +338,7 @@ export default function BalanceSheetPage() {
       {/* Statement owns its own scroller (spec §3.1); `minHeight: 0` is what
           lets it shrink so that scroller engages. */}
       <Box sx={{ flex: 1, minHeight: 0 }}>
-        <Statement rows={statementRows} figureHeads={['Amount']} label="Balance Sheet statement" />
+        <Statement rows={statementRows} figureHeads={['Amount', 'Total']} label="Balance Sheet statement" />
       </Box>
 
       {report.findings.length > 0 && (

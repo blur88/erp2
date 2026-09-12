@@ -29,6 +29,9 @@ const STATEMENT_KIND: Record<FormBTableRow['kind'], StatementRow['kind']> = {
  * report shares one figure treatment: two decimals, parens for negatives,
  * em dash for unknown. The tax view has no on-screen drill-down, so no href.
  */
+const isAmountColumnTotal = (label: string) =>
+  ['Cost of Sales', 'Total Revenue', 'Total Other Income', 'Total Expenses'].includes(label)
+
 const toStatementRow = (row: FormBTableRow): StatementRow => ({
   id: row.testId,
   kind: STATEMENT_KIND[row.kind],
@@ -36,7 +39,18 @@ const toStatementRow = (row: FormBTableRow): StatementRow => ({
   code: row.code,
   label: row.label,
   // Section heads label a block; they carry no figure.
-  figures: row.kind === 'section' ? [] : [row.rawAmount],
+  figures:
+    row.kind === 'section'
+      ? []
+      : row.kind === 'total' && !isAmountColumnTotal(row.label)
+        ? [null, row.rawAmount]
+        : [row.rawAmount, null],
+  blankFigures:
+    row.kind === 'section'
+      ? undefined
+      : row.kind === 'total' && !isAmountColumnTotal(row.label)
+        ? [true, false]
+        : [false, true],
   testId: row.testId,
   isZero: row.rawAmount === '0.0000',
 })
@@ -234,7 +248,7 @@ function FormBTaxViewBody({ data }: FormBTaxViewBodyProps) {
       <Box sx={{ flex: 1, minHeight: 0, minWidth: 0 }}>
         <Statement
           rows={statementRows}
-          figureHeads={['Amount']}
+          figureHeads={['Amount', 'Total']}
           label="Form B tax statement"
         />
       </Box>

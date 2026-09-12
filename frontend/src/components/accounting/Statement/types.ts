@@ -29,6 +29,7 @@ export interface StatementRow {
    * assertExactAmount, which no longer exists.
    */
   amountHook?: string
+  blankFigures?: boolean[]
   /*
    * Testid for the expand control. Each report already has its OWN convention
    * that existing suites assert (`bs-expand-N37`, `formb-expand-N24`,
