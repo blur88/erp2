@@ -69,7 +69,7 @@ describe('StatementFigure', () => {
     renderFigure('142300.0000')
     // Scoped: the visible aria-hidden span carries the same text, so an
     // unscoped getByText matches two nodes (probe-verified).
-    expect(screen.getByText('142,300.00', { selector: '.stmt-a11y-only' })).toBeInTheDocument()
+    expect(screen.getByText('142,300.00', { selector: '[data-a11y="statement-value"]' })).toBeInTheDocument()
   })
 
   it('hides the visual figure from assistive technology', () => {
@@ -78,14 +78,14 @@ describe('StatementFigure', () => {
     // so an unscoped query would pass even if this span lost its aria-hidden.
     const visible = screen
       .getByTestId('fig')
-      .querySelector('span[aria-hidden="true"]:not(.stmt-paren-spacer)')
+      .querySelector('span[aria-hidden="true"]:not([data-role="paren-spacer"])')
     expect(visible).not.toBeNull()
     expect(visible).toHaveTextContent('142,300.00')
   })
 
   it('keeps the accessible value inside the figure cell', () => {
     renderFigure('142300.0000')
-    const a11y = screen.getByText('142,300.00', { selector: '.stmt-a11y-only' })
+    const a11y = screen.getByText('142,300.00', { selector: '[data-a11y="statement-value"]' })
     // Must be inside a <td> — a bare element between cells is invalid table
     // markup and browsers relocate it out of the table, losing the
     // row/column relationship. And it must be THE figure cell, so the amount
@@ -106,7 +106,7 @@ describe('StatementFigure', () => {
 
   it('marks a negative figure for the themed negative colour', () => {
     renderFigure('-840.0000')
-    expect(screen.getByTestId('fig')).toHaveClass('stmt-figure-negative')
+    expect(screen.getByTestId('fig')).toHaveStyle({ color: 'rgb(211, 47, 47)' })
   })
 
   it('exposes amountHook on exactly ONE node carrying the whole amount', () => {
@@ -156,7 +156,7 @@ describe('StatementFigure paren spacer', () => {
     // design, so assert the accessible span exactly and the absence of ')'
     // separately — not cell-text equality.
     expect(
-      screen.getByText('142,300.00', { selector: '.stmt-a11y-only' }).textContent,
+      screen.getByText('142,300.00', { selector: '[data-a11y="statement-value"]' }).textContent,
     ).toBe('142,300.00')
     expect(screen.getByTestId('fig').textContent).not.toContain(')')
   })
@@ -171,7 +171,7 @@ describe('StatementFigure paren spacer', () => {
 
   it('keeps the positive accessible value free of the placeholder', () => {
     renderFigure('142300.0000')
-    expect(screen.getByText('142,300.00', { selector: '.stmt-a11y-only' }).textContent).toBe(
+    expect(screen.getByText('142,300.00', { selector: '[data-a11y="statement-value"]' }).textContent).toBe(
       '142,300.00',
     )
   })
@@ -191,7 +191,7 @@ describe('StatementFigure paren spacer', () => {
 
   it('renders the spacer element on a positive figure only', () => {
     const { rerender } = renderFigure('142300.0000')
-    expect(screen.getByTestId('fig').querySelector('.stmt-paren-spacer')).not.toBeNull()
+    expect(screen.getByTestId('fig').querySelector('[data-role="paren-spacer"]')).not.toBeNull()
 
     // A negative already ends in ')', so it needs no reserved width.
     rerender(
@@ -203,17 +203,17 @@ describe('StatementFigure paren spacer', () => {
         </tbody>
       </table>,
     )
-    expect(screen.getByTestId('fig').querySelector('.stmt-paren-spacer')).toBeNull()
+    expect(screen.getByTestId('fig').querySelector('[data-role="paren-spacer"]')).toBeNull()
   })
 
   it('hides the spacer from assistive technology', () => {
     renderFigure('142300.0000')
-    const spacer = screen.getByTestId('fig').querySelector('.stmt-paren-spacer')
+    const spacer = screen.getByTestId('fig').querySelector('[data-role="paren-spacer"]')
     expect(spacer).toHaveAttribute('aria-hidden', 'true')
   })
 
   it('renders no spacer for a null amount', () => {
     renderFigure(null)
-    expect(screen.getByTestId('fig').querySelector('.stmt-paren-spacer')).toBeNull()
+    expect(screen.getByTestId('fig').querySelector('[data-role="paren-spacer"]')).toBeNull()
   })
 })

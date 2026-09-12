@@ -1,5 +1,6 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { Link as RouterLink } from 'react-router-dom'
+import MuiLink from '@mui/material/Link'
 import IconButton from '@mui/material/IconButton'
 import TableCell from '@mui/material/TableCell'
 import TableRow from '@mui/material/TableRow'
@@ -22,12 +23,8 @@ import type { StatementRow as Row } from './types'
  * / lineHeight 1.5 (theme.ts:183), which EntityTable overrides inline. Dropping
  * this sx would silently land the body back at the variant's values.
  *
- * NOTE the explicit `fontWeight: 400`. An element's own rule beats an inherited
- * one, so this flattens the weight that `.stmt-row--subtotal > *` and
- * `.stmt-row--bottomLine > *` set on the CELL. Statement.tsx restores it with
- * row-scoped selectors that reach this Typography directly — see the
- * "Row kinds" block there. Remove one without the other and subtotal/bottom-line
- * emphasis disappears while the cell still reports weight 500.
+ * The explicit `fontWeight: 400`, `fontSize: 0.8rem`, and `lineHeight: 1.2`
+ * match the generic SO/PO body treatment.
  */
 const BODY_TYPOGRAPHY_SX = {
   fontWeight: 400,
@@ -35,43 +32,52 @@ const BODY_TYPOGRAPHY_SX = {
   lineHeight: 1.2,
 } as const
 
+const CODE_CELL_SX = {
+  fontSize: '0.8rem',
+  padding: '3px 12px 3px 20px',
+  whiteSpace: 'nowrap',
+  verticalAlign: 'baseline',
+  textAlign: 'left',
+} as const
+
+const LABEL_CELL_SX = {
+  fontSize: '0.8rem',
+  padding: '3px 16px 3px 0',
+  verticalAlign: 'baseline',
+  textAlign: 'left',
+} as const
+
+const DRILLDOWN_LINK_SX = {
+  color: 'primary.main',
+  textDecoration: 'underline',
+  textDecorationStyle: 'dotted',
+  textUnderlineOffset: '2px',
+  '&:hover': { textDecorationStyle: 'solid' },
+  '&:focus-visible': { outline: '2px solid currentColor', outlineOffset: '2px' },
+} as const
+
 interface StatementRowProps {
   row: Row
   figureCount: number
 }
 
-/*
- * The kind class is the hook the row's presentation hangs on: Statement.tsx
- * carries the matching `sx` descendant selectors, and the page suites assert
- * these names directly (ProfitAndLossPage.test.tsx:135 reads `stmt-row--zero`).
- * Renaming one is a breaking change to those suites, not a refactor.
- */
-const rowClasses = (row: Row): string =>
-  [
-    'stmt-row',
-    `stmt-row--${row.kind}`,
-    row.isZero ? 'stmt-row--zero' : null,
-  ]
-    .filter(Boolean)
-    .join(' ')
-
 function StatementRowImpl({ row, figureCount }: StatementRowProps) {
   const label = row.href ? (
-    <Link className="stmt-link" to={row.href}>
+    <MuiLink component={RouterLink} sx={DRILLDOWN_LINK_SX} to={row.href}>
       {row.label}
-    </Link>
+    </MuiLink>
   ) : (
     row.label
   )
 
   return (
-    <TableRow className={rowClasses(row)} data-testid={row.testId}>
-      <TableCell className="stmt-cell-code">
+    <TableRow data-testid={row.testId}>
+      <TableCell sx={CODE_CELL_SX}>
         <Typography variant="body2" sx={BODY_TYPOGRAPHY_SX}>
           {row.code ?? ''}
         </Typography>
       </TableCell>
-      <TableCell className="stmt-cell-label" sx={{ paddingLeft: `${row.depth * 24}px` }}>
+      <TableCell sx={{ ...LABEL_CELL_SX, paddingLeft: `${row.depth * 24}px` }}>
         {/*
           The expand control stays OUTSIDE the Typography: it is a sibling of
           the text, not part of it. Wrapping it would put a button inside a
