@@ -56,6 +56,10 @@ const DRILLDOWN_LINK_SX = {
   '&:focus-visible': { outline: '2px solid currentColor', outlineOffset: '2px' },
 } as const
 
+const SECTION_PLACEHOLDER_CELL_SX = {
+  padding: 0,
+} as const
+
 const uppercaseSectionLabel = (label: string) => label.toUpperCase()
 
 interface StatementRowProps {
@@ -118,7 +122,7 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
         shared column grid.
       */}
       {row.figures.length === 0 ? (
-        <TableCell colSpan={figureCount} />
+        <TableCell colSpan={figureCount} sx={SECTION_PLACEHOLDER_CELL_SX} />
       ) : (
         row.figures.map((amount, i) => (
           <StatementFigure

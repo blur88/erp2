@@ -63,6 +63,7 @@ describe('Statement structure', () => {
     renderStatement([row({ id: 's', kind: 'section', label: 'Revenue', figures: [] })])
     expect(screen.getByTestId('row-s')).toHaveTextContent('REVENUE')
     expect(screen.queryByTestId('row-s-fig0')).not.toBeInTheDocument()
+    expect(screen.getByTestId('row-s').lastElementChild).toHaveStyle({ padding: '0px' })
   })
 
   it('renders section headings in uppercase', () => {
