@@ -242,15 +242,6 @@ export default function BalanceSheetPage() {
          * gets its own unique testid beneath it.
          */
         if (isExpanded && row.accounts.length > 0) {
-          out.push({
-            id: `${row.line}-accounts`,
-            kind: 'line',
-            depth: 1,
-            label: row.accounts.length === 1 ? 'Account' : 'Accounts',
-            figures: [],
-            // The one identifiable group hook for this line.
-            testId: `bs-accounts-${row.line}`,
-          })
           for (const account of row.accounts) {
             out.push({
               id: `${row.line}-${account.accountId}`,

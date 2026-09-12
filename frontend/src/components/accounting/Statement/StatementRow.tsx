@@ -122,7 +122,7 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
         */}
         {row.expand && (
           <IconButton
-            size="small"
+            sx={{ p: 0, width: 20, height: 20 }}
             data-testid={row.expandTestId ?? `stmt-expand-${row.id}`}
             aria-label={row.expand.expanded ? `Collapse ${row.label}` : `Expand ${row.label}`}
             onClick={row.expand.onToggle}

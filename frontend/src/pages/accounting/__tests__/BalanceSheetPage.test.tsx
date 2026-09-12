@@ -293,7 +293,7 @@ describe('BalanceSheetPage', () => {
   it('shows expanded ledger detail on screen', async () => {
     renderPage(responseWithContributors)
     await userEvent.click(screen.getByTestId('bs-expand-N37'))
-    expect(screen.getByTestId('bs-accounts-N37')).toBeInTheDocument()
+    expect(screen.getByTestId('bs-account-N37-acc-cash')).toBeInTheDocument()
   })
 })
 
@@ -481,7 +481,7 @@ describe('Balance Sheet statement structure', () => {
     expect(within(row).getAllByTestId('bs-amount')).toHaveLength(1)
   })
 
-  it('keeps bs-accounts-<line> unique when a line has MANY contributors', async () => {
+  it('renders each related account directly when a line has MANY contributors', async () => {
     // getByTestId throws on duplicates, so N contributors must not each carry
     // the group testid.
     const many = baseResponse({
@@ -501,9 +501,7 @@ describe('Balance Sheet statement structure', () => {
     renderPage(many)
     await userEvent.click(screen.getByTestId('bs-expand-N37'))
 
-    // One group hook...
-    expect(screen.getByTestId('bs-accounts-N37')).toBeInTheDocument()
-    // ...and one uniquely addressable row per contributor.
+    // Each contributor is rendered directly beneath the expanded line.
     expect(screen.getByTestId('bs-account-N37-acc-a')).toBeInTheDocument()
     expect(screen.getByTestId('bs-account-N37-acc-b')).toBeInTheDocument()
     expect(screen.getByTestId('bs-account-N37-acc-c')).toBeInTheDocument()
