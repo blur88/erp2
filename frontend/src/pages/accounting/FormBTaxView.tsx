@@ -234,7 +234,7 @@ function FormBTaxViewBody({ data }: FormBTaxViewBodyProps) {
       <Box sx={{ flex: 1, minHeight: 0, minWidth: 0 }}>
         <Statement
           rows={statementRows}
-          figureHeads={['RM']}
+          figureHeads={['Amount']}
           label="Form B tax statement"
         />
       </Box>
