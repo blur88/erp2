@@ -85,16 +85,26 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
         padding: '16px 20px',
 
         // ---- Cells ----
+        /*
+         * Code and label carry the SO/PO body contract on a child <Typography>
+         * (StatementRow.tsx), which is what sizes the rendered glyphs. The
+         * cell-level fontSize below is a FLOOR — it catches a cell that is ever
+         * given bare text again — so it matches the child's 0.8rem rather than
+         * the 0.8125/0.875rem Statement-only values it held before #1232.
+         *
+         * The code column is NO LONGER text.secondary. Muting it was defensible
+         * hierarchy, but #1232 requires colour parity with the SO/PO body, which
+         * inherits text.primary from the Paper.
+         */
         '& .stmt-cell-code': {
-          color: 'text.secondary',
-          fontSize: '0.8125rem',
+          fontSize: '0.8rem',
           padding: '3px 12px 3px 0',
           whiteSpace: 'nowrap',
           verticalAlign: 'baseline',
           textAlign: 'left',
         },
         '& .stmt-cell-label': {
-          fontSize: '0.875rem',
+          fontSize: '0.8rem',
           padding: '3px 16px 3px 0',
           verticalAlign: 'baseline',
           textAlign: 'left',
@@ -106,6 +116,15 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
          * closing-paren offset (spec §4.1).
          */
         '& .stmt-cell-figure': {
+          /*
+           * The figure cell takes the SO/PO body size directly rather than
+           * through a Typography wrapper: StatementFigure renders THREE
+           * children (the a11y value, the aria-hidden figure, the paren
+           * spacer), and the spacer's reserved width must be the same glyph in
+           * the same font as a real parenthesis. Sizing the cell keeps all
+           * three in one font by inheritance.
+           */
+          fontSize: '0.8rem',
           fontVariantNumeric: 'tabular-nums',
           fontFeatureSettings: "'tnum'",
           textAlign: 'right',
@@ -141,7 +160,28 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
           fontWeight: 500,
           paddingTop: '8px',
         },
-        '& .stmt-row--bottomLine .stmt-cell-label': { fontSize: '1rem' },
+        /*
+         * RESTORES the weight the body Typography would otherwise flatten.
+         *
+         * The `> *` rules above reach the CELL, but code and label now wrap
+         * their text in a <Typography> carrying an explicit `fontWeight: 400`,
+         * and an element's own rule beats an inherited one. Without these two
+         * selectors the cell still computes 500 while the rendered glyphs drop
+         * to 400 — a divergence no cell-level assertion can see.
+         *
+         * MEASURED: a row-scoped descendant selector wins, (0,2,0) against the
+         * child's own (0,1,0). Scoped deliberately to the code/label Typography
+         * so it cannot reach the figure cell's spans, the visually-hidden
+         * value, the paren spacer or the drill-down link.
+         *
+         * The bottom line's old `.stmt-cell-label` 1rem bump is GONE (#1232):
+         * weight and the double rule carry it, and a Statement-only size was
+         * exactly the drift this issue set out to remove.
+         */
+        '& .stmt-row--subtotal .stmt-cell-code .MuiTypography-root, & .stmt-row--subtotal .stmt-cell-label .MuiTypography-root':
+          { fontWeight: 500 },
+        '& .stmt-row--bottomLine .stmt-cell-code .MuiTypography-root, & .stmt-row--bottomLine .stmt-cell-label .MuiTypography-root':
+          { fontWeight: 500 },
         /*
          * Bottom line is distinguished by WEIGHT and the double rule, never by
          * font size: a larger figure would place its decimal separator at a
@@ -217,7 +257,14 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
                   in both themes.
                 */
                 backgroundColor: TABLE_STYLES.header.backgroundColor,
-                color: 'text.secondary',
+                /*
+                  No `color` here. SO/PO sets none on its head cell, so the
+                  header takes the normal MUI table-header colour (#1232). The
+                  rule this replaces was `color: 'text.secondary'`; since #1231
+                  the visible glyphs come from the child Typography either way,
+                  so what actually changes is the CELL's own colour — the
+                  fallback a bare-text head cell would inherit.
+                */
                 borderBottom: '1px solid',
                 borderBottomColor: 'divider',
                 padding: '8px 0',

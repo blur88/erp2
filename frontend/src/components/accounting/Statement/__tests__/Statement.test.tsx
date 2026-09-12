@@ -282,3 +282,167 @@ describe('Statement frame and header', () => {
     }
   })
 })
+
+/*
+ * #1232: the BODY half of the SO/PO parity work, after #1228 (cells) and #1231
+ * (header markup).
+ *
+ * The contract, taken from EntityTable.tsx:194-203, is a
+ * `<Typography variant="body2">` carrying weight 400 / 0.8rem / lineHeight 1.2.
+ * Matching that markup buys CONTRACT parity only — the two tables do not share a
+ * component, so these values are kept in step by hand and this suite is what
+ * notices when they drift.
+ *
+ * Every assertion below was confirmed RED against the pre-#1232 source, with
+ * these measured starting values: code cell rgb(189,189,189) @ 13px, label @
+ * 14px, figure @ 14px. jsdom 30 normalizes rem to px, so 0.8rem reads 12.8px.
+ *
+ * ONE THEME, deliberately — see the header parity test above for why a
+ * light-theme case is not expressible in this app.
+ */
+const renderThemed = (rows: StatementRow[], figureHeads = ['RM']) =>
+  render(
+    <MemoryRouter>
+      <ThemeProvider theme={darkTheme}>
+        <Statement rows={rows} figureHeads={figureHeads} label="Statement" />
+      </ThemeProvider>
+    </MemoryRouter>,
+  )
+
+describe('Statement body typography', () => {
+  it('renders code and description through a Typography, as EntityTable does', () => {
+    const { container } = renderThemed([row({ id: 'a', code: '4000' })])
+
+    for (const selector of ['.stmt-cell-code', '.stmt-cell-label']) {
+      const cell = container.querySelector(selector)!
+      const typography = cell.querySelector('.MuiTypography-root')
+      expect(typography).not.toBeNull()
+      expect(typography).toHaveTextContent(/\S/)
+      /*
+       * The text lives INSIDE the Typography, not beside it. This mirrors the
+       * head-cell equality check above; without it a wrapper could be added
+       * while stray text remained in the cell, and every substring assertion in
+       * the page suites would still pass.
+       */
+      expect(cell.textContent).toBe(typography!.textContent)
+    }
+  })
+
+  it('gives code and description the SO/PO body contract', () => {
+    const { container } = renderThemed([row({ id: 'a', code: '4000' })])
+
+    for (const selector of ['.stmt-cell-code', '.stmt-cell-label']) {
+      const typography = container.querySelector(`${selector} .MuiTypography-root`)!
+      expect(typography).toHaveStyle({
+        fontWeight: '400',
+        fontSize: '12.8px',
+        lineHeight: '1.2',
+      })
+    }
+  })
+
+  it('uses the SO/PO body colour on the code cell, not a muted one', () => {
+    /*
+     * The code column was text.secondary (rgb(189,189,189)) before #1232.
+     * Muting it was defensible accounting hierarchy, but the issue requires
+     * colour parity with the SO/PO body, which inherits text.primary.
+     */
+    const { container } = renderThemed([row({ id: 'a', code: '4000' })])
+
+    expect(container.querySelector('.stmt-cell-code')).toHaveStyle({
+      color: 'rgb(255, 255, 255)',
+    })
+  })
+
+  it('renders every figure at the shared body font size', () => {
+    /*
+     * Load-bearing for decimal alignment, not cosmetics: a figure at a
+     * different size places its decimal separator at a different x position
+     * from every other row. Asserted across a line, a subtotal and the bottom
+     * line together — the bottom line is the one that historically grew.
+     */
+    const { container } = renderThemed([
+      row({ id: 'a', code: '4000' }),
+      row({ id: 't', kind: 'subtotal', label: 'Total', figures: ['300.0000'], testId: 'row-t' }),
+      row({ id: 'n', kind: 'bottomLine', label: 'Net Profit', figures: ['900.0000'], testId: 'row-n' }),
+    ])
+
+    const figures = [...container.querySelectorAll('.stmt-cell-figure')]
+    expect(figures).toHaveLength(3)
+    for (const cell of figures) {
+      expect(cell).toHaveStyle({ fontSize: '12.8px' })
+    }
+  })
+
+  it('keeps subtotal and bottom-line emphasis despite the explicit body weight', () => {
+    /*
+     * THE REGRESSION THIS SUITE EXISTS FOR.
+     *
+     * The body contract puts an explicit `fontWeight: 400` on the child
+     * Typography. An element's own rule beats anything inherited, so the
+     * row-level `.stmt-row--subtotal > *` weight reaches the CELL and stops
+     * there — the rendered glyphs flatten to 400 while the cell still reports
+     * 500, which is invisible to a cell-level assertion.
+     *
+     * Measured: a row-scoped descendant selector wins (0,2,0 vs 0,1,0), so the
+     * fix restores weight on the Typography itself. Asserted on the code/label
+     * children specifically, since the overrides are scoped to those and must
+     * not reach unrelated descendants.
+     */
+    const { container } = renderThemed([
+      row({ id: 't', kind: 'subtotal', code: '4999', label: 'Total Revenue', figures: ['300.0000'], testId: 'row-t' }),
+      row({ id: 'n', kind: 'bottomLine', code: '9999', label: 'Net Profit', figures: ['900.0000'], testId: 'row-n' }),
+    ])
+
+    for (const rowClass of ['.stmt-row--subtotal', '.stmt-row--bottomLine']) {
+      for (const selector of ['.stmt-cell-code', '.stmt-cell-label']) {
+        const typography = container.querySelector(`${rowClass} ${selector} .MuiTypography-root`)!
+        expect(typography).not.toBeNull()
+        expect(typography).toHaveStyle({ fontWeight: '500' })
+      }
+    }
+  })
+
+  it('does not bump the bottom-line label above the body size', () => {
+    /*
+     * The bottom line is distinguished by WEIGHT and its double rule. The old
+     * 1rem label override was Statement-only drift; dropping it is #1232's
+     * "no separate Statement rules" requirement. The figure was never allowed
+     * to grow — see the shared-size test above.
+     */
+    const { container } = renderThemed([
+      row({ id: 'n', kind: 'bottomLine', label: 'Net Profit', figures: ['900.0000'], testId: 'row-n' }),
+    ])
+
+    const typography = container.querySelector(
+      '.stmt-row--bottomLine .stmt-cell-label .MuiTypography-root',
+    )!
+    expect(typography).toHaveStyle({ fontSize: '12.8px' })
+  })
+
+  it('keeps the section row muted and tracked, as deliberate accounting emphasis', () => {
+    /*
+     * Retained ON PURPOSE (#1232 scope: "do not flatten accounting semantics
+     * merely for visual uniformity"). A section head is a divider, not a data
+     * row, so it keeps text.secondary, weight 500 and wide tracking. Asserted
+     * so a future parity sweep has to change this test deliberately rather
+     * than flatten it by accident.
+     */
+    const { container } = renderThemed([
+      row({ id: 's', kind: 'section', label: 'REVENUE', figures: [], testId: 'row-s' }),
+    ])
+
+    /*
+     * NOTE ON UNITS: jsdom 30 normalizes em/rem to px, so the rule's 0.06em
+     * computes as 0.78px against the section row's 13px. Asserting '0.06em'
+     * here fails — and because toHaveStyle fails atomically, one wrong unit
+     * marks every other property in the same call as mismatched too. Read the
+     * computed value before concluding a rule did not apply.
+     */
+    expect(container.querySelector('.stmt-row--section .stmt-cell-label')).toHaveStyle({
+      color: 'rgb(189, 189, 189)',
+      fontWeight: '500',
+      letterSpacing: '0.78px',
+    })
+  })
+})
