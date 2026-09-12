@@ -392,7 +392,7 @@ describe('Statement body typography', () => {
       const typography = screen.getByTestId(`row-${id}`).querySelectorAll('.MuiTypography-root')[1]
       expect(typography).not.toBeNull()
       expect(typography).toHaveStyle({
-        fontWeight: id === 's' ? '700' : '400',
+        fontWeight: '700',
         fontSize: '12.8px',
         lineHeight: '1.2',
       })

@@ -60,7 +60,31 @@ const SECTION_PLACEHOLDER_CELL_SX = {
   padding: 0,
 } as const
 
-const uppercaseSectionLabel = (label: string) => label.toUpperCase()
+const isEmphasizedRow = (kind: Row['kind']) =>
+  kind === 'section' || kind === 'subtotal' || kind === 'bottomLine'
+
+const uppercaseEmphasizedLabel = (label: string) => label.toUpperCase()
+
+const SECTION_TOTAL_LABELS = new Set([
+  'TOTAL REVENUE',
+  'TOTAL COST OF SALES',
+  'TOTAL OTHER INCOME',
+  'GROSS PROFIT',
+  'NET PROFIT',
+  'SALES / TURNOVER',
+  'GROSS PROFIT / LOSS',
+  'TOTAL EXPENSES',
+  'NET PROFIT / LOSS',
+  'TOTAL NON-CURRENT ASSETS',
+  'TOTAL CURRENT ASSETS',
+  'TOTAL ASSETS',
+  'TOTAL LIABILITIES',
+  "TOTAL OWNER'S EQUITY",
+  "TOTAL LIABILITIES AND OWNER'S EQUITY",
+])
+
+const hasSectionTotalGap = (label: string, id: string) =>
+  id === 'N33' || SECTION_TOTAL_LABELS.has(label.toUpperCase())
 
 interface StatementRowProps {
   row: Row
@@ -68,7 +92,9 @@ interface StatementRowProps {
 }
 
 function StatementRowImpl({ row, figureCount }: StatementRowProps) {
-  const displayLabel = row.kind === 'section' ? uppercaseSectionLabel(row.label) : row.label
+  const emphasized = isEmphasizedRow(row.kind)
+  const hasExtraBottomSpace = hasSectionTotalGap(row.label, row.id)
+  const displayLabel = emphasized ? uppercaseEmphasizedLabel(row.label) : row.label
   const label = row.href ? (
     <MuiLink component={RouterLink} sx={DRILLDOWN_LINK_SX} to={row.href}>
       {displayLabel}
@@ -78,7 +104,10 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
   )
 
   return (
-    <TableRow data-testid={row.testId}>
+    <TableRow
+      data-testid={row.testId}
+      sx={hasExtraBottomSpace ? { '& > .MuiTableCell-root': { paddingBottom: '11px' } } : undefined}
+    >
       <TableCell sx={CODE_CELL_SX}>
         <Typography variant="body2" sx={BODY_TYPOGRAPHY_SX}>
           {row.code ?? ''}
@@ -110,7 +139,7 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
           component="span"
           sx={{
             ...BODY_TYPOGRAPHY_SX,
-            ...(row.kind === 'section' ? { fontWeight: 700 } : {}),
+            ...(emphasized ? { fontWeight: 700 } : {}),
           }}
         >
           {label}
@@ -131,6 +160,7 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
             testId={`${row.testId}-fig${i}`}
             // First figure column only: a single hook must match one element.
             amountHook={i === 0 ? row.amountHook : undefined}
+            emphasized={emphasized}
           />
         ))
       )}

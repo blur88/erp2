@@ -275,8 +275,8 @@ describe('ProfitAndLossPage', () => {
   it('captions the expenses total "Total Expenses", not "Total Operating Expenses"', () => {
     renderPage()
     const row = screen.getByTestId('pl-row-expenses.total')
-    expect(row).toHaveTextContent('Total Expenses')
-    expect(row).not.toHaveTextContent('Total Operating Expenses')
+    expect(row).toHaveTextContent('TOTAL EXPENSES')
+    expect(row).not.toHaveTextContent('TOTAL OPERATING EXPENSES')
   })
 
   it('offers every available year, newest first, and no empty choice', async () => {
