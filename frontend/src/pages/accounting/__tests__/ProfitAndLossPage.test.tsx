@@ -105,7 +105,7 @@ describe('ProfitAndLossPage', () => {
   it('renders every section in the specified order', () => {
     renderPage()
     const headings = screen.getAllByTestId(/^pl-section-/).map((el) => el.textContent)
-    expect(headings.join(' ')).toMatch(/Revenue.*Cost of Sales.*Other Income.*Operating Expenses/s)
+    expect(headings.join(' ')).toMatch(/REVENUE.*COST OF SALES.*OTHER INCOME.*OPERATING EXPENSES/s)
   })
 
   it('renders Gross Profit and Net Profit', () => {

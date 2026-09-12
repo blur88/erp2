@@ -61,10 +61,14 @@ describe('Statement structure', () => {
 
   it('renders a section head with no figure cells', () => {
     renderStatement([row({ id: 's', kind: 'section', label: 'Revenue', figures: [] })])
-    expect(screen.getByTestId('row-s')).toHaveTextContent('Revenue')
+    expect(screen.getByTestId('row-s')).toHaveTextContent('REVENUE')
     expect(screen.queryByTestId('row-s-fig0')).not.toBeInTheDocument()
   })
 
+  it('renders section headings in uppercase', () => {
+    renderStatement([row({ id: 's', kind: 'section', label: 'Revenue', figures: [] })])
+    expect(screen.getByTestId('row-s')).toHaveTextContent('REVENUE')
+  })
   it('supports two figure columns without a second code path', () => {
     renderStatement(
       [row({ id: 'a', figures: ['10.0000', '20.0000'] })],
@@ -376,7 +380,7 @@ describe('Statement body typography', () => {
     }
   })
 
-  it('uses the generic body typography for every row kind', () => {
+  it('uses the generic body typography and bold section headings', () => {
     const { container } = renderThemed([
       row({ id: 't', kind: 'subtotal', code: '4999', label: 'Total Revenue', figures: ['300.0000'], testId: 'row-t' }),
       row({ id: 'n', kind: 'bottomLine', code: '9999', label: 'Net Profit', figures: ['900.0000'], testId: 'row-n' }),
@@ -384,10 +388,10 @@ describe('Statement body typography', () => {
     ])
 
     for (const id of ['t', 'n', 's']) {
-      const typography = screen.getByTestId(`row-${id}`).querySelector('.MuiTypography-root')
+      const typography = screen.getByTestId(`row-${id}`).querySelectorAll('.MuiTypography-root')[1]
       expect(typography).not.toBeNull()
       expect(typography).toHaveStyle({
-        fontWeight: '400',
+        fontWeight: id === 's' ? '700' : '400',
         fontSize: '12.8px',
         lineHeight: '1.2',
       })

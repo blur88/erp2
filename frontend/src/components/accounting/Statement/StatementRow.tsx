@@ -56,18 +56,21 @@ const DRILLDOWN_LINK_SX = {
   '&:focus-visible': { outline: '2px solid currentColor', outlineOffset: '2px' },
 } as const
 
+const uppercaseSectionLabel = (label: string) => label.toUpperCase()
+
 interface StatementRowProps {
   row: Row
   figureCount: number
 }
 
 function StatementRowImpl({ row, figureCount }: StatementRowProps) {
+  const displayLabel = row.kind === 'section' ? uppercaseSectionLabel(row.label) : row.label
   const label = row.href ? (
     <MuiLink component={RouterLink} sx={DRILLDOWN_LINK_SX} to={row.href}>
-      {row.label}
+      {displayLabel}
     </MuiLink>
   ) : (
-    row.label
+    displayLabel
   )
 
   return (
@@ -98,7 +101,14 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
             )}
           </IconButton>
         )}
-        <Typography variant="body2" component="span" sx={BODY_TYPOGRAPHY_SX}>
+        <Typography
+          variant="body2"
+          component="span"
+          sx={{
+            ...BODY_TYPOGRAPHY_SX,
+            ...(row.kind === 'section' ? { fontWeight: 700 } : {}),
+          }}
+        >
           {label}
         </Typography>
       </TableCell>

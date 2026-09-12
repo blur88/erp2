@@ -289,10 +289,10 @@ describe('FormBTaxView', () => {
   it('renders a header above each section block', () => {
     renderTaxView(fullResponse())
     for (const [line, label] of [
-      ['N3', 'Sales / Revenue'],
-      ['N4', 'Cost of Sales'],
-      ['N9', 'Other Income'],
-      ['N15', 'Expenses'],
+      ['N3', 'SALES / REVENUE'],
+      ['N4', 'COST OF SALES'],
+      ['N9', 'OTHER INCOME'],
+      ['N15', 'EXPENSES'],
     ]) {
       expect(screen.getByTestId(`formb-section-${line}`)).toHaveTextContent(label)
     }
