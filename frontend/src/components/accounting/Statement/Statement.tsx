@@ -80,9 +80,9 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
         flexDirection: 'column',
         overflow: 'hidden',
         color: 'text.primary',
-        // Surface, radius and elevation come from Paper itself; only the inner
-        // padding is ours.
-        padding: '16px 20px',
+        // The header follows the edge-to-edge SO/PO table structure. Body
+        // insets are carried by the statement cells below.
+        padding: 0,
 
         // ---- Cells ----
         /*
@@ -98,7 +98,7 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
          */
         '& .stmt-cell-code': {
           fontSize: '0.8rem',
-          padding: '3px 12px 3px 0',
+          padding: '3px 12px 3px 20px',
           whiteSpace: 'nowrap',
           verticalAlign: 'baseline',
           textAlign: 'left',
@@ -128,7 +128,7 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
           fontVariantNumeric: 'tabular-nums',
           fontFeatureSettings: "'tnum'",
           textAlign: 'right',
-          padding: '3px 0',
+          padding: '3px 20px 3px 0',
           whiteSpace: 'nowrap',
           verticalAlign: 'baseline',
         },
@@ -248,6 +248,12 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
               // hairline and the bottom-line double rule instead, so body cells
               // stay unruled.
               '& .MuiTableCell-root': { border: 0 },
+              // Keep the full header strip filled when the table is narrower than
+              // its scroll container. The cells still need their own background
+              // because they are the sticky elements during body scrolling.
+              '& .MuiTableHead-root, & .MuiTableHead-root .MuiTableRow-root': {
+                backgroundColor: TABLE_STYLES.header.backgroundColor,
+              },
               '& .MuiTableHead-root .MuiTableCell-root': {
                 /*
                   The background must sit on the CELL, not the row: only the
@@ -265,9 +271,10 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
                   so what actually changes is the CELL's own colour — the
                   fallback a bare-text head cell would inherit.
                 */
-                borderBottom: '1px solid',
-                borderBottomColor: 'divider',
+                borderBottom: TABLE_STYLES.cell.border,
                 padding: '8px 0',
+                '&:first-of-type': { paddingLeft: '20px' },
+                '&:last-of-type': { paddingRight: '20px' },
                 zIndex: 2,
                 /*
                   MEASURED PARITY, not inherited parity (#1228, ST-10).
