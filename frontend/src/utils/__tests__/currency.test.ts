@@ -27,6 +27,12 @@ describe('formatCurrency', () => {
     expect(formatCurrency('1000.0000')).toBe('USD 1,000.00')
   })
 
+  it('respects the regional number format when grouping is disabled', () => {
+    localStorage.setItem('numberFormat', '1234.56')
+    expect(formatCurrency('5000.0000')).toBe('RM 5000.00')
+    expect(formatCurrency('5000.0000', { showSymbol: false })).toBe('5000.00')
+  })
+
   it('honors a currency override', () => {
     expect(formatCurrency('1000.0000', { currency: 'EUR' })).toBe('EUR 1,000.00')
   })
