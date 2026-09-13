@@ -67,12 +67,6 @@ describe('AccountingLookupService', () => {
     await expect(svc.resolveAccount('cash', mgr)).rejects.toThrow();
   });
 
-  it('resolves channel account', async () => {
-    const bank = acc('bank-id', AccountType.ASSET);
-    const svc = new AccountingLookupService({} as any, {} as any);
-    const mgr = fakeManager({ bankAccountId: 'bank-id' }, [bank]);
-    await expect(svc.resolveChannelAccount('BANK', mgr)).resolves.toBe(bank);
-  });
 });
 
 describe('resolvePaymentAccount', () => {

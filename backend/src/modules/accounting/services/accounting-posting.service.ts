@@ -104,7 +104,7 @@ export class AccountingPostingService implements AccountingPostingPort {
   }
 
   async postSalesPayment(cmd: PostSalesPaymentCmd, manager: EntityManager): Promise<PostResult> {
-    const channelAcc = await this.lookup.resolveChannelAccount(cmd.channel, manager);
+    const channelAcc = await this.lookup.resolvePaymentAccount(cmd.channel, cmd.paymentMethodId, manager);
     const customerDeposit = await this.lookup.resolveAccount('customerDeposit', manager);
     return this.build({
       sourceType: AccountingSourceType.SALES_ORDER, sourceDocumentId: cmd.salesOrderId, sourceEventId: cmd.paymentRowId,
@@ -115,7 +115,7 @@ export class AccountingPostingService implements AccountingPostingPort {
   }
 
   async postSalesRefund(cmd: PostSalesRefundCmd, manager: EntityManager): Promise<PostResult> {
-    const channelAcc = await this.lookup.resolveChannelAccount(cmd.channel, manager);
+    const channelAcc = await this.lookup.resolvePaymentAccount(cmd.channel, cmd.paymentMethodId, manager);
     const customerDeposit = await this.lookup.resolveAccount('customerDeposit', manager);
     return this.build({
       sourceType: AccountingSourceType.SALES_ORDER, sourceDocumentId: cmd.salesOrderId, sourceEventId: cmd.refundRowId,
@@ -158,7 +158,7 @@ export class AccountingPostingService implements AccountingPostingPort {
 
   async postPurchasePayment(cmd: PostPurchasePaymentCmd, manager: EntityManager): Promise<PostResult> {
     const supplierDeposit = await this.lookup.resolveAccount('supplierDeposit', manager);
-    const channelAcc = await this.lookup.resolveChannelAccount(cmd.channel, manager);
+    const channelAcc = await this.lookup.resolvePaymentAccount(cmd.channel, cmd.paymentMethodId, manager);
     return this.build({
       sourceType: AccountingSourceType.PURCHASE_ORDER, sourceDocumentId: cmd.purchaseOrderId, sourceEventId: cmd.paymentRowId,
       sourceRef: cmd.sourceRef, postingType: PostingType.PURCHASE_PAYMENT, description: 'Supplier payment',
@@ -169,7 +169,7 @@ export class AccountingPostingService implements AccountingPostingPort {
 
   async postPurchaseRefund(cmd: PostPurchaseRefundCmd, manager: EntityManager): Promise<PostResult> {
     const supplierDeposit = await this.lookup.resolveAccount('supplierDeposit', manager);
-    const channelAcc = await this.lookup.resolveChannelAccount(cmd.channel, manager);
+    const channelAcc = await this.lookup.resolvePaymentAccount(cmd.channel, cmd.paymentMethodId, manager);
     return this.build({
       sourceType: AccountingSourceType.PURCHASE_ORDER, sourceDocumentId: cmd.purchaseOrderId, sourceEventId: cmd.refundRowId,
       sourceRef: cmd.sourceRef, postingType: PostingType.PURCHASE_REFUND, description: 'Supplier refund',
@@ -230,7 +230,7 @@ export class AccountingPostingService implements AccountingPostingPort {
     if (existing) return existing;
     const expenseAcc = await manager.getRepository(ChartOfAccount).findOne({ where: { id: cmd.expenseAccountId } as any });
     if (!expenseAcc) throw new BadRequestException(`Expense account ${cmd.expenseAccountId} not found`);
-    const channelAcc = await this.lookup.resolveChannelAccount(cmd.channel, manager);
+    const channelAcc = await this.lookup.resolvePaymentAccount(cmd.channel, cmd.paymentMethodId, manager);
     return this.build({
       sourceType: AccountingSourceType.EXPENSE, sourceDocumentId: cmd.expenseId, sourceEventId: cmd.paymentRowId,
       sourceRef: cmd.sourceRef, postingType: PostingType.EXPENSE_PAYMENT, description: 'Expense payment',
@@ -244,7 +244,7 @@ export class AccountingPostingService implements AccountingPostingPort {
     if (existing) return existing;
     const expenseAcc = await manager.getRepository(ChartOfAccount).findOne({ where: { id: cmd.expenseAccountId } as any });
     if (!expenseAcc) throw new BadRequestException(`Expense account ${cmd.expenseAccountId} not found`);
-    const channelAcc = await this.lookup.resolveChannelAccount(cmd.channel, manager);
+    const channelAcc = await this.lookup.resolvePaymentAccount(cmd.channel, cmd.paymentMethodId, manager);
     return this.build({
       sourceType: AccountingSourceType.EXPENSE, sourceDocumentId: cmd.expenseId, sourceEventId: cmd.refundRowId,
       sourceRef: cmd.sourceRef, postingType: PostingType.EXPENSE_REFUND, description: 'Expense payment refund',
@@ -260,7 +260,7 @@ export class AccountingPostingService implements AccountingPostingPort {
       AccountingSourceType.OWNER_EQUITY, cmd.settlementRowId,
       PostingType.OWNER_CAPITAL_INJECTION, manager);
     if (existing) return existing;
-    const channelAcc = await this.lookup.resolveChannelAccount(cmd.channel, manager);
+    const channelAcc = await this.lookup.resolvePaymentAccount(cmd.channel, cmd.paymentMethodId, manager);
     const ownerCapital = await this.lookup.resolveAccount('ownerCapital', manager);
     return this.build({
       sourceType: AccountingSourceType.OWNER_EQUITY, sourceDocumentId: cmd.equityDocumentId,
@@ -276,7 +276,7 @@ export class AccountingPostingService implements AccountingPostingPort {
       AccountingSourceType.OWNER_EQUITY, cmd.settlementRowId,
       PostingType.OWNER_CAPITAL_INJECTION_REFUND, manager);
     if (existing) return existing;
-    const channelAcc = await this.lookup.resolveChannelAccount(cmd.channel, manager);
+    const channelAcc = await this.lookup.resolvePaymentAccount(cmd.channel, cmd.paymentMethodId, manager);
     const ownerCapital = await this.lookup.resolveAccount('ownerCapital', manager);
     return this.build({
       sourceType: AccountingSourceType.OWNER_EQUITY, sourceDocumentId: cmd.equityDocumentId,
@@ -292,7 +292,7 @@ export class AccountingPostingService implements AccountingPostingPort {
       AccountingSourceType.OWNER_EQUITY, cmd.settlementRowId,
       PostingType.OWNER_CASH_DRAWING, manager);
     if (existing) return existing;
-    const channelAcc = await this.lookup.resolveChannelAccount(cmd.channel, manager);
+    const channelAcc = await this.lookup.resolvePaymentAccount(cmd.channel, cmd.paymentMethodId, manager);
     const ownerDrawings = await this.lookup.resolveAccount('ownerDrawings', manager);
     return this.build({
       sourceType: AccountingSourceType.OWNER_EQUITY, sourceDocumentId: cmd.equityDocumentId,
@@ -308,7 +308,7 @@ export class AccountingPostingService implements AccountingPostingPort {
       AccountingSourceType.OWNER_EQUITY, cmd.settlementRowId,
       PostingType.OWNER_CASH_DRAWING_REFUND, manager);
     if (existing) return existing;
-    const channelAcc = await this.lookup.resolveChannelAccount(cmd.channel, manager);
+    const channelAcc = await this.lookup.resolvePaymentAccount(cmd.channel, cmd.paymentMethodId, manager);
     const ownerDrawings = await this.lookup.resolveAccount('ownerDrawings', manager);
     return this.build({
       sourceType: AccountingSourceType.OWNER_EQUITY, sourceDocumentId: cmd.equityDocumentId,

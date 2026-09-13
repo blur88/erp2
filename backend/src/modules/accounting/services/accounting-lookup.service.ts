@@ -40,10 +40,6 @@ export class AccountingLookupService {
     return account;
   }
 
-  resolveChannelAccount(channel: 'CASH' | 'BANK', manager: EntityManager): Promise<ChartOfAccount> {
-    return this.resolveAccount(channel === 'CASH' ? 'cash' : 'bank', manager);
-  }
-
   /**
    * Resolve the posting account for a payment (issue #1237).
    *

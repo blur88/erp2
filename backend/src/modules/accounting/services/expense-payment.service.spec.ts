@@ -214,12 +214,12 @@ describe('ExpensePaymentService', () => {
       expect(posting.postExpensePayment).toHaveBeenCalledTimes(2);
       expect(posting.postExpensePayment).toHaveBeenNthCalledWith(1, {
         expenseId: 'exp-1', paymentRowId: 'pay-1', expenseAccountId: 'acc-1',
-        channel: 'CASH', amount: '1000.0000', sourceRef: 'EXP-26-001',
+        channel: 'CASH', paymentMethodId: 'pm-1', amount: '1000.0000', sourceRef: 'EXP-26-001',
         entryDate: '2026-07-20', createdBy: 'admin',
       }, txManager);
       expect(posting.postExpensePayment).toHaveBeenNthCalledWith(2, {
         expenseId: 'exp-1', paymentRowId: 'pay-2', expenseAccountId: 'acc-1',
-        channel: 'BANK', amount: '500.0000', sourceRef: 'EXP-26-001',
+        channel: 'BANK', paymentMethodId: 'pm-2', amount: '500.0000', sourceRef: 'EXP-26-001',
         entryDate: '2026-07-21', createdBy: 'admin',
       }, txManager);
 
@@ -500,7 +500,7 @@ describe('ExpensePaymentService', () => {
       expect(posting.postExpenseRefund).toHaveBeenCalledTimes(1);
       expect(posting.postExpenseRefund).toHaveBeenCalledWith({
         expenseId: 'exp-1', refundRowId: 'pay-1', expenseAccountId: 'acc-1',
-        channel: 'CASH', amount: '300.0000', sourceRef: 'EXP-26-001',
+        channel: 'CASH', paymentMethodId: 'pm-1', amount: '300.0000', sourceRef: 'EXP-26-001',
         entryDate: '2026-07-25', createdBy: 'admin',
       }, txManager);
 
