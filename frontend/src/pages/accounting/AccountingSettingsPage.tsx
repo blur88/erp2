@@ -18,6 +18,8 @@ import {
   useGetAccountingSettingsQuery,
   useUpdateAccountingSettingsMutation,
   useBulkUpdateFormBMappingsMutation,
+  useGetPaymentMethodMappingsQuery,
+  useBulkUpdatePaymentMethodMappingsMutation,
   accountingApi,
 } from '@/store/api/accountingApi'
 import type { AccountingSettings } from '@/types'
@@ -27,6 +29,8 @@ import DefaultAccountsSection from './DefaultAccountsSection'
 import type { FormValues } from './DefaultAccountsSection'
 import FormBMappingSection from './FormBMappingSection'
 import { useFormBMappingDraft } from './useFormBMappingDraft'
+import PaymentMethodMappingSection from './PaymentMethodMappingSection'
+import { usePaymentMethodMappingDraft } from './usePaymentMethodMappingDraft'
 import SettingsActionBar from './SettingsActionBar'
 
 const schema = yup.object({
@@ -83,15 +87,25 @@ export default function AccountingSettingsPage() {
 
   const draft = useFormBMappingDraft()
   const [bulkUpdateMappings] = useBulkUpdateFormBMappingsMutation()
+
+  const {
+    data: paymentMethodMappings,
+    isLoading: paymentMappingsLoading,
+    error: paymentMappingsError,
+  } = useGetPaymentMethodMappingsQuery()
+  const pmDraft = usePaymentMethodMappingDraft()
+  const [bulkUpdatePaymentMethodMappings] = useBulkUpdatePaymentMethodMappingsMutation()
   const [isSaving, setIsSaving] = useState(false)
   const [mappingSaveError, setMappingSaveError] = useState<string | null>(null)
   const dispatch = useAppDispatch()
 
   const accounts = accountsResponse?.data ?? []
-  const loading = settingsLoading || accountsLoading
+  const loading = settingsLoading || accountsLoading || paymentMappingsLoading
   // The accounts query fills every dropdown, so its failure is just as fatal as
   // the settings one — without it the selects render with no options at all.
-  const loadError = settingsError ?? accountsError
+  // The payment mappings query feeds its own section, and a failed load there
+  // must not render as "No payment methods found".
+  const loadError = settingsError ?? accountsError ?? paymentMappingsError
   // axiosBaseQuery returns { status, data } with the message in `data`, so read
   // that first; `.message` only covers a raw Error escaping the base query.
   const error = loadError
@@ -120,7 +134,7 @@ export default function AccountingSettingsPage() {
     },
   })
 
-  const isDirty = isFormDirty || draft.isDirty
+  const isDirty = isFormDirty || draft.isDirty || pmDraft.isDirty
   const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSaving)
 
   useEffect(() => {
@@ -194,6 +208,26 @@ export default function AccountingSettingsPage() {
     draft.reset()
   }
 
+  const savePaymentMethodMappings = async () => {
+    const rows = await bulkUpdatePaymentMethodMappings({ mappings: pmDraft.payload })
+      .unwrap()
+      .catch((err: any) => {
+        throw new Error(
+          errorMessage(err, 'Unable to save the payment method mappings. Please try again.'),
+        )
+      })
+    /*
+     * Same ordering as saveMappings: the authoritative response goes into the
+     * cache BEFORE the draft clears. Tag invalidation refetches asynchronously,
+     * so clearing first leaves a window where an empty overlay sits over stale
+     * rows — and a failed refetch would leave it stale indefinitely.
+     */
+    ;(dispatch as any)(
+      accountingApi.util.updateQueryData('getPaymentMethodMappings', undefined, () => rows),
+    )
+    pmDraft.reset()
+  }
+
   const handleSave = async () => {
     setIsSaving(true)
     setMappingSaveError(null)
@@ -217,6 +251,15 @@ export default function AccountingSettingsPage() {
      */
     const jobs: { name: string; run: () => Promise<void> }[] = []
     if (draft.isDirty) jobs.push({ name: 'Form B mappings', run: saveMappings })
+    /*
+     * Payment method mappings validate only against their own method and
+     * account, never against the COGS/Sales roots the settings guard inspects,
+     * so they are independent of the Form B-before-settings ordering. Guarded
+     * on isDirty because the DTO rejects an empty mappings array.
+     */
+    if (pmDraft.isDirty) {
+      jobs.push({ name: 'Payment method mappings', run: savePaymentMethodMappings })
+    }
     if (isFormDirty) jobs.push({ name: 'Default Accounts', run: saveDefaultAccounts })
 
     const results: PromiseSettledResult<void>[] = []
@@ -266,6 +309,7 @@ export default function AccountingSettingsPage() {
   const handleCancel = () => {
     reset()
     draft.reset()
+    pmDraft.reset()
     setMappingSaveError(null)
   }
 
@@ -313,10 +357,11 @@ export default function AccountingSettingsPage() {
       >
         <Stack spacing={3}>
           {/*
-            Two named groups. Default Accounts drives automatic posting; Form B
-            mapping drives a statutory report and nothing else. Keeping them
-            visually separate stops a mapping being read as ordinary posting
-            configuration.
+            Three named groups. Default Accounts sets the channel fallbacks and
+            drives automatic posting; Payment Method Mapping overrides those
+            fallbacks per method; Form B mapping drives a statutory report and
+            nothing else. Keeping them visually separate stops a mapping being
+            read as ordinary posting configuration.
           */}
           {loading ? (
             <ListSkeleton rows={8} columns={2} />
@@ -328,6 +373,15 @@ export default function AccountingSettingsPage() {
             <Alert severity="info" sx={{ mt: 2 }}>
               Account mappings are read-only. Only an administrator can change them.
             </Alert>
+          )}
+
+          {!loading && !error && (
+            <PaymentMethodMappingSection
+              rows={paymentMethodMappings ?? []}
+              accounts={accounts}
+              draft={pmDraft}
+              disabled={!isAdmin || isSaving}
+            />
           )}
 
           <FormBMappingSection isAdmin={isAdmin} disabled={isSaving} draft={draft} saveError={mappingSaveError} />

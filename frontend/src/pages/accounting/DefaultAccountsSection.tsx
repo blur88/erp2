@@ -28,11 +28,22 @@ export interface SectionField {
   name: keyof FormValues
   label: string
   accountType: AccountType
+  /** User-facing note rendered under the field, unless a validation error wins. */
+  help?: string
 }
 
+/*
+ * The FALLBACK accounts.
+ *
+ * Each payment method posts into the account mapped to it in Payment Method
+ * Mapping below. These two are what the posting path falls back to when a
+ * method has no mapping — cash methods to the Cash Account, bank methods to
+ * the Bank Account. A method's explicit mapping always wins; these are not the
+ * only accounts payments can post into.
+ */
 export const PAYMENT_FIELDS: SectionField[] = [
-  { name: 'cashAccountId', label: 'Cash Account', accountType: 'Asset' },
-  { name: 'bankAccountId', label: 'Bank Account', accountType: 'Asset' },
+  { name: 'cashAccountId', label: 'Cash Account', accountType: 'Asset', help: 'Fallback when a payment method has no mapping.' },
+  { name: 'bankAccountId', label: 'Bank Account', accountType: 'Asset', help: 'Fallback when a payment method has no mapping.' },
 ]
 
 export const SALES_FIELDS: SectionField[] = [
@@ -215,7 +226,7 @@ export default function DefaultAccountsSection({
                 fullWidth
                 disabled={disabled}
                 error={!!errors[row.name]}
-                helperText={errors[row.name]?.message || ''}
+                helperText={errors[row.name]?.message || row.help || ''}
                 slotProps={{ htmlInput: { 'aria-label': row.label }, select: { 'aria-label': row.label } } as any}
               >
                 <MenuItem value="">

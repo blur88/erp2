@@ -16,6 +16,7 @@ const {
   mockBulkUpdate,
   formBRows,
   mockFormBMappings,
+  mockBulkUpdatePaymentMappings,
   mockShowSuccess,
   mockShowError,
   mockDispatch,
@@ -23,6 +24,7 @@ const {
   mockGetAccountingSettingsQuery,
   mockGetAccountsQuery,
   mockGetFormBMappingsQuery,
+  mockGetPaymentMethodMappingsQuery,
 } = vi.hoisted(() => {
   const mockShowSuccess = vi.fn()
   const mockShowError = vi.fn()
@@ -30,9 +32,11 @@ const {
   const mockUpdateQueryData = vi.fn()
   const mockUpdateSettings = vi.fn(() => ({ unwrap: () => Promise.resolve(undefined) }))
   const mockBulkUpdate = vi.fn(() => ({ unwrap: () => Promise.resolve([] as any[]) }))
+  const mockBulkUpdatePaymentMappings = vi.fn(() => ({ unwrap: () => Promise.resolve([] as any[]) }))
   const mockGetAccountingSettingsQuery = vi.fn()
   const mockGetAccountsQuery = vi.fn()
   const mockGetFormBMappingsQuery = vi.fn()
+  const mockGetPaymentMethodMappingsQuery = vi.fn()
   const mockAccounts = {
     data: [
       { id: 'cash-1', code: '1100', name: 'Cash on Hand', type: 'Asset' as const, parentId: null, description: null, isActive: true, createdBy: null, isSystem: false, isPostable: true, openingBalance: '0.0000', createdAt: '', updatedAt: '' },
@@ -73,6 +77,7 @@ const {
   mockGetAccountingSettingsQuery.mockReturnValue({ data: mockSettings, isLoading: false, error: undefined })
   mockGetAccountsQuery.mockReturnValue({ data: mockAccounts, isLoading: false, error: undefined })
   mockGetFormBMappingsQuery.mockReturnValue({ data: mockFormBMappings, isLoading: false, isError: false })
+  mockGetPaymentMethodMappingsQuery.mockReturnValue({ data: [], isLoading: false, isError: false, error: undefined })
   return {
     mockAccounts,
     mockSettings,
@@ -80,6 +85,7 @@ const {
     mockBulkUpdate,
     formBRows,
     mockFormBMappings,
+    mockBulkUpdatePaymentMappings,
     mockShowSuccess,
     mockShowError,
     mockDispatch,
@@ -87,6 +93,7 @@ const {
     mockGetAccountingSettingsQuery,
     mockGetAccountsQuery,
     mockGetFormBMappingsQuery,
+    mockGetPaymentMethodMappingsQuery,
   }
 })
 
@@ -94,9 +101,11 @@ vi.mock('@/store/api/accountingApi', () => ({
   useGetAccountingSettingsQuery: mockGetAccountingSettingsQuery,
   useGetAccountsQuery: mockGetAccountsQuery,
   useGetFormBMappingsQuery: mockGetFormBMappingsQuery,
+  useGetPaymentMethodMappingsQuery: mockGetPaymentMethodMappingsQuery,
   useUpdateAccountingSettingsMutation: vi.fn().mockReturnValue([mockUpdateSettings, { isLoading: false }]),
   useUpdateFormBMappingMutation: vi.fn().mockReturnValue([vi.fn(() => ({ unwrap: () => Promise.resolve(undefined) })), { isLoading: false }]),
   useBulkUpdateFormBMappingsMutation: vi.fn().mockReturnValue([mockBulkUpdate, { isLoading: false }]),
+  useBulkUpdatePaymentMethodMappingsMutation: vi.fn().mockReturnValue([mockBulkUpdatePaymentMappings, { isLoading: false }]),
   accountingApi: { util: { updateQueryData: mockUpdateQueryData } },
 }))
 
@@ -168,6 +177,7 @@ beforeEach(() => {
   // reset default mocks
   mockGetAccountingSettingsQuery.mockReturnValue({ data: mockSettings, isLoading: false, error: undefined } as any)
   mockGetFormBMappingsQuery.mockReturnValue({ data: mockFormBMappings, isLoading: false, isError: false } as any)
+  mockGetPaymentMethodMappingsQuery.mockReturnValue({ data: [], isLoading: false, isError: false, error: undefined } as any)
   mockGetAccountsQuery.mockReturnValue({ data: mockAccounts, isLoading: false, error: undefined } as any)
   // default bulk resolves to empty array (no change)
   mockBulkUpdate.mockReturnValue({ unwrap: () => Promise.resolve([] as any[]) } as any)
