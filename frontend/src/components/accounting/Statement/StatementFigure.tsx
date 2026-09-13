@@ -109,6 +109,7 @@ interface StatementFigureProps {
    */
   amountHook?: string
   blank?: boolean
+  topBorder?: boolean
   emphasized?: boolean
 }
 
@@ -131,11 +132,15 @@ interface StatementFigureProps {
  * association — text clipped out of the table's cell structure would lose the
  * row/column relationship the table exists to provide.
  */
-export function StatementFigure({ amount, testId, amountHook, blank, emphasized }: StatementFigureProps) {
+export function StatementFigure({ amount, testId, amountHook, blank, topBorder, emphasized }: StatementFigureProps) {
   if (blank) {
     return (
       <TableCell
-        sx={{ ...FIGURE_CELL_SX, ...(emphasized ? { fontWeight: 700 } : {}) }}
+        sx={{
+          ...FIGURE_CELL_SX,
+          ...(topBorder ? { boxShadow: 'inset 0 1px 0 0 currentColor' } : {}),
+          ...(emphasized ? { fontWeight: 700 } : {}),
+        }}
         data-testid={testId}
       />
     )
@@ -145,7 +150,14 @@ export function StatementFigure({ amount, testId, amountHook, blank, emphasized 
     // null means UNKNOWN, not zero. Rendering '0.00' would assert a figure the
     // backend explicitly declined to compute.
     return (
-      <TableCell sx={{ ...FIGURE_CELL_SX, ...(emphasized ? { fontWeight: 700 } : {}) }} data-testid={testId}>
+      <TableCell
+        sx={{
+          ...FIGURE_CELL_SX,
+          ...(topBorder ? { boxShadow: 'inset 0 1px 0 0 currentColor' } : {}),
+          ...(emphasized ? { fontWeight: 700 } : {}),
+        }}
+        data-testid={testId}
+      >
         <Box component="span" data-a11y="statement-value" sx={a11yOnlySx} data-testid={amountHook}>
           not available
         </Box>
@@ -162,6 +174,7 @@ export function StatementFigure({ amount, testId, amountHook, blank, emphasized 
     <TableCell
       sx={{
         ...FIGURE_CELL_SX,
+        ...(topBorder ? { boxShadow: 'inset 0 1px 0 0 currentColor' } : {}),
         ...(emphasized ? { fontWeight: 700 } : {}),
         ...(negative ? { color: 'error.main' } : {}),
       }}

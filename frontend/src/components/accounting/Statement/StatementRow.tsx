@@ -159,6 +159,7 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
             testId={`${row.testId}-fig${i}`}
             amountHook={!row.blankFigures?.[i] ? row.amountHook : undefined}
             blank={row.blankFigures?.[i]}
+            topBorder={row.topBorderFigures?.[i]}
             emphasized={emphasized}
           />
         ))

@@ -233,6 +233,7 @@ export default function BalanceSheetPage() {
           label: row.label,
           figures: useAmountColumn ? [row.amount, null] : [null, row.amount],
           blankFigures: useAmountColumn ? [false, true] : [true, false],
+          topBorderFigures: row.isTotal ? (useAmountColumn ? [true, false] : [false, true]) : [false, false],
           testId: `bs-row-${row.line}`,
           // Single-node amount hook, read by the suite as one node.
           amountHook: 'bs-amount',
@@ -284,6 +285,7 @@ export default function BalanceSheetPage() {
                 ? [report.derivedTotals[derived.key], null]
                 : [null, report.derivedTotals[derived.key]],
               blankFigures: isAmountColumnTotal(derived.label) ? [false, true] : [true, false],
+              topBorderFigures: isAmountColumnTotal(derived.label) ? [true, false] : [false, true],
               testId: derived.testId,
               // Same single-node hook as the official rows.
               amountHook: 'bs-amount',

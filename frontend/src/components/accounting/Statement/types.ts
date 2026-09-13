@@ -30,6 +30,7 @@ export interface StatementRow {
    */
   amountHook?: string
   blankFigures?: boolean[]
+  topBorderFigures?: boolean[]
   /*
    * Testid for the expand control. Each report already has its OWN convention
    * that existing suites assert (`bs-expand-N37`, `formb-expand-N24`,

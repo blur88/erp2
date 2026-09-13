@@ -51,6 +51,14 @@ const toStatementRow = (row: FormBTableRow): StatementRow => ({
       : row.kind === 'total' && !isAmountColumnTotal(row.label)
         ? [true, false]
         : [false, true],
+  topBorderFigures:
+    row.kind === 'section'
+      ? undefined
+      : row.kind === 'total'
+        ? isAmountColumnTotal(row.label)
+          ? [true, false]
+          : [false, true]
+        : [false, false],
   testId: row.testId,
   isZero: row.rawAmount === '0.0000',
 })
