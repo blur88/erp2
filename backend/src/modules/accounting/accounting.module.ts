@@ -7,6 +7,7 @@ import { JournalEntryLine } from './entities/journal-entry-line.entity';
 import { Expense } from './entities/expense.entity';
 import { ExpensePayment } from './entities/expense-payment.entity';
 import { PaymentMethodAccountMapping } from './entities/payment-method-account-mapping.entity';
+import { PaymentMethodEntity } from '../../database/entities/payment-method.entity';
 import { SettingsModule } from '../settings/settings.module';
 import { AccountingLookupService } from './services/accounting-lookup.service';
 import { AccountingPostingService } from './services/accounting-posting.service';
@@ -29,21 +30,24 @@ import { BalanceSheetController } from './controllers/balance-sheet.controller';
 import { ExpenseController } from './controllers/expense.controller';
 import { FormBController } from './controllers/form-b.controller';
 import { FormBMappingController } from './controllers/form-b-mapping.controller';
+import { PaymentMethodMappingController } from './controllers/payment-method-mapping.controller';
 import { ExpenseService } from './services/expense.service';
 import { ExpensePaymentService } from './services/expense-payment.service';
 import { FormBService } from './services/form-b.service';
 import { FormBMappingService } from './services/form-b-mapping.service';
+import { PaymentMethodMappingService } from './services/payment-method-mapping.service';
 import { ACCOUNTING_POSTING_PORT } from '../../common/accounting-posting/accounting-posting.port';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ChartOfAccount, AccountingSettings, JournalEntry, JournalEntryLine, Expense, ExpensePayment, PaymentMethodAccountMapping]),
+    TypeOrmModule.forFeature([ChartOfAccount, AccountingSettings, JournalEntry, JournalEntryLine, Expense, ExpensePayment, PaymentMethodAccountMapping, PaymentMethodEntity]),
     SettingsModule,
   ],
   controllers: [
     ChartOfAccountController, AccountingSettingsController, JournalEntryController,
     GeneralLedgerController, TrialBalanceController, ProfitAndLossController, BalanceSheetController, ExpenseController,
     FormBController, FormBMappingController,
+    PaymentMethodMappingController,
   ],
   providers: [
     AccountingLookupService, AccountingPostingService, AccountBalanceService,
@@ -51,6 +55,7 @@ import { ACCOUNTING_POSTING_PORT } from '../../common/accounting-posting/account
     GeneralLedgerService, TrialBalanceService, ProfitAndLossService, BalanceSheetService, AccountingSeederService,
     ExpenseService, ExpensePaymentService,
     FormBService, FormBMappingService,
+    PaymentMethodMappingService,
     { provide: ACCOUNTING_POSTING_PORT, useExisting: AccountingPostingService },
   ],
   exports: [ACCOUNTING_POSTING_PORT, AccountingLookupService],
