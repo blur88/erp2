@@ -17,5 +17,7 @@
  * files are unaffected and still report unused exports normally.
  */
 export { Statement } from './Statement'
+export { statementFigureHeads } from './figureHeads'
+export { runQaPreflight, QA_REQUIRED_HOOKS } from './qaPreflight'
 export { StatementFigure, splitFormattedAmount } from './StatementFigure'
 export type { StatementRow, StatementRowKind, StatementProps } from './types'

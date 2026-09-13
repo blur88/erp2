@@ -105,7 +105,7 @@ describe('ProfitAndLossPage', () => {
   it('renders every section in the specified order', () => {
     renderPage()
     const headings = screen.getAllByTestId(/^pl-section-/).map((el) => el.textContent)
-    expect(headings.join(' ')).toMatch(/Revenue.*Cost of Sales.*Other Income.*Operating Expenses/s)
+    expect(headings.join(' ')).toMatch(/REVENUE.*COST OF SALES.*OTHER INCOME.*OPERATING EXPENSES/s)
   })
 
   it('renders Gross Profit and Net Profit', () => {
@@ -126,18 +126,16 @@ describe('ProfitAndLossPage', () => {
     expect(screen.getByTestId('pl-row-cogs.total')).not.toHaveTextContent('63,000.00')
   })
 
-  it('marks zero rows as muted without hiding them', () => {
+  it('renders zero rows without a custom row class', () => {
     renderPage()
     const row = screen.getByTestId('pl-row-otherIncome.total')
     expect(row).toBeInTheDocument()
-    // The muted treatment is now the stmt-row--zero class (spec §4.3), which
-    // jsdom CAN observe, unlike Emotion sx.
-    expect(row).toHaveClass('stmt-row--zero')
+    expect(row).not.toHaveClass(/stmt-row/)
   })
 
-  it('does not mark non-zero rows as muted', () => {
+  it('does not add a custom row class to non-zero rows', () => {
     renderPage()
-    expect(screen.getByTestId('pl-row-revenue.total')).not.toHaveClass('stmt-row--zero')
+    expect(screen.getByTestId('pl-row-revenue.total')).not.toHaveClass(/stmt-row/)
   })
 
   it('drills through to the General Ledger for the selected year', () => {
@@ -277,8 +275,8 @@ describe('ProfitAndLossPage', () => {
   it('captions the expenses total "Total Expenses", not "Total Operating Expenses"', () => {
     renderPage()
     const row = screen.getByTestId('pl-row-expenses.total')
-    expect(row).toHaveTextContent('Total Expenses')
-    expect(row).not.toHaveTextContent('Total Operating Expenses')
+    expect(row).toHaveTextContent('TOTAL EXPENSES')
+    expect(row).not.toHaveTextContent('TOTAL OPERATING EXPENSES')
   })
 
   it('offers every available year, newest first, and no empty choice', async () => {
@@ -383,10 +381,10 @@ describe('ProfitAndLossPage', () => {
 
   it('renders the statement as a table with a head and rows', () => {
     const { container } = renderPage()
-    expect(container.querySelector('table.stmt-table thead')).not.toBeNull()
-    expect(container.querySelector('tr.stmt-row')).not.toBeNull()
+    expect(container.querySelector('table thead')).not.toBeNull()
+    expect(container.querySelector('tbody tr')).not.toBeNull()
     // Statement owns its scroller now, which is what makes the head sticky.
-    expect(container.querySelector('.stmt-scroller table.stmt-table')).not.toBeNull()
+    expect(container.querySelector('[data-testid="statement-scroller"] table')).not.toBeNull()
     // One cell per figure column — no int/frac split.
     expect(container.querySelector('.stmt-cell-figure-int')).toBeNull()
     expect(container.querySelector('.stmt-cell-figure-frac')).toBeNull()

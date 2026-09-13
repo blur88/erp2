@@ -293,7 +293,7 @@ describe('BalanceSheetPage', () => {
   it('shows expanded ledger detail on screen', async () => {
     renderPage(responseWithContributors)
     await userEvent.click(screen.getByTestId('bs-expand-N37'))
-    expect(screen.getByTestId('bs-accounts-N37')).toBeInTheDocument()
+    expect(screen.getByTestId('bs-account-N37-acc-cash')).toBeInTheDocument()
   })
 })
 
@@ -481,7 +481,7 @@ describe('Balance Sheet statement structure', () => {
     expect(within(row).getAllByTestId('bs-amount')).toHaveLength(1)
   })
 
-  it('keeps bs-accounts-<line> unique when a line has MANY contributors', async () => {
+  it('renders each related account directly when a line has MANY contributors', async () => {
     // getByTestId throws on duplicates, so N contributors must not each carry
     // the group testid.
     const many = baseResponse({
@@ -501,11 +501,67 @@ describe('Balance Sheet statement structure', () => {
     renderPage(many)
     await userEvent.click(screen.getByTestId('bs-expand-N37'))
 
-    // One group hook...
-    expect(screen.getByTestId('bs-accounts-N37')).toBeInTheDocument()
-    // ...and one uniquely addressable row per contributor.
+    // Each contributor is rendered directly beneath the expanded line.
     expect(screen.getByTestId('bs-account-N37-acc-a')).toBeInTheDocument()
     expect(screen.getByTestId('bs-account-N37-acc-b')).toBeInTheDocument()
     expect(screen.getByTestId('bs-account-N37-acc-c')).toBeInTheDocument()
+  })
+})
+
+describe('Balance Sheet column placement', () => {
+  // Column choice is keyed on the statutory line id, never on the label text.
+  // `balance-sheet.lines.ts` is backend-owned and its wording can change with
+  // no data migration, so a label-matched rule would relocate figures silently.
+  // These fixtures carry DELIBERATELY WRONG labels: if placement ever consults
+  // the label again, every expectation below flips.
+  const MISLEADING = {
+    N32: 'TOTAL ASSETS',
+    N40: "TOTAL OWNER'S EQUITY",
+    N41: 'Some Renamed Label',
+    N45: 'TOTAL ASSETS',
+    N50: 'TOTAL LIABILITIES',
+  } as const
+
+  const renderWithLabels = () =>
+    renderPage(
+      baseResponse({
+        rows: buildRows().map((row) =>
+          row.line in MISLEADING
+            ? { ...row, label: MISLEADING[row.line as keyof typeof MISLEADING] }
+            : row,
+        ),
+      }),
+    )
+
+  // The figure cells are the 3rd and 4th columns; a row places its amount in
+  // exactly one and leaves the other empty.
+  const columnOf = (line: string) => {
+    const cells = within(screen.getByTestId(`bs-row-${line}`)).getAllByRole('cell')
+    const [amount, total] = cells.slice(-2)
+    const filled = (c: HTMLElement) => c.textContent?.trim() !== ''
+    if (filled(amount) && !filled(total)) return 'amount'
+    if (filled(total) && !filled(amount)) return 'total'
+    return `both/neither: ${JSON.stringify([amount.textContent, total.textContent])}`
+  }
+
+  it.each([
+    ['N32', 'amount'],
+    ['N40', 'amount'],
+    ['N45', 'amount'],
+    ['N41', 'total'],
+    ['N50', 'total'],
+  ])('places %s in the %s column regardless of its label', (line, expected) => {
+    renderWithLabels()
+    expect(columnOf(line)).toBe(expected)
+  })
+
+  it('keeps the closing derived total in the Total column', () => {
+    renderWithLabels()
+    expect(columnOf('N41')).toBe('total')
+    const derived = within(
+      screen.getByTestId('bs-derived-liabilities-and-equity'),
+    ).getAllByRole('cell')
+    expect(derived[derived.length - 1].textContent?.trim()).not.toBe('')
+    expect(derived[derived.length - 2].textContent?.trim()).toBe('')
   })
 })

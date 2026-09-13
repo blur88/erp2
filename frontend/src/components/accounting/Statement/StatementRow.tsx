@@ -1,5 +1,6 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { Link as RouterLink } from 'react-router-dom'
+import MuiLink from '@mui/material/Link'
 import IconButton from '@mui/material/IconButton'
 import TableCell from '@mui/material/TableCell'
 import TableRow from '@mui/material/TableRow'
@@ -22,12 +23,8 @@ import type { StatementRow as Row } from './types'
  * / lineHeight 1.5 (theme.ts:183), which EntityTable overrides inline. Dropping
  * this sx would silently land the body back at the variant's values.
  *
- * NOTE the explicit `fontWeight: 400`. An element's own rule beats an inherited
- * one, so this flattens the weight that `.stmt-row--subtotal > *` and
- * `.stmt-row--bottomLine > *` set on the CELL. Statement.tsx restores it with
- * row-scoped selectors that reach this Typography directly — see the
- * "Row kinds" block there. Remove one without the other and subtotal/bottom-line
- * emphasis disappears while the cell still reports weight 500.
+ * The explicit `fontWeight: 400`, `fontSize: 0.8rem`, and `lineHeight: 1.2`
+ * match the generic SO/PO body treatment.
  */
 const BODY_TYPOGRAPHY_SX = {
   fontWeight: 400,
@@ -35,43 +32,84 @@ const BODY_TYPOGRAPHY_SX = {
   lineHeight: 1.2,
 } as const
 
+const CODE_CELL_SX = {
+  fontSize: '0.8rem',
+  padding: '3px 12px 3px 20px',
+  whiteSpace: 'nowrap',
+  verticalAlign: 'baseline',
+  textAlign: 'left',
+} as const
+
+const LABEL_CELL_SX = {
+  fontSize: '0.8rem',
+  padding: '3px 16px 3px 0',
+  verticalAlign: 'baseline',
+  textAlign: 'left',
+} as const
+
+const DRILLDOWN_LINK_SX = {
+  color: 'primary.main',
+  textDecoration: 'underline',
+  textDecorationStyle: 'dotted',
+  textUnderlineOffset: '2px',
+  '&:hover': { textDecorationStyle: 'solid' },
+  '&:focus-visible': { outline: '2px solid currentColor', outlineOffset: '2px' },
+} as const
+
+const SECTION_PLACEHOLDER_CELL_SX = {
+  padding: 0,
+} as const
+
+const isEmphasizedRow = (kind: Row['kind']) =>
+  kind === 'section' || kind === 'subtotal' || kind === 'bottomLine'
+
+const uppercaseEmphasizedLabel = (label: string) => label.toUpperCase()
+
 interface StatementRowProps {
   row: Row
   figureCount: number
 }
 
-/*
- * The kind class is the hook the row's presentation hangs on: Statement.tsx
- * carries the matching `sx` descendant selectors, and the page suites assert
- * these names directly (ProfitAndLossPage.test.tsx:135 reads `stmt-row--zero`).
- * Renaming one is a breaking change to those suites, not a refactor.
- */
-const rowClasses = (row: Row): string =>
-  [
-    'stmt-row',
-    `stmt-row--${row.kind}`,
-    row.isZero ? 'stmt-row--zero' : null,
-  ]
-    .filter(Boolean)
-    .join(' ')
-
 function StatementRowImpl({ row, figureCount }: StatementRowProps) {
+  const emphasized = isEmphasizedRow(row.kind)
+  /**
+   * The single column `amountHook` is applied to: the first column that
+   * actually renders a figure.
+   *
+   * A structural guarantee, not a caller convention — `blankFigures` is
+   * optional, so testing `!row.blankFigures?.[i]` per cell would place the
+   * testid on EVERY column of a row that omits it, and the suite asserts
+   * exactly one node per row (BalanceSheetPage.test.tsx:481). Computing the
+   * index once here keeps it to one cell for any shape of `blankFigures`,
+   * including none at all.
+   *
+   * Not hardcoded to 0: the Balance Sheet's N41 and N50 render their figure in
+   * the Total column with column 0 blank, and they still need the hook.
+   */
+  const firstFigureColumn = Array.from({ length: figureCount }).findIndex(
+    (_, i) => !row.blankFigures?.[i],
+  )
+  const hasExtraBottomSpace = row.sectionTotalGap === true
+  const displayLabel = emphasized ? uppercaseEmphasizedLabel(row.label) : row.label
   const label = row.href ? (
-    <Link className="stmt-link" to={row.href}>
-      {row.label}
-    </Link>
+    <MuiLink component={RouterLink} sx={DRILLDOWN_LINK_SX} to={row.href}>
+      {displayLabel}
+    </MuiLink>
   ) : (
-    row.label
+    displayLabel
   )
 
   return (
-    <TableRow className={rowClasses(row)} data-testid={row.testId}>
-      <TableCell className="stmt-cell-code">
+    <TableRow
+      data-testid={row.testId}
+      sx={hasExtraBottomSpace ? { '& > .MuiTableCell-root': { paddingBottom: '11px' } } : undefined}
+    >
+      <TableCell sx={CODE_CELL_SX}>
         <Typography variant="body2" sx={BODY_TYPOGRAPHY_SX}>
           {row.code ?? ''}
         </Typography>
       </TableCell>
-      <TableCell className="stmt-cell-label" sx={{ paddingLeft: `${row.depth * 24}px` }}>
+      <TableCell sx={{ ...LABEL_CELL_SX, paddingLeft: `${row.depth * 24}px` }}>
         {/*
           The expand control stays OUTSIDE the Typography: it is a sibling of
           the text, not part of it. Wrapping it would put a button inside a
@@ -80,7 +118,7 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
         */}
         {row.expand && (
           <IconButton
-            size="small"
+            sx={{ p: 0, width: 20, height: 20 }}
             data-testid={row.expandTestId ?? `stmt-expand-${row.id}`}
             aria-label={row.expand.expanded ? `Collapse ${row.label}` : `Expand ${row.label}`}
             onClick={row.expand.onToggle}
@@ -92,7 +130,14 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
             )}
           </IconButton>
         )}
-        <Typography variant="body2" component="span" sx={BODY_TYPOGRAPHY_SX}>
+        <Typography
+          variant="body2"
+          component="span"
+          sx={{
+            ...BODY_TYPOGRAPHY_SX,
+            ...(emphasized ? { fontWeight: 700 } : {}),
+          }}
+        >
           {label}
         </Typography>
       </TableCell>
@@ -102,15 +147,18 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
         shared column grid.
       */}
       {row.figures.length === 0 ? (
-        <TableCell colSpan={figureCount} />
+        <TableCell colSpan={figureCount} sx={SECTION_PLACEHOLDER_CELL_SX} />
       ) : (
         row.figures.map((amount, i) => (
           <StatementFigure
             key={i}
             amount={amount}
             testId={`${row.testId}-fig${i}`}
-            // First figure column only: a single hook must match one element.
-            amountHook={i === 0 ? row.amountHook : undefined}
+            amountHook={i === firstFigureColumn ? row.amountHook : undefined}
+            blank={row.blankFigures?.[i]}
+            topBorder={row.topBorderFigures?.[i]}
+            bottomLine={row.kind === 'bottomLine'}
+            emphasized={emphasized}
           />
         ))
       )}

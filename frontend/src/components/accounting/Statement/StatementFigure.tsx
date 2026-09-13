@@ -84,10 +84,17 @@ const a11yOnlySx = {
  * the same font as a real parenthesis and cannot drift from it.
  */
 const parenSpacerSx = {
-  '&::after': {
-    content: '")"',
-    visibility: 'hidden',
-  },
+  '&::after': { content: '")"', visibility: 'hidden' },
+} as const
+
+const FIGURE_CELL_SX = {
+  fontSize: '0.8rem',
+  fontVariantNumeric: 'tabular-nums',
+  fontFeatureSettings: "'tnum'",
+  textAlign: 'right',
+  padding: '3px 20px 3px 0',
+  whiteSpace: 'nowrap',
+  verticalAlign: 'baseline',
 } as const
 
 interface StatementFigureProps {
@@ -101,6 +108,10 @@ interface StatementFigureProps {
    * :481 asserts exactly one per row.
    */
   amountHook?: string
+  blank?: boolean
+  topBorder?: boolean
+  bottomLine?: boolean
+  emphasized?: boolean
 }
 
 /**
@@ -122,13 +133,39 @@ interface StatementFigureProps {
  * association — text clipped out of the table's cell structure would lose the
  * row/column relationship the table exists to provide.
  */
-export function StatementFigure({ amount, testId, amountHook }: StatementFigureProps) {
+export function StatementFigure({ amount, testId, amountHook, blank, topBorder, bottomLine, emphasized }: StatementFigureProps) {
+  const cellSx = {
+    ...FIGURE_CELL_SX,
+    // Override the table's border reset; losses keep a text-primary rule even
+    // when their figure uses error.main. Blank companion columns stay unruled.
+    ...(!blank && (bottomLine || topBorder) ? {
+      '&&': {
+        borderTop: bottomLine ? '3px double' : '1px solid',
+        borderTopColor: 'text.primary',
+      },
+    } : {}),
+    ...(emphasized ? { fontWeight: 700 } : {}),
+  }
+
+  if (blank) {
+    return (
+      <TableCell
+        sx={cellSx}
+        data-testid={testId}
+      />
+    )
+  }
+
   if (amount === null) {
     // null means UNKNOWN, not zero. Rendering '0.00' would assert a figure the
     // backend explicitly declined to compute.
     return (
-      <TableCell className="stmt-cell-figure" data-testid={testId}>
-        <Box component="span" className="stmt-a11y-only" sx={a11yOnlySx} data-testid={amountHook}>
+      <TableCell
+        sx={cellSx}
+        data-testid={testId}
+        data-role="figure"
+      >
+        <Box component="span" data-a11y="statement-value" sx={a11yOnlySx} data-testid={amountHook}>
           not available
         </Box>
         <span aria-hidden="true">—</span>
@@ -142,10 +179,14 @@ export function StatementFigure({ amount, testId, amountHook }: StatementFigureP
 
   return (
     <TableCell
-      className={`stmt-cell-figure${negative ? ' stmt-figure-negative' : ''}`}
+      sx={{
+        ...cellSx,
+        ...(negative ? { color: 'error.main' } : {}),
+      }}
       data-testid={testId}
+      data-role="figure"
     >
-      <Box component="span" className="stmt-a11y-only" sx={a11yOnlySx} data-testid={amountHook}>
+      <Box component="span" data-a11y="statement-value" sx={a11yOnlySx} data-testid={amountHook}>
         {spoken}
       </Box>
       <span aria-hidden="true">{`${int}${frac}`}</span>
@@ -156,7 +197,7 @@ export function StatementFigure({ amount, testId, amountHook }: StatementFigureP
         for why that distinction is load-bearing (spec §4.2).
       */}
       {!negative && (
-        <Box component="span" className="stmt-paren-spacer" sx={parenSpacerSx} aria-hidden="true" />
+        <Box component="span" data-role="paren-spacer" sx={parenSpacerSx} aria-hidden="true" />
       )}
     </TableCell>
   )

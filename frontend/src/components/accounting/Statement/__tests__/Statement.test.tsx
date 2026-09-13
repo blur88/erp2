@@ -48,23 +48,28 @@ describe('Statement structure', () => {
     expect(screen.getByTestId('row-a')).not.toHaveTextContent('RM')
   })
 
-  it('applies a kind class so rule weight can express hierarchy', () => {
+  it('does not add custom row CSS classes', () => {
     renderStatement([
       row({ id: 's', kind: 'section', label: 'Revenue', figures: [] }),
       row({ id: 't', kind: 'subtotal', label: 'Total revenue' }),
       row({ id: 'n', kind: 'bottomLine', label: 'Net profit' }),
     ])
-    expect(screen.getByTestId('row-s')).toHaveClass('stmt-row--section')
-    expect(screen.getByTestId('row-t')).toHaveClass('stmt-row--subtotal')
-    expect(screen.getByTestId('row-n')).toHaveClass('stmt-row--bottomLine')
+    for (const id of ['s', 't', 'n']) {
+      expect(screen.getByTestId(`row-${id}`)).not.toHaveClass(/stmt-row/)
+    }
   })
 
   it('renders a section head with no figure cells', () => {
     renderStatement([row({ id: 's', kind: 'section', label: 'Revenue', figures: [] })])
-    expect(screen.getByTestId('row-s')).toHaveTextContent('Revenue')
+    expect(screen.getByTestId('row-s')).toHaveTextContent('REVENUE')
     expect(screen.queryByTestId('row-s-fig0')).not.toBeInTheDocument()
+    expect(screen.getByTestId('row-s').lastElementChild).toHaveStyle({ padding: '0px' })
   })
 
+  it('renders section headings in uppercase', () => {
+    renderStatement([row({ id: 's', kind: 'section', label: 'Revenue', figures: [] })])
+    expect(screen.getByTestId('row-s')).toHaveTextContent('REVENUE')
+  })
   it('supports two figure columns without a second code path', () => {
     renderStatement(
       [row({ id: 'a', figures: ['10.0000', '20.0000'] })],
@@ -139,9 +144,9 @@ describe('Statement amounts', () => {
     expect(screen.getByText('negative 840.00')).toBeInTheDocument()
   })
 
-  it('marks zero rows for the muted token', () => {
+  it('renders zero rows with the generic body treatment', () => {
     renderStatement([row({ id: 'z', figures: ['0.0000'], isZero: true })])
-    expect(screen.getByTestId('row-z')).toHaveClass('stmt-row--zero')
+    expect(screen.getByTestId('row-z')).not.toHaveClass(/stmt-row/)
   })
 })
 
@@ -167,9 +172,9 @@ describe('Statement frame and header', () => {
     // Structure only. jsdom has no layout engine, so stickiness itself is
     // browser-verified (STATEMENT_THEME_QA.md, ST-4).
     const { container } = renderStatement([row({ id: 'a' })])
-    const scroller = container.querySelector('.stmt-scroller')
+    const scroller = screen.getByTestId('statement-scroller')
     expect(scroller).not.toBeNull()
-    expect(scroller?.querySelector('table.stmt-table')).not.toBeNull()
+    expect(scroller.querySelector('table')).not.toBeNull()
   })
 
   it('opts the table into MUI stickyHeader', () => {
@@ -180,7 +185,7 @@ describe('Statement frame and header', () => {
      * actually stays put is browser-only — ST-4.
      */
     const { container } = renderStatement([row({ id: 'a' })])
-    const table = container.querySelector('table.stmt-table')!
+    const table = screen.getByRole('table', { name: 'Statement' })
     expect(table.className).toMatch(/stickyHeader/)
 
     const heads = [...container.querySelectorAll('thead th')]
@@ -313,8 +318,8 @@ describe('Statement body typography', () => {
   it('renders code and description through a Typography, as EntityTable does', () => {
     const { container } = renderThemed([row({ id: 'a', code: '4000' })])
 
-    for (const selector of ['.stmt-cell-code', '.stmt-cell-label']) {
-      const cell = container.querySelector(selector)!
+    const cells = [...container.querySelectorAll('tbody tr:first-child td')]
+    for (const cell of cells.slice(0, 2)) {
       const typography = cell.querySelector('.MuiTypography-root')
       expect(typography).not.toBeNull()
       expect(typography).toHaveTextContent(/\S/)
@@ -331,8 +336,9 @@ describe('Statement body typography', () => {
   it('gives code and description the SO/PO body contract', () => {
     const { container } = renderThemed([row({ id: 'a', code: '4000' })])
 
-    for (const selector of ['.stmt-cell-code', '.stmt-cell-label']) {
-      const typography = container.querySelector(`${selector} .MuiTypography-root`)!
+    const cells = [...container.querySelectorAll('tbody tr:first-child td')]
+    for (const cell of cells.slice(0, 2)) {
+      const typography = cell.querySelector('.MuiTypography-root')!
       expect(typography).toHaveStyle({
         fontWeight: '400',
         fontSize: '12.8px',
@@ -349,7 +355,8 @@ describe('Statement body typography', () => {
      */
     const { container } = renderThemed([row({ id: 'a', code: '4000' })])
 
-    expect(container.querySelector('.stmt-cell-code')).toHaveStyle({
+    const codeCell = container.querySelector('tbody tr:first-child td')
+    expect(codeCell).toHaveStyle({
       color: 'rgb(255, 255, 255)',
     })
   })
@@ -367,82 +374,102 @@ describe('Statement body typography', () => {
       row({ id: 'n', kind: 'bottomLine', label: 'Net Profit', figures: ['900.0000'], testId: 'row-n' }),
     ])
 
-    const figures = [...container.querySelectorAll('.stmt-cell-figure')]
+    const figures = [...container.querySelectorAll('tbody tr td:nth-child(n+3)')]
     expect(figures).toHaveLength(3)
     for (const cell of figures) {
       expect(cell).toHaveStyle({ fontSize: '12.8px' })
     }
   })
 
-  it('keeps subtotal and bottom-line emphasis despite the explicit body weight', () => {
-    /*
-     * THE REGRESSION THIS SUITE EXISTS FOR.
-     *
-     * The body contract puts an explicit `fontWeight: 400` on the child
-     * Typography. An element's own rule beats anything inherited, so the
-     * row-level `.stmt-row--subtotal > *` weight reaches the CELL and stops
-     * there — the rendered glyphs flatten to 400 while the cell still reports
-     * 500, which is invisible to a cell-level assertion.
-     *
-     * Measured: a row-scoped descendant selector wins (0,2,0 vs 0,1,0), so the
-     * fix restores weight on the Typography itself. Asserted on the code/label
-     * children specifically, since the overrides are scoped to those and must
-     * not reach unrelated descendants.
-     */
+  it('uses the generic body typography and bold section headings', () => {
     const { container } = renderThemed([
       row({ id: 't', kind: 'subtotal', code: '4999', label: 'Total Revenue', figures: ['300.0000'], testId: 'row-t' }),
       row({ id: 'n', kind: 'bottomLine', code: '9999', label: 'Net Profit', figures: ['900.0000'], testId: 'row-n' }),
-    ])
-
-    for (const rowClass of ['.stmt-row--subtotal', '.stmt-row--bottomLine']) {
-      for (const selector of ['.stmt-cell-code', '.stmt-cell-label']) {
-        const typography = container.querySelector(`${rowClass} ${selector} .MuiTypography-root`)!
-        expect(typography).not.toBeNull()
-        expect(typography).toHaveStyle({ fontWeight: '500' })
-      }
-    }
-  })
-
-  it('does not bump the bottom-line label above the body size', () => {
-    /*
-     * The bottom line is distinguished by WEIGHT and its double rule. The old
-     * 1rem label override was Statement-only drift; dropping it is #1232's
-     * "no separate Statement rules" requirement. The figure was never allowed
-     * to grow — see the shared-size test above.
-     */
-    const { container } = renderThemed([
-      row({ id: 'n', kind: 'bottomLine', label: 'Net Profit', figures: ['900.0000'], testId: 'row-n' }),
-    ])
-
-    const typography = container.querySelector(
-      '.stmt-row--bottomLine .stmt-cell-label .MuiTypography-root',
-    )!
-    expect(typography).toHaveStyle({ fontSize: '12.8px' })
-  })
-
-  it('keeps the section row muted and tracked, as deliberate accounting emphasis', () => {
-    /*
-     * Retained ON PURPOSE (#1232 scope: "do not flatten accounting semantics
-     * merely for visual uniformity"). A section head is a divider, not a data
-     * row, so it keeps text.secondary, weight 500 and wide tracking. Asserted
-     * so a future parity sweep has to change this test deliberately rather
-     * than flatten it by accident.
-     */
-    const { container } = renderThemed([
       row({ id: 's', kind: 'section', label: 'REVENUE', figures: [], testId: 'row-s' }),
     ])
 
-    /*
-     * NOTE ON UNITS: jsdom 30 normalizes em/rem to px, so the rule's 0.06em
-     * computes as 0.78px against the section row's 13px. Asserting '0.06em'
-     * here fails — and because toHaveStyle fails atomically, one wrong unit
-     * marks every other property in the same call as mismatched too. Read the
-     * computed value before concluding a rule did not apply.
-     */
-    expect(container.querySelector('.stmt-row--section .stmt-cell-label')).toHaveStyle({
-      color: 'rgb(189, 189, 189)',
-      fontWeight: '500',
-      letterSpacing: '0.78px',
+    for (const id of ['t', 'n', 's']) {
+      const typography = screen.getByTestId(`row-${id}`).querySelectorAll('.MuiTypography-root')[1]
+      expect(typography).not.toBeNull()
+      expect(typography).toHaveStyle({
+        fontWeight: '700',
+        fontSize: '12.8px',
+        lineHeight: '1.2',
+      })
+    }
+  })
+
+  it('does not apply row-kind-specific body styling', () => {
+    const { container } = renderThemed([
+      row({ id: 't', kind: 'subtotal', label: 'Total Revenue', figures: ['300.0000'], testId: 'row-t' }),
+      row({ id: 'n', kind: 'bottomLine', label: 'Net Profit', figures: ['900.0000'], testId: 'row-n' }),
+      row({ id: 's', kind: 'section', label: 'REVENUE', figures: [], testId: 'row-s' }),
+    ])
+
+    expect(container.querySelectorAll('.stmt-row, [class*="stmt-row--"]')).toHaveLength(0)
+  })
+
+})
+
+
+describe('Statement figure rules', () => {
+  it.each(['100.0000', '-100.0000', null])(
+    'distinguishes the bottom line from a subtotal for amount %s',
+    (amount) => {
+      renderThemed([
+        row({ id: 't', kind: 'subtotal', figures: [amount, null], blankFigures: [false, true], topBorderFigures: [true, false] }),
+        row({ id: 'n', kind: 'bottomLine', figures: [null, amount], blankFigures: [true, false], topBorderFigures: [false, true] }),
+      ], ['Amount', 'Total'])
+
+      expect(screen.getByTestId('row-t-fig0')).toHaveStyle({
+        borderTop: '1px solid rgb(255, 255, 255)', fontWeight: '700', fontSize: '12.8px',
+      })
+      expect(screen.getByTestId('row-n-fig1')).toHaveStyle({
+        borderTop: '3px double rgb(255, 255, 255)', fontWeight: '700', fontSize: '12.8px',
+      })
+      for (const id of ['row-t-fig1', 'row-n-fig0']) {
+        expect(screen.getByTestId(id)).toBeEmptyDOMElement()
+        expect(screen.getByTestId(id)).toHaveStyle({ borderTopWidth: '0px' })
+      }
+    },
+  )
+
+  it('keeps the bottom-line rule when optional column borders are omitted', () => {
+    renderThemed([row({ id: 'n', kind: 'bottomLine' })])
+    expect(screen.getByTestId('row-n-fig0')).toHaveStyle({
+      borderTop: '3px double rgb(255, 255, 255)',
     })
+  })
+})
+
+describe('Statement amount hook placement', () => {
+  // The hook must land on exactly ONE cell for any shape of blankFigures,
+  // including none. A per-cell `!blankFigures?.[i]` test would put it on every
+  // column of the row below, which omits the array entirely.
+  it('applies amountHook once when blankFigures is omitted', () => {
+    renderThemed(
+      [row({ id: 'r', figures: ['1.0000', '2.0000'], amountHook: 'hook' })],
+      ['Amount', 'Total'],
+    )
+    expect(screen.getAllByTestId('hook')).toHaveLength(1)
+  })
+
+  it('applies amountHook to the first NON-BLANK column', () => {
+    // The Balance Sheet's N41/N50 shape: figure in Total, column 0 blank.
+    renderThemed(
+      [
+        row({
+          id: 'r',
+          figures: [null, '2.0000'],
+          blankFigures: [true, false],
+          amountHook: 'hook',
+        }),
+      ],
+      ['Amount', 'Total'],
+    )
+    const hooks = screen.getAllByTestId('hook')
+    expect(hooks).toHaveLength(1)
+    // It is inside the second figure cell, not the blank first one.
+    expect(screen.getByTestId('row-r-fig1')).toContainElement(hooks[0])
   })
 })

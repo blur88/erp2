@@ -58,11 +58,7 @@ const HEADER_TYPOGRAPHY_SX = {
  *
  * PRESENTATION LIVES IN `sx`, NOT A STYLESHEET. `statement.css` was deleted in
  * #1228: every rule it carried now resolves from the MUI theme through the
- * descendant selectors below. The `stmt-*` class names survive as HOOKS — the
- * page suites address them (ProfitAndLossPage.test.tsx:386-392 asserts
- * `table.stmt-table thead`, `tr.stmt-row` and `.stmt-scroller table.stmt-table`)
- * — so they are load-bearing selectors even though they no longer carry rules
- * of their own.
+ * table and cell selectors below.
  *
  * NOTE ON COVERAGE: Vitest injects no stylesheet and has no layout engine, so
  * nothing below is verifiable by the suite. `sx` IS observable through
@@ -73,147 +69,21 @@ const HEADER_TYPOGRAPHY_SX = {
 export function Statement({ rows, figureHeads, label, className }: StatementProps) {
   return (
     <Paper
-      className={`stmt-root${className ? ` ${className}` : ''}`}
+      className={className}
+      data-role="statement-root"
       sx={{
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
         color: 'text.primary',
-        // Surface, radius and elevation come from Paper itself; only the inner
-        // padding is ours.
-        padding: '16px 20px',
+        // The header follows the edge-to-edge SO/PO table structure. Body
+        // insets are carried by the statement cells below.
+        padding: 0,
 
-        // ---- Cells ----
-        /*
-         * Code and label carry the SO/PO body contract on a child <Typography>
-         * (StatementRow.tsx), which is what sizes the rendered glyphs. The
-         * cell-level fontSize below is a FLOOR — it catches a cell that is ever
-         * given bare text again — so it matches the child's 0.8rem rather than
-         * the 0.8125/0.875rem Statement-only values it held before #1232.
-         *
-         * The code column is NO LONGER text.secondary. Muting it was defensible
-         * hierarchy, but #1232 requires colour parity with the SO/PO body, which
-         * inherits text.primary from the Paper.
-         */
-        '& .stmt-cell-code': {
-          fontSize: '0.8rem',
-          padding: '3px 12px 3px 0',
-          whiteSpace: 'nowrap',
-          verticalAlign: 'baseline',
-          textAlign: 'left',
-        },
-        '& .stmt-cell-label': {
-          fontSize: '0.8rem',
-          padding: '3px 16px 3px 0',
-          verticalAlign: 'baseline',
-          textAlign: 'left',
-        },
-        /*
-         * One right-aligned figure cell. Decimal alignment holds because every
-         * figure has two decimals, renders at the SAME font size, and uses
-         * tabular digits; `.stmt-paren-spacer` covers the remaining
-         * closing-paren offset (spec §4.1).
-         */
-        '& .stmt-cell-figure': {
-          /*
-           * The figure cell takes the SO/PO body size directly rather than
-           * through a Typography wrapper: StatementFigure renders THREE
-           * children (the a11y value, the aria-hidden figure, the paren
-           * spacer), and the spacer's reserved width must be the same glyph in
-           * the same font as a real parenthesis. Sizing the cell keeps all
-           * three in one font by inheritance.
-           */
-          fontSize: '0.8rem',
-          fontVariantNumeric: 'tabular-nums',
-          fontFeatureSettings: "'tnum'",
-          textAlign: 'right',
-          padding: '3px 0',
-          whiteSpace: 'nowrap',
-          verticalAlign: 'baseline',
-        },
-        '& .stmt-figure-negative': { color: 'error.main' },
-
-        // ---- Row kinds (hierarchy by rule weight, not bold-everything) ----
-        '& .stmt-row--section > *': {
-          color: 'text.secondary',
-          fontSize: '0.8125rem',
-          fontWeight: 500,
-          letterSpacing: '0.06em',
-          paddingTop: '18px',
-          paddingBottom: '2px',
-        },
-        '& .stmt-row--zero > *': { color: 'text.secondary' },
-        /*
-         * Hairline above the FIGURE cell only — an accounting convention that
-         * keeps the eye in the numbers column.
-         */
-        '& .stmt-row--subtotal .stmt-cell-figure': {
-          borderTop: '1px solid',
-          borderTopColor: 'divider',
-        },
-        '& .stmt-row--subtotal > *': {
-          fontWeight: 500,
-          paddingTop: '5px',
-        },
-        '& .stmt-row--bottomLine > *': {
-          fontWeight: 500,
-          paddingTop: '8px',
-        },
-        /*
-         * RESTORES the weight the body Typography would otherwise flatten.
-         *
-         * The `> *` rules above reach the CELL, but code and label now wrap
-         * their text in a <Typography> carrying an explicit `fontWeight: 400`,
-         * and an element's own rule beats an inherited one. Without these two
-         * selectors the cell still computes 500 while the rendered glyphs drop
-         * to 400 — a divergence no cell-level assertion can see.
-         *
-         * MEASURED: a row-scoped descendant selector wins, (0,2,0) against the
-         * child's own (0,1,0). Scoped deliberately to the code/label Typography
-         * so it cannot reach the figure cell's spans, the visually-hidden
-         * value, the paren spacer or the drill-down link.
-         *
-         * The bottom line's old `.stmt-cell-label` 1rem bump is GONE (#1232):
-         * weight and the double rule carry it, and a Statement-only size was
-         * exactly the drift this issue set out to remove.
-         */
-        '& .stmt-row--subtotal .stmt-cell-code .MuiTypography-root, & .stmt-row--subtotal .stmt-cell-label .MuiTypography-root':
-          { fontWeight: 500 },
-        '& .stmt-row--bottomLine .stmt-cell-code .MuiTypography-root, & .stmt-row--bottomLine .stmt-cell-label .MuiTypography-root':
-          { fontWeight: 500 },
-        /*
-         * Bottom line is distinguished by WEIGHT and the double rule, never by
-         * font size: a larger figure would place its decimal separator at a
-         * different x position from every other row (spec §4.1). The label may
-         * grow; the FIGURE must not.
-         */
-        '& .stmt-row--bottomLine .stmt-cell-figure': {
-          fontWeight: 500,
-          borderTop: '3px double',
-          borderTopColor: 'text.primary',
-        },
-        '& .stmt-row--spacer > *': {
-          padding: 0,
-          height: '10px',
-        },
-
-        // ---- Drill-down ----
-        '& .stmt-link': {
-          color: 'primary.main',
-          textDecoration: 'underline',
-          textDecorationStyle: 'dotted',
-          textUnderlineOffset: '2px',
-          '&:hover': { textDecorationStyle: 'solid' },
-          '&:focus-visible': {
-            outline: '2px solid currentColor',
-            outlineOffset: '2px',
-          },
-        },
       }}
     >
       <Box
-        className="stmt-frame"
         sx={{
           flex: 1,
           overflow: 'hidden',
@@ -223,14 +93,13 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
         }}
       >
         <TableContainer
-          className="stmt-scroller"
+          data-testid="statement-scroller"
           sx={{
             flex: 1,
             overflow: 'auto',
           }}
         >
           <Table
-            className="stmt-table"
             aria-label={label}
             /*
               Column headers stay put while the body scrolls inside
@@ -248,6 +117,12 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
               // hairline and the bottom-line double rule instead, so body cells
               // stay unruled.
               '& .MuiTableCell-root': { border: 0 },
+              // Keep the full header strip filled when the table is narrower than
+              // its scroll container. The cells still need their own background
+              // because they are the sticky elements during body scrolling.
+              '& .MuiTableHead-root, & .MuiTableHead-root .MuiTableRow-root': {
+                backgroundColor: TABLE_STYLES.header.backgroundColor,
+              },
               '& .MuiTableHead-root .MuiTableCell-root': {
                 /*
                   The background must sit on the CELL, not the row: only the
@@ -265,9 +140,10 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
                   so what actually changes is the CELL's own colour — the
                   fallback a bare-text head cell would inherit.
                 */
-                borderBottom: '1px solid',
-                borderBottomColor: 'divider',
+                borderBottom: TABLE_STYLES.cell.border,
                 padding: '8px 0',
+                '&:first-of-type': { paddingLeft: '20px' },
+                '&:last-of-type': { paddingRight: '20px' },
                 zIndex: 2,
                 /*
                   MEASURED PARITY, not inherited parity (#1228, ST-10).
@@ -316,18 +192,18 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
                   weight 500 / 0.04em / no uppercase, which is exactly how the
                   Statement header diverged from SO/PO (#1228).
                 */}
-                <TableCell className="stmt-col-head stmt-col-head--label" scope="col">
+                <TableCell scope="col" data-role="col-head">
                   <Typography variant="tableHeader" sx={HEADER_TYPOGRAPHY_SX}>
                     Code
                   </Typography>
                 </TableCell>
-                <TableCell className="stmt-col-head stmt-col-head--label" scope="col">
+                <TableCell scope="col" data-role="col-head">
                   <Typography variant="tableHeader" sx={HEADER_TYPOGRAPHY_SX}>
                     Description
                   </Typography>
                 </TableCell>
                 {figureHeads.map((head) => (
-                  <TableCell key={head} className="stmt-col-head" scope="col" align="right">
+                  <TableCell key={head} scope="col" align="right" data-role="col-head">
                     <Typography variant="tableHeader" sx={HEADER_TYPOGRAPHY_SX}>
                       {head}
                     </Typography>

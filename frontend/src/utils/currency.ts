@@ -6,7 +6,7 @@
  * Get currency symbol from localStorage cache
  * Falls back to 'RM' if not found
  */
-const getCurrencySymbol = (): string => {
+export const getCurrencySymbol = (): string => {
   return localStorage.getItem('defaultCurrency') || 'RM'
 }
 
@@ -50,12 +50,16 @@ export const formatCurrency = (
     return showSymbol ? `${currencySymbol} 0.00` : '0.00'
   }
 
-  // Format with thousand separators and decimal places. Passing the raw string
-  // (not a coerced Number) preserves all significant digits.
+  // Regional Settings controls grouping while the locale supplies the configured
+  // en-MY separators. The supported setting currently distinguishes grouped
+  // `1,234.56` from ungrouped `1234.56` output.
+  const numberFormat = localStorage.getItem('numberFormat') || '1,234.56'
+  const useGrouping = numberFormat !== '1234.56'
+
   const formatted = new Intl.NumberFormat('en-MY', {
     minimumFractionDigits,
     maximumFractionDigits,
-    useGrouping: true
+    useGrouping,
   }).format(value as any)
 
   return showSymbol ? `${currencySymbol} ${formatted}` : formatted
