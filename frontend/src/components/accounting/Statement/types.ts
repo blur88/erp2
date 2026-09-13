@@ -31,6 +31,16 @@ export interface StatementRow {
   amountHook?: string
   blankFigures?: boolean[]
   topBorderFigures?: boolean[]
+  /**
+   * Extra bottom spacing after a section-closing total.
+   *
+   * Set by each page's row builder from its OWN structural signal
+   * (`isTotal`, `formula`, a presentation kind) — never by matching the
+   * label text here. Labels are backend-owned and the Form B wording can
+   * change without a data migration, so a label-matched rule fails silently:
+   * the gap just stops appearing, with no type error and no failing test.
+   */
+  sectionTotalGap?: boolean
   /*
    * Testid for the expand control. Each report already has its OWN convention
    * that existing suites assert (`bs-expand-N37`, `formb-expand-N24`,

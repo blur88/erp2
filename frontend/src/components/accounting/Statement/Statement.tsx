@@ -70,6 +70,7 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
   return (
     <Paper
       className={className}
+      data-role="statement-root"
       sx={{
         height: '100%',
         display: 'flex',
@@ -191,18 +192,18 @@ export function Statement({ rows, figureHeads, label, className }: StatementProp
                   weight 500 / 0.04em / no uppercase, which is exactly how the
                   Statement header diverged from SO/PO (#1228).
                 */}
-                <TableCell scope="col">
+                <TableCell scope="col" data-role="col-head">
                   <Typography variant="tableHeader" sx={HEADER_TYPOGRAPHY_SX}>
                     Code
                   </Typography>
                 </TableCell>
-                <TableCell scope="col">
+                <TableCell scope="col" data-role="col-head">
                   <Typography variant="tableHeader" sx={HEADER_TYPOGRAPHY_SX}>
                     Description
                   </Typography>
                 </TableCell>
                 {figureHeads.map((head) => (
-                  <TableCell key={head} scope="col" align="right">
+                  <TableCell key={head} scope="col" align="right" data-role="col-head">
                     <Typography variant="tableHeader" sx={HEADER_TYPOGRAPHY_SX}>
                       {head}
                     </Typography>

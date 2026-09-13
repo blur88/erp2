@@ -1,5 +1,9 @@
+import React from 'react'
 import { render, screen } from '@testing-library/react'
+import { ThemeProvider } from '@mui/material/styles'
 import { describe, it, expect, beforeEach } from 'vitest'
+
+import { darkTheme } from '@/styles/theme'
 
 import { StatementFigure, splitFormattedAmount } from '../StatementFigure'
 
@@ -215,5 +219,79 @@ describe('StatementFigure paren spacer', () => {
   it('renders no spacer for a null amount', () => {
     renderFigure(null)
     expect(screen.getByTestId('fig').querySelector('[data-role="paren-spacer"]')).toBeNull()
+  })
+})
+
+describe('StatementFigure presentation props', () => {
+  // These assertions read Emotion `sx` off the asserted element, which reaches
+  // getComputedStyle ONLY under a ThemeProvider — a bare render computes no
+  // themed colour and every expectation below would read rgb(0, 0, 0).
+  const renderThemedFigure = (props: Partial<React.ComponentProps<typeof StatementFigure>>) =>
+    render(
+      <ThemeProvider theme={darkTheme}>
+        <table>
+          <tbody>
+            <tr>
+              <StatementFigure amount="1200.0000" testId="fig" {...props} />
+            </tr>
+          </tbody>
+        </table>
+      </ThemeProvider>,
+    )
+
+  describe('blank', () => {
+    it('renders an empty cell with no figure, a11y node or spacer', () => {
+      renderThemedFigure({ blank: true, amountHook: 'hook' })
+      const cell = screen.getByTestId('fig')
+      expect(cell).toBeEmptyDOMElement()
+      expect(cell.querySelector('[data-a11y="statement-value"]')).toBeNull()
+      expect(cell.querySelector('[data-role="paren-spacer"]')).toBeNull()
+      // A blank cell is not a figure: the QA font-size sweep must skip it.
+      expect(cell).not.toHaveAttribute('data-role', 'figure')
+    })
+
+    it('takes no rule even when topBorder or bottomLine is set', () => {
+      // A blank companion column sits beside a ruled figure; ruling it too
+      // would draw a line under an empty cell.
+      renderThemedFigure({ blank: true, topBorder: true, bottomLine: true })
+      // Asserted as the ABSENCE of a border-top declaration. This cell is
+      // rendered outside Statement's table reset, so an unruled cell carries no
+      // border-top-width rule at all and computes to '' rather than '0px'.
+      expect(getComputedStyle(screen.getByTestId("fig")).borderTopStyle).toBe("none")
+    })
+  })
+
+  describe('topBorder', () => {
+    it('draws a subtotal hairline', () => {
+      renderThemedFigure({ topBorder: true })
+      expect(screen.getByTestId('fig')).toHaveStyle({
+        borderTop: '1px solid rgb(255, 255, 255)',
+      })
+    })
+
+    it('draws no rule when unset', () => {
+      renderThemedFigure({})
+      expect(getComputedStyle(screen.getByTestId("fig")).borderTopStyle).toBe("none")
+    })
+  })
+
+  describe('emphasized', () => {
+    it('adds weight WITHOUT changing the figure font size', () => {
+      // The invariant CLAUDE.md calls load-bearing: a larger bottom-line figure
+      // puts its decimal separator at a different x position from every other
+      // row. Weight may change; size may not.
+      renderThemedFigure({ emphasized: true })
+      expect(screen.getByTestId('fig')).toHaveStyle({
+        fontWeight: '700',
+        fontSize: '12.8px',
+      })
+    })
+
+    it('leaves an unemphasized figure at the same size', () => {
+      renderThemedFigure({})
+      const cell = screen.getByTestId('fig')
+      expect(cell).toHaveStyle({ fontSize: '12.8px' })
+      expect(cell).not.toHaveStyle({ fontWeight: '700' })
+    })
   })
 })

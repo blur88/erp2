@@ -163,6 +163,7 @@ export function StatementFigure({ amount, testId, amountHook, blank, topBorder, 
       <TableCell
         sx={cellSx}
         data-testid={testId}
+        data-role="figure"
       >
         <Box component="span" data-a11y="statement-value" sx={a11yOnlySx} data-testid={amountHook}>
           not available
@@ -183,6 +184,7 @@ export function StatementFigure({ amount, testId, amountHook, blank, topBorder, 
         ...(negative ? { color: 'error.main' } : {}),
       }}
       data-testid={testId}
+      data-role="figure"
     >
       <Box component="span" data-a11y="statement-value" sx={a11yOnlySx} data-testid={amountHook}>
         {spoken}

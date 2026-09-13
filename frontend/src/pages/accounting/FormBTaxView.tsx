@@ -3,7 +3,11 @@ import { Alert, Box, Typography } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 
-import { Statement, type StatementRow } from '@/components/accounting/Statement'
+import {
+  Statement,
+  statementFigureHeads,
+  type StatementRow,
+} from '@/components/accounting/Statement'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import type { FormBResponse } from '@/types'
 import { buildFormBTableRows, formatFormBAmount, type FormBTableRow } from './formBRows'
@@ -24,45 +28,62 @@ const STATEMENT_KIND: Record<FormBTableRow['kind'], StatementRow['kind']> = {
 }
 
 /**
+ * The statutory derived totals whose figure sits in the TOTAL column: N8
+ * (Gross Profit / Loss) and N26 (Net Profit / Loss), the two cross-section
+ * results. The other three derived totals — N7 Cost of Sales, N14 Total Other
+ * Income, N25 Total Expenses — close a single block and stay in Amount, as
+ * does every `line` and the presentation Total Revenue row.
+ *
+ * Keyed on the statutory N-code, which is stable, rather than on the label:
+ * Form B wording can change with no data migration (`form-b.categories.ts`
+ * says so explicitly), and the builder passes `row.label` through verbatim, so
+ * a label-matched rule silently relocates the figure — no type error, no
+ * failing test.
+ *
+ * That is not hypothetical. The previous rule matched the four label strings
+ * 'Cost of Sales', 'Total Revenue', 'Total Other Income' and 'Total Expenses',
+ * all of which ARE live backend labels; replacing it with a `kind`-based
+ * predicate moved N7, N14 and N25 from Amount to Total. The tests below feed
+ * deliberately wrong labels so that regression cannot recur silently.
+ */
+const TOTAL_COLUMN_LINES = new Set(['N8', 'N26'])
+
+const usesAmountColumn = (row: FormBTableRow) => !TOTAL_COLUMN_LINES.has(row.line)
+
+/**
  * FormBTableRow → StatementRow.
  *
  * `rawAmount` (not the whole-ringgit `amount`) feeds StatementFigure, so every
  * report shares one figure treatment: two decimals, parens for negatives,
  * em dash for unknown. The tax view has no on-screen drill-down, so no href.
  */
-const isAmountColumnTotal = (label: string) =>
-  ['Cost of Sales', 'Total Revenue', 'Total Other Income', 'Total Expenses'].includes(label)
-
-const toStatementRow = (row: FormBTableRow): StatementRow => ({
-  id: row.testId,
-  kind: STATEMENT_KIND[row.kind],
-  depth: 0,
-  code: row.code,
-  label: row.label,
-  // Section heads label a block; they carry no figure.
-  figures:
-    row.kind === 'section'
-      ? []
-      : row.kind === 'total' && !isAmountColumnTotal(row.label)
-        ? [null, row.rawAmount]
-        : [row.rawAmount, null],
-  blankFigures:
-    row.kind === 'section'
-      ? undefined
-      : row.kind === 'total' && !isAmountColumnTotal(row.label)
-        ? [true, false]
-        : [false, true],
-  topBorderFigures:
-    row.kind === 'section'
-      ? undefined
-      : row.kind === 'total' || row.kind === 'presentationTotal'
-        ? isAmountColumnTotal(row.label)
-          ? [true, false]
-          : [false, true]
-        : [false, false],
-  testId: row.testId,
-  isZero: row.rawAmount === '0.0000',
-})
+const toStatementRow = (row: FormBTableRow): StatementRow => {
+  const amountColumn = usesAmountColumn(row)
+  const isTotalRow = row.kind === 'total' || row.kind === 'presentationTotal'
+  return {
+    id: row.testId,
+    kind: STATEMENT_KIND[row.kind],
+    depth: 0,
+    code: row.code,
+    label: row.label,
+    // Section heads label a block; they carry no figure.
+    figures:
+      row.kind === 'section' ? [] : amountColumn ? [row.rawAmount, null] : [null, row.rawAmount],
+    blankFigures:
+      row.kind === 'section' ? undefined : amountColumn ? [false, true] : [true, false],
+    topBorderFigures:
+      row.kind === 'section'
+        ? undefined
+        : isTotalRow
+          ? amountColumn
+            ? [true, false]
+            : [false, true]
+          : [false, false],
+    sectionTotalGap: isTotalRow,
+    testId: row.testId,
+    isZero: row.rawAmount === '0.0000',
+  }
+}
 
 /**
  * Loading / error gate. Holds NO hooks, so the loading -> loaded transition
@@ -257,7 +278,7 @@ function FormBTaxViewBody({ data }: FormBTaxViewBodyProps) {
       <Box sx={{ flex: 1, minHeight: 0, minWidth: 0 }}>
         <Statement
           rows={statementRows}
-          figureHeads={['Amount', 'Total']}
+          figureHeads={statementFigureHeads()}
           label="Form B tax statement"
         />
       </Box>

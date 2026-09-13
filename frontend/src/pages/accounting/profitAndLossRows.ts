@@ -106,6 +106,7 @@ export function buildProfitAndLossRows(
       depth: 0,
       label: section.totalLabel,
       ...amountFigures(totalAmount, false, true),
+      sectionTotalGap: true,
       testId: `pl-row-${totalRowId}`,
       amountHook: 'pl-amount',
       isZero: isZeroAmount(totalAmount),
@@ -119,6 +120,7 @@ export function buildProfitAndLossRows(
         depth: 0,
         label: 'Gross Profit',
         ...amountFigures(data.grossProfit, true, true),
+        sectionTotalGap: true,
         testId: 'pl-row-grossProfit',
         isZero: isZeroAmount(data.grossProfit),
       })
@@ -131,6 +133,9 @@ export function buildProfitAndLossRows(
     depth: 0,
     label: 'Net Profit',
     ...amountFigures(data.netProfit, true, true),
+    // The bottom line closes the statement and kept this spacing before the
+    // label-matched rule was replaced ('NET PROFIT' was in that set).
+    sectionTotalGap: true,
     testId: 'pl-row-netProfit',
     // Single-node amount hook, for consistency with the Balance Sheet rows.
     // No suite asserts it on a rendered P&L row; StatementFigure's tests

@@ -65,26 +65,6 @@ const isEmphasizedRow = (kind: Row['kind']) =>
 
 const uppercaseEmphasizedLabel = (label: string) => label.toUpperCase()
 
-const SECTION_TOTAL_LABELS = new Set([
-  'TOTAL REVENUE',
-  'TOTAL COST OF SALES',
-  'TOTAL OTHER INCOME',
-  'GROSS PROFIT',
-  'NET PROFIT',
-  'GROSS PROFIT / LOSS',
-  'TOTAL EXPENSES',
-  'NET PROFIT / LOSS',
-  'TOTAL NON-CURRENT ASSETS',
-  'TOTAL CURRENT ASSETS',
-  'TOTAL ASSETS',
-  'TOTAL LIABILITIES',
-  "TOTAL OWNER'S EQUITY",
-  "TOTAL LIABILITIES AND OWNER'S EQUITY",
-])
-
-const hasSectionTotalGap = (label: string, id: string) =>
-  id === 'N33' || SECTION_TOTAL_LABELS.has(label.toUpperCase())
-
 interface StatementRowProps {
   row: Row
   figureCount: number
@@ -92,7 +72,24 @@ interface StatementRowProps {
 
 function StatementRowImpl({ row, figureCount }: StatementRowProps) {
   const emphasized = isEmphasizedRow(row.kind)
-  const hasExtraBottomSpace = hasSectionTotalGap(row.label, row.id)
+  /**
+   * The single column `amountHook` is applied to: the first column that
+   * actually renders a figure.
+   *
+   * A structural guarantee, not a caller convention — `blankFigures` is
+   * optional, so testing `!row.blankFigures?.[i]` per cell would place the
+   * testid on EVERY column of a row that omits it, and the suite asserts
+   * exactly one node per row (BalanceSheetPage.test.tsx:481). Computing the
+   * index once here keeps it to one cell for any shape of `blankFigures`,
+   * including none at all.
+   *
+   * Not hardcoded to 0: the Balance Sheet's N41 and N50 render their figure in
+   * the Total column with column 0 blank, and they still need the hook.
+   */
+  const firstFigureColumn = Array.from({ length: figureCount }).findIndex(
+    (_, i) => !row.blankFigures?.[i],
+  )
+  const hasExtraBottomSpace = row.sectionTotalGap === true
   const displayLabel = emphasized ? uppercaseEmphasizedLabel(row.label) : row.label
   const label = row.href ? (
     <MuiLink component={RouterLink} sx={DRILLDOWN_LINK_SX} to={row.href}>
@@ -157,7 +154,7 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
             key={i}
             amount={amount}
             testId={`${row.testId}-fig${i}`}
-            amountHook={!row.blankFigures?.[i] ? row.amountHook : undefined}
+            amountHook={i === firstFigureColumn ? row.amountHook : undefined}
             blank={row.blankFigures?.[i]}
             topBorder={row.topBorderFigures?.[i]}
             bottomLine={row.kind === 'bottomLine'}

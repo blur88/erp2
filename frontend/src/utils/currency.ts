@@ -6,7 +6,7 @@
  * Get currency symbol from localStorage cache
  * Falls back to 'RM' if not found
  */
-const getCurrencySymbol = (): string => {
+export const getCurrencySymbol = (): string => {
   return localStorage.getItem('defaultCurrency') || 'RM'
 }
 

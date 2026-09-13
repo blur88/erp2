@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { Alert, Box } from '@mui/material'
 
-import { Statement } from '@/components/accounting/Statement'
+import { Statement, statementFigureHeads } from '@/components/accounting/Statement'
 import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { buildProfitAndLossRows } from './profitAndLossRows'
 import type { ProfitAndLossResponse } from '@/types'
@@ -101,7 +101,7 @@ export default function ProfitAndLossAccountingView(props: ProfitAndLossAccounti
         // `minHeight: 0` stays: without it this flex child refuses to shrink
         // below its content and Statement's scroller never engages.
         <Box sx={{ flex: 1, minHeight: 0 }}>
-          <Statement rows={rows} figureHeads={['Amount', 'Total']} label="Profit and Loss statement" />
+          <Statement rows={rows} figureHeads={statementFigureHeads()} label="Profit and Loss statement" />
         </Box>
       )}
     </Box>

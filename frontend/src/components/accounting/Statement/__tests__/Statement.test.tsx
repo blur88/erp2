@@ -441,3 +441,35 @@ describe('Statement figure rules', () => {
     })
   })
 })
+
+describe('Statement amount hook placement', () => {
+  // The hook must land on exactly ONE cell for any shape of blankFigures,
+  // including none. A per-cell `!blankFigures?.[i]` test would put it on every
+  // column of the row below, which omits the array entirely.
+  it('applies amountHook once when blankFigures is omitted', () => {
+    renderThemed(
+      [row({ id: 'r', figures: ['1.0000', '2.0000'], amountHook: 'hook' })],
+      ['Amount', 'Total'],
+    )
+    expect(screen.getAllByTestId('hook')).toHaveLength(1)
+  })
+
+  it('applies amountHook to the first NON-BLANK column', () => {
+    // The Balance Sheet's N41/N50 shape: figure in Total, column 0 blank.
+    renderThemed(
+      [
+        row({
+          id: 'r',
+          figures: [null, '2.0000'],
+          blankFigures: [true, false],
+          amountHook: 'hook',
+        }),
+      ],
+      ['Amount', 'Total'],
+    )
+    const hooks = screen.getAllByTestId('hook')
+    expect(hooks).toHaveLength(1)
+    // It is inside the second figure cell, not the blank first one.
+    expect(screen.getByTestId('row-r-fig1')).toContainElement(hooks[0])
+  })
+})

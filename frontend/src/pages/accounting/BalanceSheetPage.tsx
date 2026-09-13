@@ -6,7 +6,11 @@ import { ListSkeleton } from '@/components/common/ListSkeleton'
 import { useFilterBar } from '@/hooks/useFilterBar'
 import type { FilterBarConfig } from '@/types/filterBar.types'
 import { useGetBalanceSheetQuery } from '@/store/api/accountingApi'
-import { Statement, type StatementRow } from '@/components/accounting/Statement'
+import {
+  Statement,
+  statementFigureHeads,
+  type StatementRow,
+} from '@/components/accounting/Statement'
 import { buildLedgerLink, formatBalanceAmount, SECTION_LABELS } from './balanceSheetRows'
 import type { BalanceSheetResponse } from '@/types'
 
@@ -30,30 +34,51 @@ const MIN_QUERYABLE_YEAR = 1000
 const DERIVED_TOTALS_ANCHOR_LINE = 'N49'
 
 /**
+ * Official rows whose figure sits in the Total column rather than Amount:
+ * N41 (TOTAL ASSETS) and N50 (Current Account Carried Forward). Every other
+ * row, section-closing totals N32/N40/N45 included, stays in Amount.
+ *
+ * This reproduces the previous label-set behaviour EXACTLY — it is a
+ * re-keying, not a re-placement. Verified line by line against the old
+ * predicate before the swap.
+ *
+ * Keyed on the line id, the statutory N-code, rather than on the label: the
+ * wording is backend-owned (`balance-sheet.lines.ts`) and changing it needs no
+ * data migration, so a label-matched rule relocates the figure silently — no
+ * type error, no failing test. The old set had already drifted this way: it
+ * named "TOTAL OWNER'S EQUITY", a derived row that never reaches this path,
+ * and reached N50 only via the fallthrough rather than by naming it.
+ */
+const TOTAL_COLUMN_LINES = new Set(['N41', 'N50'])
+
+const usesAmountColumn = (row: BalanceSheetResponse['rows'][number]) =>
+  !TOTAL_COLUMN_LINES.has(row.line)
+
+/**
  * The derived subtotal rows, in render order (#1212). `key` indexes
  * BalanceSheetResponse['derivedTotals'], so a renamed backend field is a type
  * error here rather than a silently missing row.
  */
-const BALANCE_SHEET_AMOUNT_TOTALS = new Set([
-  'TOTAL NON-CURRENT ASSETS',
-  'TOTAL CURRENT ASSETS',
-  'TOTAL LIABILITIES',
-  "TOTAL OWNER'S EQUITY",
-])
-
-const isAmountColumnTotal = (label: string) => BALANCE_SHEET_AMOUNT_TOTALS.has(label.toUpperCase())
-
 const DERIVED_TOTALS = [
-  { testId: 'bs-derived-owners-equity', label: "TOTAL OWNER'S EQUITY", key: 'ownersEquity' },
+  {
+    testId: 'bs-derived-owners-equity',
+    label: "TOTAL OWNER'S EQUITY",
+    key: 'ownersEquity',
+    amountColumn: true,
+  },
   {
     testId: 'bs-derived-liabilities-and-equity',
     label: "TOTAL LIABILITIES AND OWNER'S EQUITY",
     key: 'liabilitiesAndEquity',
+    // The statement's closing figure: sits in Total, beside N41's TOTAL ASSETS.
+    amountColumn: false,
   },
 ] as const satisfies readonly {
   testId: string
   label: string
   key: keyof BalanceSheetResponse['derivedTotals']
+  /** Column placement, declared here rather than re-derived from the label. */
+  amountColumn: boolean
 }[]
 
 export default function BalanceSheetPage() {
@@ -224,7 +249,7 @@ export default function BalanceSheetPage() {
 
       for (const row of group.rows) {
         const isExpanded = expanded.has(row.line)
-        const useAmountColumn = !row.isTotal || isAmountColumnTotal(row.label)
+        const useAmountColumn = usesAmountColumn(row)
         out.push({
           id: row.line,
           kind: row.isTotal ? 'subtotal' : 'line',
@@ -234,6 +259,15 @@ export default function BalanceSheetPage() {
           figures: useAmountColumn ? [row.amount, null] : [null, row.amount],
           blankFigures: useAmountColumn ? [false, true] : [true, false],
           topBorderFigures: row.isTotal ? (useAmountColumn ? [true, false] : [false, true]) : [false, false],
+          // Section-closing totals, plus N33 (Investments) — the lone row of
+          // the otherAssets section, which closes it by being all of it.
+          //
+          // N50 is excluded: it is the LAST row of the statement, where a
+          // trailing gap has nothing to separate it from. Preserves the
+          // previous behaviour exactly (verified row by row before the swap);
+          // the old label set reached the same outcome only by accident, via
+          // N50's label not appearing in it.
+          sectionTotalGap: (row.isTotal && row.line !== 'N50') || row.line === 'N33',
           testId: `bs-row-${row.line}`,
           // Single-node amount hook, read by the suite as one node.
           amountHook: 'bs-amount',
@@ -281,11 +315,12 @@ export default function BalanceSheetPage() {
               kind: 'subtotal',
               depth: 0,
               label: derived.label,
-              figures: isAmountColumnTotal(derived.label)
+              figures: derived.amountColumn
                 ? [report.derivedTotals[derived.key], null]
                 : [null, report.derivedTotals[derived.key]],
-              blankFigures: isAmountColumnTotal(derived.label) ? [false, true] : [true, false],
-              topBorderFigures: isAmountColumnTotal(derived.label) ? [true, false] : [false, true],
+              blankFigures: derived.amountColumn ? [false, true] : [true, false],
+              topBorderFigures: derived.amountColumn ? [true, false] : [false, true],
+              sectionTotalGap: true,
               testId: derived.testId,
               // Same single-node hook as the official rows.
               amountHook: 'bs-amount',
@@ -340,7 +375,7 @@ export default function BalanceSheetPage() {
       {/* Statement owns its own scroller (spec §3.1); `minHeight: 0` is what
           lets it shrink so that scroller engages. */}
       <Box sx={{ flex: 1, minHeight: 0 }}>
-        <Statement rows={statementRows} figureHeads={['Amount', 'Total']} label="Balance Sheet statement" />
+        <Statement rows={statementRows} figureHeads={statementFigureHeads()} label="Balance Sheet statement" />
       </Box>
 
       {report.findings.length > 0 && (

@@ -160,7 +160,7 @@ even if the Typography's `sx` were lost — which is the whole defect this check
 exists to catch:
 
 ```js
-getComputedStyle(document.querySelector('.stmt-col-head .MuiTypography-root'))
+getComputedStyle(document.querySelector('[data-role="col-head"] .MuiTypography-root'))
 // vs a Sales Orders header cell's Typography
 getComputedStyle(
   document.querySelector('.entity-table-card thead th .MuiTypography-root'),
@@ -176,7 +176,7 @@ Typography stripped of its `sx` would compute.
 render the shared `Statement`, so Form B inherits any header change whether or
 not the issue that caused it mentions Form B.
 
-**Why it can break:** the old `.stmt-col-head` rule set weight 500, 0.04em and
+**Why it can break:** the old `stmt-col-head` class rule (removed) set weight 500, 0.04em and
 no uppercase — the exact divergence #1228 removed. A reintroduced local rule,
 or a `darkTheme` block that shadows `MuiTableHead`, brings it back. Since #1231
 there is a second route: dropping `HEADER_TYPOGRAPHY_SX` from the Typography
@@ -205,7 +205,7 @@ row would scroll away and leave the labels floating over the data.
 
 **Expected:**
 
-- Collect the computed `fontSize` of **every** `.stmt-cell-figure` on the
+- Collect the computed `fontSize` of **every** `[data-role="figure"]` on the
   report. The set of distinct values must have **exactly one member**.
 - This includes `subtotal` and `bottomLine` rows. The bottom line is
   distinguished by weight and its double rule only.
@@ -229,7 +229,7 @@ A sharper form of ST-1, stated as a measurement rather than a judgement.
   the paren spacer is actually exercised. A column of all-positive figures
   cannot verify this.
 - Confirm the spacer is doing the work: `getComputedStyle(el, '::after')` on a
-  `.stmt-paren-spacer` reports `content: ")"` and `visibility: hidden`, with a
+  `[data-role="paren-spacer"]` reports `content: ")"` and `visibility: hidden`, with a
   non-zero reserved width. Read the **pseudo-element** — the element itself is
   a bare empty span and reads `visible`.
 
@@ -275,7 +275,7 @@ target the lazy chunk:
 
 ```
 /usr/share/nginx/html/assets/Statement-C3WfDAul.js
-  stmt-scroller 1 · stmt-paren-spacer 1 · "Description" 1
+  statement-scroller 1 · paren-spacer 1 · "Description" 1
   stmt-cell-figure-int 0 · stmt-cell-figure-frac 0   ← old two-cell markup absent
 ```
 
@@ -301,6 +301,88 @@ Note: the app's CSP blocks the Google Fonts stylesheet, so Roboto resolves from
 the local system rather than the network. Alignment holds regardless — the
 fallback face is still Roboto here. A host without a local Roboto is untested.
 
+## Preflight — run this FIRST
+
+Every step below queries the DOM. A renamed or dropped hook makes
+`querySelector` return `null`, and `querySelectorAll` return an EMPTY NodeList
+that iterates zero times **without throwing** — so a sweep over "every figure
+cell" silently checks nothing and reads as a pass.
+
+Open the statement page, open the browser console, and paste this **verbatim**.
+It is self-contained plain JavaScript: nothing to import, no build step.
+
+```js
+var QA_REQUIRED_HOOKS = [
+  { selector: "[data-role=\"statement-root\"]", min: 1, role: "statement root (Paper frame)" },
+  { selector: "[data-testid=\"statement-scroller\"]", min: 1, role: "scroll container" },
+  { selector: "[data-role=\"col-head\"]", min: 2, role: "column header cells" },
+  { selector: "[data-role=\"figure\"]", min: 1, role: "figure cells (blank cells excluded)" },
+  { selector: "[data-role=\"paren-spacer\"]", min: 1, role: "paren spacer (generated content, positive figures only)" },
+  { selector: "[data-a11y=\"statement-value\"]", min: 1, role: "complete value, visually hidden" },
+];
+
+function runQaPreflight(root) {
+  root = root || document;
+  var results = QA_REQUIRED_HOOKS.map(function (h) {
+    return {
+      selector: h.selector,
+      role: h.role,
+      min: h.min,
+      found: root.querySelectorAll(h.selector).length,
+    };
+  });
+  var missing = results.filter(function (r) { return r.found < r.min; });
+  if (missing.length > 0) {
+    throw new Error(
+      'STATEMENT_THEME_QA preflight FAILED — ' + missing.length + ' hook(s) unusable.\n' +
+      missing.map(function (r) {
+        return '  ' + r.selector + ' (' + r.role + '): found ' + r.found + ', need >= ' + r.min;
+      }).join('\n') +
+      '\n\nThe QA steps that query these return null or an empty collection and ' +
+      'would record a silent pass. Update the selectors in the QA document and ' +
+      'Statement/qaPreflight.ts together, then re-run.'
+    );
+  }
+  console.table(results);
+  return results;
+}
+
+runQaPreflight();
+```
+
+It prints a table of match counts and **throws**, naming the hook, if any
+selector is unusable. **Do not record results from a session where it throws** —
+update the selectors in this document and in
+`frontend/src/components/accounting/Statement/qaPreflight.ts` together, then
+start over.
+
+This block is not hand-maintained: `qaPreflight.ts` generates it via
+`qaPreflightSnippet()`, and `qaSelectorContract.test.tsx` both EXECUTES the
+snippet and asserts this document still contains it verbatim. A hook added to
+the module without regenerating this block fails the suite.
+
+## Selector reference
+
+Every query below addresses a DOM hook the component renders deliberately. They
+are asserted by `Statement/__tests__/qaSelectorContract.test.tsx`, so renaming
+or dropping one turns the Vitest suite red and names this document — rather
+than leaving these steps silently returning `null`, which reads as a pass.
+
+| Hook | Selector |
+|---|---|
+| Statement root (Paper frame) | `[data-role="statement-root"]` |
+| Scroll container | `[data-testid="statement-scroller"]` |
+| Column header cell | `[data-role="col-head"]` |
+| Figure cell (blank cells excluded) | `[data-role="figure"]` |
+| Paren spacer (generated content) | `[data-role="paren-spacer"]` |
+| Complete value, visually hidden | `[data-a11y="statement-value"]` |
+
+```js
+// Scroll container and the accessible complete value:
+document.querySelector('[data-testid="statement-scroller"]')
+document.querySelectorAll('[data-a11y="statement-value"]')
+```
+
 ### ST-2 — Parentheses not clipped ✅
 
 At **1024×900** and **768×900**, all 10 figure cells: `clipped=0`,
@@ -317,7 +399,7 @@ with `white-space: nowrap`, and the height variance is `padding-top` by row kind
 Read from the **pseudo-element**, which is where the rule lives:
 
 ```
-getComputedStyle(.stmt-paren-spacer, '::after')
+getComputedStyle([data-role="paren-spacer"], '::after')
   content: ")"   visibility: hidden   reserved width: 5.33px
 ```
 
@@ -359,7 +441,7 @@ the path that fix repaired.
 
 ### ST-6 — Theme match vs the SO/PO baseline ✅
 
-`.stmt-root` measured against `.entity-table-card` on `/sales/orders`, same
+`[data-role="statement-root"]` measured against `.entity-table-card` on `/sales/orders`, same
 session, same theme:
 
 | Property | Statement | SO list | Match |
@@ -509,7 +591,7 @@ through as they pass beneath.
 
 ### ST-12 — Figure font-size uniformity ✅
 
-| Report | Distinct `.stmt-cell-figure` font sizes |
+| Report | Distinct `[data-role="figure"]` font sizes |
 |---|---|
 | P&L | **`["14px"]`** |
 | Balance Sheet | **`["14px"]`** |

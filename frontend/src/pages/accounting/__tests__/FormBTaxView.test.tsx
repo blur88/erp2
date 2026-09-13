@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi } from 'vitest'
@@ -455,5 +455,66 @@ describe('FormBTaxView', () => {
   it('renders no per-account cohort rows', () => {
     renderTaxView(responseWithCohort())
     expect(screen.queryByTestId('formb-cohort-N24-0')).not.toBeInTheDocument()
+  })
+})
+
+describe('Form B column placement', () => {
+  /*
+   * Column choice is keyed on the statutory N-code, never on the label.
+   * `form-b.categories.ts` is backend-owned and its docblock states the Form B
+   * wording can change with no data migration; `buildFormBTableRows` passes
+   * `row.label` through verbatim, so a label-matched rule relocates the figure
+   * silently — no type error, no failing test.
+   *
+   * That regression is real, not hypothetical: replacing the original
+   * label-matched rule with a `kind`-based predicate moved N7, N14 and N25
+   * from Amount to Total, because their live backend labels ('Cost of Sales',
+   * 'Total Other Income', 'Total Expenses') were the very strings the old set
+   * matched. These fixtures carry DELIBERATELY WRONG labels, so any rule that
+   * consults the label again flips them.
+   */
+  const MISLEADING: Record<string, string> = {
+    N7: 'Net Profit / Loss',
+    N8: 'Total Expenses',
+    N14: 'Gross Profit / Loss',
+    N25: 'Cost of Sales',
+    N26: 'Total Other Income',
+  }
+
+  const renderWithMisleadingLabels = () => {
+    const data = fullResponse()
+    data.rows = data.rows.map((r: any) =>
+      r.line in MISLEADING ? { ...r, label: MISLEADING[r.line] } : r,
+    )
+    return renderTaxView(data)
+  }
+
+  // Figure cells are the last two columns; a row fills exactly one.
+  const columnOf = (line: string) => {
+    const cells = within(screen.getByTestId(`formb-line-${line}`)).getAllByRole('cell')
+    const [amount, total] = cells.slice(-2)
+    const filled = (c: HTMLElement) => c.textContent?.trim() !== ''
+    if (filled(amount) && !filled(total)) return 'amount'
+    if (filled(total) && !filled(amount)) return 'total'
+    return `both/neither: ${JSON.stringify([amount.textContent, total.textContent])}`
+  }
+
+  it.each([
+    ['N7', 'amount'],
+    ['N14', 'amount'],
+    ['N25', 'amount'],
+    ['N8', 'total'],
+    ['N26', 'total'],
+  ])('places statutory total %s in the %s column regardless of its label', (line, expected) => {
+    renderWithMisleadingLabels()
+    expect(columnOf(line)).toBe(expected)
+  })
+
+  it('keeps the presentation Total Revenue row in the Amount column', () => {
+    renderWithMisleadingLabels()
+    const cells = within(screen.getByTestId('formb-line-total-revenue')).getAllByRole('cell')
+    const [amount, total] = cells.slice(-2)
+    expect(amount.textContent?.trim()).not.toBe('')
+    expect(total.textContent?.trim()).toBe('')
   })
 })
