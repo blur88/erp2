@@ -4,6 +4,8 @@ import { Repository, EntityManager } from 'typeorm';
 import { repoFor } from '../../../common/db/tx-helpers';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
 import { AccountingSettings } from '../entities/accounting-settings.entity';
+import { PaymentMethodAccountMapping } from '../entities/payment-method-account-mapping.entity';
+import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 
 export type MappingKey =
   | 'cash' | 'bank' | 'inventory' | 'supplierDeposit' | 'customerDeposit'
@@ -40,5 +42,57 @@ export class AccountingLookupService {
 
   resolveChannelAccount(channel: 'CASH' | 'BANK', manager: EntityManager): Promise<ChartOfAccount> {
     return this.resolveAccount(channel === 'CASH' ? 'cash' : 'bank', manager);
+  }
+
+  /**
+   * Resolve the posting account for a payment (issue #1237).
+   *
+   * Mapping first, channel default second. An INVALID mapping throws rather
+   * than falling back: silently using the bank default would send Maybank
+   * payments to CIMB again, which is indistinguishable from the bug this
+   * exists to fix. Only the ABSENCE of a mapping is a fallback.
+   */
+  async resolvePaymentAccount(
+    channel: 'CASH' | 'BANK',
+    paymentMethodId: string | undefined,
+    manager: EntityManager,
+  ): Promise<ChartOfAccount> {
+    const fallbackKey: MappingKey = channel === 'CASH' ? 'cash' : 'bank';
+    if (!paymentMethodId) return this.resolveAccount(fallbackKey, manager);
+
+    const mappingRepo = manager.getRepository(PaymentMethodAccountMapping);
+    const mapping = await mappingRepo.findOne({
+      where: { paymentMethodId } as any,
+    });
+    if (!mapping) return this.resolveAccount(fallbackKey, manager);
+
+    // NEVER pass withDeleted here. The default exclusion is what makes a
+    // soft-deleted account resolve as invalid — FK RESTRICT does not fire on a
+    // soft delete, so this lookup is the only thing standing between a deleted
+    // account and a posting.
+    const coaRepo = manager.getRepository(ChartOfAccount);
+    const account = await coaRepo.findOne({ where: { id: mapping.accountId } as any });
+
+    const methodRepo = manager.getRepository(PaymentMethodEntity);
+    const method = await methodRepo.findOne({ where: { id: paymentMethodId } as any });
+    const methodLabel = method?.name ?? paymentMethodId;
+
+    if (!account) {
+      throw new BadRequestException(
+        `Payment method '${methodLabel}' is mapped to account ${mapping.accountId} (not found or deleted)`,
+      );
+    }
+    const accountLabel = `${account.code} ${account.name}`;
+    if (!account.isActive) {
+      throw new BadRequestException(
+        `Payment method '${methodLabel}' is mapped to account '${accountLabel}', which is inactive`,
+      );
+    }
+    if (!account.isPostable) {
+      throw new BadRequestException(
+        `Payment method '${methodLabel}' is mapped to account '${accountLabel}', which is not postable`,
+      );
+    }
+    return account;
   }
 }
