@@ -160,6 +160,7 @@ function StatementRowImpl({ row, figureCount }: StatementRowProps) {
             amountHook={!row.blankFigures?.[i] ? row.amountHook : undefined}
             blank={row.blankFigures?.[i]}
             topBorder={row.topBorderFigures?.[i]}
+            bottomLine={row.kind === 'bottomLine'}
             emphasized={emphasized}
           />
         ))

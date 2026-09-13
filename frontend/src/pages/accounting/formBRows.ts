@@ -1,7 +1,7 @@
 import type { FormBResponse, FormBRow, FormBAmount } from '@/types'
 import { formatCurrency } from '@/utils/currency'
 
-export type FormBRowKind = 'section' | 'line' | 'total'
+export type FormBRowKind = 'section' | 'line' | 'total' | 'presentationTotal'
 
 export interface FormBTableRow {
   id: string
@@ -122,7 +122,8 @@ export function buildFormBTableRows(data: FormBResponse): FormBTableRow[] {
     if (row.line === 'N3') {
       out.push({
         id: 'N3-total-revenue',
-        kind: 'total',
+        // Presentation only: never part of the statutory line/total sequence.
+        kind: 'presentationTotal',
         line: '',
         code: '',
         label: 'Total Revenue',

@@ -410,3 +410,34 @@ describe('Statement body typography', () => {
   })
 
 })
+
+
+describe('Statement figure rules', () => {
+  it.each(['100.0000', '-100.0000', null])(
+    'distinguishes the bottom line from a subtotal for amount %s',
+    (amount) => {
+      renderThemed([
+        row({ id: 't', kind: 'subtotal', figures: [amount, null], blankFigures: [false, true], topBorderFigures: [true, false] }),
+        row({ id: 'n', kind: 'bottomLine', figures: [null, amount], blankFigures: [true, false], topBorderFigures: [false, true] }),
+      ], ['Amount', 'Total'])
+
+      expect(screen.getByTestId('row-t-fig0')).toHaveStyle({
+        borderTop: '1px solid rgb(255, 255, 255)', fontWeight: '700', fontSize: '12.8px',
+      })
+      expect(screen.getByTestId('row-n-fig1')).toHaveStyle({
+        borderTop: '3px double rgb(255, 255, 255)', fontWeight: '700', fontSize: '12.8px',
+      })
+      for (const id of ['row-t-fig1', 'row-n-fig0']) {
+        expect(screen.getByTestId(id)).toBeEmptyDOMElement()
+        expect(screen.getByTestId(id)).toHaveStyle({ borderTopWidth: '0px' })
+      }
+    },
+  )
+
+  it('keeps the bottom-line rule when optional column borders are omitted', () => {
+    renderThemed([row({ id: 'n', kind: 'bottomLine' })])
+    expect(screen.getByTestId('row-n-fig0')).toHaveStyle({
+      borderTop: '3px double rgb(255, 255, 255)',
+    })
+  })
+})

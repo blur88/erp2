@@ -20,6 +20,7 @@ const STATEMENT_KIND: Record<FormBTableRow['kind'], StatementRow['kind']> = {
   section: 'section',
   line: 'line',
   total: 'subtotal',
+  presentationTotal: 'subtotal',
 }
 
 /**
@@ -54,7 +55,7 @@ const toStatementRow = (row: FormBTableRow): StatementRow => ({
   topBorderFigures:
     row.kind === 'section'
       ? undefined
-      : row.kind === 'total'
+      : row.kind === 'total' || row.kind === 'presentationTotal'
         ? isAmountColumnTotal(row.label)
           ? [true, false]
           : [false, true]

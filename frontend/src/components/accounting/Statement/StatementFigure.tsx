@@ -110,6 +110,7 @@ interface StatementFigureProps {
   amountHook?: string
   blank?: boolean
   topBorder?: boolean
+  bottomLine?: boolean
   emphasized?: boolean
 }
 
@@ -132,15 +133,24 @@ interface StatementFigureProps {
  * association — text clipped out of the table's cell structure would lose the
  * row/column relationship the table exists to provide.
  */
-export function StatementFigure({ amount, testId, amountHook, blank, topBorder, emphasized }: StatementFigureProps) {
+export function StatementFigure({ amount, testId, amountHook, blank, topBorder, bottomLine, emphasized }: StatementFigureProps) {
+  const cellSx = {
+    ...FIGURE_CELL_SX,
+    // Override the table's border reset; losses keep a text-primary rule even
+    // when their figure uses error.main. Blank companion columns stay unruled.
+    ...(!blank && (bottomLine || topBorder) ? {
+      '&&': {
+        borderTop: bottomLine ? '3px double' : '1px solid',
+        borderTopColor: 'text.primary',
+      },
+    } : {}),
+    ...(emphasized ? { fontWeight: 700 } : {}),
+  }
+
   if (blank) {
     return (
       <TableCell
-        sx={{
-          ...FIGURE_CELL_SX,
-          ...(topBorder ? { boxShadow: 'inset 0 1px 0 0 currentColor' } : {}),
-          ...(emphasized ? { fontWeight: 700 } : {}),
-        }}
+        sx={cellSx}
         data-testid={testId}
       />
     )
@@ -151,11 +161,7 @@ export function StatementFigure({ amount, testId, amountHook, blank, topBorder, 
     // backend explicitly declined to compute.
     return (
       <TableCell
-        sx={{
-          ...FIGURE_CELL_SX,
-          ...(topBorder ? { boxShadow: 'inset 0 1px 0 0 currentColor' } : {}),
-          ...(emphasized ? { fontWeight: 700 } : {}),
-        }}
+        sx={cellSx}
         data-testid={testId}
       >
         <Box component="span" data-a11y="statement-value" sx={a11yOnlySx} data-testid={amountHook}>
@@ -173,9 +179,7 @@ export function StatementFigure({ amount, testId, amountHook, blank, topBorder, 
   return (
     <TableCell
       sx={{
-        ...FIGURE_CELL_SX,
-        ...(topBorder ? { boxShadow: 'inset 0 1px 0 0 currentColor' } : {}),
-        ...(emphasized ? { fontWeight: 700 } : {}),
+        ...cellSx,
         ...(negative ? { color: 'error.main' } : {}),
       }}
       data-testid={testId}

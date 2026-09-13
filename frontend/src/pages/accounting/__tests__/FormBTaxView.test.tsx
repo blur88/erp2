@@ -236,7 +236,15 @@ describe('FormBTaxView', () => {
   it('renders every derived line as a total row', () => {
     const built = buildFormBTableRows(fullResponse())
     const totals = built.filter((r) => r.kind === 'total').map((r) => r.line)
-    expect(totals).toEqual(['', 'N7', 'N8', 'N14', 'N25', 'N26'])
+    expect(totals).toEqual(['N7', 'N8', 'N14', 'N25', 'N26'])
+  })
+
+  it('keeps the presentation revenue total in the amount column', () => {
+    renderTaxView(responseWith({ line: 'N3', amount: '1250.0000' }))
+    const total = screen.getByTestId('formb-line-total-revenue')
+    expect(total).toHaveTextContent('TOTAL REVENUE')
+    expect(screen.getByTestId('formb-line-total-revenue-fig0')).toHaveTextContent('1,250.00')
+    expect(screen.getByTestId('formb-line-total-revenue-fig1')).toBeEmptyDOMElement()
   })
 
   it('renders no formula captions', () => {

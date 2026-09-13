@@ -91,12 +91,11 @@ describe('buildFormBTableRows', () => {
 
   it('places each header immediately before its opening line', () => {
     const built = buildFormBTableRows(data([row({ line: 'N3' }), row({ line: 'N4' })]))
-    // Section rows carry a label and no line; line rows carry the line number.
-    const kinds = built.map((r) => `${r.kind}:${r.kind === 'section' ? r.label : r.line}`)
-    expect(kinds).toEqual([
-      'section:Sales / Revenue', 'line:N3',
-      'section:Cost of Sales', 'line:N4',
-    ])
+    for (const line of ['N3', 'N4']) {
+      const index = built.findIndex((r) => r.line === line)
+      expect(index).toBeGreaterThan(0)
+      expect(built[index - 1]).toMatchObject({ kind: 'section', id: `section.${line}` })
+    }
   })
 
   it('gives section rows no amount, so the column stays clean', () => {
