@@ -250,10 +250,10 @@ describe('StatementFigure presentation props', () => {
       expect(cell).not.toHaveAttribute('data-role', 'figure')
     })
 
-    it('takes no rule even when topBorder or bottomLine is set', () => {
+    it('takes no rule even when topBorder is set', () => {
       // A blank companion column sits beside a ruled figure; ruling it too
       // would draw a line under an empty cell.
-      renderThemedFigure({ blank: true, topBorder: true, bottomLine: true })
+      renderThemedFigure({ blank: true, topBorder: true })
       // Asserted as the ABSENCE of a border-top declaration. This cell is
       // rendered outside Statement's table reset, so an unruled cell carries no
       // border-top-width rule at all and computes to '' rather than '0px'.

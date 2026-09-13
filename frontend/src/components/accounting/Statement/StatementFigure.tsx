@@ -110,7 +110,6 @@ interface StatementFigureProps {
   amountHook?: string
   blank?: boolean
   topBorder?: boolean
-  bottomLine?: boolean
   emphasized?: boolean
 }
 
@@ -133,14 +132,22 @@ interface StatementFigureProps {
  * association — text clipped out of the table's cell structure would lose the
  * row/column relationship the table exists to provide.
  */
-export function StatementFigure({ amount, testId, amountHook, blank, topBorder, bottomLine, emphasized }: StatementFigureProps) {
+export function StatementFigure({ amount, testId, amountHook, blank, topBorder, emphasized }: StatementFigureProps) {
   const cellSx = {
     ...FIGURE_CELL_SX,
     // Override the table's border reset; losses keep a text-primary rule even
     // when their figure uses error.main. Blank companion columns stay unruled.
-    ...(!blank && (bottomLine || topBorder) ? {
+    //
+    // ONE rule for every ruled figure, subtotals and the bottom line alike.
+    // The bottom line previously carried a 3px double rule to mark it as the
+    // statement's final result; that was removed by request. Since `emphasized`
+    // is the same weight 700 on section, subtotal and bottomLine rows, and every
+    // figure renders at one font size, NOTHING now distinguishes the bottom line
+    // visually — that is the accepted trade-off, not an oversight. Restoring a
+    // marker means reintroducing a rule here, not changing the figure size.
+    ...(!blank && topBorder ? {
       '&&': {
-        borderTop: bottomLine ? '3px double' : '1px solid',
+        borderTop: '1px solid',
         borderTopColor: 'text.primary',
       },
     } : {}),
