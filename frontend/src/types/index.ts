@@ -629,6 +629,18 @@ export interface AccountingSettings {
   defaultExpenseAccountId: string;
 }
 
+export interface PaymentMethodMappingRow {
+  paymentMethodId: string;
+  paymentMethodName: string;
+  paymentMethodCode: string;
+  accountingChannel: 'CASH' | 'BANK';
+  accountId: string | null;
+  accountCode: string | null;
+  accountName: string | null;
+  status: 'mapped' | 'unmapped' | 'invalid';
+  invalidReason: 'inactive' | 'not postable' | 'deleted' | 'missing' | null;
+}
+
 export type JournalEntryStatus = 'Posted' | 'Reversed';
 export type AccountingSourceType = 'SALES_ORDER' | 'PURCHASE_ORDER' | 'STOCK_ADJUSTMENT' | 'OPENING_BALANCE' | 'EXPENSE' | 'OWNER_EQUITY';
 
