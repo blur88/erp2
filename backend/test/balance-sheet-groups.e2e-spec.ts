@@ -501,52 +501,74 @@ describe('Balance Sheet account groups (e2e)', () => {
       }
     });
 
-    it('getConfiguration returns a self-consistent pair under interleaved writes', async () => {
+    it('renders a self-consistent pair either side of an interleaved write', async () => {
       /*
-       * The same scenario through the REAL read path, asserting the OUTCOME
-       * rather than the snapshot mechanics: whatever pair comes back, no
-       * account may resolve to two lines.
+       * The same scenario through the REAL read path, asserting the OUTCOME:
+       * whatever pair the report resolves, no account may land on two lines.
        *
-       * Runs the report repeatedly while writes flip the configuration
-       * underneath it. Without one snapshot this is the window the defect lives
-       * in; with it, every response must be internally coherent.
+       * DETERMINISTIC, not raced. An earlier version fired the report and the
+       * writes concurrently in Promise.all, six times over. It passed locally
+       * and failed on CI with `connect ECONNRESET` — too many overlapping
+       * supertest connections against the ephemeral server on a constrained
+       * runner. A test that depends on how much socket headroom the machine
+       * has is flaky by construction, and the racing bought nothing: the
+       * snapshot guarantee is proved by the transaction-level test above, and
+       * concurrency here only ever sampled whichever state happened to win.
+       *
+       * So the states are stepped through explicitly and the report rendered
+       * against each. Every reachable configuration is checked, rather than a
+       * random subset of them.
        */
+      const year = new Date().getUTCFullYear();
+
+      const renderAndAssert = async (label: string) => {
+        const report = await get(`/accounting/balance-sheet?year=${year}`);
+        expect(report.status).toBe(200);
+        const rows = (report.body.data ?? report.body).rows as any[];
+        const n38 = rows.find((r) => r.line === 'N38').accounts.map((a: any) => a.accountId);
+        const n39 = rows.find((r) => r.line === 'N39').accounts.map((a: any) => a.accountId);
+        const overlap = n38.filter((id: string) => n39.includes(id));
+        // Named so a failure says WHICH configuration produced the overlap.
+        expect({ state: label, overlap }).toEqual({ state: label, overlap: [] });
+        return { n38, n39 };
+      };
+
+      // State A — the starting point: bank default CIMB, N38 empty (so the
+      // fallback is armed), N39 = [Atome].
       await ds.query(
         `UPDATE accounting_settings SET "bankAccountId" = $1 WHERE id = true`,
         [cimbId],
       );
       await setGroups([{ accountId: atomeId, group: 'OTHER_CURRENT_ASSETS' }]);
+      const a = await renderAndAssert('A: fallback armed, Atome in N39');
+      expect(a.n38).toEqual([cimbId]); // the fallback contributes
+      expect(a.n39).toEqual([atomeId]);
 
-      const year = new Date().getUTCFullYear();
-      const flip = async () => {
-        await setGroups([
-          { accountId: maybankId, group: 'BANK_BALANCE' },
-          { accountId: atomeId, group: 'OTHER_CURRENT_ASSETS' },
-        ]);
-        const c = await get('/accounting/settings');
-        await put('/accounting/settings', { ...c.body, bankAccountId: atomeId });
-      };
-      const reset = async () => {
-        const c = await get('/accounting/settings');
-        await put('/accounting/settings', { ...c.body, bankAccountId: cimbId });
-        await setGroups([{ accountId: atomeId, group: 'OTHER_CURRENT_ASSETS' }]);
-      };
+      // State B — after write 1: N38 non-empty, so the fallback is displaced.
+      expect(
+        (
+          await setGroups([
+            { accountId: maybankId, group: 'BANK_BALANCE' },
+            { accountId: atomeId, group: 'OTHER_CURRENT_ASSETS' },
+          ])
+        ).status,
+      ).toBe(200);
+      const b = await renderAndAssert('B: N38 grouped, fallback displaced');
+      expect(b.n38).toEqual([maybankId]);
+      expect(b.n39).toEqual([atomeId]);
 
-      for (let i = 0; i < 6; i++) {
-        const [report] = await Promise.all([
-          get(`/accounting/balance-sheet?year=${year}`),
-          i % 2 === 0 ? flip() : reset(),
-        ]);
-        expect(report.status).toBe(200);
-
-        const rows = (report.body.data ?? report.body).rows as any[];
-        const n38 = rows.find((r) => r.line === 'N38').accounts.map((a: any) => a.accountId);
-        const n39 = rows.find((r) => r.line === 'N39').accounts.map((a: any) => a.accountId);
-
-        // No account may contribute to both lines in one rendered report.
-        const overlap = n38.filter((id: string) => n39.includes(id));
-        expect(overlap).toEqual([]);
-      }
+      // State C — after write 2: the bank default now points at Atome, which
+      // is legal ONLY because N38 is non-empty. This is the state that, paired
+      // with state A's groups, would put Atome on both lines.
+      const current = await get('/accounting/settings');
+      expect(
+        (await put('/accounting/settings', { ...current.body, bankAccountId: atomeId }))
+          .status,
+      ).toBe(200);
+      const c = await renderAndAssert('C: bank default = Atome, N38 grouped');
+      // Atome belongs to N39 only; the displaced fallback must NOT add it to N38.
+      expect(c.n38).toEqual([maybankId]);
+      expect(c.n39).toEqual([atomeId]);
     });
   });
 
