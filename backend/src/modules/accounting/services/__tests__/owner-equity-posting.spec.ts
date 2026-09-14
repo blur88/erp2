@@ -45,7 +45,7 @@ describe('owner equity postings', () => {
     winnerAfterConflict = null;
     rolledBackToSavepoint = false;
     const lookup = {
-      resolveChannelAccount: async (ch: string) => acc(ch === 'CASH' ? '1100' : '1200', 'ch-1'),
+      resolvePaymentAccount: async (ch: string) => acc(ch === 'CASH' ? '1100' : '1200', 'ch-1'),
       resolveAccount: async (key: string) => {
         const map: Record<string, string> = {
           ownerCapital: '3100', ownerDrawings: '3300', inventory: '1300',

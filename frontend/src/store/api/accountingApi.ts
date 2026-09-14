@@ -18,6 +18,7 @@ import type {
   GeneralLedgerResponse,
   OwnerEquityDocument,
   OwnerEquityListParams,
+  PaymentMethodMappingRow,
   RefundOwnerEquityRequest,
   SettleOwnerEquityRequest,
   TrialBalanceResponse,
@@ -73,7 +74,7 @@ export interface ExpenseListParams {
 export const accountingApiSlice = createApi({
   reducerPath: 'accountingApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB', 'FormBMapping', 'OwnerEquity'],
+  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB', 'FormBMapping', 'OwnerEquity', 'PaymentMethodMapping'],
   endpoints: (builder) => ({
     getAccountTree: builder.query<AccountTreeNode[], AccountTreeParams>({
       query: ({ search, type, isActive }) => {
@@ -113,6 +114,21 @@ export const accountingApiSlice = createApi({
       query: (body) => ({ url: '/accounting/settings', method: 'PUT', data: body }),
       transformResponse: normalizeSingle<AccountingSettings>,
       invalidatesTags: ['AccountingSettings', 'ProfitAndLoss', 'BalanceSheet', 'FormB'],
+    }),
+    getPaymentMethodMappings: builder.query<PaymentMethodMappingRow[], void>({
+      query: () => ({ url: '/accounting/settings/payment-method-mappings' }),
+      providesTags: ['PaymentMethodMapping'],
+    }),
+    bulkUpdatePaymentMethodMappings: builder.mutation<
+      PaymentMethodMappingRow[],
+      { mappings: { paymentMethodId: string; accountId: string | null }[] }
+    >({
+      query: ({ mappings }) => ({
+        url: '/accounting/settings/payment-method-mappings',
+        method: 'PUT',
+        body: { mappings },
+      }),
+      invalidatesTags: ['PaymentMethodMapping'],
     }),
     getJournalEntries: builder.query<
       PaginatedResponse<JournalEntry>,
@@ -372,6 +388,8 @@ export const {
   useUpdateAccountMutation,
   useGetAccountingSettingsQuery,
   useUpdateAccountingSettingsMutation,
+  useGetPaymentMethodMappingsQuery,
+  useBulkUpdatePaymentMethodMappingsMutation,
   useGetJournalEntriesQuery,
   useGetJournalEntryQuery,
   useLazyGetJournalEntryQuery,

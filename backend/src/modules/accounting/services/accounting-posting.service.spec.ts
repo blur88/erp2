@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { AccountingPostingService } from './accounting-posting.service';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
 import { JournalEntry } from '../entities/journal-entry.entity';
@@ -13,7 +14,7 @@ function makeService(saved: any[], findOneMap?: Record<string, any>) {
   const map = findOneMap ?? {};
   const lookup = {
     resolveAccount: async (key: string) => acc(`${key}-id`),
-    resolveChannelAccount: async (ch: string) => acc(`${ch}-id`),
+    resolvePaymentAccount: async (ch: string) => acc(`${ch}-id`),
   } as any;
   const docNumbers = { generateDocumentNumber: async () => 'JE-26-001' } as any;
   const svc = new AccountingPostingService(lookup, docNumbers);
@@ -31,7 +32,7 @@ function makeService(saved: any[], findOneMap?: Record<string, any>) {
       };
     },
   } as any;
-  return { svc, manager };
+  return { svc, manager, lookup };
 }
 
 describe('AccountingPostingService', () => {
@@ -119,6 +120,18 @@ describe('AccountingPostingService', () => {
     expect(res.journalEntryId).toBe('existing-je-42');
     // No new JournalEntry should be saved
     expect(saved.find((s) => s.entity === 'JournalEntry')).toBeUndefined();
+  });
+
+  it('forwards the payment method id to account resolution', async () => {
+    const saved: any[] = [];
+    const { svc, manager, lookup } = makeService(saved);
+    lookup.resolvePaymentAccount = jest.fn(async () => acc('mapped-acct'));
+    await svc.postSalesPayment({
+      salesOrderId: 'so-1', paymentRowId: 'row-1', sourceRef: 'SO-001',
+      channel: 'BANK', paymentMethodId: 'pm-maybank', amount: '10.0000',
+      entryDate: '2026-09-14', createdBy: 'tester',
+    } as any, manager);
+    expect(lookup.resolvePaymentAccount).toHaveBeenCalledWith('BANK', 'pm-maybank', expect.anything());
   });
 
   it('rejects an unbalanced entry', async () => {
