@@ -414,7 +414,9 @@ describe('Payment method account mappings (e2e)', () => {
       }
     } finally {
       if (ds?.isInitialized) await ds.destroy();
-      await app.close();
+      // Guarded: a beforeAll failure before `app` is assigned must not mask
+      // the original error with a TypeError from close().
+      if (app) await app.close();
     }
   });
 
@@ -899,8 +901,10 @@ describe('Payment method account mappings (e2e)', () => {
         // error: 'Database Error' (http-exception.filter.ts:122-128), so a
         // bare 500 can never be what an injected database failure returns.
         // Assert the DB-error shape rather than any 400: a validation-phase
-        // rejection carries no `error` field at all, so this proves the
-        // request failed in the write phase, after the first insert.
+        // rejection also returns 400 but carries error: 'Bad Request', so the
+        // discriminator is error === 'Database Error' / code === 'DB_999',
+        // which proves the request failed in the write phase, after the first
+        // insert.
         expect(res.status).toBe(400);
         expect(res.body.error).toBe('Database Error');
         expect(res.body.code).toBe('DB_999');

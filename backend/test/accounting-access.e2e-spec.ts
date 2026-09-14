@@ -42,6 +42,10 @@ describe('Accounting access (e2e)', () => {
       () => `/accounting/general-ledger?accountId=${encodeURIComponent(cashAccountId)}`,
     ],
     ['trial balance', () => '/accounting/trial-balance'],
+    [
+      'payment method mappings',
+      () => '/accounting/settings/payment-method-mappings',
+    ],
   ] as const;
 
   // Distinct usernames so this suite cannot collide with the auth/search e2e
@@ -204,6 +208,17 @@ describe('Accounting access (e2e)', () => {
         .put('/accounting/settings')
         .set('Authorization', `Bearer ${nonAdminToken}`)
         .send({ cashAccountId })
+        .expect(403);
+    });
+
+    it('forbids sales_staff from rewiring the payment method mappings', async () => {
+      // The @Auth(UserRole.ADMIN) guard rejects before validation, so the
+      // empty-shaped body never reaches the DTO pipe; the assertion is 403,
+      // not 400.
+      await request(app.getHttpServer())
+        .put('/accounting/settings/payment-method-mappings')
+        .set('Authorization', `Bearer ${nonAdminToken}`)
+        .send({ mappings: [] })
         .expect(403);
     });
 

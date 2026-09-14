@@ -14,7 +14,13 @@ function svcWith(opts: {
 
   const methodRepo = { find: async () => methods.filter((m) => m.isActive !== false) };
   const accountRepo = {
-    find: async () => accounts,
+    // Honors the options argument so the "deleted" case below actually pins
+    // `withDeleted: true` on list(): drop it and the soft-deleted account
+    // disappears from the fake read, turning the row into 'missing'.
+    find: async (opts?: any) => {
+      if (opts?.withDeleted) return accounts;
+      return accounts.filter((a) => !a.deletedAt);
+    },
     findOne: async ({ where, withDeleted }: any) => {
       const a = accounts.find((x) => x.id === where.id);
       if (!a) return null;
@@ -30,9 +36,13 @@ function svcWith(opts: {
   /*
    * The transaction manager must serve ALL THREE repositories, because
    * setMappings validates inside the transaction — a manager that only knows
-   * the mapping repo would make the validation reads fail, and a fake that
-   * quietly fell back to the injected repos would hide the very bug this
-   * shape exists to prevent.
+   * the mapping repo would make the validation reads fail.
+   *
+   * NOTE: `getRepository` hands back the SAME objects as the constructor
+   * injection, so this fake does NOT distinguish transaction-manager reads
+   * from injected-repo reads and cannot catch a service that bypassed the
+   * manager. The real transaction boundary is proven by the e2e rollback case
+   * in payment-method-mapping.e2e-spec.ts.
    */
   const dataSource = {
     transaction: async (cb: any) =>
