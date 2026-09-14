@@ -182,7 +182,12 @@ export class BalanceSheetGroupService {
       // Phase 2 — write. Delete-then-insert, never upsert: an account MOVING
       // between groups keeps its primary key, so an insert alone would collide
       // and a partial update would depend on statement order.
-      await groupRepo.delete({});
+      // `delete({})` is REJECTED by TypeORM ("Empty criteria(s) are not
+       // allowed"), a guard against accidentally deleting a whole table by
+       // passing an empty filter. Here clearing the table is the intent, so it
+       // is stated explicitly through the query builder. A mocked repository
+       // accepts `delete({})` happily, which is why this only surfaced in e2e.
+      await groupRepo.createQueryBuilder().delete().execute();
       if (items.length > 0) {
         await groupRepo.insert(
           items.map((i) => ({ accountId: i.accountId, groupLine: i.group })) as any,

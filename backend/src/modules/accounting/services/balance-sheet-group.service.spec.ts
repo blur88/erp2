@@ -40,9 +40,23 @@ const makeService = (opts: {
   };
   const stored = [...(opts.stored ?? [])];
 
+  /*
+   * `delete` REJECTS empty criteria, exactly as TypeORM does. The first
+   * version of this fake accepted `delete({})` and returned success, so the
+   * service shipped a call real TypeORM refuses with "Empty criteria(s) are
+   * not allowed for the delete method" — a 500 the e2e suite caught and this
+   * suite could not. Clearing the table goes through the query builder.
+   */
+  const clearAll = (jest.fn as any)(async () => { stored.length = 0; });
   const groupRepo = {
     find: (jest.fn as any)(async () => stored.map((s) => ({ ...s }))),
-    delete: (jest.fn as any)(async () => { stored.length = 0; }),
+    delete: (jest.fn as any)(async (criteria: any) => {
+      if (!criteria || Object.keys(criteria).length === 0) {
+        throw new Error('Empty criteria(s) are not allowed for the delete method.');
+      }
+      throw new Error('unexpected filtered delete');
+    }),
+    createQueryBuilder: () => ({ delete: () => ({ execute: clearAll }) }),
     insert: (jest.fn as any)(async (rows: any[]) => { stored.push(...rows); }),
   };
   const coaRepo = {
@@ -71,7 +85,7 @@ const makeService = (opts: {
   const service = new BalanceSheetGroupService(
     groupRepo as any, coaRepo as any, dataSource as any,
   );
-  return { service, groupRepo, stored, settingsRepo };
+  return { service, groupRepo: { ...groupRepo, clearAll }, stored, settingsRepo };
 };
 
 describe('BalanceSheetGroupService.setGroups — account eligibility', () => {
@@ -79,7 +93,7 @@ describe('BalanceSheetGroupService.setGroups — account eligibility', () => {
     const { service, groupRepo } = makeService({ accounts });
     await expect(service.setGroups(items as any)).rejects.toThrow(pattern);
     // Validate-all-then-write: a rejected batch must write NOTHING.
-    expect(groupRepo.delete).not.toHaveBeenCalled();
+    expect(groupRepo.clearAll).not.toHaveBeenCalled();
     expect(groupRepo.insert).not.toHaveBeenCalled();
   };
 
