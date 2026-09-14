@@ -198,14 +198,70 @@ export class BalanceSheetGroupService {
     return this.list();
   }
 
-  /** The report's view: group -> member account ids. */
-  async getGroupedAccountIds(): Promise<Record<BalanceSheetGroup, string[]>> {
-    const groups = await this.groupRepo.find();
+  private partition(
+    groups: { accountId: string; groupLine: BalanceSheetGroup }[],
+  ): Record<BalanceSheetGroup, string[]> {
     const result = {
       [BalanceSheetGroup.BANK_BALANCE]: [] as string[],
       [BalanceSheetGroup.OTHER_CURRENT_ASSETS]: [] as string[],
     };
     for (const g of groups) result[g.groupLine].push(g.accountId);
     return result;
+  }
+
+  /**
+   * BOTH halves of the Balance Sheet configuration, from ONE database snapshot.
+   *
+   * The report's resolution rule spans settings and groups — an empty group
+   * falls back to a settings key — so the two must be read as a PAIR. Reading
+   * them independently (two queries on two connections, even concurrently) lets
+   * two valid writes commit in between and hands the report a mix of old groups
+   * and new settings.
+   *
+   * That is not cosmetic. Starting from {bank default CIMB, N38 empty, N39 =
+   * [Atome]}, a client that saves N38 = [Maybank] and then points the bank
+   * default at Atome makes both writes legal in sequence. A reader that pairs
+   * the PRE-write groups (N38 empty) with the POST-write settings (bank default
+   * = Atome) re-arms the bank fallback onto Atome while Atome is still in N39 —
+   * so its balance is counted in N38 AND N39, double-counting it into N40/N41.
+   * The Balance Check then reports a difference with no finding to explain it:
+   * the report silently disagrees with itself.
+   *
+   * Writer locking cannot prevent this. It serializes writers against each
+   * other and leaves every committed state self-consistent; the inconsistency
+   * here is assembled by the READER, across two snapshots that are each
+   * individually valid.
+   *
+   * One transaction is what fixes it. REPEATABLE READ pins a single snapshot
+   * for both statements, so no commit can interleave between them. It takes no
+   * lock and blocks no writer — a reader must never be able to stall a save.
+   */
+  async getConfiguration(): Promise<{
+    settings: AccountingSettings;
+    groupedAccountIds: Record<BalanceSheetGroup, string[]>;
+  }> {
+    return this.dataSource.transaction('REPEATABLE READ', async (manager) => {
+      const settings = await manager
+        .getRepository(AccountingSettings)
+        .findOne({ where: { id: true } as any });
+      if (!settings) {
+        throw new BadRequestException(
+          'Accounting settings row is missing (migration not applied?)',
+        );
+      }
+      const groups = await manager.getRepository(BalanceSheetAccountGroup).find();
+      return { settings, groupedAccountIds: this.partition(groups) };
+    });
+  }
+
+  /**
+   * Groups alone.
+   *
+   * Callers that also need settings MUST use getConfiguration() instead — this
+   * cannot give them a consistent pair. Retained for the settings-screen read
+   * path, which renders groups on their own.
+   */
+  async getGroupedAccountIds(): Promise<Record<BalanceSheetGroup, string[]>> {
+    return this.partition(await this.groupRepo.find());
   }
 }

@@ -4,7 +4,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
 import { AccountBalanceService } from './account-balance.service';
-import { AccountingSettingsService } from './accounting-settings.service';
 import { ProfitAndLossService } from './profit-and-loss.service';
 import { SettingsService } from '../../settings/settings.service';
 import { getAppToday } from '@/common/utils/app-calendar';
@@ -22,7 +21,6 @@ export class BalanceSheetService {
   constructor(
     @InjectRepository(ChartOfAccount) private readonly coaRepo: Repository<ChartOfAccount>,
     private readonly balance: AccountBalanceService,
-    private readonly settings: AccountingSettingsService,
     private readonly pl: ProfitAndLossService,
     private readonly appSettings: SettingsService,
     private readonly groups: BalanceSheetGroupService,
@@ -46,16 +44,22 @@ export class BalanceSheetService {
     const asOfDate = businessToday < yearEnd ? businessToday : yearEnd;
     const preYearDate = `${params.year - 1}-12-31`;
 
-    const [accountEntities, atDate, preYear, acctSettings, groupedIds, plResult] =
+    // Settings and groups come from ONE snapshot, never two independent reads.
+    // The resolution rule spans both (an empty group falls back to a settings
+    // key), so a mixed pair can place one account on two lines at once and
+    // double-count it into N40/N41 — see getConfiguration()'s docblock for the
+    // exact interleaving. Still inside Promise.all: it is a single read, and
+    // concurrency with the other five is unaffected.
+    const [accountEntities, atDate, preYear, configuration, plResult] =
       await Promise.all([
       this.coaRepo.find({ order: { code: 'ASC' } }),
       this.balance.getLeafBalances(asOfDate),
       this.balance.getLeafBalances(preYearDate),
-      this.settings.get(),
-      this.groups.getGroupedAccountIds(),
+      this.groups.getConfiguration(),
       // The SAME cutoff, so N48 and the asset rows are bounded identically.
       this.pl.getProfitAndLoss({ year: params.year, to: asOfDate }),
     ]);
+    const { settings: acctSettings, groupedAccountIds: groupedIds } = configuration;
 
     const accounts: AssembleAccount[] = accountEntities.map((a: any) => ({
       id: a.id, code: a.code, name: a.name, type: a.type as string, isPostable: a.isPostable,

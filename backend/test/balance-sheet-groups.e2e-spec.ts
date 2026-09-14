@@ -431,6 +431,125 @@ describe('Balance Sheet account groups (e2e)', () => {
     });
   });
 
+
+  describe('read consistency', () => {
+    /*
+     * Settings and groups must come from ONE snapshot.
+     *
+     * Writer locking does NOT cover this. It serializes writers and leaves
+     * every committed state self-consistent; the inconsistency here is
+     * assembled by the READER, pairing two snapshots that are each individually
+     * valid.
+     *
+     * The interleaving is forced deterministically rather than raced: a
+     * REPEATABLE READ transaction is opened and its FIRST read taken, then both
+     * writes are committed from outside it, then the second read is taken. If
+     * the two reads share a snapshot the writes are invisible to both; if they
+     * do not, the reader sees pre-write groups and post-write settings.
+     */
+    it('never pairs pre-write groups with post-write settings', async () => {
+      // Initial state: bank default CIMB, N38 empty, N39 = [Atome].
+      await ds.query(
+        `UPDATE accounting_settings SET "bankAccountId" = $1 WHERE id = true`,
+        [cimbId],
+      );
+      await setGroups([{ accountId: atomeId, group: 'OTHER_CURRENT_ASSETS' }]);
+
+      const runner = ds.createQueryRunner();
+      await runner.connect();
+      await runner.startTransaction('REPEATABLE READ');
+      try {
+        // Read #1 — groups, before either write.
+        const groupsBefore = await runner.query(
+          `SELECT "accountId", "groupLine" FROM balance_sheet_account_groups`,
+        );
+        expect(groupsBefore).toHaveLength(1);
+
+        // Both writes commit from OUTSIDE the open snapshot. Each is legal on
+        // its own: N38 becomes non-empty, which then frees the bank default to
+        // point at an N39 member.
+        expect(
+          (
+            await setGroups([
+              { accountId: maybankId, group: 'BANK_BALANCE' },
+              { accountId: atomeId, group: 'OTHER_CURRENT_ASSETS' },
+            ])
+          ).status,
+        ).toBe(200);
+        const current = await get('/accounting/settings');
+        expect(
+          (await put('/accounting/settings', { ...current.body, bankAccountId: atomeId }))
+            .status,
+        ).toBe(200);
+
+        // Read #2 — settings, from the SAME snapshot.
+        const settingsAfter = await runner.query(
+          `SELECT "bankAccountId" FROM accounting_settings WHERE id = true`,
+        );
+
+        /*
+         * The snapshot must still show the PRE-write bank default. Seeing
+         * `atomeId` here would be the defect: paired with the pre-write groups
+         * (N38 empty) read above, the bank fallback re-arms onto Atome while
+         * Atome is also in N39, so it lands on both lines and is
+         * double-counted into N40/N41.
+         */
+        expect(settingsAfter[0].bankAccountId).toBe(cimbId);
+      } finally {
+        await runner.rollbackTransaction();
+        await runner.release();
+      }
+    });
+
+    it('getConfiguration returns a self-consistent pair under interleaved writes', async () => {
+      /*
+       * The same scenario through the REAL read path, asserting the OUTCOME
+       * rather than the snapshot mechanics: whatever pair comes back, no
+       * account may resolve to two lines.
+       *
+       * Runs the report repeatedly while writes flip the configuration
+       * underneath it. Without one snapshot this is the window the defect lives
+       * in; with it, every response must be internally coherent.
+       */
+      await ds.query(
+        `UPDATE accounting_settings SET "bankAccountId" = $1 WHERE id = true`,
+        [cimbId],
+      );
+      await setGroups([{ accountId: atomeId, group: 'OTHER_CURRENT_ASSETS' }]);
+
+      const year = new Date().getUTCFullYear();
+      const flip = async () => {
+        await setGroups([
+          { accountId: maybankId, group: 'BANK_BALANCE' },
+          { accountId: atomeId, group: 'OTHER_CURRENT_ASSETS' },
+        ]);
+        const c = await get('/accounting/settings');
+        await put('/accounting/settings', { ...c.body, bankAccountId: atomeId });
+      };
+      const reset = async () => {
+        const c = await get('/accounting/settings');
+        await put('/accounting/settings', { ...c.body, bankAccountId: cimbId });
+        await setGroups([{ accountId: atomeId, group: 'OTHER_CURRENT_ASSETS' }]);
+      };
+
+      for (let i = 0; i < 6; i++) {
+        const [report] = await Promise.all([
+          get(`/accounting/balance-sheet?year=${year}`),
+          i % 2 === 0 ? flip() : reset(),
+        ]);
+        expect(report.status).toBe(200);
+
+        const rows = (report.body.data ?? report.body).rows as any[];
+        const n38 = rows.find((r) => r.line === 'N38').accounts.map((a: any) => a.accountId);
+        const n39 = rows.find((r) => r.line === 'N39').accounts.map((a: any) => a.accountId);
+
+        // No account may contribute to both lines in one rendered report.
+        const overlap = n38.filter((id: string) => n39.includes(id));
+        expect(overlap).toEqual([]);
+      }
+    });
+  });
+
   describe('the Balance Sheet reads the groups', () => {
     it('reports every configured Bank Balance account under N38', async () => {
       await setGroups([
