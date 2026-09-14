@@ -1,11 +1,17 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { AccountingSettings } from '../entities/accounting-settings.entity';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
+import { BalanceSheetAccountGroup } from '../entities/balance-sheet-account-group.entity';
 import { AccountType } from '../entities/account-type.enum';
 import { UpdateAccountingSettingsDto } from '../dto/update-accounting-settings.dto';
 import { isDescendantOf } from './profit-and-loss.graph';
+import { assertNoLineConflicts } from './balance-sheet-groups.resolve';
+import {
+  settingsAccountIdsOf,
+  withBalanceSheetConfigLock,
+} from './balance-sheet-group.service';
 
 const REQUIRED_TYPE: Record<string, AccountType> = {
   cashAccountId: AccountType.ASSET, bankAccountId: AccountType.ASSET,
@@ -21,6 +27,7 @@ export class AccountingSettingsService {
   constructor(
     @InjectRepository(AccountingSettings) private readonly settingsRepo: Repository<AccountingSettings>,
     @InjectRepository(ChartOfAccount) private readonly coaRepo: Repository<ChartOfAccount>,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   async get(): Promise<AccountingSettings> {
@@ -29,20 +36,64 @@ export class AccountingSettingsService {
     return existing;
   }
 
+  /**
+   * Runs inside the shared Balance Sheet config lock (#1239).
+   *
+   * The whole update — eligibility checks, the Form B capture guard, the
+   * Balance Sheet conflict check and the save — is now ONE transaction holding
+   * the accounting_settings row. Previously each read ran on the injected repo
+   * outside any transaction, which is safe only while nothing else validates
+   * against settings state. BalanceSheetGroupService.setGroups does exactly
+   * that, so two concurrent saves could each pass against pre-change state and
+   * both commit.
+   */
   async update(dto: UpdateAccountingSettingsDto, actor: string): Promise<AccountingSettings> {
-    for (const [field, requiredType] of Object.entries(REQUIRED_TYPE)) {
-      const accountId = (dto as any)[field] as string | undefined;
-      if (!accountId) continue;
-      const account = await this.coaRepo.findOne({ where: { id: accountId } as any });
-      if (!account) throw new BadRequestException(`${field}: account not found`);
-      if (!account.isActive) throw new BadRequestException(`${field}: account is inactive`);
-      if (!account.isPostable) throw new BadRequestException(`${field}: account is not postable`);
-      if (account.type !== requiredType) throw new BadRequestException(`${field}: must be a ${requiredType} account`);
-    }
-    await this.assertNoMappedAccountCaptured(dto);
-    const current = await this.get();
-    const merged = this.settingsRepo.create({ ...current, ...dto, id: true } as any);
-    return this.settingsRepo.save(merged as any);
+    return withBalanceSheetConfigLock(this.dataSource, async (manager) => {
+      const coaRepo = manager.getRepository(ChartOfAccount);
+      const settingsRepo = manager.getRepository(AccountingSettings);
+      const groupRepo = manager.getRepository(BalanceSheetAccountGroup);
+
+      for (const [field, requiredType] of Object.entries(REQUIRED_TYPE)) {
+        const accountId = (dto as any)[field] as string | undefined;
+        if (!accountId) continue;
+        const account = await coaRepo.findOne({ where: { id: accountId } as any });
+        if (!account) throw new BadRequestException(`${field}: account not found`);
+        if (!account.isActive) throw new BadRequestException(`${field}: account is inactive`);
+        if (!account.isPostable) throw new BadRequestException(`${field}: account is not postable`);
+        if (account.type !== requiredType) throw new BadRequestException(`${field}: must be a ${requiredType} account`);
+      }
+
+      const current = await settingsRepo.findOne({ where: { id: true } as any });
+      if (!current) {
+        throw new BadRequestException('Accounting settings row is missing (migration not applied?)');
+      }
+
+      await this.assertNoMappedAccountCaptured(dto, manager, current);
+
+      /*
+       * The Balance Sheet conflict check, against POST-WRITE state: the merged
+       * settings plus the CURRENT groups. Changing a default account after
+       * groups are saved must not introduce a conflict — e.g. pointing
+       * bankAccountId at an account that sits in the N39 group while the N38
+       * group is empty, which re-arms the bank fallback onto it.
+       */
+      const merged = settingsRepo.create({ ...current, ...dto, id: true } as any);
+      const groups = await groupRepo.find();
+      const accounts = await coaRepo.find({ withDeleted: true } as any);
+      const byId = new Map((accounts as any[]).map((a) => [a.id, a]));
+      assertNoLineConflicts(
+        {
+          settingsAccountIds: settingsAccountIdsOf(merged as any),
+          groups: groups.map((g) => ({ accountId: g.accountId, group: g.groupLine })),
+        },
+        (id) => {
+          const a = byId.get(id);
+          return a ? `${a.code} ${a.name}` : id;
+        },
+      );
+
+      return settingsRepo.save(merged as any);
+    });
   }
 
   /**
@@ -61,7 +112,11 @@ export class AccountingSettingsService {
    * so no route can perform those changes. A future PR that adds a reparent or
    * type-change route MUST add the equivalent guard there.
    */
-  private async assertNoMappedAccountCaptured(dto: UpdateAccountingSettingsDto): Promise<void> {
+  private async assertNoMappedAccountCaptured(
+    dto: UpdateAccountingSettingsDto,
+    manager: EntityManager,
+    current: AccountingSettings,
+  ): Promise<void> {
     const pairs: Array<[keyof UpdateAccountingSettingsDto, 'formBExpenseCategory' | 'formBIncomeCategory']> = [
       ['cogsAccountId', 'formBExpenseCategory'],
       ['salesRevenueAccountId', 'formBIncomeCategory'],
@@ -72,14 +127,19 @@ export class AccountingSettingsService {
     // it changed. Only an actual CHANGE can capture anything new — validating an
     // unchanged root would let one pre-existing mapping under the current root
     // block every future settings change, with no way to save.
-    const current = await this.get();
+    //
+    // `current` is now passed in from the caller's transaction rather than
+    // re-read through this.get(), which runs on the default connection: inside
+    // the config lock that second read could see a different snapshot than the
+    // one the update is merging onto.
+    const coaRepo = manager.getRepository(ChartOfAccount);
 
     for (const [settingKey, column] of pairs) {
       const newRootId = (dto as any)[settingKey] as string | undefined;
       if (!newRootId) continue;
       if (newRootId === (current as any)[settingKey]) continue;
 
-      const accounts = await this.coaRepo.find();
+      const accounts = await coaRepo.find();
       const graph = new Map(
         accounts.map((a: any) => [a.id, { id: a.id, parentId: a.parentId }]),
       );

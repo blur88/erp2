@@ -26,10 +26,20 @@ const makeService = (over: any = {}) => {
     }),
   };
   const settingsService = {} as any;
+  // Explicit groups (#1239). Defaulting to EMPTY groups is what keeps every
+  // pre-existing case in this suite on the settings-key fallback path, so a
+  // green run here is evidence the report is unchanged when nothing is
+  // configured — not evidence the groups are ignored.
+  const groups = {
+    getGroupedAccountIds: jest.fn(async () => over.groups ?? {
+      BANK_BALANCE: [], OTHER_CURRENT_ASSETS: [],
+    }),
+  };
   const service = new BalanceSheetService(
     coaRepo as any, balance as any, settings as any, pl as any, settingsService,
+    groups as any,
   );
-  return { service, coaRepo, balance, settings, pl };
+  return { service, coaRepo, balance, settings, pl, groups };
 };
 
 /**

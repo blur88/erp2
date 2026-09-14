@@ -11,6 +11,7 @@ import { ExpensePayment } from '../modules/accounting/entities/expense-payment.e
 import { JournalEntry } from '../modules/accounting/entities/journal-entry.entity';
 import { JournalEntryLine } from '../modules/accounting/entities/journal-entry-line.entity';
 import { PaymentMethodAccountMapping } from '../modules/accounting/entities/payment-method-account-mapping.entity';
+import { BalanceSheetAccountGroup } from '../modules/accounting/entities/balance-sheet-account-group.entity';
 import { OwnerEquityDocument } from '../modules/owner-equity/entities/owner-equity-document.entity';
 import { OwnerEquitySettlement } from '../modules/owner-equity/entities/owner-equity-settlement.entity';
 import { AuditLog } from '../database/entities/audit-log.entity';
@@ -158,6 +159,7 @@ export function createDatabaseConfig(
       JournalEntry,
       JournalEntryLine,
       PaymentMethodAccountMapping,
+      BalanceSheetAccountGroup,
       OwnerEquityDocument,
       OwnerEquitySettlement,
     ],

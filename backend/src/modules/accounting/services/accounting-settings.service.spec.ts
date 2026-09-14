@@ -3,14 +3,52 @@ import { AccountingSettingsService } from './accounting-settings.service';
 import { AccountType } from '../entities/account-type.enum';
 import { BadRequestException } from '@nestjs/common';
 
+/**
+ * A DataSource whose transaction() hands back the same fakes the suite already
+ * builds, plus the settings-row lock query.
+ *
+ * update() now runs inside withBalanceSheetConfigLock (#1239), so the service
+ * reads through manager.getRepository() rather than its injected repos. The
+ * lock is a real SELECT ... FOR UPDATE against accounting_settings; here it
+ * only has to RESOLVE, since a single-connection fake cannot demonstrate
+ * serialization. That is asserted in the e2e suite, against Postgres.
+ */
+function makeDataSource(opts: {
+  settingsRepo: any;
+  coaRepo: any;
+  groupRepo?: any;
+}) {
+  const groupRepo = opts.groupRepo ?? { find: async () => [] };
+  const manager = {
+    getRepository: (entity: any) => {
+      const name = entity?.name ?? String(entity);
+      if (name === 'AccountingSettings') return opts.settingsRepo;
+      if (name === 'ChartOfAccount') return opts.coaRepo;
+      if (name === 'BalanceSheetAccountGroup') return groupRepo;
+      throw new Error(`unexpected repository requested: ${name}`);
+    },
+  };
+  // The lock goes through createQueryBuilder on the settings repo.
+  opts.settingsRepo.createQueryBuilder = () => ({
+    setLock: () => ({
+      where: () => ({ getOne: async () => opts.settingsRepo.findOne({ where: { id: true } }) }),
+    }),
+  });
+  return { transaction: async (work: any) => work(manager) };
+}
+
 function makeService(accounts: any[]) {
   const settingsRepo = {
     findOne: async () => ({ id: true }),
     save: async (x: any) => x,
     create: (x: any) => x,
   };
-  const coaRepo = { findOne: async ({ where }: any) => accounts.find((a) => a.id === where.id) ?? null };
-  return new AccountingSettingsService(settingsRepo as any, coaRepo as any);
+  const coaRepo = {
+    findOne: async ({ where }: any) => accounts.find((a) => a.id === where.id) ?? null,
+    find: async () => accounts,
+  };
+  const dataSource = makeDataSource({ settingsRepo, coaRepo });
+  return new AccountingSettingsService(settingsRepo as any, coaRepo as any, dataSource as any);
 }
 
 describe('AccountingSettingsService.update', () => {
@@ -51,7 +89,11 @@ describe('AccountingSettingsService — Form B mapping capture guard', () => {
     // Static import — the suite runs under Jest ESM, where require() is not
     // defined in a module scope.
     return {
-      service: new AccountingSettingsService(settingsRepo as any, coaRepo as any),
+      service: new AccountingSettingsService(
+        settingsRepo as any,
+        coaRepo as any,
+        makeDataSource({ settingsRepo, coaRepo }) as any,
+      ),
       settingsRepo,
     };
   };
@@ -126,5 +168,93 @@ describe('AccountingSettingsService — Form B mapping capture guard', () => {
     const { service } = build([newRoot, mapped]);
     await expect(service.update({ cogsAccountId: 'new-cogs' } as any, 'tester')).rejects.toThrow();
     expect(mapped.formBExpenseCategory).toBe('RENT_LEASE');
+  });
+});
+
+/**
+ * The SETTINGS side of the shared Balance Sheet conflict rule (#1239).
+ *
+ * The group service has the symmetric suite. Both paths must enforce the rule,
+ * because either can create a conflict: a group write can add an account that
+ * collides with a default, and a settings write can point a default at an
+ * account that is already grouped.
+ */
+describe('AccountingSettingsService — Balance Sheet grouping conflicts', () => {
+  const asset = (id: string, code: string, name: string) => ({
+    id, code, name, type: AccountType.ASSET,
+    isActive: true, isPostable: true, parentId: null,
+    formBExpenseCategory: null, formBIncomeCategory: null,
+  });
+
+  const ACCOUNTS = [
+    asset('cimb', '1200', 'CIMB'),
+    asset('maybank', '1210', 'Maybank'),
+    asset('atome', '1240', 'Atome'),
+    asset('cash', '1100', 'Cash'),
+  ];
+
+  const build = (
+    groups: { accountId: string; groupLine: string }[],
+    current: any = {
+      id: true, cashAccountId: 'cash', bankAccountId: 'cimb',
+      inventoryAccountId: 'inv', supplierDepositAccountId: 'supdep',
+    },
+  ) => {
+    const settingsRepo = {
+      findOne: (jest.fn as any)().mockResolvedValue(current),
+      create: (jest.fn as any)((v: any) => v),
+      save: (jest.fn as any)((v: any) => Promise.resolve(v)),
+    };
+    const coaRepo = {
+      findOne: (jest.fn as any)(async ({ where }: any) =>
+        ACCOUNTS.find((a) => a.id === where.id) ?? null),
+      find: (jest.fn as any)().mockResolvedValue(ACCOUNTS),
+    };
+    const groupRepo = { find: (jest.fn as any)().mockResolvedValue(groups) };
+    const service = new AccountingSettingsService(
+      settingsRepo as any,
+      coaRepo as any,
+      makeDataSource({ settingsRepo, coaRepo, groupRepo }) as any,
+    );
+    return { service, settingsRepo };
+  };
+
+  it('rejects pointing bankAccountId at an account already in N39 when N38 is EMPTY', async () => {
+    // No N38 group, so the bank fallback contributes to N38; Atome is in N39.
+    const { service, settingsRepo } = build([
+      { accountId: 'atome', groupLine: 'OTHER_CURRENT_ASSETS' },
+    ]);
+    await expect(
+      service.update({ bankAccountId: 'atome' } as any, 'tester'),
+    ).rejects.toThrow(/N38 and N39/);
+    expect(settingsRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('ACCEPTS pointing bankAccountId at an N39 account when a non-empty N38 group excludes it', async () => {
+    // The correction that matters: a non-empty N38 group displaces the bank
+    // fallback, so bankAccountId contributes to no line of its own.
+    const { service, settingsRepo } = build([
+      { accountId: 'maybank', groupLine: 'BANK_BALANCE' },
+      { accountId: 'atome', groupLine: 'OTHER_CURRENT_ASSETS' },
+    ]);
+    await service.update({ bankAccountId: 'atome' } as any, 'tester');
+    expect(settingsRepo.save).toHaveBeenCalled();
+  });
+
+  it('rejects pointing cashAccountId at a grouped account', async () => {
+    // cashAccountId has no group to be displaced by, so N37 always stands.
+    const { service } = build([{ accountId: 'maybank', groupLine: 'BANK_BALANCE' }]);
+    await expect(
+      service.update({ cashAccountId: 'maybank' } as any, 'tester'),
+    ).rejects.toThrow(/N37 and N38/);
+  });
+
+  it('allows an ordinary settings save when no grouping conflicts', async () => {
+    const { service, settingsRepo } = build([
+      { accountId: 'cimb', groupLine: 'BANK_BALANCE' },
+      { accountId: 'maybank', groupLine: 'BANK_BALANCE' },
+    ]);
+    await service.update({ bankAccountId: 'cimb' } as any, 'tester');
+    expect(settingsRepo.save).toHaveBeenCalled();
   });
 });

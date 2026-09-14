@@ -11,6 +11,8 @@ import { getAppToday } from '@/common/utils/app-calendar';
 import { toMinorUnits } from '@/common/utils/money';
 import { assembleBalanceSheet, type AssembleAccount } from './balance-sheet.assemble';
 import { SETTINGS_KEY_LINE } from './balance-sheet.lines';
+import { BalanceSheetGroupService } from './balance-sheet-group.service';
+import { BALANCE_SHEET_GROUP_LINE, BalanceSheetGroup } from './balance-sheet-groups.resolve';
 import type {
   BalanceSheetAccountRef, BalanceSheetFinding, BalanceSheetResponse,
 } from './balance-sheet.types';
@@ -23,6 +25,7 @@ export class BalanceSheetService {
     private readonly settings: AccountingSettingsService,
     private readonly pl: ProfitAndLossService,
     private readonly appSettings: SettingsService,
+    private readonly groups: BalanceSheetGroupService,
   ) {}
 
   async getBalanceSheet(params: { year: number }): Promise<BalanceSheetResponse> {
@@ -43,11 +46,13 @@ export class BalanceSheetService {
     const asOfDate = businessToday < yearEnd ? businessToday : yearEnd;
     const preYearDate = `${params.year - 1}-12-31`;
 
-    const [accountEntities, atDate, preYear, acctSettings, plResult] = await Promise.all([
+    const [accountEntities, atDate, preYear, acctSettings, groupedIds, plResult] =
+      await Promise.all([
       this.coaRepo.find({ order: { code: 'ASC' } }),
       this.balance.getLeafBalances(asOfDate),
       this.balance.getLeafBalances(preYearDate),
       this.settings.get(),
+      this.groups.getGroupedAccountIds(),
       // The SAME cutoff, so N48 and the asset rows are bounded identically.
       this.pl.getProfitAndLoss({ year: params.year, to: asOfDate }),
     ]);
@@ -172,11 +177,20 @@ export class BalanceSheetService {
       settingsAccountIds[key] = (acctSettings as any)?.[key] ?? null;
     }
 
+    // Group -> LINE, which is the key assemble indexes by. Keyed off
+    // BALANCE_SHEET_GROUP_LINE rather than a literal so the group/line pairing
+    // has exactly one definition (#1239).
+    const groupedAccountIds: Record<string, string[]> = {};
+    for (const group of Object.values(BalanceSheetGroup)) {
+      groupedAccountIds[BALANCE_SHEET_GROUP_LINE[group]] = groupedIds[group] ?? [];
+    }
+
     const { rows, derivedTotals, balanceCheck, findings } = assembleBalanceSheet({
       accounts,
       atDate,
       preYear,
       settingsAccountIds,
+      groupedAccountIds,
       openingBalanceEquityAccountId:
         (acctSettings as any)?.openingBalanceEquityAccountId ?? null,
       netProfit,

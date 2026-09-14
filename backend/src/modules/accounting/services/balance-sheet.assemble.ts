@@ -18,6 +18,15 @@ export interface AssembleInput {
   /** RAW debit-minus-credit at {year-1}-12-31. */
   preYear: Map<string, bigint>;
   settingsAccountIds: Record<string, string | null>;
+  /**
+   * Explicit line grouping (#1239), line -> member account ids.
+   *
+   * A line present here with a NON-EMPTY list REPLACES its settings-key
+   * contributor: the line's contributors are exactly these accounts. A line
+   * absent or empty falls back to SETTINGS_KEY_LINE, which is today's
+   * behaviour and what every unconfigured install keeps.
+   */
+  groupedAccountIds?: Record<string, string[]>;
   openingBalanceEquityAccountId: string | null;
   /** null when selected-year profit is untrustworthy. */
   netProfit: bigint | null;
@@ -86,7 +95,7 @@ export function deriveTotals(
 
 export function assembleBalanceSheet(input: AssembleInput): AssembleOutput {
   const {
-    accounts, atDate, preYear, settingsAccountIds,
+    accounts, atDate, preYear, settingsAccountIds, groupedAccountIds,
     openingBalanceEquityAccountId, netProfit, priorProfitValid, profitFindings,
   } = input;
 
@@ -102,31 +111,64 @@ export function assembleBalanceSheet(input: AssembleInput): AssembleOutput {
   const lineAccounts = new Map<string, BalanceSheetAccountAmount[]>();
   const mappedIds = new Set<string>();
 
+  /*
+   * Contributor ids per line, BEFORE balances are read.
+   *
+   * Built in one pass so the group and settings paths cannot diverge: a line
+   * with a non-empty group takes its members and NOTHING from its settings
+   * key; every other line behaves exactly as before. Resolution order is the
+   * only thing #1239 changes here — the balance arithmetic below, N49's period
+   * movement included, is untouched.
+   */
+  const contributorIds = new Map<string, string[]>();
   for (const [settingsKey, line] of Object.entries(SETTINGS_KEY_LINE)) {
+    const group = groupedAccountIds?.[line] ?? [];
+    if (group.length > 0) {
+      // Non-empty group REPLACES the settings key for this line. Set rather
+      // than appended: two settings keys never share a line today, but a union
+      // would silently reintroduce the fallback the group exists to displace.
+      contributorIds.set(line, group);
+      continue;
+    }
     const accountId = settingsAccountIds[settingsKey] ?? null;
     if (!accountId) continue;
-    const account = byId.get(accountId);
-    if (!account) continue;
-    mappedIds.add(accountId);
+    contributorIds.set(line, [...(contributorIds.get(line) ?? []), accountId]);
+  }
+  /*
+   * A group on a line with NO settings key would be invisible to the loop
+   * above. Neither current group has that shape (N38/N39 both have one), but
+   * relying on that coincidence would make adding a third group a silent
+   * no-op rather than a compile or test failure.
+   */
+  for (const [line, ids] of Object.entries(groupedAccountIds ?? {})) {
+    if (ids.length > 0 && !contributorIds.has(line)) contributorIds.set(line, ids);
+  }
 
-    // N49 is PERIOD MOVEMENT: closing minus pre-year. Using the closing balance
-    // would double-count prior drawings already inside N47, throwing N50 out by
-    // exactly the prior-year drawings total.
-    //
-    // NO EXTRA NEGATION. Owner Drawings is Equity, so it is credit-normal and
-    // naturalBalance() already returns -raw. A withdrawal is a DEBIT, so its
-    // natural balance is ALREADY NEGATIVE, and the movement of two negatives is
-    // negative. Negating again would render drawings as a positive addition to
-    // equity — the exact inversion the 'PERIOD MOVEMENT' test asserts against.
-    const value = line === 'N49'
-      ? naturalAt(accountId, atDate) - naturalAt(accountId, preYear)
-      : naturalAt(accountId, atDate);
+  for (const [line, ids] of contributorIds) {
+    for (const accountId of ids) {
+      const account = byId.get(accountId);
+      if (!account) continue;
+      mappedIds.add(accountId);
 
-    const list = lineAccounts.get(line) ?? [];
-    list.push({
-      accountId, code: account.code, name: account.name, amount: formatScale4(value),
-    });
-    lineAccounts.set(line, list);
+      // N49 is PERIOD MOVEMENT: closing minus pre-year. Using the closing balance
+      // would double-count prior drawings already inside N47, throwing N50 out by
+      // exactly the prior-year drawings total.
+      //
+      // NO EXTRA NEGATION. Owner Drawings is Equity, so it is credit-normal and
+      // naturalBalance() already returns -raw. A withdrawal is a DEBIT, so its
+      // natural balance is ALREADY NEGATIVE, and the movement of two negatives is
+      // negative. Negating again would render drawings as a positive addition to
+      // equity — the exact inversion the 'PERIOD MOVEMENT' test asserts against.
+      const value = line === 'N49'
+        ? naturalAt(accountId, atDate) - naturalAt(accountId, preYear)
+        : naturalAt(accountId, atDate);
+
+      const list = lineAccounts.get(line) ?? [];
+      list.push({
+        accountId, code: account.code, name: account.name, amount: formatScale4(value),
+      });
+      lineAccounts.set(line, list);
+    }
   }
 
   const mappedTotal = (line: string): bigint => {
