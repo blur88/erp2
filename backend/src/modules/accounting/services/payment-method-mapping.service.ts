@@ -112,6 +112,10 @@ export class PaymentMethodMappingService {
    * batch writes nothing even before the rollback is needed.
    *
    * Omitted methods are untouched — this is a patch, not a replacement.
+   *
+   * Assigning an account requires an ACTIVE payment method; CLEARING one does
+   * not. That asymmetry exists because payment method removal is a soft
+   * delete, so a mapping can outlive its method and must stay removable.
    */
   async setMappings(
     items: { paymentMethodId: string; accountId: string | null }[],
@@ -124,21 +128,49 @@ export class PaymentMethodMappingService {
       const methods = await methodRepo.find({ where: { isActive: true } as any });
       const methodById = new Map((methods as any[]).map((m) => [m.id, m]));
 
+      /*
+       * Every method the database knows, inactive and soft-deleted included.
+       *
+       * Used ONLY to authorise a clear. Payment method removal is a SOFT
+       * delete (payment-method.service.ts remove()), so the FK's ON DELETE
+       * CASCADE never fires and a mapping row outlives the method that owns
+       * it. Such a row is invisible in list(), which shows active methods
+       * only — and if the method is later restored, its stale mapping resumes
+       * posting. Without this lookup the operator could neither see nor remove
+       * it, because the active-only map above rejects the id outright.
+       */
+      const knownMethods = await methodRepo.find({ withDeleted: true } as any);
+      const knownMethodIds = new Set((knownMethods as any[]).map((m) => m.id));
+
       // Phase 1 — validate every item against the transaction's own view.
       const resolved: { paymentMethodId: string; accountId: string | null }[] = [];
       for (const item of items) {
         const method = methodById.get(item.paymentMethodId);
-        // Rejected rather than silently inserted: a row for an unknown method
-        // would never appear in list(), staying invisible until it changed a
-        // posting.
+
+        if (item.accountId === null) {
+          /*
+           * A clear is allowed for ANY method the database knows, active or
+           * not — it only ever removes a row, so it cannot create the
+           * invisible state the non-null branch guards against. An unknown id
+           * is still rejected: clearing a mapping for a method that never
+           * existed is a malformed request, not a no-op.
+           */
+          if (!knownMethodIds.has(item.paymentMethodId)) {
+            throw new BadRequestException(
+              `Payment method ${item.paymentMethodId} not found`,
+            );
+          }
+          resolved.push({ paymentMethodId: item.paymentMethodId, accountId: null });
+          continue;
+        }
+
+        // Assigning an account still requires an ACTIVE method: a row for an
+        // inactive, deleted or unknown method would never appear in list(),
+        // staying invisible until it changed a posting.
         if (!method) {
           throw new BadRequestException(
             `Payment method ${item.paymentMethodId} not found or inactive`,
           );
-        }
-        if (item.accountId === null) {
-          resolved.push({ paymentMethodId: item.paymentMethodId, accountId: null });
-          continue;
         }
         const account = await coaRepo.findOne({ where: { id: item.accountId } as any });
         const reason = this.classify(account);

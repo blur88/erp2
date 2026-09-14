@@ -13,6 +13,19 @@ import { ChartOfAccount } from './chart-of-account.entity';
  * soft. The unique index below is enforced by Postgres regardless of
  * `deletedAt`, so a soft-deleted row would permanently block remapping the
  * same method.
+ *
+ * THE INHERITED `isActive` AND `deletedAt` COLUMNS ARE INERT HERE. They exist
+ * only because BaseEntity declares them and verify-baseline.sh compares the
+ * migration against schema:sync. Nothing reads them: list() and
+ * resolvePaymentAccount() both key off row presence alone, so an
+ * `isActive: false` mapping would still post. Do not "soft-disable" a mapping
+ * by setting either column — delete the row, which is the only representation
+ * of "unmapped" this design has.
+ *
+ * The ON DELETE CASCADE below likewise applies to PHYSICAL deletion only.
+ * PaymentMethodService.remove() soft-deletes, so the cascade does not fire and
+ * a mapping outlives its method; setMappings() therefore permits clearing a
+ * mapping whose method is inactive or deleted.
  */
 @Entity('payment_method_account_mappings')
 @Index(['paymentMethodId'], { unique: true })

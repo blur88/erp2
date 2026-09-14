@@ -873,6 +873,18 @@ describe('Payment method account mappings (e2e)', () => {
       await ds.query(
         'DROP TRIGGER IF EXISTS pmam_fail ON payment_method_account_mappings',
       );
+      /*
+       * accountCId is INTERPOLATED, not bound, and must stay that way. A
+       * CREATE FUNCTION body is parsed as a string literal at definition
+       * time, so $1 inside it is not a query parameter — it would be read as
+       * a plpgsql positional argument of this zero-argument function and fail
+       * to compile. Passing it via ds.query(sql, [accountCId]) does not work
+       * either: there is no parameter slot in the statement to bind to.
+       *
+       * Safe here because accountCId is a UUID this suite generated via
+       * seedAccount, never user input. Do not "fix" this into a
+       * parameterized form.
+       */
       await ds.query(`
         CREATE OR REPLACE FUNCTION pmam_fail_on_c() RETURNS trigger AS $$
         BEGIN
@@ -925,6 +937,117 @@ describe('Payment method account mappings (e2e)', () => {
         );
         await ds.query('DROP FUNCTION IF EXISTS pmam_fail_on_c()');
       }
+    });
+
+    /*
+     * SOFT-DELETED METHOD LIFECYCLE (review finding, #1237).
+     *
+     * PaymentMethodService.remove() soft-deletes, so the mapping's ON DELETE
+     * CASCADE never fires: the row outlives the method. Because list() shows
+     * ACTIVE methods only, that row is invisible — and if the method is later
+     * restored, the stale mapping silently resumes posting.
+     *
+     * So a clear must remain possible for an inactive or soft-deleted method.
+     * These two tests prove the clear physically removes the row, and that a
+     * restored method whose mapping was cleared falls back to the channel
+     * default rather than resurrecting its old account.
+     */
+    it('clears the mapping of a soft-deleted payment method, removing the row', async () => {
+      const doomed = (await ds.getRepository(PaymentMethodEntity).save(
+        ds.getRepository(PaymentMethodEntity).create({
+          code: `PMM-DOOM-${runId}`.slice(0, 20),
+          name: `Doomed Method ${runId}`,
+          sortOrder: 100,
+          useForPurchases: true,
+          accountingChannel: 'BANK',
+          isActive: true,
+        }),
+      )) as unknown as PaymentMethodEntity;
+      ownedMethodIds.push(doomed.id);
+      ownedEntityIds.push(doomed.id);
+
+      await put('/accounting/settings/payment-method-mappings', {
+        mappings: [{ paymentMethodId: doomed.id, accountId: accountAId }],
+      }).expect(200);
+
+      // Soft delete, exactly as PaymentMethodService.remove() does.
+      await ds.getRepository(PaymentMethodEntity).softDelete(doomed.id);
+
+      // The row survives the soft delete — CASCADE did not fire. This is the
+      // state the clear has to be able to reach.
+      const stranded = await ds.query(
+        `SELECT "accountId" FROM payment_method_account_mappings WHERE "paymentMethodId" = $1`,
+        [doomed.id],
+      );
+      expect(stranded).toHaveLength(1);
+
+      // And it is invisible in the GET, which lists active methods only.
+      const listed = (await get(
+        '/accounting/settings/payment-method-mappings',
+      ).expect(200)).body as any[];
+      expect(listed.find((r) => r.paymentMethodId === doomed.id)).toBeUndefined();
+
+      // The clear is permitted despite the method being gone...
+      await put('/accounting/settings/payment-method-mappings', {
+        mappings: [{ paymentMethodId: doomed.id, accountId: null }],
+      }).expect(200);
+
+      // ...and physically removes the row. Raw SQL, so a soft-deleted
+      // leftover would still be counted here.
+      const afterClear = await ds.query(
+        `SELECT "deletedAt" FROM payment_method_account_mappings WHERE "paymentMethodId" = $1`,
+        [doomed.id],
+      );
+      expect(afterClear).toHaveLength(0);
+
+      // Assigning to a soft-deleted method stays rejected: only the clear is
+      // widened, because only the clear cannot create an invisible row.
+      await put('/accounting/settings/payment-method-mappings', {
+        mappings: [{ paymentMethodId: doomed.id, accountId: accountBId }],
+      }).expect(400);
+    });
+
+    it('falls back to the channel default when a restored method had its mapping cleared', async () => {
+      const revived = (await ds.getRepository(PaymentMethodEntity).save(
+        ds.getRepository(PaymentMethodEntity).create({
+          code: `PMM-RVV-${runId}`.slice(0, 20),
+          name: `Revived Method ${runId}`,
+          sortOrder: 100,
+          useForPurchases: true,
+          accountingChannel: 'BANK',
+          isActive: true,
+        }),
+      )) as unknown as PaymentMethodEntity;
+      ownedMethodIds.push(revived.id);
+      ownedEntityIds.push(revived.id);
+
+      await put('/accounting/settings/payment-method-mappings', {
+        mappings: [{ paymentMethodId: revived.id, accountId: maybankAccountId }],
+      }).expect(200);
+
+      await ds.getRepository(PaymentMethodEntity).softDelete(revived.id);
+      await put('/accounting/settings/payment-method-mappings', {
+        mappings: [{ paymentMethodId: revived.id, accountId: null }],
+      }).expect(200);
+
+      await ds.getRepository(PaymentMethodEntity).restore(revived.id);
+
+      // Restored and visible again, but UNMAPPED — the cleared row did not
+      // come back with the method. Had the clear been a soft delete, the row
+      // would still be present and this would read 'mapped'.
+      const afterRestore = (await get(
+        '/accounting/settings/payment-method-mappings',
+      ).expect(200)).body as any[];
+      const row = afterRestore.find((r) => r.paymentMethodId === revived.id);
+      expect(row).toBeDefined();
+      expect(row.status).toBe('unmapped');
+      expect(row.accountId).toBeNull();
+
+      const rows = await ds.query(
+        `SELECT 1 FROM payment_method_account_mappings WHERE "paymentMethodId" = $1`,
+        [revived.id],
+      );
+      expect(rows).toHaveLength(0);
     });
 
     /*

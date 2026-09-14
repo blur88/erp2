@@ -12,7 +12,19 @@ function svcWith(opts: {
   const mappings = opts.mappings ?? [];
   const captured = opts.captured ?? { deletes: [], inserts: [] };
 
-  const methodRepo = { find: async () => methods.filter((m) => m.isActive !== false) };
+  /*
+   * Honors its options argument, like accountRepo below. setMappings issues
+   * TWO method reads — an active-only one that authorises assignment, and a
+   * `withDeleted: true` one that authorises a clear. A fake that always
+   * filtered to active would make the clear-an-inactive-method tests pass
+   * whether or not the service actually widened its lookup.
+   */
+  const methodRepo = {
+    find: async (opts?: any) => {
+      if (opts?.withDeleted) return methods;
+      return methods.filter((m) => m.isActive !== false && !m.deletedAt);
+    },
+  };
   const accountRepo = {
     // Honors the options argument so the "deleted" case below actually pins
     // `withDeleted: true` on list(): drop it and the soft-deleted account
@@ -178,8 +190,56 @@ describe('PaymentMethodMappingService.setMappings', () => {
 
   it('rejects a clear that targets a nonexistent method', async () => {
     const { svc } = svcWith(base);
+    // "not found", without "or inactive": a clear IS permitted for an
+    // inactive method, so the message must not imply otherwise.
     await expect(svc.setMappings([{ paymentMethodId: 'nope', accountId: null }]))
+      .rejects.toThrow('Payment method nope not found');
+  });
+
+  /*
+   * Payment method removal is a SOFT delete, so ON DELETE CASCADE never fires
+   * and a mapping outlives its method. list() shows active methods only, so
+   * such a row is invisible — and it resumes posting if the method is later
+   * restored. Clearing must therefore stay possible for a method that is
+   * inactive or soft-deleted, or the operator has a row they can neither see
+   * nor remove.
+   */
+  it('clears the mapping of an inactive payment method', async () => {
+    const { svc, captured } = svcWith({
+      ...base,
+      methods: [...base.methods, method('pm-3', 'X', 'Gone', { isActive: false })],
+      mappings: [{ paymentMethodId: 'pm-3', accountId: 'a-1' }],
+    });
+    await svc.setMappings([{ paymentMethodId: 'pm-3', accountId: null }]);
+    expect(captured.deletes).toEqual(['pm-3']);
+    expect(captured.inserts).toHaveLength(0);
+  });
+
+  it('clears the mapping of a soft-deleted payment method', async () => {
+    const { svc, captured } = svcWith({
+      ...base,
+      methods: [...base.methods, method('pm-4', 'Y', 'Removed', { deletedAt: new Date() })],
+      mappings: [{ paymentMethodId: 'pm-4', accountId: 'a-1' }],
+    });
+    await svc.setMappings([{ paymentMethodId: 'pm-4', accountId: null }]);
+    expect(captured.deletes).toEqual(['pm-4']);
+    expect(captured.inserts).toHaveLength(0);
+  });
+
+  /*
+   * The asymmetry: a clear only ever removes a row, so it cannot create the
+   * invisible state. ASSIGNING to an inactive method would, so it stays
+   * rejected.
+   */
+  it('still rejects assigning an account to a soft-deleted method', async () => {
+    const { svc, captured } = svcWith({
+      ...base,
+      methods: [...base.methods, method('pm-4', 'Y', 'Removed', { deletedAt: new Date() })],
+    });
+    await expect(svc.setMappings([{ paymentMethodId: 'pm-4', accountId: 'a-1' }]))
       .rejects.toThrow('not found or inactive');
+    expect(captured.inserts).toHaveLength(0);
+    expect(captured.deletes).toHaveLength(0);
   });
 
   it('rejects a missing account', async () => {
