@@ -19,6 +19,8 @@ import type {
   OwnerEquityDocument,
   OwnerEquityListParams,
   PaymentMethodMappingRow,
+  BalanceSheetGroupRow,
+  BalanceSheetGroupName,
   RefundOwnerEquityRequest,
   SettleOwnerEquityRequest,
   TrialBalanceResponse,
@@ -74,7 +76,7 @@ export interface ExpenseListParams {
 export const accountingApiSlice = createApi({
   reducerPath: 'accountingApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB', 'FormBMapping', 'OwnerEquity', 'PaymentMethodMapping'],
+  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB', 'FormBMapping', 'OwnerEquity', 'PaymentMethodMapping', 'BalanceSheetGroup'],
   endpoints: (builder) => ({
     getAccountTree: builder.query<AccountTreeNode[], AccountTreeParams>({
       query: ({ search, type, isActive }) => {
@@ -129,6 +131,30 @@ export const accountingApiSlice = createApi({
         body: { mappings },
       }),
       invalidatesTags: ['PaymentMethodMapping'],
+    }),
+    getBalanceSheetGroups: builder.query<BalanceSheetGroupRow[], void>({
+      query: () => ({ url: '/accounting/settings/balance-sheet-groups' }),
+      providesTags: ['BalanceSheetGroup'],
+    }),
+    /*
+     * REPLACEMENT, not a patch: `groups` is the complete set. An empty array
+     * clears every grouping and re-arms both fallbacks, so unlike the payment
+     * mapping mutation this one is legitimately callable with no items.
+     *
+     * Invalidates BalanceSheet — the grouping decides which accounts N38 and
+     * N39 report, so a stale report is exactly what a user would check first
+     * after saving.
+     */
+    setBalanceSheetGroups: builder.mutation<
+      BalanceSheetGroupRow[],
+      { groups: { accountId: string; group: BalanceSheetGroupName }[] }
+    >({
+      query: ({ groups }) => ({
+        url: '/accounting/settings/balance-sheet-groups',
+        method: 'PUT',
+        data: { groups },
+      }),
+      invalidatesTags: ['BalanceSheetGroup', 'BalanceSheet'],
     }),
     getJournalEntries: builder.query<
       PaginatedResponse<JournalEntry>,
@@ -389,6 +415,8 @@ export const {
   useGetAccountingSettingsQuery,
   useUpdateAccountingSettingsMutation,
   useGetPaymentMethodMappingsQuery,
+  useGetBalanceSheetGroupsQuery,
+  useSetBalanceSheetGroupsMutation,
   useBulkUpdatePaymentMethodMappingsMutation,
   useGetJournalEntriesQuery,
   useGetJournalEntryQuery,

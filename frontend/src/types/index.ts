@@ -641,6 +641,24 @@ export interface PaymentMethodMappingRow {
   invalidReason: 'inactive' | 'not postable' | 'deleted' | 'missing' | null;
 }
 
+/**
+ * Explicit Balance Sheet line grouping (#1239).
+ *
+ * The group names are the LHDN concepts; N38/N39 are the lines they populate.
+ * A group with no rows falls back to its single settings account
+ * (bankAccountId for N38, supplierDepositAccountId for N39).
+ */
+export type BalanceSheetGroupName = 'BANK_BALANCE' | 'OTHER_CURRENT_ASSETS';
+
+export interface BalanceSheetGroupRow {
+  accountId: string;
+  group: BalanceSheetGroupName;
+  accountCode: string | null;
+  accountName: string | null;
+  status: 'ok' | 'invalid';
+  invalidReason: 'inactive' | 'not postable' | 'deleted' | 'missing' | 'wrong type' | null;
+}
+
 export type JournalEntryStatus = 'Posted' | 'Reversed';
 export type AccountingSourceType = 'SALES_ORDER' | 'PURCHASE_ORDER' | 'STOCK_ADJUSTMENT' | 'OPENING_BALANCE' | 'EXPENSE' | 'OWNER_EQUITY';
 
