@@ -20,6 +20,8 @@ import {
   useBulkUpdateFormBMappingsMutation,
   useGetPaymentMethodMappingsQuery,
   useBulkUpdatePaymentMethodMappingsMutation,
+  useGetBalanceSheetGroupsQuery,
+  useSetBalanceSheetGroupsMutation,
   accountingApi,
 } from '@/store/api/accountingApi'
 import type { AccountingSettings } from '@/types'
@@ -31,6 +33,8 @@ import FormBMappingSection from './FormBMappingSection'
 import { useFormBMappingDraft } from './useFormBMappingDraft'
 import PaymentMethodMappingSection from './PaymentMethodMappingSection'
 import { usePaymentMethodMappingDraft } from './usePaymentMethodMappingDraft'
+import BalanceSheetGroupsSection from './BalanceSheetGroupsSection'
+import { useBalanceSheetGroupsDraft } from './useBalanceSheetGroupsDraft'
 import SettingsActionBar from './SettingsActionBar'
 
 const schema = yup.object({
@@ -95,17 +99,25 @@ export default function AccountingSettingsPage() {
   } = useGetPaymentMethodMappingsQuery()
   const pmDraft = usePaymentMethodMappingDraft()
   const [bulkUpdatePaymentMethodMappings] = useBulkUpdatePaymentMethodMappingsMutation()
+
+  const {
+    data: balanceSheetGroups,
+    isLoading: groupsLoading,
+    error: groupsError,
+  } = useGetBalanceSheetGroupsQuery()
+  const bsgDraft = useBalanceSheetGroupsDraft(balanceSheetGroups)
+  const [setBalanceSheetGroups] = useSetBalanceSheetGroupsMutation()
   const [isSaving, setIsSaving] = useState(false)
   const [mappingSaveError, setMappingSaveError] = useState<string | null>(null)
   const dispatch = useAppDispatch()
 
   const accounts = accountsResponse?.data ?? []
-  const loading = settingsLoading || accountsLoading || paymentMappingsLoading
+  const loading = settingsLoading || accountsLoading || paymentMappingsLoading || groupsLoading
   // The accounts query fills every dropdown, so its failure is just as fatal as
   // the settings one — without it the selects render with no options at all.
   // The payment mappings query feeds its own section, and a failed load there
   // must not render as "No payment methods found".
-  const loadError = settingsError ?? accountsError ?? paymentMappingsError
+  const loadError = settingsError ?? accountsError ?? paymentMappingsError ?? groupsError
   // axiosBaseQuery returns { status, data } with the message in `data`, so read
   // that first; `.message` only covers a raw Error escaping the base query.
   const error = loadError
@@ -134,7 +146,7 @@ export default function AccountingSettingsPage() {
     },
   })
 
-  const isDirty = isFormDirty || draft.isDirty || pmDraft.isDirty
+  const isDirty = isFormDirty || draft.isDirty || pmDraft.isDirty || bsgDraft.isDirty
   const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSaving)
 
   useEffect(() => {
@@ -228,6 +240,24 @@ export default function AccountingSettingsPage() {
     pmDraft.reset()
   }
 
+  const saveBalanceSheetGroups = async () => {
+    const rows = await setBalanceSheetGroups({ groups: bsgDraft.payload })
+      .unwrap()
+      .catch((err: any) => {
+        throw new Error(
+          errorMessage(err, 'Unable to save the Balance Sheet grouping. Please try again.'),
+        )
+      })
+    /*
+     * Same ordering as the other two: the authoritative response goes into the
+     * cache BEFORE the draft re-seeds, so no window exists where an empty
+     * overlay sits over stale rows.
+     */
+    ;(dispatch as any)(
+      accountingApi.util.updateQueryData('getBalanceSheetGroups', undefined, () => rows),
+    )
+  }
+
   const handleSave = async () => {
     setIsSaving(true)
     setMappingSaveError(null)
@@ -261,6 +291,20 @@ export default function AccountingSettingsPage() {
       jobs.push({ name: 'Payment method mappings', run: savePaymentMethodMappings })
     }
     if (isFormDirty) jobs.push({ name: 'Default Accounts', run: saveDefaultAccounts })
+    /*
+     * LAST, after Default Accounts.
+     *
+     * The backend validates Balance Sheet grouping conflicts from BOTH sides
+     * against post-write state (#1239), and the two saves can each create a
+     * conflict the other would have to see. Running groups after settings means
+     * the group write validates against the settings the user just committed,
+     * so a rejection names the state they will actually be left in. The reverse
+     * order would validate the groups against settings that are about to
+     * change.
+     */
+    if (bsgDraft.isDirty) {
+      jobs.push({ name: 'Balance Sheet grouping', run: saveBalanceSheetGroups })
+    }
 
     const results: PromiseSettledResult<void>[] = []
     for (const job of jobs) {
@@ -310,6 +354,7 @@ export default function AccountingSettingsPage() {
     reset()
     draft.reset()
     pmDraft.reset()
+    bsgDraft.reset()
     setMappingSaveError(null)
   }
 
@@ -380,6 +425,15 @@ export default function AccountingSettingsPage() {
               rows={paymentMethodMappings ?? []}
               accounts={accounts}
               draft={pmDraft}
+              disabled={!isAdmin || isSaving}
+            />
+          )}
+
+          {!loading && !error && (
+            <BalanceSheetGroupsSection
+              accounts={accounts}
+              rows={balanceSheetGroups ?? []}
+              draft={bsgDraft}
               disabled={!isAdmin || isSaving}
             />
           )}

@@ -18,7 +18,6 @@ beforeAll(async () => {
 const makeService = (over: any = {}) => {
   const coaRepo = { find: jest.fn(async () => over.accounts ?? []) };
   const balance = { getLeafBalances: jest.fn(async () => new Map()) };
-  const settings = { get: jest.fn(async () => over.settings ?? {}) };
   const pl = {
     getProfitAndLoss: jest.fn(async () => over.pl ?? {
       netProfit: '0.0000', availableYears: [2026],
@@ -26,10 +25,29 @@ const makeService = (over: any = {}) => {
     }),
   };
   const settingsService = {} as any;
+  /*
+   * ONE call returns BOTH halves of the configuration (#1239 read-consistency
+   * fix). The report no longer reads settings and groups independently — the
+   * resolution rule spans them, so a mixed pair can place one account on two
+   * lines and double-count it. Mocking them as a single value here mirrors
+   * that: there is no way for this fake to hand back an inconsistent pair.
+   *
+   * Defaulting to EMPTY groups keeps every pre-existing case in this suite on
+   * the settings-key fallback path, so a green run is evidence the report is
+   * unchanged when nothing is configured.
+   */
+  const groups = {
+    getConfiguration: jest.fn(async () => ({
+      settings: over.settings ?? {},
+      groupedAccountIds: over.groups ?? {
+        BANK_BALANCE: [], OTHER_CURRENT_ASSETS: [],
+      },
+    })),
+  };
   const service = new BalanceSheetService(
-    coaRepo as any, balance as any, settings as any, pl as any, settingsService,
+    coaRepo as any, balance as any, pl as any, settingsService, groups as any,
   );
-  return { service, coaRepo, balance, settings, pl };
+  return { service, coaRepo, balance, pl, groups };
 };
 
 /**
@@ -144,5 +162,22 @@ describe('BalanceSheetService', () => {
       .filter((f) => f.code === 'PROFIT_STRUCTURAL_FAULTS')
       .map((f) => f.scope);
     expect(scopes).toEqual(['selectedYear']);
+  });
+
+  it('reads the configuration ONCE, as a pair', async () => {
+    /*
+     * Pins the read-consistency contract at the unit level (#1239).
+     *
+     * Settings and groups must arrive from one snapshot. A refactor that
+     * splits them back into two reads — or calls getConfiguration twice and
+     * keeps half of each result — reintroduces the window where a report pairs
+     * pre-write groups with post-write settings and double-counts an account
+     * into N40/N41. Asserting the call COUNT is what catches that; asserting
+     * the rendered output would not, since a single-threaded test never
+     * interleaves.
+     */
+    const { service, groups } = makeService();
+    await service.getBalanceSheet({ year: 2026 });
+    expect(groups.getConfiguration).toHaveBeenCalledTimes(1);
   });
 });

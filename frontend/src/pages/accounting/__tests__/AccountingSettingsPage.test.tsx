@@ -102,6 +102,19 @@ vi.mock('@/store/api/accountingApi', () => ({
   useGetAccountsQuery: mockGetAccountsQuery,
   useGetFormBMappingsQuery: mockGetFormBMappingsQuery,
   useGetPaymentMethodMappingsQuery: mockGetPaymentMethodMappingsQuery,
+  /*
+   * #1239. This factory enumerates hooks BY NAME, so a hook the page calls but
+   * the mock omits is `undefined` and the page crashes on invocation — which is
+   * how adding the Balance Sheet grouping section broke every test in this file
+   * before these two lines existed.
+   */
+  useGetBalanceSheetGroupsQuery: vi.fn(() => ({
+    data: [], isLoading: false, isError: false, error: undefined,
+  })),
+  useSetBalanceSheetGroupsMutation: vi.fn().mockReturnValue([
+    vi.fn(() => ({ unwrap: () => Promise.resolve([]) })),
+    { isLoading: false },
+  ]),
   useUpdateAccountingSettingsMutation: vi.fn().mockReturnValue([mockUpdateSettings, { isLoading: false }]),
   useUpdateFormBMappingMutation: vi.fn().mockReturnValue([vi.fn(() => ({ unwrap: () => Promise.resolve(undefined) })), { isLoading: false }]),
   useBulkUpdateFormBMappingsMutation: vi.fn().mockReturnValue([mockBulkUpdate, { isLoading: false }]),

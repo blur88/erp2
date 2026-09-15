@@ -411,3 +411,140 @@ describe('assembleBalanceSheet', () => {
     expect(out.derivedTotals.liabilitiesAndEquity).toBe('100000.0000');
   });
 });
+
+/**
+ * Explicit line grouping (#1239).
+ *
+ * The rule under test: a non-empty group REPLACES its settings-key
+ * contributor; an empty or absent group falls back to it. Every other suite in
+ * this file passes no `groupedAccountIds` at all, which is itself the evidence
+ * that an unconfigured install renders exactly as before.
+ */
+describe('assembleBalanceSheet — explicit line grouping (#1239)', () => {
+  const MAYBANK = 'acc-maybank', ATOME = 'acc-atome', SHOPEE = 'acc-shopee';
+  const SUPDEP = 'acc-supdep';
+
+  const GROUPED_ACCOUNTS: AssembleAccount[] = [
+    ...ACCOUNTS,
+    acc(MAYBANK, '1210', 'Maybank', 'Asset'),
+    acc(ATOME, '1240', 'Atome', 'Asset'),
+    acc(SHOPEE, '1220', 'Shopee', 'Asset'),
+    acc(SUPDEP, '1300', 'Supplier Deposits', 'Asset'),
+  ];
+
+  const grouped = (over: Partial<AssembleInput> = {}) =>
+    base({
+      accounts: GROUPED_ACCOUNTS,
+      settingsAccountIds: { ...SETTINGS, supplierDepositAccountId: SUPDEP },
+      ...over,
+    });
+
+  it('includes EVERY configured Bank Balance account under N38', () => {
+    // The issue's live case: CIMB (the default) and Maybank both under N38.
+    const out = assembleBalanceSheet(grouped({
+      atDate: new Map([[BANK, rm(1000)], [MAYBANK, rm(250)]]),
+      groupedAccountIds: { N38: [BANK, MAYBANK] },
+    }));
+    const n38 = rowOf(out, 'N38');
+    expect(n38.amount).toBe('1250.0000');
+    expect(n38.accounts.map((a) => a.code)).toEqual(['1200', '1210']);
+    // Each contributing account is shown with its own figure.
+    expect(n38.accounts.map((a) => a.amount)).toEqual(['1000.0000', '250.0000']);
+  });
+
+  it('includes EVERY configured Other Current Assets account under N39', () => {
+    const out = assembleBalanceSheet(grouped({
+      atDate: new Map([[ATOME, rm(10)], [SHOPEE, rm(20)]]),
+      groupedAccountIds: { N39: [ATOME, SHOPEE] },
+    }));
+    const n39 = rowOf(out, 'N39');
+    expect(n39.amount).toBe('30.0000');
+    expect(n39.accounts.map((a) => a.code)).toEqual(['1240', '1220']);
+  });
+
+  it('a non-empty group REPLACES the settings-key contributor', () => {
+    // BANK is the configured bankAccountId but is NOT in the group, so it must
+    // NOT contribute to N38. A union rule would report 1250 here.
+    const out = assembleBalanceSheet(grouped({
+      atDate: new Map([[BANK, rm(1000)], [MAYBANK, rm(250)]]),
+      groupedAccountIds: { N38: [MAYBANK] },
+    }));
+    const n38 = rowOf(out, 'N38');
+    expect(n38.amount).toBe('250.0000');
+    expect(n38.accounts.map((a) => a.accountId)).toEqual([MAYBANK]);
+  });
+
+  it('an EMPTY group falls back to the settings key (legacy behaviour)', () => {
+    const out = assembleBalanceSheet(grouped({
+      atDate: new Map([[BANK, rm(1000)], [MAYBANK, rm(250)]]),
+      groupedAccountIds: { N38: [], N39: [] },
+    }));
+    expect(rowOf(out, 'N38').amount).toBe('1000.0000');
+    expect(rowOf(out, 'N38').accounts.map((a) => a.accountId)).toEqual([BANK]);
+    // N39 falls back to supplierDepositAccountId, which holds nothing here.
+    expect(rowOf(out, 'N39').accounts.map((a) => a.accountId)).toEqual([SUPDEP]);
+  });
+
+  it('grouped accounts are NOT reported as unmapped balances', () => {
+    // Without mappedIds registration, Maybank's balance would raise
+    // UNMAPPED_BALANCE_ACCOUNTS and disqualify the Balance Check.
+    const out = assembleBalanceSheet(grouped({
+      atDate: new Map([[MAYBANK, rm(250)], [ATOME, rm(10)]]),
+      groupedAccountIds: { N38: [BANK, MAYBANK], N39: [ATOME] },
+    }));
+    expect(out.findings.find((f) => f.code === 'UNMAPPED_BALANCE_ACCOUNTS')).toBeUndefined();
+  });
+
+  it('a settings-key account DISPLACED by a group becomes an unmapped balance', () => {
+    /*
+     * The documented consequence of replacement: the supplier deposit account
+     * drops out of N39 once that group is configured without it, and a
+     * non-zero balance there is then genuinely outside the official totals.
+     * The remedy is to include it in the group — asserted below.
+     */
+    const out = assembleBalanceSheet(grouped({
+      atDate: new Map([[SUPDEP, rm(500)], [ATOME, rm(10)]]),
+      groupedAccountIds: { N39: [ATOME] },
+    }));
+    const finding = out.findings.find((f) => f.code === 'UNMAPPED_BALANCE_ACCOUNTS')!;
+    expect(finding.accounts.map((a) => a.accountId)).toEqual([SUPDEP]);
+    expect(out.balanceCheck.status).toBe('unavailable');
+  });
+
+  it('including the displaced account in the group restores it to the line', () => {
+    const out = assembleBalanceSheet(grouped({
+      atDate: new Map([[SUPDEP, rm(500)], [ATOME, rm(10)]]),
+      groupedAccountIds: { N39: [SUPDEP, ATOME] },
+    }));
+    expect(rowOf(out, 'N39').amount).toBe('510.0000');
+    expect(out.findings.find((f) => f.code === 'UNMAPPED_BALANCE_ACCOUNTS')).toBeUndefined();
+  });
+
+  it('grouped balances flow into N40, N41 and the Balance Check', () => {
+    const out = assembleBalanceSheet(grouped({
+      atDate: new Map([
+        [BANK, rm(1000)], [MAYBANK, rm(250)], [ATOME, rm(10)],
+        // Equity side, so the sheet balances: assets 1260 = capital 1260.
+        [CAP, -rm(1260)],
+      ]),
+      groupedAccountIds: { N38: [BANK, MAYBANK], N39: [ATOME] },
+    }));
+    expect(rowOf(out, 'N40').amount).toBe('1260.0000');
+    expect(rowOf(out, 'N41').amount).toBe('1260.0000');
+    expect(out.balanceCheck.status).toBe('balanced');
+    expect(out.balanceCheck.totalAssets).toBe('1260.0000');
+  });
+
+  it('leaves N49 on its PERIOD MOVEMENT rule, which no group touches', () => {
+    // Guards the one line whose arithmetic differs. Grouping N38 must not
+    // change how drawings are computed.
+    const out = assembleBalanceSheet(grouped({
+      atDate: new Map([[DRAW, -rm(300)], [MAYBANK, rm(250)]]),
+      preYear: new Map([[DRAW, -rm(100)]]),
+      groupedAccountIds: { N38: [MAYBANK] },
+    }));
+    // natural(Equity) negates raw: closing -(-300)=300... movement is
+    // closing minus pre-year in NATURAL terms, i.e. 300 - 100 = 200.
+    expect(rowOf(out, 'N49').amount).toBe('200.0000');
+  });
+});
