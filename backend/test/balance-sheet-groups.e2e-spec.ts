@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { jest } from '@jest/globals';
+import { BalanceSheetGroupService } from '../src/modules/accounting/services/balance-sheet-group.service';
 import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
@@ -433,92 +435,92 @@ describe('Balance Sheet account groups (e2e)', () => {
 
 
   describe('read consistency', () => {
-    /*
-     * Settings and groups must come from ONE snapshot.
-     *
-     * Writer locking does NOT cover this. It serializes writers and leaves
-     * every committed state self-consistent; the inconsistency here is
-     * assembled by the READER, pairing two snapshots that are each individually
-     * valid.
-     *
-     * The interleaving is forced deterministically rather than raced: a
-     * REPEATABLE READ transaction is opened and its FIRST read taken, then both
-     * writes are committed from outside it, then the second read is taken. If
-     * the two reads share a snapshot the writes are invisible to both; if they
-     * do not, the reader sees pre-write groups and post-write settings.
-     */
-    it('never pairs pre-write groups with post-write settings', async () => {
-      // Initial state: bank default CIMB, N38 empty, N39 = [Atome].
+    it('keeps the real configuration reader on one snapshot across committed writes', async () => {
       await ds.query(
         `UPDATE accounting_settings SET "bankAccountId" = $1 WHERE id = true`,
         [cimbId],
       );
-      await setGroups([{ accountId: atomeId, group: 'OTHER_CURRENT_ASSETS' }]);
+      expect((await setGroups([
+        { accountId: maybankId, group: 'BANK_BALANCE' },
+        { accountId: atomeId, group: 'OTHER_CURRENT_ASSETS' },
+      ])).status).toBe(200);
 
-      const runner = ds.createQueryRunner();
-      await runner.connect();
-      await runner.startTransaction('REPEATABLE READ');
+      // Intercept only the reader's next query runner. All SQL, repositories,
+      // isolation selection and transaction handling remain production code.
+      // Writers receive their own untouched runners and commit while we pause
+      // delivery of the reader's first SELECT result.
+      let firstRead!: () => void;
+      let resume!: () => void;
+      const paused = new Promise<void>((resolve) => { firstRead = resolve; });
+      const released = new Promise<void>((resolve) => { resume = resolve; });
+      const createRunner = ds.createQueryRunner.bind(ds);
+      let observedIsolation: string | undefined;
+      const runnerSpy = jest.spyOn(ds, 'createQueryRunner').mockImplementationOnce(() => {
+        const runner = createRunner();
+        const query = runner.query.bind(runner);
+        runner.query = async (...args: Parameters<typeof runner.query>) => {
+          const result = await query(...args);
+          if (/^SELECT/.test(args[0]) && args[0].includes('"accounting_settings"')) {
+            const isolation = await query('SHOW transaction_isolation');
+            observedIsolation = isolation[0].transaction_isolation;
+            firstRead();
+            await released;
+          }
+          return result;
+        };
+        return runner;
+      });
+      const reading = app.get(BalanceSheetGroupService).getConfiguration();
       try {
-        // Read #1 — groups, before either write.
-        const groupsBefore = await runner.query(
-          `SELECT "accountId", "groupLine" FROM balance_sheet_account_groups`,
-        );
-        expect(groupsBefore).toHaveLength(1);
+        // Fail promptly if the read throws or stops using the intercepted path.
+        await Promise.race([
+          paused,
+          reading.then(() => { throw new Error('Reader finished without pausing'); }),
+        ]);
 
-        // Both writes commit from OUTSIDE the open snapshot. Each is legal on
-        // its own: N38 becomes non-empty, which then frees the bank default to
-        // point at an N39 member.
-        expect(
-          (
-            await setGroups([
-              { accountId: maybankId, group: 'BANK_BALANCE' },
-              { accountId: atomeId, group: 'OTHER_CURRENT_ASSETS' },
-            ])
-          ).status,
-        ).toBe(200);
+        // Both transitions are valid. The final bank fallback is Atome and
+        // N39 is CIMB. Mixing the old settings with the new groups would instead
+        // put CIMB on both lines, even though no committed state does that.
         const current = await get('/accounting/settings');
-        expect(
-          (await put('/accounting/settings', { ...current.body, bankAccountId: atomeId }))
-            .status,
-        ).toBe(200);
+        expect((await put('/accounting/settings', {
+          ...current.body, bankAccountId: atomeId,
+        })).status).toBe(200);
+        expect((await setGroups([
+          { accountId: cimbId, group: 'OTHER_CURRENT_ASSETS' },
+        ])).status).toBe(200);
 
-        // Read #2 — settings, from the SAME snapshot.
-        const settingsAfter = await runner.query(
-          `SELECT "bankAccountId" FROM accounting_settings WHERE id = true`,
-        );
+        resume();
+        const snapshot = await reading;
+        expect(snapshot.settings.bankAccountId).toBe(cimbId);
+        expect({
+          isolation: observedIsolation,
+          groups: snapshot.groupedAccountIds,
+        }).toEqual({
+          isolation: 'repeatable read',
+          groups: {
+            BANK_BALANCE: [maybankId],
+            OTHER_CURRENT_ASSETS: [atomeId],
+          },
+        });
 
-        /*
-         * The snapshot must still show the PRE-write bank default. Seeing
-         * `atomeId` here would be the defect: paired with the pre-write groups
-         * (N38 empty) read above, the bank fallback re-arms onto Atome while
-         * Atome is also in N39, so it lands on both lines and is
-         * double-counted into N40/N41.
-         */
-        expect(settingsAfter[0].bankAccountId).toBe(cimbId);
+        // A subsequent real read sees the committed configuration, proving
+        // the writer changes landed and the first result was a pinned snapshot.
+        const latest = await app.get(BalanceSheetGroupService).getConfiguration();
+        expect(latest.settings.bankAccountId).toBe(atomeId);
+        expect(latest.groupedAccountIds).toEqual({
+          BANK_BALANCE: [],
+          OTHER_CURRENT_ASSETS: [cimbId],
+        });
       } finally {
-        await runner.rollbackTransaction();
-        await runner.release();
+        resume();
+        await reading.catch(() => undefined);
+        runnerSpy.mockRestore();
       }
     });
 
-    it('renders a self-consistent pair either side of an interleaved write', async () => {
-      /*
-       * The same scenario through the REAL read path, asserting the OUTCOME:
-       * whatever pair the report resolves, no account may land on two lines.
-       *
-       * DETERMINISTIC, not raced. An earlier version fired the report and the
-       * writes concurrently in Promise.all, six times over. It passed locally
-       * and failed on CI with `connect ECONNRESET` — too many overlapping
-       * supertest connections against the ephemeral server on a constrained
-       * runner. A test that depends on how much socket headroom the machine
-       * has is flaky by construction, and the racing bought nothing: the
-       * snapshot guarantee is proved by the transaction-level test above, and
-       * concurrency here only ever sampled whichever state happened to win.
-       *
-       * So the states are stepped through explicitly and the report rendered
-       * against each. Every reachable configuration is checked, rather than a
-       * random subset of them.
-       */
+    it('renders the expected contributors in each committed configuration', async () => {
+      // Sequential report coverage complements the interleaved service test
+      // above; this test alone does not prove snapshot isolation.
       const year = new Date().getUTCFullYear();
 
       const renderAndAssert = async (label: string) => {
