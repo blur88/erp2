@@ -21,7 +21,7 @@ import InvoicePrint from '@/components/print/InvoicePrint';
 import { useGetPrintSettingsQuery } from '@/store/api/printSettingsApi';
 import { useCurrency } from '@/hooks/useCurrency';
 import { formatDate } from '@/utils/formatters';
-import { toScaledAmount, fromScaledAmount } from '@/utils/currency';
+import { toScaledAmount, fromScaledAmount, formatCurrency, formatMoney } from '@/utils/currency';
 import type { SalesOrder } from '@/types';
 
 interface SalesOrderPrintDialogProps {
@@ -47,7 +47,7 @@ function mapPrintItems(items: any[], currency: string) {
     } else if (item.discountType === 'amount' && item.discountAmount) {
       discountValue = item.discountAmount;
       amount = lineSubtotal - discountValue;
-      discountDisplay = `${currency} ${Number(discountValue).toFixed(2)}`;
+      discountDisplay = formatCurrency(discountValue, { currency });
     }
 
     return {
@@ -76,9 +76,10 @@ const SalesOrderPrintDialog: React.FC<SalesOrderPrintDialogProps> = ({
   const paidMinor = toScaledAmount(salesOrder.paidAmount) ?? 0n;
   const totalMinor = toScaledAmount(salesOrder.totalAmount) ?? 0n;
   const balanceMinor = totalMinor - paidMinor;
-  // Legacy print pipe is display-only and already coerces to Number (toFixed(2)).
-  const paidValue = Number(fromScaledAmount(paidMinor));
-  const invoiceTotal = Number(fromScaledAmount(totalMinor));
+  // Display/print values are quantized to cents in the kernel (#1241); the
+  // legacy InvoicePrint prop shape still expects numbers.
+  const paidValue = Number(formatMoney(paidMinor));
+  const invoiceTotal = Number(formatMoney(totalMinor));
 
   const handlePrint = () => {
     window.print();

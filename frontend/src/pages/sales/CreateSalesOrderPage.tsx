@@ -48,6 +48,7 @@ import { setSelectedOrder } from '@/store/slices/salesSlice'
 import type { RootState } from '@/store'
 import { LINE_ITEM_TABLE_SX } from '@/components/transactions/transactionTableStyles'
 import { formatNum, parseNum } from '@/components/transactions/numberFormat'
+import { toScaledAmount, quantizeToCents, formatMoney } from '@/utils/currency'
 import ShippingField from '@/components/transactions/ShippingField'
 import OrderLineItemRow from '@/components/transactions/OrderLineItemRow'
 import TransactionFormShell from '@/components/transactions/TransactionFormShell'
@@ -227,18 +228,30 @@ const CreateSalesOrderPage: React.FC = () => {
       const quantityValue = item.quantity as number | string | null | undefined
 
       if (quantityValue != null && quantityValue !== '' && item.unitPrice !== undefined) {
-        const qty = Number(quantityValue)
-        const price = Number(item.unitPrice)
-        const unitDiscount =
-          item.discountType === 'percentage'
-            ? price * (Number(item.discountValue || 0) / 100)
-            : Number(item.discountValue || 0)
-        const total = (price - unitDiscount) * qty
-        if (Math.abs((item.totalPrice || 0) - total) > 0.001) {
+        // Kernel arithmetic (#1241): never compute money in binary floating point.
+        const qtyMinor = toScaledAmount(String(quantityValue))
+        const priceMinor = toScaledAmount(String(item.unitPrice))
+        if (qtyMinor === null || priceMinor === null) return
+
+        const discountValueMinor = toScaledAmount(String(item.discountValue ?? 0)) ?? 0n
+        let totalMinor: bigint
+        if (item.discountType === 'percentage') {
+          const unitDiscountMinor = (priceMinor * discountValueMinor) / 1000000n
+          totalMinor = quantizeToCents((qtyMinor * (priceMinor - unitDiscountMinor)) / 10000n)
+        } else {
+          // SO fixed discount is a whole-LINE amount, capped at the line total.
+          const lineMinor = (qtyMinor * priceMinor) / 10000n
+          const cappedDiscount =
+            discountValueMinor > lineMinor ? lineMinor : discountValueMinor
+          totalMinor = quantizeToCents(lineMinor - cappedDiscount)
+        }
+
+        const currentMinor = toScaledAmount(String(item.totalPrice ?? 0))
+        if (currentMinor !== totalMinor) {
           // Derived recompute — must NOT mark the form dirty, or loading an
-          // existing order (backend stores unrounded totals; this rounds to 2dp)
-          // would flip isDirty true with no user action and falsely block nav.
-          setValue(`items.${index}.totalPrice`, Number(total.toFixed(2)))
+          // existing order would flip isDirty true with no user action and
+          // falsely block nav.
+          setValue(`items.${index}.totalPrice`, Number(formatMoney(totalMinor)))
         }
       }
     })
@@ -359,7 +372,15 @@ const CreateSalesOrderPage: React.FC = () => {
       const qty = Number(watchedItems[index]?.quantity) || 1
       setValue(`items.${index}.productId`, product.id, { shouldDirty: true, shouldValidate: true })
       setValue(`items.${index}.unitPrice`, price, { shouldDirty: true })
-      setValue(`items.${index}.totalPrice`, Number((price * qty).toFixed(2)), { shouldDirty: true })
+      const qtyMinorAtSelect = toScaledAmount(String(qty))
+      const priceMinorAtSelect = toScaledAmount(String(price))
+      const totalMinorAtSelect =
+        qtyMinorAtSelect !== null && priceMinorAtSelect !== null
+          ? quantizeToCents((qtyMinorAtSelect * priceMinorAtSelect) / 10000n)
+          : 0n
+      setValue(`items.${index}.totalPrice`, Number(formatMoney(totalMinorAtSelect)), {
+        shouldDirty: true,
+      })
       setValue(`items.${index}.product`, product, { shouldDirty: true })
     },
     [seedProducts, setValue, selectedCustomer, watchedItems],

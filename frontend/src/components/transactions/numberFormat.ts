@@ -1,10 +1,16 @@
+import { formatCurrency } from '@/utils/currency'
+
+/**
+ * Display formatter for transaction amounts (#1241).
+ *
+ * Routes through the shared `formatCurrency` (symbol off) so amounts are always
+ * exactly two decimals, never render `-0.00`, and agree with every other
+ * surface. Decimal strings are kept as strings so large NUMERIC(18,4) values
+ * do not lose a cent through binary64.
+ */
 export function formatNum(value: number | string): string {
   if (value === '' || value === null || value === undefined) return ''
-  const num = typeof value === 'string' ? parseFloat(value) : value
-  if (isNaN(num)) return ''
-  const fixed = num.toFixed(2)
-  const [int, dec] = fixed.split('.')
-  return `${int.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${dec}`
+  return formatCurrency(value, { showSymbol: false })
 }
 
 export function parseNum(value: string): number {

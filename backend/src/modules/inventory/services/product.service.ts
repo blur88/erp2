@@ -21,6 +21,7 @@ import { StockMovement, StockMovementType } from '../../../database/entities/sto
 import { StockAdjustmentItem } from '../../../database/entities/stock-adjustment.entity';
 
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
+import { formatMoney, toMinorUnits } from '@/common/utils/money';
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -1504,18 +1505,19 @@ export class ProductService extends BaseCrudService<
     });
 
     // Calculate comprehensive statistics
-    let inventoryValue = 0;
+    let inventoryValueMinor = 0n;
     let lowStockCount = 0;
     let outOfStockCount = 0;
-    const categoryMap = new Map<string, { count: number; value: number }>();
+    const categoryMap = new Map<string, { count: number; value: bigint }>();
 
     products.forEach((product) => {
       const stock = Number(product.stockQuantity) || 0;
       // Use baseCost for inventory valuation (standard accounting practice)
       const cost = Number(product.baseCost) || 0;
 
-      // Calculate inventory value at cost
-      inventoryValue += stock * cost;
+      // Calculate inventory value at cost in minor units — no float money (#1241).
+      const valueMinor = (toMinorUnits(String(stock)) * toMinorUnits(String(cost))) / 10000n;
+      inventoryValueMinor += valueMinor;
 
       // Count low stock and out of stock using the configured threshold
       if (stock <= 0) {
@@ -1526,15 +1528,19 @@ export class ProductService extends BaseCrudService<
 
       // Category breakdown
       const categoryName = product.category?.name || 'Uncategorized';
-      const existing = categoryMap.get(categoryName) || { count: 0, value: 0 };
+      const existing = categoryMap.get(categoryName) || { count: 0, value: 0n };
       existing.count += 1;
-      existing.value += stock * cost;
+      existing.value += valueMinor;
       categoryMap.set(categoryName, existing);
     });
 
     // Convert category map to array and sort by value
     const categoryBreakdown = Array.from(categoryMap.entries())
-      .map(([category, data]) => ({ category, ...data }))
+      .map(([category, data]) => ({
+        category,
+        count: data.count,
+        value: Number(formatMoney(data.value)),
+      }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5); // Top 5 categories
 
@@ -1544,7 +1550,10 @@ export class ProductService extends BaseCrudService<
       inStockPercentage: totalProducts > 0 ? Math.round((inStockCount / totalProducts) * 100) : 0,
       outOfStockPercentage:
         totalProducts > 0 ? Math.round((outOfStockCount / totalProducts) * 100) : 0,
-      averageValue: totalProducts > 0 ? inventoryValue / totalProducts : 0,
+      averageValue:
+        totalProducts > 0
+          ? Number(formatMoney(inventoryValueMinor / BigInt(totalProducts)))
+          : 0,
     };
 
     // Get recent movements count (last 30 days)
@@ -1568,7 +1577,7 @@ export class ProductService extends BaseCrudService<
     const stats = {
       totalProducts,
       totalCategories,
-      inventoryValue: Number(inventoryValue.toFixed(2)),
+      inventoryValue: Number(formatMoney(inventoryValueMinor)),
       lowStockCount,
       outOfStockCount,
       recentMovements,

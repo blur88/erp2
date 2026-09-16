@@ -41,6 +41,7 @@ import {
 } from '@/store/api/purchasingApi'
 import { LINE_ITEM_TABLE_SX } from '@/components/transactions/transactionTableStyles'
 import { formatNum, parseNum } from '@/components/transactions/numberFormat'
+import { toScaledAmount, quantizeToCents, formatMoney } from '@/utils/currency'
 import ShippingField from '@/components/transactions/ShippingField'
 import OrderLineItemRow from '@/components/transactions/OrderLineItemRow'
 import TransactionFormShell from '@/components/transactions/TransactionFormShell'
@@ -257,15 +258,24 @@ const CreatePurchaseOrderPage: React.FC = () => {
     watchedItems.forEach((item, index) => {
       const quantityValue = item.quantity as number | string | null | undefined
       if (quantityValue != null && quantityValue !== '' && item.unitPrice !== undefined) {
-        const qty = Number(quantityValue)
-        const price = Number(item.unitPrice)
-        const unitDiscount =
+        // Kernel arithmetic (#1241): never compute money in binary floating point.
+        const qtyMinor = toScaledAmount(String(quantityValue))
+        const priceMinor = toScaledAmount(String(item.unitPrice))
+        if (qtyMinor === null || priceMinor === null) return
+
+        const discountValueMinor = toScaledAmount(String(item.discountValue ?? 0)) ?? 0n
+        // PO fixed discounts are per UNIT, unlike sales orders (per line).
+        const unitDiscountMinor =
           item.discountType === 'percentage'
-            ? price * (Number(item.discountValue || 0) / 100)
-            : Number(item.discountValue || 0)
-        const total = (price - unitDiscount) * qty
-        if (Math.abs((item.totalPrice || 0) - total) > 0.001) {
-          setValue(`items.${index}.totalPrice`, Number(total.toFixed(2)))
+            ? (priceMinor * discountValueMinor) / 1000000n
+            : discountValueMinor
+        const totalMinor = quantizeToCents(
+          (qtyMinor * (priceMinor - unitDiscountMinor)) / 10000n,
+        )
+
+        const currentMinor = toScaledAmount(String(item.totalPrice ?? 0))
+        if (currentMinor !== totalMinor) {
+          setValue(`items.${index}.totalPrice`, Number(formatMoney(totalMinor)))
         }
       }
     })
@@ -287,7 +297,15 @@ const CreatePurchaseOrderPage: React.FC = () => {
       const qty = Number(watchedItems[index]?.quantity) || 1
       setValue(`items.${index}.productId`, product.id, { shouldDirty: true, shouldValidate: true })
       setValue(`items.${index}.unitPrice`, price, { shouldDirty: true })
-      setValue(`items.${index}.totalPrice`, Number((price * qty).toFixed(2)), { shouldDirty: true })
+      const qtyMinorAtSelect = toScaledAmount(String(qty))
+      const priceMinorAtSelect = toScaledAmount(String(price))
+      const totalMinorAtSelect =
+        qtyMinorAtSelect !== null && priceMinorAtSelect !== null
+          ? quantizeToCents((qtyMinorAtSelect * priceMinorAtSelect) / 10000n)
+          : 0n
+      setValue(`items.${index}.totalPrice`, Number(formatMoney(totalMinorAtSelect)), {
+        shouldDirty: true,
+      })
       setValue(`items.${index}.product`, product, { shouldDirty: true })
     },
     [seedProducts, setValue, watchedItems],

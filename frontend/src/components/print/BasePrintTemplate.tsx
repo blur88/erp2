@@ -13,6 +13,7 @@ import {
   Grid,
 } from '@mui/material'
 import { printColors } from '@/styles/printTokens'
+import { formatCurrency } from '@/utils/currency'
 
 interface PrintSettings {
   logoUrl?: string
@@ -266,7 +267,7 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
                   {showPricing && (
                     <>
                       <TableCell align="right" sx={{ color: printColors.text, border: `1px solid ${printColors.border}` }}>
-                        {currency} {Number(item.unitPrice || 0).toFixed(2)}
+                        {formatCurrency(item.unitPrice || 0, { currency })}
                       </TableCell>
                       {showDiscount && (
                         <TableCell align="right" sx={{ color: printColors.text, border: `1px solid ${printColors.border}` }}>
@@ -274,7 +275,7 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
                         </TableCell>
                       )}
                       <TableCell align="right" sx={{ color: printColors.text, border: `1px solid ${printColors.border}` }}>
-                        {currency} {Number(item.amount || 0).toFixed(2)}
+                        {formatCurrency(item.amount || 0, { currency })}
                       </TableCell>
                     </>
                   )}
@@ -293,7 +294,7 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
                   Subtotal:
                 </Typography>
                 <Typography variant="body2" sx={{ color: printColors.text }}>
-                  {currency} {Number(totals.subtotal || 0).toFixed(2)}
+                  {formatCurrency(totals.subtotal || 0, { currency })}
                 </Typography>
               </Box>
               {totals.shipping !== undefined && (
@@ -302,7 +303,7 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
                     Shipping Cost:
                   </Typography>
                   <Typography variant="body2" sx={{ color: printColors.text }}>
-                    {currency} {Number(totals.shipping || 0).toFixed(2)}
+                    {formatCurrency(totals.shipping || 0, { currency })}
                   </Typography>
                 </Box>
               )}
@@ -312,7 +313,7 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
                   Total:
                 </Typography>
                 <Typography variant="body1" sx={{ fontWeight: 700, color: printColors.text }}>
-                  {currency} {Number(totals.total || 0).toFixed(2)}
+                  {formatCurrency(totals.total || 0, { currency })}
                 </Typography>
               </Box>
               {totals.paid !== undefined && (
@@ -322,7 +323,7 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
                       Paid:
                     </Typography>
                     <Typography variant="body2" sx={{ color: printColors.text }}>
-                      {currency} {Number(totals.paid || 0).toFixed(2)}
+                      {formatCurrency(totals.paid || 0, { currency })}
                     </Typography>
                   </Box>
                   <Divider sx={{ my: 1, borderColor: printColors.border }} />
@@ -331,7 +332,7 @@ const BasePrintTemplate: React.FC<BasePrintTemplateProps> = ({
                       Balance:
                     </Typography>
                     <Typography variant="body1" sx={{ fontWeight: 700, color: printColors.text }}>
-                      {currency} {Number(totals.balance || 0).toFixed(2)}
+                      {formatCurrency(totals.balance || 0, { currency })}
                     </Typography>
                   </Box>
                 </>
