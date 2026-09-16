@@ -20,7 +20,7 @@ import {
 import { BaseEntity } from './base.entity';
 import type { PurchaseOrder } from './purchase-order.entity';
 import type { Product } from './product.entity';
-import { toMinorUnits, quantizeToCents, formatScale4 } from '@common/utils/money';
+import { toMinorUnits, quantizeToCents, formatScale4 } from '../../common/utils/money';
 
 export enum PurchaseOrderItemStatus {
   PENDING = 'pending',

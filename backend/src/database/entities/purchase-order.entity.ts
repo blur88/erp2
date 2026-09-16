@@ -21,7 +21,7 @@ import { BaseEntity } from './base.entity';
 import type { Supplier } from './supplier.entity';
 import type { PurchaseOrderItem } from './purchase-order-item.entity';
 import type { VendorPayment } from './vendor-payment.entity';
-import { toMinorUnits, quantizeToCents, formatScale4 } from '@common/utils/money';
+import { toMinorUnits, quantizeToCents, formatScale4 } from '../../common/utils/money';
 
 export enum PurchaseOrderStatus {
   DRAFT = 'DRAFT',
