@@ -1,6 +1,11 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { RecordOrderPaymentLineDto, RefundLineDto } from './purchase-order.dto';
+import {
+  CreatePurchaseOrderDto,
+  CreatePurchaseOrderItemDto,
+  RecordOrderPaymentLineDto,
+  RefundLineDto,
+} from './purchase-order.dto';
 
 /**
  * `reference` is persisted to vendor_payments.referenceNumber, which is
@@ -63,5 +68,65 @@ describe('payment reference length validation', () => {
       const errors = await validate(make(undefined));
       expect(errors.filter((e) => e.property === 'reference')).toHaveLength(0);
     });
+  });
+});
+
+describe('purchase order precision validation (#1241)', () => {
+  const uuid = '123e4567-e89b-12d3-a456-426614174000';
+
+  const buildItem = (overrides: Record<string, unknown> = {}) =>
+    plainToInstance(CreatePurchaseOrderItemDto, {
+      productId: uuid,
+      quantity: 1,
+      unitPrice: 10,
+      ...overrides,
+    });
+
+  it('rejects a fractional quantity rather than rounding it', async () => {
+    const errors = await validate(buildItem({ quantity: 1.5 }));
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it('rejects more than two decimals on an ordinary money field', async () => {
+    const dto = plainToInstance(CreatePurchaseOrderDto, {
+      supplierId: uuid,
+      orderDate: '2026-09-17',
+      items: [{ productId: uuid, quantity: 1, unitPrice: 10 }],
+      shippingAmount: 1.005,
+    });
+    const errors = await validate(dto);
+    expect(errors.map((e) => e.property)).toContain('shippingAmount');
+  });
+
+  it('accepts two decimals on an ordinary money field', async () => {
+    const dto = plainToInstance(CreatePurchaseOrderDto, {
+      supplierId: uuid,
+      orderDate: '2026-09-17',
+      items: [{ productId: uuid, quantity: 1, unitPrice: 10 }],
+      shippingAmount: 1.01,
+    });
+    expect(await validate(dto)).toHaveLength(0);
+  });
+
+  it('still permits four decimals on a unit price', async () => {
+    const errors = await validate(buildItem({ unitPrice: 11.8056 }));
+    expect(errors).toHaveLength(0);
+  });
+
+  it('still permits four decimals on a per-unit fixed discount', async () => {
+    const errors = await validate(
+      buildItem({ discountType: 'fixed_amount', discountAmount: 1.0005 }),
+    );
+    expect(errors).toHaveLength(0);
+  });
+
+  it('rejects more than two decimals on a vendor payment amount', async () => {
+    const dto = plainToInstance(RecordOrderPaymentLineDto, {
+      paymentMethodId: uuid,
+      paymentDate: '2026-09-17',
+      amount: '1.005',
+    });
+    const errors = await validate(dto);
+    expect(errors.length).toBeGreaterThan(0);
   });
 });

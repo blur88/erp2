@@ -88,7 +88,7 @@ export class SalesOrderItem extends BaseEntity {
     default: 0,
     comment: 'Line item discount amount (fixed amount or calculated from percentage)',
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: '0,2' })
   @Min(0)
   discountAmount: number;
 
@@ -99,7 +99,7 @@ export class SalesOrderItem extends BaseEntity {
     default: 0,
     comment: 'Line item total amount (after discount)',
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: '0,2' })
   @Min(0)
   totalAmount: number;
 

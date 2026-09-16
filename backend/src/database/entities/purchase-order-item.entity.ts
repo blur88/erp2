@@ -122,7 +122,7 @@ export class PurchaseOrderItem extends BaseEntity {
     default: 0,
     comment: 'Line item discount amount (total for all units or per-unit based on discountType)',
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: '0,2' })
   @Min(0)
   discountAmount: number;
 
@@ -133,7 +133,7 @@ export class PurchaseOrderItem extends BaseEntity {
     default: 0,
     comment: 'Line item total amount (after discount)',
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: '0,2' })
   @Min(0)
   totalAmount: number;
 

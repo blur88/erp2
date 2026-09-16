@@ -35,13 +35,13 @@ export class CreatePurchaseOrderItemDto {
 
   @ApiProperty({ description: 'Quantity ordered' })
   @Transform(({ value }) => parseFloat(value))
-  @IsNumber()
-  @Min(0.0001)
+  @IsInt()
+  @Min(1)
   quantity: number;
 
   @ApiProperty({ description: 'Unit price' })
   @Transform(({ value }) => parseFloat(value))
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
   unitPrice: number;
 
@@ -61,7 +61,7 @@ export class CreatePurchaseOrderItemDto {
   @ApiPropertyOptional({ description: 'Discount amount per unit (used when discountType is fixed_amount)', default: 0 })
   @IsOptional()
   @Transform(({ value }) => value == null ? 0 : parseFloat(value))
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
   discountAmount?: number;
 }
@@ -86,7 +86,7 @@ export class CreatePurchaseOrderDto {
   @ApiPropertyOptional({ description: 'Shipping/freight charges', default: 0 })
   @IsOptional()
   @Transform(({ value }) => value == null ? 0 : parseFloat(value))
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   shippingAmount?: number;
 
@@ -387,8 +387,8 @@ export class RecordOrderPaymentLineDto {
   paymentDate: string;
 
   @ApiProperty({ description: 'Payment amount', example: '500.00' })
-  @Matches(/^\d+(\.\d{1,4})?$/, {
-    message: 'amount must be a positive decimal string with at most 4 decimal places',
+  @Matches(/^\d+(\.\d{1,2})?$/, {
+    message: 'amount must be a positive decimal string with at most 2 decimal places',
   })
   @IsMoneyAtLeast('0.0100')
   amount: string;
@@ -415,8 +415,8 @@ export class RefundLineDto {
   paymentMethodId: string;
 
   @ApiProperty({ description: 'Refund amount (positive)', example: '100.00' })
-  @Matches(/^\d+(\.\d{1,4})?$/, {
-    message: 'amount must be a positive decimal string with at most 4 decimal places',
+  @Matches(/^\d+(\.\d{1,2})?$/, {
+    message: 'amount must be a positive decimal string with at most 2 decimal places',
   })
   @IsMoneyAtLeast('0.0100')
   amount: string;

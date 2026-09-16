@@ -31,7 +31,7 @@ export class SalesOrderPayment {
   referenceNumber?: string;
 
   @Column({ type: 'decimal', precision: 15, scale: 4 })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: '0,2' })
   amount: string;
 
   @Column({ type: 'date' })

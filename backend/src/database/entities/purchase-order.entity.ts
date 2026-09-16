@@ -85,7 +85,7 @@ export class PurchaseOrder extends BaseEntity {
     default: 0,
     comment: 'Subtotal amount (before tax and discounts)',
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: '0,2' })
   @Min(0)
   subtotal: number;
 
@@ -107,7 +107,7 @@ export class PurchaseOrder extends BaseEntity {
     default: 0,
     comment: 'Discount amount',
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: '0,2' })
   @Min(0)
   discountAmount: number;
 
@@ -118,7 +118,7 @@ export class PurchaseOrder extends BaseEntity {
     default: 0,
     comment: 'Shipping/freight charges',
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: '0,2' })
   @Min(0)
   shippingAmount: number;
 
@@ -132,7 +132,7 @@ export class PurchaseOrder extends BaseEntity {
   // Scale-4 decimal string; @Min cannot apply to a string (class-validator's min
   // returns false unconditionally), so the floor lives in the DTOs via
   // IsMoneyAtLeast. See common/utils/money.ts.
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: '0,2' })
   totalAmount: string;
 
   @Column({
@@ -142,7 +142,7 @@ export class PurchaseOrder extends BaseEntity {
     default: 0,
     comment: 'Total amount paid',
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: '0,2' })
   paidAmount: string;
 
   @Column({
