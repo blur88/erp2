@@ -471,7 +471,7 @@ describe('SalesOrderPaymentService', () => {
       } as any, 'u', 'admin');
 
       expect(accountingPort.postSalesPayment).toHaveBeenCalledWith(
-        expect.objectContaining({ salesOrderId: 'order-1', channel: 'CASH', amount: '500.0000', paymentRowId: 'payment-new' }),
+        expect.objectContaining({ salesOrderId: 'order-1', channel: 'CASH', amount: '500.00', paymentRowId: 'payment-new' }),
         expect.anything(),
       );
     });
@@ -862,7 +862,7 @@ totalAmount: '1000.0000',
       } as any, 'u', 'admin');
 
       expect(accountingPort.postSalesRefund).toHaveBeenCalledWith(
-        expect.objectContaining({ salesOrderId: 'order-1', channel: 'BANK', amount: '400.0000', refundRowId: 'refund-new' }),
+        expect.objectContaining({ salesOrderId: 'order-1', channel: 'BANK', amount: '400.00', refundRowId: 'refund-new' }),
         expect.anything(),
       );
     });

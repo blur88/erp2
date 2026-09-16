@@ -470,7 +470,7 @@ describe('OwnerEquity lifecycle', () => {
       }, 'u1', 'alice');
 
       expect(postingMock.postOwnerCapitalInjectionRefund).toHaveBeenCalledWith(
-        expect.objectContaining({ channel: 'BANK', amount: '100.0000' }),
+        expect.objectContaining({ channel: 'BANK', amount: '100.00' }),
         txManager,
       );
     });

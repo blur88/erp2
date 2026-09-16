@@ -20,7 +20,7 @@ import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
-import { formatScale4, quantizeToCents, toMinorUnits } from '@/common/utils/money';
+import { formatMoney, formatScale4, quantizeToCents, toMinorUnits } from '@/common/utils/money';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
 import { resolveAppTimezone } from '../../../common/utils/app-calendar';
 import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
@@ -238,7 +238,7 @@ export class PurchaseOrderLifecycleService {
       await this.accounting.postPurchaseReceive({
         purchaseOrderId: id,
         sourceRef: purchaseOrder.orderNumber,
-        amount: formatScale4(inventoryMinor),
+          amount: formatMoney(quantizeToCents(inventoryMinor)),
         entryDate: formatDateInTimezone(receiveDate, timezone),
         createdBy: username,
       }, manager);

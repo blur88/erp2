@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { AccountingPostingService } from './accounting-posting.service';
+import { AccountingPostingService, assertBalanced } from './accounting-posting.service';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
 import { JournalEntry } from '../entities/journal-entry.entity';
 import { AccountType } from '../entities/account-type.enum';
@@ -134,14 +134,41 @@ describe('AccountingPostingService', () => {
     expect(lookup.resolvePaymentAccount).toHaveBeenCalledWith('BANK', 'pm-maybank', expect.anything());
   });
 
-  it('rejects an unbalanced entry', async () => {
-    const saved: any[] = [];
-    const { svc } = makeService(saved);
-    await expect(
-      (svc as any).assertBalanced([
+  it('rejects an unbalanced entry', () => {
+    expect(() =>
+      assertBalanced([
         { debit: '500.0000', credit: '0.0000' },
         { debit: '0.0000', credit: '400.0000' },
       ]),
-    ).rejects.toThrow(/balanced|debit.*credit/i);
+    ).toThrow(/balanced|debit.*credit/i);
+  });
+});
+
+describe('journal balance gate (#1241)', () => {
+  it('rejects an unbalanced set of lines before persistence', () => {
+    const lines = [
+      { debit: '10.00', credit: '0.00' },
+      { debit: '0.00', credit: '9.99' },
+    ];
+    expect(() => assertBalanced(lines)).toThrow(/does not balance/i);
+  });
+
+  it('accepts lines that balance exactly at two decimals', () => {
+    const lines = [
+      { debit: '10.00', credit: '0.00' },
+      { debit: '0.00', credit: '10.00' },
+    ];
+    expect(() => assertBalanced(lines)).not.toThrow();
+  });
+
+  it('rejects lines that balance only before quantization', () => {
+    // 3.3333 + 3.3333 + 3.3334 balances at scale 4 but each line posts at cents
+    const lines = [
+      { debit: '10.00', credit: '0.00' },
+      { debit: '0.00', credit: '3.3333' },
+      { debit: '0.00', credit: '3.3333' },
+      { debit: '0.00', credit: '3.3334' },
+    ];
+    expect(() => assertBalanced(lines)).toThrow(/does not balance/i);
   });
 });

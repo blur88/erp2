@@ -44,6 +44,7 @@ import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/acco
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
 import {
+  formatMoney,
   formatScale4,
   quantizeToCents,
   sumMinor,
@@ -825,7 +826,7 @@ export class PurchaseOrderService extends BaseCrudService<
           refundRowId: (saved as any).id,
           channel: method.accountingChannel,
           paymentMethodId: method.id,
-          amount: formatScale4(toMinorUnits(line.amount)),
+          amount: formatMoney(quantizeToCents(toMinorUnits(line.amount))),
           entryDate: formatDateInTimezone(refundInstant, timezone),
           createdBy: username,
         }, manager);
@@ -933,7 +934,7 @@ export class PurchaseOrderService extends BaseCrudService<
           paymentRowId: restoredPayment.id,
           channel: method.accountingChannel,
           paymentMethodId: method.id,
-          amount: formatScale4(toMinorUnits(firstLine.amount)),
+          amount: formatMoney(quantizeToCents(toMinorUnits(firstLine.amount))),
           entryDate: firstLine.paymentDate,
           createdBy: username,
         }, manager);
@@ -961,7 +962,7 @@ export class PurchaseOrderService extends BaseCrudService<
             paymentRowId: savedPayment.id,
             channel: m.accountingChannel,
             paymentMethodId: m.id,
-            amount: formatScale4(toMinorUnits(line.amount)),
+            amount: formatMoney(quantizeToCents(toMinorUnits(line.amount))),
             entryDate: line.paymentDate,
             createdBy: username,
           }, manager);
@@ -990,7 +991,7 @@ export class PurchaseOrderService extends BaseCrudService<
             paymentRowId: savedPayment.id,
             channel: method.accountingChannel,
             paymentMethodId: method.id,
-            amount: formatScale4(toMinorUnits(line.amount)),
+            amount: formatMoney(quantizeToCents(toMinorUnits(line.amount))),
             entryDate: line.paymentDate,
             createdBy: username,
           }, manager);

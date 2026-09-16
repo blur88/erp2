@@ -34,7 +34,7 @@ import { AuditLogService } from '../../audit-logs/services';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
-import { formatScale4, toMinorUnits } from '@/common/utils/money';
+import { formatMoney, formatScale4, quantizeToCents, toMinorUnits } from '@/common/utils/money';
 
 @Injectable()
 export class StockAdjustmentService extends BaseCrudService<
@@ -655,8 +655,8 @@ export class StockAdjustmentService extends BaseCrudService<
         await this.accounting.postStockAdjustment({
           adjustmentId: adjustment.id,
           sourceRef: adjustment.adjustmentNumber,
-          increaseAmount: formatScale4(increaseMinor),
-          decreaseAmount: formatScale4(decreaseMinor),
+          increaseAmount: formatMoney(quantizeToCents(increaseMinor)),
+          decreaseAmount: formatMoney(quantizeToCents(decreaseMinor)),
           entryDate: formatDateInTimezone(actionInstant, timezone),
           createdBy: username,
         }, manager);

@@ -353,7 +353,7 @@ describe('PurchaseOrderLifecycleService', () => {
         expect.objectContaining({
           purchaseOrderId: 'po-1',
           sourceRef: 'PO-000001',
-          amount: '50.0000',
+          amount: '50.00',
         }),
         expect.anything(),
       );

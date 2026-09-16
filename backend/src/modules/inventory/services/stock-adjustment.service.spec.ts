@@ -451,8 +451,8 @@ describe('complete and revert', () => {
       expect.objectContaining({
         adjustmentId: '123e4567-e89b-12d3-a456-426614174000',
         sourceRef: 'SA-000001',
-        increaseAmount: '100.0000',
-        decreaseAmount: '50.0000',
+        increaseAmount: '100.00',
+        decreaseAmount: '50.00',
       }),
       mockManager,
     );
