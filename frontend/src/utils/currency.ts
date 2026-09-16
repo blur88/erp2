@@ -56,11 +56,20 @@ export const formatCurrency = (
   const numberFormat = localStorage.getItem('numberFormat') || '1,234.56'
   const useGrouping = numberFormat !== '1234.56'
 
+  // Intl renders "-0.00" for values like -0.001 when both fraction-digit
+  // options are 2 — which is this function's default (#1241). Collapse a value
+  // that rounds to zero at the requested precision onto positive zero. A real
+  // negative cent (-0.01) is untouched because it does not round to zero.
+  const roundsToZero =
+    Number(value) > -0.5 / 10 ** maximumFractionDigits &&
+    Number(value) < 0.5 / 10 ** maximumFractionDigits
+  const displayValue: string | number = roundsToZero ? 0 : value
+
   const formatted = new Intl.NumberFormat('en-MY', {
     minimumFractionDigits,
     maximumFractionDigits,
     useGrouping,
-  }).format(value as any)
+  }).format(displayValue as any)
 
   return showSymbol ? `${currencySymbol} ${formatted}` : formatted
 }
@@ -278,4 +287,79 @@ const formatCurrencyWhole = (amount: number | string | null | undefined): string
     minimumFractionDigits: 0, 
     maximumFractionDigits: 0 
   })
+}
+
+/**
+ * Scale-4 cent quantization, mirroring backend/src/common/utils/money.ts (#1241).
+ * HALF-UP away from zero for both signs. Result stays scale-4, divisible by 100.
+ */
+const CENT_UNITS = 100n
+
+export const quantizeToCents = (minor: bigint): bigint => {
+  const neg = minor < 0n
+  const abs = neg ? -minor : minor
+  const rounded = ((abs + CENT_UNITS / 2n) / CENT_UNITS) * CENT_UNITS
+  return neg ? -rounded : rounded
+}
+
+/** Exactly two fraction digits, no symbol, never "-0.00". */
+export const formatMoney = (minor: bigint): string => {
+  const cents = quantizeToCents(minor)
+  const neg = cents < 0n
+  const abs = neg ? -cents : cents
+  const whole = abs / 10000n
+  const frac = ((abs % 10000n) / CENT_UNITS).toString().padStart(2, '0')
+  return `${neg ? '-' : ''}${whole}.${frac}`
+}
+
+/** Uncapped proportional spread; residual to the last line. See backend docs. */
+export const allocate = (
+  targetMinor: bigint,
+  weightsMinor: readonly bigint[]
+): bigint[] => {
+  for (const w of weightsMinor) {
+    if (w < 0n) throw new Error(`allocate: negative weight is not allowed: ${w}`)
+  }
+  if (targetMinor === 0n) return weightsMinor.map(() => 0n)
+
+  const weightTotal = weightsMinor.reduce((sum, w) => sum + w, 0n)
+  if (weightTotal === 0n) {
+    throw new Error('allocate: no positive weights to receive a non-zero target')
+  }
+
+  const neg = targetMinor < 0n
+  const absTarget = neg ? -targetMinor : targetMinor
+  const shares = weightsMinor.map((w) => (w * absTarget) / weightTotal)
+  const distributed = shares.reduce((sum, s) => sum + s, 0n)
+  shares[shares.length - 1] += absTarget - distributed
+
+  return neg ? shares.map((s) => -s) : shares
+}
+
+/** Cent-level second pass; see backend/src/common/utils/money.ts. */
+export const reconcileToCents = (
+  sharesMinor: readonly bigint[],
+  targetCentsMinor: bigint
+): bigint[] => {
+  const target = quantizeToCents(targetCentsMinor)
+  const rounded = sharesMinor.map((s) => quantizeToCents(s))
+  let drift = rounded.reduce((sum, s) => sum + s, 0n) - target
+
+  for (let i = rounded.length - 1; i >= 0 && drift !== 0n; i -= 1) {
+    const adjusted = rounded[i] - drift
+    const sameSign =
+      (adjusted >= 0n && rounded[i] >= 0n) || (adjusted <= 0n && rounded[i] <= 0n)
+    if (sameSign) {
+      rounded[i] = adjusted
+      drift = 0n
+    }
+  }
+
+  if (drift !== 0n) {
+    throw new Error(
+      `reconcileToCents: could not absorb drift of ${drift} without flipping a sign`
+    )
+  }
+
+  return rounded
 }

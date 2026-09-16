@@ -8,7 +8,16 @@ import {
   sumScaledAmounts,
   allocateByLargestRemainder,
   normalizeAmountInput,
+  quantizeToCents,
+  formatMoney,
+  allocate,
+  reconcileToCents,
 } from '../currency'
+import {
+  QUANTIZE_VECTORS,
+  FORMAT_VECTORS,
+  ALLOCATE_VECTORS,
+} from '../money-vectors'
 
 describe('formatCurrency', () => {
   beforeEach(() => {
@@ -336,5 +345,48 @@ describe('normalizeAmountInput', () => {
 
   it('does not trim surrounding whitespace', () => {
     expect(normalizeAmountInput(' 1000 ')).toBe(' 1000 ')
+  })
+})
+
+describe('frontend/backend kernel parity', () => {
+  it.each(QUANTIZE_VECTORS.map((v) => [v.name, v.inputMinor, v.expectedMinor] as const))(
+    'quantizeToCents %s',
+    (_name, input, expected) => {
+      expect(quantizeToCents(input)).toBe(expected)
+    }
+  )
+
+  it.each(FORMAT_VECTORS.map((v) => [v.name, v.inputMinor, v.expected] as const))(
+    'formatMoney %s',
+    (_name, input, expected) => {
+      expect(formatMoney(input)).toBe(expected)
+    }
+  )
+
+  it.each(
+    ALLOCATE_VECTORS.map(
+      (v) => [v.name, v.targetMinor, v.weightsMinor, v.expectedMinor] as const
+    )
+  )('allocate %s', (_name, target, weights, expected) => {
+    expect(allocate(target, weights)).toEqual([...expected])
+  })
+
+  it('reconcileToCents conserves the cent total', () => {
+    const result = reconcileToCents([3350n, 3350n, 3300n], 10000n)
+    expect(result.reduce((a, b) => a + b, 0n)).toBe(10000n)
+  })
+})
+
+describe('formatCurrency negative zero', () => {
+  // Intl emits "-0.00" for -0.001 when BOTH fraction-digit options are 2,
+  // which is exactly how formatCurrency is configured by default.
+  it('never renders negative zero', () => {
+    expect(formatCurrency(-0.001)).not.toContain('-')
+    expect(formatCurrency('-0.0032')).not.toContain('-')
+    expect(formatCurrency(-0)).not.toContain('-')
+  })
+
+  it('keeps a real negative cent negative', () => {
+    expect(formatCurrency('-0.01')).toContain('-')
   })
 })
