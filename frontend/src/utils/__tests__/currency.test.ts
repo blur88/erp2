@@ -273,13 +273,12 @@ describe('allocateByLargestRemainder', () => {
     expect(sum(allocations)).toBe(1000001n)
   })
 
-  it('caps the total at the weight total when the target exceeds it', () => {
+  it('rejects a target exceeding total capacity instead of truncating it', () => {
     const weights = [100n, 100n]
-    const allocations = allocateByLargestRemainder(weights, 1000n)
 
-    // Cannot distribute more than the sources hold.
-    expect(allocations).toEqual([100n, 100n])
-    expect(sum(allocations)).toBe(200n)
+    // Cannot distribute more than the sources hold — silently truncating hid a
+    // caller bug, so this is now an explicit error (#1241).
+    expect(() => allocateByLargestRemainder(weights, 1000n)).toThrow(/capacity/i)
   })
 
   it('distributes proportionally across unequal weights', () => {
@@ -388,5 +387,26 @@ describe('formatCurrency negative zero', () => {
 
   it('keeps a real negative cent negative', () => {
     expect(formatCurrency('-0.01')).toContain('-')
+  })
+})
+
+describe('allocateByLargestRemainder settlement fixes (#1241)', () => {
+  it('allocates a negative target instead of returning zeros', () => {
+    const result = allocateByLargestRemainder([1n, 1n, 1n], -3n)
+    expect(result.reduce((a, b) => a + b, 0n)).toBe(-3n)
+  })
+
+  it('rejects a target exceeding total capacity instead of truncating', () => {
+    expect(() => allocateByLargestRemainder([1n, 1n], 5n)).toThrow(/capacity/i)
+  })
+
+  it('still caps each share at its own weight', () => {
+    const result = allocateByLargestRemainder([1n, 10n], 11n)
+    expect(result[0]).toBeLessThanOrEqual(1n)
+  })
+
+  it('preserves existing largest-remainder distribution', () => {
+    // Unchanged behavior: the historical settlement result must not move.
+    expect(allocateByLargestRemainder([1n, 1n, 1n], 2n)).toEqual([1n, 1n, 0n])
   })
 })

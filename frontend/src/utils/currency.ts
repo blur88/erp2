@@ -233,24 +233,37 @@ export const sumScaledAmounts = (
  *
  * Every allocation is capped at its weight, so a source can never be assigned
  * more than it has available. Returns all zeros when the weights sum to zero.
+ *
+ * Negative targets (refunds, credit notes) allocate the magnitude and take the
+ * sign back at the end, instead of silently returning zeros (#1241). A target
+ * exceeding the total capacity is rejected rather than silently truncated: it
+ * always signals a caller bug, and truncation hid it.
  */
 export const allocateByLargestRemainder = (
   weightsMinor: bigint[],
   targetMinor: bigint
 ): bigint[] => {
   const weightTotal = weightsMinor.reduce((sum, w) => sum + w, 0n)
-  if (weightTotal <= 0n || targetMinor <= 0n) return weightsMinor.map(() => 0n)
+  if (weightTotal <= 0n || targetMinor === 0n) return weightsMinor.map(() => 0n)
 
-  // Never distribute more than the weights can absorb: each share is capped at
-  // its own weight, so a target above the total would leave units unassignable.
-  const distributable = targetMinor > weightTotal ? weightTotal : targetMinor
+  // Negative settlement targets allocate the magnitude and take the sign back
+  // at the end. Returning zeros here silently lost the entire amount (#1241).
+  const negative = targetMinor < 0n
+  const absTarget = negative ? -targetMinor : targetMinor
 
-  const floored = weightsMinor.map((weight) => (weight * distributable) / weightTotal)
+  // Silently truncating an over-capacity target hid a caller bug. Reject it.
+  if (absTarget > weightTotal) {
+    throw new Error(
+      `allocateByLargestRemainder: target ${absTarget} exceeds total capacity ${weightTotal}`
+    )
+  }
+
+  const floored = weightsMinor.map((weight) => (weight * absTarget) / weightTotal)
   const remainders = weightsMinor.map(
-    (weight, index) => weight * distributable - floored[index] * weightTotal
+    (weight, index) => weight * absTarget - floored[index] * weightTotal
   )
 
-  let leftover = distributable - floored.reduce((sum, share) => sum + share, 0n)
+  let leftover = absTarget - floored.reduce((sum, share) => sum + share, 0n)
 
   // Largest remainder first; equal remainders keep the caller's source order.
   const order = weightsMinor
@@ -269,7 +282,7 @@ export const allocateByLargestRemainder = (
     leftover -= 1n
   }
 
-  return allocations
+  return negative ? allocations.map((allocation) => -allocation) : allocations
 }
 
 /**
