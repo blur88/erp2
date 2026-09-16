@@ -6,8 +6,10 @@ import {
   trimTrailingZeros,
   quantizeToCents,
   formatMoney,
+  allocate,
+  reconcileToCents,
 } from './money';
-import { QUANTIZE_VECTORS, FORMAT_VECTORS } from './money-vectors';
+import { QUANTIZE_VECTORS, FORMAT_VECTORS, ALLOCATE_VECTORS } from './money-vectors';
 
 describe('money helpers', () => {
   it('parses decimal string to minor units', () => {
@@ -120,6 +122,66 @@ describe('formatMoney', () => {
   it('never emits negative zero', () => {
     for (const minor of [-1n, -32n, -49n, 0n, 49n]) {
       expect(formatMoney(minor)).not.toBe('-0.00');
+    }
+  });
+});
+
+describe('allocate', () => {
+  it.each(
+    ALLOCATE_VECTORS.map((v) => [v.name, v.targetMinor, v.weightsMinor, v.expectedMinor] as const),
+  )('%s', (_name, target, weights, expected) => {
+    expect(allocate(target, weights)).toEqual([...expected]);
+  });
+
+  it('conserves the target exactly for every vector', () => {
+    for (const v of ALLOCATE_VECTORS) {
+      const sum = allocate(v.targetMinor, v.weightsMinor).reduce((a, b) => a + b, 0n);
+      expect(sum).toBe(v.targetMinor);
+    }
+  });
+
+  it('rejects negative weights instead of silently allocating', () => {
+    expect(() => allocate(100n, [1n, -1n])).toThrow(/negative weight/i);
+  });
+
+  it('rejects a non-zero target with no positive weights', () => {
+    expect(() => allocate(100n, [0n, 0n])).toThrow(/no positive weights/i);
+  });
+
+  it('allocates nothing when the target is zero, even with zero weights', () => {
+    expect(allocate(0n, [0n, 0n])).toEqual([0n, 0n]);
+  });
+});
+
+describe('reconcileToCents', () => {
+  it('fixes the duplicated cent that independent rounding creates', () => {
+    // 0.3350 + 0.3350 + 0.3300 === 1.0000 exactly, but rounding each to cents
+    // gives 0.34 + 0.34 + 0.33 === 1.01. Reconciliation must restore 1.00.
+    const shares = [3350n, 3350n, 3300n];
+    const result = reconcileToCents(shares, 10000n);
+    expect(result.reduce((a, b) => a + b, 0n)).toBe(10000n);
+    for (const r of result) {
+      expect(r % 100n).toBe(0n);
+    }
+  });
+
+  it('leaves already-reconciling shares alone', () => {
+    const shares = [2500n, 7500n];
+    expect(reconcileToCents(shares, 10000n)).toEqual([2500n, 7500n]);
+  });
+
+  it('never flips a share to the opposite sign', () => {
+    const result = reconcileToCents([3350n, 3350n, 3300n], 10000n);
+    for (const r of result) {
+      expect(r >= 0n).toBe(true);
+    }
+  });
+
+  it('preserves the sign convention for negative targets', () => {
+    const result = reconcileToCents([-3350n, -3350n, -3300n], -10000n);
+    expect(result.reduce((a, b) => a + b, 0n)).toBe(-10000n);
+    for (const r of result) {
+      expect(r <= 0n).toBe(true);
     }
   });
 });
