@@ -45,6 +45,7 @@ import type { AccountingPostingPort } from '../../../common/accounting-posting/a
 import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
 import {
   formatScale4,
+  quantizeToCents,
   sumMinor,
   toMinorUnits,
 } from '@/common/utils/money';
@@ -266,7 +267,7 @@ export class PurchaseOrderService extends BaseCrudService<
 
       // Create order items
       const orderItems: PurchaseOrderItem[] = [];
-      let subtotal = 0;
+      let subtotalMinor = 0n;
 
       let lineNum = 1;
       for (const itemDto of createPurchaseOrderDto.items) {
@@ -291,26 +292,28 @@ export class PurchaseOrderService extends BaseCrudService<
           lineNumber: lineNum,
         });
 
-        // Calculate totals manually to get the amount before saving
-        // Discount is applied to unit price first, then multiplied by quantity
-        let unitDiscount = 0;
+        // Calculate line totals in the kernel (#1241): a per-unit discount is
+        // applied first, then multiplied by quantity, then quantized to cents.
+        const qtyMinor = toMinorUnits(String(item.quantity ?? 0));
+        const costMinor = toMinorUnits(String(item.unitCost ?? 0));
+        let unitDiscountMinor = 0n;
         if (item.discountType === 'percentage') {
-          unitDiscount = item.discountPercent > 0
-            ? (Number(item.unitCost) * Number(item.discountPercent)) / 100
-            : 0;
+          unitDiscountMinor =
+            (costMinor * toMinorUnits(String(item.discountPercent ?? 0))) / 1000000n;
         } else if (item.discountType === 'fixed_amount') {
-          unitDiscount = Number(item.discountAmount) || 0;
+          unitDiscountMinor = toMinorUnits(String(item.discountAmount ?? 0));
         }
-        const discountedUnitPrice = Number(item.unitCost) - unitDiscount;
-        const totalAmount = discountedUnitPrice * Number(item.quantity);
+        const lineTotalMinor = quantizeToCents(
+          (qtyMinor * (costMinor - unitDiscountMinor)) / 10000n,
+        );
 
         orderItems.push(item);
-        subtotal += totalAmount;
+        subtotalMinor += lineTotalMinor;
         lineNum++;
       }
 
       // Set purchase order totals
-      purchaseOrder.subtotal = subtotal;
+      purchaseOrder.subtotal = Number(formatScale4(subtotalMinor));
 
       // Attach items to purchase order before calculating totals (needed for calculateTotals)
       purchaseOrder.items = orderItems;
@@ -535,7 +538,7 @@ export class PurchaseOrderService extends BaseCrudService<
           await itemRepo.delete({ purchaseOrderId: id });
 
           const orderItems: PurchaseOrderItem[] = [];
-          let subtotal = 0;
+          let subtotalMinor = 0n;
           let lineNum = 1;
 
           for (const itemDto of updatePurchaseOrderDto.items) {
@@ -556,22 +559,27 @@ export class PurchaseOrderService extends BaseCrudService<
             item.receivedQuantity = 0;
             item.lineNumber = lineNum;
 
-            let unitDiscount = 0;
+            // Same kernel line math as create (#1241).
+            const qtyMinor = toMinorUnits(String(item.quantity ?? 0));
+            const costMinor = toMinorUnits(String(item.unitCost ?? 0));
+            let unitDiscountMinor = 0n;
             if (item.discountType === 'percentage') {
-              unitDiscount = item.discountPercent > 0 ? (Number(item.unitCost) * Number(item.discountPercent)) / 100 : 0;
+              unitDiscountMinor =
+                (costMinor * toMinorUnits(String(item.discountPercent ?? 0))) / 1000000n;
             } else if (item.discountType === 'fixed_amount') {
-              unitDiscount = Number(item.discountAmount) || 0;
+              unitDiscountMinor = toMinorUnits(String(item.discountAmount ?? 0));
             }
-            const discountedUnitPrice = Number(item.unitCost) - unitDiscount;
-            const totalAmount = discountedUnitPrice * Number(item.quantity);
+            const lineTotalMinor = quantizeToCents(
+              (qtyMinor * (costMinor - unitDiscountMinor)) / 10000n,
+            );
 
             orderItems.push(item);
-            subtotal += totalAmount;
+            subtotalMinor += lineTotalMinor;
             lineNum++;
           }
 
           await itemRepo.save(orderItems);
-          purchaseOrder.subtotal = subtotal;
+          purchaseOrder.subtotal = Number(formatScale4(subtotalMinor));
           purchaseOrder.items = orderItems;
         }
 

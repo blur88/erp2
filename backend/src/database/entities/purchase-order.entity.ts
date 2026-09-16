@@ -21,6 +21,7 @@ import { BaseEntity } from './base.entity';
 import type { Supplier } from './supplier.entity';
 import type { PurchaseOrderItem } from './purchase-order-item.entity';
 import type { VendorPayment } from './vendor-payment.entity';
+import { toMinorUnits, quantizeToCents, formatScale4 } from '@common/utils/money';
 
 export enum PurchaseOrderStatus {
   DRAFT = 'DRAFT',
@@ -224,21 +225,21 @@ export class PurchaseOrder extends BaseEntity {
     // Only recalculate subtotal from items if items have totalAmount already set
     // (i.e., items were loaded from database, not newly created)
     if (this.items && this.items.length > 0 && this.items[0].totalAmount !== undefined && this.items[0].totalAmount !== 0) {
-      this.subtotal = this.items.reduce((sum, item) =>
-        sum + Number(item.totalAmount || 0), 0);
-    }
-    // Otherwise, trust the subtotal value that was set by the service
-
-    // Calculate discount amount
-    if (this.discountPercent > 0) {
-      this.discountAmount = (Number(this.subtotal || 0) * Number(this.discountPercent)) / 100;
-    } else {
-      this.discountAmount = 0;
+      const subtotalMinor = this.items
+        .map((item) => quantizeToCents(toMinorUnits(String(item.totalAmount || 0))))
+        .reduce((a, b) => a + b, 0n);
+      this.subtotal = Number(formatScale4(subtotalMinor)) as any;
     }
 
-    // Calculate total (subtotal - discount + shipping)
-    const subtotalAfterDiscount = Number(this.subtotal || 0) - Number(this.discountAmount || 0);
-    this.totalAmount = (subtotalAfterDiscount + Number(this.shippingAmount || 0)).toFixed(4);
+    const subtotalMinor = quantizeToCents(toMinorUnits(String(this.subtotal || 0)));
+    const discountMinor =
+      this.discountPercent > 0
+        ? quantizeToCents((subtotalMinor * toMinorUnits(String(this.discountPercent))) / 1000000n)
+        : 0n;
+    const shippingMinor = quantizeToCents(toMinorUnits(String(this.shippingAmount || 0)));
+
+    this.discountAmount = Number(formatScale4(discountMinor)) as any;
+    this.totalAmount = formatScale4(subtotalMinor - discountMinor + shippingMinor) as any;
   }
 
 
