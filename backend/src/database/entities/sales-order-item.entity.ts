@@ -19,6 +19,7 @@ import {
 import { BaseEntity } from './base.entity';
 import type { SalesOrder } from './sales-order.entity';
 import type { Product } from './product.entity';
+import { toMinorUnits, quantizeToCents, formatScale4 } from '@common/utils/money';
 
 export enum DiscountType {
   PERCENTAGE = 'percentage',
@@ -170,22 +171,27 @@ export class SalesOrderItem extends BaseEntity {
   @BeforeInsert()
   @BeforeUpdate()
   calculateTotals() {
-    const lineTotal = this.lineTotal;
+    const qtyMinor = toMinorUnits(String(this.quantity ?? 0));
+    const priceMinor = toMinorUnits(String(this.unitPrice ?? 0));
+    // quantity is a whole count, so scale it back out of minor units.
+    const lineTotalMinor = (qtyMinor * priceMinor) / 10000n;
 
-    // Calculate discount amount based on discount type
+    let discountMinor = 0n;
     if (this.discountType === DiscountType.PERCENTAGE && this.discountPercent > 0) {
-      this.discountAmount = (lineTotal * Number(this.discountPercent)) / 100;
+      const pctMinor = toMinorUnits(String(this.discountPercent));
+      discountMinor = (lineTotalMinor * pctMinor) / 1000000n; // /100 at scale 4
     } else if (this.discountType === DiscountType.AMOUNT && this.discountAmount > 0) {
-      // For fixed amount, use the discountAmount as is
-      // Ensure discount doesn't exceed line total
-      this.discountAmount = Math.min(Number(this.discountAmount), lineTotal);
-    } else {
-      // No discount or invalid values
-      this.discountAmount = 0;
+      // SO fixed discount is per LINE (PO's is per unit) and is capped at the
+      // line total — preserve both properties.
+      const raw = toMinorUnits(String(this.discountAmount));
+      discountMinor = raw > lineTotalMinor ? lineTotalMinor : raw;
     }
 
-    // Calculate total amount
-    this.totalAmount = lineTotal - Number(this.discountAmount);
+    discountMinor = quantizeToCents(discountMinor);
+    this.discountAmount = Number(formatScale4(discountMinor)) as any;
+    this.totalAmount = Number(
+      formatScale4(quantizeToCents(lineTotalMinor - discountMinor)),
+    ) as any;
   }
 
   // Static method to create from product

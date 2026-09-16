@@ -49,6 +49,7 @@ import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service'
 import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 import { SalesOrderPaymentService } from './sales-order-payment.service';
 import { SalesOrderQueryService } from './sales-order-query.service';
+import { toMinorUnits, quantizeToCents, formatScale4 } from '@common/utils/money';
 
 @Injectable()
 export class SalesOrderService extends BaseCrudService<
@@ -159,9 +160,15 @@ export class SalesOrderService extends BaseCrudService<
 
     // Validate and calculate order totals with customer pricing scheme
     const orderItems = await this.validateAndProcessItems(items, customer);
-    const subtotal = SalesOrderService.sumItemTotals(orderItems);
-    const shippingAmount = Number(createSalesOrderDto.shippingAmount || 0);
-    const totalAmount = (subtotal + shippingAmount).toFixed(4);
+    const subtotalMinor = orderItems
+      .map((i) => quantizeToCents(toMinorUnits(String(i.totalAmount ?? 0))))
+      .reduce((a, b) => a + b, 0n);
+    const shippingMinor = quantizeToCents(
+      toMinorUnits(String(createSalesOrderDto.shippingAmount || 0)),
+    );
+    const subtotal = Number(formatScale4(subtotalMinor));
+    const shippingAmount = Number(formatScale4(shippingMinor));
+    const totalAmount = formatScale4(subtotalMinor + shippingMinor);
 
     // Note: Credit limit check removed - customerService not available
 
@@ -456,24 +463,35 @@ export class SalesOrderService extends BaseCrudService<
           });
         }
 
-        const subtotal = SalesOrderService.sumItemTotals(orderItems);
-        const shippingAmount =
-          updateSalesOrderDto.shippingAmount !== undefined
-            ? Number(updateSalesOrderDto.shippingAmount)
-            : Number(locked.shippingAmount || 0);
-        updateData.shippingAmount = shippingAmount;
-        updateData.subtotal = subtotal;
-        updateData.totalAmount = (subtotal + shippingAmount).toFixed(4);
+        const subtotalMinor = orderItems
+          .map((i) => quantizeToCents(toMinorUnits(String(i.totalAmount ?? 0))))
+          .reduce((a, b) => a + b, 0n);
+        const shippingMinor = quantizeToCents(
+          toMinorUnits(
+            String(
+              updateSalesOrderDto.shippingAmount !== undefined
+                ? updateSalesOrderDto.shippingAmount
+                : locked.shippingAmount || 0,
+            ),
+          ),
+        );
+        updateData.shippingAmount = Number(formatScale4(shippingMinor));
+        updateData.subtotal = Number(formatScale4(subtotalMinor));
+        updateData.totalAmount = formatScale4(subtotalMinor + shippingMinor);
       } else if (updateSalesOrderDto.shippingAmount !== undefined) {
         // Shipping-only edits read existing items through the transaction manager.
         const existingItems = await manager.getRepository(SalesOrderItem).find({
           where: { salesOrderId: id },
         });
-        const currentSubtotal = SalesOrderService.sumItemTotals(existingItems);
-        const newShipping = Number(updateSalesOrderDto.shippingAmount);
-        updateData.shippingAmount = newShipping;
-        updateData.subtotal = currentSubtotal;
-        updateData.totalAmount = (currentSubtotal + newShipping).toFixed(4);
+        const currentSubtotalMinor = existingItems
+          .map((i) => quantizeToCents(toMinorUnits(String(i.totalAmount ?? 0))))
+          .reduce((a, b) => a + b, 0n);
+        const newShippingMinor = quantizeToCents(
+          toMinorUnits(String(updateSalesOrderDto.shippingAmount ?? 0)),
+        );
+        updateData.shippingAmount = Number(formatScale4(newShippingMinor));
+        updateData.subtotal = Number(formatScale4(currentSubtotalMinor));
+        updateData.totalAmount = formatScale4(currentSubtotalMinor + newShippingMinor);
       }
 
       const hasChanges = Object.keys(updateData).length > 0;
@@ -591,15 +609,6 @@ export class SalesOrderService extends BaseCrudService<
   }
 
   /**
-   * Sum the post-discount totalAmount across a list of order items.
-   * Used in create, update (items branch), and update (shipping-only branch)
-   * to ensure the same calculation logic is applied everywhere.
-   */
-  private static sumItemTotals(items: Array<{ totalAmount: number }>): number {
-    return items.reduce((sum, item) => sum + Number(item.totalAmount), 0);
-  }
-
-  /**
    * Build the normalized before/after value snapshot logged on an order edit. Kept in
    * one place so the audit "old" and "new" records always share the exact same shape.
    */
@@ -684,29 +693,38 @@ export class SalesOrderService extends BaseCrudService<
       const discountPercent = Number(item.discountPercent) || 0;
       const discountAmount = Number(item.discountAmount) || 0;
 
-      // Calculate line total before discount
-      const lineTotal = unitPrice * item.quantity;
+      // Kernel arithmetic: quantity × unitPrice − lineDiscount, then quantize to
+      // cents (#1241). Quantity is a whole count, scaled back out of minor units.
+      const safeUnitPrice = Number.isFinite(Number(unitPrice)) ? Number(unitPrice) : 0;
+      const qtyMinor = toMinorUnits(String(item.quantity ?? 0));
+      const priceMinor = toMinorUnits(String(safeUnitPrice));
+      const lineTotalMinor = (qtyMinor * priceMinor) / 10000n;
 
       // Calculate total discount for the line (not per unit)
-      let calculatedDiscountAmount = 0;
+      let discountMinor = 0n;
       if (item.discountType === DiscountType.PERCENTAGE && discountPercent > 0) {
-        calculatedDiscountAmount = (lineTotal * discountPercent) / 100;
+        const pctMinor = toMinorUnits(String(discountPercent));
+        discountMinor = (lineTotalMinor * pctMinor) / 1000000n;
       } else if (item.discountType === DiscountType.AMOUNT && discountAmount > 0) {
-        calculatedDiscountAmount = discountAmount;
+        const rawMinor = toMinorUnits(String(discountAmount));
+        discountMinor = rawMinor > lineTotalMinor ? lineTotalMinor : rawMinor;
+      } else {
+        discountMinor = 0n;
       }
 
-      const totalAmount = lineTotal - calculatedDiscountAmount;
+      discountMinor = quantizeToCents(discountMinor);
+      const totalAmountMinor = quantizeToCents(lineTotalMinor - discountMinor);
 
       processedItems.push({
         lineNumber: lineNumber++,
         productId: item.productId,
         quantity: Number(item.quantity) || 1,
-        unitPrice: Number.isFinite(Number(unitPrice)) ? Number(unitPrice) : 0,
+        unitPrice: safeUnitPrice,
         unitCost: Number(product.baseCost) || 0,
         discountType: item.discountType || DiscountType.PERCENTAGE,
         discountPercent: Number(discountPercent) || 0,
-        discountAmount: Number(calculatedDiscountAmount) || 0,
-        totalAmount: Number(totalAmount) || 0,
+        discountAmount: Number(formatScale4(discountMinor)),
+        totalAmount: Number(formatScale4(totalAmountMinor)),
         notes: item.notes || null,
       });
     }

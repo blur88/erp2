@@ -23,6 +23,7 @@ import { SalesOrderLifecycleService } from './sales-order-lifecycle.service';
 import { SalesOrderPaymentService } from './sales-order-payment.service';
 import { SalesOrderQueryService } from './sales-order-query.service';
 import { CustomerService } from './customer.service';
+import { quantizeToCents, formatMoney, toMinorUnits } from '@common/utils/money';
 
 describe('SalesOrderService', () => {
   let service: SalesOrderService;
@@ -1439,5 +1440,66 @@ describe('SalesOrderService', () => {
         discountPercent: 15,
       });
     });
+  });
+});
+
+describe('sales order precision (#1241)', () => {
+  it('rounds each line to cents, then sums (three lines of 0.335 -> 1.02)', () => {
+    const lines = ['0.3350', '0.3350', '0.3350'];
+    const subtotal = lines
+      .map((l) => quantizeToCents(toMinorUnits(l)))
+      .reduce((a, b) => a + b, 0n);
+    expect(formatMoney(subtotal)).toBe('1.02');
+  });
+
+  it('reconciles subtotal + shipping = total at two decimals', () => {
+    const subtotal = quantizeToCents(toMinorUnits('97.00'));
+    const shipping = quantizeToCents(toMinorUnits('0.00'));
+    expect(formatMoney(subtotal + shipping)).toBe('97.00');
+  });
+
+  it('produces RM97.00 for RM100 less a RM3 line discount', () => {
+    const gross = toMinorUnits('100.0000');
+    const discount = toMinorUnits('3.0000');
+    expect(formatMoney(quantizeToCents(gross - discount))).toBe('97.00');
+  });
+
+  it('rounds the line total in the entity hook (RM0.335 -> RM0.34)', () => {
+    const item = Object.assign(new SalesOrderItem(), {
+      quantity: 1,
+      unitPrice: 0.335,
+      discountType: DiscountType.PERCENTAGE,
+      discountPercent: 0,
+      discountAmount: 0,
+    });
+    item.calculateTotals();
+    expect(item.totalAmount).toBe(0.34);
+    expect(item.discountAmount).toBe(0);
+  });
+
+  it('caps a fixed line discount at the line total in the entity hook', () => {
+    const item = Object.assign(new SalesOrderItem(), {
+      quantity: 1,
+      unitPrice: 10,
+      discountType: DiscountType.AMOUNT,
+      discountPercent: 0,
+      discountAmount: 999,
+    });
+    item.calculateTotals();
+    expect(item.discountAmount).toBe(10);
+    expect(item.totalAmount).toBe(0);
+  });
+
+  it('quantizes a percentage discount to cents in the entity hook', () => {
+    const item = Object.assign(new SalesOrderItem(), {
+      quantity: 3,
+      unitPrice: 0.335,
+      discountType: DiscountType.PERCENTAGE,
+      discountPercent: 10,
+      discountAmount: 0,
+    });
+    item.calculateTotals();
+    // gross 1.005 -> 1.01; 10% = 0.1005 -> 0.10; net 1.01 - 0.10 = 0.91
+    expect(item.totalAmount).toBe(0.91);
   });
 });
