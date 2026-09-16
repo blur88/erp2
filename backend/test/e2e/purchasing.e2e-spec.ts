@@ -303,7 +303,7 @@ describe("Purchasing (e2e)", () => {
           payments: [
             {
               paymentMethodId,
-              amount: "550.0000",
+              amount: "550.00",
               paymentDate: new Date().toISOString().split("T")[0],
             },
           ],

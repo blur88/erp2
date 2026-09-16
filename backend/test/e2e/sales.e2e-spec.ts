@@ -273,7 +273,7 @@ describe("Sales (e2e)", () => {
         .post(`/sales-orders/${salesOrderId}/payments`)
         .set("Authorization", `Bearer ${accessToken}`)
         .send({
-          amount: "100.0000",
+          amount: "100.00",
           paymentMethodId,
           paymentDate: "2026-05-26",
         })
