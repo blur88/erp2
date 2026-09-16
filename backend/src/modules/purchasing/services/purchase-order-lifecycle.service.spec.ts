@@ -27,7 +27,7 @@ describe('PurchaseOrderLifecycleService', () => {
   let auditLogService: any;
   let dataSource: { transaction: any };
   let stockMovementService: { deleteByReference: any; create: any };
-  let baseCostCalculator: { addStock: any; removeStock: any; calculateShippingByValue: any };
+  let baseCostCalculator: { addStock: any; removeStock: any; allocateShippingByValue: any };
   let accountingPort: any;
   let settingsService: { getRegionalSettings: any };
   let appTimezone: string;
@@ -96,7 +96,7 @@ describe('PurchaseOrderLifecycleService', () => {
     baseCostCalculator = {
       addStock: (jest.fn as unknown as any)().mockResolvedValue({ landedCost: 5, receivedQuantity: 10 }),
       removeStock: (jest.fn as unknown as any)(),
-      calculateShippingByValue: (jest.fn as unknown as any)().mockReturnValue(0),
+      allocateShippingByValue: (jest.fn as unknown as any)().mockReturnValue([0n]),
     };
     accountingPort = {
       postSalesPayment: (jest.fn as unknown as any)(),

@@ -5,7 +5,7 @@ import { Product } from '../../../database/entities/product.entity';
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import { CostingStrategyFactory } from './costing/costing-strategy-factory.service';
 import { repoFor } from '../../../common/db/tx-helpers';
-import { toMinorUnits, formatScale4 } from '@/common/utils/money';
+import { toMinorUnits, formatScale4, allocate } from '@/common/utils/money';
 
 @Injectable()
 export class BaseCostCalculatorService {
@@ -260,36 +260,25 @@ export class BaseCostCalculatorService {
   }
 
   /**
-   * Calculate shipping allocation BY VALUE
-   * Formula: (itemTotal / poSubtotal) × totalShipping / itemQuantity
+   * Allocate a PO's shipping across its lines, proportional to line value (#1241).
    *
-   * Example:
-   * - Item: 100 units @ RM 10 = RM 1,000
-   * - PO Subtotal: RM 2,000
-   * - PO Shipping: RM 200
-   * - Allocation: (1,000 / 2,000) × 200 = RM 100
-   * - Per Unit: 100 / 100 = RM 1.00/unit
+   * Replaces the previous per-item float calculation, which computed each item's
+   * share independently and therefore could not guarantee the shares summed to
+   * the PO shipping total — a cent could be lost or duplicated.
+   *
+   * Weights are line VALUES (quantity x unit cost), not unit counts. Allocation
+   * stays at scale 4 so per-unit landed cost keeps four internal decimals;
+   * callers that need cent-level values for posting or export must run
+   * reconcileToCents against the same authoritative total.
    */
-  calculateShippingByValue(
-    itemUnitCost: number,
-    itemQuantity: number,
-    poSubtotal: number,
-    poShipping: number,
-  ): number {
-    if (!poShipping || poShipping === 0 || !poSubtotal || poSubtotal === 0) {
-      return 0;
+  allocateShippingByValue(
+    poShippingMinor: bigint,
+    itemValueWeightsMinor: readonly bigint[],
+  ): bigint[] {
+    if (poShippingMinor === 0n || itemValueWeightsMinor.length === 0) {
+      return itemValueWeightsMinor.map(() => 0n);
     }
-
-    const itemTotal = Number(itemUnitCost) * Number(itemQuantity);
-    const itemShare = itemTotal / Number(poSubtotal);
-    const itemShippingTotal = itemShare * Number(poShipping);
-    const shippingPerUnit = itemShippingTotal / Number(itemQuantity);
-
-    this.logger.debug(
-      `Shipping BY VALUE: Item RM ${itemTotal.toFixed(2)} / PO RM ${poSubtotal} = ${(itemShare * 100).toFixed(2)}% × RM ${poShipping} = RM ${itemShippingTotal.toFixed(2)} (RM ${shippingPerUnit.toFixed(4)}/unit)`
-    );
-
-    return shippingPerUnit;
+    return allocate(poShippingMinor, itemValueWeightsMinor);
   }
 
   /**
