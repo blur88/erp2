@@ -4,7 +4,10 @@ import {
   sumMinor,
   mulMinor,
   trimTrailingZeros,
+  quantizeToCents,
+  formatMoney,
 } from './money';
+import { QUANTIZE_VECTORS, FORMAT_VECTORS } from './money-vectors';
 
 describe('money helpers', () => {
   it('parses decimal string to minor units', () => {
@@ -81,5 +84,42 @@ describe('money helpers', () => {
       expect(trimTrailingZeros('abc')).toBe('abc');
       expect(trimTrailingZeros('1.2.3')).toBe('1.2.3');
     });
+  });
+});
+
+describe('quantizeToCents', () => {
+  it.each(QUANTIZE_VECTORS.map((v) => [v.name, v.inputMinor, v.expectedMinor] as const))(
+    '%s',
+    (_name, input, expected) => {
+      expect(quantizeToCents(input)).toBe(expected);
+    },
+  );
+
+  it('always returns a value divisible by 100 minor units', () => {
+    for (const v of QUANTIZE_VECTORS) {
+      expect(quantizeToCents(v.inputMinor) % 100n).toBe(0n);
+    }
+  });
+
+  it('is idempotent', () => {
+    for (const v of QUANTIZE_VECTORS) {
+      const once = quantizeToCents(v.inputMinor);
+      expect(quantizeToCents(once)).toBe(once);
+    }
+  });
+});
+
+describe('formatMoney', () => {
+  it.each(FORMAT_VECTORS.map((v) => [v.name, v.inputMinor, v.expected] as const))(
+    '%s',
+    (_name, input, expected) => {
+      expect(formatMoney(input)).toBe(expected);
+    },
+  );
+
+  it('never emits negative zero', () => {
+    for (const minor of [-1n, -32n, -49n, 0n, 49n]) {
+      expect(formatMoney(minor)).not.toBe('-0.00');
+    }
   });
 });

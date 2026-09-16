@@ -66,3 +66,41 @@ export function trimTrailingZeros(value: string): string {
 
   return str.replace(/0+$/, '').replace(/\.$/, '');
 }
+
+const CENT_UNITS = 100n; // 0.01 expressed in scale-4 minor units
+
+/**
+ * Narrow a scale-4 amount to cent precision, HALF-UP away from zero (#1241).
+ *
+ * The unit does not change: the result is still scale-4 minor units, now
+ * divisible by 100. Ties round away from zero for both signs, matching
+ * mulMinor, so 1.005 -> 1.01 and -1.005 -> -1.01.
+ *
+ * There is no negative zero to normalize: bigint has none (-0n === 0n), so
+ * quantizeToCents(-32n) is exactly 0n. The -0.00 rule lives in formatting.
+ */
+export function quantizeToCents(minor: bigint): bigint {
+  if (typeof minor !== 'bigint') {
+    throw new Error(`quantizeToCents expects bigint minor units, got ${typeof minor}`);
+  }
+  const neg = minor < 0n;
+  const abs = neg ? -minor : minor;
+  const rounded = ((abs + CENT_UNITS / 2n) / CENT_UNITS) * CENT_UNITS;
+  return neg ? -rounded : rounded;
+}
+
+/**
+ * Format a scale-4 amount for display or export: exactly two fraction digits,
+ * no grouping, no currency symbol (#1241).
+ *
+ * Quantizes first, so a sub-cent negative residual can never surface as
+ * "-0.00" — the sign flag is read from the quantized value, which is 0n.
+ */
+export function formatMoney(minor: bigint): string {
+  const cents = quantizeToCents(minor);
+  const neg = cents < 0n;
+  const abs = neg ? -cents : cents;
+  const whole = abs / 10000n;
+  const frac = ((abs % 10000n) / CENT_UNITS).toString().padStart(2, '0');
+  return `${neg ? '-' : ''}${whole}.${frac}`;
+}
