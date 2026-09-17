@@ -30,6 +30,7 @@ import {
 import { ProductService } from '../services/product.service';
 import { PricingService } from '../services/pricing.service';
 import { ExportService } from '../../../common/services/export.service';
+import { toMinorUnits, quantizeToCents, formatMoney } from '../../../common/utils/money';
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -215,17 +216,44 @@ export class ProductController {
     ];
 
     const LOW_STOCK_THRESHOLD = 10;
+
+    /**
+     * Quantize a stored money value to cents for a currency cell (#1241).
+     *
+     * The cell stays NUMERIC — the "#,##0.00" number format on it is what makes
+     * Excel display two decimals, and a preformatted string would break sorting
+     * and formulas. But that format also preserves the sign of a value that
+     * rounds to zero, so an unquantized -0.0032 renders as "-0.00", which no
+     * surface may show. Quantizing first makes that unrepresentable, and also
+     * keeps stored scale-4 values (e.g. baseCost 10.2273) from exposing four
+     * decimals through a two-decimal format.
+     *
+     * Values that are absent or not canonical decimals fall back to 0 rather
+     * than throwing: an export must not 500 on one odd row.
+     */
+    const toCurrencyCell = (value: unknown): number => {
+      if (value === null || value === undefined || value === '') return 0;
+      try {
+        return Number(formatMoney(quantizeToCents(toMinorUnits(String(value)))));
+      } catch {
+        return 0;
+      }
+    };
+
     const mappedProducts = (products as any[]).map(p => {
       const pricesByListId: Record<string, number> = {};
       (p.priceListItems || []).forEach((item: any) => {
         if (item.priceList?.id) {
-          pricesByListId[`pl_${item.priceList.id}`] = Number(item.price);
+          pricesByListId[`pl_${item.priceList.id}`] = toCurrencyCell(item.price);
         }
       });
       const stock = Number(p.stockQuantity || 0);
       const stockStatus = stock <= 0 ? 'Out of Stock' : stock <= LOW_STOCK_THRESHOLD ? 'Low Stock' : 'In Stock';
       return {
         ...p,
+        // Must come after the spread: baseCost is stored NUMERIC(_,4) and would
+        // otherwise reach the currency cell unquantized.
+        baseCost: toCurrencyCell(p.baseCost),
         categoryName: p.category?.name ?? '',
         isActive: p.isActive ? 'Active' : 'Inactive',
         stockStatus,
