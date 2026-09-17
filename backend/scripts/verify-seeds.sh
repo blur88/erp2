@@ -125,8 +125,8 @@ fi
 
 echo "==> Row counts"
 check "document_number_settings" 6  "$(q 'SELECT count(*) FROM document_number_settings;')"
-check "payment_methods"          7  "$(q 'SELECT count(*) FROM payment_methods;')"
-check "chart_of_account"         17 "$(q 'SELECT count(*) FROM chart_of_account;')"
+check "payment_methods"          9  "$(q 'SELECT count(*) FROM payment_methods;')"
+check "chart_of_account"         21 "$(q 'SELECT count(*) FROM chart_of_account;')"
 check "accounting_settings"      1  "$(q 'SELECT count(*) FROM accounting_settings;')"
 check "regional_settings"        1  "$(q 'SELECT count(*) FROM regional_settings;')"
 check "company_settings (lazy)"  0  "$(q 'SELECT count(*) FROM company_settings;')"
@@ -150,12 +150,12 @@ check "doc numbers" \
 
 echo "==> payment_methods values"
 check "payment methods" \
-  "ATOME|Atome|5|true|BANK;BANK|Bank Transfer|2|true|BANK;CASH|Cash|1|true|CASH;CC|Credit Card|4|true|BANK;SHOPEE|Shopee|6|true|BANK;TIKTOK|TikTok|7|true|BANK;TNG|Touch n Go|3|true|BANK" \
+  "ATOME|Atome|5|true|BANK;BANK|Bank Transfer|2|true|BANK;CASH|Cash|1|true|CASH;CC|Credit Card|4|true|BANK;CIMB|CIMB|8|true|BANK;MAYBANK|Maybank|9|true|BANK;SHOPEE|Shopee|6|true|BANK;TIKTOK|TikTok|7|true|BANK;TNG|Touch n Go|3|true|BANK" \
   "$(q "SELECT string_agg(code||'|'||name||'|'||\"sortOrder\"||'|'||\"useForPurchases\"||'|'||\"accountingChannel\", ';' ORDER BY code) FROM payment_methods;")"
 
 echo "==> chart_of_account exact tuples"
 check "COA tuples" \
-  "1000|Assets|Asset|-|true|false;1100|Cash|Asset|1000|true|true;1200|Bank|Asset|1000|true|true;1300|Inventory|Asset|1000|true|true;1400|Supplier Deposit|Asset|1000|true|true;2000|Liabilities|Liability|-|true|false;2100|Customer Deposit|Liability|2000|true|true;3000|Equity|Equity|-|true|false;3100|Owner Capital|Equity|3000|true|true;3200|Opening Balance Equity|Equity|3000|true|true;3300|Owner Drawings|Equity|3000|true|true;4000|Income|Income|-|true|false;4100|Sales Revenue|Income|4000|true|true;5000|Cost of Sales|Expense|-|true|false;5100|Cost of Goods Sold|Expense|5000|true|true;6000|Expenses|Expense|-|true|false;6990|Other Expenses|Expense|6000|true|true" \
+  "1000|Assets|Asset|-|true|false;1100|Cash|Asset|1000|true|true;1200|CIMB|Asset|1000|true|true;1210|Maybank|Asset|1000|true|true;1220|Shopee|Asset|1000|true|true;1230|TikTok|Asset|1000|true|true;1240|Atome|Asset|1000|true|true;1300|Inventory|Asset|1000|true|true;1400|Supplier Deposit|Asset|1000|true|true;2000|Liabilities|Liability|-|true|false;2100|Customer Deposit|Liability|2000|true|true;3000|Equity|Equity|-|true|false;3100|Owner Capital|Equity|3000|true|true;3200|Opening Balance Equity|Equity|3000|true|true;3300|Owner Drawings|Equity|3000|true|true;4000|Income|Income|-|true|false;4100|Sales Revenue|Income|4000|true|true;5000|Cost of Sales|Expense|-|true|false;5100|Cost of Goods Sold|Expense|5000|true|true;6000|Expenses|Expense|-|true|false;6990|Other Expenses|Expense|6000|true|true" \
   "$(q "SELECT string_agg(c.code||'|'||c.name||'|'||c.type::text||'|'||coalesce((SELECT p.code FROM chart_of_account p WHERE p.id = c.\"parentId\"), '-')||'|'||c.\"isSystem\"||'|'||c.\"isPostable\", ';' ORDER BY c.code) FROM chart_of_account c;")"
 
 echo "==> accounting_settings column-to-code mappings"
