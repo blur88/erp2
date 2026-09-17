@@ -79,6 +79,51 @@ export class AddPaymentMethodChannelAccounts1789658118888
         [code, name, assets[0].id],
       );
     }
+
+    // --- A3: add the two missing payment methods. -----------------------
+    // CASH, ATOME, SHOPEE and TIKTOK already exist (InitialSchema:213).
+    // Insert only where the code is absent, so a hand-created method is kept.
+    const NEW_METHODS: ReadonlyArray<[string, string, number]> = [
+      ['CIMB', 'CIMB', 8],
+      ['MAYBANK', 'Maybank', 9],
+    ];
+    for (const [code, name, sortOrder] of NEW_METHODS) {
+      await queryRunner.query(
+        `INSERT INTO payment_methods
+           ("code", "name", "sortOrder", "useForPurchases", "accountingChannel")
+         VALUES ($1, $2, $3, true, 'BANK')
+         ON CONFLICT ("code") DO NOTHING`,
+        [code, name, sortOrder],
+      );
+    }
+
+    // --- A4: map each method to its account, only where UNMAPPED. -------
+    // Production may map a method elsewhere on purpose; that must survive.
+    // The unique index on "paymentMethodId" makes "insert if absent" the
+    // whole rule (1789325275461-AddPaymentMethodAccountMappings.ts:7).
+    const MAPPINGS: ReadonlyArray<[string, string]> = [
+      ['CASH', '1100'],
+      ['CIMB', '1200'],
+      ['MAYBANK', '1210'],
+      ['SHOPEE', '1220'],
+      ['TIKTOK', '1230'],
+      ['ATOME', '1240'],
+    ];
+    for (const [methodCode, accountCode] of MAPPINGS) {
+      await queryRunner.query(
+        `INSERT INTO payment_method_account_mappings ("paymentMethodId", "accountId")
+         SELECT pm.id, coa.id
+           FROM payment_methods pm
+           CROSS JOIN chart_of_account coa
+          WHERE pm.code = $1
+            AND coa.code = $2
+            AND NOT EXISTS (
+              SELECT 1 FROM payment_method_account_mappings m
+               WHERE m."paymentMethodId" = pm.id
+            )`,
+        [methodCode, accountCode],
+      );
+    }
   }
 
   public async down(): Promise<void> {
