@@ -49,6 +49,8 @@ describe('Payment method posting matrix (e2e)', () => {
   let supplierId = '';
   let productId = '';
   let categoryId = '';
+  let inactiveMethodId = '';
+  let noPurchaseMethodId = '';
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -59,6 +61,36 @@ describe('Payment method posting matrix (e2e)', () => {
     configureTestAppValidation(app);
     await app.init();
     ds = moduleFixture.get(DataSource);
+
+    // Suite-owned rejection fixtures. Created UNMAPPED, so they need no COA
+    // account and perturb no mapping row.
+    //
+    // These exist so the suite never toggles isActive/useForPurchases on a
+    // BASELINE method: those rows are shared with every other suite in a
+    // size-ordered run against one database, so mutating them makes this suite's
+    // effects order-dependent, and a failure between toggle and restore would
+    // leave a baseline method disabled for every suite that follows.
+    //
+    // Codes must fit the column's varchar(20). "PMMX-INACTIVE-" is already 14
+    // characters and "PMMX-NOPURCH-" is 13, so the 8-char runId cannot fit
+    // both literally; a 6-char suffix keeps the intended prefixes readable and
+    // unique per run while staying inside the limit.
+    const fixtureSuffix = runId.slice(0, 6);
+    const inactive = await ds.query(
+      `INSERT INTO payment_methods (code,name,"sortOrder","useForPurchases","accountingChannel","isActive")
+       VALUES ($1,'PMMX Inactive',900,true,'BANK',false) RETURNING id`,
+      [`PMMX-INACTIVE-${fixtureSuffix}`],
+    );
+    inactiveMethodId = inactive[0].id;
+    ownedMethodIds.push(inactiveMethodId);
+
+    const noPurch = await ds.query(
+      `INSERT INTO payment_methods (code,name,"sortOrder","useForPurchases","accountingChannel")
+       VALUES ($1,'PMMX No Purchases',901,false,'BANK') RETURNING id`,
+      [`PMMX-NOPURCH-${fixtureSuffix}`],
+    );
+    noPurchaseMethodId = noPurch[0].id;
+    ownedMethodIds.push(noPurchaseMethodId);
 
     const category = await seedCategory(ds, `matrix-e2e-${runId}`);
     categoryId = category.id;
@@ -460,6 +492,113 @@ describe('Payment method posting matrix (e2e)', () => {
       const got = gotRes.body.data ?? gotRes.body;
       expect(got.paymentStatus).toBe('PAID');
       expect(cents(got.paidAmount)).toBe(2500);
+    });
+  });
+
+  // Every expectation below is derived from the validator or service FIRST
+  // (citations in each comment), then confirmed in the run.
+  describe('validation and rejection', () => {
+    it('rejects a payment amount with more than two decimals', async () => {
+      // RecordPaymentDto.amount is /^\d+(\.\d{1,2})?$/ (sales-order.dto.ts:341),
+      // so three decimals fail validation before the service is reached.
+      const order = await createSalesOrder();
+      await post(`/sales-orders/${order.id}/payments`, {
+        amount: '25.001',
+        paymentMethodId: await methodIdByCode(ds, 'CASH'),
+        paymentDate: '2026-09-17',
+      }).expect(400);
+    });
+
+    // CURRENT BEHAVIOUR, deliberately asserted as acceptance, exactly like the
+    // useForPurchases=false case below.
+    //
+    // Issue #1243 asks for overpayment to be REJECTED, but no such guard exists
+    // on this path: sales-order-payment.service.ts:73-122 records the payment,
+    // and updatePaymentStatusInTx() (:329-355) derives OVERPAID and persists a
+    // negative balanceDue. The unit suite pins that acceptance too
+    // (sales-order-payment.service.spec.ts:925 "keeps DRAFT on overpayment").
+    //
+    // Asserting 400 here would be a red test against correct-as-shipped code.
+    // Enforcing an overpayment guard is a separate behaviour change. This test
+    // pins what the code does today so the day a guard is added it fails HERE
+    // and the change is deliberate rather than accidental.
+    it('ACCEPTS an overpayment and records it as OVERPAID (no rejection guard exists)', async () => {
+      const order = await createSalesOrder(); // total 25.00
+      await post(`/sales-orders/${order.id}/payments`, {
+        amount: '25.01',
+        paymentMethodId: await methodIdByCode(ds, 'CASH'),
+        paymentDate: '2026-09-17',
+      }).expect(200);
+
+      const gotRes = await get(`/sales-orders/${order.id}`).expect(200);
+      const got = gotRes.body.data ?? gotRes.body;
+      expect(got.paymentStatus).toBe('OVERPAID');
+      // 2500 - 2501 = -1 cent, derived from computePaymentStatus().
+      expect(cents(got.balanceDue)).toBe(-1);
+    });
+
+    it('rejects a payment against a cancelled sales order', async () => {
+      // recordPayment() throws ConflictException when the locked order is not
+      // DRAFT (sales-order-payment.service.ts:88-90); CANCELLED falls under
+      // that. The route therefore returns 409, not the 400 the plan sketched.
+      const order = await createSalesOrder();
+      await post(`/sales-orders/${order.id}/cancel`, {}).expect(200);
+      await post(`/sales-orders/${order.id}/payments`, {
+        amount: '25.00',
+        paymentMethodId: await methodIdByCode(ds, 'CASH'),
+        paymentDate: '2026-09-17',
+      }).expect(409);
+    });
+
+    it('rejects an inactive payment method on a purchase order', async () => {
+      // recordOrderPayments() looks the method up by { id, isActive: true }
+      // (purchase-order.service.ts:877-880) and throws BadRequestException.
+      const order = await createPurchaseOrder();
+      await post(`/purchasing/orders/${order.id}/payments`, {
+        payments: [
+          {
+            amount: '25.00',
+            paymentMethodId: inactiveMethodId,
+            paymentDate: '2026-09-17',
+          },
+        ],
+      }).expect(400);
+    });
+
+    // CURRENT BEHAVIOUR, deliberately asserted as acceptance.
+    //
+    // Issue #1243 asks for useForPurchases=false to be REJECTED on POs, but no
+    // such guard exists on this path: purchase-order.service.ts:773 and :877
+    // filter on { id, isActive: true } only. The guard lives solely on the
+    // expense path (expense-payment.service.ts:49).
+    //
+    // Asserting rejection here would be a red test against correct-as-shipped
+    // code. Enforcing the guard is a separate behaviour change. This test
+    // pins what the code does today so that adding the guard later fails
+    // loudly HERE and is a deliberate decision rather than an accident.
+    it('ACCEPTS a useForPurchases=false method on a purchase order (no guard on this path)', async () => {
+      const order = await createPurchaseOrder();
+      await post(`/purchasing/orders/${order.id}/payments`, {
+        payments: [
+          {
+            amount: '25.00',
+            paymentMethodId: noPurchaseMethodId,
+            paymentDate: '2026-09-17',
+          },
+        ],
+      }).expect(200);
+    });
+
+    it('never renders -0.00 in payment-facing values', async () => {
+      const order = await createSalesOrder();
+      await post(`/sales-orders/${order.id}/payments`, {
+        amount: '25.00',
+        paymentMethodId: await methodIdByCode(ds, 'CASH'),
+        paymentDate: '2026-09-17',
+      }).expect(200);
+      const gotRes = await get(`/sales-orders/${order.id}`).expect(200);
+      const got = gotRes.body.data ?? gotRes.body;
+      expect(JSON.stringify(got)).not.toContain('-0.00');
     });
   });
 });
