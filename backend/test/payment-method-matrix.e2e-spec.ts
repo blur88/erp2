@@ -311,4 +311,155 @@ describe('Payment method posting matrix (e2e)', () => {
       });
     },
   );
+
+  // The only tests that REUSE one document across two payment methods. Every
+  // other block in this file creates a fresh document per method; these two
+  // follow one document through pay -> refund -> re-pay and assert the net
+  // movement per account scoped to THIS document's sourceRef. Never a global
+  // trial balance and never "everything except my row".
+  describe('replacement payment (the only document reused across methods)', () => {
+    it('sales order: refunding CIMB and re-paying with Maybank leaves CIMB unfunded', async () => {
+      const cimb = await methodIdByCode(ds, 'CIMB');
+      const maybank = await methodIdByCode(ds, 'MAYBANK');
+      const order = await createSalesOrder();
+
+      await post(`/sales-orders/${order.id}/payments`, {
+        amount: '25.00',
+        paymentMethodId: cimb,
+        paymentDate: '2026-09-17',
+      }).expect(200);
+
+      const netFor = async (code: string) => {
+        const lines = await journalLinesFor(ds, order.orderNumber);
+        return lines
+          .filter((l) => l.accountCode === code)
+          .reduce((s, l) => s + cents(l.debit) - cents(l.credit), 0);
+      };
+
+      // CIMB debit 25.00 from the sales payment (accounting-posting.service.ts:126).
+      expect(await netFor('1200')).toBe(2500);
+
+      await post(`/sales-orders/${order.id}/refunds`, {
+        refunds: [
+          {
+            amount: '25.00',
+            paymentMethodId: cimb,
+            paymentDate: '2026-09-17',
+          },
+        ],
+      }).expect(201);
+
+      // A reversal exists and CIMB is back to where it started.
+      const refundEntries = await ds.query(
+        `SELECT count(*)::int AS n FROM journal_entry
+          WHERE "sourceRef" = $1 AND "postingType" = 'SALES_REFUND'`,
+        [order.orderNumber],
+      );
+      expect(refundEntries[0].n).toBe(1);
+      expect(await netFor('1200')).toBe(0);
+
+      // The refund is the exact mirror: 2100 debit, mapped account credit.
+      const salesRefund = (await journalLinesFor(ds, order.orderNumber)).filter(
+        (l) => l.postingType === 'SALES_REFUND',
+      );
+      expect(salesRefund.map((l) => l.accountCode).sort()).toEqual(
+        ['1200', '2100'].sort(),
+      );
+      expectBalanced(salesRefund);
+
+      await post(`/sales-orders/${order.id}/payments`, {
+        amount: '25.00',
+        paymentMethodId: maybank,
+        paymentDate: '2026-09-17',
+      }).expect(200);
+
+      expect(await netFor('1210')).toBe(2500);
+      expect(await netFor('1200')).toBe(0); // no residual on the refunded method
+
+      const gotRes = await get(`/sales-orders/${order.id}`).expect(200);
+      const got = gotRes.body.data ?? gotRes.body;
+      expect(got.paymentStatus).toBe('PAID');
+      expect(cents(got.balanceDue)).toBe(0);
+    });
+
+    it('purchase order: refunding CIMB and re-paying with Maybank leaves CIMB unfunded', async () => {
+      const cimb = await methodIdByCode(ds, 'CIMB');
+      const maybank = await methodIdByCode(ds, 'MAYBANK');
+      const order = await createPurchaseOrder();
+
+      await post(`/purchasing/orders/${order.id}/payments`, {
+        payments: [
+          {
+            amount: '25.00',
+            paymentMethodId: cimb,
+            paymentDate: '2026-09-17',
+          },
+        ],
+      }).expect(200);
+
+      const netFor = async (code: string) => {
+        const lines = await journalLinesFor(ds, order.orderNumber);
+        return lines
+          .filter((l) => l.accountCode === code)
+          .reduce((s, l) => s + cents(l.debit) - cents(l.credit), 0);
+      };
+
+      // The sign is INVERTED vs the sales side: a PO payment CREDITS the
+      // mapped account (accounting-posting.service.ts:179), so the net
+      // movement is negative. Not copied from the sales expectations above.
+      expect(await netFor('1200')).toBe(-2500);
+
+      // PO refund lines carry no paymentDate field (RefundLineDto), and the
+      // route is @HttpCode(OK) on purchase-order.controller.ts:287.
+      await post(`/purchasing/orders/${order.id}/refunds`, {
+        refunds: [
+          {
+            amount: '25.00',
+            paymentMethodId: cimb,
+          },
+        ],
+      }).expect(200);
+
+      // Exactly one PURCHASE_REFUND JE (accounting-posting.service.ts:188).
+      const refundEntries = await ds.query(
+        `SELECT count(*)::int AS n FROM journal_entry
+          WHERE "sourceRef" = $1 AND "postingType" = 'PURCHASE_REFUND'`,
+        [order.orderNumber],
+      );
+      expect(refundEntries[0].n).toBe(1);
+      expect(await netFor('1200')).toBe(0);
+
+      // The refund is the exact mirror: mapped account debit, 1400 credit.
+      const purchaseRefund = (
+        await journalLinesFor(ds, order.orderNumber)
+      ).filter((l) => l.postingType === 'PURCHASE_REFUND');
+      expect(purchaseRefund.map((l) => l.accountCode).sort()).toEqual(
+        ['1200', '1400'].sort(),
+      );
+      expectBalanced(purchaseRefund);
+
+      const refundedRes = await get(`/purchasing/orders/${order.id}`).expect(200);
+      const refunded = refundedRes.body.data ?? refundedRes.body;
+      expect(refunded.paymentStatus).toBe('UNPAID');
+      expect(cents(refunded.paidAmount)).toBe(0);
+
+      await post(`/purchasing/orders/${order.id}/payments`, {
+        payments: [
+          {
+            amount: '25.00',
+            paymentMethodId: maybank,
+            paymentDate: '2026-09-17',
+          },
+        ],
+      }).expect(200);
+
+      expect(await netFor('1210')).toBe(-2500);
+      expect(await netFor('1200')).toBe(0); // no residual on the refunded method
+
+      const gotRes = await get(`/purchasing/orders/${order.id}`).expect(200);
+      const got = gotRes.body.data ?? gotRes.body;
+      expect(got.paymentStatus).toBe('PAID');
+      expect(cents(got.paidAmount)).toBe(2500);
+    });
+  });
 });
