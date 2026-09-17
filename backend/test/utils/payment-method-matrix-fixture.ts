@@ -103,3 +103,16 @@ export async function accountIdByCode(
   expect(rows).toHaveLength(1);
   return rows[0].id;
 }
+
+/** The id of the migration-owned baseline payment method with this code. */
+export async function methodIdByCode(
+  ds: DataSource,
+  code: string,
+): Promise<string> {
+  const rows = await ds.query(
+    `SELECT id FROM payment_methods WHERE code = $1`,
+    [code],
+  );
+  expect(rows).toHaveLength(1);
+  return rows[0].id;
+}
