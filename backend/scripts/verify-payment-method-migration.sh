@@ -59,10 +59,26 @@ run_migrations() {
 run_migrations_before_ours() {
   local ours
   ours="$(basename "$(ls src/database/migrations/*AddPaymentMethodChannelAccounts.ts)")"
-  # Temporarily move ours aside, migrate, then restore it.
-  mv "src/database/migrations/$ours" "/tmp/$ours"
-  DB_DATABASE="$TEST_DB" npm run migration:run >/tmp/pmm-migrate-pre.log 2>&1
-  mv "/tmp/$ours" "src/database/migrations/$ours"
+  # Temporarily move ours aside, migrate, then restore it. The body runs in a
+  # subshell so its EXIT trap is local and cannot clobber a script-wide trap;
+  # the trap restores the file even when the pre-migration chain fails under
+  # set -e, preserving the original non-zero status.
+  (
+    restore_ours() {
+      local status=$?
+      if [ -f "/tmp/$ours" ]; then
+        mv "/tmp/$ours" "src/database/migrations/$ours" || \
+          echo "  WARN could not restore $ours from /tmp" >&2
+      fi
+      exit "$status"
+    }
+    trap restore_ours EXIT
+
+    mv "src/database/migrations/$ours" "/tmp/$ours"
+    DB_DATABASE="$TEST_DB" npm run migration:run >/tmp/pmm-migrate-pre.log 2>&1
+    mv "/tmp/$ours" "src/database/migrations/$ours"
+    trap - EXIT
+  )
 }
 
 echo "==> V1: fresh installation succeeds"
