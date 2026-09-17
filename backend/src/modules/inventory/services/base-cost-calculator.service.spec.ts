@@ -5,6 +5,7 @@ import { BaseCostCalculatorService } from './base-cost-calculator.service';
 import { Product } from '../../../database/entities/product.entity';
 import { PurchaseCostHistory } from '../../../database/entities/purchase-cost-history.entity';
 import { CostingStrategyFactory } from './costing/costing-strategy-factory.service';
+import { reconcileToCents, toMinorUnits } from '@common/utils/money';
 
 describe('BaseCostCalculatorService', () => {
   let service: BaseCostCalculatorService;
@@ -97,5 +98,33 @@ describe('BaseCostCalculatorService', () => {
       }),
     );
     expect(deleteFn).toHaveBeenCalled();
+  });
+
+  describe('landed-cost allocation (#1241)', () => {
+    it('conserves the PO shipping total across items that do not divide evenly', () => {
+      // RM10 shipping across 3 equally-valued items
+      const shares = service.allocateShippingByValue(toMinorUnits('10.0000'), [1n, 1n, 1n]);
+      expect(shares.reduce((a, b) => a + b, 0n)).toBe(toMinorUnits('10.0000'));
+    });
+
+    it('keeps four internal decimals for per-unit allocation', () => {
+      const shares = service.allocateShippingByValue(toMinorUnits('10.0000'), [1n, 1n, 1n]);
+      expect(shares[0]).toBe(33333n); // 3.3333, not 3.33
+    });
+
+    it('conserves the total again after cent reconciliation for posting', () => {
+      const shares = service.allocateShippingByValue(toMinorUnits('10.0000'), [1n, 1n, 1n]);
+      const cents = reconcileToCents(shares, toMinorUnits('10.0000'));
+      expect(cents.reduce((a, b) => a + b, 0n)).toBe(toMinorUnits('10.0000'));
+      for (const c of cents) expect(c % 100n).toBe(0n);
+    });
+
+    it('allocates proportionally to item value, not unit count', () => {
+      const shares = service.allocateShippingByValue(toMinorUnits('100.0000'), [
+        toMinorUnits('1000.0000'),
+        toMinorUnits('3000.0000'),
+      ]);
+      expect(shares).toEqual([toMinorUnits('25.0000'), toMinorUnits('75.0000')]);
+    });
   });
 });

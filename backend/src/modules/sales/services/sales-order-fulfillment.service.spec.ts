@@ -337,7 +337,7 @@ describe('SalesOrderFulfillmentService', () => {
       expect(accountingPort.postSalesFulfillment).toHaveBeenCalledWith(
         expect.objectContaining({
           salesOrderId: 'order-1',
-          revenueAmount: '1000.0000',
+          revenueAmount: '1000.00',
           cogsAmount: expect.any(String),
         }),
         expect.anything(),

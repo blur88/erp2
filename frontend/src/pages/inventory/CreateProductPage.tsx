@@ -33,6 +33,17 @@ import { useDuplicateCheck } from '@/hooks/useDuplicateCheck'
 import { useCurrency } from '@/hooks/useCurrency'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 import { currentListPath } from '@/utils/listQuery'
+import { formatNum } from '@/components/transactions/numberFormat'
+import { toScaledAmount, formatMoney } from '@/utils/currency'
+
+/**
+ * Bare two-decimal display for an editable price input (no grouping/commas).
+ * Kernel-based so the value is never a float artifact and never `-0.00` (#1241).
+ */
+const formatPlainAmount = (value: number): string => {
+  const minor = toScaledAmount(String(value))
+  return minor === null ? '' : formatMoney(minor)
+}
 
 // Price field component for price list items
 const PriceListPriceField: React.FC<{
@@ -43,12 +54,12 @@ const PriceListPriceField: React.FC<{
   onChange: (value: number) => void
 }> = ({ priceList, currency, value, baseCost, onChange }) => {
   const theme = useTheme()
-  const [localValue, setLocalValue] = useState(value > 0 ? value.toFixed(2) : '')
+  const [localValue, setLocalValue] = useState(value > 0 ? formatPlainAmount(value) : '')
   const [isFocused, setIsFocused] = useState(false)
 
   useEffect(() => {
     if (!isFocused) {
-      setLocalValue(value > 0 ? value.toFixed(2) : '')
+      setLocalValue(value > 0 ? formatPlainAmount(value) : '')
     }
   }, [value, isFocused])
 
@@ -76,7 +87,7 @@ const PriceListPriceField: React.FC<{
   const handleBlur = () => {
     setIsFocused(false)
     if (value > 0) {
-      setLocalValue(value.toFixed(2))
+      setLocalValue(formatPlainAmount(value))
     }
   }
 
@@ -336,17 +347,6 @@ const CreateProductPage: React.FC = () => {
     navigate(listPath)
   }
 
-  const formatNumberWithCommas = (value: number | string): string => {
-    if (value === '' || value === null || value === undefined) return ''
-    const num = typeof value === 'string' ? parseFloat(value) : value
-    if (isNaN(num)) return ''
-
-    const fixed = num.toFixed(2)
-    const parts = fixed.split('.')
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-    return parts.join('.')
-  }
-
   const parseFormattedNumber = (value: string): number | undefined => {
     if (value === '' || value === null || value === undefined) return undefined
     const parsed = parseFloat(value.replace(/,/g, ''))
@@ -542,12 +542,12 @@ const CreateProductPage: React.FC = () => {
                         name="baseCost"
                         control={control}
                         render={({ field }) => {
-                          const [displayValue, setDisplayValue] = useState(formatNumberWithCommas(field.value))
+                          const [displayValue, setDisplayValue] = useState(formatNum(field.value))
                           const [isFocused, setIsFocused] = useState(false)
 
                           React.useEffect(() => {
                             if (!isFocused) {
-                              setDisplayValue(formatNumberWithCommas(field.value))
+                              setDisplayValue(formatNum(field.value))
                             }
                           }, [field.value, isFocused])
 
@@ -565,7 +565,7 @@ const CreateProductPage: React.FC = () => {
                               }}
                               onBlur={() => {
                                 setIsFocused(false)
-                                setDisplayValue(formatNumberWithCommas(field.value))
+                                setDisplayValue(formatNum(field.value))
                               }}
                               label="Base Cost"
                               error={!!errors.baseCost}

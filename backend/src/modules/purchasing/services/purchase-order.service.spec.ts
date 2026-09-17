@@ -25,6 +25,7 @@ import { AuditLogService } from '../../audit-logs/services';
 import { PurchaseOrderLifecycleService } from './purchase-order-lifecycle.service';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
+import { quantizeToCents, formatMoney, toMinorUnits } from '@common/utils/money';
 
 describe('PurchaseOrderService', () => {
   let module: TestingModule;
@@ -1491,5 +1492,69 @@ describe('PurchaseOrderService', () => {
       expect(order.paidAmount).toBe('99999999999.9900');
       expect(order.paymentStatus).toBe(PurchaseOrderPaymentStatus.PAID);
     });
+  });
+});
+
+describe('purchase order precision (#1241)', () => {
+  it('applies a fixed line discount PER UNIT, unlike sales orders', () => {
+    // 3 units @ 10.00 with a 1.00 per-unit discount -> 27.00, not 29.00
+    const qty = 3n;
+    const unit = toMinorUnits('10.0000');
+    const perUnitDiscount = toMinorUnits('1.0000');
+    const lineTotal = qty * (unit - perUnitDiscount);
+    expect(formatMoney(quantizeToCents(lineTotal))).toBe('27.00');
+  });
+
+  it('reconciles subtotal - document discount + shipping = total', () => {
+    const subtotal = quantizeToCents(toMinorUnits('100.0000'));
+    const discount = quantizeToCents((subtotal * toMinorUnits('10')) / 1000000n);
+    const shipping = quantizeToCents(toMinorUnits('5.0000'));
+    expect(formatMoney(subtotal - discount + shipping)).toBe('95.00');
+  });
+
+  it('applies a percentage line discount to unit cost before quantity in the hook', () => {
+    const item = Object.assign(new PurchaseOrderItem(), {
+      quantity: 3,
+      unitCost: 10,
+      discountType: 'percentage',
+      discountPercent: 10,
+      discountAmount: 0,
+    });
+    item.calculateTotals();
+    // 3 × (10 − 1) = 27.00; total discount 3.00
+    expect(item.totalAmount).toBe(27);
+    expect(item.discountAmount).toBe(3);
+  });
+
+  it('applies a fixed per-unit discount uncapped in the hook', () => {
+    const item = Object.assign(new PurchaseOrderItem(), {
+      quantity: 2,
+      unitCost: 10,
+      discountType: 'fixed_amount',
+      discountPercent: 0,
+      discountAmount: 12.5,
+    });
+    item.calculateTotals();
+    // per-unit discount is uncapped: 2 × (10 − 12.5) = −5.00
+    expect(item.totalAmount).toBe(-5);
+    expect(item.discountAmount).toBe(25);
+  });
+
+  it('sums cent-quantized item totals and applies the document discount exactly', () => {
+    const order = Object.assign(new PurchaseOrder(), {
+      subtotal: 0,
+      discountPercent: 10,
+      shippingAmount: 0.05,
+      items: [
+        Object.assign(new PurchaseOrderItem(), { totalAmount: 0.335 }),
+        Object.assign(new PurchaseOrderItem(), { totalAmount: 0.335 }),
+        Object.assign(new PurchaseOrderItem(), { totalAmount: 0.33 }),
+      ],
+    });
+    order.calculateTotals();
+    // 0.34 + 0.34 + 0.33 = 1.01; 10% = 0.101 -> 0.10; + 0.05 shipping = 0.96
+    expect(order.subtotal).toBe(1.01);
+    expect(order.discountAmount).toBe(0.1);
+    expect(order.totalAmount).toBe('0.9600');
   });
 });

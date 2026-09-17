@@ -7,6 +7,7 @@ import {
   IsArray,
   ValidateNested,
   IsInt,
+  IsNumber,
   Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -40,6 +41,7 @@ export class SalesOrderItemDto {
     example: 25.5,
   })
   @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 })
   @Transform(({ value }) =>
     value === undefined || value === null || value === '' ? undefined : parseFloat(value),
   )
@@ -58,6 +60,7 @@ export class SalesOrderItemDto {
     example: 5.0,
   })
   @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Transform(({ value }) => (value ? parseFloat(value) : 0))
   discountPercent?: number;
 
@@ -66,6 +69,7 @@ export class SalesOrderItemDto {
     example: 12.75,
   })
   @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Transform(({ value }) => (value ? parseFloat(value) : 0))
   discountAmount?: number;
 
@@ -99,6 +103,7 @@ export class CreateSalesOrderDto {
     example: 50.0,
   })
   @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Transform(({ value }) => (value ? parseFloat(value) : 0))
   shippingAmount?: number;
 
@@ -134,6 +139,7 @@ export class UpdateSalesOrderDto {
     example: 50.0,
   })
   @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Transform(({ value }) => (value ? parseFloat(value) : 0))
   shippingAmount?: number;
 
@@ -332,8 +338,8 @@ export class RecordPaymentDto {
   paymentMethodId: string;
 
   @ApiProperty({ example: '500.00', description: 'Payment amount' })
-  @Matches(/^\d+(\.\d{1,4})?$/, {
-    message: 'amount must be a positive decimal string with at most 4 decimal places',
+  @Matches(/^\d+(\.\d{1,2})?$/, {
+    message: 'amount must be a positive decimal string with at most 2 decimal places',
   })
   @IsMoneyAtLeast('0.0100')
   amount: string;

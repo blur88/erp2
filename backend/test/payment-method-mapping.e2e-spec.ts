@@ -460,7 +460,7 @@ describe('Payment method account mappings (e2e)', () => {
       payee: `PMM Vendor ${runId}`,
       description: 'Mapping rollback fixture',
       expenseAccountId,
-      totalAmount: '100.0000',
+      totalAmount: '100.00',
     }).expect(201);
     const expense = res.body.data ?? res.body;
     ownedExpenseIds.push(expense.id);
@@ -476,7 +476,7 @@ describe('Payment method account mappings (e2e)', () => {
       type,
       equityDate: '2026-08-15',
       description: `PMM ${type} ${runId}`,
-      totalAmount: '100.0000',
+      totalAmount: '100.00',
     }).expect(201);
     const doc = res.body.data;
     ownedEquityDocIds.push(doc.id);
@@ -512,7 +512,7 @@ describe('Payment method account mappings (e2e)', () => {
 
       const order = await createSalesOrder();
       await post(`/sales-orders/${order.id}/payments`, {
-        amount: '10.0000',
+        amount: '10.00',
         paymentMethodId: mappedMethodId,
         paymentDate: '2026-08-20',
       }).expect(200);
@@ -525,7 +525,7 @@ describe('Payment method account mappings (e2e)', () => {
     it('posts a sales payment to the BANK default when the method is unmapped', async () => {
       const order = await createSalesOrder();
       await post(`/sales-orders/${order.id}/payments`, {
-        amount: '10.0000',
+        amount: '10.00',
         paymentMethodId: bankMethod.id,
         paymentDate: '2026-08-20',
       }).expect(200);
@@ -538,7 +538,7 @@ describe('Payment method account mappings (e2e)', () => {
     it('posts a cash payment to the CASH default when the method is unmapped', async () => {
       const order = await createSalesOrder();
       await post(`/sales-orders/${order.id}/payments`, {
-        amount: '10.0000',
+        amount: '10.00',
         paymentMethodId: cashMethod.id,
         paymentDate: '2026-08-20',
       }).expect(200);
@@ -569,7 +569,7 @@ describe('Payment method account mappings (e2e)', () => {
     it('sales payment rolls back', async () => {
       const order = await createSalesOrder();
       const res = await post(`/sales-orders/${order.id}/payments`, {
-        amount: '10.0000',
+        amount: '10.00',
         paymentMethodId: rollbackMethodId,
         paymentDate: '2026-08-20',
       });
@@ -596,7 +596,7 @@ describe('Payment method account mappings (e2e)', () => {
       const res = await post(`/sales-orders/${order.id}/refunds`, {
         refunds: [
           {
-            amount: '10.0000',
+            amount: '10.00',
             paymentMethodId: rollbackMethodId,
             paymentDate: '2026-08-21',
             referenceNumber: `rollback-${runId}`,
@@ -621,7 +621,7 @@ describe('Payment method account mappings (e2e)', () => {
         payments: [
           {
             paymentMethodId: rollbackMethodId,
-            amount: '10.0000',
+            amount: '10.00',
             paymentDate: new Date().toISOString().split('T')[0],
           },
         ],
@@ -647,7 +647,7 @@ describe('Payment method account mappings (e2e)', () => {
         refunds: [
           {
             paymentMethodId: rollbackMethodId,
-            amount: '10.0000',
+            amount: '10.00',
             reference: `rollback-${runId}`,
           },
         ],
@@ -667,7 +667,7 @@ describe('Payment method account mappings (e2e)', () => {
         payments: [
           {
             paymentMethodId: rollbackMethodId,
-            amount: '10.0000',
+            amount: '10.00',
             paymentDate: '2026-08-20',
           },
         ],
@@ -693,7 +693,7 @@ describe('Payment method account mappings (e2e)', () => {
         refunds: [
           {
             paymentMethodId: rollbackMethodId,
-            amount: '10.0000',
+            amount: '10.00',
             refundDate: '2026-08-21',
             reference: `rollback-${runId}`,
           },
@@ -717,7 +717,7 @@ describe('Payment method account mappings (e2e)', () => {
             {
               paymentMethodId: rollbackMethodId,
               settlementDate: '2026-08-20',
-              amount: '10.0000',
+              amount: '10.00',
             },
           ],
         },
@@ -745,7 +745,7 @@ describe('Payment method account mappings (e2e)', () => {
           refunds: [
             {
               paymentMethodId: rollbackMethodId,
-              amount: '10.0000',
+              amount: '10.00',
               refundDate: '2026-08-21',
               reference: `rollback-${runId}`,
             },
@@ -770,7 +770,7 @@ describe('Payment method account mappings (e2e)', () => {
             {
               paymentMethodId: rollbackMethodId,
               settlementDate: '2026-08-20',
-              amount: '10.0000',
+              amount: '10.00',
             },
           ],
         },
@@ -798,7 +798,7 @@ describe('Payment method account mappings (e2e)', () => {
           refunds: [
             {
               paymentMethodId: rollbackMethodId,
-              amount: '10.0000',
+              amount: '10.00',
               refundDate: '2026-08-21',
               reference: `rollback-${runId}`,
             },

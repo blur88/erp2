@@ -15,6 +15,7 @@ import {
 } from '@mui/material'
 import { useCurrency } from '@/hooks/useCurrency'
 import { formatDate } from '@/utils/formatters'
+import { formatCurrency } from '@/utils/currency'
 import { printColors } from '@/styles/printTokens'
 
 interface TemplatePreviewProps {
@@ -255,11 +256,11 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
                   <TableCell align="right" sx={{ color: printColors.text, border: `1px solid ${printColors.border}` }}>{item.quantity}</TableCell>
                   {!isGRN && (
                     <>
-                      <TableCell align="right" sx={{ color: printColors.text, border: `1px solid ${printColors.border}` }}>{displayCurrency} {item.unitPrice.toFixed(2)}</TableCell>
+                      <TableCell align="right" sx={{ color: printColors.text, border: `1px solid ${printColors.border}` }}>{formatCurrency(item.unitPrice, { currency: displayCurrency })}</TableCell>
                       {showDiscountColumn && (
-                        <TableCell align="right" sx={{ color: printColors.text, border: `1px solid ${printColors.border}` }}>{displayCurrency} {item.discount.toFixed(2)}</TableCell>
+                        <TableCell align="right" sx={{ color: printColors.text, border: `1px solid ${printColors.border}` }}>{formatCurrency(item.discount, { currency: displayCurrency })}</TableCell>
                       )}
-                      <TableCell align="right" sx={{ color: printColors.text, border: `1px solid ${printColors.border}` }}>{displayCurrency} {item.amount.toFixed(2)}</TableCell>
+                      <TableCell align="right" sx={{ color: printColors.text, border: `1px solid ${printColors.border}` }}>{formatCurrency(item.amount, { currency: displayCurrency })}</TableCell>
                     </>
                   )}
                 </TableRow>
@@ -289,11 +290,11 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
             <Box sx={{ width: 300, border: `1px solid ${printColors.border}`, p: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="body2" sx={{ color: printColors.text }}>Subtotal:</Typography>
-                <Typography variant="body2" sx={{ color: printColors.text }}>{displayCurrency} {subtotal.toFixed(2)}</Typography>
+                <Typography variant="body2" sx={{ color: printColors.text }}>{formatCurrency(subtotal, { currency: displayCurrency })}</Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="body2" sx={{ color: printColors.text }}>Shipping Cost:</Typography>
-                <Typography variant="body2" sx={{ color: printColors.text }}>{displayCurrency} {shipping.toFixed(2)}</Typography>
+                <Typography variant="body2" sx={{ color: printColors.text }}>{formatCurrency(shipping, { currency: displayCurrency })}</Typography>
               </Box>
               <Divider sx={{ my: 1, borderColor: printColors.border }} />
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -301,14 +302,14 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
                   Total:
                 </Typography>
                 <Typography variant="body1" sx={{ fontWeight: 700, color: printColors.text }}>
-                  {displayCurrency} {total.toFixed(2)}
+                  {formatCurrency(total, { currency: displayCurrency })}
                 </Typography>
               </Box>
               {(template.id === 'invoice' || template.id === 'paymentReceipt' || template.id === 'vendorPayment') && (
                 <>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Typography variant="body2" sx={{ color: printColors.text }}>Paid:</Typography>
-                    <Typography variant="body2" sx={{ color: printColors.text }}>{displayCurrency} {paid.toFixed(2)}</Typography>
+                    <Typography variant="body2" sx={{ color: printColors.text }}>{formatCurrency(paid, { currency: displayCurrency })}</Typography>
                   </Box>
                   <Divider sx={{ my: 1, borderColor: printColors.border }} />
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -316,7 +317,7 @@ const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, settings })
                       Balance:
                     </Typography>
                     <Typography variant="body1" sx={{ fontWeight: 700, color: printColors.text }}>
-                      {displayCurrency} {balance.toFixed(2)}
+                      {formatCurrency(balance, { currency: displayCurrency })}
                     </Typography>
                   </Box>
                 </>

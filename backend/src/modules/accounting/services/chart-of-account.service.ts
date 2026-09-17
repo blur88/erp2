@@ -8,7 +8,7 @@ import { AccountingPostingService } from './accounting-posting.service';
 import { AccountBalanceService } from './account-balance.service';
 import { CreateAccountDto } from '../dto/create-account.dto';
 import { UpdateAccountDto } from '../dto/update-account.dto';
-import { toMinorUnits, formatScale4 } from '@/common/utils/money';
+import { toMinorUnits, formatMoney, formatScale4, quantizeToCents } from '@/common/utils/money';
 import { getAppToday } from '@/common/utils/app-calendar';
 import { SettingsService } from '../../settings/settings.service';
 
@@ -59,7 +59,7 @@ export class ChartOfAccountService {
       if (postsOpeningBalance) {
         await this.posting.postOpeningBalance({
           accountId: account.id, sourceRef: account.code,
-          amount: opening,
+          amount: formatMoney(quantizeToCents(toMinorUnits(opening))),
           entryDate: entryDate as string,
           createdBy: actor,
         }, manager);

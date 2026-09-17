@@ -12,6 +12,7 @@ import {
   IsNotEmpty,
   ValidateNested,
   ValidateIf,
+  Matches,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -51,6 +52,9 @@ export class CreateOwnerEquityDto {
 
   @ApiPropertyOptional({ description: 'Monetary types only: total amount' })
   @ValidateIf((o) => o.type !== OwnerEquityType.STOCK_DRAWING)
+  @Matches(/^\d+(\.\d{1,2})?$/, {
+    message: 'totalAmount must be a decimal string with at most 2 decimal places',
+  })
   @IsMoneyAtLeast('0.0000')
   totalAmount?: string;
 
@@ -86,6 +90,9 @@ export class UpdateOwnerEquityDto {
 
   @ApiPropertyOptional({ description: 'Monetary types only: total amount' })
   @IsOptional()
+  @Matches(/^\d+(\.\d{1,2})?$/, {
+    message: 'totalAmount must be a decimal string with at most 2 decimal places',
+  })
   @IsMoneyAtLeast('0.0000')
   totalAmount?: string;
 
@@ -107,7 +114,10 @@ export class SettleOwnerEquityLineDto {
   @IsUUID()
   paymentMethodId: string;
 
-  @ApiProperty({ description: 'Settlement amount', example: '1000.0000' })
+  @ApiProperty({ description: 'Settlement amount', example: '1000.00' })
+  @Matches(/^\d+(\.\d{1,2})?$/, {
+    message: 'amount must be a decimal string with at most 2 decimal places',
+  })
   @IsMoneyAtLeast('0.0000')
   amount: string;
 
@@ -135,7 +145,10 @@ export class RefundOwnerEquityLineDto {
   @IsUUID()
   paymentMethodId: string;
 
-  @ApiProperty({ description: 'Refund amount', example: '100.0000' })
+  @ApiProperty({ description: 'Refund amount', example: '100.00' })
+  @Matches(/^\d+(\.\d{1,2})?$/, {
+    message: 'amount must be a decimal string with at most 2 decimal places',
+  })
   @IsMoneyAtLeast('0.0000')
   amount: string;
 

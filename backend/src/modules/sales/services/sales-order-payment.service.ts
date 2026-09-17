@@ -16,7 +16,9 @@ import { lockRowForUpdate } from '../../../common/db/tx-helpers';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import {
+  formatMoney,
   formatScale4,
+  quantizeToCents,
   sumMinor,
   toMinorUnits,
 } from '@/common/utils/money';
@@ -102,7 +104,7 @@ export class SalesOrderPaymentService {
         paymentRowId: savedRecord.id,
         channel: method.accountingChannel,
         paymentMethodId: method.id,
-        amount: formatScale4(amountMinor),
+        amount: formatMoney(quantizeToCents(amountMinor)),
         entryDate: dto.paymentDate,
         createdBy: username,
       }, manager);
@@ -160,7 +162,7 @@ export class SalesOrderPaymentService {
         refundRowId: savedRecord.id,
         channel: method.accountingChannel,
         paymentMethodId: method.id,
-        amount: formatScale4(amountMinor),
+        amount: formatMoney(quantizeToCents(amountMinor)),
         entryDate: dto.paymentDate,
         createdBy: username,
       }, manager);
@@ -220,7 +222,7 @@ export class SalesOrderPaymentService {
           paymentRowId: savedRecord.id,
           channel: method.accountingChannel,
           paymentMethodId: method.id,
-          amount: formatScale4(toMinorUnits(dto.amount)),
+          amount: formatMoney(quantizeToCents(toMinorUnits(dto.amount))),
           entryDate: dto.paymentDate,
           createdBy: username,
         }, manager);
@@ -291,7 +293,7 @@ export class SalesOrderPaymentService {
           refundRowId: savedRecord.id,
           channel: method.accountingChannel,
           paymentMethodId: method.id,
-          amount: formatScale4(toMinorUnits(dto.amount)),
+          amount: formatMoney(quantizeToCents(toMinorUnits(dto.amount))),
           entryDate: dto.paymentDate,
           createdBy: username,
         }, manager);

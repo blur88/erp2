@@ -167,7 +167,7 @@ describe('OwnerEquityStockService', () => {
         undefined, expect.anything(),
       );
       expect(postingMock.postOwnerStockDrawing).toHaveBeenCalledWith(
-        expect.objectContaining({ stockMovementId: 'mv-1', amount: '25.0000' }),
+        expect.objectContaining({ stockMovementId: 'mv-1', amount: '25.00' }),
         expect.anything(),
       );
     });

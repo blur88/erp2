@@ -53,7 +53,7 @@ export class Payment extends BaseEntity {
     scale: 4,
     comment: 'Payment amount',
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: '0,2' })
   amount: string;
 
   // Additional Information

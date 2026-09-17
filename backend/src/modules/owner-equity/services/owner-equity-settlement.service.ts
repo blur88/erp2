@@ -4,7 +4,7 @@ import { PaymentMethodEntity } from '../../../database/entities/payment-method.e
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
-import { toMinorUnits, formatScale4, sumMinor } from '@/common/utils/money';
+import { toMinorUnits, formatMoney, formatScale4, quantizeToCents, sumMinor } from '@/common/utils/money';
 import { AuditLogService } from '../../audit-logs/services';
 import {
   OwnerEquityDocument,
@@ -114,7 +114,7 @@ export class OwnerEquitySettlementService {
             settlementRowId: row.id,
             channel: methods.get(line.paymentMethodId)!.accountingChannel,
             paymentMethodId: line.paymentMethodId,
-            amount: formatScale4(line.amount),
+            amount: formatMoney(quantizeToCents(toMinorUnits(line.amount))),
             sourceRef: doc.referenceNumber,
             entryDate: line.settlementDate,
             createdBy: username,
@@ -226,7 +226,7 @@ export class OwnerEquitySettlementService {
             settlementRowId: refundRow.id,
             channel: method.accountingChannel,
             paymentMethodId: method.id,
-            amount: formatScale4(line.amount),
+            amount: formatMoney(quantizeToCents(toMinorUnits(line.amount))),
             sourceRef: doc.referenceNumber,
             entryDate: line.refundDate,
             createdBy: username,

@@ -8,7 +8,7 @@ import { JournalEntryLine } from '../entities/journal-entry-line.entity';
 import { AccountType } from '../entities/account-type.enum';
 import { PostingType } from '../entities/posting-type.enum';
 import { AccountingSourceType } from '../entities/source-type.enum';
-import { formatScale4, toMinorUnits } from '@/common/utils/money';
+import { formatMoney, formatScale4, quantizeToCents, toMinorUnits } from '@/common/utils/money';
 import type {
   AccountingPostingPort, PostResult,
 } from '../../../common/accounting-posting/accounting-posting.port';
@@ -22,6 +22,27 @@ import type {
 } from '../../../common/accounting-posting/posting-commands';
 
 type DraftLine = { account: ChartOfAccount; debit: string; credit: string };
+
+/**
+ * Verify a complete set of journal lines balances at cent precision, before
+ * persistence (#1241).
+ *
+ * Quantizing each posting amount independently can unbalance a journal, so the
+ * check runs where the full set of lines exists in memory — not per command
+ * field, and not after the write. Throws BadRequestException so an unbalanced
+ * posting is a 400, never a persisted entry.
+ */
+export function assertBalanced(
+  lines: ReadonlyArray<{ debit: string; credit: string }>,
+): void {
+  const debit = lines.reduce((sum, l) => sum + quantizeToCents(toMinorUnits(l.debit)), 0n);
+  const credit = lines.reduce((sum, l) => sum + quantizeToCents(toMinorUnits(l.credit)), 0n);
+  if (debit !== credit) {
+    throw new BadRequestException(
+      `Journal does not balance at two decimals: debit ${formatMoney(debit)} vs credit ${formatMoney(credit)}`,
+    );
+  }
+}
 
 @Injectable()
 export class AccountingPostingService implements AccountingPostingPort {
@@ -37,14 +58,6 @@ export class AccountingPostingService implements AccountingPostingPort {
     return { account, debit: '0.0000', credit: formatScale4(amount) };
   }
 
-  private async assertBalanced(lines: { debit: string; credit: string }[]): Promise<void> {
-    const debit = lines.reduce((a, l) => a + toMinorUnits(l.debit), 0n);
-    const credit = lines.reduce((a, l) => a + toMinorUnits(l.credit), 0n);
-    if (debit !== credit) {
-      throw new BadRequestException(`Journal entry not balanced: debit ${debit} != credit ${credit}`);
-    }
-  }
-
   private async build(
     params: {
       sourceType: AccountingSourceType; sourceDocumentId: string | null; sourceEventId?: string | null;
@@ -53,7 +66,7 @@ export class AccountingPostingService implements AccountingPostingPort {
     },
     manager: EntityManager,
   ): Promise<PostResult> {
-    await this.assertBalanced(params.lines);
+    assertBalanced(params.lines);
     for (const l of params.lines) {
       if (!l.account.isPostable) throw new BadRequestException(`Account ${l.account.code} is not postable`);
     }

@@ -23,8 +23,10 @@ import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
 import { SettingsService } from '../../settings/settings.service';
 import {
   toMinorUnits,
+  formatMoney,
   formatScale4,
   mulMinor,
+  quantizeToCents,
   trimTrailingZeros,
 } from '@/common/utils/money';
 import {
@@ -108,7 +110,7 @@ export class OwnerEquityStockService {
         await this.posting.postOwnerStockDrawing({
           equityDocumentId: doc.id,
           stockMovementId: movement.id,
-          amount: formatScale4(totalCostMinor),
+          amount: formatMoney(quantizeToCents(totalCostMinor)),
           sourceRef: doc.referenceNumber,
           entryDate: actionDate,
           createdBy: username,

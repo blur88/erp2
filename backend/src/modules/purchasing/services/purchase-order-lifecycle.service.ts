@@ -20,7 +20,7 @@ import { CreateStockMovementDto } from '../../inventory/dto/stock.dto';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { AccountingSourceType, PostingType } from '../../../common/accounting-posting/enums';
-import { formatScale4, toMinorUnits } from '@/common/utils/money';
+import { formatMoney, formatScale4, quantizeToCents, toMinorUnits } from '@/common/utils/money';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
 import { resolveAppTimezone } from '../../../common/utils/app-calendar';
 import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
@@ -166,11 +166,23 @@ export class PurchaseOrderLifecycleService {
       }
 
       const receiveDate = new Date();
-      const poSubtotal = Number(purchaseOrder.subtotal || 0);
-      const poShipping = Number(purchaseOrder.shippingAmount || 0);
+
+      const items = purchaseOrder.items || [];
+
+      // Allocate shipping across the whole PO at once so the shares sum to the
+      // PO shipping total exactly (#1241). Weights are line values on the same
+      // net basis the GL posts from: item.totalAmount (after line discount).
+      const itemValueWeightsMinor = items.map((item) =>
+        quantizeToCents(toMinorUnits(String(item.totalAmount || 0))),
+      );
+      const shippingSharesMinor = this.baseCostCalculator.allocateShippingByValue(
+        quantizeToCents(toMinorUnits(String(purchaseOrder.shippingAmount || 0))),
+        itemValueWeightsMinor,
+      );
 
       let inventoryScale8 = 0n;
-      for (const item of purchaseOrder.items || []) {
+      for (let i = 0; i < items.length; i += 1) {
+        const item = items[i];
         const quantity = Number(item.quantity);
         // Capitalize inventory at the NET (after line discount) unit cost so the
         // cost-history subledger matches the GL inventory debit, which the
@@ -186,11 +198,12 @@ export class PurchaseOrderLifecycleService {
           quantity > 0 && Number.isFinite(lineTotal) && lineTotal > 0
             ? lineTotal / quantity
             : Number(item.unitCost);
-        const shippingPerUnit = this.baseCostCalculator.calculateShippingByValue(
-          netUnitCost,
-          quantity,
-          poSubtotal,
-          poShipping,
+
+        // Per-unit landed-cost share = share / quantity, in minor units.
+        const qtyMinor = toMinorUnits(String(quantity));
+        const shippingShareMinor = shippingSharesMinor[i] ?? 0n;
+        const shippingPerUnit = Number(
+          formatScale4(qtyMinor > 0n ? (shippingShareMinor * 10000n) / qtyMinor : 0n),
         );
 
         const movementDto: CreateStockMovementDto = {
@@ -225,7 +238,7 @@ export class PurchaseOrderLifecycleService {
       await this.accounting.postPurchaseReceive({
         purchaseOrderId: id,
         sourceRef: purchaseOrder.orderNumber,
-        amount: formatScale4(inventoryMinor),
+          amount: formatMoney(quantizeToCents(inventoryMinor)),
         entryDate: formatDateInTimezone(receiveDate, timezone),
         createdBy: username,
       }, manager);

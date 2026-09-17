@@ -8,7 +8,16 @@ import {
   sumScaledAmounts,
   allocateByLargestRemainder,
   normalizeAmountInput,
+  quantizeToCents,
+  formatMoney,
+  allocate,
+  reconcileToCents,
 } from '../currency'
+import {
+  QUANTIZE_VECTORS,
+  FORMAT_VECTORS,
+  ALLOCATE_VECTORS,
+} from '../money-vectors'
 
 describe('formatCurrency', () => {
   beforeEach(() => {
@@ -264,13 +273,12 @@ describe('allocateByLargestRemainder', () => {
     expect(sum(allocations)).toBe(1000001n)
   })
 
-  it('caps the total at the weight total when the target exceeds it', () => {
+  it('rejects a target exceeding total capacity instead of truncating it', () => {
     const weights = [100n, 100n]
-    const allocations = allocateByLargestRemainder(weights, 1000n)
 
-    // Cannot distribute more than the sources hold.
-    expect(allocations).toEqual([100n, 100n])
-    expect(sum(allocations)).toBe(200n)
+    // Cannot distribute more than the sources hold — silently truncating hid a
+    // caller bug, so this is now an explicit error (#1241).
+    expect(() => allocateByLargestRemainder(weights, 1000n)).toThrow(/capacity/i)
   })
 
   it('distributes proportionally across unequal weights', () => {
@@ -336,5 +344,69 @@ describe('normalizeAmountInput', () => {
 
   it('does not trim surrounding whitespace', () => {
     expect(normalizeAmountInput(' 1000 ')).toBe(' 1000 ')
+  })
+})
+
+describe('frontend/backend kernel parity', () => {
+  it.each(QUANTIZE_VECTORS.map((v) => [v.name, v.inputMinor, v.expectedMinor] as const))(
+    'quantizeToCents %s',
+    (_name, input, expected) => {
+      expect(quantizeToCents(input)).toBe(expected)
+    }
+  )
+
+  it.each(FORMAT_VECTORS.map((v) => [v.name, v.inputMinor, v.expected] as const))(
+    'formatMoney %s',
+    (_name, input, expected) => {
+      expect(formatMoney(input)).toBe(expected)
+    }
+  )
+
+  it.each(
+    ALLOCATE_VECTORS.map(
+      (v) => [v.name, v.targetMinor, v.weightsMinor, v.expectedMinor] as const
+    )
+  )('allocate %s', (_name, target, weights, expected) => {
+    expect(allocate(target, weights)).toEqual([...expected])
+  })
+
+  it('reconcileToCents conserves the cent total', () => {
+    const result = reconcileToCents([3350n, 3350n, 3300n], 10000n)
+    expect(result.reduce((a, b) => a + b, 0n)).toBe(10000n)
+  })
+})
+
+describe('formatCurrency negative zero', () => {
+  // Intl emits "-0.00" for -0.001 when BOTH fraction-digit options are 2,
+  // which is exactly how formatCurrency is configured by default.
+  it('never renders negative zero', () => {
+    expect(formatCurrency(-0.001)).not.toContain('-')
+    expect(formatCurrency('-0.0032')).not.toContain('-')
+    expect(formatCurrency(-0)).not.toContain('-')
+  })
+
+  it('keeps a real negative cent negative', () => {
+    expect(formatCurrency('-0.01')).toContain('-')
+  })
+})
+
+describe('allocateByLargestRemainder settlement fixes (#1241)', () => {
+  it('allocates a negative target instead of returning zeros', () => {
+    const result = allocateByLargestRemainder([1n, 1n, 1n], -3n)
+    expect(result.reduce((a, b) => a + b, 0n)).toBe(-3n)
+  })
+
+  it('rejects a target exceeding total capacity instead of truncating', () => {
+    expect(() => allocateByLargestRemainder([1n, 1n], 5n)).toThrow(/capacity/i)
+  })
+
+  it('still caps each share at its own weight', () => {
+    const result = allocateByLargestRemainder([1n, 10n], 11n)
+    expect(result[0]).toBeLessThanOrEqual(1n)
+  })
+
+  it('preserves existing largest-remainder distribution', () => {
+    // Unchanged behavior: the historical settlement result must not move.
+    expect(allocateByLargestRemainder([1n, 1n, 1n], 2n)).toEqual([1n, 1n, 0n])
   })
 })

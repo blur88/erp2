@@ -20,6 +20,7 @@ import {
 import { BaseEntity } from './base.entity';
 import type { PurchaseOrder } from './purchase-order.entity';
 import type { Product } from './product.entity';
+import { toMinorUnits, quantizeToCents, formatScale4 } from '../../common/utils/money';
 
 export enum PurchaseOrderItemStatus {
   PENDING = 'pending',
@@ -121,7 +122,7 @@ export class PurchaseOrderItem extends BaseEntity {
     default: 0,
     comment: 'Line item discount amount (total for all units or per-unit based on discountType)',
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: '0,2' })
   @Min(0)
   discountAmount: number;
 
@@ -132,7 +133,7 @@ export class PurchaseOrderItem extends BaseEntity {
     default: 0,
     comment: 'Line item total amount (after discount)',
   })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: '0,2' })
   @Min(0)
   totalAmount: number;
 
@@ -204,31 +205,23 @@ export class PurchaseOrderItem extends BaseEntity {
       this.discountType = 'percentage';
     }
 
-    let unitDiscount = 0;
-    let totalDiscountAmount = 0;
+    const qtyMinor = toMinorUnits(String(this.quantity ?? 0));
+    const costMinor = toMinorUnits(String(this.unitCost ?? 0));
 
+    let unitDiscountMinor = 0n;
     if (this.discountType === 'percentage') {
-      // Percentage discount: apply to unit price
-      unitDiscount = this.discountPercent > 0
-        ? (Number(this.unitCost) * Number(this.discountPercent)) / 100
-        : 0;
-      totalDiscountAmount = unitDiscount * Number(this.quantity);
+      const pctMinor = toMinorUnits(String(this.discountPercent ?? 0));
+      unitDiscountMinor = (costMinor * pctMinor) / 1000000n;
     } else if (this.discountType === 'fixed_amount') {
-      // Fixed amount discount: discountAmount is per unit
-      unitDiscount = Number(this.discountAmount) || 0;
-      totalDiscountAmount = unitDiscount * Number(this.quantity);
+      // PO fixed discount is PER UNIT and uncapped (SO's is per line, capped).
+      unitDiscountMinor = toMinorUnits(String(this.discountAmount ?? 0));
     }
 
-    // Discounted unit price
-    const discountedUnitPrice = Number(this.unitCost) - unitDiscount;
+    const totalDiscountMinor = quantizeToCents((qtyMinor * unitDiscountMinor) / 10000n);
+    const discountedLineMinor = (qtyMinor * (costMinor - unitDiscountMinor)) / 10000n;
 
-    // Store total discount amount
-    if (this.discountType === 'percentage') {
-      this.discountAmount = totalDiscountAmount;
-    }
-
-    // Calculate total amount: discounted unit price × quantity
-    this.totalAmount = discountedUnitPrice * Number(this.quantity);
+    this.discountAmount = Number(formatScale4(totalDiscountMinor)) as any;
+    this.totalAmount = Number(formatScale4(quantizeToCents(discountedLineMinor))) as any;
   }
 
   @BeforeInsert()

@@ -345,7 +345,7 @@ describe('Owner Equity (e2e)', () => {
       type: 'CAPITAL_INJECTION',
       equityDate: '2026-08-16',
       description: 'Initial capital',
-      totalAmount: '20000.0000',
+      totalAmount: '20000.00',
     }).expect(201);
     ref = created.body.data.referenceNumber;
     ownedRefs.push(ref);
@@ -353,12 +353,12 @@ describe('Owner Equity (e2e)', () => {
     expect(created.body.data.documentStatus).toBe('DRAFT');
 
     await post(`/accounting/owner-equity/${ref}/settle`, {
-      settlements: [{ paymentMethodId: bankMethodId, settlementDate: '2026-08-16', amount: '8000.0000' }],
+      settlements: [{ paymentMethodId: bankMethodId, settlementDate: '2026-08-16', amount: '8000.00' }],
     }).expect(201);
     expect((await get(`/accounting/owner-equity/${ref}`)).body.data.documentStatus).toBe('DRAFT');
 
     await post(`/accounting/owner-equity/${ref}/settle`, {
-      settlements: [{ paymentMethodId: cashMethodId, settlementDate: '2026-08-16', amount: '12000.0000' }],
+      settlements: [{ paymentMethodId: cashMethodId, settlementDate: '2026-08-16', amount: '12000.00' }],
     }).expect(201);
     // #1094: the settling call itself completes the document — there is no
     // intermediate READY and no Complete action for monetary documents.
@@ -381,7 +381,7 @@ describe('Owner Equity (e2e)', () => {
 
   it('rejects over-settlement', async () => {
     await post(`/accounting/owner-equity/${ref}/settle`, {
-      settlements: [{ paymentMethodId: cashMethodId, settlementDate: '2026-08-16', amount: '999999.0000' }],
+      settlements: [{ paymentMethodId: cashMethodId, settlementDate: '2026-08-16', amount: '999999.00' }],
     }).expect(400);
   });
 
@@ -393,7 +393,7 @@ describe('Owner Equity (e2e)', () => {
     const doc = (await get(`/accounting/owner-equity/${ref}`)).body.data;
     expect(doc.documentStatus).toBe('COMPLETED');
     const source = doc.settlements.find((s: any) => toMinorUnits(s.amount) > 0n);
-    oneRefund.refunds = [{ paymentMethodId: cashMethodId, amount: '1000.0000', refundDate: '2026-08-16' }];
+    oneRefund.refunds = [{ paymentMethodId: cashMethodId, amount: '1000.00', refundDate: '2026-08-16' }];
     await post(`/accounting/owner-equity/${ref}/refund`, oneRefund).expect(201);
 
     const refunded = (await get(`/accounting/owner-equity/${ref}`)).body.data;
@@ -486,9 +486,9 @@ describe('Owner Equity (e2e)', () => {
   it('serializes concurrent settlements without over-settling', async () => {
     // Balance is 100. Two concurrent settlements of 100 each: the document row
     // lock must let exactly one through.
-    const injection = await createInjection({ totalAmount: '100.0000' });
+    const injection = await createInjection({ totalAmount: '100.00' });
     ownedRefs.push(injection);
-    const line = [{ paymentMethodId: cashMethodId, settlementDate: '2026-08-16', amount: '100.0000' }];
+    const line = [{ paymentMethodId: cashMethodId, settlementDate: '2026-08-16', amount: '100.00' }];
 
     const results = await Promise.allSettled([
       post(`/accounting/owner-equity/${injection}/settle`, { settlements: line }),

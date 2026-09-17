@@ -14,7 +14,7 @@ import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/acco
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
 import { AccountingSourceType } from '../../../common/accounting-posting/enums';
 import { PostingType } from '../../../common/accounting-posting/enums';
-import { formatScale4 } from '@/common/utils/money';
+import { formatMoney, quantizeToCents, toMinorUnits } from '@/common/utils/money';
 
 @Injectable()
 export class SalesOrderFulfillmentService {
@@ -117,8 +117,12 @@ export class SalesOrderFulfillmentService {
 
       // Round COGS once across ALL layers/products: (scale8 + 5000) / 10000
       const cogsMinor = (cogsScale8 + 5000n) / 10000n;
-      const revenueAmount = formatScale4(String(orderForPosting.totalAmount));
-      const cogsAmount = formatScale4(cogsMinor);
+      // Posting amounts are quantized to cents (#1241); the balance gate in the
+      // posting service verifies the resulting journal before persistence.
+      const revenueAmount = formatMoney(
+        quantizeToCents(toMinorUnits(String(orderForPosting.totalAmount))),
+      );
+      const cogsAmount = formatMoney(quantizeToCents(cogsMinor));
       await this.accounting.postSalesFulfillment({
         salesOrderId: id,
         sourceRef: order.orderNumber,

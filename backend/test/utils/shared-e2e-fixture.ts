@@ -36,6 +36,7 @@ export const E2E_ADMIN_USERNAMES = {
   salesOrderEdit: `${SHARED_E2E_NS}_so_edit_admin`,
   calendarDates: `${SHARED_E2E_NS}_calendar_admin`,
   transitions: `${SHARED_E2E_NS}_transitions_admin`,
+  precision: `${SHARED_E2E_NS}_precision_admin`,
 } as const;
 
 export const E2E_ADMIN_PASSWORD = "Admin@123!";

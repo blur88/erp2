@@ -61,12 +61,12 @@ export class SalesOrder extends BaseEntity {
   paymentStatus: SalesOrderPaymentStatus;
 
   @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: '0,2' })
   @Min(0)
   subtotal: number;
 
   @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: '0,2' })
   @Min(0)
   shippingAmount: number;
 
@@ -74,7 +74,7 @@ export class SalesOrder extends BaseEntity {
   // returns false unconditionally), so the floor lives in the DTOs via
   // IsMoneyAtLeast. See common/utils/money.ts.
   @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })
-  @IsDecimal({ decimal_digits: '0,4' })
+  @IsDecimal({ decimal_digits: '0,2' })
   totalAmount: string;
 
   @Column({ type: 'decimal', precision: 15, scale: 4, default: 0 })

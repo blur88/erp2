@@ -1160,4 +1160,38 @@ describe('create() transaction wrap (#978)', () => {
       response: { code: 'INITIAL_INVENTORY_SETUP_FAILED' },
     });
   });
+
+  describe('getDashboardStatistics precision (#1241)', () => {
+    it('sums inventory value and category values in minor units, quantized to cents', async () => {
+      const products = [
+        {
+          stockQuantity: 3,
+          baseCost: 0.335,
+          category: { name: 'Category' },
+        },
+      ] as any;
+      (service as any).productRepository = {
+        count: (jest.fn as unknown as any)().mockResolvedValue(1),
+        find: (jest.fn as unknown as any)().mockResolvedValue(products),
+      };
+      (service as any).categoryRepository = {
+        count: (jest.fn as unknown as any)().mockResolvedValue(1),
+      };
+      (service as any).settingsService = {
+        getRegionalSettings: (jest.fn as unknown as any)().mockResolvedValue({
+          lowStockThreshold: 5,
+        }),
+      };
+      (service as any).stockMovementService = {
+        findAll: (jest.fn as unknown as any)().mockResolvedValue({ meta: { total: 0 } }),
+      };
+
+      const stats = await service.getDashboardStats();
+
+      // 3 × 0.335 = 1.005 -> HALF-UP to 1.01; binary float would give 1.00.
+      expect(stats.inventoryValue).toBe(1.01);
+      expect(stats.categoryBreakdown[0].value).toBe(1.01);
+      expect(stats.stockHealthMetrics.averageValue).toBe(1.01);
+    });
+  });
 });
