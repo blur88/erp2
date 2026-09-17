@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Issue #1243 migration gate. Four scenarios, each from a fresh disposable DB:
+# Issue #1243 migration gate. Seven scenarios, each from a fresh disposable DB:
 #   V1  fresh install succeeds
 #   V2  a conflicting account aborts with NO changes (proves scan ordering)
 #   V2b a failure DURING A3 rolls everything back (proves the transaction)
 #   V3  a pre-existing mapping survives untouched
+#   V4  a repurposed 1200 (name "Main Bank") aborts with NO changes
+#   V5  a soft-deleted 1200 aborts with NO changes
+#   V6  a pre-existing CIMB name is accepted and completes
 #
 # V2 does NOT prove rollback: the conflict scan runs before any write, so it
 # aborts at the same point for any of the four codes. V2b is the only rollback
@@ -136,6 +139,17 @@ q "CREATE TRIGGER pmm_boom_trg BEFORE INSERT ON payment_methods FOR EACH ROW EXE
 if run_migrations; then
   echo "  FAIL migration succeeded despite the injected failure"; FAILED=1
 else
+  echo "  ok   migration exited non-zero"
+  # The non-zero exit and the unchanged state together only prove SOMETHING
+  # failed. This log came from THIS run, so require the injected failure to be
+  # the cause; otherwise an unrelated infra failure would false-green the
+  # only rollback proof in the gate.
+  if grep -Fq 'pmm injected failure' /tmp/pmm-migrate.log; then
+    echo "  ok   injected failure is the cause"
+  else
+    echo "  FAIL injected failure is the cause — 'pmm injected failure' missing from the abort log"
+    FAILED=1
+  fi
   check "A1 rename rolled back"  "Bank" "$(q "SELECT name FROM chart_of_account WHERE code='1200';")"
   check "A2 inserts rolled back" "0" \
     "$(q "SELECT count(*) FROM chart_of_account WHERE code IN ('1210','1220','1230','1240');")"
@@ -162,6 +176,72 @@ if run_migrations; then
     "$(q "SELECT a.code FROM payment_method_account_mappings m JOIN payment_methods pm ON pm.id=m.\"paymentMethodId\" JOIN chart_of_account a ON a.id=m.\"accountId\" WHERE pm.code='CIMB';")"
 else
   echo "  FAIL migration:run failed in V3"; cat /tmp/pmm-migrate.log; FAILED=1
+fi
+
+echo "==> V4: a repurposed 1200 aborts with no changes"
+rebuild_db
+run_migrations_before_ours
+q "UPDATE chart_of_account SET name='Main Bank' WHERE code='1200';" >/dev/null
+if run_migrations; then
+  echo "  FAIL migration succeeded despite a renamed 1200"; FAILED=1
+else
+  echo "  ok   migration exited non-zero"
+  if grep -Fq 'account 1200 must be exactly one live account' /tmp/pmm-migrate.log; then
+    echo "  ok   abort names the guard condition"
+  else
+    echo "  FAIL abort names the guard condition — guard phrase missing from the abort log"
+    FAILED=1
+  fi
+  check "1200 name preserved"    "Main Bank" "$(q "SELECT name FROM chart_of_account WHERE code='1200';")"
+  check "no 1210/1220/1230/1240" "0" \
+    "$(q "SELECT count(*) FROM chart_of_account WHERE code IN ('1210','1220','1230','1240');")"
+  check "no new methods"         "0" \
+    "$(q "SELECT count(*) FROM payment_methods WHERE code IN ('CIMB','MAYBANK');")"
+  check "no mappings"            "0" \
+    "$(q "SELECT count(*) FROM payment_method_account_mappings;")"
+  check "no migrations row"      "0" \
+    "$(q "SELECT count(*) FROM migrations WHERE name LIKE '%AddPaymentMethodChannelAccounts%';")"
+fi
+
+echo "==> V5: a soft-deleted 1200 aborts with no changes"
+rebuild_db
+run_migrations_before_ours
+q "UPDATE chart_of_account SET \"deletedAt\" = now() WHERE code='1200';" >/dev/null
+if run_migrations; then
+  echo "  FAIL migration succeeded despite a soft-deleted 1200"; FAILED=1
+else
+  echo "  ok   migration exited non-zero"
+  if grep -Fq 'account 1200 must be exactly one live account' /tmp/pmm-migrate.log; then
+    echo "  ok   abort names the guard condition"
+  else
+    echo "  FAIL abort names the guard condition — guard phrase missing from the abort log"
+    FAILED=1
+  fi
+  check "1200 still soft-deleted" "1" \
+    "$(q "SELECT count(*) FROM chart_of_account WHERE code='1200' AND \"deletedAt\" IS NOT NULL;")"
+  check "1200 name preserved"     "Bank" "$(q "SELECT name FROM chart_of_account WHERE code='1200';")"
+  check "no 1210/1220/1230/1240"  "0" \
+    "$(q "SELECT count(*) FROM chart_of_account WHERE code IN ('1210','1220','1230','1240');")"
+  check "no new methods"          "0" \
+    "$(q "SELECT count(*) FROM payment_methods WHERE code IN ('CIMB','MAYBANK');")"
+  check "no mappings"             "0" \
+    "$(q "SELECT count(*) FROM payment_method_account_mappings;")"
+  check "no migrations row"       "0" \
+    "$(q "SELECT count(*) FROM migrations WHERE name LIKE '%AddPaymentMethodChannelAccounts%';")"
+fi
+
+echo "==> V6: a pre-existing CIMB name succeeds"
+rebuild_db
+run_migrations_before_ours
+q "UPDATE chart_of_account SET name='CIMB' WHERE code='1200';" >/dev/null
+if run_migrations; then
+  check "1200 still CIMB"  "CIMB" "$(q "SELECT name FROM chart_of_account WHERE code='1200';")"
+  check "new accounts"     "1210,1220,1230,1240" \
+    "$(q "SELECT string_agg(code, ',' ORDER BY code) FROM chart_of_account WHERE code IN ('1210','1220','1230','1240');")"
+  check "six mappings"     "CASH>1100,CIMB>1200,MAYBANK>1210,SHOPEE>1220,TIKTOK>1230,ATOME>1240" \
+    "$(q "SELECT string_agg(pm.code||'>'||a.code, ',' ORDER BY a.code) FROM payment_method_account_mappings m JOIN payment_methods pm ON pm.id=m.\"paymentMethodId\" JOIN chart_of_account a ON a.id=m.\"accountId\";")"
+else
+  echo "  FAIL migration:run failed with a pre-existing CIMB name"; cat /tmp/pmm-migrate.log; FAILED=1
 fi
 
 psql_admin "DROP DATABASE IF EXISTS $TEST_DB WITH (FORCE);" >/dev/null

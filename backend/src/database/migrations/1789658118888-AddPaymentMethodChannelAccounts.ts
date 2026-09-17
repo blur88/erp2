@@ -47,13 +47,33 @@ export class AddPaymentMethodChannelAccounts1789658118888
     }
 
     // --- A1: rename 1200 Bank -> CIMB, preserving id and history. -------
+    // Guard BEFORE the write. 1200 must be exactly one LIVE account named
+    // 'Bank' (fresh seed) or 'CIMB' (already renamed by an operator). Any
+    // other name, or a soft-deleted 1200, cannot be shown to be the seeded
+    // bank account: relabeling it CIMB would silently corrupt an operator's
+    // chart. Abort and let a human reconcile.
     const bank = await queryRunner.query(
-      `SELECT id FROM chart_of_account WHERE code = '1200'`,
+      `SELECT name, "deletedAt" FROM chart_of_account WHERE code = '1200'`,
     );
-    if (bank.length !== 1) {
+    const live = bank.filter(
+      (row: { deletedAt: Date | null }) => row.deletedAt === null,
+    );
+    const liveName = live.length === 1 ? live[0].name : null;
+    if (
+      live.length !== 1 ||
+      (liveName !== 'Bank' && liveName !== 'CIMB')
+    ) {
       throw new Error(
-        `AddPaymentMethodChannelAccounts: expected exactly one account 1200, ` +
-          `found ${bank.length}. Manual reset required.`,
+        `AddPaymentMethodChannelAccounts: account 1200 must be exactly one ` +
+          `live account named "Bank" or "CIMB" (found ${bank.length} ` +
+          `row(s), ${live.length} live` +
+          (bank.length > 0
+            ? `, names: ${bank
+                .map((row: { name: string }) => `"${row.name}"`)
+                .join(', ')}`
+            : '') +
+          `). This migration will not rename a repurposed or deleted ` +
+          `account. A human must reconcile account 1200, then re-run.`,
       );
     }
     await queryRunner.query(
