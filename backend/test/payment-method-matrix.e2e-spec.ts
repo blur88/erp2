@@ -44,7 +44,9 @@ describe('Payment method posting matrix (e2e)', () => {
 
   const ownedEntityIds: string[] = [];
   const ownedSalesOrderIds: string[] = [];
+  const ownedPurchaseOrderIds: string[] = [];
   let customerId = '';
+  let supplierId = '';
   let productId = '';
   let categoryId = '';
 
@@ -90,6 +92,14 @@ describe('Payment method posting matrix (e2e)', () => {
     const customer = customerRes.body.data ?? customerRes.body;
     customerId = customer.id;
     ownedEntityIds.push(customerId);
+
+    const supplierRes = await post('/purchasing/suppliers', {
+      type: 'local',
+      companyName: `Matrix Supplier ${runId}`,
+    }).expect(201);
+    const supplier = supplierRes.body.data ?? supplierRes.body;
+    supplierId = supplier.id;
+    ownedEntityIds.push(supplierId);
   });
 
   afterAll(async () => {
@@ -118,6 +128,19 @@ describe('Payment method posting matrix (e2e)', () => {
             ownedSalesOrderIds,
           ]);
         }
+        if (ownedPurchaseOrderIds.length) {
+          await ds.query(
+            `DELETE FROM vendor_payments WHERE "purchaseOrderId" = ANY($1)`,
+            [ownedPurchaseOrderIds],
+          );
+          await ds.query(
+            `DELETE FROM purchase_order_items WHERE "purchaseOrderId" = ANY($1)`,
+            [ownedPurchaseOrderIds],
+          );
+          await ds.query(`DELETE FROM purchase_orders WHERE id = ANY($1)`, [
+            ownedPurchaseOrderIds,
+          ]);
+        }
         if (ownedMethodIds.length) {
           await ds.query(
             `DELETE FROM payment_method_account_mappings WHERE "paymentMethodId" = ANY($1)`,
@@ -135,6 +158,9 @@ describe('Payment method posting matrix (e2e)', () => {
         }
         if (customerId) {
           await ds.query(`DELETE FROM customers WHERE id = $1`, [customerId]);
+        }
+        if (supplierId) {
+          await ds.query(`DELETE FROM suppliers WHERE id = $1`, [supplierId]);
         }
 
         // Own-traces before removing the user (issue #1204).
@@ -165,6 +191,22 @@ describe('Payment method posting matrix (e2e)', () => {
     }).expect(201);
     const order = res.body.data ?? res.body;
     ownedSalesOrderIds.push(order.id);
+    ownedRefs.push(order.orderNumber);
+    ownedEntityIds.push(order.id);
+    return { id: order.id, orderNumber: order.orderNumber };
+  }
+
+  async function createPurchaseOrder(): Promise<{
+    id: string;
+    orderNumber: string;
+  }> {
+    const res = await post('/purchasing/orders', {
+      supplierId,
+      orderDate: '2026-09-17',
+      items: [{ productId, quantity: 1, unitPrice: 25 }],
+    }).expect(201);
+    const order = res.body.data ?? res.body;
+    ownedPurchaseOrderIds.push(order.id);
     ownedRefs.push(order.orderNumber);
     ownedEntityIds.push(order.id);
     return { id: order.id, orderNumber: order.orderNumber };
@@ -216,6 +258,56 @@ describe('Payment method posting matrix (e2e)', () => {
         const got = gotRes.body.data ?? gotRes.body;
         expect(got.paymentStatus).toBe('PAID');
         expect(cents(got.balanceDue)).toBe(0);
+      });
+    },
+  );
+
+  describe.each(MATRIX_CASES)(
+    'Purchase Order payment via $methodCode',
+    ({ methodCode, accountCode }) => {
+      it(`credits ${accountCode} and debits Supplier Deposit`, async () => {
+        const methodId = await methodIdByCode(ds, methodCode);
+        const order = await createPurchaseOrder(); // total 25.00
+        await post(`/purchasing/orders/${order.id}/payments`, {
+          payments: [
+            {
+              amount: '25.00',
+              paymentMethodId: methodId,
+              paymentDate: '2026-09-17',
+            },
+          ],
+        }).expect(200);
+
+        const lines = await journalLinesFor(ds, order.orderNumber);
+        const payment = lines.filter(
+          (l) => l.postingType === 'PURCHASE_PAYMENT',
+        );
+
+        // Supplier Deposit carries the DEBIT; the mapped account the CREDIT.
+        // This is the INVERSE of the sales side and is asserted from the
+        // purchase posting contract (accounting-posting.service.ts:174), not
+        // derived from the sales block.
+        const debit = payment.filter((l) => cents(l.debit) > 0);
+        expect(debit).toHaveLength(1);
+        expect(debit[0].accountCode).toBe('1400');
+        expect(cents(debit[0].debit)).toBe(2500);
+
+        const credit = payment.filter((l) => cents(l.credit) > 0);
+        expect(credit).toHaveLength(1);
+        expect(credit[0].accountCode).toBe(accountCode);
+        expect(cents(credit[0].credit)).toBe(2500);
+
+        expect(payment.map((l) => l.accountCode).sort()).toEqual(
+          [accountCode, '1400'].sort(),
+        );
+        expectBalanced(payment);
+
+        const entries = await ds.query(
+          `SELECT count(*)::int AS n FROM journal_entry
+            WHERE "sourceRef" = $1 AND "postingType" = 'PURCHASE_PAYMENT'`,
+          [order.orderNumber],
+        );
+        expect(entries[0].n).toBe(1);
       });
     },
   );
