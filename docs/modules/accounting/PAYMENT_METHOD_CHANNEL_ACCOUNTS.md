@@ -18,6 +18,15 @@ All four steps run in the migration runner's own transaction
 (`migrationsTransactionMode: 'each'`), so any failure rolls back every earlier
 step, the `1200` rename included, and leaves no `migrations` row.
 
+**What it does NOT do: balance-sheet group membership.** The migration creates
+no `balance_sheet_account_groups` rows. `1200` keeps its `N38`/`BANK_BALANCE`
+role because its id is preserved, but `1210`–`1240` are created in **no group**.
+Per #1239 an account outside every group with a non-zero balance produces an
+unmapped finding and **Balance Check Unavailable**, so after a fresh migration
+those four accounts need their group membership assigned in
+`/settings` → Balance Sheet groups before they carry balances. On `erp_db` the
+membership already exists because an operator created it by hand.
+
 ## It is EXPECTED to abort on a hand-built database
 
 **The dev database `erp_db` already fails this migration**, and any environment
