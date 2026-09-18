@@ -183,6 +183,16 @@ describe('Payment method posting matrix (e2e)', () => {
           ]);
         }
         if (productId) {
+          // stock_movements.productId -> products is ON DELETE RESTRICT
+          // (InitialSchema:166), so movements must go first or the product
+          // delete fails. The RECEIVED-purchase-order rejection case calls
+          // /receive, which posts stock, and this suite creates no movements
+          // anywhere else. Same ordering as
+          // shared-e2e-business-fixture.ts:199, which documents this FK as the
+          // one that blocks.
+          await ds.query(`DELETE FROM stock_movements WHERE "productId" = $1`, [
+            productId,
+          ]);
           await ds.query(`DELETE FROM products WHERE id = $1`, [productId]);
         }
         if (categoryId) {
@@ -340,6 +350,23 @@ describe('Payment method posting matrix (e2e)', () => {
           [order.orderNumber],
         );
         expect(entries[0].n).toBe(1);
+
+        // The document itself must read fully paid. Asserting only the journal
+        // lines would pass even if the payment never reconciled onto the order,
+        // which is half the contract.
+        //
+        // PO has NO balanceDue column (unlike SalesOrder): reconcileOrderState()
+        // maintains paidAmount + paymentStatus only
+        // (purchase-order.service.ts:1017-1021), and PAID means
+        // paidAmount === totalAmount exactly (:231 derivePaymentStatus).
+        // Outstanding is therefore total - paid, asserted as zero.
+        const got = (
+          await get(`/purchasing/orders/${order.id}`).expect(200)
+        ).body.data;
+        expect(got.paymentStatus).toBe('PAID');
+        expect(cents(got.paidAmount)).toBe(cents(got.totalAmount));
+        expect(cents(got.totalAmount) - cents(got.paidAmount)).toBe(0);
+        expect(cents(got.paidAmount)).toBe(2500);
       });
     },
   );
@@ -548,6 +575,137 @@ describe('Payment method posting matrix (e2e)', () => {
         paymentMethodId: await methodIdByCode(ds, 'CASH'),
         paymentDate: '2026-09-17',
       }).expect(409);
+    });
+
+    // Lifecycle-state rejections, one per disallowed state per module.
+    //
+    // The two modules throw DIFFERENT exception types, so each expectation is
+    // derived from its own guard rather than copied across:
+    //   SO: ConflictException  -> 409, any non-DRAFT status
+    //       (sales-order-payment.service.ts:88-90)
+    //   PO: BadRequestException -> 400, CANCELLED or RECEIVED only
+    //       (purchase-order.service.ts:888-895)
+    //
+    // Each asserts NO RESIDUE as well as the status code: a path that wrote its
+    // payment row and then failed would also return 4xx, so the row counts are
+    // what distinguish a clean rejection from a partial write.
+    async function expectNoPaymentResidue(
+      table: 'sales_order_payments' | 'vendor_payments',
+      column: 'salesOrderId' | 'purchaseOrderId',
+      orderId: string,
+      orderNumber: string,
+    ): Promise<void> {
+      const payments = await ds.query(
+        `SELECT count(*)::int AS n FROM "${table}" WHERE "${column}" = $1`,
+        [orderId],
+      );
+      expect(payments[0].n).toBe(0);
+      const lines = await journalLinesFor(ds, orderNumber);
+      expect(lines.filter((l) => l.postingType.endsWith('_PAYMENT'))).toEqual(
+        [],
+      );
+    }
+
+    it('rejects a payment against a FULFILLED sales order (non-cancelled disallowed state)', async () => {
+      // recordPayment() requires DRAFT, so FULFILLED is rejected for the same
+      // reason CANCELLED is — this covers the non-cancelled branch of that rule.
+      const order = await createSalesOrder();
+      await post(`/sales-orders/${order.id}/payments`, {
+        amount: '25.00',
+        paymentMethodId: await methodIdByCode(ds, 'CASH'),
+        paymentDate: '2026-09-17',
+      }).expect(200);
+      // 201, not 200: @Post(':id/fulfill') declares no @HttpCode override
+      // (sales-order.controller.ts:106), so NestJS returns the POST default.
+      // The payment routes differ because they set @HttpCode(HttpStatus.OK).
+      await post(`/sales-orders/${order.id}/fulfill`, {}).expect(201);
+
+      const before = await ds.query(
+        `SELECT count(*)::int AS n FROM sales_order_payments WHERE "salesOrderId" = $1`,
+        [order.id],
+      );
+
+      await post(`/sales-orders/${order.id}/payments`, {
+        amount: '10.00',
+        paymentMethodId: await methodIdByCode(ds, 'CASH'),
+        paymentDate: '2026-09-17',
+      }).expect(409);
+
+      // The pre-existing payment is untouched and no second row was written.
+      const after = await ds.query(
+        `SELECT count(*)::int AS n FROM sales_order_payments WHERE "salesOrderId" = $1`,
+        [order.id],
+      );
+      expect(after[0].n).toBe(before[0].n);
+    });
+
+    it('rejects a payment against a CANCELLED purchase order, leaving no residue', async () => {
+      const order = await createPurchaseOrder();
+      await post(`/purchasing/orders/${order.id}/cancel`, {}).expect(200);
+      await post(`/purchasing/orders/${order.id}/payments`, {
+        payments: [
+          {
+            amount: '25.00',
+            paymentMethodId: await methodIdByCode(ds, 'CASH'),
+            paymentDate: '2026-09-17',
+          },
+        ],
+      }).expect(400);
+      await expectNoPaymentResidue(
+        'vendor_payments',
+        'purchaseOrderId',
+        order.id,
+        order.orderNumber,
+      );
+    });
+
+    it('rejects a SECOND payment against a RECEIVED purchase order', async () => {
+      // /receive takes no body and requires READY (purchase-order.controller.ts:184
+      // "transitions READY -> RECEIVED"), and it is paying in full that promotes
+      // DRAFT -> READY (purchase-order.service.ts:1025). So reaching RECEIVED
+      // necessarily means one payment already exists — this case asserts the
+      // guard rejects a FURTHER payment, and that the existing row is unharmed.
+      const order = await createPurchaseOrder();
+      await post(`/purchasing/orders/${order.id}/payments`, {
+        payments: [
+          {
+            amount: '25.00',
+            paymentMethodId: await methodIdByCode(ds, 'CASH'),
+            paymentDate: '2026-09-17',
+          },
+        ],
+      }).expect(200);
+      await post(`/purchasing/orders/${order.id}/receive`, {}).expect(200);
+
+      const before = await ds.query(
+        `SELECT count(*)::int AS n FROM vendor_payments WHERE "purchaseOrderId" = $1`,
+        [order.id],
+      );
+      const linesBefore = (await journalLinesFor(ds, order.orderNumber)).filter(
+        (l) => l.postingType === 'PURCHASE_PAYMENT',
+      ).length;
+
+      await post(`/purchasing/orders/${order.id}/payments`, {
+        payments: [
+          {
+            amount: '10.00',
+            paymentMethodId: await methodIdByCode(ds, 'CASH'),
+            paymentDate: '2026-09-17',
+          },
+        ],
+      }).expect(400);
+
+      // Neither a second payment row nor a second payment journal line.
+      const after = await ds.query(
+        `SELECT count(*)::int AS n FROM vendor_payments WHERE "purchaseOrderId" = $1`,
+        [order.id],
+      );
+      expect(after[0].n).toBe(before[0].n);
+      expect(
+        (await journalLinesFor(ds, order.orderNumber)).filter(
+          (l) => l.postingType === 'PURCHASE_PAYMENT',
+        ).length,
+      ).toBe(linesBefore);
     });
 
     it('rejects an inactive payment method on a purchase order', async () => {
