@@ -98,57 +98,122 @@ pq "SELECT 'bank='||(SELECT code FROM chart_of_account WHERE id = s.\"bankAccoun
       FROM accounting_settings s;"
 ```
 
-Adopt only if **all** of these hold:
+**Adoption blockers** — if any of these fails, do NOT adopt. Each one means the
+accounts are not the ones this migration is about, so adopting would misroute
+real money or misreport it:
 
-- Each of `1200`–`1240` is exactly one **live** account with the expected name,
-  `isPostable = true` and `isSystem = true`, and query 2 returns nothing.
+- Each of `1200`–`1240` is exactly one **live** account with the expected name
+  and `isPostable = true`, and query 2 returns nothing.
 - Every payment method in use maps to its intended account.
 - Each account's balance-sheet group membership is the intended one.
 - `bankAccountId` → `1200` and `cashAccountId` → `1100`.
-- Payment methods `CIMB` and `MAYBANK` exist **by code**, not merely by name.
 
-## Adoption does not by itself converge with a migrated database
+**Repairable divergences** — these do NOT block adoption. They make the
+database differ from a freshly migrated one without affecting posting, and the
+next section says what to do about each:
 
-A hand-built chart can satisfy the accounting checks above while still differing
-from what the migration produces, because **mappings resolve by account id, not
-by payment-method code**. Posting therefore works correctly, but the seed gate
-does not.
+- `isSystem` is `false` on `1210`–`1240` (the migration sets `true`).
+- Payment methods `CIMB` / `MAYBANK` do not exist by **code** (only by name, on
+  differently-coded rows).
+- `sortOrder` values differ from the seeded set.
 
-Observed on `erp_db` (2026-09-18) — every accounting check above passes, yet:
+The split matters: `isSystem` and a method's code have no bearing on which
+account a payment posts to — mappings resolve by account **id**. Treating them
+as blockers would stop an adoption that is otherwise correct and safe.
 
-| | Migration produces | `erp_db` has |
-|---|---|---|
-| Method codes | `CIMB`, `MAYBANK` | `BANK` (named "CIMB"), `BANK2` (named "Maybank") |
-| `isSystem` on `1210`–`1240` | `true` | **`false`** |
-| `sortOrder` | CIMB 8, MAYBANK 9, SHOPEE 6, TIKTOK 7 | BANK 2, BANK2 3, SHOPEE 4, TIKTOK 6 |
+## Adoption does not converge with a migrated database
 
-Consequences if adopted as-is:
+A hand-built chart can satisfy every *accounting* check above while still
+differing from what the migration produces, because **mappings resolve by
+account id, not by payment-method code**. Posting works correctly; the seed
+gate does not.
 
-- **`verify-seeds.sh` fails.** Its `payment method mappings` check expects
-  `CIMB>1200;MAYBANK>1210` and would see `BANK>1200;BANK2>1210`; the
-  `payment methods` check fails harder.
-- **`isSystem = false` leaves the accounts operator-deletable/renameable**,
-  where the migration marks them protected.
-
-Converge before recording the migration as applied (ids are preserved, so the
-existing mappings, journal history and group memberships all survive):
+**Derive the divergence from `verify-seeds.sh`, never from a snapshot.** That
+script's `payment methods` check (`verify-seeds.sh:153`) is the authority on
+what a migrated database contains. Comparing against a remembered diff is how
+an earlier revision of this document shipped a "convergence" transaction that
+did not converge. Run the comparison:
 
 ```bash
-pq "BEGIN;
-    UPDATE payment_methods SET code='CIMB',    \"sortOrder\"=8 WHERE code='BANK';
-    UPDATE payment_methods SET code='MAYBANK', \"sortOrder\"=9 WHERE code='BANK2';
-    UPDATE chart_of_account SET \"isSystem\"=true
-      WHERE code IN ('1210','1220','1230','1240');
-    COMMIT;"
+# What a migrated database has, per the gate:
+sed -n 153p backend/scripts/verify-seeds.sh
+
+# What this database has, same format:
+pq "SELECT string_agg(code||'|'||name||'|'||\"sortOrder\"||'|'||
+           \"useForPurchases\"||'|'||\"accountingChannel\", ';' ORDER BY code)
+      FROM payment_methods WHERE \"deletedAt\" IS NULL;"
 ```
 
-Check for a code collision first — renaming `BANK`→`CIMB` fails if a `CIMB`
-method already exists, since `payment_methods.code` is unique. If your
-environment's method codes differ from this table, adapt rather than copy.
+A migrated database has **nine** payment methods: the seven from
+`InitialSchema:213-222` (`CASH`, `BANK`, `TNG`, `CC`, `ATOME`, `SHOPEE`,
+`TIKTOK`) plus `CIMB` and `MAYBANK` from this migration.
 
-If you deliberately choose **not** to converge, record that decision: the
-database will permanently fail `verify-seeds.sh`, and a future reader must be
-able to tell that from an actual regression.
+### `erp_db` cannot be converged by a transaction, and should not be
+
+Observed 2026-09-18 (a snapshot — re-run the comparison above; this drifts):
+
+```
+ATOME|Atome|5   BANK|CIMB|2   BANK2|Maybank|3   CASH|Cash|1
+SHOPEE|Shopee|4 TIKTOK|TikTok|6
+```
+
+Only **six** methods, and `BANK` has been repurposed: its code is the seeded
+`Bank Transfer` row, but it now carries the name "CIMB". `TNG` and `CC` are
+gone. `SHOPEE` and `TIKTOK` sort orders differ. Accounts `1210`–`1240` have
+`isSystem = false`.
+
+**Do not try to rename `BANK` → `CIMB`.** That consumes the seeded row, so the
+database ends up *also* missing `BANK`/`Bank Transfer` — further from the gate
+than before, and `down()` throws, so the only unwind is a backup restore.
+Re-creating `TNG` and `CC` is equally wrong: an operator removed them
+deliberately, and this document is not the place to overrule that.
+
+For a database this far from seed, the supported path is to **adopt without
+converging** and record the decision:
+
+- Repair only what is safe and id-preserving:
+
+  ```bash
+  pq "UPDATE chart_of_account SET \"isSystem\" = true
+        WHERE code IN ('1210','1220','1230','1240');"
+  ```
+
+  This protects the accounts from casual rename/delete and changes nothing
+  else. It does not affect posting, mappings or history.
+
+- Accept that `verify-seeds.sh` will fail on this database, permanently, on its
+  `payment methods` and `payment method mappings` checks. **Record that in the
+  deployment notes**, with the output of the comparison above, so a future
+  reader can distinguish it from a real regression.
+
+`verify-seeds.sh` describes a *freshly seeded* database. A long-lived database
+whose payment methods were curated by hand is not one, and forcing it to look
+like one destroys operator intent.
+
+### If your database is close to seed
+
+Where the only differences are the two method codes — i.e. all nine methods are
+present and only `CIMB`/`MAYBANK` are named differently — a rename is safe and
+id-preserving. Check for collisions first, **including soft-deleted rows**,
+since the unique index on `code` has no partial predicate:
+
+```bash
+pq "SELECT code||'|'||name||'|deleted='||(\"deletedAt\" IS NOT NULL)
+      FROM payment_methods WHERE code IN ('CIMB','MAYBANK');"
+```
+
+Proceed only if that returns nothing. Statements in a single `pq` call are sent
+as one implicit transaction and abort together on error — **do not split them
+into separate `pq` calls**, which would lose atomicity and could leave a
+half-renamed method set:
+
+```bash
+pq "UPDATE payment_methods SET code='CIMB',    \"sortOrder\"=8 WHERE code='<old-cimb-code>';
+    UPDATE payment_methods SET code='MAYBANK', \"sortOrder\"=9 WHERE code='<old-maybank-code>';
+    UPDATE chart_of_account SET \"isSystem\"=true WHERE code IN ('1210','1220','1230','1240');"
+```
+
+Then re-run the comparison and confirm the strings match before continuing.
 
 Then record the migration as applied, in one transaction, so the chain does not
 try to run it again:

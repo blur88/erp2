@@ -159,9 +159,10 @@ echo "==> payment_method_account_mappings"
 # needs a gitignored env file and rebuilds a database per scenario.
 #
 # Neither gate runs in CI. ci.yml invokes this script nowhere — its only
-# mention (ci.yml:135) is a comment about what the bats suite covers, and bats
-# stubs docker and node, so it exercises preflight boundaries and never these
-# content checks. Both gates are run by hand; this is the cheaper of the two.
+# mention (ci.yml:135) is a comment about what the bats suite covers. That
+# suite does reach these content checks (verify-seeds.bats:81-95), but it stubs
+# docker, so the queries return nothing and the checks cannot be meaningfully
+# evaluated. Both gates are run by hand; this is the cheaper of the two.
 check "payment method mappings" \
   "ATOME>1240;CASH>1100;CIMB>1200;MAYBANK>1210;SHOPEE>1220;TIKTOK>1230" \
   "$(q "SELECT string_agg(pm.code||'>'||a.code, ';' ORDER BY pm.code) FROM payment_method_account_mappings m JOIN payment_methods pm ON pm.id = m.\"paymentMethodId\" JOIN chart_of_account a ON a.id = m.\"accountId\";")"
