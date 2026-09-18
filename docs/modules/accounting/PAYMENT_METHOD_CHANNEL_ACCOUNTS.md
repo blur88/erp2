@@ -29,7 +29,7 @@ Observed on `erp_db` (2026-09-18, migration not applied):
 | Fact | Value |
 |---|---|
 | Accounts present | `1200 CIMB`, `1210 Maybank`, `1220 Shopee`, `1230 TikTok`, `1240 Atome` |
-| Journal lines on them | 11 / 11 / 2 / 2 / 3 — **29 posted lines** |
+| Journal lines on them | 11 / 11 / 2 / 2 / 3 — **29 posted lines** (snapshot; re-run the query, this drifts) |
 | Balance-sheet groups | `1200`,`1210` → `BANK_BALANCE`; `1220`,`1230`,`1240` → `OTHER_CURRENT_ASSETS` |
 | Mappings | already correct, via hand-made methods `BANK`→1200 and `BANK2`→1210 |
 
@@ -56,30 +56,99 @@ When the existing accounts already *are* the intended ones — same codes, same
 names, correct group membership, correct mappings — the correct action is to
 adopt them and record the migration as applied. Nothing needs to be created.
 
-**Verify first** (read-only; run per environment):
+**Verify first** (read-only; run per environment, from the directory holding
+that environment's compose files).
+
+`$POSTGRES_USER` / `$POSTGRES_DB` are set **inside** the postgres container
+(`docker-compose.yml:8-9`) and are normally *not* exported in your host shell.
+Running `psql -U "$POSTGRES_USER"` directly therefore fails with
+`FATAL: role "root" does not exist`. Wrap the call in `sh -c` so the variables
+resolve container-side:
 
 ```bash
-docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "
-SELECT code||'|'||name FROM chart_of_account
- WHERE code IN ('1200','1210','1220','1230','1240') ORDER BY code;"
+pq() { docker compose exec -T postgres sh -c \
+  'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "$0"' "$1"; }
 
-docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "
-SELECT pm.code||' -> '||a.code
-  FROM payment_method_account_mappings m
-  JOIN payment_methods pm ON pm.id = m.\"paymentMethodId\"
-  JOIN chart_of_account a ON a.id = m.\"accountId\" ORDER BY pm.code;"
+# 1. Accounts: exactly one live row per code, with the expected name and shape.
+pq "SELECT code||'|'||name||'|isSystem='||\"isSystem\"||'|isPostable='||\"isPostable\"
+      FROM chart_of_account
+     WHERE code IN ('1200','1210','1220','1230','1240')
+       AND \"deletedAt\" IS NULL ORDER BY code;"
 
-docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "
-SELECT a.code||' -> '||g.\"groupLine\"
-  FROM balance_sheet_account_groups g
-  JOIN chart_of_account a ON a.id = g.\"accountId\" ORDER BY a.code;"
+# 2. Soft-deleted duplicates at those codes (must return nothing).
+pq "SELECT code||'|'||name FROM chart_of_account
+     WHERE code IN ('1200','1210','1220','1230','1240')
+       AND \"deletedAt\" IS NOT NULL ORDER BY code;"
+
+# 3. Mappings.
+pq "SELECT pm.code||' -> '||a.code
+      FROM payment_method_account_mappings m
+      JOIN payment_methods pm ON pm.id = m.\"paymentMethodId\"
+      JOIN chart_of_account a ON a.id = m.\"accountId\" ORDER BY pm.code;"
+
+# 4. Balance-sheet group membership.
+pq "SELECT a.code||' -> '||g.\"groupLine\"
+      FROM balance_sheet_account_groups g
+      JOIN chart_of_account a ON a.id = g.\"accountId\" ORDER BY a.code;"
+
+# 5. Settings wiring — bankAccountId is the fallback for every unmapped
+#    BANK-channel method, so a wrong value silently misroutes payments.
+pq "SELECT 'bank='||(SELECT code FROM chart_of_account WHERE id = s.\"bankAccountId\")
+         ||' cash='||(SELECT code FROM chart_of_account WHERE id = s.\"cashAccountId\")
+      FROM accounting_settings s;"
 ```
 
 Adopt only if **all** of these hold:
 
-- Each of `1200`–`1240` is exactly one live account with the expected name.
+- Each of `1200`–`1240` is exactly one **live** account with the expected name,
+  `isPostable = true` and `isSystem = true`, and query 2 returns nothing.
 - Every payment method in use maps to its intended account.
 - Each account's balance-sheet group membership is the intended one.
+- `bankAccountId` → `1200` and `cashAccountId` → `1100`.
+- Payment methods `CIMB` and `MAYBANK` exist **by code**, not merely by name.
+
+## Adoption does not by itself converge with a migrated database
+
+A hand-built chart can satisfy the accounting checks above while still differing
+from what the migration produces, because **mappings resolve by account id, not
+by payment-method code**. Posting therefore works correctly, but the seed gate
+does not.
+
+Observed on `erp_db` (2026-09-18) — every accounting check above passes, yet:
+
+| | Migration produces | `erp_db` has |
+|---|---|---|
+| Method codes | `CIMB`, `MAYBANK` | `BANK` (named "CIMB"), `BANK2` (named "Maybank") |
+| `isSystem` on `1210`–`1240` | `true` | **`false`** |
+| `sortOrder` | CIMB 8, MAYBANK 9, SHOPEE 6, TIKTOK 7 | BANK 2, BANK2 3, SHOPEE 4, TIKTOK 6 |
+
+Consequences if adopted as-is:
+
+- **`verify-seeds.sh` fails.** Its `payment method mappings` check expects
+  `CIMB>1200;MAYBANK>1210` and would see `BANK>1200;BANK2>1210`; the
+  `payment methods` check fails harder.
+- **`isSystem = false` leaves the accounts operator-deletable/renameable**,
+  where the migration marks them protected.
+
+Converge before recording the migration as applied (ids are preserved, so the
+existing mappings, journal history and group memberships all survive):
+
+```bash
+pq "BEGIN;
+    UPDATE payment_methods SET code='CIMB',    \"sortOrder\"=8 WHERE code='BANK';
+    UPDATE payment_methods SET code='MAYBANK', \"sortOrder\"=9 WHERE code='BANK2';
+    UPDATE chart_of_account SET \"isSystem\"=true
+      WHERE code IN ('1210','1220','1230','1240');
+    COMMIT;"
+```
+
+Check for a code collision first — renaming `BANK`→`CIMB` fails if a `CIMB`
+method already exists, since `payment_methods.code` is unique. If your
+environment's method codes differ from this table, adapt rather than copy.
+
+If you deliberately choose **not** to converge, record that decision: the
+database will permanently fail `verify-seeds.sh`, and a future reader must be
+able to tell that from an actual regression.
 
 Then record the migration as applied, in one transaction, so the chain does not
 try to run it again:

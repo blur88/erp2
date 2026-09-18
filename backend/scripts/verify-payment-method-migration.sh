@@ -107,7 +107,14 @@ run_migrations_before_ours() {
     mv "$stage/$ours" "src/database/migrations/$ours"
     trap - EXIT INT TERM
   )
+  # Capture the subshell's status BEFORE the cleanup, then return it. Without
+  # this, `rmdir ... || true` is the function's last command and becomes its
+  # return value — harmless while every call site is bare (set -e aborts at the
+  # subshell), but silently failure-swallowing the moment someone calls this in
+  # an `if`, `&&` or `||`, which disables set -e inside it.
+  local rc=$?
   rmdir "$stage" 2>/dev/null || true
+  return "$rc"
 }
 
 echo "==> V1: fresh installation succeeds"
