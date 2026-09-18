@@ -20,7 +20,22 @@ if [ -f "$ENV_FILE" ]; then
   . "$ENV_FILE"
   set +a
 fi
-DB_USERNAME="${DB_USERNAME:-erp_user}"
+# Same preflight as verify-baseline.sh:26-33. Without it, a missing
+# backend/.env.local falls through to createDatabaseConfig's allowDefaults
+# path, where DB_HOST defaults to "postgres" (database-config.factory.ts:95) —
+# unresolvable from the host. The gate still fails rather than false-greens,
+# but it fails as several unrelated-looking assertion errors instead of naming
+# the actual cause.
+export DB_HOST="${DB_HOST:-localhost}"
+export DB_PORT="${DB_PORT:-5432}"
+export DB_USERNAME="${DB_USERNAME:-erp_user}"
+
+if [ -z "${DB_PASSWORD:-}" ]; then
+  echo "DB_PASSWORD is not set. Provide it via backend/.env.local or the environment." >&2
+  exit 2
+fi
+export DB_PASSWORD
+
 TEST_DB="${TEST_DB:-erp_pmm_gate}"
 FAILED=0
 
@@ -66,22 +81,33 @@ run_migrations_before_ours() {
   # subshell so its EXIT trap is local and cannot clobber a script-wide trap;
   # the trap restores the file even when the pre-migration chain fails under
   # set -e, preserving the original non-zero status.
+  # Staged in a private mktemp dir, not a fixed /tmp path: two concurrent runs
+  # would otherwise collide on the same filename while a TRACKED source file is
+  # moved aside.
+  local stage
+  stage="$(mktemp -d "${TMPDIR:-/tmp}/pmm-stage.XXXXXX")"
   (
     restore_ours() {
       local status=$?
-      if [ -f "/tmp/$ours" ]; then
-        mv "/tmp/$ours" "src/database/migrations/$ours" || \
-          echo "  WARN could not restore $ours from /tmp" >&2
+      if [ -f "$stage/$ours" ]; then
+        mv "$stage/$ours" "src/database/migrations/$ours" || \
+          echo "  WARN could not restore $ours from $stage" >&2
       fi
+      rmdir "$stage" 2>/dev/null || true
       exit "$status"
     }
-    trap restore_ours EXIT
+    # INT/TERM as well as EXIT. Bash does NOT run an EXIT trap on an untrapped
+    # SIGINT, so a Ctrl-C during the ~30s migration:run below would otherwise
+    # strand a tracked migration file outside the repo — a state that looks
+    # exactly like an accidental deletion.
+    trap restore_ours EXIT INT TERM
 
-    mv "src/database/migrations/$ours" "/tmp/$ours"
+    mv "src/database/migrations/$ours" "$stage/$ours"
     DB_DATABASE="$TEST_DB" npm run migration:run >/tmp/pmm-migrate-pre.log 2>&1
-    mv "/tmp/$ours" "src/database/migrations/$ours"
-    trap - EXIT
+    mv "$stage/$ours" "src/database/migrations/$ours"
+    trap - EXIT INT TERM
   )
+  rmdir "$stage" 2>/dev/null || true
 }
 
 echo "==> V1: fresh installation succeeds"
@@ -94,8 +120,8 @@ if run_migrations; then
     "$(q "SELECT count(*) FROM chart_of_account WHERE code IN ('1210','1220','1230','1240') AND type='Asset' AND \"isPostable\" AND \"parentId\"=(SELECT id FROM chart_of_account WHERE code='1000');")"
   check "new methods"         "CIMB,MAYBANK" \
     "$(q "SELECT string_agg(code, ',' ORDER BY code) FROM payment_methods WHERE code IN ('CIMB','MAYBANK');")"
-  check "six mappings"        "CASH>1100,CIMB>1200,MAYBANK>1210,SHOPEE>1220,TIKTOK>1230,ATOME>1240" \
-    "$(q "SELECT string_agg(pm.code||'>'||a.code, ',' ORDER BY a.code) FROM payment_method_account_mappings m JOIN payment_methods pm ON pm.id=m.\"paymentMethodId\" JOIN chart_of_account a ON a.id=m.\"accountId\";")"
+  check "six mappings"        "ATOME>1240,CASH>1100,CIMB>1200,MAYBANK>1210,SHOPEE>1220,TIKTOK>1230" \
+    "$(q "SELECT string_agg(pm.code||'>'||a.code, ',' ORDER BY pm.code) FROM payment_method_account_mappings m JOIN payment_methods pm ON pm.id=m.\"paymentMethodId\" JOIN chart_of_account a ON a.id=m.\"accountId\";")"
 else
   echo "  FAIL migration:run failed on a clean database"; cat /tmp/pmm-migrate.log; FAILED=1
 fi
@@ -238,8 +264,8 @@ if run_migrations; then
   check "1200 still CIMB"  "CIMB" "$(q "SELECT name FROM chart_of_account WHERE code='1200';")"
   check "new accounts"     "1210,1220,1230,1240" \
     "$(q "SELECT string_agg(code, ',' ORDER BY code) FROM chart_of_account WHERE code IN ('1210','1220','1230','1240');")"
-  check "six mappings"     "CASH>1100,CIMB>1200,MAYBANK>1210,SHOPEE>1220,TIKTOK>1230,ATOME>1240" \
-    "$(q "SELECT string_agg(pm.code||'>'||a.code, ',' ORDER BY a.code) FROM payment_method_account_mappings m JOIN payment_methods pm ON pm.id=m.\"paymentMethodId\" JOIN chart_of_account a ON a.id=m.\"accountId\";")"
+  check "six mappings"     "ATOME>1240,CASH>1100,CIMB>1200,MAYBANK>1210,SHOPEE>1220,TIKTOK>1230" \
+    "$(q "SELECT string_agg(pm.code||'>'||a.code, ',' ORDER BY pm.code) FROM payment_method_account_mappings m JOIN payment_methods pm ON pm.id=m.\"paymentMethodId\" JOIN chart_of_account a ON a.id=m.\"accountId\";")"
 else
   echo "  FAIL migration:run failed with a pre-existing CIMB name"; cat /tmp/pmm-migrate.log; FAILED=1
 fi

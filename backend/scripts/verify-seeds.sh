@@ -153,6 +153,14 @@ check "payment methods" \
   "ATOME|Atome|5|true|BANK;BANK|Bank Transfer|2|true|BANK;CASH|Cash|1|true|CASH;CC|Credit Card|4|true|BANK;CIMB|CIMB|8|true|BANK;MAYBANK|Maybank|9|true|BANK;SHOPEE|Shopee|6|true|BANK;TIKTOK|TikTok|7|true|BANK;TNG|Touch n Go|3|true|BANK" \
   "$(q "SELECT string_agg(code||'|'||name||'|'||\"sortOrder\"||'|'||\"useForPurchases\"||'|'||\"accountingChannel\", ';' ORDER BY code) FROM payment_methods;")"
 
+echo "==> payment_method_account_mappings"
+# The mappings decide WHICH GL account every payment posts to (#1243), so they
+# belong in the CI-visible seed gate and not only in the disposable-database
+# migration gate, which needs a gitignored env file and is not part of CI.
+check "payment method mappings" \
+  "ATOME>1240;CASH>1100;CIMB>1200;MAYBANK>1210;SHOPEE>1220;TIKTOK>1230" \
+  "$(q "SELECT string_agg(pm.code||'>'||a.code, ';' ORDER BY pm.code) FROM payment_method_account_mappings m JOIN payment_methods pm ON pm.id = m.\"paymentMethodId\" JOIN chart_of_account a ON a.id = m.\"accountId\";")"
+
 echo "==> chart_of_account exact tuples"
 check "COA tuples" \
   "1000|Assets|Asset|-|true|false;1100|Cash|Asset|1000|true|true;1200|CIMB|Asset|1000|true|true;1210|Maybank|Asset|1000|true|true;1220|Shopee|Asset|1000|true|true;1230|TikTok|Asset|1000|true|true;1240|Atome|Asset|1000|true|true;1300|Inventory|Asset|1000|true|true;1400|Supplier Deposit|Asset|1000|true|true;2000|Liabilities|Liability|-|true|false;2100|Customer Deposit|Liability|2000|true|true;3000|Equity|Equity|-|true|false;3100|Owner Capital|Equity|3000|true|true;3200|Opening Balance Equity|Equity|3000|true|true;3300|Owner Drawings|Equity|3000|true|true;4000|Income|Income|-|true|false;4100|Sales Revenue|Income|4000|true|true;5000|Cost of Sales|Expense|-|true|false;5100|Cost of Goods Sold|Expense|5000|true|true;6000|Expenses|Expense|-|true|false;6990|Other Expenses|Expense|6000|true|true" \

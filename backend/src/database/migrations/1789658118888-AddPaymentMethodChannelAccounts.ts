@@ -38,10 +38,35 @@ export class AddPaymentMethodChannelAccounts1789658118888
         [code],
       );
       if (rows.length > 0) {
+        // Do NOT tell the operator to "rename or remove it and re-run".
+        // Both are traps on a database where this structure was built by
+        // hand, which is the likeliest reason to be reading this message:
+        //
+        //  - REMOVE is usually impossible. journal_entry_line.accountId is
+        //    ON DELETE NO ACTION (InitialSchema:164), so any posted account
+        //    cannot be deleted.
+        //  - RENAME "succeeds" and is worse. This migration would then create
+        //    a FRESH account at that code with a NEW id, while the existing
+        //    journal lines and the balance_sheet_account_groups rows — both
+        //    keyed by account ID, not code — stay behind on the renamed-away
+        //    account. The new account belongs to no group, and per #1239 a
+        //    non-zero balance outside every group yields an unmapped finding
+        //    and "Balance Check Unavailable".
+        //
+        // If the existing account IS already the intended one, the right
+        // outcome is to adopt it, not to recreate it: confirm its mapping in
+        // payment_method_account_mappings and mark this migration applied.
+        // See docs/modules/accounting/PAYMENT_METHOD_CHANNEL_ACCOUNTS.md.
         throw new Error(
           `AddPaymentMethodChannelAccounts: account ${code} already exists ` +
-            `(name: "${rows[0].name}"). This migration will not adopt or remap ` +
-            `an existing account. Rename or remove it, then re-run.`,
+            `(name: "${rows[0].name}"). This migration will not adopt or ` +
+            `remap an existing account, because structural conformance ` +
+            `cannot prove it is the intended one. Do NOT simply rename or ` +
+            `delete it: journal lines and balance_sheet_account_groups rows ` +
+            `are keyed by account id, so renaming strands them on the old ` +
+            `account and leaves the new one in no balance-sheet group. ` +
+            `See docs/modules/accounting/PAYMENT_METHOD_CHANNEL_ACCOUNTS.md ` +
+            `for the reconciliation procedure.`,
         );
       }
     }

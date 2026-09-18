@@ -781,6 +781,26 @@ describe('Payment method posting matrix (e2e)', () => {
           },
         ],
       }).expect(200);
+
+      // Pin WHAT the accepted payment did, not merely that it was accepted.
+      // This fixture method is UNMAPPED with accountingChannel 'BANK', so
+      // resolvePaymentAccount() falls back to the bank default
+      // (accounting-lookup.service.ts:56,63) — account 1200 CIMB. Asserting
+      // only the status code would leave that path silently exercised and
+      // unrecorded, so the day a useForPurchases guard is added this test
+      // would fail with a bare status mismatch and no record of the
+      // behaviour being replaced.
+      const payment = (await journalLinesFor(ds, order.orderNumber)).filter(
+        (l) => l.postingType === 'PURCHASE_PAYMENT',
+      );
+      const credit = payment.filter((l) => cents(l.credit) > 0);
+      expect(credit).toHaveLength(1);
+      expect(credit[0].accountCode).toBe('1200');
+      expect(cents(credit[0].credit)).toBe(2500);
+      const debit = payment.filter((l) => cents(l.debit) > 0);
+      expect(debit).toHaveLength(1);
+      expect(debit[0].accountCode).toBe('1400');
+      expectBalanced(payment);
     });
 
     it('never renders -0.00 in payment-facing values', async () => {
