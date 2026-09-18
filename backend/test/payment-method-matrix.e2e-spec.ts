@@ -589,21 +589,50 @@ describe('Payment method posting matrix (e2e)', () => {
     // Each asserts NO RESIDUE as well as the status code: a path that wrote its
     // payment row and then failed would also return 4xx, so the row counts are
     // what distinguish a clean rejection from a partial write.
+    /**
+     * A full CONTENT snapshot of everything a payment attempt could write:
+     * the payment rows and the payment journal lines, values included.
+     *
+     * Deliberately not a row count. A count proves only that nothing was
+     * ADDED — it cannot see an existing row whose amount or method was
+     * mutated in place, which is exactly what a partially-applied write
+     * would look like. Comparing the rows themselves is what makes
+     * "unchanged" an assertion rather than a claim.
+     *
+     * Ordered by id so the comparison is stable regardless of row order.
+     */
+    async function paymentSnapshot(
+      table: 'sales_order_payments' | 'vendor_payments',
+      column: 'salesOrderId' | 'purchaseOrderId',
+      orderId: string,
+      orderNumber: string,
+    ): Promise<{ rows: unknown[]; lines: unknown[] }> {
+      const rows = await ds.query(
+        `SELECT id, amount, "paymentMethodId", "paymentDate"
+           FROM "${table}" WHERE "${column}" = $1 ORDER BY id`,
+        [orderId],
+      );
+      const lines = (await journalLinesFor(ds, orderNumber))
+        .filter((l) => l.postingType.endsWith('_PAYMENT'))
+        .map((l) => ({
+          accountCode: l.accountCode,
+          debit: l.debit,
+          credit: l.credit,
+          postingType: l.postingType,
+        }));
+      return { rows, lines };
+    }
+
+    /** Nothing was written at all: no payment rows, no payment journal lines. */
     async function expectNoPaymentResidue(
       table: 'sales_order_payments' | 'vendor_payments',
       column: 'salesOrderId' | 'purchaseOrderId',
       orderId: string,
       orderNumber: string,
     ): Promise<void> {
-      const payments = await ds.query(
-        `SELECT count(*)::int AS n FROM "${table}" WHERE "${column}" = $1`,
-        [orderId],
-      );
-      expect(payments[0].n).toBe(0);
-      const lines = await journalLinesFor(ds, orderNumber);
-      expect(lines.filter((l) => l.postingType.endsWith('_PAYMENT'))).toEqual(
-        [],
-      );
+      const snap = await paymentSnapshot(table, column, orderId, orderNumber);
+      expect(snap.rows).toEqual([]);
+      expect(snap.lines).toEqual([]);
     }
 
     it('rejects a payment against a FULFILLED sales order (non-cancelled disallowed state)', async () => {
@@ -620,10 +649,13 @@ describe('Payment method posting matrix (e2e)', () => {
       // The payment routes differ because they set @HttpCode(HttpStatus.OK).
       await post(`/sales-orders/${order.id}/fulfill`, {}).expect(201);
 
-      const before = await ds.query(
-        `SELECT count(*)::int AS n FROM sales_order_payments WHERE "salesOrderId" = $1`,
-        [order.id],
+      const before = await paymentSnapshot(
+        'sales_order_payments',
+        'salesOrderId',
+        order.id,
+        order.orderNumber,
       );
+      expect(before.rows).toHaveLength(1); // guard: the snapshot is not vacuous
 
       await post(`/sales-orders/${order.id}/payments`, {
         amount: '10.00',
@@ -631,12 +663,15 @@ describe('Payment method posting matrix (e2e)', () => {
         paymentDate: '2026-09-17',
       }).expect(409);
 
-      // The pre-existing payment is untouched and no second row was written.
-      const after = await ds.query(
-        `SELECT count(*)::int AS n FROM sales_order_payments WHERE "salesOrderId" = $1`,
-        [order.id],
+      // The pre-existing payment row AND its journal line are byte-identical:
+      // no second payment, and nothing mutated in place.
+      const after = await paymentSnapshot(
+        'sales_order_payments',
+        'salesOrderId',
+        order.id,
+        order.orderNumber,
       );
-      expect(after[0].n).toBe(before[0].n);
+      expect(after).toEqual(before);
     });
 
     it('rejects a payment against a CANCELLED purchase order, leaving no residue', async () => {
@@ -677,13 +712,13 @@ describe('Payment method posting matrix (e2e)', () => {
       }).expect(200);
       await post(`/purchasing/orders/${order.id}/receive`, {}).expect(200);
 
-      const before = await ds.query(
-        `SELECT count(*)::int AS n FROM vendor_payments WHERE "purchaseOrderId" = $1`,
-        [order.id],
+      const before = await paymentSnapshot(
+        'vendor_payments',
+        'purchaseOrderId',
+        order.id,
+        order.orderNumber,
       );
-      const linesBefore = (await journalLinesFor(ds, order.orderNumber)).filter(
-        (l) => l.postingType === 'PURCHASE_PAYMENT',
-      ).length;
+      expect(before.rows).toHaveLength(1); // guard: the snapshot is not vacuous
 
       await post(`/purchasing/orders/${order.id}/payments`, {
         payments: [
@@ -695,17 +730,15 @@ describe('Payment method posting matrix (e2e)', () => {
         ],
       }).expect(400);
 
-      // Neither a second payment row nor a second payment journal line.
-      const after = await ds.query(
-        `SELECT count(*)::int AS n FROM vendor_payments WHERE "purchaseOrderId" = $1`,
-        [order.id],
+      // The existing payment row AND its journal line are byte-identical: no
+      // second payment, and nothing mutated in place.
+      const after = await paymentSnapshot(
+        'vendor_payments',
+        'purchaseOrderId',
+        order.id,
+        order.orderNumber,
       );
-      expect(after[0].n).toBe(before[0].n);
-      expect(
-        (await journalLinesFor(ds, order.orderNumber)).filter(
-          (l) => l.postingType === 'PURCHASE_PAYMENT',
-        ).length,
-      ).toBe(linesBefore);
+      expect(after).toEqual(before);
     });
 
     it('rejects an inactive payment method on a purchase order', async () => {
