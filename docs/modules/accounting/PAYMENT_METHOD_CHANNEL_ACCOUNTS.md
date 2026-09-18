@@ -40,7 +40,7 @@ Observed on `erp_db` (2026-09-18, migration not applied):
 | Fact | Value |
 |---|---|
 | Accounts present | `1200 CIMB`, `1210 Maybank`, `1220 Shopee`, `1230 TikTok`, `1240 Atome` |
-| Journal lines on them | 11 / 11 / 2 / 2 / 3 — **29 posted lines** (snapshot; re-run the query, this drifts) |
+| Journal lines on them | 11 / 11 / 2 / 2 / 3 — **29 posted lines** (snapshot; drifts — query 6 below re-runs it) |
 | Balance-sheet groups | `1200`,`1210` → `BANK_BALANCE`; `1220`,`1230`,`1240` → `OTHER_CURRENT_ASSETS` |
 | Mappings | already correct, via hand-made methods `BANK`→1200 and `BANK2`→1210 |
 
@@ -107,6 +107,13 @@ pq "SELECT a.code||' -> '||g.\"groupLine\"
 pq "SELECT 'bank='||(SELECT code FROM chart_of_account WHERE id = s.\"bankAccountId\")
          ||' cash='||(SELECT code FROM chart_of_account WHERE id = s.\"cashAccountId\")
       FROM accounting_settings s;"
+
+# 6. Journal lines per account — re-runs the snapshot in the table above.
+pq "SELECT a.code||'|lines='||count(l.id)
+      FROM chart_of_account a
+      LEFT JOIN journal_entry_line l ON l.\"accountId\" = a.id
+     WHERE a.code IN ('1200','1210','1220','1230','1240')
+     GROUP BY a.code ORDER BY a.code;"
 ```
 
 **Adoption blockers** — if any of these fails, do NOT adopt. Each one means the
@@ -126,7 +133,9 @@ next section says what to do about each:
 - `isSystem` is `false` on `1210`–`1240` (the migration sets `true`).
 - Payment methods `CIMB` / `MAYBANK` do not exist by **code** (only by name, on
   differently-coded rows).
-- `sortOrder` values differ from the seeded set.
+- `sortOrder` values differ from the seeded set. (Display ordering only; it is
+  not repaired, and is one of the permanent `verify-seeds.sh` divergences
+  below.)
 
 The split matters: `isSystem` and a method's code have no bearing on which
 account a payment posts to — mappings resolve by account **id**. Treating them
@@ -199,16 +208,35 @@ converging** and record the decision:
   does not suddenly fail on them. It does not affect posting, mappings or
   history.
 
-- Accept that `verify-seeds.sh` will fail on this database, permanently.
-  **Record the full output in the deployment notes** so a future reader can
-  distinguish the expected failures from a real regression.
+- Accept that `verify-seeds.sh` will fail on this database, permanently, and
+  **capture the failing set as a file** so later drift is a diff rather than a
+  recollection. See *Pinning the expected-failure set* below.
 
 **Do not run `verify-seeds.sh` against a live database expecting a pass.** It
 was written for `erp_gate_candidate` — a database `verify-baseline.sh` builds
 fresh from migrations and never boots — so several of its checks cannot pass on
 any database that has been used, adopted or not. Verified by running it against
-an adopted clone of `erp_db` (2026-09-18): **seven** checks fail, in two
-distinct classes.
+an adopted clone of `erp_db` (2026-09-18): **seven** of its **13** checks fail,
+in two distinct classes.
+
+**Run it only AFTER the `migrations` INSERT below, and pass `CAND_DB`:**
+
+```bash
+CAND_DB=erp_db DB_USERNAME=erp_user bash backend/scripts/verify-seeds.sh
+```
+
+`CAND_DB` defaults to `erp_gate_candidate` (`verify-seeds.sh:21`), so without it
+you are checking the wrong database entirely. And **before** the INSERT the
+script's preflight aborts with `exit 2` before running a single content check:
+
+```
+PREREQUISITE NOT MET: database 'erp_db' is stale — expected 18 migrations,
+candidate has 17.
+```
+
+That is this migration not yet being recorded — not a fault, and not something
+`verify-baseline.sh` will fix despite what the message suggests. None of the
+seven failures below is observable until the INSERT has been made.
 
 *Unrelated to this migration.* Measured by running the same gate against a
 **freshly migrated and booted** database, where exactly **one** check fails — so
@@ -231,6 +259,55 @@ anything beyond that is caused by the database's own history, not by adoption:
 Everything else passes, including `chart_of_account`, `COA tuples` and
 `settings mappings` — which is the meaningful signal that adoption left the
 chart correct.
+
+### Pinning the expected-failure set
+
+Recording "seven failures" in prose is not enough. A future reader comparing by
+eye has no prompt to notice an **eighth**, and the count is fragile in a silent
+direction: three of the 13 checks (`payment methods`, `payment method
+mappings`, `COA tuples`) are exact-string comparisons, so any later migration
+that adds a seed row changes an expected string and moves the count. CLAUDE.md
+records this exact trap for a different gate — *stale counts train readers to
+wave through a mismatch, the exact reflex that would miss the real failure*
+(#1164).
+
+Capture the set once, at adoption time, and commit it next to the deployment
+notes:
+
+```bash
+CAND_DB=erp_db DB_USERNAME=erp_user bash backend/scripts/verify-seeds.sh 2>&1 \
+  | grep '^  FAIL' | sed 's/ — expected.*//' | sed 's/^ *//' | sort \
+  > erp_db-seed-baseline.txt
+```
+
+Then every later run is a diff, not a recollection:
+
+```bash
+diff <(CAND_DB=erp_db DB_USERNAME=erp_user bash backend/scripts/verify-seeds.sh 2>&1 \
+         | grep '^  FAIL' | sed 's/ — expected.*//' | sed 's/^ *//' | sort) \
+     erp_db-seed-baseline.txt
+```
+
+Empty diff means the divergence is unchanged. **Any line in that diff is new and
+must be explained** — do not assume it is benign because the count still looks
+familiar. Stripping the `— expected [...], got [...]` tail keeps the baseline
+stable against drifting row counts while still catching a new *check name*.
+
+The set captured on the adopted clone (2026-09-18, migration set ending
+`1789658118888`) was:
+
+```
+FAIL company_settings (lazy)
+FAIL doc numbers
+FAIL payment method mappings
+FAIL payment methods
+FAIL payment_methods
+FAIL print_settings (lazy)
+FAIL users (no default admin)
+```
+
+If your set differs from this in **any** way — count or names — re-derive it
+rather than assuming the difference is benign.
 
 `verify-seeds.sh` describes a *freshly seeded* database. A long-lived database
 whose payment methods were curated by hand is not one, and forcing it to look
