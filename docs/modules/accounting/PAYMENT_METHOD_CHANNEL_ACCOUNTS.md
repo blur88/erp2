@@ -21,11 +21,13 @@ step, the `1200` rename included, and leaves no `migrations` row.
 **What it does NOT do: balance-sheet group membership.** The migration creates
 no `balance_sheet_account_groups` rows. `1200` keeps its `N38`/`BANK_BALANCE`
 role because its id is preserved, but `1210`–`1240` are created in **no group**.
-Per #1239 an account outside every group with a non-zero balance produces an
-unmapped finding and **Balance Check Unavailable**, so after a fresh migration
-those four accounts need their group membership assigned in
-`/settings` → Balance Sheet groups before they carry balances. On `erp_db` the
-membership already exists because an operator created it by hand.
+Per #1239 an account that contributes to **no LHDN line** — neither via a group
+nor as a settings key's target — produces an unmapped finding and **Balance
+Check Unavailable** when it carries a non-zero balance. `1210`–`1240` are
+neither, so after a fresh migration they need group membership assigned at
+**`/accounting/settings`** → Balance Sheet groups before they carry balances.
+On `erp_db` the membership already exists because an operator created it by
+hand.
 
 ## It is EXPECTED to abort on a hand-built database
 
@@ -187,8 +189,15 @@ converging** and record the decision:
         WHERE code IN ('1210','1220','1230','1240');"
   ```
 
-  This protects the accounts from casual rename/delete and changes nothing
-  else. It does not affect posting, mappings or history.
+  This changes **no behaviour today**: `isSystem` is read in exactly one place
+  (`accounting-seeder.service.ts:220` `validateHierarchy`), which only covers
+  `STANDARD_COA_CHILDREN` — and `1210`–`1240` are deliberately not in that
+  constant. `chart-of-account.service.ts` has no `isSystem` guard and no delete
+  method at all, so the column protects nothing at present. The UPDATE is worth
+  running anyway for forward-compatibility: it aligns these rows with what the
+  migration produces, so a future guard, or a future `standard-coa.ts` entry,
+  does not suddenly fail on them. It does not affect posting, mappings or
+  history.
 
 - Accept that `verify-seeds.sh` will fail on this database, permanently, on its
   `payment methods` and `payment method mappings` checks. **Record that in the
@@ -199,11 +208,21 @@ converging** and record the decision:
 whose payment methods were curated by hand is not one, and forcing it to look
 like one destroys operator intent.
 
-### If your database is close to seed
+**→ This branch is done. Skip the next section entirely — it does not apply to
+you — and go to *Both paths end here: record the migration as applied*.**
 
-Where the only differences are the two method codes — i.e. all nine methods are
-present and only `CIMB`/`MAYBANK` are named differently — a rename is safe and
-id-preserving. Check for collisions first, **including soft-deleted rows**,
+### Alternative: if your database is close to seed (`erp_db` is NOT)
+
+**Do not run anything in this section on a database like `erp_db`.** It applies
+only where the comparison above shows **all nine** methods present and the only
+difference is that two of them carry the `CIMB`/`MAYBANK` *names* under
+different `code` values. On `erp_db` the rename below would consume the seeded
+`Bank Transfer` row — the failure described at the top of the previous section.
+
+Where that precondition does hold — all nine methods present, the `CIMB`/
+`MAYBANK` rows differing only in their `code` — a rename is safe and
+id-preserving. The recipe changes `code` and `sortOrder`; it does not touch
+`name`. Check for collisions first, **including soft-deleted rows**,
 since the unique index on `code` has no partial predicate:
 
 ```bash
@@ -222,10 +241,18 @@ pq "UPDATE payment_methods SET code='CIMB',    \"sortOrder\"=8 WHERE code='<old-
     UPDATE chart_of_account SET \"isSystem\"=true WHERE code IN ('1210','1220','1230','1240');"
 ```
 
-Then re-run the comparison and confirm the strings match before continuing.
+Then re-run the comparison and confirm the strings match.
 
-Then record the migration as applied, in one transaction, so the chain does not
-try to run it again:
+**→ Now go to *Both paths end here: record the migration as applied*.**
+
+## Both paths end here: record the migration as applied
+
+Whichever branch you took — adopt-without-converging, or the close-to-seed
+rename — this step is **mandatory**. Without it the migration is still pending,
+so every subsequent deploy re-runs it, it aborts again on the same conflict, and
+nothing you did above takes effect on the chain.
+
+Record it in one transaction, so the chain does not try to run it again:
 
 ```sql
 BEGIN;
