@@ -599,7 +599,10 @@ describe('Payment method posting matrix (e2e)', () => {
      * would look like. Comparing the rows themselves is what makes
      * "unchanged" an assertion rather than a claim.
      *
-     * Ordered by id so the comparison is stable regardless of row order.
+     * Both halves come back in a total order, so the comparison cannot fail on
+     * row order alone: payment rows ORDER BY id here, and journal lines by
+     * (entry createdAt, line createdAt, line id) inside journalLinesFor() —
+     * the trailing id matters because two lines of one entry share a timestamp.
      */
     async function paymentSnapshot(
       table: 'sales_order_payments' | 'vendor_payments',

@@ -67,7 +67,17 @@ export function cents(v: string | number): number {
   return sign === "-" ? -value : value;
 }
 
-/** Every journal line for one sourceRef this suite owns. */
+/**
+ * Every journal line for one sourceRef this suite owns.
+ *
+ * `l.id` is the tie-breaker, not decoration. The two lines of one entry are
+ * inserted by the same statement, so their `createdAt` values are routinely
+ * identical, and Postgres guarantees no order among rows tied on every ORDER BY
+ * key. Without a total order the pair can come back swapped between two reads of
+ * unchanged data, which would fail the before/after snapshot comparison in the
+ * rejection tests for no real reason. The primary key is unique, so adding it
+ * makes the order total.
+ */
 export async function journalLinesFor(
   ds: DataSource,
   sourceRef: string,
@@ -79,7 +89,7 @@ export async function journalLinesFor(
        JOIN journal_entry e ON e.id = l."entryId"
        JOIN chart_of_account a ON a.id = l."accountId"
       WHERE e."sourceRef" = $1
-      ORDER BY e."createdAt", l."createdAt"`,
+      ORDER BY e."createdAt", l."createdAt", l.id`,
     [sourceRef],
   );
 }
