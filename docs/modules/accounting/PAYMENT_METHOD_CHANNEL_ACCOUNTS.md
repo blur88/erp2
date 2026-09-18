@@ -210,13 +210,15 @@ any database that has been used, adopted or not. Verified by running it against
 an adopted clone of `erp_db` (2026-09-18): **seven** checks fail, in two
 distinct classes.
 
-*Expected on any used database, unrelated to this migration:*
+*Unrelated to this migration.* Measured by running the same gate against a
+**freshly migrated and booted** database, where exactly **one** check fails — so
+anything beyond that is caused by the database's own history, not by adoption:
 
-| Check | Why |
-|---|---|
-| `users (no default admin)` | expects 0; any real database has users |
-| `company_settings (lazy)` / `print_settings (lazy)` | expect 0; created lazily on first use |
-| `doc numbers` | expects pristine sequences (`nextNumber` 1, no reset year) |
+| Check | Fails on | Why |
+|---|---|---|
+| `users (no default admin)` | **any booted database** | expects 0; the seeder creates `admin` on first boot |
+| `company_settings (lazy)` / `print_settings (lazy)` | a database with saved settings | expect 0; created lazily on first use, so a fresh boot still passes |
+| `doc numbers` | a database with transactions | expects pristine sequences (`nextNumber` 1, no reset year) |
 
 *Expected on a hand-built chart, specific to this migration:*
 
@@ -234,49 +236,42 @@ chart correct.
 whose payment methods were curated by hand is not one, and forcing it to look
 like one destroys operator intent.
 
-**→ This branch is done. Skip the next section entirely — it does not apply to
-you — and go to *Both paths end here: record the migration as applied*.**
+**→ This branch is done. Go to *Record the migration as applied* below.** (The
+next section is background on a recipe that used to be here and was removed; it
+prescribes no action.)
 
-### Alternative: if your database is close to seed (`erp_db` is NOT)
+### Why there is no "just rename the method codes" recipe
 
-**Do not run anything in this section on a database like `erp_db`.** It applies
-only where the comparison above shows **all nine** methods present and the only
-difference is that two of them carry the `CIMB`/`MAYBANK` *names* under
-different `code` values. On `erp_db` the rename below would consume the seeded
-`Bank Transfer` row — the failure described at the top of the previous section.
+An earlier revision of this document carried one, for a database "close to
+seed": all nine methods present, with the `CIMB`/`MAYBANK` names on differently
+-coded rows. **That state cannot exist**, so the recipe was removed rather than
+tested. Proven on disposable databases 2026-09-18:
 
-Where that precondition does hold — all nine methods present, the `CIMB`/
-`MAYBANK` rows differing only in their `code` — a rename is safe and
-id-preserving. The recipe changes `code` and `sortOrder`; it does not touch
-`name`. Check for collisions first, **including soft-deleted rows**,
-since the unique index on `code` has no partial predicate:
+- The "nine" are the seven from `InitialSchema` **plus `CIMB` and `MAYBANK`,
+  which this migration creates**. A database that has not run the migration has
+  **seven** methods (verified: `ATOME,BANK,CASH,CC,SHOPEE,TIKTOK,TNG`) and no
+  `CIMB`/`MAYBANK` at all.
+- A database that *does* have nine has already applied the migration — so it is
+  not reading this document.
+- In that state the collision query returns `CIMB` and `MAYBANK` by code, and
+  the recipe's own precondition ("proceed only if that returns nothing")
+  forbids running it.
 
-```bash
-pq "SELECT code||'|'||name||'|deleted='||(\"deletedAt\" IS NOT NULL)
-      FROM payment_methods WHERE code IN ('CIMB','MAYBANK');"
-```
+The preconditions were therefore mutually contradictory: satisfying the method
+count required a database that failed the collision check. Any operator who
+reached that recipe would have been in a state its own guard rejected — and if
+they had skipped the guard, the `UPDATE ... SET code='CIMB'` would have hit the
+unique index, or worse, consumed a seeded row.
 
-Proceed only if that returns nothing. Statements in a single `pq` call are sent
-as one implicit transaction and abort together on error — **do not split them
-into separate `pq` calls**, which would lose atomicity and could leave a
-half-renamed method set:
+If a future database genuinely needs method codes changed, treat it as its own
+analysis. Do not reconstruct a generic recipe from this document.
 
-```bash
-pq "UPDATE payment_methods SET code='CIMB',    \"sortOrder\"=8 WHERE code='<old-cimb-code>';
-    UPDATE payment_methods SET code='MAYBANK', \"sortOrder\"=9 WHERE code='<old-maybank-code>';
-    UPDATE chart_of_account SET \"isSystem\"=true WHERE code IN ('1210','1220','1230','1240');"
-```
+## Record the migration as applied
 
-Then re-run the comparison and confirm the strings match.
-
-**→ Now go to *Both paths end here: record the migration as applied*.**
-
-## Both paths end here: record the migration as applied
-
-Whichever branch you took — adopt-without-converging, or the close-to-seed
-rename — this step is **mandatory**. Without it the migration is still pending,
-so every subsequent deploy re-runs it, it aborts again on the same conflict, and
-nothing you did above takes effect on the chain.
+This step is **mandatory** and is where the adoption branch ends. Without it the
+migration is still pending, so every subsequent deploy re-runs it, it aborts
+again on the same conflict, and nothing you did above takes effect on the
+chain.
 
 Record it in one transaction, so the chain does not try to run it again:
 
