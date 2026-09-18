@@ -199,10 +199,36 @@ converging** and record the decision:
   does not suddenly fail on them. It does not affect posting, mappings or
   history.
 
-- Accept that `verify-seeds.sh` will fail on this database, permanently, on its
-  `payment methods` and `payment method mappings` checks. **Record that in the
-  deployment notes**, with the output of the comparison above, so a future
-  reader can distinguish it from a real regression.
+- Accept that `verify-seeds.sh` will fail on this database, permanently.
+  **Record the full output in the deployment notes** so a future reader can
+  distinguish the expected failures from a real regression.
+
+**Do not run `verify-seeds.sh` against a live database expecting a pass.** It
+was written for `erp_gate_candidate` — a database `verify-baseline.sh` builds
+fresh from migrations and never boots — so several of its checks cannot pass on
+any database that has been used, adopted or not. Verified by running it against
+an adopted clone of `erp_db` (2026-09-18): **seven** checks fail, in two
+distinct classes.
+
+*Expected on any used database, unrelated to this migration:*
+
+| Check | Why |
+|---|---|
+| `users (no default admin)` | expects 0; any real database has users |
+| `company_settings (lazy)` / `print_settings (lazy)` | expect 0; created lazily on first use |
+| `doc numbers` | expects pristine sequences (`nextNumber` 1, no reset year) |
+
+*Expected on a hand-built chart, specific to this migration:*
+
+| Check | Expected vs actual on `erp_db` |
+|---|---|
+| `payment_methods` count | 9 vs 6 |
+| `payment methods` values | seeded nine vs the six curated rows |
+| `payment method mappings` | `CIMB>1200;MAYBANK>1210` vs `BANK>1200;BANK2>1210` |
+
+Everything else passes, including `chart_of_account`, `COA tuples` and
+`settings mappings` — which is the meaningful signal that adoption left the
+chart correct.
 
 `verify-seeds.sh` describes a *freshly seeded* database. A long-lived database
 whose payment methods were curated by hand is not one, and forcing it to look
