@@ -1029,6 +1029,81 @@ describe('PurchaseOrderService', () => {
     });
   });
 
+  describe('useForPurchases eligibility (#1246)', () => {
+    const lockedPO = {
+      id: 'po-1',
+      orderNumber: 'PO-001',
+      status: PurchaseOrderStatus.DRAFT,
+      supplierId: 'sup-1',
+      totalAmount: '100.0000',
+    } as unknown as PurchaseOrder;
+
+    it('rejects a new PO payment using an active method with useForPurchases=false', async () => {
+      // The lookup filters on useForPurchases: true, so an ineligible method
+      // yields null and is indistinguishable from "not found" at this layer.
+      paymentMethodRepository.findOne.mockResolvedValue(null);
+      const accountingPort = module.get(ACCOUNTING_POSTING_PORT);
+
+      await expect(
+        service.recordOrderPayments('po-1', [
+          { paymentMethodId: 'method-no-purchase', amount: '25.0000', paymentDate: '2026-09-17' },
+        ]),
+      ).rejects.toThrow(/not found, inactive, or not enabled for purchases/i);
+
+      // Preflight rejection: nothing was written and no transaction was opened.
+      expect(accountingPort.postPurchasePayment).not.toHaveBeenCalled();
+      expect(vendorPaymentService.create).not.toHaveBeenCalled();
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('queries the new-payment lookup with useForPurchases: true', async () => {
+      paymentMethodRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.recordOrderPayments('po-1', [
+          { paymentMethodId: 'method-1', amount: '25.0000', paymentDate: '2026-09-17' },
+        ]),
+      ).rejects.toThrow();
+
+      expect(paymentMethodRepository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: 'method-1',
+            isActive: true,
+            useForPurchases: true,
+          }),
+        }),
+      );
+    });
+
+    it('still accepts a refund using that same ineligible method (#1096)', async () => {
+      // A method whose flag was cleared AFTER a payment was recorded must remain
+      // usable to unwind that payment. The refund lookup must NOT filter on
+      // useForPurchases, so an active-but-ineligible method resolves here.
+      paymentMethodRepository.findOne.mockResolvedValue({
+        id: 'method-no-purchase',
+        isActive: true,
+        useForPurchases: false,
+        accountingChannel: 'BANK',
+      } as any);
+      wireTx({ lockedPO });
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([] as any);
+      jest.spyOn(service as any, 'findOne').mockResolvedValue({ id: 'po-1' } as any);
+      const accountingPort = module.get(ACCOUNTING_POSTING_PORT);
+
+      await service.recordRefunds('po-1', [
+        { paymentMethodId: 'method-no-purchase', amount: '10.0000', paymentDate: '2026-09-17' },
+      ] as any);
+
+      expect(paymentMethodRepository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({ useForPurchases: expect.anything() }),
+        }),
+      );
+      expect(accountingPort.postPurchaseRefund).toHaveBeenCalled();
+    });
+  });
+
   describe('duplicateOrder', () => {
     it('builds a CreatePurchaseOrderDto copying supplier, notes, and full item discount shape, then calls create', async () => {
       const original = {

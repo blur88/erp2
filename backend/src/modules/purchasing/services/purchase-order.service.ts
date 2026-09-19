@@ -902,9 +902,13 @@ export class PurchaseOrderService extends BaseCrudService<
     for (const line of payments) {
       if (methodMap.has(line.paymentMethodId)) continue;
       const method = await this.paymentMethodRepository.findOne({
-        where: { id: line.paymentMethodId, isActive: true },
+        where: { id: line.paymentMethodId, isActive: true, useForPurchases: true } as any,
       });
-      if (!method) throw new BadRequestException(`Payment method ${line.paymentMethodId} not found or inactive`);
+      if (!method) {
+        throw new BadRequestException(
+          `Payment method ${line.paymentMethodId} not found, inactive, or not enabled for purchases`,
+        );
+      }
       methodMap.set(line.paymentMethodId, method);
     }
 
