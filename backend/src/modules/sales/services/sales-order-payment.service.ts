@@ -352,11 +352,25 @@ export class SalesOrderPaymentService {
     existing: SalesOrderPayment[],
     incomingMinor: bigint,
   ): void {
-    const projectedNetMinor = sumMinor(existing.map((r) => r.amount)) + incomingMinor;
+    const persistedNetMinor = sumMinor(existing.map((r) => r.amount));
     const totalMinor = toMinorUnits(order.totalAmount);
-    if (projectedNetMinor > totalMinor) {
+    const remainingMinor = totalMinor - persistedNetMinor;
+
+    // Already settled or past the total — reachable when an order's total is
+    // reduced after payment, the retained route to OVERPAID. Reporting a
+    // negative "remaining balance" here is not actionable, so name the state.
+    // remainingMinor keeps its sign; only the reported overage is absolute.
+    if (remainingMinor <= 0n) {
       throw new BadRequestException(
-        `Payment amount (${formatScale4(incomingMinor)}) exceeds remaining balance (${formatScale4(totalMinor - sumMinor(existing.map((r) => r.amount)))})`,
+        remainingMinor === 0n
+          ? 'This order is already fully paid. No additional payment can be recorded.'
+          : `This order is already overpaid by ${formatScale4(-remainingMinor)}. No additional payment can be recorded.`,
+      );
+    }
+
+    if (persistedNetMinor + incomingMinor > totalMinor) {
+      throw new BadRequestException(
+        `Payment amount (${formatScale4(incomingMinor)}) exceeds remaining balance (${formatScale4(remainingMinor)})`,
       );
     }
   }

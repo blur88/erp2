@@ -540,9 +540,67 @@ describe('SalesOrderPaymentService', () => {
           paymentMethodId: 'method-1',
           paymentDate: '2026-09-17',
         }),
-      ).rejects.toThrow(/exceeds remaining balance/i);
+        // Pin both figures, not just the phrase: the reported "remaining
+        // balance" is what the user acts on, and it is computed separately
+        // from the comparison that rejects. 100.0000 total - 40.0000 persisted.
+      ).rejects.toThrow('Payment amount (60.0001) exceeds remaining balance (60.0000)');
 
       // The rejection must leave no trace: no journal posting, no status write.
+      expect(accountingPort.postSalesPayment).not.toHaveBeenCalled();
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('names the state when the order is already fully paid', async () => {
+      // Remaining is exactly zero: a negative "remaining balance" figure would
+      // not be actionable, so the message names the state instead.
+      const order = mockOrder({ status: SalesOrderStatus.DRAFT, totalAmount: '100.0000' });
+      orderRepo.findOne.mockResolvedValue(order);
+      methodRepo.findOne.mockResolvedValue(mockMethod());
+      const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
+      const manager = buildMockManager(
+        [] as SalesOrderPayment[],
+        update,
+        order,
+        [{ amount: '100.0000' }] as SalesOrderPayment[],
+      );
+      (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
+
+      await expect(
+        service.recordPayment(order.id, {
+          amount: '0.0001',
+          paymentMethodId: 'method-1',
+          paymentDate: '2026-09-17',
+        }),
+      ).rejects.toThrow('This order is already fully paid. No additional payment can be recorded.');
+
+      expect(accountingPort.postSalesPayment).not.toHaveBeenCalled();
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('reports the overage when the order is already overpaid', async () => {
+      // Reachable via the RETAINED route: a total reduced to 100.00 after
+      // 170.00 was paid. The overage is reported as a positive figure; the
+      // internal remaining balance keeps its sign.
+      const order = mockOrder({ status: SalesOrderStatus.DRAFT, totalAmount: '100.0000' });
+      orderRepo.findOne.mockResolvedValue(order);
+      methodRepo.findOne.mockResolvedValue(mockMethod());
+      const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
+      const manager = buildMockManager(
+        [] as SalesOrderPayment[],
+        update,
+        order,
+        [{ amount: '170.0000' }] as SalesOrderPayment[],
+      );
+      (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
+
+      await expect(
+        service.recordPayment(order.id, {
+          amount: '10.0000',
+          paymentMethodId: 'method-1',
+          paymentDate: '2026-09-17',
+        }),
+      ).rejects.toThrow('This order is already overpaid by 70.0000. No additional payment can be recorded.');
+
       expect(accountingPort.postSalesPayment).not.toHaveBeenCalled();
       expect(update).not.toHaveBeenCalled();
     });
