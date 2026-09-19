@@ -222,8 +222,14 @@ in two distinct classes.
 **Run it only AFTER the `migrations` INSERT below, and pass `CAND_DB`:**
 
 ```bash
-CAND_DB=erp_db DB_USERNAME=erp_user bash backend/scripts/verify-seeds.sh
+(cd backend && CAND_DB=erp_db DB_USERNAME=erp_user bash scripts/verify-seeds.sh)
 ```
+
+**Run it from `backend/`.** The script resolves `../docker-compose.yml`
+(`verify-seeds.sh:25,34`) and `.env.local` relative to the working directory, so
+from the repo root it looks for a compose file one level above the repo and
+aborts with `cannot query PostgreSQL to check whether 'erp_db' exists` — a
+message that looks like a database problem but is a working-directory one.
 
 `CAND_DB` defaults to `erp_gate_candidate` (`verify-seeds.sh:21`), so without it
 you are checking the wrong database entirely. And **before** the INSERT the
@@ -271,27 +277,80 @@ records this exact trap for a different gate — *stale counts train readers to
 wave through a mismatch, the exact reflex that would miss the real failure*
 (#1164).
 
-Capture the set once, at adoption time, and commit it next to the deployment
-notes:
+**A naive `gate | grep FAIL | sort > baseline` is unsafe**, and an earlier
+revision of this document shipped exactly that. If the preflight aborts
+(`exit 2`), the gate emits **no** `FAIL` lines, so the baseline is written
+**empty**; a later run that also aborts produces an empty diff and **exit 0**,
+reporting "no drift" when the checks never ran. `sort` is last in the pipe, so
+its exit status masks the gate's. Confirmed with a shell mock: empty baseline,
+`DIFF_EXIT=0`. This is the same shape as a suite reporting `Tests: 0 total` and
+being read as green.
+
+So the capture must separate the log from the status, reject anything that is
+not "checks ran and some failed", and validate the names before saving. Save
+this as `capture-seed-baseline.sh` next to the deployment notes:
 
 ```bash
-CAND_DB=erp_db DB_USERNAME=erp_user bash backend/scripts/verify-seeds.sh 2>&1 \
-  | grep '^  FAIL' | sed 's/ — expected.*//' | sed 's/^ *//' | sort \
+#!/usr/bin/env bash
+# Capture erp_db's expected verify-seeds.sh failures. Refuses to write a
+# baseline unless the gate actually ran its checks.
+set -uo pipefail
+REPO="${REPO:-/home/blur/erp2}"
+log=$(mktemp)
+
+# MUST run from backend/: the script resolves ../docker-compose.yml and
+# .env.local relative to its working directory.
+(cd "$REPO/backend" && CAND_DB=erp_db DB_USERNAME=erp_user \
+   bash scripts/verify-seeds.sh) >"$log" 2>&1
+status=$?
+
+# 1 = checks ran, some failed (the expected state for this database).
+# 2 = preflight aborted — nothing was checked. 0 = everything passed, which
+# would itself be a surprise here and must not overwrite the baseline.
+if [ "$status" -ne 1 ]; then
+  echo "REFUSED: gate exited $status; expected 1 (checks ran, some failed)." >&2
+  cat "$log" >&2
+  rm -f "$log"
+  exit 1
+fi
+
+grep '^  FAIL' "$log" | sed 's/ — expected.*//' | sed 's/^ *//' | sort \
   > erp_db-seed-baseline.txt
+rm -f "$log"
+
+# Validate against the reviewed set before trusting the file.
+if diff -q erp_db-seed-baseline.txt erp_db-seed-expected.txt >/dev/null 2>&1; then
+  echo "OK: baseline matches the reviewed set ($(wc -l < erp_db-seed-baseline.txt) names)."
+else
+  echo "DRIFT: baseline differs from the reviewed set — investigate before" >&2
+  echo "accepting it. Diff against erp_db-seed-expected.txt:" >&2
+  diff erp_db-seed-baseline.txt erp_db-seed-expected.txt >&2 || true
+  exit 2   # non-zero: drift must not be scriptable past as success
+fi
 ```
 
-Then every later run is a diff, not a recollection:
+Write the reviewed seven names to `erp_db-seed-expected.txt` (the block below)
+so that validation has something to compare against.
+
+Every later check re-runs the same script and diffs:
 
 ```bash
-diff <(CAND_DB=erp_db DB_USERNAME=erp_user bash backend/scripts/verify-seeds.sh 2>&1 \
-         | grep '^  FAIL' | sed 's/ — expected.*//' | sed 's/^ *//' | sort) \
-     erp_db-seed-baseline.txt
+bash capture-seed-baseline.sh   # refuses if the gate did not run its checks
 ```
 
-Empty diff means the divergence is unchanged. **Any line in that diff is new and
-must be explained** — do not assume it is benign because the count still looks
-familiar. Stripping the `— expected [...], got [...]` tail keeps the baseline
-stable against drifting row counts while still catching a new *check name*.
+Exit statuses, all three verified against shell mocks (2026-09-19):
+
+| Exit | Meaning |
+|---|---|
+| `0` | checks ran, failures match the reviewed seven — the expected steady state |
+| `1` | **the gate did not run its checks** (preflight abort, or everything passed). No baseline is written. Investigate; this is **not** a pass |
+| `2` | checks ran but the failing set **drifted** from the reviewed one. The differing names are printed |
+
+Only `0` is a pass. Neither `1` nor `2` may be scripted past. Otherwise, **any line where the new baseline differs from the
+reviewed set is new and must be explained** — do not assume it is benign
+because the count still looks familiar. Stripping the `— expected [...], got
+[...]` tail keeps the baseline stable against drifting row counts while still
+catching a new *check name*.
 
 The set captured on the adopted clone (2026-09-18, migration set ending
 `1789658118888`) was:
