@@ -452,8 +452,8 @@ prescribes no action.)
 
 An earlier revision of this document carried one, for a database "close to
 seed": all nine methods present, with the `CIMB`/`MAYBANK` names on differently
--coded rows. **That state cannot exist**, so the recipe was removed rather than
-tested. Proven on disposable databases 2026-09-18:
+-coded rows. **The recipe is unusable wherever it would apply**, so it was
+removed rather than tested. Proven on disposable databases 2026-09-18:
 
 - The "nine" are the seven from `InitialSchema` **plus `CIMB` and `MAYBANK`,
   which this migration creates**. On a database whose methods come only from
@@ -466,11 +466,14 @@ tested. Proven on disposable databases 2026-09-18:
   collision query returns them and the recipe's own precondition ("proceed only
   if that returns nothing") forbids running it.
 
-The preconditions were therefore mutually contradictory: satisfying the method
-count required a database that failed the collision check. Any operator who
-reached that recipe would have been in a state its own guard rejected — and if
-they had skipped the guard, the `UPDATE ... SET code='CIMB'` would have hit the
-unique index, or worse, consumed a seeded row.
+So the recipe is self-defeating rather than the state being impossible. A
+hand-built database *can* hold nine methods with those two names on other
+codes — what it cannot do is get past the recipe's own precondition, because
+reaching the count requires the two codes to be occupied, which is exactly what
+the collision query rejects. Any operator arriving there would be in a state
+their own guard refuses, and skipping the guard means the
+`UPDATE ... SET code='CIMB'` hits the unique index — or worse, consumes a seeded
+row.
 
 If a future database genuinely needs method codes changed, treat it as its own
 analysis. Do not reconstruct a generic recipe from this document.
