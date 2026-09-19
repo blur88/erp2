@@ -23,6 +23,13 @@ export const STANDARD_COA_GROUPS: ReadonlyArray<StandardCoaGroup> = [
 
 export const STANDARD_COA_CHILDREN: ReadonlyArray<StandardCoaChild> = [
   { code: '1100', name: 'Cash', type: AccountType.ASSET, parentCode: '1000' },
+  // NOTE (#1243): migration 1789658118888 renames 1200 to 'CIMB' in the
+  // database, preserving the row id. This constant deliberately still says
+  // 'Bank' because it describes the GENESIS baseline and standard-coa.spec.ts
+  // asserts it equals InitialSchema exactly. validateHierarchy() never
+  // compares `name` (accounting-seeder.service.ts:220), which is what lets the
+  // two disagree safely. Do NOT add a name comparison there without first
+  // reconciling every migrated database.
   { code: '1200', name: 'Bank', type: AccountType.ASSET, parentCode: '1000' },
   { code: '1300', name: 'Inventory', type: AccountType.ASSET, parentCode: '1000' },
   { code: '1400', name: 'Supplier Deposit', type: AccountType.ASSET, parentCode: '1000' },
