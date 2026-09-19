@@ -233,6 +233,33 @@ export class PurchaseOrderService extends BaseCrudService<
   }
 
   /**
+   * Reject a new payment whose result would exceed the order total (#1245).
+   *
+   * Validates PROJECTED NET PAID after the operation, not a delta. `existing`
+   * comes from findAllByPurchaseOrder inside the caller's locked transaction —
+   * never from purchaseOrder.paidAmount, a denormalized cache.
+   *
+   * On the restore branch the prior row is excluded from `existing` by TWO
+   * independent mechanisms (the isActive: true filter and TypeORM's default
+   * withDeleted: false), so it was never counted and the branch is additive:
+   * projected net is existing + sum(ALL lines). Do NOT subtract the restored
+   * row's old amount. Double-counting requires BOTH exclusions to be defeated.
+   */
+  private assertWithinTotal(
+    purchaseOrder: PurchaseOrder,
+    existing: VendorPayment[],
+    incomingMinor: bigint,
+  ): void {
+    const persistedNetMinor = sumMinor(existing.map((p) => p.amount || '0'));
+    const totalMinor = toMinorUnits(purchaseOrder.totalAmount);
+    if (persistedNetMinor + incomingMinor > totalMinor) {
+      throw new BadRequestException(
+        `Payment amount (${formatScale4(incomingMinor)}) exceeds remaining balance (${formatScale4(totalMinor - persistedNetMinor)})`,
+      );
+    }
+  }
+
+  /**
    * Create a new purchase order
    */
   async create(
@@ -902,6 +929,13 @@ export class PurchaseOrderService extends BaseCrudService<
       if (payments.some((p) => toMinorUnits(p.amount) <= 0n)) {
         throw new BadRequestException('Each payment line amount must be greater than zero');
       }
+
+      const existingPayments = await this.vendorPaymentService.findAllByPurchaseOrder(id, manager);
+      this.assertWithinTotal(
+        purchaseOrder,
+        existingPayments,
+        sumMinor(payments.map((p) => p.amount)),
+      );
 
       // Check for a previously soft-deleted payment for this PO (from a prior unpay)
       const vpRepo = repoFor(manager, VendorPayment, this.vendorPaymentRepository);
