@@ -536,32 +536,49 @@ describe('Payment method posting matrix (e2e)', () => {
       }).expect(400);
     });
 
-    // CURRENT BEHAVIOUR, deliberately asserted as acceptance, exactly like the
-    // useForPurchases=false case below.
-    //
-    // Issue #1243 asks for overpayment to be REJECTED, but no such guard exists
-    // on this path: sales-order-payment.service.ts:73-122 records the payment,
-    // and updatePaymentStatusInTx() (:329-355) derives OVERPAID and persists a
-    // negative balanceDue. The unit suite pins that acceptance too
-    // (sales-order-payment.service.spec.ts:925 "keeps DRAFT on overpayment").
-    //
-    // Asserting 400 here would be a red test against correct-as-shipped code.
-    // Enforcing an overpayment guard is a separate behaviour change. This test
-    // pins what the code does today so the day a guard is added it fails HERE
-    // and the change is deliberate rather than accidental.
-    it('ACCEPTS an overpayment and records it as OVERPAID (no rejection guard exists)', async () => {
+    // Issue #1245: an overpayment is now REJECTED at the new-payment entry
+    // point (sales-order-payment.service.ts, assertWithinTotal). OVERPAID
+    // remains reachable by reducing an order total after payment, which this
+    // guard deliberately does not touch.
+    it('rejects an overpayment, leaving no payment or journal residue', async () => {
       const order = await createSalesOrder(); // total 25.00
+      const before = await journalLinesFor(ds, order.orderNumber);
+
       await post(`/sales-orders/${order.id}/payments`, {
         amount: '25.01',
+        paymentMethodId: await methodIdByCode(ds, 'CASH'),
+        paymentDate: '2026-09-17',
+      }).expect(400);
+
+      const gotRes = await get(`/sales-orders/${order.id}`).expect(200);
+      const got = gotRes.body.data ?? gotRes.body;
+      expect(got.paymentStatus).toBe('UNPAID');
+      expect(cents(got.paidAmount)).toBe(0);
+      // balanceDue is only maintained by reconciliation, so an untouched order
+      // still carries its create-time default of 0 — an accepted 25.01 payment
+      // (the pre-#1245 behavior) would have driven it to -1 instead.
+      expect(cents(got.balanceDue)).toBe(0);
+
+      // Rollback evidence: no payment row and no journal lines were persisted.
+      const payments = await get(`/sales-orders/${order.id}/payments`).expect(200);
+      expect(payments.body.data ?? payments.body).toHaveLength(0);
+      expect(await journalLinesFor(ds, order.orderNumber)).toHaveLength(before.length);
+    });
+
+    it('accepts a payment exactly equal to the order total', async () => {
+      // Boundary companion: proves the guard uses > and not >=, which would
+      // otherwise reject every full payment in the app.
+      const order = await createSalesOrder(); // total 25.00
+      await post(`/sales-orders/${order.id}/payments`, {
+        amount: '25.00',
         paymentMethodId: await methodIdByCode(ds, 'CASH'),
         paymentDate: '2026-09-17',
       }).expect(200);
 
       const gotRes = await get(`/sales-orders/${order.id}`).expect(200);
       const got = gotRes.body.data ?? gotRes.body;
-      expect(got.paymentStatus).toBe('OVERPAID');
-      // 2500 - 2501 = -1 cent, derived from computePaymentStatus().
-      expect(cents(got.balanceDue)).toBe(-1);
+      expect(got.paymentStatus).toBe('PAID');
+      expect(cents(got.balanceDue)).toBe(0);
     });
 
     it('rejects a payment against a cancelled sales order', async () => {
