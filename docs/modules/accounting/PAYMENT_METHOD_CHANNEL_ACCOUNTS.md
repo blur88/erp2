@@ -81,10 +81,16 @@ pq() { docker compose exec -T postgres sh -c \
   'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "$0"' "$1"; }
 
 # 1. Accounts: exactly one live row per code, with the expected name and shape.
-pq "SELECT code||'|'||name||'|isSystem='||\"isSystem\"||'|isPostable='||\"isPostable\"
-      FROM chart_of_account
-     WHERE code IN ('1200','1210','1220','1230','1240')
-       AND \"deletedAt\" IS NULL ORDER BY code;"
+#    type and parent are included because the migration CREATES these as Asset
+#    children of 1000, and `type` drives balance-sheet sign handling — a wrong
+#    type misreports money rather than merely looking untidy.
+pq "SELECT code||'|'||name||'|type='||type::text
+         ||'|parent='||coalesce((SELECT p.code FROM chart_of_account p
+                                  WHERE p.id = c.\"parentId\"), 'NONE')
+         ||'|isSystem='||c.\"isSystem\"||'|isPostable='||c.\"isPostable\"
+      FROM chart_of_account c
+     WHERE c.code IN ('1200','1210','1220','1230','1240')
+       AND c.\"deletedAt\" IS NULL ORDER BY c.code;"
 
 # 2. Soft-deleted duplicates at those codes (must return nothing).
 pq "SELECT code||'|'||name FROM chart_of_account
@@ -120,8 +126,17 @@ pq "SELECT a.code||'|lines='||count(l.id)
 accounts are not the ones this migration is about, so adopting would misroute
 real money or misreport it:
 
-- Each of `1200`–`1240` is exactly one **live** account with the expected name
-  and `isPostable = true`, and query 2 returns nothing.
+- Each of `1200`–`1240` is exactly one **live** account with the expected name,
+  `type = Asset`, parent `1000` and `isPostable = true`, and query 2 returns
+  nothing.
+
+  `type` and parent are **blockers, not repairable divergences**: `type` decides
+  which balance-sheet line an account contributes to and the sign it carries
+  (`balance-sheet.assemble.ts:196-197`), so an account of the wrong type
+  misreports money. Adopting it would make this migration bless a
+  misclassified account. The seed gate's `COA tuples` check catches both, but
+  only *after* adoption — which is too late, because recording the migration as
+  applied is not reversible (`down()` throws).
 - Every payment method in use maps to its intended account.
 - Each account's balance-sheet group membership is the intended one.
 - `bankAccountId` → `1200` and `cashAccountId` → `1100`.
@@ -441,14 +456,15 @@ seed": all nine methods present, with the `CIMB`/`MAYBANK` names on differently
 tested. Proven on disposable databases 2026-09-18:
 
 - The "nine" are the seven from `InitialSchema` **plus `CIMB` and `MAYBANK`,
-  which this migration creates**. A database that has not run the migration has
-  **seven** methods (verified: `ATOME,BANK,CASH,CC,SHOPEE,TIKTOK,TNG`) and no
-  `CIMB`/`MAYBANK` at all.
-- A database that *does* have nine has already applied the migration — so it is
-  not reading this document.
-- In that state the collision query returns `CIMB` and `MAYBANK` by code, and
-  the recipe's own precondition ("proceed only if that returns nothing")
-  forbids running it.
+  which this migration creates**. On a database whose methods come only from
+  migrations, not having run this one means **seven** (verified:
+  `ATOME,BANK,CASH,CC,SHOPEE,TIKTOK,TNG`) and no `CIMB`/`MAYBANK` at all.
+- The only other way to reach nine *with those two codes present* is for an
+  operator to have created them by hand. A count of nine therefore does **not**
+  prove the migration ran — but either way the next point applies.
+- Whenever `CIMB` and `MAYBANK` exist by code, however they got there, the
+  collision query returns them and the recipe's own precondition ("proceed only
+  if that returns nothing") forbids running it.
 
 The preconditions were therefore mutually contradictory: satisfying the method
 count required a database that failed the collision check. Any operator who
