@@ -292,41 +292,80 @@ this as `capture-seed-baseline.sh` next to the deployment notes:
 
 ```bash
 #!/usr/bin/env bash
-# Capture erp_db's expected verify-seeds.sh failures. Refuses to write a
-# baseline unless the gate actually ran its checks.
+# Capture erp_db's expected verify-seeds.sh failures.
+#
+# Never writes the baseline unless the gate ran to completion AND the captured
+# set matches the reviewed one. Every write is checked: an unchecked redirect
+# that fails leaves a STALE baseline in place, which then validates clean while
+# the gate is reporting new failures.
 set -uo pipefail
 REPO="${REPO:-/home/blur/erp2}"
-log=$(mktemp)
+EVIDENCE_DIR="${EVIDENCE_DIR:-.}"
+stamp=$(date -u +%Y%m%dT%H%M%SZ)
+log="$EVIDENCE_DIR/erp_db-seed-$stamp.log"
+cand=$(mktemp)
+trap 'rm -f "$cand"' EXIT
+
+# Retained as deployment evidence, not a temp file: it is the only record of
+# WHICH values differed. Fail loudly if it cannot be written.
+if ! : > "$log" 2>/dev/null; then
+  echo "REFUSED: cannot write the evidence log $log" >&2
+  exit 1
+fi
 
 # MUST run from backend/: the script resolves ../docker-compose.yml and
 # .env.local relative to its working directory.
 (cd "$REPO/backend" && CAND_DB=erp_db DB_USERNAME=erp_user \
    bash scripts/verify-seeds.sh) >"$log" 2>&1
 status=$?
+echo "gate exit status: $status" >> "$log"
 
 # 1 = checks ran, some failed (the expected state for this database).
-# 2 = preflight aborted — nothing was checked. 0 = everything passed, which
-# would itself be a surprise here and must not overwrite the baseline.
+# 2 = preflight aborted, nothing checked. 0 = everything passed, itself a
+# surprise here. Neither may overwrite the baseline.
 if [ "$status" -ne 1 ]; then
   echo "REFUSED: gate exited $status; expected 1 (checks ran, some failed)." >&2
-  cat "$log" >&2
-  rm -f "$log"
+  echo "Evidence: $log" >&2
   exit 1
 fi
 
-grep '^  FAIL' "$log" | sed 's/ — expected.*//' | sed 's/^ *//' | sort \
-  > erp_db-seed-baseline.txt
-rm -f "$log"
-
-# Validate against the reviewed set before trusting the file.
-if diff -q erp_db-seed-baseline.txt erp_db-seed-expected.txt >/dev/null 2>&1; then
-  echo "OK: baseline matches the reviewed set ($(wc -l < erp_db-seed-baseline.txt) names)."
-else
-  echo "DRIFT: baseline differs from the reviewed set — investigate before" >&2
-  echo "accepting it. Diff against erp_db-seed-expected.txt:" >&2
-  diff erp_db-seed-baseline.txt erp_db-seed-expected.txt >&2 || true
-  exit 2   # non-zero: drift must not be scriptable past as success
+# Exit 1 alone does not prove the run COMPLETED — the script could die partway
+# through its checks for an unrelated reason and still exit non-zero. Require
+# its terminal marker.
+if ! grep -q '^FAIL: seed verification failed' "$log"; then
+  echo "REFUSED: gate exited 1 but never printed its completion marker" >&2
+  echo "('FAIL: seed verification failed'), so the run did not finish." >&2
+  echo "Evidence: $log" >&2
+  exit 1
 fi
+
+# Extract into a CANDIDATE first. Writing straight to the baseline means a
+# failed write leaves the previous file to be validated in its place.
+if ! grep '^  FAIL' "$log" | sed 's/ — expected.*//' | sed 's/^ *//' | sort > "$cand"; then
+  echo "REFUSED: could not extract the failing set from $log" >&2
+  exit 1
+fi
+if [ ! -s "$cand" ]; then
+  echo "REFUSED: extracted an EMPTY failing set despite exit 1. Evidence: $log" >&2
+  exit 1
+fi
+
+# Validate the CANDIDATE, never the stored baseline.
+if ! diff -q "$cand" erp_db-seed-expected.txt >/dev/null 2>&1; then
+  echo "DRIFT: the failing set differs from the reviewed one." >&2
+  echo "The accepted baseline is left UNCHANGED. Evidence: $log" >&2
+  diff erp_db-seed-expected.txt "$cand" >&2 || true
+  exit 2
+fi
+
+# Only now replace the baseline, and only if the write succeeds.
+if ! cp "$cand" erp_db-seed-baseline.txt; then
+  echo "REFUSED: validation passed but the baseline could not be written." >&2
+  echo "The stored baseline may be stale. Evidence: $log" >&2
+  exit 1
+fi
+echo "OK: $(wc -l < erp_db-seed-baseline.txt) names, matching the reviewed set."
+echo "Evidence: $log"
 ```
 
 Write the reviewed seven names to `erp_db-seed-expected.txt` (the block below)
@@ -342,11 +381,29 @@ Exit statuses, all three verified against shell mocks (2026-09-19):
 
 | Exit | Meaning |
 |---|---|
-| `0` | checks ran, failures match the reviewed seven — the expected steady state |
-| `1` | **the gate did not run its checks** (preflight abort, or everything passed). No baseline is written. Investigate; this is **not** a pass |
-| `2` | checks ran but the failing set **drifted** from the reviewed one. The differing names are printed |
+| `0` | gate completed, failing set matches the reviewed seven, baseline written — the expected steady state |
+| `1` | **refused.** Preflight aborted, everything passed, the run exited 1 without its completion marker, the extracted set was empty, or the baseline could not be written. No baseline is written or trusted |
+| `2` | gate completed but the failing set **drifted**. The differing names are printed and the accepted baseline is left **unchanged** |
 
-Only `0` is a pass. Neither `1` nor `2` may be scripted past. Otherwise, **any line where the new baseline differs from the
+Only `0` is a pass. Neither `1` nor `2` may be scripted past.
+
+Every path verified against shell mocks (2026-09-19), including the two that
+previously produced a false pass:
+
+| Scenario | Result |
+|---|---|
+| seven expected failures | `OK: 7 names`, exit 0 |
+| an eighth failure, baseline read-only | `DRIFT`, names `FAIL COA tuples`, exit 2, baseline intact |
+| exit 1 with no completion marker | `REFUSED: … never printed its completion marker`, exit 1 |
+| preflight abort (exit 2) | `REFUSED: gate exited 2`, exit 1 |
+| validation passes, baseline unwritable | `REFUSED: … could not be written`, exit 1 |
+
+The last two rows are the ones that matter most. An earlier revision wrote the
+baseline with an **unchecked** redirect, so when that write failed the *stale*
+file was validated in its place: it printed `Permission denied` and then `OK`,
+exiting 0, while the gate was reporting an eighth failure. Extracting to a
+temporary candidate, validating the candidate, and only then replacing the
+baseline — checking that write too — is what closes it. Otherwise, **any line where the new baseline differs from the
 reviewed set is new and must be explained** — do not assume it is benign
 because the count still looks familiar. Stripping the `— expected [...], got
 [...]` tail keeps the baseline stable against drifting row counts while still
