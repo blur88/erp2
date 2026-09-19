@@ -23,7 +23,6 @@ import {
   QueryPaymentsDto,
   PaymentResponseDto,
   ProcessPaymentDto,
-  AllocatePaymentDto,
   PaymentSummaryDto,
   PAYMENT_SORT_FIELDS,
 } from '../dto/payment.dto';
@@ -230,56 +229,6 @@ export class PaymentService extends BaseCrudService<
       amount: processPaymentDto.amount,
       notes: processPaymentDto.notes,
     });
-  }
-
-  async allocatePayment(
-    paymentId: string,
-    allocationDto: AllocatePaymentDto,
-  ): Promise<PaymentResponseDto> {
-    const payment = await this.findPaymentWithRelations(paymentId);
-
-    if (payment.status !== PaymentStatus.COMPLETED) {
-      throw new BadRequestException('Only completed payments can be allocated');
-    }
-
-    const paymentAmountMinor = toMinorUnits(payment.amount);
-    const totalAllocationMinor = sumMinor(
-      allocationDto.allocations.map((a) => a.amount),
-    );
-
-    if (totalAllocationMinor > paymentAmountMinor) {
-      throw new BadRequestException('Total allocation amount exceeds payment amount');
-    }
-
-    // Process each allocation
-    for (const allocation of allocationDto.allocations) {
-      const salesOrder = await this.salesOrderRepository.findOne({
-        where: { id: allocation.salesOrderId },
-      });
-
-      if (!salesOrder) {
-        throw new NotFoundException(`Sales order ${allocation.salesOrderId} not found`);
-      }
-
-      if (salesOrder.customerId !== payment.customerId) {
-        throw new BadRequestException('Sales order does not belong to the payment customer');
-      }
-
-      // Update sales order paid amount and balance
-      const allocatedMinor = toMinorUnits(allocation.amount);
-      const paidMinor = toMinorUnits(salesOrder.paidAmount) + allocatedMinor;
-      salesOrder.paidAmount = formatScale4(paidMinor);
-      salesOrder.balanceDue = formatScale4(
-        toMinorUnits(salesOrder.totalAmount) - paidMinor,
-      );
-      await this.salesOrderRepository.save(salesOrder);
-    }
-
-    // Update payment to indicate it has been allocated
-    payment.salesOrderId = allocationDto.allocations[0]?.salesOrderId; // Primary allocation
-    await this.paymentRepository.save(payment);
-
-    return this.mapToResponseDto(await this.findPaymentWithRelations(payment.id));
   }
 
   async getPaymentsByCustomer(customerId: string): Promise<PaymentSummaryDto[]> {
