@@ -18,7 +18,6 @@ import {
   QueryPaymentsDto,
   PaymentResponseDto,
   RefundPaymentDto,
-  AllocatePaymentDto,
   PaymentSummaryDto,
 } from '../dto/payment.dto';
 import { UserRole } from '../../../database/entities/user.entity';
@@ -162,25 +161,6 @@ export class PaymentController {
     @CurrentUser('username') currentUsername: string,
   ): Promise<PaymentResponseDto> {
     return this.paymentService.refund(refundDto, currentUserId, currentUsername);
-  }
-
-  @Post('allocate')
-  @ApiOperation({ summary: 'Allocate payment to multiple invoices' })
-  @ApiResponse({
-    status: 200,
-    description: 'Payment allocated successfully',
-    type: PaymentResponseDto,
-  })
-  @ApiResponse({ status: 404, description: 'Payment or invoice not found' })
-  @ApiResponse({ status: 400, description: 'Invalid allocation amounts' })
-  async allocatePayment(
-    // The route is POST /payments/allocate — there is no :id segment, so the
-    // payment id comes from the validated body (@IsUUID on AllocatePaymentDto).
-    // Reading it from @Param('id') would resolve to undefined and make every
-    // request fail ParseUUIDPipe with a 400.
-    @Body() allocationDto: AllocatePaymentDto,
-  ): Promise<PaymentResponseDto> {
-    return this.paymentService.allocatePayment(allocationDto.paymentId, allocationDto);
   }
 
   @Get('customer/:customerId')

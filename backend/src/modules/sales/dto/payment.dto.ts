@@ -316,45 +316,6 @@ export class ProcessPaymentDto {
   notes?: string;
 }
 
-export class AllocationDto {
-  @ApiProperty({
-    description: 'Sales order ID to allocate payment to',
-    example: 'uuid-string',
-  })
-  @IsUUID()
-  salesOrderId: string;
-
-  @ApiProperty({
-    description: 'Amount to allocate to this sales order',
-    example: '750.25',
-  })
-  @Matches(/^\d+(\.\d{1,4})?$/, {
-    message: 'amount must be a positive decimal string with at most 4 decimal places',
-  })
-  @IsMoneyAtLeast('0.0100')
-  amount: string;
-}
-
-export class AllocatePaymentDto {
-  @ApiProperty({
-    description: 'Payment ID to allocate',
-    example: 'uuid-string',
-  })
-  @IsUUID()
-  paymentId: string;
-
-  @ApiProperty({
-    description: 'Sales order allocations',
-    type: [AllocationDto],
-    example: [
-      { salesOrderId: 'uuid-1', amount: '750.25' },
-      { salesOrderId: 'uuid-2', amount: '750.25' },
-    ],
-  })
-  @Type(() => AllocationDto)
-  allocations: AllocationDto[];
-}
-
 export class PaymentSummaryDto {
   @ApiProperty({ example: 'uuid-string' })
   id: string;
