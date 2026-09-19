@@ -233,6 +233,47 @@ export class PurchaseOrderService extends BaseCrudService<
   }
 
   /**
+   * Reject a new payment whose result would exceed the order total (#1245).
+   *
+   * Validates PROJECTED NET PAID after the operation, not a delta. `existing`
+   * comes from findAllByPurchaseOrder inside the caller's locked transaction —
+   * never from purchaseOrder.paidAmount, a denormalized cache.
+   *
+   * On the restore branch the prior row is excluded from `existing` by TWO
+   * independent mechanisms (the isActive: true filter and TypeORM's default
+   * withDeleted: false), so it was never counted and the branch is additive:
+   * projected net is existing + sum(ALL lines). Do NOT subtract the restored
+   * row's old amount. Double-counting requires BOTH exclusions to be defeated.
+   */
+  private assertWithinTotal(
+    purchaseOrder: PurchaseOrder,
+    existing: VendorPayment[],
+    incomingMinor: bigint,
+  ): void {
+    const persistedNetMinor = sumMinor(existing.map((p) => p.amount || '0'));
+    const totalMinor = toMinorUnits(purchaseOrder.totalAmount);
+    const remainingMinor = totalMinor - persistedNetMinor;
+
+    // Already settled or past the total — reachable when an order's total is
+    // reduced after payment, the retained route to OVERPAID. Reporting a
+    // negative "remaining balance" here is not actionable, so name the state.
+    // remainingMinor keeps its sign; only the reported overage is absolute.
+    if (remainingMinor <= 0n) {
+      throw new BadRequestException(
+        remainingMinor === 0n
+          ? 'This order is already fully paid. No additional payment can be recorded.'
+          : `This order is already overpaid by ${formatScale4(-remainingMinor)}. No additional payment can be recorded.`,
+      );
+    }
+
+    if (persistedNetMinor + incomingMinor > totalMinor) {
+      throw new BadRequestException(
+        `Payment amount (${formatScale4(incomingMinor)}) exceeds remaining balance (${formatScale4(remainingMinor)})`,
+      );
+    }
+  }
+
+  /**
    * Create a new purchase order
    */
   async create(
@@ -875,9 +916,13 @@ export class PurchaseOrderService extends BaseCrudService<
     for (const line of payments) {
       if (methodMap.has(line.paymentMethodId)) continue;
       const method = await this.paymentMethodRepository.findOne({
-        where: { id: line.paymentMethodId, isActive: true },
+        where: { id: line.paymentMethodId, isActive: true, useForPurchases: true } as any,
       });
-      if (!method) throw new BadRequestException(`Payment method ${line.paymentMethodId} not found or inactive`);
+      if (!method) {
+        throw new BadRequestException(
+          `Payment method ${line.paymentMethodId} not found, inactive, or not enabled for purchases`,
+        );
+      }
       methodMap.set(line.paymentMethodId, method);
     }
 
@@ -902,6 +947,13 @@ export class PurchaseOrderService extends BaseCrudService<
       if (payments.some((p) => toMinorUnits(p.amount) <= 0n)) {
         throw new BadRequestException('Each payment line amount must be greater than zero');
       }
+
+      const existingPayments = await this.vendorPaymentService.findAllByPurchaseOrder(id, manager);
+      this.assertWithinTotal(
+        purchaseOrder,
+        existingPayments,
+        sumMinor(payments.map((p) => p.amount)),
+      );
 
       // Check for a previously soft-deleted payment for this PO (from a prior unpay)
       const vpRepo = repoFor(manager, VendorPayment, this.vendorPaymentRepository);

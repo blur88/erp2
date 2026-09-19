@@ -678,9 +678,10 @@ describe('PurchaseOrderService', () => {
       purchaseOrderRepository.save.mockResolvedValue(mockPurchaseOrderForPayment);
       vendorPaymentService.findOne.mockResolvedValue(mockRestoredPayment);
       paymentMethodRepository.findOne.mockResolvedValue({ id: 'pm-cash', isActive: true, accountingChannel: 'BANK' });
-      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
-        { id: 'vp-active', amount: '200.0000' } as unknown as VendorPayment,
-      ]);
+      // Fresh order: no persisted active payments. Tests that assert the
+      // reconcile-derived state queue the guard's pre-write read back-to-back
+      // with the reconcile's post-write read (mockResolvedValueOnce).
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([]);
       const vpFind = (jest.fn as unknown as any)().mockResolvedValue([]);
       const vpFindOne = (jest.fn as unknown as any)().mockImplementation((...args) => (vendorPaymentRepository.findOne as any)(...args));
       const vpRestore = (jest.fn as unknown as any)((...args) => (vendorPaymentRepository.restore as any)(...args));
@@ -702,14 +703,18 @@ describe('PurchaseOrderService', () => {
     it('derives paidAmount from the persisted active payments, not the in-memory total', async () => {
       vendorPaymentRepository.findOne.mockResolvedValue(null);
       vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
-      // DB reports two active payments (120 + 80 = 200) regardless of the single
-      // line passed in — paidAmount must reflect the DB sum.
-      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
-        { id: 'vp-a', amount: '120.0000' } as unknown as VendorPayment,
-        { id: 'vp-b', amount: '80.0000' } as unknown as VendorPayment,
-      ]);
+      // DB reports two active payments (120 + 80 = 200) after the write, while
+      // the single line written by this call is only 40 — paidAmount must
+      // reflect the DB sum. The first read is the #1245 guard's pre-write
+      // snapshot; the second is reconcilePaymentState reading the post-write state.
+      vendorPaymentService.findAllByPurchaseOrder
+        .mockResolvedValueOnce([])
+        .mockResolvedValue([
+          { id: 'vp-a', amount: '120.0000' } as unknown as VendorPayment,
+          { id: 'vp-b', amount: '80.0000' } as unknown as VendorPayment,
+        ]);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000', paymentDate: '2026-01-15' }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '40.0000', paymentDate: '2026-01-15' }]);
 
       const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
       expect(Number(saved.paidAmount)).toBe(200);
@@ -721,7 +726,7 @@ describe('PurchaseOrderService', () => {
 
       await service.recordOrderPayments(
         'po-1',
-        [{ paymentMethodId: 'pm-cash', amount: '200.0000', paymentDate: '2026-01-15' }],
+        [{ paymentMethodId: 'pm-cash', amount: '40.0000', paymentDate: '2026-01-15' }],
         'user-42',
         'alice',
       );
@@ -740,7 +745,7 @@ describe('PurchaseOrderService', () => {
 
       await service.recordOrderPayments(
         'po-1',
-        [{ paymentMethodId: 'pm-cash', amount: '50.0000', paymentDate: '2026-01-15' }],
+        [{ paymentMethodId: 'pm-cash', amount: '30.0000', paymentDate: '2026-01-15' }],
         'user-1',
         'admin',
       );
@@ -760,7 +765,7 @@ describe('PurchaseOrderService', () => {
 
       await service.recordOrderPayments(
         'po-1',
-        [{ paymentMethodId: 'pm-cash', amount: '50.0000', paymentDate: '2026-01-15' }],
+        [{ paymentMethodId: 'pm-cash', amount: '30.0000', paymentDate: '2026-01-15' }],
         'user-1',
         'admin',
       );
@@ -775,7 +780,7 @@ describe('PurchaseOrderService', () => {
       vendorPaymentRepository.findOne.mockResolvedValue(null);
       vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000', paymentDate: '2026-01-15' }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '40.0000', paymentDate: '2026-01-15' }]);
 
       expect(vendorPaymentService.create).toHaveBeenCalled();
       expect(vendorPaymentRepository.restore).not.toHaveBeenCalled();
@@ -788,7 +793,7 @@ describe('PurchaseOrderService', () => {
       vendorPaymentRepository.restore.mockResolvedValue({} as any);
       vendorPaymentRepository.update.mockResolvedValue({} as any);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '200.0000', paymentDate: '2026-01-15' }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '40.0000', paymentDate: '2026-01-15' }]);
 
       expect(vendorPaymentRepository.restore).toHaveBeenCalledWith('vp-old-1');
     });
@@ -800,11 +805,11 @@ describe('PurchaseOrderService', () => {
       vendorPaymentRepository.restore.mockResolvedValue({} as any);
       vendorPaymentRepository.update.mockResolvedValue({} as any);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '300.0000', paymentDate: '2026-01-15' }]);
+      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '40.0000', paymentDate: '2026-01-15' }]);
 
       expect(vendorPaymentRepository.update).toHaveBeenCalledWith(
         'vp-old-1',
-        expect.objectContaining({ paymentMethodId: 'pm-cash', amount: '300.0000', isActive: true }),
+        expect.objectContaining({ paymentMethodId: 'pm-cash', amount: '40.0000', isActive: true }),
       );
     });
 
@@ -840,40 +845,40 @@ describe('PurchaseOrderService', () => {
     });
 
     it('keeps an overpaid DRAFT order in DRAFT (does not promote to READY)', async () => {
-      purchaseOrderRepository.findOne.mockResolvedValue({
+      // #1245: a new payment can no longer create OVERPAID — the guard rejects
+      // it. OVERPAID stays reachable by reconciling after a total reduction, so
+      // this drives reconcilePaymentState directly (the same shape the
+      // reduce-to-exact companion below already uses for the PAID direction).
+      const order = {
         ...mockPurchaseOrderForPayment,
         totalAmount: '100.0000',
         status: PurchaseOrderStatus.DRAFT,
-      } as unknown as PurchaseOrder);
-      vendorPaymentRepository.findOne.mockResolvedValue(null);
-      vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
+      } as unknown as PurchaseOrder;
       // Persisted active payments sum to 120 against a 100 total => OVERPAID.
       vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
         { id: 'vp-over', amount: '120.0000' } as unknown as VendorPayment,
       ]);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '120.0000', paymentDate: '2026-01-15' }]);
+      await (service as any).reconcilePaymentState(order);
 
       const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
       expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.OVERPAID);
       expect(saved.status).toBe(PurchaseOrderStatus.DRAFT);
     });
 
-    it('reverts a READY order to DRAFT when it becomes overpaid', async () => {
-      purchaseOrderRepository.findOne.mockResolvedValue({
+    it('reverts a READY order to DRAFT when a total reduction makes it overpaid', async () => {
+      // Retained route: the total drops below what was already paid, so
+      // reconciliation derives OVERPAID and READY is no longer valid.
+      const order = {
         ...mockPurchaseOrderForPayment,
-        totalAmount: '100.0000',
+        totalAmount: '50.0000',
         status: PurchaseOrderStatus.READY,
-      } as unknown as PurchaseOrder);
-      vendorPaymentRepository.findOne.mockResolvedValue(null);
-      vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
-      // Already-fully-paid READY order receives an extra payment => 150 vs 100 total => OVERPAID.
+      } as unknown as PurchaseOrder;
       vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
-        { id: 'vp-a', amount: '100.0000' } as unknown as VendorPayment,
-        { id: 'vp-b', amount: '50.0000' } as unknown as VendorPayment,
+        { id: 'vp-paid', amount: '100.0000' } as unknown as VendorPayment,
       ]);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '50.0000', paymentDate: '2026-01-15' }]);
+      await (service as any).reconcilePaymentState(order);
 
       const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
       expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.OVERPAID);
@@ -888,10 +893,13 @@ describe('PurchaseOrderService', () => {
       } as unknown as PurchaseOrder);
       vendorPaymentRepository.findOne.mockResolvedValue(null);
       vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
-      // Persisted active payments sum to exactly 100 => PAID.
-      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
-        { id: 'vp-exact', amount: '100.0000' } as unknown as VendorPayment,
-      ]);
+      // First read is the guard's pre-write snapshot (empty), the second is
+      // reconcile reading a persisted set that sums to exactly 100 => PAID.
+      vendorPaymentService.findAllByPurchaseOrder
+        .mockResolvedValueOnce([])
+        .mockResolvedValue([
+          { id: 'vp-exact', amount: '100.0000' } as unknown as VendorPayment,
+        ]);
 
       await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '100.0000', paymentDate: '2026-01-15' }]);
 
@@ -921,6 +929,219 @@ describe('PurchaseOrderService', () => {
       const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
       expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.PAID);
       expect(saved.status).toBe(PurchaseOrderStatus.READY);
+    });
+  });
+
+  describe('recordOrderPayments — overpayment guard (#1245)', () => {
+    const lockedPO = {
+      id: 'po-1',
+      orderNumber: 'PO-001',
+      status: PurchaseOrderStatus.DRAFT,
+      supplierId: 'sup-1',
+      totalAmount: '100.0000',
+    } as unknown as PurchaseOrder;
+
+    let accountingPort: any;
+
+    beforeEach(() => {
+      accountingPort = module.get(ACCOUNTING_POSTING_PORT);
+      paymentMethodRepository.findOne.mockResolvedValue({
+        id: 'pm-cash',
+        isActive: true,
+        accountingChannel: 'BANK',
+      } as any);
+      vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
+    });
+
+    it('rejects a payment one minor unit over the remaining balance', async () => {
+      // Persisted 40.00 against a 100.00 total => remaining 60.00.
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { amount: '40.0000' },
+      ] as any);
+      wireTx({ lockedPO });
+
+      await expect(
+        service.recordOrderPayments('po-1', [
+          { paymentMethodId: 'pm-cash', amount: '60.0001', paymentDate: '2026-09-17' },
+        ]),
+        // Pin both figures, not just the phrase: the reported "remaining
+        // balance" is what the user acts on. 100.0000 total - 40.0000 persisted.
+      ).rejects.toThrow('Payment amount (60.0001) exceeds remaining balance (60.0000)');
+
+      expect(accountingPort.postPurchasePayment).not.toHaveBeenCalled();
+      expect(vendorPaymentService.create).not.toHaveBeenCalled();
+    });
+
+    it('names the state when the order is already fully paid', async () => {
+      // Remaining is exactly zero: a negative "remaining balance" figure would
+      // not be actionable, so the message names the state instead.
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { amount: '100.0000' },
+      ] as any);
+      wireTx({ lockedPO });
+
+      await expect(
+        service.recordOrderPayments('po-1', [
+          { paymentMethodId: 'pm-cash', amount: '0.0001', paymentDate: '2026-09-17' },
+        ]),
+      ).rejects.toThrow('This order is already fully paid. No additional payment can be recorded.');
+
+      expect(accountingPort.postPurchasePayment).not.toHaveBeenCalled();
+      expect(vendorPaymentService.create).not.toHaveBeenCalled();
+    });
+
+    it('reports the overage when the order is already overpaid', async () => {
+      // Reachable via the RETAINED route: a total reduced to 100.00 after
+      // 170.00 was paid. The overage is reported as a positive figure; the
+      // internal remaining balance keeps its sign.
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { amount: '170.0000' },
+      ] as any);
+      wireTx({ lockedPO });
+
+      await expect(
+        service.recordOrderPayments('po-1', [
+          { paymentMethodId: 'pm-cash', amount: '10.0000', paymentDate: '2026-09-17' },
+        ]),
+      ).rejects.toThrow('This order is already overpaid by 70.0000. No additional payment can be recorded.');
+
+      expect(accountingPort.postPurchasePayment).not.toHaveBeenCalled();
+      expect(vendorPaymentService.create).not.toHaveBeenCalled();
+    });
+
+    it('accepts a payment exactly equal to the remaining balance', async () => {
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
+        { amount: '40.0000' },
+      ] as any);
+      wireTx({ lockedPO });
+
+      await service.recordOrderPayments('po-1', [
+        { paymentMethodId: 'pm-cash', amount: '60.0000', paymentDate: '2026-09-17' },
+      ]);
+
+      expect(vendorPaymentService.create).toHaveBeenCalled();
+    });
+
+    it('rejects a batch whose lines individually fit but jointly exceed the total', async () => {
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([] as any);
+      wireTx({ lockedPO });
+
+      await expect(
+        service.recordOrderPayments('po-1', [
+          { paymentMethodId: 'pm-cash', amount: '60.0000', paymentDate: '2026-09-17' },
+          { paymentMethodId: 'pm-cash', amount: '60.0000', paymentDate: '2026-09-17' },
+        ]),
+        // The reported amount is the SUMMED incoming (120.0000), not a single
+        // line — proof the batch is guarded as one unit rather than per-line.
+      ).rejects.toThrow('Payment amount (120.0000) exceeds remaining balance (100.0000)');
+
+      expect(accountingPort.postPurchasePayment).not.toHaveBeenCalled();
+      expect(vendorPaymentService.create).not.toHaveBeenCalled();
+    });
+
+    it('counts every submitted line exactly once on the restore branch', async () => {
+      // A soft-deleted prior payment of 30.00 exists. findAllByPurchaseOrder
+      // EXCLUDES it (isActive: true, plus TypeORM's default withDeleted: false),
+      // so it contributes nothing to persisted net. The branch revives it with
+      // payments[0]'s amount and creates the rest as new rows: projected net is
+      // persisted + sum(ALL lines). Subtracting the restored row's OLD amount
+      // would be wrong. Total 100.00, lines sum to 100.00 => must be accepted.
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([] as any);
+      const ctx = wireTx({ lockedPO });
+      ctx.vpRepo.findOne
+        .mockResolvedValueOnce({
+          id: 'vp-old',
+          deletedAt: new Date('2026-09-01'),
+          referenceNumber: 'OLD-REF',
+        })
+        .mockResolvedValue({ id: 'vp-old' });
+
+      await service.recordOrderPayments('po-1', [
+        { paymentMethodId: 'pm-cash', amount: '70.0000', paymentDate: '2026-09-17' },
+        { paymentMethodId: 'pm-cash', amount: '30.0000', paymentDate: '2026-09-17' },
+      ]);
+
+      // payments[0] via restoration, payments.slice(1) as new rows: 2 rows, 100.00.
+      expect(ctx.vpRepo.restore).toHaveBeenCalledWith('vp-old');
+      expect(vendorPaymentService.create).toHaveBeenCalledTimes(1);
+      const posted = accountingPort.postPurchasePayment.mock.calls.map((c: any[]) => c[0].amount);
+      expect(posted).toHaveLength(2);
+      expect(posted.map((a: string) => Number(a)).reduce((x: number, y: number) => x + y, 0)).toBe(100);
+    });
+  });
+
+  describe('useForPurchases eligibility (#1246)', () => {
+    const lockedPO = {
+      id: 'po-1',
+      orderNumber: 'PO-001',
+      status: PurchaseOrderStatus.DRAFT,
+      supplierId: 'sup-1',
+      totalAmount: '100.0000',
+    } as unknown as PurchaseOrder;
+
+    it('rejects a new PO payment using an active method with useForPurchases=false', async () => {
+      // The lookup filters on useForPurchases: true, so an ineligible method
+      // yields null and is indistinguishable from "not found" at this layer.
+      paymentMethodRepository.findOne.mockResolvedValue(null);
+      const accountingPort = module.get(ACCOUNTING_POSTING_PORT);
+
+      await expect(
+        service.recordOrderPayments('po-1', [
+          { paymentMethodId: 'method-no-purchase', amount: '25.0000', paymentDate: '2026-09-17' },
+        ]),
+      ).rejects.toThrow(/not found, inactive, or not enabled for purchases/i);
+
+      // Preflight rejection: nothing was written and no transaction was opened.
+      expect(accountingPort.postPurchasePayment).not.toHaveBeenCalled();
+      expect(vendorPaymentService.create).not.toHaveBeenCalled();
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('queries the new-payment lookup with useForPurchases: true', async () => {
+      paymentMethodRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.recordOrderPayments('po-1', [
+          { paymentMethodId: 'method-1', amount: '25.0000', paymentDate: '2026-09-17' },
+        ]),
+      ).rejects.toThrow();
+
+      expect(paymentMethodRepository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: 'method-1',
+            isActive: true,
+            useForPurchases: true,
+          }),
+        }),
+      );
+    });
+
+    it('still accepts a refund using that same ineligible method (#1096)', async () => {
+      // A method whose flag was cleared AFTER a payment was recorded must remain
+      // usable to unwind that payment. The refund lookup must NOT filter on
+      // useForPurchases, so an active-but-ineligible method resolves here.
+      paymentMethodRepository.findOne.mockResolvedValue({
+        id: 'method-no-purchase',
+        isActive: true,
+        useForPurchases: false,
+        accountingChannel: 'BANK',
+      } as any);
+      wireTx({ lockedPO });
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([] as any);
+      jest.spyOn(service as any, 'findOne').mockResolvedValue({ id: 'po-1' } as any);
+      const accountingPort = module.get(ACCOUNTING_POSTING_PORT);
+
+      await service.recordRefunds('po-1', [
+        { paymentMethodId: 'method-no-purchase', amount: '10.0000', paymentDate: '2026-09-17' },
+      ] as any);
+
+      expect(paymentMethodRepository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({ useForPurchases: expect.anything() }),
+        }),
+      );
+      expect(accountingPort.postPurchaseRefund).toHaveBeenCalled();
     });
   });
 
@@ -1175,9 +1396,9 @@ describe('PurchaseOrderService', () => {
       purchaseOrderRepository.save.mockResolvedValue(mockPOForPayment);
       vendorPaymentService.findOne.mockResolvedValue({ id: 'vp-old-1' } as VendorPayment);
       paymentMethodRepository.findOne.mockResolvedValue({ id: 'pm-cash', isActive: true, accountingChannel: 'BANK' });
-      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
-        { id: 'vp-active', amount: '200.0000' } as unknown as VendorPayment,
-      ]);
+      // Fresh order: no persisted active payments. Guard-passing tests queue
+      // their pre-write and post-write reads explicitly.
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([]);
       const vpFind = (jest.fn as unknown as any)().mockResolvedValue([]);
       const vpFindOne = (jest.fn as unknown as any)().mockImplementation((...args) => (vendorPaymentRepository.findOne as any)(...args));
       const vpRestore = (jest.fn as unknown as any)((...args) => (vendorPaymentRepository.restore as any)(...args));
@@ -1231,9 +1452,12 @@ describe('PurchaseOrderService', () => {
       } as unknown as PurchaseOrder);
       vendorPaymentRepository.findOne.mockResolvedValue(null);
       vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
-      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
-        { id: 'vp-exact', amount: '100.0000' } as unknown as VendorPayment,
-      ]);
+      // Pre-write empty (guard passes), post-write exactly 100 => PAID.
+      vendorPaymentService.findAllByPurchaseOrder
+        .mockResolvedValueOnce([])
+        .mockResolvedValue([
+          { id: 'vp-exact', amount: '100.0000' } as unknown as VendorPayment,
+        ]);
 
       await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '100.0000', paymentDate: '2026-01-15' }]);
 
@@ -1242,19 +1466,19 @@ describe('PurchaseOrderService', () => {
       expect(saved.status).toBe(PurchaseOrderStatus.READY);
     });
 
-    it('marks the order OVERPAID and keeps DRAFT when payments exceed the total', async () => {
-      purchaseOrderRepository.findOne.mockResolvedValue({
+    it('derives OVERPAID and keeps DRAFT when reconciliation sees payments above the total', async () => {
+      // #1245: an overpayment can no longer arrive via a new payment; the
+      // retained route is reconciliation after a total reduction.
+      const order = {
         ...mockPOForPayment,
         totalAmount: '100.0000',
         status: PurchaseOrderStatus.DRAFT,
-      } as unknown as PurchaseOrder);
-      vendorPaymentRepository.findOne.mockResolvedValue(null);
-      vendorPaymentService.create.mockResolvedValue({ id: 'vp-new' } as VendorPayment);
+      } as unknown as PurchaseOrder;
       vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([
         { id: 'vp-over', amount: '120.0000' } as unknown as VendorPayment,
       ]);
 
-      await service.recordOrderPayments('po-1', [{ paymentMethodId: 'pm-cash', amount: '120.0000', paymentDate: '2026-01-15' }]);
+      await (service as any).reconcilePaymentState(order);
 
       const saved = purchaseOrderRepository.save.mock.calls.at(-1)?.[0];
       expect(saved.paymentStatus).toBe(PurchaseOrderPaymentStatus.OVERPAID);
@@ -1278,6 +1502,7 @@ describe('PurchaseOrderService', () => {
         accountingChannel: 'BANK',
       } as any)
       ;(vendorPaymentService.create as any).mockResolvedValue({ id: 'vp-new' })
+      vendorPaymentService.findAllByPurchaseOrder.mockResolvedValue([])
       jest.spyOn(service as any, 'reconcilePaymentState').mockResolvedValue(undefined)
       jest.spyOn(service as any, 'findOne').mockResolvedValue({ id: 'po-1' } as any)
     })
