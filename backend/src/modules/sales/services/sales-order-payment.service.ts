@@ -89,6 +89,11 @@ export class SalesOrderPaymentService {
         throw new ConflictException('Payments can only be recorded on DRAFT orders');
       }
 
+      const existingPayments = await manager.getRepository(SalesOrderPayment).find({
+        where: { salesOrderId: orderId },
+      });
+      this.assertWithinTotal(order, existingPayments, amountMinor);
+
       const record = manager.getRepository(SalesOrderPayment).create({
         salesOrderId: orderId,
         paymentMethodId: dto.paymentMethodId,
@@ -203,6 +208,11 @@ export class SalesOrderPaymentService {
       if (order.status !== SalesOrderStatus.DRAFT) {
         throw new ConflictException('Payments can only be recorded on DRAFT orders');
       }
+
+      const existingPayments = await manager.getRepository(SalesOrderPayment).find({
+        where: { salesOrderId: orderId },
+      });
+      this.assertWithinTotal(order, existingPayments, sumMinor(dtos.map((d) => d.amount)));
 
       const saved: SalesOrderPayment[] = [];
       for (const dto of dtos) {
@@ -324,6 +334,31 @@ export class SalesOrderPaymentService {
       order: { paymentDate: 'ASC' },
       relations: { paymentMethod: true },
     });
+  }
+
+  /**
+   * Reject a new payment whose result would exceed the order total (#1245).
+   *
+   * Validates PROJECTED NET PAID after the operation, not a delta. `existing`
+   * must be read inside the caller's locked transaction — never from
+   * order.paidAmount, which is a denormalized cache a concurrent writer may not
+   * have flushed yet. Refunds are negative rows, so sumMinor yields a true net.
+   *
+   * Scoped to new-payment paths only: reducing an order total after payment is
+   * the retained route to OVERPAID and must stay reachable.
+   */
+  private assertWithinTotal(
+    order: SalesOrder,
+    existing: SalesOrderPayment[],
+    incomingMinor: bigint,
+  ): void {
+    const projectedNetMinor = sumMinor(existing.map((r) => r.amount)) + incomingMinor;
+    const totalMinor = toMinorUnits(order.totalAmount);
+    if (projectedNetMinor > totalMinor) {
+      throw new BadRequestException(
+        `Payment amount (${formatScale4(incomingMinor)}) exceeds remaining balance (${formatScale4(totalMinor - sumMinor(existing.map((r) => r.amount)))})`,
+      );
+    }
   }
 
   private async updatePaymentStatusInTx(order: SalesOrder, manager: EntityManager): Promise<SalesOrderPaymentStatus> {

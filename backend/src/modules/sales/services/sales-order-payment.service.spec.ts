@@ -42,15 +42,31 @@ describe('SalesOrderPaymentService', () => {
     paymentRecordsAfterSave: SalesOrderPayment[] = [],
     update = (jest.fn as unknown as any)().mockResolvedValue(undefined),
     order: SalesOrder = mockOrder(),
-  ): EntityManager =>
-    ({
+    paymentRecordsBeforeSave?: SalesOrderPayment[],
+  ): EntityManager => {
+    let findCall = 0;
+    return {
       getRepository: (jest.fn as unknown as any)().mockImplementation((entity) => {
         if (entity === SalesOrderPayment) {
           return {
             create: (jest.fn as unknown as any)().mockImplementation((data) => data),
             save: (jest.fn as unknown as any)()
               .mockImplementation((data) => Promise.resolve({ id: 'payment-new', ...data })),
-            find: (jest.fn as unknown as any)().mockResolvedValue(paymentRecordsAfterSave),
+            // The pre-write array applies ONLY when explicitly supplied. With the
+            // argument omitted, every call returns paymentRecordsAfterSave —
+            // byte-for-byte the previous behavior — so existing callers are
+            // unaffected. Note `undefined` (omitted) and `[]` (an explicit empty
+            // pre-write state) are deliberately different: `[]` is a real fixture
+            // meaning "no payments yet", used by the batch-rejection test.
+            find: (jest.fn as unknown as any)().mockImplementation(() => {
+              const isFirst = findCall === 0;
+              findCall += 1;
+              return Promise.resolve(
+                isFirst && paymentRecordsBeforeSave !== undefined
+                  ? paymentRecordsBeforeSave
+                  : paymentRecordsAfterSave,
+              );
+            }),
           };
         }
         if (entity === SalesOrder) {
@@ -58,7 +74,8 @@ describe('SalesOrderPaymentService', () => {
         }
         return {};
       }),
-    }) as any;
+    } as any;
+  };
 
   beforeEach(async () => {
     dataSource = { transaction: (jest.fn as unknown as any)() } as any;
@@ -253,7 +270,7 @@ describe('SalesOrderPaymentService', () => {
             return {
               create: (jest.fn as unknown as any)().mockImplementation((d) => d),
               save: (jest.fn as unknown as any)().mockImplementation((d) => Promise.resolve({ id: 'p1', ...d })),
-              find: (jest.fn as unknown as any)().mockResolvedValue([{ amount: '1000.0000' }]),
+              find: (jest.fn as unknown as any)().mockResolvedValue([]),
             };
           }
           return { findOne, update };
@@ -355,9 +372,12 @@ describe('SalesOrderPaymentService', () => {
       orderRepo.findOne.mockResolvedValue(order);
       methodRepo.findOne.mockResolvedValue(mockMethod());
 
-      const mockManager = buildMockManager([
-        { id: 'payment-new', amount: '1000.0000' },
-      ] as SalesOrderPayment[]);
+      const mockManager = buildMockManager(
+        [{ id: 'payment-new', amount: '1000.0000' }] as SalesOrderPayment[],
+        (jest.fn as unknown as any)(),
+        mockOrder(),
+        [] as SalesOrderPayment[],
+      );
       (dataSource.transaction as any).mockImplementation(
         async (cb: (m: EntityManager) => Promise<any>) => cb(mockManager),
       );
@@ -476,44 +496,106 @@ describe('SalesOrderPaymentService', () => {
       );
     });
 
-    it('persists negative balanceDue when overpaid', async () => {
-      const order = mockOrder({ totalAmount: '1000.0000' });
+    it('accepts a payment exactly equal to the remaining balance', async () => {
+      const order = mockOrder({ status: SalesOrderStatus.DRAFT, totalAmount: '100.0000' });
       orderRepo.findOne.mockResolvedValue(order);
       methodRepo.findOne.mockResolvedValue(mockMethod());
-
-      const updateSpy = (jest.fn as unknown as any)().mockResolvedValue(undefined);
-      const manager = {
-        getRepository: (jest.fn as unknown as any)().mockImplementation((entity) => {
-          if (entity === SalesOrderPayment) {
-            return {
-              create: (jest.fn as unknown as any)().mockImplementation((d) => d),
-              save: (jest.fn as unknown as any)().mockImplementation((d) => Promise.resolve({ id: 'p1', ...d })),
-              find: (jest.fn as unknown as any)().mockResolvedValue([{ amount: '1200.0000' }] as SalesOrderPayment[]),
-            };
-          }
-          if (entity === SalesOrder)
-            return {
-              update: updateSpy,
-              findOne: (jest.fn as unknown as any)().mockResolvedValue(order),
-            };
-          return {};
-        }),
-      } as any;
+      const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
+      const manager = buildMockManager(
+        [{ amount: '40.0000' }, { amount: '60.0000' }] as SalesOrderPayment[],
+        update,
+        order,
+        [{ amount: '40.0000' }] as SalesOrderPayment[],
+      );
       (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
 
-      await service.recordPayment('order-1', {
+      await service.recordPayment(order.id, {
+        amount: '60.0000',
         paymentMethodId: 'method-1',
-        amount: '1200.0000',
-        paymentDate: '2026-01-01',
+        paymentDate: '2026-09-17',
       });
 
-      expect(updateSpy).toHaveBeenCalledWith(
-        'order-1',
-        expect.objectContaining({
-          paymentStatus: SalesOrderPaymentStatus.OVERPAID,
-          paidAmount: '1200.0000',
-          balanceDue: '-200.0000',
+      expect(update).toHaveBeenCalledWith(
+        order.id,
+        expect.objectContaining({ paymentStatus: SalesOrderPaymentStatus.PAID }),
+      );
+    });
+
+    it('rejects a payment one minor unit over the remaining balance', async () => {
+      const order = mockOrder({ status: SalesOrderStatus.DRAFT, totalAmount: '100.0000' });
+      orderRepo.findOne.mockResolvedValue(order);
+      methodRepo.findOne.mockResolvedValue(mockMethod());
+      const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
+      const manager = buildMockManager(
+        [] as SalesOrderPayment[],
+        update,
+        order,
+        [{ amount: '40.0000' }] as SalesOrderPayment[],
+      );
+      (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
+
+      await expect(
+        service.recordPayment(order.id, {
+          amount: '60.0001',
+          paymentMethodId: 'method-1',
+          paymentDate: '2026-09-17',
         }),
+      ).rejects.toThrow(/exceeds remaining balance/i);
+
+      // The rejection must leave no trace: no journal posting, no status write.
+      expect(accountingPort.postSalesPayment).not.toHaveBeenCalled();
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('accepts a payment one minor unit under the remaining balance', async () => {
+      const order = mockOrder({ status: SalesOrderStatus.DRAFT, totalAmount: '100.0000' });
+      orderRepo.findOne.mockResolvedValue(order);
+      methodRepo.findOne.mockResolvedValue(mockMethod());
+      const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
+      const manager = buildMockManager(
+        [{ amount: '40.0000' }, { amount: '59.9999' }] as SalesOrderPayment[],
+        update,
+        order,
+        [{ amount: '40.0000' }] as SalesOrderPayment[],
+      );
+      (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
+
+      await service.recordPayment(order.id, {
+        amount: '59.9999',
+        paymentMethodId: 'method-1',
+        paymentDate: '2026-09-17',
+      });
+
+      expect(update).toHaveBeenCalledWith(
+        order.id,
+        expect.objectContaining({ paymentStatus: SalesOrderPaymentStatus.PARTIAL }),
+      );
+    });
+
+    it('accepts a new payment up to the NET remaining after a refund', async () => {
+      // Persisted: paid 100, refunded 40 (negative row) => net 60 against a 100 total.
+      // Remaining is 40 by net, but 0 by gross. Accepting 40 proves the guard reads net.
+      const order = mockOrder({ status: SalesOrderStatus.DRAFT, totalAmount: '100.0000' });
+      orderRepo.findOne.mockResolvedValue(order);
+      methodRepo.findOne.mockResolvedValue(mockMethod());
+      const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
+      const manager = buildMockManager(
+        [{ amount: '100.0000' }, { amount: '-40.0000' }, { amount: '40.0000' }] as SalesOrderPayment[],
+        update,
+        order,
+        [{ amount: '100.0000' }, { amount: '-40.0000' }] as SalesOrderPayment[],
+      );
+      (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
+
+      await service.recordPayment(order.id, {
+        amount: '40.0000',
+        paymentMethodId: 'method-1',
+        paymentDate: '2026-09-17',
+      });
+
+      expect(update).toHaveBeenCalledWith(
+        order.id,
+        expect.objectContaining({ paymentStatus: SalesOrderPaymentStatus.PAID }),
       );
     });
   });
@@ -902,7 +984,12 @@ totalAmount: '1000.0000',
       orderRepo.findOne.mockResolvedValue(order);
       methodRepo.findOne.mockResolvedValue(mockMethod());
       const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
-      const manager = buildMockManager([{ amount: '100.0000' }] as SalesOrderPayment[], update, order);
+      const manager = buildMockManager(
+        [{ amount: '100.0000' }] as SalesOrderPayment[],
+        update,
+        order,
+        [] as SalesOrderPayment[],
+      );
       (dataSource.transaction as any).mockImplementation(
         async (cb: (m: EntityManager) => Promise<any>) => cb(manager),
       );
@@ -922,30 +1009,42 @@ totalAmount: '1000.0000',
       );
     });
 
-    it('keeps DRAFT on overpayment', async () => {
-      const order = mockOrder({
-        status: SalesOrderStatus.DRAFT,
-        totalAmount: '100.0000',
-      });
-      orderRepo.findOne.mockResolvedValue(order);
-      methodRepo.findOne.mockResolvedValue(mockMethod());
+    it('still derives OVERPAID when an order total is reduced below net paid', async () => {
+      // The guard covers NEW payments only. Reducing the total after payment is
+      // the retained route to OVERPAID (#1245) and must remain reachable.
+      const order = mockOrder({ status: SalesOrderStatus.DRAFT, totalAmount: '100.0000' });
       const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
       const manager = buildMockManager([{ amount: '120.0000' }] as SalesOrderPayment[], update, order);
-      (dataSource.transaction as any).mockImplementation(
-        async (cb: (m: EntityManager) => Promise<any>) => cb(manager),
-      );
+      (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
 
-      await service.recordPayment(order.id, {
-        amount: '120.0000',
-        paymentMethodId: 'method-1',
-        paymentDate: '2026-05-30',
-      });
+      await service.reconcileOrderState(order.id);
 
       expect(update).toHaveBeenCalledWith(
         order.id,
         expect.objectContaining({ paymentStatus: SalesOrderPaymentStatus.OVERPAID }),
       );
       expect(order.status).toBe(SalesOrderStatus.DRAFT);
+    });
+
+    it('still persists a negative balanceDue when an order total is reduced below net paid', async () => {
+      // Companion to the OVERPAID flip above: the retained reconciliation route
+      // must keep writing the overpaid balance exactly as it did on the old
+      // recordPayment path.
+      const order = mockOrder({ totalAmount: '1000.0000' });
+      const updateSpy = (jest.fn as unknown as any)().mockResolvedValue(undefined);
+      const manager = buildMockManager([{ amount: '1200.0000' }] as SalesOrderPayment[], updateSpy, order);
+      (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
+
+      await service.reconcileOrderState(order.id);
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        order.id,
+        expect.objectContaining({
+          paymentStatus: SalesOrderPaymentStatus.OVERPAID,
+          paidAmount: '1200.0000',
+          balanceDue: '-200.0000',
+        }),
+      );
     });
 
     it('flips READY -> DRAFT when a refund drops below full payment', async () => {
@@ -1096,6 +1195,25 @@ totalAmount: '1000.0000',
         },
       ];
       await expect(service.recordPayments('order-1', dtos)).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a batch whose lines individually fit but jointly exceed the total', async () => {
+      const order = mockOrder({ status: SalesOrderStatus.DRAFT, totalAmount: '100.0000' });
+      orderRepo.findOne.mockResolvedValue(order);
+      methodRepo.findOne.mockResolvedValue(mockMethod());
+      const update = (jest.fn as unknown as any)().mockResolvedValue(undefined);
+      const manager = buildMockManager([] as SalesOrderPayment[], update, order, [] as SalesOrderPayment[]);
+      (dataSource.transaction as any).mockImplementation(async (cb: any) => cb(manager));
+
+      await expect(
+        service.recordPayments(order.id, [
+          { amount: '60.0000', paymentMethodId: 'method-1', paymentDate: '2026-09-17' },
+          { amount: '60.0000', paymentMethodId: 'method-1', paymentDate: '2026-09-17' },
+        ] as any),
+      ).rejects.toThrow(/exceeds remaining balance/i);
+
+      expect(accountingPort.postSalesPayment).not.toHaveBeenCalled();
+      expect(update).not.toHaveBeenCalled();
     });
   });
 
