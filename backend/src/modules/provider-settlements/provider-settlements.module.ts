@@ -5,6 +5,7 @@ import { ProviderSettlementLine } from './entities/provider-settlement-line.enti
 import { AccountingModule } from '../accounting/accounting.module';
 import { SettingsModule } from '../settings/settings.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
+import { ProviderSettlementController } from './controllers/provider-settlement.controller';
 import { ProviderSettlementDerivationService } from './services/provider-settlement-derivation.service';
 import { ProviderSettlementEligibilityService } from './services/provider-settlement-eligibility.service';
 import { ProviderSettlementService } from './services/provider-settlement.service';
@@ -16,7 +17,7 @@ import { ProviderSettlementService } from './services/provider-settlement.servic
     SettingsModule,
     AuditLogsModule,
   ],
-  controllers: [],
+  controllers: [ProviderSettlementController],
   providers: [
     ProviderSettlementDerivationService,
     ProviderSettlementEligibilityService,
