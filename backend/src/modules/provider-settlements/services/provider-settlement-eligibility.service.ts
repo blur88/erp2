@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
 import { SalesOrderPayment } from '../../../database/entities/sales-order-payment.entity';
@@ -71,7 +76,7 @@ export class ProviderSettlementEligibilityService {
          WHERE je."sourceEventId" = p.id
            AND je."sourceType" = :soType
            AND je."sourceDocumentId" = p."salesOrderId"
-           AND je."postingType" = CASE WHEN p.amount < 0 THEN :refundType ELSE :paymentType END
+           AND je."postingType"::text = CASE WHEN p.amount < 0 THEN :refundType ELSE :paymentType END
            AND je."reversalOfEntryId" IS NULL
            AND NOT EXISTS (
              SELECT 1 FROM journal_entry rev WHERE rev."reversalOfEntryId" = je.id))`,
@@ -148,10 +153,12 @@ export class ProviderSettlementEligibilityService {
     const found = new Set(rows.map((r) => r.id));
     const missing = paymentIds.filter((id) => !found.has(id));
     if (missing.length > 0) {
-      throw new BadRequestException(
-        `These payments are no longer eligible: ${missing.join(', ')}. ` +
-          `They may have been claimed by another settlement or had their posting reversed.`,
-      );
+      throw new ConflictException({
+        message: {
+          text: `These payments are no longer eligible: ${missing.join(', ')}. Refresh and reselect.`,
+          unavailablePaymentIds: missing,
+        },
+      });
     }
     return rows;
   }

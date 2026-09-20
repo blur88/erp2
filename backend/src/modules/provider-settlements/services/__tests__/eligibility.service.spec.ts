@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import { ConflictException } from '@nestjs/common';
 import { ProviderSettlementEligibilityService } from '../provider-settlement-eligibility.service';
 
 describe('ProviderSettlementEligibilityService claim predicate', () => {
@@ -74,6 +75,29 @@ describe('ProviderSettlementEligibilityService claim predicate', () => {
     expect(claimClause).toContain('"releasedAt" IS NULL');
     expect(claimClause).toContain('"settlementId" <> :settlementId');
     expect(qb.params.settlementId).toBe('ps-1');
+  });
+
+  it('rejects missing payments with a structured 409 naming every unavailable id', async () => {
+    const { manager } = captureQuery();
+    const service = new ProviderSettlementEligibilityService(manager);
+
+    // getMany() resolves [] in this harness, so every submitted id is missing.
+    const error = await service
+      .assertEligible(
+        ['pay-x'],
+        { providerPaymentMethodId: 'pm-1', settlementDate: '2026-09-20' },
+        manager,
+      )
+      .then(
+        () => null,
+        (e: unknown) => e,
+      );
+
+    expect(error).toBeInstanceOf(ConflictException);
+    const response = (error as ConflictException).getResponse() as {
+      message: { unavailablePaymentIds: string[] };
+    };
+    expect(response.message.unavailablePaymentIds).toEqual(['pay-x']);
   });
 });
 
