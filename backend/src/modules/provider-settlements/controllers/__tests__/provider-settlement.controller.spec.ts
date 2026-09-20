@@ -6,6 +6,13 @@ describe('ProviderSettlementController', () => {
     // "eligible-payments" as a uuid and fail.
     const proto = ProviderSettlementController.prototype;
     const names = Object.getOwnPropertyNames(proto);
-    expect(names.indexOf('eligiblePayments')).toBeLessThan(names.indexOf('findOne'));
+    const eligibleIndex = names.indexOf('eligiblePayments');
+    const findOneIndex = names.indexOf('findOne');
+    // indexOf returns -1 for a renamed method, and -1 < any real index is
+    // TRUE — so without these guards renaming eligiblePayments would leave the
+    // test green. Pin both, then compare.
+    expect(eligibleIndex).toBeGreaterThanOrEqual(0);
+    expect(findOneIndex).toBeGreaterThanOrEqual(0);
+    expect(eligibleIndex).toBeLessThan(findOneIndex);
   });
 });

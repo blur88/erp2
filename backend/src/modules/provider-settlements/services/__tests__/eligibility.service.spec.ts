@@ -95,9 +95,10 @@ describe('ProviderSettlementEligibilityService claim predicate', () => {
 
     expect(error).toBeInstanceOf(ConflictException);
     const response = (error as ConflictException).getResponse() as {
-      message: { unavailablePaymentIds: string[] };
+      message: { text: string; unavailablePaymentIds: string[] };
     };
     expect(response.message.unavailablePaymentIds).toEqual(['pay-x']);
+    expect(response.message.text).toMatch(/no longer eligible/);
   });
 });
 

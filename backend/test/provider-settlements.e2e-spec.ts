@@ -27,7 +27,6 @@ describe('Provider settlements (e2e)', () => {
   let token = '';
   let post: (path: string, body?: any) => request.Test;
   let get: (path: string) => request.Test;
-  let del: (path: string) => request.Test;
 
   let adminUserId = '';
   let adminUsername = '';
@@ -77,7 +76,6 @@ describe('Provider settlements (e2e)', () => {
     post = (path: string, body: any = {}) =>
       auth(request(server).post(path).send(body));
     get = (path: string) => auth(request(server).get(path));
-    del = (path: string) => auth(request(server).delete(path));
 
     // BASELINE rows, shared with every other suite in a size-ordered run
     // against one database. Read them; never mutate or delete them.
@@ -414,5 +412,38 @@ describe('Provider settlements (e2e)', () => {
     expect(cents(lines.find((l) => cents(l.debit) > 0)!.debit)).toBe(
       cents('48.00'),
     );
+  });
+
+  it('serves the read surface: filtered list, joined detail, branched eligibility', async () => {
+    const { paymentId: claimedId } = await payOrder('21.00');
+    const draft = await createDraft([claimedId], '21.00');
+    expect(draft.status).toBe(201);
+    const id = (draft.body.data ?? draft.body).id;
+
+    // List: the new draft is visible under its provider + status filter.
+    const list = await get(
+      `/accounting/provider-settlements?providerPaymentMethodId=${atomeMethodId}&status=DRAFT`,
+    ).expect(200);
+    expect(list.body.meta.total).toBeGreaterThanOrEqual(1);
+    expect(list.body.data.map((s: any) => s.id)).toContain(id);
+
+    // Detail: the joined relations are hydrated, not left as bare ids. The
+    // clearing account is DERIVED from the payment's journal history (1240),
+    // distinct from the manually chosen bank account (1200).
+    const detail = await get(`/accounting/provider-settlements/${id}`).expect(200);
+    expect(detail.body.data.lines).toHaveLength(1);
+    expect(detail.body.data.clearingAccount.code).toBe('1240');
+    expect(detail.body.data.bankAccount.code).toBe('1200');
+    expect(detail.body.data.providerPaymentMethod.name).toBeTruthy();
+
+    // Eligibility: a second unclaimed payment appears while the claimed one is
+    // excluded — the no-settlementId branch of the claim predicate over real rows.
+    const { paymentId: unclaimedId } = await payOrder('22.00');
+    const eligible = await get(
+      `/accounting/provider-settlements/eligible-payments?providerPaymentMethodId=${atomeMethodId}&settlementDate=2026-09-20`,
+    ).expect(200);
+    const eligibleIds = (eligible.body.data ?? []).map((r: any) => r.id);
+    expect(eligibleIds).toContain(unclaimedId);
+    expect(eligibleIds).not.toContain(claimedId);
   });
 }); // closes describe('Provider settlements (e2e)')
