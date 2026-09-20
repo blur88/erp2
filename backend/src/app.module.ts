@@ -28,6 +28,7 @@ import { PriceListsModule } from './modules/price-lists/price-lists.module';
 import { SearchModule } from './modules/search/search.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { OwnerEquityModule } from './modules/owner-equity/owner-equity.module';
+import { ProviderSettlementsModule } from './modules/provider-settlements/provider-settlements.module';
 import { MonitoringModule } from './modules/monitoring/monitoring.module';
 
 // Auth Guards
@@ -79,6 +80,7 @@ import { AppService } from './app.service';
     MonitoringModule, // Redis memory-pressure sampling and state
     AccountingModule,
     OwnerEquityModule,
+    ProviderSettlementsModule,
   ],
   controllers: [AppController],
   providers: [
