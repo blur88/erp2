@@ -28,6 +28,12 @@ export enum PostingType {
   OWNER_CASH_DRAWING = 'OWNER_CASH_DRAWING',
   OWNER_CASH_DRAWING_REFUND = 'OWNER_CASH_DRAWING_REFUND',
   OWNER_STOCK_DRAWING = 'OWNER_STOCK_DRAWING',
+
+  // Appended for Provider Settlements (#1257). ALTER TYPE ... ADD VALUE has no
+  // BEFORE/AFTER clause, so this lands last on migrated databases. Declaration
+  // order here must match, or verify-baseline.sh fails comparing a migrated
+  // schema against a schema:sync reference.
+  PROVIDER_SETTLEMENT = 'PROVIDER_SETTLEMENT',
 }
 
 export enum AccountingSourceType {
@@ -37,6 +43,7 @@ export enum AccountingSourceType {
   OPENING_BALANCE = 'OPENING_BALANCE',
   EXPENSE = 'EXPENSE',
   OWNER_EQUITY = 'OWNER_EQUITY',   // appended — see PostingType comment above
+  PROVIDER_SETTLEMENT = 'PROVIDER_SETTLEMENT', // appended — see PostingType comment
 }
 
 export type PaymentChannel = 'CASH' | 'BANK';
