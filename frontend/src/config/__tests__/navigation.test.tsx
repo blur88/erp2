@@ -71,6 +71,11 @@ describe('navigation structure', () => {
         path: '/accounting/owner-equity',
       },
       {
+        id: 'provider-settlements',
+        title: 'Provider Settlements',
+        path: '/accounting/provider-settlements',
+      },
+      {
         id: 'general-ledger',
         title: 'General Ledger',
         path: '/accounting/general-ledger',
@@ -109,7 +114,7 @@ describe('navigation structure', () => {
 
   it('opens every accounting child to all roles', () => {
     const children = accountingParent().children ?? []
-    expect(children).toHaveLength(9)
+    expect(children).toHaveLength(10)
     children.forEach((child) => {
       expect(child.roles).toEqual([
         'admin',

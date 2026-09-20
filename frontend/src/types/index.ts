@@ -1013,6 +1013,56 @@ export interface BalanceSheetResponse {
   findings: BalanceSheetFinding[]
 }
 
+export type ProviderSettlementStatus = 'DRAFT' | 'POSTED' | 'REVERSED'
+
+export interface ProviderSettlementLine {
+  id: string
+  salesOrderPaymentId: string
+  amount: string
+  releasedAt: string | null
+}
+
+export interface ProviderSettlement {
+  id: string
+  referenceNumber: string
+  providerPaymentMethodId: string
+  providerPaymentMethod?: { id: string; name: string }
+  clearingAccountId: string
+  clearingAccount?: { id: string; code: string; name: string }
+  bankAccountId: string
+  bankAccount?: { id: string; code: string; name: string }
+  settlementDate: string
+  providerReference: string | null
+  settlementAmount: string
+  status: ProviderSettlementStatus
+  journalEntryId: string | null
+  reversalJournalEntryId: string | null
+  postedAt: string | null
+  postedBy: string | null
+  reversedAt: string | null
+  reversedBy: string | null
+  lines?: ProviderSettlementLine[]
+}
+
+export interface EligiblePaymentRow {
+  id: string
+  salesOrderId: string
+  orderNumber: string
+  paymentDate: string
+  amount: string
+  referenceNumber: string | null
+}
+
+export interface ProviderSettlementListParams {
+  search?: string
+  startDate?: string
+  endDate?: string
+  providerPaymentMethodId?: string
+  status?: ProviderSettlementStatus
+  page?: number
+  limit?: number
+}
+
 export {
   type Expense,
   type ExpenseDocumentStatus,

@@ -15,6 +15,9 @@ const ExpenseDetailPage = React.lazy(() => import('./expenses/ExpenseDetailPage'
 const OwnerEquityPage = React.lazy(() => import('./owner-equity/OwnerEquityPage'))
 const OwnerEquityFormPage = React.lazy(() => import('./owner-equity/OwnerEquityFormPage'))
 const OwnerEquityDetailPage = React.lazy(() => import('./owner-equity/OwnerEquityDetailPage'))
+const ProviderSettlementsPage = React.lazy(() => import('./provider-settlements/ProviderSettlementsPage'))
+const ProviderSettlementFormPage = React.lazy(() => import('./provider-settlements/ProviderSettlementFormPage'))
+const ProviderSettlementDetailPage = React.lazy(() => import('./provider-settlements/ProviderSettlementDetailPage'))
 
 // Authentication is enforced by the parent router (authLoader + MainLayout in
 // router.tsx), not here. These routes carry no role restriction: accounting is
@@ -32,6 +35,10 @@ export const accountingRoutes: RouteObject[] = [
   { path: '/accounting/owner-equity/create', element: <OwnerEquityFormPage />, handle: { title: 'New Owner Equity' } },
   { path: '/accounting/owner-equity/:referenceNumber/edit', element: <OwnerEquityFormPage />, handle: { title: 'Edit Owner Equity' } },
   { path: '/accounting/owner-equity/:referenceNumber/view', element: <OwnerEquityDetailPage />, handle: { title: 'Owner Equity Detail' } },
+  { path: '/accounting/provider-settlements', element: <ProviderSettlementsPage />, handle: { title: 'Provider Settlements' } },
+  { path: '/accounting/provider-settlements/create', element: <ProviderSettlementFormPage />, handle: { title: 'New Provider Settlement' } },
+  { path: '/accounting/provider-settlements/:id/edit', element: <ProviderSettlementFormPage />, handle: { title: 'Edit Provider Settlement' } },
+  { path: '/accounting/provider-settlements/:id/view', element: <ProviderSettlementDetailPage />, handle: { title: 'Provider Settlement Detail' } },
   { path: '/accounting/general-ledger', element: <GeneralLedgerPage />, handle: { title: 'General Ledger' } },
   { path: '/accounting/trial-balance', element: <TrialBalancePage />, handle: { title: 'Trial Balance' } },
   { path: '/accounting/profit-and-loss', element: <ProfitAndLossPage />, handle: { title: 'Profit & Loss' } },

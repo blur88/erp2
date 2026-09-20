@@ -238,6 +238,13 @@ export const menuSections: MenuSection[] = [
             roles: ALL_ROLES,
           },
           {
+            id: 'provider-settlements',
+            title: 'Provider Settlements',
+            icon: <PaymentsIcon />,
+            path: '/accounting/provider-settlements',
+            roles: ALL_ROLES,
+          },
+          {
             id: 'general-ledger',
             title: 'General Ledger',
             icon: <MenuBookIcon />,
