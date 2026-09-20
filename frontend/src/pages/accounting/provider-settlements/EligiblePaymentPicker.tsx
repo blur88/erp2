@@ -70,6 +70,13 @@ export default function EligiblePaymentPicker({
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 300)
 
+  // Every input that redefines the result set invalidates the current page:
+  // staying on page 4 of the PREVIOUS query could land past the new last page
+  // and render an empty table with no way for the user to tell why.
+  useEffect(() => {
+    setPage(1)
+  }, [providerPaymentMethodId, settlementDate, debouncedSearch])
+
   const { data } = useGetEligiblePaymentsQuery({
     providerPaymentMethodId, settlementDate,
     ...(settlementId ? { settlementId } : {}), // omitted entirely when creating

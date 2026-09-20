@@ -112,4 +112,24 @@ describe('EligiblePaymentPicker', () => {
       )
     })
   })
+
+  it('resets to page 1 when the search changes', async () => {
+    // Page 2 of the OLD result set can be past the new last page, which would
+    // render an empty table that reads as "no matches" rather than "wrong page".
+    mockPage(PAGE_1)
+    render(<Harness />)
+    await userEvent.click(screen.getByRole('button', { name: /next page/i }))
+    await waitFor(() => {
+      expect(mockEligible).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 2 }),
+      )
+    })
+
+    await userEvent.type(screen.getByLabelText(/search/i), 'SO-26-003')
+    await waitFor(() => {
+      expect(mockEligible).toHaveBeenLastCalledWith(
+        expect.objectContaining({ search: 'SO-26-003', page: 1 }),
+      )
+    })
+  })
 })

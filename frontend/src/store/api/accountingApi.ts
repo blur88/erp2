@@ -447,7 +447,16 @@ payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown
         invalidatesTags: ['ProviderSettlement'],
       }),
       updateProviderSettlement: builder.mutation<
-        ProviderSettlement, { id: string; body: Partial<CreateProviderSettlementBody> }
+        ProviderSettlement,
+        {
+          id: string
+          // paymentIds is REQUIRED on update (full replacement of the
+          // selection, never a delta), so it is omitted from Partial and
+          // re-added unconditionally.
+          body: Partial<Omit<CreateProviderSettlementBody, 'paymentIds'>> & {
+            paymentIds: string[]
+          }
+        }
       >({
         query: ({ id, body }) => ({
           url: `/accounting/provider-settlements/${id}`, method: 'PATCH', body,

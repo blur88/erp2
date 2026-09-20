@@ -219,14 +219,26 @@ describe('ProviderSettlementFormPage', () => {
 
   it('submits the COMPLETE paymentIds array, not a delta', async () => {
     renderForm('/accounting/provider-settlements/ps-1/edit')
+    await waitFor(() => expect(screen.getByTestId('selected-count')).toHaveTextContent('2'))
+
     await userEvent.click(screen.getByRole('button', { name: /save/i }))
     await waitFor(() => {
-      expect(mockUpdate).toHaveBeenCalledWith(
+      expect(mockUpdate.mock.calls.at(-1)![0]).toEqual(
         expect.objectContaining({
           id: 'ps-1',
-          body: expect.objectContaining({ paymentIds: expect.any(Array) }),
+          body: expect.objectContaining({ paymentIds: ['pay-1', 'pay-2'] }),
         }),
       )
+    })
+
+    // Uncheck pay-1 and save again. PATCH is FULL REPLACEMENT: the request must
+    // carry exactly the remaining row. A delta-shaped implementation would
+    // resend both (or omit the removal) and leave pay-1 silently claimed.
+    await userEvent.click(screen.getByRole('checkbox', { name: /SO-26-001/ }))
+    await waitFor(() => expect(screen.getByTestId('selected-count')).toHaveTextContent('1'))
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => {
+      expect(mockUpdate.mock.calls.at(-1)![0].body.paymentIds).toEqual(['pay-2'])
     })
   })
 })
