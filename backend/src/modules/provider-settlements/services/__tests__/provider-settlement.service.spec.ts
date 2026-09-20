@@ -119,8 +119,13 @@ describe('ProviderSettlementService — drafts', () => {
 
     const settlementRepo = {
       create: jest.fn((x: any) => ({ ...x })),
-      findOne: jest.fn(async () => {
-        opts.onLock?.();
+      // Record a lock ONLY for a pessimistic-write find: lockRowForUpdate and
+      // an unlocked read both go through repo.findOne, so recording every call
+      // would let the ordering test pass even if the service never locked.
+      findOne: jest.fn(async (findOptions?: any) => {
+        if (findOptions?.lock?.mode === 'pessimistic_write') {
+          opts.onLock?.();
+        }
         return settlement;
       }),
       save: jest.fn(async (s: any) => ({ ...s, id: s.id ?? 'ps-1' })),

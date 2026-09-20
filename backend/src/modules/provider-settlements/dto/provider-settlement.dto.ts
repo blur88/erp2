@@ -3,7 +3,7 @@ import {
   IsEnum, IsInt, Min, MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { IsCalendarDate } from '../../../common/validators/is-calendar-date.validator';
 import { IsMoneyAtLeast } from '../../../common/validators/is-money-at-least.validator';
 import { ProviderSettlementStatus } from '../entities/provider-settlement.entity';
@@ -49,11 +49,18 @@ export class CreateProviderSettlementDto {
   paymentIds: string[];
 }
 
-export class UpdateProviderSettlementDto extends PartialType(CreateProviderSettlementDto) {
-  // REQUIRED on update, overriding PartialType. PATCH is defined as full
-  // replacement of the selection, so an absent array is ambiguous — it would
-  // read as either "keep what is there" or "clear it", and the two differ by a
-  // whole settlement. Making it required removes the ambiguity at the edge.
+export class UpdateProviderSettlementDto extends PartialType(
+  // OmitType FIRST, then PartialType. PartialType(Create) alone would inherit
+  // @IsOptional on paymentIds; redeclaring it here would add a second set of
+  // validators but the inherited @IsOptional still short-circuits them. Omitting
+  // it from the base before making the rest optional leaves paymentIds
+  // unconditionally required while every OTHER field stays optional.
+  OmitType(CreateProviderSettlementDto, ['paymentIds'] as const),
+) {
+  // REQUIRED on update. PATCH is defined as full replacement of the selection,
+  // so an absent array is ambiguous — it would read as either "keep what is
+  // there" or "clear it", and the two differ by a whole settlement. Making it
+  // required removes the ambiguity at the edge.
   @ApiProperty({ type: [String] })
   @IsArray()
   @ArrayMinSize(1, { message: 'Select at least one payment' })
