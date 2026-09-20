@@ -30,6 +30,7 @@ interface MakeServiceOptions {
   onStatusRead?: () => void;
   lines?: Array<{ salesOrderPaymentId: string; amount: string }>;
   livePayments?: Array<{ id: string; salesOrderId?: string; amount: string }>;
+  timezone?: string;
 }
 
 function validDto() {
@@ -51,7 +52,7 @@ describe('ProviderSettlementService — drafts', () => {
   let derivationService: any;
   let eligibilityService: any;
   let mappingService: any;
-  let postingPort: { postProviderSettlement: any };
+  let postingPort: { postProviderSettlement: any; reverseEntry: any };
 
   beforeEach(async () => {
     // Mirrors owner-equity-lifecycle.spec.ts: a stub DataSource whose
@@ -59,6 +60,7 @@ describe('ProviderSettlementService — drafts', () => {
     dataSource = { transaction: jest.fn() };
     settingsService = {
       generateDocumentNumber: jest.fn(async () => 'PS-26-001'),
+      getRegionalSettings: jest.fn(async () => ({ timezone: 'UTC' })),
     };
     auditLogService = { log: jest.fn(async () => undefined) };
     derivationService = {
@@ -72,6 +74,7 @@ describe('ProviderSettlementService — drafts', () => {
     mappingService = { list: jest.fn(async () => []) };
     postingPort = {
       postProviderSettlement: jest.fn(async () => ({ journalEntryId: 'je-ps-1' })),
+      reverseEntry: jest.fn(async () => ({ journalEntryId: 'je-rev-1' })),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -146,6 +149,7 @@ describe('ProviderSettlementService — drafts', () => {
       delete: jest.fn(async () => ({ affected: 1 })),
       softDelete: jest.fn(async () => ({ affected: 1 })),
       softRemove: jest.fn(async () => ({ affected: 1 })),
+      update: jest.fn(async () => ({ affected: 1 })),
       find: jest.fn(async (findOptions?: any) => {
         // post() reads the draft's LIVE lines (by settlementId, releasedAt IS
         // NULL); the conflict lookup after a 23505 reads OTHER settlements'
@@ -185,6 +189,8 @@ describe('ProviderSettlementService — drafts', () => {
       { paymentMethodId: 'pm-2', status: opts.mappingStatus ?? 'mapped' },
     ]);
 
+    settingsService.getRegionalSettings.mockResolvedValue({ timezone: opts.timezone ?? 'UTC' });
+
     // Live revalidation rows: by default mirror the stored line snapshots, so
     // the snapshot check passes and the amount-reconciliation check is what a
     // test exercises. `livePayments` overrides them to simulate drift.
@@ -204,8 +210,9 @@ describe('ProviderSettlementService — drafts', () => {
     }
 
     postingPort.postProviderSettlement.mockClear();
+    postingPort.reverseEntry.mockClear();
 
-    return { service, manager, settlementRepo, lineRepo, coaRepo, mappingService, postingPort };
+    return { service, manager, settlementRepo, lineRepo, coaRepo, mappingService, postingPort, auditLogService };
   }
 
   it('rejects an empty selection at the service, not only the DTO', async () => {
@@ -370,5 +377,74 @@ describe('ProviderSettlementService — drafts', () => {
     await expect(service.post('ps-1', 'u1', 'tester')).resolves.toBeDefined();
     expect(postingPort.postProviderSettlement).toHaveBeenCalled();
     expect(mappingService.list).not.toHaveBeenCalled();
+  });
+
+  it('reverses: new entry, status REVERSED, all lines released', async () => {
+    const { service, postingPort, lineRepo } = makeService({
+      settlement: { status: 'POSTED', journalEntryId: 'je-1' },
+    });
+    const result = await service.reverse('ps-1', 'u1', 'tester');
+    expect(postingPort.reverseEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ originalEntryId: 'je-1' }),
+      expect.anything(),
+    );
+    expect(result.status).toBe('REVERSED');
+    expect(lineRepo.update).toHaveBeenCalledWith(
+      { settlementId: 'ps-1' },
+      expect.objectContaining({ releasedAt: expect.any(Date) }),
+    );
+  });
+
+  it('is idempotent on an already-reversed settlement', async () => {
+    const { service, postingPort, auditLogService } = makeService({
+      settlement: { status: 'REVERSED', reversalJournalEntryId: 'je-rev' },
+    });
+    const result = await service.reverse('ps-1', 'u1', 'tester');
+    expect(result.reversalJournalEntryId).toBe('je-rev');
+    // A retried call must not double-post.
+    expect(postingPort.reverseEntry).not.toHaveBeenCalled();
+    // ...and must not log the reversal a second time.
+    expect(auditLogService.log).not.toHaveBeenCalled();
+  });
+
+  it('rejects reversing a draft', async () => {
+    const { service } = makeService({ settlement: { status: 'DRAFT' } });
+    await expect(service.reverse('ps-1', 'u1', 'tester')).rejects.toThrow(/Only a posted/);
+  });
+
+  it('dates the reversal by the business timezone, not UTC', async () => {
+    // 2026-09-20T17:30:00Z is still 2026-09-20 in UTC but ALREADY 2026-09-21 in
+    // Asia/Kuala_Lumpur (UTC+8). A mid-UTC-day clock is INERT for this test —
+    // both zones would agree and the assertion would pass against a raw UTC
+    // implementation (#1134).
+    jest.useFakeTimers().setSystemTime(new Date('2026-09-20T17:30:00Z'));
+    try {
+      const { service, postingPort } = makeService({
+        settlement: { status: 'POSTED', journalEntryId: 'je-1', settlementDate: '2026-09-01' },
+        timezone: 'Asia/Kuala_Lumpur',
+      });
+      await service.reverse('ps-1', 'u1', 'tester');
+      expect(postingPort.reverseEntry).toHaveBeenCalledWith(
+        expect.objectContaining({ entryDate: '2026-09-21' }),
+        expect.anything(),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not reuse settlementDate as the reversal entry date', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-09-20T17:30:00Z'));
+    try {
+      const { service, postingPort } = makeService({
+        settlement: { status: 'POSTED', journalEntryId: 'je-1', settlementDate: '2026-09-01' },
+        timezone: 'Asia/Kuala_Lumpur',
+      });
+      await service.reverse('ps-1', 'u1', 'tester');
+      const call = postingPort.reverseEntry.mock.calls[0][0];
+      expect(call.entryDate).not.toBe('2026-09-01');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

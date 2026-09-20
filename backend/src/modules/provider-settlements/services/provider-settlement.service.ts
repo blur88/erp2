@@ -18,6 +18,8 @@ import type { AccountingPostingPort } from '../../../common/accounting-posting/a
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
+import { resolveAppTimezone } from '../../../common/utils/app-calendar';
+import { formatDateInTimezone } from '../../../common/utils/date-in-timezone';
 import {
   toMinorUnits,
   formatScale4,
@@ -363,6 +365,73 @@ export class ProviderSettlementService {
       `Posted provider settlement ${(saved as any).referenceNumber}`,
       { entityId: id, userId: userId || 'system', username },
     );
+    return saved as ProviderSettlement;
+  }
+
+  async reverse(id: string, userId?: string, username?: string): Promise<ProviderSettlement> {
+    // Resolve the timezone BEFORE opening the transaction and close over it.
+    // getRegionalSettings() reads through the default DataSource, not the
+    // active EntityManager, so calling it inside the transaction issues a query
+    // on a separate connection while that transaction is open — and on a fresh
+    // install it WRITES a default row (#1134).
+    const timezone = await resolveAppTimezone(this.settings);
+
+    const { saved, alreadyReversed } = await this.dataSource.transaction(
+      async (manager: EntityManager) => {
+        // The lock is what makes the idempotency below safe: reverseEntry()
+        // does not serialize concurrent reversals of the same entry on its own.
+        const settlement = await lockRowForUpdate(manager, ProviderSettlement, id, {
+          notFoundMessage: 'Settlement not found',
+        });
+
+        if (settlement.status === ProviderSettlementStatus.REVERSED) {
+          return { saved: settlement, alreadyReversed: true };
+        }
+        if (settlement.status !== ProviderSettlementStatus.POSTED) {
+          throw new ConflictException('Only a posted settlement can be reversed');
+        }
+
+        // The reversal has no business date of its own, so it uses the action
+        // date in the configured business timezone — never settlementDate
+        // (which would date a correction into a possibly-closed period) and
+        // never a raw UTC clock.
+        const entryDate = formatDateInTimezone(new Date(), timezone);
+
+        const { journalEntryId } = await this.postingPort.reverseEntry(
+          {
+            originalEntryId: settlement.journalEntryId as string,
+            entryDate,
+            createdBy: username,
+          },
+          manager,
+        );
+
+        settlement.status = ProviderSettlementStatus.REVERSED;
+        settlement.reversalJournalEntryId = journalEntryId;
+        settlement.reversedAt = new Date();
+        settlement.reversedBy = username ?? 'system';
+        const savedSettlement = await manager
+          .getRepository(ProviderSettlement)
+          .save(settlement as any);
+
+        // Release the claims. The rows survive verbatim — only this stamp is
+        // added, which is what lets the payments join a corrective settlement
+        // without deleting or mutating any financial value.
+        await manager
+          .getRepository(ProviderSettlementLine)
+          .update({ settlementId: id } as any, { releasedAt: new Date() } as any);
+
+        return { saved: savedSettlement, alreadyReversed: false };
+      },
+    );
+
+    if (!alreadyReversed) {
+      await this.auditLogService.log(
+        'UPDATE', 'ProviderSettlement',
+        `Reversed provider settlement ${(saved as any).referenceNumber}`,
+        { entityId: id, userId: userId || 'system', username },
+      );
+    }
     return saved as ProviderSettlement;
   }
 
