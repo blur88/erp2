@@ -145,8 +145,16 @@ describe('ProviderSettlementDerivationService', () => {
     });
   });
 
-  it('rejects a payment whose entry was reversed (absent from the active query)', async () => {
-    const { service, manager } = makeService([]);
+  it('rejects a payment whose entry was reversed (excluded by the reversal lookup)', async () => {
+    const { service, manager } = makeService(
+      [
+        entry([
+          { accountId: CLEARING, debit: '98.0000', credit: '0.0000' },
+          { accountId: DEPOSIT, debit: '0.0000', credit: '98.0000' },
+        ]),
+      ],
+      [{ reversalOfEntryId: 'je-1' }],
+    );
     await expect(service.deriveClearingAccountId([payment()], manager)).rejects.toThrow(
       /has no active journal entry/,
     );
