@@ -108,12 +108,6 @@ export function effectiveLines(input: EffectiveLineInput): Map<string, Set<strin
   return lines;
 }
 
-export interface ConflictAccountRef {
-  accountId: string;
-  code?: string;
-  name?: string;
-}
-
 /**
  * Rejects any account that effectively contributes to MORE THAN ONE line.
  *
