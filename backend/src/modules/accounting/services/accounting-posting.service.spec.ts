@@ -28,7 +28,13 @@ function makeService(saved: any[], findOneMap?: Record<string, any>) {
       return {
         create: (x: any) => x,
         save: async (x: any) => { saved.push({ entity: name, value: x }); return { ...x, id: 'je-1' }; },
-        findOne: async (_opts: any) => map[name] ?? null,
+        findOne: async (opts: any) => {
+          // An id-keyed entry wins, so a test that needs two DIFFERENT
+          // ChartOfAccount rows (bank vs clearing) can supply both.
+          const id = opts?.where?.id;
+          if (id && map[id]) return map[id];
+          return map[name] ?? null;
+        },
       };
     },
   } as any;
@@ -132,6 +138,32 @@ describe('AccountingPostingService', () => {
       entryDate: '2026-09-14', createdBy: 'tester',
     } as any, manager);
     expect(lookup.resolvePaymentAccount).toHaveBeenCalledWith('BANK', 'pm-maybank', expect.anything());
+  });
+
+  it('posts a provider settlement as exactly Dr bank / Cr clearing', async () => {
+    const saved: any[] = [];
+    const { svc, manager } = makeService(saved, {
+      'bank-acc': acc('bank-acc'),
+      'clearing-acc': acc('clearing-acc'),
+    });
+    const result = await svc.postProviderSettlement(
+      {
+        settlementId: 'ps-1', sourceRef: 'PS-26-001',
+        bankAccountId: 'bank-acc', clearingAccountId: 'clearing-acc',
+        amount: '98.00', entryDate: '2026-09-20', createdBy: 'tester',
+      },
+      manager,
+    );
+    expect(result.journalEntryId).toBeDefined();
+    const savedEntry = saved.find((s) => s.entity === 'JournalEntry')!.value as any;
+    const lines = savedEntry.lines;
+    expect(lines).toHaveLength(2); // never a provider-fee line
+    expect(lines.find((l: any) => l.accountId === 'bank-acc')).toMatchObject({
+      debit: '98.0000', credit: '0.0000',
+    });
+    expect(lines.find((l: any) => l.accountId === 'clearing-acc')).toMatchObject({
+      debit: '0.0000', credit: '98.0000',
+    });
   });
 
   it('rejects an unbalanced entry', () => {

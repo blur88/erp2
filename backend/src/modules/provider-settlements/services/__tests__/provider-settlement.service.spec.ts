@@ -28,6 +28,8 @@ interface MakeServiceOptions {
   settlement?: Record<string, any>;
   onLock?: () => void;
   onStatusRead?: () => void;
+  lines?: Array<{ salesOrderPaymentId: string; amount: string }>;
+  livePayments?: Array<{ id: string; salesOrderId?: string; amount: string }>;
 }
 
 function validDto() {
@@ -49,6 +51,7 @@ describe('ProviderSettlementService — drafts', () => {
   let derivationService: any;
   let eligibilityService: any;
   let mappingService: any;
+  let postingPort: { postProviderSettlement: any };
 
   beforeEach(async () => {
     // Mirrors owner-equity-lifecycle.spec.ts: a stub DataSource whose
@@ -67,6 +70,9 @@ describe('ProviderSettlementService — drafts', () => {
       ),
     };
     mappingService = { list: jest.fn(async () => []) };
+    postingPort = {
+      postProviderSettlement: jest.fn(async () => ({ journalEntryId: 'je-ps-1' })),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -78,7 +84,7 @@ describe('ProviderSettlementService — drafts', () => {
         { provide: ProviderSettlementEligibilityService, useValue: eligibilityService },
         { provide: PaymentMethodMappingService, useValue: mappingService },
         { provide: AccountingLookupService, useValue: {} },
-        { provide: ACCOUNTING_POSTING_PORT, useValue: {} },
+        { provide: ACCOUNTING_POSTING_PORT, useValue: postingPort },
       ],
     }).compile();
 
@@ -140,11 +146,17 @@ describe('ProviderSettlementService — drafts', () => {
       delete: jest.fn(async () => ({ affected: 1 })),
       softDelete: jest.fn(async () => ({ affected: 1 })),
       softRemove: jest.fn(async () => ({ affected: 1 })),
-      find: jest.fn(async () =>
-        (opts.conflictingIds ?? [])
+      find: jest.fn(async (findOptions?: any) => {
+        // post() reads the draft's LIVE lines (by settlementId, releasedAt IS
+        // NULL); the conflict lookup after a 23505 reads OTHER settlements'
+        // claims and keys on salesOrderPaymentId.
+        if (findOptions?.where?.releasedAt && findOptions.where.salesOrderPaymentId === undefined) {
+          return (opts.lines ?? []).map((l) => ({ ...l, releasedAt: null }));
+        }
+        return (opts.conflictingIds ?? [])
           .filter((id) => !opts.submittedIds || opts.submittedIds.includes(id))
-          .map((id) => ({ salesOrderPaymentId: id })),
-      ),
+          .map((id) => ({ salesOrderPaymentId: id }));
+      }),
     };
     const coaRepo = {
       findOne: jest.fn(async () => ({
@@ -173,7 +185,27 @@ describe('ProviderSettlementService — drafts', () => {
       { paymentMethodId: 'pm-2', status: opts.mappingStatus ?? 'mapped' },
     ]);
 
-    return { service, manager, settlementRepo, lineRepo, coaRepo, mappingService };
+    // Live revalidation rows: by default mirror the stored line snapshots, so
+    // the snapshot check passes and the amount-reconciliation check is what a
+    // test exercises. `livePayments` overrides them to simulate drift.
+    const liveRows =
+      opts.livePayments ??
+      (opts.lines
+        ? opts.lines.map((l) => ({
+            id: l.salesOrderPaymentId,
+            salesOrderId: 'so-1',
+            amount: l.amount,
+          }))
+        : null);
+    if (liveRows) {
+      eligibilityService.assertEligible.mockImplementation(async (ids: string[]) =>
+        liveRows.filter((p) => ids.includes(p.id)),
+      );
+    }
+
+    postingPort.postProviderSettlement.mockClear();
+
+    return { service, manager, settlementRepo, lineRepo, coaRepo, mappingService, postingPort };
   }
 
   it('rejects an empty selection at the service, not only the DTO', async () => {
@@ -277,5 +309,66 @@ describe('ProviderSettlementService — drafts', () => {
     expect(lineRepo.delete).toHaveBeenCalled();
     expect(lineRepo.softDelete).not.toHaveBeenCalled();
     expect(lineRepo.softRemove).not.toHaveBeenCalled();
+  });
+
+  it('rejects a settlement whose amount does not equal the selected total', async () => {
+    const { service } = makeService({
+      settlement: { status: 'DRAFT', settlementAmount: '98.0000' },
+      lines: [{ salesOrderPaymentId: 'pay-1', amount: '97.0000' }],
+    });
+    await expect(service.post('ps-1', 'u1', 'tester')).rejects.toThrow(/does not reconcile/);
+  });
+
+  it('does not post a journal entry when the amounts disagree', async () => {
+    const { service, postingPort } = makeService({
+      settlement: { status: 'DRAFT', settlementAmount: '98.0000' },
+      lines: [{ salesOrderPaymentId: 'pay-1', amount: '97.0000' }],
+    });
+    await service.post('ps-1', 'u1', 'tester').catch(() => {});
+    // Rejected BEFORE any payment or journal state change.
+    expect(postingPort.postProviderSettlement).not.toHaveBeenCalled();
+  });
+
+  it('rejects when a line snapshot no longer matches its live payment row', async () => {
+    const { service, postingPort } = makeService({
+      settlement: { status: 'DRAFT', settlementAmount: '98.0000' },
+      lines: [{ salesOrderPaymentId: 'pay-1', amount: '98.0000' }],
+      livePayments: [{ id: 'pay-1', amount: '95.0000', salesOrderId: 'so-1' }],
+    });
+    await expect(service.post('ps-1', 'u1', 'tester')).rejects.toThrow(
+      /changed since this draft was saved \(recorded 98.0000, now 95.0000\)/,
+    );
+    expect(postingPort.postProviderSettlement).not.toHaveBeenCalled();
+  });
+
+  it('reconciles a batch mixing a payment and a refund', async () => {
+    const { service, postingPort } = makeService({
+      settlement: { status: 'DRAFT', settlementAmount: '48.0000' },
+      lines: [
+        { salesOrderPaymentId: 'pay-1', amount: '98.0000' },
+        { salesOrderPaymentId: 'pay-2', amount: '-50.0000' },
+      ],
+    });
+    await service.post('ps-1', 'u1', 'tester');
+    expect(postingPort.postProviderSettlement).toHaveBeenCalled();
+  });
+
+  it('rejects posting an already-posted settlement', async () => {
+    const { service } = makeService({ settlement: { status: 'POSTED' } });
+    await expect(service.post('ps-1', 'u1', 'tester')).rejects.toThrow(/Only a draft/);
+  });
+
+  it('posts a draft whose payment method became invalid after saving', async () => {
+    // Posting reads journal history, NOT the mapping — so a mapping that goes
+    // invalid after the draft is saved must not block it. Without this positive
+    // test the requirement is unobservable.
+    const { service, postingPort, mappingService } = makeService({
+      settlement: { status: 'DRAFT', settlementAmount: '98.0000' },
+      lines: [{ salesOrderPaymentId: 'pay-1', amount: '98.0000' }],
+      mappingStatus: 'invalid',
+    });
+    await expect(service.post('ps-1', 'u1', 'tester')).resolves.toBeDefined();
+    expect(postingPort.postProviderSettlement).toHaveBeenCalled();
+    expect(mappingService.list).not.toHaveBeenCalled();
   });
 });

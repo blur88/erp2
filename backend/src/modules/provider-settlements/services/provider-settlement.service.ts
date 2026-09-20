@@ -18,7 +18,13 @@ import type { AccountingPostingPort } from '../../../common/accounting-posting/a
 import { SettingsService } from '../../settings/settings.service';
 import { AuditLogService } from '../../audit-logs/services';
 import { lockRowForUpdate } from '../../../common/db/tx-helpers';
-import { toMinorUnits, formatScale4 } from '@/common/utils/money';
+import {
+  toMinorUnits,
+  formatScale4,
+  sumMinor,
+  formatMoney,
+  quantizeToCents,
+} from '@/common/utils/money';
 import {
   CreateProviderSettlementDto,
   UpdateProviderSettlementDto,
@@ -256,6 +262,108 @@ export class ProviderSettlementService {
 
     const data = await qb.getMany();
     return { data, meta: { total: data.length, page: 1, limit: data.length } };
+  }
+
+  async post(id: string, userId?: string, username?: string): Promise<ProviderSettlement> {
+    const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
+      // Lock before the status read — see update().
+      const settlement = await lockRowForUpdate(manager, ProviderSettlement, id, {
+        notFoundMessage: 'Settlement not found',
+      });
+      if (settlement.status !== ProviderSettlementStatus.DRAFT) {
+        throw new ConflictException('Only a draft settlement can be posted');
+      }
+
+      const lines = await manager.getRepository(ProviderSettlementLine).find({
+        where: { settlementId: id, releasedAt: IsNull() } as any,
+      });
+      if (lines.length === 0) {
+        throw new BadRequestException('A settlement must have at least one payment');
+      }
+
+      // Revalidate with the OWN-DRAFT branch: the unqualified branch would
+      // reject every row this draft claims and make posting impossible.
+      const payments = await this.eligibility.assertEligible(
+        lines.map((l) => l.salesOrderPaymentId),
+        {
+          providerPaymentMethodId: settlement.providerPaymentMethodId,
+          settlementDate: settlement.settlementDate,
+          settlementId: id,
+        },
+        manager,
+      );
+
+      // Re-derive from journal history and confirm the snapshot. A MAPPING
+      // change cannot affect this. A payment whose original entry was REVERSED
+      // since the draft was saved legitimately fails here — that is the point
+      // of revalidating, not a defensive check.
+      const rederived = await this.derivation.deriveClearingAccountId(payments, manager);
+      if (rederived !== settlement.clearingAccountId) {
+        throw new BadRequestException(
+          `Clearing account changed since this draft was saved ` +
+            `(${settlement.clearingAccountId} → ${rederived}). Review the selection.`,
+        );
+      }
+
+      // Each line's SNAPSHOT must still equal its live payment row. The
+      // snapshot is what the user reconciled against and what the settlement
+      // displays; summing only the live rows would let an amount that changed
+      // since the draft was saved post silently under the old total.
+      const liveById = new Map(payments.map((p) => [p.id, p.amount]));
+      for (const line of lines) {
+        const live = liveById.get(line.salesOrderPaymentId);
+        if (live === undefined) {
+          throw new BadRequestException(
+            `Payment ${line.salesOrderPaymentId} is no longer available`,
+          );
+        }
+        if (toMinorUnits(line.amount) !== toMinorUnits(live)) {
+          throw new BadRequestException(
+            `Payment ${line.salesOrderPaymentId} changed since this draft was saved ` +
+              `(recorded ${line.amount}, now ${live}). Review the selection.`,
+          );
+        }
+      }
+
+      const selectedMinor = sumMinor(payments.map((p) => p.amount));
+      const amountMinor = toMinorUnits(settlement.settlementAmount);
+      if (selectedMinor !== amountMinor) {
+        throw new BadRequestException(
+          `Settlement amount ${formatMoney(quantizeToCents(amountMinor))} does not reconcile ` +
+            `with the selected payments ${formatMoney(quantizeToCents(selectedMinor))}`,
+        );
+      }
+
+      await this.assertPostableBankAccount(settlement.bankAccountId, manager);
+
+      const { journalEntryId } = await this.postingPort.postProviderSettlement(
+        {
+          settlementId: settlement.id,
+          sourceRef: settlement.referenceNumber,
+          bankAccountId: settlement.bankAccountId,
+          clearingAccountId: settlement.clearingAccountId,
+          amount: formatMoney(quantizeToCents(amountMinor)),
+          // The settlement already carries a meaningful business date, so no
+          // clock is consulted here.
+          entryDate: settlement.settlementDate,
+          createdBy: username,
+        },
+        manager,
+      );
+
+      settlement.status = ProviderSettlementStatus.POSTED;
+      settlement.journalEntryId = journalEntryId;
+      settlement.postedAt = new Date();
+      settlement.postedBy = username ?? 'system';
+      return manager.getRepository(ProviderSettlement).save(settlement as any);
+    });
+
+    await this.auditLogService.log(
+      'UPDATE', 'ProviderSettlement',
+      `Posted provider settlement ${(saved as any).referenceNumber}`,
+      { entityId: id, userId: userId || 'system', username },
+    );
+    return saved as ProviderSettlement;
   }
 
   /**

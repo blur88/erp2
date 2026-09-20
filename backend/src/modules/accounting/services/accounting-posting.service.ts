@@ -18,7 +18,7 @@ import type {
   PostStockAdjustmentCmd, PostOpeningBalanceCmd, PostExpensePaymentCmd, PostExpenseRefundCmd,
   PostOwnerCapitalInjectionCmd, PostOwnerCapitalInjectionRefundCmd,
   PostOwnerCashDrawingCmd, PostOwnerCashDrawingRefundCmd, PostOwnerStockDrawingCmd,
-  ReverseEntryCmd,
+  ReverseEntryCmd, PostProviderSettlementCmd,
 } from '../../../common/accounting-posting/posting-commands';
 
 type DraftLine = { account: ChartOfAccount; debit: string; credit: string };
@@ -371,6 +371,31 @@ export class AccountingPostingService implements AccountingPostingPort {
       sourceType: AccountingSourceType.OPENING_BALANCE, sourceDocumentId: cmd.accountId,
       sourceRef: cmd.sourceRef, postingType: PostingType.OPENING_BALANCE, description: 'Opening balance',
       entryDate: cmd.entryDate, createdBy: cmd.createdBy, lines,
+    }, manager);
+  }
+
+  async postProviderSettlement(
+    cmd: PostProviderSettlementCmd,
+    manager: EntityManager,
+  ): Promise<PostResult> {
+    const coaRepo = manager.getRepository(ChartOfAccount);
+    const bank = await coaRepo.findOne({ where: { id: cmd.bankAccountId } as any });
+    const clearing = await coaRepo.findOne({ where: { id: cmd.clearingAccountId } as any });
+    if (!bank) throw new BadRequestException('Bank account not found');
+    if (!clearing) throw new BadRequestException('Provider clearing account not found');
+
+    // Exactly two lines. Provider fees are already discounts on the Sales
+    // Order, so no fee line is ever posted (#1257).
+    return this.build({
+      sourceType: AccountingSourceType.PROVIDER_SETTLEMENT,
+      sourceDocumentId: cmd.settlementId,
+      sourceEventId: cmd.settlementId,
+      sourceRef: cmd.sourceRef,
+      postingType: PostingType.PROVIDER_SETTLEMENT,
+      description: 'Provider settlement',
+      entryDate: cmd.entryDate,
+      createdBy: cmd.createdBy,
+      lines: [this.debitLine(bank, cmd.amount), this.creditLine(clearing, cmd.amount)],
     }, manager);
   }
 

@@ -22,6 +22,15 @@ export interface PostOwnerCashDrawingRefundCmd extends Base { equityDocumentId: 
 // reversed entry (spec §5.2).
 export interface PostOwnerStockDrawingCmd extends Base { equityDocumentId: string; stockMovementId: string; amount: string; }
 export interface ReverseEntryCmd { originalEntryId: string; entryDate: string; createdBy?: string; }
+export interface PostProviderSettlementCmd {
+  settlementId: string;
+  sourceRef: string;
+  bankAccountId: string;
+  clearingAccountId: string;
+  amount: string;
+  entryDate: string;
+  createdBy?: string;
+}
 
 export { AccountingSourceType, PostingType };
 export type { PaymentChannel };
