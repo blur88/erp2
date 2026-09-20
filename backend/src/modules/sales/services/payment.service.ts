@@ -15,7 +15,6 @@ import {
   PaymentStatus,
 } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
-import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import {
   CreatePaymentDto,
@@ -49,8 +48,6 @@ export class PaymentService extends BaseCrudService<
     private readonly customerRepository: Repository<Customer>,
     @InjectRepository(PaymentMethodEntity)
     private readonly paymentMethodRepository: Repository<PaymentMethodEntity>,
-    @InjectRepository(SalesOrder)
-    private readonly salesOrderRepository: Repository<SalesOrder>,
     auditLogService: AuditLogService,
   ) {
     super(paymentRepository, auditLogService);
@@ -386,24 +383,6 @@ export class PaymentService extends BaseCrudService<
     }
 
     return payment;
-  }
-
-  private async handlePaymentCompletion(payment: Payment): Promise<void> {
-    // Update customer balance
-    if (payment.customer) {
-      await this.updateCustomerBalance(payment.customer, payment);
-    }
-
-    // Update sales order if payment is allocated to specific order
-    if (payment.salesOrder) {
-      const allocatedMinor = toMinorUnits(payment.amount);
-      const paidMinor = toMinorUnits(payment.salesOrder.paidAmount) + allocatedMinor;
-      payment.salesOrder.paidAmount = formatScale4(paidMinor);
-      payment.salesOrder.balanceDue = formatScale4(
-        toMinorUnits(payment.salesOrder.totalAmount) - paidMinor,
-      );
-      await this.salesOrderRepository.save(payment.salesOrder);
-    }
   }
 
   private async updateCustomerBalance(customer: Customer, _payment: Payment): Promise<void> {

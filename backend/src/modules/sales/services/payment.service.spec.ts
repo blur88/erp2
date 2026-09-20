@@ -5,7 +5,6 @@ import { Repository } from 'typeorm';
 import { PaymentService } from './payment.service';
 import { Payment, PaymentStatus } from '../../../database/entities/payment.entity';
 import { Customer } from '../../../database/entities/customer.entity';
-import { SalesOrder } from '../../../database/entities/sales-order.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { AuditLogService } from '../../audit-logs/services';
 import { NotFoundException } from '@nestjs/common';
@@ -14,7 +13,6 @@ describe('PaymentService', () => {
   let service: PaymentService;
   let paymentRepository: any;
   let customerRepository: any;
-  let salesOrderRepository: any;
   let paymentMethodRepository: any;
   let auditLogService: any;
 
@@ -59,14 +57,6 @@ describe('PaymentService', () => {
           },
         },
         {
-          provide: getRepositoryToken(SalesOrder),
-          useValue: {
-            findOne: (jest.fn as unknown as any)(),
-            save: (jest.fn as unknown as any)(),
-            find: (jest.fn as unknown as any)(),
-          },
-        },
-        {
           provide: getRepositoryToken(PaymentMethodEntity),
           useValue: {
             findOne: (jest.fn as unknown as any)(),
@@ -84,7 +74,6 @@ describe('PaymentService', () => {
     service = module.get<PaymentService>(PaymentService);
     paymentRepository = module.get(getRepositoryToken(Payment));
     customerRepository = module.get(getRepositoryToken(Customer));
-    salesOrderRepository = module.get(getRepositoryToken(SalesOrder));
     paymentMethodRepository = module.get(getRepositoryToken(PaymentMethodEntity));
     auditLogService = module.get(AuditLogService);
   });
