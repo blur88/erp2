@@ -306,6 +306,22 @@ describe('ProviderSettlementService — drafts', () => {
     ).rejects.toThrow(/not mapped to a valid account/);
   });
 
+  it('checks a provider-changing update through the TRANSACTION manager, not a second connection', async () => {
+    // Passing no manager makes list() read through its injected repositories
+    // on the default connection while the update transaction holds one (#1134).
+    const { service, mappingService, manager } = makeService({
+      settlement: { status: 'DRAFT', providerPaymentMethodId: 'pm-1' },
+      mappingStatus: 'mapped',
+    });
+    await service.update(
+      'ps-1',
+      { paymentIds: ['pay-1'], providerPaymentMethodId: 'pm-2' } as any,
+      'u1',
+      'tester',
+    );
+    expect(mappingService.list).toHaveBeenCalledWith(manager);
+  });
+
   it('HARD-deletes removed lines so the claim is actually released', async () => {
     const { service, lineRepo } = makeService({ existingLines: ['pay-A'] });
     await service.update('ps-1', { paymentIds: ['pay-B'] } as any, 'u1', 'tester');
@@ -413,19 +429,20 @@ describe('ProviderSettlementService — drafts', () => {
   });
 
   it('dates the reversal by the business timezone, not UTC', async () => {
-    // 2026-09-20T17:30:00Z is still 2026-09-20 in UTC but ALREADY 2026-09-21 in
-    // Asia/Kuala_Lumpur (UTC+8). A mid-UTC-day clock is INERT for this test —
-    // both zones would agree and the assertion would pass against a raw UTC
-    // implementation (#1134).
+    // A NON-DEFAULT zone on purpose. 2026-09-20T17:30:00Z is 2026-09-20 in
+    // America/New_York (UTC-4, EDT) but ALREADY 2026-09-21 in the DEFAULT zone
+    // (Asia/Kuala_Lumpur, UTC+8). Stubbing the default zone would make an
+    // implementation that drops the resolved timezone produce the same date,
+    // and the test would pass vacuously (#1134).
     jest.useFakeTimers().setSystemTime(new Date('2026-09-20T17:30:00Z'));
     try {
       const { service, postingPort } = makeService({
         settlement: { status: 'POSTED', journalEntryId: 'je-1', settlementDate: '2026-09-01' },
-        timezone: 'Asia/Kuala_Lumpur',
+        timezone: 'America/New_York',
       });
       await service.reverse('ps-1', 'u1', 'tester');
       expect(postingPort.reverseEntry).toHaveBeenCalledWith(
-        expect.objectContaining({ entryDate: '2026-09-21' }),
+        expect.objectContaining({ entryDate: '2026-09-20' }),
         expect.anything(),
       );
     } finally {
@@ -438,10 +455,11 @@ describe('ProviderSettlementService — drafts', () => {
     try {
       const { service, postingPort } = makeService({
         settlement: { status: 'POSTED', journalEntryId: 'je-1', settlementDate: '2026-09-01' },
-        timezone: 'Asia/Kuala_Lumpur',
+        timezone: 'America/New_York',
       });
       await service.reverse('ps-1', 'u1', 'tester');
       const call = postingPort.reverseEntry.mock.calls[0][0];
+      expect(call.entryDate).toBe('2026-09-20');
       expect(call.entryDate).not.toBe('2026-09-01');
     } finally {
       jest.useRealTimers();

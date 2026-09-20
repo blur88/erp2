@@ -135,7 +135,7 @@ export class ProviderSettlementService {
       // invalid after it was saved, which is the same mistake as re-checking at
       // post time.
       if (providerId !== settlement.providerPaymentMethodId) {
-        await this.assertMappedProvider(providerId);
+        await this.assertMappedProvider(providerId, manager);
       }
 
       if (dto.bankAccountId) await this.assertPostableBankAccount(dto.bankAccountId, manager);
@@ -444,9 +444,18 @@ export class ProviderSettlementService {
    * Called on create and on a provider-CHANGING update only — NEVER at post
    * time, where the clearing account comes from journal history and the current
    * mapping is irrelevant.
+   *
+   * `manager` MUST be the caller's transaction manager when one is open.
+   * mappingService.list() resolves its injected repositories from the default
+   * DataSource, and reading through them while the update transaction is open
+   * opens a second connection (#1134). Passing the manager keeps every read on
+   * the transaction's single connection.
    */
-  private async assertMappedProvider(paymentMethodId: string): Promise<void> {
-    const rows = await this.mappingService.list();
+  private async assertMappedProvider(
+    paymentMethodId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const rows = await this.mappingService.list(manager);
     const row = rows.find((r: any) => r.paymentMethodId === paymentMethodId);
     if (!row || row.status !== 'mapped') {
       throw new BadRequestException(
