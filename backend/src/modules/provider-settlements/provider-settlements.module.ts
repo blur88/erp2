@@ -5,6 +5,7 @@ import { ProviderSettlementLine } from './entities/provider-settlement-line.enti
 import { AccountingModule } from '../accounting/accounting.module';
 import { SettingsModule } from '../settings/settings.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
+import { ProviderSettlementDerivationService } from './services/provider-settlement-derivation.service';
 
 @Module({
   imports: [
@@ -14,6 +15,6 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
     AuditLogsModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [ProviderSettlementDerivationService],
 })
 export class ProviderSettlementsModule {}
