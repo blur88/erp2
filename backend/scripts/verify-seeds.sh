@@ -167,11 +167,10 @@ echo "==> payment_method_account_mappings"
 # are checked here as well as in the disposable-database migration gate, which
 # needs a gitignored env file and rebuilds a database per scenario.
 #
-# Neither gate runs in CI. ci.yml invokes this script nowhere — its only
-# mention (ci.yml:135) is a comment about what the bats suite covers. That
-# suite does reach these content checks (verify-seeds.bats:81-95), but it stubs
-# docker, so the queries return nothing and the checks cannot be meaningfully
-# evaluated. Both gates are run by hand; this is the cheaper of the two.
+# Both gates now run in CI (#1260): ci.yml invokes verify-baseline.sh and then
+# this script with PG_TRANSPORT=tcp against the job's postgres service. The
+# bats suite still stubs docker/psql, so it exercises preflight boundaries
+# only and never performs a real content check.
 check "payment method mappings" \
   "ATOME>1240;CASH>1100;CIMB>1200;MAYBANK>1210;SHOPEE>1220;TIKTOK>1230" \
   "$(q "SELECT string_agg(pm.code||'>'||a.code, ';' ORDER BY pm.code) FROM payment_method_account_mappings m JOIN payment_methods pm ON pm.id = m.\"paymentMethodId\" JOIN chart_of_account a ON a.id = m.\"accountId\";")"

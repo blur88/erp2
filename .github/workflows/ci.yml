@@ -135,8 +135,53 @@ jobs:
       # boundaries of both verify-seeds.sh and verify-baseline.sh, including
       # PR #1060's previously untested credential probe. Runs last: cheapest
       # gate, and must not delay E2E feedback.
+      #
+      # Bats stubs the database, so it never performs a schema comparison —
+      # the live comparison runs in the migration-baseline steps below (#1260).
       - name: Gate script tests
         run: npm run test:scripts
+
+      # The gate below compares a MIGRATED schema against a schema:sync
+      # reference — the only thing that catches a migration diverging from the
+      # entity declarations. migrations-fresh-db proves migrations APPLY to an
+      # empty database; it does not prove the result MATCHES the entities.
+      #
+      # pg_dump must match the postgres:18.3 service major. Ubuntu's default
+      # postgresql-client is older and would refuse the v18 server outright, so
+      # this installs from PGDG. (#1260)
+      - name: Install PostgreSQL 18 client
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-18
+          pg_dump --version
+
+      # Runs the ALLOWLIST=migration-indexes mode, which has TWO halves and
+      # fails the job on either:
+      #   negative — any schema difference outside the allowlist fails;
+      #   positive — pg_trgm must be installed and all 11 migration indexes must
+      #     match exactly on name|table|unique|full-definition.
+      # So allowlisted objects are excluded from the DIFF but pinned to exact
+      # expected definitions — pinned harder than schema:sync could pin them.
+      # They are #989's trigram and lower() expression indexes, which TypeORM
+      # cannot express on an entity.
+      - name: Migration baseline - schema matches entities
+        env:
+          PG_TRANSPORT: tcp
+          ALLOWLIST: migration-indexes
+        run: npm run verify:baseline
+
+      # Ordering is a DEPENDENCY, not a preference: this grades
+      # erp_gate_candidate, which the step above builds. Run alone it exits 2
+      # with "PREREQUISITE NOT MET".
+      - name: Migration baseline - canonical seed data
+        env:
+          PG_TRANSPORT: tcp
+        run: npm run verify:seeds
 
   # Proves the PRODUCTION IMAGE applies migrations against an empty database.
   #
