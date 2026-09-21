@@ -42,6 +42,11 @@ Add or update tests for any behavior change.
 Run checks based on files touched (not just a default test set):
 - Backend changes (`backend/src/**`):
   - `cd backend && npm run lint && npm run type-check && npm run test`
+- Backend test-source changes (`backend/test/**`):
+  - `cd backend && npm run type-check:spec`
+  - Catches errors in `test/**`, which `npm run type-check` cannot see at all —
+    `tsconfig.build.json` has `include: ["src"]`. It additionally checks
+    `src/**` under the test TypeScript configuration.
 - Backend DB changes (entities/migrations):
   - `cd backend && npm run migration:run && npm run test:e2e`
 - Frontend changes (`frontend/src/**`):

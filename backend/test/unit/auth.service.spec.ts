@@ -35,7 +35,12 @@ import { UserRole, UserStatus } from "../../src/database/entities/user.entity";
 
 describe("AuthService", () => {
   
-let service: AuthService;
+// `AuthService` is a VALUE here, not a type: the class is loaded via a
+// dynamic import in beforeAll so that jest.unstable_mockModule("bcrypt")
+// above is registered before the module graph is evaluated. A top-level
+// `import { AuthService }` would defeat that mock, so these handles stay
+// `any` (#1262).
+let service: any;
   let userRepository: Repository<User>;
   let refreshTokenRepository: Repository<RefreshToken>;
   let jwtService: JwtService;
@@ -115,7 +120,7 @@ let service: AuthService;
       ],
     }).compile();
 
-    service = module.get<AuthService>(AuthService);
+    service = module.get(AuthService);
     userRepository = module.get<Repository<User>>(getRepositoryToken(User));
     refreshTokenRepository = module.get<Repository<RefreshToken>>(
       getRepositoryToken(RefreshToken),
@@ -604,7 +609,7 @@ let service: AuthService;
    * this bug.
    */
   describe("token uniqueness within one second (real JwtService)", () => {
-    let realService: AuthService;
+    let realService: any;
     const savedTokens: any[] = [];
 
     beforeEach(async () => {
@@ -637,7 +642,7 @@ let service: AuthService;
         ],
       }).compile();
 
-      realService = module.get<AuthService>(AuthService);
+      realService = module.get(AuthService);
 
       // Freeze the clock so both issues share an `iat` by construction, rather
       // than relying on two calls happening to race inside one second.

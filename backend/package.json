@@ -15,6 +15,7 @@
     "verify:baseline": "./scripts/verify-baseline.sh",
     "verify:seeds": "./scripts/verify-seeds.sh",
     "type-check": "tsc -p tsconfig.build.json --noEmit",
+    "type-check:spec": "tsc -p tsconfig.spec.json --noEmit",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",

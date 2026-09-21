@@ -460,7 +460,12 @@ describe('Balance Sheet account groups (e2e)', () => {
         const query = runner.query.bind(runner);
         runner.query = async (...args: Parameters<typeof runner.query>) => {
           const result = await query(...args);
-          if (/^SELECT/.test(args[0]) && args[0].includes('"accounting_settings"')) {
+          // An assertion, not a narrowing: `Parameters<typeof runner.query>`
+          // widens the first element to `unknown` under this config. It is
+          // sound because this wrapper only ever wraps QueryRunner.query,
+          // whose first argument is the SQL string (#1262).
+          const sql = args[0] as string;
+          if (/^SELECT/.test(sql) && sql.includes('"accounting_settings"')) {
             const isolation = await query('SHOW transaction_isolation');
             observedIsolation = isolation[0].transaction_isolation;
             firstRead();

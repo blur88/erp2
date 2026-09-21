@@ -294,4 +294,8 @@ describe('precision reconciliation (#1241)', () => {
 
     assertBalancedAtCents(await journalLinesFor(order.id));
   });
-}, 120000);
+  // No third `describe` argument: describe() takes two, so the 120000 that used
+  // to sit here was silently ignored and never set anything. The 120s timeout
+  // these tests need comes from `testTimeout` in test/jest-e2e.json, which
+  // applies to every e2e suite — do not re-add it here (#1262).
+});

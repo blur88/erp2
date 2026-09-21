@@ -110,6 +110,15 @@ jobs:
       - name: Type check
         run: npm run type-check
 
+      # tsconfig.build.json's `include: ["src"]` excludes test/ entirely, so no
+      # other gate compiles the test sources and nine errors accumulated there
+      # unnoticed (#1262). This runs tsconfig.spec.json — ts-jest's own
+      # transform config — which covers test/** and additionally re-checks
+      # src/** under the test TypeScript configuration (esnext module,
+      # bundler resolution, isolatedModules).
+      - name: Type check (test sources)
+        run: npm run type-check:spec
+
       - name: Unit tests
         run: npm run test -- --no-coverage
 
