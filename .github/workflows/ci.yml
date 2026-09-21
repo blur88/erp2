@@ -158,7 +158,19 @@ jobs:
             | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
           sudo apt-get install -y postgresql-client-18
-          pg_dump --version
+          # Put the versioned binaries FIRST on PATH for later steps.
+          #
+          # Installing postgresql-client-18 is not enough on its own: Ubuntu's
+          # /usr/bin/pg_dump is a postgresql-client-common wrapper, and on the
+          # runner it resolved to the preinstalled 16.x client even after 18
+          # was installed. The transport's major-version preflight then aborted
+          # with "pg_dump reports major version '16' ... but the server is
+          # PostgreSQL 18" — correctly, which is why the gate failed loudly
+          # instead of diffing with the wrong client.
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+          # Assert against the versioned binary by absolute path: $GITHUB_PATH
+          # only takes effect in SUBSEQUENT steps, not this one.
+          /usr/lib/postgresql/18/bin/pg_dump --version
 
       # Runs the ALLOWLIST=migration-indexes mode, which has TWO halves and
       # fails the job on either:
