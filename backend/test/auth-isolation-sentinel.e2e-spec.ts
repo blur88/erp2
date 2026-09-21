@@ -420,6 +420,44 @@ describe("Suite isolation sentinel (e2e)", () => {
     await removeSuiteAdmin(ds, SENTINEL_ADMIN_USERNAMES.kept);
   });
 
+  it("rejects a user id and leaves the row intact, rather than deleting nothing silently", async () => {
+    // The #1259 defect, reproduced directly. removeSuiteAdmin deletes BY
+    // USERNAME; a UUID matches no username, so the DELETE affected zero rows,
+    // reported no error, and the admin leaked on every run of the offending
+    // suite. Asserting only the rejection would be a message test — the row
+    // survival check is what makes this a leak test.
+    const seeded = await seedSuiteAdmin(ds, SENTINEL_ADMIN_USERNAMES.removed);
+
+    try {
+      await expect(removeSuiteAdmin(ds, seeded.id)).rejects.toThrow(
+        /takes a USERNAME, not a user id/,
+      );
+
+      // The row must still be there: the helper must refuse, not half-act.
+      expect(
+        await ds.getRepository(User).findOne({ where: { id: seeded.id } }),
+      ).not.toBeNull();
+    } finally {
+      // MUST be finally. Against the pre-fix helper the rejection assertion
+      // above fails immediately, so a trailing cleanup would never run — and
+      // this red proof would itself leak a user into the very suite that
+      // exists to prove rows do not leak.
+      await removeSuiteAdmin(ds, SENTINEL_ADMIN_USERNAMES.removed, {
+        expectExisting: false,
+      });
+    }
+  });
+
+  it("tolerates a missing row when the caller opts out of the existence check", async () => {
+    // The pre-seed reset shape (accounting-access.e2e-spec.ts): deleting
+    // nothing is the correct outcome on a clean database.
+    await expect(
+      removeSuiteAdmin(ds, SENTINEL_ADMIN_USERNAMES.removed, {
+        expectExisting: false,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it("survives fuzzy-search's fixture operations with the unrelated business row intact", async () => {
     // fuzzy-search.e2e-spec.ts creates no users, so this case asserts business
     // data only. Its truncate was a business-data defect; it does NOT establish

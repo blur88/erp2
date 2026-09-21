@@ -72,7 +72,31 @@ export async function seedSuiteAdmin(
 export async function removeSuiteAdmin(
   ds: DataSource,
   username: string,
+  opts: { expectExisting?: boolean } = {},
 ): Promise<void> {
   // refresh_tokens cascade via RefreshToken.userId (onDelete: 'CASCADE').
-  await ds.query(`DELETE FROM users WHERE username = $1`, [username]);
+  //
+  // The affected-row count is asserted because a DELETE matching nothing is
+  // not an error: `payment-allocation-retired` passed a UUID here, matched no
+  // username, deleted nothing, reported nothing, and leaked its admin on every
+  // run until the nightly leak check caught it (#1259).
+  //
+  // `expectExisting: false` is for a deliberate own-rows reset BEFORE seeding,
+  // where zero rows is the correct outcome on a clean database. It is opt-in so
+  // that teardown — where zero rows always means a bug — keeps the strict
+  // default.
+  const [, affected] = await ds.query(
+    `DELETE FROM users WHERE username = $1`,
+    [username],
+  );
+
+  if (opts.expectExisting !== false && affected === 0) {
+    throw new Error(
+      `removeSuiteAdmin deleted no rows for "${username}". ` +
+        `This helper takes a USERNAME, not a user id — a UUID matches no ` +
+        `username, so the DELETE affects zero rows, reports no error, and the ` +
+        `row leaks silently (#1259). ` +
+        `For a deliberate pre-seed reset, pass { expectExisting: false }.`,
+    );
+  }
 }

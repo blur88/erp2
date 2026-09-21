@@ -92,8 +92,11 @@ describe('Accounting access (e2e)', () => {
     users = ds.getRepository(User);
     // Own-rows reset before seeding, so an interrupted previous run cannot
     // leave stale users (and their refresh tokens) behind (issue #1204).
-    await removeSuiteAdmin(ds, ADMIN_USER);
-    await removeSuiteAdmin(ds, NONADMIN_USER);
+    // expectExisting: false — this is a reset BEFORE seeding, so zero rows is
+    // the correct outcome on a clean database. The afterAll calls below keep
+    // the strict default, where zero rows would mean a leak (#1259).
+    await removeSuiteAdmin(ds, ADMIN_USER, { expectExisting: false });
+    await removeSuiteAdmin(ds, NONADMIN_USER, { expectExisting: false });
     await ensureUser(ADMIN_USER, UserRole.ADMIN);
     await ensureUser(NONADMIN_USER, UserRole.SALES_STAFF);
     adminToken = await login(ADMIN_USER);
