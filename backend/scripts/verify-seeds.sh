@@ -6,10 +6,14 @@
 # verify-baseline.sh.
 set -euo pipefail
 
-# psql runs inside the postgres container via docker compose exec, so no
-# password is needed here — and none is hardcoded. The role comes from the
-# configured DB_USERNAME (backend/.env.local or the environment) so any
-# deployment not using the erp_user default can still run this gate.
+# Transport-dependent credentials, never hardcoded. Under the default
+# `compose` transport, psql runs inside the postgres container via
+# `docker compose exec`, so no password is needed. Under `PG_TRANSPORT=tcp`,
+# psql connects over the network and needs DB_PASSWORD — the transport
+# library exports it as PGPASSWORD, keeping it out of the process argument
+# list. Either way the role comes from the configured DB_USERNAME
+# (backend/.env.local or the environment) so any deployment not using the
+# erp_user default can still run this gate.
 ENV_FILE="${ENV_FILE:-.env.local}"
 if [ -f "$ENV_FILE" ]; then
   set -a
@@ -18,12 +22,18 @@ if [ -f "$ENV_FILE" ]; then
   set +a
 fi
 DB_USERNAME="${DB_USERNAME:-erp_user}"
+DB_HOST="${DB_HOST:-localhost}"
+DB_PORT="${DB_PORT:-5432}"
+DB_PASSWORD="${DB_PASSWORD:-}"
 CAND_DB="${CAND_DB:-erp_gate_candidate}"
 FAILED=0
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/pg-transport.sh
+. "$SCRIPT_DIR/lib/pg-transport.sh"
+
 q() {
-  docker compose -f ../docker-compose.yml exec -T postgres \
-    psql -U "$DB_USERNAME" -d "$CAND_DB" -tAc "$1" | tr -d '\r'
+  pg_psql -U "$DB_USERNAME" -d "$CAND_DB" -tAc "$1" | tr -d '\r'
 }
 
 # Admin-context query. q() targets $CAND_DB and therefore cannot run when that
@@ -31,8 +41,7 @@ q() {
 # ONLY for the existence probe; every migrations query must use q(), since the
 # migrations table lives in the candidate.
 q_admin() {
-  docker compose -f ../docker-compose.yml exec -T postgres \
-    psql -U "$DB_USERNAME" -d postgres -tAc "$1" | tr -d '\r'
+  pg_psql -U "$DB_USERNAME" -d postgres -tAc "$1" | tr -d '\r'
 }
 
 check() {
@@ -72,7 +81,6 @@ fail_prerequisite() {
 # Resolve migrations from THIS script's location, never the caller's cwd: a
 # glob evaluated elsewhere matches zero files and would report every candidate
 # stale — a false failure that looks like a real one.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MIGRATIONS_DIR="$SCRIPT_DIR/../src/database/migrations"
 
 EXPECTED_COUNT=$(find "$MIGRATIONS_DIR" -maxdepth 1 -name '*.ts' 2>/dev/null | wc -l | tr -d ' ')
@@ -159,11 +167,10 @@ echo "==> payment_method_account_mappings"
 # are checked here as well as in the disposable-database migration gate, which
 # needs a gitignored env file and rebuilds a database per scenario.
 #
-# Neither gate runs in CI. ci.yml invokes this script nowhere — its only
-# mention (ci.yml:135) is a comment about what the bats suite covers. That
-# suite does reach these content checks (verify-seeds.bats:81-95), but it stubs
-# docker, so the queries return nothing and the checks cannot be meaningfully
-# evaluated. Both gates are run by hand; this is the cheaper of the two.
+# Both gates now run in CI (#1260): ci.yml invokes verify-baseline.sh and then
+# this script with PG_TRANSPORT=tcp against the job's postgres service. The
+# bats suite still stubs docker/psql, so it exercises preflight boundaries
+# only and never performs a real content check.
 check "payment method mappings" \
   "ATOME>1240;CASH>1100;CIMB>1200;MAYBANK>1210;SHOPEE>1220;TIKTOK>1230" \
   "$(q "SELECT string_agg(pm.code||'>'||a.code, ';' ORDER BY pm.code) FROM payment_method_account_mappings m JOIN payment_methods pm ON pm.id = m.\"paymentMethodId\" JOIN chart_of_account a ON a.id = m.\"accountId\";")"

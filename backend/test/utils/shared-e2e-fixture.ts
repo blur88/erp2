@@ -72,7 +72,46 @@ export async function seedSuiteAdmin(
 export async function removeSuiteAdmin(
   ds: DataSource,
   username: string,
+  opts: { expectExisting?: boolean } = {},
 ): Promise<void> {
   // refresh_tokens cascade via RefreshToken.userId (onDelete: 'CASCADE').
-  await ds.query(`DELETE FROM users WHERE username = $1`, [username]);
+  //
+  // The affected-row count is asserted because a DELETE matching nothing is
+  // not an error: `payment-allocation-retired` passed a UUID here, matched no
+  // username, deleted nothing, reported nothing, and leaked its admin on every
+  // run until the nightly leak check caught it (#1259).
+  //
+  // `expectExisting: false` is for a deliberate own-rows reset BEFORE seeding,
+  // where zero rows is the correct outcome on a clean database. It is opt-in so
+  // that teardown — where zero rows always means a bug — keeps the strict
+  // default.
+  const result = await ds.query(`DELETE FROM users WHERE username = $1`, [
+    username,
+  ]);
+
+  // Shape-checked rather than destructured blind: a driver/TypeORM change to
+  // the [rows, rowCount] tuple would otherwise silently turn `affected` into
+  // `undefined`, and `undefined === 0` is false — the guard below would stop
+  // throwing with no signal at all, exactly the silent-failure class #1259
+  // exists to eliminate.
+  const affected = Array.isArray(result) ? result[1] : undefined;
+
+  if (typeof affected !== "number") {
+    throw new Error(
+      `removeSuiteAdmin could not read an affected-row count from the driver ` +
+        `(got ${JSON.stringify(result)}). This helper's leak guard depends on ` +
+        `TypeORM's Postgres DELETE returning [rows, rowCount]; if that shape ` +
+        `changed, the guard must be updated rather than silently skipped (#1259).`,
+    );
+  }
+
+  if (opts.expectExisting !== false && affected === 0) {
+    throw new Error(
+      `removeSuiteAdmin deleted no rows for "${username}". ` +
+        `This helper takes a USERNAME, not a user id — a UUID matches no ` +
+        `username, so the DELETE affects zero rows, reports no error, and the ` +
+        `row leaks silently (#1259). ` +
+        `For a deliberate pre-seed reset, pass { expectExisting: false }.`,
+    );
+  }
 }

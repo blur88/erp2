@@ -72,8 +72,8 @@ describe('Legacy payment allocation route is retired (e2e)', () => {
           userIds: [adminUserId].filter(Boolean),
           usernames: [adminUsername].filter(Boolean),
         });
-        if (adminUserId) {
-          await removeSuiteAdmin(ds, adminUserId);
+        if (adminUsername) {
+          await removeSuiteAdmin(ds, adminUsername);
         }
       }
     } finally {
