@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Stub for host `psql`, used by PG_TRANSPORT=tcp specs. Mirrors the docker
+# stub's query dispatch so tcp-mode specs can reuse the same STUB_* fixtures.
+# Per-ARGUMENT logging, deliberately not "$*".
+#
+# "$*" joins argv with spaces, so correct "$@" forwarding and BROKEN unquoted
+# $@ forwarding produce a byte-identical line:
+#   psql -tAc SELECT 'a b', 2;
+# An argument-boundary assertion reading that line therefore passes either way
+# — an inert test. ARGC plus one ARG[n] line per argument distinguishes them
+# (ARGC=2 vs ARGC=5 for the case above).
+printf 'psql ARGC=%d\n' "$#" >> "$STUB_LOG"
+_i=0
+for _a in "$@"; do
+  _i=$((_i + 1))
+  printf 'psql ARG[%d]=%s\n' "$_i" "$_a" >> "$STUB_LOG"
+done
+
+# Failure injection for the wrapper-behaviour specs.
+if [ "${STUB_PSQL_EXIT:-0}" != "0" ]; then
+  echo 'psql: error: stubbed failure' >&2
+  exit "$STUB_PSQL_EXIT"
+fi
+# Echo stdin back so a spec can prove the wrapper passes it through.
+[ -n "${STUB_ECHO_STDIN:-}" ] && cat
+
+sql=''
+prev=''
+for arg in "$@"; do
+  if [ "$prev" = "-tAc" ] || [ "$prev" = "-c" ]; then
+    sql="$arg"
+    break
+  fi
+  prev="$arg"
+done
+
+case "$sql" in
+  *pg_database*)          printf '%s\n' "${STUB_DB_EXISTS:-1}" ;;
+  *"count(*) FROM migrations"*)
+    if [ "${STUB_MIGRATION_COUNT}" = "ERROR" ]; then
+      echo 'psql: error: ERROR:  relation "migrations" does not exist' >&2
+      exit 1
+    fi
+    printf '%s\n' "${STUB_MIGRATION_COUNT}"
+    ;;
+  *"FROM migrations ORDER BY"*) printf '%s\n' "${STUB_LATEST_MIGRATION}" ;;
+  *)                            printf 'ROW\n' ;;
+esac
+exit 0

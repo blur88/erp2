@@ -4,6 +4,14 @@
 # so specs stay declarative.
 printf '%s\n' "docker $*" >> "$STUB_LOG"
 
+# Compose service probe (#1260). STUB_COMPOSE_READY=0 simulates a stopped or
+# unreachable postgres service.
+for arg in "$@"; do
+  if [ "$arg" = "pg_isready" ]; then
+    exit "$([ "${STUB_COMPOSE_READY:-1}" = "1" ] && echo 0 || echo 1)"
+  fi
+done
+
 # The gate scripts always call: docker compose -f ... exec -T postgres <cmd> ...
 # The SQL is the argument after -tAc (psql) — find it.
 sql=''

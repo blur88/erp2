@@ -27,6 +27,13 @@ setup_harness() {
   export STUB_LATEST_MIGRATION='AddOwnerEquity1786862759868'
   export STUB_SEED_MODE=pass
   export STUB_NODE_EXIT=0
+  export STUB_PGDUMP_VERSION=18.3
+  export STUB_COMPOSE_READY=1
+
+  # The harness must be hermetic against the DEVELOPER's environment. A real
+  # PGHOST/PGPORT/PGUSER exported in their shell would trip the tcp conflict
+  # check and fail specs that have nothing to do with it.
+  unset PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE
 }
 
 teardown_harness() {
