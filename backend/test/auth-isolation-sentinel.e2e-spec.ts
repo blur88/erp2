@@ -62,10 +62,18 @@ const SENTINEL_PASSWORD = "Admin@123!";
 
 // The checks are meaningless if a suite under test owns the sentinel. Assert
 // it, don't assume it — for every namespace this file exercises.
+// `readonly string[]` is required, not incidental: these sets are `as const`,
+// so their literal-union element types make `.includes(sentinel)` a type error
+// for any name outside the set — and a sentinel being outside every set is
+// exactly the property asserted here. Widening keeps the check a RUNTIME one
+// (#1262).
 for (const [setName, usernames] of [
-  ["AUTH_USERNAMES", AUTH_USERNAMES],
-  ["SEARCH_USERNAMES", SEARCH_USERNAMES],
-  ["E2E_ADMIN_USERNAMES", Object.values(E2E_ADMIN_USERNAMES)],
+  ["AUTH_USERNAMES", AUTH_USERNAMES as readonly string[]],
+  ["SEARCH_USERNAMES", SEARCH_USERNAMES as readonly string[]],
+  [
+    "E2E_ADMIN_USERNAMES",
+    Object.values(E2E_ADMIN_USERNAMES) as readonly string[],
+  ],
 ] as const) {
   for (const sentinel of [
     ...Object.values(SENTINEL_USERNAMES),

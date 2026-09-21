@@ -509,7 +509,11 @@ describe('Form B (e2e)', () => {
        * mockRestore() would leave dataSource.transaction patched for every
        * later test in the suite.
        */
-      let repoSpy: jest.SpyInstance | undefined;
+      // `jest.SpyInstance` was removed from the Jest namespace; this derives
+      // the spy type from the installed Jest version instead. The handle is
+      // only ever read for mockRestore() in the finally below, so no call
+      // signature precision is lost (#1262).
+      let repoSpy: ReturnType<typeof jest.spyOn> | undefined;
       const spy = jest
         .spyOn(dataSource, 'transaction')
         .mockImplementation(((cb: any) =>
