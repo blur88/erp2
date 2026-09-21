@@ -203,6 +203,29 @@ export default function ProviderSettlementFormPage() {
         ))}
       </TextField>
 
+      {/*
+        Read-only. The clearing account is DERIVED by the backend from the
+        selected payments' original journal entries, never chosen here — the
+        whole point is that it matches the account those payments actually
+        debited. It is therefore only known once a draft exists.
+      */}
+      <TextField
+        label="Provider Clearing Account"
+        value={
+          // Gate on isEdit, not merely on `existing` being present: RTK Query
+          // can hand back a cached settlement from a previous visit even while
+          // `skip` is set, which would show a stale account on a brand-new
+          // form.
+          isEdit && existing?.clearingAccount
+            ? `${existing.clearingAccount.code} ${existing.clearingAccount.name}`
+            : ''
+        }
+        placeholder="Derived from the selected payments when saved"
+        slotProps={{ input: { readOnly: true }, inputLabel: { shrink: true } }}
+        helperText="Derived from the selected payments' original postings"
+        fullWidth sx={{ mb: 2 }}
+      />
+
       <TextField
         label="Settlement Amount" value={form.settlementAmount}
         onChange={(e) => setForm((f) => ({ ...f, settlementAmount: e.target.value }))}

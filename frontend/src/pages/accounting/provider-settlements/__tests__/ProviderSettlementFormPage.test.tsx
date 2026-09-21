@@ -57,6 +57,8 @@ const DRAFT = {
   id: 'ps-1', referenceNumber: 'PS-26-001', providerPaymentMethodId: 'pm-1',
   bankAccountId: 'b1', settlementDate: '2026-09-20', providerReference: 'ATM-1',
   settlementAmount: '148.0000', status: 'DRAFT',
+  clearingAccountId: 'c1',
+  clearingAccount: { id: 'c1', code: '1240', name: 'Atome' },
   lines: [
     { id: 'l1', salesOrderPaymentId: 'pay-1', amount: '98.0000', releasedAt: null },
     { id: 'l2', salesOrderPaymentId: 'pay-2', amount: '50.0000', releasedAt: null },
@@ -133,6 +135,21 @@ describe('ProviderSettlementFormPage', () => {
       expect(arg.providerPaymentMethodId).toBe('pm-2')
       expect(arg.settlementId).toBeUndefined()
     })
+  })
+
+  it('shows the derived clearing account read-only when editing', async () => {
+    renderForm('/accounting/provider-settlements/ps-1/edit')
+    const field = await screen.findByLabelText('Provider Clearing Account')
+    expect(field).toHaveValue('1240 Atome')
+    // Derived by the backend from the payments' original postings — never
+    // chosen here, or it could name an account those payments never debited.
+    expect(field).toHaveAttribute('readonly')
+  })
+
+  it('leaves the clearing account blank when creating', async () => {
+    renderForm('/accounting/provider-settlements/create')
+    // Unknown until a draft is saved and the backend derives it.
+    expect(screen.getByLabelText('Provider Clearing Account')).toHaveValue('')
   })
 
   it('offers only mapped payment methods as providers', async () => {

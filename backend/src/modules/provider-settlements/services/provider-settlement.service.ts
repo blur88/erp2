@@ -11,7 +11,6 @@ import { ProviderSettlementLine } from '../entities/provider-settlement-line.ent
 import { ProviderSettlementDerivationService } from './provider-settlement-derivation.service';
 import { ProviderSettlementEligibilityService } from './provider-settlement-eligibility.service';
 import { PaymentMethodMappingService } from '../../accounting/services/payment-method-mapping.service';
-import { AccountingLookupService } from '../../accounting/services/accounting-lookup.service';
 import { ChartOfAccount } from '../../accounting/entities/chart-of-account.entity';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
@@ -42,7 +41,6 @@ export class ProviderSettlementService {
     private readonly derivation: ProviderSettlementDerivationService,
     private readonly eligibility: ProviderSettlementEligibilityService,
     private readonly mappingService: PaymentMethodMappingService,
-    private readonly lookup: AccountingLookupService,
     @Inject(ACCOUNTING_POSTING_PORT)
     private readonly postingPort: AccountingPostingPort,
   ) {}
