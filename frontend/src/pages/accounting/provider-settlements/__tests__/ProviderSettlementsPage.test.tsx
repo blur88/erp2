@@ -73,6 +73,21 @@ describe('ProviderSettlementsPage', () => {
     expect(screen.getByTestId('settlement-amount')).toHaveTextContent('98.00')
   })
 
+  // #1267: the page passes showHeader={false}, so EntityTable's
+  // `{label} ({total})` line must not render in either state. `label` itself
+  // stays — it is the required prop and the fallback for the empty message.
+  it('shows no count label above an empty table, but keeps the empty state', () => {
+    renderPage([])
+    expect(screen.queryByText('Provider Settlements (0)')).not.toBeInTheDocument()
+    expect(screen.getByText(/No provider settlements found/i)).toBeInTheDocument()
+  })
+
+  it('shows no count label above a populated table', () => {
+    renderPage([row()])
+    expect(screen.queryByText(/Provider Settlements \(\d+\)/)).not.toBeInTheDocument()
+    expect(screen.getByText('Atome')).toBeInTheDocument()
+  })
+
   it('offers edit, post and discard on a draft row', async () => {
     renderPage([row({ status: 'DRAFT' })])
     await userEvent.click(screen.getByRole('button', { name: /actions/i }))

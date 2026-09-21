@@ -246,6 +246,7 @@ export default function ProviderSettlementsPage() {
             total={total}
             label="Provider Settlements"
             emptyLabel="provider settlements"
+            showHeader={false}
             hasActiveFilters={hasActiveFilters}
             focusedIndex={-1}
             // A real handler. NEVER `onSelect={() => {}}` — a no-op makes row
