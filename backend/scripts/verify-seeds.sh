@@ -6,10 +6,14 @@
 # verify-baseline.sh.
 set -euo pipefail
 
-# psql runs inside the postgres container via docker compose exec, so no
-# password is needed here — and none is hardcoded. The role comes from the
-# configured DB_USERNAME (backend/.env.local or the environment) so any
-# deployment not using the erp_user default can still run this gate.
+# Transport-dependent credentials, never hardcoded. Under the default
+# `compose` transport, psql runs inside the postgres container via
+# `docker compose exec`, so no password is needed. Under `PG_TRANSPORT=tcp`,
+# psql connects over the network and needs DB_PASSWORD — the transport
+# library exports it as PGPASSWORD, keeping it out of the process argument
+# list. Either way the role comes from the configured DB_USERNAME
+# (backend/.env.local or the environment) so any deployment not using the
+# erp_user default can still run this gate.
 ENV_FILE="${ENV_FILE:-.env.local}"
 if [ -f "$ENV_FILE" ]; then
   set -a
