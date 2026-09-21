@@ -65,7 +65,7 @@ _pg_transport_require_client_major_18() {
   # "pg_dump (PostgreSQL) 18.3" -> 18
   major="$(printf '%s' "$version_line" | sed -n 's/.*(PostgreSQL) \([0-9]\{1,\}\).*/\1/p')"
   if [ "$major" != "18" ]; then
-    _pg_transport_die "pg_dump reports major version '${major:-unknown}' ($version_line), but the server is PostgreSQL 18. An older client refuses a v18 server outright; a newer one formats its dump differently and makes the normalized schema diff spuriously non-empty. Install postgresql-client-18."
+    _pg_transport_die "pg_dump reports major version '${major:-unknown}' ($version_line), but the server is PostgreSQL 18. An older client refuses a v18 server outright. A newer client is not rejected by the server, but verify-baseline.sh's normalize() is written against PostgreSQL 18's dump dialect (it strips 18's \\restrict/\\unrestrict wrappers and filters whole statement paragraphs), so a different dialect is outside the range it was validated for. Both sides of the diff use the same client, so ordinary formatting changes cancel — the pin bounds normalization's input, it does not predict a false diff. Install postgresql-client-18."
   fi
 }
 
