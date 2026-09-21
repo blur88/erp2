@@ -221,21 +221,29 @@ describe('Provider settlements (e2e)', () => {
     return row.id;
   }
 
-  function draftBody(paymentIds: string[], settlementAmount: string) {
+  function draftBody(
+    paymentIds: string[],
+    settlementAmount: string,
+    settlementDate = '2026-09-20',
+  ) {
     return {
       providerPaymentMethodId: atomeMethodId,
       bankAccountId,
-      settlementDate: '2026-09-20',
+      settlementDate,
       providerReference: `ATM-${runId}`,
       settlementAmount,
       paymentIds,
     };
   }
 
-  async function createDraft(paymentIds: string[], amount: string) {
+  async function createDraft(
+    paymentIds: string[],
+    amount: string,
+    settlementDate?: string,
+  ) {
     const res = await post(
       '/accounting/provider-settlements',
-      draftBody(paymentIds, amount),
+      draftBody(paymentIds, amount, settlementDate),
     );
     if (res.status === 201)
       ownedSettlementIds.push((res.body.data ?? res.body).id);
@@ -426,6 +434,39 @@ describe('Provider settlements (e2e)', () => {
     ).expect(200);
     expect(list.body.meta.total).toBeGreaterThanOrEqual(1);
     expect(list.body.data.map((s: any) => s.id)).toContain(id);
+
+    // Paginated list: page/limit is a DIFFERENT query than the branch above.
+    // TypeORM switches to its distinct-id strategy when skip/take meets joined
+    // relations, projecting every ordering term into a `distinctAlias`
+    // subquery. A pre-quoted ordering expression (`s."settlementDate"`) is
+    // escaped verbatim there and emits a column that does not exist, so the
+    // unpaginated getMany() branch above passes while the real list page 500s
+    // (#1265). A second settlement on a LATER date makes the descending order
+    // assertion below falsifiable rather than vacuous.
+    const { paymentId: secondClaimedId } = await payOrder('23.00');
+    const secondDraft = await createDraft([secondClaimedId], '23.00', '2026-09-21');
+    expect(secondDraft.status).toBe(201);
+    const secondId = (secondDraft.body.data ?? secondDraft.body).id;
+
+    const paged = await get(
+      `/accounting/provider-settlements?providerPaymentMethodId=${atomeMethodId}&status=DRAFT&page=1&limit=25`,
+    ).expect(200);
+    expect(paged.body.meta.page).toBe(1);
+    expect(paged.body.meta.limit).toBe(25);
+    expect(paged.body.meta.total).toBeGreaterThanOrEqual(2);
+
+    // Both owned rows come back, and the later date sorts first. Compare the
+    // two rows we own by index rather than asserting on the whole page, which
+    // this suite shares with rows it does not own.
+    const pagedIds: string[] = paged.body.data.map((s: any) => s.id);
+    expect(pagedIds).toContain(id);
+    expect(pagedIds).toContain(secondId);
+    expect(pagedIds.indexOf(secondId)).toBeLessThan(pagedIds.indexOf(id));
+
+    // Joined relations survive the distinct-id pagination strategy.
+    const pagedSecond = paged.body.data.find((s: any) => s.id === secondId);
+    expect(pagedSecond.providerPaymentMethod?.id).toBe(atomeMethodId);
+    expect(pagedSecond.bankAccount?.code).toBe('1200');
 
     // Detail: the joined relations are hydrated, not left as bare ids. The
     // clearing account is DERIVED from the payment's journal history (1240),

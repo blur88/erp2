@@ -251,7 +251,14 @@ export class ProviderSettlementService {
 
     // Stable sort: settlementDate ties freely, so referenceNumber (unique)
     // breaks the tie and server-side pagination cannot skip or repeat a row.
-    qb.orderBy('s."settlementDate"', 'DESC').addOrderBy('s."referenceNumber"', 'DESC');
+    //
+    // Pass these as bare `alias.property` — never pre-quoted. TypeORM parses an
+    // orderBy argument and escapes it itself; a quoted property is escaped
+    // verbatim, and under skip/take with joined relations the distinct-id
+    // strategy projects each ordering term into its `distinctAlias` subquery,
+    // emitting `distinctAlias.s_"settlementDate"` and failing (#1265). The
+    // quoting in the andWhere fragments above is raw SQL and stays as-is.
+    qb.orderBy('s.settlementDate', 'DESC').addOrderBy('s.referenceNumber', 'DESC');
 
     // No page/limit means the FULL set — never a server-side hard cap.
     if (query.page !== undefined && query.limit !== undefined) {
