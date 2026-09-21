@@ -451,6 +451,15 @@ describe("Suite isolation sentinel (e2e)", () => {
   it("tolerates a missing row when the caller opts out of the existence check", async () => {
     // The pre-seed reset shape (accounting-access.e2e-spec.ts): deleting
     // nothing is the correct outcome on a clean database.
+    //
+    // Self-contained on purpose: this must not rely on a previous test's
+    // `finally` having already removed the row. Ensure absence explicitly
+    // first, so this test still proves the opt-out even if run alone,
+    // reordered, or if the test above it were skipped.
+    await removeSuiteAdmin(ds, SENTINEL_ADMIN_USERNAMES.removed, {
+      expectExisting: false,
+    });
+
     await expect(
       removeSuiteAdmin(ds, SENTINEL_ADMIN_USERNAMES.removed, {
         expectExisting: false,

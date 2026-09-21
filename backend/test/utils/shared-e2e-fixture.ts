@@ -85,10 +85,25 @@ export async function removeSuiteAdmin(
   // where zero rows is the correct outcome on a clean database. It is opt-in so
   // that teardown — where zero rows always means a bug — keeps the strict
   // default.
-  const [, affected] = await ds.query(
-    `DELETE FROM users WHERE username = $1`,
-    [username],
-  );
+  const result = await ds.query(`DELETE FROM users WHERE username = $1`, [
+    username,
+  ]);
+
+  // Shape-checked rather than destructured blind: a driver/TypeORM change to
+  // the [rows, rowCount] tuple would otherwise silently turn `affected` into
+  // `undefined`, and `undefined === 0` is false — the guard below would stop
+  // throwing with no signal at all, exactly the silent-failure class #1259
+  // exists to eliminate.
+  const affected = Array.isArray(result) ? result[1] : undefined;
+
+  if (typeof affected !== "number") {
+    throw new Error(
+      `removeSuiteAdmin could not read an affected-row count from the driver ` +
+        `(got ${JSON.stringify(result)}). This helper's leak guard depends on ` +
+        `TypeORM's Postgres DELETE returning [rows, rowCount]; if that shape ` +
+        `changed, the guard must be updated rather than silently skipped (#1259).`,
+    );
+  }
 
   if (opts.expectExisting !== false && affected === 0) {
     throw new Error(
