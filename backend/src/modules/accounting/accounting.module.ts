@@ -63,6 +63,6 @@ import { ACCOUNTING_POSTING_PORT } from '../../common/accounting-posting/account
     BalanceSheetGroupService,
     { provide: ACCOUNTING_POSTING_PORT, useExisting: AccountingPostingService },
   ],
-  exports: [ACCOUNTING_POSTING_PORT, AccountingLookupService],
+  exports: [ACCOUNTING_POSTING_PORT, AccountingLookupService, PaymentMethodMappingService],
 })
 export class AccountingModule {}

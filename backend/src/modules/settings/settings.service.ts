@@ -482,6 +482,7 @@ export class SettingsService {
     'Stock Adjustment': { table: 'stock_adjustments', column: 'adjustmentNumber' },
     Expenses: { table: 'expenses', column: 'expenseNumber' },
     'Owner Equity': { table: 'owner_equity_documents', column: 'referenceNumber' },
+    'Provider Settlements': { table: 'provider_settlements', column: 'referenceNumber' },
   };
 
   /**
@@ -528,6 +529,7 @@ export class SettingsService {
       { documentName: 'Journal Entries', prefix: 'JE' },
       { documentName: 'Expenses', prefix: 'EXP' },
       { documentName: 'Owner Equity', prefix: 'EQ' },
+      { documentName: 'Provider Settlements', prefix: 'PS' },
     ];
 
     for (const d of defaults) {

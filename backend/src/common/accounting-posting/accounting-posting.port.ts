@@ -8,7 +8,7 @@ import type {
   PostStockAdjustmentCmd, PostOpeningBalanceCmd, PostExpensePaymentCmd, PostExpenseRefundCmd,
   PostOwnerCapitalInjectionCmd, PostOwnerCapitalInjectionRefundCmd,
   PostOwnerCashDrawingCmd, PostOwnerCashDrawingRefundCmd, PostOwnerStockDrawingCmd,
-  ReverseEntryCmd,
+  ReverseEntryCmd, PostProviderSettlementCmd,
 } from './posting-commands';
 
 export const ACCOUNTING_POSTING_PORT = 'ACCOUNTING_POSTING_PORT';
@@ -31,6 +31,7 @@ export interface AccountingPostingPort {
   postOwnerCashDrawing(cmd: PostOwnerCashDrawingCmd, manager: EntityManager): Promise<PostResult>;
   postOwnerCashDrawingRefund(cmd: PostOwnerCashDrawingRefundCmd, manager: EntityManager): Promise<PostResult>;
   postOwnerStockDrawing(cmd: PostOwnerStockDrawingCmd, manager: EntityManager): Promise<PostResult>;
+  postProviderSettlement(cmd: PostProviderSettlementCmd, manager: EntityManager): Promise<PostResult>;
   reverseEntry(cmd: ReverseEntryCmd, manager: EntityManager): Promise<PostResult>;
   reverseEntriesForDocument(
     sourceType: AccountingSourceType,

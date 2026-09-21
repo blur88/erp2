@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { PaymentMethodAccountMapping } from '../entities/payment-method-account-mapping.entity';
 import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
@@ -45,12 +45,25 @@ export class PaymentMethodMappingService {
    * The account is read withDeleted — the OPPOSITE of the posting path — so a
    * soft-deleted mapped account still displays, flagged, instead of vanishing
    * into a row the UI would render as merely unmapped.
+   *
+   * When `manager` is supplied every read runs on THAT manager's connection.
+   * Callers already inside a transaction must pass it: resolving the injected
+   * repositories instead would issue queries on a separate connection while
+   * the transaction is open (#1134).
    */
-  async list(): Promise<PaymentMethodMappingRow[]> {
+  async list(manager?: EntityManager): Promise<PaymentMethodMappingRow[]> {
+    const methodRepo = manager
+      ? manager.getRepository(PaymentMethodEntity)
+      : this.methodRepo;
+    const mappingRepo = manager
+      ? manager.getRepository(PaymentMethodAccountMapping)
+      : this.mappingRepo;
+    const coaRepo = manager ? manager.getRepository(ChartOfAccount) : this.coaRepo;
+
     const [methods, mappings, accounts] = await Promise.all([
-      this.methodRepo.find({ where: { isActive: true } as any, order: { sortOrder: 'ASC' } as any }),
-      this.mappingRepo.find(),
-      this.coaRepo.find({ withDeleted: true } as any),
+      methodRepo.find({ where: { isActive: true } as any, order: { sortOrder: 'ASC' } as any }),
+      mappingRepo.find(),
+      coaRepo.find({ withDeleted: true } as any),
     ]);
     const byId = new Map((accounts as any[]).map((a) => [a.id, a]));
     const mappingFor = new Map(mappings.map((m) => [m.paymentMethodId, m]));

@@ -8,6 +8,7 @@ import type {
   AccountingSettings,
   BalanceSheetResponse,
   CreateOwnerEquityRequest,
+  EligiblePaymentRow,
   Expense,
   FormBCategory,
   FormBMappingRow,
@@ -26,6 +27,8 @@ import type {
   TrialBalanceResponse,
   ProfitAndLossResponse,
   PaginatedResponse,
+  ProviderSettlement,
+  ProviderSettlementListParams,
   UpdateOwnerEquityRequest,
   } from '@/types'
 
@@ -73,10 +76,19 @@ export interface ExpenseListParams {
   sortOrder?: 'ASC' | 'DESC'
 }
 
+export interface CreateProviderSettlementBody {
+  providerPaymentMethodId: string
+  bankAccountId: string
+  settlementDate: string
+  providerReference?: string
+  settlementAmount: string
+  paymentIds: string[]
+}
+
 export const accountingApiSlice = createApi({
   reducerPath: 'accountingApi',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB', 'FormBMapping', 'OwnerEquity', 'PaymentMethodMapping', 'BalanceSheetGroup'],
+  tagTypes: ['Account', 'AccountingSettings', 'Expense', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB', 'FormBMapping', 'OwnerEquity', 'PaymentMethodMapping', 'BalanceSheetGroup', 'ProviderSettlement'],
   endpoints: (builder) => ({
     getAccountTree: builder.query<AccountTreeNode[], AccountTreeParams>({
       query: ({ search, type, isActive }) => {
@@ -404,6 +416,74 @@ payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown
         transformResponse: normalizeSingle<OwnerEquityDocument>,
         invalidatesTags: ['OwnerEquity'],
       }),
+      getProviderSettlements: builder.query<
+        { data: ProviderSettlement[]; meta: { total: number; page: number; limit: number } },
+        ProviderSettlementListParams
+      >({
+        query: (params) => ({
+          url: '/accounting/provider-settlements',
+          params: params as Record<string, unknown>,
+        }),
+        providesTags: ['ProviderSettlement'],
+      }),
+      getProviderSettlement: builder.query<ProviderSettlement, string>({
+        query: (id) => ({ url: `/accounting/provider-settlements/${id}` }),
+        transformResponse: (r: { data: ProviderSettlement }) => r.data,
+        providesTags: (_r, _e, id) => [{ type: 'ProviderSettlement' as const, id }],
+      }),
+      getEligiblePayments: builder.query<
+        { data: EligiblePaymentRow[]; meta: { total: number; page: number; limit: number } },
+        {
+          providerPaymentMethodId: string; settlementDate: string
+          settlementId?: string; search?: string; page?: number; limit?: number
+        }
+      >({
+        query: (params) => ({ url: '/accounting/provider-settlements/eligible-payments', params }),
+        providesTags: ['ProviderSettlement'],
+      }),
+      createProviderSettlement: builder.mutation<ProviderSettlement, CreateProviderSettlementBody>({
+        query: (body) => ({ url: '/accounting/provider-settlements', method: 'POST', body }),
+        transformResponse: (r: { data: ProviderSettlement }) => r.data,
+        invalidatesTags: ['ProviderSettlement'],
+      }),
+      updateProviderSettlement: builder.mutation<
+        ProviderSettlement,
+        {
+          id: string
+          // paymentIds is REQUIRED on update (full replacement of the
+          // selection, never a delta), so it is omitted from Partial and
+          // re-added unconditionally.
+          body: Partial<Omit<CreateProviderSettlementBody, 'paymentIds'>> & {
+            paymentIds: string[]
+          }
+        }
+      >({
+        query: ({ id, body }) => ({
+          url: `/accounting/provider-settlements/${id}`, method: 'PATCH', body,
+        }),
+        transformResponse: (r: { data: ProviderSettlement }) => r.data,
+        invalidatesTags: ['ProviderSettlement'],
+      }),
+      discardProviderSettlement: builder.mutation<void, string>({
+        query: (id) => ({ url: `/accounting/provider-settlements/${id}`, method: 'DELETE' }),
+        invalidatesTags: ['ProviderSettlement'],
+      }),
+      postProviderSettlement: builder.mutation<ProviderSettlement, string>({
+        query: (id) => ({ url: `/accounting/provider-settlements/${id}/post`, method: 'POST' }),
+        transformResponse: (r: { data: ProviderSettlement }) => r.data,
+        invalidatesTags: [
+          'ProviderSettlement', 'JournalEntry', 'TrialBalance',
+          'ProfitAndLoss', 'BalanceSheet', 'FormB',
+        ],
+      }),
+      reverseProviderSettlement: builder.mutation<ProviderSettlement, string>({
+        query: (id) => ({ url: `/accounting/provider-settlements/${id}/reverse`, method: 'POST' }),
+        transformResponse: (r: { data: ProviderSettlement }) => r.data,
+        invalidatesTags: [
+          'ProviderSettlement', 'JournalEntry', 'TrialBalance',
+          'ProfitAndLoss', 'BalanceSheet', 'FormB',
+        ],
+      }),
     }),
   })
 
@@ -448,6 +528,14 @@ export const {
   useUncompleteOwnerEquityMutation,
   useCancelOwnerEquityMutation,
   useUncancelOwnerEquityMutation,
+  useGetProviderSettlementsQuery,
+  useGetProviderSettlementQuery,
+  useGetEligiblePaymentsQuery,
+  useCreateProviderSettlementMutation,
+  useUpdateProviderSettlementMutation,
+  useDiscardProviderSettlementMutation,
+  usePostProviderSettlementMutation,
+  useReverseProviderSettlementMutation,
 } = accountingApiSlice
 
 /**

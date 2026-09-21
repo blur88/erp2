@@ -14,6 +14,8 @@ import { PaymentMethodAccountMapping } from '../modules/accounting/entities/paym
 import { BalanceSheetAccountGroup } from '../modules/accounting/entities/balance-sheet-account-group.entity';
 import { OwnerEquityDocument } from '../modules/owner-equity/entities/owner-equity-document.entity';
 import { OwnerEquitySettlement } from '../modules/owner-equity/entities/owner-equity-settlement.entity';
+import { ProviderSettlement } from '../modules/provider-settlements/entities/provider-settlement.entity';
+import { ProviderSettlementLine } from '../modules/provider-settlements/entities/provider-settlement-line.entity';
 import { AuditLog } from '../database/entities/audit-log.entity';
 import { BackupLog } from '../database/entities/backup-log.entity';
 import { BackupSchedule } from '../database/entities/backup-schedule.entity';
@@ -162,6 +164,8 @@ export function createDatabaseConfig(
       BalanceSheetAccountGroup,
       OwnerEquityDocument,
       OwnerEquitySettlement,
+      ProviderSettlement,
+      ProviderSettlementLine,
     ],
     migrations: [resolveMigrationsGlob()],
     // 'each' (not the TypeORM default 'all') so a migration that appends an

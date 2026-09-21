@@ -226,6 +226,7 @@ describe('SettingsService', () => {
       'Journal Entries',
       'Expenses',
       'Owner Equity',
+      'Provider Settlements',
     ]);
     expect(names).not.toContain('Payments');
     expect(names).not.toContain('Goods Received');
@@ -285,5 +286,16 @@ describe('SettingsService', () => {
     expect(expense.documentName).toBe('Expenses');
     expect(expense.prefix).toBe('EXP');
     expect(expense.nextNumber).toBe(1);
+  });
+
+  it('registers Provider Settlements as a reconcilable document type', () => {
+    // Not merely a default: syncDocumentNumbersWithDatabase() SKIPS types absent
+    // from RECONCILABLE_DOCUMENTS with a warning and leaves nextNumber
+    // untouched, which would leave the PS series permanently unreconcilable.
+    const map = (SettingsService as any).RECONCILABLE_DOCUMENTS;
+    expect(map['Provider Settlements']).toEqual({
+      table: 'provider_settlements',
+      column: 'referenceNumber',
+    });
   });
 });

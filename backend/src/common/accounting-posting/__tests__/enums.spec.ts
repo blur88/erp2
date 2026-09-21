@@ -15,8 +15,8 @@ describe('owner equity posting enums', () => {
 
   it('appends new members last so ALTER TYPE ADD VALUE order matches', () => {
     const types = Object.values(PostingType);
-    expect(types[types.length - 1]).toBe(PostingType.OWNER_STOCK_DRAWING);
+    expect(types[types.length - 1]).toBe(PostingType.PROVIDER_SETTLEMENT);
     const sources = Object.values(AccountingSourceType);
-    expect(sources[sources.length - 1]).toBe(AccountingSourceType.OWNER_EQUITY);
+    expect(sources[sources.length - 1]).toBe(AccountingSourceType.PROVIDER_SETTLEMENT);
   });
 });
