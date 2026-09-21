@@ -33,6 +33,13 @@ if [ -z "${DB_PASSWORD:-}" ]; then
 fi
 export DB_PASSWORD
 
+# Transport selection (#1260). Sourced AFTER the env file so PG_TRANSPORT and
+# DB_* can both come from it, and AFTER the DB_PASSWORD check so a missing
+# password still reports its own specific error first.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/pg-transport.sh
+. "$SCRIPT_DIR/lib/pg-transport.sh"
+
 # Preflight the HOST/TCP connection before touching any database.
 #
 # This script reaches Postgres two different ways, and only one of them
@@ -100,13 +107,11 @@ trap 'rm -rf "$OUT"' EXIT
 ALLOWLIST="${ALLOWLIST:-none}"
 
 psql_admin() {
-  docker compose -f ../docker-compose.yml exec -T postgres \
-    psql -U "$DB_USERNAME" -d postgres -c "$1"
+  pg_psql -U "$DB_USERNAME" -d postgres -c "$1"
 }
 
 dump_schema() {
-  docker compose -f ../docker-compose.yml exec -T postgres \
-    pg_dump -U "$DB_USERNAME" --schema-only --no-owner --no-privileges "$1"
+  pg_dump_db -U "$DB_USERNAME" --schema-only --no-owner --no-privileges "$1"
 }
 
 for db in "$REF_DB" "$CAND_DB"; do
@@ -233,8 +238,7 @@ fi
 # (b) Positive: the extension and all 11 indexes must actually exist in the
 # candidate's catalog, with exact table, uniqueness, and definition.
 q_cand() {
-  docker compose -f ../docker-compose.yml exec -T postgres \
-    psql -U "$DB_USERNAME" -d "$CAND_DB" -tAc "$1" | tr -d '\r'
+  pg_psql -U "$DB_USERNAME" -d "$CAND_DB" -tAc "$1" | tr -d '\r'
 }
 
 EXT=$(q_cand "SELECT count(*) FROM pg_extension WHERE extname = 'pg_trgm';")

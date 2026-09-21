@@ -18,12 +18,18 @@ if [ -f "$ENV_FILE" ]; then
   set +a
 fi
 DB_USERNAME="${DB_USERNAME:-erp_user}"
+DB_HOST="${DB_HOST:-localhost}"
+DB_PORT="${DB_PORT:-5432}"
+DB_PASSWORD="${DB_PASSWORD:-}"
 CAND_DB="${CAND_DB:-erp_gate_candidate}"
 FAILED=0
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/pg-transport.sh
+. "$SCRIPT_DIR/lib/pg-transport.sh"
+
 q() {
-  docker compose -f ../docker-compose.yml exec -T postgres \
-    psql -U "$DB_USERNAME" -d "$CAND_DB" -tAc "$1" | tr -d '\r'
+  pg_psql -U "$DB_USERNAME" -d "$CAND_DB" -tAc "$1" | tr -d '\r'
 }
 
 # Admin-context query. q() targets $CAND_DB and therefore cannot run when that
@@ -31,8 +37,7 @@ q() {
 # ONLY for the existence probe; every migrations query must use q(), since the
 # migrations table lives in the candidate.
 q_admin() {
-  docker compose -f ../docker-compose.yml exec -T postgres \
-    psql -U "$DB_USERNAME" -d postgres -tAc "$1" | tr -d '\r'
+  pg_psql -U "$DB_USERNAME" -d postgres -tAc "$1" | tr -d '\r'
 }
 
 check() {
@@ -72,7 +77,6 @@ fail_prerequisite() {
 # Resolve migrations from THIS script's location, never the caller's cwd: a
 # glob evaluated elsewhere matches zero files and would report every candidate
 # stale — a false failure that looks like a real one.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MIGRATIONS_DIR="$SCRIPT_DIR/../src/database/migrations"
 
 EXPECTED_COUNT=$(find "$MIGRATIONS_DIR" -maxdepth 1 -name '*.ts' 2>/dev/null | wc -l | tr -d ' ')
