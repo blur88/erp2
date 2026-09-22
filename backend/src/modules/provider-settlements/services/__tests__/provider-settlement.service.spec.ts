@@ -236,10 +236,12 @@ describe('ProviderSettlementService — drafts', () => {
       expect.anything(),
     );
 
-    // Manager IDENTITY needs its own assertion: toHaveBeenCalledWith compares
-    // arguments structurally, so a structurally identical second connection
-    // would satisfy it. Generating outside the settlement's transaction means
-    // a rollback burns the number.
+    // Require the exact transaction manager supplied to create(). Identity
+    // needs its own assertion because toHaveBeenCalledWith compares arguments
+    // structurally, so a structurally identical object would satisfy it.
+    //
+    // This guards against substituting another manager; the unit stub does
+    // not verify connection reuse or rollback behavior.
     expect(settingsService.generateDocumentNumber.mock.calls[0][1]).toBe(manager);
   });
 
