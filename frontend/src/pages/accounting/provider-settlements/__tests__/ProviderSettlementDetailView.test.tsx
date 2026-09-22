@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 
 import ProviderSettlementDetailView from '../ProviderSettlementDetailView'
 
@@ -24,6 +24,32 @@ const view = (over: Partial<typeof base> = {}) =>
   )
 
 describe('ProviderSettlementDetailView', () => {
+  // formatDate reads 'dateFormat' from localStorage, which jsdom keeps across
+  // tests; clear it so the one test that sets it cannot leak into the rest.
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  // #1275: the detail view uses the same 'Date' label as the list and the
+  // sibling accounting pages.
+  it('labels the date field "Date", not "Settlement Date"', () => {
+    view()
+    expect(screen.getByText('Date')).toBeInTheDocument()
+    expect(screen.queryByText('Settlement Date')).not.toBeInTheDocument()
+  })
+
+  // #1275: the expected string is a LITERAL, not formatDate(...) — an
+  // expectation computed by the code under test could not fail. The saved
+  // preference is set explicitly so the assertion does not depend on a
+  // default no test controls.
+  it('renders the settlement date date-only, in the saved format', () => {
+    localStorage.setItem('dateFormat', 'DD/MM/YYYY')
+    view({ settlementDate: '2026-09-22' })
+    // Exact equality, not toHaveTextContent: that is a substring match and
+    // would still accept '22/09/2026 14:30'.
+    expect(screen.getByTestId('settlement-date').textContent).toBe('22/09/2026')
+  })
+
   it('shows no journal link on a draft', () => {
     view()
     expect(screen.queryByRole('link', { name: /journal entry/i })).not.toBeInTheDocument()

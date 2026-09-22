@@ -51,6 +51,10 @@ describe('ProviderSettlementsPage', () => {
     // useFilterBar reads and writes the REAL window.location, which jsdom keeps
     // across tests — a filter written by one test would otherwise mount the next.
     window.history.replaceState(null, '', '/')
+    // formatDate reads 'dateFormat' from localStorage, which jsdom also keeps
+    // across tests; clear it so the one test that sets it cannot leak into the
+    // rest of the file.
+    localStorage.clear()
   })
 
   it('declares the nine headers in order', () => {
@@ -58,10 +62,32 @@ describe('ProviderSettlementsPage', () => {
     // header text and the column order are two separate declarations that can
     // drift apart. Assert the constant, which is what the component is given.
     expect(HEADERS).toEqual([
-      'Settlement No', 'Settlement Date', 'Provider', 'Provider Reference',
+      'Settlement No', 'Date', 'Provider', 'Provider Reference',
       'Provider Clearing Account', 'Bank Account', 'Settlement Amount',
       'Status', 'Actions',
     ])
+  })
+
+  // #1275: the date column follows the sibling accounting pages (Owner Equity,
+  // Expenses), which head it 'Date' rather than naming the domain field.
+  it('heads the date column "Date", not "Settlement Date"', () => {
+    renderPage([row()])
+    const headers = screen.getAllByRole('columnheader').map((h) => h.textContent)
+    expect(headers).toContain('Date')
+    expect(headers).not.toContain('Settlement Date')
+  })
+
+  // #1275: the expected string is a LITERAL, not formatDate(...) — an
+  // expectation computed by the code under test shares its source with the
+  // actual and cannot fail. The saved preference is set explicitly because
+  // formatDate reads it from localStorage, so leaving it to the default would
+  // make this assertion depend on a value no test controls.
+  it('renders the settlement date date-only, in the saved format', () => {
+    localStorage.setItem('dateFormat', 'DD/MM/YYYY')
+    renderPage([row({ settlementDate: '2026-09-22' })])
+    // Exact equality, not toHaveTextContent: that is a substring match and
+    // would still accept '22/09/2026 14:30'.
+    expect(screen.getAllByRole('cell')[1].textContent).toBe('22/09/2026')
   })
 
   it('renders a row with its settlement number, provider and amount', () => {
