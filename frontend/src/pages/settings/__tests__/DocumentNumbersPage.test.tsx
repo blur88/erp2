@@ -18,6 +18,7 @@ const mockConfigurations = [
   { documentName: 'Journal Entries', prefix: 'JE', nextNumber: 1, paddingDigits: 3 },
   { documentName: 'Expenses', prefix: 'EXP', nextNumber: 1, paddingDigits: 3 },
   { documentName: 'Owner Equity', prefix: 'EQ', nextNumber: 7, paddingDigits: 3 },
+  { documentName: 'Provider Settlements', prefix: 'PS', nextNumber: 4, paddingDigits: 3 },
 ].map((c) => Object.freeze(c))
 
 // Stable across renders, mirroring RTK Query: a fresh object literal per call
@@ -44,7 +45,7 @@ describe('DocumentNumbersPage', () => {
     mockQueryResult.refetch.mockClear()
   })
 
-  it('renders exactly the six active document types', () => {
+  it('renders exactly the seven active document types', () => {
     render(<DocumentNumbersPage />)
     for (const name of [
       'Sales Orders',
@@ -53,6 +54,7 @@ describe('DocumentNumbersPage', () => {
       'Journal Entries',
       'Expenses',
       'Owner Equity',
+      'Provider Settlements',
     ]) {
       expect(screen.getByText(name)).toBeInTheDocument()
     }
@@ -129,6 +131,7 @@ describe('DocumentNumbersPage', () => {
       'Journal Entries',
       'Expenses',
       'Owner Equity',
+      'Provider Settlements',
     ])
   })
 
@@ -146,5 +149,22 @@ describe('DocumentNumbersPage', () => {
 
     const yy = String(new Date().getFullYear() % 100).padStart(2, '0')
     expect(within(row as HTMLElement).getByText(`EQ-${yy}-007`)).toBeInTheDocument()
+  })
+
+  // Issue #1271, same shape as #1081 defect 2: the backend seeds Provider
+  // Settlements/PS (migration 1789915303816) and generates settlement numbers
+  // from it, but MODULE_GROUPS omitted the name, so the row was filtered out
+  // of the table and its prefix/next-number could not be configured.
+  it('shows the Provider Settlements row under Accounting with its prefix and preview', () => {
+    render(<DocumentNumbersPage />)
+
+    const row = screen.getByText('Provider Settlements').closest('tr')
+    expect(row).not.toBeNull()
+
+    const inputs = within(row as HTMLElement).getAllByRole('textbox') as HTMLInputElement[]
+    expect(inputs[0].value).toBe('PS')
+
+    const yy = String(new Date().getFullYear() % 100).padStart(2, '0')
+    expect(within(row as HTMLElement).getByText(`PS-${yy}-004`)).toBeInTheDocument()
   })
 })
