@@ -89,7 +89,7 @@ const CONFIRM_COPY = {
 } as const
 
 export const HEADERS = [
-  'Settlement No', 'Settlement Date', 'Provider', 'Provider Reference',
+  'Settlement No', 'Date', 'Provider', 'Provider Reference',
   'Provider Clearing Account', 'Bank Account', 'Settlement Amount',
   'Status', 'Actions',
 ]

@@ -36,7 +36,11 @@ export default function ProviderSettlementDetailView({
     <Box sx={{ p: 3 }}>
       <Typography variant="h6">{settlement.referenceNumber}</Typography>
       <Stack spacing={1}>
-        <Field label="Settlement Date" value={formatDate(settlement.settlementDate)} />
+        <Field
+          label="Date"
+          value={formatDate(settlement.settlementDate)}
+          testId="settlement-date"
+        />
         <Field label="Provider" value={settlement.providerPaymentMethod?.name ?? '—'} />
         <Field label="Provider Reference" value={settlement.providerReference ?? '—'} />
         <Field
