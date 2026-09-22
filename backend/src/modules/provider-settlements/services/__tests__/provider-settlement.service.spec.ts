@@ -215,6 +215,32 @@ describe('ProviderSettlementService — drafts', () => {
     return { service, manager, settlementRepo, lineRepo, coaRepo, mappingService, postingPort, auditLogService };
   }
 
+  it('addresses the document number to the Provider Settlements row, through the transaction manager', async () => {
+    // The mock returns 'PS-26-001' whatever name it is passed, so asserting on
+    // the resulting referenceNumber cannot fail if the service asks for the
+    // wrong document type. Only the call arguments can (#1273).
+    //
+    // 'Provider Settlements' is written literally here, independent of both the
+    // mock's configuration and settings.service.ts's default list, so expected
+    // and actual do not share a source.
+    const { service, manager } = makeService();
+
+    // Await a SUCCESSFUL create: a create that threw would leave the assertion
+    // below vacuously passing on zero recorded calls.
+    await expect(
+      service.create(validDto() as any, 'u1', 'tester'),
+    ).resolves.toBeDefined();
+
+    expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith(
+      'Provider Settlements',
+      // Identity, not expect.anything(): generating on a second connection
+      // would take the number outside the settlement's transaction, so a
+      // rollback would burn it. Same contract as the provider-changing
+      // update test below.
+      manager,
+    );
+  });
+
   it('rejects an empty selection at the service, not only the DTO', async () => {
     // An UPDATE that removes the last remaining line passes DTO validation
     // (the array is non-empty until the service applies it), so the service
