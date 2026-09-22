@@ -225,20 +225,22 @@ describe('ProviderSettlementService — drafts', () => {
     // and actual do not share a source.
     const { service, manager } = makeService();
 
-    // Await a SUCCESSFUL create: a create that threw would leave the assertion
-    // below vacuously passing on zero recorded calls.
+    // Await a SUCCESSFUL create, so the happy path is what gets asserted —
+    // generation can otherwise be reached on a path that later throws.
     await expect(
       service.create(validDto() as any, 'u1', 'tester'),
     ).resolves.toBeDefined();
 
     expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith(
       'Provider Settlements',
-      // Identity, not expect.anything(): generating on a second connection
-      // would take the number outside the settlement's transaction, so a
-      // rollback would burn it. Same contract as the provider-changing
-      // update test below.
-      manager,
+      expect.anything(),
     );
+
+    // Manager IDENTITY needs its own assertion: toHaveBeenCalledWith compares
+    // arguments structurally, so a structurally identical second connection
+    // would satisfy it. Generating outside the settlement's transaction means
+    // a rollback burns the number.
+    expect(settingsService.generateDocumentNumber.mock.calls[0][1]).toBe(manager);
   });
 
   it('rejects an empty selection at the service, not only the DTO', async () => {

@@ -552,9 +552,17 @@ describe('Provider settlements (e2e)', () => {
       // of the generator's own formatting inputs.
       expect(firstRef).toBe(`${firstPrefix}-${yy}-0700`);
 
-      // Second settlement needs its OWN payment: reusing the first one hits the
-      // duplicate-claim 409 that this suite already covers above.
-      await configure(secondPrefix, 701);
+      // ONLY the prefix changes here. Rewriting nextNumber to 701 would write
+      // the very number the next creation is asserted to produce, masking a
+      // wrong (or absent) increment from the first creation — the second draft
+      // must read whatever the first one actually left behind.
+      //
+      // Second settlement also needs its OWN payment: reusing the first hits
+      // the duplicate-claim 409 that this suite already covers above.
+      await ds.query(
+        `UPDATE document_number_settings SET prefix = $1 WHERE "documentName" = $2`,
+        [secondPrefix, DOC],
+      );
 
       const { paymentId: secondPaymentId } = await payOrder('32.00');
       const second = await createDraft([secondPaymentId], '32.00');
@@ -564,8 +572,9 @@ describe('Provider settlements (e2e)', () => {
 
       expect(secondRef).toBe(`${secondPrefix}-${yy}-0701`);
 
-      // The generator also advanced the stored sequence, so the row is being
-      // both read and written rather than merely read.
+      // 0701 above already proves the first creation advanced the sequence
+      // (nothing rewrote it in between). This proves the second did too, so
+      // the row is written as well as read.
       const [after] = await ds.query(
         `SELECT "nextNumber" FROM document_number_settings WHERE "documentName" = $1`,
         [DOC],
