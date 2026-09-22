@@ -53,24 +53,31 @@ describe('ProviderSettlementsPage', () => {
     window.history.replaceState(null, '', '/')
   })
 
-  it('declares the eight headers in order', () => {
+  it('declares the nine headers in order', () => {
     // EntityTable takes `headers` as a string[] alongside `columns`, so the
     // header text and the column order are two separate declarations that can
     // drift apart. Assert the constant, which is what the component is given.
     expect(HEADERS).toEqual([
-      'Settlement Date', 'Provider', 'Provider Reference',
+      'Settlement No', 'Settlement Date', 'Provider', 'Provider Reference',
       'Provider Clearing Account', 'Bank Account', 'Settlement Amount',
       'Status', 'Actions',
     ])
   })
 
-  it('renders a row with its provider and amount', () => {
+  it('renders a row with its settlement number, provider and amount', () => {
     renderPage([row()])
-    // referenceNumber is NOT a column — the eight headers above are the whole
-    // rendered set. Assert on values the table actually shows.
     expect(screen.getByText('Atome')).toBeInTheDocument()
     expect(screen.getByText('ATM-9911')).toBeInTheDocument()
     expect(screen.getByTestId('settlement-amount')).toHaveTextContent('98.00')
+  })
+
+  // #1269: asserting the constant above only proves HEADERS' own order. The
+  // columns array is a separate declaration, so read the rendered cells to
+  // catch the two drifting apart — Settlement No must be the FIRST cell.
+  it('renders the settlement number as the first cell of the row', () => {
+    renderPage([row()])
+    const cells = screen.getAllByRole('cell')
+    expect(cells[0]).toHaveTextContent('PS-26-001')
   })
 
   // #1267: the page passes showHeader={false}, so EntityTable's
