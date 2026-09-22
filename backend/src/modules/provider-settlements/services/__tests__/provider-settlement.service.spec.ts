@@ -215,6 +215,36 @@ describe('ProviderSettlementService — drafts', () => {
     return { service, manager, settlementRepo, lineRepo, coaRepo, mappingService, postingPort, auditLogService };
   }
 
+  it('addresses the document number to the Provider Settlements row, through the transaction manager', async () => {
+    // The mock returns 'PS-26-001' whatever name it is passed, so asserting on
+    // the resulting referenceNumber cannot fail if the service asks for the
+    // wrong document type. Only the call arguments can (#1273).
+    //
+    // 'Provider Settlements' is written literally here, independent of both the
+    // mock's configuration and settings.service.ts's default list, so expected
+    // and actual do not share a source.
+    const { service, manager } = makeService();
+
+    // Await a SUCCESSFUL create, so the happy path is what gets asserted —
+    // generation can otherwise be reached on a path that later throws.
+    await expect(
+      service.create(validDto() as any, 'u1', 'tester'),
+    ).resolves.toBeDefined();
+
+    expect(settingsService.generateDocumentNumber).toHaveBeenCalledWith(
+      'Provider Settlements',
+      expect.anything(),
+    );
+
+    // Require the exact transaction manager supplied to create(). Identity
+    // needs its own assertion because toHaveBeenCalledWith compares arguments
+    // structurally, so a structurally identical object would satisfy it.
+    //
+    // This guards against substituting another manager; the unit stub does
+    // not verify connection reuse or rollback behavior.
+    expect(settingsService.generateDocumentNumber.mock.calls[0][1]).toBe(manager);
+  });
+
   it('rejects an empty selection at the service, not only the DTO', async () => {
     // An UPDATE that removes the last remaining line passes DTO validation
     // (the array is non-empty until the service applies it), so the service

@@ -487,4 +487,112 @@ describe('Provider settlements (e2e)', () => {
     expect(eligibleIds).toContain(unclaimedId);
     expect(eligibleIds).not.toContain(claimedId);
   });
+
+  /**
+   * #1273: prove a settlement's referenceNumber derives from the CONFIGURED
+   * Provider Settlements row, not from a hard-coded 'PS'.
+   *
+   * Asserting against whatever the row already holds would be far weaker — the
+   * default prefix IS 'PS', so a hard-coded generator would pass. Writing a
+   * distinctive prefix and asserting the output follows it is what makes the
+   * setting demonstrably load-bearing; editing the prefix a second time and
+   * watching the sequence continue is what rules out a coincidence.
+   *
+   * SHARED STATE. document_number_settings holds ONE global row per document
+   * type, and e2e suites share a database. jest-e2e.json pins maxWorkers: 1 and
+   * this is the only suite touching provider settlements, so the mutation is
+   * safe within a run — but not across processes sharing the database. The
+   * restore is therefore `finally`-guarded, and rewrites all four fields this
+   * test disturbs. A hard interrupt between mutation and restore still leaves
+   * the row drifted.
+   */
+  it('derives referenceNumber from the configured Provider Settlements row', async () => {
+    const DOC = 'Provider Settlements';
+
+    const [original] = await ds.query(
+      `SELECT prefix, "nextNumber", "paddingDigits", "lastResetYear"
+         FROM document_number_settings WHERE "documentName" = $1`,
+      [DOC],
+    );
+    // generateDocumentNumber throws NotFoundException on a missing row rather
+    // than creating a default, so assert here for a clear setup failure
+    // instead of an opaque 500 out of the create below.
+    expect(original).toBeTruthy();
+
+    // lastResetYear is written EXPLICITLY to the current YY, never carried over
+    // from `original`: a stale saved value makes the generator take its reset
+    // branch, which overwrites nextNumber with 1 and would fail the sequence
+    // assertion for a reason unrelated to what this test covers.
+    const currentYY = new Date().getFullYear() % 100;
+    const yy = String(currentYY).padStart(2, '0');
+    const firstPrefix = `ZPSA${runId.slice(0, 4)}`.toUpperCase();
+    const secondPrefix = `ZPSB${runId.slice(0, 4)}`.toUpperCase();
+
+    async function configure(prefix: string, nextNumber: number) {
+      await ds.query(
+        `UPDATE document_number_settings
+            SET prefix = $1, "nextNumber" = $2, "paddingDigits" = $3, "lastResetYear" = $4
+          WHERE "documentName" = $5`,
+        [prefix, nextNumber, 4, currentYY, DOC],
+      );
+    }
+
+    // try OPENS BEFORE the first mutation: a failure inside configure() must
+    // still reach the restore.
+    try {
+      await configure(firstPrefix, 700);
+
+      const { paymentId: firstPaymentId } = await payOrder('31.00');
+      const first = await createDraft([firstPaymentId], '31.00');
+      expect(first.status).toBe(201);
+      const firstRef = (first.body.data ?? first.body).referenceNumber;
+      ownedRefs.push(firstRef);
+
+      // Expectation is computed from the values this test WROTE, independently
+      // of the generator's own formatting inputs.
+      expect(firstRef).toBe(`${firstPrefix}-${yy}-0700`);
+
+      // ONLY the prefix changes here. Rewriting nextNumber to 701 would write
+      // the very number the next creation is asserted to produce, masking a
+      // wrong (or absent) increment from the first creation — the second draft
+      // must read whatever the first one actually left behind.
+      //
+      // Second settlement also needs its OWN payment: reusing the first hits
+      // the duplicate-claim 409 that this suite already covers above.
+      await ds.query(
+        `UPDATE document_number_settings SET prefix = $1 WHERE "documentName" = $2`,
+        [secondPrefix, DOC],
+      );
+
+      const { paymentId: secondPaymentId } = await payOrder('32.00');
+      const second = await createDraft([secondPaymentId], '32.00');
+      expect(second.status).toBe(201);
+      const secondRef = (second.body.data ?? second.body).referenceNumber;
+      ownedRefs.push(secondRef);
+
+      expect(secondRef).toBe(`${secondPrefix}-${yy}-0701`);
+
+      // 0701 above already proves the first creation advanced the sequence
+      // (nothing rewrote it in between). This proves the second did too, so
+      // the row is written as well as read.
+      const [after] = await ds.query(
+        `SELECT "nextNumber" FROM document_number_settings WHERE "documentName" = $1`,
+        [DOC],
+      );
+      expect(after.nextNumber).toBe(702);
+    } finally {
+      await ds.query(
+        `UPDATE document_number_settings
+            SET prefix = $1, "nextNumber" = $2, "paddingDigits" = $3, "lastResetYear" = $4
+          WHERE "documentName" = $5`,
+        [
+          original.prefix,
+          original.nextNumber,
+          original.paddingDigits,
+          original.lastResetYear,
+          DOC,
+        ],
+      );
+    }
+  });
 }); // closes describe('Provider settlements (e2e)')
