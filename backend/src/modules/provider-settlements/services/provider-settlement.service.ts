@@ -8,8 +8,15 @@ import {
 import { DataSource, EntityManager, In, IsNull, Not } from 'typeorm';
 import { ProviderSettlement, ProviderSettlementStatus } from '../entities/provider-settlement.entity';
 import { ProviderSettlementLine } from '../entities/provider-settlement-line.entity';
+import { SalesOrderPayment } from '../../../database/entities/sales-order-payment.entity';
 import { ProviderSettlementDerivationService } from './provider-settlement-derivation.service';
 import { ProviderSettlementEligibilityService } from './provider-settlement-eligibility.service';
+import { EligiblePayment, groupKey, groupPayments } from './settlement-groups';
+import {
+  SETTLEMENT_TEST_HOOK,
+  SettlementTestHook,
+  SettlementTestPhase,
+} from './provider-settlement.test-hooks';
 import { PaymentMethodMappingService } from '../../accounting/services/payment-method-mapping.service';
 import { ChartOfAccount } from '../../accounting/entities/chart-of-account.entity';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
@@ -30,7 +37,29 @@ import {
   CreateProviderSettlementDto,
   UpdateProviderSettlementDto,
   ListProviderSettlementsQueryDto,
+  SettlementRowDto,
 } from '../dto/provider-settlement.dto';
+
+const CLAIM_INDEX = 'IDX_886b6f559ab60cc5167ca3896b';
+const STALE_TEXT = 'Some rows changed since they were loaded. Review them and save again.';
+const DEADLOCK_TEXT = 'The settlement could not be saved because of a concurrent change. Try again.';
+
+interface StaleRow { salesOrderId: string; paymentMethodId: string; currentNetAmount: string | null }
+
+function staleConflict(staleRows: StaleRow[]): ConflictException {
+  // Rides INSIDE message: the global filter keeps only `message`.
+  return new ConflictException({ message: { text: STALE_TEXT, staleRows } });
+}
+
+/** 40P01 is surfaced as a retryable 409, never swallowed. */
+async function mapDeadlock<T>(work: () => Promise<T>): Promise<T> {
+  try {
+    return await work();
+  } catch (err) {
+    if ((err as { code?: string })?.code === '40P01') throw new ConflictException(DEADLOCK_TEXT);
+    throw err;
+  }
+}
 
 @Injectable()
 export class ProviderSettlementService {
@@ -45,37 +74,121 @@ export class ProviderSettlementService {
     private readonly postingPort: AccountingPostingPort,
   ) {}
 
+  private [SETTLEMENT_TEST_HOOK]?: SettlementTestHook;
+
+  private async testHook(
+    phase: SettlementTestPhase, salesOrderIds: string[], manager: EntityManager,
+  ): Promise<void> {
+    const hook = this[SETTLEMENT_TEST_HOOK];
+    if (hook) await hook(phase, { salesOrderIds, manager });
+  }
+
+  /**
+   * The single Payment Method the rows share. Mixed methods are a 400 that names
+   * each METHOD with its ORDER NUMBERS — the user has to know which rows to split
+   * out, and bare uuids tell them nothing they can act on. Labels are read on the
+   * transaction's manager; an id with no row falls back to the id itself.
+   */
+  private async assertSingleMethod(rows: SettlementRowDto[], manager: EntityManager): Promise<string> {
+    const byMethod = new Map<string, string[]>();
+    for (const r of rows) byMethod.set(r.paymentMethodId, [...(byMethod.get(r.paymentMethodId) ?? []), r.salesOrderId]);
+    if (byMethod.size === 1) return rows[0].paymentMethodId;
+
+    const methodIds = [...byMethod.keys()];
+    const orderIds = [...new Set(rows.map((r) => r.salesOrderId))];
+    const methods: Array<{ id: string; name: string }> = await manager.query(
+      'SELECT id, name FROM payment_methods WHERE id = ANY($1::uuid[])', [methodIds],
+    );
+    const orders: Array<{ id: string; orderNumber: string }> = await manager.query(
+      'SELECT id, "orderNumber" FROM sales_orders WHERE id = ANY($1::uuid[])', [orderIds],
+    );
+    const methodName = (id: string) => methods.find((m) => m.id === id)?.name ?? id;
+    const orderNumber = (id: string) => orders.find((o) => o.id === id)?.orderNumber ?? id;
+    const detail = [...byMethod.entries()]
+      .map(([m, sos]) => `${methodName(m)}: ${sos.map(orderNumber).join(', ')}`)
+      .join('; ');
+    throw new BadRequestException(
+      `A settlement can cover one provider payout. Create a separate settlement for each Payment Method. (${detail})`,
+    );
+  }
+
+  /**
+   * Lock the involved orders FOR SHARE, ascending, BEFORE recomputing. Every
+   * payment/refund writer locks its one order FOR UPDATE first, so a refund
+   * either commits before this read (and is seen) or waits for our commit (and
+   * becomes unclaimed residue). FOR SHARE lets concurrent settlements on the same
+   * order proceed; the claim index serializes their claims.
+   */
+  private async lockSalesOrders(salesOrderIds: string[], manager: EntityManager): Promise<void> {
+    const ids = [...new Set(salesOrderIds)].sort();
+    await manager.query('SELECT id FROM sales_orders WHERE id = ANY($1::uuid[]) ORDER BY id FOR SHARE', [ids]);
+    await this.testHook('afterSalesOrderLock', ids, manager);
+  }
+
+  /** Recompute each requested group; any drift ⇒ one row-specific 409. */
+  private async resolveRows(
+    rows: SettlementRowDto[], settlementDate: string, settlementId: string | undefined, manager: EntityManager,
+  ): Promise<EligiblePayment[]> {
+    const soIds = rows.map((r) => r.salesOrderId);
+    await this.lockSalesOrders(soIds, manager);
+    const eligible = await this.eligibility.eligiblePaymentsForOrders(
+      [...new Set(soIds)], { settlementDate, settlementId }, manager,
+    );
+    const byGroup = groupPayments(eligible);
+    const stale: StaleRow[] = [];
+    const selected: EligiblePayment[] = [];
+    for (const row of rows) {
+      const payments = byGroup.get(groupKey(row)) ?? [];
+      const net = sumMinor(payments.map((p) => p.amount));
+      if (payments.length === 0) {
+        stale.push({ salesOrderId: row.salesOrderId, paymentMethodId: row.paymentMethodId, currentNetAmount: null });
+      } else if (net === 0n || net !== toMinorUnits(row.expectedNetAmount)) {
+        stale.push({ salesOrderId: row.salesOrderId, paymentMethodId: row.paymentMethodId, currentNetAmount: formatScale4(net) });
+      } else {
+        selected.push(...payments);
+      }
+    }
+    if (stale.length) throw staleConflict(stale);
+    await this.testHook('afterRecompute', [...new Set(soIds)].sort(), manager);
+    return selected;
+  }
+
+  private assertReconciles(payments: EligiblePayment[], settlementAmount: string): void {
+    const totalMinor = sumMinor(payments.map((p) => p.amount));
+    if (totalMinor <= 0n) {
+      throw new BadRequestException('The selected total must be greater than zero');
+    }
+    const amountMinor = toMinorUnits(settlementAmount);
+    if (totalMinor !== amountMinor) {
+      const fmt = (m: bigint) => formatMoney(quantizeToCents(m));
+      throw new BadRequestException(
+        `Amount received ${fmt(amountMinor)} does not equal the selected total ${fmt(totalMinor)} ` +
+          `(difference ${fmt(amountMinor - totalMinor)})`,
+      );
+    }
+  }
+
   async create(
     dto: CreateProviderSettlementDto,
     userId?: string,
     username?: string,
   ): Promise<ProviderSettlement> {
-    if (!dto.paymentIds?.length) {
-      throw new BadRequestException('Select at least one payment');
-    }
-    await this.assertMappedProvider(dto.providerPaymentMethodId);
+    if (!dto.rows?.length) throw new BadRequestException('Select at least one row');
 
-    const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
+    const saved = await mapDeadlock(() => this.dataSource.transaction(async (manager: EntityManager) => {
+      const methodId = await this.assertSingleMethod(dto.rows, manager);
+      // On the transaction's manager (#1134): a default-DataSource read here
+      // would open a second connection while this transaction is open.
+      await this.assertMappedProvider(methodId, manager);
       await this.assertPostableBankAccount(dto.bankAccountId, manager);
-
-      const payments = await this.eligibility.assertEligible(
-        dto.paymentIds,
-        {
-          providerPaymentMethodId: dto.providerPaymentMethodId,
-          settlementDate: dto.settlementDate,
-        },
-        manager,
-      );
+      const payments = await this.resolveRows(dto.rows, dto.settlementDate, undefined, manager);
+      this.assertReconciles(payments, dto.settlementAmount);
       const clearingAccountId = await this.derivation.deriveClearingAccountId(payments, manager);
-
-      const referenceNumber = await this.settings.generateDocumentNumber(
-        'Provider Settlements',
-        manager,
-      );
+      const referenceNumber = await this.settings.generateDocumentNumber('Provider Settlements', manager);
       const repo = manager.getRepository(ProviderSettlement);
       const settlement = repo.create({
         referenceNumber,
-        providerPaymentMethodId: dto.providerPaymentMethodId,
+        providerPaymentMethodId: methodId,
         clearingAccountId,
         bankAccountId: dto.bankAccountId,
         settlementDate: dto.settlementDate,
@@ -84,10 +197,9 @@ export class ProviderSettlementService {
         status: ProviderSettlementStatus.DRAFT,
       } as any) as unknown as ProviderSettlement;
       const savedSettlement = await repo.save(settlement as any);
-
       await this.writeLines(savedSettlement.id, payments, manager);
       return savedSettlement;
-    });
+    }));
 
     await this.auditLogService.log(
       'CREATE', 'ProviderSettlement',
@@ -98,8 +210,9 @@ export class ProviderSettlementService {
   }
 
   /**
-   * `paymentIds` is the COMPLETE desired selection, not an add/remove delta —
-   * the resulting line set is exactly what was passed and nothing else.
+   * `rows` is the COMPLETE desired selection, not an add/remove delta —
+   * the resulting line set is exactly the current eligible set of each group,
+   * and nothing else.
    */
   async update(
     id: string,
@@ -107,13 +220,13 @@ export class ProviderSettlementService {
     userId?: string,
     username?: string,
   ): Promise<ProviderSettlement> {
-    if (!dto.paymentIds?.length) {
+    if (!dto.rows?.length) {
       throw new BadRequestException(
-        'A settlement must keep at least one payment. Discard the draft instead.',
+        'A settlement must keep at least one row. Discard the draft instead.',
       );
     }
 
-    const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
+    const saved = await mapDeadlock(() => this.dataSource.transaction(async (manager: EntityManager) => {
       // Lock BEFORE reading status: otherwise update and post can both see
       // DRAFT and one mutates an already-posted settlement.
       const settlement = await lockRowForUpdate(manager, ProviderSettlement, id, {
@@ -123,27 +236,27 @@ export class ProviderSettlementService {
         throw new ConflictException('Only a draft settlement can be edited');
       }
 
-      const providerId = dto.providerPaymentMethodId ?? settlement.providerPaymentMethodId;
-      const settlementDate = dto.settlementDate ?? settlement.settlementDate;
-
-      // Check the mapping only when the provider ACTUALLY CHANGES, and only
-      // after the lock — comparing against the stored value needs the row.
-      // Checking on every update would block ordinary edits (fixing a typo in
-      // the reference, correcting the amount) on a draft whose method went
+      // The payment method is INFERRED from the rows now, never submitted.
+      // Check the mapping only when it ACTUALLY CHANGES, and only after the
+      // lock — comparing against the stored value needs the row. Checking on
+      // every update would block ordinary edits (fixing a typo in the
+      // reference, correcting the amount) on a draft whose method went
       // invalid after it was saved, which is the same mistake as re-checking at
       // post time.
-      if (providerId !== settlement.providerPaymentMethodId) {
-        await this.assertMappedProvider(providerId, manager);
+      const methodId = await this.assertSingleMethod(dto.rows, manager);
+      if (methodId !== settlement.providerPaymentMethodId) {
+        await this.assertMappedProvider(methodId, manager);
       }
 
       if (dto.bankAccountId) await this.assertPostableBankAccount(dto.bankAccountId, manager);
 
+      const settlementDate = dto.settlementDate ?? settlement.settlementDate;
+      const payments = await this.resolveRows(dto.rows, settlementDate, id, manager);
+      // Reconcile against the amount being SAVED — the stored one when the
+      // PATCH omits it.
+      this.assertReconciles(payments, dto.settlementAmount ?? settlement.settlementAmount);
+
       const lineRepo = manager.getRepository(ProviderSettlementLine);
-      const payments = await this.eligibility.assertEligible(
-        dto.paymentIds,
-        { providerPaymentMethodId: providerId, settlementDate, settlementId: id },
-        manager,
-      );
 
       // HARD delete, never softDelete/softRemove. ProviderSettlementLine
       // extends BaseEntity, so a soft delete sets deletedAt — but the partial
@@ -158,8 +271,8 @@ export class ProviderSettlementService {
       settlement.clearingAccountId = await this.derivation.deriveClearingAccountId(
         payments, manager,
       );
+      settlement.providerPaymentMethodId = methodId;
 
-      if (dto.providerPaymentMethodId) settlement.providerPaymentMethodId = dto.providerPaymentMethodId;
       if (dto.bankAccountId) settlement.bankAccountId = dto.bankAccountId;
       if (dto.settlementDate) settlement.settlementDate = dto.settlementDate;
       if (dto.providerReference !== undefined) {
@@ -169,7 +282,7 @@ export class ProviderSettlementService {
         settlement.settlementAmount = formatScale4(toMinorUnits(dto.settlementAmount));
       }
       return manager.getRepository(ProviderSettlement).save(settlement as any);
-    });
+    }));
 
     await this.auditLogService.log(
       'UPDATE', 'ProviderSettlement',
@@ -272,7 +385,7 @@ export class ProviderSettlementService {
   }
 
   async post(id: string, userId?: string, username?: string): Promise<ProviderSettlement> {
-    const saved = await this.dataSource.transaction(async (manager: EntityManager) => {
+    const saved = await mapDeadlock(() => this.dataSource.transaction(async (manager: EntityManager) => {
       // Lock before the status read — see update().
       const settlement = await lockRowForUpdate(manager, ProviderSettlement, id, {
         notFoundMessage: 'Settlement not found',
@@ -284,21 +397,59 @@ export class ProviderSettlementService {
       const lines = await manager.getRepository(ProviderSettlementLine).find({
         where: { settlementId: id, releasedAt: IsNull() } as any,
       });
-      if (lines.length === 0) {
-        throw new BadRequestException('A settlement must have at least one payment');
+      if (lines.length === 0) throw new BadRequestException('A settlement must have at least one payment');
+
+      // Which group does each line belong to? Read the payment rows themselves.
+      const linePayments = await manager.getRepository(SalesOrderPayment).find({
+        where: { id: In(lines.map((l) => l.salesOrderPaymentId)) } as any,
+      });
+      const soIds = [...new Set(linePayments.map((p) => p.salesOrderId))];
+      await this.lockSalesOrders(soIds, manager);
+
+      const eligible = await this.eligibility.eligiblePaymentsForOrders(
+        soIds, { settlementDate: settlement.settlementDate, settlementId: id }, manager,
+      );
+      const eligibleByGroup = groupPayments(eligible);
+      const linesByGroup = groupPayments(
+        linePayments.map((p) => ({ id: p.id, salesOrderId: p.salesOrderId, paymentMethodId: p.paymentMethodId })),
+      );
+
+      // Completeness by payment-ID SET, not by net (spec §4.6): a refund that
+      // zeroes the group, or a payment+refund pair that leaves the net unchanged,
+      // still changes what this settlement would clear.
+      for (const [key, claimed] of linesByGroup) {
+        const live = new Set((eligibleByGroup.get(key) ?? []).map((p) => p.id));
+        const same = live.size === claimed.length && claimed.every((c) => live.has(c.id));
+        if (!same) {
+          const [salesOrderId, paymentMethodId] = key.split(':');
+          const [order] = await manager.query(
+            'SELECT id, "orderNumber" FROM sales_orders WHERE id = ANY($1::uuid[])', [[salesOrderId]],
+          );
+          const [method] = await manager.query(
+            'SELECT id, name FROM payment_methods WHERE id = ANY($1::uuid[])', [[paymentMethodId]],
+          );
+          throw new BadRequestException(
+            `Sales order ${order?.orderNumber ?? salesOrderId} / ${method?.name ?? paymentMethodId} ` +
+              `changed since this draft was saved; edit and re-save.`,
+          );
+        }
       }
 
-      // Revalidate with the OWN-DRAFT branch: the unqualified branch would
-      // reject every row this draft claims and make posting impossible.
-      const payments = await this.eligibility.assertEligible(
-        lines.map((l) => l.salesOrderPaymentId),
-        {
-          providerPaymentMethodId: settlement.providerPaymentMethodId,
-          settlementDate: settlement.settlementDate,
-          settlementId: id,
-        },
-        manager,
-      );
+      // Each line's SNAPSHOT must still equal its live payment row. The
+      // snapshot is what the user reconciled against and what the settlement
+      // displays; summing only the live rows would let an amount that changed
+      // since the draft was saved post silently under the old total.
+      const liveById = new Map(eligible.map((p) => [p.id, p]));
+      for (const line of lines) {
+        const live = liveById.get(line.salesOrderPaymentId)!;
+        if (toMinorUnits(line.amount) !== toMinorUnits(live.amount)) {
+          throw new BadRequestException(
+            `Payment ${line.salesOrderPaymentId} changed since this draft was saved ` +
+              `(recorded ${line.amount}, now ${live.amount}). Review the selection.`,
+          );
+        }
+      }
+      const payments = lines.map((l) => liveById.get(l.salesOrderPaymentId)!);
 
       // Re-derive from journal history and confirm the snapshot. A MAPPING
       // change cannot affect this. A payment whose original entry was REVERSED
@@ -312,34 +463,8 @@ export class ProviderSettlementService {
         );
       }
 
-      // Each line's SNAPSHOT must still equal its live payment row. The
-      // snapshot is what the user reconciled against and what the settlement
-      // displays; summing only the live rows would let an amount that changed
-      // since the draft was saved post silently under the old total.
-      const liveById = new Map(payments.map((p) => [p.id, p.amount]));
-      for (const line of lines) {
-        const live = liveById.get(line.salesOrderPaymentId);
-        if (live === undefined) {
-          throw new BadRequestException(
-            `Payment ${line.salesOrderPaymentId} is no longer available`,
-          );
-        }
-        if (toMinorUnits(line.amount) !== toMinorUnits(live)) {
-          throw new BadRequestException(
-            `Payment ${line.salesOrderPaymentId} changed since this draft was saved ` +
-              `(recorded ${line.amount}, now ${live}). Review the selection.`,
-          );
-        }
-      }
-
-      const selectedMinor = sumMinor(payments.map((p) => p.amount));
+      this.assertReconciles(payments, settlement.settlementAmount);
       const amountMinor = toMinorUnits(settlement.settlementAmount);
-      if (selectedMinor !== amountMinor) {
-        throw new BadRequestException(
-          `Settlement amount ${formatMoney(quantizeToCents(amountMinor))} does not reconcile ` +
-            `with the selected payments ${formatMoney(quantizeToCents(selectedMinor))}`,
-        );
-      }
 
       await this.assertPostableBankAccount(settlement.bankAccountId, manager);
 
@@ -363,7 +488,7 @@ export class ProviderSettlementService {
       settlement.postedAt = new Date();
       settlement.postedBy = username ?? 'system';
       return manager.getRepository(ProviderSettlement).save(settlement as any);
-    });
+    }));
 
     await this.auditLogService.log(
       'UPDATE', 'ProviderSettlement',
@@ -481,7 +606,7 @@ export class ProviderSettlementService {
   }
 
   /**
-   * Insert the claim rows, reporting the ids that ACTUALLY conflicted.
+   * Insert the claim rows, reporting the groups that ACTUALLY conflicted.
    *
    * Two things make this non-obvious:
    *
@@ -490,18 +615,22 @@ export class ProviderSettlementService {
    *    insert therefore runs inside a SAVEPOINT; rolling back to it restores a
    *    usable transaction without discarding the caller's earlier work (the
    *    settlement row). Same pattern as AccountingPostingService.build().
-   * 2. Reporting every SUBMITTED id would be wrong. The frontend is promised it
-   *    can drop the unavailable rows and keep the rest; if the response names
-   *    all of them, it must clear the entire selection. So after the rollback we
-   *    query which ids are actually claimed elsewhere and name only those.
+   * 2. Reporting every SUBMITTED group would be wrong. The frontend is promised
+   *    it can drop the unavailable groups and keep the rest; if the response
+   *    names all of them, it must clear the entire selection. So after the
+   *    rollback we query which payments are actually claimed elsewhere and name
+   *    only their groups.
    */
   private async writeLines(
     settlementId: string,
-    payments: Array<{ id: string; amount: string }>,
+    payments: EligiblePayment[],
     manager: EntityManager,
   ): Promise<void> {
     const repo = manager.getRepository(ProviderSettlementLine);
-    const rows = payments.map((p) =>
+    // Ascending payment id: concurrent settlements contend on several unique-index
+    // entries; one consistent order keeps that contention deadlock-free.
+    const ordered = [...payments].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    const rows = ordered.map((p) =>
       repo.create({
         settlementId,
         salesOrderPaymentId: p.id,
@@ -515,34 +644,35 @@ export class ProviderSettlementService {
       await repo.save(rows as any);
       await manager.query('RELEASE SAVEPOINT ps_lines_insert');
     } catch (err) {
-      if ((err as { code?: string })?.code !== '23505') throw err;
+      const e = err as { code?: string; constraint?: string; driverError?: { constraint?: string } };
+      const constraint = e.constraint ?? e.driverError?.constraint;
+      if (e.code !== '23505' || constraint !== CLAIM_INDEX) throw err;
+      // Query ONLY after rolling back: the violation failed the transaction.
       await manager.query('ROLLBACK TO SAVEPOINT ps_lines_insert');
-
       const conflicting = await repo.find({
         where: {
-          salesOrderPaymentId: In(payments.map((p) => p.id)),
+          salesOrderPaymentId: In(ordered.map((p) => p.id)),
           releasedAt: IsNull(),
           settlementId: Not(settlementId),
         } as any,
         select: { salesOrderPaymentId: true } as any,
       });
-      const ids = [...new Set(conflicting.map((c) => c.salesOrderPaymentId))];
+      const taken = new Set(conflicting.map((c) => c.salesOrderPaymentId));
+      const keys = new Map<string, StaleRow>();
+      for (const p of ordered) {
+        if (taken.has(p.id)) {
+          keys.set(groupKey(p), { salesOrderId: p.salesOrderId, paymentMethodId: p.paymentMethodId, currentNetAmount: null });
+        }
+      }
 
       // The global filter copies `responseObj.message` VERBATIM into the
       // response and discards every other key of the exception body
       // (http-exception.filter.ts:85). A sibling `unavailablePaymentIds` field
-      // would therefore be silently stripped. The machine-readable ids must
+      // would therefore be silently stripped. The machine-readable rows must
       // ride INSIDE `message`, which survives as an object.
       //
-      // Wire shape: { statusCode: 409, message: { text, unavailablePaymentIds }, ... }
-      throw new ConflictException({
-        message: {
-          text:
-            `These payments were claimed by another settlement: ${ids.join(', ')}. ` +
-            `Refresh and reselect.`,
-          unavailablePaymentIds: ids,
-        },
-      });
+      // Wire shape: { statusCode: 409, message: { text, staleRows }, ... }
+      throw staleConflict([...keys.values()]);
     }
   }
 }

@@ -1,6 +1,6 @@
 import {
   IsArray, ArrayMinSize, ArrayUnique, ArrayMaxSize, IsUUID, IsString, IsOptional, IsDecimal,
-  IsEnum, IsIn, IsInt, Min, MaxLength,
+  IsEnum, IsIn, IsInt, Min, MaxLength, Matches, ValidateNested,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
@@ -8,11 +8,18 @@ import { IsCalendarDate } from '../../../common/validators/is-calendar-date.vali
 import { IsMoneyAtLeast } from '../../../common/validators/is-money-at-least.validator';
 import { ProviderSettlementStatus } from '../entities/provider-settlement.entity';
 
-export class CreateProviderSettlementDto {
-  @ApiProperty()
-  @IsUUID()
-  providerPaymentMethodId: string;
+export class SettlementRowDto {
+  @ApiProperty() @IsUUID() salesOrderId: string;
+  @ApiProperty() @IsUUID() paymentMethodId: string;
+  // Signed (a deduction is negative), at most 2 dp. The response is scale 4;
+  // the client normalizes "70.0000" → "70.00" lexically and never rounds, so a
+  // genuine sub-cent value is rejected here rather than quantized (spec §4.3).
+  @ApiProperty({ example: '70.00' })
+  @Matches(/^-?\d+(\.\d{1,2})?$/, { message: 'expectedNetAmount must have at most 2 decimal places' })
+  expectedNetAmount: string;
+}
 
+export class CreateProviderSettlementDto {
   @ApiProperty()
   @IsUUID()
   bankAccountId: string;
@@ -38,35 +45,34 @@ export class CreateProviderSettlementDto {
   @IsMoneyAtLeast('0.0100')
   settlementAmount: string;
 
-  // The COMPLETE desired selection, never an add/remove delta.
-  // ArrayMinSize(1) because clearingAccountId is derived FROM these rows and is
-  // NOT NULL from draft creation — an empty draft has nothing to derive from.
-  @ApiProperty({ type: [String] })
+  // The COMPLETE desired selection of Sales Order + Payment Method groups,
+  // never a delta. The payment method is INFERRED from these rows.
+  @ApiProperty({ type: [SettlementRowDto] })
   @IsArray()
-  @ArrayMinSize(1, { message: 'Select at least one payment' })
-  @ArrayUnique() // a repeated id would violate the partial unique index as a 500
-  @IsUUID('4', { each: true })
-  paymentIds: string[];
+  @ArrayMinSize(1, { message: 'Select at least one row' })
+  // Objects compare by identity without a selector, so key on the group.
+  @ArrayUnique((r: SettlementRowDto) => `${r?.salesOrderId}:${r?.paymentMethodId}`, {
+    message: 'Each Sales Order + Payment Method may appear only once',
+  })
+  @ValidateNested({ each: true })
+  @Type(() => SettlementRowDto)
+  rows: SettlementRowDto[];
 }
 
 export class UpdateProviderSettlementDto extends PartialType(
-  // OmitType FIRST, then PartialType. PartialType(Create) alone would inherit
-  // @IsOptional on paymentIds; redeclaring it here would add a second set of
-  // validators but the inherited @IsOptional still short-circuits them. Omitting
-  // it from the base before making the rest optional leaves paymentIds
-  // unconditionally required while every OTHER field stays optional.
-  OmitType(CreateProviderSettlementDto, ['paymentIds'] as const),
+  // OmitType FIRST, then PartialType — see the history of this class: an
+  // inherited @IsOptional would short-circuit a redeclared required array.
+  OmitType(CreateProviderSettlementDto, ['rows'] as const),
 ) {
-  // REQUIRED on update. PATCH is defined as full replacement of the selection,
-  // so an absent array is ambiguous — it would read as either "keep what is
-  // there" or "clear it", and the two differ by a whole settlement. Making it
-  // required removes the ambiguity at the edge.
-  @ApiProperty({ type: [String] })
+  @ApiProperty({ type: [SettlementRowDto] })
   @IsArray()
-  @ArrayMinSize(1, { message: 'Select at least one payment' })
-  @ArrayUnique()
-  @IsUUID('4', { each: true })
-  paymentIds: string[];
+  @ArrayMinSize(1, { message: 'Select at least one row' })
+  @ArrayUnique((r: SettlementRowDto) => `${r?.salesOrderId}:${r?.paymentMethodId}`, {
+    message: 'Each Sales Order + Payment Method may appear only once',
+  })
+  @ValidateNested({ each: true })
+  @Type(() => SettlementRowDto)
+  rows: SettlementRowDto[];
 }
 
 export class ListProviderSettlementsQueryDto {
@@ -75,15 +81,6 @@ export class ListProviderSettlementsQueryDto {
   @IsOptional() @IsCalendarDate() endDate?: string;
   @IsOptional() @IsUUID() providerPaymentMethodId?: string;
   @IsOptional() @IsEnum(ProviderSettlementStatus) status?: ProviderSettlementStatus;
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) limit?: number;
-}
-
-export class EligiblePaymentsQueryDto {
-  @IsUUID() providerPaymentMethodId: string;
-  @IsCalendarDate() settlementDate: string;
-  @IsOptional() @IsUUID() settlementId?: string;
-  @IsOptional() @IsString() search?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) limit?: number;
 }

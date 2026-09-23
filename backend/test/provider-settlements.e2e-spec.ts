@@ -231,31 +231,19 @@ describe('Provider settlements (e2e)', () => {
   }
 
   function draftBody(
-    paymentIds: string[],
+    rows: Array<{ salesOrderId: string; paymentMethodId?: string; expectedNetAmount: string }>,
     settlementAmount: string,
     settlementDate = '2026-09-20',
   ) {
     return {
-      providerPaymentMethodId: atomeMethodId,
-      bankAccountId,
-      settlementDate,
-      providerReference: `ATM-${runId}`,
-      settlementAmount,
-      paymentIds,
+      bankAccountId, settlementDate, providerReference: `ATM-${runId}`, settlementAmount,
+      rows: rows.map((r) => ({ paymentMethodId: atomeMethodId, ...r })),
     };
   }
 
-  async function createDraft(
-    paymentIds: string[],
-    amount: string,
-    settlementDate?: string,
-  ) {
-    const res = await post(
-      '/accounting/provider-settlements',
-      draftBody(paymentIds, amount, settlementDate),
-    );
-    if (res.status === 201)
-      ownedSettlementIds.push((res.body.data ?? res.body).id);
+  async function createDraft(rows: Parameters<typeof draftBody>[0], amount: string, settlementDate?: string) {
+    const res = await post('/accounting/provider-settlements', draftBody(rows, amount, settlementDate));
+    if (res.status === 201) ownedSettlementIds.push((res.body.data ?? res.body).id);
     return res;
   }
 
@@ -267,8 +255,8 @@ describe('Provider settlements (e2e)', () => {
   }
 
   it('posts exactly Dr bank / Cr clearing with no fee line', async () => {
-    const { paymentId } = await payOrder('98.00');
-    const draft = await createDraft([paymentId], '98.00');
+    const { orderId } = await payOrder('98.00');
+    const draft = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '98.00' }], '98.00');
     expect(draft.status).toBe(201);
     const id = (draft.body.data ?? draft.body).id;
 
@@ -299,21 +287,26 @@ describe('Provider settlements (e2e)', () => {
   });
 
   it('rejects a duplicate claim without creating journal data', async () => {
-    const { paymentId } = await payOrder('50.00');
-    expect((await createDraft([paymentId], '50.00')).status).toBe(201);
+    const { orderId } = await payOrder('50.00');
+    expect((await createDraft([{ salesOrderId: orderId, expectedNetAmount: '50.00' }], '50.00')).status).toBe(201);
 
     const before = await countJournalEntries();
-    const second = await createDraft([paymentId], '50.00');
+    const second = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '50.00' }], '50.00');
     expect(second.status).toBe(409);
     // The filter preserves `message` verbatim when it is an object, so the
-    // machine-readable ids ride INSIDE it (see Task 5).
-    expect(second.body.message.unavailablePaymentIds).toEqual([paymentId]);
+    // machine-readable rows ride INSIDE it (see Task 5). A claimed group is
+    // now reported as a stale row with no current net.
+    expect(second.body.message.staleRows[0]).toEqual({
+      salesOrderId: orderId,
+      paymentMethodId: atomeMethodId,
+      currentNetAmount: null,
+    });
     expect(await countJournalEntries()).toBe(before);
   });
 
   it('reverses without mutating the original entry, and releases the claims', async () => {
-    const { paymentId } = await payOrder('70.00');
-    const draft = await createDraft([paymentId], '70.00');
+    const { orderId } = await payOrder('70.00');
+    const draft = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '70.00' }], '70.00');
     const id = (draft.body.data ?? draft.body).id;
     const posted = await post(
       `/accounting/provider-settlements/${id}/post`,
@@ -354,8 +347,8 @@ describe('Provider settlements (e2e)', () => {
   });
 
   it('re-settles a payment released by a reversal', async () => {
-    const { paymentId } = await payOrder('60.00');
-    const first = await createDraft([paymentId], '60.00');
+    const { orderId } = await payOrder('60.00');
+    const first = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '60.00' }], '60.00');
     const firstId = (first.body.data ?? first.body).id;
     const posted = await post(
       `/accounting/provider-settlements/${firstId}/post`,
@@ -367,7 +360,7 @@ describe('Provider settlements (e2e)', () => {
 
     // The released claim must no longer block a corrective settlement. This is
     // the proof that releasedAt (not a soft delete) actually frees the row.
-    const second = await createDraft([paymentId], '60.00');
+    const second = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '60.00' }], '60.00');
     expect(second.status).toBe(201);
     const secondPosted = await post(
       `/accounting/provider-settlements/${(second.body.data ?? second.body).id}/post`,
@@ -378,14 +371,14 @@ describe('Provider settlements (e2e)', () => {
   });
 
   it('rejects a non-postable bank account', async () => {
-    const { paymentId } = await payOrder('30.00');
+    const { orderId } = await payOrder('30.00');
     const [parent] = await ds.query(
       `SELECT id FROM chart_of_account WHERE "isPostable" = false AND "isActive" = true LIMIT 1`,
     );
     expect(parent).toBeDefined();
 
     const res = await post('/accounting/provider-settlements', {
-      ...draftBody([paymentId], '30.00'),
+      ...draftBody([{ salesOrderId: orderId, expectedNetAmount: '30.00' }], '30.00'),
       bankAccountId: parent.id,
     });
     expect(res.status).toBe(400);
@@ -393,33 +386,38 @@ describe('Provider settlements (e2e)', () => {
   });
 
   it('rejects an unbalanced settlement before any state change', async () => {
-    const { paymentId } = await payOrder('40.00');
-    const draft = await createDraft([paymentId], '40.01');
-    expect(draft.status).toBe(201);
-    const id = (draft.body.data ?? draft.body).id;
-
+    const { orderId } = await payOrder('40.00');
+    const countSettlements = async () => {
+      const [row] = await ds.query(
+        'SELECT count(*)::int AS count FROM provider_settlements',
+      );
+      return row.count;
+    };
     const before = await countJournalEntries();
-    const posted = await post(`/accounting/provider-settlements/${id}/post`);
-    expect(posted.status).toBe(400);
-    expect(JSON.stringify(posted.body.message)).toMatch(/does not reconcile/);
-    expect(await countJournalEntries()).toBe(before);
+    const settlementsBefore = await countSettlements();
 
-    const [row] = await ds.query(
-      'SELECT status, "journalEntryId" FROM provider_settlements WHERE id = $1',
-      [id],
-    );
-    expect(row).toMatchObject({ status: 'DRAFT', journalEntryId: null });
+    const draft = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '40.00' }], '40.01');
+    expect(draft.status).toBe(400);
+    expect(JSON.stringify(draft.body.message)).toMatch(/does not equal the selected total/);
+    expect(await countJournalEntries()).toBe(before);
+    expect(await countSettlements()).toBe(settlementsBefore);
   });
 
   it('reconciles a batch mixing a payment and a refund', async () => {
-    const { orderId, paymentId } = await payOrder('98.00');
-    const refundId = await refundOrder(orderId, '50.00');
+    const { orderId } = await payOrder('98.00');
+    await refundOrder(orderId, '50.00');
 
     // 98.00 + (-50.00) = 48.00
-    const draft = await createDraft([paymentId, refundId], '48.00');
+    const draft = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '48.00' }], '48.00');
     expect(draft.status).toBe(201);
+    const id = (draft.body.data ?? draft.body).id;
+
+    // Saving the group writes BOTH underlying payments as lines.
+    const detail = await get(`/accounting/provider-settlements/${id}`).expect(200);
+    expect(detail.body.data.lines).toHaveLength(2);
+
     const posted = await post(
-      `/accounting/provider-settlements/${(draft.body.data ?? draft.body).id}/post`,
+      `/accounting/provider-settlements/${id}/post`,
     ).expect(201);
     const settlement = posted.body.data ?? posted.body;
     ownedRefs.push(settlement.referenceNumber);
@@ -432,8 +430,8 @@ describe('Provider settlements (e2e)', () => {
   });
 
   it('serves the read surface: filtered list, joined detail, branched eligibility', async () => {
-    const { paymentId: claimedId } = await payOrder('21.00');
-    const draft = await createDraft([claimedId], '21.00');
+    const { orderId: claimedOrderId } = await payOrder('21.00');
+    const draft = await createDraft([{ salesOrderId: claimedOrderId, expectedNetAmount: '21.00' }], '21.00');
     expect(draft.status).toBe(201);
     const id = (draft.body.data ?? draft.body).id;
 
@@ -452,8 +450,8 @@ describe('Provider settlements (e2e)', () => {
     // unpaginated getMany() branch above passes while the real list page 500s
     // (#1265). A second settlement on a LATER date makes the descending order
     // assertion below falsifiable rather than vacuous.
-    const { paymentId: secondClaimedId } = await payOrder('23.00');
-    const secondDraft = await createDraft([secondClaimedId], '23.00', '2026-09-21');
+    const { orderId: secondOrderId } = await payOrder('23.00');
+    const secondDraft = await createDraft([{ salesOrderId: secondOrderId, expectedNetAmount: '23.00' }], '23.00', '2026-09-21');
     expect(secondDraft.status).toBe(201);
     const secondId = (secondDraft.body.data ?? secondDraft.body).id;
 
@@ -488,13 +486,9 @@ describe('Provider settlements (e2e)', () => {
 
     // Eligibility: a second unclaimed payment appears while the claimed one is
     // excluded — the no-settlementId branch of the claim predicate over real rows.
-    const { paymentId: unclaimedId } = await payOrder('22.00');
-    const eligible = await get(
-      `/accounting/provider-settlements/eligible-payments?providerPaymentMethodId=${atomeMethodId}&settlementDate=2026-09-20`,
-    ).expect(200);
-    const eligibleIds = (eligible.body.data ?? []).map((r: any) => r.id);
-    expect(eligibleIds).toContain(unclaimedId);
-    expect(eligibleIds).not.toContain(claimedId);
+    const { orderId: unclaimedOrderId } = await payOrder('22.00');
+    const rows = await rowsFor([unclaimedOrderId, claimedOrderId]);
+    expect(rows.map((r: any) => r.salesOrderId)).toEqual([unclaimedOrderId]);
   });
 
   /**
@@ -551,8 +545,8 @@ describe('Provider settlements (e2e)', () => {
     try {
       await configure(firstPrefix, 700);
 
-      const { paymentId: firstPaymentId } = await payOrder('31.00');
-      const first = await createDraft([firstPaymentId], '31.00');
+      const { orderId: firstOrderId } = await payOrder('31.00');
+      const first = await createDraft([{ salesOrderId: firstOrderId, expectedNetAmount: '31.00' }], '31.00');
       expect(first.status).toBe(201);
       const firstRef = (first.body.data ?? first.body).referenceNumber;
       ownedRefs.push(firstRef);
@@ -573,8 +567,8 @@ describe('Provider settlements (e2e)', () => {
         [secondPrefix, DOC],
       );
 
-      const { paymentId: secondPaymentId } = await payOrder('32.00');
-      const second = await createDraft([secondPaymentId], '32.00');
+      const { orderId: secondOrderId } = await payOrder('32.00');
+      const second = await createDraft([{ salesOrderId: secondOrderId, expectedNetAmount: '32.00' }], '32.00');
       expect(second.status).toBe(201);
       const secondRef = (second.body.data ?? second.body).referenceNumber;
       ownedRefs.push(secondRef);
@@ -810,6 +804,90 @@ describe('Provider settlements (e2e)', () => {
       await get(
         '/accounting/provider-settlements/eligible-rows?scope=claimed&settlementDate=2026-09-20',
       ).expect(400);
+    });
+
+    it('create by rows: SO-26-008 writes exactly the TikTok payment line', async () => {
+      const { orderId } = await newOrder('130.00');
+      await payExisting(orderId, '130.00', atomeMethodId);
+      await refundOrder(orderId, '130.00', atomeMethodId);
+      const tiktok = await payExisting(orderId, '130.00', tiktokMethodId, '2026-09-03');
+      const res = await createDraft([{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '130.00' }], '130.00');
+      expect(res.status).toBe(201);
+      const s = res.body.data ?? res.body;
+      expect(s.providerPaymentMethodId).toBe(tiktokMethodId);
+      const lines = await ds.query('SELECT "salesOrderPaymentId" FROM provider_settlement_lines WHERE "settlementId" = $1', [s.id]);
+      expect(lines.map((l: any) => l.salesOrderPaymentId)).toEqual([tiktok]);
+    });
+
+    it('negative residue: −30 combines with a +100 row into a 70 settlement; alone it is rejected', async () => {
+      const a = await payOrder('100.00', tiktokMethodId);
+      const settled = await createDraft([{ salesOrderId: a.orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '100.00' }], '100.00');
+      const sid = (settled.body.data ?? settled.body).id;
+      const posted = await post(`/accounting/provider-settlements/${sid}/post`).expect(201);
+      ownedRefs.push((posted.body.data ?? posted.body).referenceNumber);
+      await refundOrder(a.orderId, '30.00', tiktokMethodId, '2026-09-05');
+      const b = await payOrder('100.00', tiktokMethodId);
+
+      const [residue] = await rowsFor([a.orderId]);
+      expect(residue.netAmount).toBe('-30.0000');
+
+      const alone = await createDraft([{ salesOrderId: a.orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '-30.00' }], '0.01');
+      expect(alone.status).toBe(400);
+
+      const both = await createDraft([
+        { salesOrderId: a.orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '-30.00' },
+        { salesOrderId: b.orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '100.00' },
+      ], '70.00');
+      expect(both.status).toBe(201);
+    });
+
+    it('mixed payment methods ⇒ 400 naming the split', async () => {
+      const a = await payOrder('10.00', atomeMethodId);
+      const b = await payOrder('10.00', tiktokMethodId);
+      const res = await createDraft([
+        { salesOrderId: a.orderId, paymentMethodId: atomeMethodId, expectedNetAmount: '10.00' },
+        { salesOrderId: b.orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '10.00' },
+      ], '20.00');
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(res.body.message)).toMatch(/one provider payout/);
+    });
+
+    it('stale net ⇒ 409 whose message.staleRows survives the global exception filter', async () => {
+      const { orderId } = await payOrder('60.00', tiktokMethodId);
+      await refundOrder(orderId, '10.00', tiktokMethodId);
+      const res = await createDraft([{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '60.00' }], '60.00');
+      expect(res.status).toBe(409);
+      expect(res.body.message).toEqual({
+        text: 'Some rows changed since they were loaded. Review them and save again.',
+        staleRows: [{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, currentNetAmount: '50.0000' }],
+      });
+    });
+
+    it('update adopts the complete current group of a legacy partial draft', async () => {
+      const { orderId, paymentId } = await payOrder('100.00', atomeMethodId);
+      const refundId = await refundOrder(orderId, '30.00', atomeMethodId);
+      const created = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '70.00' }], '70.00');
+      const id = (created.body.data ?? created.body).id;
+      // Simulate a pre-#1284 draft holding only the payment line.
+      await ds.query('DELETE FROM provider_settlement_lines WHERE "settlementId" = $1 AND "salesOrderPaymentId" = $2', [id, refundId]);
+      await request(app.getHttpServer()).patch(`/accounting/provider-settlements/${id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ rows: [{ salesOrderId: orderId, paymentMethodId: atomeMethodId, expectedNetAmount: '70.00' }], settlementAmount: '70.00' })
+        .expect(200);
+      const lines = await ds.query('SELECT "salesOrderPaymentId" FROM provider_settlement_lines WHERE "settlementId" = $1', [id]);
+      expect(lines.map((l: any) => l.salesOrderPaymentId).sort()).toEqual([paymentId, refundId].sort());
+    });
+
+    it('post rejects a draft whose group gained a refund after saving', async () => {
+      const { orderId } = await payOrder('80.00', tiktokMethodId);
+      const created = await createDraft([{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '80.00' }], '80.00');
+      const id = (created.body.data ?? created.body).id;
+      await refundOrder(orderId, '80.00', tiktokMethodId, '2026-09-04'); // group now nets to zero
+      const res = await post(`/accounting/provider-settlements/${id}/post`);
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(res.body.message)).toMatch(/edit and re-save/);
+      const [s] = await ds.query('SELECT status FROM provider_settlements WHERE id = $1', [id]);
+      expect(s.status).toBe('DRAFT');
     });
   });
 }); // closes describe('Provider settlements (e2e)')

@@ -1,7 +1,6 @@
 import {
   Injectable,
   BadRequestException,
-  ConflictException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
@@ -12,15 +11,6 @@ import { PostingType, AccountingSourceType } from '../../../common/accounting-po
 import { PaymentMethodMappingService } from '../../accounting/services/payment-method-mapping.service';
 import { EligiblePayment, groupKey, groupPayments, classifyClaimedGroup, ClaimedRowState } from './settlement-groups';
 import { formatScale4, sumMinor } from '../../../common/utils/money';
-
-export interface EligiblePaymentRow {
-  id: string;
-  salesOrderId: string;
-  orderNumber: string;
-  paymentDate: string;
-  amount: string;
-  referenceNumber: string | null;
-}
 
 export interface EligibilityScope { settlementDate: string; settlementId?: string }
 export interface SettlementPaymentDetail {
@@ -74,46 +64,6 @@ export class ProviderSettlementEligibilityService {
              AND l."releasedAt" IS NULL)`,
       );
     }
-  }
-
-  private baseQuery(
-    manager: EntityManager,
-    params: { providerPaymentMethodId: string; settlementDate: string; settlementId?: string },
-  ) {
-    const qb = manager
-      .getRepository(SalesOrderPayment)
-      .createQueryBuilder('p')
-      .innerJoin('sales_orders', 'so', 'so.id = p."salesOrderId"')
-      .where('p."paymentMethodId" = :methodId', {
-        methodId: params.providerPaymentMethodId,
-      });
-
-    qb.andWhere('p."paymentDate" <= :settlementDate', {
-      settlementDate: params.settlementDate,
-    });
-
-    this.applyClaimFilter(qb, params.settlementId);
-
-    // The original posting must exist and not be reversed. Constrain on the
-    // FULL key — sourceEventId alone is a bare uuid match across every source
-    // type.
-    qb.andWhere(
-      `EXISTS (SELECT 1 FROM journal_entry je
-         WHERE je."sourceEventId" = p.id
-           AND je."sourceType" = :soType
-           AND je."sourceDocumentId" = p."salesOrderId"
-           AND je."postingType"::text = CASE WHEN p.amount < 0 THEN :refundType ELSE :paymentType END
-           AND je."reversalOfEntryId" IS NULL
-           AND NOT EXISTS (
-             SELECT 1 FROM journal_entry rev WHERE rev."reversalOfEntryId" = je.id))`,
-      {
-        soType: AccountingSourceType.SALES_ORDER,
-        refundType: PostingType.SALES_REFUND,
-        paymentType: PostingType.SALES_PAYMENT,
-      },
-    );
-
-    return qb;
   }
 
   /**
@@ -342,82 +292,6 @@ export class ProviderSettlementEligibilityService {
       });
     }
     return { data };
-  }
-
-  async listEligible(params: {
-    providerPaymentMethodId: string;
-    settlementDate: string;
-    settlementId?: string;
-    search?: string;
-    page?: number;
-    limit?: number;
-  }): Promise<{ data: EligiblePaymentRow[]; meta: { total: number; page: number; limit: number } }> {
-    if (params.settlementId) {
-      const draft = await this.assertOwnDraft(params.settlementId);
-      if (draft.providerPaymentMethodId !== params.providerPaymentMethodId) {
-        throw new BadRequestException('settlementId does not belong to the requested provider');
-      }
-    }
-
-    const qb = this.baseQuery(this.defaultManager, params);
-    if (params.search) {
-      qb.andWhere('(so."orderNumber" ILIKE :q OR p."referenceNumber" ILIKE :q)', {
-        q: `%${params.search}%`,
-      });
-    }
-
-    // Stable sort, so server-side pagination cannot skip or repeat a row.
-    qb.orderBy('p."paymentDate"', 'ASC').addOrderBy('p.id', 'ASC');
-
-    // No page/limit means the FULL set — never a server-side hard cap.
-    if (params.page && params.limit) {
-      qb.skip((params.page - 1) * params.limit).take(params.limit);
-    }
-
-    qb.select([
-      'p.id AS id',
-      'p."salesOrderId" AS "salesOrderId"',
-      'so."orderNumber" AS "orderNumber"',
-      'p."paymentDate" AS "paymentDate"',
-      'p.amount AS amount',
-      'p."referenceNumber" AS "referenceNumber"',
-    ]);
-
-    const [data, total] = await Promise.all([qb.getRawMany(), qb.getCount()]);
-    return {
-      data: data as EligiblePaymentRow[],
-      meta: { total, page: params.page ?? 1, limit: params.limit ?? total },
-    };
-  }
-
-  /**
-   * Revalidate a specific set at save/post time. Callers pass their own
-   * settlementId so the settlement's OWN claims do not disqualify it — using
-   * the unqualified branch here would reject every row the draft holds and make
-   * posting impossible.
-   */
-  async assertEligible(
-    paymentIds: string[],
-    params: { providerPaymentMethodId: string; settlementDate: string; settlementId?: string },
-    manager: EntityManager,
-  ): Promise<SalesOrderPayment[]> {
-    if (paymentIds.length === 0) {
-      throw new BadRequestException('Select at least one payment');
-    }
-    const qb = this.baseQuery(manager, params).andWhere('p.id IN (:...ids)', { ids: paymentIds });
-    const rows = await qb.getMany();
-
-    const found = new Set(rows.map((r) => r.id));
-    const missing = paymentIds.filter((id) => !found.has(id));
-    if (missing.length > 0) {
-      throw new ConflictException({
-        message: {
-          text: `These payments are no longer eligible: ${missing.join(', ')}. Refresh and reselect.`,
-          unavailablePaymentIds: missing,
-        },
-      });
-    }
-    return rows;
   }
 
   async assertOwnDraft(settlementId: string, manager: EntityManager = this.defaultManager): Promise<ProviderSettlement> {
