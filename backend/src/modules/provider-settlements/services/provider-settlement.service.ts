@@ -322,6 +322,11 @@ export class ProviderSettlementService {
       .leftJoinAndSelect('s.journalEntry', 'journalEntry')
       .leftJoinAndSelect('s.reversalJournalEntry', 'reversalJournalEntry')
       .leftJoinAndSelect('s.lines', 'line')
+      // Labels and references for the grouped detail view. Amounts stay the
+      // line SNAPSHOTS; these joins supply only names.
+      .leftJoinAndSelect('line.salesOrderPayment', 'linePayment')
+      .leftJoinAndSelect('linePayment.salesOrder', 'lineOrder')
+      .leftJoinAndSelect('linePayment.paymentMethod', 'lineMethod')
       .where('s.id = :id', { id })
       .orderBy('line.createdAt', 'ASC')
       .addOrderBy('line.id', 'ASC')

@@ -18,6 +18,25 @@ import {
   methodIdByCode,
   accountIdByCode,
 } from './utils/payment-method-matrix-fixture';
+import { ProviderSettlementService } from '../src/modules/provider-settlements/services/provider-settlement.service';
+import { SETTLEMENT_TEST_HOOK } from '../src/modules/provider-settlements/services/provider-settlement.test-hooks';
+
+/** Race a promise against a timer, and ALWAYS clear the timer. */
+async function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      p,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`timeout after ${ms}ms: ${what}`)), ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 const runId = randomUUID().slice(0, 8);
 
@@ -254,6 +273,72 @@ describe('Provider settlements (e2e)', () => {
     return row.count;
   }
 
+  /**
+   * Start a request NOW (supertest is lazy) and keep both handles.
+   *
+   * A settlement create registers its id for afterAll cleanup THE MOMENT its
+   * response arrives — inside `done` itself, not after the test's assertions.
+   * A request that commits while a failing test is draining would otherwise
+   * leave a settlement no cleanup knows about.
+   */
+  function start(req: request.Test, opts: { createsSettlement?: boolean } = {}) {
+    const done = req.then((r) => {
+      if (opts.createsSettlement && r.status === 201) {
+        ownedSettlementIds.push((r.body.data ?? r.body).id);
+      }
+      return r;
+    }) as Promise<request.Response>;
+    return { req, done };
+  }
+
+  /**
+   * Cleanup for a concurrency test: wait (bounded) for every request the test
+   * STARTED, whether or not its assertions ran. On timeout, abort the HTTP
+   * requests, cancel the backend sessions, and then VERIFY those sessions have
+   * left their transactions before teardown proceeds — a cancelled statement can
+   * leave its session `idle in transaction (aborted)` still holding locks.
+   * Sessions still in a transaction after a bounded wait are terminated, and the
+   * wait is repeated; if one survives even that, drain fails loudly.
+   */
+  async function drain(
+    started: Array<{ req: request.Test; done: Promise<unknown> }>,
+    pids: Array<number | undefined>,
+  ): Promise<void> {
+    try {
+      await withTimeout(Promise.allSettled(started.map((s) => s.done)), 15_000, 'draining started requests');
+      return;
+    } catch (err) {
+      for (const s of started) s.req.abort();
+      const live = pids.filter((p): p is number => p !== undefined);
+      for (const pid of live) await ds.query('SELECT pg_cancel_backend($1)', [pid]);
+      if (!(await sessionsLeftTransactions(live, 5_000))) {
+        for (const pid of live) await ds.query('SELECT pg_terminate_backend($1)', [pid]);
+        if (!(await sessionsLeftTransactions(live, 5_000))) {
+          throw new Error(`sessions ${live.join(', ')} still in a transaction after cancel + terminate`);
+        }
+      }
+      // Late responses that arrived during cancellation have registered
+      // themselves through start(); settle them so none is still in flight.
+      await Promise.allSettled(started.map((s) => s.done));
+      throw err;
+    }
+  }
+
+  /** True once none of `pids` is inside a transaction (gone, or idle outside one). */
+  async function sessionsLeftTransactions(pids: number[], ms: number): Promise<boolean> {
+    const deadline = Date.now() + ms;
+    while (Date.now() < deadline) {
+      const [{ n }] = await ds.query(
+        `SELECT count(*)::int AS n FROM pg_stat_activity
+          WHERE pid = ANY($1::int[]) AND (xact_start IS NOT NULL OR state <> 'idle')`,
+        [pids],
+      );
+      if (n === 0) return true;
+      await pause(100);
+    }
+    return false;
+  }
+
   it('posts exactly Dr bank / Cr clearing with no fee line', async () => {
     const { orderId } = await payOrder('98.00');
     const draft = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '98.00' }], '98.00');
@@ -484,6 +569,13 @@ describe('Provider settlements (e2e)', () => {
     expect(detail.body.data.bankAccount.code).toBe('1200');
     expect(detail.body.data.providerPaymentMethod.name).toBeTruthy();
 
+    // Each line carries its payment's order + method labels for the grouped
+    // detail view. `amount` stays the line SNAPSHOT, never the live row.
+    const line0 = detail.body.data.lines[0];
+    expect(line0.salesOrderPayment.salesOrder.orderNumber).toBeTruthy();
+    expect(line0.salesOrderPayment.paymentMethod.name).toBeTruthy();
+    expect(line0.amount).toBe('21.0000'); // snapshot, not the live row
+
     // Eligibility: a second unclaimed payment appears while the claimed one is
     // excluded — the no-settlementId branch of the claim predicate over real rows.
     const { orderId: unclaimedOrderId } = await payOrder('22.00');
@@ -600,6 +692,8 @@ describe('Provider settlements (e2e)', () => {
   });
 
   describe('eligible-rows (#1284)', () => {
+    afterEach(() => { delete (app.get(ProviderSettlementService) as any)[SETTLEMENT_TEST_HOOK]; });
+
     async function insertDraft(
       methodId: string,
       lines: Array<{ paymentId: string; amount: string }>,
@@ -888,6 +982,134 @@ describe('Provider settlements (e2e)', () => {
       expect(JSON.stringify(res.body.message)).toMatch(/edit and re-save/);
       const [s] = await ds.query('SELECT status FROM provider_settlements WHERE id = $1', [id]);
       expect(s.status).toBe('DRAFT');
+    });
+
+    it('two settlements that both pass recomputation collide on the claim index: one 201, one 409, no partial claims', async () => {
+      const service = app.get(ProviderSettlementService) as any;
+      const { orderId } = await newOrder('90.00');
+      await payExisting(orderId, '60.00', tiktokMethodId);
+      await payExisting(orderId, '30.00', tiktokMethodId, '2026-09-02');
+      const body = draftBody([{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '90.00' }], '90.00');
+
+      const pids: number[] = [];
+      let arrived = 0;
+      let openGate!: () => void;
+      const gate = new Promise<void>((r) => (openGate = r));
+      service[SETTLEMENT_TEST_HOOK] = async (phase: string, ctx: any) => {
+        if (phase !== 'afterRecompute' || !ctx.salesOrderIds.includes(orderId)) return;
+        const [{ pid }] = await ctx.manager.query('SELECT pg_backend_pid() AS pid');
+        pids.push(pid);
+        arrived += 1;
+        if (arrived === 2) openGate();
+        await withTimeout(gate, 10_000, 'both settlements reaching claim insertion');
+      };
+
+      const started = [
+        start(post('/accounting/provider-settlements', body), { createsSettlement: true }),
+        start(post('/accounting/provider-settlements', body), { createsSettlement: true }),
+      ];
+      let results: request.Response[] = [];
+      try {
+        results = await withTimeout(Promise.all(started.map((s) => s.done)), 30_000, 'claim race') as request.Response[];
+      } finally {
+        delete service[SETTLEMENT_TEST_HOOK];
+        openGate();
+        await drain(started, pids);
+      }
+      // Both passed stale validation, so the loser's 409 can only have come from
+      // the claim index (the 23505 → staleRows path), not from recomputation.
+      expect(arrived).toBe(2);
+      expect(results.map((r) => r.status).sort()).toEqual([201, 409]);
+      const loser = results.find((r) => r.status === 409)!;
+      expect(loser.body.message.staleRows).toEqual([
+        { salesOrderId: orderId, paymentMethodId: tiktokMethodId, currentNetAmount: null },
+      ]);
+
+      const claims = await ds.query(
+        `SELECT l."settlementId", count(*)::int AS n FROM provider_settlement_lines l
+           JOIN sales_order_payments p ON p.id = l."salesOrderPaymentId"
+          WHERE p."salesOrderId" = $1 GROUP BY l."settlementId"`,
+        [orderId],
+      );
+      expect(claims).toHaveLength(1); // only the winner holds claims
+      expect(claims[0].n).toBe(2);    // and it holds the whole group
+      const winnerId = (results.find((r) => r.status === 201)!.body.data).id;
+      expect(claims[0].settlementId).toBe(winnerId);
+    });
+
+    it('a refund recorded while a settlement holds its order lock waits on THAT settlement, then becomes unclaimed residue', async () => {
+      const service = app.get(ProviderSettlementService) as any;
+      const { orderId } = await payOrder('100.00', tiktokMethodId);
+
+      let settlementPid: number | undefined;
+      let refundPid: number | undefined;
+      let reached!: () => void;
+      const lockHeld = new Promise<void>((r) => (reached = r));
+      let release!: () => void;
+      const released = new Promise<void>((r) => (release = r));
+      service[SETTLEMENT_TEST_HOOK] = async (phase: string, ctx: any) => {
+        if (phase !== 'afterSalesOrderLock' || !ctx.salesOrderIds.includes(orderId)) return;
+        [{ pid: settlementPid }] = await ctx.manager.query('SELECT pg_backend_pid() AS pid');
+        reached();
+        await released;
+      };
+
+      const started: Array<{ req: request.Test; done: Promise<request.Response> }> = [];
+      let refundDone = false;
+      let settled: request.Response | undefined;
+      let refund: request.Response | undefined;
+      try {
+        started.push(start(post('/accounting/provider-settlements', draftBody(
+          [{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '100.00' }], '100.00',
+        )), { createsSettlement: true }));
+        await withTimeout(lockHeld, 10_000, 'settlement reaching its SO lock');
+        expect(settlementPid).toBeDefined();
+
+        const refundReq = start(post(`/sales-orders/${orderId}/refunds`, {
+          refunds: [{ amount: '30.00', paymentMethodId: tiktokMethodId, paymentDate: '2026-09-02' }],
+        }));
+        refundReq.done.then(() => { refundDone = true; }, () => { refundDone = true; });
+        started.push(refundReq);
+
+        // Identify the ONE session waiting on a lock held by THIS settlement's
+        // backend and running the order FOR UPDATE — not any waiting query.
+        //
+        // `query` is TRUNCATED at track_activity_query_size (1kB on this
+        // cluster, a postmaster GUC), and TypeORM's lock read is longer than
+        // that, so its trailing FOR UPDATE never reaches pg_stat_activity.
+        // Statement logging confirmed the full text ends in `FOR UPDATE` (see
+        // the #1284 task report); the truncated prefix still identifies the
+        // refund's lock read on this order, waiting on this settlement.
+        const deadline = Date.now() + 10_000;
+        while (Date.now() < deadline && refundPid === undefined && !refundDone) {
+          const rows: Array<{ pid: number }> = await ds.query(
+            `SELECT pid FROM pg_stat_activity
+              WHERE wait_event_type = 'Lock'
+                AND $1 = ANY(pg_blocking_pids(pid))
+                AND query ILIKE '%FROM "sales_orders"%'`,
+            [settlementPid],
+          );
+          if (rows.length > 1) throw new Error(`expected one blocked refund session, found ${rows.length}`);
+          if (rows.length === 1) refundPid = rows[0].pid;
+          else await pause(50);
+        }
+        expect(refundDone).toBe(false);
+        expect(refundPid).toBeDefined();
+
+        release();
+        [settled, refund] = await withTimeout(Promise.all(started.map((s) => s.done)), 15_000, 'commit then refund');
+      } finally {
+        delete service[SETTLEMENT_TEST_HOOK];
+        release?.();
+        await drain(started, [settlementPid, refundPid]);
+      }
+
+      expect(settled!.status).toBe(201); // its id was registered by start()
+      expect(refund!.status).toBe(201);
+
+      // The refund arrived after the claim: it is unclaimed residue, not part of the draft.
+      const [residue] = await rowsFor([orderId]);
+      expect(residue.netAmount).toBe('-30.0000');
     });
   });
 }); // closes describe('Provider settlements (e2e)')
