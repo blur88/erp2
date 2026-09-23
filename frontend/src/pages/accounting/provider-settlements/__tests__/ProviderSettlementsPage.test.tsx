@@ -1,8 +1,11 @@
 import '@testing-library/jest-dom/vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { alpha } from '@mui/material'
+import { MemoryRouter, RouterProvider, createMemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { darkTheme } from '@/styles/theme'
 
 import ProviderSettlementsPage, { HEADERS } from '../ProviderSettlementsPage'
 
@@ -154,6 +157,53 @@ describe('ProviderSettlementsPage', () => {
       expect(mockList).toHaveBeenLastCalledWith(
         expect.objectContaining({ status: 'POSTED' }),
       )
+    })
+  })
+
+  // #1277: Create returns here and hands the new draft's id back in history
+  // state, the way Owner Equity does (#1088). The tint is a one-shot
+  // confirmation of the return trip, so it is copied into local state and
+  // dropped from history immediately.
+  describe('create highlight', () => {
+    const HIGHLIGHT = alpha(darkTheme.palette.primary.main, 0.2)
+
+    // A data router, so the test can read the history entry's state after the
+    // page has replaced it — MemoryRouter exposes no handle on it.
+    function renderWithState(rows: any[], state: unknown, search = '') {
+      mockList.mockReturnValue({
+        data: { data: rows, meta: { total: rows.length, page: 1, limit: 25 } },
+        isLoading: false, isError: false,
+      })
+      const router = createMemoryRouter(
+        [{ path: '/accounting/provider-settlements', element: <ProviderSettlementsPage /> }],
+        { initialEntries: [{ pathname: '/accounting/provider-settlements', search, state }] },
+      )
+      render(<RouterProvider router={router} />)
+      return router
+    }
+
+    it('highlights the row named by incoming location state, and only that row', async () => {
+      renderWithState(
+        [row(), row({ id: 'ps-2', referenceNumber: 'PS-26-002' })],
+        { highlightProviderSettlementId: 'ps-2' },
+      )
+      await waitFor(() => {
+        expect(screen.getByText('PS-26-002').closest('tr')).toHaveStyle({ backgroundColor: HIGHLIGHT })
+      })
+      expect(screen.getByText('PS-26-001').closest('tr')).not.toHaveStyle({ backgroundColor: HIGHLIGHT })
+    })
+
+    it('clears the history state but keeps the query string', async () => {
+      const router = renderWithState([row()], { highlightProviderSettlementId: 'ps-1' }, '?x=1')
+      await waitFor(() => expect(router.state.location.state).toBeNull())
+      expect(router.state.location.search).toBe('?x=1')
+      // Still highlighted after the state is gone: it lives in local state.
+      expect(screen.getByText('PS-26-001').closest('tr')).toHaveStyle({ backgroundColor: HIGHLIGHT })
+    })
+
+    it('highlights nothing when no state arrives', () => {
+      renderWithState([row()], null)
+      expect(screen.getByText('PS-26-001').closest('tr')).not.toHaveStyle({ backgroundColor: HIGHLIGHT })
     })
   })
 })

@@ -10,6 +10,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Typography,
 } from '@mui/material'
 
 import PagePagination from '@/components/common/PagePagination'
@@ -116,6 +117,8 @@ export default function EligiblePaymentPicker({
         label="Search"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
+        size="small"
+        sx={{ mb: 2, minWidth: 280 }}
       />
 
       <Table>
@@ -166,12 +169,39 @@ export default function EligiblePaymentPicker({
         onPageChange={setPage} onLimitChange={setLimit}
       />
 
-      <Stack direction="row" spacing={3}>
-        <span data-testid="selected-count">{selected.length}</span>
-        <span data-testid="selected-total">{money(selectedMinor)}</span>
-        <span data-testid="entered-amount">{money(enteredMinor)}</span>
-        <span data-testid="difference">{money(differenceMinor)}</span>
+      {/* The data-testids sit on the VALUE, not the labelled group, so a
+          content assertion cannot pass on the label text alone. */}
+      <Stack
+        direction="row"
+        spacing={4}
+        useFlexGap
+        sx={{ mt: 2, flexWrap: 'wrap', justifyContent: 'flex-end' }}
+      >
+        <Total label="Selected" testId="selected-count" value={String(selected.length)} />
+        <Total label="Selected Total" testId="selected-total" value={money(selectedMinor)} />
+        <Total label="Settlement Amount" testId="entered-amount" value={money(enteredMinor)} />
+        <Total label="Difference" testId="difference" value={money(differenceMinor)} strong />
       </Stack>
+    </Box>
+  )
+}
+
+function Total({
+  label, testId, value, strong = false,
+}: { label: string; testId: string; value: string; strong?: boolean }) {
+  return (
+    <Box sx={{ textAlign: 'right' }}>
+      <Typography variant="caption" color="text.secondary" component="div">
+        {label}
+      </Typography>
+      <Typography
+        variant="body2"
+        component="div"
+        data-testid={testId}
+        sx={{ fontWeight: strong ? 700 : 500, fontVariantNumeric: 'tabular-nums' }}
+      >
+        {value}
+      </Typography>
     </Box>
   )
 }
