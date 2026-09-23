@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Box } from '@mui/material'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -96,8 +96,25 @@ export const HEADERS = [
 
 export default function ProviderSettlementsPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { showSuccess, showError } = useNotification()
   const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+
+  // Create returns here and hands the new draft back in location.state, the
+  // way Owner Equity does (#1088). Copy it into local state and drop it from
+  // history immediately: the tint is a one-shot confirmation of the return
+  // trip, so it must not survive a reload or a Back/Forward into this entry.
+  // The replace target keeps location.search. Issue #1277.
+  const highlightProviderSettlementId = (
+    location.state as { highlightProviderSettlementId?: string } | null
+  )?.highlightProviderSettlementId
+
+  useEffect(() => {
+    if (!highlightProviderSettlementId) return
+    setHighlightId(highlightProviderSettlementId)
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+  }, [highlightProviderSettlementId, location.pathname, location.search, navigate])
 
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
@@ -252,6 +269,7 @@ export default function ProviderSettlementsPage() {
             showHeader={false}
             hasActiveFilters={hasActiveFilters}
             focusedIndex={-1}
+            selectedId={highlightId ?? undefined}
             // A real handler. NEVER `onSelect={() => {}}` — a no-op makes row
             // clicks silently dead while the action menu keeps working, so the
             // breakage looks like styling.

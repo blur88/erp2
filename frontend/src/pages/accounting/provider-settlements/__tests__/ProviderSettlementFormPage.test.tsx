@@ -1,7 +1,9 @@
 import '@testing-library/jest-dom/vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
+import { RouterProvider, createMemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import ProviderSettlementFormPage from '../ProviderSettlementFormPage'
@@ -19,6 +21,18 @@ const mockShowSuccess = vi.fn()
 const mockShowError = vi.fn()
 vi.mock('@/hooks/useNotification', () => ({
   useNotification: () => ({ showSuccess: mockShowSuccess, showError: mockShowError }),
+}))
+
+// The Settlement No. preview reads Document Number Settings (#1271 row).
+vi.mock('@/store/api/settingsApi', () => ({
+  useGetDocumentNumberSettingsQuery: () => ({
+    data: {
+      configurations: [
+        { documentName: 'Provider Settlements', prefix: 'PS', nextNumber: 7, paddingDigits: 3 },
+      ],
+    },
+    isLoading: false,
+  }),
 }))
 
 vi.mock('@/store/api/accountingApi', () => ({
@@ -72,15 +86,43 @@ const ELIGIBLE = [
   { id: 'pay-2', salesOrderId: 'so-2', orderNumber: 'SO-26-002', paymentDate: '2026-09-02', amount: '50.0000', referenceNumber: 'A2' },
 ]
 
+/**
+ * A DATA router: the unsaved-changes guard uses useBlocker, which throws under
+ * a plain MemoryRouter. The list and detail routes are plain markers — their
+ * presence proves navigation actually completed, and the returned router
+ * exposes the history entry's state.
+ */
 function renderForm(route: string) {
-  return render(
-    <MemoryRouter initialEntries={[route]}>
-      <Routes>
-        <Route path="/accounting/provider-settlements/create" element={<ProviderSettlementFormPage />} />
-        <Route path="/accounting/provider-settlements/:id/edit" element={<ProviderSettlementFormPage />} />
-      </Routes>
-    </MemoryRouter>,
+  const router = createMemoryRouter(
+    [
+      { path: '/accounting/provider-settlements', element: <div>LIST PAGE</div> },
+      { path: '/accounting/provider-settlements/create', element: <ProviderSettlementFormPage /> },
+      { path: '/accounting/provider-settlements/:id/edit', element: <ProviderSettlementFormPage /> },
+      { path: '/accounting/provider-settlements/:id/view', element: <div>DETAIL PAGE</div> },
+    ],
+    { initialEntries: [route] },
   )
+  render(
+    <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <RouterProvider router={router} />
+    </LocalizationProvider>,
+  )
+  return router
+}
+
+const EDIT = '/accounting/provider-settlements/ps-1/edit'
+const CREATE = '/accounting/provider-settlements/create'
+const DIALOG_MESSAGE = /You have unsaved changes/
+
+const saveButton = () => screen.getByRole('button', { name: /^save draft$/i })
+const postButton = () => screen.getByRole('button', { name: /^post$/i })
+const cancelButton = () => screen.getByRole('button', { name: /^cancel$/i })
+// PageHeader's back IconButton carries no accessible name; MUI icons expose a
+// data-testid, so reach the button through its icon.
+const backButton = () => screen.getByTestId('ArrowBackIcon').closest('button')!
+
+async function waitForDraftSeeded() {
+  await waitFor(() => expect(screen.getByTestId('selected-count')).toHaveTextContent('2'))
 }
 
 beforeEach(() => {
@@ -178,8 +220,8 @@ describe('ProviderSettlementFormPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('difference')).toHaveTextContent('28.00')
       // A draft may be SAVED showing a difference; only posting is blocked.
-      expect(screen.getByRole('button', { name: /^post$/i })).toBeDisabled()
-      expect(screen.getByRole('button', { name: /^save$/i })).toBeEnabled()
+      expect(postButton()).toBeDisabled()
+      expect(saveButton()).toBeEnabled()
     })
   })
 
@@ -221,7 +263,7 @@ describe('ProviderSettlementFormPage', () => {
     renderForm('/accounting/provider-settlements/ps-1/edit')
     await waitFor(() => expect(screen.getByTestId('selected-count')).toHaveTextContent('2'))
 
-    await userEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    await userEvent.click(saveButton())
 
     await waitFor(() => {
       expect(screen.getByText(/claimed by another settlement/i)).toBeInTheDocument()
@@ -238,7 +280,7 @@ describe('ProviderSettlementFormPage', () => {
     renderForm('/accounting/provider-settlements/ps-1/edit')
     await waitFor(() => expect(screen.getByTestId('selected-count')).toHaveTextContent('2'))
 
-    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+    await userEvent.click(saveButton())
     await waitFor(() => {
       expect(mockUpdate.mock.calls.at(-1)![0]).toEqual(
         expect.objectContaining({
@@ -253,9 +295,228 @@ describe('ProviderSettlementFormPage', () => {
     // resend both (or omit the removal) and leave pay-1 silently claimed.
     await userEvent.click(screen.getByRole('checkbox', { name: /SO-26-001/ }))
     await waitFor(() => expect(screen.getByTestId('selected-count')).toHaveTextContent('1'))
-    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+    await userEvent.click(saveButton())
     await waitFor(() => {
       expect(mockUpdate.mock.calls.at(-1)![0].body.paymentIds).toEqual(['pay-2'])
     })
+  })
+})
+
+describe('ProviderSettlementFormPage layout (#1277)', () => {
+  it('uses the workflow page header and sections when creating', () => {
+    renderForm(CREATE)
+    expect(screen.getByRole('heading', { name: 'New Provider Settlement' })).toBeInTheDocument()
+    for (const section of ['Settlement Information', 'Amount & Accounting', 'Eligible Payments']) {
+      expect(screen.getByRole('heading', { name: section })).toBeInTheDocument()
+    }
+    expect(backButton()).toBeInTheDocument()
+  })
+
+  it('previews the next Settlement No. from Document Number Settings when creating', () => {
+    renderForm(CREATE)
+    const field = screen.getByLabelText('Settlement No.')
+    expect(field).toHaveValue(`PS-${String(new Date().getFullYear() % 100).padStart(2, '0')}-007`)
+    expect(field).toBeDisabled()
+  })
+
+  it('names the draft in the header and shows its saved number when editing', async () => {
+    renderForm(EDIT)
+    expect(await screen.findByRole('heading', { name: 'Edit Provider Settlement' })).toBeInTheDocument()
+    expect(screen.getByText('Editing PS-26-001')).toBeInTheDocument()
+    expect(screen.getByLabelText('Settlement No.')).toHaveValue('PS-26-001')
+  })
+
+  it('keeps every domain field available', async () => {
+    renderForm(EDIT)
+    await waitForDraftSeeded()
+    for (const label of [
+      'Provider', 'Settlement Date', 'Provider Reference', 'Bank Account',
+      'Provider Clearing Account', 'Settlement Amount',
+    ]) {
+      expect(screen.getAllByLabelText(label).length).toBeGreaterThan(0)
+    }
+    // Each total carries a visible label, not just a bare number.
+    for (const [id, label] of [
+      ['selected-count', 'Selected'], ['selected-total', 'Selected Total'],
+      ['entered-amount', 'Settlement Amount'], ['difference', 'Difference'],
+    ]) {
+      expect(screen.getByTestId(id).previousElementSibling).toHaveTextContent(label)
+    }
+  })
+
+  it('puts Cancel, Save Draft and Post in the action row, in that order', () => {
+    renderForm(CREATE)
+    const labels = screen
+      .getAllByRole('button')
+      .map((b) => b.textContent)
+      .filter((t) => ['Cancel', 'Save Draft', 'Post'].includes(t ?? ''))
+    expect(labels).toEqual(['Cancel', 'Save Draft', 'Post'])
+    // Unchanged semantics: a new settlement cannot be posted from the form.
+    expect(postButton()).toBeDisabled()
+  })
+
+  it('shows the placeholder instead of the picker until a provider is chosen', () => {
+    // mockGetOne ignores `skip` and still returns DRAFT here — the cached-
+    // settlement case. The create form must not seed itself from it.
+    renderForm(CREATE)
+    expect(screen.getByText(/select a provider/i)).toBeInTheDocument()
+    expect(screen.queryByTestId('selected-count')).not.toBeInTheDocument()
+  })
+
+  it('shows a load error instead of the form when the draft cannot be loaded', () => {
+    mockGetOne.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+    renderForm(EDIT)
+    expect(screen.getByText(/failed to load this settlement/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^save draft$/i })).not.toBeInTheDocument()
+  })
+})
+
+describe('ProviderSettlementFormPage navigation (#1277)', () => {
+  it('returns to the list after creating, handing back the new draft to highlight', async () => {
+    const router = renderForm(CREATE)
+    await userEvent.click(screen.getByLabelText('Provider'))
+    await userEvent.click(screen.getByRole('option', { name: 'Atome' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: /SO-26-001/ }))
+
+    await userEvent.click(saveButton())
+    expect(await screen.findByText('LIST PAGE')).toBeInTheDocument()
+    expect(router.state.location.state).toEqual({ highlightProviderSettlementId: 'ps-1' })
+    // Leaving /create is what makes a second, duplicate draft impossible.
+    expect(mockCreate).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText(DIALOG_MESSAGE)).not.toBeInTheDocument()
+  })
+
+  it('stays on the create form when the create fails', async () => {
+    mockCreate.mockReturnValue({ unwrap: () => Promise.reject({ status: 400, data: { message: 'Bad' } }) })
+    renderForm(CREATE)
+    await userEvent.click(saveButton())
+    await waitFor(() => expect(mockShowError).toHaveBeenCalled())
+    expect(screen.queryByText('LIST PAGE')).not.toBeInTheDocument()
+  })
+
+  it('Cancel on a clean create returns to the list', async () => {
+    renderForm(CREATE)
+    await userEvent.click(cancelButton())
+    expect(await screen.findByText('LIST PAGE')).toBeInTheDocument()
+  })
+
+  it('Cancel on a clean edit returns to the detail view', async () => {
+    renderForm(EDIT)
+    await waitForDraftSeeded()
+    await userEvent.click(cancelButton())
+    expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument()
+  })
+
+  it('the header back arrow behaves like Cancel', async () => {
+    renderForm(EDIT)
+    await waitForDraftSeeded()
+    await userEvent.click(backButton())
+    expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument()
+  })
+})
+
+describe('ProviderSettlementFormPage unsaved changes (#1277)', () => {
+  it('asks before leaving an edited draft', async () => {
+    renderForm(EDIT)
+    await waitForDraftSeeded()
+    await userEvent.type(screen.getByLabelText('Provider Reference'), 'X')
+
+    await userEvent.click(cancelButton())
+    expect(await screen.findByText(DIALOG_MESSAGE)).toBeInTheDocument()
+    expect(screen.queryByText('DETAIL PAGE')).not.toBeInTheDocument()
+  })
+
+  it('counts a changed payment selection as unsaved', async () => {
+    renderForm(EDIT)
+    await waitForDraftSeeded()
+    await userEvent.click(screen.getByRole('checkbox', { name: /SO-26-001/ }))
+
+    await userEvent.click(cancelButton())
+    expect(await screen.findByText(DIALOG_MESSAGE)).toBeInTheDocument()
+  })
+
+  it('compares the selection as a set, so a reordered selection is clean', async () => {
+    renderForm(EDIT)
+    await waitForDraftSeeded()
+    // Uncheck and re-check pay-1: the selection is now [pay-2, pay-1] — the
+    // same payments in a different order. A positional compare would call
+    // this dirty.
+    await userEvent.click(screen.getByRole('checkbox', { name: /SO-26-001/ }))
+    await userEvent.click(screen.getByRole('checkbox', { name: /SO-26-001/ }))
+    await waitForDraftSeeded()
+
+    await userEvent.click(cancelButton())
+    expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument()
+    expect(screen.queryByText(DIALOG_MESSAGE)).not.toBeInTheDocument()
+  })
+
+  it('stays dirty when the save fails', async () => {
+    mockUpdate.mockReturnValue({ unwrap: () => Promise.reject({ status: 500, data: { message: 'Boom' } }) })
+    renderForm(EDIT)
+    await waitForDraftSeeded()
+    await userEvent.type(screen.getByLabelText('Provider Reference'), 'X')
+    await userEvent.click(saveButton())
+    await waitFor(() => expect(mockShowError).toHaveBeenCalled())
+
+    await userEvent.click(cancelButton())
+    expect(await screen.findByText(DIALOG_MESSAGE)).toBeInTheDocument()
+  })
+
+  it('is clean again after a successful edit save, and stays on the form', async () => {
+    renderForm(EDIT)
+    await waitForDraftSeeded()
+    await userEvent.type(screen.getByLabelText('Provider Reference'), 'X')
+    await userEvent.click(saveButton())
+    await waitFor(() => expect(mockShowSuccess).toHaveBeenCalled())
+    expect(screen.queryByText('DETAIL PAGE')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Provider Reference')).toHaveValue('ATM-1X')
+
+    await userEvent.click(cancelButton())
+    expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument()
+    expect(screen.queryByText(DIALOG_MESSAGE)).not.toBeInTheDocument()
+  })
+
+  it('does not block the navigation after save-and-post', async () => {
+    renderForm(EDIT)
+    await waitForDraftSeeded()
+    await userEvent.type(screen.getByLabelText('Provider Reference'), 'X')
+
+    await userEvent.click(postButton())
+    expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument()
+    expect(mockUpdate).toHaveBeenCalledTimes(1)
+    expect(mockPost).toHaveBeenCalledWith('ps-1')
+    expect(screen.queryByText(DIALOG_MESSAGE)).not.toBeInTheDocument()
+  })
+
+  it('leaves the saved draft clean when posting fails after the save', async () => {
+    mockPost.mockReturnValue({ unwrap: () => Promise.reject({ status: 400, data: { message: 'Nope' } }) })
+    renderForm(EDIT)
+    await waitForDraftSeeded()
+    await userEvent.type(screen.getByLabelText('Provider Reference'), 'X')
+
+    await userEvent.click(postButton())
+    await waitFor(() => expect(mockShowError).toHaveBeenCalledWith('Nope'))
+    expect(screen.queryByText('DETAIL PAGE')).not.toBeInTheDocument()
+
+    // The save half succeeded, so there is nothing unsaved to warn about.
+    await userEvent.click(cancelButton())
+    expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument()
+    expect(screen.queryByText(DIALOG_MESSAGE)).not.toBeInTheDocument()
+  })
+
+  it('disables every action and labels the save while it is in flight', async () => {
+    let resolve!: (v: unknown) => void
+    mockUpdate.mockReturnValue({ unwrap: () => new Promise((r) => { resolve = r }) })
+    renderForm(EDIT)
+    await waitForDraftSeeded()
+
+    await userEvent.click(saveButton())
+    const saving = await screen.findByRole('button', { name: 'Saving...' })
+    expect(saving).toBeDisabled()
+    expect(cancelButton()).toBeDisabled()
+    expect(postButton()).toBeDisabled()
+
+    resolve(DRAFT)
+    expect(await screen.findByRole('button', { name: /^save draft$/i })).toBeEnabled()
   })
 })
