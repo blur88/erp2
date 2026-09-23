@@ -951,10 +951,7 @@ describe('ExpenseFormPage - Edit origin', () => {
       expect(screen.getByLabelText(/description/i)).toHaveValue('Office supplies purchase')
     })
 
-    // Back is an icon-only IconButton in PageHeader (PageHeader.tsx:67) with no
-    // aria-label, so it has no accessible name — getByRole('button', { name: /back/i })
-    // will NOT find it. Reach it through the icon, as other suites do.
-    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    await user.click(screen.getByRole('button', { name: 'Back' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses', {
       state: { highlightExpenseId: 'exp-1' },
@@ -996,9 +993,7 @@ describe('ExpenseFormPage - Edit origin', () => {
       expect(screen.getByLabelText(/description/i)).toHaveValue('Office supplies purchase')
     })
 
-    // See the list-origin Back test above: the PageHeader back button is icon-only
-    // and has no accessible name.
-    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    await user.click(screen.getByRole('button', { name: 'Back' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses/exp-1')
   })

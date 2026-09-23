@@ -119,7 +119,7 @@ describe('ProductViewPage', () => {
     )
 
     const user = userEvent.setup()
-    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    await user.click(screen.getByRole('button', { name: 'Back' }))
 
     expect(screen.getByTestId('back-search').textContent).toBe('/inventory/products?page=2')
   })
@@ -149,7 +149,7 @@ describe('ProductViewPage', () => {
     )
 
     const user = userEvent.setup()
-    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    await user.click(screen.getByRole('button', { name: 'Back' }))
 
     expect(screen.getByTestId('back-search').textContent).toBe('/inventory/products')
   })

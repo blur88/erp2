@@ -185,7 +185,7 @@ describe('SalesOrderDetailPage', () => {
   it('navigates back to orders list on back button click', async () => {
     mockGetSalesOrderByNumber.mockReturnValue({ data: makeOrder(), isLoading: false })
     renderPage()
-    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
     expect(mockNavigate).toHaveBeenCalledWith('/sales/orders')
   })
 
@@ -193,7 +193,7 @@ describe('SalesOrderDetailPage', () => {
     mockGetSalesOrderByNumber.mockReturnValue({ data: makeOrder(), isLoading: false })
     renderPage('SO-26-001', '?listQuery=page%3D2')
 
-    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/sales/orders?page=2')
   })

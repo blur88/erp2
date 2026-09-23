@@ -939,12 +939,9 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
     })
 
     it('Back returns to the view page', async () => {
-      const { container } = renderPage()
+      renderPage()
       await waitFor(() => expect(screen.getByText(/edit stock adjustment/i)).toBeInTheDocument())
-      // Back is an icon-only IconButton (ArrowBackIcon) in PageHeader with no
-      // accessible name; it is the button holding the ArrowBackIcon svg.
-      const backIcon = container.querySelector('[data-testid="ArrowBackIcon"]')
-      fireEvent.click(backIcon!.closest('button')!)
+      fireEvent.click(screen.getByRole('button', { name: 'Back' }))
       expect(mockNavigate).toHaveBeenCalledWith('/inventory/stock-adjustments/abc-123/view')
     })
   })

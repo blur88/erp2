@@ -117,9 +117,7 @@ const DIALOG_MESSAGE = /You have unsaved changes/
 const saveButton = () => screen.getByRole('button', { name: /^save draft$/i })
 const postButton = () => screen.getByRole('button', { name: /^post$/i })
 const cancelButton = () => screen.getByRole('button', { name: /^cancel$/i })
-// PageHeader's back IconButton carries no accessible name; MUI icons expose a
-// data-testid, so reach the button through its icon.
-const backButton = () => screen.getByTestId('ArrowBackIcon').closest('button')!
+const backButton = () => screen.getByRole('button', { name: 'Back' })
 
 async function waitForDraftSeeded() {
   await waitFor(() => expect(screen.getByTestId('selected-count')).toHaveTextContent('2'))

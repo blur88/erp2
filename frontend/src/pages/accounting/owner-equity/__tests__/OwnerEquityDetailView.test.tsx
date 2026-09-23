@@ -230,7 +230,7 @@ describe('OwnerEquityDetailView', () => {
   it('returns to the list with the ticket decoded', async () => {
     renderDetail({}, '/accounting/owner-equity/EQ-1/view?listQuery=type%3DX%26page%3D2')
 
-    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity?type=X&page=2')
   })
@@ -238,7 +238,7 @@ describe('OwnerEquityDetailView', () => {
   it('returns to the bare list when there is no ticket', async () => {
     renderDetail({}, '/accounting/owner-equity/EQ-1/view')
 
-    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity')
   })

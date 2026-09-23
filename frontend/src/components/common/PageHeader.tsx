@@ -64,7 +64,7 @@ export default function PageHeader({
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: '1 1 auto' }}>
           {backAction && (
-            <IconButton onClick={backAction} size="small" sx={{ flexShrink: 0 }}>
+            <IconButton aria-label="Back" onClick={backAction} size="small" sx={{ flexShrink: 0 }}>
               <ArrowBackIcon />
             </IconButton>
           )}

@@ -374,7 +374,7 @@ describe('ExpenseDetailPage', () => {
   it('navigates back on back button click', async () => {
     mockGetExpense.mockReturnValue({ data: makeExpense(), isLoading: false })
     renderPage()
-    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses')
   })
 
@@ -382,7 +382,7 @@ describe('ExpenseDetailPage', () => {
     mockGetExpense.mockReturnValue({ data: makeExpense(), isLoading: false })
     renderPage('?listQuery=page%3D2')
 
-    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses?page=2')
   })
@@ -391,7 +391,7 @@ describe('ExpenseDetailPage', () => {
     mockGetExpense.mockReturnValue({ data: makeExpense(), isLoading: false })
     renderPage()
 
-    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/accounting/expenses')
   })

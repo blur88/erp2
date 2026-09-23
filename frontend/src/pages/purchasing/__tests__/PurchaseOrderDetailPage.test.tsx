@@ -124,7 +124,7 @@ describe('PurchaseOrderDetailPage', () => {
     renderPage('?listQuery=page%3D2')
 
     const user = userEvent.setup()
-    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    await user.click(screen.getByRole('button', { name: 'Back' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders?page=2')
   })
@@ -135,7 +135,7 @@ describe('PurchaseOrderDetailPage', () => {
     renderPage()
 
     const user = userEvent.setup()
-    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    await user.click(screen.getByRole('button', { name: 'Back' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/purchasing/orders')
   })
