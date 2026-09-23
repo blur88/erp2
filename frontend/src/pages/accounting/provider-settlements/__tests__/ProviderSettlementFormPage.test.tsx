@@ -114,10 +114,14 @@ const EDIT = '/accounting/provider-settlements/ps-1/edit'
 const CREATE = '/accounting/provider-settlements/create'
 const DIALOG_MESSAGE = /You have unsaved changes/
 
-const saveButton = () => screen.getByRole('button', { name: /^save draft$/i })
-const postButton = () => screen.getByRole('button', { name: /^post$/i })
+const createButton = () => screen.getByRole('button', { name: /^create settlement$/i })
+const saveButton = () => screen.getByRole('button', { name: /^save settlement$/i })
 const cancelButton = () => screen.getByRole('button', { name: /^cancel$/i })
 const backButton = () => screen.getByRole('button', { name: 'Back' })
+
+/** The action row's own buttons, in order — scoped so picker/header buttons don't count. */
+const actionRowLabels = () =>
+  within(cancelButton().parentElement!).getAllByRole('button').map((b) => b.textContent)
 
 async function waitForDraftSeeded() {
   await waitFor(() => expect(screen.getByTestId('selected-count')).toHaveTextContent('2'))
@@ -209,7 +213,7 @@ describe('ProviderSettlementFormPage', () => {
     })
   })
 
-  it('disables Post while the difference is non-zero', async () => {
+  it('keeps Save Settlement enabled while the difference is non-zero', async () => {
     // Lines still total 148.00, but the entered amount is 120.00 — a 28.00 gap.
     mockGetOne.mockReturnValue({
       data: { ...DRAFT, settlementAmount: '120.0000' }, isLoading: false,
@@ -217,8 +221,8 @@ describe('ProviderSettlementFormPage', () => {
     renderForm('/accounting/provider-settlements/ps-1/edit')
     await waitFor(() => {
       expect(screen.getByTestId('difference')).toHaveTextContent('28.00')
-      // A draft may be SAVED showing a difference; only posting is blocked.
-      expect(postButton()).toBeDisabled()
+      // A draft may be SAVED showing a difference; the server's post validation
+      // is what blocks posting it (from the list row menu).
       expect(saveButton()).toBeEnabled()
     })
   })
@@ -342,15 +346,25 @@ describe('ProviderSettlementFormPage layout (#1277)', () => {
     }
   })
 
-  it('puts Cancel, Save Draft and Post in the action row, in that order', () => {
+  it('shows only Cancel and Create Settlement when creating (#1281)', () => {
     renderForm(CREATE)
-    const labels = screen
-      .getAllByRole('button')
-      .map((b) => b.textContent)
-      .filter((t) => ['Cancel', 'Save Draft', 'Post'].includes(t ?? ''))
-    expect(labels).toEqual(['Cancel', 'Save Draft', 'Post'])
-    // Unchanged semantics: a new settlement cannot be posted from the form.
-    expect(postButton()).toBeDisabled()
+    expect(actionRowLabels()).toEqual(['Cancel', 'Create Settlement'])
+    expect(createButton()).toBeEnabled()
+    expect(cancelButton()).toBeEnabled()
+    // Posting lives in the list row menu, behind its confirmation.
+    expect(screen.queryByRole('button', { name: /^post$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^save draft$/i })).not.toBeInTheDocument()
+  })
+
+  it('shows only Cancel and Save Settlement when editing (#1281)', async () => {
+    renderForm(EDIT)
+    await waitForDraftSeeded()
+    expect(actionRowLabels()).toEqual(['Cancel', 'Save Settlement'])
+    expect(saveButton()).toBeEnabled()
+    // The seeded draft's totals match, which is exactly when the old form
+    // offered save-and-post. There is no post action here any more.
+    expect(screen.queryByRole('button', { name: /^post$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^save draft$/i })).not.toBeInTheDocument()
   })
 
   it('shows the placeholder instead of the picker until a provider is chosen', () => {
@@ -365,7 +379,7 @@ describe('ProviderSettlementFormPage layout (#1277)', () => {
     mockGetOne.mockReturnValue({ data: undefined, isLoading: false, isError: true })
     renderForm(EDIT)
     expect(screen.getByText(/failed to load this settlement/i)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^save draft$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^save settlement$/i })).not.toBeInTheDocument()
   })
 })
 
@@ -376,7 +390,7 @@ describe('ProviderSettlementFormPage navigation (#1277)', () => {
     await userEvent.click(screen.getByRole('option', { name: 'Atome' }))
     await userEvent.click(screen.getByRole('checkbox', { name: /SO-26-001/ }))
 
-    await userEvent.click(saveButton())
+    await userEvent.click(createButton())
     expect(await screen.findByText('LIST PAGE')).toBeInTheDocument()
     expect(router.state.location.state).toEqual({ highlightProviderSettlementId: 'ps-1' })
     // Leaving /create is what makes a second, duplicate draft impossible.
@@ -387,7 +401,7 @@ describe('ProviderSettlementFormPage navigation (#1277)', () => {
   it('stays on the create form when the create fails', async () => {
     mockCreate.mockReturnValue({ unwrap: () => Promise.reject({ status: 400, data: { message: 'Bad' } }) })
     renderForm(CREATE)
-    await userEvent.click(saveButton())
+    await userEvent.click(createButton())
     await waitFor(() => expect(mockShowError).toHaveBeenCalled())
     expect(screen.queryByText('LIST PAGE')).not.toBeInTheDocument()
   })
@@ -474,32 +488,16 @@ describe('ProviderSettlementFormPage unsaved changes (#1277)', () => {
     expect(screen.queryByText(DIALOG_MESSAGE)).not.toBeInTheDocument()
   })
 
-  it('does not block the navigation after save-and-post', async () => {
+  it('saves an edited draft without posting it, even when its totals match', async () => {
     renderForm(EDIT)
     await waitForDraftSeeded()
     await userEvent.type(screen.getByLabelText('Provider Reference'), 'X')
 
-    await userEvent.click(postButton())
-    expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument()
-    expect(mockUpdate).toHaveBeenCalledTimes(1)
-    expect(mockPost).toHaveBeenCalledWith('ps-1')
-    expect(screen.queryByText(DIALOG_MESSAGE)).not.toBeInTheDocument()
-  })
-
-  it('leaves the saved draft clean when posting fails after the save', async () => {
-    mockPost.mockReturnValue({ unwrap: () => Promise.reject({ status: 400, data: { message: 'Nope' } }) })
-    renderForm(EDIT)
-    await waitForDraftSeeded()
-    await userEvent.type(screen.getByLabelText('Provider Reference'), 'X')
-
-    await userEvent.click(postButton())
-    await waitFor(() => expect(mockShowError).toHaveBeenCalledWith('Nope'))
+    await userEvent.click(saveButton())
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(mockShowSuccess).toHaveBeenCalled())
+    expect(mockPost).not.toHaveBeenCalled()
     expect(screen.queryByText('DETAIL PAGE')).not.toBeInTheDocument()
-
-    // The save half succeeded, so there is nothing unsaved to warn about.
-    await userEvent.click(cancelButton())
-    expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument()
-    expect(screen.queryByText(DIALOG_MESSAGE)).not.toBeInTheDocument()
   })
 
   it('disables every action and labels the save while it is in flight', async () => {
@@ -512,9 +510,24 @@ describe('ProviderSettlementFormPage unsaved changes (#1277)', () => {
     const saving = await screen.findByRole('button', { name: 'Saving...' })
     expect(saving).toBeDisabled()
     expect(cancelButton()).toBeDisabled()
-    expect(postButton()).toBeDisabled()
+    expect(actionRowLabels()).toEqual(['Cancel', 'Saving...'])
 
     resolve(DRAFT)
-    expect(await screen.findByRole('button', { name: /^save draft$/i })).toBeEnabled()
+    expect(await screen.findByRole('button', { name: /^save settlement$/i })).toBeEnabled()
+  })
+
+  it('disables every action and labels the create while it is in flight', async () => {
+    let resolve!: (v: unknown) => void
+    mockCreate.mockReturnValue({ unwrap: () => new Promise((r) => { resolve = r }) })
+    renderForm(CREATE)
+
+    await userEvent.click(createButton())
+    const creating = await screen.findByRole('button', { name: 'Creating...' })
+    expect(creating).toBeDisabled()
+    expect(cancelButton()).toBeDisabled()
+    expect(actionRowLabels()).toEqual(['Cancel', 'Creating...'])
+
+    resolve(DRAFT)
+    expect(await screen.findByText('LIST PAGE')).toBeInTheDocument()
   })
 })

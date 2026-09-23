@@ -25,12 +25,11 @@ import {
   useGetAccountsQuery,
   useGetPaymentMethodMappingsQuery,
   useGetProviderSettlementQuery,
-  usePostProviderSettlementMutation,
   useUpdateProviderSettlementMutation,
 } from '@/store/api/accountingApi'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
-import { sumScaledAmounts, toAmountInputValue, toScaledAmount } from '@/utils/currency'
+import { toAmountInputValue } from '@/utils/currency'
 import EligiblePaymentPicker, { type SelectedPayment } from './EligiblePaymentPicker'
 
 const LIST_PATH = '/accounting/provider-settlements'
@@ -98,12 +97,12 @@ export default function ProviderSettlementFormPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [pendingProviderChange, setPendingProviderChange] = useState<string | null>(null)
   const [pendingDateChange, setPendingDateChange] = useState<string | null>(null)
-  // Covers the WHOLE of save-and-post, including the navigation that follows,
-  // so the unsaved-changes guard never interrupts a request it started.
-  const [busy, setBusy] = useState<'saving' | 'posting' | null>(null)
+  // Covers the whole save, including the navigation that follows, so the
+  // unsaved-changes guard never interrupts a request it started.
+  const [isSaving, setIsSaving] = useState(false)
 
   const isDirty = baseline !== null && isSnapshotDirty(baseline, form, selected.map((s) => s.id))
-  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, busy !== null)
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSaving)
 
   /**
    * Pass the draft's own id ONLY while the selected provider still matches the
@@ -181,22 +180,8 @@ export default function ProviderSettlementFormPage() {
     setPendingDateChange(next)
   }
 
-  // bigint minor units. Both helpers return `bigint | null`; a null on either
-  // side means the input is unparseable, which must block posting rather than
-  // compare as equal.
-  const selectedMinor = sumScaledAmounts(selected.map((s) => s.amount))
-  const enteredMinor =
-    form.settlementAmount.trim() === '' ? null : toScaledAmount(form.settlementAmount)
-  const canPost =
-    isEdit &&
-    selected.length > 0 &&
-    selectedMinor !== null &&
-    enteredMinor !== null &&
-    enteredMinor === selectedMinor
-
   const [create] = useCreateProviderSettlementMutation()
   const [update] = useUpdateProviderSettlementMutation()
-  const [postSettlement] = usePostProviderSettlementMutation()
 
   async function save(): Promise<string | null> {
     setSaveError(null)
@@ -233,34 +218,21 @@ export default function ProviderSettlementFormPage() {
     }
   }
 
+  // The form only saves the draft. Posting is a lifecycle action on the list
+  // row menu, behind its confirmation — as Owner Equity keeps Complete off its
+  // form (#1281).
   async function saveDraft() {
-    setBusy('saving')
+    setIsSaving(true)
     try {
       const savedId = await save()
       // Create leaves the form, as Owner Equity does, handing the new draft back
       // for the list to highlight. Staying on /create would let a second Save
-      // create a duplicate draft. Edit stays put so the draft can be posted.
+      // create a duplicate draft. Edit stays put.
       if (savedId && !isEdit) {
         navigate(LIST_PATH, { state: { highlightProviderSettlementId: savedId } })
       }
     } finally {
-      setBusy(null)
-    }
-  }
-
-  async function saveAndPost() {
-    setBusy('posting')
-    try {
-      const savedId = await save()
-      if (!savedId) return
-      try {
-        await postSettlement(savedId).unwrap()
-        navigate(`${LIST_PATH}/${savedId}/view`)
-      } catch (err) {
-        showError(rtkErrorMessage(err, 'Failed to post settlement'))
-      }
-    } finally {
-      setBusy(null)
+      setIsSaving(false)
     }
   }
 
@@ -292,8 +264,6 @@ export default function ProviderSettlementFormPage() {
     )
   }
 
-  const isBusy = busy !== null
-
   return (
     <>
       <PageHeader
@@ -318,7 +288,7 @@ export default function ProviderSettlementFormPage() {
                     <TextField
                       select label="Provider" value={form.providerPaymentMethodId}
                       onChange={(e) => requestProviderChange(e.target.value)}
-                      disabled={isBusy}
+                      disabled={isSaving}
                       fullWidth size="small"
                     >
                       {providers.map((m) => (
@@ -341,7 +311,7 @@ export default function ProviderSettlementFormPage() {
                         )
                       }
                       slotProps={{
-                        textField: { fullWidth: true, size: 'small', disabled: isBusy },
+                        textField: { fullWidth: true, size: 'small', disabled: isSaving },
                       }}
                     />
                   </Grid>
@@ -358,7 +328,7 @@ export default function ProviderSettlementFormPage() {
                       label="Provider Reference" value={form.providerReference}
                       slotProps={{ htmlInput: { maxLength: 200 } }}
                       onChange={(e) => setForm((f) => ({ ...f, providerReference: e.target.value }))}
-                      disabled={isBusy}
+                      disabled={isSaving}
                       fullWidth size="small"
                     />
                   </Grid>
@@ -366,7 +336,7 @@ export default function ProviderSettlementFormPage() {
                     <TextField
                       select label="Bank Account" value={form.bankAccountId}
                       onChange={(e) => setForm((f) => ({ ...f, bankAccountId: e.target.value }))}
-                      disabled={isBusy}
+                      disabled={isSaving}
                       fullWidth size="small"
                     >
                       {bankAccounts.map((a) => (
@@ -388,7 +358,7 @@ export default function ProviderSettlementFormPage() {
                     <TextField
                       label="Settlement Amount" value={form.settlementAmount}
                       onChange={(e) => setForm((f) => ({ ...f, settlementAmount: e.target.value }))}
-                      disabled={isBusy}
+                      disabled={isSaving}
                       slotProps={{ htmlInput: { inputMode: 'decimal' as const } }}
                       fullWidth size="small"
                     />
@@ -456,14 +426,19 @@ export default function ProviderSettlementFormPage() {
 
           <Grid size={12}>
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-              <AppButton variant="secondary" onClick={handleCancel} disabled={isBusy}>
+              <AppButton variant="secondary" onClick={handleCancel} disabled={isSaving}>
                 Cancel
               </AppButton>
-              <AppButton variant="secondary" onClick={saveDraft} disabled={isBusy}>
-                {busy === 'saving' ? 'Saving...' : 'Save Draft'}
-              </AppButton>
-              <AppButton variant="primary" onClick={saveAndPost} disabled={!canPost || isBusy}>
-                {busy === 'posting' ? 'Posting...' : 'Post'}
+              {/* onClick, not type="submit": Enter in a field (e.g. the
+                  payment picker) must not create a draft by accident. */}
+              <AppButton variant="primary" onClick={saveDraft} disabled={isSaving}>
+                {isSaving
+                  ? isEdit
+                    ? 'Saving...'
+                    : 'Creating...'
+                  : isEdit
+                    ? 'Save Settlement'
+                    : 'Create Settlement'}
               </AppButton>
             </Box>
           </Grid>
