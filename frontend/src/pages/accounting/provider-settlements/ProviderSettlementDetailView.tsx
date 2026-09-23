@@ -1,6 +1,8 @@
-import type { ReactNode } from 'react'
+import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import {
   Box,
+  Collapse,
+  IconButton,
   Link,
   Stack,
   Table,
@@ -10,11 +12,20 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
 import { Link as RouterLink } from 'react-router-dom'
 
 import { StatusChip } from '@/components/common/StatusChip'
-import type { ProviderSettlement } from '@/types'
+import type { ProviderSettlement, ProviderSettlementLine } from '@/types'
+import { fromScaledAmount, sumScaledAmounts } from '@/utils/currency'
 import { formatCurrency, formatDate } from '@/utils/formatters'
+
+interface SettlementLineGroup {
+  orderNumber: string
+  method: string
+  lines: ProviderSettlementLine[]
+}
 
 // Local presentational helper — OwnerEquityDetailView's equivalent is not
 // exported. `component="div"` so a StatusChip (<div>) can be a value.
@@ -32,6 +43,36 @@ function Field({ label, value, testId }: {
 export default function ProviderSettlementDetailView({
   settlement,
 }: { settlement: ProviderSettlement }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  // One row per sales order + payment method. Lines without the joined payment
+  // fall back to their own key so legacy payloads still render (labels '—',
+  // never the raw UUID).
+  const groups = useMemo(() => {
+    const out = new Map<string, SettlementLineGroup>()
+    for (const l of settlement.lines ?? []) {
+      const p = l.salesOrderPayment
+      const key = p ? `${p.salesOrderId}:${p.paymentMethodId}` : l.salesOrderPaymentId
+      const g = out.get(key) ?? {
+        orderNumber: p?.salesOrder?.orderNumber ?? '—',
+        method: p?.paymentMethod?.name ?? '—',
+        lines: [],
+      }
+      g.lines.push(l)
+      out.set(key, g)
+    }
+    return [...out.entries()]
+  }, [settlement.lines])
+
+  function toggleExpanded(key: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h6">{settlement.referenceNumber}</Typography>
@@ -89,21 +130,69 @@ export default function ProviderSettlementDetailView({
       <Table sx={{ mt: 3 }}>
         <TableHead>
           <TableRow>
-            <TableCell>Payment</TableCell>
-            <TableCell align="right">Amount</TableCell>
-            <TableCell>Released</TableCell>
+            <TableCell padding="checkbox" />
+            <TableCell>Sales Order No</TableCell>
+            <TableCell>Payment Method</TableCell>
+            <TableCell align="right">Net Amount</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
-          {(settlement.lines ?? []).map((l) => (
-            <TableRow key={l.id}>
-              <TableCell>{l.salesOrderPaymentId}</TableCell>
-              <TableCell align="right">
-                {formatCurrency(l.amount)}
-              </TableCell>
-              <TableCell>{l.releasedAt ? formatDate(l.releasedAt) : '—'}</TableCell>
-            </TableRow>
-          ))}
+          {groups.map(([key, g]) => {
+            const open = expanded.has(key)
+            return (
+              <Fragment key={key}>
+                <TableRow hover>
+                  <TableCell padding="checkbox">
+                    <IconButton
+                      size="small"
+                      aria-label={`${open ? 'Hide' : 'Show'} payments for ${g.orderNumber}`}
+                      onClick={() => toggleExpanded(key)}
+                    >
+                      {open
+                        ? <KeyboardArrowUpIcon fontSize="small" />
+                        : <KeyboardArrowDownIcon fontSize="small" />}
+                    </IconButton>
+                  </TableCell>
+                  <TableCell>{g.orderNumber}</TableCell>
+                  <TableCell>{g.method}</TableCell>
+                  <TableCell align="right" data-testid="group-net">
+                    {/* Snapshot totals only — never salesOrderPayment.amount, which is live. */}
+                    {formatCurrency(
+                      fromScaledAmount(sumScaledAmounts(g.lines.map((l) => l.amount)) ?? 0n),
+                    )}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    sx={{ py: 0, borderBottom: open ? undefined : 'none' }}
+                  >
+                    <Collapse in={open} unmountOnExit>
+                      <Table size="small">
+                        <TableBody>
+                          {g.lines.map((l) => (
+                            <TableRow key={l.id}>
+                              <TableCell>
+                                {l.salesOrderPayment?.paymentDate
+                                  ? formatDate(l.salesOrderPayment.paymentDate) : '—'}
+                              </TableCell>
+                              <TableCell>
+                                {l.salesOrderPayment?.referenceNumber ?? '—'}
+                              </TableCell>
+                              <TableCell align="right">{formatCurrency(l.amount)}</TableCell>
+                              <TableCell>
+                                {l.releasedAt ? formatDate(l.releasedAt) : '—'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </Collapse>
+                  </TableCell>
+                </TableRow>
+              </Fragment>
+            )
+          })}
         </TableBody>
       </Table>
     </Box>
