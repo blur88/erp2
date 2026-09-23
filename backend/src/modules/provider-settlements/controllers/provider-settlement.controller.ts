@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode,
+  Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode, BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { Auth } from '../../auth/decorators/auth.decorator';
@@ -31,6 +31,10 @@ export class ProviderSettlementController {
   @Get('eligible-rows')
   @ApiOperation({ summary: 'List Sales Order + Payment Method rows eligible for settlement' })
   async eligibleRows(@Query() query: EligibleRowsQueryDto) {
+    if (query.scope === 'claimed') {
+      if (!query.settlementId) throw new BadRequestException('scope=claimed requires settlementId');
+      return this.eligibility.listClaimedRows(query.settlementId, query.settlementDate);
+    }
     return this.eligibility.listEligibleRows(query);
   }
 

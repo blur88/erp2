@@ -226,3 +226,29 @@ describe('listEligibleRows — one snapshot', () => {
     expect(res.data[0].payments.map((p: any) => p.id)).toEqual(['p1', 'r1']);
   });
 });
+
+describe('listClaimedRows — one snapshot', () => {
+  it('listClaimedRows reads lines and current eligibility inside ONE repeatable-read transaction', async () => {
+    const qb: any = {};
+    for (const m of ['innerJoin', 'where', 'andWhere', 'select', 'orderBy', 'addOrderBy']) qb[m] = jest.fn().mockReturnValue(qb);
+    qb.getRawMany = (jest.fn() as any).mockResolvedValue([]);
+    const tx: any = {
+      getRepository: () => ({
+        createQueryBuilder: () => qb,
+        findOne: (jest.fn() as any).mockResolvedValue({ id: 'ps-1', status: 'DRAFT', providerPaymentMethodId: 'pm-1' }),
+      }),
+      query: (jest.fn() as any).mockResolvedValue([
+        { id: 'p1', salesOrderId: 'so-1', paymentMethodId: 'pm-1', paymentDate: '2026-09-01', amount: '10.0000', referenceNumber: null, orderNumber: 'SO-1', paymentMethodName: 'TikTok' },
+      ]),
+    };
+    const outside = () => { throw new Error('read outside the snapshot'); };
+    const defaultManager: any = {
+      transaction: jest.fn(async (iso: string, cb: any) => cb(tx)),
+      query: jest.fn(outside), getRepository: jest.fn(outside),
+    };
+    const service = new ProviderSettlementEligibilityService(defaultManager, { list: jest.fn() } as any);
+    const res = await service.listClaimedRows('ps-1', '2026-09-20');
+    expect(defaultManager.transaction.mock.calls[0][0]).toBe('REPEATABLE READ');
+    expect(res.data[0].state).toBe('ineligible');
+  });
+});

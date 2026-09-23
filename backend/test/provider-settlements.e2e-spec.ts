@@ -606,6 +606,42 @@ describe('Provider settlements (e2e)', () => {
   });
 
   describe('eligible-rows (#1284)', () => {
+    async function insertDraft(
+      methodId: string,
+      lines: Array<{ paymentId: string; amount: string }>,
+      amount: string,
+    ) {
+      const [s] = await ds.query(
+        `INSERT INTO provider_settlements
+           ("referenceNumber", "providerPaymentMethodId", "clearingAccountId", "bankAccountId",
+            "settlementDate", "settlementAmount", status)
+         VALUES ($1, $2, $3, $4, '2026-09-20', $5, 'DRAFT') RETURNING id`,
+        [
+          `PS-T-${randomUUID().slice(0, 8)}`,
+          methodId,
+          clearingAccountId,
+          bankAccountId,
+          amount,
+        ],
+      );
+      ownedSettlementIds.push(s.id);
+      for (const l of lines) {
+        await ds.query(
+          `INSERT INTO provider_settlement_lines ("settlementId", "salesOrderPaymentId", amount)
+           VALUES ($1, $2, $3)`,
+          [s.id, l.paymentId, l.amount],
+        );
+      }
+      return s.id as string;
+    }
+
+    async function claimed(settlementId: string) {
+      const res = await get(
+        `/accounting/provider-settlements/eligible-rows?scope=claimed&settlementId=${settlementId}&settlementDate=2026-09-20`,
+      ).expect(200);
+      return res.body.data as any[];
+    }
+
     it('SO-26-008: Atome paid and refunded, TikTok paid ⇒ only the TikTok row', async () => {
       const { orderId, orderNumber } = await newOrder('130.00');
       await payExisting(orderId, '130.00', atomeMethodId);
@@ -679,6 +715,101 @@ describe('Provider settlements (e2e)', () => {
       await payExisting(orderId, '50.00', tiktokMethodId);
       await refundOrder(orderId, '50.00', tiktokMethodId);
       expect(await rowsFor([orderId])).toEqual([]);
+    });
+
+    it('claimed: an untouched group is current', async () => {
+      const { orderId, paymentId } = await payOrder('40.00', atomeMethodId);
+      const id = await insertDraft(
+        atomeMethodId,
+        [{ paymentId, amount: '40.0000' }],
+        '40.0000',
+      );
+      const [row] = await claimed(id);
+      expect(row).toMatchObject({
+        salesOrderId: orderId,
+        state: 'current',
+        savedNetAmount: '40.0000',
+        currentNetAmount: '40.0000',
+      });
+    });
+
+    it('legacy partial-group draft: only the payment line is claimed ⇒ changed, current includes the refund', async () => {
+      const { orderId, paymentId } = await payOrder('100.00', atomeMethodId);
+      const refundId = await refundOrder(orderId, '30.00', atomeMethodId);
+      const id = await insertDraft(
+        atomeMethodId,
+        [{ paymentId, amount: '100.0000' }],
+        '100.0000',
+      );
+      const [row] = await claimed(id);
+      expect(row.state).toBe('changed');
+      expect(row.savedNetAmount).toBe('100.0000');
+      expect(row.currentNetAmount).toBe('70.0000');
+      expect(row.currentPayments.map((p: any) => p.id).sort()).toEqual(
+        [paymentId, refundId].sort(),
+      );
+      expect(row.savedPayments.map((p: any) => p.id)).toEqual([paymentId]);
+    });
+
+    it('claimed: a group refunded to zero is still surfaced, as zero', async () => {
+      const { orderId, paymentId } = await payOrder('25.00', atomeMethodId);
+      const id = await insertDraft(
+        atomeMethodId,
+        [{ paymentId, amount: '25.0000' }],
+        '25.0000',
+      );
+      await refundOrder(orderId, '25.00', atomeMethodId);
+      const [row] = await claimed(id);
+      expect(row).toMatchObject({
+        salesOrderId: orderId,
+        state: 'zero',
+        currentNetAmount: '0.0000',
+      });
+    });
+
+    it('claimed: payments no longer eligible (after the date) ⇒ ineligible', async () => {
+      const { orderId } = await newOrder('15.00');
+      const late = await payExisting(
+        orderId,
+        '15.00',
+        atomeMethodId,
+        '2026-09-25',
+      );
+      const id = await insertDraft(
+        atomeMethodId,
+        [{ paymentId: late, amount: '15.0000' }],
+        '15.0000',
+      );
+      const [row] = await claimed(id);
+      expect(row).toMatchObject({
+        state: 'ineligible',
+        currentNetAmount: null,
+        currentPayments: [],
+      });
+    });
+
+    it("salesOrderIds + settlementId: own claims eligible, other drafts' claims excluded", async () => {
+      const { orderId, paymentId } = await payOrder('33.00', atomeMethodId);
+      const mine = await insertDraft(
+        atomeMethodId,
+        [{ paymentId, amount: '33.0000' }],
+        '33.0000',
+      );
+      expect(await rowsFor([orderId], `&settlementId=${mine}`)).toHaveLength(1);
+      expect(await rowsFor([orderId])).toEqual([]); // claimed by a draft, no settlementId
+      const { orderId: o2, paymentId: p2 } = await payOrder('44.00', atomeMethodId);
+      await insertDraft(
+        atomeMethodId,
+        [{ paymentId: p2, amount: '44.0000' }],
+        '44.0000',
+      );
+      expect(await rowsFor([o2], `&settlementId=${mine}`)).toEqual([]);
+    });
+
+    it('scope=claimed without settlementId is a 400', async () => {
+      await get(
+        '/accounting/provider-settlements/eligible-rows?scope=claimed&settlementDate=2026-09-20',
+      ).expect(400);
     });
   });
 }); // closes describe('Provider settlements (e2e)')

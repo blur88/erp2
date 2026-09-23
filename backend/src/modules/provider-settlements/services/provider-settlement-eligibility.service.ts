@@ -10,7 +10,7 @@ import { SalesOrderPayment } from '../../../database/entities/sales-order-paymen
 import { ProviderSettlement, ProviderSettlementStatus } from '../entities/provider-settlement.entity';
 import { PostingType, AccountingSourceType } from '../../../common/accounting-posting/enums';
 import { PaymentMethodMappingService } from '../../accounting/services/payment-method-mapping.service';
-import { EligiblePayment, groupKey, groupPayments } from './settlement-groups';
+import { EligiblePayment, groupKey, groupPayments, classifyClaimedGroup, ClaimedRowState } from './settlement-groups';
 import { formatScale4, sumMinor } from '../../../common/utils/money';
 
 export interface EligiblePaymentRow {
@@ -33,6 +33,13 @@ export interface EligibleSettlementRow {
 }
 export interface EligibleRowsParams extends EligibilityScope {
   search?: string; page?: number; limit?: number; salesOrderIds?: string[];
+}
+export interface ClaimedSettlementRow {
+  salesOrderId: string; orderNumber: string;
+  paymentMethodId: string; paymentMethodName: string;
+  savedNetAmount: string; currentNetAmount: string | null;
+  savedPayments: SettlementPaymentDetail[]; currentPayments: SettlementPaymentDetail[];
+  state: ClaimedRowState;
 }
 
 @Injectable()
@@ -278,6 +285,63 @@ export class ProviderSettlementEligibilityService {
         limit: unpaginated ? total : params.limit!,
       },
     };
+  }
+
+  /**
+   * Built from the draft's LINES, not from eligibility (spec §4.2): a group the
+   * draft touches must surface even if it now nets to zero or its payments have
+   * dropped out, so the form can say why the draft changed.
+   */
+  async listClaimedRows(settlementId: string, settlementDate: string): Promise<{ data: ClaimedSettlementRow[] }> {
+    // Same single-snapshot rule as listEligibleRows: the saved lines and the
+    // current eligibility they are classified against must be one point in time,
+    // or a refund committing between the two reads misclassifies the group.
+    return this.defaultManager.transaction('REPEATABLE READ', (m) =>
+      this.listClaimedRowsIn(m, settlementId, settlementDate),
+    );
+  }
+
+  private async listClaimedRowsIn(
+    m: EntityManager, settlementId: string, settlementDate: string,
+  ): Promise<{ data: ClaimedSettlementRow[] }> {
+    await this.assertOwnDraft(settlementId, m);
+    const saved: Array<SettlementPaymentDetail & { salesOrderId: string; paymentMethodId: string; orderNumber: string; paymentMethodName: string }> =
+      await m.query(
+        `SELECT p.id, p."salesOrderId", p."paymentMethodId", p."paymentDate",
+                l.amount::text AS amount, p."referenceNumber",
+                so."orderNumber", pm.name AS "paymentMethodName"
+           FROM provider_settlement_lines l
+           JOIN sales_order_payments p ON p.id = l."salesOrderPaymentId"
+           JOIN sales_orders so ON so.id = p."salesOrderId"
+           JOIN payment_methods pm ON pm.id = p."paymentMethodId"
+          WHERE l."settlementId" = $1 AND l."releasedAt" IS NULL
+          ORDER BY so."orderNumber", pm.name, p."paymentDate", p.id`,
+        [settlementId],
+      );
+    const current = await this.eligiblePaymentsForOrders(
+      [...new Set(saved.map((s) => s.salesOrderId))], { settlementDate, settlementId }, m,
+    );
+    const currentByGroup = groupPayments(current);
+    const detail = ({ id, paymentDate, amount, referenceNumber }: SettlementPaymentDetail) =>
+      ({ id, paymentDate, amount: formatScale4(amount), referenceNumber });
+
+    const data: ClaimedSettlementRow[] = [];
+    for (const [key, savedRows] of groupPayments(saved)) {
+      const cur = currentByGroup.get(key) ?? [];
+      const first = savedRows[0];
+      data.push({
+        salesOrderId: first.salesOrderId,
+        orderNumber: first.orderNumber,
+        paymentMethodId: first.paymentMethodId,
+        paymentMethodName: first.paymentMethodName,
+        savedNetAmount: formatScale4(sumMinor(savedRows.map((r) => r.amount))),
+        currentNetAmount: cur.length ? formatScale4(sumMinor(cur.map((r) => r.amount))) : null,
+        savedPayments: savedRows.map(detail),
+        currentPayments: cur.map(detail),
+        state: classifyClaimedGroup(savedRows, cur),
+      });
+    }
+    return { data };
   }
 
   async listEligible(params: {
