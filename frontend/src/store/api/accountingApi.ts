@@ -7,8 +7,9 @@ import type {
   AccountingSourceType,
   AccountingSettings,
   BalanceSheetResponse,
+  ClaimedSettlementRow,
   CreateOwnerEquityRequest,
-  EligiblePaymentRow,
+  EligibleSettlementRow,
   Expense,
   FormBCategory,
   FormBMappingRow,
@@ -24,6 +25,7 @@ import type {
   BalanceSheetGroupName,
   RefundOwnerEquityRequest,
   SettleOwnerEquityRequest,
+  SettlementRowInput,
   TrialBalanceResponse,
   ProfitAndLossResponse,
   PaginatedResponse,
@@ -77,12 +79,20 @@ export interface ExpenseListParams {
 }
 
 export interface CreateProviderSettlementBody {
-  providerPaymentMethodId: string
   bankAccountId: string
   settlementDate: string
   providerReference?: string
   settlementAmount: string
-  paymentIds: string[]
+  rows: SettlementRowInput[]
+}
+
+export interface EligibleRowsParams {
+  settlementDate: string
+  settlementId?: string
+  search?: string
+  page?: number
+  limit?: number
+  salesOrderIds?: string[]
 }
 
 export const accountingApiSlice = createApi({
@@ -431,14 +441,26 @@ payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown
         transformResponse: (r: { data: ProviderSettlement }) => r.data,
         providesTags: (_r, _e, id) => [{ type: 'ProviderSettlement' as const, id }],
       }),
-      getEligiblePayments: builder.query<
-        { data: EligiblePaymentRow[]; meta: { total: number; page: number; limit: number } },
-        {
-          providerPaymentMethodId: string; settlementDate: string
-          settlementId?: string; search?: string; page?: number; limit?: number
-        }
+      getEligibleSettlementRows: builder.query<
+        { data: EligibleSettlementRow[]; meta: { total: number; page: number; limit: number } },
+        EligibleRowsParams
       >({
-        query: (params) => ({ url: '/accounting/provider-settlements/eligible-payments', params }),
+        // salesOrderIds travels comma-separated: the backend's simple query parser
+        // does not build arrays from `a[]=`.
+        query: ({ salesOrderIds, ...params }) => ({
+          url: '/accounting/provider-settlements/eligible-rows',
+          params: { ...params, ...(salesOrderIds?.length ? { salesOrderIds: salesOrderIds.join(',') } : {}) },
+        }),
+        providesTags: ['ProviderSettlement'],
+      }),
+      getClaimedSettlementRows: builder.query<
+        { data: ClaimedSettlementRow[] },
+        { settlementId: string; settlementDate: string }
+      >({
+        query: (params) => ({
+          url: '/accounting/provider-settlements/eligible-rows',
+          params: { ...params, scope: 'claimed' },
+        }),
         providesTags: ['ProviderSettlement'],
       }),
       createProviderSettlement: builder.mutation<ProviderSettlement, CreateProviderSettlementBody>({
@@ -450,11 +472,11 @@ payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown
         ProviderSettlement,
         {
           id: string
-          // paymentIds is REQUIRED on update (full replacement of the
-          // selection, never a delta), so it is omitted from Partial and
-          // re-added unconditionally.
-          body: Partial<Omit<CreateProviderSettlementBody, 'paymentIds'>> & {
-            paymentIds: string[]
+          // rows is REQUIRED on update (full replacement of the selection,
+          // never a delta), so it is omitted from Partial and re-added
+          // unconditionally.
+          body: Partial<Omit<CreateProviderSettlementBody, 'rows'>> & {
+            rows: SettlementRowInput[]
           }
         }
       >({
@@ -530,7 +552,10 @@ export const {
   useUncancelOwnerEquityMutation,
   useGetProviderSettlementsQuery,
   useGetProviderSettlementQuery,
-  useGetEligiblePaymentsQuery,
+  useGetEligibleSettlementRowsQuery,
+  useLazyGetEligibleSettlementRowsQuery,
+  useGetClaimedSettlementRowsQuery,
+  useLazyGetClaimedSettlementRowsQuery,
   useCreateProviderSettlementMutation,
   useUpdateProviderSettlementMutation,
   useDiscardProviderSettlementMutation,

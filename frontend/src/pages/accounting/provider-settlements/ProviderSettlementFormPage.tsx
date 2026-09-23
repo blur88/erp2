@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Alert,
   Box,
@@ -23,24 +23,32 @@ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 import {
   useCreateProviderSettlementMutation,
   useGetAccountsQuery,
-  useGetPaymentMethodMappingsQuery,
+  useGetClaimedSettlementRowsQuery,
   useGetProviderSettlementQuery,
+  useLazyGetClaimedSettlementRowsQuery,
+  useLazyGetEligibleSettlementRowsQuery,
   useUpdateProviderSettlementMutation,
 } from '@/store/api/accountingApi'
+import type { ClaimedSettlementRow } from '@/types'
+import { toAmountInputValue, toScaledAmount } from '@/utils/currency'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
-import { toAmountInputValue } from '@/utils/currency'
-import EligiblePaymentPicker, { type SelectedPayment } from './EligiblePaymentPicker'
+
+import NeedsAttention, { type AttentionGroup } from './NeedsAttention'
+import SettlementRowPicker from './SettlementRowPicker'
+import {
+  changeReason,
+  groupKey,
+  methodsIn,
+  saveBlockReason,
+  selectionFingerprint,
+  toRowInputs,
+  type SelectedRow,
+} from './settlementSelection'
 
 const LIST_PATH = '/accounting/provider-settlements'
 
-/** The 409 body nests the conflicting ids under `message` (filter keeps only message). */
-interface ConflictBody {
-  message?: { text?: string; unavailablePaymentIds?: string[] }
-}
-
 interface SettlementFormValues {
-  providerPaymentMethodId: string
   bankAccountId: string
   settlementDate: string
   providerReference: string
@@ -50,23 +58,15 @@ interface SettlementFormValues {
 /** What the form last loaded or saved; the unsaved-changes guard compares against it. */
 interface Snapshot {
   form: SettlementFormValues
-  paymentIds: string[]
+  fingerprint: string
 }
 
-/**
- * The selection is compared as a SET. Its order is only the order the rows
- * were ticked in — unticking and re-ticking a row reorders it without changing
- * what would be saved, so a positional compare would report a phantom change.
- */
-function sameIdSet(a: string[], b: string[]) {
-  if (a.length !== b.length) return false
-  const set = new Set(a)
-  return b.every((x) => set.has(x))
-}
-
-function isSnapshotDirty(snapshot: Snapshot, form: SettlementFormValues, paymentIds: string[]) {
-  const keys = Object.keys(form) as (keyof SettlementFormValues)[]
-  return keys.some((k) => form[k] !== snapshot.form[k]) || !sameIdSet(paymentIds, snapshot.paymentIds)
+/** The 409 body nests the conflicting rows under `message` (filter keeps only message). */
+interface ConflictBody {
+  message?: {
+    text?: string
+    staleRows?: Array<{ salesOrderId: string; paymentMethodId: string; currentNetAmount: string | null }>
+  }
 }
 
 export default function ProviderSettlementFormPage() {
@@ -80,100 +80,210 @@ export default function ProviderSettlementFormPage() {
     isLoading: loadingExisting,
     isError: existingLoadFailed,
   } = useGetProviderSettlementQuery(id!, { skip: !isEdit })
-  const { data: mappings } = useGetPaymentMethodMappingsQuery()
   const { data: accountsPage } = useGetAccountsQuery({})
+  const { data: claimed, isError: claimedLoadFailed } = useGetClaimedSettlementRowsQuery(
+    { settlementId: id!, settlementDate: existing?.settlementDate ?? '' },
+    { skip: !isEdit || !existing },
+  )
+  const [refreshClaimed] = useLazyGetClaimedSettlementRowsQuery()
+  const [refreshEligible] = useLazyGetEligibleSettlementRowsQuery()
   const settlementNumberPreview = useDocumentNumberPreview('Provider Settlements', !isEdit)
 
   const [form, setForm] = useState<SettlementFormValues>(() => ({
-    providerPaymentMethodId: '', bankAccountId: '',
-    settlementDate: getCurrentDate(), providerReference: '', settlementAmount: '',
+    bankAccountId: '',
+    settlementDate: getCurrentDate(),
+    providerReference: '',
+    settlementAmount: '',
   }))
-  const [selected, setSelected] = useState<SelectedPayment[]>([])
-  // Create starts from the empty form; edit has no baseline until the draft is
-  // seeded below, and reads clean until then.
+  const [selected, setSelected] = useState<SelectedRow[]>([])
+  const [attention, setAttention] = useState<AttentionGroup[]>([])
+  /**
+   * The group keys the draft itself claims. A 409 on one of them can be
+   * refreshed through `scope=claimed`; anything else was selected since the
+   * last save and is refreshed through the eligible-rows query instead.
+   */
+  const [claimedKeys, setClaimedKeys] = useState<Set<string>>(new Set())
+  // Create starts from the empty form; edit has no baseline until the draft and
+  // its claims are seeded below, and reads clean until then.
   const [baseline, setBaseline] = useState<Snapshot | null>(() =>
-    isEdit ? null : { form, paymentIds: [] },
+    isEdit ? null : { form, fingerprint: selectionFingerprint([], []) },
   )
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [pendingProviderChange, setPendingProviderChange] = useState<string | null>(null)
   const [pendingDateChange, setPendingDateChange] = useState<string | null>(null)
   // Covers the whole save, including the navigation that follows, so the
   // unsaved-changes guard never interrupts a request it started.
   const [isSaving, setIsSaving] = useState(false)
 
-  const isDirty = baseline !== null && isSnapshotDirty(baseline, form, selected.map((s) => s.id))
-  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSaving)
+  const zeroReason = 'now RM0.00 — remove'
+  const ineligibleReason = 'payments no longer eligible — remove'
 
-  /**
-   * Pass the draft's own id ONLY while the selected provider still matches the
-   * saved one.
-   *
-   * The backend rejects a settlementId whose provider differs from the query's
-   * (a 400, deliberately — it must never silently widen eligibility to another
-   * provider's rows). So after changing Atome → Shopee, sending the Atome draft
-   * id would query Shopee eligibility with an Atome settlement and 400. The
-   * user could not save the provider change first either, because update
-   * requires at least one payment and the picker would be empty. That is a
-   * deadlock: the form cannot move forward or back.
-   *
-   * Omitting the id after a provider change is correct on its own terms — the
-   * draft's claims are on the OLD provider's payments, which are not eligible
-   * for the new one anyway, and the selection has just been cleared.
-   */
-  const providerUnchanged =
-    isEdit && existing != null && form.providerPaymentMethodId === existing.providerPaymentMethodId
-  const eligibilitySettlementId = providerUnchanged ? id : undefined
+  function attentionFromClaimed(c: ClaimedSettlementRow): AttentionGroup {
+    const base = {
+      key: groupKey(c),
+      salesOrderId: c.salesOrderId,
+      paymentMethodId: c.paymentMethodId,
+      orderNumber: c.orderNumber,
+      paymentMethodName: c.paymentMethodName,
+      savedNetAmount: c.savedNetAmount,
+      currentNetAmount: c.currentNetAmount,
+      refreshed: true,
+    }
+    if (c.state === 'zero') return { ...base, reason: zeroReason }
+    if (c.state === 'ineligible') return { ...base, reason: ineligibleReason }
+    return { ...base, reason: changeReason(c.savedPayments, c.currentPayments) }
+  }
 
-  // Seed from the existing draft. Selection carries each line's amount, so the
-  // totals bar is correct before any eligible-payments page has loaded. The
-  // seed is also the new baseline: a refetch after save re-seeds both, so the
-  // server's normalized values never read as an unsaved change. Gated on
-  // isEdit for the same reason as the clearing account below: a cached
-  // settlement must never seed a brand-new form.
+  // Seed ONCE per editing session. `claimed` and `existing` change again after a
+  // 409 refresh (the lazy refetch writes the same cache entry) and after a save
+  // (tag invalidation); re-seeding then would overwrite unsaved form fields,
+  // selections and attention rows. Later refreshes are merged into the affected
+  // groups only, by handleStale().
+  const seededFor = useRef<string | null>(null)
+
   useEffect(() => {
-    if (!isEdit || !existing) return
-    const seeded: SettlementFormValues = {
-      providerPaymentMethodId: existing.providerPaymentMethodId,
+    if (!isEdit || !existing || !claimed) return
+    if (seededFor.current === id) return
+    seededFor.current = id!
+    const seededForm: SettlementFormValues = {
       bankAccountId: existing.bankAccountId,
       settlementDate: existing.settlementDate,
       providerReference: existing.providerReference ?? '',
-      // An editable input value, not a display string: toAmountInputValue
-      // normalizes the scale-4 API string into what the text field shows
-      // (currency.ts:96). fromScaledAmount takes a bigint and is wrong here.
       settlementAmount: toAmountInputValue(existing.settlementAmount),
     }
-    const lines = (existing.lines ?? []).map((l) => ({ id: l.salesOrderPaymentId, amount: l.amount }))
-    setForm(seeded)
-    setSelected(lines)
-    setBaseline({ form: seeded, paymentIds: lines.map((l) => l.id) })
-  }, [isEdit, existing])
+    const current = claimed.data
+      .filter((c) => c.state === 'current')
+      .map((c) => ({
+        salesOrderId: c.salesOrderId,
+        paymentMethodId: c.paymentMethodId,
+        paymentMethodName: c.paymentMethodName,
+        orderNumber: c.orderNumber,
+        netAmount: c.currentNetAmount!,
+      }))
+    const needs = claimed.data.filter((c) => c.state !== 'current').map(attentionFromClaimed)
+    setForm(seededForm)
+    setSelected(current)
+    setAttention(needs)
+    setClaimedKeys(new Set(claimed.data.map(groupKey)))
+    setBaseline({
+      form: seededForm,
+      fingerprint: selectionFingerprint(current, needs.map((n) => n.key)),
+    })
+  }, [isEdit, existing, claimed])
 
-  // Only 'mapped' methods. 'unmapped' has no clearing account; 'invalid' points
-  // at one that is missing, inactive or non-postable. The server enforces this
-  // too — the dropdown is a convenience, not the guard.
-  const providers = (mappings ?? []).filter((m) => m.status === 'mapped')
-  const bankAccounts = (accountsPage?.data ?? []).filter((a) => a.isActive && a.isPostable)
+  function removeAttention(key: string) {
+    setAttention((prev) => prev.filter((a) => a.key !== key))
+  }
 
-  // Provider and settlement date both REDEFINE eligibility, so a selection
-  // cannot survive either change — confirm, then clear.
-  function requestProviderChange(next: string) {
-    if (next === form.providerPaymentMethodId) return
-    if (selected.length === 0) {
-      setForm((f) => ({ ...f, providerPaymentMethodId: next }))
-      return
+  function acceptAttention(key: string) {
+    const g = attention.find((a) => a.key === key)
+    if (!g || g.currentNetAmount === null) return
+    setSelected((prev) => [
+      ...prev,
+      {
+        salesOrderId: g.salesOrderId,
+        paymentMethodId: g.paymentMethodId,
+        paymentMethodName: g.paymentMethodName,
+        orderNumber: g.orderNumber,
+        netAmount: g.currentNetAmount!,
+      },
+    ])
+    removeAttention(key)
+  }
+
+  /** 409: stale rows leave the selection for Needs attention, then refresh (spec §5.4). */
+  async function handleStale(
+    staleRows: Array<{ salesOrderId: string; paymentMethodId: string; currentNetAmount: string | null }>,
+  ) {
+    const staleKeys = new Set(staleRows.map(groupKey))
+    const moving = selected.filter((s) => staleKeys.has(groupKey(s)))
+    setSelected((prev) => prev.filter((s) => !staleKeys.has(groupKey(s))))
+    const pending: AttentionGroup[] = staleRows.map((r) => {
+      const sel = moving.find((m) => groupKey(m) === groupKey(r))
+      return {
+        key: groupKey(r),
+        salesOrderId: r.salesOrderId,
+        paymentMethodId: r.paymentMethodId,
+        orderNumber: sel?.orderNumber ?? r.salesOrderId,
+        paymentMethodName: sel?.paymentMethodName ?? '',
+        savedNetAmount: sel?.netAmount ?? null,
+        currentNetAmount: r.currentNetAmount,
+        reason: 'Payments changed',
+        refreshed: false,
+      }
+    })
+    setAttention((prev) => [...prev.filter((a) => !staleKeys.has(a.key)), ...pending])
+
+    const fromClaimed = pending.filter((p) => isEdit && claimedKeys.has(p.key))
+    const others = pending.filter((p) => !(isEdit && claimedKeys.has(p.key)))
+    const updates = new Map<string, Partial<AttentionGroup>>()
+
+    if (fromClaimed.length) {
+      const res = await refreshClaimed({ settlementId: id!, settlementDate: form.settlementDate }).unwrap()
+      for (const p of fromClaimed) {
+        const c = res.data.find((x) => groupKey(x) === p.key)
+        updates.set(
+          p.key,
+          c
+            ? { ...attentionFromClaimed(c), refreshed: true }
+            : { currentNetAmount: null, reason: ineligibleReason, refreshed: true },
+        )
+      }
     }
-    setPendingProviderChange(next)
+    if (others.length) {
+      const res = await refreshEligible({
+        settlementDate: form.settlementDate,
+        salesOrderIds: [...new Set(others.map((o) => o.salesOrderId))],
+        ...(isEdit ? { settlementId: id } : {}),
+      }).unwrap()
+      for (const p of others) {
+        const row = res.data.find((x) => groupKey(x) === p.key)
+        updates.set(
+          p.key,
+          row
+            ? { currentNetAmount: row.netAmount, reason: 'Payments changed', refreshed: true }
+            : { currentNetAmount: null, reason: ineligibleReason, refreshed: true },
+        )
+      }
+    }
+    setAttention((prev) => prev.map((a) => (updates.has(a.key) ? { ...a, ...updates.get(a.key) } : a)))
   }
 
-  function confirmProviderChange() {
-    setForm((f) => ({ ...f, providerPaymentMethodId: pendingProviderChange! }))
-    setSelected([])
-    setPendingProviderChange(null)
+  /**
+   * The selection is compared by fingerprint, not position: unticking and
+   * re-ticking a row reorders it without changing what would be saved, so a
+   * positional compare would report a phantom change. Amounts compare by
+   * scaled value, so '70' and '70.00' are the same edit (and an unparseable
+   * amount only counts as a change while it stays unparseable).
+   */
+  const fingerprint = selectionFingerprint(selected, attention.map((a) => a.key))
+
+  function isSnapshotDirty(snapshot: Snapshot) {
+    const keys = Object.keys(form) as (keyof SettlementFormValues)[]
+    return (
+      keys.some((k) =>
+        k === 'settlementAmount'
+          ? toScaledAmount(form[k]) !== toScaledAmount(snapshot.form[k]) ||
+            (toScaledAmount(form[k]) === null && form[k] !== snapshot.form[k])
+          : form[k] !== snapshot.form[k],
+      ) || fingerprint !== snapshot.fingerprint
+    )
   }
+
+  const isDirty = baseline !== null && isSnapshotDirty(baseline)
+  const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSaving)
+
+  const blockReason = saveBlockReason({
+    selected,
+    entered: form.settlementAmount,
+    unresolvedAttention: attention.length,
+  })
+
+  const bankAccounts = (accountsPage?.data ?? []).filter((a) => a.isActive && a.isPostable)
+  const methods = methodsIn(selected)
 
   function requestDateChange(next: string) {
     if (next === form.settlementDate) return
-    if (selected.length === 0) {
+    if (selected.length === 0 && attention.length === 0) {
       setForm((f) => ({ ...f, settlementDate: next }))
       return
     }
@@ -187,7 +297,7 @@ export default function ProviderSettlementFormPage() {
     setSaveError(null)
     // The COMPLETE selection every time — PATCH is full replacement, never a
     // delta.
-    const body = { ...form, paymentIds: selected.map((s) => s.id) }
+    const body = { ...form, rows: toRowInputs(selected) }
     try {
       const saved = isEdit
         ? await update({ id: id!, body }).unwrap()
@@ -195,20 +305,29 @@ export default function ProviderSettlementFormPage() {
       showSuccess(`Settlement ${saved.referenceNumber} saved`)
       // What was sent is now what is stored. Set here rather than waiting for
       // the refetch, so a post that fails after this save leaves the form clean.
-      setBaseline({ form: { ...form }, paymentIds: body.paymentIds })
+      setBaseline({ form: { ...form }, fingerprint })
+      // The saved groups are now the draft's claims, so a later 409 on them
+      // refreshes through `scope=claimed` rather than the eligible-rows query.
+      if (isEdit) setClaimedKeys(new Set(selected.map(groupKey)))
       return saved.id
     } catch (err) {
       const conflict = (err as { data?: ConflictBody })?.data
-      const unavailable = conflict?.message?.unavailablePaymentIds
-      if (unavailable?.length) {
-        // Drop ONLY the rows the server named and keep the rest — that is why
-        // the 409 carries the actual conflicting ids. The message is also shown
+      const staleRows = conflict?.message?.staleRows
+      if (staleRows?.length) {
+        // Drop ONLY the rows the server named, keep the rest, and park them in
+        // Needs attention until they are resolved. The message is also shown
         // inline, not only through the snackbar, so the reason stays on screen
-        // next to the selection it explains.
-        setSelected((prev) => prev.filter((sel) => !unavailable.includes(sel.id)))
-        const text = conflict?.message?.text ?? 'Some payments are no longer available.'
+        // next to the rows it explains.
+        const text = conflict?.message?.text ?? 'Some rows changed since they were loaded. Review them and save again.'
         setSaveError(text)
         showError(text)
+        try {
+          await handleStale(staleRows)
+        } catch {
+          // The refresh failed: Accept stays disabled (refreshed: false), so
+          // Remove is the only working action until the page is reloaded.
+          showError('Could not refresh the changed rows. Remove them or reload the page.')
+        }
       } else {
         const message = rtkErrorMessage(err, 'Failed to save settlement')
         setSaveError(message)
@@ -240,7 +359,9 @@ export default function ProviderSettlementFormPage() {
     navigate(isEdit ? `${LIST_PATH}/${id}/view` : LIST_PATH)
   }
 
-  if (isEdit && loadingExisting) {
+  const loadFailed = existingLoadFailed || claimedLoadFailed
+
+  if (isEdit && !loadFailed && (loadingExisting || !claimed)) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', pt: 10 }}>
         <CircularProgress />
@@ -248,7 +369,7 @@ export default function ProviderSettlementFormPage() {
     )
   }
 
-  if (isEdit && (existingLoadFailed || !existing)) {
+  if (isEdit && (loadFailed || !existing)) {
     return (
       <>
         <PageHeader
@@ -285,18 +406,24 @@ export default function ProviderSettlementFormPage() {
                 <Typography variant="h6" gutterBottom>Settlement Information</Typography>
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, md: 4 }}>
+                    {/*
+                      Read-only. The method is inferred from the selected rows —
+                      they all share one by construction — and the backend
+                      re-derives it on save; there is nothing to choose here.
+                    */}
                     <TextField
-                      select label="Provider" value={form.providerPaymentMethodId}
-                      onChange={(e) => requestProviderChange(e.target.value)}
-                      disabled={isSaving}
+                      label="Payment Method"
+                      value={
+                        methods.length === 1
+                          ? methods[0].paymentMethodName
+                          : methods.length > 1
+                            ? 'Multiple — see warning'
+                            : '—'
+                      }
+                      slotProps={{ input: { readOnly: true }, inputLabel: { shrink: true } }}
+                      helperText="Inferred from the selected rows"
                       fullWidth size="small"
-                    >
-                      {providers.map((m) => (
-                        <MenuItem key={m.paymentMethodId} value={m.paymentMethodId}>
-                          {m.paymentMethodName}
-                        </MenuItem>
-                      ))}
-                    </TextField>
+                    />
                   </Grid>
                   <Grid size={{ xs: 12, md: 4 }}>
                     <DatePicker
@@ -356,7 +483,7 @@ export default function ProviderSettlementFormPage() {
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <TextField
-                      label="Settlement Amount" value={form.settlementAmount}
+                      label="Amount Received in Bank" value={form.settlementAmount}
                       onChange={(e) => setForm((f) => ({ ...f, settlementAmount: e.target.value }))}
                       disabled={isSaving}
                       slotProps={{ htmlInput: { inputMode: 'decimal' as const } }}
@@ -396,24 +523,20 @@ export default function ProviderSettlementFormPage() {
           <Grid size={12}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>Eligible Payments</Typography>
-                {form.providerPaymentMethodId ? (
-                  <EligiblePaymentPicker
-                    providerPaymentMethodId={form.providerPaymentMethodId}
-                    settlementDate={form.settlementDate}
-                    // Its own claims stay selectable while the provider is
-                    // unchanged; omitted when creating, and after a provider
-                    // change. See above.
-                    settlementId={eligibilitySettlementId}
-                    selected={selected}
-                    onChange={setSelected}
-                    enteredAmount={form.settlementAmount}
-                  />
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    Select a provider to see its eligible payments.
-                  </Typography>
-                )}
+                <Typography variant="h6" gutterBottom>Sales Order Payments</Typography>
+                <NeedsAttention
+                  groups={attention}
+                  onRemove={removeAttention}
+                  onAccept={acceptAttention}
+                />
+                <SettlementRowPicker
+                  settlementDate={form.settlementDate}
+                  settlementId={isEdit ? id : undefined}
+                  selected={selected}
+                  onChange={setSelected}
+                  enteredAmount={form.settlementAmount}
+                  attentionKeys={attention.map((a) => a.key)}
+                />
               </CardContent>
             </Card>
           </Grid>
@@ -425,13 +548,27 @@ export default function ProviderSettlementFormPage() {
           )}
 
           <Grid size={12}>
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'flex-end' }}>
+              {blockReason && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  data-testid="save-block-reason"
+                  sx={{ flex: 1 }}
+                >
+                  {blockReason}
+                </Typography>
+              )}
               <AppButton variant="secondary" onClick={handleCancel} disabled={isSaving}>
                 Cancel
               </AppButton>
               {/* onClick, not type="submit": Enter in a field (e.g. the
                   payment picker) must not create a draft by accident. */}
-              <AppButton variant="primary" onClick={saveDraft} disabled={isSaving}>
+              <AppButton
+                variant="primary"
+                onClick={saveDraft}
+                disabled={isSaving || blockReason !== null}
+              >
                 {isSaving
                   ? isEdit
                     ? 'Saving...'
@@ -446,19 +583,13 @@ export default function ProviderSettlementFormPage() {
       </form>
 
       <ConfirmationDialog
-        open={pendingProviderChange !== null}
-        title="Change provider?"
-        message="Changing the provider clears the selected payments."
-        onConfirm={confirmProviderChange}
-        onCancel={() => setPendingProviderChange(null)}
-      />
-      <ConfirmationDialog
         open={pendingDateChange !== null}
         title="Change settlement date?"
         message="Changing the settlement date clears the selected payments."
         onConfirm={() => {
           setForm((f) => ({ ...f, settlementDate: pendingDateChange! }))
           setSelected([])
+          setAttention([])
           setPendingDateChange(null)
         }}
         onCancel={() => setPendingDateChange(null)}
