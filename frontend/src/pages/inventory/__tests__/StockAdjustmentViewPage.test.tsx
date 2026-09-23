@@ -149,7 +149,7 @@ describe('StockAdjustmentViewPage', () => {
       </BrowserRouter>,
     )
 
-    fireEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/inventory/stock-adjustments?page=2')
   })
@@ -163,7 +163,7 @@ describe('StockAdjustmentViewPage', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/inventory/stock-adjustments')
   })

@@ -457,9 +457,7 @@ describe('OwnerEquityFormPage', () => {
 
       it('returns to the list with highlight state on Back, without saving', () => {
         renderEdit()
-        // The PageHeader back control is an icon-only IconButton with no
-        // aria-label, so it has no accessible name to query by role.
-        fireEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+        fireEvent.click(screen.getByRole('button', { name: 'Back' }))
 
         expect(mockUpdateOwnerEquity).not.toHaveBeenCalled()
         expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity', {
@@ -486,9 +484,7 @@ describe('OwnerEquityFormPage', () => {
 
       it('returns to the detail page on Back, without saving', () => {
         renderEdit()
-        // The PageHeader back control is an icon-only IconButton with no
-        // aria-label, so it has no accessible name to query by role.
-        fireEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+        fireEvent.click(screen.getByRole('button', { name: 'Back' }))
 
         expect(mockUpdateOwnerEquity).not.toHaveBeenCalled()
         expect(mockNavigate).toHaveBeenCalledWith('/accounting/owner-equity/EQ-26-001/view')

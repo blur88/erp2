@@ -131,7 +131,7 @@ describe('SupplierProfilePage', () => {
     renderPage('globex-supply', '?listQuery=page%3D2&tab=1')
 
     const user = userEvent.setup()
-    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    await user.click(screen.getByRole('button', { name: 'Back' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/purchasing/suppliers?page=2')
   })

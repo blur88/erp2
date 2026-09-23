@@ -98,7 +98,7 @@ describe('CustomerProfilePage', () => {
   it('navigates back on back button click', async () => {
     mockGetCustomerBySlug.mockReturnValue({ data: customer, isLoading: false })
     renderPage()
-    await userEvent.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
     expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
   })
 
@@ -108,7 +108,7 @@ describe('CustomerProfilePage', () => {
     renderPage('acme-corp', '?listQuery=page%3D2&tab=1')
 
     const user = userEvent.setup()
-    await user.click(screen.getByTestId('ArrowBackIcon').closest('button')!)
+    await user.click(screen.getByRole('button', { name: 'Back' }))
 
     expect(mockNavigate).toHaveBeenCalledWith('/sales/customers?page=2')
   })

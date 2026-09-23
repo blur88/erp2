@@ -37,6 +37,18 @@ describe('PageHeader', () => {
     expect(screen.getByRole('button', { name: 'View Deleted' })).toBeInTheDocument()
   })
 
+  it('gives the back button an accessible name and calls backAction on click', () => {
+    const backAction = vi.fn()
+    renderWithTheme(<PageHeader title="T" backAction={backAction} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+    expect(backAction).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not render a back button when backAction is omitted', () => {
+    renderWithTheme(<PageHeader title="T" />)
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument()
+  })
+
   it('calls onClick when primary button is clicked', () => {
     const onClick = vi.fn()
     renderWithTheme(<PageHeader title="T" primaryAction={{ label: 'Create Order', onClick }} />)
