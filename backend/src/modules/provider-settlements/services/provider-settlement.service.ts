@@ -672,9 +672,9 @@ export class ProviderSettlementService {
 
       // The global filter copies `responseObj.message` VERBATIM into the
       // response and discards every other key of the exception body
-      // (http-exception.filter.ts:85). A sibling `unavailablePaymentIds` field
-      // would therefore be silently stripped. The machine-readable rows must
-      // ride INSIDE `message`, which survives as an object.
+      // (http-exception.filter.ts:85). A sibling field would therefore be
+      // silently stripped. The machine-readable rows must ride INSIDE
+      // `message`, which survives as an object.
       //
       // Wire shape: { statusCode: 409, message: { text, staleRows }, ... }
       throw staleConflict([...keys.values()]);
