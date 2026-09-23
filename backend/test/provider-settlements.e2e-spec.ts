@@ -34,6 +34,7 @@ describe('Provider settlements (e2e)', () => {
   let productId = '';
   let categoryId = '';
   let atomeMethodId = '';
+  let tiktokMethodId = '';
   let clearingAccountId = '';
   let bankAccountId = '';
 
@@ -80,6 +81,7 @@ describe('Provider settlements (e2e)', () => {
     // BASELINE rows, shared with every other suite in a size-ordered run
     // against one database. Read them; never mutate or delete them.
     atomeMethodId = await methodIdByCode(ds, 'ATOME');
+    tiktokMethodId = await methodIdByCode(ds, 'TIKTOK');
     clearingAccountId = await accountIdByCode(ds, '1240');
     bankAccountId = await accountIdByCode(ds, '1200');
 
@@ -150,8 +152,7 @@ describe('Provider settlements (e2e)', () => {
   });
 
   /**
-   * Create a sales order and record a payment with the Atome method, which
-   * debits the 1240 clearing account. Returns the PAYMENT row id.
+   * Record a payment against an EXISTING order. Returns the PAYMENT row id.
    *
    * Two contracts that are easy to get wrong, both verified against the code:
    *
@@ -163,11 +164,25 @@ describe('Provider settlements (e2e)', () => {
    *   separately — reading it from the payment response yields an order id that
    *   silently fails eligibility later, with no obvious cause.
    */
-  async function payOrder(amount: string): Promise<{
-    orderId: string;
-    orderNumber: string;
-    paymentId: string;
-  }> {
+  async function payExisting(
+    orderId: string, amount: string, methodId = atomeMethodId, paymentDate = '2026-09-01',
+    referenceNumber?: string,
+  ): Promise<string> {
+    await post(`/sales-orders/${orderId}/payments`, {
+      amount, paymentMethodId: methodId, paymentDate,
+      ...(referenceNumber ? { referenceNumber } : {}),
+    }).expect(200);
+    const [row] = await ds.query(
+      `SELECT id FROM sales_order_payments
+        WHERE "salesOrderId" = $1 AND amount > 0
+        ORDER BY "createdAt" DESC, id DESC LIMIT 1`,
+      [orderId],
+    );
+    expect(row?.id).toBeTruthy();
+    return row.id;
+  }
+
+  async function newOrder(amount: string): Promise<{ orderId: string; orderNumber: string }> {
     const res = await post('/sales-orders', {
       customerId,
       items: [{ productId, quantity: 1, unitPrice: amount }],
@@ -176,27 +191,13 @@ describe('Provider settlements (e2e)', () => {
     ownedSalesOrderIds.push(order.id);
     ownedRefs.push(order.orderNumber);
     ownedEntityIds.push(order.id);
+    return { orderId: order.id, orderNumber: order.orderNumber };
+  }
 
-    await post(`/sales-orders/${order.id}/payments`, {
-      amount,
-      paymentMethodId: atomeMethodId,
-      paymentDate: '2026-09-01',
-    }).expect(200);
-
-    // Read the payment row back. Newest positive row for this order.
-    const [row] = await ds.query(
-      `SELECT id FROM sales_order_payments
-        WHERE "salesOrderId" = $1 AND amount > 0
-        ORDER BY "createdAt" DESC, id DESC LIMIT 1`,
-      [order.id],
-    );
-    expect(row?.id).toBeTruthy();
-
-    return {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      paymentId: row.id,
-    };
+  async function payOrder(amount: string, methodId = atomeMethodId) {
+    const { orderId, orderNumber } = await newOrder(amount);
+    const paymentId = await payExisting(orderId, amount, methodId);
+    return { orderId, orderNumber, paymentId };
   }
 
   /**
@@ -204,11 +205,12 @@ describe('Provider settlements (e2e)', () => {
    * **201** (no @HttpCode override, sales-order.controller.ts:191), and returns
    * an **array** — it is a batch endpoint.
    */
-  async function refundOrder(orderId: string, amount: string): Promise<string> {
+  async function refundOrder(
+    orderId: string, amount: string, methodId = atomeMethodId, paymentDate = '2026-09-02',
+    referenceNumber?: string,
+  ): Promise<string> {
     await post(`/sales-orders/${orderId}/refunds`, {
-      refunds: [
-        { amount, paymentMethodId: atomeMethodId, paymentDate: '2026-09-02' },
-      ],
+      refunds: [{ amount, paymentMethodId: methodId, paymentDate, ...(referenceNumber ? { referenceNumber } : {}) }],
     }).expect(201);
 
     const [row] = await ds.query(
@@ -219,6 +221,13 @@ describe('Provider settlements (e2e)', () => {
     );
     expect(row?.id).toBeTruthy();
     return row.id;
+  }
+
+  async function rowsFor(orderIds: string[], extra = '', settlementDate = '2026-09-20') {
+    const res = await get(
+      `/accounting/provider-settlements/eligible-rows?settlementDate=${settlementDate}&salesOrderIds=${orderIds.join(',')}${extra}`,
+    ).expect(200);
+    return res.body.data as any[];
   }
 
   function draftBody(
@@ -594,5 +603,82 @@ describe('Provider settlements (e2e)', () => {
         ],
       );
     }
+  });
+
+  describe('eligible-rows (#1284)', () => {
+    it('SO-26-008: Atome paid and refunded, TikTok paid ⇒ only the TikTok row', async () => {
+      const { orderId, orderNumber } = await newOrder('130.00');
+      await payExisting(orderId, '130.00', atomeMethodId);
+      await refundOrder(orderId, '130.00', atomeMethodId);
+      const tiktokPaymentId = await payExisting(orderId, '130.00', tiktokMethodId, '2026-09-03');
+
+      const rows = await rowsFor([orderId]);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        salesOrderId: orderId, orderNumber, paymentMethodId: tiktokMethodId, netAmount: '130.0000',
+      });
+      expect(rows[0].payments.map((p: any) => p.id)).toEqual([tiktokPaymentId]);
+    });
+
+    it('partial refund leaves the remaining net, with both payments traceable', async () => {
+      const { orderId } = await newOrder('100.00');
+      const pay = await payExisting(orderId, '100.00', tiktokMethodId);
+      const refund = await refundOrder(orderId, '30.00', tiktokMethodId);
+      const [row] = await rowsFor([orderId]);
+      expect(row.netAmount).toBe('70.0000');
+      expect(row.payments.map((p: any) => p.id).sort()).toEqual([pay, refund].sort());
+    });
+
+    it('date cutoff splits a group', async () => {
+      const { orderId } = await newOrder('100.00');
+      await payExisting(orderId, '100.00', tiktokMethodId, '2026-09-01');
+      await refundOrder(orderId, '30.00', tiktokMethodId, '2026-09-25');
+      expect((await rowsFor([orderId], '', '2026-09-20'))[0].netAmount).toBe('100.0000');
+      expect((await rowsFor([orderId], '', '2026-09-30'))[0].netAmount).toBe('70.0000');
+    });
+
+    it('search matches whole groups: matching +100 with non-matching −30 stays 70', async () => {
+      const tag = `SRCH-${runId}`;
+      const { orderId } = await newOrder('100.00');
+      await payExisting(orderId, '100.00', tiktokMethodId, '2026-09-01', tag);
+      await refundOrder(orderId, '30.00', tiktokMethodId, '2026-09-02', `OTHER-${runId}`);
+
+      const res = await get(
+        `/accounting/provider-settlements/eligible-rows?settlementDate=2026-09-20&search=${tag}`,
+      ).expect(200);
+      const row = res.body.data.find((r: any) => r.salesOrderId === orderId);
+      expect(row.netAmount).toBe('70.0000');
+      expect(row.payments).toHaveLength(2);
+
+      const none = await get(
+        `/accounting/provider-settlements/eligible-rows?settlementDate=2026-09-20&search=NOPE-${runId}`,
+      ).expect(200);
+      expect(none.body.data.find((r: any) => r.salesOrderId === orderId)).toBeUndefined();
+    });
+
+    it('paginates by group, each page row carrying all of its payments', async () => {
+      const tag = `PAGE-${runId}`;
+      const a = await newOrder('10.00');
+      await payExisting(a.orderId, '10.00', tiktokMethodId, '2026-09-01', tag);
+      await refundOrder(a.orderId, '4.00', tiktokMethodId, '2026-09-02', tag);
+      const b = await newOrder('20.00');
+      await payExisting(b.orderId, '20.00', tiktokMethodId, '2026-09-01', tag);
+
+      const res = await get(
+        `/accounting/provider-settlements/eligible-rows?settlementDate=2026-09-20&search=${tag}&page=1&limit=1`,
+      ).expect(200);
+      expect(res.body.meta).toMatchObject({ total: 2, page: 1, limit: 1 });
+      expect(res.body.data).toHaveLength(1);
+      const first = res.body.data[0];
+      const expectedCount = first.salesOrderId === a.orderId ? 2 : 1;
+      expect(first.payments).toHaveLength(expectedCount);
+    });
+
+    it('hides a fully refunded group', async () => {
+      const { orderId } = await newOrder('50.00');
+      await payExisting(orderId, '50.00', tiktokMethodId);
+      await refundOrder(orderId, '50.00', tiktokMethodId);
+      expect(await rowsFor([orderId])).toEqual([]);
+    });
   });
 }); // closes describe('Provider settlements (e2e)')

@@ -8,7 +8,7 @@ import { ProviderSettlementService } from '../services/provider-settlement.servi
 import { ProviderSettlementEligibilityService } from '../services/provider-settlement-eligibility.service';
 import {
   CreateProviderSettlementDto, UpdateProviderSettlementDto,
-  ListProviderSettlementsQueryDto, EligiblePaymentsQueryDto,
+  ListProviderSettlementsQueryDto, EligiblePaymentsQueryDto, EligibleRowsQueryDto,
 } from '../dto/provider-settlement.dto';
 
 @Auth()
@@ -24,6 +24,14 @@ export class ProviderSettlementController {
   @ApiOperation({ summary: 'List provider settlements' })
   async list(@Query() query: ListProviderSettlementsQueryDto) {
     return this.service.list(query);
+  }
+
+  // MUST precede @Get(':id') — NestJS would otherwise treat "eligible-rows" as
+  // a uuid parameter.
+  @Get('eligible-rows')
+  @ApiOperation({ summary: 'List Sales Order + Payment Method rows eligible for settlement' })
+  async eligibleRows(@Query() query: EligibleRowsQueryDto) {
+    return this.eligibility.listEligibleRows(query);
   }
 
   // MUST precede @Get(':id') — NestJS would otherwise treat

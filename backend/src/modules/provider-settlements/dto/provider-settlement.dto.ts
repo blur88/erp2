@@ -1,8 +1,8 @@
 import {
-  IsArray, ArrayMinSize, ArrayUnique, IsUUID, IsString, IsOptional, IsDecimal,
-  IsEnum, IsInt, Min, MaxLength,
+  IsArray, ArrayMinSize, ArrayUnique, ArrayMaxSize, IsUUID, IsString, IsOptional, IsDecimal,
+  IsEnum, IsIn, IsInt, Min, MaxLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { IsCalendarDate } from '../../../common/validators/is-calendar-date.validator';
 import { IsMoneyAtLeast } from '../../../common/validators/is-money-at-least.validator';
@@ -84,6 +84,22 @@ export class EligiblePaymentsQueryDto {
   @IsCalendarDate() settlementDate: string;
   @IsOptional() @IsUUID() settlementId?: string;
   @IsOptional() @IsString() search?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) limit?: number;
+}
+
+/** Comma-separated on the wire: Express's simple query parser does not build arrays from `a[]=`. */
+const splitCsv = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.split(',').map((s) => s.trim()).filter(Boolean) : value;
+
+export class EligibleRowsQueryDto {
+  @IsCalendarDate() settlementDate: string;
+  @IsOptional() @IsUUID() settlementId?: string;
+  @IsOptional() @IsString() search?: string;
+  // `claimed` requires settlementId — enforced in the service (400).
+  @IsOptional() @IsIn(['claimed']) scope?: 'claimed';
+  @IsOptional() @Transform(splitCsv) @IsArray() @ArrayMaxSize(200) @IsUUID('4', { each: true })
+  salesOrderIds?: string[];
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) limit?: number;
 }
