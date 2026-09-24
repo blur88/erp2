@@ -9,6 +9,9 @@ import { SalesOrderPayment } from '../../../database/entities/sales-order-paymen
 import { ProviderSettlement, ProviderSettlementStatus } from '../entities/provider-settlement.entity';
 import { PostingType, AccountingSourceType } from '../../../common/accounting-posting/enums';
 import { PaymentMethodMappingService } from '../../accounting/services/payment-method-mapping.service';
+import { AccountingLookupService } from '../../accounting/services/accounting-lookup.service';
+import { ProviderSettlementDerivationService } from './provider-settlement-derivation.service';
+import { derivedClearingAccountSql } from './derived-clearing-account.sql';
 import { EligiblePayment, groupKey, groupPayments, classifyClaimedGroup, ClaimedRowState } from './settlement-groups';
 import { formatScale4, sumMinor } from '../../../common/utils/money';
 
@@ -37,7 +40,22 @@ export class ProviderSettlementEligibilityService {
   constructor(
     @InjectEntityManager() private readonly defaultManager: EntityManager,
     private readonly mappingService: PaymentMethodMappingService,
+    private readonly lookup: AccountingLookupService,
+    private readonly derivation: ProviderSettlementDerivationService,
   ) {}
+
+  /** SQL-derived clearing account per payment (#1285). Absent ⇒ TS derivation rejects it. */
+  async derivedClearingAccounts(paymentIds: string[], manager: EntityManager): Promise<Map<string, string>> {
+    if (paymentIds.length === 0) return new Map();
+    const deposit = await this.lookup.resolveAccount('customerDeposit', manager);
+    const args: unknown[] = [];
+    const bind = (v: unknown) => { args.push(v); return `$${args.length}`; };
+    const source = `(SELECT id, "salesOrderId", amount FROM sales_order_payments
+                       WHERE id = ANY(${bind(paymentIds)}::uuid[]))`;
+    const rows: Array<{ paymentId: string; clearingAccountId: string }> =
+      await manager.query(derivedClearingAccountSql(source, bind, deposit.id), args);
+    return new Map(rows.map((r) => [r.paymentId, r.clearingAccountId]));
+  }
 
   /**
    * The claim predicate is BRANCHED, never parameterized.
