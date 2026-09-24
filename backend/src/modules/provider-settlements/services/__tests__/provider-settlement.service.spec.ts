@@ -36,6 +36,7 @@ interface MakeServiceOptions {
   labels?: { methods?: Record<string, string>; orders?: Record<string, string> };
   queryError?: { code: string };
   timezone?: string;
+  accounts?: Record<string, any>;
 }
 
 function validDto() {
@@ -172,14 +173,13 @@ describe('ProviderSettlementService — drafts', () => {
           .map((id) => ({ salesOrderPaymentId: id }));
       }),
     };
+    const accounts: Record<string, any> = {
+      'bank-1': { id: 'bank-1', code: '1200', name: 'CIMB', isActive: true, isPostable: true, isProviderClearing: false },
+      'clearing-1': { id: 'clearing-1', code: '1240', name: 'Atome', isActive: true, isPostable: true, isProviderClearing: true },
+      ...opts.accounts,
+    };
     const coaRepo = {
-      findOne: jest.fn(async () => ({
-        id: 'bank-1',
-        code: '1200',
-        name: 'Bank',
-        isActive: true,
-        isPostable: true,
-      })),
+      findOne: jest.fn(async (o?: any) => accounts[o?.where?.id] ?? null),
     };
 
     const eligibleRows = (opts.eligible ?? [
@@ -598,12 +598,12 @@ describe('ProviderSettlementService — drafts', () => {
       expect((manager.query as any).mock.calls.map((c: any[]) => c[0])).not.toContain('SAVEPOINT ps_lines_insert');
     });
 
-    it('rejects update into the derived clearing account, before deleting or writing claims', async () => {
+    it('rejects update into a flagged clearing account as destination, before deleting or writing claims', async () => {
       const { service, settlementRepo, lineRepo } = makeService();
       derivationService.deriveClearingAccountId.mockResolvedValue('clearing-1');
       await expect(
         service.update('ps-1', { rows: validDto().rows, bankAccountId: 'clearing-1' } as any, 'u1', 'tester'),
-      ).rejects.toThrow(SAME_ACCOUNT);
+      ).rejects.toThrow('The destination account cannot be a provider clearing account');
       expect(lineRepo.delete).not.toHaveBeenCalled();
       expect(lineRepo.save).not.toHaveBeenCalled();
       expect(settlementRepo.save).not.toHaveBeenCalled();
@@ -630,6 +630,61 @@ describe('ProviderSettlementService — drafts', () => {
       await expect(service.post('ps-1', 'u1', 'tester')).rejects.toThrow(SAME_ACCOUNT);
       expect(postingPort.postProviderSettlement).not.toHaveBeenCalled();
       expect(settlementRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('provider clearing enforcement (#1285)', () => {
+    const NOT_PROVIDER =
+      'Account 1200 CIMB is not a provider clearing account. Only payments recorded to a provider clearing account can be settled.';
+    const FLAGGED_DEST = 'The destination account cannot be a provider clearing account';
+    const other = { 'bank-2': { id: 'bank-2', code: '1210', name: 'Maybank', isActive: true, isPostable: true, isProviderClearing: false } };
+
+    it('create: rejects payments that derive to an unflagged account, writing nothing', async () => {
+      const { service, settlementRepo, lineRepo } = makeService({ accounts: other });
+      derivationService.deriveClearingAccountId.mockResolvedValue('bank-1');
+      await expect(service.create({ ...validDto(), bankAccountId: 'bank-2' } as any)).rejects.toThrow(NOT_PROVIDER);
+      expect(settlementRepo.save).not.toHaveBeenCalled();
+      expect(lineRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('update: checks on EVERY update, including one that keeps the method', async () => {
+      const { service, lineRepo, mappingService } = makeService({ accounts: other, settlement: { bankAccountId: 'bank-2' } });
+      derivationService.deriveClearingAccountId.mockResolvedValue('bank-1');
+      await expect(service.update('ps-1', { rows: validDto().rows } as any)).rejects.toThrow(NOT_PROVIDER);
+      expect(lineRepo.delete).not.toHaveBeenCalled();
+      expect(mappingService.list).not.toHaveBeenCalled(); // method unchanged ⇒ no mapping check
+    });
+
+    it('post: rejects a draft whose derived account is no longer flagged', async () => {
+      const { service, postingPort } = makeService({
+        accounts: { 'clearing-1': { id: 'clearing-1', code: '1240', name: 'Atome', isActive: true, isPostable: true, isProviderClearing: false } },
+        lines: [line('pay-A', '98.0000')], eligible: [pay('pay-A', '98.0000')],
+      });
+      derivationService.deriveClearingAccountId.mockResolvedValue('clearing-1');
+      await expect(service.post('ps-1', 'u1', 'tester')).rejects.toThrow(/Account 1240 Atome is not a provider clearing account/);
+      expect(postingPort.postProviderSettlement).not.toHaveBeenCalled();
+    });
+
+    it.each(['create', 'update', 'post'] as const)('%s: rejects a flagged destination account', async (op) => {
+      const { service } = makeService({
+        accounts: { 'shopee-1': { id: 'shopee-1', code: '1220', name: 'Shopee', isActive: true, isPostable: true, isProviderClearing: true } },
+        settlement: op === 'post' ? { bankAccountId: 'shopee-1' } : {},
+        lines: [line('pay-A', '98.0000')], eligible: [pay('pay-A', '98.0000')],
+      });
+      const run = op === 'create' ? service.create({ ...validDto(), bankAccountId: 'shopee-1' } as any)
+        : op === 'update' ? service.update('ps-1', { rows: validDto().rows, bankAccountId: 'shopee-1' } as any)
+        : service.post('ps-1', 'u1', 'tester');
+      await expect(run).rejects.toThrow(FLAGGED_DEST);
+    });
+
+    it('reverse ignores the flag', async () => {
+      const { service, postingPort } = makeService({
+        accounts: { 'clearing-1': { id: 'clearing-1', code: '1240', name: 'Atome', isActive: true, isPostable: true, isProviderClearing: false } },
+        settlement: { status: 'POSTED', journalEntryId: 'je-1' },
+      });
+      const result = await service.reverse('ps-1', 'u1', 'tester');
+      expect(result.status).toBe('REVERSED');
+      expect(postingPort.reverseEntry).toHaveBeenCalled();
     });
   });
 

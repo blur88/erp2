@@ -1074,7 +1074,7 @@ describe('Provider settlements (e2e)', () => {
           });
 
         expect(res.status).toBe(400);
-        expect(res.body.message).toBe(SAME_ACCOUNT);
+        expect(res.body.message).toBe('The destination account cannot be a provider clearing account');
         expect(await snapshot()).toEqual(before);
       });
 
@@ -1282,6 +1282,92 @@ describe('Provider settlements (e2e)', () => {
           await payExisting(orderId, '30.00', shopee);        // → 1230
           expect(await rowsFor([orderId])).toHaveLength(0);
         });
+      });
+
+      const NOT_PROVIDER_1200 =
+        'Account 1200 CIMB is not a provider clearing account. Only payments recorded to a provider clearing account can be settled.';
+
+      it('create: an old CIMB payment is not saveable after CIMB is remapped to 1220', async () => {
+        const { orderId, paymentId } = await payOrder('33.00', cimbMethodId);
+        await withCimbMappedTo('1220', async () => {
+          // Destination 1210, NOT the suite default 1200: CIMB payments debit 1200, so a
+          // 1200 destination would stop at the same-account guard and never reach this check.
+          const res = await post('/accounting/provider-settlements', {
+            ...draftBody([{ salesOrderId: orderId, paymentMethodId: cimbMethodId, expectedNetAmount: '33.00' }], '33.00'),
+            bankAccountId: await accountIdByCode(ds, '1210'),
+          });
+          if (res.status === 201) ownedSettlementIds.push((res.body.data ?? res.body).id);
+          // Save re-computes eligibility, which shares NO mapping filter — so it reaches derivation.
+          expect(res.status).toBe(400);
+          expect(res.body.message).toBe(NOT_PROVIDER_1200);
+        });
+        expect(await ds.query('SELECT 1 FROM provider_settlement_lines WHERE "salesOrderPaymentId" = $1', [paymentId])).toHaveLength(0);
+      });
+
+      it('post: a draft holding an old CIMB payment cannot post, and nothing is written', async () => {
+        // Inserted directly: the API now refuses to create it. Destination 1210, so the
+        // same-account guard (1200 vs 1210) passes and the provider-clearing check decides.
+        const { paymentId } = await payOrder('35.00', cimbMethodId);
+        const maybankAccountId = await accountIdByCode(ds, '1210');
+        const [s] = await ds.query(
+          `INSERT INTO provider_settlements
+             ("referenceNumber", "providerPaymentMethodId", "clearingAccountId", "bankAccountId",
+              "settlementDate", "settlementAmount", status)
+           VALUES ($1, $2, $3, $4, '2026-09-20', '35.0000', 'DRAFT') RETURNING id`,
+          [`PS-T-${randomUUID().slice(0, 8)}`, cimbMethodId, bankAccountId, maybankAccountId],
+        );
+        ownedSettlementIds.push(s.id);
+        await ds.query(
+          `INSERT INTO provider_settlement_lines ("settlementId", "salesOrderPaymentId", amount)
+           VALUES ($1, $2, '35.0000')`,
+          [s.id, paymentId],
+        );
+        const journalsBefore = await countJournalEntries();
+
+        const res = await post(`/accounting/provider-settlements/${s.id}/post`);
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(NOT_PROVIDER_1200);
+        const [after] = await ds.query(
+          'SELECT status, "journalEntryId", "postedAt", "postedBy" FROM provider_settlements WHERE id = $1', [s.id],
+        );
+        expect(after).toEqual({ status: 'DRAFT', journalEntryId: null, postedAt: null, postedBy: null });
+        expect(await countJournalEntries()).toBe(journalsBefore);
+        const lines = await ds.query(
+          'SELECT "releasedAt" FROM provider_settlement_lines WHERE "settlementId" = $1', [s.id],
+        );
+        expect(lines).toEqual([{ releasedAt: null }]);
+        // Cleanup: afterAll deletes ownedSettlementIds' lines and rows; the payment's
+        // order is in ownedSalesOrderIds via payOrder.
+      });
+
+      it('reverse still succeeds for a posted 1240 settlement after 1240 is unflagged', async () => {
+        const { orderId } = await payOrder('36.00'); // Atome → 1240
+        const draft = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '36.00' }], '36.00');
+        expect(draft.status).toBe(201);
+        const id = (draft.body.data ?? draft.body).id;
+        const posted = await post(`/accounting/provider-settlements/${id}/post`).expect(201);
+        const settlement = posted.body.data ?? posted.body;
+        ownedRefs.push(settlement.referenceNumber);
+
+        await ds.query(`UPDATE chart_of_account SET "isProviderClearing" = false WHERE code = '1240'`);
+        try {
+          const reversed = await post(`/accounting/provider-settlements/${id}/reverse`).expect(201);
+          const after = reversed.body.data ?? reversed.body;
+          expect(after.status).toBe('REVERSED');
+          const [rev] = await ds.query(
+            'SELECT "reversalOfEntryId" FROM journal_entry WHERE id = $1', [after.reversalJournalEntryId],
+          );
+          expect(rev.reversalOfEntryId).toBe(settlement.journalEntryId);
+          const released = await ds.query(
+            'SELECT "releasedAt" FROM provider_settlement_lines WHERE "settlementId" = $1', [id],
+          );
+          expect(released.length).toBeGreaterThan(0);
+          expect(released.every((l: any) => l.releasedAt !== null)).toBe(true);
+        } finally {
+          // Baseline row shared with every suite: always restore.
+          await ds.query(`UPDATE chart_of_account SET "isProviderClearing" = true WHERE code = '1240'`);
+        }
       });
     });
   });
