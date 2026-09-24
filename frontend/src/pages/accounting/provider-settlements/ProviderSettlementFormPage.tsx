@@ -278,7 +278,9 @@ export default function ProviderSettlementFormPage() {
     unresolvedAttention: attention.length,
   })
 
-  const bankAccounts = (accountsPage?.data ?? []).filter((a) => a.isActive && a.isPostable)
+  const bankAccounts = (accountsPage?.data ?? []).filter(
+    (a) => a.isActive && a.isPostable && !a.isProviderClearing,
+  )
   const methods = methodsIn(selected)
 
   function requestDateChange(next: string) {

@@ -51,8 +51,11 @@ vi.mock('@/store/api/accountingApi', () => ({
     // Real shape is PaginatedResponse<Account> (accountingApi.ts:107) — `data`
     // is the page object, not the array.
     data: {
-      data: [{ id: 'b1', code: '1200', name: 'CIMB', isActive: true, isPostable: true }],
-      meta: { total: 1 },
+      data: [
+        { id: 'b1', code: '1200', name: 'CIMB', isActive: true, isPostable: true, isProviderClearing: false },
+        { id: 'b2', code: '1220', name: 'Shopee', isActive: true, isPostable: true, isProviderClearing: true },
+      ],
+      meta: { total: 2 },
     },
     isLoading: false,
   }),
@@ -129,10 +132,16 @@ const backButton = () => screen.getByRole('button', { name: 'Back' })
 const amountField = () => screen.getByLabelText('Amount Received in Bank')
 const tick = (label: RegExp) => userEvent.click(screen.getByRole('checkbox', { name: label }))
 
+/** Opens the Bank Account combobox and leaves its portaled listbox visible. */
+async function openBankAccountSelect() {
+  await userEvent.click(screen.getByRole('combobox', { name: 'Bank Account' }))
+  await screen.findByRole('option', { name: '1200 CIMB' })
+}
+
 /** MUI `TextField select` renders a combobox; its options live in a portaled listbox. */
 async function chooseBank() {
-  await userEvent.click(screen.getByRole('combobox', { name: 'Bank Account' }))
-  await userEvent.click(await screen.findByRole('option', { name: '1200 CIMB' }))
+  await openBankAccountSelect()
+  await userEvent.click(screen.getByRole('option', { name: '1200 CIMB' }))
 }
 
 /** One claimed current group at RM100.00, matching the draft amount. */
@@ -198,6 +207,15 @@ describe('ProviderSettlementFormPage', () => {
     renderForm(CREATE)
     // Unknown until a draft is saved and the backend derives it.
     expect(screen.getByLabelText('Provider Clearing Account')).toHaveValue('')
+  })
+})
+
+describe('ProviderSettlementFormPage destination bank eligibility (#1285)', () => {
+  it('does not offer a provider clearing account as the destination bank', async () => {
+    renderForm(CREATE)
+    await openBankAccountSelect()
+    expect(screen.queryByRole('option', { name: /1220/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /1200/ })).toBeInTheDocument()
   })
 })
 

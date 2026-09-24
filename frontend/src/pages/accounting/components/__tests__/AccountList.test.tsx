@@ -23,6 +23,7 @@ const group = {
   isActive: true,
   isSystem: false,
   isPostable: false,
+  isProviderClearing: false,
   openingBalance: '0.0000',
   createdAt: '',
   updatedAt: '',
@@ -143,6 +144,16 @@ describe('AccountList', () => {
     const dialog = screen.getByRole('dialog')
     expect(dialog).toHaveTextContent('RM 5,000.00')
     expect(dialog).not.toHaveTextContent('5000.0000')
+  })
+
+  it('marks flagged accounts with a Provider clearing chip', () => {
+    renderList({
+      tree: [
+        { ...leaf, code: '1220', name: 'Shopee', isProviderClearing: true },
+        { ...leaf, id: 'b', code: '1200', name: 'CIMB', isProviderClearing: false },
+      ],
+    })
+    expect(screen.getAllByText('Provider clearing')).toHaveLength(1)
   })
 })
 

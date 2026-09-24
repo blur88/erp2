@@ -5,8 +5,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
+  FormControlLabel,
+  FormHelperText,
   Grid,
   MenuItem,
+  Switch,
   TextField,
 } from '@mui/material'
 import { Controller, useForm } from 'react-hook-form'
@@ -60,6 +64,7 @@ interface AccountFormData {
   type: AccountType
   parentId: string
   description: string
+  isProviderClearing: boolean
 }
 
 interface AccountFormDialogProps {
@@ -80,6 +85,7 @@ const accountSchema = yup.object({
   type: yup.string().oneOf(ACCOUNT_TYPES.map((t) => t.value)).required('Type is required'),
   parentId: yup.string().nullable().default(''),
   description: yup.string().nullable().default(''),
+  isProviderClearing: yup.boolean().default(false),
 })
 
 export default function AccountFormDialog({ open, account, parent = null, tree, onClose, onSuccess }: AccountFormDialogProps) {
@@ -98,11 +104,12 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
     formState: { errors },
   } = useForm<AccountFormData>({
     resolver: yupResolver(accountSchema) as any,
-    defaultValues: { code: '', name: '', type: 'Asset', parentId: '', description: '' },
+    defaultValues: { code: '', name: '', type: 'Asset', parentId: '', description: '', isProviderClearing: false },
   })
 
   const selectedType = watch('type')
   const selectedParentId = watch('parentId')
+  const flagValue = watch('isProviderClearing')
 
   useEffect(() => {
     if (open) {
@@ -113,6 +120,7 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
           type: account.type,
           parentId: account.parentId ?? '',
           description: account.description ?? '',
+          isProviderClearing: account.isProviderClearing ?? false,
         })
       } else {
         reset({
@@ -122,10 +130,20 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
           type: parent?.type ?? 'Asset',
           parentId: parent?.id ?? '',
           description: '',
+          isProviderClearing: false,
         })
       }
     }
   }, [account, parent, open, reset])
+
+  // Spec §9.1: only a postable Asset may carry the flag. The form cannot edit
+  // isPostable today, so the non-postable branch is a defensive reset for a
+  // loaded group account — kept as a rule on the value so it stays correct if
+  // postability ever becomes editable.
+  const canFlag = selectedType === 'Asset' && (account ? account.isPostable : true)
+  useEffect(() => {
+    if (open && !canFlag && flagValue) setValue('isProviderClearing', false)
+  }, [open, canFlag, flagValue, setValue])
 
   const parentOptions = useMemo(
     () => flattenForParent(tree, selectedType, !isEdit),
@@ -149,6 +167,7 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
         type: data.type,
         parentId: data.parentId || undefined,
         description: data.description?.trim() || undefined,
+        isProviderClearing: canFlag ? data.isProviderClearing : false,
       }
 
       if (account) {
@@ -271,6 +290,29 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
                     error={!!errors.description}
                     helperText={errors.description?.message}
                   />
+                )}
+              />
+            </Grid>
+            <Grid size={12}>
+              <Controller
+                name="isProviderClearing"
+                control={control}
+                render={({ field }) => (
+                  <FormControl>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={canFlag && !!field.value}
+                          disabled={!canFlag}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                        />
+                      }
+                      label="Provider clearing account"
+                    />
+                    <FormHelperText>
+                      Payments recorded to this account can be settled in Provider Settlements. Changing this does not alter posted journals or settlements.
+                    </FormHelperText>
+                  </FormControl>
                 )}
               />
             </Grid>

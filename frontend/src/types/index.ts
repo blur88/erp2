@@ -603,6 +603,7 @@ export interface Account {
   createdBy: string | null;
   isSystem: boolean;
   isPostable: boolean;
+  isProviderClearing: boolean;
   openingBalance: string;
   createdAt: string;
   updatedAt: string;
@@ -1037,7 +1038,7 @@ export interface ProviderSettlement {
   providerPaymentMethodId: string
   providerPaymentMethod?: { id: string; name: string }
   clearingAccountId: string
-  clearingAccount?: { id: string; code: string; name: string }
+  clearingAccount?: { id: string; code: string; name: string; isProviderClearing?: boolean }
   bankAccountId: string
   bankAccount?: { id: string; code: string; name: string }
   settlementDate: string
@@ -1069,7 +1070,7 @@ export interface EligibleSettlementRow {
   payments: SettlementPaymentDetail[]
 }
 
-export type ClaimedRowState = 'current' | 'changed' | 'zero' | 'ineligible'
+export type ClaimedRowState = 'current' | 'changed' | 'zero' | 'ineligible' | 'not_provider_clearing'
 
 export interface ClaimedSettlementRow {
   salesOrderId: string
