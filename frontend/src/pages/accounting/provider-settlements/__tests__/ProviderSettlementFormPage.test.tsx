@@ -649,6 +649,41 @@ describe('edit flow (#1284)', () => {
     expect(screen.getByText(/SO-26-002/, { selector: '[data-testid="attention-row"] *' })).toBeInTheDocument()
   })
 
+  describe('non-provider-clearing rows (#1285)', () => {
+    const NOT_PROVIDER_CLEARING = {
+      ...CLAIMED_CURRENT,
+      salesOrderId: 'so-1',
+      orderNumber: 'SO-1',
+      paymentMethodName: 'CIMB',
+      currentNetAmount: '40.0000',
+      state: 'not_provider_clearing',
+    }
+
+    it('shows a not_provider_clearing group as Remove-only needs attention and blocks save until removed', async () => {
+      mockClaimed.mockReturnValue({ data: { data: [NOT_PROVIDER_CLEARING] }, isLoading: false })
+      renderForm(EDIT)
+      const row = await screen.findByTestId('attention-row')
+      expect(row).toHaveTextContent('SO-1 · CIMB — not a provider clearing payment — remove')
+      expect(within(row).queryByRole('button', { name: 'Accept current' })).not.toBeInTheDocument()
+      expect(within(row).getByRole('button', { name: 'Remove' })).toBeInTheDocument()
+      expect(saveButton()).toBeDisabled()
+      expect(screen.getByTestId('save-block-reason')).toHaveTextContent(
+        /Resolve the rows that need attention/,
+      )
+    })
+
+    it('shows the server provider-clearing 400 verbatim when an account is unflagged mid-edit', async () => {
+      const text = 'Account 1240 Atome is not a provider clearing account. Only payments recorded to a provider clearing account can be settled.'
+      mockUpdate.mockReturnValue({ unwrap: () => Promise.reject({ status: 400, data: { message: text } }) })
+      seedEdit()
+      renderForm(EDIT)
+      await waitForEditSeeded()
+      await userEvent.type(screen.getByLabelText('Provider Reference'), 'X')
+      await userEvent.click(saveButton())
+      expect(await screen.findByText(text)).toBeInTheDocument()
+    })
+  })
+
   describe('409 staleRows refresh', () => {
     const stale = (rows: unknown[]) => ({
       unwrap: () => Promise.reject({ status: 409, data: { message: { text: 'Some rows changed since they were loaded. Review them and save again.', staleRows: rows } } }),

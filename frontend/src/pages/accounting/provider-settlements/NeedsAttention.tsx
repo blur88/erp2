@@ -12,12 +12,13 @@ export interface AttentionGroup {
   paymentMethodName: string
   savedNetAmount: string | null // null for groups never saved
   currentNetAmount: string | null // null ⇒ ineligible
-  reason: string // 'Payments changed' | 'Refund added' | 'now RM0.00 — remove' | 'payments no longer eligible — remove'
+  reason: string // 'Payments changed' | 'Refund added' | 'now RM0.00 — remove' | 'payments no longer eligible — remove' | 'not a provider clearing payment — remove'
   refreshed: boolean // Accept current enabled only when true
 }
 
 const ZERO_REASON = 'now RM0.00 — remove'
 const INELIGIBLE_REASON = 'payments no longer eligible — remove'
+export const NOT_PROVIDER_CLEARING_REASON = 'not a provider clearing payment — remove'
 
 /** Scale-4 API amount → display money; null renders as an em dash, never 0. */
 function money(value: string | null): string {
@@ -28,6 +29,7 @@ function money(value: string | null): string {
 function attentionText(g: AttentionGroup): string {
   const lead = `${g.orderNumber} · ${g.paymentMethodName} — `
   if (g.reason === ZERO_REASON) return `${lead}${g.reason}`
+  if (g.reason === NOT_PROVIDER_CLEARING_REASON) return `${lead}${g.reason}`
   if (g.currentNetAmount === null) return `${lead}${INELIGIBLE_REASON}`
   const saved = g.savedNetAmount === null ? '' : `saved ${money(g.savedNetAmount)}, `
   return `${lead}${saved}now ${money(g.currentNetAmount)}. ${g.reason}`
@@ -50,7 +52,7 @@ export default function NeedsAttention({ groups, onRemove, onAccept }: {
       <Typography variant="subtitle2" gutterBottom>Needs attention</Typography>
       <Stack spacing={1}>
         {groups.map((g) => {
-          const acceptable = g.currentNetAmount !== null && g.reason !== ZERO_REASON
+          const acceptable = g.currentNetAmount !== null && g.reason !== ZERO_REASON && g.reason !== NOT_PROVIDER_CLEARING_REASON
           return (
             <Box
               key={g.key}
