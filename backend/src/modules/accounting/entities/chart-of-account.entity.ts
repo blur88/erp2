@@ -36,6 +36,13 @@ export class ChartOfAccount extends BaseEntity {
   @Column({ type: 'boolean', default: true })
   isPostable: boolean;
 
+  // #1285: marks a provider clearing account (Shopee/TikTok/Atome). Eligibility
+  // metadata only — changing it never rewrites journals or settlements. Invariants
+  // (Asset, postable, not a configured cash/bank/deposit account) live in
+  // provider-clearing.rules.ts and are enforced on every write path.
+  @Column({ type: 'boolean', default: false })
+  isProviderClearing: boolean;
+
   @Column({ type: 'decimal', precision: 18, scale: 4, default: 0 })
   openingBalance: string;
 
