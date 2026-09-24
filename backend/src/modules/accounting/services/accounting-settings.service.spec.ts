@@ -258,3 +258,48 @@ describe('AccountingSettingsService — Balance Sheet grouping conflicts', () =>
     expect(settingsRepo.save).toHaveBeenCalled();
   });
 });
+
+describe('AccountingSettingsService — provider clearing conflicts (#1285)', () => {
+  const flaggedAccount = (over: any = {}) => ({
+    id: 'shopee', code: '1250', name: 'Shopee', type: AccountType.ASSET,
+    isActive: true, isPostable: true, isProviderClearing: true, parentId: null,
+    formBExpenseCategory: null, formBIncomeCategory: null, ...over,
+  });
+
+  const build = (accounts: any[]) => {
+    const settingsRepo = {
+      findOne: (jest.fn as any)().mockResolvedValue({ id: true }),
+      create: (jest.fn as any)((v: any) => v),
+      save: (jest.fn as any)((v: any) => Promise.resolve(v)),
+    };
+    const coaRepo = {
+      findOne: (jest.fn as any)(async ({ where }: any) =>
+        accounts.find((a) => a.id === where.id) ?? null),
+      find: (jest.fn as any)().mockResolvedValue(accounts),
+    };
+    return {
+      service: new AccountingSettingsService(
+        settingsRepo as any,
+        coaRepo as any,
+        makeDataSource({ settingsRepo, coaRepo }) as any,
+      ),
+      settingsRepo,
+    };
+  };
+
+  it.each(['cashAccountId', 'bankAccountId'])(
+    'rejects pointing %s at a provider clearing account',
+    async (field) => {
+      const { service } = build([flaggedAccount()]);
+      await expect(service.update({ [field]: 'shopee' } as any, 'tester'))
+        .rejects.toThrow(`${field}: a provider clearing account cannot be used here`);
+    },
+  );
+
+  it('rejects customerDepositAccountId pointing at a provider clearing Asset and saves nothing', async () => {
+    const { service, settingsRepo } = build([flaggedAccount()]);
+    await expect(service.update({ customerDepositAccountId: 'shopee' } as any, 'tester'))
+      .rejects.toThrow(/customerDepositAccountId/);
+    expect(settingsRepo.save).not.toHaveBeenCalled();
+  });
+});

@@ -8,6 +8,7 @@ import { AccountType } from '../entities/account-type.enum';
 import { UpdateAccountingSettingsDto } from '../dto/update-accounting-settings.dto';
 import { isDescendantOf } from './profit-and-loss.graph';
 import { assertNoLineConflicts } from './balance-sheet-groups.resolve';
+import { PROVIDER_CLEARING_CONFLICTING_SETTINGS } from './provider-clearing.rules';
 import {
   settingsAccountIdsOf,
   withBalanceSheetConfigLock,
@@ -61,6 +62,12 @@ export class AccountingSettingsService {
         if (!account.isActive) throw new BadRequestException(`${field}: account is inactive`);
         if (!account.isPostable) throw new BadRequestException(`${field}: account is not postable`);
         if (account.type !== requiredType) throw new BadRequestException(`${field}: must be a ${requiredType} account`);
+        if (
+          (PROVIDER_CLEARING_CONFLICTING_SETTINGS as readonly string[]).includes(field) &&
+          account.isProviderClearing
+        ) {
+          throw new BadRequestException(`${field}: a provider clearing account cannot be used here`);
+        }
       }
 
       const current = await settingsRepo.findOne({ where: { id: true } as any });

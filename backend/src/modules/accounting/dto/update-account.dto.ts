@@ -4,4 +4,5 @@ export class UpdateAccountDto {
   @IsOptional() @IsString() name?: string;
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsBoolean() isActive?: boolean;
+  @IsOptional() @IsBoolean() isProviderClearing?: boolean;
 }
