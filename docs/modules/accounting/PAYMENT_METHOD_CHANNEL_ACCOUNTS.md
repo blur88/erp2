@@ -541,18 +541,19 @@ grouped into a Provider Settlement.
 The migration seeds `1220 Shopee`, `1230 TikTok` and `1240 Atome` — the three
 channel accounts created by `1789658118888-AddPaymentMethodChannelAccounts` — as
 flagged, by code. The seed obeys the same **§4.2 invariants** later edits do: an
-account may be flagged only if it is `type = 'Asset'`, `isPostable = true`, live,
-and is none of the Accounting Settings `cashAccountId`, `bankAccountId` or
-`customerDepositAccountId`. The seed's `UPDATE` **skips** a non-conforming or
-missing account rather than aborting, because the flag is editable metadata; on a
-hand-built chart where `1220`–`1240` are missing or reshaped, nothing is seeded
-and the switch can be set by hand.
+account may be flagged only if it is `type = 'Asset'`, `isPostable = true`, and is
+none of the Accounting Settings `cashAccountId`, `bankAccountId` or
+`customerDepositAccountId`. Because it is a migration predicate, the seed's
+`UPDATE` additionally requires the account to be live (`deletedAt IS NULL`), and
+**skips** a non-conforming or missing account rather than aborting, because the
+flag is editable metadata; on a hand-built chart where `1220`–`1240` are missing
+or reshaped, nothing is seeded and the switch can be set by hand.
 
 ### The flag is editable metadata; journals and settlements are never rewritten
 
 Toggling the switch (`Provider clearing account` on the account form) changes
-eligibility for **future** postings only. It never rewrites a posted journal or a
-completed settlement, and it is never consulted when reversing one — **reverse
+eligibility only. It never rewrites a posted journal or a completed settlement,
+and it is never consulted when reversing one — **reverse
 always remains available**, flagged or not. Removing the flag therefore cannot
 strand an already-posted settlement.
 
@@ -564,7 +565,9 @@ journal entry** posted to, not from the payment method's current mapping
 different account therefore never makes old payments eligible under the new
 account: their journals still point at the old one, so the group is offered only
 if *that* account is flagged. A group whose payments derive to two different
-accounts is not offered at all — it must be saved and settled per account.
+accounts is not offered at all — saving such a group fails
+(`Settle each account in its own settlement.`), so each account's payments must
+be settled in its own settlement.
 
 ### Unflagging blocks posting, not reversing
 
