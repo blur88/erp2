@@ -152,19 +152,25 @@ describe('Provider clearing-account derivation parity (e2e)', () => {
   afterAll(async () => {
     try {
       if (ds?.isInitialized) {
-        if (ownedRefs.length) {
-          await ds.query(
-            `DELETE FROM journal_entry_line WHERE "entryId" IN (SELECT id FROM journal_entry WHERE "sourceRef" = ANY($1))`,
-            [ownedRefs],
-          );
-          await ds.query(`DELETE FROM journal_entry WHERE "sourceRef" = ANY($1)`, [
-            ownedRefs,
-          ]);
-        }
-        // Duplicates are gone; the partial unique index can be reinstated.
-        if (indexDropped) {
-          await ds.query(`DROP INDEX IF EXISTS "${UNIQUE_EVENT_INDEX}"`);
-          await ds.query(CREATE_EVENT_INDEX_SQL);
+        // The index recreate lives in its own `finally` so it always runs even
+        // if the owned-row deletes above it throw; otherwise the uniqueness
+        // invariant would stay dropped for later e2e files in this run.
+        try {
+          if (ownedRefs.length) {
+            await ds.query(
+              `DELETE FROM journal_entry_line WHERE "entryId" IN (SELECT id FROM journal_entry WHERE "sourceRef" = ANY($1))`,
+              [ownedRefs],
+            );
+            await ds.query(`DELETE FROM journal_entry WHERE "sourceRef" = ANY($1)`, [
+              ownedRefs,
+            ]);
+          }
+        } finally {
+          // Duplicates are gone; the partial unique index can be reinstated.
+          if (indexDropped) {
+            await ds.query(`DROP INDEX IF EXISTS "${UNIQUE_EVENT_INDEX}"`);
+            await ds.query(CREATE_EVENT_INDEX_SQL);
+          }
         }
         if (ownedSalesOrderIds.length) {
           await ds.query(
