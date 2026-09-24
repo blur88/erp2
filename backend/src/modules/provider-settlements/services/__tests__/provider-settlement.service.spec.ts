@@ -584,6 +584,55 @@ describe('ProviderSettlementService — drafts', () => {
     await expect(service.post('ps-1', 'u1', 'tester')).rejects.toThrow(/Only a draft/);
   });
 
+  describe('same-account guard', () => {
+    const SAME_ACCOUNT =
+      'The selected payments already debit the destination bank account and cannot be settled into that same account.';
+
+    it('rejects create when the derived clearing account IS the bank account, before any write', async () => {
+      const { service, settlementRepo, lineRepo, manager } = makeService();
+      derivationService.deriveClearingAccountId.mockResolvedValue('bank-1');
+      await expect(service.create(validDto() as any, 'u1', 'tester')).rejects.toThrow(SAME_ACCOUNT);
+      expect(settingsService.generateDocumentNumber).not.toHaveBeenCalled();
+      expect(settlementRepo.save).not.toHaveBeenCalled();
+      expect(lineRepo.save).not.toHaveBeenCalled();
+      expect((manager.query as any).mock.calls.map((c: any[]) => c[0])).not.toContain('SAVEPOINT ps_lines_insert');
+    });
+
+    it('rejects update into the derived clearing account, before deleting or writing claims', async () => {
+      const { service, settlementRepo, lineRepo } = makeService();
+      derivationService.deriveClearingAccountId.mockResolvedValue('clearing-1');
+      await expect(
+        service.update('ps-1', { rows: validDto().rows, bankAccountId: 'clearing-1' } as any, 'u1', 'tester'),
+      ).rejects.toThrow(SAME_ACCOUNT);
+      expect(lineRepo.delete).not.toHaveBeenCalled();
+      expect(lineRepo.save).not.toHaveBeenCalled();
+      expect(settlementRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects update of rows whose clearing account is the STORED bank account', async () => {
+      // No bankAccountId in the PATCH: the stored one is the destination.
+      const { service, lineRepo, settlementRepo } = makeService({ settlement: { bankAccountId: 'bank-1' } });
+      derivationService.deriveClearingAccountId.mockResolvedValue('bank-1');
+      await expect(service.update('ps-1', { rows: validDto().rows } as any)).rejects.toThrow(SAME_ACCOUNT);
+      expect(lineRepo.delete).not.toHaveBeenCalled();
+      expect(settlementRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects posting an existing draft that settles into its own clearing account', async () => {
+      // A draft saved before the guard existed: snapshot and re-derivation agree,
+      // so only the same-account check can stop it.
+      const { service, postingPort, settlementRepo } = makeService({
+        settlement: { clearingAccountId: 'bank-1', bankAccountId: 'bank-1' },
+        lines: [line('pay-A', '98.0000')],
+        eligible: [pay('pay-A', '98.0000')],
+      });
+      derivationService.deriveClearingAccountId.mockResolvedValue('bank-1');
+      await expect(service.post('ps-1', 'u1', 'tester')).rejects.toThrow(SAME_ACCOUNT);
+      expect(postingPort.postProviderSettlement).not.toHaveBeenCalled();
+      expect(settlementRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
   it('posts a draft whose payment method became invalid after saving', async () => {
     // Posting reads journal history, NOT the mapping — so a mapping that goes
     // invalid after the draft is saved must not block it. Without this positive

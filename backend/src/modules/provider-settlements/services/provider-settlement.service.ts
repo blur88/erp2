@@ -43,6 +43,19 @@ import {
 const CLAIM_INDEX = 'IDX_886b6f559ab60cc5167ca3896b';
 const STALE_TEXT = 'Some rows changed since they were loaded. Review them and save again.';
 const DEADLOCK_TEXT = 'The settlement could not be saved because of a concurrent change. Try again.';
+const SAME_ACCOUNT_TEXT =
+  'The selected payments already debit the destination bank account and cannot be settled into that same account.';
+
+/**
+ * A payment method mapped straight to a bank account (CIMB → 1200) debits that
+ * bank when the payment posts. Settling it into the same account would post
+ * Dr X / Cr X — a journal that balances and changes nothing, while marking the
+ * payments settled. `clearingAccountId` must be the account DERIVED from the
+ * payments' original journals, never the live mapping.
+ */
+function assertDistinctAccounts(clearingAccountId: string, bankAccountId: string): void {
+  if (clearingAccountId === bankAccountId) throw new BadRequestException(SAME_ACCOUNT_TEXT);
+}
 
 interface StaleRow { salesOrderId: string; paymentMethodId: string; currentNetAmount: string | null }
 
@@ -184,6 +197,7 @@ export class ProviderSettlementService {
       const payments = await this.resolveRows(dto.rows, dto.settlementDate, undefined, manager);
       this.assertReconciles(payments, dto.settlementAmount);
       const clearingAccountId = await this.derivation.deriveClearingAccountId(payments, manager);
+      assertDistinctAccounts(clearingAccountId, dto.bankAccountId);
       const referenceNumber = await this.settings.generateDocumentNumber('Provider Settlements', manager);
       const repo = manager.getRepository(ProviderSettlement);
       const settlement = repo.create({
@@ -256,6 +270,11 @@ export class ProviderSettlementService {
       // PATCH omits it.
       this.assertReconciles(payments, dto.settlementAmount ?? settlement.settlementAmount);
 
+      // Derived BEFORE the claims are replaced, so the same-account guard can
+      // reject without touching the draft's existing lines.
+      const clearingAccountId = await this.derivation.deriveClearingAccountId(payments, manager);
+      assertDistinctAccounts(clearingAccountId, dto.bankAccountId ?? settlement.bankAccountId);
+
       const lineRepo = manager.getRepository(ProviderSettlementLine);
 
       // HARD delete, never softDelete/softRemove. ProviderSettlementLine
@@ -268,9 +287,7 @@ export class ProviderSettlementService {
 
       // Recomputed on every update: changing the selection can change the
       // derived account.
-      settlement.clearingAccountId = await this.derivation.deriveClearingAccountId(
-        payments, manager,
-      );
+      settlement.clearingAccountId = clearingAccountId;
       settlement.providerPaymentMethodId = methodId;
 
       if (dto.bankAccountId) settlement.bankAccountId = dto.bankAccountId;
@@ -467,6 +484,8 @@ export class ProviderSettlementService {
             `(${settlement.clearingAccountId} → ${rederived}). Review the selection.`,
         );
       }
+      // Re-checked here so a draft saved before the guard existed cannot post.
+      assertDistinctAccounts(rederived, settlement.bankAccountId);
 
       this.assertReconciles(payments, settlement.settlementAmount);
       const amountMinor = toMinorUnits(settlement.settlementAmount);

@@ -54,6 +54,7 @@ describe('Provider settlements (e2e)', () => {
   let categoryId = '';
   let atomeMethodId = '';
   let tiktokMethodId = '';
+  let cimbMethodId = '';
   let clearingAccountId = '';
   let bankAccountId = '';
 
@@ -101,6 +102,9 @@ describe('Provider settlements (e2e)', () => {
     // against one database. Read them; never mutate or delete them.
     atomeMethodId = await methodIdByCode(ds, 'ATOME');
     tiktokMethodId = await methodIdByCode(ds, 'TIKTOK');
+    // CIMB is mapped straight to the 1200 bank account (1789658118888), so its
+    // payments already debit the account this suite settles into.
+    cimbMethodId = await methodIdByCode(ds, 'CIMB');
     clearingAccountId = await accountIdByCode(ds, '1240');
     bankAccountId = await accountIdByCode(ds, '1200');
 
@@ -984,6 +988,96 @@ describe('Provider settlements (e2e)', () => {
       expect(s.status).toBe('DRAFT');
     });
 
+    describe('same-account guard', () => {
+      const SAME_ACCOUNT =
+        'The selected payments already debit the destination bank account and cannot be settled into that same account.';
+
+      async function settlementCount(): Promise<number> {
+        const [row] = await ds.query('SELECT count(*)::int AS n FROM provider_settlements');
+        return row.n;
+      }
+
+      it('create: rejects settling CIMB payments into the 1200 bank they already debit, persisting nothing', async () => {
+        const { orderId, paymentId } = await payOrder('45.00', cimbMethodId);
+        const settlementsBefore = await settlementCount();
+        const journalsBefore = await countJournalEntries();
+
+        const res = await createDraft(
+          [{ salesOrderId: orderId, paymentMethodId: cimbMethodId, expectedNetAmount: '45.00' }], '45.00',
+        );
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(SAME_ACCOUNT);
+        expect(await settlementCount()).toBe(settlementsBefore);
+        expect(await countJournalEntries()).toBe(journalsBefore);
+        const claims = await ds.query(
+          'SELECT 1 FROM provider_settlement_lines WHERE "salesOrderPaymentId" = $1', [paymentId],
+        );
+        expect(claims).toHaveLength(0);
+      });
+
+      it('update: rejects moving a draft into its derived clearing account, leaving the draft untouched', async () => {
+        const { orderId } = await payOrder('46.00'); // Atome → clearing 1240
+        const created = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '46.00' }], '46.00');
+        expect(created.status).toBe(201);
+        const id = (created.body.data ?? created.body).id;
+        const snapshot = async () => ({
+          settlement: (await ds.query(
+            `SELECT "bankAccountId", "clearingAccountId", "settlementAmount", "updatedAt"
+               FROM provider_settlements WHERE id = $1`, [id],
+          ))[0],
+          lines: await ds.query(
+            'SELECT id, "salesOrderPaymentId", amount FROM provider_settlement_lines WHERE "settlementId" = $1 ORDER BY id',
+            [id],
+          ),
+        });
+        const before = await snapshot();
+        expect(before.settlement.clearingAccountId).toBe(clearingAccountId);
+
+        const res = await request(app.getHttpServer())
+          .patch(`/accounting/provider-settlements/${id}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            rows: [{ salesOrderId: orderId, paymentMethodId: atomeMethodId, expectedNetAmount: '46.00' }],
+            bankAccountId: clearingAccountId,
+          });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(SAME_ACCOUNT);
+        expect(await snapshot()).toEqual(before);
+      });
+
+      it('post: an existing draft that settles into its own clearing account cannot post', async () => {
+        // A draft saved before the guard existed: written directly, as the API
+        // now refuses to create it.
+        const { paymentId } = await payOrder('47.00', cimbMethodId);
+        const [s] = await ds.query(
+          `INSERT INTO provider_settlements
+             ("referenceNumber", "providerPaymentMethodId", "clearingAccountId", "bankAccountId",
+              "settlementDate", "settlementAmount", status)
+           VALUES ($1, $2, $3, $3, '2026-09-20', '47.0000', 'DRAFT') RETURNING id`,
+          [`PS-T-${randomUUID().slice(0, 8)}`, cimbMethodId, bankAccountId],
+        );
+        ownedSettlementIds.push(s.id);
+        await ds.query(
+          `INSERT INTO provider_settlement_lines ("settlementId", "salesOrderPaymentId", amount)
+           VALUES ($1, $2, '47.0000')`,
+          [s.id, paymentId],
+        );
+        const journalsBefore = await countJournalEntries();
+
+        const res = await post(`/accounting/provider-settlements/${s.id}/post`);
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(SAME_ACCOUNT);
+        const [after] = await ds.query(
+          'SELECT status, "journalEntryId", "postedAt" FROM provider_settlements WHERE id = $1', [s.id],
+        );
+        expect(after).toEqual({ status: 'DRAFT', journalEntryId: null, postedAt: null });
+        expect(await countJournalEntries()).toBe(journalsBefore);
+      });
+    });
+
     it('two settlements that both pass recomputation collide on the claim index: one 201, one 409, no partial claims', async () => {
       const service = app.get(ProviderSettlementService) as any;
       const { orderId } = await newOrder('90.00');
@@ -1072,14 +1166,23 @@ describe('Provider settlements (e2e)', () => {
         started.push(refundReq);
 
         // Identify the ONE session waiting on a lock held by THIS settlement's
-        // backend and running the order FOR UPDATE — not any waiting query.
+        // backend and reading sales_orders — not any waiting query.
         //
-        // `query` is TRUNCATED at track_activity_query_size (1kB on this
-        // cluster, a postmaster GUC), and TypeORM's lock read is longer than
-        // that, so its trailing FOR UPDATE never reaches pg_stat_activity.
-        // Statement logging confirmed the full text ends in `FOR UPDATE` (see
-        // the #1284 task report); the truncated prefix still identifies the
-        // refund's lock read on this order, waiting on this settlement.
+        // Why the pattern does not include `FOR UPDATE`: pg_stat_activity.query
+        // is truncated at track_activity_query_size (default 1024 bytes; a
+        // server-start setting), and the refund's lock read is longer than
+        // that. It comes from lockRowForUpdate() (common/db/tx-helpers.ts),
+        // which issues repo.findOne with lock mode pessimistic_write, so TypeORM
+        // selects every sales_orders column by alias and appends `FOR UPDATE` at
+        // the END — past the cut. To see the full statement, run with
+        // `log_statement = 'all'` and read the Postgres log.
+        //
+        // What still makes the match specific: the session must be waiting on a
+        // lock (wait_event_type = 'Lock'), blocked by this settlement's own
+        // backend (pg_blocking_pids), and reading `FROM "sales_orders"`. The only
+        // other request in flight is the refund, and the settlement holds
+        // nothing but its FOR SHARE on this order, so exactly one row can match.
+        // The `rows.length > 1` check below fails loudly if that ever changes.
         const deadline = Date.now() + 10_000;
         while (Date.now() < deadline && refundPid === undefined && !refundDone) {
           const rows: Array<{ pid: number }> = await ds.query(
