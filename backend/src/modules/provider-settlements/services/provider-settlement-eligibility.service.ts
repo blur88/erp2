@@ -12,7 +12,10 @@ import { PaymentMethodMappingService } from '../../accounting/services/payment-m
 import { AccountingLookupService } from '../../accounting/services/accounting-lookup.service';
 import { ProviderSettlementDerivationService } from './provider-settlement-derivation.service';
 import { derivedClearingAccountSql } from './derived-clearing-account.sql';
-import { EligiblePayment, groupKey, groupPayments, classifyClaimedGroup, ClaimedRowState } from './settlement-groups';
+import { ChartOfAccount } from '../../accounting/entities/chart-of-account.entity';
+import {
+  EligiblePayment, groupKey, groupPayments, classifyClaimedGroup, withProviderClearing, ClaimedRowState,
+} from './settlement-groups';
 import { formatScale4, sumMinor } from '../../../common/utils/money';
 
 export interface EligibilityScope { settlementDate: string; settlementId?: string }
@@ -325,6 +328,13 @@ export class ProviderSettlementEligibilityService {
     for (const [key, savedRows] of groupPayments(saved)) {
       const cur = currentByGroup.get(key) ?? [];
       const first = savedRows[0];
+      // Classify FIRST. An ineligible group (no current eligible payments) is
+      // preserved and never reclassified (spec §8), so it must not pay for — or be
+      // affected by — a derivation at all.
+      const base = classifyClaimedGroup(savedRows, cur);
+      const state = base === 'ineligible'
+        ? base
+        : withProviderClearing(base, await this.deriveSaved(savedRows, m));
       data.push({
         salesOrderId: first.salesOrderId,
         orderNumber: first.orderNumber,
@@ -334,10 +344,27 @@ export class ProviderSettlementEligibilityService {
         currentNetAmount: cur.length ? formatScale4(sumMinor(cur.map((r) => r.amount))) : null,
         savedPayments: savedRows.map(detail),
         currentPayments: cur.map(detail),
-        state: classifyClaimedGroup(savedRows, cur),
+        state,
       });
     }
     return { data };
+  }
+
+  /** TS derivation (authoritative) over the group's SAVED lines; a 400 means "failed", never "unflagged". */
+  private async deriveSaved(
+    saved: Array<{ id: string; salesOrderId: string; amount: string }>, m: EntityManager,
+  ): Promise<{ ok: true; flagged: boolean } | { ok: false }> {
+    let accountId: string;
+    try {
+      accountId = await this.derivation.deriveClearingAccountId(
+        saved.map(({ id, salesOrderId, amount }) => ({ id, salesOrderId, amount })), m,
+      );
+    } catch (err) {
+      if (err instanceof BadRequestException) return { ok: false };
+      throw err;
+    }
+    const account = await m.getRepository(ChartOfAccount).findOne({ where: { id: accountId } as any });
+    return { ok: true, flagged: Boolean(account?.isProviderClearing) };
   }
 
   async assertOwnDraft(settlementId: string, manager: EntityManager = this.defaultManager): Promise<ProviderSettlement> {

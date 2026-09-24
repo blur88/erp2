@@ -194,3 +194,38 @@ describe('listClaimedRows — one snapshot', () => {
     expect(res.data[0].state).toBe('ineligible');
   });
 });
+
+describe('listClaimedRows — provider clearing (#1285)', () => {
+  function harness(current: any[]) {
+    const saved = [{ id: 'pay-A', salesOrderId: 'so-1', paymentMethodId: 'pm-1', paymentDate: '2026-09-01',
+      amount: '40.0000', referenceNumber: null, orderNumber: 'SO-1', paymentMethodName: 'CIMB' }];
+    const manager: any = {
+      query: jest.fn(async () => saved),
+      getRepository: () => ({ findOne: jest.fn(async () => ({ id: 'acc-1200', isProviderClearing: false })) }),
+      transaction: jest.fn(async (_iso: string, cb: any) => cb(manager)),
+    };
+    const derivation = { deriveClearingAccountId: jest.fn(async () => 'acc-1200') };
+    const service = new ProviderSettlementEligibilityService(
+      manager, { list: jest.fn() } as any, { resolveAccount: jest.fn() } as any, derivation as any,
+    );
+    jest.spyOn(service, 'assertOwnDraft').mockResolvedValue({ id: 'ps-1' } as any);
+    jest.spyOn(service, 'eligiblePaymentsForOrders').mockResolvedValue(current as any);
+    return { service, derivation };
+  }
+
+  it('keeps an ineligible group ineligible WITHOUT calling the derivation', async () => {
+    const { service, derivation } = harness([]); // no current eligible payments
+    const { data } = await service.listClaimedRows('ps-1', '2026-09-20');
+    expect(data.map((d) => d.state)).toEqual(['ineligible']);
+    expect(derivation.deriveClearingAccountId).not.toHaveBeenCalled();
+  });
+
+  it('reclassifies a current group whose saved payments derive to an unflagged account', async () => {
+    const { service, derivation } = harness([
+      { id: 'pay-A', salesOrderId: 'so-1', paymentMethodId: 'pm-1', paymentDate: '2026-09-01', amount: '40.0000', referenceNumber: null },
+    ]);
+    const { data } = await service.listClaimedRows('ps-1', '2026-09-20');
+    expect(data.map((d) => d.state)).toEqual(['not_provider_clearing']);
+    expect(derivation.deriveClearingAccountId).toHaveBeenCalledTimes(1);
+  });
+});

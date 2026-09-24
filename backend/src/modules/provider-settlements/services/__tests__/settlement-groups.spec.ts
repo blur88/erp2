@@ -1,4 +1,4 @@
-import { groupKey, groupPayments, classifyClaimedGroup } from '../settlement-groups';
+import { groupKey, groupPayments, classifyClaimedGroup, withProviderClearing } from '../settlement-groups';
 
 describe('settlement-groups', () => {
   it('keys a group by sales order AND payment method', () => {
@@ -45,6 +45,21 @@ describe('settlement-groups', () => {
 
     it('is ineligible when nothing is eligible any more', () => {
       expect(classifyClaimedGroup([p('a', '100.0000')], [])).toBe('ineligible');
+    });
+  });
+
+  describe('withProviderClearing (#1285, spec §8)', () => {
+    it.each(['current', 'changed', 'zero'] as const)('%s + derived unflagged ⇒ not_provider_clearing', (s) => {
+      expect(withProviderClearing(s, { ok: true, flagged: false })).toBe('not_provider_clearing');
+    });
+    it('ineligible is preserved and never reclassified, even when derivation finds an unflagged account', () => {
+      expect(withProviderClearing('ineligible', { ok: true, flagged: false })).toBe('ineligible');
+    });
+    it.each(['current', 'changed', 'zero', 'ineligible'] as const)('%s + derivation failure ⇒ unchanged', (s) => {
+      expect(withProviderClearing(s, { ok: false })).toBe(s);
+    });
+    it('a flagged account leaves the state unchanged', () => {
+      expect(withProviderClearing('changed', { ok: true, flagged: true })).toBe('changed');
     });
   });
 });

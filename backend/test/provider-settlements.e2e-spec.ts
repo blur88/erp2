@@ -1369,6 +1369,22 @@ describe('Provider settlements (e2e)', () => {
           await ds.query(`UPDATE chart_of_account SET "isProviderClearing" = true WHERE code = '1240'`);
         }
       });
+
+      it('unflagging 1240 after a draft is saved ⇒ claimed rows are not_provider_clearing and post is 400', async () => {
+        const { orderId } = await payOrder('34.00'); // Atome → 1240
+        const created = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '34.00' }], '34.00');
+        expect(created.status).toBe(201);
+        const id = (created.body.data ?? created.body).id;
+        await ds.query(`UPDATE chart_of_account SET "isProviderClearing" = false WHERE code = '1240'`);
+        try {
+          expect((await claimed(id)).map((c) => c.state)).toEqual(['not_provider_clearing']);
+          const res = await post(`/accounting/provider-settlements/${id}/post`);
+          expect(res.status).toBe(400);
+          expect(res.body.message).toMatch(/^Account 1240 .* is not a provider clearing account\./);
+        } finally {
+          await ds.query(`UPDATE chart_of_account SET "isProviderClearing" = true WHERE code = '1240'`);
+        }
+      });
     });
   });
 }); // closes describe('Provider settlements (e2e)')

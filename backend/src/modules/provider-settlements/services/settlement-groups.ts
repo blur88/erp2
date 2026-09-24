@@ -14,7 +14,7 @@ export interface SettlementGroupKey {
   paymentMethodId: string;
 }
 
-export type ClaimedRowState = 'current' | 'changed' | 'zero' | 'ineligible';
+export type ClaimedRowState = 'current' | 'changed' | 'zero' | 'ineligible' | 'not_provider_clearing';
 
 export function groupKey(k: SettlementGroupKey): string {
   return `${k.salesOrderId}:${k.paymentMethodId}`;
@@ -47,4 +47,19 @@ export function classifyClaimedGroup(
     return 'current';
   }
   return sumMinor(current.map((c) => c.amount)) === 0n ? 'zero' : 'changed';
+}
+
+/**
+ * Spec §8 precedence. `ineligible` (no current eligible payments) is preserved
+ * and never reclassified. Otherwise a SUCCESSFUL derivation to an unflagged
+ * account wins; a failed derivation keeps the existing state, and post still
+ * reports the detailed derivation error.
+ */
+export function withProviderClearing(
+  state: ClaimedRowState,
+  derived: { ok: true; flagged: boolean } | { ok: false },
+): ClaimedRowState {
+  if (state === 'ineligible') return state;
+  if (derived.ok && !derived.flagged) return 'not_provider_clearing';
+  return state;
 }
