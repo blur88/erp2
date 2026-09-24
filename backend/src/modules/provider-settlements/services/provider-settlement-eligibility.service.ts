@@ -143,13 +143,25 @@ export class ProviderSettlementEligibilityService {
     return rows as EligiblePayment[];
   }
 
-  /** `mapped` methods, plus the draft's stored method (spec §4.5). */
+  /**
+   * Mapping gate (spec §6): methods currently mapped to a FLAGGED account, plus
+   * the draft's stored method. The draft exception bypasses THIS gate only —
+   * the journal gate in listEligibleRowsIn is never bypassed.
+   */
   private async allowedMethodIds(
     draft: Pick<ProviderSettlement, 'providerPaymentMethodId'> | undefined,
-    manager?: EntityManager,
+    manager: EntityManager,
   ): Promise<string[]> {
-    const rows = await this.mappingService.list(manager);
-    const ids = new Set(rows.filter((r) => r.status === 'mapped').map((r) => r.paymentMethodId));
+    const mapped = (await this.mappingService.list(manager)).filter((r) => r.status === 'mapped');
+    const flagged: Array<{ id: string }> = mapped.length
+      ? await manager.query(
+          `SELECT id FROM chart_of_account
+            WHERE id = ANY($1::uuid[]) AND "isProviderClearing" = true AND "deletedAt" IS NULL`,
+          [mapped.map((r) => r.accountId)],
+        )
+      : [];
+    const flaggedIds = new Set(flagged.map((a) => a.id));
+    const ids = new Set(mapped.filter((r) => flaggedIds.has(r.accountId!)).map((r) => r.paymentMethodId));
     if (draft) ids.add(draft.providerPaymentMethodId);
     return [...ids];
   }
@@ -185,6 +197,9 @@ export class ProviderSettlementEligibilityService {
     const args: unknown[] = [...eligibleParams];
     const bind = (v: unknown) => { args.push(v); return `$${args.length}`; };
 
+    const deposit = await this.lookup.resolveAccount('customerDeposit', m);
+    const derivedSql = derivedClearingAccountSql('eligible', bind, deposit.id);
+
     const filters: string[] = [`g."paymentMethodId" = ANY(${bind(methodIds)}::uuid[])`];
     if (params.salesOrderIds?.length) {
       filters.push(`g."salesOrderId" = ANY(${bind(params.salesOrderIds)}::uuid[])`);
@@ -201,8 +216,21 @@ export class ProviderSettlementEligibilityService {
            AND e2."referenceNumber" ILIKE ${q}))`);
     }
 
+    // Journal gate (spec §6): every eligible payment of the group derives (by the
+    // SQL mirror of the TS derivation) to ONE flagged, live account. Never bypassed.
+    filters.push(`NOT EXISTS (
+        SELECT 1 FROM eligible e3
+          LEFT JOIN derived d ON d."paymentId" = e3.id
+          LEFT JOIN chart_of_account a ON a.id = d."clearingAccountId" AND a."deletedAt" IS NULL
+         WHERE e3."salesOrderId" = g."salesOrderId" AND e3."paymentMethodId" = g."paymentMethodId"
+           AND a."isProviderClearing" IS NOT TRUE)`);
+    filters.push(`(SELECT count(DISTINCT d."clearingAccountId")
+         FROM eligible e4 JOIN derived d ON d."paymentId" = e4.id
+        WHERE e4."salesOrderId" = g."salesOrderId" AND e4."paymentMethodId" = g."paymentMethodId") = 1`);
+
     const groupsSql = `
       WITH eligible AS (${eligibleSql}),
+      derived AS (${derivedSql}),
       grouped AS (
         SELECT e."salesOrderId", e."paymentMethodId", SUM(e.amount) AS "netAmount"
           FROM eligible e

@@ -88,31 +88,37 @@ describe('eligiblePaymentsForOrders — shared builder', () => {
 
 describe('allowedMethodIds', () => {
   const mappingRows = [
-    { paymentMethodId: 'pm-mapped', status: 'mapped' },
-    { paymentMethodId: 'pm-unmapped', status: 'unmapped' },
-    { paymentMethodId: 'pm-invalid', status: 'invalid' },
+    { paymentMethodId: 'pm-flagged', accountId: 'acct-flagged', status: 'mapped' },
+    { paymentMethodId: 'pm-unflagged', accountId: 'acct-unflagged', status: 'mapped' },
+    { paymentMethodId: 'pm-unmapped', accountId: null, status: 'unmapped' },
+    { paymentMethodId: 'pm-invalid', accountId: 'acct-unflagged', status: 'invalid' },
   ];
+  const manager: any = { query: jest.fn(async () => [{ id: 'acct-flagged' }]) };
 
-  it('lists mapped methods only when no draft is given', async () => {
+  it('lists only methods currently mapped to a flagged account', async () => {
     const service = new ProviderSettlementEligibilityService(
       {} as any,
       { list: jest.fn(async () => mappingRows) } as any,
       { resolveAccount: jest.fn(async () => ({ id: 'dep' })) } as any,
       { deriveClearingAccountId: jest.fn() } as any,
     );
-    expect(await (service as any).allowedMethodIds(undefined)).toEqual(['pm-mapped']);
+    expect(await (service as any).allowedMethodIds(undefined, manager)).toEqual(['pm-flagged']);
   });
 
-  it("adds the draft's stored method even when it is no longer mapped", async () => {
+  it("adds the draft's stored method even when it is not mapped to a flagged account", async () => {
     const service = new ProviderSettlementEligibilityService(
       {} as any,
       { list: jest.fn(async () => mappingRows) } as any,
       { resolveAccount: jest.fn(async () => ({ id: 'dep' })) } as any,
       { deriveClearingAccountId: jest.fn() } as any,
     );
-    const ids = await (service as any).allowedMethodIds({ providerPaymentMethodId: 'pm-unmapped' });
-    expect(ids.sort()).toEqual(['pm-mapped', 'pm-unmapped']);
+    const ids = await (service as any).allowedMethodIds(
+      { providerPaymentMethodId: 'pm-unmapped' },
+      manager,
+    );
+    expect(ids.sort()).toEqual(['pm-flagged', 'pm-unmapped']);
     expect(ids).not.toContain('pm-invalid');
+    expect(ids).not.toContain('pm-unflagged');
   });
 });
 
@@ -127,10 +133,13 @@ describe('listEligibleRows — one snapshot', () => {
     ]);
     const tx: any = {
       getRepository: () => ({ createQueryBuilder: () => qb }),
-      query: (jest.fn() as any)
-        .mockResolvedValueOnce([{ total: 1 }])
+      query: (jest.fn() as any).mockImplementation(async (sql: string) => {
+        // The mapping gate's flagged-account lookup runs before the count.
+        if (sql.includes('SELECT id FROM chart_of_account')) return [{ id: 'acct-flagged' }];
+        if (sql.includes('AS total')) return [{ total: 1 }];
         // A deliberately DISAGREEING SQL net: the result must not use it.
-        .mockResolvedValueOnce([{ salesOrderId: 'so-1', paymentMethodId: 'pm-1', netAmount: '100.0000', orderNumber: 'SO-1', paymentMethodName: 'TikTok' }]),
+        return [{ salesOrderId: 'so-1', paymentMethodId: 'pm-1', netAmount: '100.0000', orderNumber: 'SO-1', paymentMethodName: 'TikTok' }];
+      }),
     };
     const outside = () => { throw new Error('read outside the snapshot'); };
     const defaultManager: any = {
@@ -138,7 +147,7 @@ describe('listEligibleRows — one snapshot', () => {
       query: jest.fn(outside),
       getRepository: jest.fn(outside),
     };
-    const mapping: any = { list: jest.fn(async () => [{ paymentMethodId: 'pm-1', status: 'mapped' }]) };
+    const mapping: any = { list: jest.fn(async () => [{ paymentMethodId: 'pm-1', accountId: 'acct-flagged', status: 'mapped' }]) };
     const service = new ProviderSettlementEligibilityService(
       defaultManager,
       mapping,

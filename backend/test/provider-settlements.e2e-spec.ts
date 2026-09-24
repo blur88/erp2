@@ -46,6 +46,7 @@ describe('Provider settlements (e2e)', () => {
   let token = '';
   let post: (path: string, body?: any) => request.Test;
   let get: (path: string) => request.Test;
+  let put: (path: string, body?: any) => request.Test;
 
   let adminUserId = '';
   let adminUsername = '';
@@ -97,6 +98,8 @@ describe('Provider settlements (e2e)', () => {
     post = (path: string, body: any = {}) =>
       auth(request(server).post(path).send(body));
     get = (path: string) => auth(request(server).get(path));
+    put = (path: string, body: any = {}) =>
+      auth(request(server).put(path).send(body));
 
     // BASELINE rows, shared with every other suite in a size-ordered run
     // against one database. Read them; never mutate or delete them.
@@ -734,6 +737,34 @@ describe('Provider settlements (e2e)', () => {
       return res.body.data as any[];
     }
 
+    async function putMapping(methodId: string, accountId: string | null) {
+      await put('/accounting/settings/payment-method-mappings', {
+        mappings: [{ paymentMethodId: methodId, accountId }],
+      }).expect(200);
+    }
+
+    /** Remap `methodId` to account `code` for the duration of `fn`, then restore. */
+    async function withMethodMappedTo(
+      methodId: string,
+      code: string,
+      fn: () => Promise<void>,
+    ) {
+      const [current] = await ds.query(
+        `SELECT "accountId" FROM payment_method_account_mappings WHERE "paymentMethodId" = $1`,
+        [methodId],
+      );
+      await putMapping(methodId, await accountIdByCode(ds, code));
+      try {
+        await fn();
+      } finally {
+        await putMapping(methodId, current?.accountId ?? null);
+      }
+    }
+
+    async function withCimbMappedTo(code: string, fn: () => Promise<void>) {
+      await withMethodMappedTo(cimbMethodId, code, fn);
+    }
+
     it('SO-26-008: Atome paid and refunded, TikTok paid ⇒ only the TikTok row', async () => {
       const { orderId, orderNumber } = await newOrder('130.00');
       await payExisting(orderId, '130.00', atomeMethodId);
@@ -1213,6 +1244,45 @@ describe('Provider settlements (e2e)', () => {
       // The refund arrived after the claim: it is unclaimed residue, not part of the draft.
       const [residue] = await rowsFor([orderId]);
       expect(residue.netAmount).toBe('-30.0000');
+    });
+
+    describe('provider clearing eligibility (#1285)', () => {
+      it('lists Shopee but not Cash, CIMB or Maybank groups, and meta.total agrees', async () => {
+        const { orderId } = await newOrder('100.00');
+        await payExisting(orderId, '25.00', await methodIdByCode(ds, 'SHOPEE'));
+        await payExisting(orderId, '25.00', await methodIdByCode(ds, 'CASH'));
+        await payExisting(orderId, '25.00', cimbMethodId);
+        await payExisting(orderId, '25.00', await methodIdByCode(ds, 'MAYBANK'));
+        const res = await get(`/accounting/provider-settlements/eligible-rows?salesOrderIds=${orderId}&settlementDate=2026-09-20`).expect(200);
+        expect(res.body.data.map((r: any) => r.paymentMethodName)).toEqual(['Shopee']);
+        expect(res.body.meta.total).toBe(1);
+      });
+
+      it('remapping CIMB to 1220 does not list an old CIMB payment', async () => {
+        const { orderId } = await payOrder('31.00', cimbMethodId); // journal debits 1200
+        await withCimbMappedTo('1220', async () => {
+          const rows = await rowsFor([orderId]);
+          expect(rows).toHaveLength(0);
+        });
+      });
+
+      it("the draft's stored method bypasses the mapping gate but not the journal gate", async () => {
+        // A CIMB draft (inserted directly: the API now refuses it) with an old CIMB payment.
+        const { orderId, paymentId } = await payOrder('32.00', cimbMethodId);
+        const draftId = await insertDraft(cimbMethodId, [{ paymentId, amount: '32.0000' }], '32.0000');
+        const res = await get(`/accounting/provider-settlements/eligible-rows?settlementId=${draftId}&salesOrderIds=${orderId}&settlementDate=2026-09-20`).expect(200);
+        expect(res.body.data).toHaveLength(0);
+      });
+
+      it('does not list a group whose payments derive to two different flagged accounts', async () => {
+        const shopee = await methodIdByCode(ds, 'SHOPEE');
+        const { orderId } = await newOrder('60.00');
+        await payExisting(orderId, '30.00', shopee);          // → 1220
+        await withMethodMappedTo(shopee, '1230', async () => {
+          await payExisting(orderId, '30.00', shopee);        // → 1230
+          expect(await rowsFor([orderId])).toHaveLength(0);
+        });
+      });
     });
   });
 }); // closes describe('Provider settlements (e2e)')
