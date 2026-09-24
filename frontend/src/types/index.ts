@@ -1020,6 +1020,15 @@ export interface ProviderSettlementLine {
   salesOrderPaymentId: string
   amount: string
   releasedAt: string | null
+  salesOrderPayment?: {
+    id: string
+    salesOrderId: string
+    paymentMethodId: string
+    paymentDate: string
+    referenceNumber: string | null
+    salesOrder?: { id: string; orderNumber: string }
+    paymentMethod?: { id: string; name: string }
+  }
 }
 
 export interface ProviderSettlement {
@@ -1044,13 +1053,40 @@ export interface ProviderSettlement {
   lines?: ProviderSettlementLine[]
 }
 
-export interface EligiblePaymentRow {
+export interface SettlementPaymentDetail {
   id: string
-  salesOrderId: string
-  orderNumber: string
   paymentDate: string
   amount: string
   referenceNumber: string | null
+}
+
+export interface EligibleSettlementRow {
+  salesOrderId: string
+  orderNumber: string
+  paymentMethodId: string
+  paymentMethodName: string
+  netAmount: string
+  payments: SettlementPaymentDetail[]
+}
+
+export type ClaimedRowState = 'current' | 'changed' | 'zero' | 'ineligible'
+
+export interface ClaimedSettlementRow {
+  salesOrderId: string
+  orderNumber: string
+  paymentMethodId: string
+  paymentMethodName: string
+  savedNetAmount: string
+  currentNetAmount: string | null
+  savedPayments: SettlementPaymentDetail[]
+  currentPayments: SettlementPaymentDetail[]
+  state: ClaimedRowState
+}
+
+export interface SettlementRowInput {
+  salesOrderId: string
+  paymentMethodId: string
+  expectedNetAmount: string
 }
 
 export interface ProviderSettlementListParams {

@@ -9,6 +9,7 @@ import {
   ProviderSettlementStatus,
 } from '../../entities/provider-settlement.entity';
 import { ProviderSettlementLine } from '../../entities/provider-settlement-line.entity';
+import { SalesOrderPayment } from '../../../../database/entities/sales-order-payment.entity';
 import { ProviderSettlementDerivationService } from '../provider-settlement-derivation.service';
 import { ProviderSettlementEligibilityService } from '../provider-settlement-eligibility.service';
 import { AccountingLookupService } from '../../../accounting/services/accounting-lookup.service';
@@ -22,6 +23,7 @@ type MappingStatus = 'mapped' | 'unmapped' | 'invalid';
 interface MakeServiceOptions {
   mappingStatus?: MappingStatus;
   saveError?: { code: string };
+  saveErrorConstraint?: string;
   conflictingIds?: string[];
   submittedIds?: string[];
   existingLines?: string[];
@@ -29,20 +31,25 @@ interface MakeServiceOptions {
   onLock?: () => void;
   onStatusRead?: () => void;
   lines?: Array<{ salesOrderPaymentId: string; amount: string }>;
-  livePayments?: Array<{ id: string; salesOrderId?: string; amount: string }>;
+  eligible?: Array<{ id: string; salesOrderId: string; paymentMethodId: string; amount: string }>;
+  linePayments?: Array<{ id: string; salesOrderId: string; paymentMethodId: string; amount: string }>;
+  labels?: { methods?: Record<string, string>; orders?: Record<string, string> };
+  queryError?: { code: string };
   timezone?: string;
 }
 
 function validDto() {
   return {
-    providerPaymentMethodId: 'pm-1',
-    bankAccountId: 'bank-1',
-    settlementDate: '2026-09-20',
-    providerReference: 'PRV-1',
+    bankAccountId: 'bank-1', settlementDate: '2026-09-20', providerReference: 'PRV-1',
     settlementAmount: '98.00',
-    paymentIds: ['pay-A'],
+    rows: [{ salesOrderId: 'so-1', paymentMethodId: 'pm-1', expectedNetAmount: '98.00' }],
   };
 }
+
+const r = (salesOrderId: string, paymentMethodId: string, expectedNetAmount: string) =>
+  ({ salesOrderId, paymentMethodId, expectedNetAmount });
+const line = (salesOrderPaymentId: string, amount: string) => ({ salesOrderPaymentId, amount });
+const pay = (id: string, amount: string, salesOrderId = 'so-1') => ({ id, salesOrderId, paymentMethodId: 'pm-1', amount });
 
 describe('ProviderSettlementService — drafts', () => {
   let service: ProviderSettlementService;
@@ -67,9 +74,7 @@ describe('ProviderSettlementService — drafts', () => {
       deriveClearingAccountId: jest.fn(async () => 'clearing-1'),
     };
     eligibilityService = {
-      assertEligible: jest.fn(async (ids: string[]) =>
-        ids.map((id) => ({ id, salesOrderId: 'so-1', amount: '98.0000' })),
-      ),
+      eligiblePaymentsForOrders: jest.fn(async () => [] as any[]),
     };
     mappingService = { list: jest.fn(async () => []) };
     postingPort = {
@@ -143,7 +148,12 @@ describe('ProviderSettlementService — drafts', () => {
     const lineRepo = {
       create: jest.fn((x: any) => ({ ...x })),
       save: jest.fn(async (rows: any) => {
-        if (opts.saveError) throw opts.saveError;
+        if (opts.saveError) {
+          throw {
+            code: opts.saveError.code,
+            constraint: opts.saveErrorConstraint ?? 'IDX_886b6f559ab60cc5167ca3896b',
+          };
+        }
         return rows;
       }),
       delete: jest.fn(async () => ({ affected: 1 })),
@@ -171,14 +181,46 @@ describe('ProviderSettlementService — drafts', () => {
         isPostable: true,
       })),
     };
+
+    const eligibleRows = (opts.eligible ?? [
+      { id: 'pay-A', salesOrderId: 'so-1', paymentMethodId: 'pm-1', amount: '98.0000' },
+    ]).map((row) => ({ paymentDate: '2026-09-01', referenceNumber: null, ...row }));
+    eligibilityService.eligiblePaymentsForOrders.mockImplementation(async (ids: string[]) =>
+      eligibleRows.filter((row) => ids.includes(row.salesOrderId)),
+    );
+
+    const paymentRows = [...eligibleRows, ...(opts.linePayments ?? [])];
+    const paymentRepo = {
+      find: jest.fn(async (findOptions?: any) => {
+        // where.id is TypeORM's In(...) FindOperator; its `.value` is the id array.
+        const ids: string[] | undefined = findOptions?.where?.id?.value;
+        if (!ids) throw new Error('post must look payments up by line id');
+        return paymentRows.filter((row) => ids.includes(row.id));
+      }),
+    };
+
     const manager = {
       getRepository: jest.fn((entity: any) => {
         if (entity === ProviderSettlement) return settlementRepo;
         if (entity === ProviderSettlementLine) return lineRepo;
+        if (entity === SalesOrderPayment) return paymentRepo;
         if (entity === ChartOfAccount) return coaRepo;
         return {};
       }),
-      query: jest.fn(async () => undefined),
+      query: jest.fn(async (sql: string, params?: any[]) => {
+        if (opts.queryError && /FOR SHARE/.test(sql)) throw opts.queryError;
+        if (/FROM payment_methods/.test(sql)) {
+          return (params?.[0] ?? []).map((id: string) => ({
+            id, name: opts.labels?.methods?.[id] ?? id,
+          }));
+        }
+        if (/"orderNumber"/.test(sql) && /FROM sales_orders/.test(sql)) {
+          return (params?.[0] ?? []).map((id: string) => ({
+            id, orderNumber: opts.labels?.orders?.[id] ?? id,
+          }));
+        }
+        return [];
+      }),
     };
     (dataSource.transaction as any).mockImplementation(async (cb: any) =>
       cb(manager),
@@ -190,24 +232,6 @@ describe('ProviderSettlementService — drafts', () => {
     ]);
 
     settingsService.getRegionalSettings.mockResolvedValue({ timezone: opts.timezone ?? 'UTC' });
-
-    // Live revalidation rows: by default mirror the stored line snapshots, so
-    // the snapshot check passes and the amount-reconciliation check is what a
-    // test exercises. `livePayments` overrides them to simulate drift.
-    const liveRows =
-      opts.livePayments ??
-      (opts.lines
-        ? opts.lines.map((l) => ({
-            id: l.salesOrderPaymentId,
-            salesOrderId: 'so-1',
-            amount: l.amount,
-          }))
-        : null);
-    if (liveRows) {
-      eligibilityService.assertEligible.mockImplementation(async (ids: string[]) =>
-        liveRows.filter((p) => ids.includes(p.id)),
-      );
-    }
 
     postingPort.postProviderSettlement.mockClear();
     postingPort.reverseEntry.mockClear();
@@ -251,8 +275,8 @@ describe('ProviderSettlementService — drafts', () => {
     // needs its own check.
     const { service } = makeService();
     await expect(
-      service.create({ ...validDto(), paymentIds: [] } as any, 'u1', 'tester'),
-    ).rejects.toThrow(/at least one payment/);
+      service.create({ ...validDto(), rows: [] } as any, 'u1', 'tester'),
+    ).rejects.toThrow(/at least one row/);
   });
 
   it('rejects a payment method that is not status "mapped"', async () => {
@@ -262,22 +286,33 @@ describe('ProviderSettlementService — drafts', () => {
     );
   });
 
-  it('names ONLY the actually-conflicting ids in a 409, not every submitted id', async () => {
-    // The form is promised it can drop the unavailable rows and keep the rest.
-    // Reporting all submitted ids would force it to clear the whole selection.
+  it('names ONLY the actually-conflicting groups in a 409', async () => {
     const { service } = makeService({
+      eligible: [
+        { id: 'pay-A', salesOrderId: 'so-1', paymentMethodId: 'pm-1', amount: '50.0000' },
+        { id: 'pay-B', salesOrderId: 'so-2', paymentMethodId: 'pm-1', amount: '48.0000' },
+      ],
       saveError: { code: '23505' },
-      conflictingIds: ['pay-B'],           // only B is claimed elsewhere
-      submittedIds: ['pay-A', 'pay-B', 'pay-C'],
+      conflictingIds: ['pay-B'],
     });
-    const err = await service
-      .create({ ...validDto(), paymentIds: ['pay-A', 'pay-B', 'pay-C'] } as any, 'u1', 'tester')
-      .catch((e) => e);
+    const err = await service.create({
+      ...validDto(),
+      rows: [
+        { salesOrderId: 'so-1', paymentMethodId: 'pm-1', expectedNetAmount: '50.00' },
+        { salesOrderId: 'so-2', paymentMethodId: 'pm-1', expectedNetAmount: '48.00' },
+      ],
+    } as any, 'u1', 'tester').catch((e) => e);
     expect(err).toBeInstanceOf(ConflictException);
-    // Nested under `message` — a sibling field would be stripped by the filter.
-    const body = err.getResponse() as any;
-    expect(body.message.unavailablePaymentIds).toEqual(['pay-B']);
-    expect(body.message.text).toMatch(/claimed by another settlement/);
+    expect((err.getResponse() as any).message.staleRows).toEqual([
+      { salesOrderId: 'so-2', paymentMethodId: 'pm-1', currentNetAmount: null },
+    ]);
+  });
+
+  it('rethrows a unique violation on any OTHER constraint', async () => {
+    const { service } = makeService({ saveError: { code: '23505' }, saveErrorConstraint: 'UQ_something_else' });
+    const err = await service.create(validDto() as any, 'u1', 'tester').catch((e) => e);
+    expect(err).not.toBeInstanceOf(ConflictException);
+    expect(err.code).toBe('23505');
   });
 
   it('rolls back to the savepoint so the conflict lookup can run', async () => {
@@ -300,16 +335,21 @@ describe('ProviderSettlementService — drafts', () => {
       onLock: () => calls.push('lock'),
       onStatusRead: () => calls.push('status'),
     });
-    await (service as any)[method]('ps-1', { paymentIds: ['pay-1'] } as any, 'u1', 'tester').catch(() => {});
+    await (service as any)[method]('ps-1', { rows: [r('so-1', 'pm-1', '98.00')] } as any, 'u1', 'tester').catch(() => {});
     expect(calls[0]).toBe('lock');
   });
 
-  it('replaces the selection rather than merging it', async () => {
-    const { service, lineRepo } = makeService({ existingLines: ['pay-A', 'pay-B'] });
-    await service.update('ps-1', { paymentIds: ['pay-B', 'pay-C'] } as any, 'u1', 'tester');
+  it('replaces the selection with the complete eligible set of each group', async () => {
+    const { service, lineRepo } = makeService({
+      eligible: [
+        { id: 'pay-A', salesOrderId: 'so-1', paymentMethodId: 'pm-1', amount: '100.0000' },
+        { id: 'ref-A', salesOrderId: 'so-1', paymentMethodId: 'pm-1', amount: '-30.0000' },
+      ],
+      settlement: { settlementAmount: '70.0000' },
+    });
+    await service.update('ps-1', { rows: [{ salesOrderId: 'so-1', paymentMethodId: 'pm-1', expectedNetAmount: '70.00' }] } as any, 'u1', 'tester');
     expect(lineRepo.delete).toHaveBeenCalledWith({ settlementId: 'ps-1' });
-    const written = lineRepo.save.mock.calls[0][0].map((l: any) => l.salesOrderPaymentId);
-    expect(written.sort()).toEqual(['pay-B', 'pay-C']);
+    expect(lineRepo.save.mock.calls[0][0].map((l: any) => l.salesOrderPaymentId)).toEqual(['pay-A', 'ref-A']);
   });
 
   it('allows an ordinary edit on a draft whose provider mapping went invalid', async () => {
@@ -321,7 +361,7 @@ describe('ProviderSettlementService — drafts', () => {
       mappingStatus: 'invalid',
     });
     await expect(
-      service.update('ps-1', { paymentIds: ['pay-1'], providerReference: 'fixed' } as any, 'u1', 'tester'),
+      service.update('ps-1', { rows: [r('so-1', 'pm-1', '98.00')], providerReference: 'fixed' } as any, 'u1', 'tester'),
     ).resolves.toBeDefined();
     expect(mappingService.list).not.toHaveBeenCalled();
   });
@@ -330,9 +370,10 @@ describe('ProviderSettlementService — drafts', () => {
     const { service } = makeService({
       settlement: { status: 'DRAFT', providerPaymentMethodId: 'pm-1' },
       mappingStatus: 'unmapped',
+      eligible: [{ id: 'x', salesOrderId: 'so-2', paymentMethodId: 'pm-2', amount: '98.0000' }],
     });
     await expect(
-      service.update('ps-1', { paymentIds: ['pay-1'], providerPaymentMethodId: 'pm-2' } as any, 'u1', 'tester'),
+      service.update('ps-1', { rows: [r('so-2', 'pm-2', '98.00')] } as any, 'u1', 'tester'),
     ).rejects.toThrow(/not mapped to a valid account/);
   });
 
@@ -342,10 +383,11 @@ describe('ProviderSettlementService — drafts', () => {
     const { service, mappingService, manager } = makeService({
       settlement: { status: 'DRAFT', providerPaymentMethodId: 'pm-1' },
       mappingStatus: 'mapped',
+      eligible: [{ id: 'x', salesOrderId: 'so-2', paymentMethodId: 'pm-2', amount: '98.0000' }],
     });
     await service.update(
       'ps-1',
-      { paymentIds: ['pay-1'], providerPaymentMethodId: 'pm-2' } as any,
+      { rows: [r('so-2', 'pm-2', '98.00')] } as any,
       'u1',
       'tester',
     );
@@ -354,7 +396,7 @@ describe('ProviderSettlementService — drafts', () => {
 
   it('HARD-deletes removed lines so the claim is actually released', async () => {
     const { service, lineRepo } = makeService({ existingLines: ['pay-A'] });
-    await service.update('ps-1', { paymentIds: ['pay-B'] } as any, 'u1', 'tester');
+    await service.update('ps-1', { rows: [r('so-1', 'pm-1', '98.00')] } as any, 'u1', 'tester');
 
     // softDelete/softRemove would set deletedAt and leave the claim LIVE,
     // because the partial unique index keys on releasedAt. A line-count
@@ -364,18 +406,131 @@ describe('ProviderSettlementService — drafts', () => {
     expect(lineRepo.softRemove).not.toHaveBeenCalled();
   });
 
+  it('rejects mixed payment methods, naming each method with its order numbers', async () => {
+    const { service } = makeService({
+      labels: { methods: { 'pm-1': 'TikTok', 'pm-2': 'Atome' }, orders: { 'so-1': 'SO-26-008', 'so-2': 'SO-26-005' } },
+    });
+    const err = await service.create({ ...validDto(), rows: [r('so-1', 'pm-1', '98.00'), r('so-2', 'pm-2', '1.00')] } as any).catch((e) => e);
+    expect(err.message).toMatch(/A settlement can cover one provider payout/);
+    expect(err.message).toMatch(/TikTok: SO-26-008/);
+    expect(err.message).toMatch(/Atome: SO-26-005/);
+    expect(err.message).not.toMatch(/pm-1|so-1/); // never bare ids when labels exist
+  });
+
+  it('infers and stores the payment method from the rows', async () => {
+    const { service, settlementRepo } = makeService();
+    await service.create(validDto() as any, 'u1', 'tester');
+    expect(settlementRepo.create.mock.calls[0][0].providerPaymentMethodId).toBe('pm-1');
+  });
+
+  it('409s a group whose net changed, reporting the current net', async () => {
+    const { service } = makeService();
+    const err = await service.create({ ...validDto(), rows: [r('so-1', 'pm-1', '90.00')], settlementAmount: '90.00' } as any).catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect((err.getResponse() as any).message).toEqual({
+      text: 'Some rows changed since they were loaded. Review them and save again.',
+      staleRows: [{ salesOrderId: 'so-1', paymentMethodId: 'pm-1', currentNetAmount: '98.0000' }],
+    });
+  });
+
+  it('409s a group that now nets to zero', async () => {
+    const { service } = makeService({ eligible: [
+      { id: 'p', salesOrderId: 'so-1', paymentMethodId: 'pm-1', amount: '98.0000' },
+      { id: 'q', salesOrderId: 'so-1', paymentMethodId: 'pm-1', amount: '-98.0000' },
+    ] });
+    const err = await service.create(validDto() as any).catch((e) => e);
+    expect((err.getResponse() as any).message.staleRows[0].currentNetAmount).toBe('0.0000');
+  });
+
+  it('409s a group with no eligible payment as null', async () => {
+    const { service } = makeService({ eligible: [] });
+    const err = await service.create(validDto() as any).catch((e) => e);
+    expect((err.getResponse() as any).message.staleRows[0].currentNetAmount).toBeNull();
+  });
+
+  it('rejects a non-positive total even when every row is current', async () => {
+    const { service } = makeService({ eligible: [
+      { id: 'p', salesOrderId: 'so-1', paymentMethodId: 'pm-1', amount: '-30.0000' },
+    ] });
+    await expect(service.create({ ...validDto(), rows: [r('so-1', 'pm-1', '-30.00')], settlementAmount: '0.01' } as any))
+      .rejects.toThrow(/greater than zero/);
+  });
+
+  it('rejects create when the bank amount differs from the selected total, stating the difference', async () => {
+    const { service } = makeService();
+    await expect(service.create({ ...validDto(), settlementAmount: '97.99' } as any))
+      .rejects.toThrow(/97\.99.*98\.00.*difference -0\.01/);
+  });
+
+  it('update without settlementAmount checks the stored amount', async () => {
+    const { service } = makeService({ settlement: { settlementAmount: '50.0000' } });
+    await expect(service.update('ps-1', { rows: validDto().rows } as any))
+      .rejects.toThrow(/does not equal the selected total/);
+  });
+
+  it('locks the involved sales orders FOR SHARE, ascending, before recomputing', async () => {
+    const order: string[] = [];
+    const { service, manager } = makeService({ eligible: [
+      { id: 'a', salesOrderId: 'so-2', paymentMethodId: 'pm-1', amount: '1.0000' },
+      { id: 'b', salesOrderId: 'so-1', paymentMethodId: 'pm-1', amount: '1.0000' },
+    ] });
+    (manager.query as any).mockImplementation(async (sql: string, params: any[]) => {
+      if (/FOR SHARE/.test(sql)) order.push(`lock:${params[0].join(',')}`);
+      return [];
+    });
+    eligibilityService.eligiblePaymentsForOrders.mockImplementationOnce(async () => {
+      order.push('recompute');
+      return [
+        { id: 'a', salesOrderId: 'so-2', paymentMethodId: 'pm-1', amount: '1.0000' },
+        { id: 'b', salesOrderId: 'so-1', paymentMethodId: 'pm-1', amount: '1.0000' },
+      ];
+    });
+    await service.create({ ...validDto(), settlementAmount: '2.00', rows: [r('so-2', 'pm-1', '1.00'), r('so-1', 'pm-1', '1.00')] } as any);
+    expect(order).toEqual(['lock:so-1,so-2', 'recompute']);
+    const lockSql = (manager.query as any).mock.calls.find((c: any[]) => /FOR SHARE/.test(c[0]))[0];
+    expect(lockSql).toMatch(/ORDER BY id FOR SHARE/);
+  });
+
+  it('inserts claim lines in ascending payment-id order', async () => {
+    const { service, lineRepo } = makeService({ eligible: [
+      { id: 'pay-Z', salesOrderId: 'so-1', paymentMethodId: 'pm-1', amount: '50.0000' },
+      { id: 'pay-A', salesOrderId: 'so-1', paymentMethodId: 'pm-1', amount: '48.0000' },
+    ] });
+    await service.create(validDto() as any);
+    expect(lineRepo.save.mock.calls[0][0].map((l: any) => l.salesOrderPaymentId)).toEqual(['pay-A', 'pay-Z']);
+  });
+
+  it('maps a deadlock to a retry 409', async () => {
+    const { service } = makeService({ queryError: { code: '40P01' } });
+    const err = await service.create(validDto() as any).catch((e) => e);
+    expect(err).toBeInstanceOf(ConflictException);
+    expect(err.message).toMatch(/concurrent change\. Try again/);
+  });
+
+  it('checks the mapping on create for the inferred method, through the transaction manager', async () => {
+    const { service, manager, mappingService } = makeService({ mappingStatus: 'unmapped' });
+    await expect(service.create(validDto() as any)).rejects.toThrow(/not mapped to a valid account/);
+    expect(mappingService.list).toHaveBeenCalledWith(manager);
+  });
+
+  it('on update, checks the mapping only when the inferred method changes', async () => {
+    const { service, mappingService } = makeService({ mappingStatus: 'invalid', settlement: { providerPaymentMethodId: 'pm-1' } });
+    await expect(service.update('ps-1', { rows: validDto().rows } as any)).resolves.toBeDefined();
+    expect(mappingService.list).not.toHaveBeenCalled();
+  });
+
   it('rejects a settlement whose amount does not equal the selected total', async () => {
     const { service } = makeService({
-      settlement: { status: 'DRAFT', settlementAmount: '98.0000' },
-      lines: [{ salesOrderPaymentId: 'pay-1', amount: '97.0000' }],
+      lines: [line('pay-A', '98.0000')], eligible: [pay('pay-A', '98.0000')],
+      settlement: { settlementAmount: '97.0000' },
     });
-    await expect(service.post('ps-1', 'u1', 'tester')).rejects.toThrow(/does not reconcile/);
+    await expect(service.post('ps-1', 'u1', 'tester')).rejects.toThrow(/does not equal the selected total/);
   });
 
   it('does not post a journal entry when the amounts disagree', async () => {
     const { service, postingPort } = makeService({
-      settlement: { status: 'DRAFT', settlementAmount: '98.0000' },
-      lines: [{ salesOrderPaymentId: 'pay-1', amount: '97.0000' }],
+      lines: [line('pay-A', '98.0000')], eligible: [pay('pay-A', '98.0000')],
+      settlement: { settlementAmount: '97.0000' },
     });
     await service.post('ps-1', 'u1', 'tester').catch(() => {});
     // Rejected BEFORE any payment or journal state change.
@@ -383,32 +538,99 @@ describe('ProviderSettlementService — drafts', () => {
   });
 
   it('rejects when a line snapshot no longer matches its live payment row', async () => {
+    const { service } = makeService({ lines: [line('pay-A', '98.0000')], eligible: [pay('pay-A', '90.0000')] });
+    await expect(service.post('ps-1')).rejects.toThrow(/changed since this draft was saved/);
+  });
+
+  it('rejects a membership change at an equal net', async () => {
     const { service, postingPort } = makeService({
-      settlement: { status: 'DRAFT', settlementAmount: '98.0000' },
-      lines: [{ salesOrderPaymentId: 'pay-1', amount: '98.0000' }],
-      livePayments: [{ id: 'pay-1', amount: '95.0000', salesOrderId: 'so-1' }],
+      lines: [line('pay-A', '98.0000')],
+      eligible: [pay('pay-A', '98.0000'), pay('new-P', '10.0000'), pay('new-R', '-10.0000')],
     });
-    await expect(service.post('ps-1', 'u1', 'tester')).rejects.toThrow(
-      /changed since this draft was saved \(recorded 98.0000, now 95.0000\)/,
-    );
+    await expect(service.post('ps-1')).rejects.toThrow(/changed since this draft was saved; edit and re-save/);
     expect(postingPort.postProviderSettlement).not.toHaveBeenCalled();
   });
 
-  it('reconciles a batch mixing a payment and a refund', async () => {
-    const { service, postingPort } = makeService({
-      settlement: { status: 'DRAFT', settlementAmount: '48.0000' },
-      lines: [
-        { salesOrderPaymentId: 'pay-1', amount: '98.0000' },
-        { salesOrderPaymentId: 'pay-2', amount: '-50.0000' },
-      ],
+  it('rejects when a new refund brings a claimed group to zero', async () => {
+    const { service } = makeService({
+      lines: [line('pay-A', '98.0000')],
+      eligible: [pay('pay-A', '98.0000'), pay('ref', '-98.0000')],
     });
-    await service.post('ps-1', 'u1', 'tester');
-    expect(postingPort.postProviderSettlement).toHaveBeenCalled();
+    await expect(service.post('ps-1')).rejects.toThrow(/edit and re-save/);
+  });
+
+  it('locks every involved sales order FOR SHARE before revalidating', async () => {
+    const { service, manager } = makeService({
+      lines: [line('a', '1.0000'), line('b', '97.0000')],
+      eligible: [pay('a', '1.0000', 'so-2'), pay('b', '97.0000', 'so-1')],
+    });
+    await service.post('ps-1');
+    const lock = (manager.query as any).mock.calls.find((c: any[]) => /FOR SHARE/.test(c[0]));
+    expect(lock[1][0]).toEqual(['so-1', 'so-2']);
+  });
+
+  it('reconciles a group mixing a payment and a refund', async () => {
+    const { service, postingPort } = makeService({
+      lines: [line('pay-A', '98.0000'), line('ref-A', '-50.0000')],
+      eligible: [pay('pay-A', '98.0000'), pay('ref-A', '-50.0000')],
+      settlement: { settlementAmount: '48.0000' },
+    });
+    await service.post('ps-1');
+    expect(postingPort.postProviderSettlement.mock.calls[0][0].amount).toBe('48.00');
   });
 
   it('rejects posting an already-posted settlement', async () => {
     const { service } = makeService({ settlement: { status: 'POSTED' } });
     await expect(service.post('ps-1', 'u1', 'tester')).rejects.toThrow(/Only a draft/);
+  });
+
+  describe('same-account guard', () => {
+    const SAME_ACCOUNT =
+      'The selected payments already debit the destination bank account and cannot be settled into that same account.';
+
+    it('rejects create when the derived clearing account IS the bank account, before any write', async () => {
+      const { service, settlementRepo, lineRepo, manager } = makeService();
+      derivationService.deriveClearingAccountId.mockResolvedValue('bank-1');
+      await expect(service.create(validDto() as any, 'u1', 'tester')).rejects.toThrow(SAME_ACCOUNT);
+      expect(settingsService.generateDocumentNumber).not.toHaveBeenCalled();
+      expect(settlementRepo.save).not.toHaveBeenCalled();
+      expect(lineRepo.save).not.toHaveBeenCalled();
+      expect((manager.query as any).mock.calls.map((c: any[]) => c[0])).not.toContain('SAVEPOINT ps_lines_insert');
+    });
+
+    it('rejects update into the derived clearing account, before deleting or writing claims', async () => {
+      const { service, settlementRepo, lineRepo } = makeService();
+      derivationService.deriveClearingAccountId.mockResolvedValue('clearing-1');
+      await expect(
+        service.update('ps-1', { rows: validDto().rows, bankAccountId: 'clearing-1' } as any, 'u1', 'tester'),
+      ).rejects.toThrow(SAME_ACCOUNT);
+      expect(lineRepo.delete).not.toHaveBeenCalled();
+      expect(lineRepo.save).not.toHaveBeenCalled();
+      expect(settlementRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects update of rows whose clearing account is the STORED bank account', async () => {
+      // No bankAccountId in the PATCH: the stored one is the destination.
+      const { service, lineRepo, settlementRepo } = makeService({ settlement: { bankAccountId: 'bank-1' } });
+      derivationService.deriveClearingAccountId.mockResolvedValue('bank-1');
+      await expect(service.update('ps-1', { rows: validDto().rows } as any)).rejects.toThrow(SAME_ACCOUNT);
+      expect(lineRepo.delete).not.toHaveBeenCalled();
+      expect(settlementRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects posting an existing draft that settles into its own clearing account', async () => {
+      // A draft saved before the guard existed: snapshot and re-derivation agree,
+      // so only the same-account check can stop it.
+      const { service, postingPort, settlementRepo } = makeService({
+        settlement: { clearingAccountId: 'bank-1', bankAccountId: 'bank-1' },
+        lines: [line('pay-A', '98.0000')],
+        eligible: [pay('pay-A', '98.0000')],
+      });
+      derivationService.deriveClearingAccountId.mockResolvedValue('bank-1');
+      await expect(service.post('ps-1', 'u1', 'tester')).rejects.toThrow(SAME_ACCOUNT);
+      expect(postingPort.postProviderSettlement).not.toHaveBeenCalled();
+      expect(settlementRepo.save).not.toHaveBeenCalled();
+    });
   });
 
   it('posts a draft whose payment method became invalid after saving', async () => {
@@ -417,12 +639,38 @@ describe('ProviderSettlementService — drafts', () => {
     // test the requirement is unobservable.
     const { service, postingPort, mappingService } = makeService({
       settlement: { status: 'DRAFT', settlementAmount: '98.0000' },
-      lines: [{ salesOrderPaymentId: 'pay-1', amount: '98.0000' }],
+      lines: [line('pay-A', '98.0000')],
+      eligible: [pay('pay-A', '98.0000')],
       mappingStatus: 'invalid',
     });
     await expect(service.post('ps-1', 'u1', 'tester')).resolves.toBeDefined();
     expect(postingPort.postProviderSettlement).toHaveBeenCalled();
     expect(mappingService.list).not.toHaveBeenCalled();
+  });
+
+  it('rejects posting when a claimed payment is no longer eligible', async () => {
+    const { service } = makeService({
+      lines: [line('pay-A', '98.0000')],
+      eligible: [],                                   // e.g. its journal entry was reversed
+      linePayments: [pay('pay-A', '98.0000')],
+    });
+    await expect(service.post('ps-1')).rejects.toThrow(/edit and re-save/);
+  });
+
+  it('names the order AND the method in the completeness error', async () => {
+    const { service } = makeService({
+      lines: [line('pay-A', '98.0000')],
+      eligible: [pay('pay-A', '98.0000'), pay('ref', '-8.0000')],
+      labels: { methods: { 'pm-1': 'TikTok' }, orders: { 'so-1': 'SO-26-008' } },
+    });
+    await expect(service.post('ps-1')).rejects.toThrow('Sales order SO-26-008 / TikTok changed since this draft was saved; edit and re-save.');
+  });
+
+  it('looks up line payments by the line ids only', async () => {
+    const { service, manager } = makeService({ lines: [line('pay-A', '98.0000')], eligible: [pay('pay-A', '98.0000')] });
+    await service.post('ps-1');
+    const repo = manager.getRepository(SalesOrderPayment) as any;
+    expect(repo.find.mock.calls[0][0].where.id.value).toEqual(['pay-A']);
   });
 
   it('reverses: new entry, status REVERSED, all lines released', async () => {

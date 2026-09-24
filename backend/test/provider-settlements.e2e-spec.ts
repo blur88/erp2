@@ -18,6 +18,25 @@ import {
   methodIdByCode,
   accountIdByCode,
 } from './utils/payment-method-matrix-fixture';
+import { ProviderSettlementService } from '../src/modules/provider-settlements/services/provider-settlement.service';
+import { SETTLEMENT_TEST_HOOK } from '../src/modules/provider-settlements/services/provider-settlement.test-hooks';
+
+/** Race a promise against a timer, and ALWAYS clear the timer. */
+async function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      p,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`timeout after ${ms}ms: ${what}`)), ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 const runId = randomUUID().slice(0, 8);
 
@@ -34,6 +53,8 @@ describe('Provider settlements (e2e)', () => {
   let productId = '';
   let categoryId = '';
   let atomeMethodId = '';
+  let tiktokMethodId = '';
+  let cimbMethodId = '';
   let clearingAccountId = '';
   let bankAccountId = '';
 
@@ -80,6 +101,10 @@ describe('Provider settlements (e2e)', () => {
     // BASELINE rows, shared with every other suite in a size-ordered run
     // against one database. Read them; never mutate or delete them.
     atomeMethodId = await methodIdByCode(ds, 'ATOME');
+    tiktokMethodId = await methodIdByCode(ds, 'TIKTOK');
+    // CIMB is mapped straight to the 1200 bank account (1789658118888), so its
+    // payments already debit the account this suite settles into.
+    cimbMethodId = await methodIdByCode(ds, 'CIMB');
     clearingAccountId = await accountIdByCode(ds, '1240');
     bankAccountId = await accountIdByCode(ds, '1200');
 
@@ -150,8 +175,7 @@ describe('Provider settlements (e2e)', () => {
   });
 
   /**
-   * Create a sales order and record a payment with the Atome method, which
-   * debits the 1240 clearing account. Returns the PAYMENT row id.
+   * Record a payment against an EXISTING order. Returns the PAYMENT row id.
    *
    * Two contracts that are easy to get wrong, both verified against the code:
    *
@@ -163,11 +187,25 @@ describe('Provider settlements (e2e)', () => {
    *   separately — reading it from the payment response yields an order id that
    *   silently fails eligibility later, with no obvious cause.
    */
-  async function payOrder(amount: string): Promise<{
-    orderId: string;
-    orderNumber: string;
-    paymentId: string;
-  }> {
+  async function payExisting(
+    orderId: string, amount: string, methodId = atomeMethodId, paymentDate = '2026-09-01',
+    referenceNumber?: string,
+  ): Promise<string> {
+    await post(`/sales-orders/${orderId}/payments`, {
+      amount, paymentMethodId: methodId, paymentDate,
+      ...(referenceNumber ? { referenceNumber } : {}),
+    }).expect(200);
+    const [row] = await ds.query(
+      `SELECT id FROM sales_order_payments
+        WHERE "salesOrderId" = $1 AND amount > 0
+        ORDER BY "createdAt" DESC, id DESC LIMIT 1`,
+      [orderId],
+    );
+    expect(row?.id).toBeTruthy();
+    return row.id;
+  }
+
+  async function newOrder(amount: string): Promise<{ orderId: string; orderNumber: string }> {
     const res = await post('/sales-orders', {
       customerId,
       items: [{ productId, quantity: 1, unitPrice: amount }],
@@ -176,27 +214,13 @@ describe('Provider settlements (e2e)', () => {
     ownedSalesOrderIds.push(order.id);
     ownedRefs.push(order.orderNumber);
     ownedEntityIds.push(order.id);
+    return { orderId: order.id, orderNumber: order.orderNumber };
+  }
 
-    await post(`/sales-orders/${order.id}/payments`, {
-      amount,
-      paymentMethodId: atomeMethodId,
-      paymentDate: '2026-09-01',
-    }).expect(200);
-
-    // Read the payment row back. Newest positive row for this order.
-    const [row] = await ds.query(
-      `SELECT id FROM sales_order_payments
-        WHERE "salesOrderId" = $1 AND amount > 0
-        ORDER BY "createdAt" DESC, id DESC LIMIT 1`,
-      [order.id],
-    );
-    expect(row?.id).toBeTruthy();
-
-    return {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      paymentId: row.id,
-    };
+  async function payOrder(amount: string, methodId = atomeMethodId) {
+    const { orderId, orderNumber } = await newOrder(amount);
+    const paymentId = await payExisting(orderId, amount, methodId);
+    return { orderId, orderNumber, paymentId };
   }
 
   /**
@@ -204,11 +228,12 @@ describe('Provider settlements (e2e)', () => {
    * **201** (no @HttpCode override, sales-order.controller.ts:191), and returns
    * an **array** — it is a batch endpoint.
    */
-  async function refundOrder(orderId: string, amount: string): Promise<string> {
+  async function refundOrder(
+    orderId: string, amount: string, methodId = atomeMethodId, paymentDate = '2026-09-02',
+    referenceNumber?: string,
+  ): Promise<string> {
     await post(`/sales-orders/${orderId}/refunds`, {
-      refunds: [
-        { amount, paymentMethodId: atomeMethodId, paymentDate: '2026-09-02' },
-      ],
+      refunds: [{ amount, paymentMethodId: methodId, paymentDate, ...(referenceNumber ? { referenceNumber } : {}) }],
     }).expect(201);
 
     const [row] = await ds.query(
@@ -221,32 +246,27 @@ describe('Provider settlements (e2e)', () => {
     return row.id;
   }
 
+  async function rowsFor(orderIds: string[], extra = '', settlementDate = '2026-09-20') {
+    const res = await get(
+      `/accounting/provider-settlements/eligible-rows?settlementDate=${settlementDate}&salesOrderIds=${orderIds.join(',')}${extra}`,
+    ).expect(200);
+    return res.body.data as any[];
+  }
+
   function draftBody(
-    paymentIds: string[],
+    rows: Array<{ salesOrderId: string; paymentMethodId?: string; expectedNetAmount: string }>,
     settlementAmount: string,
     settlementDate = '2026-09-20',
   ) {
     return {
-      providerPaymentMethodId: atomeMethodId,
-      bankAccountId,
-      settlementDate,
-      providerReference: `ATM-${runId}`,
-      settlementAmount,
-      paymentIds,
+      bankAccountId, settlementDate, providerReference: `ATM-${runId}`, settlementAmount,
+      rows: rows.map((r) => ({ paymentMethodId: atomeMethodId, ...r })),
     };
   }
 
-  async function createDraft(
-    paymentIds: string[],
-    amount: string,
-    settlementDate?: string,
-  ) {
-    const res = await post(
-      '/accounting/provider-settlements',
-      draftBody(paymentIds, amount, settlementDate),
-    );
-    if (res.status === 201)
-      ownedSettlementIds.push((res.body.data ?? res.body).id);
+  async function createDraft(rows: Parameters<typeof draftBody>[0], amount: string, settlementDate?: string) {
+    const res = await post('/accounting/provider-settlements', draftBody(rows, amount, settlementDate));
+    if (res.status === 201) ownedSettlementIds.push((res.body.data ?? res.body).id);
     return res;
   }
 
@@ -257,9 +277,75 @@ describe('Provider settlements (e2e)', () => {
     return row.count;
   }
 
+  /**
+   * Start a request NOW (supertest is lazy) and keep both handles.
+   *
+   * A settlement create registers its id for afterAll cleanup THE MOMENT its
+   * response arrives — inside `done` itself, not after the test's assertions.
+   * A request that commits while a failing test is draining would otherwise
+   * leave a settlement no cleanup knows about.
+   */
+  function start(req: request.Test, opts: { createsSettlement?: boolean } = {}) {
+    const done = req.then((r) => {
+      if (opts.createsSettlement && r.status === 201) {
+        ownedSettlementIds.push((r.body.data ?? r.body).id);
+      }
+      return r;
+    }) as Promise<request.Response>;
+    return { req, done };
+  }
+
+  /**
+   * Cleanup for a concurrency test: wait (bounded) for every request the test
+   * STARTED, whether or not its assertions ran. On timeout, abort the HTTP
+   * requests, cancel the backend sessions, and then VERIFY those sessions have
+   * left their transactions before teardown proceeds — a cancelled statement can
+   * leave its session `idle in transaction (aborted)` still holding locks.
+   * Sessions still in a transaction after a bounded wait are terminated, and the
+   * wait is repeated; if one survives even that, drain fails loudly.
+   */
+  async function drain(
+    started: Array<{ req: request.Test; done: Promise<unknown> }>,
+    pids: Array<number | undefined>,
+  ): Promise<void> {
+    try {
+      await withTimeout(Promise.allSettled(started.map((s) => s.done)), 15_000, 'draining started requests');
+      return;
+    } catch (err) {
+      for (const s of started) s.req.abort();
+      const live = pids.filter((p): p is number => p !== undefined);
+      for (const pid of live) await ds.query('SELECT pg_cancel_backend($1)', [pid]);
+      if (!(await sessionsLeftTransactions(live, 5_000))) {
+        for (const pid of live) await ds.query('SELECT pg_terminate_backend($1)', [pid]);
+        if (!(await sessionsLeftTransactions(live, 5_000))) {
+          throw new Error(`sessions ${live.join(', ')} still in a transaction after cancel + terminate`);
+        }
+      }
+      // Late responses that arrived during cancellation have registered
+      // themselves through start(); settle them so none is still in flight.
+      await Promise.allSettled(started.map((s) => s.done));
+      throw err;
+    }
+  }
+
+  /** True once none of `pids` is inside a transaction (gone, or idle outside one). */
+  async function sessionsLeftTransactions(pids: number[], ms: number): Promise<boolean> {
+    const deadline = Date.now() + ms;
+    while (Date.now() < deadline) {
+      const [{ n }] = await ds.query(
+        `SELECT count(*)::int AS n FROM pg_stat_activity
+          WHERE pid = ANY($1::int[]) AND (xact_start IS NOT NULL OR state <> 'idle')`,
+        [pids],
+      );
+      if (n === 0) return true;
+      await pause(100);
+    }
+    return false;
+  }
+
   it('posts exactly Dr bank / Cr clearing with no fee line', async () => {
-    const { paymentId } = await payOrder('98.00');
-    const draft = await createDraft([paymentId], '98.00');
+    const { orderId } = await payOrder('98.00');
+    const draft = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '98.00' }], '98.00');
     expect(draft.status).toBe(201);
     const id = (draft.body.data ?? draft.body).id;
 
@@ -290,21 +376,26 @@ describe('Provider settlements (e2e)', () => {
   });
 
   it('rejects a duplicate claim without creating journal data', async () => {
-    const { paymentId } = await payOrder('50.00');
-    expect((await createDraft([paymentId], '50.00')).status).toBe(201);
+    const { orderId } = await payOrder('50.00');
+    expect((await createDraft([{ salesOrderId: orderId, expectedNetAmount: '50.00' }], '50.00')).status).toBe(201);
 
     const before = await countJournalEntries();
-    const second = await createDraft([paymentId], '50.00');
+    const second = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '50.00' }], '50.00');
     expect(second.status).toBe(409);
     // The filter preserves `message` verbatim when it is an object, so the
-    // machine-readable ids ride INSIDE it (see Task 5).
-    expect(second.body.message.unavailablePaymentIds).toEqual([paymentId]);
+    // machine-readable rows ride INSIDE it (see Task 5). A claimed group is
+    // now reported as a stale row with no current net.
+    expect(second.body.message.staleRows[0]).toEqual({
+      salesOrderId: orderId,
+      paymentMethodId: atomeMethodId,
+      currentNetAmount: null,
+    });
     expect(await countJournalEntries()).toBe(before);
   });
 
   it('reverses without mutating the original entry, and releases the claims', async () => {
-    const { paymentId } = await payOrder('70.00');
-    const draft = await createDraft([paymentId], '70.00');
+    const { orderId } = await payOrder('70.00');
+    const draft = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '70.00' }], '70.00');
     const id = (draft.body.data ?? draft.body).id;
     const posted = await post(
       `/accounting/provider-settlements/${id}/post`,
@@ -345,8 +436,8 @@ describe('Provider settlements (e2e)', () => {
   });
 
   it('re-settles a payment released by a reversal', async () => {
-    const { paymentId } = await payOrder('60.00');
-    const first = await createDraft([paymentId], '60.00');
+    const { orderId } = await payOrder('60.00');
+    const first = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '60.00' }], '60.00');
     const firstId = (first.body.data ?? first.body).id;
     const posted = await post(
       `/accounting/provider-settlements/${firstId}/post`,
@@ -358,7 +449,7 @@ describe('Provider settlements (e2e)', () => {
 
     // The released claim must no longer block a corrective settlement. This is
     // the proof that releasedAt (not a soft delete) actually frees the row.
-    const second = await createDraft([paymentId], '60.00');
+    const second = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '60.00' }], '60.00');
     expect(second.status).toBe(201);
     const secondPosted = await post(
       `/accounting/provider-settlements/${(second.body.data ?? second.body).id}/post`,
@@ -369,14 +460,14 @@ describe('Provider settlements (e2e)', () => {
   });
 
   it('rejects a non-postable bank account', async () => {
-    const { paymentId } = await payOrder('30.00');
+    const { orderId } = await payOrder('30.00');
     const [parent] = await ds.query(
       `SELECT id FROM chart_of_account WHERE "isPostable" = false AND "isActive" = true LIMIT 1`,
     );
     expect(parent).toBeDefined();
 
     const res = await post('/accounting/provider-settlements', {
-      ...draftBody([paymentId], '30.00'),
+      ...draftBody([{ salesOrderId: orderId, expectedNetAmount: '30.00' }], '30.00'),
       bankAccountId: parent.id,
     });
     expect(res.status).toBe(400);
@@ -384,33 +475,38 @@ describe('Provider settlements (e2e)', () => {
   });
 
   it('rejects an unbalanced settlement before any state change', async () => {
-    const { paymentId } = await payOrder('40.00');
-    const draft = await createDraft([paymentId], '40.01');
-    expect(draft.status).toBe(201);
-    const id = (draft.body.data ?? draft.body).id;
-
+    const { orderId } = await payOrder('40.00');
+    const countSettlements = async () => {
+      const [row] = await ds.query(
+        'SELECT count(*)::int AS count FROM provider_settlements',
+      );
+      return row.count;
+    };
     const before = await countJournalEntries();
-    const posted = await post(`/accounting/provider-settlements/${id}/post`);
-    expect(posted.status).toBe(400);
-    expect(JSON.stringify(posted.body.message)).toMatch(/does not reconcile/);
-    expect(await countJournalEntries()).toBe(before);
+    const settlementsBefore = await countSettlements();
 
-    const [row] = await ds.query(
-      'SELECT status, "journalEntryId" FROM provider_settlements WHERE id = $1',
-      [id],
-    );
-    expect(row).toMatchObject({ status: 'DRAFT', journalEntryId: null });
+    const draft = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '40.00' }], '40.01');
+    expect(draft.status).toBe(400);
+    expect(JSON.stringify(draft.body.message)).toMatch(/does not equal the selected total/);
+    expect(await countJournalEntries()).toBe(before);
+    expect(await countSettlements()).toBe(settlementsBefore);
   });
 
   it('reconciles a batch mixing a payment and a refund', async () => {
-    const { orderId, paymentId } = await payOrder('98.00');
-    const refundId = await refundOrder(orderId, '50.00');
+    const { orderId } = await payOrder('98.00');
+    await refundOrder(orderId, '50.00');
 
     // 98.00 + (-50.00) = 48.00
-    const draft = await createDraft([paymentId, refundId], '48.00');
+    const draft = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '48.00' }], '48.00');
     expect(draft.status).toBe(201);
+    const id = (draft.body.data ?? draft.body).id;
+
+    // Saving the group writes BOTH underlying payments as lines.
+    const detail = await get(`/accounting/provider-settlements/${id}`).expect(200);
+    expect(detail.body.data.lines).toHaveLength(2);
+
     const posted = await post(
-      `/accounting/provider-settlements/${(draft.body.data ?? draft.body).id}/post`,
+      `/accounting/provider-settlements/${id}/post`,
     ).expect(201);
     const settlement = posted.body.data ?? posted.body;
     ownedRefs.push(settlement.referenceNumber);
@@ -423,8 +519,8 @@ describe('Provider settlements (e2e)', () => {
   });
 
   it('serves the read surface: filtered list, joined detail, branched eligibility', async () => {
-    const { paymentId: claimedId } = await payOrder('21.00');
-    const draft = await createDraft([claimedId], '21.00');
+    const { orderId: claimedOrderId } = await payOrder('21.00');
+    const draft = await createDraft([{ salesOrderId: claimedOrderId, expectedNetAmount: '21.00' }], '21.00');
     expect(draft.status).toBe(201);
     const id = (draft.body.data ?? draft.body).id;
 
@@ -443,8 +539,8 @@ describe('Provider settlements (e2e)', () => {
     // unpaginated getMany() branch above passes while the real list page 500s
     // (#1265). A second settlement on a LATER date makes the descending order
     // assertion below falsifiable rather than vacuous.
-    const { paymentId: secondClaimedId } = await payOrder('23.00');
-    const secondDraft = await createDraft([secondClaimedId], '23.00', '2026-09-21');
+    const { orderId: secondOrderId } = await payOrder('23.00');
+    const secondDraft = await createDraft([{ salesOrderId: secondOrderId, expectedNetAmount: '23.00' }], '23.00', '2026-09-21');
     expect(secondDraft.status).toBe(201);
     const secondId = (secondDraft.body.data ?? secondDraft.body).id;
 
@@ -477,15 +573,18 @@ describe('Provider settlements (e2e)', () => {
     expect(detail.body.data.bankAccount.code).toBe('1200');
     expect(detail.body.data.providerPaymentMethod.name).toBeTruthy();
 
+    // Each line carries its payment's order + method labels for the grouped
+    // detail view. `amount` stays the line SNAPSHOT, never the live row.
+    const line0 = detail.body.data.lines[0];
+    expect(line0.salesOrderPayment.salesOrder.orderNumber).toBeTruthy();
+    expect(line0.salesOrderPayment.paymentMethod.name).toBeTruthy();
+    expect(line0.amount).toBe('21.0000'); // snapshot, not the live row
+
     // Eligibility: a second unclaimed payment appears while the claimed one is
     // excluded — the no-settlementId branch of the claim predicate over real rows.
-    const { paymentId: unclaimedId } = await payOrder('22.00');
-    const eligible = await get(
-      `/accounting/provider-settlements/eligible-payments?providerPaymentMethodId=${atomeMethodId}&settlementDate=2026-09-20`,
-    ).expect(200);
-    const eligibleIds = (eligible.body.data ?? []).map((r: any) => r.id);
-    expect(eligibleIds).toContain(unclaimedId);
-    expect(eligibleIds).not.toContain(claimedId);
+    const { orderId: unclaimedOrderId } = await payOrder('22.00');
+    const rows = await rowsFor([unclaimedOrderId, claimedOrderId]);
+    expect(rows.map((r: any) => r.salesOrderId)).toEqual([unclaimedOrderId]);
   });
 
   /**
@@ -542,8 +641,8 @@ describe('Provider settlements (e2e)', () => {
     try {
       await configure(firstPrefix, 700);
 
-      const { paymentId: firstPaymentId } = await payOrder('31.00');
-      const first = await createDraft([firstPaymentId], '31.00');
+      const { orderId: firstOrderId } = await payOrder('31.00');
+      const first = await createDraft([{ salesOrderId: firstOrderId, expectedNetAmount: '31.00' }], '31.00');
       expect(first.status).toBe(201);
       const firstRef = (first.body.data ?? first.body).referenceNumber;
       ownedRefs.push(firstRef);
@@ -564,8 +663,8 @@ describe('Provider settlements (e2e)', () => {
         [secondPrefix, DOC],
       );
 
-      const { paymentId: secondPaymentId } = await payOrder('32.00');
-      const second = await createDraft([secondPaymentId], '32.00');
+      const { orderId: secondOrderId } = await payOrder('32.00');
+      const second = await createDraft([{ salesOrderId: secondOrderId, expectedNetAmount: '32.00' }], '32.00');
       expect(second.status).toBe(201);
       const secondRef = (second.body.data ?? second.body).referenceNumber;
       ownedRefs.push(secondRef);
@@ -594,5 +693,526 @@ describe('Provider settlements (e2e)', () => {
         ],
       );
     }
+  });
+
+  describe('eligible-rows (#1284)', () => {
+    afterEach(() => { delete (app.get(ProviderSettlementService) as any)[SETTLEMENT_TEST_HOOK]; });
+
+    async function insertDraft(
+      methodId: string,
+      lines: Array<{ paymentId: string; amount: string }>,
+      amount: string,
+    ) {
+      const [s] = await ds.query(
+        `INSERT INTO provider_settlements
+           ("referenceNumber", "providerPaymentMethodId", "clearingAccountId", "bankAccountId",
+            "settlementDate", "settlementAmount", status)
+         VALUES ($1, $2, $3, $4, '2026-09-20', $5, 'DRAFT') RETURNING id`,
+        [
+          `PS-T-${randomUUID().slice(0, 8)}`,
+          methodId,
+          clearingAccountId,
+          bankAccountId,
+          amount,
+        ],
+      );
+      ownedSettlementIds.push(s.id);
+      for (const l of lines) {
+        await ds.query(
+          `INSERT INTO provider_settlement_lines ("settlementId", "salesOrderPaymentId", amount)
+           VALUES ($1, $2, $3)`,
+          [s.id, l.paymentId, l.amount],
+        );
+      }
+      return s.id as string;
+    }
+
+    async function claimed(settlementId: string) {
+      const res = await get(
+        `/accounting/provider-settlements/eligible-rows?scope=claimed&settlementId=${settlementId}&settlementDate=2026-09-20`,
+      ).expect(200);
+      return res.body.data as any[];
+    }
+
+    it('SO-26-008: Atome paid and refunded, TikTok paid ⇒ only the TikTok row', async () => {
+      const { orderId, orderNumber } = await newOrder('130.00');
+      await payExisting(orderId, '130.00', atomeMethodId);
+      await refundOrder(orderId, '130.00', atomeMethodId);
+      const tiktokPaymentId = await payExisting(orderId, '130.00', tiktokMethodId, '2026-09-03');
+
+      const rows = await rowsFor([orderId]);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        salesOrderId: orderId, orderNumber, paymentMethodId: tiktokMethodId, netAmount: '130.0000',
+      });
+      expect(rows[0].payments.map((p: any) => p.id)).toEqual([tiktokPaymentId]);
+    });
+
+    it('partial refund leaves the remaining net, with both payments traceable', async () => {
+      const { orderId } = await newOrder('100.00');
+      const pay = await payExisting(orderId, '100.00', tiktokMethodId);
+      const refund = await refundOrder(orderId, '30.00', tiktokMethodId);
+      const [row] = await rowsFor([orderId]);
+      expect(row.netAmount).toBe('70.0000');
+      expect(row.payments.map((p: any) => p.id).sort()).toEqual([pay, refund].sort());
+    });
+
+    it('date cutoff splits a group', async () => {
+      const { orderId } = await newOrder('100.00');
+      await payExisting(orderId, '100.00', tiktokMethodId, '2026-09-01');
+      await refundOrder(orderId, '30.00', tiktokMethodId, '2026-09-25');
+      expect((await rowsFor([orderId], '', '2026-09-20'))[0].netAmount).toBe('100.0000');
+      expect((await rowsFor([orderId], '', '2026-09-30'))[0].netAmount).toBe('70.0000');
+    });
+
+    it('search matches whole groups: matching +100 with non-matching −30 stays 70', async () => {
+      const tag = `SRCH-${runId}`;
+      const { orderId } = await newOrder('100.00');
+      await payExisting(orderId, '100.00', tiktokMethodId, '2026-09-01', tag);
+      await refundOrder(orderId, '30.00', tiktokMethodId, '2026-09-02', `OTHER-${runId}`);
+
+      const res = await get(
+        `/accounting/provider-settlements/eligible-rows?settlementDate=2026-09-20&search=${tag}`,
+      ).expect(200);
+      const row = res.body.data.find((r: any) => r.salesOrderId === orderId);
+      expect(row.netAmount).toBe('70.0000');
+      expect(row.payments).toHaveLength(2);
+
+      const none = await get(
+        `/accounting/provider-settlements/eligible-rows?settlementDate=2026-09-20&search=NOPE-${runId}`,
+      ).expect(200);
+      expect(none.body.data.find((r: any) => r.salesOrderId === orderId)).toBeUndefined();
+    });
+
+    it('paginates by group, each page row carrying all of its payments', async () => {
+      const tag = `PAGE-${runId}`;
+      const a = await newOrder('10.00');
+      await payExisting(a.orderId, '10.00', tiktokMethodId, '2026-09-01', tag);
+      await refundOrder(a.orderId, '4.00', tiktokMethodId, '2026-09-02', tag);
+      const b = await newOrder('20.00');
+      await payExisting(b.orderId, '20.00', tiktokMethodId, '2026-09-01', tag);
+
+      const res = await get(
+        `/accounting/provider-settlements/eligible-rows?settlementDate=2026-09-20&search=${tag}&page=1&limit=1`,
+      ).expect(200);
+      expect(res.body.meta).toMatchObject({ total: 2, page: 1, limit: 1 });
+      expect(res.body.data).toHaveLength(1);
+      const first = res.body.data[0];
+      const expectedCount = first.salesOrderId === a.orderId ? 2 : 1;
+      expect(first.payments).toHaveLength(expectedCount);
+    });
+
+    it('hides a fully refunded group', async () => {
+      const { orderId } = await newOrder('50.00');
+      await payExisting(orderId, '50.00', tiktokMethodId);
+      await refundOrder(orderId, '50.00', tiktokMethodId);
+      expect(await rowsFor([orderId])).toEqual([]);
+    });
+
+    it('claimed: an untouched group is current', async () => {
+      const { orderId, paymentId } = await payOrder('40.00', atomeMethodId);
+      const id = await insertDraft(
+        atomeMethodId,
+        [{ paymentId, amount: '40.0000' }],
+        '40.0000',
+      );
+      const [row] = await claimed(id);
+      expect(row).toMatchObject({
+        salesOrderId: orderId,
+        state: 'current',
+        savedNetAmount: '40.0000',
+        currentNetAmount: '40.0000',
+      });
+    });
+
+    it('legacy partial-group draft: only the payment line is claimed ⇒ changed, current includes the refund', async () => {
+      const { orderId, paymentId } = await payOrder('100.00', atomeMethodId);
+      const refundId = await refundOrder(orderId, '30.00', atomeMethodId);
+      const id = await insertDraft(
+        atomeMethodId,
+        [{ paymentId, amount: '100.0000' }],
+        '100.0000',
+      );
+      const [row] = await claimed(id);
+      expect(row.state).toBe('changed');
+      expect(row.savedNetAmount).toBe('100.0000');
+      expect(row.currentNetAmount).toBe('70.0000');
+      expect(row.currentPayments.map((p: any) => p.id).sort()).toEqual(
+        [paymentId, refundId].sort(),
+      );
+      expect(row.savedPayments.map((p: any) => p.id)).toEqual([paymentId]);
+    });
+
+    it('claimed: a group refunded to zero is still surfaced, as zero', async () => {
+      const { orderId, paymentId } = await payOrder('25.00', atomeMethodId);
+      const id = await insertDraft(
+        atomeMethodId,
+        [{ paymentId, amount: '25.0000' }],
+        '25.0000',
+      );
+      await refundOrder(orderId, '25.00', atomeMethodId);
+      const [row] = await claimed(id);
+      expect(row).toMatchObject({
+        salesOrderId: orderId,
+        state: 'zero',
+        currentNetAmount: '0.0000',
+      });
+    });
+
+    it('claimed: payments no longer eligible (after the date) ⇒ ineligible', async () => {
+      const { orderId } = await newOrder('15.00');
+      const late = await payExisting(
+        orderId,
+        '15.00',
+        atomeMethodId,
+        '2026-09-25',
+      );
+      const id = await insertDraft(
+        atomeMethodId,
+        [{ paymentId: late, amount: '15.0000' }],
+        '15.0000',
+      );
+      const [row] = await claimed(id);
+      expect(row).toMatchObject({
+        state: 'ineligible',
+        currentNetAmount: null,
+        currentPayments: [],
+      });
+    });
+
+    it("salesOrderIds + settlementId: own claims eligible, other drafts' claims excluded", async () => {
+      const { orderId, paymentId } = await payOrder('33.00', atomeMethodId);
+      const mine = await insertDraft(
+        atomeMethodId,
+        [{ paymentId, amount: '33.0000' }],
+        '33.0000',
+      );
+      expect(await rowsFor([orderId], `&settlementId=${mine}`)).toHaveLength(1);
+      expect(await rowsFor([orderId])).toEqual([]); // claimed by a draft, no settlementId
+      const { orderId: o2, paymentId: p2 } = await payOrder('44.00', atomeMethodId);
+      await insertDraft(
+        atomeMethodId,
+        [{ paymentId: p2, amount: '44.0000' }],
+        '44.0000',
+      );
+      expect(await rowsFor([o2], `&settlementId=${mine}`)).toEqual([]);
+    });
+
+    it('scope=claimed without settlementId is a 400', async () => {
+      await get(
+        '/accounting/provider-settlements/eligible-rows?scope=claimed&settlementDate=2026-09-20',
+      ).expect(400);
+    });
+
+    it('create by rows: SO-26-008 writes exactly the TikTok payment line', async () => {
+      const { orderId } = await newOrder('130.00');
+      await payExisting(orderId, '130.00', atomeMethodId);
+      await refundOrder(orderId, '130.00', atomeMethodId);
+      const tiktok = await payExisting(orderId, '130.00', tiktokMethodId, '2026-09-03');
+      const res = await createDraft([{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '130.00' }], '130.00');
+      expect(res.status).toBe(201);
+      const s = res.body.data ?? res.body;
+      expect(s.providerPaymentMethodId).toBe(tiktokMethodId);
+      const lines = await ds.query('SELECT "salesOrderPaymentId" FROM provider_settlement_lines WHERE "settlementId" = $1', [s.id]);
+      expect(lines.map((l: any) => l.salesOrderPaymentId)).toEqual([tiktok]);
+    });
+
+    it('negative residue: −30 combines with a +100 row into a 70 settlement; alone it is rejected', async () => {
+      const a = await payOrder('100.00', tiktokMethodId);
+      const settled = await createDraft([{ salesOrderId: a.orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '100.00' }], '100.00');
+      const sid = (settled.body.data ?? settled.body).id;
+      const posted = await post(`/accounting/provider-settlements/${sid}/post`).expect(201);
+      ownedRefs.push((posted.body.data ?? posted.body).referenceNumber);
+      await refundOrder(a.orderId, '30.00', tiktokMethodId, '2026-09-05');
+      const b = await payOrder('100.00', tiktokMethodId);
+
+      const [residue] = await rowsFor([a.orderId]);
+      expect(residue.netAmount).toBe('-30.0000');
+
+      const alone = await createDraft([{ salesOrderId: a.orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '-30.00' }], '0.01');
+      expect(alone.status).toBe(400);
+
+      const both = await createDraft([
+        { salesOrderId: a.orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '-30.00' },
+        { salesOrderId: b.orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '100.00' },
+      ], '70.00');
+      expect(both.status).toBe(201);
+    });
+
+    it('mixed payment methods ⇒ 400 naming the split', async () => {
+      const a = await payOrder('10.00', atomeMethodId);
+      const b = await payOrder('10.00', tiktokMethodId);
+      const res = await createDraft([
+        { salesOrderId: a.orderId, paymentMethodId: atomeMethodId, expectedNetAmount: '10.00' },
+        { salesOrderId: b.orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '10.00' },
+      ], '20.00');
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(res.body.message)).toMatch(/one provider payout/);
+    });
+
+    it('stale net ⇒ 409 whose message.staleRows survives the global exception filter', async () => {
+      const { orderId } = await payOrder('60.00', tiktokMethodId);
+      await refundOrder(orderId, '10.00', tiktokMethodId);
+      const res = await createDraft([{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '60.00' }], '60.00');
+      expect(res.status).toBe(409);
+      expect(res.body.message).toEqual({
+        text: 'Some rows changed since they were loaded. Review them and save again.',
+        staleRows: [{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, currentNetAmount: '50.0000' }],
+      });
+    });
+
+    it('update adopts the complete current group of a legacy partial draft', async () => {
+      const { orderId, paymentId } = await payOrder('100.00', atomeMethodId);
+      const refundId = await refundOrder(orderId, '30.00', atomeMethodId);
+      const created = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '70.00' }], '70.00');
+      const id = (created.body.data ?? created.body).id;
+      // Simulate a pre-#1284 draft holding only the payment line.
+      await ds.query('DELETE FROM provider_settlement_lines WHERE "settlementId" = $1 AND "salesOrderPaymentId" = $2', [id, refundId]);
+      await request(app.getHttpServer()).patch(`/accounting/provider-settlements/${id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ rows: [{ salesOrderId: orderId, paymentMethodId: atomeMethodId, expectedNetAmount: '70.00' }], settlementAmount: '70.00' })
+        .expect(200);
+      const lines = await ds.query('SELECT "salesOrderPaymentId" FROM provider_settlement_lines WHERE "settlementId" = $1', [id]);
+      expect(lines.map((l: any) => l.salesOrderPaymentId).sort()).toEqual([paymentId, refundId].sort());
+    });
+
+    it('post rejects a draft whose group gained a refund after saving', async () => {
+      const { orderId } = await payOrder('80.00', tiktokMethodId);
+      const created = await createDraft([{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '80.00' }], '80.00');
+      const id = (created.body.data ?? created.body).id;
+      await refundOrder(orderId, '80.00', tiktokMethodId, '2026-09-04'); // group now nets to zero
+      const res = await post(`/accounting/provider-settlements/${id}/post`);
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(res.body.message)).toMatch(/edit and re-save/);
+      const [s] = await ds.query('SELECT status FROM provider_settlements WHERE id = $1', [id]);
+      expect(s.status).toBe('DRAFT');
+    });
+
+    describe('same-account guard', () => {
+      const SAME_ACCOUNT =
+        'The selected payments already debit the destination bank account and cannot be settled into that same account.';
+
+      async function settlementCount(): Promise<number> {
+        const [row] = await ds.query('SELECT count(*)::int AS n FROM provider_settlements');
+        return row.n;
+      }
+
+      it('create: rejects settling CIMB payments into the 1200 bank they already debit, persisting nothing', async () => {
+        const { orderId, paymentId } = await payOrder('45.00', cimbMethodId);
+        const settlementsBefore = await settlementCount();
+        const journalsBefore = await countJournalEntries();
+
+        const res = await createDraft(
+          [{ salesOrderId: orderId, paymentMethodId: cimbMethodId, expectedNetAmount: '45.00' }], '45.00',
+        );
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(SAME_ACCOUNT);
+        expect(await settlementCount()).toBe(settlementsBefore);
+        expect(await countJournalEntries()).toBe(journalsBefore);
+        const claims = await ds.query(
+          'SELECT 1 FROM provider_settlement_lines WHERE "salesOrderPaymentId" = $1', [paymentId],
+        );
+        expect(claims).toHaveLength(0);
+      });
+
+      it('update: rejects moving a draft into its derived clearing account, leaving the draft untouched', async () => {
+        const { orderId } = await payOrder('46.00'); // Atome → clearing 1240
+        const created = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '46.00' }], '46.00');
+        expect(created.status).toBe(201);
+        const id = (created.body.data ?? created.body).id;
+        const snapshot = async () => ({
+          settlement: (await ds.query(
+            `SELECT "bankAccountId", "clearingAccountId", "settlementAmount", "updatedAt"
+               FROM provider_settlements WHERE id = $1`, [id],
+          ))[0],
+          lines: await ds.query(
+            'SELECT id, "salesOrderPaymentId", amount FROM provider_settlement_lines WHERE "settlementId" = $1 ORDER BY id',
+            [id],
+          ),
+        });
+        const before = await snapshot();
+        expect(before.settlement.clearingAccountId).toBe(clearingAccountId);
+
+        const res = await request(app.getHttpServer())
+          .patch(`/accounting/provider-settlements/${id}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({
+            rows: [{ salesOrderId: orderId, paymentMethodId: atomeMethodId, expectedNetAmount: '46.00' }],
+            bankAccountId: clearingAccountId,
+          });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(SAME_ACCOUNT);
+        expect(await snapshot()).toEqual(before);
+      });
+
+      it('post: an existing draft that settles into its own clearing account cannot post', async () => {
+        // A draft saved before the guard existed: written directly, as the API
+        // now refuses to create it.
+        const { paymentId } = await payOrder('47.00', cimbMethodId);
+        const [s] = await ds.query(
+          `INSERT INTO provider_settlements
+             ("referenceNumber", "providerPaymentMethodId", "clearingAccountId", "bankAccountId",
+              "settlementDate", "settlementAmount", status)
+           VALUES ($1, $2, $3, $3, '2026-09-20', '47.0000', 'DRAFT') RETURNING id`,
+          [`PS-T-${randomUUID().slice(0, 8)}`, cimbMethodId, bankAccountId],
+        );
+        ownedSettlementIds.push(s.id);
+        await ds.query(
+          `INSERT INTO provider_settlement_lines ("settlementId", "salesOrderPaymentId", amount)
+           VALUES ($1, $2, '47.0000')`,
+          [s.id, paymentId],
+        );
+        const journalsBefore = await countJournalEntries();
+
+        const res = await post(`/accounting/provider-settlements/${s.id}/post`);
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(SAME_ACCOUNT);
+        const [after] = await ds.query(
+          'SELECT status, "journalEntryId", "postedAt" FROM provider_settlements WHERE id = $1', [s.id],
+        );
+        expect(after).toEqual({ status: 'DRAFT', journalEntryId: null, postedAt: null });
+        expect(await countJournalEntries()).toBe(journalsBefore);
+      });
+    });
+
+    it('two settlements that both pass recomputation collide on the claim index: one 201, one 409, no partial claims', async () => {
+      const service = app.get(ProviderSettlementService) as any;
+      const { orderId } = await newOrder('90.00');
+      await payExisting(orderId, '60.00', tiktokMethodId);
+      await payExisting(orderId, '30.00', tiktokMethodId, '2026-09-02');
+      const body = draftBody([{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '90.00' }], '90.00');
+
+      const pids: number[] = [];
+      let arrived = 0;
+      let openGate!: () => void;
+      const gate = new Promise<void>((r) => (openGate = r));
+      service[SETTLEMENT_TEST_HOOK] = async (phase: string, ctx: any) => {
+        if (phase !== 'afterRecompute' || !ctx.salesOrderIds.includes(orderId)) return;
+        const [{ pid }] = await ctx.manager.query('SELECT pg_backend_pid() AS pid');
+        pids.push(pid);
+        arrived += 1;
+        if (arrived === 2) openGate();
+        await withTimeout(gate, 10_000, 'both settlements reaching claim insertion');
+      };
+
+      const started = [
+        start(post('/accounting/provider-settlements', body), { createsSettlement: true }),
+        start(post('/accounting/provider-settlements', body), { createsSettlement: true }),
+      ];
+      let results: request.Response[] = [];
+      try {
+        results = await withTimeout(Promise.all(started.map((s) => s.done)), 30_000, 'claim race') as request.Response[];
+      } finally {
+        delete service[SETTLEMENT_TEST_HOOK];
+        openGate();
+        await drain(started, pids);
+      }
+      // Both passed stale validation, so the loser's 409 can only have come from
+      // the claim index (the 23505 → staleRows path), not from recomputation.
+      expect(arrived).toBe(2);
+      expect(results.map((r) => r.status).sort()).toEqual([201, 409]);
+      const loser = results.find((r) => r.status === 409)!;
+      expect(loser.body.message.staleRows).toEqual([
+        { salesOrderId: orderId, paymentMethodId: tiktokMethodId, currentNetAmount: null },
+      ]);
+
+      const claims = await ds.query(
+        `SELECT l."settlementId", count(*)::int AS n FROM provider_settlement_lines l
+           JOIN sales_order_payments p ON p.id = l."salesOrderPaymentId"
+          WHERE p."salesOrderId" = $1 GROUP BY l."settlementId"`,
+        [orderId],
+      );
+      expect(claims).toHaveLength(1); // only the winner holds claims
+      expect(claims[0].n).toBe(2);    // and it holds the whole group
+      const winnerId = (results.find((r) => r.status === 201)!.body.data).id;
+      expect(claims[0].settlementId).toBe(winnerId);
+    });
+
+    it('a refund recorded while a settlement holds its order lock waits on THAT settlement, then becomes unclaimed residue', async () => {
+      const service = app.get(ProviderSettlementService) as any;
+      const { orderId } = await payOrder('100.00', tiktokMethodId);
+
+      let settlementPid: number | undefined;
+      let refundPid: number | undefined;
+      let reached!: () => void;
+      const lockHeld = new Promise<void>((r) => (reached = r));
+      let release!: () => void;
+      const released = new Promise<void>((r) => (release = r));
+      service[SETTLEMENT_TEST_HOOK] = async (phase: string, ctx: any) => {
+        if (phase !== 'afterSalesOrderLock' || !ctx.salesOrderIds.includes(orderId)) return;
+        [{ pid: settlementPid }] = await ctx.manager.query('SELECT pg_backend_pid() AS pid');
+        reached();
+        await released;
+      };
+
+      const started: Array<{ req: request.Test; done: Promise<request.Response> }> = [];
+      let refundDone = false;
+      let settled: request.Response | undefined;
+      let refund: request.Response | undefined;
+      try {
+        started.push(start(post('/accounting/provider-settlements', draftBody(
+          [{ salesOrderId: orderId, paymentMethodId: tiktokMethodId, expectedNetAmount: '100.00' }], '100.00',
+        )), { createsSettlement: true }));
+        await withTimeout(lockHeld, 10_000, 'settlement reaching its SO lock');
+        expect(settlementPid).toBeDefined();
+
+        const refundReq = start(post(`/sales-orders/${orderId}/refunds`, {
+          refunds: [{ amount: '30.00', paymentMethodId: tiktokMethodId, paymentDate: '2026-09-02' }],
+        }));
+        refundReq.done.then(() => { refundDone = true; }, () => { refundDone = true; });
+        started.push(refundReq);
+
+        // Identify the ONE session waiting on a lock held by THIS settlement's
+        // backend and reading sales_orders — not any waiting query.
+        //
+        // Why the pattern does not include `FOR UPDATE`: pg_stat_activity.query
+        // is truncated at track_activity_query_size (default 1024 bytes; a
+        // server-start setting), and the refund's lock read is longer than
+        // that. It comes from lockRowForUpdate() (common/db/tx-helpers.ts),
+        // which issues repo.findOne with lock mode pessimistic_write, so TypeORM
+        // selects every sales_orders column by alias and appends `FOR UPDATE` at
+        // the END — past the cut. To see the full statement, run with
+        // `log_statement = 'all'` and read the Postgres log.
+        //
+        // What still makes the match specific: the session must be waiting on a
+        // lock (wait_event_type = 'Lock'), blocked by this settlement's own
+        // backend (pg_blocking_pids), and reading `FROM "sales_orders"`. The only
+        // other request in flight is the refund, and the settlement holds
+        // nothing but its FOR SHARE on this order, so exactly one row can match.
+        // The `rows.length > 1` check below fails loudly if that ever changes.
+        const deadline = Date.now() + 10_000;
+        while (Date.now() < deadline && refundPid === undefined && !refundDone) {
+          const rows: Array<{ pid: number }> = await ds.query(
+            `SELECT pid FROM pg_stat_activity
+              WHERE wait_event_type = 'Lock'
+                AND $1 = ANY(pg_blocking_pids(pid))
+                AND query ILIKE '%FROM "sales_orders"%'`,
+            [settlementPid],
+          );
+          if (rows.length > 1) throw new Error(`expected one blocked refund session, found ${rows.length}`);
+          if (rows.length === 1) refundPid = rows[0].pid;
+          else await pause(50);
+        }
+        expect(refundDone).toBe(false);
+        expect(refundPid).toBeDefined();
+
+        release();
+        [settled, refund] = await withTimeout(Promise.all(started.map((s) => s.done)), 15_000, 'commit then refund');
+      } finally {
+        delete service[SETTLEMENT_TEST_HOOK];
+        release?.();
+        await drain(started, [settlementPid, refundPid]);
+      }
+
+      expect(settled!.status).toBe(201); // its id was registered by start()
+      expect(refund!.status).toBe(201);
+
+      // The refund arrived after the claim: it is unclaimed residue, not part of the draft.
+      const [residue] = await rowsFor([orderId]);
+      expect(residue.netAmount).toBe('-30.0000');
+    });
   });
 }); // closes describe('Provider settlements (e2e)')

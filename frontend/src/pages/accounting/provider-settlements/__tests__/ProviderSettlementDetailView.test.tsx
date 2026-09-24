@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
 
@@ -13,8 +14,31 @@ const base = {
   settlementAmount: '98.0000', status: 'DRAFT',
   journalEntryId: null, reversalJournalEntryId: null,
   postedAt: null, postedBy: null, reversedAt: null, reversedBy: null,
-  lines: [{ id: 'l1', salesOrderPaymentId: 'pay-1', amount: '98.0000', releasedAt: null }],
+  lines: [{
+    id: 'l1', salesOrderPaymentId: 'pay-1', amount: '98.0000', releasedAt: null,
+    salesOrderPayment: {
+      id: 'pay-1', salesOrderId: 'so-1', paymentMethodId: 'pm-1', paymentDate: '2026-09-01',
+      referenceNumber: 'REF-pay-1', amount: '999.0000',
+      salesOrder: { id: 'so-1', orderNumber: 'SO-26-001' },
+      paymentMethod: { id: 'pm-1', name: 'Atome' },
+    },
+  }],
 }
+
+const line = (
+  id: string, paymentId: string, amount: string, so: string, method: string,
+  released: string | null = null,
+) => ({
+  id, salesOrderPaymentId: paymentId, amount, releasedAt: released,
+  salesOrderPayment: {
+    id: paymentId, salesOrderId: so, paymentMethodId: method, paymentDate: '2026-09-01',
+    referenceNumber: `REF-${paymentId}`,
+    // LIVE amount deliberately differs from the snapshot: the view must use the snapshot.
+    amount: '999.0000',
+    salesOrder: { id: so, orderNumber: so === 'so-8' ? 'SO-26-008' : 'SO-26-009' },
+    paymentMethod: { id: method, name: 'TikTok' },
+  },
+})
 
 const view = (over: Partial<typeof base> = {}) =>
   render(
@@ -80,9 +104,30 @@ describe('ProviderSettlementDetailView', () => {
     expect(screen.getByTestId('settlement-amount')).toHaveTextContent('98.00')
   })
 
-  it('lists the claimed payments with their amounts', () => {
+  it('lists the claimed payments grouped by order and method', () => {
     view()
-    expect(screen.getByText('pay-1')).toBeInTheDocument()
-    expect(screen.getAllByText(/98\.00/).length).toBeGreaterThanOrEqual(2)
+    // The raw payment UUID is never displayed; the group row identifies it.
+    expect(screen.queryByText('pay-1')).not.toBeInTheDocument()
+    expect(screen.getByText('SO-26-001')).toBeInTheDocument()
+    expect(screen.getByTestId('group-net')).toHaveTextContent('98.00')
+  })
+
+  it('groups lines by Sales Order + Payment Method with totals from snapshots', async () => {
+    view({
+      lines: [
+        line('l1', 'p1', '100.0000', 'so-8', 'pm-tt'),
+        line('l2', 'r1', '-30.0000', 'so-8', 'pm-tt'),
+        line('l3', 'p2', '20.0000', 'so-9', 'pm-tt'),
+      ],
+    } as any)
+    const row = screen.getByText('SO-26-008').closest('tr')!
+    expect(within(row).getByText('TikTok')).toBeInTheDocument()
+    expect(within(row).getByTestId('group-net')).toHaveTextContent('70.00')
+    expect(screen.queryByText('p1')).not.toBeInTheDocument() // no raw uuids
+    await userEvent.click(
+      within(row).getByRole('button', { name: /show payments for SO-26-008/i }),
+    )
+    expect(screen.getByText('REF-p1')).toBeInTheDocument()
+    expect(screen.getByText('REF-r1')).toBeInTheDocument()
   })
 })

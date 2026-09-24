@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode,
+  Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode, BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { Auth } from '../../auth/decorators/auth.decorator';
@@ -8,7 +8,7 @@ import { ProviderSettlementService } from '../services/provider-settlement.servi
 import { ProviderSettlementEligibilityService } from '../services/provider-settlement-eligibility.service';
 import {
   CreateProviderSettlementDto, UpdateProviderSettlementDto,
-  ListProviderSettlementsQueryDto, EligiblePaymentsQueryDto,
+  ListProviderSettlementsQueryDto, EligibleRowsQueryDto,
 } from '../dto/provider-settlement.dto';
 
 @Auth()
@@ -26,12 +26,16 @@ export class ProviderSettlementController {
     return this.service.list(query);
   }
 
-  // MUST precede @Get(':id') — NestJS would otherwise treat
-  // "eligible-payments" as a uuid parameter.
-  @Get('eligible-payments')
-  @ApiOperation({ summary: 'List payments eligible for settlement' })
-  async eligiblePayments(@Query() query: EligiblePaymentsQueryDto) {
-    return this.eligibility.listEligible(query);
+  // MUST precede @Get(':id') — NestJS would otherwise treat "eligible-rows" as
+  // a uuid parameter.
+  @Get('eligible-rows')
+  @ApiOperation({ summary: 'List Sales Order + Payment Method rows eligible for settlement' })
+  async eligibleRows(@Query() query: EligibleRowsQueryDto) {
+    if (query.scope === 'claimed') {
+      if (!query.settlementId) throw new BadRequestException('scope=claimed requires settlementId');
+      return this.eligibility.listClaimedRows(query.settlementId, query.settlementDate);
+    }
+    return this.eligibility.listEligibleRows(query);
   }
 
   @Get(':id')
