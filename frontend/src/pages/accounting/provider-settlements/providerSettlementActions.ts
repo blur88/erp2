@@ -1,9 +1,23 @@
-import type { ProviderSettlementStatus } from '@/types'
+import type { ProviderSettlement, ProviderSettlementStatus } from '@/types'
 
 export interface ProviderSettlementActionMeta {
   key: 'view' | 'edit' | 'post' | 'discard' | 'reverse'
   label: string
   destructive?: boolean
+}
+
+export const NOT_PROVIDER_CLEARING_TOOLTIP = 'Not a provider clearing account'
+
+/**
+ * UI SIGNAL ONLY (#1285, spec §9.3): a DRAFT whose STORED clearing account is
+ * explicitly unflagged holds non-provider-clearing payments (a draft has exactly
+ * one derived clearing account). Post-time re-derivation and server validation
+ * remain authoritative. An unknown flag (undefined) never blocks.
+ */
+export function isNotProviderClearingDraft(
+  s: Pick<ProviderSettlement, 'status' | 'clearingAccount'>,
+): boolean {
+  return s.status === 'DRAFT' && s.clearingAccount?.isProviderClearing === false
 }
 
 /**

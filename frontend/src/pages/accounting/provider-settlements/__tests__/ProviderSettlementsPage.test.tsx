@@ -143,6 +143,80 @@ describe('ProviderSettlementsPage', () => {
     expect(menu.queryByText('Discard')).not.toBeInTheDocument()
   })
 
+  // #1285: a DRAFT whose stored clearing account is unflagged cannot be
+  // posted; the list disables Post (with its reason) and warns on the row.
+  it('disables Post with its reason for a DRAFT whose clearing account is not flagged, and shows the warning chip', async () => {
+    renderPage([row({
+      status: 'DRAFT',
+      clearingAccount: { id: 'c', code: '1200', name: 'CIMB', isProviderClearing: false },
+    })])
+    expect(await screen.findByText('Not provider clearing')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /row actions/i }))
+    expect(screen.getByRole('menuitem', { name: 'Post' })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).not.toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('menuitem', { name: 'View' })).not.toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('menuitem', { name: 'Discard' })).not.toHaveAttribute('aria-disabled', 'true')
+    expect(document.querySelector('[data-tooltip="Not a provider clearing account"]')).not.toBeNull()
+  })
+
+  it('keeps Post enabled for a flagged DRAFT, and shows no warning on a POSTED row with an unflagged account', async () => {
+    const first = renderPage([row({
+      status: 'DRAFT',
+      clearingAccount: { id: 'c', code: '1200', name: 'CIMB', isProviderClearing: true },
+    })])
+    expect(screen.queryByText('Not provider clearing')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /row actions/i }))
+    expect(screen.getByRole('menuitem', { name: 'Post' })).not.toHaveAttribute('aria-disabled', 'true')
+    first.unmount()
+
+    renderPage([row({
+      id: 'ps-2',
+      status: 'POSTED',
+      clearingAccount: { id: 'c', code: '1200', name: 'CIMB', isProviderClearing: false },
+    })])
+    expect(screen.queryByText('Not provider clearing')).not.toBeInTheDocument()
+  })
+
+  // #1285: the warning is a pure function of the refetched payload, so a fresh
+  // render with a now-flagged account clears both the chip and the block.
+  // Fresh JSX per render — React 19 bails out on an identical element ref.
+  it('clears the warning chip and re-enables Post when the refetched account becomes flagged', async () => {
+    const page = () => (
+      <MemoryRouter>
+        <ProviderSettlementsPage />
+      </MemoryRouter>
+    )
+    const list = (isProviderClearing: boolean) => ({
+      data: {
+        data: [row({
+          status: 'DRAFT',
+          clearingAccount: { id: 'c', code: '1200', name: 'CIMB', isProviderClearing },
+        })],
+        meta: { total: 1, page: 1, limit: 25 },
+      },
+      isLoading: false, isError: false,
+    })
+
+    mockList.mockReturnValue(list(false))
+    const { rerender } = render(page())
+    expect(await screen.findByText('Not provider clearing')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /row actions/i }))
+    expect(screen.getByRole('menuitem', { name: 'Post' })).toHaveAttribute('aria-disabled', 'true')
+
+    // Close the menu: an open MUI Menu marks the page aria-hidden, hiding the
+    // row-actions button from role queries after the rerender.
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
+
+    mockList.mockReturnValue(list(true))
+    rerender(page())
+    await waitFor(() =>
+      expect(screen.queryByText('Not provider clearing')).not.toBeInTheDocument(),
+    )
+    await userEvent.click(screen.getByRole('button', { name: /row actions/i }))
+    expect(screen.getByRole('menuitem', { name: 'Post' })).not.toHaveAttribute('aria-disabled', 'true')
+  })
+
   it('passes the status filter into the query once chosen', async () => {
     renderPage([row()])
     // The real FilterBar (not mocked here) has no global Apply button:
