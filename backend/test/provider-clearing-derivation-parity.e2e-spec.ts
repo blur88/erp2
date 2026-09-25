@@ -13,6 +13,7 @@ import {
 } from './utils/shared-e2e-fixture';
 import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
 import { accountIdByCode, methodIdByCode } from './utils/payment-method-matrix-fixture';
+import { restoreMapping, snapshotMapping } from './utils/payment-method-mapping-restore-fixture';
 import { PostingType } from '../src/common/accounting-posting/enums';
 import { ProviderSettlementDerivationService } from '../src/modules/provider-settlements/services/provider-settlement-derivation.service';
 import { ProviderSettlementEligibilityService } from '../src/modules/provider-settlements/services/provider-settlement-eligibility.service';
@@ -468,26 +469,17 @@ describe('Provider clearing-account derivation parity (e2e)', () => {
     ['remapped CIMB', async () => {
       const { orderId } = await newOrder('50.00');
       const paymentId = await payExisting(orderId, '50.00', cimbMethodId);
-      const [original] = await ds.query(
-        `SELECT m."accountId" FROM payment_method_account_mappings m
-           JOIN payment_methods pm ON pm.id = m."paymentMethodId"
-          WHERE pm.code = 'CIMB'`,
-      );
+      const original = await snapshotMapping(ds, cimbMethodId);
       expect(original?.accountId).toBeTruthy();
       await put('/accounting/settings/payment-method-mappings', {
         mappings: [{ paymentMethodId: cimbMethodId, accountId: clearingShopeeAccountId }],
       }).expect(200);
       pendingRestores.push(async () => {
-        // Asserted: CIMB is a baseline row shared with every later suite, so a
-        // silently failed restore would leave it posting into 1220.
-        await put('/accounting/settings/payment-method-mappings', {
-          mappings: [{ paymentMethodId: cimbMethodId, accountId: original.accountId }],
-        }).expect(200);
-        const [restored] = await ds.query(
-          `SELECT "accountId" FROM payment_method_account_mappings WHERE "paymentMethodId" = $1`,
-          [cimbMethodId],
-        );
-        expect(restored?.accountId).toBe(original.accountId);
+        // CIMB is a baseline row shared with every later suite. Restored by
+        // SQL, not PUT: setMappings() re-inserts with a new id, which the leak
+        // check reports as drift (#1293). restoreMapping() asserts the row
+        // matches the snapshot exactly, so a failed restore cannot pass silently.
+        await restoreMapping(ds, cimbMethodId, original);
       });
       return paymentRow(paymentId);
     }, '1200'],
