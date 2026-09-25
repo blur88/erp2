@@ -15,7 +15,7 @@ import {
   useDiscardProviderSettlementMutation,
   usePostProviderSettlementMutation,
   useReverseProviderSettlementMutation,
-  useGetPaymentMethodMappingsQuery,
+  useGetProviderSettlementProvidersQuery,
 } from '@/store/api/accountingApi'
 import type { ProviderSettlement, ProviderSettlementStatus } from '@/types'
 import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
@@ -124,20 +124,22 @@ export default function ProviderSettlementsPage() {
   const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
   const resetPage = useCallback(() => setPage(1), [])
 
-  // Every method, whatever its mapping status (#1288): a settlement belongs to
-  // the method its payments were recorded under, and that method may since
-  // have been unmapped or made invalid. Methods that never own a settlement
-  // simply match nothing.
-  const { data: mappings, isLoading: mappingsLoading } = useGetPaymentMethodMappingsQuery()
+  // The methods that own a settlement (#1289), whatever has happened to them
+  // since: a settlement belongs to the method its payments were recorded under,
+  // which may have been unmapped, deactivated or deleted. The suffix says why a
+  // method is missing from the payment dialogs yet still filterable here.
+  const { data: providers, isLoading: providersLoading } = useGetProviderSettlementProvidersQuery()
   const providerOptions = useMemo(
     () =>
-      (mappings ?? [])
-        .map((m) => ({ value: m.paymentMethodId, label: m.paymentMethodName })),
-    [mappings],
+      (providers ?? []).map((p) => ({
+        value: p.id,
+        label: p.deleted ? `${p.name} (deleted)` : p.isActive ? p.name : `${p.name} (inactive)`,
+      })),
+    [providers],
   )
   const filterConfig = useMemo(
-    () => getFilterConfig(providerOptions, !mappingsLoading, mappingsLoading),
-    [providerOptions, mappingsLoading],
+    () => getFilterConfig(providerOptions, !providersLoading, providersLoading),
+    [providerOptions, providersLoading],
   )
 
   const { appliedFilters, draftFilters, handlers, hasActiveFilters } =
