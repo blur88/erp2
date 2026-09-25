@@ -1559,11 +1559,12 @@ describe('Provider settlements (e2e)', () => {
 
       /**
        * The journal gate rejects a WHOLE group when ANY of its payments fails
-       * derivation. Each group below holds one valid 1220 payment plus one bad
-       * one; dropping the bad row (e.g. an inner join) would leave a remainder
-       * that qualifies on its own, so these fail on exactly that mistake. Each
-       * first proves the group IS listed before it turns bad, so an exclusion
-       * cannot be vacuous.
+       * derivation: no derivation, an unflagged account, a soft-deleted account,
+       * or two different accounts. The mixed groups below hold one valid 1220
+       * payment plus one bad one; dropping the bad row (e.g. an inner join)
+       * would leave a remainder that qualifies on its own, so they fail on
+       * exactly that mistake. Every test that turns a listed group bad first
+       * proves the group IS listed, so an exclusion cannot be vacuous.
        */
       describe('every payment in a group must qualify', () => {
         it('rejects a group mixing a 1220 payment with one recorded to unflagged 1200', async () => {
@@ -1591,31 +1592,69 @@ describe('Provider settlements (e2e)', () => {
           }
         });
 
-        it('rejects a group where one payment derives to a soft-deleted account', async () => {
-          // Suite-owned flagged account, so soft-deleting it touches no shared baseline row.
+        /** Suite-owned flagged account, so soft-deleting it touches no shared baseline row. */
+        async function seedFlaggedAccount(tag: string): Promise<string> {
           const [parent] = await ds.query(`SELECT id FROM chart_of_account WHERE code = '1000'`);
           const [x] = await ds.query(
             `INSERT INTO chart_of_account (code, name, type, "parentId", "isSystem", "isPostable", "isActive", "isProviderClearing")
              VALUES ($1, $2, 'Asset', $3, false, true, true, true) RETURNING id`,
-            [`PS-DEL-${runId}`.slice(0, 20), `PS Deleted Clearing ${runId}`, parent.id],
+            [`PS-${tag}-${runId}`.slice(0, 20), `PS ${tag} Clearing ${runId}`, parent.id],
           );
           ownedAccountIds.push(x.id);
           ownedEntityIds.push(x.id);
+          return x.id;
+        }
 
+        async function withSoftDeleted(accountId: string, fn: () => Promise<void>) {
+          await ds.query('UPDATE chart_of_account SET "deletedAt" = now() WHERE id = $1', [accountId]);
+          try {
+            await fn();
+          } finally {
+            await ds.query('UPDATE chart_of_account SET "deletedAt" = NULL WHERE id = $1', [accountId]);
+          }
+        }
+
+        it('rejects a group whose only derived account is soft-deleted', async () => {
+          // The soft-delete guard itself: with ONE account in play, neither the
+          // two-account count nor an inner join can exclude this group — only the
+          // account join's deletedAt condition can.
+          const x = await seedFlaggedAccount('DEL1');
           const { orderId } = await newOrder('60.00');
-          await withShopeeMapping(x.id, async () => {
+          await withShopeeMapping(x, async () => {
             await payExisting(orderId, '25.00', shopeeMethodId); // → X
           });
           expect((await rowsFor([orderId])).map((r) => r.netAmount)).toEqual(['25.0000']);
-          await payExisting(orderId, '20.00', shopeeMethodId); // → 1220: two accounts now
-          await ds.query('UPDATE chart_of_account SET "deletedAt" = now() WHERE id = $1', [x.id]);
-          try {
-            // Dropping the X payment would leave a lone, valid 1220 payment.
+          await withSoftDeleted(x, async () => {
             expect(await rowsFor([orderId])).toHaveLength(0);
-          } finally {
-            await ds.query('UPDATE chart_of_account SET "deletedAt" = NULL WHERE id = $1', [x.id]);
-          }
+          });
         });
+
+        it('rejects a 1220 payment grouped with one deriving to a soft-deleted account (inner-join guard)', async () => {
+          // NOT a soft-delete guard: with X live this group already derives to two
+          // accounts and is excluded. It fails if the bad X row is DROPPED (an
+          // inner join), which would leave a lone, valid 1220 payment.
+          const x = await seedFlaggedAccount('DEL2');
+          const { orderId } = await newOrder('60.00');
+          await withShopeeMapping(x, async () => {
+            await payExisting(orderId, '25.00', shopeeMethodId); // → X
+          });
+          await payExisting(orderId, '20.00', shopeeMethodId); // → 1220
+          await withSoftDeleted(x, async () => {
+            expect(await rowsFor([orderId])).toHaveLength(0);
+          });
+        });
+      });
+
+      it('lists a qualifying group on the unfiltered first load (no search, no salesOrderIds)', async () => {
+        // The page's first load sends neither filter, so the group query runs with
+        // no WHERE clause at all. Unpaginated (no page/limit) so the shared
+        // database's other rows cannot push this group off the page.
+        const { orderId } = await payOrder('47.00', shopeeMethodId); // → 1220
+        const res = await get('/accounting/provider-settlements/eligible-rows?settlementDate=2026-09-20').expect(200);
+        const rows = res.body.data as any[];
+        expect(res.body.meta.total).toBe(rows.length);
+        const mine = rows.filter((r) => r.salesOrderId === orderId);
+        expect(mine.map((r) => [r.paymentMethodId, r.netAmount])).toEqual([[shopeeMethodId, '47.0000']]);
       });
     });
   });

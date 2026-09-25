@@ -569,6 +569,15 @@ accounts is not offered at all — saving such a group fails
 (`Settle each account in its own settlement.`), so each account's payments must
 be settled in its own settlement.
 
+The current mapping plays **no** part in eligibility (#1288). Payments recorded to
+a flagged clearing account stay offered and settleable after their method is
+remapped, unmapped, or left with an invalid mapping (for example, its account was
+deactivated), and a draft can still be saved and posted in that state. Every
+payment in a group must qualify: a payment with no derivable journal, or one
+deriving to an unflagged or soft-deleted account, keeps its whole group off the
+list. The Provider filter on the Provider Settlements list therefore offers every
+active payment method, whatever its mapping status.
+
 ### Unflagging blocks posting, not reversing
 
 Because eligibility is checked against the derived (original-journal) account, a

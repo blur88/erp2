@@ -121,7 +121,10 @@ describe('listEligibleRows — one snapshot', () => {
 });
 
 describe('listEligibleRows — no mapping gate (#1288)', () => {
-  it('lists a group whose method has no current mapping, filtering only by the journal gate', async () => {
+  // SQL SHAPE only: the mocked query returns its row whatever the SQL says. The
+  // behaviour (remapped/unmapped/invalid methods listed, every-payment rule) is
+  // proven against real Postgres in test/provider-settlements.e2e-spec.ts.
+  it('builds the group query with no payment-method filter and the journal gate as one aggregate', async () => {
     const qb: any = {};
     for (const m of ['innerJoin', 'where', 'andWhere', 'select', 'orderBy', 'addOrderBy']) qb[m] = jest.fn().mockReturnValue(qb);
     qb.getQueryAndParameters = jest.fn().mockReturnValue(['SELECT 1', []]);
