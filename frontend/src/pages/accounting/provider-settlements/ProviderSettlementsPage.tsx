@@ -124,12 +124,14 @@ export default function ProviderSettlementsPage() {
   const [limit, setLimit] = useState<number>(PAGINATION.defaultPageSize)
   const resetPage = useCallback(() => setPage(1), [])
 
-  // Only mapped methods can own a settlement, so only they can filter one.
+  // Every method, whatever its mapping status (#1288): a settlement belongs to
+  // the method its payments were recorded under, and that method may since
+  // have been unmapped or made invalid. Methods that never own a settlement
+  // simply match nothing.
   const { data: mappings, isLoading: mappingsLoading } = useGetPaymentMethodMappingsQuery()
   const providerOptions = useMemo(
     () =>
       (mappings ?? [])
-        .filter((m) => m.status === 'mapped')
         .map((m) => ({ value: m.paymentMethodId, label: m.paymentMethodName })),
     [mappings],
   )
