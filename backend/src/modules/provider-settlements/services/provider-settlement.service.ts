@@ -17,7 +17,6 @@ import {
   SettlementTestHook,
   SettlementTestPhase,
 } from './provider-settlement.test-hooks';
-import { PaymentMethodMappingService } from '../../accounting/services/payment-method-mapping.service';
 import { ChartOfAccount } from '../../accounting/entities/chart-of-account.entity';
 import { ACCOUNTING_POSTING_PORT } from '../../../common/accounting-posting/accounting-posting.port';
 import type { AccountingPostingPort } from '../../../common/accounting-posting/accounting-posting.port';
@@ -82,7 +81,6 @@ export class ProviderSettlementService {
     private readonly auditLogService: AuditLogService,
     private readonly derivation: ProviderSettlementDerivationService,
     private readonly eligibility: ProviderSettlementEligibilityService,
-    private readonly mappingService: PaymentMethodMappingService,
     @Inject(ACCOUNTING_POSTING_PORT)
     private readonly postingPort: AccountingPostingPort,
   ) {}
@@ -190,9 +188,6 @@ export class ProviderSettlementService {
 
     const saved = await mapDeadlock(() => this.dataSource.transaction(async (manager: EntityManager) => {
       const methodId = await this.assertSingleMethod(dto.rows, manager);
-      // On the transaction's manager (#1134): a default-DataSource read here
-      // would open a second connection while this transaction is open.
-      await this.assertMappedProvider(methodId, manager);
       await this.assertPostableBankAccount(dto.bankAccountId, manager);
       const payments = await this.resolveRows(dto.rows, dto.settlementDate, undefined, manager);
       this.assertReconciles(payments, dto.settlementAmount);
@@ -252,16 +247,7 @@ export class ProviderSettlementService {
       }
 
       // The payment method is INFERRED from the rows now, never submitted.
-      // Check the mapping only when it ACTUALLY CHANGES, and only after the
-      // lock — comparing against the stored value needs the row. Checking on
-      // every update would block ordinary edits (fixing a typo in the
-      // reference, correcting the amount) on a draft whose method went
-      // invalid after it was saved, which is the same mistake as re-checking at
-      // post time.
       const methodId = await this.assertSingleMethod(dto.rows, manager);
-      if (methodId !== settlement.providerPaymentMethodId) {
-        await this.assertMappedProvider(methodId, manager);
-      }
 
       await this.assertPostableBankAccount(dto.bankAccountId ?? settlement.bankAccountId, manager);
 
@@ -592,35 +578,6 @@ export class ProviderSettlementService {
     return saved as ProviderSettlement;
   }
 
-  /**
-   * Only status 'mapped' may be selected. 'unmapped' has no clearing account at
-   * all; 'invalid' points at one that is missing, soft-deleted, inactive or
-   * non-postable. Enforced server-side because a client is not trusted to have
-   * filtered its own dropdown.
-   *
-   * Called on create and on a provider-CHANGING update only — NEVER at post
-   * time, where the clearing account comes from journal history and the current
-   * mapping is irrelevant.
-   *
-   * `manager` MUST be the caller's transaction manager when one is open.
-   * mappingService.list() resolves its injected repositories from the default
-   * DataSource, and reading through them while the update transaction is open
-   * opens a second connection (#1134). Passing the manager keeps every read on
-   * the transaction's single connection.
-   */
-  private async assertMappedProvider(
-    paymentMethodId: string,
-    manager?: EntityManager,
-  ): Promise<void> {
-    const rows = await this.mappingService.list(manager);
-    const row = rows.find((r: any) => r.paymentMethodId === paymentMethodId);
-    if (!row || row.status !== 'mapped') {
-      throw new BadRequestException(
-        `Payment method is not mapped to a valid account (status: ${row?.status ?? 'unknown'})`,
-      );
-    }
-  }
-
   private async assertPostableBankAccount(accountId: string, manager: EntityManager): Promise<void> {
     // Validated against the Chart of Accounts — never inferred from the broad
     // `Accounting Channel = Bank` value.
@@ -634,9 +591,13 @@ export class ProviderSettlementService {
   }
 
   /**
-   * #1285: the JOURNAL-DERIVED clearing account must be flagged. Never consults
-   * the live mapping. Runs after assertDistinctAccounts so the Dr X / Cr X case
-   * keeps its more specific message.
+   * The journal-derived clearing-account guard (#1285): the account the payments'
+   * ORIGINAL journals debited must be flagged. It never consults the method's
+   * live mapping, so a provider that was since remapped, unmapped or made
+   * invalid stays settleable for payments recorded to its clearing account
+   * (#1288), while cash and bank payments are still rejected. Runs on create,
+   * on every update and at post. Runs after assertDistinctAccounts so the
+   * Dr X / Cr X case keeps its more specific message.
    */
   private async assertProviderClearingAccount(accountId: string, manager: EntityManager): Promise<void> {
     const account = await manager.getRepository(ChartOfAccount).findOne({ where: { id: accountId } as any });

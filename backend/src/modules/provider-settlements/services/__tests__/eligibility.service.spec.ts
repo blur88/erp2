@@ -17,7 +17,6 @@ describe('settlementId validation', () => {
     };
     return new ProviderSettlementEligibilityService(
       manager,
-      { list: jest.fn(async () => []) } as any,
       { resolveAccount: jest.fn(async () => ({ id: 'dep' })) } as any,
       { deriveClearingAccountId: jest.fn() } as any,
     );
@@ -42,13 +41,11 @@ describe('eligiblePaymentsForOrders — shared builder', () => {
     qb.andWhere = qb.where;
     qb.getRawMany = (jest.fn() as any).mockResolvedValue([]);
     const manager: any = { getRepository: () => ({ createQueryBuilder: () => qb }) };
-    const mapping: any = { list: jest.fn() };
     return {
       qb,
       manager,
       service: new ProviderSettlementEligibilityService(
         manager,
-        mapping,
         { resolveAccount: jest.fn(async () => ({ id: 'dep' })) } as any,
         { deriveClearingAccountId: jest.fn() } as any,
       ),
@@ -86,42 +83,6 @@ describe('eligiblePaymentsForOrders — shared builder', () => {
   });
 });
 
-describe('allowedMethodIds', () => {
-  const mappingRows = [
-    { paymentMethodId: 'pm-flagged', accountId: 'acct-flagged', status: 'mapped' },
-    { paymentMethodId: 'pm-unflagged', accountId: 'acct-unflagged', status: 'mapped' },
-    { paymentMethodId: 'pm-unmapped', accountId: null, status: 'unmapped' },
-    { paymentMethodId: 'pm-invalid', accountId: 'acct-unflagged', status: 'invalid' },
-  ];
-  const manager: any = { query: jest.fn(async () => [{ id: 'acct-flagged' }]) };
-
-  it('lists only methods currently mapped to a flagged account', async () => {
-    const service = new ProviderSettlementEligibilityService(
-      {} as any,
-      { list: jest.fn(async () => mappingRows) } as any,
-      { resolveAccount: jest.fn(async () => ({ id: 'dep' })) } as any,
-      { deriveClearingAccountId: jest.fn() } as any,
-    );
-    expect(await (service as any).allowedMethodIds(undefined, manager)).toEqual(['pm-flagged']);
-  });
-
-  it("adds the draft's stored method even when it is not mapped to a flagged account", async () => {
-    const service = new ProviderSettlementEligibilityService(
-      {} as any,
-      { list: jest.fn(async () => mappingRows) } as any,
-      { resolveAccount: jest.fn(async () => ({ id: 'dep' })) } as any,
-      { deriveClearingAccountId: jest.fn() } as any,
-    );
-    const ids = await (service as any).allowedMethodIds(
-      { providerPaymentMethodId: 'pm-unmapped' },
-      manager,
-    );
-    expect(ids.sort()).toEqual(['pm-flagged', 'pm-unmapped']);
-    expect(ids).not.toContain('pm-invalid');
-    expect(ids).not.toContain('pm-unflagged');
-  });
-});
-
 describe('listEligibleRows — one snapshot', () => {
   it('reads count, groups and details in ONE repeatable-read transaction and derives net from the details', async () => {
     const qb: any = {};
@@ -134,8 +95,6 @@ describe('listEligibleRows — one snapshot', () => {
     const tx: any = {
       getRepository: () => ({ createQueryBuilder: () => qb }),
       query: (jest.fn() as any).mockImplementation(async (sql: string) => {
-        // The mapping gate's flagged-account lookup runs before the count.
-        if (sql.includes('SELECT id FROM chart_of_account')) return [{ id: 'acct-flagged' }];
         if (sql.includes('AS total')) return [{ total: 1 }];
         // A deliberately DISAGREEING SQL net: the result must not use it.
         return [{ salesOrderId: 'so-1', paymentMethodId: 'pm-1', netAmount: '100.0000', orderNumber: 'SO-1', paymentMethodName: 'TikTok' }];
@@ -147,10 +106,8 @@ describe('listEligibleRows — one snapshot', () => {
       query: jest.fn(outside),
       getRepository: jest.fn(outside),
     };
-    const mapping: any = { list: jest.fn(async () => [{ paymentMethodId: 'pm-1', accountId: 'acct-flagged', status: 'mapped' }]) };
     const service = new ProviderSettlementEligibilityService(
       defaultManager,
-      mapping,
       { resolveAccount: jest.fn(async () => ({ id: 'dep' })) } as any,
       { deriveClearingAccountId: jest.fn() } as any,
     );
@@ -158,9 +115,46 @@ describe('listEligibleRows — one snapshot', () => {
     const res = await service.listEligibleRows({ settlementDate: '2026-09-20' });
 
     expect(defaultManager.transaction.mock.calls[0][0]).toBe('REPEATABLE READ');
-    expect(mapping.list).toHaveBeenCalledWith(tx);
     expect(res.data[0].netAmount).toBe('70.0000');
     expect(res.data[0].payments.map((p: any) => p.id)).toEqual(['p1', 'r1']);
+  });
+});
+
+describe('listEligibleRows — no mapping gate (#1288)', () => {
+  // SQL SHAPE only: the mocked query returns its row whatever the SQL says. The
+  // behaviour (remapped/unmapped/invalid methods listed, every-payment rule) is
+  // proven against real Postgres in test/provider-settlements.e2e-spec.ts.
+  it('builds the group query with no payment-method filter and the journal gate as one aggregate', async () => {
+    const qb: any = {};
+    for (const m of ['innerJoin', 'where', 'andWhere', 'select', 'orderBy', 'addOrderBy']) qb[m] = jest.fn().mockReturnValue(qb);
+    qb.getQueryAndParameters = jest.fn().mockReturnValue(['SELECT 1', []]);
+    qb.getRawMany = (jest.fn() as any).mockResolvedValue([
+      { id: 'p1', salesOrderId: 'so-1', paymentMethodId: 'pm-remapped', paymentDate: '2026-09-01', amount: '40.0000', referenceNumber: null },
+    ]);
+    const sql: string[] = [];
+    const tx: any = {
+      getRepository: () => ({ createQueryBuilder: () => qb }),
+      query: (jest.fn() as any).mockImplementation(async (q: string) => {
+        sql.push(q);
+        if (q.includes('AS total')) return [{ total: 1 }];
+        return [{ salesOrderId: 'so-1', paymentMethodId: 'pm-remapped', netAmount: '40.0000', orderNumber: 'SO-1', paymentMethodName: 'Shopee' }];
+      }),
+    };
+    const defaultManager: any = { transaction: jest.fn(async (_iso: string, cb: any) => cb(tx)) };
+    const service = new ProviderSettlementEligibilityService(
+      defaultManager,
+      { resolveAccount: jest.fn(async () => ({ id: 'dep' })) } as any,
+      { deriveClearingAccountId: jest.fn() } as any,
+    );
+
+    const res = await service.listEligibleRows({ settlementDate: '2026-09-20' });
+
+    expect(res.data.map((r) => r.paymentMethodId)).toEqual(['pm-remapped']);
+    const groups = sql.find((q) => q.includes('AS total'))!;
+    expect(groups).not.toMatch(/g\."paymentMethodId" = ANY/);
+    // The journal gate is still the filter.
+    expect(groups).toContain('bool_and(a."isProviderClearing" IS TRUE)');
+    expect(groups).toContain('count(DISTINCT d."clearingAccountId")');
   });
 });
 
@@ -185,7 +179,6 @@ describe('listClaimedRows — one snapshot', () => {
     };
     const service = new ProviderSettlementEligibilityService(
       defaultManager,
-      { list: jest.fn() } as any,
       { resolveAccount: jest.fn(async () => ({ id: 'dep' })) } as any,
       { deriveClearingAccountId: jest.fn() } as any,
     );
@@ -206,7 +199,7 @@ describe('listClaimedRows — provider clearing (#1285)', () => {
     };
     const derivation = { deriveClearingAccountId: jest.fn(async () => 'acc-1200') };
     const service = new ProviderSettlementEligibilityService(
-      manager, { list: jest.fn() } as any, { resolveAccount: jest.fn() } as any, derivation as any,
+      manager, { resolveAccount: jest.fn() } as any, derivation as any,
     );
     jest.spyOn(service, 'assertOwnDraft').mockResolvedValue({ id: 'ps-1' } as any);
     jest.spyOn(service, 'eligiblePaymentsForOrders').mockResolvedValue(current as any);

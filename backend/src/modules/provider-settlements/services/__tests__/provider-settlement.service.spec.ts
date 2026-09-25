@@ -77,6 +77,10 @@ describe('ProviderSettlementService — drafts', () => {
     eligibilityService = {
       eligiblePaymentsForOrders: jest.fn(async () => [] as any[]),
     };
+    // #1288: the service must never read the mapping. It is still provided, and
+    // makeService() reports opts.mappingStatus through it, so re-introducing a
+    // mapping check turns the unmapped/invalid tests red instead of passing
+    // them vacuously.
     mappingService = { list: jest.fn(async () => []) };
     postingPort = {
       postProviderSettlement: jest.fn(async () => ({ journalEntryId: 'je-ps-1' })),
@@ -279,11 +283,11 @@ describe('ProviderSettlementService — drafts', () => {
     ).rejects.toThrow(/at least one row/);
   });
 
-  it('rejects a payment method that is not status "mapped"', async () => {
-    const { service } = makeService({ mappingStatus: 'invalid' });
-    await expect(service.create(validDto() as any, 'u1', 'tester')).rejects.toThrow(
-      /not mapped to a valid account/,
-    );
+  // #1288: eligibility follows the journal-derived clearing account, so the
+  // method's live mapping never decides whether a settlement can be created.
+  it.each(['unmapped', 'invalid'] as const)('creates a settlement for a method whose mapping is %s', async (mappingStatus) => {
+    const { service } = makeService({ mappingStatus });
+    await expect(service.create(validDto() as any, 'u1', 'tester')).resolves.toBeDefined();
   });
 
   it('names ONLY the actually-conflicting groups in a 409', async () => {
@@ -353,9 +357,9 @@ describe('ProviderSettlementService — drafts', () => {
   });
 
   it('allows an ordinary edit on a draft whose provider mapping went invalid', async () => {
-    // Same principle as post(): only a provider CHANGE re-checks the mapping.
-    // Blocking a reference-text fix because the mapping later broke would strand
-    // the draft with no way forward but discarding it.
+    // Same principle as post(): the mapping is never read (#1288). Blocking a
+    // reference-text fix because the mapping later broke would strand the draft
+    // with no way forward but discarding it.
     const { service, mappingService } = makeService({
       settlement: { status: 'DRAFT', providerPaymentMethodId: 'pm-1' },
       mappingStatus: 'invalid',
@@ -366,32 +370,16 @@ describe('ProviderSettlementService — drafts', () => {
     expect(mappingService.list).not.toHaveBeenCalled();
   });
 
-  it('rejects an update that CHANGES the provider to an unmapped method', async () => {
-    const { service } = makeService({
+  it.each(['unmapped', 'invalid'] as const)('accepts an update that CHANGES the provider to a method whose mapping is %s', async (mappingStatus) => {
+    const { service, settlementRepo } = makeService({
       settlement: { status: 'DRAFT', providerPaymentMethodId: 'pm-1' },
-      mappingStatus: 'unmapped',
+      mappingStatus,
       eligible: [{ id: 'x', salesOrderId: 'so-2', paymentMethodId: 'pm-2', amount: '98.0000' }],
     });
     await expect(
       service.update('ps-1', { rows: [r('so-2', 'pm-2', '98.00')] } as any, 'u1', 'tester'),
-    ).rejects.toThrow(/not mapped to a valid account/);
-  });
-
-  it('checks a provider-changing update through the TRANSACTION manager, not a second connection', async () => {
-    // Passing no manager makes list() read through its injected repositories
-    // on the default connection while the update transaction holds one (#1134).
-    const { service, mappingService, manager } = makeService({
-      settlement: { status: 'DRAFT', providerPaymentMethodId: 'pm-1' },
-      mappingStatus: 'mapped',
-      eligible: [{ id: 'x', salesOrderId: 'so-2', paymentMethodId: 'pm-2', amount: '98.0000' }],
-    });
-    await service.update(
-      'ps-1',
-      { rows: [r('so-2', 'pm-2', '98.00')] } as any,
-      'u1',
-      'tester',
-    );
-    expect(mappingService.list).toHaveBeenCalledWith(manager);
+    ).resolves.toBeDefined();
+    expect(settlementRepo.save.mock.calls.at(-1)[0].providerPaymentMethodId).toBe('pm-2');
   });
 
   it('HARD-deletes removed lines so the claim is actually released', async () => {
@@ -505,18 +493,6 @@ describe('ProviderSettlementService — drafts', () => {
     const err = await service.create(validDto() as any).catch((e) => e);
     expect(err).toBeInstanceOf(ConflictException);
     expect(err.message).toMatch(/concurrent change\. Try again/);
-  });
-
-  it('checks the mapping on create for the inferred method, through the transaction manager', async () => {
-    const { service, manager, mappingService } = makeService({ mappingStatus: 'unmapped' });
-    await expect(service.create(validDto() as any)).rejects.toThrow(/not mapped to a valid account/);
-    expect(mappingService.list).toHaveBeenCalledWith(manager);
-  });
-
-  it('on update, checks the mapping only when the inferred method changes', async () => {
-    const { service, mappingService } = makeService({ mappingStatus: 'invalid', settlement: { providerPaymentMethodId: 'pm-1' } });
-    await expect(service.update('ps-1', { rows: validDto().rows } as any)).resolves.toBeDefined();
-    expect(mappingService.list).not.toHaveBeenCalled();
   });
 
   it('rejects a settlement whose amount does not equal the selected total', async () => {
@@ -647,12 +623,20 @@ describe('ProviderSettlementService — drafts', () => {
       expect(lineRepo.save).not.toHaveBeenCalled();
     });
 
+    it('create: an unmapped method is still rejected when its payments derive to an unflagged account', async () => {
+      const { service, settlementRepo, lineRepo } = makeService({ accounts: other, mappingStatus: 'unmapped' });
+      derivationService.deriveClearingAccountId.mockResolvedValue('bank-1');
+      await expect(service.create({ ...validDto(), bankAccountId: 'bank-2' } as any)).rejects.toThrow(NOT_PROVIDER);
+      expect(settlementRepo.save).not.toHaveBeenCalled();
+      expect(lineRepo.save).not.toHaveBeenCalled();
+    });
+
     it('update: checks on EVERY update, including one that keeps the method', async () => {
       const { service, lineRepo, mappingService } = makeService({ accounts: other, settlement: { bankAccountId: 'bank-2' } });
       derivationService.deriveClearingAccountId.mockResolvedValue('bank-1');
       await expect(service.update('ps-1', { rows: validDto().rows } as any)).rejects.toThrow(NOT_PROVIDER);
       expect(lineRepo.delete).not.toHaveBeenCalled();
-      expect(mappingService.list).not.toHaveBeenCalled(); // method unchanged ⇒ no mapping check
+      expect(mappingService.list).not.toHaveBeenCalled(); // the mapping is never read (#1288)
     });
 
     it('post: rejects a draft whose derived account is no longer flagged', async () => {

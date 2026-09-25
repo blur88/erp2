@@ -63,6 +63,8 @@ describe('Provider settlements (e2e)', () => {
   const ownedRefs: string[] = [];
   const ownedSalesOrderIds: string[] = [];
   const ownedSettlementIds: string[] = [];
+  // Chart accounts this suite creates. Deleted LAST: journal lines reference them (FK).
+  const ownedAccountIds: string[] = [];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -159,6 +161,9 @@ describe('Provider settlements (e2e)', () => {
         await ds.query(`DELETE FROM products WHERE id = $1`, [productId]);
         await ds.query(`DELETE FROM categories WHERE id = $1`, [categoryId]);
         await ds.query(`DELETE FROM customers WHERE id = $1`, [customerId]);
+        if (ownedAccountIds.length) {
+          await ds.query(`DELETE FROM chart_of_account WHERE id = ANY($1)`, [ownedAccountIds]);
+        }
 
         // Request exhaust: every HTTP call writes audit_logs rows. Scoped to
         // ids this suite owns — never a bare username = 'admin', which is shared.
@@ -1266,7 +1271,7 @@ describe('Provider settlements (e2e)', () => {
         });
       });
 
-      it("the draft's stored method bypasses the mapping gate but not the journal gate", async () => {
+      it("a draft's own method is still subject to the journal gate", async () => {
         // A CIMB draft (inserted directly: the API now refuses it) with an old CIMB payment.
         const { orderId, paymentId } = await payOrder('32.00', cimbMethodId);
         const draftId = await insertDraft(cimbMethodId, [{ paymentId, amount: '32.0000' }], '32.0000');
@@ -1384,6 +1389,272 @@ describe('Provider settlements (e2e)', () => {
         } finally {
           await ds.query(`UPDATE chart_of_account SET "isProviderClearing" = true WHERE code = '1240'`);
         }
+      });
+    });
+
+    /**
+     * #1288: eligibility follows the JOURNAL-DERIVED clearing account, never the
+     * method's live mapping. Shopee payments recorded while Shopee maps to 1220
+     * stay settleable after Shopee is remapped, unmapped or made invalid.
+     */
+    describe('journal-derived eligibility after the mapping changes (#1288)', () => {
+      let shopeeMethodId = '';
+      let shopeeClearingId = '';
+      let destinationId = '';
+      let invalidTargetId = '';
+      const NOT_PROVIDER_1200 =
+        'Account 1200 CIMB is not a provider clearing account. Only payments recorded to a provider clearing account can be settled.';
+
+      beforeAll(async () => {
+        shopeeMethodId = await methodIdByCode(ds, 'SHOPEE');
+        shopeeClearingId = await accountIdByCode(ds, '1220');
+        // 1210, not the suite default 1200: Shopee remapped to 1200 must not
+        // collide with the same-account guard for its NEW payments' check.
+        destinationId = await accountIdByCode(ds, '1210');
+        // Suite-owned, so deactivating it never touches a shared baseline row.
+        const [parent] = await ds.query(`SELECT id FROM chart_of_account WHERE code = '1000'`);
+        const [acct] = await ds.query(
+          `INSERT INTO chart_of_account (code, name, type, "parentId", "isSystem", "isPostable", "isActive")
+           VALUES ($1, $2, 'Asset', $3, false, true, true) RETURNING id`,
+          [`PS-INV-${runId}`.slice(0, 20), `PS Invalid Target ${runId}`, parent.id],
+        );
+        invalidTargetId = acct.id;
+        ownedEntityIds.push(invalidTargetId);
+        ownedAccountIds.push(invalidTargetId);
+      });
+
+      /** Point Shopee at `accountId` (null ⇒ unmapped) for the duration of `fn`, then restore. */
+      async function withShopeeMapping(accountId: string | null, fn: () => Promise<void>, deactivate = false) {
+        const [current] = await ds.query(
+          `SELECT "accountId" FROM payment_method_account_mappings WHERE "paymentMethodId" = $1`,
+          [shopeeMethodId],
+        );
+        await putMapping(shopeeMethodId, accountId);
+        try {
+          // A mapping cannot be SAVED invalid; it becomes invalid when its account is deactivated.
+          if (deactivate) await ds.query('UPDATE chart_of_account SET "isActive" = false WHERE id = $1', [accountId]);
+          await fn();
+        } finally {
+          if (deactivate) await ds.query('UPDATE chart_of_account SET "isActive" = true WHERE id = $1', [accountId]);
+          await putMapping(shopeeMethodId, current?.accountId ?? null);
+        }
+      }
+
+      async function shopeeStatus(): Promise<string> {
+        const res = await get('/accounting/settings/payment-method-mappings').expect(200);
+        const rows = (res.body.data ?? res.body) as any[];
+        return rows.find((r) => r.paymentMethodId === shopeeMethodId).status;
+      }
+
+      function shopeeBody(orderId: string, amount: string) {
+        return {
+          bankAccountId: destinationId, settlementDate: '2026-09-20',
+          providerReference: `SHP-${runId}`, settlementAmount: amount,
+          rows: [{ salesOrderId: orderId, paymentMethodId: shopeeMethodId, expectedNetAmount: amount }],
+        };
+      }
+
+      async function createShopee(orderId: string, amount: string) {
+        const res = await post('/accounting/provider-settlements', shopeeBody(orderId, amount));
+        if (res.status === 201) ownedSettlementIds.push((res.body.data ?? res.body).id);
+        return res;
+      }
+
+      /** Post and assert exactly Dr destination / Cr 1220 for `amount`. */
+      async function expectPostsFrom1220(id: string, amount: string) {
+        const posted = await post(`/accounting/provider-settlements/${id}/post`).expect(201);
+        const settlement = posted.body.data ?? posted.body;
+        ownedRefs.push(settlement.referenceNumber);
+        expect(settlement.status).toBe('POSTED');
+        const lines = await journalLinesFor(ds, settlement.referenceNumber);
+        expect(lines).toHaveLength(2);
+        const debit = lines.find((l) => cents(l.debit) > 0)!;
+        const credit = lines.find((l) => cents(l.credit) > 0)!;
+        expect(debit.accountId).toBe(destinationId);
+        expect(cents(debit.debit)).toBe(cents(amount));
+        expect(credit.accountId).toBe(shopeeClearingId);
+        expect(cents(credit.credit)).toBe(cents(amount));
+      }
+
+      /** Old Shopee payment (→ 1220) is listed, saveable and postable under the changed mapping. */
+      async function expectOldShopeeSettleable(orderId: string, amount: string) {
+        const rows = await rowsFor([orderId]);
+        expect(rows.map((r) => [r.paymentMethodId, r.netAmount])).toEqual([[shopeeMethodId, `${amount}00`]]);
+        const created = await createShopee(orderId, amount);
+        expect(created.status).toBe(201);
+        await expectPostsFrom1220((created.body.data ?? created.body).id, amount);
+      }
+
+      it('remapped to 1200: old payments are listed, saved and posted; new ones are neither', async () => {
+        const { orderId: oldOrder } = await payOrder('41.00', shopeeMethodId); // journal debits 1220
+        await withShopeeMapping(bankAccountId, async () => {
+          expect(await shopeeStatus()).toBe('mapped');
+          const { orderId: newOrderId } = await payOrder('42.00', shopeeMethodId); // journal debits 1200
+          expect(await rowsFor([newOrderId])).toHaveLength(0);
+          const rejected = await createShopee(newOrderId, '42.00');
+          expect(rejected.status).toBe(400);
+          expect(rejected.body.message).toBe(NOT_PROVIDER_1200);
+
+          await expectOldShopeeSettleable(oldOrder, '41.00');
+        });
+      });
+
+      it('unmapped: old payments are listed, saved and posted', async () => {
+        const { orderId } = await payOrder('43.00', shopeeMethodId);
+        await withShopeeMapping(null, async () => {
+          expect(await shopeeStatus()).toBe('unmapped');
+          await expectOldShopeeSettleable(orderId, '43.00');
+        });
+      });
+
+      it('invalid: old payments are listed, saved and posted', async () => {
+        const { orderId } = await payOrder('44.00', shopeeMethodId);
+        await withShopeeMapping(invalidTargetId, async () => {
+          expect(await shopeeStatus()).toBe('invalid');
+          await expectOldShopeeSettleable(orderId, '44.00');
+        }, true);
+      });
+
+      async function patchDraft(id: string, body: any) {
+        return request(app.getHttpServer()).patch(`/accounting/provider-settlements/${id}`)
+          .set('Authorization', `Bearer ${token}`).send(body);
+      }
+
+      for (const [label, target, deactivate] of [
+        ['unmapped', () => null, false],
+        ['invalid', () => invalidTargetId, true],
+      ] as const) {
+        it(`update: an existing Shopee draft still saves and lists after Shopee becomes ${label}`, async () => {
+          const { orderId } = await payOrder('45.00', shopeeMethodId);
+          const created = await createShopee(orderId, '45.00');
+          expect(created.status).toBe(201);
+          const id = (created.body.data ?? created.body).id;
+          await withShopeeMapping(target(), async () => {
+            expect(await shopeeStatus()).toBe(label);
+            const listed = await rowsFor([orderId], `&settlementId=${id}`);
+            expect(listed.map((r) => r.paymentMethodId)).toEqual([shopeeMethodId]);
+            const res = await patchDraft(id, { ...shopeeBody(orderId, '45.00'), providerReference: `SHP-EDIT-${runId}` });
+            expect(res.status).toBe(200);
+            await expectPostsFrom1220(id, '45.00');
+          }, deactivate);
+        });
+
+        it(`update: a draft can switch its provider to Shopee after Shopee becomes ${label}`, async () => {
+          const { orderId: atomeOrder } = await payOrder('46.00'); // Atome → 1240
+          const created = await createDraft([{ salesOrderId: atomeOrder, expectedNetAmount: '46.00' }], '46.00');
+          expect(created.status).toBe(201);
+          const id = (created.body.data ?? created.body).id;
+          const { orderId: shopeeOrder } = await payOrder('46.00', shopeeMethodId); // → 1220
+          await withShopeeMapping(target(), async () => {
+            expect(await shopeeStatus()).toBe(label);
+            const res = await patchDraft(id, shopeeBody(shopeeOrder, '46.00'));
+            expect(res.status).toBe(200);
+            const [row] = await ds.query(
+              'SELECT "providerPaymentMethodId", "clearingAccountId" FROM provider_settlements WHERE id = $1', [id],
+            );
+            expect(row).toEqual({ providerPaymentMethodId: shopeeMethodId, clearingAccountId: shopeeClearingId });
+          }, deactivate);
+        });
+      }
+
+      /**
+       * The journal gate rejects a WHOLE group when ANY of its payments fails
+       * derivation: no derivation, an unflagged account, a soft-deleted account,
+       * or two different accounts. The mixed groups below hold one valid 1220
+       * payment plus one bad one; dropping the bad row (e.g. an inner join)
+       * would leave a remainder that qualifies on its own, so they fail on
+       * exactly that mistake. Every test that turns a listed group bad first
+       * proves the group IS listed, so an exclusion cannot be vacuous.
+       */
+      describe('every payment in a group must qualify', () => {
+        it('rejects a group mixing a 1220 payment with one recorded to unflagged 1200', async () => {
+          const { orderId } = await newOrder('60.00');
+          await payExisting(orderId, '20.00', shopeeMethodId); // → 1220
+          expect((await rowsFor([orderId])).map((r) => r.netAmount)).toEqual(['20.0000']);
+          await withShopeeMapping(bankAccountId, async () => {
+            await payExisting(orderId, '25.00', shopeeMethodId); // → 1200
+            expect(await rowsFor([orderId])).toHaveLength(0);
+          });
+        });
+
+        it('rejects a group where one payment has no derivable journal', async () => {
+          const { orderId } = await newOrder('60.00');
+          await payExisting(orderId, '20.00', shopeeMethodId);
+          const bad = await payExisting(orderId, '25.00', shopeeMethodId);
+          expect((await rowsFor([orderId])).map((r) => r.netAmount)).toEqual(['45.0000']);
+          // A soft-deleted entry still satisfies the eligibility EXISTS (which does not
+          // read deletedAt) but the derivation hides it, so the payment derives to nothing.
+          await ds.query('UPDATE journal_entry SET "deletedAt" = now() WHERE "sourceEventId" = $1', [bad]);
+          try {
+            expect(await rowsFor([orderId])).toHaveLength(0);
+          } finally {
+            await ds.query('UPDATE journal_entry SET "deletedAt" = NULL WHERE "sourceEventId" = $1', [bad]);
+          }
+        });
+
+        /** Suite-owned flagged account, so soft-deleting it touches no shared baseline row. */
+        async function seedFlaggedAccount(tag: string): Promise<string> {
+          const [parent] = await ds.query(`SELECT id FROM chart_of_account WHERE code = '1000'`);
+          const [x] = await ds.query(
+            `INSERT INTO chart_of_account (code, name, type, "parentId", "isSystem", "isPostable", "isActive", "isProviderClearing")
+             VALUES ($1, $2, 'Asset', $3, false, true, true, true) RETURNING id`,
+            [`PS-${tag}-${runId}`.slice(0, 20), `PS ${tag} Clearing ${runId}`, parent.id],
+          );
+          ownedAccountIds.push(x.id);
+          ownedEntityIds.push(x.id);
+          return x.id;
+        }
+
+        async function withSoftDeleted(accountId: string, fn: () => Promise<void>) {
+          await ds.query('UPDATE chart_of_account SET "deletedAt" = now() WHERE id = $1', [accountId]);
+          try {
+            await fn();
+          } finally {
+            await ds.query('UPDATE chart_of_account SET "deletedAt" = NULL WHERE id = $1', [accountId]);
+          }
+        }
+
+        it('rejects a group whose only derived account is soft-deleted', async () => {
+          // The soft-delete guard itself: with ONE account in play, neither the
+          // two-account count nor an inner join can exclude this group — only the
+          // account join's deletedAt condition can.
+          const x = await seedFlaggedAccount('DEL1');
+          const { orderId } = await newOrder('60.00');
+          await withShopeeMapping(x, async () => {
+            await payExisting(orderId, '25.00', shopeeMethodId); // → X
+          });
+          expect((await rowsFor([orderId])).map((r) => r.netAmount)).toEqual(['25.0000']);
+          await withSoftDeleted(x, async () => {
+            expect(await rowsFor([orderId])).toHaveLength(0);
+          });
+        });
+
+        it('rejects a 1220 payment grouped with one deriving to a soft-deleted account (inner-join guard)', async () => {
+          // NOT a soft-delete guard: with X live this group already derives to two
+          // accounts and is excluded. It fails if the bad X row is DROPPED (an
+          // inner join), which would leave a lone, valid 1220 payment.
+          const x = await seedFlaggedAccount('DEL2');
+          const { orderId } = await newOrder('60.00');
+          await withShopeeMapping(x, async () => {
+            await payExisting(orderId, '25.00', shopeeMethodId); // → X
+          });
+          await payExisting(orderId, '20.00', shopeeMethodId); // → 1220
+          await withSoftDeleted(x, async () => {
+            expect(await rowsFor([orderId])).toHaveLength(0);
+          });
+        });
+      });
+
+      it('lists a qualifying group on the unfiltered first load (no search, no salesOrderIds)', async () => {
+        // The page's first load sends neither filter, so the group query runs with
+        // no WHERE clause at all. Unpaginated (no page/limit) so the shared
+        // database's other rows cannot push this group off the page.
+        const { orderId } = await payOrder('47.00', shopeeMethodId); // → 1220
+        const res = await get('/accounting/provider-settlements/eligible-rows?settlementDate=2026-09-20').expect(200);
+        const rows = res.body.data as any[];
+        expect(res.body.meta.total).toBe(rows.length);
+        const mine = rows.filter((r) => r.salesOrderId === orderId);
+        expect(mine.map((r) => [r.paymentMethodId, r.netAmount])).toEqual([[shopeeMethodId, '47.0000']]);
       });
     });
   });
