@@ -9,6 +9,7 @@ import { DataSource, EntityManager, In, IsNull, Not } from 'typeorm';
 import { ProviderSettlement, ProviderSettlementStatus } from '../entities/provider-settlement.entity';
 import { ProviderSettlementLine } from '../entities/provider-settlement-line.entity';
 import { SalesOrderPayment } from '../../../database/entities/sales-order-payment.entity';
+import { PaymentMethodEntity } from '../../../database/entities/payment-method.entity';
 import { ProviderSettlementDerivationService } from './provider-settlement-derivation.service';
 import { ProviderSettlementEligibilityService } from './provider-settlement-eligibility.service';
 import { EligiblePayment, groupKey, groupPayments } from './settlement-groups';
@@ -37,6 +38,7 @@ import {
   UpdateProviderSettlementDto,
   ListProviderSettlementsQueryDto,
   SettlementRowDto,
+  ProviderSettlementProviderDto,
 } from '../dto/provider-settlement.dto';
 
 const CLAIM_INDEX = 'IDX_886b6f559ab60cc5167ca3896b';
@@ -321,7 +323,7 @@ export class ProviderSettlementService {
     const settlement = await this.dataSource
       .getRepository(ProviderSettlement)
       .createQueryBuilder('s')
-      .leftJoinAndSelect('s.providerPaymentMethod', 'provider')
+      // No provider join: see attachProviders().
       .leftJoinAndSelect('s.clearingAccount', 'clearingAccount')
       .leftJoinAndSelect('s.bankAccount', 'bankAccount')
       .leftJoinAndSelect('s.journalEntry', 'journalEntry')
@@ -337,7 +339,47 @@ export class ProviderSettlementService {
       .addOrderBy('line.id', 'ASC')
       .getOne();
     if (!settlement) throw new NotFoundException('Settlement not found');
+    await this.attachProviders([settlement]);
     return settlement;
+  }
+
+  /**
+   * The methods that own at least one settlement, inactive and soft-deleted
+   * ones included (#1289) — the Provider filter's options. A soft-deleted
+   * settlement owns nothing here, as it is absent from list() too.
+   */
+  async listProviders(): Promise<ProviderSettlementProviderDto[]> {
+    const rows: Array<{ id: string; name: string; isActive: boolean; deleted: boolean }> =
+      await this.dataSource.query(
+        `SELECT pm.id, pm.name, pm."isActive", pm."deletedAt" IS NOT NULL AS deleted
+           FROM payment_methods pm
+          WHERE EXISTS (
+                  SELECT 1 FROM provider_settlements s
+                   WHERE s."providerPaymentMethodId" = pm.id AND s."deletedAt" IS NULL)
+          ORDER BY pm."sortOrder" ASC, pm.name ASC, pm.id ASC`,
+      );
+    return rows.map((r) => ({ id: r.id, name: r.name, isActive: r.isActive, deleted: r.deleted }));
+  }
+
+  /**
+   * Hydrate providerPaymentMethod INCLUDING soft-deleted methods, so a
+   * settlement still names the provider it was recorded under (#1289).
+   *
+   * Deliberately a second read rather than a join: TypeORM's withDeleted() is
+   * builder-wide, so on the main query it would also revive soft-deleted
+   * settlements and soft-deleted accounts, which must stay excluded.
+   */
+  private async attachProviders(settlements: ProviderSettlement[]): Promise<void> {
+    const ids = [...new Set(settlements.map((s) => s.providerPaymentMethodId))];
+    if (ids.length === 0) return;
+    const methods = await this.dataSource.getRepository(PaymentMethodEntity).find({
+      where: { id: In(ids) } as any,
+      withDeleted: true,
+    });
+    const byId = new Map(methods.map((m) => [m.id, m]));
+    for (const s of settlements) {
+      s.providerPaymentMethod = byId.get(s.providerPaymentMethodId) ?? null;
+    }
   }
 
   async list(query: ListProviderSettlementsQueryDto): Promise<{
@@ -347,7 +389,7 @@ export class ProviderSettlementService {
     const qb = this.dataSource
       .getRepository(ProviderSettlement)
       .createQueryBuilder('s')
-      .leftJoinAndSelect('s.providerPaymentMethod', 'provider')
+      // No provider join: see attachProviders().
       .leftJoinAndSelect('s.clearingAccount', 'clearingAccount')
       .leftJoinAndSelect('s.bankAccount', 'bankAccount');
 
@@ -387,10 +429,12 @@ export class ProviderSettlementService {
     if (query.page !== undefined && query.limit !== undefined) {
       qb.skip((query.page - 1) * query.limit).take(query.limit);
       const [data, total] = await qb.getManyAndCount();
+      await this.attachProviders(data);
       return { data, meta: { total, page: query.page, limit: query.limit } };
     }
 
     const data = await qb.getMany();
+    await this.attachProviders(data);
     return { data, meta: { total: data.length, page: 1, limit: data.length } };
   }
 
