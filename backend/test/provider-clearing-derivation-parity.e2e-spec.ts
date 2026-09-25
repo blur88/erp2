@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, INestApplication } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { seedCategory, seedProduct } from './e2e/helpers/seed';
@@ -30,15 +30,18 @@ import { ProviderSettlementEligibilityService } from '../src/modules/provider-se
 const runId = randomUUID().slice(0, 8);
 
 const UNIQUE_EVENT_INDEX = 'UQ_journal_entry_source_event';
-const CREATE_EVENT_INDEX_SQL = `
-  CREATE UNIQUE INDEX "UQ_journal_entry_source_event"
-  ON "journal_entry" ("sourceType", "sourceEventId", "postingType")
-  WHERE "reversalOfEntryId" IS NULL AND "sourceEventId" IS NOT NULL`;
 
 type FixturePayment = { id: string; salesOrderId: string; amount: string };
+/**
+ * `stage` runs INSIDE the transaction both derivations read in, and that
+ * transaction is always rolled back. Use it for states the schema forbids:
+ * PostgreSQL DDL is transactional, so an index dropped there is restored by the
+ * rollback even if the process dies mid-test — nothing outside can observe it.
+ */
+type FixtureBuild = { payment: FixturePayment; stage?: (m: EntityManager) => Promise<void> };
 type Fixture = [
   name: string,
-  build: () => Promise<FixturePayment>,
+  build: () => Promise<FixturePayment | FixtureBuild>,
   expected: string | null,
 ];
 
@@ -67,12 +70,6 @@ describe('Provider clearing-account derivation parity (e2e)', () => {
   const ownedRefs: string[] = [];
   const ownedSalesOrderIds: string[] = [];
 
-  // Staging a "duplicate active entries" state requires two rows that the
-  // partial unique index UQ_journal_entry_source_event forbids. It is dropped
-  // for the duration of this suite (maxWorkers: 1, and the index is recreated
-  // in afterAll once the owned duplicates are gone) and restored there.
-  let indexDropped = false;
-
   let journalSeq = 0;
   const nextJournalNo = () => `PAR-${runId}-${++journalSeq}`;
   const trackRef = (ref: string): string => {
@@ -96,10 +93,6 @@ describe('Provider clearing-account derivation parity (e2e)', () => {
 
     derivation = moduleFixture.get(ProviderSettlementDerivationService);
     eligibility = moduleFixture.get(ProviderSettlementEligibilityService);
-
-    // See the `indexDropped` comment above.
-    await ds.query(`DROP INDEX IF EXISTS "${UNIQUE_EVENT_INDEX}"`);
-    indexDropped = true;
 
     const category = await seedCategory(ds, `parity-e2e-${runId}`);
     categoryId = category.id;
@@ -152,25 +145,14 @@ describe('Provider clearing-account derivation parity (e2e)', () => {
   afterAll(async () => {
     try {
       if (ds?.isInitialized) {
-        // The index recreate lives in its own `finally` so it always runs even
-        // if the owned-row deletes above it throw; otherwise the uniqueness
-        // invariant would stay dropped for later e2e files in this run.
-        try {
-          if (ownedRefs.length) {
-            await ds.query(
-              `DELETE FROM journal_entry_line WHERE "entryId" IN (SELECT id FROM journal_entry WHERE "sourceRef" = ANY($1))`,
-              [ownedRefs],
-            );
-            await ds.query(`DELETE FROM journal_entry WHERE "sourceRef" = ANY($1)`, [
-              ownedRefs,
-            ]);
-          }
-        } finally {
-          // Duplicates are gone; the partial unique index can be reinstated.
-          if (indexDropped) {
-            await ds.query(`DROP INDEX IF EXISTS "${UNIQUE_EVENT_INDEX}"`);
-            await ds.query(CREATE_EVENT_INDEX_SQL);
-          }
+        if (ownedRefs.length) {
+          await ds.query(
+            `DELETE FROM journal_entry_line WHERE "entryId" IN (SELECT id FROM journal_entry WHERE "sourceRef" = ANY($1))`,
+            [ownedRefs],
+          );
+          await ds.query(`DELETE FROM journal_entry WHERE "sourceRef" = ANY($1)`, [
+            ownedRefs,
+          ]);
         }
         if (ownedSalesOrderIds.length) {
           await ds.query(
@@ -296,14 +278,14 @@ describe('Provider clearing-account derivation parity (e2e)', () => {
     return reversal.id;
   }
 
-  /** Clone `entryId` and its lines under an owned sourceRef. */
-  async function insertDuplicate(entryId: string, ref: string): Promise<string> {
-    const [orig] = await ds.query(
+  /** Clone `entryId` and its lines on `m` (a rolled-back staging transaction). */
+  async function insertDuplicate(m: EntityManager, entryId: string, ref: string): Promise<string> {
+    const [orig] = await m.query(
       `SELECT "entryDate", "sourceType", "sourceDocumentId", "sourceEventId", "postingType", "description"
          FROM journal_entry WHERE id = $1`,
       [entryId],
     );
-    const [dup] = await ds.query(
+    const [dup] = await m.query(
       `INSERT INTO journal_entry
          ("journalNo", "entryDate", "sourceType", "sourceDocumentId", "sourceEventId",
           "sourceRef", "postingType", "description", "createdBy")
@@ -311,12 +293,12 @@ describe('Provider clearing-account derivation parity (e2e)', () => {
        RETURNING id`,
       [nextJournalNo(), orig.entryDate, orig.sourceType, orig.sourceDocumentId, orig.sourceEventId, ref, orig.postingType, orig.description ?? 'parity duplicate'],
     );
-    const lines = await ds.query(
+    const lines = await m.query(
       `SELECT "accountId", debit, credit FROM journal_entry_line WHERE "entryId" = $1`,
       [entryId],
     );
     for (const l of lines) {
-      await ds.query(
+      await m.query(
         `INSERT INTO journal_entry_line ("entryId", "accountId", debit, credit) VALUES ($1, $2, $3, $4)`,
         [dup.id, l.accountId, l.debit, l.credit],
       );
@@ -324,17 +306,29 @@ describe('Provider clearing-account derivation parity (e2e)', () => {
     return dup.id;
   }
 
-  /** TS = derivation (BadRequest => null); SQL = eligibility map lookup (absent => null). */
+  /**
+   * TS = derivation (BadRequest => null); SQL = eligibility map lookup (absent => null).
+   * Both read inside ONE transaction that is always rolled back, after `stage`.
+   */
   async function both(
     p: FixturePayment,
+    stage?: (m: EntityManager) => Promise<void>,
   ): Promise<{ ts: string | null; sql: string | null }> {
-    return ds.transaction(async (m) => {
+    const qr = ds.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      const m = qr.manager;
+      if (stage) await stage(m);
       let ts: string | null = null;
       try { ts = await derivation.deriveClearingAccountId([p], m); }
       catch (e) { if (!(e instanceof BadRequestException)) throw e; }
       const sql = (await eligibility.derivedClearingAccounts([p.id], m)).get(p.id) ?? null;
       return { ts, sql };
-    });
+    } finally {
+      await qr.rollbackTransaction();
+      await qr.release();
+    }
   }
 
   const fixtures: Fixture[] = [
@@ -369,11 +363,20 @@ describe('Provider clearing-account derivation parity (e2e)', () => {
     }, null],
 
     ['duplicate active entries', async () => {
+      // Two active entries on one event key are exactly what
+      // UQ_journal_entry_source_event forbids, so they are staged inside the
+      // rolled-back transaction: the index is dropped and the duplicate inserted
+      // there, and the rollback reinstates both.
       const { orderId } = await newOrder('50.00');
       const paymentId = await payExisting(orderId, '50.00', shopeeMethodId);
       const entryId = await entryIdFor(paymentId, PostingType.SALES_PAYMENT);
-      await insertDuplicate(entryId, trackRef(`PARITY-DUP-${runId}-${++journalSeq}`));
-      return paymentRow(paymentId);
+      return {
+        payment: await paymentRow(paymentId),
+        stage: async (m: EntityManager) => {
+          await m.query(`DROP INDEX "${UNIQUE_EVENT_INDEX}"`);
+          await insertDuplicate(m, entryId, `PARITY-DUP-${runId}-${++journalSeq}`);
+        },
+      };
     }, null],
 
     ['three-line entry', async () => {
@@ -475,9 +478,16 @@ describe('Provider clearing-account derivation parity (e2e)', () => {
         mappings: [{ paymentMethodId: cimbMethodId, accountId: clearingShopeeAccountId }],
       }).expect(200);
       pendingRestores.push(async () => {
+        // Asserted: CIMB is a baseline row shared with every later suite, so a
+        // silently failed restore would leave it posting into 1220.
         await put('/accounting/settings/payment-method-mappings', {
           mappings: [{ paymentMethodId: cimbMethodId, accountId: original.accountId }],
-        });
+        }).expect(200);
+        const [restored] = await ds.query(
+          `SELECT "accountId" FROM payment_method_account_mappings WHERE "paymentMethodId" = $1`,
+          [cimbMethodId],
+        );
+        expect(restored?.accountId).toBe(original.accountId);
       });
       return paymentRow(paymentId);
     }, '1200'],
@@ -485,12 +495,24 @@ describe('Provider clearing-account derivation parity (e2e)', () => {
 
   it.each(fixtures)('%s: SQL and TS agree', async (_name, build, expected) => {
     try {
-      const p = await build();
-      const { ts, sql } = await both(p);
+      const built = await build();
+      const { payment: p, stage } = 'payment' in built ? built : { payment: built, stage: undefined };
+      const { ts, sql } = await both(p, stage);
       expect(sql).toBe(ts);
       expect(ts).toBe(expected === null ? null : await accountIdByCode(ds, expected));
     } finally {
       for (const restore of pendingRestores.splice(0)) await restore();
     }
+  });
+
+  // The duplicate fixture drops this index inside its rolled-back staging
+  // transaction. Declared after the matrix so it runs after it: the index must
+  // still exist, or later suites would post without their idempotency guard.
+  it('leaves UQ_journal_entry_source_event in place after the matrix', async () => {
+    const rows = await ds.query(
+      `SELECT indexdef FROM pg_indexes WHERE indexname = $1`, [UNIQUE_EVENT_INDEX],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].indexdef).toContain('UNIQUE');
   });
 });
