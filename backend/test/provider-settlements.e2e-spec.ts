@@ -1726,6 +1726,17 @@ describe('Provider settlements (e2e)', () => {
       deletedBankSettlementId = await insertSettlement(deletedMethodId, deletedBankId, 'DB');
       const hiddenId = await insertSettlement(onlyDeletedSettlementMethodId, bankAccountId, 'X');
 
+      // #1292: a claimed line whose payment's method is soft-deleted below. Paid
+      // while the method is still live; the line is inserted directly, as the
+      // settlements above are.
+      const { orderId } = await newOrder('10.00');
+      const paymentId = await payExisting(orderId, '10.00', deletedMethodId);
+      await ds.query(
+        `INSERT INTO provider_settlement_lines ("settlementId", "salesOrderPaymentId", amount)
+         VALUES ($1, $2, 10)`,
+        [deletedBankSettlementId, paymentId],
+      );
+
       await ds.query(`UPDATE payment_methods SET "isActive" = false WHERE id = $1`, [inactiveMethodId]);
       await ds.query(`UPDATE payment_methods SET "deletedAt" = now() WHERE id = $1`, [deletedMethodId]);
       await ds.query(`UPDATE chart_of_account SET "deletedAt" = now() WHERE id = $1`, [deletedBankId]);
@@ -1785,6 +1796,17 @@ describe('Provider settlements (e2e)', () => {
       expect(res.body.data.providerPaymentMethod?.name).toBe(deletedName);
       expect(res.body.data.bankAccount).toBeNull();
       expect(res.body.data.clearingAccount?.code).toBe('1240');
+    });
+
+    it('detail names a line\'s soft-deleted payment method without reviving a soft-deleted bank account (#1292)', async () => {
+      const res = await get(`/accounting/provider-settlements/${deletedBankSettlementId}`).expect(200);
+      const lines = res.body.data.lines as any[];
+      expect(lines).toHaveLength(1);
+      expect(lines[0].salesOrderPayment?.paymentMethod?.id).toBe(deletedMethodId);
+      expect(lines[0].salesOrderPayment?.paymentMethod?.name).toBe(deletedName);
+      // Same settlement, same request: the soft-deleted bank account stays out.
+      expect(res.body.data.bankAccountId).toBe(deletedBankId);
+      expect(res.body.data.bankAccount).toBeNull();
     });
   });
 }); // closes describe('Provider settlements (e2e)')

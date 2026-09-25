@@ -323,23 +323,29 @@ export class ProviderSettlementService {
     const settlement = await this.dataSource
       .getRepository(ProviderSettlement)
       .createQueryBuilder('s')
-      // No provider join: see attachProviders().
+      // No provider join: see methodsById().
       .leftJoinAndSelect('s.clearingAccount', 'clearingAccount')
       .leftJoinAndSelect('s.bankAccount', 'bankAccount')
       .leftJoinAndSelect('s.journalEntry', 'journalEntry')
       .leftJoinAndSelect('s.reversalJournalEntry', 'reversalJournalEntry')
       .leftJoinAndSelect('s.lines', 'line')
       // Labels and references for the grouped detail view. Amounts stay the
-      // line SNAPSHOTS; these joins supply only names.
+      // line SNAPSHOTS; these joins supply only names. No line method join:
+      // see methodsById().
       .leftJoinAndSelect('line.salesOrderPayment', 'linePayment')
       .leftJoinAndSelect('linePayment.salesOrder', 'lineOrder')
-      .leftJoinAndSelect('linePayment.paymentMethod', 'lineMethod')
       .where('s.id = :id', { id })
       .orderBy('line.createdAt', 'ASC')
       .addOrderBy('line.id', 'ASC')
       .getOne();
     if (!settlement) throw new NotFoundException('Settlement not found');
-    await this.attachProviders([settlement]);
+    // One lookup serves both the provider and every line's method.
+    const methods = await this.methodsById([
+      settlement.providerPaymentMethodId,
+      ...(settlement.lines ?? []).map((l) => l.salesOrderPayment?.paymentMethodId),
+    ]);
+    this.attachProviders([settlement], methods);
+    this.attachLineMethods(settlement, methods);
     return settlement;
   }
 
@@ -362,23 +368,42 @@ export class ProviderSettlementService {
   }
 
   /**
-   * Hydrate providerPaymentMethod INCLUDING soft-deleted methods, so a
-   * settlement still names the provider it was recorded under (#1289).
+   * Payment methods by id, INCLUDING soft-deleted ones, so a settlement still
+   * names the provider it was recorded under (#1289) and each claimed line the
+   * method it was paid with (#1292).
    *
    * Deliberately a second read rather than a join: TypeORM's withDeleted() is
    * builder-wide, so on the main query it would also revive soft-deleted
-   * settlements and soft-deleted accounts, which must stay excluded.
+   * settlements and soft-deleted accounts, which must stay excluded. This is
+   * the only withDeleted read on this path.
    */
-  private async attachProviders(settlements: ProviderSettlement[]): Promise<void> {
-    const ids = [...new Set(settlements.map((s) => s.providerPaymentMethodId))];
-    if (ids.length === 0) return;
+  private async methodsById(ids: Array<string | undefined>): Promise<Map<string, PaymentMethodEntity>> {
+    const unique = [...new Set(ids.filter((id): id is string => !!id))];
+    if (unique.length === 0) return new Map();
     const methods = await this.dataSource.getRepository(PaymentMethodEntity).find({
-      where: { id: In(ids) } as any,
+      where: { id: In(unique) } as any,
       withDeleted: true,
     });
-    const byId = new Map(methods.map((m) => [m.id, m]));
+    return new Map(methods.map((m) => [m.id, m]));
+  }
+
+  private attachProviders(
+    settlements: ProviderSettlement[],
+    methods: Map<string, PaymentMethodEntity>,
+  ): void {
     for (const s of settlements) {
-      s.providerPaymentMethod = byId.get(s.providerPaymentMethodId) ?? null;
+      s.providerPaymentMethod = methods.get(s.providerPaymentMethodId) ?? null;
+    }
+  }
+
+  /** Name each claimed line's payment method, soft-deleted included (#1292). */
+  private attachLineMethods(
+    settlement: ProviderSettlement,
+    methods: Map<string, PaymentMethodEntity>,
+  ): void {
+    for (const line of settlement.lines ?? []) {
+      const payment = line.salesOrderPayment;
+      if (payment) payment.paymentMethod = methods.get(payment.paymentMethodId) ?? null;
     }
   }
 
@@ -389,7 +414,7 @@ export class ProviderSettlementService {
     const qb = this.dataSource
       .getRepository(ProviderSettlement)
       .createQueryBuilder('s')
-      // No provider join: see attachProviders().
+      // No provider join: see methodsById().
       .leftJoinAndSelect('s.clearingAccount', 'clearingAccount')
       .leftJoinAndSelect('s.bankAccount', 'bankAccount');
 
@@ -429,12 +454,12 @@ export class ProviderSettlementService {
     if (query.page !== undefined && query.limit !== undefined) {
       qb.skip((query.page - 1) * query.limit).take(query.limit);
       const [data, total] = await qb.getManyAndCount();
-      await this.attachProviders(data);
+      this.attachProviders(data, await this.methodsById(data.map((s) => s.providerPaymentMethodId)));
       return { data, meta: { total, page: query.page, limit: query.limit } };
     }
 
     const data = await qb.getMany();
-    await this.attachProviders(data);
+    this.attachProviders(data, await this.methodsById(data.map((s) => s.providerPaymentMethodId)));
     return { data, meta: { total: data.length, page: 1, limit: data.length } };
   }
 
