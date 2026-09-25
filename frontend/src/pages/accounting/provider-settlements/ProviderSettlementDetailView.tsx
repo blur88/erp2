@@ -1,5 +1,6 @@
 import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import {
+  Alert,
   Box,
   Collapse,
   IconButton,
@@ -20,6 +21,7 @@ import { StatusChip } from '@/components/common/StatusChip'
 import type { ProviderSettlement, ProviderSettlementLine } from '@/types'
 import { fromScaledAmount, sumScaledAmounts } from '@/utils/currency'
 import { formatCurrency, formatDate } from '@/utils/formatters'
+import { isNotProviderClearingDraft } from './providerSettlementActions'
 
 interface SettlementLineGroup {
   orderNumber: string
@@ -64,6 +66,15 @@ export default function ProviderSettlementDetailView({
     return [...out.entries()]
   }, [settlement.lines])
 
+  // Deduplicated by LABEL: legacy lines without a joined payment each fall back
+  // to their own key, so several can render as the same "— · —".
+  const blockedLabels = useMemo(
+    () => (isNotProviderClearingDraft(settlement)
+      ? [...new Set(groups.map(([, g]) => `${g.orderNumber} · ${g.method}`))]
+      : []),
+    [settlement, groups],
+  )
+
   function toggleExpanded(key: string) {
     setExpanded((prev) => {
       const next = new Set(prev)
@@ -103,6 +114,15 @@ export default function ProviderSettlementDetailView({
         />
         <Field label="Status" value={<StatusChip status={settlement.status} />} />
       </Stack>
+
+      {blockedLabels.length > 0 && (
+        <Alert severity="warning" data-testid="not-provider-clearing" sx={{ mt: 2 }}>
+          These payments were not recorded to a provider clearing account. Edit the draft to remove them, or discard it.
+          <Box component="ul" sx={{ m: 0, mt: 1, pl: 3 }}>
+            {blockedLabels.map((label) => <li key={label}>{label}</li>)}
+          </Box>
+        </Alert>
+      )}
 
       {/* Both entries are shown once reversed: the original is preserved, and
           hiding it would make the audit trail unreachable from the document. */}

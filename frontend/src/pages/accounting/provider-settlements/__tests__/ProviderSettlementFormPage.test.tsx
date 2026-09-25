@@ -51,8 +51,11 @@ vi.mock('@/store/api/accountingApi', () => ({
     // Real shape is PaginatedResponse<Account> (accountingApi.ts:107) — `data`
     // is the page object, not the array.
     data: {
-      data: [{ id: 'b1', code: '1200', name: 'CIMB', isActive: true, isPostable: true }],
-      meta: { total: 1 },
+      data: [
+        { id: 'b1', code: '1200', name: 'CIMB', isActive: true, isPostable: true, isProviderClearing: false },
+        { id: 'b2', code: '1220', name: 'Shopee', isActive: true, isPostable: true, isProviderClearing: true },
+      ],
+      meta: { total: 2 },
     },
     isLoading: false,
   }),
@@ -129,10 +132,16 @@ const backButton = () => screen.getByRole('button', { name: 'Back' })
 const amountField = () => screen.getByLabelText('Amount Received in Bank')
 const tick = (label: RegExp) => userEvent.click(screen.getByRole('checkbox', { name: label }))
 
+/** Opens the Bank Account combobox and leaves its portaled listbox visible. */
+async function openBankAccountSelect() {
+  await userEvent.click(screen.getByRole('combobox', { name: 'Bank Account' }))
+  await screen.findByRole('option', { name: '1200 CIMB' })
+}
+
 /** MUI `TextField select` renders a combobox; its options live in a portaled listbox. */
 async function chooseBank() {
-  await userEvent.click(screen.getByRole('combobox', { name: 'Bank Account' }))
-  await userEvent.click(await screen.findByRole('option', { name: '1200 CIMB' }))
+  await openBankAccountSelect()
+  await userEvent.click(screen.getByRole('option', { name: '1200 CIMB' }))
 }
 
 /** One claimed current group at RM100.00, matching the draft amount. */
@@ -198,6 +207,15 @@ describe('ProviderSettlementFormPage', () => {
     renderForm(CREATE)
     // Unknown until a draft is saved and the backend derives it.
     expect(screen.getByLabelText('Provider Clearing Account')).toHaveValue('')
+  })
+})
+
+describe('ProviderSettlementFormPage destination bank eligibility (#1285)', () => {
+  it('does not offer a provider clearing account as the destination bank', async () => {
+    renderForm(CREATE)
+    await openBankAccountSelect()
+    expect(screen.queryByRole('option', { name: /1220/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /1200/ })).toBeInTheDocument()
   })
 })
 
@@ -629,6 +647,41 @@ describe('edit flow (#1284)', () => {
     expect(screen.getByTestId('selected-count')).toHaveTextContent('2')
     expect(screen.queryByText(/SO-26-003/, { selector: '[data-testid="attention-row"] *' })).not.toBeInTheDocument()
     expect(screen.getByText(/SO-26-002/, { selector: '[data-testid="attention-row"] *' })).toBeInTheDocument()
+  })
+
+  describe('non-provider-clearing rows (#1285)', () => {
+    const NOT_PROVIDER_CLEARING = {
+      ...CLAIMED_CURRENT,
+      salesOrderId: 'so-1',
+      orderNumber: 'SO-1',
+      paymentMethodName: 'CIMB',
+      currentNetAmount: '40.0000',
+      state: 'not_provider_clearing',
+    }
+
+    it('shows a not_provider_clearing group as Remove-only needs attention and blocks save until removed', async () => {
+      mockClaimed.mockReturnValue({ data: { data: [NOT_PROVIDER_CLEARING] }, isLoading: false })
+      renderForm(EDIT)
+      const row = await screen.findByTestId('attention-row')
+      expect(row).toHaveTextContent('SO-1 · CIMB — not a provider clearing payment — remove')
+      expect(within(row).queryByRole('button', { name: 'Accept current' })).not.toBeInTheDocument()
+      expect(within(row).getByRole('button', { name: 'Remove' })).toBeInTheDocument()
+      expect(saveButton()).toBeDisabled()
+      expect(screen.getByTestId('save-block-reason')).toHaveTextContent(
+        /Resolve the rows that need attention/,
+      )
+    })
+
+    it('shows the server provider-clearing 400 verbatim when an account is unflagged mid-edit', async () => {
+      const text = 'Account 1240 Atome is not a provider clearing account. Only payments recorded to a provider clearing account can be settled.'
+      mockUpdate.mockReturnValue({ unwrap: () => Promise.reject({ status: 400, data: { message: text } }) })
+      seedEdit()
+      renderForm(EDIT)
+      await waitForEditSeeded()
+      await userEvent.type(screen.getByLabelText('Provider Reference'), 'X')
+      await userEvent.click(saveButton())
+      expect(await screen.findByText(text)).toBeInTheDocument()
+    })
   })
 
   describe('409 staleRows refresh', () => {

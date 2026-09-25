@@ -122,12 +122,12 @@ export const accountingApiSlice = createApi({
     createAccount: builder.mutation<Account, Partial<Account>>({
       query: (body) => ({ url: '/accounting/accounts', method: 'POST', data: body }),
       transformResponse: normalizeSingle<Account>,
-      invalidatesTags: ['Account', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB'],
+      invalidatesTags: ['Account', 'JournalEntry', 'TrialBalance', 'ProfitAndLoss', 'BalanceSheet', 'FormB', 'ProviderSettlement'],
     }),
     updateAccount: builder.mutation<Account, { id: string; data: Partial<Account> }>({
       query: ({ id, data }) => ({ url: `/accounting/accounts/${id}`, method: 'PATCH', data }),
       transformResponse: normalizeSingle<Account>,
-      invalidatesTags: ['Account', 'ProfitAndLoss', 'BalanceSheet', 'FormB'],
+      invalidatesTags: ['Account', 'ProfitAndLoss', 'BalanceSheet', 'FormB', 'ProviderSettlement'],
     }),
     getAccountingSettings: builder.query<AccountingSettings, void>({
       query: () => ({ url: '/accounting/settings' }),

@@ -34,7 +34,7 @@ import { toAmountInputValue, toScaledAmount } from '@/utils/currency'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
 
-import NeedsAttention, { type AttentionGroup } from './NeedsAttention'
+import NeedsAttention, { NOT_PROVIDER_CLEARING_REASON, type AttentionGroup } from './NeedsAttention'
 import SettlementRowPicker from './SettlementRowPicker'
 import {
   changeReason,
@@ -128,6 +128,7 @@ export default function ProviderSettlementFormPage() {
       currentNetAmount: c.currentNetAmount,
       refreshed: true,
     }
+    if (c.state === 'not_provider_clearing') return { ...base, reason: NOT_PROVIDER_CLEARING_REASON }
     if (c.state === 'zero') return { ...base, reason: zeroReason }
     if (c.state === 'ineligible') return { ...base, reason: ineligibleReason }
     return { ...base, reason: changeReason(c.savedPayments, c.currentPayments) }
@@ -278,7 +279,9 @@ export default function ProviderSettlementFormPage() {
     unresolvedAttention: attention.length,
   })
 
-  const bankAccounts = (accountsPage?.data ?? []).filter((a) => a.isActive && a.isPostable)
+  const bankAccounts = (accountsPage?.data ?? []).filter(
+    (a) => a.isActive && a.isPostable && !a.isProviderClearing,
+  )
   const methods = methodsIn(selected)
 
   function requestDateChange(next: string) {

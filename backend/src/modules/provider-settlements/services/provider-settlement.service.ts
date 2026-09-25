@@ -198,6 +198,7 @@ export class ProviderSettlementService {
       this.assertReconciles(payments, dto.settlementAmount);
       const clearingAccountId = await this.derivation.deriveClearingAccountId(payments, manager);
       assertDistinctAccounts(clearingAccountId, dto.bankAccountId);
+      await this.assertProviderClearingAccount(clearingAccountId, manager);
       const referenceNumber = await this.settings.generateDocumentNumber('Provider Settlements', manager);
       const repo = manager.getRepository(ProviderSettlement);
       const settlement = repo.create({
@@ -262,7 +263,7 @@ export class ProviderSettlementService {
         await this.assertMappedProvider(methodId, manager);
       }
 
-      if (dto.bankAccountId) await this.assertPostableBankAccount(dto.bankAccountId, manager);
+      await this.assertPostableBankAccount(dto.bankAccountId ?? settlement.bankAccountId, manager);
 
       const settlementDate = dto.settlementDate ?? settlement.settlementDate;
       const payments = await this.resolveRows(dto.rows, settlementDate, id, manager);
@@ -274,6 +275,7 @@ export class ProviderSettlementService {
       // reject without touching the draft's existing lines.
       const clearingAccountId = await this.derivation.deriveClearingAccountId(payments, manager);
       assertDistinctAccounts(clearingAccountId, dto.bankAccountId ?? settlement.bankAccountId);
+      await this.assertProviderClearingAccount(clearingAccountId, manager);
 
       const lineRepo = manager.getRepository(ProviderSettlementLine);
 
@@ -486,6 +488,7 @@ export class ProviderSettlementService {
       }
       // Re-checked here so a draft saved before the guard existed cannot post.
       assertDistinctAccounts(rederived, settlement.bankAccountId);
+      await this.assertProviderClearingAccount(rederived, manager);
 
       this.assertReconciles(payments, settlement.settlementAmount);
       const amountMinor = toMinorUnits(settlement.settlementAmount);
@@ -627,6 +630,23 @@ export class ProviderSettlementService {
     if (!account) throw new BadRequestException('Bank account not found');
     if (!account.isActive) throw new BadRequestException('Bank account is inactive');
     if (!account.isPostable) throw new BadRequestException('Bank account is not postable');
+    if (account.isProviderClearing) throw new BadRequestException('The destination account cannot be a provider clearing account');
+  }
+
+  /**
+   * #1285: the JOURNAL-DERIVED clearing account must be flagged. Never consults
+   * the live mapping. Runs after assertDistinctAccounts so the Dr X / Cr X case
+   * keeps its more specific message.
+   */
+  private async assertProviderClearingAccount(accountId: string, manager: EntityManager): Promise<void> {
+    const account = await manager.getRepository(ChartOfAccount).findOne({ where: { id: accountId } as any });
+    if (!account?.isProviderClearing) {
+      const label = account ? `${account.code} ${account.name}` : accountId;
+      throw new BadRequestException(
+        `Account ${label} is not a provider clearing account. ` +
+          'Only payments recorded to a provider clearing account can be settled.',
+      );
+    }
   }
 
   /**

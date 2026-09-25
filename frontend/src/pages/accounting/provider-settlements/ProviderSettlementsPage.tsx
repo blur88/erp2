@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Box } from '@mui/material'
+import { Box, Chip } from '@mui/material'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import SimpleListPage from '@/components/common/SimpleListPage'
@@ -23,7 +23,11 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
-import { getProviderSettlementActionMetas } from './providerSettlementActions'
+import {
+  getProviderSettlementActionMetas,
+  isNotProviderClearingDraft,
+  NOT_PROVIDER_CLEARING_TOOLTIP,
+} from './providerSettlementActions'
 
 interface SettlementFilters {
   search: string
@@ -228,13 +232,26 @@ export default function ProviderSettlementsPage() {
     },
     // `raw` skips EntityTable's Typography wrapper: a Chip is a <div> and
     // cannot nest inside that wrapper's <p>.
-    { key: 'status', raw: true, render: (r) => <StatusChip status={r.status} /> },
+    {
+      key: 'status', raw: true,
+      render: (r) => (
+        <Box component="span" sx={{ display: 'inline-flex', gap: 1 }}>
+          <StatusChip status={r.status} />
+          {isNotProviderClearingDraft(r) && (
+            <Chip size="small" color="warning" label="Not provider clearing" />
+          )}
+        </Box>
+      ),
+    },
     {
       key: 'actions', raw: true,
       render: (r) => (
         <RowActionMenu
           actions={getProviderSettlementActionMetas(r.status).map((m) => ({
             ...m,
+            ...(m.key === 'post' && isNotProviderClearingDraft(r)
+              ? { disabled: true, tooltip: NOT_PROVIDER_CLEARING_TOOLTIP }
+              : {}),
             onClick: () => handleAction(m.key, r),
           }))}
         />

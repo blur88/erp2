@@ -9,14 +9,16 @@ function makeService(overrides: any = {}) {
     findOne: async ({ where }: any) =>
       accounts.find((a) => (where.code && a.code === where.code) || (where.id && a.id === where.id)) ?? null,
     find: async () => accounts,
+    save: (jest.fn as unknown as any)(async (x: any) => x),
   };
-  const settingsRepo = { findOne: async () => overrides.settings ?? { id: true } };
+  const settingsRepo = { findOne: (jest.fn as unknown as any)(async () => overrides.settings ?? { id: true }) };
   const posting = { postOpeningBalance: (jest.fn as unknown as any)(async () => ({ journalEntryId: 'je-1' })) };
   const balance = overrides.balance ?? { getLeafBalances: async () => new Map(), getRollup: () => 0n, naturalBalance: (_t: any, v: bigint) => v };
+  const repoCreate = (jest.fn as unknown as any)((x: any) => x);
   const dataSource = {
-    transaction: async (cb: any) => cb({
-      getRepository: () => ({ create: (x: any) => x, save: async (x: any) => ({ ...x, id: 'new-id' }) }),
-    }),
+    transaction: (jest.fn as unknown as any)(async (cb: any) => cb({
+      getRepository: () => ({ create: repoCreate, save: async (x: any) => ({ ...x, id: 'new-id' }) }),
+    })),
   };
   const getRegionalSettings = (jest.fn as unknown as any)(async () => ({
     timezone: overrides.timezone ?? 'Asia/Kuala_Lumpur',
@@ -30,7 +32,7 @@ function makeService(overrides: any = {}) {
     dataSource as any,
     regionalSettingsService as any,
   );
-  return { svc, posting, getRegionalSettings };
+  return { svc, posting, getRegionalSettings, dataSource, coaRepo, settingsRepo, repoCreate };
 }
 
 describe('ChartOfAccountService.create', () => {
@@ -296,5 +298,56 @@ describe('ChartOfAccountService.findTree filtering', () => {
     expect(tree[0].code).toBe('1000');
     expect(tree[0].children.map((n: any) => n.code)).toEqual(['1100']); // sibling pruned from view
     expect(tree[0].balance).toBe('150.0000');                          // ...but still counted
+  });
+});
+
+describe('ChartOfAccountService — isProviderClearing (#1285)', () => {
+  it('create: rejects flagging a non-Asset account and writes nothing', async () => {
+    const { svc, dataSource } = makeService({ accounts: [] });
+    await expect(
+      svc.create({ code: '2999', name: 'X', type: AccountType.LIABILITY, isProviderClearing: true } as any, 'tester'),
+    ).rejects.toThrow('Only an Asset account can be a provider clearing account');
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('create: persists isProviderClearing for a postable Asset', async () => {
+    const { svc, repoCreate } = makeService({ accounts: [] });
+    await svc.create(
+      { code: '1250', name: 'Shopee', type: AccountType.ASSET, isProviderClearing: true } as any,
+      'tester',
+    );
+    expect(repoCreate).toHaveBeenCalledWith(expect.objectContaining({ isProviderClearing: true }));
+  });
+
+  it('update: rejects flagging the configured bank account', async () => {
+    const bank = { id: 'cimb', code: '1200', name: 'CIMB', type: AccountType.ASSET, isActive: true, isPostable: true };
+    const { svc, coaRepo } = makeService({ accounts: [bank], settings: { id: true, bankAccountId: 'cimb' } });
+    await expect(svc.update('cimb', { isProviderClearing: true } as any, 'tester')).rejects.toThrow(
+      'This account is the Accounting Settings Bank account and cannot be a provider clearing account',
+    );
+    expect(coaRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('update: rejects flagging a non-postable group account', async () => {
+    const group = { id: 'grp', code: '1290', name: 'Providers', type: AccountType.ASSET, isActive: true, isPostable: false };
+    const { svc, coaRepo } = makeService({ accounts: [group] });
+    await expect(svc.update('grp', { isProviderClearing: true } as any, 'tester')).rejects.toThrow(
+      'Only a postable account can be a provider clearing account',
+    );
+    expect(coaRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('update: always allows unflagging, without reading settings', async () => {
+    const flagged = {
+      id: 'shopee', code: '1250', name: 'Shopee', type: AccountType.ASSET,
+      isActive: true, isPostable: true, isProviderClearing: true,
+    };
+    const { svc, coaRepo, settingsRepo } = makeService({
+      accounts: [flagged],
+      settings: { id: true, bankAccountId: 'shopee' },
+    });
+    await svc.update('shopee', { isProviderClearing: false } as any, 'tester');
+    expect(coaRepo.save).toHaveBeenCalledWith(expect.objectContaining({ isProviderClearing: false }));
+    expect(settingsRepo.findOne).not.toHaveBeenCalled();
   });
 });

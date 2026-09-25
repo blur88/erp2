@@ -8,6 +8,7 @@ import { AccountingPostingService } from './accounting-posting.service';
 import { AccountBalanceService } from './account-balance.service';
 import { CreateAccountDto } from '../dto/create-account.dto';
 import { UpdateAccountDto } from '../dto/update-account.dto';
+import { providerClearingViolation } from './provider-clearing.rules';
 import { toMinorUnits, formatMoney, formatScale4, quantizeToCents } from '@/common/utils/money';
 import { getAppToday } from '@/common/utils/app-calendar';
 import { SettingsService } from '../../settings/settings.service';
@@ -48,12 +49,21 @@ export class ChartOfAccountService {
       dto.openingBalanceDate ??
       (postsOpeningBalance ? await getAppToday(this.regionalSettingsService) : null);
 
+    if (dto.isProviderClearing) {
+      // A new account is postable and has no id any setting could reference yet.
+      const violation = providerClearingViolation(
+        { id: '', type: dto.type as AccountType, isPostable: true }, null,
+      );
+      if (violation) throw new BadRequestException(violation);
+    }
+
     return this.dataSource.transaction(async (manager: EntityManager) => {
       const repo = manager.getRepository(ChartOfAccount);
       const account = await repo.save(repo.create({
         code: dto.code, name: dto.name, type: dto.type, parentId: dto.parentId ?? null,
         description: dto.description ?? null, isActive: true, isSystem: false, isPostable: true,
         openingBalance: opening, createdBy: actor,
+        isProviderClearing: dto.isProviderClearing ?? false,
       } as any)) as unknown as ChartOfAccount;
 
       if (postsOpeningBalance) {
@@ -77,11 +87,17 @@ export class ChartOfAccountService {
         throw new BadRequestException('Account is used in Accounting Settings and cannot be set inactive');
       }
     }
+    if (dto.isProviderClearing === true) {
+      const settings = await this.settingsRepo.findOne({ where: { id: true } as any });
+      const violation = providerClearingViolation(account as any, settings);
+      if (violation) throw new BadRequestException(violation);
+    }
     // BaseEntity has no updatedBy column — do not set it.
     void actor;
     if (dto.name !== undefined) account.name = dto.name;
     if (dto.description !== undefined) account.description = dto.description;
     if (dto.isActive !== undefined) account.isActive = dto.isActive;
+    if (dto.isProviderClearing !== undefined) account.isProviderClearing = dto.isProviderClearing;
     return this.coaRepo.save(account);
   }
 

@@ -19,6 +19,7 @@ const { mockCreateAccount, mockUpdateAccount, mockTree } = vi.hoisted(() => ({
       createdBy: null,
       isSystem: false,
       isPostable: false,
+      isProviderClearing: false,
       openingBalance: '0.0000',
       createdAt: '',
       updatedAt: '',
@@ -34,6 +35,7 @@ const { mockCreateAccount, mockUpdateAccount, mockTree } = vi.hoisted(() => ({
           createdBy: null,
           isSystem: false,
           isPostable: true,
+          isProviderClearing: false,
           openingBalance: '0.0000',
           createdAt: '',
           updatedAt: '',
@@ -52,6 +54,7 @@ const { mockCreateAccount, mockUpdateAccount, mockTree } = vi.hoisted(() => ({
       createdBy: null,
       isSystem: false,
       isPostable: false,
+      isProviderClearing: false,
       openingBalance: '0.0000',
       createdAt: '',
       updatedAt: '',
@@ -67,6 +70,7 @@ const { mockCreateAccount, mockUpdateAccount, mockTree } = vi.hoisted(() => ({
           createdBy: null,
           isSystem: false,
           isPostable: true,
+          isProviderClearing: false,
           openingBalance: '0.0000',
           createdAt: '',
           updatedAt: '',
@@ -156,5 +160,50 @@ describe('AccountFormDialog', () => {
         expect.not.objectContaining({ openingBalance: expect.anything() }),
       )
     })
+  })
+
+  it('offers the provider clearing switch only for a postable Asset and sends it', async () => {
+    renderDialog({ open: true, account: null, onClose: vi.fn(), onSuccess: vi.fn() })
+    const user = userEvent.setup()
+
+    const sw = screen.getByRole('switch', { name: 'Provider clearing account' })
+    expect(sw).toBeEnabled()
+    await user.click(sw)
+
+    await user.type(screen.getByLabelText('Code'), '1220')
+    await user.type(screen.getByLabelText('Name'), 'Shopee')
+    await user.click(screen.getByRole('button', { name: /Create Account/ }))
+
+    await waitFor(() => {
+      expect(mockCreateAccount).toHaveBeenCalledWith(
+        expect.objectContaining({ isProviderClearing: true }),
+      )
+    })
+  })
+
+  it('resets the switch to off and disables it when Type changes away from Asset', async () => {
+    renderDialog({ open: true, account: null, onClose: vi.fn(), onSuccess: vi.fn() })
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('switch', { name: 'Provider clearing account' }))
+    await user.click(screen.getByLabelText('Type'))
+    await user.click(screen.getByRole('option', { name: 'Liability' }))
+
+    const sw = screen.getByRole('switch', { name: 'Provider clearing account' })
+    expect(sw).not.toBeChecked()
+    expect(sw).toBeDisabled()
+  })
+
+  it('shows the switch off and disabled for a non-postable (group) account', () => {
+    renderDialog({
+      open: true,
+      account: { ...mockTree[0], isPostable: false, isProviderClearing: true },
+      onClose: vi.fn(),
+      onSuccess: vi.fn(),
+    })
+
+    const sw = screen.getByRole('switch', { name: 'Provider clearing account' })
+    expect(sw).not.toBeChecked()
+    expect(sw).toBeDisabled()
   })
 })

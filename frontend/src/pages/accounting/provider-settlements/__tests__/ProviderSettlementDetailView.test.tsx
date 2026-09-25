@@ -47,6 +47,44 @@ const view = (over: Partial<typeof base> = {}) =>
     </MemoryRouter>,
   )
 
+// #1285 helpers: a line with a joined payment (grouped by order + method) and
+// a legacy line with no joined payment (its own group, labels '—').
+let lineSeq = 0
+const lineFor = (orderNumber: string, method: string) => {
+  lineSeq += 1
+  const id = `line-${lineSeq}`
+  const salesOrderId = `so-${orderNumber}`
+  const paymentMethodId = `pm-${method}`
+  return {
+    id, salesOrderPaymentId: `pay-${lineSeq}`, amount: '10.0000', releasedAt: null,
+    salesOrderPayment: {
+      id: `pay-${lineSeq}`, salesOrderId, paymentMethodId, paymentDate: '2026-09-01',
+      referenceNumber: `REF-${lineSeq}`,
+      salesOrder: { id: salesOrderId, orderNumber },
+      paymentMethod: { id: paymentMethodId, name: method },
+    },
+  }
+}
+
+const legacyLine = () => {
+  lineSeq += 1
+  return {
+    id: `legacy-${lineSeq}`, salesOrderPaymentId: `legacy-pay-${lineSeq}`,
+    amount: '5.0000', releasedAt: null,
+  }
+}
+
+const draftWithLines = ({
+  isProviderClearing,
+  lines,
+}: { isProviderClearing: boolean; lines: any[] }) =>
+  ({
+    ...base,
+    status: 'DRAFT',
+    clearingAccount: { ...base.clearingAccount, isProviderClearing },
+    lines,
+  })
+
 describe('ProviderSettlementDetailView', () => {
   // formatDate reads 'dateFormat' from localStorage, which jsdom keeps across
   // tests; clear it so the one test that sets it cannot leak into the rest.
@@ -129,5 +167,44 @@ describe('ProviderSettlementDetailView', () => {
     )
     expect(screen.getByText('REF-p1')).toBeInTheDocument()
     expect(screen.getByText('REF-r1')).toBeInTheDocument()
+  })
+
+  // #1285, Review Focus #5: legacy lines with no joined payment each fall back
+  // to their own group key, so several render the same '— · —' label. The
+  // banner deduplicates by LABEL, listing each order · method exactly once.
+  it('shows the banner for a DRAFT with an unflagged clearing account, listing each order · method once', () => {
+    render(
+      <MemoryRouter>
+        <ProviderSettlementDetailView settlement={draftWithLines({
+          isProviderClearing: false,
+          lines: [
+            lineFor('SO-1', 'CIMB'), lineFor('SO-1', 'CIMB'), lineFor('SO-2', 'CIMB'),
+            legacyLine(), legacyLine(),
+          ],
+        }) as any} />
+      </MemoryRouter>,
+    )
+    const banner = screen.getByTestId('not-provider-clearing')
+    expect(banner).toHaveTextContent(
+      'These payments were not recorded to a provider clearing account. Edit the draft to remove them, or discard it.',
+    )
+    expect(within(banner).getAllByRole('listitem').map((li) => li.textContent))
+      .toEqual(['SO-1 · CIMB', 'SO-2 · CIMB', '— · —'])
+  })
+
+  it.each(['POSTED', 'REVERSED'] as const)('no banner for a %s settlement', (status) => {
+    view({
+      status,
+      clearingAccount: { ...base.clearingAccount, isProviderClearing: false },
+    } as any)
+    expect(screen.queryByTestId('not-provider-clearing')).toBeNull()
+  })
+
+  it('no banner for a flagged DRAFT', () => {
+    view({
+      status: 'DRAFT',
+      clearingAccount: { ...base.clearingAccount, isProviderClearing: true },
+    } as any)
+    expect(screen.queryByTestId('not-provider-clearing')).toBeNull()
   })
 })

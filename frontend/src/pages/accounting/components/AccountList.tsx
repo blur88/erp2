@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Chip } from '@mui/material'
 
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import EntityTable, { type ColumnConfig } from '@/components/common/EntityTable'
@@ -116,9 +116,11 @@ export default function AccountList({
       width: '30%',
       raw: true,
       render: (row) => (
-        <Typography
-          variant="body2"
+        <Box
+          component="span"
           sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
             pl: row.depth * 3,
             fontWeight: row.isGroup ? 600 : 400,
             fontSize: '0.8rem',
@@ -127,7 +129,10 @@ export default function AccountList({
           }}
         >
           {row.account.name}
-        </Typography>
+          {row.account.isProviderClearing && (
+            <Chip size="small" label="Provider clearing" sx={{ ml: 1 }} />
+          )}
+        </Box>
       ),
     },
     {

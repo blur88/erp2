@@ -9,7 +9,13 @@ import { SalesOrderPayment } from '../../../database/entities/sales-order-paymen
 import { ProviderSettlement, ProviderSettlementStatus } from '../entities/provider-settlement.entity';
 import { PostingType, AccountingSourceType } from '../../../common/accounting-posting/enums';
 import { PaymentMethodMappingService } from '../../accounting/services/payment-method-mapping.service';
-import { EligiblePayment, groupKey, groupPayments, classifyClaimedGroup, ClaimedRowState } from './settlement-groups';
+import { AccountingLookupService } from '../../accounting/services/accounting-lookup.service';
+import { ProviderSettlementDerivationService } from './provider-settlement-derivation.service';
+import { derivedClearingAccountSql } from './derived-clearing-account.sql';
+import { ChartOfAccount } from '../../accounting/entities/chart-of-account.entity';
+import {
+  EligiblePayment, groupKey, groupPayments, classifyClaimedGroup, withProviderClearing, ClaimedRowState,
+} from './settlement-groups';
 import { formatScale4, sumMinor } from '../../../common/utils/money';
 
 export interface EligibilityScope { settlementDate: string; settlementId?: string }
@@ -37,7 +43,22 @@ export class ProviderSettlementEligibilityService {
   constructor(
     @InjectEntityManager() private readonly defaultManager: EntityManager,
     private readonly mappingService: PaymentMethodMappingService,
+    private readonly lookup: AccountingLookupService,
+    private readonly derivation: ProviderSettlementDerivationService,
   ) {}
+
+  /** SQL-derived clearing account per payment (#1285). Absent ⇒ TS derivation rejects it. */
+  async derivedClearingAccounts(paymentIds: string[], manager: EntityManager): Promise<Map<string, string>> {
+    if (paymentIds.length === 0) return new Map();
+    const deposit = await this.lookup.resolveAccount('customerDeposit', manager);
+    const args: unknown[] = [];
+    const bind = (v: unknown) => { args.push(v); return `$${args.length}`; };
+    const source = `(SELECT id, "salesOrderId", amount FROM sales_order_payments
+                       WHERE id = ANY(${bind(paymentIds)}::uuid[]))`;
+    const rows: Array<{ paymentId: string; clearingAccountId: string }> =
+      await manager.query(derivedClearingAccountSql(source, bind, deposit.id), args);
+    return new Map(rows.map((r) => [r.paymentId, r.clearingAccountId]));
+  }
 
   /**
    * The claim predicate is BRANCHED, never parameterized.
@@ -125,13 +146,25 @@ export class ProviderSettlementEligibilityService {
     return rows as EligiblePayment[];
   }
 
-  /** `mapped` methods, plus the draft's stored method (spec §4.5). */
+  /**
+   * Mapping gate (spec §6): methods currently mapped to a FLAGGED account, plus
+   * the draft's stored method. The draft exception bypasses THIS gate only —
+   * the journal gate in listEligibleRowsIn is never bypassed.
+   */
   private async allowedMethodIds(
     draft: Pick<ProviderSettlement, 'providerPaymentMethodId'> | undefined,
-    manager?: EntityManager,
+    manager: EntityManager,
   ): Promise<string[]> {
-    const rows = await this.mappingService.list(manager);
-    const ids = new Set(rows.filter((r) => r.status === 'mapped').map((r) => r.paymentMethodId));
+    const mapped = (await this.mappingService.list(manager)).filter((r) => r.status === 'mapped');
+    const flagged: Array<{ id: string }> = mapped.length
+      ? await manager.query(
+          `SELECT id FROM chart_of_account
+            WHERE id = ANY($1::uuid[]) AND "isProviderClearing" = true AND "deletedAt" IS NULL`,
+          [mapped.map((r) => r.accountId)],
+        )
+      : [];
+    const flaggedIds = new Set(flagged.map((a) => a.id));
+    const ids = new Set(mapped.filter((r) => flaggedIds.has(r.accountId!)).map((r) => r.paymentMethodId));
     if (draft) ids.add(draft.providerPaymentMethodId);
     return [...ids];
   }
@@ -167,6 +200,9 @@ export class ProviderSettlementEligibilityService {
     const args: unknown[] = [...eligibleParams];
     const bind = (v: unknown) => { args.push(v); return `$${args.length}`; };
 
+    const deposit = await this.lookup.resolveAccount('customerDeposit', m);
+    const derivedSql = derivedClearingAccountSql('eligible', bind, deposit.id);
+
     const filters: string[] = [`g."paymentMethodId" = ANY(${bind(methodIds)}::uuid[])`];
     if (params.salesOrderIds?.length) {
       filters.push(`g."salesOrderId" = ANY(${bind(params.salesOrderIds)}::uuid[])`);
@@ -183,8 +219,21 @@ export class ProviderSettlementEligibilityService {
            AND e2."referenceNumber" ILIKE ${q}))`);
     }
 
+    // Journal gate (spec §6): every eligible payment of the group derives (by the
+    // SQL mirror of the TS derivation) to ONE flagged, live account. Never bypassed.
+    filters.push(`NOT EXISTS (
+        SELECT 1 FROM eligible e3
+          LEFT JOIN derived d ON d."paymentId" = e3.id
+          LEFT JOIN chart_of_account a ON a.id = d."clearingAccountId" AND a."deletedAt" IS NULL
+         WHERE e3."salesOrderId" = g."salesOrderId" AND e3."paymentMethodId" = g."paymentMethodId"
+           AND a."isProviderClearing" IS NOT TRUE)`);
+    filters.push(`(SELECT count(DISTINCT d."clearingAccountId")
+         FROM eligible e4 JOIN derived d ON d."paymentId" = e4.id
+        WHERE e4."salesOrderId" = g."salesOrderId" AND e4."paymentMethodId" = g."paymentMethodId") = 1`);
+
     const groupsSql = `
       WITH eligible AS (${eligibleSql}),
+      derived AS (${derivedSql}),
       grouped AS (
         SELECT e."salesOrderId", e."paymentMethodId", SUM(e.amount) AS "netAmount"
           FROM eligible e
@@ -279,6 +328,13 @@ export class ProviderSettlementEligibilityService {
     for (const [key, savedRows] of groupPayments(saved)) {
       const cur = currentByGroup.get(key) ?? [];
       const first = savedRows[0];
+      // Classify FIRST. An ineligible group (no current eligible payments) is
+      // preserved and never reclassified (spec §8), so it must not pay for — or be
+      // affected by — a derivation at all.
+      const base = classifyClaimedGroup(savedRows, cur);
+      const state = base === 'ineligible'
+        ? base
+        : withProviderClearing(base, await this.deriveSaved(savedRows, m));
       data.push({
         salesOrderId: first.salesOrderId,
         orderNumber: first.orderNumber,
@@ -288,10 +344,27 @@ export class ProviderSettlementEligibilityService {
         currentNetAmount: cur.length ? formatScale4(sumMinor(cur.map((r) => r.amount))) : null,
         savedPayments: savedRows.map(detail),
         currentPayments: cur.map(detail),
-        state: classifyClaimedGroup(savedRows, cur),
+        state,
       });
     }
     return { data };
+  }
+
+  /** TS derivation (authoritative) over the group's SAVED lines; a 400 means "failed", never "unflagged". */
+  private async deriveSaved(
+    saved: Array<{ id: string; salesOrderId: string; amount: string }>, m: EntityManager,
+  ): Promise<{ ok: true; flagged: boolean } | { ok: false }> {
+    let accountId: string;
+    try {
+      accountId = await this.derivation.deriveClearingAccountId(
+        saved.map(({ id, salesOrderId, amount }) => ({ id, salesOrderId, amount })), m,
+      );
+    } catch (err) {
+      if (err instanceof BadRequestException) return { ok: false };
+      throw err;
+    }
+    const account = await m.getRepository(ChartOfAccount).findOne({ where: { id: accountId } as any });
+    return { ok: true, flagged: Boolean(account?.isProviderClearing) };
   }
 
   async assertOwnDraft(settlementId: string, manager: EntityManager = this.defaultManager): Promise<ProviderSettlement> {

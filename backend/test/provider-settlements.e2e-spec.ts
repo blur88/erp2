@@ -46,6 +46,7 @@ describe('Provider settlements (e2e)', () => {
   let token = '';
   let post: (path: string, body?: any) => request.Test;
   let get: (path: string) => request.Test;
+  let put: (path: string, body?: any) => request.Test;
 
   let adminUserId = '';
   let adminUsername = '';
@@ -97,6 +98,8 @@ describe('Provider settlements (e2e)', () => {
     post = (path: string, body: any = {}) =>
       auth(request(server).post(path).send(body));
     get = (path: string) => auth(request(server).get(path));
+    put = (path: string, body: any = {}) =>
+      auth(request(server).put(path).send(body));
 
     // BASELINE rows, shared with every other suite in a size-ordered run
     // against one database. Read them; never mutate or delete them.
@@ -734,6 +737,34 @@ describe('Provider settlements (e2e)', () => {
       return res.body.data as any[];
     }
 
+    async function putMapping(methodId: string, accountId: string | null) {
+      await put('/accounting/settings/payment-method-mappings', {
+        mappings: [{ paymentMethodId: methodId, accountId }],
+      }).expect(200);
+    }
+
+    /** Remap `methodId` to account `code` for the duration of `fn`, then restore. */
+    async function withMethodMappedTo(
+      methodId: string,
+      code: string,
+      fn: () => Promise<void>,
+    ) {
+      const [current] = await ds.query(
+        `SELECT "accountId" FROM payment_method_account_mappings WHERE "paymentMethodId" = $1`,
+        [methodId],
+      );
+      await putMapping(methodId, await accountIdByCode(ds, code));
+      try {
+        await fn();
+      } finally {
+        await putMapping(methodId, current?.accountId ?? null);
+      }
+    }
+
+    async function withCimbMappedTo(code: string, fn: () => Promise<void>) {
+      await withMethodMappedTo(cimbMethodId, code, fn);
+    }
+
     it('SO-26-008: Atome paid and refunded, TikTok paid ⇒ only the TikTok row', async () => {
       const { orderId, orderNumber } = await newOrder('130.00');
       await payExisting(orderId, '130.00', atomeMethodId);
@@ -1043,7 +1074,7 @@ describe('Provider settlements (e2e)', () => {
           });
 
         expect(res.status).toBe(400);
-        expect(res.body.message).toBe(SAME_ACCOUNT);
+        expect(res.body.message).toBe('The destination account cannot be a provider clearing account');
         expect(await snapshot()).toEqual(before);
       });
 
@@ -1213,6 +1244,147 @@ describe('Provider settlements (e2e)', () => {
       // The refund arrived after the claim: it is unclaimed residue, not part of the draft.
       const [residue] = await rowsFor([orderId]);
       expect(residue.netAmount).toBe('-30.0000');
+    });
+
+    describe('provider clearing eligibility (#1285)', () => {
+      it('lists Shopee but not Cash, CIMB or Maybank groups, and meta.total agrees', async () => {
+        const { orderId } = await newOrder('100.00');
+        await payExisting(orderId, '25.00', await methodIdByCode(ds, 'SHOPEE'));
+        await payExisting(orderId, '25.00', await methodIdByCode(ds, 'CASH'));
+        await payExisting(orderId, '25.00', cimbMethodId);
+        await payExisting(orderId, '25.00', await methodIdByCode(ds, 'MAYBANK'));
+        const res = await get(`/accounting/provider-settlements/eligible-rows?salesOrderIds=${orderId}&settlementDate=2026-09-20`).expect(200);
+        expect(res.body.data.map((r: any) => r.paymentMethodName)).toEqual(['Shopee']);
+        expect(res.body.meta.total).toBe(1);
+      });
+
+      it('remapping CIMB to 1220 does not list an old CIMB payment', async () => {
+        const { orderId } = await payOrder('31.00', cimbMethodId); // journal debits 1200
+        await withCimbMappedTo('1220', async () => {
+          const rows = await rowsFor([orderId]);
+          expect(rows).toHaveLength(0);
+        });
+      });
+
+      it("the draft's stored method bypasses the mapping gate but not the journal gate", async () => {
+        // A CIMB draft (inserted directly: the API now refuses it) with an old CIMB payment.
+        const { orderId, paymentId } = await payOrder('32.00', cimbMethodId);
+        const draftId = await insertDraft(cimbMethodId, [{ paymentId, amount: '32.0000' }], '32.0000');
+        const res = await get(`/accounting/provider-settlements/eligible-rows?settlementId=${draftId}&salesOrderIds=${orderId}&settlementDate=2026-09-20`).expect(200);
+        expect(res.body.data).toHaveLength(0);
+      });
+
+      it('does not list a group whose payments derive to two different flagged accounts', async () => {
+        const shopee = await methodIdByCode(ds, 'SHOPEE');
+        const { orderId } = await newOrder('60.00');
+        await payExisting(orderId, '30.00', shopee);          // → 1220
+        await withMethodMappedTo(shopee, '1230', async () => {
+          await payExisting(orderId, '30.00', shopee);        // → 1230
+          expect(await rowsFor([orderId])).toHaveLength(0);
+        });
+      });
+
+      const NOT_PROVIDER_1200 =
+        'Account 1200 CIMB is not a provider clearing account. Only payments recorded to a provider clearing account can be settled.';
+
+      it('create: an old CIMB payment is not saveable after CIMB is remapped to 1220', async () => {
+        const { orderId, paymentId } = await payOrder('33.00', cimbMethodId);
+        await withCimbMappedTo('1220', async () => {
+          // Destination 1210, NOT the suite default 1200: CIMB payments debit 1200, so a
+          // 1200 destination would stop at the same-account guard and never reach this check.
+          const res = await post('/accounting/provider-settlements', {
+            ...draftBody([{ salesOrderId: orderId, paymentMethodId: cimbMethodId, expectedNetAmount: '33.00' }], '33.00'),
+            bankAccountId: await accountIdByCode(ds, '1210'),
+          });
+          if (res.status === 201) ownedSettlementIds.push((res.body.data ?? res.body).id);
+          // Save re-computes eligibility, which shares NO mapping filter — so it reaches derivation.
+          expect(res.status).toBe(400);
+          expect(res.body.message).toBe(NOT_PROVIDER_1200);
+        });
+        expect(await ds.query('SELECT 1 FROM provider_settlement_lines WHERE "salesOrderPaymentId" = $1', [paymentId])).toHaveLength(0);
+      });
+
+      it('post: a draft holding an old CIMB payment cannot post, and nothing is written', async () => {
+        // Inserted directly: the API now refuses to create it. Destination 1210, so the
+        // same-account guard (1200 vs 1210) passes and the provider-clearing check decides.
+        const { paymentId } = await payOrder('35.00', cimbMethodId);
+        const maybankAccountId = await accountIdByCode(ds, '1210');
+        const [s] = await ds.query(
+          `INSERT INTO provider_settlements
+             ("referenceNumber", "providerPaymentMethodId", "clearingAccountId", "bankAccountId",
+              "settlementDate", "settlementAmount", status)
+           VALUES ($1, $2, $3, $4, '2026-09-20', '35.0000', 'DRAFT') RETURNING id`,
+          [`PS-T-${randomUUID().slice(0, 8)}`, cimbMethodId, bankAccountId, maybankAccountId],
+        );
+        ownedSettlementIds.push(s.id);
+        await ds.query(
+          `INSERT INTO provider_settlement_lines ("settlementId", "salesOrderPaymentId", amount)
+           VALUES ($1, $2, '35.0000')`,
+          [s.id, paymentId],
+        );
+        const journalsBefore = await countJournalEntries();
+
+        const res = await post(`/accounting/provider-settlements/${s.id}/post`);
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe(NOT_PROVIDER_1200);
+        const [after] = await ds.query(
+          'SELECT status, "journalEntryId", "postedAt", "postedBy" FROM provider_settlements WHERE id = $1', [s.id],
+        );
+        expect(after).toEqual({ status: 'DRAFT', journalEntryId: null, postedAt: null, postedBy: null });
+        expect(await countJournalEntries()).toBe(journalsBefore);
+        const lines = await ds.query(
+          'SELECT "releasedAt" FROM provider_settlement_lines WHERE "settlementId" = $1', [s.id],
+        );
+        expect(lines).toEqual([{ releasedAt: null }]);
+        // Cleanup: afterAll deletes ownedSettlementIds' lines and rows; the payment's
+        // order is in ownedSalesOrderIds via payOrder.
+      });
+
+      it('reverse still succeeds for a posted 1240 settlement after 1240 is unflagged', async () => {
+        const { orderId } = await payOrder('36.00'); // Atome → 1240
+        const draft = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '36.00' }], '36.00');
+        expect(draft.status).toBe(201);
+        const id = (draft.body.data ?? draft.body).id;
+        const posted = await post(`/accounting/provider-settlements/${id}/post`).expect(201);
+        const settlement = posted.body.data ?? posted.body;
+        ownedRefs.push(settlement.referenceNumber);
+
+        await ds.query(`UPDATE chart_of_account SET "isProviderClearing" = false WHERE code = '1240'`);
+        try {
+          const reversed = await post(`/accounting/provider-settlements/${id}/reverse`).expect(201);
+          const after = reversed.body.data ?? reversed.body;
+          expect(after.status).toBe('REVERSED');
+          const [rev] = await ds.query(
+            'SELECT "reversalOfEntryId" FROM journal_entry WHERE id = $1', [after.reversalJournalEntryId],
+          );
+          expect(rev.reversalOfEntryId).toBe(settlement.journalEntryId);
+          const released = await ds.query(
+            'SELECT "releasedAt" FROM provider_settlement_lines WHERE "settlementId" = $1', [id],
+          );
+          expect(released.length).toBeGreaterThan(0);
+          expect(released.every((l: any) => l.releasedAt !== null)).toBe(true);
+        } finally {
+          // Baseline row shared with every suite: always restore.
+          await ds.query(`UPDATE chart_of_account SET "isProviderClearing" = true WHERE code = '1240'`);
+        }
+      });
+
+      it('unflagging 1240 after a draft is saved ⇒ claimed rows are not_provider_clearing and post is 400', async () => {
+        const { orderId } = await payOrder('34.00'); // Atome → 1240
+        const created = await createDraft([{ salesOrderId: orderId, expectedNetAmount: '34.00' }], '34.00');
+        expect(created.status).toBe(201);
+        const id = (created.body.data ?? created.body).id;
+        await ds.query(`UPDATE chart_of_account SET "isProviderClearing" = false WHERE code = '1240'`);
+        try {
+          expect((await claimed(id)).map((c) => c.state)).toEqual(['not_provider_clearing']);
+          const res = await post(`/accounting/provider-settlements/${id}/post`);
+          expect(res.status).toBe(400);
+          expect(res.body.message).toMatch(/^Account 1240 .* is not a provider clearing account\./);
+        } finally {
+          await ds.query(`UPDATE chart_of_account SET "isProviderClearing" = true WHERE code = '1240'`);
+        }
+      });
     });
   });
 }); // closes describe('Provider settlements (e2e)')
