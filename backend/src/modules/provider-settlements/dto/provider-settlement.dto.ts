@@ -100,3 +100,14 @@ export class EligibleRowsQueryDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) limit?: number;
 }
+
+/**
+ * A Provider filter option (#1289): a payment method that owns at least one
+ * settlement, whatever has happened to it since. `deleted` means soft-deleted.
+ */
+export interface ProviderSettlementProviderDto {
+  id: string;
+  name: string;
+  isActive: boolean;
+  deleted: boolean;
+}

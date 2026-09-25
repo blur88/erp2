@@ -10,7 +10,7 @@ import { darkTheme } from '@/styles/theme'
 import ProviderSettlementsPage, { HEADERS } from '../ProviderSettlementsPage'
 
 const mockList = vi.fn()
-const mockMappings = vi.fn()
+const mockProviders = vi.fn()
 
 // The page calls useNotification() on every render. Without this mock it is
 // undefined and destructuring throws before any assertion runs.
@@ -23,7 +23,7 @@ vi.mock('@/store/api/accountingApi', () => ({
   useDiscardProviderSettlementMutation: () => [vi.fn(), { isLoading: false }],
   usePostProviderSettlementMutation: () => [vi.fn(), { isLoading: false }],
   useReverseProviderSettlementMutation: () => [vi.fn(), { isLoading: false }],
-  useGetPaymentMethodMappingsQuery: () => mockMappings(),
+  useGetProviderSettlementProvidersQuery: () => mockProviders(),
 }))
 
 function row(over: Partial<any> = {}) {
@@ -52,8 +52,8 @@ function renderPage(rows: any[]) {
 describe('ProviderSettlementsPage', () => {
   beforeEach(() => {
     mockList.mockReset()
-    mockMappings.mockReset()
-    mockMappings.mockReturnValue({ data: [], isLoading: false })
+    mockProviders.mockReset()
+    mockProviders.mockReturnValue({ data: [], isLoading: false })
     // useFilterBar reads and writes the REAL window.location, which jsdom keeps
     // across tests — a filter written by one test would otherwise mount the next.
     window.history.replaceState(null, '', '/')
@@ -220,24 +220,27 @@ describe('ProviderSettlementsPage', () => {
     expect(screen.getByRole('menuitem', { name: 'Post' })).not.toHaveAttribute('aria-disabled', 'true')
   })
 
-  // #1288: a settlement is owned by whichever method its payments were recorded
-  // under, and that method may since have been unmapped or made invalid. Every
-  // method must stay filterable, whatever its current mapping status.
-  it('offers every payment method in the Provider filter, whatever its mapping status', async () => {
-    mockMappings.mockReturnValue({
+  // #1289: the options are the methods that OWN a settlement, served by the
+  // backend in order. A deactivated or soft-deleted owner stays filterable and
+  // says why it is no longer offered elsewhere.
+  it('offers each settlement-owning method, marking inactive and deleted ones', async () => {
+    mockProviders.mockReturnValue({
       data: [
-        { paymentMethodId: 'pm-shopee', paymentMethodName: 'Shopee', status: 'mapped' },
-        { paymentMethodId: 'pm-atome', paymentMethodName: 'Atome Retired', status: 'unmapped' },
-        { paymentMethodId: 'pm-tiktok', paymentMethodName: 'TikTok', status: 'invalid' },
+        { id: 'pm-shopee', name: 'Shopee', isActive: true, deleted: false },
+        { id: 'pm-atome', name: 'Atome', isActive: false, deleted: false },
+        { id: 'pm-tiktok', name: 'TikTok', isActive: true, deleted: true },
+        { id: 'pm-grab', name: 'Grab', isActive: false, deleted: true },
       ],
       isLoading: false,
     })
     renderPage([row()])
     await userEvent.click(screen.getByLabelText('Provider'))
     const options = screen.getAllByRole('option').map((o) => o.textContent)
-    expect(options).toEqual(['All providers', 'Shopee', 'Atome Retired', 'TikTok'])
+    expect(options).toEqual([
+      'All providers', 'Shopee', 'Atome (inactive)', 'TikTok (deleted)', 'Grab (deleted)',
+    ])
 
-    await userEvent.click(screen.getByRole('option', { name: 'Atome Retired' }))
+    await userEvent.click(screen.getByRole('option', { name: 'Atome (inactive)' }))
     await waitFor(() => {
       expect(mockList).toHaveBeenLastCalledWith(
         expect.objectContaining({ providerPaymentMethodId: 'pm-atome' }),

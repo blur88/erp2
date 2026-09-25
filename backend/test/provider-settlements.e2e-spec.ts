@@ -65,6 +65,8 @@ describe('Provider settlements (e2e)', () => {
   const ownedSettlementIds: string[] = [];
   // Chart accounts this suite creates. Deleted LAST: journal lines reference them (FK).
   const ownedAccountIds: string[] = [];
+  // Payment methods this suite creates. Deleted after the settlements that own them (FK RESTRICT).
+  const ownedMethodIds: string[] = [];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -161,6 +163,9 @@ describe('Provider settlements (e2e)', () => {
         await ds.query(`DELETE FROM products WHERE id = $1`, [productId]);
         await ds.query(`DELETE FROM categories WHERE id = $1`, [categoryId]);
         await ds.query(`DELETE FROM customers WHERE id = $1`, [customerId]);
+        if (ownedMethodIds.length) {
+          await ds.query(`DELETE FROM payment_methods WHERE id = ANY($1)`, [ownedMethodIds]);
+        }
         if (ownedAccountIds.length) {
           await ds.query(`DELETE FROM chart_of_account WHERE id = ANY($1)`, [ownedAccountIds]);
         }
@@ -1656,6 +1661,134 @@ describe('Provider settlements (e2e)', () => {
         const mine = rows.filter((r) => r.salesOrderId === orderId);
         expect(mine.map((r) => [r.paymentMethodId, r.netAmount])).toEqual([[shopeeMethodId, '47.0000']]);
       });
+    });
+  });
+  /**
+   * #1289: the Provider filter's options are the methods that OWN a
+   * settlement, whatever has happened to the method since — deactivated or
+   * soft-deleted. The list and detail must still name a soft-deleted provider.
+   *
+   * Everything here is suite-owned and written by SQL: settlements are read
+   * paths only, so no payment, journal or mapping is needed, and no shared
+   * baseline method is deactivated or deleted.
+   *
+   * The name fix must NOT widen the other soft-delete exclusions: a
+   * soft-deleted settlement stays out of the list and the options, and a
+   * soft-deleted bank account still does not hydrate. TypeORM's withDeleted()
+   * is builder-wide, so these assertions are what a careless fix would break.
+   */
+  describe('provider options and soft-deleted providers (#1289)', () => {
+    let inactiveMethodId = '';
+    let deletedMethodId = '';
+    let unusedMethodId = '';
+    let onlyDeletedSettlementMethodId = '';
+    let deletedBankId = '';
+    let deletedProviderSettlementId = '';
+    let deletedBankSettlementId = '';
+    const inactiveName = `PS Inactive ${runId}`;
+    const deletedName = `PS Deleted ${runId}`;
+
+    async function insertMethod(tag: string, name: string): Promise<string> {
+      const [row] = await ds.query(
+        `INSERT INTO payment_methods (code, name, "sortOrder") VALUES ($1, $2, 0) RETURNING id`,
+        [`${tag}${runId}`.slice(0, 20), name],
+      );
+      ownedMethodIds.push(row.id);
+      return row.id;
+    }
+
+    async function insertSettlement(methodId: string, bankId: string, tag: string): Promise<string> {
+      const [row] = await ds.query(
+        `INSERT INTO provider_settlements
+           ("referenceNumber", "providerPaymentMethodId", "clearingAccountId", "bankAccountId",
+            "settlementDate", "settlementAmount", status)
+         VALUES ($1, $2, $3, $4, '2026-09-20', 10, 'DRAFT') RETURNING id`,
+        [`PS89-${tag}-${runId}`, methodId, clearingAccountId, bankId],
+      );
+      ownedSettlementIds.push(row.id);
+      return row.id;
+    }
+
+    beforeAll(async () => {
+      inactiveMethodId = await insertMethod('PSI', inactiveName);
+      deletedMethodId = await insertMethod('PSD', deletedName);
+      unusedMethodId = await insertMethod('PSU', `PS Unused ${runId}`);
+      onlyDeletedSettlementMethodId = await insertMethod('PSX', `PS Only Deleted ${runId}`);
+
+      const [parent] = await ds.query(`SELECT id FROM chart_of_account WHERE code = '1000'`);
+      const [acct] = await ds.query(
+        `INSERT INTO chart_of_account (code, name, type, "parentId", "isSystem", "isPostable", "isActive")
+         VALUES ($1, $2, 'Asset', $3, false, true, true) RETURNING id`,
+        [`PS-DB-${runId}`.slice(0, 20), `PS Deleted Bank ${runId}`, parent.id],
+      );
+      deletedBankId = acct.id;
+      ownedEntityIds.push(deletedBankId);
+      ownedAccountIds.push(deletedBankId);
+
+      await insertSettlement(inactiveMethodId, bankAccountId, 'I');
+      deletedProviderSettlementId = await insertSettlement(deletedMethodId, bankAccountId, 'D');
+      deletedBankSettlementId = await insertSettlement(deletedMethodId, deletedBankId, 'DB');
+      const hiddenId = await insertSettlement(onlyDeletedSettlementMethodId, bankAccountId, 'X');
+
+      await ds.query(`UPDATE payment_methods SET "isActive" = false WHERE id = $1`, [inactiveMethodId]);
+      await ds.query(`UPDATE payment_methods SET "deletedAt" = now() WHERE id = $1`, [deletedMethodId]);
+      await ds.query(`UPDATE chart_of_account SET "deletedAt" = now() WHERE id = $1`, [deletedBankId]);
+      await ds.query(`UPDATE provider_settlements SET "deletedAt" = now() WHERE id = $1`, [hiddenId]);
+    });
+
+    it('offers every method that owns a live settlement, flagged, and no other', async () => {
+      const res = await get('/accounting/provider-settlements/providers').expect(200);
+      const providers = (res.body.data ?? res.body) as any[];
+      const byId = new Map(providers.map((p) => [p.id, p]));
+
+      expect(byId.get(inactiveMethodId)).toEqual({
+        id: inactiveMethodId, name: inactiveName, isActive: false, deleted: false,
+      });
+      expect(byId.get(deletedMethodId)).toEqual({
+        id: deletedMethodId, name: deletedName, isActive: true, deleted: true,
+      });
+      // Owns nothing.
+      expect(byId.has(unusedMethodId)).toBe(false);
+      // Owns only a soft-deleted settlement.
+      expect(byId.has(onlyDeletedSettlementMethodId)).toBe(false);
+      // Listed once, however many settlements it owns.
+      expect(providers.filter((p) => p.id === deletedMethodId)).toHaveLength(1);
+    });
+
+    for (const paged of [false, true]) {
+      it(`${paged ? 'paginated' : 'unpaginated'} list names a soft-deleted provider without reviving other soft-deleted rows`, async () => {
+        const res = await get(
+          `/accounting/provider-settlements?providerPaymentMethodId=${deletedMethodId}${paged ? '&page=1&limit=25' : ''}`,
+        ).expect(200);
+        const rows = res.body.data as any[];
+        expect(res.body.meta.total).toBe(2);
+        expect(rows.map((s) => s.id).sort()).toEqual(
+          [deletedProviderSettlementId, deletedBankSettlementId].sort(),
+        );
+        for (const s of rows) expect(s.providerPaymentMethod?.name).toBe(deletedName);
+
+        const plain = rows.find((s) => s.id === deletedProviderSettlementId);
+        expect(plain.bankAccount?.code).toBe('1200');
+        expect(plain.clearingAccount?.code).toBe('1240');
+        // The soft-deleted bank account is still excluded from the join.
+        const withDeletedBank = rows.find((s) => s.id === deletedBankSettlementId);
+        expect(withDeletedBank.bankAccountId).toBe(deletedBankId);
+        expect(withDeletedBank.bankAccount).toBeNull();
+
+        // A soft-deleted settlement is still excluded from the list.
+        const hidden = await get(
+          `/accounting/provider-settlements?providerPaymentMethodId=${onlyDeletedSettlementMethodId}${paged ? '&page=1&limit=25' : ''}`,
+        ).expect(200);
+        expect(hidden.body.meta.total).toBe(0);
+        expect(hidden.body.data).toEqual([]);
+      });
+    }
+
+    it('detail names a soft-deleted provider without reviving a soft-deleted bank account', async () => {
+      const res = await get(`/accounting/provider-settlements/${deletedBankSettlementId}`).expect(200);
+      expect(res.body.data.providerPaymentMethod?.name).toBe(deletedName);
+      expect(res.body.data.bankAccount).toBeNull();
+      expect(res.body.data.clearingAccount?.code).toBe('1240');
     });
   });
 }); // closes describe('Provider settlements (e2e)')

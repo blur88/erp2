@@ -38,6 +38,14 @@ export class ProviderSettlementController {
     return this.eligibility.listEligibleRows(query);
   }
 
+  // MUST precede @Get(':id'), like eligible-rows. A plain array: at most one
+  // row per payment method, so no pagination (#1289).
+  @Get('providers')
+  @ApiOperation({ summary: 'List the payment methods that own a settlement, for the Provider filter' })
+  async providers() {
+    return this.service.listProviders();
+  }
+
   @Get(':id')
   @ApiParam({ name: 'id' })
   async findOne(@Param('id') id: string) {

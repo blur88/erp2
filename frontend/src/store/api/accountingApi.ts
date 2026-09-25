@@ -31,6 +31,7 @@ import type {
   PaginatedResponse,
   ProviderSettlement,
   ProviderSettlementListParams,
+  ProviderSettlementProvider,
   UpdateOwnerEquityRequest,
   } from '@/types'
 
@@ -436,6 +437,12 @@ payExpense: builder.mutation<Expense, { id: string; data: Record<string, unknown
         }),
         providesTags: ['ProviderSettlement'],
       }),
+      // A plain array, like the mappings endpoint. Tagged so a create (a method
+      // may own its first settlement) or discard (its last) refreshes it.
+      getProviderSettlementProviders: builder.query<ProviderSettlementProvider[], void>({
+        query: () => ({ url: '/accounting/provider-settlements/providers' }),
+        providesTags: ['ProviderSettlement'],
+      }),
       getProviderSettlement: builder.query<ProviderSettlement, string>({
         query: (id) => ({ url: `/accounting/provider-settlements/${id}` }),
         transformResponse: (r: { data: ProviderSettlement }) => r.data,
@@ -551,6 +558,7 @@ export const {
   useCancelOwnerEquityMutation,
   useUncancelOwnerEquityMutation,
   useGetProviderSettlementsQuery,
+  useGetProviderSettlementProvidersQuery,
   useGetProviderSettlementQuery,
   useGetEligibleSettlementRowsQuery,
   useLazyGetEligibleSettlementRowsQuery,

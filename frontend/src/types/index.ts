@@ -1054,6 +1054,17 @@ export interface ProviderSettlement {
   lines?: ProviderSettlementLine[]
 }
 
+/**
+ * A Provider filter option (#1289): a payment method that owns at least one
+ * settlement. `deleted` means the method was soft-deleted.
+ */
+export interface ProviderSettlementProvider {
+  id: string
+  name: string
+  isActive: boolean
+  deleted: boolean
+}
+
 export interface SettlementPaymentDetail {
   id: string
   paymentDate: string
