@@ -8,7 +8,6 @@ import { EntityManager, SelectQueryBuilder } from 'typeorm';
 import { SalesOrderPayment } from '../../../database/entities/sales-order-payment.entity';
 import { ProviderSettlement, ProviderSettlementStatus } from '../entities/provider-settlement.entity';
 import { PostingType, AccountingSourceType } from '../../../common/accounting-posting/enums';
-import { PaymentMethodMappingService } from '../../accounting/services/payment-method-mapping.service';
 import { AccountingLookupService } from '../../accounting/services/accounting-lookup.service';
 import { ProviderSettlementDerivationService } from './provider-settlement-derivation.service';
 import { derivedClearingAccountSql } from './derived-clearing-account.sql';
@@ -42,7 +41,6 @@ export interface ClaimedSettlementRow {
 export class ProviderSettlementEligibilityService {
   constructor(
     @InjectEntityManager() private readonly defaultManager: EntityManager,
-    private readonly mappingService: PaymentMethodMappingService,
     private readonly lookup: AccountingLookupService,
     private readonly derivation: ProviderSettlementDerivationService,
   ) {}
@@ -147,29 +145,6 @@ export class ProviderSettlementEligibilityService {
   }
 
   /**
-   * Mapping gate (spec §6): methods currently mapped to a FLAGGED account, plus
-   * the draft's stored method. The draft exception bypasses THIS gate only —
-   * the journal gate in listEligibleRowsIn is never bypassed.
-   */
-  private async allowedMethodIds(
-    draft: Pick<ProviderSettlement, 'providerPaymentMethodId'> | undefined,
-    manager: EntityManager,
-  ): Promise<string[]> {
-    const mapped = (await this.mappingService.list(manager)).filter((r) => r.status === 'mapped');
-    const flagged: Array<{ id: string }> = mapped.length
-      ? await manager.query(
-          `SELECT id FROM chart_of_account
-            WHERE id = ANY($1::uuid[]) AND "isProviderClearing" = true AND "deletedAt" IS NULL`,
-          [mapped.map((r) => r.accountId)],
-        )
-      : [];
-    const flaggedIds = new Set(flagged.map((a) => a.id));
-    const ids = new Set(mapped.filter((r) => flaggedIds.has(r.accountId!)).map((r) => r.paymentMethodId));
-    if (draft) ids.add(draft.providerPaymentMethodId);
-    return [...ids];
-  }
-
-  /**
    * Count, group keys and payment details are read inside ONE REPEATABLE READ
    * snapshot. Separate autocommit reads could straddle a refund commit and
    * return a group whose net (read first) disagrees with its details (read
@@ -188,9 +163,7 @@ export class ProviderSettlementEligibilityService {
     data: EligibleSettlementRow[];
     meta: { total: number; page: number; limit: number };
   }> {
-    const draft = params.settlementId ? await this.assertOwnDraft(params.settlementId, m) : undefined;
-    const methodIds = await this.allowedMethodIds(draft, m);
-    if (methodIds.length === 0) return { data: [], meta: { total: 0, page: params.page ?? 1, limit: params.limit ?? 0 } };
+    if (params.settlementId) await this.assertOwnDraft(params.settlementId, m);
 
     // Embed the shared builder as a CTE so grouping sits ON TOP of it, never
     // inside it. TypeORM emits $1..$n; our own parameters continue from n+1.
@@ -203,49 +176,56 @@ export class ProviderSettlementEligibilityService {
     const deposit = await this.lookup.resolveAccount('customerDeposit', m);
     const derivedSql = derivedClearingAccountSql('eligible', bind, deposit.id);
 
-    const filters: string[] = [`g."paymentMethodId" = ANY(${bind(methodIds)}::uuid[])`];
+    const filters: string[] = [];
     if (params.salesOrderIds?.length) {
       filters.push(`g."salesOrderId" = ANY(${bind(params.salesOrderIds)}::uuid[])`);
     }
+    // Search selects whole GROUPS (spec §4.2): the predicate filters group keys,
+    // never the payment rows being summed, so a non-matching refund still
+    // counts toward a matching group's net. The per-group reference match is an
+    // aggregate below, never a correlated subquery.
+    let refMatch = 'false';
     if (params.search) {
       const q = bind(`%${params.search}%`);
-      // Search selects whole GROUPS (spec §4.2): the predicate filters group keys,
-      // never the payment rows being summed, so a non-matching refund still
-      // counts toward a matching group's net.
-      filters.push(`(so."orderNumber" ILIKE ${q} OR EXISTS (
-        SELECT 1 FROM eligible e2
-         WHERE e2."salesOrderId" = g."salesOrderId"
-           AND e2."paymentMethodId" = g."paymentMethodId"
-           AND e2."referenceNumber" ILIKE ${q}))`);
+      refMatch = `bool_or(e."referenceNumber" ILIKE ${q})`;
+      filters.push(`(so."orderNumber" ILIKE ${q} OR g."refMatch")`);
     }
 
-    // Journal gate (spec §6): every eligible payment of the group derives (by the
-    // SQL mirror of the TS derivation) to ONE flagged, live account. Never bypassed.
-    filters.push(`NOT EXISTS (
-        SELECT 1 FROM eligible e3
-          LEFT JOIN derived d ON d."paymentId" = e3.id
-          LEFT JOIN chart_of_account a ON a.id = d."clearingAccountId" AND a."deletedAt" IS NULL
-         WHERE e3."salesOrderId" = g."salesOrderId" AND e3."paymentMethodId" = g."paymentMethodId"
-           AND a."isProviderClearing" IS NOT TRUE)`);
-    filters.push(`(SELECT count(DISTINCT d."clearingAccountId")
-         FROM eligible e4 JOIN derived d ON d."paymentId" = e4.id
-        WHERE e4."salesOrderId" = g."salesOrderId" AND e4."paymentMethodId" = g."paymentMethodId") = 1`);
-
+    // Journal gate (spec §6): EVERY eligible payment of the group derives (by the
+    // SQL mirror of the TS derivation) to ONE flagged, live account. This gate
+    // alone decides which methods appear. The method's live mapping is deliberately
+    // not consulted (#1288), so payments recorded to a clearing account stay listed
+    // after their provider is remapped, unmapped or made invalid. It already
+    // excludes cash and bank payments, which derive to unflagged accounts.
+    //
+    // Evaluated as ONE aggregate per group (#1288): correlated subqueries over the
+    // CTEs rescanned them once per group, which is quadratic. Both joins are LEFT
+    // on purpose, so every payment row stays in its group: a payment with no
+    // derivation (d is NULL), or one deriving to a soft-deleted or unflagged
+    // account (a is NULL or unflagged), makes bool_and FALSE and rejects the whole
+    // group. An inner join would drop that row and let the remainder qualify.
+    // `derived` holds at most one row per payment, so the joins never duplicate
+    // amounts in the SUM.
     const groupsSql = `
       WITH eligible AS (${eligibleSql}),
       derived AS (${derivedSql}),
       grouped AS (
-        SELECT e."salesOrderId", e."paymentMethodId", SUM(e.amount) AS "netAmount"
+        SELECT e."salesOrderId", e."paymentMethodId", SUM(e.amount) AS "netAmount",
+               ${refMatch} AS "refMatch"
           FROM eligible e
+          LEFT JOIN derived d ON d."paymentId" = e.id
+          LEFT JOIN chart_of_account a ON a.id = d."clearingAccountId" AND a."deletedAt" IS NULL
          GROUP BY e."salesOrderId", e."paymentMethodId"
         HAVING SUM(e.amount) <> 0
+           AND bool_and(a."isProviderClearing" IS TRUE)
+           AND count(DISTINCT d."clearingAccountId") = 1
       )
       SELECT g."salesOrderId", g."paymentMethodId", g."netAmount"::text AS "netAmount",
              so."orderNumber", pm.name AS "paymentMethodName"
         FROM grouped g
         JOIN sales_orders so ON so.id = g."salesOrderId"
         JOIN payment_methods pm ON pm.id = g."paymentMethodId"
-       WHERE ${filters.join(' AND ')}`;
+       ${filters.length ? `WHERE ${filters.join(' AND ')}` : ''}`;
 
     const [{ total }] = await m.query(
       `SELECT count(*)::int AS total FROM (${groupsSql}) t`, args,
