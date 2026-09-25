@@ -21,11 +21,19 @@ function routeApiByUrl() {
   })
 }
 
-function countGets(urlPart: string): number {
+const LIST_URL = '/accounting/provider-settlements'
+const DETAIL_URL = '/accounting/provider-settlements/ps-1'
+
+/**
+ * GET requests to EXACTLY `url`. Queries carry no method (the transport
+ * defaults to GET); mutations set one. Matching by prefix, or counting every
+ * method, would let the mutation's own PATCH stand in for a missing refetch.
+ */
+function countGets(url: string): number {
   return vi
     .mocked(api)
     .mock.calls.filter(([config]: any[]) =>
-      typeof config.url === 'string' && config.url.includes(urlPart),
+      config.url === url && (config.method ?? 'GET').toUpperCase() === 'GET',
     ).length
 }
 
@@ -67,12 +75,17 @@ describe('ProviderSettlement invalidation', () => {
     await list
     await detail
 
-    const before = countGets('/accounting/provider-settlements')
+    // Each subscription fetched exactly once before the mutation.
+    expect(countGets(LIST_URL)).toBe(1)
+    expect(countGets(DETAIL_URL)).toBe(1)
+
     await mutate(store)
 
-    await vi.waitFor(() =>
-      expect(countGets('/accounting/provider-settlements')).toBeGreaterThanOrEqual(before + 2),
-    )
+    // …and each refetches exactly once after it.
+    await vi.waitFor(() => {
+      expect(countGets(LIST_URL)).toBe(2)
+      expect(countGets(DETAIL_URL)).toBe(2)
+    })
 
     list.unsubscribe()
     detail.unsubscribe()
