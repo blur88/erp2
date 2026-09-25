@@ -12,6 +12,7 @@ import {
   seedSuiteAdmin,
 } from './utils/shared-e2e-fixture';
 import { removeSuiteTraces } from './utils/shared-e2e-traces-fixture';
+import { restoreMapping, snapshotMapping } from './utils/payment-method-mapping-restore-fixture';
 import {
   cents,
   journalLinesFor,
@@ -759,15 +760,13 @@ describe('Provider settlements (e2e)', () => {
       code: string,
       fn: () => Promise<void>,
     ) {
-      const [current] = await ds.query(
-        `SELECT "accountId" FROM payment_method_account_mappings WHERE "paymentMethodId" = $1`,
-        [methodId],
-      );
+      // Restored by SQL, not PUT: setMappings() re-inserts with a new id (#1293).
+      const original = await snapshotMapping(ds, methodId);
       await putMapping(methodId, await accountIdByCode(ds, code));
       try {
         await fn();
       } finally {
-        await putMapping(methodId, current?.accountId ?? null);
+        await restoreMapping(ds, methodId, original);
       }
     }
 
@@ -1430,10 +1429,7 @@ describe('Provider settlements (e2e)', () => {
 
       /** Point Shopee at `accountId` (null ⇒ unmapped) for the duration of `fn`, then restore. */
       async function withShopeeMapping(accountId: string | null, fn: () => Promise<void>, deactivate = false) {
-        const [current] = await ds.query(
-          `SELECT "accountId" FROM payment_method_account_mappings WHERE "paymentMethodId" = $1`,
-          [shopeeMethodId],
-        );
+        const original = await snapshotMapping(ds, shopeeMethodId);
         await putMapping(shopeeMethodId, accountId);
         try {
           // A mapping cannot be SAVED invalid; it becomes invalid when its account is deactivated.
@@ -1441,7 +1437,7 @@ describe('Provider settlements (e2e)', () => {
           await fn();
         } finally {
           if (deactivate) await ds.query('UPDATE chart_of_account SET "isActive" = true WHERE id = $1', [accountId]);
-          await putMapping(shopeeMethodId, current?.accountId ?? null);
+          await restoreMapping(ds, shopeeMethodId, original);
         }
       }
 
