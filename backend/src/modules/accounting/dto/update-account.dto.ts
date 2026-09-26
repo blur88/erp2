@@ -5,4 +5,5 @@ export class UpdateAccountDto {
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsBoolean() isActive?: boolean;
   @IsOptional() @IsBoolean() isProviderClearing?: boolean;
+  @IsOptional() @IsBoolean() isBankAccount?: boolean;
 }

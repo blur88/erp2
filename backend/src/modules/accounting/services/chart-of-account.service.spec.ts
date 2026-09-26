@@ -5,21 +5,33 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 
 function makeService(overrides: any = {}) {
   const accounts: any[] = overrides.accounts ?? [];
+  const repoCreate = (jest.fn as unknown as any)((x: any) => x);
   const coaRepo = {
     findOne: async ({ where }: any) =>
       accounts.find((a) => (where.code && a.code === where.code) || (where.id && a.id === where.id)) ?? null,
     find: async () => accounts,
-    save: (jest.fn as unknown as any)(async (x: any) => x),
+    create: repoCreate,
+    save: (jest.fn as unknown as any)(async (x: any) => ({ id: 'new-id', ...x })),
   };
-  const settingsRepo = { findOne: (jest.fn as unknown as any)(async () => overrides.settings ?? { id: true }) };
+  const settingsRepo: any = {
+    findOne: (jest.fn as unknown as any)(async () => overrides.settings ?? { id: true }),
+  };
+  // withBalanceSheetConfigLock locks the settings row through createQueryBuilder.
+  // A single-connection fake cannot show serialisation; that is the e2e's job.
+  settingsRepo.createQueryBuilder = () => ({
+    setLock: () => ({ where: () => ({ getOne: async () => settingsRepo.findOne({ where: { id: true } }) }) }),
+  });
+  const manager = {
+    getRepository: (entity: any) => {
+      const name = entity?.name ?? String(entity);
+      if (name === 'ChartOfAccount') return coaRepo;
+      if (name === 'AccountingSettings') return settingsRepo;
+      throw new Error(`unexpected repository requested: ${name}`);
+    },
+  };
+  const dataSource = { transaction: (jest.fn as unknown as any)(async (cb: any) => cb(manager)) };
   const posting = { postOpeningBalance: (jest.fn as unknown as any)(async () => ({ journalEntryId: 'je-1' })) };
   const balance = overrides.balance ?? { getLeafBalances: async () => new Map(), getRollup: () => 0n, naturalBalance: (_t: any, v: bigint) => v };
-  const repoCreate = (jest.fn as unknown as any)((x: any) => x);
-  const dataSource = {
-    transaction: (jest.fn as unknown as any)(async (cb: any) => cb({
-      getRepository: () => ({ create: repoCreate, save: async (x: any) => ({ ...x, id: 'new-id' }) }),
-    })),
-  };
   const getRegionalSettings = (jest.fn as unknown as any)(async () => ({
     timezone: overrides.timezone ?? 'Asia/Kuala_Lumpur',
   }));
@@ -337,17 +349,110 @@ describe('ChartOfAccountService — isProviderClearing (#1285)', () => {
     expect(coaRepo.save).not.toHaveBeenCalled();
   });
 
-  it('update: always allows unflagging, without reading settings', async () => {
+  it('update: allows unflagging a clearing account', async () => {
     const flagged = {
       id: 'shopee', code: '1250', name: 'Shopee', type: AccountType.ASSET,
-      isActive: true, isPostable: true, isProviderClearing: true,
+      isActive: true, isPostable: true, isProviderClearing: true, isBankAccount: false,
     };
-    const { svc, coaRepo, settingsRepo } = makeService({
-      accounts: [flagged],
-      settings: { id: true, bankAccountId: 'shopee' },
-    });
+    const { svc, coaRepo } = makeService({ accounts: [flagged], settings: { id: true, bankAccountId: 'cimb' } });
     await svc.update('shopee', { isProviderClearing: false } as any, 'tester');
     expect(coaRepo.save).toHaveBeenCalledWith(expect.objectContaining({ isProviderClearing: false }));
-    expect(settingsRepo.findOne).not.toHaveBeenCalled();
+  });
+});
+
+describe('ChartOfAccountService — isBankAccount (#1298)', () => {
+  const settings = {
+    id: true, bankAccountId: 'cimb', cashAccountId: 'cash',
+    inventoryAccountId: 'inv', supplierDepositAccountId: 'sup',
+  };
+  const asset = (id: string, over: Record<string, unknown> = {}) => ({
+    id, code: id.toUpperCase(), name: id, type: AccountType.ASSET,
+    isActive: true, isPostable: true, isProviderClearing: false, isBankAccount: false, ...over,
+  });
+
+  it('create: persists isBankAccount for a postable Asset', async () => {
+    const { svc, repoCreate } = makeService({ accounts: [] });
+    await svc.create({ code: '1250', name: 'RHB', type: AccountType.ASSET, isBankAccount: true } as any, 'tester');
+    expect(repoCreate).toHaveBeenCalledWith(expect.objectContaining({ isBankAccount: true }));
+  });
+
+  it('create: rejects flagging a non-Asset and writes nothing', async () => {
+    const { svc, dataSource } = makeService({ accounts: [] });
+    await expect(
+      svc.create({ code: '6100', name: 'X', type: AccountType.EXPENSE, isBankAccount: true } as any, 'tester'),
+    ).rejects.toThrow('Only an Asset account can be a bank account');
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('create: rejects both flags at once', async () => {
+    const { svc, dataSource } = makeService({ accounts: [] });
+    await expect(
+      svc.create({ code: '1250', name: 'X', type: AccountType.ASSET, isBankAccount: true, isProviderClearing: true } as any, 'tester'),
+    ).rejects.toThrow('A provider clearing account cannot be a bank account');
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['cash', 'Cash'], ['inv', 'Inventory'], ['sup', 'Supplier Deposit'],
+  ])('update: rejects flagging the Settings %s account', async (id, label) => {
+    const { svc, coaRepo } = makeService({ accounts: [asset(id)], settings });
+    await expect(svc.update(id, { isBankAccount: true } as any, 'tester')).rejects.toThrow(
+      `This account is the Accounting Settings ${label} account and cannot be a bank account`,
+    );
+    expect(coaRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('update: rejects unflagging the Settings bank account', async () => {
+    const { svc, coaRepo } = makeService({ accounts: [asset('cimb', { isBankAccount: true })], settings });
+    await expect(svc.update('cimb', { isBankAccount: false } as any, 'tester')).rejects.toThrow(
+      'Account is the Accounting Settings Bank account and must remain a bank account',
+    );
+    expect(coaRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('update: rejects turning on isProviderClearing for a flagged account (merged state)', async () => {
+    // The merged account carries BOTH flags; update() runs the bank rule first,
+    // so its message wins. The mirror message ("A bank account cannot be a
+    // provider clearing account") is reachable only via the rule function
+    // itself (Task 1's test).
+    const { svc, coaRepo } = makeService({ accounts: [asset('maybank', { isBankAccount: true })], settings });
+    await expect(svc.update('maybank', { isProviderClearing: true } as any, 'tester')).rejects.toThrow(
+      'A provider clearing account cannot be a bank account',
+    );
+    expect(coaRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('update: rejects both flags at once', async () => {
+    const { svc, coaRepo } = makeService({ accounts: [asset('rhb')], settings });
+    await expect(
+      svc.update('rhb', { isBankAccount: true, isProviderClearing: true } as any, 'tester'),
+    ).rejects.toThrow('A provider clearing account cannot be a bank account');
+    expect(coaRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('update: re-validates a flagged account on an unrelated edit', async () => {
+    // A flagged row that already violates an invariant (e.g. hand-edited data)
+    // cannot be saved until fixed — the merged state is what is checked.
+    const { svc } = makeService({ accounts: [asset('grp', { isBankAccount: true, isPostable: false })], settings });
+    await expect(svc.update('grp', { name: 'Renamed' } as any, 'tester'))
+      .rejects.toThrow('Only a postable account can be a bank account');
+  });
+
+  it('update: renames a flagged account', async () => {
+    const { svc, coaRepo } = makeService({ accounts: [asset('cimb', { isBankAccount: true })], settings });
+    await svc.update('cimb', { name: 'CIMB Current' } as any, 'tester');
+    expect(coaRepo.save).toHaveBeenCalledWith(expect.objectContaining({ name: 'CIMB Current', isBankAccount: true }));
+  });
+
+  it('update: unflags a bank that is not the Settings bank', async () => {
+    const { svc, coaRepo } = makeService({ accounts: [asset('maybank', { isBankAccount: true })], settings });
+    await svc.update('maybank', { isBankAccount: false } as any, 'tester');
+    expect(coaRepo.save).toHaveBeenCalledWith(expect.objectContaining({ isBankAccount: false }));
+  });
+
+  it('update: runs inside the config-lock transaction', async () => {
+    const { svc, dataSource } = makeService({ accounts: [asset('maybank', { isBankAccount: true })], settings });
+    await svc.update('maybank', { name: 'x' } as any, 'tester');
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
   });
 });
