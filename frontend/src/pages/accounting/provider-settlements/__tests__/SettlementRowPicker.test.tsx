@@ -77,6 +77,11 @@ describe('SettlementRowPicker', () => {
     expect(alert).toHaveTextContent(/separate settlement/i)
   })
 
+  it('refetches the eligible rows whenever the picker mounts', () => {
+    render(<Harness />)
+    expect(mockRows.mock.calls[0][1]).toEqual({ refetchOnMountOrArgChange: true })
+  })
+
   it('passes settlementId through so a draft sees its own claims', () => {
     render(<SettlementRowPicker settlementDate="2026-09-20" settlementId="ps-1" selected={[]} onChange={() => {}} enteredAmount="" />)
     expect(mockRows.mock.calls[0][0]).toMatchObject({ settlementId: 'ps-1' })
