@@ -38,6 +38,7 @@ import { getCurrentDate, toDateInputValue, toMuiDatePickerFormat } from '@/utils
 import TransactionFormShell from '@/components/transactions/TransactionFormShell'
 import { formatCurrency } from '@/utils/currency'
 import { currentListPath, forwardListQuery } from '@/utils/listQuery'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 import { LINE_ITEM_TABLE_SX } from '@/components/transactions/transactionTableStyles'
 import { useNotification } from '@/hooks/useNotification'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
@@ -321,7 +322,7 @@ const CreateStockAdjustmentPage: React.FC = () => {
         navigate(listPath)
       }
     } catch (err: any) {
-      const msg = err?.data?.message || err?.message || 'Failed to save stock adjustment'
+      const msg = rtkErrorMessage(err, 'Failed to save stock adjustment')
       setPageError(msg)
       showError(msg)
     }

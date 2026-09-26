@@ -314,7 +314,7 @@ const CreateSalesOrderPage: React.FC = () => {
           setOrderToLoad(order)
         })
         .catch((err: any) => {
-          setLoadError(err?.data?.message || err?.response?.data?.message || 'Failed to load sales order')
+          setLoadError(rtkErrorMessage(err, 'Failed to load sales order'))
           setLoadingOrder(false)
         })
     }

@@ -161,6 +161,24 @@ describe('CustomerFormPage - Create mode', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/sales/customers')
   })
 
+  // #1300: axiosBaseQuery rejects .unwrap() with data = the message STRING.
+  it('shows the server reason when create is rejected (RTK string error)', async () => {
+    mockCreateCustomer.mockReturnValue({
+      unwrap: vi.fn().mockRejectedValue({ status: 400, data: 'Price list is inactive' }),
+    })
+    const user = userEvent.setup()
+    renderCreatePage()
+
+    await user.type(screen.getByLabelText(/customer name/i), 'Test Corp')
+    await user.click(screen.getByRole('button', { name: /create/i }))
+
+    await waitFor(() => {
+      expect(mockShowError).toHaveBeenCalledWith('Price list is inactive')
+    })
+    expect(mockShowError).not.toHaveBeenCalledWith('Failed to create customer')
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
   it('navigates back on Cancel click', async () => {
     const user = userEvent.setup()
     renderCreatePage()

@@ -888,6 +888,25 @@ describe('CreateSalesOrderPage — edit mode', { timeout: 60000 }, () => {
     })
   })
 
+  // #1300: axiosBaseQuery rejects .unwrap() with data = the message STRING.
+  it('shows the server reason when order load is rejected (RTK string error)', async () => {
+    mockFetchSalesOrder.mockReturnValue({
+      unwrap: vi.fn().mockRejectedValue({ status: 404, data: 'Sales order SO-26-404 not found' }),
+    })
+
+    render(
+      <BrowserRouter>
+        <CreateSalesOrderPage />
+      </BrowserRouter>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument()
+      expect(screen.getByText('Sales order SO-26-404 not found')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Failed to load sales order')).not.toBeInTheDocument()
+  })
+
   it('shows error Alert when order load fails', async () => {
     mockFetchSalesOrder.mockReturnValue({
       unwrap: vi.fn().mockRejectedValue({ data: { message: 'Order not found' } }),

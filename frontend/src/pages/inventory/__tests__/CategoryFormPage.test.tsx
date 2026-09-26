@@ -128,6 +128,24 @@ describe('CategoryFormPage', () => {
     expect(screen.getByRole('button', { name: /create/i })).toBeDisabled()
   })
 
+  // #1300: axiosBaseQuery rejects .unwrap() with data = the message STRING.
+  it('shows the server reason when create is rejected (RTK string error)', async () => {
+    mockCreateCategory.mockReturnValue({
+      unwrap: vi.fn().mockRejectedValue({ status: 400, data: 'Parent category is disabled' }),
+    })
+    const user = userEvent.setup()
+    renderCreatePage()
+
+    await user.type(screen.getByLabelText(/name/i), 'Shoes')
+    await user.click(screen.getByRole('button', { name: /create/i }))
+
+    await waitFor(() => {
+      expect(mockShowError).toHaveBeenCalledWith('Parent category is disabled')
+    })
+    expect(mockShowError).not.toHaveBeenCalledWith('Failed to create category')
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
   it('populates fields and excludes self from parent options in edit mode', async () => {
     mockGetCategoryBySlug.mockReturnValue({
       data: {
