@@ -273,6 +273,36 @@ describe('CreateStockAdjustmentPage', { timeout: 30000 }, () => {
       expect(data.items[0]).not.toHaveProperty('newQuantity')
       expect(data.items[0].difference).toBe(4)
     })
+
+    // #1300: axiosBaseQuery rejects .unwrap() with data = the message STRING.
+    it('shows the server reason when create is rejected (RTK string error)', async () => {
+      mockCreateAdjustment.mockReturnValue({
+        unwrap: vi.fn().mockRejectedValue({ status: 400, data: 'Insufficient stock for Alpha Widget' }),
+      })
+      const user = userEvent.setup()
+      renderPage()
+
+      const input = screen.getByPlaceholderText('Search product...')
+      await user.click(input)
+      const listbox = await screen.findByRole('listbox')
+      await user.click(within(listbox).getByText('Alpha Widget'))
+      await waitFor(() => {
+        expect(input).toHaveValue('Alpha Widget')
+      })
+
+      const diffInput = screen.getByTestId('items.0.difference') as HTMLInputElement
+      fireEvent.change(diffInput, { target: { value: '10' } })
+      await waitFor(() => {
+        expect(diffInput.value).toBe('10')
+      })
+
+      await user.click(screen.getByRole('button', { name: /create adjustment/i }))
+
+      await waitFor(() => {
+        expect(mockShowError).toHaveBeenCalledWith('Insufficient stock for Alpha Widget')
+      })
+      expect(mockShowError).not.toHaveBeenCalledWith('Failed to save stock adjustment')
+    })
   })
 
   describe('clear Qty Change (#864)', () => {

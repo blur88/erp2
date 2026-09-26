@@ -30,6 +30,7 @@ import { useFieldDuplicateCheck } from '@/hooks/useFieldDuplicateCheck'
 import { useNotification } from '@/hooks/useNotification'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 import { currentListPath, forwardListQuery } from '@/utils/listQuery'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 import api from '@/services/api'
 import {
   useCreateCustomerMutation,
@@ -394,7 +395,7 @@ const CustomerFormPage: React.FC = () => {
         })
         showError('Please fix the highlighted errors')
       } else {
-        showError(`Failed to ${isEdit ? 'update' : 'create'} customer`)
+        showError(rtkErrorMessage(error, `Failed to ${isEdit ? 'update' : 'create'} customer`))
       }
     }
   }

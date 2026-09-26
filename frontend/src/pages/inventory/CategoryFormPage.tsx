@@ -27,6 +27,7 @@ import { useCategoryDuplicateCheck } from '@/hooks/useCategoryDuplicateCheck'
 import { useNotification } from '@/hooks/useNotification'
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard'
 import { currentListPath } from '@/utils/listQuery'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 import type { Category } from '@/types'
 
 const schema = yup.object({
@@ -135,7 +136,7 @@ const CategoryFormPage: React.FC = () => {
 
       navigate(listPath)
     } catch (err: any) {
-      showError(err?.data?.message || err?.message || `Failed to ${isEditMode ? 'update' : 'create'} category`)
+      showError(rtkErrorMessage(err, `Failed to ${isEditMode ? 'update' : 'create'} category`))
     }
   }
 
