@@ -549,6 +549,28 @@ describe('ExpenseFormPage - Create mode', () => {
     })
   })
 
+  // #1300: pins EXISTING behaviour — this handler already reads the
+  // axiosBaseQuery string shape via rtkErrorMessage(); it was never red.
+  it('shows the server reason when create is rejected (RTK string error)', async () => {
+    mockCreateExpense.mockReturnValue({
+      unwrap: vi.fn().mockRejectedValue({ status: 400, data: 'Expense account is not postable' }),
+    })
+    const user = userEvent.setup()
+    renderCreatePage()
+
+    await user.type(screen.getByLabelText(/description/i), 'Office supplies')
+    await user.click(screen.getByRole('combobox', { name: /account/i }))
+    await user.click(screen.getByRole('option', { name: /5000 office supplies/i }))
+    await user.type(screen.getByLabelText(/amount/i), '250.00')
+    await user.click(screen.getByRole('button', { name: /create expense/i }))
+
+    await waitFor(() => {
+      expect(mockShowError).toHaveBeenCalledWith('Expense account is not postable')
+    })
+    expect(mockShowError).not.toHaveBeenCalledWith('Failed to create expense')
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
   it('stays on the form and surfaces an error when create fails', async () => {
     mockCreateExpense.mockReturnValue({
       unwrap: vi.fn().mockRejectedValue({ data: { message: 'Server exploded' } }),
