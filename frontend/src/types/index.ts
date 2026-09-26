@@ -604,6 +604,7 @@ export interface Account {
   isSystem: boolean;
   isPostable: boolean;
   isProviderClearing: boolean;
+  isBankAccount: boolean;
   openingBalance: string;
   createdAt: string;
   updatedAt: string;

@@ -65,6 +65,7 @@ interface AccountFormData {
   parentId: string
   description: string
   isProviderClearing: boolean
+  isBankAccount: boolean
 }
 
 interface AccountFormDialogProps {
@@ -86,6 +87,7 @@ const accountSchema = yup.object({
   parentId: yup.string().nullable().default(''),
   description: yup.string().nullable().default(''),
   isProviderClearing: yup.boolean().default(false),
+  isBankAccount: yup.boolean().default(false),
 })
 
 export default function AccountFormDialog({ open, account, parent = null, tree, onClose, onSuccess }: AccountFormDialogProps) {
@@ -104,12 +106,13 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
     formState: { errors },
   } = useForm<AccountFormData>({
     resolver: yupResolver(accountSchema) as any,
-    defaultValues: { code: '', name: '', type: 'Asset', parentId: '', description: '', isProviderClearing: false },
+    defaultValues: { code: '', name: '', type: 'Asset', parentId: '', description: '', isProviderClearing: false, isBankAccount: false },
   })
 
   const selectedType = watch('type')
   const selectedParentId = watch('parentId')
-  const flagValue = watch('isProviderClearing')
+  const clearingValue = watch('isProviderClearing')
+  const bankValue = watch('isBankAccount')
 
   useEffect(() => {
     if (open) {
@@ -121,6 +124,7 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
           parentId: account.parentId ?? '',
           description: account.description ?? '',
           isProviderClearing: account.isProviderClearing ?? false,
+          isBankAccount: account.isBankAccount ?? false,
         })
       } else {
         reset({
@@ -131,6 +135,7 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
           parentId: parent?.id ?? '',
           description: '',
           isProviderClearing: false,
+          isBankAccount: false,
         })
       }
     }
@@ -142,8 +147,10 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
   // postability ever becomes editable.
   const canFlag = selectedType === 'Asset' && (account ? account.isPostable : true)
   useEffect(() => {
-    if (open && !canFlag && flagValue) setValue('isProviderClearing', false)
-  }, [open, canFlag, flagValue, setValue])
+    if (!open || canFlag) return
+    if (clearingValue) setValue('isProviderClearing', false)
+    if (bankValue) setValue('isBankAccount', false)
+  }, [open, canFlag, clearingValue, bankValue, setValue])
 
   const parentOptions = useMemo(
     () => flattenForParent(tree, selectedType, !isEdit),
@@ -168,6 +175,7 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
         parentId: data.parentId || undefined,
         description: data.description?.trim() || undefined,
         isProviderClearing: canFlag ? data.isProviderClearing : false,
+        isBankAccount: canFlag ? data.isBankAccount : false,
       }
 
       if (account) {
@@ -304,13 +312,42 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
                         <Switch
                           checked={canFlag && !!field.value}
                           disabled={!canFlag}
-                          onChange={(e) => field.onChange(e.target.checked)}
+                          onChange={(e) => {
+                            field.onChange(e.target.checked)
+                            if (e.target.checked) setValue('isBankAccount', false)
+                          }}
                         />
                       }
                       label="Provider clearing account"
                     />
                     <FormHelperText>
                       Payments recorded to this account can be settled in Provider Settlements. Changing this does not alter posted journals or settlements.
+                    </FormHelperText>
+                  </FormControl>
+                )}
+              />
+            </Grid>
+            <Grid size={12}>
+              <Controller
+                name="isBankAccount"
+                control={control}
+                render={({ field }) => (
+                  <FormControl>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={canFlag && !!field.value}
+                          disabled={!canFlag}
+                          onChange={(e) => {
+                            field.onChange(e.target.checked)
+                            if (e.target.checked) setValue('isProviderClearing', false)
+                          }}
+                        />
+                      }
+                      label="Bank account"
+                    />
+                    <FormHelperText>
+                      Only bank accounts can receive Provider Settlements. Changing this does not alter posted journals or settlements.
                     </FormHelperText>
                   </FormControl>
                 )}

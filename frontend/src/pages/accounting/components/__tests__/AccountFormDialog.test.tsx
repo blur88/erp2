@@ -20,6 +20,7 @@ const { mockCreateAccount, mockUpdateAccount, mockTree } = vi.hoisted(() => ({
       isSystem: false,
       isPostable: false,
       isProviderClearing: false,
+      isBankAccount: false,
       openingBalance: '0.0000',
       createdAt: '',
       updatedAt: '',
@@ -36,6 +37,7 @@ const { mockCreateAccount, mockUpdateAccount, mockTree } = vi.hoisted(() => ({
           isSystem: false,
           isPostable: true,
           isProviderClearing: false,
+          isBankAccount: false,
           openingBalance: '0.0000',
           createdAt: '',
           updatedAt: '',
@@ -55,6 +57,7 @@ const { mockCreateAccount, mockUpdateAccount, mockTree } = vi.hoisted(() => ({
       isSystem: false,
       isPostable: false,
       isProviderClearing: false,
+      isBankAccount: false,
       openingBalance: '0.0000',
       createdAt: '',
       updatedAt: '',
@@ -71,6 +74,7 @@ const { mockCreateAccount, mockUpdateAccount, mockTree } = vi.hoisted(() => ({
           isSystem: false,
           isPostable: true,
           isProviderClearing: false,
+          isBankAccount: false,
           openingBalance: '0.0000',
           createdAt: '',
           updatedAt: '',
@@ -205,5 +209,68 @@ describe('AccountFormDialog', () => {
     const sw = screen.getByRole('switch', { name: 'Provider clearing account' })
     expect(sw).not.toBeChecked()
     expect(sw).toBeDisabled()
+  })
+
+  it('offers the bank account switch for a postable Asset and sends it', async () => {
+    renderDialog({ open: true, account: null, onClose: vi.fn(), onSuccess: vi.fn() })
+    const user = userEvent.setup()
+    const sw = screen.getByRole('switch', { name: 'Bank account' })
+    expect(sw).toBeEnabled()
+    await user.click(sw)
+    await user.type(screen.getByLabelText('Code'), '1250')
+    await user.type(screen.getByLabelText('Name'), 'RHB')
+    await user.click(screen.getByRole('button', { name: /Create Account/ }))
+    await waitFor(() => {
+      expect(mockCreateAccount).toHaveBeenCalledWith(
+        expect.objectContaining({ isBankAccount: true, isProviderClearing: false }),
+      )
+    })
+  })
+
+  it('checking one flag clears the other, and neither disables the other', async () => {
+    renderDialog({ open: true, account: null, onClose: vi.fn(), onSuccess: vi.fn() })
+    const user = userEvent.setup()
+    const bank = () => screen.getByRole('switch', { name: 'Bank account' })
+    const clearing = () => screen.getByRole('switch', { name: 'Provider clearing account' })
+
+    await user.click(bank())
+    expect(bank()).toBeChecked()
+    expect(clearing()).toBeEnabled()
+
+    await user.click(clearing())
+    expect(clearing()).toBeChecked()
+    expect(bank()).not.toBeChecked()
+    expect(bank()).toBeEnabled()
+
+    await user.click(bank())
+    expect(bank()).toBeChecked()
+    expect(clearing()).not.toBeChecked()
+  })
+
+  it('clears and disables the bank switch when Type changes away from Asset', async () => {
+    renderDialog({ open: true, account: null, onClose: vi.fn(), onSuccess: vi.fn() })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('switch', { name: 'Bank account' }))
+    await user.click(screen.getByLabelText('Type'))
+    await user.click(screen.getByRole('option', { name: 'Liability' }))
+    const sw = screen.getByRole('switch', { name: 'Bank account' })
+    expect(sw).not.toBeChecked()
+    expect(sw).toBeDisabled()
+  })
+
+  it('loads a flagged account with the switch ON and keeps it on a rename', async () => {
+    const flagged = { ...mockTree[0].children[0], code: '1200', name: 'CIMB', isBankAccount: true }
+    renderDialog({ open: true, account: flagged, onClose: vi.fn(), onSuccess: vi.fn() })
+    const user = userEvent.setup()
+    expect(screen.getByRole('switch', { name: 'Bank account' })).toBeChecked()
+    const name = screen.getByLabelText('Name')
+    await user.clear(name)
+    await user.type(name, 'CIMB Current')
+    await user.click(screen.getByRole('button', { name: /Update Account/ }))
+    await waitFor(() => {
+      expect(mockUpdateAccount).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ isBankAccount: true, name: 'CIMB Current' }) }),
+      )
+    })
   })
 })
