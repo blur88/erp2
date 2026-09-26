@@ -18,6 +18,7 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 
 import { useNotification } from '@/hooks/useNotification'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 import { useCreateAccountMutation, useUpdateAccountMutation } from '@/store/api/accountingApi'
 import type { Account, AccountTreeNode, AccountType } from '@/types'
 
@@ -185,7 +186,9 @@ export default function AccountFormDialog({ open, account, parent = null, tree, 
       }
       onSuccess()
     } catch (err: any) {
-      showError(err?.data?.message ?? err.message ?? 'Failed to save account')
+      // axiosBaseQuery rejects with { status, data: '<backend message>' }; read
+      // the reason through the shared helper, never err.data.message (#1298).
+      showError(rtkErrorMessage(err, 'Failed to save account'))
     }
   }
 
