@@ -71,10 +71,14 @@ export default function SettlementRowPicker({
     setPage(1)
   }, [settlementDate, debouncedSearch])
 
+  // Refetch on mount: a reopened form with identical arguments would otherwise
+  // serve RTK's cached rows, hiding payments recorded in another tab or by
+  // another user until a browser refresh (#1296). Same-tab sales payments are
+  // covered by cross-slice tag invalidation instead.
   const { data } = useGetEligibleSettlementRowsQuery({
     settlementDate, ...(settlementId ? { settlementId } : {}),
     search: debouncedSearch || undefined, page, limit,
-  })
+  }, { refetchOnMountOrArgChange: true })
 
   const selectedKeys = useMemo(() => new Set(selected.map(groupKey)), [selected])
   const blocked = useMemo(() => new Set(attentionKeys), [attentionKeys])

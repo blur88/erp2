@@ -190,6 +190,7 @@ describe('ProviderSettlementFormPage', () => {
     await waitFor(() => {
       expect(mockEligible).toHaveBeenCalledWith(
         expect.objectContaining({ settlementId: 'ps-1' }),
+        expect.anything(),
       )
     })
   })
