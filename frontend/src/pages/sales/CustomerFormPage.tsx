@@ -122,7 +122,6 @@ const CustomerFormPage: React.FC = () => {
     reset,
     watch,
     setValue,
-    setError,
     formState: { errors, isDirty, isSubmitting },
   } = useForm<CustomerFormData>({
     resolver: yupResolver(customerSchema) as any,
@@ -380,23 +379,7 @@ const CustomerFormPage: React.FC = () => {
         navigate(listPath)
       }
     } catch (error: any) {
-      const message = error?.data?.message
-      if (Array.isArray(message)) {
-        // NestJS validation error array — map each message to its field
-        message.forEach((msg: string) => {
-          const lowerMsg = msg.toLowerCase()
-          if (lowerMsg.includes('name')) {
-            setError('name', { message: msg })
-          } else if (lowerMsg.includes('phone')) {
-            setError('phone', { message: msg })
-          } else if (lowerMsg.includes('email')) {
-            setError('email', { message: msg })
-          }
-        })
-        showError('Please fix the highlighted errors')
-      } else {
-        showError(rtkErrorMessage(error, `Failed to ${isEdit ? 'update' : 'create'} customer`))
-      }
+      showError(rtkErrorMessage(error, `Failed to ${isEdit ? 'update' : 'create'} customer`))
     }
   }
 

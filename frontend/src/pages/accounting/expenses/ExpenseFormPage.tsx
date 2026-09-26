@@ -132,7 +132,6 @@ const ExpenseFormPage: React.FC = () => {
     getValues,
     handleSubmit,
     reset,
-    setError,
     setValue,
     watch,
     formState: { errors, isDirty, isSubmitting },
@@ -242,17 +241,7 @@ const ExpenseFormPage: React.FC = () => {
         navigate(listPath)
       }
     } catch (error: any) {
-      const message = error?.data?.message
-      if (Array.isArray(message)) {
-        message.forEach((msg: string) => {
-          const lowerMsg = msg.toLowerCase()
-          if (lowerMsg.includes('amount')) setError('totalAmount', { message: msg })
-          else if (lowerMsg.includes('description')) setError('description', { message: msg })
-        })
-        showError('Please fix the highlighted errors')
-      } else {
-        showError(rtkErrorMessage(error, `Failed to ${isEdit ? 'update' : 'create'} expense`))
-      }
+      showError(rtkErrorMessage(error, `Failed to ${isEdit ? 'update' : 'create'} expense`))
     }
   }
 
