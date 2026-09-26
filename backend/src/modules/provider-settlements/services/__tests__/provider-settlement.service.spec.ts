@@ -178,7 +178,7 @@ describe('ProviderSettlementService — drafts', () => {
       }),
     };
     const accounts: Record<string, any> = {
-      'bank-1': { id: 'bank-1', code: '1200', name: 'CIMB', isActive: true, isPostable: true, isProviderClearing: false },
+      'bank-1': { id: 'bank-1', code: '1200', name: 'CIMB', isActive: true, isPostable: true, isProviderClearing: false, isBankAccount: true },
       'clearing-1': { id: 'clearing-1', code: '1240', name: 'Atome', isActive: true, isPostable: true, isProviderClearing: true },
       ...opts.accounts,
     };
@@ -607,13 +607,37 @@ describe('ProviderSettlementService — drafts', () => {
       expect(postingPort.postProviderSettlement).not.toHaveBeenCalled();
       expect(settlementRepo.save).not.toHaveBeenCalled();
     });
+
+    describe('destination bank flag (#1298)', () => {
+      const unflagged = { 'rhb-1': { id: 'rhb-1', code: '1250', name: 'RHB', isActive: true, isPostable: true, isProviderClearing: false, isBankAccount: false } };
+      const inactive = { 'old-1': { id: 'old-1', code: '1260', name: 'Old Bank', isActive: false, isPostable: true, isProviderClearing: false, isBankAccount: true } };
+
+      it.each(['create', 'update', 'post'] as const)('%s: rejects an unflagged destination', async (op) => {
+        const { service, postingPort } = makeService({
+          accounts: unflagged,
+          settlement: op === 'post' ? { bankAccountId: 'rhb-1' } : {},
+          lines: [line('pay-A', '98.0000')], eligible: [pay('pay-A', '98.0000')],
+        });
+        const run = op === 'create' ? service.create({ ...validDto(), bankAccountId: 'rhb-1' } as any)
+          : op === 'update' ? service.update('ps-1', { rows: validDto().rows, bankAccountId: 'rhb-1' } as any)
+          : service.post('ps-1', 'u1', 'tester');
+        await expect(run).rejects.toThrow('Account 1250 RHB is not a bank account');
+        expect(postingPort.postProviderSettlement).not.toHaveBeenCalled();
+      });
+
+      it('rejects a flagged but inactive destination', async () => {
+        const { service } = makeService({ accounts: inactive });
+        await expect(service.create({ ...validDto(), bankAccountId: 'old-1' } as any))
+          .rejects.toThrow('Bank account is inactive');
+      });
+    });
   });
 
   describe('provider clearing enforcement (#1285)', () => {
     const NOT_PROVIDER =
       'Account 1200 CIMB is not a provider clearing account. Only payments recorded to a provider clearing account can be settled.';
     const FLAGGED_DEST = 'The destination account cannot be a provider clearing account';
-    const other = { 'bank-2': { id: 'bank-2', code: '1210', name: 'Maybank', isActive: true, isPostable: true, isProviderClearing: false } };
+    const other = { 'bank-2': { id: 'bank-2', code: '1210', name: 'Maybank', isActive: true, isPostable: true, isProviderClearing: false, isBankAccount: true } };
 
     it('create: rejects payments that derive to an unflagged account, writing nothing', async () => {
       const { service, settlementRepo, lineRepo } = makeService({ accounts: other });

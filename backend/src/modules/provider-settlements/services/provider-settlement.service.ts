@@ -648,8 +648,10 @@ export class ProviderSettlementService {
   }
 
   private async assertPostableBankAccount(accountId: string, manager: EntityManager): Promise<void> {
-    // Validated against the Chart of Accounts — never inferred from the broad
-    // `Accounting Channel = Bank` value.
+    // Validated against the Chart of Accounts flag (#1298) — never inferred from
+    // the broad `Accounting Channel = Bank` value. The isBankAccount check runs
+    // LAST so the more specific postable/clearing messages keep firing; a flagged
+    // account can never be non-postable or clearing anyway (bank-account.rules.ts).
     const account = await manager
       .getRepository(ChartOfAccount)
       .findOne({ where: { id: accountId } as any });
@@ -657,6 +659,9 @@ export class ProviderSettlementService {
     if (!account.isActive) throw new BadRequestException('Bank account is inactive');
     if (!account.isPostable) throw new BadRequestException('Bank account is not postable');
     if (account.isProviderClearing) throw new BadRequestException('The destination account cannot be a provider clearing account');
+    if (!account.isBankAccount) {
+      throw new BadRequestException(`Account ${account.code} ${account.name} is not a bank account`);
+    }
   }
 
   /**

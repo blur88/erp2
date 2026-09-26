@@ -48,6 +48,7 @@ describe('Provider settlements (e2e)', () => {
   let post: (path: string, body?: any) => request.Test;
   let get: (path: string) => request.Test;
   let put: (path: string, body?: any) => request.Test;
+  let patch: (path: string, body?: any) => request.Test;
 
   let adminUserId = '';
   let adminUsername = '';
@@ -105,6 +106,8 @@ describe('Provider settlements (e2e)', () => {
     get = (path: string) => auth(request(server).get(path));
     put = (path: string, body: any = {}) =>
       auth(request(server).put(path).send(body));
+    patch = (path: string, body: any = {}) =>
+      auth(request(server).patch(path).send(body));
 
     // BASELINE rows, shared with every other suite in a size-ordered run
     // against one database. Read them; never mutate or delete them.
@@ -1807,6 +1810,61 @@ describe('Provider settlements (e2e)', () => {
       // Same settlement, same request: the soft-deleted bank account stays out.
       expect(res.body.data.bankAccountId).toBe(deletedBankId);
       expect(res.body.data.bankAccount).toBeNull();
+    });
+  });
+
+  describe('destination bank flag (#1298)', () => {
+    async function ownedBank(tag: string, isBankAccount: boolean): Promise<{ id: string; code: string; name: string }> {
+      const [parent] = await ds.query(`SELECT id FROM chart_of_account WHERE code = '1000'`);
+      const [acct] = await ds.query(
+        `INSERT INTO chart_of_account (code, name, type, "parentId", "isSystem", "isPostable", "isActive", "isBankAccount")
+         VALUES ($1, $2, 'Asset', $3, false, true, true, $4) RETURNING id, code, name`,
+        [`PS-BK${tag}-${runId}`.slice(0, 20), `PS Bank ${tag} ${runId}`, parent.id, isBankAccount],
+      );
+      ownedAccountIds.push(acct.id);
+      ownedEntityIds.push(acct.id);
+      return acct;
+    }
+
+    it('rejects an active, postable Asset that is not flagged as a bank account', async () => {
+      const { orderId } = await payOrder('31.00');
+      const acct = await ownedBank('U', false);
+      const res = await post('/accounting/provider-settlements', {
+        ...draftBody([{ salesOrderId: orderId, expectedNetAmount: '31.00' }], '31.00'),
+        bankAccountId: acct.id,
+      });
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(res.body.message)).toContain(`Account ${acct.code} ${acct.name} is not a bank account`);
+    });
+
+    it('a POSTED settlement is unchanged and readable after its bank account is unflagged', async () => {
+      const { orderId } = await payOrder('32.00');
+      const bank = await ownedBank('P', true);
+      const created = await post('/accounting/provider-settlements', {
+        ...draftBody([{ salesOrderId: orderId, expectedNetAmount: '32.00' }], '32.00'),
+        bankAccountId: bank.id,
+      }).expect(201);
+      const id = (created.body.data ?? created.body).id;
+      ownedSettlementIds.push(id);
+      const posted = (await post(`/accounting/provider-settlements/${id}/post`).expect(201)).body;
+      const ref = (posted.data ?? posted).referenceNumber;
+      ownedRefs.push(ref);
+
+      const before = (await get(`/accounting/provider-settlements/${id}`).expect(200)).body.data;
+      const linesBefore = await journalLinesFor(ds, ref);
+
+      await patch(`/accounting/accounts/${bank.id}`, { isBankAccount: false }).expect(200);
+      const [row] = await ds.query(`SELECT "isBankAccount" FROM chart_of_account WHERE id = $1`, [bank.id]);
+      expect(row.isBankAccount).toBe(false);
+
+      const after = (await get(`/accounting/provider-settlements/${id}`).expect(200)).body.data;
+      expect(after.status).toBe('POSTED');
+      expect(after.bankAccountId).toBe(bank.id);
+      expect(after.settlementAmount).toBe(before.settlementAmount);
+      expect(after.journalEntryId).toBe(before.journalEntryId);
+      expect(after.bankAccount?.code).toBe(bank.code);
+      expect(after.lines ?? null).toEqual(before.lines ?? null);
+      expect(await journalLinesFor(ds, ref)).toEqual(linesBefore);
     });
   });
 }); // closes describe('Provider settlements (e2e)')
