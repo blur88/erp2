@@ -154,4 +154,16 @@ describe('bank flag vs Accounting Settings — serialisation (#1298)', () => {
     );
     expect(await flagOf(y)).toBe(false);
   });
+
+  it('mirror: COA flags Y while a Settings update selects Y as Cash — the Settings update is rejected', async () => {
+    const y = await ownedAsset('YM', false);
+    const result = await holdLockThen(
+      (q) => q(`UPDATE chart_of_account SET "isBankAccount" = true WHERE id = $1`, [y]),
+      () => settingsSvc.update({ cashAccountId: y } as any, 'e2e'),
+    );
+    expect(result.ok).toBe(false);
+    expect((result as any).error.message).toBe('cashAccountId: a bank account cannot be used here');
+    const [s] = await ds.query(`SELECT "cashAccountId" FROM accounting_settings WHERE id = true`);
+    expect(s.cashAccountId).toBe(settingsSnapshot.cashAccountId);
+  });
 });

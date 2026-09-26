@@ -121,7 +121,7 @@ describe('Balance Sheet account groups (e2e)', () => {
 
     cimbId = await seedAccount('CIMB', `CIMB ${runId}`);
     maybankId = await seedAccount('MAY', `Maybank ${runId}`);
-    atomeId = await seedAccount('ATOME', `Atome ${runId}`);
+    atomeId = await seedAccount('ATOME', `Atome ${runId}`, { isBankAccount: true });
     inactiveId = await seedAccount('INACT', `Inactive ${runId}`, { isActive: false });
     liabilityId = await seedAccount('LIAB', `Liability ${runId}`, {
       type: 'Liability',
