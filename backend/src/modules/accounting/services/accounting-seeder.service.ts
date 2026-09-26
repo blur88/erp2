@@ -3,6 +3,8 @@ import { DataSource, EntityManager } from 'typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { ChartOfAccount } from '../entities/chart-of-account.entity';
 import { AccountingSettings } from '../entities/accounting-settings.entity';
+import { AccountType } from '../entities/account-type.enum';
+import { bankAccountViolation } from './bank-account.rules';
 import {
   STANDARD_COA_GROUPS,
   STANDARD_COA_CHILDREN,
@@ -20,6 +22,7 @@ export interface CoaRow {
   parentId: string | null;
   isSystem: boolean;
   isPostable: boolean;
+  isProviderClearing?: boolean;
 }
 
 // Data-access surface. Production adapter wraps a TypeORM EntityManager; the
@@ -31,6 +34,7 @@ export interface SeederManager {
   insertCoa(row: { code: string; name: string; type: string; parentId: string | null }): Promise<void>;
   getSettings(): Promise<Record<string, any> | null>;
   insertSettings(row: Record<string, any>): Promise<void>;
+  flagBankAccount(id: string): Promise<void>;
   ensureJournalEntryDocNumber(currentYear: number): Promise<void>;
 }
 
@@ -87,6 +91,7 @@ export class AccountingSeederService implements OnModuleInit {
         return rows.map((r) => ({
           id: r.id, code: r.code, name: r.name, type: r.type as string,
           parentId: r.parentId, isSystem: r.isSystem, isPostable: r.isPostable,
+          isProviderClearing: r.isProviderClearing,
         }));
       },
       insertCoa: async (row) => {
@@ -97,6 +102,9 @@ export class AccountingSeederService implements OnModuleInit {
       getSettings: async () => (await settingsRepo.findOne({ where: { id: true } as any })) as any,
       insertSettings: async (row) => {
         await settingsRepo.createQueryBuilder().insert().values(row as any).orIgnore().execute();
+      },
+      flagBankAccount: async (id) => {
+        await coa.update({ id } as any, { isBankAccount: true } as any);
       },
       ensureJournalEntryDocNumber: async (currentYear) => {
         // Fast path: skip the journal_entry aggregate scan on the common already-healed
@@ -241,7 +249,28 @@ export class AccountingSeederService implements OnModuleInit {
     for (const [col, code] of Object.entries(SETTINGS_CODE_MAP)) {
       row[col] = resolved[code];
     }
+
+    // #1298 D4: the Settings bank must be a VALID flagged bank account. Validate
+    // it against the shared rules and the PROPOSED settings row before writing
+    // anything; a violation throws inside the seeder transaction, so nothing is
+    // inserted or flagged. The AddBankAccountFlag backfill has already run by
+    // now, so nothing else would flag this account.
+    const bankCode = SETTINGS_CODE_MAP.bankAccountId;
+    const [bank] = await m.findCoaRowsByCode(bankCode);
+    const violation = bank
+      ? bankAccountViolation(
+          { id: bank.id, type: bank.type as AccountType, isPostable: bank.isPostable, isProviderClearing: bank.isProviderClearing ?? false },
+          row as any,
+        )
+      : 'account not found';
+    if (violation) {
+      throw new Error(
+        `Accounting inconsistent: settings.bankAccountId (${bankCode}) cannot be flagged as a bank account: ${violation}. No modification performed.`,
+      );
+    }
+
     await m.insertSettings(row);
+    await m.flagBankAccount(row.bankAccountId);
   }
 
   // Post-insert validation (branches 1 and 4): re-read and assert wiring.
