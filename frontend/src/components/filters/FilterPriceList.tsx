@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function FilterPriceList({ field, value, onChange }: Props) {
-  const { data } = useGetPriceListsQuery({ page: 1, limit: 200, isActive: true })
+  const { data } = useGetPriceListsQuery({ isActive: true })
   const options = (data?.data ?? []).map((pl) => ({
     value: pl.id,
     label: pl.name,
