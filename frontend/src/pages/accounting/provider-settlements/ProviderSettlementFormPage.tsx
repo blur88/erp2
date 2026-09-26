@@ -36,6 +36,7 @@ import { getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
 
 import NeedsAttention, { NOT_PROVIDER_CLEARING_REASON, type AttentionGroup } from './NeedsAttention'
 import SettlementRowPicker from './SettlementRowPicker'
+import { bankAccountOptions, isEligibleBankAccount } from './bankAccountOptions'
 import {
   changeReason,
   groupKey,
@@ -80,7 +81,7 @@ export default function ProviderSettlementFormPage() {
     isLoading: loadingExisting,
     isError: existingLoadFailed,
   } = useGetProviderSettlementQuery(id!, { skip: !isEdit })
-  const { data: accountsPage } = useGetAccountsQuery({})
+  const { data: accountsPage, isError: accountsLoadFailed } = useGetAccountsQuery({})
   const { data: claimed, isError: claimedLoadFailed } = useGetClaimedSettlementRowsQuery(
     { settlementId: id!, settlementDate: existing?.settlementDate ?? '' },
     { skip: !isEdit || !existing },
@@ -273,15 +274,39 @@ export default function ProviderSettlementFormPage() {
   const isDirty = baseline !== null && isSnapshotDirty(baseline)
   const { UnsavedChangesDialog } = useUnsavedChangesGuard(isDirty, isSaving)
 
+  // #1298: only active, flagged bank accounts are destinations. Eligibility
+  // cannot be judged until the accounts load, so saving is BLOCKED while they
+  // are loading or failed — never waved through.
+  const accountsLoaded = accountsPage !== undefined
+  const allAccounts = accountsPage?.data ?? []
+  const storedBank = isEdit && existing && form.bankAccountId === existing.bankAccountId
+    ? existing.bankAccount ?? null
+    : null
+  const bankOptions = accountsLoaded ? bankAccountOptions(allAccounts, form.bankAccountId, storedBank) : []
+  const bankAccountIneligible =
+    accountsLoaded && form.bankAccountId !== '' && !isEligibleBankAccount(allAccounts, form.bankAccountId)
+  const noEligibleBanks = accountsLoaded && !bankOptions.some((o) => !o.disabled)
+  const bankAccountBlock = accountsLoadFailed
+    ? 'Bank accounts could not be loaded. Reload the page to try again.'
+    : !accountsLoaded
+      ? 'Loading bank accounts…'
+      : bankAccountIneligible
+        ? 'Choose an eligible bank account.'
+        : null
+  const NO_BANKS = 'No bank accounts — flag one in Chart of Accounts.'
+  const bankHelperText = accountsLoadFailed
+    ? 'Bank accounts could not be loaded. Reload the page to try again.'
+    : bankAccountIneligible
+      ? noEligibleBanks ? `Choose an eligible bank account. ${NO_BANKS}` : 'Choose an eligible bank account.'
+      : noEligibleBanks ? NO_BANKS : undefined
+
   const blockReason = saveBlockReason({
     selected,
     entered: form.settlementAmount,
     unresolvedAttention: attention.length,
+    bankAccountBlock,
   })
 
-  const bankAccounts = (accountsPage?.data ?? []).filter(
-    (a) => a.isActive && a.isPostable && !a.isProviderClearing,
-  )
   const methods = methodsIn(selected)
 
   function requestDateChange(next: string) {
@@ -467,10 +492,12 @@ export default function ProviderSettlementFormPage() {
                       select label="Bank Account" value={form.bankAccountId}
                       onChange={(e) => setForm((f) => ({ ...f, bankAccountId: e.target.value }))}
                       disabled={isSaving}
+                      error={bankAccountIneligible || accountsLoadFailed}
+                      helperText={bankHelperText}
                       fullWidth size="small"
                     >
-                      {bankAccounts.map((a) => (
-                        <MenuItem key={a.id} value={a.id}>{`${a.code} ${a.name}`}</MenuItem>
+                      {bankOptions.map((o) => (
+                        <MenuItem key={o.id} value={o.id} disabled={o.disabled}>{o.label}</MenuItem>
                       ))}
                     </TextField>
                   </Grid>

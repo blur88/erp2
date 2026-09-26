@@ -16,6 +16,7 @@ const mockCreate = vi.fn()
 const mockUpdate = vi.fn()
 const mockPost = vi.fn()
 const mockGetOne = vi.fn()
+const mockAccounts = vi.fn()
 
 // Every hook the component calls must be mocked. A missing one is `undefined`
 // at render time and throws before any assertion runs — the failure reads as a
@@ -47,18 +48,7 @@ vi.mock('@/store/api/accountingApi', () => ({
   useCreateProviderSettlementMutation: () => [mockCreate, { isLoading: false }],
   useUpdateProviderSettlementMutation: () => [mockUpdate, { isLoading: false }],
   usePostProviderSettlementMutation: () => [mockPost, { isLoading: false }],
-  useGetAccountsQuery: () => ({
-    // Real shape is PaginatedResponse<Account> (accountingApi.ts:107) — `data`
-    // is the page object, not the array.
-    data: {
-      data: [
-        { id: 'b1', code: '1200', name: 'CIMB', isActive: true, isPostable: true, isProviderClearing: false },
-        { id: 'b2', code: '1220', name: 'Shopee', isActive: true, isPostable: true, isProviderClearing: true },
-      ],
-      meta: { total: 2 },
-    },
-    isLoading: false,
-  }),
+  useGetAccountsQuery: () => mockAccounts(),
 }))
 
 const DRAFT = {
@@ -158,6 +148,18 @@ async function waitForEditSeeded(count = '1') {
 const actionRowLabels = () =>
   within(cancelButton().parentElement!).getAllByRole('button').map((b) => b.textContent)
 
+const ACCOUNTS = [
+  { id: 'b1', code: '1200', name: 'CIMB', type: 'Asset', isActive: true, isPostable: true, isProviderClearing: false, isBankAccount: true },
+  { id: 'b3', code: '1210', name: 'Maybank', type: 'Asset', isActive: true, isPostable: true, isProviderClearing: false, isBankAccount: true },
+  { id: 'b2', code: '1220', name: 'Shopee', type: 'Asset', isActive: true, isPostable: true, isProviderClearing: true, isBankAccount: false },
+  { id: 'x1', code: '1100', name: 'Cash', type: 'Asset', isActive: true, isPostable: true, isProviderClearing: false, isBankAccount: false },
+  { id: 'x2', code: '6990', name: 'Other Expenses', type: 'Expense', isActive: true, isPostable: true, isProviderClearing: false, isBankAccount: false },
+  { id: 'x3', code: '3100', name: 'Owner Capital', type: 'Equity', isActive: true, isPostable: true, isProviderClearing: false, isBankAccount: false },
+  { id: 'x4', code: '2100', name: 'Customer Deposit', type: 'Liability', isActive: true, isPostable: true, isProviderClearing: false, isBankAccount: false },
+  { id: 'x5', code: '1250', name: 'Old Bank', type: 'Asset', isActive: false, isPostable: true, isProviderClearing: false, isBankAccount: true },
+]
+const accountsPage = (data: unknown[]) => ({ data: { data, meta: { total: data.length } }, isLoading: false })
+
 async function dismissUnsavedChangesDialog() {
   const dialog = await screen.findByRole('dialog')
   await userEvent.click(within(dialog).getByRole('button', { name: /keep editing/i }))
@@ -167,6 +169,7 @@ async function dismissUnsavedChangesDialog() {
 }
 
 beforeEach(() => {
+  mockAccounts.mockReset().mockReturnValue(accountsPage(ACCOUNTS))
   mockEligible.mockReset().mockReturnValue({
     data: { data: ELIGIBLE, meta: { total: ELIGIBLE.length, page: 1, limit: 25 } },
     isLoading: false,
@@ -747,3 +750,96 @@ describe('edit flow (#1284)', () => {
     })
   })
 })
+
+describe('ProviderSettlementFormPage destination bank flag (#1298)', () => {
+  it('offers only active flagged bank accounts', async () => {
+    renderForm(CREATE)
+    await openBankAccountSelect()
+    const names = screen.getAllByRole('option').map((o) => o.textContent)
+    expect(names).toEqual(['1200 CIMB', '1210 Maybank'])
+  })
+
+  it.each([
+    ['x1', '1100 Cash (not a bank account)'],
+    ['x5', '1250 Old Bank (inactive)'],
+  ])('editing a draft saved to %s shows it disabled with its reason and blocks save', async (bankId, label) => {
+    seedEdit()
+    mockGetOne.mockReturnValue({ data: { ...DRAFT, settlementAmount: '100.0000', bankAccountId: bankId }, isLoading: false })
+    renderForm(EDIT)
+    await waitForEditSeeded()
+    expect(screen.getByRole('combobox', { name: 'Bank Account' })).toHaveTextContent(label)
+    await userEvent.click(screen.getByRole('combobox', { name: 'Bank Account' }))
+    expect(await screen.findByRole('option', { name: label })).toHaveAttribute('aria-disabled', 'true')
+    await userEvent.keyboard('{Escape}')
+    expect(screen.getByTestId('save-block-reason')).toHaveTextContent('Choose an eligible bank account.')
+    expect(saveButton()).toBeDisabled()
+  })
+
+  it('shows "(unavailable)" from the stored bank when the account is gone', async () => {
+    seedEdit()
+    mockGetOne.mockReturnValue({
+      data: { ...DRAFT, settlementAmount: '100.0000', bankAccountId: 'gone', bankAccount: { id: 'gone', code: '1270', name: 'Closed' } },
+      isLoading: false,
+    })
+    renderForm(EDIT)
+    await waitForEditSeeded()
+    expect(screen.getByRole('combobox', { name: 'Bank Account' })).toHaveTextContent('1270 Closed (unavailable)')
+  })
+
+  it('keeps save blocked when only another field changes', async () => {
+    seedEdit()
+    mockGetOne.mockReturnValue({ data: { ...DRAFT, settlementAmount: '100.0000', bankAccountId: 'x1' }, isLoading: false })
+    renderForm(EDIT)
+    await waitForEditSeeded()
+    await userEvent.type(screen.getByLabelText('Provider Reference'), '-B')
+    expect(saveButton()).toBeDisabled()
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+
+  it('choosing an eligible bank unblocks save', async () => {
+    seedEdit()
+    mockGetOne.mockReturnValue({ data: { ...DRAFT, settlementAmount: '100.0000', bankAccountId: 'x1' }, isLoading: false })
+    renderForm(EDIT)
+    await waitForEditSeeded()
+    await chooseBank()
+    expect(screen.queryByText('Choose an eligible bank account.')).not.toBeInTheDocument()
+    expect(saveButton()).toBeEnabled()
+  })
+
+  it('shows the empty-state helper when no account is eligible', async () => {
+    mockAccounts.mockReturnValue(accountsPage(ACCOUNTS.filter((a) => !a.isBankAccount)))
+    renderForm(CREATE)
+    expect(await screen.findByText(/No bank accounts — flag one in Chart of Accounts\./)).toBeInTheDocument()
+  })
+
+  it('shows the no-bank guidance ALONGSIDE the ineligible notice when a saved bad selection has no replacement', async () => {
+    seedEdit()
+    mockAccounts.mockReturnValue(accountsPage(ACCOUNTS.filter((a) => !a.isBankAccount || !a.isActive)))
+    mockGetOne.mockReturnValue({ data: { ...DRAFT, settlementAmount: '100.0000', bankAccountId: 'x1' }, isLoading: false })
+    renderForm(EDIT)
+    await waitForEditSeeded()
+    expect(screen.getByText(/No bank accounts — flag one in Chart of Accounts\./)).toBeInTheDocument()
+    expect(screen.getByTestId('save-block-reason')).toHaveTextContent('Choose an eligible bank account.')
+    expect(saveButton()).toBeDisabled()
+  })
+
+  it('blocks saving while the accounts are still loading', async () => {
+    seedEdit()
+    mockAccounts.mockReturnValue({ data: undefined, isLoading: true, isError: false })
+    renderForm(EDIT)
+    await waitForEditSeeded()
+    expect(screen.getByTestId('save-block-reason')).toHaveTextContent('Loading bank accounts…')
+    expect(saveButton()).toBeDisabled()
+  })
+
+  it('blocks saving when the accounts failed to load', async () => {
+    seedEdit()
+    mockAccounts.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+    renderForm(EDIT)
+    await waitForEditSeeded()
+    expect(screen.getByTestId('save-block-reason'))
+      .toHaveTextContent('Bank accounts could not be loaded. Reload the page to try again.')
+    expect(saveButton()).toBeDisabled()
+  })
+})
+
