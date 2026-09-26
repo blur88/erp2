@@ -6,7 +6,8 @@ import { configureStore } from '@reduxjs/toolkit'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-const { mockCreateAccount, mockUpdateAccount, mockTree } = vi.hoisted(() => ({
+const { mockCreateAccount, mockUpdateAccount, mockShowError, mockTree } = vi.hoisted(() => ({
+  mockShowError: vi.fn(),
   mockTree: [
     {
       id: 'asset-1',
@@ -20,6 +21,7 @@ const { mockCreateAccount, mockUpdateAccount, mockTree } = vi.hoisted(() => ({
       isSystem: false,
       isPostable: false,
       isProviderClearing: false,
+      isBankAccount: false,
       openingBalance: '0.0000',
       createdAt: '',
       updatedAt: '',
@@ -36,6 +38,7 @@ const { mockCreateAccount, mockUpdateAccount, mockTree } = vi.hoisted(() => ({
           isSystem: false,
           isPostable: true,
           isProviderClearing: false,
+          isBankAccount: false,
           openingBalance: '0.0000',
           createdAt: '',
           updatedAt: '',
@@ -55,6 +58,7 @@ const { mockCreateAccount, mockUpdateAccount, mockTree } = vi.hoisted(() => ({
       isSystem: false,
       isPostable: false,
       isProviderClearing: false,
+      isBankAccount: false,
       openingBalance: '0.0000',
       createdAt: '',
       updatedAt: '',
@@ -71,6 +75,7 @@ const { mockCreateAccount, mockUpdateAccount, mockTree } = vi.hoisted(() => ({
           isSystem: false,
           isPostable: true,
           isProviderClearing: false,
+          isBankAccount: false,
           openingBalance: '0.0000',
           createdAt: '',
           updatedAt: '',
@@ -97,7 +102,7 @@ vi.mock('@/store/api/accountingApi', () => ({
 }))
 
 vi.mock('@/hooks/useNotification', () => ({
-  useNotification: () => ({ showError: vi.fn() }),
+  useNotification: () => ({ showError: mockShowError }),
 }))
 
 import AccountFormDialog from '../AccountFormDialog'
@@ -125,6 +130,7 @@ describe('AccountFormDialog', () => {
   beforeEach(() => {
     mockCreateAccount.mockClear()
     mockUpdateAccount.mockClear()
+    mockShowError.mockClear()
   })
 
   it('renders its fields at the compact size, multiline included (#1100)', () => {
@@ -205,5 +211,109 @@ describe('AccountFormDialog', () => {
     const sw = screen.getByRole('switch', { name: 'Provider clearing account' })
     expect(sw).not.toBeChecked()
     expect(sw).toBeDisabled()
+  })
+
+  it('offers the bank account switch for a postable Asset and sends it', async () => {
+    renderDialog({ open: true, account: null, onClose: vi.fn(), onSuccess: vi.fn() })
+    const user = userEvent.setup()
+    const sw = screen.getByRole('switch', { name: 'Bank account' })
+    expect(sw).toBeEnabled()
+    await user.click(sw)
+    await user.type(screen.getByLabelText('Code'), '1250')
+    await user.type(screen.getByLabelText('Name'), 'RHB')
+    await user.click(screen.getByRole('button', { name: /Create Account/ }))
+    await waitFor(() => {
+      expect(mockCreateAccount).toHaveBeenCalledWith(
+        expect.objectContaining({ isBankAccount: true, isProviderClearing: false }),
+      )
+    })
+  })
+
+  it('checking one flag clears the other, and neither disables the other', async () => {
+    renderDialog({ open: true, account: null, onClose: vi.fn(), onSuccess: vi.fn() })
+    const user = userEvent.setup()
+    const bank = () => screen.getByRole('switch', { name: 'Bank account' })
+    const clearing = () => screen.getByRole('switch', { name: 'Provider clearing account' })
+
+    await user.click(bank())
+    expect(bank()).toBeChecked()
+    expect(clearing()).toBeEnabled()
+
+    await user.click(clearing())
+    expect(clearing()).toBeChecked()
+    expect(bank()).not.toBeChecked()
+    expect(bank()).toBeEnabled()
+
+    await user.click(bank())
+    expect(bank()).toBeChecked()
+    expect(clearing()).not.toBeChecked()
+  })
+
+  it('clears and disables the bank switch when Type changes away from Asset', async () => {
+    renderDialog({ open: true, account: null, onClose: vi.fn(), onSuccess: vi.fn() })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('switch', { name: 'Bank account' }))
+    await user.click(screen.getByLabelText('Type'))
+    await user.click(screen.getByRole('option', { name: 'Liability' }))
+    const sw = screen.getByRole('switch', { name: 'Bank account' })
+    expect(sw).not.toBeChecked()
+    expect(sw).toBeDisabled()
+  })
+
+  it('loads a flagged account with the switch ON and keeps it on a rename', async () => {
+    const flagged = { ...mockTree[0].children[0], code: '1200', name: 'CIMB', isBankAccount: true }
+    renderDialog({ open: true, account: flagged, onClose: vi.fn(), onSuccess: vi.fn() })
+    const user = userEvent.setup()
+    expect(screen.getByRole('switch', { name: 'Bank account' })).toBeChecked()
+    const name = screen.getByLabelText('Name')
+    await user.clear(name)
+    await user.type(name, 'CIMB Current')
+    await user.click(screen.getByRole('button', { name: /Update Account/ }))
+    await waitFor(() => {
+      expect(mockUpdateAccount).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ isBankAccount: true, name: 'CIMB Current' }) }),
+      )
+    })
+  })
+  // #1298: axiosBaseQuery rejects with { status, data: '<backend message>' } —
+  // `data` is the message STRING, not an object with a `message` field.
+  const SETTINGS_BANK_MSG = 'Account is the Accounting Settings Bank account and must remain a bank account'
+
+  it('shows the server reason when an update is rejected (string-shaped RTK error)', async () => {
+    mockUpdateAccount.mockReturnValueOnce({
+      unwrap: () => Promise.reject({ status: 400, data: SETTINGS_BANK_MSG }),
+    })
+    const flagged = { ...mockTree[0].children[0], code: '1200', name: 'CIMB', isBankAccount: true }
+    const onSuccess = vi.fn()
+    renderDialog({ open: true, account: flagged, onClose: vi.fn(), onSuccess })
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('switch', { name: 'Bank account' }))
+    await user.click(screen.getByRole('button', { name: /Update Account/ }))
+    await waitFor(() => expect(mockShowError).toHaveBeenCalledWith(SETTINGS_BANK_MSG))
+    expect(mockShowError).not.toHaveBeenCalledWith('Failed to save account')
+    expect(onSuccess).not.toHaveBeenCalled()
+  })
+
+  it('shows the server reason when a create is rejected (string-shaped RTK error)', async () => {
+    const msg = 'Only an Asset account can be a bank account'
+    mockCreateAccount.mockReturnValueOnce({
+      unwrap: () => Promise.reject({ status: 400, data: msg }),
+    })
+    renderDialog({ open: true, account: null, onClose: vi.fn(), onSuccess: vi.fn() })
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Code'), '1250')
+    await user.type(screen.getByLabelText('Name'), 'RHB')
+    await user.click(screen.getByRole('button', { name: /Create Account/ }))
+    await waitFor(() => expect(mockShowError).toHaveBeenCalledWith(msg))
+  })
+
+  it('falls back to the generic message when the rejection carries no reason', async () => {
+    mockCreateAccount.mockReturnValueOnce({ unwrap: () => Promise.reject({ status: 500 }) })
+    renderDialog({ open: true, account: null, onClose: vi.fn(), onSuccess: vi.fn() })
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Code'), '1251')
+    await user.type(screen.getByLabelText('Name'), 'X')
+    await user.click(screen.getByRole('button', { name: /Create Account/ }))
+    await waitFor(() => expect(mockShowError).toHaveBeenCalledWith('Failed to save account'))
   })
 })

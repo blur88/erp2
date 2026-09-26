@@ -26,4 +26,8 @@ describe('providerClearingViolation (#1285)', () => {
   it('treats a missing settings row as no conflict', () => {
     expect(providerClearingViolation(asset('cash'), null)).toBeNull();
   });
+  it('rejects an account flagged as a bank account (#1298)', () => {
+    expect(providerClearingViolation({ ...asset('maybank'), isBankAccount: true }, settings))
+      .toBe('A bank account cannot be a provider clearing account');
+  });
 });

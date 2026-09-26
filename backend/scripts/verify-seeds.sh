@@ -145,6 +145,10 @@ echo "==> Provider clearing accounts (#1285)"
 check "chart_of_account provider clearing" "1220,1230,1240" \
   "$(q "SELECT coalesce(string_agg(code, ',' ORDER BY code), '') FROM chart_of_account WHERE \"isProviderClearing\";")"
 
+echo "==> Bank accounts (#1298)"
+check "chart_of_account bank accounts" "1200,1210" \
+  "$(q "SELECT coalesce(string_agg(code, ',' ORDER BY code), '') FROM chart_of_account WHERE \"isBankAccount\";")"
+
 echo "==> document_number_settings values"
 # The five genesis rows store a literal -1 for lastResetYear. Owner Equity and
 # Provider Settlements are each seeded by their own migration

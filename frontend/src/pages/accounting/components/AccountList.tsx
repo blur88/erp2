@@ -132,6 +132,9 @@ export default function AccountList({
           {row.account.isProviderClearing && (
             <Chip size="small" label="Provider clearing" sx={{ ml: 1 }} />
           )}
+          {row.account.isBankAccount && (
+            <Chip size="small" label="Bank" sx={{ ml: 1 }} />
+          )}
         </Box>
       ),
     },

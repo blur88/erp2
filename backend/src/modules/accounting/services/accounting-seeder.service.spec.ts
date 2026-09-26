@@ -15,6 +15,7 @@ function makeFakeDb(opts: {
   let docNumbers: Record<string, any>[] = (opts.docNumbers ?? []).map((r) => ({ ...r }));
   const jeNumbers: string[] = opts.existingJeNumbers ?? [];
   const advisoryLocks: number[] = [];
+  const flaggedBanks: string[] = [];
 
   const managerApi = {
     async advisoryLock(key: number) {
@@ -25,6 +26,11 @@ function makeFakeDb(opts: {
     },
     async findCoaRowsByCode(code: string): Promise<CoaRow[]> {
       return coa.filter((r) => r.code === code).map((r) => ({ ...r }));
+    },
+    async flagBankAccount(id: string) {
+      flaggedBanks.push(id);
+      const row = coa.find((r) => r.id === id);
+      if (row) (row as any).isBankAccount = true;
     },
     async insertCoa(row: { code: string; name: string; type: string; parentId: string | null }) {
       if (opts.failInsertCoaOn && row.code === opts.failInsertCoaOn) {
@@ -64,17 +70,20 @@ function makeFakeDb(opts: {
 
   return {
     advisoryLocks,
+    flaggedBanks,
     // transaction() gives the seeder a manager and rolls back on throw.
     async transaction(body: (m: typeof managerApi) => Promise<void>) {
       const snapCoa = coa.map((r) => ({ ...r }));
       const snapSettings = settings ? { ...settings } : null;
       const snapDoc = docNumbers.map((r) => ({ ...r }));
+      const snapFlags = [...flaggedBanks];
       try {
         await body(managerApi);
       } catch (e) {
         coa = snapCoa;
         settings = snapSettings;
         docNumbers = snapDoc;
+        flaggedBanks.splice(0, flaggedBanks.length, ...snapFlags);
         throw e;
       }
     },
@@ -248,5 +257,36 @@ describe('AccountingSeederService', () => {
     await svcWith(db).seed();
     const je = db.snapshotDocNumbers().find((r: any) => r.documentName === 'Journal Entries');
     expect(je.nextNumber).toBe(8); // 7 (current year) + 1; other-year/other-prefix ignored
+  });
+
+  it('branch 1 flags the seeded Settings bank account (#1298)', async () => {
+    const db = makeFakeDb({ coa: [], settings: null });
+    await svcWith(db).seed();
+    expect(db.flaggedBanks).toEqual(['id-1200']);
+    expect((db.snapshotCoa().find((r) => r.code === '1200') as any).isBankAccount).toBe(true);
+  });
+
+  it('branch 4 (self-heal settings) flags the Settings bank account (#1298)', async () => {
+    const db = makeFakeDb({ coa: fullCoa(), settings: null });
+    await svcWith(db).seed();
+    expect(db.flaggedBanks).toEqual(['id-1200']);
+    expect(db.snapshotSettings()!.bankAccountId).toBe('id-1200');
+  });
+
+  it('branch 4 rejects and rolls back when 1200 is a provider clearing account (#1298)', async () => {
+    const coa = fullCoa().map((r) => (r.code === '1200' ? { ...r, isProviderClearing: true } : r));
+    const db = makeFakeDb({ coa, settings: null });
+    await expect(svcWith(db).seed()).rejects.toThrow(
+      /settings\.bankAccountId \(1200\) cannot be flagged as a bank account: A provider clearing account cannot be a bank account/,
+    );
+    expect(db.snapshotSettings()).toBeNull();            // nothing inserted
+    expect(db.flaggedBanks).toEqual([]);                 // nothing flagged
+    expect((db.snapshotCoa().find((r) => r.code === '1200') as any).isBankAccount).toBeUndefined();
+  });
+
+  it('branch 5 (healthy) never validates or flags anything (#1298)', async () => {
+    const db = makeFakeDb({ coa: fullCoa(), settings: healthySettings() });
+    await svcWith(db).seed();
+    expect(db.flaggedBanks).toEqual([]);
   });
 });

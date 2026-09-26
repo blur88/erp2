@@ -9,6 +9,7 @@ import { UpdateAccountingSettingsDto } from '../dto/update-accounting-settings.d
 import { isDescendantOf } from './profit-and-loss.graph';
 import { assertNoLineConflicts } from './balance-sheet-groups.resolve';
 import { PROVIDER_CLEARING_CONFLICTING_SETTINGS } from './provider-clearing.rules';
+import { BANK_FLAG_FORBIDDEN_SETTINGS } from './bank-account.rules';
 import {
   settingsAccountIdsOf,
   withBalanceSheetConfigLock,
@@ -67,6 +68,12 @@ export class AccountingSettingsService {
           account.isProviderClearing
         ) {
           throw new BadRequestException(`${field}: a provider clearing account cannot be used here`);
+        }
+        if (field === 'bankAccountId' && !account.isBankAccount) {
+          throw new BadRequestException('bankAccountId: must be a bank account (flag it in Chart of Accounts)');
+        }
+        if ((BANK_FLAG_FORBIDDEN_SETTINGS as readonly string[]).includes(field) && account.isBankAccount) {
+          throw new BadRequestException(`${field}: a bank account cannot be used here`);
         }
       }
 

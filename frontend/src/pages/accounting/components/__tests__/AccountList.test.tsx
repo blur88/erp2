@@ -24,6 +24,7 @@ const group = {
   isSystem: false,
   isPostable: false,
   isProviderClearing: false,
+  isBankAccount: false,
   openingBalance: '0.0000',
   createdAt: '',
   updatedAt: '',
@@ -154,6 +155,16 @@ describe('AccountList', () => {
       ],
     })
     expect(screen.getAllByText('Provider clearing')).toHaveLength(1)
+  })
+
+  it('marks flagged bank accounts with a Bank chip', () => {
+    renderList({
+      tree: [
+        { ...leaf, code: '1200', name: 'CIMB', isBankAccount: true },
+        { ...leaf, id: 'b', code: '1100', name: 'Cash', isBankAccount: false },
+      ],
+    })
+    expect(screen.getAllByText('Bank')).toHaveLength(1)
   })
 })
 

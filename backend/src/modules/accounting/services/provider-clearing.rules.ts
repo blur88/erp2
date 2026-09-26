@@ -15,11 +15,12 @@ const SETTING_LABEL: Record<(typeof PROVIDER_CLEARING_CONFLICTING_SETTINGS)[numb
 };
 
 export function providerClearingViolation(
-  account: { id: string; type: AccountType; isPostable: boolean },
+  account: { id: string; type: AccountType; isPostable: boolean; isBankAccount?: boolean },
   settings: Pick<AccountingSettings, (typeof PROVIDER_CLEARING_CONFLICTING_SETTINGS)[number]> | null,
 ): string | null {
   if (account.type !== AccountType.ASSET) return 'Only an Asset account can be a provider clearing account';
   if (!account.isPostable) return 'Only a postable account can be a provider clearing account';
+  if (account.isBankAccount) return 'A bank account cannot be a provider clearing account';
   const field = settings
     ? PROVIDER_CLEARING_CONFLICTING_SETTINGS.find((f) => settings[f] === account.id)
     : undefined;

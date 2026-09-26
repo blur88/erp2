@@ -11,4 +11,5 @@ export class CreateAccountDto {
   @IsOptional() @IsDateString() openingBalanceDate?: string;
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsBoolean() isProviderClearing?: boolean;
+  @IsOptional() @IsBoolean() isBankAccount?: boolean;
 }

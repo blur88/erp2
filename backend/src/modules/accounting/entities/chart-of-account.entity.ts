@@ -43,6 +43,13 @@ export class ChartOfAccount extends BaseEntity {
   @Column({ type: 'boolean', default: false })
   isProviderClearing: boolean;
 
+  // #1298: marks a valid provider-settlement destination bank account. Eligibility
+  // metadata only — changing it never rewrites journals or settlements. Invariants
+  // (Asset, postable, not provider clearing, not a Settings cash/inventory/
+  // supplier-deposit account) live in bank-account.rules.ts.
+  @Column({ type: 'boolean', default: false })
+  isBankAccount: boolean;
+
   @Column({ type: 'decimal', precision: 18, scale: 4, default: 0 })
   openingBalance: string;
 

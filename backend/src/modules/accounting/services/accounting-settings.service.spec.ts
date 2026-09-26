@@ -187,10 +187,10 @@ describe('AccountingSettingsService — Balance Sheet grouping conflicts', () =>
   });
 
   const ACCOUNTS = [
-    asset('cimb', '1200', 'CIMB'),
-    asset('maybank', '1210', 'Maybank'),
-    asset('atome', '1240', 'Atome'),
-    asset('cash', '1100', 'Cash'),
+    { ...asset('cimb', '1200', 'CIMB'), isBankAccount: true },
+    { ...asset('maybank', '1210', 'Maybank'), isBankAccount: false },
+    { ...asset('atome', '1240', 'Atome'), isBankAccount: true },
+    { ...asset('cash', '1100', 'Cash'), isBankAccount: false },
   ];
 
   const build = (
@@ -303,3 +303,50 @@ describe('AccountingSettingsService — provider clearing conflicts (#1285)', ()
     expect(settingsRepo.save).not.toHaveBeenCalled();
   });
 });
+
+describe('AccountingSettingsService — bank account flag (#1298)', () => {
+  const acct = (id: string, isBankAccount: boolean) => ({
+    id, code: id, name: id, type: AccountType.ASSET, isActive: true, isPostable: true,
+    isProviderClearing: false, isBankAccount, parentId: null,
+    formBExpenseCategory: null, formBIncomeCategory: null,
+  });
+  const build = (accounts: any[]) => {
+    const settingsRepo = {
+      findOne: (jest.fn as any)().mockResolvedValue({ id: true }),
+      create: (jest.fn as any)((v: any) => v),
+      save: (jest.fn as any)((v: any) => Promise.resolve(v)),
+    };
+    const coaRepo = {
+      findOne: (jest.fn as any)(async ({ where }: any) => accounts.find((a) => a.id === where.id) ?? null),
+      find: (jest.fn as any)().mockResolvedValue(accounts),
+    };
+    return {
+      service: new AccountingSettingsService(settingsRepo as any, coaRepo as any, makeDataSource({ settingsRepo, coaRepo }) as any),
+      settingsRepo,
+    };
+  };
+
+  it('rejects an unflagged bankAccountId and saves nothing', async () => {
+    const { service, settingsRepo } = build([acct('rhb', false)]);
+    await expect(service.update({ bankAccountId: 'rhb' } as any, 'tester'))
+      .rejects.toThrow('bankAccountId: must be a bank account (flag it in Chart of Accounts)');
+    expect(settingsRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('accepts a flagged bankAccountId', async () => {
+    const { service, settingsRepo } = build([acct('rhb', true)]);
+    await service.update({ bankAccountId: 'rhb' } as any, 'tester');
+    expect(settingsRepo.save).toHaveBeenCalled();
+  });
+
+  it.each(['cashAccountId', 'inventoryAccountId', 'supplierDepositAccountId'])(
+    'rejects pointing %s at a flagged bank account',
+    async (field) => {
+      const { service, settingsRepo } = build([acct('maybank', true)]);
+      await expect(service.update({ [field]: 'maybank' } as any, 'tester'))
+        .rejects.toThrow(`${field}: a bank account cannot be used here`);
+      expect(settingsRepo.save).not.toHaveBeenCalled();
+    },
+  );
+});
+

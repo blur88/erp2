@@ -43,9 +43,10 @@ export function methodsIn(selected: SelectedRow[]) {
 }
 
 export function saveBlockReason(input: {
-  selected: SelectedRow[]; entered: string; unresolvedAttention: number
+  selected: SelectedRow[]; entered: string; unresolvedAttention: number; bankAccountBlock?: string | null
 }): string | null {
-  const { selected, entered, unresolvedAttention } = input
+  const { selected, entered, unresolvedAttention, bankAccountBlock } = input
+  if (bankAccountBlock) return bankAccountBlock
   if (unresolvedAttention > 0) return 'Resolve the rows that need attention before saving.'
   if (selected.length === 0) return 'Select at least one row.'
   if (methodsIn(selected).length > 1) return 'Create a separate settlement for each Payment Method.'

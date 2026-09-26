@@ -9,6 +9,8 @@ import { AccountBalanceService } from './account-balance.service';
 import { CreateAccountDto } from '../dto/create-account.dto';
 import { UpdateAccountDto } from '../dto/update-account.dto';
 import { providerClearingViolation } from './provider-clearing.rules';
+import { bankAccountViolation } from './bank-account.rules';
+import { withBalanceSheetConfigLock } from './balance-sheet-group.service';
 import { toMinorUnits, formatMoney, formatScale4, quantizeToCents } from '@/common/utils/money';
 import { getAppToday } from '@/common/utils/app-calendar';
 import { SettingsService } from '../../settings/settings.service';
@@ -49,10 +51,21 @@ export class ChartOfAccountService {
       dto.openingBalanceDate ??
       (postsOpeningBalance ? await getAppToday(this.regionalSettingsService) : null);
 
+    if (dto.isBankAccount) {
+      // A new account has no id any setting could reference yet, and no Settings
+      // update can reference it before this transaction commits — so create
+      // needs no config lock (spec §6.1).
+      const violation = bankAccountViolation(
+        { id: '', type: dto.type as AccountType, isPostable: true, isProviderClearing: dto.isProviderClearing ?? false },
+        null,
+      );
+      if (violation) throw new BadRequestException(violation);
+    }
+
     if (dto.isProviderClearing) {
       // A new account is postable and has no id any setting could reference yet.
       const violation = providerClearingViolation(
-        { id: '', type: dto.type as AccountType, isPostable: true }, null,
+        { id: '', type: dto.type as AccountType, isPostable: true, isBankAccount: dto.isBankAccount ?? false }, null,
       );
       if (violation) throw new BadRequestException(violation);
     }
@@ -64,6 +77,7 @@ export class ChartOfAccountService {
         description: dto.description ?? null, isActive: true, isSystem: false, isPostable: true,
         openingBalance: opening, createdBy: actor,
         isProviderClearing: dto.isProviderClearing ?? false,
+        isBankAccount: dto.isBankAccount ?? false,
       } as any)) as unknown as ChartOfAccount;
 
       if (postsOpeningBalance) {
@@ -78,27 +92,52 @@ export class ChartOfAccountService {
     });
   }
 
+  /**
+   * Runs entirely inside withBalanceSheetConfigLock (#1298, spec §6.2): the
+   * same settings-row lock AccountingSettingsService.update holds. Every read,
+   * check and the save go through the lock's manager, so a concurrent Settings
+   * update cannot pass against this update's pre-change state (e.g. Settings
+   * selecting X as the bank while this unflags X).
+   */
   async update(id: string, dto: UpdateAccountDto, actor: string): Promise<ChartOfAccount> {
-    const account = await this.coaRepo.findOne({ where: { id } as any });
-    if (!account) throw new NotFoundException('Account not found');
-    if (dto.isActive === false) {
-      const settings = await this.settingsRepo.findOne({ where: { id: true } as any });
-      if (settings && this.isUsedInSettings(id, settings)) {
-        throw new BadRequestException('Account is used in Accounting Settings and cannot be set inactive');
-      }
-    }
-    if (dto.isProviderClearing === true) {
-      const settings = await this.settingsRepo.findOne({ where: { id: true } as any });
-      const violation = providerClearingViolation(account as any, settings);
-      if (violation) throw new BadRequestException(violation);
-    }
     // BaseEntity has no updatedBy column — do not set it.
     void actor;
-    if (dto.name !== undefined) account.name = dto.name;
-    if (dto.description !== undefined) account.description = dto.description;
-    if (dto.isActive !== undefined) account.isActive = dto.isActive;
-    if (dto.isProviderClearing !== undefined) account.isProviderClearing = dto.isProviderClearing;
-    return this.coaRepo.save(account);
+    return withBalanceSheetConfigLock(this.dataSource, async (manager) => {
+      const repo = manager.getRepository(ChartOfAccount);
+      const account = await repo.findOne({ where: { id } as any });
+      if (!account) throw new NotFoundException('Account not found');
+      const settings = await manager.getRepository(AccountingSettings).findOne({ where: { id: true } as any });
+
+      if (dto.isActive === false && settings && this.isUsedInSettings(id, settings)) {
+        throw new BadRequestException('Account is used in Accounting Settings and cannot be set inactive');
+      }
+      if (dto.isBankAccount === false && settings?.bankAccountId === id) {
+        throw new BadRequestException('Account is the Accounting Settings Bank account and must remain a bank account');
+      }
+
+      // Validate the RESULTING state whenever a flag stays set, not only when it
+      // is being turned on (D7).
+      const merged = {
+        ...account,
+        ...(dto.isProviderClearing !== undefined && { isProviderClearing: dto.isProviderClearing }),
+        ...(dto.isBankAccount !== undefined && { isBankAccount: dto.isBankAccount }),
+      };
+      if (merged.isBankAccount) {
+        const violation = bankAccountViolation(merged as any, settings);
+        if (violation) throw new BadRequestException(violation);
+      }
+      if (merged.isProviderClearing) {
+        const violation = providerClearingViolation(merged as any, settings);
+        if (violation) throw new BadRequestException(violation);
+      }
+
+      if (dto.name !== undefined) account.name = dto.name;
+      if (dto.description !== undefined) account.description = dto.description;
+      if (dto.isActive !== undefined) account.isActive = dto.isActive;
+      if (dto.isProviderClearing !== undefined) account.isProviderClearing = dto.isProviderClearing;
+      if (dto.isBankAccount !== undefined) account.isBankAccount = dto.isBankAccount;
+      return repo.save(account);
+    });
   }
 
   private isUsedInSettings(id: string, s: AccountingSettings): boolean {

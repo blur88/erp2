@@ -58,6 +58,14 @@ describe('methodsIn / saveBlockReason', () => {
   it('allows save when everything reconciles', () => {
     expect(saveBlockReason({ selected: [row()], entered: '70.00', unresolvedAttention: 0 })).toBeNull()
   })
+  it('returns the bank-account block before any selection rule (#1298)', () => {
+    expect(saveBlockReason({ selected: [], entered: '', unresolvedAttention: 0, bankAccountBlock: 'Choose an eligible bank account.' }))
+      .toBe('Choose an eligible bank account.')
+  })
+  it('ignores a null bank-account block (#1298)', () => {
+    expect(saveBlockReason({ selected: [], entered: '', unresolvedAttention: 0, bankAccountBlock: null }))
+      .toBe('Select at least one row.')
+  })
 })
 
 describe('changeReason', () => {
