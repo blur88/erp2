@@ -40,7 +40,7 @@ const PriceListSelector: React.FC<PriceListSelectorProps> = ({
   sx,
 }) => {
   const { data: effectivePriceLists = [], isLoading: effectiveLoading } = useGetEffectivePriceListsQuery()
-  const { data: allPriceLists } = useGetPriceListsQuery({ page: 1, limit: 200, isActive: undefined })
+  const { data: allPriceLists } = useGetPriceListsQuery(undefined)
   const defaultPriceList = allPriceLists?.data?.find((pl) => pl.isDefault) ?? null
 
   // Filter price lists based on showInactive prop
