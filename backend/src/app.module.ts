@@ -8,6 +8,7 @@ import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 // Configuration
 import { DatabaseConfig } from './config/database.config';
 import { createBullOptions } from './config/bull-options.factory';
+import { createScheduleOptions } from './config/schedule-options.factory';
 
 // Filters & Interceptors
 import { ErrorManagementModule } from './common/error-management';
@@ -59,8 +60,10 @@ import { AppService } from './app.service';
     // Bull Queue for background jobs
     BullModule.forRootAsync(createBullOptions()),
 
-    // Schedule Module for cron jobs
-    ScheduleModule.forRoot(),
+    // Schedule Module for cron jobs. Not registered under NODE_ENV=test, so
+    // e2e-booted apps never fire wall-clock handlers against the shared test
+    // database (#1311) — see createScheduleOptions().
+    ScheduleModule.forRoot(createScheduleOptions()),
 
     ErrorManagementModule,
 
