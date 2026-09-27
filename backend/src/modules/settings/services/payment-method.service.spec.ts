@@ -86,6 +86,20 @@ describe('PaymentMethodService', () => {
       expect(qb.skip).toHaveBeenCalledWith(20);
       expect(qb.take).toHaveBeenCalledWith(20);
     });
+
+    it.each([true, false])('filters useForPurchases = %s when forPurchases is set', async (forPurchases) => {
+      const qb = createQb();
+      paymentMethodRepository.createQueryBuilder.mockReturnValue(qb as any);
+      await service.findAll({ forPurchases } as any);
+      expect(qb.andWhere).toHaveBeenCalledWith('pm.useForPurchases = :forPurchases', { forPurchases });
+    });
+
+    it('does not filter useForPurchases when forPurchases is omitted', async () => {
+      const qb = createQb();
+      paymentMethodRepository.createQueryBuilder.mockReturnValue(qb as any);
+      await service.findAll({} as any);
+      expect(qb.andWhere).not.toHaveBeenCalled();
+    });
   });
 
   it('findOne should throw NotFoundException when item is missing', async () => {
