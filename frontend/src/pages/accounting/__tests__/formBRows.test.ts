@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { buildFormBTableRows, formatFormBAmount, periodLabel } from '../formBRows'
 import type { FormBResponse } from '@/types'
 

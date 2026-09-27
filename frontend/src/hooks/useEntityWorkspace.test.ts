@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { createElement, type PropsWithChildren } from 'react'
 import { MemoryRouter } from 'react-router-dom'

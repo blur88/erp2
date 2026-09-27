@@ -113,11 +113,9 @@ export default defineConfig(({ mode }) => {
           inline: [/@mui\//, /react-transition-group/],
         },
       },
-      environment: 'jsdom',
-      environmentMatchGlobs: [['src/**/*.test.ts', 'node']],
       setupFiles: ['./src/test/setup.ts', './src/setupTests.ts'],
       api: false,
-      maxWorkers: 2,
+      maxWorkers: 3,
       execArgv: ['--max-old-space-size=1536'],
       testTimeout: 30000,
       exclude: [
@@ -126,6 +124,21 @@ export default defineConfig(({ mode }) => {
         '**/cypress/**',
         '**/.{idea,git,cache,output,temp}/**',
         '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*',
+      ],
+      // Environment per file extension (#1308). Both projects inherit everything
+      // above via `extends: true`. `environmentMatchGlobs` did this before, but
+      // Vitest 5 drops it silently; src/test/environment.test.ts fails if the
+      // routing is ever ignored again. A `.test.ts` that needs a DOM opts in
+      // with a `// @vitest-environment jsdom` docblock.
+      projects: [
+        {
+          extends: true,
+          test: { name: 'node', include: ['src/**/*.test.ts'], environment: 'node' },
+        },
+        {
+          extends: true,
+          test: { name: 'jsdom', include: ['src/**/*.test.tsx'], environment: 'jsdom' },
+        },
       ],
     },
   }
