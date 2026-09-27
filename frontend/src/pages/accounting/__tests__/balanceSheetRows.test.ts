@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 // __tests__/balanceSheetRows.test.ts
 import { formatBalanceAmount, buildLedgerLink, SECTION_LABELS } from '../balanceSheetRows'
 

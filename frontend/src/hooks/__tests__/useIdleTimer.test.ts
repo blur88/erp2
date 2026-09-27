@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useIdleTimer } from '../useIdleTimer'
