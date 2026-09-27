@@ -237,11 +237,13 @@ export async function snapshot(client) {
     if (t.table_name === BASELINE_TABLE) continue;
 
     // Background telemetry no suite can prevent: the Redis sampler writes a
-    // startup sample on every app boot (OnModuleInit) and a @Cron(EVERY_MINUTE)
-    // tick in every long-lived suite app, each under a per-boot instanceId.
-    // Measured: ~30 new rows per pass from ~30 suite boots. Comparing these
-    // tables would fail every run, so they are excluded and documented as a
-    // blind spot (spec Scope limits). No suite asserts global counts on them:
+    // startup sample on every app boot (OnModuleInit), under a per-boot
+    // instanceId. Its @Cron(EVERY_MINUTE) tick no longer runs here — cron is
+    // not registered under NODE_ENV=test (#1311, createScheduleOptions) — but
+    // the startup sample is not cron, so the exclusion still stands.
+    // Measured 2026-09-27: +38 rows per pass, one per app boot (+41 with
+    // cron on). Comparing these tables would fail every run, so they are
+    // excluded and documented as a blind spot (spec Scope limits). No suite asserts global counts on them:
     // the redis-monitoring suite allow-lists only its own instance/run ids.
     // Counted, never diffed. A blind spot the report does not mention is one
     // nobody remembers, so the row count is captured and reported even though
