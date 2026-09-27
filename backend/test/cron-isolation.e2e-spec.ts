@@ -2,10 +2,11 @@
  * Cron isolation for e2e-booted apps (#1311).
  *
  * Every suite boots the full AppModule against the shared test database. If
- * ScheduleModule registered @Cron handlers here, the hourly backup cleanup
- * would lazily INSERT a backup_retention_settings row at hh:00, the 02:00
- * cleanups would delete rows, and the leak check's verdict would depend on the
- * wall clock rather than on suite behaviour.
+ * ScheduleModule registered @Cron handlers here, the 02:00 cleanups would
+ * delete rows and the leak check's verdict would depend on the wall clock
+ * rather than on suite behaviour. (The hourly cleanup also used to INSERT a
+ * backup_retention_settings row via getBackupSettings(); #1312 made that read
+ * non-writing.)
  *
  * createScheduleOptions() turns cron registration off under NODE_ENV=test.
  * This asserts the effect on a real boot, not just the options object: a

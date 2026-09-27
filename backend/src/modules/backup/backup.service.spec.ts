@@ -577,6 +577,97 @@ describe('BackupService - settings backup', () => {
       expect(companySettingsRepo.save).not.toHaveBeenCalled();
     });
   });
+
+  // Issue #1312: reading settings must never persist a row.
+  describe('getBackupSettings', () => {
+    let retentionSettingsRepo: ReturnType<typeof mockRepository>;
+
+    beforeEach(() => {
+      retentionSettingsRepo = (service as any).backupSettingsRepository;
+    });
+
+    it('returns unpersisted defaults without writing when no row exists', async () => {
+      retentionSettingsRepo.findOne.mockResolvedValue(null);
+
+      const result = await service.getBackupSettings();
+
+      expect(retentionSettingsRepo.save).not.toHaveBeenCalled();
+      expect(retentionSettingsRepo.create).not.toHaveBeenCalled();
+      expect(result.retentionDays).toBe(30);
+      expect(result.autoCleanupEnabled).toBe(true);
+      expect(result.cleanupTime).toBe('02:00');
+      expect(result.maximumBackupsToKeep).toBeNull();
+      expect(result.maximumTotalSize).toBeNull();
+      expect(result.id).toBeNull();
+      expect(result.createdAt).toBeNull();
+      expect(result.updatedAt).toBeNull();
+    });
+
+    it('serializes the identity fields as explicit nulls, not absent keys', async () => {
+      retentionSettingsRepo.findOne.mockResolvedValue(null);
+
+      const json = JSON.parse(JSON.stringify(await service.getBackupSettings()));
+
+      expect(json).toEqual({
+        id: null,
+        retentionDays: 30,
+        autoCleanupEnabled: true,
+        cleanupTime: '02:00',
+        maximumBackupsToKeep: null,
+        maximumTotalSize: null,
+        createdAt: null,
+        updatedAt: null,
+      });
+    });
+
+    it('returns the persisted row without writing when one exists', async () => {
+      const createdAt = new Date('2026-09-01T00:00:00Z');
+      const updatedAt = new Date('2026-09-02T00:00:00Z');
+      retentionSettingsRepo.findOne.mockResolvedValue({
+        id: 'settings-1',
+        retentionDays: 7,
+        autoCleanupEnabled: false,
+        cleanupTime: '04:30',
+        maximumBackupsToKeep: 5,
+        maximumTotalSize: 1024,
+        isActive: true,
+        createdAt,
+        updatedAt,
+      });
+
+      const result = await service.getBackupSettings();
+
+      expect(retentionSettingsRepo.save).not.toHaveBeenCalled();
+      expect(result.id).toBe('settings-1');
+      expect(result.retentionDays).toBe(7);
+      expect(result.autoCleanupEnabled).toBe(false);
+      expect(result.cleanupTime).toBe('04:30');
+      expect(result.createdAt).toEqual(createdAt);
+      expect(result.updatedAt).toEqual(updatedAt);
+    });
+  });
+
+  describe('updateBackupSettings', () => {
+    it('remains the single writer: a partial update on an empty table saves once', async () => {
+      const retentionSettingsRepo = (service as any).backupSettingsRepository;
+      retentionSettingsRepo.findOne.mockResolvedValue(null);
+      retentionSettingsRepo.create.mockImplementation((entity) => entity);
+      retentionSettingsRepo.save.mockImplementation(async (entity) => ({
+        ...entity,
+        id: 'settings-1',
+      }));
+
+      const result = await service.updateBackupSettings({ retentionDays: 14 });
+
+      expect(retentionSettingsRepo.create).toHaveBeenCalledWith({
+        retentionDays: 14,
+        isActive: true,
+      });
+      expect(retentionSettingsRepo.save).toHaveBeenCalledTimes(1);
+      expect(result.id).toBe('settings-1');
+      expect(result.retentionDays).toBe(14);
+    });
+  });
 });
 
 describe('BackupService - createArchive', () => {
