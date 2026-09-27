@@ -83,14 +83,15 @@ export interface UpdateScheduleDto {
 }
 
 export interface BackupSettings {
-  id: string
+  /** null until settings are first saved (GET returns unpersisted defaults) */
+  id: string | null
   retentionDays: number
   autoCleanupEnabled: boolean
   cleanupTime: string
   maximumBackupsToKeep: number | null
   maximumTotalSize: number | null
-  createdAt: string
-  updatedAt: string
+  createdAt: string | null
+  updatedAt: string | null
 }
 
 export interface UpdateBackupSettingsDto {

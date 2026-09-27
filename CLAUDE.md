@@ -336,7 +336,9 @@ is not cron, so turning cron off in test apps (below) does not remove it.
 entry points export. Before this, every suite app registered all five `@Cron`
 handlers, and the hourly backup cleanup's `getBackupSettings()` lazily INSERTed
 a `backup_retention_settings` row at hh:00 — the gate's verdict depended on the
-wall clock. `test/cron-isolation.e2e-spec.ts` asserts a booted test app's
+wall clock. (That read no longer writes: since #1312, `getBackupSettings()`
+returns unpersisted defaults with `id`/`createdAt`/`updatedAt` null when no row
+exists, and `updateBackupSettings()` is the only writer.) `test/cron-isolation.e2e-spec.ts` asserts a booted test app's
 `SchedulerRegistry` holds no cron jobs. A test that needs a handler's behaviour
 must call the handler method directly; never rely on the schedule firing.
 BullMQ repeatable jobs are **not** covered: they are created from persisted

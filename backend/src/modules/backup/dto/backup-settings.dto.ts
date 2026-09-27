@@ -66,9 +66,9 @@ export class UpdateBackupSettingsDto {
 }
 
 export class BackupSettingsResponseDto {
-  @ApiProperty({ description: 'Settings ID' })
+  @ApiProperty({ description: 'Settings ID (null until settings are first saved)', nullable: true })
   @Expose()
-  id: string;
+  id: string | null;
 
   @ApiProperty({ description: 'Number of days to retain backups' })
   @Expose()
@@ -90,11 +90,11 @@ export class BackupSettingsResponseDto {
   @Expose()
   maximumTotalSize: number | null;
 
-  @ApiProperty({ description: 'Created at timestamp' })
+  @ApiProperty({ description: 'Created at timestamp (null until settings are first saved)', nullable: true })
   @Expose()
-  createdAt: Date;
+  createdAt: Date | null;
 
-  @ApiProperty({ description: 'Updated at timestamp' })
+  @ApiProperty({ description: 'Updated at timestamp (null until settings are first saved)', nullable: true })
   @Expose()
-  updatedAt: Date;
+  updatedAt: Date | null;
 }

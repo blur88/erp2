@@ -1121,20 +1121,17 @@ export class BackupService implements OnModuleDestroy {
   }
 
   /**
-   * Get backup settings (creates default if not exists)
+   * Get backup settings. Read-only: when no row exists, returns unpersisted
+   * defaults (id/createdAt/updatedAt null) — updateBackupSettings() is the
+   * only writer (issue #1312).
    */
   async getBackupSettings(): Promise<BackupSettingsResponseDto> {
     try {
-      let settings = await this.backupSettingsRepository.findOne({
+      const settings = await this.backupSettingsRepository.findOne({
         where: { isActive: true },
       });
 
-      // Create default settings if none exist
-      if (!settings) {
-        settings = await this.createDefaultBackupSettings();
-      }
-
-      return this.mapToBackupSettingsResponseDto(settings);
+      return this.mapToBackupSettingsResponseDto(settings ?? this.defaultBackupSettings());
     } catch (error) {
       this.logger.error(
         `Failed to get backup settings: ${error.message}`,
@@ -1182,29 +1179,28 @@ export class BackupService implements OnModuleDestroy {
   }
 
   /**
-   * Create default backup settings
+   * Unpersisted default settings, returned when no row exists. Values match
+   * the column defaults; identity fields are explicit nulls so they serialize
+   * as null rather than being dropped.
    */
-  private async createDefaultBackupSettings(): Promise<BackupRetentionSettings> {
-    const defaultSettings = this.backupSettingsRepository.create({
+  private defaultBackupSettings(): BackupSettingsResponseDto {
+    return {
+      id: null,
       retentionDays: 30,
       autoCleanupEnabled: true,
       cleanupTime: '02:00',
       maximumBackupsToKeep: null,
       maximumTotalSize: null,
-      isActive: true,
-    });
-
-    const savedSettings = await this.backupSettingsRepository.save(defaultSettings);
-    this.logger.log('Default backup settings created');
-
-    return savedSettings;
+      createdAt: null,
+      updatedAt: null,
+    };
   }
 
   /**
    * Map entity to backup settings response DTO
    */
   private mapToBackupSettingsResponseDto(
-    settings: BackupRetentionSettings,
+    settings: BackupRetentionSettings | BackupSettingsResponseDto,
   ): BackupSettingsResponseDto {
     return plainToInstance(BackupSettingsResponseDto, settings, {
       excludeExtraneousValues: true,
