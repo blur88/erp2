@@ -32,7 +32,7 @@ export class PaymentMethodService {
   ) {}
 
   async findAll(query: QueryPaymentMethodsDto): Promise<PaymentMethodListResponseDto> {
-    const { page, limit, isActive } = query;
+    const { page, limit, isActive, forPurchases } = query;
 
     const qb = this.paymentMethodRepository
       .createQueryBuilder('pm')
@@ -40,6 +40,10 @@ export class PaymentMethodService {
 
     if (isActive !== undefined) {
       qb.andWhere('pm.isActive = :isActive', { isActive });
+    }
+
+    if (forPurchases !== undefined) {
+      qb.andWhere('pm.useForPurchases = :forPurchases', { forPurchases });
     }
 
     qb.orderBy('pm.sortOrder', 'ASC').addOrderBy('pm.name', 'ASC');
