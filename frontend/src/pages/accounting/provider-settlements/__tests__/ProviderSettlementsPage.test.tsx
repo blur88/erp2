@@ -11,18 +11,26 @@ import ProviderSettlementsPage, { HEADERS } from '../ProviderSettlementsPage'
 
 const mockList = vi.fn()
 const mockProviders = vi.fn()
+const mockPost = vi.fn()
+const mockDiscard = vi.fn()
+const mockReverse = vi.fn()
+const mockShowSuccess = vi.fn()
+const mockShowError = vi.fn()
 
 // The page calls useNotification() on every render. Without this mock it is
 // undefined and destructuring throws before any assertion runs.
 vi.mock('@/hooks/useNotification', () => ({
-  useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
+  useNotification: () => ({ showSuccess: mockShowSuccess, showError: mockShowError }),
 }))
+
+// Each trigger returns { unwrap } like an RTK Query mutation.
+const trigger = (fn: ReturnType<typeof vi.fn>) => (id: string) => ({ unwrap: () => fn(id) })
 
 vi.mock('@/store/api/accountingApi', () => ({
   useGetProviderSettlementsQuery: (...args: unknown[]) => mockList(...args),
-  useDiscardProviderSettlementMutation: () => [vi.fn(), { isLoading: false }],
-  usePostProviderSettlementMutation: () => [vi.fn(), { isLoading: false }],
-  useReverseProviderSettlementMutation: () => [vi.fn(), { isLoading: false }],
+  useDiscardProviderSettlementMutation: () => [trigger(mockDiscard), { isLoading: false }],
+  usePostProviderSettlementMutation: () => [trigger(mockPost), { isLoading: false }],
+  useReverseProviderSettlementMutation: () => [trigger(mockReverse), { isLoading: false }],
   useGetProviderSettlementProvidersQuery: () => mockProviders(),
 }))
 
@@ -54,6 +62,10 @@ describe('ProviderSettlementsPage', () => {
     mockList.mockReset()
     mockProviders.mockReset()
     mockProviders.mockReturnValue({ data: [], isLoading: false })
+    for (const m of [mockPost, mockDiscard, mockReverse, mockShowSuccess, mockShowError]) {
+      m.mockReset()
+      m.mockResolvedValue(undefined)
+    }
     // useFilterBar reads and writes the REAL window.location, which jsdom keeps
     // across tests — a filter written by one test would otherwise mount the next.
     window.history.replaceState(null, '', '/')
@@ -144,6 +156,23 @@ describe('ProviderSettlementsPage', () => {
     expect(menu.getByText('Reverse')).toBeInTheDocument()
     expect(menu.queryByText('Edit')).not.toBeInTheDocument()
     expect(menu.queryByText('Discard')).not.toBeInTheDocument()
+  })
+
+  // #1318: the message was built as `${action}ed`, so Reverse read "reverseed".
+  // The expected strings are LITERALS, not DONE_LABEL — an expectation read
+  // from the map under test shares its source with the actual and cannot fail.
+  it.each([
+    { label: 'Post', status: 'DRAFT', mutation: () => mockPost, message: 'Settlement PS-26-001 posted' },
+    { label: 'Discard', status: 'DRAFT', mutation: () => mockDiscard, message: 'Settlement PS-26-001 discarded' },
+    { label: 'Reverse', status: 'POSTED', mutation: () => mockReverse, message: 'Settlement PS-26-001 reversed' },
+  ] as const)('reports "$message" after a confirmed $label', async ({ label, status, mutation, message }) => {
+    renderPage([row({ status })])
+    await userEvent.click(screen.getByRole('button', { name: /actions/i }))
+    await userEvent.click(screen.getByRole('menuitem', { name: label }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: label }))
+    expect(mutation()).toHaveBeenCalledWith('ps-1')
+    await waitFor(() => expect(mockShowSuccess).toHaveBeenCalledWith(message))
+    expect(mockShowError).not.toHaveBeenCalled()
   })
 
   // #1285: a DRAFT whose stored clearing account is unflagged cannot be

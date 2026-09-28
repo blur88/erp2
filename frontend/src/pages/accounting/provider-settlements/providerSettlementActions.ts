@@ -35,6 +35,16 @@ export const CONFIRM_COPY = {
   },
 } as const
 
+// Past tense for the success toast. An explicit map, never `${action}ed` —
+// that produced "reverseed" (#1318). Keyed off CONFIRM_COPY so a new confirmed
+// action does not compile without its label. Shared by the list and the detail
+// page so both report with the same words.
+export const DONE_LABEL: Record<keyof typeof CONFIRM_COPY, string> = {
+  post: 'posted',
+  discard: 'discarded',
+  reverse: 'reversed',
+}
+
 /**
  * UI SIGNAL ONLY (#1285, spec §9.3): a DRAFT whose STORED clearing account is
  * explicitly unflagged holds non-provider-clearing payments (a draft has exactly

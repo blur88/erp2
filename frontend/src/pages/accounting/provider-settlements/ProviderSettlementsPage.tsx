@@ -25,6 +25,7 @@ import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
 import {
   CONFIRM_COPY,
+  DONE_LABEL,
   getProviderSettlementActionMetas,
   isNotProviderClearingDraft,
   NOT_PROVIDER_CLEARING_TOOLTIP,
@@ -176,7 +177,7 @@ export default function ProviderSettlementsPage() {
       if (action === 'post') await postSettlement(row.id).unwrap()
       if (action === 'discard') await discard(row.id).unwrap()
       if (action === 'reverse') await reverse(row.id).unwrap()
-      showSuccess(`Settlement ${row.referenceNumber} ${action}ed`)
+      showSuccess(`Settlement ${row.referenceNumber} ${DONE_LABEL[action]}`)
     } catch (err) {
       showError(rtkErrorMessage(err, `Failed to ${action} settlement`))
     } finally {
