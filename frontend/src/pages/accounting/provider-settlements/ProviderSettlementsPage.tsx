@@ -24,6 +24,7 @@ import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
 import { PAGINATION } from '@/constants/tableStyles'
 import {
+  CONFIRM_COPY,
   getProviderSettlementActionMetas,
   isNotProviderClearingDraft,
   NOT_PROVIDER_CLEARING_TOOLTIP,
@@ -65,32 +66,6 @@ function getFilterConfig(
     ],
   }
 }
-
-// ConfirmationDialog requires `message` (ConfirmationDialog.tsx:16); title
-// alone does not compile. Each action says what it will actually do, because
-// all three are hard to undo from the list.
-const CONFIRM_COPY = {
-  post: {
-    title: 'Post settlement?',
-    message:
-      'Posting creates the journal entry and makes this settlement immutable. ' +
-      'It can afterwards only be reversed, not edited.',
-    confirmText: 'Post',
-  },
-  discard: {
-    title: 'Discard draft?',
-    message:
-      'This deletes the draft and releases its claimed payments. This cannot be undone.',
-    confirmText: 'Discard',
-  },
-  reverse: {
-    title: 'Reverse settlement?',
-    message:
-      'This creates a reversing journal entry and releases the claimed payments. ' +
-      'The original entry is preserved.',
-    confirmText: 'Reverse',
-  },
-} as const
 
 export const HEADERS = [
   'Settlement No', 'Date', 'Provider', 'Provider Reference',

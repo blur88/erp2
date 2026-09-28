@@ -5,8 +5,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockDetail = vi.fn()
 
-vi.mock('@/store/api/accountingApi', () => ({
-  useGetProviderSettlementQuery: (...args: unknown[]) => mockDetail(...args),
+vi.mock('@/store/api/accountingApi', () => {
+  // The view's document actions (#1316); these tests never trigger them.
+  const idle = () => [vi.fn(), { isLoading: false }]
+  return {
+    useGetProviderSettlementQuery: (...args: unknown[]) => mockDetail(...args),
+    usePostProviderSettlementMutation: idle,
+    useDiscardProviderSettlementMutation: idle,
+    useReverseProviderSettlementMutation: idle,
+  }
+})
+
+vi.mock('@/hooks/useNotification', () => ({
+  useNotification: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
 }))
 
 import ProviderSettlementDetailPage from '../ProviderSettlementDetailPage'
