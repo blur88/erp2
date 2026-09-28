@@ -2,9 +2,16 @@ import '@testing-library/jest-dom/vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import ProviderSettlementDetailView from '../ProviderSettlementDetailView'
+
+const mockNavigate = vi.fn()
+
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return { ...actual, useNavigate: () => mockNavigate }
+})
 
 const base = {
   id: 'ps-1', referenceNumber: 'PS-26-001', settlementDate: '2026-09-20',
@@ -40,12 +47,24 @@ const line = (
   },
 })
 
-const view = (over: Partial<typeof base> = {}) =>
+// `search` seeds the detail URL, e.g. '?tab=1' opens the Payments tab.
+const view = (over: Partial<typeof base> = {}, search = '') =>
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[`/accounting/provider-settlements/ps-1/view${search}`]}>
       <ProviderSettlementDetailView settlement={{ ...base, ...over } as any} />
     </MemoryRouter>,
   )
+
+const header = () => screen.getByTestId('page-header-divider')
+
+// The CardContent under a section title — scopes field lookups so a value that
+// also appears in the header (the provider name) is not an ambiguous match.
+const section = (title: string) =>
+  screen.getByRole('heading', { name: title }).closest('.MuiCardContent-root') as HTMLElement
+
+// A Field renders its caption and then its value as the next sibling.
+const fieldValue = (scope: HTMLElement, label: string) =>
+  within(scope).getByText(label).nextElementSibling as HTMLElement
 
 // #1285 helpers: a line with a joined payment (grouped by order + method) and
 // a legacy line with no joined payment (its own group, labels '—').
@@ -90,6 +109,109 @@ describe('ProviderSettlementDetailView', () => {
   // tests; clear it so the one test that sets it cannot leak into the rest.
   beforeEach(() => {
     localStorage.clear()
+    mockNavigate.mockReset()
+  })
+
+  // #1315: the shared Accounting detail header.
+  describe('header', () => {
+    it('shows the reference as the page heading with the provider as subtitle', () => {
+      view()
+      expect(within(header()).getByRole('heading', { name: 'PS-26-001' })).toBeInTheDocument()
+      expect(within(header()).getByText('Atome')).toBeInTheDocument()
+    })
+
+    it('shows the status badge in the header, not as a field', () => {
+      view({ status: 'POSTED' } as any)
+      expect(within(header()).getByText(/posted/i)).toBeInTheDocument()
+      expect(screen.queryByText('Status')).not.toBeInTheDocument()
+    })
+
+    it('navigates back to the list', async () => {
+      view()
+      await userEvent.click(within(header()).getByRole('button', { name: 'Back' }))
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/provider-settlements')
+    })
+
+    // Siblings keep money figures out of the header (Expense: Accounting card).
+    it('does not show the settlement amount in the header', () => {
+      view()
+      expect(within(header()).queryByText(/98\.00/)).not.toBeInTheDocument()
+      expect(within(header()).queryByText('Settlement Amount')).not.toBeInTheDocument()
+    })
+  })
+
+  // #1315: Overview holds the information and accounting cards.
+  describe('overview sections', () => {
+    it('groups settlement metadata under Settlement Information', () => {
+      localStorage.setItem('dateFormat', 'DD/MM/YYYY')
+      view()
+      const info = section('Settlement Information')
+      expect(fieldValue(info, 'Date').textContent).toBe('20/09/2026')
+      expect(fieldValue(info, 'Provider').textContent).toBe('Atome')
+      expect(fieldValue(info, 'Provider Reference').textContent).toBe('ATM-9911')
+    })
+
+    it('groups the accounts under Accounting', () => {
+      view()
+      const acct = section('Accounting')
+      expect(fieldValue(acct, 'Provider Clearing Account').textContent).toBe('1240 Atome')
+      expect(fieldValue(acct, 'Bank Account').textContent).toBe('1200 CIMB')
+      expect(fieldValue(acct, 'Settlement Amount')).toHaveTextContent('98.00')
+    })
+
+    it('shows "—" for a missing provider and reference, in the card and the subtitle', () => {
+      view({ providerPaymentMethod: undefined, providerReference: null } as any)
+      const info = section('Settlement Information')
+      expect(fieldValue(info, 'Provider').textContent).toBe('—')
+      expect(fieldValue(info, 'Provider Reference').textContent).toBe('—')
+      expect(within(header()).getByText('—')).toBeInTheDocument()
+    })
+  })
+
+  // #1315: ?tab= selects the tab; anything but a valid index falls back to Overview.
+  describe('tabs', () => {
+    const selected = (name: string) =>
+      screen.getByRole('tab', { name }).getAttribute('aria-selected')
+
+    it('defaults to Overview', () => {
+      view()
+      expect(selected('Overview')).toBe('true')
+      expect(section('Accounting')).toBeInTheDocument()
+    })
+
+    it('opens Payments from ?tab=1', () => {
+      view({}, '?tab=1')
+      expect(selected('Payments')).toBe('true')
+      expect(screen.getByText('SO-26-001')).toBeInTheDocument()
+    })
+
+    it.each(['abc', '5', '-1', '1.5', ''])('falls back to Overview for ?tab=%s', (tab) => {
+      view({}, `?tab=${tab}`)
+      expect(selected('Overview')).toBe('true')
+      expect(selected('Payments')).toBe('false')
+      expect(section('Settlement Information')).toBeInTheDocument()
+    })
+
+    it('shows the empty state and no summary when the settlement has no payments', () => {
+      view({ lines: [] } as any, '?tab=1')
+      expect(screen.getByText('No payments in this settlement.')).toBeInTheDocument()
+      expect(screen.queryByRole('table')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('payments-settlement-amount')).not.toBeInTheDocument()
+    })
+
+    // Same frame and shape as the siblings' Payments tabs: the shared DataTable
+    // card, one row per payment, the total in a right-aligned summary under it
+    // (OrderPaymentsTab's footer). No grouping, no expand toggles.
+    it('renders Payments as the sibling flat DataTable with a Settlement Amount summary', () => {
+      view({}, '?tab=1')
+      const table = screen.getByRole('table')
+      expect(table.closest('.MuiPaper-outlined')).not.toBeNull()
+      expect(within(table).getAllByRole('columnheader').map((h) => h.textContent))
+        .toEqual(['Date', 'Sales Order No', 'Payment Method', 'Reference', 'Amount'])
+      expect(within(table).queryByRole('button')).not.toBeInTheDocument()
+      expect(screen.getByTestId('payments-settlement-amount')).toHaveTextContent('98.00')
+      expect(table).not.toContainElement(screen.getByTestId('payments-settlement-amount'))
+    })
   })
 
   // #1275: the detail view uses the same 'Date' label as the list and the
@@ -137,36 +259,73 @@ describe('ProviderSettlementDetailView', () => {
     )
   })
 
+  it('shows the journal links in the Accounting section', () => {
+    view({
+      status: 'REVERSED', journalEntryId: 'je-1', reversalJournalEntryId: 'je-2',
+    } as any)
+    const acct = section('Accounting')
+    expect(within(acct).getByRole('link', { name: /^journal entry$/i })).toBeInTheDocument()
+    expect(within(acct).getByRole('link', { name: /reversing entry/i })).toBeInTheDocument()
+  })
+
+  it('shows the not-provider-clearing banner on the Payments tab too', () => {
+    view({
+      status: 'DRAFT',
+      clearingAccount: { ...base.clearingAccount, isProviderClearing: false },
+    } as any, '?tab=1')
+    expect(screen.getByTestId('not-provider-clearing')).toBeInTheDocument()
+  })
+
   it('renders the settlement amount at cent precision', () => {
     view()
     expect(screen.getByTestId('settlement-amount')).toHaveTextContent('98.00')
   })
 
-  it('lists the claimed payments grouped by order and method', () => {
-    view()
-    // The raw payment UUID is never displayed; the group row identifies it.
+  it('lists each claimed payment as its own row, never the raw payment UUID', () => {
+    localStorage.setItem('dateFormat', 'DD/MM/YYYY')
+    view({}, '?tab=1')
     expect(screen.queryByText('pay-1')).not.toBeInTheDocument()
-    expect(screen.getByText('SO-26-001')).toBeInTheDocument()
-    expect(screen.getByTestId('group-net')).toHaveTextContent('98.00')
+    const row = screen.getByText('REF-pay-1').closest('tr')!
+    expect(within(row).getAllByRole('cell').map((c) => c.textContent))
+      .toEqual(['01/09/2026', 'SO-26-001', 'Atome', 'REF-pay-1', 'RM 98.00'])
   })
 
-  it('groups lines by Sales Order + Payment Method with totals from snapshots', async () => {
+  it('shows one row per line with SNAPSHOT amounts, ordered by sales order then date', () => {
+    const late = { ...line('l1', 'p1', '100.0000', 'so-8', 'pm-tt') }
+    late.salesOrderPayment = { ...late.salesOrderPayment, paymentDate: '2026-09-05' }
+    view({
+      // Deliberately out of order: SO-26-009 first, SO-26-008's later payment first.
+      lines: [
+        line('l3', 'p2', '20.0000', 'so-9', 'pm-tt'),
+        late,
+        line('l2', 'r1', '-30.0000', 'so-8', 'pm-tt'),
+      ],
+    } as any, '?tab=1')
+    const refs = screen.getAllByText(/^REF-/).map((el) => el.textContent)
+    expect(refs).toEqual(['REF-r1', 'REF-p1', 'REF-p2'])
+    // The live salesOrderPayment.amount (999.00) must never be shown.
+    expect(screen.queryByText(/999/)).not.toBeInTheDocument()
+    expect(screen.getByTestId('line-amount-l1')).toHaveTextContent('100.00')
+    expect(screen.getByTestId('line-amount-l2')).toHaveTextContent('-30.00')
+  })
+
+  // Same colour rule as the sibling Payments tabs (ExpenseDetailPage.test.tsx:253).
+  it('renders a negative line amount in red and a positive one in the default colour', () => {
     view({
       lines: [
         line('l1', 'p1', '100.0000', 'so-8', 'pm-tt'),
         line('l2', 'r1', '-30.0000', 'so-8', 'pm-tt'),
-        line('l3', 'p2', '20.0000', 'so-9', 'pm-tt'),
       ],
-    } as any)
-    const row = screen.getByText('SO-26-008').closest('tr')!
-    expect(within(row).getByText('TikTok')).toBeInTheDocument()
-    expect(within(row).getByTestId('group-net')).toHaveTextContent('70.00')
-    expect(screen.queryByText('p1')).not.toBeInTheDocument() // no raw uuids
-    await userEvent.click(
-      within(row).getByRole('button', { name: /show payments for SO-26-008/i }),
-    )
-    expect(screen.getByText('REF-p1')).toBeInTheDocument()
-    expect(screen.getByText('REF-r1')).toBeInTheDocument()
+    } as any, '?tab=1')
+    expect(screen.getByTestId('line-amount-l2')).toHaveStyle({ color: 'rgb(211, 47, 47)' })
+    expect(screen.getByTestId('line-amount-l1')).not.toHaveStyle({ color: 'rgb(211, 47, 47)' })
+  })
+
+  it('renders "—" for a legacy line with no joined payment', () => {
+    view({ lines: [legacyLine()] } as any, '?tab=1')
+    const row = screen.getByTestId(/^line-amount-legacy-/).closest('tr')!
+    expect(within(row).getAllByRole('cell').map((c) => c.textContent))
+      .toEqual(['—', '—', '—', '—', 'RM 5.00'])
   })
 
   // #1285, Review Focus #5: legacy lines with no joined payment each fall back
