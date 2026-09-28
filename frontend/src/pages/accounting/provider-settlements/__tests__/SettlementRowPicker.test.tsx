@@ -1,8 +1,11 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen, within } from '@testing-library/react'
+import { ThemeProvider } from '@mui/material/styles'
+import { render as rtlRender, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
+import type { ReactElement } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { darkTheme } from '@/styles/theme'
 import SettlementRowPicker from '../SettlementRowPicker'
 import type { SelectedRow } from '../settlementSelection'
 
@@ -10,6 +13,18 @@ const mockRows = vi.fn()
 vi.mock('@/store/api/accountingApi', () => ({
   useGetEligibleSettlementRowsQuery: (...a: unknown[]) => mockRows(...a),
 }))
+
+// Through the app theme, so themed colours (error.main) actually compute.
+function render(ui: ReactElement) {
+  const result = rtlRender(<ThemeProvider theme={darkTheme}>{ui}</ThemeProvider>)
+  return {
+    ...result,
+    rerender: (next: ReactElement) => result.rerender(<ThemeProvider theme={darkTheme}>{next}</ThemeProvider>),
+  }
+}
+
+// darkTheme's error.main (colors.error[400], #ef5350).
+const ERROR_MAIN = 'rgb(239, 83, 80)'
 
 const TIKTOK = {
   salesOrderId: 'so-8', orderNumber: 'SO-26-008', paymentMethodId: 'pm-tt', paymentMethodName: 'TikTok',
@@ -43,17 +58,86 @@ describe('SettlementRowPicker', () => {
     expect(screen.getByText('SO-26-008')).toBeInTheDocument()
   })
 
-  it('marks a negative net as a Deduction', () => {
+  it('shows a negative net in error red with its minus sign and a screen-reader Deduction label', () => {
     render(<Harness />)
     const row = screen.getByText('SO-26-009').closest('tr')!
-    expect(within(row).getByTestId('deduction-marker')).toHaveTextContent('Deduction')
+    const amount = within(row).getByTestId('net-amount')
+    // formatCurrency places the sign after the symbol: 'RM -30.00'.
+    expect(amount.textContent).toContain('-30.00')
+    expect(getComputedStyle(amount).color).toBe(ERROR_MAIN)
+    // The label lives in the amount's own cell, so it is announced with it.
+    const label = within(row).getByText('Deduction')
+    expect(label.closest('td')).toBe(amount.closest('td'))
+    expect(within(row).queryByTestId('deduction-marker')).not.toBeInTheDocument()
   })
 
-  it('expands a row to its underlying payments', async () => {
+  it('shows a positive net without a Deduction label or error colour', () => {
     render(<Harness />)
-    await userEvent.click(screen.getByRole('button', { name: /show payments for SO-26-008/i }))
-    expect(screen.getByText('TT-1')).toBeInTheDocument()
-    expect(screen.getByText('TT-R')).toBeInTheDocument()
+    const row = screen.getByText('SO-26-008').closest('tr')!
+    const amount = within(row).getByTestId('net-amount')
+    expect(amount.textContent).not.toContain('-')
+    expect(getComputedStyle(amount).color).not.toBe(ERROR_MAIN)
+    expect(within(row).queryByText('Deduction')).not.toBeInTheDocument()
+  })
+
+  it('shows each group as a single net row with no expandable payment details', () => {
+    render(<Harness />)
+    expect(screen.queryByRole('button', { name: /payments for/i })).not.toBeInTheDocument()
+    expect(screen.queryByText('TT-1')).not.toBeInTheDocument()
+    expect(screen.queryByText('TT-R')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('columnheader')).toHaveLength(4)
+  })
+
+  it('renders the table and its pagination inside one card', () => {
+    render(<Harness />)
+    const card = screen.getByRole('table').closest('.MuiPaper-root')!
+    expect(card).not.toBeNull()
+    expect(within(card as HTMLElement).getByText(/Showing 1–3 of 3 records/)).toBeInTheDocument()
+  })
+
+  it('shows a loading row on first load, without pagination', () => {
+    mockRows.mockReturnValue({ data: undefined, isLoading: true, isError: false })
+    render(<Harness />)
+    expect(screen.getByRole('progressbar')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Sales Order No' })).toBeInTheDocument()
+    expect(screen.queryByText(/Showing/)).not.toBeInTheDocument()
+  })
+
+  it('shows an error row when the rows fail to load, without pagination', () => {
+    mockRows.mockReturnValue({ data: undefined, isLoading: false, isError: true })
+    render(<Harness />)
+    expect(screen.getByText('Failed to load payments.')).toBeInTheDocument()
+    expect(screen.queryByText(/Showing/)).not.toBeInTheDocument()
+  })
+
+  it('shows an empty row when no payments are eligible', () => {
+    mockRows.mockReturnValue({ data: { data: [], meta: { total: 0, page: 1, limit: 25 } } })
+    render(<Harness />)
+    expect(screen.getByText('No eligible payments for this settlement date.')).toBeInTheDocument()
+    expect(screen.queryByText(/Showing/)).not.toBeInTheDocument()
+  })
+
+  it('names the search in the empty row when a search is active', async () => {
+    render(<Harness />)
+    mockRows.mockReturnValue({ data: { data: [], meta: { total: 0, page: 1, limit: 25 } } })
+    await userEvent.type(screen.getByLabelText('Search'), 'zzz')
+    expect(await screen.findByText('No payments match your search.')).toBeInTheDocument()
+  })
+
+  it('keeps pagination when a page comes back empty but rows remain, so the user can page back', () => {
+    // Rows claimed elsewhere can empty the current page while total > 0.
+    mockRows.mockReturnValue({ data: { data: [], meta: { total: 30, page: 1, limit: 25 } } })
+    render(<Harness />)
+    expect(screen.getByText(/of 30 records/)).toBeInTheDocument()
+  })
+
+  it('keeps showing the current rows while a refetch is in flight', () => {
+    mockRows.mockReturnValue({
+      data: { data: [TIKTOK], meta: { total: 1, page: 1, limit: 25 } }, isLoading: false, isFetching: true,
+    })
+    render(<Harness />)
+    expect(screen.getByText('SO-26-008')).toBeInTheDocument()
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
   })
 
   it('totals the selection exactly and keeps it across pages', async () => {
