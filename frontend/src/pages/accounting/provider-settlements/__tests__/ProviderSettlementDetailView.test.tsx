@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,11 +7,31 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ProviderSettlementDetailView from '../ProviderSettlementDetailView'
 
 const mockNavigate = vi.fn()
+const mockPost = vi.fn()
+const mockDiscard = vi.fn()
+const mockReverse = vi.fn()
+const mockShowSuccess = vi.fn()
+const mockShowError = vi.fn()
+// Per-mutation pending flag, read at render time.
+const pending = { post: false, discard: false, reverse: false }
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
   return { ...actual, useNavigate: () => mockNavigate }
 })
+
+// Each trigger returns { unwrap } like an RTK Query mutation.
+const trigger = (fn: ReturnType<typeof vi.fn>) => (id: string) => ({ unwrap: () => fn(id) })
+
+vi.mock('@/store/api/accountingApi', () => ({
+  usePostProviderSettlementMutation: () => [trigger(mockPost), { isLoading: pending.post }],
+  useDiscardProviderSettlementMutation: () => [trigger(mockDiscard), { isLoading: pending.discard }],
+  useReverseProviderSettlementMutation: () => [trigger(mockReverse), { isLoading: pending.reverse }],
+}))
+
+vi.mock('@/hooks/useNotification', () => ({
+  useNotification: () => ({ showSuccess: mockShowSuccess, showError: mockShowError }),
+}))
 
 const base = {
   id: 'ps-1', referenceNumber: 'PS-26-001', settlementDate: '2026-09-20',
@@ -109,7 +129,149 @@ describe('ProviderSettlementDetailView', () => {
   // tests; clear it so the one test that sets it cannot leak into the rest.
   beforeEach(() => {
     localStorage.clear()
-    mockNavigate.mockReset()
+    for (const m of [mockNavigate, mockPost, mockDiscard, mockReverse, mockShowSuccess, mockShowError]) {
+      m.mockReset()
+    }
+    mockPost.mockResolvedValue(undefined)
+    mockDiscard.mockResolvedValue(undefined)
+    mockReverse.mockResolvedValue(undefined)
+    Object.assign(pending, { post: false, discard: false, reverse: false })
+  })
+
+  // #1316: status-driven document actions under the header.
+  describe('document actions', () => {
+    const actionRow = () => screen.queryByTestId('settlement-actions')
+    const actionLabels = () =>
+      within(actionRow()!).getAllByRole('button').map((b) => b.textContent)
+    const dialog = () => screen.getByRole('dialog')
+
+    it('offers Edit, Post and Discard on a draft', () => {
+      view()
+      expect(actionLabels()).toEqual(['Edit', 'Post', 'Discard'])
+    })
+
+    it('offers only Reverse once posted', () => {
+      view({ status: 'POSTED', journalEntryId: 'je-1' } as any)
+      expect(actionLabels()).toEqual(['Reverse'])
+    })
+
+    it('renders no action row once reversed', () => {
+      view({ status: 'REVERSED', journalEntryId: 'je-1', reversalJournalEntryId: 'je-2' } as any)
+      expect(actionRow()).toBeNull()
+    })
+
+    it('never offers View on the detail page itself', () => {
+      view()
+      expect(within(actionRow()!).queryByRole('button', { name: 'View' })).toBeNull()
+    })
+
+    it('makes the primary action contained and the others outlined', () => {
+      view()
+      const btn = (name: string) => within(actionRow()!).getByRole('button', { name })
+      expect(btn('Post')).toHaveClass('MuiButton-contained')
+      expect(btn('Edit')).toHaveClass('MuiButton-outlined')
+      expect(btn('Discard')).toHaveClass('MuiButton-outlined')
+    })
+
+    it('makes Reverse contained on a posted settlement', () => {
+      view({ status: 'POSTED', journalEntryId: 'je-1' } as any)
+      expect(within(actionRow()!).getByRole('button', { name: 'Reverse' }))
+        .toHaveClass('MuiButton-contained')
+    })
+
+    it('navigates to the edit route', async () => {
+      view()
+      await userEvent.click(within(actionRow()!).getByRole('button', { name: 'Edit' }))
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/provider-settlements/ps-1/edit')
+    })
+
+    describe('Post guard', () => {
+      it('disables Post with its tooltip when the clearing account is explicitly unflagged', async () => {
+        view({ clearingAccount: { ...base.clearingAccount, isProviderClearing: false } } as any)
+        const post = within(actionRow()!).getByRole('button', { name: 'Post' })
+        expect(post).toBeDisabled()
+        // A disabled button swallows pointer events; the wrapper carries the hover.
+        await userEvent.hover(post.parentElement!)
+        expect(await screen.findByRole('tooltip')).toHaveTextContent('Not a provider clearing account')
+      })
+
+      it('leaves Post enabled when the clearing account is flagged', () => {
+        view({ clearingAccount: { ...base.clearingAccount, isProviderClearing: true } } as any)
+        expect(within(actionRow()!).getByRole('button', { name: 'Post' })).toBeEnabled()
+      })
+
+      // Only an explicit false blocks; an unknown flag never does.
+      it('leaves Post enabled when the flag is undefined', () => {
+        view()
+        expect(base.clearingAccount).not.toHaveProperty('isProviderClearing')
+        expect(within(actionRow()!).getByRole('button', { name: 'Post' })).toBeEnabled()
+      })
+    })
+
+    describe.each([
+      { label: 'Post', status: 'DRAFT', mutation: () => mockPost, done: 'posted' },
+      { label: 'Discard', status: 'DRAFT', mutation: () => mockDiscard, done: 'discarded' },
+      { label: 'Reverse', status: 'POSTED', mutation: () => mockReverse, done: 'reversed' },
+    ] as const)('$label', ({ label, status, mutation, done }) => {
+      const open = async () => {
+        view({ status, journalEntryId: status === 'POSTED' ? 'je-1' : null } as any)
+        await userEvent.click(within(actionRow()!).getByRole('button', { name: label }))
+      }
+
+      it('confirms before mutating', async () => {
+        await open()
+        expect(dialog()).toBeInTheDocument()
+        expect(mutation()).not.toHaveBeenCalled()
+        await userEvent.click(within(dialog()).getByRole('button', { name: label }))
+        expect(mutation()).toHaveBeenCalledWith('ps-1')
+        await waitFor(() =>
+          expect(mockShowSuccess).toHaveBeenCalledWith(`Settlement PS-26-001 ${done}`))
+        expect(mockShowError).not.toHaveBeenCalled()
+      })
+
+      it('does nothing when cancelled', async () => {
+        await open()
+        await userEvent.click(within(dialog()).getByRole('button', { name: 'Cancel' }))
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+        expect(mutation()).not.toHaveBeenCalled()
+      })
+
+      it('reports the server error and stays on the page', async () => {
+        mutation().mockRejectedValue({ status: 409, data: 'Settlement changed' })
+        await open()
+        await userEvent.click(within(dialog()).getByRole('button', { name: label }))
+        await waitFor(() => expect(mockShowError).toHaveBeenCalledWith('Settlement changed'))
+        expect(mockShowSuccess).not.toHaveBeenCalled()
+        expect(mockNavigate).not.toHaveBeenCalled()
+      })
+    })
+
+    it.each([
+      { label: 'Post', status: 'DRAFT', key: 'post' },
+      { label: 'Discard', status: 'DRAFT', key: 'discard' },
+      { label: 'Reverse', status: 'POSTED', key: 'reverse' },
+    ] as const)('disables confirming $label while its mutation is pending', async ({ label, status, key }) => {
+      pending[key] = true
+      view({ status, journalEntryId: status === 'POSTED' ? 'je-1' : null } as any)
+      await userEvent.click(within(actionRow()!).getByRole('button', { name: label }))
+      expect(within(dialog()).getByRole('button', { name: label })).toBeDisabled()
+    })
+
+    it('returns to the list after a successful Discard', async () => {
+      view()
+      await userEvent.click(within(actionRow()!).getByRole('button', { name: 'Discard' }))
+      await userEvent.click(within(dialog()).getByRole('button', { name: 'Discard' }))
+      await waitFor(() =>
+        expect(mockNavigate).toHaveBeenCalledWith('/accounting/provider-settlements'))
+    })
+
+    it.each(['Post', 'Reverse'] as const)('stays on the detail page after a successful %s', async (label) => {
+      view(label === 'Reverse' ? { status: 'POSTED', journalEntryId: 'je-1' } as any : {})
+      await userEvent.click(within(actionRow()!).getByRole('button', { name: label }))
+      await userEvent.click(within(dialog()).getByRole('button', { name: label }))
+      await waitFor(() => expect(mockShowSuccess).toHaveBeenCalled())
+      expect(mockNavigate).not.toHaveBeenCalled()
+    })
   })
 
   // #1315: the shared Accounting detail header.

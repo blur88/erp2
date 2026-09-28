@@ -1,26 +1,58 @@
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import {
   Alert,
   Box,
+  Button,
   Card,
   CardContent,
   Grid,
   Link,
   Tab,
   Tabs,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom'
 
+import ConfirmationDialog from '@/components/common/ConfirmationDialog'
 import { DataTable, type Column } from '@/components/common/DataTable'
 import PageHeader from '@/components/common/PageHeader'
 import { StatusChip } from '@/components/common/StatusChip'
 import { TABLE_STYLES } from '@/constants/tableStyles'
+import { useNotification } from '@/hooks/useNotification'
+import {
+  useDiscardProviderSettlementMutation,
+  usePostProviderSettlementMutation,
+  useReverseProviderSettlementMutation,
+} from '@/store/api/accountingApi'
 import type { ProviderSettlement, ProviderSettlementLine } from '@/types'
 import { toScaledAmount } from '@/utils/currency'
+import { rtkErrorMessage } from '@/utils/errorMessage'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { currentListPath } from '@/utils/listQuery'
-import { isNotProviderClearingDraft } from './providerSettlementActions'
+import {
+  CONFIRM_COPY,
+  getProviderSettlementActionMetas,
+  isNotProviderClearingDraft,
+  NOT_PROVIDER_CLEARING_TOOLTIP,
+} from './providerSettlementActions'
+
+type ConfirmAction = 'post' | 'discard' | 'reverse'
+
+// The primary action for its status is contained, the rest outlined, as on
+// ExpenseDetailView / OwnerEquityDetailView.
+const ACTION_VARIANTS: Record<string, 'contained' | 'outlined'> = {
+  edit: 'outlined',
+  post: 'contained',
+  discard: 'outlined',
+  reverse: 'contained',
+}
+
+const DONE_LABEL: Record<ConfirmAction, string> = {
+  post: 'posted',
+  discard: 'discarded',
+  reverse: 'reversed',
+}
 
 interface TabPanelProps {
   children?: ReactNode
@@ -76,6 +108,41 @@ export default function ProviderSettlementDetailView({
   // range) is Overview. Number('abc') is NaN, which a min/max clamp passes
   // straight through to <Tabs value>.
   const tabValue = searchParams.get('tab') === '1' ? 1 : 0
+
+  const { showSuccess, showError } = useNotification()
+  const [postSettlement, { isLoading: isPosting }] = usePostProviderSettlementMutation()
+  const [discard, { isLoading: isDiscarding }] = useDiscardProviderSettlementMutation()
+  const [reverse, { isLoading: isReversing }] = useReverseProviderSettlementMutation()
+  const [confirm, setConfirm] = useState<ConfirmAction | null>(null)
+  const pending = { post: isPosting, discard: isDiscarding, reverse: isReversing }
+
+  // Same status-driven set as the list row menu, minus View — this IS the view.
+  const actionMetas = getProviderSettlementActionMetas(settlement.status)
+    .filter((m) => m.key !== 'view')
+  const postBlocked = isNotProviderClearingDraft(settlement)
+
+  function handleAction(key: string) {
+    if (key === 'edit') return navigate(`/accounting/provider-settlements/${settlement.id}/edit`)
+    // Post, discard and reverse each move money or destroy work — confirm first.
+    setConfirm(key as ConfirmAction)
+  }
+
+  async function runConfirmed() {
+    if (!confirm) return
+    const action = confirm
+    try {
+      if (action === 'post') await postSettlement(settlement.id).unwrap()
+      if (action === 'discard') await discard(settlement.id).unwrap()
+      if (action === 'reverse') await reverse(settlement.id).unwrap()
+      showSuccess(`Settlement ${settlement.referenceNumber} ${DONE_LABEL[action]}`)
+      // The draft no longer exists; leave rather than show a detail page for it.
+      if (action === 'discard') navigate(currentListPath('/accounting/provider-settlements'))
+    } catch (err) {
+      showError(rtkErrorMessage(err, `Failed to ${action} settlement`))
+    } finally {
+      setConfirm(null)
+    }
+  }
 
   // One row per claimed payment, like the sibling Payments tabs, ordered by
   // sales order then payment date. Legacy lines without the joined payment
@@ -156,9 +223,34 @@ export default function ProviderSettlementDetailView({
         backAction={() => navigate(currentListPath('/accounting/provider-settlements'))}
       />
 
-      {/* Reserved: the sibling detail pages render their action-button row here.
-          Settlement actions stay in the list-row menu for now (#1315 non-goal);
-          detail-page actions are tracked in #1316. */}
+      {actionMetas.length > 0 && (
+        <Box
+          data-testid="settlement-actions"
+          sx={{ display: 'flex', gap: 1, px: 3, pb: 1.5, flexWrap: 'wrap' }}
+        >
+          {actionMetas.map(({ key, label }) => {
+            const blocked = key === 'post' && postBlocked
+            const button = (
+              <Button
+                key={key}
+                variant={ACTION_VARIANTS[key]}
+                size="small"
+                onClick={() => handleAction(key)}
+                disabled={blocked}
+              >
+                {label}
+              </Button>
+            )
+            // A disabled button swallows pointer events, so a `title` on it never
+            // shows; the span carries the hover, as RowActionMenu does.
+            return blocked ? (
+              <Tooltip key={key} title={NOT_PROVIDER_CLEARING_TOOLTIP}>
+                <span>{button}</span>
+              </Tooltip>
+            ) : button
+          })}
+        </Box>
+      )}
 
       {blockedLabels.length > 0 && (
         <Alert severity="warning" data-testid="not-provider-clearing" sx={{ mx: 3, mb: 1.5 }}>
@@ -278,6 +370,17 @@ export default function ProviderSettlementDetailView({
           )}
         />
       </TabPanel>
+
+      <ConfirmationDialog
+        open={confirm !== null}
+        title={CONFIRM_COPY[confirm ?? 'post'].title}
+        message={CONFIRM_COPY[confirm ?? 'post'].message}
+        confirmText={CONFIRM_COPY[confirm ?? 'post'].confirmText}
+        severity={confirm === 'post' ? 'info' : 'warning'}
+        loading={confirm !== null && pending[confirm]}
+        onConfirm={runConfirmed}
+        onCancel={() => setConfirm(null)}
+      />
     </Box>
   )
 }
