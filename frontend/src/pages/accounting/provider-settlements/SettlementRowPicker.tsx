@@ -1,11 +1,9 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   Alert,
   Box,
   Checkbox,
-  Chip,
-  Collapse,
-  IconButton,
+  CircularProgress,
   Stack,
   Table,
   TableBody,
@@ -15,14 +13,14 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
 
 import PagePagination from '@/components/common/PagePagination'
+import { TableCard } from '@/components/common/TableCard'
+import { TABLE_STYLES } from '@/constants/tableStyles'
 import { useGetEligibleSettlementRowsQuery } from '@/store/api/accountingApi'
 import type { EligibleSettlementRow } from '@/types'
 import { fromScaledAmount, toScaledAmount } from '@/utils/currency'
-import { formatCurrency, formatDate } from '@/utils/formatters'
+import { formatCurrency } from '@/utils/formatters'
 
 import { groupKey, methodsIn, selectionTotals, type SelectedRow } from './settlementSelection'
 
@@ -55,13 +53,28 @@ function useDebounce(value: string, delay: number) {
   return debouncedValue
 }
 
+// Local rather than `@mui/utils`' visuallyHidden: that package is not a
+// direct dependency. Same rules as StatementFigure's a11yOnlySx.
+const visuallyHidden = {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+} as const
+
+const COLUMN_COUNT = 4
+
 export default function SettlementRowPicker({
   settlementDate, settlementId, selected, onChange, enteredAmount, attentionKeys = [],
 }: SettlementRowPickerProps) {
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(25)
   const [search, setSearch] = useState('')
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const debouncedSearch = useDebounce(search, 300)
 
   // Every input that redefines the result set invalidates the current page:
@@ -75,7 +88,7 @@ export default function SettlementRowPicker({
   // serve RTK's cached rows, hiding payments recorded in another tab or by
   // another user until a browser refresh (#1296). Same-tab sales payments are
   // covered by cross-slice tag invalidation instead.
-  const { data } = useGetEligibleSettlementRowsQuery({
+  const { data, isLoading, isError } = useGetEligibleSettlementRowsQuery({
     settlementDate, ...(settlementId ? { settlementId } : {}),
     search: debouncedSearch || undefined, page, limit,
   }, { refetchOnMountOrArgChange: true })
@@ -92,13 +105,36 @@ export default function SettlementRowPicker({
           paymentMethodName: row.paymentMethodName, orderNumber: row.orderNumber, netAmount: row.netAmount,
         }])
   }
-  function toggleExpanded(key: string) {
-    setExpanded((prev) => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next })
-  }
 
   const { selectedMinor, enteredMinor, differenceMinor } = selectionTotals(selected, enteredAmount)
   const money = (units: bigint | null) => (units === null ? '—' : formatCurrency(fromScaledAmount(units)))
   const methods = methodsIn(selected)
+  const rows = data?.data ?? []
+  const total = data?.meta.total ?? 0
+  // Shown whenever there is something to page through — not only when rows are
+  // on screen. If rows are claimed elsewhere, the current page can come back
+  // empty with total > 0, and hiding the footer then would strand the user.
+  const showPagination = !isLoading && !isError && total > 0
+
+  /** A single full-width body row for the loading / error / empty states. */
+  const stateRow = (content: ReactNode) => (
+    <TableRow>
+      <TableCell colSpan={COLUMN_COUNT} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+        {content}
+      </TableCell>
+    </TableRow>
+  )
+  // Rows already on screen stay there while a refetch is in flight; only a
+  // first load with nothing to show gets the spinner.
+  const body = isLoading && !data
+    ? stateRow(<CircularProgress size={28} />)
+    : isError
+      ? stateRow('Failed to load payments.')
+      : rows.length === 0
+        ? stateRow(debouncedSearch
+          ? 'No payments match your search.'
+          : 'No eligible payments for this settlement date.')
+        : null
 
   return (
     <Box>
@@ -107,7 +143,8 @@ export default function SettlementRowPicker({
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         size="small"
-        sx={{ mb: 2, minWidth: 280 }}
+        fullWidth
+        sx={{ mb: 2, maxWidth: { sm: 360 } }}
       />
 
       {methods.length > 1 && (
@@ -118,80 +155,59 @@ export default function SettlementRowPicker({
         </Alert>
       )}
 
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell padding="checkbox" />
-            <TableCell padding="checkbox" />
-            <TableCell>Sales Order No</TableCell>
-            <TableCell>Payment Method</TableCell>
-            <TableCell align="right">Net Amount</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {(data?.data ?? []).map((row) => {
-            const key = groupKey(row)
-            const netMinor = toScaledAmount(row.netAmount)
-            const open = expanded.has(key)
-            return (
-              <Fragment key={key}>
-                <TableRow hover>
-                  <TableCell padding="checkbox">
-                    <Checkbox
-                      checked={selectedKeys.has(key)}
-                      disabled={blocked.has(key)}
-                      onChange={() => toggle(row)}
-                      // MUI v9 removed Checkbox `inputProps`; slotProps.input is
-                      // the replacement, and it is what gives the input its name.
-                      slotProps={{ input: { 'aria-label': `${row.orderNumber} ${row.paymentMethodName} ${row.netAmount}` } }}
-                    />
-                  </TableCell>
-                  <TableCell padding="checkbox">
-                    <IconButton size="small" aria-label={`${open ? 'Hide' : 'Show'} payments for ${row.orderNumber}`} onClick={() => toggleExpanded(key)}>
-                      {open ? <KeyboardArrowUpIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
-                    </IconButton>
-                  </TableCell>
-                  <TableCell>{row.orderNumber}</TableCell>
-                  <TableCell>{row.paymentMethodName}</TableCell>
-                  <TableCell align="right">
-                    {/* A marker element, not a colour: jsdom cannot assert colour. */}
-                    {netMinor !== null && netMinor < 0n && (
-                      <Chip size="small" label="Deduction" data-testid="deduction-marker" sx={{ mr: 1 }} />
-                    )}
-                    {money(netMinor)}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell colSpan={5} sx={{ py: 0, borderBottom: open ? undefined : 'none' }}>
-                    <Collapse in={open} unmountOnExit>
-                      <Table size="small">
-                        <TableBody>
-                          {row.payments.map((p) => (
-                            <TableRow key={p.id}>
-                              <TableCell>{formatDate(p.paymentDate)}</TableCell>
-                              <TableCell>{p.referenceNumber ?? '—'}</TableCell>
-                              <TableCell align="right">{money(toScaledAmount(p.amount))}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </Collapse>
-                  </TableCell>
-                </TableRow>
-              </Fragment>
-            )
-          })}
-        </TableBody>
-      </Table>
+      <TableCard>
+        {/* TableCard clips (overflow: hidden) to keep the header inside its
+            rounded corners, so the horizontal scroll lives on this inner box.
+            Pagination sits outside it and stays in view at narrow widths. */}
+        <Box sx={{ overflowX: 'auto' }}>
+          <Table size={TABLE_STYLES.size} sx={{ minWidth: 480 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell padding="checkbox" />
+                <TableCell>Sales Order No</TableCell>
+                <TableCell>Payment Method</TableCell>
+                <TableCell align="right">Net Amount</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {body ?? rows.map((row) => {
+                const key = groupKey(row)
+                return (
+                  <TableRow key={key} hover>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        size="small"
+                        checked={selectedKeys.has(key)}
+                        disabled={blocked.has(key)}
+                        onChange={() => toggle(row)}
+                        // MUI v9 removed Checkbox `inputProps`; slotProps.input is
+                        // the replacement, and it is what gives the input its name.
+                        slotProps={{ input: { 'aria-label': `${row.orderNumber} ${row.paymentMethodName} ${row.netAmount}` } }}
+                      />
+                    </TableCell>
+                    <TableCell>{row.orderNumber}</TableCell>
+                    <TableCell>{row.paymentMethodName}</TableCell>
+                    <TableCell align="right">
+                      <SignedAmount amount={row.netAmount} negativeLabel="Deduction" testId="net-amount" />
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </Box>
 
-      <PagePagination
-        // The server echoes the effective page size in `meta.limit`; use it so
-        // the footer cannot disagree with the rows actually returned (a server
-        // clamp would otherwise show the wrong page count).
-        total={data?.meta.total ?? 0}
-        page={page} limit={data?.meta.limit ?? limit}
-        onPageChange={setPage} onLimitChange={setLimit}
-      />
+        {showPagination && (
+          <PagePagination
+            // The server echoes the effective page size in `meta.limit`; use it so
+            // the footer cannot disagree with the rows actually returned (a server
+            // clamp would otherwise show the wrong page count).
+            total={total}
+            page={page} limit={data?.meta.limit ?? limit}
+            onPageChange={setPage} onLimitChange={setLimit}
+          />
+        )}
+      </TableCard>
 
       {/* The data-testids sit on the VALUE, not the labelled group, so a
           content assertion cannot pass on the label text alone. */}
@@ -207,6 +223,30 @@ export default function SettlementRowPicker({
         <Total label="Difference" testId="difference" value={money(differenceMinor)} strong />
       </Stack>
     </Box>
+  )
+}
+
+/**
+ * A scale-4 API amount. Negatives render in error red with their minus sign,
+ * preceded by a visually hidden label announced with the amount — the label
+ * must sit inside the same cell to keep the amount's row/column relationship.
+ */
+function SignedAmount({
+  amount, negativeLabel, testId,
+}: { amount: string; negativeLabel: string; testId: string }) {
+  const units = toScaledAmount(amount)
+  const negative = units !== null && units < 0n
+  return (
+    <>
+      {negative && <Box component="span" sx={visuallyHidden}>{negativeLabel}</Box>}
+      <Box
+        component="span"
+        data-testid={testId}
+        sx={{ color: negative ? 'error.main' : 'text.primary', fontVariantNumeric: 'tabular-nums' }}
+      >
+        {units === null ? '—' : formatCurrency(fromScaledAmount(units))}
+      </Box>
+    </>
   )
 }
 
