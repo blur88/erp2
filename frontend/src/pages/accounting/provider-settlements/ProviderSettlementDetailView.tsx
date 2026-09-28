@@ -32,6 +32,7 @@ import { formatCurrency, formatDate } from '@/utils/formatters'
 import { currentListPath } from '@/utils/listQuery'
 import {
   CONFIRM_COPY,
+  DONE_LABEL,
   getProviderSettlementActionMetas,
   isNotProviderClearingDraft,
   NOT_PROVIDER_CLEARING_TOOLTIP,
@@ -46,12 +47,6 @@ const ACTION_VARIANTS: Record<string, 'contained' | 'outlined'> = {
   post: 'contained',
   discard: 'outlined',
   reverse: 'contained',
-}
-
-const DONE_LABEL: Record<ConfirmAction, string> = {
-  post: 'posted',
-  discard: 'discarded',
-  reverse: 'reversed',
 }
 
 interface TabPanelProps {
