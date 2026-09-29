@@ -12,7 +12,7 @@ import {
 } from '@mui/material'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { format, parseISO } from 'date-fns'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import { AppButton } from '@/components/common/AppButton'
 import ConfirmationDialog from '@/components/common/ConfirmationDialog'
@@ -33,6 +33,7 @@ import type { ClaimedSettlementRow } from '@/types'
 import { toAmountInputValue, toScaledAmount } from '@/utils/currency'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getCurrentDate, toMuiDatePickerFormat } from '@/utils/formatters'
+import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 
 import NeedsAttention, { NOT_PROVIDER_CLEARING_REASON, type AttentionGroup } from './NeedsAttention'
 import SettlementRowPicker from './SettlementRowPicker'
@@ -76,6 +77,18 @@ export default function ProviderSettlementFormPage() {
   const navigate = useNavigate()
   const { showSuccess, showError } = useNotification()
   const isEdit = Boolean(id)
+
+  // Edit can be opened from the list or from Detail. The list marks its origin
+  // explicitly; everything else — including a directly typed or shared /edit
+  // URL, indistinguishable here from a Detail-opened one — falls back to Detail.
+  // Issue #1325, mirroring OwnerEquityFormPage's ownerEquityEditOrigin.
+  const location = useLocation()
+  // The ticket carried from the list (or forwarded by Detail) restores its
+  // filters on the way back.
+  const listPath = currentListPath(LIST_PATH)
+  const isListOrigin =
+    (location.state as { providerSettlementEditOrigin?: string } | null)
+      ?.providerSettlementEditOrigin === 'list'
 
   const {
     data: existing,
@@ -384,19 +397,31 @@ export default function ProviderSettlementFormPage() {
     setIsSaving(true)
     try {
       const savedId = await save()
-      // Create leaves the form, as Owner Equity does, handing the new draft back
-      // for the list to highlight. Staying on /create would let a second Save
-      // create a duplicate draft. Edit stays put.
-      if (savedId && !isEdit) {
-        navigate(LIST_PATH, { state: { highlightProviderSettlementId: savedId } })
-      }
+      // Save leaves the form, as Owner Equity does. Create hands the new draft
+      // back for the list to highlight; staying on /create would let a second
+      // Save create a duplicate draft. Edit returns to its origin (#1325). This
+      // runs while isSaving is still true, so the unsaved-changes guard lets it
+      // through even though the baseline update has not rendered yet.
+      if (savedId && isEdit) returnAfterEdit()
+      else if (savedId) navigate(listPath, { state: { highlightProviderSettlementId: savedId } })
     } finally {
       setIsSaving(false)
     }
   }
 
+  // List-origin Save/Cancel/Back go back to the list, handing the edited row
+  // back to highlight the way Create does; everything else returns to Detail.
+  function returnAfterEdit() {
+    if (isListOrigin) {
+      navigate(listPath, { state: { highlightProviderSettlementId: id } })
+    } else {
+      navigate(forwardListQuery(`${LIST_PATH}/${id}/view`))
+    }
+  }
+
   const handleCancel = () => {
-    navigate(isEdit ? `${LIST_PATH}/${id}/view` : LIST_PATH)
+    if (isEdit) returnAfterEdit()
+    else navigate(listPath)
   }
 
   const loadFailed = existingLoadFailed || claimedLoadFailed
@@ -416,7 +441,7 @@ export default function ProviderSettlementFormPage() {
           title="Edit Provider Settlement"
           subtitle=""
           variant="workflow"
-          backAction={() => navigate(LIST_PATH)}
+          backAction={() => navigate(listPath)}
         />
         <Alert severity="error" sx={{ mt: 2 }}>
           Failed to load this settlement. Go back and try again.

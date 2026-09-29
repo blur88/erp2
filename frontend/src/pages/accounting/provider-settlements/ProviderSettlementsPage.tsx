@@ -22,6 +22,7 @@ import type { FilterBarConfig, PeriodValue } from '@/types/filterBar.types'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { getPeriodDateRange, getStartOfWeek } from '@/utils/dateRange'
+import { withCurrentListQuery } from '@/utils/listQuery'
 import { PAGINATION } from '@/constants/tableStyles'
 import {
   CONFIRM_COPY,
@@ -157,15 +158,22 @@ export default function ProviderSettlementsPage() {
     { action: 'post' | 'discard' | 'reverse'; row: ProviderSettlement } | null
   >(null)
 
+  // Detail and Edit carry the list query as a ticket so every return trip
+  // restores the filters. Edit also marks its origin, so the form's
+  // Save/Cancel/Back come back here rather than to Detail. Issue #1325.
   const handleView = useCallback(
     (row: ProviderSettlement) =>
-      navigate(`/accounting/provider-settlements/${row.id}/view`),
+      navigate(withCurrentListQuery(`/accounting/provider-settlements/${row.id}/view`)),
     [navigate],
   )
 
   function handleAction(key: string, row: ProviderSettlement) {
     if (key === 'view') return handleView(row)
-    if (key === 'edit') return navigate(`/accounting/provider-settlements/${row.id}/edit`)
+    if (key === 'edit') {
+      return navigate(withCurrentListQuery(`/accounting/provider-settlements/${row.id}/edit`), {
+        state: { providerSettlementEditOrigin: 'list' },
+      })
+    }
     // Post, discard and reverse each move money or destroy work — confirm first.
     setConfirm({ action: key as 'post' | 'discard' | 'reverse', row })
   }

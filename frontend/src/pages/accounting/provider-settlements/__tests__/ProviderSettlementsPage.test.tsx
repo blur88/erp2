@@ -295,6 +295,63 @@ describe('ProviderSettlementsPage', () => {
   })
 
   // #1277: Create returns here and hands the new draft's id back in history
+  // #1325: Edit must tell the form it was opened from the list, so the form's
+  // Save/Cancel/Back come back here instead of falling through to Detail. Both
+  // Edit and View carry the list query as a ticket, so every return trip —
+  // including list → Detail → Edit → Detail → Back — restores the filters.
+  describe('outbound navigation (#1325)', () => {
+    const LIST_URL = '/accounting/provider-settlements?status=DRAFT&search=ATM'
+
+    function renderRoutes(rows: any[]) {
+      mockList.mockReturnValue({
+        data: { data: rows, meta: { total: rows.length, page: 1, limit: 25 } },
+        isLoading: false, isError: false,
+      })
+      // Seed the REAL url too: the listQuery helpers read window.location.search,
+      // which the memory router does not touch.
+      window.history.replaceState(null, '', LIST_URL)
+      const router = createMemoryRouter(
+        [
+          { path: '/accounting/provider-settlements', element: <ProviderSettlementsPage /> },
+          { path: '/accounting/provider-settlements/:id/edit', element: <div>EDIT PAGE</div> },
+          { path: '/accounting/provider-settlements/:id/view', element: <div>DETAIL PAGE</div> },
+        ],
+        { initialEntries: [LIST_URL] },
+      )
+      render(<RouterProvider router={router} />)
+      return router
+    }
+
+    // Assert on the decoded ticket, not a serialized string: param ORDER is an
+    // implementation detail of useFilterBar.
+    const ticketOf = (search: string) =>
+      new URLSearchParams(new URLSearchParams(search).get('listQuery') ?? '')
+
+    it('opens Edit with explicit list-origin state and the list query', async () => {
+      const router = renderRoutes([row({ status: 'DRAFT' })])
+      await userEvent.click(screen.getByRole('button', { name: /actions/i }))
+      await userEvent.click(within(screen.getByRole('menu')).getByText('Edit'))
+
+      expect(await screen.findByText('EDIT PAGE')).toBeInTheDocument()
+      expect(router.state.location.pathname).toBe('/accounting/provider-settlements/ps-1/edit')
+      expect(router.state.location.state).toEqual({ providerSettlementEditOrigin: 'list' })
+      const ticket = ticketOf(router.state.location.search)
+      expect(ticket.get('status')).toBe('DRAFT')
+      expect(ticket.get('search')).toBe('ATM')
+    })
+
+    it('opens Detail with the list query', async () => {
+      const router = renderRoutes([row()])
+      await userEvent.click(screen.getByText('PS-26-001'))
+
+      expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument()
+      expect(router.state.location.pathname).toBe('/accounting/provider-settlements/ps-1/view')
+      const ticket = ticketOf(router.state.location.search)
+      expect(ticket.get('status')).toBe('DRAFT')
+      expect(ticket.get('search')).toBe('ATM')
+    })
+  })
+
   // state, the way Owner Equity does (#1088). The tint is a one-shot
   // confirmation of the return trip, so it is copied into local state and
   // dropped from history immediately.

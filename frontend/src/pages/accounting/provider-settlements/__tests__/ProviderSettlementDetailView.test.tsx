@@ -179,10 +179,31 @@ describe('ProviderSettlementDetailView', () => {
         .toHaveClass('MuiButton-contained')
     })
 
-    it('navigates to the edit route', async () => {
+    // #1325: Detail marks its origin so the form's Save/Cancel/Back return here,
+    // and forwards the list ticket so Detail's own Back still restores the list.
+    it('navigates to the edit route with detail-origin state', async () => {
       view()
       await userEvent.click(within(actionRow()!).getByRole('button', { name: 'Edit' }))
-      expect(mockNavigate).toHaveBeenCalledWith('/accounting/provider-settlements/ps-1/edit')
+      expect(mockNavigate).toHaveBeenCalledWith('/accounting/provider-settlements/ps-1/edit', {
+        state: { providerSettlementEditOrigin: 'detail' },
+      })
+    })
+
+    it('forwards only the list ticket to Edit, not page-owned params', async () => {
+      // forwardListQuery reads the REAL url, which MemoryRouter does not touch.
+      window.history.replaceState(
+        null, '', '/accounting/provider-settlements/ps-1/view?tab=1&listQuery=status%3DDRAFT',
+      )
+      try {
+        view()
+        await userEvent.click(within(actionRow()!).getByRole('button', { name: 'Edit' }))
+        expect(mockNavigate).toHaveBeenCalledWith(
+          '/accounting/provider-settlements/ps-1/edit?listQuery=status%3DDRAFT',
+          { state: { providerSettlementEditOrigin: 'detail' } },
+        )
+      } finally {
+        window.history.replaceState(null, '', '/')
+      }
     })
 
     describe('Post guard', () => {
