@@ -41,6 +41,7 @@ import {
   changeReason,
   groupKey,
   methodsIn,
+  BANK_ACCOUNT_REQUIRED,
   saveBlockReason,
   selectionFingerprint,
   toRowInputs,
@@ -284,28 +285,36 @@ export default function ProviderSettlementFormPage() {
     : null
   const bankOptions = accountsLoaded ? bankAccountOptions(allAccounts, form.bankAccountId, storedBank) : []
   const bankAccountIneligible =
-    accountsLoaded && form.bankAccountId !== '' && !isEligibleBankAccount(allAccounts, form.bankAccountId)
+    accountsLoaded && !!form.bankAccountId && !isEligibleBankAccount(allAccounts, form.bankAccountId)
+  // #1323: an empty bank account is blocked too, but only once rows and amount
+  // reconcile — see saveBlockReason.
+  const bankAccountMissing = accountsLoaded && !form.bankAccountId
   const noEligibleBanks = accountsLoaded && !bankOptions.some((o) => !o.disabled)
   const bankAccountBlock = accountsLoadFailed
     ? 'Bank accounts could not be loaded. Reload the page to try again.'
     : !accountsLoaded
       ? 'Loading bank accounts…'
       : bankAccountIneligible
-        ? 'Choose an eligible bank account.'
+        ? BANK_ACCOUNT_REQUIRED
         : null
-  const NO_BANKS = 'No bank accounts — flag one in Chart of Accounts.'
-  const bankHelperText = accountsLoadFailed
-    ? 'Bank accounts could not be loaded. Reload the page to try again.'
-    : bankAccountIneligible
-      ? noEligibleBanks ? `Choose an eligible bank account. ${NO_BANKS}` : 'Choose an eligible bank account.'
-      : noEligibleBanks ? NO_BANKS : undefined
 
   const blockReason = saveBlockReason({
     selected,
     entered: form.settlementAmount,
     unresolvedAttention: attention.length,
     bankAccountBlock,
+    bankAccountMissing,
   })
+
+  // A missing bank is flagged on the field only when it is what blocks the
+  // save, so a pristine form is not red before anything is chosen.
+  const bankAccountError = bankAccountIneligible || (bankAccountMissing && blockReason === BANK_ACCOUNT_REQUIRED)
+  const NO_BANKS = 'No bank accounts — flag one in Chart of Accounts.'
+  const bankHelperText = accountsLoadFailed
+    ? 'Bank accounts could not be loaded. Reload the page to try again.'
+    : bankAccountError
+      ? noEligibleBanks ? `${BANK_ACCOUNT_REQUIRED} ${NO_BANKS}` : BANK_ACCOUNT_REQUIRED
+      : noEligibleBanks ? NO_BANKS : undefined
 
   const methods = methodsIn(selected)
 
@@ -369,6 +378,9 @@ export default function ProviderSettlementFormPage() {
   // row menu, behind its confirmation — as Owner Equity keeps Complete off its
   // form (#1281).
   async function saveDraft() {
+    // The disabled button is not the only guard: never submit what the form
+    // itself says cannot be saved (#1323).
+    if (blockReason !== null) return
     setIsSaving(true)
     try {
       const savedId = await save()
@@ -492,7 +504,7 @@ export default function ProviderSettlementFormPage() {
                       select label="Bank Account" value={form.bankAccountId}
                       onChange={(e) => setForm((f) => ({ ...f, bankAccountId: e.target.value }))}
                       disabled={isSaving}
-                      error={bankAccountIneligible || accountsLoadFailed}
+                      error={bankAccountError || accountsLoadFailed}
                       helperText={bankHelperText}
                       fullWidth size="small"
                     >

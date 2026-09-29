@@ -267,6 +267,7 @@ describe('ProviderSettlementFormPage layout (#1277)', () => {
   it('shows only Cancel and Create Settlement when creating (#1281)', async () => {
     renderForm(CREATE)
     await tick(/SO-26-008 TikTok/)
+    await chooseBank()
     await userEvent.type(amountField(), '70')
     expect(actionRowLabels()).toEqual(['Cancel', 'Create Settlement'])
     expect(createButton()).toBeEnabled()
@@ -322,6 +323,7 @@ describe('ProviderSettlementFormPage navigation (#1277)', () => {
     mockCreate.mockReturnValue({ unwrap: () => Promise.reject({ status: 400, data: { message: 'Bad' } }) })
     renderForm(CREATE)
     await tick(/SO-26-008 TikTok/)
+    await chooseBank()
     await userEvent.type(amountField(), '70')
     await userEvent.click(createButton())
     await waitFor(() => expect(mockShowError).toHaveBeenCalled())
@@ -457,6 +459,7 @@ describe('ProviderSettlementFormPage unsaved changes (#1277)', () => {
     mockCreate.mockReturnValue({ unwrap: () => new Promise((r) => { resolve = r }) })
     renderForm(CREATE)
     await tick(/SO-26-008 TikTok/)
+    await chooseBank()
     await userEvent.type(amountField(), '70')
 
     await userEvent.click(createButton())
@@ -547,6 +550,7 @@ describe('ProviderSettlementFormPage create flow (#1284)', () => {
   it('create: treats 70 and 70.00 as equal', async () => {
     renderForm(CREATE)
     await tick(/SO-26-008 TikTok/)
+    await chooseBank()
     await userEvent.type(amountField(), '70.00')
     expect(createButton()).toBeEnabled()
   })
@@ -843,3 +847,48 @@ describe('ProviderSettlementFormPage destination bank flag (#1298)', () => {
   })
 })
 
+
+describe('ProviderSettlementFormPage missing bank account (#1323)', () => {
+  const bankField = () => screen.getByRole('combobox', { name: 'Bank Account' }).closest('.MuiFormControl-root') as HTMLElement
+  // The outlined notch repeats the label text in a <legend>; the label element is the one MUI marks Mui-error.
+  const bankLabel = () => bankField().querySelector('.MuiInputLabel-root')
+
+  it('create: blocks save with an inline message when rows and amount reconcile but no bank is chosen', async () => {
+    renderForm(CREATE)
+    await tick(/SO-26-008 TikTok/)
+    await userEvent.type(amountField(), '70')
+    expect(screen.getByTestId('save-block-reason')).toHaveTextContent('Choose an eligible bank account.')
+    expect(within(bankField()).getByText('Choose an eligible bank account.')).toBeInTheDocument()
+    expect(bankLabel()).toHaveClass('Mui-error')
+    expect(createButton()).toBeDisabled()
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('create: a pristine form asks for rows first and does not flag the bank field', () => {
+    renderForm(CREATE)
+    expect(screen.getByTestId('save-block-reason')).toHaveTextContent('Select at least one row.')
+    expect(within(bankField()).queryByText('Choose an eligible bank account.')).not.toBeInTheDocument()
+    expect(bankLabel()).not.toHaveClass('Mui-error')
+  })
+
+  it('create: choosing a bank clears the block and saves', async () => {
+    renderForm(CREATE)
+    await tick(/SO-26-008 TikTok/)
+    await userEvent.type(amountField(), '70')
+    await chooseBank()
+    expect(screen.queryByText('Choose an eligible bank account.')).not.toBeInTheDocument()
+    await userEvent.click(createButton())
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ bankAccountId: 'b1' }))
+  })
+
+  it.each([[''], [null]])('edit: a draft loaded with bankAccountId %j keeps Save Settlement disabled', async (bankAccountId) => {
+    seedEdit()
+    mockGetOne.mockReturnValue({ data: { ...DRAFT, settlementAmount: '100.0000', bankAccountId }, isLoading: false })
+    renderForm(EDIT)
+    await waitForEditSeeded()
+    expect(screen.getByTestId('save-block-reason')).toHaveTextContent('Choose an eligible bank account.')
+    expect(within(bankField()).getByText('Choose an eligible bank account.')).toBeInTheDocument()
+    expect(saveButton()).toBeDisabled()
+    expect(mockUpdate).not.toHaveBeenCalled()
+  })
+})

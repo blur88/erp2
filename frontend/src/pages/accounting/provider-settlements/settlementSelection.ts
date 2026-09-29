@@ -42,10 +42,13 @@ export function methodsIn(selected: SelectedRow[]) {
   return [...out.values()]
 }
 
+export const BANK_ACCOUNT_REQUIRED = 'Choose an eligible bank account.'
+
 export function saveBlockReason(input: {
   selected: SelectedRow[]; entered: string; unresolvedAttention: number; bankAccountBlock?: string | null
+  bankAccountMissing?: boolean
 }): string | null {
-  const { selected, entered, unresolvedAttention, bankAccountBlock } = input
+  const { selected, entered, unresolvedAttention, bankAccountBlock, bankAccountMissing } = input
   if (bankAccountBlock) return bankAccountBlock
   if (unresolvedAttention > 0) return 'Resolve the rows that need attention before saving.'
   if (selected.length === 0) return 'Select at least one row.'
@@ -55,6 +58,9 @@ export function saveBlockReason(input: {
   if (selectedMinor === null || selectedMinor <= 0n) return 'The selected total must be greater than zero.'
   if (enteredMinor === null) return 'Enter a valid amount received.'
   if (differenceMinor !== 0n) return 'Amount received must equal the selected total.'
+  // #1323: last, so the form walks rows → amount → bank. The load/ineligible
+  // bank blocks above keep their priority.
+  if (bankAccountMissing) return BANK_ACCOUNT_REQUIRED
   return null
 }
 

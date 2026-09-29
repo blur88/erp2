@@ -66,6 +66,22 @@ describe('methodsIn / saveBlockReason', () => {
     expect(saveBlockReason({ selected: [], entered: '', unresolvedAttention: 0, bankAccountBlock: null }))
       .toBe('Select at least one row.')
   })
+  it('blocks a missing bank account once rows and amount reconcile (#1323)', () => {
+    expect(saveBlockReason({ selected: [row()], entered: '70.00', unresolvedAttention: 0, bankAccountMissing: true }))
+      .toBe('Choose an eligible bank account.')
+  })
+  it('checks the missing bank account LAST, after rows and amount (#1323)', () => {
+    expect(saveBlockReason({ selected: [], entered: '', unresolvedAttention: 0, bankAccountMissing: true }))
+      .toBe('Select at least one row.')
+    expect(saveBlockReason({ selected: [row()], entered: '69.99', unresolvedAttention: 0, bankAccountMissing: true }))
+      .toBe('Amount received must equal the selected total.')
+  })
+  it('keeps the bank-account block ahead of the missing-bank rule (#1323)', () => {
+    expect(saveBlockReason({
+      selected: [row()], entered: '70.00', unresolvedAttention: 0,
+      bankAccountBlock: 'Loading bank accounts…', bankAccountMissing: true,
+    })).toBe('Loading bank accounts…')
+  })
 })
 
 describe('changeReason', () => {
