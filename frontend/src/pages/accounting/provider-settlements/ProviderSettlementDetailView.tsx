@@ -29,7 +29,7 @@ import type { ProviderSettlement, ProviderSettlementLine } from '@/types'
 import { toScaledAmount } from '@/utils/currency'
 import { rtkErrorMessage } from '@/utils/errorMessage'
 import { formatCurrency, formatDate } from '@/utils/formatters'
-import { currentListPath } from '@/utils/listQuery'
+import { currentListPath, forwardListQuery } from '@/utils/listQuery'
 import {
   CONFIRM_COPY,
   DONE_LABEL,
@@ -117,7 +117,13 @@ export default function ProviderSettlementDetailView({
   const postBlocked = isNotProviderClearingDraft(settlement)
 
   function handleAction(key: string) {
-    if (key === 'edit') return navigate(`/accounting/provider-settlements/${settlement.id}/edit`)
+    // Marks Detail as the origin so the form returns here, and forwards the
+    // list ticket so this page's Back still restores the list. Issue #1325.
+    if (key === 'edit') {
+      return navigate(forwardListQuery(`/accounting/provider-settlements/${settlement.id}/edit`), {
+        state: { providerSettlementEditOrigin: 'detail' },
+      })
+    }
     // Post, discard and reverse each move money or destroy work — confirm first.
     setConfirm(key as ConfirmAction)
   }

@@ -91,8 +91,14 @@ const CLAIMED_SWAPPED = { // same net, different membership
  * a plain MemoryRouter. The list and detail routes are plain markers — their
  * presence proves navigation actually completed, and the returned router
  * exposes the history entry's state.
+ *
+ * `state` is the history entry's state, e.g. the edit-origin marker the list and
+ * Detail pass (#1325). The route is also written to the REAL url, because the
+ * listQuery helpers read window.location.search, not the memory router.
  */
-function renderForm(route: string) {
+function renderForm(route: string, state?: unknown) {
+  window.history.replaceState(null, '', route)
+  const url = new URL(route, 'http://localhost')
   const router = createMemoryRouter(
     [
       { path: '/accounting/provider-settlements', element: <div>LIST PAGE</div> },
@@ -100,7 +106,7 @@ function renderForm(route: string) {
       { path: '/accounting/provider-settlements/:id/edit', element: <ProviderSettlementFormPage /> },
       { path: '/accounting/provider-settlements/:id/view', element: <div>DETAIL PAGE</div> },
     ],
-    { initialEntries: [route] },
+    { initialEntries: [{ pathname: url.pathname, search: url.search, state }] },
   )
   render(
     <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -169,6 +175,7 @@ async function dismissUnsavedChangesDialog() {
 }
 
 beforeEach(() => {
+  window.history.replaceState(null, '', '/')
   mockAccounts.mockReset().mockReturnValue(accountsPage(ACCOUNTS))
   mockEligible.mockReset().mockReturnValue({
     data: { data: ELIGIBLE, meta: { total: ELIGIBLE.length, page: 1, limit: 25 } },
@@ -336,7 +343,8 @@ describe('ProviderSettlementFormPage navigation (#1277)', () => {
     expect(await screen.findByText('LIST PAGE')).toBeInTheDocument()
   })
 
-  it('Cancel on a clean edit returns to the detail view', async () => {
+  // No origin marker (a typed or shared /edit URL) falls back to Detail (#1325).
+  it('Cancel on a clean edit with no origin returns to the detail view', async () => {
     seedEdit()
     renderForm(EDIT)
     await waitForEditSeeded()
@@ -344,12 +352,109 @@ describe('ProviderSettlementFormPage navigation (#1277)', () => {
     expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument()
   })
 
-  it('the header back arrow behaves like Cancel', async () => {
+  it('the header back arrow behaves like Cancel when there is no origin', async () => {
     seedEdit()
     renderForm(EDIT)
     await waitForEditSeeded()
     await userEvent.click(backButton())
     expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument()
+  })
+})
+
+// #1325: Edit remembers where it was opened from. The list marks its origin in
+// history state; Detail marks its own, and anything unmarked falls back to Detail.
+// Both carry the list query as a ticket, which every return trip restores.
+describe('ProviderSettlementFormPage edit origin (#1325)', () => {
+  const EDIT_WITH_TICKET = `${EDIT}?listQuery=${encodeURIComponent('status=DRAFT&search=ATM')}`
+  const LIST_ORIGIN = { providerSettlementEditOrigin: 'list' }
+  const DETAIL_ORIGIN = { providerSettlementEditOrigin: 'detail' }
+
+  const ticketOf = (search: string) =>
+    new URLSearchParams(new URLSearchParams(search).get('listQuery') ?? '')
+
+  async function editProviderReference() {
+    await userEvent.type(screen.getByLabelText('Provider Reference'), 'X')
+  }
+
+  describe('list origin', () => {
+    it('Save returns to the filtered list, highlighting the edited row, with no prompt', async () => {
+      seedEdit()
+      const router = renderForm(EDIT_WITH_TICKET, LIST_ORIGIN)
+      await waitForEditSeeded()
+      await editProviderReference()
+      await userEvent.click(saveButton())
+
+      expect(await screen.findByText('LIST PAGE')).toBeInTheDocument()
+      expect(router.state.location.search).toBe('?status=DRAFT&search=ATM')
+      expect(router.state.location.state).toEqual({ highlightProviderSettlementId: 'ps-1' })
+      expect(screen.queryByText(DIALOG_MESSAGE)).not.toBeInTheDocument()
+      expect(mockUpdate).toHaveBeenCalledTimes(1)
+      expect(mockUpdate.mock.calls[0][0]).toMatchObject({ id: 'ps-1' })
+      expect(mockCreate).not.toHaveBeenCalled()
+      expect(mockShowSuccess).toHaveBeenCalled()
+    })
+
+    it.each([
+      ['Cancel', cancelButton],
+      ['Back', backButton],
+    ])('%s returns to the filtered list without saving', async (_label, button) => {
+      seedEdit()
+      const router = renderForm(EDIT_WITH_TICKET, LIST_ORIGIN)
+      await waitForEditSeeded()
+      await userEvent.click(button())
+
+      expect(await screen.findByText('LIST PAGE')).toBeInTheDocument()
+      expect(router.state.location.search).toBe('?status=DRAFT&search=ATM')
+      expect(mockUpdate).not.toHaveBeenCalled()
+      expect(mockCreate).not.toHaveBeenCalled()
+    })
+
+    it('a failed save stays on the form and shows the error', async () => {
+      seedEdit()
+      mockUpdate.mockReturnValue({ unwrap: () => Promise.reject({ status: 500, data: { message: 'Boom' } }) })
+      renderForm(EDIT_WITH_TICKET, LIST_ORIGIN)
+      await waitForEditSeeded()
+      await editProviderReference()
+      await userEvent.click(saveButton())
+
+      await waitFor(() => expect(mockShowError).toHaveBeenCalledWith('Boom'))
+      expect(screen.queryByText('LIST PAGE')).not.toBeInTheDocument()
+      expect(screen.getByLabelText('Provider Reference')).toHaveValue('ATM-1X')
+    })
+  })
+
+  describe('detail origin', () => {
+    it('Save returns to the same Detail, keeping the list ticket, with no prompt', async () => {
+      seedEdit()
+      const router = renderForm(EDIT_WITH_TICKET, DETAIL_ORIGIN)
+      await waitForEditSeeded()
+      await editProviderReference()
+      await userEvent.click(saveButton())
+
+      expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument()
+      expect(router.state.location.pathname).toBe('/accounting/provider-settlements/ps-1/view')
+      const ticket = ticketOf(router.state.location.search)
+      expect(ticket.get('status')).toBe('DRAFT')
+      expect(ticket.get('search')).toBe('ATM')
+      expect(screen.queryByText(DIALOG_MESSAGE)).not.toBeInTheDocument()
+      expect(mockUpdate).toHaveBeenCalledTimes(1)
+      expect(mockCreate).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      ['Cancel', cancelButton],
+      ['Back', backButton],
+    ])('%s returns to the same Detail without saving', async (_label, button) => {
+      seedEdit()
+      const router = renderForm(EDIT_WITH_TICKET, DETAIL_ORIGIN)
+      await waitForEditSeeded()
+      await userEvent.click(button())
+
+      expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument()
+      expect(router.state.location.pathname).toBe('/accounting/provider-settlements/ps-1/view')
+      expect(ticketOf(router.state.location.search).get('status')).toBe('DRAFT')
+      expect(mockUpdate).not.toHaveBeenCalled()
+    })
   })
 })
 
@@ -409,19 +514,19 @@ describe('ProviderSettlementFormPage unsaved changes (#1277)', () => {
     expect(await screen.findByText(DIALOG_MESSAGE)).toBeInTheDocument()
   })
 
-  it('is clean again after a successful edit save, and stays on the form', async () => {
+  // A successful save leaves a DIRTY form. The guard must not prompt: the
+  // navigate runs while isSaving is still true (#1325).
+  it('leaves a dirty edit after a successful save without an unsaved-changes prompt', async () => {
     seedEdit()
     renderForm(EDIT)
     await waitForEditSeeded()
     await userEvent.type(screen.getByLabelText('Provider Reference'), 'X')
     await userEvent.click(saveButton())
-    await waitFor(() => expect(mockShowSuccess).toHaveBeenCalled())
-    expect(screen.queryByText('DETAIL PAGE')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Provider Reference')).toHaveValue('ATM-1X')
 
-    await userEvent.click(cancelButton())
     expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument()
     expect(screen.queryByText(DIALOG_MESSAGE)).not.toBeInTheDocument()
+    expect(mockUpdate).toHaveBeenCalledTimes(1)
+    expect(mockShowSuccess).toHaveBeenCalled()
   })
 
   it('saves an edited draft without posting it, even when its totals match', async () => {
@@ -434,7 +539,6 @@ describe('ProviderSettlementFormPage unsaved changes (#1277)', () => {
     await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(mockShowSuccess).toHaveBeenCalled())
     expect(mockPost).not.toHaveBeenCalled()
-    expect(screen.queryByText('DETAIL PAGE')).not.toBeInTheDocument()
   })
 
   it('disables every action and labels the save while it is in flight', async () => {
@@ -449,9 +553,12 @@ describe('ProviderSettlementFormPage unsaved changes (#1277)', () => {
     expect(saving).toBeDisabled()
     expect(cancelButton()).toBeDisabled()
     expect(actionRowLabels()).toEqual(['Cancel', 'Saving...'])
+    // Nothing navigates until the write resolves.
+    expect(screen.queryByText('DETAIL PAGE')).not.toBeInTheDocument()
 
     resolve(DRAFT)
-    expect(await screen.findByRole('button', { name: /^save settlement$/i })).toBeEnabled()
+    expect(await screen.findByText('DETAIL PAGE')).toBeInTheDocument()
+    expect(mockUpdate).toHaveBeenCalledTimes(1)
   })
 
   it('disables every action and labels the create while it is in flight', async () => {
