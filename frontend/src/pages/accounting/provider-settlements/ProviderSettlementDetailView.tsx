@@ -190,7 +190,18 @@ export default function ProviderSettlementDetailView({
     {
       header: 'Sales Order No',
       width: '20%',
-      render: (l) => l.salesOrderPayment?.salesOrder?.orderNumber ?? '—',
+      // The detail route is keyed by orderNumber, not the order's UUID. An absent
+      // or empty number stays plain text rather than a link to a broken route.
+      render: (l) => {
+        const orderNumber = l.salesOrderPayment?.salesOrder?.orderNumber
+        return orderNumber
+          ? (
+              <Link component={RouterLink} to={`/sales/orders/${encodeURIComponent(orderNumber)}/view`}>
+                {orderNumber}
+              </Link>
+            )
+          : '—'
+      },
     },
     {
       header: 'Payment Method',
