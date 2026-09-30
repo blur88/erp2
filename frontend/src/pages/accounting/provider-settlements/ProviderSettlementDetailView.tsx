@@ -74,6 +74,14 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 }
 
 // `component="div"` so a Link or StatusChip can be a value.
+// The linked journal's own number (#1329). Missing metadata falls back to the
+// generic wording so the link stays reachable — never the raw id.
+function journalLinkText(
+  entry: { journalNo: string } | null | undefined, fallback: string,
+): string {
+  return entry?.journalNo || fallback
+}
+
 function Field({ label, value, testId }: {
   label: string; value?: ReactNode; testId?: string
 }) {
@@ -335,7 +343,7 @@ export default function ProviderSettlementDetailView({
                         component={RouterLink}
                         to={`/accounting/journal-entries/${settlement.journalEntryId}`}
                       >
-                        Journal Entry
+                        {journalLinkText(settlement.journalEntry, 'Journal Entry')}
                       </Link>
                     )}
                   />
@@ -348,7 +356,7 @@ export default function ProviderSettlementDetailView({
                         component={RouterLink}
                         to={`/accounting/journal-entries/${settlement.reversalJournalEntryId}`}
                       >
-                        Reversing Entry
+                        {journalLinkText(settlement.reversalJournalEntry, 'Reversing Entry')}
                       </Link>
                     )}
                   />

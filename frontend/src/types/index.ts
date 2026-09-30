@@ -1048,6 +1048,10 @@ export interface ProviderSettlement {
   status: ProviderSettlementStatus
   journalEntryId: string | null
   reversalJournalEntryId: string | null
+  // Joined by the detail endpoint only (#1329). Either may be absent or null
+  // when metadata is missing — callers fall back to generic link text.
+  journalEntry?: { id: string; journalNo: string } | null
+  reversalJournalEntry?: { id: string; journalNo: string } | null
   postedAt: string | null
   postedBy: string | null
   reversedAt: string | null
