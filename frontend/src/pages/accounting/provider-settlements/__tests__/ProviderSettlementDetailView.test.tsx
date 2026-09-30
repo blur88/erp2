@@ -471,38 +471,87 @@ describe('ProviderSettlementDetailView', () => {
     expect(screen.getByTestId('settlement-date').textContent).toBe('22/09/2026')
   })
 
-  it('shows no journal link on a draft', () => {
-    view()
-    expect(screen.queryByRole('link', { name: /journal entry/i })).not.toBeInTheDocument()
-  })
+  // #1329: the link text is the linked journal's own journalNo, read from the
+  // joined relation — never derived from the settlement number or the id.
+  describe('journal links', () => {
+    const JE1 = '6f1c2a4e-0000-4000-8000-000000000001'
+    const JE2 = '6f1c2a4e-0000-4000-8000-000000000002'
+    const posted = (over: Record<string, unknown> = {}) => ({
+      status: 'POSTED', journalEntryId: JE1,
+      journalEntry: { id: JE1, journalNo: 'JE-26-140' }, ...over,
+    })
+    const reversed = (over: Record<string, unknown> = {}) => ({
+      ...posted(), status: 'REVERSED', reversalJournalEntryId: JE2,
+      reversalJournalEntry: { id: JE2, journalNo: 'JE-26-141' }, ...over,
+    })
 
-  it('shows one journal link once posted', () => {
-    view({ status: 'POSTED', journalEntryId: 'je-1' } as any)
-    expect(screen.getByRole('link', { name: /^journal entry$/i })).toHaveAttribute(
-      'href', '/accounting/journal-entries/je-1',
-    )
-    expect(screen.queryByRole('link', { name: /reversing entry/i })).not.toBeInTheDocument()
-  })
+    it('shows no Journal or Reversal field on a draft', () => {
+      view()
+      const acct = section('Accounting')
+      expect(within(acct).queryByText('Journal')).not.toBeInTheDocument()
+      expect(within(acct).queryByText('Reversal')).not.toBeInTheDocument()
+      expect(within(acct).queryByRole('link')).not.toBeInTheDocument()
+    })
 
-  it('shows BOTH the original and the reversing entry once reversed', () => {
-    view({
-      status: 'REVERSED', journalEntryId: 'je-1', reversalJournalEntryId: 'je-2',
-    } as any)
-    expect(screen.getByRole('link', { name: /^journal entry$/i })).toHaveAttribute(
-      'href', '/accounting/journal-entries/je-1',
-    )
-    expect(screen.getByRole('link', { name: /reversing entry/i })).toHaveAttribute(
-      'href', '/accounting/journal-entries/je-2',
-    )
-  })
+    it('labels the posted journal link with its actual journal number', () => {
+      view(posted() as any)
+      const acct = section('Accounting')
+      const link = within(fieldValue(acct, 'Journal')).getByRole('link')
+      expect(link.textContent).toBe('JE-26-140')
+      expect(link).toHaveAttribute('href', `/accounting/journal-entries/${JE1}`)
+      expect(within(acct).queryByText('Reversal')).not.toBeInTheDocument()
+    })
 
-  it('shows the journal links in the Accounting section', () => {
-    view({
-      status: 'REVERSED', journalEntryId: 'je-1', reversalJournalEntryId: 'je-2',
-    } as any)
-    const acct = section('Accounting')
-    expect(within(acct).getByRole('link', { name: /^journal entry$/i })).toBeInTheDocument()
-    expect(within(acct).getByRole('link', { name: /reversing entry/i })).toBeInTheDocument()
+    it('does not derive the journal number from the settlement number', () => {
+      view({ ...posted(), referenceNumber: 'PS-26-007' } as any)
+      expect(within(fieldValue(section('Accounting'), 'Journal')).getByRole('link').textContent)
+        .toBe('JE-26-140')
+    })
+
+    it('labels BOTH links with their own numbers and destinations once reversed', () => {
+      view(reversed() as any)
+      const acct = section('Accounting')
+      const original = within(fieldValue(acct, 'Journal')).getByRole('link')
+      const reversal = within(fieldValue(acct, 'Reversal')).getByRole('link')
+      expect(original.textContent).toBe('JE-26-140')
+      expect(original).toHaveAttribute('href', `/accounting/journal-entries/${JE1}`)
+      expect(reversal.textContent).toBe('JE-26-141')
+      expect(reversal).toHaveAttribute('href', `/accounting/journal-entries/${JE2}`)
+    })
+
+    // Missing metadata keeps the link reachable under the generic wording and
+    // never shows the raw id.
+    const missing: Array<[string, unknown]> = [
+      ['absent', undefined],
+      ['null', null],
+      ['empty journalNo', { id: 'x', journalNo: '' }],
+    ]
+
+    it.each(missing)('falls back to "Journal Entry" when the journal relation is %s', (_, rel) => {
+      const s: Record<string, unknown> = posted()
+      if (rel === undefined) delete s.journalEntry
+      else s.journalEntry = rel
+      view(s as any)
+      const acct = section('Accounting')
+      const link = within(fieldValue(acct, 'Journal')).getByRole('link')
+      expect(link.textContent).toBe('Journal Entry')
+      expect(link).toHaveAttribute('href', `/accounting/journal-entries/${JE1}`)
+      expect(acct.textContent).not.toContain(JE1)
+    })
+
+    it.each(missing)('falls back to "Reversing Entry" when the reversal relation is %s', (_, rel) => {
+      const s: Record<string, unknown> = reversed()
+      if (rel === undefined) delete s.reversalJournalEntry
+      else s.reversalJournalEntry = rel
+      view(s as any)
+      const acct = section('Accounting')
+      const link = within(fieldValue(acct, 'Reversal')).getByRole('link')
+      expect(link.textContent).toBe('Reversing Entry')
+      expect(link).toHaveAttribute('href', `/accounting/journal-entries/${JE2}`)
+      expect(acct.textContent).not.toContain(JE2)
+      // The original is unaffected by its sibling's missing metadata.
+      expect(within(fieldValue(acct, 'Journal')).getByRole('link').textContent).toBe('JE-26-140')
+    })
   })
 
   it('shows the not-provider-clearing banner on the Payments tab too', () => {

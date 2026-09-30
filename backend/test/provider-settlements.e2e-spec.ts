@@ -425,6 +425,21 @@ describe('Provider settlements (e2e)', () => {
       [settlement.journalEntryId],
     );
 
+    // #1329: the detail view labels its journal links with these numbers, so the
+    // detail endpoint must supply each linked journal's real journalNo. Expected
+    // values come from the journal_entry rows, not from the response.
+    const journalNoOf = async (entryId: string): Promise<string> => {
+      const [row] = await ds.query('SELECT "journalNo" FROM journal_entry WHERE id = $1', [entryId]);
+      expect(typeof row.journalNo).toBe('string');
+      expect(row.journalNo.length).toBeGreaterThan(0);
+      return row.journalNo;
+    };
+    const originalNo = await journalNoOf(settlement.journalEntryId);
+    const postedDetail = (await get(`/accounting/provider-settlements/${id}`).expect(200)).body.data;
+    expect(postedDetail.journalEntry?.id).toBe(settlement.journalEntryId);
+    expect(postedDetail.journalEntry?.journalNo).toBe(originalNo);
+    expect(postedDetail.reversalJournalEntry).toBeNull();
+
     const reversed = await post(
       `/accounting/provider-settlements/${id}/reverse`,
     ).expect(201);
@@ -443,6 +458,14 @@ describe('Provider settlements (e2e)', () => {
       [after.reversalJournalEntryId],
     );
     expect(rev.reversalOfEntryId).toBe(settlement.journalEntryId);
+
+    const reversalNo = await journalNoOf(after.reversalJournalEntryId);
+    expect(reversalNo).not.toBe(originalNo);
+    const reversedDetail = (await get(`/accounting/provider-settlements/${id}`).expect(200)).body.data;
+    expect(reversedDetail.journalEntry?.id).toBe(settlement.journalEntryId);
+    expect(reversedDetail.journalEntry?.journalNo).toBe(originalNo);
+    expect(reversedDetail.reversalJournalEntry?.id).toBe(after.reversalJournalEntryId);
+    expect(reversedDetail.reversalJournalEntry?.journalNo).toBe(reversalNo);
 
     const released = await ds.query(
       'SELECT "releasedAt" FROM provider_settlement_lines WHERE "settlementId" = $1',
