@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import ProviderSettlementDetailView from '../ProviderSettlementDetailView'
@@ -394,6 +394,60 @@ describe('ProviderSettlementDetailView', () => {
       expect(within(table).queryByRole('button')).not.toBeInTheDocument()
       expect(screen.getByTestId('payments-settlement-amount')).toHaveTextContent('98.00')
       expect(table).not.toContainElement(screen.getByTestId('payments-settlement-amount'))
+    })
+
+    // #1327: the Sales Order No cell links to the order's detail page by
+    // orderNumber (the route param), never by the internal UUID.
+    describe('Sales Order No link', () => {
+      const orderCell = (row: HTMLElement) => within(row).getAllByRole('cell')[1]
+
+      it('links the order number to /sales/orders/:orderNumber/view', () => {
+        view({}, '?tab=1')
+        const link = screen.getByRole('link', { name: 'SO-26-001' })
+        expect(link).toHaveAttribute('href', '/sales/orders/SO-26-001/view')
+        // Exact equality: the displayed text is the order number and nothing else.
+        expect(link.textContent).toBe('SO-26-001')
+      })
+
+      it('encodes reserved characters in the order number', () => {
+        view({ lines: [lineFor('SO/26 #7?', 'Atome')] } as any, '?tab=1')
+        expect(screen.getByRole('link', { name: 'SO/26 #7?' }))
+          .toHaveAttribute('href', '/sales/orders/SO%2F26%20%237%3F/view')
+      })
+
+      it('renders a plain "—" with no link when the payment has no joined order', () => {
+        const orphan = lineFor('SO-X', 'Atome')
+        delete (orphan.salesOrderPayment as any).salesOrder
+        view({ lines: [orphan, legacyLine()] } as any, '?tab=1')
+        for (const row of screen.getAllByTestId(/^line-amount-/).map((el) => el.closest('tr')!)) {
+          expect(orderCell(row).textContent).toBe('—')
+          expect(within(orderCell(row)).queryByRole('link')).not.toBeInTheDocument()
+        }
+      })
+
+      it('renders a plain "—" with no link when the order number is empty', () => {
+        view({ lines: [lineFor('', 'Atome')] } as any, '?tab=1')
+        const row = screen.getByTestId(/^line-amount-/).closest('tr')!
+        expect(orderCell(row).textContent).toBe('—')
+        expect(screen.queryByRole('link')).not.toBeInTheDocument()
+      })
+
+      it('navigates to the Sales Order detail page on click', async () => {
+        const OrderStub = () => <div data-testid="order-page">{useParams().orderNumber}</div>
+        render(
+          <MemoryRouter initialEntries={['/accounting/provider-settlements/ps-1/view?tab=1']}>
+            <Routes>
+              <Route
+                path="/accounting/provider-settlements/:id/view"
+                element={<ProviderSettlementDetailView settlement={base as any} />}
+              />
+              <Route path="/sales/orders/:orderNumber/view" element={<OrderStub />} />
+            </Routes>
+          </MemoryRouter>,
+        )
+        await userEvent.click(screen.getByRole('link', { name: 'SO-26-001' }))
+        expect(await screen.findByTestId('order-page')).toHaveTextContent('SO-26-001')
+      })
     })
   })
 
